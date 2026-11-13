@@ -40,7 +40,7 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	value := m.ValueExpression(sym)
 	statements := append(m.statementOperands(sym), m.statementNodes(sym)...)
 	parts := m.transitionMembers(sym)
-	ends := m.successionEnds(sym)
+	ends := m.synthesizedSuccessionEnds(sym)
 	bodyParts := len(m.resultExpressionMembers(sym)) + len(m.filterMemberships(sym))
 	if sym.Scope == nil && value == nil && len(statements) == 0 && len(parts) == 0 && len(ends) == 0 && bodyParts == 0 {
 		return nil
@@ -88,8 +88,7 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		})
 		ordinal++
 	}
-	emptySubactions := m.emptySubactionMemberships(sym)
-	if sym.Scope == nil && len(statements) == 0 && len(parts) == 0 && bodyParts == 0 && len(emptySubactions) == 0 {
+	if sym.Scope == nil && len(statements) == 0 && len(parts) == 0 && bodyParts == 0 {
 		out = m.withDefaultMultiplicity(sym, out, ordinal)
 		m.memberships[sym] = out
 		return out
@@ -108,7 +107,6 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 			},
 		})
 	}
-	statementMemberships = append(statementMemberships, emptySubactions...)
 	if sym.Scope == nil {
 		out = mergeMemberships(out, statementMemberships)
 		if len(parts) > 0 {
@@ -642,6 +640,10 @@ func (m *Model) sysmlMembershipMetaclassName(owner, member *symbols.Symbol) stri
 		// through an OwningMembership (SysML.xtext AnnotatingMember).
 		return "OwningMembership"
 	}
+	if _, bare := member.Decl.(*ast.Usage); !bare && stateSubactionKind(member) != "" {
+		// A bare `entry;` performs an anonymous empty action (SysML.xtext EmptyActionUsage).
+		return "StateSubactionMembership"
+	}
 	if _, ok := requirementConstraintKind(member); ok {
 		if kind, _ := member.UsageKind(); kind == ast.UsageFramedConcern {
 			return "FramedConcernMembership"
@@ -934,22 +936,31 @@ func (m *Model) membershipValue(sym *symbols.Symbol, feature string) (symbols.Fi
 	return symbols.FilterValue{}, false
 }
 
-// stateSubactionKind is the `entry`, `do` or `exit` a state subaction is written with.
-func subactionKindOf(rel *symbols.ImplicitRelationship) string {
-	if kind, ok := SubactionKind(rel.Decl); ok {
-		return kind
+// stateSubactionKind is the `entry`, `do` or `exit` a state subaction member is written with.
+func stateSubactionKind(member *symbols.Symbol) string {
+	switch member.Keyword() {
+	case "entry", "do", "exit":
+		return member.Keyword()
 	}
+	u, ok := member.Decl.(*ast.Usage)
+	if !ok {
+		return ""
+	}
+	switch u.Keyword {
+	case "entry", "do", "exit":
+		return u.Keyword
+	}
+	return u.PrefixKeyword
+}
+
+// subactionKindOf is the StateSubactionKind of the membership rel: its member's keyword, else the
+// `entry`, `do` or `exit` of its owner's body that performs the member.
+func subactionKindOf(rel *symbols.ImplicitRelationship) string {
 	if rel.Member == nil {
 		return ""
 	}
-	if u, ok := rel.Member.Decl.(*ast.Usage); ok {
-		switch u.Keyword {
-		case "entry", "do", "exit":
-			return u.Keyword
-		}
-		if u.PrefixKeyword != "" {
-			return u.PrefixKeyword
-		}
+	if kind := stateSubactionKind(rel.Member); kind != "" {
+		return kind
 	}
 	if rel.Owner != nil {
 		if _, kind, ok := subactionOf(rel.Owner.Decl, rel.Member.Decl); ok {

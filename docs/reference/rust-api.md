@@ -147,7 +147,11 @@ and the `FailureReason` when it could not be decided. `Satisfaction` holds one p
 satisfaction assertion; `Validation` one per assertion about an object. `CalcResult` and
 `AnalysisResult` carry their value, named outputs, verdicts and case evaluations; an
 `ActionRun` or `StateRun` its outputs, the states visited and the final clock instant; an
-`Exploration` its distinct `Outcome`s and whether it explored every order. A `SweepTable`
+`Exploration` its distinct `Outcome`s, whether it explored every order and, in `coverage`, the
+`Coverage` of every run — the states entered and transitions taken as `CoverageEntry`s
+(`path` under the running instance, `declaration` under the machine, `runs` that did), not
+only each outcome's witness; `CheckSearch.coverage` carries the same over every schedule of
+a check. A `SweepTable`
 is one `SweepRow` per point, and a failed row keeps the outputs and verdicts it reached.
 `RunOptions` also carries the run options of the `sysml` command — `advance` (simulated seconds to
 run for, reported back in `final_time`, on `Error::Execution` too when the run stops short), `seed`, `draws` (`"min"`, `"max"`, `"average"` or

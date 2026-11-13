@@ -127,10 +127,6 @@ func (m *Model) statementScopeOwner(scope *symbols.Scope) *symbols.Symbol {
 // synthesizes an action node for.
 func IsStatementNode(node ast.Node) bool {
 	switch node := node.(type) {
-	case *ast.SuccessionEdge:
-		// A bodiless `then target` is a SuccessionAsUsage of the body (SysML.xtext
-		// TargetSuccession); one with a body is a symbol the builder declares.
-		return len(node.Members) == 0
 	case *ast.InitialNode:
 		// A bodiless `first a then b;` is a SuccessionAsUsage of the body (SysML.xtext
 		// SourceSuccessionMember); `first a;` is the body's start marker, a Membership.

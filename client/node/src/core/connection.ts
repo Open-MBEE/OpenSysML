@@ -165,7 +165,7 @@ import {
   ENGINE_AUTO,
   type EngineInfo,
 } from "./engines.js";
-import { Exploration, Outcome } from "./exploration.js";
+import { coverageOf, Exploration, Outcome } from "./exploration.js";
 import {
   analysisResultOf,
   decodeVerificationVerdict,
@@ -740,7 +740,7 @@ export class Connection {
   /** Runs a query expression written in place of a named query — the result
    * expression of a `calc def` specializing `DocumentQueries::Query` — as
    * {@link runDocumentQuery} runs a named one; needs `inline_document_query`. */
-  runInlineDocumentQuery(
+  async runInlineDocumentQuery(
     modelHash: string,
     expression: string,
     bindings?: Readonly<Record<string, BindingValues>>,
@@ -1275,6 +1275,7 @@ export class Connection {
       depthBudget: status?.depthBudget ?? 0,
       probabilitiesLowerBound: status?.probabilitiesLowerBound ?? false,
       unenumerated: status?.unenumerated ?? [],
+      coverage: coverageOf(status?.coverage),
     });
   }
 

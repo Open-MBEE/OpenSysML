@@ -51,6 +51,8 @@ func SynthesizedElementID(sym *symbols.Symbol, ownerID func(*symbols.Symbol) str
 		return memberElementID(owner, naming.TriggerSegment), true
 	case symbols.ExpressionPayload:
 		return memberElementID(owner, naming.Qualify("", naming.ParamName(sym.Decl), part.Index)), true
+	case symbols.ExpressionTransitionSuccession:
+		return owner + transitionSuccessionSuffix, true
 	}
 	return "", false
 }

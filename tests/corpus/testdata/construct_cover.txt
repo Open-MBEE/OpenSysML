@@ -1,0 +1,100 @@
+# The construct-cover subset of examples/: the models the sweeps iterate under
+# OPENSYSML_CORPUS_SUBSET=construct-cover, one examples/-relative path per line.
+# Re-record with the downloaded corpora present:
+#   go test ./tests/corpus -run TestConstructCover -update-construct-cover
+# 95 of 880 files covering 814 features.
+disposal-robot-demo/robot.sysml
+disposal-team-demo/team.sysml
+expressions-demo.sysml
+general-views-demo/use-cases.sysml
+gridview-relationship-matrix.sysml
+orthogonal-regions-demo.sysml
+parser_features_demo_action_semantics.sysml
+parser_features_demo_advanced_bodies.kerml
+parser_features_demo_advanced_connectors.kerml
+parser_features_demo_declarations.kerml
+parser_features_demo_relationships.kerml
+phase-c-behavioral-bodies.sysml
+pilot-corpora/kerml-examples/Association Examples/ProductSelection_OwnedEnds.kerml
+pilot-corpora/kerml-examples/Behavior Examples/Camera.kerml
+pilot-corpora/kerml-examples/KerML Spec Annex A Examples/A-2-ModelingInstances.kerml
+pilot-corpora/kerml-examples/Simple Tests/Classifications.kerml
+pilot-corpora/kerml-examples/Simple Tests/Expressions.kerml
+pilot-corpora/kerml-examples/Simple Tests/Features.kerml
+pilot-corpora/kerml-examples/Simple Tests/MetadataTest.kerml
+pilot-corpora/kerml-examples/Simple Tests/Scoping.kerml
+pilot-corpora/kerml-examples/Simple Tests/TextualRepresentation.kerml
+pilot-corpora/kerml-examples/Simple Tests/Types.kerml
+pilot-corpora/sysml-examples/Analysis Examples/Vehicle Analysis Demo.sysml
+pilot-corpora/sysml-examples/Arrowhead Framework Example/AHFNorwayTopics.sysml
+pilot-corpora/sysml-examples/Arrowhead Framework Example/AHFSequences.sysml
+pilot-corpora/sysml-examples/Geometry Examples/SimpleQuadcopter.sysml
+pilot-corpora/sysml-examples/Geometry Examples/VehicleGeometryAndCoordinateFrames.sysml
+pilot-corpora/sysml-examples/Interaction Sequencing Examples/ServerSequenceOutsideRealization-3.sysml
+pilot-corpora/sysml-examples/Mass Roll-up Example/MassConstraintExample.sysml
+pilot-corpora/sysml-examples/Mass Roll-up Example/MassRollup.sysml
+pilot-corpora/sysml-examples/Metadata Examples/IssueMetadataExample.sysml
+pilot-corpora/sysml-examples/Metadata Examples/RequirementMetadataExample.sysml
+pilot-corpora/sysml-examples/Simple Tests/ActionTest.sysml
+pilot-corpora/sysml-examples/Simple Tests/AnalysisTest.sysml
+pilot-corpora/sysml-examples/Simple Tests/AssignmentTest.sysml
+pilot-corpora/sysml-examples/Simple Tests/ConnectionTest.sysml
+pilot-corpora/sysml-examples/Simple Tests/ControlNodeTest.sysml
+pilot-corpora/sysml-examples/Simple Tests/DecisionTest.sysml
+pilot-corpora/sysml-examples/Simple Tests/FeaturePathTest.sysml
+pilot-corpora/sysml-examples/Simple Tests/PartTest.sysml
+pilot-corpora/sysml-examples/Simple Tests/RequirementTest.sysml
+pilot-corpora/sysml-examples/Simple Tests/StateTest.sysml
+pilot-corpora/sysml-examples/Simple Tests/StructuredControlTest.sysml
+pilot-corpora/sysml-examples/Simple Tests/ViewTest.sysml
+pilot-corpora/sysml-examples/State Space Representation Examples/CartSample.sysml
+pilot-corpora/sysml-examples/Vehicle Example/SysML v2 Spec Annex A SimpleVehicleModel.sysml
+pilot-corpora/sysml-validation/03-Function-based Behavior/3a-Function-based Behavior-1.sysml
+pilot-corpora/sysml-validation/03-Function-based Behavior/3c-Function-based Behavior-structure mod-1.sysml
+pilot-corpora/sysml-validation/05-State-based Behavior/5-State-based Behavior-1.sysml
+pilot-corpora/sysml-validation/07-Variant Configuration/7b-Variant Configurations.sysml
+pilot-corpora/sysml-validation/08-Requirements/8-Requirements.sysml
+pilot-corpora/sysml-validation/09-Verification/9-Verification-simplified.sysml
+pilot-corpora/sysml-validation/10-Analysis and Trades/10d-Dynamics Analysis.sysml
+qvts/queries.sysml
+rdf-interop-demo.sysml
+relay-probe-demo/mission.sysml
+run-timeline/run-timeline.sysml
+self-model/asciidoc/markup.sysml
+self-model/behavior.sysml
+self-model/document.sysml
+spec-examples/kerml/7.2.5.2/3.kerml
+spec-examples/kerml/7.2.5.4/1.kerml
+spec-examples/kerml/7.2.5.4/4.kerml
+spec-examples/kerml/7.3.2.5/1.kerml
+spec-examples/kerml/7.3.4.7/1.kerml
+spec-examples/kerml/7.4.10.2/1.kerml
+spec-examples/kerml/7.4.12/2.kerml
+spec-examples/kerml/7.4.13/8.kerml
+spec-examples/kerml/7.4.5.2/5.kerml
+spec-examples/kerml/7.4.9.3/1.kerml
+spec-examples/kerml/7.4.9.4/4.kerml
+spec-examples/sysml/7.17.10/1.sysml
+spec-examples/sysml/7.17.10/2.sysml
+spec-examples/sysml/7.17.11/2.sysml
+spec-examples/sysml/7.17.12/1.sysml
+spec-examples/sysml/7.17.12/3.sysml
+spec-examples/sysml/7.17.12/4.sysml
+spec-examples/sysml/7.17.12/6.sysml
+spec-examples/sysml/7.17.7/1.sysml
+spec-examples/sysml/7.17.7/2.sysml
+spec-examples/sysml/7.17.8/2.sysml
+spec-examples/sysml/7.17.9/1.sysml
+spec-examples/sysml/7.21.2/2.sysml
+spec-examples/sysml/8.4.13.4/9.sysml
+spec-examples/sysml/8.4.13.6/7.sysml
+spec-examples/sysml/8.4.18.2/2.sysml
+spec-examples/sysml/8.4.19.1/1.sysml
+spec-examples/sysml/8.4.19.2/1.sysml
+spec-examples/sysml/8.4.20.1/1.sysml
+sysml-v2-training/01. Packages/Package Example.sysml
+sysml-v2-training/16. Conditional Succession/Conditional Succession Example-2.sysml
+sysml-v2-training/17. Control/Control Structures Example.sysml
+sysml-v2-training/17. Control/Fork Join Example.sysml
+sysml-v2-training/19. Terminate Actions/Terminate Actions Example-2.sysml
+sysml-v2-training/22. Opaque Actions/Opaque Action Example.sysml

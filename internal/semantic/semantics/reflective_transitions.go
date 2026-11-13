@@ -67,7 +67,7 @@ func (p *transitionParts) parameterValue(param *symbols.Symbol) *symbols.Symbol 
 func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 	trans, ok := transitionDecl(sym)
 	branch, isBranch := transitionBranchDecl(sym)
-	if !ok && !isBranch || m == nil {
+	if m == nil || !ok && !isBranch && !declaresTransition(sym) {
 		return nil
 	}
 	defer m.own(sym).LeaveDoc()
@@ -79,6 +79,15 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 	}
 	journal(m, m.transitionParts, sym, sym.Decl)
 	parts := &transitionParts{}
+	if !ok && !isBranch {
+		// A state body's `then x;` after a state owns its succession, which owns no ends (encodeTargetTransition).
+		if target := transitionTarget(sym); target != nil {
+			parts.succession = transitionPart(sym, sym.Decl, target.Span(), symbols.SymbolSuccessionUsage, sym, symbols.ExpressionTransitionSuccession)
+			parts.succession.OwnerScope = sym.OwnerScope
+		}
+		m.transitionParts[sym] = parts
+		return parts
+	}
 	if !isBranch && trans.Source != nil {
 		if nameHasChain(trans.Source) {
 			parts.withSourceChain(sym, trans.Source)
@@ -163,14 +172,14 @@ func (p *transitionParts) withSuccession(trans *symbols.Symbol, target *ast.Qual
 	}
 }
 
-// successionEnds are the ends of a transition's synthesized succession sym, in order; nil
+// synthesizedSuccessionEnds are the ends of a transition's synthesized succession sym, in order; nil
 // for any other symbol.
-func (m *Model) successionEnds(sym *symbols.Symbol) []*symbols.Symbol {
+func (m *Model) synthesizedSuccessionEnds(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
-	if edge, ok := sym.Decl.(*ast.SuccessionEdge); ok && (sym.Expr == nil || sym.Expr.Role != symbols.ExpressionConnectorEnd) {
-		return m.edgeEndsOf(sym, edge)
+	if _, ok := sym.Decl.(*ast.SuccessionEdge); ok && (sym.Expr == nil || sym.Expr.Role != symbols.ExpressionConnectorEnd) {
+		return m.SuccessionEndMembers(sym)
 	}
 	if node, ok := sym.Decl.(*ast.InitialNode); ok && node.Successor != nil && sym.Expr == nil && sym.Implicit == nil {
 		return m.initialEndsOf(sym, node)
@@ -207,12 +216,35 @@ func transitionBranchDecl(sym *symbols.Symbol) (*ast.ControlFlowEdge, bool) {
 	return branch, ok
 }
 
+// transitionDecl is the transition member sym declares, a `succession first a if g then b;` included
+// (SysML.xtext TransitionUsage owns the same parts, transitionHeadMembers).
 func transitionDecl(sym *symbols.Symbol) (*ast.TransitionMember, bool) {
-	if sym == nil || sym.Implicit != nil || sym.Expr != nil {
+	if sym == nil || sym.Implicit != nil || sym.Expr != nil || !sym.DeclaresTransition() {
 		return nil, false
 	}
 	trans, ok := sym.Decl.(*ast.TransitionMember)
 	return trans, ok
+}
+
+// declaresTransition reports whether sym is a TransitionUsage written as a transition member or as a
+// state body's `then x;` after a state (SysML.xtext TargetTransitionUsage), not a `succession … if g then`.
+func declaresTransition(sym *symbols.Symbol) bool {
+	if sym == nil || sym.Implicit != nil || sym.Expr != nil || !sym.DeclaresTransition() {
+		return false
+	}
+	trans, ok := sym.Decl.(*ast.TransitionMember)
+	return !ok || !trans.IsSuccession
+}
+
+// transitionTarget is the reference a transition's `then` names, nil where it names none.
+func transitionTarget(sym *symbols.Symbol) *ast.QualifiedName {
+	switch d := sym.Decl.(type) {
+	case *ast.TransitionMember:
+		return d.Target
+	case *ast.SuccessionEdge:
+		return d.Target
+	}
+	return nil
 }
 
 // triggerPayload is a trigger's payload parameter, or the event an unnamed payload's value is
@@ -388,6 +420,8 @@ func (m *Model) transitionElements(sym *symbols.Symbol, feature string) ([]*symb
 			return optionalElement(parts.guard), true
 		case "effectAction":
 			return optionalElement(m.transitionEffect(sym)), true
+		case "succession":
+			return optionalElement(parts.succession), true
 		}
 		return nil, false
 	}
@@ -446,51 +480,6 @@ func (m *Model) isRecordedTriggerPayload(trans, member *symbols.Symbol) bool {
 	return parts != nil && parts.accepter != nil && parts.payload != nil && parts.payload.Decl == member.Decl
 }
 
-// edgeEndsOf synthesizes the two ends a body's `then target` succession owns (SysML.xtext TargetSuccession):
-// an empty source end with the source multiplicity and an end referring to the target (encodeSuccessionEdge).
-func (m *Model) edgeEndsOf(sym *symbols.Symbol, edge *ast.SuccessionEdge) []*symbols.Symbol {
-	if cached, ok := m.edgeEnds[sym]; ok {
-		return cached
-	}
-	if m.edgeEnds == nil {
-		m.edgeEnds = make(map[*symbols.Symbol][]*symbols.Symbol)
-	}
-	implied := edge.Source != nil && edge.Source.Span().Offset < edge.Span().Offset
-	positional := edge.Source == nil && edge.SourceMember != nil
-	if !implied && !(positional && (edge.SourceMultiplicity != nil || edge.TargetMultiplicity != nil)) {
-		m.edgeEnds[sym] = nil
-		return nil
-	}
-	span := edge.Span()
-	if edge.Target != nil {
-		span = edge.Target.Span()
-	}
-	empty := &ast.ConnectorEnd{Multiplicity: edge.SourceMultiplicity}
-	empty.NodeSpan = source.Span{Offset: edge.Span().Offset}
-	sourceEnd := transitionPart(sym, empty, empty.NodeSpan, symbols.SymbolConnectorEnd, sym, symbols.ExpressionConnectorEnd)
-	end := &ast.ConnectorEnd{Multiplicity: edge.TargetMultiplicity}
-	switch {
-	case edge.Target != nil:
-		end.Target = edge.Target
-	case edge.TargetMember != nil:
-		if _, done := edge.TargetMember.(*ast.FinalNode); done {
-			// `then done;` ends at the action's inherited done (Actions::Action::done).
-			end.Target = ast.QualifiedNameOf("done")
-		} else if name := scopeMemberName(sym.OwnerScope, edge.TargetMember); name != "" {
-			end.Target = ast.QualifiedNameOf(name)
-		}
-	}
-	end.NodeSpan = span
-	targetEnd := transitionPart(sym, end, span, symbols.SymbolConnectorEnd, sym, symbols.ExpressionConnectorEnd)
-	targetEnd.Expr.Index = 1
-	for _, part := range []*symbols.Symbol{sourceEnd, targetEnd} {
-		part.OwnerScope = sym.OwnerScope
-	}
-	ends := []*symbols.Symbol{sourceEnd, targetEnd}
-	m.edgeEnds[sym] = ends
-	return ends
-}
-
 // initialEndsOf synthesizes the two ends a body's `first a then b;` succession owns (SysML.xtext
 // SourceSuccessionMember): one referring to each member, the target's with the multiplicity (encodeInitialSuccession).
 func (m *Model) initialEndsOf(sym *symbols.Symbol, node *ast.InitialNode) []*symbols.Symbol {
@@ -517,21 +506,6 @@ func (m *Model) initialEndsOf(sym *symbols.Symbol, node *ast.InitialNode) []*sym
 	}
 	m.edgeEnds[sym] = ends
 	return ends
-}
-
-// scopeMemberName is the name of the member scope declares at node, or "".
-func scopeMemberName(scope *symbols.Scope, node ast.Node) string {
-	if scope == nil || node == nil {
-		return ""
-	}
-	name := ""
-	scope.ForEachMember(func(member *symbols.Symbol) bool {
-		if member != nil && member.Decl == node && member.Name != "" {
-			name = member.Name
-		}
-		return name == ""
-	})
-	return name
 }
 
 func nameHasChain(name *ast.QualifiedName) bool {

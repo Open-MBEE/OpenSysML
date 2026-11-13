@@ -229,7 +229,7 @@ func UsageMultiplicityOf(sym *symbols.Symbol) *ast.Multiplicity {
 	case *ast.ConnectorEnd:
 		return decl.Multiplicity
 	}
-	return nil
+	return successionEndMultiplicity(sym)
 }
 
 // AssumedRange is the implicit [1..1]: what SysML v2 §7.6.3 declares for an

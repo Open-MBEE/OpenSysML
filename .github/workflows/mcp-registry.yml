@@ -27,7 +27,7 @@ permissions:
 jobs:
   publish:
     name: Publish to the MCP Registry
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 200
     env:
       TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}

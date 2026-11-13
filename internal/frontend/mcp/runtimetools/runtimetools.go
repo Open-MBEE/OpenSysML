@@ -383,6 +383,9 @@ func valueText(v *pb.Value) string {
 	case *pb.Value_Unset:
 		return "<unset>"
 	case *pb.Value_Undetermined:
+		if reason := k.Undetermined.GetReason(); reason != "" {
+			return "<undetermined>: " + reason
+		}
 		return "<undetermined>"
 	case *pb.Value_Infinity:
 		return "*"

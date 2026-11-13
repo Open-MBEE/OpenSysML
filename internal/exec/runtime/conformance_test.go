@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -1567,11 +1568,11 @@ func checkCaseRun(t *testing.T, ctx *Context, idx *symbols.Index, result Analysi
 		validateValue(t, ctx, name, expectedVal, actual)
 	}
 	if expected.Result != nil {
-		actual, ok := values[resultOutputName]
+		actual, ok := values[program.ResultOutputName]
 		if !ok {
 			t.Errorf("the case returned no result; its outputs are %v", outputNames(result.Outputs))
 		} else {
-			validateValue(t, ctx, resultOutputName, *expected.Result, actual)
+			validateValue(t, ctx, program.ResultOutputName, *expected.Result, actual)
 		}
 	}
 

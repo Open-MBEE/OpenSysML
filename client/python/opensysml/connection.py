@@ -114,7 +114,7 @@ from opensysml.document import (
 from opensysml.edit import EditedDocument, error_for_failure, failure_name, referrers_of, result_of
 from opensysml.importcompare import comparison_result, import_result
 from opensysml.enumeration import EnumLiteral
-from opensysml.exploration import Exploration, Outcome
+from opensysml.exploration import Coverage, Exploration, Outcome
 from opensysml.errors import (
     AnalysisRunError,
     ConnectionError,
@@ -2810,6 +2810,7 @@ class Connection:
             probabilities_lower_bound=status.probabilities_lower_bound,
             failed_linearizations=status.failed_linearizations,
             unenumerated=list(status.unenumerated),
+            coverage=Coverage.of(status.coverage),
         )
 
     def _outcome_of(self, pb):

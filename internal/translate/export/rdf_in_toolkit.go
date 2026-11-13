@@ -375,15 +375,20 @@ func (n *normalizer) indexMemberships() {
 		}
 		switch {
 		case m == mSubaction:
-			// `entry`/`do`/`exit` is the membership itself, a member of the
-			// state that performs its one action.
+			// `entry`/`do`/`exit` is the membership itself, an element of the state written at the
+			// position of the one action it performs, which takes the position.
 			delete(membershipSubject, subject.Value)
 			if kind, ok := graph.Lexical(subject, rdf.SysML+pKind); ok {
 				graph.Add(subject, rdf.OpenSysMLTerm(xSubactionKind), rdf.String(kind))
 			}
-			memberOwner[subject.Value] = owner
-			ownerMembers[owner.Value] = append(ownerMembers[owner.Value], subject)
-			memberOwner[member.Value] = subject
+			if bareSubactionMembership(graph, subject, member) {
+				ownerMembers[owner.Value] = append(ownerMembers[owner.Value], member)
+				memberOwner[member.Value] = owner
+			} else {
+				memberOwner[subject.Value] = owner
+				ownerMembers[owner.Value] = append(ownerMembers[owner.Value], subject)
+				memberOwner[member.Value] = subject
+			}
 			memberMembership[member.Value] = subject
 			ownerMembers[subject.Value] = append(ownerMembers[subject.Value], member)
 		case m != mResultExpressionMembership && (m == mFeatureValue ||
@@ -462,7 +467,7 @@ func (n *normalizer) orderedMembersOf(owner string) []rdf.Term {
 		// or typing beside them is part of the owner's head.
 		if m := meta(ms); m == "" || !strings.HasSuffix(m, "Membership") && !strings.HasSuffix(m, "Import") {
 			return
-		} else if m == mSubaction {
+		} else if m == mSubaction && !n.bareSubaction(ms) {
 			appendMember(ms)
 			return
 		}
@@ -1053,8 +1058,8 @@ func (n *normalizer) collectRoots() []rdf.Term {
 			continue
 		}
 		_, owned := memberOwner[subject.Value]
-		if m == "" || expressionMetaclasses[m] && !(m == mMembership && owned) {
-			continue
+		if m == "" || expressionMetaclasses[m] && !(m == mMembership && owned) || n.bareSubaction(subject) {
+			continue // a bare subaction membership is written at its action's position, which takes the address
 		}
 		if !owned && relationshipLike(m) && hasOwner(graph, subject) {
 			continue
@@ -1920,4 +1925,21 @@ func underSubaction(graph *rdf.Graph, meta func(rdf.Term) string, subject rdf.Te
 		subject = firstIRI(graph, ms, pOwningRelatedElement, pOwner)
 	}
 	return false
+}
+
+// bareSubactionMembership reports the writer's shape for a bare `entry;`: the StateSubactionMembership's id is
+// minted from the anonymous empty action's (`<action>_om`), which takes the membership's position.
+func bareSubactionMembership(graph *rdf.Graph, membership, member rdf.Term) bool {
+	ms, ok := graph.Lexical(membership, rdf.SysML+pElementID)
+	id, has := graph.Lexical(member, rdf.SysML+pElementID)
+	return ok && has && ms == id+rdf.OwningMembershipSuffix
+}
+
+// bareSubaction reports a StateSubactionMembership of the bare `entry;` shape.
+func (n *normalizer) bareSubaction(subject rdf.Term) bool {
+	if n.meta(subject) != mSubaction {
+		return false
+	}
+	member := firstIRI(n.graph, subject, pOwnedMemberElement, pMemberElement)
+	return member.IsIRI() && bareSubactionMembership(n.graph, subject, member)
 }

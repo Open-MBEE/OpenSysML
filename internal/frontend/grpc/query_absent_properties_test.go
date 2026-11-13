@@ -52,7 +52,7 @@ func TestQueryDefaultSelectionReportsTheMetaclassProperties(t *testing.T) {
 	for _, element := range resp.Elements {
 		byType[element.Type] = element.Properties
 	}
-	if got := byType["Comment"]["body"]; got != "A note" {
+	if byType["Comment"]["body"] != "A note" {
 		t.Fatalf("comment = %v, want body", byType["Comment"])
 	}
 	if got := byType["SatisfyRequirementUsage"]; got["satisfiedRequirement"] != "Demo::safe" || got["satisfyingFeature"] != "Demo::vehicle" {

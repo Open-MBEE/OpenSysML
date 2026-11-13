@@ -464,7 +464,7 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return out
 	}
 	var out []*symbols.Symbol
-	if ends := m.successionEnds(sym); ends != nil {
+	if ends := m.synthesizedSuccessionEnds(sym); ends != nil {
 		// A transition's succession owns its two ends (SysML.xtext TransitionSuccession).
 		for _, end := range ends {
 			out = appendOwningMembership(out, sym, end)

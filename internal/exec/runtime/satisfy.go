@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -683,7 +684,7 @@ func (ctx *Context) chainSubject(a *SatisfyAssertion) (*Instance, error) {
 // which is how a `satisfy requirement r by p { require ... }` form carries one
 // without referencing another requirement.
 func (ctx *Context) declaresConditions(sym *symbols.Symbol) bool {
-	for _, node := range unwrappedDeclMembers(sym.Decl) {
+	for _, node := range lower.UnwrappedDeclMembers(sym.Decl) {
 		if len(ctx.appendConditions(nil, node, nil, true, false, nil)) > 0 {
 			return true
 		}

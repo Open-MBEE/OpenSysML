@@ -407,9 +407,8 @@ type Symbol struct {
 	Scope      *Scope         // the child scope this declaration owns, or nil for leaves
 	OwnerScope *Scope         // the enclosing scope this declaration was declared in
 
-	// LeadingTrivia is the comment/note trivia attached to the member wrapper
-	// preceding this declaration (captured before unwrap, since wrappers carry
-	// the trivia while the unwrapped inner Decl does not). Used for doc hover.
+	// LeadingTrivia is the comment/note trivia of the member wrapper preceding this
+	// declaration, captured before unwrap since the inner Decl does not carry it.
 	LeadingTrivia []ast.Trivia
 
 	DocName string // name of the document that declares this symbol (stamped after Build)

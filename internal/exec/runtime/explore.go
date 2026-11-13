@@ -170,6 +170,9 @@ type Exploration struct {
 	// in one order without a choice point, so fewer orders were run than the
 	// library admits; none when the exploration is complete.
 	Unenumerated []CoverageGap
+	// Coverage is every state entered and transition taken over all the runs,
+	// not only the witness of each outcome, with how many runs did so.
+	Coverage Coverage
 	// Scope is the distinct reasons the runs' outcomes were observed short of quiescence.
 	Scope    []ObservationReason
 	weighted bool

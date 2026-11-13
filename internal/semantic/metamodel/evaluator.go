@@ -173,7 +173,10 @@ func (e *Evaluator) propertyWithPolicy(el Element, definingClass, name string, c
 	} else {
 		interned := e.internValueStrings(cloneValue(value))
 		e.cache[key] = cachedValue{value: interned, ok: ok}
-		if !clone {
+		if clone {
+			// The derived value may share a memoized list of the structure rules.
+			value = cloneValue(value)
+		} else {
 			value = interned
 		}
 	}

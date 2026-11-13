@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::results::Standing;
+use crate::results::{Coverage, Standing};
 use crate::wire;
 
 /// One schedule replayed: pass `schedule` as a run's schedule to follow it.
@@ -106,6 +106,8 @@ pub struct CheckSearch {
     pub scope: Vec<String>,
     /// The search's status as the report prints it.
     pub status: String,
+    /// The states entered and transitions taken across every schedule.
+    pub coverage: Coverage,
 }
 
 /// The options of [`crate::Model::check_action`] and [`crate::Model::check_state_machine`].
@@ -184,6 +186,7 @@ impl CheckResult {
                 notes: s.notes,
                 scope: s.scope,
                 status: s.status,
+                coverage: Coverage::from_wire(s.coverage),
             }),
             violations: response
                 .violations

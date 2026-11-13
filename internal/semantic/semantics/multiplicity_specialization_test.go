@@ -174,7 +174,7 @@ func TestIndividualOccurrenceDefinitionMultiplicity(t *testing.T) {
 			if member == nil {
 				t.Fatalf("DefaultMultiplicityMember(%s) = nil, want the Multiplicity it is parsed with", name)
 			}
-			if again := model.MultiplicityMember(def); again != member {
+			if model.MultiplicityMember(def) != member {
 				t.Errorf("MultiplicityMember(%s) is not its individual multiplicity", name)
 			}
 			if !IsDefaultMultiplicity(member) || !IsImpliedMultiplicity(member) || !member.Implied() {
@@ -212,7 +212,7 @@ func TestIndividualOccurrenceDefinitionMultiplicity(t *testing.T) {
 					t.Errorf("%s owned membership %d has ordinal %d", name, i, membership.Implicit.Ordinal)
 				}
 			}
-			if got := model.OwningMembership(member); got != rels[0] {
+			if model.OwningMembership(member) != rels[0] {
 				t.Errorf("OwningMembership(%s multiplicity) is not the membership %s owns it through", name, name)
 			}
 		}

@@ -30,6 +30,8 @@ import org.openmbee.mdk.magic.source.ModelSource;
 public final class DocGenBridge {
   public static final String METHOD = "docGen";
 
+  private static final String ELEMENT_ID = "elementId";
+
   private final Supplier<Engine> engine;
   private final SelectionResolver resolver;
 
@@ -106,7 +108,7 @@ public final class DocGenBridge {
       row.put("label", outcome.label());
       row.put("detail", outcome.detail());
       row.put("status", outcome.status().name());
-      if (outcome.elementId() != null) row.put("elementId", outcome.elementId());
+      if (outcome.elementId() != null) row.put(ELEMENT_ID, outcome.elementId());
       outcomes.add(row);
     }
     flat.put("outcomes", outcomes);
@@ -130,12 +132,12 @@ public final class DocGenBridge {
       List<Map<String, Object>> rows = new ArrayList<>();
       for (RunResult.Row row : table.rows()) {
         Map<String, Object> flatRow = new LinkedHashMap<>();
-        if (row.elementId() != null) flatRow.put("elementId", row.elementId());
+        if (row.elementId() != null) flatRow.put(ELEMENT_ID, row.elementId());
         List<Map<String, String>> cells = new ArrayList<>();
         for (RunResult.Cell cell : row.cells()) {
           Map<String, String> flatCell = new LinkedHashMap<>();
           flatCell.put("text", cell.text());
-          if (cell.elementId() != null) flatCell.put("elementId", cell.elementId());
+          if (cell.elementId() != null) flatCell.put(ELEMENT_ID, cell.elementId());
           cells.add(flatCell);
         }
         flatRow.put("cells", cells);

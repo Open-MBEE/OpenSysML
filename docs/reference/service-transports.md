@@ -178,10 +178,18 @@ reach (`-host 0.0.0.0`, `-host ::`, a hostname or address of the machine) is ser
 a bearer token — `-token-file <path>` (one line; the file should be readable by the service user
 only), `-token <value>`, or `OPENSYSML_GRPC_TOKEN` in the environment — and every call on every
 protocol must then carry it: `Authorization: Bearer <token>` on Connect, gRPC-Web and
-Connect-HTTP, the `authorization` metadata on grpc-go, compared in constant time. A call without
-it is answered `unauthenticated` (HTTP 401 with `WWW-Authenticate: Bearer realm="sysml-grpc"`;
-the grpc-go trailer carries the same), and the [wire contract](wire-contract.md#connect-errors-the-code-table)
-says what each client raises. `GET /health` is answered without a token so that liveness
+Connect-HTTP, the `authorization` metadata on grpc-go, compared in constant time. The credential
+is verified by the authenticator chain [`sysml-mcp`](sysml-mcp.md#transports) verifies through,
+shared so the two commands read the same flags and refuse alike: the static token, and with
+`-oidc-issuer` the access tokens of an OpenID provider as [`sysml-mcp`](sysml-mcp.md#single-sign-on)
+describes, `-oidc-audience` naming what their `aud` must hold since this service has no resource
+URL of its own. A call the chain admits is served knowing its principal (the subject and the
+kind of authenticator that accepted it), which the access log names. A call without a credential is
+answered `unauthenticated` (HTTP 401 with `WWW-Authenticate: Bearer realm="sysml-grpc"`; the
+grpc-go trailer carries the same), one whose credential lacks a scope the service requires
+`permission_denied` (HTTP 403, `error="insufficient_scope"`), one whose credential cannot be
+verified for now `unavailable` (HTTP 503), and the
+[wire contract](wire-contract.md#connect-errors-the-code-table) says what each client raises. `GET /health` is answered without a token so that liveness
 probes need no secret; it says the version, nothing about any model. Starting non-loopback
 without a token fails at once naming the three ways to supply one and the one way to decline:
 `-allow-unauthenticated` serves every caller that can reach the port, which is only
@@ -192,8 +200,9 @@ without the pair fails at once unless `-allow-insecure-token-transport` accepts 
 transport, which is right only behind a proxy that terminates TLS in front of the service and
 is, like the other opt-out, never implied; the service warns at startup when it is given. Every call is
 logged on one line at `INFO` with the peer address, method, protocol, status code, duration and
-whether it was authenticated; a refused call is logged at `WARN` with the peer. The token
-itself is never logged. The private child a client starts for itself (`-port 0
+whether it was authenticated — and, when it was, the principal's `subject` and `source`
+(`token` from `static-token` for the bearer token); a refused call is logged at `WARN` with the
+peer. The token itself is never logged. The private child a client starts for itself (`-port 0
 -exit-with-parent`) is unaffected: it binds loopback and needs no token, and the client starts
 it without `OPENSYSML_GRPC_TOKEN` in its environment, so a token set for a remote service is
 never one the child demands.
@@ -237,6 +246,11 @@ Poll the main port. Nothing in this repository polls 8081: the Python client's r
 is its `GetServerInfo` handshake over gRPC, not an HTTP GET, so it is unaffected by every row of
 that table.
 
+[`sysml-mcp -http`](sysml-mcp.md#transports) takes the same stance on its own port: `GET /health`
+answers open, naming `sysml-mcp` and the build, and `GET /ready` answers 200 only once the
+workspace is indexed and the runtime prewarmed, both outside the token and the origin check that
+guard `/mcp`. [Running sysml-mcp as a service](../guide/sysml-mcp-service.md) has the details.
+
 ## `-transport stdio`, and why not to build on it
 
 `-transport stdio` serves one client over stdin/stdout with `Content-Length` framing. It is
@@ -257,9 +271,13 @@ right shape. Its `runtime` tool group is this service's RPC surface, one tool pe
 RPC's request and response, so an agent gets the same contract the clients on this page do. Its
 `-http` flag serves the same protocol over a port to many agents, with the stance this page
 takes — loopback unless the address says otherwise, an address other machines reach served only
-with a bearer token (`-token-file`, `-token`, `OPENSYSML_MCP_TOKEN` there), TLS from a
+with a bearer token (`-token-file`, `-token`, `OPENSYSML_MCP_TOKEN` there) or a file of API keys
+(`-api-keys`; this service declares the flag with the shared ones but refuses it, gating no call
+by scope yet), TLS from a
 certificate and key pair, an origin allow-list that is not authentication; the two commands
-share one implementation of the token and of the loopback rule.
+share one implementation of the token and of the loopback rule, and `sysml-mcp` adds API keys and
+OpenID tokens on the same chain; [Running sysml-mcp as a service](../guide/sysml-mcp-service.md)
+is the operator's page for it.
 
 ## Every protocol is tested, not merely served
 

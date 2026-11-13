@@ -189,6 +189,12 @@ func (s *SymbolIDs) compute(sym *symbols.Symbol) (string, bool) {
 			return rdf.ExpressionNodeID(base, slot), true
 		}
 	}
+	if i, ok := symbols.ImpliedSuccessionEndIndex(sym); ok {
+		// A `then` succession's end is minted under the edge at end0/end1 (recordSuccessionEnds).
+		implied, _ := symbols.ImpliedDeclOf(sym)
+		element, _, ok := s.ids.OfExpressionPart(doc, implied.Of, fmt.Sprintf("end%d", i))
+		return element, ok
+	}
 	if implied, ok := symbols.ImpliedDeclOf(sym); ok &&
 		(implied.Form == symbols.ImpliedDefaultMultiplicity || implied.Form == symbols.ImpliedMultiplicityRange) {
 		if element, _, ok := s.ids.OfExpressionPart(doc, implied.Of, "multiplicity"); ok {
@@ -255,10 +261,6 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 	}
 	switch rel.Form {
 	case symbols.ImplicitMembership:
-		if _, ok := semantics.SubactionKind(rel.Decl); ok {
-			// `entry;` is written as the StateSubactionMembership itself.
-			return s.ids.OfDeclaration(doc, rel.Decl, "")
-		}
 		if rel.Member == nil {
 			return "", false
 		}
@@ -319,6 +321,11 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 			return s.ids.RelationshipOf(doc, rel.Node.Target)
 		}
 		return s.ids.RelationshipOf(doc, rel.Node)
+	case symbols.ImplicitSuccessionEndReference:
+		if rel.Owner == nil {
+			return "", false
+		}
+		return s.partID(rel.Owner, "rs")
 	case symbols.ImplicitTypeArgumentTyping:
 		// A type argument's typing is minted off its parameter, as the conversion writes it (typeArgument).
 		owner, ok := s.of(rel.Owner)

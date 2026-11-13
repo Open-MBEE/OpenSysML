@@ -7,7 +7,7 @@ import (
 )
 
 // A state owns one StateSubactionMembership per `entry`, `do` or `exit` member (SysML.xtext
-// EntryActionMember…): a bare `entry;` owns nothing through it, a statement or usage is owned through it.
+// EntryActionMember…): a bare `entry;` owns the empty ActionUsage it performs, a statement or usage is owned through it.
 func TestReflectiveStateOwnsItsSubactionMemberships(t *testing.T) {
 	m, root := buildModelWithStdlib(t, `package P {
 	attribute x : ScalarValues::Boolean;
@@ -37,7 +37,7 @@ func TestReflectiveStateOwnsItsSubactionMemberships(t *testing.T) {
 		got = append(got, kind.RefFQN+" "+member)
 	}
 	want := []string{
-		"SysML::Systems::StateSubactionKind::entry nothing",
+		"SysML::Systems::StateSubactionKind::entry ActionUsage",
 		"SysML::Systems::StateSubactionKind::do AssignmentActionUsage",
 		"SysML::Systems::StateSubactionKind::exit ActionUsage",
 	}

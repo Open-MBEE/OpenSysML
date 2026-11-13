@@ -42,6 +42,7 @@ calc def Kinds :> Query {
 }
 calc def Guards :> Query {
 	in root : Element;
+	// The transition's relationships include the OwningMembership of its succession, which has no kind.
 	Project(
 		source = WhereFeature(source = Descendants(source = root, maxDepth = 1, relationships = true),
 			feature = "kind", operator = "=", value = "guard", tolerate = true),

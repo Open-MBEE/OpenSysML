@@ -65,12 +65,14 @@ struct CheckSearch
     notes::Vector{String}
     scope::Vector{String}
     status::String
+    coverage::Coverage
 end
 CheckSearch(raw::AbstractDict) = CheckSearch(Int(get(raw, "states", 0)), Int(get(raw, "moves", 0)),
     Int(get(raw, "maxDepth", 0)), String[string(b) for b in get(raw, "boundsHit", Any[])],
     Float64(get(raw, "horizon", 0.0)), Bool(get(raw, "horizonSet", false)),
     Bool(get(raw, "massBounded", false)), String[string(n) for n in get(raw, "notes", Any[])],
-    String[string(s) for s in get(raw, "scope", Any[])], _render_string(raw, "status"))
+    String[string(s) for s in get(raw, "scope", Any[])], _render_string(raw, "status"),
+    _coverage(raw))
 
 """
 What `CheckBehavior` answered: the verdict (`holds`, `fails` or `undecided`) over

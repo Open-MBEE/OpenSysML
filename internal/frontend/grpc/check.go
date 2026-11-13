@@ -223,6 +223,7 @@ func (s *Service) checkResponse(label string, plan analysis.Plan, witnessDir str
 			MassBounded: report.MassBounded,
 			Notes:       observationNotes(report.Scope),
 			Status:      report.Status(),
+			Coverage:    coverageProto(report.Coverage),
 		}
 		if at, ok := report.Horizon.Bound(); ok {
 			search.Horizon, search.HorizonSet = at, true

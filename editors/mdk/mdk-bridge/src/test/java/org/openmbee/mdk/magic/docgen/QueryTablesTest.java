@@ -82,6 +82,45 @@ class QueryTablesTest {
     assertTrue(empty.getBody().isEmpty());
   }
 
+  /** A query that reported a path error crosses as its outcomes: the service's message, then each failure's own text. */
+  static Map<String, Object> failedQuery() {
+    Map<String, Object> flat = runQuery();
+    flat.put("subject", "Demo::Handbook");
+    flat.put("status", "FAILED");
+    flat.put("outcomes", List.of(
+        Map.of("label", "Demo::Handbook", "detail", "2 queries", "status", "FAILED", "elementId", "Demo::Handbook"),
+        Map.of("label", "Demo::Parts", "detail", "2 rows of qualifiedName, mass", "status", "PASSED", "elementId", "Demo::Parts"),
+        Map.of("label", "Demo::Masses", "detail", "query Demo::Masses reads feature mass of Demo::a, which has no such feature",
+            "status", "FAILED", "elementId", "Demo::Masses"),
+        Map.of("label", "Demo::Masses", "detail", "path error at Feature(mass): expected a feature named mass on the element;"
+            + " at Demo::a; features: [mas : Real, … and 11 more]; nearest: mas", "status", "FAILED", "elementId", "Demo::a"),
+        Map.of("label", "Demo::Masses", "detail", "… and 9 more path errors at Feature(mass)", "status", "FAILED")));
+    flat.put("tables", List.of(((List<?>) flat.get("tables")).get(0)));
+    return flat;
+  }
+
+  @Test
+  void rendersAFailedQueryAsItsFailuresBesideTheRowsOfTheOthers() {
+    BridgeResult result = BridgeResult.from(failedQuery());
+    assertEquals(Optional.of("Demo::a"), result.outcomes().get(3).elementId());
+    assertEquals(Optional.empty(), result.outcomes().get(4).elementId(), "the count of what was left out names no element");
+    List<DocumentElement> elements = DocBookRenderer.render(result);
+    assertEquals(3, elements.size(), elements.toString());
+    assertEquals("OpenSysML Run query of Demo::Handbook: FAILED (9 ms)", ((DBParagraph) elements.get(0)).getText());
+    DBTable outcomes = assertInstanceOf(DBTable.class, elements.get(1));
+    assertEquals(List.of(List.of("Outcome", "Detail", "Status")), cells(outcomes.getHeaders()));
+    assertEquals(List.of(
+        List.of("Demo::Handbook", "2 queries", "FAILED"),
+        List.of("Demo::Parts", "2 rows of qualifiedName, mass", "PASSED"),
+        List.of("Demo::Masses", "query Demo::Masses reads feature mass of Demo::a, which has no such feature", "FAILED"),
+        List.of("Demo::Masses", "path error at Feature(mass): expected a feature named mass on the element;"
+            + " at Demo::a; features: [mas : Real, … and 11 more]; nearest: mas", "FAILED"),
+        List.of("Demo::Masses", "… and 9 more path errors at Feature(mass)", "FAILED")),
+        cells(outcomes.getBody()));
+    assertEquals("Demo::Parts: 2 rows", assertInstanceOf(DBTable.class, elements.get(2)).getTitle(),
+        "the query that answered keeps its table; the one that failed has none");
+  }
+
   @Test
   void theRunQueryExtensionNamesItsOperation() {
     assertEquals("RUN_QUERY", new RunQuery().operation());

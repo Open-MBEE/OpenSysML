@@ -123,6 +123,18 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 		// A flow feature redefines the feature the end's last segment names (SysML.xtext FlowFeature).
 		out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelRedefines, false, impliedRelationship(ast.RelRedefines, owner.Decl)))
 	}
+	if target, stated := m.successionEndReference(owner); stated {
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  owner.DocName,
+			DeclSpan: owner.DeclSpan,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Ordinal: ordinal, Kind: ast.RelReferences,
+				Form: symbols.ImplicitSuccessionEndReference, Member: target,
+			},
+		})
+		ordinal++
+	}
 	// A multiplicity member's `subsets` is its one written relationship, held on
 	// the declaration rather than in a Relationships list.
 	if decl, ok := owner.Decl.(*ast.MultiplicityDecl); ok && decl.Subsets != nil {
@@ -221,10 +233,6 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		if IsFilterMembership(sym) {
 			return "ElementFilterMembership"
 		}
-		if _, ok := SubactionKind(rel.Decl); ok {
-			// `entry;` is a StateSubactionMembership performing no action (SysML.xtext EntryActionMember).
-			return "StateSubactionMembership"
-		}
 		return m.membershipMetaclassName(rel.Owner, rel.Member)
 	case symbols.ImplicitOwnedAnnotation, symbols.ImplicitAnnotatingRelationship:
 		return "Annotation"
@@ -238,6 +246,8 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		return "FeatureTyping"
 	case symbols.ImplicitParameterRedefinition:
 		return "Redefinition"
+	case symbols.ImplicitSuccessionEndReference:
+		return "ReferenceSubsetting"
 	case symbols.ImplicitReferenceMembership:
 		return "Membership"
 	case symbols.ImplicitFeatureChaining:
@@ -385,7 +395,7 @@ func (m *Model) implicitRelationshipEnds(sym *symbols.Symbol) (src, tgt *symbols
 	rel := sym.Implicit
 	src = rel.Owner
 	if rel.Form == symbols.ImplicitMetadataBodyRedefinition || rel.Form == symbols.ImplicitTypeArgumentTyping ||
-		rel.Form == symbols.ImplicitParameterRedefinition {
+		rel.Form == symbols.ImplicitParameterRedefinition || rel.Form == symbols.ImplicitSuccessionEndReference {
 		return src, rel.Member, rel.Member != nil
 	}
 	if rel.Node != nil {
@@ -440,11 +450,13 @@ func (m *Model) relationshipMemberEnds(sym *symbols.Symbol) (src, tgt *symbols.S
 	if scope == nil {
 		scope = sym.Scope
 	}
-	if resolved, ok := m.resolver.ResolveTarget(scope, member.Source); ok {
-		src = resolved
-	}
-	// A chain target names an implicit chaining feature the model has no
+	// A chain end names an implicit chaining feature the model has no
 	// element for, so the end stays unresolved and its features stay underived.
+	if !ast.IsFeatureChain(member.Source) {
+		if resolved, ok := m.resolver.ResolveTarget(scope, member.Source); ok {
+			src = resolved
+		}
+	}
 	if !ast.IsFeatureChain(member.Target) {
 		if resolved, ok := m.resolver.ResolveTarget(scope, member.Target); ok {
 			tgt = resolved
@@ -515,8 +527,14 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 			return nil, false
 		}
 	}
-	// Per-metaclass ends: the source end answers the owning element, the
-	// target end what the edge resolves to.
+	return m.implicitRelationshipEndElements(meta, feature, src, tgt, tgtOK)
+}
+
+// implicitRelationshipEndElements answers the ends a reflected relationship's metaclass
+// declares: the source end is the owning element, the target end what the edge resolves to.
+func (m *Model) implicitRelationshipEndElements(meta, feature string, src, tgt *symbols.Symbol, tgtOK bool) ([]*symbols.Symbol, bool) {
+	source := []*symbols.Symbol{src}
+	empty := []*symbols.Symbol{}
 	srcEnd, tgtEnd := relationshipEndFeature(meta, feature)
 	switch {
 	case feature == "specific" && specializationMetaclassNames[meta]:
@@ -553,7 +571,7 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 // derivations to answer instead.
 func (m *Model) relationshipMemberElements(sym *symbols.Symbol, rel symbols.RelationshipDecl, feature string) (elems []*symbols.Symbol, derived bool) {
 	meta := relationshipMetaclassName(rel)
-	if !specializationMetaclassNames[meta] && meta != "Conjugation" {
+	if meta == "" {
 		return nil, false
 	}
 	src, tgt := m.relationshipMemberEnds(sym)
@@ -582,7 +600,7 @@ func (m *Model) relationshipMemberElements(sym *symbols.Symbol, rel symbols.Rela
 		}
 		return append(append([]*symbols.Symbol{}, source...), target...), true
 	case "owningRelatedElement", "ownedRelatedElement",
-		"owningType", "owningClassifier", "owningFeature":
+		"owningType", "owningClassifier", "owningFeature", "owningFeatureOfType":
 		return []*symbols.Symbol{}, true
 	}
 	srcEnd, tgtEnd := relationshipEndFeature(meta, feature)
@@ -602,6 +620,28 @@ func (m *Model) relationshipMemberElements(sym *symbols.Symbol, rel symbols.Rela
 			return nil, false
 		}
 		return source, true
+	}
+	return nil, false
+}
+
+// declaredRelationshipEnds reads Relationship::source, target and relatedElement of a declared
+// connector or dependency, whose own ends redefine them (KerML 8.3.4.5.3, 8.3.2.2.2).
+func (m *Model) declaredRelationshipEnds(sym *symbols.Symbol, feature string) ([]*symbols.Symbol, bool) {
+	if dep, ok := sym.Decl.(*ast.Dependency); ok {
+		switch feature {
+		case "source":
+			return m.dependencyEnds(sym, dep.Clients), true
+		case "target":
+			return m.dependencyEnds(sym, dep.Suppliers), true
+		}
+		return append(m.dependencyEnds(sym, dep.Clients), m.dependencyEnds(sym, dep.Suppliers)...), true
+	}
+	if m.reflectiveMetaclassConforms(sym, "Connector") {
+		// A first end that references nothing would shift the ends after it: no answer at all.
+		if ends := m.ConnectorRelatedFeaturesByEnd(sym); len(ends) > 0 && ends[0] == nil {
+			return nil, false
+		}
+		return m.ReflectiveElements(sym, connectorEndRedefinition[feature])
 	}
 	return nil, false
 }

@@ -1,0 +1,1 @@
+- Deciding the order of due executors reuses feature-holder lookups within each choice evaluation, reducing repeated object-feature walks under explore and check scheduling. Lookups are discarded before any move can change ownership; explored orders, outcomes and choice coverage are unchanged.

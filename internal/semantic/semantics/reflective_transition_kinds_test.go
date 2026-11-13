@@ -32,24 +32,26 @@ func TestTransitionFeatureKindsReadTheirLiteral(t *testing.T) {
 	sm := nested(t, nested(t, sym(t, root, "P").Scope, "Machine").Scope, "sm").Scope
 	t1 := nested(t, sm, "t1")
 	var kinds []string
+	successions := 0
 	for _, membership := range m.OwnedMemberships(t1) {
+		meta := m.MetaclassOf(membership)
+		if meta != nil && meta.Name == "OwningMembership" {
+			// The succession a transition owns to its target (SysML.xtext TransitionSuccessionMember).
+			if owned := m.MetaclassOf(membership.Implicit.Member); owned == nil || owned.Name != "SuccessionAsUsage" {
+				t.Errorf("t1's OwningMembership owns a %v, want its SuccessionAsUsage", owned)
+			}
+			successions++
+			continue
+		}
 		if membership.Implicit != nil && membership.Implicit.Member != nil {
-			// The `then busy` succession is owned through an OwningMembership (TransitionSuccessionMember)
-			// and the implied parameters through ParameterMemberships, not as transition features.
-			if meta := m.MetaclassOf(membership.Implicit.Member); meta != nil && meta.Name == "SuccessionAsUsage" {
-				continue
-			}
-			if IsTransitionParameter(membership.Implicit.Member) {
-				continue
-			}
-			// `first source` is a Membership of the source state (SysML.xtext
-			// TransitionSourceMember), not a transition feature.
-			if membership.Implicit.Form == symbols.ImplicitReferenceMembership {
+			// The implied parameters are owned through ParameterMemberships and `first source` through a
+			// Membership of the source state (SysML.xtext TransitionSourceMember), not as transition features.
+			if IsTransitionParameter(membership.Implicit.Member) || membership.Implicit.Form == symbols.ImplicitReferenceMembership {
 				continue
 			}
 		}
-		if meta := m.MetaclassOf(membership); meta == nil || meta.Name != "TransitionFeatureMembership" {
-			t.Errorf("t1 owns a %v, want only TransitionFeatureMemberships", meta)
+		if meta == nil || meta.Name != "TransitionFeatureMembership" {
+			t.Errorf("t1 owns a %v, want only TransitionFeatureMemberships and its succession", meta)
 			continue
 		}
 		got, ok := m.ReflectiveFeatureValue(membership, "kind")
@@ -65,6 +67,9 @@ func TestTransitionFeatureKindsReadTheirLiteral(t *testing.T) {
 	}
 	if len(kinds) != len(want) {
 		t.Fatalf("t1 kinds = %v, want %v", kinds, want)
+	}
+	if successions != 1 {
+		t.Errorf("t1 owns %d successions, want 1", successions)
 	}
 	for i := range want {
 		if kinds[i] != want[i] {

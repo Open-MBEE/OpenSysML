@@ -2334,7 +2334,7 @@ public final class Model {
 
   private SymbolResponse symbolResponse(String symbolId, SymbolOptions options) {
     Objects.requireNonNull(symbolId, NAME_SYMBOL_ID);
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     if (options.includeLibraryMembers()) {
       connection.capabilities().require(Capabilities.SYMBOL_MEMBERS);
     }

@@ -600,6 +600,10 @@ tokens, state transitions
 Render the trace of a run as timeline or sequence into path (\- is stdout);
 form comes from \-render\-form or the path extension
 .TP
+.BR \-render\-limit " \fIcount\fP"
+The most spans or messages a \-render\-run rendering draws; 200 by default. A
+rendering cut short says so in a notice
+.TP
 .BR \-cpuprofile " \fIfile\fP"
 Write a CPU profile of the run to this file, for go tool pprof
 .TP

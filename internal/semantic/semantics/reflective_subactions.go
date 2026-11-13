@@ -88,28 +88,6 @@ func withSubactionActions(members []ast.Node) []ast.Node {
 	return out
 }
 
-// emptySubactionMemberships returns the StateSubactionMemberships of sym's subaction members that
-// perform no action (`entry;`), each a membership owning nothing, as the conversion writes it.
-func (m *Model) emptySubactionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
-	if m == nil || sym == nil || sym.Implicit != nil || sym.Expr != nil || sym.Recorded() {
-		return nil
-	}
-	var out []*symbols.Symbol
-	for _, member := range subactionMembers(sym.Decl) {
-		if len(subactionActions(member)) != 0 {
-			continue
-		}
-		out = append(out, &symbols.Symbol{
-			Kind:       symbols.SymbolRelationship,
-			DocName:    sym.DocName,
-			DeclSpan:   member.Span(),
-			Visibility: sym.Visibility,
-			Implicit:   &symbols.ImplicitRelationship{Owner: sym, Form: symbols.ImplicitMembership, Decl: member},
-		})
-	}
-	return out
-}
-
 // SubactionMemberOf returns the `entry`, `do` or `exit` member of owner's body
 // that performs member, through which owner owns it.
 func SubactionMemberOf(owner, member *symbols.Symbol) (ast.Node, bool) {

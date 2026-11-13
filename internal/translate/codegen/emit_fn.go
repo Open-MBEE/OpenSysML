@@ -304,6 +304,7 @@ static const char *sysml_show_rec(sysml_rec *r) {
 	sysml_format_rec(r, text, sizeof text);
 	return text;
 }
+static sysml_rec *sysml_parse_rec(const char *s, const char *name) { fprintf(stderr, "argument %s: %s is not a record value\n", name, s); exit(2); }
 ` + r.Replace(cSeqTemplate)
 }
 

@@ -187,7 +187,11 @@ A failed traced run remains a `ModelException`; its `trace()` and
 `explore:runs=N,depth=M`; a non-exploring schedule is an `IllegalArgumentException`)
 and answer an `Exploration` of `Outcome`s, each a distinct end state with the
 `witness` order that reached it and how many `linearizations` do, plus whether the
-search was `complete`, how many `runs` it made and which `budgetsHit`.
+search was `complete`, how many `runs` it made and which `budgetsHit`. Its `coverage()`
+is the `Coverage` of every run, not only each outcome's witness: the states entered and
+transitions taken as `Coverage.Entry`s (`path` under the running instance, `declaration`
+under the machine, `runs` that did); `CheckResult.Search.coverage()` carries the same
+over every schedule of a check.
 
 ### Verification
 
@@ -494,6 +498,7 @@ try {
   QueryOutcome outcome = e.outcome();
   outcome.kind();                           // "pathError" (QueryOutcome.PATH_ERROR) or "modelError"
   outcome.step();                           // "Feature(mass)": the step the outcome is reported at
+  outcome.failuresTotal();                  // how many failures there are; failures() holds the first
   for (QueryOutcome.Failure failure : outcome.failures()) {   // a path error, one per failing element
     failure.step();                         // "Feature(mass)"
     failure.expected();                     // "a feature named mass on the element"
@@ -502,13 +507,29 @@ try {
     failure.frontier().features();          //   … when a feature was expected
     failure.frontier().kinds();             //   … when a relationship kind was expected
     failure.frontier().nearest();           // the closest spelling, "" when none
+    failure.frontier().membersTotal();      // how many members the element has; members() holds a few
+    failure.frontier().featuresTotal();     //   … and features
+    failure.frontier().kindsTotal();        //   … and kinds
   }
   for (QueryOutcome.Finding finding : outcome.findings()) {   // a model error
     finding.element(); finding.constraint(); finding.observed();
   }
+  outcome.findingsTotal();                  // how many findings there are; findings() holds the first
   outcome.pathFailures();                   // a model error's path failures from the same step
+  outcome.pathFailuresTotal();              // how many of those there are
 }
 ```
+
+The service bounds the record so it fits a status: `failures()`, `findings()` and
+`pathFailures()` hold the first eight entries of a step that failed on more elements,
+and a frontier's `members()`, `features()` and `kinds()` hold at most eight
+candidates. Each list has a total beside it — `failuresTotal()`, `findingsTotal()`,
+`pathFailuresTotal()` on the outcome, `membersTotal()`, `featuresTotal()`,
+`kindsTotal()` on the frontier — counting every entry there was, so
+`total - list.size()` is how many were left out. A total is never below its list's
+size: a record built without totals, or decoded from a service that sends none,
+counts its lists whole. `nearest()` is reported apart from the lists and need not be
+among the members listed.
 
 `QueryOutcome` and its nested `Failure`, `Frontier` (with `Member` and `Feature`)
 and `Finding` are serializable records. `query` and `queryOslc` fail the same way
@@ -570,7 +591,7 @@ throws nothing.
 | --- | --- |
 | `ServiceException` | the call was refused, carrying a `StatusCode` (`NOT_FOUND`, …) |
 | `ModelNotFoundException` / `ModelFileNotFoundException` | a `ServiceException` `NOT_FOUND`: the service holds no model of that hash, or cannot read the named file |
-| `QueryOutcomeException` | a `ServiceException` from a query the model has no answer for; `outcome()` is the decoded `QueryOutcome` (kind, step, failures with their frontiers, findings) |
+| `QueryOutcomeException` | a `ServiceException` from a query the model has no answer for; `outcome()` is the decoded `QueryOutcome` (kind, step, failures with their frontiers, findings, and the total behind each bounded list) |
 | `SymbolNotFoundException` | a `ModelException` from `Model.lookup` naming the missing `name()` and near `suggestions()` |
 | `StaleServiceException` | a `ServiceStartException`: the service is not the release asked for |
 | `ModelException` | the call succeeded and the answer reports a model failure; `failureReason()` classifies it and `diagnostics()` carry what the service said |

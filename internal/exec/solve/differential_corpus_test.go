@@ -185,9 +185,22 @@ func elementKind(sym *symbols.Symbol) string {
 		if kind, ok := sym.UsageKind(); ok && kind == ast.UsageObjective {
 			return ""
 		}
+		if usage, ok := sym.Decl.(*ast.Usage); ok && usage.IsVerifiedRequirement() {
+			return ""
+		}
 		return "requirement"
 	}
 	return ""
+}
+
+func TestElementKindExcludesVerifyMembers(t *testing.T) {
+	verify := &symbols.Symbol{
+		Kind: symbols.SymbolRequirementUsage,
+		Decl: &ast.Usage{Kind: ast.UsageSatisfy, Keyword: "verify"},
+	}
+	if got := elementKind(verify); got != "" {
+		t.Errorf("elementKind(verify) = %q, want no solver condition: it references a requirement, stating none", got)
+	}
 }
 
 func TestElementKindExcludesObjectiveUsages(t *testing.T) {
@@ -367,6 +380,8 @@ func libraryDocuments(idx *symbols.Index) []string {
 // which is not vendored: it skips while the corpus is absent unless CI declares
 // it mandatory.
 func TestDifferentialTrainingCorpus(t *testing.T) {
+	// The gate's input is the training models that declare conditions, a selection the
+	// syntactic construct cover does not preserve, so OPENSYSML_CORPUS_SUBSET is ignored.
 	files := trainingModels(t)
 	gate := newGate(t, "OMG training corpus")
 

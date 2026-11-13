@@ -63,15 +63,28 @@ var kermlUsageTypeNames = map[ast.UsageKind]string{
 	ast.UsageInteraction: "Interaction",
 }
 
-// refinedTypeNames are the metamodel type names MetamodelTypeNameOf reports for
-// a symbol kind that spans several metaclasses, beyond the kind's own name.
-var refinedTypeNames = []string{"MultiplicityRange"}
+// refinedTypeNames are the metamodel type names MetamodelTypeNameOf reports beyond a kind's
+// own name: a symbol kind spanning several metaclasses, or a chain Feature's KerML Feature.
+var refinedTypeNames = []string{"MultiplicityRange", "Feature", "ConjugatedPortDefinition", "TransitionUsage"}
 
 // MetamodelTypeNameOf returns the metamodel type name an element reports as
 // @type, refining symbol kinds that span several metaclasses.
 func MetamodelTypeNameOf(sym *symbols.Symbol) string {
 	if sym == nil {
 		return ""
+	}
+	// The feature a relationship's chain target denotes is a KerML Feature in either language
+	// (Model.MetaclassOf), whatever kind the symbol that stands for it carries.
+	if sym.Chain != nil {
+		return "Feature"
+	}
+	// A conjugated port definition and a transition report their own metaclass (SysML 8.3.14, 8.3.16),
+	// as Model.MetaclassOf derives it, not the kind's.
+	if sym.IsConjugatedPortDefinition() {
+		return "ConjugatedPortDefinition"
+	}
+	if sym.DeclaresTransition() {
+		return "TransitionUsage"
 	}
 	switch sym.Kind {
 	case symbols.SymbolMultiplicity:

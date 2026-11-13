@@ -231,11 +231,13 @@ func Root(sym *symbols.Symbol) *symbols.Symbol {
 }
 
 type builder struct {
-	model  *semantics.Model
-	res    *resolve.Resolver
-	idx    *symbols.Index
-	scopes map[*symbols.Symbol]*Scope
-	known  map[*symbols.Symbol]bool // scope memo: sym has an entry in scopes
+	model         *semantics.Model
+	res           *resolve.Resolver
+	idx           *symbols.Index
+	scopes        map[*symbols.Symbol]*Scope
+	known         map[*symbols.Symbol]bool // scope memo: sym has an entry in scopes
+	positions     map[*symbols.Scope]*memberPositions
+	identitySites map[*symbols.Symbol]map[ast.Node]bool
 	// norm decides which library symbols the norm fixes an id for.
 	norm *qualifier
 	// catalog places an unnamed library member under its catalogued owner; built on first need.
@@ -244,12 +246,14 @@ type builder struct {
 
 func newBuilder(model *semantics.Model, res *resolve.Resolver) *builder {
 	return &builder{
-		model:  model,
-		res:    res,
-		idx:    res.Index(),
-		scopes: make(map[*symbols.Symbol]*Scope),
-		known:  make(map[*symbols.Symbol]bool),
-		norm:   newQualifier(res.Index(), model),
+		model:         model,
+		res:           res,
+		idx:           res.Index(),
+		scopes:        make(map[*symbols.Symbol]*Scope),
+		known:         make(map[*symbols.Symbol]bool),
+		positions:     make(map[*symbols.Scope]*memberPositions),
+		identitySites: make(map[*symbols.Symbol]map[ast.Node]bool),
+		norm:          newQualifier(res.Index(), model),
 	}
 }
 
@@ -473,44 +477,69 @@ func (b *builder) memberIndex(usage *symbols.Symbol) (int, bool) {
 	if usage.Decl == nil || usage.OwnerScope == nil {
 		return 0, false
 	}
-	prefix, _ := usage.Decl.(*ast.PrefixMetadata)
-	var members []ast.Node
-	var prefixes []*ast.PrefixMetadata
-	switch n := usage.OwnerScope.Node().(type) {
-	case *ast.RootNamespace:
-		members = n.Members
-	case *ast.Package:
-		members, prefixes = n.Members, n.Prefixes
-	case *ast.Namespace:
-		members, prefixes = n.Members, n.Prefixes
-	case *ast.Definition:
-		members, prefixes = n.Members, n.Prefixes
-	case *ast.Usage:
-		members, prefixes = n.Members, n.Prefixes
-	default:
-		return 0, false
+	positions, ok := b.positions[usage.OwnerScope]
+	if !ok {
+		positions = newMemberPositions(usage.OwnerScope)
+		b.positions[usage.OwnerScope] = positions
 	}
-	index := 0
-	for _, member := range members {
-		node := member
-		if m, ok := member.(*ast.Membership); ok {
-			node = m.Member
+	if index, ok := positions.indices[usage.Decl]; ok {
+		return index, true
+	}
+	for positions.cursor < len(positions.members)+len(positions.prefixes) {
+		var node ast.Node
+		if positions.cursor < len(positions.members) {
+			node = positions.members[positions.cursor]
+			if m, ok := node.(*ast.Membership); ok {
+				node = m.Member
+			}
+			positions.cursor++
+			if node == nil || b.identityAnnotation(usage.OwnerScope, node) {
+				continue
+			}
+		} else {
+			p := positions.prefixes[positions.cursor-len(positions.members)]
+			positions.cursor++
+			if p != nil {
+				node = p
+			}
 		}
-		if node == nil || b.identityAnnotation(usage.OwnerScope, node) {
+		index := positions.index
+		positions.index++
+		if node == nil {
 			continue
 		}
+		if _, exists := positions.indices[node]; !exists {
+			positions.indices[node] = index
+		}
 		if node == usage.Decl {
-			return index, true
+			return positions.indices[node], true
 		}
-		index++
-	}
-	for _, p := range prefixes {
-		if prefix != nil && p == prefix {
-			return index, true
-		}
-		index++
 	}
 	return 0, false
+}
+
+type memberPositions struct {
+	members       []ast.Node
+	prefixes      []*ast.PrefixMetadata
+	indices       map[ast.Node]int
+	cursor, index int
+}
+
+func newMemberPositions(scope *symbols.Scope) *memberPositions {
+	positions := &memberPositions{indices: map[ast.Node]int{}}
+	switch n := scope.Node().(type) {
+	case *ast.RootNamespace:
+		positions.members = n.Members
+	case *ast.Package:
+		positions.members, positions.prefixes = n.Members, n.Prefixes
+	case *ast.Namespace:
+		positions.members, positions.prefixes = n.Members, n.Prefixes
+	case *ast.Definition:
+		positions.members, positions.prefixes = n.Members, n.Prefixes
+	case *ast.Usage:
+		positions.members, positions.prefixes = n.Members, n.Prefixes
+	}
+	return positions
 }
 
 // identityAnnotation reports a member the conversion leaves out of its positions: an ElementId or
@@ -529,10 +558,20 @@ func (b *builder) identityAnnotation(scope *symbols.Scope, node ast.Node) bool {
 		targets = []*symbols.Symbol{owner}
 	}
 	for _, target := range targets {
-		for _, site := range b.model.AnnotationSitesOf(target) {
-			if site.Node == node && (site.TypeFQN == ElementIdFQN || site.TypeFQN == ProjectRefFQN) {
-				return true
+		nodes, ok := b.identitySites[target]
+		if !ok {
+			for _, site := range b.model.AnnotationSitesOf(target) {
+				if site.TypeFQN == ElementIdFQN || site.TypeFQN == ProjectRefFQN {
+					if nodes == nil {
+						nodes = map[ast.Node]bool{}
+					}
+					nodes[site.Node] = true
+				}
 			}
+			b.identitySites[target] = nodes
+		}
+		if nodes[node] {
+			return true
 		}
 	}
 	return false

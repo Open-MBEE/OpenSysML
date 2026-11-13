@@ -23,9 +23,8 @@ import (
 )
 
 // engineGzipBudget bounds the gzipped js sysml-engine the gate links (-trimpath, stripped, the library snapshot embedded, as
-// every Makefile build target does): 9,451,750 bytes under go1.27.3 on 2026-11-09 at develop ddc4a547fe, 7,764,359 without the snapshot.
-// engineGzipBudget is 9510000 since the develop bd58fde160 merge; the symbol-backed element reader measures 9,502,209 bytes.
-const engineGzipBudget = 9510000
+// every Makefile build target does): 10,816,237 bytes under go1.27.4 on 2026-11-11 with RenderDocument served, 9,061,783 without the snapshot.
+const engineGzipBudget = 11000000
 
 func TestEngineDependencies(t *testing.T) {
 	const module = "github.com/Open-MBEE/OpenSysML"
@@ -78,11 +77,12 @@ func forbiddenEngineDependency(module, dependency string) bool {
 			return true
 		}
 	}
-	// ExecuteState's trace events come from queryexec; the document IR and backends stay out.
-	if hasDependencyPrefix(dependency, module+"/internal/doc") && dependency != module+"/internal/doc/queryexec" {
+	// RenderDocument writes Markdown, HTML and AsciiDoc; PDF drives converters the engine cannot run.
+	if hasDependencyPrefix(dependency, module+"/internal/doc/docpdf") {
 		return true
 	}
-	// The workspace pipeline belongs to the LSP and REPL.
+	// The workspace pipeline belongs to the LSP and REPL; the engine renders a
+	// document through internal/doc/docset, as the service does.
 	for _, prefix := range []string{
 		module + "/internal/workspace/model",
 		module + "/internal/workspace/modeldoc",
@@ -92,9 +92,10 @@ func forbiddenEngineDependency(module, dependency string) bool {
 			return true
 		}
 	}
-	// RDF is the only converter shared with the engine.
+	// RDF is the only converter shared with the engine; filename plans the
+	// files a rendered document set writes, which RenderDocument links by.
 	translate := module + "/internal/translate"
-	return hasDependencyPrefix(dependency, translate) && dependency != translate+"/rdf"
+	return hasDependencyPrefix(dependency, translate) && dependency != translate+"/rdf" && dependency != translate+"/filename"
 }
 
 func hasDependencyPrefix(dependency, prefix string) bool {

@@ -21,6 +21,10 @@ corpus fails the gate instead of skipping it, and a dedicated `Corpus gate` step
 between runs, keyed on the download script, but the cache cannot mask an absent corpus:
 the presence check and the required-corpus env var both run after the restore.
 
+The gate ignores `OPENSYSML_CORPUS_SUBSET` ([construct-cover-subset.md](construct-cover-subset.md)):
+it asserts the whole corpus clean in one batch load, which is cheap, and an assertion over part
+of a corpus asserts nothing.
+
 ---
 
 ## Adjudicating a change in the expectations

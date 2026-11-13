@@ -30,7 +30,7 @@ validators use (`scripts/pilot-pin.sh`); the exporter is the bridge the
 ./scripts/download-training-examples.sh && ./scripts/download-pilot-corpora.sh
 go run -C tools ./cmd/derived-census           # writes build/derived-census/
 go run -C tools ./cmd/derived-census -check    # fails on a newly silent rule or a baseline that does not reproduce
-go run -C tools ./cmd/derived-census -update   # re-records internal/semantic/metamodel/derived_census_baseline.json
+go run -C tools ./cmd/derived-census -update   # re-records internal/semantic/metamodel/derived_census_{baseline.json,records.tsv}
 ```
 
 `-roots examples,testdata` restricts a run to named roots (never with `-update`); `-exporter`,
@@ -111,7 +111,9 @@ the [API-JSON differential](api-json-differential.md)'s measurement.
 
 The baseline recorded on the pinned pilot over 935 files, every root present (38 of the
 `spec-examples` files are rejected). The figures below are that recording, not the current baseline —
-`internal/semantic/metamodel/derived_census_baseline.json` is, and
+`internal/semantic/metamodel/derived_census_baseline.json` (the provenance and each root's figures)
+with `derived_census_records.tsv` beside it (one line per rule and root, so two branches moving
+different rules merge without a conflict; the totals are derived on read) is, and
 `build/derived-census/derived-census.txt` renders a run.
 
 | Root | Files | Elements (implied) | Pilot elements (copies dropped, files failed) |

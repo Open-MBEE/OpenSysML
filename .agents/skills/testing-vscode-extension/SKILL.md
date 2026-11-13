@@ -30,9 +30,9 @@ fails with `TS2307: Cannot find module '@connectrpc/connect'` and similar errors
 
 ```bash
 make build                # produces bin/sysml-lsp (the server the client discovers)
-make vscode-package       # npm ci + typecheck + esbuild + vsce -> editors/vscode/opensysml-sysml.vsix
-DISPLAY=:0 code --no-sandbox --disable-gpu --install-extension editors/vscode/opensysml-sysml.vsix --force
-DISPLAY=:0 code --no-sandbox --list-extensions --show-versions   # expect open-mbee.opensysml-sysml@<ver>
+make vscode-package       # npm ci + typecheck + esbuild + vsce -> editors/vscode/opensysml.vsix
+DISPLAY=:0 code --no-sandbox --disable-gpu --install-extension editors/vscode/opensysml.vsix --force
+DISPLAY=:0 code --no-sandbox --list-extensions --show-versions   # expect open-mbee.opensysml@<ver>
 ```
 
 Restart VS Code after installing, otherwise the old extension host keeps running:
@@ -344,7 +344,7 @@ main.sysml  package Main { import Lib::*; part w : Widget; }
   vsix once, then swap the single JSON in the **installed** extension and reload the window.
   ```bash
   git show origin/main:editors/vscode/syntaxes/sysml.tmLanguage.json > /tmp/sysml-main.tmLanguage.json
-  EXT=~/.vscode/extensions/open-mbee.opensysml-sysml-0.1.0/syntaxes/sysml.tmLanguage.json
+  EXT=~/.vscode/extensions/open-mbee.opensysml-0.1.0/syntaxes/sysml.tmLanguage.json
   cp /tmp/sysml-main.tmLanguage.json "$EXT"                                    # BEFORE
   cp editors/vscode/syntaxes/sysml.tmLanguage.json "$EXT"                      # AFTER (restore!)
   ```
@@ -639,7 +639,7 @@ window's layout and any recording. For legible text, set User `"window.zoomLevel
 - Switching `opensysml.server.path` in the Settings UI restarts the server in place (request ids in the
   trace reset to 1, `pgrep` pid changes) — no window reload needed for a main-vs-branch comparison.
 - `make vscode-package` runs `npm ci` first and takes several minutes; when backgrounded, wait for
-  the ` DONE  Packaged: opensysml-sysml.vsix` line before `ls editors/vscode/*.vsix`, or you will
+  the ` DONE  Packaged: opensysml.vsix` line before `ls editors/vscode/*.vsix`, or you will
   conclude the build failed while it is still installing node modules.
 
 ## Diagram authoring (`opensysml/applyModelEdit`)

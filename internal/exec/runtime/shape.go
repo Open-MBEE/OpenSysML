@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -436,16 +437,7 @@ func knownBound(plain, scoped semantics.Bound) semantics.Bound {
 
 // extractDefaultValue returns the default-value expression for a feature (nil if none).
 func (ctx *Context) extractDefaultValue(featureSym *symbols.Symbol) ast.Node {
-	if oc, ok := ast.OwnedConstraintOf(featureSym.Decl); ok {
-		return oc.Value
-	}
-	switch decl := featureSym.Decl.(type) {
-	case *ast.Usage:
-		return decl.Value // nil if no default
-	case *ast.SubjectMember:
-		return decl.BindingExpr
-	}
-	return nil
+	return lower.DefaultValueOf(featureSym)
 }
 
 // featureMultiplicity is the multiplicity a feature has on owner: a parameter's
@@ -606,7 +598,7 @@ func (ctx *Context) roleRedefiningDefault(sym, typeSym *symbols.Symbol) (ast.Nod
 		return nil, nil
 	}
 	scope := bodyScope(typeSym, typeSym.OwnerScope)
-	for node := range eachUnwrappedDeclMember(typeSym.Decl) {
+	for node := range lower.EachUnwrappedDeclMember(typeSym.Decl) {
 		member := memberSymbol(scope, node)
 		if member == nil || member == sym || member.Name != "" {
 			continue

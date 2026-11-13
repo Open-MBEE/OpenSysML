@@ -85,6 +85,36 @@ var unservedReasons = sync.OnceValue(func() map[string]string {
 	return reasons
 })
 
+// DeclaredMetaclassFeatures are the features the metaclasses of MetaclassPackages declare
+// themselves, by name: every property of the metamodel, as each inherited one is some metaclass's own.
+func DeclaredMetaclassFeatures(index *symbols.Index) map[string][]*symbols.Symbol {
+	features := map[string][]*symbols.Symbol{}
+	if index == nil {
+		return features
+	}
+	for _, pkg := range MetaclassPackages {
+		for _, owner := range index.LookupQualified(pkg) {
+			if owner.Scope == nil {
+				continue
+			}
+			for _, metaclass := range owner.Scope.Members() {
+				if !isMetaclass(metaclass) || metaclass.Scope == nil {
+					continue
+				}
+				for _, member := range metaclass.Scope.Members() {
+					if member == nil || !member.IsFeature() {
+						continue
+					}
+					if name := symbols.LastSegment(member.Name); name != "" {
+						features[name] = append(features[name], member)
+					}
+				}
+			}
+		}
+	}
+	return features
+}
+
 // metamodelDeclares reports a property some metaclass of the loaded library declares,
 // or one of the evaluator's own (each segment of a dotted path): known even when no row has it.
 func (e *executor) metamodelDeclares(property string) bool {
@@ -93,22 +123,8 @@ func (e *executor) metamodelDeclares(property string) bool {
 		for _, name := range ownProperties {
 			e.metamodelProperties[name] = true
 		}
-		if e.context.Index != nil {
-			for _, pkg := range MetaclassPackages {
-				for _, owner := range e.context.Index.LookupQualified(pkg) {
-					if owner.Scope == nil {
-						continue
-					}
-					for _, metaclass := range owner.Scope.Members() {
-						if !isMetaclass(metaclass) {
-							continue
-						}
-						for name := range e.metaclassProperties(metaclass) {
-							e.metamodelProperties[name] = true
-						}
-					}
-				}
-			}
+		for name := range DeclaredMetaclassFeatures(e.context.Index) {
+			e.metamodelProperties[name] = true
 		}
 	}
 	for _, segment := range strings.Split(property, ".") {

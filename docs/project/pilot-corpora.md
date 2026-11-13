@@ -163,6 +163,12 @@ that never ran must not look like a gate that passed. Fetch them once:
 go test -count=1 ./tests/corpus -run TestPilotCorpora
 ```
 
+Under `OPENSYSML_CORPUS_SUBSET=construct-cover` the gate still opens each root whole (its files
+import across each other) but diagnoses only the files listed in
+`tests/corpus/testdata/construct_cover.txt` and checks their counts against the expectation,
+leaving the other recorded lines unchecked; `-update-pilot-corpora` refuses to run under it. See
+[construct-cover-subset.md](construct-cover-subset.md).
+
 The pilot's XMI serialization of the standard library is fetched the same way, from the release
 repository at the pin in `scripts/pilot-pin.sh`, into `build/pilot-library-xmi/`; the identity gate
 over it (`TestPilotLibraryXMI` in `tests/identity`) skips while it is absent and fails under

@@ -39,7 +39,7 @@ export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        documents, affected, isok, raise_for_errors, get_feature, features,
        verify_constraint, verify_requirement, verify_satisfaction, satisfied,
        validate_instance, calc, run_analysis, run_sweep, explore_analysis,
-       explore_action, explore_state, Outcome, Exploration, failed,
+       explore_action, explore_state, Outcome, Exploration, Coverage, CoverageEntry, failed,
        raise_for_error, raise_for_incomplete, Conversion, LibraryReference,
        ID_FORM_QUALIFIED, ID_FORM_UUID,
        convert_file, convert_source, convert_model, to_sysml, to_turtle,
@@ -83,6 +83,7 @@ include("engines.jl")
 include("verdict.jl")
 include("verification.jl")
 include("document.jl")
+include("coverage.jl")
 include("check.jl")
 include("conversion.jl")
 include("migration.jl")
