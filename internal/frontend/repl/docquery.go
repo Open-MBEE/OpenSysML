@@ -508,9 +508,9 @@ func tableSpelling(index *symbols.Index, elementID func(*symbols.Symbol) (string
 				if naming.IsPositionalIdentity(address) {
 					return id
 				}
-				// Spell the address exactly as the conversion wrote it: a qualifiedName never quotes
-				// a reserved word (`P::FunctionToPart::function`), unlike the notation (`…::'function'`).
-				return address
+				// The address spelled as Element::qualifiedName reads: a reserved word bare
+				// (`P::FunctionToPart::function`), a name no basic name spells quoted (`P::'two words'`).
+				return naming.Escaped(address)
 			}
 		}
 		if query.QualifiedIdentity(index, sym) != "" {

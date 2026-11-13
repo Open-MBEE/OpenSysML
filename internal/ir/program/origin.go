@@ -14,8 +14,8 @@ type Origin struct {
 	Path string
 	// Element is the declaration's element id when one is known, else "".
 	Element string
-	// Kind is the word today's messages name the declaration by when it is unnamed:
-	// an action node's declaring type as %T renders it, a vertex's `state` or `pseudostate`.
+	// Kind is the word a message names the declaration by when it is unnamed: an
+	// action node's NodeKind.Word (`if action`), a vertex's `state` or `pseudostate`.
 	Kind string
 	// Name is the declaration's name as messages use it, "" when it has none.
 	Name string
@@ -24,10 +24,13 @@ type Origin struct {
 }
 
 // String names the record the way a message does: by name when it has one,
-// else by kind.
+// else by kind; the zero Origin is "the node".
 func (o Origin) String() string {
 	if o.Name != "" {
 		return "node " + o.Name
+	}
+	if o.Kind == "" {
+		return "the node"
 	}
 	return "the " + o.Kind
 }

@@ -9,6 +9,7 @@ import (
 	"connectrpc.com/connect"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
@@ -88,22 +89,21 @@ func (m *CachedModel) ElementForm() (*export.ElementForm, error) {
 	return m.elementForm, m.elementFormErr
 }
 
-// elementFormElement finds the element a request names: by the form's own
-// "@id", by qualified name as the form spells it, or by a symbol id the model
-// resolves — a qualified name in another spelling, an inherited member's id,
-// or the positional id of an unnamed member — through the id Convert writes
-// for the symbol.
+// elementFormElement finds the element a request names: by the form's "@id", else by qualified
+// name from the root (CachedModel.ResolveMemberName), else as the form or a member chain names it.
 func (m *CachedModel) elementFormElement(form *export.ElementForm, id string) (export.APIJSONElement, bool) {
 	if element, ok := form.ByID(id); ok {
 		return element, true
 	}
-	if element, ok := form.ByQualifiedName(id); ok {
-		return element, true
-	}
 	var sym *symbols.Symbol
-	if syms := m.LookupNamedMember(id); len(syms) > 0 {
+	if syms := m.ResolveMemberName(id); len(syms) > 0 {
 		sym = syms[0]
-	} else if syms := m.LookupSymbol(id); len(syms) > 0 {
+	} else if len(symbolfacts.LookupNamed(m.Index, id)) > 0 {
+		// Declared, and not visible from the root namespace.
+		return export.APIJSONElement{}, false
+	} else if element, ok := form.ByQualifiedName(id); ok {
+		return element, true
+	} else if syms := m.LookupNamedMember(id); len(syms) > 0 {
 		sym = syms[0]
 	}
 	if sym == nil {

@@ -137,3 +137,32 @@ func TestMembersWithheldWithoutCapability(t *testing.T) {
 		t.Errorf("members = %v (withheld %d), want none without the capability", resp.Symbol.Members, resp.Symbol.WithheldLibraryMembers)
 	}
 }
+
+// TestResolveNameIgnoredWithoutCapability verifies a build without symbol_name_resolution reads
+// symbol_id as a reported id, as a service predating resolve_name does, and does not advertise it.
+func TestResolveNameIgnoredWithoutCapability(t *testing.T) {
+	const model = `package Vis { package Lib { part def Pump; alias PumpAlias for Pump; } }`
+	for _, tc := range []struct {
+		srv  *Service
+		want string
+	}{
+		{mustNewService(t, 10), "Vis::Lib::Pump"},
+		{mustNewServiceWithout(t, CapabilitySymbolNameResolution), "Vis::Lib::PumpAlias"},
+	} {
+		parsed, err := tc.srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+			Source: &pb.ParseFileRequest_Content{Content: model},
+		})
+		if err != nil {
+			t.Fatalf("ParseFile: %v", err)
+		}
+		resp, err := tc.srv.GetSymbol(context.Background(), &pb.GetSymbolRequest{
+			ModelHash: parsed.ModelHash, SymbolId: "Vis::Lib::PumpAlias", ResolveName: true,
+		})
+		if err != nil || resp.Symbol == nil {
+			t.Fatalf("GetSymbol: %v %s", err, resp.GetError())
+		}
+		if resp.Symbol.Id != tc.want {
+			t.Errorf("GetSymbol(Vis::Lib::PumpAlias, resolve_name) = %s, want %s", resp.Symbol.Id, tc.want)
+		}
+	}
+}

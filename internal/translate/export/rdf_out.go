@@ -2555,8 +2555,8 @@ func (e *encoder) typeTerm(typ *symbols.Symbol) rdf.Term {
 	return term
 }
 
-// connectorRelatedFeature states Connector::relatedFeature as the feature the end's ReferenceSubsetting references (KerML
-// 8.3.4.5.3; a chained end's chain Feature) and, unless the end is a flow's, the relatedElement, source and target it redefines.
+// connectorRelatedFeature states Connector::relatedFeature as the feature the end's ReferenceSubsetting references (KerML 8.3.4.5.3;
+// a chain Feature, a flow end's feature before its payload) and, unless a succession states them itself, the relatedElement, source and target.
 func (e *encoder) connectorRelatedFeature(subject, reference rdf.Term, index, ends int, related bool) {
 	if reference.Value == "" || !reference.IsIRI() {
 		return
@@ -2702,7 +2702,7 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 			}
 		}
 		if !end.noCollapse {
-			related := len(flowSegments) == 0 && end.targetTerm.Value == ""
+			related := end.targetTerm.Value == ""
 			e.connectorRelatedFeature(subject, reference, end.index, end.ends, related)
 		}
 	}
