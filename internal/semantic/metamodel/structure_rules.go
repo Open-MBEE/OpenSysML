@@ -4220,7 +4220,9 @@ func (e *Evaluator) structureEffectiveDirection(owner, feature Element) (ast.Fea
 		}
 		return semantics.ConjugateDirection(direction), true
 	}
-	if isPortUsage, known := e.isMetaclass(owner, "PortUsage"); known && isPortUsage {
+	// A feature the port owns keeps its own direction; a typing reverses only what it inherits.
+	owns, ownsKnown := e.structureOwnsFeature(owner, feature)
+	if isPortUsage, known := e.isMetaclass(owner, "PortUsage"); known && isPortUsage && !(ownsKnown && owns) {
 		relationships, known := e.options.Structure.OwnedRelationships(owner)
 		if !known {
 			return ast.DirNone, false

@@ -149,3 +149,41 @@ func TestGRPCMemberDirectionWithheldWithoutCapability(t *testing.T) {
 		t.Errorf("direction = %q, want the feature's own out", got)
 	}
 }
+
+// A conjugated typing reverses what the port inherits, not the features the port
+// declares itself: Type::directionOf answers those with their own direction.
+func TestGRPCMemberDirectionKeepsOwnedFeatureOfConjugatedPort(t *testing.T) {
+	srv, err := grpc.NewService(4, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const model = `package O {
+	private import ScalarValues::*;
+	port def CmdPort {
+		out attribute cmd : Integer;
+		in attribute ack : Boolean;
+	}
+	part def Device {
+		port pOwn : ~CmdPort {
+			in attribute :>> cmd;
+			out attribute extra : Integer;
+		}
+	}
+}`
+	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{Source: &pb.ParseFileRequest_Content{Content: model}, Language: "sysml"})
+	if err != nil || parsed.GetError() != "" {
+		t.Fatalf("ParseFile: %v %s", err, parsed.GetError())
+	}
+	hash := parsed.ModelHash
+	const owner = "O::Device::pOwn"
+	inputs := elementPropertyIDs(t, srv, hash, owner, "input")
+	outputs := elementPropertyIDs(t, srv, hash, owner, "output")
+	for feature, want := range map[string]string{owner + "::cmd": "in", owner + "::extra": "out", "O::CmdPort::ack": "out"} {
+		if got := memberDirection(t, srv, hash, feature, owner); got != want {
+			t.Errorf("%s as a member of %s: direction = %q, want %q", feature, owner, got, want)
+		}
+		if in, out := slices.Contains(inputs, feature), slices.Contains(outputs, feature); in != (want == "in") || out != (want == "out") {
+			t.Errorf("%s: input = %v, output = %v, want %s only", feature, inputs, outputs, want)
+		}
+	}
+}
