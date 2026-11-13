@@ -1156,19 +1156,19 @@ func (e *executor) declaredFeatureValues(sym *symbols.Symbol, property string) (
 		}
 		result = append(result, converted)
 	}
-	if len(result) == 0 && e.inheritedMemberShadowsMetaclassProperty(sym, property) {
+	if len(result) == 0 && e.valuelessMemberYieldsMetaclassProperty(sym, property) {
 		return nil, false, nil
 	}
 	return result, true, nil
 }
 
-// inheritedMemberShadowsMetaclassProperty reports property naming a valueless member sym only inherits
-// (a connector's Links::BinaryLink::source end) beside a metaclass property of sym (Relationship::source).
-func (e *executor) inheritedMemberShadowsMetaclassProperty(sym *symbols.Symbol, property string) bool {
+// valuelessMemberYieldsMetaclassProperty reports property naming a valueless member sym only inherits (a connector's
+// Links::BinaryLink::source end) or declares as an end (`end source : P;`) beside a metaclass property of sym (Relationship::source).
+func (e *executor) valuelessMemberYieldsMetaclassProperty(sym *symbols.Symbol, property string) bool {
 	if _, ok := e.metaclassPropertyOf(sym, property); !ok {
 		return false
 	}
-	return e.context.Model.InheritsValuelessMember(sym, property)
+	return e.context.Model.ValuelessMemberYields(sym, property)
 }
 
 // isAnnotationProperty reports a property of the annotating metaclasses alone
