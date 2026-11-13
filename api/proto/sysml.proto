@@ -2555,8 +2555,6 @@ message ServerInfoResponse {
   //                  and the response carries the document in `asciidoc`.
   //   "render_view" - the RenderView RPC renders a declared view or targeted
   //                  pseudo-view as machine-readable diagram data.
-  //   "render_view_form" - RenderViewRequest.form and its writer options, answered
-  //                  in RenderViewResponse.text; an older service ignores them.
   //   "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
   //                  action or state machine as canonical graphs:1 JSON.
   //   "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
