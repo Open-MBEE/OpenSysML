@@ -11,8 +11,8 @@ import (
 )
 
 // replGzipBudget bounds the gzipped RE (-tags sysml_re) js sysml the CLI page downloads for its in-browser REPL, as the gate links and
-// `make build-release-wasm` ships it (-trimpath, stripped, library snapshot embedded): 16,214,668 bytes under go1.27.4 on 2026-11-13 with the QVTS library and result view.
-const replGzipBudget = 16300000
+// `make build-release-wasm` ships it (-trimpath, stripped, library snapshot embedded): 16,009,964 bytes under go1.27.3 on 2026-11-09 at develop ddc4a547fe, 14,324,422 without the snapshot.
+const replGzipBudget = 16200000
 
 // TestBrowserREPLWalkthroughs runs every walkthrough the CLI page offers
 // (docs/assets/repl-walkthroughs.json) through the page's own host,
