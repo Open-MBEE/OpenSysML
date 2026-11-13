@@ -61,6 +61,8 @@ func expressionElementMetaclassName(sym *symbols.Symbol) string {
 			return "Expression"
 		case symbols.ExpressionTriggerAction:
 			return "AcceptActionUsage"
+		case symbols.ExpressionTransitionSuccession:
+			return "SuccessionAsUsage"
 		case symbols.ExpressionPayload:
 			return "ReferenceUsage"
 		}

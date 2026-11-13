@@ -364,6 +364,9 @@ elmt:Conjugation__Link
     sysml:owningRelationship elmt:Conjugation__Link_om ;
     sysml:owningMembership elmt:Conjugation__Link_om ;
     sysml:declaredName "Link" ;
+    sysml:relatedElement elmt:Conjugation__CommunicationPort, elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:source elmt:Conjugation__CommunicationPort ;
+    sysml:target elmt:Conjugation__CommunicationPort_conjugated ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Conjugation__Link__a, elmt:Conjugation__Link__b ;
     sysml:ownedMembership elmt:Conjugation__Link__a_om, elmt:Conjugation__Link__b_om ;
@@ -372,6 +375,7 @@ elmt:Conjugation__Link
     sysml:ownedFeatureMembership elmt:Conjugation__Link__a_om, elmt:Conjugation__Link__b_om ;
     sysx:sourceText "    interface def Link {\n" ;
     sysx:sourceTail "    }\n" ;
+    json:relatedElement "[{\"@id\":\"Conjugation__CommunicationPort\"},{\"@id\":\"Conjugation__CommunicationPort_conjugated\"}]" ;
     json:ownedMember "[{\"@id\":\"Conjugation__Link__a\"},{\"@id\":\"Conjugation__Link__b\"}]" ;
     json:ownedMembership "[{\"@id\":\"Conjugation__Link__a_om\"},{\"@id\":\"Conjugation__Link__b_om\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Conjugation__Link__a_om\"},{\"@id\":\"Conjugation__Link__b_om\"}]" ;

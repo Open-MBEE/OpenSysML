@@ -111,23 +111,24 @@ func (e *ActionExecutor) trackRepeated(tokenID int64, perf *actionFrame) {
 	}
 	frame := token.frame
 	if frame.repeatedPerfs == nil {
-		frame.repeatedPerfs = make(map[ast.Node][]*actionFrame)
+		frame.repeatedPerfs = make(map[NodeRef][]*actionFrame)
 	}
-	perfs := frame.repeatedPerfs[perf.node]
+	perfs := frame.repeatedPerfs[perf.ref()]
 	for int64(len(perfs)) < token.repetition {
 		perfs = append(perfs, nil)
 	}
 	perfs[token.repetition-1] = perf
-	frame.repeatedPerfs[perf.node] = perfs
+	frame.repeatedPerfs[perf.ref()] = perfs
 }
 
 // recordRepetition notes perf as the next performance of the repeated node it
 // performs, where performances begin sequentially rather than on sibling tokens.
 func (e *performances) recordRepetition(parent *actionFrame, node ast.Node, perf *actionFrame) {
 	if parent.repeatedPerfs == nil {
-		parent.repeatedPerfs = make(map[ast.Node][]*actionFrame)
+		parent.repeatedPerfs = make(map[NodeRef][]*actionFrame)
 	}
-	perfs := parent.repeatedPerfs[node]
+	at := perf.ref()
+	perfs := parent.repeatedPerfs[at]
 	perf.repetition = int64(len(perfs)) + 1
-	parent.repeatedPerfs[node] = append(perfs, perf)
+	parent.repeatedPerfs[at] = append(perfs, perf)
 }

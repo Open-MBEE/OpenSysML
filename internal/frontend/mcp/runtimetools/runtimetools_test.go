@@ -433,6 +433,11 @@ func TestEvaluateSpellsTheValueAndTheError(t *testing.T) {
 	if resp.GetError() == "" || !strings.HasPrefix(out, "error: ") {
 		t.Errorf("an unresolved name evaluated: %v\n%s", resp.GetResult(), out)
 	}
+	open := []map[string]any{{"path": "open.sysml", "text": "package Open { part def P { attribute m : ScalarValues::Real; } part p : P; }"}}
+	_, out = h.ok("evaluate", map[string]any{"sources": open, "expression": "Open::p.m + 1.0"}, &resp)
+	if u := resp.GetResult().GetUndetermined(); u.GetReason() != "p.m has no value in the model" || !strings.Contains(out, "\n<undetermined>: p.m has no value in the model\n") {
+		t.Errorf("an open value spelled without its reason: %v\n%s", resp.GetResult(), out)
+	}
 	if msg := h.fails("evaluate", map[string]any{"expression": "1"}); !strings.Contains(msg, "INVALID_ARGUMENT") {
 		t.Errorf("evaluate without a model: %s", msg)
 	}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 // A referenced document's declarations are checked by the subjects collect
@@ -28,6 +29,7 @@ func TestDeclaredSubjectsAreMinted(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	paths = corpussubset.Must(t, "../../..").FilterPaths("../../../examples", paths)
 	converted := 0
 	for _, path := range paths {
 		data, err := os.ReadFile(path)

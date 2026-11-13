@@ -240,7 +240,7 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	if sym.IsPrefixMetadata() {
 		facts.Modifiers |= symbols.ModPrefixMetadata
 	}
-	facts.Node = symbols.NodeKindOf(sym.Decl)
+	facts.Node = sym.NodeKind()
 	facts.Keyword = sym.Keyword()
 	facts.Notation = sym.Notation()
 	facts.UsageKind, _ = sym.UsageKind()
@@ -251,9 +251,11 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 			if scope == nil {
 				scope = sym.Scope
 			}
-			// A chain target names no element a record can restore: leave it zero.
-			if src, resolved := w.r.ResolveTarget(scope, member.Source); resolved && src != nil {
-				rel.Source = w.ref(sym, src, "relationship source")
+			// A chain end names no element a record can restore: leave it zero.
+			if !ast.IsFeatureChain(member.Source) {
+				if src, resolved := w.r.ResolveTarget(scope, member.Source); resolved && src != nil {
+					rel.Source = w.ref(sym, src, "relationship source")
+				}
 			}
 			if !ast.IsFeatureChain(member.Target) {
 				if tgt, resolved := w.r.ResolveTarget(scope, member.Target); resolved && tgt != nil {

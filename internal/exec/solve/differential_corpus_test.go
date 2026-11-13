@@ -380,6 +380,8 @@ func libraryDocuments(idx *symbols.Index) []string {
 // which is not vendored: it skips while the corpus is absent unless CI declares
 // it mandatory.
 func TestDifferentialTrainingCorpus(t *testing.T) {
+	// The gate's input is the training models that declare conditions, a selection the
+	// syntactic construct cover does not preserve, so OPENSYSML_CORPUS_SUBSET is ignored.
 	files := trainingModels(t)
 	gate := newGate(t, "OMG training corpus")
 

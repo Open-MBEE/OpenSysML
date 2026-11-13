@@ -195,7 +195,7 @@ package OpenSysMLSurfaces {
     #Surface part def EngineCommand :> JsonCommand {
         attribute :>> goPackage = "internal/frontend/engine";
         attribute :>> entrypoint = "cmd/sysml-engine";
-        attribute :>> serves = "ParseSources, Evaluate, Instantiate, ExecuteAction, ExecuteState, RenderView";
+        attribute :>> serves = "ParseSources, Evaluate, Instantiate, ExecuteAction, ExecuteState, RenderView, RenderDocument";
     }
 
     #Surface part def CoreCommand :> JsonCommand {
@@ -208,7 +208,7 @@ package OpenSysMLSurfaces {
     #Surface part def CombinedCommand :> JsonCommand {
         attribute :>> goPackage = "internal/frontend/combined";
         attribute :>> entrypoint = "cmd/sysml-wasm";
-        attribute :>> serves = "ParseSources, ParseFile, GetDiagnostics, GetSymbol, Evaluate, Instantiate, ExecuteAction, ExecuteState, RenderView, GetServerInfo";
+        attribute :>> serves = "ParseSources, ParseFile, GetDiagnostics, GetSymbol, Evaluate, Instantiate, ExecuteAction, ExecuteState, RenderView, RenderDocument, GetServerInfo";
         attribute releaseAsset : String = "sysml-wasm.wasm";
     }
 

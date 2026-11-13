@@ -24,6 +24,9 @@ type Table struct {
 	// Absorbed marks the FinalNode a member-attached `then` introduces: the
 	// target end of the following succession, written as that edge, not itself.
 	Absorbed map[ast.Node]bool
+	// TargetTransitions marks the `then x;` edges of state bodies that are TargetTransitionUsages
+	// (ast.IsStateTargetTransition): a TransitionUsage owning the succession, not the succession itself.
+	TargetTransitions map[ast.Node]bool
 	// Payloads holds the PayloadFeature each flow's `of` clause declares, keyed
 	// by the flow: the declared feature of `of p : T`, or one made up for `of T`.
 	Payloads        map[*ast.Usage]*ast.Usage
@@ -51,17 +54,18 @@ func (e *PayloadCollision) Error() string {
 // were consumed into element ids, which then take no position among members.
 func Build(file *source.SourceFile, root *ast.RootNamespace, model *semantics.Model, ids *identity.Table) (*Table, error) {
 	t := &Table{
-		FQN:             map[ast.Node]string{},
-		Positional:      map[ast.Node]string{},
-		Declared:        map[string]bool{},
-		Absorbed:        map[ast.Node]bool{},
-		Payloads:        map[*ast.Usage]*ast.Usage{},
-		PayloadFeatures: map[*ast.Usage]bool{},
-		positionalTaken: map[string]bool{},
-		consumed:        map[ast.Node]bool{},
-		declSym:         map[ast.Node]*symbols.Symbol{},
-		model:           model,
-		file:            file,
+		FQN:               map[ast.Node]string{},
+		Positional:        map[ast.Node]string{},
+		Declared:          map[string]bool{},
+		Absorbed:          map[ast.Node]bool{},
+		TargetTransitions: map[ast.Node]bool{},
+		Payloads:          map[*ast.Usage]*ast.Usage{},
+		PayloadFeatures:   map[*ast.Usage]bool{},
+		positionalTaken:   map[string]bool{},
+		consumed:          map[ast.Node]bool{},
+		declSym:           map[ast.Node]*symbols.Symbol{},
+		model:             model,
+		file:              file,
 	}
 	if ids != nil {
 		for _, sym := range ids.Symbols() {
@@ -138,6 +142,11 @@ func (t *Table) collect(members []ast.Node, owner, position string) error {
 			}
 		}
 		declared, children := DeclaredNameAndMembers(node)
+		for _, child := range children {
+			if edge, ok := child.(*ast.SuccessionEdge); ok && ast.IsStateTargetTransition(node, edge) {
+				t.TargetTransitions[edge] = true
+			}
+		}
 		name := t.EffectiveName(node)
 		fqn := Qualify(owner, name, i)
 		if fqn == "" {

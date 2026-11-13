@@ -14,7 +14,7 @@
       "presentEqual": 1374,
       "presentDifferent": 103,
       "oursMissing": 281,
-      "pilotMissing": 79,
+      "pilotMissing": 87,
       "absentBoth": 1399,
       "indeterminate": 2,
       "pilotNondeterministic": 0
@@ -268,6 +268,7 @@
     "Feature.isLibraryElement": [13,0,0,0,0,0,0],
     "Feature.isOrdered": [13,0,0,0,0,0,0],
     "Feature.isPortion": [13,0,0,0,0,0,0],
+    "Feature.isReference": [0,0,0,8,0,0,0],
     "Feature.isSufficient": [13,0,0,0,0,0,0],
     "Feature.isUnique": [13,0,0,0,0,0,0],
     "Feature.isVariable": [13,0,0,0,0,0,0],

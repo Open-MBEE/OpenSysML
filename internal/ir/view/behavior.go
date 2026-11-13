@@ -757,6 +757,11 @@ func behaviorKind(kind symbols.SymbolKind) bool {
 	return kind.IsActionUsage()
 }
 
+// calculation reports whether a declared symbol is a calculation def or usage; a nil one is not.
+func calculation(sym *symbols.Symbol) bool {
+	return sym != nil && (sym.Kind == symbols.SymbolCalcDef || sym.Kind == symbols.SymbolCalcUsage)
+}
+
 // renderAction builds one action graph with shared IDs.
 func (r *Renderer) renderAction(view *symbols.Symbol, elem *symbols.Symbol, ids *nodeIDs, out *Rendering,
 	record func(*symbols.Symbol, *Node)) (*Node, bool) {
@@ -832,7 +837,13 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		root.Children = append(root.Children, start)
 	}
 	r.flowNodes(subject, graph, root, owner, flowDrawing{ids, out, lowered, drawn, record}, depth)
-	if subject.frame == nil && len(graph.Nodes) == 0 {
+	// A calculation yields a result rather than a flow: its node shows the result
+	// expression, and is not noted for the nodes it does not declare.
+	switch {
+	case subject.frame != nil:
+	case calculation(owner):
+		root.Compartments = append(root.Compartments, r.resultCompartments(owner, ids)...)
+	case len(graph.Nodes) == 0:
 		root.Detail = detailWith(root.Detail, "declares no nodes")
 	}
 	out.folds = append(out.folds, root)

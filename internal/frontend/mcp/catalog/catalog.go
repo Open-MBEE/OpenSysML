@@ -291,6 +291,7 @@ var Unserved = map[string]string{
 	"html-mermaid":        noHTMLStyling,
 	"trace":               "ExecuteActionRequest has no trace field",
 	"render-run":          "no RPC renders a recorded run as a timeline or sequence",
+	"render-limit":        "no RPC renders a recorded run as a timeline or sequence",
 }
 
 // CLIOnly names the sysml CLI flags that are not operations of the service

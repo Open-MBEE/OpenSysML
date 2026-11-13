@@ -31,6 +31,7 @@ import sys
 from dataclasses import dataclass, field
 
 TRAINING = "tests/corpus/testdata/training_examples_expected.txt"
+ROOT_PREFIX = "root "
 
 
 def git(*args: str, cwd: str | None = None, check: bool = True) -> str:
@@ -58,9 +59,10 @@ def parse_structure(text: str) -> dict[str, str]:
     """Per-root blocks: `root <name>: …` then `  <property>: …` lines, keyed by root and property."""
     records, root = {}, ""
     for line in text.splitlines():
-        if line.startswith("root "):
-            root = line[len("root "):].split(":", 1)[0].strip()
-            records[root] = line[len("root ") + len(root) + 1:].strip()
+        if line.startswith(ROOT_PREFIX):
+            rest = line[len(ROOT_PREFIX):]
+            root = rest.split(":", 1)[0].strip()
+            records[root] = rest[len(root) + 1:].strip()
         elif line.startswith("  ") and root:
             name, _, counts = line.strip().partition(": ")
             records[f"{root}\t{name}"] = counts
@@ -89,6 +91,17 @@ def parse_census(text: str) -> dict[str, str]:
     return records
 
 
+def parse_census_records(text: str) -> dict[str, str]:
+    """derived_census_records.tsv: `<rule>\t<root>\t<counts...>` lines keyed like parse_census."""
+    records = {}
+    for line in text.splitlines():
+        fields = line.split("\t")
+        if not line or line.startswith("#") or len(fields) < 2:
+            continue
+        records[f"{fields[1]}\t{fields[0]}"] = "\t".join(fields[2:])
+    return records
+
+
 def parse_apijson(text: str) -> dict[str, str]:
     """api-json-differential-baseline.json: a record per scorecard row and per root."""
     report = json.loads(text)
@@ -103,6 +116,7 @@ PARSERS = (
     (re.compile(r"structure_differential_expected\.txt$"), parse_structure),
     (re.compile(r"library-and-prefix-sweep-outcomes\.txt$"), parse_sweep),
     (re.compile(r"derived_census_baseline\.json$"), parse_census),
+    (re.compile(r"derived_census_records\.tsv$"), parse_census_records),
     (re.compile(r"api-json-differential-baseline\.json$"), parse_apijson),
 )
 
@@ -138,8 +152,27 @@ def apijson_figures(text: str | None) -> dict[str, int]:
 def census_figures(text: str | None) -> dict[str, int]:
     if not text:
         return {}
-    summary = json.loads(text).get("summary", {})
+    summary = json.loads(text).get("summary")
+    if summary is None:
+        return {}
     return {name: summary.get(name, 0) for name in ("served", "answering", "empty", "notDerived", "uncarried", "silent", "pilotAnswering")}
+
+
+def census_records_figures(text: str | None) -> dict[str, int]:
+    """The column totals of derived_census_records.tsv, named by its `# rule\troot\t...` header."""
+    columns: list[str] = []
+    figures: dict[str, int] = {}
+    for line in (text or "").splitlines():
+        fields = line.split("\t")
+        if line.startswith("# rule\troot\t"):
+            columns = [name.strip() for name in fields[2:]]
+            continue
+        if not line or line.startswith("#") or len(fields) != len(columns) + 2:
+            continue
+        for name, value in zip(columns, fields[2:]):
+            if value.isdigit():
+                figures[name] = figures.get(name, 0) + int(value)
+    return figures
 
 
 def structure_figures(text: str | None) -> dict[str, int]:
@@ -164,6 +197,7 @@ def verdict_figures(text: str | None) -> dict[str, int]:
 FIGURES = (
     (re.compile(r"api-json-differential-baseline\.json$"), apijson_figures),
     (re.compile(r"derived_census_baseline\.json$"), census_figures),
+    (re.compile(r"derived_census_records\.tsv$"), census_records_figures),
     (re.compile(r"structure_differential_expected\.txt$"), structure_figures),
     (re.compile(r"^tests/corpus/testdata/[a-z_]+_expected\.txt$"), verdict_figures),
 )
@@ -180,13 +214,13 @@ def figures_for(path: str):
 
 
 def blob_at(rev: str, path: str, cwd: str) -> str | None:
-    completed = subprocess.run(["git", "show", f"{rev}:{path}"], cwd=cwd, capture_output=True, text=True)
+    completed = subprocess.run(["git", "show", "--end-of-options", f"{rev}:{path}"], cwd=cwd, capture_output=True, text=True)
     return completed.stdout if completed.returncode == 0 else None
 
 
 def tree_at(rev: str, path: str, cwd: str) -> dict[str, str]:
     """Every blob under path at rev, keyed by repository path, valued by blob id."""
-    out = git("ls-tree", "-r", rev, "--", path, cwd=cwd, check=False)
+    out = git("ls-tree", "-r", "--end-of-options", rev, "--", path, cwd=cwd, check=False)
     records = {}
     for line in out.splitlines():
         meta, _, name = line.partition("\t")
@@ -209,7 +243,7 @@ def tree_in_worktree(path: str, cwd: str) -> dict[str, str]:
 def blob_id(path: str) -> str:
     with open(path, "rb") as handle:
         data = handle.read()
-    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()  # noqa: S324 - git's own object id
+    return hashlib.sha1(b"blob %d\0" % len(data) + data, usedforsecurity=False).hexdigest()
 
 
 def file_in_worktree(path: str, cwd: str) -> str | None:
@@ -222,7 +256,7 @@ def file_in_worktree(path: str, cwd: str) -> str | None:
 
 def is_directory_at(revs: list[str], path: str, cwd: str) -> bool:
     for rev in revs:
-        out = git("ls-tree", rev, "--", path, cwd=cwd, check=False)
+        out = git("ls-tree", "--end-of-options", rev, "--", path, cwd=cwd, check=False)
         if out.startswith("040000 tree"):
             return True
     return os.path.isdir(os.path.join(cwd, path))
@@ -331,22 +365,42 @@ def summarize(movements: list[Movement]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def object_id(value: str) -> str:
+    """A full commit id as `git rev-parse` prints it, the only revision form the workflow passes."""
+    if len(value) not in (40, 64) or any(c not in "0123456789abcdef" for c in value):
+        raise argparse.ArgumentTypeError(f"{value!r} is not a full hexadecimal object id")
+    return value
+
+
+def within(root: str, path: str) -> bool:
+    """Whether path, resolved against root, stays under root (no `..` or symlink leads out of it)."""
+    full = os.path.realpath(os.path.join(root, path))
+    return os.path.commonpath([root, full]) == root
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--base", required=True, help="merge base of the pull request and develop")
-    parser.add_argument("--ours", required=True, help="the pull request's head before the merge")
-    parser.add_argument("--theirs", required=True, help="develop as merged")
-    parser.add_argument("--merged", required=True, help="the merge commit the recorders ran on")
+    parser.add_argument("--base", required=True, type=object_id, help="merge base of the pull request and develop")
+    parser.add_argument("--ours", required=True, type=object_id, help="the pull request's head before the merge")
+    parser.add_argument("--theirs", required=True, type=object_id, help="develop as merged")
+    parser.add_argument("--merged", required=True, type=object_id, help="the merge commit the recorders ran on")
     parser.add_argument("--tree", default=".", help="the working tree holding the fresh run (default: .)")
-    parser.add_argument("--summary", help="write the Markdown summary here as well as to stdout")
-    parser.add_argument("paths", nargs="+", help="generated paths, as the workflow lists them")
+    parser.add_argument("--summary", help="write the Markdown summary here, under the tree, as well as to stdout")
+    parser.add_argument("paths", nargs="+", help="generated paths, relative to the tree as the workflow lists them")
     args = parser.parse_args(argv)
-    cwd = os.path.abspath(args.tree)
+    cwd = os.path.realpath(args.tree)
+    if not os.path.isdir(cwd):
+        parser.error(f"--tree {args.tree}: not a directory")
+    for path in args.paths:
+        if os.path.isabs(path) or not within(cwd, path):
+            parser.error(f"{path}: not a relative path under {args.tree}")
+    if args.summary and not within(cwd, args.summary):
+        parser.error(f"--summary {args.summary}: not under {args.tree}")
     movements = analyse(args, cwd)
     summary = summarize(movements)
     sys.stdout.write(summary)
     if args.summary:
-        with open(args.summary, "w", encoding="utf-8") as handle:
+        with open(os.path.join(cwd, args.summary), "w", encoding="utf-8") as handle:
             handle.write(summary)
     return 1 if any(m.unexplained for m in movements) else 0
 

@@ -216,11 +216,13 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 		buildAnonymousNode(scope, d, SymbolSendActionUsage, d.Members, vis, trivia)
 		return true
 	case *ast.SuccessionEdge:
-		// A succession with a body is a SuccessionAsUsage whose body declares its
-		// own features (SysML.xtext ActionTargetSuccession ends in a UsageBody).
-		if len(d.Members) > 0 {
-			buildAnonymousNode(scope, d, SymbolSuccessionUsage, d.Members, vis, trivia)
+		// A `then x` after a state in a state body is a TargetTransitionUsage (SysML.xtext:1866) whose body is
+		// its ActionBody; any other is a SuccessionAsUsage its owner owns, with or without a body (:1698).
+		kind := SymbolSuccessionUsage
+		if ast.IsStateTargetTransition(scope.Node(), d) {
+			kind = SymbolActionUsage
 		}
+		buildAnonymousNode(scope, d, kind, d.Members, vis, trivia)
 		return true
 	case *ast.StateNode:
 		// Register state node by name (including initial/final pseudostates)
@@ -279,13 +281,13 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 		// An entry/do/exit action is a feature of the state declaring it, so a
 		// named one (`entry action entryAction :>> 'entry';`) is a member of the
 		// state's scope rather than of the wrapper the parser puts it in.
-		buildMembers(scope, d.Actions)
+		buildStateSubaction(scope, d, d.Actions, vis, trivia)
 		return true
 	case *ast.DoMember:
-		buildMembers(scope, d.Actions)
+		buildStateSubaction(scope, d, d.Actions, vis, trivia)
 		return true
 	case *ast.ExitMember:
-		buildMembers(scope, d.Actions)
+		buildStateSubaction(scope, d, d.Actions, vis, trivia)
 		return true
 	case *ast.PseudostateNode:
 		// fork/join/choice/junction/history named in a state body are
@@ -683,6 +685,16 @@ func buildAnonymousNode(scope *Scope, node ast.Node, kind SymbolKind, members []
 	defineIdent(scope, ast.Identification{}, sym)
 	scope.AddChild(child)
 	buildMembers(child, members)
+}
+
+// buildStateSubaction builds the action a state's `entry`/`do`/`exit` performs; a bare `entry;` performs
+// an anonymous empty action the StateSubactionMembership owns (SysML.xtext EmptyActionUsage).
+func buildStateSubaction(scope *Scope, subaction ast.Node, actions []ast.Node, vis ast.Visibility, trivia []ast.Trivia) {
+	if len(actions) == 0 {
+		buildAnonymousNode(scope, subaction, SymbolActionUsage, nil, vis, trivia)
+		return
+	}
+	buildMembers(scope, actions)
 }
 
 // defineIdent registers sym under its short and primary name keys, skipping

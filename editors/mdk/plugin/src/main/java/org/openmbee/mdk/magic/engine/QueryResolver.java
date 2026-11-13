@@ -113,12 +113,15 @@ public final class QueryResolver {
     members.sort((a, b) -> Boolean.compare(a.inherited(), b.inherited()));
     Set<String> named = new HashSet<>();
     for (Symbol.Member member : members) {
-      if (member.library() || !named.add(member.name())) continue;
-      Optional<Symbol> symbol = model.findSymbol(member.id());
-      if (symbol.isEmpty() || !"in".equals(symbol.get().metadata().get("direction"))) continue;
-      parameters.add(parameter(model, query, symbol.get()));
+      inputParameter(model, member, named).ifPresent(symbol -> parameters.add(parameter(model, query, symbol)));
     }
     return parameters;
+  }
+
+  /** The member's symbol when it is the first {@code in} parameter of its name; a library member or a repeated name is none. */
+  private static Optional<Symbol> inputParameter(Model model, Symbol.Member member, Set<String> named) {
+    if (member.library() || !named.add(member.name())) return Optional.empty();
+    return model.findSymbol(member.id()).filter(symbol -> "in".equals(symbol.metadata().get("direction")));
   }
 
   /** Type and multiplicity come from the first declaration along the redefinition chain that states them. */

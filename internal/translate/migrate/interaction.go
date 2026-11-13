@@ -1,12 +1,15 @@
 package migrate
 
 import (
+	"maps"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 const (
@@ -14,6 +17,40 @@ const (
 	stateInvariantCondition = "the state invariant's condition ["
 	refersToWord            = "refers to "
 )
+
+var occurrenceNameCache sync.Map
+
+func occurrenceNames() map[string]bool {
+	idx := libs.SharedBase()
+	cached, ok := occurrenceNameCache.Load(idx)
+	if !ok {
+		cached, _ = occurrenceNameCache.LoadOrStore(idx, sync.OnceValue(func() map[string]bool {
+			names, seen := map[string]bool{}, map[string]bool{}
+			queue := []string{"Occurrences::Occurrence"}
+			for len(queue) > 0 {
+				t := queue[0]
+				queue = queue[1:]
+				if seen[t] {
+					continue
+				}
+				seen[t] = true
+				for _, member := range idx.LookupDirectChildrenFrom(t, "") {
+					if member.Name != "" {
+						names[member.Name] = true
+					}
+				}
+				queue = append(queue, librarySupers(idx, t)...)
+			}
+			return names
+		}))
+	}
+	return cached.(func() map[string]bool)()
+}
+
+// inheritedOccurrenceNames returns a mutable copy of the cached inherited occurrence names.
+func inheritedOccurrenceNames() map[string]bool {
+	return maps.Clone(occurrenceNames())
+}
 
 // scenario is an interaction resolved to the steps its v2 form performs in
 // occurrence order: signal sends, operation calls, replies and combined fragments.
@@ -171,7 +208,7 @@ func (m *migration) scenario(e *sysmlv1.Element, self string) (*scenario, string
 		m: m, e: e, context: context, self: self,
 		order:      map[*sysmlv1.Element]int{},
 		lines:      map[*sysmlv1.Element]*lifelineRef{},
-		used:       map[string]bool{},
+		used:       inheritedOccurrenceNames(),
 		placed:     map[*sysmlv1.Element]bool{},
 		unwritten:  map[*sysmlv1.Element]string{},
 		uses:       map[*sysmlv1.Element]*scenarioStep{},
@@ -322,6 +359,7 @@ func (s *scenario) use(f *sysmlv1.Element, body *[]*scenarioStep) (*scenarioStep
 		base = n
 	}
 	step.base = freshIn(s.used, base)
+	s.m.names[f] = step.base
 	step.name = writeName(step.base)
 	s.returnValue(step)
 	s.uses[f] = step
@@ -546,6 +584,10 @@ func (s *scenario) lifeline(line *sysmlv1.Element) (*lifelineRef, string) {
 		return nil, standsFor + describe(rep) + ", a " + rep.Type + " rather than a part or parameter"
 	}
 	ref.name = freshIn(s.used, name)
+	s.m.names[line] = ref.name
+	if rep.Parent == s.e {
+		s.m.names[rep] = ref.name
+	}
 	ref.from = writeName(ref.name)
 	s.lines[line] = ref
 	return ref, ""
@@ -863,7 +905,7 @@ func (s *scenario) pairArguments(args, targets []*sysmlv1.Element) []*sysmlv1.El
 			continue
 		}
 		for _, t := range targets {
-			if s.m.nameOf(t) == arg.Name {
+			if t.Name == arg.Name {
 				paired[i], named[t] = t, true
 				break
 			}
@@ -994,6 +1036,17 @@ func (s *scenario) inaccessible(expr string, line *lifelineRef) string {
 			e, _ = s.m.memberNamed(e, r.steps[n].name, chainKind(false))
 			n++
 		}
+		if e != nil && e.Parent == s.e {
+			if _, ok := s.m.sequenceParams[e]; ok {
+				continue
+			}
+			for _, ref := range s.lines {
+				if ref.rep == e {
+					e = nil
+					break
+				}
+			}
+		}
 		if e != nil && isFeature(e) {
 			return r.text(n)
 		}
@@ -1021,6 +1074,22 @@ func (s *scenario) parameterNamed(name string) bool {
 	return false
 }
 
+// sequenceFeature reports whether an interaction feature has a scenario declaration.
+func (m *migration) sequenceFeature(e *sysmlv1.Element) bool {
+	if e.Parent == nil || e.Parent.Type != "Interaction" {
+		return false
+	}
+	if _, ok := m.sequenceParams[e]; ok {
+		return true
+	}
+	for _, line := range e.Parent.Owned("lifeline") {
+		if _, named := m.names[line]; named && m.model.Ref(line, "represents") == e {
+			return true
+		}
+	}
+	return false
+}
+
 // lifelineNamed finds the lifeline usage of the given name.
 func (s *scenario) lifelineNamed(name string) *lifelineRef {
 	for _, ref := range s.lines {
@@ -1038,6 +1107,7 @@ func (s *scenario) stepName(msg *sysmlv1.Element, fallback string) (base, writte
 		name = lowerFirst(fallback)
 	}
 	base = freshIn(s.used, name)
+	s.m.names[msg] = base
 	return base, writeName(base)
 }
 
@@ -1278,6 +1348,9 @@ func (s *scenario) writeSequence() {
 		ref := s.lines[line]
 		s.writeLifeline(ref)
 		s.m.names[line] = ref.name
+		if ref.rep.Parent == s.e {
+			s.m.names[ref.rep] = ref.name
+		}
 		note := "written as the " + strings.TrimSpace(ref.prefix+ref.kw) + " usage " + ref.name + " holding its " + plural(len(ref.events), "event occurrence")
 		switch {
 		case ref.bound != "":
@@ -1544,9 +1617,10 @@ func sequenceParameters(e *sysmlv1.Element) []*sysmlv1.Element {
 	return in
 }
 
-// declareParameters names the attributes the interaction's in parameters are written
-// as, before the lifelines take their names; a parameter a lifeline stands for is that usage.
+// declareParameters allocates all input names before writing defaults that may read later parameters.
+// A parameter represented by a lifeline is declared by that usage instead.
 func (s *scenario) declareParameters() {
+	var parameters []*sysmlv1.Element
 	for _, p := range sequenceParameters(s.e) {
 		represented := false
 		for _, ref := range s.lines {
@@ -1564,6 +1638,11 @@ func (s *scenario) declareParameters() {
 		}
 		name := freshIn(s.used, s.m.nameOf(p))
 		s.m.sequenceParams[p] = name
+		s.m.names[p] = name
+		parameters = append(parameters, p)
+	}
+	for _, p := range parameters {
+		name := s.m.sequenceParams[p]
 		line := "attribute " + writeName(name)
 		if mult, _ := s.m.multiplicity(p); mult != "" {
 			line += mult

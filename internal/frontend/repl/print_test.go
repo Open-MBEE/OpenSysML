@@ -245,3 +245,21 @@ func TestPrintOfUnparsableSessionWarns(t *testing.T) {
 	got := run(t, s, "%print")
 	wants(t, got, "warning:", "package Broken")
 }
+
+// A `doc`, `comment` or `rep` body belongs to the annotation it is written in:
+// printing the element declared after it starts at that element, not at the body.
+func TestPrintDoesNotStartAtThePreviousAnnotationsBody(t *testing.T) {
+	s := NewSession()
+	s.Submit("package P {\ndoc /* about P */\ncomment /* a remark */\npart def Car {\ndoc /* a car */\nattribute mass = 1500.0;\n}\n// the wheel\npart def Wheel;\n}")
+
+	car := run(t, s, "%print P::Car")
+	if strings.Contains(car, "about P") || strings.Contains(car, "a remark") {
+		t.Errorf("printing an element printed the body of the annotation before it:\n%s", car)
+	}
+	wants(t, car, "part def Car {", "doc /* a car */")
+	wheel := run(t, s, "%print P::Wheel")
+	if strings.Contains(wheel, "a car") {
+		t.Errorf("printing an element printed the body of a doc inside the element before it:\n%s", wheel)
+	}
+	wants(t, wheel, "// the wheel", "part def Wheel;")
+}

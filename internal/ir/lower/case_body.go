@@ -81,6 +81,7 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *
 		}
 		addCasePerformNodes(graph, members, scope)
 		addCaseStatementRuns(graph, body, statementRuns)
+		graph.assignIDs()
 		graph.UnstatedCaseFlow = true
 		StartFlow(graph)
 		flow := Block{Node: owner, Scope: scope, Graph: graph, Own: true, Stated: true}

@@ -131,7 +131,8 @@ interactive stream work as they do under Node.
 ## The execution engine
 
 `sysml-engine` is the in-process half of [the service](service-transports.md): the execution
-RPCs — `ParseSources`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState` — answered
+RPCs — `ParseSources`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `RenderView`,
+`RenderDocument` — answered
 with the same JSON `sysml-grpc` emits, but without the protobuf machinery, the analysis
 framework or a held-object store, which is what keeps a WebAssembly build small enough to
 embed in a page. A model parsed through it hashes to the same `modelHash` the service
@@ -170,6 +171,33 @@ as `sysml -render-show` does; an unknown name is an invalid-argument error. The 
 The engine has no current-document context, so a pseudo-view must name an element, for
 example `#tree:OpenSysMLStack::stack`. An untargeted `#tree`, `#interconnection` or `#matrix` is
 refused with InvalidArgument and the supported pseudo-view spellings.
+
+It also serves `RenderDocument`, running the document pipeline — the definition's queries,
+its document plan and document tree, and a backend's text — as the protojson of the
+`RenderDocumentResponse` [`sysml-grpc` answers the RPC with](wire-contract.md#queries):
+`markdown`, `html` or `asciidoc` holds the text of the form asked for and `fileName` the
+file a rendered set writes the document to. A request names the cached model, the document
+definition's qualified name and, optionally, the form:
+
+```json
+{
+  "modelHash": "…",
+  "documentId": "Observatory::MassReport",
+  "form": "html"
+}
+```
+
+`form` is `markdown` (the default when empty), `html` or `asciidoc`, exactly the forms the
+service renders; `pdf` or any other spelling is refused with InvalidArgument naming those
+three, since the PDF backend drives converters no WebAssembly build can run. The engine
+holds no objects, so a document reads the model alone, as the service does before an
+`Instantiate`; a query's `elementId` column is empty, since neither `sysml-engine` nor
+`sysml-wasm` links the converter the service reads ids from; and no Graphviz draws for it, so a diagram block whose view carries layout
+positions is written as Mermaid with the renderer's notice (`drawn as Mermaid, not at its
+stated positions: Graphviz (dot) is not installed`) where the service writes DOT. A document
+that is not one — a part def not specializing `DocumentQueries::Document` — is InvalidArgument,
+an unknown name NotFound, and a fault in the model's own queries FailedPrecondition, with the
+source declaration named, as the service reports them.
 
 The `js` build installs a host surface instead of reading a pipe: load it through
 `wasm_exec.js` with no arguments and `globalThis.sysmlEngine` appears with
@@ -272,14 +300,18 @@ system and stdin, as the site's REPL page does.
 `sysml-wasm` combines the parsing, validation and execution methods of `sysml-core` and
 `sysml-engine` in one WebAssembly module. It serves `ParseSources`, `ParseFile`,
 `GetDiagnostics`, `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`,
-`RenderView` and `GetServerInfo`. Parsing and symbol facts route through the core;
-evaluation, execution and view rendering route through the engine. `ParseSources` and
+`RenderView`, `RenderDocument` and `GetServerInfo`. Parsing and symbol facts route through the core;
+evaluation, execution, view rendering and document rendering route through the engine. `ParseSources` and
 `ParseFile` check that both frontends produce the same model hash and return the core
 response, including roots and diagnostics. `RenderView` answers with the protojson
 `RenderViewResponse` the service returns, so the module advertises the `render_view`
 capability and a service client's typed `renderView` works over it unchanged. A traced
 `ExecuteState` likewise answers its `trace` as the service's `DocumentEvent` records and
 the module advertises `state_trace`, so a typed `executeState` with `trace` works over it.
+`RenderDocument` answers the protojson `RenderDocumentResponse` in the forms `markdown`,
+`html` and `asciidoc`, and the module advertises `render_document`, `render_document_html`,
+`render_document_asciidoc` and `render_document_file_name`, so a typed `renderDocument`
+works over it too; `pdf` is refused naming the three forms, as [the engine](#the-execution-engine) refuses it.
 
 A hash from either parse method is shared by every method that takes a `modelHash`, including
 `GetDiagnostics`, `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction` and `ExecuteState`.
@@ -290,7 +322,8 @@ The module retains the 16 most recently used models; an evicted hash is evicted 
 `structured_values`, `measurement_refs`, `function_values`, `set_values`, `tensor_values`,
 `infinity_value`, `diagnostic_codes`, `schedule`, `final_time`, `metaobject_values`,
 `undetermined_value`, `performer`, `big_int_values`, `render_view`, `state_trace`,
-`action_trace`.
+`action_trace`, `render_document`, `render_document_html`, `render_document_asciidoc`,
+`render_document_file_name`.
 
 The `js` build installs one synchronous host surface, `globalThis.sysmlWasm`, with
 `version` and `call(method, paramsJSON)`. The call returns a JSON-RPC envelope string.

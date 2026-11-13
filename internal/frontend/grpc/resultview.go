@@ -9,6 +9,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docset"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
@@ -183,12 +184,12 @@ func constraintText(c *pb.Constraint) string {
 func queryResultForm(response *pb.RenderViewResponse, rendering *view.Rendering, form string) error {
 	document := docir.QueryResult(rendering)
 	var err error
-	switch form {
-	case renderFormMarkdown:
+	switch docset.Form(form) {
+	case docset.FormMarkdown:
 		response.Markdown, err = docrender.Markdown(document, docrender.MarkdownOptions{})
-	case renderFormHTML:
+	case docset.FormHTML:
 		response.Html, err = docrender.HTML(document, docrender.HTMLOptions{})
-	case renderFormAsciiDoc:
+	case docset.FormAsciiDoc:
 		response.Asciidoc, err = docrender.AsciiDoc(document, docrender.AsciiDocOptions{})
 	default:
 		return statusErrorf(connect.CodeInvalidArgument,

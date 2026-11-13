@@ -123,7 +123,7 @@ func (e *performances) terminateTargets(perf *actionFrame, s lower.Effect) ([]*a
 				pending, err := e.flow.beginPending(f.parent, s.Target)
 				return append(ongoing, pending...), err
 			}
-			latest, performed := f.subactions[s.Target]
+			latest, performed := f.subactions[f.refUnder(s.Target)]
 			ongoing := e.flow.ongoing(f, s.Target)
 			pending, err := e.flow.beginPending(f, s.Target)
 			if err != nil {
@@ -150,7 +150,7 @@ func (e *performances) terminateTargets(perf *actionFrame, s lower.Effect) ([]*a
 func (f *actionFrame) declaresAround(node ast.Node) bool {
 	name := ActionNodeName(node)
 	for ; f != nil; f = f.parent {
-		if slices.Contains(f.nodesNamed(name), node) {
+		if slices.Contains(NodesOf(f.nodesNamed(name)), node) {
 			return true
 		}
 	}
@@ -187,7 +187,7 @@ func (e *ActionExecutor) ongoing(parent *actionFrame, node ast.Node) []*actionFr
 			found = append(found, f)
 		}
 	}
-	add(parent.subactions[node], math.MaxInt64)
+	add(parent.subactions[parent.refUnder(node)], math.MaxInt64)
 	for _, state := range parent.repeats {
 		if state.node != node {
 			continue
@@ -219,7 +219,7 @@ func (e *ActionExecutor) beginPending(parent *actionFrame, node ast.Node) ([]*ac
 	}
 	var parked []int64
 	for _, token := range e.tokens {
-		if token.frame == parent && token.Location == node && token.body == nil {
+		if token.frame == parent && token.Node() == node && token.body == nil {
 			parked = append(parked, token.ID)
 		}
 	}
@@ -416,7 +416,7 @@ func (e *ActionExecutor) leaveTerminated(tokenIdx int, perf *actionFrame) error 
 	}
 	perf.live = 0
 	token.frame = perf.parent
-	token.Location = perf.node
+	token.Location = perf.ref()
 	token.Via = lower.ActionEdge{}
 	token.Wait = nil
 	token.repetition = perf.repetition

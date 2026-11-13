@@ -29,8 +29,9 @@ make build            # build bin/sysml and bin/sysml-lsp (with version ldflags)
 make build-sysml      # REPL binary only
 make build-lsp        # LSP binary only
 make test             # full suite: go test -race -coverprofile ... ./...
-make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-fixtures|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli)
+make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|codegen|translate|grpc|tools|rest|migrate|cli)
 make test-quick SHARDS="rest grpc"  # the same shards without -race, in turn: what a pull-request push runs
+make test-queue SHARDS="rest export-corpus"  # the merge queue's tier: -race, but the examples/ sweeps (scripts/race-shard.sh --sweeps) race-free over the construct-cover subset
 make test-short       # faster, no race detector
 make clean            # remove build artifacts
 ```
@@ -101,10 +102,10 @@ answers under `internal/ir/docplan/markup/testdata/`, and the `Installed` test t
 against the pinned converter — re-record them (`asciidoctor-json.js < x.adoc > x.json`) when either moves.
 
 The RDF mapping has a per-file ratchet of its own over every model under `examples/`, the
-downloaded corpora included: `TestCorpusRoundTrip` in `tests/corpus` converts each file
-notation → Turtle → notation → Turtle and pins the verdict. Run it with both require variables
-set after any change to `internal/translate/export`, adjudicate every movement, then regenerate with
-`-update-corpus-roundtrip`. See `docs/project/rdf-corpus-roundtrip.md`.
+downloaded corpora included: `TestExamplesSweep` in `tests/corpus` loads each file once, converts it
+notation → Turtle → notation → Turtle (and the same through `api-json`) and pins the verdicts. Run it with
+the require variables set after any change to `internal/translate/export`, adjudicate every movement,
+then regenerate with `-update-corpus-roundtrip` (`-update-api-json-roundtrip`). See `docs/project/rdf-corpus-roundtrip.md`.
 
 ---
 
@@ -189,9 +190,11 @@ Then update the compliance map: edit the area's source under `docs/project/spec-
    `REVIEW.md` and fix what it finds before pushing (§10).
 8. **Commit** using Conventional Commits (see §7). Keep PRs focused (one feature/fix each).
 9. **Open the PR ready for review** against `develop`. Every push runs the quick CI tier (the Go suite
-   without `-race`, the cheap gates, the clients whose paths changed) and must be green; the full tier
-   (`-race`, every corpus and solver gate, every client) runs in the merge queue, on the label `ci:full`,
-   and on its own when the diff touches a race-prone package (`scripts/ci-changed-areas.sh`). Address
+   without `-race`, the cheap gates, the clients whose paths changed) and must be green; the queue tier
+   (`-race` on every shard but the `examples/` sweeps, which run race-free over the construct-cover subset;
+   every corpus and solver gate, every client) runs in the merge queue, and the full tier (`-race` over
+   the whole corpus) on the label `ci:full`, on an unclaimed path and nightly over `develop`
+   (CONTRIBUTING.md, "GitHub Actions"). Address
    review findings as they arrive rather than waiting for CI. Merging is a maintainer's decision. A draft
    is only for work you do not yet want reviewed and has to be marked ready before it can be considered.
 
@@ -216,6 +219,11 @@ the full CI tier is expensive, so run them locally before the PR, every time the
    into `docs/project/pilot-differential.md` / `api-json-differential.md`, then re-record with
    `-update` and run `make docs-counts`. A library change that adds declarations always moves
    `pilotLibraryElements`; anything else moving is an implementation difference to explain.
+   The api-json record's figures (the scorecard headline, the per-root table and the figure
+   columns of its gap tables) are `<!-- doc-counts:begin apijson-… -->` blocks the site build
+   renders from the baseline (`go run -C tools ./cmd/pilot-apijson-diff -site-blocks`), so the
+   page is edited only for the adjudication; `TestRecordStatesTheBaselinesFigures` refuses a
+   figure typed into one.
 ### 6.2 Changing `internal/translate/export`: the api-json differential
 
 The api-json baseline is the directory `docs/project/api-json-differential/`: one fragment per
@@ -235,7 +243,8 @@ workflow's `apijson-differential` job runs `go run -C tools ./cmd/pilot-apijson-
 every change under the writer, the referee, the bridge, the pin or the baseline. Before pushing
 such a commit, run `go run -C tools ./cmd/pilot-apijson-diff` over the real corpus directories
 (`-check` to confirm the baseline reproduces); if a bucket moved, adjudicate it in
-`docs/project/api-json-differential.md`, re-record with `-update` and run `make docs-counts`.
+`docs/project/api-json-differential.md` (prose and the keyed rows of its gap tables; the figures
+render from the baseline when the site builds), re-record with `-update` and run `make docs-counts`.
 Never re-record a baseline whose figures did not move: its provenance lines change only on a pin
 bump, an errata change or an edit to a compared input.
 
