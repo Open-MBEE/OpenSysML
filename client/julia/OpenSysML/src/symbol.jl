@@ -182,13 +182,16 @@ function _near_names(model::Model, name::String)
     String[entry[2] for entry in Iterators.take(scored, 3)]
 end
 
-"""Find a model symbol by short name or qualified identifier."""
+"""
+Find a model symbol by short name or by the id it reports; an alias is found as the
+alias, where `get` resolves the name to the element it names.
+"""
 function find(model::Model, name::AbstractString)
     for r in model.roots
         (r.name == name || r.id == name) && return r
     end
     if occursin("::", name)
-        exact = get(model, name, nothing)
+        exact = get_symbol(model, name; by_reported_id=true)
         exact === nothing || return exact
     end
     if has_capability(model.connection, CAPABILITY_QUERY)
@@ -196,7 +199,7 @@ function find(model::Model, name::AbstractString)
                          where=Dict("@type" => "PrimitiveConstraint", "operator" => "=",
                                     "property" => "name", "value" => String(name)))
         for element in elements
-            info = get(model, element.id, nothing)
+            info = get_symbol(model, String(element.id); by_reported_id=true)
             info === nothing || return info
         end
     end
@@ -208,7 +211,7 @@ function find(model::Model, name::AbstractString)
         elements = query(model; select=[], where=Dict("@type" => "PrimitiveConstraint",
             "operator" => "=", "property" => "qualifiedName", "value" => String(name)))
         for element in elements
-            info = get(model, element.id, nothing)
+            info = get_symbol(model, String(element.id); by_reported_id=true)
             info === nothing || return info
         end
     end
