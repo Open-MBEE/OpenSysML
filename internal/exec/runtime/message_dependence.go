@@ -38,16 +38,38 @@ func (ctx *Context) channelsMeet(a, b *Instance) lower.ChannelsMeet {
 // whether they are two, run for two objects (two executors run for none hold
 // their own slots as two objects do), and which message operations meet.
 func (ctx *Context) relation(a, b clockWaiter) lower.Relation {
+	return ctx.relationBy(a, b, ctx.slotHolder)
+}
+
+func (ctx *Context) relationBy(a, b clockWaiter, holder func(clockWaiter, *symbols.Symbol) any) lower.Relation {
 	sa, sb := executorSelf(a), executorSelf(b)
 	rel := lower.Relation{Channels: ctx.channelsMeet(sa, sb), Apart: a != b}
 	if rel.Apart && (objectsApart(sa, sb) || sa == nil && sb == nil) {
 		rel.Objects = true
 		rel.Held = func(p, q lower.Place) bool {
-			x, y := ctx.slotHolder(a, p.Sym), ctx.slotHolder(b, q.Sym)
+			x, y := holder(a, p.Sym), holder(b, q.Sym)
 			return x != nil && y != nil && x != y
 		}
 	}
 	return rel
+}
+
+// slotHolders keeps answers only while an evaluation makes no move.
+func (ctx *Context) slotHolders() func(clockWaiter, *symbols.Symbol) any {
+	type key struct {
+		waiter clockWaiter
+		symbol *symbols.Symbol
+	}
+	held := make(map[key]any)
+	return func(w clockWaiter, sym *symbols.Symbol) any {
+		k := key{w, sym}
+		if holder, ok := held[k]; ok {
+			return holder
+		}
+		holder := ctx.slotHolder(w, sym)
+		held[k] = holder
+		return holder
+	}
 }
 
 // objectsApart reports whether a and b are two objects.
