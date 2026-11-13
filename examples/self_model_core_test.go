@@ -456,8 +456,20 @@ func TestSelfModelLandAChangeMatchesWorkflow(t *testing.T) {
 	if !strings.Contains(string(workflow), "'"+change.str("fullTierLabel")+"'") {
 		t.Errorf("quality.sysml says the label %q forces the full tier, pr.yml names no such label", change.str("fullTierLabel"))
 	}
-	if change.boolean("draftRunsQuickTier") != strings.Contains(string(workflow), "A draft pull request") {
-		t.Error("quality.sysml says a draft runs the quick tier; pr.yml does not say so")
+	decider, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(change.str("tierDecider"))))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(workflow), "run: "+change.str("tierDecider")+" ") {
+		t.Errorf("quality.sysml says %s decides the tier; pr.yml does not run it", change.str("tierDecider"))
+	}
+	queue := regexp.MustCompile(`(?m)^\s*merge_group\) tier=(\w+) ;;`).FindStringSubmatch(string(decider))
+	if queue == nil || queue[1] != change.str("mergeQueueTier") {
+		t.Errorf("quality.sysml says the merge queue runs the %q tier, the script %v", change.str("mergeQueueTier"), queue)
+	}
+	labelled := regexp.MustCompile(`CI_FULL_LABEL:-false}" = true .*then tier=(\w+); else tier=(\w+); fi`).FindStringSubmatch(string(decider))
+	if labelled == nil || labelled[1] != "full" || labelled[2] != change.str("pushTier") {
+		t.Errorf("quality.sysml says a push runs the %q tier and the label %q the full one, the script %v", change.str("pushTier"), change.str("fullTierLabel"), labelled)
 	}
 	guide, err := os.ReadFile(filepath.Join("..", "AGENTS.md"))
 	if err != nil {

@@ -312,14 +312,14 @@ package OpenSysMLGates {
         return attribute verdict : VerdictKind;
     }
 
-    // The whole suite under the race detector, as CircleCI runs it: one shard per package
-    // group of scripts/race-shard.sh, the runtime and tests/export split three ways by test name.
+    // The whole suite under the race detector, as CircleCI runs it: the package groups of
+    // scripts/race-shard.sh, the runtime and tests/export split by test name, light shards paired on a node.
     verification def RaceSuite {
         doc /* make test-shard SHARD=<shard> */
         attribute shardList : String = "scripts/race-shard.sh";
-        attribute shards : String = "runtime, runtime-corpus, runtime-exploration, model, export, export-corpus, export-settled, graph, codegen, tools, rest, migrate, cli";
-        attribute shardCount : Integer = 13;
-        attribute nodeCount : Integer = 12;
+        attribute shards : String = "runtime, runtime-corpus, runtime-exploration, model, smt, corpus, corpus-sweep, export, export-library, export-examples, export-corpus, graph, codegen, translate, grpc, tools, rest, migrate, cli";
+        attribute shardCount : Integer = 19;
+        attribute nodeCount : Integer = 16;
         subject runtime : Runtime;
         objective {
             verify executionIsBounded;
@@ -363,14 +363,16 @@ package OpenSysMLGates {
         subject runtime = opensysml.pipeline.runtime;
     }
 
-    // The contributor's loop: a branch cut from develop, a pull request opened ready for review
-    // against it, the full tier on every push and once more in the merge queue, a maintainer's merge.
+    // The contributor's loop: a branch cut from develop, a pull request opened ready for review against
+    // it, the quick tier on every push, the queue tier in the merge queue, the full on a label, a maintainer's merge.
     use case def LandAChange {
         attribute baseBranch : String = "develop";
         attribute opensReadyForReview : Boolean = true;
         attribute pullRequestEvents : String = "opened, synchronize, reopened, ready_for_review, labeled";
+        attribute tierDecider : String = "scripts/ci-changed-areas.sh";
+        attribute pushTier : String = "quick";
+        attribute mergeQueueTier : String = "queue";
         attribute fullTierLabel : String = "ci:full";
-        attribute draftRunsQuickTier : Boolean = true;
         attribute mergeQueueEvent : String = "merge_group";
         subject change : SourceUnit;
         actor contributor : Contributor;
@@ -437,6 +439,9 @@ package OpenSysMLCodebase {
         }
         part changes : Directory {
             attribute :>> path = "changes";
+        }
+        part deployment : Directory {
+            attribute :>> path = "deploy";
         }
     }
 
