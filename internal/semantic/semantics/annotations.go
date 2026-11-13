@@ -1708,7 +1708,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		return m.connectorRelatedFeatures(sym, feature), true
 	case "relatedElement", "source", "target":
 		if m.reflectiveMetaclassConforms(sym, "Association") {
-			return m.associationRelatedTypes(sym, feature), true
+			return m.AssociationRelatedTypes(sym, feature), true
 		}
 		return m.declaredRelationshipEnds(sym, feature)
 	case "ownedRelatedElement", "owningRelatedElement":
@@ -2115,9 +2115,9 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	return m.withDefaultMultiplicityMember(sym, members)
 }
 
-// associationRelatedTypes derives the Association::relatedType, sourceType and targetType that redefine
+// AssociationRelatedTypes derives the Association::relatedType, sourceType and targetType that redefine
 // relatedElement, source and target (KerML 8.3.4.4.2): its ends' types in order, the first the source.
-func (m *Model) associationRelatedTypes(sym *symbols.Symbol, feature string) []*symbols.Symbol {
+func (m *Model) AssociationRelatedTypes(sym *symbols.Symbol, feature string) []*symbols.Symbol {
 	related := []*symbols.Symbol{}
 	for _, end := range m.EndFeatures(sym) {
 		related = append(related, m.reflectiveFeatureTypes(end)...)
