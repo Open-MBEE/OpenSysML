@@ -19,6 +19,7 @@ func TestConnectorRelationshipEndsAreItsRelatedFeatures(t *testing.T) {
 			then done;
 			flow acquire.image to readout.image;
 			flow bare from acquire to readout;
+			flow mixed from acquire to readout.image;
 		}
 		state ts { entry; then idle; state idle; }
 	}`
@@ -42,12 +43,12 @@ func TestConnectorRelationshipEndsAreItsRelatedFeatures(t *testing.T) {
 			return strings.Join(out, " "), ok
 		}
 		observe := connectors("P::observe")
-		if len(observe) != 5 {
-			t.Fatalf("observe owns %d connectors, want 3 successions and 2 flows", len(observe))
+		if len(observe) != 6 {
+			t.Fatalf("observe owns %d connectors, want 3 successions and 3 flows", len(observe))
 		}
 		for i, want := range []struct{ related, source, target string }{
 			{"start acquire", "start", "acquire"}, {"acquire readout", "acquire", "readout"},
-			{"readout done", "readout", "done"}, {"acquire readout", "acquire", "readout"}, {"", "", ""},
+			{"readout done", "readout", "done"}, {"acquire readout", "acquire", "readout"}, {"", "", ""}, {"readout", "readout", ""},
 		} {
 			for property, w := range map[string]string{"relatedElement": want.related, "source": want.source, "target": want.target} {
 				if got, ok := names(observe[i], property); !ok || got != w {

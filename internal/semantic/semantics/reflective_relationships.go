@@ -587,9 +587,9 @@ func (m *Model) declaredRelationshipEnds(sym *symbols.Symbol, feature string) ([
 		return append(m.dependencyEnds(sym, dep.Clients), m.dependencyEnds(sym, dep.Suppliers)...), true
 	}
 	if m.reflectiveMetaclassConforms(sym, "Connector") {
-		// A first end that references nothing would shift the ends after it: no answer at all;
-		// ends none of which references anything (`flow from a to b`) relate nothing, as the pilot answers.
-		if ends := m.ConnectorRelatedFeaturesByEnd(sym); len(ends) > 0 && ends[0] == nil && anyReferenced(ends[1:]) {
+		// A connector's first end resolving to nothing leaves the ends unanswered; a flow's bare end references
+		// nothing by construction and drops out (`flow from a to b.y` relates b alone, its source), as the pilot derives.
+		if ends := m.ConnectorRelatedFeaturesByEnd(sym); len(ends) > 0 && ends[0] == nil && !isFlowUsage(sym) && anyReferenced(ends[1:]) {
 			return nil, false
 		}
 		return m.ReflectiveElements(sym, connectorEndRedefinition[feature])
@@ -605,6 +605,12 @@ func anyReferenced(ends []*symbols.Symbol) bool {
 		}
 	}
 	return false
+}
+
+// isFlowUsage reports a `flow` (not a message), whose ends may reference nothing.
+func isFlowUsage(sym *symbols.Symbol) bool {
+	kind, ok := sym.UsageKind()
+	return ok && kind == ast.UsageFlow && sym.Keyword() != "message"
 }
 
 // implicitRelationshipValue is what a reflected relationship object states for
