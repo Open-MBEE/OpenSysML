@@ -468,6 +468,19 @@ the pilot's `type` lists both, this writer the bound port's conjugate alone, the
 same gap as before. `ConjugatedPortTyping.type`, `.conjugatedPortDefinition` and `.portDefinition` (61 equal
 each) and `PortUsage.portDefinition`/`.definition` did not move. No other row moved.
 
+**A port's `input` and `output` are relative to the port** (re-recorded when the element properties began
+answering a port's directed features by `Type::directionOf`, KerML 1.1 §8.3.3.1.10: a feature the port owns
+keeps the direction it is declared with, and one it inherits is reversed once per conjugation on the way,
+through a port it subsets or redefines as through its own `ConjugatedPortTyping`, SysML v2.1 §8.3.12.3; a
+port typed `~P` had reversed the features it declares itself as well, and a port subsetting a conjugated one
+had reversed none): the `PortUsage.input` and `.output` rows of `ServerSequenceRealization-3` and
+`ServerSequenceOutsideRealization-3` in the pilot's Interaction Sequencing Examples, whose conjugated ports
+redeclare the features of their definition, move toward the pilot in both files alike — `input` 4 → 5 equal
+(1 → 0 different, 2 → 1 pilot-missing, 2 → 3 absent on both sides), `output` 2 → 4 equal (1 → 0 different,
+4 → 3 ours-missing): six rows newly equal, 2058396 → 2058402 present-equal, 144365 → 144361
+present-different overall. No other row moved; the `FlowEnd.input`/`.output` rows of the same files read as
+before.
+
 The scorecard is mostly **ours-missing**: this repository's writer emits a subset of the metamodel's properties, and the referee now measures which, per metaclass. The full ranked scorecard with one concrete example per differing row is `build/pilot-apijson-diff/pilot-apijson-diff.txt` after a run; the baseline keeps every row's seven counts.
 
 **A membership states its ends and its member's names** (re-recorded when the writer began stating
