@@ -328,7 +328,8 @@ func (m *Model) transitionSourceMember(sym *symbols.Symbol) (*symbols.Symbol, bo
 	if scope == nil {
 		scope = sym.Scope
 	}
-	source, ok := m.resolver.ResolveTarget(scope, trans.Source)
+	// The endpoint resolution, which reaches a vertex nested in a sibling state as the conversion's does.
+	source, ok := m.resolver.EndpointSymbol(scope, trans.Source)
 	return source, ok && source != nil
 }
 

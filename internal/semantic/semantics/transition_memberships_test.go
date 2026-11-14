@@ -17,6 +17,10 @@ func TestTransitionOwnsItsSourceMembershipAndLinkParameters(t *testing.T) {
         transition go first idle then busy;
         transition wake first busy accept Sig then idle;
         transition if true then idle;
+        state outer {
+            state nested;
+        }
+        transition deep first nested then busy;
     }
     state def T {
         state idle;
@@ -33,6 +37,11 @@ func TestTransitionOwnsItsSourceMembershipAndLinkParameters(t *testing.T) {
 		if got := ownedMemberKinds(m, nested(t, s, name)); got != want {
 			t.Errorf("%s owns %q, want %q", name, got, want)
 		}
+	}
+	if got := ownedMemberKinds(m, nested(t, s, "deep")); got != "Membership:StateUsage ParameterMembership:ReferenceUsage OwningMembership:SuccessionAsUsage" {
+		t.Errorf("deep owns %q, want the Membership of the nested source first", got)
+	} else if source := ownedMembers(m, nested(t, s, "deep"))[0]; source.Name != "nested" {
+		t.Errorf("deep's source member = %q, want nested", source.Name)
 	}
 	var guarded, stateBody []string
 	for _, rel := range m.OwnedRelationships(nested(t, sym(t, root, "P").Scope, "S")) {
