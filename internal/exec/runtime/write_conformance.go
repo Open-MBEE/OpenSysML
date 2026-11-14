@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -670,24 +671,21 @@ func (ctx *Context) shapeRefusal(value Value, declared *symbols.Symbol) string {
 // value: its own, or the one it takes from what it redefines. Reports false for
 // a feature stating none, or one only evaluation settles.
 func (ctx *Context) constantIntegers(member, owner *symbols.Symbol) ([]int64, bool) {
-	value := ctx.extractDefaultValue(member)
-	if value == nil {
-		value, _ = ctx.redefinedDefault(member, owner)
-	}
-	if value == nil {
+	value, ok := ctx.loweredDefault(member, owner)
+	if !ok {
 		return nil, false
 	}
-	var elements []ast.Node
-	switch n := value.(type) {
-	case *ast.NullExpr:
-	case *ast.SequenceExpr:
-		elements = n.Elements
+	var elements []*lower.ExprEntry
+	switch value.expr().Kind {
+	case program.ExprNull:
+	case program.ExprSequence:
+		elements = value.entry.Operands
 	default:
-		elements = []ast.Node{value}
+		elements = []*lower.ExprEntry{value.entry}
 	}
 	out := make([]int64, 0, len(elements))
 	for _, e := range elements {
-		c, ok := ctx.model.semantics.EvalWithin(e, ctx.maxIntegerBits)
+		c, ok := e.Folded(ctx.model.semantics, ctx.maxIntegerBits)
 		if !ok {
 			return nil, false
 		}

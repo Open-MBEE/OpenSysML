@@ -72,11 +72,11 @@ func (ec *EvalContext) evalSubactionPath(perf *actionFrame, parts []ast.NameSegm
 
 // declaredElements types a read yielding no element by the quantity dimension it declares
 // (KerML 8.4.4.9), in that dimension's coherent unit, so an aggregate of it keeps the kind.
-func (ec *EvalContext) declaredElements(node ast.Node, val Value, err error) (Value, error) {
+func (ec *EvalContext) declaredElements(x lowered, val Value, err error) (Value, error) {
 	if err != nil || !isEmptyValue(val) {
 		return val, err
 	}
-	if typed, ok := ec.ctx.emptyOfDeclared(ec.scope, node); ok {
+	if typed, ok := ec.ctx.emptyOfDeclared(ec.scope, x); ok {
 		return typed, nil
 	}
 	return val, nil
@@ -84,20 +84,20 @@ func (ec *EvalContext) declaredElements(node ast.Node, val Value, err error) (Va
 
 // emptyOfDeclared is the empty sequence of the quantities an expression is declared to yield, in
 // their coherent unit; false where the declarations fix no dimension or a dimensionless one.
-func (ctx *Context) emptyOfDeclared(scope *symbols.Scope, node ast.Node) (Value, bool) {
+func (ctx *Context) emptyOfDeclared(scope *symbols.Scope, x lowered) (Value, bool) {
 	if ctx.model.semantics == nil || scope == nil {
 		return Value{}, false
 	}
-	return ctx.emptyOfDimension(ctx.model.semantics.DimensionOfExpr(scope, node))
+	return ctx.emptyOfDimension(x.entry.Dimension(ctx.model.semantics, scope))
 }
 
 // declaredCount is how many values an expression holds wherever it is evaluated,
 // as far as the declarations it reads fix that: `[0..*]` where they leave it open.
-func (ec *EvalContext) declaredCount(scope *symbols.Scope, node ast.Node) semantics.Range {
+func (ec *EvalContext) declaredCount(scope *symbols.Scope, x lowered) semantics.Range {
 	if ec.ctx.model.semantics == nil || scope == nil {
 		return openRange()
 	}
-	if count, ok := ec.ctx.model.semantics.ValuesHeldBy(scope, node); ok {
+	if count, ok := x.entry.Held(ec.ctx.model.semantics, scope); ok {
 		return count
 	}
 	return openRange()

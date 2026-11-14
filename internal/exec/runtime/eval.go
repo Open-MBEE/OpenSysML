@@ -377,10 +377,10 @@ func (ec *EvalContext) eval(x lowered) (Value, error) {
 		return Value{Kind: ValNull}, nil
 	case program.ExprRef:
 		val, err := ec.evalRef(x)
-		return ec.declaredElements(x.tree(), val, err)
+		return ec.declaredElements(x, val, err)
 	case program.ExprChain:
 		val, err := ec.evalFeatureChain(x)
-		return ec.declaredElements(x.tree(), val, err)
+		return ec.declaredElements(x, val, err)
 	case program.ExprOp:
 		return ec.evalOperator(x)
 	case program.ExprSequence:
@@ -1104,7 +1104,7 @@ var unimplementedOperators = map[program.Operator]string{
 // an operand that depends on a parameter does not make the operator fail.
 func (ec *EvalContext) evalOperator(x lowered) (Value, error) {
 	// Try constant folding first
-	if semVal, ok := ec.ctx.model.semantics.EvalWithin(x.operator(), ec.ctx.maxIntegerBits); ok {
+	if semVal, ok := x.entry.Folded(ec.ctx.model.semantics, ec.ctx.maxIntegerBits); ok {
 		return Value{Kind: ValConst, Const: semVal}, nil
 	}
 
@@ -1358,12 +1358,11 @@ func (ctx *Context) scalarValueType(scope *symbols.Scope, value Value) (*symbols
 // annotation or its own metaclass — conforms to T) through the semantic model, so the
 // verdict is the one an element filter writing the same test reaches.
 func (ec *EvalContext) evalClassification(x lowered) (Value, error) {
-	n := x.operator()
 	elem, err := ec.classifiedElement(x)
 	if err != nil {
 		return Value{}, err
 	}
-	classified, err := ec.ctx.model.semantics.EvalClassification(ec.scope, n, elem)
+	classified, err := x.entry.Classifies(ec.ctx.model.semantics, ec.scope, elem)
 	if err != nil {
 		return Value{}, err
 	}
@@ -1447,7 +1446,7 @@ func (ec *EvalContext) evalConditional(x lowered) (Value, error) {
 		if err := ec.ctx.openBoolOperand("condition of 'if'", cond); err != nil {
 			return Value{}, err
 		}
-		count := ec.declaredCount(ec.scope, x.arg(1).tree()).Covering(ec.declaredCount(ec.scope, x.arg(2).tree()))
+		count := ec.declaredCount(ec.scope, x.arg(1)).Covering(ec.declaredCount(ec.scope, x.arg(2)))
 		return undeterminedOf(count, cond), nil
 	}
 	held, err := boolOperand("condition of 'if'", cond)
@@ -1471,7 +1470,7 @@ func (ec *EvalContext) evalNullCoalesce(x lowered) (Value, error) {
 		return Value{}, err
 	}
 	second := func() (Value, error) { return ec.evalHeldExpr(x.arg(1)) }
-	return coalesceNull(left, second, ec.declaredCount(ec.scope, x.arg(1).tree()))
+	return coalesceNull(left, second, ec.declaredCount(ec.scope, x.arg(1)))
 }
 
 // coalesceNull is `??` over an evaluated first operand: the operand unless it

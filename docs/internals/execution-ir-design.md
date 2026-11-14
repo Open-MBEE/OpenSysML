@@ -161,7 +161,7 @@ graph. No cache of lowered graphs exists anywhere: every entry point above re-lo
 | `eval.go` | 2 | `invocationKey.node *ast.InvocationExpr` (cache key), `writtenArgument.expr` |
 | `executor_common.go` | 1 | `Token.Location ast.Node` |
 | `shape.go` | 1 | `EffectiveFeature.DefaultValue ast.Node` |
-| `errors.go` | 1 | `NoValueError.Ref *ast.QualifiedName` |
+| `errors.go` | 0 | `NoValueError.Ref *ast.QualifiedName` is gone: the error carries the feature's `Symbol` |
 
 Pointer identity is compared directly at `action_executor.go:137` (breakpoints),
 `state_executor.go:2815,2918` (transition source matching), `check_moves.go:110`,
@@ -216,6 +216,7 @@ to move into lowering.
 | `invocationKey.node *ast.InvocationExpr` | cache the resolved callee per call site | id | key by `ExprID` |
 | `calcShape{Nodes, ResultExpr}` and its lowering in `invoke_calc.go` | the calc's parameters, steps and result | smell (lowering in the wrong layer; named by the roadmap) | `lower.CalcBody` grows into `lower.ToCalc` returning an IR `Calc`; the runtime memoizes by symbol as now |
 | every expression payload (44 fields in `lower`, `Condition.Expr`, `Objective.Value`, `actionInvocation.args/named/expr`, `messageArgs`, `valueSource.expr`, `writtenArgument.expr`, `SatisfyAssertion.SubjectChain`, `passedReference.ref`) | evaluate | expression | `ExprID` into the graph's expression table; `eval` and `compile` switch on `ExprKind`. Each `lower` graph carries its table as `Exprs` and each payload field its id beside the tree (`Guard`/`GuardID`), the runtime's own payloads theirs in the model's table; the runtime evaluates the id, and the tree fields go in step 8 |
+| the semantic questions asked of an expression's syntax: `EvalWithin`, `DimensionOfExpr`, `ValuesHeldBy`, `EvalClassification`, `UnitOfExpr` (ten call sites, `Context.UnitOf` among them) | constant fold, declared dimension and count, classification verdict, unit of a quantity | expression | asked of the lowered record: `lower.ExprEntry.Folded/Dimension/Held/Classifies/Unit` take the semantic model and the scope to read in, and answer from the syntax the record keeps until step 8; the runtime passes no tree to the semantic layer |
 | `ExpressionParser func(origin, text string) (ast.Node, bool)` | parse notation text handed to a run | seam | the seam returns a lowered expression: `func(origin, text string, scope *symbols.Scope) (*lower.ExprTable, program.ExprID, bool)`, the table-and-id shape every lowered expression has, read in the scope the run names; the installer (frontend/workspace) parses *and* lowers with `lower.ExpressionReader`, so parsing and lowering both stay out of `exec` |
 | `lower`'s 56 exported AST-signature helpers (`DeclaresNodeFeature`, `SendPayload`, `IsCaseNode`, `ClassifierBehaviorOf`, `StartShot`, …) | used by `check/passes`, `ir/view`, `tools` on declarations | not on the runtime path | unchanged; `lower` stays the one package that reads both the tree and the IR |
 

@@ -1252,7 +1252,8 @@ func (ec *EvalContext) emptyMapping(val Value) Value {
 	if env.scope == nil {
 		return sequenceOf(nil)
 	}
-	if typed, ok := ec.ctx.emptyOfDeclared(symbols.BodyExprScope(env.scope, body), body.Result); ok {
+	within := symbols.BodyExprScope(env.scope, body)
+	if typed, ok := ec.ctx.emptyOfDeclared(within, ec.ctx.model.loweredExpr(within, body.Result)); ok {
 		return typed
 	}
 	return sequenceOf(nil)
