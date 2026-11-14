@@ -124,10 +124,8 @@ CAPABILITY_SYMBOL_MEMBERS = "symbol_members"
 #: reads every id as one it reported, so the name of a declaration is all it finds.
 CAPABILITY_SYMBOL_NAME_RESOLUTION = "symbol_name_resolution"
 
-#: ``GetSymbolRequest.member_of`` honoured: a symbol fetched as a member of a
-#: type reports ``metadata["direction"]`` relative to that type, so a feature
-#: listed through a conjugated port reads reversed. Without it the member
-#: carries the direction it is declared with.
+#: ``GetSymbolRequest.member_of`` honoured: ``metadata["direction"]`` is relative
+#: to the type the symbol is read through, reversed through a conjugated port.
 CAPABILITY_SYMBOL_MEMBER_DIRECTION = "symbol_member_direction"
 
 #: The ``GetElementProperties`` RPC: the metamodel properties of one element by
