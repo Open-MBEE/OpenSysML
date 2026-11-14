@@ -1,0 +1,12 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "Inclusion::Whole::shared",
+	"expected_kind": "useCaseUsage",
+	"expected_specializations": [
+		{
+			"kind": "references",
+			"declared": "shared",
+			"target_id": "Inclusion::shared"
+		}
+	]
+}

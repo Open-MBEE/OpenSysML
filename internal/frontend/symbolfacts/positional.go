@@ -207,7 +207,10 @@ func (sc *Context) LookupID(id string) []*symbols.Symbol {
 	if len(found) > 0 {
 		return found
 	}
-	return sc.formElements(id)
+	if syms := sc.formElements(id); len(syms) > 0 {
+		return syms
+	}
+	return sc.composedEnds(id)
 }
 
 // LookupMember is Lookup, with a name no declaration answers to walked as a
@@ -268,6 +271,15 @@ func (sc *Context) ResolveMemberName(name string) []*symbols.Symbol {
 	return sc.positionallyNamed(name)
 }
 
+// generated finds the element an id no name spells denotes: a positional id, else an unnamed
+// connector end's element id.
+func (sc *Context) generated(id string) []*symbols.Symbol {
+	if syms := sc.unnamed(id); len(syms) > 0 {
+		return syms
+	}
+	return sc.unnamedEnds(id)
+}
+
 // declaredPublic finds the members id is the declared qualified name of whose own membership is
 // public: an id the service reports, never a name an import (filtered or not) only re-exports.
 func (sc *Context) declaredPublic(id string) []*symbols.Symbol {
@@ -284,10 +296,10 @@ func (sc *Context) declaredPublic(id string) []*symbols.Symbol {
 	return declared
 }
 
-// reported finds the element an id names once no name answers to it: the positional one,
+// reported finds the element an id names once no name answers to it: the generated one,
 // else the one the element form writes under it.
 func (sc *Context) reported(id string) []*symbols.Symbol {
-	if syms := sc.unnamed(id); len(syms) > 0 {
+	if syms := sc.generated(id); len(syms) > 0 {
 		return syms
 	}
 	return sc.formElements(id)

@@ -55,6 +55,8 @@ pub const CAPABILITY_SYMBOL_ATTRIBUTES: &str = "symbol_attributes";
 pub const CAPABILITY_SYMBOL_MEMBERS: &str = "symbol_members";
 /// `GetSymbolRequest.resolve_name` honoured; without it every id is read as one the service reported.
 pub const CAPABILITY_SYMBOL_NAME_RESOLUTION: &str = "symbol_name_resolution";
+/// Populated `SymbolInfo.annotating_metadata_ids`: the metadata usages annotating a symbol.
+pub const CAPABILITY_SYMBOL_ANNOTATING_METADATA: &str = "symbol_annotating_metadata";
 /// The `lookup` of `GetSymbolRequest` and `GetElementPropertiesRequest` honoured: a name read
 /// only as a name, an id only as an id.
 pub const CAPABILITY_SYMBOL_LOOKUP_KIND: &str = "symbol_lookup_kind";

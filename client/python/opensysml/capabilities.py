@@ -124,6 +124,10 @@ CAPABILITY_SYMBOL_MEMBERS = "symbol_members"
 #: reads every id as one it reported, so the name of a declaration is all it finds.
 CAPABILITY_SYMBOL_NAME_RESOLUTION = "symbol_name_resolution"
 
+#: Populated ``SymbolInfo.annotating_metadata_ids``, the metadata usages
+#: annotating a symbol; without it an annotated element reports none.
+CAPABILITY_SYMBOL_ANNOTATING_METADATA = "symbol_annotating_metadata"
+
 #: The ``lookup`` of ``GetSymbolRequest`` and ``GetElementPropertiesRequest`` honoured:
 #: a qualified name read only as a name, an element id only as an id. Without it one
 #: string is read name first, so a name declared like a generated id shadows that element.

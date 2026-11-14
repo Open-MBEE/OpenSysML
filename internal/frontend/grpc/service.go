@@ -158,6 +158,10 @@ const CapabilitySymbolMembers = "symbol_members"
 // without it symbol_id is read as an id the service reported, as a service predating the field reads it.
 const CapabilitySymbolNameResolution = "symbol_name_resolution"
 
+// CapabilitySymbolAnnotatingMetadata names the capability of populating
+// SymbolInfo.annotating_metadata_ids, the metadata usages annotating the element.
+const CapabilitySymbolAnnotatingMetadata = "symbol_annotating_metadata"
+
 // CapabilitySymbolLookupKind names the capability of honouring the lookup of GetSymbolRequest and
 // GetElementPropertiesRequest: a qualified name read only as a name, an element id only as an id.
 const CapabilitySymbolLookupKind = "symbol_lookup_kind"
@@ -446,6 +450,7 @@ var capabilities = []string{
 	CapabilityInlineDocumentQuery,
 	CapabilitySymbolNameResolution,
 	CapabilityRenderViewForm,
+	CapabilitySymbolAnnotatingMetadata,
 	CapabilitySymbolLookupKind,
 }
 

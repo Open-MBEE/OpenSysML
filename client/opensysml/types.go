@@ -28,6 +28,7 @@ const (
 	CapabilityInstancePaths                  = sysmlgrpc.CapabilityInstancePaths
 	CapabilitySymbolMembers                  = sysmlgrpc.CapabilitySymbolMembers
 	CapabilitySymbolNameResolution           = sysmlgrpc.CapabilitySymbolNameResolution
+	CapabilitySymbolAnnotatingMetadata       = sysmlgrpc.CapabilitySymbolAnnotatingMetadata
 	CapabilitySymbolLookupKind               = sysmlgrpc.CapabilitySymbolLookupKind
 	CapabilityImportData                     = sysmlgrpc.CapabilityImportData
 	CapabilityCompareResults                 = sysmlgrpc.CapabilityCompareResults
@@ -162,7 +163,8 @@ type Symbol struct {
 	// the direction written on the feature (the derived Feature::direction is
 	// ElementProperties' "direction"), plus "multiplicity", "abstract", ….
 	Metadata map[string]string
-	// ChildIDs are the fully qualified names of the element's children.
+	// ChildIDs are the ids of the element's owned members, each one LookupSymbol
+	// takes: a qualified name, a positional id, or an unnamed connector end's element id.
 	ChildIDs []string
 	// Attributes of the element, absent without the symbol_attributes
 	// capability.
@@ -186,6 +188,9 @@ type Symbol struct {
 	// WithheldLibraryMembers counts members inherited from standard-library
 	// content, which Members leaves out.
 	WithheldLibraryMembers int
+	// AnnotatingMetadataIDs name the metadata usages annotating the element: its
+	// own prefix and body ones, then those naming it with `about` elsewhere.
+	AnnotatingMetadataIDs []string
 }
 
 // SymbolMember is one member of a symbol, own or inherited.

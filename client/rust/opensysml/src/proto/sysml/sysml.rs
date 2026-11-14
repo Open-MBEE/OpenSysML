@@ -2568,7 +2568,8 @@ pub struct SymbolInfo {
     /// "variation", "variant" and the like.
     #[prost(map="string, string", tag="4")]
     pub metadata: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
-    /// References to children
+    /// The owned members' ids, each one GetSymbol takes: a qualified name, a positional id (`Owner::@3`), or an unnamed
+    /// connector end's GetElementProperties element id (`Owner__c_pend0`), which a declaration so named answers instead.
     #[prost(string, repeated, tag="5")]
     pub child_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="6")]
@@ -2604,6 +2605,10 @@ pub struct SymbolInfo {
     /// Members inherited from standard-library content that `members` leaves out.
     #[prost(int32, tag="12")]
     pub withheld_library_members: i32,
+    /// Ids of the metadata usages annotating the element: its own prefix and body
+    /// ones, then the `about` ones written elsewhere, which child_ids leaves out.
+    #[prost(string, repeated, tag="13")]
+    pub annotating_metadata_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// MemberInfo is one member of an element, own or inherited.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -2637,7 +2642,8 @@ pub struct Specialization {
     /// The target as written in the source ("Engine", "Demo::Engine").
     #[prost(string, tag="2")]
     pub declared: ::prost::alloc::string::String,
-    /// FQN of the resolved target; empty when the name does not resolve.
+    /// FQN of the resolved target; empty when the name does not resolve. A "references" feature chain
+    /// (`x.p`) is one entry per chaining feature, in chain order, each with the chain as `declared`.
     #[prost(string, tag="3")]
     pub target_id: ::prost::alloc::string::String,
     /// Symbol kind of the resolved target ("partDef", ...); empty when unresolved.

@@ -25,6 +25,9 @@ type transitionParts struct {
 	// linkParameters are the `in` ReferenceUsages a `transition` owns through a ParameterMembership
 	// each, ahead of its trigger: one, and a second when it declares a trigger (EmptyParameterMember).
 	linkParameters []*symbols.Symbol
+	// transitionLink is the ReferenceUsage every transition with a target owns last, through a
+	// FeatureMembership after its succession, as the pilot exports it.
+	transitionLink *symbols.Symbol
 }
 
 // acceptParameters are the payload and receiver parameters of the trigger accept sym, in that
@@ -74,6 +77,10 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 		// Its two ends (SuccessionEndMembers) are members of a scope of its own, owned by it.
 		parts.succession.Scope = symbols.NewScope(sym.OwnerScope, sym.Decl)
 		parts.succession.Scope.SetOwner(parts.succession)
+		link := &ast.Usage{IsReference: true}
+		// It spans the transition's end, so it sorts after every member the transition owns.
+		link.NodeSpan = source.Span{Offset: sym.Decl.Span().End()}
+		parts.transitionLink = transitionPart(sym, link, link.NodeSpan, symbols.SymbolReferenceUsage, sym, symbols.ExpressionTransitionLink)
 	}
 	trans, ok := transitionDecl(sym)
 	if !ok {
@@ -231,7 +238,7 @@ func (m *Model) transitionMembers(sym *symbols.Symbol) []*symbols.Symbol {
 		return nil
 	}
 	var out []*symbols.Symbol
-	for _, part := range append(append([]*symbols.Symbol{}, parts.linkParameters...), parts.accepter, parts.guard, parts.succession) {
+	for _, part := range append(append([]*symbols.Symbol{}, parts.linkParameters...), parts.accepter, parts.guard, parts.succession, parts.transitionLink) {
 		if part != nil {
 			out = append(out, part)
 		}

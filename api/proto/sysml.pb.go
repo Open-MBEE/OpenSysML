@@ -10019,9 +10019,11 @@ type SymbolInfo struct {
 	// "direction" (the direction written on the feature; the derived
 	// Feature::direction is GetElementProperties' `direction`), "abstract",
 	// "variation", "variant" and the like.
-	Metadata   map[string]string `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	ChildIds   []string          `protobuf:"bytes,5,rep,name=child_ids,json=childIds,proto3" json:"child_ids,omitempty"` // References to children
-	Attributes []*AttributeInfo  `protobuf:"bytes,6,rep,name=attributes,proto3" json:"attributes,omitempty"`
+	Metadata map[string]string `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// The owned members' ids, each one GetSymbol takes: a qualified name, a positional id (`Owner::@3`), or an unnamed
+	// connector end's GetElementProperties element id (`Owner__c_pend0`), which a declaration so named answers instead.
+	ChildIds   []string         `protobuf:"bytes,5,rep,name=child_ids,json=childIds,proto3" json:"child_ids,omitempty"`
+	Attributes []*AttributeInfo `protobuf:"bytes,6,rep,name=attributes,proto3" json:"attributes,omitempty"`
 	// Static type facts; unset when the element is not a def/usage. `declared`
 	// is the written typing and `types` the derived Feature::type, the `type`
 	// property of GetElementProperties.
@@ -10047,8 +10049,11 @@ type SymbolInfo struct {
 	Members []*MemberInfo `protobuf:"bytes,11,rep,name=members,proto3" json:"members,omitempty"`
 	// Members inherited from standard-library content that `members` leaves out.
 	WithheldLibraryMembers int32 `protobuf:"varint,12,opt,name=withheld_library_members,json=withheldLibraryMembers,proto3" json:"withheld_library_members,omitempty"`
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	// Ids of the metadata usages annotating the element: its own prefix and body
+	// ones, then the `about` ones written elsewhere, which child_ids leaves out.
+	AnnotatingMetadataIds []string `protobuf:"bytes,13,rep,name=annotating_metadata_ids,json=annotatingMetadataIds,proto3" json:"annotating_metadata_ids,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *SymbolInfo) Reset() {
@@ -10165,6 +10170,13 @@ func (x *SymbolInfo) GetWithheldLibraryMembers() int32 {
 	return 0
 }
 
+func (x *SymbolInfo) GetAnnotatingMetadataIds() []string {
+	if x != nil {
+		return x.AnnotatingMetadataIds
+	}
+	return nil
+}
+
 // MemberInfo is one member of an element, own or inherited.
 type MemberInfo struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -10264,7 +10276,8 @@ type Specialization struct {
 	Kind string `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
 	// The target as written in the source ("Engine", "Demo::Engine").
 	Declared string `protobuf:"bytes,2,opt,name=declared,proto3" json:"declared,omitempty"`
-	// FQN of the resolved target; empty when the name does not resolve.
+	// FQN of the resolved target; empty when the name does not resolve. A "references" feature chain
+	// (`x.p`) is one entry per chaining feature, in chain order, each with the chain as `declared`.
 	TargetId string `protobuf:"bytes,3,opt,name=target_id,json=targetId,proto3" json:"target_id,omitempty"`
 	// Symbol kind of the resolved target ("partDef", ...); empty when unresolved.
 	TargetKind    string `protobuf:"bytes,4,opt,name=target_kind,json=targetKind,proto3" json:"target_kind,omitempty"`
@@ -19945,7 +19958,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\x06length\x18\x04 \x01(\x05R\x06length\x12\x19\n" +
 	"\bold_text\x18\x05 \x01(\tR\aoldText\x12\x19\n" +
 	"\bnew_text\x18\x06 \x01(\tR\anewText\x12\x1a\n" +
-	"\bdocument\x18\a \x01(\tR\bdocument\"\xe4\x04\n" +
+	"\bdocument\x18\a \x01(\tR\bdocument\"\x9c\x05\n" +
 	"\n" +
 	"SymbolInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
@@ -19962,7 +19975,8 @@ const file_sysml_proto_rawDesc = "" +
 	"\x1bwithheld_library_attributes\x18\n" +
 	" \x01(\x05R\x19withheldLibraryAttributes\x12+\n" +
 	"\amembers\x18\v \x03(\v2\x11.sysml.MemberInfoR\amembers\x128\n" +
-	"\x18withheld_library_members\x18\f \x01(\x05R\x16withheldLibraryMembers\x1a;\n" +
+	"\x18withheld_library_members\x18\f \x01(\x05R\x16withheldLibraryMembers\x126\n" +
+	"\x17annotating_metadata_ids\x18\r \x03(\tR\x15annotatingMetadataIds\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xa3\x01\n" +

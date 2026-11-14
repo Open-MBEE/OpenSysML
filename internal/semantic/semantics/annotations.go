@@ -633,9 +633,14 @@ func (m *Model) annotationsAbout() map[*symbols.Symbol][]annotation {
 		m.aboutShared.once.Do(func() {
 			m.buildAbout()
 			m.aboutShared.annots, m.aboutShared.byDecl, m.aboutShared.order = m.aboutAnnots, m.aboutByDecl, m.aboutOrder
+			m.aboutShared.usages = m.aboutUsages
 		})
 		m.aboutAnnots, m.aboutByDecl, m.aboutOrder = m.aboutShared.annots, m.aboutShared.byDecl, m.aboutShared.order
-	}, func() { m.aboutAnnots, m.aboutByDecl, m.aboutOrder, m.aboutShared = nil, nil, nil, nil })
+		m.aboutUsages = m.aboutShared.usages
+	}, func() {
+		m.aboutAnnots, m.aboutByDecl, m.aboutOrder, m.aboutShared = nil, nil, nil, nil
+		m.aboutUsages = aboutUsages{}
+	})
 	return m.aboutAnnots
 }
 
@@ -649,6 +654,7 @@ func (m *Model) buildAbout() {
 	defer func() { m.aboutBuilding = false }()
 	m.aboutAnnots = make(map[*symbols.Symbol][]annotation)
 	m.aboutByDecl = make(map[ast.Node][]annotation)
+	m.aboutUsages = aboutUsages{bySym: make(map[*symbols.Symbol][]*symbols.Symbol), byDecl: make(map[ast.Node][]*symbols.Symbol)}
 	gathers := m.gathers()
 	for _, doc := range m.gatheredDocs() {
 		for _, sym := range gathers[doc].about {
@@ -664,6 +670,7 @@ type AboutIndex struct {
 	annots map[*symbols.Symbol][]annotation
 	byDecl map[ast.Node][]annotation
 	order  []*symbols.Symbol
+	usages aboutUsages
 }
 
 // NewAboutIndex is an about index no model has built yet.
@@ -679,11 +686,17 @@ func (m *Model) ShareAbout(shared *AboutIndex) {
 	}
 	m.aboutShared = shared
 	m.aboutAnnots, m.aboutByDecl, m.aboutOrder = nil, nil, nil
+	m.aboutUsages = aboutUsages{}
 }
 
 // indexAboutUsage records one `about` metadata usage against every element it
 // annotates.
 func (m *Model) indexAboutUsage(sym *symbols.Symbol) {
+	if sym.Kind == symbols.SymbolMetadataUsage {
+		for _, target := range m.aboutTargets(sym) {
+			m.aboutUsages.add(target, sym)
+		}
+	}
 	if sym.Recorded() {
 		m.indexRecordedAboutUsage(sym)
 		return
@@ -730,6 +743,32 @@ func (m *Model) indexAbout(a annotation, targets []aboutTarget) {
 			m.aboutByDecl[target.sym.Decl] = append(m.aboutByDecl[target.sym.Decl], a)
 		}
 	}
+}
+
+// aboutUsages keys the `about` metadata usages by the element each annotates
+// and by its declaration, whether or not the usage's type resolves.
+type aboutUsages struct {
+	bySym  map[*symbols.Symbol][]*symbols.Symbol
+	byDecl map[ast.Node][]*symbols.Symbol
+}
+
+// add files usage as annotating target, once; an unresolved target is nil.
+func (u aboutUsages) add(target, usage *symbols.Symbol) {
+	if target == nil || slices.Contains(u.bySym[target], usage) {
+		return
+	}
+	u.bySym[target] = append(u.bySym[target], usage)
+	if target.Decl != nil && !slices.Contains(u.byDecl[target.Decl], usage) {
+		u.byDecl[target.Decl] = append(u.byDecl[target.Decl], usage)
+	}
+}
+
+// of is the usages annotating sym, gathered per declaration as aboutAnnotations is.
+func (u aboutUsages) of(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym.Decl != nil {
+		return u.byDecl[sym.Decl]
+	}
+	return u.bySym[sym]
 }
 
 // aboutTarget is one element an `about` clause names, with the namespace the

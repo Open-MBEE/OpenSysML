@@ -338,7 +338,7 @@ func (c *Core) getSymbol(req *JGetSymbolRequest) ([]byte, error) {
 		return nil, jsonrpc.Errorf(jsonrpc.CodeNotFound, msgModelNotFound, req.ModelHash)
 	}
 	sc := model.symbolContext()
-	lookup := sc.Lookup
+	lookup := sc.LookupElement
 	switch req.Lookup {
 	case "LOOKUP_KIND_QUALIFIED_NAME":
 		lookup = sc.ResolveName
@@ -425,6 +425,7 @@ func symbolInfo(info *symbolfacts.Info) *JSymbolInfo {
 		ChildIds:                  info.ChildIds,
 		WithheldLibraryAttributes: info.WithheldLibraryAttributes,
 		WithheldLibraryMembers:    info.WithheldLibraryMembers,
+		AnnotatingMetadataIds:     info.AnnotatingMetadataIds,
 	}
 	for _, member := range info.Members {
 		out.Members = append(out.Members, &JMemberInfo{
