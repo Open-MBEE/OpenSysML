@@ -31,6 +31,16 @@ func PrepareModel(documents []ModelDocument) *PreparedModel {
 // ToRDF writes selected documents, or all when selection is empty, into a fresh graph.
 // Unselected declarations still resolve references and participate in identity checks.
 func (p *PreparedModel) ToRDF(selection []string, form IDForm) (*rdf.Graph, error) {
+	return p.graph(selection, form, nameInheritedLibraryMembers)
+}
+
+// ElementGraph is ToRDF for a graph only the element form is written from, as
+// ModelElementGraphWith is ModelToRDFWith.
+func (p *PreparedModel) ElementGraph(selection []string, form IDForm) (*rdf.Graph, error) {
+	return p.graph(selection, form, addLinkedLibraryStubs)
+}
+
+func (p *PreparedModel) graph(selection []string, form IDForm, nameLibrary func(*rdf.Graph)) (*rdf.Graph, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	documents := slices.Clone(p.documents)
@@ -49,6 +59,6 @@ func (p *PreparedModel) ToRDF(selection []string, form IDForm) (*rdf.Graph, erro
 	if err != nil {
 		return nil, err
 	}
-	graph, _, _, err := encodeModelDocuments(documents, res, encoders)
+	graph, _, _, err := encodeModelDocuments(documents, res, encoders, nameLibrary)
 	return graph, err
 }

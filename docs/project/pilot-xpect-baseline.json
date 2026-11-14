@@ -1,11 +1,11 @@
 {
-  "pilot": "2026-09",
+  "pilot": "2026-09.1",
   "corpus": "build/pilot-xpect-corpus",
   "library": "the suite's own /library* copies, loaded per fixture as its XPECT_SETUP declares them",
   "provenance": {
-    "pilotTag": "2026-09",
-    "pilotCommit": "38665073bbf02849bd309b106eba79cbb3a1ee1d",
-    "pilotArtifact": "0.63.0",
+    "pilotTag": "2026-09.1",
+    "pilotCommit": "d81b2ad5016f2e2d3d4364b3d06d01d8bb12a896",
+    "pilotArtifact": "0.63.1",
     "errataRegistry": "sha256:d5782936c5c92f29f24a077477b148fc5d178f83f174b143d1bb95c3693ab1b9",
     "inputs": [
       {
@@ -23,7 +23,7 @@
         "digest": "sha256:2ab96c36445009f83900a27716327e68876de7165a45ace4e8440ca07abac0de"
       }
     ],
-    "recorded": "2026-11-12"
+    "recorded": "2026-11-14"
   },
   "totals": {
     "files": 432,
