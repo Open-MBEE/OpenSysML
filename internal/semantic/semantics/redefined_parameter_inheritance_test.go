@@ -207,6 +207,21 @@ func TestKindBaseResultSaysNothingOfTheBehaviorsOwn(t *testing.T) {
 	}
 }
 
+// An invocation of a calc declaring no return is of no known type, not the
+// Anything of the kind base's result; one declaring its return is of that type.
+func TestInvocationOfACalcWithoutAReturnHasNoResultType(t *testing.T) {
+	m, s := collectionModel(t, `
+		calc def Untyped { in x : Integer; x + 1 }
+		calc def Typed { in x : Integer; return : Integer = x + 1; }
+		constraint def Held { in x : Integer; x >= 1 }
+		attribute untyped = Untyped(1);
+		attribute typed = Typed(1);
+		attribute held = Held(1);`)
+	wantValueTypes(t, m, s, "untyped")
+	wantValueTypes(t, m, s, "typed", "Integer")
+	wantValueTypes(t, m, s, "held", "Boolean")
+}
+
 // A general's parameter redefining one an earlier general lent replaces it (KerML
 // 8.3.3.1): Both inherits Sub's q and s, not Base's p and r beside them.
 func TestLaterGeneralsRedefinerReplacesTheParameterInheritedBeforeIt(t *testing.T) {
