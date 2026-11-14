@@ -205,8 +205,8 @@ members the element itself declares under the same ids, named and unnamed alike 
 a member no id reaches, such as a body-local declaration, is not listed. A connection, interface
 or binding usage lists its two ends, of kind `connectorEnd`: a named end (`connect (a ::> x, b ::> y)`)
 under its qualified name, an unnamed one (`connect x to y`, `bind x = y`) under the element id
-`GetElementProperties` gives it (`Owner__c_pend0`). `GetSymbol` reads an id as a qualified name first, so a
-declaration named exactly like an unnamed end's element id is what that id answers, not the end. An end's `specializations` hold the feature it references as a
+`GetElementProperties` gives it (`Owner__c_pend0`). With no `lookup` stated `GetSymbol` reads the string as a qualified name first, so a
+declaration named exactly like an unnamed end's element id is what the string answers; `LOOKUP_KIND_ELEMENT_ID` reaches the end. An end's `specializations` hold the feature it references as a
 `references` entry, a feature chain (`x.p`) as one entry per chaining feature in chain order. With `resolveName` the
 id is instead resolved as a qualified name from the root namespace, the way the notation resolves
 `A::B` (KerML 8.2.3.5): through the visible memberships of each namespace, so a name a `public

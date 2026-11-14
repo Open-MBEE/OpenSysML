@@ -5778,8 +5778,8 @@ export type SymbolInfo = Message<"sysml.SymbolInfo"> & {
   metadata: { [key: string]: string };
 
   /**
-   * The owned members' ids, each one GetSymbol takes: a qualified name, a positional id (`Owner::@3`), or an unnamed
-   * connector end's GetElementProperties element id (`Owner__c_pend0`), which a declaration so named answers instead.
+   * The owned members' ids, each naming its member under LOOKUP_KIND_ELEMENT_ID: a qualified name, a positional id
+   * (`Owner::@3`), or an unnamed connector end's GetElementProperties element id (`Owner__c_pend0`).
    *
    * @generated from field: repeated string child_ids = 5;
    */
