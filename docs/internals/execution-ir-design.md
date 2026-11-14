@@ -1,15 +1,20 @@
 # An execution-owned IR
 
 A design for giving the lowered execution graphs their own identity, so that the runtime no
-longer depends on the lifetime or the shape of the syntax tree. Status: **proposal**; nothing
-below is implemented. The change it describes is the
+longer depends on the lifetime or the shape of the syntax tree. Status: **in progress**; steps
+1–5, 6a and the first two of step 6b's four pull requests are merged into `develop`, and the
+[migration stack](#migration-as-a-stack-of-pull-requests) lists what remains. The change it
+describes is the
 [roadmap](../project/roadmap.md)'s "an execution-owned IR" item under package layering; the
 layering it completes is in [the architecture](architecture.md#architecture-layers), and the
 executor it changes underneath is described in [the action executor](design/action-executor.md).
 
 Every count below was taken on `develop` at the commit this document was first written against,
 over non-test Go files, with the commands quoted beside it; re-run them before relying on a
-figure, since the codebase moves.
+figure, since the codebase moves. The exceptions are the `internal/ir/lower` and
+`internal/exec/runtime` rows of the package figures, the two counts in the command block and the
+figures marked "now" below, re-measured the same way on `develop` at `dd05a85437` after step
+6b-2; the first-written value follows in parentheses where a later paragraph itemizes it.
 
 ## Contents
 
@@ -75,16 +80,16 @@ textual occurrence counts and `go list -deps` for the import closure.
 ```sh
 go list -deps ./internal/exec/runtime | rg '^github.com/Open-MBEE/OpenSysML/' | sort -u
 rg -o 'ast\.' internal/ir/lower/*.go internal/exec/runtime/*.go --glob '!*_test.go' | wc -l
-rg -o 'ast\.StateNode' internal/exec/runtime/state_executor.go | wc -l   # 218
-rg -o 'ast\.Node' internal/exec/runtime/action_executor.go | wc -l       # 33
+rg -o 'ast\.StateNode' internal/exec/runtime/state_executor.go | wc -l   # 232
+rg -o 'ast\.Node' internal/exec/runtime/action_executor.go | wc -l       # 27
 ```
 
 ### Package figures
 
 | package | files | imports `syntax/ast` | `ast.` mentions | struct fields typed with `ast.` | functions with `ast.` in signature |
 |---|---:|---:|---:|---:|---:|
-| `internal/ir/lower` | 25 | 25 | 1383 | 148 | 292 (56 exported) |
-| `internal/exec/runtime` | 139 | 85 | 1943 | 108 | 553 |
+| `internal/ir/lower` | 39 | 37 | 2535 | 226 | 559 (118 exported) |
+| `internal/exec/runtime` | 198 | 117 | 2116 | 86 | 663 |
 | `internal/exec/smt` | 11 | 5 | 115 | 15 | 29 |
 | `internal/exec/solve` | 20 | 4 | 98 | 0 | 33 |
 | `internal/exec/analysis/modelform` | 5 | 3 | 77 | 2 | 15 |
@@ -92,8 +97,8 @@ rg -o 'ast\.Node' internal/exec/runtime/action_executor.go | wc -l       # 33
 | `internal/exec/objref`, `engines`, `enginewire` | 4 | 0 | 0 | 0 | 0 |
 
 Neither `lower` nor any `exec` package imports `internal/syntax/parser` or `internal/check/passes`.
-`internal/exec/runtime` resolves names through `internal/semantic/symbols` (85 files) and
-`internal/semantic/resolve` (6 files).
+`internal/exec/runtime` resolves names through `internal/semantic/symbols` (131 files) and
+`internal/semantic/resolve` (9 files).
 
 ### The graphs (`internal/ir/lower`)
 
@@ -114,7 +119,7 @@ variant carries the declaring node (`Assign.Node`, `Declare.Node`, `Block.Node`,
 `Accept.Trigger`, `Attribute.Value`, `Feature.Value`, `Probability.Expr`, `ZeroCrossing.Guard`,
 `BindingEnd.Expr`). `PinBinding` holds two node paths (`Path`, `OtherPath []ast.Node`). The plan
 records (`ForkPlan`, `JoinPlan`, `StateBehavior`, `Place`, `Footprint.Control`) name states and
-regions by pointer. Of the 148 fields, by the scanner's heuristic, 16 are node identities, 16
+regions by pointer. Of the 148 fields first counted (226 now), by the scanner's heuristic, 16 are node identities, 16
 are expression payloads, 9 are declaration handles (`Decl`), and the remaining 107 are
 node-keyed tables, `ast` value enums, or the private state of the lowering itself.
 
@@ -141,7 +146,7 @@ graph. No cache of lowered graphs exists anywhere: every entry point above re-lo
 
 ### The runtime's own state (`internal/exec/runtime`)
 
-108 AST-typed fields across 32 files; the ones on the executors' paths:
+86 AST-typed fields across 37 files now; 108 across 32 when first written, itemized here:
 
 | file | fields | what they are |
 |---|---:|---|
@@ -172,8 +177,10 @@ Expression evaluation is two type switches over the tree: `EvalContext.eval` (`e
 `FeatureChainExpr`, `OperatorExpr`, `SequenceExpr`, `CollectExpr`, `SelectExpr`,
 `InvocationExpr`, `IndexExpr`, `ConstructorExpr`, `BodyExpr`) and `calcCompiler.compileNode`
 (`compile.go:414`, 6 cases). Two further switches serve names (`subjectName`, `eval.go:1838`;
-`chainText`, `eval.go:3064`). The 553 AST-bearing runtime signatures are dominated by these two
-files and the state executor (`state_executor.go` 123, `eval.go` 81, `state_route.go` 28,
+`chainText`, `eval.go:3064`). There are 663 AST-bearing runtime signatures now, 277 of them
+naming a graph-structure node type (`*ast.StateNode`, `*ast.StateRegion`, `*ast.Usage`,
+`*ast.PseudostateNode`); the 553 first counted were dominated by these two files and the state
+executor (`state_executor.go` 123, `eval.go` 81, `state_route.go` 28,
 `state_region_transition.go` 27, `action_executor.go` 24).
 
 ### Where a lowered graph goes after an edit
@@ -217,7 +224,7 @@ to move into lowering.
 | `calcShape{Nodes, ResultExpr}` and its lowering in `invoke_calc.go` | the calc's parameters, steps and result | smell (lowering in the wrong layer; named by the roadmap) | `lower.CalcBody` grows into `lower.ToCalc` returning an IR `Calc`; the runtime memoizes by symbol as now |
 | every expression payload (44 fields in `lower`, `Condition.Expr`, `Objective.Value`, `actionInvocation.args/named/expr`, `messageArgs`, `valueSource.expr`, `writtenArgument.expr`, `SatisfyAssertion.SubjectChain`, `passedReference.ref`) | evaluate | expression | `ExprID` into the graph's expression table; `eval` and `compile` switch on `ExprKind` |
 | `ExpressionParser func(origin, text string) (ast.Node, bool)` | parse notation text handed to a run | seam | the seam returns a lowered expression: `func(origin, text string, scope *symbols.Scope) (*lower.ExprTable, program.ExprID, bool)`, the table-and-id shape every lowered expression has, read in the scope the run names; the installer (frontend/workspace) parses *and* lowers with `lower.ExpressionReader`, so parsing and lowering both stay out of `exec` |
-| `lower`'s 56 exported AST-signature helpers (`DeclaresNodeFeature`, `SendPayload`, `IsCaseNode`, `ClassifierBehaviorOf`, `StartShot`, …) | used by `check/passes`, `ir/view`, `tools` on declarations | not on the runtime path | unchanged; `lower` stays the one package that reads both the tree and the IR |
+| `lower`'s exported AST-signature helpers (56 first counted, 118 now) (`DeclaresNodeFeature`, `SendPayload`, `IsCaseNode`, `ClassifierBehaviorOf`, `StartShot`, …) | used by `check/passes`, `ir/view`, `tools` on declarations | not on the runtime path | unchanged; `lower` stays the one package that reads both the tree and the IR |
 
 The runtime never traverses AST *children* itself except in the two expression evaluators and in
 `invoke_action.go`/`signal.go`, which read `InvocationExpr` arguments; all three are covered by
@@ -279,6 +286,11 @@ type Origin struct {
 an edit elsewhere in the document. `Span` does not survive an edit above it and is for rendering
 only. `Element` is the element id the identity table already derives (annotated, normative or
 derived from the qualified name), so an origin can be joined to RDF/XMI output without the tree.
+
+As landed, `Kind` for an action node is the `NodeKind` word step 4 chose (`initial node`,
+`fork node`, `perform action`, `while loop`, …), and a vertex keeps its `VertexKind` word.
+`Docs` is declared but left empty, because lowering has no text source to read a documentation
+comment from; a later step has to give it one before a hover can rely on it.
 
 ### Actions
 
@@ -421,6 +433,15 @@ roadmap names ("lower expressions once rather than interpreting the tree in two 
 `internal/translate/codegen/ir.go` is a *lower* level (typed, monomorphic, for emission) and is
 not merged with this one; `codegen` will later consume `program.Expr` instead of the tree.
 
+As landed, a lowered expression is per (scope, root), not per node: one expression may be
+evaluated in several scopes, and its names resolve in each. The `SymbolRef.Name` fallback also
+covers chain members whose owner only the run holds, a name a valued pin of the running action
+shadows, and a name the lowering scope does not resolve, whose error must still surface at
+evaluation. An expression read for one request is released with the resolver's scratch frame
+rather than retained, which measured slower on the gRPC and REPL benchmarks. A chain of applied
+calls, `x.f().f()`, shares its lowered operand; `TestLowerExprSharesAnAppliedChainsOperand`
+pins that.
+
 ### The back-map
 
 ```go
@@ -522,9 +543,9 @@ regression in that step specifically, on top of the always-on gate.
 | 4 | Origins replace declaration handles for text: `nodeDescription`, `lower.DocOf/VertexKind/EndpointText` results lowered into `Origin`; `NoValueError.Ref`, `Context.bindingOwners`, `Model.declared`, `ActionEdge.Else` lowered; gRPC `session.go` and `queryexec/states.go` read `Origin` and `Provenance`. | 15–20 | conformance `.expected.json` (error text), `TestGRPCConformance`, `conformance_docquery_test`, `tests/grpc` robustness | forbidden `exec/runtime → syntax/ast` **not yet** — expressions remain |
 | 5 | Calc lowering moves to `lower`: `calcShape` becomes `program.Calc` built by `lower.ToCalc`; `compileBatch.callees` keyed by `*program.Calc`; the runtime memoizes by symbol as now. | 8–10 | conformance (calc cases), `testdata/compiled` (4 files), `tests/perf` calc benchmarks, pilot differential | — |
 | 6a | Expression IR, first half: literals, `Ref`, `Chain`, `Op`, `Sequence`, `Index`, `Null`, `Infinity`; `lower.LowerExpr` resolves names once; `eval`/`compile` switch on `ExprKind` for these kinds and fall back to the tree for the rest; `Model.integerLiterals/realLiterals` dropped. | 20–30 | conformance, `testdata/compiled`, `TestGolden` (unchanged), pilot differential and Xpect (evaluation results), exact-rational tests | — |
-| 6b | Expression IR, second half: `Invoke` (`actionInvocation`, `messageArgs`, `invocationKey`), `Collect`, `Select`, `Construct`, `Body`, `Metadata`; `ExpressionParser` seam returns `*program.Expr`; every `lower` expression payload becomes `ExprID`; `EffectiveFeature.DefaultValue` becomes `ExprID`. | 30–40 | all of 6a plus `TestRuntimeRobustnessSendTarget`, `…PerformOnPart`, signal/accept conformance, REPL tests for the seam | forbidden `exec/runtime → syntax/ast` **added**, allowing only value types re-exported by `program` |
+| 6b | Expression IR, second half, as four stacked pull requests (below): `Invoke` (`actionInvocation`, `messageArgs`, `invocationKey`), `Collect`, `Select`, `Construct`, `Body`, `Metadata`; the `ExpressionParser` seam returns a lowered table and `ExprID`; every expression payload gains an `ExprID` beside its tree field; the semantic-layer reads of a tree. | 30–40 each for 6b-1 and 6b-2; 6b-3 and 6b-4 not yet estimated | all of 6a plus `TestRuntimeRobustnessSendTarget`, `…PerformOnPart`, signal/accept conformance, REPL tests for the seam | `tests/hygiene/runtime_evaluator_test.go`: `eval.go` and `compile.go` do not import `syntax/ast` (6b-1); the package-wide edge waits for step 8 |
 | 7 | Consumers off the tree: `exec/smt` (`Flow`, `Encode` over `program.Action`), `exec/analysis/modelform`, `exec/solve`, `ir/view`, `doc/queryexec`, `frontend/lsp/debug.go`, `frontend/grpc/session.go`, `frontend/repl`, `tools/referee/{fuml,pssm}` use ids and `Provenance`. | 35–45 | SMT engine tests, analysis framework tests, view goldens, doc-query conformance, LSP debug tests, referee records, `tools` module tests | forbidden `exec/smt`, `exec/solve`, `exec/analysis/… → syntax/ast` |
-| 8 | Remove the AST fields from `ActionGraph`/`StateGraph`, rename to `program.Action`/`program.StateMachine` (type aliases first, then the move), delete the parallel maps from step 1, move the private inheritance maps into the builder. | 40–60 (mechanical) | the whole gate; `go vet` for dead code; `tests/testutil/graphcmp` comparisons in `lower` tests updated to compare ids | forbidden `ir/program → syntax/ast` re-checked; `check/passes` may still import both |
+| 8 | Remove the AST fields from `ActionGraph`/`StateGraph`, rename to `program.Action`/`program.StateMachine` (type aliases first, then the move), delete the parallel maps from step 1, move the private inheritance maps into the builder. | 40–60 (mechanical) | the whole gate; `go vet` for dead code; `tests/testutil/graphcmp` comparisons in `lower` tests updated to compare ids | forbidden `exec/runtime → syntax/ast` **added**, allowing only value types re-exported by `program`: until the graphs stop handing out tree nodes, 277 runtime signatures name `*ast.StateNode`, `*ast.StateRegion`, `*ast.Usage` or `*ast.PseudostateNode`, whatever the expressions do; forbidden `ir/program → syntax/ast` re-checked; `check/passes` may still import both |
 | 9 | Canonical form and `GraphID`: encoder, `TestCanonicalFormDeterministic` over the conformance corpus, `GraphID` on snapshots and held images with `ErrSnapshotGraphMismatch`. | 6–8 | new determinism test; `TestRuntimeRobustnessReplay`; snapshot goldens | — |
 | 10 | Workspace graph cache and re-anchoring: `graphEntry` keyed by `Origin.Path`, invalidated with the resolver's dependent set; LSP debug re-anchors breakpoints by `Origin.Path` after an edit and reports the unplaceable ones. | 8–12 | new workspace tests: edit an unrelated document → same `GraphID` and same pointer; edit the owner → new entry; LSP debug edit-during-session test | — |
 
@@ -533,6 +554,34 @@ depends on 5 (the calc compiler is the first consumer of `Expr`), 6b on 6a, 7 on
 9–10 on 8. Each of 2, 3, 6a, 6b and 7 is feature-sized under `AGENTS.md` §8 — complete, no
 bridge that copies IR back into the legacy fields — and each can be split further along the
 file groups its row lists if review size demands it.
+
+Step 6b was re-estimated against the inventory once 6a had landed, as decision 2 recommends, and
+split into four stacked pull requests:
+
+- **6b-1** (merged, #2218). `Invoke`, `Collect`, `Select`, `Construct`, `Body` and `Metadata`
+  are lowered; `eval.go` and `compile.go` dispatch on every `ExprKind` with no tree fallback,
+  and `tests/hygiene/runtime_evaluator_test.go` forbids those two files from importing
+  `internal/syntax/ast`. The helpers that still read a tree moved unchanged to `eval_chain.go`,
+  `eval_name.go`, `eval_declared.go` and `expr_tree.go`.
+- **6b-2** (merged, #2225). The `ExpressionParser` seam returns lowered records, the table and
+  `ExprID` of [the seam row](#what-the-runtime-needs-from-each-reference), read in the scope
+  passed to it; every installer calls
+  `lower.ExpressionReader(parser.ParseOneExpression, resolver)`.
+- **6b-3** (planned). Every expression payload field gains an `ExprID` field *beside* its tree
+  field, additively, the way step 1 added id maps beside the AST fields; step 8 removes the tree
+  fields once step 7 has moved their other readers. Replacing them here would couple 6b to 7,
+  because the same fields are read outside the runtime by `exec/smt`, `exec/analysis`,
+  `ir/view`, `doc/queryexec`, the LSP and the referee tools. In scope: the expression fields of
+  the `lower` statement, edge, transition and binding records, the runtime's `Condition.Expr`,
+  `Objective.Value`, `EffectiveFeature.DefaultValue` and `SatisfyAssertion.SubjectChain`, and
+  what feeds `actionInvocation`, `valueSource`, `passedReference` and deferred body values.
+  `Accept.SubsetsEvent`, `Channel.Message` and `SubjectDecl.Value` get no id: the runtime never
+  evaluates them as expressions.
+- **6b-4** (planned). The places where the runtime still hands a tree to `internal/semantic`:
+  `EvalWithin`, `DimensionOfExpr`, `ValuesHeldBy`, `EvalClassification` and `Context.UnitOf`
+  with `semantics.UnitOfExpr`. They stay tree-backed until then because computing them at
+  lowering can change *when* an error surfaces, which `AGENTS.md` §4 makes part of the contract.
+  `NoValueError.Ref` is not among them: step 4 replaced it with `NoValueError.Symbol`.
 
 `docs/project/spec-compliance.md` does not move: no semantic rule changes. The documentation
 census (`make docs-counts`) is unaffected until step 8 renames the graph types, when
@@ -552,7 +601,10 @@ Each needs a human decision; the recommendation is the one the design above assu
    edge, however, is only reachable through 6a/6b, which are the largest and riskiest steps
    (`eval.go` has 81 AST-bearing signatures and the pilot differential pins evaluation results).
    *Recommend keeping 6a/6b in scope but landing 1–5 first and re-estimating 6 against the
-   inventory at that point; the forbidden edge is the exit criterion, not a mid-point.*
+   inventory at that point; the forbidden edge is the exit criterion, not a mid-point.* The
+   re-estimate moved that criterion to step 8: lowering every expression is necessary for the
+   edge but not sufficient, since the graph-structure signatures keep the import until the AST
+   fields go. Step 6b's own criterion is the evaluator hygiene test.
 
 3. **Where name resolution happens for expressions.** Resolving at lowering time (this design)
    makes lowering depend on the resolver's state and means an edit that changes resolution
@@ -563,6 +615,10 @@ Each needs a human decision; the recommendation is the one the design above assu
 4. **Ids per graph or process-wide.** Per-graph indices (this design) are dense, cheap and need no
    synchronization, but are not unique across graphs, so every wire type must carry `GraphID`.
    *Recommend per-graph; a global arena buys nothing the digest does not, and pins memory.*
+   As landed in step 2, the action frame's tables are keyed by
+   `NodeRef{Graph *lower.ActionGraph, ID program.NodeID}`, not a bare `NodeID`: one performance
+   mixes nodes of its own flow, block flows and adopted callees, each its own graph. The pointer
+   stands in until step 9's `GraphID` replaces it.
 
 5. **`GraphID` as a content digest versus a workspace-assigned serial.** A digest lets two
    sessions and two processes agree without coordination and makes snapshot compatibility a
@@ -606,6 +662,7 @@ Each needs a human decision; the recommendation is the one the design above assu
     `nodeDescription(node)` over the conformance corpus) so step 4 cannot drift silently.*
 
 12. **The `ExpressionParser` seam's owner.** Returning a lowered expression from the seam means
-    every installer (REPL, gRPC service, tools) must call `lower.LowerExpr` with a scope, which
-    moves resolver access to the installer. *Recommend it: the seam exists to keep parsing out of
+    every installer (REPL, gRPC service, tools) must lower with a resolver, which moves resolver
+    access to the installer; as landed in 6b-2 the installer wraps its parser in
+    `lower.ExpressionReader` and the run supplies the scope. *Recommend it: the seam exists to keep parsing out of
     `exec`, and lowering belongs on the same side.*
