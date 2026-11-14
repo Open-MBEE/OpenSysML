@@ -549,6 +549,7 @@ for (const thread of ["worker", "inline"] as const) {
       "action_trace",
       "symbol_members",
       "symbol_name_resolution",
+      "symbol_member_direction",
       "render_document",
       "render_document_html",
       "render_document_asciidoc",
