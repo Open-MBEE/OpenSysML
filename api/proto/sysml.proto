@@ -2083,7 +2083,9 @@ message SymbolInfo {
   // Feature::direction is GetElementProperties' `direction`), "abstract",
   // "variation", "variant" and the like.
   map<string, string> metadata = 4;
-  repeated string child_ids = 5;     // References to children
+  // The owned members' ids, each one GetSymbol takes: a qualified name, a positional id (`Owner::@3`), or an unnamed
+  // connector end's GetElementProperties element id (`Owner__c_pend0`), which a declaration so named answers instead.
+  repeated string child_ids = 5;
   repeated AttributeInfo attributes = 6;
   // Static type facts; unset when the element is not a def/usage. `declared`
   // is the written typing and `types` the derived Feature::type, the `type`
@@ -2136,7 +2138,8 @@ message Specialization {
   string kind = 1;
   // The target as written in the source ("Engine", "Demo::Engine").
   string declared = 2;
-  // FQN of the resolved target; empty when the name does not resolve.
+  // FQN of the resolved target; empty when the name does not resolve. A "references" feature chain
+  // (`x.p`) is one entry per chaining feature, in chain order, each with the chain as `declared`.
   string target_id = 3;
   // Symbol kind of the resolved target ("partDef", ...); empty when unresolved.
   string target_kind = 4;
