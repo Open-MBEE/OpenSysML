@@ -173,11 +173,8 @@ type Client interface {
 	// the oslc_query capability.
 	QueryOSLC(ctx context.Context, model *Model, oslc string) ([]QueryElement, error)
 
-	// ElementProperties reads the metamodel properties of one element by their
-	// specification names ("inheritedFeature", "connectorEnd", ...), as the
-	// model's API element form spells them; every property the element carries
-	// when none is named. The element is one string in the legacy form: the form's own id
-	// first, then a qualified name or positional id. Requires the element_properties capability.
+	// ElementProperties reads the named metamodel properties of one element, or all it carries, element being
+	// the legacy one string: the form's own id first, then a name. Requires the element_properties capability.
 	ElementProperties(ctx context.Context, model *Model, element string, properties ...string) (*ElementProperties, error)
 	// ElementPropertiesByName is ElementProperties of the element a qualified name
 	// resolves to, the name never read as an id.
