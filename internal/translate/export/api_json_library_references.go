@@ -3,6 +3,7 @@ package export
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -37,28 +38,56 @@ func apiJSONReferencedLibraryIDs(elements []apiJSONObject) map[string]bool {
 func apiJSONLibraryReferences(graph *rdf.Graph, elements []apiJSONObject) ([]APIJSONLibraryReference, error) {
 	referenced := apiJSONReferencedLibraryIDs(elements)
 	out := make([]APIJSONLibraryReference, 0)
-	for _, subject := range graph.SubjectsView() {
-		id, ok := rdf.SubjectID(subject)
-		if !ok || !referenced[id] || !LibraryReference(graph, subject) {
-			continue
-		}
-		types := graph.ObjectsView(subject, rdf.RDFType)
-		if len(types) != 1 || !types[0].IsIRI() || (!strings.HasPrefix(types[0].Value, rdf.SysML) && !strings.HasPrefix(types[0].Value, rdf.OpenSysML)) {
-			return nil, &UnsupportedError{What: fmt.Sprintf("library subject <%s> must have exactly one metamodel rdf:type", subject.Value)}
-		}
-		reference := APIJSONLibraryReference{ID: id,
-			Type:          apiJSONType(types[0]),
-			QualifiedName: apiJSONLibraryName(graph, subject, "qualifiedName"),
-		}
-		for _, value := range graph.ObjectsView(subject, rdf.OpenSysML+xLibraryPath) {
-			if value.IsLiteral() {
-				reference.LibraryPath = value.Value
+	named := make(map[string]bool, len(referenced))
+	collect := func(graph *rdf.Graph) error {
+		for _, subject := range graph.SubjectsView() {
+			id, ok := rdf.SubjectID(subject)
+			if !ok || !referenced[id] || named[id] || !LibraryReference(graph, subject) {
+				continue
 			}
+			types := graph.ObjectsView(subject, rdf.RDFType)
+			if len(types) != 1 || !types[0].IsIRI() || (!strings.HasPrefix(types[0].Value, rdf.SysML) && !strings.HasPrefix(types[0].Value, rdf.OpenSysML)) {
+				return &UnsupportedError{What: fmt.Sprintf("library subject <%s> must have exactly one metamodel rdf:type", subject.Value)}
+			}
+			reference := APIJSONLibraryReference{ID: id,
+				Type:          apiJSONType(types[0]),
+				QualifiedName: apiJSONLibraryName(graph, subject, "qualifiedName"),
+			}
+			for _, value := range graph.ObjectsView(subject, rdf.OpenSysML+xLibraryPath) {
+				if value.IsLiteral() {
+					reference.LibraryPath = value.Value
+				}
+			}
+			named[id] = true
+			out = append(out, reference)
 		}
-		out = append(out, reference)
+		return nil
+	}
+	if err := collect(graph); err != nil {
+		return nil, err
+	}
+	if err := collect(apiJSONUnheldLibraryStubs(graph, referenced)); err != nil {
+		return nil, err
 	}
 	slices.SortFunc(out, func(a, b APIJSONLibraryReference) int { return strings.Compare(a.ID, b.ID) })
 	return out, nil
+}
+
+// apiJSONUnheldLibraryStubs states the library elements among referenced that graph has no
+// subject for: the ones only a completed property names, which no triple links to.
+func apiJSONUnheldLibraryStubs(graph *rdf.Graph, referenced map[string]bool) *rdf.Graph {
+	stubs := rdf.NewGraph()
+	index := sharedLibraryIndex()
+	held := make(map[string]bool, len(graph.SubjectsView()))
+	for _, subject := range graph.SubjectsView() {
+		held[subject.Value] = true
+	}
+	for _, id := range slices.Sorted(maps.Keys(referenced)) {
+		if subject := rdf.ElementIRIForID(id); !held[subject.Value] {
+			addLibraryStub(stubs, index, subject, id)
+		}
+	}
+	return stubs
 }
 
 func apiJSONLibraryName(graph *rdf.Graph, subject rdf.Term, property string) string {

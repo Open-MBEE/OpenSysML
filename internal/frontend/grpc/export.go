@@ -614,7 +614,11 @@ func (s *Service) convertModelOfDocuments(req *pb.ConvertRequest) (*pb.ConvertRe
 		defer func() { resp.Diagnostics = append(resp.Diagnostics, s.cachedCheckDiagnostics(req, cached)...) }()
 	}
 	cached.exportOnce.Do(func() { cached.exportModel = export.PrepareModel(documents) })
-	graph, err := cached.exportModel.ToRDF(req.Documents, opts.ID)
+	toGraph := cached.exportModel.ToRDF
+	if to == convert.FormatAPIJSON && !opts.WritesLibraryStubs() {
+		toGraph = cached.exportModel.ElementGraph
+	}
+	graph, err := toGraph(req.Documents, opts.ID)
 	if err != nil {
 		resp.Error = err.Error()
 		return resp, true, nil
