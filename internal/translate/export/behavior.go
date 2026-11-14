@@ -499,7 +499,7 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 	e.transitionKeyword(subject, n)
 	// The members ahead of the trigger come first, in the grammar's order.
 	e.transitionHeadMembers(subject, n)
-	succession, membership, err := e.transitionSuccession(subject, n, owner, e.transitionSourceTerm(n, nil, e.preceding[n]))
+	succession, membership, err := e.transitionSuccession(subject, n, owner, e.transitionSourceTerm(n, n.Source, nil, e.preceding[n]))
 	if err != nil {
 		return err
 	}
@@ -571,7 +571,7 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 	}
 	// The ends come last: sysml:target closes the statement block, the way the
 	// membership-free mapping left it.
-	if source := e.transitionSourceTerm(n, nil, e.preceding[n]); source.Value != "" {
+	if source := e.transitionSourceTerm(n, n.Source, nil, e.preceding[n]); source.Value != "" {
 		e.graph.Add(subject, e.sysml(pSource), source)
 	}
 	e.graph.Add(subject, e.sysml(pTarget), e.edgeReference(n.Target))
@@ -593,15 +593,15 @@ func (e *encoder) encodeGuardedTarget(n *ast.ControlFlowEdge, head func(rdf.Term
 	if err := e.expressionAs(subject, e.sysx(xGuard), xGuard, owner, n.Guard, mTransitionFeatureMembership); err != nil {
 		return err
 	}
-	successionDecl := &ast.TransitionMember{Target: n.Target, Source: n.Source}
-	succession, membership, err := e.transitionSuccession(subject, successionDecl, owner, e.transitionSourceTerm(successionDecl, n.SourceMember, e.preceding[n]))
+	source := e.transitionSourceTerm(n, n.Source, n.SourceMember, e.preceding[n])
+	succession, membership, err := e.transitionSuccession(subject, &ast.TransitionMember{Target: n.Target}, owner, source)
 	if err != nil {
 		return err
 	}
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 	e.emitMembershipCore(membership, succession, subject, mOwningMembership, true)
-	if source := e.transitionSourceTerm(successionDecl, n.SourceMember, e.preceding[n]); source.Value != "" {
+	if source.Value != "" {
 		e.graph.Add(subject, e.sysml(pSource), source)
 	}
 	e.graph.Add(subject, e.sysml(pTarget), e.edgeReference(n.Target))
@@ -613,8 +613,8 @@ func (e *encoder) encodeGuardedTarget(n *ast.ControlFlowEdge, head func(rdf.Term
 func (e *encoder) encodeTargetTransition(n *ast.SuccessionEdge, head func(rdf.Term), subject rdf.Term, fqn, owner string) error {
 	head(rdf.SysMLTerm(mTransition))
 	e.graph.Add(subject, e.sysx(xTransitionSyntax), rdf.String(targetTransitionSyntax))
-	successionDecl := &ast.TransitionMember{Target: n.Target, TargetMultiplicity: n.TargetMultiplicity, Source: n.Source}
-	succession, membership, err := e.transitionSuccession(subject, successionDecl, owner, e.transitionSourceTerm(successionDecl, n.SourceMember, e.preceding[n]))
+	source := e.transitionSourceTerm(n, n.Source, n.SourceMember, e.preceding[n])
+	succession, membership, err := e.transitionSuccession(subject, &ast.TransitionMember{Target: n.Target, TargetMultiplicity: n.TargetMultiplicity}, owner, source)
 	if err != nil {
 		return err
 	}
@@ -627,17 +627,8 @@ func (e *encoder) encodeTargetTransition(n *ast.SuccessionEdge, head func(rdf.Te
 	if err := e.encode(n.Members, fqn, subject); err != nil {
 		return err
 	}
-	switch stands := e.preceding[n]; {
-	case qualifiedText(n.Source) == "":
-		if fqn, ok := e.names.FQN[n.SourceMember]; ok {
-			e.graph.Add(subject, e.sysml(pSource), e.ids.subjectForNode(n.SourceMember, fqn))
-		}
-	case impliedSource(n, n.Source) && answersToFeature(stands):
-		if fqn, ok := e.names.FQN[stands]; ok {
-			e.graph.Add(subject, e.sysml(pSource), e.ids.subjectForNode(stands, fqn))
-		}
-	default:
-		e.graph.Add(subject, e.sysml(pSource), e.edgeReference(n.Source))
+	if source.Value != "" {
+		e.graph.Add(subject, e.sysml(pSource), source)
 	}
 	e.graph.Add(subject, e.sysml(pTarget), e.edgeReference(n.Target))
 	return nil
@@ -726,31 +717,6 @@ const transitionSuccessionSuffix = "_succession"
 // TransitionSuccession holds an empty source end and an end referring to the
 // target): the succession and its two end features; the caller links the
 // OwningMembership into the member order the grammar states.
-// transitionSourceTerm is the state a transition leaves, as its TransitionUsage::source states it: the
-// `first` name, the member before a state body's `then x;`, or the state before a guarded `if g then x;`.
-func (e *encoder) transitionSourceTerm(n *ast.TransitionMember, sourceMember, stands ast.Node) rdf.Term {
-	switch {
-	case qualifiedText(n.Source) == "":
-		if sourceMember == nil {
-			// A guarded target after a state leaves that state (SysML.xtext TargetTransitionUsage).
-			if _, ok := stands.(*ast.SubstateMember); ok {
-				sourceMember = stands
-			}
-		}
-		if fqn, ok := e.names.FQN[sourceMember]; ok && sourceMember != nil {
-			return e.ids.subjectForNode(sourceMember, fqn)
-		}
-		return rdf.Term{}
-	case impliedSource(n, n.Source) && answersToFeature(stands):
-		if fqn, ok := e.names.FQN[stands]; ok {
-			return e.ids.subjectForNode(stands, fqn)
-		}
-	}
-	return e.edgeReference(n.Source)
-}
-
-// transitionSuccession mints the succession a transition owns with its two ends, and states the ends'
-// features the pilot derives for it: the transition's source and target (SysML v2.1 §8.3.18.9).
 func (e *encoder) transitionSuccession(subject rdf.Term, n *ast.TransitionMember, owner string, source rdf.Term) (rdf.Term, rdf.Term, error) {
 	succession := e.ids.minted(rdf.IRI(subject.Value+transitionSuccessionSuffix), subject, transitionSuccessionSuffix)
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(succession), succession, rdf.OwningMembershipSuffix)
@@ -785,6 +751,29 @@ func (e *encoder) transitionSuccession(subject rdf.Term, n *ast.TransitionMember
 		e.graph.Add(succession, e.sysml(end.related), end.term)
 	}
 	return succession, membership, nil
+}
+
+// transitionSourceTerm is the state a transition leaves, as its TransitionUsage::source states it: the
+// `first` name, the member before a state body's `then x;`, or the state before a guarded `if g then x;`.
+func (e *encoder) transitionSourceTerm(edge ast.Node, source *ast.QualifiedName, sourceMember, stands ast.Node) rdf.Term {
+	switch {
+	case qualifiedText(source) == "":
+		if sourceMember == nil {
+			// A guarded target after a state leaves that state (SysML.xtext TargetTransitionUsage).
+			if _, ok := stands.(*ast.SubstateMember); ok {
+				sourceMember = stands
+			}
+		}
+		if fqn, ok := e.names.FQN[sourceMember]; ok && sourceMember != nil {
+			return e.ids.subjectForNode(sourceMember, fqn)
+		}
+		return rdf.Term{}
+	case impliedSource(edge, source) && answersToFeature(stands):
+		if fqn, ok := e.names.FQN[stands]; ok {
+			return e.ids.subjectForNode(stands, fqn)
+		}
+	}
+	return e.edgeReference(source)
 }
 
 // transitionHeadMembers emits what a transition owns ahead of its trigger
