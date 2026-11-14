@@ -295,7 +295,8 @@ func (ctx *Context) newFeatureValue(inst *Instance, feat *EffectiveFeature) *Fea
 func (ctx *Context) initFeatureValue(inst *Instance, fv *FeatureValue, feat *EffectiveFeature) {
 	*fv = FeatureValue{Feature: feat}
 	if ctx.valueBinds(feat) && feat.Scalar() && !ctx.model.semantics.IsVariationFeature(feat.Symbol) &&
-		ctx.restatedInValuedBody(feat) == "" && !ctx.defaultYieldsToSubsetters(inst, feat) && !ctx.portionReadsWhole(inst, feat) {
+		ctx.restatedInValuedBody(feat) == "" && !ctx.defaultYieldsToSubsetters(inst, feat) && !ctx.portionReadsWhole(inst, feat) &&
+		!feat.YieldsToBinding {
 		if semVal, ok := ctx.model.semantics.EvalWithin(feat.DefaultValue, ctx.maxIntegerBits); ok {
 			val := Value{Kind: ValConst, Const: semVal}
 			if ctx.checkDefault(inst, fv, feat.Name, &val, admitDeclared) == nil {
