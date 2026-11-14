@@ -2,16 +2,13 @@ package source
 
 import "strings"
 
-// NameText writes a name as the notation spells it: a name that is not a basic
-// name — one holding a space or punctuation, one spelling a keyword, an empty
-// one — gets the quotes of an unrestricted name back (KerML §8.2.2). The text
-// is quoted as it stands, since a name parsed from the notation still carries
-// the escapes it was written with, so quoting is the exact inverse of parsing.
+// NameText writes a name as the notation spells it: one that is no basic name is quoted
+// as an unrestricted name with its escapes written (KerML §8.2.2), so it parses back.
 func NameText(name string) string {
 	if IsIdentifier(name) && !IsKeyword(name) {
 		return name
 	}
-	return "'" + name + "'"
+	return UnrestrictedNameText(name)
 }
 
 // QualifiedNameText writes a qualified name segment by segment, since each
@@ -35,7 +32,7 @@ func QualifiedNameOf(names []string) string {
 }
 
 // QualifiedNameSegments reads a qualified name back into its names, `'x::y'` one
-// and `x::y` two, quotes dropped and escapes kept; false for malformed text.
+// and `x::y` two, quotes dropped and escapes decoded; false for malformed text.
 func QualifiedNameSegments(text string) ([]string, bool) {
 	var names []string
 	for {
@@ -85,9 +82,8 @@ func MemberPathOf(names []string) string {
 	return strings.Join(segments, ".")
 }
 
-// MemberPathSegments reads a member path — `.`-joined names, each a basic or
-// a 'quoted name' — back into its names, quotes dropped and escapes kept;
-// false for malformed text. A bare name is a one-segment path.
+// MemberPathSegments reads a member path — `.`-joined basic or 'quoted' names, a bare name
+// being a one-segment path — into its names, unquoted and decoded; false when malformed.
 func MemberPathSegments(text string) ([]string, bool) {
 	var names []string
 	for {
@@ -210,7 +206,7 @@ func readBasicOrQuotedName(text string) (name, rest string, ok bool) {
 	return name, text[end:], IsIdentifier(name)
 }
 
-// readQuotedName reads a quoted name off the front of text, escapes kept.
+// readQuotedName reads a quoted name off the front of text, its escapes decoded.
 func readQuotedName(text string) (name, rest string, ok bool) {
 	if text == "" || text[0] != '\'' {
 		return "", "", false
@@ -220,7 +216,7 @@ func readQuotedName(text string) (name, rest string, ok bool) {
 		case '\\':
 			i++
 		case '\'':
-			return text[1:i], text[i+1:], i > 1
+			return Unescape(text[1:i]), text[i+1:], i > 1
 		}
 	}
 	return "", "", false

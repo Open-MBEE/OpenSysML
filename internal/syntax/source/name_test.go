@@ -12,7 +12,8 @@ func TestQualifiedNameSegments(t *testing.T) {
 	}{
 		{"A::B", []string{"A", "B"}},
 		{"'Sep::Pkg'::x", []string{"Sep::Pkg", "x"}},
-		{`'a\'b'::c`, []string{`a\'b`, "c"}},
+		{`'a\'b'::c`, []string{`a'b`, "c"}},
+		{`'a\\b'::'c\td'`, []string{`a\b`, "c\td"}},
 		{"x", []string{"x"}},
 	} {
 		got, ok := QualifiedNameSegments(tc.text)

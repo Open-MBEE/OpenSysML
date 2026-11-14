@@ -15,13 +15,13 @@ func TestQueryNameMetadataPathSegment(t *testing.T) {
 		definition []string
 		feature    string
 	}{
-		{[]string{"Frank's Braindump", "Composition Example", "review's grade"}, []string{`Frank\'s Braindump`, "Composition Example"}, `review\'s grade`},
+		{[]string{"Frank's Braindump", "Composition Example", "review's grade"}, []string{"Frank's Braindump", "Composition Example"}, "review's grade"},
 		{[]string{"Review Profile", "Reviewed", "Safety::Scope"}, []string{"Review Profile", "Reviewed"}, "Safety::Scope"},
 		{[]string{"Profile::Review", "part", "level"}, []string{"Profile::Review", "part"}, "level"},
 	} {
 		segments := make([]string, len(tc.names))
 		for i, name := range tc.names {
-			segments[i] = pathSegment(queryName(name))
+			segments[i] = pathSegment(name)
 		}
 		path := strings.Join(segments, "::")
 		definition, feature, ok := source.MetadataPathSegments(path)

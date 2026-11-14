@@ -113,7 +113,7 @@ func TestQuotedIdentityNameEscapesRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse turtle: %v", err)
 	}
-	quotedDefinitionName := `P::'a\\\'::b'`
+	quotedDefinitionName := `P::'a\'::b'`
 	childName := quotedDefinitionName + "::x"
 	wanted := map[string]bool{
 		quotedDefinitionName: true,

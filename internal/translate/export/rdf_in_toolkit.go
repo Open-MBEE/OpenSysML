@@ -1904,7 +1904,7 @@ func plainQualifiedName(name string) string {
 }
 
 // canonicalName returns a written qualified name in its canonical spelling:
-// segments split on `::` outside quotes, each requoted with its escapes kept.
+// segments split on `::` outside quotes, each requoted and escaped again.
 func canonicalName(name string) string {
 	segments, ok := source.QualifiedNameSegments(name)
 	if !ok {

@@ -707,11 +707,12 @@ func TestUUIDDeclaredElementID(t *testing.T) {
 }
 
 // TestCanonicalNameSplitsQuotedSegments checks a written qualified name is
-// split on :: outside quotes only, each segment requoted with escapes kept.
+// split on :: outside quotes only, each segment requoted and escaped again.
 func TestCanonicalNameSplitsQuotedSegments(t *testing.T) {
 	for _, tc := range []struct{ in, want string }{
 		{"'Sep::Pkg'::x", "'Sep::Pkg'::x"},
 		{`'a\'b'::c`, `'a\'b'::c`},
+		{`'a\\b'::'c\td'`, `'a\\b'::'c\td'`},
 		{"A::B", "A::B"},
 	} {
 		if got := canonicalName(tc.in); got != tc.want {

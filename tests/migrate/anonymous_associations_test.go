@@ -150,7 +150,7 @@ func TestTableQueriesResolveEscapedNames(t *testing.T) {
 	wantClean(t, "escaped_table_names.sysml", r)
 	s := session(t, r)
 	propertyRows := rows(t, s, `Model::'Frank\'s Braindump'::'Composition Example'::'Properties Rows'`)
-	if !strings.Contains(propertyRows, `Model::Frank\\'s Braindump::Composition Example::Instrument::bench`) {
+	if !strings.Contains(propertyRows, `Model::Frank's Braindump::Composition Example::Instrument::bench`) {
 		t.Errorf("Properties rows omit the class-owned part property:\n%s", propertyRows)
 	}
 	if strings.Contains(propertyRows, "::OpticalBenchToInstrument::instrument") {
@@ -163,8 +163,8 @@ func TestTableQueriesResolveEscapedNames(t *testing.T) {
 	}
 
 	notation := string(r.Notation)
-	if !strings.Contains(notation, `Model::Frank\\'s Braindump::Composition Example::OpticalBenchToInstrument::instrument`) {
-		t.Errorf("the excluded row query does not spell the connection-def path with escaped names:\n%s", notation)
+	if !strings.Contains(notation, `Model::Frank's Braindump::Composition Example::OpticalBenchToInstrument::instrument`) {
+		t.Errorf("the excluded row query does not spell the connection-def path by its names:\n%s", notation)
 	}
 	for _, document := range []string{
 		`Model::'Frank\'s Braindump'::'Composition Example'::'Properties Document'`,
