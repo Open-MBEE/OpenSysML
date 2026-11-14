@@ -285,9 +285,10 @@ Members inherited from standard-library content (the dozens every part has throu
 fetches them; an owned member is never withheld, so `library` alone changes nothing.
 Inherited members need the service's `symbol_members` capability; against an older
 service `attributes()` alone still follows the declared specializations itself, as it
-did before the service enumerated members. A member the service declares without a
-name (`bind a = b;`) is listed but has no id a lookup resolves, so it is left out of
-the result until unnamed members get positional ids.
+did before the service enumerated members. A member declared without a name
+(`bind a = b;`, `part : P;`) is listed under its positional id (`Owner::@3`), which a
+lookup resolves; one inherited from the standard library carries the positional id of
+the library type declaring it (`Occurrences::Occurrence::@47`).
 
 ::: opensysml.Symbol
     options:
