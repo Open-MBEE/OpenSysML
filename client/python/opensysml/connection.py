@@ -26,6 +26,7 @@ from opensysml.capabilities import (
     CAPABILITY_AUTHORING,
     CAPABILITY_CONNECTION_AUTHORING,
     CAPABILITY_MEMBER_MODIFIERS,
+    CAPABILITY_SYMBOL_MEMBER_DIRECTION,
     CAPABILITY_SYMBOL_NAME_RESOLUTION,
     CAPABILITY_CONSTRAINT_BODY_AUTHORING,
     CAPABILITY_STATE_ACTION_AUTHORING,
@@ -2408,12 +2409,21 @@ class Connection:
             member_of (str): Fully-qualified ID of the type the symbol is read
                 as a feature of; ``metadata["direction"]`` is then the direction
                 relative to that type, which a conjugated port typing reverses.
-                Empty reports the feature's own direction. A service without
-                the ``symbol_member_direction`` capability ignores it.
+                Empty reports the feature's own direction.
         
         Returns:
             sysml_pb2.SymbolInfo or None: Symbol protobuf, or None if not found
+
+        Raises:
+            MissingCapabilityError: ``member_of`` is given and the service
+                does not report ``symbol_member_direction``
         """
+        if member_of:
+            require(
+                self.server_info(),
+                CAPABILITY_SYMBOL_MEMBER_DIRECTION,
+                upgrade_remedy(CAPABILITY_SYMBOL_MEMBER_DIRECTION),
+            )
         request = sysml_pb2.GetSymbolRequest(
             model_hash=model_hash,
             symbol_id=symbol_id,
