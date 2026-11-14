@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
@@ -76,6 +77,46 @@ func TestWrappedRegionPathsIncludeRootModel(t *testing.T) {
 	} {
 		if got := strings.Join(m.segments(tc.elem), "::"); got != tc.want {
 			t.Errorf("segments(%s) = %q, want %q", tc.elem.Name, got, tc.want)
+		}
+	}
+}
+
+// A query name is read back by the index as the element's own names, quotes and `::` in them included.
+func TestPlainNameReadsBackAsTheElementsNames(t *testing.T) {
+	model, err := sysmlv1.Parse([]byte(`<?xml version="1.0"?>
+<xmi:XMI xmi:version="2.5.1"
+         xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101">
+  <uml:Model xmi:type="uml:Model" xmi:id="_model" name="Model">
+    <packagedElement xmi:type="uml:Class" xmi:id="_plain" name="Pump"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_quoted" name="'Pump'"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_apostrophe" name="Frank's Braindump"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_separator" name="Safety::Scope"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_backslash" name="a\b"/>
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg" name="'Quoted' Package">
+      <packagedElement xmi:type="uml:Class" xmi:id="_nested" name="'x'::'y'"/>
+    </packagedElement>
+  </uml:Model>
+</xmi:XMI>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := &migration{model: model, names: map[*sysmlv1.Element]string{}}
+	for id, want := range map[string]string{
+		"_plain":      "Model::Pump",
+		"_quoted":     `Model::'\'Pump\''`,
+		"_apostrophe": "Model::Frank's Braindump",
+		"_separator":  "Model::'Safety::Scope'",
+		"_backslash":  `Model::a\b`,
+		"_nested":     `Model::'\'Quoted\' Package'::'\'x\'::\'y\''`,
+	} {
+		e := model.Lookup(id)
+		got := m.plainName(e)
+		if got != want {
+			t.Errorf("plainName(%s) = %q, want %q", e.Name, got, want)
+		}
+		if read := symbols.SegmentsOf(got); !reflect.DeepEqual(read, m.segments(e)) {
+			t.Errorf("SegmentsOf(%q) = %q, want %q", got, read, m.segments(e))
 		}
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
@@ -348,7 +349,7 @@ func (m *migration) topLevelNames() []string {
 		}
 	}
 	for _, v := range m.hosted[nil] {
-		names = append(names, v.name)
+		names = append(names, queryName([]string{v.name}))
 	}
 	return names
 }
@@ -373,10 +374,16 @@ func (m *migration) namedRoot(ref sysmlv1.ElementRef, role string) (name, why st
 	return m.plainName(ref.Element), ""
 }
 
-// plainName joins the name's segments as the index registers them: the names
-// themselves, unquoted.
-func (m *migration) plainName(e *sysmlv1.Element) string {
-	return strings.Join(m.segments(e), "::")
+// plainName is the element's qualified name as a query looks it up.
+func (m *migration) plainName(e *sysmlv1.Element) string { return queryName(m.segments(e)) }
+
+// queryName writes names as the qualified name a query looks up: joined bare where
+// that reads back as them, else as notation, each name quoted on its own.
+func queryName(names []string) string {
+	if plain := strings.Join(names, "::"); slices.Equal(symbols.SegmentsOf(plain), names) {
+		return plain
+	}
+	return source.QualifiedNameOf(names)
 }
 
 // typedRows filters src by the row types; package-owned usages only for an instance table.
@@ -511,11 +518,7 @@ func (m *migration) exceptSynthesizedUsages(rows qx) qx {
 			if u.self {
 				continue
 			}
-			if host := m.plainName(u.host); host != "" {
-				names.add(host + "::" + u.name)
-			} else {
-				names.add(u.name)
-			}
+			names.add(queryName(append(m.segments(u.host), u.name)))
 		}
 	}
 	if len(names) == 0 {
