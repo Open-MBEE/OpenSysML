@@ -1014,7 +1014,8 @@ func (d *decoder) transitionImplied(el, parent *element) (bool, error) {
 			return false, nil
 		}
 		if len(d.graph.Objects(subject, rdf.SysML+pOwnedRelationship)) == 0 {
-			return owning == mParameterMembership, nil
+			// A bare one a FeatureMembership owns is the transitionLink the conversion writes last (transitionLinkMember).
+			return owning == mParameterMembership || !stated, nil
 		}
 		if parent == nil || parent.metaclass != mTransition {
 			return false, nil

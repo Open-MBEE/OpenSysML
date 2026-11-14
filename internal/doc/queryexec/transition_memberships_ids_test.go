@@ -8,8 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
-// The Membership naming a transition's `first` source and its link parameter read the ids the conversion
-// mints ahead of the trigger (transitionHeadMembers): `<transition>_psourcemember`, `_linkparam`, `_linkparam_om`.
+// A transition's source Membership, link parameter and transitionLink read the ids the conversion mints:
+// `<transition>_psourcemember`, `_linkparam`, `_linkparam_om`, `_transitionlink`, `_transitionlink_om`.
 func TestTransitionHeadMembershipsReadTheConversionIDs(t *testing.T) {
 	fixture := loadExecutionSource(t, `package Observatory {
     state def S {
@@ -28,12 +28,12 @@ func TestTransitionHeadMembershipsReadTheConversionIDs(t *testing.T) {
 	}
 	transition := fixture.symbol(t, "S::go")
 	owned, _ := fixture.model.ReflectiveElements(transition, "ownedRelationship")
-	want := "Observatory__S__go_psourcemember Observatory__S__go_linkparam_om Observatory__S__go_succession_om"
+	want := "Observatory__S__go_psourcemember Observatory__S__go_linkparam_om Observatory__S__go_succession_om Observatory__S__go_transitionlink_om"
 	if got := strings.Join(elementIDs(elementID, owned), " "); got != want {
 		t.Fatalf("ownedRelationship ids = %q, want %q", got, want)
 	}
 	parameters, _ := fixture.model.ReflectiveElements(transition, "ownedFeature")
-	if got := strings.Join(elementIDs(elementID, parameters), " "); got != "Observatory__S__go_linkparam Observatory__S__go_succession" {
+	if got := strings.Join(elementIDs(elementID, parameters), " "); got != "Observatory__S__go_linkparam Observatory__S__go_succession Observatory__S__go_transitionlink" {
 		t.Fatalf("ownedFeature ids = %q", got)
 	}
 }

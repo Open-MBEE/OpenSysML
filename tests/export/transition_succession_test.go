@@ -98,8 +98,8 @@ func TestTransitionSuccessionFollowsEffectAndPrecedesBody(t *testing.T) {
 	turtle, back := graphOnlyRoundTrip(t, "t.sysml", []byte(src))
 	graph := string(turtle)
 	if !strings.Contains(graph,
-		"sysml:ownedRelationship expr:T__S__t_psourcemember, elmt:T__S__t_linkparam_om, expr:T__S__t_pguard_om, elmt:T__S__t___400_om, elmt:T__S__t_succession_om, elmt:T__S__t__inner_om ;") {
-		t.Errorf("the memberships should order source, parameter, guard, effect, succession, body:\n%s", graph)
+		"sysml:ownedRelationship expr:T__S__t_psourcemember, elmt:T__S__t_linkparam_om, expr:T__S__t_pguard_om, elmt:T__S__t___400_om, elmt:T__S__t_succession_om, elmt:T__S__t__inner_om, elmt:T__S__t_transitionlink_om ;") {
+		t.Errorf("the memberships should order source, parameter, guard, effect, succession, body, transitionLink:\n%s", graph)
 	}
 	notation := string(back)
 	for _, want := range []string{"transition t first a if g do send a to b then c {\n", "state inner;\n"} {

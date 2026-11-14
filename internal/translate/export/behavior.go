@@ -569,6 +569,7 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 	if encoded != nil {
 		return encoded
 	}
+	e.transitionLinkMember(subject)
 	// The ends come last: sysml:target closes the statement block, the way the
 	// membership-free mapping left it.
 	if source := e.transitionSourceTerm(n, n.Source, nil, e.preceding[n]); source.Value != "" {
@@ -601,6 +602,7 @@ func (e *encoder) encodeGuardedTarget(n *ast.ControlFlowEdge, head func(rdf.Term
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 	e.emitMembershipCore(membership, succession, subject, mOwningMembership, true)
+	e.transitionLinkMember(subject)
 	if source.Value != "" {
 		e.graph.Add(subject, e.sysml(pSource), source)
 	}
@@ -627,6 +629,7 @@ func (e *encoder) encodeTargetTransition(n *ast.SuccessionEdge, head func(rdf.Te
 	if err := e.encode(n.Members, fqn, subject); err != nil {
 		return err
 	}
+	e.transitionLinkMember(subject)
 	if source.Value != "" {
 		e.graph.Add(subject, e.sysml(pSource), source)
 	}
@@ -711,6 +714,9 @@ const targetTransitionSyntax = "target"
 // transitionSuccessionSuffix names a transition's owned succession off the transition's own id,
 // as SynthesizedElementID spells the element the semantic model synthesizes for it.
 const transitionSuccessionSuffix = "_succession"
+
+// transitionLinkSuffix names the transitionLink a transition owns off the transition's own id (transitionLinkMember).
+const transitionLinkSuffix = "_transitionlink"
 
 // transitionSuccession emits the SuccessionAsUsage a transition owns for its
 // `then` clause (SysML.xtext TransitionSuccessionMember, whose
@@ -845,6 +851,21 @@ func (e *encoder) emptyParameterMember(subject rdf.Term, slot string, owner *sym
 	e.emitMembershipCore(membership, feature, subject, mParameterMembership, true)
 	e.graph.Add(membership, e.sysml(pOwnedMemberFeature), feature)
 	e.graph.Add(membership, e.sysml(pOwnedMemberParameter), feature)
+}
+
+// transitionLinkMember emits the ReferenceUsage every transition with a target owns last, through a
+// FeatureMembership after its succession, as the pilot exports it (TransitionUsage::transitionLink).
+func (e *encoder) transitionLinkMember(subject rdf.Term) {
+	feature := e.ids.minted(rdf.IRI(subject.Value+transitionLinkSuffix), subject, transitionLinkSuffix)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+	e.typed(feature, mReferenceUsage)
+	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
+	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+	e.graph.Add(subject, e.sysml(pOwnedFeatureMembership), membership)
+	e.graph.Add(subject, e.sysml(pOwnedFeature), feature)
+	e.emitMembershipCore(membership, feature, subject, mFeatureMembership, true)
+	e.graph.Add(membership, e.sysml(pOwnedMemberFeature), feature)
 }
 
 // encodeTrigger emits a transition's trigger as the AcceptActionUsage its

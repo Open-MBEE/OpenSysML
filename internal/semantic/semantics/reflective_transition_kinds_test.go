@@ -55,8 +55,12 @@ func TestTransitionFeatureKindsReadTheirLiteral(t *testing.T) {
 			parameters++
 			continue
 		}
+		if meta != nil && meta.Name == "FeatureMembership" {
+			// The transitionLink every transition owns last, as the pilot exports it.
+			continue
+		}
 		if meta == nil || meta.Name != "TransitionFeatureMembership" {
-			t.Errorf("t1 owns a %v, want only its source Membership, link parameters, TransitionFeatureMemberships and its succession", meta)
+			t.Errorf("t1 owns a %v, want only its source Membership, link parameters, TransitionFeatureMemberships, succession and transitionLink", meta)
 			continue
 		}
 		got, ok := m.ReflectiveFeatureValue(membership, "kind")
