@@ -89,6 +89,8 @@ func expressionPartSlot(sym *symbols.Symbol) (string, bool) {
 		return "result", true
 	case symbols.ExpressionChainFeature:
 		return sym.Expr.Slot, true
+	case symbols.ExpressionTransitionSuccession:
+		return "succession", true
 	}
 	return "", false
 }
