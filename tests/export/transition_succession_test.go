@@ -120,10 +120,14 @@ func TestTransitionBodyBareReferenceSurvivesBesideTheTransitionLink(t *testing.T
 	if string(back) != src {
 		t.Errorf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
 	}
-	// A graph that links the `ref;` as a body member but states no address or index for it keeps it too.
+	// A uuid-form graph that links the `ref;` as a body member but states no address or index for it keeps it too.
+	refTurtle, err := convert.ConvertWith("r.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle, convert.Options{ID: export.IDUUID})
+	if err != nil {
+		t.Fatalf("to turtle in uuid form: %v", err)
+	}
 	var unaddressed []string
-	for _, block := range strings.Split(string(withoutLayout(t, turtle)), "\n\n") {
-		if strings.HasPrefix(block, "elmt:P__S__t___400\n") {
+	for _, block := range strings.Split(string(refTurtle), "\n\n") {
+		if strings.Contains(block, "ref;") {
 			var kept []string
 			for _, line := range strings.Split(block, "\n") {
 				if !strings.Contains(line, "sysx:positionalName") && !strings.Contains(line, "sysx:memberIndex") {
@@ -134,7 +138,7 @@ func TestTransitionBodyBareReferenceSurvivesBesideTheTransitionLink(t *testing.T
 		}
 		unaddressed = append(unaddressed, block)
 	}
-	if again, err := convert.Convert("t.ttl", []byte(strings.Join(unaddressed, "\n\n")), convert.FormatTurtle, convert.FormatSysML); err != nil {
+	if again, err := convert.Convert("r.ttl", []byte(strings.Join(unaddressed, "\n\n")), convert.FormatTurtle, convert.FormatSysML); err != nil {
 		t.Errorf("an unaddressed body `ref;` should import: %v", err)
 	} else if !strings.Contains(string(again), "ref;") {
 		t.Errorf("the unaddressed body `ref;` was dropped:\n%s", again)
