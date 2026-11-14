@@ -190,13 +190,12 @@ type Client interface {
 	// query, as RunDocumentQuery runs one. Requires inline_document_query.
 	RunInlineDocumentQuery(ctx context.Context, model *Model, expression string, bindings ...Binding) (*Rows, error)
 
-	// RenderDocument renders the named document to Markdown. Requires the
-	// render_document capability.
-	RenderDocument(ctx context.Context, model *Model, documentID string) (string, error)
+	// RenderDocument renders the named document to Markdown, or to the form
+	// WithDocumentForm names. Requires the render_document capability.
+	RenderDocument(ctx context.Context, model *Model, documentID string, opts ...RenderDocumentOption) (string, error)
 
-	// RenderView renders a declared view or targeted pseudo-view as diagram
-	// data. Ports are minimal by default; WithFullPorts requests all ports.
-	// Requires the render_view capability.
+	// RenderView renders a declared view or targeted pseudo-view as diagram data, and with
+	// WithForm as diagram source or a table too. Requires the render_view capability.
 	RenderView(ctx context.Context, model *Model, viewName string, opts ...RenderViewOption) (*RenderedView, error)
 
 	// ExportGraphs exports the lowered graph of an action or state machine,

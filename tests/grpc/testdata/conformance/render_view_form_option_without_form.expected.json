@@ -1,0 +1,8 @@
+{
+  "rpc": "RenderView",
+  "model": "render_view_form.sysml",
+  "view": "FormDemo::structure",
+  "lines": "zigzag",
+  "expected_error": "unknown",
+  "expected_error_code": "invalid_argument"
+}

@@ -1,0 +1,8 @@
+{
+  "rpc": "RenderView",
+  "model": "render_view_form.sysml",
+  "view": "FormDemo::parts",
+  "form": "dot",
+  "expected_error": "FormDemo::parts: a table rendering is not written as dot; ask for text, markdown, csv or tsv",
+  "expected_error_code": "invalid_argument"
+}

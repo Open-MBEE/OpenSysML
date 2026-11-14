@@ -82,6 +82,8 @@ export const CAPABILITY_RENDER_DOCUMENT_HTML = "render_document_html";
 export const CAPABILITY_RENDER_DOCUMENT_ASCIIDOC = "render_document_asciidoc";
 /** The `RenderView` RPC, returning typed diagram data. */
 export const CAPABILITY_RENDER_VIEW = "render_view";
+/** `form` and the writer options on `RenderViewRequest`, answered in `text`. */
+export const CAPABILITY_RENDER_VIEW_FORM = "render_view_form";
 /** The `ExportGraphs` RPC, exporting a behavior's lowered graph as `graphs:1` JSON. */
 export const CAPABILITY_EXPORT_GRAPHS = "export_graphs";
 export const CAPABILITY_IMPORT_DATA = "import_data";

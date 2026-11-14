@@ -2086,7 +2086,9 @@ message SymbolInfo {
   // Feature::direction is GetElementProperties' `direction`), "abstract",
   // "variation", "variant" and the like.
   map<string, string> metadata = 4;
-  repeated string child_ids = 5;     // References to children
+  // The owned members' ids, each one GetSymbol takes: a qualified name, a positional id (`Owner::@3`), or an unnamed
+  // connector end's GetElementProperties element id (`Owner__c_pend0`), which a declaration so named answers instead.
+  repeated string child_ids = 5;
   repeated AttributeInfo attributes = 6;
   // Static type facts; unset when the element is not a def/usage. `declared`
   // is the written typing and `types` the derived Feature::type, the `type`
@@ -2117,12 +2119,12 @@ message SymbolInfo {
 
 // MemberInfo is one member of an element, own or inherited.
 message MemberInfo {
-  // FQN of the member, the id GetSymbol takes; a member declared without a
-  // name has none that resolves.
+  // The id GetSymbol takes: the member's FQN, or the positional id
+  // (`Owner::@3`) of one declared without a name, library members included.
   string id = 1;
   // Declared name; empty for an unnamed member such as `bind a = b;`.
   string name = 2;
-  // Symbol kind of the member ("partUsage", "bindingUsage", ...).
+  // Symbol kind of the member ("partUsage", "bindingConnectorAsUsage", ...).
   string kind = 3;
   // True when the member is inherited rather than declared by the element.
   bool inherited = 4;
@@ -2139,7 +2141,8 @@ message Specialization {
   string kind = 1;
   // The target as written in the source ("Engine", "Demo::Engine").
   string declared = 2;
-  // FQN of the resolved target; empty when the name does not resolve.
+  // FQN of the resolved target; empty when the name does not resolve. A "references" feature chain
+  // (`x.p`) is one entry per chaining feature, in chain order, each with the chain as `declared`.
   string target_id = 3;
   // Symbol kind of the resolved target ("partDef", ...); empty when unresolved.
   string target_kind = 4;
@@ -3333,6 +3336,27 @@ message RenderViewRequest {
   // owned usage no Layout, nested definition or package keeps a node) or
   // "ports" (the port usages with the ports nested under them).
   string compartments = 6;
+  // Form to also write into RenderViewResponse.text: "text", "mermaid", "markdown", "dot", "plantuml", "d2",
+  // "drawio", "csv" or "tsv"; an unknown or wrong-kind form is INVALID_ARGUMENT. Needs render_view_form.
+  string form = 7;
+  // Palette the dot, mermaid, plantuml, d2 or drawio form fills nodes from,
+  // as -render-palette names them; empty draws in black and white.
+  string palette = 8;
+  // Drawing style of the dot or mermaid form, as -render-style names them:
+  // "" or "pilot" (the default), or "cameo".
+  string style = 9;
+  // How the dot or plantuml form routes its edges, as -render-lines names
+  // them: "" or "splines" (the default), "ortho" or "polyline".
+  string lines = 10;
+  // Flow direction of a graph-shaped form: "TB", "LR", "RL" or "BT"; empty
+  // leaves each kind's default, which is what the CLI writes.
+  string direction = 11;
+  // Source link template of each node and edge, as -render-link takes it:
+  // placeholders {file}, {line}, {col}, {qname} and {id}; empty writes no links.
+  string link = 12;
+  // Where a graph form of a positioned view puts the nodes no layout places,
+  // as -render-unplaced names them: "" or "omit" (the default), or "strip".
+  string unplaced = 13;
 }
 
 // RenderViewResponse carries all machine-readable fields of the rendering.
@@ -3354,6 +3378,9 @@ message RenderViewResponse {
   repeated string shown = 11;
   // The view frame round a graph-shaped rendering; unset for a frameless one.
   RenderFrame frame = 12;
+  // The rendering written in RenderViewRequest.form, byte for byte what the CLI's
+  // -render writes at no particular width; empty when the request names no form.
+  string text = 13;
 }
 
 // RenderFrame is the view frame of SysML v2 §8.2.3.26: the name compartment's

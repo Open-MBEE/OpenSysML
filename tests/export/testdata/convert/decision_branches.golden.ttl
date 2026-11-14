@@ -620,6 +620,12 @@ elmt:Branches__Charge___404_succession
     sysml:ownedFeatureMembership expr:Branches__Charge___404_succession_pend0_om, expr:Branches__Charge___404_succession_pend1_om ;
     sysml:ownedFeature expr:Branches__Charge___404_succession_pend0, expr:Branches__Charge___404_succession_pend1 ;
     sysml:ownedEndFeature expr:Branches__Charge___404_succession_pend0, expr:Branches__Charge___404_succession_pend1 ;
+    sysml:relatedFeature elmt:Branches__Charge___402, elmt:Branches__Charge__addCharge ;
+    sysml:relatedElement elmt:Branches__Charge___402, elmt:Branches__Charge__addCharge ;
+    sysml:sourceFeature elmt:Branches__Charge___402 ;
+    sysml:source elmt:Branches__Charge___402 ;
+    sysml:targetFeature elmt:Branches__Charge__addCharge ;
+    sysml:target elmt:Branches__Charge__addCharge ;
     sysml:owner elmt:Branches__Charge___404 ;
     sysml:owningRelationship elmt:Branches__Charge___404_succession_om ;
     sysml:owningMembership elmt:Branches__Charge___404_succession_om ;
@@ -629,7 +635,9 @@ elmt:Branches__Charge___404_succession
     json:ownedMember "[{\"@id\":\"Branches__Charge___404_succession_pend0\"},{\"@id\":\"Branches__Charge___404_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Branches__Charge___404_succession_pend0_om\"},{\"@id\":\"Branches__Charge___404_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Branches__Charge___404_succession_pend0\"},{\"@id\":\"Branches__Charge___404_succession_pend1\"}]" ;
-    json:ownedEndFeature "[{\"@id\":\"Branches__Charge___404_succession_pend0\"},{\"@id\":\"Branches__Charge___404_succession_pend1\"}]" .
+    json:ownedEndFeature "[{\"@id\":\"Branches__Charge___404_succession_pend0\"},{\"@id\":\"Branches__Charge___404_succession_pend1\"}]" ;
+    json:relatedFeature "[{\"@id\":\"Branches__Charge___402\"},{\"@id\":\"Branches__Charge__addCharge\"}]" ;
+    json:relatedElement "[{\"@id\":\"Branches__Charge___402\"},{\"@id\":\"Branches__Charge__addCharge\"}]" .
 
 expr:Branches__Charge___404_succession_pend0
     a sysml:ReferenceUsage ;
@@ -992,6 +1000,12 @@ elmt:Branches__Charge___405_succession
     sysml:ownedFeatureMembership expr:Branches__Charge___405_succession_pend0_om, expr:Branches__Charge___405_succession_pend1_om ;
     sysml:ownedFeature expr:Branches__Charge___405_succession_pend0, expr:Branches__Charge___405_succession_pend1 ;
     sysml:ownedEndFeature expr:Branches__Charge___405_succession_pend0, expr:Branches__Charge___405_succession_pend1 ;
+    sysml:relatedFeature elmt:Branches__Charge___402, elmt:Branches__Charge__stop ;
+    sysml:relatedElement elmt:Branches__Charge___402, elmt:Branches__Charge__stop ;
+    sysml:sourceFeature elmt:Branches__Charge___402 ;
+    sysml:source elmt:Branches__Charge___402 ;
+    sysml:targetFeature elmt:Branches__Charge__stop ;
+    sysml:target elmt:Branches__Charge__stop ;
     sysml:owner elmt:Branches__Charge___405 ;
     sysml:owningRelationship elmt:Branches__Charge___405_succession_om ;
     sysml:owningMembership elmt:Branches__Charge___405_succession_om ;
@@ -1001,7 +1015,9 @@ elmt:Branches__Charge___405_succession
     json:ownedMember "[{\"@id\":\"Branches__Charge___405_succession_pend0\"},{\"@id\":\"Branches__Charge___405_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Branches__Charge___405_succession_pend0_om\"},{\"@id\":\"Branches__Charge___405_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Branches__Charge___405_succession_pend0\"},{\"@id\":\"Branches__Charge___405_succession_pend1\"}]" ;
-    json:ownedEndFeature "[{\"@id\":\"Branches__Charge___405_succession_pend0\"},{\"@id\":\"Branches__Charge___405_succession_pend1\"}]" .
+    json:ownedEndFeature "[{\"@id\":\"Branches__Charge___405_succession_pend0\"},{\"@id\":\"Branches__Charge___405_succession_pend1\"}]" ;
+    json:relatedFeature "[{\"@id\":\"Branches__Charge___402\"},{\"@id\":\"Branches__Charge__stop\"}]" ;
+    json:relatedElement "[{\"@id\":\"Branches__Charge___402\"},{\"@id\":\"Branches__Charge__stop\"}]" .
 
 expr:Branches__Charge___405_succession_pend0
     a sysml:ReferenceUsage ;
@@ -1468,6 +1484,12 @@ elmt:Branches__Charge___409_succession
     sysml:ownedFeatureMembership expr:Branches__Charge___409_succession_pend0_om, expr:Branches__Charge___409_succession_pend1_om ;
     sysml:ownedFeature expr:Branches__Charge___409_succession_pend0, expr:Branches__Charge___409_succession_pend1 ;
     sysml:ownedEndFeature expr:Branches__Charge___409_succession_pend0, expr:Branches__Charge___409_succession_pend1 ;
+    sysml:relatedFeature elmt:Branches__Charge__pick, elmt:Branches__Charge__addCharge ;
+    sysml:relatedElement elmt:Branches__Charge__pick, elmt:Branches__Charge__addCharge ;
+    sysml:sourceFeature elmt:Branches__Charge__pick ;
+    sysml:source elmt:Branches__Charge__pick ;
+    sysml:targetFeature elmt:Branches__Charge__addCharge ;
+    sysml:target elmt:Branches__Charge__addCharge ;
     sysml:owner elmt:Branches__Charge___409 ;
     sysml:owningRelationship elmt:Branches__Charge___409_succession_om ;
     sysml:owningMembership elmt:Branches__Charge___409_succession_om ;
@@ -1477,7 +1499,9 @@ elmt:Branches__Charge___409_succession
     json:ownedMember "[{\"@id\":\"Branches__Charge___409_succession_pend0\"},{\"@id\":\"Branches__Charge___409_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Branches__Charge___409_succession_pend0_om\"},{\"@id\":\"Branches__Charge___409_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Branches__Charge___409_succession_pend0\"},{\"@id\":\"Branches__Charge___409_succession_pend1\"}]" ;
-    json:ownedEndFeature "[{\"@id\":\"Branches__Charge___409_succession_pend0\"},{\"@id\":\"Branches__Charge___409_succession_pend1\"}]" .
+    json:ownedEndFeature "[{\"@id\":\"Branches__Charge___409_succession_pend0\"},{\"@id\":\"Branches__Charge___409_succession_pend1\"}]" ;
+    json:relatedFeature "[{\"@id\":\"Branches__Charge__pick\"},{\"@id\":\"Branches__Charge__addCharge\"}]" ;
+    json:relatedElement "[{\"@id\":\"Branches__Charge__pick\"},{\"@id\":\"Branches__Charge__addCharge\"}]" .
 
 expr:Branches__Charge___409_succession_pend0
     a sysml:ReferenceUsage ;
@@ -1615,6 +1639,12 @@ elmt:Branches__Charge___4010_succession
     sysml:ownedFeatureMembership expr:Branches__Charge___4010_succession_pend0_om, expr:Branches__Charge___4010_succession_pend1_om ;
     sysml:ownedFeature expr:Branches__Charge___4010_succession_pend0, expr:Branches__Charge___4010_succession_pend1 ;
     sysml:ownedEndFeature expr:Branches__Charge___4010_succession_pend0, expr:Branches__Charge___4010_succession_pend1 ;
+    sysml:relatedFeature elmt:Branches__Charge__pick, elmt:Branches__Charge__stop ;
+    sysml:relatedElement elmt:Branches__Charge__pick, elmt:Branches__Charge__stop ;
+    sysml:sourceFeature elmt:Branches__Charge__pick ;
+    sysml:source elmt:Branches__Charge__pick ;
+    sysml:targetFeature elmt:Branches__Charge__stop ;
+    sysml:target elmt:Branches__Charge__stop ;
     sysml:owner elmt:Branches__Charge___4010 ;
     sysml:owningRelationship elmt:Branches__Charge___4010_succession_om ;
     sysml:owningMembership elmt:Branches__Charge___4010_succession_om ;
@@ -1624,7 +1654,9 @@ elmt:Branches__Charge___4010_succession
     json:ownedMember "[{\"@id\":\"Branches__Charge___4010_succession_pend0\"},{\"@id\":\"Branches__Charge___4010_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Branches__Charge___4010_succession_pend0_om\"},{\"@id\":\"Branches__Charge___4010_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Branches__Charge___4010_succession_pend0\"},{\"@id\":\"Branches__Charge___4010_succession_pend1\"}]" ;
-    json:ownedEndFeature "[{\"@id\":\"Branches__Charge___4010_succession_pend0\"},{\"@id\":\"Branches__Charge___4010_succession_pend1\"}]" .
+    json:ownedEndFeature "[{\"@id\":\"Branches__Charge___4010_succession_pend0\"},{\"@id\":\"Branches__Charge___4010_succession_pend1\"}]" ;
+    json:relatedFeature "[{\"@id\":\"Branches__Charge__pick\"},{\"@id\":\"Branches__Charge__stop\"}]" ;
+    json:relatedElement "[{\"@id\":\"Branches__Charge__pick\"},{\"@id\":\"Branches__Charge__stop\"}]" .
 
 expr:Branches__Charge___4010_succession_pend0
     a sysml:ReferenceUsage ;

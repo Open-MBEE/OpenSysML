@@ -2219,8 +2219,7 @@ func (m *Model) ConnectorRelatedFeaturesByEnd(sym *symbols.Symbol) []*symbols.Sy
 		// A message's ends own no end feature of their own: the feature its
 		// `from`/`to` path reaches stands in for the end's reference.
 		if target == nil && i < len(paths) && len(paths[i].Features) > 0 {
-			path := paths[i].Features
-			target = path[len(path)-1]
+			target = flowEndReferencedFeature(sym, paths[i].Features)
 		}
 		if target == nil && i < len(successionEnds) {
 			target = successionEnds[i]
@@ -2228,6 +2227,18 @@ func (m *Model) ConnectorRelatedFeaturesByEnd(sym *symbols.Symbol) []*symbols.Sy
 		related[i] = target
 	}
 	return related
+}
+
+// flowEndReferencedFeature is the feature an end path references: before the payload for a flow end (`flow a.x to b.y`
+// relates a and b, SysML v2.1 §8.3.16.6; none for a bare `a` or a chained prefix), the one reached for a message's or connector's.
+func flowEndReferencedFeature(sym *symbols.Symbol, path []*symbols.Symbol) *symbols.Symbol {
+	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageFlow && usage.Keyword != "message" {
+		if len(path) == 2 {
+			return path[0]
+		}
+		return nil
+	}
+	return path[len(path)-1]
 }
 
 // EndReferencedFeature is the subsettedFeature of end's ownedReferenceSubsetting: the
@@ -2414,7 +2425,7 @@ func ReflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
 			return ast.DirIn, true
 		case symbols.ExpressionResult:
 			return ast.DirOut, true
-		case symbols.ExpressionPayload:
+		case symbols.ExpressionPayload, symbols.ExpressionTransitionLinkParameter:
 			return ast.DirIn, true
 		}
 		return ast.DirNone, true

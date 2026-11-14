@@ -60,6 +60,10 @@ func successionEndSlot(sym *symbols.Symbol) (ast.Node, string, bool) {
 		return nil, "", false
 	}
 	decl, _ := symbols.ImpliedDeclOf(sym)
+	if symbols.ImpliedTransitionSuccessionEnd(sym) {
+		// A transition's succession mints its ends under itself, filed under the transition (recordTransitionSuccession).
+		return decl.Of, fmt.Sprintf("succession.end%d", i), true
+	}
 	return decl.Of, fmt.Sprintf("end%d", i), true
 }
 
@@ -89,6 +93,10 @@ func expressionPartSlot(sym *symbols.Symbol) (string, bool) {
 		return "result", true
 	case symbols.ExpressionChainFeature:
 		return sym.Expr.Slot, true
+	case symbols.ExpressionTransitionSuccession:
+		return "succession", true
+	case symbols.ExpressionTransitionLinkParameter:
+		return []string{"linkparam", "triggerparam"}[sym.Expr.Index], true
 	}
 	return "", false
 }

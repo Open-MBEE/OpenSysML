@@ -22,6 +22,10 @@ const (
 	// succession owns for its source and target (SysML.xtext TargetSuccession), named by the end they redefine.
 	ImpliedSuccessionSourceEnd
 	ImpliedSuccessionTargetEnd
+	// ImpliedTransitionSuccessionSourceEnd and ImpliedTransitionSuccessionTargetEnd are the same two ends of the
+	// succession a transition owns for its `then` clause (SysML.xtext TransitionSuccessionMember), under the transition.
+	ImpliedTransitionSuccessionSourceEnd
+	ImpliedTransitionSuccessionTargetEnd
 )
 
 // ImpliedDecl declares an element the abstract syntax implies for a written
@@ -65,12 +69,19 @@ func ImpliedSuccessionEndIndex(sym *Symbol) (int, bool) {
 		return 0, false
 	}
 	switch d.Form {
-	case ImpliedSuccessionSourceEnd:
+	case ImpliedSuccessionSourceEnd, ImpliedTransitionSuccessionSourceEnd:
 		return 0, true
-	case ImpliedSuccessionTargetEnd:
+	case ImpliedSuccessionTargetEnd, ImpliedTransitionSuccessionTargetEnd:
 		return 1, true
 	}
 	return 0, false
+}
+
+// ImpliedTransitionSuccessionEnd reports whether sym is an end of the succession a transition owns,
+// which the conversion mints under the transition's succession rather than under a written edge.
+func ImpliedTransitionSuccessionEnd(sym *Symbol) bool {
+	d, ok := ImpliedDeclOf(sym)
+	return ok && (d.Form == ImpliedTransitionSuccessionSourceEnd || d.Form == ImpliedTransitionSuccessionTargetEnd)
 }
 
 // Implied reports whether sym declares an element the abstract syntax implies

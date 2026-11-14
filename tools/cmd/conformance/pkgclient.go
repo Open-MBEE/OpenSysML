@@ -1284,7 +1284,12 @@ func (c *pkgClient) renderView(ctx context.Context, request protoreflect.Message
 	if err := retype(request, req); err != nil {
 		return nil, err
 	}
-	var options []opensysml.RenderViewOption
+	options := []opensysml.RenderViewOption{
+		opensysml.WithShow(req.Show...), opensysml.WithDepth(int(req.Depth)), opensysml.WithCompartments(req.Compartments),
+		opensysml.WithForm(req.Form), opensysml.WithPalette(req.Palette), opensysml.WithStyle(req.Style),
+		opensysml.WithLines(req.Lines), opensysml.WithDirection(req.Direction), opensysml.WithLink(req.Link),
+		opensysml.WithUnplaced(req.Unplaced),
+	}
 	if req.Ports == "full" {
 		options = append(options, opensysml.WithFullPorts())
 	}
@@ -1294,7 +1299,7 @@ func (c *pkgClient) renderView(ctx context.Context, request protoreflect.Message
 	}
 	response := &pb.RenderViewResponse{
 		View: rendered.View, Kind: rendered.Kind, Stated: rendered.Stated,
-		Columns: rendered.Columns, Notices: rendered.Notices,
+		Columns: rendered.Columns, Notices: rendered.Notices, Text: rendered.Text,
 	}
 	if rendered.Canvas != nil {
 		response.Canvas = &pb.RenderCanvas{

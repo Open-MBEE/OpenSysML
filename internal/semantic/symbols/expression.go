@@ -45,6 +45,9 @@ const (
 	// ExpressionTransitionSuccession is the Succession a transition owns through an OwningMembership,
 	// from its source to its target (SysML.xtext TransitionSuccessionMember); Owner is the transition.
 	ExpressionTransitionSuccession
+	// ExpressionTransitionLinkParameter is an `in` ReferenceUsage a transition owns through a
+	// ParameterMembership ahead of its trigger (SysML.xtext EmptyParameterMember); Owner is the transition.
+	ExpressionTransitionLinkParameter
 )
 
 // ExpressionElement is the side record of a symbol the reflective layer

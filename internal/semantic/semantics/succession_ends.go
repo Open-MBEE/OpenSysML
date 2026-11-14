@@ -23,9 +23,12 @@ func (m *Model) SuccessionEndMembers(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil || sym.Recorded() || sym.Scope == nil {
 		return nil
 	}
-	edge, ok := sym.Decl.(*ast.SuccessionEdge)
-	// A state body's `then x;` after a state declares a TransitionUsage, no connector: it owns no ends.
-	if !ok || !SuccessionMintsEnds(edge) || sym.DeclaresTransition() {
+	forms := []symbols.ImpliedForm{symbols.ImpliedSuccessionSourceEnd, symbols.ImpliedSuccessionTargetEnd}
+	if transitionSuccessionPart(sym) {
+		// The succession a transition owns mints its two ends likewise (transitionSuccession), under the transition.
+		forms = []symbols.ImpliedForm{symbols.ImpliedTransitionSuccessionSourceEnd, symbols.ImpliedTransitionSuccessionTargetEnd}
+	} else if edge, ok := sym.Decl.(*ast.SuccessionEdge); !ok || !SuccessionMintsEnds(edge) || sym.DeclaresTransition() {
+		// A state body's `then x;` after a state declares a TransitionUsage, no connector: it owns no ends itself.
 		return nil
 	}
 	defer m.own(sym).LeaveDoc()
@@ -33,20 +36,24 @@ func (m *Model) SuccessionEndMembers(sym *symbols.Symbol) []*symbols.Symbol {
 		return cached
 	}
 	journal(m, m.successionEnds, sym, sym.Decl)
-	forms := []symbols.ImpliedForm{symbols.ImpliedSuccessionSourceEnd, symbols.ImpliedSuccessionTargetEnd}
 	out := make([]*symbols.Symbol, len(forms))
 	for i, form := range forms {
 		out[i] = &symbols.Symbol{
 			Kind:       symbols.SymbolConnectorEnd,
 			DocName:    sym.DocName,
-			DeclSpan:   source.Span{Offset: edge.Span().Offset},
+			DeclSpan:   source.Span{Offset: sym.Decl.Span().Offset},
 			Visibility: ast.VisibilityDefault,
 			OwnerScope: sym.Scope,
-			Decl:       &symbols.ImpliedDecl{Of: edge, Form: form},
+			Decl:       &symbols.ImpliedDecl{Of: sym.Decl, Form: form},
 		}
 	}
 	m.successionEnds[sym] = out
 	return out
+}
+
+// transitionSuccessionPart reports whether sym is the succession a transition owns (transitionPartsOf).
+func transitionSuccessionPart(sym *symbols.Symbol) bool {
+	return sym != nil && sym.Expr != nil && sym.Expr.Role == symbols.ExpressionTransitionSuccession
 }
 
 // successionEndReference is the feature a `then` succession's target end reference-subsets (nil when the model
@@ -61,9 +68,15 @@ func (m *Model) successionEndReference(end *symbols.Symbol) (target *symbols.Sym
 		return nil, false
 	}
 	decl, _ := symbols.ImpliedDeclOf(end)
-	edge := decl.Of.(*ast.SuccessionEdge)
-	if edge.Target == nil && edge.TargetMember == nil {
-		return nil, false
+	switch edge := decl.Of.(type) {
+	case *ast.SuccessionEdge:
+		if edge.Target == nil && edge.TargetMember == nil {
+			return nil, false
+		}
+	case *ast.TransitionMember:
+		if edge.Target == nil {
+			return nil, false
+		}
 	}
 	if related, _ := m.connectorSuccessionRelatedFeatures(succession); len(related) == 2 {
 		target = related[1]
@@ -79,12 +92,17 @@ func successionEndMultiplicity(sym *symbols.Symbol) *ast.Multiplicity {
 		return nil
 	}
 	decl, _ := symbols.ImpliedDeclOf(sym)
-	edge, ok := decl.Of.(*ast.SuccessionEdge)
-	if !ok {
-		return nil
+	switch edge := decl.Of.(type) {
+	case *ast.SuccessionEdge:
+		if i == 0 {
+			return edge.SourceMultiplicity
+		}
+		return edge.TargetMultiplicity
+	case *ast.TransitionMember:
+		// A transition's succession writes only the target's range (`then [0..1] busy`).
+		if i == 1 {
+			return edge.TargetMultiplicity
+		}
 	}
-	if i == 0 {
-		return edge.SourceMultiplicity
-	}
-	return edge.TargetMultiplicity
+	return nil
 }
