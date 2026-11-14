@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // Frame is the view frame of SysML v2 §8.2.3.26 (framed-view): the name
@@ -74,7 +75,7 @@ func (r *Renderer) frameOf(view *symbols.Symbol) *Frame {
 			if imp == nil || !imp.IsExpose || imp.Imported == nil {
 				continue
 			}
-			text := "expose " + imp.Imported.Text() + importSuffix(imp)
+			text := "expose " + bareNames(ast.QualifiedNameText(imp.Imported)) + importSuffix(imp)
 			if imp.FilterExpr != nil {
 				if condition := r.nodeText(view.DocName, imp.FilterExpr); condition != "" {
 					text += "[" + condition + "]"

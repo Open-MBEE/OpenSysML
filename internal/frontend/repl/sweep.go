@@ -15,6 +15,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 const (
@@ -811,10 +812,10 @@ func isSpecNameRune(r rune) bool {
 }
 
 // unquoteSpecName is a parameter's name as the model spells it: an unrestricted
-// name loses its quotes, as a declared name does when it is parsed.
+// name loses its quotes and escapes, as a declared name does when it is parsed.
 func unquoteSpecName(name string) string {
 	if len(name) >= 2 && name[0] == '\'' && name[len(name)-1] == '\'' {
-		return name[1 : len(name)-1]
+		return source.Unescape(name[1 : len(name)-1])
 	}
 	return name
 }

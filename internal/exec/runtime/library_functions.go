@@ -57,7 +57,7 @@ func writtenName(fqn string) string {
 	parts := strings.Split(fqn, "::")
 	for i, part := range parts {
 		if !source.IsIdentifier(part) || source.IsKeywordIn(part, source.KindKerML) {
-			parts[i] = "'" + part + "'"
+			parts[i] = source.UnrestrictedNameText(part)
 		}
 	}
 	return strings.Join(parts, "::")

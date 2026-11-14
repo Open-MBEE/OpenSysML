@@ -52,13 +52,17 @@ func (p *Parser) parseNameSegment() (ast.NameSegment, bool) {
 	if !p.atName() {
 		return ast.NameSegment{}, false
 	}
-	tok := p.advance()
+	return p.nameSegment(p.advance()), true
+}
+
+// nameSegment is the segment a name token denotes: an unrestricted name without its
+// quotes, its escape sequences read as the characters they name (KerML §8.2.2.3).
+func (p *Parser) nameSegment(tok lexer.Token) ast.NameSegment {
 	text := p.src.Text(tok.Span)
-	// Strip quotes from unrestricted names
 	if tok.Kind == lexer.UnrestrictedName && len(text) >= 2 && text[0] == '\'' && text[len(text)-1] == '\'' {
-		text = text[1 : len(text)-1]
+		text = source.Unescape(text[1 : len(text)-1])
 	}
-	return ast.NameSegment{Text: text, Span: tok.Span}, true
+	return ast.NameSegment{Text: text, Span: tok.Span}
 }
 
 // parseNameSegmentRelaxed consumes a name token (including keywords) and returns its segment.
@@ -67,13 +71,7 @@ func (p *Parser) parseNameSegmentRelaxed() (ast.NameSegment, bool) {
 	if !p.atNameOrKeyword() {
 		return ast.NameSegment{}, false
 	}
-	tok := p.advance()
-	text := p.src.Text(tok.Span)
-	// Strip quotes from unrestricted names
-	if tok.Kind == lexer.UnrestrictedName && len(text) >= 2 && text[0] == '\'' && text[len(text)-1] == '\'' {
-		text = text[1 : len(text)-1]
-	}
-	return ast.NameSegment{Text: text, Span: tok.Span}, true
+	return p.nameSegment(p.advance()), true
 }
 
 // parseQualifiedName parses `[$::] Name (:: Name)*`. It returns nil and

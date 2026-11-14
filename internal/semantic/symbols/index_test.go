@@ -959,7 +959,7 @@ func TestLookupUniqueReadsQuotedSegments(t *testing.T) {
 	}
 }
 
-// A quoted segment keeps its escapes, as the parser keeps them, and keeps its
+// A quoted segment's escapes are decoded, as the parser decodes them, and it keeps its
 // boundary: `P::'x::y'` is the member named `x::y`, `P::x::y` the nested `y`.
 func TestLookupUniqueTellsQuotedSegmentsApart(t *testing.T) {
 	idx := NewIndex()
@@ -970,8 +970,8 @@ func TestLookupUniqueTellsQuotedSegmentsApart(t *testing.T) {
 }`)
 	idx.ExpandWildcardImports()
 
-	if got := idx.LookupUnique(`P::'a\'b'`); got == nil || got.Name != `a\'b` {
-		t.Errorf("LookupUnique(P::'a\\'b') = %v, want the escaped name", got)
+	if got := idx.LookupUnique(`P::'a\'b'`); got == nil || got.Name != "a'b" {
+		t.Errorf("LookupUnique(P::'a\\'b') = %v, want the member named a'b", got)
 	}
 	if got := idx.LookupUnique("P::'x::y'"); got == nil || got.Name != "x::y" {
 		t.Errorf("LookupUnique(P::'x::y') = %v, want the member named x::y", got)

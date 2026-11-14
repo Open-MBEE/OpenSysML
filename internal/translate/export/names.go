@@ -286,8 +286,8 @@ func parserAliases(references map[nameKey]wantedReference) (map[string]string, m
 	members := map[string]string{}
 	targets := map[string]string{}
 	for key := range references {
-		addParserAlias(members, parserQualifiedName(key.member), key.member)
-		addParserAlias(targets, parserQualifiedName(key.target), key.target)
+		addParserAlias(members, mappingQualifiedNameFromSpec(key.member), key.member)
+		addParserAlias(targets, mappingQualifiedNameFromSpec(key.target), key.target)
 	}
 	return members, targets
 }

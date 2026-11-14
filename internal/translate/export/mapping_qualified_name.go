@@ -190,7 +190,7 @@ func mappingQualifiedNamesWithContext(graph *rdf.Graph, context *mappingQualifie
 		value := naming.Qualify(ownerName, name, index)
 		if hasName && context.conforms(graph, subject, "ConjugatedPortDefinition") &&
 			strings.HasPrefix(name, "~") {
-			value = strings.TrimSuffix(value, naming.Segment(name)) + "'" + name + "'"
+			value = strings.TrimSuffix(value, naming.Segment(name)) + naming.QuotedSegment(name)
 		}
 		resolved[subject.Value] = value
 		known[subject.Value] = true
@@ -530,11 +530,7 @@ func mappingLastWrittenName(name string) string {
 	}
 	endName := source.ReferenceEndNames(name)
 	if segments, ok := source.MemberPathSegments(endName); ok && len(segments) > 0 {
-		segment := segments[len(segments)-1]
-		if len(endName) > 0 && endName[0] == '\'' {
-			return source.Unescape(segment)
-		}
-		return segment
+		return segments[len(segments)-1]
 	}
 	qualified := naming.Segments(name)
 	if len(qualified) == 0 {
@@ -543,8 +539,8 @@ func mappingLastWrittenName(name string) string {
 	segment := qualified[len(qualified)-1]
 	if segments, ok := source.MemberPathSegments(segment); ok && len(segments) > 0 {
 		segment = segments[len(segments)-1]
-		if len(qualified[len(qualified)-1]) > 0 && qualified[len(qualified)-1][0] == '\'' {
-			return source.Unescape(segment)
+		if qualified[len(qualified)-1][0] == '\'' {
+			return segment
 		}
 	}
 	return identityName(segment)

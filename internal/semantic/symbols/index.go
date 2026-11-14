@@ -2083,7 +2083,7 @@ func (idx *Index) lookupDirectChildrenNamed(key directChildrenKey, name string) 
 }
 
 // SegmentsOf reads a qualified name as the notation spells it into its names,
-// `'x::y'` one and `x::y` two, quotes dropped and escapes kept as the parser keeps them.
+// `'x::y'` one and `x::y` two, quotes dropped and escapes decoded as the parser decodes them.
 func SegmentsOf(name string) []string {
 	if segments, ok := source.QualifiedNameSegments(name); ok {
 		return segments

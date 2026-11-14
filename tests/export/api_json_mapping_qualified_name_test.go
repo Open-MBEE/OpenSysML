@@ -23,14 +23,14 @@ func TestAPIJSONMappingNamesPreserveUnresolvedTargetSegments(t *testing.T) {
 		targetName string
 	}{
 		{
-			name:       "perform raw backslash n",
+			name:       "perform newline escape",
 			source:     `package P { part p { perform 'a-b\n'; } }`,
-			targetName: `a-b\n`,
+			targetName: "a-b\n",
 		},
 		{
 			name:       "perform escaped apostrophe",
 			source:     `package P { part p { perform 'it\'s'; } }`,
-			targetName: `it\'s`,
+			targetName: "it's",
 		},
 		{
 			name:       "redefinition in externally typed part",

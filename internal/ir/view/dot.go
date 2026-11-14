@@ -343,7 +343,7 @@ func (w *dotWriter) frameHeader(r *Rendering) string {
 		break
 	}
 	if r.View != "" {
-		parts = append(parts, "[ "+dotEscape(DisplayText(symbols.LastSegment(r.View)))+" ]")
+		parts = append(parts, "[ "+dotEscape(glyphs(symbols.LastSegment(r.View)))+" ]")
 	}
 	return strings.Join(parts, " ")
 }

@@ -152,7 +152,7 @@ calc def ByName :> Query {
 	Named(qualifiedName = qualifiedName)
 }
 `)
-	for name, want := range map[string]string{`P::'a\'b'`: `Observatory::P::a\'b`, "P::x::y": "Observatory::P::x::y"} {
+	for name, want := range map[string]string{`P::'a\'b'`: "Observatory::P::a'b", "P::x::y": "Observatory::P::x::y"} {
 		result, err := quoted.execute(t, "ByName", Bindings{"qualifiedName": {StringValue(name)}}, Options{})
 		if err != nil {
 			t.Fatalf("Named(%s): %v", name, err)

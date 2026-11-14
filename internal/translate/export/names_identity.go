@@ -31,22 +31,6 @@ func identityName(segment string) string {
 	return segment
 }
 
-func parserQualifiedName(qname string) string {
-	global := strings.HasPrefix(qname, "$::")
-	if global {
-		qname = strings.TrimPrefix(qname, "$::")
-	}
-	segments := naming.Segments(qname)
-	for i, segment := range segments {
-		segments[i] = naming.Segment(escapeName(identityName(segment)))
-	}
-	out := strings.Join(segments, "::")
-	if global {
-		return "$::" + out
-	}
-	return out
-}
-
 func mappingQualifiedNameFromSpec(qname string) string {
 	global := strings.HasPrefix(qname, "$::")
 	if global {

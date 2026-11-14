@@ -19,12 +19,6 @@ func writeName(name string) string {
 	return source.UnrestrictedNameText(name)
 }
 
-// queryName is a name as the index reads it from notation, without its quotes.
-func queryName(name string) string {
-	text := source.UnrestrictedNameText(name)
-	return text[1 : len(text)-1]
-}
-
 // pathSegment spells a query name as one segment of a metadata path: quoted
 // unless it is a basic name no keyword reserves, so one holding `::` stays one.
 func pathSegment(name string) string {

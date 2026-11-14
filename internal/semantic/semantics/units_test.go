@@ -148,7 +148,7 @@ func TestOpaqueUnitNamesReadBack(t *testing.T) {
 		var names []string
 		var model Model
 		read, err := model.UnitProductOfExprBy(expr, func(qn *ast.QualifiedName) (*symbols.Symbol, bool) {
-			names = append(names, source.StringValue(qn.Parts[0].Text))
+			names = append(names, qn.Parts[0].Text)
 			return nil, false
 		})
 		if err != nil {

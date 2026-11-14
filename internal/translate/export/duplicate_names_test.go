@@ -1092,22 +1092,20 @@ func TestToolkitIdentityNameBeginningWithQuoteIsDistinct(t *testing.T) {
 		}
 	}
 	reconverted := duplicateGraph(t, string(notation), IDQualifiedName)
-	parserQuotedName := `P::\'@2\'`
-	parserPositionName := `P::'@2'`
 	reconvertedNames := elementSubjectsByQualifiedName(reconverted)
-	for _, name := range []string{parserQuotedName, parserPositionName} {
+	for _, name := range []string{quotedName, positionName} {
 		if reconvertedNames[name] == "" {
 			t.Errorf("reconverted notation has no element named %q: %v\n%s", name, reconvertedNames, notation)
 		}
 	}
-	if reconvertedNames[parserQuotedName] == reconvertedNames[parserPositionName] {
-		t.Errorf("reconverted names %q and %q share a subject", parserQuotedName, parserPositionName)
+	if reconvertedNames[quotedName] == reconvertedNames[positionName] {
+		t.Errorf("reconverted names %q and %q share a subject", quotedName, positionName)
 	}
 	y := rdf.ElementIRI("P::Y")
 	targets := reconverted.Objects(y, rdf.SysML+"specializes")
 	wantedTargets := map[string]bool{
-		rdf.ElementIRI(parserQuotedName).Value:   true,
-		rdf.ElementIRI(parserPositionName).Value: true,
+		rdf.ElementIRI(quotedName).Value:   true,
+		rdf.ElementIRI(positionName).Value: true,
 	}
 	for _, target := range targets {
 		if !target.IsIRI() || !wantedTargets[target.Value] {
@@ -1117,8 +1115,8 @@ func TestToolkitIdentityNameBeginningWithQuoteIsDistinct(t *testing.T) {
 	}
 	if len(targets) != 2 || len(wantedTargets) != 0 {
 		t.Errorf("Y's specialization targets are %v, want %v:\n%s", targets, []string{
-			rdf.ElementIRI(parserQuotedName).Value,
-			rdf.ElementIRI(parserPositionName).Value,
+			rdf.ElementIRI(quotedName).Value,
+			rdf.ElementIRI(positionName).Value,
 		}, notation)
 	}
 }

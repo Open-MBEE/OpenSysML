@@ -348,7 +348,7 @@ func (m *migration) topLevelNames() []string {
 		}
 	}
 	for _, v := range m.hosted[nil] {
-		names = append(names, queryName(v.name))
+		names = append(names, v.name)
 	}
 	return names
 }
@@ -373,14 +373,10 @@ func (m *migration) namedRoot(ref sysmlv1.ElementRef, role string) (name, why st
 	return m.plainName(ref.Element), ""
 }
 
-// plainName joins the name's segments as the notation spells them, unquoted
-// with escapes kept.
+// plainName joins the name's segments as the index registers them: the names
+// themselves, unquoted.
 func (m *migration) plainName(e *sysmlv1.Element) string {
-	segments := m.segments(e)
-	for i, segment := range segments {
-		segments[i] = queryName(segment)
-	}
-	return strings.Join(segments, "::")
+	return strings.Join(m.segments(e), "::")
 }
 
 // typedRows filters src by the row types; package-owned usages only for an instance table.
@@ -516,9 +512,9 @@ func (m *migration) exceptSynthesizedUsages(rows qx) qx {
 				continue
 			}
 			if host := m.plainName(u.host); host != "" {
-				names.add(host + "::" + queryName(u.name))
+				names.add(host + "::" + u.name)
 			} else {
-				names.add(queryName(u.name))
+				names.add(u.name)
 			}
 		}
 	}
