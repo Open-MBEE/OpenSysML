@@ -38,6 +38,7 @@ func TestExamplesCorpusInvariants(t *testing.T) {
 		mappingQualifiedNamesAreExact(),
 		declaredQualifiedNamesMatchOwningNamespace(),
 		mappingShapeAgreesWithForwardMapping(),
+		elementGraphWritesTheTurtleGraphsElements(),
 	}
 
 	var countsMu sync.Mutex

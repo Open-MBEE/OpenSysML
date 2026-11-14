@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/format"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
@@ -237,7 +238,18 @@ func ConvertModel(inputs []Input, to Format, opts Options) ([]byte, error) {
 	if to != FormatTurtle && to != FormatAPIJSON {
 		return nil, fmt.Errorf("a model of several documents converts to %s or %s, not %s", FormatTurtle, FormatAPIJSON, to)
 	}
-	graph, err := ModelGraph(inputs, opts)
+	if to == FormatTurtle || opts.WritesLibraryStubs() {
+		graph, err := ModelGraph(inputs, opts)
+		if err != nil {
+			return nil, err
+		}
+		return FromGraphWith(graph, to, opts)
+	}
+	documents, err := modelDocuments(inputs)
+	if err != nil {
+		return nil, err
+	}
+	graph, err := export.ModelElementGraphWith(documents, opts.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -245,8 +257,16 @@ func ConvertModel(inputs []Input, to Format, opts Options) ([]byte, error) {
 }
 
 // ModelGraph parses several documents as one model and returns its RDF graph,
-// the one ConvertModel writes out; ids are spelled as opts.ID says.
+// the one ConvertModel writes out as Turtle; ids are spelled as opts.ID says.
 func ModelGraph(inputs []Input, opts Options) (*rdf.Graph, error) {
+	documents, err := modelDocuments(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return export.ModelToRDFWith(documents, opts.ID)
+}
+
+func modelDocuments(inputs []Input) ([]export.ModelDocument, error) {
 	documents := make([]export.ModelDocument, 0, len(inputs))
 	for _, input := range inputs {
 		file := source.New(input.Name, input.Data)
@@ -257,7 +277,13 @@ func ModelGraph(inputs []Input, opts Options) (*rdf.Graph, error) {
 		}
 		documents = append(documents, export.ModelDocument{File: file, Root: root})
 	}
-	return export.ModelToRDFWith(documents, opts.ID)
+	return documents, nil
+}
+
+// WritesLibraryStubs reports an api-json conversion that writes the library stubs as
+// elements, so its graph has to state every one before the writer orders them.
+func (opts Options) WritesLibraryStubs() bool {
+	return opts.IncludeLibraryStubs || (opts.Compact != nil && opts.Compact.IncludeLibraryStubs)
 }
 
 // ConvertWith is Convert under non-default options.
@@ -355,7 +381,11 @@ func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors boo
 		return rdf.WriteTurtle(graph), nil, nil
 
 	case from == FormatSysML && to == FormatAPIJSON:
-		graph, err := sysmlToRDFWith(name, data, opts.ID)
+		toGraph := export.ElementGraphWith
+		if opts.WritesLibraryStubs() {
+			toGraph = export.ToRDFWith
+		}
+		graph, err := sysmlToGraph(name, data, opts.ID, toGraph)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -455,13 +485,17 @@ func SysMLToRDF(name string, data []byte) (*rdf.Graph, error) {
 
 // sysmlToRDFWith is SysMLToRDF under a non-default id form.
 func sysmlToRDFWith(name string, data []byte, form export.IDForm) (*rdf.Graph, error) {
+	return sysmlToGraph(name, data, form, export.ToRDFWith)
+}
+
+func sysmlToGraph(name string, data []byte, form export.IDForm, toGraph func(*source.SourceFile, *ast.RootNamespace, export.IDForm) (*rdf.Graph, error)) (*rdf.Graph, error) {
 	file := source.New(name, data)
 	p := parser.New(file)
 	root := p.ParseFile()
 	if err := syntaxError(name, file, p); err != nil {
 		return nil, err
 	}
-	return export.ToRDFWith(file, root, form)
+	return toGraph(file, root, form)
 }
 
 // checkSyntax reports the notation's syntax errors, if any.
