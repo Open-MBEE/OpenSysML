@@ -52,12 +52,14 @@ func (g *StateGraph) internExprs() {
 		}
 	}
 	attributes(g.Attributes)
-	for _, state := range g.States {
-		attributes(g.StateAttributes[state])
-		if config, ok := g.RunToCompletion[state]; ok {
-			config.ValueID = g.Exprs.Intern(config.Value, config.ValueScope)
-			g.RunToCompletion[state] = config
-		}
+	// The owners are every body that states them: the machine and the owners of
+	// regions among them, which are not among the states.
+	for _, attrs := range g.StateAttributes {
+		attributes(attrs)
+	}
+	for state, config := range g.RunToCompletion {
+		config.ValueID = g.Exprs.Intern(config.Value, config.ValueScope)
+		g.RunToCompletion[state] = config
 	}
 	for _, features := range g.Features {
 		for i := range features {

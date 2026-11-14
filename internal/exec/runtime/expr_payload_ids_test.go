@@ -275,3 +275,82 @@ func TestMachinePayloadsCarryIDsOfItsTable(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 }
+
+// TestRegionAndMachinePayloadsCarryIDs pins that what the owner of a region and the
+// machine itself state are ids of the machine's table, though neither is a state of it.
+func TestRegionAndMachinePayloadsCarryIDs(t *testing.T) {
+	exec := stateExecutorForSource(t, "Machine", `
+		state def Machine {
+			attribute flag : ScalarValues::Boolean = true;
+			attribute :>> isRunToCompletion = flag and true;
+			entry; then a;
+			state a parallel {
+				state r1 { attribute k : ScalarValues::Integer = 1 + 2; entry; then x; state x; }
+				state r2 { entry; then y; state y; }
+			}
+		}
+	`)
+	graph := exec.graph
+	attrs := 0
+	for _, owned := range graph.StateAttributes {
+		for _, attr := range owned {
+			attrs++
+			stated(t, "attribute "+attr.Name, graph.Exprs, attr.ValueID, attr.Value)
+		}
+	}
+	if attrs != 1 {
+		t.Fatalf("found %d attributes of states, want 1", attrs)
+	}
+	if _, ok := graph.RunToCompletion[nil]; !ok || len(graph.RunToCompletion) < 2 {
+		t.Fatalf("run-to-completion is recorded for %d bodies, the machine among them: %v", len(graph.RunToCompletion), ok)
+	}
+	for state, config := range graph.RunToCompletion {
+		stated(t, "run-to-completion value", graph.Exprs, config.ValueID, config.Value)
+		if rtc, err := exec.rtcOf(state); err != nil || !rtc {
+			t.Fatalf("rtcOf = %v, %v; want true", rtc, err)
+		}
+	}
+}
+
+// TestCaseDefaultBetweenStepsIsInTheTableOfItsFlow pins that a default a case states
+// between its steps, which runs as a node of the flow, is an id of that flow's table.
+func TestCaseDefaultBetweenStepsIsInTheTableOfItsFlow(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import ScalarValues::*;
+			part def Probe;
+			analysis def A {
+				subject s : Probe;
+				attribute before : Integer = 7 * 6;
+				action first1 { }
+				attribute mid : Integer = 2 + 3;
+				action second { }
+				return r : Integer = mid + 1;
+			}
+		}`))
+	pkg, _ := idx.DocumentRoot("<test>").LookupLocal("test")
+	sym := requirementNamed(t, pkg.Scope, "A")
+	decl := sym.Decl.(*ast.Definition)
+	exprs := lower.NewExprTable(ctx.Resolver())
+	stmts, _ := lower.CalcBodyWithOrder(decl, lower.UnwrappedDeclMembers(decl), sym.Scope, ctx.Resolver(), exprs)
+	runs := 0
+	for _, stmt := range stmts {
+		block, ok := stmt.(lower.Block)
+		if !ok {
+			continue
+		}
+		if block.Graph.Exprs != exprs {
+			t.Fatal("the flow of the steps has a table of its own")
+		}
+		for node := range block.Graph.StatementRuns {
+			for _, run := range block.Graph.Bodies[node] {
+				declared := run.(lower.Declare)
+				runs++
+				stated(t, "default "+declared.Name, block.Graph.Exprs, declared.ValueID, declared.Value)
+			}
+		}
+	}
+	if runs != 1 {
+		t.Fatalf("found %d defaults run as nodes, want 1", runs)
+	}
+}

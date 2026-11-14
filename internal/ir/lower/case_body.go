@@ -71,7 +71,7 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *
 				flowStarted = true
 			}
 		}
-		graph, err := lowerActionFlow(members, scope, resolver)
+		graph, err := lowerActionFlowWithTypingAndAncestors(members, scope, resolver, exprs, false, nil)
 		if err != nil {
 			return append(append(locals, Unsupported{
 				Description: "the flow the steps of the body state: " + err.Error(),
