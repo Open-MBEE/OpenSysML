@@ -216,18 +216,18 @@ func (ids *ElementIDs) recordTransitionHead(e *encoder, node ast.Node, subject r
 			return
 		}
 		sourceMember = qualifiedText(n.Source) != "" && !qualifiedNameHasChain(n.Source) ||
-			qualifiedText(n.Source) == "" && e.transitionSourceTerm(n, nil, nil, e.preceding[n]).Value != ""
+			qualifiedText(n.Source) == "" && e.transitionSourceTerm(n, nil, nil, e.names.Preceding[n]).Value != ""
 		if naming.TriggerPayload(e.file, n) != nil {
 			slots = transitionLinkParameterSlots[:]
 		}
 	case *ast.ControlFlowEdge:
 		// A decision's branch and a state body's `then x;` name their positional source (targetTransitionHeadMembers).
-		sourceMember = e.transitionSourceTerm(n, n.Source, n.SourceMember, e.preceding[n]).Value != ""
+		sourceMember = e.transitionSourceTerm(n, n.Source, n.SourceMember, e.names.Preceding[n]).Value != ""
 	case *ast.SuccessionEdge:
 		if !e.names.TargetTransitions[n] {
 			return
 		}
-		sourceMember = e.transitionSourceTerm(n, n.Source, n.SourceMember, e.preceding[n]).Value != ""
+		sourceMember = e.transitionSourceTerm(n, n.Source, n.SourceMember, e.names.Preceding[n]).Value != ""
 	default:
 		return
 	}

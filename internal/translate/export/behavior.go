@@ -196,7 +196,7 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 			e.graph.Add(subject, e.sysx(xIsElse), rdf.Bool(true))
 		}
 		return true, e.edgeEnds(subject, n, owner,
-			edgeEnd{name: n.Source, member: n.SourceMember, implied: impliedSource(n, n.Source), stands: e.preceding[n]},
+			edgeEnd{name: n.Source, member: n.SourceMember, implied: impliedSource(n, n.Source), stands: e.names.Preceding[n]},
 			edgeEnd{name: n.Target, member: n.TargetMember})
 
 	case *ast.WhileLoopActionNode:
@@ -388,8 +388,8 @@ func (e *encoder) encodeSuccessionEdge(n *ast.SuccessionEdge, head func(rdf.Term
 		}
 	}
 	if err := e.edgeEnds(subject, n, owner,
-		edgeEnd{name: n.Source, member: n.SourceMember, implied: implied, stands: e.preceding[n]},
-		edgeEnd{name: n.Target, member: n.TargetMember, implied: n.TargetImplied, stands: e.introduced[n]}); err != nil {
+		edgeEnd{name: n.Source, member: n.SourceMember, implied: implied, stands: e.names.Preceding[n]},
+		edgeEnd{name: n.Target, member: n.TargetMember, implied: n.TargetImplied, stands: e.names.Introduced[n]}); err != nil {
 		return err
 	}
 	if n.HasBody {
@@ -499,7 +499,7 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 	e.transitionKeyword(subject, n)
 	// The members ahead of the trigger come first, in the grammar's order.
 	e.transitionHeadMembers(subject, n)
-	succession, membership, err := e.transitionSuccession(subject, n, owner, e.transitionSourceTerm(n, n.Source, nil, e.preceding[n]))
+	succession, membership, err := e.transitionSuccession(subject, n, owner, e.transitionSourceTerm(n, n.Source, nil, e.names.Preceding[n]))
 	if err != nil {
 		return err
 	}
@@ -571,7 +571,7 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 	}
 	// The ends come last: sysml:target closes the statement block, the way the
 	// membership-free mapping left it.
-	if source := e.transitionSourceTerm(n, n.Source, nil, e.preceding[n]); source.Value != "" {
+	if source := e.transitionSourceTerm(n, n.Source, nil, e.names.Preceding[n]); source.Value != "" {
 		e.graph.Add(subject, e.sysml(pSource), source)
 	}
 	e.graph.Add(subject, e.sysml(pTarget), e.edgeReference(n.Target))
@@ -590,7 +590,7 @@ func (e *encoder) encodeGuardedTarget(n *ast.ControlFlowEdge, head func(rdf.Term
 	if n.IsElse {
 		e.graph.Add(subject, e.sysx(xIsElse), rdf.Bool(true))
 	}
-	source := e.transitionSourceTerm(n, n.Source, n.SourceMember, e.preceding[n])
+	source := e.transitionSourceTerm(n, n.Source, n.SourceMember, e.names.Preceding[n])
 	e.targetTransitionHeadMembers(subject, source, e.ids.declSym[n])
 	if err := e.expressionAs(subject, e.sysx(xGuard), xGuard, owner, n.Guard, mTransitionFeatureMembership); err != nil {
 		return err
@@ -614,7 +614,7 @@ func (e *encoder) encodeGuardedTarget(n *ast.ControlFlowEdge, head func(rdf.Term
 func (e *encoder) encodeTargetTransition(n *ast.SuccessionEdge, head func(rdf.Term), subject rdf.Term, fqn, owner string) error {
 	head(rdf.SysMLTerm(mTransition))
 	e.graph.Add(subject, e.sysx(xTransitionSyntax), rdf.String(targetTransitionSyntax))
-	source := e.transitionSourceTerm(n, n.Source, n.SourceMember, e.preceding[n])
+	source := e.transitionSourceTerm(n, n.Source, n.SourceMember, e.names.Preceding[n])
 	e.targetTransitionHeadMembers(subject, source, e.ids.declSym[n])
 	succession, membership, err := e.transitionSuccession(subject, &ast.TransitionMember{Target: n.Target, TargetMultiplicity: n.TargetMultiplicity}, owner, source)
 	if err != nil {
@@ -786,7 +786,7 @@ func (e *encoder) transitionSourceTerm(edge ast.Node, source *ast.QualifiedName,
 func (e *encoder) transitionHeadMembers(subject rdf.Term, n *ast.TransitionMember) {
 	if qualifiedText(n.Source) != "" {
 		e.transitionSourceMember(subject, n.Source)
-	} else if source := e.transitionSourceTerm(n, nil, nil, e.preceding[n]); source.Value != "" {
+	} else if source := e.transitionSourceTerm(n, nil, nil, e.names.Preceding[n]); source.Value != "" {
 		// A guarded transition written after a state leaves that state, and names it as a `first` would.
 		e.sourceMembership(subject, source)
 	}
@@ -1083,7 +1083,7 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 		}
 		// A name the parser took from the member before that links no element
 		// still binds that member: the graph states it by position as well.
-		if before, ok := e.preceding[node]; ok && end.end.implied && term.IsLiteral() {
+		if before, ok := e.names.Preceding[node]; ok && end.end.implied && term.IsLiteral() {
 			if fqn, ok := e.names.FQN[before]; ok {
 				e.graph.Add(subject, e.sysx(end.member), e.ids.subjectForNode(before, fqn))
 			}
