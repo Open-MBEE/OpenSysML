@@ -56,6 +56,19 @@ func LowerExpr(node ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) 
 	return table, table.Lower(node, scope, resolver)
 }
 
+// ExpressionReader is parse followed by lowering in the scope the text is read in: what
+// a frontend installs on a runtime model, which neither parses nor lowers.
+func ExpressionReader(parse func(origin, text string) (ast.Node, bool), resolver *resolve.Resolver) func(origin, text string, scope *symbols.Scope) (*ExprTable, program.ExprID, bool) {
+	return func(origin, text string, scope *symbols.Scope) (*ExprTable, program.ExprID, bool) {
+		node, ok := parse(origin, text)
+		if !ok {
+			return nil, 0, false
+		}
+		table, id := LowerExpr(node, scope, resolver)
+		return table, id, true
+	}
+}
+
 // Lower adds the expression node, written in scope, to the table and returns its
 // id. It never fails: a name resolving to nothing is for the run reading it to report.
 func (t *ExprTable) Lower(node ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) program.ExprID {

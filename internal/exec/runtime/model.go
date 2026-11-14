@@ -220,9 +220,9 @@ type Model struct {
 	parse ExpressionParser
 }
 
-// ExpressionParser parses text, read from origin, as exactly one expression; false for
-// anything else. The caller that builds a Model supplies it; the runtime parses nothing itself.
-type ExpressionParser func(origin, text string) (ast.Node, bool)
+// ExpressionParser reads text, from origin, as exactly one expression written in scope, lowered;
+// false for anything else. A Model's builder supplies it: the runtime neither parses nor lowers text.
+type ExpressionParser func(origin, text string, scope *symbols.Scope) (*lower.ExprTable, program.ExprID, bool)
 
 // errNoExpressionParser is the typed error a run returns on reaching notation text
 // to read with no ExpressionParser installed on its Model.
@@ -235,15 +235,28 @@ func (m *Model) SetExpressionParser(parse ExpressionParser) {
 	clear(m.toolUnits)
 }
 
-// parseOneExpression reads text as exactly one expression with the installed parser; ok is
-// false for text that is not one, err errNoExpressionParser when no parser is installed.
-func (m *Model) parseOneExpression(origin, text string) (expr ast.Node, ok bool, err error) {
+// readExpression reads text as exactly one expression written in scope, with the installed
+// parser; nil for text that is not one, err errNoExpressionParser when no parser is installed.
+func (m *Model) readExpression(origin, text string, scope *symbols.Scope) (*readExpr, error) {
 	if m.parse == nil {
-		return nil, false, errNoExpressionParser
+		return nil, errNoExpressionParser
 	}
-	expr, ok = m.parse(origin, text)
-	return expr, ok, nil
+	table, id, ok := m.parse(origin, text, scope)
+	if !ok || table.Entry(id) == nil {
+		return nil, nil
+	}
+	return &readExpr{model: m, table: table, lowered: lowered{entry: table.Entry(id)}}, nil
 }
+
+// readExpr is an expression read from text: lowered by the installed parser, in no memo of the Model's.
+type readExpr struct {
+	model *Model
+	table *lower.ExprTable
+	lowered
+}
+
+// forget drops what evaluating the expression memoized by its records, which nothing reads again.
+func (r *readExpr) forget() { r.model.forgetInvocations(r.table) }
 
 // NewModel builds the model-derived part of execution over a semantic model and
 // the resolver it resolves names with; either may be nil for a context that

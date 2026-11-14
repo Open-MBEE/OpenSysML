@@ -1,7 +1,7 @@
 {
   "source": {
-    "pilotTag": "2026-09",
-    "releaseCommit": "b7a6b77000c9136f8f24822fc9d2cb237c76267f",
+    "pilotTag": "2026-09.1",
+    "releaseCommit": "9546486f49f704d1df092e3f252f4fcfbce534dd",
     "text": "build/spec-docs/sysml.txt",
     "clause": "8.2.3"
   },

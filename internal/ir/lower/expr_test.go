@@ -274,3 +274,24 @@ func TestOperatorMirrorsSyntax(t *testing.T) {
 		t.Errorf("the syntax tree has an operator %q the IR does not mirror", next)
 	}
 }
+
+// TestExpressionReaderLowersWhatItParses pins the reader a frontend installs: text that is
+// one expression comes back lowered in the scope given, and anything else is refused.
+func TestExpressionReaderLowersWhatItParses(t *testing.T) {
+	_, scope, resolver := exprFixture(t)
+	read := ExpressionReader(parser.ParseOneExpression, resolver)
+	table, id, ok := read("<test>", "x + 2", scope)
+	if !ok {
+		t.Fatal("x + 2 was not read as an expression")
+	}
+	sum := table.Entry(id)
+	if sum == nil || sum.Kind != program.ExprOp || sum.Scope != scope || len(sum.Operands) != 2 {
+		t.Fatalf("x + 2 lowered to %+v", sum)
+	}
+	if x := sum.Operands[0]; x.Kind != program.ExprRef || x.Ref.Sym == nil || x.Ref.Sym.Name != "x" {
+		t.Errorf("x lowered to %+v, want the feature the scope declares", x.Expr)
+	}
+	if table, id, ok := read("<test>", "x +", scope); ok || table != nil || id != 0 {
+		t.Errorf("text that is no expression read as %v, %d, %v", table, id, ok)
+	}
+}
