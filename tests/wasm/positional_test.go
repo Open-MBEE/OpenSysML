@@ -12,9 +12,15 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/core"
 )
 
-// positionalCases are the gRPC conformance cases that pin the positional ids
-// (`Owner::@N`) of unnamed members, in child_ids or as the id looked up.
+// positionalCases are the gRPC conformance cases that pin the ids of unnamed members, in child_ids
+// or as the id looked up: positional (`Owner::@N`), or a connector end's element id (`Owner__c_pend0`).
 var positionalCases = []string{
+	"symbol_connector_end_feature",
+	"symbol_connector_end_unnamed_binding",
+	"symbol_connector_ends",
+	"symbol_connector_ends_binding",
+	"symbol_connector_ends_unnamed_binding",
+	"symbol_connector_ends_unnamed_connection",
 	"symbol_children_unnamed",
 	"symbol_positional_id",
 	"symbol_prefix_metadata",
@@ -43,12 +49,9 @@ func TestJSONRPCPositionalChildIDs(t *testing.T) {
 	}
 	dir := filepath.Join("..", "grpc", "testdata", "conformance")
 	for _, name := range positionalCases {
-		content, err := os.ReadFile(filepath.Join(dir, name+".sysml"))
-		if err != nil {
-			t.Fatalf("reading %s: %v", name, err)
-		}
 		var tc struct {
 			RPC              string   `json:"rpc"`
+			Model            string   `json:"model"`
 			SymbolID         string   `json:"symbol_id"`
 			ExpectedKind     string   `json:"expected_kind"`
 			ExpectedChildIDs []string `json:"expected_child_ids"`
@@ -60,13 +63,20 @@ func TestJSONRPCPositionalChildIDs(t *testing.T) {
 		if err := json.Unmarshal(expected, &tc); err != nil {
 			t.Fatalf("decoding %s.expected.json: %v", name, err)
 		}
+		if tc.Model == "" {
+			tc.Model = name + ".sysml"
+		}
+		content, err := os.ReadFile(filepath.Join(dir, tc.Model))
+		if err != nil {
+			t.Fatalf("reading %s: %v", tc.Model, err)
+		}
 		if tc.RPC != "GetSymbol" {
 			t.Fatalf("%s is not a GetSymbol case", name)
 		}
 		for serverName, call := range servers {
 			t.Run(serverName+"/"+name, func(t *testing.T) {
 				params, _ := json.Marshal(map[string]any{
-					"documents": []map[string]string{{"name": name + ".sysml", "content": string(content)}},
+					"documents": []map[string]string{{"name": tc.Model, "content": string(content)}},
 				})
 				body, err := call("ParseSources", params)
 				if err != nil {

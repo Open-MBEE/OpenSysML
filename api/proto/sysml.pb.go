@@ -9939,9 +9939,11 @@ type SymbolInfo struct {
 	// "direction" (the direction written on the feature; the derived
 	// Feature::direction is GetElementProperties' `direction`), "abstract",
 	// "variation", "variant" and the like.
-	Metadata   map[string]string `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	ChildIds   []string          `protobuf:"bytes,5,rep,name=child_ids,json=childIds,proto3" json:"child_ids,omitempty"` // References to children
-	Attributes []*AttributeInfo  `protobuf:"bytes,6,rep,name=attributes,proto3" json:"attributes,omitempty"`
+	Metadata map[string]string `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// The owned members' ids, each one GetSymbol takes: a qualified name, a positional id (`Owner::@3`), or an unnamed
+	// connector end's GetElementProperties element id (`Owner__c_pend0`), which a declaration so named answers instead.
+	ChildIds   []string         `protobuf:"bytes,5,rep,name=child_ids,json=childIds,proto3" json:"child_ids,omitempty"`
+	Attributes []*AttributeInfo `protobuf:"bytes,6,rep,name=attributes,proto3" json:"attributes,omitempty"`
 	// Static type facts; unset when the element is not a def/usage. `declared`
 	// is the written typing and `types` the derived Feature::type, the `type`
 	// property of GetElementProperties.
@@ -10185,7 +10187,8 @@ type Specialization struct {
 	Kind string `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
 	// The target as written in the source ("Engine", "Demo::Engine").
 	Declared string `protobuf:"bytes,2,opt,name=declared,proto3" json:"declared,omitempty"`
-	// FQN of the resolved target; empty when the name does not resolve.
+	// FQN of the resolved target; empty when the name does not resolve. A "references" feature chain
+	// (`x.p`) is one entry per chaining feature, in chain order, each with the chain as `declared`.
 	TargetId string `protobuf:"bytes,3,opt,name=target_id,json=targetId,proto3" json:"target_id,omitempty"`
 	// Symbol kind of the resolved target ("partDef", ...); empty when unresolved.
 	TargetKind    string `protobuf:"bytes,4,opt,name=target_kind,json=targetKind,proto3" json:"target_kind,omitempty"`

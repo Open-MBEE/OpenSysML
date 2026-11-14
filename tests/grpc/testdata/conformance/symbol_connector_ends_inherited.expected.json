@@ -1,0 +1,7 @@
+{
+	"rpc": "GetSymbol",
+	"model": "symbol_connector_ends.sysml",
+	"symbol_id": "Ends::Special::refined",
+	"expected_kind": "connectionUsage",
+	"expected_child_ids": []
+}

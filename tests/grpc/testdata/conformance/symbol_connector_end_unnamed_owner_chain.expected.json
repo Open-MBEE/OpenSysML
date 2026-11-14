@@ -1,0 +1,18 @@
+{
+	"rpc": "GetSymbol",
+	"model": "symbol_connector_ends.sysml",
+	"symbol_id": "Ends__Vehicle___4017__hosted_pend1",
+	"expected_kind": "connectorEnd",
+	"expected_specializations": [
+		{
+			"kind": "references",
+			"declared": "z.p",
+			"target_id": "Ends::Vehicle::@17::z"
+		},
+		{
+			"kind": "references",
+			"declared": "z.p",
+			"target_id": "Ends::Unit::p"
+		}
+	]
+}
