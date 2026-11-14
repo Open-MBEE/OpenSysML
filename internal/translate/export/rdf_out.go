@@ -618,8 +618,6 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		acceptPayloads:     map[ast.Node]rdf.Term{},
 		triggerMembers:     map[ast.Node]string{},
 		links:              map[*ast.QualifiedName]*symbols.Symbol{},
-		preceding:          map[ast.Node]ast.Node{},
-		introduced:         map[ast.Node]ast.Node{},
 		ids:                ids,
 		subjects:           map[string]string{},
 		regions:            map[rdf.Term]region{},
@@ -693,12 +691,6 @@ type encoder struct {
 	// links is what each written reference resolves to, read with the rule of
 	// its position (a redefinition among the generals, an edge end as a vertex).
 	links map[*ast.QualifiedName]*symbols.Symbol
-	// preceding is the member a `then` after each member sequences from: the last
-	// member before it that is not itself an edge, as the parser reads it.
-	preceding map[ast.Node]ast.Node
-	// introduced is the member a member-attached `then` sequences to: the one
-	// written right after the keyword, whose edge follows it in the body.
-	introduced map[ast.Node]ast.Node
 	// ids is the document's identity side table: effective ids, declaredness,
 	// scopes, and the annotation nodes consumed into it.
 	ids *identityFacts
@@ -1124,24 +1116,10 @@ func (e *encoder) encodeInlineAt(members []ast.Node, indexOffset int, owner stri
 }
 
 func (e *encoder) encodeMembers(kept []ast.Node, regions, noteRegions []region, inline bool, owner string, ownerTerm rdf.Term, indexOffset int) error {
-	// last and beforeLast are the latest members a `then` sequences from; a
-	// member-attached `then` follows its target prev, so its source is the
-	// latest of them before prev.
-	var last, beforeLast, prev ast.Node
 	for i, member := range kept {
 		node, visibility := naming.UnwrapMember(member)
 		if node == nil {
 			continue
-		}
-		preceding := last
-		if edge, ok := node.(*ast.SuccessionEdge); ok && edge.TargetImplied && prev != nil {
-			e.introduced[node] = prev
-			if prev == last {
-				preceding = beforeLast
-			}
-		}
-		if preceding != nil {
-			e.preceding[node] = preceding
 		}
 		// The FinalNode a member-attached `then` introduces is its edge's
 		// target end, not a member of its own: `then done;` is one
@@ -1159,10 +1137,6 @@ func (e *encoder) encodeMembers(kept []ast.Node, regions, noteRegions []region, 
 				return err
 			}
 		}
-		if ast.IsSuccessionSource(node) {
-			last, beforeLast = node, last
-		}
-		prev = node
 	}
 	return nil
 }

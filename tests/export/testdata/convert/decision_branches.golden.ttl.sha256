@@ -1,0 +1,41 @@
+sha256 5031a3064f76123f06c87dc6dc3d6d455b004ad11a02ec9e2287805482c379c2 bytes 208103 lines 3887
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:Branches
+    a sysml:Package ;
+    sysml:qualifiedName "Branches" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "Branches" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "Branches" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedRelationship elmt:Branches___400, elmt:Branches__Charge_om ;
+    sysml:ownedImport elmt:Branches___400 ;
+    sysml:ownedMember elmt:Branches__Charge ;
+    sysml:ownedMembership elmt:Branches__Charge_om ;
+    sysx:sourceText "package Branches {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedRelationship "[{\"@id\":\"Branches___400\"},{\"@id\":\"Branches__Charge_om\"}]" .
+
+elmt:Branches___400
+    a sysml:MembershipImport ;
+    sysml:source elmt:Branches ;
+    sysx:positionalName "Branches::@0" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "42"^^xsd:integer ;
+    sysml:elementId "Branches___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Branches ;
+    sysml:owner elmt:Branches ;
