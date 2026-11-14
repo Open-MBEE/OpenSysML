@@ -1011,7 +1011,7 @@ carried, as in a graph another tool wrote — each note is put back after the
 token it followed, on its own line or inline as it was written; one past the
 tokens the canonical head has (a synonym spelled out, a clause the canonical
 form drops) follows the last of them, and none is dropped. Several notes after
-one token are written together in their order, and what the rebuilt line holds
+one token, or ahead of the first, are written together in their order, and what the rebuilt line holds
 past that token moves below them once. The graph is
 authoritative here too: a note edited in the graph — in its text or in its
 position, the token it follows, its line, head or tail — or added there demotes

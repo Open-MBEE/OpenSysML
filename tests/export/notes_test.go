@@ -444,3 +444,30 @@ func TestNoteInlineAfterALineNoteTakesTheNextLine(t *testing.T) {
 		t.Errorf("the notes were not kept apart:\n--- want ---\n%s--- got ---\n%s", notedTogether, back)
 	}
 }
+
+// Notes ahead of an element's first token keep the order the graph states, an inline
+// one first included, whether or not the element is indented.
+func TestNotesAheadOfTheFirstTokenKeepTheirOrder(t *testing.T) {
+	const written = `package P {
+    part def A;
+    // one
+    // two
+    part def B;
+}
+// three
+// four
+part def C;
+`
+	edited := withoutSourceTextKeepingNotes(t, idTurtle(t, written))
+	want := written
+	for _, text := range []string{"// one", "// three"} {
+		stated := "    sysx:noteText \"" + text + "\" ;\n    sysx:noteToken \"0\"^^xsd:integer ;\n    sysx:noteOwnLine \"true\"^^xsd:boolean ."
+		block := "/* " + text[3:] + " */"
+		inline := strings.Replace(strings.Replace(stated, text, block, 1), `"true"`, `"false"`, 1)
+		edited = editTurtle(t, edited, stated, inline)
+		want = strings.Replace(want, text, block, 1)
+	}
+	if back := toNotation(t, edited); back != want {
+		t.Errorf("the notes were not kept in order:\n--- want ---\n%s--- got ---\n%s", want, back)
+	}
+}

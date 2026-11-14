@@ -318,20 +318,35 @@ func placeNotes(part string, notes []note, base int, indentOf func(n int, last b
 	return out
 }
 
-// notesAhead places the notes no code token precedes at the start of the line at holds:
-// those on a line of their own above it, the others inline ahead of the first token.
+// notesAhead places the notes no code token precedes, in order: the first ones on lines of
+// their own above the line at holds, the rest from the first inline one ahead of the token.
 func notesAhead(part string, notes []note, at, base int, ind, nl string) []insertion {
 	lineBegin := strings.LastIndexByte(part[:at], '\n') + 1
+	hasToken := at < len(part)
 	var above, inline strings.Builder
-	for _, n := range notes {
+	first := 0
+	// A `//` note ahead of the first token would run on over it; it takes its line.
+	for ; first < len(notes) && (notes[first].ownLine || isLineNote(notes[first].text) && hasToken); first++ {
+		above.WriteString(ind + notes[first].text + nl)
+	}
+	breaks := false
+	for i, n := range notes[first:] {
 		switch {
-		// A `//` note ahead of the first token would run on over it; it takes its line.
-		case n.ownLine || isLineNote(n.text) && at < len(part):
-			above.WriteString(ind + n.text + nl)
-		case at < len(part):
-			inline.WriteString(n.text + " ")
+		case i == 0 && hasToken:
+		case n.ownLine || breaks:
+			inline.WriteString(nl + ind)
 		default:
-			inline.WriteString(" " + n.text)
+			inline.WriteString(" ")
+		}
+		inline.WriteString(n.text)
+		breaks = isLineNote(n.text)
+		// The token follows a note on its own line, or a `//` note, on the next line.
+		if i == len(notes[first:])-1 && hasToken {
+			if n.ownLine || breaks {
+				inline.WriteString(nl + ind)
+			} else {
+				inline.WriteString(" ")
+			}
 		}
 	}
 	var out []insertion
