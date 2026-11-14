@@ -3,12 +3,11 @@ package lsp
 import (
 	"context"
 	"errors"
-	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
@@ -476,12 +475,16 @@ func mangleIndentation(src string) string {
 func checkFormattingEdits(t *testing.T, path, src string) (split bool) {
 	t.Helper()
 	s, name := openFormatDoc(t, src)
+	searches := countDiffSearches(t)
 	edits, err := s.Formatting(context.Background(), &protocol.DocumentFormattingParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 		Options:      spaces4,
 	})
 	if err != nil {
 		t.Fatalf("%s: Formatting err = %v", path, err)
+	}
+	if *searches != 0 {
+		t.Fatalf("%s: %d shortest-edit-script searches, want none for formatter output", path, *searches)
 	}
 	if doc := s.ws.Document(name); len(doc.ParseDiagnostics) > 0 {
 		if len(edits) != 0 {
@@ -507,9 +510,21 @@ func checkFormattingEdits(t *testing.T, path, src string) (split bool) {
 	return split
 }
 
-// Computing the edits costs far less than the formatter's own pass, even on the
-// largest library file with every line changed.
-func TestFormattingDiffIsCheaperThanFormatting(t *testing.T) {
+// countDiffSearches counts the shortest-edit-script searches formatEdits falls back on.
+func countDiffSearches(t *testing.T) *int {
+	t.Helper()
+	searches, saved := new(int), diffLines
+	t.Cleanup(func() { diffLines = saved })
+	diffLines = func(a, b []int) []model.Hunk {
+		*searches++
+		return saved(a, b)
+	}
+	return searches
+}
+
+// The diff must not dominate formatting: formatter output pairs off with its input in
+// one pass, never by the quadratic search, even on the largest library file all changed.
+func TestFormattingDiffIsOnePassOverTheDocument(t *testing.T) {
 	src := libs.DefaultSource()
 	var largest []byte
 	for _, name := range src.List() {
@@ -522,35 +537,84 @@ func TestFormattingDiffIsCheaperThanFormatting(t *testing.T) {
 		}
 	}
 	mangled := []byte(mangleIndentation(string(largest)))
-	formatted, err := format.Source("largest.sysml", mangled, formatOptions(spaces4, false))
-	if err != nil {
-		t.Fatal(err)
+	searches := countDiffSearches(t)
+	for _, keepLineBreaks := range []bool{false, true} {
+		formatted, err := format.Source("largest.sysml", mangled, formatOptions(spaces4, keepLineBreaks))
+		if err != nil {
+			t.Fatal(err)
+		}
+		oldLines, _ := cutLines(mangled)
+		newLines, _ := cutLines(formatted)
+		regrouped, aligned := regroupLines(oldLines, newLines)
+		if !aligned {
+			t.Fatalf("keepLineBreaks %v: the formatted lines do not pair off with the original's", keepLineBreaks)
+		}
+		hunks := blankRunHunks(oldLines, regrouped)
+		edits := formatEdits(mangled, formatted, allLines)
+		if *searches != 0 {
+			t.Fatalf("keepLineBreaks %v: %d shortest-edit-script searches, want none", keepLineBreaks, *searches)
+		}
+		// One edit at most per original line, and one more per run of dropped or added blanks.
+		if len(edits) == 0 || len(edits) > len(oldLines)+len(hunks) {
+			t.Fatalf("keepLineBreaks %v: %d edits for %d lines and %d blank runs", keepLineBreaks, len(edits), len(oldLines), len(hunks))
+		}
+		if applyOrderedEdits(t, string(mangled), edits) != string(formatted) {
+			t.Fatalf("keepLineBreaks %v: edits do not reproduce the formatter output", keepLineBreaks)
+		}
 	}
-	// Coverage counters instrument this package but not the formatter's, so
-	// the two timings are only comparable in an uninstrumented build.
-	if mode := testing.CoverMode(); mode != "" {
-		t.Logf("coverage mode %q: timings not compared", mode)
-	} else {
-		timed := func(f func()) time.Duration {
-			start := time.Now()
-			f()
-			return time.Since(start)
-		}
-		// Each round times the formatter and then the diff, so a scheduling stall
-		// on a loaded runner hits both or neither; the best round of each survives it.
-		formatTime, diffTime := time.Duration(math.MaxInt64), time.Duration(math.MaxInt64)
-		for range 20 {
-			formatTime = min(formatTime, timed(func() { _, _ = format.Source("largest.sysml", mangled, formatOptions(spaces4, false)) }))
-			diffTime = min(diffTime, timed(func() { formatEdits(mangled, formatted, allLines) }))
-		}
-		t.Logf("%d bytes: format %v, diff %v", len(mangled), formatTime, diffTime)
-		if diffTime > formatTime {
-			t.Fatalf("diff took %v, formatter %v; the diff must not dominate", diffTime, formatTime)
-		}
+}
+
+// Lines whose non-blank ones pair off differ only in their blank runs: a longer
+// old run is one hunk over the whole run, a longer new one an insertion after it.
+func TestBlankRunHunks(t *testing.T) {
+	cases := []struct {
+		name     string
+		old, new []string
+		want     []model.Hunk
+	}{
+		{"same", []string{"a\n", "\n", "b\n"}, []string{"a\n", "\n", "b\n"}, nil},
+		{"empty", nil, nil, nil},
+		{"run shortened", []string{"a\n", "\n", " \n", "\n", "b\n"}, []string{"a\n", "\n", "b\n"}, []model.Hunk{{OldStart: 1, OldEnd: 4, NewStart: 1, NewEnd: 2}}},
+		{"run removed", []string{"a\n", "\n", "b\n"}, []string{"a\n", "b\n"}, []model.Hunk{{OldStart: 1, OldEnd: 2, NewStart: 1, NewEnd: 1}}},
+		{"leading and trailing runs", []string{"\n", "a\n", "\n", "\n"}, []string{"a\n"},
+			[]model.Hunk{{OldStart: 0, OldEnd: 1, NewStart: 0, NewEnd: 0}, {OldStart: 2, OldEnd: 4, NewStart: 1, NewEnd: 1}}},
+		{"run lengthened", []string{"a\n", "\n", "b\n"}, []string{"a\n", "\n", "\n", "b\n"}, []model.Hunk{{OldStart: 2, OldEnd: 2, NewStart: 2, NewEnd: 3}}},
+		{"run added at the end", []string{"a\n"}, []string{"a\n", "\n"}, []model.Hunk{{OldStart: 1, OldEnd: 1, NewStart: 1, NewEnd: 2}}},
+		{"only blanks", []string{"\n", "\n"}, []string{"\n"}, []model.Hunk{{OldStart: 0, OldEnd: 2, NewStart: 0, NewEnd: 1}}},
 	}
-	edits := formatEdits(mangled, formatted, allLines)
-	if applyOrderedEdits(t, string(mangled), edits) != string(formatted) {
-		t.Fatal("edits do not reproduce the formatter output")
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := blankRunHunks(tc.old, tc.new); !slices.Equal(got, tc.want) {
+				t.Fatalf("blankRunHunks = %+v, want %+v", got, tc.want)
+			}
+		})
+	}
+}
+
+// A formatter that moves text between lines or adds blank ones still gets edits
+// that reproduce its output: the search covers what does not pair off.
+func TestFormatEditsForOutputThatDoesNotPairOff(t *testing.T) {
+	cases := []struct {
+		name               string
+		content, formatted string
+		searches           int
+	}{
+		{"lines joined", "a;\nb;\n\n\n\nc;\n", "a; b;\n\nc;\n", 1},
+		{"text changed", "a;\n\n\nb;\nc;\n", "a;\n\nB;\nc;\n", 1},
+		{"line dropped", "a;\nb;\nc;\n", "a;\nc;\n", 1},
+		{"blank lines added", "a;\nb;\n\nc;", "a;\n\n\nb;\n\n\nc;\n\n", 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			searches := countDiffSearches(t)
+			edits := formatEdits([]byte(tc.content), []byte(tc.formatted), allLines)
+			if *searches != tc.searches {
+				t.Fatalf("%d searches, want %d", *searches, tc.searches)
+			}
+			if got := applyOrderedEdits(t, tc.content, edits); got != tc.formatted {
+				t.Fatalf("applied = %q, want %q", got, tc.formatted)
+			}
+		})
 	}
 }
 
@@ -686,6 +750,19 @@ func TestRangeFormattingTrimsBlankRunWithinSelectionOnly(t *testing.T) {
 				t.Fatalf("applied = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+// Each run of surplus blank lines is trimmed as far as the selection reaches into it,
+// whichever run of the document it is.
+func TestRangeFormattingTrimsEachBlankRunAlike(t *testing.T) {
+	// Blank runs at lines 3-5, 8-10 and 13-15; the formatter keeps one line of each.
+	src := "package P {\n    part def A {\n    }\n\n\n\n    part def B {\n    }\n\n\n\n    part def C {\n    }\n\n\n\n    part def D;\n}\n"
+	for _, first := range []int{3, 8, 13} {
+		edits := rangeEditsFor(t, src, lines(first, first+2))
+		if want := (protocol.TextEdit{Range: lines(first, first+2)}); len(edits) != 1 || edits[0] != want {
+			t.Fatalf("lines %d-%d: edits = %+v, want [%+v]", first, first+1, edits, want)
+		}
 	}
 }
 
@@ -834,19 +911,21 @@ func TestRegroupLines(t *testing.T) {
 	cases := []struct {
 		name          string
 		old, new, out []string
+		aligned       bool
 	}{
-		{"split", []string{"a { b; }\n"}, []string{"a {\n", "  b;\n", "}\n"}, []string{"a {\n  b;\n}\n"}},
-		{"blanks kept", []string{"a;\n", "\n", "b; c;\n"}, []string{"a;\n", "\n", "b;\n", "c;\n"}, []string{"a;\n", "\n", "b;\nc;\n"}},
-		{"blank dropped", []string{"a;\n", "\n", "\n", "b;\n"}, []string{"a;\n", "\n", "b;\n"}, []string{"a;\n", "\n", "b;\n"}},
-		{"newline added", []string{"a;"}, []string{"a;\n"}, []string{"a;\n"}},
-		{"text moved", []string{"a;\n", "b;\n"}, []string{"a; b;\n"}, []string{"a; b;\n"}},
-		{"text lost", []string{"a; b;\n"}, []string{"a;\n"}, []string{"a;\n"}},
+		{"split", []string{"a { b; }\n"}, []string{"a {\n", "  b;\n", "}\n"}, []string{"a {\n  b;\n}\n"}, true},
+		{"blanks kept", []string{"a;\n", "\n", "b; c;\n"}, []string{"a;\n", "\n", "b;\n", "c;\n"}, []string{"a;\n", "\n", "b;\nc;\n"}, true},
+		{"blank dropped", []string{"a;\n", "\n", "\n", "b;\n"}, []string{"a;\n", "\n", "b;\n"}, []string{"a;\n", "\n", "b;\n"}, true},
+		{"newline added", []string{"a;"}, []string{"a;\n"}, []string{"a;\n"}, true},
+		{"text moved", []string{"a;\n", "b;\n"}, []string{"a; b;\n"}, []string{"a; b;\n"}, false},
+		{"text lost", []string{"a; b;\n"}, []string{"a;\n"}, []string{"a;\n"}, false},
+		{"text added", []string{"a;\n"}, []string{"a;\n", "b;\n"}, []string{"a;\n", "b;\n"}, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := regroupLines(tc.old, tc.new)
-			if strings.Join(got, "|") != strings.Join(tc.out, "|") {
-				t.Fatalf("regroupLines = %q, want %q", got, tc.out)
+			got, aligned := regroupLines(tc.old, tc.new)
+			if strings.Join(got, "|") != strings.Join(tc.out, "|") || aligned != tc.aligned {
+				t.Fatalf("regroupLines = %q, %v, want %q, %v", got, aligned, tc.out, tc.aligned)
 			}
 		})
 	}
