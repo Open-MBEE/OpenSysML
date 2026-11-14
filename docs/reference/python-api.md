@@ -215,7 +215,11 @@ A parsed model is the entry point for symbol lookup, evaluation and execution.
 `Model.render_view(view_name, ports="minimal", show=None, depth=0)` returns a typed
 `RenderedView`; pass `ports="full"` to include every declared port, `show` to draw
 optional notation elements (the result's `shown` lists the ones drawn) and `depth`
-to bound how deep nested elements are drawn.
+to bound how deep nested elements are drawn. `form="dot"` (or `"text"`, `"mermaid"`,
+`"markdown"`, `"plantuml"`, `"d2"`, `"drawio"`, `"csv"`, `"tsv"`) also writes the view in
+that form into the result's `text`, as `sysml -render-form` does, under the writer options
+`palette`, `style`, `lines`, `direction`, `link` and `unplaced`; it needs the
+`render_view_form` capability.
 `Model.diagnostics` is what the parse answered under the default lint selection;
 `Model.refresh_diagnostics(disable_lint=(), enable_lint=())` asks the service again,
 leaving out the lints `disable_lint` names and keeping the opt-in ones `enable_lint`

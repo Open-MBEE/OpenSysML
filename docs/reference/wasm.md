@@ -168,6 +168,13 @@ to draw besides those the view's rendering shows (`parameter-symbols`, `port-sym
 as `sysml -render-show` does; an unknown name is an invalid-argument error. The response's
 `shown` lists the elements drawn.
 
+`form` is optional: `text`, `mermaid`, `markdown`, `dot`, `plantuml`, `d2`, `drawio`, `csv` or `tsv`
+also writes the rendering in that form into the response's `text`, byte for byte what
+`sysml -render <view> -render-form <form>` writes, under the optional writer options `palette`,
+`style`, `lines`, `direction`, `link` and `unplaced` [the service takes](api.md#native-documents-and-views-over-grpc).
+An unknown form, or one the view's kind is not written in, is an invalid-argument error naming
+the forms there are; the module advertises this as `render_view_form`.
+
 The engine has no current-document context, so a pseudo-view must name an element, for
 example `#tree:OpenSysMLStack::stack`. An untargeted `#tree`, `#interconnection` or `#matrix` is
 refused with InvalidArgument and the supported pseudo-view spellings.
@@ -323,7 +330,7 @@ The module retains the 16 most recently used models; an evicted hash is evicted 
 `infinity_value`, `diagnostic_codes`, `schedule`, `final_time`, `metaobject_values`,
 `undetermined_value`, `performer`, `big_int_values`, `render_view`, `state_trace`,
 `action_trace`, `render_document`, `render_document_html`, `render_document_asciidoc`,
-`render_document_file_name`.
+`render_document_file_name`, `render_view_form`.
 
 The `js` build installs one synchronous host surface, `globalThis.sysmlWasm`, with
 `version` and `call(method, paramsJSON)`. The call returns a JSON-RPC envelope string.

@@ -214,6 +214,9 @@ public final class Capabilities {
   /** The service renders named and targeted pseudo-views as diagram data. */
   public static final String RENDER_VIEW = "render_view";
 
+  /** The {@code RenderView} RPC also writes the view in a named form, with writer options. */
+  public static final String RENDER_VIEW_FORM = "render_view_form";
+
   /** The {@code ExportGraphs} RPC exports a behavior's lowered graph as {@code graphs:1} JSON. */
   public static final String EXPORT_GRAPHS = "export_graphs";
 

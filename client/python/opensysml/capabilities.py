@@ -80,6 +80,10 @@ CAPABILITY_RENDER_DOCUMENT = "render_document"
 #: The ``RenderView`` RPC, which returns typed diagram data.
 CAPABILITY_RENDER_VIEW = "render_view"
 
+#: ``RenderViewRequest.form`` and its writer options, answered in
+#: ``RenderViewResponse.text``. Without it the service drops them unanswered.
+CAPABILITY_RENDER_VIEW_FORM = "render_view_form"
+
 #: The ``ExportGraphs`` RPC, which exports the lowered graph of an action or
 #: state machine as the canonical ``graphs:1`` JSON an external engine is sent.
 CAPABILITY_EXPORT_GRAPHS = "export_graphs"
