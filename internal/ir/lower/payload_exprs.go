@@ -5,9 +5,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// internExprs interns the expressions the graph's features, attributes, successions and
-// accept triggers state in its table, each in the scope it is evaluated in; a graph
-// lowered twice gets the same ids.
+// internExprs interns what the graph's features, attributes, successions and accept
+// triggers state in its table, each in the scope it is evaluated in.
 func (g *ActionGraph) internExprs() {
 	if g.Exprs == nil {
 		return

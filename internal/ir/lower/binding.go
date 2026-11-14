@@ -62,9 +62,8 @@ func (e BindingEnd) HolderPath() string {
 	return e.Path
 }
 
-// Intern interns the expressions the binding's ends state in exprs, in the scope
-// the binding is evaluated in; a binding lowered apart from a flow has no table
-// until what holds it gives one.
+// Intern interns the expressions the binding's ends state in exprs, in the scope the
+// binding is evaluated in; one lowered apart from a flow has no ids until it is called.
 func (b *Binding) Intern(exprs *ExprTable) {
 	for i := range b.Ends {
 		b.Ends[i].ExprID = exprs.Intern(b.Ends[i].Expr, b.Scope)
