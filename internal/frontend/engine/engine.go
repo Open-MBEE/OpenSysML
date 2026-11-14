@@ -20,6 +20,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
 	fsyntax "github.com/Open-MBEE/OpenSysML/internal/frontend/syntax"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -145,7 +146,7 @@ func (m *cachedModel) semantics() *runtime.Model {
 	}
 	sem := m.typedModel()
 	m.model = runtime.NewModel(sem, m.resolver)
-	m.model.SetExpressionParser(parser.ParseOneExpression)
+	m.model.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, m.model.Resolver()))
 	for _, doc := range m.Documents {
 		m.model.RegisterSource(doc.Source)
 	}

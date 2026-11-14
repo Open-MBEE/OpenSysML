@@ -5,7 +5,7 @@
 //
 //	// Create the model-derived part once, then a runtime context over it
 //	model := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
-//	model.SetExpressionParser(parser.ParseOneExpression)
+//	model.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, model.Resolver()))
 //	ctx := runtime.NewContext(model, runtime.DefaultMaxSteps)
 //
 //	// Instantiate a part
