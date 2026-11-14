@@ -12,7 +12,6 @@ import (
 	"encoding/hex"
 	"strconv"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -157,13 +156,12 @@ func EscapeName(name string) string {
 	var b strings.Builder
 	b.Grow(len(name) + 2)
 	b.WriteByte('\'')
-	for _, r := range name {
-		if r < utf8.RuneSelf {
-			if letter, ok := source.EscapeLetter(byte(r)); ok {
-				b.WriteByte('\\')
-				b.WriteByte(letter)
-				continue
-			}
+	for i, r := range name {
+		// name[i] is r itself for the one-byte runes an escape can name.
+		if letter, ok := source.EscapeLetter(name[i]); ok {
+			b.WriteByte('\\')
+			b.WriteByte(letter)
+			continue
 		}
 		b.WriteRune(r)
 	}
