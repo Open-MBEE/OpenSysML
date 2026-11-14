@@ -1,0 +1,14 @@
+{
+	"rpc": "GetSymbol",
+	"model": "symbol_connector_ends.sysml",
+	"symbol_id": "Ends__Vehicle__plain_pend1",
+	"expected_kind": "connectorEnd",
+	"expected_child_ids": [],
+	"expected_specializations": [
+		{
+			"kind": "references",
+			"declared": "r",
+			"target_id": "Ends::Vehicle::r"
+		}
+	]
+}

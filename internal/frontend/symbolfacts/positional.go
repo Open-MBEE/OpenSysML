@@ -183,8 +183,8 @@ func (sc *Context) LookupMember(id string) []*symbols.Symbol {
 	return sc.Resolver.ResolveGlobal(nameSegments(id))
 }
 
-// Resolve resolves id as a qualified name from the root (resolve.Resolver.ResolveGlobal); a
-// positional id, or the declared name of a public member of a non-visible namespace, still denotes its element.
+// Resolve resolves id as a qualified name from the root (resolve.Resolver.ResolveGlobal); a generated id
+// (generated), or the declared name of a public member of a non-visible namespace, still denotes its element.
 func (sc *Context) Resolve(id string) []*symbols.Symbol {
 	if syms := sc.Resolver.ResolveGlobal(nameSegments(id)); len(syms) > 0 {
 		return syms
@@ -199,7 +199,7 @@ func (sc *Context) Resolve(id string) []*symbols.Symbol {
 	if len(elements) > 0 {
 		return elements
 	}
-	return sc.unnamed(id)
+	return sc.generated(id)
 }
 
 // ResolveMember is Resolve with an alias answered as the alias membership its
@@ -211,7 +211,16 @@ func (sc *Context) ResolveMember(id string) []*symbols.Symbol {
 	if declared := sc.declaredPublic(id); len(declared) > 0 {
 		return declared
 	}
-	return sc.unnamed(id)
+	return sc.generated(id)
+}
+
+// generated finds the element an id no name spells denotes: a positional id, else an unnamed
+// connector end's element id.
+func (sc *Context) generated(id string) []*symbols.Symbol {
+	if syms := sc.unnamed(id); len(syms) > 0 {
+		return syms
+	}
+	return sc.unnamedEnds(id)
 }
 
 // declaredPublic finds the members id is the declared qualified name of whose own membership is

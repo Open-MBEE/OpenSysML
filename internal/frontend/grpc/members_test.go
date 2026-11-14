@@ -166,3 +166,34 @@ func TestResolveNameIgnoredWithoutCapability(t *testing.T) {
 		}
 	}
 }
+
+// TestResolveNameAnswersGeneratedIDs verifies resolve_name still reads the ids no name spells:
+// a positional id and an unnamed connector end's element id, as a client following child_ids sends.
+func TestResolveNameAnswersGeneratedIDs(t *testing.T) {
+	const model = `package Gen { part def V { part q; part r; connection c connect q to r; bind q = r; } }`
+	srv := mustNewService(t, 10)
+	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+		Source: &pb.ParseFileRequest_Content{Content: model},
+	})
+	if err != nil {
+		t.Fatalf("ParseFile: %v", err)
+	}
+	for _, tc := range []struct{ id, kind string }{
+		{"Gen::V::@3", "bindingConnectorAsUsage"},
+		{"Gen__V__c_pend0", "connectorEnd"},
+		{"Gen__V___403_pend1", "connectorEnd"},
+	} {
+		for _, resolve := range []bool{false, true} {
+			resp, err := srv.GetSymbol(context.Background(), &pb.GetSymbolRequest{
+				ModelHash: parsed.ModelHash, SymbolId: tc.id, ResolveName: resolve,
+			})
+			if err != nil || resp.Symbol == nil {
+				t.Fatalf("GetSymbol(%s, resolve_name=%t): %v %s", tc.id, resolve, err, resp.GetError())
+			}
+			if resp.Symbol.Id != tc.id || resp.Symbol.Kind != tc.kind {
+				t.Errorf("GetSymbol(%s, resolve_name=%t) = %s %s, want kind %s",
+					tc.id, resolve, resp.Symbol.Id, resp.Symbol.Kind, tc.kind)
+			}
+		}
+	}
+}
