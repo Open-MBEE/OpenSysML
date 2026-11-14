@@ -130,6 +130,7 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 	ids.recordConnectorEnds(e, node, subject)
 	ids.recordSuccessionEnds(e, node, subject)
 	ids.recordTransitionSuccession(e, node, subject)
+	ids.recordTransitionHead(e, node, subject)
 	ids.recordSatisfySubjects(e, node, subject)
 	ids.registerHeadChains(e, subject, chainTargets(e.writtenHeadClauses(node, parents[node], parents)))
 	for key, id := range e.writtenRelationships(node, parents[node], subject, parents) {
@@ -197,6 +198,30 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 				ids.partBySpan[spanPartKey{spanKey{e.file.Name(), end.Span()}, "chain." + position}] = recorded
 			}
 		}
+	}
+}
+
+// recordTransitionHead files what a transition owns ahead of its trigger (transitionHeadMembers): the
+// Membership of its `first` source at "psourcemember", its link parameter at "linkparam", a trigger's at "triggerparam".
+func (ids *ElementIDs) recordTransitionHead(e *encoder, node ast.Node, subject rdf.Term) {
+	n, ok := node.(*ast.TransitionMember)
+	if !ok || n.IsSuccession || n.Target == nil {
+		return
+	}
+	file := func(slot string, part partIDs) {
+		ids.partByNode[partKey{node, slot}] = part
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = part
+	}
+	if qualifiedText(n.Source) != "" && !qualifiedNameHasChain(n.Source) {
+		file("psourcemember", partIDs{membership: rdf.LocalName(rdf.ExpressionIRI(subject, "sourcemember").Value)})
+	}
+	slots := []string{"linkparam"}
+	if naming.TriggerPayload(e.file, n) != nil {
+		slots = append(slots, "triggerparam")
+	}
+	for _, slot := range slots {
+		feature := rdf.IRI(subject.Value + "_" + slot)
+		file(slot, partIDs{element: rdf.LocalName(feature.Value), membership: rdf.LocalName(rdf.OwningMembershipIRIOf(feature).Value)})
 	}
 }
 

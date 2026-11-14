@@ -63,7 +63,7 @@ func expressionElementMetaclassName(sym *symbols.Symbol) string {
 			return "AcceptActionUsage"
 		case symbols.ExpressionTransitionSuccession:
 			return "SuccessionAsUsage"
-		case symbols.ExpressionPayload:
+		case symbols.ExpressionPayload, symbols.ExpressionTransitionLinkParameter:
 			return "ReferenceUsage"
 		}
 	}
