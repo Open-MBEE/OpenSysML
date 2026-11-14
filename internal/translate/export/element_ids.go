@@ -221,6 +221,20 @@ func (ids *ElementIDs) recordTransitionSuccession(e *encoder, node ast.Node, sub
 	recorded := partIDs{element: rdf.LocalName(succession.Value), membership: rdf.LocalName(membership.Value)}
 	ids.partByNode[partKey{node, "succession"}] = recorded
 	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, "succession"}] = recorded
+	for i := 0; i < 2; i++ {
+		// The succession's two ends and the target end's ReferenceSubsetting are minted under it (transitionSuccession).
+		slot := fmt.Sprintf("succession.end%d", i)
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(succession, fmt.Sprintf("end%d", i)), succession, fmt.Sprintf("end%d", i))
+		endMembership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+		end := partIDs{element: rdf.LocalName(feature.Value), membership: rdf.LocalName(endMembership.Value)}
+		ids.partByNode[partKey{node, slot}] = end
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = end
+		if i == 1 {
+			reference := partIDs{element: e.referenceSubsettingID(feature)}
+			ids.partByNode[partKey{node, slot + ".rs"}] = reference
+			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot + ".rs"}] = reference
+		}
+	}
 }
 
 // recordSuccessionEnds records the two ends a `then` succession's conversion mints at end0/end1

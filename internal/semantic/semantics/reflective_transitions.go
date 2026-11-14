@@ -68,6 +68,9 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 		// transition's owner, so it reads them in the scope the transition is declared in.
 		parts.succession = transitionPart(sym, sym.Decl, target.Span(), symbols.SymbolSuccessionUsage, sym, symbols.ExpressionTransitionSuccession)
 		parts.succession.OwnerScope = sym.OwnerScope
+		// Its two ends (SuccessionEndMembers) are members of a scope of its own, owned by it.
+		parts.succession.Scope = symbols.NewScope(sym.OwnerScope, sym.Decl)
+		parts.succession.Scope.SetOwner(parts.succession)
 	}
 	trans, ok := transitionDecl(sym)
 	if !ok {
