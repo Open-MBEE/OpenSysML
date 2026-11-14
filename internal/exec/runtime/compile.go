@@ -9,7 +9,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/envvar"
 )
 
@@ -341,7 +340,7 @@ func (c *calcCompiler) compile(cell *compiledCalc) error {
 			continue
 		}
 		scope := c.ctx.calcScope(param.Owner, shape.Sym, nil)
-		dflt, err := c.compileNode(shape.Expr(param.Default), scope, newFrameLayout(shape.ParamNames, shape.Aliases, i))
+		dflt, err := c.compileExpr(c.ctx.calcExpr(shape, param.Default, scope), scope, newFrameLayout(shape.ParamNames, shape.Aliases, i))
 		if err != nil {
 			return err
 		}
@@ -387,7 +386,7 @@ func (c *calcCompiler) compileResultBinding(cell *compiledCalc, layout *frameLay
 	if err := plainScope(scope); err != nil {
 		return err
 	}
-	body, err := c.compileNode(shape.resultExpr(), scope, layout)
+	body, err := c.compileExpr(c.ctx.calcExpr(shape, shape.Result, scope), scope, layout)
 	if err != nil {
 		return err
 	}
@@ -501,94 +500,35 @@ type cnode struct {
 // expr is the node as a standalone expression charging its own steps.
 func (n *cnode) expr() compiledExpr { return n.emit(false) }
 
-// compileNode compiles n written in scope, reading names from the frame slots
-// the layout describes; a name outside it is admitted only as a library constant.
-func (c *calcCompiler) compileNode(n ast.Node, scope *symbols.Scope, layout *frameLayout) (*cnode, error) {
-	switch e := n.(type) {
-	case *ast.LiteralInteger:
-		v, ok := semantics.ParseInteger(e.Value)
-		if !ok {
-			return nil, ineligible(fmt.Sprintf("integer literal %s", e.Value))
+// compileExpr is compileNode of an expression lowered in scope.
+func (c *calcCompiler) compileExpr(x lowered, scope *symbols.Scope, layout *frameLayout) (*cnode, error) {
+	expr := x.expr()
+	switch expr.Kind {
+	case program.ExprInt:
+		if expr.Const.Kind == semantics.ValInvalid {
+			return nil, ineligible(fmt.Sprintf("integer literal %s", expr.Text))
 		}
-		s, _ := scalarOfConst(v)
+		s, _ := scalarOfConst(expr.Const)
 		return constNode(s), nil
-	case *ast.LiteralReal:
+	case program.ExprReal:
 		// One beyond the least budget is left to the evaluator, which checks it against the run's.
-		v, err := semantics.ParseRational(e.Value, semantics.MinMaxIntegerBits)
+		v, err := semantics.ParseRational(expr.Text, semantics.MinMaxIntegerBits)
 		if err != nil {
-			return nil, ineligible(fmt.Sprintf("rational literal %s beyond the least size budget", e.Value))
+			return nil, ineligible(fmt.Sprintf("rational literal %s beyond the least size budget", expr.Text))
 		}
 		s, _ := scalarOfConst(v)
 		return constNode(s), nil
-	case *ast.LiteralBool:
-		return constNode(boolScalar(e.Value)), nil
-	case *ast.FeatureReference:
-		return c.compileName(e.Name, scope, layout)
-	case *ast.QualifiedName:
-		return c.compileName(e, scope, layout)
-	case *ast.OperatorExpr:
-		return c.compileOperator(e, scope, layout)
-	case *ast.InvocationExpr:
-		return c.compileInvocation(e, scope, layout)
+	case program.ExprBool:
+		return constNode(boolScalar(expr.Const.Bool)), nil
+	case program.ExprRef:
+		return c.compileName(subjectName(x.tree()), expr, scope, layout)
+	case program.ExprOp:
+		return c.compileOperator(x, scope, layout)
+	case program.ExprInvoke:
+		return c.compileInvocation(x, scope, layout)
 	default:
-		return nil, ineligible(fmt.Sprintf("%T is outside the pure subset", n))
+		return nil, ineligible(fmt.Sprintf("%T is outside the pure subset", x.tree()))
 	}
-}
-
-// compileName resolves a name as the evaluator does: a frame binding first,
-// then what the scope resolves it to, read only where it is a library constant.
-func (c *calcCompiler) compileName(qn *ast.QualifiedName, scope *symbols.Scope, layout *frameLayout) (*cnode, error) {
-	if qn == nil || len(qn.Parts) == 0 {
-		return nil, ineligible("empty feature reference")
-	}
-	if scope == nil {
-		return nil, ineligible("name without a scope")
-	}
-	if len(qn.Parts) > 1 {
-		return c.compileQualifiedName(qn, scope)
-	}
-	name := qn.Parts[0].Text
-	if slot, ok := layout.lookup(name); ok {
-		return slotNode(slot), nil
-	}
-	if name == thatName || name == thisName {
-		return nil, ineligible(fmt.Sprintf("name %q reads the bound object", name))
-	}
-	sym, ok := c.ctx.lookupName(scope, name)
-	if !ok || sym == nil {
-		return nil, ineligible(fmt.Sprintf("name %q is not bound in the frame", name))
-	}
-	if c.ctx.readsAsFunction(sym) {
-		return nil, ineligible(fmt.Sprintf("name %q is a function value", name))
-	}
-	node, err := c.libraryConstant(sym, name)
-	if err != nil {
-		return nil, err
-	}
-	c.cell.readsLibrary = true
-	return node, nil
-}
-
-// compileQualifiedName resolves `A::B::x` as the evaluator does — first part in
-// scope, the rest as members — and reads it where it is a library constant.
-func (c *calcCompiler) compileQualifiedName(qn *ast.QualifiedName, scope *symbols.Scope) (*cnode, error) {
-	firstQN := &ast.QualifiedName{Global: qn.Global, Parts: []ast.NameSegment{qn.Parts[0]}}
-	firstQN.NodeBase = qn.NodeBase
-	sym, ok := c.ctx.resolveQualified(scope, firstQN)
-	if !ok || sym == nil {
-		return nil, ineligible(fmt.Sprintf("qualified name %s does not resolve", qualifiedNameToString(qn)))
-	}
-	for _, part := range qn.Parts[1:] {
-		if lower.IsCalcUsageSymbol(sym) {
-			return nil, ineligible(fmt.Sprintf("qualified name %s reads a calc usage", qualifiedNameToString(qn)))
-		}
-		next, found := c.ctx.model.semantics.LookupMember(sym, part.Text)
-		if !found {
-			return nil, ineligible(fmt.Sprintf("qualified name %s does not resolve", qualifiedNameToString(qn)))
-		}
-		sym = next
-	}
-	return c.libraryConstant(sym, qualifiedNameToString(qn))
 }
 
 // libraryConstant compiles a read of sym where it is a scalar constant the
@@ -613,102 +553,103 @@ func (c *calcCompiler) libraryConstant(sym *symbols.Symbol, name string) (*cnode
 
 // compileOperator compiles an operator application, folding it as the
 // evaluator does before it looks at the operands.
-func (c *calcCompiler) compileOperator(n *ast.OperatorExpr, scope *symbols.Scope, layout *frameLayout) (*cnode, error) {
-	if folded, ok := c.ctx.model.semantics.EvalWithin(n, c.ctx.maxIntegerBits); ok {
+func (c *calcCompiler) compileOperator(x lowered, scope *symbols.Scope, layout *frameLayout) (*cnode, error) {
+	if folded, ok := c.ctx.model.semantics.EvalWithin(x.operator(), c.ctx.maxIntegerBits); ok {
 		v, ok := scalarOfConst(folded)
 		if !ok {
 			return nil, ineligible("folds to a non-scalar constant")
 		}
 		return constNode(v), nil
 	}
-	switch n.Operator {
-	case ast.OpConditional:
-		if len(n.Operands) != 3 {
-			return nil, ineligible(fmt.Sprintf("conditional with %d operands", len(n.Operands)))
+	operands, op := len(x.expr().Args), x.op()
+	switch op {
+	case program.OpConditional:
+		if operands != 3 {
+			return nil, ineligible(fmt.Sprintf("conditional with %d operands", operands))
 		}
-		return c.compileOperands(n, scope, layout, conditionalNode)
-	case ast.OpAdd, ast.OpSub, ast.OpMul, ast.OpDiv, ast.OpMod, ast.OpPow:
-		if len(n.Operands) != 2 {
-			return nil, ineligible(fmt.Sprintf("arithmetic with %d operands", len(n.Operands)))
+		return c.compileOperands(x, scope, layout, conditionalNode)
+	case program.OpAdd, program.OpSub, program.OpMul, program.OpDiv, program.OpMod, program.OpPow:
+		if operands != 2 {
+			return nil, ineligible(fmt.Sprintf("arithmetic with %d operands", operands))
 		}
-		return c.compileOperands(n, scope, layout, arithmeticNode)
-	case ast.OpEq, ast.OpNeq:
-		if len(n.Operands) != 2 {
-			return nil, ineligible(fmt.Sprintf("equality with %d operands", len(n.Operands)))
+		return c.compileOperands(x, scope, layout, arithmeticNode)
+	case program.OpEq, program.OpNeq:
+		if operands != 2 {
+			return nil, ineligible(fmt.Sprintf("equality with %d operands", operands))
 		}
-		return c.compileOperands(n, scope, layout, equalityNode)
-	case ast.OpEqEqEq, ast.OpNeqEqEq:
-		if len(n.Operands) != 2 {
-			return nil, ineligible(fmt.Sprintf("identity with %d operands", len(n.Operands)))
+		return c.compileOperands(x, scope, layout, equalityNode)
+	case program.OpEqEqEq, program.OpNeqEqEq:
+		if operands != 2 {
+			return nil, ineligible(fmt.Sprintf("identity with %d operands", operands))
 		}
-		return c.compileOperands(n, scope, layout, identityNode)
-	case ast.OpLt, ast.OpLe, ast.OpGt, ast.OpGe:
-		if len(n.Operands) != 2 {
-			return nil, ineligible(fmt.Sprintf("comparison with %d operands", len(n.Operands)))
+		return c.compileOperands(x, scope, layout, identityNode)
+	case program.OpLt, program.OpLe, program.OpGt, program.OpGe:
+		if operands != 2 {
+			return nil, ineligible(fmt.Sprintf("comparison with %d operands", operands))
 		}
-		return c.compileOperands(n, scope, layout, comparisonNode)
-	case ast.OpAnd, ast.OpConditionalAnd, ast.OpOr, ast.OpConditionalOr, ast.OpXor, ast.OpImplies:
-		if len(n.Operands) != 2 {
-			return nil, ineligible(fmt.Sprintf("logical operator with %d operands", len(n.Operands)))
+		return c.compileOperands(x, scope, layout, comparisonNode)
+	case program.OpAnd, program.OpConditionalAnd, program.OpOr, program.OpConditionalOr, program.OpXor, program.OpImplies:
+		if operands != 2 {
+			return nil, ineligible(fmt.Sprintf("logical operator with %d operands", operands))
 		}
-		return c.compileOperands(n, scope, layout, logicalNode)
-	case ast.OpNeg, ast.OpPos, ast.OpNot:
-		if len(n.Operands) != 1 {
-			return nil, ineligible(fmt.Sprintf("unary operator with %d operands", len(n.Operands)))
+		return c.compileOperands(x, scope, layout, logicalNode)
+	case program.OpNeg, program.OpPos, program.OpNot:
+		if operands != 1 {
+			return nil, ineligible(fmt.Sprintf("unary operator with %d operands", operands))
 		}
-		return c.compileOperands(n, scope, layout, unaryNode)
+		return c.compileOperands(x, scope, layout, unaryNode)
 	default:
-		return nil, ineligible(fmt.Sprintf("operator '%s' is outside the pure subset", n.Operator))
+		return nil, ineligible(fmt.Sprintf("operator '%s' is outside the pure subset", op))
 	}
 }
 
 // compileOperands compiles n's operands in order and builds the node over them.
-func (c *calcCompiler) compileOperands(n *ast.OperatorExpr, scope *symbols.Scope, layout *frameLayout,
-	build func(op ast.OperatorKind, kids []*cnode) *cnode) (*cnode, error) {
-	kids := make([]*cnode, len(n.Operands))
-	for i, operand := range n.Operands {
-		kid, err := c.compileNode(operand, scope, layout)
+func (c *calcCompiler) compileOperands(x lowered, scope *symbols.Scope, layout *frameLayout,
+	build func(op program.Operator, kids []*cnode) *cnode) (*cnode, error) {
+	kids := make([]*cnode, len(x.expr().Args))
+	for i := range kids {
+		kid, err := c.compileExpr(x.arg(i), scope, layout)
 		if err != nil {
 			return nil, err
 		}
 		kids[i] = kid
 	}
-	return build(n.Operator, kids), nil
+	return build(x.op(), kids), nil
 }
 
 // callArguments are an invocation's arguments as written: the expressions in
 // source order, a receiver first, and the parameter name each named one binds.
 type callArguments struct {
-	exprs []ast.Node
+	exprs []lowered
 	names []string
 }
 
 // callArgumentsOf reads an invocation's arguments, declining the forms the
 // evaluator reports at run time: a receiver or positional beside named ones.
 // names is the parameter each named argument binds, as the target resolved them.
-func callArgumentsOf(n *ast.InvocationExpr, names []string, unbound []error) (callArguments, error) {
+func callArgumentsOf(x lowered, names []string, unbound []error) (callArguments, error) {
 	var args callArguments
-	if n.Operand != nil {
-		if len(n.NamedArgs) > 0 {
-			return args, ineligible("invocation with a receiver and named arguments")
-		}
-		args.exprs = append(args.exprs, n.Operand)
+	written := x.operands()
+	if x.expr().Receiver && len(written.named) > 0 {
+		return args, ineligible("invocation with a receiver and named arguments")
 	}
-	args.exprs = append(args.exprs, n.Args...)
-	if len(n.NamedArgs) == 0 {
+	for _, arg := range written.positional {
+		args.exprs = append(args.exprs, lowered{entry: arg})
+	}
+	if len(written.named) == 0 {
 		return args, nil
 	}
 	if len(args.exprs) > 0 {
 		return args, ineligible("invocation with positional and named arguments")
 	}
-	for i, arg := range n.NamedArgs {
+	for i, arg := range written.named {
 		if names[i] == "" {
 			return args, ineligible("invocation with an unnamed argument")
 		}
 		if err := unbound[i]; err != nil {
 			return args, ineligible(err.Error())
 		}
-		args.exprs = append(args.exprs, arg.Value)
+		args.exprs = append(args.exprs, lowered{entry: arg})
 		args.names = append(args.names, names[i])
 	}
 	return args, nil
@@ -746,7 +687,7 @@ func (a *callArguments) slotsFor(params []string) ([]int, paramSet, error) {
 func (c *calcCompiler) compileArguments(args *callArguments, scope *symbols.Scope, layout *frameLayout) ([]*cnode, error) {
 	kids := make([]*cnode, len(args.exprs))
 	for i, arg := range args.exprs {
-		kid, err := c.compileNode(arg, scope, layout)
+		kid, err := c.compileExpr(arg, scope, layout)
 		if err != nil {
 			return nil, err
 		}
@@ -767,15 +708,15 @@ var scalarAggregates = map[string]bool{
 // compileInvocation compiles a call dispatched as the evaluator dispatches it:
 // what the name resolves to in scope. A name that resolves to nothing is left
 // to the evaluator, which reports it unresolved.
-func (c *calcCompiler) compileInvocation(n *ast.InvocationExpr, scope *symbols.Scope, layout *frameLayout) (*cnode, error) {
+func (c *calcCompiler) compileInvocation(x lowered, scope *symbols.Scope, layout *frameLayout) (*cnode, error) {
 	if scope == nil {
 		return nil, ineligible("invocation without a scope")
 	}
-	target := (&EvalContext{ctx: c.ctx, scope: scope}).invocationTarget(n)
+	target := (&EvalContext{ctx: c.ctx, scope: scope}).invocationTarget(x)
 	if target.err != nil {
 		return nil, target.err
 	}
-	args, err := callArgumentsOf(n, target.names, target.unbound)
+	args, err := callArgumentsOf(x, target.names, target.unbound)
 	if err != nil {
 		return nil, err
 	}
@@ -858,7 +799,7 @@ func (c *calcCompiler) compileAggregate(name string, fn builtinFunc, args *callA
 	if args.names != nil || len(args.exprs) != 1 {
 		return nil, ineligible(fmt.Sprintf("%s called other than with one positional argument", name))
 	}
-	arg, err := c.compileNode(args.exprs[0], scope, layout)
+	arg, err := c.compileExpr(args.exprs[0], scope, layout)
 	if err != nil {
 		return nil, err
 	}

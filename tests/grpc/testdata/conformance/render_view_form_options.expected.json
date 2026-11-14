@@ -1,0 +1,26 @@
+{
+  "rpc": "RenderView",
+  "model": "render_view_form.sysml",
+  "view": "FormDemo::structure",
+  "form": "dot",
+  "palette": "okabe-ito",
+  "style": "cameo",
+  "lines": "ortho",
+  "direction": "LR",
+  "link": "https://example.test/{file}#L{line}:{col}?{qname}&{id}",
+  "unplaced": "strip",
+  "expected_text_contains": [
+    "graph [fontname=\"Arial\", fontcolor=\"#424242\", rankdir=LR, splines=ortho];",
+    "label=<<b>bdd</b> [Block] Vehicle [ structure ]>;",
+    "\"n0\" [fillcolor=\"#E69F00\", color=\"#E69F00\","
+  ],
+  "expected_node_names": [
+    "FormDemo::Vehicle",
+    "wheel",
+    "FormDemo::Wheel"
+  ],
+  "expected_edge_labels": [
+    "",
+    ""
+  ]
+}

@@ -1348,7 +1348,10 @@ html`, or the AsciiDoc backend's document, answered in `asciidoc` and
 byte-identical to `-doc-form asciidoc`; asking for HTML needs the
 `render_document_html` capability and AsciiDoc the `render_document_asciidoc`
 capability, and PDF is not offered, since it needs the CLI's converter
-toolchain.
+toolchain. Go picks the form with
+`RenderDocument(ctx, model, id, opensysml.WithDocumentForm(opensysml.DocumentFormHTML))`
+(`DocumentFormMarkdown`, the default, `DocumentFormHTML` or `DocumentFormAsciiDoc`) and Python
+with `model.render_document(id, form="html")`; each checks the form's capability before sending.
 
 `RenderView` answers a named view or targeted pseudo-view as ordered nodes,
 edges, table and matrix rows, notes, source spans and optional canvas/geometry/style data,
@@ -1379,6 +1382,41 @@ returning a typed `RenderedView` whose `shown` lists the elements drawn; Rust as
 `RenderView(ctx, model, name, opensysml.WithShow("edge-labels"), opensysml.WithDepth(1),
 opensysml.WithCompartments("most"))`
 with the result's `Shown`; Node as `model.renderView(name, { compartments: "most" })`.
+
+Its `form` field also writes the rendering as diagram or table source, answered in the
+response's `text` beside the data: `text`, `mermaid`, `dot`, `plantuml`, `d2` and `drawio` for a
+graph-shaped view, `text`, `markdown`, `csv` and `tsv` for a table or matrix. The text is byte for
+byte what `sysml -render <view> -render-form <form>` writes for the same model (the `text` form at
+no particular width), so a program gets Graphviz, Mermaid, PlantUML, D2 or draw.io source without
+running the `sysml` binary. Empty, the default, writes none and `text` stays empty. The two SVG
+forms draw a recorded run, not a model view, and are not taken. A form there is none of, or one
+the view's kind is not written in (DOT of a table), is refused with `INVALID_ARGUMENT` and the
+message the CLI prints, naming the forms there are. The writer's options ride beside it, each
+named as its CLI flag names it and each refused with `INVALID_ARGUMENT` when it names nothing:
+
+| Field | CLI flag | Values |
+|---|---|---|
+| `palette` | `-render-palette` | a palette name; empty draws in black and white |
+| `style` | `-render-style` | `pilot` (the default) or `cameo` |
+| `lines` | `-render-lines` | `splines` (the default), `ortho` or `polyline` |
+| `direction` | — | `TB`, `LR`, `RL` or `BT`; empty leaves each kind's default, as the CLI does |
+| `link` | `-render-link` | a source link template over `{file}`, `{line}`, `{col}`, `{qname}`, `{id}` |
+| `unplaced` | `-render-unplaced` | `omit` (the default) or `strip` |
+
+`ports`, `show`, `depth` and `compartments` shape the data and the written form alike. DOT under
+`lines` `ortho` is laid out with the Graphviz `dot` of the host answering the call (found through
+`OPENSYSML_DOT` or on `PATH`), else on a grid under the notice the CLI writes; a WebAssembly build
+starts no process and always takes the grid. A model
+parsed from content rather than a file has no source location to link, so `link` and draw.io's
+per-cell source links are then left out. `form` and these options are advertised by
+`render_view_form`: a service without it refuses them with `UNIMPLEMENTED`, and one older than the
+fields would ignore them, so the clients check the capability before sending. Go exposes them as
+`RenderView(ctx, model, name, opensysml.WithForm(opensysml.ViewFormDOT), opensysml.WithPalette("okabe-ito"))`
+with `WithStyle`, `WithLines`, `WithDirection`, `WithLink` and `WithUnplaced`, the written form in
+the result's `Text` and the form names as `opensysml.ViewForms()`; Python as
+`model.render_view(name, form="dot", palette="okabe-ito")` with the result's `text`. The other
+clients carry the fields in their generated messages. `sysml-mcp`'s `render_model_view` takes the
+same fields, and the JSON engine (`sysml-engine`, `sysml-wasm`) answers `RenderView` the same way.
 
 `ExportGraphs` answers the lowered graph of an action or state machine — the
 subject's `ActionGraph`/`StateGraph` IR and that of every behavior it performs —

@@ -68,8 +68,8 @@ func TestChildIDsNameUnnamedMembersPositionally(t *testing.T) {
 	}
 
 	kinds := map[string]string{
-		"UnnamedChildren::Controller::@3": "bindingUsage",
-		"UnnamedChildren::Controller::@5": "bindingUsage",
+		"UnnamedChildren::Controller::@3": "bindingConnectorAsUsage",
+		"UnnamedChildren::Controller::@5": "bindingConnectorAsUsage",
 		"UnnamedChildren::Controller::@6": "connectionUsage",
 		"UnnamedChildren::Controller::@7": "partUsage",
 		"UnnamedChildren::Controller::@8": "metadataUsage",

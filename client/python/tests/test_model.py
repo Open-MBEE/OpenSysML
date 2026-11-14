@@ -29,7 +29,7 @@ def _client(symbols, capabilities=(CAPABILITY_QUERY,), library=()):
     """
     client = Mock()
     client.server_info.return_value = _server_info(*capabilities)
-    client.get_symbol.side_effect = lambda model_hash, symbol_id: (
+    client.get_symbol.side_effect = lambda model_hash, symbol_id, resolve_name=False: (
         symbols.get(symbol_id) or next((s for s in library if s.id == symbol_id), None)
     )
 
@@ -534,15 +534,16 @@ class TestModelLookup:
         # Both owners are packages of the root, so one hop up settled the depths.
         assert client.query.call_count == 2
 
-    def test_an_id_the_service_resolves_to_another_symbol_is_not_found(self):
-        """The service follows imports; an id lookup names only the symbol carrying that id."""
+    def test_a_name_the_service_resolves_to_another_symbol_is_got_not_found(self):
+        """get resolves the qualified name, through imports; find names only the symbol carrying the id."""
         library = sysml_pb2.SymbolInfo(
             id="ISQBase::MassValue", name="MassValue", kind="attributeDef"
         )
         client = _client({**self.SYMBOLS, "Demo::MassValue": library})
         model = self._model(client)
 
-        assert model.get("Demo::MassValue") is None
+        assert model.get("Demo::MassValue").id == "ISQBase::MassValue"
+        assert client.get_symbol.call_args.kwargs == {"resolve_name": True}
         assert model.find("Demo::MassValue") is None
         assert "Demo::MassValue" not in model
 

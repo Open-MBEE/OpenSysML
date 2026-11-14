@@ -1140,11 +1140,12 @@ func (d *decoder) valueOwner(triple rdf.Triple, valueTargets map[string]string, 
 	return feature, false, nil
 }
 
-// derivedConnectorFeature reports a connector's relatedFeature, sourceFeature or
-// targetFeature, which restate what its ends reference and carry no notation of their own.
+// derivedConnectorFeature reports a connector's relatedFeature, sourceFeature, targetFeature and the
+// relatedElement, source, target they redefine, which restate what its ends reference and carry no notation.
 func (d *decoder) derivedConnectorFeature(triple rdf.Triple) bool {
 	switch triple.Predicate.Value {
-	case rdf.SysML + pRelatedFeature, rdf.SysML + pSourceFeature, rdf.SysML + pTargetFeature:
+	case rdf.SysML + pRelatedFeature, rdf.SysML + pSourceFeature, rdf.SysML + pTargetFeature,
+		rdf.SysML + pRelatedElement, rdf.SysML + pSource, rdf.SysML + pTarget:
 		return ontology.IsAncestorOrSelf(d.metaclass(triple.Subject), "Connector")
 	}
 	return false

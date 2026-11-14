@@ -104,7 +104,7 @@ func (h *constraintStmtHost) performNode(engine *stmtEngine, graph *lower.Action
 	}
 	if connectsPins(graph, node) {
 		return flowNext, fmt.Errorf("%s: a binding or flow at a pin of %s in a body is not executable",
-			h.describe(), nodeDescription(node))
+			h.describe(), describeNode(graph, node))
 	}
 	var nestedSteps []lower.Statement
 	var nestedOrder *lower.StatementOrder
@@ -113,7 +113,7 @@ func (h *constraintStmtHost) performNode(engine *stmtEngine, graph *lower.Action
 		nestedSteps, simple = sub.Graph.StatementList()
 		if !simple {
 			return flowNext, fmt.Errorf("%w: %s: the flow %s states of its own in a body is not executable",
-				errStatementNotExecutable, h.describe(), nodeDescription(node))
+				errStatementNotExecutable, h.describe(), describeNode(graph, node))
 		}
 		nestedOrder = graph.StatementOrders[node]
 	}
@@ -127,7 +127,7 @@ func (h *constraintStmtHost) performNode(engine *stmtEngine, graph *lower.Action
 		}
 		value, err := engine.evalIn(feature.Scope).Eval(feature.Value)
 		if err != nil {
-			return flowNext, fmt.Errorf("eval %s of %s: %w", feature.Name, nodeDescription(node), err)
+			return flowNext, fmt.Errorf("eval %s of %s: %w", feature.Name, describeNode(graph, node), err)
 		}
 		engine.env.declare(engine.ctx, feature.Name, value)
 	}

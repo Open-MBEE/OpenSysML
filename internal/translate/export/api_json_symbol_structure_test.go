@@ -503,9 +503,14 @@ func (d *structureDifferential) computeGraphID(sym *symbols.Symbol) (string, boo
 		}
 	}
 	if i, ok := symbols.ImpliedSuccessionEndIndex(sym); ok {
-		// A `then` succession's end is minted under the edge at end0/end1 (encodeSuccessionEdge).
+		// A `then` succession's end is minted under the edge at end0/end1 (encodeSuccessionEdge); a
+		// transition's succession's under the transition at succession.end0/end1 (recordTransitionSuccession).
 		implied, _ := symbols.ImpliedDeclOf(sym)
-		element, _, ok := d.ids.OfExpressionPart(d.doc, implied.Of, fmt.Sprintf("end%d", i))
+		slot := fmt.Sprintf("end%d", i)
+		if symbols.ImpliedTransitionSuccessionEnd(sym) {
+			slot = "succession." + slot
+		}
+		element, _, ok := d.ids.OfExpressionPart(d.doc, implied.Of, slot)
 		return element, ok
 	}
 	if implied, ok := symbols.ImpliedDeclOf(sym); ok && implied.Form == symbols.ImpliedDefaultMultiplicity {
@@ -609,6 +614,9 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 		return d.expressionPartID(owner.Expr.Owner, "a0")
 	case symbols.ExpressionChainFeature:
 		return d.expressionPartID(owner, sym.Expr.Slot)
+	case symbols.ExpressionTransitionLinkParameter:
+		// A transition's link parameters are minted at linkparam and triggerparam (transitionHeadMembers).
+		return d.expressionPartID(owner, []string{"linkparam", "triggerparam"}[sym.Expr.Index])
 	case symbols.ExpressionPayload:
 		// A send's argument parameter is written as the send's unnamed member at
 		// its argument position (encodeSendArguments: qualify(fqn, "", i)).

@@ -1,0 +1,1 @@
+- A transition's `in` link parameters and a bare `accept Sig`'s payload answer `isVariable` true on the native walk — referential usages an occurrence owns, as the RDF conversion states them and the pilot exports them — where the synthesized parts, owning no scope of their own, answered false.

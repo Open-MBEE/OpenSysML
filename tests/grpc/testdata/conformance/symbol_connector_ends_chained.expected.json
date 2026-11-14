@@ -1,0 +1,20 @@
+{
+	"rpc": "GetSymbol",
+	"model": "symbol_connector_ends.sysml",
+	"symbol_id": "Ends::Vehicle::chained",
+	"expected_kind": "connectionUsage",
+	"expected_child_ids": [
+		"Ends__Vehicle__chained_pend0",
+		"Ends__Vehicle__chained_pend1"
+	],
+	"expected_members": [
+		{
+			"id": "Ends__Vehicle__chained_pend0",
+			"kind": "connectorEnd"
+		},
+		{
+			"id": "Ends__Vehicle__chained_pend1",
+			"kind": "connectorEnd"
+		}
+	]
+}

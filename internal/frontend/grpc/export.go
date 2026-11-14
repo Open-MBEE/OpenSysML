@@ -613,7 +613,8 @@ func (s *Service) convertModelOfDocuments(req *pb.ConvertRequest) (*pb.ConvertRe
 	if req.IncludeCheckDiagnostics {
 		defer func() { resp.Diagnostics = append(resp.Diagnostics, s.cachedCheckDiagnostics(req, cached)...) }()
 	}
-	graph, err := export.ModelToRDFWith(documents, opts.ID)
+	cached.exportOnce.Do(func() { cached.exportModel = export.PrepareModel(documents) })
+	graph, err := cached.exportModel.ToRDF(req.Documents, opts.ID)
 	if err != nil {
 		resp.Error = err.Error()
 		return resp, true, nil

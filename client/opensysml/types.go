@@ -23,9 +23,11 @@ const (
 	CapabilityInlineDocumentQuery            = sysmlgrpc.CapabilityInlineDocumentQuery
 	CapabilityRenderDocument                 = sysmlgrpc.CapabilityRenderDocument
 	CapabilityRenderView                     = sysmlgrpc.CapabilityRenderView
+	CapabilityRenderViewForm                 = sysmlgrpc.CapabilityRenderViewForm
 	CapabilityExportGraphs                   = sysmlgrpc.CapabilityExportGraphs
 	CapabilityInstancePaths                  = sysmlgrpc.CapabilityInstancePaths
 	CapabilitySymbolMembers                  = sysmlgrpc.CapabilitySymbolMembers
+	CapabilitySymbolNameResolution           = sysmlgrpc.CapabilitySymbolNameResolution
 	CapabilitySymbolAnnotatingMetadata       = sysmlgrpc.CapabilitySymbolAnnotatingMetadata
 	CapabilityImportData                     = sysmlgrpc.CapabilityImportData
 	CapabilityCompareResults                 = sysmlgrpc.CapabilityCompareResults
@@ -88,6 +90,8 @@ const (
 	CapabilityConvertLibraryStubs            = sysmlgrpc.CapabilityConvertLibraryStubs
 	CapabilityParseSourcesAffected           = sysmlgrpc.CapabilityParseSourcesAffected
 	CapabilityRenderDocumentFileName         = sysmlgrpc.CapabilityRenderDocumentFileName
+	CapabilityRenderDocumentHTML             = sysmlgrpc.CapabilityRenderDocumentHTML
+	CapabilityRenderDocumentAsciiDoc         = sysmlgrpc.CapabilityRenderDocumentAsciiDoc
 )
 
 // ServerInfo describes the implementation answering a Client's calls.
@@ -158,7 +162,8 @@ type Symbol struct {
 	// the direction written on the feature (the derived Feature::direction is
 	// ElementProperties' "direction"), plus "multiplicity", "abstract", ….
 	Metadata map[string]string
-	// ChildIDs are the fully qualified names of the element's children.
+	// ChildIDs are the ids of the element's owned members, each one LookupSymbol
+	// takes: a qualified name, a positional id, or an unnamed connector end's element id.
 	ChildIDs []string
 	// Attributes of the element, absent without the symbol_attributes
 	// capability.

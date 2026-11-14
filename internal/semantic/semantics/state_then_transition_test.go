@@ -93,7 +93,7 @@ func relatedNames(model *Model, sym *symbols.Symbol) (string, bool) {
 }
 
 // The ends a `then x;` mints (SuccessionEndMembers) belong to a SuccessionAsUsage: an action body's `then y;` owns
-// two, while a state body's `then x;` after a state is a TransitionUsage owning only its succession, which owns none.
+// two, while a state body's `then x;` after a state is a TransitionUsage owning only its succession, which owns the two.
 func TestStateBodyTransitionMintsNoSuccessionEnds(t *testing.T) {
 	const src = `package P {
 		action def A { action x; then action y; }
@@ -130,8 +130,8 @@ func TestStateBodyTransitionMintsNoSuccessionEnds(t *testing.T) {
 		if got, want := ownedMemberKinds(model, transition), "OwningMembership:SuccessionAsUsage"; got != want {
 			t.Errorf("the transition's ownedRelationship = %q, want %q", got, want)
 		}
-		if got := ownedMemberKinds(model, ownedMembers(model, transition)[0]); got != "" {
-			t.Errorf("the transition's succession owns %q, want nothing", got)
+		if got := ownedMemberKinds(model, ownedMembers(model, transition)[0]); got != wantEnds {
+			t.Errorf("the transition's succession owns %q, want %q", got, wantEnds)
 		}
 	}
 }

@@ -417,7 +417,9 @@ final class Api {
   private SymbolResponse symbol(GetSymbolRequest request) {
     Model model = connection.model(request.getModelHash());
     SymbolOptions options =
-        SymbolOptions.defaults().withLibraryMembers(request.getIncludeLibraryMembers());
+        SymbolOptions.defaults()
+            .withLibraryMembers(request.getIncludeLibraryMembers())
+            .byReportedId(!request.getResolveName());
     try {
       Symbol symbol = model.symbol(request.getSymbolId(), options);
       return SymbolResponse.newBuilder().setSymbol(Rendering.symbol(symbol)).build();

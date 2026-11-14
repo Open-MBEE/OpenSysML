@@ -20,6 +20,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
 	fsyntax "github.com/Open-MBEE/OpenSysML/internal/frontend/syntax"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -145,7 +146,7 @@ func (m *cachedModel) semantics() *runtime.Model {
 	}
 	sem := m.typedModel()
 	m.model = runtime.NewModel(sem, m.resolver)
-	m.model.SetExpressionParser(parser.ParseOneExpression)
+	m.model.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, m.model.Resolver()))
 	for _, doc := range m.Documents {
 		m.model.RegisterSource(doc.Source)
 	}
@@ -349,21 +350,16 @@ func (e *Engine) renderView(req *JRenderViewRequest) ([]byte, error) {
 	if req.View == "" {
 		return nil, statusError(codeInvalidArgument, "view is required")
 	}
-	ports, ok := view.ParsePorts(req.Ports)
-	if !ok {
-		return nil, statusError(codeInvalidArgument, (&view.UnknownPortsError{Name: req.Ports}).Error())
-	}
-	shown, err := view.ShownOf(req.Show)
-	if err != nil {
-		return nil, statusError(codeInvalidArgument, err.Error())
-	}
-
 	if req.Depth < 0 {
 		return nil, statusError(codeInvalidArgument, (&view.DepthError{Value: fmt.Sprint(req.Depth)}).Error())
 	}
-	compartments, ok := view.ParseCompartments(req.Compartments)
-	if !ok {
-		return nil, statusError(codeInvalidArgument, (&view.UnknownCompartmentsError{Name: req.Compartments}).Error())
+	form, options, err := view.Request{
+		Form: req.Form, Palette: req.Palette, Style: req.Style, Lines: req.Lines,
+		Direction: req.Direction, Link: req.Link, Unplaced: req.Unplaced,
+		Ports: req.Ports, Compartments: req.Compartments, Show: req.Show,
+	}.Options()
+	if err != nil {
+		return nil, statusError(codeInvalidArgument, err.Error())
 	}
 
 	renderer := view.NewRenderer(cached.typedModel(), cached.resolver, cached.sourceText())
@@ -378,7 +374,24 @@ func (e *Engine) renderView(req *JRenderViewRequest) ([]byte, error) {
 		}
 		return nil, statusError(codeInvalidArgument, err.Error())
 	}
-	return marshalRenderView(cached, rendering.DataWith(view.Options{Ports: ports, Show: shown, Compartments: compartments}))
+	data := rendering.DataWith(options)
+	text := ""
+	if form != "" {
+		if options.NeedsSites(form) {
+			options.Links.Sites = renderer.Sites(view.FileLocator(cached.typedModel(), func(doc string) *source.LineIndex {
+				if sf := cached.document(doc); sf != nil {
+					return sf.Lines()
+				}
+				return nil
+			}))
+		}
+		written, err := rendering.WriteViewWith(form, options)
+		if err != nil {
+			return nil, statusError(codeInvalidArgument, err.Error())
+		}
+		text = view.Artifact(written)
+	}
+	return marshalRenderView(cached, data, text)
 }
 
 // renderOrigins resolves the declaration spans a rendering refers to, in the
@@ -410,9 +423,10 @@ func (o *renderOrigins) span(origin view.Origin) *JSpan {
 
 // marshalRenderView writes a rendering as protojson writes the service's
 // RenderViewResponse for the same view.Data.
-func marshalRenderView(model *cachedModel, data view.Data) ([]byte, error) {
+func marshalRenderView(model *cachedModel, data view.Data, text string) ([]byte, error) {
 	origins := &renderOrigins{model: model, sources: make(map[string]*source.SourceFile)}
 	out := &JRenderViewResponse{
+		Text:    text,
 		View:    data.View,
 		Kind:    string(data.Kind),
 		Stated:  data.Stated,

@@ -190,10 +190,8 @@ type directChildrenKey struct {
 	allowsPrivate bool
 }
 
-// WildcardImport is one `import X::*` declaration: the target's raw qualified
-// name text, whether the import was declared private, and the filter condition
-// restricting what it brings in (`import X::*[@Safety]`), which is zero for an
-// unfiltered import.
+// WildcardImport is one `import X::*` declaration: its target's raw name, whether it is
+// visible only inside (private or protected), and its filter (`[@Safety]`), zero when unfiltered.
 type WildcardImport struct {
 	Target  string
 	Private bool
@@ -1612,7 +1610,7 @@ func wildcardImportsIn(scope *Scope) []WildcardImport {
 		}
 		wi := WildcardImport{
 			Target:  imp.Imported.Text(),
-			Private: imp.Visibility == ast.VisibilityPrivate,
+			Private: !VisibleOutside(imp.Visibility),
 			All:     imp.IsAll,
 		}
 		if imp.FilterExpr != nil {
@@ -1755,8 +1753,8 @@ func (idx *Index) RegisteredUnder(fqn string) []*Symbol {
 	return idx.fqn.at(fqn)
 }
 
-// ShortNamed reports whether some registered symbol carries name as its short
-// name: it is registered under a path ending in name that is not its own.
+// ShortNamed reports whether a registered membership can carry name as a short name.
+// A short name identical to the long name or standing alone counts too.
 func (idx *Index) ShortNamed(name string) bool {
 	if name == "" {
 		return false
@@ -1781,7 +1779,7 @@ func (idx *Index) ShortNamed(name string) bool {
 func (idx *Index) shortNamedScan(name string) bool {
 	shortRegistered := func(fqn string) bool {
 		for _, sym := range idx.fqn.at(fqn) {
-			if LastSegment(sym.Name) != name {
+			if shortNameCandidate(sym, name) {
 				return true
 			}
 		}
@@ -1795,6 +1793,11 @@ func (idx *Index) shortNamedScan(name string) bool {
 	// bySegment omits root-level names, so a short name at the root is found
 	// under the fqn equal to name itself.
 	return shortRegistered(name)
+}
+
+// shortNameCandidate includes alternate registrations and explicit short names.
+func shortNameCandidate(sym *Symbol, name string) bool {
+	return sym != nil && name != "" && (LastSegment(sym.Name) != name || shortNameOf(sym) == name)
 }
 
 // LookupUniqueCandidates returns the distinct elements LookupUnique chooses among —
