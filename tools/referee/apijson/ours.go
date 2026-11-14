@@ -190,7 +190,7 @@ func soleFile(documents []export.ModelDocument) string {
 
 // convertOurs writes the documents as one API-JSON array and decodes it.
 func convertOurs(documents []export.ModelDocument) ([]map[string]any, error) {
-	graph, err := export.ModelToRDFWith(documents, export.IDQualifiedName)
+	graph, err := export.ModelElementGraphWith(documents, export.IDQualifiedName)
 	if err != nil {
 		return nil, err
 	}
