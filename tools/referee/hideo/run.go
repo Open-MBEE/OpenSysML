@@ -21,6 +21,7 @@ const (
 	suiteDir   = "test-suite"
 	ResultsDir = suiteDir + "/results"
 	pythonDir  = suiteDir + "/test-opensysml-py"
+	goDir      = suiteDir + "/test-opensysml-go"
 	mdkLink    = "OpenSysML"
 )
 
@@ -55,9 +56,45 @@ func Locate(dir, repo string) error {
 	return nil
 }
 
-// Execute builds the service the Python suites drive, provisions their
-// environment and runs the four suites, leaving their results under ResultsDir.
+// reader is how the suite's own runner, run-all.sh, runs one of the Suites.
+type reader struct {
+	suite, dir string
+	env, args  []string
+}
+
+var readers = []reader{
+	{"opensysml-py-props", pythonDir, []string{"OPENSYSML_PY_SUITE=opensysml-py-props"}, []string{".venv/bin/python", "-m", "pytest", "-q", "test_props.py"}},
+	{"opensysml-go-props", goDir, []string{"OPENSYSML_GO_SUITE=opensysml-go-props"}, []string{"go", "test", "-v", "./..."}},
+	{"opensysml-py", pythonDir, nil, []string{".venv/bin/python", "-m", "pytest", "-q", "test_matrices.py"}},
+	{"opensysml-go", goDir, nil, []string{"go", "test", "-v", "./..."}},
+}
+
+// line is the reader's command as run-all.sh spells it.
+func (r reader) line() string {
+	return strings.Join(append(append([]string{}, r.env...), r.args...), " ")
+}
+
+// checkRunner refuses a pinned runner that no longer runs a reader the way this package does.
+func checkRunner(dir string) error {
+	path := filepath.Join(dir, suiteDir, "run-all.sh")
+	script, err := os.ReadFile(path) // #nosec G304 -- the runner of the suite checkout the caller named
+	if err != nil {
+		return err
+	}
+	for _, r := range readers {
+		if !strings.Contains(string(script), r.line()) {
+			return fmt.Errorf("%s no longer runs %s as `%s`: bring tools/referee/hideo/run.go in line with the pin", path, r.suite, r.line())
+		}
+	}
+	return nil
+}
+
+// Execute builds the service the Python suites drive, provisions their environment and
+// runs the four readers, leaving their results under ResultsDir and their output under logs/.
 func Execute(ctx context.Context, dir, repo string, log io.Writer) error {
+	if err := checkRunner(dir); err != nil {
+		return err
+	}
 	steps := []struct {
 		dir  string
 		args []string
@@ -70,18 +107,47 @@ func Execute(ctx context.Context, dir, repo string, log io.Writer) error {
 			return fmt.Errorf("%v in %s: %w", step.args, step.dir, err)
 		}
 	}
-	for _, suite := range Suites {
-		if err := os.Remove(resultsPath(dir, suite)); err != nil && !errors.Is(err, fs.ErrNotExist) {
+	results, err := filepath.Abs(filepath.Join(dir, filepath.FromSlash(ResultsDir)))
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Join(results, "logs"), 0o750); err != nil {
+		return err
+	}
+	env := append(suiteEnv(os.Environ(), repo), "RESULTS_DIR="+results)
+	for _, r := range readers {
+		if err := r.run(ctx, dir, results, env, log); err != nil {
 			return err
 		}
 	}
-	run := command(ctx, filepath.Join(dir, suiteDir), log, append([]string{"./run-all.sh"}, Suites...)...)
-	run.Env = suiteEnv(os.Environ(), repo)
-	// Its status reports failing cases and its own cross-MDK report, neither of which
-	// is this ratchet's verdict: only a runner that could not start is an error.
+	return nil
+}
+
+// run runs one reader in place of run-all.sh, whose version and report stages are the
+// suite's cross-MDK report and need the pilot beside it. Failing cases are not an error.
+func (r reader) run(ctx context.Context, dir, results string, env []string, log io.Writer) error {
+	if err := os.Remove(filepath.Join(results, r.suite+".csv")); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	path := filepath.Join(results, "logs", r.suite+".log")
+	out, err := os.Create(path) // #nosec G304 -- a log of the suite checkout the caller named
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(log, "== %s\n", r.suite)
+	cmd := command(ctx, filepath.Join(dir, filepath.FromSlash(r.dir)), out, r.args...)
+	cmd.Env = append(append([]string{}, env...), r.env...)
+	err = cmd.Run()
+	if closeErr := out.Close(); closeErr != nil {
+		return closeErr
+	}
 	var exit *exec.ExitError
-	if err := run.Run(); err != nil && !errors.As(err, &exit) {
-		return fmt.Errorf("run-all.sh: %w", err)
+	if errors.As(err, &exit) {
+		fmt.Fprintf(log, "   %v, as when a case fails; its output is in %s\n", err, path)
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("%s: %v in %s: %w", r.suite, r.args, cmd.Dir, err)
 	}
 	return nil
 }

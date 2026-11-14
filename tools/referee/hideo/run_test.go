@@ -1,6 +1,8 @@
 package hideo
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -110,5 +112,69 @@ func TestSuiteEnvPinsTheServiceToThisCheckout(t *testing.T) {
 	}
 	if bare := suiteEnv(nil, repo); bare[len(bare)-1] != "GOFLAGS=-count=1" {
 		t.Errorf("without a GOFLAGS of the caller: %v", bare)
+	}
+}
+
+// A reader whose cases fail is run to the end and logged; one that cannot start is an error.
+func TestReaderRun(t *testing.T) {
+	dir, results := t.TempDir(), t.TempDir()
+	if err := os.MkdirAll(filepath.Join(results, "logs"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	stale := filepath.Join(results, "opensysml-py.csv")
+	if err := os.WriteFile(stale, []byte("stale"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var log bytes.Buffer
+	failing := reader{suite: "opensysml-py", dir: ".", env: []string{"SAID=traceback"}, args: []string{"sh", "-c", "echo $SAID; exit 1"}}
+	if err := failing.run(context.Background(), dir, results, os.Environ(), &log); err != nil {
+		t.Fatalf("a reader with failing cases: %v", err)
+	}
+	if _, err := os.Stat(stale); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the results of an earlier run survive: %v", err)
+	}
+	out, err := os.ReadFile(filepath.Join(results, "logs", "opensysml-py.log"))
+	if err != nil || string(out) != "traceback\n" {
+		t.Errorf("the reader's log = %q, %v", out, err)
+	}
+	if strings.Contains(log.String(), "traceback") || !strings.Contains(log.String(), "== opensysml-py") {
+		t.Errorf("the harness log carries the reader's output, or does not name it:\n%s", log.String())
+	}
+
+	absent := reader{suite: "opensysml-py", dir: ".", args: []string{filepath.Join(dir, "no-such-interpreter")}}
+	if err := absent.run(context.Background(), dir, results, os.Environ(), &log); err == nil || !strings.Contains(err.Error(), "opensysml-py") {
+		t.Errorf("a reader that cannot start: %v", err)
+	}
+}
+
+// Each of the Suites has a reader, and a runner that runs one differently is refused.
+func TestCheckRunner(t *testing.T) {
+	if len(readers) != len(Suites) {
+		t.Fatalf("%d readers for %d suites", len(readers), len(Suites))
+	}
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, suiteDir), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	var script strings.Builder
+	for i, r := range readers {
+		if r.suite != Suites[i] {
+			t.Errorf("reader %d is %s, suite %d is %s", i, r.suite, i, Suites[i])
+		}
+		script.WriteString(r.suite + ") cd x && " + r.line() + " ;;\n")
+	}
+	runner := filepath.Join(dir, suiteDir, "run-all.sh")
+	if err := os.WriteFile(runner, []byte(script.String()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkRunner(dir); err != nil {
+		t.Errorf("the runner this package follows: %v", err)
+	}
+	moved := strings.Replace(script.String(), "test_props.py", "test_properties.py", 1)
+	if err := os.WriteFile(runner, []byte(moved), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkRunner(dir); err == nil || !strings.Contains(err.Error(), "opensysml-py-props") {
+		t.Errorf("a runner that runs a reader differently: %v", err)
 	}
 }
