@@ -208,20 +208,34 @@ var transitionLinkParameterSlots = [2]string{"linkparam", "triggerparam"}
 // recordTransitionHead files what a transition owns ahead of its trigger (transitionHeadMembers): the
 // Membership of its `first` source at "psourcemember", its link parameter at "linkparam", a trigger's at "triggerparam".
 func (ids *ElementIDs) recordTransitionHead(e *encoder, node ast.Node, subject rdf.Term) {
-	n, ok := node.(*ast.TransitionMember)
-	if !ok || n.IsSuccession || n.Target == nil {
+	var sourceMember bool
+	slots := transitionLinkParameterSlots[:1]
+	switch n := node.(type) {
+	case *ast.TransitionMember:
+		if n.IsSuccession || n.Target == nil {
+			return
+		}
+		sourceMember = qualifiedText(n.Source) != "" && !qualifiedNameHasChain(n.Source)
+		if naming.TriggerPayload(e.file, n) != nil {
+			slots = transitionLinkParameterSlots[:]
+		}
+	case *ast.ControlFlowEdge:
+		// A decision's branch and a state body's `then x;` name their positional source (targetTransitionHeadMembers).
+		sourceMember = e.transitionSourceTerm(n, n.Source, n.SourceMember, e.preceding[n]).Value != ""
+	case *ast.SuccessionEdge:
+		if !e.names.TargetTransitions[n] {
+			return
+		}
+		sourceMember = e.transitionSourceTerm(n, n.Source, n.SourceMember, e.preceding[n]).Value != ""
+	default:
 		return
 	}
 	file := func(slot string, part partIDs) {
 		ids.partByNode[partKey{node, slot}] = part
 		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = part
 	}
-	if qualifiedText(n.Source) != "" && !qualifiedNameHasChain(n.Source) {
+	if sourceMember {
 		file("psourcemember", partIDs{membership: rdf.LocalName(rdf.ExpressionIRI(subject, "sourcemember").Value)})
-	}
-	slots := transitionLinkParameterSlots[:1]
-	if naming.TriggerPayload(e.file, n) != nil {
-		slots = transitionLinkParameterSlots[:]
 	}
 	for _, slot := range slots {
 		feature := rdf.IRI(subject.Value + "_" + slot)

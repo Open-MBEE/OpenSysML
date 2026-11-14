@@ -590,10 +590,11 @@ func (e *encoder) encodeGuardedTarget(n *ast.ControlFlowEdge, head func(rdf.Term
 	if n.IsElse {
 		e.graph.Add(subject, e.sysx(xIsElse), rdf.Bool(true))
 	}
+	source := e.transitionSourceTerm(n, n.Source, n.SourceMember, e.preceding[n])
+	e.targetTransitionHeadMembers(subject, source, e.ids.declSym[n])
 	if err := e.expressionAs(subject, e.sysx(xGuard), xGuard, owner, n.Guard, mTransitionFeatureMembership); err != nil {
 		return err
 	}
-	source := e.transitionSourceTerm(n, n.Source, n.SourceMember, e.preceding[n])
 	succession, membership, err := e.transitionSuccession(subject, &ast.TransitionMember{Target: n.Target}, owner, source)
 	if err != nil {
 		return err
@@ -614,6 +615,7 @@ func (e *encoder) encodeTargetTransition(n *ast.SuccessionEdge, head func(rdf.Te
 	head(rdf.SysMLTerm(mTransition))
 	e.graph.Add(subject, e.sysx(xTransitionSyntax), rdf.String(targetTransitionSyntax))
 	source := e.transitionSourceTerm(n, n.Source, n.SourceMember, e.preceding[n])
+	e.targetTransitionHeadMembers(subject, source, e.ids.declSym[n])
 	succession, membership, err := e.transitionSuccession(subject, &ast.TransitionMember{Target: n.Target, TargetMultiplicity: n.TargetMultiplicity}, owner, source)
 	if err != nil {
 		return err
@@ -785,9 +787,10 @@ func (e *encoder) transitionHeadMembers(subject rdf.Term, n *ast.TransitionMembe
 	if qualifiedText(n.Source) != "" {
 		e.transitionSourceMember(subject, n.Source)
 	}
-	e.emptyParameterMember(subject, "linkparam", e.ids.declSym[n])
+	varies := e.ids.model.UsageMayTimeVaryUnder(e.ids.declSym[n])
+	e.emptyParameterMember(subject, "linkparam", varies)
 	if naming.TriggerPayload(e.file, n) != nil {
-		e.emptyParameterMember(subject, "triggerparam", e.ids.declSym[n])
+		e.emptyParameterMember(subject, "triggerparam", varies)
 	}
 }
 
@@ -808,24 +811,43 @@ func (e *encoder) transitionSourceMember(subject rdf.Term, source *ast.Qualified
 		e.emitMembershipCore(membership, chain, subject, mOwningMembership, true)
 		return
 	}
+	e.sourceMembership(subject, e.edgeReference(source))
+}
+
+// sourceMembership writes the Membership through which a transition names its source member.
+func (e *encoder) sourceMembership(subject, member rdf.Term) {
 	membership := e.ids.minted(rdf.ExpressionIRI(subject, "sourcemember"), subject, "sourcemember")
 	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
 	e.graph.Add(membership, rdf.IRI(rdf.RDFType), e.sysml(mMembership))
 	e.graph.Add(membership, e.sysml(pElementID), rdf.String(rdf.LocalName(membership.Value)))
 	e.graph.Add(membership, e.sysml(pOwner), subject)
-	e.graph.Add(membership, e.sysml(pMemberElement), e.edgeReference(source))
+	e.graph.Add(membership, e.sysml(pMemberElement), member)
 	e.graph.Add(membership, e.sysml(pOwningRelatedElement), subject)
 	e.graph.Add(membership, e.sysml(pMembershipOwningNamespace), subject)
-	if member := e.edgeReference(source); member.IsIRI() {
+	if member.IsIRI() {
 		e.membershipEnds(membership, subject, member)
 	}
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 }
 
+// targetTransitionHeadMembers writes what a state body's `then x;` or a decision's branch owns ahead of its
+// guard, as the pilot exports a TargetTransitionUsage: the Membership of its positional source, its link parameter.
+func (e *encoder) targetTransitionHeadMembers(subject, source rdf.Term, owner *symbols.Symbol) {
+	if source.Value != "" {
+		e.sourceMembership(subject, source)
+	}
+	// A decision's branch has no symbol of its own: a transition is an action, so its parameter varies.
+	varies := e.ids.model.UsageMayTimeVaryUnderKind(ast.UsageAction)
+	if owner != nil {
+		varies = e.ids.model.UsageMayTimeVaryUnder(owner)
+	}
+	e.emptyParameterMember(subject, "linkparam", varies)
+}
+
 // emptyParameterMember emits an EmptyParameterMember: a ParameterMembership
 // owning an EmptyUsage, a ReferenceUsage that declares nothing.
-func (e *encoder) emptyParameterMember(subject rdf.Term, slot string, owner *symbols.Symbol) {
+func (e *encoder) emptyParameterMember(subject rdf.Term, slot string, varies bool) {
 	// Minted as an element, as the transition's succession is: an
 	// expression-part id would read back from the element form as a node.
 	feature := e.ids.minted(rdf.IRI(subject.Value+"_"+slot), subject, "_"+slot)
@@ -835,7 +857,7 @@ func (e *encoder) emptyParameterMember(subject rdf.Term, slot string, owner *sym
 	// A parameter with no direction of its own is an `in` parameter.
 	e.graph.Add(feature, e.sysml(pDirection), rdf.String("in"))
 	// It is a referential usage the transition owns, and a transition is an action.
-	if e.ids.model.UsageMayTimeVaryUnder(owner) {
+	if varies {
 		e.flags(feature, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
 	}
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
