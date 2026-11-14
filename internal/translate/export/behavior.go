@@ -786,6 +786,9 @@ func (e *encoder) transitionSourceTerm(edge ast.Node, source *ast.QualifiedName,
 func (e *encoder) transitionHeadMembers(subject rdf.Term, n *ast.TransitionMember) {
 	if qualifiedText(n.Source) != "" {
 		e.transitionSourceMember(subject, n.Source)
+	} else if source := e.transitionSourceTerm(n, nil, nil, e.preceding[n]); source.Value != "" {
+		// A guarded transition written after a state leaves that state, and names it as a `first` would.
+		e.sourceMembership(subject, source)
 	}
 	varies := e.ids.model.UsageMayTimeVaryUnder(e.ids.declSym[n])
 	e.emptyParameterMember(subject, "linkparam", varies)

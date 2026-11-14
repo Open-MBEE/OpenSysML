@@ -215,7 +215,8 @@ func (ids *ElementIDs) recordTransitionHead(e *encoder, node ast.Node, subject r
 		if n.IsSuccession || n.Target == nil {
 			return
 		}
-		sourceMember = qualifiedText(n.Source) != "" && !qualifiedNameHasChain(n.Source)
+		sourceMember = qualifiedText(n.Source) != "" && !qualifiedNameHasChain(n.Source) ||
+			qualifiedText(n.Source) == "" && e.transitionSourceTerm(n, nil, nil, e.preceding[n]).Value != ""
 		if naming.TriggerPayload(e.file, n) != nil {
 			slots = transitionLinkParameterSlots[:]
 		}
