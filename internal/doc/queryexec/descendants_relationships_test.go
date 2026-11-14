@@ -107,7 +107,8 @@ calc def Ends :> Query {
 		want      int
 		isEnd     string
 	}{
-		{"ReferenceUsage", 2, "true"},
+		// The connection's two ends, and the two the transition's succession owns.
+		{"ReferenceUsage", 4, "true"},
 		{"Feature", 2, "false"},
 		{"PortDefinition", 1, ""},
 		{"ConjugatedPortDefinition", 1, ""},

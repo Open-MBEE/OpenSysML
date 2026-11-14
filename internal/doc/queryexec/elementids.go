@@ -60,6 +60,10 @@ func successionEndSlot(sym *symbols.Symbol) (ast.Node, string, bool) {
 		return nil, "", false
 	}
 	decl, _ := symbols.ImpliedDeclOf(sym)
+	if symbols.ImpliedTransitionSuccessionEnd(sym) {
+		// A transition's succession mints its ends under itself, filed under the transition (recordTransitionSuccession).
+		return decl.Of, fmt.Sprintf("succession.end%d", i), true
+	}
 	return decl.Of, fmt.Sprintf("end%d", i), true
 }
 
