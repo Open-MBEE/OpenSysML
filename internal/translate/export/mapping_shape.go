@@ -366,6 +366,9 @@ func mappingMembershipMemberIsElementUncached(
 		if mappingHasElementName(graph, member) || mappingHasMemberName(graph, membership) {
 			return true
 		}
+		if mappingTransitionLink(graph, membership, member, owner, context) {
+			return false
+		}
 		for _, typ := range graph.ObjectsView(member, rdf.RDFType) {
 			if ontology.IsAncestorOrSelf(ontology.LocalName(typ.Value), "Feature") {
 				return true
@@ -390,6 +393,15 @@ func mappingMembershipMemberIsElementUncached(
 		return false
 	}
 	return true
+}
+
+// mappingTransitionLink reports the transitionLink a transition owns last (transitionLinkMember): a nameless
+// ReferenceUsage through a plain FeatureMembership with no position of its own, minted off the transition.
+func mappingTransitionLink(graph *rdf.Graph, membership, member, owner rdf.Term, context *mappingQualifiedNameContext) bool {
+	return owner.IsIRI() && context.conforms(graph, owner, mTransition) &&
+		mappingHasExactType(graph, membership, mFeatureMembership) &&
+		mappingHasExactType(graph, member, mReferenceUsage) &&
+		!graph.HasProperty(member, rdf.OpenSysML+"memberIndex")
 }
 
 func mappingHasExactType(graph *rdf.Graph, subject rdf.Term, expected string) bool {

@@ -1,6 +1,7 @@
 package export
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -12,7 +13,7 @@ import (
 )
 
 // A transition's synthesized link parameters spell the ids the conversion mints for them,
-// `<transition>_linkparam` and `_triggerparam`, as its succession spells `_succession`.
+// `<transition>_linkparam` and `_triggerparam`, its transitionLink `_transitionlink`; each decodes to the transition.
 func TestSynthesizedElementIDOfTransitionLinkParameters(t *testing.T) {
 	sf := source.New("links.sysml", []byte(`package P {
 	attribute def Sig;
@@ -49,16 +50,22 @@ func TestSynthesizedElementIDOfTransitionLinkParameters(t *testing.T) {
 	var got []string
 	for _, rel := range model.OwnedRelationships(wake) {
 		member := rel.Implicit.Member
-		if member == nil || member.Expr == nil || member.Expr.Role != symbols.ExpressionTransitionLinkParameter {
+		if member == nil || member.Expr == nil ||
+			(member.Expr.Role != symbols.ExpressionTransitionLinkParameter && member.Expr.Role != symbols.ExpressionTransitionLink) {
 			continue
 		}
 		id, ok := SynthesizedElementID(member, ownerID)
 		if !ok {
-			t.Errorf("link parameter %d has no synthesized id", member.Expr.Index)
+			t.Errorf("part %d has no synthesized id", member.Expr.Index)
 		}
 		got = append(got, id)
 	}
-	if want := []string{"P__S__wake_linkparam", "P__S__wake_triggerparam"}; len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
-		t.Errorf("link parameter ids = %q, want %q", got, want)
+	if want := "P__S__wake_linkparam P__S__wake_triggerparam P__S__wake_transitionlink"; strings.Join(got, " ") != want {
+		t.Errorf("synthesized ids = %q, want %q", got, want)
+	}
+	for _, id := range got {
+		if owner, ok := SynthesizedElementOwner(id); !ok || owner != "P::S::wake" {
+			t.Errorf("SynthesizedElementOwner(%q) = %q (%t), want P::S::wake", id, owner, ok)
+		}
 	}
 }

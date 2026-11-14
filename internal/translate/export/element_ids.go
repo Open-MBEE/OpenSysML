@@ -230,7 +230,7 @@ func (ids *ElementIDs) recordTransitionHead(e *encoder, node ast.Node, subject r
 }
 
 // recordTransitionSuccession files the succession a transition owns (transitionSuccession) under the
-// transition's node at the slot "succession", so the query leg reads the ids the conversion writes.
+// transition's node at the slot "succession", and its transitionLink, so the query leg reads the conversion's ids.
 func (ids *ElementIDs) recordTransitionSuccession(e *encoder, node ast.Node, subject rdf.Term) {
 	switch n := node.(type) {
 	case *ast.TransitionMember:
@@ -250,6 +250,12 @@ func (ids *ElementIDs) recordTransitionSuccession(e *encoder, node ast.Node, sub
 	recorded := partIDs{element: rdf.LocalName(succession.Value), membership: rdf.LocalName(membership.Value)}
 	ids.partByNode[partKey{node, "succession"}] = recorded
 	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, "succession"}] = recorded
+	// The transitionLink the transition owns last (transitionLinkMember) files at "transitionlink".
+	link := e.ids.minted(rdf.IRI(subject.Value+transitionLinkSuffix), subject, transitionLinkSuffix)
+	linkMembership := e.ids.minted(rdf.OwningMembershipIRIOf(link), link, rdf.OwningMembershipSuffix)
+	transitionLink := partIDs{element: rdf.LocalName(link.Value), membership: rdf.LocalName(linkMembership.Value)}
+	ids.partByNode[partKey{node, "transitionlink"}] = transitionLink
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, "transitionlink"}] = transitionLink
 	for i := 0; i < 2; i++ {
 		// The succession's two ends and the target end's ReferenceSubsetting are minted under it (transitionSuccession).
 		slot := fmt.Sprintf("succession.end%d", i)

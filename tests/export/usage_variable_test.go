@@ -1,6 +1,7 @@
 package export_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
@@ -106,7 +107,7 @@ func TestMintedUsagesStateTheirDerivedMayTimeVary(t *testing.T) {
 		}
 	}
 	var (
-		connectionEnds, successionEnds, flowEnds, flowFeatures, transitionParams, acceptParams, subjects, declaredSubjects int
+		connectionEnds, successionEnds, flowEnds, flowFeatures, transitionParams, transitionLinks, acceptParams, subjects, declaredSubjects int
 	)
 	for _, subject := range g.Subjects() {
 		owner := owners[subject.Value]
@@ -130,6 +131,11 @@ func TestMintedUsagesStateTheirDerivedMayTimeVary(t *testing.T) {
 			flowFeatures++
 			wantLexical(t, g, subject.Value, rdf.SysML+"isVariable", "true")
 			wantLexical(t, g, subject.Value, rdf.SysML+"mayTimeVary", "true")
+		case ownerClass == "TransitionUsage" && strings.HasSuffix(subject.Value, "_transitionlink"):
+			// The transitionLink a transition owns last varies in neither sense, as the pilot exports it.
+			transitionLinks++
+			wantNoProperty(t, g, subject, rdf.SysML+"isVariable")
+			wantNoProperty(t, g, subject, rdf.SysML+"mayTimeVary")
 		case ownerClass == "TransitionUsage" && class == "ReferenceUsage":
 			transitionParams++
 			wantLexical(t, g, subject.Value, rdf.SysML+"isVariable", "true")
@@ -150,7 +156,7 @@ func TestMintedUsagesStateTheirDerivedMayTimeVary(t *testing.T) {
 	}
 	for name, n := range map[string]int{
 		"connection ends": connectionEnds, "succession ends": successionEnds, "flow ends": flowEnds,
-		"flow end features": flowFeatures, "transition parameters": transitionParams,
+		"flow end features": flowFeatures, "transition parameters": transitionParams, "transition links": transitionLinks,
 		"accept parameters": acceptParams, "satisfy subjects": subjects, "declared subjects": declaredSubjects,
 	} {
 		if n == 0 {

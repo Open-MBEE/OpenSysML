@@ -98,14 +98,40 @@ func TestTransitionSuccessionFollowsEffectAndPrecedesBody(t *testing.T) {
 	turtle, back := graphOnlyRoundTrip(t, "t.sysml", []byte(src))
 	graph := string(turtle)
 	if !strings.Contains(graph,
-		"sysml:ownedRelationship expr:T__S__t_psourcemember, elmt:T__S__t_linkparam_om, expr:T__S__t_pguard_om, elmt:T__S__t___400_om, elmt:T__S__t_succession_om, elmt:T__S__t__inner_om ;") {
-		t.Errorf("the memberships should order source, parameter, guard, effect, succession, body:\n%s", graph)
+		"sysml:ownedRelationship expr:T__S__t_psourcemember, elmt:T__S__t_linkparam_om, expr:T__S__t_pguard_om, elmt:T__S__t___400_om, elmt:T__S__t_succession_om, elmt:T__S__t__inner_om, elmt:T__S__t_transitionlink_om ;") {
+		t.Errorf("the memberships should order source, parameter, guard, effect, succession, body, transitionLink:\n%s", graph)
 	}
 	notation := string(back)
 	for _, want := range []string{"transition t first a if g do send a to b then c {\n", "state inner;\n"} {
 		if !strings.Contains(notation, want) {
 			t.Errorf("the notation should contain %q:\n%s", want, notation)
 		}
+	}
+}
+
+// A transition body's bare `ref;` is a written member with a positional address, not the
+// transitionLink the conversion mints, so the import keeps it.
+func TestTransitionBodyBareReferenceSurvivesBesideTheTransitionLink(t *testing.T) {
+	src := "package P {\n    state def S {\n        state a;\n        state b;\n        transition t first a then b {\n            ref;\n        }\n    }\n}\n"
+	turtle, back := graphOnlyRoundTrip(t, "t.sysml", []byte(src))
+	if !strings.Contains(string(turtle), "elmt:P__S__t_transitionlink_om") {
+		t.Fatalf("the transition should own its transitionLink:\n%s", turtle)
+	}
+	if string(back) != src {
+		t.Errorf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+	}
+	// In uuid form the transitionLink loses its minted suffix; it is still no body member.
+	plain := "package P {\n    state def S {\n        state a;\n        state b;\n        transition t first a then b;\n    }\n}\n"
+	uuidTurtle, err := convert.ConvertWith("u.sysml", []byte(plain), convert.FormatSysML, convert.FormatTurtle, convert.Options{ID: export.IDUUID})
+	if err != nil {
+		t.Fatalf("to turtle in uuid form: %v", err)
+	}
+	uuidBack, err := convert.Convert("u.ttl", withoutLayout(t, uuidTurtle), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the uuid graph alone: %v", err)
+	}
+	if string(uuidBack) != plain {
+		t.Errorf("the uuid-form notation changed\n--- want ---\n%s\n--- got ---\n%s", plain, uuidBack)
 	}
 }
 

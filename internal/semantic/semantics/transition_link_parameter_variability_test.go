@@ -20,8 +20,8 @@ func TestTransitionLinkParametersMayTimeVary(t *testing.T) {
 `)
 	s := nested(t, sym(t, root, "P").Scope, "S").Scope
 	members := ownedMembers(m, nested(t, s, "go"))
-	if len(members) != 5 {
-		t.Fatalf("go owns %d members, want 5 (source, two link parameters, accepter, succession)", len(members))
+	if len(members) != 6 {
+		t.Fatalf("go owns %d members, want 6 (source, two link parameters, accepter, succession, transitionLink)", len(members))
 	}
 	varying := map[string]*symbols.Symbol{"link parameter": members[1], "trigger parameter": members[2]}
 	for name, part := range varying {
