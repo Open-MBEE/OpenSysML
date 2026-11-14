@@ -274,6 +274,19 @@ func ToRDFWith(file *source.SourceFile, root *ast.RootNamespace, form IDForm) (*
 	return e.graph, nil
 }
 
+// ElementGraphWith is ToRDFWith for a graph only the element form is written from: it
+// leaves the library members only a completed property references to that writer.
+func ElementGraphWith(file *source.SourceFile, root *ast.RootNamespace, form IDForm) (*rdf.Graph, error) {
+	e, err := encodeDocument(file, root, "", form)
+	if err != nil {
+		return nil, err
+	}
+	if e.ids.model != nil {
+		addReferencedLibraryStubs(e.graph, nil)
+	}
+	return e.graph, nil
+}
+
 // mintedSubject is a subject an encoder minted for a declaration, and where.
 type mintedSubject struct{ iri, fqn, at string }
 
@@ -340,6 +353,20 @@ func ModelToRDFWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) 
 	return out, err
 }
 
+// ModelElementGraphWith is ModelToRDFWith for a graph only the element form is written
+// from: it leaves the library members only a completed property references to that writer.
+func ModelElementGraphWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) {
+	res, encoders, err := modelEncodersOf(documents, form)
+	if err != nil {
+		return nil, err
+	}
+	out, _, _, err := encodeModelDocuments(documents, res, encoders, addLinkedLibraryStubs)
+	return out, err
+}
+
+// addLinkedLibraryStubs names the library elements the graph's triples link to.
+func addLinkedLibraryStubs(graph *rdf.Graph) { addReferencedLibraryStubs(graph, nil) }
+
 // modelToRDF is ModelToRDFWith, also returning the resolver the model was
 // analyzed with and each document's encoder, whose identity tables are the
 // ones the graph's ids were minted from.
@@ -348,10 +375,11 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return encodeModelDocuments(documents, res, encoders)
+	return encodeModelDocuments(documents, res, encoders, nameInheritedLibraryMembers)
 }
 
-func encodeModelDocuments(documents []ModelDocument, res *resolve.Resolver, encoders []*encoder) (*rdf.Graph, *resolve.Resolver, []*encoder, error) {
+// encodeModelDocuments merges the documents' graphs; nameLibrary states the library stubs of the merged one.
+func encodeModelDocuments(documents []ModelDocument, res *resolve.Resolver, encoders []*encoder, nameLibrary func(*rdf.Graph)) (*rdf.Graph, *resolve.Resolver, []*encoder, error) {
 	// declaredIn is the document and declaration each subject was minted for:
 	// two documents declaring one subject would merge two elements into one.
 	declaredIn := map[string]mintedSubject{}
@@ -370,7 +398,7 @@ func encodeModelDocuments(documents []ModelDocument, res *resolve.Resolver, enco
 		}
 	}
 	out := mergeDocumentGraphs(encoders, documents)
-	nameInheritedLibraryMembers(out)
+	nameLibrary(out)
 	// Each document's encoder annotated its collections from its own triples,
 	// in their order, and no two documents declare one subject (refused above).
 	out.MarkCollectionsSettled()
