@@ -207,8 +207,11 @@ func shown(node *Node) string {
 // DisplayText decodes notation text's escapes for a drawn label: a carriage
 // return is a line break and the other control escapes have no glyph, so they
 // are dropped.
-func DisplayText(raw string) string {
-	text := source.Unescape(raw)
+func DisplayText(raw string) string { return glyphs(source.Unescape(raw)) }
+
+// glyphs is decoded text as a label draws it: a carriage return a line break,
+// the control characters with no glyph dropped.
+func glyphs(text string) string {
 	if !strings.ContainsAny(text, "\r\b\f") {
 		return text
 	}
@@ -250,7 +253,7 @@ func (l labeller) headName(node *Node) (before, name string) {
 	before, name = usagePrefix(node.Inherited), l.name(node)
 	if segments, ok := source.QualifiedNameSegments(name); ok && len(segments) > 1 {
 		before += l.text(source.QualifiedNameOf(segments[:len(segments)-1]) + "::")
-		name = segments[len(segments)-1]
+		return before, glyphs(segments[len(segments)-1])
 	}
 	return before, l.text(name)
 }
