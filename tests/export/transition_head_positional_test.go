@@ -34,17 +34,17 @@ func TestPositionalTransitionOwnsItsSourceMembershipAndLinkParameter(t *testing.
 	graph := string(turtle)
 	for _, want := range []string{
 		// The state body's `then busy;` after `state idle;`: its source Membership names idle.
-		"sysml:ownedRelationship expr:P__S___401_psourcemember, elmt:P__S___401_linkparam_om, elmt:P__S___401_succession_om ;",
+		"sysml:ownedRelationship expr:P__S___401_psourcemember, elmt:P__S___401_linkparam_om, elmt:P__S___401_succession_om, elmt:P__S___401_transitionlink_om ;",
 		"expr:P__S___401_psourcemember\n    a sysml:Membership ;",
 		"sysml:memberElement elmt:P__S__idle ;",
 		"elmt:P__S___401_linkparam\n    a sysml:ReferenceUsage ;",
 		"elmt:P__S___401_linkparam_om\n    a sysml:ParameterMembership ;",
 		// The guarded `if g then idle;` after `state busy;` leaves busy: the same head, then the guard.
-		"sysml:ownedRelationship expr:P__S___403_psourcemember, elmt:P__S___403_linkparam_om, expr:P__S___403_pguard_om, elmt:P__S___403_succession_om ;",
+		"sysml:ownedRelationship expr:P__S___403_psourcemember, elmt:P__S___403_linkparam_om, expr:P__S___403_pguard_om, elmt:P__S___403_succession_om, elmt:P__S___403_transitionlink_om ;",
 		"sysml:memberElement elmt:P__S__busy ;",
 		// The decision's branches leave the decision.
-		"sysml:ownedRelationship expr:P__A___402_psourcemember, elmt:P__A___402_linkparam_om, expr:P__A___402_pguard_om, elmt:P__A___402_succession_om ;",
-		"sysml:ownedRelationship expr:P__A___403_psourcemember, elmt:P__A___403_linkparam_om, elmt:P__A___403_succession_om ;",
+		"sysml:ownedRelationship expr:P__A___402_psourcemember, elmt:P__A___402_linkparam_om, expr:P__A___402_pguard_om, elmt:P__A___402_succession_om, elmt:P__A___402_transitionlink_om ;",
+		"sysml:ownedRelationship expr:P__A___403_psourcemember, elmt:P__A___403_linkparam_om, elmt:P__A___403_succession_om, elmt:P__A___403_transitionlink_om ;",
 		"sysml:memberElement elmt:P__A__d ;",
 	} {
 		if !strings.Contains(graph, want) {
@@ -70,7 +70,7 @@ func TestPositionalTransitionOwnsItsSourceMembershipAndLinkParameter(t *testing.
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	if want := "sysml:ownedRelationship expr:P__S___403_psourcemember, elmt:P__S___403_linkparam_om, expr:P__S___403_pguard_om, elmt:P__S___403_succession_om ;"; !strings.Contains(string(turtle), want) {
+	if want := "sysml:ownedRelationship expr:P__S___403_psourcemember, elmt:P__S___403_linkparam_om, expr:P__S___403_pguard_om, elmt:P__S___403_succession_om, elmt:P__S___403_transitionlink_om ;"; !strings.Contains(string(turtle), want) {
 		t.Errorf("the graph should state %q:\n%s", want, turtle)
 	}
 }
