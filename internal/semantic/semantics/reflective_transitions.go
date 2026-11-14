@@ -22,6 +22,9 @@ type transitionParts struct {
 	// succession is the Succession the transition owns through an OwningMembership, from its source
 	// to its target (SysML.xtext TransitionSuccessionMember, TargetTransitionUsage).
 	succession *symbols.Symbol
+	// linkParameters are the `in` ReferenceUsages a `transition` owns through a ParameterMembership
+	// each, ahead of its trigger: one, and a second when it declares a trigger (EmptyParameterMember).
+	linkParameters []*symbols.Symbol
 }
 
 // acceptParameters are the payload and receiver parameters of the trigger accept sym, in that
@@ -68,13 +71,24 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 		// transition's owner, so it reads them in the scope the transition is declared in.
 		parts.succession = transitionPart(sym, sym.Decl, target.Span(), symbols.SymbolSuccessionUsage, sym, symbols.ExpressionTransitionSuccession)
 		parts.succession.OwnerScope = sym.OwnerScope
+		// Its two ends (SuccessionEndMembers) are members of a scope of its own, owned by it.
+		parts.succession.Scope = symbols.NewScope(sym.OwnerScope, sym.Decl)
+		parts.succession.Scope.SetOwner(parts.succession)
 	}
 	trans, ok := transitionDecl(sym)
 	if !ok {
 		m.transitionParts[sym] = parts
 		return parts
 	}
-	if payload, event := triggerPayload(trans); payload != nil || event != nil {
+	payload, event := triggerPayload(trans)
+	for i := 0; i < 1+boolInt(payload != nil || event != nil); i++ {
+		link := &ast.Usage{IsReference: true, Direction: ast.DirIn}
+		link.NodeSpan = trans.Span()
+		parameter := transitionPart(sym, link, link.NodeSpan, symbols.SymbolReferenceUsage, sym, symbols.ExpressionTransitionLinkParameter)
+		parameter.Expr.Index = i
+		parts.linkParameters = append(parts.linkParameters, parameter)
+	}
+	if payload != nil || event != nil {
 		if payload != nil && payload.Value != nil {
 			event = payload.Value
 		}
@@ -217,7 +231,7 @@ func (m *Model) transitionMembers(sym *symbols.Symbol) []*symbols.Symbol {
 		return nil
 	}
 	var out []*symbols.Symbol
-	for _, part := range []*symbols.Symbol{parts.accepter, parts.guard, parts.succession} {
+	for _, part := range append(append([]*symbols.Symbol{}, parts.linkParameters...), parts.accepter, parts.guard, parts.succession) {
 		if part != nil {
 			out = append(out, part)
 		}
@@ -301,4 +315,27 @@ func triggerKind(node ast.Node) string {
 		return "after"
 	}
 	return ""
+}
+
+// transitionSourceMember is the state a `transition first x` names as its source, when the name
+// resolves and is no chain: the member of the Membership the transition owns ahead of its parameters.
+func (m *Model) transitionSourceMember(sym *symbols.Symbol) (*symbols.Symbol, bool) {
+	trans, ok := transitionDecl(sym)
+	if !ok || trans.IsSuccession || trans.Source == nil || ast.IsFeatureChain(trans.Source) || m.resolver == nil {
+		return nil, false
+	}
+	scope := sym.OwnerScope
+	if scope == nil {
+		scope = sym.Scope
+	}
+	// The endpoint resolution, which reaches a vertex nested in a sibling state as the conversion's does.
+	source, ok := m.resolver.EndpointSymbol(scope, trans.Source)
+	return source, ok && source != nil
+}
+
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }

@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -126,14 +127,13 @@ type Model struct {
 	// call of it applies; nil for a calc that computes on its own.
 	libraryPerformances map[*symbols.Symbol]*libraryPerformance
 
-	// invocationTargets memoizes what each invocation expression denotes in the
-	// scope it is evaluated in; the model does not change under one Model.
-	invocationTargets map[invocationKey]*invocationTarget
+	// invocationTargets memoizes what each lowered invocation denotes where it is
+	// evaluated; the model does not change under one Model.
+	invocationTargets map[*lower.ExprEntry]map[invocationKey]*invocationTarget
 
-	// integerLiterals and realLiterals memoize the value each numeric literal
-	// node spells, so a literal in a recursion is parsed once per model.
-	integerLiterals map[*ast.LiteralInteger]semantics.Value
-	realLiterals    map[*ast.LiteralReal]semantics.Value
+	// lowered holds the expressions evaluated from their tree, each lowered once
+	// per scope it is evaluated in.
+	lowered map[loweredKey]*lower.ExprEntry
 
 	// census memoizes the object usages the model's namespaces declare; see modelUsages.
 	census *usageCensus
@@ -211,9 +211,9 @@ type Model struct {
 	sources map[string]*source.SourceFile
 
 	// scopes holds the scope trees the caller resolves references in; declared
-	// maps each declaration node to the symbol they declare for it, built on first use.
+	// maps each element's key to the symbol they declare for it, built on first use.
 	scopes   []*symbols.Scope
-	declared map[ast.Node]*symbols.Symbol
+	declared map[symbols.ElementKey]*symbols.Symbol
 
 	// parse reads the notation text a run receives as text: a witness file's input
 	// values and the units a tool answers in; installed by SetExpressionParser.
@@ -272,9 +272,8 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		librarySymbols:      make(map[string]*symbols.Symbol),
 		verificationCases:   make(map[*symbols.Scope][]*symbols.Symbol),
 		libraryPerformances: make(map[*symbols.Symbol]*libraryPerformance),
-		invocationTargets:   make(map[invocationKey]*invocationTarget),
-		integerLiterals:     make(map[*ast.LiteralInteger]semantics.Value),
-		realLiterals:        make(map[*ast.LiteralReal]semantics.Value),
+		invocationTargets:   make(map[*lower.ExprEntry]map[invocationKey]*invocationTarget),
+		lowered:             make(map[loweredKey]*lower.ExprEntry),
 		behaving:            make(map[*symbols.Symbol]bool),
 		behavingFeatures:    make(map[*symbols.Symbol][]int),
 		redefGroups:         make(map[*symbols.Symbol][][]string),
@@ -359,12 +358,12 @@ func (m *Model) declaredSymbol(sym *symbols.Symbol) *symbols.Symbol {
 		return sym
 	}
 	if m.declared == nil {
-		m.declared = make(map[ast.Node]*symbols.Symbol)
+		m.declared = make(map[symbols.ElementKey]*symbols.Symbol)
 		for _, scope := range m.scopes {
 			collectDeclared(scope, m.declared)
 		}
 	}
-	if local, ok := m.declared[sym.Decl]; ok {
+	if local, ok := m.declared[symbols.KeyOf(sym)]; ok {
 		return local
 	}
 	return sym
@@ -404,6 +403,46 @@ func (m *Model) resolvedName(scope *symbols.Scope, name string, excluding ast.No
 	}
 	m.names[key] = nameHit{sym: sym, ok: ok}
 	return sym, ok
+}
+
+// loweredKey names an expression as one evaluation reads it: its names resolve
+// in the scope it is evaluated in, and one expression may be evaluated in several.
+type loweredKey struct {
+	scope *symbols.Scope
+	expr  ast.Node
+}
+
+// loweredExpr is node lowered for evaluation in scope, lowering it on first use.
+func (m *Model) loweredExpr(scope *symbols.Scope, node ast.Node) lowered {
+	key := loweredKey{scope: scope, expr: node}
+	entry, ok := m.lowered[key]
+	if !ok {
+		table, id := lower.LowerExpr(node, scope, m.resolver)
+		entry = table.Entry(id)
+		if m.resolver.Journaling() {
+			// A request's expression is forgotten with what the resolver memoized of its nodes.
+			m.resolver.Journal(node, func() {
+				delete(m.lowered, key)
+				m.forgetInvocations(table)
+			})
+		}
+		m.lowered[key] = entry
+	}
+	return lowered{entry: entry}
+}
+
+// forgetInvocations drops what was memoized of the invocations in table, each
+// record once: an operand two records share is not reached once per reader.
+func (m *Model) forgetInvocations(table *lower.ExprTable) {
+	for id := program.ExprID(1); ; id++ {
+		entry := table.Entry(id)
+		if entry == nil {
+			return
+		}
+		if entry.Kind == program.ExprInvoke {
+			delete(m.invocationTargets, entry)
+		}
+	}
 }
 
 type footprintKey struct {

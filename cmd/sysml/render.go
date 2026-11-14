@@ -436,7 +436,7 @@ func reportRenderSkip(name, reason string) {
 
 // writeArtifact writes the rendering to -o, or to stdout when no file was named.
 func writeArtifact(artifact string, form view.Form) error {
-	out := []byte(strings.TrimRight(artifact, "\n") + "\n")
+	out := []byte(view.Artifact(artifact))
 	if outputPath == "" {
 		_, err := os.Stdout.Write(out)
 		return err
@@ -445,7 +445,7 @@ func writeArtifact(artifact string, form view.Form) error {
 }
 
 func writeArtifactFile(path, artifact string, form view.Form) error {
-	return writeOutputFile(path, []byte(strings.TrimRight(artifact, "\n")+"\n"), string(form))
+	return writeOutputFile(path, []byte(view.Artifact(artifact)), string(form))
 }
 
 // writeOutputFile writes an artifact to path and reports it on stderr, `what`

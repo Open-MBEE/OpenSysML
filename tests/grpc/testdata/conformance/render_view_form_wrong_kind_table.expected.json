@@ -1,0 +1,8 @@
+{
+  "rpc": "RenderView",
+  "model": "render_view_form.sysml",
+  "view": "FormDemo::structure",
+  "form": "csv",
+  "expected_error": "is not written as csv",
+  "expected_error_code": "invalid_argument"
+}

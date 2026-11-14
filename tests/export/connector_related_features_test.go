@@ -66,16 +66,8 @@ func TestConnectorRelatedFeaturesAreTheEndsReferencedFeatures(t *testing.T) {
 		if got := graph.Objects(subject, rdf.SysML+"targetFeature"); len(got) != 1 || got[0] != referenced[1] {
 			t.Errorf("%s targetFeature = %v, want [%v]", name, got, referenced[1])
 		}
-		// Relationship::relatedElement, source and target are what the three redefine (KerML 8.3.4.5.1),
-		// stated for plain ends; a chained end's chain Feature is reached through relatedFeature alone.
-		if name != "direct" {
-			for _, property := range []string{"relatedElement", "source", "target"} {
-				if got := graph.Objects(subject, rdf.SysML+property); len(got) != 0 {
-					t.Errorf("%s %s = %v, want none for a chained end", name, property, got)
-				}
-			}
-			continue
-		}
+		// Relationship::relatedElement, source and target are what the three redefine (KerML 8.3.4.5.1):
+		// the chain Feature for a chained end, as the pilot exports it.
 		if got := graph.Objects(subject, rdf.SysML+"relatedElement"); len(got) != 2 || got[0] != referenced[0] || got[1] != referenced[1] {
 			t.Errorf("%s relatedElement = %v, want %v", name, got, referenced)
 		}
@@ -307,4 +299,54 @@ func sameTerms(got, want []rdf.Term) bool {
 		}
 	}
 	return true
+}
+
+// flowModel relates action parameters by flows: one written as a chain, one bare.
+const flowModel = `package Flows {
+    action def Acquire { out image : Real; }
+    action def Readout { in image : Real; }
+    action observe {
+        action acquire : Acquire;
+        action readout : Readout;
+        flow chained from acquire.image to readout.image;
+        flow bare from acquire to readout;
+    }
+}
+`
+
+// A flow's end references the feature before its payload (SysML v2.1 §8.3.16.6): the flow states relatedFeature, sourceFeature,
+// targetFeature and the relatedElement, source and target they redefine as those, as the pilot does; a bare `from a to b` states none.
+func TestFlowStatesItsRelationshipEnds(t *testing.T) {
+	turtle, err := convert.Convert("f.sysml", []byte(flowModel), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph, err := rdf.ParseTurtle(turtle)
+	if err != nil {
+		t.Fatalf("parse turtle: %v", err)
+	}
+	chained := rdf.IRI(rdf.Element + "Flows__observe__chained")
+	acquire := rdf.IRI(rdf.Element + "Flows__observe__acquire")
+	readout := rdf.IRI(rdf.Element + "Flows__observe__readout")
+	for _, property := range []string{"relatedFeature", "relatedElement"} {
+		if got := graph.Objects(chained, rdf.SysML+property); len(got) != 2 || got[0] != acquire || got[1] != readout {
+			t.Errorf("chained %s = %v, want [acquire readout]", property, got)
+		}
+	}
+	for _, property := range []string{"sourceFeature", "source"} {
+		if got, ok := graph.Object(chained, rdf.SysML+property); !ok || got != acquire {
+			t.Errorf("chained %s = %v (%t), want acquire", property, got, ok)
+		}
+	}
+	for _, property := range []string{"targetFeature", "target"} {
+		if got := graph.Objects(chained, rdf.SysML+property); len(got) != 1 || got[0] != readout {
+			t.Errorf("chained %s = %v, want [readout]", property, got)
+		}
+	}
+	bare := rdf.IRI(rdf.Element + "Flows__observe__bare")
+	for _, property := range []string{"relatedFeature", "sourceFeature", "targetFeature", "relatedElement", "source", "target"} {
+		if got := graph.Objects(bare, rdf.SysML+property); len(got) != 0 {
+			t.Errorf("bare %s = %v, want none: its ends reference nothing", property, got)
+		}
+	}
 }

@@ -1,0 +1,1 @@
+- Name lookup skips deriving sibling features' short names when the index proves the requested spelling cannot be a short name. This avoids repeated naming and metadata-type resolution during imports and exposes, while preserving explicit short names equal to long names, short-name-only declarations, library snapshots, and incremental dependency invalidation.

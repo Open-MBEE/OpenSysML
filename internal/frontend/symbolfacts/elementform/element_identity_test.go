@@ -95,6 +95,8 @@ func TestElementIdentityIsTheTreesIDAndRoundTrips(t *testing.T) {
 		{"D::M::z", []string{"valuation", "value", "result"}, "D__M__z_pvalue_pout"},
 		{"D::holder::@2", []string{"connectorEnd"}, "D__holder___402_pend0"},
 		{"D::holder::@2", []string{"connectorEnd", "ownedElement"}, "D__holder___402_pend0_pchain"},
+		{"D::M::sm::t", []string{"ownedElement"}, "D__M__sm__t_linkparam"},
+		{"D::M::sm::t", []string{"succession"}, "D__M__sm__t_succession"},
 	}
 	for _, tc := range cases {
 		sym := reflect(t, sc, tc.name, tc.path...)
@@ -108,6 +110,12 @@ func TestElementIdentityIsTheTreesIDAndRoundTrips(t *testing.T) {
 			t.Errorf("ResolveElement(%s) = %v, want the one symbol it was read from", got, back)
 		}
 	}
+	// The trigger's link parameter is the transition's second owned element.
+	owned, _ := sc.Semantics.ReflectiveElements(reflect(t, sc, "D::M::sm::t"), "ownedElement")
+	if back := sc.ResolveElement("D__M__sm__t_triggerparam", sc.Semantics); len(owned) < 2 ||
+		len(back) != 1 || back[0] != owned[1] || sc.ElementIdentity(owned[1]) != "D__M__sm__t_triggerparam" {
+		t.Errorf("ResolveElement(D__M__sm__t_triggerparam) = %v, want the transition's second owned element", back)
+	}
 }
 
 func TestResolveElementReadsEveryIDFormOfANamedElement(t *testing.T) {
@@ -118,7 +126,7 @@ func TestResolveElementReadsEveryIDFormOfANamedElement(t *testing.T) {
 			t.Errorf("ResolveElement(%s) = %v, want D::outer::named", id, got)
 		}
 	}
-	for _, id := range []string{"", "D::outer::@7", "D__outer___407", "D__M__sm__t___40trigger_pnowhere", "not an id!"} {
+	for _, id := range []string{"", "D::outer::@7", "D__outer___407", "D__M__sm__t___40trigger_pnowhere", "D__M__sm__a_succession", "not an id!"} {
 		if got := sc.ResolveElement(id, sc.Semantics); len(got) != 0 {
 			t.Errorf("ResolveElement(%q) = %v, want nothing", id, got)
 		}

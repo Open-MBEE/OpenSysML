@@ -1,0 +1,9 @@
+{
+  "rpc": "RenderView",
+  "model": "render_view_form.sysml",
+  "view": "FormDemo::parts",
+  "form": "markdown",
+  "expected_text": "<!-- FormDemo::parts — table rendering (render asElementTable) -->\n| Element | Kind | Type | Declared in |\n| --- | --- | --- | --- |\n| FormDemo::Vehicle | part def |  |  |\n| wheel | part | Wheel | FormDemo::Vehicle |\n",
+  "expected_node_names": [],
+  "expected_edge_labels": []
+}

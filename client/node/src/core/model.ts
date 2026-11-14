@@ -6,6 +6,7 @@ import {
   CAPABILITY_INLINE_LANGUAGE,
   CAPABILITY_STRICT_CONFORMANCE,
   CAPABILITY_SYMBOL_MEMBERS,
+  CAPABILITY_SYMBOL_NAME_RESOLUTION,
   requireCapability,
   upgradeRemedy,
 } from "./capabilities.js";
@@ -88,6 +89,8 @@ export interface SymbolOptions {
    * Requires `symbol_members`.
    */
   includeLibraryMembers?: boolean;
+  /** Take the id as one the service reported (a child's, a member's), whatever its visibility, not as a qualified name. */
+  byReportedId?: boolean;
 }
 
 /** How a source is parsed. */
@@ -712,7 +715,11 @@ export class Model {
     return response.diagnostics.map(decodeDiagnostic);
   }
 
-  /** Looks a symbol up by its qualified name, in one call. */
+  /**
+   * Looks a symbol up by its qualified name, resolved from the root namespace as the notation
+   * resolves one (imports, aliases, visibility); `byReportedId` takes a reported id instead,
+   * which is how a service without `symbol_name_resolution` reads every id.
+   */
   async symbolById(id: string, options: SymbolOptions = {}): Promise<ModelSymbol> {
     requireString("id", id);
     if (options.includeLibraryMembers === true) {
@@ -720,7 +727,14 @@ export class Model {
     }
     const response = await callRpc(
       this.connection.rpc.getSymbol(
-        { modelHash: this.hash, symbolId: id, includeLibraryMembers: options.includeLibraryMembers === true },
+        {
+          modelHash: this.hash,
+          symbolId: id,
+          includeLibraryMembers: options.includeLibraryMembers === true,
+          resolveName:
+            options.byReportedId !== true &&
+            this.connection.info.has(CAPABILITY_SYMBOL_NAME_RESOLUTION),
+        },
         this.connection.callOptions(),
       ),
     );
@@ -1008,7 +1022,7 @@ export class ModelSymbol {
 
 /** One member of a type, own or inherited. */
 export interface MemberFacts {
-  /** The member's qualified name, which `symbolById` accepts. */
+  /** The member's id, which `symbolById` accepts with `byReportedId`. */
   id: string;
   /** The declared name, empty for an anonymous member. */
   name: string;

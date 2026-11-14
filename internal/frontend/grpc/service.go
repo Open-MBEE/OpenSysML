@@ -108,6 +108,10 @@ const CapabilityRenderDocumentAsciiDoc = "render_document_asciidoc"
 // renders a declared or targeted pseudo-view as machine-readable diagram data.
 const CapabilityRenderView = "render_view"
 
+// CapabilityRenderViewForm names the capability of RenderViewRequest's form
+// field and writer options, answered in RenderViewResponse.text.
+const CapabilityRenderViewForm = "render_view_form"
+
 // CapabilityExportGraphs names the capability of the ExportGraphs RPC, which
 // exports the lowered graph of an action or state machine as `graphs:1` JSON.
 const CapabilityExportGraphs = "export_graphs"
@@ -149,6 +153,10 @@ const CapabilitySymbolAttributes = "symbol_attributes"
 // SymbolInfo.members, the element's members own and inherited with their
 // provenance, and of honouring GetSymbolRequest.include_library_members.
 const CapabilitySymbolMembers = "symbol_members"
+
+// CapabilitySymbolNameResolution names the capability of honouring GetSymbolRequest.resolve_name;
+// without it symbol_id is read as an id the service reported, as a service predating the field reads it.
+const CapabilitySymbolNameResolution = "symbol_name_resolution"
 
 // CapabilityUnsetValue names the capability of reporting a valueless feature of
 // a value type as Value.unset, rather than as the empty object it materializes.
@@ -432,6 +440,8 @@ var capabilities = []string{
 	CapabilityVerdictNotes,
 	CapabilityElementProperties,
 	CapabilityInlineDocumentQuery,
+	CapabilitySymbolNameResolution,
+	CapabilityRenderViewForm,
 }
 
 type capabilityAvailability struct {
@@ -1051,7 +1061,8 @@ func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceM
 	return modelHash, store(modelHash, model)
 }
 
-// GetSymbol retrieves symbol information by FQN
+// GetSymbol retrieves symbol information by id, or by qualified name resolved
+// from the root namespace when the request asks for that.
 func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.SymbolResponse, error) {
 	// Lookup cached model
 	cached, ok := s.cache.Get(req.ModelHash)
@@ -1059,8 +1070,13 @@ func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.
 		return nil, statusErrorf(connect.CodeNotFound, msgModelNotFound, req.ModelHash)
 	}
 
-	// Lookup symbol by FQN or positional identity
-	syms := cached.LookupSymbol(req.SymbolId)
+	// An id the service reported denotes that element; a name is resolved.
+	var syms []*symbols.Symbol
+	if req.ResolveName && s.capabilities.has(CapabilitySymbolNameResolution) {
+		syms = cached.ResolveName(req.SymbolId)
+	} else {
+		syms = cached.LookupSymbol(req.SymbolId)
+	}
 	if len(syms) == 0 {
 		return &pb.SymbolResponse{
 			Error: fmt.Sprintf("symbol not found: %s", req.SymbolId),

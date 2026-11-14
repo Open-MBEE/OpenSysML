@@ -1,0 +1,1 @@
+- An invocation of a calc that declares no `return` is again of no known type rather than the `Anything` of `Evaluation::result`, so `alive and Ready(n)` over `calc def Ready { in n : Integer; n >= 1 }` is no longer refused with `operator 'and' requires Boolean operands, found Anything`.

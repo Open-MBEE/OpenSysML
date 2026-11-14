@@ -124,8 +124,16 @@ func (r *Resolver) shortNamedMembers(scope *symbols.Scope, name string, hide *re
 	if scope == nil || name == "" {
 		return nil
 	}
+	members := r.derivedNamedMembers(scope)
+	if len(members) == 0 {
+		return nil
+	}
+	// A derived short name ultimately comes from a declared or recorded short name.
+	if r.idx != nil && !r.idx.ShortNamed(name) {
+		return nil
+	}
 	var out []*symbols.Symbol
-	for _, sym := range r.derivedNamedMembers(scope) {
+	for _, sym := range members {
 		if !hide.hides(sym) && r.derivedShortName(sym) == name {
 			out = append(out, sym)
 		}
@@ -582,7 +590,8 @@ func (r *Resolver) importVisibleFrom(target *symbols.Symbol, from *symbols.Scope
 	}
 	targetFQN := r.registeredFQN(target)
 	fromFQN := r.ReferringNamespaceFQN(from)
-	return targetFQN != "" && (fromFQN == targetFQN || strings.HasPrefix(fromFQN, targetFQN+"::"))
+	return targetFQN != "" && strings.HasPrefix(fromFQN, targetFQN) &&
+		(len(fromFQN) == len(targetFQN) || strings.HasPrefix(fromFQN[len(targetFQN):], "::"))
 }
 
 // scopeImports returns the imports the namespace owning scope declares: a

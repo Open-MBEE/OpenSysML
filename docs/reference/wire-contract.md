@@ -168,7 +168,17 @@ or binding usage lists its two ends, of kind `connectorEnd`: a named end (`conne
 under its qualified name, an unnamed one (`connect x to y`, `bind x = y`) under the element id
 `GetElementProperties` gives it (`Owner__c_pend0`). `GetSymbol` reads an id as a qualified name first, so a
 declaration named exactly like an unnamed end's element id is what that id answers, not the end. An end's `specializations` hold the feature it references as a
-`references` entry, a feature chain (`x.p`) as one entry per chaining feature in chain order. `members` is every
+`references` entry, a feature chain (`x.p`) as one entry per chaining feature in chain order. With `resolveName` the
+id is instead resolved as a qualified name from the root namespace, the way the notation resolves
+`A::B` (KerML 8.2.3.5): through the visible memberships of each namespace, so a name a `public
+import` re-exports — a membership import, `P::*`, the recursive `P::**` — answers with the imported
+element under its own id, an alias with the element it is for, and a `private` or `protected` member,
+or one behind a `private import`, is not found. The `symbol_name_resolution` capability advertises the field: a service
+without it ignores `resolveName`, so every client checks the capability and otherwise asks by
+reported id. Without it the id is one the service reported and
+denotes that element whatever its visibility, an alias being itself; the clients' lookups by
+qualified name set it, and their navigation over `childIds`, `members` and specialization targets
+does not. `members` is every
 member it has (KerML `Type::member`) — the owned ones first, in declaration order, then the
 inherited ones in inheritance order, each with its `kind`, `inherited` and `inheritedFrom`, a
 redefinition masking what it redefines and a private member of a supertype left out. Members
@@ -2329,6 +2339,12 @@ Pictures are not included; a refused picture contributes its reason to `notices`
 `minimal` `ports` value includes only ports used by rendered connections; `full` includes every
 declared port. The service advertises this method as
 the `render_view` capability.
+
+A request naming a `form` (`text`, `mermaid`, `markdown`, `dot`, `plantuml`, `d2`, `drawio`, `csv`
+or `tsv`) is also answered the rendering written in that form, in `text`, with the same fields
+beside it; the `palette`, `style`, `lines`, `direction`, `link` and `unplaced` request fields are
+the writer's options. `text` is absent when no form is named. The service advertises the form and
+its options as the `render_view_form` capability.
 
 This excerpt was captured by calling the gRPC service with
 `RenderViewDemo::connections` from `conformance/fixtures/views.sysml` and marshaling the response

@@ -63,6 +63,20 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		})
 		ordinal++
 	}
+	if source, ok := m.transitionSourceMember(sym); ok {
+		// A `first x` transition names its source through a Membership ahead of everything else it
+		// owns (SysML.xtext FeatureChainMember), as the pilot exports it and the conversion writes it.
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   sym.DeclSpan,
+			Visibility: sym.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitReferenceMembership, Member: source, Slot: "psourcemember",
+			},
+		})
+		ordinal++
+	}
 	for _, end := range m.SuccessionEndMembers(sym) {
 		// A `then` succession owns its two ends ahead of its body (SysML.xtext TargetSuccession).
 		out = append(out, &symbols.Symbol{
@@ -405,6 +419,8 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 			return "ParameterMembership"
 		case symbols.ExpressionTransitionSuccession:
 			return "OwningMembership"
+		case symbols.ExpressionTransitionLinkParameter:
+			return "ParameterMembership"
 		}
 	}
 	if _, ok := m.transitionFeatureKind(owner, member); ok {

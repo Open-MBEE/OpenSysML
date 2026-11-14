@@ -129,6 +129,8 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 	ids.recordDefaultMultiplicity(e, node, subject)
 	ids.recordConnectorEnds(e, node, subject)
 	ids.recordSuccessionEnds(e, node, subject)
+	ids.recordTransitionSuccession(e, node, subject)
+	ids.recordTransitionHead(e, node, subject)
 	ids.recordSatisfySubjects(e, node, subject)
 	ids.registerHeadChains(e, subject, chainTargets(e.writtenHeadClauses(node, parents[node], parents)))
 	for key, id := range e.writtenRelationships(node, parents[node], subject, parents) {
@@ -195,6 +197,71 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 				ids.partByNode[partKey{end, "chain." + position}] = recorded
 				ids.partBySpan[spanPartKey{spanKey{e.file.Name(), end.Span()}, "chain." + position}] = recorded
 			}
+		}
+	}
+}
+
+// transitionLinkParameterSlots name a transition's link parameters off its id (transitionHeadMembers):
+// the one every head owns, then the one ahead of a trigger.
+var transitionLinkParameterSlots = [2]string{"linkparam", "triggerparam"}
+
+// recordTransitionHead files what a transition owns ahead of its trigger (transitionHeadMembers): the
+// Membership of its `first` source at "psourcemember", its link parameter at "linkparam", a trigger's at "triggerparam".
+func (ids *ElementIDs) recordTransitionHead(e *encoder, node ast.Node, subject rdf.Term) {
+	n, ok := node.(*ast.TransitionMember)
+	if !ok || n.IsSuccession || n.Target == nil {
+		return
+	}
+	file := func(slot string, part partIDs) {
+		ids.partByNode[partKey{node, slot}] = part
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = part
+	}
+	if qualifiedText(n.Source) != "" && !qualifiedNameHasChain(n.Source) {
+		file("psourcemember", partIDs{membership: rdf.LocalName(rdf.ExpressionIRI(subject, "sourcemember").Value)})
+	}
+	slots := transitionLinkParameterSlots[:1]
+	if naming.TriggerPayload(e.file, n) != nil {
+		slots = transitionLinkParameterSlots[:]
+	}
+	for _, slot := range slots {
+		feature := rdf.IRI(subject.Value + "_" + slot)
+		file(slot, partIDs{element: rdf.LocalName(feature.Value), membership: rdf.LocalName(rdf.OwningMembershipIRIOf(feature).Value)})
+	}
+}
+
+// recordTransitionSuccession files the succession a transition owns (transitionSuccession) under the
+// transition's node at the slot "succession", so the query leg reads the ids the conversion writes.
+func (ids *ElementIDs) recordTransitionSuccession(e *encoder, node ast.Node, subject rdf.Term) {
+	switch n := node.(type) {
+	case *ast.TransitionMember:
+		if n.IsSuccession || n.Target == nil {
+			return
+		}
+	case *ast.ControlFlowEdge:
+	case *ast.SuccessionEdge:
+		if !e.names.TargetTransitions[n] {
+			return
+		}
+	default:
+		return
+	}
+	succession := e.ids.minted(rdf.IRI(subject.Value+transitionSuccessionSuffix), subject, transitionSuccessionSuffix)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(succession), succession, rdf.OwningMembershipSuffix)
+	recorded := partIDs{element: rdf.LocalName(succession.Value), membership: rdf.LocalName(membership.Value)}
+	ids.partByNode[partKey{node, "succession"}] = recorded
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, "succession"}] = recorded
+	for i := 0; i < 2; i++ {
+		// The succession's two ends and the target end's ReferenceSubsetting are minted under it (transitionSuccession).
+		slot := fmt.Sprintf("succession.end%d", i)
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(succession, fmt.Sprintf("end%d", i)), succession, fmt.Sprintf("end%d", i))
+		endMembership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+		end := partIDs{element: rdf.LocalName(feature.Value), membership: rdf.LocalName(endMembership.Value)}
+		ids.partByNode[partKey{node, slot}] = end
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = end
+		if i == 1 {
+			reference := partIDs{element: e.referenceSubsettingID(feature)}
+			ids.partByNode[partKey{node, slot + ".rs"}] = reference
+			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot + ".rs"}] = reference
 		}
 	}
 }

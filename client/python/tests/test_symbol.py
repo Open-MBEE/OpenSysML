@@ -639,7 +639,7 @@ class TestSymbolMembers:
             sysml_pb2.MemberInfo(id="Demo::Controller::gain", name="gain", kind="attributeUsage"),
             sysml_pb2.MemberInfo(id="Demo::Controller::cmdIn", name="cmdIn", kind="portUsage"),
             sysml_pb2.MemberInfo(id="Demo::Controller::logic", name="logic", kind="partUsage"),
-            sysml_pb2.MemberInfo(id="Demo::Controller::delegate", name="delegate", kind="bindingUsage"),
+            sysml_pb2.MemberInfo(id="Demo::Controller::delegate", name="delegate", kind="bindingConnectorAsUsage"),
         ]
         inherited = [
             sysml_pb2.MemberInfo(
@@ -839,3 +839,19 @@ class TestSymbolTypeFacts:
             type_info=sysml_pb2.TypeInfo(declared="T", resolved_id="P::T"),
         )
         assert self._symbol(info).type_facts.types == ()
+
+
+@pytest.mark.parametrize("kind", ["bindingConnectorAsUsage", "bindingUsage"])
+def test_bindings_select_the_kind_of_either_service_generation(kind):
+    """bindings() reads the metaclass kind and the kind an older service reports."""
+    member = sysml_pb2.MemberInfo(id="Demo::C::@0", kind=kind)
+    owner = sysml_pb2.SymbolInfo(id="Demo::C", name="C", kind="partDef", child_ids=[member.id], members=[member])
+    client = Mock()
+    client.server_info.return_value = ServerInfo(
+        version="v1.0.0", capabilities=frozenset({"symbol_members"}), answered=True, origin="sysml-grpc",
+    )
+    client.get_symbol.side_effect = lambda _hash, symbol_id, include_library_members=False: (
+        sysml_pb2.SymbolInfo(id=member.id, kind=kind) if symbol_id == member.id else owner)
+    symbol = Symbol(owner, client, "model_abc123")
+    assert [b.id for b in symbol.bindings()] == ["Demo::C::@0"]
+    assert [c.id for c in symbol.connections()] == ["Demo::C::@0"]
