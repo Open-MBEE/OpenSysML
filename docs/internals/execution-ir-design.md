@@ -287,6 +287,11 @@ an edit elsewhere in the document. `Span` does not survive an edit above it and 
 only. `Element` is the element id the identity table already derives (annotated, normative or
 derived from the qualified name), so an origin can be joined to RDF/XMI output without the tree.
 
+As landed, `Kind` for an action node is the `NodeKind` word step 4 chose (`initial node`,
+`fork node`, `perform action`, `while loop`, …), and a vertex keeps its `VertexKind` word.
+`Docs` is declared but left empty, because lowering has no text source to read a documentation
+comment from; a later step has to give it one before a hover can rely on it.
+
 ### Actions
 
 ```go
@@ -427,6 +432,15 @@ roadmap names ("lower expressions once rather than interpreting the tree in two 
 `compile.go`'s closures compile from the same `Expr` table. The typed IR of
 `internal/translate/codegen/ir.go` is a *lower* level (typed, monomorphic, for emission) and is
 not merged with this one; `codegen` will later consume `program.Expr` instead of the tree.
+
+As landed, a lowered expression is per (scope, root), not per node: one expression may be
+evaluated in several scopes, and its names resolve in each. The `SymbolRef.Name` fallback also
+covers chain members whose owner only the run holds, a name a valued pin of the running action
+shadows, and a name the lowering scope does not resolve, whose error must still surface at
+evaluation. An expression read for one request is released with the resolver's scratch frame
+rather than retained, which measured slower on the gRPC and REPL benchmarks. A chain of applied
+calls, `x.f().f()`, shares its lowered operand; `TestLowerExprSharesAnAppliedChainsOperand`
+pins that.
 
 ### The back-map
 
@@ -601,6 +615,10 @@ Each needs a human decision; the recommendation is the one the design above assu
 4. **Ids per graph or process-wide.** Per-graph indices (this design) are dense, cheap and need no
    synchronization, but are not unique across graphs, so every wire type must carry `GraphID`.
    *Recommend per-graph; a global arena buys nothing the digest does not, and pins memory.*
+   As landed in step 2, the action frame's tables are keyed by
+   `NodeRef{Graph *lower.ActionGraph, ID program.NodeID}`, not a bare `NodeID`: one performance
+   mixes nodes of its own flow, block flows and adopted callees, each its own graph. The pointer
+   stands in until step 9's `GraphID` replaces it.
 
 5. **`GraphID` as a content digest versus a workspace-assigned serial.** A digest lets two
    sessions and two processes agree without coordination and makes snapshot compatibility a
