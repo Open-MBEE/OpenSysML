@@ -524,7 +524,7 @@ regression in that step specifically, on top of the always-on gate.
 | 4 | Origins replace declaration handles for text: `nodeDescription`, `lower.DocOf/VertexKind/EndpointText` results lowered into `Origin`; `NoValueError.Ref`, `Context.bindingOwners`, `Model.declared`, `ActionEdge.Else` lowered; gRPC `session.go` and `queryexec/states.go` read `Origin` and `Provenance`. | 15–20 | conformance `.expected.json` (error text), `TestGRPCConformance`, `conformance_docquery_test`, `tests/grpc` robustness | forbidden `exec/runtime → syntax/ast` **not yet** — expressions remain |
 | 5 | Calc lowering moves to `lower`: `calcShape` becomes `program.Calc` built by `lower.ToCalc`; `compileBatch.callees` keyed by `*program.Calc`; the runtime memoizes by symbol as now. | 8–10 | conformance (calc cases), `testdata/compiled` (4 files), `tests/perf` calc benchmarks, pilot differential | — |
 | 6a | Expression IR, first half: literals, `Ref`, `Chain`, `Op`, `Sequence`, `Index`, `Null`, `Infinity`; `lower.LowerExpr` resolves names once; `eval`/`compile` switch on `ExprKind` for these kinds and fall back to the tree for the rest; `Model.integerLiterals/realLiterals` dropped. | 20–30 | conformance, `testdata/compiled`, `TestGolden` (unchanged), pilot differential and Xpect (evaluation results), exact-rational tests | — |
-| 6b | Expression IR, second half: `Invoke` (`actionInvocation`, `messageArgs`, `invocationKey`), `Collect`, `Select`, `Construct`, `Body`, `Metadata`; `ExpressionParser` seam returns `*program.Expr`; every `lower` expression payload becomes `ExprID`; `EffectiveFeature.DefaultValue` becomes `ExprID`. | 30–40 | all of 6a plus `TestRuntimeRobustnessSendTarget`, `…PerformOnPart`, signal/accept conformance, REPL tests for the seam | forbidden `exec/runtime → syntax/ast` **added**, allowing only value types re-exported by `program` |
+| 6b | Expression IR, second half, as four stacked pull requests (below): `Invoke` (`actionInvocation`, `messageArgs`, `invocationKey`), `Collect`, `Select`, `Construct`, `Body`, `Metadata`; the `ExpressionParser` seam returns a lowered table and `ExprID`; every expression payload gains an `ExprID` beside its tree field; the semantic-layer reads of a tree. | 30–40 each for 6b-1 and 6b-2; 6b-3 and 6b-4 not yet estimated | all of 6a plus `TestRuntimeRobustnessSendTarget`, `…PerformOnPart`, signal/accept conformance, REPL tests for the seam | forbidden `exec/runtime → syntax/ast` **added**, allowing only value types re-exported by `program` |
 | 7 | Consumers off the tree: `exec/smt` (`Flow`, `Encode` over `program.Action`), `exec/analysis/modelform`, `exec/solve`, `ir/view`, `doc/queryexec`, `frontend/lsp/debug.go`, `frontend/grpc/session.go`, `frontend/repl`, `tools/referee/{fuml,pssm}` use ids and `Provenance`. | 35–45 | SMT engine tests, analysis framework tests, view goldens, doc-query conformance, LSP debug tests, referee records, `tools` module tests | forbidden `exec/smt`, `exec/solve`, `exec/analysis/… → syntax/ast` |
 | 8 | Remove the AST fields from `ActionGraph`/`StateGraph`, rename to `program.Action`/`program.StateMachine` (type aliases first, then the move), delete the parallel maps from step 1, move the private inheritance maps into the builder. | 40–60 (mechanical) | the whole gate; `go vet` for dead code; `tests/testutil/graphcmp` comparisons in `lower` tests updated to compare ids | forbidden `ir/program → syntax/ast` re-checked; `check/passes` may still import both |
 | 9 | Canonical form and `GraphID`: encoder, `TestCanonicalFormDeterministic` over the conformance corpus, `GraphID` on snapshots and held images with `ErrSnapshotGraphMismatch`. | 6–8 | new determinism test; `TestRuntimeRobustnessReplay`; snapshot goldens | — |
@@ -535,6 +535,34 @@ depends on 5 (the calc compiler is the first consumer of `Expr`), 6b on 6a, 7 on
 9–10 on 8. Each of 2, 3, 6a, 6b and 7 is feature-sized under `AGENTS.md` §8 — complete, no
 bridge that copies IR back into the legacy fields — and each can be split further along the
 file groups its row lists if review size demands it.
+
+Step 6b was re-estimated against the inventory once 6a had landed, as decision 2 recommends, and
+split into four stacked pull requests:
+
+- **6b-1** (merged, #2218). `Invoke`, `Collect`, `Select`, `Construct`, `Body` and `Metadata`
+  are lowered; `eval.go` and `compile.go` dispatch on every `ExprKind` with no tree fallback,
+  and `tests/hygiene/runtime_evaluator_test.go` forbids those two files from importing
+  `internal/syntax/ast`. The helpers that still read a tree moved unchanged to `eval_chain.go`,
+  `eval_name.go`, `eval_declared.go` and `expr_tree.go`.
+- **6b-2** (merged, #2225). The `ExpressionParser` seam returns lowered records, the table and
+  `ExprID` of [the seam row](#what-the-runtime-needs-from-each-reference), read in the scope
+  passed to it; every installer calls
+  `lower.ExpressionReader(parser.ParseOneExpression, resolver)`.
+- **6b-3** (planned). Every expression payload field gains an `ExprID` field *beside* its tree
+  field, additively, the way step 1 added id maps beside the AST fields; step 8 removes the tree
+  fields once step 7 has moved their other readers. Replacing them here would couple 6b to 7,
+  because the same fields are read outside the runtime by `exec/smt`, `exec/analysis`,
+  `ir/view`, `doc/queryexec`, the LSP and the referee tools. In scope: the expression fields of
+  the `lower` statement, edge, transition and binding records, the runtime's `Condition.Expr`,
+  `Objective.Value`, `EffectiveFeature.DefaultValue` and `SatisfyAssertion.SubjectChain`, and
+  what feeds `actionInvocation`, `valueSource`, `passedReference` and deferred body values.
+  `Accept.SubsetsEvent`, `Channel.Message` and `SubjectDecl.Value` get no id: the runtime never
+  evaluates them as expressions.
+- **6b-4** (planned). The places where the runtime still hands a tree to `internal/semantic`:
+  `EvalWithin`, `DimensionOfExpr`, `ValuesHeldBy`, `EvalClassification` and `Context.UnitOf`
+  with `semantics.UnitOfExpr`. They stay tree-backed until then because computing them at
+  lowering can change *when* an error surfaces, which `AGENTS.md` §4 makes part of the contract.
+  `NoValueError.Ref` is not among them: step 4 replaced it with `NoValueError.Symbol`.
 
 `docs/project/spec-compliance.md` does not move: no semantic rule changes. The documentation
 census (`make docs-counts`) is unaffected until step 8 renames the graph types, when
@@ -608,6 +636,7 @@ Each needs a human decision; the recommendation is the one the design above assu
     `nodeDescription(node)` over the conformance corpus) so step 4 cannot drift silently.*
 
 12. **The `ExpressionParser` seam's owner.** Returning a lowered expression from the seam means
-    every installer (REPL, gRPC service, tools) must call `lower.LowerExpr` with a scope, which
-    moves resolver access to the installer. *Recommend it: the seam exists to keep parsing out of
+    every installer (REPL, gRPC service, tools) must lower with a resolver, which moves resolver
+    access to the installer; as landed in 6b-2 the installer wraps its parser in
+    `lower.ExpressionReader` and the run supplies the scope. *Recommend it: the seam exists to keep parsing out of
     `exec`, and lowering belongs on the same side.*
