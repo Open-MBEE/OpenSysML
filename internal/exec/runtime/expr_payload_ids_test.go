@@ -311,3 +311,46 @@ func TestRegionAndMachinePayloadsCarryIDs(t *testing.T) {
 		}
 	}
 }
+
+// TestCaseDefaultBetweenStepsIsInTheTableOfItsFlow pins that a default a case states
+// between its steps, which runs as a node of the flow, is an id of that flow's table.
+func TestCaseDefaultBetweenStepsIsInTheTableOfItsFlow(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import ScalarValues::*;
+			part def Probe;
+			analysis def A {
+				subject s : Probe;
+				attribute before : Integer = 7 * 6;
+				action first1 { }
+				attribute mid : Integer = 2 + 3;
+				action second { }
+				return r : Integer = mid + 1;
+			}
+		}`))
+	pkg, _ := idx.DocumentRoot("<test>").LookupLocal("test")
+	sym := requirementNamed(t, pkg.Scope, "A")
+	decl := sym.Decl.(*ast.Definition)
+	exprs := lower.NewExprTable(ctx.Resolver())
+	stmts, _ := lower.CalcBodyWithOrder(decl, lower.UnwrappedDeclMembers(decl), sym.Scope, ctx.Resolver(), exprs)
+	runs := 0
+	for _, stmt := range stmts {
+		block, ok := stmt.(lower.Block)
+		if !ok {
+			continue
+		}
+		if block.Graph.Exprs != exprs {
+			t.Fatal("the flow of the steps has a table of its own")
+		}
+		for node := range block.Graph.StatementRuns {
+			for _, run := range block.Graph.Bodies[node] {
+				declared := run.(lower.Declare)
+				runs++
+				stated(t, "default "+declared.Name, block.Graph.Exprs, declared.ValueID, declared.Value)
+			}
+		}
+	}
+	if runs != 1 {
+		t.Fatalf("found %d defaults run as nodes, want 1", runs)
+	}
+}
