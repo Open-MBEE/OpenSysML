@@ -76,17 +76,22 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 		parts.succession.Scope.SetOwner(parts.succession)
 	}
 	trans, ok := transitionDecl(sym)
-	if !ok {
-		m.transitionParts[sym] = parts
-		return parts
+	var payload *ast.Usage
+	var event ast.Node
+	if ok {
+		payload, event = triggerPayload(trans)
 	}
-	payload, event := triggerPayload(trans)
+	// Every form owns one link parameter, a state body's `then x;` too (SysML.xtext TargetTransitionUsage).
 	for i := 0; i < 1+boolInt(payload != nil || event != nil); i++ {
 		link := &ast.Usage{IsReference: true, Direction: ast.DirIn}
-		link.NodeSpan = trans.Span()
+		link.NodeSpan = sym.DeclSpan
 		parameter := transitionPart(sym, link, link.NodeSpan, symbols.SymbolReferenceUsage, sym, symbols.ExpressionTransitionLinkParameter)
 		parameter.Expr.Index = i
 		parts.linkParameters = append(parts.linkParameters, parameter)
+	}
+	if !ok {
+		m.transitionParts[sym] = parts
+		return parts
 	}
 	if payload != nil || event != nil {
 		if payload != nil && payload.Value != nil {
@@ -320,17 +325,35 @@ func triggerKind(node ast.Node) string {
 // transitionSourceMember is the state a `transition first x` names as its source, when the name
 // resolves and is no chain: the member of the Membership the transition owns ahead of its parameters.
 func (m *Model) transitionSourceMember(sym *symbols.Symbol) (*symbols.Symbol, bool) {
-	trans, ok := transitionDecl(sym)
-	if !ok || trans.IsSuccession || trans.Source == nil || ast.IsFeatureChain(trans.Source) || m.resolver == nil {
+	if !declaresTransition(sym) || m.resolver == nil {
 		return nil, false
 	}
 	scope := sym.OwnerScope
 	if scope == nil {
 		scope = sym.Scope
 	}
-	// The endpoint resolution, which reaches a vertex nested in a sibling state as the conversion's does.
-	source, ok := m.resolver.EndpointSymbol(scope, trans.Source)
-	return source, ok && source != nil
+	switch d := sym.Decl.(type) {
+	case *ast.TransitionMember:
+		if d.IsSuccession || d.Source == nil || ast.IsFeatureChain(d.Source) {
+			return nil, false
+		}
+		// The endpoint resolution, which reaches a vertex nested in a sibling state as the conversion's does.
+		source, ok := m.resolver.EndpointSymbol(scope, d.Source)
+		return source, ok && source != nil
+	case *ast.SuccessionEdge:
+		// A state body's `then x;` leaves the member before it (SysML.xtext TargetTransitionUsage): the
+		// state it names, or the nameless member it reaches by position.
+		if d.SourceMember != nil {
+			source, ok := m.SymbolDeclaring(scope, d.SourceMember)
+			return source, ok && source != nil
+		}
+		if d.Source == nil || ast.IsFeatureChain(d.Source) {
+			return nil, false
+		}
+		source, ok := m.resolver.EndpointSymbol(scope, d.Source)
+		return source, ok && source != nil
+	}
+	return nil, false
 }
 
 func boolInt(b bool) int {
