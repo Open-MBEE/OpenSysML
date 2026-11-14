@@ -1,0 +1,9 @@
+{
+  "libraries": true,
+  "type": "satisfy",
+  "evaluate": "test::context",
+  "assertions": {
+    "satisfy budgetCloses by budget": true,
+    "not satisfy budgetCloses by overdrawn": true
+  }
+}

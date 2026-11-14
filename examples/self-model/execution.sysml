@@ -12,11 +12,10 @@ package OpenSysMLExecution {
     // the semantic model answers them; the schema below is built from it.
     item def TypeShape :> SideTable;
 
-    // One entry of a type's flattened schema (runtime.EffectiveFeature): name, symbol, owner,
-    // type, multiplicity and whether it is defaulted, the stated value and its declaration,
-    // whether it is a set, unique, and whether a more specific nested chain governs its bound value.
+    // One entry of a type's flattened schema (runtime.EffectiveFeature): its identity, type,
+    // multiplicity, value and declaration, and what governs the value: a nested chain, a binding.
     item def EffectiveFeature {
-        attribute fieldCount : Integer = 11;
+        attribute fieldCount : Integer = 12;
         attribute inheritsDefault : Boolean = true;
         attribute inheritsMultiplicity : Boolean = true;
     }
