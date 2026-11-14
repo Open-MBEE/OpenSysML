@@ -128,9 +128,8 @@ CAPABILITY_SYMBOL_NAME_RESOLUTION = "symbol_name_resolution"
 #: annotating a symbol; without it an annotated element reports none.
 CAPABILITY_SYMBOL_ANNOTATING_METADATA = "symbol_annotating_metadata"
 
-#: The ``lookup`` of ``GetSymbolRequest`` and ``GetElementPropertiesRequest`` honoured:
-#: a qualified name read only as a name, an element id only as an id. Without it one
-#: string is read name first, so a name declared like a generated id shadows that element.
+#: ``lookup`` on GetSymbol and GetElementProperties is honoured: a name read only as a name, an id
+#: only as an id. Without it one string is read name first, so a name can shadow a generated id.
 CAPABILITY_SYMBOL_LOOKUP_KIND = "symbol_lookup_kind"
 
 #: The ``GetElementProperties`` RPC: the metamodel properties of one element by
