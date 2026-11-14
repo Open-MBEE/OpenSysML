@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Grammars:** `KerML.xtext`, `KerMLExpressions.xtext` and `SysML.xtext` from the SysML v2 Pilot Implementation at pilot tag `2026-09`
+**Grammars:** `KerML.xtext`, `KerMLExpressions.xtext` and `SysML.xtext` from the SysML v2 Pilot Implementation at pilot tag `2026-09.1`
 **Provision:** `./scripts/download-pilot-grammars.sh`
 **Run:** `go run -C tools ./cmd/grammar-metaclass-map` (writes `build/grammar-metaclass-map/`)
 **Baseline:** [grammar-metaclass-map-baseline.json](grammar-metaclass-map-baseline.json), the compact production totals and findings
