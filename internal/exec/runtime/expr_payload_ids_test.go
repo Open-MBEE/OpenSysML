@@ -275,3 +275,39 @@ func TestMachinePayloadsCarryIDsOfItsTable(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 }
+
+// TestRegionAndMachinePayloadsCarryIDs pins that what the owner of a region and the
+// machine itself state are ids of the machine's table, though neither is a state of it.
+func TestRegionAndMachinePayloadsCarryIDs(t *testing.T) {
+	exec := stateExecutorForSource(t, "Machine", `
+		state def Machine {
+			attribute flag : ScalarValues::Boolean = true;
+			attribute :>> isRunToCompletion = flag and true;
+			entry; then a;
+			state a parallel {
+				state r1 { attribute k : ScalarValues::Integer = 1 + 2; entry; then x; state x; }
+				state r2 { entry; then y; state y; }
+			}
+		}
+	`)
+	graph := exec.graph
+	attrs := 0
+	for _, owned := range graph.StateAttributes {
+		for _, attr := range owned {
+			attrs++
+			stated(t, "attribute "+attr.Name, graph.Exprs, attr.ValueID, attr.Value)
+		}
+	}
+	if attrs != 1 {
+		t.Fatalf("found %d attributes of states, want 1", attrs)
+	}
+	if _, ok := graph.RunToCompletion[nil]; !ok || len(graph.RunToCompletion) < 2 {
+		t.Fatalf("run-to-completion is recorded for %d bodies, the machine among them: %v", len(graph.RunToCompletion), ok)
+	}
+	for state, config := range graph.RunToCompletion {
+		stated(t, "run-to-completion value", graph.Exprs, config.ValueID, config.Value)
+		if rtc, err := exec.rtcOf(state); err != nil || !rtc {
+			t.Fatalf("rtcOf = %v, %v; want true", rtc, err)
+		}
+	}
+}
