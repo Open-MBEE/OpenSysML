@@ -16,6 +16,8 @@ const escapedNamesModel = `package Observatory {
         part 'a\\b' : Pt;
         part 'q\"d' : Pt;
         part 'bs\bht\tlf\nff\fcr\rend' : Pt;
+        part '\'Pump\'' : Pt;
+        part Pump : Pt;
     }
     part h : Holder {
         part redefines 'it\'s';
@@ -30,6 +32,8 @@ var escapedNames = []struct{ declared, qualified, id string }{
 	{`a\b`, `Observatory::Holder::'a\\b'`, "Observatory__Holder__a_5cb"},
 	{`q"d`, `Observatory::Holder::'q\"d'`, "Observatory__Holder__q_22d"},
 	{"bs\bht\tlf\nff\fcr\rend", `Observatory::Holder::'bs\bht\tlf\nff\fcr\rend'`, "Observatory__Holder__bs_08ht_09lf_0aff_0ccr_0dend"},
+	{`'Pump'`, `Observatory::Holder::'\'Pump\''`, "Observatory__Holder___27_5c_27Pump_5c_27_27"},
+	{"Pump", "Observatory::Holder::Pump", "Observatory__Holder__Pump"},
 }
 
 // The API element of an escaped name carries the name the escapes denote, its
@@ -114,6 +118,7 @@ func TestEscapedNamesComeBackEscapedFromTheGraphAlone(t *testing.T) {
 		for _, declaration := range []string{
 			`part 'it\'s' : Pt;`, `part 'a\\b' : Pt;`, `part 'q"d' : Pt;`,
 			`part 'bs\bht\tlf\nff\fcr\rend' : Pt;`, `redefines 'it\'s'`,
+			`part '\'Pump\'' : Pt;`, `part Pump : Pt;`,
 		} {
 			if !strings.Contains(string(back), declaration) {
 				t.Errorf("notation read back lacks %q:\n%s", declaration, back)

@@ -2,6 +2,7 @@ package source
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -105,6 +106,35 @@ func TestReferenceQualifiedNames(t *testing.T) {
 	} {
 		if got := ReferenceQualifiedNames(tc.text); !reflect.DeepEqual(got, tc.want) {
 			t.Errorf("ReferenceQualifiedNames(%q) = %q, want %q", tc.text, got, tc.want)
+		}
+	}
+}
+
+// Writing names and reading the text back gives the names again, whatever they hold.
+func TestWrittenNamesReadBackAsTheNamesThemselves(t *testing.T) {
+	names := []string{
+		"x", "part", "two words", "it's", `'`, `''quoted''`, `a\b`, `\`, `\\`, `\'`, `ends\`,
+		`q"d`, "x::y", "::", "a.b", ".", "\b", "\t", "\n", "\f", "\r", "a\tb\nc\rd\be\ff",
+		`\n`, `\t`, "é", "名前", "naïve 'name'", "@1", "$", "1st",
+	}
+	paths := [][]string{names}
+	for _, name := range names {
+		paths = append(paths, []string{name}, []string{"P", name}, []string{name, "x"}, []string{name, name})
+	}
+	for _, path := range paths {
+		text := QualifiedNameOf(path)
+		if got, ok := QualifiedNameSegments(text); !ok || !slices.Equal(got, path) {
+			t.Errorf("QualifiedNameSegments(%q) = %q, %v, want %q", text, got, ok, path)
+		}
+		text = MemberPathOf(path)
+		if got, ok := MemberPathSegments(text); !ok || !slices.Equal(got, path) {
+			t.Errorf("MemberPathSegments(%q) = %q, %v, want %q", text, got, ok, path)
+		}
+	}
+	for _, name := range names {
+		text := UnrestrictedNameText(name)
+		if got := Unescape(text[1 : len(text)-1]); got != name {
+			t.Errorf("Unescape of UnrestrictedNameText(%q) = %q", name, got)
 		}
 	}
 }
