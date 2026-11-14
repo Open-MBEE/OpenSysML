@@ -234,19 +234,15 @@ func (m Model) sameImport(existing, parsed *ast.Import, sf *source.SourceFile, w
 	return filterTokensEqual(m.Source, existing.FilterExpr, parsed.FilterExpr, sf)
 }
 
-// qualifiedNameSegments reads a parsed name's segments with quotes dropped, so
-// `'A'` and `A` compare equal.
+// qualifiedNameSegments is a parsed name's segments: the names themselves, since
+// the parser drops the quotes and decodes the escapes, so `'A'` and `A` compare equal.
 func qualifiedNameSegments(name *ast.QualifiedName) []string {
 	if name == nil {
 		return nil
 	}
 	segments := make([]string, 0, len(name.Parts))
 	for _, part := range name.Parts {
-		if read, ok := source.QualifiedNameSegments(part.Text); ok && len(read) == 1 {
-			segments = append(segments, read[0])
-		} else {
-			segments = append(segments, part.Text)
-		}
+		segments = append(segments, part.Text)
 	}
 	return segments
 }
