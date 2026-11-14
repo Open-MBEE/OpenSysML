@@ -11,7 +11,10 @@ executor it changes underneath is described in [the action executor](design/acti
 
 Every count below was taken on `develop` at the commit this document was first written against,
 over non-test Go files, with the commands quoted beside it; re-run them before relying on a
-figure, since the codebase moves.
+figure, since the codebase moves. The exceptions are the `internal/ir/lower` and
+`internal/exec/runtime` rows of the package figures, the two counts in the command block and the
+figures marked "now" below, re-measured the same way on `develop` at `dd05a85437` after step
+6b-2; the first-written value follows in parentheses where a later paragraph itemizes it.
 
 ## Contents
 
@@ -77,16 +80,16 @@ textual occurrence counts and `go list -deps` for the import closure.
 ```sh
 go list -deps ./internal/exec/runtime | rg '^github.com/Open-MBEE/OpenSysML/' | sort -u
 rg -o 'ast\.' internal/ir/lower/*.go internal/exec/runtime/*.go --glob '!*_test.go' | wc -l
-rg -o 'ast\.StateNode' internal/exec/runtime/state_executor.go | wc -l   # 218
-rg -o 'ast\.Node' internal/exec/runtime/action_executor.go | wc -l       # 33
+rg -o 'ast\.StateNode' internal/exec/runtime/state_executor.go | wc -l   # 232
+rg -o 'ast\.Node' internal/exec/runtime/action_executor.go | wc -l       # 27
 ```
 
 ### Package figures
 
 | package | files | imports `syntax/ast` | `ast.` mentions | struct fields typed with `ast.` | functions with `ast.` in signature |
 |---|---:|---:|---:|---:|---:|
-| `internal/ir/lower` | 25 | 25 | 1383 | 148 | 292 (56 exported) |
-| `internal/exec/runtime` | 139 | 85 | 1943 | 108 | 553 |
+| `internal/ir/lower` | 39 | 37 | 2535 | 226 | 559 (118 exported) |
+| `internal/exec/runtime` | 198 | 117 | 2116 | 86 | 663 |
 | `internal/exec/smt` | 11 | 5 | 115 | 15 | 29 |
 | `internal/exec/solve` | 20 | 4 | 98 | 0 | 33 |
 | `internal/exec/analysis/modelform` | 5 | 3 | 77 | 2 | 15 |
@@ -94,8 +97,8 @@ rg -o 'ast\.Node' internal/exec/runtime/action_executor.go | wc -l       # 33
 | `internal/exec/objref`, `engines`, `enginewire` | 4 | 0 | 0 | 0 | 0 |
 
 Neither `lower` nor any `exec` package imports `internal/syntax/parser` or `internal/check/passes`.
-`internal/exec/runtime` resolves names through `internal/semantic/symbols` (85 files) and
-`internal/semantic/resolve` (6 files).
+`internal/exec/runtime` resolves names through `internal/semantic/symbols` (131 files) and
+`internal/semantic/resolve` (9 files).
 
 ### The graphs (`internal/ir/lower`)
 
@@ -116,7 +119,7 @@ variant carries the declaring node (`Assign.Node`, `Declare.Node`, `Block.Node`,
 `Accept.Trigger`, `Attribute.Value`, `Feature.Value`, `Probability.Expr`, `ZeroCrossing.Guard`,
 `BindingEnd.Expr`). `PinBinding` holds two node paths (`Path`, `OtherPath []ast.Node`). The plan
 records (`ForkPlan`, `JoinPlan`, `StateBehavior`, `Place`, `Footprint.Control`) name states and
-regions by pointer. Of the 148 fields, by the scanner's heuristic, 16 are node identities, 16
+regions by pointer. Of the 148 fields first counted (226 now), by the scanner's heuristic, 16 are node identities, 16
 are expression payloads, 9 are declaration handles (`Decl`), and the remaining 107 are
 node-keyed tables, `ast` value enums, or the private state of the lowering itself.
 
@@ -143,7 +146,7 @@ graph. No cache of lowered graphs exists anywhere: every entry point above re-lo
 
 ### The runtime's own state (`internal/exec/runtime`)
 
-108 AST-typed fields across 32 files; the ones on the executors' paths:
+86 AST-typed fields across 37 files now; 108 across 32 when first written, itemized here:
 
 | file | fields | what they are |
 |---|---:|---|
@@ -174,8 +177,10 @@ Expression evaluation is two type switches over the tree: `EvalContext.eval` (`e
 `FeatureChainExpr`, `OperatorExpr`, `SequenceExpr`, `CollectExpr`, `SelectExpr`,
 `InvocationExpr`, `IndexExpr`, `ConstructorExpr`, `BodyExpr`) and `calcCompiler.compileNode`
 (`compile.go:414`, 6 cases). Two further switches serve names (`subjectName`, `eval.go:1838`;
-`chainText`, `eval.go:3064`). The 553 AST-bearing runtime signatures are dominated by these two
-files and the state executor (`state_executor.go` 123, `eval.go` 81, `state_route.go` 28,
+`chainText`, `eval.go:3064`). There are 663 AST-bearing runtime signatures now, 277 of them
+naming a graph-structure node type (`*ast.StateNode`, `*ast.StateRegion`, `*ast.Usage`,
+`*ast.PseudostateNode`); the 553 first counted were dominated by these two files and the state
+executor (`state_executor.go` 123, `eval.go` 81, `state_route.go` 28,
 `state_region_transition.go` 27, `action_executor.go` 24).
 
 ### Where a lowered graph goes after an edit
@@ -219,7 +224,7 @@ to move into lowering.
 | `calcShape{Nodes, ResultExpr}` and its lowering in `invoke_calc.go` | the calc's parameters, steps and result | smell (lowering in the wrong layer; named by the roadmap) | `lower.CalcBody` grows into `lower.ToCalc` returning an IR `Calc`; the runtime memoizes by symbol as now |
 | every expression payload (44 fields in `lower`, `Condition.Expr`, `Objective.Value`, `actionInvocation.args/named/expr`, `messageArgs`, `valueSource.expr`, `writtenArgument.expr`, `SatisfyAssertion.SubjectChain`, `passedReference.ref`) | evaluate | expression | `ExprID` into the graph's expression table; `eval` and `compile` switch on `ExprKind` |
 | `ExpressionParser func(origin, text string) (ast.Node, bool)` | parse notation text handed to a run | seam | the seam returns a lowered expression: `func(origin, text string, scope *symbols.Scope) (*lower.ExprTable, program.ExprID, bool)`, the table-and-id shape every lowered expression has, read in the scope the run names; the installer (frontend/workspace) parses *and* lowers with `lower.ExpressionReader`, so parsing and lowering both stay out of `exec` |
-| `lower`'s 56 exported AST-signature helpers (`DeclaresNodeFeature`, `SendPayload`, `IsCaseNode`, `ClassifierBehaviorOf`, `StartShot`, …) | used by `check/passes`, `ir/view`, `tools` on declarations | not on the runtime path | unchanged; `lower` stays the one package that reads both the tree and the IR |
+| `lower`'s exported AST-signature helpers (56 first counted, 118 now) (`DeclaresNodeFeature`, `SendPayload`, `IsCaseNode`, `ClassifierBehaviorOf`, `StartShot`, …) | used by `check/passes`, `ir/view`, `tools` on declarations | not on the runtime path | unchanged; `lower` stays the one package that reads both the tree and the IR |
 
 The runtime never traverses AST *children* itself except in the two expression evaluators and in
 `invoke_action.go`/`signal.go`, which read `InvocationExpr` arguments; all three are covered by
