@@ -201,6 +201,10 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 	}
 }
 
+// transitionLinkParameterSlots name a transition's link parameters off its id (transitionHeadMembers):
+// the one every head owns, then the one ahead of a trigger.
+var transitionLinkParameterSlots = [2]string{"linkparam", "triggerparam"}
+
 // recordTransitionHead files what a transition owns ahead of its trigger (transitionHeadMembers): the
 // Membership of its `first` source at "psourcemember", its link parameter at "linkparam", a trigger's at "triggerparam".
 func (ids *ElementIDs) recordTransitionHead(e *encoder, node ast.Node, subject rdf.Term) {
@@ -215,9 +219,9 @@ func (ids *ElementIDs) recordTransitionHead(e *encoder, node ast.Node, subject r
 	if qualifiedText(n.Source) != "" && !qualifiedNameHasChain(n.Source) {
 		file("psourcemember", partIDs{membership: rdf.LocalName(rdf.ExpressionIRI(subject, "sourcemember").Value)})
 	}
-	slots := []string{"linkparam"}
+	slots := transitionLinkParameterSlots[:1]
 	if naming.TriggerPayload(e.file, n) != nil {
-		slots = append(slots, "triggerparam")
+		slots = transitionLinkParameterSlots[:]
 	}
 	for _, slot := range slots {
 		feature := rdf.IRI(subject.Value + "_" + slot)

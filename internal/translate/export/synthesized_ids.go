@@ -53,6 +53,8 @@ func SynthesizedElementID(sym *symbols.Symbol, ownerID func(*symbols.Symbol) str
 		return memberElementID(owner, naming.Qualify("", naming.ParamName(sym.Decl), part.Index)), true
 	case symbols.ExpressionTransitionSuccession:
 		return owner + transitionSuccessionSuffix, true
+	case symbols.ExpressionTransitionLinkParameter:
+		return owner + "_" + transitionLinkParameterSlots[part.Index], true
 	}
 	return "", false
 }
