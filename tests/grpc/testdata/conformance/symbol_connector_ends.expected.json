@@ -1,0 +1,9 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "Ends::Vehicle::plain",
+	"expected_kind": "connectionUsage",
+	"expected_child_ids": [
+		"Ends__Vehicle__plain_pend0",
+		"Ends__Vehicle__plain_pend1"
+	]
+}

@@ -95,6 +95,8 @@ func TestElementIdentityIsTheTreesIDAndRoundTrips(t *testing.T) {
 		{"D::M::z", []string{"valuation", "value", "result"}, "D__M__z_pvalue_pout"},
 		{"D::holder::@2", []string{"connectorEnd"}, "D__holder___402_pend0"},
 		{"D::holder::@2", []string{"connectorEnd", "ownedElement"}, "D__holder___402_pend0_pchain"},
+		{"D::M::sm::t", []string{"ownedElement"}, "D__M__sm__t_linkparam"},
+		{"D::M::sm::t", []string{"succession"}, "D__M__sm__t_succession"},
 	}
 	for _, tc := range cases {
 		sym := reflect(t, sc, tc.name, tc.path...)
@@ -108,6 +110,12 @@ func TestElementIdentityIsTheTreesIDAndRoundTrips(t *testing.T) {
 			t.Errorf("ResolveElement(%s) = %v, want the one symbol it was read from", got, back)
 		}
 	}
+	// The trigger's link parameter is the transition's second owned element.
+	owned, _ := sc.Semantics.ReflectiveElements(reflect(t, sc, "D::M::sm::t"), "ownedElement")
+	if back := sc.ResolveElement("D__M__sm__t_triggerparam", sc.Semantics); len(owned) < 2 ||
+		len(back) != 1 || back[0] != owned[1] || sc.ElementIdentity(owned[1]) != "D__M__sm__t_triggerparam" {
+		t.Errorf("ResolveElement(D__M__sm__t_triggerparam) = %v, want the transition's second owned element", back)
+	}
 }
 
 func TestResolveElementReadsEveryIDFormOfANamedElement(t *testing.T) {
@@ -118,7 +126,7 @@ func TestResolveElementReadsEveryIDFormOfANamedElement(t *testing.T) {
 			t.Errorf("ResolveElement(%s) = %v, want D::outer::named", id, got)
 		}
 	}
-	for _, id := range []string{"", "D::outer::@7", "D__outer___407", "D__M__sm__t___40trigger_pnowhere", "not an id!"} {
+	for _, id := range []string{"", "D::outer::@7", "D__outer___407", "D__M__sm__t___40trigger_pnowhere", "D__M__sm__a_succession", "not an id!"} {
 		if got := sc.ResolveElement(id, sc.Semantics); len(got) != 0 {
 			t.Errorf("ResolveElement(%q) = %v, want nothing", id, got)
 		}
@@ -155,5 +163,33 @@ func TestElementIdentityNeedsTheFormForSynthesizedElements(t *testing.T) {
 	}
 	if got := sc.ElementIdentity(reflect(t, sc, "D::outer::@0")); got != "D::outer::@0" {
 		t.Errorf("positional identity without the form = %q", got)
+	}
+}
+
+// An unnamed connector end resolves under its element id on a host that converts
+// no form too: the id composed there is the one the conversion mints.
+func TestUnnamedConnectorEndIDIsTheSameWithoutTheForm(t *testing.T) {
+	sc := identityContext(t)
+	connector := reflect(t, sc, "D::holder::@2")
+	ends, _ := sc.Semantics.OwnedConnectorEnds(connector)
+	if len(ends) != 2 {
+		t.Fatalf("OwnedConnectorEnds = %v, want two ends", ends)
+	}
+	ids := make([]string, len(ends))
+	for i, end := range ends {
+		ids[i] = sc.ElementIdentity(end)
+	}
+	for _, converts := range []bool{true, false} {
+		if !converts {
+			sc.ElementForm = nil
+		}
+		for i, end := range ends {
+			if got := sc.LookupElement(ids[i]); len(got) != 1 || got[0] != end {
+				t.Errorf("form %v: LookupElement(%s) = %v, want end %d", converts, ids[i], got, i)
+			}
+		}
+		if got := sc.LookupElement("D__holder___402_pend2"); len(got) != 0 {
+			t.Errorf("form %v: LookupElement of a third end = %v, want none", converts, got)
+		}
 	}
 }
