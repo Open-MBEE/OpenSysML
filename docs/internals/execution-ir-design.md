@@ -1,8 +1,10 @@
 # An execution-owned IR
 
 A design for giving the lowered execution graphs their own identity, so that the runtime no
-longer depends on the lifetime or the shape of the syntax tree. Status: **proposal**; nothing
-below is implemented. The change it describes is the
+longer depends on the lifetime or the shape of the syntax tree. Status: **in progress**; steps
+1–5, 6a and the first two of step 6b's four pull requests are merged into `develop`, and the
+[migration stack](#migration-as-a-stack-of-pull-requests) lists what remains. The change it
+describes is the
 [roadmap](../project/roadmap.md)'s "an execution-owned IR" item under package layering; the
 layering it completes is in [the architecture](architecture.md#architecture-layers), and the
 executor it changes underneath is described in [the action executor](design/action-executor.md).
