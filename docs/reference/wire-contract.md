@@ -2335,6 +2335,12 @@ Pictures are not included; a refused picture contributes its reason to `notices`
 declared port. The service advertises this method as
 the `render_view` capability.
 
+A request naming a `form` (`text`, `mermaid`, `markdown`, `dot`, `plantuml`, `d2`, `drawio`, `csv`
+or `tsv`) is also answered the rendering written in that form, in `text`, with the same fields
+beside it; the `palette`, `style`, `lines`, `direction`, `link` and `unplaced` request fields are
+the writer's options. `text` is absent when no form is named. The service advertises the form and
+its options as the `render_view_form` capability.
+
 This excerpt was captured by calling the gRPC service with
 `RenderViewDemo::connections` from `conformance/fixtures/views.sysml` and marshaling the response
 with protobuf JSON:

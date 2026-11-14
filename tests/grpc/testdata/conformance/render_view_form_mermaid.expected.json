@@ -1,0 +1,19 @@
+{
+  "rpc": "RenderView",
+  "model": "render_view_form.sysml",
+  "view": "FormDemo::structure",
+  "form": "mermaid",
+  "expected_text_contains": [
+    "%% FormDemo::structure — tree rendering (render asTreeDiagram)\nflowchart TD\n",
+    "**Vehicle**"
+  ],
+  "expected_node_names": [
+    "FormDemo::Vehicle",
+    "wheel",
+    "FormDemo::Wheel"
+  ],
+  "expected_edge_labels": [
+    "",
+    ""
+  ]
+}

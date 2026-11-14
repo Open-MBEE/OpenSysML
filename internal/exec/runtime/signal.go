@@ -1422,7 +1422,7 @@ func (ec *EvalContext) eventOccurrence(subsets ast.Node, event *symbols.Symbol) 
 		}
 		subsets = chain.Operand
 	}
-	value, err := ec.eval(subsets)
+	value, err := ec.eval(ec.lowered(subsets))
 	if err != nil || value.Kind != ValInstance {
 		return 0, false
 	}

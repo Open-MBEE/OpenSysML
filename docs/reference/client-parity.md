@@ -90,8 +90,8 @@ from the clients and a gap is a stated gap rather than a silent one.
 | `engines_external` | not bound | not bound | not bound | not bound | bound | not bound | not bound |
 | `edit_documents` | bound | bound | bound | bound | bound | bound | bound |
 | `performer` | bound | bound | bound | bound | bound | bound | bound |
-| `render_document_html` | bound | not bound | bound | bound | bound | bound | bound |
-| `render_document_asciidoc` | bound | not bound | bound | bound | bound | bound | bound |
+| `render_document_html` | bound | bound | bound | bound | bound | bound | bound |
+| `render_document_asciidoc` | bound | bound | bound | bound | bound | bound | bound |
 | `connection_authoring` | bound | bound | bound | bound | bound | bound | bound |
 | `satisfy_authoring` | bound | bound | bound | bound | bound | bound | bound |
 | `requirement_constraint_authoring` | bound | bound | bound | bound | bound | bound | bound |
@@ -120,6 +120,7 @@ from the clients and a gap is a stated gap rather than a silent one.
 | `state_trace` | bound | bound | bound | bound | bound | bound | bound |
 | `action_trace` | bound | bound | bound | bound | bound | bound | bound |
 | `render_view` | bound | bound | bound | bound | bound | bound | bound |
+| `render_view_form` | bound | bound | bound | bound | bound | bound | bound |
 | `export_graphs` | bound | bound | bound | bound | bound | bound | bound |
 | `import_data` | bound | bound | bound | bound | bound | bound | bound |
 | `compare_results` | bound | bound | bound | bound | bound | bound | bound |

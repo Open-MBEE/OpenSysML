@@ -1064,7 +1064,8 @@ func (run *calcRun) value(ctx *Context, out declaredOutput) (Value, error) {
 	}
 	defer leave()
 
-	value, err := run.bindingEnv(ctx, out.Owner).Eval(run.shape.Expr(out.Value))
+	env := run.bindingEnv(ctx, out.Owner)
+	value, err := env.evalExpr(ctx.calcExpr(run.shape, out.Value, env.scope))
 	if err != nil {
 		return Value{}, calcFrame(run.shape.Kind, run.shape.Name, fmt.Errorf("output %s: %w", run.outputDescription(out), err))
 	}

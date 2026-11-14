@@ -7,7 +7,6 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // ErrNoMetaclass is returned when an element's declaration is classified by no
@@ -22,16 +21,19 @@ var ErrReflectiveFeatureUnsupported = errors.New("reflective feature is not deri
 // 1.0 §7.4.9.2): of the element x names, the metadata annotations whose type
 // conforms to T in model order, then its reflective metaobject when its own
 // metaclass conforms to T (§8.3.4.8.15); `()` when nothing does.
-func (ec *EvalContext) evalMetaCast(n *ast.OperatorExpr) (Value, error) {
-	if len(n.Operands) != 1 || n.TypeRef == nil {
+func (ec *EvalContext) evalMetaCast(x lowered) (Value, error) {
+	expr := x.expr()
+	op := x.op()
+	n := x.operator()
+	if len(expr.Args) != 1 || n.TypeRef == nil {
 		return Value{}, fmt.Errorf("%w: '%s' requires one element and one type",
-			ErrTypeMismatch, n.Operator)
+			ErrTypeMismatch, op)
 	}
-	target, ok := ec.resolveClassificationType(n.TypeRef)
+	target, ok := ec.resolveClassificationType(n.TypeRef, ec.resolvedHere(x))
 	if !ok {
 		return Value{}, fmt.Errorf("%w: %s", errUnresolvedType, qualifiedNameToString(n.TypeRef))
 	}
-	sym, err := ec.metaCastSubject(n)
+	sym, err := ec.metaCastSubject(x)
 	if err != nil {
 		return Value{}, err
 	}
@@ -72,8 +74,8 @@ func (ec *EvalContext) evalMetaCast(n *ast.OperatorExpr) (Value, error) {
 
 // metaCastSubject is the element `x meta T` reflects on: the element x names
 // (through any alias), else the element x's value denotes.
-func (ec *EvalContext) metaCastSubject(n *ast.OperatorExpr) (*symbols.Symbol, error) {
-	sym, err := ec.classifiedElement(n)
+func (ec *EvalContext) metaCastSubject(x lowered) (*symbols.Symbol, error) {
+	sym, err := ec.classifiedElement(x)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +84,7 @@ func (ec *EvalContext) metaCastSubject(n *ast.OperatorExpr) (*symbols.Symbol, er
 	}
 	if sym.Decl == nil && sym.Implicit == nil && sym.Chain == nil {
 		return nil, fmt.Errorf("%w: '%s' requires an element, but %s declares none",
-			ErrTypeMismatch, n.Operator, ec.ctx.QualifiedName(sym))
+			ErrTypeMismatch, x.op(), ec.ctx.QualifiedName(sym))
 	}
 	return sym, nil
 }

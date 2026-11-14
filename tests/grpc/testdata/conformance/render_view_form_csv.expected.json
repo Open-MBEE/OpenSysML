@@ -1,0 +1,9 @@
+{
+  "rpc": "RenderView",
+  "model": "render_view_form.sysml",
+  "view": "FormDemo::parts",
+  "form": "csv",
+  "expected_text": "Element,Kind,Type,Declared in\nFormDemo::Vehicle,part def,,\nwheel,part,Wheel,FormDemo::Vehicle\n",
+  "expected_node_names": [],
+  "expected_edge_labels": []
+}

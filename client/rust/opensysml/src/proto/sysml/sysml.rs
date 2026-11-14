@@ -4221,6 +4221,34 @@ pub struct RenderViewRequest {
     /// "ports" (the port usages with the ports nested under them).
     #[prost(string, tag="6")]
     pub compartments: ::prost::alloc::string::String,
+    /// Form to also write into RenderViewResponse.text: "text", "mermaid", "markdown", "dot", "plantuml", "d2",
+    /// "drawio", "csv" or "tsv"; an unknown or wrong-kind form is INVALID_ARGUMENT. Needs render_view_form.
+    #[prost(string, tag="7")]
+    pub form: ::prost::alloc::string::String,
+    /// Palette the dot, mermaid, plantuml, d2 or drawio form fills nodes from,
+    /// as -render-palette names them; empty draws in black and white.
+    #[prost(string, tag="8")]
+    pub palette: ::prost::alloc::string::String,
+    /// Drawing style of the dot or mermaid form, as -render-style names them:
+    /// "" or "pilot" (the default), or "cameo".
+    #[prost(string, tag="9")]
+    pub style: ::prost::alloc::string::String,
+    /// How the dot or plantuml form routes its edges, as -render-lines names
+    /// them: "" or "splines" (the default), "ortho" or "polyline".
+    #[prost(string, tag="10")]
+    pub lines: ::prost::alloc::string::String,
+    /// Flow direction of a graph-shaped form: "TB", "LR", "RL" or "BT"; empty
+    /// leaves each kind's default, which is what the CLI writes.
+    #[prost(string, tag="11")]
+    pub direction: ::prost::alloc::string::String,
+    /// Source link template of each node and edge, as -render-link takes it:
+    /// placeholders {file}, {line}, {col}, {qname} and {id}; empty writes no links.
+    #[prost(string, tag="12")]
+    pub link: ::prost::alloc::string::String,
+    /// Where a graph form of a positioned view puts the nodes no layout places,
+    /// as -render-unplaced names them: "" or "omit" (the default), or "strip".
+    #[prost(string, tag="13")]
+    pub unplaced: ::prost::alloc::string::String,
 }
 /// RenderViewResponse carries all machine-readable fields of the rendering.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -4254,6 +4282,10 @@ pub struct RenderViewResponse {
     /// The view frame round a graph-shaped rendering; unset for a frameless one.
     #[prost(message, optional, tag="12")]
     pub frame: ::core::option::Option<RenderFrame>,
+    /// The rendering written in RenderViewRequest.form, byte for byte what the CLI's
+    /// -render writes at no particular width; empty when the request names no form.
+    #[prost(string, tag="13")]
+    pub text: ::prost::alloc::string::String,
 }
 /// RenderFrame is the view frame of SysML v2 §8.2.3.26: the name compartment's
 /// name and view definition, and the lines of the three information
