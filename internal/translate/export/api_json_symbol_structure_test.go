@@ -614,6 +614,9 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 		return d.expressionPartID(owner.Expr.Owner, "a0")
 	case symbols.ExpressionChainFeature:
 		return d.expressionPartID(owner, sym.Expr.Slot)
+	case symbols.ExpressionTransitionLinkParameter:
+		// A transition's link parameters are minted at linkparam and triggerparam (transitionHeadMembers).
+		return d.expressionPartID(owner, []string{"linkparam", "triggerparam"}[sym.Expr.Index])
 	case symbols.ExpressionPayload:
 		// A send's argument parameter is written as the send's unnamed member at
 		// its argument position (encodeSendArguments: qualify(fqn, "", i)).
