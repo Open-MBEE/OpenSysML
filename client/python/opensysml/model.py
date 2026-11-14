@@ -558,8 +558,9 @@ class Model:
         return self.connection.render_document(self._hash, document_id, form=form)
 
     def render_view(self, view_name, ports="minimal", show=None, depth=0,
-                    compartments="positioned") -> RenderedView:
-        """Render one named view as typed diagram data.
+                    compartments="positioned", form=None, palette=None, style=None,
+                    lines=None, direction=None, link=None, unplaced=None) -> RenderedView:
+        """Render one named view as typed diagram data, and in ``form`` as text.
 
         Args:
             view_name (str): Qualified view name or targeted pseudo-view
@@ -580,21 +581,49 @@ class Model:
                 definition or package keeps a node, ``"ports"`` the port usages
                 with the ports nested under them; a row is a node whose
                 ``compartment`` names the compartment of its ``parent``
+            form (str | None): Form to write the rendering in besides its
+                data, into the result's ``text``, byte for byte what
+                ``sysml -render <view> -render-form <form>`` writes: ``"text"``,
+                ``"mermaid"``, ``"markdown"``, ``"dot"``, ``"plantuml"``,
+                ``"d2"``, ``"drawio"``, ``"csv"`` or ``"tsv"``; ``None`` (the
+                default) writes none
+            palette (str | None): Palette a graph form fills nodes from, as
+                ``-render-palette`` names them; ``None`` draws in black and white
+            style (str | None): Drawing style of the DOT or Mermaid form, as
+                ``-render-style`` names them: ``"pilot"`` (the default) or ``"cameo"``
+            lines (str | None): Edge routing of the DOT or PlantUML form, as
+                ``-render-lines`` names them: ``"splines"`` (the default),
+                ``"ortho"`` or ``"polyline"``
+            direction (str | None): Flow direction of a graph-shaped form:
+                ``"TB"``, ``"LR"``, ``"RL"`` or ``"BT"``; ``None`` leaves each
+                kind's default, which is what the CLI writes
+            link (str | None): Source link template each node and edge of the
+                form is written with, as ``-render-link`` takes it, with the
+                placeholders ``{file}``, ``{line}``, ``{col}``, ``{qname}`` and ``{id}``
+            unplaced (str | None): Where a graph form of a view some Layout
+                positions puts the nodes none does, as ``-render-unplaced``
+                names it: ``"omit"`` (the default) or ``"strip"``
 
         Returns:
-            RenderedView: Ordered nodes, edges, table data and optional layout
+            RenderedView: Ordered nodes, edges, table data and optional layout,
+            and in ``text`` the written form when one was asked for
 
         Raises:
             ValueError: If ``ports`` is neither ``"minimal"`` nor ``"full"``, or
                 ``compartments`` none of its three foldings
-            MissingCapabilityError: If the service cannot render views
-            InvalidRequestError: If the view is malformed or does not render
+            MissingCapabilityError: If the service cannot render views, or
+                cannot write a form when one or a writer option is asked for
+            InvalidRequestError: If the view is malformed or does not render,
+                ``form`` is none there is or one the view's kind is not written
+                in (``"dot"`` of a table), or a writer option names nothing
             ViewNotFoundError: If the view or pseudo-view target is missing;
                 also a SymbolNotFoundError and KeyError
             ModelNotFoundError: If the service no longer holds this model
         """
         return self.connection.render_view(self._hash, view_name, ports=ports, show=show, depth=depth,
-                                           compartments=compartments)
+                                           compartments=compartments, form=form, palette=palette,
+                                           style=style, lines=lines, direction=direction, link=link,
+                                           unplaced=unplaced)
 
 
     def check_action(self, action_symbol_id, inputs=None, performer=None, properties=(), diverge=(),
@@ -720,7 +749,13 @@ class Model:
         return self._symbol_named(name) or self._symbol_by_id(name)
 
     def get(self, fqn):
-        """Get symbol by fully-qualified name (e.g., "Demo::Vehicle").
+        """Get the symbol a fully-qualified name resolves to (e.g., "Demo::Vehicle").
+
+        The name is resolved from the root namespace the way the notation
+        resolves one: through imports, so a name a package re-exports answers
+        with the symbol it imports, an alias with the symbol it names, and a
+        member that is not visible from outside its namespace (``private``,
+        ``protected``) with None. The symbol returned may so carry another id.
 
         Args:
             fqn (str): Fully-qualified name to look up
@@ -731,14 +766,17 @@ class Model:
         for root in self.roots:
             if root.id == fqn:
                 return root
-        return self._symbol_by_id(fqn)
+        info = self._client.get_symbol(self._hash, fqn, resolve_name=True)
+        if info is None:
+            return None
+        return Symbol(info, self._client, self._hash)
 
     def _symbol_by_id(self, fqn):
         """The symbol whose id is ``fqn``, fetched in one call, or None.
 
-        The service resolves a qualified name the way the notation does, through
-        imports and aliases, so it may answer with a symbol of another id. Only
-        the symbol that carries this id is what an id lookup names.
+        An id no symbol was reported under is resolved by the service as a
+        qualified name, so it may answer with a symbol of another id. Only the
+        symbol that carries this id is what an id lookup names.
         """
         info = self._client.get_symbol(self._hash, fqn)
         if info is None or info.id != fqn:

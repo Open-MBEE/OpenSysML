@@ -1176,6 +1176,19 @@ pub struct SymbolOptions {
     /// otherwise only counted by [`Symbol::withheld_library_members`]. Needs the
     /// `symbol_members` capability.
     pub include_library_members: bool,
+    /// Take the id as one the service reported (a child's, a member's), whatever its
+    /// visibility, instead of resolving it as a qualified name from the root namespace.
+    pub by_reported_id: bool,
+}
+
+impl SymbolOptions {
+    /// Options looking a symbol up by an id the service reported.
+    pub(crate) fn reported_id() -> Self {
+        Self {
+            by_reported_id: true,
+            ..Self::default()
+        }
+    }
 }
 
 /// One member of a symbol, own or inherited.
@@ -1280,7 +1293,7 @@ impl Symbol {
         for id in &self.wire.child_ids {
             match self
                 .connection()
-                .get_symbol(&self.model_hash, id, &SymbolOptions::default())
+                .get_symbol(&self.model_hash, id, &SymbolOptions::reported_id())
             {
                 Ok(child) => children.push(child),
                 Err(Error::Model(_)) => {}
@@ -1607,7 +1620,8 @@ impl Model {
     pub fn evaluate(&self, expr: &str, options: &EvalOptions) -> Result<Evaluation, Error> {
         self.connection.evaluate(self.hash(), expr, options)
     }
-    /// Look up a fully qualified symbol.
+    /// Look up a fully qualified symbol, resolved from the root namespace as the notation
+    /// resolves one: through imports and aliases, a non-visible member not found.
     pub fn symbol(&self, fqn: &str) -> Result<Symbol, Error> {
         self.symbol_with(fqn, &SymbolOptions::default())
     }

@@ -99,7 +99,7 @@ func formatOptions(opts protocol.FormattingOptions, keepLineBreaks bool) format.
 func formatEdits(content, formatted []byte, w lineWindow) []protocol.TextEdit {
 	oldLines, oldOffsets := cutLines(content)
 	newLines, _ := cutLines(formatted)
-	newLines = regroupLines(oldLines, newLines)
+	newLines, aligned := regroupLines(oldLines, newLines)
 	table := newLineTable(content, oldOffsets)
 	w.from, w.to = max(w.from, 0), min(w.to, len(oldLines))
 
@@ -124,23 +124,16 @@ func formatEdits(content, formatted []byte, w lineWindow) []protocol.TextEdit {
 			editLine(i, j)
 		}
 	}
+	var hunks []model.Hunk
+	if aligned {
+		hunks = blankRunHunks(oldLines, newLines)
+	} else {
+		hunks = searchHunks(oldLines, newLines, len(content), len(formatted))
+	}
+	hunks = append(hunks, model.Hunk{OldStart: len(oldLines), OldEnd: len(oldLines), NewStart: len(newLines), NewEnd: len(newLines)})
 	oldNext, newNext := 0, 0
-	keys := lineKeys{ids: make(map[string]int, len(oldLines))}
-	oldIDs, newIDs := keys.of(oldLines, len(content)), keys.of(newLines, len(formatted))
-	hunks := append(model.DiffLines(oldIDs, newIDs), model.Hunk{OldStart: len(oldLines), OldEnd: len(oldLines), NewStart: len(newLines), NewEnd: len(newLines)})
-	for k, h := range hunks {
+	for _, h := range hunks {
 		surplus := (h.OldEnd - h.OldStart) - (h.NewEnd - h.NewStart)
-		if surplus > 0 && uniform(oldIDs[h.OldStart:h.OldEnd], oldIDs[h.OldStart]) && uniform(newIDs[h.NewStart:h.NewEnd], oldIDs[h.OldStart]) {
-			// Dropping from a run of like lines (blanks) has no natural place; widen
-			// the hunk over the run so any selected line of it may be the one to go.
-			id := oldIDs[h.OldStart]
-			for h.OldStart > oldNext && oldIDs[h.OldStart-1] == id {
-				h.OldStart, h.NewStart = h.OldStart-1, h.NewStart-1
-			}
-			for h.OldEnd < hunks[k+1].OldStart && oldIDs[h.OldEnd] == id {
-				h.OldEnd, h.NewEnd = h.OldEnd+1, h.NewEnd+1
-			}
-		}
 		pairLines(oldNext, h.OldStart, newNext)
 		oldNext, newNext = h.OldEnd, h.NewEnd
 		if surplus == 0 {
@@ -187,9 +180,66 @@ func formatEdits(content, formatted []byte, w lineWindow) []protocol.TextEdit {
 	return edits
 }
 
+// blankRunHunks diffs lines whose non-blank ones pair off in order, as regroupLines
+// leaves them: only the blank runs between can differ in length. One pass over both.
+func blankRunHunks(oldLines, newLines []string) []model.Hunk {
+	var hunks []model.Hunk
+	for i, j := 0, 0; i < len(oldLines) || j < len(newLines); i, j = i+1, j+1 {
+		oldRun, newRun := i, j
+		for i < len(oldLines) && blank(oldLines[i]) {
+			i++
+		}
+		for j < len(newLines) && blank(newLines[j]) {
+			j++
+		}
+		switch kept := j - newRun; {
+		case i-oldRun > kept:
+			// The whole run, so any selected line of it may be the one to go.
+			hunks = append(hunks, model.Hunk{OldStart: oldRun, OldEnd: i, NewStart: newRun, NewEnd: j})
+		case i-oldRun < kept:
+			hunks = append(hunks, model.Hunk{OldStart: i, OldEnd: i, NewStart: newRun + i - oldRun, NewEnd: j})
+		}
+	}
+	return hunks
+}
+
+// diffLines is the shortest-edit-script search, quadratic in the lines that differ;
+// tests count its calls, since formatter output must never need it.
+var diffLines = model.DiffLines
+
+// searchHunks diffs lines that do not pair off, matching them on their text with
+// whitespace removed; oldSize and newSize are the two texts' lengths.
+func searchHunks(oldLines, newLines []string, oldSize, newSize int) []model.Hunk {
+	keys := lineKeys{ids: make(map[string]int, len(oldLines))}
+	oldIDs, newIDs := keys.of(oldLines, oldSize), keys.of(newLines, newSize)
+	hunks := diffLines(oldIDs, newIDs)
+	oldNext := 0
+	for k := range hunks {
+		h := &hunks[k]
+		nextStart := len(oldLines)
+		if k+1 < len(hunks) {
+			nextStart = hunks[k+1].OldStart
+		}
+		surplus := (h.OldEnd - h.OldStart) - (h.NewEnd - h.NewStart)
+		if surplus > 0 && uniform(oldIDs[h.OldStart:h.OldEnd], oldIDs[h.OldStart]) && uniform(newIDs[h.NewStart:h.NewEnd], oldIDs[h.OldStart]) {
+			// Dropping from a run of like lines (blanks) has no natural place; widen
+			// the hunk over the run so any selected line of it may be the one to go.
+			id := oldIDs[h.OldStart]
+			for h.OldStart > oldNext && oldIDs[h.OldStart-1] == id {
+				h.OldStart, h.NewStart = h.OldStart-1, h.NewStart-1
+			}
+			for h.OldEnd < nextStart && oldIDs[h.OldEnd] == id {
+				h.OldEnd, h.NewEnd = h.OldEnd+1, h.NewEnd+1
+			}
+		}
+		oldNext = h.OldEnd
+	}
+	return hunks
+}
+
 // regroupLines joins the formatted lines that came from one original line, so
-// a split line is one edit within it; lines it cannot match are left as they are.
-func regroupLines(oldLines, newLines []string) []string {
+// a split line is one edit within it; false, and newLines as given, when they do not match up.
+func regroupLines(oldLines, newLines []string) ([]string, bool) {
 	out := make([]string, 0, len(oldLines))
 	j := 0
 	for _, old := range oldLines {
@@ -204,10 +254,10 @@ func regroupLines(oldLines, newLines []string) []string {
 		from := j
 		for i < len(old) {
 			if j == len(newLines) {
-				return newLines
+				return newLines, false
 			}
 			if i = consumeText(old, i, newLines[j]); i < 0 {
-				return newLines
+				return newLines, false
 			}
 			j++
 		}
@@ -219,11 +269,11 @@ func regroupLines(oldLines, newLines []string) []string {
 	}
 	for ; j < len(newLines); j++ {
 		if !blank(newLines[j]) {
-			return newLines
+			return newLines, false
 		}
 		out = append(out, newLines[j])
 	}
-	return out
+	return out, true
 }
 
 // consumeText matches line's non-whitespace bytes against old from i on,

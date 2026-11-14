@@ -17,9 +17,9 @@ be put to the specification authors. Items are ranked by modeler impact:
 **silent wrong results > spurious errors > missed diagnostics > cosmetic**.
 
 **Pilot:** [SysML v2 Pilot Implementation](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation)
-release `2026-09`, commit `38665073bbf02849bd309b106eba79cbb3a1ee1d` — the pin in
+release `2026-09.1`, commit `d81b2ad5016f2e2d3d4364b3d06d01d8bb12a896` — the pin in
 `scripts/pilot-pin.sh`. Where a source record observed an earlier release (`2026-05`, `2026-07`),
-the item says so; those observations have not been re-run against `2026-09` for this register
+the item says so; those observations have not been re-run against `2026-09.1` for this register
 unless stated.
 
 **Specification text:** the clause numbers and quotations below were taken from the OMG

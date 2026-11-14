@@ -1,0 +1,1 @@
+- Imported-name collision hiding stops after finding one indistinguishable membership for each member, avoiding full duplicate lists and unnecessary pair comparisons in large same-name groups while preserving which memberships are hidden.

@@ -285,8 +285,28 @@ func TestRenderViewRoutesThroughEngine(t *testing.T) {
 			t.Errorf("RenderView(%q) = kind %q with %d nodes, want an interconnection drawing", viewName, rendered.Kind, len(rendered.Nodes))
 		}
 	}
-	_, err = server.Call(context.Background(), "RenderView", []byte(fmt.Sprintf(`{"modelHash":%q}`, parsed.ModelHash)))
+	written, err := server.Call(context.Background(), "RenderView",
+		[]byte(fmt.Sprintf(`{"modelHash":%q,"view":"Demo::parts","form":"dot","direction":"LR"}`, parsed.ModelHash)))
+	if err != nil {
+		t.Fatalf("RenderView as dot: %v", err)
+	}
+	var dot struct {
+		Text  string            `json:"text"`
+		Nodes []json.RawMessage `json:"nodes"`
+	}
+	if err := json.Unmarshal(written, &dot); err != nil {
+		t.Fatalf("decoding RenderView as dot: %v\n%s", err, written)
+	}
+	if !strings.Contains(dot.Text, "digraph \"Demo::parts\" {\n") || !strings.Contains(dot.Text, "rankdir=LR") || len(dot.Nodes) == 0 {
+		t.Errorf("RenderView as dot = %d nodes and text:\n%s", len(dot.Nodes), dot.Text)
+	}
 	var callErr *jsonrpc.Error
+	_, err = server.Call(context.Background(), "RenderView",
+		[]byte(fmt.Sprintf(`{"modelHash":%q,"view":"Demo::parts","form":"svg"}`, parsed.ModelHash)))
+	if !errors.As(err, &callErr) || callErr.Code != jsonrpc.CodeInvalidArgument || !strings.Contains(callErr.Message, `unknown rendering form "svg"`) {
+		t.Fatalf("RenderView as svg error = %v, want InvalidArgument naming the forms", err)
+	}
+	_, err = server.Call(context.Background(), "RenderView", []byte(fmt.Sprintf(`{"modelHash":%q}`, parsed.ModelHash)))
 	if !errors.As(err, &callErr) || callErr.Code != jsonrpc.CodeInvalidArgument {
 		t.Fatalf("RenderView without a view error = %v, want InvalidArgument", err)
 	}

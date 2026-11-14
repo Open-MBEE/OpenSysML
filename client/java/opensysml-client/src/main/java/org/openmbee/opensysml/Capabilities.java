@@ -126,6 +126,9 @@ public final class Capabilities {
   /** {@code SymbolInfo} carries every member of a symbol, own and inherited, with its provenance. */
   public static final String SYMBOL_MEMBERS = "symbol_members";
 
+  /** {@code GetSymbol} resolves a qualified name from the root namespace rather than as a reported id. */
+  public static final String SYMBOL_NAME_RESOLUTION = "symbol_name_resolution";
+
   /** The {@code GetElementProperties} RPC: an element's metamodel properties by their specification names. */
   public static final String ELEMENT_PROPERTIES = "element_properties";
 
@@ -210,6 +213,9 @@ public final class Capabilities {
 
   /** The service renders named and targeted pseudo-views as diagram data. */
   public static final String RENDER_VIEW = "render_view";
+
+  /** The {@code RenderView} RPC also writes the view in a named form, with writer options. */
+  public static final String RENDER_VIEW_FORM = "render_view_form";
 
   /** The {@code ExportGraphs} RPC exports a behavior's lowered graph as {@code graphs:1} JSON. */
   public static final String EXPORT_GRAPHS = "export_graphs";

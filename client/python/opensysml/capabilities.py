@@ -80,6 +80,10 @@ CAPABILITY_RENDER_DOCUMENT = "render_document"
 #: The ``RenderView`` RPC, which returns typed diagram data.
 CAPABILITY_RENDER_VIEW = "render_view"
 
+#: ``RenderViewRequest.form`` and its writer options, answered in
+#: ``RenderViewResponse.text``. Without it the service drops them unanswered.
+CAPABILITY_RENDER_VIEW_FORM = "render_view_form"
+
 #: The ``ExportGraphs`` RPC, which exports the lowered graph of an action or
 #: state machine as the canonical ``graphs:1`` JSON an external engine is sent.
 CAPABILITY_EXPORT_GRAPHS = "export_graphs"
@@ -114,6 +118,11 @@ CAPABILITY_SYMBOL_ATTRIBUTES = "symbol_attributes"
 #: with its provenance, and ``GetSymbolRequest.include_library_members`` honoured.
 #: Without it only ``child_ids``, the owned members, is reported.
 CAPABILITY_SYMBOL_MEMBERS = "symbol_members"
+
+#: ``GetSymbolRequest.resolve_name`` honoured: a qualified name resolved from the
+#: root namespace through imports, aliases and visibility. Without it the service
+#: reads every id as one it reported, so the name of a declaration is all it finds.
+CAPABILITY_SYMBOL_NAME_RESOLUTION = "symbol_name_resolution"
 
 #: The ``GetElementProperties`` RPC: the metamodel properties of one element by
 #: their specification names, as the model's API element form spells them.

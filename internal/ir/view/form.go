@@ -3,6 +3,7 @@ package view
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 )
@@ -246,30 +247,51 @@ func (r *Rendering) Write(form Form) (string, error) {
 // on every form that fills nodes, and a port display outside it an
 // *UnknownPortsError on every form.
 func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
-	if options.Links.Template != "" {
-		if err := ParseLinkTemplate(options.Links.Template); err != nil {
-			return "", err
+	if form != FormSVG && form != FormSVGAnimated {
+		return r.writeView(form, options, Forms())
+	}
+	if err := options.check(); err != nil {
+		return "", err
+	}
+	if !r.supportsForm(form) {
+		return "", r.wrongFormError(form)
+	}
+	return r.SVGWith(options, form == FormSVGAnimated), nil
+}
+
+// WriteViewWith is WriteWith over ViewForms alone: a run-only SVG form is an
+// *UnknownFormError, so a caller that draws no run links no SVG writer.
+func (r *Rendering) WriteViewWith(form Form, options Options) (string, error) {
+	return r.writeView(form, options, ViewForms())
+}
+
+func (o Options) check() error {
+	if o.Links.Template != "" {
+		if err := ParseLinkTemplate(o.Links.Template); err != nil {
+			return err
 		}
 	}
-	if err := options.Ports.check(); err != nil {
-		return "", err
+	if err := o.Ports.check(); err != nil {
+		return err
 	}
-	if err := options.Lines.check(); err != nil {
-		return "", err
+	if err := o.Lines.check(); err != nil {
+		return err
 	}
-	if err := options.Compartments.check(); err != nil {
+	return o.Compartments.check()
+}
+
+func (r *Rendering) writeView(form Form, options Options, known []Form) (string, error) {
+	if err := options.check(); err != nil {
 		return "", err
 	}
 	switch form {
 	case FormText:
 		return r.textWith(options), nil
-	case FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormDrawio, FormCSV, FormTSV, FormSVG, FormSVGAnimated:
+	case FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormDrawio, FormCSV, FormTSV:
 		if !r.supportsForm(form) {
 			return "", r.wrongFormError(form)
 		}
 		switch form {
-		case FormSVG, FormSVGAnimated:
-			return r.SVGWith(options, form == FormSVGAnimated), nil
 		case FormMarkdown:
 			return r.Markdown(), nil
 		case FormCSV:
@@ -301,5 +323,33 @@ func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
 		}
 		return r.MermaidWith(options), nil
 	}
-	return "", fmt.Errorf("unknown rendering form %q; the forms are %s", form, joinForms(Forms(), "and"))
+	return "", &UnknownFormError{Name: string(form), Forms: known}
+}
+
+// Artifact is a written form as a file or a stream holds it: ending in one newline.
+func Artifact(written string) string { return strings.TrimRight(written, "\n") + "\n" }
+
+// ErrUnknownForm is a form name that names none. UnknownFormError wraps it.
+var ErrUnknownForm = errors.New("unknown rendering form")
+
+// UnknownFormError is a rendering asked for in a form none of Forms is; it
+// names the forms there are.
+type UnknownFormError struct {
+	Name  string
+	Forms []Form
+}
+
+func (e *UnknownFormError) Error() string {
+	return fmt.Sprintf("unknown rendering form %q; the forms are %s", e.Name, joinForms(e.Forms, "and"))
+}
+
+func (e *UnknownFormError) Unwrap() error { return ErrUnknownForm }
+
+// ParseViewForm is the model-view form name names: one of ViewForms, or an
+// *UnknownFormError naming them, which the run-only SVG forms are too.
+func ParseViewForm(name string) (Form, error) {
+	if form := Form(name); slices.Contains(ViewForms(), form) {
+		return form, nil
+	}
+	return "", &UnknownFormError{Name: name, Forms: ViewForms()}
 }

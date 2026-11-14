@@ -348,6 +348,10 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	return encodeModelDocuments(documents, res, encoders)
+}
+
+func encodeModelDocuments(documents []ModelDocument, res *resolve.Resolver, encoders []*encoder) (*rdf.Graph, *resolve.Resolver, []*encoder, error) {
 	// declaredIn is the document and declaration each subject was minted for:
 	// two documents declaring one subject would merge two elements into one.
 	declaredIn := map[string]mintedSubject{}
@@ -377,6 +381,10 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 // its identity tables settled: what every id is minted from, before any writing.
 func modelEncodersOf(documents []ModelDocument, form IDForm) (*resolve.Resolver, []*encoder, error) {
 	res, model := analyzeModel(documents)
+	return modelEncodersOver(documents, form, res, model)
+}
+
+func modelEncodersOver(documents []ModelDocument, form IDForm, res *resolve.Resolver, model *semantics.Model) (*resolve.Resolver, []*encoder, error) {
 	shared := &modelEncoders{declaring: map[ast.Node]*encoder{}}
 	encoders := make([]*encoder, len(documents))
 	scopes := map[string]bool{}
@@ -2457,7 +2465,7 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			name = declared.Name
 			keyword = e.referencesKeyword(end)
 		}
-		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: slot, index: i, decl: end, memberName: e.endMemberName(e.ids.declSym[n], i), ends: endCount, target: end.AttachedTarget(), element: end.AttachedIndex(), mult: end.Multiplicity, name: name, keyword: keyword, port: n.Kind == ast.UsageInterface}); err != nil {
+		if _, err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: slot, index: i, decl: end, memberName: e.endMemberName(e.ids.declSym[n], i), ends: endCount, target: end.AttachedTarget(), element: end.AttachedIndex(), mult: end.Multiplicity, name: name, keyword: keyword, port: n.Kind == ast.UsageInterface}); err != nil {
 			return err
 		}
 	}
@@ -2479,7 +2487,7 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			continue
 		}
 		feature, element := ast.EndSelection(target)
-		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: fmt.Sprintf("end%d", i), index: i, memberName: e.endMemberName(e.ids.declSym[n], i), ends: 2, target: feature, element: element, flow: true}); err != nil {
+		if _, err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: fmt.Sprintf("end%d", i), index: i, memberName: e.endMemberName(e.ids.declSym[n], i), ends: 2, target: feature, element: element, flow: true}); err != nil {
 			return err
 		}
 	}
@@ -2547,24 +2555,24 @@ func (e *encoder) typeTerm(typ *symbols.Symbol) rdf.Term {
 	return term
 }
 
-// connectorRelatedFeature states Connector::relatedFeature as the feature the end's ReferenceSubsetting references
-// (KerML 8.3.4.5.3) and, for a plain end, the Relationship::relatedElement, source and target the three redefine.
-func (e *encoder) connectorRelatedFeature(subject, reference rdf.Term, index, ends int, plain bool) {
+// connectorRelatedFeature states Connector::relatedFeature as the feature the end's ReferenceSubsetting references (KerML 8.3.4.5.3;
+// a chain Feature, a flow end's feature before its payload) and, unless a succession states them itself, the relatedElement, source and target.
+func (e *encoder) connectorRelatedFeature(subject, reference rdf.Term, index, ends int, related bool) {
 	if reference.Value == "" || !reference.IsIRI() {
 		return
 	}
 	e.graph.Add(subject, e.sysml(pRelatedFeature), reference)
-	if plain {
+	if related {
 		e.graph.Add(subject, e.sysml(pRelatedElement), reference)
 	}
 	if ends == 2 && index == 0 {
 		e.graph.Add(subject, e.sysml(pSourceFeature), reference)
-		if plain {
+		if related {
 			e.graph.Add(subject, e.sysml(pSource), reference)
 		}
 	} else if ends == 2 && index == 1 {
 		e.graph.Add(subject, e.sysml(pTargetFeature), reference)
-		if plain {
+		if related {
 			e.graph.Add(subject, e.sysml(pTarget), reference)
 		}
 	}
@@ -2622,10 +2630,12 @@ func (e *encoder) endMemberName(sym *symbols.Symbol, i int) string {
 	return ""
 }
 
-// connectorEnd emits a standard ConnectorEnd feature and its EndFeatureMembership.
-func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
+// connectorEnd emits a standard ConnectorEnd feature and its EndFeatureMembership, and answers the
+// feature the end references (a chained end's chain Feature); the zero term for an end referencing none.
+func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) (rdf.Term, error) {
+	var reference rdf.Term
 	if end.target == nil && end.targetTerm.Value == "" && !end.empty {
-		return nil
+		return reference, nil
 	}
 	feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, end.slot), subject, end.slot)
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
@@ -2662,7 +2672,7 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 		if end.element != nil {
 			written += "#(" + e.text(end.element) + ")"
 			if err := e.expressionAs(feature, e.sysx(xEndElement), "element", end.owner, end.element, mOwningMembership); err != nil {
-				return err
+				return reference, err
 			}
 		}
 		e.graph.Add(feature, e.sysx(xSourceText), rdf.String(written))
@@ -2680,7 +2690,6 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 		e.graph.Add(feature, e.sysml(pName), rdf.String(end.memberName))
 	}
 	if end.target != nil || end.targetTerm.Value != "" {
-		var reference rdf.Term
 		switch {
 		case len(flowSegments) > 0:
 			reference = e.flowEndReferences(feature, flowSegments)
@@ -2690,20 +2699,19 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 		default:
 			var err error
 			if reference, err = e.endReferences(feature, end.target); err != nil {
-				return err
+				return reference, err
 			}
 		}
 		if !end.noCollapse {
-			name, named := end.target.(*ast.QualifiedName)
-			plain := len(flowSegments) == 0 && end.targetTerm.Value == "" && named && !qualifiedNameHasChain(name)
-			e.connectorRelatedFeature(subject, reference, end.index, end.ends, plain)
+			related := end.targetTerm.Value == ""
+			e.connectorRelatedFeature(subject, reference, end.index, end.ends, related)
 		}
 	}
 	if err := e.multiplicity(feature, end.owner, end.mult); err != nil {
-		return err
+		return reference, err
 	}
 	e.defaultMultiplicity(feature, end.decl, end.mult)
-	return nil
+	return reference, nil
 }
 
 // flowEndSegments is the name or chain a flow end names, one term per segment,
