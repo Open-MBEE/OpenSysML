@@ -34,8 +34,8 @@ func TestStateBodyThenAfterStateIsATransitionUsage(t *testing.T) {
 			// as for a transition's trigger and guard.
 			continue
 		}
-		// The Membership naming the state before it, the link parameter, the succession: the pilot's order.
-		if got, want := ownedMemberKinds(model, transition), "Membership:StateUsage ParameterMembership:ReferenceUsage OwningMembership:SuccessionAsUsage"; got != want {
+		// The Membership naming the state before it, the link parameter, the succession, the transitionLink: the pilot's order.
+		if got, want := ownedMemberKinds(model, transition), "Membership:StateUsage ParameterMembership:ReferenceUsage OwningMembership:SuccessionAsUsage FeatureMembership:ReferenceUsage"; got != want {
 			t.Errorf("the transition's ownedRelationship = %s, want %s", got, want)
 		}
 		succession := ownedMembers(model, transition)[2]
@@ -128,7 +128,7 @@ func TestStateBodyTransitionMintsNoSuccessionEnds(t *testing.T) {
 		if transition.Recorded() {
 			continue
 		}
-		if got, want := ownedMemberKinds(model, transition), "Membership:StateUsage ParameterMembership:ReferenceUsage OwningMembership:SuccessionAsUsage"; got != want {
+		if got, want := ownedMemberKinds(model, transition), "Membership:StateUsage ParameterMembership:ReferenceUsage OwningMembership:SuccessionAsUsage FeatureMembership:ReferenceUsage"; got != want {
 			t.Errorf("the transition's ownedRelationship = %q, want %q", got, want)
 		}
 		if got := ownedMemberKinds(model, ownedMembers(model, transition)[2]); got != wantEnds {
