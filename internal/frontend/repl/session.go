@@ -4,7 +4,6 @@ package repl
 
 import (
 	"fmt"
-	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -12,6 +11,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
@@ -1562,7 +1563,7 @@ func (s *Session) runtimeModel() (*runtime.Model, error) {
 	sem.SetSourceFile(s.sessionSourceFile)
 	sem.ShareAbout(s.about)
 	model := runtime.NewModel(sem, resolver)
-	model.SetExpressionParser(parser.ParseOneExpression)
+	model.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, model.Resolver()))
 	// Give the runtime the buffer's text, so an error about a declaration reports
 	// the line it was submitted on rather than a byte offset, and the buffer's
 	// scope tree, so a carried object is rebound to the symbols the prompt reaches.
