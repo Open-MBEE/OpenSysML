@@ -120,6 +120,25 @@ func TestTransitionBodyBareReferenceSurvivesBesideTheTransitionLink(t *testing.T
 	if string(back) != src {
 		t.Errorf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
 	}
+	// A graph that links the `ref;` as a body member but states no address or index for it keeps it too.
+	var unaddressed []string
+	for _, block := range strings.Split(string(withoutLayout(t, turtle)), "\n\n") {
+		if strings.HasPrefix(block, "elmt:P__S__t___400\n") {
+			var kept []string
+			for _, line := range strings.Split(block, "\n") {
+				if !strings.Contains(line, "sysx:positionalName") && !strings.Contains(line, "sysx:memberIndex") {
+					kept = append(kept, line)
+				}
+			}
+			block = strings.Join(kept, "\n")
+		}
+		unaddressed = append(unaddressed, block)
+	}
+	if again, err := convert.Convert("t.ttl", []byte(strings.Join(unaddressed, "\n\n")), convert.FormatTurtle, convert.FormatSysML); err != nil {
+		t.Errorf("an unaddressed body `ref;` should import: %v", err)
+	} else if !strings.Contains(string(again), "ref;") {
+		t.Errorf("the unaddressed body `ref;` was dropped:\n%s", again)
+	}
 	// In uuid form the transitionLink loses its minted suffix; it is still no body member.
 	plain := "package P {\n    state def S {\n        state a;\n        state b;\n        transition t first a then b;\n    }\n}\n"
 	uuidTurtle, err := convert.ConvertWith("u.sysml", []byte(plain), convert.FormatSysML, convert.FormatTurtle, convert.Options{ID: export.IDUUID})

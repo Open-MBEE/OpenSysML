@@ -1016,7 +1016,8 @@ func (d *decoder) transitionImplied(el, parent *element) (bool, error) {
 		if len(d.graph.Objects(subject, rdf.SysML+pOwnedRelationship)) == 0 {
 			// A bare one a FeatureMembership owns is the transitionLink the conversion writes last (transitionLinkMember),
 			// by its minted id, or, in uuid form, by having no place among the body's members as a written `ref;` has.
-			return owning == mParameterMembership || (!stated && (strings.HasSuffix(el.iri, transitionLinkSuffix) ||
+			linked := d.linked(parent, xBodyMember)[el.iri] || d.linked(parent, xEffectMember)[el.iri]
+			return owning == mParameterMembership || (!stated && !linked && (strings.HasSuffix(el.iri, transitionLinkSuffix) ||
 				(!d.graph.HasProperty(subject, rdf.OpenSysML+xMemberIndex) && !hasAddress(d.graph, subject)))), nil
 		}
 		if parent == nil || parent.metaclass != mTransition {
