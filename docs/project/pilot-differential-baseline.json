@@ -1,24 +1,24 @@
 {
   "validator": "build/pilot-sysml-validator/validate-sysml-batch",
   "libraries": "internal/workspace/libs/stdlib/OpenSysML Libraries",
-  "pilotRelease": "2026-09 (jupyter-sysml-kernel 0.63.0)",
+  "pilotRelease": "2026-09.1 (jupyter-sysml-kernel 0.63.1)",
   "provenance": {
-    "pilotTag": "2026-09",
-    "pilotCommit": "38665073bbf02849bd309b106eba79cbb3a1ee1d",
-    "pilotArtifact": "0.63.0",
+    "pilotTag": "2026-09.1",
+    "pilotCommit": "d81b2ad5016f2e2d3d4364b3d06d01d8bb12a896",
+    "pilotArtifact": "0.63.1",
     "errataRegistry": "sha256:d5782936c5c92f29f24a077477b148fc5d178f83f174b143d1bb95c3693ab1b9",
     "tools": [
       {
         "name": "pilot-sysml-validator",
         "source": "scripts/pilot-sysml-validator/ValidateSysML.java",
         "sourceDigest": "sha256:50ed14f8a0ca9014ae3aa7453dfe464f16e767a11c52b25d554b48e191aa09fc",
-        "release": "2026-09 (jupyter-sysml-kernel 0.63.0)"
+        "release": "2026-09.1 (jupyter-sysml-kernel 0.63.1)"
       },
       {
         "name": "pilot-kerml-validator",
         "source": "scripts/pilot-kerml-validator/ValidateKerML.java",
         "sourceDigest": "sha256:b89029eea7fcee7459bdc645a52af8ba8370f1bbaa64ff780ceb4bdc578d2de6",
-        "release": "2026-09 (jupyter-sysml-kernel 0.63.0)"
+        "release": "2026-09.1 (jupyter-sysml-kernel 0.63.1)"
       }
     ],
     "inputs": [
@@ -55,7 +55,7 @@
         "dir": "examples/spec-examples",
         "origin": "pinned",
         "files": 511,
-        "digest": "sha256:bd8b7c802c1aac350f7973e054a72b605915182eb014f008a1044cef294d1010"
+        "digest": "sha256:7d7124196b4255d6eb2ca94f8901f18546af38e2ada9b2cd758aa187be5c87ab"
       },
       {
         "name": "testdata",
@@ -86,17 +86,17 @@
         "digest": "sha256:f39db343dafb9c99359f5a92e56dcdd5c52992dc50e50b9268d349aa9cdfdf26"
       }
     ],
-    "recorded": "2026-11-12"
+    "recorded": "2026-11-14"
   },
   "totals": {
     "files": 924,
-    "filesFullyAgreeing": 524,
-    "agreement": 1102,
+    "filesFullyAgreeing": 527,
+    "agreement": 1104,
     "severityMismatch": 11,
-    "openSysMLOnly": 122,
-    "pilotOnly": 2462,
-    "openSysMLDiagnostics": 1235,
-    "pilotDiagnostics": 3575
+    "openSysMLOnly": 121,
+    "pilotOnly": 2450,
+    "openSysMLDiagnostics": 1236,
+    "pilotDiagnostics": 3565
   },
   "roots": [
     {
@@ -134,13 +134,13 @@
       "dir": "examples/pilot-corpora/sysml-examples",
       "totals": {
         "files": 99,
-        "filesFullyAgreeing": 89,
+        "filesFullyAgreeing": 92,
         "agreement": 0,
         "severityMismatch": 0,
         "openSysMLOnly": 34,
-        "pilotOnly": 10,
+        "pilotOnly": 0,
         "openSysMLDiagnostics": 34,
-        "pilotDiagnostics": 10
+        "pilotDiagnostics": 0
       },
       "files": [
         {
@@ -198,84 +198,6 @@
             }
           ],
           "pilotOnly": []
-        },
-        {
-          "path": "Metadata Examples/RequirementMetadataExample.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [],
-          "pilotOnly": [
-            {
-              "line": 19,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 20,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 21,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 22,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            }
-          ]
-        },
-        {
-          "path": "Metadata Examples/RiskMetadataExample.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [],
-          "pilotOnly": [
-            {
-              "line": 7,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 8,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 9,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            }
-          ]
-        },
-        {
-          "path": "Metadata Examples/VerificationMetadataExample.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [],
-          "pilotOnly": [
-            {
-              "line": 7,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 2
-            },
-            {
-              "line": 11,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            }
-          ]
         },
         {
           "path": "Simple Tests/PartTest.sysml",
@@ -484,13 +406,13 @@
       ],
       "errataTotals": {
         "files": 99,
-        "filesFullyAgreeing": 90,
+        "filesFullyAgreeing": 93,
         "agreement": 0,
         "severityMismatch": 0,
         "openSysMLOnly": 33,
-        "pilotOnly": 10,
+        "pilotOnly": 0,
         "openSysMLDiagnostics": 33,
-        "pilotDiagnostics": 10
+        "pilotDiagnostics": 0
       }
     },
     {
@@ -653,11 +575,11 @@
       "totals": {
         "files": 511,
         "filesFullyAgreeing": 151,
-        "agreement": 1038,
+        "agreement": 1040,
         "severityMismatch": 6,
-        "openSysMLOnly": 47,
-        "pilotOnly": 2351,
-        "openSysMLDiagnostics": 1091,
+        "openSysMLOnly": 46,
+        "pilotOnly": 2349,
+        "openSysMLDiagnostics": 1092,
         "pilotDiagnostics": 3395
       },
       "files": [
@@ -16308,16 +16230,22 @@
         },
         {
           "path": "sysml/8.4.21.2/1.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [
+          "agreement": [
             {
-              "line": 4,
+              "line": 5,
               "severity": "error",
-              "category": "unmapped",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 6,
+              "severity": "error",
+              "category": "unresolved-reference",
               "count": 1
             }
           ],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
           "pilotOnly": [
             {
               "line": 4,
@@ -16338,12 +16266,6 @@
               "count": 1
             },
             {
-              "line": 5,
-              "severity": "error",
-              "category": "unresolved-reference",
-              "count": 1
-            },
-            {
               "line": 6,
               "severity": "error",
               "category": "syntax",
@@ -16353,12 +16275,6 @@
               "line": 6,
               "severity": "error",
               "category": "unmapped",
-              "count": 1
-            },
-            {
-              "line": 6,
-              "severity": "error",
-              "category": "unresolved-reference",
               "count": 1
             },
             {
@@ -18297,11 +18213,6 @@
     },
     {
       "side": "opensysml",
-      "message": "only a definition may specialize; found a usage",
-      "count": 2
-    },
-    {
-      "side": "opensysml",
       "message": "operator '+' is not defined for String and Natural",
       "count": 2
     },
@@ -18433,6 +18344,11 @@
     {
       "side": "opensysml",
       "message": "accept of deferred signal Ping is not marked #MigrationMetadata::DeferredKeeper, so it is an ordinary accept, not the keeping loop; re-migrate the model or mark it",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "only a definition may specialize; found a usage",
       "count": 1
     },
     {
@@ -25039,13 +24955,13 @@
     ],
     "totals": {
       "files": 924,
-      "filesFullyAgreeing": 525,
-      "agreement": 1102,
+      "filesFullyAgreeing": 528,
+      "agreement": 1104,
       "severityMismatch": 11,
-      "openSysMLOnly": 121,
-      "pilotOnly": 2462,
-      "openSysMLDiagnostics": 1234,
-      "pilotDiagnostics": 3575
+      "openSysMLOnly": 120,
+      "pilotOnly": 2450,
+      "openSysMLDiagnostics": 1235,
+      "pilotDiagnostics": 3565
     },
     "findings": [
       {
