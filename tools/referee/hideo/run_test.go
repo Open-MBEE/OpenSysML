@@ -147,34 +147,59 @@ func TestReaderRun(t *testing.T) {
 	}
 }
 
+// The readers' arms of run-all.sh as the pin spells them, with a neighbour's.
+const pinnedRunner = `run_suite() {
+  case "$1" in
+    opensysml-py)     cd test-opensysml-py && .venv/bin/python -m pytest -q test_matrices.py ;;
+    opensysml-py-props)
+                      cd test-opensysml-py &&
+                      OPENSYSML_PY_SUITE=opensysml-py-props .venv/bin/python -m pytest -q test_props.py ;;
+    opensysml-go)     cd test-opensysml-go && go test -v ./... ;;
+    opensysml-go-props)
+                      cd test-opensysml-go && OPENSYSML_GO_SUITE=opensysml-go-props go test -v ./... ;;
+    opensysml-rs)     cd test-opensysml-rs && cargo test --release -- --nocapture ;;
+  esac
+}
+`
+
 // Each of the Suites has a reader, and a runner that runs one differently is refused.
 func TestCheckRunner(t *testing.T) {
 	if len(readers) != len(Suites) {
 		t.Fatalf("%d readers for %d suites", len(readers), len(Suites))
 	}
-	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, suiteDir), 0o750); err != nil {
-		t.Fatal(err)
-	}
-	var script strings.Builder
 	for i, r := range readers {
 		if r.suite != Suites[i] {
 			t.Errorf("reader %d is %s, suite %d is %s", i, r.suite, i, Suites[i])
 		}
-		script.WriteString(r.suite + ") cd x && " + r.line() + " ;;\n")
 	}
-	runner := filepath.Join(dir, suiteDir, "run-all.sh")
-	if err := os.WriteFile(runner, []byte(script.String()), 0o600); err != nil {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, suiteDir), 0o750); err != nil {
 		t.Fatal(err)
 	}
-	if err := checkRunner(dir); err != nil {
-		t.Errorf("the runner this package follows: %v", err)
+	check := func(script string) error {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, suiteDir, "run-all.sh"), []byte(script), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return checkRunner(dir)
 	}
-	moved := strings.Replace(script.String(), "test_props.py", "test_properties.py", 1)
-	if err := os.WriteFile(runner, []byte(moved), 0o600); err != nil {
-		t.Fatal(err)
+	if err := check(pinnedRunner); err != nil {
+		t.Errorf("the runner of the pin: %v", err)
 	}
-	if err := checkRunner(dir); err == nil || !strings.Contains(err.Error(), "opensysml-py-props") {
-		t.Errorf("a runner that runs a reader differently: %v", err)
+	const goArm = "    opensysml-go)     cd test-opensysml-go && go test -v ./... ;;\n"
+	for _, tc := range []struct{ name, old, new, suite string }{
+		{"another test file", "test_props.py", "test_properties.py", "runs opensysml-py-props as"},
+		{"arguments after the command", "OPENSYSML_GO_SUITE=opensysml-go-props go test -v ./...", "OPENSYSML_GO_SUITE=opensysml-go-props go test -v ./... -run TestOther", "runs opensysml-go-props as"},
+		{"a reader's arm dropped, its command still within another's", goArm, "", "runs opensysml-go as"},
+		{"another directory", "opensysml-py)     cd test-opensysml-py", "opensysml-py)     cd test-other-py", "runs opensysml-py as"},
+		{"an environment variable before the command", "&& go test -v ./... ;;", "&& GOFLAGS=-short go test -v ./... ;;", "runs opensysml-go as"},
+	} {
+		if !strings.Contains(pinnedRunner, tc.old) {
+			t.Fatalf("%s: the pinned runner has no %q", tc.name, tc.old)
+		}
+		err := check(strings.Replace(pinnedRunner, tc.old, tc.new, 1))
+		if err == nil || !strings.Contains(err.Error(), tc.suite) {
+			t.Errorf("%s: %v", tc.name, err)
+		}
 	}
 }

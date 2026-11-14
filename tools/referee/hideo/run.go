@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -69,21 +70,45 @@ var readers = []reader{
 	{"opensysml-go", goDir, nil, []string{"go", "test", "-v", "./..."}},
 }
 
-// line is the reader's command as run-all.sh spells it.
+// line is the reader's command as an arm of run-all.sh's run_suite spells it, less its layout.
 func (r reader) line() string {
-	return strings.Join(append(append([]string{}, r.env...), r.args...), " ")
+	words := append([]string{"cd", path.Base(r.dir), "&&"}, r.env...)
+	return strings.Join(append(words, r.args...), " ")
+}
+
+// runnerArm is the command of suite's arm in run-all.sh's case statement, its layout
+// folded to single spaces, or "" when the script has no such arm.
+func runnerArm(script, suite string) string {
+	var arm []string
+	found := false
+	for _, text := range strings.Split(script, "\n") {
+		text = strings.TrimSpace(text)
+		if !found {
+			rest, ok := strings.CutPrefix(text, suite+")")
+			if !ok {
+				continue
+			}
+			found, text = true, rest
+		}
+		command, closed := strings.CutSuffix(strings.TrimSpace(text), ";;")
+		arm = append(arm, strings.Fields(command)...)
+		if closed {
+			return strings.Join(arm, " ")
+		}
+	}
+	return ""
 }
 
 // checkRunner refuses a pinned runner that no longer runs a reader the way this package does.
 func checkRunner(dir string) error {
-	path := filepath.Join(dir, suiteDir, "run-all.sh")
-	script, err := os.ReadFile(path) // #nosec G304 -- the runner of the suite checkout the caller named
+	file := filepath.Join(dir, suiteDir, "run-all.sh")
+	script, err := os.ReadFile(file) // #nosec G304 -- the runner of the suite checkout the caller named
 	if err != nil {
 		return err
 	}
 	for _, r := range readers {
-		if !strings.Contains(string(script), r.line()) {
-			return fmt.Errorf("%s no longer runs %s as `%s`: bring tools/referee/hideo/run.go in line with the pin", path, r.suite, r.line())
+		if arm := runnerArm(string(script), r.suite); arm != r.line() {
+			return fmt.Errorf("%s runs %s as `%s`, not as `%s`: bring tools/referee/hideo/run.go in line with the pin", file, r.suite, arm, r.line())
 		}
 	}
 	return nil
