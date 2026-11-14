@@ -1789,7 +1789,7 @@ Type::inheritedMembership	examples	14051	9008	4987	56	21695	21695	0	0
 Type::inheritedMembership	probes	15	8	7	0	15	15	0	0
 Type::inheritedMembership	manual-examples	1523	1010	393	120	3710	3710	0	0
 Type::input	training	3447	439	3000	8	4842	759	4083	0
-Type::input	pilot-examples	12914	1466	11336	112	16557	2490	14067	0
+Type::input	pilot-examples	12914	1464	11338	112	16557	2490	14067	0
 Type::input	pilot-validation	4322	430	3863	29	5619	738	4881	0
 Type::input	kerml-examples	2432	138	2178	116	3204	224	2980	0
 Type::input	spec-examples	3214	252	2315	647	4821	349	4472	0
@@ -1825,7 +1825,7 @@ Type::multiplicity	examples	14051	2274	11777	0	21695	2935	0	18760
 Type::multiplicity	probes	15	0	15	0	15	0	0	15
 Type::multiplicity	manual-examples	1523	191	1332	0	3710	205	0	3505
 Type::output	training	3447	586	2853	8	4842	1123	3719	0
-Type::output	pilot-examples	12914	2407	10395	112	16557	4306	12251	0
+Type::output	pilot-examples	12914	2409	10393	112	16557	4306	12251	0
 Type::output	pilot-validation	4322	760	3533	29	5619	1367	4252	0
 Type::output	kerml-examples	2432	229	2087	116	3204	905	2299	0
 Type::output	spec-examples	3214	424	2143	647	4821	843	3978	0
