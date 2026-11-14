@@ -61,6 +61,7 @@ test("the lookup kind is sent only to a service that reports symbol_lookup_kind"
     withheldLibraryAttributes: 0,
     members: [],
     withheldLibraryMembers: 0,
+    annotatingMetadataIds: [],
   };
   const id = "Col__V__c_pend0";
   for (const [capabilities, want] of [
