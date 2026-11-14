@@ -19,6 +19,16 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		// A KerML feature has no Usage::mayTimeVary; its isVariable is declared.
 		return false
 	}
+	if sym.OwnerScope == nil && sym.Expr != nil {
+		// A referential part the model synthesizes declares nothing of its own; it varies as its owning type does.
+		switch sym.Expr.Role {
+		case symbols.ExpressionTransitionLinkParameter:
+			return m.UsageMayTimeVaryUnder(sym.Expr.Owner)
+		case symbols.ExpressionPayload:
+			// A trigger's payload is owned by the AcceptActionUsage the trigger implies, an action.
+			return m.UsageMayTimeVaryUnderKind(ast.UsageAction)
+		}
+	}
 	var portion, actionKind, bodyParameter bool
 	switch d := sym.Decl.(type) {
 	case *ast.Usage:
