@@ -4,7 +4,7 @@
 
 **Corpus:** the textual-notation examples printed in the OMG SysML v2.1 Beta 2 and KerML 1.1 Beta 2
 specifications themselves, extracted by `./scripts/download-spec-examples.sh` from the two PDFs of
-release `2026-09`, commit `b7a6b77000c9136f8f24822fc9d2cb237c76267f` (`scripts/pilot-pin.sh`,
+release `2026-09.1`, commit `9546486f49f704d1df092e3f252f4fcfbce534dd` (`scripts/pilot-pin.sh`,
 `PILOT_RELEASE_COMMIT`).
 
 | Root | Source | Clauses | Directory | Files |
@@ -78,19 +78,19 @@ does not import a library package wholesale, and it does not reorder or split an
 
 ## Results
 
-Pilot `2026-09` (`0.63.0`), both validators, fresh cache:
+Pilot `2026-09.1` (`0.63.1`), both validators, fresh cache:
 
 | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---:|---:|---:|---:|---:|---:|---:|---:|
-| 511 | 150 | 1094 | 3395 | 1038 | 6 | 50 | 2351 |
+| 511 | 151 | 1092 | 3395 | 1040 | 6 | 46 | 2349 |
 
 Of the pilot-only diagnostics, 1359 are the pilot's EMF `unmapped` records ("The feature 'type' of
 ... is required"), 586 its `kind-mismatch` typing constraints ("A usage must be typed by
 definitions.") and 50 multiplicity constraints: all three follow an unresolved cross-example name on
 the same lines, where we report the unresolved reference once and stop. Those 1995 are the same
 finding counted differently, not disagreements about the examples. The remaining pilot-only
-categories are 196 syntax, 156 unresolved-reference and 4 units; the 50 ours-only diagnostics are
-38 unresolved-reference, 7 syntax, 3 kind-mismatch and 2 unmapped. Every file behind those two
+categories are 196 syntax, 154 unresolved-reference and 4 units; the 46 ours-only diagnostics are
+38 unresolved-reference, 7 syntax and 1 unmapped. Every file behind those two
 groups is adjudicated below.
 
 ## Adjudication
