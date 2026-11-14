@@ -41,12 +41,15 @@ func (f elementForm) ID(sc *symbolfacts.Context, sym *symbols.Symbol) string {
 	return id
 }
 
-// Owner decodes an `@id` into the qualified name it is written under and how
-// many elements deep below that the id can lie (one per expression position).
+// Owner decodes an `@id` into the qualified name it is written under and how many elements deep
+// below that the id can lie: one per expression position, one for a suffix the conversion mints.
 func (elementForm) Owner(id string) (owner string, depth int, ok bool) {
 	if owner, positions, ok := rdf.DecodeExpressionNodeID(id); ok {
 		return owner, 2 * len(positions), true
 	}
-	owner, ok = rdf.DecodeElementID(id)
-	return owner, 0, ok
+	if owner, ok = rdf.DecodeElementID(id); ok {
+		return owner, 0, true
+	}
+	owner, ok = export.SynthesizedElementOwner(id)
+	return owner, 1, ok
 }

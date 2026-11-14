@@ -32,7 +32,7 @@ func TestTransitionFeatureKindsReadTheirLiteral(t *testing.T) {
 	sm := nested(t, nested(t, sym(t, root, "P").Scope, "Machine").Scope, "sm").Scope
 	t1 := nested(t, sm, "t1")
 	var kinds []string
-	successions := 0
+	successions, parameters := 0, 0
 	for _, membership := range m.OwnedMemberships(t1) {
 		meta := m.MetaclassOf(membership)
 		if meta != nil && meta.Name == "OwningMembership" {
@@ -43,8 +43,20 @@ func TestTransitionFeatureKindsReadTheirLiteral(t *testing.T) {
 			successions++
 			continue
 		}
+		if meta != nil && meta.Name == "Membership" {
+			// The Membership through which `first idle` names the source (SysML.xtext FeatureChainMember).
+			if membership.Implicit.Member != nested(t, sm, "idle") {
+				t.Errorf("t1's Membership names %v, want idle", membership.Implicit.Member)
+			}
+			continue
+		}
+		if meta != nil && meta.Name == "ParameterMembership" {
+			// The two `in` link parameters a transition with a trigger owns ahead of it (EmptyParameterMember).
+			parameters++
+			continue
+		}
 		if meta == nil || meta.Name != "TransitionFeatureMembership" {
-			t.Errorf("t1 owns a %v, want only TransitionFeatureMemberships and its succession", meta)
+			t.Errorf("t1 owns a %v, want only its source Membership, link parameters, TransitionFeatureMemberships and its succession", meta)
 			continue
 		}
 		got, ok := m.ReflectiveFeatureValue(membership, "kind")
@@ -60,6 +72,9 @@ func TestTransitionFeatureKindsReadTheirLiteral(t *testing.T) {
 	}
 	if len(kinds) != len(want) {
 		t.Fatalf("t1 kinds = %v, want %v", kinds, want)
+	}
+	if parameters != 2 {
+		t.Errorf("t1 owns %d link parameters, want 2 (one, and one ahead of its trigger)", parameters)
 	}
 	if successions != 1 {
 		t.Errorf("t1 owns %d successions, want 1", successions)

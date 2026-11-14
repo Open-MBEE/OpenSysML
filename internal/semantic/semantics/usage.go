@@ -19,6 +19,9 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		// A KerML feature has no Usage::mayTimeVary; its isVariable is declared.
 		return false
 	}
+	if varies, ok := m.synthesizedUsageMayTimeVary(sym); ok {
+		return varies
+	}
 	var portion, actionKind, bodyParameter bool
 	switch d := sym.Decl.(type) {
 	case *ast.Usage:
@@ -58,6 +61,22 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		(!actionKind && !m.conformsByName(sym, "Actions::Action"))
 }
 
+// synthesizedUsageMayTimeVary derives Usage::mayTimeVary for a referential part the model synthesizes
+// with no scope of its own: a transition's link parameter, or a trigger's payload and receiver parameters.
+func (m *Model) synthesizedUsageMayTimeVary(sym *symbols.Symbol) (varies, ok bool) {
+	if sym.OwnerScope != nil || sym.Expr == nil {
+		return false, false
+	}
+	switch sym.Expr.Role {
+	case symbols.ExpressionTransitionLinkParameter:
+		return m.UsageMayTimeVaryUnder(sym.Expr.Owner), true
+	case symbols.ExpressionPayload:
+		// A trigger's parameters are owned by the AcceptActionUsage the trigger implies, an action.
+		return m.UsageMayTimeVaryUnderKind(ast.UsageAction), true
+	}
+	return false, false
+}
+
 // UsageMayTimeVaryUnder derives Usage::mayTimeVary for a referential usage that
 // declares nothing of its own — a connector end, a parameter a transition or a
 // satisfy's subject implies — whose owning type is owner (deriveUsageMayTimeVary).
@@ -90,6 +109,9 @@ func (m *Model) isPayloadFeature(sym *symbols.Symbol) bool {
 func (m *Model) UsageMayTimeVaryForOwningType(sym, owner *symbols.Symbol) bool {
 	if sym == nil {
 		return false
+	}
+	if varies, ok := m.synthesizedUsageMayTimeVary(sym); ok {
+		return varies
 	}
 	isPortion := false
 	if sym.Recorded() {
@@ -127,6 +149,9 @@ func (m *Model) UsageMayTimeVaryForOwningType(sym, owner *symbols.Symbol) bool {
 func (m *Model) FeatureIsVariable(sym *symbols.Symbol) bool {
 	if sym == nil || isKerMLTypeDecl(sym) {
 		return false
+	}
+	if varies, ok := m.synthesizedUsageMayTimeVary(sym); ok {
+		return varies
 	}
 	if sym.Recorded() {
 		mods := sym.Facts.Modifiers

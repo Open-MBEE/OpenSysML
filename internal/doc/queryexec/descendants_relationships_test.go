@@ -107,8 +107,8 @@ calc def Ends :> Query {
 		want      int
 		isEnd     string
 	}{
-		// The connection's two ends, and the two the transition's succession owns.
-		{"ReferenceUsage", 4, "true"},
+		// The connection's two ends, the two the transition's succession owns, and the transition's link parameter.
+		{"ReferenceUsage", 5, "true"},
 		{"Feature", 2, "false"},
 		{"PortDefinition", 1, ""},
 		{"ConjugatedPortDefinition", 1, ""},
@@ -138,11 +138,16 @@ calc def Ends :> Query {
 		if tc.isEnd == "" {
 			continue
 		}
-		// The two ends are end features, the two chain Features they reference are not.
+		// The four ends are end features, the two chain Features they reference are not; the transition's
+		// `in` link parameter is the one ReferenceUsage that is no end.
+		other := 0
 		for _, row := range metaclassPropertyCells(t, result) {
 			if !strings.HasSuffix(row, " "+tc.isEnd) {
-				t.Errorf("exact %s row %q, want isEnd %s", tc.metaclass, row, tc.isEnd)
+				other++
 			}
+		}
+		if want := map[string]int{"ReferenceUsage": 1}[tc.metaclass]; other != want {
+			t.Errorf("exact %s rows not isEnd %s = %d, want %d", tc.metaclass, tc.isEnd, other, want)
 		}
 	}
 }

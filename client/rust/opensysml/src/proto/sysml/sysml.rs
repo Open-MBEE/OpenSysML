@@ -2558,7 +2558,8 @@ pub struct SymbolInfo {
     /// "variation", "variant" and the like.
     #[prost(map="string, string", tag="4")]
     pub metadata: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
-    /// References to children
+    /// The owned members' ids, each one GetSymbol takes: a qualified name, a positional id (`Owner::@3`), or an unnamed
+    /// connector end's GetElementProperties element id (`Owner__c_pend0`), which a declaration so named answers instead.
     #[prost(string, repeated, tag="5")]
     pub child_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="6")]
@@ -2598,14 +2599,14 @@ pub struct SymbolInfo {
 /// MemberInfo is one member of an element, own or inherited.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct MemberInfo {
-    /// FQN of the member, the id GetSymbol takes; a member declared without a
-    /// name has none that resolves.
+    /// The id GetSymbol takes: the member's FQN, or the positional id
+    /// (`Owner::@3`) of one declared without a name, library members included.
     #[prost(string, tag="1")]
     pub id: ::prost::alloc::string::String,
     /// Declared name; empty for an unnamed member such as `bind a = b;`.
     #[prost(string, tag="2")]
     pub name: ::prost::alloc::string::String,
-    /// Symbol kind of the member ("partUsage", "bindingUsage", ...).
+    /// Symbol kind of the member ("partUsage", "bindingConnectorAsUsage", ...).
     #[prost(string, tag="3")]
     pub kind: ::prost::alloc::string::String,
     /// True when the member is inherited rather than declared by the element.
@@ -2628,7 +2629,8 @@ pub struct Specialization {
     /// The target as written in the source ("Engine", "Demo::Engine").
     #[prost(string, tag="2")]
     pub declared: ::prost::alloc::string::String,
-    /// FQN of the resolved target; empty when the name does not resolve.
+    /// FQN of the resolved target; empty when the name does not resolve. A "references" feature chain
+    /// (`x.p`) is one entry per chaining feature, in chain order, each with the chain as `declared`.
     #[prost(string, tag="3")]
     pub target_id: ::prost::alloc::string::String,
     /// Symbol kind of the resolved target ("partDef", ...); empty when unresolved.

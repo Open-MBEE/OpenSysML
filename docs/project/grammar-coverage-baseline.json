@@ -1,11 +1,11 @@
 {
-  "pilotTag": "2026-09",
+  "pilotTag": "2026-09.1",
   "roots": [
     {
       "name": "stdlib",
       "dir": "internal/workspace/libs/stdlib",
       "files": 110,
-      "lines": 31239
+      "lines": 31267
     },
     {
       "name": "training",
@@ -46,14 +46,14 @@
     {
       "name": "parser-fixtures",
       "dir": "tests/parser/testdata/parse",
-      "files": 290,
-      "lines": 6751
+      "files": 294,
+      "lines": 6829
     },
     {
       "name": "examples",
       "dir": "examples",
-      "files": 52,
-      "lines": 9925
+      "files": 56,
+      "lines": 10548
     }
   ],
   "totals": {

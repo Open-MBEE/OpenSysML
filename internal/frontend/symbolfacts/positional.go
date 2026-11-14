@@ -2,6 +2,7 @@ package symbolfacts
 
 import (
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
@@ -21,11 +22,14 @@ type PositionalDocument struct {
 // Positional lazily derives the positional identities (`Owner::@N`) of the
 // declarations no qualified identity names, the way the export names them.
 type Positional struct {
-	once   sync.Once
-	index  *symbols.Index
-	docs   func() []PositionalDocument
-	bySym  map[*symbols.Symbol]string
-	byName map[string]*symbols.Symbol
+	mu      sync.Mutex
+	derived bool
+	index   *symbols.Index
+	docs    func() []PositionalDocument
+	read    func(name string) ([]byte, error)
+	library map[string]bool
+	bySym   map[*symbols.Symbol]string
+	byName  map[string]*symbols.Symbol
 }
 
 // NewPositional prepares the positional identities of the documents docs
@@ -34,28 +38,82 @@ func NewPositional(idx *symbols.Index, docs func() []PositionalDocument) *Positi
 	return &Positional{index: idx, docs: docs}
 }
 
+// WithLibrary also names the unnamed declarations of the index's library
+// documents, each document derived when first asked about, its text from read.
+func (p *Positional) WithLibrary(read func(name string) ([]byte, error)) *Positional {
+	p.read = read
+	return p
+}
+
+// derive names the model's documents. Caller holds the lock.
 func (p *Positional) derive() {
-	p.once.Do(func() {
-		if p.index == nil || p.docs == nil {
-			return
-		}
-		docs := p.docs()
-		out := make([]naming.Document, 0, len(docs))
-		for _, doc := range docs {
-			out = append(out, naming.Document{File: doc.File, Root: doc.Root, Scope: doc.Scope})
-		}
-		p.bySym, p.byName = naming.PositionalIdentities(p.index, out, func(sym *symbols.Symbol) bool {
-			return p.index.QualifiedIdentity(sym) != ""
-		})
+	if p.derived {
+		return
+	}
+	p.derived = true
+	p.bySym, p.byName = map[*symbols.Symbol]string{}, map[string]*symbols.Symbol{}
+	if p.index == nil || p.docs == nil {
+		return
+	}
+	docs := p.docs()
+	out := make([]naming.Document, 0, len(docs))
+	for _, doc := range docs {
+		out = append(out, naming.Document{File: doc.File, Root: doc.Root, Scope: doc.Scope})
+	}
+	p.name(out)
+}
+
+func (p *Positional) name(docs []naming.Document) {
+	bySym, _ := naming.PositionalIdentities(p.index, docs, func(sym *symbols.Symbol) bool {
+		return p.index.QualifiedIdentity(sym) != ""
 	})
+	for sym, name := range bySym {
+		// A name the model's own documents already gave stays theirs.
+		if _, taken := p.byName[name]; taken {
+			continue
+		}
+		p.bySym[sym] = name
+		p.byName[name] = sym
+	}
+}
+
+// deriveLibrary names the library document doc, once. Caller holds the lock.
+func (p *Positional) deriveLibrary(doc string) {
+	if p.read == nil || p.index == nil || p.library[doc] || !p.index.IsLibraryDocument(doc) {
+		return
+	}
+	if p.library == nil {
+		p.library = map[string]bool{}
+	}
+	p.library[doc] = true
+	scope := p.index.DocumentRoot(doc)
+	if scope == nil {
+		return
+	}
+	// A document restored from its interface record has no tree to take positions from.
+	root, ok := scope.Node().(*ast.RootNamespace)
+	if !ok || root == nil {
+		return
+	}
+	content, err := p.read(doc)
+	if err != nil {
+		return
+	}
+	p.name([]naming.Document{{File: source.New(doc, content), Root: root, Scope: scope}})
 }
 
 // Of is the positional identity of sym, empty when it has none.
 func (p *Positional) Of(sym *symbols.Symbol) string {
-	if p == nil {
+	if p == nil || sym == nil {
 		return ""
 	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.derive()
+	if id, ok := p.bySym[sym]; ok {
+		return id
+	}
+	p.deriveLibrary(sym.DocName)
 	return p.bySym[sym]
 }
 
@@ -64,7 +122,27 @@ func (p *Positional) Symbol(id string) *symbols.Symbol {
 	if p == nil {
 		return nil
 	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.derive()
+	if sym := p.byName[id]; sym != nil {
+		return sym
+	}
+	if p.read == nil || !naming.IsPositionalIdentity(id) {
+		return nil
+	}
+	// The named prefix of the id says which library document declares it.
+	segments := naming.Segments(id)
+	for n := len(segments) - 1; n > 0; n-- {
+		owners := p.index.LookupQualified(strings.Join(segments[:n], "::"))
+		if len(owners) == 0 {
+			continue
+		}
+		for _, owner := range owners {
+			p.deriveLibrary(owner.DocName)
+		}
+		break
+	}
 	return p.byName[id]
 }
 
@@ -105,8 +183,8 @@ func (sc *Context) LookupMember(id string) []*symbols.Symbol {
 	return sc.Resolver.ResolveGlobal(nameSegments(id))
 }
 
-// Resolve resolves id as a qualified name from the root (resolve.Resolver.ResolveGlobal); a
-// positional id, or the declared name of a public member of a non-visible namespace, still denotes its element.
+// Resolve resolves id as a qualified name from the root (resolve.Resolver.ResolveGlobal); a generated id
+// (generated), or the declared name of a public member of a non-visible namespace, still denotes its element.
 func (sc *Context) Resolve(id string) []*symbols.Symbol {
 	if syms := sc.Resolver.ResolveGlobal(nameSegments(id)); len(syms) > 0 {
 		return syms
@@ -121,7 +199,7 @@ func (sc *Context) Resolve(id string) []*symbols.Symbol {
 	if len(elements) > 0 {
 		return elements
 	}
-	return sc.unnamed(id)
+	return sc.generated(id)
 }
 
 // ResolveMember is Resolve with an alias answered as the alias membership its
@@ -133,7 +211,16 @@ func (sc *Context) ResolveMember(id string) []*symbols.Symbol {
 	if declared := sc.declaredPublic(id); len(declared) > 0 {
 		return declared
 	}
-	return sc.unnamed(id)
+	return sc.generated(id)
+}
+
+// generated finds the element an id no name spells denotes: a positional id, else an unnamed
+// connector end's element id.
+func (sc *Context) generated(id string) []*symbols.Symbol {
+	if syms := sc.unnamed(id); len(syms) > 0 {
+		return syms
+	}
+	return sc.unnamedEnds(id)
 }
 
 // declaredPublic finds the members id is the declared qualified name of whose own membership is

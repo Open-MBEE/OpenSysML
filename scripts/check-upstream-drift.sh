@@ -3,9 +3,10 @@
 # of the pilot implementation or of the SysML-v2-Release repository, a pinned tag
 # that no longer resolves to the pinned commit, specification PDFs that differ
 # between the pinned release and the newest one, and OMG specification pages
-# that list a version this script has not seen. It changes nothing: a nonzero
-# exit is the signal to re-pin deliberately (docs/project/pilot-corpora.md
-# describes how), never to move the pin here.
+# that list a version this script has not seen. It changes nothing: exit 1 is
+# the signal to re-pin deliberately (docs/project/pilot-corpora.md describes
+# how), never to move the pin here; exit 2 means a source could not be read, so
+# the pin was not checked against it and the run says nothing about movement.
 set -euo pipefail
 
 # shellcheck source=scripts/pilot-pin.sh
@@ -28,10 +29,17 @@ OMG_SYSML_KNOWN='1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 2.0 2.0/Beta4'
 OMG_KERML_KNOWN='1.0 1.0/Beta4'
 
 moved=0
+unread=0
 report() { printf '%s\n' "$*"; }
 movement() {
 	moved=1
 	report "MOVED: $*"
+}
+# unreadable: a source that could not be consulted, which is neither movement
+# nor its absence; the run exits 2 when one is left without any movement found.
+unreadable() {
+	unread=1
+	report "UNREAD: $*"
 }
 
 # newest_tag <repo>: the highest YYYY-MM(.N) release tag on the remote (point releases
@@ -57,7 +65,7 @@ check_repo() {
 	local name=$1 repo=$2 pinned_commit=$3 newest resolved
 	NEWEST_TAG=""
 	if ! resolved="$(tag_commit "$repo" "$PILOT_TAG")"; then
-		movement "$name: tags could not be listed from $repo; nothing was checked there"
+		unreadable "$name: tags could not be listed from $repo; nothing was checked there"
 		return
 	fi
 	if [[ -z "$resolved" ]]; then
@@ -68,7 +76,7 @@ check_repo() {
 		report "$name: tag $PILOT_TAG still resolves to $pinned_commit"
 	fi
 	if ! newest="$(newest_tag "$repo")"; then
-		movement "$name: release tags could not be listed from $repo"
+		unreadable "$name: release tags could not be listed from $repo"
 		return
 	fi
 	if [[ -z "$newest" ]]; then
@@ -119,7 +127,7 @@ omg_versions() {
 check_omg() {
 	local name=$1 page=$2 known=$3 listed new
 	if ! listed="$(omg_versions "$page" "$name")"; then
-		movement "OMG $name page $page could not be read"
+		unreadable "OMG $name page $page could not be read"
 		return
 	fi
 	new="$(comm -13 <(tr ' ' '\n' <<<"$known" | sort -u) <(printf '%s\n' "$listed"))"
@@ -140,7 +148,7 @@ if [[ -n "$newest_release" && "$newest_release" != "$PILOT_TAG" ]]; then
 	case $verdict in
 	0) report "  the specification PDFs are unchanged: a re-pin moves the pilot, not the clause numbers" ;;
 	1) movement "the specification PDFs changed between $PILOT_TAG and $newest_release: a re-pin must re-read the clause numbers the spec-compliance map (docs/project/spec-compliance/) cites" ;;
-	*) movement "the specification PDFs of $PILOT_TAG and $newest_release could not be compared; read them by hand before re-pinning" ;;
+	*) unreadable "the specification PDFs of $PILOT_TAG and $newest_release could not be compared; read them by hand before re-pinning" ;;
 	esac
 fi
 check_omg SysML "$OMG_SYSML_PAGE" "$OMG_SYSML_KNOWN"
@@ -149,5 +157,9 @@ check_omg KerML "$OMG_KERML_PAGE" "$OMG_KERML_KNOWN"
 if [[ "$moved" -ne 0 ]]; then
 	report "Upstream moved; re-pin deliberately, nothing was changed here."
 	exit 1
+fi
+if [[ "$unread" -ne 0 ]]; then
+	report "Upstream could not be fully read; nothing is known about movement."
+	exit 2
 fi
 report "Upstream is where the pin says."

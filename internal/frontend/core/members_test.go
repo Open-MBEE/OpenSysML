@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -79,13 +80,20 @@ func TestGetSymbolMembersWithholdLibraryUnlessAsked(t *testing.T) {
 		t.Errorf("includeLibraryMembers still withholds %d members", included.WithheldLibraryMembers)
 	}
 	var library int32
+	unnamed := 0
 	for _, m := range included.Members {
 		if m.Library {
 			library++
+			if m.Name == "" && strings.HasPrefix(m.Id, m.InheritedFrom+"::@") {
+				unnamed++
+			}
 			if !m.Inherited || m.InheritedFrom == "" {
 				t.Errorf("library member %s lacks its inherited provenance", m.Id)
 			}
 		}
+	}
+	if unnamed == 0 {
+		t.Error("no unnamed library member listed under a positional id, yet Occurrences::Occurrence declares several")
 	}
 	if library != withheld.WithheldLibraryMembers {
 		t.Errorf("includeLibraryMembers lists %d library members, %d were withheld", library, withheld.WithheldLibraryMembers)
