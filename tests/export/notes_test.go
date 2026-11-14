@@ -393,3 +393,54 @@ func TestAgreeingNotesKeepTheText(t *testing.T) {
 		t.Errorf("the neighbours of the rebuilt element did not keep their text:\n--- want ---\n%s--- got ---\n%s", want, back)
 	}
 }
+
+// A model whose declarations each hold several notes after one code token that the
+// rebuilt notation continues on the same line: after `=`, a type and an empty body's `{`.
+const notedTogether = `package Fleet {
+    part def Truck {
+        attribute load =
+            // the cargo
+            // and the driver
+            1 + 2;
+        attribute tare = // empty
+            // without fuel
+            3;
+        attribute gross =
+            /* laden */
+            // on the road
+            4;
+        attribute net = /* one */ /* two */ 5;
+        part bed {
+            // flat
+            // and long
+        }
+        part cab : Truck // crew
+            // of two
+            ;
+    }
+}
+`
+
+// Several notes after one token are written together where they stood, and the rest
+// of the line moves below them once; the rebuilt notation states the same graph.
+func TestNotesAfterOneTokenComeBackWithoutSourceText(t *testing.T) {
+	stripped := withoutSourceTextKeepingNotes(t, idTurtle(t, notedTogether))
+	back := toNotation(t, stripped)
+	if back != notedTogether {
+		t.Errorf("the notes were not put back:\n--- want ---\n%s--- got ---\n%s", notedTogether, back)
+	}
+	if got, want := string(withoutSourceTextKeepingNotes(t, idTurtle(t, back))), string(stripped); got != want {
+		t.Errorf("the rebuilt notation states another graph:\n--- want ---\n%s--- got ---\n%s", want, got)
+	}
+}
+
+// A note the graph puts inline after a `//` note at the same token cannot share its
+// line: it is written on the next, so neither note nor the code after them is lost.
+func TestNoteInlineAfterALineNoteTakesTheNextLine(t *testing.T) {
+	const driver = "    sysx:noteText \"// and the driver\" ;\n    sysx:noteToken \"3\"^^xsd:integer ;\n    sysx:noteOwnLine \"true\"^^xsd:boolean ."
+	stripped := withoutSourceTextKeepingNotes(t, idTurtle(t, notedTogether))
+	edited := editTurtle(t, stripped, driver, strings.Replace(driver, `"true"`, `"false"`, 1))
+	if back := toNotation(t, edited); back != notedTogether {
+		t.Errorf("the notes were not kept apart:\n--- want ---\n%s--- got ---\n%s", notedTogether, back)
+	}
+}
