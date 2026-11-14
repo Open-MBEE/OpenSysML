@@ -5,9 +5,8 @@ import (
 	"testing"
 )
 
-// A `transition` owns, ahead of its trigger, the Membership naming its `first` source and an `in`
-// link parameter through a ParameterMembership — a second ahead of a trigger — as the pilot exports
-// them and the conversion writes them; a state body's `then x;` written as a transition owns neither.
+// A `transition` owns the Membership naming its `first` source and an `in` link parameter through a
+// ParameterMembership (a second ahead of a trigger), as the pilot exports them; a state body's `then x;` owns neither.
 func TestTransitionOwnsItsSourceMembershipAndLinkParameters(t *testing.T) {
 	m, root := buildModelWithStdlib(t, `package P {
     attribute def Sig;
