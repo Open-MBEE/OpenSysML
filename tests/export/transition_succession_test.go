@@ -109,6 +109,19 @@ func TestTransitionSuccessionFollowsEffectAndPrecedesBody(t *testing.T) {
 	}
 }
 
+// A transition body's bare `ref;` is a written member with a positional address, not the
+// transitionLink the conversion mints, so the import keeps it.
+func TestTransitionBodyBareReferenceSurvivesBesideTheTransitionLink(t *testing.T) {
+	src := "package P {\n    state def S {\n        state a;\n        state b;\n        transition t first a then b {\n            ref;\n        }\n    }\n}\n"
+	turtle, back := graphOnlyRoundTrip(t, "t.sysml", []byte(src))
+	if !strings.Contains(string(turtle), "elmt:P__S__t_transitionlink_om") {
+		t.Fatalf("the transition should own its transitionLink:\n%s", turtle)
+	}
+	if string(back) != src {
+		t.Errorf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+	}
+}
+
 // A succession whose target disagrees with the transition's sysml:target is no
 // restatement of the head: the conversion refuses it rather than dropping one.
 func TestTransitionSuccessionDisagreementIsRefused(t *testing.T) {
