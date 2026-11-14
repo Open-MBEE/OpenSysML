@@ -1250,7 +1250,7 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	// against this instance, so that it sees the sibling feature values it refers to.
 	// The feature holds what the default states, once that conforms to the
 	// feature's multiplicity and type.
-	if ctx.valueBinds(fv.Feature) {
+	if ctx.valueBinds(fv.Feature) && !(fv.Feature.YieldsToBinding && ctx.bindingDeclaredFor(inst, name)) {
 		return inst.materializeDerived(ctx, fv, name)
 	}
 

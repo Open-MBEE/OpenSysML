@@ -27,6 +27,9 @@ type EffectiveFeature struct {
 	// body reaches below, so its bound value does not govern, as with a
 	// redefining body.
 	GovernedByChain bool
+	// YieldsToBinding marks a value written on a parameter of a usage the type subsets:
+	// the slot holds it unless a holder of the object binds the parameter.
+	YieldsToBinding bool
 }
 
 // Scalar reports whether the feature holds at most one value.
@@ -127,8 +130,10 @@ func (ctx *Context) effectiveFeature(name string, memberSym, typeSym *symbols.Sy
 	// A satisfy usage's `by` is its subject's most specific value (SysML v2 §7.21.4),
 	// over a value or default the subject it binds declares or inherits.
 	defaultVal, defaultDecl := ctx.satisfiedByValue(memberSym, typeSym)
-	if defaultVal == nil && !ctx.subsettedParameterValue(typeSym, memberSym) {
+	yields := false
+	if defaultVal == nil {
 		defaultVal, defaultDecl = ctx.extractDefaultValue(memberSym), memberSym
+		yields = defaultVal != nil && ctx.subsettedParameterValue(typeSym, memberSym)
 	}
 	if defaultVal == nil {
 		defaultVal, defaultDecl = ctx.redefinedDefault(memberSym, typeSym)
@@ -148,11 +153,12 @@ func (ctx *Context) effectiveFeature(name string, memberSym, typeSym *symbols.Sy
 		DefaultDecl:           defaultDecl,
 		HoldsSet:              ctx.holdsSet(memberSym, typeSym, mult),
 		Unique:                ctx.model.semantics.IsUnique(memberSym),
+		YieldsToBinding:       yields,
 	}
 }
 
-// subsettedParameterValue reports a parameter of a usage typeSym subsets or redefines: its
-// value is what a performance starts from unless the holder binds it, not the slot's own.
+// subsettedParameterValue reports a valued parameter of a usage typeSym subsets or
+// references: its value is what the slot holds unless a holder binds the parameter.
 func (ctx *Context) subsettedParameterValue(typeSym, member *symbols.Symbol) bool {
 	if typeSym == nil || member == nil {
 		return false
