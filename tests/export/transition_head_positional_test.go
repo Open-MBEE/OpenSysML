@@ -7,9 +7,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
-// A state body's `then x;` after a state and a decision's branch are TransitionUsages whose source is the member
-// before them (SysML.xtext TargetTransitionUsage): each owns, ahead of its guard, the Membership naming that
-// source and an `in` link parameter through a ParameterMembership, as a `transition first a then b` does.
+// A state body's `then x;` and a decision's branch are TransitionUsages leaving the member before them: each
+// owns, ahead of its guard, the Membership naming that source and an `in` link parameter, as a `transition` does.
 const positionalTransitionHeadModel = `package P {
     attribute g : ScalarValues::Boolean;
     state def S {
