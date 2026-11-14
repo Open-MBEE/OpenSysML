@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-// A `transition` owns the Membership naming its `first` source and an `in` link parameter through a
-// ParameterMembership (a second ahead of a trigger), as the pilot exports them; a state body's `then x;` owns neither.
+// A `transition` owns its `first` source's Membership, an `in` link parameter per ParameterMembership (a second
+// ahead of a trigger) and its transitionLink last, as the pilot exports them; a state body's `then x;` the link alone.
 func TestTransitionOwnsItsSourceMembershipAndLinkParameters(t *testing.T) {
 	m, root := buildModelWithStdlib(t, `package P {
     attribute def Sig;
@@ -30,14 +30,14 @@ func TestTransitionOwnsItsSourceMembershipAndLinkParameters(t *testing.T) {
 `)
 	s := nested(t, sym(t, root, "P").Scope, "S").Scope
 	for name, want := range map[string]string{
-		"go":   "Membership:StateUsage ParameterMembership:ReferenceUsage OwningMembership:SuccessionAsUsage",
-		"wake": "Membership:StateUsage ParameterMembership:ReferenceUsage ParameterMembership:ReferenceUsage TransitionFeatureMembership:AcceptActionUsage OwningMembership:SuccessionAsUsage",
+		"go":   "Membership:StateUsage ParameterMembership:ReferenceUsage OwningMembership:SuccessionAsUsage FeatureMembership:ReferenceUsage",
+		"wake": "Membership:StateUsage ParameterMembership:ReferenceUsage ParameterMembership:ReferenceUsage TransitionFeatureMembership:AcceptActionUsage OwningMembership:SuccessionAsUsage FeatureMembership:ReferenceUsage",
 	} {
 		if got := ownedMemberKinds(m, nested(t, s, name)); got != want {
 			t.Errorf("%s owns %q, want %q", name, got, want)
 		}
 	}
-	if got := ownedMemberKinds(m, nested(t, s, "deep")); got != "Membership:StateUsage ParameterMembership:ReferenceUsage OwningMembership:SuccessionAsUsage" {
+	if got := ownedMemberKinds(m, nested(t, s, "deep")); got != "Membership:StateUsage ParameterMembership:ReferenceUsage OwningMembership:SuccessionAsUsage FeatureMembership:ReferenceUsage" {
 		t.Errorf("deep owns %q, want the Membership of the nested source first", got)
 	} else if source := ownedMembers(m, nested(t, s, "deep"))[0]; source.Name != "nested" {
 		t.Errorf("deep's source member = %q, want nested", source.Name)
@@ -53,10 +53,10 @@ func TestTransitionOwnsItsSourceMembershipAndLinkParameters(t *testing.T) {
 			stateBody = append(stateBody, ownedMemberKinds(m, member))
 		}
 	}
-	if want := "ParameterMembership:ReferenceUsage TransitionFeatureMembership:LiteralBoolean OwningMembership:SuccessionAsUsage"; len(guarded) != 1 || guarded[0] != want {
+	if want := "ParameterMembership:ReferenceUsage TransitionFeatureMembership:LiteralBoolean OwningMembership:SuccessionAsUsage FeatureMembership:ReferenceUsage"; len(guarded) != 1 || guarded[0] != want {
 		t.Errorf("the guarded transition owns %q, want [%q]", guarded, want)
 	}
-	if want := "OwningMembership:SuccessionAsUsage"; len(stateBody) != 1 || stateBody[0] != want {
+	if want := "OwningMembership:SuccessionAsUsage FeatureMembership:ReferenceUsage"; len(stateBody) != 1 || stateBody[0] != want {
 		t.Errorf("the state body's `then busy;` owns %q, want [%q]", stateBody, want)
 	}
 	link := ownedMembers(m, nested(t, s, "go"))[1]

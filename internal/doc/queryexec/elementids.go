@@ -97,6 +97,8 @@ func expressionPartSlot(sym *symbols.Symbol) (string, bool) {
 		return "succession", true
 	case symbols.ExpressionTransitionLinkParameter:
 		return []string{"linkparam", "triggerparam"}[sym.Expr.Index], true
+	case symbols.ExpressionTransitionLink:
+		return "transitionlink", true
 	}
 	return "", false
 }
