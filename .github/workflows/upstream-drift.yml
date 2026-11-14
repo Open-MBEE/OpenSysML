@@ -22,6 +22,12 @@ permissions:
   contents: read
   issues: write
 
+# One run at a time, so two overlapping runs cannot each find no open issue and
+# both open one; a queued run waits rather than cancelling the one in flight.
+concurrency:
+  group: upstream-drift
+  cancel-in-progress: false
+
 jobs:
   drift:
     name: Pilot and specification movement against the pin
