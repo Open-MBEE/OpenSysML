@@ -1153,7 +1153,8 @@ pub struct ParseFileResponse {
 pub struct GetSymbolRequest {
     #[prost(string, tag="1")]
     pub model_hash: ::prost::alloc::string::String,
-    /// Fully qualified name
+    /// A qualified name or an element id, as lookup states; with none stated, read as a
+    /// name first, then an id, so a name declared like a generated id shadows that element.
     #[prost(string, tag="2")]
     pub symbol_id: ::prost::alloc::string::String,
     /// List the members inherited from standard-library content in
@@ -1166,6 +1167,10 @@ pub struct GetSymbolRequest {
     /// symbol_name_resolution capability, it is an id the service reported, whatever its visibility.
     #[prost(bool, tag="4")]
     pub resolve_name: bool,
+    /// What symbol_id is, stated rather than guessed; read with the "symbol_lookup_kind"
+    /// capability, and resolve_name is then ignored.
+    #[prost(enumeration="LookupKind", tag="5")]
+    pub lookup: i32,
 }
 /// SymbolResponse contains symbol information
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1181,14 +1186,18 @@ pub struct SymbolResponse {
 pub struct GetElementPropertiesRequest {
     #[prost(string, tag="1")]
     pub model_hash: ::prost::alloc::string::String,
-    /// The element: its qualified name, the positional id of an unnamed member
-    /// (Owner::@3), or the "@id" of the model's API element form.
+    /// A qualified name or an id, as lookup states; with none stated, the "@id" of the model's
+    /// API element form first, then a qualified name, then a positional id (Owner::@3).
     #[prost(string, tag="2")]
     pub element_id: ::prost::alloc::string::String,
     /// The properties to read, by specification name. Empty reads every property
     /// the element form carries for the element.
     #[prost(string, repeated, tag="3")]
     pub properties: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// What element_id is, stated rather than guessed; read with the "symbol_lookup_kind"
+    /// capability. An alias named by qualified name answers as its membership.
+    #[prost(enumeration="LookupKind", tag="4")]
+    pub lookup: i32,
 }
 /// GetElementPropertiesResponse is one property entry per requested name, in
 /// the request's order, or every property the element carries when none was
@@ -2541,7 +2550,8 @@ pub struct AppliedEdit {
 /// surface whose answer the specification defines.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SymbolInfo {
-    /// Unique identifier (fully qualified name)
+    /// The element id, this element's alone: its qualified name (`Owner::'@3'`), a positional id
+    /// (`Owner::@3`), or its element-form "@id" where another's generated id is spelled like the name.
     #[prost(string, tag="1")]
     pub id: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
@@ -2598,8 +2608,7 @@ pub struct SymbolInfo {
 /// MemberInfo is one member of an element, own or inherited.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct MemberInfo {
-    /// The id GetSymbol takes: the member's FQN, or the positional id
-    /// (`Owner::@3`) of one declared without a name, library members included.
+    /// The member's element id, as SymbolInfo.id spells it, library members included.
     #[prost(string, tag="1")]
     pub id: ::prost::alloc::string::String,
     /// Declared name; empty for an unnamed member such as `bind a = b;`.
@@ -4863,6 +4872,42 @@ impl FailureReason {
             "FAILURE_REASON_WRONG_KIND" => Some(Self::WrongKind),
             "FAILURE_REASON_AMBIGUOUS_SUBJECT" => Some(Self::AmbiguousSubject),
             "FAILURE_REASON_UNDECIDED" => Some(Self::Undecided),
+            _ => None,
+        }
+    }
+}
+/// LookupKind states what the one string naming an element is, as the SysML v2 API keeps
+/// an element's "@id" apart from its qualifiedName (KerML 8.3.2.1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum LookupKind {
+    /// Not stated: the string is read as either kind, in the order its field documents.
+    Unspecified = 0,
+    /// A qualified name, resolved from the root namespace (KerML 8.2.3.5) through visible
+    /// memberships; never read as an id.
+    QualifiedName = 1,
+    /// An id the service reported for an element (SymbolInfo.id, child_ids, MemberInfo.id,
+    /// ElementRef.id, a metaobject's element_id), whatever its visibility; never read as a name.
+    ElementId = 2,
+}
+impl LookupKind {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "LOOKUP_KIND_UNSPECIFIED",
+            Self::QualifiedName => "LOOKUP_KIND_QUALIFIED_NAME",
+            Self::ElementId => "LOOKUP_KIND_ELEMENT_ID",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "LOOKUP_KIND_UNSPECIFIED" => Some(Self::Unspecified),
+            "LOOKUP_KIND_QUALIFIED_NAME" => Some(Self::QualifiedName),
+            "LOOKUP_KIND_ELEMENT_ID" => Some(Self::ElementId),
             _ => None,
         }
     }

@@ -337,9 +337,19 @@ func (c *Core) getSymbol(req *JGetSymbolRequest) ([]byte, error) {
 	if !ok {
 		return nil, jsonrpc.Errorf(jsonrpc.CodeNotFound, msgModelNotFound, req.ModelHash)
 	}
-	lookup := model.symbolContext().Lookup
-	if req.ResolveName {
-		lookup = model.symbolContext().Resolve
+	sc := model.symbolContext()
+	lookup := sc.Lookup
+	switch req.Lookup {
+	case "LOOKUP_KIND_QUALIFIED_NAME":
+		lookup = sc.ResolveName
+	case "LOOKUP_KIND_ELEMENT_ID":
+		lookup = sc.LookupID
+	case "", "LOOKUP_KIND_UNSPECIFIED":
+		if req.ResolveName {
+			lookup = sc.Resolve
+		}
+	default:
+		return nil, jsonrpc.Errorf(jsonrpc.CodeInvalidArgument, "unknown lookup %q", req.Lookup)
 	}
 	matches := lookup(req.SymbolId)
 	if len(matches) == 0 {

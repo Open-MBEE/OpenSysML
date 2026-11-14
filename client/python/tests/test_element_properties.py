@@ -107,6 +107,27 @@ def test_the_connection_sends_the_element_and_the_names():
     assert read.element.qualified_name == "EP::Pair"
 
 
+@pytest.mark.parametrize("capabilities, stated", [
+    (("element_properties", "symbol_lookup_kind"), True), (("element_properties",), False),
+])
+def test_the_element_is_named_by_kind_where_advertised(capabilities, stated):
+    stub = Mock()
+    stub.GetElementProperties.return_value = _response()
+    conn = _connection(stub, capabilities=capabilities)
+    for kwargs, kind in (
+        ({"name": "EP::Pair"}, sysml_pb2.LOOKUP_KIND_QUALIFIED_NAME),
+        ({"id": "EP__Pair"}, sysml_pb2.LOOKUP_KIND_ELEMENT_ID),
+    ):
+        conn.get_element_properties("hash1", properties=["isAbstract"], **kwargs)
+        request = stub.GetElementProperties.call_args[0][0]
+        assert request.element_id == next(iter(kwargs.values()))
+        assert request.lookup == (kind if stated else sysml_pb2.LOOKUP_KIND_UNSPECIFIED)
+    conn.get_element_properties("hash1", "EP::Pair")
+    assert stub.GetElementProperties.call_args[0][0].lookup == sysml_pb2.LOOKUP_KIND_UNSPECIFIED
+    with pytest.raises(ValueError, match="exactly one"):
+        conn.get_element_properties("hash1", "EP::Pair", id="EP__Pair")
+
+
 def test_a_service_without_the_capability_is_refused_before_the_call():
     stub = Mock()
     conn = _connection(stub, capabilities=("query",))
@@ -135,14 +156,14 @@ def test_the_model_and_the_symbol_reach_the_connection():
         model_hash="hash1", root=sysml_pb2.SymbolInfo(id="EP", name="EP", kind="Package"))
     model = Model(parsed, client)
     read = model.element_properties("EP::Pair", "inheritedFeature")
-    client.get_element_properties.assert_called_once_with("hash1", "EP::Pair", ("inheritedFeature",))
+    client.get_element_properties.assert_called_once_with("hash1", "EP::Pair", ("inheritedFeature",), name=None, id=None)
     assert read["isAbstract"].value is False
 
     symbol = Symbol(sysml_pb2.SymbolInfo(id="EP::Pair", name="Pair", kind="PartDef"), client, "hash1")
     assert symbol.property("isAbstract").value is False
-    client.get_element_properties.assert_called_with("hash1", "EP::Pair", ("isAbstract",))
+    client.get_element_properties.assert_called_with("hash1", properties=("isAbstract",), id="EP::Pair")
     symbol.properties()
-    client.get_element_properties.assert_called_with("hash1", "EP::Pair", ())
+    client.get_element_properties.assert_called_with("hash1", properties=(), id="EP::Pair")
     unconnected = Symbol(sysml_pb2.SymbolInfo(id="EP::Pair"), None, "hash1")
     with pytest.raises(ValueError):
         unconnected.properties()

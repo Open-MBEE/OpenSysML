@@ -138,11 +138,18 @@ func TestResolveElementReadsEveryIDFormOfANamedElement(t *testing.T) {
 func TestResolveElementKeepsADeclarationSpelledLikeAFormIDOnlyAsItsOwn(t *testing.T) {
 	sc := identityContext(t)
 	got := sc.ResolveElement("D__outer___400", sc.Semantics)
-	if len(got) != 2 {
-		t.Fatalf("ResolveElement(D__outer___400) = %v, want the package and D::outer::@0 (ambiguous)", got)
+	if len(got) != 1 || got[0] != reflect(t, sc, "D::outer::@0") {
+		t.Fatalf("ResolveElement(D__outer___400) = %v, want D::outer::@0 alone", got)
 	}
-	if got[0].Name != "D__outer___400" || got[1] != reflect(t, sc, "D::outer::@0") {
-		t.Errorf("ResolveElement(D__outer___400) = %v, want the package then D::outer::@0", got)
+	pkg := sc.ResolveName("D__outer___400")
+	if len(pkg) != 1 || sc.ElementIdentity(pkg[0]) != "D_5f_5fouter_5f_5f_5f400" {
+		t.Fatalf("ResolveName(D__outer___400) = %v, want the package under its own form id", pkg)
+	}
+	if got := sc.ResolveElement("D_5f_5fouter_5f_5f_5f400", sc.Semantics); len(got) != 1 || got[0] != pkg[0] {
+		t.Errorf("ResolveElement(D_5f_5fouter_5f_5f_5f400) = %v, want the package", got)
+	}
+	if got := sc.LookupID("D__outer___400"); len(got) != 1 || got[0] != reflect(t, sc, "D::outer::@0") {
+		t.Errorf("LookupID(D__outer___400) = %v, want D::outer::@0 alone", got)
 	}
 	part := sc.Lookup("D__outer___400::spelledLikeAFormID")[0]
 	formID := sc.ElementIdentity(part)

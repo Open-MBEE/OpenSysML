@@ -175,6 +175,7 @@ What a request asks for is fixed per capability:
 | `symbol_attributes` | Response-population capability: omit symbol attributes; no request asks for them. |
 | `symbol_members` | Response-population capability: omit `SymbolInfo.members`, the members own and inherited with their provenance, and the `withheld_library_members` count; `GetSymbolRequest.include_library_members` is ignored without it. |
 | `symbol_name_resolution` | Honour `GetSymbolRequest.resolve_name`: resolve `symbol_id` as a qualified name from the root namespace. Without it the field is ignored and `symbol_id` is read as an id the service reported, as a service predating the field reads it; a client checks the capability instead of sending the field. |
+| `symbol_lookup_kind` | Honour the `lookup` of `GetSymbolRequest` and `GetElementPropertiesRequest`: `symbol_id` (`element_id`) read only as a qualified name under `LOOKUP_KIND_QUALIFIED_NAME` and only as an element id under `LOOKUP_KIND_ELEMENT_ID`. Without it the field is ignored and the string is read as either kind, name first for `GetSymbol`; a client checks the capability instead of relying on the field. |
 | `feature_values` | Response-population capability: omit instance feature values; no request asks for them. |
 | `enum_values` | Response-population capability: encode enum values as unsupported nulls; no request asks for them. |
 | `unset_value` | Response-population capability: encode unset values as unsupported nulls; no request asks for them. |

@@ -1,0 +1,7 @@
+{
+	"rpc": "GetSymbol",
+	"model": "symbol_lookup_positional.sysml",
+	"symbol_id": "Col::W::@2",
+	"expected_id": "Col::W::'@2'",
+	"expected_kind": "partUsage"
+}

@@ -52,9 +52,11 @@ class SymbolSource(Protocol):
     """What a symbol needs of the connection it navigates through."""
 
     def get_symbol(
-        self, model_hash: str, symbol_id: str, include_library_members: bool = False, resolve_name: bool = False,
+        self, model_hash: str, symbol_id: Optional[str] = None, include_library_members: bool = False,
+        resolve_name: bool = False, *, name: Optional[str] = None, id: Optional[str] = None,
     ) -> Any:
-        """The ``SymbolInfo`` for an id, or None when the model has no such symbol."""
+        """The ``SymbolInfo`` for a qualified ``name`` or a reported ``id``, or None
+        when the model has no such symbol."""
 
     def server_info(self) -> Any:
         """What the service reports about itself, for a capability check."""
@@ -326,7 +328,7 @@ class Symbol:
         """
         if self._client is None:
             raise ValueError("this symbol has no client to read its properties from")
-        return self._client.get_element_properties(self._model_hash, self.id, names)
+        return self._client.get_element_properties(self._model_hash, properties=names, id=self.id)
 
     def property(self, name):
         """Read one metamodel property of this element by its specification name.
@@ -360,7 +362,7 @@ class Symbol:
             return cached
         pb = self._pb
         if library and pb.withheld_library_members:
-            refetched = self._client.get_symbol(self._model_hash, self.id, include_library_members=True)
+            refetched = self._client.get_symbol(self._model_hash, id=self.id, include_library_members=True)
             if refetched is not None:
                 pb = refetched
         symbols = self._fetch_all(
@@ -377,7 +379,7 @@ class Symbol:
         symbols: List["Symbol"] = []
         unresolved: List[str] = []
         for symbol_id, inherited_from in ids:
-            info = self._client.get_symbol(self._model_hash, symbol_id)
+            info = self._client.get_symbol(self._model_hash, id=symbol_id)
             if info is None:
                 unresolved.append(symbol_id)
                 continue
@@ -474,7 +476,7 @@ class Symbol:
         for spec in self.specializations:
             if not spec.target_id or spec.target_id in visited:
                 continue
-            info = self._client.get_symbol(self._model_hash, spec.target_id)
+            info = self._client.get_symbol(self._model_hash, id=spec.target_id)
             if info is None:
                 continue
             supertype = Symbol(info, self._client, self._model_hash)

@@ -1,0 +1,8 @@
+{
+	"rpc": "GetElementProperties",
+	"model": "symbol_lookup_connector_end.sysml",
+	"element_id": "Col__V__c_pend0",
+	"expected_id": "Col__V__c_pend0",
+	"properties": ["declaredName"],
+	"expected_properties": [{"name": "declaredName", "defining_class": "Element", "values": []}]
+}

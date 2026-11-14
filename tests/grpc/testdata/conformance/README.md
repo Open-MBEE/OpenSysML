@@ -41,6 +41,7 @@ empty else blocks are not authorable.
 | `context_symbol_id` | Evaluate | optional FQN whose scope the expression is evaluated in |
 | `subject_symbol_id` | Evaluate | optional FQN of a part/usage instantiated and evaluated against, so features read its feature values |
 | `symbol_id` | GetSymbol, Instantiate, ExecuteAction, ExecuteState, EvaluateCalc, CheckBehavior | FQN of the subject |
+| `lookup`, `expected_id` | GetSymbol, GetElementProperties | the kind `symbol_id` (`element_id`) is stated to be, `qualified_name` or `element_id` (none sends the legacy single string), and the id the symbol or element is answered under. Every id a GetSymbol answer reports — its own, its `child_ids`, its `members` — is also fetched back as an element id and must answer that id |
 | `arguments` | EvaluateCalc | positional arguments bound to the calc's parameters |
 | `tools` | EvaluateCalc | stand-ins under `internal/exec/analysis/testdata` built and registered from a manifest before the service is built |
 | `inputs` | ExecuteAction | parameter name → value, bound before execution |

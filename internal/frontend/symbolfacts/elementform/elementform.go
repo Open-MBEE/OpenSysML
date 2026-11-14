@@ -37,7 +37,7 @@ func (f elementForm) ID(sc *symbolfacts.Context, sym *symbols.Symbol) string {
 		id, _ := f.reader.ReadRelationship(sym.DocName, sym.Implicit.Node)
 		return id
 	}
-	id, _ := f.reader.Read(sym.DocName, sym.Decl, sc.Identity(sym))
+	id, _ := f.reader.Read(sym.DocName, sym.Decl, sc.OwnIdentity(sym))
 	return id
 }
 

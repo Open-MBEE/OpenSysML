@@ -1025,7 +1025,9 @@ message ParseFileResponse {
 // GetSymbolRequest queries for a specific symbol
 message GetSymbolRequest {
   string model_hash = 1;
-  string symbol_id = 2;  // Fully qualified name
+  // A qualified name or an element id, as lookup states; with none stated, read as a
+  // name first, then an id, so a name declared like a generated id shadows that element.
+  string symbol_id = 2;
   // List the members inherited from standard-library content in
   // SymbolInfo.members, each marked library, instead of counting them in
   // withheld_library_members.
@@ -1034,6 +1036,22 @@ message GetSymbolRequest {
   // memberships and to an alias's element; unset, or without the
   // symbol_name_resolution capability, it is an id the service reported, whatever its visibility.
   bool resolve_name = 4;
+  // What symbol_id is, stated rather than guessed; read with the "symbol_lookup_kind"
+  // capability, and resolve_name is then ignored.
+  LookupKind lookup = 5;
+}
+
+// LookupKind states what the one string naming an element is, as the SysML v2 API keeps
+// an element's "@id" apart from its qualifiedName (KerML 8.3.2.1).
+enum LookupKind {
+  // Not stated: the string is read as either kind, in the order its field documents.
+  LOOKUP_KIND_UNSPECIFIED = 0;
+  // A qualified name, resolved from the root namespace (KerML 8.2.3.5) through visible
+  // memberships; never read as an id.
+  LOOKUP_KIND_QUALIFIED_NAME = 1;
+  // An id the service reported for an element (SymbolInfo.id, child_ids, MemberInfo.id,
+  // ElementRef.id, a metaobject's element_id), whatever its visibility; never read as a name.
+  LOOKUP_KIND_ELEMENT_ID = 2;
 }
 
 // SymbolResponse contains symbol information
@@ -1046,12 +1064,15 @@ message SymbolResponse {
 // metamodel properties to read of it.
 message GetElementPropertiesRequest {
   string model_hash = 1;
-  // The element: its qualified name, the positional id of an unnamed member
-  // (Owner::@3), or the "@id" of the model's API element form.
+  // A qualified name or an id, as lookup states; with none stated, the "@id" of the model's
+  // API element form first, then a qualified name, then a positional id (Owner::@3).
   string element_id = 2;
   // The properties to read, by specification name. Empty reads every property
   // the element form carries for the element.
   repeated string properties = 3;
+  // What element_id is, stated rather than guessed; read with the "symbol_lookup_kind"
+  // capability. An alias named by qualified name answers as its membership.
+  LookupKind lookup = 4;
 }
 
 // GetElementPropertiesResponse is one property entry per requested name, in
@@ -2071,7 +2092,9 @@ enum EditFailure {
 // such field names the property it summarises, and element_properties is the
 // surface whose answer the specification defines.
 message SymbolInfo {
-  string id = 1;             // Unique identifier (fully qualified name)
+  // The element id, this element's alone: its qualified name (`Owner::'@3'`), a positional id
+  // (`Owner::@3`), or its element-form "@id" where another's generated id is spelled like the name.
+  string id = 1;
   string name = 2;
   // Declaration keyword kind ("partDef", "attributeUsage", "actionUsage", ...):
   // the written syntax, not the element's metaclass. GetElementProperties
@@ -2114,8 +2137,7 @@ message SymbolInfo {
 
 // MemberInfo is one member of an element, own or inherited.
 message MemberInfo {
-  // The id GetSymbol takes: the member's FQN, or the positional id
-  // (`Owner::@3`) of one declared without a name, library members included.
+  // The member's element id, as SymbolInfo.id spells it, library members included.
   string id = 1;
   // Declared name; empty for an unnamed member such as `bind a = b;`.
   string name = 2;

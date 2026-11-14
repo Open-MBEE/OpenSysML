@@ -124,6 +124,11 @@ CAPABILITY_SYMBOL_MEMBERS = "symbol_members"
 #: reads every id as one it reported, so the name of a declaration is all it finds.
 CAPABILITY_SYMBOL_NAME_RESOLUTION = "symbol_name_resolution"
 
+#: The ``lookup`` of ``GetSymbolRequest`` and ``GetElementPropertiesRequest`` honoured:
+#: a qualified name read only as a name, an element id only as an id. Without it one
+#: string is read name first, so a name declared like a generated id shadows that element.
+CAPABILITY_SYMBOL_LOOKUP_KIND = "symbol_lookup_kind"
+
 #: The ``GetElementProperties`` RPC: the metamodel properties of one element by
 #: their specification names, as the model's API element form spells them.
 #: Without it the service refuses the call with ``UNIMPLEMENTED``.

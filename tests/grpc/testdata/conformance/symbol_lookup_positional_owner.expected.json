@@ -1,0 +1,8 @@
+{
+	"rpc": "GetSymbol",
+	"model": "symbol_lookup_positional.sysml",
+	"symbol_id": "Col::W",
+	"lookup": "qualified_name",
+	"expected_kind": "partDef",
+	"expected_child_ids": ["Col::W::a", "Col::W::b", "Col::W::@2", "Col::W::'@2'"]
+}

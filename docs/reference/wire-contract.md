@@ -103,9 +103,10 @@ The response has three fields a client reads:
 
 - `modelHash` — the handle for every later call. Present even when the model has errors.
 - `roots` — one `SymbolInfo` per document, in request order; `childIds` are the fully
-  qualified names of its top-level members. Every `id` in this API is a fully qualified name
-  (`Demo::Vehicle::mass`), and that is what `symbolId`, `contextSymbolId`, `elementId` and
-  friends take.
+  qualified names of its top-level members. An `id` in this API is a fully qualified name
+  (`Demo::Vehicle::mass`) unless the element has none or shares it with a generated id (see
+  [`GetSymbol`](#getsymbol-and-the-symbolinfo-metadata-keys)), and that is what `symbolId`,
+  `contextSymbolId`, `elementId` and friends take.
 - `diagnostics` — the parse and validation findings, absent when there are none. Their shape is
   in [Diagnostics](#diagnostics-the-shape-of-a-finding).
 
@@ -136,8 +137,13 @@ HTTP/1.1 400 Bad Request
 `GetElementProperties` answers the metamodel properties of one element by their specification
 names (`inheritedFeature`, `connectorEnd`, `directedFeature`, `payloadType`, `isComposite`, …), as
 the model's API element form — `Convert` to `api-json` — spells them, without converting the whole
-model. `elementId` is a qualified name, the positional id of an unnamed member (`Owner::@2`) or the
-form's own `@id`; `properties` names what to read, and empty reads every property the form carries
+model. The element is named by kind, as [`GetSymbol`](#getsymbol-and-the-symbolinfo-metadata-keys)
+names one: under `lookup` `LOOKUP_KIND_QUALIFIED_NAME` `elementId` is a qualified name and never an
+id, under `LOOKUP_KIND_ELEMENT_ID` it is the form's own `@id` or an id `GetSymbol` reports and never
+a name; the `symbol_lookup_kind` capability advertises the field. With no `lookup`, the legacy
+form, `elementId` is one string for either: the form's own `@id` first,
+then a qualified name, then the positional id of an unnamed member (`Owner::@2`), so here an id
+shadows the declaration spelled like it. `properties` names what to read, and empty reads every property the form carries
 for the element. Each `ElementProperty` carries its `definingClass`, `many` and `derived` from the
 metamodel, its `values` — an `element` (`id`, `qualifiedName`, `metaclass`; the id is accepted back as
 `elementId`, so a client walks the graph), a `stringValue` (an enumeration literal included), a
@@ -158,9 +164,42 @@ capability advertises the RPC.
 
 ### `GetSymbol` and the `SymbolInfo` metadata keys
 
-`GetSymbol` answers one `SymbolInfo` for a symbol id: a fully qualified name, or the
+`GetSymbol` answers one `SymbolInfo` for the element `symbolId` names, and `lookup` states what
+kind of string that is, as the SysML v2 API & Services keeps an element's `@id` apart from its
+`qualifiedName` (KerML 1.1 8.3.2.1: `elementId` is an opaque identifier, `qualifiedName` a derived
+name, and no string is either):
+
+| `lookup` | `symbolId` is read as | Never read as |
+| --- | --- | --- |
+| `LOOKUP_KIND_QUALIFIED_NAME` | a qualified name resolved from the root namespace, as `resolveName` below describes; a segment that is not a basic name is written as the notation writes it (`Owner::'@3'`) | an id: `Owner::@3` names no unnamed member, a generated id no element |
+| `LOOKUP_KIND_ELEMENT_ID` | an id the service reported for an element, whatever its visibility: `SymbolInfo.id`, a `childIds` or `members` entry, a specialization target, a metaobject's `elementId`, an `ElementRef.id` | a name: no import is followed, no alias answered by its element |
+
+```sh
+$ … /GetSymbol -d '{"modelHash":"…","symbolId":"Col__V__c_pend0","lookup":"LOOKUP_KIND_QUALIFIED_NAME"}'   # the package declared under that name
+$ … /GetSymbol -d '{"modelHash":"…","symbolId":"Col__V__c_pend0","lookup":"LOOKUP_KIND_ELEMENT_ID"}'       # the connector end that id was generated for
+```
+
+The two share spellings, which is why the kind is stated rather than guessed. A generated id is
+spelled from names — an unnamed connector end's is `<owner>__<connector>_pend<i>`
+(`Col__V__c_pend0`), an unnamed member's `Owner::@3` — and a declaration may take either spelling:
+`package Col__V__c_pend0`, or `part '@3';` beside the fourth member of `Owner`. Every generated id
+keeps its spelling, so `GetSymbol`, `GetElementProperties` and the `api-json` and RDF exports report
+one id for one element. What keeps ids distinct is the declaration's side: a declared `@3` is
+reported under its qualified name as the notation writes it, `Owner::'@3'`, and a root declaration
+named like another element's element-form `@id` is reported under its own element-form `@id`
+(`Col_5f_5fV_5f_5fc_5fpend0`, as the export identifies it). So every id a `childIds` or `members`
+entry reports names, as an element id, the element it was reported for, and every declaration
+answers to its qualified name. The `symbol_lookup_kind` capability advertises the `lookup` of
+`GetSymbol` and of `GetElementProperties`; a service without it ignores the field and reads the
+string in the legacy form, so a client checks the capability before relying on the kind.
+
+The legacy form is `symbolId` with no `lookup` (`LOOKUP_KIND_UNSPECIFIED`), one string for either
+kind, kept as it was: a declared name first, then an id, so a declaration spelled like a generated id shadows the
+element the id was generated for (`symbolId: "Col__V__c_pend0"` answers the package,
+`symbolId: "Owner::@3"` the member declared `'@3'`). An id is a fully qualified name, or the
 positional id an unnamed declaration has in the query API and the export (`Owner::@3` for
-the fourth member of `Owner`, `Owner::@3::wheel` for a named member of it). `childIds` are the
+the fourth member of `Owner`, `Owner::@3::wheel` for a named member of it), or an element-form
+`@id`. `childIds` are the
 members the element itself declares under the same ids, named and unnamed alike (a `bind`, a
 `connect`, a `part : P;`, a `@M { … }` or `#M` annotation), each of which `GetSymbol` resolves;
 a member no id reaches, such as a body-local declaration, is not listed. With `resolveName` the
@@ -171,9 +210,10 @@ element under its own id, an alias with the element it is for, and a `private` o
 or one behind a `private import`, is not found. The `symbol_name_resolution` capability advertises the field: a service
 without it ignores `resolveName`, so every client checks the capability and otherwise asks by
 reported id. Without it the id is one the service reported and
-denotes that element whatever its visibility, an alias being itself; the clients' lookups by
-qualified name set it, and their navigation over `childIds`, `members` and specialization targets
-does not. `members` is every
+denotes that element whatever its visibility, an alias being itself. The clients' lookups by
+qualified name state `LOOKUP_KIND_QUALIFIED_NAME`, and their navigation over `childIds`, `members`
+and specialization targets states `LOOKUP_KIND_ELEMENT_ID`; for a service without
+`symbol_lookup_kind` the former sets `resolveName` and the latter does not. `members` is every
 member it has (KerML `Type::member`) — the owned ones first, in declaration order, then the
 inherited ones in inheritance order, each with its `kind`, `inherited` and `inheritedFrom`, a
 redefinition masking what it redefines and a private member of a supertype left out. Members

@@ -278,6 +278,10 @@ diagnostics and shared symbol facts.
 - `GetDiagnostics` returns the parser and validation diagnostics for a cached model.
 - `GetSymbol` returns the symbol's type, multiplicity, specialization and attribute facts, and
   the ids of its children, an unnamed member by its position (`Owner::@N`) as the service names it.
+  `lookup` states whether `symbolId` is a qualified name (`LOOKUP_KIND_QUALIFIED_NAME`) or an
+  element id (`LOOKUP_KIND_ELEMENT_ID`), each read only as that kind; without it the string is
+  read name first, as the service's
+  [`GetSymbol`](wire-contract.md#getsymbol-and-the-symbolinfo-metadata-keys) does.
 
 The `js` build installs `globalThis.sysmlCore` with `version` and synchronous
 `call(method, paramsJSON)`, which returns the JSON-RPC envelope string. Passing `-stdio`
@@ -330,7 +334,7 @@ The module retains the 16 most recently used models; an evicted hash is evicted 
 `infinity_value`, `diagnostic_codes`, `schedule`, `final_time`, `metaobject_values`,
 `undetermined_value`, `performer`, `big_int_values`, `render_view`, `state_trace`,
 `action_trace`, `render_document`, `render_document_html`, `render_document_asciidoc`,
-`render_document_file_name`, `render_view_form`.
+`render_document_file_name`, `render_view_form`, `symbol_lookup_kind`.
 
 The `js` build installs one synchronous host surface, `globalThis.sysmlWasm`, with
 `version` and `call(method, paramsJSON)`. The call returns a JSON-RPC envelope string.

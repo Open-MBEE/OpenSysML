@@ -13,6 +13,8 @@ export const CAPABILITY_SYMBOL_ATTRIBUTES = "symbol_attributes";
 export const CAPABILITY_SYMBOL_MEMBERS = "symbol_members";
 /** `GetSymbolRequest.resolveName` honoured; without it every id is read as one the service reported. */
 export const CAPABILITY_SYMBOL_NAME_RESOLUTION = "symbol_name_resolution";
+/** The `lookup` of `GetSymbolRequest` and `GetElementPropertiesRequest` honoured: a name read only as a name, an id only as an id. */
+export const CAPABILITY_SYMBOL_LOOKUP_KIND = "symbol_lookup_kind";
 /** The `GetElementProperties` RPC: an element's metamodel properties by their specification names. */
 export const CAPABILITY_ELEMENT_PROPERTIES = "element_properties";
 /** `RunDocumentQueryRequest.inline_query`: a query expression run in place of a named query. */

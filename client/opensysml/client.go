@@ -49,8 +49,8 @@ type Client interface {
 	// semantic passes combined — the same list the Model already carries.
 	Diagnostics(ctx context.Context, model *Model, opts ...DiagnosticsOption) ([]Diagnostic, error)
 
-	// LookupSymbol resolves a fully qualified name from the root namespace as the notation does
-	// (ByReportedID takes a reported id instead); an unknown name is a FailureError, an unknown model CodeNotFound.
+	// LookupSymbol finds a symbol by ByQualifiedName or ByElementID; with neither, one string read name
+	// first, then as an id. An unknown name is a FailureError, an unknown model CodeNotFound.
 	LookupSymbol(ctx context.Context, model *Model, symbolID string, opts ...SymbolOption) (*Symbol, error)
 
 	// Evaluate evaluates a SysML expression against the parsed model. An
@@ -176,9 +176,15 @@ type Client interface {
 	// ElementProperties reads the metamodel properties of one element by their
 	// specification names ("inheritedFeature", "connectorEnd", ...), as the
 	// model's API element form spells them; every property the element carries
-	// when none is named. The element is a qualified name, a positional id or
-	// the form's own id. Requires the element_properties capability.
+	// when none is named. The element is one string in the legacy form: the form's own id
+	// first, then a qualified name or positional id. Requires the element_properties capability.
 	ElementProperties(ctx context.Context, model *Model, element string, properties ...string) (*ElementProperties, error)
+	// ElementPropertiesByName is ElementProperties of the element a qualified name
+	// resolves to, the name never read as an id.
+	ElementPropertiesByName(ctx context.Context, model *Model, name string, properties ...string) (*ElementProperties, error)
+	// ElementPropertiesByID is ElementProperties of the element carrying an element form
+	// id or a symbol id, the id never read as a name.
+	ElementPropertiesByID(ctx context.Context, model *Model, id string, properties ...string) (*ElementProperties, error)
 
 	// RunDocumentQuery runs the named document query, binding its entry
 	// parameters — to elements, scalars, or objects the service holds for the
@@ -591,10 +597,22 @@ func WithLibraryMembers() SymbolOption {
 	return func(req *pb.GetSymbolRequest) { req.IncludeLibraryMembers = true }
 }
 
-// ByReportedID has LookupSymbol take the id as one the service reported (a child's, a
-// member's), whatever its visibility, instead of resolving it as a qualified name.
+// ByReportedID is the legacy form of ByElementID: the string is read as a declared name
+// first, then as an id, so a declaration spelled like a generated id shadows its element.
 func ByReportedID() SymbolOption {
 	return func(req *pb.GetSymbolRequest) { req.ResolveName = false }
+}
+
+// ByQualifiedName has LookupSymbol read the string as a qualified name and nothing else,
+// resolved from the root namespace; a service without the capability reads it name first.
+func ByQualifiedName() SymbolOption {
+	return func(req *pb.GetSymbolRequest) { req.Lookup = pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME }
+}
+
+// ByElementID has LookupSymbol read the string as an id the service reported (a child's, a
+// member's) and nothing else; a service without the capability reads it as ByReportedID does.
+func ByElementID() SymbolOption {
+	return func(req *pb.GetSymbolRequest) { req.Lookup = pb.LookupKind_LOOKUP_KIND_ELEMENT_ID }
 }
 
 func (c *client) LookupSymbol(ctx context.Context, model *Model, symbolID string, opts ...SymbolOption) (*Symbol, error) {
@@ -614,14 +632,19 @@ func (c *client) LookupSymbol(ctx context.Context, model *Model, symbolID string
 			return nil, err
 		}
 	}
-	if req.ResolveName {
-		// A service without the capability reads every id as one it reported.
-		info, err := c.serverInfo(ctx)
-		if err != nil {
-			return nil, err
-		}
-		req.ResolveName = info.Has(CapabilitySymbolNameResolution)
+	info, err := c.serverInfo(ctx)
+	if err != nil {
+		return nil, err
 	}
+	if req.Lookup != pb.LookupKind_LOOKUP_KIND_UNSPECIFIED {
+		// The legacy form of a stated kind, for a service that ignores it.
+		req.ResolveName = req.Lookup == pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME
+		if !info.Has(CapabilitySymbolLookupKind) {
+			req.Lookup = pb.LookupKind_LOOKUP_KIND_UNSPECIFIED
+		}
+	}
+	// A service without the capability reads every id as one it reported.
+	req.ResolveName = req.ResolveName && info.Has(CapabilitySymbolNameResolution)
 	resp, err := c.caller.getSymbol(ctx, req)
 	if err != nil {
 		return nil, err

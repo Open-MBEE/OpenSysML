@@ -136,3 +136,30 @@ func Qualify(owner, name string, index int) string {
 	}
 	return owner + "::" + name
 }
+
+// Declared spells a qualified name the index records as an identity: a declared name reading
+// as an `@N` address quoted (Segment), so it stays apart from the unnamed member at that position.
+func Declared(fqn string) string {
+	if !strings.Contains(fqn, "@") {
+		return fqn
+	}
+	segments := strings.Split(fqn, "::")
+	for i, segment := range segments {
+		if PositionalSegment(segment) {
+			segments[i] = Segment(segment)
+		}
+	}
+	return strings.Join(segments, "::")
+}
+
+// Recorded is the spelling the index records for an identity: Segment's quoting removed.
+func Recorded(identity string) string {
+	if !strings.Contains(identity, "'") {
+		return identity
+	}
+	segments := Segments(identity)
+	for i, segment := range segments {
+		segments[i] = Unquote(segment)
+	}
+	return strings.Join(segments, "::")
+}

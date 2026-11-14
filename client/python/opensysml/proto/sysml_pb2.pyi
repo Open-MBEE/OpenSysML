@@ -15,6 +15,12 @@ class FailureReason(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     FAILURE_REASON_AMBIGUOUS_SUBJECT: _ClassVar[FailureReason]
     FAILURE_REASON_UNDECIDED: _ClassVar[FailureReason]
 
+class LookupKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    LOOKUP_KIND_UNSPECIFIED: _ClassVar[LookupKind]
+    LOOKUP_KIND_QUALIFIED_NAME: _ClassVar[LookupKind]
+    LOOKUP_KIND_ELEMENT_ID: _ClassVar[LookupKind]
+
 class EditFailure(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     EDIT_FAILURE_UNSPECIFIED: _ClassVar[EditFailure]
@@ -58,6 +64,9 @@ FAILURE_REASON_EVALUATION: FailureReason
 FAILURE_REASON_WRONG_KIND: FailureReason
 FAILURE_REASON_AMBIGUOUS_SUBJECT: FailureReason
 FAILURE_REASON_UNDECIDED: FailureReason
+LOOKUP_KIND_UNSPECIFIED: LookupKind
+LOOKUP_KIND_QUALIFIED_NAME: LookupKind
+LOOKUP_KIND_ELEMENT_ID: LookupKind
 EDIT_FAILURE_UNSPECIFIED: EditFailure
 EDIT_FAILURE_NO_OPERATIONS: EditFailure
 EDIT_FAILURE_UNKNOWN_TARGET: EditFailure
@@ -850,16 +859,18 @@ class ParseFileResponse(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., root: _Optional[_Union[SymbolInfo, _Mapping]] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., error: _Optional[str] = ...) -> None: ...
 
 class GetSymbolRequest(_message.Message):
-    __slots__ = ("model_hash", "symbol_id", "include_library_members", "resolve_name")
+    __slots__ = ("model_hash", "symbol_id", "include_library_members", "resolve_name", "lookup")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_LIBRARY_MEMBERS_FIELD_NUMBER: _ClassVar[int]
     RESOLVE_NAME_FIELD_NUMBER: _ClassVar[int]
+    LOOKUP_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     symbol_id: str
     include_library_members: bool
     resolve_name: bool
-    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., include_library_members: _Optional[bool] = ..., resolve_name: _Optional[bool] = ...) -> None: ...
+    lookup: LookupKind
+    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., include_library_members: _Optional[bool] = ..., resolve_name: _Optional[bool] = ..., lookup: _Optional[_Union[LookupKind, str]] = ...) -> None: ...
 
 class SymbolResponse(_message.Message):
     __slots__ = ("symbol", "error")
@@ -870,14 +881,16 @@ class SymbolResponse(_message.Message):
     def __init__(self, symbol: _Optional[_Union[SymbolInfo, _Mapping]] = ..., error: _Optional[str] = ...) -> None: ...
 
 class GetElementPropertiesRequest(_message.Message):
-    __slots__ = ("model_hash", "element_id", "properties")
+    __slots__ = ("model_hash", "element_id", "properties", "lookup")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     ELEMENT_ID_FIELD_NUMBER: _ClassVar[int]
     PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    LOOKUP_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     element_id: str
     properties: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, model_hash: _Optional[str] = ..., element_id: _Optional[str] = ..., properties: _Optional[_Iterable[str]] = ...) -> None: ...
+    lookup: LookupKind
+    def __init__(self, model_hash: _Optional[str] = ..., element_id: _Optional[str] = ..., properties: _Optional[_Iterable[str]] = ..., lookup: _Optional[_Union[LookupKind, str]] = ...) -> None: ...
 
 class GetElementPropertiesResponse(_message.Message):
     __slots__ = ("element", "properties", "error")

@@ -113,14 +113,35 @@ func (v PropertyValue) Text() string {
 }
 
 func (c *client) ElementProperties(ctx context.Context, model *Model, element string, properties ...string) (*ElementProperties, error) {
+	return c.elementProperties(ctx, model, pb.LookupKind_LOOKUP_KIND_UNSPECIFIED, element, properties)
+}
+
+func (c *client) ElementPropertiesByName(ctx context.Context, model *Model, name string, properties ...string) (*ElementProperties, error) {
+	return c.elementProperties(ctx, model, pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME, name, properties)
+}
+
+func (c *client) ElementPropertiesByID(ctx context.Context, model *Model, id string, properties ...string) (*ElementProperties, error) {
+	return c.elementProperties(ctx, model, pb.LookupKind_LOOKUP_KIND_ELEMENT_ID, id, properties)
+}
+
+// elementProperties reads element as the kind lookup states, which a service without the
+// capability is not sent: it reads the string as either kind.
+func (c *client) elementProperties(ctx context.Context, model *Model, lookup pb.LookupKind, element string, properties []string) (*ElementProperties, error) {
 	hash, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	if lookup != pb.LookupKind_LOOKUP_KIND_UNSPECIFIED {
+		info, err := c.serverInfo(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if !info.Has(CapabilitySymbolLookupKind) {
+			lookup = pb.LookupKind_LOOKUP_KIND_UNSPECIFIED
+		}
+	}
 	resp, err := c.caller.getElementProperties(ctx, &pb.GetElementPropertiesRequest{
-		ModelHash:  hash,
-		ElementId:  element,
-		Properties: append([]string(nil), properties...),
+		ModelHash: hash, ElementId: element, Lookup: lookup, Properties: append([]string(nil), properties...),
 	})
 	if err != nil {
 		return nil, err

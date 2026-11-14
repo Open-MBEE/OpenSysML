@@ -1,6 +1,7 @@
 package symbolfacts
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -47,7 +48,7 @@ func (sc *Context) elementForm() ElementForm {
 // ResolveElement is the symbols of sem an ElementIdentity names: qualified or
 // positional as Lookup reads it, and a form `@id` under the nearest such owner.
 func (sc *Context) ResolveElement(id string, sem *semantics.Model) []*symbols.Symbol {
-	named := sc.Lookup(id)
+	named := sc.lookupDeclared(id)
 	form := sc.elementForm()
 	if form == nil {
 		return named
@@ -66,7 +67,7 @@ func (sc *Context) ResolveElement(id string, sem *semantics.Model) []*symbols.Sy
 		}
 	}
 	for owner != "" {
-		if owners := sc.Lookup(owner); len(owners) > 0 {
+		if owners := sc.lookupDeclared(owner); len(owners) > 0 {
 			for _, root := range owners {
 				if depth == 0 && !seen[root] {
 					found = append(found, root)
@@ -90,11 +91,19 @@ func (sc *Context) ResolveElement(id string, sem *semantics.Model) []*symbols.Sy
 // root, root included, whose ElementIdentity is id.
 func (sc *Context) ownedElementNamed(sem *semantics.Model, root *symbols.Symbol, id string, depth int,
 	seen map[*symbols.Symbol]bool, found []*symbols.Symbol) []*symbols.Symbol {
+	return sc.ownedElements(sem, root, depth, seen, found, func(sym *symbols.Symbol) bool {
+		return sc.ElementIdentity(sym) == id
+	})
+}
+
+// ownedElements collects the elements owned at most depth levels below root, root included, that keep accepts.
+func (sc *Context) ownedElements(sem *semantics.Model, root *symbols.Symbol, depth int,
+	seen map[*symbols.Symbol]bool, found []*symbols.Symbol, keep func(*symbols.Symbol) bool) []*symbols.Symbol {
 	if root == nil || seen[root] {
 		return found
 	}
 	seen[root] = true
-	if sc.ElementIdentity(root) == id {
+	if keep(root) {
 		found = append(found, root)
 	}
 	if depth == 0 || sem == nil {
@@ -103,8 +112,47 @@ func (sc *Context) ownedElementNamed(sem *semantics.Model, root *symbols.Symbol,
 	for _, feature := range []string{"ownedElement", "ownedRelationship"} {
 		owned, _ := sem.ReflectiveElements(root, feature)
 		for _, element := range owned {
-			found = sc.ownedElementNamed(sem, element, id, depth-1, seen, found)
+			found = sc.ownedElements(sem, element, depth-1, seen, found, keep)
 		}
 	}
 	return found
+}
+
+// formElements is the elements the element form writes under the `@id` id, found below the
+// nearest owner the id's decoded qualified name states.
+func (sc *Context) formElements(id string) []*symbols.Symbol {
+	form := sc.elementForm()
+	if form == nil {
+		return nil
+	}
+	owner, depth, ok := form.Owner(id)
+	if !ok {
+		return nil
+	}
+	is := func(sym *symbols.Symbol) bool { return form.ID(sc, sym) == id }
+	for owner != "" {
+		if owners := LookupNamed(sc.Index, owner); len(owners) > 0 {
+			var found []*symbols.Symbol
+			seen := map[*symbols.Symbol]bool{}
+			for _, root := range owners {
+				found = sc.ownedElements(sc.Semantics, root, depth, seen, found, is)
+			}
+			return found
+		}
+		cut := strings.LastIndex(owner, "::")
+		if cut < 0 {
+			break
+		}
+		owner, depth = owner[:cut], depth+1
+	}
+	return nil
+}
+
+// generatedSpells reports whether the element form writes an element other than sym under the
+// `@id` identity spells, which only a root declaration's can be: an `@id` holds no `::`.
+func (sc *Context) generatedSpells(identity string, sym *symbols.Symbol) bool {
+	if strings.Contains(identity, "::") || !strings.Contains(identity, "_") {
+		return false
+	}
+	return slices.ContainsFunc(sc.formElements(identity), func(other *symbols.Symbol) bool { return other != sym })
 }
