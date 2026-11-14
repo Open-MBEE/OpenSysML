@@ -126,6 +126,12 @@ else
 	exit 1
 fi
 
+# --jvm prints the Java feature release the export runs under, which a baseline records.
+if [ "${1:-}" = "--jvm" ]; then
+	"$JAVA" -XshowSettings:properties -version 2>&1 | sed -n 's/^ *java\.specification\.version = //p'
+	exit 0
+fi
+
 if [ ! -f "$JAR" ]; then
 	echo "Error: pilot jar not found at $JAR" >&2
 	exit 1

@@ -45,8 +45,8 @@ func TestDerivedCensusBaselineKeysServedRules(t *testing.T) {
 			continue
 		}
 		fields := strings.Split(line, "\t")
-		if len(fields) != 10 {
-			t.Fatalf("derived_census_records.tsv:%d: want 10 fields, got %d", number+1, len(fields))
+		if len(fields) != 11 {
+			t.Fatalf("derived_census_records.tsv:%d: want 11 fields, got %d", number+1, len(fields))
 		}
 		if !served[fields[0]] {
 			t.Errorf("derived_census_records.tsv:%d: counts %s, which rules.go does not serve", number+1, fields[0])

@@ -105,9 +105,19 @@ func run(opts options) error {
 		return err
 	}
 	var recorded *Report
+	if exporter {
+		if err := underDeclaredJVM(opts, record.PilotJava); err != nil {
+			return err
+		}
+	}
 	if !exporter {
 		if recorded, err = readCommitted(committed); err != nil && !os.IsNotExist(err) {
 			return err
+		}
+		if opts.update {
+			if err := reusable(recorded, record.PilotJava); err != nil {
+				return err
+			}
 		}
 		fmt.Fprintf(opts.log, "pilot JSON exporter is absent at %s; the pilot column is the one %s records (run ./scripts/download-pilot-json-exporter.sh to re-export it)\n", opts.launcher, CommittedBaseline)
 	}
@@ -200,6 +210,34 @@ func run(opts options) error {
 		return recordsReproduce(recordsPath(committed), encodeRecords(report))
 	}
 	return nil
+}
+
+// underDeclaredJVM holds the export to the declared JVM: a record is written under no
+// other, and a run that only compares says which JVM the pilot's column came from.
+func underDeclaredJVM(opts options, declared string) error {
+	jvm, err := exporterJVM(opts.launcher)
+	if err != nil {
+		return err
+	}
+	if jvm == declared {
+		return nil
+	}
+	if opts.update {
+		return fmt.Errorf("the pilot exporter runs under Java %s and %s declares Java %s for the record: put a Java %s first on PATH and re-run",
+			jvm, baseline.PinPath, declared, declared)
+	}
+	fmt.Fprintf(opts.log, "the pilot exporter runs under Java %s, not the Java %s %s declares; a difference in the pilot's column may be the JVM's\n",
+		jvm, declared, baseline.PinPath)
+	return nil
+}
+
+// reusable refuses to re-record a pilot column that was recorded under an undeclared JVM.
+func reusable(recorded *Report, declared string) error {
+	if recorded == nil || recorded.Provenance.PilotJava == declared {
+		return nil
+	}
+	return fmt.Errorf("%s holds a pilot column recorded under Java %q and %s declares Java %s: provision the exporter and re-record under that Java",
+		CommittedBaseline, recorded.Provenance.PilotJava, baseline.PinPath, declared)
 }
 
 // exporterPresent reports whether the pilot's exporter is provisioned; its

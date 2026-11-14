@@ -89,6 +89,20 @@ element the same conformance test applies, from the standard library's metaclass
 a property **absent** from the payload is *not derived*, one written `null` or `[]` is *empty*,
 anything else is *a value*.
 
+**Pilot-nondeterministic cells.** Where the API-JSON referee declares a (metaclass, property) pair
+pilot-nondeterministic (`tools/referee/apijson/nondeterminism.go`, the one list both tools read),
+the pilot's side counts the carrier as *nondeterministic* instead, whatever the export states. The
+declared pair is `FeatureChainExpression::featuringType`: the pilot fills it in transformation
+order, so three expressions of the pilot corpora had a value under one JVM and none under another,
+and a count of values there recorded the Java that ran the export rather than the model. Scored
+apart, the records are the same under either. Our side is counted as everywhere else.
+
+**The declared JVM.** `scripts/pilot-pin.sh` declares the Java feature release the pilot's column
+is recorded under (`PILOT_JAVA`, the one the workflows install) and the baseline states it as
+`provenance.pilotJava`. `-update` refuses to record under any other, `-check` fails on a baseline
+whose `pilotJava` is not the declared one, and a run that only compares under another JVM says so
+before it exports, so an undeclared JVM dependence is named where it appears.
+
 **Implied relationships — a deliberate difference, not a failure.** The pilot materializes the
 relationships it implies (the implicit specializations, typings and subsettings
 `isImpliedIncluded` controls) as elements only when asked to; the bridge runs its transformation

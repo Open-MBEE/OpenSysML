@@ -203,3 +203,32 @@ func contains(list []string, want string) bool {
 	}
 	return false
 }
+
+func TestPilotElementScoresDeclaredNondeterminismApart(t *testing.T) {
+	classes := newMetaclasses()
+	rules := metamodel.Rules()
+	var counted []Counts
+	for _, payload := range []map[string]any{
+		{"@id": "chain", "@type": "FeatureChainExpression", "featuringType": []any{map[string]any{"@id": "t"}}},
+		{"@id": "chain", "@type": "FeatureChainExpression", "featuringType": []any{}},
+		{"@id": "chain", "@type": "FeatureChainExpression"},
+	} {
+		census := &PilotCensus{Rules: map[string]Counts{}, seen: map[string]bool{}}
+		countPilotElement(payload, rules, classes, census)
+		counted = append(counted, census.Rules["Feature::featuringType"])
+	}
+	for i, got := range counted {
+		if got != (Counts{Carriers: 1, Nondeterministic: 1}) {
+			t.Errorf("payload %d: Feature::featuringType = %+v, want the carrier scored nondeterministic whatever the export states", i, got)
+		}
+	}
+	census := &PilotCensus{Rules: map[string]Counts{}, seen: map[string]bool{}}
+	countPilotElement(map[string]any{"@id": "f", "@type": "Feature", "featuringType": []any{}, "chainingFeature": []any{}}, rules, classes, census)
+	countPilotElement(map[string]any{"@id": "c", "@type": "FeatureChainExpression", "chainingFeature": []any{}}, rules, classes, census)
+	if got := census.Rules["Feature::featuringType"]; got != (Counts{Carriers: 2, Empty: 1, Nondeterministic: 1}) {
+		t.Errorf("Feature::featuringType = %+v, want an undeclared metaclass still scored by what the export states", got)
+	}
+	if got := census.Rules["Feature::chainingFeature"]; got != (Counts{Carriers: 2, Empty: 2}) {
+		t.Errorf("Feature::chainingFeature = %+v, want an undeclared property of the declared metaclass still scored", got)
+	}
+}

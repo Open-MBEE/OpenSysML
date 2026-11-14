@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
+	"github.com/Open-MBEE/OpenSysML/tools/referee/apijson"
 )
 
 // PilotCensus is the pilot's side of one root: what its export states for
@@ -103,6 +105,19 @@ func runExporter(launcher, dir, libraries string, files []string, timeout time.D
 	return census, nil
 }
 
+var featureRelease = regexp.MustCompile(`^[0-9]+$`)
+
+// exporterJVM asks the launcher which Java feature release it runs the export under.
+func exporterJVM(launcher string) (string, error) {
+	// #nosec G204 -- launcher is an explicit CLI override or repo-local artifact.
+	out, err := exec.Command(launcher, "--jvm").Output()
+	jvm := strings.TrimSpace(string(out))
+	if err != nil || !featureRelease.MatchString(jvm) {
+		return "", fmt.Errorf("%s --jvm names no Java feature release (%q, %v); re-provision it with ./scripts/download-pilot-json-exporter.sh --force", launcher, jvm, err)
+	}
+	return jvm, nil
+}
+
 // countPilotElement tallies one exported element against every served rule
 // its metaclass carries, once per id. Library elements the pilot writes
 // alongside a file's own are not the file's, as our walk never reaches them.
@@ -132,6 +147,8 @@ func countPilotElement(payload map[string]any, rules []metamodel.Rule, classes m
 		counts.Carriers++
 		value, present := payload[rule.Property]
 		switch {
+		case apijson.IsPilotNondeterministic(class, rule.Property):
+			counts.Nondeterministic++
 		case !present:
 			counts.NotDerived++
 		case isAbsent(value):

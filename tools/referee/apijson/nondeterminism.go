@@ -27,8 +27,8 @@ var pilotNondeterminism = []Nondeterminism{
 	},
 }
 
-// isPilotNondeterministic reports whether the (metaclass, property) row is declared.
-func isPilotNondeterministic(metaclass, property string) bool {
+// IsPilotNondeterministic reports whether the (metaclass, property) row is declared.
+func IsPilotNondeterministic(metaclass, property string) bool {
 	for _, n := range pilotNondeterminism {
 		if n.Metaclass == metaclass && n.Property == property {
 			return true

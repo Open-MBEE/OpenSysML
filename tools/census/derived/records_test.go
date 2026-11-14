@@ -9,7 +9,7 @@ import (
 func TestRecordsRoundTripThroughTheCommittedLayout(t *testing.T) {
 	report := &Report{Roots: []RootReport{
 		{Name: "training", Dir: "a", Files: 2, Rules: map[string]RuleCounts{
-			"Usage::nestedPart": {Ours: Counts{Carriers: 5, Value: 3, Empty: 2}, Pilot: Counts{Carriers: 5, Value: 4, Empty: 1}},
+			"Usage::nestedPart": {Ours: Counts{Carriers: 5, Value: 3, Empty: 2}, Pilot: Counts{Carriers: 5, Value: 3, Empty: 1, Nondeterministic: 1}},
 			"Feature::type":     {Ours: Counts{Carriers: 1, NotDerived: 1}, Pilot: Counts{Carriers: 1, Value: 1}},
 		}},
 		{Name: "examples", Dir: "b", Files: 1, Rules: map[string]RuleCounts{
@@ -25,9 +25,9 @@ func TestRecordsRoundTripThroughTheCommittedLayout(t *testing.T) {
 		}
 	}
 	want := []string{
-		"Feature::type\ttraining\t1\t0\t0\t1\t1\t1\t0\t0",
-		"Feature::type\texamples\t7\t7\t0\t0\t7\t7\t0\t0",
-		"Usage::nestedPart\ttraining\t5\t3\t2\t0\t5\t4\t1\t0",
+		"Feature::type\ttraining\t1\t0\t0\t1\t1\t1\t0\t0\t0",
+		"Feature::type\texamples\t7\t7\t0\t0\t7\t7\t0\t0\t0",
+		"Usage::nestedPart\ttraining\t5\t3\t2\t0\t5\t3\t1\t0\t1",
 	}
 	if strings.Join(records, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("records:\n%s\nwant:\n%s", strings.Join(records, "\n"), strings.Join(want, "\n"))
@@ -53,8 +53,11 @@ func TestRecordsRoundTripThroughTheCommittedLayout(t *testing.T) {
 			t.Errorf("%s decoded %d rules, want %d", root.Name, len(decoded.Roots[i].Rules), len(root.Rules))
 		}
 	}
-	if err := decodeRecords([]byte("Feature::type\tunknown\t1\t0\t0\t0\t1\t0\t0\t0\n"), &decoded); err == nil {
+	if err := decodeRecords([]byte("Feature::type\tunknown\t1\t0\t0\t0\t1\t0\t0\t0\t0\n"), &decoded); err == nil {
 		t.Error("a record naming a root the header lacks decoded")
+	}
+	if err := decodeRecords([]byte("Feature::type\ttraining\t1\t0\t0\t0\t1\t0\t0\t0\n"), &decoded); err == nil {
+		t.Error("a record without the pilot's nondeterministic count decoded")
 	}
 	if err := decodeRecords([]byte("Feature::type\ttraining\t1\n"), &decoded); err == nil {
 		t.Error("a short record decoded")
