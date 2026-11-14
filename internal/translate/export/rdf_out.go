@@ -2465,7 +2465,7 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			name = declared.Name
 			keyword = e.referencesKeyword(end)
 		}
-		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: slot, index: i, decl: end, memberName: e.endMemberName(e.ids.declSym[n], i), ends: endCount, target: end.AttachedTarget(), element: end.AttachedIndex(), mult: end.Multiplicity, name: name, keyword: keyword, port: n.Kind == ast.UsageInterface}); err != nil {
+		if _, err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: slot, index: i, decl: end, memberName: e.endMemberName(e.ids.declSym[n], i), ends: endCount, target: end.AttachedTarget(), element: end.AttachedIndex(), mult: end.Multiplicity, name: name, keyword: keyword, port: n.Kind == ast.UsageInterface}); err != nil {
 			return err
 		}
 	}
@@ -2487,7 +2487,7 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			continue
 		}
 		feature, element := ast.EndSelection(target)
-		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: fmt.Sprintf("end%d", i), index: i, memberName: e.endMemberName(e.ids.declSym[n], i), ends: 2, target: feature, element: element, flow: true}); err != nil {
+		if _, err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: fmt.Sprintf("end%d", i), index: i, memberName: e.endMemberName(e.ids.declSym[n], i), ends: 2, target: feature, element: element, flow: true}); err != nil {
 			return err
 		}
 	}
@@ -2630,10 +2630,12 @@ func (e *encoder) endMemberName(sym *symbols.Symbol, i int) string {
 	return ""
 }
 
-// connectorEnd emits a standard ConnectorEnd feature and its EndFeatureMembership.
-func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
+// connectorEnd emits a standard ConnectorEnd feature and its EndFeatureMembership, and answers the
+// feature the end references (a chained end's chain Feature); the zero term for an end referencing none.
+func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) (rdf.Term, error) {
+	var reference rdf.Term
 	if end.target == nil && end.targetTerm.Value == "" && !end.empty {
-		return nil
+		return reference, nil
 	}
 	feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, end.slot), subject, end.slot)
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
@@ -2670,7 +2672,7 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 		if end.element != nil {
 			written += "#(" + e.text(end.element) + ")"
 			if err := e.expressionAs(feature, e.sysx(xEndElement), "element", end.owner, end.element, mOwningMembership); err != nil {
-				return err
+				return reference, err
 			}
 		}
 		e.graph.Add(feature, e.sysx(xSourceText), rdf.String(written))
@@ -2688,7 +2690,6 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 		e.graph.Add(feature, e.sysml(pName), rdf.String(end.memberName))
 	}
 	if end.target != nil || end.targetTerm.Value != "" {
-		var reference rdf.Term
 		switch {
 		case len(flowSegments) > 0:
 			reference = e.flowEndReferences(feature, flowSegments)
@@ -2698,7 +2699,7 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 		default:
 			var err error
 			if reference, err = e.endReferences(feature, end.target); err != nil {
-				return err
+				return reference, err
 			}
 		}
 		if !end.noCollapse {
@@ -2707,10 +2708,10 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 		}
 	}
 	if err := e.multiplicity(feature, end.owner, end.mult); err != nil {
-		return err
+		return reference, err
 	}
 	e.defaultMultiplicity(feature, end.decl, end.mult)
-	return nil
+	return reference, nil
 }
 
 // flowEndSegments is the name or chain a flow end names, one term per segment,
