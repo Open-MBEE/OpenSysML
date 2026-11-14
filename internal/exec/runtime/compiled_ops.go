@@ -5,8 +5,8 @@ import (
 	"math"
 	"slices"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // scalar is an Integer, Rational, Real or Boolean constant packed into three
@@ -100,11 +100,11 @@ type binaryOp func(ctx *Context, l, r scalar) (scalar, error)
 
 // arithmeticOp is constArithmetic for one operator, the Integer sum and
 // difference answered without boxing.
-func arithmeticOp(op ast.OperatorKind) binaryOp {
+func arithmeticOp(op program.Operator) binaryOp {
 	switch op {
-	case ast.OpAdd:
+	case program.OpAdd:
 		return addScalars
-	case ast.OpSub:
+	case program.OpSub:
 		return subScalars
 	}
 	return func(ctx *Context, l, r scalar) (scalar, error) { return arithScalars(ctx, op, l, r) }
@@ -116,7 +116,7 @@ func addScalars(ctx *Context, l, r scalar) (scalar, error) {
 			return intScalar(res), nil
 		}
 	}
-	return arithScalars(ctx, ast.OpAdd, l, r)
+	return arithScalars(ctx, program.OpAdd, l, r)
 }
 
 func subScalars(ctx *Context, l, r scalar) (scalar, error) {
@@ -125,11 +125,11 @@ func subScalars(ctx *Context, l, r scalar) (scalar, error) {
 			return intScalar(res), nil
 		}
 	}
-	return arithScalars(ctx, ast.OpSub, l, r)
+	return arithScalars(ctx, program.OpSub, l, r)
 }
 
 // arithScalars is constArithmetic over scalars.
-func arithScalars(ctx *Context, op ast.OperatorKind, l, r scalar) (scalar, error) {
+func arithScalars(ctx *Context, op program.Operator, l, r scalar) (scalar, error) {
 	res, err := constArithmetic(op, l.semantic(), r.semantic(), ctx.maxIntegerBits)
 	if err != nil {
 		return scalar{}, err
@@ -139,7 +139,7 @@ func arithScalars(ctx *Context, op ast.OperatorKind, l, r scalar) (scalar, error
 
 // scalarResult unboxes an operator's result, which constArithmetic and
 // constUnary keep on the scalar lattice.
-func scalarResult(op ast.OperatorKind, res semantics.Value) (scalar, error) {
+func scalarResult(op program.Operator, res semantics.Value) (scalar, error) {
 	out, ok := scalarOfConst(res)
 	if !ok {
 		return scalar{}, fmt.Errorf("compiled '%s' produced a non-scalar %s", op,
@@ -150,30 +150,30 @@ func scalarResult(op ast.OperatorKind, res semantics.Value) (scalar, error) {
 
 // comparisonOp is constComparison for one operator, two Integers answered
 // without boxing.
-func comparisonOp(op ast.OperatorKind) binaryOp {
+func comparisonOp(op program.Operator) binaryOp {
 	switch op {
-	case ast.OpLt:
+	case program.OpLt:
 		return func(_ *Context, l, r scalar) (scalar, error) {
 			if a, b, ok := smallInts(l, r); ok {
 				return boolScalar(a < b), nil
 			}
 			return compareScalars(op, l, r)
 		}
-	case ast.OpLe:
+	case program.OpLe:
 		return func(_ *Context, l, r scalar) (scalar, error) {
 			if a, b, ok := smallInts(l, r); ok {
 				return boolScalar(a <= b), nil
 			}
 			return compareScalars(op, l, r)
 		}
-	case ast.OpGt:
+	case program.OpGt:
 		return func(_ *Context, l, r scalar) (scalar, error) {
 			if a, b, ok := smallInts(l, r); ok {
 				return boolScalar(a > b), nil
 			}
 			return compareScalars(op, l, r)
 		}
-	case ast.OpGe:
+	case program.OpGe:
 		return func(_ *Context, l, r scalar) (scalar, error) {
 			if a, b, ok := smallInts(l, r); ok {
 				return boolScalar(a >= b), nil
@@ -185,7 +185,7 @@ func comparisonOp(op ast.OperatorKind) binaryOp {
 }
 
 // compareScalars is constComparison over scalars.
-func compareScalars(op ast.OperatorKind, l, r scalar) (scalar, error) {
+func compareScalars(op program.Operator, l, r scalar) (scalar, error) {
 	res, err := constComparison(op, l.semantic(), r.semantic())
 	if err != nil {
 		return scalar{}, err
@@ -204,7 +204,7 @@ func identicalScalars(l, r scalar) bool {
 }
 
 // unaryScalar is constUnary over a scalar.
-func unaryScalar(op ast.OperatorKind, v scalar) (scalar, error) {
+func unaryScalar(op program.Operator, v scalar) (scalar, error) {
 	res, err := constUnary(op, v.semantic())
 	if err != nil {
 		return scalar{}, err
@@ -329,30 +329,30 @@ func leafPair(pre int64, l, r *cnode, op binaryOp) compiledExpr {
 	}
 }
 
-func arithmeticNode(op ast.OperatorKind, kids []*cnode) *cnode {
+func arithmeticNode(op program.Operator, kids []*cnode) *cnode {
 	return binaryNode(kids, arithmeticOp(op), false)
 }
 
-func comparisonNode(op ast.OperatorKind, kids []*cnode) *cnode {
+func comparisonNode(op program.Operator, kids []*cnode) *cnode {
 	return binaryNode(kids, comparisonOp(op), true)
 }
 
-func equalityNode(op ast.OperatorKind, kids []*cnode) *cnode {
-	negate := op == ast.OpNeq
+func equalityNode(op program.Operator, kids []*cnode) *cnode {
+	negate := op == program.OpNeq
 	return binaryNode(kids, func(_ *Context, l, r scalar) (scalar, error) {
 		return boolScalar(equalScalars(l, r) != negate), nil
 	}, true)
 }
 
-func identityNode(op ast.OperatorKind, kids []*cnode) *cnode {
-	negate := op == ast.OpNeqEqEq
+func identityNode(op program.Operator, kids []*cnode) *cnode {
+	negate := op == program.OpNeqEqEq
 	return binaryNode(kids, func(_ *Context, l, r scalar) (scalar, error) {
 		return boolScalar(identicalScalars(l, r) != negate), nil
 	}, true)
 }
 
 // unaryNode applies `-`, `+` or `not` to its operand.
-func unaryNode(op ast.OperatorKind, kids []*cnode) *cnode {
+func unaryNode(op program.Operator, kids []*cnode) *cnode {
 	k := kids[0]
 	n := &cnode{prefix: 1 + k.prefix}
 	n.emit = func(precharged bool) compiledExpr {
@@ -377,29 +377,29 @@ func unaryNode(op ast.OperatorKind, kids []*cnode) *cnode {
 
 // logicalNode is `and`, `or`, `xor` and `implies`, deciding on the left
 // operand alone where the evaluator does.
-func logicalNode(op ast.OperatorKind, kids []*cnode) *cnode {
+func logicalNode(op program.Operator, kids []*cnode) *cnode {
 	l, r := kids[0], kids[1]
 	n := &cnode{prefix: 1 + l.prefix}
 	leftWhat := fmt.Sprintf("left operand of '%s'", op)
 	rightWhat := fmt.Sprintf("right operand of '%s'", op)
 	var short func(l bool) (bool, bool)
 	switch op {
-	case ast.OpAnd, ast.OpConditionalAnd:
+	case program.OpAnd, program.OpConditionalAnd:
 		short = func(l bool) (bool, bool) { return false, !l }
-	case ast.OpOr, ast.OpConditionalOr:
+	case program.OpOr, program.OpConditionalOr:
 		short = func(l bool) (bool, bool) { return true, l }
-	case ast.OpImplies:
+	case program.OpImplies:
 		short = func(l bool) (bool, bool) { return true, !l }
 	default:
 		short = func(bool) (bool, bool) { return false, false }
 	}
 	combine := func(l, r bool) bool {
 		switch op {
-		case ast.OpAnd, ast.OpConditionalAnd:
+		case program.OpAnd, program.OpConditionalAnd:
 			return l && r
-		case ast.OpOr, ast.OpConditionalOr:
+		case program.OpOr, program.OpConditionalOr:
 			return l || r
-		case ast.OpXor:
+		case program.OpXor:
 			return l != r
 		default:
 			return !l || r
@@ -441,7 +441,7 @@ func logicalNode(op ast.OperatorKind, kids []*cnode) *cnode {
 }
 
 // conditionalNode is `if c ? t else e`, evaluating one branch.
-func conditionalNode(_ ast.OperatorKind, kids []*cnode) *cnode {
+func conditionalNode(_ program.Operator, kids []*cnode) *cnode {
 	c, t, e := kids[0], kids[1], kids[2]
 	n := &cnode{prefix: 1 + c.prefix}
 	n.emit = func(precharged bool) compiledExpr {

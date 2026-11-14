@@ -495,7 +495,7 @@ func (e *ActionExecutor) derivative(run *stateSpaceRun, input *Value, state Valu
 // multiplies or divides as quantities do.
 func (e *ActionExecutor) vectorOp(op ast.OperatorKind, left, right Value) (Value, error) {
 	if !isVectorKind(left) && !isVectorKind(right) {
-		val, err := e.ctx.arithmeticValues(op, left, right, source.Span{})
+		val, err := e.ctx.arithmeticValues(lower.OperatorOf(op), left, right, source.Span{})
 		if err != nil {
 			return Value{}, fmt.Errorf("%w: step of action %s: %w", errStateSpaceValue, SymbolText(e.action), err)
 		}

@@ -1739,7 +1739,7 @@ func (e *EvalContext) buildInvokedMessage(scope *symbols.Scope, invocation *ast.
 		return Message{}, err
 	}
 	return e.buildTypedMessage(scope, signalType, signal, target,
-		messageArgs{typeRef: invocation.Type, args: invocation.Args, named: invocation.NamedArgs, loneValue: true})
+		messageArgs{typeRef: invocation.Type, args: e.operandsIn(invocation.Args, invocation.NamedArgs), loneValue: true})
 }
 
 // buildConstructedMessage builds the message of `send new Telemetry(3) via
@@ -1752,12 +1752,12 @@ func (e *EvalContext) buildConstructedMessage(scope *symbols.Scope, constructor 
 	if err != nil {
 		return Message{}, err
 	}
-	if err := e.checkConstructorArity(signal, constructor, "send "+signal.Name); err != nil {
+	if err := e.checkConstructorArity(signal, len(constructor.Args), "send "+signal.Name); err != nil {
 		return Message{}, err
 	}
 	msg, inst, err := e.constructObject(func() (Message, error) {
 		return e.buildTypedMessage(scope, signal.Name, signal, target,
-			messageArgs{typeRef: constructor.Type, args: constructor.Args, named: constructor.NamedArgs})
+			messageArgs{typeRef: constructor.Type, args: e.operandsIn(constructor.Args, constructor.NamedArgs)})
 	}, "send new "+signal.Name)
 	if err != nil {
 		return Message{}, err
@@ -1768,18 +1768,19 @@ func (e *EvalContext) buildConstructedMessage(scope *symbols.Scope, constructor 
 
 // evalConstructor evaluates `new T(…)` as a value: the object of T whose
 // constructible features the arguments bind, read as what it denotes.
-func (e *EvalContext) evalConstructor(constructor *ast.ConstructorExpr) (Value, error) {
+func (e *EvalContext) evalConstructor(x lowered) (Value, error) {
+	constructor, args := x.constructor(), x.operands()
 	typ, err := e.constructedType(e.scope, constructor.Type, "")
 	if err != nil {
 		return Value{}, err
 	}
 	what := "new " + typ.Name
-	if err := e.checkConstructorArity(typ, constructor, what); err != nil {
+	if err := e.checkConstructorArity(typ, len(args.positional), what); err != nil {
 		return Value{}, err
 	}
 	_, inst, err := e.constructObject(func() (Message, error) {
 		return e.buildTypedMessage(e.scope, typ.Name, typ, "",
-			messageArgs{typeRef: constructor.Type, args: constructor.Args, named: constructor.NamedArgs, written: what})
+			messageArgs{typeRef: constructor.Type, args: args, written: what})
 	}, what)
 	if err != nil {
 		return Value{}, err
@@ -1819,12 +1820,12 @@ func (e *EvalContext) constructObject(build func() (Message, error), what string
 
 // checkConstructorArity rejects positional arguments beyond the constructed
 // type's constructible features.
-func (e *EvalContext) checkConstructorArity(typ *symbols.Symbol, constructor *ast.ConstructorExpr, what string) error {
+func (e *EvalContext) checkConstructorArity(typ *symbols.Symbol, positional int, what string) error {
 	if e.ctx.model.semantics == nil {
 		return nil
 	}
-	if n := len(e.ctx.model.semantics.ConstructibleFeatures(typ)); len(constructor.Args) > n {
-		return fmt.Errorf("%s: new %s takes %d argument(s), found %d", what, typ.Name, n, len(constructor.Args))
+	if n := len(e.ctx.model.semantics.ConstructibleFeatures(typ)); positional > n {
+		return fmt.Errorf("%s: new %s takes %d argument(s), found %d", what, typ.Name, n, positional)
 	}
 	return nil
 }
@@ -1877,14 +1878,13 @@ func (e *EvalContext) messageType(scope *symbols.Scope, typeRef *ast.QualifiedNa
 // Errors name the construct as written, `send T` unless stated otherwise.
 type messageArgs struct {
 	typeRef   *ast.QualifiedName
-	args      []ast.Node
-	named     []ast.NamedArg
+	args      operands
 	loneValue bool
 	written   string
 }
 
 func (e *EvalContext) buildTypedMessage(scope *symbols.Scope, signalType string, signal *symbols.Symbol, target string, in messageArgs) (Message, error) {
-	typeRef, args, named, loneValue := in.typeRef, in.args, in.named, in.loneValue
+	typeRef, args, named, loneValue := in.typeRef, in.args.positional, in.args.named, in.loneValue
 	written := in.written
 	if written == "" {
 		written = "send " + signalType
@@ -1897,7 +1897,7 @@ func (e *EvalContext) buildTypedMessage(scope *symbols.Scope, signalType string,
 	}
 	bound := make(map[*symbols.Symbol]string, len(args)+len(named))
 	for i, arg := range args {
-		value, err := e.Eval(arg)
+		value, err := e.evalExpr(lowered{entry: arg})
 		if err != nil {
 			return Message{}, fmt.Errorf("eval argument %d of %s: %w", i+1, written, err)
 		}
@@ -1911,19 +1911,20 @@ func (e *EvalContext) buildTypedMessage(scope *symbols.Scope, signalType string,
 			msg.Value = &value
 		}
 	}
-	for _, arg := range named {
-		label := ast.QualifiedText(arg.Name)
+	for j, arg := range named {
+		labeled := in.args.label(j)
+		label := ast.QualifiedText(labeled)
 		if label == "" {
 			return Message{}, fmt.Errorf("%s: an argument is named by nothing", written)
 		}
-		name, err := e.constructorLabel(scope, signal, typeRef, arg.Name, bound)
+		name, err := e.constructorLabel(scope, signal, typeRef, labeled, bound)
 		if err != nil {
 			return Message{}, fmt.Errorf("%s: %w", written, err)
 		}
 		if _, twice := msg.Payload[name]; twice {
 			return Message{}, fmt.Errorf("%s: %s is bound twice", written, label)
 		}
-		value, err := e.Eval(arg.Value)
+		value, err := e.evalExpr(lowered{entry: arg})
 		if err != nil {
 			return Message{}, fmt.Errorf("eval argument %s of %s: %w", label, written, err)
 		}

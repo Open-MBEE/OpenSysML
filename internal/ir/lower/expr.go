@@ -69,18 +69,26 @@ type exprLowering struct {
 	scope    *symbols.Scope
 	resolver *resolve.Resolver
 	doc      string
+	// shared are the operands two records read, by node: the id of each once lowered, none before.
+	shared map[ast.Node]program.ExprID
 }
 
-// lower appends the record of node, then those of its operands; a kind not
-// lowered yet has none, and is evaluated from the tree.
+// lower appends the record of node, then those of its operands; a shared operand has one record.
 func (l *exprLowering) lower(node ast.Node) program.ExprID {
 	t := l.table
+	pending, isShared := l.shared[node]
+	if pending != 0 {
+		return pending
+	}
 	if len(t.entries) == 0 {
 		t.entries = make([]*ExprEntry, 1, 4)
 	}
 	entry := &ExprEntry{Tree: node, Scope: l.scope}
 	id := program.ExprID(tableIndex(len(t.entries)))
 	t.entries = append(t.entries, entry)
+	if isShared {
+		l.shared[node] = id
+	}
 	expr := &entry.Expr
 	expr.Origin.Doc = l.doc
 	var operands []ast.Node
@@ -128,17 +136,22 @@ func (l *exprLowering) lower(node ast.Node) program.ExprID {
 	case *ast.IndexExpr:
 		expr.Kind, expr.Bracket, operands = program.ExprIndex, n.Bracket, []ast.Node{n.Operand, n.Index}
 	case *ast.CollectExpr:
-		expr.Kind = program.ExprCollect
+		expr.Kind, operands = program.ExprCollect, []ast.Node{n.Operand, n.Body}
 	case *ast.SelectExpr:
-		expr.Kind = program.ExprSelect
+		expr.Kind, operands = program.ExprSelect, []ast.Node{n.Operand, n.Body}
 	case *ast.InvocationExpr:
 		expr.Kind = program.ExprInvoke
+		operands = l.invocation(expr, n)
 	case *ast.ConstructorExpr:
 		expr.Kind = program.ExprConstruct
+		written(&expr.Ref, n.Type)
+		operands = l.arguments(expr, n.Args, n.NamedArgs)
 	case *ast.BodyExpr:
+		// A body's result is written in the scope of its parameters, and lowered there when applied.
 		expr.Kind = program.ExprBody
 	case *ast.MetadataAccessExpr:
 		expr.Kind = program.ExprMetadata
+		written(&expr.Ref, n.Ref)
 	case nil:
 		return id
 	}
@@ -149,6 +162,61 @@ func (l *exprLowering) lower(node ast.Node) program.ExprID {
 		entry.Operands = append(entry.Operands, t.entries[arg])
 	}
 	return id
+}
+
+// invocation records what a call applies and returns its operands: the receiver of
+// `x->F(a)` first, or for `x.f(a)` the chain applied and what its last member is read from.
+func (l *exprLowering) invocation(expr *program.Expr, n *ast.InvocationExpr) []ast.Node {
+	written(&expr.Ref, n.Type)
+	var operands []ast.Node
+	if chain := semantics.ChainCallee(n); chain != nil {
+		expr.Applied = true
+		operands = []ast.Node{chain, chain.Operand}
+		// Both read the chain's first operand, which is lowered once however deep the calls nest.
+		if chain.Member != nil && len(chain.Member.Parts) > 0 {
+			l.share(ast.FeatureChainBase(chain))
+		}
+	} else if n.Operand != nil {
+		expr.Receiver = true
+		operands = []ast.Node{n.Operand}
+	}
+	return append(operands, l.arguments(expr, n.Args, n.NamedArgs)...)
+}
+
+// share marks node as an operand two records read. The segments are FeatureChainBase's, unused.
+func (l *exprLowering) share(node ast.Node, _ []ast.NameSegment) {
+	if node == nil {
+		return
+	}
+	if l.shared == nil {
+		l.shared = map[ast.Node]program.ExprID{}
+	}
+	if _, ok := l.shared[node]; !ok {
+		l.shared[node] = 0
+	}
+}
+
+// arguments records the labels of an argument list and returns the arguments as
+// written, those bound by position before those bound by name.
+func (l *exprLowering) arguments(expr *program.Expr, args []ast.Node, named []ast.NamedArg) []ast.Node {
+	operands := append([]ast.Node(nil), args...)
+	if len(named) == 0 {
+		return operands
+	}
+	expr.Named = make([]program.SymbolRef, len(named))
+	for i, arg := range named {
+		written(&expr.Named[i], arg.Name)
+		operands = append(operands, arg.Value)
+	}
+	return operands
+}
+
+// written records a name as spelled, for the run to resolve.
+func written(ref *program.SymbolRef, qn *ast.QualifiedName) {
+	if qn == nil || len(qn.Parts) == 0 {
+		return
+	}
+	ref.Name, ref.Span = qn.Text(), qn.Span()
 }
 
 // typeRef records the type an operator names (`x as T`, `x istype T`), resolved

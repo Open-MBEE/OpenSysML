@@ -27,6 +27,14 @@ const exprSrc = `
 			attribute neg = -x;
 			attribute cast = x as V;
 			attribute call = f(x);
+			attribute received = seq->size();
+			attribute applied = v.m(x, 2);
+			attribute labelled = f(a = x, b = 2);
+			attribute nested = v.m().m().m.m().m().m().m().m().m().m().m().m();
+			attribute made = new V(m = x);
+			attribute each = seq.{in e; e};
+			attribute some = seq.?{in e; true};
+			attribute meta = x.metadata;
 			attribute missing = nowhere;
 			attribute huge = 99999999999999999999999999;
 		}
@@ -130,15 +138,87 @@ func TestLowerExprRecordsEachKind(t *testing.T) {
 	}
 }
 
-// TestLowerExprLeavesTheRestToTheRun pins what lowering does not decide: a tree-evaluated
-// kind is a leaf, and a name or literal that is no value is recorded as written.
+// TestLowerExprRecordsCallsAndBodies pins the kinds whose operands are arguments: which
+// are written by position and which by name, what a call applies, and a body left whole.
+func TestLowerExprRecordsCallsAndBodies(t *testing.T) {
+	values, scope, resolver := exprFixture(t)
+	lowerOf := func(name string, kind program.ExprKind, args int) (*ExprTable, *program.Expr) {
+		t.Helper()
+		table, id := LowerExpr(values[name], scope, resolver)
+		expr := table.At(id)
+		if expr.Kind != kind || len(expr.Args) != args || len(table.Entry(id).Operands) != args {
+			t.Fatalf("%s = %+v, want kind %d over %d operands", name, expr, kind, args)
+		}
+		return table, expr
+	}
+	table, call := lowerOf("call", program.ExprInvoke, 1)
+	if call.Ref.Name != "f" || call.Receiver || call.Applied || len(call.Named) != 0 || table.At(call.Args[0]).Ref.Name != "x" {
+		t.Fatalf("f(x) = %+v", call)
+	}
+	table, received := lowerOf("received", program.ExprInvoke, 1)
+	if received.Ref.Name != "size" || !received.Receiver || received.Applied || table.At(received.Args[0]).Ref.Name != "seq" {
+		t.Fatalf("seq->size() = %+v", received)
+	}
+	table, applied := lowerOf("applied", program.ExprInvoke, 4)
+	chain, holder := table.At(applied.Args[0]), table.At(applied.Args[1])
+	if !applied.Applied || applied.Receiver || applied.Ref.Name != "" || chain.Kind != program.ExprChain ||
+		holder.Ref.Name != "v" || table.At(applied.Args[2]).Ref.Name != "x" || table.At(applied.Args[3]).Kind != program.ExprInt {
+		t.Fatalf("v.m(x, 2) = %+v over %+v and %+v", applied, chain, holder)
+	}
+	table, labelled := lowerOf("labelled", program.ExprInvoke, 2)
+	if len(labelled.Named) != 2 || labelled.Named[0].Name != "a" || labelled.Named[1].Name != "b" ||
+		table.At(labelled.Args[0]).Ref.Name != "x" || table.At(labelled.Args[1]).Kind != program.ExprInt {
+		t.Fatalf("f(a = x, b = 2) = %+v", labelled)
+	}
+	table, made := lowerOf("made", program.ExprConstruct, 1)
+	if made.Ref.Name != "V" || len(made.Named) != 1 || made.Named[0].Name != "m" ||
+		table.At(made.Args[0]).Ref.Name != "x" {
+		t.Fatalf("new V(m = x) = %+v", made)
+	}
+	for name, kind := range map[string]program.ExprKind{"each": program.ExprCollect, "some": program.ExprSelect} {
+		table, notation := lowerOf(name, kind, 2)
+		operand, body := table.At(notation.Args[0]), table.At(notation.Args[1])
+		if operand.Ref.Name != "seq" || body.Kind != program.ExprBody || len(body.Args) != 0 {
+			t.Fatalf("%s = %+v over %+v and %+v", name, notation, operand, body)
+		}
+		if _, written := table.Tree(notation.Args[1]).(*ast.BodyExpr); !written {
+			t.Fatalf("%s: the body's record does not answer for its tree", name)
+		}
+	}
+	if _, meta := lowerOf("meta", program.ExprMetadata, 0); meta.Ref.Name != "x" {
+		t.Fatalf("x.metadata = %+v", meta)
+	}
+}
+
+// TestLowerExprSharesAnAppliedChainsOperand pins that a call applied to a chain lowers what
+// the chain starts from once, so calls nested through their receivers stay linear in records.
+func TestLowerExprSharesAnAppliedChainsOperand(t *testing.T) {
+	values, scope, resolver := exprFixture(t)
+	table, id := LowerExpr(values["nested"], scope, resolver)
+	// Eleven calls each record themselves and their chain, the fourth a chain of two members more, over v.
+	if got := len(table.entries) - 1; got != 24 {
+		t.Fatalf("%d records for eleven nested calls, want 24", got)
+	}
+	for call := table.Entry(id); call.Kind == program.ExprInvoke; {
+		chain, holder := call.Operands[0], call.Operands[1]
+		if !call.Applied || chain.Kind != program.ExprChain {
+			t.Fatalf("call %+v over %+v", call.Expr, chain.Expr)
+		}
+		if holder.Kind == program.ExprChain {
+			holder = holder.Operands[0]
+		}
+		if chain.Operands[0] != holder {
+			t.Fatalf("chain of %v starts from a record other than the one it is read from", call.Origin.Span)
+		}
+		call = holder
+	}
+}
+
+// TestLowerExprLeavesTheRestToTheRun pins what lowering does not decide: a name or
+// literal that is no value is recorded as written.
 func TestLowerExprLeavesTheRestToTheRun(t *testing.T) {
 	values, scope, resolver := exprFixture(t)
-	table, id := LowerExpr(values["call"], scope, resolver)
-	if call := table.At(id); call.Kind != program.ExprInvoke || len(call.Args) != 0 || table.At(id+1) != nil {
-		t.Fatalf("f(x) = %+v, with %v beside it", call, table.At(id+1))
-	}
-	table, id = LowerExpr(values["missing"], scope, resolver)
+	table, id := LowerExpr(values["missing"], scope, resolver)
 	if missing := table.At(id); missing.Kind != program.ExprRef || missing.Ref.Name != "nowhere" || missing.Ref.Sym != nil {
 		t.Fatalf("nowhere = %+v", missing)
 	}
@@ -185,6 +265,9 @@ func TestOperatorMirrorsSyntax(t *testing.T) {
 		op, named := mirror[kind]
 		if !named || OperatorOf(kind) != op || OperatorKindOf(op) != kind {
 			t.Errorf("operator %q (%d) is %d in the IR, mirrored by %d (named %v)", kind, kind, OperatorOf(kind), op, named)
+		}
+		if op.String() != kind.String() {
+			t.Errorf("operator %d is spelled %q in the IR and %q in the syntax tree", kind, op, kind)
 		}
 	}
 	if next := ast.OpIndex + 1; !strings.HasPrefix(next.String(), "OperatorKind(") {
