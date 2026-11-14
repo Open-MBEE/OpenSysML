@@ -118,6 +118,11 @@ func (sc *Context) LookupElement(id string) []*symbols.Symbol {
 	if syms := sc.Lookup(id); len(syms) > 0 {
 		return syms
 	}
+	return sc.unnamedEnds(id)
+}
+
+// unnamedEnds finds the unnamed connector ends id is the element id of.
+func (sc *Context) unnamedEnds(id string) []*symbols.Symbol {
 	if sc.elementForm() == nil {
 		return sc.composedEnds(id)
 	}

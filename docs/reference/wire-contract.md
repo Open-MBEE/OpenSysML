@@ -173,7 +173,8 @@ id is instead resolved as a qualified name from the root namespace, the way the 
 `A::B` (KerML 8.2.3.5): through the visible memberships of each namespace, so a name a `public
 import` re-exports — a membership import, `P::*`, the recursive `P::**` — answers with the imported
 element under its own id, an alias with the element it is for, and a `private` or `protected` member,
-or one behind a `private import`, is not found. The `symbol_name_resolution` capability advertises the field: a service
+or one behind a `private import`, is not found; an id no name spells, a positional id or an unnamed end's
+element id, still denotes its element. The `symbol_name_resolution` capability advertises the field: a service
 without it ignores `resolveName`, so every client checks the capability and otherwise asks by
 reported id. Without it the id is one the service reported and
 denotes that element whatever its visibility, an alias being itself; the clients' lookups by

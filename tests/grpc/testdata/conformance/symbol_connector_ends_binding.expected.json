@@ -2,7 +2,7 @@
 	"rpc": "GetSymbol",
 	"model": "symbol_connector_ends.sysml",
 	"symbol_id": "Ends::Vehicle::bound",
-	"expected_kind": "bindingUsage",
+	"expected_kind": "bindingConnectorAsUsage",
 	"expected_child_ids": [
 		"Ends__Vehicle__bound_pend0",
 		"Ends__Vehicle__bound_pend1"
