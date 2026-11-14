@@ -2,14 +2,70 @@ package source
 
 import "strings"
 
-// IsEscapeChar reports whether c may follow a backslash in a STRING_VALUE or
-// UNRESTRICTED_NAME (KerMLExpressions.xtext:562-566): b t n f r " ' \.
-func IsEscapeChar(c byte) bool {
-	switch c {
-	case 'b', 't', 'n', 'f', 'r', '"', '\'', '\\':
-		return true
+// escape is one backslash escape the lexer admits in a STRING_VALUE or UNRESTRICTED_NAME:
+// the letter written, the character it names, and whether KerML §8.2.2.3 Table 4 lists it.
+type escape struct {
+	letter, value byte
+	standard      bool
+}
+
+// escapes is the one table of admitted escapes: Table 4's seven, and `\r`,
+// which only the pilot grammar adds (KerMLExpressions.xtext:562-566).
+var escapes = [...]escape{
+	{'b', '\b', true},
+	{'t', '\t', true},
+	{'n', '\n', true},
+	{'f', '\f', true},
+	{'r', '\r', false},
+	{'"', '"', true},
+	{'\'', '\'', true},
+	{'\\', '\\', true},
+}
+
+// escapeByLetter and escapeByValue index escapes by the letter written and by
+// the character named; a zero letter marks a byte that is neither.
+var escapeByLetter, escapeByValue = func() (byLetter, byValue [256]escape) {
+	for _, e := range escapes {
+		byLetter[e.letter], byValue[e.value] = e, e
 	}
-	return false
+	return byLetter, byValue
+}()
+
+// IsEscapeChar reports whether c may follow a backslash in a STRING_VALUE or
+// UNRESTRICTED_NAME: Table 4's letters and the pilot grammar's `r`.
+func IsEscapeChar(c byte) bool { return escapeByLetter[c].letter != 0 }
+
+// IsStandardEscapeChar reports whether backslash-c is an escape sequence of
+// KerML §8.2.2.3 Table 4, which §8.2.2.5 gives STRING_VALUE too.
+func IsStandardEscapeChar(c byte) bool { return escapeByLetter[c].standard }
+
+// EscapeLetter is the letter that, after a backslash, names c; ok is false
+// for a character no admitted escape names.
+func EscapeLetter(c byte) (letter byte, ok bool) {
+	e := escapeByValue[c]
+	return e.letter, e.letter != 0
+}
+
+// AdmittedEscapes spells the escape sequences the lexer admits, in table order.
+func AdmittedEscapes() string { return escapeList(false) }
+
+// StandardEscapes spells the escape sequences of KerML §8.2.2.3 Table 4.
+func StandardEscapes() string { return escapeList(true) }
+
+// escapeList spells the table's escapes separated by blanks, the standard ones alone on request.
+func escapeList(standardOnly bool) string {
+	var list strings.Builder
+	for _, e := range escapes {
+		if standardOnly && !e.standard {
+			continue
+		}
+		if list.Len() > 0 {
+			list.WriteByte(' ')
+		}
+		list.WriteByte('\\')
+		list.WriteByte(e.letter)
+	}
+	return list.String()
 }
 
 // StringValue reads the text a STRING_VALUE token spells: the quotes come off
@@ -43,18 +99,9 @@ func Unescape(raw string) string {
 			continue
 		}
 		i++
-		switch raw[i] {
-		case 'b':
-			text.WriteByte('\b')
-		case 't':
-			text.WriteByte('\t')
-		case 'n':
-			text.WriteByte('\n')
-		case 'f':
-			text.WriteByte('\f')
-		case 'r':
-			text.WriteByte('\r')
-		default:
+		if e := escapeByLetter[raw[i]]; e.letter != 0 {
+			text.WriteByte(e.value)
+		} else {
 			text.WriteByte(raw[i])
 		}
 	}
@@ -76,21 +123,12 @@ func quotedText(value string, quote byte) string {
 	text.Grow(len(value) + 2)
 	text.WriteByte(quote)
 	for i := 0; i < len(value); i++ {
-		switch c := value[i]; c {
-		case quote, '\\':
+		c := value[i]
+		// The other quote is a character of the text, written as it is.
+		if e := escapeByValue[c]; e.letter != 0 && (c == quote || (c != '"' && c != '\'')) {
 			text.WriteByte('\\')
-			text.WriteByte(c)
-		case '\b':
-			text.WriteString(`\b`)
-		case '\t':
-			text.WriteString(`\t`)
-		case '\n':
-			text.WriteString(`\n`)
-		case '\f':
-			text.WriteString(`\f`)
-		case '\r':
-			text.WriteString(`\r`)
-		default:
+			text.WriteByte(e.letter)
+		} else {
 			text.WriteByte(c)
 		}
 	}
