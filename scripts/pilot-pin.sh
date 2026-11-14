@@ -7,10 +7,10 @@
 # Kept in one file so the release under comparison cannot drift between them.
 # The tag names the release; the commit is what every fetch verifies, because a
 # tag is a mutable ref and the baselines record content. Change them together.
-PILOT_TAG="${PILOT_TAG:-2026-09}"
-PILOT_COMMIT="${PILOT_COMMIT:-38665073bbf02849bd309b106eba79cbb3a1ee1d}"
+PILOT_TAG="${PILOT_TAG:-2026-09.1}"
+PILOT_COMMIT="${PILOT_COMMIT:-d81b2ad5016f2e2d3d4364b3d06d01d8bb12a896}"
 PILOT_REPO="${PILOT_REPO:-https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation.git}"
-PILOT_ARTIFACT_VERSION="${PILOT_ARTIFACT_VERSION:-0.63.0}"
+PILOT_ARTIFACT_VERSION="${PILOT_ARTIFACT_VERSION:-0.63.1}"
 
 # The pilot publishes each release's standard library, in notation and as XMI,
 # in a second repository under the same tag. The bundled library under
@@ -18,7 +18,7 @@ PILOT_ARTIFACT_VERSION="${PILOT_ARTIFACT_VERSION:-0.63.0}"
 # the normative element ids the identity gate compares against. Pinned by commit
 # like the pilot itself; the two move together at a release.
 PILOT_RELEASE_REPO="${PILOT_RELEASE_REPO:-https://github.com/Systems-Modeling/SysML-v2-Release.git}"
-PILOT_RELEASE_COMMIT="${PILOT_RELEASE_COMMIT:-b7a6b77000c9136f8f24822fc9d2cb237c76267f}"
+PILOT_RELEASE_COMMIT="${PILOT_RELEASE_COMMIT:-9546486f49f704d1df092e3f252f4fcfbce534dd}"
 
 # The repository and commit pilot_clone and pilot_fetch_subtrees read from: the
 # pilot by default, the release repository after pilot_from_release.

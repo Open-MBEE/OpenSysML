@@ -2,12 +2,12 @@
   "root": "spec-examples",
   "file": "sysml/8.4.14.3/2.kerml",
   "summary": {
-    "pilotFailed": true,
-    "pilotLibraryElements": 0,
+    "oursRefused": true,
+    "pilotLibraryElements": 11,
     "elements": {
       "matched": 0,
       "oursOnly": 0,
-      "pilotOnly": 0,
+      "pilotOnly": 88,
       "pilotOnlyImplied": 0,
       "typeMismatch": 0
     },
@@ -32,7 +32,7 @@
     },
     "unkeyableElements": {
       "ours": 0,
-      "pilot": 0
+      "pilot": 6
     }
   },
   "rows": {}

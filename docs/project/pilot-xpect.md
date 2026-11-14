@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Reference:** the OMG pilot implementation's own Xpect test suites, [`org.omg.kerml.xpect.tests`](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/2026-09/org.omg.kerml.xpect.tests) and [`org.omg.sysml.xpect.tests`](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/2026-09/org.omg.sysml.xpect.tests), at release `2026-09`, commit `38665073bbf02849bd309b106eba79cbb3a1ee1d` — the same pin as the corpora and the reference validators (`scripts/pilot-pin.sh`)
+**Reference:** the OMG pilot implementation's own Xpect test suites, [`org.omg.kerml.xpect.tests`](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/2026-09.1/org.omg.kerml.xpect.tests) and [`org.omg.sysml.xpect.tests`](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/2026-09.1/org.omg.sysml.xpect.tests), at release `2026-09`, commit `38665073bbf02849bd309b106eba79cbb3a1ee1d` — the same pin as the corpora and the reference validators (`scripts/pilot-pin.sh`)
 **Provision:** `./scripts/download-pilot-xpect.sh` (the shared downloader of `scripts/pilot-pin.sh`, restricted to `*.xt`: the clone is refused unless the tag resolves to the pinned commit, each suite is stamped with the pin it was fetched at, and a suite stamped otherwise or not at all is re-fetched; writes `build/pilot-xpect-corpus/{kerml,sysml}`, gitignored, not vendored — under `build/` rather than `examples/` because the `.kerml`/`.sysml` models the suites ship are inputs to this harness, and everything that walks `examples/` would otherwise adopt them)
 **Run:** `go run -C tools ./cmd/pilot-xpect` (writes `build/pilot-xpect/pilot-xpect.txt` and `build/pilot-xpect/pilot-xpect.json`)
 **Baseline:** the last committed run is [pilot-xpect-baseline.json](pilot-xpect-baseline.json), which carries every non-agreeing row, so a later run can be diffed against it; `-update` re-records it and `-check` fails unless a fresh run reproduces it
@@ -170,6 +170,9 @@ Every difference from the published numbers is accounted for, and none of it is 
   inside `/* ... */` comments and two are disabled by their authors as `// (TBD) XPECT noErrors`.
   These open no `//` or `//*` note, so the harness does not run them; all ten are listed by file and
   line in the report's *XPECT-shaped text outside a note* section rather than being dropped.
+- **Release `2026-09.1` (no change).** No `.xt` file differs between the `2026-09` and `2026-09.1`
+  tags; the release corrects reference-link resolution in the implementation, and every row stays
+  where it was. Only the baseline's provenance moved.
 - **Release `2026-09` (+3 assertions, +3 files).** `validation/MultiplicityAlias_valid.kerml.xt`
   (one `noErrors` row: an alias member without a name, `alias for Base::exactlyOne;`, which
   `AliasMember` admits and we now parse), `validation/ConnectionUsage_End_Invalid.sysml.xt` and

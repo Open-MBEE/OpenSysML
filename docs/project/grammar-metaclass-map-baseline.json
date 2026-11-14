@@ -1,5 +1,5 @@
 {
-  "pilotTag": "2026-09",
+  "pilotTag": "2026-09.1",
   "totals": {
     "productions": 727,
     "productionsByKind": {
@@ -23,12 +23,12 @@
     "enumLiteralsFound": 24,
     "enumLiteralsMissing": 0,
     "differential": {
-      "agree": 63,
-      "disagree": 9,
-      "undecided": 655
+      "agree": 66,
+      "disagree": 5,
+      "undecided": 656
     },
     "undecidedByReason": {
-      "anchor-shared": 35,
+      "anchor-shared": 36,
       "no-anchor": 62,
       "no-element": 229,
       "no-element-at-anchor": 79,
@@ -146,12 +146,12 @@
         "enumLiteralsFound": 17,
         "enumLiteralsMissing": 0,
         "differential": {
-          "agree": 36,
-          "disagree": 7,
-          "undecided": 400
+          "agree": 39,
+          "disagree": 3,
+          "undecided": 401
         },
         "undecidedByReason": {
-          "anchor-shared": 31,
+          "anchor-shared": 32,
           "no-anchor": 45,
           "no-element": 157,
           "no-element-at-anchor": 47,
@@ -599,34 +599,6 @@
     },
     {
       "grammar": "SysML.xtext",
-      "production": "PerformActionUsage",
-      "location": {
-        "file": "internal/workspace/libs/stdlib/Systems Library/Actions.sysml",
-        "line": 538,
-        "column": 10
-      },
-      "symbolFqn": "body",
-      "metaclass": "SysML::Systems::ActionUsage",
-      "creates": [
-        "SysML::PerformActionUsage"
-      ]
-    },
-    {
-      "grammar": "SysML.xtext",
-      "production": "SendNode",
-      "location": {
-        "file": "examples/sysml-v2-training/21. Asynchronous Messaging/Messaging Example.sysml",
-        "line": 31,
-        "column": 8
-      },
-      "symbolFqn": "Messaging Example::takePicture::",
-      "metaclass": "SysML::Systems::ActionUsage",
-      "creates": [
-        "SysML::SendActionUsage"
-      ]
-    },
-    {
-      "grammar": "SysML.xtext",
       "production": "ExhibitStateUsage",
       "location": {
         "file": "examples/sysml-v2-training/26. State Exhibition/State Exhibition Example.sysml",
@@ -637,34 +609,6 @@
       "metaclass": "SysML::Systems::StateUsage",
       "creates": [
         "SysML::ExhibitStateUsage"
-      ]
-    },
-    {
-      "grammar": "SysML.xtext",
-      "production": "AssertConstraintUsage",
-      "location": {
-        "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/SampledFunctions.sysml",
-        "line": 40,
-        "column": 3
-      },
-      "symbolFqn": "SampledFunctions::SampledFunction::",
-      "metaclass": "SysML::Systems::ConstraintUsage",
-      "creates": [
-        "SysML::AssertConstraintUsage"
-      ]
-    },
-    {
-      "grammar": "SysML.xtext",
-      "production": "SubjectUsage",
-      "location": {
-        "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/TradeStudies.sysml",
-        "line": 45,
-        "column": 3
-      },
-      "symbolFqn": "TradeStudies::TradeStudyObjective::selectedAlternative",
-      "metaclass": "SysML::Systems::PartUsage",
-      "creates": [
-        "SysML::ReferenceUsage"
       ]
     },
     {

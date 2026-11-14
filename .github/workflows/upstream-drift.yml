@@ -4,10 +4,14 @@ name: Upstream drift
 # check reads the pilot and release repositories' tags, compares the
 # specification PDFs of the newest release with the pinned one, and reads the
 # OMG specification pages for versions it has not seen. It is scheduled rather
-# than a required check: a failure here means a deliberate re-pin is due, not
-# that a pull request is wrong. It never pushes, never re-pins and never opens
-# issues; the step summary carries the report. Like oracle-reproduction.yml it
-# carries no repository guard, since a fork's pin goes stale the same way.
+# than a required check: movement means a deliberate re-pin is due, not that a
+# pull request is wrong. It never pushes and never re-pins; the report goes to
+# the step summary and to one open issue labelled upstream-drift
+# (scripts/upstream-drift-issue.sh), which the run that finds the pin current
+# closes again. The job itself fails only when a source could not be read, so
+# a red run means the check did not happen, never that upstream moved. Like
+# oracle-reproduction.yml it carries no repository guard, since a fork's pin
+# goes stale the same way.
 on:
   schedule:
     # 05:11 UTC on Mondays, off the hour to avoid the scheduler's busiest minute.
@@ -16,11 +20,12 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   drift:
     name: Pilot and specification movement against the pin
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - name: Check out repository
@@ -32,14 +37,33 @@ jobs:
           set -o pipefail
           status=0
           scripts/check-upstream-drift.sh | tee drift.txt || status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
           {
-            if [ "$status" -eq 0 ]; then
-              echo "### Upstream is where the pin says"
-            else
-              echo "### Upstream moved: re-pin deliberately"
-            fi
+            case "$status" in
+              0) echo "### Upstream is where the pin says" ;;
+              1) echo "### Upstream moved: re-pin deliberately" ;;
+              *) echo "### Upstream could not be read: nothing is known about movement" ;;
+            esac
             echo '```'
             cat drift.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          exit "$status"
+          if [ "$status" -ne 0 ] && [ "$status" -ne 1 ]; then
+            exit "$status"
+          fi
+
+      - name: Open or update the upstream-drift issue
+        if: ${{ steps.drift.outputs.status == '1' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: scripts/upstream-drift-issue.sh moved drift.txt "$RUN_URL"
+
+      - name: Close the upstream-drift issue
+        if: ${{ steps.drift.outputs.status == '0' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: scripts/upstream-drift-issue.sh current drift.txt "$RUN_URL"

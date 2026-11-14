@@ -3,7 +3,7 @@
 ## Overview
 
 **Corpora:** the three pinned OMG pilot corpora, fetched by `./scripts/download-pilot-corpora.sh`
-at release `2026-09`, commit `38665073bbf02849bd309b106eba79cbb3a1ee1d` (`scripts/pilot-pin.sh`)
+at release `2026-09.1`, commit `d81b2ad5016f2e2d3d4364b3d06d01d8bb12a896` (`scripts/pilot-pin.sh`)
 
 `scripts/check-upstream-drift.sh` (the weekly `Upstream drift` workflow) reports when either upstream repository publishes a release newer than this pin, when the pinned tag moves, whether the newest release changed the specification PDFs whose clause numbers [spec-compliance.md](spec-compliance.md) cites, and when the OMG specification pages list a version it has not recorded. It re-pins nothing: a failing run is the cue to move the pin here deliberately and re-run the downloads and gates below.
 

@@ -274,6 +274,13 @@ jobs:
       - name: Test the pilot downloader
         run: scripts/pilot-pin-test.sh
 
+      # The weekly drift check's exit codes and the issue it files are what
+      # upstream-drift.yml acts on.
+      - name: Test the upstream drift check
+        run: |
+          scripts/check-upstream-drift-test.sh
+          scripts/upstream-drift-issue-test.sh
+
       # install.sh and install.ps1 against a release served from localhost.
       - name: Test the install scripts
         run: scripts/install-test.sh

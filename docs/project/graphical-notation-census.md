@@ -7,7 +7,7 @@ its [grammar coverage](grammar-coverage.md) census and the v1→v2 mapping its
 a committed baseline and a CI gate that fails when the measurement moves.
 
 <!-- census:begin source -->
-Measured over `build/spec-docs/sysml.txt`, rendered with `pdftotext -layout` from the SysML v2 specification PDF of pilot release `2026-09` (SysML-v2-Release commit `b7a6b77000c9136f8f24822fc9d2cb237c76267f`), clause §8.2.3.
+Measured over `build/spec-docs/sysml.txt`, rendered with `pdftotext -layout` from the SysML v2 specification PDF of pilot release `2026-09.1` (SysML-v2-Release commit `9546486f49f704d1df092e3f252f4fcfbce534dd`), clause §8.2.3.
 <!-- census:end source -->
 
 ## Method
