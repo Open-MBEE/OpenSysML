@@ -3,10 +3,12 @@ package grpc
 import (
 	"container/list"
 	"fmt"
-	checkws "github.com/Open-MBEE/OpenSysML/internal/check/workspace"
-	"github.com/Open-MBEE/OpenSysML/internal/doc/querytranslate"
 	goruntime "runtime"
 	"sync"
+
+	checkws "github.com/Open-MBEE/OpenSysML/internal/check/workspace"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/querytranslate"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 
 	"connectrpc.com/connect"
 
@@ -174,7 +176,7 @@ func (m *CachedModel) Semantics() (*runtime.Model, error) {
 	sem := passes.NewTypedModel(resolver)
 	sem.SetSourceText(cachedSourceText(m))
 	model := runtime.NewModel(sem, resolver)
-	model.SetExpressionParser(parser.ParseOneExpression)
+	model.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, model.Resolver()))
 	for _, doc := range m.Documents {
 		model.RegisterSource(doc.Source)
 	}

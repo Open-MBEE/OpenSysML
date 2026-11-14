@@ -10,6 +10,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
@@ -65,7 +66,7 @@ func parseDrawingText(t *testing.T, text string) *drawing {
 func (d *drawing) semantics() (*runtime.Model, error) {
 	resolver := resolve.New(d.idx)
 	model := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
-	model.SetExpressionParser(parser.ParseOneExpression)
+	model.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, model.Resolver()))
 	model.RegisterSource(d.source)
 	return model, nil
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -143,7 +144,7 @@ func build(em *Emitted, budgets runtime.Budgets) (*symbols.Symbol, definitionLoo
 			sem := passes.NewTypedModel(resolver)
 			sem.SetSourceText(text)
 			model = runtime.NewModel(sem, resolver)
-			model.SetExpressionParser(parser.ParseOneExpression)
+			model.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, model.Resolver()))
 			models[job] = model
 		}
 		ctx := runtime.NewContext(model, budgets.MaxSteps)

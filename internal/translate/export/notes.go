@@ -288,48 +288,103 @@ func unwritten(notes []note, part string) []note {
 // at base; indentOf indents a note on its own line after n tokens, last when none follows.
 func placeNotes(part string, notes []note, base int, indentOf func(n int, last bool) string, nl string) []insertion {
 	tokens := codeTokens(part)
-	var out []insertion
+	// The notes after one token share its place, so they are written as one run.
+	runs := map[int][]note{}
+	var counts []int
 	for _, n := range notes {
 		count := min(n.token, len(tokens))
 		if n.trailing {
 			count = len(tokens)
 		}
-		at := len(part)
-		if count == 0 && len(tokens) > 0 {
-			at = tokens[0].Offset
-		} else if count > 0 {
-			at = tokens[count-1].End()
+		if _, ok := runs[count]; !ok {
+			counts = append(counts, count)
 		}
+		runs[count] = append(runs[count], n)
+	}
+	sort.Ints(counts)
+	var out []insertion
+	for _, count := range counts {
 		ind := indentOf(count, count == len(tokens))
-		rest := part[at:]
-		// Only indentation ahead of it on its line puts the note at the line's start.
-		lineBegin := strings.LastIndexByte(part[:at], '\n') + 1
-		lineStart := strings.TrimLeft(part[lineBegin:at], " \t") == ""
-		restBreaks := strings.HasPrefix(rest, "\n") || strings.HasPrefix(rest, "\r\n")
-		// A `//` note ahead of every token would run on over the first; it takes its line.
-		ownLine := n.ownLine || isLineNote(n.text) && count == 0 && len(tokens) > 0
+		if count > 0 {
+			out = append(out, notesAfter(part, runs[count], tokens[count-1].End(), base, ind, nl))
+			continue
+		}
+		at := len(part)
+		if len(tokens) > 0 {
+			at = tokens[0].Offset
+		}
+		out = append(out, notesAhead(part, runs[count], at, base, ind, nl)...)
+	}
+	return out
+}
+
+// notesAhead places the notes no code token precedes, in order: the first ones on lines of
+// their own above the line at holds, the rest from the first inline one ahead of the token.
+func notesAhead(part string, notes []note, at, base int, ind, nl string) []insertion {
+	lineBegin := strings.LastIndexByte(part[:at], '\n') + 1
+	hasToken := at < len(part)
+	var above, inline strings.Builder
+	first := 0
+	// A `//` note ahead of the first token would run on over it; it takes its line.
+	for ; first < len(notes) && (notes[first].ownLine || isLineNote(notes[first].text) && hasToken); first++ {
+		above.WriteString(ind + notes[first].text + nl)
+	}
+	breaks := false
+	for i, n := range notes[first:] {
 		switch {
-		case ownLine && lineStart:
-			out = append(out, insertion{base + lineBegin, ind + n.text + nl, 0})
-		case ownLine:
-			// The rest of the line moves below the note, less the blanks it began with.
-			blanks := len(rest) - len(strings.TrimLeft(rest, " \t"))
-			after := ""
-			if !restBreaks {
-				after = nl + ind
-			}
-			out = append(out, insertion{base + at, nl + ind + n.text + after, blanks})
-		case count == 0 && len(tokens) > 0:
-			out = append(out, insertion{base + at, n.text + " ", 0})
-		case isLineNote(n.text) && !restBreaks && len(rest) > 0:
-			blanks := len(rest) - len(strings.TrimLeft(rest, " \t"))
-			out = append(out, insertion{base + at, " " + n.text + nl + ind, blanks})
+		case i == 0 && hasToken:
+		case n.ownLine || breaks:
+			inline.WriteString(nl + ind)
 		default:
-			out = append(out, insertion{base + at, " " + n.text, 0})
+			inline.WriteString(" ")
+		}
+		inline.WriteString(n.text)
+		breaks = isLineNote(n.text)
+		// The token follows a note on its own line, or a `//` note, on the next line.
+		if i == len(notes[first:])-1 && hasToken {
+			if n.ownLine || breaks {
+				inline.WriteString(nl + ind)
+			} else {
+				inline.WriteString(" ")
+			}
 		}
 	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].at < out[j].at })
+	var out []insertion
+	if above.Len() > 0 {
+		out = append(out, insertion{base + lineBegin, above.String(), 0})
+	}
+	if inline.Len() > 0 {
+		out = append(out, insertion{base + at, inline.String(), 0})
+	}
 	return out
+}
+
+// notesAfter writes the notes following the code token that ends at at as one insertion:
+// the rest of the line moves below a note on its own line or a `//` note, once for them all.
+func notesAfter(part string, notes []note, at, base int, ind, nl string) insertion {
+	rest := part[at:]
+	restBreaks := strings.HasPrefix(rest, "\n") || strings.HasPrefix(rest, "\r\n")
+	var b strings.Builder
+	lineNote := false
+	for _, n := range notes {
+		// A note stated inline after a `//` note cannot share its line.
+		if n.ownLine || lineNote {
+			b.WriteString(nl + ind)
+		} else {
+			b.WriteString(" ")
+		}
+		b.WriteString(n.text)
+		lineNote = isLineNote(n.text)
+	}
+	ownLine := notes[len(notes)-1].ownLine
+	if !ownLine && (!lineNote || restBreaks || len(rest) == 0) {
+		return insertion{base + at, b.String(), 0}
+	}
+	if !restBreaks {
+		b.WriteString(nl + ind)
+	}
+	// The rest of the line moves below the notes, less the blanks it began with.
+	return insertion{base + at, b.String(), len(rest) - len(strings.TrimLeft(rest, " \t"))}
 }
 
 // codeTokens is the spans of a text's code tokens: a `/* */` here is a body,

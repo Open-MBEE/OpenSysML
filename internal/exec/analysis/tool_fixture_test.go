@@ -271,7 +271,7 @@ func parsePilot(t *testing.T) *pilot {
 func (p *pilot) semantics() (*runtime.Model, error) {
 	resolver := resolve.New(p.idx)
 	model := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
-	model.SetExpressionParser(parser.ParseOneExpression)
+	model.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, model.Resolver()))
 	return model, nil
 }
 
