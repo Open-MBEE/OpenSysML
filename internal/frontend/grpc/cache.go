@@ -3,10 +3,12 @@ package grpc
 import (
 	"container/list"
 	"fmt"
-	checkws "github.com/Open-MBEE/OpenSysML/internal/check/workspace"
-	"github.com/Open-MBEE/OpenSysML/internal/doc/querytranslate"
 	goruntime "runtime"
 	"sync"
+
+	checkws "github.com/Open-MBEE/OpenSysML/internal/check/workspace"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/querytranslate"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 
 	"connectrpc.com/connect"
 
@@ -174,7 +176,7 @@ func (m *CachedModel) Semantics() (*runtime.Model, error) {
 	sem := passes.NewTypedModel(resolver)
 	sem.SetSourceText(cachedSourceText(m))
 	model := runtime.NewModel(sem, resolver)
-	model.SetExpressionParser(parser.ParseOneExpression)
+	model.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, model.Resolver()))
 	for _, doc := range m.Documents {
 		model.RegisterSource(doc.Source)
 	}
@@ -238,6 +240,9 @@ func (m *CachedModel) SymbolContext() *symbolfacts.Context {
 		m.symCtx = NewSymbolContext(m.Index)
 		m.symCtx.Semantics.SetSourceText(cachedSourceText(m))
 		m.symCtx.Positional = symbolfacts.NewPositional(m.Index, m.positionalDocuments)
+		if m.Library != nil {
+			m.symCtx.Positional.WithLibrary(m.Library.Read)
+		}
 		m.symCtx.ElementForm = func() symbolfacts.ElementForm { return elementform.New(m.elementIDReader()) }
 	})
 	return m.symCtx

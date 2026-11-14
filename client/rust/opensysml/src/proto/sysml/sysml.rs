@@ -2598,14 +2598,14 @@ pub struct SymbolInfo {
 /// MemberInfo is one member of an element, own or inherited.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct MemberInfo {
-    /// FQN of the member, the id GetSymbol takes; a member declared without a
-    /// name has none that resolves.
+    /// The id GetSymbol takes: the member's FQN, or the positional id
+    /// (`Owner::@3`) of one declared without a name, library members included.
     #[prost(string, tag="1")]
     pub id: ::prost::alloc::string::String,
     /// Declared name; empty for an unnamed member such as `bind a = b;`.
     #[prost(string, tag="2")]
     pub name: ::prost::alloc::string::String,
-    /// Symbol kind of the member ("partUsage", "bindingUsage", ...).
+    /// Symbol kind of the member ("partUsage", "bindingConnectorAsUsage", ...).
     #[prost(string, tag="3")]
     pub kind: ::prost::alloc::string::String,
     /// True when the member is inherited rather than declared by the element.

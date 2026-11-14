@@ -5841,8 +5841,8 @@ export const SymbolInfoSchema: GenMessage<SymbolInfo> = /*@__PURE__*/
  */
 export type MemberInfo = Message<"sysml.MemberInfo"> & {
   /**
-   * FQN of the member, the id GetSymbol takes; a member declared without a
-   * name has none that resolves.
+   * The id GetSymbol takes: the member's FQN, or the positional id
+   * (`Owner::@3`) of one declared without a name, library members included.
    *
    * @generated from field: string id = 1;
    */
@@ -5856,7 +5856,7 @@ export type MemberInfo = Message<"sysml.MemberInfo"> & {
   name: string;
 
   /**
-   * Symbol kind of the member ("partUsage", "bindingUsage", ...).
+   * Symbol kind of the member ("partUsage", "bindingConnectorAsUsage", ...).
    *
    * @generated from field: string kind = 3;
    */

@@ -2325,10 +2325,18 @@ class ApiIntegrationTest {
 
     Symbol full = model.symbol("Demo::m", SymbolOptions.defaults().withLibraryMembers(true));
     assertEquals(0, full.withheldLibraryMembers());
-    assertEquals(m.members(), full.members().subList(0, m.members().size()));
+    // Inheritance order interleaves the library's members with the model's.
+    assertEquals(m.members(), full.members().stream().filter(member -> !member.library()).toList());
     List<Symbol.Member> library = full.members().stream().filter(Symbol.Member::library).toList();
     assertEquals(m.withheldLibraryMembers(), library.size());
     assertTrue(library.stream().allMatch(member -> member.inheritedFrom().isPresent()));
+    // An unnamed library member is listed under a positional id of the type that declares it.
+    Symbol.Member unnamed =
+        library.stream().filter(member -> member.name().isEmpty()).findFirst().orElseThrow();
+    String declaring = unnamed.inheritedFrom().orElseThrow();
+    assertTrue(unnamed.id().startsWith(declaring + "::@"), unnamed.id());
+    assertEquals(unnamed.id(), model.symbol(unnamed.id()).id());
+    assertEquals(unnamed.kind(), model.symbol(unnamed.id()).kind());
     assertEquals(
         Optional.of(full),
         model.findSymbol("Demo::m", SymbolOptions.defaults().withLibraryMembers(true)));

@@ -122,11 +122,11 @@ const toolCalcModel = `package test {
 // evalText evaluates one expression in scope, for building invocation arguments.
 func evalText(t *testing.T, ctx *Context, scope *symbols.Scope, text string) Value {
 	t.Helper()
-	expr, ok, err := ctx.model.parseOneExpression("<test>", text)
-	if err != nil || !ok {
+	expr, err := ctx.model.readExpression("<test>", text, scope)
+	if err != nil || expr == nil {
 		t.Fatalf("parsing %q: %v", text, err)
 	}
-	value, err := NewEvalContextIn(ctx, scope, nil).Eval(expr)
+	value, err := NewEvalContextIn(ctx, scope, nil).evaluate(expr.lowered, false)
 	if err != nil {
 		t.Fatalf("evaluating %q: %v", text, err)
 	}

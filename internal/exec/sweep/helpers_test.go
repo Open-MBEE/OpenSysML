@@ -6,6 +6,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -38,7 +39,7 @@ func analysisFixture(t *testing.T, src string) (*runtime.Context, *symbols.Scope
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
 	model := typedModel(semantics.NewModel(resolver), resolver)
-	model.SetExpressionParser(parser.ParseOneExpression)
+	model.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, model.Resolver()))
 	ctx := runtime.NewContext(model, 10000)
 	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
 	if !ok || pkg.Scope == nil {

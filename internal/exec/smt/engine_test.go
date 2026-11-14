@@ -15,6 +15,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -41,7 +42,7 @@ func indexed(t *testing.T, path, src string) *document {
 		Semantics: func() (*runtime.Model, error) {
 			resolver := resolve.New(idx)
 			m := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
-			m.SetExpressionParser(parser.ParseOneExpression)
+			m.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, m.Resolver()))
 			m.RegisterSource(sf)
 			return m, nil
 		},

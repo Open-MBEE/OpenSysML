@@ -187,7 +187,7 @@ var symbolKindNames = map[SymbolKind]string{
 	SymbolRenderingUsage:          "renderingUsage",
 	SymbolConcernUsage:            "concernUsage",
 	SymbolConnectionUsage:         "connectionUsage",
-	SymbolBindingUsage:            "bindingUsage",
+	SymbolBindingUsage:            "bindingConnectorAsUsage",
 	SymbolSuccessionUsage:         "successionUsage",
 	SymbolFlowUsage:               "flowUsage",
 	SymbolSuccessionFlowUsage:     "successionFlowUsage",
