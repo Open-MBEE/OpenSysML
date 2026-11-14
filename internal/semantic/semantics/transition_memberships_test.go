@@ -56,7 +56,8 @@ func TestTransitionOwnsItsSourceMembershipAndLinkParameters(t *testing.T) {
 	if want := "ParameterMembership:ReferenceUsage TransitionFeatureMembership:LiteralBoolean OwningMembership:SuccessionAsUsage FeatureMembership:ReferenceUsage"; len(guarded) != 1 || guarded[0] != want {
 		t.Errorf("the guarded transition owns %q, want [%q]", guarded, want)
 	}
-	if want := "OwningMembership:SuccessionAsUsage FeatureMembership:ReferenceUsage"; len(stateBody) != 1 || stateBody[0] != want {
+	// A state body's `then busy;` owns the Membership naming the state before it and a link parameter too, its transitionLink last.
+	if want := "Membership:StateUsage ParameterMembership:ReferenceUsage OwningMembership:SuccessionAsUsage FeatureMembership:ReferenceUsage"; len(stateBody) != 1 || stateBody[0] != want {
 		t.Errorf("the state body's `then busy;` owns %q, want [%q]", stateBody, want)
 	}
 	link := ownedMembers(m, nested(t, s, "go"))[1]
