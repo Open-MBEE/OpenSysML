@@ -240,7 +240,7 @@ func (h *stateStmtHost) run() error {
 		engine := newStmtEngineOver(h.exec.ctx, h, h.dataFrame(), h.attrs)
 		engine.env.perf = h.perfs.root
 		return engine
-	}, h.behavior.Body)
+	}, h.exec.graph.Exprs, h.behavior.Body)
 	return h.ended(err)
 }
 

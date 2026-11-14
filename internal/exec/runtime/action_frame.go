@@ -284,6 +284,8 @@ type nestedDelivery struct {
 type boundEnd struct {
 	lower.PinBinding
 	at *actionFrame
+	// exprs is the table the ids of the binding index: that of the flow it was lowered for.
+	exprs *lower.ExprTable
 	// on is the object whose binding reaches through the performed feature to this
 	// pin, on which a name at the other end is read and written; nil for a flow's own.
 	on *Instance
@@ -643,7 +645,7 @@ func (e *performances) seedPerformance(parent *actionFrame, flow *lower.ActionGr
 	if err := e.bindInputPins(perf, activation); err != nil {
 		return err
 	}
-	if err := e.seedDeclaredValues(perf, flow.Features[node], activation); err != nil {
+	if err := e.seedDeclaredValues(perf, flow.Exprs, flow.Features[node], activation); err != nil {
 		return err
 	}
 	for _, feature := range flow.Features[node] {
@@ -719,7 +721,7 @@ func (e *performances) bindArguments(perf *actionFrame, activation int64) error 
 
 // seedDeclaredValues evaluates the values a node's own declarations give its
 // features (`in a = 3;`), where no delivery, argument or binding at the pin holds one yet.
-func (e *performances) seedDeclaredValues(perf *actionFrame, features []lower.Feature, activation int64) error {
+func (e *performances) seedDeclaredValues(perf *actionFrame, exprs *lower.ExprTable, features []lower.Feature, activation int64) error {
 	for _, feature := range features {
 		if feature.Value == nil {
 			continue
@@ -750,7 +752,7 @@ func (e *performances) seedDeclaredValues(perf *actionFrame, features []lower.Fe
 			}
 			value, err = e.ctx.deriveBodyCell(cells, name, cell)
 		} else {
-			value, err = ec.Eval(feature.Value)
+			value, err = ec.reading(exprs).evalPayload(feature.ValueID)
 			if err == nil {
 				err = e.ctx.checkBodyDeclarationAs(feature.Scope, perf.describe, feature.Name, &value)
 			}
@@ -1583,11 +1585,11 @@ func (e *performances) bindingEndContext(end boundEnd) *EvalContext {
 	if end.on != nil {
 		// A performer's binding is a statement of the object that wrote it, read there.
 		ec := NewEvalContextIn(e.ctx, end.Scope, end.on)
-		ec.valuing = pinSymbol(end)
+		ec.valuing, ec.exprs = pinSymbol(end), end.exprs
 		return ec
 	}
 	ec := e.evalContextAround(end.at, end.Scope)
-	ec.valuing = pinSymbol(end)
+	ec.valuing, ec.exprs = pinSymbol(end), end.exprs
 	return ec
 }
 
@@ -1939,7 +1941,7 @@ func (e *performances) bindingsAt(perf *actionFrame) []boundEnd {
 	for anc := perf; anc.parent != nil; anc = anc.parent {
 		for _, binding := range anc.flow.Bindings {
 			if binding.Node == anc.node && slices.Equal(binding.Path, path) {
-				at = append(at, boundEnd{PinBinding: binding, at: anc})
+				at = append(at, boundEnd{PinBinding: binding, at: anc, exprs: anc.flow.Exprs})
 			}
 		}
 		path = append([]ast.Node{anc.node}, path...)
@@ -1948,7 +1950,7 @@ func (e *performances) bindingsAt(perf *actionFrame) []boundEnd {
 	// The performer's bindings through the performed feature hold as the root's own.
 	for _, binding := range e.through {
 		if len(path) > 0 && binding.Node == path[0] && slices.Equal(binding.Path, path[1:]) {
-			at = append(at, boundEnd{PinBinding: binding.PinBinding, at: root, on: binding.on})
+			at = append(at, boundEnd{PinBinding: binding.PinBinding, at: root, on: binding.on, exprs: e.ctx.model.exprs})
 		}
 	}
 	return at
@@ -2068,7 +2070,7 @@ func (e *performances) bindingOtherValue(perf *actionFrame, end boundEnd, activa
 	}
 	ec := e.bindingEndContext(end)
 	ec.activation = activation
-	value, err := ec.Eval(end.Other)
+	value, err := ec.evalPayload(end.OtherID)
 	if err != nil {
 		return Value{}, fmt.Errorf("%w: %s is bound to %s: %w",
 			errBindingEnd, end.pinText(), bindingEndText(end.Other), err)
@@ -2097,7 +2099,7 @@ func (e *performances) otherEndHeld(perf *actionFrame, end boundEnd) (Value, boo
 		return value, held, err
 	}
 	if end.OtherChain != nil {
-		value, err := e.bindingEndContext(end).Eval(end.Other)
+		value, err := e.bindingEndContext(end).evalPayload(end.OtherID)
 		return value, err == nil, err
 	}
 	return Value{}, false, nil

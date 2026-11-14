@@ -15,10 +15,12 @@ type EntryTransition struct {
 	// succession usage or a `first start then s;` marker.
 	Decl ast.Node
 	// Guard is nil for an unconditional entry transition.
-	Guard  ast.Node
-	Target *ast.StateNode
-	Via    *ast.PseudostateNode
-	Effect []StateBehavior
+	Guard ast.Node
+	// GuardID is Guard in the table of the machine.
+	GuardID program.ExprID
+	Target  *ast.StateNode
+	Via     *ast.PseudostateNode
+	Effect  []StateBehavior
 	// Scope is the scope Guard resolves in.
 	Scope *symbols.Scope
 	// Origin is where the member was written, Kind "entry transition"; it has no Path.

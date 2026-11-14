@@ -2,6 +2,7 @@ package lower
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"strconv"
 	"strings"
 
@@ -130,6 +131,8 @@ type runToCompletionDecl struct {
 type RunToCompletion struct {
 	// Value is the isRunToCompletion expression, nil for the default true.
 	Value ast.Node
+	// ValueID is Value in the table of the machine.
+	ValueID program.ExprID
 	// ValueScope resolves names in Value.
 	ValueScope *symbols.Scope
 	// ValueOwner owns Value's state data; nil denotes the machine.

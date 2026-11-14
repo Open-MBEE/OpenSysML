@@ -98,6 +98,7 @@ func (ctx *Context) namespaceModelIndex() *namespaceModelIndex {
 			return true
 		})
 		for _, binding := range lower.NamespaceBindings(scope) {
+			binding.Intern(ctx.model.exprs)
 			var class *namespaceClass
 			for end := range binding.Ends {
 				if u, ok := ctx.namespaceEndUsage(binding, end); ok {
@@ -285,7 +286,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 			continue
 		}
 		ctx.namespaceChainReads[class] = true
-		val, err := newEvalContext(ctx, src.binding.Scope).Eval(src.binding.Ends[src.end].Expr)
+		val, err := newEvalContext(ctx, src.binding.Scope).reading(ctx.model.exprs).evalPayload(src.binding.Ends[src.end].ExprID)
 		delete(ctx.namespaceChainReads, class)
 		if err != nil {
 			return nil, true, err

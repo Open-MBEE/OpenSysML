@@ -26,7 +26,7 @@ func (ctx *Context) performedPinBindings(performed *symbols.Symbol, graph *lower
 				}
 			}
 		}
-		lowered, err := lower.PerformedPinBindings(graph, prefix, bindings)
+		lowered, err := lower.PerformedPinBindings(graph, prefix, bindings, ctx.model.exprs)
 		if err == nil {
 			for _, binding := range lowered {
 				through = append(through, throughBinding{PinBinding: binding, on: current})

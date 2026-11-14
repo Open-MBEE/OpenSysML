@@ -108,6 +108,7 @@ func (h *constraintStmtHost) performNode(engine *stmtEngine, graph *lower.Action
 	}
 	var nestedSteps []lower.Statement
 	var nestedOrder *lower.StatementOrder
+	var nestedExprs *lower.ExprTable
 	if sub, owns := graph.Subflows[node]; owns && sub != nil {
 		var simple bool
 		nestedSteps, simple = sub.Graph.StatementList()
@@ -115,7 +116,7 @@ func (h *constraintStmtHost) performNode(engine *stmtEngine, graph *lower.Action
 			return flowNext, fmt.Errorf("%w: %s: the flow %s states of its own in a body is not executable",
 				errStatementNotExecutable, h.describe(), describeNode(graph, node))
 		}
-		nestedOrder = graph.StatementOrders[node]
+		nestedOrder, nestedExprs = graph.StatementOrders[node], sub.Graph.Exprs
 	}
 	engine.env.enter(engine)
 	defer engine.env.leave(engine.ctx, true)
@@ -125,16 +126,17 @@ func (h *constraintStmtHost) performNode(engine *stmtEngine, graph *lower.Action
 			engine.env.declareUnvalued(feature.Name)
 			continue
 		}
-		value, err := engine.evalIn(feature.Scope).Eval(feature.Value)
+		value, err := engine.evalIn(feature.Scope).reading(graph.Exprs).evalPayload(feature.ValueID)
 		if err != nil {
 			return flowNext, fmt.Errorf("eval %s of %s: %w", feature.Name, describeNode(graph, node), err)
 		}
 		engine.env.declare(engine.ctx, feature.Name, value)
 	}
 	if nestedSteps != nil {
+		defer engine.under(nestedExprs)()
 		return engine.runWithOrder(nestedSteps, nestedOrder)
 	}
-	return engine.run(graph.Bodies[node])
+	return engine.runOf(graph.Exprs, graph.Bodies[node])
 }
 
 // runBlockFlow refuses the flow a loop or branch body states: a verdict orders
@@ -192,7 +194,7 @@ func (ctx *Context) runConstraintSteps(steps *BodySteps, features map[string]sco
 		engine = newStmtEngineIn(ctx, host, data, enclosing)
 		engine.features = features
 		return engine
-	}, steps.Stmts)
+	}, ctx.model.exprs, steps.Stmts)
 	if err != nil {
 		return frame{}, err
 	}

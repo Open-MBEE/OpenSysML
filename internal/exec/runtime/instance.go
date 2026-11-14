@@ -1986,7 +1986,7 @@ func (ctx *Context) evalFeatureValueDefault(inst *Instance, fv *FeatureValue, na
 		}
 		return val, nil
 	}
-	val, err := ec.Eval(fv.Feature.DefaultValue)
+	val, err := ec.reading(ctx.model.exprs).evalPayload(fv.Feature.DefaultValueID)
 	if err != nil {
 		return Value{}, fmt.Errorf("feature value %s.%s: %w", inst.Type.Name, name, err)
 	}

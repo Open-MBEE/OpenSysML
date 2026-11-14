@@ -100,6 +100,9 @@ type StateGraph struct {
 	resolver *resolve.Resolver
 	sem      *semantics.Model
 
+	// Exprs is the table the graph's ExprIDs index, shared with the flows of its behaviors.
+	Exprs *ExprTable
+
 	// States in the machine (flat list, includes nested)
 	States []*ast.StateNode
 
@@ -294,10 +297,15 @@ type Transition struct {
 	// Owner is the state whose body declares the transition, nil for the machine body.
 	Owner   *ast.StateNode
 	Trigger ast.Node // TimeEvent, ChangeEvent, SignalEvent, CallEvent, nil = completion
+	// TriggerExprID is the condition of a change trigger or the time of a timer, in
+	// the table of the machine; 0 for a trigger stating neither.
+	TriggerExprID program.ExprID
 	// Accepted names what the trigger binds when the transition fires — an accept's
 	// payload, a call's parameters — in declaration order; nil binds nothing.
 	Accepted []string
 	Guard    ast.Node // guard expression, nil = no guard
+	// GuardID is Guard in the table of the machine.
+	GuardID program.ExprID
 	// Effect are the transition's effect behaviors, lowered the same way a state's
 	// entry, do and exit behaviors are.
 	Effect []StateBehavior
@@ -366,6 +374,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	if held, ok := endpoints.(interface{ nameResolver() *resolve.Resolver }); ok {
 		graph.resolver = held.nameResolver()
 	}
+	graph.Exprs = NewExprTable(graph.resolver)
 
 	members, err := machineMembers(stateMachineDecl)
 	if err != nil {
@@ -646,7 +655,7 @@ func (g *StateGraph) lowerBehaviorsFor(state *ast.StateNode, actions []ast.Node,
 		if inherited := g.behaviorScope[actual]; inherited != nil {
 			declared = inherited
 		}
-		behavior := lowerStateBehavior(actual, nil, declared, g.resolver)
+		behavior := lowerStateBehavior(actual, nil, declared, g.resolver, g.Exprs)
 		behavior.Owner = state
 		behaviors = append(behaviors, behavior)
 		g.lowerBehaviorFeatures(actual, declared)
@@ -1507,7 +1516,7 @@ func (g *StateGraph) addTerminate(usage *ast.Usage, scope *symbols.Scope, owner 
 	}
 	if TerminatedOccurrence(usage) != nil {
 		declared := g.declaredIn[usage]
-		g.TerminateBehaviors[usage] = terminateBehavior(usage, declared, owner, g.resolver)
+		g.TerminateBehaviors[usage] = terminateBehavior(usage, declared, owner, g.resolver, g.Exprs)
 		g.TerminateCompletion[usage] = g.completion(body, declared, usage.Span())
 	}
 }
@@ -1699,7 +1708,7 @@ func lowerTransitionEdge(graph *StateGraph, edge *ast.TransitionEdge, owner ast.
 		Trigger:   edge.Trigger,
 		Accepted:  AcceptedNames(edge.Trigger),
 		Guard:     edge.Guard,
-		Effect:    LowerBehaviors(edge.Effect, nil, scope, graph.resolver),
+		Effect:    LowerBehaviors(edge.Effect, nil, scope, graph.resolver, graph.Exprs),
 		Scope:     scope,
 		BodyScope: scope,
 	}
@@ -1759,7 +1768,7 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 		Trigger:     trigger,
 		Accepted:    AcceptedNames(trigger),
 		Guard:       member.Guard,
-		Effect:      transitionEffects(member, bodyScope, graph.resolver),
+		Effect:      transitionEffects(member, bodyScope, graph.resolver, graph.Exprs),
 		Via:         via,
 		ViaSelf:     viaSelf,
 		Scope:       scope,
@@ -1773,9 +1782,9 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 // transitionEffects are the behaviors a transition performs: those written with
 // `do`, then the steps its body states (SysML.xtext:1863, where TransitionUsage
 // ends in ActionBody). The body's steps are one block, the transition's own.
-func transitionEffects(member *ast.TransitionMember, scope *symbols.Scope, resolver *resolve.Resolver) []StateBehavior {
-	effects := LowerBehaviors(member.Effect, nil, scope, resolver)
-	body := LowerBehaviors(BodyStatementMembers(member.Members), member, scope, resolver)
+func transitionEffects(member *ast.TransitionMember, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable) []StateBehavior {
+	effects := LowerBehaviors(member.Effect, nil, scope, resolver, exprs)
+	body := LowerBehaviors(BodyStatementMembers(member.Members), member, scope, resolver, exprs)
 	return append(effects, body...)
 }
 
@@ -2174,7 +2183,7 @@ func collectTransitionMember(graph *StateGraph, n *ast.TransitionMember, body tr
 			return err
 		}
 		entryScope := symbols.TriggerScope(scope, n)
-		entry := &EntryTransition{Decl: n, Guard: n.Guard, Effect: transitionEffects(n, entryScope, graph.resolver), Scope: entryScope}
+		entry := &EntryTransition{Decl: n, Guard: n.Guard, Effect: transitionEffects(n, entryScope, graph.resolver, graph.Exprs), Scope: entryScope}
 		return addEntryTransitionTarget(graph, entry, target, entryOwner, scope)
 	}
 	// `transition initial then off;` out of the entry action names the

@@ -6,7 +6,7 @@ import "slices"
 // performs graph as (`bind run.measure.report = theReport;`, prefix [run]) to pin
 // bindings of graph's nodes, as the same bindings written in the action's body lower.
 // Scope stays the object's, so the other end resolves where it was written.
-func PerformedPinBindings(graph *ActionGraph, prefix []string, bindings []Binding) ([]PinBinding, error) {
+func PerformedPinBindings(graph *ActionGraph, prefix []string, bindings []Binding, exprs *ExprTable) ([]PinBinding, error) {
 	nodes := nodesNamed(graph.Nodes)
 	var out []PinBinding
 	for _, binding := range bindings {
@@ -37,7 +37,7 @@ func PerformedPinBindings(graph *ActionGraph, prefix []string, bindings []Bindin
 					pinBinding.OtherChain, pinBinding.OtherFeature = chain, feature
 				}
 			}
-			out = append(out, pinBinding)
+			out = append(out, withBindingExprs(pinBinding, exprs))
 		}
 	}
 	return out, nil

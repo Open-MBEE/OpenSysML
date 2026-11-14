@@ -28,7 +28,7 @@ func PerformsSteps(decl ast.Node) bool {
 // over the flow the steps state, then its results. A body stating successions or
 // control nodes is the token flow an action body is (ToActionGraph); otherwise
 // its action nodes and statements are unordered subactions.
-func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) []Statement {
+func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable) []Statement {
 	trailing := trailingResults(body, scope, resolver)
 	if !statesOwnFlow(body) {
 		trailing = caseTrailingResults(body, scope, resolver, trailing)
@@ -47,7 +47,7 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *
 				flowStarted = true
 				continue
 			}
-			stmt, states := calcStep(member, scope, resolver)
+			stmt, states := calcStep(member, scope, resolver, exprs)
 			if !states {
 				members = append(members, member)
 				continue
@@ -111,7 +111,7 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *
 		if isFlowNode(member) || outsideBlockFlow(member) || sequenced[member] || nodes[unwrapMembership(member)] {
 			continue
 		}
-		stmt, states := calcStep(member, scope, resolver)
+		stmt, states := calcStep(member, scope, resolver, exprs)
 		if !states {
 			continue
 		}
@@ -141,7 +141,7 @@ func addCasePerformNodes(graph *ActionGraph, members []ast.Node, scope *symbols.
 			continue
 		}
 		graph.Nodes = append(graph.Nodes, node)
-		graph.Bodies[node] = []Statement{performEffect(node, scope)}
+		graph.Bodies[node] = []Statement{withExprs(performEffect(node, scope), graph.Exprs)}
 	}
 }
 
@@ -167,7 +167,7 @@ func caseTrailingResults(body []ast.Node, scope *symbols.Scope, resolver *resolv
 		if isFlowNode(unwrapMembership(member)) {
 			break
 		}
-		stmt, states := calcStep(member, scope, resolver)
+		stmt, states := calcStep(member, scope, resolver, nil)
 		if !states {
 			continue
 		}
@@ -244,7 +244,7 @@ func trailingResults(body []ast.Node, scope *symbols.Scope, resolver *resolve.Re
 		if isFlowNode(member) {
 			break
 		}
-		stmt, states := calcStep(member, scope, resolver)
+		stmt, states := calcStep(member, scope, resolver, nil)
 		if !states {
 			continue
 		}

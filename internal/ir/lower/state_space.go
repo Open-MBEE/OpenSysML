@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -140,10 +141,14 @@ type ZeroCrossing struct {
 	Event     *symbols.Symbol
 	EventType *symbols.Symbol
 	Guard     ast.Node
+	// GuardID is Guard in the table of the flow the dynamics were lowered for.
+	GuardID program.ExprID
 	// GuardScope is where the guard was written, its names resolving there.
 	GuardScope *symbols.Scope
 	// Terminal is the expression stating whether the crossing ends the run, nil for never.
-	Terminal      ast.Node
+	Terminal ast.Node
+	// TerminalID is Terminal in the table of the flow.
+	TerminalID    program.ExprID
 	TerminalScope *symbols.Scope
 }
 
@@ -168,7 +173,7 @@ func StateSpaceKindOf(action *symbols.Symbol, model StateSpaceModel) StateSpaceK
 // dynamics into what the runner steps: a member the protocol needs that the
 // model leaves abstract, or an integrator the runtime does not provide, is an
 // ErrUnsupportedStateSpace.
-func ToStateSpaceDynamics(action *symbols.Symbol, scope *symbols.Scope, model StateSpaceModel) (*StateSpaceDynamics, error) {
+func ToStateSpaceDynamics(action *symbols.Symbol, scope *symbols.Scope, model StateSpaceModel, exprs *ExprTable) (*StateSpaceDynamics, error) {
 	kind := StateSpaceKindOf(action, model)
 	if kind == NotStateSpace {
 		return nil, fmt.Errorf("%w: action %s specializes neither %s nor %s",
@@ -198,7 +203,7 @@ func ToStateSpaceDynamics(action *symbols.Symbol, scope *symbols.Scope, model St
 		return nil, fmt.Errorf("%w: action %s has no %s", ErrUnsupportedStateSpace, action.Name, StateSpaceFeature)
 	}
 	if kind == ContinuousDynamics {
-		if err := dyn.lowerCrossings(members, model); err != nil {
+		if err := dyn.lowerCrossings(members, model, exprs); err != nil {
 			return nil, err
 		}
 	}
@@ -304,7 +309,7 @@ func (dyn *StateSpaceDynamics) lowerIntegrator(integrate *symbols.Symbol, model 
 
 // lowerCrossings collects the event occurrences typed by a ZeroCrossingEventDef,
 // each with the guard its declaration binds.
-func (dyn *StateSpaceDynamics) lowerCrossings(members map[string]*symbols.Symbol, model StateSpaceModel) error {
+func (dyn *StateSpaceDynamics) lowerCrossings(members map[string]*symbols.Symbol, model StateSpaceModel, exprs *ExprTable) error {
 	crossingEvent := model.LibrarySymbol(ZeroCrossingEventFQN)
 	if crossingEvent == nil {
 		return nil
@@ -329,6 +334,8 @@ func (dyn *StateSpaceDynamics) lowerCrossings(members map[string]*symbols.Symbol
 		if terminal := fields[TerminalFeature]; terminal != nil {
 			crossing.Terminal, crossing.TerminalScope = model.ParameterDefault(terminal)
 		}
+		crossing.GuardID = exprs.Intern(crossing.Guard, scopeOr(crossing.GuardScope, dyn.Scope))
+		crossing.TerminalID = exprs.Intern(crossing.Terminal, scopeOr(crossing.TerminalScope, dyn.Scope))
 		dyn.Crossings = append(dyn.Crossings, crossing)
 	}
 	return nil

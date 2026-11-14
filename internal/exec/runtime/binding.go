@@ -73,6 +73,8 @@ type bindingLocation struct {
 type bindingEndpoint struct {
 	locations []bindingLocation
 	expr      ast.Node
+	// exprID and indexID are expr and index in the model's table.
+	exprID, indexID program.ExprID
 	// index selects one element of what the locations hold, nil for the whole feature;
 	// selection is the end as written (`xs#(2)`), for diagnostics.
 	index, selection ast.Node
@@ -148,6 +150,9 @@ func (ctx *Context) objectBindings(typeSym *symbols.Symbol) []lower.Binding {
 	}
 	bindings = append(bindings, ctx.declaredBindings(typeSym)...)
 	bindings = append(bindings, ctx.connectorOwnedBindings(typeSym)...)
+	for i := range bindings {
+		bindings[i].Intern(ctx.model.exprs)
+	}
 	ctx.model.bindingIR[typeSym] = bindings
 	return bindings
 }
@@ -1084,13 +1089,21 @@ func bindingInvolvesFeature(binding lower.Binding, name string) bool {
 	return false
 }
 
+// evalEndOn evaluates what a binding end states, behind id in the model's table, on
+// obj; it brackets one run, as EvalWithScopeOn does.
+func (ctx *Context) evalEndOn(id program.ExprID, scope *symbols.Scope, obj *Instance) (Value, error) {
+	defer ctx.beginRun()()
+
+	return NewEvalContextIn(ctx, scope, obj).reading(ctx.model.exprs).evalPayload(id)
+}
+
 func (ctx *Context) resolveBindingEndpoint(owner *Instance, binding lower.Binding, end int) (bindingEndpoint, error) {
 	path := binding.Ends[end].Path
 	if path == "" {
 		if binding.Ends[end].Expr == nil {
 			return bindingEndpoint{}, fmt.Errorf("%w: empty endpoint", errBindingEnd)
 		}
-		endpoint := bindingEndpoint{expr: binding.Ends[end].Expr, scope: binding.Scope}
+		endpoint := bindingEndpoint{expr: binding.Ends[end].Expr, exprID: binding.Ends[end].ExprID, scope: binding.Scope}
 		if via := binding.Ends[end].Via; len(via) != 0 {
 			on, err := ctx.bindingEndpointObjects(owner, via)
 			if err != nil {
@@ -1107,7 +1120,7 @@ func (ctx *Context) resolveBindingEndpoint(owner *Instance, binding lower.Bindin
 			return bindingEndpoint{}, err
 		}
 	}
-	endpoint := bindingEndpoint{index: binding.Ends[end].Index, selection: binding.Ends[end].Expr, scope: binding.Scope}
+	endpoint := bindingEndpoint{index: binding.Ends[end].Index, indexID: binding.Ends[end].IndexID, selection: binding.Ends[end].Expr, scope: binding.Scope}
 	for _, obj := range on {
 		reached, err := ctx.resolveBindingLocations(obj, path)
 		if err != nil {
@@ -1252,7 +1265,7 @@ func (ctx *Context) expressionEndValue(endpoint bindingEndpoint, owner *Instance
 	}
 	var agreed Value
 	for i, obj := range on {
-		value, err := ctx.EvalWithScopeOn(endpoint.expr, endpoint.scope, obj)
+		value, err := ctx.evalEndOn(endpoint.exprID, endpoint.scope, obj)
 		if err != nil {
 			if errors.Is(err, errUninitializedFeatureValue) {
 				return Value{}, false, nil
@@ -1405,7 +1418,7 @@ func (ctx *Context) selectedBindingElement(endpoint bindingEndpoint, owner *Inst
 // selectedElementOn is the element of whole at the index the end states, evaluated on obj; a
 // feature holding no element there is a binding end error.
 func (ctx *Context) selectedElementOn(endpoint bindingEndpoint, obj *Instance, whole Value) (Value, error) {
-	indexVal, err := ctx.EvalWithScopeOn(endpoint.index, endpoint.scope, obj)
+	indexVal, err := ctx.evalEndOn(endpoint.indexID, endpoint.scope, obj)
 	if err == nil {
 		const op = "sequence index"
 		var index int64
