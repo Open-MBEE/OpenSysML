@@ -1037,6 +1037,10 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 			if feature == nil {
 				continue
 			}
+			// As the interface writer records a chained end: the feature its chain reaches.
+			if chain := model.chainingFeaturesOf(feature); len(chain) > 0 {
+				feature = chain[len(chain)-1]
+			}
 			if ref, found := idx.RefTo(feature); found {
 				facts.RelatedFeatures[i] = ref
 			} else {

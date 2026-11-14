@@ -2219,7 +2219,7 @@ func (m *Model) ConnectorRelatedFeaturesByEnd(sym *symbols.Symbol) []*symbols.Sy
 		// A message's ends own no end feature of their own: the feature its
 		// `from`/`to` path reaches stands in for the end's reference.
 		if target == nil && i < len(paths) && len(paths[i].Features) > 0 {
-			target = flowEndReferencedFeature(sym, paths[i].Features)
+			target = m.flowEndReferencedFeature(sym, i, paths[i].Features)
 		}
 		if target == nil && i < len(successionEnds) {
 			target = successionEnds[i]
@@ -2229,12 +2229,15 @@ func (m *Model) ConnectorRelatedFeaturesByEnd(sym *symbols.Symbol) []*symbols.Sy
 	return related
 }
 
-// flowEndReferencedFeature is the feature an end path references: before the payload for a flow end (`flow a.x to b.y`
-// relates a and b, SysML v2.1 §8.3.16.6; none for a bare `a` or a chained prefix), the one reached for a message's or connector's.
-func flowEndReferencedFeature(sym *symbols.Symbol, path []*symbols.Symbol) *symbols.Symbol {
+// flowEndReferencedFeature is the feature the end at position references: before the payload for a flow end (`flow a.x to b.y` relates
+// a and b, SysML v2.1 §8.3.16.6; the chain a.b for `a.b.x`; none for a bare `a`), the one reached for a message's or connector's.
+func (m *Model) flowEndReferencedFeature(sym *symbols.Symbol, position int, path []*symbols.Symbol) *symbols.Symbol {
 	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageFlow && usage.Keyword != "message" {
-		if len(path) == 2 {
+		switch {
+		case len(path) == 2:
 			return path[0]
+		case len(path) > 2:
+			return m.flowEndChainFeature(sym, position)
 		}
 		return nil
 	}

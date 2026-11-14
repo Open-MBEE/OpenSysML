@@ -128,6 +128,7 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 	ids.recordValuePart(e, node, subject)
 	ids.recordDefaultMultiplicity(e, node, subject)
 	ids.recordConnectorEnds(e, node, subject)
+	ids.recordFlowEndChains(e, node, subject)
 	ids.recordSuccessionEnds(e, node, subject)
 	ids.recordTransitionSuccession(e, node, subject)
 	ids.recordTransitionHead(e, node, subject)
@@ -197,6 +198,34 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 				ids.partByNode[partKey{end, "chain." + position}] = recorded
 				ids.partBySpan[spanPartKey{spanKey{e.file.Name(), end.Span()}, "chain." + position}] = recorded
 			}
+		}
+	}
+}
+
+// recordFlowEndChains files the chain Feature a flow's end references ahead of its payload (flowEndReferences) and
+// that chain's FeatureChainings under the chain as written (`a.b` of `flow a.b.x to c.y`), at "chain" and "chain.fcN".
+func (ids *ElementIDs) recordFlowEndChains(e *encoder, node ast.Node, subject rdf.Term) {
+	usage, ok := node.(*ast.Usage)
+	if !ok || !verbatimUsage(usage) || (usage.Kind == ast.UsageFlow && usage.Keyword == "message") {
+		return
+	}
+	for i := range 2 {
+		prefix := ast.FlowEndChainPrefix(usage, i)
+		if prefix == nil {
+			continue
+		}
+		slot := fmt.Sprintf("end%d", i)
+		end := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		chain := e.ids.mintedNode(rdf.ExpressionIRI(end, "chain"), end, "chain")
+		file := func(slot string, element rdf.Term) {
+			recorded := partIDs{element: rdf.LocalName(element.Value)}
+			ids.partByNode[partKey{prefix, slot}] = recorded
+			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), prefix.Span()}, slot}] = recorded
+		}
+		file("chain", chain)
+		for link := range endChainLinks(prefix) {
+			position := fmt.Sprintf("fc%d", link)
+			file("chain."+position, e.ids.mintedNode(rdf.ExpressionIRI(chain, position), chain, position))
 		}
 	}
 }

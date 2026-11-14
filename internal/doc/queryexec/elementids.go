@@ -150,6 +150,11 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 		element, _, err := read.ReadExpressionPart(sym.DocName, end, "chain")
 		return element, err
 	}
+	if prefix, ok := flowEndChain(sym); ok {
+		// The chain Feature a flow's end references ahead of its payload is minted under the end (flowEndReferences).
+		element, _, err := read.ReadExpressionPart(sym.DocName, prefix, "chain")
+		return element, err
+	}
 	if target, ok := headClauseChain(sym); ok {
 		// The chain Feature a head clause's chain target denotes is minted under the head (headChain).
 		element, _, err := read.ReadExpressionPart(sym.DocName, target, "chain")
@@ -260,6 +265,10 @@ func featureChainingID(read ElementIDReader, rel *symbols.ImplicitRelationship) 
 		element, _, err := read.ReadExpressionPart(rel.Owner.DocName, end, "chain."+rel.Slot)
 		return element, err
 	}
+	if prefix, ok := flowEndChain(rel.Owner); ok {
+		element, _, err := read.ReadExpressionPart(rel.Owner.DocName, prefix, "chain."+rel.Slot)
+		return element, err
+	}
 	if target, ok := headClauseChain(rel.Owner); ok {
 		element, _, err := read.ReadExpressionPart(rel.Owner.DocName, target, "chain."+rel.Slot)
 		return element, err
@@ -282,6 +291,15 @@ func connectorEndChain(sym *symbols.Symbol) (*ast.ConnectorEnd, bool) {
 		return nil, false
 	}
 	return end, true
+}
+
+// flowEndChain is the chain as written that sym, the chain Feature a flow's end
+// references ahead of its payload (`a.b` of `flow a.b.x to c.y`), denotes.
+func flowEndChain(sym *symbols.Symbol) (ast.Node, bool) {
+	if sym == nil || sym.Chain == nil || sym.Chain.Flow == nil || sym.Chain.Node == nil {
+		return nil, false
+	}
+	return sym.Chain.Node, true
 }
 
 // headClauseChain is the chain target of the head clause (`part b :> a.x`) whose chain Feature
