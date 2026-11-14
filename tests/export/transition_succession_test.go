@@ -120,6 +120,19 @@ func TestTransitionBodyBareReferenceSurvivesBesideTheTransitionLink(t *testing.T
 	if string(back) != src {
 		t.Errorf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
 	}
+	// In uuid form the transitionLink loses its minted suffix; it is still no body member.
+	plain := "package P {\n    state def S {\n        state a;\n        state b;\n        transition t first a then b;\n    }\n}\n"
+	uuidTurtle, err := convert.ConvertWith("u.sysml", []byte(plain), convert.FormatSysML, convert.FormatTurtle, convert.Options{ID: export.IDUUID})
+	if err != nil {
+		t.Fatalf("to turtle in uuid form: %v", err)
+	}
+	uuidBack, err := convert.Convert("u.ttl", withoutLayout(t, uuidTurtle), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the uuid graph alone: %v", err)
+	}
+	if string(uuidBack) != plain {
+		t.Errorf("the uuid-form notation changed\n--- want ---\n%s\n--- got ---\n%s", plain, uuidBack)
+	}
 }
 
 // A succession whose target disagrees with the transition's sysml:target is no

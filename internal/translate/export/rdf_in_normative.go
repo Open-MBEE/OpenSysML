@@ -1014,10 +1014,10 @@ func (d *decoder) transitionImplied(el, parent *element) (bool, error) {
 			return false, nil
 		}
 		if len(d.graph.Objects(subject, rdf.SysML+pOwnedRelationship)) == 0 {
-			// A bare one a FeatureMembership owns under the conversion's minted id is the transitionLink it writes
-			// last (transitionLinkMember); a body's written `ref;` is minted by its position.
-			return owning == mParameterMembership ||
-				(!stated && strings.HasSuffix(el.iri, transitionLinkSuffix)), nil
+			// A bare one a FeatureMembership owns is the transitionLink the conversion writes last (transitionLinkMember),
+			// by its minted id, or, in uuid form, by having no place among the body's members as a written `ref;` has.
+			return owning == mParameterMembership || (!stated && (strings.HasSuffix(el.iri, transitionLinkSuffix) ||
+				(!d.graph.HasProperty(subject, rdf.OpenSysML+xMemberIndex) && !hasAddress(d.graph, subject)))), nil
 		}
 		if parent == nil || parent.metaclass != mTransition {
 			return false, nil
