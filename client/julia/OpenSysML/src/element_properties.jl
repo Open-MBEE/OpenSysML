@@ -92,11 +92,16 @@ Read an element's metamodel properties by their KerML/SysML specification names
 (`inheritedFeature`, `connectorEnd`, `isComposite`, …), as the model's api-json export
 spells them. `element` is a qualified name, the positional id of an unnamed member
 (`Owner::@2`) or the id an earlier answer carried; with no `properties` every property
-the element form carries is read. Requires the `element_properties` capability.
+the element form carries is read. `lookup` states what `element` is, as `get_symbol`
+takes it: `:qualified_name`, `:element_id` (an element form id or a symbol's id), or
+`:either`, the legacy form. Requires the `element_properties` capability.
 """
-function element_properties(model::Model, element::AbstractString, properties::AbstractString...)
+function element_properties(model::Model, element::AbstractString, properties::AbstractString...;
+                            lookup::Symbol=:either)
     require_capability(model.connection, CAPABILITY_ELEMENT_PROPERTIES)
     request = Dict{String,Any}("modelHash" => model.hash, "elementId" => String(element))
+    stated = lookup_kind(model, lookup)
+    stated === nothing || (request["lookup"] = stated)
     isempty(properties) || (request["properties"] = String[String(p) for p in properties])
     answer = _translate(; capabilities=(CAPABILITY_ELEMENT_PROPERTIES,), connection=model.connection) do
         call(model.connection, "GetElementProperties", request)

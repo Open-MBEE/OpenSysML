@@ -129,6 +129,9 @@ public final class Capabilities {
   /** {@code GetSymbol} resolves a qualified name from the root namespace rather than as a reported id. */
   public static final String SYMBOL_NAME_RESOLUTION = "symbol_name_resolution";
 
+  /** {@code GetSymbol} and {@code GetElementProperties} read a name only as a name, an id only as an id. */
+  public static final String SYMBOL_LOOKUP_KIND = "symbol_lookup_kind";
+
   /** The {@code GetElementProperties} RPC: an element's metamodel properties by their specification names. */
   public static final String ELEMENT_PROPERTIES = "element_properties";
 

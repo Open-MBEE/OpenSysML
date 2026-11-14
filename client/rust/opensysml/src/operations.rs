@@ -27,7 +27,7 @@ use crate::document::{
     document_event_from_wire, rendered_view_of, result_of, DocumentForm, DocumentQueryResult,
     DocumentValue, RenderViewCompartments, RenderViewPorts, RenderedView,
 };
-use crate::domain::{Model, Value};
+use crate::domain::{Lookup, Model, Value};
 use crate::element_properties::{element_properties_of, ElementProperties};
 use crate::encode::value_to_wire;
 use crate::error::Error;
@@ -475,6 +475,19 @@ impl Connection {
         element: &str,
         properties: &[&str],
     ) -> Result<ElementProperties, Error> {
+        self.element_properties_of(model_hash, element, Lookup::Either, properties)
+    }
+
+    /// Read the metamodel properties of the element `element` names as the stated kind: a
+    /// qualified name, or an element form id or symbol id. [`Lookup::Either`] is the legacy
+    /// form, an element form id first, then a name.
+    pub fn element_properties_of(
+        &self,
+        model_hash: &str,
+        element: &str,
+        lookup: Lookup,
+        properties: &[&str],
+    ) -> Result<ElementProperties, Error> {
         let capabilities = [CAPABILITY_ELEMENT_PROPERTIES];
         self.require_all(&capabilities)?;
         let response: wire::GetElementPropertiesResponse = self.gated_rpc(
@@ -483,6 +496,7 @@ impl Connection {
                 model_hash: model_hash.to_owned(),
                 element_id: element.to_owned(),
                 properties: properties.iter().map(|p| (*p).to_owned()).collect(),
+                lookup: self.lookup_kind(lookup),
             },
             &capabilities,
         )?;
