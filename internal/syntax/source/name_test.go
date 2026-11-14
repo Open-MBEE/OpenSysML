@@ -131,7 +131,17 @@ func TestWrittenNamesReadBackAsTheNamesThemselves(t *testing.T) {
 			t.Errorf("MemberPathSegments(%q) = %q, %v, want %q", text, got, ok, path)
 		}
 	}
-	for _, name := range names {
+	// The empty name is written, but no reader of name text takes it for a name.
+	if text := NameText(""); text != "''" {
+		t.Errorf("NameText of the empty name = %q", text)
+	}
+	if got, ok := QualifiedNameSegments("''"); ok {
+		t.Errorf("QualifiedNameSegments of the empty name = %q, want a refusal", got)
+	}
+	if got, ok := MemberPathSegments("''"); ok {
+		t.Errorf("MemberPathSegments of the empty name = %q, want a refusal", got)
+	}
+	for _, name := range append(names, "") {
 		text := UnrestrictedNameText(name)
 		if got := Unescape(text[1 : len(text)-1]); got != name {
 			t.Errorf("Unescape of UnrestrictedNameText(%q) = %q", name, got)
