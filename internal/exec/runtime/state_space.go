@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
@@ -71,9 +72,9 @@ type stateSpaceRun struct {
 	stops bool
 	// stepValue is timeStep as the action holds it, what the state's rate is scaled by.
 	stepValue Value
-	// guards holds each crossing's guard after the latest step, for its sign;
-	// nil until the first step settles the start.
-	guards []float64
+	// guards holds what each crossing watches after the latest step, for its signs: its
+	// guard, or the derivative's components; nil until the first step settles the start.
+	guards [][]float64
 }
 
 // settled reports whether the run has sampled its start, which its first step does.
@@ -102,6 +103,9 @@ func (run *stateSpaceRun) clone() *stateSpaceRun {
 	}
 	saved := *run
 	saved.guards = slices.Clone(run.guards)
+	for i, watched := range saved.guards {
+		saved.guards[i] = slices.Clone(watched)
+	}
 	return &saved
 }
 
@@ -204,9 +208,12 @@ func (e *ActionExecutor) dynamicsSteps() int {
 	return e.dynamics.steps
 }
 
-// inputVector is the input the action holds; nil when it binds none, so a calc
-// that does not need one runs and one that does reports its parameter unbound.
+// inputVector is the input the action holds, or the one a flow carries into it; nil when
+// it has none, so a calc that does not need one runs and one that does reports its parameter unbound.
 func (e *ActionExecutor) inputVector() (*Value, error) {
+	if flows := e.inputFlows(); len(flows) > 0 {
+		return e.flowedInput(flows)
+	}
 	input, ok, err := e.ctx.readBodyValue(e.root.cells, e.root.data, e.root.key(lower.InputFeature))
 	if err != nil {
 		return nil, fmt.Errorf("%w: action %s: read %s: %w",
@@ -347,7 +354,7 @@ func (e *ActionExecutor) settleStep(run *stateSpaceRun, state Value, input *Valu
 	if tr := e.trace(); tr != nil {
 		tr.recordStateSpaceStep(SymbolText(e.action), now, state, output)
 	}
-	return e.watchCrossings(run, now)
+	return e.watchCrossings(run, now, state, input)
 }
 
 // instantValue is the clock's instant t as the context spells one.
@@ -572,22 +579,33 @@ func crosses(was, guard float64) bool {
 	return was != 0 && math.Signbit(guard) != math.Signbit(was)
 }
 
-// watchCrossings evaluates every guard after a step and raises the event of each
-// that crosses zero; true when a terminal one fired.
-func (e *ActionExecutor) watchCrossings(run *stateSpaceRun, now float64) (bool, error) {
+// anyCrosses reports whether a component of what a crossing watches crossed zero over a step.
+func anyCrosses(was, watched []float64) bool {
+	for i := range watched {
+		if i < len(was) && crosses(was[i], watched[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+// watchCrossings evaluates what every crossing watches after a step, at the state
+// and input the step settled, and raises the event of each that crosses zero; true
+// when a terminal one fired.
+func (e *ActionExecutor) watchCrossings(run *stateSpaceRun, now float64, state Value, input *Value) (bool, error) {
 	first := run.guards == nil
 	if first {
-		run.guards = make([]float64, len(run.dyn.Crossings))
+		run.guards = make([][]float64, len(run.dyn.Crossings))
 	}
 	ended := false
 	for i, crossing := range run.dyn.Crossings {
-		guard, err := e.evalGuard(crossing)
+		watched, err := e.watched(run, crossing, state, input)
 		if err != nil {
 			return false, err
 		}
 		was := run.guards[i]
-		run.guards[i] = guard
-		if first || !crosses(was, guard) {
+		run.guards[i] = watched
+		if first || !anyCrosses(was, watched) {
 			continue
 		}
 		terminal, err := e.crossingTerminal(crossing)
@@ -608,6 +626,31 @@ func (e *ActionExecutor) watchCrossings(run *stateSpaceRun, now float64) (bool, 
 		ended = ended || terminal
 	}
 	return ended, nil
+}
+
+// watched is what a crossing watches at a settled step: the guard it binds, or
+// the components of the derivative there for one whose type states no guard.
+func (e *ActionExecutor) watched(run *stateSpaceRun, crossing lower.ZeroCrossing, state Value, input *Value) ([]float64, error) {
+	if !crossing.Derivative {
+		guard, err := e.evalGuard(crossing)
+		if err != nil {
+			return nil, err
+		}
+		return []float64{guard}, nil
+	}
+	k, err := e.derivative(run, input, state)
+	if err != nil {
+		return nil, fmt.Errorf("zero crossing %s of action %s: %w", crossing.Name, SymbolText(e.action), err)
+	}
+	v, err := readVector(lower.GetDerivativeCalc, lower.GetDerivativeCalc, k)
+	if err != nil {
+		return nil, fmt.Errorf("%w: zero crossing %s of action %s: %w", errStateSpaceValue, crossing.Name, SymbolText(e.action), err)
+	}
+	components := make([]float64, len(v.num))
+	for i, n := range v.num {
+		components[i] = asReal(n)
+	}
+	return components, nil
 }
 
 // evalGuard is a crossing's guard as a real number, over the action's features.
@@ -650,4 +693,135 @@ func (e *ActionExecutor) evalCrossingExpr(id program.ExprID, scope *symbols.Scop
 	ec := e.evalContextFor(e.root, scope).reading(e.graph.Exprs)
 	defer ec.beginStep()()
 	return ec.evalPayload(id)
+}
+
+// inputFeed is a flow into the action's input, with the object declaring it.
+type inputFeed struct {
+	lower.FeatureFlow
+	on *Instance
+}
+
+// objectFlows lowers the streaming flows typeSym and the model's types it specializes
+// declare between features, once per type.
+func (ctx *Context) objectFlows(typeSym *symbols.Symbol) []lower.FeatureFlow {
+	if typeSym == nil {
+		return nil
+	}
+	if cached, ok := ctx.model.flowIR[typeSym]; ok {
+		return cached
+	}
+	var flows []lower.FeatureFlow
+	for _, decl := range append(ctx.model.semantics.AllSupertypes(typeSym), typeSym) {
+		if decl == nil || ctx.libraryDeclared(decl) {
+			continue
+		}
+		flows = append(flows, lower.ToFeatureFlows(decl.Decl)...)
+	}
+	ctx.model.flowIR[typeSym] = flows
+	return flows
+}
+
+// inputFlows are the flows the performer and the objects owning it declare into
+// the performed action's input (`flow pusher.push.output to cart.roll.input`).
+func (e *ActionExecutor) inputFlows() []inputFeed {
+	if e.performed == nil || e.self == nil {
+		return nil
+	}
+	var feeds []inputFeed
+	seen := make(map[*ast.Usage]bool)
+	target := []string{e.performed.Name, lower.InputFeature}
+	for current := e.self; current != nil; {
+		for _, typ := range current.types() {
+			for _, flow := range e.ctx.objectFlows(typ) {
+				if !seen[flow.Decl] && slices.Equal(flow.Target, target) {
+					seen[flow.Decl] = true
+					feeds = append(feeds, inputFeed{FeatureFlow: flow, on: current})
+				}
+			}
+		}
+		owner, ownerFeature := current.Owner()
+		if owner == nil || ownerFeature == "" {
+			break
+		}
+		target = append([]string{ownerFeature}, target...)
+		current = owner
+	}
+	return feeds
+}
+
+// flowedInput is the input a flow carries from its source as that stands now, written to the
+// action's input; while the source holds nothing it is what was last carried. Two flows into one input are refused.
+func (e *ActionExecutor) flowedInput(flows []inputFeed) (*Value, error) {
+	if len(flows) > 1 {
+		return nil, fmt.Errorf("%w: %s of action %s is the target of %d flows; the dynamics take their input from one",
+			errStateSpaceValue, lower.InputFeature, SymbolText(e.action), len(flows))
+	}
+	feed := flows[0]
+	source := strings.Join(feed.Source, ".")
+	val, held, err := e.ctx.flowSourceValue(feed)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s of action %s: read %s, the source of the flow into it: %w",
+			errStateSpaceValue, lower.InputFeature, SymbolText(e.action), source, err)
+	}
+	if val = soleElement(val); !held || val.Kind == ValNull || val.Kind == ValInvalid {
+		return e.carriedInput()
+	}
+	if !isVectorKind(val) {
+		return nil, fmt.Errorf("%w: %s, flowing into %s of action %s, is %s, not a vector",
+			errStateSpaceValue, source, lower.InputFeature, SymbolText(e.action), DescribeValue(val))
+	}
+	if err := e.setFeature(lower.InputFeature, val); err != nil {
+		return nil, err
+	}
+	return &val, nil
+}
+
+// carriedInput is the vector a flow last carried into the action's input, nil before any.
+func (e *ActionExecutor) carriedInput() (*Value, error) {
+	input, ok, err := e.ctx.readBodyValue(e.root.cells, e.root.data, e.root.key(lower.InputFeature))
+	if err != nil || !ok {
+		return nil, err
+	}
+	if input = soleElement(input); !isVectorKind(input) {
+		return nil, nil
+	}
+	return &input, nil
+}
+
+// flowSourceValue reads the feature a flow leaves, from the object declaring the flow down
+// its source path: a live performance answers from its own features, any other object from
+// its feature value. held is false where an object on the way, or the feature, holds nothing yet.
+func (ctx *Context) flowSourceValue(feed inputFeed) (Value, bool, error) {
+	holder := feed.on
+	for _, name := range feed.Source[:len(feed.Source)-1] {
+		fv, err := holder.MemberValue(ctx, name)
+		if err != nil {
+			return Value{}, false, err
+		}
+		held := soleElement(fv.HeldValue())
+		if held.Kind == ValNull || held.Kind == ValInvalid {
+			return Value{}, false, nil
+		}
+		id, isObject := held.Object()
+		next, found := ctx.Instance(id)
+		if !isObject || !found {
+			return Value{}, false, fmt.Errorf("%w: %s holds %s, not one object", errBindingEnd, name, DescribeValue(held))
+		}
+		holder = next
+	}
+	feature := feed.Source[len(feed.Source)-1]
+	for _, exec := range ctx.actionExecutors {
+		if exec.occurrence == holder {
+			return ctx.readBodyValue(exec.root.cells, exec.root.data, exec.root.key(feature))
+		}
+	}
+	fv, err := holder.MemberValue(ctx, feature)
+	if errors.Is(err, ErrNoValue) {
+		return Value{}, false, nil
+	}
+	if err != nil {
+		return Value{}, false, err
+	}
+	val := fv.HeldValue()
+	return val, val.Kind != ValInvalid, nil
 }

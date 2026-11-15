@@ -2,6 +2,7 @@ package lower
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -350,5 +351,62 @@ func TestStateSpaceDynamicsUnsupportedShapes(t *testing.T) {
 		if !strings.Contains(err.Error(), says) {
 			t.Errorf("ToStateSpaceDynamics(%s, nil) = %q, want it to say %q", name, err, says)
 		}
+	}
+}
+
+// An event occurrence typed by a ZeroCrossingEventDef that declares no guard lowers
+// to a crossing of the derivative, however it reaches the type; one typed by another
+// StateSpaceEventDef, for which the library states no condition, is no crossing.
+func TestStateSpaceDerivativeCrossingLowering(t *testing.T) {
+	src := `package test {` + stateSpacePrelude + `
+		action def Apex :> ZeroCrossingEventDef;
+		action def Saturation :> StateSpaceEventDef;
+
+		action flight : ContinuousStateSpaceDynamics, FixedStepDynamics {
+			:>> stateSpace = VectorOf((0.0, 7.5));
+			:>> timeStep = 0.5 [s];
+			event occurrence apex : Apex;
+			event occurrence plain : ZeroCrossingEventDef;
+			event occurrence subset :> zeroCrossingEvents;
+			event occurrence saturated : Saturation;
+			event occurrence guarded : ZeroCrossing {
+				:>> guard = stateSpace.elements#(1);
+			}
+			calc :>> getDerivative {
+				in input : Input;
+				in stateSpace : StateSpace;
+				return : StateDerivative = VectorOf((stateSpace.elements#(2), 0.0 - 10.0)) / 1 [s];
+			}
+			calc :>> getOutput {
+				in input : Input;
+				in stateSpace : StateSpace;
+				return : Output = stateSpace;
+			}
+		}
+	}`
+	flight, scope, model := stateSpaceAction(t, src, "flight")
+	dyn, err := ToStateSpaceDynamics(flight, scope, model, nil)
+	if err != nil {
+		t.Fatalf("ToStateSpaceDynamics(flight, nil): %v", err)
+	}
+	type crossing struct {
+		name, eventType string
+		derivative      bool
+	}
+	var got []crossing
+	for _, c := range dyn.Crossings {
+		got = append(got, crossing{c.Name, c.EventType.Name, c.Derivative})
+		if c.Derivative != (c.Guard == nil) {
+			t.Errorf("crossing %s: derivative = %v with guard %v", c.Name, c.Derivative, c.Guard)
+		}
+	}
+	want := []crossing{
+		{"apex", "Apex", true},
+		{"plain", "ZeroCrossingEventDef", true},
+		{"subset", "ZeroCrossingEventDef", true},
+		{"guarded", "ZeroCrossing", false},
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("crossings = %+v, want %+v", got, want)
 	}
 }
