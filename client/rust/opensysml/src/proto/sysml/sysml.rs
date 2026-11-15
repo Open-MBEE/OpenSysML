@@ -2558,7 +2558,8 @@ pub struct SymbolInfo {
     /// "variation", "variant" and the like.
     #[prost(map="string, string", tag="4")]
     pub metadata: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
-    /// References to children
+    /// The owned members' ids, each one GetSymbol takes: a qualified name, a positional id (`Owner::@3`), or an unnamed
+    /// connector end's GetElementProperties element id (`Owner__c_pend0`), which a declaration so named answers instead.
     #[prost(string, repeated, tag="5")]
     pub child_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="6")]
@@ -2594,18 +2595,22 @@ pub struct SymbolInfo {
     /// Members inherited from standard-library content that `members` leaves out.
     #[prost(int32, tag="12")]
     pub withheld_library_members: i32,
+    /// Ids of the metadata usages annotating the element: its own prefix and body
+    /// ones, then the `about` ones written elsewhere, which child_ids leaves out.
+    #[prost(string, repeated, tag="13")]
+    pub annotating_metadata_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// MemberInfo is one member of an element, own or inherited.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct MemberInfo {
-    /// FQN of the member, the id GetSymbol takes; a member declared without a
-    /// name has none that resolves.
+    /// The id GetSymbol takes: the member's FQN, or the positional id
+    /// (`Owner::@3`) of one declared without a name, library members included.
     #[prost(string, tag="1")]
     pub id: ::prost::alloc::string::String,
     /// Declared name; empty for an unnamed member such as `bind a = b;`.
     #[prost(string, tag="2")]
     pub name: ::prost::alloc::string::String,
-    /// Symbol kind of the member ("partUsage", "bindingUsage", ...).
+    /// Symbol kind of the member ("partUsage", "bindingConnectorAsUsage", ...).
     #[prost(string, tag="3")]
     pub kind: ::prost::alloc::string::String,
     /// True when the member is inherited rather than declared by the element.
@@ -2628,7 +2633,8 @@ pub struct Specialization {
     /// The target as written in the source ("Engine", "Demo::Engine").
     #[prost(string, tag="2")]
     pub declared: ::prost::alloc::string::String,
-    /// FQN of the resolved target; empty when the name does not resolve.
+    /// FQN of the resolved target; empty when the name does not resolve. A "references" feature chain
+    /// (`x.p`) is one entry per chaining feature, in chain order, each with the chain as `declared`.
     #[prost(string, tag="3")]
     pub target_id: ::prost::alloc::string::String,
     /// Symbol kind of the resolved target ("partDef", ...); empty when unresolved.
@@ -4251,10 +4257,36 @@ pub struct RenderViewRequest {
     /// "ports" (the port usages with the ports nested under them).
     #[prost(string, tag="6")]
     pub compartments: ::prost::alloc::string::String,
-    /// Also render a QVTS::QueryResult view as a document in this RenderDocumentRequest.form;
-    /// INVALID_ARGUMENT for any other view. Under the "query_result_view" capability.
+    /// Form to also write into RenderViewResponse.text: "text", "mermaid", "markdown", "dot", "plantuml", "d2",
+    /// "drawio", "csv" or "tsv"; an unknown or wrong-kind form is INVALID_ARGUMENT. Needs render_view_form.
+    /// A QVTS::QueryResult view is written as a document of its header and rows in "markdown", "html"
+    /// or "asciidoc", the forms RenderDocumentRequest.form names; these need query_result_view too.
     #[prost(string, tag="7")]
     pub form: ::prost::alloc::string::String,
+    /// Palette the dot, mermaid, plantuml, d2 or drawio form fills nodes from,
+    /// as -render-palette names them; empty draws in black and white.
+    #[prost(string, tag="8")]
+    pub palette: ::prost::alloc::string::String,
+    /// Drawing style of the dot or mermaid form, as -render-style names them:
+    /// "" or "pilot" (the default), or "cameo".
+    #[prost(string, tag="9")]
+    pub style: ::prost::alloc::string::String,
+    /// How the dot or plantuml form routes its edges, as -render-lines names
+    /// them: "" or "splines" (the default), "ortho" or "polyline".
+    #[prost(string, tag="10")]
+    pub lines: ::prost::alloc::string::String,
+    /// Flow direction of a graph-shaped form: "TB", "LR", "RL" or "BT"; empty
+    /// leaves each kind's default, which is what the CLI writes.
+    #[prost(string, tag="11")]
+    pub direction: ::prost::alloc::string::String,
+    /// Source link template of each node and edge, as -render-link takes it:
+    /// placeholders {file}, {line}, {col}, {qname} and {id}; empty writes no links.
+    #[prost(string, tag="12")]
+    pub link: ::prost::alloc::string::String,
+    /// Where a graph form of a positioned view puts the nodes no layout places,
+    /// as -render-unplaced names them: "" or "omit" (the default), or "strip".
+    #[prost(string, tag="13")]
+    pub unplaced: ::prost::alloc::string::String,
 }
 /// RenderViewResponse carries all machine-readable fields of the rendering.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -4288,17 +4320,14 @@ pub struct RenderViewResponse {
     /// The view frame round a graph-shaped rendering; unset for a frameless one.
     #[prost(message, optional, tag="12")]
     pub frame: ::core::option::Option<RenderFrame>,
+    /// The rendering written in RenderViewRequest.form, byte for byte what the CLI's
+    /// -render writes at no particular width; empty when the request names no form.
+    #[prost(string, tag="13")]
+    pub text: ::prost::alloc::string::String,
     /// A QVTS::QueryResult view's query, source, outcome and provenance, in that
     /// order, above its rows; empty for any other view.
-    #[prost(message, repeated, tag="13")]
+    #[prost(message, repeated, tag="14")]
     pub header: ::prost::alloc::vec::Vec<RenderHeaderField>,
-    /// The view as a document in the form the request asked for, the others empty.
-    #[prost(string, tag="14")]
-    pub markdown: ::prost::alloc::string::String,
-    #[prost(string, tag="15")]
-    pub html: ::prost::alloc::string::String,
-    #[prost(string, tag="16")]
-    pub asciidoc: ::prost::alloc::string::String,
 }
 /// RenderHeaderField is one stated attribute of a QVTS::QueryResult view.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -232,11 +233,23 @@ func (ctx *Context) denotations(syms []*symbols.Symbol) (string, bool) {
 // lookupName is the resolver's LookupName, recorded for the binding being made.
 func (ctx *Context) lookupName(scope *symbols.Scope, name string) (*symbols.Symbol, bool) {
 	sym, ok := ctx.model.resolvedName(scope, name, nil)
+	ctx.noteLookup(scope, name, sym, ok)
+	return sym, ok
+}
+
+// loweredName is lookupName answered by what lowering resolved the name to in
+// scope, recorded for the binding being made as that lookup is.
+func (ctx *Context) loweredName(scope *symbols.Scope, ref *program.SymbolRef) (*symbols.Symbol, bool) {
+	ctx.noteLookup(scope, ref.Name, ref.Sym, ref.Sym != nil)
+	return ref.Sym, ref.Sym != nil
+}
+
+// noteLookup records what the simple name written in scope denoted.
+func (ctx *Context) noteLookup(scope *symbols.Scope, name string, sym *symbols.Symbol, ok bool) {
 	if ctx.recordingReads() {
 		denoted, renders := ctx.denotation(sym, ok)
 		ctx.noteNameRead(scope, nameRead{query: queryName, name: spelledName{parts: name}}, denoted, renders)
 	}
-	return sym, ok
 }
 
 // lookupNameExcluding is the resolver's LookupNameExcluding with excluding's own binding hidden.

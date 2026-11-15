@@ -1,0 +1,23 @@
+{
+	"rpc": "GetSymbol",
+	"model": "symbol_connector_ends.sysml",
+	"symbol_id": "Ends__Vehicle__deep_pend1",
+	"expected_kind": "connectorEnd",
+	"expected_specializations": [
+		{
+			"kind": "references",
+			"declared": "n.u2.p",
+			"target_id": "Ends::Vehicle::n"
+		},
+		{
+			"kind": "references",
+			"declared": "n.u2.p",
+			"target_id": "Ends::Pair::u2"
+		},
+		{
+			"kind": "references",
+			"declared": "n.u2.p",
+			"target_id": "Ends::Unit::p"
+		}
+	]
+}

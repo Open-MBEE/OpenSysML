@@ -1,0 +1,9 @@
+{
+  "rpc": "RenderView",
+  "model": "render_view_form.sysml",
+  "view": "FormDemo::parts",
+  "form": "tsv",
+  "expected_text": "Element\tKind\tType\tDeclared in\nFormDemo::Vehicle\tpart def\t\t\nwheel\tpart\tWheel\tFormDemo::Vehicle\n",
+  "expected_node_names": [],
+  "expected_edge_labels": []
+}

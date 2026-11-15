@@ -65,7 +65,7 @@ func TestQueriesAnswerAsResultViews(t *testing.T) {
 func TestRenderViewRendersAResultViewAsADocument(t *testing.T) {
 	client := newClient(t)
 	model := parse(t, client, resultViewSource)
-	rendered, err := client.RenderView(context.Background(), model, "Answers::mount", opensysml.WithDocumentForm("markdown"))
+	rendered, err := client.RenderView(context.Background(), model, "Answers::mount", opensysml.WithForm(opensysml.DocumentFormMarkdown))
 	if err != nil {
 		t.Fatalf("RenderView: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestRenderViewRendersAResultViewAsADocument(t *testing.T) {
 	if len(rendered.Rows) != 1 || rendered.Rows[0].Cells[0] != "Observatory::telescope::mount" {
 		t.Errorf("rows = %v, want the exposed mount", rendered.Rows)
 	}
-	if !strings.Contains(rendered.Document, "| Observatory::telescope::mount |") {
-		t.Errorf("document has no row for the mount:\n%s", rendered.Document)
+	if !strings.Contains(rendered.Text, "| Observatory::telescope::mount |") {
+		t.Errorf("document has no row for the mount:\n%s", rendered.Text)
 	}
 }

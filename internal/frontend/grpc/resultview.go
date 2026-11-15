@@ -179,24 +179,23 @@ func constraintText(c *pb.Constraint) string {
 	return "(" + strings.Join(terms, operator) + ")"
 }
 
-// queryResultForm renders a QVTS::QueryResult view's rendering as a document in
-// form into the response's field of that name.
-func queryResultForm(response *pb.RenderViewResponse, rendering *view.Rendering, form string) error {
+// queryResultDocumentForm is the document form name names, of those a QVTS::QueryResult view is written in.
+func queryResultDocumentForm(name string) (docset.Form, bool) {
+	switch form := docset.Form(name); form {
+	case docset.FormMarkdown, docset.FormHTML, docset.FormAsciiDoc:
+		return form, true
+	}
+	return "", false
+}
+
+// queryResultDocument writes a QVTS::QueryResult view's rendering as a document of its header and rows in form.
+func queryResultDocument(rendering *view.Rendering, form docset.Form) (string, error) {
 	document := docir.QueryResult(rendering)
-	var err error
-	switch docset.Form(form) {
-	case docset.FormMarkdown:
-		response.Markdown, err = docrender.Markdown(document, docrender.MarkdownOptions{})
+	switch form {
 	case docset.FormHTML:
-		response.Html, err = docrender.HTML(document, docrender.HTMLOptions{})
+		return docrender.HTML(document, docrender.HTMLOptions{})
 	case docset.FormAsciiDoc:
-		response.Asciidoc, err = docrender.AsciiDoc(document, docrender.AsciiDocOptions{})
-	default:
-		return statusErrorf(connect.CodeInvalidArgument,
-			"form %q is not one this service renders: markdown, html or asciidoc", form)
+		return docrender.AsciiDoc(document, docrender.AsciiDocOptions{})
 	}
-	if err != nil {
-		return documentStatus(err)
-	}
-	return nil
+	return docrender.Markdown(document, docrender.MarkdownOptions{})
 }

@@ -47,7 +47,7 @@ func TestRenderModelViewRendersAResultViewAsADocument(t *testing.T) {
 	_, out := h.ok("render_model_view", map[string]any{
 		"paths": []string{telescope, "answer.sysml"}, "view": "AnswerResult::answer", "form": "markdown",
 	}, &view)
-	if view.GetMarkdown() == "" || !strings.Contains(out, strings.TrimSpace(view.GetMarkdown())) || !strings.Contains(out, "| Observatory::telescope::mount |") {
-		t.Errorf("text:\n%s\nmarkdown:\n%s", out, view.GetMarkdown())
+	if view.GetText() == "" || !strings.Contains(out, strings.TrimSpace(view.GetText())) || !strings.Contains(out, "| Observatory::telescope::mount |") {
+		t.Errorf("text:\n%s\nmarkdown:\n%s", out, view.GetText())
 	}
 }

@@ -163,12 +163,18 @@ positional id an unnamed declaration has in the query API and the export (`Owner
 the fourth member of `Owner`, `Owner::@3::wheel` for a named member of it). `childIds` are the
 members the element itself declares under the same ids, named and unnamed alike (a `bind`, a
 `connect`, a `part : P;`, a `@M { … }` or `#M` annotation), each of which `GetSymbol` resolves;
-a member no id reaches, such as a body-local declaration, is not listed. With `resolveName` the
+a member no id reaches, such as a body-local declaration, is not listed. A connection, interface
+or binding usage lists its two ends, of kind `connectorEnd`: a named end (`connect (a ::> x, b ::> y)`)
+under its qualified name, an unnamed one (`connect x to y`, `bind x = y`) under the element id
+`GetElementProperties` gives it (`Owner__c_pend0`). `GetSymbol` reads an id as a qualified name first, so a
+declaration named exactly like an unnamed end's element id is what that id answers, not the end. An end's `specializations` hold the feature it references as a
+`references` entry, a feature chain (`x.p`) as one entry per chaining feature in chain order. With `resolveName` the
 id is instead resolved as a qualified name from the root namespace, the way the notation resolves
 `A::B` (KerML 8.2.3.5): through the visible memberships of each namespace, so a name a `public
 import` re-exports — a membership import, `P::*`, the recursive `P::**` — answers with the imported
 element under its own id, an alias with the element it is for, and a `private` or `protected` member,
-or one behind a `private import`, is not found. The `symbol_name_resolution` capability advertises the field: a service
+or one behind a `private import`, is not found; an id no name spells, a positional id or an unnamed end's
+element id, still denotes its element. The `symbol_name_resolution` capability advertises the field: a service
 without it ignores `resolveName`, so every client checks the capability and otherwise asks by
 reported id. Without it the id is one the service reported and
 denotes that element whatever its visibility, an alias being itself; the clients' lookups by
@@ -180,6 +186,16 @@ redefinition masking what it redefines and a private member of a supertype left 
 inherited from standard-library content are withheld and counted in `withheldLibraryMembers`
 unless the request sets `includeLibraryMembers`, which lists them marked `library`. The
 `symbol_members` capability advertises the field; a service without it answers no `members`.
+`annotatingMetadataIds` names the metadata usages annotating the element, the inverse of KerML
+`AnnotatingElement::annotatedElement`: the ones it owns, written as a `#M` prefix or as `@M` /
+`metadata m : M` in its body, then the ones naming it in an `about` clause anywhere in the
+workspace (`metadata m : M about Pump;`), each group in declaration order. Each id answers
+`GetSymbol` with a `metadataUsage` whose `typeInfo` names the metadata definition and whose
+`attributes` carry the values the annotation binds. An `about` usage is an owned member of the
+namespace it is written in and owns its Annotation (KerML 8.3.2.3), so it is neither a child nor a
+member of what it annotates: `childIds` and `members` leave it out, and this field is where it is
+found. The `symbol_annotating_metadata` capability advertises the field; a service without it
+answers none.
 Beside the other typed fields (`typeInfo`, `multiplicity`, `specializations`, `attributes`),
 `metadata` is a string map of facts about the declaration, each present only when it holds:
 
@@ -2334,6 +2350,12 @@ Pictures are not included; a refused picture contributes its reason to `notices`
 `minimal` `ports` value includes only ports used by rendered connections; `full` includes every
 declared port. The service advertises this method as
 the `render_view` capability.
+
+A request naming a `form` (`text`, `mermaid`, `markdown`, `dot`, `plantuml`, `d2`, `drawio`, `csv`
+or `tsv`) is also answered the rendering written in that form, in `text`, with the same fields
+beside it; the `palette`, `style`, `lines`, `direction`, `link` and `unplaced` request fields are
+the writer's options. `text` is absent when no form is named. The service advertises the form and
+its options as the `render_view_form` capability.
 
 This excerpt was captured by calling the gRPC service with
 `RenderViewDemo::connections` from `conformance/fixtures/views.sysml` and marshaling the response

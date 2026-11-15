@@ -298,9 +298,10 @@ the same query write the same bytes.
 A result view is a view like any other, so it renders once its text is part of the model:
 `sysml … -render CabinMassResult::cabinMass` draws it as `RenderView` does, and
 `-render-document CabinMassResult::cabinMass -doc-form markdown` (or `html`, `asciidoc`, `pdf`;
-`form` on the `RenderView` RPC) writes it as a document, the four attributes as the header and
-the exposed elements as the rows of one table. The RPC refuses a document form for a view that
-is not a `QVTS::QueryResult`. `examples/qvts/expected/views/` records the view and each
+`form` on the `RenderView` RPC, answered in its `text`) writes it as a document, the four
+attributes as the header and the exposed elements as the rows of one table. On the RPC `markdown`
+therefore means that document for a `QVTS::QueryResult` view and the view's own Markdown form
+for any other, and `html` and `asciidoc` are refused for a view that is not a `QVTS::QueryResult`. `examples/qvts/expected/views/` records the view and each
 rendered form for the queries of this guide, for an OSLC query and its unknown-property path
 error, and for the QVTS repository's own `result.sysml`.
 

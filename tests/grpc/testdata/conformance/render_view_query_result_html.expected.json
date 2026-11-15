@@ -9,7 +9,7 @@
     "outcome: established",
     "provenance: urn:prov:bundle:heavy"
   ],
-  "expected_document_parts": [
+  "expected_text_contains": [
     "<!DOCTYPE html>",
     "Probe::heavy",
     "urn:prov:bundle:heavy",

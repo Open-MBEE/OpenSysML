@@ -1553,13 +1553,13 @@ class ApiIntegrationTest {
         rendered.header());
     assertEquals("Probe::probe::antenna", rendered.rows().get(0).cells().get(0));
     assertTrue(
-        rendered.document().contains("| Probe::probe::antenna | part | Payload | Probe::probe |"),
-        rendered.document());
-    assertEquals("", model.renderView("Probe::heavy").document());
+        rendered.text().contains("| Probe::probe::antenna | part | Payload | Probe::probe |"),
+        rendered.text());
+    assertEquals("", model.renderView("Probe::heavy").text());
     ServiceException refused =
         assertThrows(
             ServiceException.class, () -> model.renderView("Probe::plain", DocumentForm.HTML));
-    assertTrue(refused.getMessage().contains("is not a QVTS::QueryResult view"));
+    assertTrue(refused.getMessage().contains("unknown rendering form \"html\""));
   }
 
   @Test
@@ -2350,6 +2350,37 @@ class ApiIntegrationTest {
     assertTrue(probed.containsAll(List.of("run", "explore", "solve", "sweep")), probed.toString());
   }
 
+  private static final String ANNOTATED =
+      """
+      package D10 {
+        metadata def FailureMode { attribute severity : ScalarValues::Integer; }
+        #FailureMode part def PumpP;
+        part def PumpB { @FailureMode { severity = 3; } }
+        part def PumpA;
+        metadata pumpA_fm : FailureMode about PumpA { severity = 2; }
+      }
+      """;
+
+  @Test
+  void aSymbolNamesTheMetadataUsagesAnnotatingIt() {
+    assertTrue(connection.capabilities().has(Capabilities.SYMBOL_ANNOTATING_METADATA));
+    Model model = connection.parse(ANNOTATED);
+    assertEquals(List.of("D10::PumpP::@0"), model.symbol("D10::PumpP").annotatingMetadataIds());
+    assertEquals(List.of("D10::PumpB::@0"), model.symbol("D10::PumpB").annotatingMetadataIds());
+    assertEquals(List.of(), model.symbol("D10::pumpA_fm").annotatingMetadataIds());
+
+    Symbol pump = model.symbol("D10::PumpA");
+    assertEquals(List.of(), pump.childIds());
+    assertEquals(List.of("D10::pumpA_fm"), pump.annotatingMetadataIds());
+
+    Symbol usage = model.symbol(pump.annotatingMetadataIds().get(0));
+    assertEquals("metadataUsage", usage.kind());
+    assertEquals(Optional.of("D10::FailureMode"), usage.typeFacts().orElseThrow().resolvedId());
+    Symbol.Attribute severity = usage.attributes().get(0);
+    assertEquals("severity", severity.name());
+    assertEquals(Optional.of(new Value.IntegerValue(2)), severity.value());
+  }
+
   private static final String MEMBERS =
       """
       package Demo {
@@ -2383,10 +2414,18 @@ class ApiIntegrationTest {
 
     Symbol full = model.symbol("Demo::m", SymbolOptions.defaults().withLibraryMembers(true));
     assertEquals(0, full.withheldLibraryMembers());
-    assertEquals(m.members(), full.members().subList(0, m.members().size()));
+    // Inheritance order interleaves the library's members with the model's.
+    assertEquals(m.members(), full.members().stream().filter(member -> !member.library()).toList());
     List<Symbol.Member> library = full.members().stream().filter(Symbol.Member::library).toList();
     assertEquals(m.withheldLibraryMembers(), library.size());
     assertTrue(library.stream().allMatch(member -> member.inheritedFrom().isPresent()));
+    // An unnamed library member is listed under a positional id of the type that declares it.
+    Symbol.Member unnamed =
+        library.stream().filter(member -> member.name().isEmpty()).findFirst().orElseThrow();
+    String declaring = unnamed.inheritedFrom().orElseThrow();
+    assertTrue(unnamed.id().startsWith(declaring + "::@"), unnamed.id());
+    assertEquals(unnamed.id(), model.symbol(unnamed.id()).id());
+    assertEquals(unnamed.kind(), model.symbol(unnamed.id()).kind());
     assertEquals(
         Optional.of(full),
         model.findSymbol("Demo::m", SymbolOptions.defaults().withLibraryMembers(true)));

@@ -2,6 +2,7 @@
   "rpc": "RenderView",
   "model": "query_result_view.sysml",
   "view": "Probe::plain",
-  "form": "markdown",
-  "expected_error": "is not a QVTS::QueryResult view"
+  "form": "html",
+  "expected_error": "unknown rendering form \"html\"",
+  "expected_error_code": "invalid_argument"
 }

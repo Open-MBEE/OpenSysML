@@ -330,6 +330,14 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			})
 			return err
 		}},
+		{"render view form", CapabilityRenderViewForm, func(s *Service) error {
+			_, err := s.RenderView(ctx, &pb.RenderViewRequest{ModelHash: "any", View: "Any", Form: "dot"})
+			return err
+		}},
+		{"render view writer option", CapabilityRenderViewForm, func(s *Service) error {
+			_, err := s.RenderView(ctx, &pb.RenderViewRequest{ModelHash: "any", View: "Any", Palette: "okabe-ito"})
+			return err
+		}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -447,9 +455,12 @@ func TestRenderDocumentFileNameIsWithheldWithoutItsCapability(t *testing.T) {
 // The capability is the newest, appended after every one before it.
 func TestQueryResultViewCapabilityIsTheNewest(t *testing.T) {
 	all := Capabilities()
-	if all[len(all)-1] != CapabilityQueryResultView || all[len(all)-2] != CapabilitySymbolNameResolution {
-		t.Errorf("capabilities %v do not end with %q then %q, the newest",
-			all, CapabilitySymbolNameResolution, CapabilityQueryResultView)
+	landed := []string{
+		CapabilityInlineDocumentQuery, CapabilitySymbolNameResolution, CapabilityRenderViewForm,
+		CapabilitySymbolAnnotatingMetadata, CapabilityQueryResultView,
+	}
+	if !slices.Equal(all[len(all)-len(landed):], landed) {
+		t.Errorf("capabilities %v do not end with %v, the newest in landing order", all, landed)
 	}
 }
 

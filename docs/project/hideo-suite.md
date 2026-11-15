@@ -43,9 +43,11 @@ Four of the suite's readers are run, in the baseline's column order:
 | `opensysml-go` | Symbol API | Go, in process |
 
 The suite's Rust, TypeScript and Java readers of this implementation, and its readers of other
-MDKs, are not run. Its cross-MDK report needs a pilot checkout and Java; the ratchet reads the
-per-case CSV files each reader writes and needs neither, so the report's failure at the end of
-the suite's own log is expected.
+MDKs, are not run. Its cross-MDK report and the version record beside it need a pilot checkout
+and Java; the ratchet reads the per-case CSV files each reader writes and needs neither, so it
+runs the four readers itself, with the commands of the suite's `run-all.sh`, and leaves that
+report out. A pin whose `run-all.sh` runs one of them differently is refused until the ratchet
+is brought in line.
 
 ## Running it
 
@@ -57,8 +59,9 @@ go run -C tools ./cmd/hideo-suite -check      # the same, failing on any movemen
 
 It needs Go, Python 3.12 and [uv](https://docs.astral.sh/uv/) on `PATH`. Each run builds
 `bin/sysml-grpc` with `make build-grpc`, provisions the suite's Python environment with
-`uv sync`, and runs the four readers through the suite's `run-all.sh` with Go's test cache off;
-a run takes about a minute and a half. The results are left in
+`uv sync`, and runs the four readers with Go's test cache off; a run takes about a minute and
+a half. The command prints one line per reader and then the verdict; what a reader printed is
+in its log. The results are left in
 `build/hideo-suite/test-suite/results/`: one CSV per reader (`suite,matrix,id,outcome,detail`)
 and its log under `logs/`. `-no-run` compares the results already there instead of running.
 The readers are given this checkout's `bin/sysml-grpc` as `OPENSYSML_BINARY` and no
@@ -130,12 +133,12 @@ named when there is one. The matrices themselves are described in the suite's
 | A20 | 100 | 100 / 0 / 0 | 100 / 0 / 0 | 80 / 0 / 20 | 80 / 0 / 20 |
 | A30 | 44 | 44 / 0 / 0 | 44 / 0 / 0 | 34 / 10 / 0 | 34 / 10 / 0 |
 | A40 | 45 | 42 / 3 / 0 | 42 / 3 / 0 | 45 / 0 / 0 | 45 / 0 / 0 |
-| A50 | 54 | 54 / 0 / 0 | 54 / 0 / 0 | 30 / 6 / 18 | 20 / 16 / 18 |
-| A60 | 32 | 24 / 8 / 0 | 24 / 8 / 0 | 20 / 12 / 0 | 22 / 10 / 0 |
-| B10 | 98 | 90 / 8 / 0 | 90 / 8 / 0 | 0 / 36 / 62 | 0 / 36 / 62 |
-| B11 | 90 | 90 / 0 / 0 | 90 / 0 / 0 | 0 / 36 / 54 | 0 / 36 / 54 |
-| B12 | 108 | 108 / 0 / 0 | 108 / 0 / 0 | 42 / 12 / 54 | 42 / 12 / 54 |
-| B13 | 165 | 50 / 115 / 0 | 50 / 115 / 0 | 0 / 66 / 99 | 0 / 66 / 99 |
+| A50 | 54 | 54 / 0 / 0 | 54 / 0 / 0 | 36 / 0 / 18 | 24 / 12 / 18 |
+| A60 | 32 | 32 / 0 / 0 | 32 / 0 / 0 | 32 / 0 / 0 | 32 / 0 / 0 |
+| B10 | 98 | 90 / 8 / 0 | 90 / 8 / 0 | 36 / 0 / 62 | 36 / 0 / 62 |
+| B11 | 90 | 90 / 0 / 0 | 90 / 0 / 0 | 36 / 0 / 54 | 24 / 12 / 54 |
+| B12 | 108 | 108 / 0 / 0 | 108 / 0 / 0 | 54 / 0 / 54 | 54 / 0 / 54 |
+| B13 | 165 | 65 / 100 / 0 | 65 / 100 / 0 | 6 / 60 / 99 | 6 / 60 / 99 |
 | B20 | 75 | 48 / 27 / 0 | 48 / 27 / 0 | 15 / 15 / 45 | 15 / 15 / 45 |
 | C01 | 114 | 99 / 15 / 0 | 99 / 15 / 0 | 76 / 0 / 38 | 76 / 0 / 38 |
 | C10 | 116 | 92 / 4 / 20 | 92 / 4 / 20 | 36 / 0 / 80 | 36 / 0 / 80 |
@@ -146,7 +149,7 @@ named when there is one. The matrices themselves are described in the suite's
 | D20 | 48 | 48 / 0 / 0 | 48 / 0 / 0 | 0 / 0 / 48 | 0 / 0 / 48 |
 | E10 | 48 | 48 / 0 / 0 | 48 / 0 / 0 | 48 / 0 / 0 | 48 / 0 / 0 |
 | F10 | 30 | 30 / 0 / 0 | 30 / 0 / 0 | 30 / 0 / 0 | 30 / 0 / 0 |
-| **All** | 1813 | 1576 / 204 / 33 | 1576 / 204 / 33 | 739 / 213 / 861 | 729 / 223 / 861 |
+| **All** | 1813 | 1599 / 181 / 33 | 1599 / 181 / 33 | 847 / 105 / 861 | 821 / 131 / 861 |
 <!-- hideo-suite:end counts -->
 
 The two element-properties readers agree on every case. The two Symbol readers differ on 14:

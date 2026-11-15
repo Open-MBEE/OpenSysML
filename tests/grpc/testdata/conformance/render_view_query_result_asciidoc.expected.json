@@ -9,5 +9,5 @@
     "outcome: established",
     "provenance: urn:prov:bundle:nothing"
   ],
-  "expected_document": "= Probe:&#58;nothing\n\nquery:: Probe:&#58;NoStates\nsource:: probe.sysml\noutcome:: established\nprovenance:: urn:prov:bundle:nothing\n\nthe query result exposes no element\n"
+  "expected_text": "= Probe:&#58;nothing\n\nquery:: Probe:&#58;NoStates\nsource:: probe.sysml\noutcome:: established\nprovenance:: urn:prov:bundle:nothing\n\nthe query result exposes no element\n"
 }

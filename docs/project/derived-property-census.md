@@ -19,7 +19,7 @@ measured. The graph-versus-symbol differential
 remains the correctness check between the two projections; the census measures what the served
 one answers.
 
-The pinned pilot is `2026-09` (`jupyter-sysml-kernel 0.63.0`), the artifact the reference
+The pinned pilot is `2026-09.1` (`jupyter-sysml-kernel 0.63.1`), the artifact the reference
 validators use (`scripts/pilot-pin.sh`); the exporter is the bridge the
 [API-JSON differential](api-json-differential.md) builds.
 
@@ -186,3 +186,14 @@ our side: the symbol-backed structure classifies the `send` actions of these cor
 The pilot's `Feature::ownedTypeFeaturing` is empty on all but 72 of its carriers as well: the
 property holds the `TypeFeaturing` relationships a feature *owns*, which only a `featured by`
 clause states.
+
+## Movement at pilot `2026-09.1`
+
+The re-pin from `2026-09` to `2026-09.1` moves only the pilot's columns. `2026-09.1` stops the
+implied-relationship builders from adopting an unresolved proxy as an owned element, so the
+exporter no longer fails on a file with an unresolved cross-file name: the files it failed on go
+from 3, 52 and 4 to **0** on `pilot-examples`, `spec-examples` and `testdata`, and those roots'
+pilot element counts rise to 40861 (10940 copies dropped), 15900 (40) and 2448 (169). The other
+six roots are unchanged. In `derived_census_records.tsv` the pilot's figures move on 608 rule-root
+lines, all in those three roots; ours move on none, the set of silent rules is the same, and the
+rules answering a value on each side are the same 276 and 289.

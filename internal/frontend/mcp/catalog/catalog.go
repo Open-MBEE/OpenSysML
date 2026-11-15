@@ -178,8 +178,8 @@ var Tools = []Entry{
 		Summary: "Render a document definition as Markdown or HTML."},
 	{Name: "record_run", Group: GroupRuntime, Scope: ScopeExecute, RPCs: []string{"RecordRun"}, Flags: []string{"record-run", "record-into"},
 		Summary: "Run an analysis case and record the runs into the model as AnalysisRecords declarations."},
-	{Name: "render_model_view", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"RenderView"}, Flags: []string{"render", "render-ports", "render-show", "render-depth", "render-compartments"},
-		Summary: "Render a view as its nodes, edges and compartments."},
+	{Name: "render_model_view", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"RenderView"}, Flags: []string{"render", "render-ports", "render-show", "render-depth", "render-compartments", "render-form", "render-palette", "render-style", "render-lines", "render-link", "render-unplaced"},
+		Summary: "Render a view as its nodes, edges and compartments, and in a written form when one is named."},
 	{Name: "check_behavior", Group: GroupRuntime, Scope: ScopeExecute, RPCs: []string{"CheckBehavior"}, Flags: []string{"check-property", "check-diverge", "check-input", "check-assume", "check-witness", "check-depth", "check-states", "check-unroll", "check-timeout"},
 		Summary: "Search every schedule of an action or state machine for violated properties, deadlocks, failures and divergent values."},
 	{Name: "run_analysis", Group: GroupRuntime, Scope: ScopeExecute, RPCs: []string{"RunAnalysis"}, Flags: []string{"analysis", "engine", "tool-dry-run"},
@@ -247,7 +247,6 @@ var RPCsWithoutTools = map[string]string{}
 
 // The reasons several unserved operations and CLI-only flags share.
 const (
-	notDrawn       = "RenderViewRequest answers data, not a drawn form"
 	noListing      = "no RPC lists the documents and views of a model"
 	noHTMLStyling  = "RenderDocumentRequest has no HTML styling fields"
 	hostToolchain  = "drives a native toolchain on the host"
@@ -265,13 +264,7 @@ var Unserved = map[string]string{
 	"portable":            "MigrateRequest has no portable field",
 	"keep-line-breaks":    "ConvertRequest has no keep-line-breaks field",
 	"render-all":          "no RPC renders every declared view",
-	"render-form":         notDrawn,
-	"render-palette":      notDrawn,
-	"render-link":         notDrawn,
-	"render-unplaced":     notDrawn,
-	"render-style":        notDrawn,
-	"render-lines":        notDrawn,
-	"render-overlay":      notDrawn,
+	"render-overlay":      "RenderViewRequest has no overlay field",
 	"list":                noListing,
 	"list-kind":           noListing,
 	"list-form":           noListing,

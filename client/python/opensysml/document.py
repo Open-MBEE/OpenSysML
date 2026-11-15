@@ -379,11 +379,11 @@ class RenderedView:
     notices: tuple
     shown: tuple
     frame: Optional[RenderFrame] = None
+    #: The rendering written in the form asked for; empty when none was.
+    text: str = ""
     #: A ``QVTS::QueryResult`` view's query, source, outcome and provenance, in
     #: that order; empty for any other view.
     header: tuple = ()
-    #: The view as the document ``form`` asked for; ``""`` without one.
-    document: str = ""
 
 
 @dataclass(frozen=True)
@@ -460,8 +460,8 @@ def render_view_result(response):
     return RenderedView(
         response.view, response.kind, response.stated, nodes, edges, tuple(response.columns),
         rows, canvas, notes, tuple(response.notices), tuple(response.shown), frame,
+        response.text,
         tuple(RenderHeaderField(field.name, field.value) for field in response.header),
-        response.markdown + response.html + response.asciidoc,
     )
 #: What a binding value or an answered cell value may be.
 DocumentValue = Union[

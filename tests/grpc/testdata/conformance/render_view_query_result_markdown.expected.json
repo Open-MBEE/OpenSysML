@@ -9,5 +9,5 @@
     "outcome: established",
     "provenance: urn:prov:bundle:heavy"
   ],
-  "expected_document": "# Probe::heavy\n\n**query** — Probe::Self root=Probe::probe::antenna\n\n**source** — probe.sysml\n\n**outcome** — established\n\n**provenance** — urn:prov:bundle:heavy\n\n| Element | Kind | Type | Declared in |\n| --- | --- | --- | --- |\n| Probe::probe::antenna | part | Payload | Probe::probe |\n"
+  "expected_text": "# Probe::heavy\n\n**query** — Probe::Self root=Probe::probe::antenna\n\n**source** — probe.sysml\n\n**outcome** — established\n\n**provenance** — urn:prov:bundle:heavy\n\n| Element | Kind | Type | Declared in |\n| --- | --- | --- | --- |\n| Probe::probe::antenna | part | Payload | Probe::probe |\n"
 }

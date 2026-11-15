@@ -2172,16 +2172,18 @@ public final class Model {
   /**
    * Renders a {@code QVTS::QueryResult} view as a document too: its {@link RenderedView#header()}
    * is the view's query, source, outcome and provenance, its rows the exposed elements, and its
-   * {@link RenderedView#document()} the same in {@code form}.
+   * {@link RenderedView#text()} the same written as a document in {@code form}.
    *
    * @param viewName qualified name of the view
    * @param form the document form
    * @return the rendering, with the document
    * @throws ServiceException if the view is not a {@code QVTS::QueryResult} view
-   * @throws CapabilityException if the service does not advertise {@code query_result_view}
+   * @throws CapabilityException if the service does not advertise {@code render_view_form} and
+   *     {@code query_result_view}
    */
   public RenderedView renderView(String viewName, DocumentForm form) {
     Objects.requireNonNull(form, "form");
+    connection.capabilities().require(Capabilities.RENDER_VIEW_FORM);
     connection.capabilities().require(Capabilities.QUERY_RESULT_VIEW);
     return renderView(viewName, RenderViewPorts.MINIMAL, List.of(), 0, "", form.wireName());
   }

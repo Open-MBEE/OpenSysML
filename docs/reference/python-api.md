@@ -219,7 +219,11 @@ A parsed model is the entry point for symbol lookup, evaluation and execution.
 `Model.render_view(view_name, ports="minimal", show=None, depth=0)` returns a typed
 `RenderedView`; pass `ports="full"` to include every declared port, `show` to draw
 optional notation elements (the result's `shown` lists the ones drawn) and `depth`
-to bound how deep nested elements are drawn.
+to bound how deep nested elements are drawn. `form="dot"` (or `"text"`, `"mermaid"`,
+`"markdown"`, `"plantuml"`, `"d2"`, `"drawio"`, `"csv"`, `"tsv"`) also writes the view in
+that form into the result's `text`, as `sysml -render-form` does, under the writer options
+`palette`, `style`, `lines`, `direction`, `link` and `unplaced`; it needs the
+`render_view_form` capability.
 `Model.diagnostics` is what the parse answered under the default lint selection;
 `Model.refresh_diagnostics(disable_lint=(), enable_lint=())` asks the service again,
 leaving out the lints `disable_lint` names and keeping the opt-in ones `enable_lint`
@@ -285,9 +289,19 @@ Members inherited from standard-library content (the dozens every part has throu
 fetches them; an owned member is never withheld, so `library` alone changes nothing.
 Inherited members need the service's `symbol_members` capability; against an older
 service `attributes()` alone still follows the declared specializations itself, as it
-did before the service enumerated members. A member the service declares without a
-name (`bind a = b;`) is listed but has no id a lookup resolves, so it is left out of
-the result until unnamed members get positional ids.
+did before the service enumerated members. A member declared without a name
+(`bind a = b;`, `part : P;`) is listed under its positional id (`Owner::@3`), which a
+lookup resolves; one inherited from the standard library carries the positional id of
+the library type declaring it (`Occurrences::Occurrence::@47`).
+
+`annotating_metadata()` lists the metadata usages annotating the symbol (the inverse of
+KerML `AnnotatingElement::annotatedElement`): the ones it owns, written as a `#M` prefix
+or as `@M` / `metadata m : M` in its body, then the ones naming it in an `about` clause
+elsewhere (`metadata m : M about Pump;`). An `about` usage is a member of the namespace
+it is written in, not of what it annotates, so `children()` and `members()` do not list
+it. Each result is a `Symbol` of kind `metadataUsage`: `type_facts` names the metadata
+definition and `attribute_facts()` reads the values the annotation binds. It needs the
+service's `symbol_annotating_metadata` capability.
 
 ::: opensysml.Symbol
     options:

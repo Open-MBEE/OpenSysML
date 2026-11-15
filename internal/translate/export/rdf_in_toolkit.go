@@ -962,13 +962,14 @@ func (n *normalizer) bodiedOwners() map[string]bool {
 			meta(memberMembership[member]) == mFeatureMembership {
 			continue
 		}
-		// A transition's `then` succession is its head's target, and the chain
-		// of `first a.b` and its EmptyParameterMembers belong to its head too:
-		// none is a body.
+		// A transition's `then` succession is its head's target; the chain of `first a.b`, its
+		// EmptyParameterMembers and its transitionLink belong to its head too: none is a body.
 		if meta(owner) == mTransition {
 			m, ms := rdf.IRI(member), meta(memberMembership[member])
+			unnamed := !graph.HasProperty(m, rdf.SysML+pDeclaredName)
 			if meta(m) == mSuccession || (meta(m) == mFeature && ms == mOwningMembership) ||
-				(ms == mParameterMembership && !graph.HasProperty(m, rdf.SysML+pDeclaredName)) {
+				(ms == mParameterMembership && unnamed) ||
+				(ms == mFeatureMembership && meta(m) == mReferenceUsage && unnamed) {
 				continue
 			}
 		}
@@ -1904,7 +1905,7 @@ func plainQualifiedName(name string) string {
 }
 
 // canonicalName returns a written qualified name in its canonical spelling:
-// segments split on `::` outside quotes, each requoted with its escapes kept.
+// segments split on `::` outside quotes, each requoted and escaped again.
 func canonicalName(name string) string {
 	segments, ok := source.QualifiedNameSegments(name)
 	if !ok {

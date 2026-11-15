@@ -130,6 +130,18 @@ type conformanceCase struct {
 	ExpectedEdgeLabels   []string          `json:"expected_edge_labels,omitempty"`
 	// ExpectedParallel names the nodes drawn «parallel» (a state whose substates run in parallel).
 	ExpectedParallel []string `json:"expected_parallel,omitempty"`
+	// RenderView: the form to write and its writer options, the text it must
+	// write whole or in part, and the status code a refusal must carry.
+	Form                 string   `json:"form,omitempty"`
+	Palette              string   `json:"palette,omitempty"`
+	Style                string   `json:"style,omitempty"`
+	Lines                string   `json:"lines,omitempty"`
+	Direction            string   `json:"direction,omitempty"`
+	Link                 string   `json:"link,omitempty"`
+	Unplaced             string   `json:"unplaced,omitempty"`
+	ExpectedText         string   `json:"expected_text,omitempty"`
+	ExpectedTextContains []string `json:"expected_text_contains,omitempty"`
+	ExpectedErrorCode    string   `json:"expected_error_code,omitempty"`
 
 	// GetDiagnostics lint selection and the codes the answer must and must not carry.
 	DisableLint   []string `json:"disable_lint,omitempty"`
@@ -200,6 +212,9 @@ type conformanceCase struct {
 	ExpectedKind       string                       `json:"expected_kind,omitempty"`
 	ExpectedChildIDs   []string                     `json:"expected_child_ids,omitempty"`
 	ExpectedAttributes map[string]expectedAttribute `json:"expected_attributes,omitempty"`
+	// ExpectedAnnotatingMetadataIDs is the full ordered list of the metadata
+	// usages annotating the symbol; an empty list requires none.
+	ExpectedAnnotatingMetadataIDs []string `json:"expected_annotating_metadata_ids,omitempty"`
 	// MinWithheldLibraryAttributes requires the response to state at least this
 	// many library-inherited attributes withheld from the list.
 	MinWithheldLibraryAttributes int32 `json:"min_withheld_library_attributes,omitempty"`
@@ -242,13 +257,9 @@ type conformanceCase struct {
 	OslcQuery          string `json:"oslc_query,omitempty"`
 	AsView             bool   `json:"as_view,omitempty"`
 	ExpectedResultView string `json:"expected_result_view,omitempty"`
-	// RenderView: Form is the document form asked for, ExpectedHeader the view's header as "name: value" lines, ExpectedRows its
-	// rows joined by " | ", ExpectedDocument the document, ExpectedDocumentParts what an HTML page must contain in place of it.
-	Form                  string   `json:"form,omitempty"`
-	ExpectedHeader        []string `json:"expected_header,omitempty"`
-	ExpectedViewRows      []string `json:"expected_view_rows,omitempty"`
-	ExpectedDocument      string   `json:"expected_document,omitempty"`
-	ExpectedDocumentParts []string `json:"expected_document_parts,omitempty"`
+	// RenderView: ExpectedHeader is a QVTS::QueryResult view's header as "name: value" lines, ExpectedViewRows its rows joined by " | ".
+	ExpectedHeader   []string `json:"expected_header,omitempty"`
+	ExpectedViewRows []string `json:"expected_view_rows,omitempty"`
 
 	// Model names the fixture parsed instead of <case>.sysml, so cases reading
 	// different elements of one model share it.
@@ -931,6 +942,9 @@ func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, mode
 	if tc.ExpectedChildIDs != nil && !slices.Equal(resp.Symbol.GetChildIds(), tc.ExpectedChildIDs) {
 		t.Errorf("child_ids = %v, want %v", resp.Symbol.GetChildIds(), tc.ExpectedChildIDs)
 	}
+	if want := tc.ExpectedAnnotatingMetadataIDs; want != nil && !slices.Equal(resp.Symbol.GetAnnotatingMetadataIds(), want) {
+		t.Errorf("annotating_metadata_ids = %v, want %v", resp.Symbol.GetAnnotatingMetadataIds(), want)
+	}
 	attrs := resp.Symbol.GetAttributes()
 	if tc.ExpectedAttributeNames != nil {
 		var got []string
@@ -1125,16 +1139,24 @@ func runExecuteActionCase(t *testing.T, srv *grpc.Service, ctx context.Context, 
 // checks the nodes drawn, the compartment each row is drawn in and the edges.
 func runRenderViewCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
-	resp, err := srv.RenderView(ctx, &pb.RenderViewRequest{ModelHash: modelHash, View: tc.View, Compartments: tc.Compartments, Form: tc.Form})
+	resp, err := srv.RenderView(ctx, &pb.RenderViewRequest{
+		ModelHash: modelHash, View: tc.View, Compartments: tc.Compartments,
+		Form: tc.Form, Palette: tc.Palette, Style: tc.Style, Lines: tc.Lines,
+		Direction: tc.Direction, Link: tc.Link, Unplaced: tc.Unplaced,
+	})
 	if tc.ExpectedError != "" {
 		if err == nil || !strings.Contains(err.Error(), tc.ExpectedError) {
 			t.Fatalf("RenderView error = %v, want %q", err, tc.ExpectedError)
+		}
+		if code := connect.CodeOf(err).String(); tc.ExpectedErrorCode != "" && code != tc.ExpectedErrorCode {
+			t.Errorf("RenderView error code = %s, want %s", code, tc.ExpectedErrorCode)
 		}
 		return
 	}
 	if err != nil {
 		t.Fatalf("RenderView: %v", err)
 	}
+	checkRenderViewText(t, resp.GetText(), tc)
 	names := make([]string, 0, len(resp.Nodes))
 	compartments := map[string]string{}
 	var parallel []string
@@ -1178,13 +1200,27 @@ func runRenderViewCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 			t.Errorf("rows = %q, want %q", rows, tc.ExpectedViewRows)
 		}
 	}
-	document := resp.Markdown + resp.Html + resp.Asciidoc
-	if tc.ExpectedDocumentParts == nil && document != tc.ExpectedDocument {
-		t.Errorf("document:\n%s\nwant:\n%s", document, tc.ExpectedDocument)
+}
+
+// checkRenderViewText checks the text a RenderView case wrote: none without a
+// form, and with one the whole text or the parts of it the case states.
+func checkRenderViewText(t *testing.T, text string, tc conformanceCase) {
+	t.Helper()
+	if tc.Form == "" {
+		if text != "" {
+			t.Errorf("text without a form = %q, want none", text)
+		}
+		return
 	}
-	for _, part := range tc.ExpectedDocumentParts {
-		if !strings.Contains(resp.Html, part) {
-			t.Errorf("html has no %q", part)
+	if tc.ExpectedText == "" && len(tc.ExpectedTextContains) == 0 {
+		t.Fatalf("a case writing form %q states no expected_text or expected_text_contains", tc.Form)
+	}
+	if tc.ExpectedText != "" && text != tc.ExpectedText {
+		t.Errorf("text = %q, want %q", text, tc.ExpectedText)
+	}
+	for _, want := range tc.ExpectedTextContains {
+		if !strings.Contains(text, want) {
+			t.Errorf("text lacks %q:\n%s", want, text)
 		}
 	}
 }

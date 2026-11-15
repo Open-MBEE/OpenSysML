@@ -105,13 +105,14 @@ func TestToCalcIDsDenseAndDeterministic(t *testing.T) {
 		if id == 0 {
 			continue
 		}
-		if seen[id] || int(id) >= len(trees.exprs) || trees.exprs[id] == nil {
+		if seen[id] || trees.Expr(id) == nil || trees.Exprs.At(id) == nil {
 			t.Fatalf("id %d is not a distinct table index: %v", id, ids)
 		}
 		seen[id] = true
 	}
-	if len(seen) != len(trees.exprs)-1 {
-		t.Fatalf("%d ids for %d expressions", len(seen), len(trees.exprs)-1)
+	// Each of Study's three values is a literal or a name, so the table holds them alone.
+	if len(seen) != 3 || trees.Exprs.At(program.ExprID(len(seen)+1)) != nil {
+		t.Fatalf("%d ids, want the table's 3 expressions", len(seen))
 	}
 	if first.Kind != "analysis" || !first.Params[0].IsSubject || first.ParamNames[0] != "s" {
 		t.Fatalf("subject not first: %+v", first.ParamNames)

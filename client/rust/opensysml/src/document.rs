@@ -844,6 +844,7 @@ mod render_view_tests {
                 exposes: vec!["expose Demo::car".to_owned()],
                 ..Default::default()
             }),
+            ..Default::default()
         };
 
         let rendered = rendered_view_of(response);

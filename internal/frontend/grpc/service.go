@@ -108,6 +108,10 @@ const CapabilityRenderDocumentAsciiDoc = "render_document_asciidoc"
 // renders a declared or targeted pseudo-view as machine-readable diagram data.
 const CapabilityRenderView = "render_view"
 
+// CapabilityRenderViewForm names the capability of RenderViewRequest's form
+// field and writer options, answered in RenderViewResponse.text.
+const CapabilityRenderViewForm = "render_view_form"
+
 // CapabilityExportGraphs names the capability of the ExportGraphs RPC, which
 // exports the lowered graph of an action or state machine as `graphs:1` JSON.
 const CapabilityExportGraphs = "export_graphs"
@@ -153,6 +157,10 @@ const CapabilitySymbolMembers = "symbol_members"
 // CapabilitySymbolNameResolution names the capability of honouring GetSymbolRequest.resolve_name;
 // without it symbol_id is read as an id the service reported, as a service predating the field reads it.
 const CapabilitySymbolNameResolution = "symbol_name_resolution"
+
+// CapabilitySymbolAnnotatingMetadata names the capability of populating
+// SymbolInfo.annotating_metadata_ids, the metadata usages annotating the element.
+const CapabilitySymbolAnnotatingMetadata = "symbol_annotating_metadata"
 
 // CapabilityUnsetValue names the capability of reporting a valueless feature of
 // a value type as Value.unset, rather than as the empty object it materializes.
@@ -437,6 +445,8 @@ var capabilities = []string{
 	CapabilityElementProperties,
 	CapabilityInlineDocumentQuery,
 	CapabilitySymbolNameResolution,
+	CapabilityRenderViewForm,
+	CapabilitySymbolAnnotatingMetadata,
 	CapabilityQueryResultView,
 }
 

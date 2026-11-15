@@ -22,9 +22,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// engineGzipBudget bounds the gzipped js sysml-engine the gate links (-trimpath, stripped, the library snapshot embedded, as
-// every Makefile build target does): 10,816,237 bytes under go1.27.4 on 2026-11-11 with RenderDocument served, 9,061,783 without the snapshot.
-const engineGzipBudget = 11000000
+// engineGzipBudget bounds the gzipped js sysml-engine the gate links (-trimpath, stripped, the library snapshot embedded, as every Makefile build target does):
+// 11,031,341 bytes under go1.27.4 on 2026-11-13 with RenderView's written forms served, up from 10,936,997 on develop 0757270e94 by the draw.io, text and table writers.
+const engineGzipBudget = 11100000
 
 func TestEngineDependencies(t *testing.T) {
 	const module = "github.com/Open-MBEE/OpenSysML"
@@ -139,6 +139,17 @@ func engineSubtests(t *testing.T, target wasmTarget, r runner, bins map[string]s
 			if !strings.Contains(got.output, want) {
 				t.Errorf("engine.mjs output is missing %s:\n%s", want, got.output)
 			}
+		}
+	})
+
+	// The engine draws no recorded run, so the run-only SVG writers stay out of it.
+	t.Run("links no run-only SVG writer", func(t *testing.T) {
+		data, err := os.ReadFile(bins["sysml-engine"])
+		if err != nil {
+			t.Fatalf("reading %s: %v", bins["sysml-engine"], err)
+		}
+		if bytes.Contains(data, []byte("<svg xmlns=")) {
+			t.Error("sysml-engine.wasm links the run-only SVG writers: write a model view with WriteViewWith")
 		}
 	})
 

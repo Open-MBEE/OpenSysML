@@ -1947,14 +1947,15 @@ func (e *ActionExecutor) fixWitnessInputs() error {
 		}
 		value := in.Value
 		if value.Kind == ValInvalid {
-			expr, ok, err := e.ctx.model.parseOneExpression("<witness>", in.Written)
+			expr, err := e.ctx.model.readExpression("<witness>", in.Written, ec.scope)
 			if err != nil {
 				return err
 			}
-			if !ok {
+			if expr == nil {
 				return &WitnessInputError{Feature: in.Feature, Reason: fmt.Sprintf("%q is not an expression the notation reads", in.Written)}
 			}
-			evaluated, err := ec.Eval(expr)
+			evaluated, err := ec.evaluate(expr.lowered, false)
+			expr.forget()
 			if err != nil {
 				return &WitnessInputError{Feature: in.Feature, Reason: fmt.Sprintf("%q does not evaluate: %v", in.Written, err)}
 			}
