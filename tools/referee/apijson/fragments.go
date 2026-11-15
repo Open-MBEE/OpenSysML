@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/tools/referee/baseline"
@@ -214,6 +215,29 @@ func splitScorecardKey(key string) (metaclass, property string, ok bool) {
 		}
 	}
 	return key, "", false
+}
+
+// refuseUnexportedRoots refuses fragments in which the pilot failed on every file of a
+// root, the record of an exporter that never ran there rather than of the pilot's verdicts.
+func refuseUnexportedRoots(fragments []Fragment) error {
+	files, failed := make(map[string]int), make(map[string]int)
+	for _, f := range fragments {
+		files[f.Root]++
+		if f.Summary.PilotFailed {
+			failed[f.Root]++
+		}
+	}
+	var roots []string
+	for root, count := range files {
+		if failed[root] == count {
+			roots = append(roots, fmt.Sprintf("%s (%d files)", root, count))
+		}
+	}
+	if len(roots) == 0 {
+		return nil
+	}
+	slices.Sort(roots)
+	return fmt.Errorf("the pilot failed on every file of %s, so its exporter did not run there; run %s and retry, never record or accept such a baseline", strings.Join(roots, ", "), provisionCommand)
 }
 
 // committedDir is where the baseline directory lives in a checkout.

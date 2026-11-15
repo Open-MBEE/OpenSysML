@@ -85,7 +85,7 @@ func Main(args []string, stderr io.Writer) int {
 		return 0
 	}
 	if _, err := os.Stat(opts.launcher); os.IsNotExist(err) {
-		message := fmt.Sprintf("pilot JSON exporter is absent at %s; run ./scripts/download-pilot-json-exporter.sh to provision it", opts.launcher)
+		message := fmt.Sprintf("pilot JSON exporter is absent at %s; run %s to provision it", opts.launcher, provisionCommand)
 		if opts.check {
 			fmt.Fprintf(stderr, "%s: %s\n", toolName, message)
 			return 1
@@ -205,6 +205,11 @@ func run(opts options) error {
 	}
 	if err := writeMatches(opts, Matches{Roots: result.matches}); err != nil {
 		return err
+	}
+	if opts.update || opts.check {
+		if err := refuseUnexportedRoots(fragments); err != nil {
+			return err
+		}
 	}
 	committed := committedDir(opts.repo)
 	switch {
