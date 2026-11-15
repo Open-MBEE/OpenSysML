@@ -321,6 +321,30 @@ public record Symbol(
       Objects.requireNonNull(unit, "unit");
       Objects.requireNonNull(resolvedQualifiedName, "resolvedQualifiedName");
     }
+
+    /**
+     * Creates type facts that state no qualified name for the resolved type.
+     *
+     * @param declared declared type name
+     * @param resolvedId element id of the resolved type
+     * @param resolvedKind kind of the resolved type
+     * @param primitive library scalar the type reduces to
+     * @param primitiveSource origin of {@code primitive}
+     * @param quantity whether values carry a unit
+     * @param unit unit as written
+     * @param types derived types
+     */
+    public TypeFacts(
+        Optional<String> declared,
+        Optional<String> resolvedId,
+        Optional<String> resolvedKind,
+        Optional<String> primitive,
+        Optional<String> primitiveSource,
+        boolean quantity,
+        Optional<String> unit,
+        List<TypeRef> types) {
+      this(declared, resolvedId, resolvedKind, primitive, primitiveSource, quantity, unit, types, Optional.empty());
+    }
   }
 
   /**
@@ -375,6 +399,18 @@ public record Symbol(
       Objects.requireNonNull(targetId, "targetId");
       Objects.requireNonNull(targetKind, "targetKind");
       Objects.requireNonNull(targetQualifiedName, "targetQualifiedName");
+    }
+
+    /**
+     * Creates a specialization that states no qualified name for its target.
+     *
+     * @param kind relationship kind, never {@code null}
+     * @param declared target as written, never {@code null}
+     * @param targetId element id of the resolved target
+     * @param targetKind kind of the resolved target
+     */
+    public Specialization(String kind, String declared, Optional<String> targetId, Optional<String> targetKind) {
+      this(kind, declared, targetId, targetKind, Optional.empty());
     }
   }
 }
