@@ -1,0 +1,6 @@
+{
+	"type": "calc",
+	"evaluate": "test::Scaled",
+	"result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 31}]},
+	"trace": true
+}

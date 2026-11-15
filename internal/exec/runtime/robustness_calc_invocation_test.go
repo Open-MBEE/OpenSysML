@@ -38,7 +38,7 @@ func TestRuntimeRobustnessCalcInvocation(t *testing.T) {
 	t.Run("calc_body_never_returns", testCalcBodyNeverReturns)
 	t.Run("calc_send_posts_the_message", testCalcSendPostsTheMessage)
 	t.Run("calc_send_to_no_object", testCalcSendToNoObject)
-	t.Run("calc_terminate_is_rejected", testCalcTerminateIsRejected)
+	t.Run("calc_terminate_ends_its_steps", testCalcTerminateEndsItsSteps)
 	t.Run("calc_assignment_of_a_wrong_typed_value", testCalcAssignmentOfAWrongTypedValue)
 	t.Run("calc_assignment_through_this_is_read_back", testCalcAssignmentThroughThisIsReadBack)
 	t.Run("nested_calc_assigns_the_enclosing_calcs_value", testNestedCalcAssignsTheEnclosingCalcsValue)
@@ -697,21 +697,30 @@ func testCalcSendToNoObject(t *testing.T) {
 	}
 }
 
-// testCalcTerminateIsRejected: `terminate` ends an execution, which a
-// calculation has no business doing.
-func testCalcTerminateIsRejected(t *testing.T) {
-	src := `
-		package test {
-			calc halting {
-				in n: Integer;
-				terminate;
-				return : Integer = n;
-			}
+// testCalcTerminateEndsItsSteps: a terminate ends the calculation's own performance
+// (SysML v2 §7.17.10), so the steps after it are not taken; the result, a binding
+// of the calculation rather than a step, answers with the values held then.
+func testCalcTerminateEndsItsSteps(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		calc def Halting {
+			in n : Integer;
+			attribute x : Integer := n;
+			if n > 2 { terminate; }
+			assign x := x + 10;
+			return : Integer = x;
 		}
-	`
-	err := invokeCalcInSource(t, src, "halting", 1, 10000)
-	if !errors.Is(err, errCalcSideEffect) {
-		t.Errorf("expected errCalcSideEffect, got: %v", err)
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	for arg, want := range map[int64]string{1: "(11)", 5: "(5)"} {
+		got, err := ctx.invokeCalcWithSelf(oneSymbol(t, idx, "test::Halting"),
+			calcArgs{positional: []Value{integerValue(arg)}}, idx.DocumentRoot("<test>"), nil)
+		if err != nil {
+			t.Fatalf("Halting(%d): %v", arg, err)
+		}
+		if FormatTraceValue(got) != want {
+			t.Errorf("Halting(%d) = %s, want %s", arg, FormatTraceValue(got), want)
+		}
 	}
 }
 

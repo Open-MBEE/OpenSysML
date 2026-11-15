@@ -47,6 +47,9 @@ type Calc struct {
 	// StatesFlow reports a body, or a loop or branch block of it, stating a token
 	// flow of its own: successions or control nodes among its members.
 	StatesFlow bool
+	// PerformsActions reports a body stating, at any depth, a step only a performance
+	// can take: a nested action or `perform`, an accept, or a terminate.
+	PerformsActions bool
 }
 
 // CalcParam is one input parameter of a calc, in positional order.
@@ -134,9 +137,10 @@ func (c *Calc) IsCase() bool {
 }
 
 // Performs reports whether the body runs as a performance whose action nodes are
-// its steps: a case's body does, and so does a calc's that states a token flow.
+// its steps: a case's body does, and so does a calc's that states a token flow or
+// a step of an action (SysML v2 §7.19.1: a calculation is an action).
 func (c *Calc) Performs() bool {
-	return c.IsCase() || c.StatesFlow
+	return c.IsCase() || c.StatesFlow || c.PerformsActions
 }
 
 // BodyScope is the namespace the body's names resolve in.

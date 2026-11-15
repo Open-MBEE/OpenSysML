@@ -1,0 +1,21 @@
+enter calc test::Host::Heard
+  eval literal 3 -> 3
+  bind n = 3 [default]
+  stmt declare x
+    eval feature n -> 3
+  stmt action body
+enter action node: calc test::Host::Heard
+    stmt send
+      eval literal 7 -> 7
+materialize: Ping #1
+materialize: Heard #2
+    stmt assign x
+        eval feature x -> 3
+          eval feature p -> instance#1
+        eval chain v -> 7
+      eval operator + -> 10
+choice step 1: tokens 1@send, 2@usage_action, 3@assign x (unordered; took 1@send first; order-dependent: x)
+leave action node: calc test::Host::Heard
+  stmt return
+    eval feature x -> 10
+exit calc test::Host::Heard -> (10)

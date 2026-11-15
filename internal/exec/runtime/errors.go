@@ -157,11 +157,6 @@ var (
 	// settle, so the cast fails rather than dropping a value that may be one.
 	errUndecidedClassification = errors.New("classification of a value cannot be decided")
 
-	// errCalcSideEffect is returned when a calc body states an effect on the
-	// world outside it — send, perform, accept, terminate. A calculation
-	// computes a value, so an effect is rejected rather than performed.
-	errCalcSideEffect = errors.New("side effect in a calculation body")
-
 	// errStatementNotExecutable is returned when a body reaches a member the
 	// lowering marked as not executable in that kind of body (lower.Unsupported).
 	errStatementNotExecutable = errors.New("statement not executable")

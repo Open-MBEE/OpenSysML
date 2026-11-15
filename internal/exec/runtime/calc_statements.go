@@ -9,9 +9,9 @@ import (
 )
 
 // calcStmtHost runs a calculation body's statements: it owns its locals, its
-// output features and its returned value, and rejects every outside effect.
-// A case body (an analysis) is an action's: its steps run as subperformances of
-// the case, which flow steps the tokens of; a calc's body performs nothing.
+// output features and its returned value. A calculation is an action (SysML v2
+// §7.19.1): a body stating a step of one, or a token flow, holds a performance its
+// steps run as subperformances of, as a case body (an analysis) always does.
 type calcStmtHost struct {
 	ctx    *Context
 	shape  *loadedCalc
@@ -357,11 +357,24 @@ func (h *calcStmtHost) materializeOccurrence() (*Instance, error) {
 	return h.occ.materializeOccurrence()
 }
 
-// effect performs the action a `perform` in a case body names, its outputs
-// returning to the body's values; a calculation states no effect at all.
-func (h *calcStmtHost) effect(_ *stmtEngine, s lower.Effect) error {
-	if h.perfs == nil || s.Kind != lower.EffectPerform {
-		return fmt.Errorf("%w: a calculation cannot state '%s'", errCalcSideEffect, s.Kind)
+// effect performs what the body states as an action does (SysML v2 §7.19.1): a
+// `perform` returns its outputs to the body's values, a `terminate` ends what it names.
+func (h *calcStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
+	switch s.Kind {
+	case lower.EffectTerminate:
+		if h.perfs == nil {
+			// The results of a concluded performance are read, with nothing left to end.
+			return fmt.Errorf("%w: %s: 'terminate' after the performance concluded", errStatementNotExecutable, h.describe())
+		}
+		return h.perfs.terminate(engine, engine.env.perf, s)
+	case lower.EffectStart:
+		if err := h.ctx.startEffect(engine.evalIn(s.Scope), s, h.self); err != nil {
+			return fmt.Errorf("%s: %w", h.describe(), err)
+		}
+		return nil
+	case lower.EffectPerform:
+	default:
+		return fmt.Errorf("%s: '%s' in a body is not executable", h.describe(), s.Kind)
 	}
 	inv, ok := performedInvocation(s)
 	if !ok {
@@ -388,52 +401,19 @@ func (h *calcStmtHost) effect(_ *stmtEngine, s lower.Effect) error {
 	return nil
 }
 
-// performNode performs a nested action as a subperformance of a body that performs
-// (performances.performNode); any other calculation runs it in a frame of the body.
+// performNode performs a nested action as a subperformance of the body
+// (performances.performNode). A body stating one holds a performance
+// (program.Calc.Performs); only the results read after it concluded hold none.
 func (h *calcStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph, node *ast.Usage) (stmtFlow, error) {
-	if h.perfs != nil {
-		return h.perfs.performNode(h.perfs.root, engine, graph, node)
+	if h.perfs == nil {
+		return flowNext, fmt.Errorf("%w: %s: performing action %s after the performance concluded",
+			errStatementNotExecutable, h.describe(), ActionNodeName(node))
 	}
-	if _, performs := nestedInvocationInGraph(graph, node); performs {
-		return flowNext, fmt.Errorf("%w: a calculation cannot perform action %s", errCalcSideEffect, ActionNodeName(node))
-	}
-	if connectsPins(graph, node) {
-		return flowNext, fmt.Errorf("%s: a binding or flow at a pin of %s in a body is not executable",
-			h.describe(), describeNode(graph, node))
-	}
-	var nestedSteps []lower.Statement
-	var nestedOrder *lower.StatementOrder
-	var nestedExprs *lower.ExprTable
-	if sub, owns := graph.Subflows[node]; owns && sub != nil {
-		var simple bool
-		nestedSteps, simple = sub.Graph.StatementList()
-		if !simple {
-			return flowNext, fmt.Errorf("%s: the flow %s states of its own in a body is not executable",
-				h.describe(), describeNode(graph, node))
-		}
-		nestedOrder, nestedExprs = graph.StatementOrders[node], sub.Graph.Exprs
-	}
-	engine.env.enter(engine)
-	defer engine.env.leave(engine.ctx, true)
-	defer engine.enterActivation()()
-	for _, feature := range graph.Features[node] {
-		if feature.Value == nil {
-			engine.env.declareUnvalued(feature.Name)
-			continue
-		}
-		value, err := engine.evalIn(feature.Scope).reading(graph.Exprs).evalPayload(feature.ValueID)
-		if err != nil {
-			return flowNext, fmt.Errorf("eval %s of %s: %w", feature.Name, describeNode(graph, node), err)
-		}
-		engine.env.declare(engine.ctx, feature.Name, value)
-	}
-	if nestedSteps != nil {
-		defer engine.under(nestedExprs)()
-		return engine.runWithOrder(nestedSteps, nestedOrder)
-	}
-	return engine.runOf(graph.Exprs, graph.Bodies[node])
+	return h.perfs.performNode(h.perfs.root, engine, graph, node)
 }
 
+// runBlockFlow runs the flow of a block: a body holding a performance steps its
+// tokens, any other states only statements in sequence.
 func (h *calcStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stmtFlow, error) {
 	if h.perfs != nil {
 		return h.perfs.performBlockFlow(h.perfs.root, engine, block)
@@ -447,13 +427,18 @@ func (h *calcStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stmt
 		errStatementNotExecutable, h.describe())
 }
 
-// setFeature writes a feature the case's performance holds; it holds none of its
-// own, so the write reaches the body's values.
+// setFeature writes a feature the body's performance holds; it holds none of its
+// own, so the write reaches the body's values: one a step binds there, an accept's
+// payload, is held from then on.
 func (h *calcStmtHost) setFeature(name string, value Value) error {
 	if written, err := h.assignAround(name, value); written || err != nil {
 		return err
 	}
-	return fmt.Errorf("%w: %s holds no %s", errBindingEnd, h.describe(), name)
+	if err := h.ctx.checkNamedWriteComputed(h.shape.BodyScope(), h.describe(), name, &value); err != nil {
+		return err
+	}
+	h.env.data.setBody(h.ctx, name, value)
+	return nil
 }
 
 // assignAround writes what a step's performance returns to the same-named value
@@ -493,8 +478,28 @@ func (h *calcStmtHost) runOwnFlow(perf *actionFrame) error {
 	return h.flow.runSubflow(perf)
 }
 
-// endsOwn refuses a terminate of the case's own performance: a case runs to its result.
-func (h *calcStmtHost) endsOwn() bool { return false }
+// endsOwn allows a terminate to end the body's own performance (SysML v2 §7.17.10).
+func (h *calcStmtHost) endsOwn() bool { return true }
+
+// endedOwn settles a run of the steps that err ended with a terminate of the body's
+// own performance, or a `return` a step of it reached: what its flow still ran is
+// dropped and the performances in it end. returned reports the `return`.
+func (h *calcStmtHost) endedOwn(err error) (ended, returned bool, _ error) {
+	if h.perfs == nil || !terminates(err, h.perfs.root) {
+		return false, false, err
+	}
+	t := unwound(err)
+	root := h.perfs.root
+	if !t.returns {
+		h.flow.dropTokensIn(root, 0)
+	} else if dropped := h.flow.discardTokensIn(root, 0); len(dropped) > 0 && h.ctx.trace != nil {
+		// A return is no terminate; the trace records only the tokens it left running.
+		h.ctx.trace.recordActionTerminate(root.describe(), dropped)
+	}
+	endNested(root)
+	root.live = 0
+	return true, t.returns, h.flow.endAlongside(t)
+}
 
 // runFlow runs the token flow a case or calculation body states with its
 // successions and control nodes, as its own performance.
