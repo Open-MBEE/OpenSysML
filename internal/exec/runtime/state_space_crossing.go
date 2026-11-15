@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"math"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 )
@@ -60,16 +61,19 @@ func (e *ActionExecutor) locateCrossing(run *stateSpaceRun) {
 	}
 	last := len(samples) - 1
 	// Past the step's end the preview extrapolates, only to see a guard turn back there.
-	if guards, ok := preview(rest * (crossingQuarters + 1) / crossingQuarters); ok {
+	if guards, ok := preview(rest * (crossingQuarters + 1) / crossingQuarters); ok && !slices.ContainsFunc(guards, math.IsNaN) {
 		samples = append(samples, guardPreview{rest * (crossingQuarters + 1) / crossingQuarters, guards})
 	}
 
+	// A guard the search cannot follow is blind: it keeps its latest sample, and is
+	// watched at the samples the other guards set and at the step's end.
+	blind, followed := make([]bool, len(run.dyn.Crossings)), true
 	cut, short := rest, 0.0
 	for i := range run.dyn.Crossings {
 		search := crossingSearch{
 			guard: func(span float64) (float64, bool) {
 				guards, ok := preview(span)
-				if !ok {
+				if !ok || math.IsNaN(guards[i]) {
 					return 0, false
 				}
 				return guards[i], true
@@ -79,36 +83,47 @@ func (e *ActionExecutor) locateCrossing(run *stateSpaceRun) {
 		spans, guards := make([]float64, len(samples)), make([]float64, len(samples))
 		for j, sample := range samples {
 			spans[j], guards[j] = sample.span, sample.guards[i]
+			blind[i] = blind[i] || math.IsNaN(sample.guards[i])
 		}
-		lo, at, found, ok := search.first(spans, guards, now, run.sides[i])
-		if !ok {
-			return
+		if !blind[i] {
+			lo, at, found, ok := search.first(spans, guards, now, run.sides[i])
+			blind[i] = !ok
+			if ok && found && at < cut {
+				cut, short = at, lo
+			}
 		}
-		if found && at < cut {
-			cut, short = at, lo
+		followed = followed && !blind[i]
+	}
+	seen := func(guards []float64) []float64 {
+		guards = slices.Clone(guards)
+		for i := range guards {
+			if blind[i] {
+				guards[i] = math.NaN()
+			}
 		}
+		return guards
 	}
 	if cut < rest {
 		// The guards just short of the crossing stand as the sample before it, so a
 		// guard that left zero unseen and is back at it has crossed.
 		if short > 0 {
-			guards, ok := preview(short)
-			if !ok {
-				return
+			if guards, ok := preview(short); ok {
+				run.hold(seen(guards))
 			}
-			run.hold(guards)
 		}
 		run.cut = cut
 		return
 	}
 	// The last preview inside the step stands as the sample before the step's end,
 	// so a guard resting at zero that left it unseen and is back at the end has crossed.
-	run.before, run.lead = samples[last-1].guards, rest-samples[last-1].span
-	run.hold(samples[last-1].guards)
+	if followed {
+		run.before, run.lead = samples[last-1].guards, rest-samples[last-1].span
+	}
+	run.hold(seen(samples[last-1].guards))
 }
 
-// previewGuards is every guard span past the run's latest sample, over the state
-// the integrator reaches there; false where one cannot be had or is not finite.
+// previewGuards is every guard span past the run's latest sample, NaN for one that
+// cannot be had or is not finite; false where the state or the output cannot be had.
 func (e *ActionExecutor) previewGuards(run *stateSpaceRun, state Value, input *Value, span float64) ([]float64, bool) {
 	defer e.ctx.beginProbe()()
 	next, err := e.nextState(run, state, input, span)
@@ -136,8 +151,8 @@ func (e *ActionExecutor) previewGuards(run *stateSpaceRun, state Value, input *V
 	guards := make([]float64, len(run.dyn.Crossings))
 	for i, crossing := range run.dyn.Crossings {
 		guard, err := e.evalGuard(crossing)
-		if err != nil || math.IsNaN(guard) || math.IsInf(guard, 0) {
-			return nil, false
+		if err != nil || math.IsInf(guard, 0) {
+			guard = math.NaN()
 		}
 		guards[i] = guard
 	}

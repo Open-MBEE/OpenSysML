@@ -87,9 +87,13 @@ type stateSpaceRun struct {
 	lead   float64
 }
 
-// hold takes guards as the run's latest sample of each crossing's guard.
+// hold takes guards as the run's latest sample of each crossing's guard, keeping
+// the sample of a guard given as NaN.
 func (run *stateSpaceRun) hold(guards []float64) {
 	for i, guard := range guards {
+		if math.IsNaN(guard) {
+			continue
+		}
 		run.guards[i] = guard
 		if guard != 0 {
 			run.sides[i] = guard

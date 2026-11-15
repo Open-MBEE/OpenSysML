@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"math"
 	"strings"
 	"testing"
 
@@ -28,6 +29,7 @@ func TestStateSpaceRobustness(t *testing.T) {
 	t.Run("return_parameter", testStateSpaceReturnParameter)
 	t.Run("guard_undefined_inside_a_step", testStateSpaceGuardUndefinedInsideAStep)
 	t.Run("output_undefined_inside_a_step", testStateSpaceOutputUndefinedInsideAStep)
+	t.Run("guard_undefined_beside_a_crossing", testStateSpaceGuardUndefinedBesideACrossing)
 }
 
 // stateSpaceSource wraps an action body in a package importing what a
@@ -321,5 +323,24 @@ func testStateSpaceOutputUndefinedInsideAStep(t *testing.T) {
 	`))
 	if err == nil || !strings.Contains(err.Error(), "getOutput of action dyn") || !strings.Contains(err.Error(), "type mismatch") {
 		t.Fatalf("error = %v, want getOutput's type mismatch", err)
+	}
+}
+
+// A guard that fails while its own crossing is narrowed does not cost another
+// guard the crossing already located before it.
+func testStateSpaceGuardUndefinedBesideACrossing(t *testing.T) {
+	got, _ := crossingInstants(t, stateSpaceSource("ContinuousStateSpaceDynamics, FixedStepDynamics", `
+		:>> stateSpace = VectorOf((0.0));
+		:>> timeStep = 1 [s];
+		:>> stopTime = 1 [s];
+		event occurrence tenth : ZeroCrossing {
+			:>> guard = stateSpace.elements#(1) - 0.1;
+		}
+		event occurrence pole : ZeroCrossing {
+			:>> guard = 1.0 / (stateSpace.elements#(1) - 0.125);
+		}
+	`+rampCalcs))
+	if len(got) == 0 || math.Abs(got[0]-0.1) > 1e-12 {
+		t.Fatalf("crossings at %v, want the first at 0.1", got)
 	}
 }
