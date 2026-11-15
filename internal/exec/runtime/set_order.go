@@ -41,17 +41,23 @@ func (ctx *Context) canonicalCompare(a, b Value) int {
 	case classString:
 		return strings.Compare(a.Str(), b.Str())
 	case classQuantity:
+		// A cyclic value is no member a magnitude in a unit is: it follows them, by cycle then class.
+		ma, cyclicA := ctx.cyclicMember(a.Quantity())
+		mb, cyclicB := ctx.cyclicMember(b.Quantity())
 		qa, qb := ctx.canonicalQuantity(*a.Quantity()), ctx.canonicalQuantity(*b.Quantity())
+		if cyclicA {
+			qa.Unit = ma.unit
+		}
+		if cyclicB {
+			qb.Unit = mb.unit
+		}
 		if c := strings.Compare(qa.Unit.Term.DimensionKey(), qb.Unit.Term.DimensionKey()); c != 0 {
 			return c
 		}
-		// A cyclic value is no member a magnitude in a unit is: it follows them, by cycle then class.
-		cycleA, classA, cyclicA := ctx.cyclicMember(a.Quantity())
-		cycleB, classB, cyclicB := ctx.cyclicMember(b.Quantity())
 		if cyclicA != cyclicB {
 			return compareBool(cyclicA, cyclicB)
 		} else if cyclicA {
-			return cmp.Or(cmp.Compare(cycleA, cycleB), cmp.Compare(classA, classB))
+			return cmp.Or(cmp.Compare(ma.cycle, mb.cycle), cmp.Compare(ma.class, mb.class))
 		}
 		if c, err := semantics.CompareMagnitudes(qa, qb); err == nil {
 			return c
@@ -97,24 +103,31 @@ func (ctx *Context) canonicalQuantity(q Quantity) Quantity {
 	return q
 }
 
-// cyclicMember is what tells a value on a cyclic ratio scale apart as a set member:
-// its cycle in base units and its class over it; false for any other quantity.
-func (ctx *Context) cyclicMember(q *Quantity) (cycle, class float64, ok bool) {
+// cyclicMembership is what tells a value on a cyclic ratio scale apart as a member: the
+// unit its scale measures in, its cycle in base units, and its class over that cycle.
+type cyclicMembership struct {
+	unit         Unit
+	cycle, class float64
+}
+
+// cyclicMember is the membership of a value on a cyclic ratio scale; false for any other quantity.
+func (ctx *Context) cyclicMember(q *Quantity) (cyclicMembership, bool) {
 	scale, err := ctx.cyclicScaleOf(q)
 	if err != nil || scale == nil || !q.Num.IsNumeric() {
-		return 0, 0, false
+		return cyclicMembership{}, false
 	}
 	period := Quantity{Num: semantics.Value{Kind: semantics.ValReal, Real: scale.Scale.Modulus}, Unit: scale.Scale.Unit}
-	return period.BaseMagnitude(), cycleClass(q.Num.AsReal(), scale.Scale.Modulus), true
+	return cyclicMembership{unit: scale.Scale.Unit, cycle: period.BaseMagnitude(), class: cycleClass(q.Num.AsReal(), scale.Scale.Modulus)}, true
 }
 
 // sameMember is the equality that has to hold or fail (a set member, a sequence element):
-// by reference, and for cyclic values by cycle and class; never across the two.
+// by reference, and for cyclic values by dimension, cycle and class; never across the two.
 func (ctx *Context) sameMember(a, b *Quantity) bool {
-	cycleA, classA, cyclicA := ctx.cyclicMember(a)
-	cycleB, classB, cyclicB := ctx.cyclicMember(b)
+	ma, cyclicA := ctx.cyclicMember(a)
+	mb, cyclicB := ctx.cyclicMember(b)
 	if cyclicA || cyclicB {
-		return cyclicA && cyclicB && cycleA == cycleB && classA == classB
+		return cyclicA && cyclicB && ma.cycle == mb.cycle && ma.class == mb.class &&
+			ma.unit.Term.DimensionKey() == mb.unit.Term.DimensionKey()
 	}
 	c, err := semantics.CompareMagnitudes(ctx.canonicalQuantity(*a), ctx.canonicalQuantity(*b))
 	return err == nil && c == 0

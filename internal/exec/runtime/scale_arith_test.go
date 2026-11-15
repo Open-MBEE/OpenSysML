@@ -404,6 +404,7 @@ const scaleKindsModel = `package test {
 	attribute dBm : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = 10; :>> exponent = 1; :>> referenceQuantity = 0.001 [W]; }
 	attribute field : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = 10; :>> exponent = 2; :>> referenceQuantity = 1.0 [V]; }
 	attribute acidity : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = -1; :>> exponent = 1; :>> referenceQuantity = 1.0 [mol/L]; }
+	attribute dayClock : CyclicRatioScale { :>> unit = s; :>> modulus = 6.283185307179586; }
 	attribute halfTurn : CyclicRatioScale { :>> unit = '°'; :>> modulus = 180; }
 	attribute bearings [2] = (10 [bearing], 20 [bearing]);
 	attribute headings : Set { :>> elements = (450 [bearing], 90 [bearing], -270 [bearing], 91 [bearing], 360.1 [bearing], 0.1 [bearing], 90 ['°']); }
@@ -464,6 +465,20 @@ func TestCyclicRatioScaleValues(t *testing.T) {
 	// Distinct values keep distinct keys, so a collection subsetting them keeps both.
 	if got, err := evalIn(t, ctx, scope, "bearings"); err != nil || len(elementsOf(got)) != 2 {
 		t.Errorf("bearings = %s, %v; want two distinct bearings", FormatValue(got), err)
+	}
+	// Two scales of one cycle hold one member; two of one period in other dimensions do not.
+	for src, want := range map[string]bool{
+		"(450 [bearing], 1 [m])->includes(90 [course])":                   true,
+		"(450 [bearing], 1 [m])->includes(90 [dayClock])":                 false,
+		"(450 [bearing], 90 [bearing]) == (90 [course], 90 [course])":     true,
+		"(450 [bearing], 90 [bearing]) == (90 [dayClock], 90 [dayClock])": false,
+	} {
+		if got, err := evalIn(t, ctx, scope, src); err != nil || got.Const.Bool != want {
+			t.Errorf("%s = %v, %v; want %v", src, got, err, want)
+		}
+	}
+	if valueKeyOf(t, ctx, scope, "450 [bearing]") != valueKeyOf(t, ctx, scope, "90 [course]") {
+		t.Error("equivalent values on two scales of one cycle have two keys")
 	}
 	if valueKeyOf(t, ctx, scope, "0 [bearing]") == valueKeyOf(t, ctx, scope, "0 [halfTurn]") {
 		t.Error("zero on two cycles shares a key; they are different members")

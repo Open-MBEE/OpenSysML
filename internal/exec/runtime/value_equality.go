@@ -78,13 +78,13 @@ func (ctx *Context) valueKey(v Value) valueKey {
 		key.literal = v.Literal()
 	case ValQuantity:
 		if v.Quantity() != nil {
-			q := ctx.canonicalQuantity(*v.Quantity())
-			key.strVal = q.Unit.Term.DimensionKey()
-			if cycle, class, cyclic := ctx.cyclicMember(v.Quantity()); cyclic {
+			if m, cyclic := ctx.cyclicMember(v.Quantity()); cyclic {
 				// A cyclic value is keyed by its cycle and class, apart from every magnitude in a unit.
-				key.strVal += "|cycle:" + strconv.FormatFloat(cycle, 'g', -1, 64)
-				key.realVal = class
+				key.strVal = m.unit.Term.DimensionKey() + "|cycle:" + strconv.FormatFloat(m.cycle, 'g', -1, 64)
+				key.realVal = m.class
 			} else {
+				q := ctx.canonicalQuantity(*v.Quantity())
+				key.strVal = q.Unit.Term.DimensionKey()
 				key.realVal = q.BaseMagnitude()
 			}
 		}
