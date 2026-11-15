@@ -10,9 +10,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
-// sysml:qualifiedName is the derived property in its escapedName() spelling
-// (KerML §8.3.2.1.2); the address the IRI encodes is stated beside it, and the
-// graph reads back from either, as one written by an earlier release does.
+// sysml:qualifiedName has the escapedName() spelling (KerML §8.3.2.1.2), the address
+// the IRI encodes is stated beside it, and the graph reads back from either.
 func TestQualifiedNameIsEscapedBesideTheAddress(t *testing.T) {
 	tests := []struct {
 		written   string // the name as the notation writes it
