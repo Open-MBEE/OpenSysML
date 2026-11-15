@@ -911,7 +911,7 @@ def start_next(st, *a, **kw):
         finally:
             st["queue"][:] = st["queue"] + rest
     kw.pop("_solo_done", None)
-    ap = auth_pending()
+    ap = [e for e in auth_pending() if not stack_hold(e["pr"])]
     if ap:
         runq = [e for e in st["queue"] if runnable(e) and str(e["pr"]) not in HOLDS]
         if not runq or min(tier_rank(e["pr"]) for e in ap) <= min(tier_rank(e["pr"]) for e in runq):

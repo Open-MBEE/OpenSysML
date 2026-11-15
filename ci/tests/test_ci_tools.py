@@ -435,6 +435,19 @@ class WatcherTest(Stub):
         self.assertFalse([c for c in self.calls() if c.startswith("run rerun")])
         self.assertEqual([e["run"] for e in self.read("auth_rerun.json")], [556])
 
+    def test_a_held_authorized_rerun_leaves_the_slot_to_the_queue(self):
+        self.write("stacks.json", {"stacks": [[8, 7]]})
+        self.write("auth_rerun.json", [{"pr": 7, "run": 556, "head": "0000000000"}])
+        self.rules([[r"^api repos/Example/Repo/pulls/8$", pull(8, "feat/eight"), 0],
+                    [r"^api repos/Example/Repo/actions/runs\?head_sha=0+8&event=pull_request", {"workflow_runs": []}, 0]])
+        watcher.configure(self.cfg())
+        st = {"queue": [{"pr": 9, "run": 900, "kind": "rerun"}], "holders": {}}
+        with mock.patch.object(watcher, "outage_hold", return_value=None), mock.patch.object(watcher, "review_gate", return_value=True), \
+                mock.patch.object(watcher, "_start_next", return_value=True) as nxt:
+            self.assertTrue(watcher.start_next(st))
+        nxt.assert_called_once()
+        self.assertFalse([c for c in self.calls() if c.startswith("run rerun")])
+
     def test_stack_rank_is_its_best_tier_then_chain_index(self):
         self.write("tiers.json", {"tiers": [[7]]})
         self.write("stacks.json", {"stacks": [[5, 7], [9, 8]]})
