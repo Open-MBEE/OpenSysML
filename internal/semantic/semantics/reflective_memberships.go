@@ -2,6 +2,7 @@ package semantics
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"slices"
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -12,9 +13,9 @@ import (
 // sym owns its members, in declaration order (KerML 8.3.2.5 Namespace::
 // ownedMembership): a synthesized OwningMembership — or the SysML membership
 // kind the member's declaration implies — per owned member, and an alias as
-// itself, since `alias` declares a Membership. An element owned through an
-// Annotation (prefix metadata, a relationship body's annotating element) has no
-// membership (KerML 8.2.3.3.1 OwnedAnnotation).
+// itself, since `alias` declares a Membership. A `#M` prefix's metadata feature
+// leads them (PrefixMetadataMember : OwningMembership); a relationship's
+// annotating element has no membership (KerML 8.2.3.3.1 OwnedAnnotation).
 func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil {
 		return nil
@@ -34,6 +35,24 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
 	ordinal := 0
+	for _, prefix := range m.prefixMetadataSymbols(sym) {
+		// A `#M` prefix precedes everything else the declaration states
+		// (SysML.xtext UsageExtensionKeyword, DefinitionExtensionKeyword, Package).
+		if ownedThroughAnnotation(sym, prefix) {
+			continue
+		}
+		seen[prefix] = true
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   prefix.DeclSpan,
+			Visibility: prefix.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: prefix,
+			},
+		})
+		ordinal++
+	}
 	if value != nil {
 		// The feature's value part declares a FeatureValue that owns the
 		// expression (KerML 8.3.3.3.5 Feature::valuation subsets ownedMembership),
@@ -212,35 +231,80 @@ func isSatisfySubjectSymbol(sym *symbols.Symbol) bool {
 }
 
 // ownedThroughAnnotation reports whether owner owns member through an
-// Annotation rather than a Membership: a `#M` prefix metadata feature, or an
-// annotating element in the body of a relationship or alias (KerML 8.2.3.3.1).
+// Annotation rather than a Membership: an annotating element in the body of a
+// relationship or alias (KerML 8.2.3.3.1), or a dependency's `#M` prefix
+// (PrefixMetadataAnnotation); a relationship is no namespace to own a membership.
 func ownedThroughAnnotation(owner, member *symbols.Symbol) bool {
-	if isPrefixMetadataSymbol(member) {
-		return true
-	}
-	return relationshipBodyOwner(owner) && isAnnotatingSymbol(member) && !symbols.AnnotatesOthers(member.Decl)
-}
-
-// isPrefixMetadataSymbol reports whether sym is the metadata feature a `#M`
-// prefix declares on the element it annotates (a body `@M;` is a member).
-func isPrefixMetadataSymbol(sym *symbols.Symbol) bool {
-	return sym.IsPrefixMetadata()
+	return relationshipBodyOwner(owner) && isAnnotatingSymbol(member) && !annotatesOthers(member)
 }
 
 // prefixMetadataSymbols is the metadata feature of each `#M` prefix written on
 // sym, in prefix order: the members the builder registered for them.
 func (m *Model) prefixMetadataSymbols(sym *symbols.Symbol) []*symbols.Symbol {
-	prefixes, _, ok := ast.DeclaredMetadata(sym.Decl)
-	if !ok || sym.Scope == nil {
+	if sym.Scope == nil {
 		return nil
 	}
 	var out []*symbols.Symbol
-	for _, prefix := range prefixes {
-		if member := sym.Scope.MemberDeclaring(prefix); member != nil {
+	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
+		if member.IsPrefixMetadata() && !slices.Contains(out, member) {
 			out = append(out, member)
 		}
-	}
+		return true
+	})
 	return out
+}
+
+// leadWithPrefixMetadata moves owner's own `#M` prefixes among members ahead
+// of the rest, both in order: a prefix's membership precedes everything else
+// its declaration owns (PrefixMetadataMember). An inherited prefix stays put.
+func leadWithPrefixMetadata(owner *symbols.Symbol, members []*symbols.Symbol) []*symbols.Symbol {
+	leads := func(member *symbols.Symbol) bool {
+		return member.IsPrefixMetadata() && member.OwnerScope != nil && member.OwnerScope.Owner() == owner
+	}
+	slices.SortStableFunc(members, func(a, b *symbols.Symbol) int {
+		switch {
+		case leads(a) == leads(b):
+			return 0
+		case leads(a):
+			return -1
+		}
+		return 1
+	})
+	return members
+}
+
+// ownedThroughFeatureMembership reports whether owner owns member through a
+// FeatureMembership, which is what makes member one of its features (KerML
+// 8.3.3.1.10 Type::ownedFeature, 8.3.3.3.4 Feature::owningType). Without the
+// metaclass library no membership is classified, so every member counts.
+func (m *Model) ownedThroughFeatureMembership(owner, member *symbols.Symbol) bool {
+	if owner == nil || member == nil {
+		return false
+	}
+	featureMembership := m.Metaclass("FeatureMembership")
+	if featureMembership == nil {
+		return true
+	}
+	meta := m.Metaclass(m.membershipMetaclassName(owner, member))
+	return meta != nil && m.Conforms(meta, featureMembership)
+}
+
+// forEachMemberPrefixFirst visits scope's registrations in the order their
+// memberships are written: the `#M` prefixes of the head, then the body's members.
+func forEachMemberPrefixFirst(scope *symbols.Scope, yield func(*symbols.Symbol) bool) {
+	more := true
+	scope.ForEachMember(func(member *symbols.Symbol) bool {
+		if member.IsPrefixMetadata() {
+			more = yield(member)
+		}
+		return more
+	})
+	if !more {
+		return
+	}
+	scope.ForEachMember(func(member *symbols.Symbol) bool {
+		return member.IsPrefixMetadata() || yield(member)
+	})
 }
 
 // isAnnotatingSymbol reports whether sym declares a KerML AnnotatingElement:
@@ -267,8 +331,8 @@ func relationshipBodyOwner(sym *symbols.Symbol) bool {
 
 // OwningMembership returns the Membership through which sym's owner owns it, or
 // nil for an element owned through no membership: a root element, an alias or
-// other relationship owned directly, a prefix metadata feature, or a reflected
-// relationship object.
+// other relationship owned directly, an annotating element a relationship owns
+// through an Annotation, or a reflected relationship object.
 func (m *Model) OwningMembership(sym *symbols.Symbol) *symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil || sym.Chain != nil || sym.Kind == symbols.SymbolAlias {
 		return nil
@@ -288,7 +352,7 @@ func (m *Model) OwningMembership(sym *symbols.Symbol) *symbols.Symbol {
 
 // OwningRelationship returns the relationship that owns sym (KerML 8.3.2.1
 // Element::owningRelationship): its owning membership, the Annotation that owns
-// a prefix metadata feature or a relationship body's annotating element, or
+// a relationship's prefix metadata feature or body annotating element, or
 // the relationship whose chain target it denotes; nil for an element owned
 // directly, such as a membership or alias, and for a root element.
 func (m *Model) OwningRelationship(sym *symbols.Symbol) *symbols.Symbol {
@@ -332,8 +396,9 @@ func (m *Model) OwnedImports(sym *symbols.Symbol) []*symbols.Symbol {
 }
 
 // OwnedRelationships returns the relationships sym owns (KerML 8.3.2.1
-// Element::ownedRelationship): the Annotations of its prefix metadata, the
-// relationship clauses written on it, and its body's imports, memberships and
+// Element::ownedRelationship): the memberships of its prefix metadata (the
+// Annotations, on a relationship), the relationship clauses written on it, and
+// its body's imports, memberships and
 // `about` annotations in source order.
 func (m *Model) OwnedRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil {
@@ -347,6 +412,11 @@ func (m *Model) OwnedRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 	if defaultMultiplicityFirst(sym) && len(memberships) > 0 && isDefaultMultiplicityMembership(memberships[0]) {
 		// `individual` and its empty Multiplicity precede the prefix metadata and the
 		// head's clauses (SysML.xtext OccurrenceDefinitionPrefix, DefinitionExtensionKeyword).
+		out = append(out, memberships[0])
+		memberships = memberships[1:]
+	}
+	for len(memberships) > 0 && memberships[0].Implicit != nil && memberships[0].Implicit.Member.IsPrefixMetadata() {
+		// A `#M` prefix's OwningMembership precedes the head's clauses (PrefixMetadataMember).
 		out = append(out, memberships[0])
 		memberships = memberships[1:]
 	}
@@ -373,7 +443,7 @@ func isDefaultMultiplicityMembership(membership *symbols.Symbol) bool {
 }
 
 func isPrefixAnnotation(ann *symbols.Symbol) bool {
-	return ann.Implicit.Member == nil || isPrefixMetadataSymbol(ann.Implicit.Member)
+	return ann.Implicit.Member == nil || ann.Implicit.Member.IsPrefixMetadata()
 }
 
 // implicitOwnedRelationships is OwnedRelationships for a reflected relationship
@@ -434,6 +504,13 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 		// SysML.xtext CalculationBody), as the conversion writes it.
 		return "FeatureMembership"
 	}
+	if member.Kind == symbols.SymbolMetadataUsage && !isMetadataBodyMember(member) {
+		// A metadata feature annotates the element that owns it through an
+		// OwningMembership, as a `#M` prefix or in its body (SysML.xtext
+		// PrefixMetadataMember, AnnotatingMember; KerML.xtext
+		// PrefixMetadataMember, NonFeatureMember), never as its feature.
+		return "OwningMembership"
+	}
 	if name := m.sysmlMembershipMetaclassName(owner, member); name != "" {
 		return name
 	}
@@ -484,14 +561,6 @@ func (m *Model) sysmlMembershipMetaclassName(owner, member *symbols.Symbol) stri
 	}
 	if isSatisfySubjectSymbol(member) {
 		return "SubjectMembership"
-	}
-	if isMetadataBodyMember(member) {
-		return ""
-	}
-	if member.Kind == symbols.SymbolMetadataUsage {
-		// A metadata usage in a body annotates the element owning the body
-		// through an OwningMembership (SysML.xtext AnnotatingMember).
-		return "OwningMembership"
 	}
 	if _, bare := member.Decl.(*ast.Usage); !bare && stateSubactionKind(member) != "" {
 		// A bare `entry;` performs an anonymous empty action (SysML.xtext EmptyActionUsage).

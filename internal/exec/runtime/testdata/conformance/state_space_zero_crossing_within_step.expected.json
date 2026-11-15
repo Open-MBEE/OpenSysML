@@ -1,0 +1,17 @@
+{
+  "type": "state",
+  "libraries": true,
+  "trace": true,
+  "evaluate": "test::Probe::passage",
+  "performers": [
+    {
+      "object": "test::probe",
+      "finalState": "beyond",
+      "stateVisits": ["outside", "inside", "beyond"],
+      "outputs": {
+        "entered": {"type": "Real", "value": 0.3},
+        "left": {"type": "Real", "value": 0.4}
+      }
+    }
+  ]
+}
