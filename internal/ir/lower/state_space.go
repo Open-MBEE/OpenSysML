@@ -327,6 +327,10 @@ func (dyn *StateSpaceDynamics) lowerCrossings(members map[string]*symbols.Symbol
 		}
 		crossing := ZeroCrossing{Name: member.Name, Event: member, EventType: eventType}
 		fields := memberIndex(model.MembersOf(member))
+		if terminal := fields[TerminalFeature]; terminal != nil {
+			crossing.Terminal, crossing.TerminalScope = model.ParameterDefault(terminal)
+		}
+		crossing.TerminalID = exprs.Intern(crossing.Terminal, scopeOr(crossing.TerminalScope, dyn.Scope))
 		guard := fields[GuardFeature]
 		if guard == nil {
 			crossing.Derivative = true
@@ -337,11 +341,7 @@ func (dyn *StateSpaceDynamics) lowerCrossings(members map[string]*symbols.Symbol
 			return fmt.Errorf("%w: zero crossing %s of action %s binds no guard",
 				ErrUnsupportedStateSpace, member.Name, dyn.Action.Name)
 		}
-		if terminal := fields[TerminalFeature]; terminal != nil {
-			crossing.Terminal, crossing.TerminalScope = model.ParameterDefault(terminal)
-		}
 		crossing.GuardID = exprs.Intern(crossing.Guard, scopeOr(crossing.GuardScope, dyn.Scope))
-		crossing.TerminalID = exprs.Intern(crossing.Terminal, scopeOr(crossing.TerminalScope, dyn.Scope))
 		dyn.Crossings = append(dyn.Crossings, crossing)
 	}
 	return nil

@@ -20,7 +20,7 @@ func TestToFeatureFlows(t *testing.T) {
 		}
 	}`
 	sym, _, _ := stateSpaceAction(t, src, "Context")
-	flows := ToFeatureFlows(sym.Decl)
+	flows := ToFeatureFlows(sym.Decl, sym.Scope)
 	if len(flows) != 2 {
 		t.Fatalf("flows = %d, want the two streaming flows between paths", len(flows))
 	}

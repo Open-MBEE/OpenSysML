@@ -715,38 +715,58 @@ func (ctx *Context) objectFlows(typeSym *symbols.Symbol) []lower.FeatureFlow {
 		if decl == nil || ctx.libraryDeclared(decl) {
 			continue
 		}
-		flows = append(flows, lower.ToFeatureFlows(decl.Decl)...)
+		flows = append(flows, lower.ToFeatureFlows(decl.Decl, DeclScope(decl))...)
 	}
 	ctx.model.flowIR[typeSym] = flows
 	return flows
 }
 
-// inputFlows are the flows the performer and the objects owning it declare into
-// the performed action's input (`flow pusher.push.output to cart.roll.input`).
+// inputFlows are the flows the performer and the objects owning it declare into the
+// performed action's input (`flow pusher.push.output to cart.roll.input`), under the
+// action's name or one it redefines; a flow stated `[0]` carries nothing and is none.
 func (e *ActionExecutor) inputFlows() []inputFeed {
 	if e.performed == nil || e.self == nil {
 		return nil
 	}
+	names := map[string]bool{e.performed.Name: true}
+	for _, typ := range e.self.types() {
+		for _, redefined := range e.ctx.redefinedFeatures(e.performed, typ) {
+			names[redefined.Name] = true
+		}
+	}
 	var feeds []inputFeed
 	seen := make(map[*ast.Usage]bool)
-	target := []string{e.performed.Name, lower.InputFeature}
+	var below []string
 	for current := e.self; current != nil; {
 		for _, typ := range current.types() {
 			for _, flow := range e.ctx.objectFlows(typ) {
-				if !seen[flow.Decl] && slices.Equal(flow.Target, target) {
-					seen[flow.Decl] = true
-					feeds = append(feeds, inputFeed{FeatureFlow: flow, on: current})
+				if seen[flow.Decl] || !flowsInto(flow.Target, below, names) || e.ctx.flowCarriesNothing(flow) {
+					continue
 				}
+				seen[flow.Decl] = true
+				feeds = append(feeds, inputFeed{FeatureFlow: flow, on: current})
 			}
 		}
 		owner, ownerFeature := current.Owner()
 		if owner == nil || ownerFeature == "" {
 			break
 		}
-		target = append([]string{ownerFeature}, target...)
+		below = append([]string{ownerFeature}, below...)
 		current = owner
 	}
 	return feeds
+}
+
+// flowsInto reports a target path that walks below, then an action of one of names, to its input.
+func flowsInto(target, below []string, names map[string]bool) bool {
+	n := len(below)
+	return len(target) == n+2 && slices.Equal(target[:n], below) && names[target[n]] && target[n+1] == lower.InputFeature
+}
+
+// flowCarriesNothing reports a flow whose own multiplicity admits no flow at all.
+func (ctx *Context) flowCarriesNothing(flow lower.FeatureFlow) bool {
+	r, ok := ctx.model.semantics.RangeIn(flow.Scope, flow.Multiplicity)
+	return ok && r.Upper.Known && !r.Upper.Infinite && r.Upper.Value == 0
 }
 
 // flowedInput is the input a flow carries from its source as that stands now, written to the
@@ -789,33 +809,24 @@ func (e *ActionExecutor) carriedInput() (*Value, error) {
 }
 
 // flowSourceValue reads the feature a flow leaves, from the object declaring the flow down
-// its source path: a live performance answers from its own features, any other object from
-// its feature value. held is false where an object on the way, or the feature, holds nothing yet.
+// its source path: an action the object reached performs answers from its performance under
+// way, any other feature from its value. held is false where the source holds nothing.
 func (ctx *Context) flowSourceValue(feed inputFeed) (Value, bool, error) {
 	holder := feed.on
-	for _, name := range feed.Source[:len(feed.Source)-1] {
-		fv, err := holder.MemberValue(ctx, name)
-		if err != nil {
+	path := feed.Source
+	for ; len(path) > 1; path = path[1:] {
+		if len(path) == 2 {
+			if val, held, performs, err := ctx.performedFeatureValue(holder, path[0], path[1]); performs {
+				return val, held, err
+			}
+		}
+		next, held, err := ctx.flowSourceObject(holder, path[0])
+		if err != nil || !held {
 			return Value{}, false, err
-		}
-		held := soleElement(fv.HeldValue())
-		if held.Kind == ValNull || held.Kind == ValInvalid {
-			return Value{}, false, nil
-		}
-		id, isObject := held.Object()
-		next, found := ctx.Instance(id)
-		if !isObject || !found {
-			return Value{}, false, fmt.Errorf("%w: %s holds %s, not one object", errBindingEnd, name, DescribeValue(held))
 		}
 		holder = next
 	}
-	feature := feed.Source[len(feed.Source)-1]
-	for _, exec := range ctx.actionExecutors {
-		if exec.occurrence == holder {
-			return ctx.readBodyValue(exec.root.cells, exec.root.data, exec.root.key(feature))
-		}
-	}
-	fv, err := holder.MemberValue(ctx, feature)
+	fv, err := holder.MemberValue(ctx, path[0])
 	if errors.Is(err, ErrNoValue) {
 		return Value{}, false, nil
 	}
@@ -824,4 +835,49 @@ func (ctx *Context) flowSourceValue(feed inputFeed) (Value, bool, error) {
 	}
 	val := fv.HeldValue()
 	return val, val.Kind != ValInvalid, nil
+}
+
+// flowSourceObject is the one object a feature of holder holds, held false while it holds nothing.
+func (ctx *Context) flowSourceObject(holder *Instance, name string) (*Instance, bool, error) {
+	fv, err := holder.MemberValue(ctx, name)
+	if errors.Is(err, ErrNoValue) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	held := soleElement(fv.HeldValue())
+	if held.Kind == ValNull || held.Kind == ValInvalid {
+		return nil, false, nil
+	}
+	id, isObject := held.Object()
+	next, found := ctx.Instance(id)
+	if !isObject || !found {
+		return nil, false, fmt.Errorf("%w: %s holds %s, not one object", errBindingEnd, name, DescribeValue(held))
+	}
+	return next, true, nil
+}
+
+// performedFeatureValue reads feature of the action holder performs as action: from its
+// performance under way, held false when none is (none has begun, or it has ended, and
+// writes nothing). performs is false where action names no action of holder.
+func (ctx *Context) performedFeatureValue(holder *Instance, action, feature string) (val Value, held, performs bool, err error) {
+	fv, declared := holder.FeatureValues[action]
+	if !declared || fv.Feature == nil || fv.Feature.Symbol == nil || !fv.Feature.Symbol.Kind.IsAction() {
+		return Value{}, false, false, nil
+	}
+	for _, exec := range ctx.actionExecutors {
+		if exec.self == holder && exec.performed != nil && exec.performed.Name == action {
+			// Dynamics write their output as each step settles; before the first it holds none.
+			if exec.dynamicsKind != lower.NotStateSpace && feature == lower.OutputFeature && (exec.dynamics == nil || !exec.dynamics.settled()) {
+				return Value{}, false, true, nil
+			}
+			val, held, err = ctx.readBodyValue(exec.root.cells, exec.root.data, exec.root.key(feature))
+			if errors.Is(err, ErrNoValue) {
+				return Value{}, false, true, nil
+			}
+			return val, held, true, err
+		}
+	}
+	return Value{}, false, true, nil
 }

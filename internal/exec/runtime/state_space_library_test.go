@@ -73,8 +73,14 @@ func coupledDynamics(connect, inside string) string {
 // integrator's performance with the error it failed with, if any.
 func runCoupled(t *testing.T, src string) (*ActionExecutor, error) {
 	t.Helper()
+	return runCoupledIn(t, src, "test::site")
+}
+
+// runCoupledIn is runCoupled over the object declared as object, a site or one specializing it.
+func runCoupledIn(t *testing.T, src, object string) (*ActionExecutor, error) {
+	t.Helper()
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
-	site := performerObject(t, ctx, idx, "test::site")
+	site := performerObject(t, ctx, idx, object)
 	if _, err := ctx.Advance(3); err != nil {
 		t.Fatalf("advance: %v", err)
 	}
@@ -112,6 +118,83 @@ func TestStateSpaceFlowCarriesTheOutputToTheInput(t *testing.T) {
 	}
 	if results["flow"] != results["binding"] {
 		t.Errorf("flow ended at %s, binding at %s", results["flow"], results["binding"])
+	}
+}
+
+// A flow stated `[0]` carries nothing: beside the one that does, it is no second flow into the input.
+func TestStateSpaceFlowOfNoneIsNoFlow(t *testing.T) {
+	sum, err := runCoupled(t, coupledDynamics(`
+		flow source.ramp.output to sink.sum.input;
+		flow none [0] from source.label to sink.sum.input;`, ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := FormatValue(sum.Results()["stateSpace"]), "⟨3.0⟩"; got != want {
+		t.Errorf("the integrator ended at %s, want %s", got, want)
+	}
+}
+
+// A flow into an action an inheriting object performs under another name, redefining
+// it, is still the flow into that action's input.
+func TestStateSpaceFlowIntoARedefinedAction(t *testing.T) {
+	src := coupledDynamics("flow source.ramp.output to sink.sum.input;", "")
+	src = strings.Replace(src, "part site {", "part def Site {", 1)
+	src = src[:strings.LastIndex(src, "}")] + `
+		part later : Later;
+		part def Later :> Site {
+			part :>> sink {
+				perform action total :>> sum {
+					in :>> input;
+					:>> stateSpace = VectorOf((0.0));
+					out :>> output;
+					calc :>> getDerivative {
+						in input : Input;
+						in stateSpace : StateSpace;
+						return : StateDerivative = input / 1 [s];
+					}
+					calc :>> getOutput {
+						in input : Input;
+						in stateSpace : StateSpace;
+						return : Output = 1.0 * stateSpace;
+					}
+				}
+			}
+		}
+	}`
+	total, err := runCoupledIn(t, src, "test::later")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Which of the two steps first at an instant is open: the integrator holds the ramp's
+	// output from the start of each step (3) or from its end, the last carried once it ended (4.5).
+	if got := FormatValue(total.Results()["stateSpace"]); got != "⟨3.0⟩" && got != "⟨4.5⟩" {
+		t.Errorf("the integrator ended at %s, want ⟨3.0⟩ or ⟨4.5⟩", got)
+	}
+}
+
+// A guardless crossing whose type states terminal ends the dynamics at the step that detected it.
+func TestStateSpaceDerivativeCrossingEndsATerminalRun(t *testing.T) {
+	src, err := os.ReadFile(filepath.Join("testdata", "conformance", "state_space_derivative_zero_crossing.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	model := strings.Replace(string(src), "action def Apex :> ZeroCrossingEventDef;",
+		"action def Apex :> ZeroCrossingEventDef { attribute terminal : Boolean = true; }", 1)
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, model))
+	ball := performerObject(t, ctx, idx, "test::ball")
+	if _, err := ctx.Advance(3); err != nil {
+		t.Fatalf("advance: %v", err)
+	}
+	for _, behavior := range ball.Behaviors() {
+		if behavior.Action == nil {
+			continue
+		}
+		if behavior.Err != nil {
+			t.Fatal(behavior.Err)
+		}
+		if got, want := FormatValue(behavior.Action.Results()["stateSpace"]), "⟨2.5, -2.5⟩"; got != want {
+			t.Errorf("the flight ended at %s, want %s, the state at its apex", got, want)
+		}
 	}
 }
 

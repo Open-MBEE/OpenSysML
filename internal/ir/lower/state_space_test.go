@@ -360,6 +360,7 @@ func TestStateSpaceDynamicsUnsupportedShapes(t *testing.T) {
 func TestStateSpaceDerivativeCrossingLowering(t *testing.T) {
 	src := `package test {` + stateSpacePrelude + `
 		action def Apex :> ZeroCrossingEventDef;
+		action def Ending :> ZeroCrossingEventDef { attribute terminal : Boolean = true; }
 		action def Saturation :> StateSpaceEventDef;
 
 		action flight : ContinuousStateSpaceDynamics, FixedStepDynamics {
@@ -369,6 +370,7 @@ func TestStateSpaceDerivativeCrossingLowering(t *testing.T) {
 			event occurrence plain : ZeroCrossingEventDef;
 			event occurrence subset :> zeroCrossingEvents;
 			event occurrence saturated : Saturation;
+			event occurrence ending : Ending;
 			event occurrence guarded : ZeroCrossing {
 				:>> guard = stateSpace.elements#(1);
 			}
@@ -396,6 +398,9 @@ func TestStateSpaceDerivativeCrossingLowering(t *testing.T) {
 	var got []crossing
 	for _, c := range dyn.Crossings {
 		got = append(got, crossing{c.Name, c.EventType.Name, c.Derivative})
+		if c.Name == "ending" && c.Terminal == nil {
+			t.Errorf("crossing %s: terminal = %v", c.Name, c.Terminal)
+		}
 		if c.Derivative != (c.Guard == nil) {
 			t.Errorf("crossing %s: derivative = %v with guard %v", c.Name, c.Derivative, c.Guard)
 		}
@@ -404,6 +409,7 @@ func TestStateSpaceDerivativeCrossingLowering(t *testing.T) {
 		{"apex", "Apex", true},
 		{"plain", "ZeroCrossingEventDef", true},
 		{"subset", "ZeroCrossingEventDef", true},
+		{"ending", "Ending", true},
 		{"guarded", "ZeroCrossing", false},
 	}
 	if !slices.Equal(got, want) {
