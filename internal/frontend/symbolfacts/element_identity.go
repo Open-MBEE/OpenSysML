@@ -126,7 +126,10 @@ func (sc *Context) LookupElement(id string) []*symbols.Symbol {
 	if syms := sc.Lookup(id); len(syms) > 0 {
 		return syms
 	}
-	return sc.unnamedEnds(id)
+	if syms := sc.unnamedEnds(id); len(syms) > 0 {
+		return syms
+	}
+	return sc.escapedRoots(id)
 }
 
 // unnamedEnds finds the unnamed connector ends id is the element id of.
@@ -207,11 +210,39 @@ func (sc *Context) formElements(id string) []*symbols.Symbol {
 	return nil
 }
 
-// generatedSpells reports whether the element form writes an element other than sym under the
-// `@id` identity spells, which only a root declaration's can be: an `@id` holds no `::`.
+// generatedSpells reports whether an element other than sym has the generated `@id` identity
+// spells, which only a root declaration's can be: an `@id` holds no `::`.
 func (sc *Context) generatedSpells(identity string, sym *symbols.Symbol) bool {
 	if strings.Contains(identity, "::") || !strings.Contains(identity, "_") {
 		return false
 	}
-	return slices.ContainsFunc(sc.formElements(identity), func(other *symbols.Symbol) bool { return other != sym })
+	other := func(found *symbols.Symbol) bool { return found != sym }
+	if sc.elementForm() == nil {
+		return slices.ContainsFunc(sc.composedEnds(identity), other)
+	}
+	return slices.ContainsFunc(sc.formElements(identity), other)
+}
+
+// escapedID is the `@id` the element form gives sym, declared as identity: the form's own, or
+// the encoding it writes for a root declaration where the host converts no form.
+func (sc *Context) escapedID(sym *symbols.Symbol, identity string) string {
+	if sc.elementForm() == nil {
+		return rdf.EncodeElementID(identity)
+	}
+	return sc.FormID(sym)
+}
+
+// escapedRoots are the root declarations escapedID reports under id on a host converting no form.
+func (sc *Context) escapedRoots(id string) []*symbols.Symbol {
+	name, ok := rdf.DecodeElementID(id)
+	if !ok || sc.elementForm() != nil {
+		return nil
+	}
+	var found []*symbols.Symbol
+	for _, sym := range LookupNamed(sc.Index, name) {
+		if sc.Identity(sym) == id {
+			found = append(found, sym)
+		}
+	}
+	return found
 }

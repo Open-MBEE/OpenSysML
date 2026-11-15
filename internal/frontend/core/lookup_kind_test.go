@@ -15,7 +15,9 @@ func TestGetSymbolReadsTheStatedLookupKind(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 	ctx := context.Background()
-	content := `package Col { part def W { part a; part b; part { part inner; } part '@2' { part named; } } }`
+	content := `package Col { part def W { part a; part b; part { part inner; } part '@2' { part named; } } }
+package Col__V__c_pend0 { part marker; }
+package Col { port def P; part def V { port q : P; port r : P; connection c connect q to r; } }`
 	params, _ := json.Marshal(&JParseSourcesRequest{Documents: []*JSourceDocument{{Content: &content}}})
 	body, err := c.Call(ctx, "ParseSources", params)
 	if err != nil {
@@ -31,6 +33,11 @@ func TestGetSymbolReadsTheStatedLookupKind(t *testing.T) {
 		{"Col::W::'@2'", "LOOKUP_KIND_QUALIFIED_NAME", "Col::W::'@2'", ""},
 		{"Col::W::@2::inner", "LOOKUP_KIND_QUALIFIED_NAME", "", "symbol not found: Col::W::@2::inner"},
 		{"Col::W::@2", "", "Col::W::'@2'", ""},
+		{"Col__V__c_pend0", "LOOKUP_KIND_ELEMENT_ID", "Col__V__c_pend0", ""},
+		{"Col__V__c_pend0", "LOOKUP_KIND_QUALIFIED_NAME", "Col_5f_5fV_5f_5fc_5fpend0", ""},
+		{"Col__V__c_pend0", "", "Col_5f_5fV_5f_5fc_5fpend0", ""},
+		{"Col_5f_5fV_5f_5fc_5fpend0", "LOOKUP_KIND_ELEMENT_ID", "Col_5f_5fV_5f_5fc_5fpend0", ""},
+		{"Col_5f_5fV_5f_5fc_5fpend0", "LOOKUP_KIND_QUALIFIED_NAME", "", "symbol not found: Col_5f_5fV_5f_5fc_5fpend0"},
 		{"Col::W::@2", "LOOKUP_KIND_UNSPECIFIED", "Col::W::'@2'", ""},
 	} {
 		request := fmt.Sprintf(`{"modelHash":%q,"symbolId":%q,"lookup":%q}`, parsed.ModelHash, tc.symbolID, tc.lookup)

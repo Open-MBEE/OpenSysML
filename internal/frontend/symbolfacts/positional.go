@@ -151,8 +151,8 @@ func (p *Positional) Symbol(id string) *symbols.Symbol {
 func (sc *Context) Identity(sym *symbols.Symbol) string {
 	identity := sc.OwnIdentity(sym)
 	if identity != "" && sc.generatedSpells(identity, sym) {
-		if formID := sc.FormID(sym); formID != "" {
-			return formID
+		if escaped := sc.escapedID(sym, identity); escaped != "" {
+			return escaped
 		}
 	}
 	return identity
@@ -210,7 +210,10 @@ func (sc *Context) LookupID(id string) []*symbols.Symbol {
 	if syms := sc.formElements(id); len(syms) > 0 {
 		return syms
 	}
-	return sc.composedEnds(id)
+	if syms := sc.composedEnds(id); len(syms) > 0 {
+		return syms
+	}
+	return sc.escapedRoots(id)
 }
 
 // LookupMember is Lookup, with a name no declaration answers to walked as a
@@ -302,7 +305,10 @@ func (sc *Context) reported(id string) []*symbols.Symbol {
 	if syms := sc.generated(id); len(syms) > 0 {
 		return syms
 	}
-	return sc.formElements(id)
+	if syms := sc.formElements(id); len(syms) > 0 {
+		return syms
+	}
+	return sc.escapedRoots(id)
 }
 
 // unnamed finds the element a positional id denotes.
