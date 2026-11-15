@@ -1,0 +1,184 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Import visibility="private" all=false kind=namespace recursive=false imported="SI" filtered=false)
+      (Import visibility="private" all=false kind=namespace recursive=false imported="VectorFunctions" filtered=false)
+      (Import visibility="private" all=false kind=namespace recursive=false imported="StateSpaceRepresentation" filtered=false)
+      (Import visibility="private" all=false kind=namespace recursive=false imported="StateSpaceIntegration" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="attribute" abstract=false variation=false name="ProbeState"
+          (Relationship kind="specializes" target=StateSpace
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Definition kind="attribute" abstract=false variation=false name="ProbeInput"
+          (Relationship kind="specializes" target=Input
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Definition kind="attribute" abstract=false variation=false name="ProbeOutput"
+          (Relationship kind="specializes" target=Output
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Probe"
+          (Membership visibility="default"
+            (Definition kind="action" abstract=false variation=false name="InBand"
+              (Relationship kind="specializes" target=ZeroCrossing
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="action" name="advance" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="perform"
+              (Relationship kind="typing" target=ContinuousStateSpaceDynamics
+                (*ast.QualifiedName))
+              (Relationship kind="typing" target=FixedStepDynamics
+                (*ast.QualifiedName))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="redefines" target=input
+                    (*ast.QualifiedName))
+                  (Relationship kind="typing" target=ProbeInput
+                    (*ast.QualifiedName))
+                  (InvocationExpr type="VectorOf"
+                    (LiteralReal value="1.0"))))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="redefines" target=stateSpace
+                    (*ast.QualifiedName))
+                  (Relationship kind="typing" target=ProbeState
+                    (*ast.QualifiedName))
+                  (InvocationExpr type="VectorOf"
+                    (LiteralReal value="0.0"))))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="redefines" target=output
+                    (*ast.QualifiedName))
+                  (Relationship kind="typing" target=ProbeOutput
+                    (*ast.QualifiedName))))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="redefines" target=timeStep
+                    (*ast.QualifiedName))
+                  (IndexExpr bracket=true
+                    (LiteralInteger value="1")
+                    (FeatureReference name="s"))))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="redefines" target=stopTime
+                    (*ast.QualifiedName))
+                  (IndexExpr bracket=true
+                    (LiteralInteger value="2")
+                    (FeatureReference name="s"))))
+              (Membership visibility="default"
+                (Usage kind="occurrence" name="band" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=InBand
+                    (*ast.QualifiedName))
+                  (Membership visibility="default"
+                    (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                      (Relationship kind="redefines" target=guard
+                        (*ast.QualifiedName))
+                      (OperatorExpr operator="*"
+                        (OperatorExpr operator="-"
+                          (IndexExpr
+                            (FeatureChainExpr member="elements"
+                              (FeatureReference name="stateSpace"))
+                            (LiteralInteger value="1"))
+                          (LiteralReal value="0.3"))
+                        (OperatorExpr operator="-"
+                          (IndexExpr
+                            (FeatureChainExpr member="elements"
+                              (FeatureReference name="stateSpace"))
+                            (LiteralInteger value="1"))
+                          (LiteralReal value="0.4")))))))
+              (Membership visibility="default"
+                (Usage kind="calc" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="redefines" target=getDerivative
+                    (*ast.QualifiedName))
+                  (Membership visibility="default"
+                    (Usage kind="attribute" name="input" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                      (Relationship kind="typing" target=ProbeInput
+                        (*ast.QualifiedName))))
+                  (Membership visibility="default"
+                    (Usage kind="attribute" name="stateSpace" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                      (Relationship kind="typing" target=ProbeState
+                        (*ast.QualifiedName))))
+                  (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                    (Relationship kind="typing" target=StateDerivative
+                      (*ast.QualifiedName))
+                    (OperatorExpr operator="/"
+                      (InvocationExpr type="VectorOf"
+                        (IndexExpr
+                          (FeatureChainExpr member="elements"
+                            (FeatureReference name="input"))
+                          (LiteralInteger value="1")))
+                      (IndexExpr bracket=true
+                        (LiteralInteger value="1")
+                        (FeatureReference name="s"))))))
+              (Membership visibility="default"
+                (Usage kind="calc" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="redefines" target=getOutput
+                    (*ast.QualifiedName))
+                  (Membership visibility="default"
+                    (Usage kind="attribute" name="input" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                      (Relationship kind="typing" target=ProbeInput
+                        (*ast.QualifiedName))))
+                  (Membership visibility="default"
+                    (Usage kind="attribute" name="stateSpace" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                      (Relationship kind="typing" target=ProbeState
+                        (*ast.QualifiedName))))
+                  (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                    (Relationship kind="typing" target=ProbeOutput
+                      (*ast.QualifiedName))
+                    (InvocationExpr type="VectorOf"
+                      (IndexExpr
+                        (FeatureChainExpr member="elements"
+                          (FeatureReference name="stateSpace"))
+                        (LiteralInteger value="1"))))))))
+          (Membership visibility="default"
+            (Usage kind="state" name="passage" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="entered" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Real
+                    (*ast.QualifiedName))
+                  (LiteralReal value="0.0")))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="left" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Real
+                    (*ast.QualifiedName))
+                  (LiteralReal value="0.0")))
+              (EntryMember)
+              (SuccessionEdge source="@entry" target="outside")
+              (SubstateMember name="outside")
+              (TransitionMember source="outside" target="inside"
+                (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=InBand
+                    (*ast.QualifiedName))))
+              (TransitionMember source="outside" target="missed"
+                (TimeEvent absolute=false
+                  (IndexExpr bracket=true
+                    (LiteralInteger value="10")
+                    (FeatureReference name="s"))))
+              (SubstateMember name="missed")
+              (Membership visibility="default"
+                (Usage kind="state" name="inside" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (EntryMember
+                    (Membership visibility="default"
+                      (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="entry"
+                        (*ast.AssignmentActionNode))))))
+              (TransitionMember source="inside" target="beyond"
+                (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=InBand
+                    (*ast.QualifiedName))))
+              (TransitionMember source="inside" target="stuck"
+                (TimeEvent absolute=false
+                  (IndexExpr bracket=true
+                    (LiteralInteger value="10")
+                    (FeatureReference name="s"))))
+              (SubstateMember name="stuck")
+              (Membership visibility="default"
+                (Usage kind="state" name="beyond" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (EntryMember
+                    (Membership visibility="default"
+                      (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="entry"
+                        (*ast.AssignmentActionNode))))))))))
+      (Membership visibility="default"
+        (Usage kind="part" name="probe" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Probe
+            (*ast.QualifiedName)))))))

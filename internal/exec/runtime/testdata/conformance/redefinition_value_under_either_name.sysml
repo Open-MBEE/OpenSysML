@@ -2,7 +2,9 @@
 // under either name is the value both names read, however many names the chain
 // of redefinitions gives it and whichever declaration wrote it. The redefinition
 // hides the base name from its owner's members, so writing under that name
-// qualifies it and reading under it goes through a base-typed reference.
+// qualifies it and reading under it goes through a base-typed reference. A usage
+// redefining the base feature directly loses the inherited redefinitions of it
+// too (KerML 1.1 §8.3.3.1.10), so their names are read through a typed reference.
 package test {
     private import ScalarValues::Real;
 
@@ -25,8 +27,10 @@ package test {
         attribute redefiningBase : Real = onRedefiningAsRing.ringCost;
         ref onBaseAsRing : Ring = onBase;
         attribute baseName : Real = onBaseAsRing.ringCost;
-        attribute baseRedefining : Real = onBase.bandCost;
-        attribute deep : Real = renamedTwice.deluxeCost;
+        ref onBaseAsBand : Band = onBase;
+        attribute baseRedefining : Real = onBaseAsBand.bandCost;
+        ref renamedTwiceAsDeluxe : Deluxe = renamedTwice;
+        attribute deep : Real = renamedTwiceAsDeluxe.deluxeCost;
         attribute throughFamily : Real = configured.band.bandCost;
     }
 }
