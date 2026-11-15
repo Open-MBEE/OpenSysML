@@ -5678,10 +5678,8 @@ func (e *Evaluator) structureTypeEndFeatures(element Element, visited map[Elemen
 	return values, redefinedByOthers, true
 }
 
-// structureGeneralEndFeatures lists Type::endFeature of each supertype of element (KerML 8.3.3.1.10
-// supertypes: the original type of a conjugated type, else the general types), in their order, the
-// ends of each that element can inherit, which leaves out the private ones, and what the features of
-// those supertypes redefine.
+// structureGeneralEndFeatures lists each supertype's Type::endFeature, the non-private ones of them
+// that element inherits, and what the supertypes' features redefine (KerML 8.3.3.1.10 supertypes).
 func (e *Evaluator) structureGeneralEndFeatures(
 	element Element,
 	visited map[ElementKey]bool,
