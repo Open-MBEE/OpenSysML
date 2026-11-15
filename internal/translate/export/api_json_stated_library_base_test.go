@@ -110,3 +110,43 @@ func TestAPIJSONEndFeatureCompletesOwnedEndsWithInheritedOnes(t *testing.T) {
 		t.Errorf("plain.endFeature = %v, want none", got)
 	}
 }
+
+// An inherited end a feature of the type redefines is not one of its features, so not one of its
+// ends either, whether or not the redefining feature is an end (KerML 8.3.3.1.10 deriveTypeEndFeature).
+func TestAPIJSONEndFeatureLeavesOutRedefinedInheritedEnds(t *testing.T) {
+	graph := duplicateGraph(t, `package Probe {
+		part def A;
+		part def D {
+			end part one : A;
+			end part two : A;
+		}
+		part def E :> D {
+			constant part :>> one;
+		}
+		part def F :> E {
+			end part mine : A;
+		}
+		part def G :> D;
+		part def H :> F, G;
+	}`, IDQualifiedName)
+	document, err := WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	elements := booleansElements(t, document)
+	first, second, mine := "Probe__D__one", "Probe__D__two", "Probe__F__mine"
+	for name, want := range map[string][]string{
+		"Probe__D": {first, second},
+		"Probe__E": {second},
+		"Probe__F": {mine},
+		"Probe__G": {first, second},
+		"Probe__H": {mine},
+	} {
+		if got := referenceIDs(t, elements[name], "endFeature"); !slices.Equal(got, want) {
+			t.Errorf("%s.endFeature = %v, want %v", name, got, want)
+		}
+	}
+	if inherited := referenceIDs(t, elements["Probe__F"], "inheritedFeature"); slices.Contains(inherited, second) {
+		t.Error("F.inheritedFeature keeps D::two, which F::mine redefines by end position")
+	}
+}

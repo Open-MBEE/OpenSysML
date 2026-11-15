@@ -1,6 +1,7 @@
 package metamodel
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -228,7 +229,8 @@ func membershipKind(sym *symbols.Symbol) string {
 		return "EndFeatureMembership"
 	}
 	owner := sym.Owner()
-	if sym.IsFeature() && isType(owner) {
+	// A type owns its multiplicity through an OwningMembership (KerML 8.3.3.1.10 Type::multiplicity).
+	if sym.IsFeature() && isType(owner) && !semantics.IsImpliedMultiplicity(sym) {
 		if ownerUsage, ok := owner.Decl.(*ast.Usage); ok && ownerUsage.IsVariant {
 			return "VariantMembership"
 		}
@@ -238,7 +240,7 @@ func membershipKind(sym *symbols.Symbol) string {
 }
 
 func isFeatureMembership(sym, owner *symbols.Symbol) bool {
-	if sym == nil || !sym.IsFeature() || !isType(owner) {
+	if sym == nil || !sym.IsFeature() || !isType(owner) || semantics.IsImpliedMultiplicity(sym) {
 		return false
 	}
 	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.IsVariant {
