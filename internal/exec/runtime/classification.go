@@ -47,7 +47,13 @@ func (ctx *Context) classifyValueReading(
 	if err != nil && len(declared) == 0 {
 		return semantics.ClassifiesNone, err
 	}
-	known := append(append(make([]*symbols.Symbol, 0, len(declared)+len(types)), declared...), types...)
+	known := append(append(make([]*symbols.Symbol, 0, len(declared)+len(types)+1), declared...), types...)
+	// The quantity value type a quantity is held as is a type of it, though not its own,
+	// as the type a feature declares of a scalar is not.
+	kind := value.QuantityKind()
+	if kind != nil {
+		known = append(known, kind)
+	}
 	verdict := ctx.model.semantics.ClassifiesTypes(known, target)
 	if verdict == semantics.ClassifiesNone && isScalar(value) {
 		// A scalar type beside the value's own (`Cost :> Real` beside Rational) may hold it.
@@ -63,7 +69,7 @@ func (ctx *Context) classifyValueReading(
 	}
 	// A quantity held as a quantity value type is of no type unrelated to it, whatever
 	// wider type the feature it is read through declares (SysML v2 §9.8.9.1).
-	if kind := value.QuantityKind(); kind != nil &&
+	if kind != nil &&
 		ctx.model.semantics.ClassifiesTypes([]*symbols.Symbol{kind}, target) == semantics.ClassifiesNone {
 		return semantics.ClassifiesNone, nil
 	}
@@ -171,9 +177,6 @@ func (ctx *Context) valueTypes(scope *symbols.Scope, value Value) ([]*symbols.Sy
 		}
 		return []*symbols.Symbol{evaluation}, nil
 	case ValQuantity:
-		if kind := value.QuantityKind(); kind != nil {
-			return []*symbols.Symbol{kind}, nil
-		}
 		quantity, err := ctx.loadedLibraryType(scalarQuantityTypeFQN)
 		if err != nil {
 			return nil, err

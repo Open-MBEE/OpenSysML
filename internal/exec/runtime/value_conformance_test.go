@@ -683,7 +683,7 @@ func TestQuantityHeldAsAKindIsRefusedByASiblingKind(t *testing.T) {
 	inst := instantiateNamed(t, ctx, idx, "test::p")
 	for feature, want := range map[string]string{
 		"work": "5 [J]", "widened": "5 [J]", "general": "5 [J]", "computed": "10 [SI::'N⋅m']", "constructed": "5 [SI::'N⋅m']",
-		"isEnergy": "true", "isTorque": "false", "hasEnergy": "true", "workIsEnergy": "true",
+		"isEnergy": "true", "isTorque": "false", "hasEnergy": "false", "workIsEnergy": "true",
 		"workHasEnergy": "false", "same": "true",
 	} {
 		fv, err := inst.GetFeatureValue(ctx, feature)
@@ -781,7 +781,7 @@ func TestAdoptCarriesTheQuantityKindAWrittenQuantityIsHeldAs(t *testing.T) {
 		t.Errorf("any is held as %v, want the Work declared by the re-analysis", kind)
 	}
 	scope := lookupOne(t, ctx.Resolver().Index(), "Demo").Scope
-	for expr, want := range map[string]string{"engine.any hastype Work": "true", "engine.any istype Heat": "false"} {
+	for expr, want := range map[string]string{"engine.any istype Work": "true", "engine.any istype Heat": "false", "engine.any hastype Work": "false"} {
 		got, err := evalIn(t, ctx, scope, expr)
 		if err != nil || FormatValue(got) != want {
 			t.Errorf("%s after the carry-over = %s, %v; want %s", expr, FormatValue(got), err, want)
