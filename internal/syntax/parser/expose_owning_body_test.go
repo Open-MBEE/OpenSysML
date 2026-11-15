@@ -8,9 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// Expose is an alternative of ViewBodyItem alone (SysML v2 8.2.2.26.2), so only a
-// view usage owns one (8.3.26.2 validateExposeOwningNamespace):
-// ViewDefinitionBodyItem offers a filter and a rendering, and no Expose.
+// Expose is an alternative of ViewBodyItem alone, not of ViewDefinitionBodyItem
+// (SysML v2 8.2.2.26.2), so only a view usage owns one (8.3.26.2).
 func TestExposeIsAViewUsageBodyItemOnly(t *testing.T) {
 	admitted := []struct{ name, src string }{
 		{"view usage", "view v { expose P::*; }"},
