@@ -50,6 +50,9 @@ type Calc struct {
 	// PerformsActions reports a body stating, at any depth, a step only a performance
 	// can take: a nested action or `perform`, an accept, or a terminate.
 	PerformsActions bool
+	// FlowBody reports the body itself stating that flow, lowered as a case body is:
+	// its statements are steps of the flow, not a list to order.
+	FlowBody bool
 }
 
 // CalcParam is one input parameter of a calc, in positional order.

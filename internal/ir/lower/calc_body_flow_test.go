@@ -26,6 +26,7 @@ func TestCalcBodyStatingAFlowIsLoweredToAPerformance(t *testing.T) {
 		{"ordered statements in a loop body", `attribute i : Integer := 1; while i > 0 { assign i := i - 1; then assign i := i * 1; } i`, false},
 		{"declaration-order node in a loop body", `attribute y : Integer := 1; for i in 1..2 { action a { assign y := y + i; } } y`, false},
 		{"succession usage between action nodes", `action a; action b; succession first b then a; 1`, true},
+		{"succession between short-named action nodes", `action <a> first; action <b>; first b then a; 1`, true},
 		{"guarded succession between action nodes", `in n : Integer; action a; action b; first a if n > 0 then b; 1`, true},
 		{"pins connected in a loop body", `for i in 1..2 { action a { out o : Integer = i; } action b { in p : Integer; } flow a.o to b.p; } 1`, true},
 		{"succession naming no action node", `attribute x : Integer := 1; attribute y : Integer := 2; first x then y; 1`, false},

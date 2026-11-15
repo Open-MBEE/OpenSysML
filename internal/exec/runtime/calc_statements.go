@@ -301,7 +301,7 @@ func (h *calcStmtHost) statementFootprint([]lower.Statement, int) lower.Footprin
 }
 
 func (h *calcStmtHost) statementOrder(stmts []lower.Statement) *lower.StatementOrder {
-	if h.shape.Performs() || len(stmts) < 2 {
+	if h.shape.IsCase() || h.shape.FlowBody || len(stmts) < 2 {
 		return nil
 	}
 	key := &stmts[0]

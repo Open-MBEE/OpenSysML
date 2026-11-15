@@ -6,16 +6,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// CalcBody lowers the computation a calculation or case body states, in
-// declaration order and in the scope it was written in. A member stating no
-// computation — an input parameter, documentation, a nested definition — is
-// skipped. A result the body declares names the value answered with, not a
-// step, so it runs after the steps; a `return` inside a branch or loop stops
-// the body there. owner is the declaration whose body members are: a case's
-// body whose members include action nodes performs them as its steps, lowered
-// as one Block over the flow they state (caseSteps); a calc's does if it states one.
-// Without a resolver the flow's `@Probability` annotations go unread, as in
-// ToActionGraph; a caller holding one uses CalcBodyWith.
+// CalcBody lowers the computation a calculation or case body states (CalcBodyWithOrder),
+// its flow's `@Probability` annotations unread for want of a resolver.
 func CalcBody(owner ast.Node, members []ast.Node, scope *symbols.Scope) []Statement {
 	return CalcBodyWith(owner, members, scope, nil)
 }
@@ -27,8 +19,8 @@ func CalcBodyWith(owner ast.Node, members []ast.Node, scope *symbols.Scope, reso
 	return body
 }
 
-// CalcBodyWithOrder lowers the body and its calculation-statement order, its
-// expressions interned in exprs: nil gives the statements no expression ids.
+// CalcBodyWithOrder lowers the body in declaration order with its statement order, results
+// after the steps; one stating a token flow is lowered as a case body is (caseSteps).
 func CalcBodyWithOrder(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable) ([]Statement, *StatementOrder) {
 	body := make([]ast.Node, 0, len(members))
 	for _, member := range members {
@@ -91,17 +83,12 @@ func calcBodyStep(member ast.Node, scope *symbols.Scope, resolver *resolve.Resol
 // statesControlFlow reports whether a calculation body states a control node or
 // a succession at an action node: a flow no order of its statements expresses.
 func statesControlFlow(body []ast.Node) bool {
-	nodes := make(map[string]bool)
-	for _, node := range flowNodesAmong(body) {
-		if usage, ok := node.(*ast.Usage); ok && usage.Ident.Name != "" {
-			nodes[usage.Ident.Name] = true
-		}
-	}
+	nodes := flowNodesAmong(body)
 	sequences := func(name *ast.QualifiedName, member ast.Node) bool {
 		if member != nil {
 			return isFlowNode(member)
 		}
-		return name != nil && len(name.Parts) == 1 && nodes[name.Parts[0].Text]
+		return name != nil && len(name.Parts) == 1 && nodeAnswering(nodes, name.Parts[0].Text) != nil
 	}
 	for _, member := range body {
 		switch m := unwrapMembership(member).(type) {
@@ -155,6 +142,16 @@ func StatesFlow(stmts []Statement) bool {
 			if stated(s) {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+// flowBody reports whether steps are a body lowered as one Block over its flow.
+func flowBody(steps []Statement) bool {
+	for _, step := range steps {
+		if block, ok := step.(Block); ok && block.Graph != nil {
+			return true
 		}
 	}
 	return false
