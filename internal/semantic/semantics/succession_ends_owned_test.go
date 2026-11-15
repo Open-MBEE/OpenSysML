@@ -244,3 +244,53 @@ func TestSuccessionAtAControlStatementIsUnanswered(t *testing.T) {
 		}
 	}
 }
+
+// A chained end (`first a then obj.child;`) references the chain Feature it owns (SysML.xtext ConnectorEnd →
+// OwnedReferenceSubsetting → OwnedFeatureChain), not its last step: unanswered until an element stands for it.
+func TestSuccessionWithAChainedEndIsUnanswered(t *testing.T) {
+	const src = `package P {
+		action def A {
+			action a { action k; }
+			action obj { action child; }
+			first a then obj.child;
+			first a.k then obj;
+		}
+		state def S {
+			state on { state deep; }
+			state off;
+			transition first off then on.deep;
+		}
+	}`
+	for f, fixture := range reflectiveFixtures(t, "chained-ends.sysml", source.KindSysML, src) {
+		model := fixture.model
+		successions := successionsOf(t, model, nestedSym(t, fixture.root, "P::A"))
+		if len(successions) != 2 {
+			t.Fatalf("fixture %d: %d successions, want 2", f, len(successions))
+		}
+		for _, property := range []string{"relatedFeature", "sourceFeature", "targetFeature"} {
+			if got := reflectedFeatures(model, successions[0], property); got != "unanswered" {
+				t.Errorf("fixture %d `first a then obj.child;` %s = %q, want unanswered", f, property, got)
+			}
+		}
+		// A chained source makes the member a succession usage whose end owns the chain Feature.
+		if got := reflectedFeatures(model, successions[1], "relatedFeature"); got != "<Feature> obj" {
+			t.Errorf("fixture %d `first a.k then obj;` relatedFeature = %q, want the chain feature and obj", f, got)
+		}
+		transitions := 0
+		for _, transition := range model.OwnedRelationships(nestedSym(t, fixture.root, "P::S")) {
+			member := transition.Implicit.Member
+			if member == nil || !member.DeclaresTransition() {
+				continue
+			}
+			for _, owned := range successionsOf(t, model, member) {
+				transitions++
+				if got := reflectedFeatures(model, owned, "relatedFeature"); got != "unanswered" {
+					t.Errorf("fixture %d transition succession relatedFeature = %q, want unanswered", f, got)
+				}
+			}
+		}
+		if f == 0 && transitions != 1 {
+			t.Errorf("fixture %d: %d transition successions, want 1", f, transitions)
+		}
+	}
+}
