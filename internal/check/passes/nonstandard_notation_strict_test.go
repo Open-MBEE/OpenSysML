@@ -83,17 +83,17 @@ func TestKerMLNotationFollowsTheMode(t *testing.T) {
 	}
 }
 
-// A typing spelled `typed by` in a SysML file follows the mode too: a warning
-// by default, an error under strict conformance, silence in a KerML file.
-func TestTypedByFollowsTheMode(t *testing.T) {
+// A typing spelled `typed by` in a SysML file does not follow the mode: an error
+// by default as under strict conformance, silence in a KerML file.
+func TestTypedByIsAnErrorInEitherMode(t *testing.T) {
 	const src = "package P { part def D; part p typed by D; }"
 	got := notationDiags(t, "a.sysml", src, diag.ConformanceStrict)
-	if len(got) != 1 || got[0].Severity != diag.SeverityError || got[0].Code != CodeKerMLNotation {
-		t.Errorf("strict: got %+v, want one kerml-notation error", got)
+	if len(got) != 1 || got[0].Severity != diag.SeverityError || got[0].Code != CodeTypingKeyword {
+		t.Errorf("strict: got %+v, want one typing-keyword error", got)
 	}
 	got = notationDiags(t, "a.sysml", src, diag.ConformanceDefault)
-	if len(got) != 1 || got[0].Severity != diag.SeverityWarning || got[0].Code != CodeKerMLNotation {
-		t.Errorf("default: got %+v, want one kerml-notation warning", got)
+	if len(got) != 1 || got[0].Severity != diag.SeverityError || got[0].Code != CodeTypingKeyword {
+		t.Errorf("default: got %+v, want one typing-keyword error", got)
 	}
 	if got := notationDiags(t, "a.kerml", "package P { class D; feature p typed by D; }", diag.ConformanceStrict); len(got) != 0 {
 		t.Errorf("a KerML file uses KerML notation: got %+v, want silence", got)
@@ -107,8 +107,8 @@ func TestTypedByFollowsTheMode(t *testing.T) {
 		"package P { attribute def A; calc def F { return r = { in x typed by A; x }; } }",
 	} {
 		got := notationDiags(t, "a.sysml", src, diag.ConformanceStrict)
-		if len(got) != 1 || got[0].Severity != diag.SeverityError || got[0].Code != CodeKerMLNotation {
-			t.Errorf("strict %s: got %+v, want one kerml-notation error", src, got)
+		if len(got) != 1 || got[0].Severity != diag.SeverityError || got[0].Code != CodeTypingKeyword {
+			t.Errorf("strict %s: got %+v, want one typing-keyword error", src, got)
 		}
 	}
 	// A KerML-only declaration is reported once; the body parameter inside it is not a second finding.
