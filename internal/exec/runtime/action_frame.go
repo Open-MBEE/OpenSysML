@@ -138,6 +138,8 @@ type actionFrame struct {
 	// unvalued holds the attributes the performance declares with no value, which
 	// read as missing until written rather than as an enclosing frame's same name.
 	unvalued map[string]bool
+	// assertions holds the verdicts of a case's own performance; nil for any other.
+	assertions *caseAssertions
 	// result names the parameter a value read of the performance stands for,
 	// "" when the action it performs states no result parameter.
 	result string

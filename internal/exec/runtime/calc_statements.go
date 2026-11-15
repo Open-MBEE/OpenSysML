@@ -73,6 +73,7 @@ func (h *calcStmtHost) attachPerformances(engine *stmtEngine) {
 		label:      h.shape.Label,
 		outer:      append(append(append([]frame{}, engine.env.enclosing...), engine.env.data), engine.env.localFrame()),
 		run:        h.ctx.newRun(),
+		assertions: &caseAssertions{shape: h.shape, judged: make(map[ast.Node][]AnalysisVerdict)},
 	}
 	h.flow = &ActionExecutor{
 		performances:     performances{ctx: h.ctx, self: h.self, root: root, owner: h, behavior: h.shape.Sym},
@@ -94,6 +95,14 @@ func (h *calcStmtHost) attachPerformances(engine *stmtEngine) {
 func (h *calcStmtHost) readPerformance(engine *stmtEngine, perf *actionFrame) {
 	h.env = engine.env
 	engine.env.perf = perf
+}
+
+// caseAssertions is the case's own, nil for a calculation.
+func (h *calcStmtHost) caseAssertions() *caseAssertions {
+	if h.perfs == nil {
+		return nil
+	}
+	return h.perfs.root.assertions
 }
 
 // performance is the case's own performance, nil for a calculation.

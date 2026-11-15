@@ -428,7 +428,8 @@ func (run *calcRun) outputValues(ctx *Context) ([]CalcOutputValue, error) {
 }
 
 // analysisVerdicts checks the case's objectives and assertions against the
-// values its run bound: its parameters, its locals and its outputs.
+// values its run bound: its parameters, its locals and its outputs. An assertion
+// the flow orders was judged where the flow reached it and is reported as judged.
 func (ctx *Context) analysisVerdicts(run *calcRun, sym *symbols.Symbol, scope *symbols.Scope) []AnalysisVerdict {
 	bindings := run.bindingsFrame(ctx)
 	var verdicts []AnalysisVerdict
@@ -451,18 +452,39 @@ func (ctx *Context) analysisVerdicts(run *calcRun, sym *symbols.Symbol, scope *s
 		verdict.Symbol = obj.Symbol
 		verdicts = append(verdicts, verdict)
 	}
-	for _, cond := range ctx.CaseConditionsOf(sym, scope) {
-		if !cond.Required {
-			continue
+	check := conditionCheck{
+		sym: sym, kind: run.shape.Kind, what: "assertion",
+		element: run.shape.Name, self: run.self, bindings: bindings,
+	}
+	for _, cond := range ctx.appendResultConflict(nil, sym, true) {
+		if cond.Required {
+			verdicts = append(verdicts, ctx.assertionVerdict(check, cond))
 		}
-		check := conditionCheck{
-			sym: sym, kind: run.shape.Kind, what: "assertion",
-			element: run.shape.Name, self: run.self, bindings: bindings,
+	}
+	if scope == nil {
+		scope = sym.OwnerScope
+	}
+	for _, member := range ctx.chainMembers(sym, scope) {
+		judged, reached, ordered := run.positionalAssertions(member.node)
+		required := 0
+		for _, cond := range ctx.caseMemberConditions(member) {
+			if !cond.Required {
+				continue
+			}
+			switch {
+			case reached:
+				verdicts = append(verdicts, judged[required])
+			case ordered:
+				name, named := assertionName(cond)
+				verdicts = append(verdicts, AnalysisVerdict{
+					Kind: "assertion", Name: name, Symbol: named,
+					Status: VerdictUndecided, Detail: unreachedAssertion,
+				})
+			default:
+				verdicts = append(verdicts, ctx.assertionVerdict(check, cond))
+			}
+			required++
 		}
-		name, named := assertionName(cond)
-		verdict := ctx.analysisVerdict("assertion", name, check, []Condition{cond})
-		verdict.Symbol = named
-		verdicts = append(verdicts, verdict)
 	}
 	return verdicts
 }
