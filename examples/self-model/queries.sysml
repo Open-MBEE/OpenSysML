@@ -1,10 +1,5 @@
-// The query path: QVTS — Query, View, Transformation for SysML v2 — as this
-// implementation has it. A query is a calc def over the DocumentQueries
-// library, compiled to an immutable plan and run step by step; each step
-// either answers a value (an empty collection is a value), fails as a path
-// error naming the frontier the model stopped at, or fails as a model error
-// naming the constraint the model broke. Every surface that runs a query
-// shows that same outcome record, and the recorded QVTS examples pin it.
+// The query path — QVTS, Query, View, Transformation for SysML v2 — as this
+// implementation has it: library, compiler, executor, outcomes, surfaces, oracle.
 package OpenSysMLQueries {
     private import ScalarValues::*;
     private import OpenSysMLArtifacts::*;
@@ -22,10 +17,8 @@ package OpenSysMLQueries {
         attribute operation : String;
     }
 
-    // The non-normative query vocabulary a document or a -run-query uses:
-    // every query specializes DocumentQueries::Query. Of its calc defs, the
-    // compiler binds the operations below; the base, Distinct, and the two
-    // column specs are not operations of a plan.
+    // The non-normative vocabulary every query specializes; the compiler binds
+    // the calc defs below to plan operations, the rest are not operations of a plan.
     part def QueryLibrary :> CodeUnit {
         attribute :>> goPackage = "internal/workspace/libs";
         attribute libraryFile : String =
@@ -63,9 +56,8 @@ package OpenSysMLQueries {
 
     // --- The compiler and the executor -------------------------------------
 
-    // A query is compiled once into an immutable plan: the library's calc defs
-    // become the operations above, and the expressions between them the
-    // operations of the plan itself (a parameter, a literal, a column, a lambda).
+    // A query is compiled once into an immutable plan: the library's calc defs become
+    // the operations above, the expressions between them the plan's own operations.
     part def QueryCompiler :> CodeUnit {
         attribute :>> goPackage = "internal/ir/queryplan";
         attribute immutablePlans : Boolean = true;
@@ -74,9 +66,8 @@ package OpenSysMLQueries {
         out item plan : QueryPlan;
     }
 
-    // The executor runs a plan to ordered rows, or to the outcome that says why
-    // it could not: one failing element fails a fan-out, and every failing
-    // element stays in the record; only Project and WhereFeature may tolerate.
+    // The executor runs a plan to ordered rows, or to the outcome that says why not:
+    // one failing element fails a fan-out and every one is kept; only two may tolerate.
     part def QueryExecutor :> CodeUnit {
         attribute :>> goPackage = "internal/doc/queryexec";
         attribute orderedRows : Boolean = true;
@@ -311,9 +302,8 @@ package OpenSysMLQueries {
 
     satisfy requirement queryOutcomesAreDistinct : OutcomesAreDistinct by queryPath.executor;
 
-    // --- What the toolchain satisfies --------------------------------------
-    // The invariants of the other packages, each asserted of the part that is
-    // its subject, so that Verdicts tables the whole set from the model.
+    // --- What the toolchain satisfies: the other packages' invariants, each
+    // asserted of the part that is its subject, so Verdicts tables the whole set.
 
     satisfy requirement treeIsImmutable : OpenSysMLInvariants::ImmutableSyntaxTree by OpenSysMLSurfaces::opensysml.pipeline.tree;
     satisfy requirement parserRecovers : OpenSysMLInvariants::ParserNeverFails by OpenSysMLSurfaces::opensysml.pipeline.parser;
