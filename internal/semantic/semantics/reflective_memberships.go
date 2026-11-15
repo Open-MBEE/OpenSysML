@@ -84,18 +84,10 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		})
 		ordinal++
 	}
-	for _, end := range m.FlowEndMembers(sym) {
-		// A flow owns its two FlowEnds ahead of its body, after its payload (SysML.xtext FlowDeclaration).
-		out = append(out, &symbols.Symbol{
-			Kind:       symbols.SymbolRelationship,
-			DocName:    sym.DocName,
-			DeclSpan:   end.DeclSpan,
-			Visibility: sym.Visibility,
-			Implicit: &symbols.ImplicitRelationship{
-				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: end,
-			},
-		})
-		ordinal++
+	if !flowDeclaresPayload(sym) {
+		// A flow owns its two FlowEnds ahead of its body (SysML.xtext FlowDeclaration); one declaring
+		// a payload owns them after it, below.
+		out, ordinal = m.withFlowEndMemberships(sym, out, ordinal)
 	}
 	for _, end := range m.SuccessionEndMembers(sym) {
 		// A `then` succession owns its two ends ahead of its body (SysML.xtext TargetSuccession).
@@ -149,6 +141,10 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 			},
 		})
 		ordinal++
+		if m.IsFlowPayload(member) {
+			// A flow declaring its payload owns its two FlowEnds right after it, as the pilot orders them.
+			out, ordinal = m.withFlowEndMemberships(sym, out, ordinal)
+		}
 		return true
 	})
 	if parts := m.transitionMembers(sym); len(parts) > 0 {
@@ -157,6 +153,29 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	out = m.withDefaultMultiplicity(sym, out, len(out))
 	m.memberships[sym] = out
 	return out
+}
+
+// withFlowEndMemberships adds the EndFeatureMembership of each FlowEnd sym owns (FlowEndMembers).
+func (m *Model) withFlowEndMemberships(sym *symbols.Symbol, out []*symbols.Symbol, ordinal int) ([]*symbols.Symbol, int) {
+	for _, end := range m.FlowEndMembers(sym) {
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   end.DeclSpan,
+			Visibility: sym.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: end,
+			},
+		})
+		ordinal++
+	}
+	return out, ordinal
+}
+
+// flowDeclaresPayload reports whether sym is a flow declaring its payload (`flow of p : T`, `flow of T`).
+func flowDeclaresPayload(sym *symbols.Symbol) bool {
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.FlowEnds != nil && usage.FlowEnds.PayloadDecl != nil
 }
 
 // withDefaultMultiplicity adds the OwningMembership of the Multiplicity sym states

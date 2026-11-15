@@ -93,3 +93,74 @@ func TestFlowOwnsItsEnds(t *testing.T) {
 		}
 	}
 }
+
+func TestFlowEndsAnswerTheirSiblingSurfaces(t *testing.T) {
+	const src = `package P {
+    item def Photon;
+    part def A { out x : Photon; }
+    part def B { in y : Photon; }
+    part a : A;
+    part b : B;
+    flow fp of p : Photon from a.x to b.y;
+    flow f3 from a.x to b.y;
+    flow f4 :> f3;
+}`
+	for _, fixture := range reflectiveFixtures(t, "flow-end-surfaces.sysml", source.KindSysML, src) {
+		model := fixture.model
+		if nestedSym(t, fixture.root, "P::a").Recorded() {
+			continue
+		}
+		f3, f4 := nestedSym(t, fixture.root, "P::f3"), nestedSym(t, fixture.root, "P::f4")
+		if got := model.RelatedFeatureCount(f4); got != 2 {
+			t.Errorf("f4 :> f3 RelatedFeatureCount = %d, want 2 (f3's %d), the ends it inherits", got, model.RelatedFeatureCount(f3))
+		}
+		fp := nestedSym(t, fixture.root, "P::fp")
+		memberships := effectiveNames(model, ownedMembershipMembers(model, fp))
+		if want := "p source target"; strings.Join(memberships, " ") != want {
+			t.Errorf("fp ownedMembership members = %v, want %q: the ends after the payload", memberships, want)
+		}
+		var relationships []string
+		for _, rel := range model.OwnedRelationships(fp) {
+			relationships = append(relationships, model.EffectiveNameOf(rel.Implicit.Member))
+		}
+		if want := "p source target"; strings.Join(relationships, " ") != want {
+			t.Errorf("fp ownedRelationship members = %v, want %q", relationships, want)
+		}
+		for _, end := range model.FlowEndMembers(fp) {
+			feature := model.FlowEndFeatureMember(end)
+			for _, prop := range []string{"feature", "ownedElement", "ownedMember", "member", "ownedFeature"} {
+				if vals, _ := model.ReflectiveElements(end, prop); !containsSymbol(vals, feature) {
+					t.Errorf("end %s %s lacks the ReferenceUsage it owns", model.EffectiveNameOf(end), prop)
+				}
+			}
+			if types, _ := model.ReflectiveElements(feature, "type"); strings.Join(effectiveNames(model, types), " ") != "Photon" {
+				t.Errorf("end %s's %s type = %v, want Photon, through the feature it redefines", model.EffectiveNameOf(end), model.EffectiveNameOf(feature), effectiveNames(model, types))
+			}
+		}
+	}
+}
+
+func effectiveNames(model *Model, syms []*symbols.Symbol) []string {
+	out := make([]string, 0, len(syms))
+	for _, sym := range syms {
+		out = append(out, model.EffectiveNameOf(sym))
+	}
+	return out
+}
+
+func ownedMembershipMembers(model *Model, sym *symbols.Symbol) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, membership := range model.OwnedMemberships(sym) {
+		out = append(out, membership.Implicit.Member)
+	}
+	return out
+}
+
+func containsSymbol(syms []*symbols.Symbol, want *symbols.Symbol) bool {
+	for _, sym := range syms {
+		if sym == want {
+			return true
+		}
+	}
+	return false
+}
