@@ -19,7 +19,7 @@ from throttle_common import GH, Config, heavy_job_started, protected_branch, utc
 CFG = None
 GH_RUN = None
 REPO = DIR = STATE = LOG = OUTBOX = None
-BASE_BRANCH = MAIN_WF = REQUIRED = EXEMPT_TAG = None
+BASE_BRANCH = MAIN_WF = REQUIRED = None
 CAP = BASE_CAP = INTERVAL = FAST = 0
 WORKFLOWS = set()
 PREFLIGHT_JOBS = set()
@@ -34,7 +34,7 @@ ACTIVE = ["queued", "in_progress", "pending", "waiting", "requested"]
 
 def configure(cfg):
     """Bind the module to one configuration; every path, name and limit below comes from it."""
-    global CFG, GH_RUN, REPO, DIR, STATE, LOG, OUTBOX, BASE_BRANCH, MAIN_WF, REQUIRED, EXEMPT_TAG
+    global CFG, GH_RUN, REPO, DIR, STATE, LOG, OUTBOX, BASE_BRANCH, MAIN_WF, REQUIRED
     global CAP, BASE_CAP, INTERVAL, FAST, WORKFLOWS, PREFLIGHT_JOBS, CI_PRS, CI_FLAGGED, CI_AFTER
     CFG, REPO, DIR = cfg, cfg.repo, cfg.state_dir
     STATE, LOG, OUTBOX = cfg.file("state.json"), cfg.file("watch.log"), cfg.file("outbox.jsonl")
@@ -45,7 +45,6 @@ def configure(cfg):
     PREFLIGHT_JOBS = set(cfg["preflight_jobs"])
     CAP = BASE_CAP = int(cfg["cap"])
     INTERVAL, FAST = int(cfg["interval_seconds"]), int(cfg["fast_poll_seconds"])
-    EXEMPT_TAG = cfg["exempt_body_tag"] or None
     EXEMPT_PRS.clear()
     EXEMPT_PRS.update(cfg.read("exempt.json", []))
     CI_PRS = set(cfg.read("ci_prio.json", []))
@@ -220,10 +219,6 @@ def cancel_authorized(ids):
     return True
 
 
-def exempt_body(body):
-    return bool(EXEMPT_TAG) and EXEMPT_TAG in (body or "")
-
-
 def hold_cancel(st, k, g):
     """Release authority, for the hold only: a new ordinary PR-push run is cancelled even after its jobs started, and requeued at its exact head."""
     hold = CFG.read("release_hold.json")
@@ -232,8 +227,6 @@ def hold_cancel(st, k, g):
     n = int(k)
     ext = set(CFG.read("ext_ok.json", []))
     if n in set(hold.get("exempt", [])) | EXEMPT_PRS | IGNORED_PRS | set(PINNED) or any(r["databaseId"] in ext | set(HELD_RUNS) for r in g):
-        return False
-    if exempt_body((pull(n) or {}).get("body")):
         return False
     if not cancel_authorized([r["databaseId"] for r in g]):
         return False
@@ -1096,7 +1089,10 @@ def iterate(st):
         report(f"needs {BASE_BRANCH} merge (head lacks {(strict_base() or '')[:10]}); parked until a new head contains it: " + ", ".join(nb))
     IGNORED_PRS.clear()
     IGNORED_PRS.update(CFG.read("ignore.json", []))
+    EXEMPT_PRS.clear()
     EXEMPT_PRS.update(CFG.read("exempt.json", []))
+    named = tier_members(0, 1)
+    EXEMPT_PRS.update(n for n in CI_PRS if n not in CI_FLAGGED and (named is None or n in named))
     READY_OK.clear()
     READY_OK.update(CFG.read("ready_ok.json", []))
     HOLDS.clear()
@@ -1423,18 +1419,6 @@ FAST = 10
 LAST_SEEN = set()
 
 
-def exempt_mark(pr, body):
-    """A PR whose body carries the configured tag is exempt (runs admitted automatically, never cancelled); with tiers.json, only in tier 1."""
-    t1 = tier_members(0)
-    if t1 is not None and pr not in t1:
-        EXEMPT_PRS.discard(pr)
-        return False
-    if pr not in EXEMPT_PRS and exempt_body(body):
-        EXEMPT_PRS.add(pr)
-        report(f"#{pr}: EXEMPTION applied (PR body '{EXEMPT_TAG}'): runs admitted automatically, never cancelled")
-    return pr in EXEMPT_PRS
-
-
 CI_AFTER = None
 CI_PRS = set()
 CI_SEEN = {}
@@ -1505,10 +1489,9 @@ def ci_mark(p):
     return True
 
 
-def refresh_exempt():
-    ps = gh_json(["pr", "list", "--repo", REPO, "--state", "open", "--limit", "300", "--json", "number,body,title,baseRefName,headRefOid"], ok_fail=True)
+def refresh_ci_priority():
+    ps = gh_json(["pr", "list", "--repo", REPO, "--state", "open", "--limit", "300", "--json", "number,title,baseRefName,headRefOid"], ok_fail=True)
     for p in ps or []:
-        exempt_mark(p["number"], p.get("body"))
         ci_mark(p)
 
 
@@ -1625,7 +1608,7 @@ def gate_sweep(st):
             if pr in PINNED or pr in NOCANCEL or pr in EXEMPT_PRS or released(pr, sha) or rid in st.get("cancelled", []):
                 continue
             p = gh_json(["api", f"repos/{REPO}/pulls/{pr}"], ok_fail=True)
-            if not p or exempt_mark(pr, p.get("body")) or ci_mark({"number": pr, "title": p.get("title"), "baseRefName": p["base"]["ref"], "headRefOid": p["head"]["sha"]}):
+            if not p or ci_mark({"number": pr, "title": p.get("title"), "baseRefName": p["base"]["ref"], "headRefOid": p["head"]["sha"]}):
                 continue
             if not p or p.get("state") != "open" or p["head"]["sha"] != sha \
                     or p["base"]["ref"] != r["pull_requests"][0]["base"]["ref"]:
@@ -1711,7 +1694,7 @@ def main(argv=None):
             log("stop flag set; exiting")
             return 0
         try:
-            refresh_exempt()
+            refresh_ci_priority()
             iterate(st)
         except Exception:
             log("ERROR " + traceback.format_exc().replace("\n", " | "))

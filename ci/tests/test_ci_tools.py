@@ -349,17 +349,22 @@ class WatcherTest(Stub):
         self.assertIn("#7: started authorized re-run (all jobs) of run 556", self.run_once())
         self.assertIn("run rerun 556 --repo Example/Repo", self.calls())
 
-    def test_tiers_order_and_gate_the_exemption(self):
+    def test_tiers_order_and_exemptions_come_only_from_exempt_json(self):
         watcher.configure(self.cfg())
         self.assertEqual(watcher.tier_rank(9), (0, 9))
         self.write("tiers.json", {"tiers": [[30, 10], [20]]})
         self.assertEqual(sorted([5, 20, 10, 30, 40], key=watcher.tier_rank), [30, 10, 20, 5, 40])
         self.assertEqual(watcher.tier_members(0, 1), {10, 20, 30})
         self.write("config.json", {"repo": REPO, "exempt_body_tag": "Requested by: @someone"})
+        with self.assertRaisesRegex(SystemExit, "exempt_body_tag. was removed"):
+            self.cfg()
+        self.write("config.json", {"repo": REPO})
+        self.write("exempt.json", [20])
+        self.write("review_gate.json", {})
         watcher.configure(self.cfg())
-        self.assertTrue(watcher.exempt_mark(30, "x\nRequested by: @someone"))
-        self.assertFalse(watcher.exempt_mark(20, "Requested by: @someone"))
-        self.assertIn("EXEMPTION applied", self.text("watch.log"))
+        self.assertEqual(watcher.EXEMPT_PRS, {20})
+        self.assertTrue(watcher.review_gate(20))
+        self.assertEqual(self.calls(), [])
 
 
 SHA7, SHA8 = f"{7:040d}", f"{8:040d}"

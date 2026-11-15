@@ -65,7 +65,6 @@ the directory that contains the configuration file.
 | `cap` | Concurrent ordinary runs (default 3). It drops to 1 while a merge-queue run is active, and to 0 under a freeze or a runner-priority hold. |
 | `interval_seconds`, `fast_poll_seconds` | Time between full passes, and between the fast polls for new runs inside that time (defaults 120 and 10). |
 | `exempt_branches`, `exempt_prefixes` | Branches whose runs are never counted or cancelled. Tags and `gh-readonly-queue/` are always exempt. |
-| `exempt_body_tag` | A line in a PR body that exempts the PR: its runs are admitted automatically and never cancelled. With `tiers.json`, the exemption applies only to tier-1 PRs. |
 | `runner_pin` | `{"file", "require", "forbid"}`: before a close/reopen, the workflow file at the PR's merge ref must contain `require` and must not contain `forbid`. Leave it out to skip the check. |
 | `ci_priority` | `{"after_pr", "title_re", "path_re"}`: a new PR into the base branch whose number is above `after_pr`, and whose title or changed paths match, is admitted as a CI priority PR. With `tiers.json`, only PRs in tiers 1 and 2 qualify. `null` turns this off. |
 | `known_flakes` | `[{"job", "test", "note"}]`: a red result whose only failures are this job's (plus the required check) and only this test is reported as the known flake, not as the PR's failure. |
@@ -129,7 +128,7 @@ unless stated otherwise.
 | `starve_cancel.json` | `{"by", "rule"}` | Authorizes and runs `starve_sweep.py`. |
 | `release.json` | `[{"pr", "sha"}]` | Heads released to CI under the review gate. `"pr": "*"` with a full 40-character SHA releases a head before its PR exists. |
 | `review_gate.json` | `{"since"}` | Admit only released heads that have no unresolved review threads. Unreleased runs caught with only the preflight done are cancelled (authorization still applies) and queued. |
-| `exempt.json` | `[pr]` | PRs with the exemption (see `exempt_body_tag`). |
+| `exempt.json` | `[pr]` | Maintainer-written list of exempt PRs: their runs skip the review gate and are never cancelled, but are still admitted only through the merge-queue gate. It is re-read every pass. No exemption is ever derived from PR text. |
 | `ci_prio.json`, `ci_flagged.json` | `[pr]` | CI priority PRs admitted, and those flagged instead because they change files of an admitted one. The watcher writes both, and you may edit them. |
 | `nocancel.json` | `[pr]` | Never cancelled before start. Their runs queue without being cancelled and take the first free slot. |
 | `pinned.json` | `[pr or branch]` | Always hold a slot. If their run is cancelled, it is re-run at once. |

@@ -20,7 +20,6 @@ DEFAULTS = {
     "fast_poll_seconds": 10,
     "exempt_branches": ["develop", "main"],
     "exempt_prefixes": ["release/", "hotfix/"],
-    "exempt_body_tag": "",
     "runner_pin": None,
     "ci_priority": None,
     "known_flakes": [],
@@ -39,6 +38,8 @@ class Config:
             raw = json.load(f)
         if not raw.get("repo") or "/" not in raw["repo"]:
             raise SystemExit(f"{path}: \"repo\" must be OWNER/NAME")
+        if "exempt_body_tag" in raw:
+            raise SystemExit(f"{path}: \"exempt_body_tag\" was removed, since any PR author can edit a PR body; list exempt PRs in exempt.json")
         self.path = path
         self.values = dict(DEFAULTS, **raw)
         self.repo = raw["repo"]
