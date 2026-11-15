@@ -87,6 +87,9 @@ type stateSpaceRun struct {
 	// reached it sampled them, so a guard turning back at a step's end is seen.
 	before []float64
 	lead   float64
+	// held is the input the search that set cut assumed, nil for none: the span to the
+	// crossing is integrated under it, so the sample there is the one the search previewed.
+	held *Value
 }
 
 // hold takes guards as the run's latest sample of what its crossings watch, keeping
@@ -320,7 +323,11 @@ func (e *ActionExecutor) stepDynamics(tokenIdx int) error {
 		return e.parkDynamics(run, &e.tokens[tokenIdx])
 	}
 	span, whole := run.span()
-	next, err := e.nextState(run, state, input, span)
+	over := input
+	if !whole && run.held != nil {
+		over = run.held
+	}
+	next, err := e.nextState(run, state, over, span)
 	if err != nil {
 		return e.divergence(run, err)
 	}
