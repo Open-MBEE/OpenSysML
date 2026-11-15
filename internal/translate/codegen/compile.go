@@ -1466,6 +1466,12 @@ func (fc *funcCompiler) signOrArithmetic(op ast.OperatorKind, l, r Expr) (Expr, 
 	if err != nil {
 		return nil, err
 	}
+	if signed.Type() == TypeInt && x.Type() == TypeReal {
+		// The sign of an Integer stays one where the arithmetic is a Real's.
+		if x, err = fc.coerce(x, TypeNum, ""); err != nil {
+			return nil, err
+		}
+	}
 	if signed, err = fc.coerce(signed, x.Type(), ""); err != nil {
 		return nil, err
 	}
