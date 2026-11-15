@@ -119,10 +119,8 @@ func (ctx *Context) checkResultValue(result CheckResult, err error, read *symbol
 	return boolValue(result.Holds), nil
 }
 
-// statesConditions reports whether sym is a definition or usage whose result is
-// the conjunction of the conditions it states: a requirement, viewpoint, concern
-// (a framed one included) or a case's objective (SysML v2 §7.21, §7.22.2, Requirements.sysml `RequirementCheck::result`),
-// a satisfy usage among them (SysML v2 §7.21.4, §8.3.21.10 SatisfyRequirementUsage).
+// statesConditions reports whether sym's result is the conjunction of the conditions it states: a requirement, viewpoint,
+// concern (framed or not), case objective or satisfy usage (SysML v2 §7.21, §7.21.4, §7.22.2, `RequirementCheck::result`).
 func statesConditions(sym *symbols.Symbol) bool {
 	switch decl := sym.Decl.(type) {
 	case *ast.Definition:
