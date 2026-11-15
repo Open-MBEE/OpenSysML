@@ -2,6 +2,7 @@ package source
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -12,7 +13,8 @@ func TestQualifiedNameSegments(t *testing.T) {
 	}{
 		{"A::B", []string{"A", "B"}},
 		{"'Sep::Pkg'::x", []string{"Sep::Pkg", "x"}},
-		{`'a\'b'::c`, []string{`a\'b`, "c"}},
+		{`'a\'b'::c`, []string{`a'b`, "c"}},
+		{`'a\\b'::'c\td'`, []string{`a\b`, "c\td"}},
 		{"x", []string{"x"}},
 	} {
 		got, ok := QualifiedNameSegments(tc.text)
@@ -104,6 +106,45 @@ func TestReferenceQualifiedNames(t *testing.T) {
 	} {
 		if got := ReferenceQualifiedNames(tc.text); !reflect.DeepEqual(got, tc.want) {
 			t.Errorf("ReferenceQualifiedNames(%q) = %q, want %q", tc.text, got, tc.want)
+		}
+	}
+}
+
+// Writing names and reading the text back gives the names again, whatever they hold.
+func TestWrittenNamesReadBackAsTheNamesThemselves(t *testing.T) {
+	names := []string{
+		"x", "part", "two words", "it's", `'`, `''quoted''`, `a\b`, `\`, `\\`, `\'`, `ends\`,
+		`q"d`, "x::y", "::", "a.b", ".", "\b", "\t", "\n", "\f", "\r", "a\tb\nc\rd\be\ff",
+		`\n`, `\t`, "é", "名前", "naïve 'name'", "@1", "$", "1st",
+	}
+	paths := [][]string{names}
+	for _, name := range names {
+		paths = append(paths, []string{name}, []string{"P", name}, []string{name, "x"}, []string{name, name})
+	}
+	for _, path := range paths {
+		text := QualifiedNameOf(path)
+		if got, ok := QualifiedNameSegments(text); !ok || !slices.Equal(got, path) {
+			t.Errorf("QualifiedNameSegments(%q) = %q, %v, want %q", text, got, ok, path)
+		}
+		text = MemberPathOf(path)
+		if got, ok := MemberPathSegments(text); !ok || !slices.Equal(got, path) {
+			t.Errorf("MemberPathSegments(%q) = %q, %v, want %q", text, got, ok, path)
+		}
+	}
+	// The empty name is written, but no reader of name text takes it for a name.
+	if text := NameText(""); text != "''" {
+		t.Errorf("NameText of the empty name = %q", text)
+	}
+	if got, ok := QualifiedNameSegments("''"); ok {
+		t.Errorf("QualifiedNameSegments of the empty name = %q, want a refusal", got)
+	}
+	if got, ok := MemberPathSegments("''"); ok {
+		t.Errorf("MemberPathSegments of the empty name = %q, want a refusal", got)
+	}
+	for _, name := range append(names, "") {
+		text := UnrestrictedNameText(name)
+		if got := Unescape(text[1 : len(text)-1]); got != name {
+			t.Errorf("Unescape of UnrestrictedNameText(%q) = %q", name, got)
 		}
 	}
 }

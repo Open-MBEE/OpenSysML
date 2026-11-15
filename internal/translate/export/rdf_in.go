@@ -3953,37 +3953,8 @@ func (d *decoder) writtenQName(el *element) string {
 }
 
 // nameText writes a name as the notation spells it: the graph carries the name
-// itself, so one that is not a basic name needs its quotes back (KerML §8.2.2).
-// A reserved word lexes as a keyword rather than a name, so a name spelling one
-// needs the quotes too.
-func nameText(name string) string {
-	if source.IsIdentifier(name) && !source.IsKeyword(name) {
-		return name
-	}
-	return "'" + escapeName(name) + "'"
-}
-
-// escapeName escapes a quote the name itself contains, which would otherwise
-// close the unrestricted name early. The parser keeps the escapes a name was
-// written with, so one already escaped is left alone.
-func escapeName(name string) string {
-	var b strings.Builder
-	for i := 0; i < len(name); i++ {
-		switch name[i] {
-		case '\\':
-			b.WriteByte(name[i])
-			if i+1 < len(name) {
-				i++
-				b.WriteByte(name[i])
-			}
-		case '\'':
-			b.WriteString(`\'`)
-		default:
-			b.WriteByte(name[i])
-		}
-	}
-	return b.String()
-}
+// itself, so one that is no basic name is quoted and escaped (KerML §8.2.2).
+func nameText(name string) string { return source.NameText(name) }
 
 // qualifiedNameText writes a qualified name segment by segment, since each
 // segment is a name of its own and is quoted on its own.

@@ -32,6 +32,11 @@ func KeyOf(sym *Symbol) ElementKey {
 		key.ordinal = sym.Implicit.Ordinal + 1
 		key.form = int(sym.Implicit.Form)
 		return key
+	case sym.Chain != nil && sym.Chain.Flow != nil:
+		key := KeyOf(sym.Chain.Flow)
+		key.part = fmt.Sprintf("%s/flowEnd:%d", key.part, sym.Chain.End)
+		key.chain = true
+		return key
 	case sym.Chain != nil:
 		key := KeyOf(sym.Chain.Relationship)
 		key.chain = true
