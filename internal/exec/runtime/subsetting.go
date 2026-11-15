@@ -696,7 +696,7 @@ func (ctx *Context) subsettersOf(typ *symbols.Symbol, name string) []EffectiveFe
 func (ctx *Context) subsettingContributions(inst *Instance, name string) ([]Value, error) {
 	var values []Value
 	var seen map[int64]bool
-	err := ctx.eachSubsetterOf(inst, name, false, func(holder *Instance, feat *EffectiveFeature) error {
+	_, err := ctx.eachSubsetterOf(inst, name, false, func(holder *Instance, feat *EffectiveFeature) error {
 		// A subsetter drawing its values from this feature adds none to it.
 		if ctx.drawingSubsetters[featureValueRef{instance: holder.ID, feature: feat.Name}] {
 			return nil
@@ -715,7 +715,7 @@ func (ctx *Context) subsettingContributions(inst *Instance, name string) ([]Valu
 	if err != nil {
 		return nil, err
 	}
-	if values, seen, err = ctx.namespaceReachingContributions(inst, name, false, values, seen); err != nil {
+	if values, seen, err = ctx.namespaceReachingContributions(inst, name, values, seen); err != nil {
 		return nil, err
 	}
 	if values, err = ctx.endContributions(inst, name, values, seen); err != nil {
@@ -755,7 +755,7 @@ func endName(end ConnectorEnd) string {
 // subsetter is not made up, contributing what it certainly holds and its fewest as atLeast.
 func (ctx *Context) openSubsettingContributions(inst *Instance, name string) (values []Value, atLeast int64, err error) {
 	var seen map[int64]bool
-	err = ctx.eachSubsetterOf(inst, name, true, func(holder *Instance, feat *EffectiveFeature) error {
+	missing, err := ctx.eachSubsetterOf(inst, name, true, func(holder *Instance, feat *EffectiveFeature) error {
 		sub, open, err := holder.openFeatureValue(ctx, feat.Name)
 		if err != nil {
 			return err
@@ -775,7 +775,7 @@ func (ctx *Context) openSubsettingContributions(inst *Instance, name string) (va
 	if err != nil {
 		return nil, 0, err
 	}
-	if values, seen, err = ctx.namespaceReachingContributions(inst, name, true, values, seen); err != nil {
+	if values, seen, err = ctx.namespaceReachingContributions(inst, name, values, seen); err != nil {
 		return nil, 0, err
 	}
 	if values, err = ctx.endContributions(inst, name, values, seen); err != nil {
@@ -783,6 +783,9 @@ func (ctx *Context) openSubsettingContributions(inst *Instance, name string) (va
 	}
 	if err := ctx.chargeElements(int64(len(values))); err != nil {
 		return nil, 0, err
+	}
+	if missing > 0 {
+		atLeast = max(atLeast, int64(len(values))+missing)
 	}
 	return values, atLeast, nil
 }
@@ -809,29 +812,29 @@ func appendUniqueInstances(out, els []Value, seen map[int64]bool) ([]Value, map[
 // eachSubsetterOf reads each feature subsetting the named feature of inst through read with
 // the object holding it, in declaration order: those of inst, then those declared elsewhere
 // (subsetting_reaching.go). A cycle between subsetting features is an error.
-func (ctx *Context) eachSubsetterOf(inst *Instance, name string, open bool, read func(holder *Instance, feat *EffectiveFeature) error) error {
+func (ctx *Context) eachSubsetterOf(inst *Instance, name string, open bool, read func(holder *Instance, feat *EffectiveFeature) error) (missing int64, err error) {
 	key := featureValueRef{instance: inst.ID, feature: name}
 	if ctx.collectingSubsets[key] {
-		return fmt.Errorf("%w: %s.%s subsets itself", ErrCyclicFeatureValue, inst.Type.Name, name)
+		return 0, fmt.Errorf("%w: %s.%s subsets itself", ErrCyclicFeatureValue, inst.Type.Name, name)
 	}
 	ctx.collectingSubsets[key] = true
 	defer delete(ctx.collectingSubsets, key)
 
 	for _, feat := range ctx.subsettingFeaturesOf(inst, name) {
 		if err := read(inst, &feat); err != nil {
-			return fmt.Errorf("subsetting feature %s of %s: %w", feat.Name, name, err)
+			return 0, fmt.Errorf("subsetting feature %s of %s: %w", feat.Name, name, err)
 		}
 	}
-	slots, err := ctx.reachingSlots(inst, name, open)
+	slots, missing, err := ctx.reachingSlots(inst, name, open)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	for _, slot := range slots {
 		if err := read(slot.holder, slot.holder.FeatureValues[slot.name].Feature); err != nil {
-			return fmt.Errorf("subsetting feature %s of %s: %w", slot.name, name, err)
+			return 0, fmt.Errorf("subsetting feature %s of %s: %w", slot.name, name, err)
 		}
 	}
-	return nil
+	return missing, nil
 }
 
 // hasImpliedSubsetter reports whether a feature subsets the named feature of inst

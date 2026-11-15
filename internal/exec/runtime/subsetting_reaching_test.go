@@ -2,6 +2,8 @@ package runtime
 
 import (
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 const subsettingElsewherePrelude = `
@@ -87,6 +89,19 @@ func TestSubsetterDeclaredElsewhereIsHeld(t *testing.T) {
 			part rig : V;
 			part spare : V;
 			part extra : Heavy :> rig.subsystem;`, "test::spare", "n", "0"},
+		{"attribute nested under a namespace usage", `
+			part def Bag { attribute vals : Integer[*]; }
+			part bag : Bag;
+			part bench { attribute a : Integer :> bag.vals = 3; }
+			attribute top : Integer :> bag.vals = 4;`, "test::bag", "vals", "[3, 4]"},
+		{"default yields to an attribute nested under a namespace usage", `
+			part def Bag { attribute one : Integer[0..1] default 7; }
+			part bag : Bag;
+			part bench { attribute a : Integer :> bag.one = 9; }`, "test::bag", "one", "9"},
+		{"valueless namespace attribute contributes nothing", `
+			part def Bag { attribute vals : Integer[*]; }
+			part bag : Bag;
+			attribute top : Integer :> bag.vals;`, "test::bag", "vals", "[]"},
 		{"recursive roll-up through nested stacks", `
 			part def C { attribute m : Real default 1.0; part subcomponents : C[*] default null;
 				attribute totalMass : Real = m + sum(subcomponents.totalMass); }
@@ -140,5 +155,57 @@ func TestSubsetterDeclaredElsewhereDrawsFromABoundCollection(t *testing.T) {
 	got := elementsOf(beam.HeldValue())
 	if len(got) != 1 || got[0].Kind != ValInstance || got[0].Instance != held[0].Instance {
 		t.Errorf("frame.beam = %v, want the first object subs is bound to (%v)", got, held[0])
+	}
+}
+
+// TestSubsetterUnderANamespaceUsageDrawsFromABoundCollection is the same for a subsetter
+// nested under a namespace usage naming the bound feature of another namespace usage's object.
+func TestSubsetterUnderANamespaceUsageDrawsFromABoundCollection(t *testing.T) {
+	ctx, inst, err := instantiateWithLibraries(t, "package test {"+subsettingElsewherePrelude+`
+		part x1 : Sub;
+		part x2 : Sub;
+		part rig : V { part redefines subsystem = (x1, x2); }
+		part bench { part beam : Sub :> rig.subsystem; }
+	}`, "test::bench")
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	beam, err := inst.GetFeatureValue(ctx, "beam")
+	if err != nil {
+		t.Fatalf("beam: %v", err)
+	}
+	x1, err := ctx.denotedValue(resolveSymbol(t, inst.Type.OwnerScope, "x1"))
+	if err != nil {
+		t.Fatalf("x1: %v", err)
+	}
+	got := elementsOf(beam.HeldValue())
+	if len(got) != 1 || got[0].Kind != ValInstance || got[0].Instance != x1.Instance {
+		t.Errorf("bench.beam = %v, want the first object rig.subsystem is bound to (%v)", got, x1)
+	}
+}
+
+// TestSubsetterUnderAnOpenUsageLeavesTheCountOpen pins that a model-level read makes up no
+// object for a usage whose count the model leaves open, so the subsetters nested under the
+// ones it requires leave the subsetted feature undetermined rather than empty.
+func TestSubsetterUnderAnOpenUsageLeavesTheCountOpen(t *testing.T) {
+	src := "package test {" + subsettingElsewherePrelude + `
+		part def Open {
+			part held : Sub[0..5];
+			part bays[2..*] { part crate : Sub :> held; }
+		}
+		part open : Open;
+		attribute probe : Integer = size(open.held);
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	probes := idx.LookupQualified("test::probe")
+	if len(probes) != 1 {
+		t.Fatalf("test::probe: %d matching symbols, want 1", len(probes))
+	}
+	got, err := ctx.EvalWithScope(probes[0].Decl.(*ast.Usage).Value, probes[0].OwnerScope)
+	if err != nil {
+		t.Fatalf("size(open.held): %v", err)
+	}
+	if got.Kind != ValUndetermined {
+		t.Errorf("size(open.held) = %s, want undetermined: at least two bays are required and none is declared", FormatValue(got))
 	}
 }

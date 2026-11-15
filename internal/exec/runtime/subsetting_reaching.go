@@ -169,30 +169,35 @@ func (ctx *Context) reachedByASubsetter(inst *Instance, name string) bool {
 
 // reachingSlots returns the feature values contributing to the named feature of inst from
 // elsewhere, in declaration order, reading the nested usages leading to each; open reads
-// them as a model-level read does, following only the objects they certainly hold.
-func (ctx *Context) reachingSlots(inst *Instance, name string, open bool) ([]subsetterSlot, error) {
-	var slots []subsetterSlot
+// them as a model-level read does, following only the objects they certainly hold and
+// reporting as missing the fewest values the ones it did not follow are required to hold.
+func (ctx *Context) reachingSlots(inst *Instance, name string, open bool) (slots []subsetterSlot, missing int64, err error) {
 	for _, rc := range ctx.reachingContextsOf(inst, name) {
-		holders := []*Instance{rc.context}
-		for _, usage := range rc.subsetter.down {
-			var next []*Instance
-			for _, holder := range holders {
-				objects, err := ctx.objectsHeldAs(holder, usage, open)
-				if err != nil {
-					return nil, fmt.Errorf("usage %s leading to subsetting feature %s of %s: %w", usage.Name, rc.subsetter.feature.Name, name, err)
-				}
-				next = append(next, objects...)
-			}
-			holders = next
+		var short int64
+		if slots, short, err = ctx.slotsHeldDown([]*Instance{rc.context}, rc.subsetter.down, rc.subsetter.feature, inst, name, open, slots); err != nil {
+			return nil, 0, err
 		}
-		for _, holder := range holders {
-			feature, ok := ctx.slotDenoting(holder, rc.subsetter.feature)
-			if ok && !(holder == inst && feature == name) && !containsSlot(slots, holder, feature) {
-				slots = append(slots, subsetterSlot{holder: holder, name: feature})
-			}
-		}
+		missing += short
 	}
-	return slots, nil
+	for _, sub := range ctx.namespaceReachingOf(inst, name) {
+		if len(sub.down) == 0 {
+			continue
+		}
+		top := ctx.declaredSymbol(sub.down[0])
+		if !objectFeature(top) {
+			continue
+		}
+		holders, err := ctx.denotedSubsetObjects(top)
+		if err != nil {
+			return nil, 0, fmt.Errorf("usage %s leading to subsetting feature %s of %s: %w", SymbolText(top), sub.feature.Name, name, err)
+		}
+		var short int64
+		if slots, short, err = ctx.slotsHeldDown(holders, sub.down[1:], sub.feature, inst, name, open, slots); err != nil {
+			return nil, 0, err
+		}
+		missing += short
+	}
+	return slots, missing, nil
 }
 
 func containsSlot(slots []subsetterSlot, holder *Instance, name string) bool {
@@ -216,40 +221,41 @@ func (ctx *Context) slotDenoting(inst *Instance, sym *symbols.Symbol) (string, b
 	return "", false
 }
 
-// objectsHeldAs returns the objects holder holds as the usage sym, each once.
-func (ctx *Context) objectsHeldAs(holder *Instance, sym *symbols.Symbol, open bool) ([]*Instance, error) {
+// objectsHeldAs returns the objects holder holds as the usage sym, each once; an open read
+// makes none up, and reports as short how many more the usage requires than it certainly holds.
+func (ctx *Context) objectsHeldAs(holder *Instance, sym *symbols.Symbol, open bool) (objects []*Instance, short int64, err error) {
 	name, ok := ctx.slotDenoting(holder, sym)
 	if !ok {
-		return nil, nil
+		return nil, 0, nil
 	}
 	var held Value
 	if open {
 		fv, population, err := holder.openFeatureValue(ctx, name)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		held = fv.HeldValue()
 		if population.Stopped {
 			held = sequenceOf(population.Contributed)
+			short = max(population.AtLeast, fewestOf(fv.Feature.Multiplicity)) - int64(len(population.Contributed))
 		}
 	} else {
 		fv, err := holder.GetFeatureValue(ctx, name)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		held = fv.HeldValue()
 	}
 	elements, err := ctx.HeldElements(held)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	var objects []*Instance
 	for _, el := range elements {
 		if obj, ok := ctx.instances[el.Instance]; ok && el.Kind == ValInstance && obj != nil {
 			objects = append(objects, obj)
 		}
 	}
-	return objects, nil
+	return objects, max(short, 0), nil
 }
 
 // indexNamespaceReaching records, per namespace usage, the usages declared in a namespace
@@ -339,7 +345,7 @@ func (ctx *Context) namespaceRootUsages(root *Instance) map[*symbols.Symbol][]re
 	}
 	var out map[*symbols.Symbol][]reachingSubsetter
 	for usage, subsetters := range reaching {
-		if slices.Contains(ctx.occurrences[usage], root.ID) {
+		if ctx.occurrenceOfUsage(root, usage) {
 			if out == nil {
 				out = make(map[*symbols.Symbol][]reachingSubsetter)
 			}
@@ -349,51 +355,66 @@ func (ctx *Context) namespaceRootUsages(root *Instance) map[*symbols.Symbol][]re
 	return out
 }
 
-// namespaceReachingContributions appends to values what the subsetters declared in a namespace
-// contribute to the named feature of inst: the objects such a usage denotes, or those the
-// usages nested under one hold.
-func (ctx *Context) namespaceReachingContributions(inst *Instance, name string, open bool, values []Value, seen map[int64]bool) ([]Value, map[int64]bool, error) {
+// namespaceReachingContributions appends to values what the usages declared directly in a
+// namespace contribute to the named feature of inst: the objects such a usage denotes, or
+// the value it declares where it denotes none.
+func (ctx *Context) namespaceReachingContributions(inst *Instance, name string, values []Value, seen map[int64]bool) ([]Value, map[int64]bool, error) {
 	for _, sub := range ctx.namespaceReachingOf(inst, name) {
-		top := sub.feature
 		if len(sub.down) > 0 {
-			top = sub.down[0]
-		}
-		holders, err := ctx.denotedSubsetObjects(ctx.declaredSymbol(top))
-		if err != nil {
-			return nil, nil, fmt.Errorf("subsetting usage %s of %s: %w", SymbolText(sub.feature), name, err)
-		}
-		if len(sub.down) == 0 {
-			for _, obj := range holders {
-				values, seen = appendUniqueInstances(values, []Value{{Kind: ValInstance, Instance: obj.ID}}, seen)
-			}
 			continue
 		}
-		for _, usage := range sub.down[1:] {
-			var next []*Instance
-			for _, holder := range holders {
-				objects, err := ctx.objectsHeldAs(holder, usage, open)
-				if err != nil {
-					return nil, nil, fmt.Errorf("usage %s leading to subsetting feature %s of %s: %w", usage.Name, sub.feature.Name, name, err)
-				}
-				next = append(next, objects...)
-			}
-			holders = next
-		}
-		for _, holder := range holders {
-			feature, ok := ctx.slotDenoting(holder, sub.feature)
-			if !ok || holder == inst && feature == name {
+		top := ctx.declaredSymbol(sub.feature)
+		if !objectFeature(top) {
+			usage := top.Decl.(*ast.Usage)
+			if usage.Value == nil {
 				continue
 			}
-			objects, err := ctx.objectsHeldAs(holder, sub.feature, open)
+			val, err := newEvalContext(ctx, top.OwnerScope).declaredValue(top, usage.Value)
 			if err != nil {
-				return nil, nil, fmt.Errorf("subsetting feature %s of %s: %w", feature, name, err)
+				return nil, nil, fmt.Errorf("subsetting usage %s of %s: %w", SymbolText(top), name, err)
 			}
-			for _, obj := range objects {
-				values, seen = appendUniqueInstances(values, []Value{{Kind: ValInstance, Instance: obj.ID}}, seen)
+			held, err := ctx.HeldElements(val)
+			if err != nil {
+				return nil, nil, fmt.Errorf("subsetting usage %s of %s: %w", SymbolText(top), name, err)
 			}
+			values, seen = appendUniqueInstances(values, held, seen)
+			continue
+		}
+		objects, err := ctx.denotedSubsetObjects(top)
+		if err != nil {
+			return nil, nil, fmt.Errorf("subsetting usage %s of %s: %w", SymbolText(top), name, err)
+		}
+		for _, obj := range objects {
+			values, seen = appendUniqueInstances(values, []Value{{Kind: ValInstance, Instance: obj.ID}}, seen)
 		}
 	}
 	return values, seen, nil
+}
+
+// slotsHeldDown appends to slots the feature values feature declares on the objects the
+// holders hold down the usages given, leaving out the named feature of inst itself. Of an
+// open read, missing is the fewest values the objects it made up none of are required to hold.
+func (ctx *Context) slotsHeldDown(holders []*Instance, down []*symbols.Symbol, feature *symbols.Symbol, inst *Instance, name string, open bool, slots []subsetterSlot) (_ []subsetterSlot, missing int64, err error) {
+	for _, usage := range down {
+		var next []*Instance
+		missing *= fewestOf(ctx.featureMultiplicity(usage, ctx.findOwnerType(usage)))
+		for _, holder := range holders {
+			objects, short, err := ctx.objectsHeldAs(holder, usage, open)
+			if err != nil {
+				return nil, 0, fmt.Errorf("usage %s leading to subsetting feature %s of %s: %w", usage.Name, feature.Name, name, err)
+			}
+			next = append(next, objects...)
+			missing += short
+		}
+		holders = next
+	}
+	for _, holder := range holders {
+		slot, ok := ctx.slotDenoting(holder, feature)
+		if ok && !(holder == inst && slot == name) && !containsSlot(slots, holder, slot) {
+			slots = append(slots, subsetterSlot{holder: holder, name: slot})
+		}
+	}
+	return slots, missing * fewestOf(ctx.featureMultiplicity(feature, ctx.findOwnerType(feature))), nil
 }
 
 // reachedSubsetted returns the features of other objects that the named feature of inst
@@ -401,42 +422,37 @@ func (ctx *Context) namespaceReachingContributions(inst *Instance, name string, 
 // down the chain the target is written as.
 func (ctx *Context) reachedSubsetted(inst *Instance, name string) ([]subsetterSlot, error) {
 	var slots []subsetterSlot
-	// held is the features the owners hold inst through, innermost first.
-	var held []subsetterSlot
-	for context := inst; context != nil; {
-		for _, typ := range context.types() {
-			subsetters := ctx.reachingSubsetters(typ)
-			for i := range subsetters {
-				sub := &subsetters[i]
-				if len(sub.down) != len(held) || !ctx.denotes(inst, sub.feature, name) || !ctx.heldThrough(held, sub.down) {
-					continue
+	for _, declared := range ctx.subsettingElsewhere(inst, name, false) {
+		sub := declared.subsetter
+		targets, up := []*Instance{declared.context}, sub.up
+		if declared.context == nil {
+			first := ctx.declaredSymbol(up[0])
+			if !objectFeature(first) {
+				continue
+			}
+			var err error
+			if targets, err = ctx.denotedSubsetObjects(first); err != nil {
+				return nil, fmt.Errorf("usage %s leading to subsetted feature %s of %s: %w", SymbolText(first), sub.target.Name, name, err)
+			}
+			up = up[1:]
+		}
+		for _, feature := range up {
+			var next []*Instance
+			for _, target := range targets {
+				objects, _, err := ctx.objectsHeldAs(target, feature, false)
+				if err != nil {
+					return nil, fmt.Errorf("feature %s leading to subsetted feature %s of %s: %w", feature.Name, sub.target.Name, name, err)
 				}
-				targets := []*Instance{context}
-				for _, feature := range sub.up {
-					var next []*Instance
-					for _, target := range targets {
-						objects, err := ctx.objectsHeldAs(target, feature, false)
-						if err != nil {
-							return nil, fmt.Errorf("feature %s leading to subsetted feature %s of %s: %w", feature.Name, sub.target.Name, name, err)
-						}
-						next = append(next, objects...)
-					}
-					targets = next
-				}
-				for _, target := range targets {
-					feature, ok := ctx.slotDenoting(target, sub.target)
-					if ok && !(target == inst && feature == name) && !containsSlot(slots, target, feature) {
-						slots = append(slots, subsetterSlot{holder: target, name: feature})
-					}
-				}
+				next = append(next, objects...)
+			}
+			targets = next
+		}
+		for _, target := range targets {
+			feature, ok := ctx.slotDenoting(target, sub.target)
+			if ok && !(target == inst && feature == name) && !containsSlot(slots, target, feature) {
+				slots = append(slots, subsetterSlot{holder: target, name: feature})
 			}
 		}
-		owner, feature := context.Owner()
-		if owner == nil {
-			break
-		}
-		held = append(held, subsetterSlot{holder: owner, name: feature})
-		context = owner
 	}
 	return slots, nil
 }
@@ -444,25 +460,64 @@ func (ctx *Context) reachedSubsetted(inst *Instance, name string) ([]subsetterSl
 // subsetsElsewhere reports whether a declaration makes the named feature of inst subset a
 // feature of another object, without reading the chain to it.
 func (ctx *Context) subsetsElsewhere(inst *Instance, name string) bool {
+	return len(ctx.subsettingElsewhere(inst, name, true)) > 0
+}
+
+// subsettingElsewhere returns the declarations making the named feature of inst a subsetter
+// declared elsewhere, each with the object its target is read from: an owner of inst, or none
+// where the target starts at a namespace usage. With first set it stops at the first found.
+func (ctx *Context) subsettingElsewhere(inst *Instance, name string, first bool) []reachingContext {
+	var out []reachingContext
+	// held is the features the owners hold inst through, innermost first.
 	var held []subsetterSlot
-	for context := inst; context != nil; {
-		for _, typ := range context.types() {
+	root := inst
+	for {
+		for _, typ := range root.types() {
 			subsetters := ctx.reachingSubsetters(typ)
 			for i := range subsetters {
 				sub := &subsetters[i]
-				if len(sub.down) == len(held) && ctx.denotes(inst, sub.feature, name) && ctx.heldThrough(held, sub.down) {
-					return true
+				if len(sub.down) != len(held) || !ctx.denotes(inst, sub.feature, name) || !ctx.heldThrough(held, sub.down) {
+					continue
+				}
+				if out = append(out, reachingContext{context: root, subsetter: sub}); first {
+					return out
 				}
 			}
 		}
-		owner, feature := context.Owner()
+		owner, feature := root.Owner()
 		if owner == nil {
 			break
 		}
 		held = append(held, subsetterSlot{holder: owner, name: feature})
-		context = owner
+		root = owner
 	}
-	return false
+	for _, subsetters := range ctx.namespaceModelIndex().reaching {
+		for i := range subsetters {
+			sub := &subsetters[i]
+			if len(sub.down) != len(held)+1 || !ctx.occurrenceOfUsage(root, sub.down[0]) || !ctx.denotes(inst, sub.feature, name) || !ctx.heldThrough(held, sub.down[1:]) {
+				continue
+			}
+			if out = append(out, reachingContext{subsetter: sub}); first {
+				return out
+			}
+		}
+	}
+	slices.SortStableFunc(out, func(a, b reachingContext) int {
+		switch {
+		case declaredBefore(a.subsetter.feature, b.subsetter.feature):
+			return -1
+		case declaredBefore(b.subsetter.feature, a.subsetter.feature):
+			return 1
+		}
+		return 0
+	})
+	return out
+}
+
+// occurrenceOfUsage reports whether root is an occurrence of the namespace usage given.
+func (ctx *Context) occurrenceOfUsage(root *Instance, usage *symbols.Symbol) bool {
+	usage = ctx.declaredSymbol(usage)
+	return ctx.declaredSymbol(root.Type) == usage || slices.Contains(ctx.occurrences[usage], root.ID)
 }
 
 // heldDown returns the objects already held from context down the usages given, reading nothing.
