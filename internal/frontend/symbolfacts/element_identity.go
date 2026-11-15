@@ -191,7 +191,14 @@ func (sc *Context) formElements(id string) []*symbols.Symbol {
 		return nil
 	}
 	if name, ok := form.LibraryName(id); ok {
-		return LookupNamed(sc.Index, name)
+		// A model declaration named like the library element is not what its normative id names.
+		var library []*symbols.Symbol
+		for _, sym := range LookupNamed(sc.Index, name) {
+			if sc.Index.Library(sym) {
+				library = append(library, sym)
+			}
+		}
+		return library
 	}
 	owner, depth, ok := form.Owner(id)
 	if !ok {
