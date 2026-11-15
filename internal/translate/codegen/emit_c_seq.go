@@ -64,8 +64,8 @@ static void sysml_seq_sep(sysml_int i) { if (i) fputs(", ", stdout); }
 `
 
 // cSeqTemplate is the runtime over one element type; ELEM is the C type, SFX
-// the suffix naming it, PRINT prints one element without a newline, FORMAT
-// writes one into a buffer, KINDOF is the interpreter's description of one, KEY
+// the suffix naming it, PRINT prints one element without a newline, SHOW
+// is one as the interpreter prints it, KINDOF is the interpreter's description of one, KEY
 // hashes one, EQ is '==' of two and SKIP says which elements equal nothing (a NaN).
 const cSeqTemplate = `
 typedef struct { int8_t shape; sysml_int len; ELEM *data; } sysml_seq_SFX;
@@ -76,13 +76,6 @@ static inline sysml_seq_SFX sysml_one_SFX(ELEM v) {
 	ELEM *p = sysml_alloc(sizeof *p);
 	*p = v;
 	return (sysml_seq_SFX){SYSML_ONE, 1, p};
-}
-
-/* One element as the interpreter prints it, in memory the run owns. */
-static const char *sysml_show64_SFX(ELEM v) {
-	char *text = sysml_alloc(64);
-	FORMAT(v, text, 64);
-	return text;
 }
 
 /* s in the shape a feature's multiplicity gives its values: a multi-valued
@@ -414,7 +407,7 @@ static sysml_seq_num sysml_nums_real(sysml_seq_real s) {
 /* Folds numbers from the Integer identity: Integer arithmetic while both
    operands hold Integers, Real arithmetic once one does not. */
 static sysml_num sysml_nfold(sysml_seq_num s, bool product, const char *op) {
-	sysml_num acc = sysml_ni(product ? 1 : 0);
+	sysml_num acc = sysml_ni(SYSML_I(product ? 1 : 0));
 	for (sysml_int i = 0; i < s.len; i++) {
 		sysml_num v = s.data[i];
 		if (!acc.real && !v.real) {
@@ -487,7 +480,12 @@ static void sysml_keep_nums(sysml_num *d, sysml_int n) {
 	for (sysml_int i = 0; i < n; i++) d[i].i = sysml_keep_int(d[i].i);
 }
 static void sysml_print_bool(sysml_bool v) { fputs(v ? "true" : "false", stdout); }
-static void sysml_format_bool(sysml_bool v, char *out, size_t size) { snprintf(out, size, "%s", v ? "true" : "false"); }
+static const char *sysml_show_bool(sysml_bool v) { return v ? "true" : "false"; }
+static const char *sysml_show_real(sysml_real r) {
+	char *text = sysml_alloc(64);
+	sysml_format_real(r, text, 64);
+	return text;
+}
 
 /* The hash key of a Real: its bits, with both zeros as one key since they compare equal. */
 static inline uint64_t sysml_real_key(sysml_real r) {
@@ -529,13 +527,13 @@ func cSeqRuntime() string {
 	b.WriteString(cStrRuntime)
 	// Element printers precede the template; the Real printer is the scalar one.
 	b.WriteString("\nstatic void sysml_print_bool(sysml_bool v);\nstatic void sysml_print_real_value(sysml_real r);\n")
-	b.WriteString("static void sysml_save_nums(sysml_num *t, sysml_int n);\nstatic void sysml_restore_nums(sysml_num *d, sysml_int n);\nstatic void sysml_keep_nums(sysml_num *d, sysml_int n);\nstatic void sysml_format_bool(sysml_bool v, char *out, size_t size);\nstatic inline uint64_t sysml_real_key(sysml_real r);\n")
+	b.WriteString("static void sysml_save_nums(sysml_num *t, sysml_int n);\nstatic void sysml_restore_nums(sysml_num *d, sysml_int n);\nstatic void sysml_keep_nums(sysml_num *d, sysml_int n);\nstatic const char *sysml_show_real(sysml_real r);\nstatic const char *sysml_show_bool(sysml_bool v);\nstatic inline uint64_t sysml_real_key(sysml_real r);\n")
 	b.WriteString("static inline uint64_t sysml_num_key(sysml_num n);\n")
 	b.WriteString("#define SYSML_SCALAR_EQ(a, b) ((a) == (b))\n#define SYSML_NEVER(v) false\n#define SYSML_KIND_INT(v) \"an Integer\"\n#define SYSML_KIND_REAL(v) \"a Real\"\n#define SYSML_KIND_BOOL(v) \"a Boolean\"\n#define SYSML_KIND_STR(v) \"string\"\n#define SYSML_NO_ELEMS(t, n) ((void)0)\n")
 	for _, t := range []Type{TypeInt, TypeReal, TypeBool, TypeNum, TypeString} {
 		printer := "sysml_print_" + cSeqSuffix(t)
-		kind, key, skip, eq := "SYSML_KIND_INT", "(uint64_t)", "false && ", "SYSML_SCALAR_EQ"
-		show, save, restore, keep := "sysml_show64_"+cSeqSuffix(t), "SYSML_NO_ELEMS", "SYSML_NO_ELEMS", "SYSML_NO_ELEMS"
+		kind, key, skip, eq := "SYSML_KIND_INT", "(uint64_t)", "SYSML_NEVER", "SYSML_SCALAR_EQ"
+		show, save, restore, keep := "sysml_show_"+cSeqSuffix(t), "SYSML_NO_ELEMS", "SYSML_NO_ELEMS", "SYSML_NO_ELEMS"
 		switch t {
 		case TypeInt:
 			printer, key, eq, show = "sysml_print_int_value", "sysml_int_key", "sysml_ieq", "sysml_show_int"
@@ -552,7 +550,7 @@ func cSeqRuntime() string {
 			show, save, restore, keep = "sysml_show_num", "sysml_save_nums", "sysml_restore_nums", "sysml_keep_nums"
 		}
 		r := strings.NewReplacer("ELEMNAME", cSeqSuffix(t), "ELEM", cType(t), "SFX", cSeqSuffix(t), "PRINT", printer,
-			"FORMAT", "sysml_format_"+cSeqSuffix(t), "KINDOF", kind, "KEY", key, "SKIP", skip, "EQ", eq,
+			"KINDOF", kind, "KEY", key, "SKIP", skip, "EQ", eq,
 			"SHOW", show, "SAVEELEMS", save, "RESTOREELEMS", restore, "KEEPELEMS", keep, "KOPEN", `" ("`, "KCLOSE", `")"`)
 		b.WriteString(r.Replace(cSeqTemplate))
 	}

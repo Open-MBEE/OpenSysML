@@ -84,7 +84,7 @@ var libSpecs = map[LibOp]libSpec{
 	LibLog:        {"log", []Type{TypeReal, TypeReal}, TypeReal, "sysml_log(%s, %s)", "sysmlLog(%s, %s)"},
 	LibAtan2:      {"atan2", []Type{TypeReal, TypeReal}, TypeReal, "sysml_atan2(%s, %s)", "sysmlAtan2(%s, %s)"},
 
-	LibLength:          {"Length", []Type{TypeString}, TypeInt, "sysml_str_length(%s)", "sysmlLength(%s)"},
+	LibLength:          {"Length", []Type{TypeString}, TypeInt, "SYSML_I(sysml_str_length(%s))", "sysmlLength(%s)"},
 	LibSubstring:       {"Substring", []Type{TypeString, TypeInt, TypeInt}, TypeString, "sysml_substring(%s, %s, %s)", "sysmlSubstring(%s, %s, %s)"},
 	LibIntToString:     {"ToString", []Type{TypeInt}, TypeString, "sysml_int_string(%s)", "(%s).String()"},
 	LibNaturalToString: {"ToString", []Type{TypeInt}, TypeString, "sysml_natural_string(%s)", "sysmlNaturalString(%s)"},

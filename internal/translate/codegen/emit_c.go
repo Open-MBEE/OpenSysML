@@ -1427,6 +1427,9 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 		if p.Type.IsEnum() && !p.Type.Many() {
 			parser = cSeqSuffix(p.Type)
 		}
+		if p.Type == TypeInt {
+			parser = "int"
+		}
 		e.linef("%s %s = sysml_parse_%s(argv[%d], \"%s\");", cType(p.Type), cLocal(p.Name), parser, i+1, p.Name)
 	}
 	e.linef("%s result = %s;", cType(fn.Result), cZero(fn.Result))

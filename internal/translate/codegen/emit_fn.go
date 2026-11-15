@@ -215,7 +215,7 @@ static inline uint64_t sysml_new_unset(uint64_t tag) { return ++sysml_unsets << 
 		if (o->u & SYSML_FRESH) { o->u &= ~SYSML_FRESH; sysml_step(1); } \
 		return *o; \
 	}
-SYSML_OPT(i, sysml_int)
+SYSML_OPT(i, sysml_integer)
 /* sysml_narrow_opt checks o against the range lo of the feature it is written
    to; an unset value conforms when its own feature's range is within it,
    checked only where strict. */
@@ -293,8 +293,7 @@ func cFnSeqRuntime(p *Program) string {
 	if len(p.FnCases) == 0 {
 		return ""
 	}
-	r := strings.NewReplacer("ELEMNAME", "fn", "ELEM", "sysml_fn", "SFX", "fn", "PRINT", "sysml_print_fn_value",
-		"FORMAT", "sysml_format_fn", "KINDOF", "SYSML_KIND_FN", "KEY", "sysml_fn_key", "SKIP", "SYSML_NEVER",
+	r := strings.NewReplacer("ELEMNAME", "fn", "ELEM", "sysml_fn", "SFX", "fn", "PRINT", "sysml_print_fn_value", "KINDOF", "SYSML_KIND_FN", "KEY", "sysml_fn_key", "SKIP", "SYSML_NEVER",
 		"EQ", "sysml_fn_eq", "SHOW", "sysml_show_fn", "SAVEELEMS", "SYSML_NO_ELEMS", "RESTOREELEMS", "SYSML_NO_ELEMS", "KEEPELEMS", "SYSML_NO_ELEMS",
 		"KOPEN", `" ("`, "KCLOSE", `")"`)
 	return "#define SYSML_KIND_FN(v) \"function\"\n" + r.Replace(cSeqTemplate)
@@ -305,8 +304,7 @@ func cRecSeqRuntime(p *Program) string {
 	if len(p.Records) == 0 {
 		return ""
 	}
-	r := strings.NewReplacer("ELEMNAME", "rec", "ELEM", "sysml_rec *", "SFX", "rec", "PRINT", "sysml_print_rec_value",
-		"FORMAT", "sysml_format_rec", "KINDOF", "SYSML_KIND_REC", "KEY", "sysml_rec_key", "SKIP", "SYSML_NEVER",
+	r := strings.NewReplacer("ELEMNAME", "rec", "ELEM", "sysml_rec *", "SFX", "rec", "PRINT", "sysml_print_rec_value", "KINDOF", "SYSML_KIND_REC", "KEY", "sysml_rec_key", "SKIP", "SYSML_NEVER",
 		"EQ", "SYSML_SCALAR_EQ", "SHOW", "sysml_show_rec", "SAVEELEMS", "SYSML_NO_ELEMS", "RESTOREELEMS", "SYSML_NO_ELEMS", "KEEPELEMS", "SYSML_NO_ELEMS",
 		"KOPEN", `""`, "KCLOSE", `""`)
 	return `#define SYSML_KIND_REC(v) ""
