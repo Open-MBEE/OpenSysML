@@ -610,13 +610,7 @@ static bool sysml_int_notation(const char *s) {
 	return true;
 }
 
-/* A Real argument is read only in Real notation: the interpreter keeps an
-   Integer argument an Integer, which a Real-typed C parameter cannot hold. */
 static sysml_real sysml_parse_real(const char *s, const char *name) {
-	if (sysml_int_notation(s)) {
-		fprintf(stderr, "argument %s: %s is an Integer, which a compiled C program reads for a Real parameter only in Real notation (as %s.0)\n", name, s, s);
-		exit(2);
-	}
 	if (!sysml_real_notation(s)) {
 		fprintf(stderr, "argument %s: %s is not a finite Real in decimal notation\n", name, s);
 		exit(2);

@@ -55,10 +55,8 @@ func realBits(f float64) string {
 	return fmt.Sprintf("%x", math.Float64bits(f))
 }
 
-// TestCIntegerMatchesBigInt drives the C target's Integer over random operands
-// on both sides of int64 and compares every result with math/big: the notation
-// read and written, + - * %, negation, **, the order of two Integers and of an
-// Integer and a Real, the nearest Real, and the once-rounded quotient.
+// TestCIntegerMatchesBigInt compares the C target's Integer notation, arithmetic,
+// ordering and Real conversions with math/big over operands on both sides of int64.
 func TestCIntegerMatchesBigInt(t *testing.T) {
 	cc := os.Getenv(CCompilerEnvVar)
 	if cc == "" {

@@ -63,10 +63,8 @@ static void sysml_seq_close(void) { fputc(']', stdout); fputc('\n', stdout); }
 static void sysml_seq_sep(sysml_int i) { if (i) fputs(", ", stdout); }
 `
 
-// cSeqTemplate is the runtime over one element type; ELEM is the C type, SFX
-// the suffix naming it, PRINT prints one element without a newline, SHOW
-// is one as the interpreter prints it, KINDOF is the interpreter's description of one, KEY
-// hashes one, EQ is '==' of two and SKIP says which elements equal nothing (a NaN).
+// cSeqTemplate is the runtime over one element type: ELEM its C type, SFX its suffix, and
+// PRINT, SHOW, KINDOF, KEY, EQ and SKIP (elements equal to nothing, a NaN) its operations.
 const cSeqTemplate = `
 typedef struct { int8_t shape; sysml_int len; ELEM *data; } sysml_seq_SFX;
 

@@ -43,9 +43,8 @@ type Compiler struct {
 	// collections is set once any compiled value is a collection.
 	collections bool
 	// keys is the specialization each function compiles.
-	keys   map[*Func]specKey
-	target Target
-	entry  specKey
+	keys  map[*Func]specKey
+	entry specKey
 	// nums are the Real-typed slots some write gives an Integer, compiled as
 	// numbers of either kind; widened is set when a pass adds one.
 	nums    map[slot]bool
@@ -85,7 +84,7 @@ func New(model *semantics.Model, resolver *resolve.Resolver) *Compiler {
 // A Real-typed feature that may be given an Integer keeps its kind, as the
 // interpreter's does, so compiling repeats until no further such feature is found.
 func (c *Compiler) Compile(entry *symbols.Symbol, target Target) (*Program, error) {
-	c.target, c.entry = target, specKeyOf(entry, nil)
+	c.entry = specKeyOf(entry, nil)
 	c.fns = newFnTables()
 	for {
 		c.funcs, c.order, c.keys, c.collections, c.widened = map[specKey]*Func{}, nil, map[*Func]specKey{}, false, false
@@ -346,8 +345,8 @@ func (c *Compiler) compileFuncWith(fn *Func, key specKey, sym *symbols.Symbol, b
 			return nil, fc.unsupported(fmt.Sprintf("parameter %s takes a %s, a record, which a program cannot take on its command line", name, b.t))
 		}
 		s := slot{key: key, name: name}
-		if key == c.entry && c.target != TargetC && b.t.Elem() == TypeReal {
-			// A Go program reads a Real argument in either notation, as the interpreter does.
+		if key == c.entry && b.t.Elem() == TypeReal {
+			// A program reads a Real argument in either notation, as the interpreter does.
 			c.nums[s] = true
 		}
 		b = c.slotted(b, s)

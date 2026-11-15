@@ -527,25 +527,23 @@ func compiledRun(t *testing.T, exe string, c compiledCase) (value, failure strin
 	return "", failureClass(c.calc, text)
 }
 
-// heldIntegerRefusals is the run-time refusal of a Go program whose Real
+// heldIntegerRefusals is the run-time refusal of a program whose Real
 // parameter, given an Integer, meets an exact Rational binary64 does not hold.
 var heldIntegerRefusals = map[string]string{
 	"ExactHeldInteger": "unsupported: exact Rational arithmetic '*' over a value binary64 does not hold exactly",
 	"ExactHeldCompare": "unsupported: '<' of an exact Rational binary64 does not hold exactly",
 }
 
-// heldIntegerRefused reports whether c is a run its Go program refuses as
-// heldIntegerRefusals records, where the interpreter succeeds or later runs out
-// of steps.
-func heldIntegerRefused(target codegen.Target, p *codegen.Program, c compiledCase, gotFailure, wantFailure string) bool {
+// heldIntegerRefused reports whether c is a run its program refuses as heldIntegerRefusals
+// records, where the interpreter succeeds or later runs out of steps.
+func heldIntegerRefused(p *codegen.Program, c compiledCase, gotFailure, wantFailure string) bool {
 	want, ok := heldIntegerRefusals[c.calc]
-	return ok && target == codegen.TargetGo && integerForReal(p, c.args) && strings.HasPrefix(gotFailure, want) &&
+	return ok && integerForReal(p, c.args) && strings.HasPrefix(gotFailure, want) &&
 		(wantFailure == "" || strings.HasPrefix(wantFailure, "evaluation step limit exceeded"))
 }
 
 // integerForReal reports whether an argument in Integer notation is given for
-// a Real-typed parameter of p, which a compiled C program refuses as input: the
-// interpreter keeps that argument an Integer, and a C Real holds only binary64.
+// a Real-typed parameter of p, which keeps it an Integer as the interpreter does.
 func integerForReal(p *codegen.Program, args []string) bool {
 	for i, param := range p.Entry.Params {
 		if i >= len(args) || (param.Type.Elem() != codegen.TypeReal && param.Type.Elem() != codegen.TypeNum) {
@@ -601,27 +599,11 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 				}
 			}
 			s := loadCompileFixture(t)
-			exes := map[string]string{}
-			programs := map[string]*codegen.Program{}
-			dir := t.TempDir()
 			for _, c := range compiledCases {
-				exe, built := exes[c.calc]
-				if !built {
-					exe = filepath.Join(dir, c.calc)
-					programs[c.calc] = buildCalc(t, s, c.calc, target, exe)
-					exes[c.calc] = exe
-				}
-				if target == codegen.TargetC && integerForReal(programs[c.calc], c.args) {
-					out, err := exec.Command(exe, c.args...).CombinedOutput()
-					var exit *exec.ExitError
-					if !errors.As(err, &exit) || exit.ExitCode() != 2 || !strings.Contains(string(out), "only in Real notation") {
-						t.Errorf("%s(%s): got %v %q, want the Integer argument refused for a Real parameter with exit status 2", c.calc, strings.Join(c.args, ", "), err, out)
-					}
-					continue
-				}
+				exe, program := fixtureCalc(t, s, c.calc, target)
 				wantValue, wantFailure := interpreted(t, s, c)
 				gotValue, gotFailure := compiledRun(t, exe, c)
-				if heldIntegerRefused(target, programs[c.calc], c, gotFailure, wantFailure) {
+				if heldIntegerRefused(program, c, gotFailure, wantFailure) {
 					continue
 				}
 				if gotFailure == wantFailure && gotValue != wantValue && target == codegen.TargetC && transcendental[c.calc] && withinUlps(gotValue, wantValue, 2) {
@@ -632,21 +614,22 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 						c.calc, strings.Join(c.args, ", "), gotValue, gotFailure, wantValue, wantFailure)
 				}
 			}
+			hypot, _ := fixtureCalc(t, s, "Hypot", target)
 			for _, repeat := range []string{"0", "-1", "x", "2x", ""} {
-				out, err := exec.Command(exes["Hypot"], "--repeat", repeat, "3.0", "4.0").CombinedOutput()
+				out, err := exec.Command(hypot, "--repeat", repeat, "3.0", "4.0").CombinedOutput()
 				var exit *exec.ExitError
 				if !errors.As(err, &exit) || exit.ExitCode() != 2 {
 					t.Errorf("--repeat %q: got %v %q, want usage and exit status 2", repeat, err, out)
 				}
 			}
 			for _, arg := range []string{"inf", "-inf", "nan", "1x", "", "0x1p-2", "0x1.8p1", "1_000.5", " 1.5", "1.5 ", "+", ".", "1e", "1e+", "Infinity"} {
-				out, err := exec.Command(exes["Hypot"], arg, "4.0").CombinedOutput()
+				out, err := exec.Command(hypot, arg, "4.0").CombinedOutput()
 				var exit *exec.ExitError
 				if !errors.As(err, &exit) || exit.ExitCode() != 2 || !strings.Contains(string(out), "is not a finite Real") {
 					t.Errorf("Hypot(%q, 4.0): got %v %q, want not a Real and exit status 2", arg, err, out)
 				}
 			}
-			if out, err := exec.Command(exes["Hypot"], "--repeat", "3", "3.0", "4.0").Output(); err != nil || strings.TrimSpace(string(out)) != "[5.0]" {
+			if out, err := exec.Command(hypot, "--repeat", "3", "3.0", "4.0").Output(); err != nil || strings.TrimSpace(string(out)) != "[5.0]" {
 				t.Errorf("--repeat 3: got %q, %v", out, err)
 			}
 		})
@@ -901,20 +884,9 @@ func TestCompiledStepBudgetMatchesInterpreter(t *testing.T) {
 				}
 			}
 			s := loadCompileFixture(t)
-			dir := t.TempDir()
-			exes := map[string]string{}
-			programs := map[string]*codegen.Program{}
 			checked := 0
 			for _, c := range compiledCases {
-				exe, built := exes[c.calc]
-				if !built {
-					exe = filepath.Join(dir, c.calc)
-					programs[c.calc] = buildCalc(t, s, c.calc, target, exe)
-					exes[c.calc] = exe
-				}
-				if target == codegen.TargetC && integerForReal(programs[c.calc], c.args) {
-					continue
-				}
+				exe, program := fixtureCalc(t, s, c.calc, target)
 				steps, ok := stepsTaken(t, s, c, limit)
 				if !ok {
 					continue
@@ -936,7 +908,7 @@ func TestCompiledStepBudgetMatchesInterpreter(t *testing.T) {
 						continue
 					}
 					gotValue, gotFailure := compiledRun(t, exe, c)
-					if heldIntegerRefused(target, programs[c.calc], c, gotFailure, wantFailure) {
+					if heldIntegerRefused(program, c, gotFailure, wantFailure) {
 						continue
 					}
 					if gotFailure == wantFailure && gotValue != wantValue && target == codegen.TargetC && transcendental[c.calc] && withinUlps(gotValue, wantValue, 2) {
