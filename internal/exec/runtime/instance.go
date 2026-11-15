@@ -52,6 +52,11 @@ type Instance struct {
 	owner        *Instance
 	ownerFeature string
 
+	// performance is the action node performance this object is, nil for any other;
+	// performed marks the object an action's own performance runs as.
+	performance *actionFrame
+	performed   bool
+
 	// explicit marks an object a caller asked for by name, which stands on its
 	// own even where its usage is a feature of a type.
 	explicit bool
@@ -1106,6 +1111,7 @@ func (ctx *Context) adoptOccurrenceWrite(inst *Instance, fv *FeatureValue) {
 			exec.mirrorOccurrenceWrite(fv)
 		}
 	}
+	ctx.adoptPerformanceWrite(inst, fv)
 	if mirrored {
 		ctx.noteStateDataWrite()
 	}

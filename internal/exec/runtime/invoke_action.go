@@ -360,7 +360,7 @@ func invokeBoundAction(
 		return nil, nil, err
 	}
 
-	callee, err := ctx.beginOrJoinCallee(inv, sym, self, inputs, nil)
+	callee, err := ctx.beginOrJoinCallee(inv, sym, self, nil, inputs, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("invoke action %s: %w", inv.name(), err)
 	}
@@ -412,7 +412,7 @@ func (f *calleeFrame) clone() bodyFrame { c := *f; return &c }
 // `part.callee` whose object performs the callee already (its type performs it), joins
 // that one performance, as a run of the action named on an object does (performAction);
 // listener, if any, takes each write to the outputs of either.
-func (ctx *Context) beginOrJoinCallee(inv actionInvocation, sym *symbols.Symbol, self *Instance, inputs map[string]Value, listener *outputListener) (*calleeFrame, error) {
+func (ctx *Context) beginOrJoinCallee(inv actionInvocation, sym *symbols.Symbol, self, occurrence *Instance, inputs map[string]Value, listener *outputListener) (*calleeFrame, error) {
 	if inv.chain != nil {
 		exec, err := ctx.performanceOf(sym, self, inputs)
 		if err != nil {
@@ -425,17 +425,17 @@ func (ctx *Context) beginOrJoinCallee(inv actionInvocation, sym *symbols.Symbol,
 			return &calleeFrame{exec: exec, joined: true}, nil
 		}
 	}
-	return ctx.beginCallee(inv.performed(sym), sym, self, inputs, listener)
+	return ctx.beginCallee(inv.performed(sym), sym, self, occurrence, inputs, listener)
 }
 
 // beginCallee starts action, a performance of performed, as a sub-execution of
 // the caller nested one deeper, on the clock until run to completion; listener,
 // if any, takes each write to its outputs from its first declared value on.
-func (ctx *Context) beginCallee(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value, listener *outputListener) (*calleeFrame, error) {
+func (ctx *Context) beginCallee(performed, action *symbols.Symbol, self, occurrence *Instance, inputs map[string]Value, listener *outputListener) (*calleeFrame, error) {
 	ctx.actionDepth++
 	defer func() { ctx.actionDepth-- }()
 	defer ctx.nestRun()()
-	exec, err := ctx.beginPerformed(performed, action, self, inputs, false, listener, startActionStep)
+	exec, err := ctx.beginPerformed(performed, action, self, occurrence, inputs, false, listener, startActionStep)
 	if err != nil {
 		return nil, err
 	}

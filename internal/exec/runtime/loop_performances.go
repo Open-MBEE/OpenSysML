@@ -79,35 +79,14 @@ func (e *performances) frameObject(frame *actionFrame) (*Instance, error) {
 	if owner == nil || err != nil {
 		return nil, err
 	}
-	usage, ok := frame.node.(*ast.Usage)
-	if !ok || frame.body {
+	if _, ok := frame.node.(*ast.Usage); !ok || frame.body {
 		return owner, nil
 	}
-	name := usage.Ident.Name
-	if _, held := owner.FeatureValues[name]; name == "" || !held {
-		return nil, nil
-	}
-	fv, err := owner.getFeatureValue(e.ctx, name, nil)
-	if err != nil {
+	// A named node begun before the run had an object takes its own now.
+	if err := e.holdNodeOccurrence(frame); err != nil {
 		return nil, err
 	}
-	elements, err := e.ctx.HeldElements(fv.HeldValue())
-	if err != nil {
-		return nil, err
-	}
-	at := max(frame.repetition-1, 0)
-	if at >= int64(len(elements)) {
-		return nil, nil
-	}
-	id, ok := elements[at].Object()
-	if !ok {
-		return nil, nil
-	}
-	inst, ok := e.ctx.Instance(id)
-	if !ok {
-		return nil, nil
-	}
-	return inst, nil
+	return frame.occurrence, nil
 }
 
 // kernelMemberHolding is the feature value owner holds the objects of the library

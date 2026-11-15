@@ -703,6 +703,13 @@ func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(i
 	perfs := perf.perfs
 	*perf = img.saved
 	perf.perfs = perfs
+	// The object a performance runs as is the one made for it here.
+	if held := img.saved.occurrence; held != nil {
+		perf.occurrence = m.made[held.ID]
+		if perf.occurrence != nil && held.performance != nil {
+			perf.occurrence.performance = perf
+		}
+	}
 	perf.parent = frameAt(img.parent)
 	perf.connections = slices.Clone(img.saved.connections)
 	perf.features = maps.Clone(img.saved.features)

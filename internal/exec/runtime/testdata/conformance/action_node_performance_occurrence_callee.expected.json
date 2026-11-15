@@ -1,0 +1,11 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::plant",
+  "slots": {
+    "run.total": {"type": "Integer", "value": 41},
+    "run.call.a": {"type": "Integer", "value": 2},
+    "run.call.r": {"type": "Integer", "value": 21},
+    "run.call.inner.v": {"type": "Integer", "value": 20}
+  }
+}

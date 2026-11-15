@@ -288,6 +288,7 @@ func newActionExecutorOn(ctx *Context, performed *symbols.Symbol, body actionBod
 	exec.owner = exec
 	exec.flow = exec
 	if occurrence != nil {
+		occurrence.performed = true
 		ctx.registerActionExecutor(exec)
 	}
 	exec.driven.exec = exec
@@ -1674,6 +1675,7 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 	}
 	// The run's own object: what it holds is the run's, not the model's alone.
 	inst.explicit = true
+	inst.performed = true
 	e.occurrence = inst
 	e.performances.occurrence = inst
 	e.ctx.registerActionExecutor(e)
@@ -1696,7 +1698,7 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 		}
 	}
 	e.ctx.beginPerformanceLife(inst, e.ctx.newActivation())
-	return inst, nil
+	return inst, e.holdNodeOccurrences(e.root)
 }
 
 // returnAround holds nothing either.
