@@ -113,8 +113,14 @@ func (h *calcStmtHost) describe() string {
 	return calcBodyDescription
 }
 
-func (h *calcStmtHost) send(*EvalContext, lower.Send) error {
-	return fmt.Errorf("%w: a calculation cannot send a message", errCalcSideEffect)
+// send posts the message through the connections the case's performance holds;
+// a calculation holding no performance routes it by its target alone.
+func (h *calcStmtHost) send(ec *EvalContext, s lower.Send) error {
+	var conns []lower.Connection
+	if perf := h.performance(); perf != nil {
+		conns = perf.connections
+	}
+	return h.ctx.send(ec, h.shape.BodyScope(), conns, s, h.self, h.shape.Sym)
 }
 
 // declaredOutput reports whether name is an output the body binds by assigning
@@ -127,8 +133,8 @@ func (h *calcStmtHost) declaredOutput(name string) bool {
 	return ok && !out.IsInOut
 }
 
-// assignOuter binds an output this calculation declares, and rejects any other
-// undeclared name: writing that would be an effect outside the calculation.
+// assignOuter binds an output this calculation declares; any other name it does
+// not declare is a feature of the performing object, else a value of the body.
 func (h *calcStmtHost) assignOuter(env *stmtEnv, name string, value Value, s lower.Assign) error {
 	if env.rootDeclares(name) {
 		if err := h.ctx.checkNamedWriteComputed(s.Scope, h.describe(), s.Target, &value); err != nil {
@@ -138,7 +144,10 @@ func (h *calcStmtHost) assignOuter(env *stmtEnv, name string, value Value, s low
 		return h.mirrorOccurrence(name, value)
 	}
 	if !h.declaredOutput(name) {
-		return fmt.Errorf("%w: %s is not declared by the calculation", errCalcExternalAssignment, name)
+		if written, err := assignPerformerFeature(h.ctx, h.self, s.Scope, name, value); written || err != nil {
+			return err
+		}
+		return storeBodyValue(h.ctx, h, env, name, value, s)
 	}
 	out, _ := h.shape.output(name)
 	if out.Value != 0 && !out.IsInitial {
@@ -212,17 +221,16 @@ func (h *calcStmtHost) mirrorBodyBinding(name string, cell *bodyCell, value *Val
 	return nil
 }
 
-// assignChain rejects a chained target: writing a feature of another object is
-// an effect outside the calculation, as writing an undeclared name is.
-func (h *calcStmtHost) assignChain(_ *EvalContext, s lower.Assign, _ Value) error {
-	return fmt.Errorf("%w: %s writes a feature of another object", errCalcExternalAssignment, s.Chain.Text)
+// assignChain writes the feature a chained target names on the object its chain
+// reaches: a calculation may have side effects (KerML 7.4.8.1).
+func (h *calcStmtHost) assignChain(ec *EvalContext, s lower.Assign, value Value) error {
+	return assignThroughChain(ec, h.describe(), s, value)
 }
 
-// assignForeign rejects a qualified write naming an object outside the calc's
-// own run for the same reason a chained target is rejected.
-func (h *calcStmtHost) assignForeign(_ *EvalContext, s lower.Assign, _ Value) error {
-	return fmt.Errorf("%w: %s::%s writes a feature of another object",
-		errCalcExternalAssignment, s.Owner.Name, s.Target)
+// assignForeign writes a qualified target naming a feature outside the calc's
+// own run, as an action body does.
+func (h *calcStmtHost) assignForeign(ec *EvalContext, s lower.Assign, value Value) error {
+	return assignQualifiedForeign(ec, s, value, h.describe())
 }
 
 // acceptReturn takes the value a `return` yields, which the result parameter

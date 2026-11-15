@@ -162,10 +162,6 @@ var (
 	// computes a value, so an effect is rejected rather than performed.
 	errCalcSideEffect = errors.New("side effect in a calculation body")
 
-	// errCalcExternalAssignment is returned when a calc body assigns to a name it
-	// does not declare itself, which would make the calculation impure.
-	errCalcExternalAssignment = errors.New("assignment outside the calculation body")
-
 	// errStatementNotExecutable is returned when a body reaches a member the
 	// lowering marked as not executable in that kind of body (lower.Unsupported).
 	errStatementNotExecutable = errors.New("statement not executable")

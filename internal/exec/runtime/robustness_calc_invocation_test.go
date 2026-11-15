@@ -36,9 +36,10 @@ func TestRuntimeRobustnessCalcInvocation(t *testing.T) {
 	t.Run("calc_recursion_at_depth_ceiling", testCalcRecursionAtDepthCeiling)
 	t.Run("calc_non_terminating_loop", testCalcNonTerminatingLoop)
 	t.Run("calc_body_never_returns", testCalcBodyNeverReturns)
-	t.Run("calc_send_is_rejected", testCalcSendIsRejected)
+	t.Run("calc_send_posts_the_message", testCalcSendPostsTheMessage)
+	t.Run("calc_send_to_no_object", testCalcSendToNoObject)
 	t.Run("calc_terminate_is_rejected", testCalcTerminateIsRejected)
-	t.Run("calc_assignment_outside_the_calc", testCalcAssignmentOutsideTheCalc)
+	t.Run("calc_assignment_of_a_wrong_typed_value", testCalcAssignmentOfAWrongTypedValue)
 	t.Run("calc_output_write_of_a_wrong_typed_value", testCalcOutputWriteOfAWrongTypedValue)
 }
 
@@ -634,22 +635,60 @@ func testCalcBodyNeverReturns(t *testing.T) {
 	}
 }
 
-// testCalcSendIsRejected: a calculation computes a value and nothing else, so a
-// send in its body is rejected rather than posted.
-func testCalcSendIsRejected(t *testing.T) {
-	src := `
-		package test {
-			attribute def Ping;
-			calc noisy {
-				in n: Integer;
-				send Ping() to listener;
-				return : Integer = n;
-			}
+// calcOnHost invokes calc test::Host::<name> of src on a fresh Host and returns
+// the runtime, the Host and the error.
+func calcOnHost(t *testing.T, src, name string) (*Context, *Instance, error) {
+	t.Helper()
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	root := idx.DocumentRoot("<test>")
+	inst := mustInstantiate(t, ctx, findSymbolByName(root, "Host", ast.DefPart))
+	_, err := ctx.invokeCalcWithSelf(oneSymbol(t, idx, "test::Host::"+name), calcArgs{}, root, inst)
+	return ctx, inst, err
+}
+
+const calcSendingHost = `package test {
+	private import ScalarValues::*;
+	item def Ping;
+	part def Worker;
+	part def Host {
+		part worker : Worker;
+		calc def Notify {
+			send new Ping() to worker;
+			return : Integer = 1;
 		}
-	`
-	err := invokeCalcInSource(t, src, "noisy", 1, 10000)
-	if !errors.Is(err, errCalcSideEffect) {
-		t.Errorf("expected errCalcSideEffect, got: %v", err)
+		calc def NotifyNumber {
+			in level : Integer = 4;
+			send new Ping() to level;
+			return : Integer = 1;
+		}
+	}
+}`
+
+// testCalcSendPostsTheMessage: a calculation may have side effects (KerML 7.4.8.1),
+// so a send in its body posts its message to the object it addresses.
+func testCalcSendPostsTheMessage(t *testing.T) {
+	ctx, host, err := calcOnHost(t, calcSendingHost, "Notify")
+	if err != nil {
+		t.Fatalf("Notify: %v", err)
+	}
+	worker, ok, err := ctx.fvObject(host, "worker")
+	if err != nil || !ok {
+		t.Fatalf("Host.worker: ok=%v err=%v", ok, err)
+	}
+	if len(ctx.messages) != 1 || ctx.messages[0].SignalType != "Ping" || ctx.messages[0].Object != worker.ID {
+		t.Fatalf("messages = %+v, want one Ping addressed to the worker #%d", ctx.messages, worker.ID)
+	}
+}
+
+// testCalcSendToNoObject: a send in a calc body answers to the rules of any send,
+// so a target holding a number is refused and nothing is posted.
+func testCalcSendToNoObject(t *testing.T) {
+	ctx, _, err := calcOnHost(t, calcSendingHost, "NotifyNumber")
+	if !errors.Is(err, errSendTargetNotObject) {
+		t.Fatalf("err = %v, want errSendTargetNotObject", err)
+	}
+	if len(ctx.messages) != 0 {
+		t.Errorf("messages = %+v, want none posted by the refused send", ctx.messages)
 	}
 }
 
@@ -671,23 +710,26 @@ func testCalcTerminateIsRejected(t *testing.T) {
 	}
 }
 
-// testCalcAssignmentOutsideTheCalc: a calc may write its own parameters and
-// locals; a name it does not declare belongs to the model around it and writing
-// it would be an effect, so it is rejected.
-func testCalcAssignmentOutsideTheCalc(t *testing.T) {
-	src := `
-		package test {
-			attribute shared : Integer = 0;
-			calc leaky {
-				in n: Integer;
-				assign shared := n;
-				return : Integer = n;
+// testCalcAssignmentOfAWrongTypedValue: a calc body writing a feature of the
+// object performing it is held to that feature's declaration, as an action is.
+func testCalcAssignmentOfAWrongTypedValue(t *testing.T) {
+	ctx, host, err := calcOnHost(t, `package test {
+		private import ScalarValues::*;
+		part def Host {
+			attribute count : Integer := 0;
+			calc def Mistype {
+				assign count := "three";
+				return : Integer = 1;
 			}
 		}
-	`
-	err := invokeCalcInSource(t, src, "leaky", 3, 10000)
-	if !errors.Is(err, errCalcExternalAssignment) {
-		t.Errorf("expected errCalcExternalAssignment, got: %v", err)
+	}`, "Mistype")
+	if !errors.Is(err, ErrTypeMismatch) {
+		t.Fatalf("err = %v, want ErrTypeMismatch", err)
+	}
+	if fv, err := host.GetFeatureValue(ctx, "count"); err != nil {
+		t.Fatalf("read Host.count: %v", err)
+	} else if got := fv.HeldValue(); got.Const.Int != 0 {
+		t.Errorf("Host.count = %v, want 0: the refused write changed nothing", got)
 	}
 }
 
