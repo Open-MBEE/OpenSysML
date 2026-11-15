@@ -68,7 +68,7 @@ func (e *performances) holdNodeOccurrence(perf *actionFrame) error {
 		if !ok {
 			return nil
 		}
-		if held, ok := e.ctx.Instance(id); ok && held.performance == nil {
+		if held, ok := e.ctx.Instance(id); ok && !held.performed {
 			inst = held
 			break
 		}
@@ -82,8 +82,8 @@ func (e *performances) holdNodeOccurrence(perf *actionFrame) error {
 		}
 	}
 	perf.occurrence = inst
-	inst.performance = perf
-	e.ctx.noteProbeUndo(func() { perf.occurrence, inst.performance = nil, nil })
+	inst.performance, inst.performed = perf, true
+	e.ctx.noteProbeUndo(func() { perf.occurrence, inst.performance, inst.performed = nil, nil, false })
 	for _, key := range slices.Sorted(maps.Keys(perf.data)) {
 		if err := e.holdOnOccurrence(perf, key, perf.data[key]); err != nil {
 			return err
@@ -185,4 +185,12 @@ func declaresFlowNode(sym *symbols.Symbol) bool {
 	usage, ok := sym.Decl.(*ast.Usage)
 	return ok && usage.Kind == ast.UsageAction && usage.Value == nil && !usage.IsBodyParameter &&
 		!usage.IsReference && usage.Direction == ast.DirNone
+}
+
+// endNodeOccurrence ends the object perf runs as with the performance: completed, or
+// dropped by a terminate around it.
+func (e *performances) endNodeOccurrence(perf *actionFrame) {
+	if perf.occurrence != nil && perf.occurrence.performance == perf {
+		e.ctx.endPerformanceLife(perf.occurrence)
+	}
 }

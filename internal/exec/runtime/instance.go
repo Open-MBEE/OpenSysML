@@ -53,7 +53,7 @@ type Instance struct {
 	ownerFeature string
 
 	// performance is the action node performance this object is, nil for any other;
-	// performed marks the object an action's own performance runs as.
+	// performed marks an object an action's or a node's performance runs or ran as.
 	performance *actionFrame
 	performed   bool
 

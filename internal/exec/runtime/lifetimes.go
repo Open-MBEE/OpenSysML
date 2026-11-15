@@ -179,7 +179,7 @@ func (ctx *Context) unbegunPerformance(inst *Instance) bool {
 		return false
 	}
 	// A node of an action's flow begins when the performance reaches it, if it does.
-	if (owner.performed || owner.performance != nil) && declaresFlowNode(sym) {
+	if owner.performed && declaresFlowNode(sym) {
 		return true
 	}
 	for _, b := range owner.behaviors {
