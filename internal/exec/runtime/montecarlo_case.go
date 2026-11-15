@@ -524,6 +524,7 @@ func (r *MonteCarloRun) returnResults() error {
 		enclosing = run.shape.bodyEnclosing(run.outer.enclosingRun(run.shape))
 	}
 	engine := newStmtEngineIn(ctx, host, run.env, enclosing)
+	engine.exprs = &run.shape.Exprs
 	for _, body := range run.bodyFrames {
 		body.each(func(name string, value Value) {
 			if engine.env.locals == nil {

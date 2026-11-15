@@ -15,11 +15,13 @@ import (
 // parameter redefinition writes, and members declaring nothing a step can run.
 // Successions between steps supply precedence; other successions and control
 // nodes remain unexecutable because a verdict does not run a token flow.
-func ConstraintStep(member ast.Node, scope *symbols.Scope, resolvers ...*resolve.Resolver) (Statement, bool) {
-	var resolver *resolve.Resolver
-	if len(resolvers) > 0 {
-		resolver = resolvers[0]
-	}
+func ConstraintStep(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable) (Statement, bool) {
+	stmt, states := constraintStepOf(member, scope, resolver, exprs)
+	return withExprs(stmt, exprs), states
+}
+
+// constraintStepOf is ConstraintStep before the step's own expressions are interned.
+func constraintStepOf(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable) (Statement, bool) {
 	if actual := unwrapMembership(member); actual != nil {
 		member = actual
 	}
@@ -39,7 +41,7 @@ func ConstraintStep(member ast.Node, scope *symbols.Scope, resolvers ...*resolve
 			Until:      m.Until,
 			Variable:   m.Variable.Name,
 			Collection: m.Collection,
-			Body:       constraintLowerBlock(m, m.Body, bodyScope, resolver),
+			Body:       constraintLowerBlock(m, m.Body, bodyScope, resolver, exprs),
 			BodyAction: loopBodyAction(m, bodyScope),
 			Node:       m,
 			Scope:      scope,
@@ -47,17 +49,17 @@ func ConstraintStep(member ast.Node, scope *symbols.Scope, resolvers ...*resolve
 	case *ast.IfActionNode:
 		lowered := If{Condition: m.Condition, Node: m, Scope: scope}
 		if m.Then != nil {
-			block := constraintLowerBlock(m.Then, m.Then.Body, childScope(scope, m.Then), resolver)
+			block := constraintLowerBlock(m.Then, m.Then.Body, childScope(scope, m.Then), resolver, exprs)
 			lowered.Then = block
 		}
 		if m.Else != nil {
-			block := constraintLowerBlock(m.Else, m.Else.Body, childScope(scope, m.Else), resolver)
+			block := constraintLowerBlock(m.Else, m.Else.Body, childScope(scope, m.Else), resolver, exprs)
 			lowered.Else = &block
 		}
 		return lowered, true
 	case *ast.Usage:
 		if m.Kind == ast.UsageAction && m.IsBodyParameter {
-			return constraintLowerBlock(m, m.Members, childScope(scope, m), resolver), true
+			return constraintLowerBlock(m, m.Members, childScope(scope, m), resolver, exprs), true
 		}
 		if m.Direction == ast.DirIn || m.Direction == ast.DirInOut {
 			// A parameter is bound by the check, not by the body.
@@ -88,18 +90,18 @@ func ConstraintStep(member ast.Node, scope *symbols.Scope, resolvers ...*resolve
 		if ast.IsExpression(member) {
 			return nil, false
 		}
-		return lowerStatement(member, scope, resolver, nil), true
+		return lowerStatement(member, scope, resolver, exprs, nil), true
 	}
 }
 
-func constraintLowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) Block {
+func constraintLowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable) Block {
 	block := Block{Node: owner, Scope: scope}
 	for _, member := range members {
 		actual := unwrapMembership(member)
 		if actual == nil || isAnnotation(actual) {
 			continue
 		}
-		if stmt, ok := ConstraintStep(actual, scope, resolver); ok {
+		if stmt, ok := ConstraintStep(actual, scope, resolver, exprs); ok {
 			block.Statements = append(block.Statements, stmt)
 		}
 	}

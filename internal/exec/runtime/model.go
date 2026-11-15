@@ -90,6 +90,9 @@ type Model struct {
 	// constraintSteps memoizes the step each member of a constraint body lowers
 	// to, one lowering per member node however often a check reads the body.
 	constraintSteps map[ast.Node]lower.Statement
+	// exprs is the table of what the runtime lowers apart from a flow: the ids of those
+	// steps, of conditions, bindings, objectives, feature defaults and satisfy subjects.
+	exprs *lower.ExprTable
 	// activityOperands memoizes, per read of a state's activity (`fill.sub.isActive`),
 	// the node naming the state the read is of (`fill.sub`), so a chain spelled in
 	// one qualified name is resolved as an endpoint once rather than per evaluation.
@@ -280,6 +283,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		calcShapes:          make(map[*symbols.Symbol]*loadedCalc),
 		predicateShapes:     make(map[*symbols.Symbol]*loadedCalc),
 		constraintSteps:     make(map[ast.Node]lower.Statement),
+		exprs:               lower.NewExprTable(resolver),
 		activityOperands:    make(map[*ast.FeatureChainExpr]ast.Node),
 		activitySplits:      make(map[activitySplitKey]activitySplit),
 		librarySymbols:      make(map[string]*symbols.Symbol),

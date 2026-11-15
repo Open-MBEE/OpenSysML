@@ -3,6 +3,7 @@ package lower
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"math"
 	"slices"
 	"strconv"
@@ -32,6 +33,8 @@ const acceptPrefix = "accept "
 // its branch: the expression bound to p, read where the succession's guard is.
 type Probability struct {
 	Expr ast.Node
+	// ExprID is Expr in the table of the flow or machine the weight was lowered for.
+	ExprID program.ExprID
 	// Node is the annotation, for the span a message about the weight points at.
 	Node ast.Node
 }
