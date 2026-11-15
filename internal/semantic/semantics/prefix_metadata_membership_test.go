@@ -161,3 +161,92 @@ func TestPrefixMetadataMembershipIsInherited(t *testing.T) {
 		assertRelFeature(t, model, sub, "ownedMembership")
 	}
 }
+
+// A metadata feature is owned through an OwningMembership, never a
+// FeatureMembership, so it is no feature of its owner and has no owningType
+// (KerML 8.3.3.1.10 Type::ownedFeature, 8.3.3.3.4 Feature::owningType).
+func TestPrefixMetadataIsNoFeatureOfItsOwner(t *testing.T) {
+	for _, fixture := range reflectiveFixtures(t, "prefix-no-feature.sysml", source.KindSysML, prefixMembershipFixtureSrc) {
+		model := fixture.model
+		for _, name := range []string{"q", "D", "x"} {
+			owner := relFixtureSymbol(t, fixture, name)
+			var metadata []*symbols.Symbol
+			for _, membership := range model.OwnedMemberships(owner) {
+				if member := membership.Implicit.Member; member.Kind == symbols.SymbolMetadataUsage {
+					metadata = append(metadata, member)
+					assertRelMetaclass(t, model, membership, "OwningMembership")
+				}
+			}
+			if len(metadata) == 0 {
+				t.Fatalf("%s owns no metadata usage", name)
+			}
+			for _, feature := range []string{"ownedFeature", "feature", "ownedFeatureMembership", "featureMembership"} {
+				got, ok := model.ReflectiveElements(owner, feature)
+				if !ok {
+					t.Fatalf("%s %s is not derived", name, feature)
+				}
+				for _, element := range got {
+					if element.Implicit != nil {
+						element = element.Implicit.Member
+					}
+					if slices.Contains(metadata, element) {
+						t.Errorf("%s %s holds its metadata usage %v", name, feature, element)
+					}
+				}
+			}
+			for _, usage := range metadata {
+				assertRelFeature(t, model, usage, "owningType")
+				assertRelFeature(t, model, usage, "owningFeatureMembership")
+				assertRelFeature(t, model, usage, "owningNamespace", owner)
+			}
+		}
+		q := relFixtureSymbol(t, fixture, "q")
+		assertRelFeature(t, model, q, "ownedFeature", relFixtureSymbol(t, fixture, "inner"))
+	}
+}
+
+// KerML owns a `#M` prefix and a body `@M;` through OwningMemberships too
+// (KerML.xtext PrefixMetadataMember, NonFeatureMember).
+func TestKerMLPrefixMetadataIsOwnedThroughAnOwningMembership(t *testing.T) {
+	const src = `package K {
+    metaclass M;
+    #M class C { @M; feature f; }
+}`
+	for _, fixture := range reflectiveFixtures(t, "prefix-memberships.kerml", source.KindKerML, src) {
+		model := fixture.model
+		c := relFixtureSymbol(t, fixture, "C")
+		f := relFixtureSymbol(t, fixture, "f")
+		memberships := model.OwnedMemberships(c)
+		if len(memberships) != 3 || !memberships[0].Implicit.Member.IsPrefixMetadata() || memberships[2].Implicit.Member != f {
+			t.Fatalf("C owns %d memberships, want its prefix, its body's @M and f", len(memberships))
+		}
+		assertRelMetaclass(t, model, memberships[0], "OwningMembership")
+		assertRelMetaclass(t, model, memberships[1], "OwningMembership")
+		assertRelMetaclass(t, model, memberships[2], "FeatureMembership")
+		assertRelFeature(t, model, c, "ownedFeatureMembership", memberships[2])
+		assertRelFeature(t, model, c, "ownedFeature", f)
+		assertRelFeature(t, model, memberships[0].Implicit.Member, "owningFeatureMembership")
+		assertRelFeature(t, model, memberships[0].Implicit.Member, "annotatedElement", c)
+	}
+}
+
+// A valued declaration's prefix leads its value in every ordered ownership view.
+func TestPrefixMetadataPrecedesTheFeatureValue(t *testing.T) {
+	const src = `package V {
+    metadata def Tg;
+    #Tg attribute x = 3;
+}`
+	// The parsed model only: a record keeps no value expression.
+	for _, fixture := range reflectiveFixtures(t, "prefix-value.sysml", source.KindSysML, src)[:1] {
+		model := fixture.model
+		x := relFixtureSymbol(t, fixture, "x")
+		memberships := model.OwnedMemberships(x)
+		if len(memberships) != 2 || !memberships[0].Implicit.Member.IsPrefixMetadata() {
+			t.Fatalf("x owns %d memberships, want its prefix, then its value", len(memberships))
+		}
+		assertRelMetaclass(t, model, memberships[0], "OwningMembership")
+		assertRelMetaclass(t, model, memberships[1], "FeatureValue")
+		assertRelFeature(t, model, x, "ownedRelationship", memberships...)
+		assertRelFeature(t, model, x, "ownedElement", memberships[0].Implicit.Member, memberships[1].Implicit.Member)
+	}
+}

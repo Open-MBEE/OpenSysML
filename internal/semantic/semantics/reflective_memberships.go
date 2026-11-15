@@ -254,6 +254,38 @@ func (m *Model) prefixMetadataSymbols(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
+// leadWithPrefixMetadata moves the `#M` prefixes among members ahead of the
+// rest, both in order: a prefix's membership precedes everything else its
+// declaration owns (PrefixMetadataMember).
+func leadWithPrefixMetadata(members []*symbols.Symbol) []*symbols.Symbol {
+	slices.SortStableFunc(members, func(a, b *symbols.Symbol) int {
+		switch {
+		case a.IsPrefixMetadata() == b.IsPrefixMetadata():
+			return 0
+		case a.IsPrefixMetadata():
+			return -1
+		}
+		return 1
+	})
+	return members
+}
+
+// ownedThroughFeatureMembership reports whether owner owns member through a
+// FeatureMembership, which is what makes member one of its features (KerML
+// 8.3.3.1.10 Type::ownedFeature, 8.3.3.3.4 Feature::owningType). Without the
+// metaclass library no membership is classified, so every member counts.
+func (m *Model) ownedThroughFeatureMembership(owner, member *symbols.Symbol) bool {
+	if owner == nil || member == nil {
+		return false
+	}
+	featureMembership := m.Metaclass("FeatureMembership")
+	if featureMembership == nil {
+		return true
+	}
+	meta := m.Metaclass(m.membershipMetaclassName(owner, member))
+	return meta != nil && m.Conforms(meta, featureMembership)
+}
+
 // forEachMemberPrefixFirst visits scope's registrations in the order their
 // memberships are written: the `#M` prefixes of the head, then the body's members.
 func forEachMemberPrefixFirst(scope *symbols.Scope, yield func(*symbols.Symbol) bool) {
@@ -469,6 +501,13 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 		// SysML.xtext CalculationBody), as the conversion writes it.
 		return "FeatureMembership"
 	}
+	if member.Kind == symbols.SymbolMetadataUsage && !isMetadataBodyMember(member) {
+		// A metadata feature annotates the element that owns it through an
+		// OwningMembership, as a `#M` prefix or in its body (SysML.xtext
+		// PrefixMetadataMember, AnnotatingMember; KerML.xtext
+		// PrefixMetadataMember, NonFeatureMember), never as its feature.
+		return "OwningMembership"
+	}
 	if name := m.sysmlMembershipMetaclassName(owner, member); name != "" {
 		return name
 	}
@@ -519,14 +558,6 @@ func (m *Model) sysmlMembershipMetaclassName(owner, member *symbols.Symbol) stri
 	}
 	if isSatisfySubjectSymbol(member) {
 		return "SubjectMembership"
-	}
-	if isMetadataBodyMember(member) {
-		return ""
-	}
-	if member.Kind == symbols.SymbolMetadataUsage {
-		// A metadata usage in a body annotates the element owning the body
-		// through an OwningMembership (SysML.xtext AnnotatingMember).
-		return "OwningMembership"
 	}
 	if _, bare := member.Decl.(*ast.Usage); !bare && stateSubactionKind(member) != "" {
 		// A bare `entry;` performs an anonymous empty action (SysML.xtext EmptyActionUsage).
