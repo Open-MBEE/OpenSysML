@@ -193,6 +193,7 @@ func (g *ActionGraph) assignIDs() {
 		g.Kinds = append(g.Kinds, kind)
 		g.Origins = append(g.Origins, g.nodeOrigin(node, kind, paths))
 	}
+	g.stampIDs()
 }
 
 func (g *ActionGraph) nodeOrigin(node ast.Node, kind program.NodeKind, paths originPaths) program.Origin {
@@ -227,6 +228,7 @@ func (g *StateGraph) assignIDs() {
 	g.assignTransIDs(paths)
 	g.assignEntryOrigins()
 	g.internExprs()
+	g.stampIDs()
 }
 
 // assignEntryOrigins gives each entry transition its origin and the text of the
