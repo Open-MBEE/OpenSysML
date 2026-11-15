@@ -176,9 +176,8 @@ func (g cycleGraph) check(t *testing.T) {
 	}
 }
 
-// TestImportCycleFollowsTheOperations builds every import graph of three
-// namespaces holding one import cycle through an `import all` shape or another,
-// and random graphs of four, against KerML 8.3.2.4.5 computed directly.
+// TestImportCycleFollowsTheOperations checks every cyclic import graph of three
+// namespaces, and random ones of four, against KerML 8.3.2.4.5 computed directly.
 func TestImportCycleFollowsTheOperations(t *testing.T) {
 	kinds := []cycleImport{{}, {all: true}, {public: true}, {public: true, all: true}}
 	rng := rand.New(rand.NewSource(1))

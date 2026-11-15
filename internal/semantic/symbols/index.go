@@ -1,6 +1,7 @@
 package symbols
 
 import (
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -171,14 +172,13 @@ type reexportClaim struct {
 // gateRoute is one route a name reached a namespace by: the conditions it
 // imposes, and whether the import that made it was private, which keeps the
 // route out of a lookup made from outside that namespace (KerML 8.2.3.3) —
-// a private unfiltered import must not defeat a public filtered one. via names
-// the namespaces the route read the name through, in order: computing a
-// namespace's imported memberships excludes the namespaces already being read
-// (KerML 8.3.2.4.5), so a route does not continue into one it came through.
+// a private unfiltered import must not defeat a public filtered one.
 type gateRoute struct {
 	private bool
 	filters []ElementFilter
-	via     []string
+	// via names the namespaces the route read the name through, in order: it
+	// does not continue into one of them, which is excluded (KerML 8.3.2.4.5).
+	via []string
 }
 
 // nsChange is what happened to a namespace's direct members since the last
@@ -1151,18 +1151,8 @@ func (idx *Index) reexportedAt(fqn string) []*Symbol {
 	return slices.Clone(idx.reexported.at(fqn))
 }
 
-// reexport registers sym under fqn on behalf of a wildcard import doc states,
-// recording the claim so that removing doc can take it back. An entry the
-// importing namespace declares itself is left alone: a cycle of wildcard imports
-// brings a package its own members back, and they are not borrowed.
-// routesOnward returns the routes by which an import into the namespace
-// importer, gated by gate, takes the name sourceFQN::name: the one route of a
-// name declared there, and otherwise each route that surfaced it there continued
-// — its conditions composed with gate, so a filter keeps holding when a further
-// namespace imports the filtering one onward. A route that came through importer
-// does not continue into it, and a borrowed name no route of which does is not
-// taken: importer is excluded while its imported memberships are computed
-// (KerML 8.3.2.4.5).
+// routesOnward returns the routes by which an import into importer, gated by
+// gate, takes sourceFQN::name: its own, or each route that surfaced it continued.
 func (idx *Index) routesOnward(doc, importer, sourceFQN, name string, sym *Symbol, gate []ElementFilter, all bool) []gateRoute {
 	direct := []gateRoute{{filters: gate, via: []string{sourceFQN}}}
 	fqn := joinFQN(sourceFQN, name)
@@ -1172,8 +1162,11 @@ func (idx *Index) routesOnward(doc, importer, sourceFQN, name string, sym *Symbo
 	// The importing namespace is outside the one it imports from, so only that
 	// one's public routes reach it, unless it is an `import all`.
 	var out []gateRoute
-	for _, claim := range idx.reexportDocs.at(reexportKey{fqn: fqn, sym: sym}) {
-		for _, route := range claim.routes {
+	claims := idx.reexportDocs.at(reexportKey{fqn: fqn, sym: sym})
+	for _, claimant := range slices.Sorted(maps.Keys(claims)) {
+		for _, route := range claims[claimant].routes {
+			// A route that came through importer does not continue into it:
+			// importer is excluded while its imports are read (KerML 8.3.2.4.5).
 			if (route.private && !all) || slices.Contains(route.via, importer) {
 				continue
 			}
@@ -1329,11 +1322,6 @@ func (idx *Index) ReexportGates(doc, fqn string, sym *Symbol, from string) [][]E
 
 // EachReexportGate visits the routes ReexportGates would return, in order, until
 // visit accepts one, reporting whether any was visited and whether one was accepted.
-//
-// excluded names the namespaces whose imported memberships the lookup is
-// reading: a route that came through one of them is not one the lookup may take
-// (KerML 8.3.2.4.5), and counts as visited, so a name only such routes surface
-// is not admitted.
 func (idx *Index) EachReexportGate(doc, fqn string, sym *Symbol, from string, excluded []string, visit func(filters []ElementFilter) bool) (routed, accepted bool) {
 	idx.readName(fqn)
 	claims := idx.reexportDocs.at(reexportKey{fqn: fqn, sym: sym})
@@ -1383,10 +1371,8 @@ func (c *reexportClaim) gateRoutes(private bool) [][]ElementFilter {
 	return out
 }
 
-// takes reports whether a lookup takes route i of the claim: one it may see,
-// that came through no excluded namespace, and whose conditions no other such
-// route admits everything of — routes differing only in the namespaces they
-// came through are one route to a lookup that may take either.
+// takes reports whether a lookup takes route i: one it may see, through no
+// excluded namespace (KerML 8.3.2.4.5), that no other such route subsumes.
 func (c *reexportClaim) takes(i int, private bool, excluded []string) bool {
 	open := func(route *gateRoute) bool {
 		return (private || !route.private) && !route.cameThrough(excluded)

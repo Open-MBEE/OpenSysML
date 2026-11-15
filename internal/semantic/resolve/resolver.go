@@ -153,16 +153,12 @@ type Resolver struct {
 	imports          map[ast.Node][]*ast.Import
 	importStack      map[*ast.Import]bool
 	resolvingImports map[*ast.Import]bool
-	// importVisits are the searches of a namespace's imports that found nothing
-	// during the imported-member lookup in progress, each with the excluded
-	// namespaces it was cut at: the answer wherever those are excluded again
-	// (issue #633). importDepth is the lookup's nesting.
+	// importVisits are the import searches that found nothing in the lookup in
+	// progress (issue #633), each with its cuts; importDepth is the nesting.
 	importVisits map[importVisit][][]*symbols.Scope
 	importDepth  int
-	// importPath holds the namespaces whose imported memberships are being read,
-	// the excluded set of KerML 8.3.2.4.5; importHits and importSeen record the
-	// cuts and entries open marks read (see routeDepsSince). A lookup made aside
-	// or for a filter condition starts with its own (see freshImportVisits).
+	// importPath is the excluded set of KerML 8.3.2.4.5, the namespaces being
+	// read; importHits and importSeen record cuts and entries (routeDepsSince).
 	importPath  []*symbols.Scope
 	importHits  []*symbols.Scope
 	importSeen  []*symbols.Scope

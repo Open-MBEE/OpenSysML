@@ -7,14 +7,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// The imported memberships of a namespace are computed with the namespaces
-// already being read excluded (KerML 8.3.2.4.5 Namespace::importedMemberships,
-// 8.3.2.4.6 NamespaceImport::importedMemberships): an import of an excluded
-// namespace brings nothing. What a namespace's imports bring therefore depends
-// on the route that reached it, and so does every answer kept along the way.
-
-// routeDeps is what an import read depended on of the route that made it: the
-// excluded namespaces it was cut at, and the namespaces it entered.
+// routeDeps is what an import read depended on of its route (KerML 8.3.2.4.5,
+// 8.3.2.4.6): the excluded namespaces it was cut at, and the ones it entered.
 type routeDeps struct {
 	cut, entered []*symbols.Scope
 }
@@ -55,7 +49,6 @@ func (r *Resolver) entersNamespace(scope *symbols.Scope) bool {
 
 // freshImportRoute runs f as the read of a namespace in its own right: no
 // namespace is excluded and no import is in progress, whatever route asked.
-// The caller guards against asking again for what it is computing.
 func (r *Resolver) freshImportRoute(f func()) {
 	stack := r.importStack
 	r.importStack = map[*ast.Import]bool{}
@@ -103,9 +96,8 @@ func (r *Resolver) forgetRoute() {
 	}
 }
 
-// routeHolds reports whether an answer with these dependencies is the answer on
-// the route in progress: one that found nothing stays empty wherever its cuts
-// recur, and a set of members also needs every namespace it entered readable.
+// routeHolds reports whether an answer is the route in progress's too: its cuts
+// recur and, for a set of members, every namespace it entered is readable.
 func (r *Resolver) routeHolds(deps routeDeps, members bool) bool {
 	for _, scope := range deps.cut {
 		if !slices.Contains(r.importPath, scope) {

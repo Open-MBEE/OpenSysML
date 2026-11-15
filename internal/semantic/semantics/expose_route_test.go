@@ -312,10 +312,8 @@ func TestExposedElementsOfAnImportNestedInItsTarget(t *testing.T) {
 	})
 }
 
-// An Expose reads its target with the view excluded, and each import on the way
-// with the namespaces before it excluded (KerML 8.3.2.4.5, 8.3.2.4.6): a private
-// member does not come back to its namespace through a cycle of imports, by the
-// scope route or by the expanded index.
+// An Expose reads each import with the namespaces before it excluded (KerML
+// 8.3.2.4.5): a private member does not return to its namespace through a cycle.
 func TestExposedElementsStopAtAnExcludedNamespace(t *testing.T) {
 	const src = `
 		package C1 { public import all C2::*; private part def P1; part def V1; }
