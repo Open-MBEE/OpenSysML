@@ -509,6 +509,7 @@ final class Rendering {
             .setKind(symbol.kind())
             .putAllMetadata(symbol.metadata())
             .addAllChildIds(symbol.childIds())
+            .addAllAnnotatingMetadataIds(symbol.annotatingMetadataIds())
             .setWithheldLibraryAttributes(symbol.withheldLibraryAttributes())
             .setWithheldLibraryMembers(symbol.withheldLibraryMembers());
     for (Symbol.Member member : symbol.members()) {

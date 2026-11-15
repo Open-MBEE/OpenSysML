@@ -1626,6 +1626,7 @@ func symbolToProto(symbol *opensysml.Symbol) *pb.SymbolInfo {
 		Kind:                      symbol.Kind,
 		Metadata:                  symbol.Metadata,
 		ChildIds:                  symbol.ChildIDs,
+		AnnotatingMetadataIds:     symbol.AnnotatingMetadataIDs,
 		WithheldLibraryAttributes: int32(symbol.WithheldLibraryAttributes), // #nosec G115 -- attribute counts are small
 		WithheldLibraryMembers:    int32(symbol.WithheldLibraryMembers),    // #nosec G115 -- member counts are small
 	}

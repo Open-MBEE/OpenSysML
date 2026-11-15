@@ -134,7 +134,11 @@ paths.paths().get(0).steps();    // InstancePaths.Step records; paths.truncated(
 `members()` is populated by a service advertising `symbol_members` and empty from one that
 does not; asking for library members, `elementProperties` and `instancePaths` are each refused
 with a `CapabilityException` before anything is sent when the service lacks `symbol_members`,
-`element_properties` or `instance_paths`.
+`element_properties` or `instance_paths`. `annotatingMetadataIds()` names the metadata usages
+annotating the symbol: its own `#M` prefixes and body `@M` usages, then the ones naming it in an
+`about` clause elsewhere, which `childIds()` and `members()` leave out; look each up with
+`model.symbol(id)` for its type and attributes. It is empty from a service without
+`symbol_annotating_metadata`.
 
 `ParseOptions` is a record of `Language` (`SYSML` or `KERML`) and
 `strictConformance`, with `defaults()` and `withLanguage`/`withStrictConformance`.

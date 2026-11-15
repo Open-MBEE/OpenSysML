@@ -2292,6 +2292,37 @@ class ApiIntegrationTest {
     assertTrue(probed.containsAll(List.of("run", "explore", "solve", "sweep")), probed.toString());
   }
 
+  private static final String ANNOTATED =
+      """
+      package D10 {
+        metadata def FailureMode { attribute severity : ScalarValues::Integer; }
+        #FailureMode part def PumpP;
+        part def PumpB { @FailureMode { severity = 3; } }
+        part def PumpA;
+        metadata pumpA_fm : FailureMode about PumpA { severity = 2; }
+      }
+      """;
+
+  @Test
+  void aSymbolNamesTheMetadataUsagesAnnotatingIt() {
+    assertTrue(connection.capabilities().has(Capabilities.SYMBOL_ANNOTATING_METADATA));
+    Model model = connection.parse(ANNOTATED);
+    assertEquals(List.of("D10::PumpP::@0"), model.symbol("D10::PumpP").annotatingMetadataIds());
+    assertEquals(List.of("D10::PumpB::@0"), model.symbol("D10::PumpB").annotatingMetadataIds());
+    assertEquals(List.of(), model.symbol("D10::pumpA_fm").annotatingMetadataIds());
+
+    Symbol pump = model.symbol("D10::PumpA");
+    assertEquals(List.of(), pump.childIds());
+    assertEquals(List.of("D10::pumpA_fm"), pump.annotatingMetadataIds());
+
+    Symbol usage = model.symbol(pump.annotatingMetadataIds().get(0));
+    assertEquals("metadataUsage", usage.kind());
+    assertEquals(Optional.of("D10::FailureMode"), usage.typeFacts().orElseThrow().resolvedId());
+    Symbol.Attribute severity = usage.attributes().get(0);
+    assertEquals("severity", severity.name());
+    assertEquals(Optional.of(new Value.IntegerValue(2)), severity.value());
+  }
+
   private static final String MEMBERS =
       """
       package Demo {

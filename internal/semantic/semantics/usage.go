@@ -73,6 +73,9 @@ func (m *Model) synthesizedUsageMayTimeVary(sym *symbols.Symbol) (varies, ok boo
 	case symbols.ExpressionPayload:
 		// A trigger's parameters are owned by the AcceptActionUsage the trigger implies, an action.
 		return m.UsageMayTimeVaryUnderKind(ast.UsageAction), true
+	case symbols.ExpressionTransitionLink:
+		// The pilot exports a transition's transitionLink as neither variable nor time-varying.
+		return false, true
 	}
 	return false, false
 }
