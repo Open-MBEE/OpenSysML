@@ -1,0 +1,102 @@
+package export
+
+import (
+	"slices"
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
+)
+
+// A feature whose stated type is a library type inherits that type's own members, which no
+// implied base supplies (KerML 8.3.3.1.10 deriveTypeInheritedMembership over the supertypes).
+func TestAPIJSONStatedLibraryBaseCompletesTheInheritedFamily(t *testing.T) {
+	graph := duplicateGraph(t, `package Probe {
+		part def Reading {
+			attribute q : Quantities::ScalarQuantityValue;
+			attribute plain;
+		}
+		part meter : Parts::Part;
+	}`, IDQualifiedName)
+	document, err := WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	elements := booleansElements(t, document)
+	catalog := identity.LibraryCatalogWithOpenSysML(libs.SharedBase())
+	mRef, ok := catalog.ElementNamed("Quantities::ScalarQuantityValue::mRef")
+	if !ok {
+		t.Fatal("the library catalog has no Quantities::ScalarQuantityValue::mRef")
+	}
+	q := elements["Probe__Reading__q"]
+	for _, property := range []string{"inheritedFeature", "feature", "member", "usage"} {
+		if ids := referenceIDs(t, q, property); !slices.Contains(ids, mRef.ID) {
+			t.Errorf("q.%s lacks Quantities::ScalarQuantityValue::mRef, the stated type's own feature", property)
+		}
+	}
+	for _, property := range []string{"inheritedMembership", "featureMembership", "membership"} {
+		if ids := referenceIDs(t, q, property); !slices.Contains(ids, mRef.OwningMembershipID) {
+			t.Errorf("q.%s lacks the membership of Quantities::ScalarQuantityValue::mRef", property)
+		}
+	}
+	plain := referenceIDs(t, elements["Probe__Reading__plain"], "inheritedMembership")
+	if stated := referenceIDs(t, q, "inheritedMembership"); len(stated) <= len(plain) {
+		t.Errorf("q inherits %d memberships, an untyped attribute %d: want the stated type's on top", len(stated), len(plain))
+	}
+	// A stated base that is also the implied one contributes its members once.
+	meter := referenceIDs(t, elements["Probe__meter"], "inheritedMembership")
+	if len(meter) == 0 {
+		t.Fatal("meter.inheritedMembership is empty, want the members of Parts::Part")
+	}
+	seen := make(map[string]bool, len(meter))
+	for _, id := range meter {
+		if seen[id] {
+			t.Errorf("meter.inheritedMembership lists %s twice", id)
+		}
+		seen[id] = true
+	}
+}
+
+// A type's ends are its own, then its general types' at the positions it leaves open: an end
+// redefines the one at its position in each supertype (KerML 8.3.3.1.10 deriveTypeEndFeature).
+func TestAPIJSONEndFeatureCompletesOwnedEndsWithInheritedOnes(t *testing.T) {
+	graph := duplicateGraph(t, `package Probe {
+		part def A;
+		part def B;
+		connection def Link {
+			end src : A;
+			end dst : B;
+		}
+		connection def Narrow :> Link {
+			end near : A;
+		}
+		part a : A;
+		part b : B;
+		connection link : Link connect a to b;
+		connection bare : Link;
+		part plain;
+	}`, IDQualifiedName)
+	document, err := WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	elements := booleansElements(t, document)
+	src, dst := "Probe__Link__src", "Probe__Link__dst"
+	if got := referenceIDs(t, elements["Probe__Link"], "endFeature"); !slices.Equal(got, []string{src, dst}) {
+		t.Errorf("Link.endFeature = %v, want its two own ends", got)
+	}
+	if got := referenceIDs(t, elements["Probe__Narrow"], "endFeature"); !slices.Equal(got, []string{"Probe__Narrow__near", dst}) {
+		t.Errorf("Narrow.endFeature = %v, want its own end, then the inherited second one", got)
+	}
+	if got := referenceIDs(t, elements["Probe__bare"], "endFeature"); !slices.Equal(got, []string{src, dst}) {
+		t.Errorf("bare.endFeature = %v, want the two ends of Link and no library end under them", got)
+	}
+	link := referenceIDs(t, elements["Probe__link"], "endFeature")
+	owned := referenceIDs(t, elements["Probe__link"], "ownedEndFeature")
+	if len(owned) != 2 || !slices.Equal(link, owned) {
+		t.Errorf("link.endFeature = %v, want its two own ends %v", link, owned)
+	}
+	if got, stated := elements["Probe__plain"]["endFeature"]; stated {
+		t.Errorf("plain.endFeature = %v, want none", got)
+	}
+}

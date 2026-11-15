@@ -67,6 +67,7 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	{class: "Type", name: "directedFeature", clause: "8.3.3.1.10 deriveTypeDirectedFeature"},
 	{class: "Type", name: "input", clause: "8.3.3.1.10 deriveTypeInput"},
 	{class: "Type", name: "output", clause: "8.3.3.1.10 deriveTypeOutput"},
+	{class: "Type", name: "endFeature", clause: "8.3.3.1.10 deriveTypeEndFeature"},
 	{class: "Usage", name: "usage", clause: "SysML 8.3.6.4 deriveUsageUsage"},
 	{class: "Usage", name: "directedUsage", clause: "SysML 8.3.6.4 deriveUsageDirectedUsage"},
 	{class: "Usage", name: "isReference", clause: "SysML 8.3.6.4 deriveUsageIsReference"},

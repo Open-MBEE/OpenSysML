@@ -179,18 +179,28 @@ func TestElementFormValueKeepsLargeIntegersExact(t *testing.T) {
 // reason, so a reader can tell it from a property that is legitimately empty.
 func TestElementFormRecordsPerElementOmissions(t *testing.T) {
 	form := parseElementForm(t, elementFormModel)
-	a, ok := form.ByQualifiedName("M::P::a")
-	if !ok {
-		t.Fatal("M::P::a is not in the form")
-	}
-	reason, omitted := form.Omission(a.ID, "inheritedFeature")
-	if !omitted || reason.Category != metamodel.ReasonUnresolvedReference {
-		t.Fatalf("M::P::a.inheritedFeature omission = %v, %v; want an unresolved-reference reason", reason, omitted)
-	}
-	for _, property := range a.Properties {
-		if property.Name == "inheritedFeature" {
-			t.Fatalf("M::P::a carries inheritedFeature %v and records its omission", property.Value)
+	var literal APIJSONElement
+	for _, element := range form.Elements() {
+		if element.Metaclass == "LiteralRational" {
+			literal = element
+			break
 		}
+	}
+	if literal.ID == "" {
+		t.Fatal("the form has no LiteralRational")
+	}
+	reason, omitted := form.Omission(literal.ID, "result")
+	if !omitted || reason.Category != metamodel.ReasonIncompleteStructure {
+		t.Fatalf("the literal's result omission = %v, %v; want an incomplete-structure reason", reason, omitted)
+	}
+	for _, property := range literal.Properties {
+		if property.Name == "result" {
+			t.Fatalf("the literal carries result %v and records its omission", property.Value)
+		}
+	}
+	a, _ := form.ByQualifiedName("M::P::a")
+	if _, omitted := form.Omission(a.ID, "inheritedFeature"); omitted {
+		t.Error("M::P::a.inheritedFeature is carried through its library type, yet an omission is recorded")
 	}
 	pair, _ := form.ByQualifiedName("M::Pair")
 	if _, omitted := form.Omission(pair.ID, "inheritedFeature"); omitted {

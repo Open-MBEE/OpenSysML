@@ -5013,9 +5013,9 @@ func (e *Evaluator) structureLibraryBase(element Element) (Element, bool) {
 	if element.Node != nil || element.IsMembership {
 		return Element{}, false
 	}
-	// Only the symbol structure refers to a library type by a row of its own; a graph
-	// structure states its library bases as symbols already.
-	if structure, ok := e.options.Structure.(*SymbolStructure); ok {
+	// A structure refers to a stated library type by a row of its own — the symbol structure's
+	// reference element, a graph's library reference — which only the library symbol describes.
+	if structure, ok := e.options.Structure.(LibrarySymbolResolver); ok {
 		if symbol, found := structure.LibrarySymbol(element); found && symbol != nil {
 			return ElementOf(symbol), true
 		}
@@ -5580,32 +5580,45 @@ func (e *Evaluator) structureEffectiveEndFeatures(
 		}
 		return sequence(values...), true, true
 	}
-	inherited, handled, ok := e.structureInheritedFeatures(element)
-	if !handled || !ok {
-		return unsupported(Reason{Category: ReasonDependsOnUnsupported, Dependency: "Type::inheritedFeature"})
-	}
-	var inheritedEnds []Value
-	for _, feature := range inherited.Values {
-		if feature.Kind != ElementValue {
-			return unsupported(Reason{Category: ReasonUnrepresentedEndpoint, Detail: "Type::endFeature inherited feature is not an element"})
-		}
-		isEnd, known := e.Property(feature.Element, "Feature", "isEnd")
-		if !known || isEnd.Kind != BooleanValue {
-			return unsupported(
-				Reason{Category: ReasonMissingStructure, Detail: "Type::endFeature inherited Feature::isEnd attribute is unavailable"},
-			)
-		}
-		if isEnd.Boolean {
-			inheritedEnds = append(inheritedEnds, feature)
-		}
-	}
-	values := append([]Value(nil), owned.Values...)
-	for index, feature := range inheritedEnds {
-		if index >= len(owned.Values) {
-			values = append(values, feature)
-		}
+	values, ok := e.structureInheritedEndFeatures(element, owned.Values, map[ElementKey]bool{element.Key(): true})
+	if !ok {
+		return unsupported(Reason{Category: ReasonUnresolvedReference, Detail: "Type::endFeature has unresolved specialization references"})
 	}
 	return sequence(values...), true, true
+}
+
+// structureInheritedEndFeatures completes a type's own ends with the ends of its general types at the
+// positions they leave open: an end redefines the one at its position in each supertype (KerML 8.3.3.3.4).
+func (e *Evaluator) structureInheritedEndFeatures(element Element, owned []Value, visited map[ElementKey]bool) ([]Value, bool) {
+	generals, ok := e.structureGeneralTypes(element)
+	if !ok {
+		return nil, false
+	}
+	values := append([]Value(nil), owned...)
+	for _, general := range generals {
+		var ends []Value
+		if base, library := e.structureLibraryBase(general); library {
+			if e.model == nil || !e.completeMembers(base.Symbol) {
+				return nil, false
+			}
+			ends = symbolSequence(e.model.EndFeatures(base.Symbol)).Values
+		} else if !visited[general.Key()] {
+			visited[general.Key()] = true
+			generalOwned, handled, ok := e.structureOwnedEndFeatures(general)
+			if !handled || !ok {
+				return nil, false
+			}
+			if ends, ok = e.structureInheritedEndFeatures(general, generalOwned.Values, visited); !ok {
+				return nil, false
+			}
+		}
+		for index, end := range ends {
+			if index >= len(values) {
+				values = append(values, end)
+			}
+		}
+	}
+	return values, true
 }
 
 func (e *Evaluator) structureFeatureTypes(element Element) (Value, bool, bool) {
