@@ -27,6 +27,13 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return cached
 	}
 	value := m.ValueExpression(sym)
+	if feature := m.FlowEndFeatureMember(sym); feature != nil {
+		// A flow's end owns the ReferenceUsage redefining the feature it names (SysML.xtext FlowFeatureMember).
+		journal(m, m.memberships, sym, sym.Decl)
+		out := appendOwningMembership(nil, sym, feature)
+		m.memberships[sym] = out
+		return out
+	}
 	if sym.Scope == nil && value == nil {
 		return nil
 	}
@@ -73,6 +80,19 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 			Visibility: sym.Visibility,
 			Implicit: &symbols.ImplicitRelationship{
 				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitReferenceMembership, Member: source, Slot: "psourcemember",
+			},
+		})
+		ordinal++
+	}
+	for _, end := range m.FlowEndMembers(sym) {
+		// A flow owns its two FlowEnds ahead of its body, after its payload (SysML.xtext FlowDeclaration).
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   end.DeclSpan,
+			Visibility: sym.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: end,
 			},
 		})
 		ordinal++
@@ -296,6 +316,9 @@ func (m *Model) OwningRelationship(sym *symbols.Symbol) *symbols.Symbol {
 		return nil
 	}
 	if sym.Chain != nil {
+		if sym.Chain.Flow != nil {
+			return m.flowEndChainReference(sym)
+		}
 		return sym.Chain.Relationship
 	}
 	if membership := m.OwningMembership(sym); membership != nil {
