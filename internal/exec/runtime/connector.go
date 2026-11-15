@@ -336,7 +336,7 @@ func (ctx *Context) materializeConnectorStarting(owner *Instance, connSym, base 
 			return err
 		}
 		inst.Ends = append(inst.Ends, ConnectorEnd{Name: end.Name, Feature: end.Declared, Value: val})
-		if end.Name == "" {
+		if !end.Named {
 			unnamed = append(unnamed, val)
 			continue
 		}
@@ -730,7 +730,7 @@ func (ctx *Context) anonymousConnectors(typeSym *symbols.Symbol) []*symbols.Symb
 		}
 		for _, member := range lower.UnwrappedDeclMembers(decl.Decl) {
 			usage, ok := member.(*ast.Usage)
-			if !ok || usage.Ident.Name != "" || usage.Ident.ShortName != "" {
+			if !ok || usage.Ident.Declared() {
 				continue
 			}
 			// A succession or transition carries ends too, and relates its ends in
