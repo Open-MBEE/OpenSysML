@@ -211,11 +211,17 @@ func TestW6CImportWithoutVisibilityIsAnError(t *testing.T) {
 	t.Fatalf("got %s, want an import-visibility error", w6cCodes(got))
 }
 
-// Row ~960, the negative row. Each notation below is an OpenSysML extension no
-// pinned production admits: the reference reports a syntax error
-// (`mismatched input 'of' expecting 'bind'`, `no viable alternative at input
-// 'N'`, `no viable alternative at input 'featured'`), while we accept it with a
-// warning naming the language.
+// Row ~960, the namespace case: no SysML production declares a namespace, so it
+// is an error as in the reference (`no viable alternative at input 'N'`).
+func TestW6CNamespaceInSysMLIsAnError(t *testing.T) {
+	got := w6cDiags(t, "w6c_namespace.sysml", "namespace N { part def Q; }")
+	if len(got) != 1 || got[0].Code != "kerml-notation" || got[0].Severity != diag.SeverityError {
+		t.Fatalf("got %s, want one kerml-notation error", w6cCodes(got))
+	}
+}
+
+// Row ~960, the negative row. No pinned production admits these notations and the
+// reference reports a syntax error; we accept each with a warning naming the language.
 func TestW6CNotationNoPinnedProductionAdmitsIsWarned(t *testing.T) {
 	tests := []struct {
 		name string
@@ -233,12 +239,6 @@ func TestW6CNotationNoPinnedProductionAdmitsIsWarned(t *testing.T) {
 	binding bb of full = level;
 }`,
 			code: "",
-		},
-		{
-			name: "namespace in sysml",
-			file: "w6c_namespace.sysml",
-			src:  "namespace N { part def Q; }",
-			code: "kerml-notation",
 		},
 		{
 			name: "connector in sysml",

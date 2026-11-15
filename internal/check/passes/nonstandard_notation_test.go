@@ -12,6 +12,12 @@ import (
 // substring, and nothing else.
 func wantNotation(t *testing.T, name, src, code string, wants ...string) {
 	t.Helper()
+	wantNotationOf(t, diag.SeverityWarning, name, src, code, wants...)
+}
+
+// wantNotationOf asserts one finding of the severity per want, and nothing else.
+func wantNotationOf(t *testing.T, severity diag.Severity, name, src, code string, wants ...string) {
+	t.Helper()
 	root, pd, idx := analyzeInputs(t, name, src)
 	if len(pd) != 0 {
 		t.Fatalf("%s: extension notation must stay parsed, got errors %+v", src, pd)
@@ -21,8 +27,8 @@ func wantNotation(t *testing.T, name, src, code string, wants ...string) {
 		t.Fatalf("%s: got %d diagnostics %+v, want %d", src, len(got), got, len(wants))
 	}
 	for i, want := range wants {
-		if got[i].Severity != diag.SeverityWarning {
-			t.Errorf("%s: severity = %v, want warning", src, got[i].Severity)
+		if got[i].Severity != severity {
+			t.Errorf("%s: severity = %v, want %v", src, got[i].Severity, severity)
 		}
 		if got[i].Code != code {
 			t.Errorf("%s: code = %q, want %q", src, got[i].Code, code)
@@ -47,22 +53,22 @@ func wantSilent(t *testing.T, name, src string) {
 	}
 }
 
-// `namespace` is KerML-only notation: both its body forms are reported in a
-// SysML file, and neither is in a KerML one.
+// `namespace` is KerML-only notation: both its body forms are an error in a
+// SysML file in every mode, and neither is reported in a KerML one.
 func TestNamespaceInSysMLIsKerMLNotation(t *testing.T) {
 	for _, src := range []string{
 		"namespace N { }",
 		"namespace N;",
 		"package P { namespace N; }",
 	} {
-		wantNotation(t, "a.sysml", src, CodeKerMLNotation, "`namespace` is KerML notation")
+		wantNotationOf(t, diag.SeverityError, "a.sysml", src, CodeKerMLNotation, "`namespace` is KerML notation")
 	}
 }
 
 // A document of no file kind — the REPL and CLI buffer — takes the SysML reading,
-// so its `namespace` is reported rather than silently accepted.
+// so its `namespace` is an error rather than silently accepted.
 func TestNamespaceInAnUnnamedDocumentIsKerMLNotation(t *testing.T) {
-	wantNotation(t, "<repl>", "namespace N;", CodeKerMLNotation, "`namespace` is KerML notation")
+	wantNotationOf(t, diag.SeverityError, "<repl>", "namespace N;", CodeKerMLNotation, "`namespace` is KerML notation")
 }
 
 func TestNamespaceInKerMLIsSilent(t *testing.T) {
@@ -445,7 +451,7 @@ func TestDeclarationKeywordSpanSkipsPrefixMetadata(t *testing.T) {
 // after the declaration still is.
 func TestKerMLDeclarationMembersDoNotCascade(t *testing.T) {
 	wantNotation(t, "a.sysml",
-		"package P { class C { feature f; namespace N; step s featured by C; } step t; }",
+		"package P { class C { feature f; struct S; step s featured by C; } step t; }",
 		CodeKerMLNotation, "`class` is KerML notation", "`step` is KerML notation")
 	wantNotation(t, "a.sysml",
 		"package P { part def A; part a1 : A; part b1 : A; connector c from a1 to b1 { feature f; } }",
