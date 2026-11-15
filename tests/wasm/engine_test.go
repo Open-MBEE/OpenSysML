@@ -302,12 +302,6 @@ func nodeRun(t *testing.T, script string, args ...string) result {
 	return res
 }
 
-// TestEngineWireParity proves the engine answers what sysml-grpc answers: the
-// same requests put to a default-capabilities grpc.NewService and marshalled by
-// protojson, and to engine.Call, decode to the same JSON. ParseSources compares
-// modelHash alone: the engine deliberately reports the syntax diagnostics only
-// and no roots, where the service reports the analyzed diagnostics and the root
-// symbols.
 // wantSpeedAnswer fails unless body is Evaluate's answer for enginedemo::speed, the quantity 5 m/s:
 // two transports agreeing on an error agree as well, so parity alone does not show the value.
 func wantSpeedAnswer(t *testing.T, body []byte) {
@@ -330,6 +324,12 @@ func wantSpeedAnswer(t *testing.T, body []byte) {
 	}
 }
 
+// TestEngineWireParity proves the engine answers what sysml-grpc answers: the
+// same requests put to a default-capabilities grpc.NewService and marshalled by
+// protojson, and to engine.Call, decode to the same JSON. ParseSources compares
+// modelHash alone: the engine deliberately reports the syntax diagnostics only
+// and no roots, where the service reports the analyzed diagnostics and the root
+// symbols.
 func TestEngineWireParity(t *testing.T) {
 	ctx := context.Background()
 	svc, err := sysmlgrpc.NewService(4, "parity")
