@@ -416,6 +416,12 @@ type HeadRelationship struct {
 // Spelled returns ref as it would be collected had qn been written in its
 // place: the same occurrence, read the way the document walk reads that spelling.
 func (ref Reference) Spelled(qn *ast.QualifiedName) Reference {
+	// The name a head chain opens with places the chain as it is spelled.
+	if ref.Head != nil && ref.Head.Lead != nil && ref.Head.Lead == ref.QN {
+		head := *ref.Head
+		head.Lead = qn
+		ref.Head = &head
+	}
 	ref.QN = qn
 	if ref.Subsetting != nil {
 		if namesDecl(qn, ref.Subsetting) {
