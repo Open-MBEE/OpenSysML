@@ -259,7 +259,7 @@ func (m *Model) LookupContributedMembers(sym *symbols.Symbol, name string) []*sy
 
 // eachContributedMember calls yield with the member each of sym's member
 // sources holds under name and passes on to sym, in name-lookup order, until
-// yield returns false. A member a type on the way redefines stops there.
+// yield returns false. A member no supertype passes on is not held.
 func (m *Model) eachContributedMember(sym *symbols.Symbol, name string, yield func(*symbols.Symbol) bool) {
 	if sym == nil || name == "" {
 		return
@@ -267,21 +267,20 @@ func (m *Model) eachContributedMember(sym *symbols.Symbol, name string, yield fu
 	if target, ok := m.resolver.ResolveAliasTarget(sym); ok {
 		sym = target
 	}
-	for _, src := range m.lookupSources(sym) {
-		sup := src.sym
+	for _, sup := range m.lookupSources(sym) {
 		if sup.Scope != nil {
 			for _, s := range m.resolver.LocalBindings(sup.Scope, name) {
 				// An expanded import an owned or inherited name of sup hides is no member of sup.
 				if s.OwnerScope != sup.Scope && m.resolver.HidesImportedName(sup.Scope, name) {
 					continue
 				}
-				if m.inheritedAlong(s, src.via) && !yield(s) {
+				if m.passedOnTo(sym, s) && !yield(s) {
 					return
 				}
 			}
 			stop := false
 			m.eachPositionallyNamedMember(sup, name, func(s *symbols.Symbol) bool {
-				stop = m.inheritedAlong(s, src.via) && !yield(s)
+				stop = m.passedOnTo(sym, s) && !yield(s)
 				return !stop
 			})
 			if stop {
@@ -291,7 +290,7 @@ func (m *Model) eachContributedMember(sym *symbols.Symbol, name string, yield fu
 		}
 		// A cached source with no scope is read from the index.
 		for _, child := range m.resolver.Index().LookupDirectChildrenNamed(sup.Name, name) {
-			if symbols.LastSegment(child.Name) == name && m.inheritedAlong(child, src.via) && !yield(child) {
+			if symbols.LastSegment(child.Name) == name && m.passedOnTo(sym, child) && !yield(child) {
 				return
 			}
 		}
