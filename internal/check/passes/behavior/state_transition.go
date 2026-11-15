@@ -6,6 +6,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -27,8 +28,8 @@ const CodeParallelStateTransition = "parallel-state-transition"
 // MsgParallelStateTransition is the pilot's wording of the same rule.
 const MsgParallelStateTransition = "A parallel state cannot have successions or transitions."
 
-// CodeAccepterSourceNotState marks a transition whose accepter waits in
-// something other than a state (SysML v2 §7.16 TransitionUsage).
+// CodeAccepterSourceNotState marks a transition with an accepter whose source is an
+// action usage but no state usage (SysML v2.1 §8.3.18.9 validateTransitionUsageTriggerActions).
 const CodeAccepterSourceNotState = "accepter-source-not-state"
 
 // MsgAccepterSourceNotState is the pilot's wording of the same rule.
@@ -59,7 +60,8 @@ type StateTransitionPass struct{}
 // Level reports the name-resolution level: resolved endpoints are all it reads.
 func (StateTransitionPass) Level() kit.PassLevel { return kit.LevelNameResolution }
 
-// Run checks every state machine the document declares.
+// Run checks every state machine the document declares, and the source of every
+// transition with an accepter wherever it is written.
 func (StateTransitionPass) Run(ctx *kit.Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
@@ -68,7 +70,8 @@ func (StateTransitionPass) Run(ctx *kit.Context, name string, root *ast.RootName
 	if rootScope == nil {
 		return nil
 	}
-	checker := &transitionChecker{resolver: ctx.Resolver()}
+	checker := &transitionChecker{resolver: ctx.Resolver(), model: ctx.Model(), judged: map[*ast.TransitionMember]bool{}}
+	checker.checkAccepterSources(ctx, rootScope)
 	checker.findMachines(rootScope, root.Members)
 	return checker.diags
 }
@@ -76,7 +79,10 @@ func (StateTransitionPass) Run(ctx *kit.Context, name string, root *ast.RootName
 // transitionChecker accumulates the diagnostics of one document.
 type transitionChecker struct {
 	resolver *resolve.Resolver
-	diags    []diag.Diagnostic
+	model    *semantics.Model
+	// judged are the transitions whose source checkAccepterSources reported.
+	judged map[*ast.TransitionMember]bool
+	diags  []diag.Diagnostic
 	// ordered are the members already reported for ordering the regions of a
 	// parallel state, whose endpoints name regions rather than vertices.
 	ordered map[ast.Node]bool
@@ -248,39 +254,51 @@ func orderingEndpoints(decl ast.Node) []*ast.QualifiedName {
 	return nil
 }
 
-// checkAccepterSource reports a transition whose accepter names a source that is
-// not a state, and says whether it did. An accepter waits while its source is
-// performed, and only a state is performed until something leaves it, so a
-// transition with a trigger leaves a state (SysML v2 §7.16 TransitionUsage).
-func (c *transitionChecker) checkAccepterSource(
-	scope *symbols.Scope,
-	n *ast.TransitionMember,
-) bool {
-	if n.Trigger == nil {
-		return false
+// checkAccepterSources judges the source every transition with an accepter names, in
+// whatever body it is written, which name resolution left unjudged: an action that is no
+// state breaks the accepter rule (validateTransitionUsageTriggerActions), anything else
+// that is no vertex where a machine needs one the endpoint rule.
+func (c *transitionChecker) checkAccepterSources(ctx *kit.Context, root *symbols.Scope) {
+	for _, at := range kit.ScopedNodes(ctx, root) {
+		n, ok := at.Node.(*ast.TransitionMember)
+		if !ok || n.Trigger == nil || n.Source == nil {
+			continue
+		}
+		sym, ok := c.resolver.TransitionSourceSymbol(at.Scope, n)
+		switch {
+		case !ok:
+			continue
+		case c.model.IsActionUsageButNoState(sym):
+			c.diags = append(c.diags, accepterSourceDiagnostic(n))
+		case c.resolver.EndpointNotAVertex(at.Scope, n.Source, sym):
+			d := resolve.NotAVertexDiagnostic(n.Source)
+			c.report(d.Span, d.Code, d.Message)
+		default:
+			continue
+		}
+		c.judged[n] = true
 	}
-	sym, ok := c.resolver.EndpointSymbol(scope, n.Source)
-	if !ok || !isPerformedAction(sym.Decl) {
-		return false
-	}
+}
+
+// accepterAfterAction reports whether source, the member a transition written without a
+// source leaves, is an action that is no state, which an accepter may not wait in.
+func (c *transitionChecker) accepterAfterAction(scope *symbols.Scope, source ast.Node) bool {
+	return !isEdge(source) && c.model.IsActionUsageButNoState(scope.MemberDeclaring(source))
+}
+
+// accepterSourceDiagnostic reports the accepter rule at the accepter itself.
+func accepterSourceDiagnostic(n *ast.TransitionMember) diag.Diagnostic {
 	at := n.TriggerSpan
 	if at.Len == 0 {
 		at = n.Trigger.Span()
 	}
-	c.report(at, CodeAccepterSourceNotState, MsgAccepterSourceNotState)
-	return true
-}
-
-// isPerformedAction reports whether a declaration a transition endpoint reached
-// is an action, which completes on its own rather than waiting in a state.
-func isPerformedAction(decl ast.Node) bool {
-	switch n := decl.(type) {
-	case *ast.Usage:
-		return n.Kind == ast.UsageAction
-	case *ast.Definition:
-		return n.Kind == ast.DefAction
+	return diag.Diagnostic{
+		Severity: diag.SeverityError,
+		Span:     at,
+		Message:  MsgAccepterSourceNotState,
+		Code:     CodeAccepterSourceNotState,
+		Source:   "state-transition",
 	}
-	return false
 }
 
 // parallelStateOrdering reports whether a state body member orders the states
@@ -348,9 +366,10 @@ func (c *transitionChecker) walkTransition(m *machine, scope *symbols.Scope, mem
 		c.checkImplicitSource(m, scope, members, n)
 	case n.Trigger == nil && c.entryActionSource(scope, n.Source, starts):
 		c.checkEntryTransitionTarget(m, scope, n.Target)
-	case !c.checkAccepterSource(scope, n):
-		bare := n.Trigger == nil
-		m.markLeft(c.checkEndpoint(m, scope, n.Source, false, c.startsOf(m, scope, n.Target, bare, starts)), n.Source)
+	case c.judged[n]:
+		m.markLeft(nil, n.Source)
+	default:
+		m.markLeft(c.checkEndpoint(m, scope, n.Source, false, c.startsOf(m, scope, n.Target, true, starts)), n.Source)
 	}
 	c.checkEndpoint(m, scope, n.Target, true, nil)
 }
@@ -396,6 +415,11 @@ func (c *transitionChecker) checkImplicitSource(m *machine, scope *symbols.Scope
 	}
 	if lower.IsEntryTransition(source) {
 		c.checkEntryTransition(m, scope, n)
+		return
+	}
+	// The member before it is the source it leaves, so an accepter needs it to be a state.
+	if n.Trigger != nil && c.accepterAfterAction(scope, source) {
+		c.diags = append(c.diags, accepterSourceDiagnostic(n))
 		return
 	}
 	// A state of the body that is no vertex is a region of a parallel state.
@@ -552,6 +576,18 @@ func (m *machine) markLeft(decl, target ast.Node) {
 	if name, _ := ast.TargetName(target); name != "" {
 		m.unresolved[name] = true
 	}
+}
+
+// isEdge reports whether decl relates other members of its body rather than
+// being one a transition written without a source could leave.
+func isEdge(decl ast.Node) bool {
+	switch n := decl.(type) {
+	case *ast.TransitionMember, *ast.TransitionEdge:
+		return true
+	case *ast.Usage:
+		return n.Kind.IsEdge()
+	}
+	return false
 }
 
 // isMarker reports whether decl is a `first`/`then` marker rather than a state

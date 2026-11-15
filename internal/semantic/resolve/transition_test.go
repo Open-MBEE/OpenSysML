@@ -538,3 +538,48 @@ func TestResolveEndpointDoneShadowedByANonVertexIsReported(t *testing.T) {
 		t.Errorf("expected the %s code, got %q", CodeNotAVertex, r.Diagnostics[0].Code)
 	}
 }
+
+// The source of a transition with an accepter is the accepter rule's to judge, so
+// name resolution resolves it to whatever it names and reports nothing, on the
+// document walk and on the reference walk alike; its target stays a vertex.
+func TestResolveTransitionSourceWithAccepterIsLeftToTheAccepterRule(t *testing.T) {
+	const src = `
+		item def Sig;
+		state def M {
+			action work { }
+			entry; then idle;
+			state idle;
+			transition first work accept Sig then idle;
+			transition first idle accept Sig then work;
+		}
+	`
+	r := resolveDoc(t, "d.sysml", src)
+	if len(r.Diagnostics) != 1 || r.Diagnostics[0].Code != CodeNotAVertex {
+		t.Fatalf("expected the target alone reported as no vertex, got %v", r.Diagnostics)
+	}
+	if at := r.Diagnostics[0].Span; src[at.Offset:at.Offset+at.Len] != "work" || at.Offset < strings.Index(src, "then work") {
+		t.Errorf("expected the diagnostic at the target, got %v", at)
+	}
+
+	p := parser.New(source.New("d.sysml", []byte(src)))
+	root := p.ParseFile()
+	idx := symbols.NewIndexFromDoc("d.sysml", root)
+	fresh := New(idx)
+	var sources int
+	for _, ref := range References(root, idx.DocumentRoot("d.sysml")) {
+		if ref.TransitionSource == nil {
+			continue
+		}
+		sources++
+		sym, ok := fresh.ResolveReference(ref)
+		if !ok || sym == nil || sym.Name != ref.QN.Parts[0].Text {
+			t.Errorf("transition source %s did not resolve to its declaration: %v %v", ref.QN.Parts[0].Text, sym, ok)
+		}
+	}
+	if sources != 2 {
+		t.Errorf("expected both transition sources among the references, got %d", sources)
+	}
+	if len(fresh.Diagnostics) != 0 {
+		t.Errorf("expected the reference walk to report nothing for the sources, got %v", fresh.Diagnostics)
+	}
+}

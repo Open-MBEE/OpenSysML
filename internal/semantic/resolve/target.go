@@ -383,6 +383,9 @@ type Reference struct {
 	// Endpoint is set when QN is a transition end, which names a vertex of the
 	// enclosing machine ahead of anything else it reaches (see ResolveEndpoint).
 	Endpoint bool
+	// TransitionSource is the transition whose source QN is, if any, which decides
+	// what the endpoint may name (see ResolveTransitionSource).
+	TransitionSource *ast.TransitionMember
 	// Import is the import QN is the target of, if any; an `import all` reaches
 	// private members the visibility rule would otherwise hide.
 	Import *ast.Import
@@ -484,6 +487,9 @@ func (r *Resolver) ResolveReference(ref Reference) (*symbols.Symbol, bool) {
 			r.resolveRedefinition(ref.Scope, ref.QN, ref.Referrer, ref.Subsetting == nil)
 		}
 		return r.PartSymbol(ref.QN, len(ref.QN.Parts)-1)
+	}
+	if ref.TransitionSource != nil {
+		return r.ResolveTransitionSource(ref.Scope, ref.TransitionSource)
 	}
 	if ref.Endpoint {
 		return r.ResolveEndpoint(ref.Scope, ref.QN)
