@@ -590,6 +590,7 @@ class StarveSweepTest(Stub):
         self.rules([
             [r"event=merge_group&status=queued", {"workflow_runs": [{"id": 900, "status": "queued"}]}, 0],
             [r"event=merge_group&status=", {"workflow_runs": []}, 0],
+            [r"runs/900/jobs", {"jobs": []}, 0],
             [r"event=pull_request&status=queued", {"workflow_runs": queued}, 0],
             [r"event=pull_request&status=", {"workflow_runs": []}, 0],
             [r"runs/11/jobs", {"jobs": [{"status": "queued"}]}, 0],
@@ -641,17 +642,17 @@ class StarveSweepTest(Stub):
         self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
         self.assertEqual(sorted(self.cancels()), ["21", "23", "24"])
 
-    def test_waiting_group_with_a_started_job_leaves_started_runs_alone(self):
-        self.starved_rules(10, [{"status": "in_progress"}, {"status": "queued"}])
-        self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
-        self.assertEqual(self.cancels(), [])
-
-    def test_starvation_waits_for_the_grace_period_and_ignores_jobless_groups(self):
-        self.starved_rules(1, [{"status": "queued"}])
+    def test_waiting_group_within_the_grace_period_leaves_started_runs_alone(self):
+        self.starved_rules(10, [{"status": "in_progress", "created_at": stamp(10)}, {"status": "queued", "created_at": stamp(1)}])
         self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
         self.starved_rules(10, [])
         self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
         self.assertEqual(self.cancels(), [])
+
+    def test_a_job_queued_past_the_grace_period_starves_a_partly_started_group(self):
+        self.starved_rules(10, [{"status": "in_progress", "created_at": stamp(10)}, {"status": "queued", "created_at": stamp(5)}])
+        self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        self.assertEqual(sorted(self.cancels()), ["21", "23", "24"])
 
     def test_failed_starvation_cancel_is_not_queued(self):
         self.starved_rules(10, [{"status": "queued"}], cancel_fails=(23,))

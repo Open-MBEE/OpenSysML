@@ -47,21 +47,19 @@ class Sweeper:
         return self.api(f"repos/{self.cfg.repo}/actions/runs/{rid}/jobs?per_page=100")["jobs"]
 
     def queue_state(self):
-        """(waiting, starved): a merge-group run has queued or waiting jobs; one older than the grace period has started none."""
+        """(waiting, starved): a merge-group job is queued or waiting; one has waited longer than the grace period."""
         waiting = starved = False
         now = datetime.datetime.now(datetime.timezone.utc)
         for r in self.merge_group_runs():
-            jobs = None
-            if r["status"] == "queued":
+            waiting = waiting or r["status"] == "queued"
+            # A run with no jobs at all has nothing waiting for a runner, so it is never starved.
+            for j in self.jobs(r["id"]):
+                if j["status"] not in WAITING:
+                    continue
                 waiting = True
-            else:
-                jobs = self.jobs(r["id"])
-                waiting = waiting or any(j["status"] in WAITING for j in jobs)
-            created = r.get("created_at")
-            if created and (now - datetime.datetime.fromisoformat(created.replace("Z", "+00:00"))).total_seconds() >= self.cfg["starve_grace_seconds"]:
-                jobs = self.jobs(r["id"]) if jobs is None else jobs
-                # A run with no jobs at all is a GitHub ghost holding no runner, not a starved build.
-                starved = starved or (bool(jobs) and not heavy_job_started(self.cfg, jobs))
+                created = j.get("created_at") or r.get("created_at")
+                if created and (now - datetime.datetime.fromisoformat(created.replace("Z", "+00:00"))).total_seconds() >= self.cfg["starve_grace_seconds"]:
+                    starved = True
         return waiting, starved
 
     def cancel_and_queue(self, r, why):
