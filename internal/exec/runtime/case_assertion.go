@@ -34,6 +34,18 @@ func (ctx *Context) caseUsageRun(reader *EvalContext, sym *symbols.Symbol) (*cal
 	return ctx.finishCalcUsageRun(start)
 }
 
+// clone copies the verdicts for a snapshot, nil staying nil.
+func (a *caseAssertions) clone() *caseAssertions {
+	if a == nil {
+		return nil
+	}
+	judged := make(map[ast.Node][]AnalysisVerdict, len(a.judged))
+	for node, verdicts := range a.judged {
+		judged[node] = slices.Clone(verdicts)
+	}
+	return &caseAssertions{shape: a.shape, judged: judged}
+}
+
 // unreachedAssertion is why an ordered assertion the flow never reached is undecided.
 const unreachedAssertion = "the flow did not reach the assertion"
 

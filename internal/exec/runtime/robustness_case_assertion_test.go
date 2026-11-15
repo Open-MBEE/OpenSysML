@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // caseAssertionVerdicts runs the case named fqn in src and reports its assertion
@@ -139,6 +141,19 @@ func TestRuntimeRobustnessCaseAssertion(t *testing.T) {
 		}
 		if _, judged := verdicts["raised"]; judged {
 			t.Fatalf("verdicts = %v, want none for an assertion of a case the report is not about", verdicts)
+		}
+	}))
+	t.Run("snapshot_restores_the_verdicts_it_captured", inParallel(func(t *testing.T) {
+		node := &ast.Usage{}
+		perf := &actionFrame{assertions: &caseAssertions{judged: map[ast.Node][]AnalysisVerdict{
+			node: {{Kind: "assertion", Status: VerdictSatisfied}},
+		}}}
+		captured := captureFrame(perf)
+		perf.assertions.judged[node][0].Status = VerdictNotSatisfied
+		perf.assertions.judged[&ast.Usage{}] = nil
+		captured.restore()
+		if got := perf.assertions.judged; len(got) != 1 || got[node][0].Status != VerdictSatisfied {
+			t.Fatalf("restored verdicts = %v, want the one satisfied verdict captured", got)
 		}
 	}))
 	t.Run("verification_case_judges_at_position", inParallel(func(t *testing.T) {
