@@ -641,8 +641,10 @@ class StarveSweepTest(Stub):
         self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
         self.assertEqual(self.cancels(), [])
 
-    def test_starvation_waits_for_the_grace_period(self):
+    def test_starvation_waits_for_the_grace_period_and_ignores_jobless_groups(self):
         self.starved_rules(1, [{"status": "queued"}])
+        self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        self.starved_rules(10, [])
         self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
         self.assertEqual(self.cancels(), [])
 
