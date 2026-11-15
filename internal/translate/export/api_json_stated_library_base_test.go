@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
@@ -185,5 +187,45 @@ func TestAPIJSONInheritedEnumeratedValuesAreMembersNotFeatures(t *testing.T) {
 	}
 	if ids := referenceIDs(t, verdict, "featureMembership"); slices.Contains(ids, pass.OwningMembershipID) {
 		t.Error("verdict.featureMembership lists the variant membership of VerdictKind::pass")
+	}
+}
+
+// Type::endFeature is feature->select(isEnd) (KerML 8.3.3.1.10 deriveTypeEndFeature), so it follows
+// what the type inherits: a private end of a supertype is no feature of the subtype.
+func TestAPIJSONEndFeatureFollowsTheInheritedFeatures(t *testing.T) {
+	src := `package Probe {
+		classifier X;
+		classifier A { end feature shown : X; private end feature hidden : X; }
+		classifier B specializes A;
+	}`
+	file := source.New("probe.kerml", []byte(src))
+	p := parser.New(file)
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("the fixture does not parse: %v", p.Diagnostics)
+	}
+	graph, err := ToRDFWith(file, root, IDQualifiedName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	document, err := WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	elements := booleansElements(t, document)
+	for id, want := range map[string][]string{
+		"Probe__A": {"Probe__A__shown", "Probe__A__hidden"},
+		"Probe__B": {"Probe__A__shown"},
+	} {
+		got := referenceIDs(t, elements[id], "endFeature")
+		if !slices.Equal(got, want) {
+			t.Errorf("%s.endFeature = %v, want %v", id, got, want)
+		}
+		features := referenceIDs(t, elements[id], "feature")
+		for _, end := range got {
+			if !slices.Contains(features, end) {
+				t.Errorf("%s.endFeature lists %s, which %s.feature does not", id, end, id)
+			}
+		}
 	}
 }

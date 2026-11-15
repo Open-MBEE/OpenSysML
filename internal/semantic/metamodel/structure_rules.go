@@ -5287,7 +5287,7 @@ func (e *Evaluator) structureRemoveRedefinedMemberships(
 		candidates = append(candidates, entry)
 	}
 
-	generalEnds, _, ok := e.structureGeneralEndFeatures(owner, map[ElementKey]bool{owner.Key(): true})
+	generalEnds, _, _, ok := e.structureGeneralEndFeatures(owner, map[ElementKey]bool{owner.Key(): true})
 	if !ok {
 		return nil, false
 	}
@@ -5624,7 +5624,7 @@ func (e *Evaluator) structureTypeEndFeatures(element Element, visited map[Elemen
 	if !handled || !ok {
 		return nil, nil, false
 	}
-	generalEnds, redefinedByOthers, ok := e.structureGeneralEndFeatures(element, visited)
+	generalEnds, inheritableEnds, redefinedByOthers, ok := e.structureGeneralEndFeatures(element, visited)
 	if !ok {
 		return nil, nil, false
 	}
@@ -5640,7 +5640,7 @@ func (e *Evaluator) structureTypeEndFeatures(element Element, visited map[Elemen
 	}
 	var candidates []candidate
 	seen := make(map[ElementKey]bool)
-	for _, ends := range generalEnds {
+	for _, ends := range inheritableEnds {
 		for _, end := range ends {
 			if end.Kind != ElementValue {
 				return nil, nil, false
@@ -5679,20 +5679,31 @@ func (e *Evaluator) structureTypeEndFeatures(element Element, visited map[Elemen
 }
 
 // structureGeneralEndFeatures lists Type::endFeature of each general type of element, in their
-// order, and what the features of those general types redefine.
-func (e *Evaluator) structureGeneralEndFeatures(element Element, visited map[ElementKey]bool) ([][]Value, map[ElementKey]bool, bool) {
+// order, the ends of each that element can inherit, which leaves out the private ones, and what the
+// features of those general types redefine.
+func (e *Evaluator) structureGeneralEndFeatures(
+	element Element,
+	visited map[ElementKey]bool,
+) (all, inheritable [][]Value, redefined map[ElementKey]bool, ok bool) {
 	generals, ok := e.structureGeneralTypes(element)
 	if !ok {
-		return nil, nil, false
+		return nil, nil, nil, false
 	}
-	var out [][]Value
-	redefined := make(map[ElementKey]bool)
+	redefined = make(map[ElementKey]bool)
 	for _, general := range generals {
 		if base, library := e.structureLibraryBase(general); library {
 			if e.model == nil || !e.completeMembers(base.Symbol) {
-				return nil, nil, false
+				return nil, nil, nil, false
 			}
-			out = append(out, symbolSequence(e.model.EndFeatures(base.Symbol)).Values)
+			ends := e.model.EndFeatures(base.Symbol)
+			visible := make([]*symbols.Symbol, 0, len(ends))
+			for _, end := range ends {
+				if end != nil && (e.resolver == nil || e.resolver.InheritedMemberVisible(nil, end)) {
+					visible = append(visible, end)
+				}
+			}
+			all = append(all, symbolSequence(ends).Values)
+			inheritable = append(inheritable, symbolSequence(visible).Values)
 			continue
 		}
 		if visited[general.Key()] {
@@ -5702,14 +5713,59 @@ func (e *Evaluator) structureGeneralEndFeatures(element Element, visited map[Ele
 		ends, generalRedefined, ok := e.structureTypeEndFeatures(general, visited)
 		delete(visited, general.Key())
 		if !ok {
-			return nil, nil, false
+			return nil, nil, nil, false
 		}
-		out = append(out, ends)
+		private, ok := e.structurePrivateOwnedMemberKeys(general)
+		if !ok {
+			return nil, nil, nil, false
+		}
+		visible := make([]Value, 0, len(ends))
+		for _, end := range ends {
+			if end.Kind != ElementValue {
+				return nil, nil, nil, false
+			}
+			if !private[e.structureFeatureKey(end.Element)] {
+				visible = append(visible, end)
+			}
+		}
+		all = append(all, ends)
+		inheritable = append(inheritable, visible)
 		for key := range generalRedefined {
 			redefined[key] = true
 		}
 	}
-	return out, redefined, true
+	return all, inheritable, redefined, true
+}
+
+// structurePrivateOwnedMemberKeys is the members element owns through a private membership, which
+// no subtype inherits (KerML 8.3.3.1.10 nonPrivateMemberships).
+func (e *Evaluator) structurePrivateOwnedMemberKeys(element Element) (map[ElementKey]bool, bool) {
+	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
+	if !handled || !ok {
+		return nil, false
+	}
+	private := make(map[ElementKey]bool)
+	for _, value := range owned.Values {
+		if value.Kind != MembershipValue {
+			return nil, false
+		}
+		membership := Element{Membership: value.Membership, IsMembership: true}
+		visibility, known := e.structureMembershipVisibility(membership)
+		if !known {
+			return nil, false
+		}
+		if visibility.public || visibility.protected {
+			continue
+		}
+		members, ok := e.structureMembershipMemberElements(membership)
+		if !ok {
+			return nil, false
+		}
+		for _, member := range members {
+			private[e.structureFeatureKey(member)] = true
+		}
+	}
+	return private, true
 }
 
 func (e *Evaluator) structureFeatureTypes(element Element) (Value, bool, bool) {
