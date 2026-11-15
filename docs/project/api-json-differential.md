@@ -96,7 +96,11 @@ policy stay this referee's.
 `scripts/download-pilot-json-exporter.sh` shares `scripts/pilot-pin.sh` with the validators,
 compiles `scripts/pilot-json-exporter/ExportJSON.java` against the pinned shaded jar and writes the
 launcher `build/pilot-json-exporter/export-json --library <sysml.library> --root <dir> --out <dir>
-[--extension-library <dir>]... <files>` (the library defaults to the pinned one). The bridge is the
+[--extension-library <dir>]... <files>` (the library defaults to the pinned one). The launcher exits
+78 when it cannot start the bridge (no Java 21, pinned jar or library), and the bridge exits 1 when it
+failed on some files; the referee refuses a run in which the bridge did not run (status 78, or status 1
+with an `Error:` line or no document written), and `-check` and `-update` refuse a run in which the
+pilot failed on every file of a root, naming `./scripts/download-pilot-json-exporter.sh`. The bridge is the
 pilot's own export path, the one the Jupyter kernel's `%export` magic runs
 (`SysMLInteractive.export`):
 

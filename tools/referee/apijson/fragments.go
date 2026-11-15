@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/exporter"
 	"github.com/Open-MBEE/OpenSysML/tools/referee/baseline"
 )
 
@@ -214,6 +215,24 @@ func splitScorecardKey(key string) (metaclass, property string, ok bool) {
 		}
 	}
 	return key, "", false
+}
+
+// refuseUnexportedRoots refuses fragments in which the pilot failed on every file of a root.
+func refuseUnexportedRoots(fragments []Fragment) error {
+	var roots []exporter.Root
+	index := make(map[string]int)
+	for _, f := range fragments {
+		i, ok := index[f.Root]
+		if !ok {
+			i, index[f.Root] = len(roots), len(roots)
+			roots = append(roots, exporter.Root{Name: f.Root})
+		}
+		roots[i].Files++
+		if f.Summary.PilotFailed {
+			roots[i].Failed++
+		}
+	}
+	return exporter.RefuseUnexported(roots)
 }
 
 // committedDir is where the baseline directory lives in a checkout.
