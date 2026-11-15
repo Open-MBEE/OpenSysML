@@ -408,6 +408,9 @@ type HeadRelationship struct {
 	// Member is the chain member the reference is a segment of; nil when the
 	// reference is the name decided on.
 	Member *ast.QualifiedName
+	// Lead is the name the chain opens with, which decides the scope of every
+	// segment; nil when the target is no chain.
+	Lead *ast.QualifiedName
 }
 
 // Spelled returns ref as it would be collected had qn been written in its
@@ -545,11 +548,11 @@ func (r *Resolver) resolveConstructedName(ref Reference, hide *refFilter) (*symb
 // headScope is the scope ref, written in a head relationship, resolves in as the
 // document walk reads it; spelled differently, the same occurrence may switch.
 func (r *Resolver) headScope(ref Reference) *symbols.Scope {
-	name, chain := ref.QN, ref.Chain != nil
-	if ref.Head.Member != nil {
-		name, chain = ref.Head.Member, true
+	name := ref.QN
+	if ref.Head.Lead != nil {
+		name = ref.Head.Lead
 	}
-	if r.resolvesInHeader(ref.Head.Scope, name, chain, ref.Head.Kind) {
+	if r.resolvesInHeader(ref.Head.Scope, name, ref.Head.Kind) {
 		return ref.Head.Scope
 	}
 	return ref.Scope
