@@ -20,6 +20,7 @@ func TestRuntimeRobustnessExpressionReads(t *testing.T) {
 	t.Run("elements_chain_of_a_non_numeric_collection", testElementsChainOfANonNumericCollection)
 	t.Run("indeterminate_form_over_an_infinity", testIndeterminateFormOverAnInfinity)
 	t.Run("unbounded_value_compared_with_a_string", testUnboundedValueComparedWithAString)
+	t.Run("negative_infinity_read_as_a_natural", testNegativeInfinityReadAsANatural)
 	t.Run("metadata_of_a_value", testMetadataOfAValue)
 	t.Run("metadata_of_an_unresolved_name", testMetadataOfAnUnresolvedName)
 	t.Run("metadata_without_the_reflective_library", testMetadataWithoutTheReflectiveLibrary)
@@ -233,6 +234,37 @@ func testIndeterminateFormOverAnInfinity(t *testing.T) {
 	}
 	if _, _, err := evalDeclaredExpr(t, "package test {}", "1..*"); !errors.Is(err, semantics.ErrArithmeticDomain) {
 		t.Errorf("1..*: error = %v, want ErrArithmeticDomain", err)
+	}
+}
+
+// testNegativeInfinityReadAsANatural: a feature whose value passes `-*` to a
+// Natural operation fails its read with a typed mismatch, as `*` there does not.
+func testNegativeInfinityReadAsANatural(t *testing.T) {
+	src := `
+		package test {
+			part def Holder {
+				attribute lower = -*;
+				attribute grown = NaturalFunctions::'+'(*, 1);
+				attribute noNatural = NaturalFunctions::'+'(lower, 1);
+			}
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Holder", ast.DefPart)
+	if sym == nil {
+		t.Fatal("Holder part def not found")
+	}
+	inst, err := ctx.Instantiate(sym)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	grown, err := inst.GetFeatureValue(ctx, "grown")
+	if err != nil || !grown.HeldValue().Const.IsUnbounded() {
+		t.Fatalf("feature value grown = %v, %v; want *", grown.HeldValue(), err)
+	}
+	_, err = inst.GetFeatureValue(ctx, "noNatural")
+	if !errors.Is(err, ErrTypeMismatch) || !strings.Contains(err.Error(), "requires a Natural value, got -*") {
+		t.Fatalf("feature value noNatural err = %v, want ErrTypeMismatch naming -*", err)
 	}
 }
 
