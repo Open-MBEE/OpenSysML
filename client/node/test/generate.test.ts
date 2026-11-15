@@ -22,6 +22,7 @@ function facts(over: Partial<TypeFacts> = {}): TypeFacts {
   return {
     declared: "",
     resolvedId: "",
+    resolvedQualifiedName: "",
     resolvedKind: "",
     primitive: "",
     primitiveSource: "",
@@ -33,7 +34,7 @@ function facts(over: Partial<TypeFacts> = {}): TypeFacts {
 }
 
 function specialization(kind: string, targetId: string, declared = ""): SpecializationFacts {
-  return { kind, declared, targetId, targetKind: "" };
+  return { kind, declared, targetId, targetQualifiedName: targetId, targetKind: "" };
 }
 
 function definition(
