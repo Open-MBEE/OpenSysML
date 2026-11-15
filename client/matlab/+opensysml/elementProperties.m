@@ -7,8 +7,6 @@ function answer = elementProperties(model, element, varargin)
 %   earlier answer carried. The answer has 'element' (id, qualifiedName, metaclass),
 %   'properties' (a cell, in the order asked for) and 'byName' (a containers.Map from
 %   property name to its record: name, definingClass, many, derived, values, unsupported).
-%   A trailing struct('lookup', kind) states what the element is, as getSymbol's lookup
-%   option does: 'qualified_name', 'element_id' or 'either', the default.
 %   Requires the element_properties capability.
 
     if nargin < 2 || isempty(element)
