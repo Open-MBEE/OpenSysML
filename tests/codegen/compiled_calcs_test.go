@@ -516,21 +516,6 @@ func compiledRun(t *testing.T, exe string, c compiledCase) (value, failure strin
 	return "", failureClass(c.calc, text)
 }
 
-// beyondInt64 reports whether an argument holds an Integer literal outside
-// int64, which a compiled C program refuses as input.
-func beyondInt64(args []string) bool {
-	for _, arg := range args {
-		for _, tok := range strings.FieldsFunc(arg, func(r rune) bool { return r == '(' || r == ')' || r == ',' }) {
-			if !strings.ContainsAny(tok, ".eE") && strings.Trim(tok, "-0123456789") == "" {
-				if _, err := strconv.ParseInt(tok, 10, 64); err != nil {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
 // heldIntegerRefusals is the run-time refusal of a Go program whose Real
 // parameter, given an Integer, meets an exact Rational binary64 does not hold.
 var heldIntegerRefusals = map[string]string{
@@ -564,23 +549,15 @@ func integerForReal(p *codegen.Program, args []string) bool {
 	return false
 }
 
-// buildCalc compiles calc for target into exe, reporting false when the C target
-// refuses it for Integer arithmetic that may leave int64: the Go target, which
-// computes it exactly, must accept every calc. It returns the program built, or nil.
+// buildCalc compiles calc for target into exe and returns the program built:
+// both targets must accept every calc of the fixture.
 func buildCalc(t *testing.T, s *repl.Session, calc string, target codegen.Target, exe string) *codegen.Program {
 	t.Helper()
 	program, err := compileCalc(s, "Compiled::"+calc, target)
-	if target == codegen.TargetC && errors.Is(err, codegen.ErrUnsupported) && strings.Contains(err.Error(), "for the C target") {
-		return nil
-	}
 	if err != nil {
 		t.Fatalf("compile %s: %v", calc, err)
 	}
-	err = codegen.Build(program, target, exe)
-	if target == codegen.TargetC && errors.Is(err, codegen.ErrUnsupported) && strings.Contains(err.Error(), "for the C target") {
-		return nil
-	}
-	if err != nil {
+	if err := codegen.Build(program, target, exe); err != nil {
 		t.Fatalf("build %s: %v", calc, err)
 	}
 	return program
@@ -615,28 +592,13 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 			s := loadCompileFixture(t)
 			exes := map[string]string{}
 			programs := map[string]*codegen.Program{}
-			refused := map[string]bool{}
 			dir := t.TempDir()
 			for _, c := range compiledCases {
-				if refused[c.calc] {
-					continue
-				}
 				exe, built := exes[c.calc]
 				if !built {
 					exe = filepath.Join(dir, c.calc)
-					if programs[c.calc] = buildCalc(t, s, c.calc, target, exe); programs[c.calc] == nil {
-						refused[c.calc] = true
-						continue
-					}
+					programs[c.calc] = buildCalc(t, s, c.calc, target, exe)
 					exes[c.calc] = exe
-				}
-				if target == codegen.TargetC && beyondInt64(c.args) {
-					out, err := exec.Command(exe, c.args...).CombinedOutput()
-					var exit *exec.ExitError
-					if !errors.As(err, &exit) || exit.ExitCode() != 2 || !strings.Contains(string(out), "is beyond int64") {
-						t.Errorf("%s(%s): got %v %q, want the argument refused as beyond int64 with exit status 2", c.calc, strings.Join(c.args, ", "), err, out)
-					}
-					continue
 				}
 				if target == codegen.TargetC && integerForReal(programs[c.calc], c.args) {
 					out, err := exec.Command(exe, c.args...).CombinedOutput()
@@ -657,16 +619,6 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 				if gotValue != wantValue || gotFailure != wantFailure {
 					t.Errorf("%s(%s): compiled = (%q, %q), interpreted = (%q, %q)",
 						c.calc, strings.Join(c.args, ", "), gotValue, gotFailure, wantValue, wantFailure)
-				}
-			}
-			if target == codegen.TargetC && (!refused["Fib"] || !refused["Wide::Pow"] || refused["Hypot"] || refused["Loop::ChurnFor"]) {
-				t.Errorf("C refusals = %v: want the Integer-arithmetic calcs refused and the rest compiled", refused)
-			}
-			for _, c := range compiledCases {
-				// Integer arithmetic is what the C target still refuses of these.
-				if name := c.calc; (strings.HasPrefix(name, "Rec::") || strings.HasPrefix(name, "Closure::")) && refused[name] &&
-					(target != codegen.TargetC || (name != "Rec::UnsetIntAdd" && name != "Closure::IntClosure")) {
-					t.Errorf("%s is refused for %s", name, target)
 				}
 			}
 			for _, repeat := range []string{"0", "-1", "x", "2x", ""} {
@@ -799,18 +751,11 @@ func TestCompiledBudgetChargesInputsAndWidening(t *testing.T) {
 			t.Setenv(runtime.MaxElementsEnvVar, strconv.Itoa(limit))
 			dir := t.TempDir()
 			exes := map[string]string{}
-			refused := map[string]bool{}
 			for _, c := range cases {
-				if refused[c.calc] {
-					continue
-				}
 				exe, built := exes[c.calc]
 				if !built {
 					exe = filepath.Join(dir, c.calc)
-					if buildCalc(t, s, c.calc, target, exe) == nil {
-						refused[c.calc] = true
-						continue
-					}
+					buildCalc(t, s, c.calc, target, exe)
 					exes[c.calc] = exe
 				}
 				wantValue, wantFailure := interpreted(t, s, c)
@@ -948,19 +893,12 @@ func TestCompiledStepBudgetMatchesInterpreter(t *testing.T) {
 			dir := t.TempDir()
 			exes := map[string]string{}
 			programs := map[string]*codegen.Program{}
-			refused := map[string]bool{}
 			checked := 0
 			for _, c := range compiledCases {
-				if refused[c.calc] || (target == codegen.TargetC && beyondInt64(c.args)) {
-					continue
-				}
 				exe, built := exes[c.calc]
 				if !built {
 					exe = filepath.Join(dir, c.calc)
-					if programs[c.calc] = buildCalc(t, s, c.calc, target, exe); programs[c.calc] == nil {
-						refused[c.calc] = true
-						continue
-					}
+					programs[c.calc] = buildCalc(t, s, c.calc, target, exe)
 					exes[c.calc] = exe
 				}
 				if target == codegen.TargetC && integerForReal(programs[c.calc], c.args) {
@@ -1165,49 +1103,6 @@ func TestCompileRefusesAParameterBoundTwice(t *testing.T) {
 	_, err := compileCalc(s, "Twice::Dup", codegen.TargetGo)
 	if !errors.Is(err, codegen.ErrUnsupported) || !strings.Contains(err.Error(), "binds parameter a twice") {
 		t.Fatalf("compileCalc(Twice::Dup) = %v, want an ErrUnsupported naming the parameter", err)
-	}
-}
-
-// The C target holds int64, so it refuses, naming the construct, a calc whose
-// Integer result may leave it; the Go target computes the same calc exactly.
-func TestCompileCRefusesIntegersBeyondInt64(t *testing.T) {
-	s := loadCompileFixture(t)
-	for _, tc := range []struct{ calc, construct string }{
-		{"Fib", "Integer `-`"},
-		{"SumTo", "Integer `+`"},
-		{"Arith", "Integer `+`"},
-		{"Pow", "Integer `**`"},
-		{"Neg", "Integer negation"},
-		{"Lib::IntAbs", "the Integer result of abs"},
-		{"Lib::Floor", "the Integer result of floor"},
-		{"Seq::Rng2", "the Integer sum"},
-		{"Wide::Product", "the Integer product"},
-		{"Wide::Lit", "the Integer literal 123456789012345678901234567890, beyond int64,"},
-	} {
-		program, err := compileCalc(s, "Compiled::"+tc.calc, codegen.TargetC)
-		if err != nil {
-			t.Fatalf("compile %s: %v", tc.calc, err)
-		}
-		_, err = codegen.Source(program, codegen.TargetC)
-		if !errors.Is(err, codegen.ErrUnsupported) || !strings.Contains(err.Error(), tc.construct+" for the C target") {
-			t.Errorf("C source of %s = %v, want an ErrUnsupported naming %s", tc.calc, err, tc.construct)
-		}
-		program, err = compileCalc(s, "Compiled::"+tc.calc, codegen.TargetGo)
-		if err != nil {
-			t.Fatalf("compile %s: %v", tc.calc, err)
-		}
-		if _, err := codegen.Source(program, codegen.TargetGo); err != nil {
-			t.Errorf("Go source of %s: %v", tc.calc, err)
-		}
-	}
-	for _, calc := range []string{"Quot", "Compare", "Hypot", "Seq::IxS", "Wide::Idx", "Wide::Gt", "Loop::ChurnFor"} {
-		program, err := compileCalc(s, "Compiled::"+calc, codegen.TargetC)
-		if err != nil {
-			t.Fatalf("compile %s: %v", calc, err)
-		}
-		if _, err := codegen.Source(program, codegen.TargetC); err != nil {
-			t.Errorf("C source of %s: %v, want it compiled: no Integer result leaves int64", calc, err)
-		}
 	}
 }
 
