@@ -147,6 +147,9 @@ type ActionGraph struct {
 	resolver *resolve.Resolver
 	sem      *semantics.Model
 
+	// Exprs is the table the graph's ExprIDs index, shared with the flows of its blocks.
+	Exprs *ExprTable
+
 	// lowering holds the declarations whose action content is being lowered on
 	// this path.
 	lowering []ast.Node
@@ -250,9 +253,11 @@ func (g *ActionGraph) Inherited() []Inherited {
 // Probability is the weight its `@Probability` states, nil for an unweighted succession.
 // Name is the name the succession was declared with, "" for an anonymous one.
 type ActionEdge struct {
-	Source             ast.Node
-	Target             ast.Node
-	Guard              ast.Node
+	Source ast.Node
+	Target ast.Node
+	Guard  ast.Node
+	// GuardID is Guard in the table of the flow the succession was lowered for.
+	GuardID            program.ExprID
 	Decl               ast.Node
 	Probability        *Probability
 	Name               string
@@ -292,7 +297,9 @@ type Statement interface {
 // port a behavior declares under a connected port's name shadows that port.
 // It is nil where the scope tree alone does not resolve the path.
 type Send struct {
-	Message   ast.Node
+	Message ast.Node
+	// MessageID is Message in the table of the flow or body the statement was lowered for.
+	MessageID program.ExprID
 	Target    string
 	TargetSym *symbols.Symbol
 	Node      ast.Node
@@ -302,7 +309,9 @@ type Send struct {
 	// TargetExpr is the receiver expression of an addressed send as written; the
 	// runtime evaluates it to objects where Target carries no name or path.
 	TargetExpr ast.Node
-	IsVia      bool
+	// TargetExprID is TargetExpr in the table of the flow or body the statement was lowered for.
+	TargetExprID program.ExprID
+	IsVia        bool
 	// ViaSelf records a via path written from `this`, whose root is a feature of
 	// the sender even where the behavior binds that name to another object.
 	ViaSelf bool
@@ -312,7 +321,9 @@ type Send struct {
 	// ReceiverExpr is the `to` expression of a routed send, likewise evaluated to
 	// objects where Receiver carries no name the sender resolves.
 	ReceiverExpr ast.Node
-	Scope        *symbols.Scope // the scope the statement was declared in
+	// ReceiverExprID is ReceiverExpr in the table of the flow or body the statement was lowered for.
+	ReceiverExprID program.ExprID
+	Scope          *symbols.Scope // the scope the statement was declared in
 }
 
 func (Send) statement() { /* marker: closed Statement set */ }
@@ -333,8 +344,10 @@ type Assign struct {
 	// nil when the target was a plain name the body's host binds.
 	Chain *AssignTarget
 	Value ast.Node
-	Node  ast.Node       // the statement itself, for diagnostics
-	Scope *symbols.Scope // the scope the statement was declared in
+	// ValueID is Value in the table of the flow or body the statement was lowered for.
+	ValueID program.ExprID
+	Node    ast.Node       // the statement itself, for diagnostics
+	Scope   *symbols.Scope // the scope the statement was declared in
 }
 
 func (Assign) statement() { /* marker: closed Statement set */ }
@@ -345,6 +358,8 @@ type AssignTarget struct {
 	// Base is the expression the chain starts from, evaluated in the statement's
 	// own scope.
 	Base ast.Node
+	// BaseID is Base in the table of the flow or body the statement was lowered for.
+	BaseID program.ExprID
 	// Steps are the features walked from Base to the object written, in order.
 	Steps []string
 	// Text is the target as written (`a.b.c`), for diagnostics.
@@ -406,8 +421,10 @@ func flattenChain(chain *ast.FeatureChainExpr) (ast.Node, []string) {
 // that block, so the executor binds it in the block's own frame and discards it
 // when the block exits. Value is nil when the declaration carried none.
 type Declare struct {
-	Name     string
-	Value    ast.Node
+	Name  string
+	Value ast.Node
+	// ValueID is Value in the table of the flow or body the statement was lowered for.
+	ValueID  program.ExprID
 	Binding  bool
 	BodyData bool           // expression-valued state action execution stored as state data
 	Node     ast.Node       // the declaration itself, for diagnostics
@@ -473,12 +490,18 @@ func (Block) statement() { /* marker: closed Statement set */ }
 type Loop struct {
 	Kind      ast.LoopKind
 	Condition ast.Node // nil for `for`, and for a `loop` written without `until`
+	// ConditionID is Condition in the table of the flow or body the statement was lowered for.
+	ConditionID program.ExprID
 	// Until is the condition a `while` loop's `until` clause tests after each
 	// iteration (`while c { … } until d;`), nil when it carries none.
-	Until      ast.Node
+	Until ast.Node
+	// UntilID is Until in the table of the flow or body the statement was lowered for.
+	UntilID    program.ExprID
 	Variable   string   // `for` only: the name each element is bound to
 	Collection ast.Node // `for` only: the collection iterated over
-	Body       Block
+	// CollectionID is Collection in the table of the flow or body the statement was lowered for.
+	CollectionID program.ExprID
+	Body         Block
 	// BodyAction is the action usage the loop declares as its body (`loop action
 	// body { … }`), nil for a body of statements alone.
 	BodyAction *symbols.Symbol
@@ -512,10 +535,12 @@ func loopBodyAction(m *ast.WhileLoopActionNode, bodyScope *symbols.Scope) *symbo
 // body, outside both branches. Else is nil when the conditional declared none.
 type If struct {
 	Condition ast.Node
-	Then      Block
-	Else      *Block
-	Node      ast.Node       // the conditional itself, for diagnostics
-	Scope     *symbols.Scope // the scope the conditional, and so its condition, was declared in
+	// ConditionID is Condition in the table of the flow or body the statement was lowered for.
+	ConditionID program.ExprID
+	Then        Block
+	Else        *Block
+	Node        ast.Node       // the conditional itself, for diagnostics
+	Scope       *symbols.Scope // the scope the conditional, and so its condition, was declared in
 }
 
 func (If) statement() { /* marker: closed Statement set */ }
@@ -524,8 +549,10 @@ func (If) statement() { /* marker: closed Statement set */ }
 // possibly from inside a block. Value is nil when it named no expression.
 type Return struct {
 	Value ast.Node
-	Node  ast.Node       // the return itself, for diagnostics
-	Scope *symbols.Scope // the scope the returned expression was written in
+	// ValueID is Value in the table of the flow or body the statement was lowered for.
+	ValueID program.ExprID
+	Node    ast.Node       // the return itself, for diagnostics
+	Scope   *symbols.Scope // the scope the returned expression was written in
 }
 
 func (Return) statement() { /* marker: closed Statement set */ }
@@ -570,6 +597,8 @@ type Effect struct {
 	Terminates TerminateTarget
 	Target     ast.Node
 	TargetExpr ast.Node
+	// TargetExprID is TargetExpr in the table of the flow or body the statement was lowered for.
+	TargetExprID program.ExprID
 }
 
 // performEffect lowers a `perform`: one naming the `start` of a behavior held by
@@ -716,6 +745,9 @@ type Accept struct {
 	ViaSelf      bool // ViaPort was written from `this`, as Send.ViaSelf
 	SubsetsEvent ast.Node
 	Trigger      ast.Node
+	// TriggerExprID is the condition of a change Trigger or the time of a timed one in
+	// the table of the flow, lowered in the flow's scope; 0 for a trigger stating none.
+	TriggerExprID program.ExprID
 	// Scope is the scope the accept was declared in, in which SignalType resolves.
 	Scope *symbols.Scope
 	// Keeper reports the accept keeps the signal for a state deferring it, as a
@@ -737,8 +769,10 @@ type Attribute struct {
 	Direction ast.FeatureDirection
 	IsResult  bool // a `return` parameter, what the behavior yields
 	// Type is the declared type as written (`Natural`, `Vehicle::Mode`), "" without one.
-	Type    string
-	Value   ast.Node
+	Type  string
+	Value ast.Node
+	// ValueID is Value in the table of the flow or machine the attribute was lowered for.
+	ValueID program.ExprID
 	Binding bool
 	Node    ast.Node // the declaration itself, for diagnostics
 	// Scope is the scope the declaration was written in, in which its default
@@ -807,10 +841,12 @@ type Feature struct {
 	Name      string
 	Direction ast.FeatureDirection
 	IsResult  bool // a `return` parameter, what the node stands for read as a value
-	Value     ast.Node
-	Binding   bool
-	Node      ast.Node // the declaration, for diagnostics
-	Scope     *symbols.Scope
+	// ValueID is Value in the table of the flow or machine the feature was lowered for.
+	ValueID program.ExprID
+	Value   ast.Node
+	Binding bool
+	Node    ast.Node // the declaration, for diagnostics
+	Scope   *symbols.Scope
 	// Shadowed marks an inherited feature a same-named nearer feature hides without
 	// redefining it; Name is then its ShadowedKey (see Attribute.Shadowed).
 	Shadowed bool
@@ -832,10 +868,12 @@ func (f Feature) Output() bool {
 // Node leg, Path [inner], Pin v). Other is the other end as written; OtherNode,
 // OtherPath and OtherPin name the node pin it addresses, if any.
 type PinBinding struct {
-	Node      ast.Node
-	Path      []ast.Node
-	Pin       string
-	Other     ast.Node
+	Node  ast.Node
+	Path  []ast.Node
+	Pin   string
+	Other ast.Node
+	// OtherID is Other in the table of the flow the binding was lowered for.
+	OtherID   program.ExprID
 	OtherNode ast.Node
 	OtherPath []ast.Node
 	OtherPin  string
@@ -942,7 +980,7 @@ func toActionGraphWithTypingAndAncestors(
 	if err != nil {
 		return nil, err
 	}
-	graph, err := lowerActionFlowWithTypingAndAncestors(members, scope, resolver, typing, ancestors)
+	graph, err := lowerActionFlowWithTypingAndAncestors(members, scope, resolver, nil, typing, ancestors)
 	if err != nil {
 		return nil, err
 	}
@@ -954,12 +992,15 @@ func lowerActionFlow(members []ast.Node, scope *symbols.Scope, resolver *resolve
 }
 
 func lowerActionFlowWithTyping(members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, typing bool) (*ActionGraph, error) {
-	return lowerActionFlowWithTypingAndAncestors(members, scope, resolver, typing, nil)
+	return lowerActionFlowWithTypingAndAncestors(members, scope, resolver, nil, typing, nil)
 }
 
 func lowerActionFlowWithTypingAndAncestors(
-	members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, typing bool, ancestors []ast.Node,
+	members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable, typing bool, ancestors []ast.Node,
 ) (graph *ActionGraph, err error) {
+	if exprs == nil {
+		exprs = NewExprTable(resolver)
+	}
 	defer func() {
 		if graph != nil {
 			graph.assignIDs()
@@ -968,11 +1009,11 @@ func lowerActionFlowWithTypingAndAncestors(
 	generals, cyclic := resolve.ActionGeneralization(scope, typing)
 	if cyclic {
 		graph = newActionGraph(scope)
-		graph.resolver = resolver
+		graph.resolver, graph.Exprs = resolver, exprs
 		graph.lowering = actionLoweringAncestors(scope, ancestors)
 		return graph, fmt.Errorf("%w: %s", ErrCyclicSpecialization, actionDescription(scope))
 	}
-	graph, err = collectActionNodesWithAncestors(members, scope, resolver, ancestors)
+	graph, err = collectActionNodesWithAncestors(members, scope, resolver, exprs, ancestors)
 	if err != nil {
 		return graph, err
 	}
@@ -1657,7 +1698,7 @@ func lowerPinBindings(graph *ActionGraph, nodes nodeLookup, u *ast.Usage, scope 
 			}
 			binding.OtherParameter = ownParameter(scope, graph.Scope, other)
 		}
-		out = append(out, binding)
+		out = append(out, withBindingExprs(binding, graph.Exprs))
 	}
 	return out, nil
 }
@@ -1778,7 +1819,7 @@ func lowerEffectiveActionNodeFeatures(graph *ActionGraph, node *ast.Usage, scope
 			bindingScope = bindingScope.Parent()
 		}
 		if binding, ok := inoutValueBinding(node, m, feature.Name, bindingScope); ok {
-			graph.Bindings = append(graph.Bindings, binding)
+			graph.Bindings = append(graph.Bindings, withBindingExprs(binding, graph.Exprs))
 		}
 	}
 	if typedBody, _ := mergedTypedActionBody(node, scope); typedBody {
@@ -1946,7 +1987,7 @@ func lowerValueBindings(graph *ActionGraph) {
 			} else {
 				binding.OtherParameter = ownParameter(feature.Scope, graph.Scope, binding.Other)
 			}
-			graph.ValueBindings = append(graph.ValueBindings, binding)
+			graph.ValueBindings = append(graph.ValueBindings, withBindingExprs(binding, graph.Exprs))
 		}
 	}
 }
@@ -2112,7 +2153,7 @@ func DeclaresNodeFeature(m *ast.Usage) bool {
 func lowerNodeBody(graph *ActionGraph, node ast.Node, members []ast.Node, scope *symbols.Scope) {
 	body := childScope(scope, node)
 	for _, member := range BodyStatementMembers(members) {
-		graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(unwrapMembership(member), body, graph.resolver, graph.lowering))
+		graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(unwrapMembership(member), body, graph.resolver, graph.Exprs, graph.lowering))
 	}
 }
 
@@ -2178,7 +2219,12 @@ func BodyStatementMembers(members []ast.Node) []ast.Node {
 // lowerStatement lowers one executable body statement, in the scope it was
 // written in. Every form it recognizes is lowered losslessly; a form it does not
 // becomes Unsupported, so the executor reports it rather than skipping it.
-func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node) Statement {
+func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable, ancestors []ast.Node) Statement {
+	return withExprs(statementOf(member, scope, resolver, exprs, ancestors), exprs)
+}
+
+// statementOf is lowerStatement before the statement's own expressions are interned.
+func statementOf(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable, ancestors []ast.Node) Statement {
 	switch m := member.(type) {
 	case *ast.SendStatement:
 		return lowerSend(m, scope)
@@ -2193,7 +2239,7 @@ func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Res
 			Until:      m.Until,
 			Variable:   variable,
 			Collection: m.Collection,
-			Body:       lowerBlock(m, m.Body, bodyScope, resolver, ancestors),
+			Body:       lowerBlock(m, m.Body, bodyScope, resolver, exprs, ancestors),
 			BodyAction: loopBodyAction(m, bodyScope),
 			Node:       m,
 			Scope:      scope,
@@ -2201,10 +2247,10 @@ func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Res
 	case *ast.IfActionNode:
 		lowered := If{Condition: m.Condition, Node: m, Scope: scope}
 		if m.Then != nil {
-			lowered.Then = lowerBlock(m.Then, m.Then.Body, childScope(scope, m.Then), resolver, ancestors)
+			lowered.Then = lowerBlock(m.Then, m.Then.Body, childScope(scope, m.Then), resolver, exprs, ancestors)
 		}
 		if m.Else != nil {
-			block := lowerBlock(m.Else, m.Else.Body, childScope(scope, m.Else), resolver, ancestors)
+			block := lowerBlock(m.Else, m.Else.Body, childScope(scope, m.Else), resolver, exprs, ancestors)
 			lowered.Else = &block
 		}
 		return lowered
@@ -2214,7 +2260,7 @@ func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Res
 		target, terminates := terminateTarget(m, scope)
 		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: terminates, Target: target, TargetExpr: m.Target}
 	case *ast.Usage:
-		return lowerUsageStatement(m, scope, resolver, ancestors)
+		return lowerUsageStatement(m, scope, resolver, exprs, ancestors)
 	default:
 		return Unsupported{Description: statedFlowKeyword(member), Node: member, Scope: scope}
 	}
@@ -2311,7 +2357,7 @@ func lowerAssignment(m *ast.AssignmentActionNode, scope *symbols.Scope) Statemen
 // (`loop action charging { … } until charging.done`). An action usage naming
 // the action it performs is a performed action, which the host executes or
 // rejects as its own purity demands.
-func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node) Statement {
+func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable, ancestors []ast.Node) Statement {
 	if m.IsTerminate {
 		return terminateUsageEffect(m, scope)
 	}
@@ -2319,7 +2365,7 @@ func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.R
 		return stmt
 	}
 	if m.Kind.IsAction() && m.IsBodyParameter {
-		return lowerBlock(m, m.Members, childScope(scope, m), resolver, ancestors)
+		return lowerBlock(m, m.Members, childScope(scope, m), resolver, exprs, ancestors)
 	}
 	if m.Kind.IsAction() && performsAction(m) {
 		return performEffect(m, scope)
@@ -2397,12 +2443,12 @@ func redefinedNames(u *ast.Usage) []string {
 // lowerBlock lowers the body of a loop or of one branch of a conditional. owner
 // is the node the block belongs to, which is the element that owns the block's
 // body-local namespace, and scope is the namespace it owns.
-func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node) Block {
+func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable, ancestors []ast.Node) Block {
 	if statesOwnFlow(members) {
-		return lowerStatedBlock(owner, members, scope, resolver, ancestors)
+		return lowerStatedBlock(owner, members, scope, resolver, exprs, ancestors)
 	}
 	if blockNeedsFlow(members) {
-		graph := lowerBlockFlow(members, scope, false, resolver, ancestors)
+		graph := lowerBlockFlow(members, scope, false, resolver, exprs, ancestors)
 		return Block{Node: owner, Scope: scope, Graph: graph, Stated: flowStated(graph)}
 	}
 	block := Block{Node: owner, Scope: scope}
@@ -2411,7 +2457,7 @@ func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolv
 		if actual == nil || isAnnotation(actual) {
 			continue
 		}
-		block.Statements = append(block.Statements, lowerStatement(actual, scope, resolver, ancestors))
+		block.Statements = append(block.Statements, lowerStatement(actual, scope, resolver, exprs, ancestors))
 	}
 	return block
 }

@@ -310,6 +310,7 @@ elmt:Documented__Hub_conjugated
     a sysml:ConjugatedPortDefinition ;
     sysml:elementId "Documented__Hub_conjugated" ;
     sysml:qualifiedName "Documented::Hub::'~Hub'" ;
+    sysx:mappingQualifiedName "Documented::Hub::'~Hub'" ;
     sysml:declaredName "~Hub" ;
     sysml:owner elmt:Documented__Hub ;
     sysml:owningRelationship elmt:Documented__Hub_conjugated_om ;
@@ -1418,7 +1419,8 @@ elmt:e6f154ee-5b28-5e45-93be-649e39e7c684
 <urn:sysmlv2:element:548572f0-0efe-5063-9eba-10431829526c>
     a sysml:ConjugatedPortDefinition ;
     sysml:elementId "548572f0-0efe-5063-9eba-10431829526c" ;
-    sysml:qualifiedName "Ports::Port::~Port" ;
+    sysml:qualifiedName "Ports::Port::'~Port'" ;
+    sysx:mappingQualifiedName "Ports::Port::~Port" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:9f15f4ff-e883-5ee3-a73f-15730b50b155>

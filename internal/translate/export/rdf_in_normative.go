@@ -344,7 +344,7 @@ func (r *impliedEnds) checkable() bool {
 			return true
 		}
 		for _, property := range []string{rdf.SysML + pDeclaredName, rdf.SysML + pDeclaredShortName,
-			rdf.SysML + pQualifiedName, rdf.OpenSysML + xPositionalName} {
+			rdf.SysML + pQualifiedName, rdf.OpenSysML + xMappingQualifiedName, rdf.OpenSysML + xPositionalName} {
 			if r.d.graph.HasProperty(rdf.IRI(value), property) {
 				return true
 			}

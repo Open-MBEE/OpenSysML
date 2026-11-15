@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -51,6 +52,9 @@ type SatisfyAssertion struct {
 	// is reached through the objects of the features before its last; nil for a
 	// plain name.
 	SubjectChain *ast.FeatureChainExpr
+
+	// SubjectChainID is SubjectChain in the model's table, lowered in the scope of Symbol.
+	SubjectChainID program.ExprID
 
 	// SubjectRoot is the feature a chained `by` operand starts from (`config`),
 	// and SubjectPath the features walked from its object to the subject's
@@ -207,6 +211,7 @@ func (ctx *Context) satisfyAssertionOf(sym *symbols.Symbol) *SatisfyAssertion {
 			a.SubjectRef, a.Subject = ctx.resolveRelationship(sym, rel)
 			if chain, ok := rel.Target.(*ast.FeatureChainExpr); ok {
 				a.SubjectChain = chain
+				a.SubjectChainID = ctx.model.exprs.Intern(chain, sym.OwnerScope)
 				a.SubjectRoot, a.SubjectPath = ctx.chainRoot(sym, chain)
 			}
 		}
@@ -665,7 +670,9 @@ func (ctx *Context) statedOf(a *SatisfyAssertion, inst *Instance) bool {
 // chainSubject evaluates a chained `by` operand in the assertion's scope, as
 // one run bounded by the step budget, and returns the one object it denotes.
 func (ctx *Context) chainSubject(a *SatisfyAssertion) (*Instance, error) {
-	value, err := ctx.EvalWithScope(a.SubjectChain, a.Symbol.OwnerScope)
+	endRun := ctx.beginRun()
+	value, err := newEvalContext(ctx, a.Symbol.OwnerScope).reading(ctx.model.exprs).evalPayload(a.SubjectChainID)
+	endRun()
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w: %w", a.Text(), errNoSubject, err)
 	}

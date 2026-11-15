@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -1242,9 +1243,9 @@ func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Co
 func (ec *EvalContext) valuedReceivers(s lower.Send) ([]*Instance, error) {
 	switch {
 	case !s.IsVia && s.Target == "" && s.TargetExpr != nil:
-		return ec.receiverObjects(s.TargetExpr)
+		return ec.receiverObjects(s.TargetExpr, s.TargetExprID)
 	case s.IsVia && s.Receiver == "" && s.ReceiverExpr != nil:
-		return ec.receiverObjects(s.ReceiverExpr)
+		return ec.receiverObjects(s.ReceiverExpr, s.ReceiverExprID)
 	}
 	return nil, nil
 }
@@ -1275,9 +1276,9 @@ func (ctx *Context) postFor(ec *EvalContext, conns []lower.Connection, msg Messa
 // receiverObjects evaluates node to the objects it yields: every element it
 // holds must be a live object of this run, else the send's target is no object
 // to address — the error names the expression and what it held.
-func (ec *EvalContext) receiverObjects(node ast.Node) ([]*Instance, error) {
+func (ec *EvalContext) receiverObjects(node ast.Node, id program.ExprID) ([]*Instance, error) {
 	text := exprText(node)
-	value, err := ec.Eval(node)
+	value, err := ec.evalPayload(id)
 	if err != nil {
 		return nil, err
 	}
@@ -1306,7 +1307,7 @@ func (ec *EvalContext) routedReceiverObjects(send lower.Send, holder *Instance, 
 	if send.ReceiverExpr == nil || ec.ctx.routedReceiverExists(send.Scope, segments, path, holder) {
 		return nil, nil
 	}
-	objects, err := ec.receiverObjects(send.ReceiverExpr)
+	objects, err := ec.receiverObjects(send.ReceiverExpr, send.ReceiverExprID)
 	if err != nil {
 		if errors.Is(err, ErrUnresolvedReference) {
 			return nil, nil
@@ -1569,7 +1570,7 @@ func (e *EvalContext) buildMessage(scope *symbols.Scope, send lower.Send) (Messa
 		}
 	}
 
-	value, err := e.Eval(send.Message)
+	value, err := e.evalPayload(send.MessageID)
 	if err != nil {
 		return Message{}, fmt.Errorf("eval send message: %w", err)
 	}
