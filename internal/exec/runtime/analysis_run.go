@@ -427,9 +427,8 @@ func (run *calcRun) outputValues(ctx *Context) ([]CalcOutputValue, error) {
 	return values, nil
 }
 
-// analysisVerdicts checks the case's objectives and assertions against the
-// values its run bound: its parameters, its locals and its outputs. An assertion
-// the flow orders was judged where the flow reached it and is reported as judged.
+// analysisVerdicts checks the case's objectives and unordered assertions against
+// the values its run bound; an assertion the flow orders is reported as judged there.
 func (ctx *Context) analysisVerdicts(run *calcRun, sym *symbols.Symbol, scope *symbols.Scope) []AnalysisVerdict {
 	bindings := run.bindingsFrame(ctx)
 	var verdicts []AnalysisVerdict

@@ -1042,9 +1042,8 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 	}
 }
 
-// assert checks an assertion the flow has reached against the values in reach
-// here, a failing condition ending the run as a ViolationError; a case's own
-// assertion is a verdict of the case instead, and its flow moves on.
+// assert checks an assertion the flow has reached against the values in reach: a
+// failure ends the run as a ViolationError, or is a case's verdict and the flow moves on.
 func (e *stmtEngine) assert(s lower.Assert) error {
 	if s.Sym == nil {
 		return fmt.Errorf("%w: %s: the assertion is not declared where it was written", ErrNotAConstraint, e.host.describe())

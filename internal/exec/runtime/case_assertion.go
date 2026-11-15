@@ -65,8 +65,7 @@ func (ctx *Context) assertionVerdict(check conditionCheck, cond Condition) Analy
 }
 
 // positionalAssertions are the verdicts the run's flow reached for the asserting
-// member, and whether the flow orders it at all: one it orders is judged there
-// alone, one it never reached being left undecided.
+// member, and whether the flow orders it at all, so is judged there alone.
 func (run *calcRun) positionalAssertions(node ast.Node) (verdicts []AnalysisVerdict, reached, ordered bool) {
 	if run.perf != nil && run.perf.assertions != nil {
 		verdicts, reached = run.perf.assertions.judged[node]
