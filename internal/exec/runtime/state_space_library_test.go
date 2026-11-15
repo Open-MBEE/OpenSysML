@@ -207,6 +207,62 @@ func TestStateSpaceFlowIntoARedefinedPart(t *testing.T) {
 	}
 }
 
+// A flow out of a part an inheriting object holds under another name, redefining it, is
+// still the flow out of the output of the action that part performs.
+func TestStateSpaceFlowOutOfARedefinedPart(t *testing.T) {
+	src := coupledDynamics("flow source.ramp.output to sink.sum.input;", "")
+	src = strings.Replace(src, "part site {", "part def Site {", 1)
+	src = src[:strings.LastIndex(src, "}")] + `
+		part later : Later;
+		part def Later :> Site {
+			part feed :>> source;
+		}
+	}`
+	sum, err := runCoupledIn(t, src, "test::later", "sink")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := FormatValue(sum.Results()["stateSpace"]); got != "⟨3.0⟩" && got != "⟨5.0⟩" {
+		t.Errorf("the integrator ended at %s, want ⟨3.0⟩ or ⟨5.0⟩", got)
+	}
+}
+
+// A flow out of an action an inheriting part performs under another name, redefining it,
+// is still the flow out of that performance's output, read as it stands at each step.
+func TestStateSpaceFlowOutOfARedefinedAction(t *testing.T) {
+	src := coupledDynamics("flow source.ramp.output to sink.sum.input;", "")
+	src = strings.Replace(src, "part site {", "part def Site {", 1)
+	src = src[:strings.LastIndex(src, "}")] + `
+		part later : Later;
+		part def Later :> Site {
+			part feed :>> source {
+				perform action incline :>> ramp {
+					in :>> input = VectorOf((0.0));
+					:>> stateSpace = VectorOf((0.0));
+					out :>> output;
+					calc :>> getDerivative {
+						in input : Input;
+						in stateSpace : StateSpace;
+						return : StateDerivative = VectorOf((1.0)) / 1 [s];
+					}
+					calc :>> getOutput {
+						in input : Input;
+						in stateSpace : StateSpace;
+						return : Output = 2.0 * stateSpace;
+					}
+				}
+			}
+		}
+	}`
+	sum, err := runCoupledIn(t, src, "test::later", "sink")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := FormatValue(sum.Results()["stateSpace"]); got != "⟨3.0⟩" && got != "⟨5.0⟩" {
+		t.Errorf("the integrator ended at %s, want ⟨3.0⟩ or ⟨5.0⟩", got)
+	}
+}
+
 // A guardless crossing whose type states terminal ends the dynamics where it is located.
 func TestStateSpaceDerivativeCrossingEndsATerminalRun(t *testing.T) {
 	src, err := os.ReadFile(filepath.Join("testdata", "conformance", "state_space_derivative_zero_crossing.sysml"))

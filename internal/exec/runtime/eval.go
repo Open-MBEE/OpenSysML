@@ -164,7 +164,7 @@ func (ec *EvalContext) inEnv(env *conditionEnv) *EvalContext {
 	if env == nil {
 		return ec
 	}
-	out := ec.over(ec.scope, []frame{env.bindings})
+	out := ec.over(ec.scope, append(slices.Clone(env.frames), env.bindings))
 	out.features = env.features
 	if env.enclosing {
 		out.resolving = nil

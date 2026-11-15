@@ -3,7 +3,9 @@ package runtime
 import (
 	"math"
 	"regexp"
+	"slices"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -301,5 +303,34 @@ func TestCrossingSearch(t *testing.T) {
 	_, at, found, ok = s.first(append([]float64{-0.25}, spans...), append([]float64{late(-0.25)}, sample(late)...), 1, 0)
 	if !ok || !found || math.Abs(at-0.02) > 1e-12 {
 		t.Errorf("turn at the latest sample: at %v (found %v, ok %v), want 0.02", at, found, ok)
+	}
+}
+
+// The input a flow carries changes before the crossing the fed dynamics located under
+// it: the sample there is still the one previewed, the state at the crossing.
+func TestZeroCrossingSampledUnderTheInputItWasLocatedWith(t *testing.T) {
+	src := coupledDynamics("flow source.ramp.output to sink.sum.input;", `
+		event occurrence half : ZeroCrossing {
+			:>> guard = stateSpace.elements#(1) - 0.5;
+		}`)
+	src = strings.Replace(src, "private import StateSpaceRepresentation::*;",
+		"private import StateSpaceRepresentation::*;\n\t\tprivate import StateSpaceIntegration::*;", 1)
+	src = strings.Replace(src, ":>> stateSpace = VectorOf((0.0));", ":>> stateSpace = VectorOf((0.5));", 1)
+	src = strings.Replace(src, "timeStep : DurationValue = 0.5 [s]", "timeStep : DurationValue = 0.25 [s]", 1)
+	src = strings.Replace(src, "timeStep : DurationValue = 0.5 [s]", "timeStep : DurationValue = 1 [s]", 1)
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	tr := NewTraceRecorder()
+	ctx.SetTrace(tr)
+	performerObject(t, ctx, idx, "test::site")
+	if _, err := ctx.Advance(3); err != nil {
+		t.Fatalf("advance: %v", err)
+	}
+	lines := regexp.MustCompile(`(?m)^\s*(?:state: sum t=\S+ x=(\S+)|event: zero crossing half of sum) .*$`).FindAllStringSubmatch(tr.String(), -1)
+	at := slices.IndexFunc(lines, func(m []string) bool { return m[1] == "" })
+	if at < 1 {
+		t.Fatalf("no crossing of half follows a sample of sum: %v", lines)
+	}
+	if got, want := lines[at-1][1], "⟨0.5⟩"; got != want {
+		t.Errorf("the state at the crossing is %s, want %s", got, want)
 	}
 }
