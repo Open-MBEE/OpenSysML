@@ -8,12 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// This file finds the subsetting features declared elsewhere than on the object whose feature
-// they subset. A subsetted feature need only be accessible to the subsetting one (KerML 1.1
-// §8.3.3.3.10 validateSubsettingFeaturingTypes): featured within a direct or indirect featuring
-// type of it, or named by a feature chain (§7.3.4.4). So for a context object o, a subsetter S
-// nested under the usages U1..Uk of o that subsets `P1.….Pn.T` makes every value of
-// o.U1.….Uk.S a value of o.P1.….Pn.T; k = n = 0 is the subsetter of the same object.
+// A subsetted feature need only be accessible to the subsetting one (KerML 1.1 §7.3.4.4): for a context o, S nested
+// under the usages U1..Uk of o subsetting `P1.….Pn.T` makes each value of o.U1.….Uk.S one of o.P1.….Pn.T.
 
 // reachingSubsetter is a subsetting feature whose subsetted feature is one of another object.
 type reachingSubsetter struct {
