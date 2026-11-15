@@ -217,17 +217,18 @@ func shortNamed(sym *symbols.Symbol) (string, bool) {
 // already contributes (KerML 8.4.3.2): the two are indistinguishable unless the
 // declaration redefines or subsets the inherited feature.
 func (c *w9cConflictChecker) checkOwnedNames(sym *symbols.Symbol, contribs []w9cContributor) {
-	if sym.Scope == nil || resolve.ParameterizedByName(sym) {
+	if sym.Scope == nil {
 		return
 	}
 	owned, aliases := c.resolver.DistinguishableMembers(sym.Scope)
+	redefined := c.redefinedByMembers(owned)
 	for _, mems := range [2][]*symbols.Symbol{owned, aliases} {
 		for _, mem := range mems {
 			if resolve.ImplicitlyRedefined(mem) || c.hasUnresolvedRedefinition(mem) {
 				continue
 			}
 			for _, key := range ownedKeysOf(mem) {
-				cands := contributionsOf(contribs, key.name)
+				cands := notRedefined(contributionsOf(contribs, key.name), redefined)
 				if len(cands) == 0 {
 					continue
 				}
@@ -237,6 +238,36 @@ func (c *w9cConflictChecker) checkOwnedNames(sym *symbols.Symbol, contribs []w9c
 			}
 		}
 	}
+}
+
+// redefinedByMembers are the features the members of one type redefine, by
+// clause or by position, directly or through what those redefine: a redefined
+// feature is not inherited (KerML 8.3.3.1.10), so its name is free again.
+func (c *w9cConflictChecker) redefinedByMembers(owned []*symbols.Symbol) map[*symbols.Symbol]bool {
+	var out map[*symbols.Symbol]bool
+	for _, mem := range owned {
+		for _, target := range c.model.AllRedefinedFeatures(mem) {
+			if out == nil {
+				out = map[*symbols.Symbol]bool{}
+			}
+			out[target] = true
+		}
+	}
+	return out
+}
+
+// notRedefined drops the candidates whose member is in redefined.
+func notRedefined(cands []w9cCandidate, redefined map[*symbols.Symbol]bool) []w9cCandidate {
+	if len(redefined) == 0 {
+		return cands
+	}
+	out := make([]w9cCandidate, 0, len(cands))
+	for _, cand := range cands {
+		if !redefined[cand.member] {
+			out = append(out, cand)
+		}
+	}
+	return out
 }
 
 // ownedKeysOf is each identifier a member or alias binds, short name included,
