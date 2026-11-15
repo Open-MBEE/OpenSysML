@@ -1,0 +1,41 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Limits"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="lowest" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (OperatorExpr operator="-"
+                (LiteralInfinity))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="restored" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="-"
+                (OperatorExpr operator="-"
+                  (LiteralInfinity)))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="belowFinite" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="<"
+                (OperatorExpr operator="-"
+                  (LiteralInfinity))
+                (OperatorExpr operator="-"
+                  (LiteralInteger value="1000")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="sum" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="+"
+                (LiteralInfinity)
+                (LiteralInteger value="1"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="decay" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="**"
+                (LiteralInteger value="2")
+                (OperatorExpr operator="-"
+                  (LiteralInfinity)))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="least" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (InvocationExpr type="RealFunctions::min"
+                (OperatorExpr operator="-"
+                  (LiteralInfinity))
+                (LiteralReal value="3.0")))))))))

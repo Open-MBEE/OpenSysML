@@ -85,6 +85,10 @@ func ValueToProtoWith(rt *runtime.Context, val runtime.Value, idx *symbols.Index
 		case semantics.ValBool:
 			return &pb.Value{Kind: &pb.Value_BoolValue{BoolValue: val.Const.Bool}}
 		case semantics.ValInfinity:
+			// The infinity arm is `*` alone; `-*` goes as the double it is.
+			if val.Const.IsNegativeInfinity() {
+				return &pb.Value{Kind: &pb.Value_RealValue{RealValue: math.Inf(-1)}}
+			}
 			return &pb.Value{Kind: &pb.Value_Infinity{Infinity: true}}
 		default:
 			return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported const kind"}}
@@ -1650,7 +1654,7 @@ func ProtoToScalar(pv *pb.Value) runtime.Value {
 		}
 		return runtime.Value{Kind: runtime.ValConst, Const: num}
 	case *pb.Value_RealValue:
-		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: k.RealValue}}
+		return runtime.Value{Kind: runtime.ValConst, Const: semantics.ExtendedReal(k.RealValue)}
 	case *pb.Value_BoolValue:
 		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValBool, Bool: k.BoolValue}}
 	case *pb.Value_StringValue:

@@ -16,7 +16,7 @@ type valueKey struct {
 	imagVal float64
 	boolVal bool
 	isBool  bool // a Boolean, so false keys apart from 0
-	infVal  bool
+	infVal  int8 // the sign of an infinity, 0 for every other value
 	strVal  string
 	instID  int64
 	colHash uint64
@@ -57,7 +57,7 @@ func (ctx *Context) valueKey(v Value) valueKey {
 		case semantics.ValBool:
 			key.boolVal, key.isBool = v.Const.Bool, true
 		case semantics.ValInfinity:
-			key.infVal = true
+			key.infVal = int8(v.Const.Sign())
 		}
 	case ValComplex:
 		// A complex number on the real axis is the number it equals and has its key.

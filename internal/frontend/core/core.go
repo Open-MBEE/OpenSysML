@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"strings"
 
@@ -489,6 +490,10 @@ func attributeValue(value *symbolfacts.Value) *JValue {
 	case semantics.ValBool:
 		return &JValue{BoolValue: ptr(value.Const.Bool)}
 	case semantics.ValInfinity:
+		// The infinity arm is `*` alone; `-*` goes as the double it is.
+		if value.Const.IsNegativeInfinity() {
+			return &JValue{RealValue: ptr(F64(math.Inf(-1)))}
+		}
 		return &JValue{Infinity: ptr(true)}
 	default:
 		return &JValue{Null: ptr("unsupported const kind")}

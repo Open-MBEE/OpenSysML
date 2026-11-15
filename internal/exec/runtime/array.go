@@ -251,6 +251,7 @@ const (
 	vectorQuantityTypeFQN       = "Quantities::VectorQuantityValue"
 	scalarValueTypeFQN          = "ScalarValues::ScalarValue"
 	positiveTypeFQN             = "ScalarValues::Positive"
+	integerTypeFQN              = "ScalarValues::Integer"
 	scalarValuesPackageFQN      = "ScalarValues"
 )
 
@@ -690,7 +691,7 @@ func keyBytes(k valueKey) []byte {
 	buf = binary.LittleEndian.AppendUint64(buf, uint64(k.intVal))
 	buf = binary.LittleEndian.AppendUint64(buf, math.Float64bits(k.realVal))
 	buf = binary.LittleEndian.AppendUint64(buf, math.Float64bits(k.imagVal))
-	buf = binary.LittleEndian.AppendUint64(buf, flag(k.boolVal)<<1|flag(k.infVal))
+	buf = binary.LittleEndian.AppendUint64(buf, flag(k.boolVal)<<2|uint64(uint8(k.infVal)&3))
 	buf = binary.LittleEndian.AppendUint64(buf, k.colHash)
 	buf = binary.LittleEndian.AppendUint64(buf, uint64(len(k.bigVal)))
 	buf = append(buf, k.bigVal...)

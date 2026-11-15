@@ -118,6 +118,11 @@ func (ec *EvalContext) bigRangeSequence(lower, upper semantics.Value) (Value, er
 // truncated to the integer it is nearest.
 func rangeBound(op, which string, val Value) (semantics.Value, error) {
 	val = soleElement(val)
+	if isInfinity(val) {
+		// An infinity is an Integer (KerML 9.3.2.2.3), but no sequence ends at one.
+		return semantics.Value{}, fmt.Errorf("%w: %s requires finite bounds, got %s for %s",
+			semantics.ErrArithmeticDomain, op, semantics.FormatConst(val.Const), which)
+	}
 	if val.Kind != ValConst || val.Const.Kind != semantics.ValInt {
 		return semantics.Value{}, fmt.Errorf(
 			"%w: %s requires Integer bounds (IntegerFunctions::'..' declares in %s: Integer[1]), got %s",

@@ -94,40 +94,75 @@ func TestInfinityComparison(t *testing.T) {
 	}
 }
 
-// TestInfinityArithmeticRefused refuses arithmetic over `*` with a typed error
-// naming the operation rather than answering with a number: KerML 1.0 §9.4
-// defines no arithmetic result over the infinity §9.3.2 extends Natural with,
-// so the checker accepts the well-typed expression and the evaluator reports
-// the undefined value, as it reports a division by zero. The function forms
-// and the range operator refuse it the same way.
-func TestInfinityArithmeticRefused(t *testing.T) {
+// TestInfinityArithmetic answers arithmetic over `*` and `-*` in the affinely
+// extended reals KerML 9.3.2.2.9 makes Real: the limit where one exists, in the
+// operator notation, the function forms and the aggregations alike.
+func TestInfinityArithmetic(t *testing.T) {
+	cases := []struct{ expr, want string }{
+		{"-*", "-*"}, {"-(-*)", "*"}, {"+(-*)", "-*"},
+		{"* + 1", "*"}, {"1 + *", "*"}, {"* + 1.5", "*"}, {"* + *", "*"},
+		{"* - 1", "*"}, {"1 - *", "-*"}, {"-* - *", "-*"},
+		{"2 * *", "*"}, {"-2 * *", "-*"}, {"* * *", "*"}, {"(-*) * *", "-*"},
+		{"* / 2", "*"}, {"* / -2", "-*"}, {"2 / *", "0"}, {"2 / -*", "0"},
+		{"* ** 2", "*"}, {"* ^ 2", "*"}, {"* ** -1", "0"}, {"* ** *", "*"}, {"* ** -*", "0"},
+		{"2 ** *", "*"}, {"2 ** -*", "0"}, {"0.5 ** *", "0.0"}, {"0 ** *", "0"},
+		{"(-*) ** 2", "*"}, {"(-*) ** 3", "-*"}, {"(-*) ** -3", "0"},
+		{"NaturalFunctions::'+'(*, 1)", "*"}, {"RationalFunctions::rat(*, 2)", "*"}, {"RationalFunctions::rat(2, -*)", "0"},
+		{"IntegerFunctions::'-'(*)", "-*"},
+		{"RealFunctions::'*'(-*, 2.0)", "-*"},
+		{"NaturalFunctions::'/'(*, 2)", "*"},
+		{"NaturalFunctions::'/'(4, *)", "0"},
+		{"IntegerFunctions::sum((1, *))", "*"},
+		{"RealFunctions::sum((1.5, -*, 2))", "-*"},
+		{"IntegerFunctions::product((2, *))", "*"},
+		{"IntegerFunctions::product((-2, *))", "-*"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.expr, func(t *testing.T) {
+			_, got, err := evalDeclaredExpr(t, "package test {}", tc.expr)
+			if err != nil {
+				t.Fatalf("%s failed: %v", tc.expr, err)
+			}
+			if text := FormatValue(got); text != tc.want {
+				t.Errorf("%s = %s, want %s", tc.expr, text, tc.want)
+			}
+		})
+	}
+}
+
+// TestInfinityArithmeticUndefined reports an indeterminate form of the extended
+// reals as a typed domain error, a zero divisor as a division by zero, and an
+// operand outside the operation's declared type as a type mismatch.
+func TestInfinityArithmeticUndefined(t *testing.T) {
 	cases := []struct {
 		expr string
+		kind error
 		want string
 	}{
-		{"* + 1", "operator '+' is not defined for the unbounded value '*'"},
-		{"1 + *", "operator '+' is not defined for the unbounded value '*'"},
-		{"* + 1.5", "operator '+' is not defined for the unbounded value '*'"},
-		{"* - 1", "operator '-' is not defined for the unbounded value '*'"},
-		{"1 - *", "operator '-' is not defined for the unbounded value '*'"},
-		{"* - *", "operator '-' is not defined for the unbounded value '*'"},
-		{"2 * *", "operator '*' is not defined for the unbounded value '*'"},
-		{"* * 0", "operator '*' is not defined for the unbounded value '*'"},
-		{"* / 2", "operator '/' is not defined for the unbounded value '*'"},
-		{"2 / *", "operator '/' is not defined for the unbounded value '*'"},
-		{"* % 2", "operator '%' is not defined for the unbounded value '*'"},
-		{"* ** 2", "operator '**' is not defined for the unbounded value '*'"},
-		{"2 ** *", "operator '**' is not defined for the unbounded value '*'"},
-		{"* ^ 2", "operator '**' is not defined for the unbounded value '*'"},
-		{"-*", "unary '-' is not defined for *"},
-		{"NaturalFunctions::'+'(*, 1)", "operator '+' is not defined for the unbounded value '*'"},
-		{"IntegerFunctions::'-'(*)", "unary '-' is not defined for *"},
-		{"NaturalFunctions::'/'(*, 2)", "operator '/' is not defined for the unbounded value '*'"},
-		{"NaturalFunctions::'/'(4, *)", "operator '/' is not defined for the unbounded value '*'"},
-		{"1..*", "'..' requires Integer bounds"},
-		{"IntegerFunctions::sum((1, *))", "requires numeric elements, got an infinity"},
-		{"IntegerFunctions::product((2, *))", "requires numeric elements, got an infinity"},
-		{`* > "a"`, "'>' is not defined"},
+		{"* - *", semantics.ErrArithmeticDomain, "* - * is undefined in the extended reals"},
+		{"-* + *", semantics.ErrArithmeticDomain, "-* + * is undefined in the extended reals"},
+		{"* * 0", semantics.ErrArithmeticDomain, "* * 0 is undefined in the extended reals"},
+		{"0.0 * -*", semantics.ErrArithmeticDomain, "is undefined in the extended reals"},
+		{"* / *", semantics.ErrArithmeticDomain, "* / * is undefined in the extended reals"},
+		{"* / 0", ErrDivisionByZero, "division by zero"},
+		{"-* / 0.0", ErrDivisionByZero, "division by zero"},
+		{"* % 2", semantics.ErrArithmeticDomain, "* % 2 is undefined in the extended reals"},
+		{"2 % -*", semantics.ErrArithmeticDomain, "2 % -* is undefined in the extended reals"},
+		{"* ** 0", semantics.ErrArithmeticDomain, "* ** 0 is undefined in the extended reals"},
+		{"1 ** *", semantics.ErrArithmeticDomain, "1 ** * is undefined in the extended reals"},
+		{"0 ** -*", semantics.ErrArithmeticDomain, "is undefined in the extended reals"},
+		{"(-2) ** *", semantics.ErrArithmeticDomain, "is undefined in the extended reals"},
+		{"(-*) ** 0.5", semantics.ErrArithmeticDomain, "is undefined in the extended reals"},
+		{"NaturalFunctions::'/'(*, *)", semantics.ErrArithmeticDomain, "* / * is undefined in the extended reals"},
+		{"IntegerFunctions::'%'(*, 2)", semantics.ErrArithmeticDomain, "* % 2 is undefined in the extended reals"},
+		{"IntegerFunctions::product((0, *))", semantics.ErrArithmeticDomain, "0 * * is undefined in the extended reals"},
+		{"RealFunctions::sum((*, -*))", semantics.ErrArithmeticDomain, "* + -* is undefined in the extended reals"},
+		{"NaturalFunctions::'+'(-*, 1)", ErrTypeMismatch, "requires a Natural value, got -*"},
+		{"1..*", semantics.ErrArithmeticDomain, "'..' requires finite bounds, got * for upper"},
+		{"-*..1", semantics.ErrArithmeticDomain, "'..' requires finite bounds, got -* for lower"},
+		{"NaturalFunctions::ToString(-*)", ErrTypeMismatch, "requires a Natural value, got -*"},
+		{`* > "a"`, ErrTypeMismatch, "'>' is not defined"},
+		{`-* + "a"`, ErrTypeMismatch, ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.expr, func(t *testing.T) {
@@ -135,14 +170,67 @@ func TestInfinityArithmeticRefused(t *testing.T) {
 			if err == nil {
 				t.Fatalf("%s succeeded, want a typed error", tc.expr)
 			}
-			if !errors.Is(err, ErrTypeMismatch) {
-				t.Errorf("%s: error %v, want a type mismatch", tc.expr, err)
+			if !errors.Is(err, tc.kind) {
+				t.Errorf("%s: error %v, want %v", tc.expr, err, tc.kind)
 			}
 			if !strings.Contains(err.Error(), tc.want) {
 				t.Errorf("%s: error %q, want it to contain %q", tc.expr, err, tc.want)
 			}
 			if strings.Contains(err.Error(), "∞") || strings.Contains(err.Error(), "Inf") {
-				t.Errorf("%s: error %q names the value as an infinity, want `*`", tc.expr, err)
+				t.Errorf("%s: error %q spells the infinity other than as `*`", tc.expr, err)
+			}
+		})
+	}
+}
+
+// TestNegativeInfinity orders `-*` below every number, types it as the Integer,
+// Rational and Real it is and as no Natural, and takes it through the library.
+func TestNegativeInfinity(t *testing.T) {
+	cases := []struct{ expr, want string }{
+		{"-* < *", "true"}, {"-* < -1", "true"}, {"-1.5 > -*", "true"}, {"-* <= -*", "true"},
+		{"-* == -*", "true"}, {"-* == *", "false"}, {"-* != *", "true"}, {"-* > 0", "false"},
+		{"RealFunctions::'<'(-*, 2.0)", "true"},
+		{"-* istype ScalarValues::Real", "true"}, {"-* istype ScalarValues::Rational", "true"},
+		{"-* istype ScalarValues::Integer", "true"}, {"-* istype ScalarValues::Natural", "false"},
+		{"* istype ScalarValues::Natural", "true"},
+		{"NumericalFunctions::max(-*, 3)", "3"}, {"RealFunctions::min(-*, 3.0)", "-*"},
+		{"RealFunctions::min(-*, *)", "-*"}, {"RealFunctions::max(-*, *)", "*"},
+		{"RealFunctions::abs(-*)", "*"}, {"IntegerFunctions::abs(-*)", "*"},
+		{"RealFunctions::sqrt(*)", "*"}, {"RealFunctions::floor(-*)", "-*"}, {"RealFunctions::round(*)", "*"},
+		{"OpenSysMLMathFunctions::exp(-*)", "0.0"}, {"OpenSysMLMathFunctions::exp(*)", "*"},
+		{"OpenSysMLMathFunctions::ln(*)", "*"},
+		{"NumericalFunctions::isZero(-*)", "false"},
+		{"RealFunctions::ToString(-*)", `"-*"`}, {"IntegerFunctions::ToString(-*)", `"-*"`},
+		{"RealFunctions::ToInteger(-*)", "-*"}, {"RealFunctions::ToRational(-*)", "-*"},
+		{"IntegerFunctions::ToNatural(*)", "*"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.expr, func(t *testing.T) {
+			_, got, err := evalDeclaredExpr(t, "package test {}", tc.expr)
+			if err != nil {
+				t.Fatalf("%s failed: %v", tc.expr, err)
+			}
+			if text := FormatValue(got); text != tc.want {
+				t.Errorf("%s = %s, want %s", tc.expr, text, tc.want)
+			}
+		})
+	}
+	undefined := []struct {
+		expr string
+		kind error
+	}{
+		{"RealFunctions::sqrt(-*)", semantics.ErrArithmeticDomain},
+		{"OpenSysMLMathFunctions::ln(-*)", semantics.ErrArithmeticDomain},
+		{"TrigFunctions::sin(*)", semantics.ErrArithmeticDomain},
+		{"RationalFunctions::gcd(*, 2)", semantics.ErrArithmeticDomain},
+		{"IntegerFunctions::ToNatural(-*)", semantics.ErrArithmeticDomain},
+		{"NaturalFunctions::max(-*, 3)", ErrTypeMismatch},
+		{"NaturalFunctions::ToString(-*)", ErrTypeMismatch},
+	}
+	for _, tc := range undefined {
+		t.Run(tc.expr, func(t *testing.T) {
+			if _, _, err := evalDeclaredExpr(t, "package test {}", tc.expr); !errors.Is(err, tc.kind) {
+				t.Errorf("%s: error %v, want %v", tc.expr, err, tc.kind)
 			}
 		})
 	}
@@ -302,7 +390,7 @@ func TestUnboundedAgainstDeclaredSubtype(t *testing.T) {
 
 // TestInfinityOrderingOverOpenOperands orders `*` beside a feature the model
 // leaves open: the maximum is `*` whatever the feature holds, the minimum and the
-// comparisons stay open in both notations, and the arithmetic stays undefined.
+// comparisons stay open in both notations, as does a sum, and a remainder is undefined.
 func TestInfinityOrderingOverOpenOperands(t *testing.T) {
 	const src = "package test {\n\tprivate import ScalarValues::*;\n\tattribute u : Integer;\n}"
 	for _, expr := range []string{"IntegerFunctions::max(*, test::u)", "IntegerFunctions::max(test::u, *)"} {
@@ -332,12 +420,21 @@ func TestInfinityOrderingOverOpenOperands(t *testing.T) {
 			}
 		})
 	}
+	// The feature may hold the opposite infinity, so the sum stays open too.
 	for _, expr := range []string{"test::u + *", "* - test::u", "IntegerFunctions::'+'(test::u, *)"} {
 		t.Run(expr, func(t *testing.T) {
-			_, _, err := evalDeclaredExpr(t, src, expr)
-			if !errors.Is(err, ErrTypeMismatch) {
-				t.Errorf("%s: error %v, want a type mismatch", expr, err)
+			_, got, err := evalDeclaredExpr(t, src, expr)
+			if err != nil {
+				t.Fatalf("%s failed: %v", expr, err)
+			}
+			if got.Kind != ValUndetermined {
+				t.Errorf("%s = %s, want an undetermined value", expr, FormatValue(got))
 			}
 		})
 	}
+	t.Run("test::u % *", func(t *testing.T) {
+		if _, _, err := evalDeclaredExpr(t, src, "test::u % *"); !errors.Is(err, semantics.ErrArithmeticDomain) {
+			t.Errorf("test::u %% *: error %v, want a domain error", err)
+		}
+	})
 }

@@ -208,10 +208,11 @@ integer is reported, while `n as Natural` on `attribute n : Natural = 7` keeps `
 as `*`, and whatever that ordering decides is answered, in the operator notation and the function
 notation alike: `* > 1`, `'>'(*, 1)`, `* == *`, `max(*, 1)` (`*`), `min(*, 1)` (`1`), `abs(*)`,
 `ToString(*)` (`"*"`) and unary `+`. Beside a feature the model leaves open, `max(*, u)` is still `*`
-and the ordering stays open. The Kernel Function Library defines no arithmetic result over
-it, so `+`, `-`, `*`, `/`, `%`, `**`, `^`, unary `-`, `..`, `sum` and `product` over `*` are well
-typed — the checker accepts them, as the pilot does — and evaluating one is an error naming the
-operator, as a division by zero is.
+and the ordering stays open. `*` is the positive infinity of KerML's extended numbers and `-*` the
+negative one, below every number: an `Integer`, a `Rational` and a `Real`, but no `Natural`.
+Arithmetic over them answers what the extended reals determine — `* + 1` is `*`, `1 - *` is `-*`,
+`2 / *` is `0`, `(-*) ** 3` is `-*` — and an indeterminate form (`* - *`, `0 * *`, `* / *`,
+`* ** 0`, any `%`) is an error naming it, as a division by zero is.
 
 ```sysml
 sysml> package Budget {
@@ -225,8 +226,12 @@ sysml> %eval Budget::withinLimit
 ✓ Budget::withinLimit
   = true
 
-sysml> %eval * + 1
-error: evaluation failed: type mismatch: operator '+' is not defined for the unbounded value '*': * + 1
+sysml> %eval 1 - *
+✓ 1 - *
+  = -*
+
+sysml> %eval * - *
+error: evaluation failed: arithmetic domain error: * - * is undefined in the extended reals
 ```
 
 **Metadata:** `elem.metadata` is the sequence of metadata annotating `elem`, one object per
