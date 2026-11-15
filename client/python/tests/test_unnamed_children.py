@@ -155,3 +155,37 @@ def test_unnamed_library_members_have_positional_ids(tmp_path):
         bindings = [m for m in unnamed if m.kind == "bindingConnectorAsUsage"
                     and m.inherited_from == "Occurrences::Occurrence"]
         assert len(bindings) == 3
+
+
+COLLISION_MODEL = """
+package Col__V__c_pend0 { part marker; }
+package Col {
+    port def P;
+    part def V { port q : P; port r : P; connection c connect q to r; }
+    part def W { part a; part b; part { part inner; } part '@2' { part named; } }
+}
+"""
+
+
+def test_a_name_and_an_id_of_one_spelling_are_told_apart_by_kind(tmp_path):
+    with Connection(auto_start=False) as conn:
+        model = _load(conn, tmp_path, COLLISION_MODEL)
+        assert model.get(name="Col__V__c_pend0").kind == "package"
+        assert model.get(id="Col__V__c_pend0").kind == "connectorEnd"
+        assert model.get("Col__V__c_pend0").kind == "package"
+        assert model.get(name="Col__V__c_pend1") is None
+
+        owner = model.get(name="Col::W")
+        assert [child.id for child in owner.children()] == [
+            "Col::W::a", "Col::W::b", "Col::W::@2", "Col::W::'@2'"]
+        unnamed, declared = owner.children()[2:]
+        assert [child.name for child in unnamed.children()] == ["inner"]
+        assert [child.name for child in declared.children()] == ["named"]
+        assert model.get(name="Col::W::'@2'").id == "Col::W::'@2'"
+        assert model.get(id="Col::W::@2").name == ""
+        assert model.get(name="Col::W::@2::inner") is None
+
+        assert model.element_properties(None, "declaredName", name="Col__V__c_pend0").element.metaclass == "Package"
+        assert model.element_properties(None, "declaredName", id="Col__V__c_pend0").element.metaclass == "ReferenceUsage"
+        with pytest.raises(ValueError, match="exactly one"):
+            model.get("Col", id="Col")

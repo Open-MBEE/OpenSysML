@@ -42,7 +42,7 @@ class TypeFacts:
     """Type name as written; empty when none is declared."""
 
     resolved_id: str = ""
-    """FQN of the resolved written type; empty when unresolved or undeclared."""
+    """Element id of the resolved written type; empty when unresolved or undeclared."""
 
     resolved_kind: str = ""
     """Symbol kind of the resolved written type, e.g. ``partDef``."""
@@ -64,6 +64,9 @@ class TypeFacts:
     supertypes removed: ``part pBoth : V :> q`` with ``q : T`` has ``V`` and
     ``T``. Empty for a definition, or when the model derives none."""
 
+    resolved_qualified_name: str = ""
+    """Qualified name of the resolved written type, for display; :attr:`resolved_id` is for lookup."""
+
     @classmethod
     def from_pb(cls, pb_type_info) -> "TypeFacts":
         """Build from a ``TypeInfo`` protobuf message."""
@@ -76,6 +79,7 @@ class TypeFacts:
             quantity=pb_type_info.quantity,
             unit=pb_type_info.unit,
             types=tuple(TypeRef.from_pb(ref) for ref in pb_type_info.types),
+            resolved_qualified_name=pb_type_info.resolved_qualified_name,
         )
 
 
@@ -128,6 +132,8 @@ class Specialization:
     declared: str = ""
     target_id: str = ""
     target_kind: str = ""
+    target_qualified_name: str = ""
+    """Qualified name of the resolved target, for display; :attr:`target_id` is for lookup."""
 
     @classmethod
     def from_pb(cls, pb_specialization) -> "Specialization":
@@ -137,6 +143,7 @@ class Specialization:
             declared=pb_specialization.declared,
             target_id=pb_specialization.target_id,
             target_kind=pb_specialization.target_kind,
+            target_qualified_name=pb_specialization.target_qualified_name,
         )
 
 
@@ -146,7 +153,7 @@ class AttributeFacts:
 
     name: str
     type: str = ""
-    """FQN of the resolved type, else the type as written, else the library scalar."""
+    """Element id of the resolved type, else the type as written, else the library scalar."""
 
     value: object = None
     """Default value, when it is a model-level constant; None when there is none."""

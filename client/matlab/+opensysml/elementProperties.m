@@ -12,12 +12,19 @@ function answer = elementProperties(model, element, varargin)
     if nargin < 2 || isempty(element)
         opensysml.internal.raise('opensysml:argument', 'an element id or qualified name is required');
     end
+    options = struct('lookup', 'either');
+    if ~isempty(varargin) && isstruct(varargin{end})
+        given = [fieldnames(varargin{end}), struct2cell(varargin{end})]';
+        options = opensysml.internal.nameValueOptions(options, given(:)', 'elementProperties');
+        varargin(end) = [];
+    end
     properties = cell(1, numel(varargin));
     for i = 1:numel(varargin)
         properties{i} = char(varargin{i});
     end
     model.connection.require('element_properties');
-    request = struct('modelHash', model.hash, 'elementId', char(element));
+    request = opensysml.internal.lookupKind(model.connection, ...
+        struct('modelHash', model.hash, 'elementId', char(element)), options.lookup);
     if ~isempty(properties)
         request.properties = properties;
     end
