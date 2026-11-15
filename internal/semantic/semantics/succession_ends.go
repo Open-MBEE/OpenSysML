@@ -68,9 +68,8 @@ func successionOwnsMintedEnds(sym *symbols.Symbol) bool {
 	return false
 }
 
-// successionEndReference is the feature a succession's minted end references (nil when the model resolves none).
-// stated reports a ReferenceSubsetting the end owns: a written end's. The source of a `then` is the occurrence
-// before it (SysML v2.1 §7.17.2), an implied reference its EmptySourceEndMember does not own.
+// successionEndReference is the feature a succession's minted end references; stated reports a ReferenceSubsetting
+// the end owns, which the EmptySourceEndMember of a `then` (its source the occurrence before it, §7.17.2) does not.
 func (m *Model) successionEndReference(end *symbols.Symbol) (target *symbols.Symbol, stated bool) {
 	i, ok := symbols.ImpliedSuccessionEndIndex(end)
 	if !ok || end.OwnerScope == nil {

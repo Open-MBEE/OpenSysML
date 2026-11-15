@@ -316,9 +316,8 @@ func (ids *ElementIDs) recordTransitionSuccession(e *encoder, node ast.Node, sub
 	}
 }
 
-// recordSuccessionEnds records the two ends the conversion mints at end0/end1 under a `then` succession's
-// edge (encodeSuccessionEdge) or under a `first a then b;` (initialSuccessionEnds), each with the
-// EndFeatureMembership minted beside it and the ReferenceSubsetting of an end that states its feature.
+// recordSuccessionEnds records the ends minted at end0/end1 under a `then` edge (encodeSuccessionEdge) or a
+// `first a then b;` (initialSuccessionEnds), with their memberships and the ReferenceSubsetting of a stated end.
 func (ids *ElementIDs) recordSuccessionEnds(e *encoder, node ast.Node, subject rdf.Term) {
 	var stated [2]bool
 	switch n := node.(type) {
