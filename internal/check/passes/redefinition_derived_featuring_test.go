@@ -1,6 +1,9 @@
 package passes
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 // redefinitionCodes are the diagnostics the redefinition featuring rules report.
 var redefinitionCodes = []string{
@@ -103,4 +106,14 @@ func TestRedefinitionThroughReferenceSubsetting(t *testing.T) {
 		`feature battery { feature output; } feature other;
 		 class C { feature e references other { feature s redefines battery::output; } }`,
 		"redefinition-no-inherited")
+}
+
+// A `member` feature is no ownedFeature, so two features holding only such members stay compatible
+// through the feature they both redefine (KerML 1.1 §8.3.3.1.10 Feature::isCompatibleWith).
+func TestRedefinitionThroughFeaturesWithOnlyMemberFeatures(t *testing.T) {
+	const model = `class A { feature p; }
+		 class B1 specializes A { feature p2 redefines p { %s feature q; } member feature x featured by p2; }
+		 class B2 specializes B1 { feature p3 redefines A::p { %s feature r; } member feature y redefines x featured by p3; }`
+	wantRedefinitionCodes(t, fmt.Sprintf(model, "member", "member"))
+	wantRedefinitionCodes(t, fmt.Sprintf(model, "", ""), "redefinition-no-inherited")
 }

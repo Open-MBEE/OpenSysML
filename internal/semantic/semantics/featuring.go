@@ -308,8 +308,14 @@ func (a *featureAccess) hasOwnedFeatures(t FeaturingType) bool {
 	if t.Snapshots {
 		return false
 	}
+	// Type::ownedFeature is the ownedMemberFeature of the FeatureMemberships, which a `member` feature has none of.
 	owned, _ := a.m.ReflectiveElements(t.Type, "ownedFeature")
-	return len(owned) > 0
+	for _, feature := range owned {
+		if symbols.SameElement(a.m.OwningType(feature), t.Type) {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *featureAccess) allRedefined(t FeaturingType) []*symbols.Symbol {
