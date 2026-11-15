@@ -200,7 +200,7 @@ func (sc *Context) lookupDeclared(id string) []*symbols.Symbol {
 func (sc *Context) LookupID(id string) []*symbols.Symbol {
 	var found []*symbols.Symbol
 	// A name holding a quote of its own is reported as written, so id is read both ways.
-	declared := append(sc.Index.LookupQualified(naming.Recorded(id)), sc.Index.LookupQualified(id)...)
+	declared := slices.Concat(sc.Index.LookupQualified(naming.Recorded(id)), sc.Index.LookupQualified(id))
 	for _, sym := range append(sc.unnamed(id), modelFirst(sc.Index, declared)...) {
 		if !slices.Contains(found, sym) && sc.ElementIdentity(sym) == id {
 			found = append(found, sym)
