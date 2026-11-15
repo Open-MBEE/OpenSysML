@@ -771,6 +771,14 @@ class StarveSweepTest(Stub):
         self.assertEqual(self.cancels(), [])
         self.assertNotIn("over the cap", self.text("watch.log"))
 
+    def test_idle_queue_follows_a_raised_cap(self):
+        self.cap(1)
+        self.write("wide_cap.json", {"prs": [5], "cap": 3, "seen": {}, "done": []})
+        self.starved_rules(10, [])
+        self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        self.assertEqual(self.cancels(), ["21"])
+        self.assertIn("keeping run 23 (#6), run 22 (#5), run 24 (#7) (cap 3)", self.text("watch.log"))
+
     def test_idle_queue_keeps_an_expanded_run_over_an_unexpanded_one_in_the_same_tier(self):
         self.cap(1)
         done = {"name": "j", "status": "completed", "conclusion": "success"}

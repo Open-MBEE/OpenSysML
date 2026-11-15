@@ -116,6 +116,11 @@ class Sweeper:
             (started if heavy_job_started(self.cfg, jobs) else unstarted).append(e)
         return started, unstarted, cancelling
 
+    def idle_cap(self):
+        """The configured cap, or the higher cap of wide_cap.json while the watcher keeps that file."""
+        w = self.cfg.read("wide_cap.json")
+        return max(self.cfg["cap"], int(w["cap"])) if w else self.cfg["cap"]
+
     def sweep(self):
         """One pass; any API error raises before anything more is cancelled."""
         waiting, starved, failing = self.queue_state()
@@ -135,7 +140,7 @@ class Sweeper:
                 for (_, unfinished), _, r in started[1:]:
                     self.cancel_and_queue(r, f"started, {unfinished} job(s) unfinished, merge group starved")
             return
-        cap, active = self.cfg["cap"], started + unstarted
+        cap, active = self.idle_cap(), started + unstarted
         if len(active) <= cap:
             return
         # Tier first, then closest to finishing: the lowest tier goes first and, within a tier, the run furthest from finishing.

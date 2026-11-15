@@ -148,7 +148,7 @@ unless stated otherwise.
 | `reserve.json` | `{"pr"}` | Keep one slot free for `pr`'s next run. |
 | `solo.json` / `solo_arm.json` | `{"pr", "run"}` / `{"pr", "head"}` | Sole-priority hold: only `pr` runs until its run finishes. `solo_arm.json` arms the hold for the PR's next push away from `head`. |
 | `priority_hold_<pr>.json` | `{"pr", "run", "head", "after", "label"}` | Runner-priority hold: no other new run starts until `run` finishes. With `"run": null`, the hold binds to the first run on a head that is not `after`. `infra_rerun.py` and the stale-check re-run write these files. |
-| `wide_cap.json` | `{"prs", "cap", "seen": {}, "done": []}` | Raise the cap to `cap` until each listed PR's next run has finished. |
+| `wide_cap.json` | `{"prs", "cap", "seen": {}, "done": []}` | Raise the cap to `cap` until each listed PR's next run has finished. The sweeper's idle-queue limit follows the raised cap while the file exists. |
 | `release_hold.json` | `{"reason", "exempt": [pr]}` | No ordinary slot is granted. A new run that starts anyway is cancelled (authorization still applies) and requeued. |
 | `outage.json` | `{"probes": [url]}` | No slot is granted until every probe URL answers a ranged GET with 200 or 206 twice, at least a minute apart. The file is then removed. |
 | `strict_base.json` | `{"sha"}` | Every head must contain this commit. Heads without it are parked as needing a base merge. |
@@ -198,7 +198,7 @@ These rules come from running the tools on this repository and still apply.
     build finishing and the next being created. A run with no jobs is never starved. Exactly one started
     ordinary run is kept, the one closest to finishing, and every other started run is cancelled.
   - **Idle.** While no merge-queue job waits, if more than `cap` ordinary runs are active, started
-    or not, `cap` of them are kept, chosen by tier index and then by closeness to finishing. The
+    or not, `cap` of them (the raised cap while `wide_cap.json` exists) are kept, chosen by tier index and then by closeness to finishing. The
     lowest tier is cancelled first and, within a tier, the run furthest from finishing.
 
   Closest to finishing means: first the runs with a completed job that is neither the preflight nor
