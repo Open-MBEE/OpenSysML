@@ -1103,6 +1103,14 @@ class StackMonitorTest(Stub):
         self.assertEqual(self.read("stacks.json"), before)
         self.assertNotIn("stacks.json.tmp", os.listdir(self.dir))
 
+    def test_auto_add_refuses_a_cycle_without_recording_any_part_of_it(self):
+        lines, chains = self.auto_add([], [(1, "feat/1", "feat/2", REPO), (2, "feat/2", "feat/1", REPO),
+                                           (3, "feat/3", "feat/1", REPO)])
+        self.assertEqual(chains, [[1, 3]])
+        self.assertEqual(lines, ["#1: builds on #2, whose branch builds on #1's (a cycle); not changed",
+                                 "#2: builds on #1, whose branch builds on #2's (a cycle); not changed",
+                                 "stack: new chain [1, 3]"])
+
     def test_auto_add_matches_the_repository_name_case_insensitively(self):
         lines, chains = self.auto_add([], [(1, "feat/1", "develop", REPO.upper()), (2, "feat/2", "feat/1", REPO.upper())])
         self.assertEqual((lines, chains), (["stack: new chain [1, 2]"], [[1, 2]]))

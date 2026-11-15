@@ -78,6 +78,20 @@ class Monitor:
         by_head = {}
         for p in prs:
             by_head.setdefault(p["head"], []).append(p["n"])
+        pred_of = {}
+        for p in prs:
+            preds = [m for m in by_head.get(p["base"], []) if m != p["n"]]
+            if p["base"] != self.base and len(preds) == 1:
+                pred_of[p["n"]] = preds[0]
+
+        def on_cycle(n):
+            seen, m = set(), n
+            while m in pred_of and m not in seen:
+                seen.add(m)
+                m = pred_of[m]
+                if m == n:
+                    return True
+            return False
         data = self.cfg.read("stacks.json") or {}
         chains = [list(s) for s in data.get("stacks", [])]
         lines = []
@@ -92,6 +106,9 @@ class Monitor:
                 lines.append(f"#{n}: base {p['base']} is the head of several open PRs {preds}; stacks.json not changed")
                 continue
             pred = preds[0]
+            if on_cycle(n):
+                lines.append(f"#{n}: builds on #{pred}, whose branch builds on #{n}'s (a cycle); not changed")
+                continue
             cp, cn = chain_of(pred), chain_of(n)
             if cp is not None and cp is cn and cp.index(n) == cp.index(pred) + 1:
                 continue
