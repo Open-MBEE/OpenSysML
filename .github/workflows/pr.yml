@@ -1269,6 +1269,10 @@ jobs:
       - name: Test the rebaseline movement check
         run: python3 scripts/rebaseline-movement-test.py
 
+      # The CI coordination tools (ci/README.md), against a stub gh; nothing reaches GitHub.
+      - name: Test the CI throttle tools
+        run: python3 ci/tests/test_ci_tools.py
+
       # --strict: a link or anchor a moved page left behind fails here rather than
       # publishing a 404 from main.
       - name: Build documentation site

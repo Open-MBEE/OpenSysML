@@ -1,0 +1,19 @@
+{
+  "repo": "Open-MBEE/OpenSysML",
+  "state_dir": "~/ci-throttle",
+  "checkout": "~/repos/OpenSysML",
+  "base_branch": "develop",
+  "workflows": ["PR"],
+  "preflight_jobs": ["Changed areas"],
+  "required_check": "Build and test",
+  "cap": 3,
+  "interval_seconds": 120,
+  "fast_poll_seconds": 10,
+  "exempt_branches": ["develop", "main"],
+  "exempt_prefixes": ["release/", "hotfix/"],
+  "exempt_body_tag": "Requested by: @NicolasRouquette",
+  "runner_pin": {"file": ".github/workflows/pr.yml", "require": "ubuntu-24.04", "forbid": "ubuntu-latest"},
+  "ci_priority": null,
+  "known_flakes": [],
+  "job_timeout_minutes": 59
+}
