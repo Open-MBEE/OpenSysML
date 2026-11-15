@@ -1738,6 +1738,24 @@ func (r *Resolver) chainedFrom(scope *symbols.Scope, operand *symbols.Symbol) *s
 	return operand
 }
 
+// ChainHolders lists the features a chain written in scope reads operand's
+// members from, as chainMember does: what operand is chained from, then the
+// type or value each untyped-member usage on the way hands the lookup to.
+func (r *Resolver) ChainHolders(scope *symbols.Scope, operand *symbols.Symbol) []*symbols.Symbol {
+	var holders []*symbols.Symbol
+	seen := make(map[*symbols.Symbol]bool)
+	for sym := r.chainedFrom(scope, operand); sym != nil && !seen[sym]; {
+		seen[sym] = true
+		holders = append(holders, sym)
+		usage, isUsage := sym.Decl.(*ast.Usage)
+		if !isUsage || r.IsBaseThat(sym) || r.IsOccurrenceThis(sym) {
+			break
+		}
+		sym = r.getUsageType(sym.OwnerScope, usage)
+	}
+	return holders
+}
+
 // chainMember looks a chain segment up as a member of sym itself — flattened over
 // its generalizations when a model is attached — else of its type or its value.
 func (r *Resolver) chainMember(scope *symbols.Scope, sym *symbols.Symbol, name string, chain ast.Node) (*symbols.Symbol, bool) {
