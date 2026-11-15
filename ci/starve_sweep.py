@@ -97,8 +97,14 @@ class Sweeper:
         if done:
             with self.cfg.locked("auth_rerun.json"):
                 # One entry per PR and workflow: a PR's runs of other workflows keep theirs.
-                todo = [e for e in self.cfg.read("auth_rerun.json", []) if (e["pr"], e.get("workflow")) != (pr, r.get("name"))]
-                todo.append({"pr": pr, "run": r["id"], "head": r["head_sha"][:10], "workflow": r.get("name")})
+                key, head = (pr, r.get("name")), r["head_sha"][:10]
+                old = self.cfg.read("auth_rerun.json", [])
+                todo = [e for e in old if (e["pr"], e.get("workflow")) != key]
+                entry = {"pr": pr, "run": r["id"], "head": head, "workflow": r.get("name")}
+                # A re-cancel of the same run and head keeps a full re-run full.
+                if any(e.get("full") and (e["pr"], e.get("workflow"), e["run"], e["head"]) == (*key, r["id"], head) for e in old):
+                    entry["full"] = True
+                todo.append(entry)
                 self.cfg.write("auth_rerun.json", sorted(todo, key=self.rank))
         self.log(f"#{pr}: run {r['id']} ({r['head_sha'][:10]}, {why}) {'cancelled; queued for re-run under the cap' if done else 'not cancelled'}")
 
