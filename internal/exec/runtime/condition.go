@@ -1632,11 +1632,8 @@ func (ctx *Context) conditionFeatures(sym *symbols.Symbol) map[string]scopedExpr
 	return out
 }
 
-// constraintScope overlays a named constraint usage's features on those in scope:
-// its parameters mask same-named ones (subject and actors included). The
-// arguments binding them (`in v = v`) read the enclosing environment; a default
-// its definition wrote (`in y default = x`) reads the usage's own parameters,
-// which mask the run's frames too.
+// constraintScope overlays a constraint usage's features, masking same-named ones in scope and in the run's
+// frames: its arguments (`in v = v`) read the enclosing environment, its definition's defaults its own parameters.
 func (ctx *Context) constraintScope(
 	features map[string]scopedExpr, bindings frame, frames []frame, constraint *symbols.Symbol,
 ) (map[string]scopedExpr, frame, []frame) {
