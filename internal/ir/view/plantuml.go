@@ -760,11 +760,14 @@ var plantumlUnlinkedPseudostates = map[string]struct{}{
 
 // plantumlShapeStereotype is the stereotype the style block shapes a node by:
 // `package` for a package's heavier border, `usage` for a usage's rounded
-// corners; a definition or an orthogonal region keeps the element rules.
+// corners; `region` for a swimlane's dashed outline; a definition or an
+// orthogonal region keeps the element rules.
 func plantumlShapeStereotype(node *Node) string {
 	switch {
 	case slices.Contains(strings.Fields(node.Kind), plantumlPackageStereotype):
 		return plantumlPackageStereotype
+	case node.Kind == swimlaneKind:
+		return "region"
 	case node.Kind == "region", isDefinitionKind(node.Kind):
 		return ""
 	}

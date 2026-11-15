@@ -63,6 +63,9 @@ func TestGoldenDOT(t *testing.T) {
 		{"calc-parameters", "calc-parameters.sysml", "ParameterCalcViews::calculations", KindTree, false},
 		{"calc-parameter-definitions", "calc-parameters.sysml", "ParameterCalcViews::definitions", KindTree, false},
 		{"glyphs-interconnection", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::lineGlyphs", KindInterconnection, false},
+		{"action-swimlanes-performed", "action-swimlanes.sysml", "SwimLanes::performedView", KindAction, false},
+		{"action-swimlanes-action", "action-swimlanes.sysml", "SwimLanes::actionView", KindAction, false},
+		{"action-swimlanes-shapes", "action-swimlanes.sysml", "LaneShapes::assembleView", KindAction, false},
 		{"glyphs-action", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::fillGlyphs", KindAction, false},
 		{"glyphs-mixed", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::mixedGlyphs", KindMixed, false},
 	}

@@ -1,0 +1,187 @@
+package view
+
+import (
+	"slices"
+	"strings"
+	"testing"
+)
+
+// laneOf is the swimlane holding the node named name, nil when none does.
+func laneOf(t *testing.T, rendering *Rendering, name string) *Node {
+	t.Helper()
+	target := findNode(t, rendering.Roots, name)
+	for _, node := range allNodes(rendering.Roots) {
+		if node.Kind == swimlaneKind && slices.Contains(node.Children, target) {
+			return node
+		}
+	}
+	return nil
+}
+
+// performedByNames are the names a node's `performed by` compartment lists, nil when it has none.
+func performedByNames(node *Node) []string {
+	var names []string
+	for _, compartment := range node.Compartments {
+		if compartment.Name != performedByCompartment {
+			continue
+		}
+		for _, row := range compartment.Rows {
+			names = append(names, row.Name)
+		}
+	}
+	return names
+}
+
+// The flow a perform action usage of a part performs is drawn with a swimlane
+// for each part nested there that performs its nodes, named by its feature
+// chain, the nodes nothing performs outside every lane (SysML v2 §8.2.3.17,
+// perform-actions-swimlanes).
+func TestSwimlanesGroupThePerformedFlowByPerformer(t *testing.T) {
+	rendering := render(t, "action-swimlanes.sysml", "SwimLanes::performedView")
+	root := rendering.Roots[0]
+	if root.Kind != performActionKind {
+		t.Errorf("root kind = %q, want %q", root.Kind, performActionKind)
+	}
+	for action, performer := range map[string]string{
+		"action1": "part0.part1", "action4": "part0.part1", "action2": "part0.part2", "action3": "part0.part2",
+	} {
+		lane := laneOf(t, rendering, action)
+		if lane == nil {
+			t.Errorf("%s is in no swimlane, want that of %s", action, performer)
+			continue
+		}
+		if lane.Name != performer || lane.Detail != performActionsLabel {
+			t.Errorf("%s is in lane %q (%q), want %q (%q)", action, lane.Name, lane.Detail, performer, performActionsLabel)
+		}
+	}
+	var lanes int
+	for _, child := range root.Children {
+		switch child.Kind {
+		case swimlaneKind:
+			lanes++
+		case "initial", "final":
+		default:
+			t.Errorf("%s %q is drawn outside the swimlanes", child.Kind, child.Name)
+		}
+	}
+	if lanes != 2 {
+		t.Errorf("%d swimlanes, want one for each of the two performers", lanes)
+	}
+	// The performers declared outside part0 perform another occurrence of the flow.
+	if names := performedByNames(findNode(t, rendering.Roots, "action4")); names != nil {
+		t.Errorf("action4 lists performers %v from outside the performing part", names)
+	}
+	assertRenderingEdgeEndpoints(t, rendering)
+	if len(rendering.Edges) != 5 {
+		t.Errorf("%d successions, want the flow's 5 kept across the lanes", len(rendering.Edges))
+	}
+}
+
+// An action several elements perform stays out of the lanes, which hold a node
+// once, and lists its performers in a `performed by` compartment
+// (§8.2.3.17 performed-by-compartment); so does the flow's own action.
+func TestPerformedByCompartmentListsSeveralPerformers(t *testing.T) {
+	rendering := render(t, "action-swimlanes.sysml", "SwimLanes::actionView")
+	root := rendering.Roots[0]
+	if got, want := performedByNames(root), []string{"part0", "backup"}; !slices.Equal(got, want) {
+		t.Errorf("action0 performed by %v, want %v", got, want)
+	}
+	if lane := laneOf(t, rendering, "action4"); lane != nil {
+		t.Errorf("action4, performed twice, is in the lane of %s", lane.Name)
+	}
+	if got, want := performedByNames(findNode(t, rendering.Roots, "action4")), []string{"part0.part1", "backup.standby"}; !slices.Equal(got, want) {
+		t.Errorf("action4 performed by %v, want %v", got, want)
+	}
+	if lane := laneOf(t, rendering, "action1"); lane == nil || lane.Name != "part0.part1" {
+		t.Errorf("action1 lane = %v, want part0.part1", lane)
+	}
+}
+
+// Lanes are drawn in the flow that owns the performed nodes, a nested flow
+// included; a definition, an action and an unnamed usage are performers as a
+// named part is; and an action nothing performs is left as it was.
+func TestSwimlanesOfNestedFlowsAndPerformerShapes(t *testing.T) {
+	rendering := render(t, "action-swimlanes.sysml", "LaneShapes::assembleView")
+	for action, performer := range map[string]string{"cut": "Robot", "weld": "Robot", "inspect": "supervise", "pack": ": Robot"} {
+		if lane := laneOf(t, rendering, action); lane == nil || lane.Name != performer {
+			t.Errorf("%s lane = %v, want %q", action, lane, performer)
+		}
+	}
+	build := findNode(t, rendering.Roots, "build")
+	if lane := laneOf(t, rendering, "build"); lane != nil || performedByNames(build) != nil {
+		t.Errorf("build, which nothing performs, is drawn with a performer")
+	}
+	if cut := laneOf(t, rendering, "cut"); !slices.Contains(build.Children, cut) {
+		t.Errorf("the lane of cut is not drawn in build, the flow that owns it")
+	}
+	if got, want := performedByNames(findNode(t, rendering.Roots, "fetch")), []string{"loader", "bench"}; !slices.Equal(got, want) {
+		t.Errorf("fetch performed by %v, want %v", got, want)
+	}
+}
+
+// A model with no perform action usages draws no lane and no compartment.
+func TestNoSwimlaneWithoutPerformers(t *testing.T) {
+	rendering := render(t, "action.sysml", "FlowViews::driveView")
+	for _, node := range allNodes(rendering.Roots) {
+		if node.Kind == swimlaneKind || performedByNames(node) != nil {
+			t.Errorf("%s %q is drawn with a performer the model does not state", node.Kind, node.Name)
+		}
+	}
+}
+
+// Every form draws a swimlane dashed, headed «performer», its name and
+// `perform actions`, with the nodes it holds nested in it.
+func TestSwimlaneInEveryForm(t *testing.T) {
+	rendering := render(t, "action-swimlanes.sysml", "SwimLanes::performedView")
+	dashed := map[Form]string{FormDot: "style=dashed", FormPlantUML: "<<swimlane>> <<region>>", FormD2: "class: region", FormDrawio: "dashed=1"}
+	for _, form := range []Form{FormDot, FormMermaid, FormPlantUML, FormD2, FormDrawio} {
+		out, err := rendering.Write(form)
+		if err != nil {
+			t.Fatalf("write %s: %v", form, err)
+		}
+		for _, want := range []string{"«performer»", "part0.part1", "part0.part2", performActionsLabel, "«perform action»", dashed[form]} {
+			if !strings.Contains(out, want) {
+				t.Errorf("%s lacks %q", form, want)
+			}
+		}
+	}
+}
+
+// The grid layout attaches the lanes on their vertical edges, aligned along
+// their top and bottom edges (§8.2.3.17, the note on the swimlane production).
+func TestSwimlanesAbutAndAlign(t *testing.T) {
+	rendering := render(t, "action-swimlanes.sysml", "LaneShapes::assembleView")
+	a := newArranger(labelsOf(rendering.Roots, false, nil, rendering.Shown), rendering.portView(Options{}.Ports))
+	a.layout(rendering)
+	root := rendering.Roots[0]
+	var lanes []drawioBox
+	for _, child := range root.Children {
+		if child.Kind == swimlaneKind {
+			lanes = append(lanes, a.boxes[child.ID])
+		}
+	}
+	if len(lanes) != 2 {
+		t.Fatalf("%d lanes in the root flow, want 2", len(lanes))
+	}
+	if lanes[0].right() != lanes[1].X {
+		t.Errorf("lanes are not attached: the first ends at %v, the second starts at %v", lanes[0].right(), lanes[1].X)
+	}
+	if lanes[0].Y != lanes[1].Y || lanes[0].Height != lanes[1].Height {
+		t.Errorf("lanes are not aligned: %+v and %+v", lanes[0], lanes[1])
+	}
+	frame := a.boxes[root.ID]
+	for _, child := range root.Children {
+		box := a.boxes[child.ID]
+		if box.X < frame.X || box.Y < frame.Y || box.right() > frame.right() || box.bottom() > frame.bottom() {
+			t.Errorf("%s %q at %+v leaves its flow %+v", child.Kind, child.Name, box, frame)
+		}
+		if child.Kind == swimlaneKind {
+			continue
+		}
+		for _, lane := range lanes {
+			if box.X < lane.right() && lane.X < box.right() && box.Y < lane.bottom() && lane.Y < box.bottom() {
+				t.Errorf("%s %q at %+v overlaps a lane %+v", child.Kind, child.Name, box, lane)
+			}
+		}
+	}
+}

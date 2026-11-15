@@ -722,7 +722,7 @@ func (s dotSkin) fill(kind string) []string {
 // rounded reports whether the skin rounds a plain node of the kind: the Pilot
 // rounds usages, Cameo states and actions.
 func (s dotSkin) rounded(kind string) bool {
-	if controlKinds[kind] {
+	if controlKinds[kind] || kind == swimlaneKind {
 		return false
 	}
 	if s.cameo {
@@ -2204,12 +2204,12 @@ func (w *dotWriter) dotClusterAttributes(node *Node) []string {
 func (w *dotWriter) clusterStyle(node *Node) []string {
 	if !w.skin.cameo {
 		attrs := []string{}
-		if node.Kind == "region" {
+		if dashedFrameKind(node.Kind) {
 			attrs = append(attrs, dotStyleDashed)
 		}
 		return append(attrs, "color=black", "penwidth="+dotClusterPenwidth(node))
 	}
-	if node.Kind == "region" {
+	if dashedFrameKind(node.Kind) {
 		return []string{`style="rounded,dashed"`, dotColorAttr(cameoLineColor), dotPenWidthOne}
 	}
 	fill, pen := cameoFill(node.Kind)
@@ -2828,7 +2828,7 @@ const dotKeywordPointSize = 10
 // the notes, one line each. A state's name is bold too, where the Pilot's is plain:
 // the label's extent estimate (dotLabelExtent) and the other forms are kept to.
 func (l labeller) dotLabel(node *Node) string {
-	if sectionKind(node.Kind) {
+	if bodySectionKind(node.Kind) {
 		return dotLabelAttribute("<" + l.sized(l.sizeOf(node), l.keywordSize(), dotEscape(l.head(node))) + ">")
 	}
 	var parts labelParts

@@ -54,11 +54,23 @@ func statementKind(kind string) bool {
 // sectionKind reports whether a kind is a body compartment of a compound node,
 // a container drawn as a compartment of the node holding it.
 func sectionKind(kind string) bool {
+	return bodySectionKind(kind) || kind == swimlaneKind
+}
+
+// bodySectionKind reports whether kind is the body of a compound node: an
+// anonymous action headed by its compartment's name alone, as a swimlane is not.
+func bodySectionKind(kind string) bool {
 	switch kind {
-	case loopBodyKind, thenBodyKind, elseBodyKind, swimlaneKind:
+	case loopBodyKind, thenBodyKind, elseBodyKind:
 		return true
 	}
 	return false
+}
+
+// dashedFrameKind reports whether a container of the kind is drawn with a
+// dashed outline: an orthogonal region (§8.2.3.18) or a swimlane (§8.2.3.17).
+func dashedFrameKind(kind string) bool {
+	return kind == "region" || kind == swimlaneKind
 }
 
 // statementNodeKind names an action usage by the one statement its body is —

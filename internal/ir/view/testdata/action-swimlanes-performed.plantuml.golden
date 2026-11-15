@@ -1,0 +1,62 @@
+@startuml
+' SwimLanes::performedView — action rendering (view def ActionFlowView)
+mainframe <size:10>//«view»//</size> **SwimLanes::performedView** : ActionFlowView\n<size:10>expose part0::action0</size>
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide empty description
+state "<size:10>//«perform action»//</size>\n**part0.action0**" as n0 <<perform action>> <<usage>> {
+  state "<size:10>//«performer»//</size>\n**part0.part1**\nperform actions" as n7 <<swimlane>> <<region>> {
+    state "<size:10>//«action»//</size>\n**action1**" as n1 <<action>> <<usage>>
+    state "<size:10>//«action»//</size>\n**action4**" as n4 <<action>> <<usage>>
+  }
+  state "<size:10>//«performer»//</size>\n**part0.part2**\nperform actions" as n8 <<swimlane>> <<region>> {
+    state "<size:10>//«action»//</size>\n**action2**" as n2 <<action>> <<usage>>
+    state "<size:10>//«action»//</size>\n**action3**" as n3 <<action>> <<usage>>
+  }
+  state "**initial**" as n5 <<start>>
+  state "**final**" as n6 <<end>>
+}
+n1 -[dashed]-> n2
+n2 -[dashed]-> n3
+n3 -[dashed]-> n4
+n4 -[dashed]-> n6
+n5 -[dashed]-> n1
+@enduml

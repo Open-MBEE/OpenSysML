@@ -9,9 +9,9 @@
     "statements": 620,
     "partialStatements": 97,
     "productions": 523,
-    "drawn": 293,
-    "approximate": 34,
-    "undrawn": 24,
+    "drawn": 294,
+    "approximate": 36,
+    "undrawn": 21,
     "notApplicable": 172
   },
   "categories": {
@@ -188,9 +188,9 @@
       "title": "Actions Graphical Notation",
       "statements": 72,
       "productions": 68,
-      "drawn": 44,
-      "approximate": 3,
-      "undrawn": 3,
+      "drawn": 45,
+      "approximate": 5,
+      "undrawn": 0,
       "notApplicable": 18
     },
     {
@@ -1269,17 +1269,9 @@
       "clause": "8.2.3.17",
       "name": "perform-actions-swimlanes",
       "category": "compartment",
-      "verdict": "undrawn",
+      "verdict": "approximate",
       "package": "B",
-      "reason": "swimlanes are not drawn"
-    },
-    {
-      "clause": "8.2.3.17",
-      "name": "performed-by-compartment",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+      "reason": "a dashed box headed «performer», the performer's feature chain and `perform actions`, holding the action nodes that performer performs, in every form; the lanes are attached on their vertical edges and aligned top and bottom in the grid layout of draw.io only, the layout engines of the other forms placing each lane as a cluster of its own"
     },
     {
       "clause": "8.2.3.17",
@@ -1314,9 +1306,9 @@
       "clause": "8.2.3.17",
       "name": "swimlane",
       "category": "compartment",
-      "verdict": "undrawn",
+      "verdict": "approximate",
       "package": "B",
-      "reason": "swimlanes are not drawn"
+      "reason": "a dashed box headed «performer», the performer's feature chain and `perform actions`, holding the action nodes that performer performs, in every form; the lanes are attached on their vertical edges and aligned top and bottom in the grid layout of draw.io only, the layout engines of the other forms placing each lane as a cluster of its own"
     },
     {
       "clause": "8.2.3.17",

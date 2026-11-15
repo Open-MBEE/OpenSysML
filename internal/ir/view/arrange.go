@@ -153,6 +153,7 @@ func (a *arranger) settleChildren(node *Node, box drawioBox) {
 		}
 	}
 	unplaced = a.settlePositioned(unplaced)
+	lanes, unplaced := swimlanesOf(unplaced)
 	sizes := make([]drawioBox, len(unplaced))
 	for i, child := range unplaced {
 		sizes[i] = a.fitted(child)
@@ -169,9 +170,41 @@ func (a *arranger) settleChildren(node *Node, box drawioBox) {
 			origin.Y = math.Max(origin.Y, a.boxes[child.ID].bottom()+gap)
 		}
 	}
+	origin.Y = a.settleLanes(lanes, origin, gap)
 	for i, child := range drawioGrid(sizes, origin, gap) {
 		a.settle(unplaced[i], child)
 	}
+}
+
+// swimlanesOf splits the swimlanes off nodes, both in their order.
+func swimlanesOf(nodes []*Node) (lanes, rest []*Node) {
+	for _, node := range nodes {
+		if node.Kind == swimlaneKind {
+			lanes = append(lanes, node)
+		} else {
+			rest = append(rest, node)
+		}
+	}
+	return lanes, rest
+}
+
+// settleLanes sets swimlanes side by side from origin, attached on their vertical edges and
+// as tall as the tallest (SysML v2 §8.2.3.17), and returns where the nodes under them start.
+func (a *arranger) settleLanes(lanes []*Node, origin drawioBox, gap float64) float64 {
+	if len(lanes) == 0 {
+		return origin.Y
+	}
+	x, height := origin.X, 0.0
+	for _, lane := range lanes {
+		a.settle(lane, drawioBox{X: x, Y: origin.Y})
+		x, height = a.boxes[lane.ID].right(), math.Max(height, a.boxes[lane.ID].Height)
+	}
+	for _, lane := range lanes {
+		box := a.boxes[lane.ID]
+		box.Height = height
+		a.boxes[lane.ID] = box
+	}
+	return origin.Y + height + gap
 }
 
 // childShift is what a container's placed children move by: nothing when the

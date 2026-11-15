@@ -1,0 +1,30 @@
+# SwimLanes::performedView — action rendering (view def ActionFlowView)
+classes: {
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  region: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; stroke-dash: 3 } }
+  initial: { shape: oval; width: 18; height: 18; style: { fill: black; stroke: black } }
+  final: { shape: oval; width: 22; height: 22; style: { fill: black; stroke: black; double-border: true } }
+  succession: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
+}
+n0: "«perform action»\npart0.action0" {
+  class: usage
+  n7: "«performer»\npart0.part1\nperform actions" {
+    class: region
+    n1: "«action»\naction1" { class: usage }
+    n4: "«action»\naction4" { class: usage }
+  }
+  n8: "«performer»\npart0.part2\nperform actions" {
+    class: region
+    n2: "«action»\naction2" { class: usage }
+    n3: "«action»\naction3" { class: usage }
+  }
+  n5: "" { class: initial }
+  n6: "" { class: final }
+}
+n0.n7.n1 -> n0.n8.n2: { class: succession }
+n0.n8.n2 -> n0.n8.n3: { class: succession }
+n0.n8.n3 -> n0.n7.n4: { class: succession }
+n0.n7.n4 -> n0.n6: { class: succession }
+n0.n5 -> n0.n7.n1: { class: succession }
+frame_name: "«view» SwimLanes::performedView : ActionFlowView" { shape: text; near: top-left }
+frame_tr: "expose part0::action0" { shape: text; near: top-right }
