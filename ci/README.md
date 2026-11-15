@@ -124,7 +124,7 @@ unless stated otherwise.
 | `stop.json` | anything | The watcher exits. |
 | `tiers.json` | `{"tiers": [[pr]]}` | Priority order (see above). |
 | `cancel_auth.json` | `[run]` | Runs the watcher may cancel. |
-| `auth_rerun.json` | `[{"pr", "run", "head"}]` | Authorized `gh run rerun --failed`, taken when a slot frees and no merge-queue run waits. An entry is skipped if the PR's head has moved off `head`. The sweeper appends to this file. |
+| `auth_rerun.json` | `[{"pr", "run", "head", "full"}]` | Authorized re-runs, taken when a slot frees and no merge-queue run waits. Each one is `gh run rerun --failed`, or a plain `gh run rerun` of every job when the entry has `"full": true`. An entry is skipped if the PR's head has moved off `head`. The sweeper appends to this file. |
 | `starve_cancel.json` | `{"by", "rule"}` | Authorizes and runs `starve_sweep.py`. |
 | `release.json` | `[{"pr", "sha"}]` | Heads released to CI under the review gate. `"pr": "*"` with a full 40-character SHA releases a head before its PR exists. |
 | `review_gate.json` | `{"since"}` | Admit only released heads that have no unresolved review threads. Unreleased runs caught with only the preflight done are cancelled (authorization still applies) and queued. |

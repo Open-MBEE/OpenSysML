@@ -320,6 +320,11 @@ class WatcherTest(Stub):
         self.assertIn("#7: started authorized re-run (failed jobs only) of run 555", self.run_once())
         self.assertIn("run rerun 555 --failed --repo Example/Repo", self.calls())
         self.assertEqual(self.read("auth_rerun.json"), [])
+        os.remove(os.path.join(self.dir, "state.json"))
+        self.write("auth_rerun.json", [{"pr": 7, "run": 556, "head": "0000000000", "full": True}])
+        self.pass_rules([], extra=[[r"^run rerun 556 --repo", "", 0]])
+        self.assertIn("#7: started authorized re-run (all jobs) of run 556", self.run_once())
+        self.assertIn("run rerun 556 --repo Example/Repo", self.calls())
 
     def test_tiers_order_and_gate_the_exemption(self):
         watcher.configure(self.cfg())

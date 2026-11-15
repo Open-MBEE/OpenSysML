@@ -782,11 +782,12 @@ def start_authorized(st):
                    f"{p['head']['sha'][:10]} (state {p['state']}), not {e['head']}")
             continue
         drop_authorized(e)
-        if gh(["run", "rerun", str(e["run"]), "--failed", "--repo", REPO], ok_fail=True) is None:
-            report(f"#{e['pr']}: authorized `gh run rerun {e['run']} --failed` FAILED (see watch.log)")
+        mode = [] if e.get("full") else ["--failed"]
+        if gh(["run", "rerun", str(e["run"]), *mode, "--repo", REPO], ok_fail=True) is None:
+            report(f"#{e['pr']}: authorized `gh run rerun {' '.join([str(e['run']), *mode])}` FAILED (see watch.log)")
             continue
         st["holders"][str(e["pr"])] = {"run": e["run"], "since": now(), "seen_active": False, "kind": "rerun", "retries": 0}
-        report(f"#{e['pr']}: started authorized re-run (failed jobs only) of run {e['run']} on head {e['head']}")
+        report(f"#{e['pr']}: started authorized re-run ({'all jobs' if e.get('full') else 'failed jobs only'}) of run {e['run']} on head {e['head']}")
         return True
     return None
 
