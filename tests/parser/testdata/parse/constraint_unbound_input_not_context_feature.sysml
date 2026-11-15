@@ -1,11 +1,5 @@
-// An `in` parameter of a constraint usage is the feature its body names (KerML
-// §8.2.3.5), and a feature of the owning part spelled as it is does not bind it:
-// only a binding the usage states does, while a constraint declaring no such
-// parameter reads the features of its context directly (SysML v2 §7.20.1). So
-// `masked`, whose input nothing binds, is undetermined naming the input, itself
-// and through its members, where `direct` and `bound` decide over the part's
-// `limit`; a definition's inherited input and a body local reading it are open
-// the same way.
+// A constraint's `in` parameter is the feature its body names (KerML §8.2.3.5): the owning part's feature
+// spelled as it does not bind it, only a stated binding does; a body declaring none reads the context's.
 package test {
 	private import ScalarValues::*;
 

@@ -1,9 +1,5 @@
-// A requirement feature nothing binds has no value, though the satisfying object
-// carries a feature spelled as it is: the name in the condition is the
-// requirement's own feature (KerML §8.2.3.5), which a subject's values reach only
-// through the subject parameter or a binding (SysML v2 §7.21.1), so the
-// satisfaction is undecided naming the feature rather than judged over the
-// object's value.
+// A requirement feature nothing binds has no value though the satisfying object carries one spelled as it:
+// the subject's values reach it through the subject or a binding (SysML v2 §7.21.1), so this is undecided.
 package test {
     part def Lander {
         attribute verticalSpeed;
