@@ -42,4 +42,25 @@ func TestConstraintResultExpressionReadsTheConversionIDs(t *testing.T) {
 	if got, want := strings.Join(elementIDs(elementID, owned), " "), "Observatory__MassLimit___401___400_om"; got != want {
 		t.Fatalf("the require constraint's ownedRelationship ids = %q, want %q", got, want)
 	}
+	// The condition's own parts — parameters, operands and their memberships — read the ids minted under it.
+	parameters, _ := fixture.model.ReflectiveElements(results[1], "ownedFeature")
+	if got, want := strings.Join(elementIDs(elementID, parameters), " "), "Observatory__MassBudget___401_pin0 Observatory__MassBudget___401_pin1 Observatory__MassBudget___401_pout"; got != want {
+		t.Fatalf("the condition's ownedFeature ids = %q, want %q", got, want)
+	}
+	var walk func(sym *symbols.Symbol, depth int)
+	walk = func(sym *symbols.Symbol, depth int) {
+		owned, _ := fixture.model.ReflectiveElements(sym, "ownedRelationship")
+		for _, rel := range owned {
+			if elementID(rel) == "" {
+				t.Errorf("a %s under the condition reads no id", fixture.model.MetaclassOf(rel).Name)
+			}
+			if member := rel.Implicit.Member; member != nil && depth < 4 {
+				if elementID(member) == "" {
+					t.Errorf("a %s under the condition reads no id", fixture.model.MetaclassOf(member).Name)
+				}
+				walk(member, depth+1)
+			}
+		}
+	}
+	walk(results[1], 0)
 }
