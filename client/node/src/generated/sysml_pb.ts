@@ -9518,10 +9518,8 @@ export type RenderViewRequest = Message<"sysml.RenderViewRequest"> & {
   compartments: string;
 
   /**
-   * Form to also write into RenderViewResponse.text: "text", "mermaid", "markdown", "dot", "plantuml", "d2",
-   * "drawio", "csv" or "tsv"; an unknown or wrong-kind form is INVALID_ARGUMENT. Needs render_view_form.
-   * A QVTS::QueryResult view is written as a document of its header and rows in "markdown", "html"
-   * or "asciidoc", the forms RenderDocumentRequest.form names; these need query_result_view too.
+   * Form to also write into RenderViewResponse.text: "text", "mermaid", "markdown", "dot", "plantuml", "d2", "drawio", "csv" or "tsv", and for a
+   * QVTS::QueryResult view "markdown", "html" or "asciidoc", a document of its header and rows; a wrong-kind form is INVALID_ARGUMENT. Needs render_view_form.
    *
    * @generated from field: string form = 7;
    */

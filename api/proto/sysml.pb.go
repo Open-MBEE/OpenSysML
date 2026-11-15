@@ -16421,10 +16421,8 @@ type RenderViewRequest struct {
 	// owned usage no Layout, nested definition or package keeps a node) or
 	// "ports" (the port usages with the ports nested under them).
 	Compartments string `protobuf:"bytes,6,opt,name=compartments,proto3" json:"compartments,omitempty"`
-	// Form to also write into RenderViewResponse.text: "text", "mermaid", "markdown", "dot", "plantuml", "d2",
-	// "drawio", "csv" or "tsv"; an unknown or wrong-kind form is INVALID_ARGUMENT. Needs render_view_form.
-	// A QVTS::QueryResult view is written as a document of its header and rows in "markdown", "html"
-	// or "asciidoc", the forms RenderDocumentRequest.form names; these need query_result_view too.
+	// Form to also write into RenderViewResponse.text: "text", "mermaid", "markdown", "dot", "plantuml", "d2", "drawio", "csv" or "tsv", and for a
+	// QVTS::QueryResult view "markdown", "html" or "asciidoc", a document of its header and rows; a wrong-kind form is INVALID_ARGUMENT. Needs render_view_form.
 	Form string `protobuf:"bytes,7,opt,name=form,proto3" json:"form,omitempty"`
 	// Palette the dot, mermaid, plantuml, d2 or drawio form fills nodes from,
 	// as -render-palette names them; empty draws in black and white.

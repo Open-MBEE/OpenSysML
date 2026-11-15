@@ -54,8 +54,7 @@ func ViewForms() []string {
 }
 
 // WithForm also writes the rendering in form into RenderedView.Text, as `sysml -render-form` writes it.
-// An unknown form, or one the view's kind is not written in, is refused; requires CapabilityRenderViewForm.
-// A QVTS::QueryResult view is written as a document in the DocumentForm names, under CapabilityQueryResultView too.
+// A wrong-kind form is refused; a QVTS::QueryResult view takes the DocumentForm names. Requires CapabilityRenderViewForm.
 func WithForm(form string) RenderViewOption {
 	return func(options *renderViewOptions) { options.form = form }
 }

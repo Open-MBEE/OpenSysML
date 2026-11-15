@@ -245,7 +245,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-09.1`, 924 files)
+## Results (pilot `2026-09.1`, 935 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -257,7 +257,7 @@ nor double-counted as two independent disagreements.
 | `tests/testdata` | 40 | 25 | 76 | 101 | 60 | 5 | 11 | 36 |
 | `examples` | 67 | 60 | 12 | 69 | 4 | 0 | 8 | 65 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **924** | **527** | **1236** | **3565** | **1104** | **11** | **121** | **2450** |
+| **Total** | **935** | **538** | **1236** | **3565** | **1104** | **11** | **121** | **2450** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -1141,7 +1141,7 @@ baseline is re-recorded for the `examples` digest alone.
 Vendoring the `QVTS` library (`OpenSysML Libraries` 16 → 17 files) and adding eleven files under
 `examples/qvts` — nine recorded `QVTS::QueryResult` views under `expected/views/` and the QVTS
 repository's `observatory.sysml` and `result.sysml` — moves **no existing row**: the `examples` root
-goes from 56 files, 49 fully agreeing to 67 and 60, the totals from 924 and 524 to 935 and 535, and
+goes from 56 files, 49 fully agreeing to 67 and 60, the totals from 924 and 527 to 935 and 538, and
 every diagnostic count stays as recorded (1102 agreed, 122 only ours, 2462 only the pilot's). The
 pilot, given the library through `--extension-library`, reads each view's `expose` and attribute
 redefinitions as this repository does and reports nothing on any of the eleven, so the baseline is
@@ -1288,7 +1288,7 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **527 / 121 / 1236** |
+| overall: fully agreeing / only ours / our diagnostics | **538 / 121 / 1236** |
 | only pilot | **2450** |
 | pilot diagnostics | **3565** |
 | severity-only | **11** |

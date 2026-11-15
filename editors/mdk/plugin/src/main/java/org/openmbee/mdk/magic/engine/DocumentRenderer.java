@@ -40,7 +40,7 @@ final class DocumentRenderer {
       for (DocumentForm form : FORMS) {
         String content = document
             ? content(form, model.renderDocument(symbol.get().id(), form))
-            : model.renderView(symbol.get().id(), form).document();
+            : model.renderView(symbol.get().id(), form).text();
         rendered.put(fileName(symbol.get().id(), form), content);
       }
     }
