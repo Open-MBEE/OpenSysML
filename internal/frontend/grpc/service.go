@@ -1094,7 +1094,7 @@ func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.
 
 	opts := symbolfacts.Options{IncludeLibraryMembers: req.IncludeLibraryMembers}
 	if req.MemberOf != "" && s.capabilities.has(CapabilitySymbolMemberDirection) {
-		owners := cached.LookupSymbol(req.MemberOf)
+		owners := cached.LookupElementID(req.MemberOf)
 		if len(owners) == 0 {
 			return &pb.SymbolResponse{
 				Error: fmt.Sprintf("symbol not found: %s", req.MemberOf),

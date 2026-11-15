@@ -79,7 +79,7 @@ func TestGRPCMemberDirectionFollowsConjugation(t *testing.T) {
 		want map[string]string
 	}{
 		{"D::CmdPort", original},
-		{"D::CmdPort::'~CmdPort'", conjugated},
+		{"D::CmdPort::~CmdPort", conjugated},
 		{"D::SubPort", original},
 		{"D::Device::pOut", original},
 		{"D::Device::pIn", conjugated},
@@ -185,5 +185,37 @@ func TestGRPCMemberDirectionKeepsOwnedFeatureOfConjugatedPort(t *testing.T) {
 		if in, out := slices.Contains(inputs, feature), slices.Contains(outputs, feature); in != (want == "in") || out != (want == "out") {
 			t.Errorf("%s: input = %v, output = %v, want %s only", feature, inputs, outputs, want)
 		}
+	}
+}
+
+// member_of is an element id, never a name: an unnamed conjugated port keeps its reversal
+// when a sibling's declared name is spelled like the port's generated id.
+func TestGRPCMemberDirectionReadsMemberOfAsAnElementID(t *testing.T) {
+	srv, err := grpc.NewService(4, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const model = `package C {
+	private import ScalarValues::*;
+	port def CmdPort { out attribute cmd : Integer; }
+	part def Device {
+		port : ~CmdPort;
+		port '@0' : CmdPort;
+	}
+}`
+	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{Source: &pb.ParseFileRequest_Content{Content: model}, Language: "sysml"})
+	if err != nil || parsed.GetError() != "" {
+		t.Fatalf("ParseFile: %v %s", err, parsed.GetError())
+	}
+	resp, err := srv.GetSymbol(context.Background(), &pb.GetSymbolRequest{ModelHash: parsed.ModelHash, SymbolId: "C::Device"})
+	if err != nil || resp.GetError() != "" {
+		t.Fatalf("GetSymbol(C::Device): %v %s", err, resp.GetError())
+	}
+	var directions []string
+	for _, port := range resp.GetSymbol().GetChildIds() {
+		directions = append(directions, memberDirection(t, srv, parsed.ModelHash, "C::CmdPort::cmd", port))
+	}
+	if want := []string{"in", "out"}; !slices.Equal(directions, want) {
+		t.Errorf("cmd through %v: directions = %v, want %v", resp.GetSymbol().GetChildIds(), directions, want)
 	}
 }
