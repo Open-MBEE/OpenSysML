@@ -224,6 +224,8 @@ to bound how deep nested elements are drawn. `form="dot"` (or `"text"`, `"mermai
 that form into the result's `text`, as `sysml -render-form` does, under the writer options
 `palette`, `style`, `lines`, `direction`, `link` and `unplaced`; it needs the
 `render_view_form` capability.
+A `QVTS::QueryResult` view is written in `"markdown"`, `"html"` or `"asciidoc"` instead, a document of its
+header and rows; `"html"` and `"asciidoc"` need `query_result_view` as well.
 `Model.diagnostics` is what the parse answered under the default lint selection;
 `Model.refresh_diagnostics(disable_lint=(), enable_lint=())` asks the service again,
 leaving out the lints `disable_lint` names and keeping the opt-in ones `enable_lint`

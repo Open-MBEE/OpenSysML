@@ -3171,11 +3171,8 @@ pub struct ServerInfoResponse {
     ///                   and the response carries the document in `asciidoc`.
     ///    "render_view" - the RenderView RPC renders a declared view or targeted
     ///                   pseudo-view as machine-readable diagram data.
-    ///    "query_result_view" - RunDocumentQueryRequest.as_view and
-    ///                   QueryRequest.as_view write the answer as a
-    ///                   QVTS::QueryResult view in result_view (a failed query's as
-    ///                   a QueryResultView detail), and RenderView answers such a
-    ///                   view's header and, for RenderViewRequest.form, a document.
+    ///    "query_result_view" - as_view writes a query's answer as a QVTS::QueryResult view in result_view (a failed query's
+    ///                   as a QueryResultView detail); RenderView answers such a view's header and, for form, a document.
     ///    "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
     ///                   action or state machine as canonical graphs:1 JSON.
     ///    "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
@@ -3240,9 +3237,8 @@ pub struct QueryRequest {
 pub struct QueryResponse {
     #[prost(message, repeated, tag="1")]
     pub elements: ::prost::alloc::vec::Vec<QueryResultElement>,
-    /// The answer as SysML text when the request set as_view, as
-    /// RunDocumentQueryResponse.result_view; its query is the OSLC text, or the
-    /// API query written as `scope=…; select=…; where=…; orderBy=…`.
+    /// The answer as SysML text when the request set as_view, as RunDocumentQueryResponse.result_view;
+    /// its query is the OSLC text, or the API query written as `scope=…; select=…; where=…; orderBy=…`.
     #[prost(string, tag="2")]
     pub result_view: ::prost::alloc::string::String,
 }
@@ -4082,9 +4078,8 @@ pub struct RunDocumentQueryResponse {
     pub columns: ::prost::alloc::vec::Vec<DocumentQueryColumn>,
     #[prost(message, repeated, tag="2")]
     pub rows: ::prost::alloc::vec::Vec<DocumentQueryRow>,
-    /// The answer as SysML text when the request set as_view: a package holding one
-    /// `view : QVTS::QueryResult` that exposes each selected element and states the
-    /// query with its bindings, the source, the outcome and the provenance.
+    /// The answer as SysML text when the request set as_view: a package holding one `view : QVTS::QueryResult`
+    /// that exposes each selected element and states the query, its bindings, the source, the outcome and the provenance.
     #[prost(string, tag="3")]
     pub result_view: ::prost::alloc::string::String,
 }

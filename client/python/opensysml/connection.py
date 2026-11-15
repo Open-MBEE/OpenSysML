@@ -2243,6 +2243,8 @@ class Connection:
         capabilities = [CAPABILITY_RENDER_VIEW]
         if written:
             capabilities.append(CAPABILITY_RENDER_VIEW_FORM)
+        if form in ("html", "asciidoc"):
+            capabilities.append(CAPABILITY_QUERY_RESULT_VIEW)
         for capability in capabilities:
             require(self.server_info(), capability, upgrade_remedy(capability))
         request = sysml_pb2.RenderViewRequest(

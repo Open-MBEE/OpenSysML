@@ -172,10 +172,21 @@ def test_a_result_view_requires_its_own_capability(fake_service):
         with pytest.raises(MissingCapabilityError) as excinfo:
             model.run_document_query("Demo::Q", as_view=True)
         assert excinfo.value.capability == CAPABILITY_QUERY_RESULT_VIEW
-        with pytest.raises(MissingCapabilityError):
+        with pytest.raises(MissingCapabilityError) as excinfo:
             model.render_view("Demo::v", form="markdown")
-        with pytest.raises(ValueError, match="form must be"):
-            model.render_view("Demo::v", form="pdf")
+        assert excinfo.value.capability == CAPABILITY_RENDER_VIEW_FORM
+    assert service.requests == []
+
+
+def test_a_result_view_document_form_requires_both_capabilities(fake_service):
+    """Only a QVTS::QueryResult view is written in html or asciidoc, so those ask for its capability too."""
+    port, service = fake_service(capabilities=(CAPABILITY_RENDER_VIEW, CAPABILITY_RENDER_VIEW_FORM))
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        for form in ("html", "asciidoc"):
+            with pytest.raises(MissingCapabilityError) as excinfo:
+                model.render_view("Demo::v", form=form)
+            assert excinfo.value.capability == CAPABILITY_QUERY_RESULT_VIEW
     assert service.requests == []
 
 

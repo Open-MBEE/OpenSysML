@@ -3,10 +3,14 @@ package opensysml_test
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/api/proto/protoconnect"
 	"github.com/Open-MBEE/OpenSysML/client/opensysml"
+	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 )
 
 const resultViewSource = documentSource + `
@@ -77,5 +81,25 @@ func TestRenderViewRendersAResultViewAsADocument(t *testing.T) {
 	}
 	if !strings.Contains(rendered.Text, "| Observatory::telescope::mount |") {
 		t.Errorf("document has no row for the mount:\n%s", rendered.Text)
+	}
+}
+
+// Only a QVTS::QueryResult view is written in html or asciidoc, so the client asks no service that cannot write one.
+func TestRenderViewDocumentFormNeedsTheResultViewCapability(t *testing.T) {
+	svc, err := sysmlgrpc.NewServiceWithUnavailableCapabilitiesForTesting(16, "test", []string{opensysml.CapabilityQueryResultView})
+	if err != nil {
+		t.Fatalf("NewServiceWithUnavailableCapabilitiesForTesting: %v", err)
+	}
+	t.Cleanup(svc.Close)
+	mux := http.NewServeMux()
+	mux.Handle(protoconnect.NewSysMLServiceHandler(sysmlgrpc.NewConnectAdapter(svc)))
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	client := dialClient(t, server.URL)
+	model := parse(t, client, resultViewSource)
+	for _, form := range []string{opensysml.DocumentFormHTML, opensysml.DocumentFormAsciiDoc} {
+		_, err := client.RenderView(context.Background(), model, "Answers::mount", opensysml.WithForm(form))
+		wantCapabilityRefusal(t, "RenderView in "+form, err, opensysml.CapabilityQueryResultView)
 	}
 }

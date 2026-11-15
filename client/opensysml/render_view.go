@@ -289,6 +289,12 @@ func (c *client) RenderView(ctx context.Context, model *Model, viewName string, 
 			return nil, err
 		}
 	}
+	// Only a QVTS::QueryResult view is written in these two, so a service that cannot is not asked.
+	if options.form == DocumentFormHTML || options.form == DocumentFormAsciiDoc {
+		if err := c.requireCapabilities(ctx, CapabilityQueryResultView); err != nil {
+			return nil, err
+		}
+	}
 	if options.depth < 0 || options.depth > math.MaxInt32 {
 		return nil, &StatusError{Code: CodeInvalidArgument, Message: fmt.Sprintf("depth must be between 0 and %d, got %d", math.MaxInt32, options.depth)}
 	}

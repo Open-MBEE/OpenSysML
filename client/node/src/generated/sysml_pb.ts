@@ -7060,11 +7060,8 @@ export type ServerInfoResponse = Message<"sysml.ServerInfoResponse"> & {
    *                  and the response carries the document in `asciidoc`.
    *   "render_view" - the RenderView RPC renders a declared view or targeted
    *                  pseudo-view as machine-readable diagram data.
-   *   "query_result_view" - RunDocumentQueryRequest.as_view and
-   *                  QueryRequest.as_view write the answer as a
-   *                  QVTS::QueryResult view in result_view (a failed query's as
-   *                  a QueryResultView detail), and RenderView answers such a
-   *                  view's header and, for RenderViewRequest.form, a document.
+   *   "query_result_view" - as_view writes a query's answer as a QVTS::QueryResult view in result_view (a failed query's
+   *                  as a QueryResultView detail); RenderView answers such a view's header and, for form, a document.
    *   "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
    *                  action or state machine as canonical graphs:1 JSON.
    *   "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
@@ -7171,9 +7168,8 @@ export type QueryResponse = Message<"sysml.QueryResponse"> & {
   elements: QueryResultElement[];
 
   /**
-   * The answer as SysML text when the request set as_view, as
-   * RunDocumentQueryResponse.result_view; its query is the OSLC text, or the
-   * API query written as `scope=…; select=…; where=…; orderBy=…`.
+   * The answer as SysML text when the request set as_view, as RunDocumentQueryResponse.result_view;
+   * its query is the OSLC text, or the API query written as `scope=…; select=…; where=…; orderBy=…`.
    *
    * @generated from field: string result_view = 2;
    */
@@ -9096,9 +9092,8 @@ export type RunDocumentQueryResponse = Message<"sysml.RunDocumentQueryResponse">
   rows: DocumentQueryRow[];
 
   /**
-   * The answer as SysML text when the request set as_view: a package holding one
-   * `view : QVTS::QueryResult` that exposes each selected element and states the
-   * query with its bindings, the source, the outcome and the provenance.
+   * The answer as SysML text when the request set as_view: a package holding one `view : QVTS::QueryResult`
+   * that exposes each selected element and states the query, its bindings, the source, the outcome and the provenance.
    *
    * @generated from field: string result_view = 3;
    */
