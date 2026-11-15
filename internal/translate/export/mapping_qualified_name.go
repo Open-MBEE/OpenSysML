@@ -157,7 +157,7 @@ func mappingQualifiedNamesWithContext(graph *rdf.Graph, context *mappingQualifie
 		visiting[subject.Value] = true
 		defer delete(visiting, subject.Value)
 
-		if name, ok := graph.Lexical(subject, rdf.OpenSysML+"mappingQualifiedName"); ok {
+		if name, ok := graph.Lexical(subject, rdf.OpenSysML+xMappingQualifiedName); ok {
 			resolved[subject.Value] = name
 			known[subject.Value] = true
 			return name, name != ""
@@ -344,7 +344,7 @@ func mappingQualifiedNameLocalNameUncached(
 		return name, true
 	}
 	if graph.BoolValue(subject, rdf.SysML+"isLibraryElement") {
-		if name, ok := graph.Lexical(subject, rdf.SysML+pQualifiedName); ok {
+		if name, ok := statedAddress(graph, subject); ok {
 			return mappingLastWrittenName(name), true
 		}
 	}
@@ -727,7 +727,7 @@ func graphWithoutQualifiedNames(graph *rdf.Graph) *rdf.Graph {
 	}
 	triples := make([]rdf.Triple, 0, graph.Len())
 	for _, triple := range graph.Triples() {
-		if triple.Predicate.Value != rdf.SysML+pQualifiedName && triple.Predicate.Value != rdf.OpenSysML+xPositionalName {
+		if !isAddressPredicate(triple.Predicate.Value) {
 			triples = append(triples, triple)
 		}
 	}

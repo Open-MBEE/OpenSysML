@@ -563,7 +563,7 @@ func (e *encoder) conjugatedPortDefinition(subject rdf.Term, fqn string, n *ast.
 		name = "~" + n.Ident.Name
 		address = fqn + "::" + identity.EscapeName(name)
 	}
-	e.graph.Add(conjugated, addressTerm(address), rdf.String(address))
+	stateAddress(e.graph.Add, conjugated, address)
 	if named {
 		e.graph.Add(conjugated, e.sysml(pDeclaredName), rdf.String(name))
 	}
@@ -613,7 +613,7 @@ func (e *encoder) subjectParameter(subject rdf.Term, owner string, ownerSym *sym
 	}
 	e.typed(usage, mReferenceUsage)
 	e.graph.Add(usage, e.sysml(pElementID), rdf.String(rdf.LocalName(usage.Value)))
-	e.graph.Add(usage, addressTerm(owner), rdf.String(owner+"::_subject"))
+	stateAddress(e.graph.Add, usage, owner+"::_subject")
 	// The subject is a referential usage owned by the satisfy usage, an Occurrence.
 	if e.ids.model.UsageMayTimeVaryUnder(ownerSym) {
 		e.flags(usage, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})

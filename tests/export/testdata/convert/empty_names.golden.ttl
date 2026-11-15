@@ -8,7 +8,8 @@
 
 elmt:Empty_20Names
     a sysml:Package ;
-    sysml:qualifiedName "Empty Names" ;
+    sysml:qualifiedName "'Empty Names'" ;
+    sysx:mappingQualifiedName "Empty Names" ;
     sysx:sourceLine "1"^^xsd:integer ;
     sysx:sourceColumn "1"^^xsd:integer ;
     sysx:sourceEndLine "17"^^xsd:integer ;
@@ -29,7 +30,8 @@ elmt:Empty_20Names
 
 elmt:Empty_20Names__Pt
     a sysml:PartDefinition ;
-    sysml:qualifiedName "Empty Names::Pt" ;
+    sysml:qualifiedName "'Empty Names'::Pt" ;
+    sysx:mappingQualifiedName "Empty Names::Pt" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "4"^^xsd:integer ;
@@ -67,7 +69,8 @@ elmt:Empty_20Names__Pt_om
 
 elmt:Empty_20Names__Pt__x
     a sysml:PartUsage ;
-    sysml:qualifiedName "Empty Names::Pt::x" ;
+    sysml:qualifiedName "'Empty Names'::Pt::x" ;
+    sysx:mappingQualifiedName "Empty Names::Pt::x" ;
     sysx:sourceLine "3"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "3"^^xsd:integer ;
@@ -130,7 +133,8 @@ expr:Empty_20Names__Pt__x_pmultiplicity_om
 
 elmt:Empty_20Names___27_27
     a sysml:PartUsage ;
-    sysml:qualifiedName "Empty Names::''" ;
+    sysml:qualifiedName "'Empty Names'::''" ;
+    sysx:mappingQualifiedName "Empty Names::''" ;
     sysx:sourceLine "5"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "5"^^xsd:integer ;
@@ -167,7 +171,8 @@ elmt:Empty_20Names___27_27_om
 
 elmt:Empty_20Names___20_20_20
     a sysml:PartUsage ;
-    sysml:qualifiedName "Empty Names::   " ;
+    sysml:qualifiedName "'Empty Names'::'   '" ;
+    sysx:mappingQualifiedName "Empty Names::   " ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "6"^^xsd:integer ;
@@ -239,7 +244,8 @@ elmt:Empty_20Names___403_om
 
 elmt:Empty_20Names__r
     a sysml:PartUsage ;
-    sysml:qualifiedName "Empty Names::r" ;
+    sysml:qualifiedName "'Empty Names'::r" ;
+    sysx:mappingQualifiedName "Empty Names::r" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -276,7 +282,8 @@ elmt:Empty_20Names__r_om
 
 elmt:Empty_20Names__s
     a sysml:PartUsage ;
-    sysml:qualifiedName "Empty Names::s" ;
+    sysml:qualifiedName "'Empty Names'::s" ;
+    sysx:mappingQualifiedName "Empty Names::s" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "9"^^xsd:integer ;
@@ -350,7 +357,8 @@ expr:Empty_20Names__s_pchain0_pfc1
 
 elmt:Empty_20Names__Inner
     a sysml:Package ;
-    sysml:qualifiedName "Empty Names::Inner" ;
+    sysml:qualifiedName "'Empty Names'::Inner" ;
+    sysx:mappingQualifiedName "Empty Names::Inner" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "15"^^xsd:integer ;
@@ -389,7 +397,8 @@ elmt:Empty_20Names__Inner_om
 
 elmt:Empty_20Names__Inner___27_27
     a sysml:Package ;
-    sysml:qualifiedName "Empty Names::Inner::''" ;
+    sysml:qualifiedName "'Empty Names'::Inner::''" ;
+    sysx:mappingQualifiedName "Empty Names::Inner::''" ;
     sysx:sourceLine "11"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "13"^^xsd:integer ;
@@ -425,7 +434,8 @@ elmt:Empty_20Names__Inner___27_27_om
 
 elmt:Empty_20Names__Inner___27_27__Q
     a sysml:PartDefinition ;
-    sysml:qualifiedName "Empty Names::Inner::''::Q" ;
+    sysml:qualifiedName "'Empty Names'::Inner::''::Q" ;
+    sysx:mappingQualifiedName "Empty Names::Inner::''::Q" ;
     sysx:sourceLine "12"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
     sysx:sourceEndLine "12"^^xsd:integer ;
@@ -457,7 +467,8 @@ elmt:Empty_20Names__Inner___27_27__Q_om
 
 elmt:Empty_20Names__Inner__q
     a sysml:PartUsage ;
-    sysml:qualifiedName "Empty Names::Inner::q" ;
+    sysml:qualifiedName "'Empty Names'::Inner::q" ;
+    sysx:mappingQualifiedName "Empty Names::Inner::q" ;
     sysx:sourceLine "14"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "14"^^xsd:integer ;
@@ -494,7 +505,8 @@ elmt:Empty_20Names__Inner__q_om
 
 elmt:Empty_20Names__Al
     a sysml:Membership ;
-    sysml:qualifiedName "Empty Names::Al" ;
+    sysml:qualifiedName "'Empty Names'::Al" ;
+    sysx:mappingQualifiedName "Empty Names::Al" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "16"^^xsd:integer ;

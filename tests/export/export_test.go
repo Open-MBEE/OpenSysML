@@ -3282,7 +3282,11 @@ func TestFixtureElementIDsRoundTrip(t *testing.T) {
 			if materializedSuffixID.MatchString(strings.TrimPrefix(subject.Value, rdf.Element)) {
 				continue
 			}
-			qname, ok := graph.Lexical(subject, rdf.SysML+"qualifiedName")
+			// The address is stated beside a qualified name that spells it differently.
+			qname, ok := graph.Lexical(subject, rdf.OpenSysML+"mappingQualifiedName")
+			if !ok {
+				qname, ok = graph.Lexical(subject, rdf.SysML+"qualifiedName")
+			}
 			if !ok {
 				qname, ok = graph.Lexical(subject, rdf.OpenSysML+"positionalName")
 			}

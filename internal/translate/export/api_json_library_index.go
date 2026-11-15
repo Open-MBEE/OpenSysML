@@ -187,7 +187,7 @@ func addNamedLibraryStub(graph *rdf.Graph, subject rdf.Term, library *identity.L
 		graph.Add(subject, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(metaclass))
 	}
 	graph.Add(subject, rdf.SysMLTerm(pElementID), rdf.String(library.ID))
-	graph.Add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(library.FQN))
+	stateAddress(graph.Add, subject, library.FQN)
 	if declared, _ := naming.DeclaredNameAndMembers(library.Symbol.Decl); declared.Named {
 		graph.Add(subject, rdf.SysMLTerm(pDeclaredName), rdf.String(declared.Text))
 	}

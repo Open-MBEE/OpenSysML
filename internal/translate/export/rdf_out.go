@@ -964,7 +964,7 @@ func (e *encoder) nameLibraryRef(ref libraryRef, named map[string]bool) bool {
 	named[ref.subject.Value] = true
 	e.graph.Add(ref.subject, rdf.IRI(rdf.RDFType), e.sysml(metaclass))
 	e.graph.Add(ref.subject, e.sysml(pElementID), rdf.String(rdf.LocalName(ref.subject.Value)))
-	e.graph.Add(ref.subject, addressTerm(ref.fqn), rdf.String(ref.fqn))
+	stateAddress(e.graph.Add, ref.subject, ref.fqn)
 	if declared, _ := naming.DeclaredNameAndMembers(ref.node); declared.Named {
 		e.graph.Add(ref.subject, e.sysml(pDeclaredName), rdf.String(declared.Text))
 	}
@@ -1332,7 +1332,7 @@ func (e *encoder) head(subject rdf.Term, h memberHead) {
 		h.node, h.visibility, h.fqn, h.owner, h.index, h.metaclass, h.lines, h.inline
 	e.graph.Add(subject, rdf.IRI(rdf.RDFType), metaclass)
 	if h.local.Value == "" {
-		e.graph.Add(subject, addressTerm(fqn), rdf.String(fqn))
+		stateAddress(e.graph.Add, subject, fqn)
 		e.offsets[subject.Value] = node.Span().Offset
 		e.sourceRange(subject, node.Span())
 	}

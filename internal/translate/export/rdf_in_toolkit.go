@@ -1172,7 +1172,7 @@ func (n *normalizer) stateQualifiedNames() {
 				continue
 			}
 		}
-		graph.Add(subject, addressTerm(n.nameOf(subject)), rdf.String(n.nameOf(subject)))
+		stateAddress(graph.Add, subject, n.nameOf(subject))
 	}
 }
 
@@ -1635,8 +1635,13 @@ func (d *defaultDropper) literalObject(triple rdf.Triple, object rdf.Term) (rdf.
 	if referenceNameProps[local] && object.Datatype != rdf.OpenSysML+dtExpression && !json {
 		object = rdf.String(canonicalName(object.Value))
 	}
-	if (local == pQualifiedName || local == xPositionalName) && !json {
-		object = rdf.String(plainQualifiedName(object.Value))
+	if !json {
+		switch local {
+		case pQualifiedName:
+			object = rdf.String(naming.Escaped(mappingQualifiedNameFromSpec(object.Value)))
+		case xMappingQualifiedName, xPositionalName:
+			object = rdf.String(plainQualifiedName(object.Value))
+		}
 	}
 	return object, !d.dropsLiteral(triple.Subject, local, object)
 }
@@ -1644,14 +1649,15 @@ func (d *defaultDropper) literalObject(triple rdf.Triple, object rdf.Term) (rdf.
 // dropsLiteral reports a literal that states a default or a derivable value.
 func (d *defaultDropper) dropsLiteral(subject rdf.Term, local string, object rdf.Term) bool {
 	graph, meta := d.graph, d.meta
+	addressed := local == pQualifiedName || local == xMappingQualifiedName
 	switch {
-	case local == pQualifiedName && d.impliedIncluded(subject) &&
+	case addressed && d.impliedIncluded(subject) &&
 		!graph.HasProperty(subject, rdf.SysML+pDeclaredName) &&
 		!graph.HasProperty(subject, rdf.SysML+pDeclaredShortName):
 		// The full form derives a qualified name for the unnamed too;
 		// the compact form leaves the name to be derived.
 		return true
-	case local == pQualifiedName && underSubaction(graph, meta, subject):
+	case addressed && underSubaction(graph, meta, subject):
 		// This mapping positions a subaction's action under its
 		// membership (`S::@0::ops`); the full form's name skips it.
 		return true

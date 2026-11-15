@@ -1,4 +1,4 @@
-sha256 caec2de18ce78ed7b6c4b270f5200a0cf3d74380ee575824fdd3fffd2bf10e8d bytes 335021 lines 6136
+sha256 fef6d85b35316462e80e450306a01f53afef70ffe78aa8298af101a57ed985bb bytes 337396 lines 6173
 @prefix elmt: <urn:sysmlv2:element:> .
 @prefix expr: <urn:opensysml:expr:> .
 @prefix json: <urn:sysmlv2:annotation:json:> .
@@ -9,7 +9,8 @@ sha256 caec2de18ce78ed7b6c4b270f5200a0cf3d74380ee575824fdd3fffd2bf10e8d bytes 33
 
 elmt:Empty_20Behavior_20Names
     a sysml:Package ;
-    sysml:qualifiedName "Empty Behavior Names" ;
+    sysml:qualifiedName "'Empty Behavior Names'" ;
+    sysx:mappingQualifiedName "Empty Behavior Names" ;
     sysx:sourceLine "1"^^xsd:integer ;
     sysx:sourceColumn "1"^^xsd:integer ;
     sysx:sourceEndLine "58"^^xsd:integer ;
@@ -30,12 +31,11 @@ elmt:Empty_20Behavior_20Names
 
 elmt:Empty_20Behavior_20Names__P
     a sysml:PartDefinition ;
-    sysml:qualifiedName "Empty Behavior Names::P" ;
+    sysml:qualifiedName "'Empty Behavior Names'::P" ;
+    sysx:mappingQualifiedName "Empty Behavior Names::P" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "2"^^xsd:integer ;
     sysx:sourceEndColumn "16"^^xsd:integer ;
     sysml:elementId "Empty_20Behavior_20Names__P" ;
     sysx:memberIndex "0"^^xsd:integer ;
-    sysml:owningNamespace elmt:Empty_20Behavior_20Names ;
-    sysml:owner elmt:Empty_20Behavior_20Names ;
