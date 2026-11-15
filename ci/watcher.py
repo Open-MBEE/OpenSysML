@@ -1588,7 +1588,8 @@ def stale_bt(st):
 
 
 def mq_track(st):
-    """Release authority: merge_group runs are never cancelled or held. Returns the active count, None on API failure."""
+    """Release authority: merge_group runs are never cancelled or held. While one is active with no job waiting the full cap
+    (3 by default) applies; the cap is 1 only while a merge-queue job waits. Returns the active count, None on API failure."""
     m = st.setdefault("mq", {"runs": {}, "entries": []})
     d = gh_json(["api", f"repos/{REPO}/actions/runs?event=merge_group&per_page=30"], ok_fail=True)
     if d is None:
