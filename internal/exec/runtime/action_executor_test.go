@@ -81,14 +81,14 @@ func assertDecisionRoutes(t *testing.T, ctx *Context, action *symbols.Symbol, de
 	exec.initialize()
 	exec.root.data["x"] = integerValue(x)
 	exec.stepToken(0) // initial → decision
-	if exec.tokens[0].Location != decision {
+	if exec.tokens[0].Node() != decision {
 		t.Fatal("token should be at decision node")
 	}
 	if err := exec.stepToken(0); err != nil {
 		t.Fatalf("step decision: %v", err)
 	}
-	if exec.tokens[0].Location != want {
-		t.Errorf("expected token at %s, got %T", wantName, exec.tokens[0].Location)
+	if exec.tokens[0].Node() != want {
+		t.Errorf("expected token at %s, got %T", wantName, exec.tokens[0].Node())
 	}
 }
 
@@ -163,7 +163,7 @@ func TestActionExecutor_InitialNode(t *testing.T) {
 	}
 
 	token := exec.tokens[0]
-	if token.Location != initial {
+	if token.Node() != initial {
 		t.Error("expected token at initial node")
 	}
 
@@ -199,7 +199,7 @@ func TestActionExecutor_FinalNode(t *testing.T) {
 		t.Fatalf("expected 1 token after step, got %d", len(exec.tokens))
 	}
 
-	if exec.tokens[0].Location != final {
+	if exec.tokens[0].Node() != final {
 		t.Error("expected token at final node")
 	}
 
@@ -261,7 +261,7 @@ func TestActionExecutor_ActionExecutionNode(t *testing.T) {
 	}
 
 	// Token should move to final node
-	if exec.tokens[0].Location != final {
+	if exec.tokens[0].Node() != final {
 		t.Error("expected token at final node")
 	}
 }
@@ -302,7 +302,7 @@ func TestActionExecutor_ForkNode(t *testing.T) {
 	// Verify all tokens at correct locations
 	locations := make(map[ast.Node]bool)
 	for _, token := range exec.tokens {
-		locations[token.Location] = true
+		locations[token.Node()] = true
 	}
 
 	if !locations[action1] || !locations[action2] || !locations[action3] {
@@ -482,7 +482,7 @@ func TestActionExecutor_JoinNode(t *testing.T) {
 	}
 
 	for i, token := range exec.tokens {
-		if token.Location != join {
+		if token.Node() != join {
 			t.Errorf("token %d not at join node", i)
 		}
 	}
@@ -499,7 +499,7 @@ func TestActionExecutor_JoinNode(t *testing.T) {
 	}
 
 	// Token should be at final node
-	if exec.tokens[0].Location != final {
+	if exec.tokens[0].Node() != final {
 		t.Error("expected token at final node")
 	}
 
@@ -552,7 +552,7 @@ func TestActionExecutor_JoinNode_PartialArrival(t *testing.T) {
 	// Now 2 tokens at join, 1 still at task3
 	tokensAtJoin := 0
 	for _, tok := range exec.tokens {
-		if _, ok := tok.Location.(*ast.JoinNode); ok {
+		if _, ok := tok.Node().(*ast.JoinNode); ok {
 			tokensAtJoin++
 		}
 	}
@@ -577,7 +577,7 @@ func TestActionExecutor_JoinNode_PartialArrival(t *testing.T) {
 	// Now all 3 tokens at join
 	tokensAtJoin = 0
 	for _, tok := range exec.tokens {
-		if _, ok := tok.Location.(*ast.JoinNode); ok {
+		if _, ok := tok.Node().(*ast.JoinNode); ok {
 			tokensAtJoin++
 		}
 	}
@@ -596,7 +596,7 @@ func TestActionExecutor_JoinNode_PartialArrival(t *testing.T) {
 	}
 
 	// Token should be at final node
-	if exec.tokens[0].Location != final {
+	if exec.tokens[0].Node() != final {
 		t.Error("expected token at final node after join fires")
 	}
 }
@@ -633,7 +633,7 @@ func TestActionExecutor_MergeNode(t *testing.T) {
 
 	// Both tokens should be at merge
 	for i, tok := range exec.tokens {
-		if tok.Location != merge {
+		if tok.Node() != merge {
 			t.Errorf("token %d not at merge node", i)
 		}
 	}
@@ -648,10 +648,10 @@ func TestActionExecutor_MergeNode(t *testing.T) {
 	mergeIdx := -1
 	tokenAtFinal := false
 	for i, tok := range exec.tokens {
-		if tok.Location == final {
+		if tok.Node() == final {
 			tokenAtFinal = true
 		}
-		if tok.Location == merge {
+		if tok.Node() == merge {
 			mergeIdx = i
 		}
 	}
@@ -667,8 +667,8 @@ func TestActionExecutor_MergeNode(t *testing.T) {
 		t.Fatalf("expected 2 tokens after both traversed the merge, got %d", len(exec.tokens))
 	}
 	for i, tok := range exec.tokens {
-		if tok.Location != final {
-			t.Errorf("token %d at %T, want the final node", i, tok.Location)
+		if tok.Node() != final {
+			t.Errorf("token %d at %T, want the final node", i, tok.Node())
 		}
 	}
 }
@@ -718,8 +718,8 @@ func TestActionExecutor_MergeNode_ControlOnly(t *testing.T) {
 
 	// Verify both at merge
 	for i, tok := range exec.tokens {
-		if _, ok := tok.Location.(*ast.MergeNode); !ok {
-			t.Fatalf("token %d not at merge: %T", i, tok.Location)
+		if _, ok := tok.Node().(*ast.MergeNode); !ok {
+			t.Fatalf("token %d not at merge: %T", i, tok.Node())
 		}
 	}
 
@@ -738,7 +738,7 @@ func TestActionExecutor_MergeNode_ControlOnly(t *testing.T) {
 	}
 	mergeIdx := -1
 	for i, tok := range exec.tokens {
-		if _, ok := tok.Location.(*ast.MergeNode); ok {
+		if _, ok := tok.Node().(*ast.MergeNode); ok {
 			mergeIdx = i
 		}
 	}
@@ -752,8 +752,8 @@ func TestActionExecutor_MergeNode_ControlOnly(t *testing.T) {
 		t.Fatalf("expected 2 tokens at final after both traversed, got %d", len(exec.tokens))
 	}
 	for i, tok := range exec.tokens {
-		if _, ok := tok.Location.(*ast.FinalNode); !ok {
-			t.Errorf("token %d at %T, want the final node", i, tok.Location)
+		if _, ok := tok.Node().(*ast.FinalNode); !ok {
+			t.Errorf("token %d at %T, want the final node", i, tok.Node())
 		}
 	}
 
@@ -787,7 +787,7 @@ func TestActionExecutor_MergeNode_SingleParent(t *testing.T) {
 		t.Fatalf("expected 1 token, got %d", len(exec.tokens))
 	}
 
-	if exec.tokens[0].Location != final {
+	if exec.tokens[0].Node() != final {
 		t.Error("token should pass through merge to final")
 	}
 }
@@ -1065,7 +1065,7 @@ func TestActionExecutor_Step(t *testing.T) {
 	if err != nil {
 		t.Fatalf("step 1: %v", err)
 	}
-	if exec.tokens[0].Location != action {
+	if exec.tokens[0].Node() != action {
 		t.Error("expected token at action node after step 1")
 	}
 
@@ -1074,7 +1074,7 @@ func TestActionExecutor_Step(t *testing.T) {
 	if err != nil {
 		t.Fatalf("step 2: %v", err)
 	}
-	if exec.tokens[0].Location != final {
+	if exec.tokens[0].Node() != final {
 		t.Error("expected token at final node after step 2")
 	}
 
@@ -1176,7 +1176,7 @@ func TestActionExecutor_Deadlock_JoinStarvation(t *testing.T) {
 	// Find path2 token
 	path2Idx := -1
 	for i, tok := range exec.tokens {
-		if n, ok := tok.Location.(*ast.ActionExecutionNode); ok && n.Name == "path2" {
+		if n, ok := tok.Node().(*ast.ActionExecutionNode); ok && n.Name == "path2" {
 			path2Idx = i
 			break
 		}
@@ -1599,7 +1599,7 @@ func TestActionExecutor_GuardedSuccession_GuardHolds(t *testing.T) {
 	if len(exec.tokens) != 1 {
 		t.Fatalf("expected the token to live on, %d left", len(exec.tokens))
 	}
-	if name := ActionNodeName(exec.tokens[0].Location); name != "s2" {
+	if name := ActionNodeName(exec.tokens[0].Node()); name != "s2" {
 		t.Errorf("token at %s, want s2", name)
 	}
 }
@@ -1724,7 +1724,7 @@ func TestActionExecutor_GuardedSuccession_PrunesAForkBranch(t *testing.T) {
 
 	locations := make(map[ast.Node]bool, len(exec.tokens))
 	for _, token := range exec.tokens {
-		locations[token.Location] = true
+		locations[token.Node()] = true
 	}
 	if len(exec.tokens) != 2 || !locations[task1] || !locations[task3] {
 		t.Errorf("fork produced %d tokens at %v, want one each at task1 and task3", len(exec.tokens), locations)
@@ -1759,7 +1759,7 @@ func TestActionExecutor_GuardedSuccession_TwoGuardsHold(t *testing.T) {
 	}
 	locations := make(map[ast.Node]bool, len(exec.tokens))
 	for _, token := range exec.tokens {
-		locations[token.Location] = true
+		locations[token.Node()] = true
 	}
 	if len(exec.tokens) != 2 || !locations[s2] || !locations[s3] {
 		t.Errorf("s1 left %d tokens at %v, want one each at s2 and s3", len(exec.tokens), locations)
@@ -1803,7 +1803,7 @@ func TestActionExecutor_GuardedSuccession_PrunedMergeStaysOpen(t *testing.T) {
 	step := func(at ast.Node) {
 		t.Helper()
 		for i := range exec.tokens {
-			if exec.tokens[i].Location == at {
+			if exec.tokens[i].Node() == at {
 				if err := exec.stepToken(i); err != nil {
 					t.Fatalf("step %s: %v", ActionNodeName(at), err)
 				}

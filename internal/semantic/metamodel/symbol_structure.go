@@ -137,7 +137,7 @@ func (s *SymbolStructure) place(sym *symbols.Symbol) symbolElement {
 	case isSubjectDeclaration(sym):
 		row.class, row.known = "ReferenceUsage", true
 	default:
-		if meta := s.model.MetaclassOf(sym); meta != nil && meta.Name != "" {
+		if meta := s.model.MetaclassOf(sym); meta != nil && meta.Named() {
 			row.class, row.known = meta.Name, true
 		}
 	}
@@ -424,7 +424,12 @@ func (s *SymbolStructure) hasStatedRelatedElementLocked(element Element, propert
 // notation names but the model does not resolve.
 func (s *SymbolStructure) hasUnresolvedRelatedElementLocked(element Element, property string) bool {
 	row, ok := s.row(element)
-	if !ok || row.sym.Implicit == nil || row.sym.Implicit.Form != symbols.ImplicitWritten {
+	if !ok || row.sym.Implicit == nil {
+		return false
+	}
+	// A `then` end's reference to a member no element stands for (a statement) is unresolved too.
+	if rel := row.sym.Implicit; rel.Form != symbols.ImplicitWritten &&
+		!(rel.Form == symbols.ImplicitSuccessionEndReference && rel.Member == nil) {
 		return false
 	}
 	feature := s.feature(row.class, property)
@@ -567,7 +572,7 @@ func (s *SymbolStructure) qualifiedNameLocked(element Element) (string, bool) {
 // ElementIdentity is the stable id of a named declared element (identity package).
 func (s *SymbolStructure) elementIdentityLocked(element Element) (string, bool) {
 	row, ok := s.row(element)
-	if !ok || row.sym.Implicit != nil || row.sym.Expr != nil || row.sym.Name == "" {
+	if !ok || row.sym.Implicit != nil || row.sym.Expr != nil || !row.sym.Named() {
 		return "", false
 	}
 	info, ok := identity.Of(s.model, s.res, row.sym)

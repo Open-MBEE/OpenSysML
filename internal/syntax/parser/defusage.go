@@ -1522,6 +1522,7 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 
 		if len(prefixes) > 0 && prefixMetadataFollowsKeyword(kw) {
 			p.reportMisplacedPrefixMetadata(prefixes, t)
+			p.recoverComments(prefixes[0].Span().Offset, t)
 		}
 
 		// A subject, actor, stakeholder, objective or rendering the body does
@@ -1708,14 +1709,15 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 				var members []ast.Node
 				leave := p.pushBodyContext(usageBodyContext(ast.UsageUseCase))
 				for !p.at(lexer.RBrace) && !p.atEOF() {
-					p.memberStart()
+					members = append(members, p.memberStart()...)
 					m := p.parseBodyMember()
 					if m != nil {
-						p.markAttached(m)
+						members = append(p.markAttached(m, members), p.takeRecovered()...)
 						members = append(members, m)
 					}
 				}
 				leave()
+				members = append(members, p.closeComments()...)
 				p.expect(lexer.RBrace, msgExpectedBodyClose)
 				u.Members = members
 				u.HasBody = true
@@ -2562,12 +2564,12 @@ func (p *Parser) parseUsageBody(u *ast.Usage, kind ast.UsageKind, start int) {
 			inEffect := p.atTransitionEffectStatement(start)
 			savedEffectStmtStart := p.effectStmtStart
 			for !p.atEOF() && !p.atNamespaceSuccession() {
-				p.memberStart()
+				members = append(members, p.memberStart()...)
 				if inEffect {
 					p.effectStmtStart = p.peek().Span.Offset
 				}
 				member := p.parseActionMember()
-				p.markAttached(member)
+				members = append(p.markAttached(member, members), p.takeRecovered()...)
 				members = append(members, member)
 				// Only an inline statement continues the body; a succession names
 				// members of the enclosing body.
@@ -2721,7 +2723,7 @@ func (p *Parser) parseDefUsageBody() (members []ast.Node, hasBody bool) {
 func (p *Parser) parseDefUsageBodyMembers() []ast.Node {
 	body := p.newBodyBuilder()
 	for !p.at(lexer.RBrace) && !p.atEOF() {
-		p.memberStart()
+		body.start()
 		before := p.peek().Span.Offset
 		// A member-attached `then` sequences the members either side of it, so
 		// the keyword is taken here and the member it prefixes read next time
@@ -2742,6 +2744,7 @@ func (p *Parser) parseDefUsageBodyMembers() []ast.Node {
 			p.advance()
 		}
 	}
+	body.close()
 	p.expect(lexer.RBrace, msgExpectedBodyClose)
 	return body.finish()
 }
@@ -2751,7 +2754,7 @@ func (p *Parser) parseDefUsageBodyMembers() []ast.Node {
 func (p *Parser) parseCaseBody() []ast.Node {
 	body := p.newBodyBuilder()
 	for !p.at(lexer.RBrace) && !p.atEOF() {
-		p.memberStart()
+		body.start()
 		before := p.peek().Span.Offset
 		if body.atSuccession() {
 			body.takeSuccession()
@@ -2777,6 +2780,7 @@ func (p *Parser) parseCaseBody() []ast.Node {
 			p.advance()
 		}
 	}
+	body.close()
 	p.expect(lexer.RBrace, msgExpectedBodyClose)
 	return body.finish()
 }
@@ -2828,7 +2832,7 @@ var wordBinaryOpKeywords = map[string]bool{
 func (p *Parser) parseEnumBody(def *ast.Definition) []ast.Node {
 	body := p.newBodyBuilder()
 	for !p.at(lexer.RBrace) && !p.atEOF() {
-		p.memberStart()
+		body.start()
 		before := p.peek().Span.Offset
 		// `= 60.0;`, `uncl : Level = 0;`, `<u> uncl;`, `: Level;` and `#M a;` are
 		// enumerated values (SysML.xtext EnumeratedValue), not keyword-less attributes.
@@ -2869,6 +2873,7 @@ func (p *Parser) parseEnumBody(def *ast.Definition) []ast.Node {
 			p.advance()
 		}
 	}
+	body.close()
 	p.expect(lexer.RBrace, msgExpectedBodyClose)
 	return body.finish()
 }
@@ -5278,9 +5283,9 @@ func (p *Parser) parseMetadataUsage(start int) *ast.PrefixMetadata {
 		var body []ast.Node
 		leave := p.pushBodyContext(bodyOther)
 		for !p.at(lexer.RBrace) && !p.atEOF() {
-			p.memberStart()
+			body = append(body, p.memberStart()...)
 			if m := p.parseBodyMember(); m != nil {
-				p.markAttached(m)
+				body = append(p.markAttached(m, body), p.takeRecovered()...)
 				body = append(body, m)
 				continue
 			}
@@ -5289,6 +5294,7 @@ func (p *Parser) parseMetadataUsage(start int) *ast.PrefixMetadata {
 			body = append(body, expr)
 		}
 		leave()
+		body = append(body, p.closeComments()...)
 		p.expect(lexer.RBrace, "expected '}' after metadata body")
 		pm.Body = body
 		pm.HasBody = true

@@ -1,0 +1,83 @@
+{
+  "root": "testdata",
+  "file": "resolve/basic.sysml",
+  "summary": {
+    "oursColliding": true,
+    "pilotLibraryElements": 0,
+    "elements": {
+      "matched": 3,
+      "oursOnly": 0,
+      "pilotOnly": 0,
+      "pilotOnlyImplied": 0,
+      "typeMismatch": 0
+    },
+    "properties": {
+      "presentEqual": 40,
+      "presentDifferent": 0,
+      "oursMissing": 0,
+      "pilotMissing": 2,
+      "absentBoth": 27,
+      "indeterminate": 0,
+      "pilotNondeterministic": 0
+    },
+    "unkeyedReferences": 0,
+    "extensionProperties": 4,
+    "duplicateElements": {
+      "ours": 8,
+      "pilot": 10
+    },
+    "ambiguousKeys": {
+      "ours": 5,
+      "pilot": 3
+    },
+    "unkeyableElements": {
+      "ours": 1,
+      "pilot": 1
+    }
+  },
+  "rows": {
+    "Namespace.aliasIds": [0,0,0,0,1,0,0],
+    "Namespace.declaredName": [0,0,0,0,1,0,0],
+    "Namespace.declaredShortName": [0,0,0,0,1,0,0],
+    "Namespace.documentation": [0,0,0,0,1,0,0],
+    "Namespace.importedMembership": [0,0,0,0,1,0,0],
+    "Namespace.isImpliedIncluded": [1,0,0,0,0,0,0],
+    "Namespace.isLibraryElement": [1,0,0,0,0,0,0],
+    "Namespace.member": [1,0,0,0,0,0,0],
+    "Namespace.membership": [1,0,0,0,0,0,0],
+    "Namespace.ownedAnnotation": [0,0,0,0,1,0,0],
+    "Namespace.ownedElement": [1,0,0,0,0,0,0],
+    "Namespace.ownedImport": [0,0,0,0,1,0,0],
+    "Namespace.ownedMember": [1,0,0,0,0,0,0],
+    "Namespace.ownedMembership": [1,0,0,0,0,0,0],
+    "Namespace.ownedRelationship": [1,0,0,0,0,0,0],
+    "Namespace.owningRelationship": [0,0,0,0,1,0,0],
+    "Namespace.textualRepresentation": [0,0,0,0,1,0,0],
+    "OwningMembership.aliasIds": [0,0,0,0,2,0,0],
+    "OwningMembership.declaredName": [0,0,0,0,2,0,0],
+    "OwningMembership.declaredShortName": [0,0,0,0,2,0,0],
+    "OwningMembership.documentation": [0,0,0,0,2,0,0],
+    "OwningMembership.isImplied": [2,0,0,0,0,0,0],
+    "OwningMembership.isImpliedIncluded": [2,0,0,0,0,0,0],
+    "OwningMembership.isLibraryElement": [2,0,0,0,0,0,0],
+    "OwningMembership.memberElement": [2,0,0,0,0,0,0],
+    "OwningMembership.memberElementId": [2,0,0,0,0,0,0],
+    "OwningMembership.memberName": [2,0,0,0,0,0,0],
+    "OwningMembership.membershipOwningNamespace": [2,0,0,0,0,0,0],
+    "OwningMembership.ownedAnnotation": [0,0,0,0,2,0,0],
+    "OwningMembership.ownedElement": [0,0,0,0,2,0,0],
+    "OwningMembership.ownedMemberElement": [2,0,0,0,0,0,0],
+    "OwningMembership.ownedMemberElementId": [2,0,0,0,0,0,0],
+    "OwningMembership.ownedMemberName": [2,0,0,0,0,0,0],
+    "OwningMembership.ownedRelatedElement": [2,0,0,0,0,0,0],
+    "OwningMembership.ownedRelationship": [0,0,0,0,2,0,0],
+    "OwningMembership.owner": [0,0,0,2,0,0,0],
+    "OwningMembership.owningRelatedElement": [2,0,0,0,0,0,0],
+    "OwningMembership.owningRelationship": [0,0,0,0,2,0,0],
+    "OwningMembership.relatedElement": [2,0,0,0,0,0,0],
+    "OwningMembership.source": [2,0,0,0,0,0,0],
+    "OwningMembership.target": [2,0,0,0,0,0,0],
+    "OwningMembership.textualRepresentation": [0,0,0,0,2,0,0],
+    "OwningMembership.visibility": [2,0,0,0,0,0,0]
+  }
+}

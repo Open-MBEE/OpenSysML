@@ -115,14 +115,37 @@ type Unmatched struct {
 
 const unmatchedExamples = 3
 
+// fileRecord is one source file's share of its root's comparison: the elements
+// attributed to it, their property verdicts and their rows.
+type fileRecord struct {
+	elements          ElementTotals
+	buckets           Buckets
+	unkeyedReferences int
+	extensions        int
+	rows              map[string]*Buckets
+}
+
+func newFileRecord() *fileRecord { return &fileRecord{rows: make(map[string]*Buckets)} }
+
+func (f *fileRecord) row(key string) *Buckets {
+	row := f.rows[key]
+	if row == nil {
+		row = &Buckets{}
+		f.rows[key] = row
+	}
+	return row
+}
+
 // comparison accumulates the outcome of matching one or more roots.
 type comparison struct {
 	unmatched map[string]*Unmatched
 	matches   map[string]*RootMatches
-	elements  ElementTotals
-	buckets   Buckets
-	rows      map[string]*Row
-	examples  map[string]*Example
+	// files keeps each root's accounts per source file, which the fragments record.
+	files    map[string]map[string]*fileRecord
+	elements ElementTotals
+	buckets  Buckets
+	rows     map[string]*Row
+	examples map[string]*Example
 	// unkeyedReferences counts references that compared through the unkeyed
 	// sentinel on either side.
 	unkeyedReferences int
@@ -132,7 +155,31 @@ type comparison struct {
 }
 
 func newComparison() *comparison {
-	return &comparison{rows: make(map[string]*Row), examples: make(map[string]*Example), unmatched: make(map[string]*Unmatched), matches: make(map[string]*RootMatches)}
+	return &comparison{rows: make(map[string]*Row), examples: make(map[string]*Example), unmatched: make(map[string]*Unmatched), matches: make(map[string]*RootMatches), files: make(map[string]map[string]*fileRecord)}
+}
+
+// file is the account of one source file of a root.
+func (c *comparison) file(root, file string) *fileRecord {
+	files := c.files[root]
+	if files == nil {
+		files = make(map[string]*fileRecord)
+		c.files[root] = files
+	}
+	record := files[file]
+	if record == nil {
+		record = newFileRecord()
+		files[file] = record
+	}
+	return record
+}
+
+// attributedFile is the source file a matched pair is accounted to: the one our
+// writer declares the element in, and the pilot's when ours states none.
+func attributedFile(o, p *element) string {
+	if o.File != "" {
+		return o.File
+	}
+	return p.File
 }
 
 // compareRoot matches one root's elements by key and buckets every property of
@@ -152,8 +199,10 @@ func (c *comparison) compareRoot(root string, ours, pilot []*element) (ElementTo
 		o := byKey[p.Key]
 		if o == nil {
 			elements.PilotOnly++
+			c.file(root, p.File).elements.PilotOnly++
 			if p.Implied {
 				elements.PilotOnlyImplied++
+				c.file(root, p.File).elements.PilotOnlyImplied++
 			}
 			c.noteUnmatched("pilot", root, p)
 			inventory.PilotOnly[p.Key] = p.Type
@@ -162,12 +211,16 @@ func (c *comparison) compareRoot(root string, ours, pilot []*element) (ElementTo
 		matched[p.Key] = true
 		inventory.Matched[p.Key] = p.Type
 		elements.Matched++
+		file := c.file(root, attributedFile(o, p))
+		file.elements.Matched++
 		if o.Type != p.Type {
 			elements.TypeMismatch++
+			file.elements.TypeMismatch++
 		}
 		for _, property := range unionProperties(o.Props, p.Props) {
 			if strings.HasPrefix(property, "sysx:") {
 				c.extensions++
+				file.extensions++
 				continue
 			}
 			if property == "elementId" {
@@ -178,6 +231,13 @@ func (c *comparison) compareRoot(root string, ours, pilot []*element) (ElementTo
 				bucket = bucketPilotNondeterministic
 			}
 			buckets.add(bucket)
+			file.buckets.add(bucket)
+			file.row(scorecardKey(Row{Metaclass: p.Type, Property: property})).add(bucket)
+			// A declared row's values are not compared, so their references are not counted either.
+			if bucket != bucketPilotNondeterministic && (mentionsUnkeyed(o.Props[property]) || mentionsUnkeyed(p.Props[property])) {
+				c.unkeyedReferences++
+				file.unkeyedReferences++
+			}
 			c.record(root, p, property, bucket, o.Props[property], p.Props[property])
 		}
 	}
@@ -185,6 +245,7 @@ func (c *comparison) compareRoot(root string, ours, pilot []*element) (ElementTo
 	for _, o := range ours {
 		if !matched[o.Key] {
 			elements.OursOnly++
+			c.file(root, o.File).elements.OursOnly++
 			c.noteUnmatched("ours", root, o)
 			inventory.OursOnly[o.Key] = o.Type
 		}
@@ -304,14 +365,7 @@ func (c *comparison) record(root string, p *element, property, bucket string, ou
 		c.rows[id] = row
 	}
 	row.add(bucket)
-	// A declared row's values are not compared, so their references are not counted either.
-	if bucket == bucketPilotNondeterministic {
-		return
-	}
-	if mentionsUnkeyed(ours) || mentionsUnkeyed(pilot) {
-		c.unkeyedReferences++
-	}
-	if bucket == bucketPresentEqual || bucket == bucketAbsentBoth || bucket == bucketIndeterminate {
+	if bucket == bucketPilotNondeterministic || bucket == bucketPresentEqual || bucket == bucketAbsentBoth || bucket == bucketIndeterminate {
 		return
 	}
 	// The first example per row in root, file and key order is deterministic

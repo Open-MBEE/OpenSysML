@@ -2,6 +2,7 @@ package resolve
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -54,7 +55,7 @@ func ownerKeyOf(scope *symbols.Scope) ownerKey {
 	}
 	for s := scope; s != nil && s.Owner() != nil; s = s.Owner().OwnerScope {
 		owner := s.Owner()
-		if owner.Name == "" || (owner.Kind != symbols.SymbolPackage && owner.Kind != symbols.SymbolNamespace) {
+		if !owner.Named() || (owner.Kind != symbols.SymbolPackage && owner.Kind != symbols.SymbolNamespace) {
 			return ownerKey{scope: scope}
 		}
 	}
@@ -154,16 +155,28 @@ func (r *Resolver) collisionsSettled() bool {
 
 // ownedNames lists the names and short names of scope's own distinguishable members.
 func (r *Resolver) ownedNames(scope *symbols.Scope) []string {
-	var names []string
+	var owned []string
 	members, aliases := r.DistinguishableMembers(scope)
 	for _, sym := range append(members, aliases...) {
-		for _, name := range r.memberNames(sym) {
-			if name != "" {
-				names = append(names, name)
-			}
-		}
+		names, n := r.memberNames(sym)
+		owned = append(owned, names[:n]...)
 	}
-	return names
+	return owned
+}
+
+// ownsName reports whether ownedNames(scope) holds name, without listing them.
+func (r *Resolver) ownsName(scope *symbols.Scope, name string) bool {
+	owns := false
+	scope.ForEachNamedMember(func(key string, sym *symbols.Symbol) bool {
+		// As DistinguishableMembers: a member under two keys is compared under its own name.
+		if sym.Name != key || !contributesName(sym) || !r.BindsName(sym) {
+			return true
+		}
+		names, n := r.memberNames(sym)
+		owns = slices.Contains(names[:n], name)
+		return !owns
+	})
+	return owns
 }
 
 // collectImported gathers what imports bring into scope and decides the
@@ -211,14 +224,12 @@ type importedGather struct {
 // brings into scope that no owned member hides and no earlier import brought.
 func (r *Resolver) gatherImported(scope *symbols.Scope, imp *ast.Import, g *importedGather, c *importCollisions) {
 	for _, sym := range r.importedMembersInto(scope, scope, imp, false) {
-		if sym.Name == "" || r.idx.Library(sym) || !contributesName(sym) || !r.BindsName(sym) {
+		if !sym.Named() || r.idx.Library(sym) || !contributesName(sym) || !r.BindsName(sym) {
 			continue
 		}
 		key := symbols.KeyOf(r.aliasTarget(sym))
-		for _, name := range r.memberNames(sym) {
-			if name == "" {
-				continue
-			}
+		names, n := r.memberNames(sym)
+		for _, name := range names[:n] {
 			bound := boundName{key: key, name: name}
 			owner := ownedName{owner: ownerKeyOf(sym.OwnerScope), name: name}
 			if g.seen[bound] || g.owned[name] || g.owners[owner] {
@@ -244,7 +255,7 @@ func (r *Resolver) hideImportCollisions(c *importCollisions) {
 		}
 		var kept []importedMember
 		for i, member := range members {
-			if len(r.duplicatesOf(member.sym, importedSymbolsExcept(members, i))) > 0 {
+			if r.hasImportedDuplicate(members, i) {
 				kept = append(kept, member)
 			}
 		}
@@ -254,10 +265,9 @@ func (r *Resolver) hideImportCollisions(c *importCollisions) {
 		c.collided[name] = kept
 		for _, member := range kept {
 			key := symbols.KeyOf(r.aliasTarget(member.sym))
-			for _, bound := range r.memberNames(member.sym) {
-				if bound != "" {
-					c.hidden[boundName{key: key, name: bound}] = true
-				}
+			names, n := r.memberNames(member.sym)
+			for _, bound := range names[:n] {
+				c.hidden[boundName{key: key, name: bound}] = true
 			}
 		}
 	}
@@ -283,8 +293,9 @@ func (r *Resolver) hiddenImportMember(scope *symbols.Scope, sym *symbols.Symbol)
 		return false
 	}
 	key := symbols.KeyOf(r.aliasTarget(sym))
-	for _, name := range r.memberNames(sym) {
-		if name != "" && c.hidden[boundName{key: key, name: name}] {
+	names, n := r.memberNames(sym)
+	for _, name := range names[:n] {
+		if c.hidden[boundName{key: key, name: name}] {
 			return true
 		}
 	}
@@ -401,8 +412,9 @@ func (r *Resolver) hiddenOnRoute(scope *symbols.Scope, sym *symbols.Symbol) bool
 	if scope == nil || sym == nil || !r.hidesBelow(scope) {
 		return false
 	}
-	for _, name := range r.memberNames(sym) {
-		if name != "" && len(r.withoutHiddenImports(scope, name, []*symbols.Symbol{sym})) == 0 {
+	names, n := r.memberNames(sym)
+	for _, name := range names[:n] {
+		if len(r.withoutHiddenImports(scope, name, []*symbols.Symbol{sym})) == 0 {
 			return true
 		}
 	}
@@ -559,26 +571,28 @@ func (r *Resolver) inheritedAgainstImports(scope *symbols.Scope) map[string][]*s
 	return r.inheritedMembers(owner, model)
 }
 
-// memberNames are the names a membership binds: the member's name and its short
-// name, declared or derived (KerML 8.3.2.4.3 compares both); the second is ""
-// when the member has none. A fixed pair, so a caller's loop does not allocate.
-func (r *Resolver) memberNames(sym *symbols.Symbol) [2]string {
-	names := [2]string{sym.Name}
-	if short := r.shortNameOf(sym); short != "" && short != sym.Name {
-		names[1] = short
+// memberNames are the names a membership binds (KerML 8.3.2.4.3), the first n of the pair: the member's
+// name and short name, declared or derived, each only when it has one. A fixed pair, so no allocation.
+func (r *Resolver) memberNames(sym *symbols.Symbol) (names [2]string, n int) {
+	if sym.Named() {
+		names[0], n = sym.Name, 1
 	}
-	return names
+	if short, ok := r.shortNamed(sym); ok && (n == 0 || short != names[0]) {
+		names[n] = short
+		n++
+	}
+	return names, n
 }
 
-// importedSymbolsExcept is the symbols of members other than the i-th.
-func importedSymbolsExcept(members []importedMember, i int) []*symbols.Symbol {
-	out := make([]*symbols.Symbol, 0, len(members)-1)
+// hasImportedDuplicate stops once another membership makes this one ambiguous.
+func (r *Resolver) hasImportedDuplicate(members []importedMember, i int) bool {
+	sym := members[i].sym
 	for j, member := range members {
-		if j != i {
-			out = append(out, member.sym)
+		if j != i && !r.sameElement(sym, member.sym) && !r.DistinguishableByMetaclass(sym, member.sym) {
+			return true
 		}
 	}
-	return out
+	return false
 }
 
 // importText spells an import as its declaration does, visibility aside:
@@ -834,7 +848,7 @@ func (r *Resolver) importedMembers(owner, sup *symbols.Symbol) []*symbols.Symbol
 			continue
 		}
 		for _, sym := range r.importedMembersInto(owner.Scope, sup.Scope, imp, false) {
-			if sym != nil && sym.Name != "" && !r.idx.Library(sym) && contributesName(sym) && r.BindsName(sym) &&
+			if sym != nil && sym.Named() && !r.idx.Library(sym) && contributesName(sym) && r.BindsName(sym) &&
 				!r.hiddenImportMember(sup.Scope, sym) && !hidden[sym] {
 				out = append(out, sym)
 			}
@@ -857,7 +871,8 @@ func (r *Resolver) hiddenImports(scope *symbols.Scope) map[*symbols.Symbol]bool 
 	}
 	for _, syms := range r.inheritedNamesHiding(scope) {
 		for _, sym := range syms {
-			for _, name := range r.memberNames(sym) {
+			names, n := r.memberNames(sym)
+			for _, name := range names[:n] {
 				hiding[name] = true
 			}
 		}
@@ -868,8 +883,9 @@ func (r *Resolver) hiddenImports(scope *symbols.Scope) map[*symbols.Symbol]bool 
 			if sym == nil {
 				continue
 			}
-			for _, name := range r.memberNames(sym) {
-				if name != "" && hiding[name] {
+			names, n := r.memberNames(sym)
+			for _, name := range names[:n] {
+				if hiding[name] {
 					hidden[sym] = true
 				}
 			}
@@ -884,14 +900,13 @@ func (r *Resolver) HidesImportedName(scope *symbols.Scope, name string) bool {
 	if len(r.scopeImports(scope)) == 0 {
 		return false
 	}
-	for _, owned := range r.ownedNames(scope) {
-		if owned == name {
-			return true
-		}
+	if r.ownsName(scope, name) {
+		return true
 	}
 	for _, syms := range r.inheritedNamesHiding(scope) {
 		for _, sym := range syms {
-			for _, bound := range r.memberNames(sym) {
+			names, n := r.memberNames(sym)
+			for _, bound := range names[:n] {
 				if bound == name {
 					return true
 				}

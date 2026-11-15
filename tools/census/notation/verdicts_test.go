@@ -67,6 +67,7 @@ func TestAdjudicationRules(t *testing.T) {
 		{"part-def", VerdictDrawn, CategoryNode},
 		{"parts-compartment", VerdictDrawn, CategoryCompartment},
 		{"calcs-compartment", VerdictDrawn, CategoryCompartment},
+		{"result-compartment", VerdictDrawn, CategoryCompartment},
 		{"connection-graphical", VerdictDrawn, CategoryEdge},
 		{"connection-def-graphical", VerdictDrawn, CategoryEdge},
 		{"flow", VerdictApproximate, CategoryEdge},

@@ -3,6 +3,7 @@ package opensysml_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/client/opensysml"
@@ -236,5 +237,85 @@ func TestReturnedValuesAreCopiesTheCallerOwns(t *testing.T) {
 		if child == "gone" {
 			t.Error("a mutation of one answer's children changed the next")
 		}
+	}
+}
+
+func TestLookupSymbolListsLibraryMembersOnRequest(t *testing.T) {
+	client := newClient(t)
+	model := parseVehicle(t, client)
+	withheld, err := client.LookupSymbol(context.Background(), model, "Demo::sedan")
+	if err != nil {
+		t.Fatalf("LookupSymbol: %v", err)
+	}
+	if withheld.WithheldLibraryMembers == 0 {
+		t.Fatalf("symbol = %+v, want library members withheld by default", withheld)
+	}
+	for _, member := range withheld.Members {
+		if member.Library {
+			t.Errorf("member %+v listed without WithLibraryMembers", member)
+		}
+	}
+	listed, err := client.LookupSymbol(context.Background(), model, "Demo::sedan", opensysml.WithLibraryMembers())
+	if err != nil {
+		t.Fatalf("LookupSymbol(WithLibraryMembers): %v", err)
+	}
+	if listed.WithheldLibraryMembers != 0 {
+		t.Errorf("WithheldLibraryMembers = %d, want 0 once they are listed", listed.WithheldLibraryMembers)
+	}
+	library := 0
+	for _, member := range listed.Members {
+		if member.Library {
+			library++
+		}
+	}
+	if library != withheld.WithheldLibraryMembers {
+		t.Errorf("listed %d library members, want the %d withheld before", library, withheld.WithheldLibraryMembers)
+	}
+}
+
+const annotatedSource = `package D10 {
+    metadata def FailureMode { attribute severity : ScalarValues::Integer; }
+    #FailureMode part def PumpP;
+    part def PumpB { @FailureMode { severity = 3; } }
+    part def PumpA;
+    metadata pumpA_fm : FailureMode about PumpA { severity = 2; }
+}
+`
+
+func TestLookupSymbolNamesItsAnnotatingMetadata(t *testing.T) {
+	client := newClient(t)
+	model, err := client.ParseSource(context.Background(), annotatedSource)
+	if err != nil {
+		t.Fatalf("ParseSource: %v", err)
+	}
+	lookup := func(id string) *opensysml.Symbol {
+		t.Helper()
+		sym, err := client.LookupSymbol(context.Background(), model, id)
+		if err != nil {
+			t.Fatalf("LookupSymbol(%s): %v", id, err)
+		}
+		return sym
+	}
+	for id, want := range map[string][]string{
+		"D10::PumpP":    {"D10::PumpP::@0"},
+		"D10::PumpB":    {"D10::PumpB::@0"},
+		"D10::PumpA":    {"D10::pumpA_fm"},
+		"D10::pumpA_fm": nil,
+	} {
+		if got := lookup(id).AnnotatingMetadataIDs; !slices.Equal(got, want) {
+			t.Errorf("%s: AnnotatingMetadataIDs = %v, want %v", id, got, want)
+		}
+	}
+	// An `about` usage is a member of the namespace it is written in.
+	pump := lookup("D10::PumpA")
+	if len(pump.ChildIDs) != 0 {
+		t.Errorf("D10::PumpA: ChildIDs = %v, want none", pump.ChildIDs)
+	}
+	usage := lookup(pump.AnnotatingMetadataIDs[0])
+	if usage.Kind != "metadataUsage" || usage.Type == nil || usage.Type.ResolvedID != "D10::FailureMode" {
+		t.Errorf("usage = %s typed %+v, want a metadataUsage typed D10::FailureMode", usage.Kind, usage.Type)
+	}
+	if len(usage.Attributes) != 1 || usage.Attributes[0].Name != "severity" || usage.Attributes[0].Value != opensysml.Int(2) {
+		t.Errorf("usage attributes = %+v, want severity = 2", usage.Attributes)
 	}
 }

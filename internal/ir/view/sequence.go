@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -290,7 +291,7 @@ func (r *Renderer) addSuccessionUsage(succession *symbols.Symbol, into *interact
 		return
 	}
 	name := ""
-	if succession.Name != "" && !succession.EffectiveName() {
+	if succession.Named() && !succession.EffectiveName() {
 		name = localName(succession)
 	}
 	into.orders = append(into.orders, order{from: from, to: to, name: name, succession: succession, origin: symbolOrigin(succession)})
@@ -449,7 +450,7 @@ func (r *Renderer) noticeSubject(sym *symbols.Symbol) string {
 // subject names an element a notice is about: what it is and its name, else what
 // it is and where it is written, since anonymity is normal notation.
 func (r *Renderer) subject(sym *symbols.Symbol, kind string) string {
-	if sym.Name != "" && !sym.EffectiveName() {
+	if sym.Named() && !sym.EffectiveName() {
 		return kind + " " + localName(sym)
 	}
 	if owner := sym.Owner(); owner != nil {
@@ -492,7 +493,7 @@ func endText(end ast.Node) string {
 // with, else the payload alone, else the keyword that declared it. An anonymous
 // message is normal notation, so it is never left unlabeled.
 func (r *Renderer) messageLabel(flow *symbols.Symbol) string {
-	if flow.Name != "" && !flow.EffectiveName() {
+	if flow.Named() && !flow.EffectiveName() {
 		if payload := payloadText(flow); payload != "" {
 			return localName(flow) + " of " + payload
 		}
@@ -842,6 +843,9 @@ func isSuccessionUsage(sym *symbols.Symbol) bool {
 // an interaction in its body, in which case those are the lifelines and the
 // container itself is not one.
 func occurrenceContainer(sym *symbols.Symbol) bool {
+	if semantics.IsSubjectUsage(sym) {
+		return true
+	}
 	switch sym.Kind {
 	case symbols.SymbolOccurrenceDef, symbols.SymbolOccurrenceUsage,
 		symbols.SymbolIndividualDef, symbols.SymbolIndividualUsage,
@@ -858,25 +862,27 @@ func occurrenceContainer(sym *symbols.Symbol) bool {
 // rather than a participant in it, whose flows are its own action flow.
 func behaviorLike(sym *symbols.Symbol) bool {
 	switch sym.Kind {
-	case symbols.SymbolActionDef, symbols.SymbolActionUsage,
-		symbols.SymbolStateDef, symbols.SymbolStateUsage:
+	case symbols.SymbolActionDef, symbols.SymbolStateDef, symbols.SymbolStateUsage:
 		return true
 	}
-	return false
+	return sym.Kind.IsActionUsage()
 }
 
 // lifelineLike reports whether an element can hold an occurrence, which is what
 // a sequence rendering draws a lifeline for. An attribute, a port, a package or
 // a view holds none, and is reported rather than drawn.
 func lifelineLike(sym *symbols.Symbol) bool {
+	if semantics.IsSubjectUsage(sym) {
+		// A case's subject holds events as the part it refers to does.
+		return true
+	}
 	switch sym.Kind {
 	case symbols.SymbolPartDef, symbols.SymbolPartUsage,
 		symbols.SymbolItemDef, symbols.SymbolItemUsage,
 		symbols.SymbolOccurrenceDef, symbols.SymbolOccurrenceUsage,
 		symbols.SymbolIndividualDef, symbols.SymbolIndividualUsage,
-		symbols.SymbolActionDef, symbols.SymbolActionUsage,
-		symbols.SymbolStateDef, symbols.SymbolStateUsage:
+		symbols.SymbolActionDef, symbols.SymbolStateDef, symbols.SymbolStateUsage:
 		return true
 	}
-	return false
+	return sym.Kind.IsActionUsage()
 }

@@ -25,6 +25,8 @@ pub const CAPABILITY_QUERY_ORDER_BY: &str = "query_order_by";
 pub const CAPABILITY_OSLC_QUERY: &str = "oslc_query";
 /// The `RunDocumentQuery` RPC.
 pub const CAPABILITY_DOCUMENT_QUERY: &str = "document_query";
+/// `RunDocumentQueryRequest.inline_query`: a query expression run in place of a named query.
+pub const CAPABILITY_INLINE_DOCUMENT_QUERY: &str = "inline_document_query";
 /// The `RenderDocument` RPC, rendering Markdown.
 pub const CAPABILITY_RENDER_DOCUMENT: &str = "render_document";
 /// `RenderDocumentRequest.form`, asking for the HTML page instead of Markdown.
@@ -33,6 +35,8 @@ pub const CAPABILITY_RENDER_DOCUMENT_HTML: &str = "render_document_html";
 pub const CAPABILITY_RENDER_DOCUMENT_ASCIIDOC: &str = "render_document_asciidoc";
 /// The `RenderView` RPC, rendering named views as machine-readable diagram data.
 pub const CAPABILITY_RENDER_VIEW: &str = "render_view";
+/// `form` and the writer options on `RenderViewRequest`, answered in `text`.
+pub const CAPABILITY_RENDER_VIEW_FORM: &str = "render_view_form";
 /// The `ExportGraphs` RPC, exporting a behavior's lowered graph as `graphs:1` JSON.
 pub const CAPABILITY_EXPORT_GRAPHS: &str = "export_graphs";
 /// The ImportData RPC, which sets the feature values data files assign.
@@ -49,6 +53,10 @@ pub const CAPABILITY_EVALUATE_SUBJECT: &str = "evaluate_subject";
 pub const CAPABILITY_SYMBOL_ATTRIBUTES: &str = "symbol_attributes";
 /// Populated `SymbolInfo.members`: every member, own and inherited, with its provenance.
 pub const CAPABILITY_SYMBOL_MEMBERS: &str = "symbol_members";
+/// `GetSymbolRequest.resolve_name` honoured; without it every id is read as one the service reported.
+pub const CAPABILITY_SYMBOL_NAME_RESOLUTION: &str = "symbol_name_resolution";
+/// Populated `SymbolInfo.annotating_metadata_ids`: the metadata usages annotating a symbol.
+pub const CAPABILITY_SYMBOL_ANNOTATING_METADATA: &str = "symbol_annotating_metadata";
 /// The `GetElementProperties` RPC: an element's metamodel properties by their specification names.
 pub const CAPABILITY_ELEMENT_PROPERTIES: &str = "element_properties";
 /// A valueless feature of a value type as `Value.unset`.

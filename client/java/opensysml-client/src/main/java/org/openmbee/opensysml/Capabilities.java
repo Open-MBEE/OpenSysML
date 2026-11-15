@@ -126,8 +126,17 @@ public final class Capabilities {
   /** {@code SymbolInfo} carries every member of a symbol, own and inherited, with its provenance. */
   public static final String SYMBOL_MEMBERS = "symbol_members";
 
+  /** {@code GetSymbol} resolves a qualified name from the root namespace rather than as a reported id. */
+  public static final String SYMBOL_NAME_RESOLUTION = "symbol_name_resolution";
+
+  /** {@code SymbolInfo} names the metadata usages annotating a symbol, {@code about} ones included. */
+  public static final String SYMBOL_ANNOTATING_METADATA = "symbol_annotating_metadata";
+
   /** The {@code GetElementProperties} RPC: an element's metamodel properties by their specification names. */
   public static final String ELEMENT_PROPERTIES = "element_properties";
+
+  /** The {@code InstancePaths} RPC, and {@code Instance.reached_by} on every instantiated object. */
+  public static final String INSTANCE_PATHS = "instance_paths";
 
   /** {@code ApplyEdits} can add members and delete declarations. */
   public static final String AUTHORING = "authoring";
@@ -193,6 +202,9 @@ public final class Capabilities {
   /** The {@code RunDocumentQuery} RPC runs a named document query. */
   public static final String DOCUMENT_QUERY = "document_query";
 
+  /** {@code RunDocumentQueryRequest.inline_query}: a query expression run in place of a name. */
+  public static final String INLINE_DOCUMENT_QUERY = "inline_document_query";
+
   /** The {@code RenderDocument} RPC renders a named document to Markdown. */
   public static final String RENDER_DOCUMENT = "render_document";
 
@@ -204,6 +216,9 @@ public final class Capabilities {
 
   /** The service renders named and targeted pseudo-views as diagram data. */
   public static final String RENDER_VIEW = "render_view";
+
+  /** The {@code RenderView} RPC also writes the view in a named form, with writer options. */
+  public static final String RENDER_VIEW_FORM = "render_view_form";
 
   /** The {@code ExportGraphs} RPC exports a behavior's lowered graph as {@code graphs:1} JSON. */
   public static final String EXPORT_GRAPHS = "export_graphs";

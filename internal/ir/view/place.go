@@ -145,7 +145,7 @@ func (d *Drawn) noteMember(owner, member *symbols.Symbol) {
 // not render is the error Render gives.
 func (r *Renderer) DrawnIn(view *symbols.Symbol) (*Drawn, error) {
 	drawn := newDrawn()
-	if _, err := r.render(view, drawn); err != nil {
+	if _, err := r.render(view, drawn, true); err != nil {
 		return nil, err
 	}
 	return drawn, nil
@@ -202,7 +202,7 @@ func hasCaseOwner(sym *symbols.Symbol) bool {
 // mixedReferenceEdge reports whether sym contributes a reference between drawn nodes.
 func (r *Renderer) mixedReferenceEdge(sym *symbols.Symbol) bool {
 	if sym.Kind.IsFeature() {
-		for _, target := range r.model.DeclaredTypes(sym) {
+		for _, target := range r.drawnTypes(sym) {
 			if target.Kind.IsDefinition() {
 				return true
 			}
@@ -280,8 +280,6 @@ func actionLike(sym *symbols.Symbol) bool {
 	switch sym.Kind {
 	case symbols.SymbolActionDef, symbols.SymbolCalcDef, symbols.SymbolCalcUsage:
 		return true
-	case symbols.SymbolActionUsage:
-		return !isTransition(sym)
 	}
-	return false
+	return sym.Kind.IsActionUsage() && !isTransition(sym)
 }

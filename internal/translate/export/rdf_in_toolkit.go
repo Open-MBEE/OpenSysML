@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"sort"
 	"strconv"
 	"strings"
@@ -253,7 +254,7 @@ func chainTextIn(graph *rdf.Graph, meta func(rdf.Term) string, index map[string]
 
 // lastSegmentText writes the last segment of a qualified name as notation.
 func lastSegmentText(qname string) string {
-	segments := identitySegments(qname)
+	segments := naming.Segments(qname)
 	return nameText(identityName(segments[len(segments)-1]))
 }
 
@@ -374,15 +375,20 @@ func (n *normalizer) indexMemberships() {
 		}
 		switch {
 		case m == mSubaction:
-			// `entry`/`do`/`exit` is the membership itself, a member of the
-			// state that performs its one action.
+			// `entry`/`do`/`exit` is the membership itself, an element of the state written at the
+			// position of the one action it performs, which takes the position.
 			delete(membershipSubject, subject.Value)
 			if kind, ok := graph.Lexical(subject, rdf.SysML+pKind); ok {
 				graph.Add(subject, rdf.OpenSysMLTerm(xSubactionKind), rdf.String(kind))
 			}
-			memberOwner[subject.Value] = owner
-			ownerMembers[owner.Value] = append(ownerMembers[owner.Value], subject)
-			memberOwner[member.Value] = subject
+			if bareSubactionMembership(graph, subject, member) {
+				ownerMembers[owner.Value] = append(ownerMembers[owner.Value], member)
+				memberOwner[member.Value] = owner
+			} else {
+				memberOwner[subject.Value] = owner
+				ownerMembers[owner.Value] = append(ownerMembers[owner.Value], subject)
+				memberOwner[member.Value] = subject
+			}
 			memberMembership[member.Value] = subject
 			ownerMembers[subject.Value] = append(ownerMembers[subject.Value], member)
 		case m != mResultExpressionMembership && (m == mFeatureValue ||
@@ -461,7 +467,7 @@ func (n *normalizer) orderedMembersOf(owner string) []rdf.Term {
 		// or typing beside them is part of the owner's head.
 		if m := meta(ms); m == "" || !strings.HasSuffix(m, "Membership") && !strings.HasSuffix(m, "Import") {
 			return
-		} else if m == mSubaction {
+		} else if m == mSubaction && !n.bareSubaction(ms) {
 			appendMember(ms)
 			return
 		}
@@ -532,9 +538,11 @@ func (n *normalizer) collapseRelationships() {
 		}
 		target := firstIRI(graph, subject, relationshipTargetEnds...)
 		if m == mConjugatedPortTyping {
-			// The head writes `~P`: the original definition, the conjugate of
-			// which the typing names as its type.
-			target = n.portDefinitions.original(graph, meta, subject, target)
+			// The head states the ConjugatedPortDefinition the typing names as
+			// its type, written `~P`; a typing naming no conjugate states P.
+			if meta(target) != mConjugatedPortDefinition {
+				target = n.portDefinitions.original(graph, meta, subject, target)
+			}
 			graph.Add(owner, rdf.OpenSysMLTerm(xConjugatedTyping), rdf.Bool(true))
 		}
 		if target.Value == "" {
@@ -954,13 +962,14 @@ func (n *normalizer) bodiedOwners() map[string]bool {
 			meta(memberMembership[member]) == mFeatureMembership {
 			continue
 		}
-		// A transition's `then` succession is its head's target, and the chain
-		// of `first a.b` and its EmptyParameterMembers belong to its head too:
-		// none is a body.
+		// A transition's `then` succession is its head's target; the chain of `first a.b`, its
+		// EmptyParameterMembers and its transitionLink belong to its head too: none is a body.
 		if meta(owner) == mTransition {
 			m, ms := rdf.IRI(member), meta(memberMembership[member])
+			unnamed := !graph.HasProperty(m, rdf.SysML+pDeclaredName)
 			if meta(m) == mSuccession || (meta(m) == mFeature && ms == mOwningMembership) ||
-				(ms == mParameterMembership && !graph.HasProperty(m, rdf.SysML+pDeclaredName)) {
+				(ms == mParameterMembership && unnamed) ||
+				(ms == mFeatureMembership && meta(m) == mReferenceUsage && unnamed) {
 				continue
 			}
 		}
@@ -1050,8 +1059,8 @@ func (n *normalizer) collectRoots() []rdf.Term {
 			continue
 		}
 		_, owned := memberOwner[subject.Value]
-		if m == "" || expressionMetaclasses[m] && !(m == mMembership && owned) {
-			continue
+		if m == "" || expressionMetaclasses[m] && !(m == mMembership && owned) || n.bareSubaction(subject) {
+			continue // a bare subaction membership is written at its action's position, which takes the address
 		}
 		if !owned && relationshipLike(m) && hasOwner(graph, subject) {
 			continue
@@ -1064,6 +1073,15 @@ func (n *normalizer) collectRoots() []rdf.Term {
 		return intOf(graph, roots[i], rdf.OpenSysML+xMemberIndex) < intOf(graph, roots[j], rdf.OpenSysML+xMemberIndex)
 	})
 	return roots
+}
+
+// statedName is the name subject declares, else its short name; a stated
+// empty one is the empty unrestricted name, not the lack of a name.
+func statedName(graph *rdf.Graph, subject rdf.Term) (string, bool) {
+	if name, ok := graph.Lexical(subject, rdf.SysML+pDeclaredName); ok {
+		return name, true
+	}
+	return graph.Lexical(subject, rdf.SysML+pDeclaredShortName)
 }
 
 // nameOf is the qualified name derived for subject, or empty for an element
@@ -1088,15 +1106,12 @@ func (n *normalizer) nameOf(subject rdf.Term) string {
 	if owned {
 		base = n.nameOf(owner)
 	}
-	name, _ := graph.Lexical(subject, rdf.SysML+pDeclaredName)
-	if name == "" {
-		name, _ = graph.Lexical(subject, rdf.SysML+pDeclaredShortName)
-	}
+	name, named := statedName(graph, subject)
 	siblings := roots
 	if owned {
 		siblings = ownerMembers[owner.Value]
 	}
-	if name == "" {
+	if !named {
 		if !owned {
 			// An unnamed element no membership owns — the root namespace
 			// is the one — contributes no name.
@@ -1110,11 +1125,11 @@ func (n *normalizer) nameOf(subject rdf.Term) string {
 				break
 			}
 		}
-		q := qualify(base, "", index)
+		q := naming.Positional(base, index)
 		qname[subject.Value] = q
 		return q
 	}
-	q := qualify(base, name, 0)
+	q := naming.Qualify(base, naming.Name{Text: name, Named: true}, 0)
 	// A name an earlier sibling already took is not an identity: the
 	// later element is addressed by its position.
 	for i, sibling := range siblings {
@@ -1123,7 +1138,7 @@ func (n *normalizer) nameOf(subject rdf.Term) string {
 		}
 		for _, earlier := range siblings[:i] {
 			if prior := n.nameOf(earlier); prior != "" && prior == q {
-				q = qualify(base, "", i)
+				q = naming.Positional(base, i)
 				break
 			}
 		}
@@ -1153,15 +1168,11 @@ func (n *normalizer) stateQualifiedNames() {
 			continue
 		}
 		if !owned {
-			name, _ := graph.Lexical(subject, rdf.SysML+pDeclaredName)
-			if name == "" {
-				name, _ = graph.Lexical(subject, rdf.SysML+pDeclaredShortName)
-			}
-			if name == "" {
+			if _, named := statedName(graph, subject); !named {
 				continue
 			}
 		}
-		graph.Add(subject, addressTerm(n.nameOf(subject)), rdf.String(n.nameOf(subject)))
+		stateAddress(graph.Add, subject, n.nameOf(subject))
 	}
 }
 
@@ -1624,8 +1635,13 @@ func (d *defaultDropper) literalObject(triple rdf.Triple, object rdf.Term) (rdf.
 	if referenceNameProps[local] && object.Datatype != rdf.OpenSysML+dtExpression && !json {
 		object = rdf.String(canonicalName(object.Value))
 	}
-	if (local == pQualifiedName || local == xPositionalName) && !json {
-		object = rdf.String(plainQualifiedName(object.Value))
+	if !json {
+		switch local {
+		case pQualifiedName:
+			object = rdf.String(naming.Escaped(mappingQualifiedNameFromSpec(object.Value)))
+		case xMappingQualifiedName, xPositionalName:
+			object = rdf.String(plainQualifiedName(object.Value))
+		}
 	}
 	return object, !d.dropsLiteral(triple.Subject, local, object)
 }
@@ -1633,14 +1649,15 @@ func (d *defaultDropper) literalObject(triple rdf.Triple, object rdf.Term) (rdf.
 // dropsLiteral reports a literal that states a default or a derivable value.
 func (d *defaultDropper) dropsLiteral(subject rdf.Term, local string, object rdf.Term) bool {
 	graph, meta := d.graph, d.meta
+	addressed := local == pQualifiedName || local == xMappingQualifiedName
 	switch {
-	case local == pQualifiedName && d.impliedIncluded(subject) &&
+	case addressed && d.impliedIncluded(subject) &&
 		!graph.HasProperty(subject, rdf.SysML+pDeclaredName) &&
 		!graph.HasProperty(subject, rdf.SysML+pDeclaredShortName):
 		// The full form derives a qualified name for the unnamed too;
 		// the compact form leaves the name to be derived.
 		return true
-	case local == pQualifiedName && underSubaction(graph, meta, subject):
+	case addressed && underSubaction(graph, meta, subject):
 		// This mapping positions a subaction's action under its
 		// membership (`S::@0::ops`); the full form's name skips it.
 		return true
@@ -1888,15 +1905,15 @@ func unresolvedNames(graph *rdf.Graph, meta func(rdf.Term) string) (map[string]s
 
 // plainQualifiedName spells the identity form of a qualified name.
 func plainQualifiedName(name string) string {
-	segments := identitySegments(name)
+	segments := naming.Segments(name)
 	for i, segment := range segments {
-		segments[i] = identitySegment(identityName(segment))
+		segments[i] = naming.Segment(identityName(segment))
 	}
 	return strings.Join(segments, "::")
 }
 
 // canonicalName returns a written qualified name in its canonical spelling:
-// segments split on `::` outside quotes, each requoted with its escapes kept.
+// segments split on `::` outside quotes, each requoted and escaped again.
 func canonicalName(name string) string {
 	segments, ok := source.QualifiedNameSegments(name)
 	if !ok {
@@ -1917,4 +1934,21 @@ func underSubaction(graph *rdf.Graph, meta func(rdf.Term) string, subject rdf.Te
 		subject = firstIRI(graph, ms, pOwningRelatedElement, pOwner)
 	}
 	return false
+}
+
+// bareSubactionMembership reports the writer's shape for a bare `entry;`: the StateSubactionMembership's id is
+// minted from the anonymous empty action's (`<action>_om`), which takes the membership's position.
+func bareSubactionMembership(graph *rdf.Graph, membership, member rdf.Term) bool {
+	ms, ok := graph.Lexical(membership, rdf.SysML+pElementID)
+	id, has := graph.Lexical(member, rdf.SysML+pElementID)
+	return ok && has && ms == id+rdf.OwningMembershipSuffix
+}
+
+// bareSubaction reports a StateSubactionMembership of the bare `entry;` shape.
+func (n *normalizer) bareSubaction(subject rdf.Term) bool {
+	if n.meta(subject) != mSubaction {
+		return false
+	}
+	member := firstIRI(n.graph, subject, pOwnedMemberElement, pMemberElement)
+	return member.IsIRI() && bareSubactionMembership(n.graph, subject, member)
 }

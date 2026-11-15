@@ -33,7 +33,7 @@ func (c *Compiler) enumOf(sym *symbols.Symbol) (*Enum, string) {
 	lits := c.model.EnumeratedValuesOf(sym)
 	for _, lit := range lits {
 		switch {
-		case lit.Name == "":
+		case !lit.Named():
 			return nil, fmt.Sprintf("enumeration %s has an unnamed literal", fqn)
 		case semantics.EnumerationOwning(lit) != sym:
 			return nil, fmt.Sprintf("enumeration %s inherits the literal %s", fqn, lit.Name)

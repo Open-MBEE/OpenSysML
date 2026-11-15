@@ -624,6 +624,11 @@ make stdlib-snapshot          # go generate ./internal/workspace/libs; every bui
 go build ./cmd/sysml          # without it: builds, loads the library files at start-up
 ```
 
+The WebAssembly gate (`tests/wasm`) does not inherit the tree's state: it generates the
+snapshot into a temporary directory and builds every command through a `go build -overlay`
+embedding it, so its size budgets measure the with-snapshot artifact the Makefile builds
+whether `go test ./tests/wasm` runs before or after `make stdlib-snapshot`.
+
 Never edit the snapshot by hand.
 
 ### Adding a new declaration kind

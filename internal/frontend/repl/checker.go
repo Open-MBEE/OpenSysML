@@ -223,12 +223,16 @@ func (s *Session) doCheckAssume(args []string) []string {
 	return []string{"check-assume: " + settingText(s.checker.assume, "none")}
 }
 
-// doCheckWitness shows or sets where a check writes its witnesses, `off` writing none.
+// doCheckWitness shows or sets where a check writes its witnesses, `off` writing
+// none; a directory the session's file guard refuses is not taken.
 func (s *Session) doCheckWitness(args []string) []string {
 	if len(args) > 0 {
-		if args[0] == "off" {
+		switch err := s.guardFile(args[0], false); {
+		case args[0] == "off":
 			s.checker.witnessDir = ""
-		} else {
+		case err != nil:
+			return []string{"error: check-witness: " + err.Error()}
+		default:
 			s.checker.witnessDir = args[0]
 		}
 	}

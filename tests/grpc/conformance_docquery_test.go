@@ -41,7 +41,7 @@ func runRunDocumentQueryCase(t *testing.T, srv *grpc.Service, ctx context.Contex
 		bindings = append(bindings, &pb.DocumentQueryBinding{Parameter: b.Parameter, Values: values})
 	}
 	resp, err := srv.RunDocumentQuery(ctx, &pb.RunDocumentQueryRequest{
-		ModelHash: modelHash, QueryId: tc.QueryID, Bindings: bindings,
+		ModelHash: modelHash, QueryId: tc.QueryID, InlineQuery: tc.InlineQuery, Bindings: bindings,
 	})
 	if tc.ExpectedError != "" {
 		if err == nil {

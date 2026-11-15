@@ -236,7 +236,7 @@ func drawioDiagramID(view string) string {
 
 // notices are what the file does not represent, written as leading comments.
 func (w *drawioWriter) notices(r *Rendering, options Options) []string {
-	notices := append([]string(nil), r.Notices...)
+	notices := append([]string(nil), r.notices()...)
 	if w.unrouted {
 		notices = append(notices, "edges not routed: this build runs no router; draw.io routes them when the file opens")
 	}

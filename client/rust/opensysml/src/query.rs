@@ -648,6 +648,9 @@ pub struct QueryElement {
     pub id: String,
     /// The standard's element type, such as `PartUsage`.
     pub element_type: String,
+    /// The path a held object is answered under (`Garage::car.wheels[2]`); empty
+    /// for a declared element.
+    pub path: String,
     /// Selected properties by name.
     pub properties: BTreeMap<String, String>,
 }
@@ -664,6 +667,7 @@ impl From<QueryElement> for wire::QueryResultElement {
         Self {
             id: element.id,
             r#type: element.element_type,
+            path: element.path,
             properties: element.properties.into_iter().collect(),
         }
     }
@@ -671,6 +675,9 @@ impl From<QueryElement> for wire::QueryResultElement {
 
 impl fmt::Display for QueryElement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if !self.path.is_empty() {
+            write!(f, "{} ", self.path)?;
+        }
         write!(f, "{} ({})", self.id, self.element_type)
     }
 }
@@ -682,6 +689,7 @@ pub(crate) fn elements_of(response: wire::QueryResponse) -> Vec<QueryElement> {
         .map(|element| QueryElement {
             id: element.id,
             element_type: element.r#type,
+            path: element.path,
             properties: element.properties.into_iter().collect(),
         })
         .collect()

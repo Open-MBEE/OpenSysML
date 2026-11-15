@@ -1,0 +1,12 @@
+{
+  "rpc": "Query",
+  "query": {
+    "scope": ["Fleet"],
+    "select": ["isReference"],
+    "where": {"composite": {"operator": "COMPOSITE_OPERATOR_AND", "constraint": [
+      {"primitive": {"property": "isReference", "operator": "PRIMITIVE_OPERATOR_EQUAL", "value": ["false"]}},
+      {"primitive": {"property": "@type", "operator": "PRIMITIVE_OPERATOR_INSTANCE_OF", "value": ["Usage"]}}
+    ]}}
+  },
+  "expected_element_ids": ["Fleet::Car::engine", "Fleet::Car::engine::four", "Fleet::Car::spare"]
+}

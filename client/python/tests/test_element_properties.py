@@ -49,14 +49,20 @@ def test_a_response_decodes_as_a_mapping_of_properties():
     read = element_properties_of(_response())
     assert read.element == ElementIdentity("EP__Pair", "EP::Pair", "PartDefinition")
     assert str(read.element) == "EP::Pair"
-    assert len(read) == 4 and "isAbstract" in read and "name" not in read
+    assert len(read) == 4
+    assert "isAbstract" in read
+    assert "name" not in read
     inherited = read["inheritedFeature"]
     assert isinstance(inherited, ElementProperty)
-    assert inherited.defining_class == "Type" and inherited.many and inherited.derived
+    assert inherited.defining_class == "Type"
+    assert inherited.many
+    assert inherited.derived
     assert [str(e) for e in inherited.elements] == ["EP::Unit::p", "Parts::Part::subparts"]
     assert inherited.elements[1].metaclass == "PartUsage"
-    assert read["isAbstract"].value is False and not read["isAbstract"].many
-    assert read["ownedSubclassification"].supported and not read["ownedSubclassification"]
+    assert read["isAbstract"].value is False
+    assert not read["isAbstract"].many
+    assert read["ownedSubclassification"].supported
+    assert not read["ownedSubclassification"]
     assert read["ownedSubclassification"].value is None
     assert not read["connectorEnd"].supported
     assert "declares no property" in read["connectorEnd"].unsupported
@@ -71,7 +77,8 @@ def test_every_value_arm_decodes_to_its_python_value():
     assert property_value_of(sysml_pb2.ElementPropertyValue(real_value=2.5)) == 2.5
     assert property_value_of(sysml_pb2.ElementPropertyValue(number="1" * 30)) == "1" * 30
     identity = property_value_of(sysml_pb2.ElementPropertyValue(element=sysml_pb2.ElementRef(id="x")))
-    assert identity == ElementIdentity("x") and str(identity) == "x"
+    assert identity == ElementIdentity("x")
+    assert str(identity) == "x"
     with pytest.raises(ValueError):
         property_value_of(sysml_pb2.ElementPropertyValue())
 
@@ -93,9 +100,11 @@ def test_the_connection_sends_the_element_and_the_names():
     conn = _connection(stub)
     read = conn.get_element_properties("hash1", "EP::Pair", ["inheritedFeature", "isAbstract"])
     request = stub.GetElementProperties.call_args[0][0]
-    assert request.model_hash == "hash1" and request.element_id == "EP::Pair"
+    assert request.model_hash == "hash1"
+    assert request.element_id == "EP::Pair"
     assert list(request.properties) == ["inheritedFeature", "isAbstract"]
-    assert isinstance(read, ElementProperties) and read.element.qualified_name == "EP::Pair"
+    assert isinstance(read, ElementProperties)
+    assert read.element.qualified_name == "EP::Pair"
 
 
 def test_a_service_without_the_capability_is_refused_before_the_call():
@@ -134,8 +143,9 @@ def test_the_model_and_the_symbol_reach_the_connection():
     client.get_element_properties.assert_called_with("hash1", "EP::Pair", ("isAbstract",))
     symbol.properties()
     client.get_element_properties.assert_called_with("hash1", "EP::Pair", ())
+    unconnected = Symbol(sysml_pb2.SymbolInfo(id="EP::Pair"), None, "hash1")
     with pytest.raises(ValueError):
-        Symbol(sysml_pb2.SymbolInfo(id="EP::Pair"), None, "hash1").properties()
+        unconnected.properties()
 
 
 ELEMENT_PROPERTIES_MODEL = """
@@ -196,7 +206,8 @@ class TestElementPropertiesAgainstTheService:
 
     def test_an_unnamed_connector_is_read_by_position_and_walked_by_form_id(self):
         connector = self.model.element_properties("EP::Pair::@2", "relatedFeature", "sourceFeature", "connectorEnd")
-        assert connector.element.metaclass == "ConnectionUsage" and connector.element.qualified_name == ""
+        assert connector.element.metaclass == "ConnectionUsage"
+        assert connector.element.qualified_name == ""
         assert [str(e) for e in connector["relatedFeature"].elements] == ["EP::Pair::u1", "EP::Pair::u2"]
         assert str(connector["sourceFeature"].value) == "EP::Pair::u1"
         end = connector["connectorEnd"].elements[0]
@@ -212,6 +223,88 @@ class TestElementPropertiesAgainstTheService:
     def test_why_a_property_has_no_answer_is_said(self):
         read = self.model.element_properties("EP::Pair", "connectorEnd", "ownedSubclassification")
         assert "declares no property connectorEnd" in read["connectorEnd"].unsupported
-        assert read["ownedSubclassification"].supported and len(read["ownedSubclassification"].values) == 1
+        assert read["ownedSubclassification"].supported
+        assert len(read["ownedSubclassification"].values) == 1
         with pytest.raises(SymbolNotFoundError):
             self.model.element_properties("EP::Nowhere")
+
+
+LIBRARY_MEMBERS_MODEL = """
+package P {
+    private import ScalarValues::*;
+    port def PP { out item v : Real; }
+    part def Unit { port p : PP; }
+    part def Tank { out item fuelOut : Real; }
+    part def Engine { in item fuelIn : Real; }
+    connection def Link { end a : Unit; end b : Unit; }
+    item def Sig;
+    calc def Calc { in x : Real; return r : Real; }
+    part def V {
+        part x : Unit; part y : Unit;
+        part tank : Tank; part engine : Engine;
+        connection c1 : Link connect x.p to y.p;
+        flow f1 of Real from tank.fuelOut to engine.fuelIn;
+        message msg of Sig from tank to engine;
+        port sp : PP;
+        action sendIt send new Sig() via sp;
+        attribute s : Sig = new Sig();
+        attribute chain = x.p;
+        part comp : Unit;
+        ref part r : Unit;
+    }
+    part a : V;
+}
+"""
+
+
+@pytest.mark.integration
+class TestEveryIdAnAnswerCarriesReadsBack:
+    """Every inherited membership of P::a, and the member it owns, reads back —
+    the memberships of unnamed standard-library members included."""
+
+    def setup_method(self):
+        import grpc
+
+        try:
+            self.conn = Connection(auto_start=False)
+            self.conn._stub.GetDiagnostics(sysml_pb2.DiagnosticsRequest(model_hash=""))
+        except grpc.RpcError as exc:
+            if exc.code() != grpc.StatusCode.NOT_FOUND:
+                self.conn = None
+                skip_or_fail_without_service(
+                    f"the sysml-grpc service on localhost:50051 answered {exc.code()}"
+                )
+        except Exception as exc:
+            self.conn = None
+            skip_or_fail_without_service(
+                f"no sysml-grpc service could be reached on localhost:50051 ({exc})"
+            )
+        self.model = self.conn.load_from_content(LIBRARY_MEMBERS_MODEL)
+
+    def teardown_method(self):
+        conn = self.__dict__.get("conn")
+        if conn is not None:
+            conn.close()
+
+    def test_every_inherited_membership_and_its_member_read_back(self):
+        memberships = self.model.element_properties("P::a", "inheritedMembership")["inheritedMembership"].elements
+        assert len(memberships) > 100
+        unnamed = []
+        for membership in memberships:
+            read = self.model.element_properties(membership.id, "memberElement")
+            assert read.element.id == membership.id
+            assert read.element.metaclass == membership.metaclass
+            member = read["memberElement"].value
+            again = self.model.element_properties(member.id, "owner")
+            assert again.element.id == member.id
+            if not again.element.qualified_name:
+                unnamed.append(again.element.metaclass)
+        assert len(unnamed) >= 18
+        assert "Documentation" in unnamed
+        assert "MultiplicityRange" in unnamed
+
+    def test_every_inherited_feature_reads_back(self):
+        features = self.model.element_properties("P::a", "inheritedFeature")["inheritedFeature"].elements
+        assert features
+        for feature in features:
+            assert self.model.element_properties(feature.id, "name").element.id == feature.id

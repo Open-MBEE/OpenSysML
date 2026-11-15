@@ -173,7 +173,10 @@ func (e *Evaluator) propertyWithPolicy(el Element, definingClass, name string, c
 	} else {
 		interned := e.internValueStrings(cloneValue(value))
 		e.cache[key] = cachedValue{value: interned, ok: ok}
-		if !clone {
+		if clone {
+			// The derived value may share a memoized list of the structure rules.
+			value = cloneValue(value)
+		} else {
 			value = interned
 		}
 	}
@@ -341,7 +344,7 @@ func (e *Evaluator) modelProperty(element Element, class, name string) (Value, b
 			if element.IsMembership {
 				return nullValue(), true, true
 			}
-			if value := e.model.EffectiveNameOf(sym); value != "" {
+			if value, named := e.model.EffectiveNamed(sym); named {
 				return stringValue(value), true, true
 			}
 			return nullValue(), true, true
@@ -549,8 +552,8 @@ func (e *Evaluator) modelQualifiedName(sym *symbols.Symbol, seen map[*symbols.Sy
 		return Value{}, false
 	}
 	seen[sym] = true
-	name := e.model.EffectiveNameOf(sym)
-	if name == "" {
+	name, named := e.model.EffectiveNamed(sym)
+	if !named {
 		return nullValue(), true
 	}
 	if sym.OwnerScope != nil {
@@ -558,7 +561,7 @@ func (e *Evaluator) modelQualifiedName(sym *symbols.Symbol, seen map[*symbols.Sy
 			if member == sym {
 				break
 			}
-			if e.model.EffectiveNameOf(member) == name {
+			if earlier, named := e.model.EffectiveNamed(member); named && earlier == name {
 				return nullValue(), true
 			}
 		}
@@ -569,7 +572,7 @@ func (e *Evaluator) modelQualifiedName(sym *symbols.Symbol, seen map[*symbols.Sy
 			return Value{}, false
 		}
 		seen[namespace] = true
-		if namespaceName := e.model.EffectiveNameOf(namespace); namespaceName != "" {
+		if namespaceName, named := e.model.EffectiveNamed(namespace); named {
 			parts = append(parts, identity.EscapeName(namespaceName))
 		}
 	}
@@ -630,6 +633,7 @@ func structurePropertyRequired(class, name string) bool {
 		"ownedRelatedElement", "owningRelatedElement", "action", "ownedConstraint",
 		"chainingFeature", "featureTarget", "featuringType", "crossFeature", "annotation",
 		"annotatedElement", "annotatingElement", "documentedElement", "expression",
+		"referencedElement",
 		"parameter", "step", "connectorEnd", "relatedFeature", "sourceFeature",
 		"targetFeature", "isModelLevelEvaluable", "isVariable",
 		"lowerBound", "upperBound", "bound", "triggerAction", "guardExpression",
@@ -844,66 +848,15 @@ func (e *Evaluator) completeMembers(sym *symbols.Symbol) bool {
 }
 
 func (e *Evaluator) featureTypes(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
-	if !e.completeFeatureTypeInputs(sym) {
-		return nil, false
-	}
-	types := e.model.FeatureTypeSet(sym)
-	if len(types) == 0 {
-		if _, hasBase := e.model.FeatureBaseFQN(sym); hasBase {
-			return nil, false
-		}
-	}
-	return types, true
+	return e.model.ReflectiveFeatureTypes(sym)
 }
 
 func (e *Evaluator) completeFeatureTypeInputs(sym *symbols.Symbol) bool {
-	if sym == nil {
-		return false
-	}
-	seen := make(map[*symbols.Symbol]bool)
-	queue := []*symbols.Symbol{sym}
-	for len(queue) > 0 {
-		candidate := queue[0]
-		queue = queue[1:]
-		if candidate == nil || seen[candidate] {
-			continue
-		}
-		seen[candidate] = true
-		if e.model.SupertypesProvisional(candidate) ||
-			e.model.HasSpecializationCycle(candidate) ||
-			!e.completeRelationships(candidate) {
-			return false
-		}
-		for _, relationship := range semantics.RelationshipsOf(candidate) {
-			if relationship == nil || relationship.Kind == ast.RelTyping ||
-				!semantics.GeneralizationKind(relationship.Kind) {
-				continue
-			}
-			target := e.model.RelationshipTarget(candidate, relationship)
-			if target == nil {
-				return false
-			}
-			if target.IsFeature() {
-				queue = append(queue, target)
-			}
-		}
-	}
-	return true
+	return e.model.FeatureTypeInputsComplete(sym)
 }
 
 func (e *Evaluator) completeRelationships(sym *symbols.Symbol) bool {
-	for _, rel := range semantics.RelationshipsOf(sym) {
-		if rel == nil {
-			return false
-		}
-		if !semantics.GeneralizationKind(rel.Kind) && !rel.Kind.ReferenceSubsets() {
-			continue
-		}
-		if rel.Target == nil || e.model.RelationshipTarget(sym, rel) == nil {
-			return false
-		}
-	}
-	return true
+	return e.model.GeneralizationsResolve(sym)
 }
 
 func (e *Evaluator) featureDirection(element Element) (ast.FeatureDirection, bool) {

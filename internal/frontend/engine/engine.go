@@ -20,6 +20,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
 	fsyntax "github.com/Open-MBEE/OpenSysML/internal/frontend/syntax"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -99,6 +100,30 @@ type cachedModel struct {
 	model     *runtime.Model
 	resolver  *resolve.Resolver
 	typed     *semantics.Model
+	// identities names a metaobject's element by qualified identity, as the
+	// service does for a named element.
+	identities engineIdentities
+}
+
+// elementIdentities is the id vocabulary a metaobject's element crosses in: its
+// qualified name; positional and form ids need code the engine's size budget excludes.
+func (m *cachedModel) elementIdentities() elementIdentities {
+	m.identities.index = m.Index
+	return &m.identities
+}
+
+// engineIdentities names an element by its qualified identity alone.
+type engineIdentities struct{ index *symbols.Index }
+
+func (e *engineIdentities) ElementIdentity(sym *symbols.Symbol) string {
+	if sym == nil {
+		return ""
+	}
+	return e.index.QualifiedIdentity(sym)
+}
+
+func (e *engineIdentities) ResolveElement(id string, _ *semantics.Model) []*symbols.Symbol {
+	return e.index.LookupQualified(id)
 }
 
 // typedModel builds the checker-typed model and resolver the runtime and renderer
@@ -121,7 +146,7 @@ func (m *cachedModel) semantics() *runtime.Model {
 	}
 	sem := m.typedModel()
 	m.model = runtime.NewModel(sem, m.resolver)
-	m.model.SetExpressionParser(parser.ParseOneExpression)
+	m.model.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, m.model.Resolver()))
 	for _, doc := range m.Documents {
 		m.model.RegisterSource(doc.Source)
 	}
@@ -304,6 +329,13 @@ func (e *Engine) Call(ctx context.Context, method string, params []byte) (result
 			return nil, err
 		}
 		return e.renderView(&req)
+	case "RenderDocument":
+		// RenderDocument is served by both sysml-engine and sysml-grpc.
+		var req JRenderDocumentRequest
+		if err := decode(params, &req); err != nil {
+			return nil, err
+		}
+		return e.renderDocument(ctx, &req)
 	}
 	return nil, statusErrorf(codeUnimplemented, "%s is not served by sysml-engine", method)
 }
@@ -318,21 +350,16 @@ func (e *Engine) renderView(req *JRenderViewRequest) ([]byte, error) {
 	if req.View == "" {
 		return nil, statusError(codeInvalidArgument, "view is required")
 	}
-	ports, ok := view.ParsePorts(req.Ports)
-	if !ok {
-		return nil, statusError(codeInvalidArgument, (&view.UnknownPortsError{Name: req.Ports}).Error())
-	}
-	shown, err := view.ShownOf(req.Show)
-	if err != nil {
-		return nil, statusError(codeInvalidArgument, err.Error())
-	}
-
 	if req.Depth < 0 {
 		return nil, statusError(codeInvalidArgument, (&view.DepthError{Value: fmt.Sprint(req.Depth)}).Error())
 	}
-	compartments, ok := view.ParseCompartments(req.Compartments)
-	if !ok {
-		return nil, statusError(codeInvalidArgument, (&view.UnknownCompartmentsError{Name: req.Compartments}).Error())
+	form, options, err := view.Request{
+		Form: req.Form, Palette: req.Palette, Style: req.Style, Lines: req.Lines,
+		Direction: req.Direction, Link: req.Link, Unplaced: req.Unplaced,
+		Ports: req.Ports, Compartments: req.Compartments, Show: req.Show,
+	}.Options()
+	if err != nil {
+		return nil, statusError(codeInvalidArgument, err.Error())
 	}
 
 	renderer := view.NewRenderer(cached.typedModel(), cached.resolver, cached.sourceText())
@@ -347,7 +374,24 @@ func (e *Engine) renderView(req *JRenderViewRequest) ([]byte, error) {
 		}
 		return nil, statusError(codeInvalidArgument, err.Error())
 	}
-	return marshalRenderView(cached, rendering.DataWith(view.Options{Ports: ports, Show: shown, Compartments: compartments}))
+	data := rendering.DataWith(options)
+	text := ""
+	if form != "" {
+		if options.NeedsSites(form) {
+			options.Links.Sites = renderer.Sites(view.FileLocator(cached.typedModel(), func(doc string) *source.LineIndex {
+				if sf := cached.document(doc); sf != nil {
+					return sf.Lines()
+				}
+				return nil
+			}))
+		}
+		written, err := rendering.WriteViewWith(form, options)
+		if err != nil {
+			return nil, statusError(codeInvalidArgument, err.Error())
+		}
+		text = view.Artifact(written)
+	}
+	return marshalRenderView(cached, data, text)
 }
 
 // renderOrigins resolves the declaration spans a rendering refers to, in the
@@ -379,9 +423,10 @@ func (o *renderOrigins) span(origin view.Origin) *JSpan {
 
 // marshalRenderView writes a rendering as protojson writes the service's
 // RenderViewResponse for the same view.Data.
-func marshalRenderView(model *cachedModel, data view.Data) ([]byte, error) {
+func marshalRenderView(model *cachedModel, data view.Data, text string) ([]byte, error) {
 	origins := &renderOrigins{model: model, sources: make(map[string]*source.SourceFile)}
 	out := &JRenderViewResponse{
+		Text:    text,
 		View:    data.View,
 		Kind:    string(data.Kind),
 		Stated:  data.Stated,
@@ -734,7 +779,7 @@ func (e *Engine) evaluate(ctx context.Context, req *JEvaluateRequest) ([]byte, e
 	}
 
 	return marshal(&JEvaluateResponse{
-		Result: valueToProto(runtimeCtx, result, cached.Index),
+		Result: valueToProto(runtimeCtx, result, cached.Index, cached.elementIdentities()),
 	})
 }
 
@@ -774,7 +819,7 @@ func (e *Engine) instantiate(ctx context.Context, req *JInstantiateRequest) ([]b
 
 	var graph instanceGraph
 	inst, err := runtimeCtx.InstantiateRead(sym, func(inst *runtime.Instance) error {
-		graph = instanceGraphToProto(runtimeCtx, inst, cached.Index)
+		graph = instanceGraphToProto(runtimeCtx, inst, cached.Index, cached.elementIdentities())
 		for _, err := range graph.Errors {
 			if errors.Is(err, runtime.ErrInstanceLimitExceeded) {
 				return err
@@ -895,7 +940,7 @@ func (e *Engine) executeAction(ctx context.Context, req *JExecuteActionRequest) 
 	if len(req.Inputs) > 0 {
 		inputs = make(map[string]runtime.Value, len(req.Inputs))
 		for name, pv := range req.Inputs {
-			val, cerr := protoToRuntimeValue(runtimeCtx, pv, cached.Index, runtimeCtx.Semantics())
+			val, cerr := protoToRuntimeValue(runtimeCtx, pv, cached.Index, runtimeCtx.Semantics(), cached.elementIdentities())
 			if cerr != nil {
 				return marshal(&JExecuteActionResponse{
 					Error: fmt.Sprintf("input %q could not be read: %v", name, cerr),
@@ -915,12 +960,12 @@ func (e *Engine) executeAction(ctx context.Context, req *JExecuteActionRequest) 
 	}
 	self, err := e.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		trace, dropped := traceToJSON(runtimeCtx, cached.Index, traceRecorder)
+		trace, dropped := traceToJSON(runtimeCtx, cached, traceRecorder)
 		return marshal(&JExecuteActionResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped})
 	}
 	events, err := eventMessages(cached, runtimeCtx, action, req.Events, self)
 	if err != nil {
-		trace, dropped := traceToJSON(runtimeCtx, cached.Index, traceRecorder)
+		trace, dropped := traceToJSON(runtimeCtx, cached, traceRecorder)
 		return marshal(&JExecuteActionResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped})
 	}
 
@@ -940,7 +985,7 @@ func (e *Engine) executeAction(ctx context.Context, req *JExecuteActionRequest) 
 	// The choices the run made are reported with its outcome, failed or not: a
 	// failure may hang on the order taken.
 	diags := runNoteDiagnosticsToProto(runtimeCtx.Notes(), cached)
-	trace, dropped := traceToJSON(runtimeCtx, cached.Index, traceRecorder)
+	trace, dropped := traceToJSON(runtimeCtx, cached, traceRecorder)
 	if err != nil {
 		return marshal(&JExecuteActionResponse{
 			Error:        fmt.Sprintf("action execution failed: %v", err),
@@ -952,10 +997,10 @@ func (e *Engine) executeAction(ctx context.Context, req *JExecuteActionRequest) 
 	}
 
 	return marshal(&JExecuteActionResponse{
-		Outputs:             valuesToProto(runtimeCtx, outputs, cached.Index),
+		Outputs:             valuesToProto(runtimeCtx, outputs, cached),
 		Diagnostics:         diags,
 		FinalTime:           F64(runtimeCtx.Clock().Now()),
-		PerformerAttributes: valuesToProto(runtimeCtx, performer, cached.Index),
+		PerformerAttributes: valuesToProto(runtimeCtx, performer, cached),
 		Trace:               trace,
 		TraceDropped:        dropped,
 	})
@@ -1016,7 +1061,7 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	}
 	self, err := e.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		trace, dropped := traceToJSON(runtimeCtx, cached.Index, traceRecorder)
+		trace, dropped := traceToJSON(runtimeCtx, cached, traceRecorder)
 		return marshal(&JExecuteStateResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped})
 	}
 
@@ -1033,7 +1078,7 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	}
 	finalContext, statesVisited := outcome.Outputs, outcome.StateVisits
 	diags := runNoteDiagnosticsToProto(runtimeCtx.Notes(), cached)
-	trace, dropped := traceToJSON(runtimeCtx, cached.Index, traceRecorder)
+	trace, dropped := traceToJSON(runtimeCtx, cached, traceRecorder)
 	if err != nil {
 		return marshal(&JExecuteStateResponse{
 			Error:        fmt.Sprintf("state machine execution failed: %v", err),
@@ -1046,7 +1091,7 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 
 	return marshal(&JExecuteStateResponse{
 		StatesVisited: statesVisited,
-		FinalContext:  valuesToProto(runtimeCtx, finalContext, cached.Index),
+		FinalContext:  valuesToProto(runtimeCtx, finalContext, cached),
 		Diagnostics:   diags,
 		FinalTime:     F64(runtimeCtx.Clock().Now()),
 		Trace:         trace,
@@ -1054,16 +1099,16 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	})
 }
 
-func traceToJSON(rt *runtime.Context, idx *symbols.Index, recorder *runtime.TraceRecorder) ([]JDocumentEvent, int) {
+func traceToJSON(rt *runtime.Context, cached *cachedModel, recorder *runtime.TraceRecorder) ([]JDocumentEvent, int) {
 	if recorder == nil {
 		return nil, 0
 	}
 	events := queryexec.EventsFromTrace(rt, recorder.Records())
 	trace := make([]JDocumentEvent, len(events))
 	for i, event := range events {
-		trace[i] = documentEventToJSON(idx, event)
+		trace[i] = documentEventToJSON(cached.Index, event)
 		if _, value, ok := event.Assigned(); ok {
-			trace[i].Value = valueToProto(rt, value, idx)
+			trace[i].Value = valueToProto(rt, value, cached.Index, cached.elementIdentities())
 		}
 	}
 	dropped, _ := recorder.Dropped()
@@ -1165,10 +1210,10 @@ func elementValueToJSON(idx *symbols.Index, sym *symbols.Symbol) *JDocumentValue
 }
 
 // valuesToProto converts each value of a named map.
-func valuesToProto(rt *runtime.Context, values map[string]runtime.Value, idx *symbols.Index) map[string]*JValue {
+func valuesToProto(rt *runtime.Context, values map[string]runtime.Value, cached *cachedModel) map[string]*JValue {
 	out := make(map[string]*JValue, len(values))
 	for name, value := range values {
-		out[name] = valueToProto(rt, value, idx)
+		out[name] = valueToProto(rt, value, cached.Index, cached.elementIdentities())
 	}
 	return out
 }

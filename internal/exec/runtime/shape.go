@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -19,6 +21,7 @@ type EffectiveFeature struct {
 	// usual default 0..* governs it: Multiplicity is representativeRange and judges no count.
 	MultiplicityDefaulted bool
 	DefaultValue          ast.Node        // value-binding expression (nil if none)
+	DefaultValueID        program.ExprID  // DefaultValue in the model's table, lowered in DefaultScope
 	DefaultDecl           *symbols.Symbol // feature the DefaultValue was written on (nil if none)
 	HoldsSet              bool            // values form a set: a Collection's unordered unique elements
 	Unique                bool            // holds no two equal values (KerML isUnique, the default)
@@ -41,6 +44,16 @@ func (f *EffectiveFeature) defaultIsFallback() bool {
 	}
 	usage, ok := f.DefaultDecl.Decl.(*ast.Usage)
 	return ok && usage.ValueIsDefault
+}
+
+// Binds reports whether DefaultValue was written with `=`: a binding the feature
+// holds at all times, neither a `default` fallback nor a `:=` initial value.
+func (f *EffectiveFeature) Binds() bool {
+	if f.DefaultDecl == nil || f.DefaultValue == nil {
+		return false
+	}
+	usage, ok := f.DefaultDecl.Decl.(*ast.Usage)
+	return ok && !usage.ValueIsDefault && !usage.ValueIsInitial
 }
 
 // DefaultScope returns the scope DefaultValue resolves its names in, which for
@@ -126,7 +139,7 @@ func (ctx *Context) effectiveFeature(name string, memberSym, typeSym *symbols.Sy
 		defaultVal, defaultDecl = ctx.roleRedefiningDefault(memberSym, typeSym)
 	}
 	mult, _, defaulted := ctx.featureRange(memberSym, typeSym)
-	return EffectiveFeature{
+	feat := EffectiveFeature{
 		Name:                  name,
 		Symbol:                memberSym,
 		OwnerType:             ctx.findOwnerType(memberSym),
@@ -138,6 +151,8 @@ func (ctx *Context) effectiveFeature(name string, memberSym, typeSym *symbols.Sy
 		HoldsSet:              ctx.holdsSet(memberSym, typeSym, mult),
 		Unique:                ctx.model.semantics.IsUnique(memberSym),
 	}
+	feat.DefaultValueID = ctx.model.exprs.Intern(defaultVal, feat.DefaultScope())
+	return feat
 }
 
 // subsettedParameterValue reports a parameter of a usage typeSym subsets or redefines: its
@@ -194,7 +209,7 @@ func (ctx *Context) parameterFeatures(typeSym *symbols.Symbol) []EffectiveFeatur
 	var order []string
 	byName := make(map[string]*symbols.Symbol)
 	for _, member := range ctx.model.semantics.MembersOfIncludingRedefined(typeSym) {
-		if member.Name == "" || !isInputParameter(member) || semantics.IsShapeFeature(member) && !ctx.model.semantics.FrameFeature(member) {
+		if !member.Named() || !isInputParameter(member) || semantics.IsShapeFeature(member) && !ctx.model.semantics.FrameFeature(member) {
 			continue
 		}
 		if _, seen := byName[member.Name]; !seen {
@@ -235,12 +250,18 @@ func (ctx *Context) statedType(featureSym *symbols.Symbol) *symbols.Symbol {
 }
 
 // statedTypes is every type a feature declares (`part x : A, B`), or those of
-// the first feature it specializes that declares any when it declares none.
+// the first feature it specializes that declares any when it declares none; the
+// parameter of its owner's kind base it implicitly redefines types every such
+// parameter and so says nothing about this one.
 func (ctx *Context) statedTypes(featureSym *symbols.Symbol) []*symbols.Symbol {
 	if types := ctx.declaredTypes(featureSym); len(types) > 0 {
 		return types
 	}
+	baseParam := ctx.model.semantics.ImplicitBaseParameter(featureSym)
 	for _, sup := range ctx.model.semantics.AllDeclaredSupertypes(featureSym) {
+		if sup == baseParam {
+			continue
+		}
 		if types := ctx.declaredTypes(sup); len(types) > 0 {
 			return types
 		}
@@ -420,16 +441,7 @@ func knownBound(plain, scoped semantics.Bound) semantics.Bound {
 
 // extractDefaultValue returns the default-value expression for a feature (nil if none).
 func (ctx *Context) extractDefaultValue(featureSym *symbols.Symbol) ast.Node {
-	if oc, ok := ast.OwnedConstraintOf(featureSym.Decl); ok {
-		return oc.Value
-	}
-	switch decl := featureSym.Decl.(type) {
-	case *ast.Usage:
-		return decl.Value // nil if no default
-	case *ast.SubjectMember:
-		return decl.BindingExpr
-	}
-	return nil
+	return lower.DefaultValueOf(featureSym)
 }
 
 // featureMultiplicity is the multiplicity a feature has on owner: a parameter's
@@ -590,9 +602,9 @@ func (ctx *Context) roleRedefiningDefault(sym, typeSym *symbols.Symbol) (ast.Nod
 		return nil, nil
 	}
 	scope := bodyScope(typeSym, typeSym.OwnerScope)
-	for node := range eachUnwrappedDeclMember(typeSym.Decl) {
+	for node := range lower.EachUnwrappedDeclMember(typeSym.Decl) {
 		member := memberSymbol(scope, node)
-		if member == nil || member == sym || member.Name != "" {
+		if member == nil || member == sym || member.Named() {
 			continue
 		}
 		val := ctx.extractDefaultValue(member)

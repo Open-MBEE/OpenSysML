@@ -1,0 +1,1 @@
+- A definition's own valueless end named `source` or `target` (`interface def I { end source : P; end target : P; }`) no longer shadows `Relationship::source` and `target` on the query leg: the member path and the property read answer the ends' types the semantics derives, as an inherited library end already yielded (#2172) and as the pilot exports them.

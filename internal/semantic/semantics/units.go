@@ -839,7 +839,7 @@ func namespacePath(scope *symbols.Scope) string {
 	var parts []string
 	for s := scope; s != nil; s = s.Parent() {
 		owner := s.Owner()
-		if owner == nil || owner.Name == "" {
+		if owner == nil || !owner.Named() {
 			continue
 		}
 		parts = append([]string{owner.Name}, parts...)

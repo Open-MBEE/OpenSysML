@@ -5,6 +5,7 @@ from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Protocol, Tup
 from opensysml.errors import UnresolvedChildError
 from opensysml.capabilities import (
     CAPABILITY_SYMBOL_ATTRIBUTES,
+    CAPABILITY_SYMBOL_ANNOTATING_METADATA,
     CAPABILITY_SYMBOL_MEMBERS,
     require,
     upgrade_remedy,
@@ -25,9 +26,10 @@ if TYPE_CHECKING:
 ATTRIBUTE_KINDS = frozenset({"attributedef", "attributeusage", "referenceusage"})
 PART_KINDS = frozenset({"partdef", "partusage"})
 PORT_KINDS = frozenset({"portdef", "portusage"})
-BINDING_KINDS = frozenset({"bindingusage"})
+# "bindingusage" is what a service before the kind was renamed reports.
+BINDING_KINDS = frozenset({"bindingconnectorasusage", "bindingusage"})
 CONNECTION_KINDS = frozenset({
-    "connectiondef", "connectionusage", "bindingusage", "interfacedef",
+    "connectiondef", "connectionusage", *BINDING_KINDS, "interfacedef",
     "interfaceusage", "flowusage", "allocationdef", "allocationusage",
 })
 
@@ -50,7 +52,9 @@ class Members(List["Symbol"]):
 class SymbolSource(Protocol):
     """What a symbol needs of the connection it navigates through."""
 
-    def get_symbol(self, model_hash: str, symbol_id: str, include_library_members: bool = False) -> Any:
+    def get_symbol(
+        self, model_hash: str, symbol_id: str, include_library_members: bool = False, resolve_name: bool = False,
+    ) -> Any:
         """The ``SymbolInfo`` for an id, or None when the model has no such symbol."""
 
     def server_info(self) -> Any:
@@ -108,6 +112,7 @@ class Symbol:
         self._members_cache: Dict[bool, Members] = {}
         self._own_cache: Optional[Members] = None
         self._walked_cache: Optional[Members] = None
+        self._annotating_cache: Optional[List["Symbol"]] = None
 
     @property
     def inherited(self) -> bool:
@@ -144,7 +149,12 @@ class Symbol:
     
     @property
     def kind(self) -> str:
-        """Return SysML element kind."""
+        """Return the declaration keyword kind, e.g. ``partDef`` or ``actionUsage``.
+
+        This is the written syntax, not the element's metaclass; for the
+        metaclass and every property that classifies the element, see
+        :meth:`element_properties`.
+        """
         return self._pb.kind
     
     @property
@@ -155,13 +165,26 @@ class Symbol:
         ``multiplicity``, ``direction``, ``specializes``, ``abstract``,
         ``variation`` (a variation definition or usage, or an enumeration
         definition; always ``abstract`` too) and ``variant`` (a variant usage
-        or an enumerated value), each flag ``"true"``.
+        or an enumerated value), each flag ``"true"``. A send action (kind
+        ``sendActionUsage``) also carries ``payload``, ``sender`` (its ``via``)
+        and ``receiver`` (its ``to``), each the expression as written and
+        present only when the send writes it.
+
+        These summarise what is written: ``type`` and ``specializes`` are the
+        first written edge of each (:attr:`specializations` has them all) and
+        ``direction`` the direction written on the feature; the derived
+        ``Feature::direction`` is :meth:`element_properties` ``direction``.
         """
         return dict(self._pb.metadata)
     
     @property
     def type_facts(self) -> Optional[TypeFacts]:
-        """Return the symbol's static type, or None when it carries no type."""
+        """Return the symbol's static type, or None when it carries no type.
+
+        :attr:`TypeFacts.declared` is the typing as written and
+        :attr:`TypeFacts.types` the derived ``Feature::type``, the ``type``
+        property of :meth:`element_properties`.
+        """
         if not self._pb.HasField("type_info"):
             return None
         return TypeFacts.from_pb(self._pb.type_info)
@@ -175,7 +198,13 @@ class Symbol:
 
     @property
     def specializations(self) -> List[Specialization]:
-        """Return all generalization edges declared on this symbol."""
+        """Return all generalization edges written on this symbol, in order.
+
+        Typing, subsetting, reference subsetting, redefinition and
+        specialization as written; the ``ownedSpecialization`` property of
+        :meth:`element_properties` reflects them, with the implied ones the
+        metamodel adds.
+        """
         return [Specialization.from_pb(spec) for spec in self._pb.specializations]
 
     @property
@@ -385,6 +414,44 @@ class Symbol:
         """
         return self.members(None, inherited, library)
 
+    def annotating_metadata(self) -> List["Symbol"]:
+        """Return the metadata usages annotating this symbol.
+
+        The inverse of KerML ``AnnotatingElement::annotatedElement``: the usages
+        this symbol owns, written as a ``#M`` prefix or as ``@M`` /
+        ``metadata m : M`` in its body, then the ones naming it in an ``about``
+        clause anywhere in the workspace (``metadata m : M about Pump;``), each
+        in declaration order. An ``about`` usage is a member of the namespace it
+        is written in, not of what it annotates, so :meth:`children` and
+        :meth:`members` do not list it; this does.
+
+        Each result is an ordinary :class:`Symbol`: its :attr:`type_facts` name
+        the metadata definition and its :meth:`attribute_facts` read the values
+        the annotation binds.
+
+        Returns:
+            list of Symbol objects of kind ``metadataUsage``; empty if no client
+            is set
+
+        Raises:
+            MissingCapabilityError: the service lacks
+                ``symbol_annotating_metadata`` and reports no annotating metadata
+            UnresolvedChildError: the service listed a usage it then could not
+                resolve
+        """
+        if self._client is None:
+            return []
+        require(
+            self._client.server_info(),
+            CAPABILITY_SYMBOL_ANNOTATING_METADATA,
+            upgrade_remedy(CAPABILITY_SYMBOL_ANNOTATING_METADATA),
+        )
+        if self._annotating_cache is None:
+            self._annotating_cache = self._fetch_all(
+                (usage_id, None) for usage_id in self._pb.annotating_metadata_ids
+            )
+        return list(self._annotating_cache)
+
     def attributes(self, inherited: bool = True, library: bool = False) -> Members:
         """Return attribute members: ``attributeDef``, ``attributeUsage`` and
         ``referenceUsage``.
@@ -470,7 +537,7 @@ class Symbol:
         return self.members(PORT_KINDS, inherited, library)
 
     def bindings(self, inherited: bool = False, library: bool = False) -> Members:
-        """Return binding members (``bindingUsage``), own by default and the
+        """Return binding members (``bindingConnectorAsUsage``), own by default and the
         inherited ones with ``inherited=True``. See :meth:`members`."""
         return self.members(BINDING_KINDS, inherited, library)
 

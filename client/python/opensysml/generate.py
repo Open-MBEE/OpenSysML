@@ -69,7 +69,7 @@ FEATURE_KINDS = frozenset(
 
 # The generalization edges that make one element a kind of another. A typing edge
 # is the element's type, not a supertype of it, so it is not one of these.
-GENERALIZATION_KINDS = frozenset({"specializes", "subsets", "redefines"})
+GENERALIZATION_KINDS = frozenset({"specializes", "subsets", "redefines", "references"})
 
 # How far a generalization chain is followed for a fact a declaration leaves out.
 MAX_GENERALIZATION_DEPTH = 16
@@ -191,7 +191,12 @@ def _collect(symbol, out: List[Definition], facts_by_id: Dict[str, SymbolFacts])
 def _with_inherited_facts(
     definition: Definition, facts_by_id: Dict[str, SymbolFacts]
 ) -> Definition:
-    """Fill in each feature's type and multiplicity from what it redefines."""
+    """Fill in each feature's type and multiplicity from what it generalizes.
+
+    The type comes from the service's derived ``TypeFacts.types`` (KerML
+    ``Feature::type``); the walk over the specializations is the fallback for a
+    service that predates it, and still supplies the inherited multiplicity.
+    """
     features = tuple(
         Feature(_resolved_facts(feature.facts, facts_by_id)) for feature in definition.features
     )
@@ -203,7 +208,9 @@ def _resolved_facts(
 ) -> SymbolFacts:
     """Return ``facts`` with the type and multiplicity it inherits filled in."""
     type_facts = facts.type
-    if not _names_a_type(type_facts):
+    if not _names_a_type(type_facts) and type_facts is not None and type_facts.types:
+        type_facts = _derived_type(type_facts)
+    elif not _names_a_type(type_facts):
         inherited = _inherited(
             facts,
             facts_by_id,
@@ -248,6 +255,12 @@ def _inherited(
 def _names_a_type(type_facts: Optional[TypeFacts]) -> bool:
     """Whether type facts name a type, as opposed to only classifying one."""
     return type_facts is not None and bool(type_facts.resolved_id or type_facts.declared)
+
+
+def _derived_type(type_facts: TypeFacts) -> TypeFacts:
+    """Resolve the type to the most specific of the service's derived types."""
+    derived = type_facts.types[0]
+    return replace(type_facts, resolved_id=derived.id, resolved_kind=derived.kind)
 
 
 def _merged_type(own: Optional[TypeFacts], inherited: TypeFacts) -> TypeFacts:

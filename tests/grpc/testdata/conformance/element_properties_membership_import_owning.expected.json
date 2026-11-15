@@ -1,0 +1,42 @@
+{
+  "rpc": "GetElementProperties",
+  "model": "element_properties_membership_import.sysml",
+  "element_id": "Plant__spare_om",
+  "properties": [
+    "memberElement",
+    "memberName",
+    "visibility",
+    "ownedMemberName"
+  ],
+  "expected_properties": [
+    {
+      "name": "memberElement",
+      "defining_class": "Membership",
+      "values": [
+        "Plant::spare"
+      ]
+    },
+    {
+      "name": "memberName",
+      "defining_class": "Membership",
+      "values": [
+        "spare"
+      ]
+    },
+    {
+      "name": "visibility",
+      "defining_class": "Membership",
+      "values": [
+        "private"
+      ]
+    },
+    {
+      "name": "ownedMemberName",
+      "defining_class": "OwningMembership",
+      "derived": true,
+      "values": [
+        "spare"
+      ]
+    }
+  ]
+}

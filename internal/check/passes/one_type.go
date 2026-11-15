@@ -12,17 +12,20 @@ import (
 
 const msgEnumerationAttributeTypes = "An enumeration attribute cannot have more than one type."
 
+// msgRequirementOneType is the one message of every usage kind that is a RequirementUsage.
+const msgRequirementOneType = "A requirement must be typed by one requirement definition."
+
 // Pilot SysMLValidator (2026-05) checkOneType: these usage kinds are typed by
 // exactly one definition, so a second declared type is an error. Messages are the
 // reference's, per metaclass: a concern, objective or satisfy is a RequirementUsage.
 var oneTypeUsageMessages = map[ast.UsageKind]string{
 	ast.UsageCalc:             "A calculation must be typed by one calculation definition.",
 	ast.UsageConstraint:       "A constraint must be typed by one constraint definition.",
-	ast.UsageRequirement:      "A requirement must be typed by one requirement definition.",
-	ast.UsageObjective:        "A requirement must be typed by one requirement definition.",
-	ast.UsageSatisfy:          "A requirement must be typed by one requirement definition.",
-	ast.UsageConcern:          "A requirement must be typed by one requirement definition.",
-	ast.UsageFramedConcern:    "A requirement must be typed by one requirement definition.",
+	ast.UsageRequirement:      msgRequirementOneType,
+	ast.UsageObjective:        msgRequirementOneType,
+	ast.UsageSatisfy:          msgRequirementOneType,
+	ast.UsageConcern:          msgRequirementOneType,
+	ast.UsageFramedConcern:    msgRequirementOneType,
 	ast.UsageCase:             "A case must be typed by one case definition.",
 	ast.UsageAnalysisCase:     "An analysis case must be typed by one analysis case definition.",
 	ast.UsageVerificationCase: "A verification case must be typed by one verification case definition.",

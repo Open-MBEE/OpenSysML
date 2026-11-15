@@ -35,15 +35,13 @@ func (sc *Context) membersOf(sym *symbols.Symbol, includeLibrary bool) ([]*Membe
 	own := make(map[*symbols.Symbol]bool)
 	// The own members are the scope's, exactly as child_ids lists them: a `#M`
 	// prefix is owned through its Annotation yet navigable like any member.
-	if sym.Scope != nil {
-		for _, member := range sym.Scope.AllMembers() {
-			id := sc.Identity(member)
-			if id == "" {
-				continue
-			}
-			own[member] = true
-			out = append(out, &Member{Id: id, Name: member.Name, Kind: member.Kind.String(), Library: sc.libraryDeclared(sym)})
+	for _, member := range sc.ownedMembers(sym) {
+		id := sc.ownedIdentity(member)
+		if id == "" {
+			continue
 		}
+		own[member] = true
+		out = append(out, &Member{Id: id, Name: sc.Semantics.EffectiveNameOf(member), Kind: member.Kind.String(), Library: sc.libraryDeclared(sym)})
 	}
 	for _, member := range sc.Semantics.Members(sym) {
 		if !member.Inherited || own[member.Symbol] {
@@ -59,13 +57,15 @@ func (sc *Context) membersOf(sym *symbols.Symbol, includeLibrary bool) ([]*Membe
 		if source == nil {
 			source = sym
 		}
-		if sc.libraryDeclared(source) && !includeLibrary {
+		// A parameter the library gives a behavior (`result`, `verdict`) is part
+		// of its signature, so it is listed as a declared `return r` is.
+		if sc.libraryDeclared(source) && !includeLibrary && !parameterMemberships[sc.Semantics.MembershipMetaclassOf(sym, member.Symbol)] {
 			withheld++
 			continue
 		}
 		info := &Member{
 			Id:            id,
-			Name:          member.Symbol.Name,
+			Name:          sc.Semantics.EffectiveNameOf(member.Symbol),
 			Kind:          member.Symbol.Kind.String(),
 			Inherited:     true,
 			InheritedFrom: sc.Index.GetFQN(source),
@@ -74,4 +74,14 @@ func (sc *Context) membersOf(sym *symbols.Symbol, includeLibrary bool) ([]*Membe
 		out = append(out, info)
 	}
 	return out, withheld
+}
+
+// parameterMemberships is ParameterMembership and its specializations (SysML v2
+// §8.3.21.11, §8.3.21.1, §8.3.21.12; KerML §8.3.4.6 ReturnParameterMembership).
+var parameterMemberships = map[string]bool{
+	"ParameterMembership":       true,
+	"ReturnParameterMembership": true,
+	"SubjectMembership":         true,
+	"ActorMembership":           true,
+	"StakeholderMembership":     true,
 }

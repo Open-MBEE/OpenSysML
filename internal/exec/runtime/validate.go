@@ -465,6 +465,11 @@ func (ctx *Context) bindingVerdicts(obj *validatedObject) []ObjectVerdict {
 			}
 			seen[key] = true
 			sym := memberSymbol(binding.Scope, binding.Decl)
+			// The library spells a check's assertion `binding result = trueValue`
+			// (Performances::trueEvaluations); the verdict on the check itself decides it.
+			if ctx.libraryDeclared(binding.Scope.Owner()) && bindsResult(binding) {
+				continue
+			}
 			constrains, err := ctx.constrainingBinding(obj.inst, binding)
 			if err == nil && !constrains {
 				continue
@@ -478,6 +483,16 @@ func (ctx *Context) bindingVerdicts(obj *validatedObject) []ObjectVerdict {
 		}
 	}
 	return verdicts
+}
+
+// bindsResult reports whether a binding has the holder's own `result` as an end.
+func bindsResult(binding lower.Binding) bool {
+	for _, end := range binding.Ends {
+		if end.Path == "result" && len(end.Via) == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // Asserted is one assertion a type states about every object of it: an
@@ -517,7 +532,7 @@ func (ctx *Context) AssertionsOf(typ *symbols.Symbol, scope *symbols.Scope) []As
 		if sym == nil {
 			continue
 		}
-		if sym.Name != "" {
+		if sym.Named() {
 			if effective == nil {
 				effective = ctx.effectiveMembers(typ)
 			}
@@ -593,7 +608,7 @@ func assertionText(usage *ast.Usage, sym *symbols.Symbol) string {
 	if usage.Keyword != "" {
 		parts = append(parts, usage.Keyword)
 	}
-	if sym != nil && sym.Name != "" {
+	if sym != nil && sym.Named() {
 		parts = append(parts, source.NameText(sym.Name))
 	}
 	return strings.Join(parts, " ")

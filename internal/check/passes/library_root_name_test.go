@@ -11,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 func libraryRootNameDiags(t *testing.T, src string) int {
@@ -61,6 +62,7 @@ func TestLibraryRootNameCorpus(t *testing.T) {
 	if err := ld.LoadAll(idx); err != nil {
 		t.Fatalf("load the library: %v", err)
 	}
+	subset := corpussubset.Must(t, "../../..")
 	var files []string
 	for _, dir := range []string{"../../../examples", "../../../tests/testdata"} {
 		err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
@@ -74,7 +76,7 @@ func TestLibraryRootNameCorpus(t *testing.T) {
 				}
 				return nil
 			}
-			if strings.HasSuffix(path, ".sysml") || strings.HasSuffix(path, ".kerml") {
+			if (strings.HasSuffix(path, ".sysml") || strings.HasSuffix(path, ".kerml")) && subset.WantsPath("../../../examples", path) {
 				files = append(files, path)
 			}
 			return nil

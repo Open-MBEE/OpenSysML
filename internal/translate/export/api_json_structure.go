@@ -130,11 +130,11 @@ func apiJSONEvaluationGraph(graph *rdf.Graph) *rdf.Graph {
 		add(subject, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(metaclass))
 		add(subject, rdf.SysMLTerm("elementId"), rdf.String(id))
 		add(subject, rdf.SysMLTerm("isLibraryElement"), rdf.Bool(true))
-		if library.Symbol.Name != "" {
+		if library.Symbol.Named() {
 			add(subject, rdf.SysMLTerm("declaredName"), rdf.String(library.Symbol.Name))
 		}
 		if library.FQN != "" {
-			add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(library.FQN))
+			stateAddress(add, subject, library.FQN)
 		}
 	}
 	triples := make([]rdf.Triple, 0, graph.Len()+len(additions))
@@ -253,7 +253,8 @@ func (s *apiJSONGraphStructure) typeMetaclass(typ string) (string, bool) {
 	if class := apiJSONOwnedAbsenceMetaclassInGraph(s.graph, typ); class != "" {
 		return class, true
 	}
-	if strings.HasPrefix(typ, rdf.OpenSysML) {
+	if strings.HasPrefix(typ, rdf.OpenSysML) && rdf.LocalName(typ) != mNote {
+		// A note is a node of the element whose lines hold it, not an element.
 		return metamodel.ExtensionMetaclassPrefix + strings.TrimPrefix(typ, rdf.OpenSysML), true
 	}
 	return "", false

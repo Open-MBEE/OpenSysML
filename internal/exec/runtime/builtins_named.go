@@ -3,6 +3,7 @@ package runtime
 import (
 	"fmt"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -133,7 +134,7 @@ func builtinControlLogical(op ast.OperatorKind) builtinFunc {
 			if err != nil {
 				return Value{}, err
 			}
-			if decided, result := shortCircuit(op, l); decided {
+			if decided, result := shortCircuit(lower.OperatorOf(op), l); decided {
 				return boolValue(result), nil
 			}
 		}
@@ -145,7 +146,7 @@ func builtinControlLogical(op ast.OperatorKind) builtinFunc {
 		if err != nil {
 			return Value{}, err
 		}
-		return ec.ctx.combineBooleanValues(op, args[0], second)
+		return ec.ctx.combineBooleanValues(lower.OperatorOf(op), args[0], second)
 	}
 }
 

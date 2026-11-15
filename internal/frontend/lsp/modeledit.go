@@ -690,13 +690,13 @@ func palette(kind view.Kind, lang source.Kind) *EditPalette {
 // them; false when sym or a namespace declaring it is unnamed, so no qualified
 // name reaches it.
 func nodeOwners(sym *symbols.Symbol) ([]RenderOwner, bool) {
-	if sym.Name == "" {
+	if !sym.Named() {
 		return nil, false
 	}
 	owners := []RenderOwner{}
 	for scope := sym.OwnerScope; scope != nil && scope.Owner() != nil; scope = scope.Owner().OwnerScope {
 		owner := scope.Owner()
-		if owner.Name == "" {
+		if !owner.Named() {
 			return nil, false
 		}
 		owners = append(owners, RenderOwner{FQN: notationName(owner), Feature: owner.IsFeature()})

@@ -71,11 +71,23 @@ const (
 	// (SysML v2 §8.3.13.7), a ConnectorAsUsage that is not a ConnectionUsage.
 	SymbolSuccessionUsage
 	SymbolFlowUsage
+	// SymbolSuccessionFlowUsage classifies a `succession flow`: a flow usage that
+	// is also a succession (SysML v2 §8.2.2.14 SuccessionFlowUsage).
+	SymbolSuccessionFlowUsage
 	SymbolPortUsage
 	SymbolInterfaceUsage
 	SymbolAllocationUsage
 	// Tier C usages.
 	SymbolActionUsage
+	// An action node is an action usage of its own metaclass, classified by the
+	// statement it is written with (SysML v2 §8.2.2.17 ActionNode).
+	SymbolAcceptActionUsage
+	SymbolAssignmentActionUsage
+	SymbolPerformActionUsage
+	SymbolIfActionUsage
+	SymbolWhileLoopActionUsage
+	SymbolForLoopActionUsage
+	SymbolTerminateActionUsage
 	SymbolStateUsage
 	SymbolCalcUsage
 	SymbolConstraintUsage
@@ -118,6 +130,10 @@ const (
 	// SymbolKerMLFeature classifies a KerML Feature the reflective layer
 	// synthesizes without a declaration: an expression's parameter.
 	SymbolKerMLFeature
+	// SymbolSendActionUsage classifies a send action (`send x via p;`,
+	// `action a send x to q;`): an action usage whose payload, sender and
+	// receiver are its parameters (SysML v2 §8.3.17.15 SendActionUsage).
+	SymbolSendActionUsage
 )
 
 var symbolKindNames = map[SymbolKind]string{
@@ -171,13 +187,21 @@ var symbolKindNames = map[SymbolKind]string{
 	SymbolRenderingUsage:          "renderingUsage",
 	SymbolConcernUsage:            "concernUsage",
 	SymbolConnectionUsage:         "connectionUsage",
-	SymbolBindingUsage:            "bindingUsage",
+	SymbolBindingUsage:            "bindingConnectorAsUsage",
 	SymbolSuccessionUsage:         "successionUsage",
 	SymbolFlowUsage:               "flowUsage",
+	SymbolSuccessionFlowUsage:     "successionFlowUsage",
 	SymbolPortUsage:               "portUsage",
 	SymbolInterfaceUsage:          "interfaceUsage",
 	SymbolAllocationUsage:         "allocationUsage",
 	SymbolActionUsage:             "actionUsage",
+	SymbolAcceptActionUsage:       "acceptActionUsage",
+	SymbolAssignmentActionUsage:   "assignmentActionUsage",
+	SymbolPerformActionUsage:      "performActionUsage",
+	SymbolIfActionUsage:           "ifActionUsage",
+	SymbolWhileLoopActionUsage:    "whileLoopActionUsage",
+	SymbolForLoopActionUsage:      "forLoopActionUsage",
+	SymbolTerminateActionUsage:    "terminateActionUsage",
 	SymbolStateUsage:              "stateUsage",
 	SymbolCalcUsage:               "calcUsage",
 	SymbolConstraintUsage:         "constraintUsage",
@@ -191,6 +215,7 @@ var symbolKindNames = map[SymbolKind]string{
 	SymbolCrossFeature:            "crossFeature",
 	SymbolKerMLType:               "kermlType",
 	SymbolReferenceUsage:          "referenceUsage",
+	SymbolSendActionUsage:         "sendActionUsage",
 }
 
 // String returns the display name of the kind.
@@ -201,9 +226,15 @@ func (k SymbolKind) String() string {
 	return "unknown"
 }
 
-// Family names the kind without its def/usage distinction, in the notation's words:
-// SymbolActionDef and SymbolActionUsage are both "action", SymbolUseCaseDef "use case".
+// Family names the kind by its keyword, without the def/usage distinction: SymbolActionDef, SymbolActionUsage
+// and every action-node kind are "action", SymbolUseCaseDef "use case", SymbolSuccessionFlowUsage "flow".
 func (k SymbolKind) Family() string {
+	switch {
+	case k.IsActionUsage():
+		return "action"
+	case k == SymbolSuccessionFlowUsage:
+		return "flow"
+	}
 	name := k.String()
 	name = strings.TrimSuffix(strings.TrimSuffix(name, "Def"), "Usage")
 	return spacedWords(name)
@@ -212,12 +243,15 @@ func (k SymbolKind) Family() string {
 // IsFeature reports whether k classifies a KerML Feature (KerML 1.0 §8.3.3): a
 // usage of any kind, a connector end or a multiplicity, never a type or a namespace.
 func (k SymbolKind) IsFeature() bool {
+	if k.IsActionUsage() {
+		return true
+	}
 	switch k {
 	case SymbolPartUsage, SymbolAttributeUsage, SymbolItemUsage, SymbolOccurrenceUsage,
 		SymbolIndividualUsage, SymbolMetadataUsage, SymbolEnumerationUsage, SymbolViewUsage,
 		SymbolViewpointUsage, SymbolRenderingUsage, SymbolConcernUsage, SymbolConnectionUsage,
-		SymbolBindingUsage, SymbolSuccessionUsage, SymbolFlowUsage, SymbolPortUsage, SymbolInterfaceUsage,
-		SymbolAllocationUsage, SymbolActionUsage, SymbolStateUsage, SymbolCalcUsage,
+		SymbolBindingUsage, SymbolSuccessionUsage, SymbolFlowUsage, SymbolSuccessionFlowUsage, SymbolPortUsage,
+		SymbolInterfaceUsage, SymbolAllocationUsage, SymbolStateUsage, SymbolCalcUsage,
 		SymbolConstraintUsage, SymbolRequirementUsage, SymbolSatisfyRequirementUsage,
 		SymbolCaseUsage, SymbolAnalysisCaseUsage, SymbolVerificationCaseUsage, SymbolUseCaseUsage,
 		SymbolConnectorEnd, SymbolCrossFeature, SymbolMultiplicity, SymbolReferenceUsage,
@@ -233,10 +267,26 @@ func (k SymbolKind) IsFeature() bool {
 // the calculation it is.
 func (k SymbolKind) IsAction() bool {
 	switch k {
-	case SymbolActionDef, SymbolActionUsage, SymbolUseCaseDef, SymbolUseCaseUsage:
+	case SymbolActionDef, SymbolUseCaseDef, SymbolUseCaseUsage:
+		return true
+	}
+	return k.IsActionUsage()
+}
+
+// IsActionUsage reports whether k classifies an action usage: a plain one or an action
+// node (a send included), which is an ActionUsage of its own metaclass (SysML v2 §8.2.2.17).
+func (k SymbolKind) IsActionUsage() bool {
+	switch k {
+	case SymbolActionUsage, SymbolSendActionUsage, SymbolAcceptActionUsage, SymbolAssignmentActionUsage, SymbolPerformActionUsage,
+		SymbolIfActionUsage, SymbolWhileLoopActionUsage, SymbolForLoopActionUsage, SymbolTerminateActionUsage:
 		return true
 	}
 	return false
+}
+
+// IsFlowUsage reports whether k classifies a flow usage, a succession flow included.
+func (k SymbolKind) IsFlowUsage() bool {
+	return k == SymbolFlowUsage || k == SymbolSuccessionFlowUsage
 }
 
 // IsAttributeLike reports whether k classifies a usage carrying attribute
@@ -357,9 +407,8 @@ type Symbol struct {
 	Scope      *Scope         // the child scope this declaration owns, or nil for leaves
 	OwnerScope *Scope         // the enclosing scope this declaration was declared in
 
-	// LeadingTrivia is the comment/note trivia attached to the member wrapper
-	// preceding this declaration (captured before unwrap, since wrappers carry
-	// the trivia while the unwrapped inner Decl does not). Used for doc hover.
+	// LeadingTrivia is the comment/note trivia of the member wrapper preceding this
+	// declaration, captured before unwrap since the inner Decl does not carry it.
 	LeadingTrivia []ast.Trivia
 
 	DocName string // name of the document that declares this symbol (stamped after Build)
@@ -375,6 +424,10 @@ type Symbol struct {
 	// ShortName is the short name from Identification (e.g., "kg" for "kilogram").
 	// Empty if the declaration states none.
 	ShortName string
+
+	// EmptyNames tells which of Name and ShortName is the empty name `''`
+	// rather than no name at all (KerML §8.2.2.3).
+	EmptyNames EmptyNames
 
 	// Naming records how the symbol came by its Name: declared, or derived
 	// from its naming feature (KerML 7.3.4.5 Feature::effectiveName).
@@ -393,6 +446,26 @@ type Symbol struct {
 	// Chain is the chain target this symbol denotes as a feature, or nil for
 	// every ordinary symbol (see ChainingFeature).
 	Chain *ChainingFeature
+}
+
+// EmptyNames is the set of a symbol's identifiers that are the empty name.
+type EmptyNames uint8
+
+const (
+	// EmptyName: Name is the empty name, by which the symbol is a named member.
+	EmptyName EmptyNames = 1 << iota
+	// EmptyShortName: ShortName is the empty name.
+	EmptyShortName
+)
+
+// Named reports whether the symbol has a name, the empty unrestricted name included.
+func (s *Symbol) Named() bool {
+	return s.Name != "" || s.EmptyNames&EmptyName != 0
+}
+
+// HasShortName reports whether the symbol has a short name, the empty one included.
+func (s *Symbol) HasShortName() bool {
+	return s.ShortName != "" || s.EmptyNames&EmptyShortName != 0
 }
 
 // Naming tells where a symbol's Name comes from.

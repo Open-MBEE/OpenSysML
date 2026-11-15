@@ -148,7 +148,7 @@ func recordStems(caseSym *symbols.Symbol, short string) []string {
 		return stems
 	}
 	var owners []string
-	for cur := caseSym.Owner(); cur != nil && cur.Name != ""; cur = cur.Owner() {
+	for cur := caseSym.Owner(); cur != nil && cur.Named(); cur = cur.Owner() {
 		owners = append([]string{cur.Name}, owners...)
 		stems = append(stems, strings.Join(append(append([]string{}, owners...), short), "_"))
 	}
@@ -254,7 +254,7 @@ func Attributes(idx *symbols.Index, sem *semantics.Model, def *symbols.Symbol) m
 		return attrs
 	}
 	for _, m := range def.Scope.Members() {
-		if m.Name == "" || !m.IsFeature() {
+		if !m.Named() || !m.IsFeature() {
 			continue
 		}
 		f := Feature{}

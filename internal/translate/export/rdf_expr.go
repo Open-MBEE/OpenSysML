@@ -7,6 +7,7 @@ package export
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"math"
 	"math/big"
 	"slices"
@@ -485,7 +486,7 @@ func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, body *ast.
 	e.graph.Add(node, e.sysml(pElementID), rdf.String(rdf.LocalName(node.Value)))
 	e.graph.Add(node, e.sysx(xMemberIndex), rdf.Int(index))
 	e.graph.Add(node, e.sysml(pDirection), rdf.String(directionKeyword(ast.DirIn)))
-	e.name(node, param.Name)
+	e.name(node, param.Name, source.Span{})
 	// The parameter's symbol derives its variability; a body it declares as its
 	// node is looked up by the parameter's name (deriveUsageMayTimeVary).
 	var variable, timeVarying bool
@@ -513,7 +514,7 @@ func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, body *ast.
 // bodyMember emits one declaration of an expression body as the member it is:
 // positioned by the body, with no qualified name or namespace of its own.
 func (e *encoder) bodyMember(subject, base rdf.Term, owner string, index int, member ast.Node) error {
-	node, visibility := unwrapMember(member)
+	node, visibility := naming.UnwrapMember(member)
 	if node == nil {
 		return &UnsupportedError{
 			What: fmt.Sprintf("the empty member at %s", e.where(member)),
@@ -1010,7 +1011,7 @@ func isExpressionRoot(metaclass string) bool {
 // isExpressionNode reports whether a subject is part of a declaration (an expression
 // node or a body declaration): unowned, in the expression namespace or an unnamed expression class.
 func (d *decoder) isExpressionNode(subject rdf.Term) bool {
-	if !subject.IsIRI() {
+	if !subject.IsIRI() || d.isNote(subject) {
 		return false
 	}
 	if mappingExpressionBodyMemberSubject(d.graph, subject) {
@@ -1139,6 +1140,17 @@ func (d *decoder) valueOwner(triple rdf.Triple, valueTargets map[string]string, 
 	return feature, false, nil
 }
 
+// derivedConnectorFeature reports a connector's relatedFeature, sourceFeature, targetFeature and the
+// relatedElement, source, target they redefine, which restate what its ends reference and carry no notation.
+func (d *decoder) derivedConnectorFeature(triple rdf.Triple) bool {
+	switch triple.Predicate.Value {
+	case rdf.SysML + pRelatedFeature, rdf.SysML + pSourceFeature, rdf.SysML + pTargetFeature,
+		rdf.SysML + pRelatedElement, rdf.SysML + pSource, rdf.SysML + pTarget:
+		return ontology.IsAncestorOrSelf(d.metaclass(triple.Subject), "Connector")
+	}
+	return false
+}
+
 // resolveExpression renders one triple's expression-valued property as notation
 // on the element it belongs to.
 func (d *decoder) resolveExpression(triple rdf.Triple, parents map[string][]rdf.Term, valueTargets map[string]string, directValues map[string]rdf.Term) error {
@@ -1156,6 +1168,9 @@ func (d *decoder) resolveExpression(triple rdf.Triple, parents map[string][]rdf.
 	}
 	if triple.Predicate.Value == rdf.SysML+pReferences &&
 		d.graph.BoolValue(triple.Subject, rdf.SysML+pIsEnd) {
+		return nil
+	}
+	if d.derivedConnectorFeature(triple) {
 		return nil
 	}
 	if !d.isExpressionNode(triple.Object) {
@@ -1804,7 +1819,7 @@ func (d *decoder) bodyParameterText(param rdf.Term, in *element) (string, error)
 			Note: fmt.Sprintf("a parameter of an expression body is written `in`, and its sysml:direction is %q", direction),
 		}
 	}
-	name, ok := d.stringOf(el, rdf.SysML+pDeclaredName)
+	name, ok := d.nameOf(el, rdf.SysML+pDeclaredName)
 	if !ok {
 		return "", &UnsupportedError{
 			What: what,

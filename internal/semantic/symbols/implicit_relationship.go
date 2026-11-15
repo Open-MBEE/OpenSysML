@@ -34,6 +34,12 @@ const (
 	// ImplicitFeatureChaining reflects the FeatureChaining a chain feature
 	// Owner holds to one Member of its chain, at Slot `fc%d` (KerML 8.3.3.3.3).
 	ImplicitFeatureChaining
+	// ImplicitMetadataBodyRedefinition reflects the Redefinition a metadata body
+	// feature Owner implies to the Member its name restates (SysML.xtext MetadataBodyUsage).
+	ImplicitMetadataBodyRedefinition
+	// ImplicitSuccessionEndReference reflects the ReferenceSubsetting the target end Owner of a
+	// `then x;` succession holds to the Member it reaches, as the conversion mints it (end1's `rs`).
+	ImplicitSuccessionEndReference
 )
 
 // ImplicitRelationship is a relationship the abstract syntax holds as an
@@ -48,7 +54,7 @@ type ImplicitRelationship struct {
 	Node       *ast.Relationship    // the written edge; nil when Owner is recorded
 	Form       ImplicitForm         // what the relationship is
 	Member     *Symbol              // the element at the other end of a membership or annotation
-	Decl       ast.Node             // the import declaration of an ImplicitImport
+	Decl       ast.Node             // the import declaration of an ImplicitImport, the `first x;` marker of an ImplicitReferenceMembership
 	Slot       string               // the position the conversion names an ImplicitReferenceMembership by
 }
 

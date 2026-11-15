@@ -27,6 +27,7 @@ function facts(over: Partial<TypeFacts> = {}): TypeFacts {
     primitiveSource: "",
     quantity: false,
     unit: "",
+    types: [],
     ...over,
   };
 }
@@ -444,4 +445,23 @@ test("serviceAddress names an external service only when asked", () => {
   assert.equal(serviceAddress("[::1]:50100"), "[::1]:50100");
   assert.throws(() => serviceAddress("elsewhere:50100", 50051), RangeError);
   assert.throws(() => serviceAddress("elsewhere:abc"), RangeError);
+});
+
+test("collectDefinitions takes the type the service derives for a subsetting feature", async () => {
+  const engine = new FakeSymbol("Demo::Engine", "Engine", "partDef");
+  const own = Object.assign(new FakeSymbol("Demo::Car::engine", "engine", "partUsage"), {
+    type: facts({ declared: "Engine", resolvedId: "Demo::Engine", resolvedKind: "partDef" }),
+  });
+  const spare = Object.assign(new FakeSymbol("Demo::Car::spare", "spare", "partUsage"), {
+    type: facts({ types: [{ id: "Demo::Engine", kind: "partDef" }] }),
+    specializations: [specialization("references", "Demo::Car::engine", "engine")],
+  });
+  const car = new FakeSymbol("Demo::Car", "Car", "partDef", [own, spare]);
+  const root = new FakeSymbol("Demo", "Demo", "package", [car, engine]);
+
+  const definitions = await collectDefinitions(root);
+  const resolved = definitions.find((definition) => definition.id === "Demo::Car")?.features[1];
+  assert.equal(resolved?.type?.declared, "");
+  assert.equal(resolved.type.resolvedId, "Demo::Engine");
+  assert.equal(resolved.type.resolvedKind, "partDef");
 });

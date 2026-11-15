@@ -16,9 +16,9 @@ import (
 // Token represents a control token in action execution. It carries no values of
 // its own: the action's features are one space every token shares (see ActionExecutor.Data).
 type Token struct {
-	ID              int64    // Unique token ID
-	Location        ast.Node // Current node position
-	repetition      int64    // Nonzero when this token is one performance of a repeated step.
+	ID              int64   // Unique token ID
+	Location        NodeRef // Current node position, by id in its flow
+	repetition      int64   // Nonzero when this token is one performance of a repeated step.
 	repetitionGroup repetitionGroupID
 
 	// Via is the succession the token travelled to reach Location; the zero edge for a
@@ -91,13 +91,25 @@ func (t *Token) underControl(by []int64, ends map[ast.Node]bool) {
 
 // Within lists the nested action nodes whose own flows the token runs in,
 // outermost first; empty for a token in the action's own flow.
-func (t Token) Within() []ast.Node {
+func (t Token) Within() []NodeRef {
 	return t.frame.within()
+}
+
+// Node is the declaration the token stands at: its node, or the action itself for
+// the token of a state-space run, which stands at no node of the flow.
+func (t Token) Node() ast.Node {
+	if node := t.Location.Node(); node != nil {
+		return node
+	}
+	if t.frame != nil && t.frame.perfs != nil && t.frame.perfs.flow != nil && t.frame.perfs.flow.dynamics != nil {
+		return t.frame.perfs.flow.dynamicsNode()
+	}
+	return nil
 }
 
 // travel moves the token along a succession in the given sweep, recording the one it arrived over.
 func (t *Token) travel(edge lower.ActionEdge, sweep uint64) {
-	t.Location = edge.Target
+	t.Location = refOf(t.Location.Graph, edge.Target)
 	t.Via = edge
 	t.moved = sweep
 	if slices.ContainsFunc(t.control, func(c tokenControl) bool { return c.ends[edge.Target] }) {

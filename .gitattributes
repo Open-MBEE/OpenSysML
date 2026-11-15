@@ -23,4 +23,6 @@ tests/export/testdata/**/*.sha256                linguist-generated=true
 
 # Measured baselines and binary build inputs
 docs/project/*-baseline.json                     linguist-generated=true
+docs/project/hideo-suite-baseline.tsv            linguist-generated=true
+docs/project/api-json-differential/**/*.json    linguist-generated=true
 cmd/*/default.pgo                                linguist-generated=true -diff

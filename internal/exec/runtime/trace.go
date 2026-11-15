@@ -167,6 +167,9 @@ func (r TraceRecord) Line() (line string, printed bool) {
 		}
 		return fmt.Sprintf("exit: %s", r.State), true
 	case TraceDo:
+		if r.Action {
+			return fmt.Sprintf("do: %s (entry action)", r.State), true
+		}
 		return fmt.Sprintf("do: %s", r.State), true
 	case TraceChoice, TraceGuard:
 		return r.Note.String(), true
@@ -201,21 +204,7 @@ func (r TraceRecord) Text() string {
 // Machine names the behavior a record came from as its object exhibits it, or
 // as declared when it is anonymous or the record has no object.
 func (r TraceRecord) Machine() string {
-	behavior := r.Origin.Behavior
-	if behavior == nil {
-		return ""
-	}
-	if r.Origin.Object != nil {
-		for _, b := range r.Origin.Object.Behaviors() {
-			if b.Symbol == behavior || (b.State != nil && b.State.StateMachineSymbol() == behavior) {
-				if b.Name != "" {
-					return b.Name
-				}
-				break
-			}
-		}
-	}
-	return behavior.Name
+	return machineName(r.Origin.Object, r.Origin.Behavior)
 }
 
 // PayloadTexts renders a message payload as `name = value` entries in name order.
@@ -272,6 +261,12 @@ func NewEventRecorder(limit int) *TraceRecorder {
 		queryOnly: true,
 		limit:     max(limit, 0),
 	}
+}
+
+// SetQueryOnly stops the recorder keeping the lines a trace prints, or has it
+// keep them again; the records it holds stay either way.
+func (tr *TraceRecorder) SetQueryOnly(queryOnly bool) {
+	tr.queryOnly = queryOnly
 }
 
 // disable disables trace recording.
@@ -332,7 +327,7 @@ func (tr *TraceRecorder) recordActionStep(step int, tokens []Token) {
 	// Format: step N: token T1@node1, token T2@node2
 	var parts []string
 	for _, t := range sorted {
-		nodeName := nodeIdentifier(t.Location)
+		nodeName := nodeIdentifier(t.Node())
 		parts = append(parts, fmt.Sprintf("token %d@%s", t.ID, nodeName))
 	}
 
@@ -499,7 +494,7 @@ func (tr *TraceRecorder) recordActionTerminate(perf string, dropped []Token) {
 	}
 	parts := make([]string, 0, len(dropped))
 	for _, t := range dropped {
-		parts = append(parts, fmt.Sprintf("token %d@%s", t.ID, nodeIdentifier(t.Location)))
+		parts = append(parts, fmt.Sprintf("token %d@%s", t.ID, nodeIdentifier(t.Node())))
 	}
 	tr.line(fmt.Sprintf("terminate %s: dropped %s", perf, strings.Join(parts, ", ")))
 }
@@ -628,6 +623,11 @@ func (tr *TraceRecorder) record(entry string) {
 // interleaving of concurrently active states' do behaviors becomes visible.
 func (tr *TraceRecorder) recordDoStep(origin TraceOrigin, state, path, region string) {
 	tr.add(TraceRecord{Kind: TraceDo, Origin: origin, State: state, Path: path, Region: region})
+}
+
+// recordEntryStep records one action of a state's parked entry behavior gone on with in a do round.
+func (tr *TraceRecorder) recordEntryStep(origin TraceOrigin, state, path, region string) {
+	tr.add(TraceRecord{Kind: TraceDo, Origin: origin, State: state, Path: path, Region: region, Action: true})
 }
 
 // recordEvent records an event being processed.

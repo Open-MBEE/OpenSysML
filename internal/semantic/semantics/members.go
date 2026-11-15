@@ -1,7 +1,9 @@
 package semantics
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"slices"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
@@ -315,11 +317,81 @@ func (m *Model) positionallyNamedParameters(owner *symbols.Symbol) []*symbols.Sy
 	}
 	var out []*symbols.Symbol
 	for _, param := range ownedParameters(owner) {
-		member := param.sym
-		if member.Naming != symbols.NamedByDeclaration || declaresIdentifier(member) || m.EffectiveNameOf(member) == "" {
-			continue
+		if m.positionallyNamed(param.sym) {
+			out = append(out, param.sym)
 		}
-		out = append(out, member)
 	}
 	return out
+}
+
+// PositionallyNamed reports whether sym is a parameter declared without a name of
+// its own that answers to the name of the parameter its position redefines.
+func (m *Model) PositionallyNamed(sym *symbols.Symbol) bool {
+	if m == nil || sym == nil || !m.positionallyNamed(sym) {
+		return false
+	}
+	for _, param := range ownedParameters(sym.Owner()) {
+		if param.sym == sym {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Model) positionallyNamed(sym *symbols.Symbol) bool {
+	if sym.Naming != symbols.NamedByDeclaration || declaresIdentifier(sym) {
+		return false
+	}
+	_, named := m.EffectiveNamed(sym)
+	return named
+}
+
+// roleNamed reports a usage declared without a name that takes one from the feature its role
+// redefines — an objective's `obj`, a subject's `subject`; a parameter is PositionallyNamed instead.
+func (m *Model) roleNamed(sym *symbols.Symbol) bool {
+	if !m.positionallyNamed(sym) || !sym.IsFeature() {
+		return false
+	}
+	switch sym.Decl.(type) {
+	case *ast.Usage, *ast.SubjectMember:
+		return true
+	}
+	return false
+}
+
+// QualifiedNameOf is Element::qualifiedName (KerML 8.2.4): the owner's qualified
+// name and sym's effective name, so a parameter named by the one its position
+// redefines, or an objective by the `obj` its role redefines, is qualified as a
+// declared name is, and so is a member under either (`T::obj::massRequirement`);
+// "" where sym has no name, an owner naming nothing is skipped as FQNOf skips it.
+func (m *Model) QualifiedNameOf(sym *symbols.Symbol) string {
+	names, _ := m.QualifiedNamesOf(sym)
+	return strings.Join(names, "::")
+}
+
+// QualifiedNamesOf is the names QualifiedNameOf joins, outermost first, and
+// whether sym has one: kept apart they tell the empty name from none.
+func (m *Model) QualifiedNamesOf(sym *symbols.Symbol) ([]string, bool) {
+	if m == nil || sym == nil {
+		return nil, false
+	}
+	name := sym.Name
+	if !sym.Named() {
+		if !m.PositionallyNamed(sym) && !m.roleNamed(sym) {
+			return nil, false
+		}
+		name = m.EffectiveNameOf(sym)
+	}
+	owner := sym.Owner()
+	if owner == nil {
+		return []string{name}, true
+	}
+	ownerNames, ok := m.QualifiedNamesOf(owner)
+	if !ok {
+		if !sym.Named() {
+			return nil, false
+		}
+		return symbols.NameChain(sym), true
+	}
+	return append(ownerNames, name), true
 }

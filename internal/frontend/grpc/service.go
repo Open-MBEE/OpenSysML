@@ -88,6 +88,10 @@ const CapabilityQueryOrderBy = "query_order_by"
 // which runs a named document query and answers with typed rows.
 const CapabilityDocumentQuery = "document_query"
 
+// CapabilityInlineDocumentQuery names RunDocumentQueryRequest.inline_query: a
+// query expression run in place of a named query, planned by the same compiler.
+const CapabilityInlineDocumentQuery = "inline_document_query"
+
 // CapabilityRenderDocument names the capability of the RenderDocument RPC,
 // which renders a named document to Markdown.
 const CapabilityRenderDocument = "render_document"
@@ -103,6 +107,10 @@ const CapabilityRenderDocumentAsciiDoc = "render_document_asciidoc"
 // CapabilityRenderView names the capability of the RenderView RPC, which
 // renders a declared or targeted pseudo-view as machine-readable diagram data.
 const CapabilityRenderView = "render_view"
+
+// CapabilityRenderViewForm names the capability of RenderViewRequest's form
+// field and writer options, answered in RenderViewResponse.text.
+const CapabilityRenderViewForm = "render_view_form"
 
 // CapabilityExportGraphs names the capability of the ExportGraphs RPC, which
 // exports the lowered graph of an action or state machine as `graphs:1` JSON.
@@ -145,6 +153,14 @@ const CapabilitySymbolAttributes = "symbol_attributes"
 // SymbolInfo.members, the element's members own and inherited with their
 // provenance, and of honouring GetSymbolRequest.include_library_members.
 const CapabilitySymbolMembers = "symbol_members"
+
+// CapabilitySymbolNameResolution names the capability of honouring GetSymbolRequest.resolve_name;
+// without it symbol_id is read as an id the service reported, as a service predating the field reads it.
+const CapabilitySymbolNameResolution = "symbol_name_resolution"
+
+// CapabilitySymbolAnnotatingMetadata names the capability of populating
+// SymbolInfo.annotating_metadata_ids, the metadata usages annotating the element.
+const CapabilitySymbolAnnotatingMetadata = "symbol_annotating_metadata"
 
 // CapabilityUnsetValue names the capability of reporting a valueless feature of
 // a value type as Value.unset, rather than as the empty object it materializes.
@@ -427,6 +443,10 @@ var capabilities = []string{
 	CapabilityOrderDependence,
 	CapabilityVerdictNotes,
 	CapabilityElementProperties,
+	CapabilityInlineDocumentQuery,
+	CapabilitySymbolNameResolution,
+	CapabilityRenderViewForm,
+	CapabilitySymbolAnnotatingMetadata,
 }
 
 type capabilityAvailability struct {
@@ -614,12 +634,19 @@ func newService(cacheSize int, version string, opts []Option) (*Service, error) 
 // Prewarm starts building the service's standard library index in the
 // background, so the first model to arrive is not the one that pays for the
 // library. It returns immediately and is safe to call more than once.
-func (s *Service) Prewarm() {
+func (s *Service) Prewarm() <-chan struct{} {
 	if !s.prewarm {
-		return
+		return closedChannel
 	}
-	s.libIndexes.prewarm()
+	return s.libIndexes.prewarm()
 }
+
+// closedChannel is what Prewarm answers when there is nothing to wait for.
+var closedChannel = func() chan struct{} {
+	done := make(chan struct{})
+	close(done)
+	return done
+}()
 
 // Close waits for a background library build in flight and releases the
 // service's reference to the shared index. The service still answers
@@ -1039,7 +1066,8 @@ func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceM
 	return modelHash, store(modelHash, model)
 }
 
-// GetSymbol retrieves symbol information by FQN
+// GetSymbol retrieves symbol information by id, or by qualified name resolved
+// from the root namespace when the request asks for that.
 func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.SymbolResponse, error) {
 	// Lookup cached model
 	cached, ok := s.cache.Get(req.ModelHash)
@@ -1047,8 +1075,13 @@ func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.
 		return nil, statusErrorf(connect.CodeNotFound, msgModelNotFound, req.ModelHash)
 	}
 
-	// Lookup symbol by FQN or positional identity
-	syms := cached.LookupSymbol(req.SymbolId)
+	// An id the service reported denotes that element; a name is resolved.
+	var syms []*symbols.Symbol
+	if req.ResolveName && s.capabilities.has(CapabilitySymbolNameResolution) {
+		syms = cached.ResolveName(req.SymbolId)
+	} else {
+		syms = cached.LookupSymbol(req.SymbolId)
+	}
 	if len(syms) == 0 {
 		return &pb.SymbolResponse{
 			Error: fmt.Sprintf("symbol not found: %s", req.SymbolId),
@@ -1269,7 +1302,7 @@ func (s *Service) Evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.Ev
 	}
 
 	return &pb.EvaluateResponse{
-		Result: s.valueToProto(runtimeCtx, result, cached.Index),
+		Result: s.valueToProto(runtimeCtx, result, cached),
 	}, nil
 }
 
@@ -1316,7 +1349,7 @@ func (s *Service) Instantiate(ctx context.Context, req *pb.InstantiateRequest) (
 	// part of the creation: past the held-objects bound, none of them stays.
 	var graph protoconv.InstanceGraph
 	inst, err := runtimeCtx.InstantiateRead(sym, func(inst *runtime.Instance) error {
-		graph = s.instanceGraphToProto(runtimeCtx, inst, cached.Index)
+		graph = s.instanceGraphToProto(runtimeCtx, inst, cached)
 		for _, err := range graph.Errors {
 			if errors.Is(err, runtime.ErrInstanceLimitExceeded) {
 				return err
@@ -1407,7 +1440,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 			if err := s.requireValueCapabilities(pv); err != nil {
 				return nil, nil, err
 			}
-			val, cerr := protoconv.ProtoToRuntimeValue(ctx, pv, cached.Index, ctx.Semantics())
+			val, cerr := protoconv.ProtoToRuntimeValueWith(ctx, pv, cached.Index, ctx.Semantics(), cached.SymbolContext())
 			if cerr != nil {
 				return nil, &pb.ExecuteActionResponse{
 					Error: fmt.Sprintf("input %q could not be read: %v", name, cerr),
@@ -1456,12 +1489,12 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 	self, err := s.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
+		trace, dropped := s.traceToProto(runtimeCtx, cached, traceRecorder)
 		return &pb.ExecuteActionResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped}, nil
 	}
 	events, err := eventMessages(cached, runtimeCtx, action, req.Events, self)
 	if err != nil {
-		trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
+		trace, dropped := s.traceToProto(runtimeCtx, cached, traceRecorder)
 		return &pb.ExecuteActionResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped}, nil
 	}
 
@@ -1475,7 +1508,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	// The choices the run made are reported with its outcome, failed or not: a
 	// failure may hang on the order taken.
 	diags := s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached))
-	trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
+	trace, dropped := s.traceToProto(runtimeCtx, cached, traceRecorder)
 	if err != nil {
 		return &pb.ExecuteActionResponse{
 			Error:        fmt.Sprintf("action execution failed: %v", err),
@@ -1487,10 +1520,10 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 
 	return &pb.ExecuteActionResponse{
-		Outputs:             s.valuesToProto(runtimeCtx, ran.outputs, cached.Index),
+		Outputs:             s.valuesToProto(runtimeCtx, ran.outputs, cached),
 		Diagnostics:         diags,
 		FinalTime:           s.finalTime(runtimeCtx),
-		PerformerAttributes: s.valuesToProto(runtimeCtx, ran.performer, cached.Index),
+		PerformerAttributes: s.valuesToProto(runtimeCtx, ran.performer, cached),
 		OrderDependent:      s.orderDependent(runtimeCtx, ran.outputs),
 		Trace:               trace,
 		TraceDropped:        dropped,
@@ -1623,7 +1656,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 	self, err := s.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
+		trace, dropped := s.traceToProto(runtimeCtx, cached, traceRecorder)
 		return &pb.ExecuteStateResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped}, nil
 	}
 
@@ -1638,7 +1671,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 	finalContext, statesVisited := ran.final, ran.visited
 	diags := s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached))
-	trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
+	trace, dropped := s.traceToProto(runtimeCtx, cached, traceRecorder)
 	if err != nil {
 		return &pb.ExecuteStateResponse{
 			Error:        fmt.Sprintf("state machine execution failed: %v", err),
@@ -1652,7 +1685,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	// Convert final context to protobuf
 	pbContext := make(map[string]*pb.Value)
 	for name, val := range finalContext {
-		pbContext[name] = s.valueToProto(runtimeCtx, val, cached.Index)
+		pbContext[name] = s.valueToProto(runtimeCtx, val, cached)
 	}
 
 	return &pb.ExecuteStateResponse{
@@ -1666,16 +1699,16 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}, nil
 }
 
-func (s *Service) traceToProto(rt *runtime.Context, idx *symbols.Index, recorder *runtime.TraceRecorder) ([]*pb.DocumentEvent, int32) {
+func (s *Service) traceToProto(rt *runtime.Context, cached *CachedModel, recorder *runtime.TraceRecorder) ([]*pb.DocumentEvent, int32) {
 	if recorder == nil {
 		return nil, 0
 	}
 	events := queryexec.EventsFromTrace(rt, recorder.Records())
 	trace := make([]*pb.DocumentEvent, len(events))
 	for i, event := range events {
-		trace[i] = documentEvent(idx, event)
+		trace[i] = documentEvent(cached.Index, event)
 		if _, value, ok := event.Assigned(); ok {
-			trace[i].Value = s.valueToProto(rt, value, idx)
+			trace[i].Value = s.valueToProto(rt, value, cached)
 		}
 	}
 	dropped, _ := recorder.Dropped()

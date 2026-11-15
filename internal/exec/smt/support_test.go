@@ -33,7 +33,7 @@ func fixture(t *testing.T, path, src string) (*runtime.Context, *symbols.Index) 
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
 	model := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
-	model.SetExpressionParser(parser.ParseOneExpression)
+	model.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, model.Resolver()))
 	ctx := runtime.NewContext(model, 10000)
 	ctx.Model().RegisterSource(sf)
 	return ctx, idx

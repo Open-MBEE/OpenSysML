@@ -4,10 +4,14 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 )
 
@@ -15,7 +19,7 @@ import (
 // reads witness inputs and tool units the way every product frontend does.
 func parsingModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 	m := typedModel(sem, resolver)
-	m.SetExpressionParser(parser.ParseOneExpression)
+	m.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, m.Resolver()))
 	return m
 }
 
@@ -96,4 +100,42 @@ func TestRuntimeWithoutExpressionParserRefusesText(t *testing.T) {
 			t.Fatalf("UnitOf after removing the parser = %v, want errNoExpressionParser", err)
 		}
 	})
+}
+
+// TestRuntimeEvaluatesTheRecordsItsParserLowers pins the seam: the parser is handed the
+// scope the text is written in, and the run evaluates the records it returns, keeping none.
+func TestRuntimeEvaluatesTheRecordsItsParserLowers(t *testing.T) {
+	m := parseExploreModel(t, strings.TrimSuffix(inputModel, "}")+`
+	calc def Twice { in x : Integer; return : Integer = x + x; }
+}`)
+	sym := m.action(t, "gate")
+	file := filepath.Join(t.TempDir(), "witness.txt")
+	if err := os.WriteFile(file, []byte("input n = unread\ninput mode = Mode::Fast\nno choice points\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	model := typedModel(m.model, m.resolver)
+	read := lower.ExpressionReader(parser.ParseOneExpression, m.resolver)
+	var scopes []*symbols.Scope
+	model.SetExpressionParser(func(origin, text string, scope *symbols.Scope) (*lower.ExprTable, program.ExprID, bool) {
+		scopes = append(scopes, scope)
+		if text == "unread" {
+			text = "Twice(limit - 1)"
+		}
+		return read(origin, text, scope)
+	})
+	ctx := NewContext(model, 10000)
+	mustSchedule(t, ctx, mustPolicy(t, "replay:"+file))
+	out, err := ctx.ExecuteAction(sym)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if FormatValue(out["over"]) != "true" || FormatValue(out["fast"]) != "true" {
+		t.Errorf("held %v, want the values of the lowered records: over and fast", out)
+	}
+	if len(scopes) != 2 || scopes[0] != sym.Scope || scopes[1] != sym.Scope {
+		t.Errorf("the parser was given scopes %v, want the action's twice", scopes)
+	}
+	if held := len(model.invocationTargets); held != 0 {
+		t.Errorf("%d invocation targets held after the run, want none of the text's", held)
+	}
 }

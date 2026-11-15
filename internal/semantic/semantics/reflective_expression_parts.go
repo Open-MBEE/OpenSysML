@@ -61,7 +61,9 @@ func expressionElementMetaclassName(sym *symbols.Symbol) string {
 			return "Expression"
 		case symbols.ExpressionTriggerAction:
 			return "AcceptActionUsage"
-		case symbols.ExpressionPayload:
+		case symbols.ExpressionTransitionSuccession:
+			return "SuccessionAsUsage"
+		case symbols.ExpressionPayload, symbols.ExpressionTransitionLinkParameter, symbols.ExpressionTransitionLink:
 			return "ReferenceUsage"
 		}
 	}
@@ -381,7 +383,12 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return out
 	}
 	var out []*symbols.Symbol
-	if parts := m.acceptParts(sym); parts != nil {
+	if transitionSuccessionPart(sym) {
+		// The succession a transition owns holds its two ends through an EndFeatureMembership each.
+		for _, end := range m.SuccessionEndMembers(sym) {
+			out = appendOwningMembership(out, sym, end)
+		}
+	} else if parts := m.acceptParts(sym); parts != nil {
 		// A trigger's accept owns its payload and receiver parameters, which own their values.
 		members := m.acceptParameters(sym)
 		if sym.Expr.Role == symbols.ExpressionPayload {
@@ -413,6 +420,8 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	} else if isExpressionSymbol(sym) {
 		out = m.plainExpressionMemberships(sym)
 	} else if value := m.expressionParameterValue(sym); value != nil {
+		out = appendOwningMembership(out, sym, value)
+	} else if value := m.sendParameterValue(sym); value != nil {
 		out = appendOwningMembership(out, sym, value)
 	}
 	m.memberships[sym] = out
@@ -681,8 +690,14 @@ func referenceMembershipElements(sym *symbols.Symbol, feature string) ([]*symbol
 	case "source", "membershipOwningNamespace", "owningRelatedElement", "owner":
 		return []*symbols.Symbol{rel.Owner}, true
 	case "target", "memberElement":
+		if rel.Member == nil {
+			return nil, false
+		}
 		return []*symbols.Symbol{rel.Member}, true
 	case "relatedElement":
+		if rel.Member == nil {
+			return nil, false
+		}
 		return []*symbols.Symbol{rel.Owner, rel.Member}, true
 	case "ownedRelatedElement", "ownedRelationship", "ownedElement", "ownedAnnotation", "owningRelationship",
 		"owningMembership", "owningNamespace", "documentation", "textualRepresentation", "ownedImport", "ownedMembership":

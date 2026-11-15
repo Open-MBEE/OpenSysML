@@ -21,7 +21,7 @@ permissions:
 jobs:
   upstream:
     name: OpenSysML against upstream extension libraries
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
       REF: ${{ inputs.ref || 'main' }}
@@ -58,9 +58,10 @@ jobs:
 
       - name: Install Z3
         timeout-minutes: 10
-        run: |
-          scripts/ci-apt-install.sh z3
-          z3 --version
+        uses: ./.github/actions/apt-install
+        with:
+          packages: z3
+          verify: z3 --version
 
       - name: Install cvc5
         run: |

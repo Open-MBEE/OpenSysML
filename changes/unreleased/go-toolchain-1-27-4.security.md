@@ -1,0 +1,1 @@
+- The Go toolchain moves from `go1.27.3` to `go1.27.4`, closing GO-2026-6859 (an HTTP/1 server crash through a `MaxBytesReader` header race in `net/http`), which `govulncheck` reports as reachable from `sysml-grpc`, `sysml-mcp` and the SysML v2 API interop client. The container image, CircleCI executors and the `tools` module follow the toolchain.

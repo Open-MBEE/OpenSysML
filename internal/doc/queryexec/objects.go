@@ -248,12 +248,13 @@ func (e *executor) objectPropertyValues(row Value, property string) ([]Value, bo
 	case query.PropertyQualifiedName:
 		return text(label), true, nil
 	case query.PropertyOwner:
+		// The owner is the object holding this one, so a path through it
+		// reads the parent's live values, not its declaration's.
 		owner, held := e.objectOwner(row)
 		if !held {
 			return nil, true, nil
 		}
-		_, ownerText, _ := owner.Object()
-		return text(ownerText), true, nil
+		return []Value{valueAt(owner, origin)}, true, nil
 	case query.PropertyElementType:
 		return text(e.objectTypeNames(inst)...), true, nil
 	}

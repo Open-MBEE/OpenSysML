@@ -37,6 +37,7 @@ func infoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
 		ChildIds:                  info.ChildIds,
 		WithheldLibraryAttributes: info.WithheldLibraryAttributes,
 		WithheldLibraryMembers:    info.WithheldLibraryMembers,
+		AnnotatingMetadataIds:     info.AnnotatingMetadataIds,
 	}
 	for _, member := range info.Members {
 		out.Members = append(out.Members, &pb.MemberInfo{
@@ -60,6 +61,9 @@ func infoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
 			PrimitiveSource: t.PrimitiveSource,
 			Quantity:        t.Quantity,
 			Unit:            t.Unit,
+		}
+		for _, ref := range t.Types {
+			out.TypeInfo.Types = append(out.TypeInfo.Types, &pb.TypeRef{Id: ref.Id, Kind: ref.Kind})
 		}
 	}
 	if m := info.Multiplicity; m != nil {

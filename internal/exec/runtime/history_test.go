@@ -207,7 +207,7 @@ func regionHistoryMachine(kind ast.PseudostateKind, nestLeft bool) *ast.Usage {
 func advanceRegion(t *testing.T, exec *StateExecutor, regionName, source, target string) {
 	t.Helper()
 	for region := range exec.activeConfig.regionStates {
-		if region.Name != regionName {
+		if exec.regionDecl(region).Name != regionName {
 			continue
 		}
 		trans := transitionBetween(t, exec, source, target)
@@ -215,7 +215,7 @@ func advanceRegion(t *testing.T, exec *StateExecutor, regionName, source, target
 		if err != nil {
 			t.Fatalf("advance region %s: %v", regionName, err)
 		}
-		fired, err := exec.fireTransitionInRegion(region, trans, route)
+		fired, err := exec.fireTransitionInRegion(exec.regionDecl(region), trans, route)
 		if err != nil {
 			t.Fatalf("advance region %s: %v", regionName, err)
 		}
@@ -245,7 +245,7 @@ func TestHistoryRestoresOrthogonalRegions(t *testing.T) {
 
 	restored := map[string]bool{}
 	for _, state := range exec.activeConfig.regionStates {
-		restored[state.Name] = true
+		restored[exec.stateDecl(state).Name] = true
 	}
 	if !restored["lwork"] || !restored["rwork"] {
 		t.Errorf("restored regions = %v, want lwork and rwork", restored)
@@ -310,7 +310,7 @@ func TestDeepHistoryRestoresARegionLeftFromInsideItsCompositeState(t *testing.T)
 
 	restored := map[string]bool{}
 	for _, state := range exec.activeConfig.regionStates {
-		restored[state.Name] = true
+		restored[exec.stateDecl(state).Name] = true
 	}
 	if !restored["lwork"] || !restored["wrapper"] || !restored["ideep"] {
 		t.Errorf("restored regions = %v, want lwork, wrapper and ideep", restored)
@@ -342,7 +342,7 @@ func TestDeepHistoryRestoresBelowRegion(t *testing.T) {
 
 	restored := map[string]bool{}
 	for _, state := range exec.activeConfig.regionStates {
-		restored[state.Name] = true
+		restored[exec.stateDecl(state).Name] = true
 	}
 	if !restored["ldeep"] || !restored["rwork"] {
 		t.Errorf("restored regions = %v, want ldeep and rwork", restored)
@@ -399,7 +399,7 @@ func TestExitingNestedRegionsKeepsSiblingRegions(t *testing.T) {
 
 	active := map[string]bool{}
 	for _, state := range exec.activeConfig.regionStates {
-		active[state.Name] = true
+		active[exec.stateDecl(state).Name] = true
 	}
 	if !active["rstart"] {
 		t.Errorf("active configuration = %v, want the sibling region to still hold rstart", active)

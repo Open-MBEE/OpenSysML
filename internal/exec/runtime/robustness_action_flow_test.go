@@ -357,9 +357,9 @@ func testUnguardedLoopThroughAMerge(t *testing.T) {
 		if len(tokens) != 1 {
 			t.Fatalf("after step %d: %d tokens, want 1 circling the loop", i, len(tokens))
 		}
-		_, atMerge := tokens[0].Location.(*ast.MergeNode)
+		_, atMerge := tokens[0].Node().(*ast.MergeNode)
 		if atMerge != (i%2 == 0) {
-			t.Fatalf("after step %d: token at %T, want it alternating between m and a", i, tokens[0].Location)
+			t.Fatalf("after step %d: token at %T, want it alternating between m and a", i, tokens[0].Node())
 		}
 	}
 	err = stepped.RunToCompletion()

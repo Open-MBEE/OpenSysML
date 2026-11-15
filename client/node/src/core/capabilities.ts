@@ -11,8 +11,16 @@ export const CAPABILITY_TYPE_FACTS = "type_facts";
 export const CAPABILITY_SYMBOL_ATTRIBUTES = "symbol_attributes";
 /** Populated `SymbolInfo.members`: every member, own and inherited, with its provenance. */
 export const CAPABILITY_SYMBOL_MEMBERS = "symbol_members";
+/** `GetSymbolRequest.resolveName` honoured; without it every id is read as one the service reported. */
+export const CAPABILITY_SYMBOL_NAME_RESOLUTION = "symbol_name_resolution";
+/** Populated `SymbolInfo.annotating_metadata_ids`: the metadata usages annotating a symbol. */
+export const CAPABILITY_SYMBOL_ANNOTATING_METADATA = "symbol_annotating_metadata";
 /** The `GetElementProperties` RPC: an element's metamodel properties by their specification names. */
 export const CAPABILITY_ELEMENT_PROPERTIES = "element_properties";
+/** `RunDocumentQueryRequest.inline_query`: a query expression run in place of a named query. */
+export const CAPABILITY_INLINE_DOCUMENT_QUERY = "inline_document_query";
+/** The `InstancePaths` RPC, and `Instance.reached_by` on every instantiated object. */
+export const CAPABILITY_INSTANCE_PATHS = "instance_paths";
 /** Evaluating an expression against an instantiated subject. */
 export const CAPABILITY_EVALUATE_SUBJECT = "evaluate_subject";
 /** An object's values as `Instance.feature_values`. */
@@ -76,6 +84,8 @@ export const CAPABILITY_RENDER_DOCUMENT_HTML = "render_document_html";
 export const CAPABILITY_RENDER_DOCUMENT_ASCIIDOC = "render_document_asciidoc";
 /** The `RenderView` RPC, returning typed diagram data. */
 export const CAPABILITY_RENDER_VIEW = "render_view";
+/** `form` and the writer options on `RenderViewRequest`, answered in `text`. */
+export const CAPABILITY_RENDER_VIEW_FORM = "render_view_form";
 /** The `ExportGraphs` RPC, exporting a behavior's lowered graph as `graphs:1` JSON. */
 export const CAPABILITY_EXPORT_GRAPHS = "export_graphs";
 export const CAPABILITY_IMPORT_DATA = "import_data";

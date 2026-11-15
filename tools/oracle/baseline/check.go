@@ -33,7 +33,11 @@ func Write(committedPath string, fresh []byte, log io.Writer) error {
 	if err := os.WriteFile(committedPath, fresh, 0o600); err != nil {
 		return err
 	}
-	fmt.Fprintf(log, "recorded %s (provenance dated %s)\n", committedPath, record.Provenance.Recorded)
+	if record.Provenance.Recorded == "" {
+		fmt.Fprintf(log, "recorded %s\n", committedPath)
+	} else {
+		fmt.Fprintf(log, "recorded %s (provenance dated %s)\n", committedPath, record.Provenance.Recorded)
+	}
 	return nil
 }
 

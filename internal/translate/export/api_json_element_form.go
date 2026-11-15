@@ -52,7 +52,7 @@ func ModelElementForm(documents []ModelDocument) (*ElementForm, error) {
 }
 
 func modelElementFormWith(documents []ModelDocument, idForm IDForm) (*ElementForm, error) {
-	graph, err := ModelToRDFWith(documents, idForm)
+	graph, err := ModelElementGraphWith(documents, idForm)
 	if err != nil {
 		return nil, err
 	}

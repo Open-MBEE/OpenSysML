@@ -378,7 +378,7 @@ func (v *verifyContext) witnessOf(plan analysis.Plan, queries []*solve.Query) []
 			Exact:   value.Render(variable),
 		}
 		if held, ok := v.witnessValue(value); ok {
-			assignment.Value = v.service.valueToProto(v.runtime, held, v.cached.Index)
+			assignment.Value = v.service.valueToProto(v.runtime, held, v.cached)
 		}
 		out = append(out, assignment)
 	}

@@ -1,0 +1,1 @@
+- A long-running session no longer slows with every choice point its moves stand on by control: whether a guard or a branch already holds a choice point is looked up by serial rather than by scanning every one held, which made each state-machine move cost in proportion to the choices the session had drawn.

@@ -180,17 +180,17 @@ func apiJSONGraphWithQualifiedNames(
 	for i, triple := range triples {
 		position := apiJSONQualifiedNamePosition{triple.Subject, triple.Predicate.Value}
 		if name, ok := before[position]; ok && !emitted[position] {
-			builder.Add(triple.Subject, addressTerm(name), rdf.String(name))
+			stateAddress(builder.Add, triple.Subject, name)
 			emitted[position] = true
 		}
 		builder.AddTriple(triple)
 		if name, ok := afterType[triple.Subject]; ok && triple.Predicate.Value == rdf.RDFType {
-			builder.Add(triple.Subject, addressTerm(name), rdf.String(name))
+			stateAddress(builder.Add, triple.Subject, name)
 			delete(afterType, triple.Subject)
 		}
 		if name, ok := after[position]; ok &&
 			(i+1 == len(triples) || triples[i+1].Subject != triple.Subject || triples[i+1].Predicate.Value != triple.Predicate.Value) {
-			builder.Add(triple.Subject, addressTerm(name), rdf.String(name))
+			stateAddress(builder.Add, triple.Subject, name)
 		}
 	}
 	return builder.Build()
@@ -1033,6 +1033,10 @@ func (index *apiJSONIndex) classifyExpressions(
 // expression reports whether the object is classified an expression node by
 // what is classified so far.
 func (index *apiJSONIndex) expression(object *apiJSONElementData) bool {
+	if object.typ == "sysx:"+mNote {
+		// A note is a node of the element whose lines hold it, never an element.
+		return true
+	}
 	ids, types, expressionIDs := index.ids, index.types, index.expressionIDs
 	if base, isMembership := strings.CutSuffix(object.id, rdf.OwningMembershipSuffix); isMembership {
 		return ids[base] && expressionIDs[base]
@@ -1064,7 +1068,7 @@ func (index *apiJSONIndex) expression(object *apiJSONElementData) bool {
 // `event occurrence` usage is never a node — its owner is a namespace, not a
 // FlowUsage, so the metaclass alone decides nothing here.
 func messageParameterEnd(ownerType, membershipType, memberType string) bool {
-	return ownerType == "FlowUsage" && membershipType == mParameterMembership && memberType == mEventOccurrenceUsage
+	return flowMetaclasses[ownerType] && membershipType == mParameterMembership && memberType == mEventOccurrenceUsage
 }
 
 // nodeMembershipMetaclass reports whether an element of this metaclass can

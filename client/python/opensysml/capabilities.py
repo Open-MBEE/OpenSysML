@@ -68,12 +68,21 @@ CAPABILITY_OSLC_QUERY = "oslc_query"
 #: typed rows. Without it the service refuses with ``UNIMPLEMENTED``.
 CAPABILITY_DOCUMENT_QUERY = "document_query"
 
+#: ``RunDocumentQueryRequest.inline_query``: a query expression run in place of
+#: a named query, planned by the same compiler. Without it the service refuses
+#: the field with ``UNIMPLEMENTED``.
+CAPABILITY_INLINE_DOCUMENT_QUERY = "inline_document_query"
+
 #: The ``RenderDocument`` RPC, which renders a named document to Markdown.
 #: Without it the service refuses with ``UNIMPLEMENTED``.
 CAPABILITY_RENDER_DOCUMENT = "render_document"
 
 #: The ``RenderView`` RPC, which returns typed diagram data.
 CAPABILITY_RENDER_VIEW = "render_view"
+
+#: ``RenderViewRequest.form`` and its writer options, answered in
+#: ``RenderViewResponse.text``. Without it the service drops them unanswered.
+CAPABILITY_RENDER_VIEW_FORM = "render_view_form"
 
 #: The ``ExportGraphs`` RPC, which exports the lowered graph of an action or
 #: state machine as the canonical ``graphs:1`` JSON an external engine is sent.
@@ -109,6 +118,15 @@ CAPABILITY_SYMBOL_ATTRIBUTES = "symbol_attributes"
 #: with its provenance, and ``GetSymbolRequest.include_library_members`` honoured.
 #: Without it only ``child_ids``, the owned members, is reported.
 CAPABILITY_SYMBOL_MEMBERS = "symbol_members"
+
+#: ``GetSymbolRequest.resolve_name`` honoured: a qualified name resolved from the
+#: root namespace through imports, aliases and visibility. Without it the service
+#: reads every id as one it reported, so the name of a declaration is all it finds.
+CAPABILITY_SYMBOL_NAME_RESOLUTION = "symbol_name_resolution"
+
+#: Populated ``SymbolInfo.annotating_metadata_ids``, the metadata usages
+#: annotating a symbol; without it an annotated element reports none.
+CAPABILITY_SYMBOL_ANNOTATING_METADATA = "symbol_annotating_metadata"
 
 #: The ``GetElementProperties`` RPC: the metamodel properties of one element by
 #: their specification names, as the model's API element form spells them.

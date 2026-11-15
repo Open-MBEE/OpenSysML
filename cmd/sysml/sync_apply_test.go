@@ -594,3 +594,42 @@ func TestSyncApplyNeedsALiveEndpoint(t *testing.T) {
 		t.Errorf("a refused invocation wrote %d commit(s)", len(stack.posted()))
 	}
 }
+
+// pseudostateModel states a `choice`, a sysx:Pseudostate: an element the
+// SysML v2 API has no metaclass for, which the transition references.
+const pseudostateModel = `package P {
+	@IdentityMetadata::ProjectRef { projectId = "proj-1"; branch = "main"; }
+	part def Vehicle {
+		@IdentityMetadata::ElementId { id = "8f3a41d0"; }
+	}
+	state def S {
+		state a;
+		choice c;
+		transition first a then c;
+	}
+}
+`
+
+func TestSyncRefusesAnElementTheRepositoryHasNoMetaclassFor(t *testing.T) {
+	binary := buildCLI(t)
+	stack := newFakeStack(t, liveGraph(t, syncedModel))
+	model := writeModel(t, t.TempDir(), "model.sysml", pseudostateModel)
+
+	for _, verb := range []string{"-sync-diff", "-sync-apply"} {
+		out, code := exitCode(t, syncCommand(stack, binary, model, verb, stack.server.URL))
+		if code != exitUnevaluable {
+			t.Errorf("%s must exit %d, got %d:\n%s", verb, exitUnevaluable, code, out)
+		}
+		for _, want := range []string{"P::S::c", "Pseudostate", "no metaclass"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("%s does not state %q:\n%s", verb, want, out)
+			}
+		}
+	}
+	if n := len(stack.posted()); n != 0 {
+		t.Errorf("%d commit(s) were posted for a model the repository cannot hold", n)
+	}
+	if _, err := os.Stat(model + ".sync.json"); !os.IsNotExist(err) {
+		t.Error("a refused sync recorded a sync state")
+	}
+}

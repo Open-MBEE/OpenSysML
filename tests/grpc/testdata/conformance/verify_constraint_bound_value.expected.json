@@ -1,0 +1,6 @@
+{
+  "rpc": "VerifyConstraint",
+  "symbol_id": "BoundLiteral::bound",
+  "question": "satisfiable",
+  "expected_status": "unsatisfiable"
+}

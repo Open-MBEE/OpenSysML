@@ -1,0 +1,1 @@
+- On CircleCI the `corpus-sweep` race shard runs in its own `go-race-sweep` job on the 16 GB class with `-parallel 8`; the other sixteen race nodes stay on `large`.

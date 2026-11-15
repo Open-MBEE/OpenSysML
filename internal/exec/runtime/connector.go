@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -335,7 +336,7 @@ func (ctx *Context) materializeConnectorStarting(owner *Instance, connSym, base 
 			return err
 		}
 		inst.Ends = append(inst.Ends, ConnectorEnd{Name: end.Name, Feature: end.Declared, Value: val})
-		if end.Name == "" {
+		if !end.Named {
 			unnamed = append(unnamed, val)
 			continue
 		}
@@ -727,9 +728,9 @@ func (ctx *Context) anonymousConnectors(typeSym *symbols.Symbol) []*symbols.Symb
 		if decl != typeSym && ctx.libraryDeclared(decl) {
 			continue
 		}
-		for _, member := range unwrappedDeclMembers(decl.Decl) {
+		for _, member := range lower.UnwrappedDeclMembers(decl.Decl) {
 			usage, ok := member.(*ast.Usage)
-			if !ok || usage.Ident.Name != "" || usage.Ident.ShortName != "" {
+			if !ok || usage.Ident.Declared() {
 				continue
 			}
 			// A succession or transition carries ends too, and relates its ends in
@@ -758,6 +759,9 @@ func anonymousConnectorSymbol(typeSym *symbols.Symbol, usage *ast.Usage) *symbol
 		kind = symbols.SymbolAllocationUsage
 	case ast.UsageFlow:
 		kind = symbols.SymbolFlowUsage
+		if usage.IsSuccessionFlow() {
+			kind = symbols.SymbolSuccessionFlowUsage
+		}
 	case ast.UsageBinding:
 		kind = symbols.SymbolBindingUsage
 	}
@@ -776,7 +780,7 @@ func connectorName(sym *symbols.Symbol) string {
 	if sym == nil {
 		return "connector"
 	}
-	if sym.Name != "" {
+	if sym.Named() {
 		return sym.Name
 	}
 	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Keyword != "" {

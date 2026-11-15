@@ -105,6 +105,13 @@ verdict. `v.require_evaluated()?` turns an undecided verdict into an `Err`.
 - `find`/`get` return `Result<Option<Symbol>, Error>`: `Ok(None)` for an unknown name, `Err` when
   the lookup itself fails. `symbol` and `lookup` return `Err` for an unknown name too.
 - Use qualified names (`Package::Def::feature`) wherever a symbol is named.
+- `symbol.members()` lists own then inherited members (`inherited`, `inherited_from`, `library`);
+  standard-library members are only counted by `withheld_library_members()` unless you look the
+  symbol up with `model.symbol_with(fqn, &SymbolOptions { include_library_members: true })`, which
+  needs the `symbol_members` capability (`MissingCapability` otherwise).
+- `symbol.annotating_metadata()` returns the metadata usages annotating a symbol (`#M`, `@M` in its
+  body, and `metadata m : M about X;` written elsewhere, which `children()` leaves out), each a
+  `Symbol`; it needs `symbol_annotating_metadata`. `annotating_metadata_ids()` is the id list.
 - Every domain type has `wire()` for a protobuf field the typed surface does not expose yet.
 - Write models with the `sysml-v2-modeling` skill; `sysml -validate` reports the same diagnostics as
   `model.diagnostics()`.

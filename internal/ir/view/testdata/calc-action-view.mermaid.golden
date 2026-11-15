@@ -29,44 +29,43 @@ title: "«view» CalcViews::calcFlows : ActionFlowView"
 flowchart TD
   n0("`*«calc»*
 **add**
-declares no nodes
 parameters
 in x
 in y
-out result`")
-  n1["`*«calc def»*
+out result
+result
+x + y`")
+  n2["`*«calc def»*
 **Add**
-declares no nodes
 parameters
 in x
 in y
 out r`"]
-  n2("`*«calc»*
+  n3("`*«calc»*
 **total**
-declares no nodes
 parameters
 in x
 in y
 out ^r`")
-  subgraph n3 ["`*«calc def»* **Stepwise**
+  subgraph n4 ["`*«calc def»* **Stepwise**
 parameters
 in load
 out result`"]
     direction TD
-    subgraph n4 ["`*«action»* **measure**`"]
+    subgraph n5 ["`*«action»* **measure**`"]
       direction TD
-      n4_anchor[" "]
-      n4_p0["reading"]
+      n5_anchor[" "]
+      n5_p0["reading"]
     end
-    subgraph n5 ["`*«action»* **scale**
+    subgraph n6 ["`*«action»* **scale**
 parameters
 out scaled`"]
       direction TD
-      n5_anchor[" "]
-      n5_p0["raw"]
+      n6_anchor[" "]
+      n6_p0["raw"]
     end
   end
-  n4_anchor -.-> n5_anchor
-  n4_p0 --> n5_p0
+  n5_anchor -.-> n6_anchor
+  n5_p0 --> n6_p0
   classDef anchor fill:none,stroke:none
-  class n4_anchor,n5_anchor anchor
+  class n5_anchor,n6_anchor anchor

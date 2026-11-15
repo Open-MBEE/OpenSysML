@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"slices"
 	"strconv"
 	"strings"
@@ -135,7 +136,7 @@ func (e *encoder) endFormOf(n *ast.Usage) (form, keyword string) {
 // `verify` is the same kind spelled differently.
 func (e *encoder) satisfyFormOf(n *ast.Usage) bool {
 	requirement := relationshipTarget(n, ast.RelSubsets)
-	if requirement == nil || n.Ident.Name != "" || n.Value != nil {
+	if requirement == nil || n.Ident.HasName() || n.Value != nil {
 		return false
 	}
 	for _, rel := range n.Relationships {
@@ -1219,7 +1220,7 @@ func (d *decoder) flowEndTargetName(target rdf.Term) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	segments := identitySegments(el.qname)
+	segments := naming.Segments(el.qname)
 	if len(segments) == 0 {
 		return "", &UnsupportedError{What: fmt.Sprintf("the flow-end redefinition target <%s>", target.Value), Note: "it has no qualified name"}
 	}

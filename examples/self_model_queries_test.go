@@ -21,8 +21,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
 )
 
-// TestSelfModelQueryLibraryMatchesImplementation checks the modelled library
-// against the library file and the compiler's bindings.
+// TestSelfModelQueryLibraryMatchesImplementation checks the declared query path against
+// the library's calc defs and the bindings read from the compiler's source.
 func TestSelfModelQueryLibraryMatchesImplementation(t *testing.T) {
 	text := readModelFile(t, "queries.sysml")
 	idx, ctx := analyseSelfModel(t)

@@ -22,9 +22,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// engineGzipBudget bounds growth of the gzipped js build of sysml-engine (9,105,348 bytes under go1.27.3
-// on 2026-10-27); TestEngineDependencies, not this budget, catches a forbidden dependency.
-const engineGzipBudget = 9400000
+// engineGzipBudget bounds the gzipped js sysml-engine the gate links (-trimpath, stripped, the library snapshot embedded, as every Makefile build target does):
+// 11,031,341 bytes under go1.27.4 on 2026-11-13 with RenderView's written forms served, up from 10,936,997 on develop 0757270e94 by the draw.io, text and table writers.
+const engineGzipBudget = 11100000
 
 func TestEngineDependencies(t *testing.T) {
 	const module = "github.com/Open-MBEE/OpenSysML"
@@ -77,11 +77,12 @@ func forbiddenEngineDependency(module, dependency string) bool {
 			return true
 		}
 	}
-	// ExecuteState's trace events come from queryexec; the document IR and backends stay out.
-	if hasDependencyPrefix(dependency, module+"/internal/doc") && dependency != module+"/internal/doc/queryexec" {
+	// RenderDocument writes Markdown, HTML and AsciiDoc; PDF drives converters the engine cannot run.
+	if hasDependencyPrefix(dependency, module+"/internal/doc/docpdf") {
 		return true
 	}
-	// The workspace pipeline belongs to the LSP and REPL.
+	// The workspace pipeline belongs to the LSP and REPL; the engine renders a
+	// document through internal/doc/docset, as the service does.
 	for _, prefix := range []string{
 		module + "/internal/workspace/model",
 		module + "/internal/workspace/modeldoc",
@@ -91,9 +92,10 @@ func forbiddenEngineDependency(module, dependency string) bool {
 			return true
 		}
 	}
-	// RDF is the only converter shared with the engine.
+	// RDF is the only converter shared with the engine; filename plans the
+	// files a rendered document set writes, which RenderDocument links by.
 	translate := module + "/internal/translate"
-	return hasDependencyPrefix(dependency, translate) && dependency != translate+"/rdf"
+	return hasDependencyPrefix(dependency, translate) && dependency != translate+"/rdf" && dependency != translate+"/filename"
 }
 
 func hasDependencyPrefix(dependency, prefix string) bool {
@@ -137,6 +139,17 @@ func engineSubtests(t *testing.T, target wasmTarget, r runner, bins map[string]s
 			if !strings.Contains(got.output, want) {
 				t.Errorf("engine.mjs output is missing %s:\n%s", want, got.output)
 			}
+		}
+	})
+
+	// The engine draws no recorded run, so the run-only SVG writers stay out of it.
+	t.Run("links no run-only SVG writer", func(t *testing.T) {
+		data, err := os.ReadFile(bins["sysml-engine"])
+		if err != nil {
+			t.Fatalf("reading %s: %v", bins["sysml-engine"], err)
+		}
+		if bytes.Contains(data, []byte("<svg xmlns=")) {
+			t.Error("sysml-engine.wasm links the run-only SVG writers: write a model view with WriteViewWith")
 		}
 	})
 

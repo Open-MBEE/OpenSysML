@@ -3,7 +3,7 @@
 ## Overview
 
 **Corpora:** the three pinned OMG pilot corpora, fetched by `./scripts/download-pilot-corpora.sh`
-at release `2026-09`, commit `38665073bbf02849bd309b106eba79cbb3a1ee1d` (`scripts/pilot-pin.sh`)
+at release `2026-09.1`, commit `d81b2ad5016f2e2d3d4364b3d06d01d8bb12a896` (`scripts/pilot-pin.sh`)
 
 `scripts/check-upstream-drift.sh` (the weekly `Upstream drift` workflow) reports when either upstream repository publishes a release newer than this pin, when the pinned tag moves, whether the newest release changed the specification PDFs whose clause numbers [spec-compliance.md](spec-compliance.md) cites, and when the OMG specification pages list a version it has not recorded. It re-pins nothing: a failing run is the cue to move the pin here deliberately and re-run the downloads and gates below.
 
@@ -125,10 +125,12 @@ the imports that hide the name, or a consequence of one:
 | `kerml-examples/Simple Tests/Imports.kerml` | 4 → 7 | `class X :> A;` twice and `class Y :> D;` once: `A` is brought by `import P::*` and `import Q::**` (and, in the second namespace, `import R::*`), `D` twice by `import Q::**` (`Q::D` and `Q::Q1::D`); each pair is two classes, so each name is hidden |
 | `sysml-validation/13-Model Containment/13a-Model Containment.sysml` | 6 → 9 | `alias 'Sport Sedan' for vehicle1_c1;`, `public import Engine;` and `public import Transmission;` name members that `'2a-Parts Interconnection'::*` and `'8-Requirements'::*` both bring as distinct definitions and usages |
 | `sysml-examples/Vehicle Example/Annex_A_VehicleViews.sysml` | 87 → 93 | six unqualified `vehicle_b` in the analysis and verification cases (`subject = vehicle_b;`, `vehicle_b.engine`, `vehicle_b.mass`, `:> vehicle_b`): the recursive `import …VehicleConfiguration_b::**` brings `PartsTree::vehicle_b` and the two `CruiseControl…::vehicle_b` |
-| `sysml-examples/Vehicle Example/SysML v2 Spec Annex A SimpleVehicleModel.sysml` | 134 → 154 | the same `vehicle_b` references (eleven), `part engine redefines engine` twice (`engine` is brought three times, once under each `vehicle_b`) and `perform … redefines providePower` (`PartsTree::vehicle_b::providePower` beside `ActionTree::providePower`); the other six — `peakHorsePower`, `fuelEfficiency` and `cost` redefined under each unresolved `engine`, and `vehicle_b_1.ignitionCmdPort`, `vehicle_b_1.vehicleToRoadPort` where `vehicle_b_1 :> vehicle_b` — are consequences of those, a redefinition or a member read through a feature whose general did not resolve |
+| `sysml-examples/Vehicle Example/SysML v2 Spec Annex A SimpleVehicleModel.sysml` | 134 → 154 | the same `vehicle_b` references (nine), `part engine redefines engine` twice (`engine` is brought three times, once under each `vehicle_b`) and `perform … redefines providePower` (`PartsTree::vehicle_b::providePower` beside `ActionTree::providePower`); the other eight — `peakHorsePower`, `fuelEfficiency` and `cost` redefined under each unresolved `engine`, and `vehicle_b_1.ignitionCmdPort`, `vehicle_b_1.vehicleToRoadPort` where `vehicle_b_1 :> vehicle_b` — are consequences of those, a redefinition or a member read through a feature whose general did not resolve |
 
 `AHFSequences.sysml` and `AHFNorwayTopics.sysml` reference no hidden name unqualified. The
-training corpus references no hidden name and stays clean.
+training corpus references no hidden name and stays clean. The two vehicle files conform once
+their fifteen `vehicle_b` are written `PartsTree::vehicle_b`: a copy with those edits and nothing
+else loads with zero diagnostics, and the pinned pilot is silent on it as on the original.
 
 ### The hiding is not reported
 
@@ -160,6 +162,12 @@ that never ran must not look like a gate that passed. Fetch them once:
 ./scripts/download-pilot-corpora.sh
 go test -count=1 ./tests/corpus -run TestPilotCorpora
 ```
+
+Under `OPENSYSML_CORPUS_SUBSET=construct-cover` the gate still opens each root whole (its files
+import across each other) but diagnoses only the files listed in
+`tests/corpus/testdata/construct_cover.txt` and checks their counts against the expectation,
+leaving the other recorded lines unchecked; `-update-pilot-corpora` refuses to run under it. See
+[construct-cover-subset.md](construct-cover-subset.md).
 
 The pilot's XMI serialization of the standard library is fetched the same way, from the release
 repository at the pin in `scripts/pilot-pin.sh`, into `build/pilot-library-xmi/`; the identity gate

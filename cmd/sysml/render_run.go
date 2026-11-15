@@ -150,7 +150,7 @@ func finishRunCheck(rep *reporter, sess *repl.Session) int {
 		}
 	}
 	for _, target := range targets {
-		rendering, err := sess.RunTraceRendering(target.kind)
+		rendering, err := sess.RunTraceRendering(target.kind, renderLimit)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, errPrefix, err)
 			return 2

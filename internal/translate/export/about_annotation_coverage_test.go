@@ -302,3 +302,40 @@ func TestRepeatedAboutNamesOwnDistinctAnnotations(t *testing.T) {
 		t.Errorf("the notation does not come back with both names:\n%s", out)
 	}
 }
+
+// A target the owner states by IRI needs no written name: with `R::A` stated so and `A` written
+// for `Q::A`, the IRI target leaves `A` to its namesake — `about R::A, A`, not `R::A, Q::A`.
+func TestIRIStatedTargetLeavesTheWrittenNameToItsNamesake(t *testing.T) {
+	full := graphOfNotation(t, "package P {\n    comment about A, A /* note */\n}\npackage Q {\n    part def A;\n}\npackage R {\n    part def A;\n}\n")
+	namesakes := rdf.NewGraphOf(append([]rdf.Triple(nil), full.Triples()...), full.Prefixes)
+	rewritten := 0
+	var owner rdf.Term
+	namesakes.RewriteTriples(func(tr *rdf.Triple) bool {
+		if tr.Predicate.Value == rdf.OpenSysML+xSourceText || tr.Predicate.Value == rdf.OpenSysML+xSourceTail {
+			return false
+		}
+		if !strings.Contains(tr.Subject.Value, "_an") || tr.Object.IsIRI() ||
+			(tr.Predicate.Value != rdf.SysML+pAnnotatedElement && tr.Predicate.Value != rdf.SysML+pTarget) {
+			return true
+		}
+		owner = rdf.IRI(strings.TrimSuffix(strings.TrimSuffix(tr.Subject.Value, "_an0"), "_an1"))
+		target := "Q__A"
+		if strings.HasSuffix(tr.Subject.Value, "_an0") {
+			target = "R__A"
+		}
+		*tr = rdf.Triple{Subject: tr.Subject, Predicate: tr.Predicate, Object: rdf.IRI(rdf.Element + target)}
+		rewritten++
+		return true
+	})
+	if rewritten != 4 {
+		t.Fatalf("rewrote %d Annotation ends to the namesakes, want 4", rewritten)
+	}
+	namesakes.Add(owner, rdf.IRI(rdf.SysML+pAnnotatedElement), rdf.IRI(rdf.Element+"R__A"))
+	out, err := ToSysML(namesakes)
+	if err != nil {
+		t.Fatalf("the graph reads: %v", err)
+	}
+	if !strings.Contains(string(out), "comment about R::A, A ") {
+		t.Errorf("the IRI-stated target should leave the written `A` to its namesake:\n%s", out)
+	}
+}

@@ -1,0 +1,2 @@
+- `%render-run`, the MCP `render_run` tool and `sysml -render-run` take a limit on how many spans or messages a run rendering draws: `limit=<count>`, the `limit` argument and `-render-limit <count>`, 200 when omitted; a rendering cut short still says so in a notice naming the instants not drawn.
+- `%trace record` records a run's trace for `%render-run` and the `Events` query without printing it after every command; `%trace on` after it keeps what was recorded and prints only what follows. The MCP `render_run` tool names it as the way to record a run.

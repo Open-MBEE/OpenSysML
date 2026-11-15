@@ -387,6 +387,29 @@ func TestRenderDiagramsWithInstalledMermaid(t *testing.T) {
 	}
 }
 
+// TestInstalledGraphvizDrawsTheDefinitionGlyph checks what a reader of a drawn DOT view is handed: a
+// real Graphviz's drawing with two dots at each typing edge's triangle and none at a specialization's.
+func TestInstalledGraphvizDrawsTheDefinitionGlyph(t *testing.T) {
+	if _, err := graphvizTool.locate(""); err != nil {
+		skipWithout(t, "Graphviz dot", err)
+	}
+	source := "digraph G {\n  a -> b [arrowhead=empty, class=definition];\n  c -> b [arrowhead=empty, class=definition];\n  d -> b [arrowhead=empty];\n}"
+	svgs, err := Graphviz{}.Draw([]docrender.Diagram{{Form: view.FormDot, Source: source}})
+	if err != nil || len(svgs) != 1 {
+		t.Fatalf("Draw: %v, %d drawings", err, len(svgs))
+	}
+	groups := strings.Split(svgs[0], `<g id="edge`)[1:]
+	if len(groups) != 3 {
+		t.Fatalf("the drawing has %d edges, want 3:\n%s", len(groups), svgs[0])
+	}
+	for i, want := range []int{2, 2, 0} {
+		group, _, _ := strings.Cut(groups[i], "</g>")
+		if got := strings.Count(group, "<circle "); got != want || strings.Count(group, "<polygon ") != 1 || strings.Contains(group, "<ellipse") {
+			t.Errorf("edge %d is drawn with %d dots, want %d beside one triangle:\n%s", i+1, got, want, group)
+		}
+	}
+}
+
 // TestRenderDiagramsWithInstalledGraphviz draws the telescope report's
 // diagrams as DOT through a real Graphviz when one is installed, and skips
 // otherwise; a positioned diagram is laid out by the engine its header names,

@@ -1,0 +1,41 @@
+sha256 a8b6af2ada1a85a04bdd7a4f38b945130323e4c4d2c71600e9f8d9dd55ab16df bytes 205898 lines 4762
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:Q
+    a sysml:Package ;
+    sysml:qualifiedName "Q" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "35"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "Q" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "Q" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Q__A, elmt:Q__S, elmt:Q__U, elmt:Q__R, elmt:Q__C, elmt:Q__Ctx, elmt:Q__Sub, elmt:Q__ctx ;
+    sysml:ownedMembership elmt:Q__A_om, elmt:Q__S_om, elmt:Q__U_om, elmt:Q__R_om, elmt:Q__C_om, elmt:Q__Ctx_om, elmt:Q__Sub_om, elmt:Q__ctx_om ;
+    sysml:ownedRelationship elmt:Q__A_om, elmt:Q__S_om, elmt:Q__U_om, elmt:Q__R_om, elmt:Q__C_om, elmt:Q__Ctx_om, elmt:Q__Sub_om, elmt:Q__ctx_om ;
+    sysx:sourceText "package Q {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"Q__A\"},{\"@id\":\"Q__S\"},{\"@id\":\"Q__U\"},{\"@id\":\"Q__R\"},{\"@id\":\"Q__C\"},{\"@id\":\"Q__Ctx\"},{\"@id\":\"Q__Sub\"},{\"@id\":\"Q__ctx\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Q__A_om\"},{\"@id\":\"Q__S_om\"},{\"@id\":\"Q__U_om\"},{\"@id\":\"Q__R_om\"},{\"@id\":\"Q__C_om\"},{\"@id\":\"Q__Ctx_om\"},{\"@id\":\"Q__Sub_om\"},{\"@id\":\"Q__ctx_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Q__A_om\"},{\"@id\":\"Q__S_om\"},{\"@id\":\"Q__U_om\"},{\"@id\":\"Q__R_om\"},{\"@id\":\"Q__C_om\"},{\"@id\":\"Q__Ctx_om\"},{\"@id\":\"Q__Sub_om\"},{\"@id\":\"Q__ctx_om\"}]" .
+
+elmt:Q__A
+    a sysml:ActionDefinition ;
+    sysml:qualifiedName "Q::A" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "18"^^xsd:integer ;
+    sysml:elementId "Q__A" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q ;
+    sysml:owner elmt:Q ;

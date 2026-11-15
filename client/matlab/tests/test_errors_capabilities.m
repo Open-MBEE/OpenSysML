@@ -29,6 +29,13 @@ function test_errors_capabilities()
     expect_error(@() opensysml.listEngines(conn), 'opensysml:missingCapability');
     err = opensysml.lastError();
     assert_equal(err.details.capability, 'engines', 'RPC capability gate');
+    assert_equal(caps.elementProperties, 'element_properties', 'elementProperties capability');
+    queryOnly = opensysml.Model(conn, 'offline-hash', {}, {}, {}, '', {});
+    expect_error(@() queryOnly.elementProperties('Demo::Pair', 'inheritedFeature'), ...
+        'opensysml:missingCapability');
+    err = opensysml.lastError();
+    assert_equal(err.details.capability, 'element_properties', 'elementProperties capability gate');
+    expect_error(@() opensysml.elementProperties(queryOnly, ''), 'opensysml:argument');
     converting = opensysml.external('127.0.0.1:1');
     converting.primeServerInfo(struct('version', 'v1', ...
         'capabilities', {{'convert', 'parse_sources'}}));

@@ -91,7 +91,6 @@ func TestReflectiveConnectorEndsAreOwnedMembers(t *testing.T) {
 					t.Errorf("%s end %d is owned by %s, want %s", name, i, fixture.model.fqnOf(got), name)
 				}
 			}
-			wantTips := []string{"P::Source::y", "P::Sink::u"}
 			wantChains := [][]string{{"P::Asm::s", "P::Source::y"}, {"P::Asm::k", "P::Sink::u"}}
 			for i, end := range ends {
 				rel, target := singleRelationship(t, fixture.model, end, "ownedReferenceSubsetting", "KerML::Core::ReferenceSubsetting")
@@ -117,9 +116,33 @@ func TestReflectiveConnectorEndsAreOwnedMembers(t *testing.T) {
 					t.Errorf("%s end %d reference subsetting ownedElement = %v, want none", name, i, fqns(owned))
 				}
 			}
-			if tips := reflectiveElementsOf(t, fixture.model, connector, "relatedFeature"); len(tips) != 2 ||
-				fixture.model.fqnOf(tips[0]) != wantTips[0] || fixture.model.fqnOf(tips[1]) != wantTips[1] {
-				t.Errorf("%s.relatedFeature = %v, want %v", name, fqns(tips), wantTips)
+			// The connector's related features are the chain Features its ends
+			// reference (KerML 8.3.4.5.3 deriveConnectorRelatedFeature), not the chains' tips.
+			var chainFeatures []*symbols.Symbol
+			for _, end := range ends {
+				_, target := singleRelationship(t, fixture.model, end, "ownedReferenceSubsetting", "KerML::Core::ReferenceSubsetting")
+				chainFeatures = append(chainFeatures, target)
+			}
+			for _, property := range []struct {
+				name  string
+				first int
+				want  []*symbols.Symbol
+			}{
+				{"relatedFeature", 0, chainFeatures},
+				{"sourceFeature", 0, chainFeatures[:1]},
+				{"targetFeature", 1, chainFeatures[1:]},
+			} {
+				got := reflectiveElementsOf(t, fixture.model, connector, property.name)
+				if len(got) != len(property.want) {
+					t.Fatalf("%s.%s = %v, want %d chain features (recorded %t)", name, property.name, fqns(got), len(property.want), connector.Recorded())
+				}
+				for i, want := range property.want {
+					end := property.first + i
+					if got[i] != want {
+						t.Errorf("%s.%s[%d] = %s, want the chain feature end %d references (recorded %t)", name, property.name, i, fixture.model.fqnOf(got[i]), end, connector.Recorded())
+					}
+					assertReflectiveElements(t, fixture.model, got[i], "chainingFeature", wantChains[end]...)
+				}
 			}
 		}
 		// The ends are not members of the connector's owner.

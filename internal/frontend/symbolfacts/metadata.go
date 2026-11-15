@@ -1,6 +1,8 @@
 package symbolfacts
 
 import (
+	"strings"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -15,26 +17,14 @@ func extractMetadata(sym *symbols.Symbol, meta map[string]string) {
 	}
 	switch decl := sym.Decl.(type) {
 	case *ast.Usage:
-		// Multiplicity
+		usageMetadata(decl, meta)
+	case *ast.SubjectMember:
+		// A subject written in a requirement body: `subject s : T;`.
 		if decl.Multiplicity != nil {
 			meta["multiplicity"] = formatMultiplicity(decl.Multiplicity)
 		}
-		// Type (first typing relationship)
-		for _, rel := range decl.Relationships {
-			if rel.Kind == ast.RelTyping {
-				if qn, ok := rel.Target.(*ast.QualifiedName); ok {
-					meta["type"] = formatQualifiedName(qn)
-					break
-				}
-			}
-		}
-		// Direction
-		if decl.Direction != ast.DirNone {
-			meta["direction"] = decl.Direction.String()
-		}
-		// Abstract
-		if decl.IsAbstract {
-			meta["abstract"] = "true"
+		if decl.TypeRef != nil {
+			meta["type"] = formatQualifiedName(decl.TypeRef)
 		}
 	case *ast.PrefixMetadata:
 		// The metadata definition an `@M` or `#M` annotation is typed by.
@@ -42,23 +32,89 @@ func extractMetadata(sym *symbols.Symbol, meta map[string]string) {
 			meta["type"] = formatQualifiedName(decl.Type)
 		}
 	case *ast.Definition:
-		// Abstract
-		if decl.IsAbstract {
-			meta["abstract"] = "true"
+		definitionMetadata(decl, meta)
+	}
+}
+
+// usageMetadata states a usage's multiplicity, type, direction and abstractness.
+func usageMetadata(decl *ast.Usage, meta map[string]string) {
+	if decl.Multiplicity != nil {
+		meta["multiplicity"] = formatMultiplicity(decl.Multiplicity)
+	}
+	// Type (first typing relationship), with the `~` of a conjugated typing
+	if rel, qn := firstNamedTarget(decl.Relationships, ast.RelTyping); qn != nil {
+		meta["type"] = formatQualifiedName(qn)
+		if rel.Conjugated {
+			meta["type"] = "~" + meta["type"]
 		}
-		// Type (first specializes relationship for definitions)
-		for _, rel := range decl.Relationships {
-			if rel.Kind == ast.RelSpecializes {
-				if qn, ok := rel.Target.(*ast.QualifiedName); ok {
-					meta["specializes"] = formatQualifiedName(qn)
-					break
-				}
-			}
+	}
+	if decl.Direction != ast.DirNone {
+		meta["direction"] = decl.Direction.String()
+	}
+	if decl.IsAbstract {
+		meta["abstract"] = "true"
+	}
+}
+
+// definitionMetadata states a definition's abstractness and its first specialization.
+func definitionMetadata(decl *ast.Definition, meta map[string]string) {
+	if decl.IsAbstract {
+		meta["abstract"] = "true"
+	}
+	if _, qn := firstNamedTarget(decl.Relationships, ast.RelSpecializes); qn != nil {
+		meta["specializes"] = formatQualifiedName(qn)
+	}
+}
+
+// firstNamedTarget is the first relationship of kind whose target is a qualified name.
+func firstNamedTarget(rels []*ast.Relationship, kind ast.RelationshipKind) (*ast.Relationship, *ast.QualifiedName) {
+	for _, rel := range rels {
+		if rel.Kind != kind {
+			continue
+		}
+		if qn, ok := rel.Target.(*ast.QualifiedName); ok {
+			return rel, qn
+		}
+	}
+	return nil, nil
+}
+
+// formatMultiplicity renders Multiplicity as "lower..upper" or "value".
+// sendMetadata states a send action's arguments as written (SysML v2
+// §8.3.17.15 SendActionUsage): "payload", "sender" (`via`) and "receiver"
+// (`to`), each present only when the send writes it.
+func (sc *Context) sendMetadata(sym *symbols.Symbol, meta map[string]string) {
+	send := symbols.SendStatementOf(sym.Decl)
+	if send == nil || sym.Kind != symbols.SymbolSendActionUsage {
+		return
+	}
+	arguments := map[string]ast.Node{"payload": send.Message}
+	if send.IsVia {
+		arguments["sender"], arguments["receiver"] = send.Target, send.Receiver
+	} else {
+		arguments["receiver"] = send.Target
+	}
+	for key, node := range arguments {
+		if text := sc.expressionText(sym, node); text != "" {
+			meta[key] = text
 		}
 	}
 }
 
-// formatMultiplicity renders Multiplicity as "lower..upper" or "value".
+// expressionText is the notation of an expression node of sym's document: its source
+// text, or the name a bare reference writes where no source text is at hand.
+func (sc *Context) expressionText(sym *symbols.Symbol, node ast.Node) string {
+	if node == nil {
+		return ""
+	}
+	if lookup := sc.Semantics.SourceText(); lookup != nil {
+		if text := strings.TrimSpace(lookup(sym.DocName, node.Span())); text != "" {
+			return text
+		}
+	}
+	return ast.QualifiedText(node)
+}
+
 func formatMultiplicity(m *ast.Multiplicity) string {
 	if !m.IsRange {
 		return formatMultiplicityBound(m.Lower)

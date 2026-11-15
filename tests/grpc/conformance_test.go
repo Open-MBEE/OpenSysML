@@ -15,6 +15,7 @@ import (
 	"sync"
 	"testing"
 
+	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
@@ -48,6 +49,22 @@ type expectedAttribute struct {
 	ValueKind string      `json:"value_kind"`
 	Value     interface{} `json:"value"`
 	Unit      string      `json:"unit"`
+}
+
+// expectedTypeInfo is a GetSymbol case's expected_type_info: the typing as
+// written and the derived Feature::type ids, in order.
+type expectedTypeInfo struct {
+	Declared   string   `json:"declared"`
+	ResolvedID string   `json:"resolved_id"`
+	Types      []string `json:"types"`
+}
+
+// expectedSpecialization is one entry of a GetSymbol case's
+// expected_specializations.
+type expectedSpecialization struct {
+	Kind     string `json:"kind"`
+	Declared string `json:"declared"`
+	TargetID string `json:"target_id"`
 }
 
 // expectedMember is one entry of a GetSymbol case's expected_members.
@@ -112,6 +129,18 @@ type conformanceCase struct {
 	ExpectedEdgeLabels   []string          `json:"expected_edge_labels,omitempty"`
 	// ExpectedParallel names the nodes drawn «parallel» (a state whose substates run in parallel).
 	ExpectedParallel []string `json:"expected_parallel,omitempty"`
+	// RenderView: the form to write and its writer options, the text it must
+	// write whole or in part, and the status code a refusal must carry.
+	Form                 string   `json:"form,omitempty"`
+	Palette              string   `json:"palette,omitempty"`
+	Style                string   `json:"style,omitempty"`
+	Lines                string   `json:"lines,omitempty"`
+	Direction            string   `json:"direction,omitempty"`
+	Link                 string   `json:"link,omitempty"`
+	Unplaced             string   `json:"unplaced,omitempty"`
+	ExpectedText         string   `json:"expected_text,omitempty"`
+	ExpectedTextContains []string `json:"expected_text_contains,omitempty"`
+	ExpectedErrorCode    string   `json:"expected_error_code,omitempty"`
 
 	// GetDiagnostics lint selection and the codes the answer must and must not carry.
 	DisableLint   []string `json:"disable_lint,omitempty"`
@@ -161,6 +190,7 @@ type conformanceCase struct {
 	// of first, in order, so the request is about the objects the model holds.
 	Instantiate     []string          `json:"instantiate,omitempty"`
 	QueryID         string            `json:"query_id,omitempty"`
+	InlineQuery     string            `json:"inline_query,omitempty"`
 	Bindings        []expectedBinding `json:"bindings,omitempty"`
 	ExpectedColumns []string          `json:"expected_columns,omitempty"`
 	ExpectedRows    []expectedRow     `json:"expected_rows,omitempty"`
@@ -181,6 +211,9 @@ type conformanceCase struct {
 	ExpectedKind       string                       `json:"expected_kind,omitempty"`
 	ExpectedChildIDs   []string                     `json:"expected_child_ids,omitempty"`
 	ExpectedAttributes map[string]expectedAttribute `json:"expected_attributes,omitempty"`
+	// ExpectedAnnotatingMetadataIDs is the full ordered list of the metadata
+	// usages annotating the symbol; an empty list requires none.
+	ExpectedAnnotatingMetadataIDs []string `json:"expected_annotating_metadata_ids,omitempty"`
 	// MinWithheldLibraryAttributes requires the response to state at least this
 	// many library-inherited attributes withheld from the list.
 	MinWithheldLibraryAttributes int32 `json:"min_withheld_library_attributes,omitempty"`
@@ -193,6 +226,10 @@ type conformanceCase struct {
 	// values; AbsentMetadata are keys it must not carry.
 	ExpectedMetadata map[string]string `json:"expected_metadata,omitempty"`
 	AbsentMetadata   []string          `json:"absent_metadata,omitempty"`
+	// ExpectedTypeInfo pins the written typing and the derived types;
+	// ExpectedSpecializations the full ordered list of generalization edges.
+	ExpectedTypeInfo        *expectedTypeInfo        `json:"expected_type_info,omitempty"`
+	ExpectedSpecializations []expectedSpecialization `json:"expected_specializations,omitempty"`
 
 	// ImportData: the imports, in order.
 	Imports      []conformanceImport `json:"imports,omitempty"`
@@ -215,12 +252,33 @@ type conformanceCase struct {
 	ExpectedElementIDs []string       `json:"expected_element_ids,omitempty"`
 	ExpectedQueryError string         `json:"expected_query_error,omitempty"`
 
+	// Model names the fixture parsed instead of <case>.sysml, so cases reading
+	// different elements of one model share it.
+	Model string `json:"model,omitempty"`
+
+	// GetElementProperties: the element read, the properties asked for (empty reads every
+	// property the element form carries) and the answer expected per property.
+	ElementID          string                    `json:"element_id,omitempty"`
+	Properties         []string                  `json:"properties,omitempty"`
+	ExpectedProperties []expectedElementProperty `json:"expected_properties,omitempty"`
+
 	// ExpectedError, when set, requires the RPC to report an in-band error
 	// containing this substring (a status error, for RunDocumentQuery).
 	ExpectedError string `json:"expected_error,omitempty"`
 
 	// ExecuteAction: the simulation clock the run ended at, checked when set.
 	ExpectedFinalTime *float64 `json:"expected_final_time,omitempty"`
+}
+
+// expectedElementProperty is one answer of a GetElementProperties case: the property's
+// facts, its values as conformanceValueText spells them, or the text of its unsupported reason.
+type expectedElementProperty struct {
+	Name                string   `json:"name"`
+	DefiningClass       string   `json:"defining_class,omitempty"`
+	Many                bool     `json:"many,omitempty"`
+	Derived             bool     `json:"derived,omitempty"`
+	Values              []string `json:"values"`
+	UnsupportedContains string   `json:"unsupported_contains,omitempty"`
 }
 
 // conformanceImport is one ImportData import: a name whose extension selects
@@ -367,7 +425,11 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		t.Fatalf("parse expectation: %v", err)
 	}
 
-	modelData, err := os.ReadFile(filepath.Join(dir, caseName+".sysml"))
+	modelFile := caseName + ".sysml"
+	if tc.Model != "" {
+		modelFile = tc.Model
+	}
+	modelData, err := os.ReadFile(filepath.Join(dir, modelFile))
 	if err != nil {
 		t.Fatalf("read model: %v", err)
 	}
@@ -437,6 +499,8 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		runVerifyRequirementCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "InstancePaths":
 		runInstancePathsCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "GetElementProperties":
+		runGetElementPropertiesCase(t, srv, ctx, parseResp.ModelHash, tc)
 	default:
 		t.Fatalf("unknown rpc %q", tc.RPC)
 	}
@@ -869,6 +933,9 @@ func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, mode
 	if tc.ExpectedChildIDs != nil && !slices.Equal(resp.Symbol.GetChildIds(), tc.ExpectedChildIDs) {
 		t.Errorf("child_ids = %v, want %v", resp.Symbol.GetChildIds(), tc.ExpectedChildIDs)
 	}
+	if want := tc.ExpectedAnnotatingMetadataIDs; want != nil && !slices.Equal(resp.Symbol.GetAnnotatingMetadataIds(), want) {
+		t.Errorf("annotating_metadata_ids = %v, want %v", resp.Symbol.GetAnnotatingMetadataIds(), want)
+	}
 	attrs := resp.Symbol.GetAttributes()
 	if tc.ExpectedAttributeNames != nil {
 		var got []string
@@ -887,6 +954,28 @@ func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, mode
 	for _, key := range tc.AbsentMetadata {
 		if got, ok := resp.Symbol.GetMetadata()[key]; ok {
 			t.Errorf("metadata[%s] = %q, want it absent", key, got)
+		}
+	}
+	if want := tc.ExpectedTypeInfo; want != nil {
+		info := resp.Symbol.GetTypeInfo()
+		if info.GetDeclared() != want.Declared || info.GetResolvedId() != want.ResolvedID {
+			t.Errorf("type_info written typing = %q/%q, want %q/%q", info.GetDeclared(), info.GetResolvedId(), want.Declared, want.ResolvedID)
+		}
+		var got []string
+		for _, ref := range info.GetTypes() {
+			got = append(got, ref.GetId())
+		}
+		if strings.Join(got, ",") != strings.Join(want.Types, ",") {
+			t.Errorf("type_info.types = %v, want %v", got, want.Types)
+		}
+	}
+	if tc.ExpectedSpecializations != nil {
+		var got []expectedSpecialization
+		for _, spec := range resp.Symbol.GetSpecializations() {
+			got = append(got, expectedSpecialization{Kind: spec.GetKind(), Declared: spec.GetDeclared(), TargetID: spec.GetTargetId()})
+		}
+		if !slices.Equal(got, tc.ExpectedSpecializations) {
+			t.Errorf("specializations = %v, want %v", got, tc.ExpectedSpecializations)
 		}
 	}
 	if want := tc.MinWithheldLibraryAttributes; want > 0 {
@@ -1041,16 +1130,24 @@ func runExecuteActionCase(t *testing.T, srv *grpc.Service, ctx context.Context, 
 // checks the nodes drawn, the compartment each row is drawn in and the edges.
 func runRenderViewCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
-	resp, err := srv.RenderView(ctx, &pb.RenderViewRequest{ModelHash: modelHash, View: tc.View, Compartments: tc.Compartments})
+	resp, err := srv.RenderView(ctx, &pb.RenderViewRequest{
+		ModelHash: modelHash, View: tc.View, Compartments: tc.Compartments,
+		Form: tc.Form, Palette: tc.Palette, Style: tc.Style, Lines: tc.Lines,
+		Direction: tc.Direction, Link: tc.Link, Unplaced: tc.Unplaced,
+	})
 	if tc.ExpectedError != "" {
 		if err == nil || !strings.Contains(err.Error(), tc.ExpectedError) {
 			t.Fatalf("RenderView error = %v, want %q", err, tc.ExpectedError)
+		}
+		if code := connect.CodeOf(err).String(); tc.ExpectedErrorCode != "" && code != tc.ExpectedErrorCode {
+			t.Errorf("RenderView error code = %s, want %s", code, tc.ExpectedErrorCode)
 		}
 		return
 	}
 	if err != nil {
 		t.Fatalf("RenderView: %v", err)
 	}
+	checkRenderViewText(t, resp.GetText(), tc)
 	names := make([]string, 0, len(resp.Nodes))
 	compartments := map[string]string{}
 	var parallel []string
@@ -1078,6 +1175,29 @@ func runRenderViewCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 	}
 	if !slices.Equal(labels, tc.ExpectedEdgeLabels) {
 		t.Errorf("edge labels = %v, want %v", labels, tc.ExpectedEdgeLabels)
+	}
+}
+
+// checkRenderViewText checks the text a RenderView case wrote: none without a
+// form, and with one the whole text or the parts of it the case states.
+func checkRenderViewText(t *testing.T, text string, tc conformanceCase) {
+	t.Helper()
+	if tc.Form == "" {
+		if text != "" {
+			t.Errorf("text without a form = %q, want none", text)
+		}
+		return
+	}
+	if tc.ExpectedText == "" && len(tc.ExpectedTextContains) == 0 {
+		t.Fatalf("a case writing form %q states no expected_text or expected_text_contains", tc.Form)
+	}
+	if tc.ExpectedText != "" && text != tc.ExpectedText {
+		t.Errorf("text = %q, want %q", text, tc.ExpectedText)
+	}
+	for _, want := range tc.ExpectedTextContains {
+		if !strings.Contains(text, want) {
+			t.Errorf("text lacks %q:\n%s", want, text)
+		}
 	}
 }
 
@@ -1260,6 +1380,82 @@ func runQueryCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHas
 	if !slices.Equal(ids, tc.ExpectedElementIDs) {
 		t.Errorf("elements = %v, want %v", ids, tc.ExpectedElementIDs)
 	}
+}
+
+func runGetElementPropertiesCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
+	t.Helper()
+	resp, err := srv.GetElementProperties(ctx, &pb.GetElementPropertiesRequest{
+		ModelHash: modelHash, ElementId: tc.ElementID, Properties: tc.Properties,
+	})
+	if err != nil {
+		t.Fatalf("GetElementProperties: %v", err)
+	}
+	if tc.ExpectedError != "" {
+		if !strings.Contains(resp.Error, tc.ExpectedError) {
+			t.Fatalf("error = %q, want one containing %q", resp.Error, tc.ExpectedError)
+		}
+		return
+	}
+	if resp.Error != "" {
+		t.Fatalf("GetElementProperties: %s", resp.Error)
+	}
+	if resp.Element == nil || resp.Element.Id == "" {
+		t.Fatalf("the answer names no element: %v", resp.Element)
+	}
+	if len(resp.Properties) != len(tc.ExpectedProperties) {
+		names := make([]string, 0, len(resp.Properties))
+		for _, property := range resp.Properties {
+			names = append(names, property.Name)
+		}
+		t.Fatalf("%d properties answered (%v), %d expected", len(resp.Properties), names, len(tc.ExpectedProperties))
+	}
+	for i, want := range tc.ExpectedProperties {
+		got := resp.Properties[i]
+		if got.Name != want.Name {
+			t.Errorf("property %d = %s, want %s", i, got.Name, want.Name)
+			continue
+		}
+		if got.DefiningClass != want.DefiningClass || got.Many != want.Many || got.Derived != want.Derived {
+			t.Errorf("%s: defining_class %q many %t derived %t, want %q %t %t",
+				want.Name, got.DefiningClass, got.Many, got.Derived, want.DefiningClass, want.Many, want.Derived)
+		}
+		values := make([]string, 0, len(got.Values))
+		for _, value := range got.Values {
+			values = append(values, conformanceValueText(value))
+		}
+		if !slices.Equal(values, want.Values) {
+			t.Errorf("%s = %q, want %q", want.Name, values, want.Values)
+		}
+		switch {
+		case want.UnsupportedContains == "" && got.Unsupported != "":
+			t.Errorf("%s is unsupported: %s", want.Name, got.Unsupported)
+		case want.UnsupportedContains != "" && !strings.Contains(got.Unsupported, want.UnsupportedContains):
+			t.Errorf("%s unsupported = %q, want one containing %q", want.Name, got.Unsupported, want.UnsupportedContains)
+		}
+	}
+}
+
+// conformanceValueText spells one ElementPropertyValue: an element by its
+// qualified name, or by its id when it has none; a literal as its text.
+func conformanceValueText(value *pb.ElementPropertyValue) string {
+	switch v := value.Value.(type) {
+	case *pb.ElementPropertyValue_Element:
+		if v.Element.QualifiedName != "" {
+			return v.Element.QualifiedName
+		}
+		return v.Element.Id
+	case *pb.ElementPropertyValue_StringValue:
+		return v.StringValue
+	case *pb.ElementPropertyValue_BoolValue:
+		return strconv.FormatBool(v.BoolValue)
+	case *pb.ElementPropertyValue_IntValue:
+		return strconv.FormatInt(v.IntValue, 10)
+	case *pb.ElementPropertyValue_RealValue:
+		return strconv.FormatFloat(v.RealValue, 'g', -1, 64)
+	case *pb.ElementPropertyValue_Number:
+		return v.Number
+	}
+	return fmt.Sprintf("%v", value)
 }
 
 func runSelfCheckCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
@@ -1472,6 +1668,10 @@ func toProtoValue(t *testing.T, ev expectedValue) *pb.Value {
 		return &pb.Value{Kind: &pb.Value_StringValue{StringValue: s}}
 	case "null":
 		return &pb.Value{Kind: &pb.Value_Null{Null: ""}}
+	case "metaobject":
+		text, _ := ev.Value.(string)
+		element, metaclass, _ := strings.Cut(text, " : ")
+		return &pb.Value{Kind: &pb.Value_Metaobject{Metaobject: &pb.Metaobject{ElementId: element, MetaclassId: metaclass}}}
 	case "instance_id":
 		return &pb.Value{Kind: &pb.Value_InstanceId{InstanceId: int64(mustFloat(t, ev))}}
 	case "sequence":
@@ -1552,6 +1752,8 @@ func describeValue(v *pb.Value) (string, interface{}) {
 		return "null", nil
 	case *pb.Value_Unset:
 		return "unset", nil
+	case *pb.Value_Metaobject:
+		return "metaobject", k.Metaobject.GetElementId() + " : " + k.Metaobject.GetMetaclassId()
 	default:
 		return "no arm", nil
 	}

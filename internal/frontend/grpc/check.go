@@ -92,7 +92,7 @@ func (s *Service) CheckBehavior(ctx context.Context, req *pb.CheckBehaviorReques
 	starter := func(rt *runtime.Context) (*runtime.Invocation, error) {
 		inputs := make(map[string]runtime.Value, len(req.GetInputs()))
 		for name, pv := range req.GetInputs() {
-			val, cerr := protoconv.ProtoToRuntimeValue(rt, pv, cached.Index, rt.Semantics())
+			val, cerr := protoconv.ProtoToRuntimeValueWith(rt, pv, cached.Index, rt.Semantics(), cached.SymbolContext())
 			if cerr != nil {
 				return nil, fmt.Errorf("input %q could not be read: %v", name, cerr)
 			}
@@ -223,6 +223,7 @@ func (s *Service) checkResponse(label string, plan analysis.Plan, witnessDir str
 			MassBounded: report.MassBounded,
 			Notes:       observationNotes(report.Scope),
 			Status:      report.Status(),
+			Coverage:    coverageProto(report.Coverage),
 		}
 		if at, ok := report.Horizon.Bound(); ok {
 			search.Horizon, search.HorizonSet = at, true

@@ -1,0 +1,86 @@
+name: Install apt packages
+description: >-
+  Install packages through scripts/ci-apt-install.sh and keep the .deb set it installed from
+  in the Actions cache, keyed on the package set and the runner image. A run on which no
+  Ubuntu mirror answers installs the set a previous run fetched instead of failing; a run
+  with neither a mirror nor a cached set fails as before.
+
+inputs:
+  packages:
+    description: >-
+      The script's arguments: apt-get install options, then the package names, separated by
+      whitespace (`--no-install-recommends poppler-utils`).
+    required: true
+  deadline-seconds:
+    description: CI_APT_DEADLINE_SECONDS, the bound on all fetching; the script's default when empty.
+    required: false
+    default: ''
+  verify:
+    description: A command run once the packages are installed, whose output shows they work (`z3 --version`).
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    # The first package name and a digest of the whole argument list name the set; the
+    # cache is per runner image because the set is what the image lacked.
+    - name: Name the package set
+      id: set
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+      run: |
+        set -euo pipefail
+        read -r -d '' -a args <<<"$PACKAGES" || true
+        name=
+        for arg in "${args[@]}"; do
+          [[ $arg == -* ]] || { name=$arg; break; }
+        done
+        [[ -n $name ]] || { echo "error: packages names no package: $PACKAGES" >&2; exit 2; }
+        name="$name-$(printf '%s\n' "${args[@]}" | sha256sum | cut -c1-8)"
+        echo "name=$name" >> "$GITHUB_OUTPUT"
+        echo "image=${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
+        echo "path=$RUNNER_TEMP/apt-archives/$name" >> "$GITHUB_OUTPUT"
+
+    - name: Restore the archives the set was installed from
+      id: restore
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: ${{ steps.set.outputs.path }}
+        key: apt-${{ steps.set.outputs.name }}-${{ runner.os }}-${{ steps.set.outputs.image }}-
+        restore-keys: |
+          apt-${{ steps.set.outputs.name }}-${{ runner.os }}-${{ steps.set.outputs.image }}-
+          apt-${{ steps.set.outputs.name }}-${{ runner.os }}-
+
+    - name: Install the packages
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+        VERIFY: ${{ inputs.verify }}
+        CI_APT_ARCHIVES: ${{ steps.set.outputs.path }}
+        CI_APT_DEADLINE_SECONDS: ${{ inputs.deadline-seconds }}
+      run: |
+        set -euo pipefail
+        read -r -d '' -a args <<<"$PACKAGES" || true
+        scripts/ci-apt-install.sh "${args[@]}"
+        [[ -z $VERIFY ]] || bash -euo pipefail -c "$VERIFY"
+
+    # The key names the archive set, so a changed set is saved and an unchanged one is not.
+    - name: Name the archive set
+      id: archives
+      shell: bash
+      env:
+        ARCHIVES: ${{ steps.set.outputs.path }}
+      run: |
+        set -euo pipefail
+        names=$(find "$ARCHIVES" -maxdepth 1 -name '*.deb' -printf '%f\n' | sort)
+        echo "count=$(grep -c . <<<"$names" || true)" >> "$GITHUB_OUTPUT"
+        echo "digest=$(sha256sum <<<"$names" | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+    - name: Keep the archives for the next run
+      if: steps.archives.outputs.count != '0' && steps.restore.outputs.cache-matched-key != format('apt-{0}-{1}-{2}-{3}', steps.set.outputs.name, runner.os, steps.set.outputs.image, steps.archives.outputs.digest)
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.set.outputs.path }}
+        key: apt-${{ steps.set.outputs.name }}-${{ runner.os }}-${{ steps.set.outputs.image }}-${{ steps.archives.outputs.digest }}

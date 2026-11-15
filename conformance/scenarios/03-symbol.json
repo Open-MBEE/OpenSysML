@@ -22,6 +22,147 @@
       }
     },
     {
+      "id": "symbol/inherited_members_are_listed_with_provenance",
+      "description": "A usage's members include the ones inherited through its type's specializations, each naming the type that declares it; child_ids stays the owned members, and the standard-library ones are counted rather than listed.",
+      "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_members"
+      ],
+      "model": {
+        "fixture": "members.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Demo::m"
+      },
+      "expect": {
+        "contains_all": {
+          "symbol.members.*.id": [
+            "Demo::Base::p"
+          ]
+        },
+        "contains": {
+          "symbol.members.0.id": "Demo::Base::p",
+          "symbol.members.0.inherited_from": "Demo::Base"
+        },
+        "response": {
+          "symbol": {
+            "members": [
+              {
+                "id": "Demo::Base::p",
+                "name": "p",
+                "kind": "partUsage",
+                "inherited": true,
+                "inherited_from": "Demo::Base"
+              }
+            ]
+          }
+        },
+        "non_empty": [
+          "symbol.withheld_library_members"
+        ],
+        "absent": [
+          "symbol.child_ids"
+        ]
+      }
+    },
+    {
+      "id": "symbol/library_members_are_listed_on_request",
+      "description": "include_library_members lists the standard-library members otherwise counted, each marked library with its provenance, and the count drops to zero.",
+      "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_members"
+      ],
+      "model": {
+        "fixture": "members.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Demo::m",
+        "include_library_members": true
+      },
+      "expect": {
+        "contains_all": {
+          "symbol.members.*.id": [
+            "Demo::Base::p"
+          ]
+        },
+        "min_counts": {
+          "symbol.members": 2
+        },
+        "absent": [
+          "symbol.withheld_library_members"
+        ]
+      }
+    },
+    {
+      "id": "symbol/an_about_metadata_usage_is_named_by_what_it_annotates",
+      "description": "An element names the metadata usage annotating it from elsewhere with `about`; the usage stays a member of the namespace it is written in, so child_ids leaves it out.",
+      "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_annotating_metadata"
+      ],
+      "model": {
+        "fixture": "annotations.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Demo::Pump"
+      },
+      "expect": {
+        "response": {
+          "symbol": {
+            "id": "Demo::Pump",
+            "annotating_metadata_ids": [
+              "Demo::pump_fm"
+            ]
+          }
+        },
+        "absent": [
+          "symbol.child_ids"
+        ]
+      }
+    },
+    {
+      "id": "symbol/an_annotating_metadata_usage_reads_its_type_and_value",
+      "description": "The usage an element names as annotating it is an ordinary symbol: its type resolves to the metadata definition and its attribute carries the value written.",
+      "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_annotating_metadata",
+        "type_facts",
+        "symbol_attributes"
+      ],
+      "model": {
+        "fixture": "annotations.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Demo::pump_fm"
+      },
+      "expect": {
+        "response": {
+          "symbol": {
+            "id": "Demo::pump_fm",
+            "kind": "metadataUsage",
+            "type_info": {
+              "resolved_id": "Demo::FailureMode"
+            },
+            "attributes": [
+              {
+                "name": "severity",
+                "value": {
+                  "int_value": 2
+                }
+              }
+            ]
+          }
+        },
+        "absent": [
+          "symbol.annotating_metadata_ids"
+        ]
+      }
+    },
+    {
       "id": "symbol/an_attribute_reports_the_kind_that_filters_it",
       "description": "Attribute and part usages are told apart by kind, which is how a client offers attributes() and parts().",
       "rpc": "GetSymbol",
@@ -41,6 +182,179 @@
             "id": "Demo::Vehicle::mass",
             "name": "mass",
             "kind": "attributeUsage"
+          }
+        }
+      }
+    },
+    {
+      "id": "symbol/a_name_resolves_through_a_public_membership_import",
+      "description": "resolve_name resolves the id as a qualified name from the root namespace: a public import re-exports the member under the importing namespace.",
+      "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_name_resolution"
+      ],
+      "model": {
+        "fixture": "visibility.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Vis::Facade::Pump",
+        "resolve_name": true
+      },
+      "expect": {
+        "response": {
+          "symbol": {
+            "id": "Vis::Lib::Pump"
+          }
+        }
+      }
+    },
+    {
+      "id": "symbol/a_name_resolves_through_a_public_recursive_import",
+      "description": "A recursive import brings in the members of the nested namespaces too.",
+      "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_name_resolution"
+      ],
+      "model": {
+        "fixture": "visibility.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Vis::FacadeDeep::Valve",
+        "resolve_name": true
+      },
+      "expect": {
+        "response": {
+          "symbol": {
+            "id": "Vis::Lib::Sub::Valve"
+          }
+        }
+      }
+    },
+    {
+      "id": "symbol/a_name_resolves_an_alias_to_its_element",
+      "description": "A name that names an alias answers with the element the alias is for.",
+      "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_name_resolution"
+      ],
+      "model": {
+        "fixture": "visibility.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Vis::Lib::PumpAlias",
+        "resolve_name": true
+      },
+      "expect": {
+        "response": {
+          "symbol": {
+            "id": "Vis::Lib::Pump"
+          }
+        }
+      }
+    },
+    {
+      "id": "symbol/a_reported_id_of_an_alias_is_the_alias",
+      "description": "Without resolve_name the id is one the service reported, and an alias is itself.",
+      "rpc": "GetSymbol",
+      "model": {
+        "fixture": "visibility.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Vis::Lib::PumpAlias"
+      },
+      "expect": {
+        "response": {
+          "symbol": {
+            "id": "Vis::Lib::PumpAlias",
+            "kind": "alias"
+          }
+        }
+      }
+    },
+    {
+      "id": "symbol/a_name_does_not_cross_a_private_import",
+      "description": "A private import is visible inside its namespace only, so the name resolves to nothing from the root.",
+      "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_name_resolution"
+      ],
+      "model": {
+        "fixture": "visibility.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Vis::Hidden::Pump",
+        "resolve_name": true
+      },
+      "expect": {
+        "contains": {
+          "error": "symbol not found"
+        }
+      }
+    },
+    {
+      "id": "symbol/a_name_does_not_reach_a_private_member",
+      "description": "A private member is not visible from outside its namespace.",
+      "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_name_resolution"
+      ],
+      "model": {
+        "fixture": "visibility.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Vis::Lib::Secret",
+        "resolve_name": true
+      },
+      "expect": {
+        "contains": {
+          "error": "symbol not found"
+        }
+      }
+    },
+    {
+      "id": "symbol/a_reported_id_of_a_private_member_is_fetched",
+      "description": "The id of a private member, which its owner's child_ids report, still denotes it.",
+      "rpc": "GetSymbol",
+      "model": {
+        "fixture": "visibility.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Vis::Lib::Secret"
+      },
+      "expect": {
+        "response": {
+          "symbol": {
+            "id": "Vis::Lib::Secret"
+          }
+        }
+      }
+    },
+    {
+      "id": "symbol/a_public_member_of_a_private_namespace_keeps_its_id",
+      "description": "No name reaches a member of a private namespace from the root, but the id the service reports for it still fetches it under resolve_name.",
+      "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_name_resolution"
+      ],
+      "model": {
+        "fixture": "visibility.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Vis::Lib::Secret::inner",
+        "resolve_name": true
+      },
+      "expect": {
+        "response": {
+          "symbol": {
+            "id": "Vis::Lib::Secret::inner"
           }
         }
       }

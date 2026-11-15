@@ -1,0 +1,10 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "DerivedTypes::Owner::pBoth",
+	"expected_kind": "partUsage",
+	"expected_type_info": {"declared": "V", "resolved_id": "DerivedTypes::V", "types": ["DerivedTypes::V", "DerivedTypes::T"]},
+	"expected_specializations": [
+		{"kind": "typing", "declared": "V", "target_id": "DerivedTypes::V"},
+		{"kind": "subsets", "declared": "q", "target_id": "DerivedTypes::Owner::q"}
+	]
+}

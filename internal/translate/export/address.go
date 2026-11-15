@@ -1,9 +1,11 @@
 package export
 
 import (
+	"slices"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
@@ -19,7 +21,7 @@ const xPositionalName = "positionalName"
 // the writer's address for an unnamed or minted member, rather than a name.
 func isPositionalName(name string) bool {
 	for {
-		segment, rest, more := cutIdentitySegment(name)
+		segment, rest, more := naming.CutSegment(name)
 		if strings.HasPrefix(segment, "@") {
 			return true
 		}
@@ -30,32 +32,79 @@ func isPositionalName(name string) bool {
 	}
 }
 
-// addressTerm is the predicate an element's address is stated by:
-// sysml:qualifiedName for a name, sysx:positionalName for a position.
-func addressTerm(name string) rdf.Term {
-	if isPositionalName(name) {
-		return rdf.OpenSysMLTerm(xPositionalName)
+// xMappingQualifiedName states a named element's address where it is not the
+// spelling of sysml:qualifiedName: `P::two words` beside `P::'two words'`.
+const xMappingQualifiedName = "mappingQualifiedName"
+
+// stateAddress states a position as sysx:positionalName and a name as the derived
+// sysml:qualifiedName (KerML §8.3.2.1.2), the address beside it where the two differ.
+func stateAddress(add func(subject, predicate, object rdf.Term), subject rdf.Term, address string) {
+	if isPositionalName(address) {
+		add(subject, rdf.OpenSysMLTerm(xPositionalName), rdf.String(address))
+		return
 	}
-	return rdf.SysMLTerm(pQualifiedName)
+	qualified := naming.Escaped(address)
+	add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(qualified))
+	if qualified != address || mappingQualifiedNameFromSpec(qualified) != address {
+		add(subject, rdf.OpenSysMLTerm(xMappingQualifiedName), rdf.String(address))
+	}
 }
 
-// addressOf is the address subject is stated under, by either predicate, or
-// the positional address its element IRI encodes when a graph states neither
-// (one stripped of the sysx: vocabulary keeps its IRIs).
+// addressPredicates are the predicates an address is read from, in order: the
+// mapping's own statement first, the qualified name it otherwise equals next.
+var addressPredicates = [...]string{
+	rdf.OpenSysML + xMappingQualifiedName,
+	rdf.SysML + pQualifiedName,
+	rdf.OpenSysML + xPositionalName,
+}
+
+// isAddressPredicate reports whether a predicate states an element's address.
+func isAddressPredicate(predicate string) bool {
+	return slices.Contains(addressPredicates[:], predicate)
+}
+
+// addressOf is the address subject states, or the positional one its element IRI
+// encodes when the graph states none (one stripped of sysx: keeps its IRIs).
 func addressOf(graph *rdf.Graph, subject rdf.Term) (string, bool) {
-	if name, ok := graph.Lexical(subject, rdf.SysML+pQualifiedName); ok {
-		return name, true
-	}
-	if name, ok := graph.Lexical(subject, rdf.OpenSysML+xPositionalName); ok {
+	if name, ok := statedAddress(graph, subject); ok {
 		return name, true
 	}
 	return encodedPositionalAddress(subject)
 }
 
-// statesAddress reports whether subject states an address by either predicate.
+// statedAddress is the address subject states: its mapping or positional name,
+// or the one its qualifiedName spells when the graph states that alone.
+func statedAddress(graph *rdf.Graph, subject rdf.Term) (string, bool) {
+	for _, predicate := range addressPredicates {
+		name, ok := graph.Lexical(subject, predicate)
+		if !ok {
+			continue
+		}
+		if predicate == rdf.SysML+pQualifiedName && strings.ContainsAny(name, `'\`) {
+			return mappingQualifiedNameFromSpec(name), true
+		}
+		return name, true
+	}
+	return "", false
+}
+
+// NamedAddress is the address of a subject that states a qualified name: what
+// its element IRI encodes, where sysml:qualifiedName is the spelling to show.
+func NamedAddress(graph *rdf.Graph, subject rdf.Term) (string, bool) {
+	if !graph.HasProperty(subject, rdf.SysML+pQualifiedName) {
+		return "", false
+	}
+	return statedAddress(graph, subject)
+}
+
+// statesAddress reports whether subject states an address by any predicate.
 func statesAddress(graph *rdf.Graph, subject rdf.Term) bool {
-	return graph.HasProperty(subject, rdf.SysML+pQualifiedName) ||
-		graph.HasProperty(subject, rdf.OpenSysML+xPositionalName)
+	for _, predicate := range addressPredicates {
+		if graph.HasProperty(subject, predicate) {
+			return true
+		}
+	}
+	return false
 }
 
 // hasAddress reports whether subject has an address, stated or IRI-encoded.

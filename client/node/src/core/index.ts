@@ -8,6 +8,8 @@ export {
   type PropertyValue,
   elementPropertiesOf,
 } from "./element-properties.js";
+export { InstancePaths, instancePathsOf } from "./instance-paths.js";
+export type { InstancePath, PathStep } from "./instance-paths.js";
 export type {
   ConnectionBackend,
   Encoding,
@@ -22,10 +24,13 @@ export type {
   AttributeFacts,
   EvalOptions,
   FeatureValue,
+  InstanceReach,
+  MemberFacts,
   Multiplicity,
   ParseOptions,
   ParseSourcesOptions,
   SpecializationFacts,
+  SymbolOptions,
   TypeFacts,
 } from "./model.js";
 export { LANGUAGES, SourceDocument, sourceDocuments } from "./sources.js";
@@ -109,7 +114,7 @@ export {
 } from "./engines.js";
 export type { EngineBound, EngineInfo, Standing } from "./engines.js";
 export { Exploration, Outcome } from "./exploration.js";
-export type { OutcomeValues } from "./exploration.js";
+export type { Coverage, CoverageEntry, OutcomeValues } from "./exploration.js";
 export {
   AppliedEdit,
   Body,
@@ -226,7 +231,11 @@ export {
   CAPABILITY_VERIFICATION_VERDICTS,
   CAPABILITY_SYMBOL_ATTRIBUTES,
   CAPABILITY_SYMBOL_MEMBERS,
+  CAPABILITY_SYMBOL_NAME_RESOLUTION,
+  CAPABILITY_SYMBOL_ANNOTATING_METADATA,
   CAPABILITY_ELEMENT_PROPERTIES,
+  CAPABILITY_INLINE_DOCUMENT_QUERY,
+  CAPABILITY_INSTANCE_PATHS,
   CAPABILITY_TENSOR_VALUES,
   CAPABILITY_TYPE_FACTS,
   CAPABILITY_UNSET_VALUE,

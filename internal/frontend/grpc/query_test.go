@@ -420,7 +420,8 @@ func TestQueryMalformedConstraintsFail(t *testing.T) {
 		"one-member composite nested": composite(pb.CompositeOperator_COMPOSITE_OPERATOR_AND,
 			primitive(QueryPropName, opEqual, false, "vehicle"),
 			composite(pb.CompositeOperator_COMPOSITE_OPERATOR_OR, primitive(QueryPropName, opEqual, false, "spare"))),
-		"composite operator": {Constraint: &pb.Constraint_Composite{Composite: &pb.CompositeConstraint{Constraint: []*pb.Constraint{primitive(QueryPropName, opEqual, false, "vehicle"), primitive(QueryPropName, opEqual, false, "spare")}}}},
+		"composite operator":         {Constraint: &pb.Constraint_Composite{Composite: &pb.CompositeConstraint{Constraint: []*pb.Constraint{primitive(QueryPropName, opEqual, false, "vehicle"), primitive(QueryPropName, opEqual, false, "spare")}}}},
+		"unknown composite operator": {Constraint: &pb.Constraint_Composite{Composite: &pb.CompositeConstraint{Operator: 99, Constraint: []*pb.Constraint{primitive(QueryPropName, opEqual, false, "vehicle"), primitive(QueryPropName, opEqual, false, "spare")}}}},
 	}
 	for name, constraint := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -927,23 +928,38 @@ func TestQueryOmitsSatisfyingFeatureWithoutQueryIdentity(t *testing.T) {
 	}
 }
 
-func TestQueryVerifyHasNoSatisfyEndProperties(t *testing.T) {
+// TestQueryVerifyIsARequirementUsage: an objective's `verify r;` is the RequirementUsage its
+// RequirementVerificationMembership owns (SysML 8.3.19), not a SatisfyRequirementUsage.
+func TestQueryVerifyIsARequirementUsage(t *testing.T) {
 	model := `package Demo {
 		requirement r;
 		verification def Check {
 			objective { verify r; }
 		}
 	}`
-	_, _, resp := runQueryOnSource(t, model, satisfyUsageQuery(
-		QueryPropSatisfiedRequirement, QueryPropSatisfyingFeature,
-	))
-	if len(resp.Elements) != 1 {
-		t.Fatalf("verify elements = %d, want 1: %v", len(resp.Elements), resp.Elements)
+	_, _, satisfies := runQueryOnSource(t, model, satisfyUsageQuery(QueryPropSatisfiedRequirement))
+	if len(satisfies.Elements) != 0 {
+		t.Fatalf("satisfy elements = %d, want none: %v", len(satisfies.Elements), satisfies.Elements)
 	}
-	for _, property := range []string{QueryPropSatisfiedRequirement, QueryPropSatisfyingFeature} {
-		if _, ok := resp.Elements[0].Properties[property]; ok {
-			t.Errorf("verify properties[%q] = %q, want absent", property, resp.Elements[0].Properties[property])
+	_, _, requirements := runQueryOnSource(t, model, &pb.Query{
+		Where:  primitive(QueryPropType, opEqual, false, "RequirementUsage"),
+		Select: []string{QueryPropOwner, QueryPropName},
+	})
+	// The verify is the RequirementUsage the objective owns, named by the requirement it references.
+	var verify *pb.QueryResultElement
+	for _, element := range requirements.Elements {
+		if element.Properties[QueryPropOwner] == "Demo::Check::obj" {
+			if verify != nil {
+				t.Fatalf("two requirement usages under the objective: %v and %v", verify, element)
+			}
+			verify = element
 		}
+	}
+	if verify == nil {
+		t.Fatalf("no RequirementUsage owned by the objective Demo::Check::obj: %v", requirements.Elements)
+	}
+	if verify.Id != "Demo::Check::obj::r" || verify.Properties[QueryPropName] != "r" {
+		t.Errorf("verify = %q named %q, want Demo::Check::obj::r named r (by the requirement it references)", verify.Id, verify.Properties[QueryPropName])
 	}
 }
 

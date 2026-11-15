@@ -515,3 +515,108 @@ func TestLibraryVersionOverAnOverlayThatChangesTheLibrary(t *testing.T) {
 		t.Errorf("a copy of the added package under the base file's name: version %q, want lib/hulls.sysml", got)
 	}
 }
+
+// A metadata body's `mission = …` is the usage's own feature: its id is minted under the
+// metadata usage (by position, `P::@3`), not under the definition whose feature it redefines.
+func TestMetadataBodyFeatureIsIdentifiedUnderItsUsage(t *testing.T) {
+	table, idx := buildTable(t, `package P {
+	part def T;
+	part telescope : T;
+	metadata def Heritage { attribute mission : String; }
+	@Heritage about telescope { mission = "Hubble"; }
+}
+`)
+	definition := infoOf(t, table, idx, "P::Heritage::mission")
+	var body *identity.Info
+	for _, sym := range table.Symbols() {
+		if sym.Name == "mission" && sym != definition.Symbol {
+			info, ok := table.Info(sym)
+			if !ok {
+				t.Fatal("body feature has no identity")
+			}
+			body = info
+		}
+	}
+	if body == nil {
+		t.Fatal("no body feature symbol")
+	}
+	if want := rdf.EncodeElementID("P::@3::mission"); body.EffectiveID != want {
+		t.Fatalf("body feature id = %q, want %q", body.EffectiveID, want)
+	}
+	if body.EffectiveID == definition.EffectiveID {
+		t.Fatal("body feature shares the definition feature's id")
+	}
+}
+
+// The `metadata M { a = 1; }` spelling of a metadata usage is identified the same way.
+func TestMetadataUsageBodyFeatureIsIdentifiedUnderItsUsage(t *testing.T) {
+	table, _ := buildTable(t, `package P {
+	metadata def M { attribute a; }
+	part def C { metadata M { a = 1; } }
+}
+`)
+	for _, sym := range table.Symbols() {
+		if sym.Name != "a" || sym.OwnerScope == nil || sym.OwnerScope.Owner() == nil || sym.OwnerScope.Owner().Name == "M" {
+			continue
+		}
+		info, ok := table.Info(sym)
+		if !ok {
+			t.Fatal("body feature has no identity")
+		}
+		if want := rdf.EncodeElementID("P::C::@0::a"); info.EffectiveID != want {
+			t.Fatalf("body feature id = %q, want %q", info.EffectiveID, want)
+		}
+		return
+	}
+	t.Fatal("no body feature symbol")
+}
+
+// A feature nested in a body feature is qualified under that feature, one per annotation.
+func TestNestedMetadataBodyFeaturesAreIdentifiedPerAnnotation(t *testing.T) {
+	table, _ := buildTable(t, `package P {
+	part def T;
+	part x : T;
+	part y : T;
+	metadata def M { attribute a { attribute b; } }
+	@M about x { a { b = 1; } }
+	@M about y { a { b = 2; } }
+}
+`)
+	got := map[string]bool{}
+	for _, sym := range table.Symbols() {
+		if sym.Name != "b" {
+			continue
+		}
+		if info, ok := table.Info(sym); ok {
+			got[info.EffectiveID] = true
+		}
+	}
+	for _, fqn := range []string{"P::M::a::b", "P::@4::a::b", "P::@5::a::b"} {
+		if !got[rdf.EncodeElementID(fqn)] {
+			t.Errorf("no feature b identified as %q; got %v", rdf.EncodeElementID(fqn), got)
+		}
+	}
+}
+
+// A model's own ElementId is no identity annotation: it takes a position, as in the conversion.
+func TestShadowingElementIdKeepsItsPosition(t *testing.T) {
+	table, _ := buildTable(t, `package P {
+	part def T;
+	part telescope : T;
+	metadata def ElementId { attribute id : String; }
+	@ElementId { id = "local"; }
+	metadata def Heritage { attribute mission : String; }
+	@Heritage about telescope { mission = "Hubble"; }
+}
+`)
+	want := rdf.EncodeElementID("P::@5::mission")
+	for _, sym := range table.Symbols() {
+		if sym.Name != "mission" {
+			continue
+		}
+		if info, ok := table.Info(sym); ok && info.EffectiveID == want {
+			return
+		}
+	}
+	t.Fatalf("no body feature identified as %q", want)
+}

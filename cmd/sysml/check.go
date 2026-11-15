@@ -40,7 +40,7 @@ type checks struct {
 	runs              runCount
 	observe           stringSlice
 	compare           string
-	queries           stringSlice
+	queries           []queryInvocation
 	actions           stringSlice
 	states            stringSlice
 	advance           advanceTime
@@ -884,12 +884,49 @@ func runChecks(files []string, exprs []string, c checks) int {
 	return finishRunCheck(rep, sess)
 }
 
-// runQueries executes each -run-query after the behaviors named have run, so a
-// query over the session's states or trace reads what the run did.
+// runQueries executes each -run-query and -run-inline-query, in the order written,
+// after the behaviors named have run, so a query over the session's states or
+// trace reads what the run did.
 func (c *checks) runQueries(sess *repl.Session, rep *reporter) {
-	for _, invocation := range c.queries {
-		rep.verdict(sess.RunDocumentQuery(invocation))
+	for _, query := range c.queries {
+		if query.inline {
+			rep.verdict(sess.RunInlineDocumentQuery(query.text))
+			continue
+		}
+		rep.verdict(sess.RunDocumentQuery(query.text))
 	}
+}
+
+// queryInvocation is one query to run: a named query with its bindings, as
+// -run-query takes it, or a query expression, as -run-inline-query takes it.
+type queryInvocation struct {
+	text   string
+	inline bool
+}
+
+// queryFlag appends what -run-query or -run-inline-query is given to one list,
+// so the queries run in the order they were written whichever flag each used.
+type queryFlag struct {
+	queries *[]queryInvocation
+	inline  bool
+}
+
+func (f queryFlag) String() string {
+	if f.queries == nil {
+		return ""
+	}
+	var texts []string
+	for _, query := range *f.queries {
+		if query.inline == f.inline {
+			texts = append(texts, query.text)
+		}
+	}
+	return strings.Join(texts, ", ")
+}
+
+func (f queryFlag) Set(value string) error {
+	*f.queries = append(*f.queries, queryInvocation{text: value, inline: f.inline})
+	return nil
 }
 
 // behaviors reads `-action`/`-state` values as the behaviors they name.

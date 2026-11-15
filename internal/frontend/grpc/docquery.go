@@ -7,29 +7,29 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
-	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docset"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
-	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
 )
 
 const (
 	bindingFormat = "binding %s: %v"
 )
 
-// RunDocumentQuery runs a named document query with parameter bindings, the
-// answer %run-query gives, as typed rows rather than formatted lines.
+// RunDocumentQuery runs a named document query, or a query expression written
+// in place of a name, with parameter bindings: the answer %run-query gives, as
+// typed rows rather than formatted lines.
 func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQueryRequest) (*pb.RunDocumentQueryResponse, error) {
 	if err := s.requireCapability(CapabilityDocumentQuery); err != nil {
 		return nil, err
@@ -38,25 +38,38 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 	if !ok {
 		return nil, statusErrorf(connect.CodeNotFound, msgModelNotFound, req.ModelHash)
 	}
-	if req.QueryId == "" {
-		return nil, statusError(connect.CodeInvalidArgument, "a document query to run must be named in query_id")
+	switch {
+	case req.QueryId == "" && req.InlineQuery == "":
+		return nil, statusError(connect.CodeInvalidArgument, "a document query to run must be named in query_id or written in inline_query")
+	case req.QueryId != "" && req.InlineQuery != "":
+		return nil, statusError(connect.CodeInvalidArgument, "a document query is named in query_id or written in inline_query, not both")
+	case req.InlineQuery != "":
+		if err := s.requireCapability(CapabilityInlineDocumentQuery); err != nil {
+			return nil, err
+		}
 	}
 	// The query runs over the model's runtime and the objects it holds, as
 	// %run-query runs over the session's; Objects answers no rows while none are held.
 	held := s.objects(cached)
 	defer held.lock(ctx)()
 	qctx := held.queryContext()
-	sym, err := documentSymbol(qctx.Index, req.QueryId)
-	if err != nil {
-		return nil, err
-	}
-	if !queryplan.IsQueryDefinition(qctx.Index, qctx.Model, sym) {
-		return nil, statusErrorf(connect.CodeInvalidArgument,
-			"%s is not a document query: one is a calc def specializing DocumentQueries::Query", req.QueryId)
-	}
-	program, err := queryplan.Compile(qctx.Index, qctx.Model, qctx.Resolver, sym)
-	if err != nil {
-		return nil, documentStatus(err)
+	var (
+		program *queryplan.Program
+		inline  *queryplan.Inline
+		err     error
+	)
+	queryName := req.QueryId
+	if req.InlineQuery != "" {
+		queryName = "the inline query"
+		inline, program, qctx, err = cached.inlineQuery(qctx, req.InlineQuery)
+		if err != nil {
+			return nil, documentStatus(err)
+		}
+	} else {
+		program, err = namedQuery(qctx, req.QueryId)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if slices.ContainsFunc(req.Bindings, bindingHoldsBigInt) {
 		if err := s.requireCapability(CapabilityBigIntValues); err != nil {
@@ -74,19 +87,54 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 	}
 	result, err := queryexec.Execute(program, qctx, bindings, queryexec.Options{})
 	if err != nil {
-		return nil, held.documentStatus(err)
+		return nil, held.documentStatus(queryexec.LocateInline(inline, err))
 	}
 	response := rowSetResponse(qctx.Index, result)
 	if !s.capabilities.has(CapabilityBigIntValues) && slices.ContainsFunc(response.Rows, rowHoldsBigInt) {
 		// DocumentValue has no unsupported arm to stand in for a wide Integer.
 		return nil, statusErrorf(connect.CodeUnimplemented,
-			"capability %q is unavailable: query %s answers an Integer beyond int64", CapabilityBigIntValues, req.QueryId)
+			"capability %q is unavailable: query %s answers an Integer beyond int64", CapabilityBigIntValues, queryName)
 	}
 	if !s.capabilities.has(CapabilityRationalValues) && slices.ContainsFunc(response.Rows, rowHoldsRational) {
 		return nil, statusErrorf(connect.CodeUnimplemented,
-			"capability %q is unavailable: query %s answers an exact Rational", CapabilityRationalValues, req.QueryId)
+			"capability %q is unavailable: query %s answers an exact Rational", CapabilityRationalValues, queryName)
 	}
 	return response, nil
+}
+
+// namedQuery plans the document query the model declares under id.
+func namedQuery(qctx queryexec.Context, id string) (*queryplan.Program, error) {
+	sym, err := documentSymbol(qctx.Index, id)
+	if err != nil {
+		return nil, err
+	}
+	if !queryplan.IsQueryDefinition(qctx.Index, qctx.Model, sym) {
+		return nil, statusErrorf(connect.CodeInvalidArgument,
+			"%s is not a document query: one is a calc def specializing DocumentQueries::Query", id)
+	}
+	program, err := queryplan.Compile(qctx.Index, qctx.Model, qctx.Resolver, sym)
+	if err != nil {
+		return nil, documentStatus(err)
+	}
+	return program, nil
+}
+
+// inlineQuery plans text as a query definition of its own over the model, in an
+// index beside the model's, and answers the context the plan executes in.
+func (m *CachedModel) inlineQuery(qctx queryexec.Context, text string) (*queryplan.Inline, *queryplan.Program, queryexec.Context, error) {
+	inline, err := queryplan.ParseInline(qctx.Index, text)
+	if err != nil {
+		return nil, nil, qctx, err
+	}
+	resolver := resolve.New(inline.Index)
+	sem := passes.NewTypedModel(resolver)
+	sem.SetSourceText(cachedSourceText(m))
+	program, err := queryplan.Compile(inline.Index, sem, resolver, inline.Entry)
+	if err != nil {
+		return inline, nil, qctx, queryexec.LocateInline(inline, err)
+	}
+	qctx.Index, qctx.Resolver, qctx.Model = inline.Index, resolver, sem
+	return inline, program, qctx, nil
 }
 
 func bindingHoldsRational(binding *pb.DocumentQueryBinding) bool {
@@ -111,36 +159,28 @@ func rowHoldsBigInt(row *pb.DocumentQueryRow) bool {
 		})
 }
 
-// Forms RenderDocument renders, named as the CLI's -doc-form names them.
-const (
-	renderFormMarkdown = "markdown"
-	renderFormHTML     = "html"
-	renderFormAsciiDoc = "asciidoc"
-)
-
 // RenderDocument renders a named document to Markdown, HTML or AsciiDoc, as
 // -render-document does.
 func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequest) (*pb.RenderDocumentResponse, error) {
 	if err := s.requireCapability(CapabilityRenderDocument); err != nil {
 		return nil, err
 	}
-	form := req.Form
+	form := docset.Form(req.Form)
 	if form == "" {
-		form = renderFormMarkdown
+		form = docset.FormMarkdown
 	}
 	switch form {
-	case renderFormMarkdown:
-	case renderFormHTML:
+	case docset.FormMarkdown:
+	case docset.FormHTML:
 		if err := s.requireCapability(CapabilityRenderDocumentHTML); err != nil {
 			return nil, err
 		}
-	case renderFormAsciiDoc:
+	case docset.FormAsciiDoc:
 		if err := s.requireCapability(CapabilityRenderDocumentAsciiDoc); err != nil {
 			return nil, err
 		}
 	default:
-		return nil, statusErrorf(connect.CodeInvalidArgument,
-			"form %q is not one this service renders: markdown, html or asciidoc", req.Form)
+		return nil, statusError(connect.CodeInvalidArgument, (&docset.UnknownFormError{Form: req.Form}).Error())
 	}
 	cached, ok := s.cache.Get(req.ModelHash)
 	if !ok {
@@ -158,59 +198,25 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 	if err != nil {
 		return nil, err
 	}
-	if !docplan.IsDocumentDefinition(qctx.Index, qctx.Model, sym) {
-		return nil, statusErrorf(connect.CodeInvalidArgument,
-			"%s is not a document: one is a part def specializing DocumentQueries::Document", req.DocumentId)
-	}
-	plan, err := docplan.Compile(qctx.Index, qctx.Model, qctx.Resolver, sym)
-	if err != nil {
-		return nil, documentStatus(err)
-	}
-	document, err := docir.EvaluateLinked(plan,
-		model.SiblingDocumentPlans(qctx.Index, qctx.Model, qctx.Resolver, sym),
-		qctx, queryexec.Options{}, cachedSourceText(cached))
+	rendered, err := docset.Render(qctx, sym, cachedSourceText(cached), docset.Options{Form: form})
 	if err != nil {
 		return nil, held.documentStatus(err)
 	}
-	extension := ".md"
+	resp := &pb.RenderDocumentResponse{}
+	// The file a rendered set writes the document to is answered under the
+	// render_document_file_name capability.
+	if s.capabilities.has(CapabilityRenderDocumentFileName) {
+		resp.FileName = rendered.FileName
+	}
 	switch form {
-	case renderFormHTML:
-		extension = ".html"
-	case renderFormAsciiDoc:
-		extension = ".adoc"
+	case docset.FormHTML:
+		resp.Html = rendered.Text
+	case docset.FormAsciiDoc:
+		resp.Asciidoc = rendered.Text
+	default:
+		resp.Markdown = rendered.Text
 	}
-	files, err := modeldoc.DocumentFiles(model.DocumentNames(qctx.Index, qctx.Model), extension)
-	if err != nil {
-		return nil, documentStatus(err)
-	}
-	if form == renderFormHTML {
-		page, err := docrender.HTML(document, docrender.HTMLOptions{Files: files})
-		if err != nil {
-			return nil, documentStatus(err)
-		}
-		return &pb.RenderDocumentResponse{Html: page, FileName: s.documentFileName(files, sym)}, nil
-	}
-	if form == renderFormAsciiDoc {
-		adoc, err := docrender.AsciiDoc(document, docrender.AsciiDocOptions{Files: files})
-		if err != nil {
-			return nil, documentStatus(err)
-		}
-		return &pb.RenderDocumentResponse{Asciidoc: adoc, FileName: s.documentFileName(files, sym)}, nil
-	}
-	markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{Files: files})
-	if err != nil {
-		return nil, documentStatus(err)
-	}
-	return &pb.RenderDocumentResponse{Markdown: markdown, FileName: s.documentFileName(files, sym)}, nil
-}
-
-// documentFileName is the file a rendered set writes sym's document to,
-// under the render_document_file_name capability.
-func (s *Service) documentFileName(files map[string]string, sym *symbols.Symbol) string {
-	if !s.capabilities.has(CapabilityRenderDocumentFileName) {
-		return ""
-	}
-	return files[symbols.FQNOf(sym)]
+	return resp, nil
 }
 
 // documentSymbol resolves the query or document a request names, failing with
@@ -490,40 +496,50 @@ func documentEvent(idx *symbols.Index, event queryexec.Event) *pb.DocumentEvent 
 // documentStatus maps a typed engine failure onto the status code for it,
 // keeping the engine's own message and appending the source it names.
 func documentStatus(err error) error {
-	var planErr *queryplan.Error
-	if errors.As(err, &planErr) {
-		return statusWithOrigin(queryPlanCode(planErr.Kind), err, planErr.Origin)
+	var inlineErr *queryplan.InlineError
+	if errors.As(err, &inlineErr) {
+		return inlineStatus(inlineErr)
 	}
+	status := statusWithOrigin(faultCode(docset.FaultOf(err)), err, docset.OriginOf(err))
+	return withQueryOutcome(status, docset.QueryOutcomeOf(err))
+}
+
+// faultCode is the status a document fault is reported under: the caller's argument, the
+// model's definitions as a failed precondition, a budget as exhausted, the pipeline's own as internal.
+func faultCode(fault docset.Fault) connect.Code {
+	switch fault {
+	case docset.FaultArgument:
+		return connect.CodeInvalidArgument
+	case docset.FaultModel:
+		return connect.CodeFailedPrecondition
+	case docset.FaultBudget:
+		return connect.CodeResourceExhausted
+	default:
+		return connect.CodeInternal
+	}
+}
+
+// inlineStatus is the status a fault in an inline query reports as: text that
+// does not parse or plan is the caller's argument; execution keeps its mapping.
+func inlineStatus(inlineErr *queryplan.InlineError) error {
 	var execErr *queryexec.Error
-	if errors.As(err, &execErr) {
-		return withQueryOutcome(statusWithOrigin(queryExecCode(execErr.Kind), err, execErr.Origin), execErr)
+	if errors.As(inlineErr.Err, &execErr) {
+		return withQueryOutcome(connect.NewError(faultCode(docset.FaultOf(execErr)), inlineErr), execErr.Outcome)
 	}
-	var docPlanErr *docplan.Error
-	if errors.As(err, &docPlanErr) {
-		return statusWithOrigin(docPlanCode(docPlanErr.Kind), err, docPlanErr.Origin)
-	}
-	var docIRErr *docir.Error
-	if errors.As(err, &docIRErr) {
-		status := statusWithOrigin(docIRCode(docIRErr), err, docIRErr.Origin)
-		if errors.As(docIRErr.Err, &execErr) {
-			return withQueryOutcome(status, execErr)
-		}
-		return status
-	}
-	return connect.NewError(connect.CodeInternal, err)
+	return connect.NewError(connect.CodeInvalidArgument, inlineErr)
 }
 
 // withQueryOutcome attaches the QVTS record behind a failed query to its status
 // as a QueryOutcome detail, so a client reads the frontier and not just the message.
-func withQueryOutcome(status error, execErr *queryexec.Error) error {
-	if execErr.Outcome == nil {
+func withQueryOutcome(status error, outcome *queryexec.Outcome) error {
+	if outcome == nil {
 		return status
 	}
 	var connErr *connect.Error
 	if !errors.As(status, &connErr) {
 		return status
 	}
-	detail, err := connect.NewErrorDetail(queryOutcomeMessage(*execErr.Outcome))
+	detail, err := connect.NewErrorDetail(queryOutcomeMessage(*outcome))
 	if err != nil {
 		return status
 	}
@@ -535,32 +551,110 @@ func withQueryOutcome(status error, execErr *queryexec.Error) error {
 func queryOutcomeMessage(outcome queryexec.Outcome) *pb.QueryOutcome {
 	out := &pb.QueryOutcome{Kind: outcome.Kind(), Step: outcome.Step().Label()}
 	if outcome.Path != nil {
-		out.Failures = queryFailures(outcome.Path.Failures)
+		out.Failures = queryFailures(firstOf(outcome.Path.Failures, failureLimit))
+		out.FailuresTotal = int32Clamp(len(outcome.Path.Failures))
 	}
 	if outcome.Model != nil {
-		for _, f := range outcome.Model.Findings {
+		for _, f := range firstOf(outcome.Model.Findings, failureLimit) {
 			out.Findings = append(out.Findings, &pb.QueryFinding{
 				Step: f.Step.Label(), Element: f.Element, Constraint: string(f.Constraint), Observed: f.Observed,
 			})
 		}
-		out.PathFailures = queryFailures(outcome.Model.PathFailures)
+		out.FindingsTotal = int32Clamp(len(outcome.Model.Findings))
+		out.PathFailures = queryFailures(firstOf(outcome.Model.PathFailures, failureLimit))
+		out.PathFailuresTotal = int32Clamp(len(outcome.Model.PathFailures))
 	}
 	return out
 }
 
+// failureLimit bounds the failures and findings a QueryOutcome carries on the
+// wire: a fan-out records one per failing element, and the detail rides in a
+// status trailer gRPC caps at 8 KiB.
+const failureLimit = 8
+
+func firstOf[T any](items []T, limit int) []T {
+	if len(items) > limit {
+		return items[:limit]
+	}
+	return items
+}
+
+// frontierLimit bounds each list a QueryFrontier carries on the wire: the
+// detail rides in a status trailer, which gRPC caps at 8 KiB, and a
+// metamodel-wide frontier names hundreds of properties.
+const frontierLimit = 8
+
+// queryFailures converts the failures field for field, each frontier list
+// bounded to the spellings nearest the step's argument with the whole count
+// recorded, so the detail stays a status trailer whatever the model's size.
 func queryFailures(failures []queryexec.Failure) []*pb.QueryFailure {
 	out := make([]*pb.QueryFailure, 0, len(failures))
 	for _, f := range failures {
-		frontier := &pb.QueryFrontier{At: f.Frontier.At, Kinds: f.Frontier.Kinds, Nearest: f.Frontier.Nearest}
-		for _, m := range f.Frontier.Members {
+		frontier := &pb.QueryFrontier{
+			At: f.Frontier.At, Nearest: f.Frontier.Nearest,
+			MembersTotal: int32Clamp(len(f.Frontier.Members)), FeaturesTotal: int32Clamp(len(f.Frontier.Features)), KindsTotal: int32Clamp(len(f.Frontier.Kinds)),
+		}
+		for _, m := range nearestItems(f.Step.Argument, f.Frontier.Members, func(m queryexec.Member) string { return m.Name }) {
 			frontier.Members = append(frontier.Members, &pb.QueryFrontierMember{Name: m.Name, Metaclass: m.Metaclass})
 		}
-		for _, r := range f.Frontier.Features {
+		for _, r := range nearestItems(f.Step.Argument, f.Frontier.Features, func(r queryexec.FeatureRef) string { return r.Name }) {
 			frontier.Features = append(frontier.Features, &pb.QueryFrontierFeature{Name: r.Name, Type: r.Type})
 		}
+		frontier.Kinds = nearestFirst(f.Step.Argument, f.Frontier.Kinds)
 		out = append(out, &pb.QueryFailure{Step: f.Step.Label(), Expected: f.Expected, Frontier: frontier})
 	}
 	return out
+}
+
+// nearestFirst is at most frontierLimit of names: the spellings nearest word
+// first, then the rest in their given order; nil for none.
+func nearestFirst(word string, names []string) []string {
+	if len(names) == 0 {
+		return nil
+	}
+	out := make([]string, 0, frontierLimit)
+	seen := map[string]bool{}
+	for _, name := range suggest.Nearest(word, names) {
+		if len(out) == frontierLimit {
+			return out
+		}
+		if !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	for _, name := range names {
+		if len(out) == frontierLimit {
+			break
+		}
+		if !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+// nearestItems is at most frontierLimit of items, those whose name is nearest
+// word first; items sharing a name (a member declared under several
+// metaclasses) are kept together, in their given order.
+func nearestItems[T any](word string, items []T, name func(T) string) []T {
+	names := make([]string, 0, len(items))
+	for _, item := range items {
+		names = append(names, name(item))
+	}
+	rank := map[string]int{}
+	for i, n := range nearestFirst(word, names) {
+		rank[n] = i + 1
+	}
+	out := make([]T, 0, frontierLimit)
+	for _, item := range items {
+		if rank[name(item)] > 0 {
+			out = append(out, item)
+		}
+	}
+	slices.SortStableFunc(out, func(a, b T) int { return rank[name(a)] - rank[name(b)] })
+	return firstOf(out, frontierLimit)
 }
 
 // statusWithOrigin fails with the engine's message, naming the source
@@ -570,49 +664,6 @@ func statusWithOrigin(code connect.Code, err error, origin symbols.Origin) error
 		return connect.NewError(code, err)
 	}
 	return statusErrorf(code, "%s (declared in %s)", err.Error(), origin.Doc)
-}
-
-// queryPlanCode is the status a query-planning failure reports as: a fault in
-// the model's own query definitions is a failed precondition of the call.
-func queryPlanCode(kind queryplan.ErrorKind) connect.Code {
-	switch kind {
-	case queryplan.ErrorNotQueryDefinition:
-		return connect.CodeInvalidArgument
-	case queryplan.ErrorLibraryUnavailable, queryplan.ErrorInvalidContext:
-		return connect.CodeInternal
-	default:
-		return connect.CodeFailedPrecondition
-	}
-}
-
-// queryExecCode is the status an execution failure reports as: a wrong binding
-// is the caller's fault, an exhausted budget is a resource limit, and the rest
-// are faults in the model's queries.
-func queryExecCode(kind queryexec.ErrorKind) connect.Code {
-	switch kind {
-	case queryexec.ErrorUnknownBinding, queryexec.ErrorMissingBinding,
-		queryexec.ErrorBindingType, queryexec.ErrorBindingMultiplicity:
-		return connect.CodeInvalidArgument
-	case queryexec.ErrorVisitBudget, queryexec.ErrorInvocationBudget,
-		queryexec.ErrorInvocationDepth:
-		return connect.CodeResourceExhausted
-	case queryexec.ErrorInvalidContext:
-		return connect.CodeInternal
-	default:
-		return connect.CodeFailedPrecondition
-	}
-}
-
-// docPlanCode is the status a document-planning failure reports as.
-func docPlanCode(kind docplan.ErrorKind) connect.Code {
-	switch kind {
-	case docplan.ErrorNotDocumentDefinition:
-		return connect.CodeInvalidArgument
-	case docplan.ErrorLibraryUnavailable, docplan.ErrorInvalidContext:
-		return connect.CodeInternal
-	default:
-		return connect.CodeFailedPrecondition
-	}
 }
 
 // cachedSourceText reads notation from whichever of the model's documents a span
@@ -629,16 +680,4 @@ func cachedSourceText(model *CachedModel) view.SourceText {
 		return nil
 	}
 	return source.TextOf(sources, libs.Text(model.Library))
-}
-
-// docIRCode is the status a document-evaluation failure reports as: a failed
-// query keeps its execution mapping, and the rest are the evaluator's own.
-func docIRCode(err *docir.Error) connect.Code {
-	if err.Kind == docir.ErrorQueryExecution {
-		var execErr *queryexec.Error
-		if errors.As(err.Err, &execErr) {
-			return queryExecCode(execErr.Kind)
-		}
-	}
-	return connect.CodeInternal
 }

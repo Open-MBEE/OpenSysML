@@ -433,6 +433,11 @@ func TestEvaluateSpellsTheValueAndTheError(t *testing.T) {
 	if resp.GetError() == "" || !strings.HasPrefix(out, "error: ") {
 		t.Errorf("an unresolved name evaluated: %v\n%s", resp.GetResult(), out)
 	}
+	open := []map[string]any{{"path": "open.sysml", "text": "package Open { part def P { attribute m : ScalarValues::Real; } part p : P; }"}}
+	_, out = h.ok("evaluate", map[string]any{"sources": open, "expression": "Open::p.m + 1.0"}, &resp)
+	if u := resp.GetResult().GetUndetermined(); u.GetReason() != "p.m has no value in the model" || !strings.Contains(out, "\n<undetermined>: p.m has no value in the model\n") {
+		t.Errorf("an open value spelled without its reason: %v\n%s", resp.GetResult(), out)
+	}
 	if msg := h.fails("evaluate", map[string]any{"expression": "1"}); !strings.Contains(msg, "INVALID_ARGUMENT") {
 		t.Errorf("evaluate without a model: %s", msg)
 	}
@@ -686,6 +691,22 @@ func TestQueriesAndRenderings(t *testing.T) {
 	if !slices.Contains(view.GetShown(), "edge-labels") {
 		t.Errorf("show edge-labels: shown = %v", view.GetShown())
 	}
+	_, out = h.ok("render_model_view", map[string]any{
+		"modelHash": hash, "view": "#tree:Demo", "form": "dot", "palette": "okabe-ito", "lines": "ortho", "direction": "LR",
+	}, &view)
+	if !strings.Contains(view.GetText(), "\ndigraph {\n") || !strings.Contains(view.GetText(), "rankdir=LR, splines=ortho") ||
+		!strings.Contains(view.GetText(), `fillcolor="#`) || len(view.GetNodes()) == 0 || !strings.Contains(out, strings.TrimRight(view.GetText(), "\n")) {
+		t.Errorf("dot form: text %q\n%s", view.GetText(), out)
+	}
+	for form, args := range map[string]map[string]any{
+		"png": {"modelHash": hash, "view": "#tree:Demo", "form": "png"},
+		"svg": {"modelHash": hash, "view": "#tree:Demo", "form": "svg"},
+		"csv": {"modelHash": hash, "view": "#tree:Demo", "form": "csv"},
+	} {
+		if msg := h.fails("render_model_view", args); !strings.Contains(msg, "INVALID_ARGUMENT") {
+			t.Errorf("%s form: %s", form, msg)
+		}
+	}
 
 	var graphs pb.ExportGraphsResponse
 	_, out = h.ok("export_graphs", map[string]any{"modelHash": hash, "subject": "Demo::Lamp"}, &graphs)
@@ -697,6 +718,27 @@ func TestQueriesAndRenderings(t *testing.T) {
 	}
 	if err := json.Unmarshal([]byte(graphs.GetContent()), &exported); err != nil || len(exported.States) != 1 {
 		t.Errorf("exported content: %v, %d states", err, len(exported.States))
+	}
+}
+
+func TestRenderModelViewDrawsNoDeeperThanTheDepthAsked(t *testing.T) {
+	h := attach(t, newService(t))
+	hash := h.parse()
+	for _, form := range []string{"", "dot"} {
+		args := map[string]any{"modelHash": hash, "view": "#tree:Demo"}
+		if form != "" {
+			args["form"] = form
+		}
+		var every, shallow pb.RenderViewResponse
+		h.ok("render_model_view", args, &every)
+		args["depth"] = 1
+		h.ok("render_model_view", args, &shallow)
+		if len(shallow.GetNodes()) == 0 || len(shallow.GetNodes()) >= len(every.GetNodes()) {
+			t.Errorf("form %q at depth 1: %d nodes of %d", form, len(shallow.GetNodes()), len(every.GetNodes()))
+		}
+		if form != "" && strings.Count(shallow.GetText(), "\n") >= strings.Count(every.GetText(), "\n") {
+			t.Errorf("form %q at depth 1 is written no shorter:\n%s", form, shallow.GetText())
+		}
 	}
 }
 

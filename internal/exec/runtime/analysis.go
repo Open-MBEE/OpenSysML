@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -69,6 +70,9 @@ type Objective struct {
 	// Value is the expression stating the value to improve, nil when the
 	// objective states none.
 	Value ast.Node
+
+	// ValueID is Value in the model's table, lowered in Scope; 0 when it states none.
+	ValueID program.ExprID
 
 	// Scope is where Value's names resolve.
 	Scope *symbols.Scope
@@ -223,7 +227,7 @@ func (ctx *Context) placeStage(out []*symbols.Symbol, stage *symbols.Symbol) []*
 		if prev == stage || slices.Contains(ctx.model.semantics.AllRedefinedFeatures(prev), stage) {
 			return out
 		}
-		if slices.Contains(redefined, prev) || (stage.Name != "" && stage.Name == prev.Name) {
+		if slices.Contains(redefined, prev) || (stage.Named() && stage.Name == prev.Name) {
 			out[i] = stage
 			return out
 		}
@@ -256,6 +260,13 @@ func (ctx *Context) redefines(obj, prev Objective) bool {
 // conditions from its own body. owner is the case stating it, which is where a
 // value it takes from a redeclared objective is looked for.
 func (ctx *Context) objectiveOf(objSym, owner *symbols.Symbol) Objective {
+	obj := ctx.statedObjective(objSym, owner)
+	obj.ValueID = ctx.model.exprs.Intern(obj.Value, obj.Scope)
+	return obj
+}
+
+// statedObjective is objectiveOf before the value is interned.
+func (ctx *Context) statedObjective(objSym, owner *symbols.Symbol) Objective {
 	typ := ctx.extractType(objSym)
 	obj := Objective{
 		Name:      ctx.model.semantics.EffectiveNameOf(objSym),
@@ -329,7 +340,7 @@ func (ctx *Context) readEvalValue(obj *Objective, objSym *symbols.Symbol) bool {
 		return true
 	}
 	body := bodyScope(evalSym, evalSym.OwnerScope)
-	stmts := lower.CalcBodyWith(evalSym.Decl, unwrappedDeclMembers(evalSym.Decl), body, ctx.Resolver())
+	stmts := lower.CalcBodyWith(evalSym.Decl, lower.UnwrappedDeclMembers(evalSym.Decl), body, ctx.Resolver())
 	if len(stmts) == 1 {
 		if ret, ok := stmts[0].(lower.Return); ok && ret.Value != nil {
 			obj.Value, obj.Scope = ret.Value, ret.Scope
@@ -378,7 +389,7 @@ func (ctx *Context) objectiveMember(objSym *symbols.Symbol, name string) *symbol
 	if body == nil {
 		return nil
 	}
-	for _, node := range unwrappedDeclMembers(objSym.Decl) {
+	for _, node := range lower.UnwrappedDeclMembers(objSym.Decl) {
 		member := memberSymbol(body, node)
 		if member != nil && restatesFeatureNamed(member, name) {
 			return member
@@ -481,7 +492,7 @@ func (ctx *Context) objectiveConditionsOf(sym *symbols.Symbol) (model, library [
 		if link == nil || ctx.frameDeclared(link) {
 			continue
 		}
-		for _, node := range unwrappedDeclMembers(link.Decl) {
+		for _, node := range lower.UnwrappedDeclMembers(link.Decl) {
 			if ctx.libraryDeclared(link) {
 				libraryMembers = append(libraryMembers, scopedMember{node: node, scope: body})
 			} else {
@@ -489,7 +500,7 @@ func (ctx *Context) objectiveConditionsOf(sym *symbols.Symbol) (model, library [
 			}
 		}
 	}
-	for _, node := range unwrappedDeclMembers(sym.Decl) {
+	for _, node := range lower.UnwrappedDeclMembers(sym.Decl) {
 		members = append(members, scopedMember{node: node, scope: body})
 	}
 	return ctx.conditionsOf(sym, members), ctx.conditionsOf(sym, libraryMembers)

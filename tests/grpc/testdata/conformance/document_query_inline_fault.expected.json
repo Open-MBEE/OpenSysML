@@ -1,0 +1,5 @@
+{
+  "rpc": "RunDocumentQuery",
+  "inline_query": "Project(Named(\"Garage\") (\"name\"))",
+  "expected_error": "inline query 1:"
+}

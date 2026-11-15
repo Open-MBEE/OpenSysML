@@ -17,6 +17,7 @@ from opensysml.action_run import ActionOutputs
 from opensysml.binary import ensure_binary, resolve_latest_version
 from opensysml.capabilities import (
     CAPABILITY_ELEMENT_PROPERTIES,
+    CAPABILITY_INLINE_DOCUMENT_QUERY,
     CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
     CAPABILITY_CONVERT_COMPACT,
     CAPABILITY_CONVERT_LIBRARY_STUBS,
@@ -25,6 +26,7 @@ from opensysml.capabilities import (
     CAPABILITY_AUTHORING,
     CAPABILITY_CONNECTION_AUTHORING,
     CAPABILITY_MEMBER_MODIFIERS,
+    CAPABILITY_SYMBOL_NAME_RESOLUTION,
     CAPABILITY_CONSTRAINT_BODY_AUTHORING,
     CAPABILITY_STATE_ACTION_AUTHORING,
     CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
@@ -69,6 +71,7 @@ from opensysml.capabilities import (
     CAPABILITY_RENDER_DOCUMENT_HTML,
     CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
     CAPABILITY_RENDER_VIEW,
+    CAPABILITY_RENDER_VIEW_FORM,
     CAPABILITY_CHECK,
     CAPABILITY_EXPORT_GRAPHS,
     CAPABILITY_SCHEDULE,
@@ -113,7 +116,7 @@ from opensysml.document import (
 from opensysml.edit import EditedDocument, error_for_failure, failure_name, referrers_of, result_of
 from opensysml.importcompare import comparison_result, import_result
 from opensysml.enumeration import EnumLiteral
-from opensysml.exploration import Exploration, Outcome
+from opensysml.exploration import Coverage, Exploration, Outcome
 from opensysml.errors import (
     AnalysisRunError,
     ConnectionError,
@@ -2038,40 +2041,61 @@ class Connection:
             raise ConversionError(response.error)
         return element_properties_of(response)
 
-    def run_document_query(self, model_hash, query_id, bindings=None):
-        """Run a named document query and answer its typed rows.
+    def run_document_query(self, model_hash, query_id=None, bindings=None, inline_query=None):
+        """Run a document query, named or written in place, and answer its typed rows.
 
         The query is the model's own — a calc def specializing
         ``DocumentQueries::Query`` — not the standard's Query object that
-        :meth:`query` evaluates. See :mod:`opensysml.document`.
+        :meth:`query` evaluates. See :mod:`opensysml.document`. Exactly one of
+        ``query_id`` and ``inline_query`` is given.
 
         Args:
             model_hash (str): Hash of the model holding the query
-            query_id (str): Qualified name of the document query
+            query_id (str, optional): Qualified name of the document query
             bindings (Mapping, optional): Parameter name to a value or list of
                 values; an :class:`~opensysml.document.ElementRef` binds a
                 model element, an :class:`~opensysml.document.ObjectRef` an
                 object ``instantiate`` built, by id or by path
+            inline_query (str, optional): A query expression run in place of
+                a named query — the result expression of such a calc def,
+                ``Project(WhereType(Descendants(Named("Vehicles")),
+                "PartUsage"), ("name", "mass"))`` — with the
+                ``DocumentQueries`` library in scope and the model's own names
+                reachable; needs the ``inline_document_query`` capability
 
         Returns:
             DocumentQueryResult: Projected columns and typed rows, in the
             engine's deterministic order
 
         Raises:
-            MissingCapabilityError: If the service cannot run document queries
-            InvalidRequestError: If the query is not one, or a binding is wrong
+            MissingCapabilityError: If the service cannot run document queries,
+                or inline ones
+            InvalidRequestError: If the query is not one, a binding is wrong,
+                or the inline expression does not parse or plan (the message
+                positions the fault: ``inline query <line>:<column>``)
             SymbolNotFoundError: If the model does not declare the query, or
                 an object binding names an object the model does not hold
             ModelNotFoundError: If the model is no longer cached
+            ValueError: If both or neither of ``query_id`` and
+                ``inline_query`` are given
         """
+        if (query_id is None) == (inline_query is None):
+            raise ValueError("run_document_query takes query_id or inline_query, not both and not neither")
         require(
             self.server_info(),
             CAPABILITY_DOCUMENT_QUERY,
             upgrade_remedy(CAPABILITY_DOCUMENT_QUERY),
         )
+        if inline_query is not None:
+            require(
+                self.server_info(),
+                CAPABILITY_INLINE_DOCUMENT_QUERY,
+                upgrade_remedy(CAPABILITY_INLINE_DOCUMENT_QUERY),
+            )
         request = sysml_pb2.RunDocumentQueryRequest(
             model_hash=model_hash,
-            query_id=query_id,
+            query_id=query_id or "",
+            inline_query=inline_query or "",
             bindings=build_bindings(bindings),
         )
         if any(binding_holds_big_int(binding) for binding in request.bindings):
@@ -2093,7 +2117,9 @@ class Connection:
             )
         with translate_rpc_errors(
             not_found=SymbolNotFoundError,
-            unimplemented=self._capability_refusal((CAPABILITY_DOCUMENT_QUERY,)),
+            unimplemented=self._capability_refusal(
+                (CAPABILITY_DOCUMENT_QUERY, CAPABILITY_INLINE_DOCUMENT_QUERY)
+            ),
         ):
             response = self._stub.RunDocumentQuery(request)
         return document_result(response)
@@ -2179,15 +2205,25 @@ class Connection:
         return [Diagnostic(d) for d in response.diagnostics]
 
     def render_view(self, model_hash, view_name, ports="minimal", show=None, depth=0,
-                    compartments="positioned"):
-        """Render a named view with minimal or full ports, the optional notation elements named, above 0 a depth bound and the compartment folding named."""
+                    compartments="positioned", form=None, palette=None, style=None,
+                    lines=None, direction=None, link=None, unplaced=None):
+        """Render a named view with minimal or full ports, the optional notation elements named, above 0 a depth bound and the compartment folding named; ``form`` also writes it as text with the writer options named."""
         if ports not in ("minimal", "full"):
             raise ValueError("ports must be 'minimal' or 'full'")
         if compartments not in ("positioned", "most", "ports"):
             raise ValueError("compartments must be 'positioned', 'most' or 'ports'")
         if not isinstance(depth, int) or isinstance(depth, bool) or depth < 0:
             raise ValueError("depth must be a non-negative integer")
-        require(self.server_info(), CAPABILITY_RENDER_VIEW, upgrade_remedy(CAPABILITY_RENDER_VIEW))
+        written = {
+            "form": form, "palette": palette, "style": style, "lines": lines,
+            "direction": direction, "link": link, "unplaced": unplaced,
+        }
+        written = {name: value for name, value in written.items() if value}
+        capabilities = [CAPABILITY_RENDER_VIEW]
+        if written:
+            capabilities.append(CAPABILITY_RENDER_VIEW_FORM)
+        for capability in capabilities:
+            require(self.server_info(), capability, upgrade_remedy(capability))
         request = sysml_pb2.RenderViewRequest(
             model_hash=model_hash,
             view=view_name,
@@ -2195,12 +2231,13 @@ class Connection:
             show=list(show or ()),
             depth=depth,
             compartments="" if compartments == "positioned" else compartments,
+            **written,
         )
         with translate_rpc_errors(
             not_found=lambda message, code: ViewNotFoundError(
                 view_name, message, code=code
             ),
-            unimplemented=self._capability_refusal((CAPABILITY_RENDER_VIEW,)),
+            unimplemented=self._capability_refusal(tuple(capabilities)),
         ):
             response = self._stub.RenderView(request)
         return render_view_result(response)
@@ -2352,7 +2389,7 @@ class Connection:
             response, lambda rows, instances: [self._sweep_row(row, instances, diagnostics) for row in rows],
         )
 
-    def get_symbol(self, model_hash, symbol_id, include_library_members=False):
+    def get_symbol(self, model_hash, symbol_id, include_library_members=False, resolve_name=False):
         """Fetch symbol by ID from cached model.
         
         Args:
@@ -2361,6 +2398,13 @@ class Connection:
             include_library_members (bool): List the members inherited from
                 standard-library content in ``members`` instead of counting
                 them in ``withheld_library_members``
+            resolve_name (bool): Resolve ``symbol_id`` as a qualified name from
+                the root namespace, the way the notation resolves one: through
+                imports, an alias answered by the element it names, and no
+                symbol where a member on the way is not visible from outside
+                its namespace. Otherwise ``symbol_id`` is an id the service
+                reported and names that symbol whatever its visibility, which
+                is also how a service without ``symbol_name_resolution`` reads it
         
         Returns:
             sysml_pb2.SymbolInfo or None: Symbol protobuf, or None if not found
@@ -2369,6 +2413,8 @@ class Connection:
             model_hash=model_hash,
             symbol_id=symbol_id,
             include_library_members=include_library_members,
+            resolve_name=resolve_name
+            and self.server_info().has(CAPABILITY_SYMBOL_NAME_RESOLUTION),
         )
         with translate_rpc_errors():
             response = self._stub.GetSymbol(request)
@@ -2786,6 +2832,7 @@ class Connection:
             probabilities_lower_bound=status.probabilities_lower_bound,
             failed_linearizations=status.failed_linearizations,
             unenumerated=list(status.unenumerated),
+            coverage=Coverage.of(status.coverage),
         )
 
     def _outcome_of(self, pb):

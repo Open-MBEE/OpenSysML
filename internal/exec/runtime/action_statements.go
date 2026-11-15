@@ -29,7 +29,7 @@ func (e *performances) executeBody(perf *actionFrame, graph *lower.ActionGraph, 
 		host := &actionStmtHost{exec: e, node: node, perf: perf, graph: graph}
 		lexical := perf.lexicalFrames()
 		return newStmtEngineIn(e.ctx, host, lexical[len(lexical)-1], lexical[:len(lexical)-1])
-	}, graph.Bodies[node])
+	}, graph.Exprs, graph.Bodies[node])
 	return err
 }
 
@@ -41,7 +41,7 @@ func (e *performances) executeStatementBody(step *actionFrame, graph *lower.Acti
 		host := &actionStmtHost{exec: e, node: step.node, perf: perf, graph: graph, step: step}
 		lexical := perf.lexicalFrames()
 		return newStmtEngineIn(e.ctx, host, lexical[len(lexical)-1], lexical[:len(lexical)-1])
-	}, graph.Bodies[step.node])
+	}, graph.Exprs, graph.Bodies[step.node])
 	return err
 }
 
@@ -315,7 +315,7 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 	}
 	if !resumed || f.recheck {
 		f.recheck = false
-		if err := e.owner.pauseAt(parent.within(), node); err != nil {
+		if err := e.owner.pauseAt(parent.within(), refOf(graph, node)); err != nil {
 			return flowNext, e.ctx.pausing(f, err)
 		}
 	}
@@ -458,7 +458,7 @@ func (e *performances) performBlockFlow(parent *actionFrame, engine *stmtEngine,
 			connections: joinConnections(parent.connections, block.Graph.Connections),
 			data:        make(map[string]Value),
 			features:    make(map[string]ast.FeatureDirection),
-			subactions:  make(map[ast.Node]*actionFrame),
+			subactions:  make(map[NodeRef]*actionFrame),
 			perfs:       e,
 			run:         e.ctx.newRun(),
 			live:        1,
@@ -475,14 +475,14 @@ func (e *performances) performBlockFlow(parent *actionFrame, engine *stmtEngine,
 			f.perf.features[attr.Name] = attr.Direction
 			features = append(features, lower.Feature{
 				Name: attr.Name, Direction: attr.Direction, IsResult: attr.IsResult, Binding: attr.Binding,
-				Value: attr.Value, Node: attr.Node, Scope: block.Scope,
+				Value: attr.Value, ValueID: attr.ValueID, Node: attr.Node, Scope: block.Scope,
 			})
 		}
 		activation, endStep := e.ctx.beginStep()
 		f.perf.began = activation
 		// A block of a loop's body runs as the iteration's body occurrence, when the loop holds one.
 		f.perf.occurrence = engine.loopBody()
-		if err := e.seedDeclaredValues(f.perf, features, activation); err != nil {
+		if err := e.seedDeclaredValues(f.perf, block.Graph.Exprs, features, activation); err != nil {
 			endStep()
 			return flowNext, err
 		}

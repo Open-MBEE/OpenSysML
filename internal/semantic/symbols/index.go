@@ -190,13 +190,12 @@ type directChildrenKey struct {
 	allowsPrivate bool
 }
 
-// WildcardImport is one `import X::*` declaration: the target's raw qualified
-// name text, whether the import was declared private, and the filter condition
-// restricting what it brings in (`import X::*[@Safety]`), which is zero for an
-// unfiltered import.
+// WildcardImport is one `import X::*` declaration: its target's raw name, whether it is
+// visible only inside (private or protected), and its filter (`[@Safety]`), zero when unfiltered.
 type WildcardImport struct {
 	Target  string
 	Private bool
+	All     bool // `import all`: the target's private memberships too
 	Filter  ElementFilter
 }
 
@@ -572,11 +571,12 @@ func (idx *Index) importersToRefresh(changed map[string]nsChange, deriveOnly boo
 }
 
 // statedImport is one wildcard import as declared: the document stating it, its
-// unresolved target text, and its declared visibility.
+// unresolved target text, its declared visibility, and whether it is `import all`.
 type statedImport struct {
 	doc     string
 	target  string
 	private bool
+	all     bool
 	filter  ElementFilter
 }
 
@@ -586,6 +586,7 @@ type resolvedImport struct {
 	doc     string
 	fqn     string
 	private bool
+	all     bool
 }
 
 // imports returns every wildcard import stated through pkgFQN, over the
@@ -601,7 +602,7 @@ func (idx *Index) imports(pkgFQN string) []statedImport {
 	var out []statedImport
 	for _, doc := range docs {
 		for _, imp := range byDoc[doc] {
-			out = append(out, statedImport{doc: doc, target: imp.Target, private: imp.Private, filter: imp.Filter})
+			out = append(out, statedImport{doc: doc, target: imp.Target, private: imp.Private, all: imp.All, filter: imp.Filter})
 		}
 	}
 	return out
@@ -617,6 +618,7 @@ func (idx *Index) resolveImports(pkgFQN string) []resolvedImport {
 			doc:     imp.doc,
 			fqn:     idx.resolveWildcardTarget(pkgFQN, imp.target),
 			private: imp.private,
+			all:     imp.all,
 		}
 	}
 	return out
@@ -667,16 +669,16 @@ func (idx *Index) expandImporter(pkgFQN string) {
 		// only the semantic model can answer.
 		gate := nonZeroFilters(append([]ElementFilter{imp.filter}, idx.namespaceFiltersGating(pkgFQN, imp.doc)...))
 		direct := [][]ElementFilter{gate}
-		for _, child := range idx.exportedChildren(targetFQN) {
+		for _, child := range idx.importedChildren(targetFQN, imp.all) {
 			// Extract child's primary name
 			childName := LastSegment(child.Name)
 			idx.reexportGated(joinFQN(pkgFQN, childName), child, imp.doc, imp.private,
-				idx.routesOnward(imp.doc, targetFQN, childName, child, direct))
+				idx.routesOnward(imp.doc, targetFQN, childName, child, direct, imp.all))
 
 			// Also re-export under short name if different from primary name
-			if child.ShortName != "" && child.ShortName != childName {
+			if child.HasShortName() && child.ShortName != childName {
 				idx.reexportGated(joinFQN(pkgFQN, child.ShortName), child, imp.doc, imp.private,
-					idx.routesOnward(imp.doc, targetFQN, child.ShortName, child, direct))
+					idx.routesOnward(imp.doc, targetFQN, child.ShortName, child, direct, imp.all))
 			}
 		}
 	}
@@ -1059,7 +1061,7 @@ func (idx *Index) LibraryTier(sym *Symbol) LibraryTier {
 	if sym == nil {
 		return TierNone
 	}
-	if tier := idx.librarySyms.at(sym); tier != TierNone || sym.Name != "" {
+	if tier := idx.librarySyms.at(sym); tier != TierNone || sym.Named() {
 		return tier
 	}
 	// An unnamed member contributes no name, so its tier is its document's.
@@ -1153,13 +1155,17 @@ func (idx *Index) reexportedAt(fqn string) []*Symbol {
 // when a further namespace imports the filtering one onward, and the target's
 // several routes each stay a route of their own. direct holds this import's
 // gate alone, the routes of a name nothing gated on the way in.
-func (idx *Index) routesOnward(doc, sourceFQN, name string, sym *Symbol, direct [][]ElementFilter) [][]ElementFilter {
+func (idx *Index) routesOnward(doc, sourceFQN, name string, sym *Symbol, direct [][]ElementFilter, all bool) [][]ElementFilter {
 	if idx.declaredExactly(sym, sourceFQN, name) {
 		return direct // declared there, never borrowed into it
 	}
 	// The importing namespace is outside the one it imports from, so only that
-	// one's public routes reach it.
-	inherited := idx.ReexportGates(doc, joinFQN(sourceFQN, name), sym, "")
+	// one's public routes reach it, unless it is an `import all`.
+	from := ""
+	if all {
+		from = sourceFQN
+	}
+	inherited := idx.ReexportGates(doc, joinFQN(sourceFQN, name), sym, from)
 	if len(inherited) == 0 {
 		return direct
 	}
@@ -1546,6 +1552,16 @@ func clearMark(marks *layer[string, symbolSet], fqn string, sym *Symbol) {
 // the document root). Every recorded (fqn, symbol) pair is also tracked as a
 // contribution of the named document.
 func (idx *Index) indexScope(doc string, scope *Scope, prefix string) {
+	idx.indexMembers(doc, scope, prefix, false)
+}
+
+// indexMembers is indexScope told whether scope is nested: the members of a
+// root package with the empty name are qualified by that name, not root members.
+func (idx *Index) indexMembers(doc string, scope *Scope, prefix string, nested bool) {
+	join := joinFQN
+	if nested {
+		join = func(prefix, name string) string { return prefix + fqnSeparator + name }
+	}
 	seen := make(map[*Symbol]bool)
 	for _, sym := range scope.syms {
 		if seen[sym] {
@@ -1554,14 +1570,14 @@ func (idx *Index) indexScope(doc string, scope *Scope, prefix string) {
 		seen[sym] = true
 
 		// Index under primary FQN
-		fqn := joinFQN(prefix, sym.Name)
+		fqn := join(prefix, sym.Name)
 		idx.register(fqn, sym)
 		idx.declaredAt.set(sym, fqn)
 		idx.addContribution(doc, fqnEntry{fqn: fqn, sym: sym})
 
 		// Also index under short name FQN if different
-		if shortName := shortNameOf(sym); shortName != "" && shortName != sym.Name {
-			shortFQN := joinFQN(prefix, shortName)
+		if shortName, ok := shortNamed(sym); ok && shortName != sym.Name {
+			shortFQN := join(prefix, shortName)
 			idx.register(shortFQN, sym)
 			idx.addContribution(doc, fqnEntry{fqn: shortFQN, sym: sym})
 		}
@@ -1575,7 +1591,7 @@ func (idx *Index) indexScope(doc string, scope *Scope, prefix string) {
 		}
 
 		if sym.Scope != nil {
-			idx.indexScope(doc, sym.Scope, fqn)
+			idx.indexMembers(doc, sym.Scope, fqn, true)
 		}
 	}
 }
@@ -1604,7 +1620,8 @@ func wildcardImportsIn(scope *Scope) []WildcardImport {
 		}
 		wi := WildcardImport{
 			Target:  imp.Imported.Text(),
-			Private: imp.Visibility == ast.VisibilityPrivate,
+			Private: !VisibleOutside(imp.Visibility),
+			All:     imp.IsAll,
 		}
 		if imp.FilterExpr != nil {
 			wi.Filter = ElementFilter{Expr: imp.FilterExpr, Scope: scope, Span: imp.FilterExpr.Span()}
@@ -1746,8 +1763,8 @@ func (idx *Index) RegisteredUnder(fqn string) []*Symbol {
 	return idx.fqn.at(fqn)
 }
 
-// ShortNamed reports whether some registered symbol carries name as its short
-// name: it is registered under a path ending in name that is not its own.
+// ShortNamed reports whether a registered membership can carry name as a short name.
+// A short name identical to the long name or standing alone counts too.
 func (idx *Index) ShortNamed(name string) bool {
 	if name == "" {
 		return false
@@ -1772,7 +1789,7 @@ func (idx *Index) ShortNamed(name string) bool {
 func (idx *Index) shortNamedScan(name string) bool {
 	shortRegistered := func(fqn string) bool {
 		for _, sym := range idx.fqn.at(fqn) {
-			if LastSegment(sym.Name) != name {
+			if shortNameCandidate(sym, name) {
 				return true
 			}
 		}
@@ -1786,6 +1803,15 @@ func (idx *Index) shortNamedScan(name string) bool {
 	// bySegment omits root-level names, so a short name at the root is found
 	// under the fqn equal to name itself.
 	return shortRegistered(name)
+}
+
+// shortNameCandidate includes alternate registrations and explicit short names.
+func shortNameCandidate(sym *Symbol, name string) bool {
+	if sym == nil {
+		return false
+	}
+	short, ok := shortNamed(sym)
+	return LastSegment(sym.Name) != name || (ok && short == name)
 }
 
 // LookupUniqueCandidates returns the distinct elements LookupUnique chooses among —
@@ -1890,11 +1916,31 @@ func (idx *Index) WildcardImportsOf(fqn string) []WildcardImport {
 	return out
 }
 
-// exportedChildren returns the direct children of prefix that a wildcard import
-// of prefix surfaces: everything but what prefix's own private imports brought
-// in, which stays visible only inside prefix (KerML 8.2.3.3).
-func (idx *Index) exportedChildren(prefix string) []*Symbol {
-	return idx.LookupDirectChildrenFrom(prefix, "")
+// importedChildren returns the memberships of prefix a wildcard import of it takes (KerML 8.3.2.4.5
+// visibleMemberships): all under `import all`, else its public ones and those its public imports brought.
+func (idx *Index) importedChildren(prefix string, all bool) []*Symbol {
+	if all {
+		return idx.LookupDirectChildren(prefix)
+	}
+	children := idx.LookupDirectChildrenFrom(prefix, "")
+	out := make([]*Symbol, 0, len(children))
+	for _, child := range children {
+		if VisibleOutside(child.Visibility) || !idx.DeclaredIn(prefix, child) {
+			out = append(out, child)
+		}
+	}
+	return out
+}
+
+// DeclaredIn reports whether the namespace registered under prefix declares
+// sym, as opposed to holding it as a membership an import brought in.
+func (idx *Index) DeclaredIn(prefix string, sym *Symbol) bool {
+	declared, ok := idx.declaredAt.get(sym)
+	if !ok {
+		return false
+	}
+	parent, _ := splitFQN(declared)
+	return parent == prefix
 }
 
 // childKeys returns the keys registered directly under prefix, in name order.
@@ -2038,7 +2084,7 @@ func (idx *Index) lookupDirectChildrenNamed(key directChildrenKey, name string) 
 	for _, sym := range children {
 		leaf := LastSegment(sym.Name)
 		byName[leaf] = append(byName[leaf], sym)
-		if sym.ShortName != "" && sym.ShortName != leaf {
+		if sym.HasShortName() && sym.ShortName != leaf {
 			byName[sym.ShortName] = append(byName[sym.ShortName], sym)
 		}
 	}
@@ -2051,7 +2097,7 @@ func (idx *Index) lookupDirectChildrenNamed(key directChildrenKey, name string) 
 }
 
 // SegmentsOf reads a qualified name as the notation spells it into its names,
-// `'x::y'` one and `x::y` two, quotes dropped and escapes kept as the parser keeps them.
+// `'x::y'` one and `x::y` two, quotes dropped and escapes decoded as the parser decodes them.
 func SegmentsOf(name string) []string {
 	if segments, ok := source.QualifiedNameSegments(name); ok {
 		return segments
@@ -2129,7 +2175,7 @@ func FQNIs(sym *Symbol, parent, leaf string) bool {
 	scope := sym.OwnerScope
 	for scope != nil && scope.Owner() != nil {
 		owner := scope.Owner()
-		if owner.Name != "" {
+		if owner.Named() {
 			if rest == owner.Name {
 				rest = ""
 			} else if strings.HasSuffix(rest, fqnSeparator+owner.Name) {
@@ -2160,7 +2206,7 @@ func FQNOf(sym *Symbol) string {
 	scope := sym.OwnerScope
 	for scope != nil && scope.Owner() != nil {
 		owner := scope.Owner()
-		if owner.Name != "" {
+		if owner.Named() {
 			parts = append(parts, owner.Name)
 			size += len(owner.Name) + len(fqnSeparator)
 		}
@@ -2189,7 +2235,7 @@ func NameChain(sym *Symbol) []string {
 	}
 	names := []string{sym.Name}
 	for scope := sym.OwnerScope; scope != nil && scope.Owner() != nil; scope = scope.Owner().OwnerScope {
-		if owner := scope.Owner(); owner.Name != "" {
+		if owner := scope.Owner(); owner.Named() {
 			names = append(names, owner.Name)
 		}
 	}
@@ -2208,8 +2254,8 @@ func HasFQN(sym *Symbol, fqn string) bool {
 	if hasFQNAs(sym, fqn, sym.Name) {
 		return true
 	}
-	short := shortNameOf(sym)
-	return short != "" && short != sym.Name && hasFQNAs(sym, fqn, short)
+	short, ok := shortNamed(sym)
+	return ok && short != sym.Name && hasFQNAs(sym, fqn, short)
 }
 
 // ShortNamed reports whether fqn reaches sym by its short name rather than its
@@ -2218,13 +2264,14 @@ func ShortNamed(sym *Symbol, fqn string) bool {
 	return sym != nil && !hasFQNAs(sym, fqn, sym.Name)
 }
 
-// shortNameOf is sym's short name: as recorded, else as its declaration spells it.
-func shortNameOf(sym *Symbol) string {
-	if sym.ShortName != "" {
-		return sym.ShortName
+// shortNamed is sym's short name and whether it has one: as recorded, else as
+// its declaration spells it.
+func shortNamed(sym *Symbol) (string, bool) {
+	if sym.HasShortName() {
+		return sym.ShortName, true
 	}
 	id, _ := DeclIdent(sym.Decl)
-	return id.ShortName
+	return id.ShortName, id.HasShortName()
 }
 
 // hasFQNAs is HasFQN with sym's last segment taken to be name.
@@ -2251,7 +2298,7 @@ func hasFQNAs(sym *Symbol, fqn, name string) bool {
 // it, or nil at the document root.
 func namedOwner(scope *Scope) *Symbol {
 	for scope != nil && scope.Owner() != nil {
-		if owner := scope.Owner(); owner.Name != "" {
+		if owner := scope.Owner(); owner.Named() {
 			return owner
 		}
 		scope = scope.Owner().OwnerScope
@@ -2319,15 +2366,15 @@ func (idx *Index) QualifiedIdentity(sym *Symbol) string {
 	if idx == nil || sym == nil {
 		return ""
 	}
-	fqn := idx.GetFQN(sym)
-	if fqn == "" {
+	if !sym.Named() {
 		return ""
 	}
-	for _, segment := range strings.Split(fqn, "::") {
-		if segment == "" {
+	for scope := sym.OwnerScope; scope != nil && scope.Owner() != nil; scope = scope.Owner().OwnerScope {
+		if !scope.Owner().Named() {
 			return ""
 		}
 	}
+	fqn := idx.GetFQN(sym)
 	if !slices.Contains(idx.LookupQualified(fqn), sym) {
 		return ""
 	}

@@ -162,11 +162,13 @@ func (c *ChoicePoint) touch(p lower.Place) {
 	c.Touches = slices.Insert(c.Touches, i, name)
 }
 
-// futureFootprints is what the run's executors may still touch, made on first use.
+// futureFootprints is what the run's executors may still touch, made on first
+// use; asking for it lets go of the futures the last gate kept.
 func (ctx *Context) futureFootprints() *futureFootprints {
 	if ctx.futures == nil {
 		ctx.futures = newFutureFootprints(ctx)
 	}
+	ctx.futures.forget()
 	return ctx.futures
 }
 

@@ -1,0 +1,43 @@
+{
+  "rpc": "GetElementProperties",
+  "model": "element_properties_feature_value_expression.sysml",
+  "element_id": "ValueFamily__Tank__reserve_pvalue_om",
+  "properties": [
+    "featureWithValue",
+    "value",
+    "isDefault",
+    "isInitial"
+  ],
+  "expected_properties": [
+    {
+      "name": "featureWithValue",
+      "defining_class": "FeatureValue",
+      "derived": true,
+      "values": [
+        "ValueFamily::Tank::reserve"
+      ]
+    },
+    {
+      "name": "value",
+      "defining_class": "FeatureValue",
+      "derived": true,
+      "values": [
+        "ValueFamily__Tank__reserve_pvalue"
+      ]
+    },
+    {
+      "name": "isDefault",
+      "defining_class": "FeatureValue",
+      "values": [
+        "true"
+      ]
+    },
+    {
+      "name": "isInitial",
+      "defining_class": "FeatureValue",
+      "values": [
+        "false"
+      ]
+    }
+  ]
+}

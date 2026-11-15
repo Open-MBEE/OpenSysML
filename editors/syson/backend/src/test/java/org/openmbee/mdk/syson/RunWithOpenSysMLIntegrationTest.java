@@ -125,6 +125,21 @@ class RunWithOpenSysMLIntegrationTest {
     }
 
     @Test
+    void exploresStateMachineWithTheCoverageOfEveryRun() throws Exception {
+        String source = Files.readString(repository.resolve("editors/syson/backend/src/test/resources/models/coverage.sysml"));
+        Element target = target("test::Run");
+        RunResult result = service(project("coverage.sysml", source, target)).run(context(), target,
+                input(RunOperation.EXPLORE_STATE, Map.of()));
+        assertThat(result.ok()).isTrue();
+        assertThat(result.outcomes()).extracting("finalState").containsExactly("fin", "fin");
+        assertThat(result.coverage().states()).extracting("declaration")
+                .containsExactly("test::Run::fin", "test::Run::s0", "test::Run::viaA", "test::Run::viaB");
+        assertThat(result.coverage().states()).extracting("runs").containsExactly(2, 2, 1, 1);
+        assertThat(result.coverage().transitions()).extracting("declaration").containsExactly(
+                "test::Run::s0 -> viaA", "test::Run::s0 -> viaB", "test::Run::viaA -> fin", "test::Run::viaB -> fin");
+    }
+
+    @Test
     void rendersDocumentAsMarkdownAndHtml() throws Exception {
         String source = Files.readString(repository.resolve("editors/syson/backend/src/test/resources/models/report.sysml"));
         Element target = target("Observatory::MassReport");

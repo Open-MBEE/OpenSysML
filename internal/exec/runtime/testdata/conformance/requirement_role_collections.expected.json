@@ -1,0 +1,14 @@
+{
+  "type": "instance",
+  "instantiate": "test::r",
+  "libraries": true,
+  "slots": {
+    "actors": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},
+    "stakeholders": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},
+    "concerns": {"type": "Sequence", "elements": [{"type": "Instance"}]},
+    "subrequirements": {"type": "Sequence", "elements": [{"type": "Instance"}]},
+    "assumptions": {"type": "Sequence", "elements": []},
+    "driver": {"type": "Instance"},
+    "passenger": {"type": "Instance"}
+  }
+}

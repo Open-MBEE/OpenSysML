@@ -203,7 +203,7 @@ func invocationArguments(
 			errReceiverWithNamedArgs, inv.name(),
 		)
 	}
-	written := writtenArguments(inv.args, inv.named)
+	written := writtenArguments(ec.operandsIn(inv.args, inv.named))
 	if sym == nil {
 		if sym, err = settleAction(ec, inv, tied, written); err != nil {
 			return nil, nil, err
@@ -644,7 +644,7 @@ type actionParameter struct {
 func (ctx *Context) actionParametersOf(sym *symbols.Symbol) []actionParameter {
 	var params []actionParameter
 	for _, param := range ctx.model.semantics.BehaviorParametersOf(sym) {
-		if param.Symbol == nil || param.Symbol.Name == "" {
+		if param.Symbol == nil || !param.Symbol.Named() {
 			continue
 		}
 		params = append(params, actionParameter{

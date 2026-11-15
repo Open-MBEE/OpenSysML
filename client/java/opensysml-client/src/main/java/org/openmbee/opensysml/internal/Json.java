@@ -1,6 +1,7 @@
 package org.openmbee.opensysml.internal;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +57,24 @@ public final class Json {
       }
     }
     return "";
+  }
+
+  /**
+   * The elements of a member of a JSON object that is an array.
+   *
+   * @param document a parsed document
+   * @param member the member name
+   * @return the elements, or an empty list when the document is not an object, the member is
+   *     missing or its value is not an array
+   */
+  public static List<Object> listMember(Object document, String member) {
+    if (document instanceof Map<?, ?> object) {
+      Object value = object.get(member);
+      if (value instanceof List<?> list) {
+        return Collections.unmodifiableList(new ArrayList<>(list));
+      }
+    }
+    return List.of();
   }
 
   private Object readValue() {

@@ -71,6 +71,22 @@ package Lifelines {
 		message ask of A from client.askSent to server.askTaken;
 	}
 
+	// A case's subject holds events as a part does: a lifeline, not a notice.
+	use case def Served {
+		subject client : Signals::A {
+			event occurrence askSent;
+			event occurrence replyTaken;
+		}
+
+		part server {
+			event occurrence askTaken;
+			then event occurrence replySent;
+		}
+
+		message ask of A from client.askSent to server.askTaken;
+		message reply of B from server.replySent to client.replyTaken;
+	}
+
 	// Two events no message attaches to stand between the messages' events.
 	occurrence def Staged {
 		part client {
@@ -190,6 +206,14 @@ package LifelineViews {
 
 	view relayReversedView : SequenceView {
 		expose Lifelines::RelayReversed;
+	}
+
+	// The subject and the part exposed as lifelines, with the messages between them.
+	view servedView : SequenceView {
+		expose Lifelines::Served::client;
+		expose Lifelines::Served::server;
+		expose Lifelines::Served::ask;
+		expose Lifelines::Served::reply;
 	}
 
 	view settledView : SequenceView {

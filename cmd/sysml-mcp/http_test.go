@@ -29,6 +29,7 @@ import (
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard/apikey"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 )
@@ -500,6 +501,123 @@ func TestTheHTTPTransportRequiresTheToken(t *testing.T) {
 	if strings.Contains(s.stderr.String(), "s3cret") {
 		t.Errorf("the token was logged:\n%s", s.stderr)
 	}
+}
+
+// TestTheHTTPTransportServesAPIKeys checks a key file guards an address alone or beside
+// the token, a revoked key is refused once SIGHUP re-reads the file, and no secret is logged.
+func TestTheHTTPTransportServesAPIKeys(t *testing.T) {
+	if len(hangup) == 0 {
+		t.Skip("this platform delivers no SIGHUP")
+	}
+	dir := t.TempDir()
+	keyFile := filepath.Join(dir, "keys.jsonl")
+	var stdout, stderr bytes.Buffer
+	if status := run([]string{"-mint-api-key", "-api-keys", keyFile, "-subject", "ci", "-scopes", "sysml:read"}, &stdout, &stderr); status != exitServed {
+		t.Fatalf("mint: status %d\n%s", status, &stderr)
+	}
+	key := strings.TrimSpace(stdout.String())
+	records, err := apikey.ReadFile(keyFile)
+	if err != nil || len(records) != 1 {
+		t.Fatalf("records %v, %v", records, err)
+	}
+	tokenFile := filepath.Join(dir, "mcp.token")
+	if err := os.WriteFile(tokenFile, []byte("s3cret-token\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct {
+		name string
+		args []string
+		auth string
+	}{
+		{"keys alone", []string{"-api-keys", keyFile}, "api keys"},
+		{"keys beside the token", []string{"-api-keys", keyFile, "-token-file", tokenFile}, "api keys, bearer token"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := startHTTPServer(t, "http", append([]string{"-http", "0.0.0.0:0"}, tc.args...)...)
+			ctx := protocolBudget(t)
+			_, port, err := net.SplitHostPort(strings.TrimSuffix(strings.TrimPrefix(s.url, "http://"), mcp.HTTPPath))
+			if err != nil {
+				t.Fatal(err)
+			}
+			s.url = "http://" + net.JoinHostPort("127.0.0.1", port) + mcp.HTTPPath
+
+			var server struct {
+				Version string `json:"version"`
+			}
+			cs := connectHTTP(ctx, t, s, &http.Client{Transport: headerTransport{"Authorization", "Bearer " + key}})
+			callHTTP(ctx, t, cs, "server_info", map[string]any{}, &server)
+			if server.Version == "" {
+				t.Error("server_info reported no version with the key")
+			}
+			if _, err := cs.CallTool(ctx, &sdk.CallToolParams{Name: "format", Arguments: map[string]any{"text": "package P;"}}); err == nil || !strings.Contains(err.Error(), "insufficient_scope") {
+				t.Errorf("a sysml:write tool with a sysml:read key: %v, want insufficient_scope", err)
+			}
+			_ = cs.Close()
+
+			refused := func(authorization string) {
+				t.Helper()
+				c := sdk.NewClient(&sdk.Implementation{Name: "test", Version: "0"}, nil)
+				var client *http.Client
+				if authorization != "" {
+					client = &http.Client{Transport: headerTransport{"Authorization", authorization}}
+				}
+				if cs, err := c.Connect(ctx, &sdk.StreamableClientTransport{Endpoint: s.url, HTTPClient: client}, nil); err == nil {
+					_ = cs.Close()
+					t.Errorf("Authorization %q was served", authorization)
+				}
+			}
+			refused("")
+			refused("Bearer " + key[:len(key)-1] + "x")
+			refused("Bearer osk_nosuchkeyid.secret")
+			tokenServed := slices.Contains(tc.args, "-token-file")
+			cs2, err := sdk.NewClient(&sdk.Implementation{Name: "test", Version: "0"}, nil).Connect(ctx, &sdk.StreamableClientTransport{Endpoint: s.url, HTTPClient: &http.Client{Transport: headerTransport{"Authorization", "Bearer s3cret-token"}}}, nil)
+			if (err == nil) != tokenServed {
+				t.Errorf("the token: served %v, want %v (%v)", err == nil, tokenServed, err)
+			}
+			if err == nil {
+				_ = cs2.Close()
+			}
+
+			// Revoked in the file, the key is refused once SIGHUP has the file read again.
+			var out, errs bytes.Buffer
+			if status := run([]string{"-revoke-api-key", records[0].ID, "-api-keys", keyFile}, &out, &errs); status != exitServed {
+				t.Fatalf("revoke: status %d\n%s", status, &errs)
+			}
+			if err := s.cmd.Process.Signal(hangup[0]); err != nil {
+				t.Fatal(err)
+			}
+			deadline := time.Now().Add(time.Minute)
+			for !strings.Contains(s.stderr.String(), "credentials reloaded on SIGHUP") {
+				if time.Now().After(deadline) {
+					t.Fatalf("no reload logged after SIGHUP:\n%s", s.stderr)
+				}
+				time.Sleep(20 * time.Millisecond)
+			}
+			refused("Bearer " + key)
+
+			if code := s.stop(t); code != exitServed {
+				t.Errorf("exit status = %d, want %d:\n%s", code, exitServed, s.stderr)
+			}
+			log := s.stderr.String()
+			if !strings.Contains(log, "auth=bearer") || !strings.Contains(log, "auth=\""+tc.auth+"\"") || strings.Contains(log, "s3cret") || strings.Contains(log, key[len(apikey.Prefix):]) || strings.Contains(log, records[0].SHA256) {
+				t.Errorf("log:\n%s", log)
+			}
+			// Each run revokes the key; the next run gets it back.
+			if err := os.WriteFile(keyFile, []byte(strings.Replace(mustRead(t, keyFile), `,"disabled":true`, "", 1)), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func mustRead(t *testing.T, path string) string {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
 }
 
 // TestTheHTTPTransportReadsTheTokenFromTheEnvironment checks the environment

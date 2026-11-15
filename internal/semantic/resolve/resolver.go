@@ -103,6 +103,7 @@ type modeMemoKey struct {
 type importVisit struct {
 	target, from *symbols.Scope
 	name         string
+	all          bool
 }
 
 type filteredMemoKey struct {
@@ -424,7 +425,7 @@ func (r *Resolver) EndSymbol(qn *ast.QualifiedName) (*symbols.Symbol, bool) {
 // declared member bears reaches an inherited one, so `first start` links the
 // start the owner inherits; a member of an enclosing body is not a start.
 func (r *Resolver) resolveInitial(scope *symbols.Scope, n *ast.InitialNode) {
-	if n.Name() == "" {
+	if !n.Named() {
 		return
 	}
 	sym, ok := memberPastLabels(scope, n.Name())
@@ -442,7 +443,7 @@ func (r *Resolver) resolveInitial(scope *symbols.Scope, n *ast.InitialNode) {
 func memberPastLabels(scope *symbols.Scope, name string) (*symbols.Symbol, bool) {
 	var members []*symbols.Symbol
 	for _, sym := range scope.LookupLocalAll(name) {
-		if _, label := sym.Decl.(*ast.InitialNode); label {
+		if _, label := sym.Decl.(*ast.InitialNode); label || symbols.IsFirstMarker(sym) {
 			continue
 		}
 		members = append(members, sym)
@@ -464,6 +465,36 @@ func (r *Resolver) InitialSymbol(n *ast.InitialNode) (*symbols.Symbol, bool) {
 		return nil, false
 	}
 	return r.EndSymbol(n.First)
+}
+
+// ResolveInitial is InitialSymbol for a start marker reached before the walk
+// resolved its body: the marker is bound on demand in the scope that owns it.
+func (r *Resolver) ResolveInitial(scope *symbols.Scope, n *ast.InitialNode) (*symbols.Symbol, bool) {
+	if sym, ok := r.initials[n]; ok {
+		return sym, true
+	}
+	if scope == nil || n.Successor != nil {
+		return nil, false
+	}
+	r.resolveInitial(scope, n)
+	sym, ok := r.initials[n]
+	return sym, ok
+}
+
+// ResolveInitialMember is the member a `first name;` marker of scope's body binds to
+// (see resolveInitial), for a recorded marker that kept no declaration.
+func (r *Resolver) ResolveInitialMember(scope *symbols.Scope, name string) (*symbols.Symbol, bool) {
+	if scope == nil || name == "" {
+		return nil, false
+	}
+	if sym, ok := memberPastLabels(scope, name); ok {
+		return sym, true
+	}
+	// An inherited start marker bearing the name is a label too, not the start.
+	if sym, ok := r.lookupContributedMember(scope.Owner(), name, nil); ok && !symbols.IsFirstMarker(sym) {
+		return sym, true
+	}
+	return nil, false
 }
 
 // PartAlias returns the alias membership the i-th segment of qn was written as,
@@ -495,6 +526,12 @@ func (r *Resolver) Index() *symbols.Index {
 // is attached, else from the relationships sym declares, where a member hide
 // covers does not stop the walk short of what a general offers.
 func (r *Resolver) lookupMember(sym *symbols.Symbol, name string, hide *refFilter) (*symbols.Symbol, bool) {
+	return r.lookupMemberThrough(sym, name, hide, nil)
+}
+
+// lookupMemberThrough is lookupMember reading only the imports of sym that
+// visible admits, every one when it is nil.
+func (r *Resolver) lookupMemberThrough(sym *symbols.Symbol, name string, hide *refFilter, visible func(*ast.Import) bool) (*symbols.Symbol, bool) {
 	if sym == nil {
 		return nil, false
 	}
@@ -508,7 +545,7 @@ func (r *Resolver) lookupMember(sym *symbols.Symbol, name string, hide *refFilte
 		return nil, false
 	}
 	for _, imp := range r.scopeImports(sym.Scope) {
-		if r.resolvingImports[imp] {
+		if r.resolvingImports[imp] || (visible != nil && !visible(imp)) {
 			continue
 		}
 		if !r.importPrefixAvailable(sym.Scope, imp, name) {

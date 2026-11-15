@@ -29,7 +29,7 @@ func runStateMachine(t *testing.T, name, src string) *StateExecutor {
 func regionConfig(exec *StateExecutor) map[string]string {
 	config := make(map[string]string, len(exec.activeConfig.regionStates))
 	for region, state := range exec.activeConfig.regionStates {
-		config[region.Name] = state.Name
+		config[exec.regionDecl(region).Name] = exec.stateDecl(state).Name
 	}
 	return config
 }

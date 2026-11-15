@@ -157,6 +157,9 @@ test("a qualified miss searches for near names exactly once", async () => {
     attributes: [],
     specializations: [],
     withheldLibraryAttributes: 0,
+    members: [],
+    withheldLibraryMembers: 0,
+    annotatingMetadataIds: [],
   });
   await using connection = await fakeConnection([], (method, input) => {
     if (method === "ParseFile") {

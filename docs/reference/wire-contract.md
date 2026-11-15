@@ -149,7 +149,10 @@ not resolve), or when OpenSysML does not derive the property at all; a property 
 derived and empty answers no values and no reason. A standard-library element — one an `element`
 value references, or a library qualified name such as `Parts::Part` — is read from the form of the
 bundled library document declaring it, converted once per process, so a walk from a model into the
-library continues. A missing element is an in-band `error`; a model whose document the parser could
+library continues; a library member no name catalogues — the documentation, invariants and
+connectors a part inherits from `Occurrences::Occurrence`, a declared multiplicity range — and its
+owning membership read back under the ids an answer carried them by, so every id an answer returns
+is accepted back. A missing element is an in-band `error`; a model whose document the parser could
 not read whole has no element form and reports that the same way. The `element_properties`
 capability advertises the RPC.
 
@@ -160,13 +163,39 @@ positional id an unnamed declaration has in the query API and the export (`Owner
 the fourth member of `Owner`, `Owner::@3::wheel` for a named member of it). `childIds` are the
 members the element itself declares under the same ids, named and unnamed alike (a `bind`, a
 `connect`, a `part : P;`, a `@M { … }` or `#M` annotation), each of which `GetSymbol` resolves;
-a member no id reaches, such as a body-local declaration, is not listed. `members` is every
+a member no id reaches, such as a body-local declaration, is not listed. A connection, interface
+or binding usage lists its two ends, of kind `connectorEnd`: a named end (`connect (a ::> x, b ::> y)`)
+under its qualified name, an unnamed one (`connect x to y`, `bind x = y`) under the element id
+`GetElementProperties` gives it (`Owner__c_pend0`). `GetSymbol` reads an id as a qualified name first, so a
+declaration named exactly like an unnamed end's element id is what that id answers, not the end. An end's `specializations` hold the feature it references as a
+`references` entry, a feature chain (`x.p`) as one entry per chaining feature in chain order. With `resolveName` the
+id is instead resolved as a qualified name from the root namespace, the way the notation resolves
+`A::B` (KerML 8.2.3.5): through the visible memberships of each namespace, so a name a `public
+import` re-exports — a membership import, `P::*`, the recursive `P::**` — answers with the imported
+element under its own id, an alias with the element it is for, and a `private` or `protected` member,
+or one behind a `private import`, is not found; an id no name spells, a positional id or an unnamed end's
+element id, still denotes its element. The `symbol_name_resolution` capability advertises the field: a service
+without it ignores `resolveName`, so every client checks the capability and otherwise asks by
+reported id. Without it the id is one the service reported and
+denotes that element whatever its visibility, an alias being itself; the clients' lookups by
+qualified name set it, and their navigation over `childIds`, `members` and specialization targets
+does not. `members` is every
 member it has (KerML `Type::member`) — the owned ones first, in declaration order, then the
 inherited ones in inheritance order, each with its `kind`, `inherited` and `inheritedFrom`, a
 redefinition masking what it redefines and a private member of a supertype left out. Members
 inherited from standard-library content are withheld and counted in `withheldLibraryMembers`
 unless the request sets `includeLibraryMembers`, which lists them marked `library`. The
 `symbol_members` capability advertises the field; a service without it answers no `members`.
+`annotatingMetadataIds` names the metadata usages annotating the element, the inverse of KerML
+`AnnotatingElement::annotatedElement`: the ones it owns, written as a `#M` prefix or as `@M` /
+`metadata m : M` in its body, then the ones naming it in an `about` clause anywhere in the
+workspace (`metadata m : M about Pump;`), each group in declaration order. Each id answers
+`GetSymbol` with a `metadataUsage` whose `typeInfo` names the metadata definition and whose
+`attributes` carry the values the annotation binds. An `about` usage is an owned member of the
+namespace it is written in and owns its Annotation (KerML 8.3.2.3), so it is neither a child nor a
+member of what it annotates: `childIds` and `members` leave it out, and this field is where it is
+found. The `symbol_annotating_metadata` capability advertises the field; a service without it
+answers none.
 Beside the other typed fields (`typeInfo`, `multiplicity`, `specializations`, `attributes`),
 `metadata` is a string map of facts about the declaration, each present only when it holds:
 
@@ -311,7 +340,7 @@ arms, each captured from `Evaluate` against the model at the end of this section
 | `function` | object | `{"result":{"function":{"calcId":"F::Sq"}}}` | A calc held as a value: the calc it names and, when it was read off an object, that object |
 | `set` | object | `{"result":{"set":{"elements":[{"intValue":"1"},{"intValue":"2"},{"intValue":"3"}]}}}` | Unordered collection without duplicates; `elements` are `Value`s, listed in canonical order |
 | `tensorQuantity` | object | `{"result":{"tensorQuantity":{"dimensions":["2","2","2"],"components":[{"realMagnitude":1,"unit":"m","unitTerm":{…}},…]}}}` | Tensor of quantities of any rank; one `quantity` body per component, row-major |
-| `metaobject` | object | `{"result":{"metaobject":{"elementId":"Meta::seatBelt","metaclassId":"SysML::Systems::PartUsage"}}}` | An element of the model held as an instance of its metaclass (`x meta T`, the last member of `x.metadata`): the element it reflects on and the metaclass that classifies it |
+| `metaobject` | object | `{"result":{"metaobject":{"elementId":"Meta::seatBelt","metaclassId":"SysML::Systems::PartUsage"}}}` | An element of the model held as an instance of its metaclass (`x meta T`, the last member of `x.metadata`): the element it reflects on, by the id a client keeps for any element (qualified name, positional id `Owner::@2`, or the element form's `@id`), and the metaclass that classifies it |
 | `undetermined` | object | `{"result":{"undetermined":{"reason":"P::Q::d has no value in the model","count":{"lower":"1","upper":"1"}}}}` | A model-level result the model leaves open: a read of a feature with no value, or of one whose count is not fixed, or an operation over such a read. `count` bounds the values it would hold |
 
 The `array`, `vector` and `vectorQuantity` rows were captured against
@@ -400,7 +429,8 @@ decode(v):
                  components := map the quantity rule over v.tensorQuantity.components;
                  require len(components) == product(dimensions), else an error
   metaobject   → element := v.metaobject.elementId, require it non-empty, else an error;
-                 metaclass := v.metaobject.metaclassId; the element is the identity
+                 metaclass := v.metaobject.metaclassId; the element is the identity, in
+                 whichever id form it arrived (qualified name, positional id, form @id)
   undetermined → the language's "undetermined" sentinel carrying v.undetermined.reason (a
                  string) and v.undetermined.count (lower and upper as strings, upper "*"
                  when unbounded); distinct from unset, from null and from false. Never
@@ -768,9 +798,25 @@ $ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"Meta::notADefinitio
 {"result":{"sequence":{}}}
 ```
 
-- `elementId` is the fully qualified name of the element, and is the identity a client keeps
-  to send the same metaobject back. It is never empty: a `metaobject` with no `elementId` is
-  malformed, and a decoder refuses it rather than reading it as "no element".
+- `elementId` is the identity a client keeps to send the same metaobject back, and is one of
+  the ids the tree already addresses an element by — the same ids `GetElementProperties`
+  accepts and reports in its `ElementRef`s, so a client hands a metaobject's `elementId` to
+  `GetElementProperties` or `GetSymbol` and hands back what those report:
+    - the fully qualified name, for an element one identifies (`Meta::seatBelt`);
+    - the positional id of an unnamed member (`Meta::outer::@0`, the `@N` segment
+      [`GetElementProperties`](#getelementproperties) and `GetSymbol` address one by), for an
+      unnamed declaration;
+    - the element form's `@id` (the `convert` to `api-json`), for an element the semantic side
+      tables synthesize and no scope declares: a send's or accept's parameter and its argument
+      value (`Meta__Monitor__sm__relay___40trigger___401_pvalue` is the `receiverArgument` of
+      the accept of `Meta::Monitor::sm::relay`), a transition's guard, an expression's
+      operands and parameters, a feature-chain Feature at a connector end
+      (`Meta__holder___402_pend0_pchain`).
+  It is never empty: a `metaobject` with no `elementId` is malformed, and a decoder refuses it
+  rather than reading it as "no element". A decoder keeps the id opaque; it never parses one.
+  The WebAssembly engine, whose size budget excludes the exporter and the positional naming,
+  names an element by its qualified name only and sends a metaobject of one with none as the
+  unsupported null below.
 - `metaclassId` is the fully qualified name of the reflective metaclass that classifies the
   element — a part usage is a `SysML::Systems::PartUsage` however it was cast — so a client
   learns what the element is, not what the model asked for. A cast to a metaclass the element
@@ -784,13 +830,15 @@ $ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"Meta::notADefinitio
   `(Meta::seatBelt meta KerML::Feature)#(1).qualifiedName` is `{"stringValue":"Meta::seatBelt"}` —
   and a feature the engine does not derive is an evaluation failure naming the feature, not a
   guess.
-- A metaobject of an anonymous element — one with no qualified name to send, such as an
-  unnamed part among a type's `ownedFeature` — is the unsupported null
-  `{"null":"unsupported: metaobject of an element with no qualified name"}`, under the `null`
-  arm's rule. A named element nested in an anonymous one keeps its name (`Mid::inner`).
+- A metaobject of an element none of those ids reaches (the implied `Multiplicity` a usage
+  owns) is the unsupported null `{"null":"unsupported: metaobject of an element with no
+  identity"}`, under the `null` arm's rule. A named element nested in an anonymous one keeps
+  its name (`Mid::inner`).
 - An `element_id` sent that two declarations of the model share (the same qualified name in two
   documents) identifies neither and is refused in band as ambiguous, never bound to whichever the
-  index lists first.
+  index lists first. A form `@id` is resolved under the nearest element a qualified or
+  positional id reaches, among what it owns; one that reaches nothing is unbound, and one a
+  declaration's qualified name also spells (`package D__outer___400`) is ambiguous between the two.
 - The arm is gated by the `metaobject_values` capability (see [Capabilities, and what an absent one does](service-transports.md#capabilities-and-what-an-absent-one-does)).
   A service without it sends every metaobject, at any depth, as
   `{"null":"unsupported: metaobject Meta::seatBelt : SysML::Systems::PartUsage"}` and refuses a
@@ -946,7 +994,7 @@ HTTP/1.1 400 Bad Request
 
 $ … /Query -d '{"modelHash":"2af5…dea2","query":{"where":{"primitive":{"property":"colour","operator":"PRIMITIVE_OPERATOR_EQUAL","value":["red"]}}}}'
 HTTP/1.1 400 Bad Request
-{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, body, declaredName, declaredShortName, documentation, elementId, general, isAbstract, isIndividual, language, locale, multiplicityLower, multiplicityUpper, name, owner, qualifiedName, satisfiedRequirement, satisfyingFeature, shortName, textualRepresentation, type"}
+{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, body, declaredName, declaredShortName, documentation, elementId, general, isAbstract, isIndividual, language, locale, multiplicityLower, multiplicityUpper, name, owner, payloadArgument, qualifiedName, receiverArgument, satisfiedRequirement, satisfyingFeature, senderArgument, shortName, textualRepresentation, type"}
 
 $ … /ApplyEdits -d '{"modelHash":"997e…6134","acceptDocuments":true,"document":"nope.sysml","operations":[{"rename":{"target":"EngineUser::Car","newName":"Automobile"}}]}'
 HTTP/1.1 400 Bad Request
@@ -1249,7 +1297,11 @@ in either order and either alone — `runs` bounds how many runs the search make
 `budgetsHit` (`"runs"` before `"depth"` when both), the outcomes reached so far still listed and
 `probabilitiesLowerBound` true only when the exploration is incomplete and has a weighted model
 choice, since unexplored runs can only add to those model probabilities;
-`runsBudget` and `depthBudget` echo the budget the search ran under. A budget hit is never an
+`runsBudget` and `depthBudget` echo the budget the search ran under. `coverage` (`Coverage`) is
+what every run entered and took, not only the witness of each outcome: `states` and
+`transitions`, each a `CoverageEntry` whose `path` is qualified by the instance that ran the
+machine (`Cov::sys#1.m.run: s0 -> viaB`), whose `declaration` is qualified by the declaration
+(`Cov::M::run::s0 -> viaB`), and whose `runs` counts the runs that did so. A budget hit is never an
 error and never silent:
 
 ```console
@@ -2299,6 +2351,12 @@ Pictures are not included; a refused picture contributes its reason to `notices`
 declared port. The service advertises this method as
 the `render_view` capability.
 
+A request naming a `form` (`text`, `mermaid`, `markdown`, `dot`, `plantuml`, `d2`, `drawio`, `csv`
+or `tsv`) is also answered the rendering written in that form, in `text`, with the same fields
+beside it; the `palette`, `style`, `lines`, `direction`, `link` and `unplaced` request fields are
+the writer's options. `text` is absent when no form is named. The service advertises the form and
+its options as the `render_view_form` capability.
+
 This excerpt was captured by calling the gRPC service with
 `RenderViewDemo::connections` from `conformance/fixtures/views.sysml` and marshaling the response
 with protobuf JSON:
@@ -2558,7 +2616,8 @@ as data. `CheckBehaviorRequest` names the behavior by exactly one of `action_sym
 `check_diverge`, `check_input`, `check_assume` (repeated strings), `check_witness` (bool),
 `check_depth`, `check_states`, `check_unroll` (int32 counts, 0 for the engine's default),
 `check_timeout` (double seconds, 0 for none) and `engine`. `CheckBehaviorResponse` carries
-`verdict`, `lines`, `search` (`CheckSearch`), `violations` (`CheckViolation`), `divergences`
+`verdict`, `lines`, `search` (`CheckSearch`, whose `coverage` is the `Coverage` every searched
+schedule entered and took, `runs` counting schedules), `violations` (`CheckViolation`), `divergences`
 (`CheckDivergence`, each value a `CheckDivergentValue`), `finals` (`CheckFinal`), `claim`,
 `free_inputs`, `assumptions`, `witness`, `contrast`, `engine`, `strength`, `bounds`, `reason`
 and `error`; every witness is a `CheckWitness` whose `schedule` any run replays.
@@ -2573,7 +2632,8 @@ selected, filtered and bound — are on the Go API page and are not repeated her
 [SysML v2 API & Services `Query`](api.md#sysml-v2-api--services-query) and
 [Native document queries and rendering over gRPC](api.md#native-documents-and-views-over-grpc).
 Each is its own capability: `Query` needs `query` (and `oslc_query` when the request uses
-`oslcQuery`); `RunDocumentQuery` needs `document_query`; `RenderDocument` needs
+`oslcQuery`); `RunDocumentQuery` needs `document_query`, and `inline_document_query` too when the
+request writes the query in `inlineQuery`; `RenderDocument` needs
 `render_document`, and `render_document_html` too when its `form` is `html`; its `file_name` (the
 file a rendered set writes the document to, which the other documents' links to it name) is
 populated under `render_document_file_name`.
@@ -2608,7 +2668,8 @@ property simply lacks the key. No matches is `{}` (captured for `"property":"nam
 ### `RunDocumentQuery`
 
 A document query is a `calc def` in the model specializing `DocumentQueries::Query`; the request
-names it by `queryId` and supplies `bindings` for its `in` parameters. Each binding is a
+names it by `queryId`, or writes one in `inlineQuery` (below), and supplies `bindings` for its
+`in` parameters. Each binding is a
 `parameter` name and a list of `values`, and each value is a `DocumentValue` — a `oneof` whose
 arm says what was bound:
 
@@ -2631,6 +2692,21 @@ arm says what was bound:
   how a parameter of type `Element` is bound to an object rather than to its declaration*;
   the query then reads the object's current values. The answer-side `element` of a
   `DocumentObject` is ignored in a request.
+
+`inlineQuery` carries the result expression such a `calc def` would hold, planned and run as a
+named query is, in the model's context (the `DocumentQueries` library imported, the model's names
+reachable, held objects behind `Objects`/`Verdicts`/`States`/`Events`); exactly one of `queryId`
+and `inlineQuery` is set, and both or neither is `invalid_argument`. The field needs the
+`inline_document_query` capability, refused with `unimplemented` otherwise. Text that does not
+parse or plan is `invalid_argument` with the position within the expression —
+`inline query 1:30: expected ')'` — and a failure while running keeps the named form's status
+and `QueryOutcome` detail:
+
+```console
+$ … /RunDocumentQuery -d '{"modelHash":"7e6a…a687","inlineQuery":"Project(WhereType(Descendants(Observatory::telescope), \"PartUsage\"), (\"name\", \"mass\"))"}'
+```
+
+answers the same `columns` and `rows` shape as a named query, in document order.
 
 Model `7e6a…a687` is `conformance/fixtures/document.sysml`; `HeavySubsystemNames` takes
 `root : Element` and `threshold : String`:

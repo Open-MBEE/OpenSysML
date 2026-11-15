@@ -49,9 +49,9 @@ type Client interface {
 	// semantic passes combined — the same list the Model already carries.
 	Diagnostics(ctx context.Context, model *Model, opts ...DiagnosticsOption) ([]Diagnostic, error)
 
-	// LookupSymbol looks a symbol up by fully qualified name. An unknown name
-	// is a FailureError; an unknown model is CodeNotFound.
-	LookupSymbol(ctx context.Context, model *Model, symbolID string) (*Symbol, error)
+	// LookupSymbol resolves a fully qualified name from the root namespace as the notation does
+	// (ByReportedID takes a reported id instead); an unknown name is a FailureError, an unknown model CodeNotFound.
+	LookupSymbol(ctx context.Context, model *Model, symbolID string, opts ...SymbolOption) (*Symbol, error)
 
 	// Evaluate evaluates a SysML expression against the parsed model. An
 	// expression that does not parse or evaluate is a FailureError carrying
@@ -186,13 +186,16 @@ type Client interface {
 	// document_query capability.
 	RunDocumentQuery(ctx context.Context, model *Model, queryID string, bindings ...Binding) (*Rows, error)
 
-	// RenderDocument renders the named document to Markdown. Requires the
-	// render_document capability.
-	RenderDocument(ctx context.Context, model *Model, documentID string) (string, error)
+	// RunInlineDocumentQuery runs a query expression written in place of a named
+	// query, as RunDocumentQuery runs one. Requires inline_document_query.
+	RunInlineDocumentQuery(ctx context.Context, model *Model, expression string, bindings ...Binding) (*Rows, error)
 
-	// RenderView renders a declared view or targeted pseudo-view as diagram
-	// data. Ports are minimal by default; WithFullPorts requests all ports.
-	// Requires the render_view capability.
+	// RenderDocument renders the named document to Markdown, or to the form
+	// WithDocumentForm names. Requires the render_document capability.
+	RenderDocument(ctx context.Context, model *Model, documentID string, opts ...RenderDocumentOption) (string, error)
+
+	// RenderView renders a declared view or targeted pseudo-view as diagram data, and with
+	// WithForm as diagram source or a table too. Requires the render_view capability.
 	RenderView(ctx context.Context, model *Model, viewName string, opts ...RenderViewOption) (*RenderedView, error)
 
 	// ExportGraphs exports the lowered graph of an action or state machine,
@@ -579,7 +582,22 @@ func (c *client) Diagnostics(ctx context.Context, model *Model, opts ...Diagnost
 	return diagnosticsFromProto(resp.Diagnostics), nil
 }
 
-func (c *client) LookupSymbol(ctx context.Context, model *Model, symbolID string) (*Symbol, error) {
+// SymbolOption widens what LookupSymbol asks the service to report.
+type SymbolOption func(*pb.GetSymbolRequest)
+
+// WithLibraryMembers lists the members inherited from standard-library content
+// too, which are otherwise only counted in Symbol.WithheldLibraryMembers.
+func WithLibraryMembers() SymbolOption {
+	return func(req *pb.GetSymbolRequest) { req.IncludeLibraryMembers = true }
+}
+
+// ByReportedID has LookupSymbol take the id as one the service reported (a child's, a
+// member's), whatever its visibility, instead of resolving it as a qualified name.
+func ByReportedID() SymbolOption {
+	return func(req *pb.GetSymbolRequest) { req.ResolveName = false }
+}
+
+func (c *client) LookupSymbol(ctx context.Context, model *Model, symbolID string, opts ...SymbolOption) (*Symbol, error) {
 	if err := c.live(); err != nil {
 		return nil, err
 	}
@@ -587,7 +605,24 @@ func (c *client) LookupSymbol(ctx context.Context, model *Model, symbolID string
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.caller.getSymbol(ctx, &pb.GetSymbolRequest{ModelHash: hash, SymbolId: symbolID})
+	req := &pb.GetSymbolRequest{ModelHash: hash, SymbolId: symbolID, ResolveName: true}
+	for _, opt := range opts {
+		opt(req)
+	}
+	if req.IncludeLibraryMembers {
+		if err := c.requireCapabilities(ctx, CapabilitySymbolMembers); err != nil {
+			return nil, err
+		}
+	}
+	if req.ResolveName {
+		// A service without the capability reads every id as one it reported.
+		info, err := c.serverInfo(ctx)
+		if err != nil {
+			return nil, err
+		}
+		req.ResolveName = info.Has(CapabilitySymbolNameResolution)
+	}
+	resp, err := c.caller.getSymbol(ctx, req)
 	if err != nil {
 		return nil, err
 	}

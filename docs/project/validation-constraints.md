@@ -1,7 +1,7 @@
 # Validation-Constraint Census
 
-**Pilot:** [SysML v2 Pilot Implementation](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation) release `2026-09`, commit `38665073bbf02849bd309b106eba79cbb3a1ee1d`, artifact `jupyter-sysml-kernel 0.63.0` — the pin in `scripts/pilot-pin.sh`
-**Jar:** `jupyter-sysml-kernel-0.63.0-all.jar` (`sha256:0de2fb9fdc19da3c00194bbb7e394a793e579a1e02f171279544e83e4a1fb376`), provisioned by `./scripts/download-pilot-validator.sh`
+**Pilot:** [SysML v2 Pilot Implementation](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation) release `2026-09.1`, commit `d81b2ad5016f2e2d3d4364b3d06d01d8bb12a896`, artifact `jupyter-sysml-kernel 0.63.1` — the pin in `scripts/pilot-pin.sh`
+**Jar:** `jupyter-sysml-kernel-0.63.1-all.jar` (`sha256:67c914092f4520ba98548b285c5a9a8bc08f92a0aeec7b763e12a574e91f9ff7`), provisioned by `./scripts/download-pilot-validator.sh`
 **Run:** `go run -C tools ./cmd/validation-census` (restates the **Pilot**, **Jar** and **Census** lines and the census table from the manifest); `go run -C tools ./cmd/validation-census -check` (the gate); `go run -C tools ./cmd/validation-census -update` (re-extracts the names from the jar, keeping every recorded row); `go run -C tools ./cmd/formal-constraints -kerml <KerML.pdf> -sysml <SysML.pdf> -update` (re-extracts the formal documents' constraints from the pinned PDFs, keeping every recorded row; `-check` verifies, `-list` prints the extraction)
 **Manifest:** [constraint-manifest.json](constraint-manifest.json) — the single record every row below is rendered from: the constraint names read from the pinned jar, with the pin, the jar digest and the extraction method, and for each name its metaclass, the clause of the pinned specification, the implementing location, the diagnostic code its probes observe, its negative case, its census status and, for every status but ✅, a one-line rationale; alongside them the `check*`, `derive*` and `validate*` constraints the pinned formal documents state and no pilot validator names, as spec-sourced rows outside the census (see [Spec-sourced rows](#spec-sourced-rows)), the constraint-tier passes no pilot name covers, the declared errata and the OMG issues the census bears on
 **Evidence:** `tools/census/validation/testdata/probes/` — one minimal violating model per implemented row, run by `go test -C tools ./census/validation`
@@ -160,10 +160,10 @@ citations; it moves only when the manifest does.
 <!-- doc-counts:begin validation-spec-coverage -->
 | Document | check* | derive* | validate* | Stated | Pilot-named | Spec-sourced | Implemented | ❌ not implemented | ⛔ deliberate | ❔ unknown |
 |---|---|---|---|---|---|---|---|---|---|---|
-| KerML 1.1 Beta 2 (`Release 2026-07`) | 80 | 90 | 88 | 258 | 87 | 171 | 111 | 57 | 3 | 0 |
-| SysML 2.1 Beta 2 (`Release 2026-07`) | 128 | 145 | 92 | 365 | 87 | 278 | 189 | 86 | 3 | 0 |
+| KerML 1.1 Beta 2 (`Release 2026-07`) | 80 | 90 | 88 | 258 | 87 | 171 | 112 | 56 | 3 | 0 |
+| SysML 2.1 Beta 2 (`Release 2026-07`) | 128 | 145 | 92 | 365 | 87 | 278 | 194 | 81 | 3 | 0 |
 
-**Formal coverage:** the pinned documents state 623 constraints in the Constraints subsections of their abstract-syntax clauses — 208 `check*`, 235 `derive*` and 180 `validate*`. 174 of them are named by a pilot validator and counted in the census above; 449 are recorded from the documents alone, outside the census, of which 300 are implemented, 143 are ❌ not implemented, 6 are ⛔ deliberate and 0 remain ❔ unknown.
+**Formal coverage:** the pinned documents state 623 constraints in the Constraints subsections of their abstract-syntax clauses — 208 `check*`, 235 `derive*` and 180 `validate*`. 174 of them are named by a pilot validator and counted in the census above; 449 are recorded from the documents alone, outside the census, of which 306 are implemented, 137 are ❌ not implemented, 6 are ⛔ deliberate and 0 remain ❔ unknown.
 <!-- doc-counts:end validation-spec-coverage -->
 
 *Stated* is what the documents' Constraints subsections name; *Pilot-named* the ones a pilot

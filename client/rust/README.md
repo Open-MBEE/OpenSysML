@@ -244,7 +244,10 @@ model:
 `Model::find`, `get`, `lookup` and `contains` name symbols by short or
 qualified name; `lookup` fails with `Error::SymbolNotFound` listing near names.
 `Symbol::type_facts`, `multiplicity`, `specializations` and `facts` read the
-resolved type a symbol declares.
+resolved type a symbol declares; `Symbol::members`, `own_members`,
+`inherited_members` and `withheld_library_members` list what it holds, and
+`Model::symbol_with(fqn, &SymbolOptions { include_library_members: true })`
+lists the standard-library members too.
 
 A false verdict is an answer, not an error. A call the service could not answer
 is `Error::Execution` with its `FailureReason`, or `Error::WrongKind` when it

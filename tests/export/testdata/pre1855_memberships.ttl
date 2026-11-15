@@ -66,7 +66,7 @@ elmt:Vehicle__Chassis
     sysml:ownedRelationship elmt:Vehicle__Chassis__mass_om, elmt:Vehicle__Chassis__wheel_om ;
     sysml:ownedFeature elmt:Vehicle__Chassis__mass, elmt:Vehicle__Chassis__wheel ;
     sysml:ownedFeatureMembership elmt:Vehicle__Chassis__mass_om, elmt:Vehicle__Chassis__wheel_om ;
-    sysx:sourceText "\n    /* The chassis carries everything else. */\n    part def Chassis {\n" ;
+    sysx:sourceText "\n    // The chassis carries everything else.\n    part def Chassis {\n" ;
     sysx:sourceTail "    }\n" ;
     json:ownedMember "[{\"@id\":\"Vehicle__Chassis__mass\"},{\"@id\":\"Vehicle__Chassis__wheel\"}]" ;
     json:ownedMembership "[{\"@id\":\"Vehicle__Chassis__mass_om\"},{\"@id\":\"Vehicle__Chassis__wheel_om\"}]" ;

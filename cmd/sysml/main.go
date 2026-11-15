@@ -144,6 +144,7 @@ var (
 	renderForm                  string
 	renderPalette               string
 	renderLink                  string
+	renderLimit                 int
 	renderUnplaced              string
 	renderCompartments          string
 	renderStyle                 string
@@ -507,6 +508,14 @@ func runCLI() int {
 	}
 	if renderDepth != 0 && renderView == "" && renderAllDir == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -render-depth is how many levels of nested elements a diagram draws below each exposed element; name what to render with -render or -render-all")
+		return 2
+	}
+	if renderLimit != 0 && len(renderRuns) == 0 {
+		fmt.Fprintln(os.Stderr, "sysml: -render-limit bounds how many spans or messages a run rendering draws; name the rendering with -render-run")
+		return 2
+	}
+	if renderLimit < 0 {
+		fmt.Fprintf(os.Stderr, "sysml: -render-limit must be a positive count, not %d\n", renderLimit)
 		return 2
 	}
 	if renderDepth < 0 {

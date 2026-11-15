@@ -176,7 +176,8 @@ public class RunWithOpenSysMLService {
         });
         return RunResult.builder().modelHash(hash).operation(input.operation()).target(target).ok(parts.ok)
                 .verdict(parts.verdict).schedule(parts.schedule).finalTime(parts.finalTime).outputs(parts.outputs)
-                .trace(parts.trace).resultText(parts.resultText).outcomes(parts.outcomes).verdicts(parts.verdicts)
+                .trace(parts.trace).resultText(parts.resultText).outcomes(parts.outcomes).coverage(parts.coverage)
+                .verdicts(parts.verdicts)
                 .instances(parts.instances).document(parts.document).table(parts.table)
                 .mappedDiagnostics(mappedDiagnostics).build();
     }
@@ -194,6 +195,7 @@ public class RunWithOpenSysMLService {
         private List<RunNamedValue> outputs = List.of();
         private List<String> trace = List.of();
         private List<RunOutcome> outcomes = List.of();
+        private RunCoverage coverage;
         private String resultText;
         private List<Diagnostic> diagnostics = List.of();
         private List<RunVerdict> verdicts = List.of();
@@ -219,6 +221,10 @@ public class RunWithOpenSysMLService {
 
         List<RunOutcome> outcomes() {
             return outcomes;
+        }
+
+        RunCoverage coverage() {
+            return coverage;
         }
 
         List<RunNamedValue> outputs() {
@@ -257,6 +263,7 @@ public class RunWithOpenSysMLService {
             p.outcomes = result.outcomes().stream().map(outcome -> new RunOutcome(values(outcome.outputs()),
                     outcome.finalState().orElse(null), outcome.statesVisited(), outcome.error().orElse(null),
                     outcome.linearizations(), outcome.witness())).toList();
+            p.coverage = RunCoverage.of(result.coverage());
             p.diagnostics = result.outcomes().stream().flatMap(outcome -> outcome.diagnostics().stream()).toList();
             p.resultText = result.status();
             long failed = result.outcomes().stream().filter(outcome -> outcome.error().isPresent()).count();

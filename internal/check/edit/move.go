@@ -46,7 +46,7 @@ func (m Model) moveSplices(i int, op Operation) ([]splice, error) {
 		}
 	}
 	sameOwner := ownerScope != nil && ownerScope == sym.OwnerScope
-	if sym.Name != "" && !sameOwner && nameTaken(ownerScope, sym.Name) {
+	if sym.Named() && !sameOwner && nameTaken(ownerScope, sym.Name) {
 		return nil, &Error{
 			Failure:        FailureMemberNameTaken,
 			OperationIndex: i,
@@ -395,7 +395,7 @@ func (mv *mover) reread() (*moved, error) {
 		scope.ForEachMember(func(sym *symbols.Symbol) bool {
 			if sym.Decl != nil && sym.DocName == name {
 				at := symbolSpan(sym).Offset
-				if prev, done := out.declared[at]; !done || (prev.Name == "" && sym.Name != "") {
+				if prev, done := out.declared[at]; !done || (!prev.Named() && sym.Named()) {
 					out.declared[at] = sym
 				}
 			}
@@ -571,7 +571,7 @@ func (mv *mover) respell(md *moved, ref reference, broken, intact int) error {
 func namedOwners(sym *symbols.Symbol) []*symbols.Symbol {
 	owners := []*symbols.Symbol{sym}
 	for scope := sym.OwnerScope; scope != nil && scope.Owner() != nil; scope = scope.Owner().OwnerScope {
-		if owner := scope.Owner(); owner.Name != "" {
+		if owner := scope.Owner(); owner.Named() {
 			owners = append(owners, owner)
 		}
 	}
@@ -617,7 +617,7 @@ func (mv *mover) trial(md *moved, ref reference, broken int, at placed, spelling
 // unedited source, which is what the caller holds and the refusal leaves as is.
 func (mv *mover) refuseReference(ref reference, part int, reason string) error {
 	name := mv.op.Target
-	if sym := ref.reached[part]; sym != nil && sym.Name != "" {
+	if sym := ref.reached[part]; sym != nil && sym.Named() {
 		name = notationName(sym)
 	}
 	doc := mv.model.Source.Name()

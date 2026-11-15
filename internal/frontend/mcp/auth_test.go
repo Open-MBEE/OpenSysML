@@ -242,14 +242,14 @@ func TestHandlerMountsTheMetadataOnlyWithAToken(t *testing.T) {
 		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 		return rec
 	}
-	with := srv.Handler(OriginPolicy{}, tok)
+	with := readyHandler(srv, tok)
 	if rec := get(with, ProtectedResourceMetadataPath); rec.Code != http.StatusOK {
 		t.Errorf("metadata with a token: status %d", rec.Code)
 	}
 	if rec := get(with, HTTPPath); rec.Code != http.StatusUnauthorized {
 		t.Errorf("the endpoint with a token and no credentials: status %d", rec.Code)
 	}
-	without := srv.Handler(OriginPolicy{}, BearerToken{})
+	without := readyHandler(srv, BearerToken{})
 	if rec := get(without, ProtectedResourceMetadataPath); rec.Code != http.StatusNotFound {
 		t.Errorf("metadata without a token: status %d", rec.Code)
 	}
@@ -260,7 +260,7 @@ func TestHandlerMountsTheMetadataOnlyWithAToken(t *testing.T) {
 	if got := public.MetadataPaths(); !slices.Equal(got, []string{ProtectedResourceMetadataPath, "/.well-known/oauth-protected-resource/agents/mcp"}) {
 		t.Errorf("MetadataPaths() = %v", got)
 	}
-	proxied := srv.Handler(OriginPolicy{}, public)
+	proxied := readyHandler(srv, public)
 	for _, path := range public.MetadataPaths() {
 		rec := get(proxied, path)
 		var meta map[string]any

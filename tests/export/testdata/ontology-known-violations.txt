@@ -103,3 +103,4 @@ unknown-property EnumerationUsage isVariant                  # Usage::isVariant 
 unknown-property Connector isAll                              # Type::isSufficient (`connector all from a to b`), written under the notation's own name
 unknown-property AttributeUsage isAll                        # Type::isSufficient (`portion feature all slices`), written under the notation's own name
 literal-for-object-property FeatureChainExpression targetFeature                   # FeatureChainExpression_targetFeature: the `result` of an invocation is no element of the graph and is written as a name
+unknown-class urn:opensysml:sysml:Note -                     # a note of an element's lines (a `//` or `/* */` the grammar admits no Comment for), no Element; see rdf-mapping.md § Notes

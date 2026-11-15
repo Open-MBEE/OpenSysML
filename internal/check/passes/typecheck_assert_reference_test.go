@@ -111,15 +111,15 @@ part ctx { `
 	tests := []struct {
 		name, target, want string
 	}{
-		{"binding", "assert b;", "assert target must be a constraint usage, found bindingUsage"},
-		{"negated binding", "assert not b;", "assert target must be a constraint usage, found bindingUsage"},
-		{"alias to binding", "assert ab;", "assert target must be a constraint usage, found bindingUsage"},
-		{"chained binding", "assert h.b;", "assert target must be a constraint usage, found bindingUsage"},
-		{"chained alias to binding", "assert h.ab;", "assert target must be a constraint usage, found bindingUsage"},
+		{"binding", "assert b;", "assert target must be a constraint usage, found bindingConnectorAsUsage"},
+		{"negated binding", "assert not b;", "assert target must be a constraint usage, found bindingConnectorAsUsage"},
+		{"alias to binding", "assert ab;", "assert target must be a constraint usage, found bindingConnectorAsUsage"},
+		{"chained binding", "assert h.b;", "assert target must be a constraint usage, found bindingConnectorAsUsage"},
+		{"chained alias to binding", "assert h.ab;", "assert target must be a constraint usage, found bindingConnectorAsUsage"},
 		{"chained transition", "assert h.sm.t;", "assert target must be a constraint usage, found actionUsage"},
-		{"binding in constraint body", "} constraint def K { assert b;", "assert target must be a constraint usage, found bindingUsage"},
-		{"satisfy binding", "satisfy b;", "satisfy target must be a requirement usage, found bindingUsage"},
-		{"satisfy chained binding", "satisfy h.b;", "satisfy target must be a requirement usage, found bindingUsage"},
+		{"binding in constraint body", "} constraint def K { assert b;", "assert target must be a constraint usage, found bindingConnectorAsUsage"},
+		{"satisfy binding", "satisfy b;", "satisfy target must be a requirement usage, found bindingConnectorAsUsage"},
+		{"satisfy chained binding", "satisfy h.b;", "satisfy target must be a requirement usage, found bindingConnectorAsUsage"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -282,15 +282,16 @@ part ctx { assert h.q; assert h.c; }`
 	}
 }
 
-// The other requirement-parameter usages stay parts and stay rejected.
+// The other requirement-parameter usages (a subject is a ReferenceUsage, an actor
+// and a stakeholder PartUsages) stay rejected.
 func TestAssertReferenceToRequirementParameterPartsRejected(t *testing.T) {
 	tests := []struct {
 		name, target, found string
 	}{
-		{"subject", "assert uc.s;", "partUsage"},
+		{"subject", "assert uc.s;", "referenceUsage"},
 		{"actor", "assert uc.a;", "partUsage"},
 		{"stakeholder", "assert r.sh;", "partUsage"},
-		{"satisfy subject", "satisfy uc.s;", "partUsage"},
+		{"satisfy subject", "satisfy uc.s;", "referenceUsage"},
 	}
 	prefix := `requirement def RD; part def PD;
 use case uc { subject s : PD; actor a : PD; objective obj : RD; }

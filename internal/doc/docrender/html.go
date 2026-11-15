@@ -1181,6 +1181,9 @@ func (w *htmlWriter) writeFigure(id, name string, caption caption, rendering *vi
 	if fallback != "" {
 		w.b.WriteString("<p class=\"sysml-diagram-notice\"><em>" + html.EscapeString(fallback) + "</em></p>\n")
 	}
+	if rendering.ExpansionFoldNotice != "" {
+		w.b.WriteString("<p class=\"sysml-diagram-notice\"><em>" + html.EscapeString(rendering.ExpansionFoldNotice) + "</em></p>\n")
+	}
 	switch {
 	case rendering.Kind.Tabular():
 		w.writeRenderingTable(rendering)

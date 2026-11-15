@@ -124,18 +124,24 @@ func (m *Model) directRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	return append(out, m.implicitMetadataBodyRedefinitions(sym)...)
 }
 
+// RestatesMetadataBodyFeature reports whether sym is a metadata body's `mission = …`:
+// a feature declaring no name of its own, named by the definition's feature it redefines.
+func (m *Model) RestatesMetadataBodyFeature(sym *symbols.Symbol) bool {
+	return m != nil && sym != nil && len(m.implicitMetadataBodyRedefinitions(sym)) > 0
+}
+
 // implicitMetadataBodyRedefinitions is the metadata type's feature a body
 // declaration without a `:>>` clause redefines by its name (KerML 7.4.7).
 func (m *Model) implicitMetadataBodyRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
-	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || m.resolver == nil || declaresRedefinitionAST(usage) {
+	if _, ok := sym.UsageKind(); !ok || m.resolver == nil || DeclaresRedefinition(sym) ||
+		sym.Naming != symbols.NamedByDeclaration {
 		return nil
 	}
 	owner := m.resolver.MetadataBodyOwner(sym.OwnerScope)
 	if owner == nil {
 		return nil
 	}
-	target := symbols.MetadataBodyTarget(m, owner, usage.Ident)
+	target := symbols.MetadataBodyTarget(m, owner, ast.Identification{Name: sym.Name, ShortName: sym.ShortName})
 	if target == nil || target == sym {
 		return nil
 	}
@@ -168,42 +174,65 @@ func (m *Model) maskingRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol 
 // EffectiveNameOf is Element::effectiveName: the declared name, or the one of
 // the feature an unnamed feature takes its identifiers from (KerML 1.1 §8.2.4).
 func (m *Model) EffectiveNameOf(sym *symbols.Symbol) string {
-	return inheritedIdentifier(sym, declaresIdentifier, declaredName, m.namingFeature)
+	name, _ := m.EffectiveNamed(sym)
+	return name
+}
+
+// EffectiveNamed is EffectiveNameOf with whether there is such a name, which
+// tells the empty unrestricted name from none (KerML §8.2.2.3).
+func (m *Model) EffectiveNamed(sym *symbols.Symbol) (string, bool) {
+	from := identifierSource(sym, m.declaresOwnIdentifier, m.namingFeature)
+	if from == nil {
+		return "", false
+	}
+	return from.Name, from.Named()
 }
 
 // EffectiveShortNameOf is Element::shortName: the declared short name, or, for
 // a feature declaring neither identifier, that of the feature it takes its
 // identifiers from (KerML 1.1 §8.2.4, §8.3.3.3).
 func (m *Model) EffectiveShortNameOf(sym *symbols.Symbol) string {
-	return inheritedIdentifier(sym, declaresIdentifier, declaredShortName, m.namingFeature)
+	name, _ := m.EffectiveShortNamed(sym)
+	return name
 }
 
-func declaredName(sym *symbols.Symbol) string      { return sym.Name }
-func declaredShortName(sym *symbols.Symbol) string { return sym.ShortName }
+// EffectiveShortNamed is EffectiveShortNameOf with whether there is such a short name.
+func (m *Model) EffectiveShortNamed(sym *symbols.Symbol) (string, bool) {
+	from := identifierSource(sym, m.declaresOwnIdentifier, m.namingFeature)
+	if from == nil {
+		return "", false
+	}
+	return from.ShortName, from.HasShortName()
+}
+
+// declaresOwnIdentifier is declaresIdentifier for a symbol that is not a metadata
+// body restatement: `m = …` writes the redefined feature's name, not one of its own.
+func (m *Model) declaresOwnIdentifier(sym *symbols.Symbol) bool {
+	return declaresIdentifier(sym) && !m.RestatesMetadataBodyFeature(sym)
+}
 
 // declaresIdentifier reports whether sym's declaration states a name or a short
 // name of its own; a symbol named by its naming feature (KerML 7.3.4.5) declares neither.
 func declaresIdentifier(sym *symbols.Symbol) bool {
-	return sym.Naming == symbols.NamedByDeclaration && (sym.Name != "" || sym.ShortName != "")
+	return sym.Naming == symbols.NamedByDeclaration && (sym.Named() || sym.HasShortName())
 }
 
-// inheritedIdentifier reads identifier id from the first of sym and the
-// features from leads to that declares one; "" past a cycle or the chain's end.
-func inheritedIdentifier(
+// identifierSource is the first of sym and the features from leads to that
+// declares an identifier; nil past a cycle or the chain's end.
+func identifierSource(
 	sym *symbols.Symbol,
 	declares func(*symbols.Symbol) bool,
-	id func(*symbols.Symbol) string,
 	from func(*symbols.Symbol) *symbols.Symbol,
-) string {
+) *symbols.Symbol {
 	seen := make(map[*symbols.Symbol]bool)
 	for sym != nil && !seen[sym] {
 		if declares(sym) {
-			return id(sym)
+			return sym
 		}
 		seen[sym] = true
 		sym = from(sym)
 	}
-	return ""
+	return nil
 }
 
 // namingFeature is Feature::namingFeature, the feature an unnamed feature takes

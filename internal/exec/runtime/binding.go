@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -73,6 +73,8 @@ type bindingLocation struct {
 type bindingEndpoint struct {
 	locations []bindingLocation
 	expr      ast.Node
+	// exprID and indexID are expr and index in the model's table.
+	exprID, indexID program.ExprID
 	// index selects one element of what the locations hold, nil for the whole feature;
 	// selection is the end as written (`xs#(2)`), for diagnostics.
 	index, selection ast.Node
@@ -148,6 +150,9 @@ func (ctx *Context) objectBindings(typeSym *symbols.Symbol) []lower.Binding {
 	}
 	bindings = append(bindings, ctx.declaredBindings(typeSym)...)
 	bindings = append(bindings, ctx.connectorOwnedBindings(typeSym)...)
+	for i := range bindings {
+		bindings[i].Intern(ctx.model.exprs)
+	}
 	ctx.model.bindingIR[typeSym] = bindings
 	return bindings
 }
@@ -168,7 +173,7 @@ func (ctx *Context) connectorOwnedBindings(decl *symbols.Symbol) []lower.Binding
 	ctx.model.hoistingBindings[decl] = true
 	defer delete(ctx.model.hoistingBindings, decl)
 	var out []lower.Binding
-	for _, member := range unwrappedDeclMembers(decl.Decl) {
+	for _, member := range lower.UnwrappedDeclMembers(decl.Decl) {
 		usage, ok := member.(*ast.Usage)
 		if !ok || usage.IsVariant {
 			continue
@@ -439,11 +444,11 @@ func (ctx *Context) unmetBindingCounts(unmet []lower.Binding) error {
 	return nil
 }
 
-// claimBinding marks the binding as the one resolving key, so its own probe of the
-// other end is not mistaken for a genuine cycle; the returned func releases the claim.
-func (ctx *Context) claimBinding(key featureValueRef, decl *ast.Usage) func() {
+// claimBinding marks the binding, by its origin, as the one resolving key, so its own
+// probe of the other end is not mistaken for a genuine cycle; the returned func releases the claim.
+func (ctx *Context) claimBinding(key featureValueRef, binding program.Origin) func() {
 	previousOwner, hadOwner := ctx.bindingOwners[key]
-	ctx.bindingOwners[key] = decl
+	ctx.bindingOwners[key] = binding
 	return func() {
 		if hadOwner {
 			ctx.bindingOwners[key] = previousOwner
@@ -688,7 +693,7 @@ func (ctx *Context) sharedValues(a, b Value) int64 {
 // an end's feature holds, or one reaching the target across a collection.
 func (ctx *Context) partialBinding(owner, targetInst *Instance, target *FeatureValue,
 	binding lower.Binding, key featureValueRef) (partial bool, err error) {
-	defer ctx.claimBinding(key, binding.Decl)()
+	defer ctx.claimBinding(key, binding.Origin)()
 	for end := range binding.Ends {
 		endpoint, err := ctx.resolveBindingEndpoint(owner, binding, end)
 		if err != nil {
@@ -866,7 +871,7 @@ func bindingEndForPath(binding lower.Binding, path string) int {
 
 func (ctx *Context) attemptBinding(owner, targetInst *Instance, target *FeatureValue,
 	binding lower.Binding, key featureValueRef, carryingRead endRead) (attempt bindingAttempt) {
-	defer ctx.claimBinding(key, binding.Decl)()
+	defer ctx.claimBinding(key, binding.Origin)()
 	attempt.defaulted = binding.Ends[0].Default || binding.Ends[1].Default
 
 	left, err := ctx.resolveBindingEndpoint(owner, binding, 0)
@@ -916,7 +921,7 @@ func (ctx *Context) attemptBinding(owner, targetInst *Instance, target *FeatureV
 	}
 	for _, endpoint := range []bindingEndpoint{left, right} {
 		for _, loc := range endpoint.locations {
-			if ctx.genuineBindingCycle(featureValueRef{instance: loc.instance.ID, feature: loc.name}, binding.Decl) {
+			if ctx.genuineBindingCycle(featureValueRef{instance: loc.instance.ID, feature: loc.name}, binding.Origin) {
 				attempt.cycle = true
 			}
 		}
@@ -1071,7 +1076,7 @@ func (ctx *Context) resolvingBindingEnd(endpoint bindingEndpoint, carries bool) 
 	return false
 }
 
-func (ctx *Context) genuineBindingCycle(ref featureValueRef, binding *ast.Usage) bool {
+func (ctx *Context) genuineBindingCycle(ref featureValueRef, binding program.Origin) bool {
 	return ctx.resolvingBindings[ref] && ctx.bindingOwners[ref] != binding
 }
 
@@ -1084,13 +1089,21 @@ func bindingInvolvesFeature(binding lower.Binding, name string) bool {
 	return false
 }
 
+// evalEndOn evaluates what a binding end states, behind id in the model's table, on
+// obj; it brackets one run, as EvalWithScopeOn does.
+func (ctx *Context) evalEndOn(id program.ExprID, scope *symbols.Scope, obj *Instance) (Value, error) {
+	defer ctx.beginRun()()
+
+	return NewEvalContextIn(ctx, scope, obj).reading(ctx.model.exprs).evalPayload(id)
+}
+
 func (ctx *Context) resolveBindingEndpoint(owner *Instance, binding lower.Binding, end int) (bindingEndpoint, error) {
 	path := binding.Ends[end].Path
 	if path == "" {
 		if binding.Ends[end].Expr == nil {
 			return bindingEndpoint{}, fmt.Errorf("%w: empty endpoint", errBindingEnd)
 		}
-		endpoint := bindingEndpoint{expr: binding.Ends[end].Expr, scope: binding.Scope}
+		endpoint := bindingEndpoint{expr: binding.Ends[end].Expr, exprID: binding.Ends[end].ExprID, scope: binding.Scope}
 		if via := binding.Ends[end].Via; len(via) != 0 {
 			on, err := ctx.bindingEndpointObjects(owner, via)
 			if err != nil {
@@ -1107,7 +1120,7 @@ func (ctx *Context) resolveBindingEndpoint(owner *Instance, binding lower.Bindin
 			return bindingEndpoint{}, err
 		}
 	}
-	endpoint := bindingEndpoint{index: binding.Ends[end].Index, selection: binding.Ends[end].Expr, scope: binding.Scope}
+	endpoint := bindingEndpoint{index: binding.Ends[end].Index, indexID: binding.Ends[end].IndexID, selection: binding.Ends[end].Expr, scope: binding.Scope}
 	for _, obj := range on {
 		reached, err := ctx.resolveBindingLocations(obj, path)
 		if err != nil {
@@ -1252,7 +1265,7 @@ func (ctx *Context) expressionEndValue(endpoint bindingEndpoint, owner *Instance
 	}
 	var agreed Value
 	for i, obj := range on {
-		value, err := ctx.EvalWithScopeOn(endpoint.expr, endpoint.scope, obj)
+		value, err := ctx.evalEndOn(endpoint.exprID, endpoint.scope, obj)
 		if err != nil {
 			if errors.Is(err, errUninitializedFeatureValue) {
 				return Value{}, false, nil
@@ -1405,7 +1418,7 @@ func (ctx *Context) selectedBindingElement(endpoint bindingEndpoint, owner *Inst
 // selectedElementOn is the element of whole at the index the end states, evaluated on obj; a
 // feature holding no element there is a binding end error.
 func (ctx *Context) selectedElementOn(endpoint bindingEndpoint, obj *Instance, whole Value) (Value, error) {
-	indexVal, err := ctx.EvalWithScopeOn(endpoint.index, endpoint.scope, obj)
+	indexVal, err := ctx.evalEndOn(endpoint.indexID, endpoint.scope, obj)
 	if err == nil {
 		const op = "sequence index"
 		var index int64
@@ -1572,39 +1585,7 @@ func (ctx *Context) bindingExprText(expr ast.Node, scope *symbols.Scope) string 
 			}
 		}
 	}
-	switch node := expr.(type) {
-	case *ast.OperatorExpr:
-		parts := make([]string, len(node.Operands))
-		for i, operand := range node.Operands {
-			parts[i] = ctx.bindingExprText(operand, scope)
-		}
-		return strings.Join(parts, " "+node.Operator.String()+" ")
-	case *ast.FeatureReference:
-		return ctx.bindingExprText(node.Name, scope)
-	case *ast.FeatureChainExpr:
-		return ctx.bindingExprText(node.Operand, scope) + "." + ctx.bindingExprText(node.Member, scope)
-	case *ast.IndexExpr:
-		operand, index := ctx.bindingExprText(node.Operand, scope), ctx.bindingExprText(node.Index, scope)
-		if node.Bracket {
-			return operand + " [" + index + "]"
-		}
-		return operand + "#(" + index + ")"
-	case *ast.QualifiedName:
-		parts := make([]string, len(node.Parts))
-		for i, part := range node.Parts {
-			parts[i] = part.Text
-		}
-		return strings.Join(parts, "::")
-	case *ast.LiteralInteger:
-		return node.Value
-	case *ast.LiteralReal:
-		return node.Value
-	case *ast.LiteralBool:
-		return strconv.FormatBool(node.Value)
-	case *ast.LiteralString:
-		return node.Value
-	}
-	return ast.Dump(expr)
+	return ast.ExprPrinter{Other: ast.Dump}.Text(expr)
 }
 
 func bindingValueText(val Value) string {

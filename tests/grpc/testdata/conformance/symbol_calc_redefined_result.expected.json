@@ -1,0 +1,10 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "P::Calc",
+	"expected_kind": "calcDef",
+	"min_withheld_library_members": 1,
+	"expected_members": [
+		{"id": "P::Calc::x", "kind": "referenceUsage"},
+		{"id": "P::Calc::r", "kind": "referenceUsage"}
+	]
+}

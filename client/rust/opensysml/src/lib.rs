@@ -36,9 +36,10 @@ pub use check::{
 pub use connection::{Connection, TOKEN_ENV};
 pub use domain::{
     Array, BigInteger, Capabilities, Complex, Diagnostic, EnumLiteral, EvalOptions, Evaluation,
-    FeatureValue, Function, Instance, Instantiation, Language, Magnitude, MeasurementRef,
+    FeatureValue, Function, Instance, Instantiation, Language, Magnitude, MeasurementRef, Member,
     Metaobject, Model, ModelResponse, ParseOptions, Quantity, ServerInfo, Set, Span, Symbol,
-    TensorQuantity, Undetermined, UnitFactor, UnitTerm, Value, Vector, VectorQuantity,
+    SymbolOptions, TensorQuantity, Undetermined, UnitFactor, UnitTerm, Value, Vector,
+    VectorQuantity,
 };
 pub use error::{Error, Status};
 pub use graphs::Graphs;

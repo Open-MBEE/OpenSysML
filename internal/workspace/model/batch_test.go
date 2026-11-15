@@ -14,6 +14,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 // The model roots a batch is checked against: the fixtures, the shipped examples
@@ -467,6 +468,7 @@ func TestWorkersSetting(t *testing.T) {
 // holding one or more, each directory's files sorted.
 func modelDirectories(t *testing.T, root string) [][]string {
 	t.Helper()
+	subset := corpussubset.Must(t, "../../..")
 	byDir := map[string][]string{}
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
@@ -482,8 +484,10 @@ func modelDirectories(t *testing.T, root string) [][]string {
 		t.Fatalf("scan %s: %v", root, err)
 	}
 	dirs := make([]string, 0, len(byDir))
-	for dir := range byDir {
-		dirs = append(dirs, dir)
+	for dir, files := range byDir {
+		if subset.WantsAny("../../../examples", files) {
+			dirs = append(dirs, dir)
+		}
 	}
 	sort.Strings(dirs)
 	out := make([][]string, 0, len(dirs))

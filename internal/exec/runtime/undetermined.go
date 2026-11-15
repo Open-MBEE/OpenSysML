@@ -453,15 +453,15 @@ func (ctx *Context) openArgumentsOf(name string, args []Value) error {
 		return nil
 	}
 	for i, arg := range args {
-		if arg.Kind != ValUndetermined || i >= len(shape.Params) || shape.Params[i].Decl.Target == nil {
+		if arg.Kind != ValUndetermined || i >= len(shape.Params) || shape.paramDecls[i].Target == nil {
 			continue
 		}
-		param := shape.Params[i]
-		if !ctx.openValueMayBe(arg, param.Decl.Target.typ) {
+		param, target := shape.Params[i], shape.paramDecls[i].Target
+		if !ctx.openValueMayBe(arg, target.typ) {
 			return fmt.Errorf("%w: function %s parameter %q requires a %s value, got %s",
-				ErrTypeMismatch, writtenName(name), param.Name, param.Decl.Target.typ.Name, ctx.describeOpenOperand(arg))
+				ErrTypeMismatch, writtenName(name), param.Name, target.typ.Name, ctx.describeOpenOperand(arg))
 		}
-		if msg := ctx.writeCountRefusal(param.Decl.Target, &arg); msg != "" {
+		if msg := ctx.writeCountRefusal(target, &arg); msg != "" {
 			return fmt.Errorf("%w: function %s parameter %q: %s",
 				ErrMultiplicityViolation, writtenName(name), param.Name, msg)
 		}
@@ -498,8 +498,8 @@ func (ctx *Context) libraryResultCount(fqn string) semantics.Range {
 	if err != nil {
 		return openRange()
 	}
-	if result := shape.resultOutput(); result != nil && result.Decl.Target != nil {
-		return result.Decl.Target.mult
+	if at := shape.ResultOutputIndex(); at >= 0 && shape.outputDecls[at].Target != nil {
+		return shape.outputDecls[at].Target.mult
 	}
 	return openRange()
 }

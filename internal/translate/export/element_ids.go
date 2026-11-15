@@ -2,12 +2,14 @@ package export
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"slices"
 	"strings"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -22,11 +24,14 @@ type ElementIDs struct {
 	// byNode keys each id by the declaration the conversion wrote it for: two
 	// identity scopes may declare one qualified name, and only the node tells
 	// their elements apart.
-	byNode   map[ast.Node]string
-	bySpan   map[spanKey]string // the same declaration in another parse of the document
-	byName   map[string]string
-	res      *resolve.Resolver
-	encoders []*encoder
+	byNode map[ast.Node]string
+	bySpan map[spanKey]string // the same declaration in another parse of the document
+	byName map[string]string
+	// addressByID is the address the conversion stated for each declared element's id: its
+	// qualifiedName, or its positional address (`P::@2::x`) where the metamodel derives none.
+	addressByID map[string]string
+	res         *resolve.Resolver
+	encoders    []*encoder
 	// membershipByNode, membershipBySpan and membershipByName are the ids written
 	// for the owning membership of each declared element, keyed as the element's.
 	membershipByNode map[ast.Node]string
@@ -91,7 +96,7 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 }
 
 func newElementIDTables(res *resolve.Resolver, encoders []*encoder) *ElementIDs {
-	return &ElementIDs{byNode: map[ast.Node]string{}, bySpan: map[spanKey]string{}, byName: map[string]string{},
+	return &ElementIDs{byNode: map[ast.Node]string{}, bySpan: map[spanKey]string{}, byName: map[string]string{}, addressByID: map[string]string{},
 		membershipByNode: map[ast.Node]string{}, membershipBySpan: map[spanKey]string{}, membershipByName: map[string]string{},
 		relationshipByNode: map[ast.Node]string{}, relationshipBySpan: map[spanKey]string{},
 		conjugateByNode: map[ast.Node]conjugateIDs{}, conjugateBySpan: map[spanKey]conjugateIDs{},
@@ -100,13 +105,14 @@ func newElementIDTables(res *resolve.Resolver, encoders []*encoder) *ElementIDs 
 }
 
 func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[ast.Node]ast.Node) {
-	fqn := e.fqn[node]
+	fqn := e.names.FQN[node]
 	subject := e.ids.subjectForNode(node, fqn)
 	id := rdf.LocalName(subject.Value)
 	ids.byNode[node] = id
 	ids.bySpan[spanKey{e.file.Name(), node.Span()}] = id
 	if fqn != "" {
 		ids.byName[fqn] = id
+		ids.addressByID[id] = fqn
 	}
 	if membership, ok := e.writtenOwningMembership(node, parents[node], fqn); ok {
 		local := rdf.LocalName(membership.Value)
@@ -122,6 +128,10 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 	ids.recordValuePart(e, node, subject)
 	ids.recordDefaultMultiplicity(e, node, subject)
 	ids.recordConnectorEnds(e, node, subject)
+	ids.recordFlowEndChains(e, node, subject)
+	ids.recordSuccessionEnds(e, node, subject)
+	ids.recordTransitionSuccession(e, node, subject)
+	ids.recordTransitionHead(e, node, subject)
 	ids.recordSatisfySubjects(e, node, subject)
 	ids.registerHeadChains(e, subject, chainTargets(e.writtenHeadClauses(node, parents[node], parents)))
 	for key, id := range e.writtenRelationships(node, parents[node], subject, parents) {
@@ -190,6 +200,160 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 			}
 		}
 	}
+}
+
+// recordFlowEndChains files the chain Feature a flow's end references ahead of its payload (flowEndReferences) and
+// that chain's FeatureChainings under the chain as written (`a.b` of `flow a.b.x to c.y`), at "chain" and "chain.fcN".
+func (ids *ElementIDs) recordFlowEndChains(e *encoder, node ast.Node, subject rdf.Term) {
+	usage, ok := node.(*ast.Usage)
+	if !ok || !verbatimUsage(usage) || (usage.Kind == ast.UsageFlow && usage.Keyword == "message") {
+		return
+	}
+	for i := range 2 {
+		prefix := ast.FlowEndChainPrefix(usage, i)
+		if prefix == nil {
+			continue
+		}
+		slot := fmt.Sprintf("end%d", i)
+		end := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		chain := e.ids.mintedNode(rdf.ExpressionIRI(end, "chain"), end, "chain")
+		file := func(slot string, element rdf.Term) {
+			recorded := partIDs{element: rdf.LocalName(element.Value)}
+			ids.partByNode[partKey{prefix, slot}] = recorded
+			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), prefix.Span()}, slot}] = recorded
+		}
+		file("chain", chain)
+		for link := range endChainLinks(prefix) {
+			position := fmt.Sprintf("fc%d", link)
+			file("chain."+position, e.ids.mintedNode(rdf.ExpressionIRI(chain, position), chain, position))
+		}
+	}
+}
+
+// transitionLinkParameterSlots name a transition's link parameters off its id (transitionHeadMembers):
+// the one every head owns, then the one ahead of a trigger.
+var transitionLinkParameterSlots = [2]string{"linkparam", "triggerparam"}
+
+// recordTransitionHead files what a transition owns ahead of its trigger (transitionHeadMembers): the
+// Membership of its `first` source at "psourcemember", its link parameter at "linkparam", a trigger's at "triggerparam".
+func (ids *ElementIDs) recordTransitionHead(e *encoder, node ast.Node, subject rdf.Term) {
+	var sourceMember bool
+	slots := transitionLinkParameterSlots[:1]
+	switch n := node.(type) {
+	case *ast.TransitionMember:
+		if n.IsSuccession || n.Target == nil {
+			return
+		}
+		sourceMember = qualifiedText(n.Source) != "" && !qualifiedNameHasChain(n.Source) ||
+			qualifiedText(n.Source) == "" && e.transitionSourceTerm(n, nil, nil, e.names.Preceding[n]).Value != ""
+		if naming.TriggerPayload(e.file, n) != nil {
+			slots = transitionLinkParameterSlots[:]
+		}
+	case *ast.ControlFlowEdge:
+		// A decision's branch and a state body's `then x;` name their positional source (targetTransitionHeadMembers).
+		sourceMember = e.transitionSourceTerm(n, n.Source, n.SourceMember, e.names.Preceding[n]).Value != ""
+	case *ast.SuccessionEdge:
+		if !e.names.TargetTransitions[n] {
+			return
+		}
+		sourceMember = e.transitionSourceTerm(n, n.Source, n.SourceMember, e.names.Preceding[n]).Value != ""
+	default:
+		return
+	}
+	file := func(slot string, part partIDs) {
+		ids.partByNode[partKey{node, slot}] = part
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = part
+	}
+	if sourceMember {
+		file("psourcemember", partIDs{membership: rdf.LocalName(rdf.ExpressionIRI(subject, "sourcemember").Value)})
+	}
+	for _, slot := range slots {
+		feature := rdf.IRI(subject.Value + "_" + slot)
+		file(slot, partIDs{element: rdf.LocalName(feature.Value), membership: rdf.LocalName(rdf.OwningMembershipIRIOf(feature).Value)})
+	}
+}
+
+// recordTransitionSuccession files the succession a transition owns (transitionSuccession) under the
+// transition's node at the slot "succession", and its transitionLink, so the query leg reads the conversion's ids.
+func (ids *ElementIDs) recordTransitionSuccession(e *encoder, node ast.Node, subject rdf.Term) {
+	switch n := node.(type) {
+	case *ast.TransitionMember:
+		if n.IsSuccession || n.Target == nil {
+			return
+		}
+	case *ast.ControlFlowEdge:
+	case *ast.SuccessionEdge:
+		if !e.names.TargetTransitions[n] {
+			return
+		}
+	default:
+		return
+	}
+	succession := e.ids.minted(rdf.IRI(subject.Value+transitionSuccessionSuffix), subject, transitionSuccessionSuffix)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(succession), succession, rdf.OwningMembershipSuffix)
+	recorded := partIDs{element: rdf.LocalName(succession.Value), membership: rdf.LocalName(membership.Value)}
+	ids.partByNode[partKey{node, "succession"}] = recorded
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, "succession"}] = recorded
+	// The transitionLink the transition owns last (transitionLinkMember) files at "transitionlink".
+	link := e.ids.minted(rdf.IRI(subject.Value+transitionLinkSuffix), subject, transitionLinkSuffix)
+	linkMembership := e.ids.minted(rdf.OwningMembershipIRIOf(link), link, rdf.OwningMembershipSuffix)
+	transitionLink := partIDs{element: rdf.LocalName(link.Value), membership: rdf.LocalName(linkMembership.Value)}
+	ids.partByNode[partKey{node, "transitionlink"}] = transitionLink
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, "transitionlink"}] = transitionLink
+	for i := 0; i < 2; i++ {
+		// The succession's two ends and the target end's ReferenceSubsetting are minted under it (transitionSuccession).
+		slot := fmt.Sprintf("succession.end%d", i)
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(succession, fmt.Sprintf("end%d", i)), succession, fmt.Sprintf("end%d", i))
+		endMembership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+		end := partIDs{element: rdf.LocalName(feature.Value), membership: rdf.LocalName(endMembership.Value)}
+		ids.partByNode[partKey{node, slot}] = end
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = end
+		if i == 1 {
+			reference := partIDs{element: e.referenceSubsettingID(feature)}
+			ids.partByNode[partKey{node, slot + ".rs"}] = reference
+			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot + ".rs"}] = reference
+		}
+	}
+}
+
+// recordSuccessionEnds records the two ends a `then` succession's conversion mints at end0/end1
+// under the edge (encodeSuccessionEdge), each with the EndFeatureMembership minted beside it.
+func (ids *ElementIDs) recordSuccessionEnds(e *encoder, node ast.Node, subject rdf.Term) {
+	edge, ok := node.(*ast.SuccessionEdge)
+	// A state body's `then x;` after a state is written as a TransitionUsage (encodeTargetTransition): no ends.
+	if !ok || e.names.TargetTransitions[edge] || !semantics.SuccessionMintsEnds(edge) {
+		return
+	}
+	for i := 0; i < 2; i++ {
+		slot := fmt.Sprintf("end%d", i)
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+		recorded := partIDs{element: rdf.LocalName(feature.Value), membership: rdf.LocalName(membership.Value)}
+		ids.partByNode[partKey{node, slot}] = recorded
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = recorded
+		if i == 1 && e.successionTargetStated(edge) {
+			// The target end's ReferenceSubsetting is minted beside it (referenceSubsetting).
+			reference := partIDs{element: e.referenceSubsettingID(feature)}
+			ids.partByNode[partKey{node, slot + ".rs"}] = reference
+			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot + ".rs"}] = reference
+		}
+	}
+}
+
+// successionTargetStated reports whether the target end of a `then` succession reference-subsets a
+// feature: the target it names, the library's done, or a member after it the conversion addresses.
+func (e *encoder) successionTargetStated(edge *ast.SuccessionEdge) bool {
+	if edge.Target != nil {
+		return true
+	}
+	if _, done := edge.TargetMember.(*ast.FinalNode); done {
+		return true
+	}
+	if edge.TargetMember != nil {
+		_, ok := e.names.FQN[edge.TargetMember]
+		return ok
+	}
+	return false
 }
 
 // endChainLinks counts the features an end's chain target is written as, as the
@@ -575,6 +739,16 @@ func (ids *ElementIDs) OfBodyParameter(doc string, body *ast.BodyExpr, name stri
 	return "", "", false
 }
 
+// AddressOf is the address the conversion stated for the declared element written with id —
+// a qualifiedName, or a positional address (`P::@2::x`); none for a minted or unknown id.
+func (ids *ElementIDs) AddressOf(id string) (string, bool) {
+	if ids == nil {
+		return "", false
+	}
+	address, ok := ids.addressByID[id]
+	return address, ok
+}
+
 func (ids *ElementIDs) OfDeclaration(doc string, decl ast.Node, fqn string) (string, bool) {
 	if ids == nil {
 		return "", false
@@ -713,6 +887,19 @@ func (r *ElementIDReader) Read(doc string, decl ast.Node, fqn string) (string, e
 	}
 	id, _ := r.ids.OfDeclaration(doc, decl, fqn)
 	return id, nil
+}
+
+// ReadAddress is the address the conversion stated for the element written with id
+// (ElementIDs.AddressOf); none before a conversion, or for a minted or unknown id.
+func (r *ElementIDReader) ReadAddress(id string) (string, bool) {
+	if r == nil {
+		return "", false
+	}
+	r.once.Do(r.convert)
+	if r.err != nil {
+		return "", false
+	}
+	return r.ids.AddressOf(id)
 }
 
 // ReadOwningMembership is the elementId of the owning membership of the element
@@ -981,7 +1168,7 @@ func (e *encoder) registerBodyDeclarations(ids *ElementIDs, base rdf.Term, param
 // feeds them to bodyDeclarations.
 func localMembers(decl ast.Node) []ast.Node {
 	if usage, ok := decl.(*ast.Usage); ok {
-		return bodyMembers(usage)
+		return naming.BodyMembers(usage)
 	}
 	return ast.DeclMembers(decl)
 }

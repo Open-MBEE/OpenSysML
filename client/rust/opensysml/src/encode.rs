@@ -6,7 +6,9 @@ use crate::capabilities::{
     CAPABILITY_METAOBJECT_VALUES, CAPABILITY_RATIONAL_VALUES, CAPABILITY_SET_VALUES,
     CAPABILITY_STRUCTURED_VALUES, CAPABILITY_TENSOR_VALUES,
 };
-use crate::domain::{rational_to_wire, Capabilities, Magnitude, Quantity, UnitTerm, Value};
+use crate::domain::{
+    rational_to_wire, Array, Capabilities, EnumLiteral, Magnitude, Quantity, Set, UnitTerm, Value,
+};
 use crate::error::Error;
 use crate::rational::Rational;
 use crate::wire;
@@ -48,15 +50,109 @@ fn require_magnitudes<'a>(
     Ok(())
 }
 
+// The recursive frame holds only the depth check and the dispatch, and every helper on the
+// recursive path is a plain loop, so MAX_DEPTH debug-build levels fit a default 2 MiB stack.
 fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wire::Value, Error> {
-    use wire::value::Kind;
     if depth > MAX_DEPTH {
-        return Err(Error::UnsupportedValue(format!(
-            "value nests deeper than {MAX_DEPTH} levels"
-        )));
+        return Err(too_deep());
     }
-    let nested = |item: &Value| encode(item, capabilities, depth + 1);
-    let mut sent = match value {
+    let sent = match value {
+        Value::Sequence(elements) => encode_sequence(elements, capabilities, depth),
+        Value::Array(array) => encode_array(array, capabilities, depth),
+        Value::Set(set) => encode_set(set, capabilities, depth),
+        Value::EnumLiteral(literal) => encode_enum_literal(literal, capabilities, depth),
+        scalar => encode_scalar(scalar, capabilities),
+    };
+    let mut sent = sent?;
+    if !capabilities.has(CAPABILITY_RATIONAL_VALUES) {
+        rationals_as_reals(&mut sent);
+    }
+    Ok(sent)
+}
+
+#[cold]
+#[inline(never)]
+fn too_deep() -> Error {
+    Error::UnsupportedValue(format!("value nests deeper than {MAX_DEPTH} levels"))
+}
+
+#[inline(never)]
+fn encode_each(
+    elements: &[Value],
+    capabilities: &Capabilities,
+    depth: usize,
+) -> Result<Vec<wire::Value>, Error> {
+    let mut encoded = Vec::with_capacity(elements.len());
+    for element in elements {
+        encoded.push(encode(element, capabilities, depth + 1)?);
+    }
+    Ok(encoded)
+}
+
+#[inline(never)]
+fn encode_sequence(
+    elements: &[Value],
+    capabilities: &Capabilities,
+    depth: usize,
+) -> Result<wire::Value, Error> {
+    let elements = encode_each(elements, capabilities, depth)?;
+    Ok(kind(wire::value::Kind::Sequence(wire::ValueSequence {
+        elements,
+    })))
+}
+
+#[inline(never)]
+fn encode_array(
+    array: &Array,
+    capabilities: &Capabilities,
+    depth: usize,
+) -> Result<wire::Value, Error> {
+    require(capabilities, CAPABILITY_STRUCTURED_VALUES)?;
+    let elements = encode_each(array.elements(), capabilities, depth)?;
+    Ok(kind(wire::value::Kind::Array(wire::Array {
+        dimensions: array.dimensions().to_vec(),
+        elements,
+    })))
+}
+
+#[inline(never)]
+fn encode_set(set: &Set, capabilities: &Capabilities, depth: usize) -> Result<wire::Value, Error> {
+    require(capabilities, CAPABILITY_SET_VALUES)?;
+    let elements = encode_each(set.elements(), capabilities, depth)?;
+    Ok(kind(wire::value::Kind::Set(wire::ValueSet { elements })))
+}
+
+#[inline(never)]
+fn encode_enum_literal(
+    literal: &EnumLiteral,
+    capabilities: &Capabilities,
+    depth: usize,
+) -> Result<wire::Value, Error> {
+    require(capabilities, CAPABILITY_ENUM_VALUES)?;
+    if literal.literal_id.is_empty() {
+        return Err(Error::UnsupportedValue(
+            "enumeration literal naming no literal".to_owned(),
+        ));
+    }
+    let value = match &literal.value {
+        Some(scalar) => Some(Box::new(encode(scalar, capabilities, depth + 1)?)),
+        None => None,
+    };
+    Ok(kind(wire::value::Kind::EnumLiteral(Box::new(
+        wire::EnumLiteral {
+            literal_id: literal.literal_id.clone(),
+            enumeration_id: literal.enumeration_id.clone(),
+            name: literal.name.clone(),
+            value,
+        },
+    ))))
+}
+
+/// Encode a value that nests no other, off the recursive frame.
+#[inline(never)]
+fn encode_scalar(value: &Value, capabilities: &Capabilities) -> Result<wire::Value, Error> {
+    use wire::value::Kind;
+    Ok(match value {
         Value::Integer(v) => kind(Kind::IntValue(*v)),
         Value::BigInteger(v) => {
             require(capabilities, CAPABILITY_BIG_INT_VALUES)?;
@@ -74,46 +170,15 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
         Value::Text(v) => kind(Kind::StringValue(v.clone())),
         Value::InstanceRef(v) => kind(Kind::InstanceId(*v)),
         Value::Null => kind(Kind::Null(String::new())),
-        Value::Sequence(elements) => kind(Kind::Sequence(wire::ValueSequence {
-            elements: elements.iter().map(nested).collect::<Result<_, _>>()?,
-        })),
         Value::Quantity(q) => {
             require_magnitudes(capabilities, std::iter::once(&q.magnitude))?;
             kind(Kind::Quantity(quantity_to_wire(q)?))
-        }
-        Value::EnumLiteral(literal) => {
-            require(capabilities, CAPABILITY_ENUM_VALUES)?;
-            if literal.literal_id.is_empty() {
-                return Err(Error::UnsupportedValue(
-                    "enumeration literal naming no literal".to_owned(),
-                ));
-            }
-            kind(Kind::EnumLiteral(Box::new(wire::EnumLiteral {
-                literal_id: literal.literal_id.clone(),
-                enumeration_id: literal.enumeration_id.clone(),
-                name: literal.name.clone(),
-                value: match &literal.value {
-                    Some(scalar) => Some(Box::new(nested(scalar)?)),
-                    None => None,
-                },
-            })))
         }
         Value::Complex(c) => {
             require(capabilities, CAPABILITY_COMPLEX_VALUES)?;
             kind(Kind::Complex(wire::Complex {
                 real: c.real,
                 imaginary: c.imaginary,
-            }))
-        }
-        Value::Array(array) => {
-            require(capabilities, CAPABILITY_STRUCTURED_VALUES)?;
-            kind(Kind::Array(wire::Array {
-                dimensions: array.dimensions().to_vec(),
-                elements: array
-                    .elements()
-                    .iter()
-                    .map(nested)
-                    .collect::<Result<_, _>>()?,
             }))
         }
         Value::Vector(vector) => {
@@ -176,16 +241,6 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
                 self_id: function.self_id.unwrap_or(0),
             }))
         }
-        Value::Set(set) => {
-            require(capabilities, CAPABILITY_SET_VALUES)?;
-            kind(Kind::Set(wire::ValueSet {
-                elements: set
-                    .elements()
-                    .iter()
-                    .map(nested)
-                    .collect::<Result<_, _>>()?,
-            }))
-        }
         Value::TensorQuantity(tensor) => {
             require(capabilities, CAPABILITY_TENSOR_VALUES)?;
             require_magnitudes(
@@ -229,11 +284,10 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
                 "undetermined is an answer the model leaves open, not an argument".to_owned(),
             ))
         }
-    };
-    if !capabilities.has(CAPABILITY_RATIONAL_VALUES) {
-        rationals_as_reals(&mut sent);
-    }
-    Ok(sent)
+        Value::Sequence(_) | Value::Array(_) | Value::Set(_) | Value::EnumLiteral(_) => {
+            unreachable!("nesting values are encoded by `encode`")
+        }
+    })
 }
 
 // Rewrite in place each Rational arm of this value an f64 holds exactly as that f64:
@@ -799,12 +853,42 @@ mod tests {
         );
     }
 
-    #[test]
-    fn a_value_nested_too_deep_is_refused_rather_than_overflowing() {
+    fn nested(levels: usize) -> Value {
         let mut value = Value::Integer(1);
-        for _ in 0..=MAX_DEPTH + 1 {
+        for _ in 0..levels {
             value = Value::Sequence(vec![value]);
         }
-        assert!(refused(&value).contains("nests"));
+        value
+    }
+
+    #[test]
+    fn a_value_nested_to_the_limit_is_sent() {
+        let mut sent = sent(&nested(MAX_DEPTH));
+        for _ in 0..MAX_DEPTH {
+            match sent {
+                Kind::Sequence(sequence) => {
+                    sent = sequence.elements[0].kind.clone().expect("a kind")
+                }
+                other => panic!("a sequence was sent as {other:?}"),
+            }
+        }
+        assert_eq!(sent, Kind::IntValue(1));
+    }
+
+    #[test]
+    fn a_value_nested_too_deep_is_refused_rather_than_overflowing() {
+        assert!(refused(&nested(MAX_DEPTH + 2)).contains("nests"));
+    }
+
+    // Half the default thread stack: the guard must answer with room to spare on every compiler,
+    // in a debug build too, so a toolchain whose frames grow fails here before the default overflows.
+    #[test]
+    fn the_depth_guard_holds_on_half_the_default_stack() {
+        std::thread::Builder::new()
+            .stack_size(1 << 20)
+            .spawn(|| refused(&nested(MAX_DEPTH + 2)))
+            .expect("a thread with a 1 MiB stack")
+            .join()
+            .expect("the guard answers before the stack runs out");
     }
 }

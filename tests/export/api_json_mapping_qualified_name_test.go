@@ -13,6 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 func TestAPIJSONMappingNamesPreserveUnresolvedTargetSegments(t *testing.T) {
@@ -22,14 +23,14 @@ func TestAPIJSONMappingNamesPreserveUnresolvedTargetSegments(t *testing.T) {
 		targetName string
 	}{
 		{
-			name:       "perform raw backslash n",
+			name:       "perform newline escape",
 			source:     `package P { part p { perform 'a-b\n'; } }`,
-			targetName: `a-b\n`,
+			targetName: "a-b\n",
 		},
 		{
 			name:       "perform escaped apostrophe",
 			source:     `package P { part p { perform 'it\'s'; } }`,
-			targetName: `it\'s`,
+			targetName: "it's",
 		},
 		{
 			name:       "redefinition in externally typed part",
@@ -49,7 +50,11 @@ func TestAPIJSONMappingNamesPreserveUnresolvedTargetSegments(t *testing.T) {
 			var turtleName string
 			var qualifiedNames []string
 			for _, candidate := range graph.Subjects() {
-				name, ok := graph.Object(candidate, rdf.SysML+"qualifiedName")
+				// The graph states the address beside a qualifiedName that spells it differently.
+				name, ok := graph.Object(candidate, rdf.OpenSysML+"mappingQualifiedName")
+				if !ok {
+					name, ok = graph.Object(candidate, rdf.SysML+"qualifiedName")
+				}
 				if !ok {
 					continue
 				}
@@ -58,12 +63,12 @@ func TestAPIJSONMappingNamesPreserveUnresolvedTargetSegments(t *testing.T) {
 					continue
 				}
 				if subject.Value != "" {
-					t.Fatalf("multiple elements have qualifiedName ending in %q", test.targetName)
+					t.Fatalf("multiple elements have an address ending in %q", test.targetName)
 				}
 				subject, turtleName = candidate, name.Value
 			}
 			if subject.Value == "" {
-				t.Fatalf("no Turtle graph qualifiedName ends in %q; got %v", test.targetName, qualifiedNames)
+				t.Fatalf("no Turtle graph address ends in %q; got %v", test.targetName, qualifiedNames)
 			}
 			for _, candidate := range graph.Subjects() {
 				if candidate == subject {
@@ -119,7 +124,10 @@ func TestAPIJSONMappingNamesPreserveUnresolvedTargetSegments(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ReadAPIJSON: %v", err)
 			}
-			importedName, ok := imported.Object(subject, rdf.SysML+"qualifiedName")
+			importedName, ok := imported.Object(subject, rdf.OpenSysML+"mappingQualifiedName")
+			if !ok {
+				importedName, ok = imported.Object(subject, rdf.SysML+"qualifiedName")
+			}
 			if !ok || importedName.Value != turtleName {
 				t.Errorf("imported mapping name = %q, %t; want Turtle graph name %q", importedName.Value, ok, turtleName)
 			}
@@ -182,11 +190,12 @@ func apiJSONQualifiedNamePaths(t *testing.T) ([]string, string) {
 	t.Helper()
 	paths := modelFiles(t)
 	exampleRoot := filepath.Join("..", "..", "examples")
+	subset := corpussubset.Must(t, "../..")
 	if err := filepath.WalkDir(exampleRoot, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if !entry.IsDir() && filepath.Ext(path) == ".sysml" {
+		if !entry.IsDir() && filepath.Ext(path) == ".sysml" && subset.WantsPath(exampleRoot, path) {
 			paths = append(paths, path)
 		}
 		return nil

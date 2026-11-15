@@ -61,8 +61,9 @@ func (r *Renderer) treeEdges(out *Rendering) map[symbols.ElementKey]*Node {
 	// its owner draws it as inherited: a relationship arrow joins declarations,
 	// not one usage's copy to another's.
 	var index func(node, parent *Node)
+	indexed := map[*Node]bool{}
 	index = func(node, parent *Node) {
-		if parent != nil {
+		if parent != nil && (!out.query || !indexed[node]) {
 			g.parent[node.ID] = parent.ID
 		}
 		parentSite, inElement := out.sites[parent]
@@ -71,6 +72,12 @@ func (r *Renderer) treeEdges(out *Rendering) map[symbols.ElementKey]*Node {
 			if _, drawn := g.nodes[key]; !drawn {
 				g.nodes[key] = node
 			}
+		}
+		if out.query && indexed[node] {
+			return
+		}
+		if out.query {
+			indexed[node] = true
 		}
 		for _, child := range node.Children {
 			index(child, node)
@@ -81,7 +88,14 @@ func (r *Renderer) treeEdges(out *Rendering) map[symbols.ElementKey]*Node {
 	}
 	g.associationLines()
 	var walk func(node *Node)
+	walked := map[*Node]bool{}
 	walk = func(node *Node) {
+		if out.query && walked[node] {
+			return
+		}
+		if out.query {
+			walked[node] = true
+		}
 		if site, ok := out.sites[node]; ok && g.nodes[symbols.KeyOf(site.sym)] == node {
 			g.edgesOf(node, site)
 		}
@@ -155,14 +169,25 @@ func declaredUnder(parent, sym *symbols.Symbol) bool {
 // the name up.
 func (g *treeGraph) associationLines() {
 	var prune func(nodes []*Node) []*Node
+	visited, removed := map[*Node]bool{}, map[*Node]bool{}
 	prune = func(nodes []*Node) []*Node {
 		kept := nodes[:0]
 		for _, node := range nodes {
+			if g.out.query && visited[node] {
+				if !removed[node] {
+					kept = append(kept, node)
+				}
+				continue
+			}
+			if g.out.query {
+				visited[node] = true
+			}
 			site := g.out.sites[node]
 			if line, ok := g.associationLine(node, site); ok && nary(len(line.ends)) {
 				g.drawAssociationDot(node, site, line)
 			} else if ok {
 				g.drawAssociation(node, site, line)
+				removed[node] = true
 				continue
 			}
 			node.Children = prune(node.Children)
@@ -280,7 +305,7 @@ func (g *treeGraph) drawAssociationDot(node *Node, site treeSite, line associati
 // with an end type the tree does not draw stays a box.
 func (g *treeGraph) associationLine(node *Node, site treeSite) (line association, ok bool) {
 	def := site.sym
-	if def == nil || def.Kind != symbols.SymbolConnectionDef || g.nodes[symbols.KeyOf(def)] != node {
+	if !associationDefinition(def) || g.nodes[symbols.KeyOf(def)] != node {
 		return line, false
 	}
 	line.ends = g.r.model.EndFeatures(def)
@@ -299,7 +324,7 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (line association
 		if !slices.Contains(members, end) || g.endHasContent(end) {
 			return line, false
 		}
-		types := g.r.model.DeclaredTypes(end)
+		types := g.r.drawnTypes(end)
 		if len(types) != 1 {
 			return line, false
 		}
@@ -319,7 +344,7 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (line association
 	}
 	for i, end := range line.ends {
 		p := g.r.model.CrossFeature(end)
-		if p == nil || !structuralUsage(p) || g.node(p.Owner()) != typed[1-i] || !slices.Contains(g.r.model.DeclaredTypes(p), line.types[i]) {
+		if p == nil || !structuralUsage(p) || g.node(p.Owner()) != typed[1-i] || !slices.Contains(g.r.drawnTypes(p), line.types[i]) {
 			continue
 		}
 		line.crossed[i] = p
@@ -576,106 +601,8 @@ func multiplicityBound(node ast.Node) string {
 	return "?"
 }
 
-// expressionText spells an expression as the notation writes it: a literal, a
-// name or feature chain, and an operator over such operands, grouped where the
-// operators' precedence would otherwise read it back differently. An
-// expression of another form spells as "".
+// expressionText spells an expression as the notation writes it, grouped where the
+// operators' precedence would otherwise read it back differently; another form spells as "".
 func expressionText(node ast.Node) string {
-	switch expr := node.(type) {
-	case *ast.LiteralInfinity:
-		return "*"
-	case *ast.FeatureReference, *ast.QualifiedName, *ast.FeatureChainExpr:
-		return referenceText(node)
-	case *ast.OperatorExpr:
-		return operatorExprText(expr)
-	}
-	return literalText(node)
-}
-
-// operatorExprText spells an operator application: a unary operator before
-// its operand, a binary one between its two with a space on each side, a
-// conditional as `if c ? a else b`, a classification or cast with its type.
-func operatorExprText(expr *ast.OperatorExpr) string {
-	operands := make([]string, len(expr.Operands))
-	for i, operand := range expr.Operands {
-		operands[i] = operandText(expr, i, operand)
-		if operands[i] == "" {
-			return ""
-		}
-	}
-	op := expr.Operator.String()
-	switch {
-	case expr.Operator == ast.OpConditional && len(operands) == 3:
-		return "if " + operands[0] + " ? " + operands[1] + " else " + operands[2]
-	case expr.TypeRef != nil && len(operands) == 1:
-		return operands[0] + " " + op + " " + referenceText(expr.TypeRef)
-	case len(operands) == 1 && expr.Operator == ast.OpNot:
-		return op + " " + operands[0]
-	case len(operands) == 1:
-		return op + operands[0]
-	case len(operands) == 2:
-		return operands[0] + " " + op + " " + operands[1]
-	}
-	return ""
-}
-
-// operandText spells the i-th operand of expr, parenthesised when it is an
-// operator application binding no tighter than expr: looser, or as tight on
-// the side the operator does not associate to; under a unary operator, any
-// binary one.
-func operandText(expr *ast.OperatorExpr, i int, operand ast.Node) string {
-	text := expressionText(operand)
-	inner, ok := operand.(*ast.OperatorExpr)
-	if !ok || text == "" {
-		return text
-	}
-	if len(expr.Operands) == 1 {
-		if len(inner.Operands) > 1 {
-			return "(" + text + ")"
-		}
-		return text
-	}
-	if len(expr.Operands) != 2 {
-		return text
-	}
-	outer, in := operatorPrecedence(expr.Operator), operatorPrecedence(inner.Operator)
-	rightAssociative := expr.Operator == ast.OpPow
-	if in < outer || in == outer && (i == 1) != rightAssociative {
-		return "(" + text + ")"
-	}
-	return text
-}
-
-// operatorPrecedence ranks the operators as the KerML expression grammar binds
-// them, loosest first; operators of one rank associate to the left but `**`.
-func operatorPrecedence(op ast.OperatorKind) int {
-	switch op {
-	case ast.OpConditional:
-		return 0
-	case ast.OpNullCoalesce:
-		return 1
-	case ast.OpImplies:
-		return 2
-	case ast.OpOr, ast.OpConditionalOr:
-		return 3
-	case ast.OpXor:
-		return 4
-	case ast.OpAnd, ast.OpConditionalAnd:
-		return 5
-	case ast.OpEq, ast.OpNeq, ast.OpEqEqEq, ast.OpNeqEqEq:
-		return 6
-	case ast.OpHasType, ast.OpIsType, ast.OpAt, ast.OpMetaAt, ast.OpAs, ast.OpMeta:
-		return 7
-	case ast.OpLt, ast.OpGt, ast.OpLe, ast.OpGe:
-		return 8
-	case ast.OpRange:
-		return 9
-	case ast.OpAdd, ast.OpSub:
-		return 10
-	case ast.OpMul, ast.OpDiv, ast.OpMod:
-		return 11
-	case ast.OpPow:
-		return 12
-	}
-	return 13
+	return ast.ExprPrinter{}.Text(node)
 }

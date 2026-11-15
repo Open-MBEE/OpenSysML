@@ -52,6 +52,7 @@ const recordModel = `
 		calc def TakesMany { in ps : Point[0..*]; return : Real = 1.0; }
 		calc def ReadOff { in a : Real; return : Real = Make(a).y; }
 		calc def PassesInside { in a : Real; return : Real = Takes(new Point(a, 2.0)); }
+		calc def HoldsMany { in a : Real; attribute ps : Point[0..*] = (new Point(a, 1.0), new Point(2.0, a)); return : Real = ps#(2).y; }
 		attribute def Seg { attribute a : Point; attribute b : Point; }
 		calc def UnsetRead { in a : Real; return : Real = new Point(a).y; }
 		calc def UnsetInSeq { in a : Real; return : Real[0..*] = (a, new Point(a).y); }

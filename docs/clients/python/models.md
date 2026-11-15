@@ -104,7 +104,14 @@ engine.multiplicity
 engine.specializations
 ```
 
-`TypeFacts` describes declared and resolved types; `Multiplicity` records
-lower and upper bounds; and `Specialization` identifies typing, redefinition,
-subsetting and other relationships. Use the [Python API reference](../../reference/python-api.md)
-for the full symbol surface.
+`TypeFacts` describes the typing as written (`declared`, `resolved_id`) and,
+beside it, the derived types (`types`: KerML `Feature::type`, which the typing
+of every feature the usage subsets, references or redefines contributes to —
+`part pSub :> q` with `q : T` has `types == (TypeRef("P::T", "partDef"),)` and
+no `declared`); `Multiplicity` records lower and upper bounds; and
+`Specialization` identifies the written `typing`, `redefines`, `subsets`,
+`references` (`::>`) and `specializes` edges. These fields summarise the
+metamodel: `symbol.element_properties("type")` is the specification-defined
+answer `types` restates, `ownedSpecialization` the one `specializations`
+restates, and `kind` is the declaration keyword, not the metaclass. Use the
+[Python API reference](../../reference/python-api.md) for the full symbol surface.

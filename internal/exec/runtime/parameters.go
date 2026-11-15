@@ -60,7 +60,7 @@ func (ctx *Context) Parameters(sym *symbols.Symbol) ([]Parameter, error) {
 	params := make([]Parameter, len(shape.Params))
 	for i := range shape.Params {
 		p := &shape.Params[i]
-		params[i] = Parameter{Name: p.Name, IsSubject: p.IsSubject, decl: p.Decl}
+		params[i] = Parameter{Name: p.Name, IsSubject: p.IsSubject, decl: shape.paramDecls[i]}
 	}
 	return params, nil
 }

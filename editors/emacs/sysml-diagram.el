@@ -83,13 +83,30 @@ See `display-buffer' for the format."
 (defconst sysml-diagram--capability :openSysmlRender
   "The experimental capability a server serving the render methods advertises.")
 
-(defconst sysml-diagram--pseudo-views
-  '(("#tree" . "Model tree (no view declared)")
-    ("#interconnection" . "Interconnections (no view declared)")
-    ("#state" . "State machines (no view declared)")
-    ("#action" . "Action flows (no view declared)")
-    ("#table" . "Element table (no view declared)"))
-  "The pseudo-views the server renders a document through as if it declared one.")
+(defconst sysml-diagram--pseudo-view-labels
+  '(("tree" . "Model tree")
+    ("interconnection" . "Interconnections")
+    ("state" . "State machines")
+    ("action" . "Action flows")
+    ("table" . "Element table")
+    ("sequence" . "Message sequence"))
+  "The names the picker gives the pseudo-views it knows, by kind.")
+
+(defconst sysml-diagram--historical-pseudo-views
+  '("#tree" "#interconnection" "#state" "#action" "#table")
+  "The pseudo-views of a server whose view listing does not name its own.")
+
+(defun sysml-diagram--pseudo-view-entries (specs)
+  "Return the picker entries for the pseudo-views SPECS the server renders.
+SPECS nil, from a server that does not list them, stands for the
+historical set."
+  (mapcar (lambda (spec)
+            (let ((kind (string-remove-prefix "#" spec)))
+              (list spec
+                    (format "%s (no view declared)"
+                            (or (cdr (assoc kind sysml-diagram--pseudo-view-labels)) kind))
+                    t nil)))
+          (or specs sysml-diagram--historical-pseudo-views)))
 
 ;;;; Per-buffer state
 
@@ -125,9 +142,7 @@ See `display-buffer' for the format."
 (defun sysml-diagram--workspace (source)
   "Return the `sysml-lsp' workspace of SOURCE, or nil."
   (with-current-buffer source
-    (seq-find (lambda (ws)
-                (eq (lsp--client-server-id (lsp--workspace-client ws)) 'sysml-lsp))
-              (lsp-workspaces))))
+    (sysml-lsp--workspace)))
 
 (defun sysml-diagram--supported-p (workspace)
   "Return non-nil when WORKSPACE serves the render methods."
@@ -166,8 +181,8 @@ See `display-buffer' for the format."
                  (list name (format "%s — %s" name (lsp-get info :kind))
                        (eq (lsp-get info :supported) t) (lsp-get info :reason))))
              (and listing (lsp-get listing :views)))
-     (mapcar (lambda (pseudo) (list (car pseudo) (cdr pseudo) t nil))
-             sysml-diagram--pseudo-views))))
+     (sysml-diagram--pseudo-view-entries
+      (and listing (append (lsp-get listing :pseudoViews) nil))))))
 
 (defun sysml-diagram--default-view (views)
   "Return the view to show first from the picker entries VIEWS.
@@ -348,6 +363,9 @@ ID is the node it draws, or nil for a table row."
      (when sysml-diagram--error
        (concat "  " (propertize (format "stale: %s" sysml-diagram--error) 'face 'error))))))
 
+(defconst sysml-diagram--tabular-kinds '("table" "matrix")
+  "The rendering kinds whose result is columns and rows rather than a diagram.")
+
 (defun sysml-diagram--draw ()
   "Redraw the current view buffer from its last rendering."
   (let ((inhibit-read-only t)
@@ -368,7 +386,7 @@ ID is the node it draws, or nil for a table row."
       (cond
        ((equal sysml-diagram--form "text")
         (insert (lsp-get result :artifact)))
-       ((equal (lsp-get result :kind) "table")
+       ((member (lsp-get result :kind) sysml-diagram--tabular-kinds)
         (sysml-diagram--insert-table (lsp-get result :columns) (lsp-get result :rows)))
        (t
         (let ((nodes (lsp-get result :nodes))
@@ -401,9 +419,17 @@ ID is the node it draws, or nil for a table row."
           (lsp--position-to-point (lsp-get range :end)))))
 
 (defun sysml-diagram--visit (origin)
-  "Visit the declaration ORIGIN locates, selecting its name."
-  (let* ((file (lsp--uri-to-path (lsp-get origin :uri)))
-         (buffer (or (find-buffer-visiting file) (find-file-noselect file))))
+  "Visit the declaration ORIGIN locates, selecting its name.
+A declaration in the bundled library is shown read-only, its text asked
+of the server of the view's model buffer."
+  (let* ((uri (lsp-get origin :uri))
+         (source sysml-diagram--source)
+         (buffer (if (sysml-lsp-stdlib-uri-p uri)
+                     (if (buffer-live-p source)
+                         (with-current-buffer source (sysml-lsp-stdlib-buffer uri))
+                       (user-error "The model this view shows is no longer visited"))
+                   (let ((file (lsp--uri-to-path uri)))
+                     (or (find-buffer-visiting file) (find-file-noselect file))))))
     (pop-to-buffer buffer '((display-buffer-reuse-window display-buffer-use-some-window)))
     (let ((region (sysml-diagram--origin-region origin)))
       (push-mark (point) t)
@@ -605,8 +631,8 @@ Needs `sysml-diagram-mmdc-program' and a frame that can display SVG."
                                   (append (list :textDocument (sysml-diagram--text-document source))
                                           (unless (string-empty-p view) (list :view view))))))
            (kind (lsp-get result :kind)))
-      (when (equal kind "table")
-        (user-error "A table is not drawn; it is already shown as one"))
+      (when (member kind sysml-diagram--tabular-kinds)
+        (user-error "A %s is not drawn; it is already shown as one" kind))
       (let ((svg (sysml-diagram--mermaid-to-svg mmdc (lsp-get result :artifact)))
             (buffer (get-buffer-create (format "*SysML Image: %s*" (buffer-name source)))))
         (with-current-buffer buffer

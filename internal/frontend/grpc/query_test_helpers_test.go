@@ -1,7 +1,7 @@
 package grpc
 
-import "github.com/Open-MBEE/OpenSysML/internal/translate/export"
+import "github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 
 func isPositionalIdentity(name string) bool {
-	return export.IsPositionalIdentity(name)
+	return naming.IsPositionalIdentity(name)
 }

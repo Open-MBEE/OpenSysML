@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -28,6 +29,9 @@ var ErrNotCarried = errors.New("object does not carry the case")
 type Condition struct {
 	// Expr is the condition's expression, nil for a group.
 	Expr ast.Node
+
+	// ExprID is Expr in the model's table, lowered in Scope; 0 for a group.
+	ExprID program.ExprID
 
 	// Scope is where Expr's names resolve, or the type a Conflict is found on;
 	// nil for a group.
@@ -105,7 +109,7 @@ func (c Condition) Label() string { return conditionLabel(c) }
 // inherited one came from), or nil; a body-local or anonymous scope is skipped.
 func (c Condition) Owner() *symbols.Symbol {
 	for s := c.Scope; s != nil; s = s.Parent() {
-		if owner := s.Owner(); owner != nil && owner.Name != "" {
+		if owner := s.Owner(); owner != nil && owner.Named() {
 			return owner
 		}
 	}
@@ -175,7 +179,7 @@ func (ctx *Context) appendMemberConditions(out []Condition, sym *symbols.Symbol,
 	var stepScope *symbols.Scope
 	var stepNode ast.Node
 	for _, member := range members {
-		if owner := ctx.conditionOwnerOf(member); owner != nil && owner != sym && owner.Name != "" {
+		if owner := ctx.conditionOwnerOf(member); owner != nil && owner != sym && owner.Named() {
 			if effective == nil {
 				effective = ctx.effectiveMembers(sym)
 			}
@@ -275,7 +279,7 @@ func (ctx *Context) appendConditions(out []Condition, node ast.Node, scope *symb
 		negated = negated != m.IsNegated
 		required = required && m.IsAssert
 		if m.Expression != nil {
-			out = append(out, Condition{Expr: m.Expression, Scope: scope, Negated: negated, Required: required})
+			out = append(out, Condition{Expr: m.Expression, ExprID: ctx.model.exprs.Intern(m.Expression, scope), Scope: scope, Negated: negated, Required: required})
 		}
 		if len(m.Body) == 0 {
 			return out
@@ -373,7 +377,7 @@ func (ctx *Context) appendRequirementConditions(out []Condition, member ast.Node
 		return ctx.appendReferencedConditions(out, member, ref, body, scope, required, seen)
 	}
 	if expr != nil {
-		out = append(out, Condition{Expr: expr, Scope: scope, Required: required})
+		out = append(out, Condition{Expr: expr, ExprID: ctx.model.exprs.Intern(expr, scope), Scope: scope, Required: required})
 	}
 	return ctx.appendOwnedConditions(out, member, body, scope, required, seen)
 }
@@ -481,10 +485,13 @@ func (ctx *Context) constraintBodyStep(node ast.Node, scope *symbols.Scope) (low
 	if ctx.model.constraintSteps == nil {
 		ctx.model.constraintSteps = make(map[ast.Node]lower.Statement)
 	}
+	if ctx.model.exprs == nil {
+		ctx.model.exprs = lower.NewExprTable(ctx.model.Resolver())
+	}
 	if stmt, ok := ctx.model.constraintSteps[node]; ok {
 		return stmt, true
 	}
-	stmt, ok := lower.ConstraintStep(node, scope, ctx.model.Resolver())
+	stmt, ok := lower.ConstraintStep(node, scope, ctx.model.Resolver(), ctx.model.exprs)
 	if !ok {
 		return nil, false
 	}
@@ -549,7 +556,7 @@ func (ctx *Context) appendReferencedConditions(out []Condition, decl ast.Node, r
 	scope *symbols.Scope, required bool, seen map[*symbols.Symbol]bool) []Condition {
 	sym := ctx.referencedRequirement(scope, decl, ref)
 	if sym == nil {
-		out = append(out, Condition{Expr: ref, Scope: scope, Required: required})
+		out = append(out, Condition{Expr: ref, ExprID: ctx.model.exprs.Intern(ref, scope), Scope: scope, Required: required})
 		return ctx.appendOwnedConditions(out, decl, body, scope, required, seen)
 	}
 	if seen[sym] {
@@ -781,7 +788,7 @@ func (c conditionCheck) vacuous(why string) (conditionVerdict, error) {
 // noResultValue is the error for a constraint whose result nothing binds (KerML 1.1
 // §7.4.8.2): no value, not a verdict, with the unbound-return hint or else cause.
 func (check conditionCheck) noResultValue(cause string) error {
-	if hint := unboundResultHint([]*symbols.Symbol{check.sym}); hint != "" {
+	if hint := lower.UnboundResultHint([]*symbols.Symbol{check.sym}); hint != "" {
 		return fmt.Errorf("%s %s: %w%s", check.kind, check.name(), ErrNoValue, hint)
 	}
 	return fmt.Errorf("%s %s: %w: %s", check.kind, check.name(), ErrNoValue, cause)
@@ -1384,7 +1391,7 @@ func (ctx *Context) carrierLabels(carriers []carrier) []string {
 	for _, c := range carriers {
 		inst := c.instance
 		name := "object"
-		if def := ctx.definitionOf(inst.Type); def != nil && def.Name != "" {
+		if def := ctx.definitionOf(inst.Type); def != nil && def.Named() {
 			name = def.Name
 		}
 		label := fmt.Sprintf("%s #%d", name, inst.ID)
@@ -1526,7 +1533,7 @@ func (ctx *Context) conditionHoldsAt(activation int64, cond Condition, features 
 		if stepFrame != nil {
 			ec.pushFrame(*stepFrame)
 		}
-		result, err := ec.Eval(cond.Expr)
+		result, err := ec.reading(ctx.model.exprs).evalPayload(cond.ExprID)
 		if err != nil {
 			return false, err
 		}
@@ -1569,13 +1576,18 @@ func (ctx *Context) subrequirementHoldsAt(activation int64, cond Condition, feat
 // every required condition holds.
 func negatedText(conds []Condition) string {
 	var texts []string
+	var only Condition
 	for _, cond := range conds {
 		if !cond.Required {
 			continue
 		}
+		only = cond
 		texts = append(texts, conditionLabel(cond))
 	}
 	if len(texts) == 1 {
+		if only.Group == nil && only.Conflict == nil && only.Circular == nil && !only.Negated {
+			return negatedConditionText(only.Expr)
+		}
 		return "not " + texts[0]
 	}
 	return "not (" + strings.Join(texts, " and ") + ")"
@@ -1739,8 +1751,11 @@ func conditionLabel(cond Condition) string {
 			text = requirementKeyword(cond.Subrequirement) + " " + cond.Subrequirement.Name + " " + text
 		}
 	}
-	if cond.Negated {
-		text = "not " + text
+	switch {
+	case cond.Negated && cond.Group == nil:
+		return negatedConditionText(cond.Expr)
+	case cond.Negated:
+		return "not " + text
 	}
 	return text
 }
@@ -1750,61 +1765,16 @@ func ConditionText(n ast.Node) string { return conditionText(n) }
 
 // qualifiedNameText writes a qualified name as the notation does, each segment
 // quoted when it needs quoting.
-func qualifiedNameText(qn *ast.QualifiedName) string {
-	if qn == nil {
-		return ""
-	}
-	names := make([]string, 0, len(qn.Parts))
-	for _, seg := range qn.Parts {
-		if seg.Text != "" {
-			names = append(names, seg.Text)
-		}
-	}
-	return source.QualifiedNameOf(names)
-}
+func qualifiedNameText(qn *ast.QualifiedName) string { return ast.QualifiedNameText(qn) }
 
-// conditionText renders a condition compactly, so a violation names the
+// conditionPrinter renders a condition compactly, so a violation names the
 // condition that failed rather than only the element that states it.
-func conditionText(n ast.Node) string {
-	switch e := n.(type) {
-	case *ast.LiteralInteger:
-		return e.Value
-	case *ast.LiteralReal:
-		return e.Value
-	case *ast.LiteralString:
-		return e.Value
-	case *ast.LiteralBool:
-		if e.Value {
-			return "true"
-		}
-		return "false"
-	case *ast.FeatureReference:
-		return qualifiedNameText(e.Name)
-	case *ast.FeatureChainExpr:
-		return conditionText(e.Operand) + "." + qualifiedNameText(e.Member)
-	case *ast.OperatorExpr:
-		switch len(e.Operands) {
-		case 1:
-			return e.Operator.String() + " " + conditionText(e.Operands[0])
-		case 2:
-			return conditionText(e.Operands[0]) + " " + e.Operator.String() + " " + conditionText(e.Operands[1])
-		}
-	case *ast.InvocationExpr:
-		args := make([]string, 0, len(e.Args))
-		for _, arg := range e.Args {
-			args = append(args, conditionText(arg))
-		}
-		return qualifiedNameText(e.Type) + "(" + strings.Join(args, ", ") + ")"
-	case *ast.IndexExpr:
-		// The bracket form is a quantity, `1.0 [m]`; `#` indexes a sequence.
-		if e.Bracket {
-			unit := semantics.UnitExprText(e.Index)
-			if unit == "" {
-				unit = conditionText(e.Index)
-			}
-			return conditionText(e.Operand) + " [" + unit + "]"
-		}
-		return conditionText(e.Operand) + "#(" + conditionText(e.Index) + ")"
-	}
-	return traceLabel(n)
+var conditionPrinter = ast.ExprPrinter{Unit: semantics.UnitExprText, Other: traceLabel}
+
+func conditionText(n ast.Node) string { return conditionPrinter.Text(n) }
+
+// negatedConditionText renders `not` over a condition's expression, grouping a
+// binary one so the text reads back as the negation of the whole.
+func negatedConditionText(expr ast.Node) string {
+	return conditionText(&ast.OperatorExpr{Operator: ast.OpNot, Operands: []ast.Node{expr}})
 }

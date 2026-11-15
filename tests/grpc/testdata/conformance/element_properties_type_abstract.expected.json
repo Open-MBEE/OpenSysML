@@ -1,0 +1,17 @@
+{
+  "rpc": "GetElementProperties",
+  "model": "element_properties_type.sysml",
+  "element_id": "TypeFamily::Vehicle",
+  "properties": [
+    "isAbstract"
+  ],
+  "expected_properties": [
+    {
+      "name": "isAbstract",
+      "defining_class": "Type",
+      "values": [
+        "true"
+      ]
+    }
+  ]
+}

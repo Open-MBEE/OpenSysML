@@ -12,17 +12,40 @@ from opensysml.values import value_to_python
 
 
 @dataclass(frozen=True)
+class TypeRef:
+    """One derived type of a feature."""
+
+    id: str
+    """FQN of the type."""
+
+    kind: str = ""
+    """Symbol kind of the type, e.g. ``partDef``."""
+
+    @classmethod
+    def from_pb(cls, pb_type_ref) -> "TypeRef":
+        """Build from a ``TypeRef`` protobuf message."""
+        return cls(id=pb_type_ref.id, kind=pb_type_ref.kind)
+
+
+@dataclass(frozen=True)
 class TypeFacts:
-    """The static type of a usage, or the classification of a definition."""
+    """The static type of a usage, or the classification of a definition.
+
+    :attr:`declared`, :attr:`resolved_id` and :attr:`resolved_kind` are the
+    typing the declaration writes (``: T``); :attr:`types` is the feature's
+    derived type, KerML ``Feature::type`` as ``element_properties`` reports
+    it under ``type``, which the typing of every feature it subsets (``:>``),
+    references (``::>``) or redefines (``:>>``) contributes to.
+    """
 
     declared: str = ""
     """Type name as written; empty when none is declared."""
 
     resolved_id: str = ""
-    """FQN of the resolved type; empty when unresolved or undeclared."""
+    """FQN of the resolved written type; empty when unresolved or undeclared."""
 
     resolved_kind: str = ""
-    """Symbol kind of the resolved type, e.g. ``partDef``."""
+    """Symbol kind of the resolved written type, e.g. ``partDef``."""
 
     primitive: str = ""
     """Library scalar the type reduces to, e.g. ``Real``; empty when it is not one."""
@@ -36,6 +59,11 @@ class TypeFacts:
     unit: str = ""
     """Unit as written, when the default value names one."""
 
+    types: Tuple[TypeRef, ...] = ()
+    """The derived types (``Feature::type``), most specific first, redundant
+    supertypes removed: ``part pBoth : V :> q`` with ``q : T`` has ``V`` and
+    ``T``. Empty for a definition, or when the model derives none."""
+
     @classmethod
     def from_pb(cls, pb_type_info) -> "TypeFacts":
         """Build from a ``TypeInfo`` protobuf message."""
@@ -47,6 +75,7 @@ class TypeFacts:
             primitive_source=pb_type_info.primitive_source,
             quantity=pb_type_info.quantity,
             unit=pb_type_info.unit,
+            types=tuple(TypeRef.from_pb(ref) for ref in pb_type_info.types),
         )
 
 
@@ -87,7 +116,13 @@ class Multiplicity:
 
 @dataclass(frozen=True)
 class Specialization:
-    """One generalization edge: ``specializes``, ``subsets``, ``redefines`` or ``typing``."""
+    """One generalization edge written on an element.
+
+    :attr:`kind` is ``specializes``, ``subsets``, ``redefines``, ``typing`` or
+    ``references`` (reference subsetting, ``::>`` and ``include``). These are
+    the written relationships ``element_properties`` reflects under
+    ``ownedSpecialization``; the implied ones the metamodel adds are not here.
+    """
 
     kind: str
     declared: str = ""

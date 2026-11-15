@@ -160,6 +160,7 @@ What a request asks for is fixed per capability:
 | `verification` | Refuse `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`, `ValidateInstance` and `EvaluateCalc`. |
 | `query` | Refuse `Query`. |
 | `element_properties` | Refuse `GetElementProperties`. |
+| `inline_document_query` | Refuse `RunDocumentQuery` only when `inline_query` is set; named queries still use `document_query`. |
 | `oslc_query` | Refuse `Query` only when `oslc_query` is set; structured queries still use `query`. |
 | `apply_edits` | Refuse `ApplyEdits`. |
 | `authoring` | Refuse `ApplyEdits` only when an operation is `add_member` or `delete`. |
@@ -173,6 +174,8 @@ What a request asks for is fixed per capability:
 | `type_facts` | Response-population capability: omit type facts; no request asks for them. |
 | `symbol_attributes` | Response-population capability: omit symbol attributes; no request asks for them. |
 | `symbol_members` | Response-population capability: omit `SymbolInfo.members`, the members own and inherited with their provenance, and the `withheld_library_members` count; `GetSymbolRequest.include_library_members` is ignored without it. |
+| `symbol_name_resolution` | Honour `GetSymbolRequest.resolve_name`: resolve `symbol_id` as a qualified name from the root namespace. Without it the field is ignored and `symbol_id` is read as an id the service reported, as a service predating the field reads it; a client checks the capability instead of sending the field. |
+| `symbol_annotating_metadata` | Response-population capability: omit `SymbolInfo.annotating_metadata_ids`, the metadata usages annotating the element; no request asks for them. |
 | `feature_values` | Response-population capability: omit instance feature values; no request asks for them. |
 | `enum_values` | Response-population capability: encode enum values as unsupported nulls; no request asks for them. |
 | `unset_value` | Response-population capability: encode unset values as unsupported nulls; no request asks for them. |
