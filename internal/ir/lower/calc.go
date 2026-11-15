@@ -296,6 +296,7 @@ func ToCalc(sym *symbols.Symbol, env CalcEnv) (*program.Calc, *CalcTrees) {
 	trees.Nodes = BlockNodes(trees.Steps)
 	calc.StepCount = len(trees.Nodes)
 	calc.StatesFlow = StatesFlow(trees.Steps)
+	calc.FlowBody = calc.StatesFlow && flowBody(trees.Steps)
 	calc.Params = calcParameters(chain, env, trees, &calc.Aliases)
 	calc.Outputs = calcOutputs(chain, env, trees, &calc.Aliases)
 	calc.ParamNames = paramNames(calc.Params)

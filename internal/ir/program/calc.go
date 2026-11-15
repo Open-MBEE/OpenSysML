@@ -47,6 +47,9 @@ type Calc struct {
 	// StatesFlow reports a body, or a loop or branch block of it, stating a token
 	// flow of its own: successions or control nodes among its members.
 	StatesFlow bool
+	// FlowBody reports the body itself stating that flow, lowered as a case body is:
+	// its statements are steps of the flow, not a list to order.
+	FlowBody bool
 }
 
 // CalcParam is one input parameter of a calc, in positional order.

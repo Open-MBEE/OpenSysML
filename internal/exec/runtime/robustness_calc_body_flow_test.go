@@ -6,8 +6,7 @@ import (
 )
 
 // TestRuntimeRobustnessCalcBodyFlow covers the failure modes of a token flow a
-// calculation body, or a loop or branch block of it, states of its own: each
-// ends in a typed error rather than a hang or a silently dropped flow.
+// calculation body or a block of it states: each ends in a typed error.
 func TestRuntimeRobustnessCalcBodyFlow(t *testing.T) {
 	t.Run("start_without_successor_is_an_invalid_flow", func(t *testing.T) {
 		err := invokeCalcInSource(t, `package test {
