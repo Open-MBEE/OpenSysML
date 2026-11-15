@@ -9,7 +9,7 @@ authenticated `gh`, never in CI. Nothing in the Go build or test suite imports t
 | Tool | What it does |
 | --- | --- |
 | `watcher.py` | The throttle and watch loop. It caps concurrent ordinary pull-request runs, queues the over-cap ones in priority order, re-starts them when a slot frees, holds every slot for the merge queue, and reports each decision. |
-| `starve_sweep.py` | Frees runners for the merge queue. While a merge-queue run has waiting jobs, it cancels ordinary pull-request runs that have jobs but none started. When a merge-queue job has waited longer than `starve_grace_seconds`, it also cancels every ordinary run with a job in progress except the one closest to finishing. Each run it cancels is queued for the watcher to re-run (`auth_rerun.json`). |
+| `starve_sweep.py` | Frees runners for the merge queue. While a merge-queue run has waiting jobs, it cancels ordinary pull-request runs that have jobs but none started. When a merge-queue job has waited longer than `starve_grace_seconds`, it also cancels every started ordinary run except the one closest to finishing. While no merge-queue job waits, it cancels the ordinary runs over `cap`. It cancels a merge-queue run that has a failed job. Each ordinary run it cancels is queued for the watcher to re-run (`auth_rerun.json`). It logs one heartbeat line per pass. |
 | `infra_rerun.py` | Classifies the failed jobs of the runs in `infra_runs.json` as infrastructure (setup steps, DNS, apt mirrors) or real, and re-runs (`--failed`) only the infrastructure failures once the infrastructure has recovered. |
 | `drycheck.sh` | Dry-merges (`git merge-tree`) each pull request in `ready.txt` onto its base branch's head and prints CLEAN or DIRTY. |
 | `drywatch.sh` | Runs `drycheck.sh` every time the base branch moves and appends the results to `dry.log`. |
@@ -25,7 +25,10 @@ The code keeps these, and `tests/test_ci_tools.py` checks them:
 - **Protected runs are never cancelled.** This covers `merge_group` runs (`gh-readonly-queue/*`),
   tags (`v<digit>…`), and the branches in `exempt_branches` and `exempt_prefixes` (the defaults
   are `develop`, `main`, `release/` and `hotfix/`). `watcher.py` checks this again inside its
-  `cancel`, from the run's own event and branch.
+  `cancel`, from the run's own event and branch. The one exception is a `merge_group` run with a
+  job whose conclusion is `failure` (a `cancelled` or `skipped` job doesn't count): that group can't
+  merge, so the sweeper cancels it to free its runners and the merge queue rebuilds it. The watcher
+  never cancels a `merge_group` run.
 - **No cancel without authorization.** The watcher cancels a run only if its id is in
   `cancel_auth.json`. A run that has started a job is never cancelled, with one exception: a run
   that has only finished its preflight job (`preflight_jobs`) may be cancelled under the review
@@ -65,7 +68,7 @@ the directory that contains the configuration file.
 | `workflows` | Workflow names the cap counts. The first is the pull-request workflow whose runs are re-started (default `["PR"]`). |
 | `preflight_jobs` | Cheap jobs that do not count as "started" (default `["Changed areas"]`). |
 | `required_check` | The aggregate required check (default `Build and test`). |
-| `cap` | Concurrent ordinary runs (default 3). It drops to 1 while a merge-queue run is active, and to 0 under a freeze or a runner-priority hold. |
+| `cap` | Concurrent ordinary runs (default 3). It drops to 1 while a merge-queue run is active, and to 0 under a freeze or a runner-priority hold. The sweeper keeps this many active ordinary runs while no merge-queue job waits. |
 | `interval_seconds`, `fast_poll_seconds` | Time between full passes, and between the fast polls for new runs inside that time (defaults 120 and 10). |
 | `exempt_branches`, `exempt_prefixes` | Branches whose runs are never counted or cancelled. Tags and `gh-readonly-queue/` are always exempt. |
 | `runner_pin` | `{"file", "require", "forbid"}`: before a close/reopen, the workflow file at the PR's merge ref must contain `require` and must not contain `forbid`. Leave it out to skip the check. |
@@ -180,21 +183,36 @@ These rules come from running the tools on this repository and still apply.
   close/reopen, and pinned, reserved, sole-priority and runner-priority runs. A run that is held there
   keeps its queue entry or `auth_rerun.json` entry. A run that has already started is counted, not
   admitted.
-- The sweeper's two cases follow the maintainer's rule "cancel all normal PR runs, except the
-  closest to finishing; keep the merge PR run":
+- The sweeper's cases follow the maintainer's rule "cancel all normal PR runs, except the
+  closest to finishing; keep the merge PR run". An ordinary run counts when it has at least one job
+  that hasn't completed. It is started once a heavy job is in progress or has a real conclusion, and
+  unstarted otherwise. A run with a job concluded `cancelled` is already being cancelled, so it is
+  neither kept nor cancelled, and a run with no jobs is never cancelled.
+  - **Failing.** A merge-queue run with a job concluded `failure` is cancelled and not queued for re-run.
+    Its waiting jobs make the queue neither waiting nor starved.
   - **Waiting.** While a merge-queue run has queued or waiting jobs, every ordinary run whose
     heavy jobs are all still queued is cancelled.
   - **Starved.** A merge-queue job that has been queued or waiting for longer than
     `starve_grace_seconds` means ordinary runs hold the runners it needs. This is true even when
     other jobs of the same group have started, and typically follows the gap between one queue
-    build finishing and the next being created. A run with no jobs is never starved. Every ordinary run with a job in progress is cancelled except the
-    one closest to finishing. Runs ahead of others are those with a non-preflight job completed (until then
-    the matrix may not have expanded, so the unfinished count understates the work left), then those with
-    the fewest unfinished jobs, then by tier rank.
+    build finishing and the next being created. A run with no jobs is never starved. Exactly one started
+    ordinary run is kept, the one closest to finishing, and every other started run is cancelled.
+  - **Idle.** While no merge-queue job waits, if more than `cap` ordinary runs are active, started
+    or not, `cap` of them are kept, chosen by tier index and then by closeness to finishing. The
+    lowest tier is cancelled first and, within a tier, the run furthest from finishing.
 
-  Each successful cancel is queued in `auth_rerun.json`, one entry per PR, in tier order. A
-  failed cancel is logged and not queued.
-- Never cancel or hold a `merge_group` run, a tag's runs, or a `release/`/`hotfix/` run.
+  Closest to finishing means: first the runs with a completed job that is neither the preflight nor
+  skipped (until then the matrix may not have expanded, so the unfinished count understates the work
+  left), then the fewest unfinished jobs, then tier rank.
+
+  Each successful cancel of an ordinary run is queued in `auth_rerun.json`, one entry per PR, in tier
+  order. A failed cancel is logged and not queued.
+- Each sweeper pass logs one heartbeat line to `watch.log`, for example `STARVE-SWEEP heartbeat: mq
+  waiting=yes starved=no failing=no; ordinary runs: 2 started, 1 unstarted, 0 being cancelled`.
+  `failing` lists the ids of merge-queue runs with a failed job. A pass that hits an API error logs
+  `error, nothing more cancelled this pass` instead.
+- Never cancel or hold a `merge_group` run, a tag's runs, or a `release/`/`hotfix/` run. The only
+  exception is the sweeper cancelling a `merge_group` run with a failed job.
   Re-running a cancelled release run is the maintainer's call.
 - When a merge-queue entry fails and stays UNMERGEABLE, the entries behind it keep building on its
   failed group commit. Remove the failed entry so that the rest rebuild on the base branch.

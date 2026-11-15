@@ -726,9 +726,12 @@ class StarveSweepTest(Stub):
     def test_waiting_group_within_the_grace_period_leaves_started_runs_alone(self):
         self.starved_rules(10, [{"status": "in_progress", "created_at": stamp(10)}, {"status": "queued", "created_at": stamp(1)}])
         self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        self.assertEqual(self.cancels(), [])
+        self.write("config.json", {"repo": REPO, "cap": 4, "checkout": self.dir})
         self.starved_rules(10, [])
         self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
         self.assertEqual(self.cancels(), [])
+        self.assertNotIn("starved: keeping", self.text("watch.log"))
 
     def test_a_job_queued_past_the_grace_period_starves_a_partly_started_group(self):
         self.starved_rules(10, [{"status": "in_progress", "created_at": stamp(10)}, {"status": "queued", "created_at": stamp(5)}])
@@ -742,12 +745,94 @@ class StarveSweepTest(Stub):
         self.assertIn("#6: run 23", self.text("watch.log"))
         self.assertIn("merge group starved) not cancelled", self.text("watch.log"))
 
+    def cap(self, n):
+        self.write("config.json", {"repo": REPO, "cap": n, "checkout": self.dir})
+
+    def test_idle_queue_over_the_cap_keeps_cap_runs_by_tier_then_closest_to_finishing(self):
+        self.cap(2)
+        self.starved_rules(10, [], cancel_fails=(24,), extra=[[r"runs/21/jobs", {"jobs": [{"name": "Go", "status": "queued"}]}, 0]])
+        self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        log = self.text("watch.log")
+        self.assertIn("heartbeat: mq waiting=no starved=no failing=no; ordinary runs: 3 started, 1 unstarted, 0 being cancelled", log)
+        self.assertIn("over the cap with the merge queue idle: 4 ordinary runs active, keeping run 23 (#6), run 22 (#5) (cap 2)", log)
+        self.assertEqual(self.cancels(), ["21", "24"])
+        self.assertEqual(self.read("auth_rerun.json"), [{"pr": 4, "run": 21, "head": "0000000000"}])
+        self.assertIn("#7: run 24 (0000000000, 2 job(s) unfinished, over the cap of 2 with the merge queue idle) not cancelled", log)
+
+    def test_idle_queue_within_the_cap_cancels_nothing(self):
+        self.cap(4)
+        self.starved_rules(10, [])
+        self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        self.assertEqual(self.cancels(), [])
+        self.assertNotIn("over the cap", self.text("watch.log"))
+
+    def test_idle_queue_keeps_an_expanded_run_over_an_unexpanded_one_in_the_same_tier(self):
+        self.cap(1)
+        done = {"name": "j", "status": "completed", "conclusion": "success"}
+        self.starved_rules(10, [], extra=[
+            [r"runs/21/jobs", {"jobs": [{"name": "Changed areas", "status": "completed", "conclusion": "success"},
+                                        {"name": "Docs", "status": "completed", "conclusion": "skipped"}, {"name": "Go", "status": "in_progress"}]}, 0],
+            [r"runs/22/jobs", {"jobs": [done] * 23 + [{"name": "k", "status": "in_progress"}] + [{"name": "k", "status": "queued"}] * 5}, 0],
+            [r"runs/2[34]/jobs", {"jobs": [done]}, 0]])
+        self.write("tiers.json", {"tiers": []})
+        self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        self.assertEqual(self.cancels(), ["21"])
+        self.assertIn("keeping run 22 (#5) (cap 1)", self.text("watch.log"))
+
+    def test_runs_already_being_cancelled_are_neither_kept_nor_cancelled(self):
+        cancelling = [r"runs/22/jobs", {"jobs": [{"name": "j0", "status": "completed", "conclusion": "cancelled"}, {"name": "j1", "status": "in_progress"}]}, 0]
+        self.starved_rules(10, [{"status": "queued"}], extra=[cancelling])
+        self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        self.assertEqual(sorted(self.cancels()), ["21", "23"])
+        log = self.text("watch.log")
+        self.assertIn("merge group starved: keeping run 24 (#7, 2 job(s) unfinished)", log)
+        self.assertIn("ordinary runs: 3 started, 0 unstarted, 1 being cancelled", log)
+        os.remove(self.calls_file)
+        os.remove(os.path.join(self.dir, "auth_rerun.json"))
+        self.starved_rules(10, [], extra=[cancelling])
+        self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        self.assertEqual(self.cancels(), ["21", "24"])
+        self.assertIn("keeping run 23 (#6) (cap 1)", self.text("watch.log"))
+
+    def test_a_failing_merge_group_is_the_only_one_cancelled_and_is_not_queued(self):
+        self.cap(4)
+        old = {"status": "queued", "created_at": stamp(10)}
+        self.starved_rules(10, [{"name": "Go", "status": "completed", "conclusion": "failure"}, old],
+                           extra=[[r"^run cancel 900 ", "", 0]])
+        self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        self.assertEqual(self.cancels(), ["900"])
+        self.assertIsNone(self.cfg().read("auth_rerun.json"))
+        log = self.text("watch.log")
+        self.assertIn("heartbeat: mq waiting=no starved=no failing=yes (900)", log)
+        self.assertIn("merge-group run 900: job 'Go' concluded failure; cancelled", log)
+        for concluded in ("cancelled", "skipped"):
+            os.remove(self.calls_file)
+            self.starved_rules(10, [{"name": "Go", "status": "completed", "conclusion": concluded}, old])
+            self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+            self.assertEqual(sorted(self.cancels()), ["21", "23", "24"], concluded)
+        os.remove(self.calls_file)
+        self.starved_rules(10, [], extra=[[r"runs/900/jobs", "HTTP 502", 1]])
+        self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        self.assertEqual(self.cancels(), [])
+        self.assertIn("error, nothing more cancelled this pass", self.text("watch.log"))
+
+    def test_one_heartbeat_per_pass(self):
+        self.cap(4)
+        self.starved_rules(10, [{"status": "queued", "created_at": stamp(1)}])
+        for _ in range(3):
+            self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        beats = [line for line in self.text("watch.log").splitlines() if "heartbeat:" in line]
+        self.assertEqual(len(beats), 3)
+        self.assertTrue(beats[0].endswith("STARVE-SWEEP heartbeat: mq waiting=yes starved=no failing=no; ordinary runs: 4 started, 0 unstarted, 0 being cancelled"))
+
     def test_idle_queue_api_error_and_absent_authorization(self):
-        self.rules([[r"event=merge_group", {"workflow_runs": []}, 0]])
+        self.rules([[r"event=merge_group", {"workflow_runs": []}, 0], [r"event=pull_request", {"workflow_runs": []}, 0]])
         self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
         self.assertIn("starve_cancel.json absent", self.text("watch.log"))
         self.write("starve_cancel.json", {"by": "maintainer"})
         self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        self.assertIn("heartbeat: mq waiting=no starved=no failing=no; ordinary runs: 0 started, 0 unstarted", self.text("watch.log"))
+        self.assertNotIn("error", self.text("watch.log"))
         self.rules([])
         self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
         self.assertIn("error, nothing more cancelled this pass", self.text("watch.log"))

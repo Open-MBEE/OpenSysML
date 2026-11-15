@@ -47,20 +47,40 @@ class Sweeper:
         return self.api(f"repos/{self.cfg.repo}/actions/runs/{rid}/jobs?per_page=100")["jobs"]
 
     def queue_state(self):
-        """(waiting, starved): a merge-group job is queued or waiting; one has waited longer than the grace period."""
+        """(waiting, starved, failing): a merge-group job is queued or waiting; one has waited longer than the grace
+        period; the merge-group runs with a job concluded "failure". A failing run's waiting jobs count for neither."""
         waiting = starved = False
+        failing = []
         now = datetime.datetime.now(datetime.timezone.utc)
         for r in self.merge_group_runs():
+            jobs = self.jobs(r["id"])
+            bad = [j for j in jobs if j.get("conclusion") == "failure"]
+            if bad:
+                failing.append((r, bad[0].get("name")))
+                continue
             waiting = waiting or r["status"] == "queued"
             # A run with no jobs at all has nothing waiting for a runner, so it is never starved.
-            for j in self.jobs(r["id"]):
+            for j in jobs:
                 if j["status"] not in WAITING:
                     continue
                 waiting = True
                 created = j.get("created_at") or r.get("created_at")
                 if created and (now - datetime.datetime.fromisoformat(created.replace("Z", "+00:00"))).total_seconds() >= self.cfg["starve_grace_seconds"]:
                     starved = True
-        return waiting, starved
+        return waiting, starved, failing
+
+    def cancel_failing_group(self, r, job):
+        """The one exception to "a merge-group run is never cancelled": one of its jobs concluded "failure", so the group
+        cannot merge and its remaining jobs only hold runners. The merge queue re-builds it; it is not queued for re-run."""
+        done = self.gh(["run", "cancel", str(r["id"]), "-R", self.cfg.repo], ok_fail=True) is not None
+        self.log(f"merge-group run {r['id']}: job {job!r} concluded failure; {'cancelled' if done else 'not cancelled'}")
+
+    def closeness(self, jobs):
+        """(no completed non-preflight, non-skipped job, unfinished jobs): lower is closer to finishing. Until a
+        non-preflight job completes, the matrix may not have expanded, so the unfinished count understates the work left."""
+        unexpanded = not any(j.get("name") not in self.cfg["preflight_jobs"] and j["status"] == "completed"
+                             and j.get("conclusion") != "skipped" for j in jobs)
+        return unexpanded, sum(1 for j in jobs if j["status"] != "completed")
 
     def cancel_and_queue(self, r, why):
         pr, repo = r["pull_requests"][0]["number"], self.cfg.repo
@@ -72,39 +92,58 @@ class Sweeper:
                 self.cfg.write("auth_rerun.json", sorted(todo, key=self.rank))
         self.log(f"#{pr}: run {r['id']} ({r['head_sha'][:10]}, {why}) {'cancelled; queued for re-run under the cap' if done else 'not cancelled'}")
 
-    def sweep(self):
-        """One pass; any API error raises before anything more is cancelled."""
-        waiting, starved = self.queue_state()
-        if not (waiting or starved):
-            return
+    def ordinary_runs(self):
+        """(started, unstarted, cancelling) active ordinary runs, each started or unstarted one as (closeness, rank, run).
+        A run with no jobs uses no runner and GitHub refuses to retry it once cancelled; a run with a job concluded
+        "cancelled" is already being cancelled. Neither is kept or cancelled."""
         repo, workflows = self.cfg.repo, set(self.cfg["workflows"])
         cand = {}
         for st in ACTIVE:
             for r in self.api(f"repos/{repo}/actions/runs?event=pull_request&status={st}&per_page=100")["workflow_runs"]:
                 cand[r["id"]] = r
-        running = []
+        started, unstarted, cancelling = [], [], 0
         for r in cand.values():
             if r["event"] != "pull_request" or r.get("name") not in workflows or not r.get("pull_requests") \
                     or protected_branch(self.cfg, r["head_branch"], r["event"]):
                 continue
             jobs = self.jobs(r["id"])
-            # A run with no jobs uses no runner, and GitHub refuses to retry it once cancelled.
-            if not jobs:
+            if not jobs or all(j["status"] == "completed" for j in jobs):
                 continue
-            if waiting and not heavy_job_started(self.cfg, jobs):
+            if any(j.get("conclusion") == "cancelled" for j in jobs):
+                cancelling += 1
+                continue
+            e = (self.closeness(jobs), self.rank({"pr": r["pull_requests"][0]["number"]}), r)
+            (started if heavy_job_started(self.cfg, jobs) else unstarted).append(e)
+        return started, unstarted, cancelling
+
+    def sweep(self):
+        """One pass; any API error raises before anything more is cancelled."""
+        waiting, starved, failing = self.queue_state()
+        started, unstarted, cancelling = self.ordinary_runs()
+        fails = "yes (%s)" % ", ".join(str(r["id"]) for r, _ in failing) if failing else "no"
+        self.log(f"heartbeat: mq waiting={'yes' if waiting else 'no'} starved={'yes' if starved else 'no'} failing={fails}; "
+                 f"ordinary runs: {len(started)} started, {len(unstarted)} unstarted, {cancelling} being cancelled")
+        for r, job in failing:
+            self.cancel_failing_group(r, job)
+        if waiting:
+            for _, _, r in unstarted:
                 self.cancel_and_queue(r, "no job started")
-            elif starved and any(j["status"] == "in_progress" for j in jobs):
-                unfinished = sum(1 for j in jobs if j["status"] != "completed")
-                # Until a non-preflight job completes, the matrix may not have expanded, so the unfinished count understates the work left.
-                unexpanded = not any(j.get("name") not in self.cfg["preflight_jobs"] and j["status"] == "completed"
-                                     and j.get("conclusion") not in ("cancelled", "skipped") for j in jobs)
-                running.append((unexpanded, unfinished, self.rank({"pr": r["pull_requests"][0]["number"]}), r))
-        if len(running) > 1:
-            running.sort(key=lambda x: x[:3])
-            keep = running[0][3]
-            self.log(f"merge group starved: keeping run {keep['id']} (#{keep['pull_requests'][0]['number']}, {running[0][1]} job(s) unfinished)")
-            for _, unfinished, _, r in running[1:]:
-                self.cancel_and_queue(r, f"started, {unfinished} job(s) unfinished, merge group starved")
+            if starved and len(started) > 1:
+                started.sort(key=lambda e: (e[0], e[1]))
+                (_, unfinished), _, keep = started[0]
+                self.log(f"merge group starved: keeping run {keep['id']} (#{keep['pull_requests'][0]['number']}, {unfinished} job(s) unfinished)")
+                for (_, unfinished), _, r in started[1:]:
+                    self.cancel_and_queue(r, f"started, {unfinished} job(s) unfinished, merge group starved")
+            return
+        cap, active = self.cfg["cap"], started + unstarted
+        if len(active) <= cap:
+            return
+        # Tier first, then closest to finishing: the lowest tier goes first and, within a tier, the run furthest from finishing.
+        active.sort(key=lambda e: (e[1][0], e[0], e[1]))
+        kept = ", ".join("run %d (#%d)" % (r["id"], r["pull_requests"][0]["number"]) for _, _, r in active[:cap]) or "none"
+        self.log(f"over the cap with the merge queue idle: {len(active)} ordinary runs active, keeping {kept} (cap {cap})")
+        for (_, unfinished), _, r in reversed(active[cap:]):
+            self.cancel_and_queue(r, f"{unfinished} job(s) unfinished, over the cap of {cap} with the merge queue idle")
 
 
 def main(argv=None):
