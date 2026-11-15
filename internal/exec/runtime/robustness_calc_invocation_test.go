@@ -44,6 +44,7 @@ func TestRuntimeRobustnessCalcInvocation(t *testing.T) {
 	t.Run("nested_calc_assigns_the_enclosing_calcs_value", testNestedCalcAssignsTheEnclosingCalcsValue)
 	t.Run("nested_calc_assigns_a_wrong_typed_enclosing_value", testNestedCalcAssignsAWrongTypedEnclosingValue)
 	t.Run("nested_calc_write_refreshes_the_enclosing_bindings", testNestedCalcWriteRefreshesTheEnclosingBindings)
+	t.Run("calc_assignment_through_this_to_a_constant", testCalcAssignmentThroughThisToAConstant)
 	t.Run("calc_output_write_of_a_wrong_typed_value", testCalcOutputWriteOfAWrongTypedValue)
 }
 
@@ -798,6 +799,20 @@ func testNestedCalcWriteRefreshesTheEnclosingBindings(t *testing.T) {
 	}
 	if got.Const.Int != 6 {
 		t.Errorf("Outer() = %v, want 6: m is 1 before the write, inner answers 1, m is 4 after", got)
+	}
+}
+
+// testCalcAssignmentThroughThisToAConstant: `this.k` names the calculation's own
+// constant, which no assignment changes however it is reached.
+func testCalcAssignmentThroughThisToAConstant(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		calc def Fixed { constant attribute k : Integer = 1; assign this.k := 5; return : Integer[1] = k; }
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	_, err := ctx.invokeCalcWithSelf(oneSymbol(t, idx, "test::Fixed"), calcArgs{}, idx.DocumentRoot("<test>"), nil)
+	if !errors.Is(err, errReadOnlyFeature) {
+		t.Fatalf("err = %v, want errReadOnlyFeature", err)
 	}
 }
 

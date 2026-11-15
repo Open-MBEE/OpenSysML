@@ -259,6 +259,11 @@ func (h *calcStmtHost) assignChain(ec *EvalContext, s lower.Assign, value Value)
 		return fmt.Errorf("%s: assignment to %s: %w", h.describe(), s.Chain.Text, err)
 	}
 	if h.occ != nil && h.occ.inst != nil && target == h.occ.inst && h.holds(s.Target) {
+		// Judged as the unchained name is, not on the object as a chained write is.
+		what := func() string { return fmt.Sprintf("%s: assignment to %s", h.describe(), s.Chain.Text) }
+		if err := h.ctx.checkMutable(s.Scope, what, s.Target); err != nil {
+			return err
+		}
 		own := s
 		own.Chain = nil
 		if !h.declaredOutput(s.Target) && !h.env.rootDeclares(s.Target) {
