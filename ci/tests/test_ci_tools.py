@@ -851,6 +851,19 @@ class StarveSweepTest(Stub):
         self.assertIn("cancelled; not queued for re-run (no PR)", log)
         self.assertIsNone(self.cfg().read("auth_rerun.json"))
 
+    def test_re_cancelling_the_same_run_and_head_keeps_a_full_rerun_full(self):
+        self.write("auth_rerun.json", [{"pr": 4, "run": 21, "head": "0000000000", "workflow": "PR", "full": True},
+                                       {"pr": 5, "run": 99, "head": "0000000000", "workflow": "PR", "full": True}])
+        self.starved_rules(1, [{"status": "queued"}], extra=[[r"runs\?status=in_progress", {"workflow_runs": [
+            {"id": rid, "event": "pull_request", "name": "PR", "head_branch": f"feat/{n}", "head_sha": f"{rid:040d}",
+             "pull_requests": [{"number": n}]} for rid, n in ((21, 4), (22, 5))]}, 0],
+            [r"runs/2[12]/jobs", {"jobs": [{"name": "Go", "status": "queued"}]}, 0]])
+        self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        self.assertEqual(sorted(self.cancels()), ["21", "22"])
+        self.assertEqual(sorted(self.read("auth_rerun.json"), key=lambda e: e["pr"]), [
+            {"pr": 4, "run": 21, "head": "0000000000", "workflow": "PR", "full": True},
+            {"pr": 5, "run": 22, "head": "0000000000", "workflow": "PR"}])
+
     def test_a_prs_runs_of_two_workflows_both_keep_a_rerun(self):
         def r(rid, name):
             return {"id": rid, "event": "pull_request", "name": name, "head_branch": "feat/5", "head_sha": f"{rid:040d}",
@@ -1004,8 +1017,10 @@ class StackMonitorTest(Stub):
         os.environ.update(FAKE_GIT_LOG=self.git_calls, FAKE_GIT_RULES=self.git_rules)
         self.write("stacks.json", {"stacks": [[10, 11]]})
 
-    def setup(self, pulls, git):
-        self.rules([[rf"^api graphql .* -F n={n}$", g, 0] for n, g in pulls.items()])
+    def setup(self, pulls, git, open_prs=()):
+        self.rules([[rf"^api graphql .* -F n={n}$", g, 0] for n, g in pulls.items()] + [
+            [r"^api --paginate repos/Example/Repo/pulls\?state=open&per_page=100 --jq ",
+             "".join(json.dumps(p) + "\n" for p in open_prs), 0]])
         with open(self.git_rules, "w") as f:
             json.dump(list(git) + [[r"^fetch --quiet origin \+refs/heads/develop:refs/remotes/origin/develop refs/pull/", "", 0]], f)
 
@@ -1056,6 +1071,37 @@ class StackMonitorTest(Stub):
         self.setup({10: gql(10, ref="feat/ten", head=A), 11: gql(11, head=B, base="feat/ten", queued="UNMERGEABLE")},
                    [[rf"^merge-base --is-ancestor {A} {B}$", "", 1]])
         self.assertIn(f"#11: UNMERGEABLE in the merge queue; lacks #10 head {A}", self.report())
+
+    def auto_add(self, stacks_, open_prs):
+        self.write("stacks.json", {"stacks": stacks_})
+        self.setup({}, [], [{"n": n, "head": h, "base": b, "repo": repo} for n, h, b, repo in open_prs])
+        lines = stack_monitor.Monitor(self.cfg(), out=lambda _: None).auto_add()
+        return lines, self.read("stacks.json")["stacks"]
+
+    def test_auto_add_appends_prepends_concatenates_and_creates_chains(self):
+        def p(n, base="develop", repo=REPO):
+            return (n, f"feat/{n}", base, repo)
+        lines, chains = self.auto_add([[10, 11], [20, 21], [40, 41]], [
+            p(10), p(11, "feat/10"), p(12, "feat/11"),              # append after the tail 11
+            p(19), p(20, "feat/19"), p(21, "feat/20"),             # prepend 19 before the head 20
+            p(30), p(31, "feat/30"),                               # new chain [30, 31]
+            p(40, "feat/31"), p(41, "feat/40"),                    # concatenate [30, 31] + [40, 41]
+            p(50, "feat/30", "someone/fork")])                     # a PR from another repository is ignored
+        self.assertEqual(chains, [[10, 11, 12], [19, 20, 21], [30, 31, 40, 41]])
+        self.assertEqual(lines, ["stack: #12 appended after #11: [10, 11, 12]", "stack: #19 prepended before #20: [19, 20, 21]",
+                                 "stack: new chain [30, 31]", "stack: #40 joined after #31, concatenating their chains: [30, 31, 40, 41]"])
+        self.assertFalse([c for c in self.calls() if throttle_common.mutating(c.split())])
+
+    def test_auto_add_reports_a_fork_or_a_different_predecessor_and_changes_nothing(self):
+        before = {"stacks": [[10, 11], [20, 21]], "note": "kept"}
+        self.write("stacks.json", before)
+        self.setup({}, [], [{"n": n, "head": f"feat/{n}", "base": b, "repo": REPO} for n, b in
+                            ((10, "develop"), (11, "feat/10"), (12, "feat/10"), (20, "develop"), (21, "feat/12"))])
+        lines = stack_monitor.Monitor(self.cfg(), out=lambda _: None).auto_add()
+        self.assertEqual(lines, ["#12: builds on #10, which already has successor #11 (a fork); not changed",
+                                 "#21: builds on #12 but follows #20 in stacks.json; not changed"])
+        self.assertEqual(self.read("stacks.json"), before)
+        self.assertNotIn("stacks.json.tmp", os.listdir(self.dir))
 
     def test_git_refuses_every_mutating_subcommand(self):
         g = stack_monitor.Git(self.dir)

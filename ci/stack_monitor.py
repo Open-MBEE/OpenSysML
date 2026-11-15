@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Report the state of every stack in stacks.json: bases, predecessor containment, retargets and merge-queue order.
 
-Read-only: it reads GitHub through the guarded gh wrapper and the configured checkout through a git wrapper that refuses
-every subcommand but fetch, rev-parse, merge-base and diff. It never pushes, rebases or merges. Its only write is
-stack_state.json in the state directory, the heads it saw last.
+Each pass first adds stacked open PRs to stacks.json: a PR whose base is the head branch of another open PR of the
+repository joins that PR's chain. Read-only otherwise: it reads GitHub through the guarded gh wrapper and the configured
+checkout through a git wrapper that refuses every subcommand but fetch, rev-parse, merge-base and diff. It never pushes,
+rebases or merges. Its only writes are stacks.json and stack_state.json (the heads it saw last) in the state directory.
 """
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -60,15 +62,77 @@ class Monitor:
     def diff(self, a, b):
         return self.git("diff", "--no-color", a, b).stdout
 
+    def open_prs(self):
+        """Every open PR (all pages) as {"n", "head", "base", "repo"}; repo is the head's repository, None when deleted."""
+        out = self.gh(["api", "--paginate", f"repos/{self.cfg.repo}/pulls?state=open&per_page=100", "--jq",
+                       ".[] | {n: .number, head: .head.ref, base: .base.ref, repo: .head.repo.full_name}"])
+        return [json.loads(line) for line in out.splitlines() if line.strip()]
+
+    def auto_add(self):
+        """Join each open PR whose base is another open same-repository PR's head branch to that PR's chain, and return one
+        line per addition or refusal. A fork (the predecessor already has another successor), a PR already in a chain
+        under another predecessor, or an ambiguous predecessor is reported and left unchanged."""
+        repo = self.cfg.repo
+        prs = sorted((p for p in self.open_prs() if p["repo"] == repo), key=lambda p: p["n"])
+        by_head = {}
+        for p in prs:
+            by_head.setdefault(p["head"], []).append(p["n"])
+        data = self.cfg.read("stacks.json") or {}
+        chains = [list(s) for s in data.get("stacks", [])]
+        lines = []
+
+        def chain_of(n):
+            return next((s for s in chains if n in s), None)
+        for p in prs:
+            n, preds = p["n"], [m for m in by_head.get(p["base"], []) if m != p["n"]]
+            if p["base"] == self.base or not preds:
+                continue
+            if len(preds) > 1:
+                lines.append(f"#{n}: base {p['base']} is the head of several open PRs {preds}; stacks.json not changed")
+                continue
+            pred = preds[0]
+            cp, cn = chain_of(pred), chain_of(n)
+            if cp is not None and cp is cn and cp.index(n) == cp.index(pred) + 1:
+                continue
+            if cn is not None and cn.index(n) > 0:
+                lines.append(f"#{n}: builds on #{pred} but follows #{cn[cn.index(n) - 1]} in stacks.json; not changed")
+                continue
+            if cp is not None and cp[-1] != pred:
+                lines.append(f"#{n}: builds on #{pred}, which already has successor #{cp[cp.index(pred) + 1]} (a fork); not changed")
+                continue
+            if cp is not None and cp is cn:
+                lines.append(f"#{n}: builds on #{pred}, which follows it in the same chain (a cycle); not changed")
+                continue
+            if cp is not None and cn is not None:
+                cp.extend(cn)
+                chains.remove(cn)
+                lines.append(f"stack: #{n} joined after #{pred}, concatenating their chains: {cp}")
+            elif cp is not None:
+                cp.append(n)
+                lines.append(f"stack: #{n} appended after #{pred}: {cp}")
+            elif cn is not None:
+                cn.insert(0, pred)
+                lines.append(f"stack: #{pred} prepended before #{n}: {cn}")
+            else:
+                chains.append([pred, n])
+                lines.append(f"stack: new chain {[pred, n]}")
+        if any(line.startswith("stack: ") for line in lines):
+            self.cfg.write("stacks.json", dict(data, stacks=chains))
+        for line in lines:
+            self.log(line)
+        return lines
+
     def report(self):
-        """One report line per finding; any GitHub or git error raises before anything is reported or recorded."""
+        """Stack additions, then one report line per finding; any GitHub or git error raises before anything more is
+        reported or recorded."""
+        added = self.auto_add()
         chains = stacks(self.cfg)
         prs = {n: self.pull(n) for s in chains for n in s}
         if prs:
             self.git("fetch", "--quiet", "origin", f"+refs/heads/{self.base}:refs/remotes/origin/{self.base}",
                      *(f"refs/pull/{n}/head" for n in prs))
         seen = (self.cfg.read("stack_state.json") or {}).get("heads", {})
-        lines = []
+        lines = list(added)
         for s in chains:
             for i, n in enumerate(s):
                 lines += self.member(s[:i], n, prs, seen.get(str(n)))

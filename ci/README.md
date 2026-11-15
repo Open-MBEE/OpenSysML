@@ -13,7 +13,7 @@ authenticated `gh`, never in CI. Nothing in the Go build or test suite imports t
 | `infra_rerun.py` | Classifies the failed jobs of the runs in `infra_runs.json` as infrastructure (setup steps, DNS, apt mirrors) or real, and re-runs (`--failed`) only the infrastructure failures once the infrastructure has recovered. |
 | `drycheck.sh` | Dry-merges (`git merge-tree`) each pull request in `ready.txt` onto its base branch's head and prints CLEAN or DIRTY. |
 | `drywatch.sh` | Runs `drycheck.sh` every time the base branch moves and appends the results to `dry.log`. |
-| `stack_monitor.py` | Reports the state of each stack in `stacks.json`: bases, whether each PR still contains its predecessor, retargets, closed PRs and merge-queue order. It is read-only (see [Stacked pull requests](#stacked-pull-requests)). |
+| `stack_monitor.py` | Reports the state of each stack in `stacks.json`: bases, whether each PR still contains its predecessor, retargets, closed PRs and merge-queue order. Each pass first adds stacked open PRs to `stacks.json`; otherwise it is read-only (see [Stacked pull requests](#stacked-pull-requests)). |
 | `poll_develop.sh` | Waits until the base branch moves off a given SHA, then prints the new head. |
 | `throttle_common.py` | Shared code: configuration, control files, and the guarded `gh` wrapper. `throttle_common.py get KEY` prints one configuration value for the shell tools. |
 
@@ -136,6 +136,15 @@ and C on B. The watcher and the sweeper both read it, and `stacks.example.json` 
   successor keeps its queue or `auth_rerun.json` entry and does not block the PRs behind it. An
   unreadable predecessor or run list holds the successor.
 
+**Auto-add.** Each monitor pass first lists every open PR (all pages). A PR whose base branch is
+the head branch of another open PR of the same repository joins that PR's stack: it is appended
+when the predecessor is a chain's tail, the predecessor is prepended when the PR heads a chain, the
+two chains are concatenated when both are in one, and otherwise a new `[predecessor, PR]` chain is
+created. Each addition is printed and logged (`stack: …`). A fork (the predecessor already has
+another successor), a PR already in a chain after a different predecessor, a cycle, or a base that
+is the head of several open PRs is reported and `stacks.json` is left unchanged. `stacks.json` is
+rewritten atomically (a temporary file renamed over it), and only when something was added.
+
 `python3 ci/stack_monitor.py [--config PATH]` prints one line per finding, for each member in
 chain order. It needs `checkout` in the configuration: it fetches the base branch and every
 member's `refs/pull/N/head` into that checkout, then compares commits there.
@@ -152,7 +161,7 @@ member's `refs/pull/N/head` into that checkout, then compares commits there.
 
 The monitor never pushes, rebases or merges. Its git wrapper refuses every subcommand except
 `fetch`, `rev-parse`, `merge-base` and `diff`, and it makes no GitHub mutation. It writes only
-`stack_state.json`, the heads it last saw. Any GitHub or git error stops it with exit status 1
+`stacks.json` (auto-add) and `stack_state.json`, the heads it last saw. Any GitHub or git error stops it with exit status 1
 before it reports or records anything.
 
 ## Control files
@@ -169,7 +178,7 @@ unless stated otherwise.
 | `stacks.json` | `{"stacks": [[pr]]}` | Stacked PRs in chain order: their rank and successor admission (see [Stacked pull requests](#stacked-pull-requests)). |
 | `stack_state.json` | `{"heads": {"pr": sha}}` | Written by `stack_monitor.py`: the heads it last saw. |
 | `cancel_auth.json` | `[run]` | Runs the watcher may cancel. |
-| `auth_rerun.json` | `[{"pr", "run", "head", "full", "workflow"}]` | Authorized re-runs, taken when a slot frees and no merge-queue run waits. Each one is `gh run rerun --failed`, or a plain `gh run rerun` of every job when the entry has `"full": true`. An entry is skipped if the PR's head has moved off `head`. The sweeper appends to this file, one entry per PR and `workflow`. |
+| `auth_rerun.json` | `[{"pr", "run", "head", "full", "workflow"}]` | Authorized re-runs, taken when a slot frees and no merge-queue run waits. Each one is `gh run rerun --failed`, or a plain `gh run rerun` of every job when the entry has `"full": true`. An entry is skipped if the PR's head has moved off `head`. The sweeper appends to this file, one entry per PR and `workflow`; re-queueing the same run and head keeps its `"full": true`. |
 | `starve_cancel.json` | `{"by", "rule"}` | Authorizes and runs `starve_sweep.py`. |
 | `release.json` | `[{"pr", "sha"}]` | Heads released to CI under the review gate. `"pr": "*"` with a full 40-character SHA releases a head before its PR exists. |
 | `review_gate.json` | `{"since"}` | Admit only released heads that have no unresolved review threads. Unreleased runs caught with only the preflight done are cancelled (authorization still applies) and queued. |
