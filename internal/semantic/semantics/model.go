@@ -176,6 +176,9 @@ type Model struct {
 	// parameter or member the body declares finds its owner.
 	bodySymbols map[*ast.BodyExpr]*symbols.Symbol
 	bodyIndexed map[*symbols.Scope]bool
+	// constraintResults is the result expression element reflected for the
+	// closing bare condition of each constraint body (see constraint_result.go).
+	constraintResults map[*symbols.Symbol]*symbols.Symbol
 	// assumedSupers holds the supertypes a reducer's first parameter is judged under
 	// while its reducer's result is typed (see bodyparam.go).
 	assumedSupers map[*symbols.Symbol]assumedSupertypes
