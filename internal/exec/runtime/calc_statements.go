@@ -61,6 +61,7 @@ func (o *calcOccurrence) materializeOccurrence() (*Instance, error) {
 // attachPerformances makes the host perform the steps of a case body as
 // subperformances of the case, whose performance is the root the body reads through.
 func (h *calcStmtHost) attachPerformances(engine *stmtEngine) {
+	h.env = engine.env
 	if !h.shape.Performs() {
 		return
 	}
@@ -85,7 +86,6 @@ func (h *calcStmtHost) attachPerformances(engine *stmtEngine) {
 	h.flow.flow = h.flow
 	root.perfs = &h.flow.performances
 	h.perfs = &h.flow.performances
-	h.env = engine.env
 	engine.env.perf = root
 }
 
@@ -223,8 +223,34 @@ func (h *calcStmtHost) mirrorBodyBinding(name string, cell *bodyCell, value *Val
 
 // assignChain writes the feature a chained target names on the object its chain
 // reaches: a calculation may have side effects (KerML 7.4.8.1).
+// A chain reaching the calculation's own occurrence (`this.x`) names a value the
+// body holds, written as the unchained name is so later reads of it see the write.
 func (h *calcStmtHost) assignChain(ec *EvalContext, s lower.Assign, value Value) error {
-	return assignThroughChain(ec, h.describe(), s, value)
+	target, err := ec.chainCarrier(s.Chain)
+	if err != nil {
+		return fmt.Errorf("%s: assignment to %s: %w", h.describe(), s.Chain.Text, err)
+	}
+	if h.occ != nil && h.occ.inst != nil && target == h.occ.inst && h.holds(s.Target) {
+		own := s
+		own.Chain = nil
+		if !h.declaredOutput(s.Target) && !h.env.rootDeclares(s.Target) {
+			return h.assignData(h.env, s.Target, value, own)
+		}
+		return h.assignOuter(h.env, s.Target, value, own)
+	}
+	if err := writeOnReached(ec, target, s.Chain, s.Target, value); err != nil {
+		return fmt.Errorf("%s: assignment to %s: %w", h.describe(), s.Chain.Text, err)
+	}
+	return nil
+}
+
+// holds reports whether name is a value of the body's own run: a parameter, an
+// output it declares or a local of its root.
+func (h *calcStmtHost) holds(name string) bool {
+	if h.env == nil {
+		return false
+	}
+	return h.declaredOutput(name) || h.env.rootDeclares(name) || h.env.data.has(name)
 }
 
 // assignForeign writes a qualified target naming a feature outside the calc's

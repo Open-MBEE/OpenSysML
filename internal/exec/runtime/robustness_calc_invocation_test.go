@@ -40,6 +40,7 @@ func TestRuntimeRobustnessCalcInvocation(t *testing.T) {
 	t.Run("calc_send_to_no_object", testCalcSendToNoObject)
 	t.Run("calc_terminate_is_rejected", testCalcTerminateIsRejected)
 	t.Run("calc_assignment_of_a_wrong_typed_value", testCalcAssignmentOfAWrongTypedValue)
+	t.Run("calc_assignment_through_this_is_read_back", testCalcAssignmentThroughThisIsReadBack)
 	t.Run("calc_output_write_of_a_wrong_typed_value", testCalcOutputWriteOfAWrongTypedValue)
 }
 
@@ -730,6 +731,24 @@ func testCalcAssignmentOfAWrongTypedValue(t *testing.T) {
 		t.Fatalf("read Host.count: %v", err)
 	} else if got := fv.HeldValue(); got.Const.Int != 0 {
 		t.Errorf("Host.count = %v, want 0: the refused write changed nothing", got)
+	}
+}
+
+// testCalcAssignmentThroughThisIsReadBack: `this.x` in a calculation names the
+// value the body holds as x, so a read after the write answers what was written.
+func testCalcAssignmentThroughThisIsReadBack(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		calc def Overwrite { in x : Integer; assign this.x := 5; return : Integer[1] = x; }
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	got, err := ctx.invokeCalcWithSelf(oneSymbol(t, idx, "test::Overwrite"),
+		calcArgs{positional: []Value{integerValue(1)}}, idx.DocumentRoot("<test>"), nil)
+	if err != nil {
+		t.Fatalf("Overwrite(1): %v", err)
+	}
+	if got.Const.Int != 5 {
+		t.Errorf("Overwrite(1) = %v, want 5: the value written through this", got)
 	}
 }
 
