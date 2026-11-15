@@ -230,9 +230,8 @@ next:
 	return listed
 }
 
-// heldSame reports whether now is prior as a derivation reads it: `===`, and for a
-// quantity the same unit too, which an operation over it carries into its result, and
-// the same quantity value type, which a classification of it reads.
+// heldSame reports whether now is prior as a derivation reads it: `===`, and for a quantity
+// the same unit and quantity value type too, which an operation or classification reads.
 func heldSame(prior, now Value) bool {
 	if isEmptyValue(prior) || isEmptyValue(now) {
 		return isEmptyValue(prior) && isEmptyValue(now) && emptyUnitSame(prior, now)
