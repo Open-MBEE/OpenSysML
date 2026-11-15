@@ -34,6 +34,16 @@ func (ctx *Context) containerSubject(inst *Instance) (container *Instance, subje
 	return nil, "", false
 }
 
+// readsContainerSubject reports whether feat is the subject of inst that its container's supplies, so a
+// constant its definition binds waits to be read rather than be folded.
+func (ctx *Context) readsContainerSubject(inst *Instance, feat *EffectiveFeature) bool {
+	if feat == nil || !isSubjectUsage(feat.Symbol) {
+		return false
+	}
+	_, _, ok := ctx.containerSubject(inst)
+	return ok
+}
+
 // containerSubjectValue is the value the container's subject holds for inst (see containerSubject) and
 // the feature value it was read from; not ok where inst reads none or the container's is unbound.
 func (ctx *Context) containerSubjectValue(inst *Instance) (Value, *FeatureValue, bool, error) {

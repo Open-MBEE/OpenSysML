@@ -116,3 +116,26 @@ func TestSubrequirementSubjectOverridesItsDefinitionsBinding(t *testing.T) {
 		t.Error("the container's check holds although its subrequirement judges a vehicle of mass 20.0")
 	}
 }
+
+// A constant subject a subrequirement's definition binds yields to the container's for the read as for
+// the check, and an optional subrequirement bound to a value is one of the container's constraints.
+func TestSubrequirementConstantSubjectAndBoundOptional(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `
+		package test {
+			private import ScalarValues::*;
+			requirement def D { subject v : Integer = 3; require constraint { v > 5 } }
+			requirement def C { subject v : Integer; requirement d : D; }
+			requirement def Bad { require constraint { false } }
+			requirement def O { requirement opt[0..1] : Bad = new Bad(); }
+			part box { requirement c : C { subject v = 7; } requirement o : O; }
+		}
+	`)
+	box := mustInstantiate(t, ctx, oneSymbol(t, idx, "test::box"))
+	for src, want := range map[string]string{
+		"c.d.v": "7", "c.d.result": "true", "c.result": "true", "o.opt.result": "false", "o.result": "false",
+	} {
+		if got := FormatValue(mustEvalOn(t, ctx, box, src)); got != want {
+			t.Errorf("%s = %s, want %s", src, got, want)
+		}
+	}
+}
