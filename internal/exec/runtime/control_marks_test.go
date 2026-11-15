@@ -31,3 +31,26 @@ func TestUnderControlAddsEachChoicePointOnce(t *testing.T) {
 		t.Fatalf("controls after the outer branch = %v, want none", got)
 	}
 }
+
+// A choice point a released branch stood on is no longer in control, so a later
+// branch standing on it adds it again, and one adding nothing leaves the set as it was.
+func TestReleasedControlIsAddedAgain(t *testing.T) {
+	ctx := &Context{}
+	outer := ctx.underControl([]int64{7})
+	ctx.releaseControl(ctx.underControl([]int64{3, 7}))
+	held := ctx.controlling()
+	same := ctx.underControl([]int64{7})
+	if got := ctx.controlling(); !sameSerials(got, held) {
+		t.Fatalf("controls under a branch adding nothing = %v, want the set kept, %v", got, held)
+	}
+	ctx.releaseControl(same)
+	again := ctx.underControl([]int64{3})
+	if got := ctx.controlling(); !slices.Equal(got, []int64{3, 7}) {
+		t.Fatalf("controls under the later branch = %v, want [3 7]", got)
+	}
+	ctx.releaseControl(again)
+	ctx.releaseControl(outer)
+	if got := ctx.controlling(); len(got) != 0 {
+		t.Fatalf("controls after every branch = %v, want none", got)
+	}
+}

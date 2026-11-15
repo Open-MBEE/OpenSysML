@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -137,7 +138,7 @@ type Context struct {
 	// resolvingBindings guards binding endpoint resolution for one instance
 	// feature, so a valueless binding cycle is reported rather than recursed.
 	resolvingBindings map[featureValueRef]bool
-	bindingOwners     map[featureValueRef]*ast.Usage
+	bindingOwners     map[featureValueRef]program.Origin
 
 	// pendingBehaviors are the object behaviors attached but not yet run, drained
 	// by the outermost materialization so a start reached from inside a running
@@ -204,10 +205,12 @@ type Context struct {
 	// stepWrites is the ledger of the action step under way, nil between steps.
 	stepWrites *stepWriteLedger
 	// controls is the choice points the move under way stands on by control: the
-	// guards read and branches drawn around it (order_marks.go), each once;
-	// controlSet is the same as a set, nil until controlling computes it.
-	controls   []int64
-	controlSet []int64
+	// guards read and branches drawn around it (order_marks.go), each once.
+	controls []int64
+	// controlSet is controls sorted, nil until controlling computes it, and
+	// controlHeld the same by serial, which keeps each once.
+	controlSet  []int64
+	controlHeld map[int64]struct{}
 	// performing is the node whose performance the executor running is, nil for a
 	// run of its own: a body's own place is stamped as that performance's.
 	performing ast.Node
@@ -466,7 +469,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		materializingConnectors: make(map[connectorRef]bool),
 		derivingFeatureValues:   make(map[featureValueRef]bool),
 		resolvingBindings:       make(map[featureValueRef]bool),
-		bindingOwners:           make(map[featureValueRef]*ast.Usage),
+		bindingOwners:           make(map[featureValueRef]program.Origin),
 		collectingSubsets:       make(map[featureValueRef]bool),
 		readingSubsetted:        make(map[featureValueRef]bool),
 		drawingSubsetters:       make(map[featureValueRef]bool),
@@ -496,11 +499,11 @@ func (ctx *Context) declaredSymbol(sym *symbols.Symbol) *symbols.Symbol {
 	return ctx.model.declaredSymbol(sym)
 }
 
-// collectDeclared records the symbol declared by each node under scope.
-func collectDeclared(scope *symbols.Scope, into map[ast.Node]*symbols.Symbol) {
+// collectDeclared records the symbol declaring each element under scope, by the element's key.
+func collectDeclared(scope *symbols.Scope, into map[symbols.ElementKey]*symbols.Symbol) {
 	scope.ForEachMember(func(sym *symbols.Symbol) bool {
 		if sym.Decl != nil {
-			into[sym.Decl] = sym
+			into[symbols.KeyOf(sym)] = sym
 		}
 		return true
 	})

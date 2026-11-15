@@ -88,6 +88,11 @@ ones); `includeLibraryMembers`, `elementProperties` and `instancePaths` throw
 `MissingCapabilityError` before asking when the service lacks `symbol_members`,
 `element_properties` or `instance_paths`.
 
+`annotatingMetadataIds` names the metadata usages annotating a symbol: its own `#M` prefixes and
+body `@M` usages, then the ones naming it in an `about` clause elsewhere, which `childIds` and
+`members` leave out. `annotatingMetadata()` fetches them as symbols, each with its `type` and
+`attributes`, and needs the `symbol_annotating_metadata` capability.
+
 ## Verify
 
 ```ts

@@ -110,6 +110,7 @@ type JGetSymbolRequest struct {
 	ModelHash             string `json:"modelHash,omitempty"`
 	SymbolId              string `json:"symbolId,omitempty"`
 	IncludeLibraryMembers bool   `json:"includeLibraryMembers,omitempty"`
+	ResolveName           bool   `json:"resolveName,omitempty"`
 }
 
 // JSymbolResponse is the protojson-shaped GetSymbol response.
@@ -146,6 +147,7 @@ type JSymbolInfo struct {
 	WithheldLibraryAttributes int32              `json:"withheldLibraryAttributes,omitempty"`
 	Members                   []*JMemberInfo     `json:"members,omitempty"`
 	WithheldLibraryMembers    int32              `json:"withheldLibraryMembers,omitempty"`
+	AnnotatingMetadataIds     []string           `json:"annotatingMetadataIds,omitempty"`
 }
 
 // JMemberInfo is the protojson-shaped member message.
