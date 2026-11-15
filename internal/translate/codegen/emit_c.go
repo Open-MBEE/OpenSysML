@@ -649,6 +649,9 @@ func EmitC(w io.Writer, p *Program, withMain bool) error {
 	e.raw(cNumeric)
 	e.raw(cEnumRuntime(p))
 	e.raw(cFnRuntime(p))
+	if len(p.Records) > 0 || len(p.FnCases) > 0 {
+		e.raw(cKeepNumbers)
+	}
 	if p.Collections {
 		e.raw(fmt.Sprintf("#define SYSML_DEFAULT_MAX_ELEMENTS %d\n", runtime.DefaultMaxElements))
 		e.raw(cSeqRuntime())

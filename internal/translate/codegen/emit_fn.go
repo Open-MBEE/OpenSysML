@@ -236,10 +236,10 @@ SYSML_OPT(e, sysml_enum)
 SYSML_OPT(rec, sysml_rec *)
 SYSML_OPT(s, sysml_str)
 typedef struct sysml_fn sysml_fn;
-/* What a record or a closure holds: a String's bytes, a collection's elements
-   and a function value are kept until the run ends (sysml_keep). */
+/* What a record or a closure holds: a String's bytes, an Integer beyond int64, a
+   collection's elements and a function value are kept until the run ends (sysml_keep). */
 typedef union {
-	sysml_int i; sysml_real r; sysml_bool b; sysml_num n; sysml_enum e; int64_t run; sysml_rec *rec;
+	sysml_integer i; sysml_real r; sysml_bool b; sysml_num n; sysml_enum e; int64_t run; sysml_rec *rec;
 	sysml_str s; sysml_kept q; const sysml_fn *f;
 	sysml_opt_i u_i; sysml_opt_r u_r; sysml_opt_b u_b; sysml_opt_n u_n; sysml_opt_e u_e; sysml_opt_rec u_rec; sysml_opt_s u_s;
 } sysml_cap;
@@ -278,6 +278,13 @@ static const char *sysml_show_fn(sysml_fn f) { return sysml_fn_names[f.c]; }
 static sysml_fn sysml_parse_fn(const char *s, const char *name) { fprintf(stderr, "argument %%s: %%s is not a function value\n", name, s); exit(2); }
 `, env, strings.Join(names, ", "))
 }
+
+// cKeepNumbers keeps the Integer a record feature or a closure holds.
+const cKeepNumbers = `
+static inline sysml_num sysml_keep_num(sysml_num n) { n.i = sysml_keep_int(n.i); return n; }
+static inline sysml_opt_i sysml_keep_opt_int(sysml_opt_i o) { o.v = sysml_keep_int(o.v); return o; }
+static inline sysml_opt_n sysml_keep_opt_num(sysml_opt_n o) { o.v = sysml_keep_num(o.v); return o; }
+`
 
 // cKeepOptStr keeps the String a record feature that may be unset holds.
 const cKeepOptStr = `
@@ -354,10 +361,12 @@ func (e *cEmitter) kept(v Expr) string {
 		return fmt.Sprintf("sysml_keepseq_%s(%s)", cSeqSuffix(t), e.expr(v))
 	case t.IsFn():
 		return "sysml_keep_fn(" + e.expr(v) + ")"
-	case t == TypeString:
-		return "sysml_keep_str(" + e.expr(v) + ")"
-	case t.MayUnset() && t.Concrete() == TypeString:
-		return "sysml_keep_opt_str(" + e.expr(v) + ")"
+	case t.Concrete() == TypeString, t.Concrete() == TypeInt, t.Concrete() == TypeNum:
+		keep := "sysml_keep_"
+		if t.MayUnset() {
+			keep += "opt_"
+		}
+		return keep + cSeqSuffix(t.Concrete()) + "(" + e.expr(v) + ")"
 	}
 	return e.expr(v)
 }
