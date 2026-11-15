@@ -77,7 +77,7 @@ func (h *calcStmtHost) attachPerformances(engine *stmtEngine) {
 		run:        h.ctx.newRun(),
 	}
 	h.flow = &ActionExecutor{
-		performances:     performances{ctx: h.ctx, self: h.self, root: root, owner: h, behavior: h.shape.Sym},
+		performances:     performances{ctx: h.ctx, self: h.self, root: root, owner: h, behavior: h.shape.Sym, thisOccurrence: h.materializeOccurrence},
 		action:           h.shape.Sym,
 		state:            StateRunning,
 		nextTokenID:      1,
