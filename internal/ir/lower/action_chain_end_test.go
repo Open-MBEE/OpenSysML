@@ -15,11 +15,11 @@ const chainEndParts = `
 `
 
 // impliedChainSteps are the steps of graph a chained succession end implied.
-func impliedChainSteps(graph *ActionGraph) []*ast.Usage {
-	var steps []*ast.Usage
+func impliedChainSteps(graph *ActionGraph) []*ast.PerformActionNode {
+	var steps []*ast.PerformActionNode
 	for _, node := range graph.Nodes {
-		if usage, ok := node.(*ast.Usage); ok && usage.Keyword == "perform" && usage.Ident.Name == "" {
-			steps = append(steps, usage)
+		if step, ok := node.(*ast.PerformActionNode); ok {
+			steps = append(steps, step)
 		}
 	}
 	return steps
@@ -43,15 +43,15 @@ func TestActionChainEndImpliesOneStepPerPath(t *testing.T) {
 		t.Fatalf("implied steps = %d, want one each for v.close and v.lock", len(steps))
 	}
 	for i, want := range []string{"v.close", "v.lock"} {
-		rel := steps[i].Relationships[0]
-		if rel.Kind != ast.RelReferences || FeaturePath(rel.Target) != want {
-			t.Errorf("step %d performs %s %q, want a reference to %q", i, rel.Kind, FeaturePath(rel.Target), want)
+		target, isChain := steps[i].ActionRef.(*ast.FeatureChainExpr)
+		if !isChain || FeaturePath(target) != want {
+			t.Errorf("step %d performs %T %q, want the feature chain %q", i, steps[i].ActionRef, FeaturePath(steps[i].ActionRef), want)
 		}
-		if _, isChain := rel.Target.(*ast.FeatureChainExpr); !isChain {
-			t.Errorf("step %d target = %T, want a feature chain", i, rel.Target)
+		if kind := graph.Kinds[graph.ID[steps[i]]]; kind != program.NodePerform {
+			t.Errorf("step %d kind = %s, want a perform node", i, kind)
 		}
-		if kind := graph.Kinds[graph.ID[steps[i]]]; kind != program.NodeExecution {
-			t.Errorf("step %d kind = %s, want an execution node", i, kind)
+		if nodeHasName(steps[i]) {
+			t.Errorf("step %d answers to a name, want it reachable only through its chain", i)
 		}
 	}
 	closeStep, lockStep := ast.Node(steps[0]), ast.Node(steps[1])
@@ -81,11 +81,16 @@ func TestActionChainEndJoinsStatedPerformers(t *testing.T) {
 			first v.close then v.lock;
 		}
 	`, "A")
-	stated := impliedChainSteps(graph)
-	if len(stated) != 1 {
-		t.Fatalf("anonymous performs = %d, want only the stated `perform v.lock;`", len(stated))
+	if implied := impliedChainSteps(graph); len(implied) != 0 {
+		t.Fatalf("implied steps = %d, want none beside the stated performers", len(implied))
 	}
-	c1, c2, lock := nodeNamed(t, graph, "c1"), nodeNamed(t, graph, "c2"), ast.Node(stated[0])
+	c1, c2 := nodeNamed(t, graph, "c1"), nodeNamed(t, graph, "c2")
+	var lock ast.Node
+	for _, node := range graph.Nodes {
+		if performsPath(node, []string{"v", "lock"}) {
+			lock = node
+		}
+	}
 	targets := map[ast.Node]bool{}
 	for _, edge := range graph.Edges[nodeNamed(t, graph, "a")] {
 		targets[edge.Target] = true
@@ -165,5 +170,88 @@ func TestClassifyChainEnd(t *testing.T) {
 				t.Fatalf("ClassifyChainEnd = %d (symbol %v), want %d", got, sym != nil, c.want)
 			}
 		})
+	}
+}
+
+// A step a general states to perform the chain is the end of a succession the
+// specialization adds, though it joins the flow after that succession is lowered.
+func TestActionChainEndJoinsInheritedPerformer(t *testing.T) {
+	graph := scopedActionGraph(t, chainEndParts+`
+		action def Base {
+			part v : Vehicle;
+			perform action c ::> v.close;
+		}
+		action def Derived :> Base {
+			action a;
+			first v.close then a;
+		}
+	`, "Derived")
+	if implied := impliedChainSteps(graph); len(implied) != 0 {
+		t.Fatalf("implied steps = %d, want the inherited performer to be the end", len(implied))
+	}
+	c := nodeNamed(t, graph, "c")
+	if edges := graph.Edges[c]; len(edges) != 1 || edges[0].Target != nodeNamed(t, graph, "a") {
+		t.Fatalf("c edges = %v, want [a]", edges)
+	}
+	count := 0
+	for _, node := range graph.Nodes {
+		if node == c {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("c is a node %d times, want once", count)
+	}
+}
+
+// An implied step answers to no name, and chains differing only in where a
+// quoted name holds the dot are different chains.
+func TestActionChainEndImpliedStepsStayApart(t *testing.T) {
+	graph := scopedActionGraph(t, chainEndParts+`
+		part def Lock { action lock; }
+		part def Fleet { part lead : Vehicle; }
+		action def A {
+			part v : Vehicle;
+			part close : Lock;
+			part fleet : Fleet;
+			part 'fleet.lead' : Vehicle;
+			first v.close then close.lock;
+			first fleet.lead.close then 'fleet.lead'.close;
+		}
+	`, "A")
+	steps := impliedChainSteps(graph)
+	if len(steps) != 4 {
+		t.Fatalf("implied steps = %d, want four", len(steps))
+	}
+	for i, pair := range [][2]int{{0, 1}, {2, 3}} {
+		source, target := ast.Node(steps[pair[0]]), ast.Node(steps[pair[1]])
+		if edges := graph.Edges[source]; len(edges) != 1 || edges[0].Target != target {
+			t.Errorf("succession %d leads to %v, want the step of its own target chain", i, edges)
+		}
+	}
+}
+
+// A chain through a part named as a flow marker is no marker in an inherited succession.
+func TestActionChainEndInheritedThroughAMarkerNamedPart(t *testing.T) {
+	graph := scopedActionGraph(t, chainEndParts+`
+		action def Base {
+			part done : Vehicle;
+			part start : Vehicle;
+			action a;
+			first start.close then a;
+			first a then done.close;
+		}
+		action def Derived :> Base;
+	`, "Derived")
+	steps := impliedChainSteps(graph)
+	if len(steps) != 2 || len(graph.Finals) != 0 || graph.Initial != nil && graph.Initial != ast.Node(steps[0]) {
+		t.Fatalf("implied steps = %d, finals = %d, initial = %T; want two steps and no marker", len(steps), len(graph.Finals), graph.Initial)
+	}
+	a := nodeNamed(t, graph, "a")
+	if edges := graph.Edges[steps[0]]; len(edges) != 1 || edges[0].Target != a {
+		t.Errorf("start.close edges = %v, want [a]", edges)
+	}
+	if edges := graph.Edges[a]; len(edges) != 1 || edges[0].Target != ast.Node(steps[1]) {
+		t.Errorf("a edges = %v, want [done.close]", edges)
 	}
 }

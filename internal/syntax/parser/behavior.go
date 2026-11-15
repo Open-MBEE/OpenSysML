@@ -1010,8 +1010,7 @@ func (p *Parser) parseSuccessionEdgeWithMultiplicity(tok lexer.Token, allowBody 
 
 	// Otherwise, parse as named edge: then [source] target;
 	// If only one name before semicolon, it's the target (source implicit)
-	// The end is a ConnectorEnd (SysML.xtext:1705), so it may be a feature chain.
-	first := p.parseChainedName() // allow keywords like 'fork', 'join'
+	first := p.parseChainedName() // a ConnectorEnd (SysML.xtext:1705): a name or feature chain
 
 	// Check if there's a second name (explicit source + target)
 	var source, target *ast.QualifiedName

@@ -173,6 +173,8 @@ type ActionGraph struct {
 	// impliedSteps: feature path → the step a succession end chaining to an action
 	// through an object implies, where the body states no step performing it.
 	impliedSteps map[string]ast.Node
+	// generals are the bodies of the actions the action specializes, nearest first.
+	generals []*symbols.Scope
 
 	// declaredIn: inherited node, flow or binding declaration → the scope of the
 	// general's body it was written in, which says which document declares it.
@@ -1024,6 +1026,7 @@ func lowerActionFlowWithTypingAndAncestors(
 	}
 	// The initial node is optional at graph construction time; the executor's
 	// initialize() reports its absence.
+	graph.generals = generals
 	edges := &actionEdgeLowerer{graph: graph, scope: scope, weights: &probabilityReader{resolver: resolver, scope: scope}}
 	for _, member := range members {
 		if err := edges.member(unwrapMembership(member)); err != nil {
@@ -1297,10 +1300,10 @@ func (l *actionEdgeLowerer) endpoint(ref ast.Node, member ast.Node, source bool)
 		if node := l.nodes(name); node != nil {
 			return node, nil
 		}
-		if name == "start" && source {
+		if name == "start" && source && !isChainEnd(ref) {
 			return ensureImpliedStart(l.graph, ref), nil
 		}
-		if name == "done" && !source {
+		if name == "done" && !source && !isChainEnd(ref) {
 			return ensureInheritedDone(l.graph, &ast.FinalNode{NodeBase: ast.NodeBase{NodeSpan: ref.Span()}}, l.scope), nil
 		}
 		decl, _, found, _ := resolve.ActionNodeInScope(l.scope, qn)

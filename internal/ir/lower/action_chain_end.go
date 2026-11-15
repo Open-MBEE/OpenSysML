@@ -1,6 +1,7 @@
 package lower
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -98,28 +99,48 @@ func chainTarget(ref ast.Node) ast.Node {
 	return target
 }
 
-// chainSteps returns the steps of the flow performing the action a chain end
-// reaches: those the body states by reference (`perform v.close;`, `perform
-// action c ::> v.close;`), each an occurrence of it, else one the end implies.
+// chainSteps returns the steps performing the action a chain end reaches: those the
+// body or a general states by reference (`perform v.close;`), else one the end implies.
 func (g *ActionGraph) chainSteps(ref ast.Node, scope *symbols.Scope) []ast.Node {
-	path := strings.Join(endSegments(ref), ".")
+	segments := endSegments(ref)
 	var steps []ast.Node
+	add := func(nodes ...ast.Node) {
+		for _, node := range nodes {
+			if node != nil && !slices.Contains(steps, node) {
+				steps = append(steps, node)
+			}
+		}
+	}
 	for _, node := range g.Nodes {
-		if usage, ok := node.(*ast.Usage); ok && isActionUsageNode(usage) && performsPath(usage, path) {
-			steps = append(steps, node)
+		if performsPath(node, segments) {
+			add(node)
+		}
+	}
+	// A general's step joins the flow only after the body's own successions are lowered.
+	for _, body := range g.generals {
+		if body == nil || body.Node() == nil {
+			continue
+		}
+		for _, member := range ast.DeclMembers(body.Node()) {
+			decl := unwrapMembership(member)
+			if !performsPath(decl, segments) {
+				continue
+			}
+			if matches := inheritedNodeMatches(g, body, decl); len(matches) > 0 {
+				add(matches...)
+			} else if !shadowsInheritedActionNode(g, body, decl) {
+				add(ensureDeclaredActionNode(g, decl, body))
+			}
 		}
 	}
 	if len(steps) > 0 {
 		return steps
 	}
+	path := strings.Join(segments, "\x00")
 	if step := g.impliedSteps[path]; step != nil {
 		return []ast.Node{step}
 	}
-	step := &ast.Usage{
-		Kind:          ast.UsageAction,
-		Keyword:       "perform",
-		Relationships: []*ast.Relationship{{Kind: ast.RelReferences, Target: chainTarget(ref)}},
-	}
+	step := &ast.PerformActionNode{ActionRef: chainTarget(ref)}
 	step.NodeSpan = ref.Span()
 	if g.impliedSteps == nil {
 		g.impliedSteps = make(map[string]ast.Node)
@@ -127,14 +148,19 @@ func (g *ActionGraph) chainSteps(ref ast.Node, scope *symbols.Scope) []ast.Node 
 	g.impliedSteps[path] = step
 	g.Nodes = append(g.Nodes, step)
 	g.recordDeclaredIn(step, scope)
-	lowerActionNode(g, step, scope)
+	g.Bodies[step] = []Statement{withExprs(performEffect(step, scope), g.Exprs)}
 	return []ast.Node{step}
 }
 
-// performsPath reports whether a step is stated to perform the feature at path.
-func performsPath(usage *ast.Usage, path string) bool {
+// performsPath reports whether a node is an action step stated to perform the
+// feature the segments chain to.
+func performsPath(node ast.Node, segments []string) bool {
+	usage, ok := node.(*ast.Usage)
+	if !ok || !isActionUsageNode(usage) {
+		return false
+	}
 	for _, rel := range usage.Relationships {
-		if rel != nil && rel.Kind.ReferenceSubsets() && isChainEnd(rel.Target) && FeaturePath(rel.Target) == path {
+		if rel != nil && rel.Kind.ReferenceSubsets() && isChainEnd(rel.Target) && slices.Equal(endSegments(rel.Target), segments) {
 			return true
 		}
 	}
