@@ -28,6 +28,21 @@ type libraryDocumentForm struct {
 func LibraryElementForm(idOrName string) (APIJSONElement, *ElementForm, bool, error) {
 	index := sharedLibraryIndex()
 	doc, id, ok := index.elementDocument(idOrName)
+	return index.elementForm(doc, id, ok)
+}
+
+// LibraryElementFormNamed is LibraryElementForm for a qualified name alone: an id names nothing.
+func LibraryElementFormNamed(name string) (APIJSONElement, *ElementForm, bool, error) {
+	index := sharedLibraryIndex()
+	element, ok := index.catalog.ElementNamed(name)
+	if !ok {
+		return APIJSONElement{}, nil, false, nil
+	}
+	return index.elementForm(element.Symbol.DocName, element.ID, true)
+}
+
+// elementForm reads the element id from the form of the library document doc.
+func (index *libraryIndex) elementForm(doc, id string, ok bool) (APIJSONElement, *ElementForm, bool, error) {
 	if !ok {
 		return APIJSONElement{}, nil, false, nil
 	}

@@ -47,7 +47,7 @@ func (s *Service) GetElementProperties(ctx context.Context, req *pb.GetElementPr
 		// A standard-library element the model's form references, or names,
 		// is read from its own library document's form.
 		var known bool
-		element, form, known, err = export.LibraryElementForm(req.ElementId)
+		element, form, known, err = s.libraryElementForm(req)
 		if err != nil {
 			return &pb.GetElementPropertiesResponse{Error: err.Error()}, nil
 		}
@@ -110,6 +110,15 @@ func (s *Service) elementLookup(cached *CachedModel, req *pb.GetElementPropertie
 		}
 		return cached.elementFormElementNamed(form, req.ElementId, cached.ResolveMemberName)
 	}
+}
+
+// libraryElementForm reads a standard-library element as req's lookup kind states it: by
+// qualified name alone, else by the form's id or the name GetSymbol reports it under.
+func (s *Service) libraryElementForm(req *pb.GetElementPropertiesRequest) (export.APIJSONElement, *export.ElementForm, bool, error) {
+	if s.capabilities.has(CapabilitySymbolLookupKind) && req.Lookup == pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME {
+		return export.LibraryElementFormNamed(req.ElementId)
+	}
+	return export.LibraryElementForm(req.ElementId)
 }
 
 // elementFormElementByID finds the element an id names: the form's "@id", else the id
