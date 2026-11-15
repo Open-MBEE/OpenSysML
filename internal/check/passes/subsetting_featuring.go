@@ -44,7 +44,7 @@ func (cc *constraintChecker) checkSubsettingFeaturingTypes(sym *symbols.Symbol) 
 }
 
 // checkSubsettedFeatureAccessible reports target, named in scope as a feature sym
-// subsets, when it is featured within a type sym's featuring context cannot reach.
+// subsets, when sym cannot access it (Model.CanAccess, as checkRedefinition asks).
 func (cc *constraintChecker) checkSubsettedFeatureAccessible(sym *symbols.Symbol, scope *symbols.Scope, target ast.Node) {
 	if !isUsageKind(sym.Kind) || ast.IsFeatureChain(target) {
 		return
@@ -61,12 +61,8 @@ func (cc *constraintChecker) checkSubsettedFeatureAccessible(sym *symbols.Symbol
 	if !ok || subsetted == nil || subsetted == sym || !isUsageKind(subsetted.Kind) {
 		return
 	}
-	// A package-level feature has no featuring type, so it is accessible
-	// everywhere and the reference does not check it.
-	if len(cc.featuringContexts(subsetted)) == 0 {
-		return
-	}
-	if cc.redefinedAccessible(sym, subsetted, map[*symbols.Symbol]bool{}) {
+	// A package-level feature is featured by Anything, so Feature::canAccess holds for it everywhere.
+	if cc.model.CanAccess(sym, subsetted) {
 		return
 	}
 	cc.diags = append(cc.diags, diag.Diagnostic{

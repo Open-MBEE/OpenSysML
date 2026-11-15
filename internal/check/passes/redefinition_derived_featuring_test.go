@@ -117,3 +117,19 @@ func TestRedefinitionThroughFeaturesWithOnlyMemberFeatures(t *testing.T) {
 	wantRedefinitionCodes(t, fmt.Sprintf(model, "member", "member"))
 	wantRedefinitionCodes(t, fmt.Sprintf(model, "", ""), "redefinition-no-inherited")
 }
+
+// A Subsetting is held to the same Feature::canAccess as a Redefinition (KerML 1.1 §8.3.3.3.10
+// validateSubsettingFeaturingTypes): a `member` feature has only the featuring types it declares.
+func TestSubsettingUsesDerivedFeaturingTypes(t *testing.T) {
+	wantRedefinitionCodes(t,
+		`class A { feature x; } class U specializes A { member feature u subsets x; }`,
+		"subsetting-featuring-types")
+	wantRedefinitionCodes(t,
+		`class A { feature x; } class U specializes A { member feature u subsets x featured by A; }`)
+	wantRedefinitionCodes(t,
+		`feature battery { feature output; }
+		 class C { feature e references battery { feature s subsets output; } }`)
+	wantRedefinitionCodes(t,
+		`class A { feature x; } class R specializes A { class Inner { feature n subsets x; } }`,
+		"subsetting-featuring-types")
+}
