@@ -1,0 +1,70 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="LoopBodyNestedPerformances" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Run"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="n" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="t" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (InitialNode name="start" successor="")
+          (WhileLoopActionNode kind="loop" variable=""
+            (OperatorExpr operator=">="
+              (FeatureReference name="n")
+              (LiteralInteger value="3"))
+            (Membership visibility="default"
+              (Usage kind="action" name="body" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                (InitialNode name="start" successor="")
+                (Membership visibility="default"
+                  (Usage kind="action" name="inc" ref=false direction="none" composite=false derived=false ordered=false nonunique=false node=true
+                    (*ast.AssignmentActionNode)))
+                (SuccessionEdge source="start" target="inc")
+                (FinalNode)
+                (SuccessionEdge source="inc" target="@done"))))
+          (SuccessionEdge source="start" target="@loop")
+          (WhileLoopActionNode kind="while" variable=""
+            (OperatorExpr operator="<"
+              (FeatureReference name="n")
+              (LiteralInteger value="5"))
+            (*ast.AssignmentActionNode)
+            (WhileLoopActionNode kind="for" variable="i"
+              (SequenceExpr
+                (LiteralInteger value="1")
+                (LiteralInteger value="2"))
+              (Membership visibility="default"
+                (Usage kind="action" name="add" ref=false direction="none" composite=false derived=false ordered=false nonunique=false node=true
+                  (*ast.AssignmentActionNode)))))
+          (SuccessionEdge source="@loop" target="@while")
+          (FinalNode)
+          (SuccessionEdge source="@while" target="@done")))
+      (Membership visibility="default"
+        (Definition kind="analysis case" abstract=false variation=false name="Counted"
+          (Membership visibility="default"
+            (Usage kind="subject" name="s" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="n" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (WhileLoopActionNode kind="loop" variable=""
+            (OperatorExpr operator=">="
+              (FeatureReference name="n")
+              (LiteralInteger value="3"))
+            (Membership visibility="default"
+              (Usage kind="action" name="body" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                (Membership visibility="default"
+                  (Usage kind="action" name="inc" ref=false direction="none" composite=false derived=false ordered=false nonunique=false node=true
+                    (*ast.AssignmentActionNode))))))
+          (Usage kind="attribute" name="r" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Integer
+              (*ast.QualifiedName))
+            (FeatureReference name="n")))))))

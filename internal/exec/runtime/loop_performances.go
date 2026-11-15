@@ -23,22 +23,24 @@ const (
 // loopPerformer is a statement host whose loops are performances: an action body's,
 // where the loop and each iteration of its body are objects of the run.
 type loopPerformer interface {
-	beginLoop(stmt lower.Loop) (*Instance, error)
+	beginLoop(stmt lower.Loop, within *Instance) (*Instance, error)
 }
 
-// beginLoopPerformance begins the loop statement stmt reaches in frame as a
-// performance held under the object of the performance around it; nil where that
-// holds no object or the library declares no loop action, and the loop runs as before.
-func (e *performances) beginLoopPerformance(frame *actionFrame, stmt lower.Loop) (*Instance, error) {
+// beginLoopPerformance begins the loop stmt reaches in frame as a performance held by within, the
+// iteration of the loop it is nested in, else by the object around it; nil where neither holds one.
+func (e *performances) beginLoopPerformance(frame *actionFrame, stmt lower.Loop, within *Instance) (*Instance, error) {
 	// A loop node of a flow performs nothing but its loop: the frame is the loop's.
 	_, loopNode := frame.node.(*ast.WhileLoopActionNode)
 	around := frame
 	if loopNode {
 		around = frame.parent
 	}
-	holder, err := e.frameObject(around)
-	if holder == nil || err != nil {
-		return nil, err
+	holder := within
+	if holder == nil {
+		var err error
+		if holder, err = e.frameObject(around); holder == nil || err != nil {
+			return nil, err
+		}
 	}
 	inst, err := e.ctx.holdLoop(holder, stmt)
 	if inst == nil || err != nil {
@@ -50,8 +52,8 @@ func (e *performances) beginLoopPerformance(frame *actionFrame, stmt lower.Loop)
 	return inst, nil
 }
 
-// holdLoop begins the loop stmt as a performance holder holds under its `loops`, with
-// the loop's `body` held empty until the first iteration; nil where holder has no such member.
+// holdLoop begins the loop stmt as a performance holder holds under its `loops`, its
+// `body` held empty until the first iteration; nil where holder has no such member.
 func (ctx *Context) holdLoop(holder *Instance, stmt lower.Loop) (*Instance, error) {
 	fqn := whileLoopActionFQN
 	if stmt.Kind == ast.LoopFor {
@@ -202,7 +204,7 @@ func (e *stmtEngine) beginLoopPerformance(stmt lower.Loop) (*Instance, error) {
 	if !ok {
 		return nil, nil
 	}
-	return host.beginLoop(stmt)
+	return host.beginLoop(stmt, e.loopBody())
 }
 
 // beginLoopBody begins one iteration of the loop's body as an occurrence held under
@@ -224,9 +226,8 @@ func (e *stmtEngine) beginLoopBody(loop *Instance, stmt lower.Loop, activation i
 	return inst, nil
 }
 
-// holdLoopBodyFeatures gives the body object of a loop whose body declares no name
-// the features that body declares: the body is an action usage either way
-// (SysML.xtext ActionBodyParameter), so what it nests is the body's, as under a name.
+// holdLoopBodyFeatures holds on the body object of an unnamed loop body the features that
+// body declares: it is an action usage either way (SysML.xtext ActionBodyParameter).
 func (ctx *Context) holdLoopBodyFeatures(body *Instance, stmt lower.Loop) {
 	features := ctx.loopBodyFeatures(body.Type, stmt)
 	for i := range features {
