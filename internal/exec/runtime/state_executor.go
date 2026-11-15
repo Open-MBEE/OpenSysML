@@ -5604,7 +5604,7 @@ func (e *StateExecutor) activeStates() []*ast.StateNode {
 // declaring no substate has nothing to choose and is simply active.
 func (e *StateExecutor) checkStart() error {
 	if len(e.graph.TopRegions) == 0 {
-		if len(e.graph.StartOf(nil)) == 0 && len(e.graph.States) > 0 {
+		if len(e.graph.StartOf(nil)) == 0 && !e.declaresNoSubstate() {
 			return fmt.Errorf("%w in state machine %s", errNoInitialState, e.stateMachine.Name)
 		}
 		return nil
@@ -5615,6 +5615,12 @@ func (e *StateExecutor) checkStart() error {
 		}
 	}
 	return nil
+}
+
+// declaresNoSubstate reports a machine with no substate and no region: nothing
+// in it to enter, so it is active in itself (SysML v2 §7.18.1).
+func (e *StateExecutor) declaresNoSubstate() bool {
+	return len(e.graph.TopRegions) == 0 && len(e.graph.States) == 0
 }
 
 // initialize sets current state to initial state and enters it.
