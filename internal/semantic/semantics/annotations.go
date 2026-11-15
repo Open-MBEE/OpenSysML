@@ -1742,7 +1742,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		return m.withDefaultMultiplicityMember(sym, append(m.nodeParameters(sym), m.withFlowEndFeature(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)))...)), true
 	case "feature":
 		features := m.nodeParameters(sym)
-		for _, member := range m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)) {
+		for _, member := range m.withFlowEndFeature(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))) {
 			if member.IsFeature() || isExpressionSymbol(member) {
 				features = append(features, member)
 			}
@@ -2136,7 +2136,7 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	members = append(members, m.expressionOwnedElements(sym)...)
 	members = append(members, m.nodeParameters(sym)...)
-	members = append(members, m.withTransitionParts(sym, ownedMembersOf(sym))...)
+	members = append(members, m.withFlowEndFeature(sym, m.withTransitionParts(sym, ownedMembersOf(sym)))...)
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
 		seen[member] = true
