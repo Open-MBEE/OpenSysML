@@ -26,6 +26,7 @@ materialize: ForLoopAction #3
 materialize: body #4
       stmt send
         eval feature kept -> instance#1
+materialize: Transfer #5
   stmt assign deferred
     eval null -> null
 leave action node: state behavior flush

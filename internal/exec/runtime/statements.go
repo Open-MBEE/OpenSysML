@@ -1050,7 +1050,7 @@ func (e *stmtEngine) assert(s lower.Assert) error {
 	}
 	ec := e.evalIn(s.Scope)
 	if judged := e.host.caseAssertions(); judged != nil {
-		judged.judge(e.ctx, ec, s)
+		judged.judge(e.ctx, ec, e.host.occurrence(), s)
 		return nil
 	}
 	check := conditionCheck{
@@ -1060,6 +1060,8 @@ func (e *stmtEngine) assert(s lower.Assert) error {
 		self:    ec.self,
 		frames:  slices.Clone(ec.frames),
 		negated: s.Node.IsNegated,
+
+		occurrence: e.host.occurrence(),
 	}
 	_, err := e.ctx.evaluateConditions(check, e.ctx.conditionsOf(s.Sym, e.ctx.chainMembers(s.Sym, s.Scope)))
 	return err
