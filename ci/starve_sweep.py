@@ -10,7 +10,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from throttle_common import GH, Config, heavy_job_started, protected_branch, utc_stamp  # noqa: E402
+from throttle_common import GH, Config, heavy_job_started, priority, protected_branch, utc_stamp  # noqa: E402
 
 WAITING = ("queued", "waiting")
 ACTIVE = ("queued", "in_progress", "waiting", "pending", "requested")
@@ -29,12 +29,8 @@ class Sweeper:
         return self.gh.json(["api", path])
 
     def rank(self, e):
-        """tiers.json order, then every other PR by age (PR number), as the watcher ranks them."""
-        tiers = (self.cfg.read("tiers.json") or {}).get("tiers", [])
-        for i, t in enumerate(tiers):
-            if e["pr"] in t:
-                return (i, t.index(e["pr"]))
-        return (len(tiers), e["pr"])
+        """tiers.json order with stacks.json, then every other PR by age (PR number), as the watcher ranks them."""
+        return priority(self.cfg, e["pr"])
 
     def merge_group_runs(self):
         runs = {}

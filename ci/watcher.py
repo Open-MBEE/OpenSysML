@@ -14,7 +14,7 @@ import traceback
 import urllib.parse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from throttle_common import GH, Config, heavy_job_started, protected_branch, utc_stamp  # noqa: E402
+from throttle_common import GH, Config, heavy_job_started, priority, protected_branch, stack_of, utc_stamp  # noqa: E402
 
 CFG = None
 GH_RUN = None
@@ -359,12 +359,8 @@ def tiers():
 
 
 def tier_rank(pr):
-    """Listed PRs in tier and list order; every other PR follows by age (PR number)."""
-    ts_ = tiers() or []
-    for i, t in enumerate(ts_):
-        if pr in t:
-            return (i, t.index(pr))
-    return (len(ts_), pr)
+    """Listed PRs in tier and list order; every other PR follows by age (PR number); a stack ranks as its best member."""
+    return priority(CFG, int(pr))
 
 
 def tier_members(*levels):
@@ -730,6 +726,8 @@ def runnable(e):
         return False
     if GATE and e["pr"] not in GATE["allow"]:
         return False
+    if stack_hold(e["pr"]):
+        return False
     cut = CFG.read("cutoff.json")["before"] if CFG.exists("cutoff.json") else None
     if cut and e.get("run") and e.get("kind") == "rerun" and run_created(e["run"]) < cut:
         return False
@@ -772,6 +770,8 @@ def drop_authorized(e):
 
 def start_authorized(st):
     for e in sorted(auth_pending(), key=lambda e: tier_rank(e["pr"])):
+        if stack_hold(e["pr"]):
+            continue
         if CFG.frozen() or CFG.dry_run:
             log(f"{'FROZEN (freeze.json)' if CFG.frozen() else 'DRY RUN'}: authorized re-run of {e['run']} deferred")
             return None
@@ -838,6 +838,35 @@ def mq_waiting():
 
 
 MQ_HELD = {}
+STACK_HELD = {}
+
+
+def stack_hold(pr):
+    """Why a stacked PR takes no slot yet, or None: its nearest open predecessor in stacks.json (merged and closed ones
+    are skipped) has no pull_request run on its current head. An unreadable predecessor or run list holds it too.
+    Decided once per pass."""
+    pr = int(pr)
+    if pr in STACK_HELD:
+        return STACK_HELD[pr]
+    why, s = None, stack_of(CFG, pr) or [pr]
+    for n in reversed(s[:s.index(pr)]):
+        p = pull(n)
+        if not p:
+            why = f"its predecessor #{n} is unreadable"
+            break
+        if p["state"] != "open":
+            continue
+        head = p["head"]["sha"]
+        d = gh_json(["api", f"repos/{REPO}/actions/runs?head_sha={head}&event=pull_request&per_page=100"], ok_fail=True)
+        if d is None:
+            why = f"the runs of its predecessor #{n} are unreadable"
+        elif not any(r.get("name") in CFG["workflows"] for r in d.get("workflow_runs", [])):
+            why = f"its predecessor #{n} has no pull_request run on its head {head[:10]} yet"
+        break
+    STACK_HELD[pr] = why
+    if why:
+        log(f"stack: #{pr} takes no slot: {why}")
+    return why
 
 
 def admit(st, pr, holder=None, start=None):
@@ -849,6 +878,8 @@ def admit(st, pr, holder=None, start=None):
     if mw:
         MQ_HELD["why"] = mw
         log(f"merge-queue first: {mw}; no ordinary slot granted (#{pr} not admitted)")
+        return None
+    if stack_hold(pr):
         return None
     if start is not None and not start():
         return False
@@ -1003,6 +1034,7 @@ def solo_cap(st):
 
 def iterate(st):
     MQ_HELD.clear()
+    STACK_HELD.clear()
     try:
         gate_sweep(st)
     except Exception:
@@ -1331,7 +1363,7 @@ def iterate(st):
                 st["queue"][:] = [e for e in st["queue"] if str(e["pr"]) != k]
                 report(f"#{k}: new run {holders[k]['run']} took a free slot")
                 continue
-            mq_held = True
+            mq_held = bool(MQ_HELD.get("why"))
         if k.isdigit() and int(k) in NOCANCEL:
             pr_run = next((r for r in g if r["workflowName"] == MAIN_WF), g[0])
             enqueue(st, {"pr": int(k), "run": pr_run["databaseId"], "sha": pr_run["headSha"], "kind": "rerun"})
@@ -1354,7 +1386,7 @@ def iterate(st):
             report(f"#{k}: cancelled run(s) {[r['databaseId'] for r in g]}; PR is dirty, stays parked")
             continue
         where = enqueue(st, {"pr": int(k), "run": pr_run["databaseId"], "sha": pr_run["headSha"], "kind": "rerun"})
-        report(f"#{k}: cancelled queued run(s) {[r['databaseId'] for r in g]} {'while the merge queue waits for runners' if mq_held else 'over the cap' if len(holders) >= CAP else 'under the review gate'}; queued ({where}, position {[e['pr'] for e in st['queue']].index(int(k)) + 1}/{len(st['queue'])})")
+        report(f"#{k}: cancelled queued run(s) {[r['databaseId'] for r in g]} {'while the merge queue waits for runners' if mq_held else 'until its stack predecessor has a run' if k.isdigit() and STACK_HELD.get(int(k)) else 'over the cap' if len(holders) >= CAP else 'under the review gate'}; queued ({where}, position {[e['pr'] for e in st['queue']].index(int(k)) + 1}/{len(st['queue'])})")
 
     over = len(holders) - CAP
     if over > 0:

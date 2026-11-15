@@ -13,6 +13,7 @@ authenticated `gh`, never in CI. Nothing in the Go build or test suite imports t
 | `infra_rerun.py` | Classifies the failed jobs of the runs in `infra_runs.json` as infrastructure (setup steps, DNS, apt mirrors) or real, and re-runs (`--failed`) only the infrastructure failures once the infrastructure has recovered. |
 | `drycheck.sh` | Dry-merges (`git merge-tree`) each pull request in `ready.txt` onto its base branch's head and prints CLEAN or DIRTY. |
 | `drywatch.sh` | Runs `drycheck.sh` every time the base branch moves and appends the results to `dry.log`. |
+| `stack_monitor.py` | Reports the state of each stack in `stacks.json`: bases, whether each PR still contains its predecessor, retargets, closed PRs and merge-queue order. It is read-only (see [Stacked pull requests](#stacked-pull-requests)). |
 | `poll_develop.sh` | Waits until the base branch moves off a given SHA, then prints the new head. |
 | `throttle_common.py` | Shared code: configuration, control files, and the guarded `gh` wrapper. `throttle_common.py get KEY` prints one configuration value for the shell tools. |
 
@@ -119,6 +120,39 @@ goes first. Without the file, every PR goes by PR number. This order is used for
 Merge-queue runs come before every tier. The PR numbers in `tiers.json` are the current
 coordination state, so `tiers.example.json` only shows the file's shape.
 
+## Stacked pull requests
+
+`stacks.json` (`{"stacks": [[A, B, C], …]}`) lists ordered chains of stacked PRs: B is built on A,
+and C on B. The watcher and the sweeper both read it, and `stacks.example.json` shows its shape.
+
+- **Rank.** Every member of a stack takes the stack's best `tiers.json` position, then its index in
+  the chain. In the example, if only B is in tier 1, then A, B and C all rank as tier 1 at B's
+  position, in the order A, B, C.
+- **Admission.** A successor takes no slot until its nearest open predecessor has a `pull_request`
+  run on its current head. Merged and closed predecessors are skipped, so after A merges, C waits
+  only for B. The check is in the watcher's single admission point, so it covers every path. A held
+  successor keeps its queue or `auth_rerun.json` entry and does not block the PRs behind it. An
+  unreadable predecessor or run list holds the successor.
+
+`python3 ci/stack_monitor.py [--config PATH]` prints one line per finding, for each member in
+chain order. It needs `checkout` in the configuration: it fetches the base branch and every
+member's `refs/pull/N/head` into that checkout, then compares commits there.
+
+| Report | Meaning |
+| --- | --- |
+| `#N: base X, expected Y` (`(MISMATCH)` when they differ) | The expected base is the nearest open predecessor's branch, or the base branch once every predecessor has merged. |
+| `#N: contains #P head …` | `git merge-base --is-ancestor` finds the predecessor's current head in N's head. |
+| `#N: lost #P head …; unqualified until the owner runs git merge --no-ff <head>` | The predecessor's head is no longer in N's head. |
+| `#N: retargeted to develop after #P merged; its diff vs the merged #P head … matches/differs from its diff vs merge-base(develop) …; head unchanged/changed from … to …/first seen at …` | After the predecessor merged and N was retargeted to the base branch. The head is compared with the one the monitor saw on its previous run. |
+| `#N: CLOSED, not merged`, `#N: its predecessor #P is CLOSED, not merged` | A member closed without merging; its successor has no expected base. |
+| `#N: UNMERGEABLE in the merge queue; lacks #P head <head>` | A queued member became unmergeable, with the predecessor head it lacks, if any. |
+| `#N: queue after #P` | The predecessor is in the merge queue and N qualifies: it has the expected base and contains the predecessor's head. |
+
+The monitor never pushes, rebases or merges. Its git wrapper refuses every subcommand except
+`fetch`, `rev-parse`, `merge-base` and `diff`, and it makes no GitHub mutation. It writes only
+`stack_state.json`, the heads it last saw. Any GitHub or git error stops it with exit status 1
+before it reports or records anything.
+
 ## Control files
 
 All control files live in the state directory. Each one is optional, and the watcher re-reads
@@ -130,6 +164,8 @@ unless stated otherwise.
 | `freeze.json` | anything | Skip every mutation (all tools). Cap 0. |
 | `stop.json` | anything | The watcher exits. |
 | `tiers.json` | `{"tiers": [[pr]]}` | Priority order (see above). |
+| `stacks.json` | `{"stacks": [[pr]]}` | Stacked PRs in chain order: their rank and successor admission (see [Stacked pull requests](#stacked-pull-requests)). |
+| `stack_state.json` | `{"heads": {"pr": sha}}` | Written by `stack_monitor.py`: the heads it last saw. |
 | `cancel_auth.json` | `[run]` | Runs the watcher may cancel. |
 | `auth_rerun.json` | `[{"pr", "run", "head", "full"}]` | Authorized re-runs, taken when a slot frees and no merge-queue run waits. Each one is `gh run rerun --failed`, or a plain `gh run rerun` of every job when the entry has `"full": true`. An entry is skipped if the PR's head has moved off `head`. The sweeper appends to this file. |
 | `starve_cancel.json` | `{"by", "rule"}` | Authorizes and runs `starve_sweep.py`. |

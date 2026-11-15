@@ -17,6 +17,7 @@ CI = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, CI)
 
 import infra_rerun  # noqa: E402
+import stack_monitor  # noqa: E402
 import starve_sweep  # noqa: E402
 import throttle_common  # noqa: E402
 import watcher  # noqa: E402
@@ -41,6 +42,7 @@ for rule in json.load(open(os.environ["FAKE_GH_RULES"])):
 sys.stderr.write("no rule for: " + args)
 sys.exit(1)
 """
+FAKE_GIT = FAKE_GH.replace("FAKE_GH_", "FAKE_GIT_").replace('args = " ".join(sys.argv[1:])', 'args = " ".join(sys.argv[3:])')
 
 
 def stamp(minutes_ago=0):
@@ -395,9 +397,56 @@ class WatcherTest(Stub):
         self.assertIn("#7: started authorized re-run (all jobs) of run 556", self.run_once())
         self.assertIn("run rerun 556 --repo Example/Repo", self.calls())
 
+    def stack_rules(self, pred_runs, extra=()):
+        self.pass_rules([run(101, 7, "feat/seven")], extra=list(extra) + [
+            [r"^api repos/Example/Repo/actions/runs\?head_sha=0+8&event=pull_request", {"workflow_runs": pred_runs}, 0]])
+
+    def test_stack_successor_waits_for_a_run_on_its_predecessor_head(self):
+        self.write("stacks.json", {"stacks": [[8, 7]]})
+        self.stack_rules([])
+        log = self.run_once()
+        self.assertIn("stack: #7 takes no slot: its predecessor #8 has no pull_request run on its head 0000000000 yet", log)
+        self.assertNotIn("took a free slot", log)
+        self.assertEqual(self.read("state.json")["holders"], {})
+
+    def test_stack_successor_is_admitted_once_its_predecessor_head_has_a_run(self):
+        self.write("stacks.json", {"stacks": [[8, 7]]})
+        self.stack_rules([{"id": 900, "name": "PR"}])
+        log = self.run_once()
+        self.assertIn("#7: new run 101 took a free slot", log)
+        self.assertNotIn("stack:", log)
+
+    def test_stack_skips_merged_predecessors_to_the_nearest_open_one(self):
+        self.write("stacks.json", {"stacks": [[6, 8, 7]]})
+        merged = dict(pull(8, "feat/eight"), state="closed", merged=True)
+        self.stack_rules([], extra=[[r"^api repos/Example/Repo/pulls/8$", merged, 0],
+                                    [r"^api repos/Example/Repo/pulls/6$", pull(6, "feat/six"), 0],
+                                    [r"^api repos/Example/Repo/actions/runs\?head_sha=0+6&event=pull_request", {"workflow_runs": []}, 0]])
+        log = self.run_once()
+        self.assertIn("stack: #7 takes no slot: its predecessor #6 has no pull_request run on its head 0000000000 yet", log)
+        self.assertFalse([c for c in self.calls() if f"head_sha={8:040d}" in c])
+
+    def test_stack_holds_an_authorized_rerun_and_keeps_it(self):
+        self.write("stacks.json", {"stacks": [[8, 7]]})
+        self.write("auth_rerun.json", [{"pr": 7, "run": 556, "head": "0000000000"}])
+        self.pass_rules([], extra=[[r"^api repos/Example/Repo/actions/runs\?head_sha=0+8&event=pull_request", {"workflow_runs": []}, 0],
+                                   [r"^run rerun 556 --repo", "", 0]])
+        self.assertIn("stack: #7 takes no slot", self.run_once())
+        self.assertFalse([c for c in self.calls() if c.startswith("run rerun")])
+        self.assertEqual([e["run"] for e in self.read("auth_rerun.json")], [556])
+
+    def test_stack_rank_is_its_best_tier_then_chain_index(self):
+        self.write("tiers.json", {"tiers": [[7]]})
+        self.write("stacks.json", {"stacks": [[5, 7], [9, 8]]})
+        watcher.configure(self.cfg())
+        self.assertEqual(sorted([8, 9, 6, 7, 5], key=watcher.tier_rank), [5, 7, 6, 9, 8])
+        sw = starve_sweep.Sweeper(self.cfg())
+        self.assertEqual([watcher.tier_rank(n) for n in (5, 7, 9, 8)], [sw.rank({"pr": n}) for n in (5, 7, 9, 8)])
+        self.assertEqual(watcher.tier_rank(8), (1, 8, 1))
+
     def test_tiers_order_and_exemptions_come_only_from_exempt_json(self):
         watcher.configure(self.cfg())
-        self.assertEqual(watcher.tier_rank(9), (0, 9))
+        self.assertEqual(watcher.tier_rank(9), (0, 9, 0))
         self.write("tiers.json", {"tiers": [[30, 10], [20]]})
         self.assertEqual(sorted([5, 20, 10, 30, 40], key=watcher.tier_rank), [30, 10, 20, 5, 40])
         self.assertEqual(watcher.tier_members(0, 1), {10, 20, 30})
@@ -850,6 +899,96 @@ class StarveSweepTest(Stub):
         self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
         self.assertIn("error, nothing more cancelled this pass", self.text("watch.log"))
         self.assertFalse([c for c in self.calls() if c.startswith("run cancel")])
+
+
+A, B = "a" * 40, "b" * 40
+
+
+def gql(n, state="OPEN", ref=None, head=None, base="develop", queued=None):
+    return {"data": {"repository": {"pullRequest": {
+        "number": n, "state": state, "headRefName": ref or f"feat/{n}", "headRefOid": head or f"{n:040d}", "baseRefName": base,
+        "isInMergeQueue": queued is not None, "mergeQueueEntry": {"state": queued} if queued else None}}}}
+
+
+class StackMonitorTest(Stub):
+    def setUp(self):
+        super().setUp()
+        with open(os.path.join(self.dir, "bin", "git"), "w") as f:
+            f.write(FAKE_GIT)
+        os.chmod(os.path.join(self.dir, "bin", "git"), 0o755)
+        self.git_calls, self.git_rules = os.path.join(self.dir, "git.calls"), os.path.join(self.dir, "git.rules")
+        for k in ("FAKE_GIT_LOG", "FAKE_GIT_RULES"):
+            self.env[k] = os.environ.get(k)
+        os.environ.update(FAKE_GIT_LOG=self.git_calls, FAKE_GIT_RULES=self.git_rules)
+        self.write("stacks.json", {"stacks": [[10, 11]]})
+
+    def setup(self, pulls, git):
+        self.rules([[rf"^api graphql .* -F n={n}$", g, 0] for n, g in pulls.items()])
+        with open(self.git_rules, "w") as f:
+            json.dump(list(git) + [[r"^fetch --quiet origin \+refs/heads/develop:refs/remotes/origin/develop refs/pull/", "", 0]], f)
+
+    def report(self):
+        lines = []
+        stack_monitor.Monitor(self.cfg(), out=lines.append).report()
+        gits = [line.split()[0] for line in self.text("git.calls").splitlines()]
+        self.assertTrue(set(gits) <= {"fetch", "merge-base", "diff"}, gits)
+        self.assertFalse([c for c in self.calls() if throttle_common.mutating(c.split())])
+        return lines
+
+    def test_open_predecessor_contained_and_queued_means_queue_after(self):
+        self.setup({10: gql(10, ref="feat/ten", head=A, queued="QUEUED"), 11: gql(11, head=B, base="feat/ten")},
+                   [[rf"^merge-base --is-ancestor {A} {B}$", "", 0]])
+        self.assertEqual(self.report(), ["#10: base develop, expected develop", "#11: base feat/ten, expected feat/ten",
+                                         "#11: contains #10 head aaaaaaaaaa", "#11: queue after #10"])
+
+    def test_lost_predecessor_head_is_unqualified_and_a_wrong_base_is_flagged(self):
+        self.setup({10: gql(10, ref="feat/ten", head=A, queued="QUEUED"), 11: gql(11, head=B)},
+                   [[rf"^merge-base --is-ancestor {A} {B}$", "", 1]])
+        lines = self.report()
+        self.assertIn("#11: base develop, expected feat/ten (MISMATCH)", lines)
+        self.assertIn(f"#11: lost #10 head aaaaaaaaaa; unqualified until the owner runs git merge --no-ff {A}", lines)
+        self.assertNotIn("#11: queue after #10", lines)
+
+    def test_retarget_after_the_predecessor_merged_compares_diffs_and_the_head(self):
+        mb = "c" * 40
+        git = [[rf"^merge-base origin/develop {B}$", mb + "\n", 0], [rf"^diff --no-color {A} {B}$", "same", 0],
+               [rf"^diff --no-color {mb} {B}$", "same", 0]]
+        self.setup({10: gql(10, state="MERGED", head=A), 11: gql(11, head=B)}, git)
+        lines = self.report()
+        self.assertEqual(lines[:2], ["#10: merged", "#11: base develop, expected develop"])
+        self.assertEqual(lines[2], "#11: retargeted to develop after #10 merged; its diff vs the merged #10 head aaaaaaaaaa matches "
+                                   "its diff vs merge-base(develop) cccccccccc; head first seen at bbbbbbbbbb")
+        self.assertTrue(self.report()[2].endswith("; head unchanged"))
+        d = "d" * 40
+        self.setup({10: gql(10, state="MERGED", head=A), 11: gql(11, head=d)},
+                   [[rf"^merge-base origin/develop {d}$", mb, 0], [rf"^diff --no-color {A} {d}$", "one", 0], [rf"^diff --no-color {mb} {d}$", "two", 0]])
+        line = self.report()[2]
+        self.assertIn("differs from its diff vs merge-base(develop)", line)
+        self.assertTrue(line.endswith("; head changed from bbbbbbbbbb to dddddddddd"))
+
+    def test_closed_not_merged_member_is_reported(self):
+        self.setup({10: gql(10, state="CLOSED"), 11: gql(11, base="feat/10")}, [])
+        self.assertEqual(self.report(), ["#10: CLOSED, not merged", "#11: its predecessor #10 is CLOSED, not merged; base feat/10, no expected base"])
+
+    def test_queued_member_turning_unmergeable_names_the_head_it_lacks(self):
+        self.setup({10: gql(10, ref="feat/ten", head=A), 11: gql(11, head=B, base="feat/ten", queued="UNMERGEABLE")},
+                   [[rf"^merge-base --is-ancestor {A} {B}$", "", 1]])
+        self.assertIn(f"#11: UNMERGEABLE in the merge queue; lacks #10 head {A}", self.report())
+
+    def test_git_refuses_every_mutating_subcommand(self):
+        g = stack_monitor.Git(self.dir)
+        for sub in ("push", "rebase", "merge", "commit", "reset", "checkout"):
+            with self.assertRaisesRegex(RuntimeError, "read-only"):
+                g(sub, "origin")
+        self.assertEqual(self.text("git.calls"), "")
+
+    def test_a_github_error_fails_closed_without_recording_heads(self):
+        self.rules([[r"^api graphql", "HTTP 502", 1]])
+        with redirect_stderr(io.StringIO()) as err:
+            self.assertEqual(stack_monitor.main(["--config", self.config]), 1)
+        self.assertIn("nothing reported", err.getvalue())
+        self.assertFalse(os.path.exists(os.path.join(self.dir, "stack_state.json")))
+        self.assertEqual(self.text("git.calls"), "")
 
 
 class InfraRerunTest(Stub):

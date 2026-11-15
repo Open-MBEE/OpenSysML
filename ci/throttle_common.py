@@ -109,6 +109,29 @@ def heavy_job_started(cfg, jobs):
         j.get("status") == "completed" and j.get("conclusion") not in ("cancelled", "skipped"))) for j in jobs)
 
 
+def stacks(cfg):
+    """stacks.json {"stacks": [[pr, ...], ...]}: ordered chains of stacked PRs, each PR after the one it builds on."""
+    return (cfg.read("stacks.json") or {}).get("stacks", [])
+
+
+def stack_of(cfg, pr):
+    """The stack listing pr, or None."""
+    return next((s for s in stacks(cfg) if pr in s), None)
+
+
+def priority(cfg, pr):
+    """The binding rank of a PR, lower first: its tiers.json (tier, position), every unlisted PR following by age
+    (PR number), then its index in its stack. A stack member takes the best (tier, position) of its stack's members."""
+    tiers = (cfg.read("tiers.json") or {}).get("tiers", [])
+
+    def listed(n):
+        return next(((i, t.index(n)) for i, t in enumerate(tiers) if n in t), (len(tiers), n))
+    s = stack_of(cfg, pr)
+    if s is None:
+        return listed(pr) + (0,)
+    return min(listed(n) for n in s) + (s.index(pr),)
+
+
 def protected_branch(cfg, branch, event=None):
     """Runs no tool may cancel: the merge queue, the long-lived and release branches, and tags."""
     branch = branch or ""
