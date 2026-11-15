@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -69,6 +70,9 @@ type Objective struct {
 	// Value is the expression stating the value to improve, nil when the
 	// objective states none.
 	Value ast.Node
+
+	// ValueID is Value in the model's table, lowered in Scope; 0 when it states none.
+	ValueID program.ExprID
 
 	// Scope is where Value's names resolve.
 	Scope *symbols.Scope
@@ -256,6 +260,13 @@ func (ctx *Context) redefines(obj, prev Objective) bool {
 // conditions from its own body. owner is the case stating it, which is where a
 // value it takes from a redeclared objective is looked for.
 func (ctx *Context) objectiveOf(objSym, owner *symbols.Symbol) Objective {
+	obj := ctx.statedObjective(objSym, owner)
+	obj.ValueID = ctx.model.exprs.Intern(obj.Value, obj.Scope)
+	return obj
+}
+
+// statedObjective is objectiveOf before the value is interned.
+func (ctx *Context) statedObjective(objSym, owner *symbols.Symbol) Objective {
 	typ := ctx.extractType(objSym)
 	obj := Objective{
 		Name:      ctx.model.semantics.EffectiveNameOf(objSym),

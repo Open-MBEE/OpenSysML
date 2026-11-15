@@ -12,6 +12,38 @@ import (
 // ExprTable is a table of lowered expressions by id, index zero "none".
 type ExprTable struct {
 	entries []*ExprEntry
+	// resolver resolves the names of the expressions interned; nil leaves them to the run.
+	resolver *resolve.Resolver
+	// interned is the id of each expression interned, by its node and scope: one
+	// record however many payloads state the same expression.
+	interned map[internedExpr]program.ExprID
+}
+
+type internedExpr struct {
+	node  ast.Node
+	scope *symbols.Scope
+}
+
+// NewExprTable is an empty table whose interned expressions resolve with resolver.
+func NewExprTable(resolver *resolve.Resolver) *ExprTable {
+	return &ExprTable{resolver: resolver}
+}
+
+// Intern lowers node, written in scope, and gives it an id; 0 for no node or no table.
+func (t *ExprTable) Intern(node ast.Node, scope *symbols.Scope) program.ExprID {
+	if t == nil || node == nil {
+		return 0
+	}
+	key := internedExpr{node: node, scope: scope}
+	if id, ok := t.interned[key]; ok {
+		return id
+	}
+	id := t.Lower(node, scope, t.resolver)
+	if t.interned == nil {
+		t.interned = make(map[internedExpr]program.ExprID)
+	}
+	t.interned[key] = id
+	return id
 }
 
 // ExprEntry is one lowered expression with where it came from beside it.

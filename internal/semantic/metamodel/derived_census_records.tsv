@@ -754,7 +754,7 @@ Feature::featureTarget	examples	13472	13472	0	0	21004	21004	0	0
 Feature::featureTarget	probes	8	8	0	0	8	8	0	0
 Feature::featureTarget	manual-examples	1363	1363	0	0	3546	3546	0	0
 Feature::featuringType	training	3129	2527	602	0	4506	4171	335	0
-Feature::featuringType	pilot-examples	12232	9279	2950	3	15943	14601	1342	0
+Feature::featuringType	pilot-examples	12232	9279	2950	3	15943	14598	1345	0
 Feature::featuringType	pilot-validation	3977	3016	961	0	5259	4790	469	0
 Feature::featuringType	kerml-examples	2109	1642	467	0	2884	2643	241	0
 Feature::featuringType	spec-examples	2853	2248	601	4	5510	4164	1346	0
