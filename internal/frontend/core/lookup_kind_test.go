@@ -66,3 +66,54 @@ package Quoted { part '\'q\''; part q; }`
 		t.Error("an unknown lookup kind was accepted")
 	}
 }
+
+// coreSymbolReader parses content and answers GetSymbol's reported id, child ids and error.
+func coreSymbolReader(t *testing.T, content string) func(symbolID, lookup string) (string, []string, string) {
+	t.Helper()
+	c, err := New()
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	ctx := context.Background()
+	params, _ := json.Marshal(&JParseSourcesRequest{Documents: []*JSourceDocument{{Content: &content}}})
+	body, err := c.Call(ctx, "ParseSources", params)
+	if err != nil {
+		t.Fatalf("ParseSources: %v", err)
+	}
+	var parsed JParseSourcesResponse
+	if err := json.Unmarshal(body, &parsed); err != nil || parsed.ModelHash == "" {
+		t.Fatalf("ParseSources answered %s (%v)", body, err)
+	}
+	return func(symbolID, lookup string) (string, []string, string) {
+		t.Helper()
+		request := fmt.Sprintf(`{"modelHash":%q,"symbolId":%q,"lookup":%q}`, parsed.ModelHash, symbolID, lookup)
+		body, err := c.Call(ctx, "GetSymbol", []byte(request))
+		if err != nil {
+			t.Fatalf("GetSymbol(%s, %s): %v", symbolID, lookup, err)
+		}
+		var response JSymbolResponse
+		if err := json.Unmarshal(body, &response); err != nil {
+			t.Fatalf("decoding GetSymbol: %v\n%s", err, body)
+		}
+		if response.Symbol == nil {
+			return "", nil, response.Error
+		}
+		return response.Symbol.Id, response.Symbol.ChildIds, response.Error
+	}
+}
+
+// A root connector the core reports under an escaped id still has its unnamed ends found
+// by the ids it reports for them.
+func TestEscapedRootConnectorEndsResolve(t *testing.T) {
+	read := coreSymbolReader(t, `port def P; port q : P; port r : P;
+connection A connect q to r; connection A_pend0 connect q to r;`)
+	id, children, _ := read("A_pend0", "LOOKUP_KIND_QUALIFIED_NAME")
+	if id != "A_5fpend0" || len(children) != 2 {
+		t.Fatalf("A_pend0 by name = id %q, children %v; want the escaped connector and its two ends", id, children)
+	}
+	for _, child := range children {
+		if got, _, errText := read(child, "LOOKUP_KIND_ELEMENT_ID"); got != child {
+			t.Errorf("GetSymbol(%s, element id) = id %q, error %q", child, got, errText)
+		}
+	}
+}

@@ -172,7 +172,8 @@ func (sc *Context) composedEnds(id string) []*symbols.Symbol {
 		return nil
 	}
 	var found []*symbols.Symbol
-	for _, connector := range sc.Lookup(owner) {
+	// The owner is stated by the id it is reported under, which escapedID may have encoded.
+	for _, connector := range append(sc.Lookup(owner), sc.escapedRoots(owner)...) {
 		ends, _ := sc.Semantics.OwnedConnectorEnds(connector)
 		for _, end := range ends {
 			if sc.Identity(end) == "" && sc.composedEndID(end) == id {
