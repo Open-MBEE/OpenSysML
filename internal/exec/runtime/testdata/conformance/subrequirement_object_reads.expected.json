@@ -38,6 +38,8 @@
     "test::unnamedResult": {"type": "Boolean", "value": false},
     "test::unnamedSubrequirements": {"type": "Integer", "value": 3},
     "test::unnamedSubResults": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}, {"type": "Boolean", "value": false}, {"type": "Boolean", "value": true}]},
+    "test::optionalResult": {"type": "Boolean", "value": true},
+    "test::optionalSubrequirements": {"type": "Integer", "value": 0},
     "test::satLight": {"type": "Boolean", "value": true},
     "test::satLightMass": {"type": "Real", "value": 5.0},
     "test::implLight": {"type": "Boolean", "value": true},

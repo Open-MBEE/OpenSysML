@@ -2,6 +2,7 @@
 // Requirements.sysml `subrequirements :> requirementChecks, constraints`): the object a part holds for `rr` holds one object for
 // each, typed or not, whose `result` is its own check and whose subject, declaring none, is the container's — never one
 // it declares itself (`own`) — and undetermined while the container's is unbound (`bare`).
+// An unnamed one is held and counted as a named one is; one of optional multiplicity, which the model states no value of, is neither.
 package test {
 	private import ScalarValues::*;
 	private import SequenceFunctions::size;
@@ -27,6 +28,7 @@ package test {
 		requirement : LightReq;
 		requirement { require constraint { v.mass < 30.0 } }
 	}
+	requirement def Optional { subject v : Veh; requirement opt[0..1] : LightReq; requirement many[*] : LightReq; }
 	requirement def Owned {
 		subject v : Veh;
 		requirement own { subject s : Veh; require constraint { s.mass < 10.0 } }
@@ -39,6 +41,7 @@ package test {
 		requirement bare : R;
 		requirement owned : Owned { subject v = feather; }
 		requirement unnamed : Unnamed { subject v = veh; }
+		requirement optional : Optional { subject v = veh; }
 		satisfy requirement sat : R by feather;
 	}
 	part holder : Veh { attribute :>> mass = 3.0; satisfy requirement impl : R; }
@@ -78,6 +81,9 @@ package test {
 	attribute unnamedResult = box.unnamed.result;
 	attribute unnamedSubrequirements = size(box.unnamed.subrequirements);
 	attribute unnamedSubResults : Boolean[*] nonunique = box.unnamed.subrequirements.result;
+
+	attribute optionalResult = box.optional.result;
+	attribute optionalSubrequirements = size(box.optional.subrequirements);
 
 	attribute satLight = box.sat.light.result;
 	attribute satLightMass = box.sat.light.v.mass;

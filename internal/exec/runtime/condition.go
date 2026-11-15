@@ -254,6 +254,11 @@ func (ctx *Context) subrequirementOf(node ast.Node, scope *symbols.Scope) *symbo
 	if sym == nil || !ctx.model.semantics.IsSubrequirement(sym) {
 		return nil
 	}
+	// An optional one the model states no value of is no constraint: `constraints` holds its values.
+	feat := ctx.effectiveFeature(sym.Name, sym, ctx.findOwnerType(sym))
+	if lower := feat.Multiplicity.Lower; lower.Known && !lower.Infinite && lower.Value == 0 && !ctx.bodyBindsAFeature(&feat) {
+		return nil
+	}
 	return sym
 }
 
