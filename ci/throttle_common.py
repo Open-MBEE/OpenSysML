@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 
 DEFAULT_CONFIG = "~/ci-throttle/config.json"
 MERGE_QUEUE_PREFIX = "gh-readonly-queue/"
@@ -25,8 +26,11 @@ DEFAULTS = {
     "known_flakes": [],
     "job_timeout_minutes": 59,
     "starve_grace_seconds": 180,
+    "gh_token_file": None,
 }
 # Commands that change GitHub state; a freeze file or a dry run blocks every one of them.
+AUTH_ERRORS = ("gh auth login", "Bad credentials", "HTTP 401")
+AUTH_RETRY_SECONDS = 5
 MUTATING = (["run", "rerun"], ["run", "cancel"], ["pr", "close"], ["pr", "reopen"], ["pr", "edit"], ["pr", "ready"],
             ["pr", "merge"], ["workflow", "run"])
 
@@ -130,13 +134,25 @@ class GH:
             if self.cfg.dry_run:
                 self.log(f"DRY RUN: would run gh {' '.join(args)}")
                 return None
-        p = subprocess.run(["gh"] + list(args), capture_output=True, text=True, timeout=120)
+        p = self.run(args)
+        if p.returncode != 0 and any(e in p.stderr for e in AUTH_ERRORS):
+            # The credentials are rewritten on token refresh; one retry picks up the new token.
+            self.log(f"gh {' '.join(args)}: authentication failed; retrying once in {AUTH_RETRY_SECONDS} s")
+            time.sleep(AUTH_RETRY_SECONDS)
+            p = self.run(args)
         if p.returncode != 0:
             if ok_fail:
                 self.log(f"gh {' '.join(args)} failed: {p.stderr.strip()[:300]}")
                 return None
             raise RuntimeError(f"gh {' '.join(args)}: {p.stderr.strip()[:300]}")
         return p.stdout
+
+    def run(self, args):
+        env = None
+        if self.cfg["gh_token_file"]:
+            with open(os.path.expanduser(self.cfg["gh_token_file"])) as f:
+                env = dict(os.environ, GH_TOKEN=f.read().strip())
+        return subprocess.run(["gh"] + list(args), capture_output=True, text=True, timeout=120, env=env)
 
     def json(self, args, ok_fail=False):
         out = self(args, ok_fail)

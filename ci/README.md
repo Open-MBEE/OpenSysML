@@ -31,6 +31,9 @@ The code keeps these, and `tests/test_ci_tools.py` checks them:
   that has only finished its preflight job (`preflight_jobs`) may be cancelled under the review
   gate. The sweeper's cancels are authorized by `starve_cancel.json`, and the sweeper stops when
   that file is removed.
+- **Authentication.** When a `gh` call fails with "gh auth login", "Bad credentials" or "HTTP 401" in
+  its error output, the wrapper waits 5 s and retries it once, re-reading the credentials; if the retry
+  fails too, the call fails closed like any other.
 - **Freeze.** While `freeze.json` exists, the `gh` wrapper skips every mutating call (`run
   cancel|rerun`, `pr close|reopen|edit|ready|merge`, `workflow run`, `api -X …`) and logs it, and
   the watcher's cap drops to 0. Use it during a GitHub Actions outage.
@@ -70,6 +73,7 @@ the directory that contains the configuration file.
 | `known_flakes` | `[{"job", "test", "note"}]`: a red result whose only failures are this job's (plus the required check) and only this test is reported as the known flake, not as the PR's failure. |
 | `job_timeout_minutes` | A cancelled job that ran at least this long is reported as a timeout (default 59). |
 | `starve_grace_seconds` | How long a merge-queue job may stay queued or waiting before the sweeper counts the queue as starved (default 180). |
+| `gh_token_file` | Optional file holding the GitHub token. The `gh` wrapper re-reads it for every call and passes it as `GH_TOKEN`, so a token refresh that rewrites the file takes effect without a restart. Unset, `gh` uses its own credentials. |
 
 ## Starting and stopping
 

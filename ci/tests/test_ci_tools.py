@@ -27,10 +27,17 @@ import json, os, re, sys
 args = " ".join(sys.argv[1:])
 with open(os.environ["FAKE_GH_LOG"], "a") as f:
     f.write(args + "\\n")
-for pat, out, rc in json.load(open(os.environ["FAKE_GH_RULES"])):
-    if re.search(pat, args):
-        sys.stdout.write(out if isinstance(out, str) else json.dumps(out))
-        sys.exit(rc)
+for rule in json.load(open(os.environ["FAKE_GH_RULES"])):
+    pat, out, rc = rule[:3]
+    if not re.search(pat, args):
+        continue
+    if len(rule) > 3:
+        mark = os.path.join(os.path.dirname(os.environ["FAKE_GH_LOG"]), rule[3])
+        if os.path.exists(mark):
+            continue
+        open(mark, "w").close()
+    (sys.stdout if rc == 0 else sys.stderr).write(out if isinstance(out, str) else json.dumps(out))
+    sys.exit(rc)
 sys.stderr.write("no rule for: " + args)
 sys.exit(1)
 """
@@ -65,7 +72,7 @@ class Stub(unittest.TestCase):
         os.environ.pop("CI_THROTTLE_CONFIG", None)
         self.rules([])
         sleep = mock.patch("time.sleep")
-        sleep.start()
+        self.sleep = sleep.start()
         self.addCleanup(sleep.stop)
 
     def tearDown(self):
@@ -149,6 +156,26 @@ class CommonTest(Stub):
             gh(["api", "repos/x"])
         self.assertIsNone(gh(["api", "repos/x"], ok_fail=True))
         self.assertIn("no rule for", msgs[0])
+
+    def test_auth_failure_is_retried_once_then_fails_closed(self):
+        token = os.path.join(self.dir, "token")
+        with open(token, "w") as f:
+            f.write("old\n")
+        cfg = throttle_common.Config(self.config)
+        cfg.values["gh_token_file"] = token
+        g = throttle_common.GH(cfg, lambda m: None)
+        self.rules([[r"^run list", "HTTP 401: Bad credentials (https://api.github.com/graphql)", 1, "first"], [r"^run list", "[]", 0]])
+        with mock.patch.object(throttle_common.subprocess, "run", wraps=subprocess.run) as run:
+            self.assertEqual(g.json(["run", "list"]), [])
+            self.assertEqual([c.kwargs["env"]["GH_TOKEN"] for c in run.call_args_list], ["old", "old"])
+        self.sleep.assert_called_with(5)
+        self.assertEqual(self.calls(), ["run list", "run list"])
+        self.rules([[r"^run cancel", "To get started with GitHub CLI, please run:  gh auth login", 1]])
+        self.assertIsNone(g(["run", "cancel", "1"], ok_fail=True))
+        self.assertEqual(self.calls().count("run cancel 1"), 2)
+        self.rules([[r"^run view", "HTTP 404: Not Found", 1]])
+        self.assertIsNone(g(["run", "view", "1"], ok_fail=True))
+        self.assertEqual(self.calls().count("run view 1"), 1)
 
     def test_get_command(self):
         out = io.StringIO()
