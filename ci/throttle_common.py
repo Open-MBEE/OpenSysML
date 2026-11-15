@@ -126,19 +126,27 @@ class GH:
         self.cfg = cfg
         self.log = log
 
-    def __call__(self, args, ok_fail=False):
+    def blocked(self, args):
+        """A mutation under a freeze file or a dry run is skipped and logged, checked again before a retry."""
         if mutating(args):
             if self.cfg.frozen():
                 self.log(f"FROZEN (freeze.json): skipped gh {' '.join(args)}")
-                return None
+                return True
             if self.cfg.dry_run:
                 self.log(f"DRY RUN: would run gh {' '.join(args)}")
-                return None
+                return True
+        return False
+
+    def __call__(self, args, ok_fail=False):
+        if self.blocked(args):
+            return None
         p = self.run(args)
         if p.returncode != 0 and any(e in p.stderr for e in AUTH_ERRORS):
             # The credentials are rewritten on token refresh; one retry picks up the new token.
             self.log(f"gh {' '.join(args)}: authentication failed; retrying once in {AUTH_RETRY_SECONDS} s")
             time.sleep(AUTH_RETRY_SECONDS)
+            if self.blocked(args):
+                return None
             p = self.run(args)
         if p.returncode != 0:
             if ok_fail:
