@@ -11,61 +11,8 @@ const cSeqPrelude = `
 /* A collection value is null, one bare scalar, or a sequence (shape). */
 enum { SYSML_NULL = 0, SYSML_ONE = 1, SYSML_MANY = 2 };
 
-typedef struct sysml_block { struct sysml_block *next; size_t used, cap; char data[]; } sysml_block;
-static sysml_block *sysml_arena;
 static sysml_int sysml_elements;
 static sysml_int sysml_max_elements = SYSML_DEFAULT_MAX_ELEMENTS;
-
-typedef struct { sysml_block *block; size_t used; } sysml_mark;
-
-static sysml_mark sysml_arena_mark(void) {
-	return (sysml_mark){sysml_arena, sysml_arena ? sysml_arena->used : 0};
-}
-
-static void sysml_arena_release(sysml_mark m) {
-	while (sysml_arena != m.block) {
-		sysml_block *next = sysml_arena->next;
-		free(sysml_arena);
-		sysml_arena = next;
-	}
-	if (sysml_arena) sysml_arena->used = m.used;
-}
-
-/* Whether p lies in memory a release to m would reclaim. */
-static bool sysml_above_mark(const void *p, sysml_mark m) {
-	const char *c = p;
-	for (sysml_block *b = sysml_arena; b; b = b->next) {
-		if (c >= b->data && c < b->data + b->used) return b != m.block || (size_t)(c - b->data) >= m.used;
-		if (b == m.block) break;
-	}
-	return false;
-}
-
-static bool sysml_in_arena(const void *p) { return sysml_above_mark(p, (sysml_mark){NULL, 0}); }
-
-/* A run owns what it allocates until the next run begins, so its result outlives it. */
-static void sysml_run_begin(void) {
-	static sysml_mark mark;
-	static bool ran;
-	if (ran) sysml_arena_release(mark);
-	mark = sysml_arena_mark();
-	ran = true;
-	sysml_elements = 0;
-}
-
-static void *sysml_alloc(size_t n) {
-	n = (n + 15) & ~(size_t)15;
-	if (!sysml_arena || sysml_arena->cap - sysml_arena->used < n) {
-		size_t cap = n > (1 << 16) ? n : (1 << 16);
-		sysml_block *b = malloc(sizeof *b + cap);
-		if (!b) sysml_fail("out of memory");
-		b->next = sysml_arena; b->used = 0; b->cap = cap;
-		sysml_arena = b;
-	}
-	void *p = sysml_arena->data + sysml_arena->used;
-	sysml_arena->used += n;
-	return p;
-}
 
 static void sysml_failf(const char *fmt, ...) __attribute__((format(printf, 1, 2), noreturn));
 static void sysml_failf(const char *fmt, ...) {

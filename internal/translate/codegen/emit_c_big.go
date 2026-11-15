@@ -212,22 +212,45 @@ static inline sysml_integer sysml_sub(sysml_integer a, sysml_integer b) {
 	return sysml_big_sum(a, b, true);
 }
 
-static sysml_integer sysml_big_mul(sysml_integer a, sysml_integer b) {
+static sysml_integer sysml_big_mul(sysml_integer a, sysml_integer b, bool sized) {
 	sysml_mag x, y;
 	sysml_view(a, &x);
 	sysml_view(b, &y);
 	if (x.n == 0 || y.n == 0) return (sysml_integer){0, NULL};
 	/* The product has at least bitlen(x)+bitlen(y)-1 bits. */
 	int64_t bits = sysml_mag_bits(x.d, x.n) + sysml_mag_bits(y.d, y.n) - 1;
-	if (bits > sysml_max_integer_bits) sysml_size_fail(bits);
+	if (sized && bits > sysml_max_integer_bits) sysml_size_fail(bits);
 	uint32_t *r = sysml_limbs((int64_t)x.n + y.n);
-	return sysml_wrap(x.neg != y.neg, r, sysml_mag_mul(r, x.d, x.n, y.d, y.n), true);
+	return sysml_wrap(x.neg != y.neg, r, sysml_mag_mul(r, x.d, x.n, y.d, y.n), sized);
 }
+
+/* a * b whatever its size: a step of a comparison or of a checked power. */
+static inline sysml_integer sysml_mul_exact(sysml_integer a, sysml_integer b) {
+	int64_t r;
+	if (!a.big && !b.big && !__builtin_mul_overflow(a.small, b.small, &r)) return (sysml_integer){r, NULL};
+	return sysml_big_mul(a, b, false);
+}
+
+/* a, failing when it is beyond the size budget. */
+static inline sysml_integer sysml_sized(sysml_integer a) {
+	if (a.big && sysml_mag_bits(a.big->d, a.big->n) > sysml_max_integer_bits) sysml_size_fail(sysml_mag_bits(a.big->d, a.big->n));
+	return a;
+}
+
+/* a * 2^s. */
+static sysml_integer sysml_shift(sysml_integer a, int64_t s) {
+	sysml_mag x;
+	sysml_view(a, &x);
+	uint32_t *r = sysml_limbs((int64_t)x.n + s / 32 + 1);
+	return sysml_wrap(x.neg, r, sysml_mag_shl(r, x.d, x.n, s), false);
+}
+
+static inline bool sysml_low_bit(sysml_integer a) { return a.big ? a.big->d[0] & 1 : a.small & 1; }
 
 static inline sysml_integer sysml_mul(sysml_integer a, sysml_integer b) {
 	int64_t r;
 	if (__builtin_expect(!a.big && !b.big && !__builtin_mul_overflow(a.small, b.small, &r), 1)) return (sysml_integer){r, NULL};
-	return sysml_big_mul(a, b);
+	return sysml_big_mul(a, b, true);
 }
 
 static inline sysml_integer sysml_neg(sysml_integer a) {
@@ -316,11 +339,6 @@ static int sysml_cmp_ir(sysml_integer a, sysml_real r) {
 	return x.neg ? -c : c;
 }
 
-/* The order of a / b and c / d for b, d > 0, compared exactly. */
-static int sysml_cmp_frac(sysml_integer a, sysml_integer b, sysml_integer c, sysml_integer d) {
-	return sysml_icmp(sysml_mul(a, d), sysml_mul(c, b));
-}
-
 /* The whole Real x as an Integer. */
 static sysml_integer sysml_int_of_real(sysml_real x) {
 	if (x >= -9223372036854775808.0 && x < 9223372036854775808.0) return (sysml_integer){(int64_t)x, NULL};
@@ -328,7 +346,7 @@ static sysml_integer sysml_int_of_real(sysml_real x) {
 	uint64_t m = (uint64_t)ldexp(frexp(fabs(x), &e), 53);
 	uint32_t w[2] = {(uint32_t)m, (uint32_t)(m >> 32)};
 	uint32_t *s = sysml_limbs(3 + (e - 53) / 32);
-	return sysml_wrap(x < 0, s, sysml_mag_shl(s, w, 2, e - 53), true);
+	return sysml_wrap(x < 0, s, sysml_mag_shl(s, w, 2, e - 53), false);
 }
 
 /* The decimal digits of an Integer, in the arena; *len is their count. */
@@ -357,10 +375,89 @@ static const char *sysml_int_digits(sysml_integer a, int64_t *len) {
 	return out + at;
 }
 
-static void sysml_print_int(sysml_integer a) {
+static void sysml_print_int_value(sysml_integer a) {
 	int64_t len;
 	const char *s = sysml_int_digits(a, &len);
 	fwrite(s, 1, (size_t)len, stdout);
+}
+
+/* An Integer as the interpreter prints it, in the arena. */
+static const char *sysml_show_int(sysml_integer a) {
+	int64_t len;
+	const char *s = sysml_int_digits(a, &len);
+	char *text = sysml_alloc((size_t)len + 1);
+	memcpy(text, s, (size_t)len);
+	text[len] = 0;
+	return text;
+}
+
+/* The exact ratio a / b rounded once to binary64 (round to nearest, ties to even). */
+static sysml_real sysml_quot(sysml_integer a, sysml_integer b) {
+	if (__builtin_expect(sysml_isign(b) == 0, 0)) sysml_fail("division by zero");
+	if (!a.big && !b.big && a.small > -(1LL << 53) && a.small < (1LL << 53) && b.small > -(1LL << 53) && b.small < (1LL << 53))
+		return (sysml_real)a.small / (sysml_real)b.small;
+	sysml_mag x, y;
+	sysml_view(a, &x);
+	sysml_view(b, &y);
+	double q = sysml_mag_ratio(x.d, x.n, y.d, y.n);
+	if (q == 0 && x.n) sysml_fail("arithmetic overflow: a nonzero Rational below the least Real");
+	if (isinf(q)) sysml_fail("arithmetic overflow: result is not a finite Real");
+	return x.neg != y.neg ? -q : q;
+}
+
+/* A hash of an Integer, equal for equal ones. */
+static uint64_t sysml_int_key(sysml_integer a) {
+	if (!a.big) return (uint64_t)a.small;
+	uint64_t h = a.big->neg ? 0x9E3779B97F4A7C15ull : 0;
+	for (int32_t i = 0; i < a.big->n; i++) h = (h ^ a.big->d[i]) * 0x100000001B3ull;
+	return h;
+}
+
+/* A big Integer copied out of the arena when a release to m would reclaim it; NULL when it would not. */
+static sysml_big *sysml_save_big(sysml_integer a, sysml_mark m) {
+	if (!a.big || !sysml_above_mark(a.big, m)) return NULL;
+	size_t size = sizeof(sysml_big) + (size_t)a.big->n * sizeof(uint32_t);
+	sysml_big *t = malloc(size);
+	if (!t) sysml_fail("out of memory");
+	return memcpy(t, a.big, size);
+}
+
+/* Moves a saved copy back into the arena after the release. */
+static void sysml_restore_big(sysml_integer *a, sysml_big *t) {
+	if (!t) return;
+	size_t size = sizeof(sysml_big) + (size_t)t->n * sizeof(uint32_t);
+	a->big = memcpy(sysml_alloc(size), t, size);
+	free(t);
+}
+
+/* a held until the run ends, for a record or a closure keeping it. */
+static sysml_integer sysml_keep_int(sysml_integer a) {
+	if (a.big && sysml_in_arena(a.big)) a.big = sysml_keep(a.big, sizeof(sysml_big) + (size_t)a.big->n * sizeof(uint32_t));
+	return a;
+}
+
+static void sysml_save_ints(sysml_integer *t, int64_t n) {
+	for (int64_t i = 0; i < n; i++) {
+		if (!t[i].big) continue;
+		size_t size = sizeof(sysml_big) + (size_t)t[i].big->n * sizeof(uint32_t);
+		sysml_big *b = malloc(size);
+		if (!b) sysml_fail("out of memory");
+		t[i].big = memcpy(b, t[i].big, size);
+	}
+}
+
+static void sysml_restore_ints(sysml_integer *d, int64_t n) {
+	for (int64_t i = 0; i < n; i++) {
+		if (!d[i].big) continue;
+		sysml_big *t = (sysml_big *)d[i].big;
+		size_t size = sizeof(sysml_big) + (size_t)t->n * sizeof(uint32_t);
+		d[i].big = memcpy(sysml_alloc(size), t, size);
+		free(t);
+	}
+}
+
+static void sysml_keep_ints(sysml_integer *d, int64_t n) {
+	for (int64_t i = 0; i < n; i++) d[i] = sysml_keep_int(d[i]);
 }
 
 /* The Integer of decimal digits with an optional sign; ok is false for anything else. */
