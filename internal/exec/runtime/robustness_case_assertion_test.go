@@ -156,6 +156,58 @@ func TestRuntimeRobustnessCaseAssertion(t *testing.T) {
 			t.Fatalf("restored verdicts = %v, want the one satisfied verdict captured", got)
 		}
 	}))
+	t.Run("bound_input_reads_the_flow_position", inParallel(func(t *testing.T) {
+		verdicts, err := caseAssertionVerdicts(t, `package test {
+			private import ScalarValues::*;
+			constraint def Bound { in v : Integer default = 5; v > 4 }
+			analysis seq {
+				attribute level : Integer := 0;
+				action fill { assign level := 7; }
+				then assert constraint early : Bound { in v = level; }
+				then action drain { assign level := 3; }
+				then assert constraint late : Bound { in v = level; }
+				return r : Integer = level;
+			}
+		}`, "test::seq")
+		if err != nil {
+			t.Fatalf("run failed: %v", err)
+		}
+		if got := verdicts["early"]; got.Status != VerdictSatisfied {
+			t.Fatalf("early = %v (%q), want satisfied: v is bound to level, 7 where the flow reached it", got.Status, got.Detail)
+		}
+		if got := verdicts["late"]; got.Status != VerdictNotSatisfied {
+			t.Fatalf("late = %v (%q), want not satisfied: its binding of 3 masks the default of 5", got.Status, got.Detail)
+		}
+	}))
+	t.Run("assertion_without_a_condition_is_reported_undecided", inParallel(func(t *testing.T) {
+		verdicts, err := caseAssertionVerdicts(t, `package test {
+			private import ScalarValues::*;
+			constraint def Blank { in v : Integer; }
+			analysis seq {
+				attribute level : Integer := 0;
+				action fill { assign level := 7; }
+				assert constraint skipped : Blank { in v = level; }
+				assert constraint loose : Blank { in v = level; }
+				first start;
+				succession first start then fill;
+				succession first skipped then done;
+				then assert constraint reached : Blank { in v = level; }
+				return r : Integer = level;
+			}
+		}`, "test::seq")
+		if err != nil {
+			t.Fatalf("run failed: %v", err)
+		}
+		for _, name := range []string{"reached", "loose"} {
+			got, ok := verdicts[name]
+			if !ok || got.Status != VerdictUndecided || !strings.Contains(got.Detail, "the constraint declares no condition") {
+				t.Fatalf("%s = %v (%q, reported %v), want undecided: it states no condition", name, got.Status, got.Detail, ok)
+			}
+		}
+		if got, ok := verdicts["skipped"]; !ok || got.Status != VerdictUndecided || got.Detail != unreachedAssertion {
+			t.Fatalf("skipped = %v (%q, reported %v), want undecided: the flow never reached it", got.Status, got.Detail, ok)
+		}
+	}))
 	t.Run("verification_case_judges_at_position", inParallel(func(t *testing.T) {
 		verdicts, err := caseAssertionVerdicts(t, `package test {
 			private import ScalarValues::*;
