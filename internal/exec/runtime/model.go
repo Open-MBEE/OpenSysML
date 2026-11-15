@@ -176,6 +176,8 @@ type Model struct {
 	// bindingIR memoizes binding connectors declared by each materialized
 	// object type, including bindings inherited from its supertypes.
 	bindingIR map[*symbols.Symbol][]lower.Binding
+	// flowIR memoizes the streaming flows between features each type declares.
+	flowIR map[*symbols.Symbol][]lower.FeatureFlow
 	// hoistingBindings marks the declarations whose connectors' bindings are being
 	// collected, so a connector typed by its own holder's definition ends the descent.
 	hoistingBindings map[*symbols.Symbol]bool
@@ -308,6 +310,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		toolUnits:           make(map[toolUnitKey]semantics.Unit),
 		objectConns:         make(map[*symbols.Symbol][]lower.Connection),
 		bindingIR:           make(map[*symbols.Symbol][]lower.Binding),
+		flowIR:              make(map[*symbols.Symbol][]lower.FeatureFlow),
 		hoistingBindings:    make(map[*symbols.Symbol]bool),
 		bindingRoots:        make(map[*symbols.Symbol]map[string]bool),
 		bindingFeatures:     make(map[*symbols.Symbol]map[string][]lower.Binding),

@@ -225,6 +225,7 @@ func (ctx *Context) calcUsageObservation(reader *EvalContext, sym *symbols.Symbo
 		return run, err
 	}
 	start.deferResults = true
+	start.judgeAssertions()
 	return ctx.finishCalcUsage(start)
 }
 

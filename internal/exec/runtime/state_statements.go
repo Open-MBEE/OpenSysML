@@ -511,6 +511,9 @@ func (h *stateStmtHost) occurrence() *Instance {
 	return h.exec.occurrence
 }
 
+// caseAssertions is nil: a state behavior is no step of a case's own flow.
+func (h *stateStmtHost) caseAssertions() *caseAssertions { return nil }
+
 // materializeOccurrence defers to the executor's.
 func (h *stateStmtHost) materializeOccurrence() (*Instance, error) {
 	return h.exec.materializeOccurrence()
