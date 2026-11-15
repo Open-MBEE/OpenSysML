@@ -179,24 +179,6 @@ func (ctx *Context) reachingSlots(inst *Instance, name string, open bool) (slots
 		}
 		missing += short
 	}
-	for _, sub := range ctx.namespaceReachingOf(inst, name) {
-		if len(sub.down) == 0 {
-			continue
-		}
-		top := ctx.declaredSymbol(sub.down[0])
-		if !objectFeature(top) {
-			continue
-		}
-		holders, err := ctx.denotedSubsetObjects(top)
-		if err != nil {
-			return nil, 0, fmt.Errorf("usage %s leading to subsetting feature %s of %s: %w", SymbolText(top), sub.feature.Name, name, err)
-		}
-		var short int64
-		if slots, short, err = ctx.slotsHeldDown(holders, sub.down[1:], sub.feature, inst, name, open, slots); err != nil {
-			return nil, 0, err
-		}
-		missing += short
-	}
 	return slots, missing, nil
 }
 
@@ -355,40 +337,50 @@ func (ctx *Context) namespaceRootUsages(root *Instance) map[*symbols.Symbol][]re
 	return out
 }
 
-// namespaceReachingContributions appends to values what the usages declared directly in a
-// namespace contribute to the named feature of inst: the objects such a usage denotes, or
-// the value it declares where it denotes none.
-func (ctx *Context) namespaceReachingContributions(inst *Instance, name string, values []Value, seen map[int64]bool) ([]Value, map[int64]bool, error) {
-	for _, sub := range ctx.namespaceReachingOf(inst, name) {
-		if len(sub.down) > 0 {
-			continue
-		}
-		top := ctx.declaredSymbol(sub.feature)
-		if !objectFeature(top) {
-			usage := top.Decl.(*ast.Usage)
-			if usage.Value == nil {
-				continue
-			}
-			val, err := newEvalContext(ctx, top.OwnerScope).declaredValue(top, usage.Value)
-			if err != nil {
-				return nil, nil, fmt.Errorf("subsetting usage %s of %s: %w", SymbolText(top), name, err)
-			}
-			held, err := ctx.HeldElements(val)
-			if err != nil {
-				return nil, nil, fmt.Errorf("subsetting usage %s of %s: %w", SymbolText(top), name, err)
-			}
-			values, seen = appendUniqueInstances(values, held, seen)
-			continue
-		}
+// namespaceUsageDenotes reports whether the run denotes objects of the namespace usage top,
+// rather than a value or nothing.
+func (ctx *Context) namespaceUsageDenotes(top *symbols.Symbol) bool {
+	return ctx.namesOneObject(top) || ctx.namesObjects(top) || namespaceObjectUsage(top)
+}
+
+// namespaceUsageValues returns what a usage declared directly in a namespace contributes to
+// the feature it subsets: the objects it denotes, or the value it declares where it denotes none.
+func (ctx *Context) namespaceUsageValues(sym *symbols.Symbol) ([]Value, error) {
+	top := ctx.declaredSymbol(sym)
+	if ctx.namespaceUsageDenotes(top) {
 		objects, err := ctx.denotedSubsetObjects(top)
 		if err != nil {
-			return nil, nil, fmt.Errorf("subsetting usage %s of %s: %w", SymbolText(top), name, err)
+			return nil, err
 		}
-		for _, obj := range objects {
-			values, seen = appendUniqueInstances(values, []Value{{Kind: ValInstance, Instance: obj.ID}}, seen)
+		values := make([]Value, len(objects))
+		for i, obj := range objects {
+			values[i] = Value{Kind: ValInstance, Instance: obj.ID}
 		}
+		return values, nil
 	}
-	return values, seen, nil
+	usage, ok := top.Decl.(*ast.Usage)
+	if !ok || usage.Value == nil {
+		return nil, nil
+	}
+	val, err := newEvalContext(ctx, top.OwnerScope).declaredValue(top, usage.Value)
+	if err != nil {
+		return nil, err
+	}
+	return ctx.HeldElements(val)
+}
+
+// namespaceReachingSlots returns the feature values sub, nested under a namespace usage,
+// contributes to the named feature of inst, read from the objects that usage denotes.
+func (ctx *Context) namespaceReachingSlots(sub *reachingSubsetter, inst *Instance, name string, open bool, slots []subsetterSlot) (_ []subsetterSlot, missing int64, err error) {
+	top := ctx.declaredSymbol(sub.down[0])
+	if !ctx.namespaceUsageDenotes(top) {
+		return slots, 0, nil
+	}
+	holders, err := ctx.denotedSubsetObjects(top)
+	if err != nil {
+		return nil, 0, fmt.Errorf("usage %s leading to subsetting feature %s of %s: %w", SymbolText(top), sub.feature.Name, name, err)
+	}
+	return ctx.slotsHeldDown(holders, sub.down[1:], sub.feature, inst, name, open, slots)
 }
 
 // slotsHeldDown appends to slots the feature values feature declares on the objects the
@@ -427,7 +419,7 @@ func (ctx *Context) reachedSubsetted(inst *Instance, name string) ([]subsetterSl
 		targets, up := []*Instance{declared.context}, sub.up
 		if declared.context == nil {
 			first := ctx.declaredSymbol(up[0])
-			if !objectFeature(first) {
+			if !ctx.namespaceUsageDenotes(first) {
 				continue
 			}
 			var err error

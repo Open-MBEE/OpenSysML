@@ -98,6 +98,16 @@ func TestSubsetterDeclaredElsewhereIsHeld(t *testing.T) {
 			part def Bag { attribute one : Integer[0..1] default 7; }
 			part bag : Bag;
 			part bench { attribute a : Integer :> bag.one = 9; }`, "test::bag", "one", "9"},
+		{"namespace usages contribute in declaration order", `
+			part def Bag { attribute vals : Integer[*]; }
+			part bag : Bag;
+			attribute top : Integer :> bag.vals = 4;
+			part bench { attribute a : Integer :> bag.vals = 3; }`, "test::bag", "vals", "[4, 3]"},
+		{"structured attribute of a namespace is the object it denotes", `
+			attribute def Pose { attribute x : Integer default 2; }
+			part def Bag { attribute poses : Pose[*]; attribute np : Integer = size(poses); }
+			part bag : Bag;
+			attribute home : Pose :> bag.poses;`, "test::bag", "np", "1"},
 		{"valueless namespace attribute contributes nothing", `
 			part def Bag { attribute vals : Integer[*]; }
 			part bag : Bag;
