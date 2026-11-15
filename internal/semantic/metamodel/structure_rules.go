@@ -1,6 +1,7 @@
 package metamodel
 
 import (
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -4208,13 +4209,25 @@ func (e *Evaluator) structureDirectedFeatures(element Element, property string) 
 }
 
 func (e *Evaluator) structureEffectiveDirection(owner, feature Element) (ast.FeatureDirection, bool) {
+	return e.structureDirectionThrough(owner, feature, map[ElementKey]bool{})
+}
+
+// structureDirectionThrough reads feature's direction from owner; visited holds the types
+// already read on the way here, so types that specialize or conjugate each other end the walk.
+func (e *Evaluator) structureDirectionThrough(
+	owner, feature Element, visited map[ElementKey]bool,
+) (ast.FeatureDirection, bool) {
+	if visited[owner.Key()] {
+		return ast.DirNone, false
+	}
+	visited[owner.Key()] = true
 	if isConjugatedPortDefinition, known := e.isMetaclass(owner, "ConjugatedPortDefinition"); known &&
 		isConjugatedPortDefinition {
 		original, ok := e.Property(owner, "ConjugatedPortDefinition", "originalPortDefinition")
 		if !ok || original.Kind != ElementValue {
 			return ast.DirNone, false
 		}
-		direction, ok := e.structureEffectiveDirection(original.Element, feature)
+		direction, ok := e.structureDirectionThrough(original.Element, feature, visited)
 		if !ok {
 			return ast.DirNone, false
 		}
@@ -4245,7 +4258,7 @@ func (e *Evaluator) structureEffectiveDirection(owner, feature Element) (ast.Fea
 			if !ok || original.Kind != ElementValue {
 				return ast.DirNone, false
 			}
-			direction, ok := e.structureEffectiveDirection(original.Element, feature)
+			direction, ok := e.structureDirectionThrough(original.Element, feature, visited)
 			if !ok {
 				return ast.DirNone, false
 			}
@@ -4257,8 +4270,8 @@ func (e *Evaluator) structureEffectiveDirection(owner, feature Element) (ast.Fea
 	ownerSymbol := e.structureElementSymbol(owner)
 	if ownerSymbol == nil {
 		// An inheritance the graph leaves unstated keeps the feature's own direction.
-		if general, found, known := e.structureGeneralWithFeature(owner, feature); known && found {
-			return e.structureEffectiveDirection(general, feature)
+		if general, found, known := e.structureGeneralWithFeature(owner, feature, visited); known && found {
+			return e.structureDirectionThrough(general, feature, visited)
 		}
 	}
 	if ownerSymbol != nil {
@@ -4351,9 +4364,11 @@ func (e *Evaluator) structureEffectiveDirection(owner, feature Element) (ast.Fea
 	return ast.DirNone, true
 }
 
-// structureGeneralWithFeature is the general type a graph owner inherits feature
-// from, whose view of it Type::directionOf takes (KerML 8.3.3.1.10); none when owner owns it.
-func (e *Evaluator) structureGeneralWithFeature(owner, feature Element) (Element, bool, bool) {
+// structureGeneralWithFeature is the general type a graph owner inherits feature from, whose view
+// Type::directionOf takes (KerML 8.3.3.1.10); none when owner owns it or only visited types reach it.
+func (e *Evaluator) structureGeneralWithFeature(
+	owner, feature Element, visited map[ElementKey]bool,
+) (Element, bool, bool) {
 	owns, known := e.structureOwnsFeature(owner, feature)
 	if !known || owns {
 		return Element{}, false, known
@@ -4363,7 +4378,7 @@ func (e *Evaluator) structureGeneralWithFeature(owner, feature Element) (Element
 		return Element{}, false, false
 	}
 	for _, general := range generals {
-		has, known := e.structureHasFeature(general, feature, map[ElementKey]bool{owner.Key(): true})
+		has, known := e.structureHasFeature(general, feature, maps.Clone(visited))
 		if !known {
 			return Element{}, false, false
 		}
