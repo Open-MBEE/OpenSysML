@@ -41,8 +41,18 @@
                 (Usage kind="action" name="add" ref=false direction="none" composite=false derived=false ordered=false nonunique=false node=true
                   (*ast.AssignmentActionNode)))))
           (SuccessionEdge source="@loop" target="@while")
+          (WhileLoopActionNode kind="loop" variable=""
+            (OperatorExpr operator=">="
+              (FeatureReference name="n")
+              (LiteralInteger value="7"))
+            (Membership visibility="default"
+              (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                (Membership visibility="default"
+                  (Usage kind="action" name="bump" ref=false direction="none" composite=false derived=false ordered=false nonunique=false node=true
+                    (*ast.AssignmentActionNode))))))
+          (SuccessionEdge source="@while" target="@loop")
           (FinalNode)
-          (SuccessionEdge source="@while" target="@done")))
+          (SuccessionEdge source="@loop" target="@done")))
       (Membership visibility="default"
         (Definition kind="analysis case" abstract=false variation=false name="Counted"
           (Membership visibility="default"

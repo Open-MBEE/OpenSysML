@@ -504,7 +504,7 @@ type Loop struct {
 	CollectionID program.ExprID
 	Body         Block
 	// BodyAction is the action usage the loop declares as its body (`loop action
-	// body { … }`), nil for a body of statements alone.
+	// body { … }`, `loop action { … }`), nil for a body of statements alone.
 	BodyAction *symbols.Symbol
 	Node       ast.Node // the loop itself, for diagnostics
 	// Scope is the scope the loop was declared in, which its collection resolves
@@ -515,21 +515,36 @@ type Loop struct {
 func (Loop) statement() { /* marker: closed Statement set */ }
 
 // loopBodyAction is the action usage a loop declares as its body (`loop action body
-// { … }`), resolved in the body's scope; nil for a body of statements alone.
+// { … }`, named or not), a member of the body's scope; nil for a body of statements alone.
 func loopBodyAction(m *ast.WhileLoopActionNode, bodyScope *symbols.Scope) *symbols.Symbol {
 	if bodyScope == nil {
 		return nil
 	}
 	for _, member := range m.Body {
 		usage, ok := unwrapMembership(member).(*ast.Usage)
-		if !ok || !usage.IsBodyParameter || usage.Ident.Name == "" {
+		if !ok || !usage.IsBodyParameter {
 			continue
+		}
+		if usage.Ident.Name == "" {
+			return anonymousMemberOf(bodyScope, usage)
 		}
 		if sym, found := bodyScope.LookupLocal(usage.Ident.Name); found && sym != nil && sym.Decl == usage {
 			return sym
 		}
 	}
 	return nil
+}
+
+// anonymousMemberOf is the member of scope the unnamed declaration decl declares, nil if none.
+func anonymousMemberOf(scope *symbols.Scope, decl ast.Node) *symbols.Symbol {
+	var member *symbols.Symbol
+	scope.ForEachAnonymousMember(func(sym *symbols.Symbol) bool {
+		if sym.Decl == decl {
+			member = sym
+		}
+		return member == nil
+	})
+	return member
 }
 
 // If is a lowered conditional. The condition is evaluated in the enclosing

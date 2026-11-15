@@ -14,6 +14,9 @@ package LoopBodyNestedPerformances {
 				action add assign t := t + i;
 			}
 		}
+		then loop action {
+			action bump assign n := n + 1;
+		} until n >= 7;
 		then done;
 	}
 	analysis def Counted {

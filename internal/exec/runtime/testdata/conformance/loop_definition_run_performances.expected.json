@@ -3,7 +3,7 @@
 	"evaluate": "test::Run",
 	"libraries": true,
 	"outputs": {
-		"loopCount": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
+		"loopCount": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]},
 		"namedBodyCount": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]},
 		"namedBodySteps": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]},
 		"outerBodyCount": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
@@ -11,9 +11,11 @@
 		"innerBodyCount": {"type": "Sequence", "elements": [{"type": "Integer", "value": 4}]},
 		"innerBodySteps": {"type": "Sequence", "elements": [{"type": "Integer", "value": 4}]},
 		"innerStepsAreEnclosed": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+		"unnamedActionBodySteps": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
 		"loopsAreSubactions": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
 		"n": {"type": "Integer", "value": 3},
 		"m": {"type": "Integer", "value": 2},
-		"t": {"type": "Integer", "value": 6}
+		"t": {"type": "Integer", "value": 6},
+		"k": {"type": "Integer", "value": 2}
 	}
 }

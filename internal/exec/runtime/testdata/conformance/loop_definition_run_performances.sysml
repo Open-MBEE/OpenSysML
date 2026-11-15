@@ -8,6 +8,7 @@ package test {
 		attribute n : Integer = 0;
 		attribute m : Integer = 0;
 		attribute t : Integer = 0;
+		attribute k : Integer = 0;
 		out loopCount : Integer;
 		out namedBodyCount : Integer;
 		out namedBodySteps : Integer;
@@ -16,6 +17,7 @@ package test {
 		out innerBodyCount : Integer;
 		out innerBodySteps : Integer;
 		out innerStepsAreEnclosed : Boolean;
+		out unnamedActionBodySteps : Integer;
 		out loopsAreSubactions : Boolean;
 
 		first start;
@@ -30,6 +32,9 @@ package test {
 				action add assign t := t + i;
 			}
 		}
+		then loop action {
+			action bump assign k := k + 1;
+		} until k >= 2;
 		then assign loopCount := size(loops);
 		then assign namedBodyCount := size(loops#(1).body);
 		then assign namedBodySteps := size(loops#(1).body.subperformances);
@@ -38,6 +43,7 @@ package test {
 		then assign innerBodyCount := size(loops#(2).body.loops.body);
 		then assign innerBodySteps := size(loops#(2).body.loops.body.subperformances);
 		then assign innerStepsAreEnclosed := size(loops#(2).body.loops.body.enclosedPerformances) == innerBodySteps;
+		then assign unnamedActionBodySteps := size(loops#(3).body.subperformances);
 		then assign loopsAreSubactions := size(subactions) == loopCount;
 		then done;
 	}
