@@ -45,8 +45,9 @@ func TestStateBodyThenAfterStateIsATransitionUsage(t *testing.T) {
 		if owned, _ := model.ReflectiveElements(transition, "succession"); len(owned) != 1 || owned[0] != succession {
 			t.Errorf("transition.succession = %v, want the owned succession", owned)
 		}
-		if got, want := ownedMemberKinds(model, ownedMembers(model, mach)[1]), ""; got != want {
-			t.Errorf("the entry transition's succession owns %s, want nothing", got)
+		// `entry; then idle;` is a succession owning its two ends, as the pilot exports a TargetSuccession.
+		if got, want := ownedMemberKinds(model, ownedMembers(model, mach)[1]), "EndFeatureMembership:ReferenceUsage EndFeatureMembership:ReferenceUsage"; got != want {
+			t.Errorf("the entry succession owns %s, want %s", got, want)
 		}
 		running := ownedMembers(model, mach)[4]
 		if got, want := ownedMemberKinds(model, running), "StateSubactionMembership:ActionUsage FeatureMembership:SuccessionAsUsage FeatureMembership:StateUsage FeatureMembership:TransitionUsage FeatureMembership:StateUsage"; got != want {
