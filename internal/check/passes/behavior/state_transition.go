@@ -254,10 +254,8 @@ func orderingEndpoints(decl ast.Node) []*ast.QualifiedName {
 	return nil
 }
 
-// checkAccepterSources judges the source every transition with an accepter names, in
-// whatever body it is written, which name resolution left unjudged: an action that is no
-// state breaks the accepter rule (validateTransitionUsageTriggerActions), anything else
-// that is no vertex where a machine needs one the endpoint rule.
+// checkAccepterSources judges the source of every transition with an accepter, which name
+// resolution left unjudged: an action that is no state, else what is no vertex of a machine.
 func (c *transitionChecker) checkAccepterSources(ctx *kit.Context, root *symbols.Scope) {
 	for _, at := range kit.ScopedNodes(ctx, root) {
 		n, ok := at.Node.(*ast.TransitionMember)

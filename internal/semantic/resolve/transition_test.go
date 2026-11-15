@@ -539,9 +539,8 @@ func TestResolveEndpointDoneShadowedByANonVertexIsReported(t *testing.T) {
 	}
 }
 
-// The source of a transition with an accepter is the accepter rule's to judge, so
-// name resolution resolves it to whatever it names and reports nothing, on the
-// document walk and on the reference walk alike; its target stays a vertex.
+// The source of a transition with an accepter is the accepter rule's to judge: both
+// walks resolve it to whatever it names and report nothing; its target stays a vertex.
 func TestResolveTransitionSourceWithAccepterIsLeftToTheAccepterRule(t *testing.T) {
 	const src = `
 		item def Sig;
@@ -567,7 +566,7 @@ func TestResolveTransitionSourceWithAccepterIsLeftToTheAccepterRule(t *testing.T
 	fresh := New(idx)
 	var sources int
 	for _, ref := range References(root, idx.DocumentRoot("d.sysml")) {
-		if ref.TransitionSource == nil {
+		if !ref.AccepterSource {
 			continue
 		}
 		sources++
@@ -575,6 +574,19 @@ func TestResolveTransitionSourceWithAccepterIsLeftToTheAccepterRule(t *testing.T
 		if !ok || sym == nil || sym.Name != ref.QN.Parts[0].Text {
 			t.Errorf("transition source %s did not resolve to its declaration: %v %v", ref.QN.Parts[0].Text, sym, ok)
 		}
+	}
+	// A trial spelling of the reference is read as spelled, as a rename check reads it.
+	var work, idle Reference
+	for _, ref := range References(root, idx.DocumentRoot("d.sysml")) {
+		switch {
+		case ref.AccepterSource && ref.QN.Parts[0].Text == "work":
+			work = ref
+		case ref.AccepterSource:
+			idle = ref
+		}
+	}
+	if sym, ok := New(idx).ResolveReference(work.Spelled(idle.QN)); !ok || sym == nil || sym.Name != "idle" {
+		t.Errorf("the source respelled idle resolved to %v %v", sym, ok)
 	}
 	if sources != 2 {
 		t.Errorf("expected both transition sources among the references, got %d", sources)

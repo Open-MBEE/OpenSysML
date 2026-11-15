@@ -441,7 +441,7 @@ func (c *refCollector) behaviorDecl(scope *symbols.Scope, decl ast.Node) bool {
 	case *ast.TransitionMember:
 		// Ends, trigger and guard scopes as in resolveBehaviorDecl.
 		if d.Source != nil {
-			c.push(Reference{Scope: scope, QN: d.Source, Endpoint: true, TransitionSource: d})
+			c.push(Reference{Scope: scope, QN: d.Source, Endpoint: true, AccepterSource: d.Trigger != nil})
 		}
 		c.addEndpoint(scope, d.Target)
 		c.trigger(scope, d.Trigger)
