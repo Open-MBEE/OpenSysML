@@ -573,7 +573,7 @@ root examples/spec-examples: models 473, skipped 38, matched 8078, unmatched 353
   TransitionUsage::triggerAction: equal 10, different 9, symbol-missing 0, symbol-extra 0
   Type::differencingType: equal 2925, different 1, symbol-missing 0, symbol-extra 0
   Type::directedFeature: equal 2850, different 32, symbol-missing 25, symbol-extra 19
-  Type::endFeature: equal 2865, different 15, symbol-missing 25, symbol-extra 21
+  Type::endFeature: equal 2867, different 15, symbol-missing 25, symbol-extra 19
   Type::feature: equal 2588, different 294, symbol-missing 25, symbol-extra 19
   Type::featureMembership: equal 2589, different 293, symbol-missing 25, symbol-extra 19
   Type::inheritedFeature: equal 2674, different 208, symbol-missing 25, symbol-extra 19
