@@ -669,8 +669,14 @@ func (a *adoption) planValue(owner string, val Value) error {
 			}
 		}
 		if kind := v.QuantityKind(); kind != nil {
-			if _, rebindErr := a.rebind(kind, "a quantity value type it holds a quantity as"); rebindErr != nil {
+			found, rebindErr := a.rebind(kind, "a quantity value type it holds a quantity as")
+			if rebindErr != nil {
 				err = rebindErr
+				return
+			}
+			if a.prev.typeDigest(kind) != a.ctx.typeDigest(found) {
+				err = &adoptError{Type: owner, Reason: fmt.Sprintf(
+					"the quantity value type %s it holds a quantity as resolves differently now", a.ctx.fqnOf(found))}
 				return
 			}
 		}

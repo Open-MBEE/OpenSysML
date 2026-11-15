@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -786,6 +787,45 @@ func TestAdoptCarriesTheQuantityKindAWrittenQuantityIsHeldAs(t *testing.T) {
 		if err != nil || FormatValue(got) != want {
 			t.Errorf("%s after the carry-over = %s, %v; want %s", expr, FormatValue(got), err, want)
 		}
+	}
+}
+
+// A carried quantity is refused where the quantity value type it is held as resolves
+// differently in the re-analysis, since it was never judged against that declaration.
+func TestAdoptRefusesAQuantityHeldAsAChangedQuantityKind(t *testing.T) {
+	const src = `package Demo {
+	private import ISQ::*;
+	private import SI::*;
+	attribute def Heat :> EnergyValue;
+	part def Source { attribute heat : Heat = 5 [J]; }
+	part def Box { attribute any; }
+	part source : Source;
+	part box : Box;
+}`
+	prev := libraryContextOver(t, src)
+	source, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::source"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	box, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::box"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	heat, err := source.GetFeatureValue(prev, "heat")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(heat): %v", err)
+	}
+	if err := box.SetFeatureValue(prev, "any", heat.HeldValue()); err != nil {
+		t.Fatalf("write any: %v", err)
+	}
+	shapes := prev.ShapesOf(box)
+
+	changed := strings.Replace(src, "Heat :> EnergyValue", "Heat :> DurationValue", 1)
+	ctx := libraryContextOver(t, strings.Replace(changed, "5 [J]", "5 [s]", 1))
+	_, err = ctx.Adopt(prev, shapes, box)
+	var refused *adoptError
+	if !errors.As(err, &refused) || !strings.Contains(err.Error(), "the quantity value type Demo::Heat it holds a quantity as resolves differently now") {
+		t.Fatalf("Adopt into a re-analysis redeclaring Heat: %v, want the changed quantity value type named", err)
 	}
 }
 
