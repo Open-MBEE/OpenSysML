@@ -344,9 +344,9 @@ func TestAddImportNestedOwners(t *testing.T) {
 		},
 		{
 			"metadata def",
-			"metadata def M {\n    ref feature a;\n}\n",
+			"metadata def M {\n    attribute a;\n}\n",
 			"M",
-			"metadata def M {\n    private import ScalarValues::*;\n    ref feature a;\n}\n",
+			"metadata def M {\n    private import ScalarValues::*;\n    attribute a;\n}\n",
 		},
 	}
 	for _, tc := range cases {

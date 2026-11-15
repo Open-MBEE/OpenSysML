@@ -20,7 +20,7 @@ These files are licensed under the Eclipse Public License 2.0 (EPL-2.0), so they
 
 The OpenSysML extensions outside state machines are the indexed connector end (`connect s.y#(1) to k.u`, one element of a collection-valued feature as an end — see the audit's extension table and [spec-compliance.md](../../project/spec-compliance.md#structural-interface-and-analysis-notation-sysml-v2-712-ports-82214-interfaces-82219-analysis-cases-839-occurrences)) and the view-body `frame` and `expose` members.
 
-[conformance-audit.md](conformance-audit.md) goes through every keyword and construct OpenSysML accepts and sorts it into one of three groups: standard notation (accepted silently), OpenSysML extensions (accepted with a `nonstandard-notation` warning), and KerML notation used in a `.sysml` file (accepted with a `kerml-notation` warning). Each entry cites the `file:line` in the pinned OMG grammar that justifies it.
+[conformance-audit.md](conformance-audit.md) goes through every keyword and construct OpenSysML accepts and sorts it into one of three groups: standard notation (accepted silently), OpenSysML extensions (accepted with a `nonstandard-notation` warning), and KerML notation used in a `.sysml` file (reported as `kerml-notation`: an error for a declaration keyword only KerML spells, a warning for the rest). Each entry cites the `file:line` in the pinned OMG grammar that justifies it.
 
 ## State Machine Notation Beyond the OMG Grammar
 

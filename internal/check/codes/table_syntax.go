@@ -54,11 +54,12 @@ var syntaxCodes = []Entry{
 		Spec: "the pinned SysML v2 and KerML Xtext grammars",
 	},
 	{
-		Code: "kerml-notation", Tier: TierSyntax, Severity: "warning",
+		Code: "kerml-notation", Tier: TierSyntax, Severity: "error",
 		Summary: "KerML notation in a SysML file",
 		Meaning: "A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) or a KerML spelling " +
 			"(`typed by` for a typing, which SysML spells `:` or `defined by`) that the SysML v2 grammar does not admit. " +
-			"Move the declaration to a `.kerml` file, or write the SysML form the message names. `-strict` promotes this finding to an error.",
+			"Move the declaration to a `.kerml` file, or write the SysML form the message names. A declaration keyword only KerML spells (`class`, `feature`, `connector` …) is an error; " +
+			"the other forms are warnings that `-strict` promotes to errors.",
 		Spec: "the pinned SysML v2 Xtext grammar",
 	},
 	{

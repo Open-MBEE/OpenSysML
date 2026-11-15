@@ -200,7 +200,7 @@ transition's ends, which `TransitionUsage` (`:1851-1880`) writes with `first` an
 errors now, and `initial`, which neither grammar reserves, stays an ordinary
 name.
 
-### KerML-only notation in a `.sysml` file — warning `kerml-notation`
+### KerML-only notation in a `.sysml` file — `kerml-notation`
 
 `namespace` is a literal in `KerML.xtext` only (`:125`); `SysML.xtext` does not have
 it. A `.sysml` file's root is `RootNamespace : PackageBodyElement*`
@@ -211,7 +211,10 @@ the problem is using the production in a SysML file at all. It is still parsed,
 with a warning in `.sysml` and silently in `.kerml`.
 
 The same holds for every declaration keyword `KerML.xtext` spells and `SysML.xtext`
-does not. `source.IsKeywordIn` reads both pinned keyword sets, so a word that is a
+does not, except that such a declaration is an error in either mode rather than a
+warning: SysML v2 §8.2.2.1.2 gives SysML the lexical structure of KerML with its own
+reserved keywords, none of these among them, and no production of `SysML.xtext` starts
+with one. The declaration is still parsed, so the editor and later checks keep working. `source.IsKeywordIn` reads both pinned keyword sets, so a word that is a
 KerML keyword and not a SysML one is reported on its declaration — `connector`
 (`KerML.xtext:824`), `class` (`:795`), `struct`, `datatype`, `classifier`,
 `subclassifier`, `feature` (`:537`), `step` (`:911`), `expr`, `bool`, `behavior`,
@@ -252,7 +255,7 @@ usages named `step` and `namespace`, clean in the pilot too. An anonymous KerML
 declaration therefore has no reading in a `.sysml` file — `inv { x > 0 }` is the
 syntax error `no viable alternative at input '>'` and `connector [1] a to b;` the one
 at `a` in `validate-sysml-batch`, and `expected a body member` here — so the
-`kerml-notation` warning covers the named declarations only.
+`kerml-notation` error covers the named declarations only.
 `binding`/`bind`, `succession`, `connection`/`connect`, `flow`, `interface` and
 `allocate` are SysML productions and stay silent.
 
