@@ -17,8 +17,8 @@ func SuccessionMintsEnds(edge *ast.SuccessionEdge) bool {
 	return implied || positional
 }
 
-// SuccessionEndMembers are the source and target end features a `then x;` succession owns through
-// an EndFeatureMembership each (SuccessionMintsEnds), nameless and named by the end they redefine.
+// SuccessionEndMembers are the source and target end features a `then x;` or `first a then b;` succession owns
+// through an EndFeatureMembership each (successionOwnsMintedEnds), nameless and named by the end they redefine.
 func (m *Model) SuccessionEndMembers(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil || sym.Recorded() || sym.Scope == nil {
 		return nil
@@ -27,8 +27,7 @@ func (m *Model) SuccessionEndMembers(sym *symbols.Symbol) []*symbols.Symbol {
 	if transitionSuccessionPart(sym) {
 		// The succession a transition owns mints its two ends likewise (transitionSuccession), under the transition.
 		forms = []symbols.ImpliedForm{symbols.ImpliedTransitionSuccessionSourceEnd, symbols.ImpliedTransitionSuccessionTargetEnd}
-	} else if edge, ok := sym.Decl.(*ast.SuccessionEdge); !ok || !SuccessionMintsEnds(edge) || sym.DeclaresTransition() {
-		// A state body's `then x;` after a state declares a TransitionUsage, no connector: it owns no ends itself.
+	} else if !successionOwnsMintedEnds(sym) {
 		return nil
 	}
 	defer m.own(sym).LeaveDoc()
@@ -56,11 +55,25 @@ func transitionSuccessionPart(sym *symbols.Symbol) bool {
 	return sym != nil && sym.Expr != nil && sym.Expr.Role == symbols.ExpressionTransitionSuccession
 }
 
-// successionEndReference is the feature a `then` succession's target end reference-subsets (nil when the model
-// resolves none); stated is false for the source end, which the conversion mints empty (encodeSuccessionEdge).
+// successionOwnsMintedEnds reports whether sym is a succession whose two ends the notation leaves unnamed: a
+// `then x;` (TargetSuccession) or an action body's `first a then b;`.
+func successionOwnsMintedEnds(sym *symbols.Symbol) bool {
+	switch decl := sym.Decl.(type) {
+	case *ast.SuccessionEdge:
+		// A state body's `then x;` after a state declares a TransitionUsage, no connector: it owns no ends itself.
+		return SuccessionMintsEnds(decl) && !sym.DeclaresTransition()
+	case *ast.InitialNode:
+		return sym.Kind == symbols.SymbolSuccessionUsage && symbols.FirstNamesSource(decl)
+	}
+	return false
+}
+
+// successionEndReference is the feature a succession's minted end references (nil when the model resolves none).
+// stated reports a ReferenceSubsetting the end owns: a written end's. The source of a `then` is the occurrence
+// before it (SysML v2.1 §7.17.2), an implied reference its EmptySourceEndMember does not own.
 func (m *Model) successionEndReference(end *symbols.Symbol) (target *symbols.Symbol, stated bool) {
 	i, ok := symbols.ImpliedSuccessionEndIndex(end)
-	if !ok || i != 1 || end.OwnerScope == nil {
+	if !ok || end.OwnerScope == nil {
 		return nil, false
 	}
 	succession := end.OwnerScope.Owner()
@@ -70,18 +83,16 @@ func (m *Model) successionEndReference(end *symbols.Symbol) (target *symbols.Sym
 	decl, _ := symbols.ImpliedDeclOf(end)
 	switch edge := decl.Of.(type) {
 	case *ast.SuccessionEdge:
-		if edge.Target == nil && edge.TargetMember == nil {
-			return nil, false
-		}
+		stated = i == 1 && (edge.Target != nil || edge.TargetMember != nil)
 	case *ast.TransitionMember:
-		if edge.Target == nil {
-			return nil, false
-		}
+		stated = i == 1 && edge.Target != nil
+	case *ast.InitialNode:
+		stated = true
 	}
-	if related, _ := m.connectorSuccessionRelatedFeatures(succession); len(related) == 2 {
-		target = related[1]
+	if related, _ := m.connectorSuccessionRelatedFeatures(succession); i < len(related) {
+		target = related[i]
 	}
-	return target, true
+	return target, stated
 }
 
 // successionEndMultiplicity is the range a `then` succession writes for the generated end sym, as the

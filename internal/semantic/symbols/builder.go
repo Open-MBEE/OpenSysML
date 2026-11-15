@@ -191,6 +191,11 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 		// A start marker is registered by name so transitions can reference it; a
 		// succession's `first a` declares nothing, its body owning a body-local scope.
 		marker := d.Named() && !FirstNamesSource(d)
+		if FirstNamesSource(d) && d.Named() && d.Guard == nil {
+			// `first a then b;` is the SuccessionAsUsage its owner owns (SysML.xtext ActionBodyItem → SuccessionAsUsage).
+			buildAnonymousNode(scope, d, SymbolSuccessionUsage, d.Members, vis, trivia)
+			return true
+		}
 		if !marker && len(d.Members) == 0 {
 			return true
 		}

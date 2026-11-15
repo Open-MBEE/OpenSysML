@@ -2240,7 +2240,10 @@ func (m *Model) ConnectorRelatedFeaturesByEnd(sym *symbols.Symbol) []*symbols.Sy
 		recorded = m.recordedPositions(sym.Facts.RelatedFeatures)
 	} else {
 		paths = m.reflectiveConnectorEndPaths(sym)
-		successionEnds, _ = m.connectorSuccessionRelatedFeatures(sym)
+		if len(ends) == 0 {
+			// A succession owning no end feature (a succession flow's inherited ends) is read from what it sequences.
+			successionEnds, _ = m.connectorSuccessionRelatedFeatures(sym)
+		}
 	}
 	count := max(len(ends), len(paths), len(successionEnds), len(recorded))
 	if count == 0 {
@@ -2293,6 +2296,11 @@ func (m *Model) EndReferencedFeature(end *symbols.Symbol) *symbols.Symbol {
 		if _, target, ok := m.implicitRelationshipEnds(rel); ok {
 			return target
 		}
+	}
+	if _, minted := symbols.ImpliedSuccessionEndIndex(end); minted {
+		// A `then` succession's source end references the occurrence before it without owning the subsetting.
+		target, _ := m.successionEndReference(end)
+		return target
 	}
 	return m.ReferencedFeature(end)
 }

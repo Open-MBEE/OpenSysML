@@ -316,12 +316,24 @@ func (ids *ElementIDs) recordTransitionSuccession(e *encoder, node ast.Node, sub
 	}
 }
 
-// recordSuccessionEnds records the two ends a `then` succession's conversion mints at end0/end1
-// under the edge (encodeSuccessionEdge), each with the EndFeatureMembership minted beside it.
+// recordSuccessionEnds records the two ends the conversion mints at end0/end1 under a `then` succession's
+// edge (encodeSuccessionEdge) or under a `first a then b;` (initialSuccessionEnds), each with the
+// EndFeatureMembership minted beside it and the ReferenceSubsetting of an end that states its feature.
 func (ids *ElementIDs) recordSuccessionEnds(e *encoder, node ast.Node, subject rdf.Term) {
-	edge, ok := node.(*ast.SuccessionEdge)
-	// A state body's `then x;` after a state is written as a TransitionUsage (encodeTargetTransition): no ends.
-	if !ok || e.names.TargetTransitions[edge] || !semantics.SuccessionMintsEnds(edge) {
+	var stated [2]bool
+	switch n := node.(type) {
+	case *ast.SuccessionEdge:
+		// A state body's `then x;` after a state is written as a TransitionUsage (encodeTargetTransition): no ends.
+		if e.names.TargetTransitions[n] || !semantics.SuccessionMintsEnds(n) {
+			return
+		}
+		stated[1] = e.successionTargetStated(n)
+	case *ast.InitialNode:
+		if _, _, linked := e.linked(e.res.InitialSymbol(n)); !linked || !n.Named() || qualifiedText(n.Successor) == "" {
+			return
+		}
+		stated = [2]bool{true, true}
+	default:
 		return
 	}
 	for i := 0; i < 2; i++ {
@@ -331,8 +343,7 @@ func (ids *ElementIDs) recordSuccessionEnds(e *encoder, node ast.Node, subject r
 		recorded := partIDs{element: rdf.LocalName(feature.Value), membership: rdf.LocalName(membership.Value)}
 		ids.partByNode[partKey{node, slot}] = recorded
 		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = recorded
-		if i == 1 && e.successionTargetStated(edge) {
-			// The target end's ReferenceSubsetting is minted beside it (referenceSubsetting).
+		if stated[i] {
 			reference := partIDs{element: e.referenceSubsettingID(feature)}
 			ids.partByNode[partKey{node, slot + ".rs"}] = reference
 			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot + ".rs"}] = reference
