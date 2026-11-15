@@ -39,7 +39,7 @@ package Views {
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	for _, want := range []string{`"n0" -> "n1" [dir=back, arrowtail=dot];`, `"n0" -> "n3" [label="event", arrowhead=vee];`} {
+	for _, want := range []string{`"n0" -> "n1" [dir=back, arrowtail=dot, class="portion-relationship"];`, `"n0" -> "n3" [label="event", arrowhead=vee];`} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
 		}
