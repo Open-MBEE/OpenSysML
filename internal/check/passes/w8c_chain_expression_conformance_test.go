@@ -23,10 +23,8 @@ func w8cErrorSites(t *testing.T, name, src string) []string {
 	return out
 }
 
-// A chain expression's member reached through an alias or import of the
-// argument's type, but featured by another type, is not featured within the
-// argument's result (KerML 8.3.4.8.4 validateFeatureChainExpressionConformance).
-// Lines and columns are the pinned validator's.
+// A chain member another type features is not featured within the argument's result (KerML
+// 8.3.4.8.4 validateFeatureChainExpressionConformance); lines and columns are the pinned validator's.
 func TestW8CChainExpressionMemberNotFeaturedWithinArgument(t *testing.T) {
 	cases := []struct {
 		name, file, src string
@@ -63,6 +61,17 @@ func TestW8CChainExpressionMemberNotFeaturedWithinArgument(t *testing.T) {
     attribute r1 = v.x;
     attribute r2 = v.z;
 }`, []string{"7:22 feature-reference-referent"}},
+		{"inherited alias behind a subtype, parentheses and an index", "<t>.sysml", `package I1 {
+    part def B { attribute y : ScalarValues::Integer; }
+    part def A { attribute x : ScalarValues::Integer; alias z for B::y; public import B::*; }
+    part def A2 :> A;
+    part def H { part a : A2; part l : A2[*] ordered; }
+    part h : H;
+    attribute t1 = h.a.z;
+    attribute t3 = (h.a).z;
+    attribute t4 = h.l#(1).z;
+    part def Q { part a2 : A2; constraint { a2.z > 1 } }
+}`, []string{"7:24 feature-reference-referent", "8:26 feature-reference-referent", "9:28 feature-reference-referent", "10:48 feature-reference-referent"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -74,9 +83,8 @@ func TestW8CChainExpressionMemberNotFeaturedWithinArgument(t *testing.T) {
 	}
 }
 
-// A member the argument's result does feature stays clean however the result
-// came by it: inherited, redefined, aliased from a supertype, read through the
-// argument's value, an invocation's result or `this`.
+// A member the argument's result does feature stays clean however the result came by it:
+// inherited, redefined, aliased from a supertype, read through a value or `this`.
 func TestW8CChainExpressionMemberFeaturedWithinArgument(t *testing.T) {
 	cases := map[string]string{
 		"alias of an inherited feature": `package P {

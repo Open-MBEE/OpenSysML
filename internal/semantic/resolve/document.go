@@ -1738,9 +1738,8 @@ func (r *Resolver) chainedFrom(scope *symbols.Scope, operand *symbols.Symbol) *s
 	return operand
 }
 
-// ChainHolders lists the features a chain written in scope reads operand's
-// members from, as chainMember does: what operand is chained from, then the
-// type or value each untyped-member usage on the way hands the lookup to.
+// ChainHolders lists what a chain written in scope reads operand's members from, as
+// chainMember does: what operand is chained from, then each type or value the lookup passes to.
 func (r *Resolver) ChainHolders(scope *symbols.Scope, operand *symbols.Symbol) []*symbols.Symbol {
 	var holders []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
