@@ -503,6 +503,13 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		out = append(out, p)
 	}
 
+	// The ReferenceUsage a flow's end owns redefines the feature the end names last, and so
+	// takes that feature's type (see flow_ends.go).
+	if redefined := m.flowEndFeatureRedefinition(sym); redefined != nil && redefined != sym && !seen[redefined] {
+		seen[redefined] = true
+		out = append(out, redefined)
+	}
+
 	// The cross feature an end owns is implicitly typed by the end's types and
 	// subsets the cross feature of each end the end redefines (see crossing.go).
 	for _, general := range m.implicitCrossFeatureGenerals(sym) {
