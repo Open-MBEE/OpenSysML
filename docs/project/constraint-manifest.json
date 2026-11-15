@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "pilotTag": "2026-09",
-  "pilotCommit": "38665073bbf02849bd309b106eba79cbb3a1ee1d",
-  "pilotArtifact": "0.63.0",
+  "pilotTag": "2026-09.1",
+  "pilotCommit": "d81b2ad5016f2e2d3d4364b3d06d01d8bb12a896",
+  "pilotArtifact": "0.63.1",
   "jar": {
-    "name": "jupyter-sysml-kernel-0.63.0-all.jar",
-    "digest": "sha256:0de2fb9fdc19da3c00194bbb7e394a793e579a1e02f171279544e83e4a1fb376"
+    "name": "jupyter-sysml-kernel-0.63.1-all.jar",
+    "digest": "sha256:67c914092f4520ba98548b285c5a9a8bc08f92a0aeec7b763e12a574e91f9ff7"
   },
   "extraction": {
     "classes": [
@@ -14,7 +14,7 @@
     ],
     "method": "CONSTANT_String entries of each class's constant pool matching ^(in)?validate[A-Za-z]+_?$, normalized to the validate... name by dropping the in prefix and one trailing underscore; a name found in both classes has source \"both\""
   },
-  "recorded": "2026-10-26",
+  "recorded": "2026-11-14",
   "specifications": {
     "kerml": {
       "name": "KerML",

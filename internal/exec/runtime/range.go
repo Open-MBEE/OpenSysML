@@ -19,15 +19,16 @@ import (
 // `[0..*]` result allows rather than an error.
 
 // evalRange evaluates `lower..upper` (IntegerFunctions::'..').
-func (ec *EvalContext) evalRange(n *ast.OperatorExpr) (Value, error) {
-	if len(n.Operands) != 2 {
-		return Value{}, fmt.Errorf("%w: '..' requires 2 operands, got %d", errCalcArity, len(n.Operands))
+func (ec *EvalContext) evalRange(x lowered) (Value, error) {
+	expr := x.expr()
+	if len(expr.Args) != 2 {
+		return Value{}, fmt.Errorf("%w: '..' requires 2 operands, got %d", errCalcArity, len(expr.Args))
 	}
-	lower, err := ec.Eval(n.Operands[0])
+	lower, err := ec.evalExpr(x.arg(0))
 	if err != nil {
 		return Value{}, err
 	}
-	upper, err := ec.Eval(n.Operands[1])
+	upper, err := ec.evalExpr(x.arg(1))
 	if err != nil {
 		return Value{}, err
 	}

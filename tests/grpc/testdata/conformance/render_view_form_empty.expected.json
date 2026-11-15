@@ -1,0 +1,14 @@
+{
+  "rpc": "RenderView",
+  "model": "render_view_form.sysml",
+  "view": "FormDemo::structure",
+  "expected_node_names": [
+    "FormDemo::Vehicle",
+    "wheel",
+    "FormDemo::Wheel"
+  ],
+  "expected_edge_labels": [
+    "",
+    ""
+  ]
+}

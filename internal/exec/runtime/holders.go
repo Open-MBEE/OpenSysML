@@ -219,7 +219,8 @@ func (ctx *Context) returnedArguments(scope *symbols.Scope, call *ast.Invocation
 	if chain := semantics.ChainCallee(call); chain != nil {
 		target = ctx.chainTarget(scope, chain, call.NamedArgs)
 	} else {
-		target = newEvalContext(ctx, scope).invocationTarget(call)
+		ec := newEvalContext(ctx, scope)
+		target = ec.invocationTarget(ec.lowered(call))
 	}
 	positional := semantics.InvocationArgs(call)
 	var args []ast.Node

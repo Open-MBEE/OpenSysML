@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 const (
@@ -343,9 +344,18 @@ func (w *dotWriter) frameHeader(r *Rendering) string {
 		break
 	}
 	if r.View != "" {
-		parts = append(parts, "[ "+dotEscape(DisplayText(symbols.LastSegment(r.View)))+" ]")
+		parts = append(parts, "[ "+dotEscape(viewTitle(r.View))+" ]")
 	}
 	return strings.Join(parts, " ")
+}
+
+// viewTitle is the view's own name as a frame shows it, read from the view's
+// qualified name as the notation writes it: the last name, unquoted and decoded.
+func viewTitle(view string) string {
+	if names, ok := source.QualifiedNameSegments(view); ok {
+		return glyphs(names[len(names)-1])
+	}
+	return DisplayText(symbols.LastSegment(view))
 }
 
 // dotBB is a pixel box as a Graphviz `bb`, lower-left then upper-right.

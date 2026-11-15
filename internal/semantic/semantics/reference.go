@@ -59,6 +59,25 @@ func (m *Model) ReferencedFeature(sym *symbols.Symbol) *symbols.Symbol {
 	return out
 }
 
+// ReferencedFeatureChain is the features sym's reference subsetting names and the node writing them:
+// the chaining features of a chain (`x.p`, KerML 8.3.3.3.2), outermost first, else the one feature.
+func (m *Model) ReferencedFeatureChain(sym *symbols.Symbol) ([]*symbols.Symbol, ast.Node) {
+	if m == nil || sym == nil {
+		return nil, nil
+	}
+	var written ast.Node
+	if !sym.Recorded() {
+		written = referenceSubsettingTarget(sym)
+	}
+	if _, chained := written.(*ast.FeatureChainExpr); chained {
+		return m.attachmentPath(referenceScope(sym), written), written
+	}
+	if target := m.ReferencedFeature(sym); target != nil {
+		return []*symbols.Symbol{target}, written
+	}
+	return nil, written
+}
+
 // referenceSubsettingTarget returns the node naming the feature sym
 // reference-subsets, or nil when it has no such clause. A connector end carries
 // that clause outside its relationship list when it is written with the

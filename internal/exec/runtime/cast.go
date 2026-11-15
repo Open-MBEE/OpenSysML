@@ -3,6 +3,7 @@ package runtime
 import (
 	"fmt"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -14,29 +15,32 @@ const evaluationTypeFQN = "Performances::Evaluation"
 // evalCast evaluates `x as T`: a CastExpression's result is the values of x that
 // the type T classifies, so it selects values and never converts one (KerML 1.1
 // §8.3.4.9). Converting between types is what the library functions do.
-func (ec *EvalContext) evalCast(n *ast.OperatorExpr) (Value, error) {
-	if len(n.Operands) != 1 || n.TypeRef == nil {
+func (ec *EvalContext) evalCast(x lowered) (Value, error) {
+	expr := x.expr()
+	op := x.op()
+	n := x.operator()
+	if len(expr.Args) != 1 || n.TypeRef == nil {
 		return Value{}, fmt.Errorf("%w: '%s' requires one value and one type",
-			ErrTypeMismatch, n.Operator)
+			ErrTypeMismatch, op)
 	}
-	target, ok := ec.resolveClassificationType(n.TypeRef)
+	target, ok := ec.resolveClassificationType(n.TypeRef, ec.resolvedHere(x))
 	if !ok {
 		return Value{}, fmt.Errorf("%w: %s", errUnresolvedType,
 			qualifiedNameToString(n.TypeRef))
 	}
 	// A written sequence is cast entry by entry, each judged by its own types.
-	if _, ok := n.Operands[0].(*ast.SequenceExpr); ok {
-		kept, sources, err := ec.castEntries(n.Operands[0], target)
+	if x.arg(0).expr().Kind == program.ExprSequence {
+		kept, sources, err := ec.castEntries(x.arg(0).tree(), target)
 		if err != nil {
 			return Value{}, err
 		}
 		return ec.sequenceFrom(kept, sources...)
 	}
-	value, err := ec.Eval(n.Operands[0])
+	value, err := ec.evalExpr(x.arg(0))
 	if err != nil {
 		return Value{}, err
 	}
-	return ec.castValue(soleElement(value), target, ec.declaredOperandTypes(n.Operands[0]))
+	return ec.castValue(soleElement(value), target, ec.declaredOperandTypes(x.arg(0).tree()))
 }
 
 // castEntries casts one entry of a written sequence, answering the values target

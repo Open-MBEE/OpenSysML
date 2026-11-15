@@ -839,6 +839,24 @@ func EndTarget(target Node) Node {
 	return feature
 }
 
+// FlowEndChainPrefix is the chain before the payload of a flow's end at position (0 its `from`, 1 its `to`) when
+// more than one feature precedes it (`a.b` of `flow a.b.x to c.y`): the chain Feature the end references, else nil.
+func FlowEndChainPrefix(usage *Usage, position int) *FeatureChainExpr {
+	if usage == nil || usage.FlowEnds == nil || position < 0 || position > 1 {
+		return nil
+	}
+	end := usage.FlowEnds.From
+	if position == 1 {
+		end = usage.FlowEnds.To
+	}
+	payload, ok := EndTarget(end).(*FeatureChainExpr)
+	if !ok {
+		return nil
+	}
+	prefix, _ := payload.Operand.(*FeatureChainExpr)
+	return prefix
+}
+
 // SplitRedefinitions partitions rels into the redefinitions and the rest,
 // which resolve in different scopes when owned by a connector end.
 func SplitRedefinitions(rels []*Relationship) (redefines, others []*Relationship) {

@@ -3,6 +3,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use crate::capabilities::{upgrade_remedy, CAPABILITY_SYMBOL_ANNOTATING_METADATA};
 use crate::rational::Rational;
 use crate::{error::Error, wire, Connection};
 
@@ -1176,6 +1177,19 @@ pub struct SymbolOptions {
     /// otherwise only counted by [`Symbol::withheld_library_members`]. Needs the
     /// `symbol_members` capability.
     pub include_library_members: bool,
+    /// Take the id as one the service reported (a child's, a member's), whatever its
+    /// visibility, instead of resolving it as a qualified name from the root namespace.
+    pub by_reported_id: bool,
+}
+
+impl SymbolOptions {
+    /// Options looking a symbol up by an id the service reported.
+    pub(crate) fn reported_id() -> Self {
+        Self {
+            by_reported_id: true,
+            ..Self::default()
+        }
+    }
 }
 
 /// One member of a symbol, own or inherited.
@@ -1276,11 +1290,28 @@ impl Symbol {
     }
     /// Child symbols, fetched lazily from the service; one it cannot resolve is left out.
     pub fn children(&self) -> Result<Vec<Symbol>, Error> {
-        let mut children = Vec::with_capacity(self.wire.child_ids.len());
-        for id in &self.wire.child_ids {
+        self.fetch_symbols(&self.wire.child_ids)
+    }
+    /// Ids of the metadata usages annotating the symbol: its own prefix and body ones, then
+    /// the `about` ones written elsewhere, which [`Self::children`] leaves out.
+    pub fn annotating_metadata_ids(&self) -> &[String] {
+        &self.wire.annotating_metadata_ids
+    }
+    /// The metadata usages annotating the symbol, fetched lazily; one it cannot resolve is
+    /// left out. Needs the `symbol_annotating_metadata` capability.
+    pub fn annotating_metadata(&self) -> Result<Vec<Symbol>, Error> {
+        self.connection().capabilities().require(
+            CAPABILITY_SYMBOL_ANNOTATING_METADATA,
+            upgrade_remedy(CAPABILITY_SYMBOL_ANNOTATING_METADATA),
+        )?;
+        self.fetch_symbols(&self.wire.annotating_metadata_ids)
+    }
+    fn fetch_symbols(&self, ids: &[String]) -> Result<Vec<Symbol>, Error> {
+        let mut children = Vec::with_capacity(ids.len());
+        for id in ids {
             match self
                 .connection()
-                .get_symbol(&self.model_hash, id, &SymbolOptions::default())
+                .get_symbol(&self.model_hash, id, &SymbolOptions::reported_id())
             {
                 Ok(child) => children.push(child),
                 Err(Error::Model(_)) => {}
@@ -1607,7 +1638,8 @@ impl Model {
     pub fn evaluate(&self, expr: &str, options: &EvalOptions) -> Result<Evaluation, Error> {
         self.connection.evaluate(self.hash(), expr, options)
     }
-    /// Look up a fully qualified symbol.
+    /// Look up a fully qualified symbol, resolved from the root namespace as the notation
+    /// resolves one: through imports and aliases, a non-visible member not found.
     pub fn symbol(&self, fqn: &str) -> Result<Symbol, Error> {
         self.symbol_with(fqn, &SymbolOptions::default())
     }

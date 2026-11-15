@@ -379,6 +379,8 @@ class RenderedView:
     notices: tuple
     shown: tuple
     frame: Optional[RenderFrame] = None
+    #: The rendering written in the form asked for; empty when none was.
+    text: str = ""
 
 
 def _render_span(span):
@@ -447,6 +449,7 @@ def render_view_result(response):
     return RenderedView(
         response.view, response.kind, response.stated, nodes, edges, tuple(response.columns),
         rows, canvas, notes, tuple(response.notices), tuple(response.shown), frame,
+        response.text,
     )
 #: What a binding value or an answered cell value may be.
 DocumentValue = Union[

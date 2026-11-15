@@ -320,16 +320,29 @@ func sameSerials(a, b []int64) bool {
 func (ctx *Context) underControl(serials []int64) int {
 	n := len(ctx.controls)
 	for _, s := range serials {
-		if !slices.Contains(ctx.controls, s) {
-			ctx.controls = append(ctx.controls, s)
+		if _, held := ctx.controlHeld[s]; held {
+			continue
 		}
+		if ctx.controlHeld == nil {
+			ctx.controlHeld = make(map[int64]struct{})
+		}
+		ctx.controlHeld[s] = struct{}{}
+		ctx.controls = append(ctx.controls, s)
 	}
-	ctx.controlSet = nil
+	if len(ctx.controls) != n {
+		ctx.controlSet = nil
+	}
 	return n
 }
 
 // releaseControl ends the control underControl returned n for.
 func (ctx *Context) releaseControl(n int) {
+	if n == len(ctx.controls) {
+		return
+	}
+	for _, s := range ctx.controls[n:] {
+		delete(ctx.controlHeld, s)
+	}
 	ctx.controls = ctx.controls[:n]
 	ctx.controlSet = nil
 }
@@ -338,9 +351,8 @@ func (ctx *Context) releaseControl(n int) {
 // control, kept until the controls change.
 func (ctx *Context) controlling() []int64 {
 	if ctx.controlSet == nil && len(ctx.controls) > 0 {
-		set := slices.Clone(ctx.controls)
-		slices.Sort(set)
-		ctx.controlSet = slices.Compact(set)
+		ctx.controlSet = slices.Clone(ctx.controls)
+		slices.Sort(ctx.controlSet)
 	}
 	return ctx.controlSet
 }

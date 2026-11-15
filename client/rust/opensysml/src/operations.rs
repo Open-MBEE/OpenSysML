@@ -778,6 +778,7 @@ impl Connection {
                 show: show.iter().map(|s| (*s).to_owned()).collect(),
                 depth: i32::try_from(depth).unwrap_or(i32::MAX),
                 compartments: compartments.as_wire().to_owned(),
+                ..Default::default()
             },
             &[crate::capabilities::CAPABILITY_RENDER_VIEW],
         )?;

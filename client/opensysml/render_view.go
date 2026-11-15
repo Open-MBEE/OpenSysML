@@ -16,6 +16,83 @@ type renderViewOptions struct {
 	show         []string
 	depth        int
 	compartments string
+	form         string
+	palette      string
+	style        string
+	lines        string
+	direction    string
+	link         string
+	unplaced     string
+}
+
+// written reports whether a form or an option only a written form reads is
+// set, which a service without CapabilityRenderViewForm would drop unanswered.
+func (o *renderViewOptions) written() bool {
+	return o.form != "" || o.palette != "" || o.style != "" || o.lines != "" ||
+		o.direction != "" || o.link != "" || o.unplaced != ""
+}
+
+// The forms WithForm takes, as the CLI's -render-form names them.
+const (
+	ViewFormText     = "text"
+	ViewFormMermaid  = "mermaid"
+	ViewFormMarkdown = "markdown"
+	ViewFormDOT      = "dot"
+	ViewFormPlantUML = "plantuml"
+	ViewFormD2       = "d2"
+	ViewFormDrawio   = "drawio"
+	ViewFormCSV      = "csv"
+	ViewFormTSV      = "tsv"
+)
+
+// ViewForms lists the forms WithForm takes, in the order the CLI offers them.
+func ViewForms() []string {
+	return []string{
+		ViewFormText, ViewFormMermaid, ViewFormMarkdown, ViewFormDOT, ViewFormPlantUML,
+		ViewFormD2, ViewFormDrawio, ViewFormCSV, ViewFormTSV,
+	}
+}
+
+// WithForm also writes the rendering in form into RenderedView.Text, as `sysml -render-form` writes it.
+// An unknown form, or one the view's kind is not written in, is refused; requires CapabilityRenderViewForm.
+func WithForm(form string) RenderViewOption {
+	return func(options *renderViewOptions) { options.form = form }
+}
+
+// WithPalette fills the nodes of a graph form from the named palette, as
+// -render-palette names them; none draws in black and white.
+func WithPalette(palette string) RenderViewOption {
+	return func(options *renderViewOptions) { options.palette = palette }
+}
+
+// WithStyle draws the DOT or Mermaid form in the named style, as
+// -render-style names them: "pilot" (the default) or "cameo".
+func WithStyle(style string) RenderViewOption {
+	return func(options *renderViewOptions) { options.style = style }
+}
+
+// WithLines routes the edges of the DOT or PlantUML form, as -render-lines
+// names the routings: "splines" (the default), "ortho" or "polyline".
+func WithLines(lines string) RenderViewOption {
+	return func(options *renderViewOptions) { options.lines = lines }
+}
+
+// WithDirection draws a graph-shaped form in the flow direction "TB", "LR",
+// "RL" or "BT"; none leaves each kind's default, which is what the CLI writes.
+func WithDirection(direction string) RenderViewOption {
+	return func(options *renderViewOptions) { options.direction = direction }
+}
+
+// WithLink links each node and edge of the form to its source through template, as
+// -render-link takes it: placeholders {file}, {line}, {col}, {qname} and {id}.
+func WithLink(template string) RenderViewOption {
+	return func(options *renderViewOptions) { options.link = template }
+}
+
+// WithUnplaced says where a graph form of a positioned view puts the nodes no
+// layout places, as -render-unplaced names it: "omit" (the default) or "strip".
+func WithUnplaced(placement string) RenderViewOption {
+	return func(options *renderViewOptions) { options.unplaced = placement }
 }
 
 // WithCompartments folds a tree rendering's owned members into compartment
@@ -68,6 +145,8 @@ type RenderedView struct {
 	Shown []string
 	// Frame is the view frame round a graph-shaped rendering; nil when frameless.
 	Frame *RenderFrame
+	// Text is the rendering written in the form WithForm named; empty without one.
+	Text string
 }
 
 // RenderFrame is the view frame of SysML v2 §8.2.3.26: the name compartment's
@@ -182,9 +261,8 @@ type RenderNote struct {
 	Origin   *Span
 }
 
-// RenderView renders a named view. Ports are minimal unless WithFullPorts is
-// supplied; WithShow adds optional notation elements and WithDepth limits how
-// deep nested elements are drawn.
+// RenderView renders a named view as data, shaped by WithFullPorts, WithShow, WithDepth
+// and WithCompartments; WithForm also writes it as text, under the writer's options.
 func (c *client) RenderView(ctx context.Context, model *Model, viewName string, opts ...RenderViewOption) (*RenderedView, error) {
 	hash, err := c.call(model)
 	if err != nil {
@@ -197,6 +275,11 @@ func (c *client) RenderView(ctx context.Context, model *Model, viewName string, 
 	for _, opt := range opts {
 		opt(&options)
 	}
+	if options.written() {
+		if err := c.requireCapabilities(ctx, CapabilityRenderViewForm); err != nil {
+			return nil, err
+		}
+	}
 	if options.depth < 0 || options.depth > math.MaxInt32 {
 		return nil, &StatusError{Code: CodeInvalidArgument, Message: fmt.Sprintf("depth must be between 0 and %d, got %d", math.MaxInt32, options.depth)}
 	}
@@ -207,6 +290,13 @@ func (c *client) RenderView(ctx context.Context, model *Model, viewName string, 
 		Show:         append([]string(nil), options.show...),
 		Depth:        int32(options.depth),
 		Compartments: options.compartments,
+		Form:         options.form,
+		Palette:      options.palette,
+		Style:        options.style,
+		Lines:        options.lines,
+		Direction:    options.direction,
+		Link:         options.link,
+		Unplaced:     options.unplaced,
 	})
 	if err != nil {
 		return nil, err
@@ -218,7 +308,7 @@ func renderedViewFromProto(response *pb.RenderViewResponse) *RenderedView {
 	result := &RenderedView{
 		View: response.View, Kind: response.Kind, Stated: response.Stated,
 		Columns: append([]string(nil), response.Columns...), Notices: append([]string(nil), response.Notices...),
-		Shown: append([]string(nil), response.Shown...),
+		Shown: append([]string(nil), response.Shown...), Text: response.Text,
 	}
 	for _, node := range response.Nodes {
 		converted := RenderNode{

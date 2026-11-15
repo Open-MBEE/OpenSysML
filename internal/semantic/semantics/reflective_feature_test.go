@@ -119,7 +119,7 @@ func TestReflectiveConnectorRelatedFeaturesCoverEndForms(t *testing.T) {
 	for _, fixture := range reflectiveFixtures(t, "connector-related.sysml", source.KindSysML, src) {
 		for path, want := range map[string][]string{
 			"P::Host::byPair":       {"P::Host::a", "P::Host::b"},
-			"P::Host::byFlow":       {"P::A::x", "P::A::y"},
+			"P::Host::byFlow":       {"P::Host::a", "P::Host::b"}, // the features before the payloads x and y
 			"P::Host::byMessage":    {"P::A::x", "P::A::y"},
 			"P::Host::byReferences": {"P::Host::a", "P::Host::b"},
 			"P::Sequence::explicit": {"P::Sequence::firstNode", "P::Sequence::secondNode"},
@@ -1052,6 +1052,10 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 		for i, feature := range related {
 			if feature == nil {
 				continue
+			}
+			// As the interface writer records a chained end: the feature its chain reaches.
+			if chain := model.chainingFeaturesOf(feature); len(chain) > 0 {
+				feature = chain[len(chain)-1]
 			}
 			if ref, found := idx.RefTo(feature); found {
 				facts.RelatedFeatures[i] = ref

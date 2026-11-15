@@ -190,10 +190,8 @@ type directChildrenKey struct {
 	allowsPrivate bool
 }
 
-// WildcardImport is one `import X::*` declaration: the target's raw qualified
-// name text, whether the import was declared private, and the filter condition
-// restricting what it brings in (`import X::*[@Safety]`), which is zero for an
-// unfiltered import.
+// WildcardImport is one `import X::*` declaration: its target's raw name, whether it is
+// visible only inside (private or protected), and its filter (`[@Safety]`), zero when unfiltered.
 type WildcardImport struct {
 	Target  string
 	Private bool
@@ -1612,7 +1610,7 @@ func wildcardImportsIn(scope *Scope) []WildcardImport {
 		}
 		wi := WildcardImport{
 			Target:  imp.Imported.Text(),
-			Private: imp.Visibility == ast.VisibilityPrivate,
+			Private: !VisibleOutside(imp.Visibility),
 			All:     imp.IsAll,
 		}
 		if imp.FilterExpr != nil {
@@ -2085,7 +2083,7 @@ func (idx *Index) lookupDirectChildrenNamed(key directChildrenKey, name string) 
 }
 
 // SegmentsOf reads a qualified name as the notation spells it into its names,
-// `'x::y'` one and `x::y` two, quotes dropped and escapes kept as the parser keeps them.
+// `'x::y'` one and `x::y` two, quotes dropped and escapes decoded as the parser decodes them.
 func SegmentsOf(name string) []string {
 	if segments, ok := source.QualifiedNameSegments(name); ok {
 		return segments

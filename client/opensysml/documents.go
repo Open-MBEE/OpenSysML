@@ -2,6 +2,7 @@ package opensysml
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"slices"
 	"strconv"
@@ -354,14 +355,59 @@ func (c *client) runDocumentQuery(ctx context.Context, model *Model, req *pb.Run
 	return rows, nil
 }
 
-func (c *client) RenderDocument(ctx context.Context, model *Model, documentID string) (string, error) {
+// RenderDocumentOption configures a document rendering.
+type RenderDocumentOption func(*renderDocumentOptions)
+
+type renderDocumentOptions struct {
+	form string
+}
+
+// The forms WithDocumentForm takes, as the CLI's -doc-form names them.
+const (
+	DocumentFormMarkdown = "markdown"
+	DocumentFormHTML     = "html"
+	DocumentFormAsciiDoc = "asciidoc"
+)
+
+// WithDocumentForm renders the document in form instead of Markdown; HTML and
+// AsciiDoc each require their capability, and an unknown form is refused.
+func WithDocumentForm(form string) RenderDocumentOption {
+	return func(options *renderDocumentOptions) { options.form = form }
+}
+
+func (c *client) RenderDocument(ctx context.Context, model *Model, documentID string, opts ...RenderDocumentOption) (string, error) {
 	hash, err := c.call(model)
 	if err != nil {
 		return "", err
 	}
-	resp, err := c.caller.renderDocument(ctx, &pb.RenderDocumentRequest{ModelHash: hash, DocumentId: documentID})
+	var options renderDocumentOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
+	switch options.form {
+	case "", DocumentFormMarkdown:
+	case DocumentFormHTML:
+		err = c.requireCapabilities(ctx, CapabilityRenderDocumentHTML)
+	case DocumentFormAsciiDoc:
+		err = c.requireCapabilities(ctx, CapabilityRenderDocumentAsciiDoc)
+	default:
+		err = &StatusError{
+			Code:    CodeInvalidArgument,
+			Message: fmt.Sprintf("form %q is not one RenderDocument renders: markdown, html or asciidoc", options.form),
+		}
+	}
 	if err != nil {
 		return "", err
+	}
+	resp, err := c.caller.renderDocument(ctx, &pb.RenderDocumentRequest{ModelHash: hash, DocumentId: documentID, Form: options.form})
+	if err != nil {
+		return "", err
+	}
+	switch options.form {
+	case DocumentFormHTML:
+		return resp.Html, nil
+	case DocumentFormAsciiDoc:
+		return resp.Asciidoc, nil
 	}
 	return resp.Markdown, nil
 }

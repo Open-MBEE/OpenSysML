@@ -15,6 +15,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast/astcodec"
@@ -617,28 +618,26 @@ func branchesOf(exec *runtime.ActionExecutor) []SessionBranch {
 		if len(t.Within) > 0 {
 			continue
 		}
-		if _, ok := t.Edge.Source.(*ast.DecisionNode); !ok {
+		source := graph.ID[t.Edge.Source]
+		if graph.Kinds[source] != program.NodeDecision {
 			continue
 		}
-		branch := SessionBranch{
-			Decision: runtime.ActionNodeName(t.Edge.Source),
-			Target:   runtime.ActionNodeName(t.Edge.Target),
-			Opening:  t.Edge.Source == gate,
-		}
-		if edge, ok := t.Edge.Decl.(*ast.ControlFlowEdge); ok {
-			branch.Else = edge.IsElse
-		}
-		out = append(out, branch)
+		out = append(out, SessionBranch{
+			Decision: graph.Origins[source].Name,
+			Target:   graph.OriginOf(t.Edge.Target).Name,
+			Opening:  source == gate,
+			Else:     t.Edge.Else,
+		})
 	}
 	return out
 }
 
 // gateOf is the first decision the action's start leads to without a choice on
-// the way, following each node's single succession; nil when there is none.
-func gateOf(graph *lower.ActionGraph) ast.Node {
+// the way, following each node's single succession; 0 when there is none.
+func gateOf(graph *lower.ActionGraph) program.NodeID {
 	var at ast.Node
 	for _, node := range graph.Nodes {
-		if _, ok := node.(*ast.InitialNode); ok {
+		if graph.Kinds[graph.ID[node]] == program.NodeInitial {
 			at = node
 			break
 		}
@@ -646,16 +645,16 @@ func gateOf(graph *lower.ActionGraph) ast.Node {
 	seen := map[ast.Node]bool{}
 	for at != nil && !seen[at] {
 		seen[at] = true
-		if _, ok := at.(*ast.DecisionNode); ok {
-			return at
+		if id := graph.ID[at]; graph.Kinds[id] == program.NodeDecision {
+			return id
 		}
 		edges := graph.Edges[at]
 		if len(edges) != 1 {
-			return nil
+			return 0
 		}
 		at = edges[0].Target
 	}
-	return nil
+	return 0
 }
 
 // choicesOf copies the choice points among a run's notes.

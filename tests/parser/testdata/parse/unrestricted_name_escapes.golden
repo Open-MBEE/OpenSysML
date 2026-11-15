@@ -1,0 +1,56 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="esc'aped" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Pt"))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Holder"
+          (Membership visibility="default"
+            (Usage kind="part" name="it's" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Pt
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="part" name="a\\b" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Pt
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="part" name="q\"d" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Pt
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="part" name="tab\there" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Pt
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="part" name="line\nfeed" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Pt
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="part" name="bell\bform\fret\rurn" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Pt
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="part" name="x::y" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Pt
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="part" name="<sh'ort> two words" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Pt
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Usage kind="part" name="h" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Holder
+            (*ast.QualifiedName))
+          (Membership visibility="default"
+            (Usage kind="part" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="redefines" target=it's
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="part" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="redefines" target=Holder::a\b
+                (*ast.QualifiedName))))))
+      (Alias visibility="default" name="Al" for="Holder::it's")
+      (Membership visibility="default"
+        (Usage kind="attribute" name="n" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (FeatureChainExpr member="it's"
+            (FeatureReference name="h")))))))
