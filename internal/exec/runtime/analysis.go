@@ -560,10 +560,8 @@ func checkedConstraint(member scopedMember) (sym *symbols.Symbol, required, ok b
 	return sym, required, sym != nil
 }
 
-// appendCheckedConstraint appends the conditions a nested constraint usage
-// states when the case requires, assumes, asserts or states it as an invariant.
-// A negation it wrote negates what its conditions state together (De Morgan),
-// as a negated constraint body does.
+// appendCheckedConstraint appends the conditions of a nested constraint usage the case requires,
+// assumes, asserts or states as an invariant; its negation negates them together (De Morgan).
 func (ctx *Context) appendCheckedConstraint(out []Condition, member scopedMember) []Condition {
 	sym, required, ok := checkedConstraint(member)
 	if !ok {
