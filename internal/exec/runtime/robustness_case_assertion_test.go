@@ -119,6 +119,28 @@ func TestRuntimeRobustnessCaseAssertion(t *testing.T) {
 			t.Fatalf("verdicts = %v, want none for an assertion the case does not own", verdicts)
 		}
 	}))
+	t.Run("nested_case_assertion_still_ends_the_run", inParallel(func(t *testing.T) {
+		verdicts, err := caseAssertionVerdicts(t, `package test {
+			private import ScalarValues::*;
+			analysis def Inner {
+				attribute level : Integer := 0;
+				action raise { assign level := 1; }
+				then assert constraint raised { level == 3 }
+				return r : Integer = level;
+			}
+			analysis outer {
+				analysis inner : Inner;
+				return r : Integer = inner.r;
+			}
+		}`, "test::outer")
+		var violation *ViolationError
+		if !errors.As(err, &violation) || violation.Element != "raised" {
+			t.Fatalf("error = %v, want the nested case's assertion raised violated", err)
+		}
+		if _, judged := verdicts["raised"]; judged {
+			t.Fatalf("verdicts = %v, want none for an assertion of a case the report is not about", verdicts)
+		}
+	}))
 	t.Run("verification_case_judges_at_position", inParallel(func(t *testing.T) {
 		verdicts, err := caseAssertionVerdicts(t, `package test {
 			private import ScalarValues::*;

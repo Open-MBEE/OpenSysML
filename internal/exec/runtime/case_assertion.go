@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
@@ -13,6 +14,24 @@ type caseAssertions struct {
 	shape *loadedCalc
 	// judged are the verdicts by asserting member, one per required condition.
 	judged map[ast.Node][]AnalysisVerdict
+}
+
+// judgeAssertions makes the run about to start record its ordered assertions as
+// verdicts for a report; a case run for its value keeps a violation as its error.
+func (start *calcUsageStart) judgeAssertions() {
+	if perfs := start.host.perfs; perfs != nil {
+		perfs.root.assertions = &caseAssertions{shape: start.shape, judged: make(map[ast.Node][]AnalysisVerdict)}
+	}
+}
+
+// caseUsageRun is calcUsageRun for a run whose assertion verdicts are reported.
+func (ctx *Context) caseUsageRun(reader *EvalContext, sym *symbols.Symbol) (*calcRun, error) {
+	start, run, err := ctx.beginCalcUsage(reader, sym)
+	if err != nil || run != nil {
+		return run, err
+	}
+	start.judgeAssertions()
+	return ctx.finishCalcUsageRun(start)
 }
 
 // unreachedAssertion is why an ordered assertion the flow never reached is undecided.

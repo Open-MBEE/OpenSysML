@@ -231,7 +231,7 @@ func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbo
 	var run *calcRun
 	if asUsage {
 		// A run is requested, not a read: an input the usage leaves open refuses it.
-		if run, err = ctx.calcUsageRun(reader, sym); err == nil && run.open != "" {
+		if run, err = ctx.caseUsageRun(reader, sym); err == nil && run.open != "" {
 			run, err = nil, shape.unboundParameter(run.open)
 		}
 	} else {
@@ -344,6 +344,7 @@ func (ctx *Context) analysisRun(shape *loadedCalc, reader *EvalContext, calcArgs
 		return nil, err
 	}
 	start.deferResults = deferResults
+	start.judgeAssertions()
 	return ctx.runCalcUsage(start)
 }
 

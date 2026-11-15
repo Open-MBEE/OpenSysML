@@ -73,7 +73,6 @@ func (h *calcStmtHost) attachPerformances(engine *stmtEngine) {
 		label:      h.shape.Label,
 		outer:      append(append(append([]frame{}, engine.env.enclosing...), engine.env.data), engine.env.localFrame()),
 		run:        h.ctx.newRun(),
-		assertions: &caseAssertions{shape: h.shape, judged: make(map[ast.Node][]AnalysisVerdict)},
 	}
 	h.flow = &ActionExecutor{
 		performances:     performances{ctx: h.ctx, self: h.self, root: root, owner: h, behavior: h.shape.Sym},
