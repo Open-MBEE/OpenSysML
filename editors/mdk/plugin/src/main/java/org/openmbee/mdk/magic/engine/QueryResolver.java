@@ -69,7 +69,7 @@ public final class QueryResolver {
     }
     if (!symbol.kind().endsWith("Usage") && !symbol.kind().endsWith("Def")) return;
     if (symbol.kind().equals("calcUsage")) {
-      typeOf(symbol).flatMap(id -> reported(model, id))
+      typeOf(model, symbol)
           .filter(type -> isQuery(model, type))
           .ifPresent(type -> found.add(type.id()));
       return;
@@ -80,13 +80,17 @@ public final class QueryResolver {
     }
   }
 
-  private static Optional<String> typeOf(Symbol symbol) {
-    Optional<String> resolved = symbol.typeFacts().flatMap(Symbol.TypeFacts::resolvedId).filter(id -> !id.isBlank());
-    if (resolved.isPresent()) return resolved;
+  /** The usage's type: type facts name it by qualified name, a typing by its reported id. */
+  private static Optional<Symbol> typeOf(Model model, Symbol symbol) {
+    Optional<String> resolved = symbol.typeFacts().flatMap(Symbol.TypeFacts::resolvedId).filter(name -> !name.isBlank());
+    if (resolved.isPresent()) {
+      return model.findSymbol(resolved.get(), SymbolOptions.defaults().lookup(Lookup.QUALIFIED_NAME));
+    }
     return symbol.specializations().stream()
         .filter(item -> item.kind().equals("typing"))
         .flatMap(item -> item.targetId().stream())
-        .findFirst();
+        .findFirst()
+        .flatMap(id -> reported(model, id));
   }
 
   /** A calc def specializing {@code DocumentQueries::Query}, directly or through other calc defs. */
