@@ -2956,6 +2956,9 @@ func recordedUsageIsReferential(sym *symbols.Symbol) bool {
 	if isVariantReferenceSymbol(sym) {
 		return true
 	}
+	if sym.Facts.UsageKind.ReferenceSubsettingKeepsComposite() {
+		return false
+	}
 	for _, rel := range sym.Facts.Relationships {
 		if rel.Kind == ast.RelReferences {
 			return true

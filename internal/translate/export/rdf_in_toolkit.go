@@ -114,7 +114,7 @@ func (index portDefinitionIndex) original(graph *rdf.Graph, meta func(rdf.Term) 
 
 // collapsedOf is the collapsed head property a minted relationship element
 // restates, for the owners this mapping collapses them on.
-func collapsedOf(metaclass string, ownerHasEndForm, ownerIsSatisfy bool) (string, bool) {
+func collapsedOf(metaclass string) (string, bool) {
 	switch metaclass {
 	case mFeatureTyping, mConjugatedPortTyping:
 		return "type", true
@@ -125,9 +125,6 @@ func collapsedOf(metaclass string, ownerHasEndForm, ownerIsSatisfy bool) (string
 	case mRedefinition:
 		return "redefines", true
 	case mReferenceSubsetting:
-		if ownerIsSatisfy || ownerHasEndForm {
-			return "subsets", true
-		}
 		return "references", true
 	}
 	return "", false
@@ -136,7 +133,7 @@ func collapsedOf(metaclass string, ownerHasEndForm, ownerIsSatisfy bool) (string
 // collapsedKindsOf are the collapsed properties a materialized element of the
 // metaclass may restate targets of — the encoder's relationshipSpec, read the
 // other way. A feature's `:>` is stored as specializes but materialized as a
-// Subsetting, and a satisfy's or end-form's subsets as a ReferenceSubsetting.
+// Subsetting.
 var collapsedKindsOf = map[string][]ast.RelationshipKind{
 	mFeatureTyping:        {ast.RelTyping},
 	mConjugatedPortTyping: {ast.RelTyping},
@@ -144,7 +141,7 @@ var collapsedKindsOf = map[string][]ast.RelationshipKind{
 	mSpecialization:       {ast.RelSpecializes},
 	mSubsetting:           {ast.RelSubsets, ast.RelSpecializes},
 	mRedefinition:         {ast.RelRedefines},
-	mReferenceSubsetting:  {ast.RelReferences, ast.RelSubsets},
+	mReferenceSubsetting:  {ast.RelReferences},
 	mAnnotation:           {ast.RelAnnotates},
 }
 
@@ -527,12 +524,7 @@ func (n *normalizer) collapseRelationships() {
 		if owner.Value == "" {
 			continue
 		}
-		// A verification's reference is the satisfy form's: the RequirementUsage a
-		// RequirementVerificationMembership owns subsets the requirement it names.
-		verifies := meta(firstIRI(graph, owner, pOwningRelationship, pOwningMembership)) == mRequirementVerificationMembership
-		property, ok := collapsedOf(m,
-			graph.HasProperty(owner, rdf.OpenSysML+xEndForm),
-			meta(owner) == "SatisfyRequirementUsage" || verifies)
+		property, ok := collapsedOf(m)
 		if !ok {
 			continue
 		}
@@ -566,9 +558,7 @@ func (n *normalizer) collapseLiteralRelationships() {
 		if owner.Value == "" {
 			continue
 		}
-		property, ok := collapsedOf(m,
-			graph.HasProperty(owner, rdf.OpenSysML+xEndForm),
-			meta(owner) == "SatisfyRequirementUsage")
+		property, ok := collapsedOf(m)
 		if !ok {
 			continue
 		}

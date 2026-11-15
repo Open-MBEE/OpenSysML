@@ -130,17 +130,16 @@ func (e *encoder) endFormOf(n *ast.Usage) (form, keyword string) {
 	return form, keyword
 }
 
-// satisfyFormOf reports whether a satisfy head writes the requirement it subsets
-// bare, right after its keyword (`satisfy R by v`), which is what tells that
-// clause from a `subsets` one written out. The keyword goes with it, since
-// `verify` is the same kind spelled differently.
+// satisfyFormOf reports whether a satisfy head writes the requirement it
+// reference-subsets bare, right after its keyword (`satisfy R by v`). The keyword
+// goes with it, since `verify` is the same kind spelled differently.
 func (e *encoder) satisfyFormOf(n *ast.Usage) bool {
-	requirement := relationshipTarget(n, ast.RelSubsets)
+	requirement := relationshipTarget(n, ast.RelReferences)
 	if requirement == nil || n.Ident.HasName() || n.Value != nil {
 		return false
 	}
 	for _, rel := range n.Relationships {
-		if rel != nil && rel.Kind != ast.RelSubsets && rel.Kind != ast.RelSubject {
+		if rel != nil && rel.Kind != ast.RelReferences && rel.Kind != ast.RelSubject {
 			return false
 		}
 	}
