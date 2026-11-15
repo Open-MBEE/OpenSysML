@@ -66,6 +66,12 @@ type stateSpaceRun struct {
 	start float64
 	steps int
 	step  float64
+	// into is the duration the latest sample stands into the step under way, past
+	// zero only where a zero crossing was sampled inside it; cut is the span from
+	// there to the next sample where a crossing is located before the step's end,
+	// zero where the next sample is the step's end. moves counts the samples taken.
+	into, cut float64
+	moves     int
 	// stop is the duration the run lasts from its start, stops false where it runs while driven.
 	stop  float64
 	stops bool
@@ -74,6 +80,23 @@ type stateSpaceRun struct {
 	// guards holds each crossing's guard after the latest step, for its sign;
 	// nil until the first step settles the start.
 	guards []float64
+	// sides holds each crossing's latest guard that was not zero, zero for none:
+	// the side a guard resting at zero arrived from.
+	sides []float64
+	// before holds the guards lead before the latest sample, where the step that
+	// reached it sampled them, so a guard turning back at a step's end is seen.
+	before []float64
+	lead   float64
+}
+
+// hold takes guards as the run's latest sample of each crossing's guard.
+func (run *stateSpaceRun) hold(guards []float64) {
+	for i, guard := range guards {
+		run.guards[i] = guard
+		if guard != 0 {
+			run.sides[i] = guard
+		}
+	}
 }
 
 // settled reports whether the run has sampled its start, which its first step does.
@@ -81,7 +104,22 @@ func (run *stateSpaceRun) settled() bool { return run.guards != nil }
 
 // soFar is the duration the run has stepped from its own start: the time feature's
 // value, exact where the clock's instant less the start would round at a late start.
-func (run *stateSpaceRun) soFar() float64 { return float64(run.steps) * run.step }
+func (run *stateSpaceRun) soFar() float64 { return run.after(0) }
+
+// after is the duration from the run's start to span past its latest sample.
+func (run *stateSpaceRun) after(span float64) float64 {
+	return float64(float64(run.steps)*run.step) + (run.into + span)
+}
+
+// span is the duration the next sample lies past the latest, and whether it is
+// the end of the step under way.
+func (run *stateSpaceRun) span() (float64, bool) {
+	rest := run.step - run.into
+	if run.cut > 0 && run.cut < rest {
+		return run.cut, false
+	}
+	return rest, true
+}
 
 // pastStop reports a run whose next step would end past the duration it stops at.
 func (run *stateSpaceRun) pastStop() bool {
@@ -102,6 +140,8 @@ func (run *stateSpaceRun) clone() *stateSpaceRun {
 	}
 	saved := *run
 	saved.guards = slices.Clone(run.guards)
+	saved.sides = slices.Clone(run.sides)
+	saved.before = slices.Clone(run.before)
 	return &saved
 }
 
@@ -196,12 +236,13 @@ func (e *ActionExecutor) stateVector() (Value, error) {
 	return e.checkVector(lower.StateSpaceFeature, state)
 }
 
-// dynamicsSteps is the number of steps the dynamics took, for telling progress; 0 for other actions.
+// dynamicsSteps is the number of samples the dynamics took past their start, for
+// telling progress; 0 for other actions.
 func (e *ActionExecutor) dynamicsSteps() int {
 	if e.dynamics == nil {
 		return 0
 	}
-	return e.dynamics.steps
+	return e.dynamics.moves
 }
 
 // inputVector is the input the action holds; nil when it binds none, so a calc
@@ -242,8 +283,9 @@ func (e *ActionExecutor) dynamicsDue(token Token) bool {
 	return token.Wait == nil || token.Wait.Due <= e.ctx.clock.now
 }
 
-// stepDynamics samples the start on the token's first step, then performs the
-// step the token is due for, or leaves it parked.
+// stepDynamics samples the start on the token's first step, then advances to the
+// sample the token is due for — the step's end, or a zero crossing located before
+// it — or leaves it parked.
 func (e *ActionExecutor) stepDynamics(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
 	run := e.dynamics
@@ -271,11 +313,18 @@ func (e *ActionExecutor) stepDynamics(tokenIdx int) error {
 		}
 		return e.parkDynamics(run, &e.tokens[tokenIdx])
 	}
-	next, err := e.nextState(run, state, input)
+	span, whole := run.span()
+	next, err := e.nextState(run, state, input, span)
 	if err != nil {
 		return e.divergence(run, err)
 	}
-	run.steps++
+	if whole {
+		run.steps, run.into = run.steps+1, 0
+	} else {
+		run.into += span
+	}
+	run.cut = 0
+	run.moves++
 	if err := e.checkFinite(next); err != nil {
 		return err
 	}
@@ -292,19 +341,24 @@ func (e *ActionExecutor) stepDynamics(tokenIdx int) error {
 	return e.parkDynamics(run, &e.tokens[tokenIdx])
 }
 
-// due is the instant the run's next step is due at.
+// due is the instant the run's next sample is due at.
 func (run *stateSpaceRun) due() float64 {
+	if span, whole := run.span(); !whole {
+		return run.start + run.after(span)
+	}
 	return run.start + float64(run.steps+1)*run.step
 }
 
-// stepStart is the instant the run's next step advances from: where its latest settled.
+// stepStart is the instant the run's next sample advances from: where its latest settled.
 func (run *stateSpaceRun) stepStart() float64 {
-	return run.start + float64(run.steps)*run.step
+	return run.start + run.soFar()
 }
 
-// parkDynamics parks the run's token on the clock until its next step is due; a
-// step due past the last instant a float64 holds is refused, so the clock stays finite.
+// parkDynamics parks the run's token on the clock until its next sample is due:
+// the step's end, or the first zero crossing located before it. A step due past
+// the last instant a float64 holds is refused, so the clock stays finite.
 func (e *ActionExecutor) parkDynamics(run *stateSpaceRun, token *Token) error {
+	e.locateCrossing(run)
 	due := run.due()
 	if math.IsInf(due, 0) {
 		return fmt.Errorf("%w: step %d of action %s from t=%s leads past the last instant the clock can hold",
@@ -355,12 +409,25 @@ func (e *ActionExecutor) instantValue(t float64) Value {
 	return e.ctx.instantValue(t)
 }
 
-// nextState is the state one step on: the library's getNextState integrates the
-// derivative or adds the difference, one the model bodies itself is called as written.
-func (e *ActionExecutor) nextState(run *stateSpaceRun, state Value, input *Value) (Value, error) {
+// spanValue is span as a duration in timeStep's own unit: timeStep itself for a whole step.
+func (e *ActionExecutor) spanValue(run *stateSpaceRun, span float64) (Value, error) {
+	if span == run.step {
+		return run.stepValue, nil
+	}
+	return e.vectorOp(ast.OpMul, run.stepValue, realConst(span/run.step))
+}
+
+// nextState is the state span past the run's latest sample: the library's
+// getNextState integrates the derivative or adds the difference, one the model
+// bodies itself is called as written, with span as its timeStep.
+func (e *ActionExecutor) nextState(run *stateSpaceRun, state Value, input *Value, span float64) (Value, error) {
 	dyn := run.dyn
+	stepValue, err := e.spanValue(run, span)
+	if err != nil {
+		return Value{}, err
+	}
 	if dyn.NextState != nil {
-		next, err := e.invokeProtocolCalc(dyn.NextState, lower.GetNextStateCalc, input, state, &run.stepValue)
+		next, err := e.invokeProtocolCalc(dyn.NextState, lower.GetNextStateCalc, input, state, &stepValue)
 		if err != nil {
 			return Value{}, err
 		}
@@ -379,19 +446,19 @@ func (e *ActionExecutor) nextState(run *stateSpaceRun, state Value, input *Value
 	}
 	switch dyn.Integrator {
 	case lower.IntegratorEuler:
-		return e.eulerStep(run, state, input)
+		return e.eulerStep(run, state, input, stepValue)
 	default:
-		return e.rk4Step(run, state, input)
+		return e.rk4Step(run, state, input, stepValue, span)
 	}
 }
 
-// eulerStep advances the state by the step times the derivative at its start.
-func (e *ActionExecutor) eulerStep(run *stateSpaceRun, state Value, input *Value) (Value, error) {
+// eulerStep advances the state by the span times the derivative at its start.
+func (e *ActionExecutor) eulerStep(run *stateSpaceRun, state Value, input *Value, stepValue Value) (Value, error) {
 	k, err := e.derivative(run, input, state)
 	if err != nil {
 		return Value{}, err
 	}
-	rate, err := e.vectorOp(ast.OpMul, k, run.stepValue)
+	rate, err := e.vectorOp(ast.OpMul, k, stepValue)
 	if err != nil {
 		return Value{}, err
 	}
@@ -400,14 +467,13 @@ func (e *ActionExecutor) eulerStep(run *stateSpaceRun, state Value, input *Value
 
 // rk4Step advances the state by the classical Runge-Kutta scheme: the derivative
 // at the start, twice at the midpoint and at the end, each stage at its own
-// duration into the step, weighted 1:2:2:1.
-func (e *ActionExecutor) rk4Step(run *stateSpaceRun, state Value, input *Value) (Value, error) {
-	half, err := e.vectorOp(ast.OpMul, run.stepValue, realConst(0.5))
+// duration into the span, weighted 1:2:2:1.
+func (e *ActionExecutor) rk4Step(run *stateSpaceRun, state Value, input *Value, stepValue Value, span float64) (Value, error) {
+	half, err := e.vectorOp(ast.OpMul, stepValue, realConst(0.5))
 	if err != nil {
 		return Value{}, err
 	}
-	start := run.soFar()
-	mid, end := start+run.step/2, start+run.step
+	mid, end := run.after(span/2), run.after(span)
 	k1, err := e.derivative(run, input, state)
 	if err != nil {
 		return Value{}, err
@@ -420,7 +486,7 @@ func (e *ActionExecutor) rk4Step(run *stateSpaceRun, state Value, input *Value) 
 	if err != nil {
 		return Value{}, err
 	}
-	k4, err := e.derivativeAt(run, input, state, k3, run.stepValue, end)
+	k4, err := e.derivativeAt(run, input, state, k3, stepValue, end)
 	if err != nil {
 		return Value{}, err
 	}
@@ -437,7 +503,7 @@ func (e *ActionExecutor) rk4Step(run *stateSpaceRun, state Value, input *Value) 
 			return Value{}, err
 		}
 	}
-	sixth, err := e.vectorOp(ast.OpDiv, run.stepValue, realConst(6))
+	sixth, err := e.vectorOp(ast.OpDiv, stepValue, realConst(6))
 	if err != nil {
 		return Value{}, err
 	}
@@ -563,7 +629,7 @@ func (e *ActionExecutor) invokeProtocolCalc(calc *symbols.Symbol, what string, i
 	return result, nil
 }
 
-// crosses reports a guard that changed sign or arrived at zero over a step; one
+// crosses reports a guard that changed sign or arrived at zero between two samples; one
 // resting at zero, or leaving it, crossed at its arrival and does not again.
 func crosses(was, guard float64) bool {
 	if guard == 0 {
@@ -572,12 +638,13 @@ func crosses(was, guard float64) bool {
 	return was != 0 && math.Signbit(guard) != math.Signbit(was)
 }
 
-// watchCrossings evaluates every guard after a step and raises the event of each
-// that crosses zero; true when a terminal one fired.
+// watchCrossings evaluates every guard at a sample and raises the event of each
+// that crossed zero since the sample before; true when a terminal one fired.
 func (e *ActionExecutor) watchCrossings(run *stateSpaceRun, now float64) (bool, error) {
 	first := run.guards == nil
 	if first {
 		run.guards = make([]float64, len(run.dyn.Crossings))
+		run.sides = make([]float64, len(run.dyn.Crossings))
 	}
 	ended := false
 	for i, crossing := range run.dyn.Crossings {
@@ -587,6 +654,9 @@ func (e *ActionExecutor) watchCrossings(run *stateSpaceRun, now float64) (bool, 
 		}
 		was := run.guards[i]
 		run.guards[i] = guard
+		if guard != 0 {
+			run.sides[i] = guard
+		}
 		if first || !crosses(was, guard) {
 			continue
 		}
@@ -603,7 +673,7 @@ func (e *ActionExecutor) watchCrossings(run *stateSpaceRun, now float64) (bool, 
 			Payload:     map[string]Value{},
 		})
 		if tr := e.trace(); tr != nil {
-			tr.recordEvent("zero crossing "+crossing.Name+" of "+SymbolText(e.action), now)
+			tr.recordCrossing(crossing.Name, SymbolText(e.action), now)
 		}
 		ended = ended || terminal
 	}

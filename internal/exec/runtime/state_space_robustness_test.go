@@ -26,6 +26,8 @@ func TestStateSpaceRobustness(t *testing.T) {
 	t.Run("step_past_the_last_instant", testStateSpaceStepPastLastInstant)
 	t.Run("guard_that_is_not_a_number", testStateSpaceGuardNotANumber)
 	t.Run("return_parameter", testStateSpaceReturnParameter)
+	t.Run("guard_undefined_inside_a_step", testStateSpaceGuardUndefinedInsideAStep)
+	t.Run("output_undefined_inside_a_step", testStateSpaceOutputUndefinedInsideAStep)
 }
 
 // stateSpaceSource wraps an action body in a package importing what a
@@ -280,4 +282,44 @@ func testStateSpaceGuardNotANumber(t *testing.T) {
 		}
 	`+decayCalcs))
 	expectStateSpaceError(t, err, errStateSpaceValue, "guard of zero crossing low of action dyn", "not a number")
+}
+
+// A guard with no value at an instant inside the step cannot be followed there:
+// the step runs whole and the sign change it shows at the step's end is the crossing.
+func testStateSpaceGuardUndefinedInsideAStep(t *testing.T) {
+	got, _ := crossingInstants(t, stateSpaceSource("ContinuousStateSpaceDynamics, FixedStepDynamics", `
+		:>> stateSpace = VectorOf((0.0));
+		:>> timeStep = 1 [s];
+		:>> stopTime = 2 [s];
+		event occurrence pole : ZeroCrossing {
+			:>> guard = 1.0 / (stateSpace.elements#(1) - 0.5);
+		}
+	`+rampCalcs))
+	expectInstants(t, got, []float64{1}, 0)
+}
+
+// An output the model cannot compute past the step's start is the step's own
+// error, reported by the step and not swallowed by the look inside it.
+func testStateSpaceOutputUndefinedInsideAStep(t *testing.T) {
+	err := runStateSpace(t, stateSpaceSource("ContinuousStateSpaceDynamics, FixedStepDynamics", `
+		:>> stateSpace = VectorOf((0.0));
+		:>> timeStep = 1 [s];
+		:>> stopTime = 2 [s];
+		event occurrence third : ZeroCrossing {
+			:>> guard = stateSpace.elements#(1) - 0.3;
+		}
+		calc :>> getDerivative {
+			in input : Input;
+			in stateSpace : StateSpace;
+			return : StateDerivative = VectorOf((1.0)) / 1 [s];
+		}
+		calc :>> getOutput {
+			in input : Input;
+			in stateSpace : StateSpace;
+			return : Output = if stateSpace.elements#(1) > 0.0 ? 1.0 else stateSpace;
+		}
+	`))
+	if err == nil || !strings.Contains(err.Error(), "getOutput of action dyn") || !strings.Contains(err.Error(), "type mismatch") {
+		t.Fatalf("error = %v, want getOutput's type mismatch", err)
+	}
 }

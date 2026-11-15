@@ -2200,9 +2200,9 @@ step, which a machine's `accept` takes, and ends the dynamics when `terminal`. T
 `output` and `time` as the action's outputs. What the runner refuses, typed and naming the action
 and the member at fault: a state, input, derivative or output that is not a vector, a protocol
 calc left abstract, an integrator the runtime does not provide, a step absent, zero or negative,
-a state a step leaves non-finite. Its stated limitations: a crossing is located to the step
-boundary and not bisected within the step, so a guard that crosses and re-crosses inside one step
-is not seen; `StateSpaceItem` and a `StateSpaceEventDef` that is not a zero crossing are not
+a state a step leaves non-finite. Its stated limitations: a crossing was located to the step
+boundary and not bisected within the step (since closed: crossings are bracketed and bisected
+inside the step); `StateSpaceItem` and a `StateSpaceEventDef` that is not a zero crossing are not
 executed. The OMG example `State Space Representation Examples/EVSample1.sysml` runs through the
 runner once a model of its shape also states a `timeStep`, the library itself stating none. L7's
 census reads `StateSpaceRepresentation` at 6 of 17 with the runner in, the rest the abstract
