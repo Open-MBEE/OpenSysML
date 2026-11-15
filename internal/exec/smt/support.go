@@ -65,9 +65,6 @@ type Flow struct {
 	Repeats    map[Node]int64
 	RepeatText map[Node]string
 	Crosses    map[Node]bool
-	// declared holds the declaration behind every node numbered, so one two frames
-	// share is numbered in the first alone.
-	declared map[any]bool
 	// Repeated is set when any step is performed other than once, so a state
 	// records a slot the extra tokens needed but did not find.
 	Repeated bool
@@ -149,7 +146,6 @@ func Analyze(graph *lower.ActionGraph, model *semantics.Model, k int) (*Flow, er
 		EdgeIndex: make(map[lower.ActionEdge]int),
 		Incoming:  make(map[Node][]int),
 		Outgoing:  make(map[Node][]int),
-		declared:  make(map[any]bool),
 	}
 	if err := f.number(&Frame{Graph: graph}); err != nil {
 		return nil, err
@@ -269,12 +265,6 @@ func (f *Flow) number(fr *Frame) error {
 	prefix := fr.path()
 	first := len(f.Nodes)
 	for _, id := range graph.NodeIDs() {
-		// Two flows typed by one definition lower its nodes twice; the first frame keeps them.
-		if written := graph.Provenance.Node(id); f.declared[written] {
-			continue
-		} else {
-			f.declared[written] = true
-		}
 		node := Node{Graph: graph, ID: id}
 		f.Index[node] = len(f.Nodes)
 		f.FrameOf[node] = fr

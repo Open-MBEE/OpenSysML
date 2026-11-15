@@ -605,8 +605,8 @@ step 8 deletes. The step is split into stacked pull requests:
   reads), so step 8 moves those answers and no consumer. An `ExprBody` record gains its
   parameters, its result and its count of other members. A held feature's value id is in the
   model's table, not the graph's, and is read through `runtime.Context.ExprEntry`. Two flows
-  typed by one definition are still told apart by declaration, through `Provenance`, because
-  an `Origin` is unique only within its graph.
+  typed by one definition have nodes of their own, so `smt` refuses the first as a nested flow
+  where keying by declaration reported the definition's initial node as outside the flow.
 - **7c**. `exec/analysis/modelform`, `exec/analysis` and `exec/sweep`, with theirs.
 - **7d**. `ir/view` and `ir/queryplan`.
 - **7e**. `doc/queryexec`, `frontend/lsp/debug.go`, `frontend/grpc`, `frontend/repl`,

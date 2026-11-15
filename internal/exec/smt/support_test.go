@@ -572,8 +572,8 @@ func TestAnalyzeRefusesBodyInterleaving(t *testing.T) {
 	}
 }
 
-// TestAnalyzeRefusesTwoFlowsOfOneDefinition: two steps typed by one definition share its
-// declarations, so the second frame's initial node is refused as outside the flow.
+// TestAnalyzeRefusesTwoFlowsOfOneDefinition: two steps typed by one definition each state
+// a flow of their own, so the first is refused as a nested flow like any other.
 func TestAnalyzeRefusesTwoFlowsOfOneDefinition(t *testing.T) {
 	_, idx := fixture(t, "<test>", `
 		package test {
@@ -598,11 +598,12 @@ func TestAnalyzeRefusesTwoFlowsOfOneDefinition(t *testing.T) {
 	}
 	lower.StartFlow(graph)
 	_, err = Analyze(graph, nil, 4)
-	var malformed *FlowError
-	if !errors.As(err, &malformed) {
-		t.Fatalf("Analyze: got %T %v, want a FlowError", err, err)
+	var unsupported *UnsupportedError
+	if !errors.As(err, &unsupported) {
+		t.Fatalf("Analyze: got %T %v, want an UnsupportedError", err, err)
 	}
-	if got, want := err.Error(), "smt: malformed action flow: node a: the initial node is not among the flow's nodes"; got != want {
-		t.Errorf("Analyze: got %q, want %q", got, want)
+	if unsupported.Node != "one" || unsupported.Construct != "nested flow" {
+		t.Errorf("refusal names %q/%q, want node one, construct nested flow", unsupported.Node, unsupported.Construct)
 	}
+	t.Log(err)
 }
