@@ -106,7 +106,7 @@ carries none, and so does a service without the `verdict_notes` capability.
 `VerifyConstraint` and `VerifyRequirement` also take `VerifyArguments(values...)` and
 `VerifyArgument(name, value)`, binding the element's `in` parameters positionally in declaration
 order or by name, as `Arguments` and `Argument` bind a case's for `RunAnalysis`. A name no parameter
-has, more positional values than parameters, a parameter left without a value, default or same-named value on the checked object, or a value
+has, more positional values than parameters, a parameter left without a value or default, or a value
 not of the parameter's type is an undecided `Verdict` naming it. Arguments need the
 `verification_arguments` capability, checked before anything is sent, and only the evaluate question
 takes them: `QuestionHolds` and `QuestionSatisfiable` leave the free features to the solver.

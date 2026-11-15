@@ -1754,22 +1754,32 @@ func (e *ActionExecutor) occurrenceRedefinesAttribute(attr lower.Attribute, fv *
 // occurrence for a feature the action declares: the occurrence is authoritative
 // for those, and data mirrors what it holds after the write.
 func (e *ActionExecutor) setFeature(name string, value Value) error {
+	value, err := e.holdFeature(name, value)
+	if err != nil {
+		return err
+	}
+	e.moved = true
+	return e.streamOutput(name, value)
+}
+
+// holdFeature is setFeature's write alone, returning the value as held: nothing
+// listening hears it, so a probe's rollback (see Context.beginProbe) undoes it whole.
+func (e *ActionExecutor) holdFeature(name string, value Value) (Value, error) {
 	var err error
 	if e.occurrence != nil && e.declaresAttribute(name) {
 		if value, err = e.mirrorOccurrence(name, value); err != nil {
-			return err
+			return value, err
 		}
 	} else {
 		// No occurrence holds this feature, so its declaration is checked here
 		// rather than by the write to that occurrence.
 		scope, declared := heldDeclaration(e.root, e.graph.Scope, name)
 		if err := e.ctx.checkNamedWriteAs(scope, func() string { return actionLabelPrefix + SymbolText(e.action) }, declared, &value); err != nil {
-			return err
+			return value, err
 		}
 	}
 	e.ctx.writeBodyValue(e.root.cells, e.root.data, e.root.key(name), value)
-	e.moved = true
-	return e.streamOutput(name, value)
+	return value, nil
 }
 
 // outputListener is a node's ear on the outputs of the action it performs: perf is
