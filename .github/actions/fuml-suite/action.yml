@@ -1,0 +1,30 @@
+name: Provision the fUML reference-implementation suite
+description: >-
+  Download the pinned fUML models, jar and Maven Central dependencies into build/fuml
+  behind a cache keyed on the download script and its pin; a restored cache is verified
+  by the script. With warm-only, an existing cache entry is left alone and a missing one
+  is fetched and saved, so one job fills the cache before the parallel jobs that read it.
+
+inputs:
+  warm-only:
+    description: >-
+      Only make sure the cache entry exists: skip the restore, and the download when the
+      entry is already there.
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Cache the fUML reference-implementation suite
+      id: cache
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: build/fuml
+        key: fuml-suite-${{ hashFiles('scripts/download-fuml-suite.sh', 'scripts/fuml-pin.sh') }}
+        lookup-only: ${{ inputs.warm-only }}
+
+    - name: Download the fUML reference-implementation suite
+      if: inputs.warm-only != 'true' || steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: ./scripts/download-fuml-suite.sh

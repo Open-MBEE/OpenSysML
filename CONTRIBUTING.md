@@ -369,6 +369,11 @@ the proto, `conformance/` or the workflows runs everything (under the queue and 
 every area on, so a new directory is over-tested rather than untested — teach the script about
 it, and add a case to `scripts/ci-changed-areas-test.sh`, which the same job runs.
 
+When the Go jobs will run, that job also fills the fUML suite's cache
+(`.github/actions/fuml-suite` with `warm-only`) before they start: on a cold cache the parallel
+jobs would each fetch the suite's jars from Maven Central, which answers that with HTTP 429.
+The download scripts fetch through `scripts/fetch-https.sh`, which backs off and retries.
+
 Every third-party action a workflow or composite action `uses:` is pinned to a full commit SHA
 with the release that commit is as a trailing comment (`actions/checkout@<sha> # v4.4.0`); a new
 step takes the same form, and the comment is what lets the pin be moved by version.
