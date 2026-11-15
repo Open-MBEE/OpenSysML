@@ -597,3 +597,52 @@ func TestDeclaredReadHoldsTheFeaturesShape(t *testing.T) {
 		}
 	}
 }
+
+// A quantity is held where `istype` affirms the declared type of it: by the supertypes of
+// ScalarQuantityValue and the quantity kinds of its dimension, and by no unrelated type.
+func TestQuantityIsHeldByTheTypesItIsOf(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import ISQ::*;
+			private import SI::*;
+			attribute def Count;
+			attribute def Ratio :> ScalarValues::Real;
+			attribute def Lap :> DurationValue;
+			part def P {
+				attribute held = 5 [s];
+				attribute duration : DurationValue = held;
+				attribute lap : Lap = held;
+				attribute scalarQuantity : Quantities::ScalarQuantityValue = held;
+				attribute vectorQuantity : Quantities::VectorQuantityValue = held;
+				attribute numerical : ScalarValues::NumericalValue = held;
+				attribute scalar : ScalarValues::ScalarValue = held;
+				attribute anything : Base::Anything = held;
+				attribute mass : MassValue = held;
+				attribute dimensionless : MeasurementReferences::DimensionOneValue = held;
+				attribute real : ScalarValues::Real = held;
+				attribute number : ScalarValues::Number = held;
+				attribute text : ScalarValues::String = held;
+				attribute truth : ScalarValues::Boolean = held;
+				attribute count : Count = held;
+				attribute ratio : Ratio = held;
+			}
+			part p : P;
+		}
+	`))
+	inst := instantiateNamed(t, ctx, idx, "test::p")
+	for _, feature := range []string{"duration", "lap", "scalarQuantity", "vectorQuantity", "numerical", "scalar", "anything"} {
+		fv, err := inst.GetFeatureValue(ctx, feature)
+		if err != nil {
+			t.Errorf("%s: %v", feature, err)
+			continue
+		}
+		if got := FormatTraceValue(fv.HeldValue()); got != "5 [s]" {
+			t.Errorf("%s = %s, want 5 [s]", feature, got)
+		}
+	}
+	for _, feature := range []string{"mass", "dimensionless", "real", "number", "text", "truth", "count", "ratio"} {
+		if _, err := inst.GetFeatureValue(ctx, feature); !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("%s: error = %v, want ErrTypeMismatch", feature, err)
+		}
+	}
+}

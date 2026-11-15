@@ -522,7 +522,7 @@ func (ctx *Context) valueConforms(scope *symbols.Scope, value *Value, declared *
 		return false, fmt.Sprintf("cannot write %s to a feature typed by %s",
 			ctx.describeOpenOperand(*value), SymbolText(declared)), nil
 	case ValQuantity:
-		return ctx.quantityConforms(*value, declared)
+		return ctx.quantityConforms(scope, *value, declared)
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity:
 		return ctx.structuredConforms(scope, *value, declared, how)
 	case ValMeasurementRef:
@@ -602,8 +602,8 @@ func (ctx *Context) structuredConforms(scope *symbols.Scope, value Value, declar
 	case ValVectorQuantity:
 		vq := value.VectorQuantity()
 		for i := 0; i < vq.dimension(); i++ {
-			if ok, refusal, err := ctx.quantityConforms(NewQuantityValue(vq.component(i)), declared); !ok || err != nil {
-				return ok, refusal, err
+			if refusal := ctx.dimensionRefusal(NewQuantityValue(vq.component(i)), declared); refusal != "" {
+				return false, refusal, nil
 			}
 		}
 		if vq.Frame != nil {
@@ -779,23 +779,29 @@ func equalInt64s(a, b []int64) bool {
 	return true
 }
 
-// quantityConforms judges a written quantity: a scalar target by the lattice, a
-// target declaring a quantity value type by the dimension that type's mRef
-// fixes. A target fixing no dimension, and a unit fixing none, are not judged.
-func (ctx *Context) quantityConforms(value Value, declared *symbols.Symbol) (bool, string, error) {
-	if prim := ctx.model.semantics.PrimTypeOf(declared); prim != semantics.PrimUnknown {
-		return semantics.PrimConforms(semantics.PrimRational, prim), "", nil
+// quantityConforms holds a quantity where classifyValue does not refuse the declared type,
+// so a write and `istype` agree; a refusal by dimension says the two dimensions.
+func (ctx *Context) quantityConforms(scope *symbols.Scope, value Value, declared *symbols.Symbol) (bool, string, error) {
+	verdict, err := ctx.classifyValue(scope, value, declared, nil, byAnyType)
+	if err != nil || verdict != semantics.ClassifiesNone {
+		return err == nil, "", err
 	}
+	return false, ctx.dimensionRefusal(value, declared), nil
+}
+
+// dimensionRefusal words a quantity refused for its dimension, or "" where the declared
+// type fixes none or the unit is commensurable with it.
+func (ctx *Context) dimensionRefusal(value Value, declared *symbols.Symbol) string {
 	want, ok := ctx.model.semantics.DimensionOfType(declared)
 	if !ok || value.Quantity() == nil {
-		return true, "", nil
+		return ""
 	}
 	got, ok := ctx.model.semantics.DimensionOfUnit(value.Quantity().Unit.Term)
 	if !ok || want.Term.Commensurable(got.Term) {
-		return true, "", nil
+		return ""
 	}
-	return false, fmt.Sprintf("cannot write %s (%s) to a feature typed by %s (%s)",
-		FormatValue(value), dimensionText(got), SymbolText(declared), dimensionText(want)), nil
+	return fmt.Sprintf("cannot write %s (%s) to a feature typed by %s (%s)",
+		FormatValue(value), dimensionText(got), SymbolText(declared), dimensionText(want))
 }
 
 // dimensionText names a dimension as a message about a mismatch reads it.
