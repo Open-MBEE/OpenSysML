@@ -234,9 +234,14 @@ SYSML_OPT(b, sysml_bool)
 SYSML_OPT(n, sysml_num)
 SYSML_OPT(e, sysml_enum)
 SYSML_OPT(rec, sysml_rec *)
+SYSML_OPT(s, sysml_str)
+typedef struct sysml_fn sysml_fn;
+/* What a record or a closure holds: a String's bytes, a collection's elements
+   and a function value are kept until the run ends (sysml_keep). */
 typedef union {
 	sysml_int i; sysml_real r; sysml_bool b; sysml_num n; sysml_enum e; int64_t run; sysml_rec *rec;
-	sysml_opt_i u_i; sysml_opt_r u_r; sysml_opt_b u_b; sysml_opt_n u_n; sysml_opt_e u_e; sysml_opt_rec u_rec;
+	sysml_str s; sysml_kept q; const sysml_fn *f;
+	sysml_opt_i u_i; sysml_opt_r u_r; sysml_opt_b u_b; sysml_opt_n u_n; sysml_opt_e u_e; sysml_opt_rec u_rec; sysml_opt_s u_s;
 } sysml_cap;
 /* A data value with features, identified by its address. It outlives every
    arena release; a run owns the records it makes until the next run begins. */
@@ -260,7 +265,8 @@ static void sysml_recs_release(void) {
 /* A function value: the function it is, an index into sysml_fn_names, for a
    closure the run of the body declaring it and what it captures, and for a
    record's calc the record it was read off. */
-typedef struct { int32_t c; int64_t run; sysml_rec *self; sysml_cap env[%d]; } sysml_fn;
+struct sysml_fn { int32_t c; int64_t run; sysml_rec *self; sysml_cap env[%d]; };
+static inline const sysml_fn *sysml_keep_fn(sysml_fn f) { return sysml_keep(&f, sizeof f); }
 static const char *const sysml_fn_names[] = {%s};
 static int64_t sysml_runs;
 static inline int64_t sysml_next_run(void) { return ++sysml_runs; }
@@ -274,6 +280,14 @@ static sysml_fn sysml_parse_fn(const char *s, const char *name) { fprintf(stderr
 `, env, strings.Join(names, ", "))
 }
 
+// cKeepOptStr keeps the String a record feature that may be unset holds.
+const cKeepOptStr = `
+static inline sysml_opt_s sysml_keep_opt_str(sysml_opt_s o) {
+	if (!o.u) o.v = sysml_keep_str(o.v);
+	return o;
+}
+`
+
 // cFnSeqRuntime instantiates the collection runtime over function values.
 func cFnSeqRuntime(p *Program) string {
 	if len(p.FnCases) == 0 {
@@ -281,7 +295,7 @@ func cFnSeqRuntime(p *Program) string {
 	}
 	r := strings.NewReplacer("ELEMNAME", "fn", "ELEM", "sysml_fn", "SFX", "fn", "PRINT", "sysml_print_fn_value",
 		"FORMAT", "sysml_format_fn", "KINDOF", "SYSML_KIND_FN", "KEY", "sysml_fn_key", "SKIP", "SYSML_NEVER",
-		"EQ", "sysml_fn_eq", "SHOW", "sysml_show_fn", "SAVEELEMS", "SYSML_NO_ELEMS", "RESTOREELEMS", "SYSML_NO_ELEMS",
+		"EQ", "sysml_fn_eq", "SHOW", "sysml_show_fn", "SAVEELEMS", "SYSML_NO_ELEMS", "RESTOREELEMS", "SYSML_NO_ELEMS", "KEEPELEMS", "SYSML_NO_ELEMS",
 		"KOPEN", `" ("`, "KCLOSE", `")"`)
 	return "#define SYSML_KIND_FN(v) \"function\"\n" + r.Replace(cSeqTemplate)
 }
@@ -293,7 +307,7 @@ func cRecSeqRuntime(p *Program) string {
 	}
 	r := strings.NewReplacer("ELEMNAME", "rec", "ELEM", "sysml_rec *", "SFX", "rec", "PRINT", "sysml_print_rec_value",
 		"FORMAT", "sysml_format_rec", "KINDOF", "SYSML_KIND_REC", "KEY", "sysml_rec_key", "SKIP", "SYSML_NEVER",
-		"EQ", "SYSML_SCALAR_EQ", "SHOW", "sysml_show_rec", "SAVEELEMS", "SYSML_NO_ELEMS", "RESTOREELEMS", "SYSML_NO_ELEMS",
+		"EQ", "SYSML_SCALAR_EQ", "SHOW", "sysml_show_rec", "SAVEELEMS", "SYSML_NO_ELEMS", "RESTOREELEMS", "SYSML_NO_ELEMS", "KEEPELEMS", "SYSML_NO_ELEMS",
 		"KOPEN", `""`, "KCLOSE", `""`)
 	return `#define SYSML_KIND_REC(v) ""
 static inline uint64_t sysml_rec_key(sysml_rec *r) { return (uint64_t)(uintptr_t)r; }
@@ -314,8 +328,14 @@ func cCapField(t Type) string {
 		return "u_" + cCapField(t.Concrete())
 	}
 	switch {
+	case t.Many():
+		return "q"
+	case t.IsFn():
+		return "f"
 	case t.IsRec():
 		return "rec"
+	case t == TypeString:
+		return "s"
 	case t.IsEnum():
 		return "e"
 	case t == TypeInt:
@@ -328,6 +348,32 @@ func cCapField(t Type) string {
 		return "n"
 	}
 	return "run"
+}
+
+// kept is v as a record or a closure holds it, outliving every arena release.
+func (e *cEmitter) kept(v Expr) string {
+	switch t := v.Type(); {
+	case t.Many():
+		return fmt.Sprintf("sysml_keepseq_%s(%s)", cSeqSuffix(t), e.expr(v))
+	case t.IsFn():
+		return "sysml_keep_fn(" + e.expr(v) + ")"
+	case t == TypeString:
+		return "sysml_keep_str(" + e.expr(v) + ")"
+	case t.MayUnset() && t.Concrete() == TypeString:
+		return "sysml_keep_opt_str(" + e.expr(v) + ")"
+	}
+	return e.expr(v)
+}
+
+// cHeld is the value of type t read back from the member slot kept it in.
+func cHeld(slot string, t Type) string {
+	switch {
+	case t.Many():
+		return fmt.Sprintf("sysml_keptseq_%s(%s)", cSeqSuffix(t), slot)
+	case t.IsFn():
+		return "(*" + slot + ")"
+	}
+	return slot
 }
 
 // fnExpr emits a function-value expression; ok is false for any other node.
@@ -344,7 +390,7 @@ func (e *cEmitter) fnExpr(x Expr) (string, bool) {
 		if len(x.Env) > 0 {
 			values := make([]string, len(x.Env))
 			for i, v := range x.Env {
-				values[i] = fmt.Sprintf("{.%s = %s}", cCapField(v.Type()), e.expr(v))
+				values[i] = fmt.Sprintf("{.%s = %s}", cCapField(v.Type()), e.kept(v))
 			}
 			env = fmt.Sprintf(", .env = {%s}", strings.Join(values, ", "))
 		}
@@ -352,7 +398,7 @@ func (e *cEmitter) fnExpr(x Expr) (string, bool) {
 	case FnWiden:
 		return e.expr(x.X), true
 	case FnEnv:
-		return fmt.Sprintf("%s.env[%d].%s", cLocal(x.Name), x.I, cCapField(x.T)), true
+		return cHeld(fmt.Sprintf("%s.env[%d].%s", cLocal(x.Name), x.I, cCapField(x.T)), x.T), true
 	case FnSelf:
 		return cLocal(x.Name) + ".self", true
 	case RecNew:
@@ -361,7 +407,7 @@ func (e *cEmitter) fnExpr(x Expr) (string, bool) {
 		var b strings.Builder
 		fmt.Fprintf(&b, "({ sysml_rec *%s = sysml_rec_new(%s, %d); ", r, cString(x.Rec.Short), len(x.Fields))
 		for i, v := range x.Fields {
-			fmt.Fprintf(&b, "%s->f[%d].%s = %s; ", r, i, cCapField(v.Type()), e.expr(v))
+			fmt.Fprintf(&b, "%s->f[%d].%s = %s; ", r, i, cCapField(v.Type()), e.kept(v))
 		}
 		fmt.Fprintf(&b, "%s; })", r)
 		return b.String(), true
@@ -369,7 +415,7 @@ func (e *cEmitter) fnExpr(x Expr) (string, bool) {
 		if x.T.MayUnset() {
 			return fmt.Sprintf("sysml_read_%s(&(%s)->f[%d].%s)", cCapField(x.T.Concrete()), e.expr(x.X), x.Field, cCapField(x.T)), true
 		}
-		return fmt.Sprintf("(%s)->f[%d].%s", e.expr(x.X), x.Field, cCapField(x.T)), true
+		return cHeld(fmt.Sprintf("(%s)->f[%d].%s", e.expr(x.X), x.Field, cCapField(x.T)), x.T), true
 	case Narrowed:
 		if x.X.Type().MayUnset() {
 			return fmt.Sprintf("sysml_narrow_opt(%s, %d, \"%s\", %s, true)", e.expr(x.X), x.R.Lower(), x.R, cWhere(x.Where)), true
