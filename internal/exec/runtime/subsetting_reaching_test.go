@@ -116,6 +116,16 @@ func TestSubsetterDeclaredElsewhereIsHeld(t *testing.T) {
 			part opt : Sub[0..1] :> rig.subs;
 			bind opt = x1;
 			part none : Sub[0..1] :> rig.subs;`, "test::rig", "n", "1"},
+		{"namespace actions of a fixed count contribute their performances", `
+			action def Step;
+			part def Rig { action steps : Step[*]; attribute n : Integer = size(steps); }
+			part rig : Rig;
+			action twice : Step[2] :> rig.steps;`, "test::rig", "n", "2"},
+		{"features under namespace actions of a fixed count contribute", `
+			part def Bag { attribute vals : Integer[*]; attribute n : Integer = size(vals); }
+			part bag : Bag;
+			action def Step;
+			action twice : Step[2] { attribute v : Integer :> bag.vals = 5; }`, "test::bag", "n", "2"},
 		{"valueless namespace attribute contributes nothing", `
 			part def Bag { attribute vals : Integer[*]; }
 			part bag : Bag;
