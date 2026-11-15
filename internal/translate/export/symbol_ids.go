@@ -190,9 +190,14 @@ func (s *SymbolIDs) compute(sym *symbols.Symbol) (string, bool) {
 		}
 	}
 	if i, ok := symbols.ImpliedSuccessionEndIndex(sym); ok {
-		// A `then` succession's end is minted under the edge at end0/end1 (recordSuccessionEnds).
+		// A `then` succession's end is minted under the edge at end0/end1 (recordSuccessionEnds); a
+		// transition's succession's under the transition at succession.end0/end1 (recordTransitionSuccession).
 		implied, _ := symbols.ImpliedDeclOf(sym)
-		element, _, ok := s.ids.OfExpressionPart(doc, implied.Of, fmt.Sprintf("end%d", i))
+		slot := fmt.Sprintf("end%d", i)
+		if symbols.ImpliedTransitionSuccessionEnd(sym) {
+			slot = "succession." + slot
+		}
+		element, _, ok := s.ids.OfExpressionPart(doc, implied.Of, slot)
 		return element, ok
 	}
 	if implied, ok := symbols.ImpliedDeclOf(sym); ok &&
@@ -436,12 +441,11 @@ func (s *SymbolIDs) expressionID(sym *symbols.Symbol) (string, bool) {
 		}
 		return s.partID(owner, sym.Expr.Slot)
 	case symbols.ExpressionTransitionSuccession:
-		// The conversion mints a transition's succession off the transition (transitionSuccession).
-		base, ok := s.of(owner)
-		if !ok {
-			return "", false
-		}
-		return base + "_succession", true
+		// The conversion mints a transition's succession off the transition (recordTransitionSuccession).
+		return s.partID(owner, "succession")
+	case symbols.ExpressionTransitionLink:
+		// A transition's transitionLink is minted off the transition too (transitionLinkMember).
+		return s.partID(owner, "transitionlink")
 	case symbols.ExpressionConnectorEnd:
 		return s.partID(owner, fmt.Sprintf("end%d", sym.Expr.Index))
 	case symbols.ExpressionBound:
@@ -454,13 +458,9 @@ func (s *SymbolIDs) expressionID(sym *symbols.Symbol) (string, bool) {
 			return "", false
 		}
 		return s.partID(owner.OwnerScope.Owner(), sym.Expr.Slot)
-	case symbols.ExpressionTransitionParameter:
-		// Minted off the transition as an element (emptyParameterMember).
-		base, ok := s.of(owner)
-		if !ok {
-			return "", false
-		}
-		return base + "_" + sym.Expr.Slot, true
+	case symbols.ExpressionTransitionLinkParameter:
+		// A transition's link parameters are minted at linkparam and triggerparam (transitionHeadMembers).
+		return s.partID(owner, []string{"linkparam", "triggerparam"}[sym.Expr.Index])
 	case symbols.ExpressionTriggerAction:
 		// The trigger's accept is minted as the transition's `@trigger` member (encodeTrigger).
 		if base, ok := s.of(owner); ok {

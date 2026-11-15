@@ -7404,6 +7404,10 @@ func (e *Evaluator) relationshipEndpoints(element Element, property string) ([]V
 		}
 		if property == "source" || property == "sourceFeature" {
 			value, handled, ok := e.structureConnectorEndpoint(element, "source")
+			if value.Kind == ElementValue {
+				// The source end is one feature; the target ends are a sequence.
+				return []Value{value}, handled && ok
+			}
 			return value.Values, handled && ok
 		}
 		value, handled, ok := e.structureConnectorRelatedFeatures(element)

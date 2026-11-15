@@ -245,19 +245,19 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-09`, 924 files)
+## Results (pilot `2026-09.1`, 924 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | `examples/sysml-v2-training` | 100 | 99 | 1 | 0 | 0 | 0 | 1 | 0 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 89 | 34 | 10 | 0 | 0 | 34 | 10 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 92 | 34 | 0 | 0 | 0 | 34 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 55 | 3 | 0 | 0 | 0 | 3 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 12 | 0 | 0 | 0 | 12 | 0 |
-| `examples/spec-examples` | 511 | 151 | 1091 | 3395 | 1038 | 6 | 47 | 2351 |
+| `examples/spec-examples` | 511 | 151 | 1092 | 3395 | 1040 | 6 | 46 | 2349 |
 | `tests/testdata` | 40 | 25 | 76 | 101 | 60 | 5 | 11 | 36 |
 | `examples` | 56 | 49 | 12 | 69 | 4 | 0 | 8 | 65 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **924** | **524** | **1235** | **3575** | **1102** | **11** | **122** | **2462** |
+| **Total** | **924** | **527** | **1236** | **3565** | **1104** | **11** | **121** | **2450** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -306,9 +306,9 @@ Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-exam
 3 `unresolved-reference`; `kerml-examples` 9 `unmapped`, 3 `unresolved-reference`; `testdata` 8 `unmapped`,
 1 `unresolved-reference`, 2 `multiplicity`; `examples` 4
 `unmapped`, 1 `kind-mismatch`, 2 `multiplicity`, 1 `unresolved-reference`; `probes` 6 `unmapped`; `spec-examples` 7 `syntax`,
-38 `unresolved-reference`, 2 `unmapped`. Only-pilot: `testdata` 14 `kind-mismatch`, 17 `unmapped`,
-3 `syntax`, 2 `unresolved-reference`; `pilot-examples` 10 `kind-mismatch`; `examples` 24 `unmapped`, 41 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
-586 `kind-mismatch`, 196 `syntax`, 156 `unresolved-reference`, 50 `multiplicity`, 4 `units`.
+38 `unresolved-reference`, 1 `unmapped`. Only-pilot: `testdata` 14 `kind-mismatch`, 17 `unmapped`,
+3 `syntax`, 2 `unresolved-reference`; `examples` 24 `unmapped`, 41 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
+586 `kind-mismatch`, 196 `syntax`, 154 `unresolved-reference`, 50 `multiplicity`, 4 `units`.
 
 The `spec-examples` figures are dominated by fragments: the specification's examples leave
 cross-example names undeclared, and the pilot's typing and EMF cascade follows each one; every
@@ -680,6 +680,43 @@ initialized by an operator expression over a `sum`, the same family as the
 | severity-only | 3 | **3** |
 | `examples`: only pilot | 1085 | **1093** |
 
+### Release `2026-09.1` round
+
+The pin moved from `2026-09` (`0.63.0`) to `2026-09.1` (`0.63.1`), the supplemental release that
+corrects the reference-link resolution regression `2026-09` introduced (pilot PR #825: the
+binding-conformance check resolves its related features before reading their types, and an
+unresolved redefined feature is no longer cached). The library, the specification PDFs and the
+corpora are unchanged, so the 924 files are the same files.
+
+The pilot's movement is exactly the ten `kind-mismatch` warnings the `2026-09` round recorded as
+only-pilot on `Metadata Examples/RequirementMetadataExample.sysml`:19–22,
+`RiskMetadataExample.sysml`:7–9 and `VerificationMetadataExample.sysml`:7, 11: with the related
+features resolved, `Bound features should have conforming types` no longer fires on an enumeration
+literal bound to an attribute of its enumeration's supertype, which is what the round above
+adjudicated as the reference's error. The three files agree fully again: `sysml-examples` fully
+agreeing 89 → **92** (errata-corrected 90 → **93**), only pilot 10 → **0**, pilot diagnostics
+3575 → **3565**.
+
+The rest of the movement is ours and predates the re-pin — the baseline was last recorded on
+`develop` of 2026-11-12 — on one file, `spec-examples/sysml/8.4.21.2/1.sysml` (`use case uc
+specializes UseCases::useCases { subject subj redefines UseCases::Case::subj; … }`): we no longer
+report `only a definition may specialize; found a usage` at line 4 and now report the unresolved
+`UseCases::Case::subj` and `UseCases::Case::obj` at lines 5 and 6, which the pilot already reported
+there, so two only-pilot rows become agreed rows: `spec-examples` agreed 1038 → **1040**, only ours
+47 → **46**, only pilot 2351 → **2349**. Overall fully agreeing 524 → **527**, agreed 1102 →
+**1104**, only ours 122 → **121**, only pilot 2462 → **2450**.
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing | 524 | **527** |
+| agreed | 1102 | **1104** |
+| only ours | 122 | **121** |
+| only pilot | 2462 | **2450** |
+| pilot diagnostics | 3575 | **3565** |
+| `sysml-examples`: fully agreeing | 89 | **92** |
+| `sysml-examples`: only pilot | 10 | **0** |
+| `spec-examples`: agreed / only ours / only pilot | 1038 / 47 / 2351 | **1040 / 46 / 2349** |
+
 ### Release `2026-09` round
 
 The pin moved from `2026-08` (`0.62.0`) to `2026-09` (`0.63.0`). The corpora are the same 920
@@ -1014,8 +1051,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **2462** |
-| pilot diagnostics | 123 | **3575** |
+| only pilot | 82 | **2450** |
+| pilot diagnostics | 123 | **3565** |
 | severity-only | 9 | **11** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -1239,11 +1276,11 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **524 / 122 / 1235** |
-| only pilot | **2462** |
-| pilot diagnostics | **3575** |
+| overall: fully agreeing / only ours / our diagnostics | **527 / 121 / 1236** |
+| only pilot | **2450** |
+| pilot diagnostics | **3565** |
 | severity-only | **11** |
-| unmapped, our side | **54** |
+| unmapped, our side | **53** |
 | kerml-examples: only ours | **12** |
 | pilot-examples: only ours | **34** |
 | examples: only pilot | **65** |
@@ -3013,7 +3050,7 @@ about parsing and static checking on these corpora, not about behavioral conform
 ## Re-running and diffing
 
 ```sh
-./scripts/download-training-examples.sh   # the OMG training corpus (pinned 2026-09)
+./scripts/download-training-examples.sh   # the OMG training corpus (pinned 2026-09.1)
 ./scripts/download-pilot-corpora.sh       # the other OMG corpora, same pin
 ./scripts/download-pilot-validator.sh     # the pilot validator (pinned wrapper, built at the same pin)
 ./scripts/download-pilot-kerml-validator.sh  # the KerML oracle, same pin

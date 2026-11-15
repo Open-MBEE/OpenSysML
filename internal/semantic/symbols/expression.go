@@ -49,15 +49,18 @@ const (
 	// TransitionSuccessionMember); ExpressionConnectorEnd its ends, Index 0 the empty source, 1 the target.
 	ExpressionTransitionSuccession
 	ExpressionConnectorEnd
-	// ExpressionTransitionParameter is an implied transition parameter (SysML v2 §8.3.16.15): Slot
-	// "linkparam" for the transitionLinkSource parameter, "triggerparam" for the trigger payload's.
-	ExpressionTransitionParameter
 	// ExpressionBound is a bound of a written MultiplicityRange, owned by the
 	// range through an OwningMembership: Slot "lowerBound" or "upperBound".
 	ExpressionBound
 	// ExpressionFilterPackage is the Package an import with a filter, `import X::*[c]`,
 	// imports and owns (SysML.xtext FilterPackage); Owner is the importing namespace.
 	ExpressionFilterPackage
+	// ExpressionTransitionLinkParameter is an `in` ReferenceUsage a transition owns through a
+	// ParameterMembership ahead of its trigger (SysML.xtext EmptyParameterMember); Owner is the transition.
+	ExpressionTransitionLinkParameter
+	// ExpressionTransitionLink is the ReferenceUsage a transition owns last through a FeatureMembership,
+	// after its succession, as the pilot exports it (TransitionUsage::transitionLink); Owner is the transition.
+	ExpressionTransitionLink
 )
 
 // ExpressionElement is the side record of a symbol the reflective layer

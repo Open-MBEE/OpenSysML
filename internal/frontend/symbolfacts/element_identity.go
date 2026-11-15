@@ -1,14 +1,17 @@
 package symbolfacts
 
 import (
+	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
 // ElementForm is the element form's ids, which a host that links the exporter
-// supplies; this package spells none itself.
+// supplies; this package spells none itself but an unnamed connector end's (composedEndID).
 type ElementForm interface {
 	// ID is the form's `@id` of sym, "" where the form writes none.
 	ID(sc *Context, sym *symbols.Symbol) string
@@ -104,6 +107,63 @@ func (sc *Context) ownedElementNamed(sem *semantics.Model, root *symbols.Symbol,
 		owned, _ := sem.ReflectiveElements(root, feature)
 		for _, element := range owned {
 			found = sc.ownedElementNamed(sem, element, id, depth-1, seen, found)
+		}
+	}
+	return found
+}
+
+// LookupElement resolves an id a Symbol is reported under: as Lookup reads it, else an unnamed
+// connector end's element id (ownedIdentity). A declaration named like that id is what it answers.
+func (sc *Context) LookupElement(id string) []*symbols.Symbol {
+	if syms := sc.Lookup(id); len(syms) > 0 {
+		return syms
+	}
+	return sc.unnamedEnds(id)
+}
+
+// unnamedEnds finds the unnamed connector ends id is the element id of.
+func (sc *Context) unnamedEnds(id string) []*symbols.Symbol {
+	if sc.elementForm() == nil {
+		return sc.composedEnds(id)
+	}
+	var ends []*symbols.Symbol
+	for _, sym := range sc.ResolveElement(id, sc.Semantics) {
+		if sym.Kind == symbols.SymbolConnectorEnd {
+			ends = append(ends, sym)
+		}
+	}
+	return ends
+}
+
+// composedEndID is the element id the conversion mints for an unnamed end of a
+// connector (`<connector id>_pend<i>`), composed for a host that converts no form.
+func (sc *Context) composedEndID(end *symbols.Symbol) string {
+	owner := end.Owner()
+	ownerID := sc.Identity(owner)
+	if ownerID == "" {
+		return ""
+	}
+	ends, _ := sc.Semantics.OwnedConnectorEnds(owner)
+	at := slices.Index(ends, end)
+	if at < 0 {
+		return ""
+	}
+	return rdf.ExpressionNodeID(rdf.EncodeElementID(ownerID), fmt.Sprintf("end%d", at))
+}
+
+// composedEnds are the unnamed connector ends composedEndID names id.
+func (sc *Context) composedEnds(id string) []*symbols.Symbol {
+	owner, positions, ok := rdf.DecodeExpressionNodeID(id)
+	if !ok || len(positions) != 1 {
+		return nil
+	}
+	var found []*symbols.Symbol
+	for _, connector := range sc.Lookup(owner) {
+		ends, _ := sc.Semantics.OwnedConnectorEnds(connector)
+		for _, end := range ends {
+			if sc.Identity(end) == "" && sc.composedEndID(end) == id {
+				found = append(found, end)
+			}
 		}
 	}
 	return found

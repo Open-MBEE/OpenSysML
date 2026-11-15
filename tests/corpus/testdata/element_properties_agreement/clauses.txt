@@ -133,3 +133,4 @@ symbol-77	symbol	KerML 8.3.4.8.4 FeatureChainExpression::operator is "." (redefi
 symbol-78	symbol	KerML 8.3.2.3.5 Documentation::documentedElement subsets annotatedElement and is the element owning the documentation (7.2.4.2); the export writes none for a documentation written with a name
 symbol-79	symbol	KerML 8.3.4.8.7 SelectExpression::operator is "select" (redefines OperatorExpression::operator); the export writes none for it
 export-64	export	the form is an RDF graph whose triples are a set: an Association::relatedType list that repeats a type (both ends typed by T, KerML 8.3.4.4.2) is written once; the structure answers each end's type
+symbol-80	symbol	KerML 8.3.4.5.3 Connector::relatedFeature collects the feature each end references, an unresolved end contributing none, so sourceFeature is relatedFeature[0] and target (targetFeature) the rest; the export keeps the written end positions

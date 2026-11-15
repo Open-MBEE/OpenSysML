@@ -64,7 +64,7 @@ func expressionElementMetaclassName(sym *symbols.Symbol) string {
 			return "Expression"
 		case symbols.ExpressionTriggerAction:
 			return "AcceptActionUsage"
-		case symbols.ExpressionPayload, symbols.ExpressionConnectorEnd, symbols.ExpressionTransitionParameter:
+		case symbols.ExpressionPayload, symbols.ExpressionConnectorEnd, symbols.ExpressionTransitionLinkParameter, symbols.ExpressionTransitionLink:
 			return "ReferenceUsage"
 		case symbols.ExpressionTransitionSuccession:
 			return "SuccessionAsUsage"
@@ -465,7 +465,7 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	var out []*symbols.Symbol
 	if ends := m.synthesizedSuccessionEnds(sym); ends != nil {
-		// A transition's succession owns its two ends (SysML.xtext TransitionSuccession).
+		// A transition's succession owns its two ends through an EndFeatureMembership each (SuccessionEndMembers).
 		for _, end := range ends {
 			out = appendOwningMembership(out, sym, end)
 		}

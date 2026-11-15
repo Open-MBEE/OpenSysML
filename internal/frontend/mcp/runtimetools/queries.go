@@ -40,7 +40,14 @@ type RenderViewInput struct {
 	Ports        string   `json:"ports,omitempty" jsonschema:"minimal (the default) or full: how many of a part's ports are drawn"`
 	Show         []string `json:"show,omitempty" jsonschema:"optional notation elements to draw besides those the view's rendering shows, as sysml -render-show takes them: parameter-symbols, port-symbols, compartments, edge-labels, keywords, multiplicities, typings, qualifiers, or all"`
 	Compartments string   `json:"compartments,omitempty" jsonschema:"how a tree rendering folds a node's owned members into compartment rows of its parent: positioned (the default), most or ports, as sysml -render-compartments takes them"`
-	Depth        int      `json:"depth,omitempty" jsonschema:"how many levels of nested elements to draw below each exposed element, overriding the view's own depth; 0 or absent draws every level"`
+	Depth        int32    `json:"depth,omitempty" jsonschema:"how many levels of nested elements to draw below each exposed element, overriding the view's own depth; 0 or absent draws every level"`
+	Form         string   `json:"form,omitempty" jsonschema:"form to write the rendering in besides its data, as sysml -render-form takes them: text, mermaid, markdown, dot, plantuml, d2, drawio, csv or tsv; absent writes none"`
+	Palette      string   `json:"palette,omitempty" jsonschema:"palette the written form fills nodes from, as sysml -render-palette takes them; absent draws in black and white"`
+	Style        string   `json:"style,omitempty" jsonschema:"drawing style of the dot or mermaid form, as sysml -render-style takes them: pilot (the default) or cameo"`
+	Lines        string   `json:"lines,omitempty" jsonschema:"edge routing of the dot or plantuml form, as sysml -render-lines takes them: splines (the default), ortho or polyline"`
+	Direction    string   `json:"direction,omitempty" jsonschema:"flow direction of a graph-shaped form: TB, LR, RL or BT; absent leaves each kind's default"`
+	Link         string   `json:"link,omitempty" jsonschema:"source link template each node and edge of the written form carries, as sysml -render-link takes it, with placeholders {file}, {line}, {col}, {qname} and {id}"`
+	Unplaced     string   `json:"unplaced,omitempty" jsonschema:"where a graph form of a positioned view puts the nodes no layout places, as sysml -render-unplaced takes them: omit (the default) or strip"`
 }
 
 // ExportGraphsInput names a behavior to export.
@@ -128,17 +135,26 @@ func (g *group) registerQueries(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "render_model_view",
 		Description: "Render a declared view or a targeted pseudo-view of a model given by modelHash, paths or sources as diagram data (the RenderView RPC; the workspace group's render_view renders by name over the root): nodes flattened " +
-			"parents first, edges with their ports, table columns and rows, canvas, notes and notices. The result is the " +
-			"RenderViewResponse as protojson writes it; the text lists the nodes and edges.",
+			"parents first, edges with their ports, table columns and rows, canvas, notes and notices. With `form` the rendering is " +
+			"also written as text, Mermaid, Markdown, Graphviz dot, PlantUML, D2, draw.io, CSV or TSV, exactly as `sysml -render` " +
+			"writes it. The result is the RenderViewResponse as protojson writes it; the text is the written form, or lists the " +
+			"nodes and edges when none is asked for.",
 		Annotations: toolkit.ReadOnly("Render view"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in RenderViewInput) (*mcp.CallToolResult, Result, error) {
 		m, err := g.resolve(ctx, in.ModelInput)
 		if err != nil {
 			return nil, nil, err
 		}
-		resp, err := g.svc.RenderView(ctx, &pb.RenderViewRequest{ModelHash: m.hash, View: in.View, Ports: in.Ports, Show: in.Show, Compartments: in.Compartments})
+		resp, err := g.svc.RenderView(ctx, &pb.RenderViewRequest{
+			ModelHash: m.hash, View: in.View, Ports: in.Ports, Show: in.Show, Depth: in.Depth, Compartments: in.Compartments,
+			Form: in.Form, Palette: in.Palette, Style: in.Style, Lines: in.Lines,
+			Direction: in.Direction, Link: in.Link, Unplaced: in.Unplaced,
+		})
 		if err != nil {
 			return nil, nil, toolError(err)
+		}
+		if in.Form != "" {
+			return answer(resp, m, resp.GetText())
 		}
 		return answer(resp, m, viewText(resp))
 	})

@@ -4,6 +4,7 @@ package modelrt
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
@@ -29,7 +30,7 @@ func New(origin Detacher) (*Runtime, error) {
 		return nil, err
 	}
 	m := runtime.NewModel(d.Semantics(), d.Resolver())
-	m.SetExpressionParser(parser.ParseOneExpression)
+	m.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, m.Resolver()))
 	for _, name := range d.Documents() {
 		m.RegisterSource(d.Source(name))
 		m.RegisterScope(d.Index().DocumentRoot(name))

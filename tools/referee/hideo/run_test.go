@@ -1,6 +1,8 @@
 package hideo
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -110,5 +112,94 @@ func TestSuiteEnvPinsTheServiceToThisCheckout(t *testing.T) {
 	}
 	if bare := suiteEnv(nil, repo); bare[len(bare)-1] != "GOFLAGS=-count=1" {
 		t.Errorf("without a GOFLAGS of the caller: %v", bare)
+	}
+}
+
+// A reader whose cases fail is run to the end and logged; one that cannot start is an error.
+func TestReaderRun(t *testing.T) {
+	dir, results := t.TempDir(), t.TempDir()
+	if err := os.MkdirAll(filepath.Join(results, "logs"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	stale := filepath.Join(results, "opensysml-py.csv")
+	if err := os.WriteFile(stale, []byte("stale"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var log bytes.Buffer
+	failing := reader{suite: "opensysml-py", dir: ".", env: []string{"SAID=traceback"}, args: []string{"sh", "-c", "echo $SAID; exit 1"}}
+	if err := failing.run(context.Background(), dir, results, os.Environ(), &log); err != nil {
+		t.Fatalf("a reader with failing cases: %v", err)
+	}
+	if _, err := os.Stat(stale); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the results of an earlier run survive: %v", err)
+	}
+	out, err := os.ReadFile(filepath.Join(results, "logs", "opensysml-py.log"))
+	if err != nil || string(out) != "traceback\n" {
+		t.Errorf("the reader's log = %q, %v", out, err)
+	}
+	if strings.Contains(log.String(), "traceback") || !strings.Contains(log.String(), "== opensysml-py") {
+		t.Errorf("the harness log carries the reader's output, or does not name it:\n%s", log.String())
+	}
+
+	absent := reader{suite: "opensysml-py", dir: ".", args: []string{filepath.Join(dir, "no-such-interpreter")}}
+	if err := absent.run(context.Background(), dir, results, os.Environ(), &log); err == nil || !strings.Contains(err.Error(), "opensysml-py") {
+		t.Errorf("a reader that cannot start: %v", err)
+	}
+}
+
+// The readers' arms of run-all.sh as the pin spells them, with a neighbour's.
+const pinnedRunner = `run_suite() {
+  case "$1" in
+    opensysml-py)     cd test-opensysml-py && .venv/bin/python -m pytest -q test_matrices.py ;;
+    opensysml-py-props)
+                      cd test-opensysml-py &&
+                      OPENSYSML_PY_SUITE=opensysml-py-props .venv/bin/python -m pytest -q test_props.py ;;
+    opensysml-go)     cd test-opensysml-go && go test -v ./... ;;
+    opensysml-go-props)
+                      cd test-opensysml-go && OPENSYSML_GO_SUITE=opensysml-go-props go test -v ./... ;;
+    opensysml-rs)     cd test-opensysml-rs && cargo test --release -- --nocapture ;;
+  esac
+}
+`
+
+// Each of the Suites has a reader, and a runner that runs one differently is refused.
+func TestCheckRunner(t *testing.T) {
+	if len(readers) != len(Suites) {
+		t.Fatalf("%d readers for %d suites", len(readers), len(Suites))
+	}
+	for i, r := range readers {
+		if r.suite != Suites[i] {
+			t.Errorf("reader %d is %s, suite %d is %s", i, r.suite, i, Suites[i])
+		}
+	}
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, suiteDir), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	check := func(script string) error {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, suiteDir, "run-all.sh"), []byte(script), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return checkRunner(dir)
+	}
+	if err := check(pinnedRunner); err != nil {
+		t.Errorf("the runner of the pin: %v", err)
+	}
+	const goArm = "    opensysml-go)     cd test-opensysml-go && go test -v ./... ;;\n"
+	for _, tc := range []struct{ name, old, new, suite string }{
+		{"another test file", "test_props.py", "test_properties.py", "runs opensysml-py-props as"},
+		{"arguments after the command", "OPENSYSML_GO_SUITE=opensysml-go-props go test -v ./...", "OPENSYSML_GO_SUITE=opensysml-go-props go test -v ./... -run TestOther", "runs opensysml-go-props as"},
+		{"a reader's arm dropped, its command still within another's", goArm, "", "runs opensysml-go as"},
+		{"another directory", "opensysml-py)     cd test-opensysml-py", "opensysml-py)     cd test-other-py", "runs opensysml-py as"},
+		{"an environment variable before the command", "&& go test -v ./... ;;", "&& GOFLAGS=-short go test -v ./... ;;", "runs opensysml-go as"},
+	} {
+		if !strings.Contains(pinnedRunner, tc.old) {
+			t.Fatalf("%s: the pinned runner has no %q", tc.name, tc.old)
+		}
+		err := check(strings.Replace(pinnedRunner, tc.old, tc.new, 1))
+		if err == nil || !strings.Contains(err.Error(), tc.suite) {
+			t.Errorf("%s: %v", tc.name, err)
+		}
 	}
 }

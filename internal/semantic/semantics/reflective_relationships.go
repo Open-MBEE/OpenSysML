@@ -124,12 +124,17 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 		out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelRedefines, false, impliedRelationship(ast.RelRedefines, owner.Decl)))
 	}
 	if target, stated := m.successionEndReference(owner); stated {
+		// A chained target (`then a.b`) is the chain Feature the end's ReferenceSubsetting owns (chainTargetFeature).
+		var node *ast.Relationship
+		if chain := chainNode(dottedTargetChain(successionEndTarget(owner))); chain != nil {
+			node = impliedRelationship(ast.RelReferences, chain)
+		}
 		out = append(out, &symbols.Symbol{
 			Kind:     symbols.SymbolRelationship,
 			DocName:  owner.DocName,
 			DeclSpan: owner.DeclSpan,
 			Implicit: &symbols.ImplicitRelationship{
-				Owner: owner, Ordinal: ordinal, Kind: ast.RelReferences,
+				Owner: owner, Ordinal: ordinal, Kind: ast.RelReferences, Node: node,
 				Form: symbols.ImplicitSuccessionEndReference, Member: target,
 			},
 		})
@@ -395,7 +400,7 @@ func (m *Model) implicitRelationshipEnds(sym *symbols.Symbol) (src, tgt *symbols
 	rel := sym.Implicit
 	src = rel.Owner
 	if rel.Form == symbols.ImplicitMetadataBodyRedefinition || rel.Form == symbols.ImplicitTypeArgumentTyping ||
-		rel.Form == symbols.ImplicitParameterRedefinition || rel.Form == symbols.ImplicitSuccessionEndReference {
+		rel.Form == symbols.ImplicitParameterRedefinition || rel.Form == symbols.ImplicitSuccessionEndReference && rel.Node == nil {
 		return src, rel.Member, rel.Member != nil
 	}
 	if rel.Node != nil {
@@ -637,13 +642,30 @@ func (m *Model) declaredRelationshipEnds(sym *symbols.Symbol, feature string) ([
 		return append(m.dependencyEnds(sym, dep.Clients), m.dependencyEnds(sym, dep.Suppliers)...), true
 	}
 	if m.reflectiveMetaclassConforms(sym, "Connector") {
-		// A first end that references nothing would shift the ends after it: no answer at all.
-		if ends := m.ConnectorRelatedFeaturesByEnd(sym); len(ends) > 0 && ends[0] == nil {
+		// A connector's first end resolving to nothing leaves the ends unanswered; a flow's bare end references
+		// nothing by construction and drops out (`flow from a to b.y` relates b alone, its source), as the pilot derives.
+		if ends := m.ConnectorRelatedFeaturesByEnd(sym); len(ends) > 0 && ends[0] == nil && !isFlowUsage(sym) && anyReferenced(ends[1:]) {
 			return nil, false
 		}
 		return m.ReflectiveElements(sym, connectorEndRedefinition[feature])
 	}
 	return nil, false
+}
+
+// anyReferenced reports whether any end references a feature.
+func anyReferenced(ends []*symbols.Symbol) bool {
+	for _, end := range ends {
+		if end != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// isFlowUsage reports a `flow` (not a message), whose ends may reference nothing.
+func isFlowUsage(sym *symbols.Symbol) bool {
+	kind, ok := sym.UsageKind()
+	return ok && kind == ast.UsageFlow && sym.Keyword() != "message"
 }
 
 // implicitRelationshipValue is what a reflected relationship object states for

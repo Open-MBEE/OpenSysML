@@ -36,6 +36,22 @@ func TestREPLDoesNotDependOnTheService(t *testing.T) {
 	}
 }
 
+// TestREBuildTestsDoNotDependOnTheService keeps the tests of the RE build compiling: the
+// service's export path needs the v1 migration, which -tags sysml_re leaves out.
+func TestREBuildTestsDoNotDependOnTheService(t *testing.T) {
+	cmd := exec.Command("go", "list", "-deps", "-test", "-tags", "sysml_re", "./cmd/sysml", "./internal/frontend/repl/...")
+	cmd.Dir = "../.."
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("go list -deps -test -tags sysml_re: %v", err)
+	}
+	for _, dep := range strings.Fields(string(out)) {
+		if dep == module+"/internal/frontend/grpc" {
+			t.Errorf("a test of the RE build depends on %s", dep)
+		}
+	}
+}
+
 // TestProtoconvImportsOnlyTheMessages keeps the proto conversion package a leaf of the
 // frontends: it reads the API's messages and the core packages, never a transport.
 func TestProtoconvImportsOnlyTheMessages(t *testing.T) {

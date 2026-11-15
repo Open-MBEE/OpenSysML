@@ -6,25 +6,63 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 )
 
 // Segment is the identity segment of a declared name: quoted when it would
 // otherwise read as an unnamed member's `@N` address or as several segments.
 func Segment(name string) string {
 	if strings.HasPrefix(name, "@") || strings.Contains(name, "::") || strings.HasPrefix(name, "'") {
-		var segment strings.Builder
-		segment.Grow(len(name) + 2)
-		segment.WriteByte('\'')
-		for i := 0; i < len(name); i++ {
-			if name[i] == '\\' || name[i] == '\'' {
-				segment.WriteByte('\\')
-			}
-			segment.WriteByte(name[i])
-		}
-		segment.WriteByte('\'')
-		return segment.String()
+		return QuotedSegment(name)
 	}
 	return name
+}
+
+// QuotedSegment is a declared name as a quoted identity segment, its quote and
+// backslash escaped, which Unquote reads back.
+func QuotedSegment(name string) string {
+	var segment strings.Builder
+	segment.Grow(len(name) + 2)
+	segment.WriteByte('\'')
+	for i := 0; i < len(name); i++ {
+		if name[i] == '\\' || name[i] == '\'' {
+			segment.WriteByte('\\')
+		}
+		segment.WriteByte(name[i])
+	}
+	segment.WriteByte('\'')
+	return segment.String()
+}
+
+// Unquote is the declared name an identity segment stands for: Segment's quoting
+// and escapes removed, a bare or positional segment as it is.
+func Unquote(segment string) string {
+	if len(segment) < 2 || segment[0] != '\'' || segment[len(segment)-1] != '\'' {
+		return segment
+	}
+	var name strings.Builder
+	name.Grow(len(segment) - 2)
+	for i := 1; i < len(segment)-1; i++ {
+		if segment[i] == '\\' && i+1 < len(segment)-1 {
+			i++
+		}
+		name.WriteByte(segment[i])
+	}
+	return name.String()
+}
+
+// Escaped spells a qualified identity as Element::qualifiedName reads (KerML 1.1 §8.3.2.1.2
+// escapedName): a basic name bare, another name single-quoted, a positional `@N` as it is.
+func Escaped(qname string) string {
+	segments := Segments(qname)
+	for i, segment := range segments {
+		if PositionalSegment(segment) {
+			continue
+		}
+		segments[i] = identity.EscapeName(Unquote(segment))
+	}
+	return strings.Join(segments, "::")
 }
 
 // Segments splits a qualified identity at the `::` outside its quoted segments.

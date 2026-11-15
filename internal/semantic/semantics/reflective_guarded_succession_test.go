@@ -37,7 +37,8 @@ func TestReflectiveGuardedSuccessionOwnsItsTransitionParts(t *testing.T) {
 			kinds = append(kinds, mc.Name)
 		}
 	}
-	want := []string{"ParameterMembership", "Membership", "TransitionFeatureMembership", "OwningMembership"}
+	// The source Membership, link parameter, guard, succession and transitionLink, as the conversion orders them.
+	want := []string{"Membership", "ParameterMembership", "TransitionFeatureMembership", "OwningMembership", "FeatureMembership"}
 	if len(kinds) != len(want) {
 		t.Fatalf("guarded succession memberships = %v, want %v", kinds, want)
 	}
@@ -46,7 +47,7 @@ func TestReflectiveGuardedSuccessionOwnsItsTransitionParts(t *testing.T) {
 			t.Fatalf("guarded succession memberships = %v, want %v", kinds, want)
 		}
 	}
-	if source := memberships[1].Implicit.Member; source == nil || source.Name != "focus" {
+	if source := memberships[0].Implicit.Member; source == nil || source.Name != "focus" {
 		t.Errorf("source membership names %v, want focus", source)
 	}
 	succession := memberships[3].Implicit.Member

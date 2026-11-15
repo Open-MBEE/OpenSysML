@@ -10,6 +10,7 @@ import (
 	"connectrpc.com/connect"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -170,11 +171,18 @@ func (m *CachedModel) syntaxRefusal() error {
 	return nil
 }
 
-// lookup finds the symbol a request addresses: the API element form's id, a symbol id the model
-// resolves (qualified name, inherited member, positional id), or a path address this reader gave.
+// lookup finds the symbol a request addresses: the form's id, a qualified name from the root
+// (ResolveMemberName), a symbol id the model resolves (inherited or positional), or a path address.
 func (r *elementReader) lookup(id string) (*symbols.Symbol, bool) {
 	if sym, ok := r.ids.Symbol(id); ok {
 		return sym, true
+	}
+	if syms := r.model.ResolveMemberName(id); len(syms) > 0 {
+		return syms[0], true
+	}
+	if len(symbolfacts.LookupNamed(r.model.Index, id)) > 0 {
+		// Declared, and not visible from the root namespace.
+		return nil, false
 	}
 	if syms := r.model.LookupNamedMember(id); len(syms) > 0 {
 		return syms[0], true

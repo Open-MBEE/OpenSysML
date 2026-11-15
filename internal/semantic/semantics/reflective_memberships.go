@@ -54,6 +54,20 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		out = appendOwningMembership(out, sym, bound)
 		ordinal++
 	}
+	if source, ok := m.transitionSourceMember(sym); ok {
+		// A `first x` transition names its source through a Membership ahead of everything else it
+		// owns (SysML.xtext FeatureChainMember), as the pilot exports it and the conversion writes it.
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   sym.DeclSpan,
+			Visibility: sym.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitReferenceMembership, Member: source, Slot: "psourcemember",
+			},
+		})
+		ordinal++
+	}
 	for _, end := range ends {
 		// A `then` succession owns its ends ahead of its body (encodeSuccessionEdge).
 		out = appendOwningMembership(out, sym, end)
@@ -266,15 +280,6 @@ func (m *Model) withTransitionMemberships(sym *symbols.Symbol, out, parts []*sym
 	if tp := m.transitionPartsOf(sym); tp != nil && tp.sourceChainMembership != nil {
 		// `first a.b` is a chain Feature the transition owns (transitionSourceMember).
 		extra = append(extra, tp.sourceChainMembership)
-	} else if tp != nil && tp.sourceMember != nil {
-		// `first source` is a Membership of the source state (transitionSourceMember).
-		extra = append(extra, &symbols.Symbol{
-			Kind:       symbols.SymbolRelationship,
-			DocName:    sym.DocName,
-			DeclSpan:   tp.source.Span(),
-			Visibility: sym.Visibility,
-			Implicit:   &symbols.ImplicitRelationship{Owner: sym, Form: symbols.ImplicitReferenceMembership, Member: tp.sourceMember, Slot: "sourcemember"},
-		})
 	}
 	for _, part := range parts {
 		extra = append(extra, &symbols.Symbol{
@@ -540,8 +545,6 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 			return "ParameterMembership"
 		case symbols.ExpressionTransitionSuccession:
 			return "OwningMembership"
-		case symbols.ExpressionTransitionParameter:
-			return "ParameterMembership"
 		case symbols.ExpressionConnectorEnd:
 			return "EndFeatureMembership"
 		case symbols.ExpressionOperand:
@@ -552,6 +555,10 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 				return "FeatureValue"
 			}
 			return "OwningMembership"
+		case symbols.ExpressionTransitionLinkParameter:
+			return "ParameterMembership"
+		case symbols.ExpressionTransitionLink:
+			return "FeatureMembership"
 		}
 	}
 	if _, _, ok := subactionOf(owner.Decl, member.Decl); ok {
