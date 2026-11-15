@@ -587,10 +587,14 @@ def _start_next(st):
                 if not ok_ready:
                     report(f"#{pr}: draft (owner's WIP); taken out of the queue, its runs are never cancelled or re-run")
                     continue
-                if gh(["pr", "ready", str(pr), "--repo", REPO], ok_fail=True) is None:
+                ok = admit(st, pr, {"run": None, "seen_active": False, "kind": "ready"},
+                           lambda: gh(["pr", "ready", str(pr), "--repo", REPO], ok_fail=True) is not None)
+                if ok is None:
+                    q.insert(i, e)
+                    return
+                if not ok:
                     report(f"#{pr}: gh pr ready failed; dropped")
                     continue
-                st["holders"][str(pr)] = {"run": None, "since": now(), "seen_active": False, "kind": "ready"}
                 report(f"#{pr}: slot granted, marked ready for review (gh pr ready); full tier starts from the ready event")
                 return
             report(f"#{pr}: draft (not approved to un-draft); rerun skipped, left for the maintainer")
@@ -608,7 +612,9 @@ def _start_next(st):
             log(f"#{pr}: my cancel of run {latest['id']} still settling; retry next pass")
             return
         if latest["status"] != "completed":
-            st["holders"][str(pr)] = {"run": latest["id"], "since": now(), "seen_active": True, "kind": "adopted"}
+            if admit(st, pr, {"run": latest["id"], "seen_active": True, "kind": "adopted"}) is None:
+                q.insert(i, e)
+                return
             report(f"#{pr}: run {latest['id']} already active on current head; holding slot")
             return
         if pr in NOCANCEL and latest["status"] == "completed":
@@ -629,19 +635,23 @@ def _start_next(st):
             q.insert(i, e)
             log(f"#{pr}: refs/pull/{pr}/merge not yet on current {bref} or without the runner pin; close/reopen deferred")
             return
-        if CFG.frozen() or CFG.dry_run or gh(["pr", "close", str(pr), "--repo", REPO], ok_fail=True) is None:
+
+        def reopen():
+            if CFG.frozen() or CFG.dry_run or gh(["pr", "close", str(pr), "--repo", REPO], ok_fail=True) is None:
+                log(f"#{pr}: close for the authorized close/reopen not sent; kept queued with its authorization")
+                return False
+            CFG.write("reopen_ok.json", [x for x in ro if x != pr])
+            ok = False
+            for _ in range(3):
+                if gh(["pr", "reopen", str(pr), "--repo", REPO], ok_fail=True) is not None:
+                    ok = True
+                    break
+                time.sleep(5)
+            report(f"#{pr}: slot free; merge ref fresh on {bref} with the runner pin, so closed and reopened (authorized) for a fresh pull_request event on head {head[:8]}"
+                   + ("; new run id follows, check its first job's Image" if ok else "; ATTENTION: reopen FAILED three times, the PR is left CLOSED; reopen it by hand"))
+            return True
+        if not admit(st, pr, start=reopen):
             q.insert(i, e)
-            log(f"#{pr}: close for the authorized close/reopen not sent; kept queued with its authorization")
-            return
-        CFG.write("reopen_ok.json", [x for x in ro if x != pr])
-        ok = False
-        for _ in range(3):
-            if gh(["pr", "reopen", str(pr), "--repo", REPO], ok_fail=True) is not None:
-                ok = True
-                break
-            time.sleep(5)
-        report(f"#{pr}: slot free; merge ref fresh on {bref} with the runner pin, so closed and reopened (authorized) for a fresh pull_request event on head {head[:8]}"
-               + ("; new run id follows, check its first job's Image" if ok else "; ATTENTION: reopen FAILED three times, the PR is left CLOSED; reopen it by hand"))
         return
 
 
@@ -781,12 +791,19 @@ def start_authorized(st):
             report(f"#{e['pr']}: authorized re-run of {e['run']} skipped: PR head is now "
                    f"{p['head']['sha'][:10]} (state {p['state']}), not {e['head']}")
             continue
-        drop_authorized(e)
         mode = [] if e.get("full") else ["--failed"]
-        if gh(["run", "rerun", str(e["run"]), *mode, "--repo", REPO], ok_fail=True) is None:
-            report(f"#{e['pr']}: authorized `gh run rerun {' '.join([str(e['run']), *mode])}` FAILED (see watch.log)")
+
+        def rerun():
+            drop_authorized(e)
+            if gh(["run", "rerun", str(e["run"]), *mode, "--repo", REPO], ok_fail=True) is None:
+                report(f"#{e['pr']}: authorized `gh run rerun {' '.join([str(e['run']), *mode])}` FAILED (see watch.log)")
+                return False
+            return True
+        ok = admit(st, e["pr"], {"run": e["run"], "seen_active": False, "kind": "rerun", "retries": 0}, rerun)
+        if ok is None:
+            return None
+        if not ok:
             continue
-        st["holders"][str(e["pr"])] = {"run": e["run"], "since": now(), "seen_active": False, "kind": "rerun", "retries": 0}
         report(f"#{e['pr']}: started authorized re-run ({'all jobs' if e.get('full') else 'failed jobs only'}) of run {e['run']} on head {e['head']}")
         return True
     return None
@@ -827,15 +844,36 @@ def mq_waiting():
     return None
 
 
+MQ_HELD = {}
+
+
+def admit(st, pr, holder=None, start=None):
+    """The one admission point for an ordinary PR run, by every path (a new run, the queue, a CI-PR auto-admit,
+    an authorized re-run): nothing is admitted while the merge queue waits for runners (mq_waiting, failing closed).
+    start() sends the mutation that starts the run; holder is the slot record. None when the merge queue holds
+    the admission, False when start() fails, True once admitted."""
+    mw = MQ_HELD.get("why") or mq_waiting()
+    if mw:
+        MQ_HELD["why"] = mw
+        log(f"merge-queue first: {mw}; no ordinary slot granted (#{pr} not admitted)")
+        return None
+    if start is not None and not start():
+        return False
+    if holder is not None:
+        st["holders"][str(pr)] = dict(holder, since=now())
+    return True
+
+
+def slot(g, kind):
+    """The slot record of a run group: its main-workflow run holds the slot."""
+    return {"run": next((r["databaseId"] for r in g if r["workflowName"] == MAIN_WF), g[0]["databaseId"]), "seen_active": True, "kind": kind}
+
+
 def start_next(st, *a, **kw):
     if outage_hold():
         return None
     if CFG.exists("release_hold.json"):
         log(f"release hold (release_hold.json): {CFG.read('release_hold.json').get('reason', '')}; no ordinary slot granted")
-        return None
-    mw = mq_waiting()
-    if mw:
-        log(f"merge-queue first: {mw}; no ordinary slot granted")
         return None
     sp = solo_pr()
     if sp is not None and not kw.pop("_solo_done", False):
@@ -971,6 +1009,7 @@ def solo_cap(st):
 
 
 def iterate(st):
+    MQ_HELD.clear()
     try:
         gate_sweep(st)
     except Exception:
@@ -1232,8 +1271,8 @@ def iterate(st):
     res_open = bool(res) and str(res) not in holders
     for k in [k for k in others if k.isdigit() and int(k) in PINNED]:
         g = others.pop(k)
-        holders[k] = {"run": next((r["databaseId"] for r in g if r["workflowName"] == MAIN_WF), g[0]["databaseId"]),
-                      "since": now(), "seen_active": True, "kind": "pinned"}
+        if not admit(st, k, slot(g, "pinned")):
+            continue
         st["queue"][:] = [e for e in st["queue"] if str(e["pr"]) != k]
         st.setdefault("parked", {}).pop(k, None)
         report(f"#{k}: pinned PR; run {holders[k]['run']} holds a slot (never cancelled for the cap)")
@@ -1251,8 +1290,7 @@ def iterate(st):
         if started and hold_cancel(st, k, g):
             continue
         if started:
-            holders[k] = {"run": next((r["databaseId"] for r in g if r["workflowName"] == MAIN_WF), g[0]["databaseId"]),
-                          "since": now(), "seen_active": True, "kind": "adopted"}
+            holders[k] = dict(slot(g, "adopted"), since=now())
             st["queue"][:] = [e for e in st["queue"] if str(e["pr"]) != k]
             jd = gh_json(["run", "view", str(holders[k]["run"]), "--repo", REPO, "--json", "jobs"], ok_fail=True) or {}
             js = [j.get("status") for j in jd.get("jobs", [])]
@@ -1269,34 +1307,33 @@ def iterate(st):
             continue
         hr = [r["databaseId"] for r in g if r["databaseId"] in HELD_RUNS]
         if hr:
-            holders[k] = {"run": hr[0], "since": now(), "seen_active": True, "kind": "priority"}
-            st["queue"][:] = [e for e in st["queue"] if str(e["pr"]) != k]
-            report(f"#{k}: runner-priority run {hr[0]} holds a slot (exempt from its own hold)")
+            if admit(st, k, {"run": hr[0], "seen_active": True, "kind": "priority"}):
+                st["queue"][:] = [e for e in st["queue"] if str(e["pr"]) != k]
+                report(f"#{k}: runner-priority run {hr[0]} holds a slot (exempt from its own hold)")
             continue
         p = pull(int(k)) if k.isdigit() else None
         if res_open and k == str(res) and len(holders) >= CAP and not (p and p.get("mergeable_state") == "dirty"):
-            holders[k] = {"run": next((r["databaseId"] for r in g if r["workflowName"] == MAIN_WF), g[0]["databaseId"]),
-                          "since": now(), "seen_active": True, "kind": "reserved"}
-            report(f"ATTENTION #{k}: reserved PR pushed while {len(holders) - 1} runs were active; run {holders[k]['run']} NOT cancelled, now {len(holders)} active")
+            if admit(st, k, slot(g, "reserved")):
+                report(f"ATTENTION #{k}: reserved PR pushed while {len(holders) - 1} runs were active; run {holders[k]['run']} NOT cancelled, now {len(holders)} active")
             continue
         if k == solo_pr() and not (p and p.get("mergeable_state") == "dirty"):
-            holders[k] = {"run": next((r["databaseId"] for r in g if r["workflowName"] == MAIN_WF), g[0]["databaseId"]),
-                          "since": now(), "seen_active": True, "kind": "solo"}
-            st["queue"][:] = [e for e in st["queue"] if str(e["pr"]) != k]
-            report(f"#{k}: sole-priority run {holders[k]['run']} took the slot")
+            if admit(st, k, slot(g, "solo")):
+                st["queue"][:] = [e for e in st["queue"] if str(e["pr"]) != k]
+                report(f"#{k}: sole-priority run {holders[k]['run']} took the slot")
             continue
         if k.isdigit():
             HEADC.pop(int(k), None)
         cap_k = CAP - 1 if res_open and k != str(res) else CAP
+        mq_held = False
         if len(holders) < cap_k and k.isdigit() and not (p and p.get("mergeable_state") == "dirty") and not deferred(k) \
                 and (outranks(st, {"pr": int(k), "run": next((r["databaseId"] for r in g if r["workflowName"] == MAIN_WF), g[0]["databaseId"])})
                      or released(int(k), next((r for r in g if r["workflowName"] == MAIN_WF), g[0])["headSha"])) \
                 and review_gate(int(k)):
-            holders[k] = {"run": next((r["databaseId"] for r in g if r["workflowName"] == MAIN_WF), g[0]["databaseId"]),
-                          "since": now(), "seen_active": True, "kind": "adopted"}
-            st["queue"][:] = [e for e in st["queue"] if str(e["pr"]) != k]
-            report(f"#{k}: new run {holders[k]['run']} took a free slot")
-            continue
+            if admit(st, k, slot(g, "adopted")):
+                st["queue"][:] = [e for e in st["queue"] if str(e["pr"]) != k]
+                report(f"#{k}: new run {holders[k]['run']} took a free slot")
+                continue
+            mq_held = True
         if k.isdigit() and int(k) in NOCANCEL:
             pr_run = next((r for r in g if r["workflowName"] == MAIN_WF), g[0])
             enqueue(st, {"pr": int(k), "run": pr_run["databaseId"], "sha": pr_run["headSha"], "kind": "rerun"})
@@ -1319,7 +1356,7 @@ def iterate(st):
             report(f"#{k}: cancelled run(s) {[r['databaseId'] for r in g]}; PR is dirty, stays parked")
             continue
         where = enqueue(st, {"pr": int(k), "run": pr_run["databaseId"], "sha": pr_run["headSha"], "kind": "rerun"})
-        report(f"#{k}: cancelled queued run(s) {[r['databaseId'] for r in g]} {'over the cap' if len(holders) >= CAP else 'under the review gate'}; queued ({where}, position {[e['pr'] for e in st['queue']].index(int(k)) + 1}/{len(st['queue'])})")
+        report(f"#{k}: cancelled queued run(s) {[r['databaseId'] for r in g]} {'while the merge queue waits for runners' if mq_held else 'over the cap' if len(holders) >= CAP else 'under the review gate'}; queued ({where}, position {[e['pr'] for e in st['queue']].index(int(k)) + 1}/{len(st['queue'])})")
 
     over = len(holders) - CAP
     if over > 0:

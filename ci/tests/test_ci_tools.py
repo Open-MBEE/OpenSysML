@@ -309,6 +309,29 @@ class WatcherTest(Stub):
         self.assertIn("merge queue holds 1 entry (#5 next) between builds", log)
         self.assertFalse([c for c in self.calls() if c.startswith("run rerun")])
 
+    def test_waiting_merge_queue_admits_nothing_through_a_free_slot(self):
+        self.write("ci_prio.json", [7])
+        self.write("auth_rerun.json", [{"pr": 8, "run": 556, "head": "0000000000"}])
+        mg = {"id": 900, "name": "PR", "head_branch": "gh-readonly-queue/develop/pr-5-abc", "head_sha": "e" * 40, "status": "in_progress"}
+        self.pass_rules([run(101, 7, "feat/seven")], mg_runs=[mg], extra=[
+            [r"^run list .*--status in_progress --event merge_group", [{"databaseId": 900, "status": "in_progress"}], 0],
+            [r"^api repos/Example/Repo/actions/runs/900/jobs", 1, 0],
+            [r"^api repos/Example/Repo/actions/runs\?branch=feat/eight", {"workflow_runs": [
+                {"id": 80, "name": "PR", "status": "queued", "run_attempt": 1, "created_at": stamp(5)}]}, 0]])
+        log = self.run_once()
+        self.assertIn("merge-queue first: merge_group run 900 has 1 job(s) waiting for runners; no ordinary slot granted (#7 not admitted)", log)
+        self.assertNotIn("took a free slot", log)
+        self.assertEqual(self.read("state.json")["holders"], {})
+        self.assertEqual(self.read("auth_rerun.json"), [{"pr": 8, "run": 556, "head": "0000000000"}])
+        self.assertFalse([c for c in self.calls() if c.startswith(("run rerun", "run cancel", "pr ready", "pr close", "pr reopen"))])
+        os.remove(os.path.join(self.dir, "auth_rerun.json"))
+        st = watcher.load()
+        st["queue"] = [{"pr": 8, "run": 556, "kind": "rerun"}]
+        watcher.MQ_HELD.clear()
+        watcher.start_next(st)
+        self.assertIn("(#8 not admitted)", self.text("watch.log"))
+        self.assertEqual((st["holders"], [e["pr"] for e in st["queue"]]), ({}, [8]))
+
     def test_authorized_rerun_starts_when_the_queue_is_idle_and_waits_under_dry_run_and_freeze(self):
         self.write("auth_rerun.json", [{"pr": 7, "run": 555, "head": "0000000000"}])
         self.pass_rules([], extra=[[r"^run rerun 555 --failed", "", 0]])
@@ -359,6 +382,8 @@ class WatcherPartsTest(Stub):
             [r"^api repos/Example/Repo/actions/runs/\d+/jobs\?per_page=100$", {"jobs": [{"id": 1, "conclusion": "success"}]}, 0],
             [r"^api repos/Example/Repo/actions/jobs/1/logs", MERGE_LOG, 0],
             [r"^api repos/Example/Repo/compare/b+\.\.\.develop", {"commits": []}, 0],
+            [r"^run list .*--event merge_group", [], 0],
+            [r"^api graphql", queue_nodes([]), 0],
         ])
 
     def log(self):

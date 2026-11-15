@@ -172,6 +172,11 @@ These rules come from running the tools on this repository and still apply.
   is queued or has waiting jobs. Between two queue builds, a non-empty GraphQL
   `mergeQueue(branch:…).entries` also counts as a busy queue: the next build appears about a
   minute after the previous one finishes, and an ordinary run admitted in that gap delays it.
+- The watcher admits ordinary runs through one gate, `admit()`, which applies this rule to every path:
+  a new run taking a free slot, the queue, a CI-PR auto-admit, an authorized re-run, an un-draft or a
+  close/reopen, and pinned, reserved, sole-priority and runner-priority runs. A run that is held there
+  keeps its queue entry or `auth_rerun.json` entry. A run that has already started is counted, not
+  admitted.
 - The sweeper's two cases follow the maintainer's rule "cancel all normal PR runs, except the
   closest to finishing; keep the merge PR run":
   - **Waiting.** While a merge-queue run has queued or waiting jobs, every ordinary run whose
