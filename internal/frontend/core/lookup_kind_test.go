@@ -17,7 +17,8 @@ func TestGetSymbolReadsTheStatedLookupKind(t *testing.T) {
 	ctx := context.Background()
 	content := `package Col { part def W { part a; part b; part { part inner; } part '@2' { part named; } } }
 package Col__V__c_pend0 { part marker; }
-package Col { port def P; part def V { port q : P; port r : P; connection c connect q to r; } }`
+package Col { port def P; part def V { port q : P; port r : P; connection c connect q to r; } }
+package Quoted { part '\'q\''; part q; }`
 	params, _ := json.Marshal(&JParseSourcesRequest{Documents: []*JSourceDocument{{Content: &content}}})
 	body, err := c.Call(ctx, "ParseSources", params)
 	if err != nil {
@@ -38,6 +39,9 @@ package Col { port def P; part def V { port q : P; port r : P; connection c conn
 		{"Col__V__c_pend0", "", "Col_5f_5fV_5f_5fc_5fpend0", ""},
 		{"Col_5f_5fV_5f_5fc_5fpend0", "LOOKUP_KIND_ELEMENT_ID", "Col_5f_5fV_5f_5fc_5fpend0", ""},
 		{"Col_5f_5fV_5f_5fc_5fpend0", "LOOKUP_KIND_QUALIFIED_NAME", "", "symbol not found: Col_5f_5fV_5f_5fc_5fpend0"},
+		{"Quoted::'q'", "LOOKUP_KIND_ELEMENT_ID", "Quoted::'q'", ""},
+		{"Quoted::q", "LOOKUP_KIND_ELEMENT_ID", "Quoted::q", ""},
+		{"Quoted::'q'", "LOOKUP_KIND_QUALIFIED_NAME", "Quoted::q", ""},
 		{"Col::W::@2", "LOOKUP_KIND_UNSPECIFIED", "Col::W::'@2'", ""},
 	} {
 		request := fmt.Sprintf(`{"modelHash":%q,"symbolId":%q,"lookup":%q}`, parsed.ModelHash, tc.symbolID, tc.lookup)
