@@ -92,3 +92,15 @@ func TestRedefinitionOfChainUsesFirstChainingFeature(t *testing.T) {
 		`class A { feature x : A; } class C { feature a : A; } class D { feature r redefines C::a.x; }`,
 		"redefinition-no-inherited")
 }
+
+// A ReferenceSubsetting is a Subsetting, so a feature specializes the feature it references and is
+// compatible with that feature's role as a featuring type (KerML 1.1 §8.3.3.3.9, Type::isCompatibleWith).
+func TestRedefinitionThroughReferenceSubsetting(t *testing.T) {
+	wantRedefinitionCodes(t,
+		`feature battery { feature output { feature voltage; } }
+		 class C { feature e references battery { feature r redefines output.voltage; feature s redefines output; } }`)
+	wantRedefinitionCodes(t,
+		`feature battery { feature output; } feature other;
+		 class C { feature e references other { feature s redefines battery::output; } }`,
+		"redefinition-no-inherited")
+}

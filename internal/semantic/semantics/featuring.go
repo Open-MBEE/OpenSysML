@@ -22,10 +22,22 @@ func (t FeaturingType) IsAnything() bool {
 // DerivedFeaturingTypes derives Feature::featuringType (KerML 1.1 §8.3.3.3.4 deriveFeatureFeaturingType):
 // the declared `featured by` types, the type its FeatureMembership implies, and its first chaining feature's.
 func (m *Model) DerivedFeaturingTypes(feature *symbols.Symbol) []FeaturingType {
-	if m == nil {
+	if m == nil || feature == nil {
 		return nil
 	}
-	return m.derivedFeaturingTypes(feature, map[*symbols.Symbol]bool{})
+	defer m.own(feature).LeaveDoc()
+	if cached, ok := m.derivedFeaturing[feature]; ok {
+		return cached
+	}
+	m.resolver.Enter()
+	out := m.derivedFeaturingTypes(feature, map[*symbols.Symbol]bool{})
+	// A derivation a resolution guard cut short is recomputed, not memoized.
+	if !m.resolver.Leave() {
+		return out
+	}
+	journal(m, m.derivedFeaturing, feature, feature.Decl)
+	m.derivedFeaturing[feature] = out
+	return out
 }
 
 func (m *Model) derivedFeaturingTypes(feature *symbols.Symbol, deriving map[*symbols.Symbol]bool) []FeaturingType {
@@ -271,7 +283,25 @@ func (a *featureAccess) specializes(t, f FeaturingType) bool {
 		snapshots := a.m.occurrenceSnapshots()
 		return snapshots != nil && a.m.Conforms(snapshots, f.Type)
 	}
-	return a.m.Conforms(t.Type, f.Type)
+	return a.m.specializesByReference(t.Type, f.Type, map[*symbols.Symbol]bool{})
+}
+
+// specializesByReference is Type::specializes with the ReferenceSubsetting edges Conforms leaves
+// out: a feature specializes what the feature it, or a general of it, references specializes.
+func (m *Model) specializesByReference(t, f *symbols.Symbol, seen map[*symbols.Symbol]bool) bool {
+	if m.Conforms(t, f) {
+		return true
+	}
+	if seen[t] {
+		return false
+	}
+	seen[t] = true
+	for _, general := range append([]*symbols.Symbol{t}, m.AllSupertypes(t)...) {
+		if referenced := m.ReferencedFeature(general); referenced != nil && m.specializesByReference(referenced, f, seen) {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *featureAccess) hasOwnedFeatures(t FeaturingType) bool {
@@ -340,5 +370,5 @@ func withAnything(types []FeaturingType) []FeaturingType {
 			return types
 		}
 	}
-	return append(types, FeaturingType{})
+	return append(types[:len(types):len(types)], FeaturingType{})
 }
