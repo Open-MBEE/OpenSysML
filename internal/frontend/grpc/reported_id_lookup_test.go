@@ -77,3 +77,96 @@ func TestQueryScopeReadsTheReportedID(t *testing.T) {
 		t.Errorf("Query(scope %s) answered %d elements, want the package and its marker: %v", id, len(resp.Elements), resp.Elements)
 	}
 }
+
+// A type and a general are reported by the id GetSymbol reports them under: an escaped id,
+// a quoted `@N` name beside an unnamed sibling, and a private member all read back as ids.
+func TestTypeAndGeneralAreReportedByElementID(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, fmt.Sprintf(reportedIDCollision, "part def", "{ }")+`
+package Uses {
+	part def '@2'; part filler; part;
+	private part def Hidden;
+	part escaped : Col__V__c_pend0; part def EscapedSub :> Col__V__c_pend0;
+	part quoted : '@2'; part def QuotedSub :> '@2';
+	part hidden : Hidden; part def HiddenSub :> Hidden;
+}
+`, "reported-id-type")
+	for user, want := range map[string]string{
+		"Uses::escaped": "Col__V__c_pend0", "Uses::EscapedSub": "Col__V__c_pend0",
+		"Uses::quoted": "@2", "Uses::QuotedSub": "@2",
+		"Uses::hidden": "Hidden", "Uses::HiddenSub": "Hidden",
+	} {
+		resp, err := srv.GetSymbol(context.Background(), &pb.GetSymbolRequest{
+			ModelHash: hash, SymbolId: user, Lookup: pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME,
+		})
+		if err != nil || resp.GetSymbol() == nil {
+			t.Fatalf("GetSymbol(%s): %v, %v", user, err, resp.GetError())
+		}
+		ids := []string{resp.Symbol.GetTypeInfo().GetResolvedId()}
+		for _, spec := range resp.Symbol.Specializations {
+			ids = append(ids, spec.TargetId)
+		}
+		read := 0
+		for _, id := range ids {
+			if id == "" {
+				continue
+			}
+			read++
+			target, err := srv.GetSymbol(context.Background(), &pb.GetSymbolRequest{
+				ModelHash: hash, SymbolId: id, Lookup: pb.LookupKind_LOOKUP_KIND_ELEMENT_ID,
+			})
+			if err != nil || target.GetSymbol() == nil {
+				t.Errorf("%s reports %q, which no element id reads: %v, %v", user, id, err, target.GetError())
+				continue
+			}
+			if target.Symbol.Id != id || target.Symbol.Name != want {
+				t.Errorf("%s reports %q, read as %s named %q, want the element named %q", user, id, target.Symbol.Id, target.Symbol.Name, want)
+			}
+		}
+		if read == 0 {
+			t.Errorf("%s reports no type or general", user)
+		}
+	}
+}
+
+// The id of a type or a general is for lookup; what is shown is its qualified name, in the
+// qualified-name fields and in the type an attribute is listed with.
+func TestTypeAndGeneralAreShownByQualifiedName(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, fmt.Sprintf(reportedIDCollision, "attribute def", "{ }")+`
+package Uses {
+	attribute def '@2'; part filler; part;
+	part def Holder { attribute escaped : Col__V__c_pend0; attribute quoted : '@2'; }
+	attribute def EscapedSub :> Col__V__c_pend0; attribute def QuotedSub :> '@2';
+}
+`, "reported-id-display")
+	symbol := func(name string) *pb.SymbolInfo {
+		t.Helper()
+		resp, err := srv.GetSymbol(context.Background(), &pb.GetSymbolRequest{
+			ModelHash: hash, SymbolId: name, Lookup: pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME,
+		})
+		if err != nil || resp.GetSymbol() == nil {
+			t.Fatalf("GetSymbol(%s): %v, %v", name, err, resp.GetError())
+		}
+		return resp.Symbol
+	}
+	for user, want := range map[string]string{"escaped": "Col__V__c_pend0", "quoted": "Uses::@2"} {
+		info := symbol("Uses::Holder::" + user).GetTypeInfo()
+		if info.GetResolvedQualifiedName() != want || info.GetResolvedId() == want {
+			t.Errorf("%s: resolved type is named %q under the id %q, want the name %q and another id", user, info.GetResolvedQualifiedName(), info.GetResolvedId(), want)
+		}
+	}
+	for user, want := range map[string]string{"EscapedSub": "Col__V__c_pend0", "QuotedSub": "Uses::@2"} {
+		specs := symbol("Uses::" + user).GetSpecializations()
+		if len(specs) != 1 || specs[0].GetTargetQualifiedName() != want || specs[0].GetTargetId() == want {
+			t.Errorf("%s: specializations %v, want one naming %q under another id", user, specs, want)
+		}
+	}
+	listed := map[string]string{}
+	for _, attribute := range symbol("Uses::Holder").GetAttributes() {
+		listed[attribute.GetName()] = attribute.GetType()
+	}
+	if listed["escaped"] != "Col__V__c_pend0" || listed["quoted"] != "Uses::@2" {
+		t.Errorf("attribute types = %v, want the qualified names of the two types", listed)
+	}
+}

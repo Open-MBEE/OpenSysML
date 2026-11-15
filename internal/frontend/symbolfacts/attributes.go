@@ -138,8 +138,8 @@ func (sc *Context) inheritedValue(sym *symbols.Symbol, depth int) (*Value, strin
 // to, else what it wrote, else the library scalar the element reduces to.
 func attributeTypeText(t *TypeInfo) string {
 	switch {
-	case t.ResolvedId != "":
-		return t.ResolvedId
+	case t.ResolvedQualifiedName != "":
+		return t.ResolvedQualifiedName
 	case t.Declared != "":
 		return t.Declared
 	default:

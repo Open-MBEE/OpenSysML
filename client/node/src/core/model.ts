@@ -884,6 +884,8 @@ export interface TypeRef {
 export interface TypeFacts {
   declared: string;
   resolvedId: string;
+  /** Qualified name of the resolved written type, for display; `resolvedId` is for lookup. */
+  resolvedQualifiedName: string;
   resolvedKind: string;
   primitive: string;
   primitiveSource: string;
@@ -910,6 +912,8 @@ export interface SpecializationFacts {
   kind: string;
   declared: string;
   targetId: string;
+  /** Qualified name of the resolved target, for display; `targetId` is for lookup. */
+  targetQualifiedName: string;
   targetKind: string;
 }
 
@@ -984,6 +988,7 @@ export class ModelSymbol {
         : {
             declared: info.typeInfo.declared,
             resolvedId: info.typeInfo.resolvedId,
+            resolvedQualifiedName: info.typeInfo.resolvedQualifiedName,
             resolvedKind: info.typeInfo.resolvedKind,
             primitive: info.typeInfo.primitive,
             primitiveSource: info.typeInfo.primitiveSource,
@@ -999,6 +1004,7 @@ export class ModelSymbol {
       kind: specialization.kind,
       declared: specialization.declared,
       targetId: specialization.targetId,
+      targetQualifiedName: specialization.targetQualifiedName,
       targetKind: specialization.targetKind,
     }));
     this.withheldLibraryAttributes = info.withheldLibraryAttributes;

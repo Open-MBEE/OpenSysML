@@ -69,7 +69,7 @@ public final class QueryResolver {
     }
     if (!symbol.kind().endsWith("Usage") && !symbol.kind().endsWith("Def")) return;
     if (symbol.kind().equals("calcUsage")) {
-      typeOf(model, symbol)
+      typeOf(symbol).flatMap(id -> reported(model, id))
           .filter(type -> isQuery(model, type))
           .ifPresent(type -> found.add(type.id()));
       return;
@@ -80,17 +80,13 @@ public final class QueryResolver {
     }
   }
 
-  /** The usage's type: type facts name it by qualified name, a typing by its reported id. */
-  private static Optional<Symbol> typeOf(Model model, Symbol symbol) {
-    Optional<String> resolved = symbol.typeFacts().flatMap(Symbol.TypeFacts::resolvedId).filter(name -> !name.isBlank());
-    if (resolved.isPresent()) {
-      return model.findSymbol(resolved.get(), SymbolOptions.defaults().lookup(Lookup.QUALIFIED_NAME));
-    }
+  private static Optional<String> typeOf(Symbol symbol) {
+    Optional<String> resolved = symbol.typeFacts().flatMap(Symbol.TypeFacts::resolvedId).filter(id -> !id.isBlank());
+    if (resolved.isPresent()) return resolved;
     return symbol.specializations().stream()
         .filter(item -> item.kind().equals("typing"))
         .flatMap(item -> item.targetId().stream())
-        .findFirst()
-        .flatMap(id -> reported(model, id));
+        .findFirst();
   }
 
   /** A calc def specializing {@code DocumentQueries::Query}, directly or through other calc defs. */
@@ -138,7 +134,8 @@ public final class QueryResolver {
         .filter(item -> item.flatMap(Symbol.TypeFacts::resolvedId).filter(id -> !id.isBlank()).isPresent())
         .findFirst()
         .orElse(Optional.empty());
-    String type = facts.flatMap(Symbol.TypeFacts::resolvedId)
+    String type = facts.flatMap(Symbol.TypeFacts::resolvedQualifiedName)
+        .or(() -> facts.flatMap(Symbol.TypeFacts::resolvedId))
         .or(() -> chain.stream().map(item -> item.metadata().get("type")).filter(Objects::nonNull).findFirst())
         .orElse("");
     QueryParameter.Kind kind = QueryParameter.kindOf(facts.flatMap(Symbol.TypeFacts::primitive).orElse(""));

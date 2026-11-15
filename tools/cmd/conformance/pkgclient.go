@@ -1666,13 +1666,14 @@ func symbolToProto(symbol *opensysml.Symbol) *pb.SymbolInfo {
 	}
 	if symbol.Type != nil {
 		out.TypeInfo = &pb.TypeInfo{
-			Declared:        symbol.Type.Declared,
-			ResolvedId:      symbol.Type.ResolvedID,
-			ResolvedKind:    symbol.Type.ResolvedKind,
-			Primitive:       symbol.Type.Primitive,
-			PrimitiveSource: symbol.Type.PrimitiveSource,
-			Quantity:        symbol.Type.Quantity,
-			Unit:            symbol.Type.Unit,
+			Declared:              symbol.Type.Declared,
+			ResolvedId:            symbol.Type.ResolvedID,
+			ResolvedQualifiedName: symbol.Type.ResolvedQualifiedName,
+			ResolvedKind:          symbol.Type.ResolvedKind,
+			Primitive:             symbol.Type.Primitive,
+			PrimitiveSource:       symbol.Type.PrimitiveSource,
+			Quantity:              symbol.Type.Quantity,
+			Unit:                  symbol.Type.Unit,
 		}
 	}
 	if symbol.Multiplicity != nil {
@@ -1680,10 +1681,11 @@ func symbolToProto(symbol *opensysml.Symbol) *pb.SymbolInfo {
 	}
 	for _, specialization := range symbol.Specializations {
 		out.Specializations = append(out.Specializations, &pb.Specialization{
-			Kind:       specialization.Kind,
-			Declared:   specialization.Declared,
-			TargetId:   specialization.TargetID,
-			TargetKind: specialization.TargetKind,
+			Kind:                specialization.Kind,
+			Declared:            specialization.Declared,
+			TargetId:            specialization.TargetID,
+			TargetQualifiedName: specialization.TargetQualifiedName,
+			TargetKind:          specialization.TargetKind,
 		})
 	}
 	return out

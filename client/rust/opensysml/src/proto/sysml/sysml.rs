@@ -2646,13 +2646,16 @@ pub struct Specialization {
     /// The target as written in the source ("Engine", "Demo::Engine").
     #[prost(string, tag="2")]
     pub declared: ::prost::alloc::string::String,
-    /// FQN of the resolved target; empty when the name does not resolve. A "references" feature chain
-    /// (`x.p`) is one entry per chaining feature, in chain order, each with the chain as `declared`.
+    /// Element id of the resolved target, as GetSymbol reports it, for lookup; empty when the name does not resolve.
+    /// A "references" feature chain (`x.p`) is one entry per chaining feature, each with the chain as `declared`.
     #[prost(string, tag="3")]
     pub target_id: ::prost::alloc::string::String,
     /// Symbol kind of the resolved target ("partDef", ...); empty when unresolved.
     #[prost(string, tag="4")]
     pub target_kind: ::prost::alloc::string::String,
+    /// Qualified name of the resolved target, for display; empty when the name does not resolve.
+    #[prost(string, tag="5")]
+    pub target_qualified_name: ::prost::alloc::string::String,
 }
 /// TypeInfo is the static type of a usage, or the classification of a
 /// definition, as far as the service derives it without running the model.
@@ -2666,7 +2669,7 @@ pub struct TypeInfo {
     /// Type name as written; empty when none is declared.
     #[prost(string, tag="1")]
     pub declared: ::prost::alloc::string::String,
-    /// FQN of the resolved written type; empty when unresolved or undeclared.
+    /// Element id of the resolved written type, as GetSymbol reports it, for lookup; empty when unresolved or undeclared.
     #[prost(string, tag="2")]
     pub resolved_id: ::prost::alloc::string::String,
     /// Symbol kind of the resolved written type ("partDef", "attributeDef", ...).
@@ -2691,6 +2694,9 @@ pub struct TypeInfo {
     /// and T. Empty when the element is not a feature or none derives.
     #[prost(message, repeated, tag="8")]
     pub types: ::prost::alloc::vec::Vec<TypeRef>,
+    /// Qualified name of the resolved written type, for display; empty when unresolved or undeclared.
+    #[prost(string, tag="9")]
+    pub resolved_qualified_name: ::prost::alloc::string::String,
 }
 /// TypeRef names one derived type of a feature.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

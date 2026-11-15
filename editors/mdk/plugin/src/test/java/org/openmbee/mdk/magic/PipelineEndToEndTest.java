@@ -193,6 +193,24 @@ class PipelineEndToEndTest {
         plan.parameters().stream().map(QueryParameter::type).toList(), plan.parameters().toString());
   }
 
+  /** Run query on the v2 path: a parameter's type is shown by qualified name where its reported id is spelled otherwise. */
+  @Test
+  void v2TextualRunQueryShowsAParameterTypeByQualifiedName() throws Exception {
+    V2TextualSource source = new V2TextualSource("""
+        package Demo {
+          part def '@2';
+          part filler;
+          part;
+          calc def Pick :> DocumentQueries::Query {
+            in picked : '@2';
+            DocumentQueries::Descendants(source = ())
+          }
+        }
+        """);
+    QueryPlan plan = engine.plan(new RunRequest(Operation.RUN_QUERY, source, "Demo::Pick", List.of()), () -> false).orElseThrow();
+    assertEquals(List.of("Demo::@2"), plan.parameters().stream().map(QueryParameter::type).toList(), plan.parameters().toString());
+  }
+
   /** Run query on the v2 path: a calc usage's type is read by qualified name, which an unnamed sibling's id spells. */
   @Test
   void v2TextualRunQueryFindsAQueryTypeNamedLikeASiblingId() throws Exception {
@@ -208,6 +226,20 @@ class PipelineEndToEndTest {
     assertEquals(1, plan.queries().size(), plan.toString());
   }
 
+  /** Run query on the v2 path: a calc usage typed by a private query, which no qualified name reaches from outside. */
+  @Test
+  void v2TextualRunQueryFindsAPrivateQueryType() throws Exception {
+    V2TextualSource source = new V2TextualSource("""
+        package Demo {
+          private calc def Hidden :> DocumentQueries::Query { DocumentQueries::Descendants(source = ()) }
+          calc run : Hidden;
+        }
+        """);
+    QueryPlan plan = engine.plan(new RunRequest(Operation.RUN_QUERY, source, "Demo::run", List.of()), () -> false).orElseThrow();
+    assertEquals(1, plan.queries().size(), plan.toString());
+  }
+
+  /** Run query on the v2 path: bindings of many, none and one, and a parameter left unbound. */
   @Test
   void v2TextualRunQueryBindsParameters() throws Exception {
     V2TextualSource source = demo();
