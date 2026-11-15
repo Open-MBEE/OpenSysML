@@ -144,6 +144,9 @@ func (h *calcStmtHost) assignOuter(env *stmtEnv, name string, value Value, s low
 		return h.mirrorOccurrence(name, value)
 	}
 	if !h.declaredOutput(name) {
+		if written, err := h.assignEnclosing(env, name, value); written || err != nil {
+			return err
+		}
 		if written, err := assignPerformerFeature(h.ctx, h.self, s.Scope, name, value); written || err != nil {
 			return err
 		}
@@ -163,6 +166,24 @@ func (h *calcStmtHost) assignOuter(env *stmtEnv, name string, value Value, s low
 		return err
 	}
 	return h.mirrorOccurrence(name, value)
+}
+
+// assignEnclosing writes a name a run around the body holds — a calculation
+// declared within another reads that run's values, and writes them — through
+// the innermost such run's own write path.
+func (h *calcStmtHost) assignEnclosing(env *stmtEnv, name string, value Value) (bool, error) {
+	for i := len(env.enclosing) - 1; i >= 0; i-- {
+		f := env.enclosing[i]
+		if f.hides(name) || !f.has(name) {
+			continue
+		}
+		if f.write != nil {
+			return true, f.write(f, name, value)
+		}
+		f.set(name, value)
+		return true, nil
+	}
+	return false, nil
 }
 
 func (h *calcStmtHost) assignData(env *stmtEnv, name string, value Value, s lower.Assign) error {

@@ -41,6 +41,8 @@ func TestRuntimeRobustnessCalcInvocation(t *testing.T) {
 	t.Run("calc_terminate_is_rejected", testCalcTerminateIsRejected)
 	t.Run("calc_assignment_of_a_wrong_typed_value", testCalcAssignmentOfAWrongTypedValue)
 	t.Run("calc_assignment_through_this_is_read_back", testCalcAssignmentThroughThisIsReadBack)
+	t.Run("nested_calc_assigns_the_enclosing_calcs_value", testNestedCalcAssignsTheEnclosingCalcsValue)
+	t.Run("nested_calc_assigns_a_wrong_typed_enclosing_value", testNestedCalcAssignsAWrongTypedEnclosingValue)
 	t.Run("calc_output_write_of_a_wrong_typed_value", testCalcOutputWriteOfAWrongTypedValue)
 }
 
@@ -749,6 +751,38 @@ func testCalcAssignmentThroughThisIsReadBack(t *testing.T) {
 	}
 	if got.Const.Int != 5 {
 		t.Errorf("Overwrite(1) = %v, want 5: the value written through this", got)
+	}
+}
+
+const nestedCalcWrites = `package test {
+	private import ScalarValues::*;
+	calc def Outer {
+		attribute n : Integer := 0;
+		calc inner { assign n := %s; return : Integer[1] = 1; }
+		return : Integer[1] = inner() + n;
+	}
+}`
+
+// testNestedCalcAssignsTheEnclosingCalcsValue: a calculation declared within
+// another writes the value the enclosing run holds, not a copy of its own.
+func testNestedCalcAssignsTheEnclosingCalcsValue(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, fmt.Sprintf(nestedCalcWrites, "3")))
+	got, err := ctx.invokeCalcWithSelf(oneSymbol(t, idx, "test::Outer"), calcArgs{}, idx.DocumentRoot("<test>"), nil)
+	if err != nil {
+		t.Fatalf("Outer(): %v", err)
+	}
+	if got.Const.Int != 4 {
+		t.Errorf("Outer() = %v, want 4: inner's 1 and the 3 it wrote to n", got)
+	}
+}
+
+// testNestedCalcAssignsAWrongTypedEnclosingValue: the write to the enclosing
+// run's value answers to that value's declaration.
+func testNestedCalcAssignsAWrongTypedEnclosingValue(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, fmt.Sprintf(nestedCalcWrites, `"three"`)))
+	_, err := ctx.invokeCalcWithSelf(oneSymbol(t, idx, "test::Outer"), calcArgs{}, idx.DocumentRoot("<test>"), nil)
+	if !errors.Is(err, ErrTypeMismatch) {
+		t.Fatalf("err = %v, want ErrTypeMismatch", err)
 	}
 }
 
