@@ -283,9 +283,9 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 		}
 	})
 
-	// An end stating how many values it links is not met by a feature holding fewer: the
-	// binding is a multiplicity violation, not a whole binding of what there is — whichever
-	// end is read, whether the features admit more than the end links or exactly as many.
+	// An end's multiplicity is how many of its values each value of the other end is linked to
+	// (KerML 1.1 §7.4.5.2, §8.4.4.5.1), and a binding links a value to itself alone: ends requiring
+	// two or more are a multiplicity violation over any value — whichever end is read, whatever the features admit.
 	t.Run("under_lower_bound", func(t *testing.T) {
 		for name, c := range map[string]struct{ ends, same string }{
 			"exact":  {"[2]", "[0..2]"},
@@ -301,8 +301,8 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 							binding [1] bind `+ends+` edges = `+ends+` pair;
 						}
 					}`))
-					want := "multiplicity violation: `binding [1] bind " + ends + " edges = " + ends + " pair` links " +
-						ends + " of edges, which holds 1 value(s)"
+					want := "multiplicity violation: `binding [1] bind " + ends + " edges = " + ends + " pair` links each value of pair to " +
+						ends + " of edges, and a binding links a value to itself alone"
 					for _, order := range [][]string{{"pair", "edges", "pair"}, {"edges", "pair", "edges"}} {
 						inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Sys"))
 						if err != nil {
@@ -327,8 +327,7 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 		}
 	})
 
-	// An end that makes the binding partial does not excuse the other end from its
-	// lower bound, whichever end is read.
+	// Nor does a feature that admits any number excuse the ends from it, whichever end is read.
 	t.Run("under_lower_bound_beyond_partial_end", func(t *testing.T) {
 		idx, _, ctx := buildRuntime(t, "<binding-under-lower-bound-beyond-partial>", parseAndBuild(t, `package P {
 			part def Sys {
@@ -337,7 +336,7 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 				binding [1] bind [2] edges = [2] pair;
 			}
 		}`))
-		want := "multiplicity violation: `binding [1] bind [2] edges = [2] pair` links [2] of pair, which holds 1 value(s)"
+		want := "multiplicity violation: `binding [1] bind [2] edges = [2] pair` links each value of pair to [2] of edges, and a binding links a value to itself alone"
 		for _, order := range [][]string{{"edges", "pair"}, {"pair", "edges"}} {
 			inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Sys"))
 			if err != nil {
@@ -359,7 +358,7 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 		}
 	})
 
-	// Ends requiring a value are not met by two optional features holding none: the
+	// A connector declaring one link is not met by two optional features holding none: the
 	// binding links nothing, a multiplicity violation rather than an unknown value or a
 	// cycle. Once anything values the features — a default, another binding — it is whole.
 	t.Run("empty_required_ends", func(t *testing.T) {
@@ -382,7 +381,7 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 				binding [1] bind [1] a = [1] c;
 			}
 		}`))
-		want := "multiplicity violation: `binding [1] bind [1] a = [1] b` links [1] of a, which holds 0 value(s)"
+		want := "multiplicity violation: `binding [1] bind [1] a = [1] b` declares [1] link(s) but identifies 0 value(s)"
 		for _, order := range [][]string{{"a", "b"}, {"b", "a"}} {
 			inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Empty"))
 			if err != nil {
