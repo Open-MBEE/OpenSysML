@@ -1,7 +1,5 @@
-// The requirement a satisfy names is its one ReferenceSubsetting (SysML v2 §8.2.2.21.2
-// SatisfyRequirementUsage); a `:>` after it is a further Subsetting, so both requirements
-// are checked on the subject under the name of the first, which the margin then violates, and a
-// requirement reached through a chain is named the same way.
+// A satisfy names its requirement by a ReferenceSubsetting (SysML v2 §8.2.2.21.2), directly or
+// through a chain; a `:>` after it is a further Subsetting, checked too, which the margin violates.
 package test {
     private import ScalarValues::*;
     part def Relay { attribute rating : Real = 10.0; }

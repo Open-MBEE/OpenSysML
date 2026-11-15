@@ -17,9 +17,8 @@ const satisfyReferenceModel = `package test {
 	%s
 }`
 
-// TestRuntimeRobustnessSatisfyReference covers a reference-form satisfy that cannot be judged: the
-// requirement it reference-subsets (SysML v2 §8.2.2.21.2), or one subsetted after it, reads a value
-// nothing binds. Each is a typed error, never a panic.
+// TestRuntimeRobustnessSatisfyReference: a reference-form satisfy whose requirement, or one
+// subsetted after it, reads an unbound value is a typed error, never a panic.
 func TestRuntimeRobustnessSatisfyReference(t *testing.T) {
 	cases := []struct{ name, satisfy string }{
 		{"the referenced requirement", `satisfy ratingOk by relay;`},
