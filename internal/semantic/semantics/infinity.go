@@ -96,17 +96,13 @@ func InfinityOrder(l, r Value) (order int, ok bool) {
 	}
 }
 
-// zeroLike is the zero an operation over finite and infinite operands yields:
-// a Real zero beside a Real operand, an exact Rational zero beside a Rational
-// one, the Integer zero otherwise, as the finite operation promotes.
-func zeroLike(l, r Value) Value {
-	switch {
-	case l.Kind == ValReal || r.Kind == ValReal:
+// vanishingQuotient is the zero a quotient or a reciprocal power tends to: a
+// Real beside a Real operand and otherwise a Rational, as `2 / 4` and `2 ** -1` are.
+func vanishingQuotient(l, r Value) Value {
+	if l.Kind == ValReal || r.Kind == ValReal {
 		return Value{Kind: ValReal}
-	case l.Kind == ValRational || r.Kind == ValRational:
-		return Value{Kind: ValRational, den: 1}
 	}
-	return IntValue(0)
+	return Value{Kind: ValRational, den: 1}
 }
 
 func undefinedOverInfinity(op ast.OperatorKind, l, r Value) error {
@@ -146,7 +142,7 @@ func InfinityArith(op ast.OperatorKind, l, r Value) (Value, error) {
 		case l.IsInfinite() && r.IsInfinite():
 			return Value{}, undefinedOverInfinity(op, l, r)
 		case r.IsInfinite():
-			return zeroLike(l, r), nil
+			return vanishingQuotient(l, r), nil
 		case rs == 0:
 			return Value{}, ErrDivisionByZero
 		}
@@ -180,22 +176,21 @@ func infinityPow(l, r Value) (Value, error) {
 			return Value{}, undefined
 		case grows:
 			return PositiveInfinity(), nil
+		case l.Kind == ValInt && l.Sign() == 0:
+			// The Integer zero to a growing power is the Integer `0 ** 3` is.
+			return IntValue(0), nil
 		}
-		return zeroLike(l, r), nil
+		return vanishingQuotient(l, r), nil
 	}
-	// An infinite base under a finite exponent.
+	// An infinite base under a finite exponent; `-*` has a power only for a whole one.
+	n, whole := wholeExponent(r)
 	switch rs := r.Sign(); {
-	case rs == 0:
+	case rs == 0, l.Sign() < 0 && !whole:
 		return Value{}, undefined
 	case rs < 0:
-		return zeroLike(l, r), nil
+		return vanishingQuotient(l, r), nil
 	case l.Sign() > 0:
 		return PositiveInfinity(), nil
-	}
-	// `-*` raised to a positive exponent: defined for a whole one, by its parity.
-	n, whole := wholeExponent(r)
-	if !whole {
-		return Value{}, undefined
 	}
 	if n.bigView().Bit(0) == 1 {
 		return NegativeInfinity(), nil

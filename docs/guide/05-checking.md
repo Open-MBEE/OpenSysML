@@ -211,7 +211,7 @@ notation alike: `* > 1`, `'>'(*, 1)`, `* == *`, `max(*, 1)` (`*`), `min(*, 1)` (
 and the ordering stays open. `*` is the positive infinity of KerML's extended numbers and `-*` the
 negative one, below every number: an `Integer`, a `Rational` and a `Real`, but no `Natural`.
 Arithmetic over them answers what the extended reals determine — `* + 1` is `*`, `1 - *` is `-*`,
-`2 / *` is `0`, `(-*) ** 3` is `-*` — and an indeterminate form (`* - *`, `0 * *`, `* / *`,
+`2 / *` is the Rational `0.0`, `(-*) ** 3` is `-*` — and an indeterminate form (`* - *`, `0 * *`, `* / *`,
 `* ** 0`, any `%`) is an error naming it, as a division by zero is.
 
 ```sysml

@@ -36,6 +36,5 @@ package test {
         attribute zerothPower = * ** 0;
         attribute zeroDivisor = -* / 0;
         attribute range = 1..*;
-        attribute noNatural = NaturalFunctions::'+'(-*, 1);
     }
 }

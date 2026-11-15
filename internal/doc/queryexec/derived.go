@@ -86,8 +86,7 @@ func (e *executor) derivedFeatureValues(sym *symbols.Symbol, property string) ([
 }
 
 // cellValues converts a runtime value to the values of one cell: collections
-// flatten, and a result no cell can hold — an object, an infinity — is a
-// typed error.
+// flatten, and a result no cell can hold — an object — is a typed error.
 func (e *executor) cellValues(value runtime.Value, property string, row Value) ([]Value, error) {
 	origin := row.Origin()
 	if lit := value.EnumerationLiteral(); lit != nil {
@@ -103,7 +102,7 @@ func (e *executor) cellValues(value runtime.Value, property string, row Value) (
 			return nil, e.unevaluable(queryplan.Expression{}, property, row, err)
 		}
 	case runtime.ValConst:
-		converted, ok := constValue(value.Const)
+		converted, ok := constantValue(value.Const)
 		if !ok {
 			return nil, e.unevaluable(queryplan.Expression{}, property, row, notAValue(value))
 		}
@@ -126,32 +125,12 @@ func (e *executor) cellValues(value runtime.Value, property string, row Value) (
 	return result, nil
 }
 
-// constValue converts a folded constant; an infinity has no query value.
-func constValue(value semantics.Value) (Value, bool) {
-	switch value.Kind {
-	case semantics.ValBool:
-		return BooleanValue(value.Bool), true
-	case semantics.ValInt:
-		return IntegerOf(value), true
-	case semantics.ValRational:
-		return RationalOf(value), true
-	case semantics.ValReal:
-		return RealValue(value.Real), true
-	default:
-		return Value{}, false
-	}
-}
-
 // errNotAValue reports a runtime result no cell can hold: an object, a
-// deferred expression, an infinity.
+// deferred expression.
 type errNotAValue struct{ kind string }
 
 func (e *errNotAValue) Error() string { return "evaluates to " + e.kind + ", not a value" }
 
 func notAValue(value runtime.Value) error {
-	kind := value.Kind.String()
-	if value.Kind == runtime.ValConst && value.Const.Kind == semantics.ValInfinity {
-		kind = "an infinity"
-	}
-	return &errNotAValue{kind: kind}
+	return &errNotAValue{kind: value.Kind.String()}
 }

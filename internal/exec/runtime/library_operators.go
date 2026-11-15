@@ -203,6 +203,9 @@ func naturalDivision(name string, ctx *Context, args []Value) (Value, error) {
 	if x.IsInfinite() || y.IsInfinite() {
 		// `* / n` is `*` and `n / *` is 0, both Naturals; `* / *` is undefined.
 		q, err := semantics.InfinityArith(ast.OpDiv, x, y)
+		if err == nil && !q.IsInfinite() {
+			q = semantics.IntValue(0)
+		}
 		return operatorResult(name, Value{Kind: ValConst, Const: q}, err)
 	}
 	rem, ok := semantics.IntRem(x, y)

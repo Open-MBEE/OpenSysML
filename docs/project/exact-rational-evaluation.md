@@ -52,7 +52,7 @@ KerML 1.0 (formal/2025-02-01) and the Kernel libraries vendored under `internal/
   infinite value is `LiteralInfinity` (`*`, §8.4.4.6, typed `Positive`); its existing rules apply
   unchanged to Rationals — `*` exceeds every finite Rational (`1 / 3 < *`), equals itself, and its
   negation `-*` is the negative infinity. Arithmetic over either is the extended reals' (`1 / *`
-  is `0`, `* - *` a domain error). No finite Rational operation produces an infinity: a zero
+  is the Rational `0.0`, `* - *` a domain error). No finite Rational operation produces an infinity: a zero
   divisor is a division-by-zero error.
 
 **What the specification is silent on**, and so is decided here rather than derived: the internal

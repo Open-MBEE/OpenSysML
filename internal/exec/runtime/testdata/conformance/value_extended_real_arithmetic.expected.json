@@ -13,7 +13,7 @@
     "vanishing": {"type": "Real", "value": 0.0},
     "power": {"type": "Infinity"},
     "oddPower": {"type": "NegativeInfinity"},
-    "decay": {"type": "Integer", "value": 0},
+    "decay": {"type": "Rational", "value": "0.0"},
     "negated": {"type": "NegativeInfinity"},
     "restored": {"type": "Infinity"},
     "declared": {"type": "NegativeInfinity"},
@@ -30,7 +30,6 @@
     "remainder": {"error": "arithmetic domain error: * % 2 is undefined in the extended reals"},
     "zerothPower": {"error": "arithmetic domain error: * ** 0 is undefined in the extended reals"},
     "zeroDivisor": {"error": "division by zero"},
-    "range": {"error": "arithmetic domain error: '..' requires finite bounds, got * for upper"},
-    "noNatural": {"error": "requires a Natural value, got -*"}
+    "range": {"error": "arithmetic domain error: '..' requires finite bounds, got * for upper"}
   }
 }

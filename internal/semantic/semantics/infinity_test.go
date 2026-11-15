@@ -73,12 +73,12 @@ func TestInfinityArith(t *testing.T) {
 		{ast.OpAdd, pos, IntValue(1), "*"}, {ast.OpAdd, real(-1e308), neg, "-*"}, {ast.OpAdd, pos, pos, "*"},
 		{ast.OpSub, IntValue(1), pos, "-*"}, {ast.OpSub, neg, pos, "-*"}, {ast.OpSub, pos, neg, "*"},
 		{ast.OpMul, IntValue(-2), pos, "-*"}, {ast.OpMul, neg, neg, "*"}, {ast.OpMul, real(0.5), neg, "-*"},
-		{ast.OpDiv, pos, IntValue(-2), "-*"}, {ast.OpDiv, IntValue(2), neg, "0"}, {ast.OpDiv, real(2), pos, "0.0"},
+		{ast.OpDiv, pos, IntValue(-2), "-*"}, {ast.OpDiv, IntValue(2), neg, "0.0"}, {ast.OpDiv, real(2), pos, "0.0"},
 		{ast.OpDiv, Value{Kind: ValRational, Int: 5, den: 2}, neg, "0.0"},
 		{ast.OpPow, pos, IntValue(2), "*"}, {ast.OpPow, neg, IntValue(2), "*"}, {ast.OpPow, neg, IntValue(3), "-*"},
-		{ast.OpPow, neg, real(3), "-*"}, {ast.OpPow, pos, IntValue(-1), "0"}, {ast.OpPow, pos, real(0.5), "*"},
-		{ast.OpPow, IntValue(2), pos, "*"}, {ast.OpPow, IntValue(2), neg, "0"}, {ast.OpPow, real(0.5), pos, "0.0"},
-		{ast.OpPow, real(0.5), neg, "*"}, {ast.OpPow, IntValue(0), pos, "0"}, {ast.OpPow, pos, pos, "*"}, {ast.OpPow, pos, neg, "0"},
+		{ast.OpPow, neg, real(3), "-*"}, {ast.OpPow, pos, IntValue(-1), "0.0"}, {ast.OpPow, neg, IntValue(-3), "0.0"}, {ast.OpPow, pos, real(0.5), "*"},
+		{ast.OpPow, IntValue(2), pos, "*"}, {ast.OpPow, IntValue(2), neg, "0.0"}, {ast.OpPow, real(0.5), pos, "0.0"},
+		{ast.OpPow, real(0.5), neg, "*"}, {ast.OpPow, IntValue(0), pos, "0"}, {ast.OpPow, pos, pos, "*"}, {ast.OpPow, pos, neg, "0.0"},
 	}
 	for _, tc := range cases {
 		got, err := InfinityArith(tc.op, tc.l, tc.r)
@@ -101,7 +101,7 @@ func TestInfinityArith(t *testing.T) {
 		{ast.OpMod, pos, IntValue(2), ErrArithmeticDomain}, {ast.OpMod, IntValue(2), neg, ErrArithmeticDomain},
 		{ast.OpPow, pos, IntValue(0), ErrArithmeticDomain}, {ast.OpPow, IntValue(1), pos, ErrArithmeticDomain},
 		{ast.OpPow, IntValue(-1), neg, ErrArithmeticDomain}, {ast.OpPow, IntValue(-2), pos, ErrArithmeticDomain},
-		{ast.OpPow, IntValue(0), neg, ErrArithmeticDomain}, {ast.OpPow, neg, real(0.5), ErrArithmeticDomain},
+		{ast.OpPow, IntValue(0), neg, ErrArithmeticDomain}, {ast.OpPow, neg, real(0.5), ErrArithmeticDomain}, {ast.OpPow, neg, real(-0.5), ErrArithmeticDomain},
 		{ast.OpPow, neg, pos, ErrArithmeticDomain},
 		{ast.OpAdd, pos, Value{Kind: ValBool}, ErrArithmeticDomain},
 	}

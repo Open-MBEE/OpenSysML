@@ -291,9 +291,17 @@ var infinityLimits = map[string]func(args []float64) float64{
 	"OpenSysMLMathFunctions::ceiling": func(a []float64) float64 { return a[0] },
 	"OpenSysMLMathFunctions::exp":     func(a []float64) float64 { return math.Exp(a[0]) },
 	"OpenSysMLMathFunctions::ln":      func(a []float64) float64 { return math.Log(a[0]) },
-	"TrigFunctions::arctan":           func(a []float64) float64 { return math.Atan(a[0]) },
-	"TrigFunctions::deg":              func(a []float64) float64 { return a[0] },
-	"TrigFunctions::rad":              func(a []float64) float64 { return a[0] },
+	"OpenSysMLMathFunctions::log":     func(a []float64) float64 { return math.Log(a[0]) / math.Log(a[1]) },
+	"OpenSysMLMathFunctions::atan2": func(a []float64) float64 {
+		// math.Atan2 answers a quarter turn's half for two infinities, where no limit exists.
+		if math.IsInf(a[0], 0) && math.IsInf(a[1], 0) {
+			return math.NaN()
+		}
+		return math.Atan2(a[0], a[1])
+	},
+	"TrigFunctions::arctan": func(a []float64) float64 { return math.Atan(a[0]) },
+	"TrigFunctions::deg":    func(a []float64) float64 { return a[0] },
+	"TrigFunctions::rad":    func(a []float64) float64 { return a[0] },
 }
 
 // limitAtInfinity answers the scalar function name over values of which at least
@@ -306,6 +314,13 @@ func limitAtInfinity(name string, values []semantics.Value) (semantics.Value, er
 	case "RationalFunctions::rat":
 		// rat(numer, denum) is numer / denum, over an infinity as over an Integer.
 		return semantics.InfinityArith(ast.OpDiv, values[0], values[1])
+	case "OpenSysMLMathFunctions::quotient":
+		// The quotient truncated toward zero: an infinity is whole, a vanishing one zero.
+		q, err := semantics.InfinityArith(ast.OpDiv, values[0], values[1])
+		if err != nil || q.IsInfinite() {
+			return q, err
+		}
+		return semantics.IntValue(0), nil
 	}
 	undefined := func() (semantics.Value, error) {
 		shown := make([]string, len(values))

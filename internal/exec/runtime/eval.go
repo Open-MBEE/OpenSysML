@@ -1708,6 +1708,10 @@ func constArithmetic(op program.Operator, left, right semantics.Value, maxBits i
 	// An infinity is a Real (KerML 9.3.2.2.9): the extended reals answer what
 	// the limit determines and report an indeterminate form.
 	if left.IsInfinite() || right.IsInfinite() {
+		if !left.IsExtendedNumeric() || !right.IsExtendedNumeric() {
+			return semantics.Value{}, fmt.Errorf("%w: operator '%s' requires numeric operands, got %s and %s",
+				ErrTypeMismatch, op, semantics.FormatConst(left), semantics.FormatConst(right))
+		}
 		return semantics.InfinityArith(lower.OperatorKindOf(op), left, right)
 	}
 
