@@ -1,7 +1,8 @@
-// A requirement feature carrying no value of its own reads the satisfying
-// object's feature of that name, so a requirement stated over the values it
-// checks reaches a verdict from the part named by `by`. Unit-free values:
-// quantity expressions such as `1.5 [m/s]` are ROADMAP A1a.
+// A requirement stated over its own features is given the satisfying object's
+// values by a binding, not by matching names (SysML v2 §7.21.1): the usage states
+// its subject and redefines the feature to be the subject's, so the part named by
+// `by` is the subject the feature reads. Unit-free values: quantity expressions
+// such as `1.5 [m/s]` are ROADMAP A1a.
 package test {
     part def Lander {
         attribute verticalSpeed;
@@ -16,6 +17,8 @@ package test {
     }
 
     requirement touchdown : TouchdownRequirement {
+        subject lander : Lander;
+        attribute :>> verticalSpeed = lander.verticalSpeed;
         attribute :>> maxVerticalSpeed = 1.5;
     }
 
