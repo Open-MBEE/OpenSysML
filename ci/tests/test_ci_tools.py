@@ -262,6 +262,18 @@ class WatcherTest(Stub):
         self.assertEqual(sorted(c for c in self.calls() if c.startswith("run cancel")),
                          ["run cancel 102 --repo Example/Repo", "run cancel 103 --repo Example/Repo"])
 
+    def test_started_means_a_heavy_job_and_frozen_cancel_is_not_a_cancel(self):
+        watcher.configure(self.cfg())
+        self.rules([[r"^run view 1 ", {"status": "in_progress", "jobs": [{"name": "Changed areas", "status": "completed", "conclusion": "success"},
+                                                                       {"name": "Go", "status": "queued"}, {"name": "Docs", "status": "completed", "conclusion": "skipped"}]}, 0],
+                    [r"^run view 2 ", {"status": "in_progress", "jobs": [{"name": "Changed areas", "status": "completed", "conclusion": "success"},
+                                                                       {"name": "Go", "status": "in_progress"}]}, 0],
+                    [r"^run view 3 ", {"status": "in_progress", "jobs": []}, 0],
+                    [r"runs/4 --jq", {"a": 1, "b": "feat/x", "e": "pull_request"}, 0]])
+        self.assertEqual([watcher.jobs_started({"databaseId": n}) for n in (1, 2, 3, 9)], [False, True, True, True])
+        self.write("freeze.json", {})
+        self.assertFalse(watcher.cancel(4))
+
     def test_cancel_refuses_merge_queue_tag_and_unreadable_runs(self):
         watcher.configure(self.cfg())
         self.rules([[r"runs/1 --jq", {"a": 1, "b": "gh-readonly-queue/develop/pr-5-x", "e": "merge_group"}, 0],
@@ -424,6 +436,30 @@ class WatcherPartsTest(Stub):
                                                                            "pr close 7 --repo Example/Repo", "pr reopen 7 --repo Example/Repo"])
         self.assertEqual(self.read("reopen_ok.json"), [])
 
+    def test_review_threads_beyond_one_page_are_not_clear(self):
+        self.use([[r"^api graphql", {"data": {"repository": {"pullRequest": {"reviewThreads": {
+            "totalCount": 101, "nodes": [{"isResolved": True}] * 100}}}}}, 0]])
+        self.assertFalse(watcher.review_clear(7, SHA7))
+        self.assertIn("101 review threads, more than one page", self.log())
+
+    def test_unreadable_pr_keeps_its_authorized_rerun_and_dry_run_keeps_reopen(self):
+        self.write("auth_rerun.json", [{"pr": 99, "run": 5, "head": "0"}])
+        self.use([], cap=2)
+        self.assertIsNone(watcher.start_authorized(watcher.load()))
+        self.assertEqual(len(self.read("auth_rerun.json")), 1)
+        self.assertIn("PR unreadable; authorized re-run of 5 kept", self.log())
+        self.write("reopen_ok.json", [7])
+        self.use([[r"^api repos/Example/Repo/actions/runs\?branch=feat/seven", {"workflow_runs": [
+            {"id": 70, "name": "PR", "status": "completed", "conclusion": "cancelled", "run_attempt": 1, "created_at": stamp(5)}]}, 0],
+                  [r"git/ref/pull/7/merge --jq", {"s": "m" * 40}, 0], [r"commits/develop --jq", {"s": "b" * 40}, 0],
+                  [r"commits/m+ --jq", {"s": "b" * 40}, 0]])
+        watcher.CFG.dry_run = True
+        st = watcher.load()
+        st["queue"] = [{"pr": 7, "run": 70, "kind": "rerun"}]
+        watcher._start_next(st)
+        self.assertEqual((self.read("reopen_ok.json"), [e["pr"] for e in st["queue"]]), ([7], [7]))
+        self.assertFalse([c for c in self.calls() if c.startswith("pr ")])
+
     def test_review_gate_and_gate_sweep(self):
         self.write("review_gate.json", {"since": "2026-01-01"})
         self.write("release.json", [{"pr": 7, "sha": "0000"}])
@@ -544,7 +580,8 @@ class StarveSweepTest(Stub):
         def r(rid, n, branch, name="PR"):
             return {"id": rid, "event": "pull_request", "name": name, "head_branch": branch, "head_sha": f"{rid:040d}",
                     "pull_requests": [{"number": n}]}
-        queued = [r(11, 4, "feat/a"), r(12, 5, "feat/b"), r(13, 6, "release/1.0.0"), r(14, 7, "feat/c", "Docs"), r(15, 8, "feat/d")]
+        queued = [r(11, 4, "feat/a"), r(12, 5, "feat/b"), r(13, 6, "release/1.0.0"), r(14, 7, "feat/c", "Docs"), r(15, 8, "feat/d"),
+                  r(16, 10, "feat/e")]
         self.rules([
             [r"event=merge_group&status=queued", {"workflow_runs": [{"id": 900, "status": "queued"}]}, 0],
             [r"event=pull_request&status=queued", {"workflow_runs": queued}, 0],
@@ -552,11 +589,12 @@ class StarveSweepTest(Stub):
             [r"runs/11/jobs", {"jobs": [{"status": "queued"}]}, 0],
             [r"runs/12/jobs", {"jobs": [{"status": "in_progress"}]}, 0],
             [r"runs/15/jobs", {"jobs": []}, 0],
-            [r"^run cancel 11 ", "", 0],
+            [r"runs/16/jobs", {"jobs": [{"name": "Changed areas", "status": "completed", "conclusion": "success"}, {"name": "Go", "status": "queued"}]}, 0],
+            [r"^run cancel 1[16] ", "", 0],
         ])
         self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
-        self.assertEqual([c for c in self.calls() if c.startswith("run cancel")], ["run cancel 11 -R Example/Repo"])
-        self.assertEqual([e["pr"] for e in self.read("auth_rerun.json")], [9, 4])
+        self.assertEqual([c for c in self.calls() if c.startswith("run cancel")], ["run cancel 11 -R Example/Repo", "run cancel 16 -R Example/Repo"])
+        self.assertEqual([e["pr"] for e in self.read("auth_rerun.json")], [9, 4, 10])
 
     def test_idle_queue_api_error_and_absent_authorization(self):
         self.rules([[r"event=merge_group", {"workflow_runs": []}, 0]])

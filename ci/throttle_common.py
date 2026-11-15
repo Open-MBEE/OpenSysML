@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Configuration, control files and the guarded `gh` wrapper shared by the CI throttle tools."""
+import contextlib
 import datetime
+import fcntl
 import json
 import os
 import subprocess
@@ -76,6 +78,16 @@ class Config:
     def frozen(self):
         return self.exists("freeze.json")
 
+    @contextlib.contextmanager
+    def locked(self, name):
+        """Hold an exclusive lock on a control file across a read-modify-write shared between tools."""
+        with open(self.file(name) + ".lock", "a") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock, fcntl.LOCK_UN)
+
 
 def utc_stamp():
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -83,6 +95,12 @@ def utc_stamp():
 
 def mutating(args):
     return list(args[:2]) in [list(m) for m in MUTATING] or (args[:1] == ["api"] and any(a in ("-X", "--method") for a in args))
+
+
+def heavy_job_started(cfg, jobs):
+    """A run has started once a job other than the preflight is executing or ran to a real conclusion."""
+    return any(j.get("name") not in cfg["preflight_jobs"] and (j.get("status") == "in_progress" or (
+        j.get("status") == "completed" and j.get("conclusion") not in ("cancelled", "skipped"))) for j in jobs)
 
 
 def protected_branch(cfg, branch, event=None):

@@ -9,7 +9,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from throttle_common import GH, Config, protected_branch, utc_stamp  # noqa: E402
+from throttle_common import GH, Config, heavy_job_started, protected_branch, utc_stamp  # noqa: E402
 
 WAITING = ("queued", "waiting")
 ACTIVE = ("queued", "in_progress", "waiting", "pending", "requested")
@@ -61,14 +61,15 @@ class Sweeper:
                 continue
             jobs = self.api(f"repos/{repo}/actions/runs/{r['id']}/jobs?per_page=100")["jobs"]
             # A run with no jobs uses no runner, and GitHub refuses to retry it once cancelled.
-            if not jobs or any(j["status"] != "queued" for j in jobs):
+            if not jobs or heavy_job_started(self.cfg, jobs):
                 continue
             pr = r["pull_requests"][0]["number"]
             done = self.gh(["run", "cancel", str(r["id"]), "-R", repo], ok_fail=True) is not None
             if done:
-                todo = [e for e in self.cfg.read("auth_rerun.json", []) if e["pr"] != pr]
-                todo.append({"pr": pr, "run": r["id"], "head": r["head_sha"][:10]})
-                self.cfg.write("auth_rerun.json", sorted(todo, key=self.rank))
+                with self.cfg.locked("auth_rerun.json"):
+                    todo = [e for e in self.cfg.read("auth_rerun.json", []) if e["pr"] != pr]
+                    todo.append({"pr": pr, "run": r["id"], "head": r["head_sha"][:10]})
+                    self.cfg.write("auth_rerun.json", sorted(todo, key=self.rank))
             self.log(f"#{pr}: run {r['id']} ({r['head_sha'][:10]}, no job started) "
                      f"{'cancelled; queued for re-run under the cap' if done else 'not cancelled'}")
 

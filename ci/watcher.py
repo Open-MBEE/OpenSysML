@@ -14,7 +14,7 @@ import traceback
 import urllib.parse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from throttle_common import GH, Config, protected_branch, utc_stamp  # noqa: E402
+from throttle_common import GH, Config, heavy_job_started, protected_branch, utc_stamp  # noqa: E402
 
 CFG = None
 GH_RUN = None
@@ -152,10 +152,9 @@ def jobs_started(run):
     if d is None:
         return True
     js = d.get("jobs", [])
-    if js and all(j.get("status") == "queued" or (j.get("status") == "completed" and j.get("conclusion") in ("cancelled", "skipped")) for j in js) \
-            and any(j.get("status") == "completed" for j in js):
-        return False
-    return d.get("status") == "in_progress" or any(j.get("status") != "queued" for j in js)
+    if not js:
+        return d.get("status") not in ("queued", "waiting", "pending", "requested")
+    return heavy_job_started(CFG, js)
 
 
 CANCEL_ATT = {}
@@ -174,8 +173,10 @@ def cancel(run_id):
         log(f"run {run_id}: {'unreadable' if not a else 'merge-queue, tag or protected-branch run'}; never cancelled")
         return False
     CANCEL_ATT[str(run_id)] = a["a"]
-    if gh(["run", "cancel", str(run_id), "--repo", REPO], ok_fail=True) is None:
-        gh(["api", "-X", "POST", f"repos/{REPO}/actions/runs/{run_id}/force-cancel"], ok_fail=True)
+    if gh(["run", "cancel", str(run_id), "--repo", REPO], ok_fail=True) is None \
+            and gh(["api", "-X", "POST", f"repos/{REPO}/actions/runs/{run_id}/force-cancel"], ok_fail=True) is None:
+        log(f"run {run_id}: cancel not sent or refused; still counted as live")
+        return False
     log(f"cancelled {run_id}")
     return True
 
@@ -628,11 +629,19 @@ def _start_next(st):
             q.insert(i, e)
             log(f"#{pr}: refs/pull/{pr}/merge not yet on current {bref} or without the runner pin; close/reopen deferred")
             return
+        if CFG.frozen() or CFG.dry_run or gh(["pr", "close", str(pr), "--repo", REPO], ok_fail=True) is None:
+            q.insert(i, e)
+            log(f"#{pr}: close for the authorized close/reopen not sent; kept queued with its authorization")
+            return
         CFG.write("reopen_ok.json", [x for x in ro if x != pr])
-        ok = gh(["pr", "close", str(pr), "--repo", REPO], ok_fail=True) is not None
-        ok = ok and gh(["pr", "reopen", str(pr), "--repo", REPO], ok_fail=True) is not None
+        ok = False
+        for _ in range(3):
+            if gh(["pr", "reopen", str(pr), "--repo", REPO], ok_fail=True) is not None:
+                ok = True
+                break
+            time.sleep(5)
         report(f"#{pr}: slot free; merge ref fresh on {bref} with the runner pin, so closed and reopened (authorized) for a fresh pull_request event on head {head[:8]}"
-               + ("; new run id follows, check its first job's Image" if ok else "; close/reopen FAILED, check PR state"))
+               + ("; new run id follows, check its first job's Image" if ok else "; ATTENTION: reopen FAILED three times, the PR is left CLOSED; reopen it by hand"))
         return
 
 
@@ -677,11 +686,15 @@ def released(pr, sha):
 
 
 def review_clear(pr, sha):
-    q = "query($o:String!,$n:String!,$p:Int!){repository(owner:$o,name:$n){pullRequest(number:$p){reviewThreads(first:100){nodes{isResolved}}}}}"
+    q = "query($o:String!,$n:String!,$p:Int!){repository(owner:$o,name:$n){pullRequest(number:$p){reviewThreads(first:100){totalCount nodes{isResolved}}}}}"
     d = gh_json(["api", "graphql", "-f", f"query={q}", "-f", "o=" + REPO.split("/")[0], "-f", "n=" + REPO.split("/")[1], "-F", f"p={pr}"], ok_fail=True)
     if not d:
         return False
-    return not any(not t["isResolved"] for t in d["data"]["repository"]["pullRequest"]["reviewThreads"]["nodes"])
+    threads = d["data"]["repository"]["pullRequest"]["reviewThreads"]
+    if threads.get("totalCount", 0) > len(threads["nodes"]):
+        log(f"#{pr}: {threads['totalCount']} review threads, more than one page; not counted as clear")
+        return False
+    return not any(not t["isResolved"] for t in threads["nodes"])
 
 
 def review_gate(pr):
@@ -749,21 +762,26 @@ def auth_pending():
     return load_json(f) if os.path.exists(f) else []
 
 
+def drop_authorized(e):
+    with CFG.locked("auth_rerun.json"):
+        CFG.write("auth_rerun.json", [x for x in CFG.read("auth_rerun.json", []) if x != e])
+
+
 def start_authorized(st):
-    todo = sorted(auth_pending(), key=lambda e: tier_rank(e["pr"]))
-    while todo:
-        e = todo.pop(0)
-        CFG.write("auth_rerun.json", todo)
-        p = pull(e["pr"])
-        if not p or p["state"] != "open" or not p["head"]["sha"].startswith(e["head"]):
-            report(f"#{e['pr']}: authorized re-run of {e['run']} skipped: PR head is now "
-                   f"{(p or {}).get('head', {}).get('sha', '?')[:10]} (state {(p or {}).get('state')}), not {e['head']}")
-            continue
+    for e in sorted(auth_pending(), key=lambda e: tier_rank(e["pr"])):
         if CFG.frozen() or CFG.dry_run:
             log(f"{'FROZEN (freeze.json)' if CFG.frozen() else 'DRY RUN'}: authorized re-run of {e['run']} deferred")
-            todo.insert(0, e)
-            CFG.write("auth_rerun.json", todo)
             return None
+        p = pull(e["pr"])
+        if not p:
+            log(f"#{e['pr']}: PR unreadable; authorized re-run of {e['run']} kept for the next pass")
+            return None
+        if p["state"] != "open" or not p["head"]["sha"].startswith(e["head"]):
+            drop_authorized(e)
+            report(f"#{e['pr']}: authorized re-run of {e['run']} skipped: PR head is now "
+                   f"{p['head']['sha'][:10]} (state {p['state']}), not {e['head']}")
+            continue
+        drop_authorized(e)
         if gh(["run", "rerun", str(e["run"]), "--failed", "--repo", REPO], ok_fail=True) is None:
             report(f"#{e['pr']}: authorized `gh run rerun {e['run']} --failed` FAILED (see watch.log)")
             continue
