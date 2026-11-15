@@ -339,6 +339,9 @@ The pilot's export fails on no file at `2026-09.1` (`pilotFailed` 0; at `2026-09
 
 Re-recorded on the positional transition heads change (a state body's `then x;` and a decision's `if g then x;` or `else x;` branch own the Membership naming the member before them and their `transitionLinkSource` link parameter through a ParameterMembership ahead of their guard, as the pilot exports a TargetTransitionUsage): the matched-element and every property-family count hold; only `unkeyableElements.ours` grows, 19987 → 20381, by the new memberships and nameless parameters, which the matcher keys no more than it keys a `transition`'s own (the unnamed-minted-member family above).
 
+
+Re-recorded on the positional succession ends change (a `then x;` succession whose source is reached by position and carries no multiplicity — `entry; then idle;`, an unnamed action followed by `then a2;` — owns its two end features on the native walk and in the conversion, as every `TargetSuccession` does): no row moves; `unkeyableElements.ours` grows by 520 across 43 files (20381 → 20901). The new elements are the minted end `ReferenceUsage`s, their `EndFeatureMembership`s and `ReferenceSubsetting`s, owned by positional successions that are unkeyable on both sides already (an unnamed member is keyed from its owner; `SuccessionAsUsage` is the largest unkeyable family after the end family on either side), so they are counted and left out of matching as the pilot's own are.
+
 <!-- doc-counts:begin apijson-roots -->
 The per-root table, rendered from the baseline when the site builds.
 <!-- doc-counts:end apijson-roots -->
