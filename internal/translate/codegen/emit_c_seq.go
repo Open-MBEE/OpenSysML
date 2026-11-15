@@ -14,22 +14,6 @@ enum { SYSML_NULL = 0, SYSML_ONE = 1, SYSML_MANY = 2 };
 static sysml_int sysml_elements;
 static sysml_int sysml_max_elements = SYSML_DEFAULT_MAX_ELEMENTS;
 
-static void sysml_failf(const char *fmt, ...) __attribute__((format(printf, 1, 2), noreturn));
-static void sysml_failf(const char *fmt, ...) {
-	static char *msg;
-	va_list ap, again;
-	va_start(ap, fmt);
-	va_copy(again, ap);
-	int n = vsnprintf(NULL, 0, fmt, ap);
-	va_end(ap);
-	free(msg);
-	msg = malloc((size_t)n + 1);
-	if (!msg) sysml_fail("out of memory");
-	vsnprintf(msg, (size_t)n + 1, fmt, again);
-	va_end(again);
-	sysml_fail(msg);
-}
-
 /* Charges n materialized elements to the budget a statement releases at its end. */
 static inline void sysml_charge(sysml_int n) {
 	if (__builtin_expect(__builtin_add_overflow(sysml_elements, n, &sysml_elements) || sysml_elements > sysml_max_elements || sysml_elements < 0, 0))

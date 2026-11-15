@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"math/big"
 	"strconv"
 	"strings"
 
@@ -124,6 +125,22 @@ static void *sysml_alloc(size_t n) {
 	void *p = sysml_arena->data + sysml_arena->used;
 	sysml_arena->used += n;
 	return p;
+}
+
+static void sysml_failf(const char *fmt, ...) __attribute__((format(printf, 1, 2), noreturn));
+static void sysml_failf(const char *fmt, ...) {
+	static char *msg;
+	va_list ap, again;
+	va_start(ap, fmt);
+	va_copy(again, ap);
+	int n = vsnprintf(NULL, 0, fmt, ap);
+	va_end(ap);
+	free(msg);
+	msg = malloc((size_t)n + 1);
+	if (!msg) sysml_fail("out of memory");
+	vsnprintf(msg, (size_t)n + 1, fmt, again);
+	va_end(again);
+	sysml_fail(msg);
 }
 
 static inline void sysml_enter(void) {
@@ -622,9 +639,6 @@ static sysml_bool sysml_parse_bool(const char *s, const char *name) {
 // EmitC writes program as a self-contained C translation unit, with a main that
 // reads argv and prints the result when withMain is set (errors: status 1, stderr).
 func EmitC(w io.Writer, p *Program, withMain bool) error {
-	if err := cIntegerRefusal(p); err != nil {
-		return err
-	}
 	e := &cEmitter{w: w}
 	e.collections = p.Collections
 	e.records = len(p.Records) > 0
@@ -747,7 +761,7 @@ func cType(t Type) string {
 	}
 	switch t {
 	case TypeInt:
-		return "sysml_int"
+		return "sysml_integer"
 	case TypeReal:
 		return "sysml_real"
 	case TypeBool:
@@ -821,7 +835,7 @@ func (e *cEmitter) block(stmts []Stmt) {
 			releases = true
 		}
 	}
-	if !e.collections || !releases {
+	if !releases {
 		for _, s := range stmts {
 			e.stmt(s)
 		}
@@ -829,7 +843,9 @@ func (e *cEmitter) block(stmts []Stmt) {
 	}
 	e.temps++
 	held := fmt.Sprintf("sysml_h%d", e.temps)
-	e.linef("sysml_int %s = sysml_elements;", held)
+	if e.collections {
+		e.linef("sysml_int %s = sysml_elements;", held)
+	}
 	for _, s := range stmts {
 		if _, ok := s.(Return); ok {
 			e.stmt(s)
@@ -840,7 +856,9 @@ func (e *cEmitter) block(stmts []Stmt) {
 		if len(escapingSeqs(s)) == 0 {
 			e.linef("sysml_arena_release(%s);", mark)
 		}
-		e.linef("sysml_elements = %s;", held)
+		if e.collections {
+			e.linef("sysml_elements = %s;", held)
+		}
 	}
 }
 
@@ -859,16 +877,24 @@ func (e *cEmitter) compact(kept []Var, mark string) {
 	for i, v := range kept {
 		e.temps++
 		saved[i] = fmt.Sprintf("sysml_k%d", e.temps)
-		if v.T.Concrete() == TypeString {
+		switch v.T.Concrete() {
+		case TypeString:
 			e.linef("char *%s = sysml_save_text(%s, %s);", saved[i], cText(v), mark)
+			continue
+		case TypeInt, TypeNum:
+			e.linef("sysml_big *%s = sysml_save_big(%s, %s);", saved[i], cWhole(v), mark)
 			continue
 		}
 		e.linef("%s *%s = sysml_save_%s(%s, %s);", cType(v.T.Elem()), saved[i], cSeqSuffix(v.T), cLocal(v.Name), mark)
 	}
 	e.linef("sysml_arena_release(%s);", mark)
 	for i, v := range kept {
-		if v.T.Concrete() == TypeString {
+		switch v.T.Concrete() {
+		case TypeString:
 			e.linef("sysml_restore_text(&%s, %s);", cText(v), saved[i])
+			continue
+		case TypeInt, TypeNum:
+			e.linef("sysml_restore_big(&%s, %s);", cWhole(v), saved[i])
 			continue
 		}
 		e.linef("sysml_restore_%s(&%s, %s);", cSeqSuffix(v.T), cLocal(v.Name), saved[i])
@@ -884,7 +910,30 @@ func cText(v Var) string {
 	return cLocal(v.Name)
 }
 
-// escapingSeqs lists the collection and String variables a statement stores
+// cWhole is the Integer an Integer or number variable holds; a Real number
+// and an unset variable hold zero there.
+func cWhole(v Var) string {
+	name := cText(v)
+	if v.T.Concrete() == TypeNum {
+		return name + ".i"
+	}
+	return name
+}
+
+// arenaHeld reports whether a value of type t may point into the arena: a
+// collection, a String, or an Integer beyond int64.
+func arenaHeld(t Type) bool {
+	if t.Many() {
+		return true
+	}
+	switch t.Concrete() {
+	case TypeString, TypeInt, TypeNum:
+		return true
+	}
+	return false
+}
+
+// escapingSeqs lists the collection, String and Integer variables a statement stores
 // into that outlive it: its own declaration and assignments to enclosing variables.
 func escapingSeqs(s Stmt) []Var {
 	var out []Var
@@ -892,7 +941,7 @@ func escapingSeqs(s Stmt) []Var {
 	var walk func(s Stmt, inner map[string]bool)
 	walk = func(s Stmt, inner map[string]bool) {
 		store := func(name string, t Type) {
-			if !t.Many() && t.Concrete() != TypeString || inner[name] || seen[name] {
+			if !arenaHeld(t) || inner[name] || seen[name] {
 				return
 			}
 			seen[name] = true
@@ -953,24 +1002,16 @@ func (e *cEmitter) stmt(s Stmt) {
 		}
 		e.linef("}")
 	case While:
-		var mark string
-		if e.collections {
-			mark = e.arenaMark()
-		}
+		mark := e.arenaMark()
 		e.linef("while ((sysml_step(1), %s)) {", e.expr(s.Cond))
 		e.indent++
 		e.block(s.Body)
 		until := ""
 		if s.Until != nil {
-			until = e.expr(s.Until)
-			if e.collections {
-				e.linef("bool sysml_until = %s;", until)
-				until = "sysml_until"
-			}
+			e.linef("bool sysml_until = %s;", e.expr(s.Until))
+			until = "sysml_until"
 		}
-		if e.collections {
-			e.compact(escapingSeqs(s), mark)
-		}
+		e.compact(escapingSeqs(s), mark)
 		if until != "" {
 			e.linef("if (%s) break;", until)
 		}
@@ -1016,10 +1057,7 @@ func cZero(t Type) string {
 func (e *cEmitter) expr(x Expr) string {
 	switch x := x.(type) {
 	case IntLit:
-		if x.Value == math.MinInt64 {
-			return "INT64_MIN"
-		}
-		return fmt.Sprintf("INT64_C(%d)", x.Value)
+		return e.intLit(x)
 	case RealLit:
 		return cReal(x.Value)
 	case BoolLit:
@@ -1047,7 +1085,7 @@ func (e *cEmitter) expr(x Expr) string {
 		if x.Exact {
 			return "sysml_to_real_exact(" + e.expr(x.X) + ")"
 		}
-		return "(sysml_real)" + e.expr(x.X)
+		return "sysml_to_real(" + e.expr(x.X) + ")"
 	case ToNum:
 		switch x.X.Type() {
 		case TypeInt:
@@ -1123,6 +1161,36 @@ func inParamOrder(args []Arg, nParams int) bool {
 	return true
 }
 
+// cCmpQ names the comparison of an exact quotient with the whole number x: an
+// Integer where x widens one, a Real otherwise.
+func cCmpQ(x Expr) string {
+	if isWidenedInt(x) {
+		return "sysml_cmp_qi"
+	}
+	return "sysml_cmp_qr"
+}
+
+// intLit is an Integer literal; one beyond int64 is a constant of the program.
+func (e *cEmitter) intLit(x IntLit) string {
+	if x.Big == nil {
+		if x.Value == math.MinInt64 {
+			return "SYSML_I(INT64_MIN)"
+		}
+		return fmt.Sprintf("SYSML_I(INT64_C(%d))", x.Value)
+	}
+	// Least significant limb first, as sysml_big holds them.
+	bytes := new(big.Int).Abs(x.Big).Bytes()
+	var limbs []string
+	for end := len(bytes); end > 0; end -= 4 {
+		var limb uint32
+		for _, b := range bytes[max(end-4, 0):end] {
+			limb = limb<<8 | uint32(b)
+		}
+		limbs = append(limbs, fmt.Sprintf("0x%xu", limb))
+	}
+	return fmt.Sprintf("({ static const struct { bool neg; int32_t n; uint32_t d[%d]; } sysml_l = {%t, %[1]d, {%s}}; (sysml_integer){0, (const sysml_big *)&sysml_l}; })", len(limbs), x.Big.Sign() < 0, strings.Join(limbs, ", "))
+}
+
 // cReal renders a float64 so the C compiler reads back the identical value.
 func cReal(v float64) string {
 	s := strconv.FormatFloat(v, 'g', -1, 64)
@@ -1156,13 +1224,13 @@ func (e *cEmitter) binary(x Binary) string {
 	if q, ok := exactQuotient(x.L); ok && isComparison(x.Op) {
 		return e.sequenced([]Expr{q.L, q.R}, func(v []string) string {
 			return fmt.Sprintf("({ sysml_nonzero(%s); %s; })", v[1], e.sequenced([]Expr{wholeOperand(x.R)}, func(c []string) string {
-				return fmt.Sprintf("(sysml_cmp_q(%s, %s, (__int128)%s) %s 0)", v[0], v[1], c[0], cOperator(x.Op))
+				return fmt.Sprintf("(%s(%s, %s, %s) %s 0)", cCmpQ(x.R), v[0], v[1], c[0], cOperator(x.Op))
 			}))
 		})
 	}
 	if q, ok := exactQuotient(x.R); ok && isComparison(x.Op) {
 		return e.sequenced([]Expr{wholeOperand(x.L), q.L, q.R}, func(v []string) string {
-			return fmt.Sprintf("(-sysml_cmp_q(%s, sysml_nonzero(%s), (__int128)%s) %s 0)", v[1], v[2], v[0], cOperator(x.Op))
+			return fmt.Sprintf("(-%s(%s, sysml_nonzero(%s), %s) %s 0)", cCmpQ(x.L), v[1], v[2], v[0], cOperator(x.Op))
 		})
 	}
 	if i, ok := widenedInt(x.L); ok && isComparison(x.Op) && !isWidenedInt(x.R) {
@@ -1236,6 +1304,9 @@ func (e *cEmitter) strict(x Binary, l, r string) string {
 	case ast.OpPow:
 		return e.pow(x, l, r)
 	case ast.OpLt, ast.OpLe, ast.OpGt, ast.OpGe, ast.OpEq, ast.OpNeq:
+		if operands == TypeInt {
+			return fmt.Sprintf("(sysml_icmp(%s, %s) %s 0)", l, r, cOperator(x.Op))
+		}
 		return fmt.Sprintf("(%s %s %s)", l, cOperator(x.Op), r)
 	case ast.OpXor:
 		return fmt.Sprintf("(%s != %s)", l, r)
@@ -1303,8 +1374,9 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 	e.indent++
 	e.linef("sysml_depth = 0;")
 	e.linef("sysml_steps = 0;")
+	e.linef("sysml_run_begin();")
 	if e.collections {
-		e.linef("sysml_run_begin();")
+		e.linef("sysml_elements = 0;")
 	}
 	e.linef("sysml_keep_release();")
 	if e.records {
@@ -1344,6 +1416,7 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 	e.indent--
 	e.linef("}")
 	e.linef("sysml_max_steps = sysml_read_budget(\"OPENSYSML_MAX_STEPS\", \"evaluation steps\", SYSML_DEFAULT_MAX_STEPS);")
+	e.linef("sysml_read_max_integer_bits();")
 	if e.collections {
 		e.linef("sysml_max_elements = sysml_read_budget(\"OPENSYSML_MAX_ELEMENTS\", \"collection elements\", SYSML_DEFAULT_MAX_ELEMENTS);")
 	}
@@ -1385,7 +1458,7 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 	case res.IsFn() && !res.Many():
 		e.linef("sysml_print_fn_value(%s);", result)
 	case res == TypeInt:
-		e.linef("printf(\"%%\" PRId64, %s);", result)
+		e.linef("sysml_print_int_value(%s);", result)
 	case res == TypeReal:
 		e.linef("sysml_print_real_value(%s);", result)
 	case res == TypeBool:
