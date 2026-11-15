@@ -22,8 +22,8 @@ package Test {
 		fork split;
 
 		transition first idle accept Go then split;
-		transition first split then a;
-		transition first split do { assign log := log + "T1.2(effect) "; } then b;
+		transition first split then work.left.a;
+		transition first split do { assign log := log + "T1.2(effect) "; } then work.right.b;
 	}
 	attribute def Go;
 }

@@ -1,6 +1,7 @@
 package lower
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -358,7 +359,7 @@ func TestToStateGraph_ParallelStateOwnsItsPseudostatesAndEdges(t *testing.T) {
 						state ridle;
 					}
 					choice pick;
-					transition first pick then lfast;
+					transition first pick then left.lfast;
 				}
 				succession first start then working;
 			}
@@ -526,19 +527,50 @@ func transitionShape(graph *StateGraph) map[string][]string {
 	return shape
 }
 
-// An endpoint naming no vertex leaves its edge out of the graph rather than
-// failing the lowering: the name-resolution tier reports the name, and a machine
-// missing one edge still runs: leniency about `TransitionUsage::source`/`::target
-// : ActionUsage[1..1]` (stdlib `Systems Library/SysML.sysml`).
-func TestToStateGraph_EndpointNamingNoVertexLeavesTheEdgeOut(t *testing.T) {
+// An endpoint naming nothing fails the lowering with a typed error naming it,
+// a state nested in another and named bare included (KerML 8.2.3.5).
+func TestToStateGraph_UnresolvedEndpointFailsTheLowering(t *testing.T) {
+	cases := []struct{ name, transition, endpoint string }{
+		{"undeclared target", `transition first busy then nowhere;`, "nowhere"},
+		{"undeclared source", `transition first nowhere then busy;`, "nowhere"},
+		{"nested state by its bare name", `transition first busy then deep;`, "deep"},
+		{"nested state under the wrong owner", `transition first busy then start.deep;`, "start.deep"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			machine := stateUsageIn(t, `
+				package test {
+					state Machine {
+						entry; then start;
+						state start;
+						state busy { state deep; }
+						succession first start then busy;
+						`+tc.transition+`
+					}
+				}
+			`)
+			graph, err := ToStateGraph(machine, nil)
+			var unresolved *UnresolvedEndpointError
+			if !errors.As(err, &unresolved) {
+				t.Fatalf("ToStateGraph = %v, %v; want an UnresolvedEndpointError", graph, err)
+			}
+			if got := EndpointText(unresolved.Endpoint); got != tc.endpoint {
+				t.Errorf("unresolved endpoint = %q, want %q", got, tc.endpoint)
+			}
+		})
+	}
+}
+
+// The qualified spelling of a nested state is the one the bare name is refused
+// in favour of: the edge is lowered to the nested state.
+func TestToStateGraph_QualifiedEndpointReachesNestedState(t *testing.T) {
 	machine := stateUsageIn(t, `
 		package test {
 			state Machine {
 				entry; then start;
 				state start;
-				state busy;
-				succession first start then busy;
-				transition first busy then nowhere;
+				state busy { state deep; }
+				transition first start then busy.deep;
 			}
 		}
 	`)
@@ -547,24 +579,16 @@ func TestToStateGraph_EndpointNamingNoVertexLeavesTheEdgeOut(t *testing.T) {
 		t.Fatalf("ToStateGraph: %v", err)
 	}
 	for from, transitions := range graph.Transitions {
+		if source, ok := from.(*ast.StateNode); !ok || source.Name != "start" {
+			continue
+		}
 		for _, transition := range transitions {
-			if transition.Target == nil {
-				t.Errorf("transition from %v was lowered with no target", from)
+			if target, ok := transition.Target.(*ast.StateNode); ok && target.Name == "deep" {
+				return
 			}
 		}
 	}
-	var busy *ast.StateNode
-	for _, state := range graph.States {
-		if state.Name == "busy" {
-			busy = state
-		}
-	}
-	if busy == nil {
-		t.Fatal("busy was not collected")
-	}
-	if got := graph.Transitions[busy]; len(got) != 0 {
-		t.Errorf("expected no transition out of busy, got %d", len(got))
-	}
+	t.Error("no transition from start to busy.deep was lowered")
 }
 
 // An unqualified endpoint is resolved from where it was written: a transition
