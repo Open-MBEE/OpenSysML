@@ -8,7 +8,7 @@
   "materialization": {},
   "validation": {
     "verdicts": [
-      {"kind": "binding", "assertion": "bind [0..1] some = [1] all", "status": "holds"}
+      {"kind": "binding", "assertion": "bind [0..1] some = [1] whole", "status": "holds"}
     ],
     "valid": true
   }

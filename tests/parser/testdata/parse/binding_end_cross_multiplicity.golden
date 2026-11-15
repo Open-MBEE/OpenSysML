@@ -30,7 +30,7 @@
                   (LiteralInteger value="1"))
                 (*ast.QualifiedName))))
           (Membership visibility="default"
-            (Usage kind="attribute" name="all" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (Usage kind="attribute" name="whole" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
               (Relationship kind="typing" target=Integer
                 (*ast.QualifiedName))
               (Multiplicity range=false
@@ -55,7 +55,7 @@
                   (LiteralInteger value="0")
                   (LiteralInteger value="1"))
                 (*ast.QualifiedName))
-              (ConnectorEnd target="all"
+              (ConnectorEnd target="whole"
                 (Multiplicity range=false
                   (LiteralInteger value="1"))
                 (*ast.QualifiedName))))))
