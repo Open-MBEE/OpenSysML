@@ -3,9 +3,13 @@ package behavior_test
 import (
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/behavior"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // wantOnlyAccepterRule fails unless every tier together reports the accepter
@@ -307,4 +311,35 @@ func TestAccepterSourceInAMachineLoweringRejects(t *testing.T) {
 		transition first idle.prepare accept Sig then idle;
 	}
 }`, "accept Sig")
+}
+
+// Where no library declares the metaclasses, as under a partial library, an
+// action usage is still known as one by its own declaration.
+func TestAccepterSourceWithoutTheMetaclassLibrary(t *testing.T) {
+	const src = `package test {
+	item def Sig;
+	state def M {
+		entry action init;
+		transition init accept Sig then idle;
+		state idle;
+		action work;
+		transition first work accept Sig then idle;
+		transition first idle accept Sig then idle;
+	}
+}`
+	p := parser.New(source.New("t.sysml", []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("unexpected parse diagnostics: %+v", p.Diagnostics)
+	}
+	idx := symbols.NewIndexFromDoc("t.sysml", root)
+	got := behavior.StateTransitionPass{}.Run(passes.NewContext("t.sysml", idx, nil), "t.sysml", root)
+	if len(got) != 2 {
+		t.Fatalf("got %+v, want the two action sources reported", got)
+	}
+	for _, d := range got {
+		if d.Code != behavior.CodeAccepterSourceNotState {
+			t.Fatalf("got %+v, want the accepter rule", d)
+		}
+	}
 }
