@@ -628,6 +628,12 @@ package Compiled {
 		calc def InReal { in n : Integer; attribute r : Real = n * n; return : Real = r - 1; }
 		calc def Floored { in r : Real; return : Integer = RealFunctions::floor(r) + 1; }
 		calc def Extremes { in xs : Integer[0..*] nonunique; return : Integer = max(xs#(1), xs#(2)) - min(xs#(1), xs#(2)) + abs(xs#(1)); }
+		calc def Whole { in n : Integer; return : Integer = RealFunctions::floor(n) - RealFunctions::round(n) + RealFunctions::floor(n); }
+		calc def RealAbs { in n : Integer; return : Real = RealFunctions::abs(n); }
+		calc def RealMost { in n : Integer; in r : Real; return : Real = RealFunctions::max(n, r); }
+		calc def RealLeast { in n : Integer; in r : Real; return : Real = RealFunctions::min(n, r); }
+		calc def Span { in lo : Integer; in hi : Integer; return : Integer[0..*] = lo..hi; }
+		calc def SpanSize { in lo : Integer; in hi : Integer; return : Integer = size(lo..hi); }
 	}
 	// Loops whose Integer arithmetic the C target compiles: a Real counter, and
 	// Integers only sized, indexed and ranged.

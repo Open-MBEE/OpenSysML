@@ -362,13 +362,33 @@ static void sysml_range_charge(sysml_int n) {
 	sysml_steps += n;
 }
 
+/* The range between bounds beyond int64, charged and sized element by element
+   as the interpreter's is: a bound is held as given, each successor is checked. */
+static sysml_seq_int sysml_big_range(sysml_integer lo, sysml_integer hi) {
+	sysml_int cap = 16;
+	sysml_seq_int r = {SYSML_MANY, 0, sysml_alloc((size_t)cap * sizeof(sysml_integer))};
+	for (sysml_integer v = lo;; v = sysml_add(v, SYSML_I(1))) {
+		sysml_range_charge(1);
+		if (r.len == cap) {
+			sysml_integer *grown = sysml_alloc((size_t)cap * 2 * sizeof(sysml_integer));
+			memcpy(grown, r.data, (size_t)cap * sizeof(sysml_integer));
+			r.data = grown;
+			cap *= 2;
+		}
+		r.data[r.len++] = v;
+		if (sysml_ieq(v, hi)) return r;
+	}
+}
+
 static sysml_seq_int sysml_range(sysml_integer lo, sysml_integer hi) {
 	if (sysml_icmp(lo, hi) > 0) return sysml_many_int(0);
-	sysml_integer count = sysml_add(sysml_sub(hi, lo), SYSML_I(1));
-	sysml_int n = count.big ? INT64_MAX : count.small;
+	if (lo.big || hi.big) return sysml_big_range(lo, hi);
+	/* The count of an int64 range can itself be beyond int64; no budget admits that many. */
+	uint64_t span = (uint64_t)hi.small - (uint64_t)lo.small;
+	sysml_int n = span >= (uint64_t)INT64_MAX ? INT64_MAX : (sysml_int)span + 1;
 	sysml_range_charge(n);
 	sysml_seq_int r = {SYSML_MANY, n, sysml_alloc((size_t)n * sizeof(sysml_integer))};
-	for (sysml_int i = 0; i < n; i++) r.data[i] = sysml_add(lo, SYSML_I(i));
+	for (sysml_int i = 0; i < n; i++) r.data[i] = SYSML_I(lo.small + i);
 	return r;
 }
 

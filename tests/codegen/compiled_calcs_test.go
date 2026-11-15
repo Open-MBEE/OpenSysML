@@ -25,6 +25,9 @@ type compiledCase struct {
 	args []string
 }
 
+// wholeBeyondReal is an Integer no finite binary64 is near.
+var wholeBeyondReal = "1" + strings.Repeat("0", 400)
+
 var compiledCases = []compiledCase{
 	{"Fib", []string{"0"}}, {"Fib", []string{"1"}}, {"Fib", []string{"20"}},
 	{"SumTo", []string{"0"}}, {"SumTo", []string{"1000"}}, {"SumTo", []string{"200000"}},
@@ -358,6 +361,14 @@ var compiledCases = []compiledCase{
 	{"Wide::InReal", []string{"4294967296"}}, {"Wide::InReal", []string{"3"}},
 	{"Wide::Floored", []string{"1e30"}}, {"Wide::Floored", []string{"-2.5"}}, {"Wide::Floored", []string{"-9223372036854775809.0"}},
 	{"Wide::Extremes", []string{"(-9223372036854775808,9223372036854775807)"}}, {"Wide::Extremes", []string{"(18446744073709551616,-5)"}},
+	{"Wide::Whole", []string{"18446744073709551617"}}, {"Wide::Whole", []string{"-9007199254740993"}}, {"Wide::Floored", []string{"9007199254740993"}},
+	{"Wide::RealAbs", []string{"-18446744073709551617"}}, {"Wide::RealAbs", []string{wholeBeyondReal}}, {"Wide::RealAbs", []string{"-" + wholeBeyondReal}},
+	{"Wide::RealMost", []string{wholeBeyondReal, "1.0"}}, {"Wide::RealMost", []string{"-" + wholeBeyondReal, "1.0"}}, {"Wide::RealMost", []string{"18446744073709551617", "1.0"}},
+	{"Wide::RealLeast", []string{wholeBeyondReal, "1.0"}}, {"Wide::RealLeast", []string{"-" + wholeBeyondReal, "1.0"}},
+	{"Wide::Span", []string{"18446744073709551616", "18446744073709551616"}}, {"Wide::Span", []string{"9223372036854775806", "9223372036854775809"}},
+	{"Wide::Span", []string{"-18446744073709551617", "-18446744073709551615"}}, {"Wide::Span", []string{"18446744073709551616", "5"}},
+	{"Wide::SpanSize", []string{"-9223372036854775808", "9223372036854775807"}}, {"Wide::SpanSize", []string{"0", "18446744073709551616"}},
+	{"Wide::SpanSize", []string{"18446744073709551616", "18446744073709551715"}},
 	{"Closure::IntClosure", []string{"18446744073709551616"}}, {"Num::Twice", []string{"18446744073709551616"}},
 	{"Neg", []string{"-18446744073709551616"}}, {"Lib::IntAbs", []string{"-18446744073709551616"}}, {"Str::IntStr", []string{"-123456789012345678901234567890"}},
 	{"Loop::Churn", []string{"7.0"}}, {"Loop::ChurnFor", []string{"9"}}, {"Loop::ChurnNest", []string{"5.0"}},

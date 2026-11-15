@@ -21,6 +21,10 @@ func TestCompiledIntegerSizeBudgetMatchesInterpreter(t *testing.T) {
 		{"Wide::Product", []string{"(4294967296,4294967296,4294967296,4294967296)"}}, {"Wide::Product", []string{"(4294967296,4294967296,4294967296,4294967295)"}},
 		{"Wide::Compare", []string{"340282366920938463463374607431768211456", "1"}}, {"Wide::Compare", []string{"340282366920938463463374607431768211455", "1"}},
 		{"Neg", []string{"-9223372036854775808"}}, {"Lib::IntAbs", []string{"-9223372036854775808"}},
+		// A range sizes each successor and neither its bounds nor its count.
+		{"Wide::Span", []string{"18446744073709551616", "18446744073709551616"}}, {"Wide::Span", []string{"18446744073709551614", "18446744073709551616"}},
+		{"Wide::Span", []string{"-18446744073709551616", "-18446744073709551614"}}, {"Wide::Span", []string{"-18446744073709551617", "-18446744073709551616"}},
+		{"Wide::SpanSize", []string{"-9223372036854775808", "9223372036854775807"}}, {"Wide::SpanSize", []string{"0", "18446744073709551616"}},
 	}
 	for _, target := range codegen.Targets() {
 		t.Run(string(target), func(t *testing.T) {
