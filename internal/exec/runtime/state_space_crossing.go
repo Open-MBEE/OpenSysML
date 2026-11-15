@@ -6,25 +6,14 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 )
 
-// Locating a zero crossing inside a step. The guards are functions of the state,
-// the input and the time, and between two steps the state is what the run's own
-// integrator makes of a shorter span from the latest sample. So before the run
-// parks for its next step it previews the step (see Context.beginProbe: nothing a
-// preview does is kept): the guards at the quarters of the span left, and one
-// quarter past its end. Where a guard changes sign between two of those samples,
-// or turns back towards zero and away again without changing sign and is found
-// to reach zero in between, the first such instant is bisected down to two
-// adjacent float64 spans and the run parks until the later of the two instead of
-// the step's end. The sample taken there is an ordinary one: the state, the time,
-// the output and the event are those of the crossing's instant, and the step
-// goes on from it.
+// A zero crossing is located inside a step: the run previews its guards at the
+// quarters of the step, bisects the first crossing and takes its next sample there.
 
 // crossingQuarters is how many equal parts of the span left a preview samples.
 const crossingQuarters = 4
 
 // crossingDipBits bounds the search for a guard's nearest approach to zero between
-// two samples: it narrows to 2^-crossingDipBits of the window, below which a
-// smooth guard's values near a minimum no longer tell positions apart.
+// two samples: 2^-crossingDipBits of the window, a smooth minimum's resolution.
 const crossingDipBits = 26
 
 // guardPreview is the guards the run would hold span past its latest sample.
@@ -33,9 +22,8 @@ type guardPreview struct {
 	guards []float64
 }
 
-// locateCrossing sets run.cut to the span after which the first zero crossing
-// before the step's end has occurred, zero where the preview finds none or
-// cannot be made: the step then runs whole and reports what is wrong itself.
+// locateCrossing sets run.cut to the span to the first zero crossing before the
+// step's end, zero where the preview finds none or fails: the step then runs whole.
 func (e *ActionExecutor) locateCrossing(run *stateSpaceRun) {
 	before, lead := run.before, run.lead
 	run.cut, run.before, run.lead = 0, nil, 0
@@ -86,7 +74,7 @@ func (e *ActionExecutor) locateCrossing(run *stateSpaceRun) {
 				}
 				return guards[i], true
 			},
-			limit: cut,
+			limit: rest,
 		}
 		spans, guards := make([]float64, len(samples)), make([]float64, len(samples))
 		for j, sample := range samples {
@@ -101,9 +89,8 @@ func (e *ActionExecutor) locateCrossing(run *stateSpaceRun) {
 		}
 	}
 	if cut < rest {
-		// The guards just short of the crossing are a sample of their own, so the
-		// one taken at it is compared with them: a guard that left zero unseen
-		// and is back at it has crossed.
+		// The guards just short of the crossing stand as the sample before it, so a
+		// guard that left zero unseen and is back at it has crossed.
 		if short > 0 {
 			guards, ok := preview(short)
 			if !ok {
@@ -114,12 +101,14 @@ func (e *ActionExecutor) locateCrossing(run *stateSpaceRun) {
 		run.cut = cut
 		return
 	}
+	// The last preview inside the step stands as the sample before the step's end,
+	// so a guard resting at zero that left it unseen and is back at the end has crossed.
 	run.before, run.lead = samples[last-1].guards, rest-samples[last-1].span
+	run.hold(samples[last-1].guards)
 }
 
 // previewGuards is every guard span past the run's latest sample, over the state
-// the integrator reaches there, the time and the output of that state; false
-// where the state, the output or a guard cannot be had or is no finite number.
+// the integrator reaches there; false where one cannot be had or is not finite.
 func (e *ActionExecutor) previewGuards(run *stateSpaceRun, state Value, input *Value, span float64) ([]float64, bool) {
 	defer e.ctx.beginProbe()()
 	next, err := e.nextState(run, state, input, span)
@@ -156,18 +145,14 @@ func (e *ActionExecutor) previewGuards(run *stateSpaceRun, state Value, input *V
 }
 
 // crossingSearch looks for one guard's first crossing among previewed samples:
-// guard evaluates it at a span, false where it cannot be had, and limit is the
-// span the search stops at.
+// guard evaluates it at a span, and limit is the span the search stops at.
 type crossingSearch struct {
 	guard func(span float64) (float64, bool)
 	limit float64
 }
 
-// first is the span after which the guard's first crossing since the sample at
-// index now has occurred, with the span just short of it, found false where it
-// has none before the limit, ok false where the guard could not be evaluated.
-// spans ascend; guards holds the guard at each, and side the last guard that was
-// not zero up to now, zero for none.
+// first is the span of the guard's first crossing after sample now and the span just
+// short of it. side is the last nonzero guard up to now; ok is false on a failed guard.
 func (s crossingSearch) first(spans, guards []float64, now int, side float64) (short, at float64, found, ok bool) {
 	for i := now; i < len(spans)-1; i++ {
 		if guards[i] != 0 {
@@ -224,10 +209,8 @@ func returns(side, guard float64) bool {
 	return side != 0 && guard != 0 && math.Signbit(side) == math.Signbit(guard)
 }
 
-// dip searches the window from lo to hi for a span where the guard, of was's sign
-// or zero at the window's ends, has crossed from was — or, leaving a zero it
-// rests at, has reached the other sign: a golden-section descent towards that
-// sign, stopping at the first such span with the guard there.
+// dip descends by golden section from lo to hi towards the side opposite was, and
+// stops at the first span where the guard has crossed, or, leaving a zero, changed side.
 func (s crossingSearch) dip(lo, hi, was float64, leaving bool) (flip, guard float64, found, ok bool) {
 	const ratio = 0.6180339887498949 // (√5 − 1) / 2
 	// depth is how far the guard stands on was's side: negative once it has crossed.

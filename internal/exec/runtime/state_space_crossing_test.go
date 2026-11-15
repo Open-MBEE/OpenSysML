@@ -10,8 +10,7 @@ import (
 )
 
 // crossingInstants runs action test::dyn of src to completion under a trace and
-// returns the instant of each zero crossing it raised, in order, with the
-// executor for what the run left.
+// returns the instant of each zero crossing it raised, with the executor.
 func crossingInstants(t *testing.T, src string) ([]float64, *ActionExecutor) {
 	t.Helper()
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
@@ -120,6 +119,33 @@ func TestZeroCrossingLocatedWithinStep(t *testing.T) {
 		expectInstants(t, got, []float64{1.7}, 1e-12)
 	})
 
+	t.Run("later_guard_declared_first_in_one_quarter", func(t *testing.T) {
+		got, _ := crossingInstants(t, stateSpaceSource(fixed, `
+			:>> stateSpace = VectorOf((0.0));
+			:>> timeStep = 1 [s];
+			:>> stopTime = 1 [s];
+			event occurrence later : ZeroCrossing {
+				:>> guard = stateSpace.elements#(1) - 0.2;
+			}
+			event occurrence sooner : ZeroCrossing {
+				:>> guard = 0.1 - stateSpace.elements#(1);
+			}
+		`+rampCalcs))
+		expectInstants(t, got, []float64{0.1, 0.2}, 1e-12)
+	})
+
+	t.Run("exact_zero_inside_a_step_and_at_its_end", func(t *testing.T) {
+		got, _ := crossingInstants(t, stateSpaceSource(fixed, `
+			:>> stateSpace = VectorOf((0.0));
+			:>> timeStep = 1 [s];
+			:>> stopTime = 2 [s];
+			event occurrence band : ZeroCrossing {
+				:>> guard = (stateSpace.elements#(1) - 0.5) * (stateSpace.elements#(1) - 1.0);
+			}
+		`+rampCalcs))
+		expectInstants(t, got, []float64{0.5, 1}, 1e-12)
+	})
+
 	t.Run("two_guards_in_one_step", func(t *testing.T) {
 		got, _ := crossingInstants(t, stateSpaceSource(fixed, `
 			:>> stateSpace = VectorOf((0.0));
@@ -188,9 +214,8 @@ func TestZeroCrossingLocatedWithinStep(t *testing.T) {
 	})
 }
 
-// TestCrossingSearch pins the search over previewed samples: a sign change is
-// narrowed to adjacent spans, a turn towards zero is followed down to a crossing
-// or found to have none, and a guard that cannot be evaluated ends the search.
+// TestCrossingSearch pins the search over previewed samples: sign changes, turns
+// towards zero with and without a crossing, and a guard that cannot be evaluated.
 func TestCrossingSearch(t *testing.T) {
 	spans := []float64{0, 0.25, 0.5, 0.75, 1, 1.25}
 	sample := func(guard func(float64) float64) []float64 {

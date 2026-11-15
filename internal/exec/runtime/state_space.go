@@ -66,10 +66,8 @@ type stateSpaceRun struct {
 	start float64
 	steps int
 	step  float64
-	// into is the duration the latest sample stands into the step under way, past
-	// zero only where a zero crossing was sampled inside it; cut is the span from
-	// there to the next sample where a crossing is located before the step's end,
-	// zero where the next sample is the step's end. moves counts the samples taken.
+	// into is how far the latest sample stands into its step; cut is the span to a
+	// crossing located before the step's end, zero for none; moves counts samples.
 	into, cut float64
 	moves     int
 	// stop is the duration the run lasts from its start, stops false where it runs while driven.
@@ -284,8 +282,7 @@ func (e *ActionExecutor) dynamicsDue(token Token) bool {
 }
 
 // stepDynamics samples the start on the token's first step, then advances to the
-// sample the token is due for — the step's end, or a zero crossing located before
-// it — or leaves it parked.
+// sample the token is due for, a step's end or a located crossing, or leaves it parked.
 func (e *ActionExecutor) stepDynamics(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
 	run := e.dynamics
@@ -354,9 +351,8 @@ func (run *stateSpaceRun) stepStart() float64 {
 	return run.start + run.soFar()
 }
 
-// parkDynamics parks the run's token on the clock until its next sample is due:
-// the step's end, or the first zero crossing located before it. A step due past
-// the last instant a float64 holds is refused, so the clock stays finite.
+// parkDynamics parks the run's token until its next sample is due: the step's end
+// or a crossing located before it. A step due past the last float64 instant is refused.
 func (e *ActionExecutor) parkDynamics(run *stateSpaceRun, token *Token) error {
 	e.locateCrossing(run)
 	due := run.due()
@@ -417,9 +413,8 @@ func (e *ActionExecutor) spanValue(run *stateSpaceRun, span float64) (Value, err
 	return e.vectorOp(ast.OpMul, run.stepValue, realConst(span/run.step))
 }
 
-// nextState is the state span past the run's latest sample: the library's
-// getNextState integrates the derivative or adds the difference, one the model
-// bodies itself is called as written, with span as its timeStep.
+// nextState is the state span past the run's latest sample: the library's getNextState
+// integrates or adds the difference, a model's own is called with span as its timeStep.
 func (e *ActionExecutor) nextState(run *stateSpaceRun, state Value, input *Value, span float64) (Value, error) {
 	dyn := run.dyn
 	stepValue, err := e.spanValue(run, span)
@@ -465,9 +460,8 @@ func (e *ActionExecutor) eulerStep(run *stateSpaceRun, state Value, input *Value
 	return e.vectorOp(ast.OpAdd, state, rate)
 }
 
-// rk4Step advances the state by the classical Runge-Kutta scheme: the derivative
-// at the start, twice at the midpoint and at the end, each stage at its own
-// duration into the span, weighted 1:2:2:1.
+// rk4Step advances the state over span by the classical Runge-Kutta scheme, each
+// stage's derivative taken at its own duration into the span, weighted 1:2:2:1.
 func (e *ActionExecutor) rk4Step(run *stateSpaceRun, state Value, input *Value, stepValue Value, span float64) (Value, error) {
 	half, err := e.vectorOp(ast.OpMul, stepValue, realConst(0.5))
 	if err != nil {
