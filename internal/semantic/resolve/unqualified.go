@@ -149,6 +149,19 @@ func (r *Resolver) shortNameOf(sym *symbols.Symbol) string {
 	return r.derivedShortName(sym)
 }
 
+// shortNamed is shortNameOf with whether sym has a short name at all, which
+// tells a declared empty one from none.
+func (r *Resolver) shortNamed(sym *symbols.Symbol) (string, bool) {
+	if sym == nil {
+		return "", false
+	}
+	if sym.HasShortName() {
+		return sym.ShortName, true
+	}
+	short := r.derivedShortName(sym)
+	return short, short != ""
+}
+
 func symbolShortName(sym *symbols.Symbol) string {
 	if sym == nil {
 		return ""

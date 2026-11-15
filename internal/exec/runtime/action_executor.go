@@ -3737,7 +3737,7 @@ func (e *ActionExecutor) collectPartsHeld(into map[string]Value) {
 		return
 	}
 	for _, sym := range e.action.Scope.Members() {
-		if sym.Name == "" || (sym.Kind != symbols.SymbolPartUsage && sym.Kind != symbols.SymbolItemUsage) {
+		if !sym.Named() || (sym.Kind != symbols.SymbolPartUsage && sym.Kind != symbols.SymbolItemUsage) {
 			continue
 		}
 		objects, live := e.ctx.liveOccurrences(sym)

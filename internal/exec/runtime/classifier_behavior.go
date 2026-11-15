@@ -1567,7 +1567,7 @@ func (ctx *Context) namedBehavior(sym *symbols.Symbol) *symbols.Symbol {
 	if typ := ctx.extractType(sym); typ != nil {
 		return typ
 	}
-	if sym.Name != "" && sym.OwnerScope != nil {
+	if sym.Named() && sym.OwnerScope != nil {
 		if named, ok := ctx.lookupNameExcluding(sym.OwnerScope, sym.Name, sym); ok {
 			return named
 		}
@@ -1664,7 +1664,7 @@ func (ctx *Context) classifierBehaviorArgument(inst *Instance, decl classifierBe
 // its declaration redefines (`in <a> :>> x = 4` binds x), else its own name.
 func (ctx *Context) argumentParameter(scope *symbols.Scope, arg lower.Attribute) string {
 	for _, redefined := range ctx.model.semantics.RedefinedFeatures(memberSymbol(scope, arg.Node)) {
-		if redefined.Name != "" {
+		if redefined.Named() {
 			return redefined.Name
 		}
 	}
@@ -1790,7 +1790,7 @@ func SymbolText(sym *symbols.Symbol) string {
 	if sym == nil {
 		return unknownText
 	}
-	if sym.Name != "" {
+	if sym.Named() {
 		return sym.Name
 	}
 	return sym.Kind.String()

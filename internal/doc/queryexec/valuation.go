@@ -42,7 +42,7 @@ func (e *executor) valuationValues(sym *symbols.Symbol) ([]Value, error) {
 // a property naming it on the owner's row would.
 func (e *executor) derivedValuation(sym *symbols.Symbol) ([]Value, error) {
 	owner := sym.Owner()
-	if owner == nil || sym.Name == "" {
+	if owner == nil || !sym.Named() {
 		return nil, nil
 	}
 	return e.derivedFeatureValues(owner, sym.Name)
