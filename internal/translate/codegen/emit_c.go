@@ -14,13 +14,19 @@ import (
 
 const cAssign = "%s = %s;"
 
-// cPrelude is the runtime every generated C program carries: checked int64,
-// finite-only binary64, and the interpreter's once-rounded Integer quotient.
-// cBudgetDefines are the interpreter's budget defaults the C prelude reads.
+// cBudgetDefines are the interpreter's budget defaults the C runtime reads.
 func cBudgetDefines() string {
-	return fmt.Sprintf("#define SYSML_MAX_CALC_DEPTH %d\n#define SYSML_DEFAULT_MAX_STEPS %d\n", runtime.DefaultMaxCalcDepth, runtime.DefaultMaxSteps)
+	return fmt.Sprintf("#define SYSML_MAX_CALC_DEPTH %d\n#define SYSML_DEFAULT_MAX_STEPS %d\n#define SYSML_DEFAULT_MAX_INTEGER_BITS %d\n#define SYSML_MIN_MAX_INTEGER_BITS %d\n",
+		runtime.DefaultMaxCalcDepth, runtime.DefaultMaxSteps, runtime.DefaultMaxIntegerBits, runtime.MinMaxIntegerBits)
 }
 
+// cScalarRuntime is the runtime every generated C program carries: the budgets,
+// the arena, the unbounded Integer, finite-only binary64 and their notation.
+func cScalarRuntime() string {
+	return cBudgetDefines() + cPrelude + cBigRuntime + cNumeric
+}
+
+// cPrelude is the base of cScalarRuntime: failure, the step budget and the arena.
 const cPrelude = `#include <errno.h>
 #include <inttypes.h>
 #include <locale.h>
@@ -642,11 +648,7 @@ func EmitC(w io.Writer, p *Program, withMain bool) error {
 	e := &cEmitter{w: w}
 	e.collections = p.Collections
 	e.records = len(p.Records) > 0
-	e.raw(cBudgetDefines())
-	e.raw(cPrelude)
-	e.raw(fmt.Sprintf("#define SYSML_DEFAULT_MAX_INTEGER_BITS %d\n#define SYSML_MIN_MAX_INTEGER_BITS %d\n", runtime.DefaultMaxIntegerBits, runtime.MinMaxIntegerBits))
-	e.raw(cBigRuntime)
-	e.raw(cNumeric)
+	e.raw(cScalarRuntime())
 	e.raw(cEnumRuntime(p))
 	e.raw(cFnRuntime(p))
 	if len(p.Records) > 0 || len(p.FnCases) > 0 {
