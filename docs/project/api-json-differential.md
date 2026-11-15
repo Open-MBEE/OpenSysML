@@ -796,7 +796,50 @@ ours-missing):
    compact form spells a membership stub without a `libraryPath`.
 
 
-Not completed, and why: `Type::endFeature` (not taken up in this step; it awaits a measurement of its own) and the
+6. A general type the model states that lives in the library (`attribute a : ScalarValues::Integer`,
+   `part g : Parts::Part`) contributes its members to the same family as an implied base does: the evaluator
+   resolves the library reference the graph carries through `LibrarySymbolResolver`, which the graph
+   structure implements over the library catalog, where before only the symbol structure was asked and
+   every such feature was withheld the whole family. `Type::endFeature` (§8.3.3.1.10
+   `deriveTypeEndFeature`) joins the table: the owned ends, then the inherited ones an owned end does not
+   redefine — by an explicit redefinition or by position (§8.3.3.3.4 `checkFeatureEndRedefinition`), the
+   redefinitions of every general applied before any general's ends are inherited, so an end redefined
+   along one general is not inherited along another. Two classifications are corrected with it, each
+   decided by the clause and each also what the pilot exports: a type's multiplicity is owned through an
+   `OwningMembership`, not a `FeatureMembership` (§8.3.3.1.10 `Type::multiplicity`), so an inherited
+   `MultiplicityRange` stays in `inheritedMembership`, `membership` and `member` and leaves `feature`,
+   `featureMembership` and `inheritedFeature`; an enumerated value is held by a `VariantMembership`
+   (SysML 2.1 Beta 2 §8.3.6.5), which is no `FeatureMembership` either. Measured against step 5 as
+   re-recorded above (718 of 935 fragments move): 2123042 present-equal (+29182), 143317 present-different
+   (−4281), 269059 ours-missing (−32406), 84409 pilot-missing (+64), 43325 indeterminate (+7505); no
+   element match moves, and no row of any file loses a present-equal comparison. Per property (change in
+   present-equal / present-different / ours-missing / indeterminate, summed over metaclasses):
+   `featureMembership` +10979 / −6226 / −4923 / +170, `feature` +7832 / −6210 / −4923 / +3301,
+   `inheritedFeature` +7831 / −6253 / −4907 / +3329, `usage` +1813 / −71 / −2115 / +373, `endFeature`
+   +355 / +15 / −410 / +40, `inheritedMembership` +84 / +4811 / −4912 / +17, `membership` +84 / +4768 /
+   −4869 / +17, `member` +28 / +4770 / −4869 / +71, `directedFeature` +43 / +44 / −148 / +61,
+   `directedUsage` +27 / +44 / −132 / +61, `output` +63 / +3 / −127 / +61, `input` +35 / +21 / −60 / +4,
+   `subjectParameter` +8 / +3 / −11 / 0; no property outside these moves. Adjudication:
+   - The feature lists move from different to equal because the multiplicity ranges and enumerated values
+     left them; the unkeyed references fall by 10233 with them, an inherited library `MultiplicityRange`
+     being a member neither key table addresses.
+   - `inheritedMembership`, `membership` and `member` move from ours-missing to present-different rather
+     than to equal: these are the features with a stated library general, and their membership lists
+     differ from the pilot's by the causes already itemised under step 5 (the order of members inherited
+     through several generals, the `MultiplicityRange` of an intermediate feature of a subsetting chain),
+     not by a cause this step adds.
+   - The new indeterminate rows are lists that agree at every keyed position and reference an unnamed
+     library member neither key table addresses, the family step 5 describes.
+   - The 64 new pilot-missing rows are all `usage` (`Feature.usage` 63, `Succession.usage` 1) in the KerML
+     roots: the element is one this writer states as a SysML usage where the pilot states a KerML
+     `Feature` (a `typeMismatch` pair, counted under the pilot's metaclass and unchanged in number), so
+     the pilot has no `usage` to state; the row follows from the existing metaclass difference.
+   - `endFeature` present-different (15) and the residue of `directedFeature`, `input` and `output` were
+     not classified row by row.
+
+Not completed, and why: a namespace's `importedMembership`, and with it the `membership` and `member` of a
+namespace that imports, which the evaluator derives from the notation's import declarations and not yet
+from the graph; the family of a type one of whose generals the single-file graph does not resolve; and the
 causes itemised under step 5. `Behavior::step` (0 equal / 257 different),
 `Step::parameter` and `Behavior::parameter` (21 / 530), `InstantiationExpression::instantiatedType`
 (143 / 464), `Usage::nestedTransition`, `Definition::ownedTransition`, `objectiveRequirement`,

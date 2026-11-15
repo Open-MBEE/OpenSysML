@@ -244,7 +244,7 @@ func isFeatureMembership(sym, owner *symbols.Symbol) bool {
 	if sym == nil || !sym.IsFeature() || !isType(owner) || semantics.IsImpliedMultiplicity(sym) {
 		return false
 	}
-	// A variant, an enumerated value included, is held by a VariantMembership (SysML 8.3.6.7).
+	// A variant, an enumerated value included, is held by a VariantMembership (SysML 8.3.6.5).
 	return !semantics.IsVariant(sym)
 }
 

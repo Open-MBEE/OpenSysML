@@ -152,7 +152,7 @@ func TestAPIJSONEndFeatureLeavesOutRedefinedInheritedEnds(t *testing.T) {
 }
 
 // An enumerated value is held by a VariantMembership, an OwningMembership that is no
-// FeatureMembership (SysML 8.3.6.7): a feature typed by the enumeration inherits the
+// FeatureMembership (SysML 8.3.6.5): a feature typed by the enumeration inherits the
 // membership and the member, never a feature or a usage.
 func TestAPIJSONInheritedEnumeratedValuesAreMembersNotFeatures(t *testing.T) {
 	graph := duplicateGraph(t, `package Probe {
