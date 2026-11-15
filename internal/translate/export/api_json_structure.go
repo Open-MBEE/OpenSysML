@@ -134,7 +134,7 @@ func apiJSONEvaluationGraph(graph *rdf.Graph) *rdf.Graph {
 			add(subject, rdf.SysMLTerm("declaredName"), rdf.String(library.Symbol.Name))
 		}
 		if library.FQN != "" {
-			add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(library.FQN))
+			stateAddress(add, subject, library.FQN)
 		}
 	}
 	triples := make([]rdf.Triple, 0, graph.Len()+len(additions))

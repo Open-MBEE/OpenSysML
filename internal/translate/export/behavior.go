@@ -912,7 +912,7 @@ func (e *encoder) encodeTrigger(n *ast.TransitionMember, subject rdf.Term, fqn s
 		return false, err
 	}
 	e.graph.Add(accepter, rdf.IRI(rdf.RDFType), e.sysml(mAcceptAction))
-	e.graph.Add(accepter, addressTerm(accepterFQN), rdf.String(accepterFQN))
+	stateAddress(e.graph.Add, accepter, accepterFQN)
 	// The accept a trigger declares is placed where the trigger is written.
 	e.sourceRange(accepter, n.TriggerSpan)
 	e.graph.Add(accepter, e.sysml(pElementID), rdf.String(rdf.LocalName(accepter.Value)))
