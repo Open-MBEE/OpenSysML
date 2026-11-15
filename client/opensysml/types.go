@@ -226,7 +226,7 @@ type Attribute struct {
 type TypeInfo struct {
 	// Declared is the type name as written; empty when none is declared.
 	Declared string
-	// ResolvedID is the FQN of the resolved written type; empty when unresolved.
+	// ResolvedID is the element id of the resolved written type; empty when unresolved.
 	ResolvedID string
 	// ResolvedKind is the symbol kind of the resolved written type ("partDef", …).
 	ResolvedKind string
@@ -267,7 +267,7 @@ type Specialization struct {
 	Kind string
 	// Declared is the target as written ("Engine", "Demo::Engine").
 	Declared string
-	// TargetID is the FQN of the resolved target; empty when unresolved.
+	// TargetID is the element id of the resolved target; empty when unresolved.
 	TargetID string
 	// TargetKind is the symbol kind of the resolved target; empty when
 	// unresolved.

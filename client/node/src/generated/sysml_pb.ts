@@ -5939,8 +5939,8 @@ export type Specialization = Message<"sysml.Specialization"> & {
   declared: string;
 
   /**
-   * FQN of the resolved target; empty when the name does not resolve. A "references" feature chain
-   * (`x.p`) is one entry per chaining feature, in chain order, each with the chain as `declared`.
+   * Element id of the resolved target, as GetSymbol reports it; empty when the name does not resolve.
+   * A "references" feature chain (`x.p`) is one entry per chaining feature, each with the chain as `declared`.
    *
    * @generated from field: string target_id = 3;
    */
@@ -5981,7 +5981,7 @@ export type TypeInfo = Message<"sysml.TypeInfo"> & {
   declared: string;
 
   /**
-   * FQN of the resolved written type; empty when unresolved or undeclared.
+   * Element id of the resolved written type, as GetSymbol reports it; empty when unresolved or undeclared.
    *
    * @generated from field: string resolved_id = 2;
    */

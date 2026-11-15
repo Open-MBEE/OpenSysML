@@ -327,7 +327,7 @@ func (sc *Context) specializationsOf(sym *symbols.Symbol) []*Specialization {
 		}
 		spec := &Specialization{Kind: kind, Declared: declaredText(rel, qn)}
 		if target := sc.relationshipTarget(sym, rel, qn); target != nil {
-			spec.TargetId = sc.Index.GetFQN(target)
+			spec.TargetId = sc.referenceID(target)
 			spec.TargetKind = target.Kind.String()
 		}
 		out = append(out, spec)
@@ -440,7 +440,7 @@ func (sc *Context) annotationTypeInfo(sym *symbols.Symbol, decl *ast.PrefixMetad
 	}
 	info := &TypeInfo{Declared: decl.Type.Text()}
 	if target := sc.resolveFrom(sym, decl.Type); target != nil {
-		info.ResolvedId = sc.Index.GetFQN(target)
+		info.ResolvedId = sc.referenceID(target)
 		info.ResolvedKind = target.Kind.String()
 	}
 	return info
@@ -469,7 +469,7 @@ func (sc *Context) subjectTypeInfo(sym *symbols.Symbol, decl *ast.SubjectMember)
 func (sc *Context) declareType(sym *symbols.Symbol, info *TypeInfo, qn *ast.QualifiedName) {
 	info.Declared = qn.Text()
 	if target := sc.resolveFrom(sym, qn); target != nil {
-		info.ResolvedId = sc.Index.GetFQN(target)
+		info.ResolvedId = sc.referenceID(target)
 		info.ResolvedKind = target.Kind.String()
 	}
 }
@@ -489,7 +489,7 @@ func (sc *Context) usageTypeInfo(sym *symbols.Symbol, decl *ast.Usage) *TypeInfo
 		}
 		info.Declared = declaredText(rel, qn)
 		if target := sc.relationshipTarget(sym, rel, qn); target != nil {
-			info.ResolvedId = sc.Index.GetFQN(target)
+			info.ResolvedId = sc.referenceID(target)
 			info.ResolvedKind = target.Kind.String()
 		}
 		break

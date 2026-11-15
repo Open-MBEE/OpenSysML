@@ -2642,8 +2642,8 @@ pub struct Specialization {
     /// The target as written in the source ("Engine", "Demo::Engine").
     #[prost(string, tag="2")]
     pub declared: ::prost::alloc::string::String,
-    /// FQN of the resolved target; empty when the name does not resolve. A "references" feature chain
-    /// (`x.p`) is one entry per chaining feature, in chain order, each with the chain as `declared`.
+    /// Element id of the resolved target, as GetSymbol reports it; empty when the name does not resolve.
+    /// A "references" feature chain (`x.p`) is one entry per chaining feature, each with the chain as `declared`.
     #[prost(string, tag="3")]
     pub target_id: ::prost::alloc::string::String,
     /// Symbol kind of the resolved target ("partDef", ...); empty when unresolved.
@@ -2662,7 +2662,7 @@ pub struct TypeInfo {
     /// Type name as written; empty when none is declared.
     #[prost(string, tag="1")]
     pub declared: ::prost::alloc::string::String,
-    /// FQN of the resolved written type; empty when unresolved or undeclared.
+    /// Element id of the resolved written type, as GetSymbol reports it; empty when unresolved or undeclared.
     #[prost(string, tag="2")]
     pub resolved_id: ::prost::alloc::string::String,
     /// Symbol kind of the resolved written type ("partDef", "attributeDef", ...).

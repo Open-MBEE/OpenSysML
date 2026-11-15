@@ -208,6 +208,20 @@ class PipelineEndToEndTest {
     assertEquals(1, plan.queries().size(), plan.toString());
   }
 
+  /** Run query on the v2 path: a calc usage typed by a private query, which no qualified name reaches from outside. */
+  @Test
+  void v2TextualRunQueryFindsAPrivateQueryType() throws Exception {
+    V2TextualSource source = new V2TextualSource("""
+        package Demo {
+          private calc def Hidden :> DocumentQueries::Query { DocumentQueries::Descendants(source = ()) }
+          calc run : Hidden;
+        }
+        """);
+    QueryPlan plan = engine.plan(new RunRequest(Operation.RUN_QUERY, source, "Demo::run", List.of()), () -> false).orElseThrow();
+    assertEquals(1, plan.queries().size(), plan.toString());
+  }
+
+  /** Run query on the v2 path: bindings of many, none and one, and a parameter left unbound. */
   @Test
   void v2TextualRunQueryBindsParameters() throws Exception {
     V2TextualSource source = demo();

@@ -277,7 +277,7 @@ public record Symbol(
    * redefines contributes to.
    *
    * @param declared type name as written, absent when none is declared
-   * @param resolvedId FQN of the resolved written type, absent when unresolved
+   * @param resolvedId element id of the resolved written type, absent when unresolved
    * @param resolvedKind kind of the resolved written type, absent when unresolved
    * @param primitive library scalar the type reduces to, absent when it is not a scalar
    * @param primitiveSource where {@code primitive} came from, absent when there is none
@@ -299,7 +299,7 @@ public record Symbol(
      * Creates type facts, copying the type list.
      *
      * @param declared declared type name
-     * @param resolvedId FQN of the resolved type
+     * @param resolvedId element id of the resolved type
      * @param resolvedKind kind of the resolved type
      * @param primitive library scalar the type reduces to
      * @param primitiveSource origin of {@code primitive}
@@ -344,7 +344,7 @@ public record Symbol(
    *     {@code "typing"} or {@code "references"}, reference subsetting: {@code ::>} and {@code
    *     include})
    * @param declared the target as written in the source
-   * @param targetId FQN of the resolved target, absent when the name does not resolve
+   * @param targetId element id of the resolved target, absent when the name does not resolve
    * @param targetKind kind of the resolved target, absent when unresolved
    */
   public record Specialization(
@@ -354,7 +354,7 @@ public record Symbol(
      *
      * @param kind relationship kind, never {@code null}
      * @param declared target as written, never {@code null}
-     * @param targetId FQN of the resolved target
+     * @param targetId element id of the resolved target
      * @param targetKind kind of the resolved target
      */
     public Specialization {

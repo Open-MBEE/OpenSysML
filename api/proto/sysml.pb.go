@@ -10276,8 +10276,8 @@ type Specialization struct {
 	Kind string `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
 	// The target as written in the source ("Engine", "Demo::Engine").
 	Declared string `protobuf:"bytes,2,opt,name=declared,proto3" json:"declared,omitempty"`
-	// FQN of the resolved target; empty when the name does not resolve. A "references" feature chain
-	// (`x.p`) is one entry per chaining feature, in chain order, each with the chain as `declared`.
+	// Element id of the resolved target, as GetSymbol reports it; empty when the name does not resolve.
+	// A "references" feature chain (`x.p`) is one entry per chaining feature, each with the chain as `declared`.
 	TargetId string `protobuf:"bytes,3,opt,name=target_id,json=targetId,proto3" json:"target_id,omitempty"`
 	// Symbol kind of the resolved target ("partDef", ...); empty when unresolved.
 	TargetKind    string `protobuf:"bytes,4,opt,name=target_kind,json=targetKind,proto3" json:"target_kind,omitempty"`
@@ -10354,7 +10354,7 @@ type TypeInfo struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Type name as written; empty when none is declared.
 	Declared string `protobuf:"bytes,1,opt,name=declared,proto3" json:"declared,omitempty"`
-	// FQN of the resolved written type; empty when unresolved or undeclared.
+	// Element id of the resolved written type, as GetSymbol reports it; empty when unresolved or undeclared.
 	ResolvedId string `protobuf:"bytes,2,opt,name=resolved_id,json=resolvedId,proto3" json:"resolved_id,omitempty"`
 	// Symbol kind of the resolved written type ("partDef", "attributeDef", ...).
 	ResolvedKind string `protobuf:"bytes,3,opt,name=resolved_kind,json=resolvedKind,proto3" json:"resolved_kind,omitempty"`

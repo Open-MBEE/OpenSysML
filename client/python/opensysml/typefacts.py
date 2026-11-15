@@ -42,7 +42,7 @@ class TypeFacts:
     """Type name as written; empty when none is declared."""
 
     resolved_id: str = ""
-    """FQN of the resolved written type; empty when unresolved or undeclared."""
+    """Element id of the resolved written type; empty when unresolved or undeclared."""
 
     resolved_kind: str = ""
     """Symbol kind of the resolved written type, e.g. ``partDef``."""
@@ -146,7 +146,7 @@ class AttributeFacts:
 
     name: str
     type: str = ""
-    """FQN of the resolved type, else the type as written, else the library scalar."""
+    """Element id of the resolved type, else the type as written, else the library scalar."""
 
     value: object = None
     """Default value, when it is a model-level constant; None when there is none."""

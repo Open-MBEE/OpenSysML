@@ -1,5 +1,5 @@
 
-‰„
+¹„
 sysml.protosysml"à
 Verdict
 kind (	Rkind
@@ -1697,7 +1697,7 @@ RenderView.sysml.RenderViewRequest.sysml.RenderViewResponseG
 ExportGraphs.sysml.ExportGraphsRequest.sysml.ExportGraphsResponseA
 
 ImportData.sysml.ImportDataRequest.sysml.ImportDataResponseM
-CompareResults.sysml.CompareResultsRequest.sysml.CompareResultsResponseB*Z(github.com/Open-MBEE/OpenSysML/api/protoJŽ‘
+CompareResults.sysml.CompareResultsRequest.sysml.CompareResultsResponseB*Z(github.com/Open-MBEE/OpenSysML/api/protoJ¾‘
   ½
 
   
@@ -9260,9 +9260,9 @@ O
 gô	
 
 gô
-Î
-g÷¿ FQN of the resolved target; empty when the name does not resolve. A "references" feature chain
- (`x.p`) is one entry per chaining feature, in chain order, each with the chain as `declared`.
+Þ
+g÷Ï Element id of the resolved target, as GetSymbol reports it; empty when the name does not resolve.
+ A "references" feature chain (`x.p`) is one entry per chaining feature, each with the chain as `declared`.
 
 
 g÷
@@ -9299,8 +9299,8 @@ B
 h …	
 
 h …
-V
-h‡H FQN of the resolved written type; empty when unresolved or undeclared.
+v
+h‡h Element id of the resolved written type, as GetSymbol reports it; empty when unresolved or undeclared.
 
 
 h‡

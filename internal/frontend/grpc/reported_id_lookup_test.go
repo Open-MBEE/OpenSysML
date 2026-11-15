@@ -77,3 +77,54 @@ func TestQueryScopeReadsTheReportedID(t *testing.T) {
 		t.Errorf("Query(scope %s) answered %d elements, want the package and its marker: %v", id, len(resp.Elements), resp.Elements)
 	}
 }
+
+// A type and a general are reported by the id GetSymbol reports them under: an escaped id,
+// a quoted `@N` name beside an unnamed sibling, and a private member all read back as ids.
+func TestTypeAndGeneralAreReportedByElementID(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, fmt.Sprintf(reportedIDCollision, "part def", "{ }")+`
+package Uses {
+	part def '@2'; part filler; part;
+	private part def Hidden;
+	part escaped : Col__V__c_pend0; part def EscapedSub :> Col__V__c_pend0;
+	part quoted : '@2'; part def QuotedSub :> '@2';
+	part hidden : Hidden; part def HiddenSub :> Hidden;
+}
+`, "reported-id-type")
+	for user, want := range map[string]string{
+		"Uses::escaped": "Col__V__c_pend0", "Uses::EscapedSub": "Col__V__c_pend0",
+		"Uses::quoted": "@2", "Uses::QuotedSub": "@2",
+		"Uses::hidden": "Hidden", "Uses::HiddenSub": "Hidden",
+	} {
+		resp, err := srv.GetSymbol(context.Background(), &pb.GetSymbolRequest{
+			ModelHash: hash, SymbolId: user, Lookup: pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME,
+		})
+		if err != nil || resp.GetSymbol() == nil {
+			t.Fatalf("GetSymbol(%s): %v, %v", user, err, resp.GetError())
+		}
+		ids := []string{resp.Symbol.GetTypeInfo().GetResolvedId()}
+		for _, spec := range resp.Symbol.Specializations {
+			ids = append(ids, spec.TargetId)
+		}
+		read := 0
+		for _, id := range ids {
+			if id == "" {
+				continue
+			}
+			read++
+			target, err := srv.GetSymbol(context.Background(), &pb.GetSymbolRequest{
+				ModelHash: hash, SymbolId: id, Lookup: pb.LookupKind_LOOKUP_KIND_ELEMENT_ID,
+			})
+			if err != nil || target.GetSymbol() == nil {
+				t.Errorf("%s reports %q, which no element id reads: %v, %v", user, id, err, target.GetError())
+				continue
+			}
+			if target.Symbol.Id != id || target.Symbol.Name != want {
+				t.Errorf("%s reports %q, read as %s named %q, want the element named %q", user, id, target.Symbol.Id, target.Symbol.Name, want)
+			}
+		}
+		if read == 0 {
+			t.Errorf("%s reports no type or general", user)
+		}
+	}
+}
