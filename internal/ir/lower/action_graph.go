@@ -255,7 +255,9 @@ func (g *ActionGraph) Inherited() []Inherited {
 type ActionEdge struct {
 	Source ast.Node
 	Target ast.Node
-	Guard  ast.Node
+	// SourceID and TargetID are Source and Target in the graph's identity table.
+	SourceID, TargetID program.NodeID
+	Guard              ast.Node
 	// GuardID is Guard in the table of the flow the succession was lowered for.
 	GuardID            program.ExprID
 	Decl               ast.Node
@@ -876,7 +878,9 @@ type PinBinding struct {
 	OtherID   program.ExprID
 	OtherNode ast.Node
 	OtherPath []ast.Node
-	OtherPin  string
+	// NodeID and OtherNodeID are Node and OtherNode in the graph's identity table, 0 for none.
+	NodeID, OtherNodeID program.NodeID
+	OtherPin            string
 	// OtherChain is the chain the other end walks to the object whose feature
 	// OtherFeature it names (`holder.inner.mark`); nil for a node's pin or a plain name.
 	OtherChain   *AssignTarget
@@ -926,6 +930,8 @@ type ObjectFlow struct {
 	SourcePin string
 	TargetPin string
 	Target    ast.Node
+	// SourceID and TargetID are the node the flow leaves and Target, in the graph's identity table.
+	SourceID, TargetID program.NodeID
 	// Kind is how the flow carries its values, as its declaration designated.
 	Kind FlowKind
 	// Decl is the declaration the flow was written as, for a consumer that
