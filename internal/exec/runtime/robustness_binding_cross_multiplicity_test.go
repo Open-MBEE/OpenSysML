@@ -154,10 +154,16 @@ func testCrossUnlinkableEnd(t *testing.T) {
 // A subsetter under a binding with a required end draws every value that end links, not one:
 // the values the runtime chooses for it satisfy the binding, whichever end requires the link.
 func testCrossSubsetterDraws(t *testing.T) {
-	for _, bound := range []string{"bind [1] picked = [0..1] wanted;", "bind [0..1] picked = [1] wanted;"} {
+	for _, bound := range []string{"bind [1] picked = [0..1] wanted;", "bind [0..1] picked = [1] wanted;",
+		// A binding that only may link, or only bounds, the values displaces none a later one requires.
+		"binding [1] bind [0..1] picked = [0..1] pool; bind [1] picked = [0..1] wanted;",
+		"bind [0..1] picked = [1] pool; bind [1] picked = [0..1] wanted;",
+		"bind [0..1] picked = [1] wide; bind [1] picked = [0..1] wanted;",
+		"bind [0..1] picked = [1] wanted; bind [0..1] picked = [1] wide;"} {
 		ctx, inst := crossRig(t, `attribute pool : Integer [3] = (1, 2, 3);
 			attribute picked : Integer [2] :> pool;
 			attribute wanted : Integer [2] = (2, 3);
+			attribute wide : Integer [4] = (0, 1, 2, 3);
 			`+bound)
 		fv, err := inst.GetFeatureValue(ctx, "picked")
 		if err != nil {
