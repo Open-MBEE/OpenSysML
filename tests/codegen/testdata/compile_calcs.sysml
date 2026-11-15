@@ -614,6 +614,20 @@ package Compiled {
 		calc def Nat { in x : Natural; return : Natural = x * x; }
 		calc def Least { in xs : Integer[0..*]; return : Integer = xs->minimize {in v : Integer; v}; }
 		calc def Compare { in a : Integer; in b : Integer; return : Boolean = a < b and b >= a and a != b; }
+		// Integers beyond int64 held across the storage a loop, a record and a closure release.
+		calc def Fact { in n : Integer; attribute f : Integer = 1; for i in 1..n { assign f := f * i; } return : Integer = f; }
+		calc def Climb { in n : Integer; attribute f : Integer = n * n * n * n * n; attribute g : Integer = 1; attribute steps : Integer = 0; while g < f { assign g := g * n; assign steps := steps + 1; } return : Integer = g - f + steps; }
+		calc def Powers { in n : Integer; attribute xs : Integer[0..*] nonunique = (); attribute p : Integer = 1; for i in 1..n { assign p := p * 4294967296 - i; assign xs := including(xs, p); } return : Integer[0..*] nonunique = xs; }
+		calc def PowerSum { in n : Integer; attribute xs : Integer[0..*] nonunique = (); attribute p : Integer = 1; for i in 1..n { assign p := p * -4294967297; assign xs := including(xs, p); } return : Integer = sum(xs) + size(xs->select {in v : Integer; v > 18446744073709551616}); }
+		attribute def Held { attribute n : Integer; attribute ns : Integer[0..*] nonunique; }
+		calc def InRecord { in n : Integer; attribute h : Held = new Held(n * n * n, (n, n * n)); attribute junk : Integer[0..*] nonunique = (); for i in 1..20 { assign junk := including(junk, n * i); } return : Integer = h.n + h.ns#(2) + size(junk); }
+		calc def ApplyI { in calc f { in m : Integer; return : Integer; } in a : Integer; return : Integer = f(a); }
+		calc def Captured { in n : Integer; attribute k : Integer = n * n; calc s { in m : Integer; return : Integer = m * k; } attribute g = s; attribute junk : Integer[0..*] nonunique = (); for i in 1..20 { assign junk := including(junk, k * i); } return : Integer = ApplyI(g, n) + size(junk); }
+		calc def Text { in n : Integer; return : String = "<" + IntegerFunctions::ToString(n * n) + ">"; }
+		calc def Digits { in n : Integer; return : Integer = StringFunctions::Length(IntegerFunctions::ToString(n ** 40)); }
+		calc def InReal { in n : Integer; attribute r : Real = n * n; return : Real = r - 1; }
+		calc def Floored { in r : Real; return : Integer = RealFunctions::floor(r) + 1; }
+		calc def Extremes { in xs : Integer[0..*] nonunique; return : Integer = max(xs#(1), xs#(2)) - min(xs#(1), xs#(2)) + abs(xs#(1)); }
 	}
 	// Loops whose Integer arithmetic the C target compiles: a Real counter, and
 	// Integers only sized, indexed and ranged.
