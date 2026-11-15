@@ -250,3 +250,44 @@ func TestPrefixMetadataPrecedesTheFeatureValue(t *testing.T) {
 		assertRelFeature(t, model, x, "ownedElement", memberships[0].Implicit.Member, memberships[1].Implicit.Member)
 	}
 }
+
+// Only a declaration's own prefixes lead its members: an inherited prefix
+// follows the owned members, as in Members.
+func TestInheritedPrefixMetadataFollowsOwnedMembers(t *testing.T) {
+	const src = `package I {
+    metadata def Tg;
+    #Tg part def P;
+    #Tg part def S :> P { part own; }
+}`
+	for _, fixture := range reflectiveFixtures(t, "prefix-inherited-order.sysml", source.KindSysML, src) {
+		model := fixture.model
+		s := relFixtureSymbol(t, fixture, "S")
+		own := relFixtureSymbol(t, fixture, "own")
+		inherited := model.OwnedMemberships(relFixtureSymbol(t, fixture, "P"))[0].Implicit.Member
+		members, ok := model.ReflectiveElements(s, "member")
+		if !ok {
+			t.Fatal("S member is not derived")
+		}
+		at := func(member *symbols.Symbol) int { return slices.Index(members, member) }
+		if len(members) == 0 || !members[0].IsPrefixMetadata() || members[0] == inherited {
+			t.Fatalf("S member does not lead with its own prefix: %v", members)
+		}
+		if at(own) < 0 || at(inherited) < at(own) {
+			t.Errorf("S member has own at %d and P's prefix at %d, want the inherited prefix after own", at(own), at(inherited))
+		}
+		var view []*symbols.Symbol
+		for _, member := range model.Members(s) {
+			view = append(view, member.Symbol)
+		}
+		for _, member := range []*symbols.Symbol{members[0], own, inherited} {
+			if slices.Index(view, member) < 0 {
+				t.Fatalf("Members(S) lacks %v", member)
+			}
+		}
+		if !slices.IsSortedFunc([]*symbols.Symbol{members[0], own, inherited}, func(a, b *symbols.Symbol) int {
+			return slices.Index(view, a) - slices.Index(view, b)
+		}) {
+			t.Errorf("Members(S) orders its prefix, own and P's prefix differently from member")
+		}
+	}
+}

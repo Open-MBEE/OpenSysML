@@ -1727,7 +1727,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return nil, true
 	case "ownedMember":
-		return m.withDefaultMultiplicityMember(sym, leadWithPrefixMetadata(append(m.nodeParameters(sym), m.withTransitionParts(sym, ownedMembersOf(sym))...))), true
+		return m.withDefaultMultiplicityMember(sym, leadWithPrefixMetadata(sym, append(m.nodeParameters(sym), m.withTransitionParts(sym, ownedMembersOf(sym))...))), true
 	case "multiplicity":
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
 			return nil, false
@@ -1736,7 +1736,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "ownedElement":
 		return m.ownedElementsOf(sym), true
 	case "member":
-		return m.withDefaultMultiplicityMember(sym, leadWithPrefixMetadata(append(m.nodeParameters(sym), m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))...))), true
+		return m.withDefaultMultiplicityMember(sym, leadWithPrefixMetadata(sym, append(m.nodeParameters(sym), m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))...))), true
 	case "feature":
 		features := m.nodeParameters(sym)
 		for _, member := range m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)) {
@@ -2133,7 +2133,7 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	members = append(members, m.expressionOwnedElements(sym)...)
 	members = append(members, m.nodeParameters(sym)...)
-	members = leadWithPrefixMetadata(append(members, m.withTransitionParts(sym, ownedMembersOf(sym))...))
+	members = leadWithPrefixMetadata(sym, append(members, m.withTransitionParts(sym, ownedMembersOf(sym))...))
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
 		seen[member] = true

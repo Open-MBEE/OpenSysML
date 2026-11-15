@@ -254,15 +254,18 @@ func (m *Model) prefixMetadataSymbols(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// leadWithPrefixMetadata moves the `#M` prefixes among members ahead of the
-// rest, both in order: a prefix's membership precedes everything else its
-// declaration owns (PrefixMetadataMember).
-func leadWithPrefixMetadata(members []*symbols.Symbol) []*symbols.Symbol {
+// leadWithPrefixMetadata moves owner's own `#M` prefixes among members ahead
+// of the rest, both in order: a prefix's membership precedes everything else
+// its declaration owns (PrefixMetadataMember). An inherited prefix stays put.
+func leadWithPrefixMetadata(owner *symbols.Symbol, members []*symbols.Symbol) []*symbols.Symbol {
+	leads := func(member *symbols.Symbol) bool {
+		return member.IsPrefixMetadata() && member.OwnerScope != nil && member.OwnerScope.Owner() == owner
+	}
 	slices.SortStableFunc(members, func(a, b *symbols.Symbol) int {
 		switch {
-		case a.IsPrefixMetadata() == b.IsPrefixMetadata():
+		case leads(a) == leads(b):
 			return 0
-		case a.IsPrefixMetadata():
+		case leads(a):
 			return -1
 		}
 		return 1
