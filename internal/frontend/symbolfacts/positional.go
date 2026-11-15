@@ -227,6 +227,24 @@ func (sc *Context) LookupMember(id string) []*symbols.Symbol {
 	return sc.Resolver.ResolveGlobal(nameSegments(id))
 }
 
+// LookupDeclaredMember is LookupDeclared with a member chain (LookupMember) read as a
+// name too, before the string is read as a reported id.
+func (sc *Context) LookupDeclaredMember(id string) []*symbols.Symbol {
+	if syms := sc.LookupMember(id); len(syms) > 0 {
+		return syms
+	}
+	return sc.LookupID(id)
+}
+
+// LookupDeclared reads a symbol id an RPC takes as a qualified name: a declared name first,
+// else the id the element is reported under, so an id the service reports names its element.
+func (sc *Context) LookupDeclared(id string) []*symbols.Symbol {
+	if syms := LookupNamed(sc.Index, id); len(syms) > 0 {
+		return syms
+	}
+	return sc.LookupID(id)
+}
+
 // Resolve reads id the way a request without a lookup kind asks for name resolution: as a
 // qualified name (ResolveName) first, then as the id of the element reported under it.
 func (sc *Context) Resolve(id string) []*symbols.Symbol {
