@@ -883,6 +883,18 @@ class StarveSweepTest(Stub):
         self.assertEqual(self.read("auth_rerun.json"), [{"pr": 4, "run": 21, "head": "0000000000", "workflow": "PR"}])
         self.assertIn("#7: run 24 (0000000000, 2 job(s) unfinished, over the cap of 2 with the merge queue idle) not cancelled", log)
 
+    def test_idle_queue_over_the_cap_keeps_a_started_run_over_an_unstarted_one_of_the_same_tier(self):
+        self.cap(1)
+        self.starved_rules(10, [], extra=[
+            [r"runs\?status=in_progress", {"workflow_runs": [
+                {"id": rid, "event": "pull_request", "name": "PR", "head_branch": f"feat/{n}", "head_sha": f"{rid:040d}",
+                 "pull_requests": [{"number": n}]} for rid, n in ((21, 4), (22, 5))]}, 0],
+            [r"runs/21/jobs", {"jobs": [{"name": "Go", "status": "queued"}]}, 0],
+            [r"runs/22/jobs", {"jobs": [{"name": f"j{i}", "status": s} for i, s in enumerate(("in_progress", "queued", "queued"))]}, 0]])
+        self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        self.assertIn("keeping run 22 (#5) (cap 1)", self.text("watch.log"))
+        self.assertEqual(self.cancels(), ["21"])
+
     def test_idle_queue_within_the_cap_cancels_nothing(self):
         self.cap(4)
         self.starved_rules(10, [])

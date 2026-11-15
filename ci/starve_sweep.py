@@ -153,8 +153,10 @@ class Sweeper:
         cap, active = self.idle_cap(), started + unstarted
         if len(active) <= cap:
             return
-        # Tier first, then closest to finishing: the lowest tier goes first and, within a tier, the run furthest from finishing.
-        active.sort(key=lambda e: (e[1][0], e[0], e[1]))
+        # Tier, then started before unstarted (an unstarted run has not created its downstream jobs, so its unfinished
+        # count is falsely low), then closest to finishing: the lowest tier goes first, then the run furthest from finishing.
+        unstarted_ids = {r["id"] for _, _, r in unstarted}
+        active.sort(key=lambda e: (e[1][0], e[2]["id"] in unstarted_ids, e[0], e[1]))
         kept = ", ".join(f"run {r['id']} ({self.label(r)})" for _, _, r in active[:cap]) or "none"
         self.log(f"over the cap with the merge queue idle: {len(active)} ordinary runs active, keeping {kept} (cap {cap})")
         for (_, unfinished), _, r in reversed(active[cap:]):

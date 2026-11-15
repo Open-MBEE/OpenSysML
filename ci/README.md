@@ -238,8 +238,10 @@ These rules come from running the tools on this repository and still apply.
     created. A run with no jobs is never starved. Exactly one started
     ordinary run is kept, the one closest to finishing, and every other started run is cancelled.
   - **Idle.** While no merge-queue job waits, if more than `cap` ordinary runs are active, started
-    or not, `cap` of them (the raised cap while `wide_cap.json` exists) are kept, chosen by tier index and then by closeness to finishing. The
-    lowest tier is cancelled first and, within a tier, the run furthest from finishing.
+    or not, `cap` of them (the raised cap while `wide_cap.json` exists) are kept, chosen by tier index, then started runs before unstarted ones, then by closeness to
+    finishing. An unstarted run has not created its downstream jobs yet, so its unfinished-job count
+    is falsely low and it never outranks a started run of the same tier. The lowest tier is cancelled
+    first and, within a tier, the unstarted runs and then the run furthest from finishing.
 
   A started run is never cancelled for tier order alone: only a starved merge queue or an idle queue
   over the cap cancels one. A higher-tier run waiting in `auth_rerun.json` does not preempt it.
