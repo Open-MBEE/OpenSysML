@@ -452,10 +452,13 @@ func (m *Model) scaleDimension(sym *symbols.Symbol) (UnitTerm, bool) {
 	}
 	if m.IsLogarithmicScale(sym) {
 		ref, ok := m.LookupMember(sym, memberReferenceQuantity)
-		if !ok || usageValue(ref) == nil {
+		if !ok || usageValue(ref) == nil || m.referencing[sym] {
+			// A reference written on its own scale (`= 1 [s]` in `s`) measures nothing.
 			return UnitTerm{}, false
 		}
+		m.referencing[sym] = true
 		dim, ok := m.DimensionOfExpr(scopeOf(ref), usageValue(ref))
+		delete(m.referencing, sym)
 		return dim.Term, ok && dim.IsMagnitude()
 	}
 	unit, ok := m.LookupMember(sym, memberUnit)

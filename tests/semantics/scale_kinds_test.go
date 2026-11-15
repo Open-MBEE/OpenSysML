@@ -21,6 +21,9 @@ package S {
 	attribute bearing : CyclicRatioScale { :>> unit = '°'; :>> modulus = 360; }
 	attribute dBm : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = 10; :>> exponent = 1; :>> referenceQuantity = 0.001 [W]; }
 	attribute octave : LogarithmicScale { :>> unit = one; :>> logarithmBase = 2; :>> factor = 1; :>> exponent = 1; }
+	attribute selfish : LogarithmicScale { :>> unit = one; :>> logarithmBase = 2; :>> factor = 1; :>> exponent = 1; :>> referenceQuantity = 1 [selfish]; }
+	attribute ping : LogarithmicScale { :>> unit = one; :>> logarithmBase = 2; :>> factor = 1; :>> exponent = 1; :>> referenceQuantity = 1 [pong]; }
+	attribute pong : LogarithmicScale { :>> unit = one; :>> logarithmBase = 2; :>> factor = 1; :>> exponent = 1; :>> referenceQuantity = 1 [ping]; }
 }`
 
 func scaleKindsFixture(t *testing.T) (*semantics.Model, *symbols.Index) {
@@ -61,7 +64,8 @@ func TestScaleKindDimensions(t *testing.T) {
 			t.Errorf("DimensionOfExpr(%s) = %s on %v (known %v), want %s on %v", tc.expr, dim, dim.Scale, ok, tc.dim, tc.scale)
 		}
 	}
-	for _, expr := range []string{"3.0 [S::octave]", "2 * 7 [S::mohs]", "2 * 30.0 [S::dBm]"} {
+	// A referenceQuantity on its own scale, directly or through another, measures nothing.
+	for _, expr := range []string{"3.0 [S::octave]", "2 * 7 [S::mohs]", "2 * 30.0 [S::dBm]", "1 [S::selfish]", "1 [S::ping] > 2 [S::pong]"} {
 		if dim, ok := m.DimensionOfExpr(scope, parseExpr(t, expr)); ok {
 			t.Errorf("DimensionOfExpr(%s) = %s, want unknown", expr, dim)
 		}

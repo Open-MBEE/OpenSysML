@@ -309,6 +309,8 @@ func TestScaleKindsStatically(t *testing.T) {
 		`attribute b : Boolean = 30.0 [dBm] > 1.0 [W];`,
 		`attribute p : PowerValue = 30.0 [dBm];`,
 		`attribute b : Boolean = 3.0 [octave] > 1.0 [W];`,
+		`attribute selfish : LogarithmicScale { :>> unit = one; :>> logarithmBase = 2; :>> factor = 1; :>> exponent = 1; :>> referenceQuantity = 1 [selfish]; }
+		attribute b : Boolean = 1 [selfish] > 0;`,
 	} {
 		wantNoDimensionDiags(t, scales+accepted)
 	}
