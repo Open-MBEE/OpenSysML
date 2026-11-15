@@ -42,6 +42,16 @@ func LibraryElementForm(idOrName string) (APIJSONElement, *ElementForm, bool, er
 	return element, form, true, nil
 }
 
+// LibraryElementName is the qualified name of the standard-library element whose normative
+// id is id, the id a model's form references it under.
+func LibraryElementName(id string) (string, bool) {
+	element, ok := sharedLibraryIndex().catalog.Element(id)
+	if !ok {
+		return "", false
+	}
+	return element.FQN, true
+}
+
 // elementDocument names the library document declaring the element idOrName
 // refers to, and the element's id: a catalogued element by id or qualified
 // name, its owning membership, or an unnamed member by minted id.

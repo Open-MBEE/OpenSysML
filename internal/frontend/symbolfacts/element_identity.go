@@ -18,6 +18,9 @@ type ElementForm interface {
 	// Owner decodes an `@id` into the qualified name it is written under and how
 	// many elements deep below that the element can lie; false for no `@id`.
 	Owner(id string) (owner string, depth int, ok bool)
+	// LibraryName is the qualified name of the standard-library element the form references
+	// under id, the normative id no name can be decoded from.
+	LibraryName(id string) (name string, ok bool)
 }
 
 // ElementIdentity is the id a client keeps for any element sym, a metaobject's
@@ -180,12 +183,15 @@ func (sc *Context) composedEnds(id string) []*symbols.Symbol {
 	return found
 }
 
-// formElements is the elements the element form writes under the `@id` id, found below the
-// nearest owner the id's decoded qualified name states.
+// formElements is the elements the element form writes or references under the `@id` id: a
+// library element by name, else found below the nearest owner the id's decoded name states.
 func (sc *Context) formElements(id string) []*symbols.Symbol {
 	form := sc.elementForm()
 	if form == nil {
 		return nil
+	}
+	if name, ok := form.LibraryName(id); ok {
+		return LookupNamed(sc.Index, name)
 	}
 	owner, depth, ok := form.Owner(id)
 	if !ok {

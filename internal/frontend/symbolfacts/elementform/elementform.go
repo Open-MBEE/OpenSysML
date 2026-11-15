@@ -53,3 +53,8 @@ func (elementForm) Owner(id string) (owner string, depth int, ok bool) {
 	owner, ok = export.SynthesizedElementOwner(id)
 	return owner, 1, ok
 }
+
+// LibraryName is the qualified name of the library element whose normative id is id.
+func (elementForm) LibraryName(id string) (string, bool) {
+	return export.LibraryElementName(id)
+}
