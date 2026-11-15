@@ -15,14 +15,8 @@ import (
 // ToolVariable are sent, its `out`/`inout` ones and its result parameter are bound from
 // the reply, and the body — when the calc states one — is never evaluated.
 
-// calcToolCall is the calculation as the tool sees it: of the calc the annotation holds
-// for (the definition or usage annotated), every `in`/`inout` parameter carrying a
-// ToolVariable is an input whose value held answers, every `out`/`inout` one an output,
-// and the result parameter is always an output — keyed by its ToolVariable name, else its
-// declared name, else `result`. The same refusals as a performance's call apply: an
-// unbound non-optional input is errUnboundParameter, a ToolVariable name two parameters
-// carry is a ToolError. The name the result is bound under is returned with the call,
-// and whether the calc declares a result parameter — an out-only calc asks for none.
+// calcToolCall is the calc as its tool sees it, refusing what a performance's call refuses, with the key the result is
+// bound under (its ToolVariable, else its declared name, else `result`) and whether the calc declares a result at all.
 func (ctx *Context) calcToolCall(shape *loadedCalc, scope *symbols.Scope, held func(param string) (Value, bool)) (*ToolCall, string, bool, error) {
 	execution := shape.Tool
 	tool := execution.tool
