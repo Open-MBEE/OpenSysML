@@ -1,0 +1,16 @@
+{
+  "type": "state",
+  "libraries": true,
+  "evaluate": "test::Context::drive",
+  "performers": [
+    {
+      "object": "test::context",
+      "finalState": "pushed",
+      "stateVisits": ["pushing", "pushed"],
+      "outputs": {
+        "velocity": {"type": "Real", "value": 6.0},
+        "force": {"type": "Real", "value": 6.0}
+      }
+    }
+  ]
+}
