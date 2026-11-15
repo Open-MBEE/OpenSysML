@@ -161,15 +161,15 @@ func renderMember(m libs.TopMember) string {
 	case "import":
 		return m.Kind + " " + m.Target
 	}
-	return m.Kind + " " + nameOrAnon(ast.Identification{Name: m.Name, ShortName: m.ShortName})
+	return m.Kind + " " + nameOrAnon(m)
 }
 
-func nameOrAnon(id ast.Identification) string {
-	if id.Name != "" {
-		return source.NameText(id.Name)
+func nameOrAnon(m libs.TopMember) string {
+	if m.Named {
+		return source.NameText(m.Name)
 	}
-	if id.ShortName != "" {
-		return "<" + source.NameText(id.ShortName) + ">"
+	if m.ShortNamed {
+		return "<" + source.NameText(m.ShortName) + ">"
 	}
 	return "<anonymous>"
 }

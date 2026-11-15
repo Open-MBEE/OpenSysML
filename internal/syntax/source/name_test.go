@@ -116,6 +116,8 @@ func TestWrittenNamesReadBackAsTheNamesThemselves(t *testing.T) {
 		"x", "part", "two words", "it's", `'`, `''quoted''`, `a\b`, `\`, `\\`, `\'`, `ends\`,
 		`q"d`, "x::y", "::", "a.b", ".", "\b", "\t", "\n", "\f", "\r", "a\tb\nc\rd\be\ff",
 		`\n`, `\t`, "é", "名前", "naïve 'name'", "@1", "$", "1st",
+		// The empty name is a name (KerML 1.1 §8.2.2.3), written and read as any other.
+		"", "   ",
 	}
 	paths := [][]string{names}
 	for _, name := range names {
@@ -131,17 +133,10 @@ func TestWrittenNamesReadBackAsTheNamesThemselves(t *testing.T) {
 			t.Errorf("MemberPathSegments(%q) = %q, %v, want %q", text, got, ok, path)
 		}
 	}
-	// The empty name is written, but no reader of name text takes it for a name.
 	if text := NameText(""); text != "''" {
 		t.Errorf("NameText of the empty name = %q", text)
 	}
-	if got, ok := QualifiedNameSegments("''"); ok {
-		t.Errorf("QualifiedNameSegments of the empty name = %q, want a refusal", got)
-	}
-	if got, ok := MemberPathSegments("''"); ok {
-		t.Errorf("MemberPathSegments of the empty name = %q, want a refusal", got)
-	}
-	for _, name := range append(names, "") {
+	for _, name := range names {
 		text := UnrestrictedNameText(name)
 		if got := Unescape(text[1 : len(text)-1]); got != name {
 			t.Errorf("Unescape of UnrestrictedNameText(%q) = %q", name, got)

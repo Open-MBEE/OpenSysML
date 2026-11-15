@@ -35,7 +35,7 @@ func occurrenceNames() map[string]bool {
 				}
 				seen[t] = true
 				for _, member := range idx.LookupDirectChildrenFrom(t, "") {
-					if member.Name != "" {
+					if member.Named() {
 						names[member.Name] = true
 					}
 				}

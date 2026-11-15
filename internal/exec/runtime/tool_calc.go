@@ -40,7 +40,7 @@ func (ctx *Context) calcToolCall(shape *loadedCalc, scope *symbols.Scope, held f
 			}
 			continue
 		}
-		if param.Symbol.Name == "" {
+		if !param.Symbol.Named() {
 			continue
 		}
 		if err := ctx.addToolCallParameter(call, shape, param, namedBy, held); err != nil {
@@ -51,7 +51,7 @@ func (ctx *Context) calcToolCall(shape *loadedCalc, scope *symbols.Scope, held f
 	if result != nil {
 		resultKey = program.ResultOutputName
 		variable := program.ResultOutputName
-		if result.Name != "" {
+		if result.Named() {
 			resultKey, variable = result.Name, result.Name
 		}
 		if named, has, err := ctx.toolVariableOf(result); err != nil {

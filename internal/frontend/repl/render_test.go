@@ -120,3 +120,15 @@ func TestSummariesQuoteUnrestrictedShortNames(t *testing.T) {
 		t.Errorf("member = %q, want %q", got, "part def <'1'>")
 	}
 }
+
+// The empty unrestricted name is a name: it is echoed as written, and only a
+// declaration that states none is anonymous.
+func TestSummariesEchoTheEmptyName(t *testing.T) {
+	root := parseRoot("package ''; part def <''>; part def <''> ''; part '   '; part;")
+	want := []string{"package ''", "part def <''>", "part def ''", "part '   '", "part <anonymous>"}
+	for i, w := range want {
+		if got := renderMember(libs.TopMemberOf(root.Members[i])); got != w {
+			t.Errorf("member %d = %q, want %q", i, got, w)
+		}
+	}
+}

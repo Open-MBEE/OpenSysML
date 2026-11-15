@@ -205,7 +205,7 @@ func (ctx *Context) parameterFeatures(typeSym *symbols.Symbol) []EffectiveFeatur
 	var order []string
 	byName := make(map[string]*symbols.Symbol)
 	for _, member := range ctx.model.semantics.MembersOfIncludingRedefined(typeSym) {
-		if member.Name == "" || !isInputParameter(member) || semantics.IsShapeFeature(member) && !ctx.model.semantics.FrameFeature(member) {
+		if !member.Named() || !isInputParameter(member) || semantics.IsShapeFeature(member) && !ctx.model.semantics.FrameFeature(member) {
 			continue
 		}
 		if _, seen := byName[member.Name]; !seen {
@@ -600,7 +600,7 @@ func (ctx *Context) roleRedefiningDefault(sym, typeSym *symbols.Symbol) (ast.Nod
 	scope := bodyScope(typeSym, typeSym.OwnerScope)
 	for node := range lower.EachUnwrappedDeclMember(typeSym.Decl) {
 		member := memberSymbol(scope, node)
-		if member == nil || member == sym || member.Name != "" {
+		if member == nil || member == sym || member.Named() {
 			continue
 		}
 		val := ctx.extractDefaultValue(member)

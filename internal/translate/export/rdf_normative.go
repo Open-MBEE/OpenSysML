@@ -557,7 +557,7 @@ func (e *encoder) conjugatedPortDefinition(subject rdf.Term, fqn string, n *ast.
 	e.typed(conjugated, mConjugatedPortDefinition)
 	e.graph.Add(conjugated, e.sysml(pElementID), rdf.String(rdf.LocalName(conjugated.Value)))
 	address := fqn + "::" + conjugateSegment
-	named := n.Ident.Name != ""
+	named := n.Ident.HasName()
 	name := ""
 	if named {
 		name = "~" + n.Ident.Name

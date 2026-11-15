@@ -313,7 +313,7 @@ func ToCalc(sym *symbols.Symbol, env CalcEnv) (*program.Calc, *CalcTrees) {
 func ToPredicate(sym *symbols.Symbol, env CalcEnv) (*program.Calc, *CalcTrees) {
 	chain := memberChain(sym, env, IsPredicateDecl)
 	name := env.qualifiedName(sym)
-	if sym.Name == "" {
+	if !sym.Named() {
 		// An anonymous usage answers to the name it redefines (`objective : MinimizeObjective;`).
 		name += env.Semantics.EffectiveNameOf(sym)
 	}

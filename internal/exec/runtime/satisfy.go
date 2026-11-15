@@ -108,7 +108,7 @@ func (a *SatisfyAssertion) Text() string {
 	switch {
 	case a.RequirementRef != "":
 		b.WriteString(source.QualifiedNameText(a.RequirementRef))
-	case a.Symbol != nil && a.Symbol.Name != "":
+	case a.Symbol != nil && a.Symbol.Named():
 		b.WriteString(source.NameText(a.Symbol.Name))
 	default:
 		b.WriteString("?")
@@ -722,7 +722,7 @@ func symbolLabel(sym *symbols.Symbol) string {
 	switch {
 	case sym == nil:
 		return "<nil>"
-	case sym.Name != "":
+	case sym.Named():
 		return sym.Name
 	default:
 		return fmt.Sprintf("anonymous %T", sym.Decl)

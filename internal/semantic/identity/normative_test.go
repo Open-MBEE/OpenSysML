@@ -64,7 +64,8 @@ func TestEmptyAndUnknown(t *testing.T) {
 
 func TestEscapeName(t *testing.T) {
 	cases := map[string]string{
-		"":                 "",
+		"":                 "''",
+		"   ":              "'   '",
 		"Real":             "Real",
 		"_x1":              "_x1",
 		"1x":               "'1x'",

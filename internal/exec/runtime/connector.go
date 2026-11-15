@@ -780,7 +780,7 @@ func connectorName(sym *symbols.Symbol) string {
 	if sym == nil {
 		return "connector"
 	}
-	if sym.Name != "" {
+	if sym.Named() {
 		return sym.Name
 	}
 	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Keyword != "" {

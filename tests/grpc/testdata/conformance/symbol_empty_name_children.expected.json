@@ -1,0 +1,12 @@
+{
+	"rpc": "GetSymbol",
+	"model": "symbol_empty_name.sysml",
+	"symbol_id": "EmptyName",
+	"expected_kind": "package",
+	"expected_child_ids": [
+		"EmptyName::Pt",
+		"EmptyName::",
+		"EmptyName::   ",
+		"EmptyName::@3"
+	]
+}

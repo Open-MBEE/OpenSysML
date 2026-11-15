@@ -46,7 +46,7 @@ func (m *Model) Members(sym *symbols.Symbol) []Member {
 		}
 		scope.ForEachMember(func(s *symbols.Symbol) bool {
 			if s.Kind == symbols.SymbolAlias || seen[s] || ownedThroughAnnotation(source, s) ||
-				(!anonymous[s] && !namedSet[s] && !(s.Kind == symbols.SymbolDocumentation && s.Name == "")) ||
+				(!anonymous[s] && !namedSet[s] && !(s.Kind == symbols.SymbolDocumentation && !s.Named())) ||
 				(inherited && (m.maskedBy(mask, s) || !Inheritable(s))) {
 				return true
 			}

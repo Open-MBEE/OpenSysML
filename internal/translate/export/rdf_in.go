@@ -1818,7 +1818,7 @@ func nameMembers(members []*element, owner string) {
 	for i, el := range members {
 		el.scope = owner
 		if el.qname == "" {
-			el.qname = naming.Qualify(owner, "", i)
+			el.qname = naming.Positional(owner, i)
 		}
 		nameMembers(el.children, el.qname)
 	}
@@ -2073,9 +2073,9 @@ func (d *decoder) headFeatureAnnotations(feature *element, what string) ([]strin
 	if len(identity) == 0 {
 		return nil, nil
 	}
-	name, ok := d.stringOf(feature, rdf.SysML+pDeclaredName)
+	name, ok := d.nameOf(feature, rdf.SysML+pDeclaredName)
 	if !ok {
-		name, ok = d.stringOf(feature, rdf.SysML+pDeclaredShortName)
+		name, ok = d.nameOf(feature, rdf.SysML+pDeclaredShortName)
 	}
 	if !ok {
 		return nil, &UnsupportedError{
@@ -3442,10 +3442,10 @@ func (d *decoder) aliasHead(el *element) (string, error) {
 	words = append(words, "alias")
 	// A Membership names its member (KerML.xtext AliasMember); an older graph
 	// declared the alias's own name.
-	if short, ok := d.stringOf(el, rdf.SysML+pMemberShortName); ok {
+	if short, ok := d.nameOf(el, rdf.SysML+pMemberShortName); ok {
 		words = append(words, "<"+nameText(short)+">")
 	}
-	if name, ok := d.stringOf(el, rdf.SysML+pMemberName); ok {
+	if name, ok := d.nameOf(el, rdf.SysML+pMemberName); ok {
 		words = append(words, nameText(name))
 	}
 	words = append(words, d.identWords(el)...)
@@ -3903,10 +3903,10 @@ func (d *decoder) portionKind(el *element) (string, error) {
 
 func (d *decoder) identWords(el *element) []string {
 	var words []string
-	if short, ok := d.stringOf(el, rdf.SysML+pDeclaredShortName); ok {
+	if short, ok := d.nameOf(el, rdf.SysML+pDeclaredShortName); ok {
 		words = append(words, "<"+nameText(short)+">")
 	}
-	if name, ok := d.stringOf(el, rdf.SysML+pDeclaredName); ok {
+	if name, ok := d.nameOf(el, rdf.SysML+pDeclaredName); ok {
 		words = append(words, nameText(name))
 	}
 	return words
@@ -3934,7 +3934,7 @@ func (d *decoder) writtenQName(el *element) string {
 		return d.writtenQName(el.owner)
 	}
 	if el.owner != nil && el.owner.owner != nil && d.isNodeMembership(rdf.IRI(el.owner.iri)) {
-		if name, ok := d.stringOf(el, rdf.SysML+pDeclaredName); ok {
+		if name, ok := d.nameOf(el, rdf.SysML+pDeclaredName); ok {
 			return d.writtenQName(el.owner.owner) + "::" + naming.Segment(name)
 		}
 	}
@@ -3946,7 +3946,7 @@ func (d *decoder) writtenQName(el *element) string {
 	if !d.metadataBodyMember(el) || d.boolOf(el, rdf.OpenSysML+xImplicitRedefinition) {
 		return q
 	}
-	if _, declared := d.stringOf(el, rdf.SysML+pDeclaredName); declared {
+	if _, declared := d.nameOf(el, rdf.SysML+pDeclaredName); declared {
 		return q
 	}
 	return q[:i] + "::@" + strconv.Itoa(el.memberIndex)
@@ -4865,7 +4865,7 @@ func (d *decoder) effectiveName(el *element) (string, bool) {
 			segments := naming.Segments(el.qname)
 			return identityName(segments[len(segments)-1]), true
 		}
-		if name, ok := d.stringOf(el, rdf.SysML+pDeclaredName); ok {
+		if name, ok := d.nameOf(el, rdf.SysML+pDeclaredName); ok {
 			return name, true
 		}
 		// A transition's `do` statement answers to its role, `effect`, as the symbol
@@ -4961,10 +4961,12 @@ func notAName(term rdf.Term) string {
 		return "it is empty"
 	}
 	for _, segment := range naming.Segments(strings.TrimPrefix(term.Value, "$::")) {
+		// A segment written `''` is the empty name; one with no text is none.
+		if segment == "" {
+			return "it has an empty name segment"
+		}
 		segment = identityName(segment)
 		switch {
-		case segment == "":
-			return "it has an empty name segment"
 		case strings.ContainsAny(segment, "\n\r"):
 			return "it has a name segment holding a line break"
 		case (len(segment)-len(strings.TrimRight(segment, `\`)))%2 == 1:
@@ -5001,6 +5003,15 @@ func (d *decoder) stringOf(el *element, property string) (string, bool) {
 		return "", false
 	}
 	return value, true
+}
+
+// nameOf is the name el states under property, the empty unrestricted name
+// included (KerML §8.2.2.3): stating it is what tells it from no name.
+func (d *decoder) nameOf(el *element, property string) (string, bool) {
+	if text, ok := el.expressions[property]; ok {
+		return text, text != ""
+	}
+	return d.graph.Lexical(rdf.IRI(el.iri), property)
 }
 
 // statedFalse reports a boolean the graph states as false, as against one it

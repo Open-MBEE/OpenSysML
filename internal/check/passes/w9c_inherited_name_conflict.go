@@ -191,26 +191,26 @@ func (c *w9cConflictChecker) ownMembers(sym *symbols.Symbol) map[string]*symbols
 	// its scope exists only when the library was parsed.
 	for _, member := range c.idx.LookupDirectChildren(symbols.FQNOf(sym)) {
 		name := symbols.LastSegment(member.Name)
-		if name == "" || member.Visibility == ast.VisibilityPrivate ||
+		if !member.Named() || member.Visibility == ast.VisibilityPrivate ||
 			c.idx.Library(member) != c.idx.Library(sym) {
 			continue
 		}
 		out[name] = member
-		if short := shortNameOf(member); short != "" && short != name {
+		if short, ok := shortNamed(member); ok && short != name {
 			out[short] = member
 		}
 	}
 	return out
 }
 
-// shortNameOf is a symbol's short name, read from its declaration when the
-// index did not record one.
-func shortNameOf(sym *symbols.Symbol) string {
-	if sym.ShortName != "" {
-		return sym.ShortName
+// shortNamed is a symbol's short name and whether it has one, read from its
+// declaration when the index did not record one.
+func shortNamed(sym *symbols.Symbol) (string, bool) {
+	if sym.HasShortName() {
+		return sym.ShortName, true
 	}
 	id, _ := symbols.DeclIdent(sym.Decl)
-	return id.ShortName
+	return id.ShortName, id.HasShortName()
 }
 
 // checkOwnedNames reports each member sym declares whose name a library base
@@ -243,14 +243,14 @@ func (c *w9cConflictChecker) checkOwnedNames(sym *symbols.Symbol, contribs []w9c
 // at the span it was written; a member naming itself another way binds its own name.
 func ownedKeysOf(mem *symbols.Symbol) []w9cKey {
 	id, ok := symbols.DeclIdent(mem.Decl)
-	if !ok || (id.Name == "" && id.ShortName == "") {
+	if !ok || !id.Declared() {
 		return []w9cKey{{name: mem.Name, span: nameSpanOf(mem)}}
 	}
 	var keys []w9cKey
-	if id.ShortName != "" {
+	if id.HasShortName() {
 		keys = append(keys, w9cKey{name: id.ShortName, span: id.ShortNameSpan})
 	}
-	if id.Name != "" && id.Name != id.ShortName {
+	if id.HasName() && !(id.HasShortName() && id.Name == id.ShortName) {
 		keys = append(keys, w9cKey{name: id.Name, span: id.NameSpan})
 	}
 	for i := range keys {

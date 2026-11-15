@@ -187,7 +187,7 @@ func mappingQualifiedNamesWithContext(graph *rdf.Graph, context *mappingQualifie
 			return "", false
 		}
 
-		value := naming.Qualify(ownerName, name, index)
+		value := naming.Qualify(ownerName, naming.Name{Text: name, Named: hasName}, index)
 		if hasName && context.conforms(graph, subject, "ConjugatedPortDefinition") &&
 			strings.HasPrefix(name, "~") {
 			value = strings.TrimSuffix(value, naming.Segment(name)) + naming.QuotedSegment(name)

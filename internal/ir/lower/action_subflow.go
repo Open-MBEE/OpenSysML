@@ -499,7 +499,7 @@ func lowerEffectiveAccept(graph *ActionGraph, node *ast.Usage, members []effecti
 // declares: a member of the node's own namespace, as resolution finds it
 // (resolve.acceptPayload); nil for a payload declaring no name.
 func acceptPayloadSymbol(graph *ActionGraph, node *ast.Usage, m *ast.Usage) *symbols.Symbol {
-	if m.Ident.Name == "" || graph.Scopes == nil {
+	if !m.Ident.HasName() || graph.Scopes == nil {
 		return nil
 	}
 	own := graph.Scopes[node]

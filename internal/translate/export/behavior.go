@@ -126,22 +126,22 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 
 	case *ast.ForkNode:
 		head(rdf.SysMLTerm(mFork))
-		e.name(subject, n.Name)
+		e.name(subject, n.Name, n.NameSpan)
 		return true, nil
 
 	case *ast.JoinNode:
 		head(rdf.SysMLTerm(mJoin))
-		e.name(subject, n.Name)
+		e.name(subject, n.Name, n.NameSpan)
 		return true, nil
 
 	case *ast.MergeNode:
 		head(rdf.SysMLTerm(mMerge))
-		e.name(subject, n.Name)
+		e.name(subject, n.Name, n.NameSpan)
 		return true, nil
 
 	case *ast.DecisionNode:
 		head(rdf.SysMLTerm(mDecision))
-		e.name(subject, n.Name)
+		e.name(subject, n.Name, n.NameSpan)
 		return true, nil
 
 	case *ast.ActionExecutionNode:
@@ -222,14 +222,14 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 	case *ast.StateNode:
 		// A state of a state machine.
 		head(rdf.SysMLTerm(mStateUsage))
-		e.name(subject, n.Name)
+		e.name(subject, n.Name, source.Span{})
 		members := naming.StateBody(n)
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(len(members) > 0))
 		return true, e.encode(members, fqn, subject)
 
 	case *ast.SubstateMember:
 		head(rdf.SysMLTerm(mStateUsage))
-		e.name(subject, n.Name)
+		e.name(subject, n.Name, n.NameSpan)
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(false))
 		return true, nil
 
@@ -244,7 +244,7 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 
 	case *ast.PseudostateNode:
 		head(rdf.OpenSysMLTerm(mPseudostate))
-		e.name(subject, n.Name)
+		e.name(subject, n.Name, n.NameSpan)
 		e.graph.Add(subject, e.sysx(xPseudostateKind), rdf.String(n.Kind.String()))
 		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(e.pseudostateKeyword(n)))
 		return true, nil
@@ -283,7 +283,7 @@ func (e *encoder) encodeInitialNode(n *ast.InitialNode, head func(rdf.Term), sub
 		head(rdf.SysMLTerm(mMembership))
 	}
 	e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String("first"))
-	if n.Name() != "" {
+	if n.Named() {
 		start := rdf.Term(rdf.String(n.Name()))
 		if decl, fqn, ok := e.linked(e.res.InitialSymbol(n)); ok {
 			start = e.ids.subjectForNode(decl, fqn)
@@ -315,7 +315,7 @@ func (e *encoder) encodeInitialNode(n *ast.InitialNode, head func(rdf.Term), sub
 		// ConnectorEndMember), beside the sourceFeature and targetFeature the
 		// ends derive; a guarded `first a if g then [m] b` owns the same ends,
 		// its written target end on the target connector end.
-		if n.Name() != "" {
+		if n.Named() {
 			if err := e.initialSuccessionEnds(subject, owner, n); err != nil {
 				return err
 			}
@@ -339,7 +339,7 @@ func (e *encoder) encodeActionExecution(n *ast.ActionExecutionNode, head func(rd
 	// `action [<name>] <ref>;` performs an action declared elsewhere;
 	// `action <name> { <expr> }` performs the expression it states.
 	head(rdf.OpenSysMLTerm(mActionExecution))
-	e.name(subject, n.Name)
+	e.name(subject, n.Name, source.Span{})
 	switch {
 	case n.Expression != nil:
 		return e.expression(subject, e.sysx(xExpression), xExpression, owner, n.Expression)
@@ -406,7 +406,7 @@ func (e *encoder) encodeSuccessionEdge(n *ast.SuccessionEdge, head func(rdf.Term
 func (e *encoder) encodeLoop(n *ast.WhileLoopActionNode, head func(rdf.Term), subject rdf.Term, fqn, owner string) error {
 	if n.Kind == ast.LoopFor {
 		head(rdf.SysMLTerm(mForLoop))
-		if n.Variable.Name == "" {
+		if !n.Variable.HasName() {
 			return &UnsupportedError{
 				What: fmt.Sprintf("the loop at %s", e.where(n)),
 				Note: "its iteration variable has no name, so the variable the body binds cannot be written back",
@@ -494,7 +494,7 @@ func (e *encoder) markPerformed(members []ast.Node) {
 // effect and body as the members it owns, the effect's linked as such.
 func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term), subject rdf.Term, fqn, owner string) error {
 	head(rdf.SysMLTerm(mTransition))
-	e.name(subject, n.Name)
+	e.name(subject, n.Name, n.NameSpan)
 	e.graph.Add(subject, e.sysx(xTransitionSyntax), rdf.String(e.transitionSyntax(n)))
 	e.transitionKeyword(subject, n)
 	// The members ahead of the trigger come first, in the grammar's order.
@@ -964,7 +964,7 @@ func (e *encoder) encodeSendArguments(n *ast.SendStatement, subject rdf.Term, fq
 		if !written[i] {
 			continue
 		}
-		param := e.ids.subjectFor(naming.Qualify(fqn, "", index))
+		param := e.ids.subjectFor(naming.Positional(fqn, index))
 		index++
 		if value, ok := e.graph.Object(param, rdf.SysML+pValue); ok {
 			e.graph.Add(subject, e.sysml(sendArgumentLinks[i]), value)
@@ -1088,8 +1088,8 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 	return nil
 }
 
-func (e *encoder) name(subject rdf.Term, name string) {
-	if name != "" {
+func (e *encoder) name(subject rdf.Term, name string, span source.Span) {
+	if name != "" || span.Len > 0 {
 		e.graph.Add(subject, e.sysml(pDeclaredName), rdf.String(name))
 	}
 }
@@ -1816,7 +1816,7 @@ func (d *decoder) answersTo(el *element) (rdf.Term, bool) {
 		}
 		return subject, true
 	}
-	if _, named := d.stringOf(el, rdf.SysML+pDeclaredName); named {
+	if _, named := d.nameOf(el, rdf.SysML+pDeclaredName); named {
 		return subject, true
 	}
 	if naming, ok := d.namingFeature(el); ok {
@@ -2010,7 +2010,7 @@ func (d *decoder) loopText(el *element, depth int) (string, error) {
 	var head string
 	switch el.metaclass {
 	case mForLoop:
-		variable, hasVariable := d.stringOf(el, rdf.OpenSysML+xLoopVariable)
+		variable, hasVariable := d.nameOf(el, rdf.OpenSysML+xLoopVariable)
 		collection, hasCollection := d.stringOf(el, rdf.OpenSysML+xCollection)
 		if !hasVariable || !hasCollection {
 			return "", d.missing(el, "sysx:"+xLoopVariable+" and sysx:"+xCollection, "a for loop binds a variable over a collection")

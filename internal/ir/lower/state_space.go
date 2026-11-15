@@ -209,7 +209,7 @@ func ToStateSpaceDynamics(action *symbols.Symbol, scope *symbols.Scope, model St
 func memberIndex(members []*symbols.Symbol) map[string]*symbols.Symbol {
 	index := make(map[string]*symbols.Symbol, len(members))
 	for _, member := range members {
-		if member == nil || member.Name == "" {
+		if member == nil || !member.Named() {
 			continue
 		}
 		if _, seen := index[member.Name]; !seen {

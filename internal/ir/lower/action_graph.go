@@ -764,7 +764,7 @@ func ShadowedKey(sym *symbols.Symbol) string {
 		return ""
 	}
 	if sym.OwnerScope != nil {
-		if owner := sym.OwnerScope.Owner(); owner != nil && owner.Name != "" {
+		if owner := sym.OwnerScope.Owner(); owner != nil && owner.Named() {
 			return owner.Name + "::" + sym.Name
 		}
 	}
@@ -1526,7 +1526,7 @@ func inheritedNodeLookup(graph *ActionGraph, body *symbols.Scope) nodeLookup {
 // not a node of the graph.
 func resolveFirstNode(graph *ActionGraph) error {
 	initial, ok := graph.Initial.(*ast.InitialNode)
-	if !ok || initial.Name() == "" {
+	if !ok || !initial.Named() {
 		return nil
 	}
 	var named ast.Node
@@ -1763,7 +1763,7 @@ func lowerEffectiveActionNodeFeatures(graph *ActionGraph, node *ast.Usage, scope
 		}
 		if m.IsAccept {
 			// A message payload is the accept's output pin; `accept when/at/after` binds none.
-			if m.Value == nil && m.Ident.Name != "" {
+			if m.Value == nil && m.Ident.HasName() {
 				features = append(features, Feature{Name: m.Ident.Name, Direction: ast.DirOut, Node: m, Scope: featureScope})
 			}
 			continue
@@ -2739,14 +2739,30 @@ func findNodeByName(nodes []ast.Node, qname *ast.QualifiedName) ast.Node {
 // name is a name of its own, so `action <s> :>> takePhoto;` is reachable as
 // both `s` and `takePhoto`.
 func nodeAnswersTo(node ast.Node, name string) bool {
-	if name == "" {
-		return false
-	}
-	if getNodeName(node) == name {
+	if nodeHasName(node) && getNodeName(node) == name {
 		return true
 	}
 	u, ok := node.(*ast.Usage)
-	return ok && u.Ident.ShortName == name
+	return ok && u.Ident.HasShortName() && u.Ident.ShortName == name
+}
+
+// nodeHasName reports whether a node has a name to answer to, the empty
+// unrestricted name included (KerML §8.2.2.3).
+func nodeHasName(node ast.Node) bool {
+	switch n := node.(type) {
+	case *ast.ForkNode:
+		return n.Name != "" || n.NameSpan.Len > 0
+	case *ast.JoinNode:
+		return n.Name != "" || n.NameSpan.Len > 0
+	case *ast.MergeNode:
+		return n.Name != "" || n.NameSpan.Len > 0
+	case *ast.DecisionNode:
+		return n.Name != "" || n.NameSpan.Len > 0
+	case *ast.Usage:
+		name, span := ast.EffectiveName(n)
+		return name != "" || span.Len > 0
+	}
+	return getNodeName(node) != ""
 }
 
 // getNodeName extracts the name from a node.

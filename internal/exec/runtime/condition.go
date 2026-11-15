@@ -105,7 +105,7 @@ func (c Condition) Label() string { return conditionLabel(c) }
 // inherited one came from), or nil; a body-local or anonymous scope is skipped.
 func (c Condition) Owner() *symbols.Symbol {
 	for s := c.Scope; s != nil; s = s.Parent() {
-		if owner := s.Owner(); owner != nil && owner.Name != "" {
+		if owner := s.Owner(); owner != nil && owner.Named() {
 			return owner
 		}
 	}
@@ -175,7 +175,7 @@ func (ctx *Context) appendMemberConditions(out []Condition, sym *symbols.Symbol,
 	var stepScope *symbols.Scope
 	var stepNode ast.Node
 	for _, member := range members {
-		if owner := ctx.conditionOwnerOf(member); owner != nil && owner != sym && owner.Name != "" {
+		if owner := ctx.conditionOwnerOf(member); owner != nil && owner != sym && owner.Named() {
 			if effective == nil {
 				effective = ctx.effectiveMembers(sym)
 			}
@@ -1384,7 +1384,7 @@ func (ctx *Context) carrierLabels(carriers []carrier) []string {
 	for _, c := range carriers {
 		inst := c.instance
 		name := "object"
-		if def := ctx.definitionOf(inst.Type); def != nil && def.Name != "" {
+		if def := ctx.definitionOf(inst.Type); def != nil && def.Named() {
 			name = def.Name
 		}
 		label := fmt.Sprintf("%s #%d", name, inst.ID)

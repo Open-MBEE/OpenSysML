@@ -183,7 +183,7 @@ func usageName(scope *symbols.Scope, u *ast.Usage) string {
 	if u.Ident.Name != "" {
 		return u.Ident.Name
 	}
-	if sym := scope.MemberDeclaring(u); sym != nil && sym.Name != "" {
+	if sym := scope.MemberDeclaring(u); sym != nil && sym.Named() {
 		return sym.Name
 	}
 	for _, rel := range u.Relationships {

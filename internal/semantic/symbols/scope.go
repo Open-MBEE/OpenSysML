@@ -160,12 +160,17 @@ func (s *Scope) loadChildIndex() *map[ast.Node]*Scope {
 	return &built
 }
 
-// Define registers sym under the given name key. Multiple symbols may share a
-// key (duplicate declarations); all are retained in definition order.
+// Define registers sym under the given name key, or not at all when the key is empty. Symbols
+// sharing a key (duplicate declarations) are all retained in definition order.
 func (s *Scope) Define(name string, sym *Symbol) {
 	if name == "" {
 		return
 	}
+	s.define(name, sym)
+}
+
+// define registers sym under name, which is the empty name when it is empty.
+func (s *Scope) define(name string, sym *Symbol) {
 	s.names = append(s.names, name)
 	s.syms = append(s.syms, sym)
 	s.members = append(s.members, sym)
