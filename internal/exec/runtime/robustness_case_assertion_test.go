@@ -179,6 +179,33 @@ func TestRuntimeRobustnessCaseAssertion(t *testing.T) {
 			t.Fatalf("late = %v (%q), want not satisfied: its binding of 3 masks the default of 5", got.Status, got.Detail)
 		}
 	}))
+	t.Run("parameter_masks_the_same_named_case_feature", inParallel(func(t *testing.T) {
+		verdicts, err := caseAssertionVerdicts(t, `package test {
+			private import ScalarValues::*;
+			constraint def Own { in x : Integer default = 9; x > 4 }
+			constraint def Chained { in x : Integer default = 9; in y : Integer default = x; y > 4 }
+			analysis seq {
+				attribute x : Integer := 0;
+				action fill { assign x := 1; }
+				then assert constraint own : Own;
+				then assert constraint chained : Chained;
+				then assert constraint given : Chained { in x = 7; }
+				then assert constraint outer : Own { in x = x; }
+				return r : Integer = x;
+			}
+		}`, "test::seq")
+		if err != nil {
+			t.Fatalf("run failed: %v", err)
+		}
+		for _, name := range []string{"own", "chained", "given"} {
+			if got := verdicts[name]; got.Status != VerdictSatisfied {
+				t.Errorf("%s = %v (%q), want satisfied: its x is the constraint's parameter, not the case's x of 1", name, got.Status, got.Detail)
+			}
+		}
+		if got := verdicts["outer"]; got.Status != VerdictNotSatisfied {
+			t.Errorf("outer = %v (%q), want not satisfied: its argument reads the case's x of 1", got.Status, got.Detail)
+		}
+	}))
 	t.Run("assertion_without_a_condition_is_reported_undecided", inParallel(func(t *testing.T) {
 		verdicts, err := caseAssertionVerdicts(t, `package test {
 			private import ScalarValues::*;
