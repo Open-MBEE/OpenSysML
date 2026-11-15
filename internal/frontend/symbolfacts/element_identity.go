@@ -232,7 +232,7 @@ func (sc *Context) generatedSpells(identity string, sym *symbols.Symbol) bool {
 	}
 	other := func(found *symbols.Symbol) bool { return found != sym }
 	if sc.elementForm() == nil {
-		return slices.ContainsFunc(sc.composedEnds(identity), other)
+		return slices.ContainsFunc(sc.composedEnds(identity), other) || slices.ContainsFunc(sc.escapedRoots(identity), other)
 	}
 	return slices.ContainsFunc(sc.formElements(identity), other)
 }
@@ -249,7 +249,8 @@ func (sc *Context) escapedID(sym *symbols.Symbol, identity string) string {
 // escapedRoots are the root declarations escapedID reports under id on a host converting no form.
 func (sc *Context) escapedRoots(id string) []*symbols.Symbol {
 	name, ok := rdf.DecodeElementID(id)
-	if !ok || sc.elementForm() != nil {
+	// Only an encoded id names another declaration; one that decodes to itself is no escape.
+	if !ok || name == id || sc.elementForm() != nil {
 		return nil
 	}
 	var found []*symbols.Symbol

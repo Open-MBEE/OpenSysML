@@ -117,3 +117,22 @@ connection A connect q to r; connection A_pend0 connect q to r;`)
 		}
 	}
 }
+
+// A root declaration spelled like another's escaped id is escaped in turn, so the two keep
+// ids of their own and each id finds its declaration.
+func TestEscapedRootIdsStayDistinct(t *testing.T) {
+	read := coreSymbolReader(t, `port def P; port q : P; port r : P; connection A connect q to r;
+package A_pend0 { part m; } package A_5fpend0 { part n; }`)
+	for _, tc := range []struct{ name, wantID, wantChild string }{
+		{"A_pend0", "A_5fpend0", "A_pend0::m"},
+		{"A_5fpend0", "A_5f5fpend0", "A_5fpend0::n"},
+	} {
+		id, _, errText := read(tc.name, "LOOKUP_KIND_QUALIFIED_NAME")
+		if id != tc.wantID {
+			t.Errorf("GetSymbol(%s, name) = id %q, error %q; want id %q", tc.name, id, errText, tc.wantID)
+		}
+		if got, children, errText := read(tc.wantID, "LOOKUP_KIND_ELEMENT_ID"); got != tc.wantID || len(children) != 1 || children[0] != tc.wantChild {
+			t.Errorf("GetSymbol(%s, element id) = id %q, children %v, error %q; want the package holding %s", tc.wantID, got, children, errText, tc.wantChild)
+		}
+	}
+}
