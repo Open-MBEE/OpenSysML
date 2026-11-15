@@ -196,7 +196,7 @@ func (r *Resolver) admitsUnderName(doc, from, fqn string, cand *symbols.Symbol) 
 	if !r.idx.ReexportVisible(doc, fqn, cand) {
 		return false
 	}
-	routed, admitted := r.idx.EachReexportGate(doc, fqn, cand, from, func(route []symbols.ElementFilter) bool {
+	routed, admitted := r.idx.EachReexportGate(doc, fqn, cand, from, r.excludedNamespaces(), func(route []symbols.ElementFilter) bool {
 		return r.admits(route, cand)
 	})
 	return !routed || admitted

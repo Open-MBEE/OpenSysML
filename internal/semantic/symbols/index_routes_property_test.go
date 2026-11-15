@@ -135,9 +135,10 @@ func TestReexportRoutesSurviveEditingDocuments(t *testing.T) {
 }
 
 // assertRoutesAreAnAntichain fails if a claim holds two routes of the same
-// visibility where one's conditions are a subset of the other's: the wider one
-// already admits everything the narrower does, so keeping both only costs work
-// and, on a cycle, never settles.
+// visibility where one's conditions are a subset of the other's and so are the
+// namespaces it came through: the wider one already admits everything the
+// narrower does wherever the narrower continues, so keeping both only costs
+// work and, on a cycle, never settles.
 func assertRoutesAreAnAntichain(t *testing.T, idx *Index, stage, src string) {
 	t.Helper()
 	for _, key := range idx.reexportDocs.keys() {
@@ -147,7 +148,7 @@ func assertRoutesAreAnAntichain(t *testing.T, idx *Index, stage, src string) {
 					if i == j || route.private != other.private {
 						continue
 					}
-					if filtersSubsume(other.filters, route.filters) {
+					if filtersSubsume(other.filters, route.filters) && viaWithin(other.via, route.via) {
 						t.Fatalf("%s: %s in %s is reached by both %v and the route %v it subsumes, on\n%s",
 							stage, key.fqn, doc, routeLabels([][]ElementFilter{other.filters}),
 							routeLabels([][]ElementFilter{route.filters}), src)

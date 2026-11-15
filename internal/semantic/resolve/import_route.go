@@ -52,6 +52,17 @@ func (r *Resolver) entersNamespace(scope *symbols.Scope) bool {
 	return true
 }
 
+// excludedNamespaces names the namespaces being read, as the index names them.
+func (r *Resolver) excludedNamespaces() []string {
+	var out []string
+	for _, scope := range r.importPath {
+		if fqn := r.namespaceFQNOf(scope); fqn != "" {
+			out = append(out, fqn)
+		}
+	}
+	return out
+}
+
 // markRoute starts recording what the reads that follow depend on; each mark
 // is closed by one routeDepsSince.
 func (r *Resolver) markRoute() routeMark {
