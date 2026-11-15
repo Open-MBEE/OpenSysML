@@ -108,6 +108,14 @@ func TestSubsetterDeclaredElsewhereIsHeld(t *testing.T) {
 			part def Bag { attribute poses : Pose[*]; attribute np : Integer = size(poses); }
 			part bag : Bag;
 			attribute home : Pose :> bag.poses;`, "test::bag", "np", "1"},
+		{"optional namespace usage contributes the object it is bound to", `
+			part def Sub;
+			part def Rig { part subs : Sub[*]; attribute n : Integer = size(subs); }
+			part rig : Rig;
+			part x1 : Sub;
+			part opt : Sub[0..1] :> rig.subs;
+			bind opt = x1;
+			part none : Sub[0..1] :> rig.subs;`, "test::rig", "n", "1"},
 		{"valueless namespace attribute contributes nothing", `
 			part def Bag { attribute vals : Integer[*]; }
 			part bag : Bag;

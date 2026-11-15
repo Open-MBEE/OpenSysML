@@ -337,10 +337,10 @@ func (ctx *Context) namespaceRootUsages(root *Instance) map[*symbols.Symbol][]re
 	return out
 }
 
-// namespaceUsageDenotes reports whether the run denotes objects of the namespace usage top,
-// rather than a value or nothing.
+// namespaceUsageDenotes reports whether the namespace usage top stands for objects — those
+// the run denotes for it or a binding gives it, possibly none — rather than for a value.
 func (ctx *Context) namespaceUsageDenotes(top *symbols.Symbol) bool {
-	return ctx.namesOneObject(top) || ctx.namesObjects(top) || namespaceObjectUsage(top)
+	return objectFeature(top) || ctx.namesOneObject(top)
 }
 
 // namespaceUsageValues returns what a usage declared directly in a namespace contributes to
