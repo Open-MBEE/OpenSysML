@@ -12,7 +12,7 @@ const msgSubsettingFeaturingTypes = "Must be an accessible feature (use dot nota
 // checkSubsettingFeaturingTypes implements KerML validateSubsettingFeaturingTypes:
 // a subsetted feature that is featured within some type must be accessible from
 // the subsetting feature's featuring context. A redefinition is reported by
-// checkRedefinition (checkPackageLevelRedefinition), so only `:>` is checked here.
+// checkRedefinition, so only `:>` is checked here.
 func (cc *constraintChecker) checkSubsettingFeaturingTypes(sym *symbols.Symbol) {
 	if sym == nil {
 		return

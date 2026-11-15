@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 349,
-        "digest": "sha256:070219a432a6b326c1e418623b21d9ee35b7731e340489566922e39564263384"
+        "files": 350,
+        "digest": "sha256:e34ae6b85ba756fd6a42e7bd3b12d551ab6a779e69ca3c338082c1c77189d8f7"
       }
     ],
-    "recorded": "2026-11-14"
+    "recorded": "2026-11-15"
   },
   "totals": {
-    "cases": 349,
-    "bothReject": 339,
+    "cases": 350,
+    "bothReject": 340,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 10,
     "bothAccept": 0
@@ -66,8 +66,8 @@
     },
     {
       "source": "semantic",
-      "cases": 187,
-      "bothReject": 177,
+      "cases": 188,
+      "bothReject": 178,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 10,
       "bothAccept": 0
@@ -2072,6 +2072,15 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/k79-redefines-inherited-feature-from-nested-classifier.kerml",
+      "source": "semantic",
+      "rule": "a classifier nested in a type is not featured by it, so a feature of the nested classifier cannot access, and so cannot redefine, a feature the enclosing type inherits (KerML 8.3.3.3.10 validateSubsettingFeaturingTypes; pilot validateSubsettingFeaturingTypes).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
       "path": "semantic/s01-action-typed-by-part-def.sysml",
       "source": "semantic",
       "rule": "An action must be typed by action definitions (SysML 7.16 Actions; pilot validateActionUsageType).",
@@ -3387,8 +3396,8 @@
       }
     ],
     "totals": {
-      "cases": 349,
-      "bothReject": 339,
+      "cases": 350,
+      "bothReject": 340,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 10,
       "bothAccept": 0
