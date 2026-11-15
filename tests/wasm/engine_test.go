@@ -308,6 +308,28 @@ func nodeRun(t *testing.T, script string, args ...string) result {
 // modelHash alone: the engine deliberately reports the syntax diagnostics only
 // and no roots, where the service reports the analyzed diagnostics and the root
 // symbols.
+// wantSpeedAnswer fails unless body is Evaluate's answer for enginedemo::speed, the quantity 5 m/s:
+// two transports agreeing on an error agree as well, so parity alone does not show the value.
+func wantSpeedAnswer(t *testing.T, body []byte) {
+	t.Helper()
+	var answer struct {
+		Error  string `json:"error"`
+		Result struct {
+			Quantity *struct {
+				RealMagnitude float64 `json:"realMagnitude"`
+				Unit          string  `json:"unit"`
+			} `json:"quantity"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(body, &answer); err != nil {
+		t.Fatalf("decoding the answer for enginedemo::speed: %v\n%s", err, body)
+	}
+	q := answer.Result.Quantity
+	if answer.Error != "" || q == nil || q.RealMagnitude != 5 || q.Unit != "SI::'m/s'" {
+		t.Errorf("enginedemo::speed answered %s, want the quantity 5 [SI::'m/s']", body)
+	}
+}
+
 func TestEngineWireParity(t *testing.T) {
 	ctx := context.Background()
 	svc, err := sysmlgrpc.NewService(4, "parity")
@@ -367,6 +389,9 @@ func TestEngineWireParity(t *testing.T) {
 			t.Fatalf("grpc Evaluate %q: %v", expression, err)
 		}
 		equal("Evaluate", params, mustMarshal(t, res))
+		if expression == "enginedemo::speed" {
+			wantSpeedAnswer(t, mustMarshal(t, res))
+		}
 		if expression == "(1, 2, 3)" {
 			// Equal answers would also match on a shared parse error: the case
 			// must exercise a real sequence, so check what the engine returned.
