@@ -1,0 +1,9 @@
+{
+  "rpc": "RenderView",
+  "model": "render_view_form.sysml",
+  "view": "FormDemo::structure",
+  "form": "dot",
+  "palette": "neon",
+  "expected_error": "unknown palette \"neon\"",
+  "expected_error_code": "invalid_argument"
+}

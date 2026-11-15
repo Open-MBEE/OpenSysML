@@ -1,0 +1,16 @@
+{
+  "rpc": "RenderView",
+  "model": "render_view_form.sysml",
+  "view": "FormDemo::structure",
+  "form": "text",
+  "expected_text": "FormDemo::structure - tree rendering (render asTreeDiagram)\n\npart def Vehicle\n  part wheel\npart def Wheel\n\nrelationships:\n  Vehicle *-- wheel\n  wheel --:|> Wheel\n",
+  "expected_node_names": [
+    "FormDemo::Vehicle",
+    "wheel",
+    "FormDemo::Wheel"
+  ],
+  "expected_edge_labels": [
+    "",
+    ""
+  ]
+}

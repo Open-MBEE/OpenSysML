@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -178,7 +180,7 @@ func arithmeticForm(op ast.OperatorKind, domain operandDomain) libraryApply {
 		if len(args) == 2 {
 			y = args[1]
 		}
-		val, err := ctx.arithmeticValues(op, args[0], y, source.Span{})
+		val, err := ctx.arithmeticValues(lower.OperatorOf(op), args[0], y, source.Span{})
 		return operatorResult(name, val, err)
 	}
 }
@@ -191,7 +193,7 @@ func naturalDivision(name string, ctx *Context, args []Value) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	if err := definiteArithmeticError(ast.OpDiv, args[0], args[1]); err != nil {
+	if err := definiteArithmeticError(program.OpDiv, args[0], args[1]); err != nil {
 		return operatorResult(name, Value{}, err)
 	}
 	if _, open := undeterminedIn(args...); open {
@@ -220,7 +222,7 @@ func comparisonForm(op ast.OperatorKind, domain operandDomain) libraryApply {
 		if err != nil {
 			return Value{}, err
 		}
-		val, err := ctx.comparisonValues(op, args[0], args[1], source.Span{})
+		val, err := ctx.comparisonValues(lower.OperatorOf(op), args[0], args[1], source.Span{})
 		return operatorResult(name, val, err)
 	}
 }
@@ -241,7 +243,7 @@ func booleanForm(op ast.OperatorKind, domain operandDomain) libraryApply {
 		if err != nil {
 			return Value{}, err
 		}
-		return combineBooleans(op, l, r)
+		return combineBooleans(lower.OperatorOf(op), l, r)
 	}
 }
 
@@ -252,7 +254,7 @@ func unaryForm(op ast.OperatorKind, domain operandDomain) libraryApply {
 		if err != nil {
 			return Value{}, err
 		}
-		val, err := ctx.unaryValue(op, args[0])
+		val, err := ctx.unaryValue(lower.OperatorOf(op), args[0])
 		return operatorResult(name, val, err)
 	}
 }
@@ -265,7 +267,7 @@ func equalityForm(op ast.OperatorKind, domain operandDomain) libraryApply {
 		if err != nil {
 			return Value{}, err
 		}
-		val, err := ctx.equalityValues(op, args[0], args[1])
+		val, err := ctx.equalityValues(lower.OperatorOf(op), args[0], args[1])
 		return operatorResult(name, val, err)
 	}
 }
@@ -310,7 +312,7 @@ func genericExtremum(larger bool) libraryApply {
 			isNumberOrUnbounded(x) && isNumberOrUnbounded(y):
 			// Strings, quantities, and a number beside the unbounded `*` are
 			// picked by the ordering alone.
-			less, err := ctx.comparisonValues(ast.OpLt, x, y, source.Span{})
+			less, err := ctx.comparisonValues(program.OpLt, x, y, source.Span{})
 			if err != nil {
 				return Value{}, fmt.Errorf("function %s: %w", name, err)
 			}

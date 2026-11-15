@@ -517,6 +517,7 @@ impl Runner {
         };
         let options = SymbolOptions {
             include_library_members: bool_field(request, "include_library_members"),
+            by_reported_id: !bool_field(request, "resolve_name"),
         };
         match self
             .model_for(&hash, model)

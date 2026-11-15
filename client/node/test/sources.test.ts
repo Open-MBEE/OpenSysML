@@ -94,6 +94,7 @@ function recordingParseSources(): {
           attributes: [],
           specializations: [],
           members: [],
+          annotatingMetadataIds: [],
         })),
         diagnostics: [],
         error: "",

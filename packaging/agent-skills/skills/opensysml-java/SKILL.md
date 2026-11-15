@@ -101,7 +101,10 @@ model.instancePaths(engine);      // InstancePaths: every root-relative path, al
 `members()` is empty from a service without `symbol_members` (`childIds()` still names the owned
 ones); library members, `elementProperties` and `instancePaths` are refused with
 `CapabilityException` before the call when the service lacks `symbol_members`,
-`element_properties` or `instance_paths`.
+`element_properties` or `instance_paths`. `annotatingMetadataIds()` names the metadata usages
+annotating a symbol (`#M`, `@M` in its body, and `metadata m : M about X;` written elsewhere, which
+`childIds()` leaves out); look each up with `model.symbol(id)`. Empty without
+`symbol_annotating_metadata`.
 
 ## Verify
 

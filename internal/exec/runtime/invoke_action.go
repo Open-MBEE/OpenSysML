@@ -203,7 +203,7 @@ func invocationArguments(
 			errReceiverWithNamedArgs, inv.name(),
 		)
 	}
-	written := writtenArguments(inv.args, inv.named)
+	written := writtenArguments(ec.operandsIn(inv.args, inv.named))
 	if sym == nil {
 		if sym, err = settleAction(ec, inv, tied, written); err != nil {
 			return nil, nil, err
