@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // The imported memberships of a namespace are computed with the namespaces
@@ -50,6 +51,16 @@ func (r *Resolver) entersNamespace(scope *symbols.Scope) bool {
 	}
 	r.importSeen = append(r.importSeen, scope)
 	return true
+}
+
+// freshImportRoute runs f as the read of a namespace in its own right: no
+// namespace is excluded and no import is in progress, whatever route asked.
+// The caller guards against asking again for what it is computing.
+func (r *Resolver) freshImportRoute(f func()) {
+	stack := r.importStack
+	r.importStack = map[*ast.Import]bool{}
+	defer func() { r.importStack = stack }()
+	r.freshImportVisits(f)
 }
 
 // excludedNamespaces names the namespaces being read, as the index names them.

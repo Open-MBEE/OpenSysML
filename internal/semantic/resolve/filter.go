@@ -518,8 +518,12 @@ func (r *Resolver) edgeMembers(scope *symbols.Scope, childImp *ast.Import, inclu
 	})
 	delete(r.importStack, childImp)
 	route := r.routeDepsSince(mark, scope)
+	// An answer cut at an import in progress is this read's alone.
+	if r.enumCut != cut {
+		return members
+	}
 	r.enumMembers[edge] = append(r.enumMembers[edge], keptMembers{members: members, route: route})
-	if r.enumCut == cut && len(route.cut) == 0 && len(r.resolvingImports) == 0 && r.inCondition == 0 && r.settled() {
+	if len(route.cut) == 0 && len(r.resolvingImports) == 0 && r.inCondition == 0 && r.settled() {
 		journalNew(r, r.enumKept, edge, childImp)
 		r.enumKept[edge] = keptMembers{members: members, reads: reads, route: route}
 	}
