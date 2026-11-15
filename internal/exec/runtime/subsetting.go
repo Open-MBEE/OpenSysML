@@ -1319,7 +1319,7 @@ func (d *witnessDraw) narrow() {
 	for _, els := range d.within {
 		d.chosen = d.ctx.valuesAlsoIn(d.chosen, els)
 		if !d.pooled {
-			d.pool, d.pooled = slices.Clone(els), true
+			d.pool, d.pooled = d.ctx.poolValues(els, d.fv.Feature.Unique), true
 			continue
 		}
 		d.pool = d.ctx.valuesAlsoIn(d.pool, els)
