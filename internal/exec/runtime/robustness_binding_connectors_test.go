@@ -283,9 +283,8 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 		}
 	})
 
-	// An end's multiplicity is how many of its values each value of the other end is linked to
-	// (KerML 1.1 §7.4.5.2, §8.4.4.5.1), and a binding links a value to itself alone: ends requiring
-	// two or more are a multiplicity violation over any value — whichever end is read, whatever the features admit.
+	// An end's multiplicity counts its values linked per value of the other end (KerML 1.1 §7.4.5.2),
+	// and a binding links a value to itself alone: ends requiring two or more are a multiplicity violation.
 	t.Run("under_lower_bound", func(t *testing.T) {
 		for name, c := range map[string]struct{ ends, same string }{
 			"exact":  {"[2]", "[0..2]"},
@@ -358,9 +357,8 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 		}
 	})
 
-	// A connector declaring one link is not met by two optional features holding none: the
-	// binding links nothing, a multiplicity violation rather than an unknown value or a
-	// cycle. Once anything values the features — a default, another binding — it is whole.
+	// A connector declaring one link is not met by two optional features holding none, a multiplicity
+	// violation rather than an unknown value or a cycle; once anything values them it is whole.
 	t.Run("empty_required_ends", func(t *testing.T) {
 		idx, _, ctx := buildRuntime(t, "<binding-empty-required-ends>", parseAndBuild(t, `package P {
 			part def Empty {

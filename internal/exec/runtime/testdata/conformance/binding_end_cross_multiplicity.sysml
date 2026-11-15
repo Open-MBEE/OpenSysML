@@ -1,8 +1,5 @@
-// A binding end's multiplicity is a cross multiplicity: how many of that end's values each value
-// of the other end is linked to (KerML 1.1 §7.4.5.2, §8.4.4.5.1, §8.4.4.6.1), a value being linked
-// to itself alone (§7.4.6.1). `[1]` ends make the ends hold the same values however many there
-// are, so the valueless `mirror` holds `source`'s two; a `[1]` end opposite a `[0..1]` one makes
-// the optional end's values a part of the required end's, so `some` in `whole` holds.
+// An end's multiplicity counts its values linked per value of the other end (KerML 1.1 §7.4.5.2, §8.4.4.6.1):
+// `[1]` ends hold the same values, and a `[1]` end opposite a `[0..1]` one holds the optional end's values.
 package test {
     private import ScalarValues::*;
     part def Values {

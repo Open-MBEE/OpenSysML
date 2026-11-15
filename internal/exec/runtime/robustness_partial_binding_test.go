@@ -236,9 +236,8 @@ func testWholeBindingOfUnlikeTypesIsATypedError(t *testing.T) {
 	}
 }
 
-// A stated link count is a count of shared values, a repeated value counted as often as both
-// ends hold it: two empty ends share none under `binding [1]`, `(1, 1, 2)` and `(1, 1, 3)` share
-// two, `(1, 1, 2)` and `(1, 3, 4)` one, and an end reaching no object none; `binding [0]` states nothing.
+// A stated link count counts shared values, a repeated one as often as both ends hold it: empty ends
+// or an end reaching no object share none under `binding [1]`; `binding [0]` states nothing.
 func testPartialBindingVerdictEdges(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<partial-binding-verdict-edges>", parseAndBuild(t, `package P {
 		private import ScalarValues::*;

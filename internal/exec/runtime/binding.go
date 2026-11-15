@@ -709,9 +709,8 @@ func (ctx *Context) sharedValues(a, b Value) int64 {
 	return shared
 }
 
-// partialBinding reports a binding not determining the target whole: ends whose cross multiplicity
-// is optional (KerML 1.1 §7.4.5.2, §8.4.4.5.1), a connector declaring fewer links (`binding [1]`)
-// than an end's feature holds, or one reaching the target across a collection.
+// partialBinding reports a binding not determining the target whole: optional cross multiplicities
+// (KerML 1.1 §7.4.5.2), fewer links declared than an end holds, or a target across a collection.
 func (ctx *Context) partialBinding(owner, targetInst *Instance, target *FeatureValue,
 	binding lower.Binding, key featureValueRef) (partial bool, err error) {
 	defer ctx.claimBinding(key, binding.Origin)()
@@ -748,9 +747,8 @@ func (ctx *Context) partialBinding(owner, targetInst *Instance, target *FeatureV
 	if optional && !(linksOK && requiresLink(links)) {
 		return true, nil
 	}
-	// Ends stating nothing are determined short of a connector declaring fewer links than they
-	// hold; optional ends only where the links required leave no value of either unlinked, which
-	// an end's own upper bound, at most one link a value, never widens.
+	// Ends stating nothing are whole unless the connector declares fewer links than they hold;
+	// optional ends only where the links required leave no value of either unlinked.
 	if !optional && (!linksOK || !links.Upper.Known || links.Upper.Infinite) {
 		return false, nil
 	}

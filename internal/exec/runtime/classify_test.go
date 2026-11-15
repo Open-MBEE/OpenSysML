@@ -932,9 +932,8 @@ func TestChainValueCollectsAcrossTheCollection(t *testing.T) {
 	}
 }
 
-// A binding end whose path crosses a collection reaches that feature on every object of it, in
-// order: the end holds their values together, and a value the other end holds on its own
-// determines none of the objects' parts (KerML 1.1 §7.3.4.6, §7.4.6).
+// A binding end whose path crosses a collection holds that feature's values on every object of it,
+// in order; a value the other end holds determines none of their parts (KerML 1.1 §7.3.4.6, §7.4.6).
 func TestBindingEndAcrossACollection(t *testing.T) {
 	// shelf fills the definition; usage redefines its features on the instance.
 	instance := func(shelf, usage string) string {
@@ -1060,9 +1059,8 @@ func TestBindingEndAcrossACollection(t *testing.T) {
 		}
 	})
 
-	// An end's multiplicity is a cross multiplicity, how many of its values each value of the other
-	// end is linked to (KerML 1.1 §7.4.5.2, §8.4.4.5.1): optional ends with no links declared
-	// determine nothing, and no binding links a value to more than itself.
+	// An end's multiplicity counts its values linked per value of the other end (KerML 1.1 §7.4.5.2):
+	// optional ends with no links declared determine nothing, and no value links to more than itself.
 	t.Run("optional_ends_determine_nothing", func(t *testing.T) {
 		ctx, idx := libraryShapeContext(t, model("bind [0..*] groups.items = [0..*] allItems; bind [0..*] groups.weights = [0..*] allWeights;"))
 		shelf := instantiateQualified(t, ctx, idx, "test::shelf")
