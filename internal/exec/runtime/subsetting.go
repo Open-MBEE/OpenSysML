@@ -1299,9 +1299,9 @@ func (d *witnessDraw) typed(candidates []Value) ([]Value, error) {
 	kept := candidates[:0:0]
 	for _, v := range candidates {
 		admits := v.Kind == ValInstance
-		if d.composite == nil {
+		if d.composite == nil || (!admits && d.ctx.model.semantics.IsDataType(d.composite)) {
 			var err error
-			if admits, err = d.ctx.poolAdmits(d.inst, d.fv, nil, v); err != nil {
+			if admits, err = d.ctx.poolAdmits(d.inst, d.fv, d.composite, v); err != nil {
 				return nil, err
 			}
 		}
@@ -1325,7 +1325,7 @@ func (d *witnessDraw) pooledOccurrences(v Value) int {
 }
 
 // drawBindingWitnesses draws from the other end of binding, when it constrains path at
-// current, as many of that end's values as the binding links.
+// current, as many of that end's values as the binding links: all where an end requires a link.
 func (ctx *Context) drawBindingWitnesses(draw *witnessDraw, inst, current *Instance, binding lower.Binding, path string) error {
 	end := bindingEndForPath(binding, path)
 	if end < 0 {
@@ -1365,6 +1365,12 @@ func (ctx *Context) drawBindingWitnesses(draw *witnessDraw, inst, current *Insta
 		return err
 	}
 	links, _ := ctx.bindingLinks(binding)
+	// An end requiring a link has the two ends' values among one another's, so all are candidates.
+	for e := range binding.Ends {
+		if cross, stated := ctx.endCross(binding, e); stated && requiresLink(cross) {
+			links = max(links, int64(len(candidates)))
+		}
+	}
 	draw.pick(candidates, links)
 	return nil
 }

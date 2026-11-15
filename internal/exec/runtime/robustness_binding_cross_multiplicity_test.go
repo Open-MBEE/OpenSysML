@@ -6,16 +6,14 @@ import (
 	"testing"
 )
 
-// TestRuntimeRobustnessBindingCrossMultiplicity covers a binding end's multiplicity read as the
-// cross multiplicity it is — how many of that end's values each value of the other end is linked
-// to (KerML 1.1 §7.4.5.2, §8.4.4.5.1, §8.4.4.6.1), a value being linked to itself alone
-// (§7.4.6.1) — over ends holding unlike numbers of values, none, or no object: a value, a
-// verdict or a typed error, never a panic or a hang.
+// TestRuntimeRobustnessBindingCrossMultiplicity covers a binding end's multiplicity as the cross multiplicity
+// of KerML 1.1 §7.4.5.2, §8.4.4.6.1 over unlike, empty and absent ends: a value, a verdict or a typed error.
 func TestRuntimeRobustnessBindingCrossMultiplicity(t *testing.T) {
 	t.Run("required_ends_hold_the_same_values_whatever_their_number", testCrossRequiredEndsWhole)
 	t.Run("verdict_follows_the_required_end", testCrossVerdictFollowsRequiredEnd)
 	t.Run("end_reaching_no_object", testCrossEndReachingNoObject)
 	t.Run("no_value_is_linked_to_several", testCrossUnlinkableEnd)
+	t.Run("subsetter_draws_what_a_required_end_links", testCrossSubsetterDraws)
 }
 
 func crossRig(t *testing.T, body string) (*Context, *Instance) {
@@ -45,9 +43,8 @@ func crossVerdicts(t *testing.T, ctx *Context, inst *Instance) map[string]Object
 	return verdicts
 }
 
-// `[1]` ends link every value of each end to one of the other's, itself, so the ends hold the
-// same values: a valueless end takes the other's, in either reading order, and is not refused
-// for holding more values than the `1` its end states.
+// `[1]` ends link every value of each end to itself among the other's, so the ends hold the same
+// values: a valueless end takes the other's, in either reading order, whatever their number.
 func testCrossRequiredEndsWhole(t *testing.T) {
 	for _, order := range [][]string{{"ys", "xs"}, {"xs", "ys"}} {
 		ctx, inst := crossRig(t, `attribute xs : Integer [3] = (1, 2, 3);
@@ -101,9 +98,8 @@ func testCrossVerdictFollowsRequiredEnd(t *testing.T) {
 	}
 }
 
-// Over an end reaching no object there is nothing to link: a binding requiring no link states
-// nothing and leaves the other end unread, one whose connector or whose empty end requires a
-// link of a held value is violated.
+// Over an end reaching no object nothing is linked: a binding requiring no link states nothing and
+// leaves the other end unread; one whose connector or empty end requires a link is violated.
 func testCrossEndReachingNoObject(t *testing.T) {
 	ctx, inst := crossRig(t, `part hubs : Hub [0..*];
 		attribute mine : Integer [1] = 1;
@@ -131,9 +127,8 @@ func testCrossEndReachingNoObject(t *testing.T) {
 	}
 }
 
-// A binding links a value to itself alone, so an end requiring two or more of its values per value
-// of the other is a typed multiplicity violation where it would determine a value and a violated
-// verdict where it only constrains; over an other end holding nothing it is met.
+// A binding links a value to itself alone, so an end requiring two or more per value of the other is a
+// multiplicity violation where it determines a value, a violated verdict where it constrains, met over none.
 func testCrossUnlinkableEnd(t *testing.T) {
 	ctx, inst := crossRig(t, `attribute xs : Integer [2] = (1, 2);
 		attribute ys : Integer [2];
@@ -153,5 +148,28 @@ func testCrossUnlinkableEnd(t *testing.T) {
 	}
 	if v := verdicts["bind [2] xs = [0..1] none"]; v.Status != ValidationHolds {
 		t.Errorf("verdict = %s (%v), want holds: none holds no value to link", v.Status, v.Err)
+	}
+}
+
+// A subsetter under a binding with a required end draws every value that end links, not one:
+// the values the runtime chooses for it satisfy the binding, whichever end requires the link.
+func testCrossSubsetterDraws(t *testing.T) {
+	for _, bound := range []string{"bind [1] picked = [0..1] wanted;", "bind [0..1] picked = [1] wanted;"} {
+		ctx, inst := crossRig(t, `attribute pool : Integer [3] = (1, 2, 3);
+			attribute picked : Integer [2] :> pool;
+			attribute wanted : Integer [2] = (2, 3);
+			`+bound)
+		fv, err := inst.GetFeatureValue(ctx, "picked")
+		if err != nil {
+			t.Fatalf("%s: picked: %v", bound, err)
+		}
+		if got := FormatValue(fv.HeldValue()); got != "[2, 3]" {
+			t.Fatalf("%s: picked = %s, want [2, 3]", bound, got)
+		}
+		for text, v := range crossVerdicts(t, ctx, inst) {
+			if v.Status != ValidationHolds {
+				t.Errorf("%s: %s is %v, want holds", bound, text, v.Status)
+			}
+		}
 	}
 }
