@@ -4,6 +4,8 @@
   "instantiate": "test::Probe",
   "slots": {
     "hardness": {"type": "Quantity", "value": 7, "unit": "mohs"},
+    "step": {"type": "Quantity", "value": 1, "unit": "mohs"},
+    "top": {"type": "Quantity", "value": 9, "unit": "mohs"},
     "sameHardness": {"type": "Boolean", "value": true},
     "harder": {"type": "Boolean", "value": true},
     "hardest": {"type": "Quantity", "value": 9, "unit": "mohs"},
@@ -40,6 +42,7 @@
     "crossCycle": {"error": "incommensurable units: cannot express h (3600·second) in '°' (0.01745329)"},
     "mixedCycles": {"type": "Boolean", "value": true},
     "level": {"type": "Quantity", "value": 30.0, "unit": "dBm"},
+    "quiet": {"type": "Quantity", "value": 20.0, "unit": "dBm"},
     "inWatts": {"type": "Quantity", "value": 1.0, "unit": "W"},
     "backOnScale": {"type": "Quantity", "value": 20.0, "unit": "dBm"},
     "levelAboveWatt": {"type": "Boolean", "value": false},

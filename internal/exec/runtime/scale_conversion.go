@@ -353,12 +353,23 @@ func (ctx *Context) fromLogarithm(q Quantity, scale *CoordinateFrame) (Quantity,
 		return Quantity{}, err
 	}
 	log := scale.Scale.Log
-	ratio := math.Pow(math.Pow(log.Base, q.Num.AsReal()/log.Factor), 1/log.Exponent)
+	ratio := math.Pow(log.Base, q.Num.AsReal()/log.Factor/log.Exponent)
 	num, err := semantics.RealResult(ref.Num.AsReal() * ratio)
 	if err != nil {
 		return Quantity{}, fmt.Errorf("%s as a quantity in %s: %w", q.String(), ref.Unit, err)
 	}
 	return Quantity{Num: num, Unit: ref.Unit}, nil
+}
+
+// logarithm is log_base(x), by the exact functions where the base has one.
+func logarithm(x, base float64) float64 {
+	switch base {
+	case 10:
+		return math.Log10(x)
+	case 2:
+		return math.Log2(x)
+	}
+	return math.Log(x) / math.Log(base)
 }
 
 // toLogarithm is a quantity's value on a logarithmic scale:
@@ -378,7 +389,7 @@ func (ctx *Context) toLogarithm(q Quantity, scale *CoordinateFrame) (Quantity, e
 		return Quantity{}, fmt.Errorf("%w: %s has no value on %s: (x / %s) ** %g is %g, which has no logarithm",
 			semantics.ErrArithmeticDomain, q.String(), ctx.describeScale(scale), ref.String(), log.Exponent, power)
 	}
-	num, err := semantics.RealResult(log.Factor * math.Log(power) / math.Log(log.Base))
+	num, err := semantics.RealResult(log.Factor * logarithm(power, log.Base))
 	if err != nil {
 		return Quantity{}, err
 	}

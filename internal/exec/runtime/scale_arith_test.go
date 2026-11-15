@@ -403,7 +403,8 @@ const scaleKindsModel = `package test {
 	attribute course : CyclicRatioScale { :>> unit = '°'; :>> modulus = 360.0; }
 	attribute dBm : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = 10; :>> exponent = 1; :>> referenceQuantity = 0.001 [W]; }
 	attribute field : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = 10; :>> exponent = 2; :>> referenceQuantity = 1.0 [V]; }
-	attribute headings : Set { :>> elements = (450 [bearing], 90 [bearing], -270 [bearing], 91 [bearing]); }
+	attribute acidity : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = -1; :>> exponent = 1; :>> referenceQuantity = 1.0 [mol/L]; }
+	attribute headings : Set { :>> elements = (450 [bearing], 90 [bearing], -270 [bearing], 91 [bearing], 360.1 [bearing], 0.1 [bearing], 90 ['°']); }
 	attribute levels : Set { :>> elements = (30.0 [dBm], 1.0 [W], 20.0 [dBm]); }
 }`
 
@@ -440,6 +441,11 @@ func TestCyclicRatioScaleValues(t *testing.T) {
 		"-60 [bearing] < 10 [bearing]":                         true,
 		"450 [bearing] == 90 ['°']":                            true,
 		"90 ['°'] == 450 [bearing]":                            true,
+		"360.1 [bearing] == 0.1 [bearing]":                     true,
+		"720.25 [bearing] == 0.25 ['°']":                       true,
+		"360.1 [bearing] > 0.1 [bearing]":                      false,
+		"headings.elements->includes(720.1 [bearing])":         true,
+		"headings.elements->includes(450 ['°'])":               false,
 		"450 [bearing] == 0":                                   false,
 		"720 [bearing] == 0":                                   true,
 		"0 == 720 [bearing]":                                   true,
@@ -453,8 +459,8 @@ func TestCyclicRatioScaleValues(t *testing.T) {
 			t.Errorf("%s = %v, %v; want %v", src, got, err, want)
 		}
 	}
-	if got, err := evalIn(t, ctx, scope, "headings.elements"); err != nil || len(got.Set().Elements()) != 2 {
-		t.Errorf("headings = %s, %v; want the two bearings that are not equivalent", FormatValue(got), err)
+	if got, err := evalIn(t, ctx, scope, "headings.elements"); err != nil || len(got.Set().Elements()) != 4 {
+		t.Errorf("headings = %s, %v; want one bearing per cycle class, apart from the angle in a unit", FormatValue(got), err)
 	}
 }
 
@@ -476,13 +482,17 @@ func TestLogarithmicScaleValues(t *testing.T) {
 		}
 	}
 	for src, want := range map[string]bool{
-		"30.0 [dBm] == 1.0 [W]":                 true,
-		"1.0 [W] == 30.0 [dBm]":                 true,
-		"20.0 [dBm] < 1.0 [W]":                  true,
-		"1.0 [W] > 20.0 [dBm]":                  true,
-		"20.0 [dBm] < 30.0 [dBm]":               true,
-		"levels.elements->includes(0.1 [W])":    true,
-		"levels.elements->includes(10.0 [dBm])": false,
+		"30.0 [dBm] == 1.0 [W]":   true,
+		"1.0 [W] == 30.0 [dBm]":   true,
+		"20.0 [dBm] < 1.0 [W]":    true,
+		"1.0 [W] > 20.0 [dBm]":    true,
+		"20.0 [dBm] < 30.0 [dBm]": true,
+		// A decreasing scale orders as its values do where it leads, as the quantities where a unit does.
+		"3.0 [acidity] < 7.0 [acidity]":                         true,
+		"3.0 [acidity] < ConvertQuantity(7.0 [acidity], mol/L)": true,
+		"ConvertQuantity(3.0 [acidity], mol/L) < 7.0 [acidity]": false,
+		"levels.elements->includes(0.1 [W])":                    true,
+		"levels.elements->includes(10.0 [dBm])":                 false,
 	} {
 		got, err := evalIn(t, ctx, scope, src)
 		if err != nil || got.Kind != ValConst || got.Const.Bool != want {

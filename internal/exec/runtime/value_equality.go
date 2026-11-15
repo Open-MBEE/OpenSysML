@@ -78,8 +78,13 @@ func (ctx *Context) valueKey(v Value) valueKey {
 	case ValQuantity:
 		if v.Quantity() != nil {
 			q := ctx.canonicalQuantity(*v.Quantity())
-			key.realVal = q.BaseMagnitude()
 			key.strVal = q.Unit.Term.DimensionKey()
+			if ctx.isCyclic(v.Quantity()) {
+				// Equivalent values share no one magnitude in binary64, so a cycle hashes by dimension.
+				key.strVal += "|cyclic"
+			} else {
+				key.realVal = q.BaseMagnitude()
+			}
 		}
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity:
 		key.colHash = ctx.structuredKey(v)

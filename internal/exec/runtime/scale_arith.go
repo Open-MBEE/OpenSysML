@@ -302,16 +302,19 @@ func (ctx *Context) alignForComparison(left, right Quantity) (l, r Quantity, cyc
 		return left, right, 0, nil
 	}
 	const what = "comparison with another reference"
-	left, lcycle, err := ctx.comparableOperand(what, left, lscale)
+	left, lcycle, err := ctx.comparableOperand(what, left, lscale, true)
 	if err != nil {
 		return Quantity{}, Quantity{}, 0, err
 	}
-	right, rcycle, err := ctx.comparableOperand(what, right, rscale)
+	right, rcycle, err := ctx.comparableOperand(what, right, rscale, false)
 	if err != nil {
 		return Quantity{}, Quantity{}, 0, err
 	}
 	unit := left.Unit
-	if _, affine, _ := ctx.pointOf(&left); affine {
+	if _, point, _ := ctx.pointOf(&left); point {
+		if rcycle != nil && !ctx.isIntervalScale(lscale) {
+			return Quantity{}, Quantity{}, 0, ctx.pointError(what, lscale, "a value on a cyclic ratio scale is equivalent over a cycle, which has no period on this scale; compare on the cyclic scale instead")
+		}
 		unit = lscale.Scale.Unit
 		right, err = ctx.onScale(right, lscale)
 	} else {
@@ -324,9 +327,9 @@ func (ctx *Context) alignForComparison(left, right Quantity) (l, r Quantity, cyc
 	return left, right, cycle, err
 }
 
-// comparableOperand is an operand as two references compare it: a cyclic value as its magnitude
-// and cycle, a logarithmic one as the quantity it stands for; an ordinal one is refused.
-func (ctx *Context) comparableOperand(what string, q Quantity, scale *CoordinateFrame) (Quantity, *Quantity, error) {
+// comparableOperand is an operand as two references compare it: a cyclic value as its magnitude and
+// cycle, a logarithmic one on its scale when leading, else as its quantity; an ordinal one is refused.
+func (ctx *Context) comparableOperand(what string, q Quantity, scale *CoordinateFrame, leading bool) (Quantity, *Quantity, error) {
 	if scale == nil {
 		return q, nil, nil
 	}
@@ -337,6 +340,9 @@ func (ctx *Context) comparableOperand(what string, q Quantity, scale *Coordinate
 		magnitude, err := ctx.ratioMagnitude(q, scale)
 		return magnitude, &Quantity{Num: semantics.Value{Kind: semantics.ValReal, Real: scale.Scale.Modulus}, Unit: scale.Scale.Unit}, err
 	case logarithmicScale:
+		if leading {
+			return q, nil, nil
+		}
 		magnitude, err := ctx.fromLogarithm(q, scale)
 		return magnitude, nil, err
 	}
@@ -390,7 +396,9 @@ func (ctx *Context) compareMagnitudes(left, right *Quantity) (int, error) {
 		return 0, err
 	}
 	if cycle != 0 && l.Num.IsNumeric() && r.Num.IsNumeric() {
-		if principalValue(l.Num.AsReal(), cycle) == principalValue(r.Num.AsReal(), cycle) {
+		// Equivalent values differ by whole cycles; the difference is the one `-` computes.
+		diff, err := semantics.MagnitudeArith(ast.OpSub, l.Num, r.Num, ctx.maxIntegerBits)
+		if err == nil && math.Remainder(diff.AsReal(), cycle) == 0 {
 			return 0, nil
 		}
 	}

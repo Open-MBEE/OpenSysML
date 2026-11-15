@@ -542,6 +542,10 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 			"ScalarQuantityValue", "ConvertQuantity(30.0 [decibel], W)", semantics.ErrArithmeticDomain, "its referenceQuantity 0.0 [W] is no divisor"},
 		{"logarithmic scale whose reference quantity is on the scale itself", `attribute decibel : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = 10; :>> exponent = 1; :>> referenceQuantity = 1 [decibel]; }`,
 			"Boolean", "1 [decibel] > 0", ErrCyclicFeatureValue, "coordinate frame decibel is defined in terms of itself"},
+		{"cyclic value compared on a logarithmic scale", `
+			attribute turn : CyclicRatioScale { :>> unit = '°'; :>> modulus = 360; }
+			attribute gain : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = 10; :>> exponent = 1; :>> referenceQuantity = 1.0 ['°']; }`,
+			"Boolean", "10.0 [gain] == 370 [turn]", errScalePoint, "comparison with another reference on a point of the logarithmic scale test::Holder::gain: a value on a cyclic ratio scale is equivalent over a cycle"},
 		{"logarithmic value too large to be a quantity", `attribute decibel : LogarithmicScale { :>> unit = W; :>> logarithmBase = 10; :>> factor = 1; :>> exponent = 1; :>> referenceQuantity = 1.0 [W]; }`,
 			"ScalarQuantityValue", "ConvertQuantity(400.0 [decibel], W)", semantics.ErrArithmeticOverflow, ""},
 	} {

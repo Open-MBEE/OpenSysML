@@ -38,14 +38,16 @@ package test {
 
 	part def Probe {
 		attribute hardness = 7 [mohs];
+		attribute step = 1 [mohs];
+		attribute top = 9 [mohs];
 		attribute sameHardness : Boolean = hardness == 7 [mohs];
 		attribute harder : Boolean = 9 [mohs] > hardness;
 		attribute hardest = max(hardness, 9 [mohs]);
 		attribute stillHardness = ConvertQuantity(hardness, mohs);
 		attribute scaledHardness = 2 * hardness;
-		attribute summedHardness = hardness + 1 [mohs];
+		attribute summedHardness = hardness + step;
 		attribute offsetHardness = hardness + 1 [one];
-		attribute hardnessSpread = 9 [mohs] - hardness;
+		attribute hardnessSpread = top - hardness;
 		attribute hardnessAsNumber = hardness == 7 [one];
 		attribute hardnessInUnit = ConvertQuantity(hardness, one);
 		attribute negatedHardness = -hardness;
@@ -76,6 +78,7 @@ package test {
 		attribute mixedCycles = ConvertQuantity(1 [h], hourOfDay) == 25 [hourOfDay];
 
 		attribute level = 30.0 [dBm];
+		attribute quiet = 20.0 [dBm];
 		attribute inWatts = ConvertQuantity(level, W);
 		attribute backOnScale = ConvertQuantity(0.1 [W], dBm);
 		attribute levelAboveWatt : Boolean = level > 1.0 [W];
@@ -84,7 +87,7 @@ package test {
 		attribute quieter : Boolean = 20.0 [dBm] < level;
 		attribute louder = level + 3.0 [W];
 		attribute doubledLevel = level * 2;
-		attribute levelSpread = level - 20.0 [dBm];
+		attribute levelSpread = level - quiet;
 		attribute noLevel = ConvertQuantity(-1.0 [W], dBm);
 		attribute unanchored = ConvertQuantity(3.0 [octave], one);
 	}

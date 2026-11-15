@@ -45,6 +45,12 @@ func (ctx *Context) canonicalCompare(a, b Value) int {
 		if c := strings.Compare(qa.Unit.Term.DimensionKey(), qb.Unit.Term.DimensionKey()); c != 0 {
 			return c
 		}
+		// A cyclic value is no member a magnitude in a unit is: it follows them, by its cycle class.
+		if ca, cb := ctx.isCyclic(a.Quantity()), ctx.isCyclic(b.Quantity()); ca != cb {
+			return compareBool(ca, cb)
+		} else if ca && ctx.sameMember(a.Quantity(), b.Quantity()) {
+			return 0
+		}
 		if c, err := semantics.CompareMagnitudes(qa, qb); err == nil {
 			return c
 		}
@@ -94,9 +100,24 @@ func (ctx *Context) canonicalQuantity(q Quantity) Quantity {
 	return q
 }
 
-// canonicalMagnitudes compares two quantities as their references measure them.
-func (ctx *Context) canonicalMagnitudes(a, b Quantity) (int, error) {
-	return semantics.CompareMagnitudes(ctx.canonicalQuantity(a), ctx.canonicalQuantity(b))
+// isCyclic reports a value on a cyclic ratio scale.
+func (ctx *Context) isCyclic(q *Quantity) bool {
+	scale, err := ctx.cyclicScaleOf(q)
+	return err == nil && scale != nil
+}
+
+// sameMember is the equality that has to hold or fail (a set member, a sequence element):
+// by reference, and for cyclic values as `==` judges two of them; never across the two.
+func (ctx *Context) sameMember(a, b *Quantity) bool {
+	ca, cb := ctx.isCyclic(a), ctx.isCyclic(b)
+	if ca != cb {
+		return false
+	}
+	c, err := semantics.CompareMagnitudes(ctx.canonicalQuantity(*a), ctx.canonicalQuantity(*b))
+	if ca {
+		c, err = ctx.compareMagnitudes(a, b)
+	}
+	return err == nil && c == 0
 }
 
 // canonicalRepresentative is the value valueEqual reads v as, so equal values

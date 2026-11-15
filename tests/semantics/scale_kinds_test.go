@@ -39,9 +39,8 @@ func scaleKindsFixture(t *testing.T) (*semantics.Model, *symbols.Index) {
 	return semantics.NewModel(resolve.New(idx)), idx
 }
 
-// TestScaleKindDimensions: a cyclic ratio scale's value is a magnitude of its unit's
-// dimension, an ordinal one a point, and a logarithmic one a point of the dimension
-// its referenceQuantity measures, unknown when the scale binds none.
+// TestScaleKindDimensions: a cyclic value is a magnitude, an ordinal one a point, and a
+// logarithmic one a point of its referenceQuantity's dimension, unknown when it binds none.
 func TestScaleKindDimensions(t *testing.T) {
 	m, idx := scaleKindsFixture(t)
 	scope := idx.DocumentRoot("q.sysml")

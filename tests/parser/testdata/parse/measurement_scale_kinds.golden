@@ -106,6 +106,16 @@
                 (LiteralInteger value="7")
                 (FeatureReference name="mohs"))))
           (Membership visibility="default"
+            (Usage kind="attribute" name="step" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (IndexExpr bracket=true
+                (LiteralInteger value="1")
+                (FeatureReference name="mohs"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="top" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (IndexExpr bracket=true
+                (LiteralInteger value="9")
+                (FeatureReference name="mohs"))))
+          (Membership visibility="default"
             (Usage kind="attribute" name="sameHardness" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
               (Relationship kind="typing" target=Boolean
                 (*ast.QualifiedName))
@@ -144,9 +154,7 @@
             (Usage kind="attribute" name="summedHardness" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
               (OperatorExpr operator="+"
                 (FeatureReference name="hardness")
-                (IndexExpr bracket=true
-                  (LiteralInteger value="1")
-                  (FeatureReference name="mohs")))))
+                (FeatureReference name="step"))))
           (Membership visibility="default"
             (Usage kind="attribute" name="offsetHardness" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
               (OperatorExpr operator="+"
@@ -157,9 +165,7 @@
           (Membership visibility="default"
             (Usage kind="attribute" name="hardnessSpread" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
               (OperatorExpr operator="-"
-                (IndexExpr bracket=true
-                  (LiteralInteger value="9")
-                  (FeatureReference name="mohs"))
+                (FeatureReference name="top")
                 (FeatureReference name="hardness"))))
           (Membership visibility="default"
             (Usage kind="attribute" name="hardnessAsNumber" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
@@ -370,6 +376,11 @@
                 (LiteralReal value="30.0")
                 (FeatureReference name="dBm"))))
           (Membership visibility="default"
+            (Usage kind="attribute" name="quiet" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (IndexExpr bracket=true
+                (LiteralReal value="20.0")
+                (FeatureReference name="dBm"))))
+          (Membership visibility="default"
             (Usage kind="attribute" name="inWatts" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
               (InvocationExpr type="ConvertQuantity"
                 (FeatureReference name="level")
@@ -433,9 +444,7 @@
             (Usage kind="attribute" name="levelSpread" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
               (OperatorExpr operator="-"
                 (FeatureReference name="level")
-                (IndexExpr bracket=true
-                  (LiteralReal value="20.0")
-                  (FeatureReference name="dBm")))))
+                (FeatureReference name="quiet"))))
           (Membership visibility="default"
             (Usage kind="attribute" name="noLevel" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
               (InvocationExpr type="ConvertQuantity"
