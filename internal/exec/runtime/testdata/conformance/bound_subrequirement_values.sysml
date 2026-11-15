@@ -23,6 +23,7 @@ package test {
 	requirement def ManyOfASubtype { subject v : Veh; requirement s[*] : Heavy = (new Heavy(), new Tight()); }
 	requirement def SubtypeRenamesSubject { subject v : Veh; requirement s[0..1] : Heavy = new Renamed(); }
 	requirement def SubtypeRenamesSubjectFails { subject v : Veh; requirement s[0..1] : Heavy = new RenamedTight(); }
+	requirement def SubjectNameOfTheContainers { subject v : Veh; attribute w : Real = 5.0; requirement s[0..1] : Heavy = new Renamed() { require constraint { w > 1.0 } } }
 	part box {
 		requirement empty : Empty { subject v = veh; }
 		requirement nul : Null { subject v = veh; }
@@ -36,6 +37,7 @@ package test {
 		requirement manyOfASubtype : ManyOfASubtype { subject v = veh; }
 		requirement subtypeRenamesSubject : SubtypeRenamesSubject { subject v = veh; }
 		requirement subtypeRenamesSubjectFails : SubtypeRenamesSubjectFails { subject v = veh; }
+		requirement subjectNameOfTheContainers : SubjectNameOfTheContainers { subject v = veh; }
 	}
 	attribute emptyResult = box.empty.result;
 	attribute emptySubrequirements = size(box.empty.subrequirements);
@@ -56,5 +58,6 @@ package test {
 	attribute manyOfASubtypeResult = box.manyOfASubtype.result;
 	attribute subtypeRenamesSubjectResult = box.subtypeRenamesSubject.result;
 	attribute subtypeRenamesSubjectFailsResult = box.subtypeRenamesSubjectFails.result;
+	attribute subjectNameOfTheContainersResult = box.subjectNameOfTheContainers.result;
 	calc probe { return one = 1; }
 }

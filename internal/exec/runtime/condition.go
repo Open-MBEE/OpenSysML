@@ -1592,12 +1592,22 @@ func (ctx *Context) conditionHoldsAt(activation int64, cond Condition, features 
 // subrequirementHoldsAt is a subrequirement's RequirementCheck::result within its container's
 // check: `allTrue(assumptions()) implies allTrue(constraints())` over its group, true over no required one.
 func (ctx *Context) subrequirementHoldsAt(activation int64, cond Condition, features map[string]scopedExpr, self *Instance, frames []frame, bindings frame, stepFrame *frame) (bool, error) {
+	return ctx.checkHoldsAt(activation, cond.Group, nil, features, self, frames, bindings, bindings, stepFrame)
+}
+
+// checkHoldsAt is a requirement check over two groups of conditions read in their own bindings: the
+// assumptions of both implying the required conditions of both.
+func (ctx *Context) checkHoldsAt(activation int64, group, own []Condition, features map[string]scopedExpr, self *Instance, frames []frame, bindings, ownBindings frame, stepFrame *frame) (bool, error) {
 	for _, required := range []bool{false, true} {
-		for _, sub := range cond.Group {
+		for i, sub := range slices.Concat(group, own) {
 			if sub.Required != required {
 				continue
 			}
-			holds, err := ctx.conditionHoldsAt(activation, sub, features, self, frames, bindings, stepFrame)
+			in := bindings
+			if i >= len(group) {
+				in = ownBindings
+			}
+			holds, err := ctx.conditionHoldsAt(activation, sub, features, self, frames, in, stepFrame)
 			if err != nil {
 				return false, err
 			}
@@ -1664,12 +1674,13 @@ func (ctx *Context) heldBy(self *Instance, feat *EffectiveFeature) bool {
 // boundSubrequirementHolds is the check of one value of a bound subrequirement: the conditions its
 // declaration states and those of the value's own type, judged on the value.
 func (ctx *Context) boundSubrequirementHolds(activation int64, cond Condition, value *Instance, features map[string]scopedExpr, frames []frame, bindings frame, stepFrame *frame) (bool, error) {
+	var own []Condition
+	ownBindings := bindings
 	if typ := value.Type; typ != nil && typ != cond.Subrequirement && !slices.Contains(ctx.model.semantics.AllSupertypes(cond.Subrequirement), typ) {
-		own := ctx.conditionsOf(typ, ctx.chainMembers(typ, typ.OwnerScope))
-		cond.Group = append(append([]Condition(nil), cond.Group...), own...)
-		bindings = ctx.withSubjectNamesOf(typ, cond.Subrequirement, bindings)
+		own = ctx.conditionsOf(typ, ctx.chainMembers(typ, typ.OwnerScope))
+		ownBindings = ctx.withSubjectNamesOf(typ, cond.Subrequirement, bindings)
 	}
-	return ctx.subrequirementHoldsAt(activation, cond, features, value, frames, bindings, stepFrame)
+	return ctx.checkHoldsAt(activation, cond.Group, own, features, value, frames, bindings, ownBindings, stepFrame)
 }
 
 // withSubjectNamesOf is bindings with the subject sub reads there bound also under the names typ,

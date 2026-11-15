@@ -24,6 +24,7 @@
     "test::manyOneFailsSubrequirements": {"type": "Integer", "value": 2},
     "test::manyOfASubtypeResult": {"type": "Boolean", "value": false},
     "test::subtypeRenamesSubjectResult": {"type": "Boolean", "value": true},
-    "test::subtypeRenamesSubjectFailsResult": {"type": "Boolean", "value": false}
+    "test::subtypeRenamesSubjectFailsResult": {"type": "Boolean", "value": false},
+    "test::subjectNameOfTheContainersResult": {"type": "Boolean", "value": true}
   }
 }
