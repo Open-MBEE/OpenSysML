@@ -1225,6 +1225,11 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 		return fv, err
 	}
 
+	// A subrequirement declaring no subject reads its container's (SysML v2 §7.21.2).
+	if held, err := inst.materializeFromContainerSubject(ctx, fv, name); err != nil || held {
+		return fv, err
+	}
+
 	// A bound value supplies the feature's own features, so a body restating one
 	// of them states two values for it.
 	if restated := ctx.restatedInValuedBody(fv.Feature); restated != "" {
@@ -1649,7 +1654,8 @@ func (ctx *Context) CompositeTypeOf(feat *EffectiveFeature) *symbols.Symbol {
 	if semantics.IsBehaviorParameter(feat.Symbol) && !ctx.model.semantics.IsDataType(feat.Type) {
 		return nil
 	}
-	if feat.Symbol != nil && (ctx.declaresFeatures(feat) || untypedOccurrenceUsage(feat) || satisfyAssertionUsage(feat.Symbol)) {
+	if feat.Symbol != nil && (ctx.declaresFeatures(feat) || untypedOccurrenceUsage(feat) || satisfyAssertionUsage(feat.Symbol) ||
+		feat.Type == nil && ctx.heldSubrequirement(feat.Symbol)) {
 		return feat.Symbol
 	}
 	return feat.Type

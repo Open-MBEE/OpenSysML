@@ -1,0 +1,21 @@
+{
+  "libraries": true,
+  "type": "instance",
+  "instantiate": "test::Box",
+  "slots": {
+    "rr.result": {"type": "Boolean", "value": false},
+    "rr.light.result": {"type": "Boolean", "value": false},
+    "rr.light.v.mass": {"type": "Real", "value": 20.0},
+    "rr.inl.result": {"type": "Boolean", "value": false},
+    "rr.inl.subj.mass": {"type": "Real", "value": 20.0},
+    "rr.deep.result": {"type": "Boolean", "value": false},
+    "rr.deep.deeper.result": {"type": "Boolean", "value": false},
+    "rr.worry.result": {"type": "Boolean", "value": false},
+    "rrOk.result": {"type": "Boolean", "value": true},
+    "rrOk.light.result": {"type": "Boolean", "value": true},
+    "rrOk.light.v.mass": {"type": "Real", "value": 5.0},
+    "rrOk.inl.result": {"type": "Boolean", "value": true},
+    "rrOk.deep.deeper.result": {"type": "Boolean", "value": true},
+    "rrOk.worry.result": {"type": "Boolean", "value": true}
+  }
+}
