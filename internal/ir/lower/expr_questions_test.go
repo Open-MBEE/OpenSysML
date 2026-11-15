@@ -17,6 +17,8 @@ func TestExprEntrySegments(t *testing.T) {
 		"chain":   {"v", "m", "m"},
 		"missing": {"nowhere"},
 		"sum":     nil,
+		"call":    nil,
+		"nested":  nil,
 	} {
 		table, id := LowerExpr(values[name], scope, resolver)
 		entry := table.Entry(id)
@@ -31,6 +33,24 @@ func TestExprEntrySegments(t *testing.T) {
 	}
 	if got, ok := (*ExprEntry)(nil).Segments(); ok || got != nil {
 		t.Errorf("nil entry: Segments = %v, %v", got, ok)
+	}
+}
+
+// TestExprEntryInvoked pins the names an invocation's function is written with, which
+// no reference or chain answers.
+func TestExprEntryInvoked(t *testing.T) {
+	values, scope, resolver := exprFixture(t)
+	for name, want := range map[string][]string{
+		"call":   {"f"},
+		"name":   nil,
+		"chain":  nil,
+		"nested": nil,
+	} {
+		table, id := LowerExpr(values[name], scope, resolver)
+		got, ok := table.Entry(id).Invoked()
+		if ok != (want != nil) || !reflect.DeepEqual(got, want) {
+			t.Errorf("%s: Invoked = %v, %v; want %v", name, got, ok, want)
+		}
 	}
 }
 

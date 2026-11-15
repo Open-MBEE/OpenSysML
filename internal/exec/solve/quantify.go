@@ -78,7 +78,7 @@ func (t *translator) quantified(n *lower.ExprEntry, scope *symbols.Scope) (*Term
 // the ControlFunctions one of that name, read through the same resolution the
 // evaluator invokes by, an alias through its target; "" for any other function.
 func (t *translator) quantifierName(n *lower.ExprEntry, scope *symbols.Scope) string {
-	segments, ok := n.Segments()
+	segments, ok := n.Invoked()
 	if !ok {
 		return ""
 	}

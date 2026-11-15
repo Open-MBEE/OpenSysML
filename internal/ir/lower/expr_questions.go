@@ -86,21 +86,15 @@ func (e *ExprEntry) Reference() bool {
 	return false
 }
 
-// Segments are the names a reference, an invoked function's name or a feature chain
-// steps through, false for any other expression or one naming nothing.
+// Segments are the names a reference or a feature chain steps through, false for
+// any other expression or one naming nothing.
 func (e *ExprEntry) Segments() ([]string, bool) {
 	if e == nil {
 		return nil, false
 	}
 	switch e.Kind {
-	case program.ExprRef, program.ExprInvoke:
-		if len(e.Path) > 0 {
-			return names(e.Path), true
-		}
-		if e.Ref.Name == "" {
-			return nil, false
-		}
-		return []string{e.Ref.Name}, true
+	case program.ExprRef:
+		return e.spelling()
 	case program.ExprChain:
 		if len(e.Operands) != 1 || len(e.Chain) == 0 {
 			return nil, false
@@ -112,6 +106,26 @@ func (e *ExprEntry) Segments() ([]string, bool) {
 		return append(base, names(e.Chain)...), true
 	}
 	return nil, false
+}
+
+// Invoked are the names an invocation's function is written with, false for any
+// other expression or one naming nothing; a chain never steps through them.
+func (e *ExprEntry) Invoked() ([]string, bool) {
+	if e == nil || e.Kind != program.ExprInvoke {
+		return nil, false
+	}
+	return e.spelling()
+}
+
+// spelling is the segments of the name e is written with, false when it names nothing.
+func (e *ExprEntry) spelling() ([]string, bool) {
+	if len(e.Path) > 0 {
+		return names(e.Path), true
+	}
+	if e.Ref.Name == "" {
+		return nil, false
+	}
+	return []string{e.Ref.Name}, true
 }
 
 // names are the names refs spell, in order.
