@@ -61,6 +61,12 @@ func (ctx *Context) classifyValueReading(
 	if verdict != semantics.ClassifiesSome {
 		return verdict, nil
 	}
+	// A quantity held as a quantity value type is of no type unrelated to it, whatever
+	// wider type the feature it is read through declares (SysML v2 §9.8.9.1).
+	if kind := value.QuantityKind(); kind != nil &&
+		ctx.model.semantics.ClassifiesTypes([]*symbols.Symbol{kind}, target) == semantics.ClassifiesNone {
+		return semantics.ClassifiesNone, nil
+	}
 	if composed, ok, err := ctx.classifyComposed(scope, value, target, declared, reading); ok {
 		return composed, err
 	}
