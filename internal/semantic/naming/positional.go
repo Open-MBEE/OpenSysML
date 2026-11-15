@@ -38,7 +38,7 @@ func PositionalIdentities(index *symbols.Index, docs []Document, identifies func
 	for _, candidate := range acceptedPositional(candidates) {
 		sym := candidate.sym
 		owner := sym.Owner()
-		if sym.Name != "" && !sym.EffectiveName() {
+		if sym.Named() && !sym.EffectiveName() {
 			if owner == nil || positional[owner] == "" {
 				continue
 			}
@@ -103,7 +103,7 @@ func positionalSymbol(sym *symbols.Symbol, docName string, identifies func(*symb
 	if sym == nil || sym.DocName != docName || sym.Implied() || identifies(sym) || sym.Decl == nil {
 		return false
 	}
-	return sym.Name == "" || sym.EffectiveName() || sym.Owner() != nil
+	return !sym.Named() || sym.EffectiveName() || sym.Owner() != nil
 }
 
 // acceptedPositional is every name exactly one symbol claims, shallowest

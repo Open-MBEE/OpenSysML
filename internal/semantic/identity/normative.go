@@ -145,10 +145,10 @@ func split(lang Language, qualifiedName string) (pkg uuid, path string, top, ok 
 	return pkg, strings.Join(segments, Separator), len(segments) == 1, true
 }
 
-// EscapeName spells a name as the pilot's qualified names do: an ASCII identifier
-// or `$` as is, anything else single-quoted with control and quote characters escaped.
+// EscapeName spells a name as KerML 1.1 §8.3.2.1.2 escapedName does: an identifier or `$` as is,
+// anything else, the empty name included, single-quoted with control and quote characters escaped.
 func EscapeName(name string) string {
-	if name == "" || name == "$" || isIdentifier(name) {
+	if name == "$" || isIdentifier(name) {
 		return name
 	}
 	var b strings.Builder

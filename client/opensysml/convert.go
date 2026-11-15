@@ -43,6 +43,9 @@ func symbolFromProto(sym *pb.SymbolInfo) *Symbol {
 	if len(sym.ChildIds) > 0 {
 		out.ChildIDs = append([]string(nil), sym.ChildIds...)
 	}
+	if len(sym.AnnotatingMetadataIds) > 0 {
+		out.AnnotatingMetadataIDs = append([]string(nil), sym.AnnotatingMetadataIds...)
+	}
 	for _, attr := range sym.Attributes {
 		out.Attributes = append(out.Attributes, Attribute{
 			Name:  attr.Name,

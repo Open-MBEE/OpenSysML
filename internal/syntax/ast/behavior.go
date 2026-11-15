@@ -34,6 +34,12 @@ func (n *InitialNode) Name() string {
 	return n.First.Parts[len(n.First.Parts)-1].Text
 }
 
+// Named reports whether a name is written after `first`, the empty
+// unrestricted name included.
+func (n *InitialNode) Named() bool {
+	return n.First != nil && len(n.First.Parts) > 0
+}
+
 // NameSpan is the span of the name written after `first`, empty when none was.
 func (n *InitialNode) NameSpan() source.Span {
 	if n.First == nil {
@@ -312,8 +318,9 @@ func (k PseudostateKind) String() string {
 // PseudostateNode is a transient state for control flow.
 type PseudostateNode struct {
 	NodeBase
-	Kind PseudostateKind
-	Name string
+	Kind     PseudostateKind
+	Name     string
+	NameSpan source.Span // span of Name
 	// Keyword is the notation the pseudostate was written with (`choice`,
 	// `deep history`, `fork`).
 	Keyword string

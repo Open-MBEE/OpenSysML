@@ -99,6 +99,11 @@ and `includeLibraryMembers` is refused before asking), `elementProperties` needs
 `element_properties` and `instancePaths` needs `instance_paths`; each refusal is a
 `MissingCapabilityError` naming the capability.
 
+`annotatingMetadataIds` names the metadata usages annotating a symbol: its own `#M` prefixes and
+body `@M` usages, then the ones naming it in an `about` clause elsewhere, which `childIds` and
+`members` leave out. `annotatingMetadata()` fetches them as symbols, each with its `type` and
+`attributes`, and needs the `symbol_annotating_metadata` capability.
+
 `connection.model(hash)` adopts a model the service already holds, which lets a
 hash pass between processes; an adopted model has no root symbol, so symbols are
 looked up by qualified name, and the service answers `NOT_FOUND` once it has

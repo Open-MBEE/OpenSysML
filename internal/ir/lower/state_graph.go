@@ -1832,7 +1832,7 @@ func (g *StateGraph) startsAt(decl, guard ast.Node, body transitionBody, source,
 func AcceptedNames(trigger ast.Node) []string {
 	switch t := trigger.(type) {
 	case *ast.AcceptEvent:
-		if t.Payload == nil || t.Payload.Ident.Name == "" {
+		if t.Payload == nil || !t.Payload.Ident.HasName() {
 			return nil
 		}
 		return []string{t.Payload.Ident.Name}

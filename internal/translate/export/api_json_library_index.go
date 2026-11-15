@@ -187,9 +187,9 @@ func addNamedLibraryStub(graph *rdf.Graph, subject rdf.Term, library *identity.L
 		graph.Add(subject, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(metaclass))
 	}
 	graph.Add(subject, rdf.SysMLTerm(pElementID), rdf.String(library.ID))
-	graph.Add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(library.FQN))
-	if declared, _ := naming.DeclaredNameAndMembers(library.Symbol.Decl); declared != "" {
-		graph.Add(subject, rdf.SysMLTerm(pDeclaredName), rdf.String(declared))
+	stateAddress(graph.Add, subject, library.FQN)
+	if declared, _ := naming.DeclaredNameAndMembers(library.Symbol.Decl); declared.Named {
+		graph.Add(subject, rdf.SysMLTerm(pDeclaredName), rdf.String(declared.Text))
 	}
 	graph.Add(subject, rdf.SysMLTerm(pIsLibraryElement), rdf.Bool(true))
 }
@@ -222,7 +222,7 @@ func addLibraryMembershipStub(graph *rdf.Graph, subject rdf.Term, id string, mem
 // semantic model's, which knows a `bool` feature as a BooleanExpression and a
 // `subject` as a ReferenceUsage, or the declaration's where the model has none.
 func libraryStubMetaclass(model *semantics.Model, sym *symbols.Symbol) string {
-	if metaclass := model.MetaclassOf(sym); metaclass != nil && metaclass.Name != "" {
+	if metaclass := model.MetaclassOf(sym); metaclass != nil && metaclass.Named() {
 		return metaclass.Name
 	}
 	return declaredMetaclass(sym.Decl)

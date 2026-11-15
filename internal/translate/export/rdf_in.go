@@ -905,9 +905,7 @@ func (d *decoder) readElement(subject rdf.Term) (*element, error) {
 	}
 	el.indexStated = d.graph.HasProperty(subject, rdf.OpenSysML+xMemberIndex)
 	el.trailing = !el.indexStated && d.isResultExpression(el)
-	if el.qname, _ = d.stringOf(el, rdf.SysML+pQualifiedName); el.qname == "" {
-		el.qname, _ = addressOf(d.graph, subject)
-	}
+	el.qname, _ = addressOf(d.graph, subject)
 	if !el.indexStated && !el.trailing && d.statedNames[subject.Value] {
 		if n, ok := positionalIndex(d.graph, subject); ok {
 			el.memberIndex, el.positional = n, true
@@ -1818,7 +1816,7 @@ func nameMembers(members []*element, owner string) {
 	for i, el := range members {
 		el.scope = owner
 		if el.qname == "" {
-			el.qname = naming.Qualify(owner, "", i)
+			el.qname = naming.Positional(owner, i)
 		}
 		nameMembers(el.children, el.qname)
 	}
@@ -2073,9 +2071,9 @@ func (d *decoder) headFeatureAnnotations(feature *element, what string) ([]strin
 	if len(identity) == 0 {
 		return nil, nil
 	}
-	name, ok := d.stringOf(feature, rdf.SysML+pDeclaredName)
+	name, ok := d.nameOf(feature, rdf.SysML+pDeclaredName)
 	if !ok {
-		name, ok = d.stringOf(feature, rdf.SysML+pDeclaredShortName)
+		name, ok = d.nameOf(feature, rdf.SysML+pDeclaredShortName)
 	}
 	if !ok {
 		return nil, &UnsupportedError{
@@ -3442,10 +3440,10 @@ func (d *decoder) aliasHead(el *element) (string, error) {
 	words = append(words, "alias")
 	// A Membership names its member (KerML.xtext AliasMember); an older graph
 	// declared the alias's own name.
-	if short, ok := d.stringOf(el, rdf.SysML+pMemberShortName); ok {
+	if short, ok := d.nameOf(el, rdf.SysML+pMemberShortName); ok {
 		words = append(words, "<"+nameText(short)+">")
 	}
-	if name, ok := d.stringOf(el, rdf.SysML+pMemberName); ok {
+	if name, ok := d.nameOf(el, rdf.SysML+pMemberName); ok {
 		words = append(words, nameText(name))
 	}
 	words = append(words, d.identWords(el)...)
@@ -3903,10 +3901,10 @@ func (d *decoder) portionKind(el *element) (string, error) {
 
 func (d *decoder) identWords(el *element) []string {
 	var words []string
-	if short, ok := d.stringOf(el, rdf.SysML+pDeclaredShortName); ok {
+	if short, ok := d.nameOf(el, rdf.SysML+pDeclaredShortName); ok {
 		words = append(words, "<"+nameText(short)+">")
 	}
-	if name, ok := d.stringOf(el, rdf.SysML+pDeclaredName); ok {
+	if name, ok := d.nameOf(el, rdf.SysML+pDeclaredName); ok {
 		words = append(words, nameText(name))
 	}
 	return words
@@ -3934,7 +3932,7 @@ func (d *decoder) writtenQName(el *element) string {
 		return d.writtenQName(el.owner)
 	}
 	if el.owner != nil && el.owner.owner != nil && d.isNodeMembership(rdf.IRI(el.owner.iri)) {
-		if name, ok := d.stringOf(el, rdf.SysML+pDeclaredName); ok {
+		if name, ok := d.nameOf(el, rdf.SysML+pDeclaredName); ok {
 			return d.writtenQName(el.owner.owner) + "::" + naming.Segment(name)
 		}
 	}
@@ -3946,44 +3944,15 @@ func (d *decoder) writtenQName(el *element) string {
 	if !d.metadataBodyMember(el) || d.boolOf(el, rdf.OpenSysML+xImplicitRedefinition) {
 		return q
 	}
-	if _, declared := d.stringOf(el, rdf.SysML+pDeclaredName); declared {
+	if _, declared := d.nameOf(el, rdf.SysML+pDeclaredName); declared {
 		return q
 	}
 	return q[:i] + "::@" + strconv.Itoa(el.memberIndex)
 }
 
 // nameText writes a name as the notation spells it: the graph carries the name
-// itself, so one that is not a basic name needs its quotes back (KerML §8.2.2).
-// A reserved word lexes as a keyword rather than a name, so a name spelling one
-// needs the quotes too.
-func nameText(name string) string {
-	if source.IsIdentifier(name) && !source.IsKeyword(name) {
-		return name
-	}
-	return "'" + escapeName(name) + "'"
-}
-
-// escapeName escapes a quote the name itself contains, which would otherwise
-// close the unrestricted name early. The parser keeps the escapes a name was
-// written with, so one already escaped is left alone.
-func escapeName(name string) string {
-	var b strings.Builder
-	for i := 0; i < len(name); i++ {
-		switch name[i] {
-		case '\\':
-			b.WriteByte(name[i])
-			if i+1 < len(name) {
-				i++
-				b.WriteByte(name[i])
-			}
-		case '\'':
-			b.WriteString(`\'`)
-		default:
-			b.WriteByte(name[i])
-		}
-	}
-	return b.String()
-}
+// itself, so one that is no basic name is quoted and escaped (KerML §8.2.2).
+func nameText(name string) string { return source.NameText(name) }
 
 // qualifiedNameText writes a qualified name segment by segment, since each
 // segment is a name of its own and is quoted on its own.
@@ -4894,7 +4863,7 @@ func (d *decoder) effectiveName(el *element) (string, bool) {
 			segments := naming.Segments(el.qname)
 			return identityName(segments[len(segments)-1]), true
 		}
-		if name, ok := d.stringOf(el, rdf.SysML+pDeclaredName); ok {
+		if name, ok := d.nameOf(el, rdf.SysML+pDeclaredName); ok {
 			return name, true
 		}
 		// A transition's `do` statement answers to its role, `effect`, as the symbol
@@ -4990,10 +4959,12 @@ func notAName(term rdf.Term) string {
 		return "it is empty"
 	}
 	for _, segment := range naming.Segments(strings.TrimPrefix(term.Value, "$::")) {
+		// A segment written `''` is the empty name; one with no text is none.
+		if segment == "" {
+			return "it has an empty name segment"
+		}
 		segment = identityName(segment)
 		switch {
-		case segment == "":
-			return "it has an empty name segment"
 		case strings.ContainsAny(segment, "\n\r"):
 			return "it has a name segment holding a line break"
 		case (len(segment)-len(strings.TrimRight(segment, `\`)))%2 == 1:
@@ -5030,6 +5001,15 @@ func (d *decoder) stringOf(el *element, property string) (string, bool) {
 		return "", false
 	}
 	return value, true
+}
+
+// nameOf is the name el states under property, the empty unrestricted name
+// included (KerML §8.2.2.3): stating it is what tells it from no name.
+func (d *decoder) nameOf(el *element, property string) (string, bool) {
+	if text, ok := el.expressions[property]; ok {
+		return text, text != ""
+	}
+	return d.graph.Lexical(rdf.IRI(el.iri), property)
 }
 
 // statedFalse reports a boolean the graph states as false, as against one it

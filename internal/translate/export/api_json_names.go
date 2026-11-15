@@ -221,7 +221,7 @@ func apiJSONCatalogNames(catalog *identity.Catalog) *apiJSONCatalogNameIndex {
 		importedQualified: make(map[string]map[string][]rdf.Term),
 	}
 	for _, element := range catalog.Elements() {
-		if element.Symbol != nil && element.Symbol.Name != "" {
+		if element.Symbol != nil && element.Symbol.Named() {
 			index.byShortName[element.Symbol.Name] = appendUniqueTerm(
 				index.byShortName[element.Symbol.Name], rdf.ElementIRIForID(element.ID),
 			)

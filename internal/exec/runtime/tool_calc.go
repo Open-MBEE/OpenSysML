@@ -15,15 +15,9 @@ import (
 // ToolVariable are sent, its `out`/`inout` ones and its result parameter are bound from
 // the reply, and the body — when the calc states one — is never evaluated.
 
-// calcToolCall is the calculation as the tool sees it: of the calc the annotation holds
-// for (the definition or usage annotated), every `in`/`inout` parameter carrying a
-// ToolVariable is an input whose value held answers, every `out`/`inout` one an output,
-// and the result parameter is always an output — keyed by its ToolVariable name, else its
-// declared name, else `result`. The same refusals as a performance's call apply: an
-// unbound non-optional input is errUnboundParameter, a ToolVariable name two parameters
-// carry is a ToolError. The name the result is bound under is returned with the call,
-// empty when the calc declares no result parameter — an out-only calc asks for none.
-func (ctx *Context) calcToolCall(shape *loadedCalc, scope *symbols.Scope, held func(param string) (Value, bool)) (*ToolCall, string, error) {
+// calcToolCall is the calc as its tool sees it, refusing what a performance's call refuses, with the key the result is
+// bound under (its ToolVariable, else its declared name, else `result`) and whether the calc declares a result at all.
+func (ctx *Context) calcToolCall(shape *loadedCalc, scope *symbols.Scope, held func(param string) (Value, bool)) (*ToolCall, string, bool, error) {
 	execution := shape.Tool
 	tool := execution.tool
 	call := &ToolCall{Action: execution.on, ToolName: tool, URI: execution.uri, ctx: ctx, scope: scope}
@@ -40,34 +34,34 @@ func (ctx *Context) calcToolCall(shape *loadedCalc, scope *symbols.Scope, held f
 			}
 			continue
 		}
-		if param.Symbol.Name == "" {
+		if !param.Symbol.Named() {
 			continue
 		}
 		if err := ctx.addToolCallParameter(call, shape, param, namedBy, held); err != nil {
-			return nil, "", err
+			return nil, "", false, err
 		}
 	}
 	var resultKey string
 	if result != nil {
 		resultKey = program.ResultOutputName
 		variable := program.ResultOutputName
-		if result.Name != "" {
+		if result.Named() {
 			resultKey, variable = result.Name, result.Name
 		}
 		if named, has, err := ctx.toolVariableOf(result); err != nil {
-			return nil, "", err
+			return nil, "", false, err
 		} else if has {
 			variable = named
 		}
 		if other, taken := namedBy[variable]; taken {
-			return nil, "", &ToolError{Tool: tool, Kind: toolAmbiguousVariable,
+			return nil, "", false, &ToolError{Tool: tool, Kind: toolAmbiguousVariable,
 				Detail: fmt.Sprintf("%s names both %s and %s of %s", variable, other, resultKey, shape.Label)}
 		}
 		call.Outputs = append(call.Outputs, ToolOutput{Variable: variable, Parameter: resultKey, Declared: result})
 	}
 	sort.Slice(call.Inputs, func(i, j int) bool { return call.Inputs[i].Variable < call.Inputs[j].Variable })
 	sort.Slice(call.Outputs, func(i, j int) bool { return call.Outputs[i].Variable < call.Outputs[j].Variable })
-	return call, resultKey, nil
+	return call, resultKey, result != nil, nil
 }
 
 // addToolCallParameter adds a ToolVariable-named parameter to the call: an
@@ -121,7 +115,7 @@ func (ctx *Context) computeCalcByTool(shape *loadedCalc, scope *symbols.Scope, h
 	if tool == "" {
 		return Value{}, false, nil, &ToolNotRegisteredError{Tool: tool}
 	}
-	call, resultKey, err := ctx.calcToolCall(shape, scope, held)
+	call, resultKey, hasResult, err := ctx.calcToolCall(shape, scope, held)
 	if err != nil {
 		return Value{}, false, nil, err
 	}
@@ -146,5 +140,5 @@ func (ctx *Context) computeCalcByTool(shape *loadedCalc, scope *symbols.Scope, h
 			Span:   shape.Tool.on.DeclSpan,
 		})
 	}
-	return answer.Outputs[resultKey], resultKey != "", answer.Outputs, nil
+	return answer.Outputs[resultKey], hasResult, answer.Outputs, nil
 }

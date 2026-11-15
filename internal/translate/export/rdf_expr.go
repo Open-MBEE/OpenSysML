@@ -486,7 +486,7 @@ func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, body *ast.
 	e.graph.Add(node, e.sysml(pElementID), rdf.String(rdf.LocalName(node.Value)))
 	e.graph.Add(node, e.sysx(xMemberIndex), rdf.Int(index))
 	e.graph.Add(node, e.sysml(pDirection), rdf.String(directionKeyword(ast.DirIn)))
-	e.name(node, param.Name)
+	e.name(node, param.Name, source.Span{})
 	// The parameter's symbol derives its variability; a body it declares as its
 	// node is looked up by the parameter's name (deriveUsageMayTimeVary).
 	var variable, timeVarying bool
@@ -1819,7 +1819,7 @@ func (d *decoder) bodyParameterText(param rdf.Term, in *element) (string, error)
 			Note: fmt.Sprintf("a parameter of an expression body is written `in`, and its sysml:direction is %q", direction),
 		}
 	}
-	name, ok := d.stringOf(el, rdf.SysML+pDeclaredName)
+	name, ok := d.nameOf(el, rdf.SysML+pDeclaredName)
 	if !ok {
 		return "", &UnsupportedError{
 			What: what,

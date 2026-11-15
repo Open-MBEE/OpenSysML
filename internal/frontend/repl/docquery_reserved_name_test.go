@@ -46,6 +46,7 @@ func TestRunQueryTableSpellsAReservedWordNameAsTheQualifiedNameDoes(t *testing.T
 	want := map[string]string{
 		"Observatory__FunctionToPart__function_ft0": "Observatory::FunctionToPart::function",
 		"Observatory__Holder__two_20words_ft0":      "Observatory::Holder::'two words'",
+		"Observatory__Holder__it_27s_ft0":           `Observatory::Holder::'it\'s'`,
 		"Observatory__Holder___27a__b_27_ft0":       "Observatory::Holder::'a::b'",
 		"Observatory__Holder___27_403_27_ft0":       "Observatory::Holder::'@3'",
 		"Observatory__Holder___404_ft0":             "Observatory__Holder___404",

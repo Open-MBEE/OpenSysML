@@ -126,22 +126,22 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 
 	case *ast.ForkNode:
 		head(rdf.SysMLTerm(mFork))
-		e.name(subject, n.Name)
+		e.name(subject, n.Name, n.NameSpan)
 		return true, nil
 
 	case *ast.JoinNode:
 		head(rdf.SysMLTerm(mJoin))
-		e.name(subject, n.Name)
+		e.name(subject, n.Name, n.NameSpan)
 		return true, nil
 
 	case *ast.MergeNode:
 		head(rdf.SysMLTerm(mMerge))
-		e.name(subject, n.Name)
+		e.name(subject, n.Name, n.NameSpan)
 		return true, nil
 
 	case *ast.DecisionNode:
 		head(rdf.SysMLTerm(mDecision))
-		e.name(subject, n.Name)
+		e.name(subject, n.Name, n.NameSpan)
 		return true, nil
 
 	case *ast.ActionExecutionNode:
@@ -196,7 +196,7 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 			e.graph.Add(subject, e.sysx(xIsElse), rdf.Bool(true))
 		}
 		return true, e.edgeEnds(subject, n, owner,
-			edgeEnd{name: n.Source, member: n.SourceMember, implied: impliedSource(n, n.Source), stands: e.preceding[n]},
+			edgeEnd{name: n.Source, member: n.SourceMember, implied: impliedSource(n, n.Source), stands: e.names.Preceding[n]},
 			edgeEnd{name: n.Target, member: n.TargetMember})
 
 	case *ast.WhileLoopActionNode:
@@ -222,14 +222,14 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 	case *ast.StateNode:
 		// A state of a state machine.
 		head(rdf.SysMLTerm(mStateUsage))
-		e.name(subject, n.Name)
+		e.name(subject, n.Name, source.Span{})
 		members := naming.StateBody(n)
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(len(members) > 0))
 		return true, e.encode(members, fqn, subject)
 
 	case *ast.SubstateMember:
 		head(rdf.SysMLTerm(mStateUsage))
-		e.name(subject, n.Name)
+		e.name(subject, n.Name, n.NameSpan)
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(false))
 		return true, nil
 
@@ -244,7 +244,7 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 
 	case *ast.PseudostateNode:
 		head(rdf.OpenSysMLTerm(mPseudostate))
-		e.name(subject, n.Name)
+		e.name(subject, n.Name, n.NameSpan)
 		e.graph.Add(subject, e.sysx(xPseudostateKind), rdf.String(n.Kind.String()))
 		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(e.pseudostateKeyword(n)))
 		return true, nil
@@ -283,7 +283,7 @@ func (e *encoder) encodeInitialNode(n *ast.InitialNode, head func(rdf.Term), sub
 		head(rdf.SysMLTerm(mMembership))
 	}
 	e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String("first"))
-	if n.Name() != "" {
+	if n.Named() {
 		start := rdf.Term(rdf.String(n.Name()))
 		if decl, fqn, ok := e.linked(e.res.InitialSymbol(n)); ok {
 			start = e.ids.subjectForNode(decl, fqn)
@@ -315,7 +315,7 @@ func (e *encoder) encodeInitialNode(n *ast.InitialNode, head func(rdf.Term), sub
 		// ConnectorEndMember), beside the sourceFeature and targetFeature the
 		// ends derive; a guarded `first a if g then [m] b` owns the same ends,
 		// its written target end on the target connector end.
-		if n.Name() != "" {
+		if n.Named() {
 			if err := e.initialSuccessionEnds(subject, owner, n); err != nil {
 				return err
 			}
@@ -339,7 +339,7 @@ func (e *encoder) encodeActionExecution(n *ast.ActionExecutionNode, head func(rd
 	// `action [<name>] <ref>;` performs an action declared elsewhere;
 	// `action <name> { <expr> }` performs the expression it states.
 	head(rdf.OpenSysMLTerm(mActionExecution))
-	e.name(subject, n.Name)
+	e.name(subject, n.Name, source.Span{})
 	switch {
 	case n.Expression != nil:
 		return e.expression(subject, e.sysx(xExpression), xExpression, owner, n.Expression)
@@ -388,8 +388,8 @@ func (e *encoder) encodeSuccessionEdge(n *ast.SuccessionEdge, head func(rdf.Term
 		}
 	}
 	if err := e.edgeEnds(subject, n, owner,
-		edgeEnd{name: n.Source, member: n.SourceMember, implied: implied, stands: e.preceding[n]},
-		edgeEnd{name: n.Target, member: n.TargetMember, implied: n.TargetImplied, stands: e.introduced[n]}); err != nil {
+		edgeEnd{name: n.Source, member: n.SourceMember, implied: implied, stands: e.names.Preceding[n]},
+		edgeEnd{name: n.Target, member: n.TargetMember, implied: n.TargetImplied, stands: e.names.Introduced[n]}); err != nil {
 		return err
 	}
 	if n.HasBody {
@@ -406,7 +406,7 @@ func (e *encoder) encodeSuccessionEdge(n *ast.SuccessionEdge, head func(rdf.Term
 func (e *encoder) encodeLoop(n *ast.WhileLoopActionNode, head func(rdf.Term), subject rdf.Term, fqn, owner string) error {
 	if n.Kind == ast.LoopFor {
 		head(rdf.SysMLTerm(mForLoop))
-		if n.Variable.Name == "" {
+		if !n.Variable.HasName() {
 			return &UnsupportedError{
 				What: fmt.Sprintf("the loop at %s", e.where(n)),
 				Note: "its iteration variable has no name, so the variable the body binds cannot be written back",
@@ -494,12 +494,12 @@ func (e *encoder) markPerformed(members []ast.Node) {
 // effect and body as the members it owns, the effect's linked as such.
 func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term), subject rdf.Term, fqn, owner string) error {
 	head(rdf.SysMLTerm(mTransition))
-	e.name(subject, n.Name)
+	e.name(subject, n.Name, n.NameSpan)
 	e.graph.Add(subject, e.sysx(xTransitionSyntax), rdf.String(e.transitionSyntax(n)))
 	e.transitionKeyword(subject, n)
 	// The members ahead of the trigger come first, in the grammar's order.
 	e.transitionHeadMembers(subject, n)
-	succession, membership, err := e.transitionSuccession(subject, n, owner, e.transitionSourceTerm(n, n.Source, nil, e.preceding[n]))
+	succession, membership, err := e.transitionSuccession(subject, n, owner, e.transitionSourceTerm(n, n.Source, nil, e.names.Preceding[n]))
 	if err != nil {
 		return err
 	}
@@ -569,9 +569,10 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 	if encoded != nil {
 		return encoded
 	}
+	e.transitionLinkMember(subject)
 	// The ends come last: sysml:target closes the statement block, the way the
 	// membership-free mapping left it.
-	if source := e.transitionSourceTerm(n, n.Source, nil, e.preceding[n]); source.Value != "" {
+	if source := e.transitionSourceTerm(n, n.Source, nil, e.names.Preceding[n]); source.Value != "" {
 		e.graph.Add(subject, e.sysml(pSource), source)
 	}
 	e.graph.Add(subject, e.sysml(pTarget), e.edgeReference(n.Target))
@@ -590,10 +591,11 @@ func (e *encoder) encodeGuardedTarget(n *ast.ControlFlowEdge, head func(rdf.Term
 	if n.IsElse {
 		e.graph.Add(subject, e.sysx(xIsElse), rdf.Bool(true))
 	}
+	source := e.transitionSourceTerm(n, n.Source, n.SourceMember, e.names.Preceding[n])
+	e.targetTransitionHeadMembers(subject, source, e.ids.declSym[n])
 	if err := e.expressionAs(subject, e.sysx(xGuard), xGuard, owner, n.Guard, mTransitionFeatureMembership); err != nil {
 		return err
 	}
-	source := e.transitionSourceTerm(n, n.Source, n.SourceMember, e.preceding[n])
 	succession, membership, err := e.transitionSuccession(subject, &ast.TransitionMember{Target: n.Target}, owner, source)
 	if err != nil {
 		return err
@@ -601,6 +603,7 @@ func (e *encoder) encodeGuardedTarget(n *ast.ControlFlowEdge, head func(rdf.Term
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 	e.emitMembershipCore(membership, succession, subject, mOwningMembership, true)
+	e.transitionLinkMember(subject)
 	if source.Value != "" {
 		e.graph.Add(subject, e.sysml(pSource), source)
 	}
@@ -613,7 +616,8 @@ func (e *encoder) encodeGuardedTarget(n *ast.ControlFlowEdge, head func(rdf.Term
 func (e *encoder) encodeTargetTransition(n *ast.SuccessionEdge, head func(rdf.Term), subject rdf.Term, fqn, owner string) error {
 	head(rdf.SysMLTerm(mTransition))
 	e.graph.Add(subject, e.sysx(xTransitionSyntax), rdf.String(targetTransitionSyntax))
-	source := e.transitionSourceTerm(n, n.Source, n.SourceMember, e.preceding[n])
+	source := e.transitionSourceTerm(n, n.Source, n.SourceMember, e.names.Preceding[n])
+	e.targetTransitionHeadMembers(subject, source, e.ids.declSym[n])
 	succession, membership, err := e.transitionSuccession(subject, &ast.TransitionMember{Target: n.Target, TargetMultiplicity: n.TargetMultiplicity}, owner, source)
 	if err != nil {
 		return err
@@ -627,6 +631,7 @@ func (e *encoder) encodeTargetTransition(n *ast.SuccessionEdge, head func(rdf.Te
 	if err := e.encode(n.Members, fqn, subject); err != nil {
 		return err
 	}
+	e.transitionLinkMember(subject)
 	if source.Value != "" {
 		e.graph.Add(subject, e.sysml(pSource), source)
 	}
@@ -712,6 +717,9 @@ const targetTransitionSyntax = "target"
 // as SynthesizedElementID spells the element the semantic model synthesizes for it.
 const transitionSuccessionSuffix = "_succession"
 
+// transitionLinkSuffix names the transitionLink a transition owns off the transition's own id (transitionLinkMember).
+const transitionLinkSuffix = "_transitionlink"
+
 // transitionSuccession emits the SuccessionAsUsage a transition owns for its
 // `then` clause (SysML.xtext TransitionSuccessionMember, whose
 // TransitionSuccession holds an empty source end and an end referring to the
@@ -784,10 +792,14 @@ func (e *encoder) transitionSourceTerm(edge ast.Node, source *ast.QualifiedName,
 func (e *encoder) transitionHeadMembers(subject rdf.Term, n *ast.TransitionMember) {
 	if qualifiedText(n.Source) != "" {
 		e.transitionSourceMember(subject, n.Source)
+	} else if source := e.transitionSourceTerm(n, nil, nil, e.names.Preceding[n]); source.Value != "" {
+		// A guarded transition written after a state leaves that state, and names it as a `first` would.
+		e.sourceMembership(subject, source)
 	}
-	e.emptyParameterMember(subject, "linkparam", e.ids.declSym[n])
+	varies := e.ids.model.UsageMayTimeVaryUnder(e.ids.declSym[n])
+	e.emptyParameterMember(subject, "linkparam", varies)
 	if naming.TriggerPayload(e.file, n) != nil {
-		e.emptyParameterMember(subject, "triggerparam", e.ids.declSym[n])
+		e.emptyParameterMember(subject, "triggerparam", varies)
 	}
 }
 
@@ -808,24 +820,43 @@ func (e *encoder) transitionSourceMember(subject rdf.Term, source *ast.Qualified
 		e.emitMembershipCore(membership, chain, subject, mOwningMembership, true)
 		return
 	}
+	e.sourceMembership(subject, e.edgeReference(source))
+}
+
+// sourceMembership writes the Membership through which a transition names its source member.
+func (e *encoder) sourceMembership(subject, member rdf.Term) {
 	membership := e.ids.minted(rdf.ExpressionIRI(subject, "sourcemember"), subject, "sourcemember")
 	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
 	e.graph.Add(membership, rdf.IRI(rdf.RDFType), e.sysml(mMembership))
 	e.graph.Add(membership, e.sysml(pElementID), rdf.String(rdf.LocalName(membership.Value)))
 	e.graph.Add(membership, e.sysml(pOwner), subject)
-	e.graph.Add(membership, e.sysml(pMemberElement), e.edgeReference(source))
+	e.graph.Add(membership, e.sysml(pMemberElement), member)
 	e.graph.Add(membership, e.sysml(pOwningRelatedElement), subject)
 	e.graph.Add(membership, e.sysml(pMembershipOwningNamespace), subject)
-	if member := e.edgeReference(source); member.IsIRI() {
+	if member.IsIRI() {
 		e.membershipEnds(membership, subject, member)
 	}
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 }
 
+// targetTransitionHeadMembers writes what a state body's `then x;` or a decision's branch owns ahead of its
+// guard, as the pilot exports a TargetTransitionUsage: the Membership of its positional source, its link parameter.
+func (e *encoder) targetTransitionHeadMembers(subject, source rdf.Term, owner *symbols.Symbol) {
+	if source.Value != "" {
+		e.sourceMembership(subject, source)
+	}
+	// A decision's branch has no symbol of its own: a transition is an action, so its parameter varies.
+	varies := e.ids.model.UsageMayTimeVaryUnderKind(ast.UsageAction)
+	if owner != nil {
+		varies = e.ids.model.UsageMayTimeVaryUnder(owner)
+	}
+	e.emptyParameterMember(subject, "linkparam", varies)
+}
+
 // emptyParameterMember emits an EmptyParameterMember: a ParameterMembership
 // owning an EmptyUsage, a ReferenceUsage that declares nothing.
-func (e *encoder) emptyParameterMember(subject rdf.Term, slot string, owner *symbols.Symbol) {
+func (e *encoder) emptyParameterMember(subject rdf.Term, slot string, varies bool) {
 	// Minted as an element, as the transition's succession is: an
 	// expression-part id would read back from the element form as a node.
 	feature := e.ids.minted(rdf.IRI(subject.Value+"_"+slot), subject, "_"+slot)
@@ -835,7 +866,7 @@ func (e *encoder) emptyParameterMember(subject rdf.Term, slot string, owner *sym
 	// A parameter with no direction of its own is an `in` parameter.
 	e.graph.Add(feature, e.sysml(pDirection), rdf.String("in"))
 	// It is a referential usage the transition owns, and a transition is an action.
-	if e.ids.model.UsageMayTimeVaryUnder(owner) {
+	if varies {
 		e.flags(feature, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
 	}
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
@@ -845,6 +876,21 @@ func (e *encoder) emptyParameterMember(subject rdf.Term, slot string, owner *sym
 	e.emitMembershipCore(membership, feature, subject, mParameterMembership, true)
 	e.graph.Add(membership, e.sysml(pOwnedMemberFeature), feature)
 	e.graph.Add(membership, e.sysml(pOwnedMemberParameter), feature)
+}
+
+// transitionLinkMember emits the ReferenceUsage every transition with a target owns last, through a
+// FeatureMembership after its succession, as the pilot exports it (TransitionUsage::transitionLink).
+func (e *encoder) transitionLinkMember(subject rdf.Term) {
+	feature := e.ids.minted(rdf.IRI(subject.Value+transitionLinkSuffix), subject, transitionLinkSuffix)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+	e.typed(feature, mReferenceUsage)
+	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
+	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+	e.graph.Add(subject, e.sysml(pOwnedFeatureMembership), membership)
+	e.graph.Add(subject, e.sysml(pOwnedFeature), feature)
+	e.emitMembershipCore(membership, feature, subject, mFeatureMembership, true)
+	e.graph.Add(membership, e.sysml(pOwnedMemberFeature), feature)
 }
 
 // encodeTrigger emits a transition's trigger as the AcceptActionUsage its
@@ -866,7 +912,7 @@ func (e *encoder) encodeTrigger(n *ast.TransitionMember, subject rdf.Term, fqn s
 		return false, err
 	}
 	e.graph.Add(accepter, rdf.IRI(rdf.RDFType), e.sysml(mAcceptAction))
-	e.graph.Add(accepter, addressTerm(accepterFQN), rdf.String(accepterFQN))
+	stateAddress(e.graph.Add, accepter, accepterFQN)
 	// The accept a trigger declares is placed where the trigger is written.
 	e.sourceRange(accepter, n.TriggerSpan)
 	e.graph.Add(accepter, e.sysml(pElementID), rdf.String(rdf.LocalName(accepter.Value)))
@@ -943,7 +989,7 @@ func (e *encoder) encodeSendArguments(n *ast.SendStatement, subject rdf.Term, fq
 		if !written[i] {
 			continue
 		}
-		param := e.ids.subjectFor(naming.Qualify(fqn, "", index))
+		param := e.ids.subjectFor(naming.Positional(fqn, index))
 		index++
 		if value, ok := e.graph.Object(param, rdf.SysML+pValue); ok {
 			e.graph.Add(subject, e.sysml(sendArgumentLinks[i]), value)
@@ -1058,7 +1104,7 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 		}
 		// A name the parser took from the member before that links no element
 		// still binds that member: the graph states it by position as well.
-		if before, ok := e.preceding[node]; ok && end.end.implied && term.IsLiteral() {
+		if before, ok := e.names.Preceding[node]; ok && end.end.implied && term.IsLiteral() {
 			if fqn, ok := e.names.FQN[before]; ok {
 				e.graph.Add(subject, e.sysx(end.member), e.ids.subjectForNode(before, fqn))
 			}
@@ -1067,8 +1113,8 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 	return nil
 }
 
-func (e *encoder) name(subject rdf.Term, name string) {
-	if name != "" {
+func (e *encoder) name(subject rdf.Term, name string, span source.Span) {
+	if name != "" || span.Len > 0 {
 		e.graph.Add(subject, e.sysml(pDeclaredName), rdf.String(name))
 	}
 }
@@ -1795,7 +1841,7 @@ func (d *decoder) answersTo(el *element) (rdf.Term, bool) {
 		}
 		return subject, true
 	}
-	if _, named := d.stringOf(el, rdf.SysML+pDeclaredName); named {
+	if _, named := d.nameOf(el, rdf.SysML+pDeclaredName); named {
 		return subject, true
 	}
 	if naming, ok := d.namingFeature(el); ok {
@@ -1989,7 +2035,7 @@ func (d *decoder) loopText(el *element, depth int) (string, error) {
 	var head string
 	switch el.metaclass {
 	case mForLoop:
-		variable, hasVariable := d.stringOf(el, rdf.OpenSysML+xLoopVariable)
+		variable, hasVariable := d.nameOf(el, rdf.OpenSysML+xLoopVariable)
 		collection, hasCollection := d.stringOf(el, rdf.OpenSysML+xCollection)
 		if !hasVariable || !hasCollection {
 			return "", d.missing(el, "sysx:"+xLoopVariable+" and sysx:"+xCollection, "a for loop binds a variable over a collection")
