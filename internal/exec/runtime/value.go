@@ -215,12 +215,40 @@ type enumerated struct {
 	payload any
 }
 
-// payload is the kind-specific payload, unwrapped from an enumerated scalar.
+// measured is the payload of a quantity held by a feature a quantity value type declares,
+// which is of that type; one `[` constructs or an operator computes carries none.
+type measured struct {
+	kind     *symbols.Symbol
+	quantity *Quantity
+}
+
+// payload is the kind-specific payload, unwrapped from an enumerated scalar or a measured quantity.
 func (v Value) payload() any {
-	if e, ok := v.ref.(*enumerated); ok {
-		return e.payload
+	switch ref := v.ref.(type) {
+	case *enumerated:
+		return ref.payload
+	case *measured:
+		return ref.quantity
 	}
 	return v.ref
+}
+
+// ofQuantityKind is the quantity v as a value of the quantity value type kind; v itself
+// for any other value.
+func (v Value) ofQuantityKind(kind *symbols.Symbol) Value {
+	if q := v.Quantity(); q != nil {
+		v.ref = &measured{kind: kind, quantity: q}
+	}
+	return v
+}
+
+// QuantityKind is the quantity value type a quantity was held as; nil for one that was
+// held as none and for every other value.
+func (v Value) QuantityKind() *symbols.Symbol {
+	if m, ok := v.ref.(*measured); ok {
+		return m.kind
+	}
+	return nil
 }
 
 // metaobjectValue is an element viewed as an instance of its reflective
@@ -449,7 +477,7 @@ func (v Value) Quantity() *Quantity {
 	if v.Kind != ValQuantity {
 		return nil
 	}
-	q, _ := v.ref.(*Quantity)
+	q, _ := v.payload().(*Quantity)
 	return q
 }
 

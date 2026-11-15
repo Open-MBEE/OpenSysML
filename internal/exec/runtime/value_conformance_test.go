@@ -646,3 +646,58 @@ func TestQuantityIsHeldByTheTypesItIsOf(t *testing.T) {
 		}
 	}
 }
+
+// A quantity a feature declared by a quantity value type holds is of that type: its
+// supertypes and subtypes hold it, a sibling type of the same dimension, disjoint from
+// it (SysML v2 9.8.9.1), does not, and what an operator computes of it is of no kind.
+func TestQuantityHeldAsAKindIsRefusedByASiblingKind(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import ISQ::*;
+			private import SI::*;
+			attribute def Work :> EnergyValue;
+			attribute def Heat :> EnergyValue;
+			calc def Passed { in x; x }
+			part def P {
+				attribute energy : EnergyValue = 5 [J];
+				attribute work : Work = Passed(energy);
+				attribute widened : EnergyValue = Passed(work);
+				attribute general : Quantities::ScalarQuantityValue = Passed(work);
+				attribute computed : TorqueValue = Passed(energy + energy);
+				attribute constructed : TorqueValue = 5 [J];
+				attribute torque : TorqueValue = Passed(energy);
+				attribute heat : Heat = Passed(work);
+				attribute heatOfWidened : Heat = Passed(widened);
+				attribute many : EnergyValue[2] = (1 [J], 2 [J]);
+				attribute torques : TorqueValue[2] = Passed(many);
+				attribute isEnergy = energy istype EnergyValue;
+				attribute isTorque = energy istype TorqueValue;
+				attribute hasEnergy = energy hastype EnergyValue;
+				attribute workIsEnergy = work istype EnergyValue;
+				attribute workHasEnergy = work hastype EnergyValue;
+				attribute same = energy == 5 [J];
+			}
+			part p : P;
+		}
+	`))
+	inst := instantiateNamed(t, ctx, idx, "test::p")
+	for feature, want := range map[string]string{
+		"work": "5 [J]", "widened": "5 [J]", "general": "5 [J]", "computed": "10 [SI::'N⋅m']", "constructed": "5 [SI::'N⋅m']",
+		"isEnergy": "true", "isTorque": "false", "hasEnergy": "true", "workIsEnergy": "true",
+		"workHasEnergy": "false", "same": "true",
+	} {
+		fv, err := inst.GetFeatureValue(ctx, feature)
+		if err != nil {
+			t.Errorf("%s: %v", feature, err)
+			continue
+		}
+		if got := FormatTraceValue(fv.HeldValue()); got != want {
+			t.Errorf("%s = %s, want %s", feature, got, want)
+		}
+	}
+	for _, feature := range []string{"torque", "heat", "heatOfWidened", "torques"} {
+		if _, err := inst.GetFeatureValue(ctx, feature); !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("%s: error = %v, want ErrTypeMismatch", feature, err)
+		}
+	}
+}

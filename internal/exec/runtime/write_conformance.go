@@ -352,10 +352,46 @@ func (ctx *Context) checkWriteType(scope *symbols.Scope, what func() string, dec
 // an enumeration admits as the enumerated value they equal.
 func (ctx *Context) holdForDeclared(value *Value, declared *symbols.Symbol) error {
 	ctx.spellForDeclared(value, declared)
+	ctx.holdAsMeasured(value, declared)
 	if err := ctx.holdAsReal(value, declared); err != nil {
 		return err
 	}
 	return ctx.holdAsEnumerated(value, declared)
+}
+
+// holdAsMeasured marks each quantity a feature declared by a quantity value type holds as
+// of that type, so a sibling type, disjoint from it (SysML v2 §9.8.9.1), refuses it later;
+// one already of a narrower type keeps it.
+func (ctx *Context) holdAsMeasured(value *Value, declared *symbols.Symbol) {
+	if declared == nil || ctx.model.semantics == nil {
+		return
+	}
+	switch value.Kind {
+	case ValQuantity:
+		quantity := ctx.librarySymbol(scalarQuantityTypeFQN)
+		if quantity == nil || declared == quantity || !ctx.modelConforms(declared, quantity) {
+			return
+		}
+		if kind := value.QuantityKind(); kind == nil || !ctx.modelConforms(kind, declared) {
+			*value = value.ofQuantityKind(declared)
+		}
+	case ValSequence, ValSet:
+		elements := append([]Value(nil), elementsOf(*value)...)
+		marked := false
+		for i := range elements {
+			before := elements[i].QuantityKind()
+			ctx.holdAsMeasured(&elements[i], declared)
+			marked = marked || elements[i].QuantityKind() != before
+		}
+		if !marked {
+			return
+		}
+		if value.Kind == ValSequence {
+			*value = sequenceOf(elements)
+			return
+		}
+		*value = ctx.setOf(elements)
+	}
 }
 
 // holdAsReal rounds each exact Rational a feature typed by Real holds to the nearest
@@ -449,7 +485,7 @@ func (ctx *Context) spellForDeclared(value *Value, declared *symbols.Symbol) {
 	case ValQuantity:
 		if q := value.Quantity(); q != nil {
 			if spelt := ctx.model.semantics.CoherentSpelling(*q, declared); spelt.Unit.Text != q.Unit.Text {
-				*value = NewQuantityValue(&spelt)
+				*value = NewQuantityValue(&spelt).ofQuantityKind(value.QuantityKind())
 			}
 		}
 	case ValSequence, ValSet:

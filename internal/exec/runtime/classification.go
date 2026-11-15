@@ -165,6 +165,9 @@ func (ctx *Context) valueTypes(scope *symbols.Scope, value Value) ([]*symbols.Sy
 		}
 		return []*symbols.Symbol{evaluation}, nil
 	case ValQuantity:
+		if kind := value.QuantityKind(); kind != nil {
+			return []*symbols.Symbol{kind}, nil
+		}
 		quantity, err := ctx.loadedLibraryType(scalarQuantityTypeFQN)
 		if err != nil {
 			return nil, err
