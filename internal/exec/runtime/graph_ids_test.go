@@ -380,3 +380,29 @@ func (c *graphIDCheck) entries(g *lower.StateGraph, want, got []*lower.EntryTran
 		c.behaviors(g, "entry transition", entry.Effect)
 	}
 }
+
+// TestPerformedPinBindingIDs checks that the bindings a performer writes through the
+// feature it performs name the nodes of the performed graph by id as well.
+func TestPerformedPinBindingIDs(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performedBindingFixture))
+	_, graph, err := ctx.actionBodyGraph(oneSymbol(t, idx, "test::Pair"))
+	if err != nil || graph == nil {
+		t.Fatalf("actionBodyGraph: %v, %v", graph, err)
+	}
+	bindings, err := lower.PerformedPinBindings(graph, []string{"run"}, ctx.objectBindings(oneSymbol(t, idx, "test::pair")), ctx.model.exprs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	check := graphIDCheck{t: t, model: "performed bindings"}
+	between := 0
+	for _, b := range bindings {
+		check.node(graph, "PinBinding.Node", b.Node, b.NodeID)
+		check.node(graph, "PinBinding.OtherNode", b.OtherNode, b.OtherNodeID)
+		if b.OtherNode != nil {
+			between++
+		}
+	}
+	if len(bindings) != 3 || between != 2 {
+		t.Fatalf("%d bindings, %d between two nodes, want 3 and 2", len(bindings), between)
+	}
+}

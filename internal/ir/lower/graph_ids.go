@@ -30,9 +30,15 @@ func (g *ActionGraph) stampIDs() {
 	}
 	for _, bindings := range [][]PinBinding{g.Bindings, g.ValueBindings} {
 		for i := range bindings {
-			bindings[i].NodeID, bindings[i].OtherNodeID = g.ID[bindings[i].Node], g.ID[bindings[i].OtherNode]
+			bindings[i] = g.withBindingIDs(bindings[i])
 		}
 	}
+}
+
+// withBindingIDs returns binding with the ids of the nodes its two ends name.
+func (g *ActionGraph) withBindingIDs(binding PinBinding) PinBinding {
+	binding.NodeID, binding.OtherNodeID = g.ID[binding.Node], g.ID[binding.OtherNode]
+	return binding
 }
 
 // nodeIDs maps nodes of the graph to their ids, in order.
