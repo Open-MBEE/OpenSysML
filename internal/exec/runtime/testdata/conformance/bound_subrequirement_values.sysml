@@ -1,6 +1,5 @@
-// The check of a requirement ranges over the values bound to a subrequirement (SysML v2 §8.4.17.1; Requirements.sysml
-// `subrequirements :> requirementChecks, constraints`, `result = allTrue(assumptions()) implies allTrue(constraints())`):
-// no value states nothing, one value one check, several one each, each judged on the value with the container's subject.
+// A requirement's check ranges over the values bound to a subrequirement, each judged with the container's subject:
+// none states nothing, one is one check, several one each (SysML v2 §8.4.17.1, `result = … implies allTrue(constraints())`).
 package test {
 	private import ScalarValues::*;
 	private import SequenceFunctions::size;
