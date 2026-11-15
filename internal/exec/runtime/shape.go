@@ -209,7 +209,7 @@ func (ctx *Context) parameterFeatures(typeSym *symbols.Symbol) []EffectiveFeatur
 	var order []string
 	byName := make(map[string]*symbols.Symbol)
 	for _, member := range ctx.model.semantics.MembersOfIncludingRedefined(typeSym) {
-		if member.Name == "" || !isInputParameter(member) || semantics.IsShapeFeature(member) && !ctx.model.semantics.FrameFeature(member) {
+		if !member.Named() || !isInputParameter(member) || semantics.IsShapeFeature(member) && !ctx.model.semantics.FrameFeature(member) {
 			continue
 		}
 		if _, seen := byName[member.Name]; !seen {
@@ -559,6 +559,19 @@ func (ctx *Context) inheritedMultiplicity(sym, owner *symbols.Symbol, path map[*
 	return mult, found, stated
 }
 
+// loweredDefault is the value member states on owner, its own or the one it takes from what
+// it redefines, lowered in the scope of the declaration that wrote it; false for none.
+func (ctx *Context) loweredDefault(member, owner *symbols.Symbol) (lowered, bool) {
+	value, decl := ctx.extractDefaultValue(member), member
+	if value == nil {
+		value, decl = ctx.redefinedDefault(member, owner)
+	}
+	if value == nil {
+		return lowered{}, false
+	}
+	return ctx.model.loweredExpr(decl.OwnerScope, value), true
+}
+
 // redefinedDefault returns the value a feature takes from the feature it
 // redefines, by clause or by parameter position, and the declaration that wrote
 // it: a redefining feature is the redefined feature declared again (KerML 1.0 §7.3.4.5).
@@ -604,7 +617,7 @@ func (ctx *Context) roleRedefiningDefault(sym, typeSym *symbols.Symbol) (ast.Nod
 	scope := bodyScope(typeSym, typeSym.OwnerScope)
 	for node := range lower.EachUnwrappedDeclMember(typeSym.Decl) {
 		member := memberSymbol(scope, node)
-		if member == nil || member == sym || member.Name != "" {
+		if member == nil || member == sym || member.Named() {
 			continue
 		}
 		val := ctx.extractDefaultValue(member)

@@ -1542,7 +1542,7 @@ func (e *stmtEngine) iteration(stmt lower.Loop, f *loopFrame, resumed bool) (flo
 // forLoop runs the body once per element of the loop's collection, with the
 // element bound to the loop's variable in the body's own frame.
 func (e *stmtEngine) forLoop(stmt lower.Loop) (stmtFlow, error) {
-	if stmt.Variable == "" {
+	if !stmt.Bound {
 		return flowNext, fmt.Errorf("%s: 'for' loop declares no iteration variable", e.host.describe())
 	}
 	f, resumed, err := popFrame[*loopFrame](e.ctx)

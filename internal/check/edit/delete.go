@@ -74,7 +74,7 @@ func (m Model) symbolDeletion(r *resolve.Resolver, doc string, sym *symbols.Symb
 	}
 	span := symbolSpan(sym)
 	name := notationName(sym)
-	if sym.Name == "" {
+	if !sym.Named() {
 		name = anonymousName(sym)
 		if in, ok := m.inDocument(doc); ok {
 			name = in.heading(span)
@@ -334,7 +334,7 @@ func (m Model) heading(span source.Span) string {
 // name, or the document for the root.
 func (m Model) namespaceName(doc string, scope *symbols.Scope) string {
 	for s := scope; s != nil; s = s.Parent() {
-		if owner := s.Owner(); owner != nil && owner.Name != "" {
+		if owner := s.Owner(); owner != nil && owner.Named() {
 			return notationName(owner)
 		}
 	}
@@ -353,7 +353,7 @@ func (m Model) symbolContaining(doc string, offset int) *symbols.Symbol {
 			}
 			// An unnamed connector end is only its connector's `connect` clause,
 			// so a reference in it refers from the connector.
-			if _, isEnd := candidate.Decl.(*ast.ConnectorEnd); isEnd && candidate.Name == "" {
+			if _, isEnd := candidate.Decl.(*ast.ConnectorEnd); isEnd && !candidate.Named() {
 				return true
 			}
 			span := symbolSpan(candidate)

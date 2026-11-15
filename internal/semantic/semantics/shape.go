@@ -165,7 +165,7 @@ func declarationIndex(owner, sym *symbols.Symbol) int {
 // AnonymousShapeMember reports a held constraint usage declared without a name (`require
 // constraint { … }`, `constraint { … }`); an `assert`ed one or an `inv` is checked, not held.
 func AnonymousShapeMember(sym *symbols.Symbol) bool {
-	if sym == nil || sym.Kind != symbols.SymbolConstraintUsage || sym.Name != "" || sym.ShortName != "" ||
+	if sym == nil || sym.Kind != symbols.SymbolConstraintUsage || sym.Named() || sym.ShortName != "" ||
 		sym.Naming != symbols.NamedByDeclaration || sym.Implied() || isAssertedConstraint(sym) {
 		return false
 	}

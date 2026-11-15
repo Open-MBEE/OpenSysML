@@ -17,7 +17,7 @@ func (sc *Context) attributesOf(sym *symbols.Symbol) ([]*Attribute, int32) {
 	var withheld int32
 	seen := make(map[string]bool)
 	for _, member := range sc.Semantics.MembersOf(sym) {
-		if !isAttributeSymbol(member) || member.Name == "" || seen[member.Name] {
+		if !isAttributeSymbol(member) || !member.Named() || seen[member.Name] {
 			continue
 		}
 		seen[member.Name] = true

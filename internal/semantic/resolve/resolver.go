@@ -425,7 +425,7 @@ func (r *Resolver) EndSymbol(qn *ast.QualifiedName) (*symbols.Symbol, bool) {
 // declared member bears reaches an inherited one, so `first start` links the
 // start the owner inherits; a member of an enclosing body is not a start.
 func (r *Resolver) resolveInitial(scope *symbols.Scope, n *ast.InitialNode) {
-	if n.Name() == "" {
+	if !n.Named() {
 		return
 	}
 	sym, ok := memberPastLabels(scope, n.Name())

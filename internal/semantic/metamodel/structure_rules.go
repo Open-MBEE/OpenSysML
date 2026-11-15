@@ -2048,16 +2048,16 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 	seen[key] = true
 	defer delete(seen, key)
 	if property == "name" || property == "shortName" {
-		name, shortName, declared := e.structureDeclaredIdentifiers(element)
+		names, declared := e.structureDeclaredIdentifiers(element)
 		if !element.IsMembership && declared {
 			if property == "name" {
-				if name != "" {
-					return stringValue(name), true, true
+				if names.hasName {
+					return stringValue(names.name), true, true
 				}
 				return nullValue(), true, true
 			}
-			if shortName != "" {
-				return stringValue(shortName), true, true
+			if names.hasShortName {
+				return stringValue(names.shortName), true, true
 			}
 			return nullValue(), true, true
 		}
@@ -2082,7 +2082,7 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 			if !ok {
 				return Value{}, true, false
 			}
-			if name.Kind != StringValue || name.String == "" {
+			if name.Kind != StringValue {
 				return nullValue(), true, true
 			}
 			return stringValue("~" + name.String), true, true
@@ -2098,11 +2098,11 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 			declaredProperty, otherDeclaredProperty = otherDeclaredProperty, declaredProperty
 		}
 		if value, ok := e.options.Structure.Attribute(element, declaredProperty); ok &&
-			value.Kind == StringValue && value.String != "" {
+			value.Kind == StringValue {
 			return value, true, true
 		}
 		if value, ok := e.options.Structure.Attribute(element, otherDeclaredProperty); ok &&
-			value.Kind == StringValue && value.String != "" &&
+			value.Kind == StringValue &&
 			!(property == "shortName" && element.Symbol != nil &&
 				element.Symbol.Naming == symbols.NamedByRedefinition) {
 			return nullValue(), true, true
@@ -2116,8 +2116,7 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 		}
 		if property == "name" && element.Symbol != nil && !element.IsMembership &&
 			element.Symbol.Naming == symbols.NamedByDeclaration {
-			if name, shortName, declared := symbolDeclaredNames(element.Symbol); declared &&
-				name == "" && shortName == "" {
+			if names, declared := symbolDeclaredNames(element.Symbol); declared && !names.any() {
 				return nullValue(), true, true
 			}
 		}
@@ -2168,28 +2167,28 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 			if _, alias := element.Symbol.Decl.(*ast.Alias); alias {
 				return nullValue(), true, true
 			}
-			name, shortName, known := symbolDeclaredNames(element.Symbol)
+			names, known := symbolDeclaredNames(element.Symbol)
 			if !known {
 				return nullValue(), true, true
 			}
 			switch property {
 			case "name":
-				if name != "" {
-					return stringValue(name), true, true
+				if names.hasName {
+					return stringValue(names.name), true, true
 				}
 			case "shortName":
-				if shortName != "" {
-					return stringValue(shortName), true, true
+				if names.hasShortName {
+					return stringValue(names.shortName), true, true
 				}
 			}
 		} else {
 			switch property {
 			case "name":
-				name, shortName, declared := symbolDeclaredNames(element.Symbol)
-				if declared && name != "" {
-					return stringValue(name), true, true
+				names, declared := symbolDeclaredNames(element.Symbol)
+				if declared && names.hasName {
+					return stringValue(names.name), true, true
 				}
-				if declared && shortName != "" {
+				if declared && names.hasShortName {
 					return nullValue(), true, true
 				}
 				if declared && element.Symbol.Naming == symbols.NamedByDeclaration {
@@ -2211,14 +2210,14 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 					return nullValue(), true, true
 				}
 				if e.model != nil {
-					if name := e.model.EffectiveNameOf(element.Symbol); name != "" {
+					if name, named := e.model.EffectiveNamed(element.Symbol); named {
 						return stringValue(name), true, true
 					}
 				}
 			case "shortName":
-				_, shortName, declared := symbolDeclaredNames(element.Symbol)
-				if declared && shortName != "" {
-					return stringValue(shortName), true, true
+				names, declared := symbolDeclaredNames(element.Symbol)
+				if declared && names.hasShortName {
+					return stringValue(names.shortName), true, true
 				}
 				if target, handled, ok := e.structureNamingFeature(element); handled {
 					if !ok {
@@ -2241,7 +2240,7 @@ func (e *Evaluator) structureNameWithSeen(element Element, property string, seen
 					return Value{}, true, false
 				}
 				if e.model != nil {
-					if shortName := e.model.EffectiveShortNameOf(element.Symbol); shortName != "" {
+					if shortName, has := e.model.EffectiveShortNamed(element.Symbol); has {
 						return stringValue(shortName), true, true
 					}
 				}
@@ -2470,90 +2469,109 @@ func (e *Evaluator) recordUnresolvedNamingSource(element Element, property strin
 	)
 }
 
-func symbolDeclaredNames(symbol *symbols.Symbol) (string, string, bool) {
-	if symbol == nil {
-		return "", "", false
-	}
-	name, shortName, known := astDeclaredNames(symbol.Decl)
-	if known {
-		return name, shortName, true
-	}
-	if symbol.Naming == symbols.NamedByDeclaration {
-		return symbol.Name, symbol.ShortName, true
-	}
-	return name, shortName, known
+// declaredNames is the name and short name a declaration states, each told
+// from none when it is the empty unrestricted name (KerML §8.2.2.3).
+type declaredNames struct {
+	name, shortName       string
+	hasName, hasShortName bool
 }
 
-func structureDeclaredNames(element Element) (string, string, bool) {
+func (n declaredNames) any() bool { return n.hasName || n.hasShortName }
+
+func identNames(id ast.Identification) declaredNames {
+	return declaredNames{name: id.Name, shortName: id.ShortName, hasName: id.HasName(), hasShortName: id.HasShortName()}
+}
+
+// nameOnly is the names of a declaration that can state a name but no short name.
+func nameOnly(name string, span source.Span) declaredNames {
+	return declaredNames{name: name, hasName: name != "" || span.Len > 0}
+}
+
+func symbolDeclaredNames(symbol *symbols.Symbol) (declaredNames, bool) {
+	if symbol == nil {
+		return declaredNames{}, false
+	}
+	names, known := astDeclaredNames(symbol.Decl)
+	if known {
+		return names, true
+	}
+	if symbol.Naming == symbols.NamedByDeclaration {
+		return declaredNames{
+			name: symbol.Name, shortName: symbol.ShortName,
+			hasName: symbol.Named(), hasShortName: symbol.HasShortName(),
+		}, true
+	}
+	return names, known
+}
+
+func structureDeclaredNames(element Element) (declaredNames, bool) {
 	if element.Aspect != "" {
-		return "", "", false
+		return declaredNames{}, false
 	}
 	if element.Symbol != nil {
 		if element.Node != nil && element.Node != element.Symbol.Decl {
-			return "", "", false
+			return declaredNames{}, false
 		}
 		return symbolDeclaredNames(element.Symbol)
 	}
 	return astDeclaredNames(element.Node)
 }
 
-func (e *Evaluator) structureDeclaredIdentifiers(element Element) (string, string, bool) {
-	name, shortName, known := structureDeclaredNames(element)
-	if known && (name != "" || shortName != "") {
-		return name, shortName, true
+func (e *Evaluator) structureDeclaredIdentifiers(element Element) (declaredNames, bool) {
+	names, known := structureDeclaredNames(element)
+	if known && names.any() {
+		return names, true
 	}
 	if e.options.Structure == nil || element.IsMembership {
-		return name, shortName, false
+		return names, false
 	}
-	if value, ok := e.options.Structure.Attribute(element, "declaredName"); ok &&
-		value.Kind == StringValue && value.String != "" {
-		name = value.String
+	if value, ok := e.options.Structure.Attribute(element, "declaredName"); ok && value.Kind == StringValue {
+		names.name, names.hasName = value.String, true
 	}
-	if value, ok := e.options.Structure.Attribute(element, "declaredShortName"); ok &&
-		value.Kind == StringValue && value.String != "" {
-		shortName = value.String
+	if value, ok := e.options.Structure.Attribute(element, "declaredShortName"); ok && value.Kind == StringValue {
+		names.shortName, names.hasShortName = value.String, true
 	}
-	return name, shortName, name != "" || shortName != ""
+	return names, names.any()
 }
 
-func astDeclaredNames(node ast.Node) (string, string, bool) {
+func astDeclaredNames(node ast.Node) (declaredNames, bool) {
 	switch declaration := node.(type) {
 	case *ast.Usage:
-		return declaration.Ident.Name, declaration.Ident.ShortName, true
+		return identNames(declaration.Ident), true
 	case *ast.Definition:
-		return declaration.Ident.Name, declaration.Ident.ShortName, true
+		return identNames(declaration.Ident), true
 	case *ast.Package:
-		return declaration.Ident.Name, declaration.Ident.ShortName, true
+		return identNames(declaration.Ident), true
 	case *ast.SubjectMember:
-		return declaration.Ident.Name, declaration.Ident.ShortName, true
+		return identNames(declaration.Ident), true
 	case *ast.CrossFeatureMember:
-		return declaration.Ident.Name, declaration.Ident.ShortName, true
+		return identNames(declaration.Ident), true
 	case *ast.ConnectorEnd:
 		identification, ok := declaration.DeclaredName()
 		if !ok {
-			return "", "", true
+			return declaredNames{}, true
 		}
-		return identification.Name, identification.ShortName, true
+		return identNames(identification), true
 	case *ast.AssumeMember, *ast.RequireMember:
 		if constraint, ok := ast.OwnedConstraintOf(declaration); ok {
-			return constraint.Ident.Name, constraint.Ident.ShortName, true
+			return identNames(constraint.Ident), true
 		}
-		return "", "", true
+		return declaredNames{}, true
 	case *ast.InitialNode:
 		if declaration.Successor != nil {
-			return "", "", true
+			return declaredNames{}, true
 		}
-		return declaration.Name(), "", true
+		return nameOnly(declaration.Name(), source.Span{}), true
 	case *ast.SendStatement, *ast.SuccessionEdge, *ast.ControlFlowEdge:
-		return "", "", true
+		return declaredNames{}, true
 	case *ast.PseudostateNode:
-		return declaration.Name, "", true
+		return nameOnly(declaration.Name, source.Span{}), true
 	case *ast.SubstateMember:
-		return declaration.Name, "", true
+		return nameOnly(declaration.Name, declaration.NameSpan), true
 	case *ast.TransitionMember:
-		return declaration.Name, "", true
+		return nameOnly(declaration.Name, declaration.NameSpan), true
 	default:
-		return "", "", false
+		return declaredNames{}, false
 	}
 }
 
@@ -6372,11 +6390,11 @@ func (e *Evaluator) structureTypedEndName(typ Element, position int, property st
 			return Value{}, false
 		}
 		end := ends[position]
-		name := e.model.EffectiveNameOf(end)
+		name, named := e.model.EffectiveNamed(end)
 		if property == "shortName" {
-			name = e.model.EffectiveShortNameOf(end)
+			name, named = e.model.EffectiveShortNamed(end)
 		}
-		if name == "" {
+		if !named {
 			return nullValue(), true
 		}
 		return stringValue(name), true
@@ -6512,8 +6530,7 @@ func (e *Evaluator) structureFeaturingTypes(
 
 func (e *Evaluator) structureMemberName(element Element, memberProperty, nameProperty string) (Value, bool, bool) {
 	if memberProperty != "" {
-		if value, ok := e.options.Structure.Attribute(element, memberProperty); ok &&
-			value.Kind == StringValue && value.String != "" {
+		if value, ok := e.options.Structure.Attribute(element, memberProperty); ok && value.Kind == StringValue {
 			return value, true, true
 		}
 	}
@@ -6534,7 +6551,7 @@ func (e *Evaluator) structureMemberName(element Element, memberProperty, namePro
 	if !ok {
 		return Value{}, true, false
 	}
-	if name.Kind == StringValue && name.String != "" {
+	if name.Kind == StringValue {
 		return name, true, true
 	}
 	return nullValue(), true, true
