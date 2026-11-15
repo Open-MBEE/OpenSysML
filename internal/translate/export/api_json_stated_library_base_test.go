@@ -150,3 +150,40 @@ func TestAPIJSONEndFeatureLeavesOutRedefinedInheritedEnds(t *testing.T) {
 		t.Error("F.inheritedFeature keeps D::two, which F::mine redefines by end position")
 	}
 }
+
+// An enumerated value is held by a VariantMembership, an OwningMembership that is no
+// FeatureMembership (SysML 8.3.6.7): a feature typed by the enumeration inherits the
+// membership and the member, never a feature or a usage.
+func TestAPIJSONInheritedEnumeratedValuesAreMembersNotFeatures(t *testing.T) {
+	graph := duplicateGraph(t, `package Probe {
+		part def Run { attribute verdict : VerificationCases::VerdictKind; }
+	}`, IDQualifiedName)
+	document, err := WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	elements := booleansElements(t, document)
+	catalog := identity.LibraryCatalogWithOpenSysML(libs.SharedBase())
+	pass, ok := catalog.ElementNamed("VerificationCases::VerdictKind::pass")
+	if !ok {
+		t.Fatal("the library catalog has no VerificationCases::VerdictKind::pass")
+	}
+	verdict := elements["Probe__Run__verdict"]
+	if ids := referenceIDs(t, verdict, "member"); !slices.Contains(ids, pass.ID) {
+		t.Error("verdict.member lacks the enumerated value VerdictKind::pass")
+	}
+	if ids := referenceIDs(t, verdict, "inheritedMembership"); !slices.Contains(ids, pass.OwningMembershipID) {
+		t.Error("verdict.inheritedMembership lacks the variant membership of VerdictKind::pass")
+	}
+	for _, property := range []string{"feature", "inheritedFeature", "usage"} {
+		if _, stated := verdict[property]; !stated {
+			continue
+		}
+		if ids := referenceIDs(t, verdict, property); slices.Contains(ids, pass.ID) {
+			t.Errorf("verdict.%s lists the enumerated value VerdictKind::pass, which no FeatureMembership holds", property)
+		}
+	}
+	if ids := referenceIDs(t, verdict, "featureMembership"); slices.Contains(ids, pass.OwningMembershipID) {
+		t.Error("verdict.featureMembership lists the variant membership of VerdictKind::pass")
+	}
+}

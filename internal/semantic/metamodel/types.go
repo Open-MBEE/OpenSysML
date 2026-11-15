@@ -213,10 +213,11 @@ func membershipKind(sym *symbols.Symbol) string {
 	if _, ok := sym.Decl.(*ast.CrossFeatureMember); ok {
 		return "OwningMembership"
 	}
+	if semantics.IsVariant(sym) {
+		return "VariantMembership"
+	}
 	if usage, ok := sym.Decl.(*ast.Usage); ok {
 		switch {
-		case usage.IsVariant:
-			return "VariantMembership"
 		case usage.IsResult:
 			return "ReturnParameterMembership"
 		case usage.IsBodyParameter:
@@ -243,10 +244,8 @@ func isFeatureMembership(sym, owner *symbols.Symbol) bool {
 	if sym == nil || !sym.IsFeature() || !isType(owner) || semantics.IsImpliedMultiplicity(sym) {
 		return false
 	}
-	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.IsVariant {
-		return false
-	}
-	return true
+	// A variant, an enumerated value included, is held by a VariantMembership (SysML 8.3.6.7).
+	return !semantics.IsVariant(sym)
 }
 
 func hasOwningMembership(sym, owner *symbols.Symbol) bool {
