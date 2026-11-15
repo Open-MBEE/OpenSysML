@@ -2247,7 +2247,7 @@ part def Context {
 ```
 
 Both run on the one clock. Each time the cart steps, its `input` is what the pusher's `output`
-holds then, and once the pusher has ended, what it last carried; the input is held over the
+holds then, and once the pusher has ended, what it left; the input is held over the
 step. Two dynamics due at one instant are a `due order` choice point like any other. An input
 takes one flow: two flows into one `input`, or a flow from something that is not a vector, are
 errors naming the action and the source. A flow between two dynamics that are steps of one

@@ -121,6 +121,21 @@ func TestStateSpaceFlowCarriesTheOutputToTheInput(t *testing.T) {
 	}
 }
 
+// A source that ended before the dynamics first step still feeds them what it left.
+func TestStateSpaceFlowFromAnEndedAction(t *testing.T) {
+	sum, err := runCoupled(t, coupledDynamics(`
+		part fixed {
+			perform action emit { out level = VectorOf((2.0)); }
+		}
+		flow fixed.emit.level to sink.sum.input;`, ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := FormatValue(sum.Results()["stateSpace"]), "⟨4.0⟩"; got != want {
+		t.Errorf("the integrator ended at %s, want %s", got, want)
+	}
+}
+
 // A flow stated `[0]` carries nothing: beside the one that does, it is no second flow into the input.
 func TestStateSpaceFlowOfNoneIsNoFlow(t *testing.T) {
 	sum, err := runCoupled(t, coupledDynamics(`
@@ -166,9 +181,9 @@ func TestStateSpaceFlowIntoARedefinedAction(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Which of the two steps first at an instant is open: the integrator holds the ramp's
-	// output from the start of each step (3) or from its end, the last carried once it ended (4.5).
-	if got := FormatValue(total.Results()["stateSpace"]); got != "⟨3.0⟩" && got != "⟨4.5⟩" {
-		t.Errorf("the integrator ended at %s, want ⟨3.0⟩ or ⟨4.5⟩", got)
+	// output from the start of each step (3) or from its end (5).
+	if got := FormatValue(total.Results()["stateSpace"]); got != "⟨3.0⟩" && got != "⟨5.0⟩" {
+		t.Errorf("the integrator ended at %s, want ⟨3.0⟩ or ⟨5.0⟩", got)
 	}
 }
 

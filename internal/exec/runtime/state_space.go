@@ -589,9 +589,8 @@ func anyCrosses(was, watched []float64) bool {
 	return false
 }
 
-// watchCrossings evaluates what every crossing watches after a step, at the state
-// and input the step settled, and raises the event of each that crosses zero; true
-// when a terminal one fired.
+// watchCrossings evaluates what every crossing watches at the state and input a step settled
+// and raises the event of each that crosses zero; true when a terminal one fired.
 func (e *ActionExecutor) watchCrossings(run *stateSpaceRun, now float64, state Value, input *Value) (bool, error) {
 	first := run.guards == nil
 	if first {
@@ -721,9 +720,8 @@ func (ctx *Context) objectFlows(typeSym *symbols.Symbol) []lower.FeatureFlow {
 	return flows
 }
 
-// inputFlows are the flows the performer and the objects owning it declare into the
-// performed action's input (`flow pusher.push.output to cart.roll.input`), under the
-// action's name or one it redefines; a flow stated `[0]` carries nothing and is none.
+// inputFlows are the flows the performer and its owners declare into the performed action's
+// input, under its name or one it redefines; a flow stated `[0]` carries nothing and is none.
 func (e *ActionExecutor) inputFlows() []inputFeed {
 	if e.performed == nil || e.self == nil {
 		return nil
@@ -769,8 +767,8 @@ func (ctx *Context) flowCarriesNothing(flow lower.FeatureFlow) bool {
 	return ok && r.Upper.Known && !r.Upper.Infinite && r.Upper.Value == 0
 }
 
-// flowedInput is the input a flow carries from its source as that stands now, written to the
-// action's input; while the source holds nothing it is what was last carried. Two flows into one input are refused.
+// flowedInput is the input a flow carries from its source as that stands now, written to the action's
+// input; a source holding nothing leaves what was last carried. Two flows into one input are refused.
 func (e *ActionExecutor) flowedInput(flows []inputFeed) (*Value, error) {
 	if len(flows) > 1 {
 		return nil, fmt.Errorf("%w: %s of action %s is the target of %d flows; the dynamics take their input from one",
@@ -808,9 +806,8 @@ func (e *ActionExecutor) carriedInput() (*Value, error) {
 	return &input, nil
 }
 
-// flowSourceValue reads the feature a flow leaves, from the object declaring the flow down
-// its source path: an action the object reached performs answers from its performance under
-// way, any other feature from its value. held is false where the source holds nothing.
+// flowSourceValue reads the feature a flow leaves, down its source path from the object declaring
+// it: an action's from its performance, any other from its value; held is false where it holds nothing.
 func (ctx *Context) flowSourceValue(feed inputFeed) (Value, bool, error) {
 	holder := feed.on
 	path := feed.Source
@@ -858,9 +855,8 @@ func (ctx *Context) flowSourceObject(holder *Instance, name string) (*Instance, 
 	return next, true, nil
 }
 
-// performedFeatureValue reads feature of the action holder performs as action: from its
-// performance under way, held false when none is (none has begun, or it has ended, and
-// writes nothing). performs is false where action names no action of holder.
+// performedFeatureValue reads feature of the action holder performs as action: from its performance
+// under way, else what the ended one left; performs is false where action names no action of holder.
 func (ctx *Context) performedFeatureValue(holder *Instance, action, feature string) (val Value, held, performs bool, err error) {
 	fv, declared := holder.FeatureValues[action]
 	if !declared || fv.Feature == nil || fv.Feature.Symbol == nil || !fv.Feature.Symbol.Kind.IsAction() {
@@ -879,5 +875,21 @@ func (ctx *Context) performedFeatureValue(holder *Instance, action, feature stri
 			return val, held, true, err
 		}
 	}
-	return Value{}, false, true, nil
+	return ctx.endedFeatureValue(fv, feature)
+}
+
+// endedFeatureValue is what the occurrence of a performance not under way holds for feature,
+// read as it stands: held is false before the performance began, or where it left none.
+func (ctx *Context) endedFeatureValue(performed *FeatureValue, feature string) (val Value, held, performs bool, err error) {
+	id, isObject := soleElement(performed.HeldValue()).Object()
+	occurrence, found := ctx.Instance(id)
+	if !isObject || !found {
+		return Value{}, false, true, nil
+	}
+	left, declared := occurrence.FeatureValues[feature]
+	if !declared {
+		return Value{}, false, true, nil
+	}
+	val = left.HeldValue()
+	return val, val.Kind != ValInvalid && val.Kind != ValNull, true, nil
 }
