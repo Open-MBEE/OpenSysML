@@ -170,6 +170,10 @@ type ActionGraph struct {
 
 	replacedByIncompatible map[ast.Node]ast.Node
 
+	// impliedSteps: feature path → the step a succession end chaining to an action
+	// through an object implies, where the body states no step performing it.
+	impliedSteps map[string]ast.Node
+
 	// declaredIn: inherited node, flow or binding declaration → the scope of the
 	// general's body it was written in, which says which document declares it.
 	declaredIn map[ast.Node]*symbols.Scope
@@ -1124,27 +1128,25 @@ func (l *actionEdgeLowerer) initial(n *ast.InitialNode) error {
 }
 
 func (l *actionEdgeLowerer) successionEdge(n *ast.SuccessionEdge) error {
-	sourceNode, err := l.endpoint(n.Source, n.SourceMember, true)
+	sources, err := l.ends(n.Source, n.SourceMember, true)
 	if err != nil {
 		return err
 	}
-	targetNode, err := l.endpoint(n.Target, n.TargetMember, false)
+	targets, err := l.ends(n.Target, n.TargetMember, false)
 	if err != nil {
 		return err
 	}
-	if sourceNode == nil {
+	if sources == nil {
 		return fmt.Errorf("succession edge references undefined source node %s", edgeEnd(n.Source, n.SourceMember))
 	}
-	if targetNode == nil {
+	if targets == nil {
 		return fmt.Errorf("succession edge references undefined target node %s", edgeEnd(n.Target, n.TargetMember))
 	}
 	weight, err := l.weights.read(n.Members)
 	if err != nil {
 		return err
 	}
-	l.addEdge(ActionEdge{
-		Source:             sourceNode,
-		Target:             targetNode,
+	l.addEdges(sources, targets, ActionEdge{
 		Decl:               n,
 		Probability:        weight,
 		SourceMultiplicity: n.SourceMultiplicity,
@@ -1154,40 +1156,34 @@ func (l *actionEdgeLowerer) successionEdge(n *ast.SuccessionEdge) error {
 }
 
 func (l *actionEdgeLowerer) controlFlowEdge(n *ast.ControlFlowEdge) error {
-	sourceNode, err := l.endpoint(n.Source, n.SourceMember, true)
+	sources, err := l.ends(n.Source, n.SourceMember, true)
 	if err != nil {
 		return err
 	}
-	targetNode, err := l.endpoint(n.Target, n.TargetMember, false)
+	targets, err := l.ends(n.Target, n.TargetMember, false)
 	if err != nil {
 		return err
 	}
-	if sourceNode == nil {
+	if sources == nil {
 		return fmt.Errorf("control flow edge references undefined source %s", edgeEnd(n.Source, n.SourceMember))
 	}
-	if targetNode == nil {
+	if targets == nil {
 		return fmt.Errorf("control flow edge references undefined target %s", edgeEnd(n.Target, n.TargetMember))
 	}
-	l.addEdge(ActionEdge{
-		Source: sourceNode,
-		Target: targetNode,
-		Guard:  n.Guard,
-		Decl:   n,
-		Else:   n.IsElse,
-	})
+	l.addEdges(sources, targets, ActionEdge{Guard: n.Guard, Decl: n, Else: n.IsElse})
 	return nil
 }
 
 func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
-	sourceNode, err := l.endpoint(n.Source, nil, true)
+	sources, err := l.ends(n.Source, nil, true)
 	if err != nil {
 		return err
 	}
-	targetNode, err := l.endpoint(n.Target, nil, false)
+	targets, err := l.ends(n.Target, nil, false)
 	if err != nil {
 		return err
 	}
-	if sourceNode == nil {
+	if sources == nil {
 		return fmt.Errorf("succession references undefined source node %s", edgeEndName(n.Source))
 	}
 	weight, err := l.weights.read(n.Members)
@@ -1195,22 +1191,20 @@ func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
 		return err
 	}
 	edge := ActionEdge{
-		Source:             sourceNode,
 		Guard:              n.Guard,
 		Decl:               n,
 		Probability:        weight,
 		Name:               n.Name,
 		TargetMultiplicity: n.TargetMultiplicity,
 	}
-	if targetNode == nil {
+	if targets == nil {
 		if n.Target != nil && ast.SimpleName(n.Target) != "" {
-			l.gates = append(l.gates, pendingGate{edge: edge, target: n.Target, scope: l.scope})
+			l.addGates(sources, edge, n.Target)
 			return nil
 		}
 		return fmt.Errorf("succession references undefined target node %s", edgeEndName(n.Target))
 	}
-	edge.Target = targetNode
-	l.addEdge(edge)
+	l.addEdges(sources, targets, edge)
 	return nil
 }
 
@@ -1338,28 +1332,66 @@ func (l *actionEdgeLowerer) endpoint(ref ast.Node, member ast.Node, source bool)
 }
 
 func (l *actionEdgeLowerer) succession(sourceRef, targetRef ast.Node, edge ActionEdge) error {
-	sourceNode, err := l.endpoint(sourceRef, nil, true)
+	sources, err := l.ends(sourceRef, nil, true)
 	if err != nil {
 		return err
 	}
-	targetNode, err := l.endpoint(targetRef, nil, false)
+	targets, err := l.ends(targetRef, nil, false)
 	if err != nil {
 		return err
 	}
-	if sourceNode == nil {
+	if sources == nil {
 		return fmt.Errorf("action succession references undefined source node %s", successionEndText(sourceRef))
 	}
-	if targetNode == nil {
+	if targets == nil {
 		if ast.AsQualifiedName(targetRef) != nil && ast.SimpleName(targetRef) != "" {
-			edge.Source = sourceNode
-			l.gates = append(l.gates, pendingGate{edge: edge, target: targetRef, scope: l.scope})
+			l.addGates(sources, edge, targetRef)
 			return nil
 		}
 		return fmt.Errorf("action succession references undefined target node %s", successionEndText(targetRef))
 	}
-	edge.Source, edge.Target = sourceNode, targetNode
-	l.addEdge(edge)
+	l.addEdges(sources, targets, edge)
 	return nil
+}
+
+// ends resolves an edge end to the nodes it names: its one node, or the steps
+// performing the action a feature chain reaches through an object.
+func (l *actionEdgeLowerer) ends(ref ast.Node, member ast.Node, source bool) ([]ast.Node, error) {
+	node, err := l.endpoint(ref, member, source)
+	if err != nil {
+		return nil, err
+	}
+	if node != nil {
+		return []ast.Node{node}, nil
+	}
+	if member != nil {
+		return nil, nil
+	}
+	switch kind, _ := ClassifyChainEnd(l.graph.Nodes, l.scope, ref); kind {
+	case ChainEndAction:
+		return l.graph.chainSteps(ref, l.scope), nil
+	case ChainEndOccurrence:
+		return nil, fmt.Errorf("%w: %s", ErrSuccessionEndNotPerformed, FeaturePath(ref))
+	}
+	return nil, nil
+}
+
+// addEdges states edge from every source to every target.
+func (l *actionEdgeLowerer) addEdges(sources, targets []ast.Node, edge ActionEdge) {
+	for _, source := range sources {
+		for _, target := range targets {
+			edge.Source, edge.Target = source, target
+			l.addEdge(edge)
+		}
+	}
+}
+
+// addGates defers edge from every source until the flows its target may name are lowered.
+func (l *actionEdgeLowerer) addGates(sources []ast.Node, edge ActionEdge, target ast.Node) {
+	for _, source := range sources {
+		edge.Source = source
+		l.gates = append(l.gates, pendingGate{edge: edge, target: target, scope: l.scope})
+	}
 }
 
 func (l *actionEdgeLowerer) objectFlowEdge(n *ast.ObjectFlowEdge) error {
@@ -2638,7 +2670,7 @@ func resolveActionEndpoint(graph *ActionGraph, ref ast.Node, source bool) ast.No
 		return node
 	}
 	name := ast.SimpleName(ref)
-	if impliedMarker(name, source, graph.Initial == nil) {
+	if !isChainEnd(ref) && impliedMarker(name, source, graph.Initial == nil) {
 		if source {
 			return ensureImpliedStart(graph, ref)
 		}
@@ -2679,7 +2711,7 @@ func ensureImpliedDone(graph *ActionGraph, ref ast.Node) ast.Node {
 // A chain attaches to the node whose body contains that feature.
 func findNodeByReference(nodes []ast.Node, ref ast.Node) ast.Node {
 	if qname := ast.AsQualifiedName(ref); qname != nil {
-		return findNodeByName(nodes, qname)
+		return findNodeByName(nodes, chainRoot(qname))
 	}
 	chain, ok := ref.(*ast.FeatureChainExpr)
 	if !ok {
