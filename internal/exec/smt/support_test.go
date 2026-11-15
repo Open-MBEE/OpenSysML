@@ -14,7 +14,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
@@ -126,13 +125,13 @@ func TestAnalyzeCountsRepeatedActionSteps(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Analyze: %v, want a[3] encoded", err)
 	}
-	var a ast.Node
+	var a Node
 	for _, node := range f.Nodes {
 		if f.label(node) == "a" {
 			a = node
 		}
 	}
-	if a == nil || f.Repeats[a] != 3 {
+	if a.Graph == nil || f.Repeats[a] != 3 {
 		t.Fatalf("repeats: got %v at %v, want 3 at a", f.Repeats, a)
 	}
 	if f.Slots != 3 {
@@ -167,13 +166,13 @@ func TestAnalyzeCountsInheritedRepeatedActionSteps(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Analyze: %v, want the inherited a[3] encoded", err)
 	}
-	var a ast.Node
+	var a Node
 	for _, node := range f.Nodes {
 		if f.label(node) == "a" {
 			a = node
 		}
 	}
-	if a == nil || f.Repeats[a] != 3 {
+	if a.Graph == nil || f.Repeats[a] != 3 {
 		t.Fatalf("repeats: got %v at %v, want 3 at a", f.Repeats, a)
 	}
 }
@@ -570,5 +569,40 @@ func TestAnalyzeRefusesBodyInterleaving(t *testing.T) {
 	}
 	if _, err := Analyze(conformanceAction(t, "action_join_waits_for_slowest_branch.sysml", "test::gather"), nil, 10); errors.As(err, &unsupported) && unsupported.Construct == "body interleaving" {
 		t.Errorf("Analyze refused a flow whose bodies are one move each: %v", err)
+	}
+}
+
+// TestAnalyzeRefusesTwoFlowsOfOneDefinition: two steps typed by one definition share its
+// declarations, so the second frame's initial node is refused as outside the flow.
+func TestAnalyzeRefusesTwoFlowsOfOneDefinition(t *testing.T) {
+	_, idx := fixture(t, "<test>", `
+		package test {
+			action def Leg { first a; action a; action b; succession first a then b; }
+			action outer {
+				first start;
+				action one : Leg { action c; succession first b then c; }
+				action two : Leg { action d; succession first b then d; }
+				done;
+				succession first start then one;
+				succession first one then two;
+				succession first two then done;
+			}
+		}`)
+	sym := idx.LookupQualified("test::outer")
+	if len(sym) != 1 {
+		t.Fatalf("test::outer matched %d symbols", len(sym))
+	}
+	graph, err := lower.ToActionGraph(sym[0].Decl, sym[0].Scope)
+	if err != nil {
+		t.Fatalf("lower: %v", err)
+	}
+	lower.StartFlow(graph)
+	_, err = Analyze(graph, nil, 4)
+	var malformed *FlowError
+	if !errors.As(err, &malformed) {
+		t.Fatalf("Analyze: got %T %v, want a FlowError", err, err)
+	}
+	if got, want := err.Error(), "smt: malformed action flow: node a: the initial node is not among the flow's nodes"; got != want {
+		t.Errorf("Analyze: got %q, want %q", got, want)
 	}
 }

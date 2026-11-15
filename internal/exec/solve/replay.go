@@ -7,8 +7,9 @@ import (
 	"math/big"
 	"slices"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // Rounded reports whether the query asserts or optimizes a value the evaluator
@@ -341,7 +342,7 @@ func replayComparison(t *Term, env map[string]replayValue) (replayValue, error) 
 	if !left.numeric() || !right.numeric() {
 		return replayValue{}, fmt.Errorf("ordering non-numbers")
 	}
-	res, _ := semantics.OrderSatisfies(map[Op]ast.OperatorKind{OpLt: ast.OpLt, OpLe: ast.OpLe, OpGt: ast.OpGt, OpGe: ast.OpGe}[t.Op], compareNumbers(left, right))
+	res, _ := semantics.OrderSatisfies(lower.OperatorKindOf(map[Op]program.Operator{OpLt: program.OpLt, OpLe: program.OpLe, OpGt: program.OpGt, OpGe: program.OpGe}[t.Op]), compareNumbers(left, right))
 	return replayValue{kind: SortBool, b: res}, nil
 }
 
@@ -360,7 +361,7 @@ func replayArithmetic(t *Term, env map[string]replayValue) (replayValue, error) 
 	if !left.numeric() || !right.numeric() {
 		return replayValue{}, fmt.Errorf("arithmetic on non-numbers")
 	}
-	astOp := map[Op]ast.OperatorKind{OpAdd: ast.OpAdd, OpSub: ast.OpSub, OpMul: ast.OpMul, OpDiv: ast.OpDiv}[t.Op]
+	astOp := lower.OperatorKindOf(map[Op]program.Operator{OpAdd: program.OpAdd, OpSub: program.OpSub, OpMul: program.OpMul, OpDiv: program.OpDiv}[t.Op])
 	if left.isExact() && right.isExact() && (t.Op == OpDiv || left.kind != SortInt || right.kind != SortInt) {
 		res, err := semantics.RatArith(astOp, left.i, right.i, semantics.DefaultMaxIntegerBits)
 		if errors.Is(err, semantics.ErrDivisionByZero) {

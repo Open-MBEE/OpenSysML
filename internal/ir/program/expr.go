@@ -79,6 +79,12 @@ type Expr struct {
 	Path []SymbolRef
 	// Chain is the members an ExprChain reads after its operand, in order.
 	Chain []SymbolRef
+	// Params are the parameters an ExprBody declares, in order, by name.
+	Params []SymbolRef
+	// Result is what an ExprBody answers, lowered in the scope of its parameters; 0 for none.
+	Result ExprID
+	// Locals counts the members an ExprBody declares besides its parameters and result.
+	Locals int
 	// Const is the constant a literal spells; its Kind is invalid for a numeric
 	// literal whose spelling is none or exceeds the default size budget.
 	Const semantics.Value

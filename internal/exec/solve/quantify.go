@@ -1,8 +1,11 @@
 package solve
 
 import (
+	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // quantified translates `P->forAll { in ref w; w == V }` and `P->exists { … }`
@@ -10,25 +13,26 @@ import (
 // (SysML v2.1 §8.3.6, §7.6.7), so every value P holds is that variant and the
 // quantifier states the selection itself: `P == V` (`P != V` for `w != V`),
 // provided P holds at least one object. Every other invocation is refused.
-func (t *translator) quantified(n *ast.InvocationExpr, scope *symbols.Scope) (*Term, error) {
+func (t *translator) quantified(n *lower.ExprEntry, scope *symbols.Scope) (*Term, error) {
 	name := t.quantifierName(n, scope)
-	if n.Operand == nil || name == "" {
+	if !n.Receiver || name == "" {
 		return nil, t.refuse(n, describe(n), "it is outside the subset")
 	}
+	receiver := n.Operands[0]
 	construct := "`->" + name + "` expression"
 	shape := "only `{ in ref w; w == variant }` over a variation point, comparing the iterate with a variant, is translated"
-	if len(n.Args) != 1 {
+	if len(n.Operands) != 2 || len(n.Named) != 0 {
 		return nil, t.refuse(n, construct, shape)
 	}
-	body, ok := n.Args[0].(*ast.BodyExpr)
-	if !ok || len(body.Params) != 1 || len(body.Members) != 0 {
+	body := n.Operands[1]
+	if body.Kind != program.ExprBody || len(body.Params) != 1 || body.Locals != 0 {
 		return nil, t.refuse(n, construct, shape)
 	}
-	cmp, ok := body.Result.(*ast.OperatorExpr)
-	if !ok || (cmp.Operator != ast.OpEq && cmp.Operator != ast.OpNeq) || len(cmp.Operands) != 2 {
+	cmp := body.Answer
+	if cmp == nil || cmp.Kind != program.ExprOp || (cmp.Op != program.OpEq && cmp.Op != program.OpNeq) || len(cmp.Operands) != 2 {
 		return nil, t.refuse(n, construct, shape)
 	}
-	var other ast.Node
+	var other *lower.ExprEntry
 	switch iterate := body.Params[0].Name; {
 	case namesParam(cmp.Operands[0], iterate):
 		other = cmp.Operands[1]
@@ -37,11 +41,11 @@ func (t *translator) quantified(n *ast.InvocationExpr, scope *symbols.Scope) (*T
 	default:
 		return nil, t.refuse(n, construct, shape)
 	}
-	segments, ok := pathSegments(n.Operand)
+	segments, ok := receiver.Segments()
 	if !ok || len(segments) == 0 {
 		return nil, t.refuse(n, construct, "its receiver names nothing this translation can ground")
 	}
-	chain, err := t.resolvePath(n.Operand, scope, segments)
+	chain, err := t.resolvePath(receiver, scope, segments)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +58,7 @@ func (t *translator) quantified(n *ast.InvocationExpr, scope *symbols.Scope) (*T
 	} else if !r.Lower.Known || r.Lower.Infinite || r.Lower.Value < 1 {
 		return nil, t.refuse(n, construct, "the multiplicity of its receiver "+point.Name+" does not state that it holds an object")
 	}
-	left, err := t.reference(n.Operand, scope)
+	left, err := t.reference(receiver, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +70,7 @@ func (t *translator) quantified(n *ast.InvocationExpr, scope *symbols.Scope) (*T
 		return nil, t.refuse(n, construct, "the iterate is compared with a value of "+right.Sort.Name+", not a variant of "+point.Name)
 	}
 	op := OpEq
-	if cmp.Operator == ast.OpNeq {
+	if cmp.Op == program.OpNeq {
 		op = OpNe
 	}
 	return t.equalityOf(n, scope, construct, op, left, right)
@@ -75,11 +79,11 @@ func (t *translator) quantified(n *ast.InvocationExpr, scope *symbols.Scope) (*T
 // quantifierName is "forAll" or "exists" when the invoked function resolves to
 // the ControlFunctions one of that name, read through the same resolution the
 // evaluator invokes by, an alias through its target; "" for any other function.
-func (t *translator) quantifierName(n *ast.InvocationExpr, scope *symbols.Scope) string {
-	segments, ok := nameSegments(n.Type)
-	if !ok || len(segments) == 0 {
+func (t *translator) quantifierName(n *lower.ExprEntry, scope *symbols.Scope) string {
+	if n.Ref.Name == "" {
 		return ""
 	}
+	segments := strings.Split(n.Ref.Name, "::")
 	chain, err := t.resolvePath(n, scope, segments)
 	if err != nil || len(chain) == 0 {
 		return ""
@@ -98,7 +102,6 @@ func (t *translator) quantifierName(n *ast.InvocationExpr, scope *symbols.Scope)
 }
 
 // namesParam reports whether node is a bare reference to the body parameter name.
-func namesParam(node ast.Node, name string) bool {
-	ref, ok := node.(*ast.FeatureReference)
-	return ok && ref.Name != nil && len(ref.Name.Parts) == 1 && ref.Name.Parts[0].Text == name
+func namesParam(node *lower.ExprEntry, name string) bool {
+	return node.Kind == program.ExprRef && node.Reference() && len(node.Path) == 0 && node.Ref.Name == name
 }

@@ -126,3 +126,24 @@ func IsActorUsage(sym *symbols.Symbol) bool {
 func IsObjectiveUsage(sym *symbols.Symbol) bool {
 	return roleOf(sym) == objectiveRole
 }
+
+// DeclaresSubject reports whether sym declares a subject: a requirement's or case's
+// `subject` member, or the subject a satisfy usage's `by` clause declares.
+func DeclaresSubject(sym *symbols.Symbol) bool {
+	switch d := sym.Decl.(type) {
+	case *ast.SubjectMember:
+		return true
+	case *ast.Relationship:
+		return d.Kind == ast.RelSubject
+	}
+	return false
+}
+
+// DeclaresFeature reports whether sym declares a feature holding a value: a usage, or
+// a subject. A definition or a package holds none.
+func DeclaresFeature(sym *symbols.Symbol) bool {
+	if _, ok := sym.Decl.(*ast.Usage); ok {
+		return true
+	}
+	return DeclaresSubject(sym)
+}
