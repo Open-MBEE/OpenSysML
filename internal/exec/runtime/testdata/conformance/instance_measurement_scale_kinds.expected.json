@@ -52,7 +52,7 @@
     "louder": {"error": "operation is not defined on a point of a measurement scale: operator '+' on a point of the logarithmic scale test::dBm: a LogarithmicScale defines the value of a quantity, not an interval between values; convert to a unit with ConvertQuantity first"},
     "doubledLevel": {"error": "operation is not defined on a point of a measurement scale: operator '*' on a point of the logarithmic scale test::dBm: a point has no multiple and its scale is no unit to compose; convert it to a unit with ConvertQuantity first"},
     "levelSpread": {"error": "operation is not defined on a point of a measurement scale: operator '-' on a point of the logarithmic scale test::dBm: a LogarithmicScale defines the value of a quantity, not an interval between values; convert to a unit with ConvertQuantity first"},
-    "noLevel": {"error": "function QuantityCalculations::ConvertQuantity: arithmetic domain error: -1.0 [W] has no value on the logarithmic scale test::dBm: (x / 0.001 [SI::W]) ** 1 is -1000, which has no logarithm"},
+    "noLevel": {"error": "function QuantityCalculations::ConvertQuantity: arithmetic domain error: -1.0 [W] has no value on the logarithmic scale test::dBm: its ratio to 0.001 [SI::W] is -1000, and a logarithm is of a positive ratio"},
     "unanchored": {"error": "function QuantityCalculations::ConvertQuantity: library function is not evaluable: test::octave states no referenceQuantity, the quantity its values are logarithms relative to, so they convert to no other reference"}
   }
 }

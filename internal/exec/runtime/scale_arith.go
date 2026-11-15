@@ -371,16 +371,16 @@ func (ctx *Context) sharedCycle(unit Unit, cycles ...*Quantity) (float64, error)
 	return shared, nil
 }
 
-// principalValue is the representative in [0, cycle) of the values equivalent to x.
-func principalValue(x, cycle float64) float64 {
+// cycleClasses is how finely a cycle is told apart: equivalent values meet up to binary64 rounding.
+const cycleClasses = 1 << 40
+
+// cycleClass numbers the values equivalent to x over cycle: one number per class.
+func cycleClass(x, cycle float64) float64 {
 	p := math.Mod(x, cycle)
 	if p < 0 {
 		p += cycle
 	}
-	if p >= cycle {
-		return 0
-	}
-	return p
+	return math.Mod(math.Round(p/cycle*cycleClasses), cycleClasses)
 }
 
 // isBareZero reports a zero with no unit, which adopts the other operand's reference.
@@ -396,9 +396,7 @@ func (ctx *Context) compareMagnitudes(left, right *Quantity) (int, error) {
 		return 0, err
 	}
 	if cycle != 0 && l.Num.IsNumeric() && r.Num.IsNumeric() {
-		// Equivalent values differ by whole cycles; the difference is the one `-` computes.
-		diff, err := semantics.MagnitudeArith(ast.OpSub, l.Num, r.Num, ctx.maxIntegerBits)
-		if err == nil && math.Remainder(diff.AsReal(), cycle) == 0 {
+		if cycleClass(l.Num.AsReal(), cycle) == cycleClass(r.Num.AsReal(), cycle) {
 			return 0, nil
 		}
 	}

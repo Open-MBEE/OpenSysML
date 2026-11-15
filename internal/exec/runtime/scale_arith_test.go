@@ -404,6 +404,8 @@ const scaleKindsModel = `package test {
 	attribute dBm : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = 10; :>> exponent = 1; :>> referenceQuantity = 0.001 [W]; }
 	attribute field : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = 10; :>> exponent = 2; :>> referenceQuantity = 1.0 [V]; }
 	attribute acidity : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = -1; :>> exponent = 1; :>> referenceQuantity = 1.0 [mol/L]; }
+	attribute halfTurn : CyclicRatioScale { :>> unit = '°'; :>> modulus = 180; }
+	attribute bearings [2] = (10 [bearing], 20 [bearing]);
 	attribute headings : Set { :>> elements = (450 [bearing], 90 [bearing], -270 [bearing], 91 [bearing], 360.1 [bearing], 0.1 [bearing], 90 ['°']); }
 	attribute levels : Set { :>> elements = (30.0 [dBm], 1.0 [W], 20.0 [dBm]); }
 }`
@@ -459,6 +461,13 @@ func TestCyclicRatioScaleValues(t *testing.T) {
 			t.Errorf("%s = %v, %v; want %v", src, got, err, want)
 		}
 	}
+	// Distinct values keep distinct keys, so a collection subsetting them keeps both.
+	if got, err := evalIn(t, ctx, scope, "bearings"); err != nil || len(elementsOf(got)) != 2 {
+		t.Errorf("bearings = %s, %v; want two distinct bearings", FormatValue(got), err)
+	}
+	if valueKeyOf(t, ctx, scope, "0 [bearing]") == valueKeyOf(t, ctx, scope, "0 [halfTurn]") {
+		t.Error("zero on two cycles shares a key; they are different members")
+	}
 	if got, err := evalIn(t, ctx, scope, "headings.elements"); err != nil || len(got.Set().Elements()) != 4 {
 		t.Errorf("headings = %s, %v; want one bearing per cycle class, apart from the angle in a unit", FormatValue(got), err)
 	}
@@ -502,6 +511,12 @@ func TestLogarithmicScaleValues(t *testing.T) {
 	if got, err := evalIn(t, ctx, scope, "levels.elements"); err != nil || len(got.Set().Elements()) != 2 {
 		t.Errorf("levels = %s, %v; want 30 dBm and 1 W as one member", FormatValue(got), err)
 	}
+	// An even exponent would give a negative quantity a value no conversion returns it from.
+	for _, src := range []string{"40.0 [field] == -100.0 [V]", "-100.0 [V] == 40.0 [field]"} {
+		if got, err := evalIn(t, ctx, scope, src); !errors.Is(err, semantics.ErrArithmeticDomain) && (err != nil || got.Const.Bool) {
+			t.Errorf("%s = %v, %v; want false or a domain error, the same either way round", src, got, err)
+		}
+	}
 	for _, src := range []string{"30.0 [dBm] - 20.0 [dBm]", "30.0 [dBm] + 1.0 [W]", "2 * 30.0 [dBm]", "-(30.0 [dBm])", "sum((30.0 [dBm], 20.0 [dBm]))"} {
 		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, errScalePoint) {
 			t.Errorf("%s: err = %v, want errScalePoint", src, err)
@@ -533,4 +548,14 @@ func TestCyclicRatioScaleZero(t *testing.T) {
 			t.Errorf("%s: err = %v, want the mapping refused", src, err)
 		}
 	}
+}
+
+// valueKeyOf is the key a collection tells the value of src apart by.
+func valueKeyOf(t *testing.T, ctx *Context, scope *symbols.Scope, src string) any {
+	t.Helper()
+	v, err := evalIn(t, ctx, scope, src)
+	if err != nil {
+		t.Fatalf("%s: %v", src, err)
+	}
+	return ctx.valueKey(v)
 }

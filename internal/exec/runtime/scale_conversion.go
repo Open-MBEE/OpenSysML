@@ -373,7 +373,7 @@ func logarithm(x, base float64) float64 {
 }
 
 // toLogarithm is a quantity's value on a logarithmic scale:
-// `factor * log_base((x / x_ref) ** exponent)`, defined where the power is positive.
+// `factor * log_base((x / x_ref) ** exponent)`, defined where the ratio is positive.
 func (ctx *Context) toLogarithm(q Quantity, scale *CoordinateFrame) (Quantity, error) {
 	ref, err := ctx.logReference(scale)
 	if err != nil {
@@ -384,12 +384,13 @@ func (ctx *Context) toLogarithm(q Quantity, scale *CoordinateFrame) (Quantity, e
 		return Quantity{}, err
 	}
 	log := scale.Scale.Log
-	power := math.Pow(x.Num.AsReal()/ref.Num.AsReal(), log.Exponent)
-	if !(power > 0) {
-		return Quantity{}, fmt.Errorf("%w: %s has no value on %s: (x / %s) ** %g is %g, which has no logarithm",
-			semantics.ErrArithmeticDomain, q.String(), ctx.describeScale(scale), ref.String(), log.Exponent, power)
+	ratio := x.Num.AsReal() / ref.Num.AsReal()
+	if !(ratio > 0) {
+		// A ratio that is not positive has no one value the mapping returns it from.
+		return Quantity{}, fmt.Errorf("%w: %s has no value on %s: its ratio to %s is %g, and a logarithm is of a positive ratio",
+			semantics.ErrArithmeticDomain, q.String(), ctx.describeScale(scale), ref.String(), ratio)
 	}
-	num, err := semantics.RealResult(log.Factor * logarithm(power, log.Base))
+	num, err := semantics.RealResult(log.Factor * log.Exponent * logarithm(ratio, log.Base))
 	if err != nil {
 		return Quantity{}, err
 	}
