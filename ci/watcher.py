@@ -1046,7 +1046,9 @@ def iterate(st):
     except Exception:
         log("ERROR mq_track " + traceback.format_exc().replace("\n", " | "))
         mq = None
-    if mq is None or mq > 0:
+    # Cap 1 only while a merge-queue job waits for runners (or the merge queue is unreadable); an active build
+    # with nothing waiting leaves the full cap, the one the sweeper enforces.
+    if mq is None or (mq > 0 and mq_waiting()):
         CAP = min(CAP, 1)
     try:
         stale_bt(st)
@@ -1422,7 +1424,7 @@ def iterate(st):
         for _ in range(CAP):
             n0 = len(st["holders"])
             start_next(st)
-            if len(st["holders"]) <= n0 or len(st["holders"]) >= CAP or not st["queue"]:
+            if len(st["holders"]) <= n0 or len(st["holders"]) >= CAP or not (st["queue"] or auth_pending()):
                 break
 
     outage_hold()
@@ -1586,7 +1588,7 @@ def stale_bt(st):
 
 
 def mq_track(st):
-    """Release authority: merge_group runs are never cancelled or held; while any is active at most 1 ordinary PR run. Returns active count, None on API failure."""
+    """Release authority: merge_group runs are never cancelled or held. Returns the active count, None on API failure."""
     m = st.setdefault("mq", {"runs": {}, "entries": []})
     d = gh_json(["api", f"repos/{REPO}/actions/runs?event=merge_group&per_page=30"], ok_fail=True)
     if d is None:

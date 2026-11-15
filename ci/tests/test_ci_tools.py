@@ -336,6 +336,28 @@ class WatcherTest(Stub):
         self.assertIn("merge-queue first: merge_group run 900 has 2 job(s) waiting for runners; no ordinary slot granted", log)
         self.assertFalse([c for c in self.calls() if c.startswith("run rerun")])
 
+    def test_an_active_build_with_nothing_waiting_admits_reruns_up_to_the_cap(self):
+        self.write("config.json", {"repo": REPO, "cap": 3, "checkout": self.dir})
+        self.write("tiers.json", {"tiers": [[8]]})
+        self.write("auth_rerun.json", [{"pr": 7, "run": 555, "head": "0000000000"}, {"pr": 8, "run": 556, "head": "0000000000"}])
+        mg = {"id": 900, "name": "PR", "head_branch": "gh-readonly-queue/develop/pr-5-abc", "head_sha": "e" * 40, "status": "in_progress"}
+        mq_rules = [[r"^run list .*--status in_progress --event merge_group", [{"databaseId": 900, "status": "in_progress"}], 0],
+                    [r"^api repos/Example/Repo/actions/runs/900/jobs", 0, 0], [r"^run rerun 55[56] --failed", "", 0]]
+        self.pass_rules([], mg_runs=[mg], extra=mq_rules)
+        log = self.run_once()
+        self.assertNotIn("merge-queue first", log)
+        self.assertEqual([c.split()[2] for c in self.calls() if c.startswith("run rerun")], ["556", "555"])
+        self.assertEqual(self.read("auth_rerun.json"), [])
+
+    def test_an_unreadable_merge_queue_caps_admission_at_one(self):
+        self.write("config.json", {"repo": REPO, "cap": 3, "checkout": self.dir})
+        self.write("auth_rerun.json", [{"pr": 7, "run": 555, "head": "0000000000"}, {"pr": 8, "run": 556, "head": "0000000000"}])
+        self.pass_rules([], extra=[[r"^api repos/Example/Repo/actions/runs\?event=merge_group&per_page=30", "HTTP 502", 1],
+                                   [r"^run rerun 55[56] --failed", "", 0]])
+        self.assertEqual(watcher.main(["--config", self.config, "--once"]), 0)
+        self.assertEqual([c.split()[2] for c in self.calls() if c.startswith("run rerun")], ["555"])
+        self.assertEqual(self.read("auth_rerun.json"), [{"pr": 8, "run": 556, "head": "0000000000"}])
+
     def test_queue_entries_between_builds_hold_reruns(self):
         self.write("auth_rerun.json", [{"pr": 7, "run": 555, "head": "0000000000"}])
         self.pass_rules([], mq=[{"position": 1, "state": "QUEUED", "pullRequest": {"number": 5, "headRefOid": "f" * 40}}])

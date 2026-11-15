@@ -69,7 +69,7 @@ the directory that contains the configuration file.
 | `workflows` | Workflow names the cap counts. The first is the pull-request workflow whose runs are re-started (default `["PR"]`). |
 | `preflight_jobs` | Cheap jobs that do not count as "started" (default `["Changed areas"]`). |
 | `required_check` | The aggregate required check (default `Build and test`). |
-| `cap` | Concurrent ordinary runs (default 3). It drops to 1 while a merge-queue run is active, and to 0 under a freeze or a runner-priority hold. The sweeper keeps this many active ordinary runs while no merge-queue job waits. |
+| `cap` | Concurrent ordinary runs (default 3). It drops to 1 while a merge-queue job is queued or waiting for a runner, or the merge queue is unreadable. An active merge-queue build with nothing waiting leaves the full cap. It drops to 0 under a freeze or a runner-priority hold. The sweeper keeps this many active ordinary runs while no merge-queue job waits. |
 | `interval_seconds`, `fast_poll_seconds` | Time between full passes, and between the fast polls for new runs inside that time (defaults 120 and 10). |
 | `exempt_branches`, `exempt_prefixes` | Branches whose runs are never counted or cancelled. Tags and `gh-readonly-queue/` are always exempt. |
 | `runner_pin` | `{"file", "require", "forbid"}`: before a close/reopen, the workflow file at the PR's merge ref must contain `require` and must not contain `forbid`. Leave it out to skip the check. |
@@ -240,6 +240,9 @@ These rules come from running the tools on this repository and still apply.
   - **Idle.** While no merge-queue job waits, if more than `cap` ordinary runs are active, started
     or not, `cap` of them (the raised cap while `wide_cap.json` exists) are kept, chosen by tier index and then by closeness to finishing. The
     lowest tier is cancelled first and, within a tier, the run furthest from finishing.
+
+  A started run is never cancelled for tier order alone: only a starved merge queue or an idle queue
+  over the cap cancels one. A higher-tier run waiting in `auth_rerun.json` does not preempt it.
 
   Closest to finishing means: first the runs with a completed job that is neither the preflight nor
   skipped (until then the matrix may not have expanded, so the unfinished count understates the work
