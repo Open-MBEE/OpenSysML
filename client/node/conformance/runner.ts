@@ -385,11 +385,21 @@ export class Runner {
   private readonly calls: Record<CoveredRpc, (call: Call) => Promise<unknown>> = {
     GetServerInfo: () => this.connection.serverInfo(),
     ParseFile: ({ request }) => this.parseFile(request),
-    GetSymbol: (call) =>
-      this.model(call).symbolById(String(call.request["symbol_id"]), {
-        ...flagOption(call.request, "include_library_members", "includeLibraryMembers"),
-        byReportedId: call.request["resolve_name"] !== true,
-      }),
+    GetSymbol: (call) => {
+      const id = String(call.request["symbol_id"]);
+      const options = flagOption(call.request, "include_library_members", "includeLibraryMembers");
+      switch (call.request["lookup"]) {
+        case "LOOKUP_KIND_QUALIFIED_NAME":
+          return this.model(call).symbolByName(id, options);
+        case "LOOKUP_KIND_ELEMENT_ID":
+          return this.model(call).symbolByElementId(id, options);
+        default:
+          return this.model(call).symbolById(id, {
+            ...options,
+            byReportedId: call.request["resolve_name"] !== true,
+          });
+      }
+    },
     Evaluate: (call) =>
       this.model(call).eval(String(call.request["expression"]), {
         ...stringOption(call.request, "context_symbol_id", "context"),
@@ -443,7 +453,7 @@ export class Runner {
       }),
     GetElementProperties: (call) =>
       this.model(call).elementProperties(
-        String(call.request["element_id"]),
+        elementLookup(call.request),
         ...stringList(call.request["properties"]),
       ),
     Query: (call) =>
@@ -951,4 +961,17 @@ function errored(result: Result, error: unknown): Result {
 
 function isMessage(value: unknown): value is Message {
   return typeof value === "object" && value !== null && "$typeName" in value;
+}
+
+/** The element a GetElementProperties request names, by the kind its `lookup` states. */
+function elementLookup(request: Record<string, unknown>): string | { name: string } | { id: string } {
+  const element = String(request["element_id"]);
+  switch (request["lookup"]) {
+    case "LOOKUP_KIND_QUALIFIED_NAME":
+      return { name: element };
+    case "LOOKUP_KIND_ELEMENT_ID":
+      return { id: element };
+    default:
+      return element;
+  }
 }
