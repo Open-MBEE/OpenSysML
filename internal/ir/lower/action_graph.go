@@ -185,7 +185,10 @@ type ActionGraph struct {
 // redefinition, resolved where the redefined node was declared.
 type PerformedType struct {
 	Target *ast.QualifiedName
-	Scope  *symbols.Scope
+	// Referrer is the redefined node when it performs by reference subsetting
+	// (`perform v.close;`) rather than by typing; Target is then nil.
+	Referrer *ast.Usage
+	Scope    *symbols.Scope
 }
 
 // Incoming returns the successions into node, in the declaration order of the

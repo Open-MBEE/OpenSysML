@@ -278,4 +278,8 @@ func TestActionChainEndJoinsRedefinedInheritedPerformer(t *testing.T) {
 	if edges := graph.Edges[nodeNamed(t, graph, "c2")]; len(edges) != 1 || edges[0].Target != nodeNamed(t, graph, "a") {
 		t.Fatalf("c2 edges = %v, want [a]", edges)
 	}
+	referrer := graph.Performs[nodeNamed(t, graph, "c2")].Referrer
+	if referrer == nil || !performsPath(referrer, []string{"v", "close"}) {
+		t.Fatalf("c2 performs through %v, want the reference of the step it redefines", referrer)
+	}
 }
