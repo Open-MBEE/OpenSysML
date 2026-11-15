@@ -443,9 +443,8 @@ func (m *Model) deriveDimension(sym *symbols.Symbol) (UnitTerm, bool) {
 	return m.inheritedDimension(sym)
 }
 
-// scaleDimension reports the dimension a measurement scale (a TimeScale) measures
-// in: the one of the unit its points are counted in; a logarithmic scale measures
-// the quantity its referenceQuantity is of, unknown when it binds none.
+// scaleDimension reports the dimension a measurement scale measures in: its unit's, or for
+// a logarithmic scale its referenceQuantity's, unknown when it binds none.
 func (m *Model) scaleDimension(sym *symbols.Symbol) (UnitTerm, bool) {
 	scale := m.libSymbol(fqnMeasurementScale)
 	if scale == nil || !m.Conforms(sym, scale) {

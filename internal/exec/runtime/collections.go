@@ -1674,10 +1674,8 @@ func typedZero(unit Unit, kind aggregateKind) Value {
 	return NewQuantityValue(&Quantity{Num: kind.identity(0), Unit: unit})
 }
 
-// aggregateQuantities folds a collection holding a quantity in the unit of its
-// first element, as the binary operator does. A bare number is a magnitude of
-// dimension one, so mixing one in reports incommensurable units. Points on a measurement
-// scale have no sum or product, so a fold over them is refused, a cyclic ratio scale's excepted.
+// aggregateQuantities folds quantities in the unit of the first, a bare number being of
+// dimension one; points have no sum or product, a cyclic ratio scale's values have.
 func (ctx *Context) aggregateQuantities(op string, elements []Value, operator ast.OperatorKind, kind aggregateKind) (Value, error) {
 	var acc Value
 	for i, elem := range elements {

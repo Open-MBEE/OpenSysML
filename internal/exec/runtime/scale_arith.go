@@ -277,9 +277,8 @@ func (ctx *Context) subtractPoints(left *Quantity, lscale *CoordinateFrame, righ
 	return quantityResult(semantics.InUnit(num, lscale.Scale.Unit))
 }
 
-// alignForComparison carries right onto left's reference so their magnitudes compare:
-// onto the left scale, or through the right scale's anchor into the left unit. cycle is
-// the period, in the unit the magnitudes are in, values a cyclic ratio scale are equivalent over; 0 for none.
+// alignForComparison carries right onto left's reference so their magnitudes compare;
+// cycle is the period, in their unit, cyclic values are equivalent over, 0 for none.
 func (ctx *Context) alignForComparison(left, right Quantity) (l, r Quantity, cycle float64, err error) {
 	lscale, lpoint, err := ctx.pointOf(&left)
 	if err != nil {
@@ -325,9 +324,8 @@ func (ctx *Context) alignForComparison(left, right Quantity) (l, r Quantity, cyc
 	return left, right, cycle, err
 }
 
-// comparableOperand is an operand as the references of two scales can compare it: a point on
-// an interval scale as it is, a cyclic value as its magnitude with the cycle it is equivalent
-// over, a logarithmic value as the quantity it stands for; an ordinal value compares with its own scale only.
+// comparableOperand is an operand as two references compare it: a cyclic value as its magnitude
+// and cycle, a logarithmic one as the quantity it stands for; an ordinal one is refused.
 func (ctx *Context) comparableOperand(what string, q Quantity, scale *CoordinateFrame) (Quantity, *Quantity, error) {
 	if scale == nil {
 		return q, nil, nil

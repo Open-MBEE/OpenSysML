@@ -70,9 +70,8 @@ func canonicalCompare(a, b Value) int {
 	return (*Context)(nil).canonicalCompare(a, b)
 }
 
-// canonicalQuantity is the quantity as its reference measures it: a point on an interval or
-// logarithmic scale carried to its ratio reference as `==` does, a cyclic value as the principal
-// value of its cycle; a point on any other scale, or one that converts to nothing, stays as written.
+// canonicalQuantity is the quantity as `==` measures it: an interval or logarithmic point on its
+// ratio reference, a cyclic value as its principal value; any other point stays as written.
 func (ctx *Context) canonicalQuantity(q Quantity) Quantity {
 	if ctx == nil || ctx.model == nil {
 		return q

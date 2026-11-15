@@ -466,11 +466,13 @@ the flat sequence of its elements:
   convert through a common source (`scale_conversion.go`). Where the scale
   also states a `quantityValueMapping` (`°C_abs`: `0.01 ['°C']` ↔
   `273.16 [K]`) the mapping must agree with the placement, and a disagreement
-  is a typed error naming both offsets rather than a choice between them. A
-  scale that states neither (`Time::UTC`, every `OrdinalScale`,
-  `CyclicRatioScale`, `LogarithmicScale`) is a value, but converting to or from
-  it is `errUnevaluableLibraryFunction` naming the scale and the missing
-  transformation or mapping; a placement whose `origin` is not a quantity on
+  is a typed error naming both offsets rather than a choice between them. An
+  interval scale that states neither (`Time::UTC`) is a value, but converting
+  to or from it is `errUnevaluableLibraryFunction` naming the scale and the
+  missing transformation or mapping; a `CyclicRatioScale` converts as its
+  `unit` does, a `LogarithmicScale` through its `referenceQuantity`, and an
+  `OrdinalScale` to nothing (*A quantity on a measurement scale is a point*,
+  under Requirement); a placement whose `origin` is not a quantity on
   the source (the validation suite's `definitionalEpochInUTC`, an
   `Iso8601DateTime`), or whose `basisDirections` is not the identity `1 [R]`,
   is a typed error naming that; a chain of placements that returns to a scale
@@ -629,6 +631,6 @@ reports itself by name rather than answering:
 | `BaseFunctions::'['` | Declared abstract, and the operator notation `a[i, j]` is the quantity notation `num [unit]` to the parser and the evaluator (`evalIndexExpr`): over an operand whose bracket names no unit the error (`errNotAQuantity`, `notAQuantityError`) says so, and when the operand is declared an Array, a vector or a feature of more than one value (`declaredCollection`, from the declaration alone — the operand is not evaluated to diagnose it) points at `a#(i, j)`, which `CollectionFunctions::'array#'` and `BaseFunctions::'#'` evaluate. Reading `a[i, j]` as indexing by the operand's static type would be a checker rule as well as a runtime one, and is not made here. |
 | `BaseFunctions::as`, `meta`, `istype`, `hastype`, `'@'`, `'@@'`; `ControlFunctions::'.'` | The operator notations `all T`, `x istype T`, `x as T`, `x meta T`, `x @ M`, `x.f` **are** evaluated, from their own expression nodes (`all`/`as`/`meta`/`istype`/`hastype`/`@`/`@@` take a *type*, which the function form would have to receive as a value). The function forms report themselves rather than pretend. |
 | `DataFunctions::'~'`, `ScalarFunctions::'~'` | Declared abstract and specialized by no concrete library function, so the complement denotes no operation on any value type — reported as the `~` operator is; adjudicated abstract-only in [bitwise-complement.md](bitwise-complement.md). |
-| `QuantityCalculations::ConvertQuantity` to or from a measurement scale that states neither a `CoordinateFramePlacement` nor a `quantityValueMapping` — `Time::UTC`, every `OrdinalScale`, `CyclicRatioScale`, `LogarithmicScale` in the vendored library | The scale is a value (`ValCoordinateFrame`, *Structured values* above) and a quantity on it reads, but the library gives its points no relation to any other reference, so a conversion has nothing to compute by; the reason names the scale and the missing transformation or mapping. `SI::'°C_abs'`, placed on `K`, converts. |
+| `QuantityCalculations::ConvertQuantity` to or from an interval scale that states neither a `CoordinateFramePlacement` nor a `quantityValueMapping` — `Time::UTC` in the vendored library — or a `LogarithmicScale` that states no `referenceQuantity` | The scale is a value (`ValCoordinateFrame`, *Structured values* above) and a quantity on it reads, but the library gives its points no relation to any other reference, so a conversion has nothing to compute by; the reason names the scale and the missing transformation, mapping or reference quantity. `SI::'°C_abs'`, placed on `K`, converts. |
 | `VectorCalculations::transform` over a `CoordinateTransformation` that is none of `CoordinateFramePlacement`, `TranslationRotationSequence`, `AffineTransformationMatrix3d`, `NullTransformation` | Those four are the shapes the library documents; a user-defined subtype states no origin, basis, steps or matrix the runtime could apply, so the reason names the declaration and the four shapes. |
 | `TensorCalculations::tensorVectorMult`, `vectorTensorMult`, `tensorTensorMult`; `VectorCalculations::outer`; `TensorCalculations::transform` | The three products declare only their parameter and result types: neither `TensorCalculations` nor the Kernel states which indices contract or how the operands' `contravariantOrder` and `covariantOrder` combine, so no product is determined. `outer` declares `return : VectorQuantityValue`, which the order-two outer product of two vectors is not (drafted in `omg-issues.md`, unfiled). `transform` takes a `CoordinateTransformation` the runtime holds (`ValCoordinateTransformation`), but neither package states how it acts on a tensor's contravariant and covariant indices, and `VectorCalculations::transform` over a vector is the only law the library gives. Each names itself and the reason. Not invented; the structural and componentwise `TensorCalculations` compute (*Structured values*, `ValTensorQuantity`). |

@@ -286,9 +286,8 @@ func TestPointOnMeasurementScale(t *testing.T) {
 		"operator '-' negates a point on the measurement scale SI::'°C_abs', which has no negative; negate a difference between points instead")
 }
 
-// TestScaleKindsStatically: the dimension check follows each kind of scale — a cyclic ratio
-// scale's values are magnitudes, an ordinal or logarithmic scale's have no interval, and a
-// logarithmic scale measures the quantity its referenceQuantity is of.
+// TestScaleKindsStatically: a cyclic value is a magnitude, an ordinal or logarithmic one
+// has no interval, and a logarithmic scale measures what its referenceQuantity does.
 func TestScaleKindsStatically(t *testing.T) {
 	const scales = `private import MeasurementReferences::*;
 		attribute mohs : OrdinalScale { :>> unit = one; }

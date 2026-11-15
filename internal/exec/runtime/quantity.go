@@ -170,10 +170,8 @@ func quantityOperands(left, right Value) (*Quantity, *Quantity, bool) {
 	return lq, rq, true
 }
 
-// scaleQuantities evaluates a product or quotient of quantities, whose unit is
-// the product or quotient of theirs — `10 [m] / 2 [s]` is `5 ['m/s']`. A point
-// on a scale has no multiple and is no unit factor, so it is refused; a value on a
-// cyclic ratio scale is a magnitude in the scale's unit, its multiple by a number on the scale.
+// scaleQuantities is a product or quotient in the composed unit (`10 [m] / 2 [s]` is `5 ['m/s']`):
+// a point is refused, a cyclic value is its magnitude, and its multiple by a number stays on its scale.
 func (ctx *Context) scaleQuantities(op ast.OperatorKind, left, right *Quantity) (Value, error) {
 	operands, cyclic, err := ctx.ratioOperands(operatorText(op), scaleNotAFactor, left, right)
 	if err != nil {
