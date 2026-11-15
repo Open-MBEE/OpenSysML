@@ -1050,6 +1050,8 @@ func cZero(t Type) string {
 		return "sysml_str_empty()"
 	case t.IsFn():
 		return "((sysml_fn){0})"
+	case t == TypeInt:
+		return "SYSML_I(0)"
 	}
 	return "0"
 }
