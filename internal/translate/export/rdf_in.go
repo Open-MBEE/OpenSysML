@@ -905,9 +905,7 @@ func (d *decoder) readElement(subject rdf.Term) (*element, error) {
 	}
 	el.indexStated = d.graph.HasProperty(subject, rdf.OpenSysML+xMemberIndex)
 	el.trailing = !el.indexStated && d.isResultExpression(el)
-	if el.qname, _ = d.stringOf(el, rdf.SysML+pQualifiedName); el.qname == "" {
-		el.qname, _ = addressOf(d.graph, subject)
-	}
+	el.qname, _ = addressOf(d.graph, subject)
 	if !el.indexStated && !el.trailing && d.statedNames[subject.Value] {
 		if n, ok := positionalIndex(d.graph, subject); ok {
 			el.memberIndex, el.positional = n, true

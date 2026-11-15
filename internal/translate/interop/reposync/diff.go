@@ -483,9 +483,7 @@ func settleViews(g *rdf.Graph, views map[string]*subjectView, rep Carrier) error
 		for _, values := range view.props {
 			sort.Strings(values)
 		}
-		if names := view.props[rdf.SysML+"qualifiedName"]; len(names) > 0 {
-			view.qualifiedName = strings.Trim(names[0], `"`)
-		}
+		view.qualifiedName, _ = export.NamedAddress(g, rdf.IRI(view.subject))
 		if rep != nil && len(view.classes) > 1 {
 			return &AmbiguousMetaclassError{Subject: view.name(), Classes: view.classes}
 		}
@@ -531,7 +529,7 @@ func unheldReference(g *rdf.Graph, views map[string]*subjectView, unheld map[str
 				continue
 			}
 			subject := rdf.LocalName(triple.Object.Value)
-			if name, ok := g.Lexical(triple.Object, rdf.SysML+"qualifiedName"); ok && name != "" {
+			if name, ok := export.NamedAddress(g, triple.Object); ok && name != "" {
 				subject = name
 			}
 			return &UnheldReferenceError{
