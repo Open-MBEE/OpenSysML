@@ -18,12 +18,18 @@ func TestRuntimeRobustnessSuccessionChainEnd(t *testing.T) {
 			event occurrence opened;
 			part door;
 			state locked;
+			state machine {
+				entry; then off;
+				state off;
+				accept Go then on;
+				state on;
+			}
 			attribute n;
 		}
 	`
 	create := func(t *testing.T, body string) (*ActionExecutor, error) {
 		t.Helper()
-		src := "package test {" + parts + "action outer { part v : Vehicle; action a; " + body + " } }"
+		src := "package test { item def Go;" + parts + "action outer { part v : Vehicle; action a; " + body + " } }"
 		idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
 		sym := findSymbolByName(idx.DocumentRoot("<test>"), "outer", ast.DefAction)
 		if sym == nil {
@@ -32,11 +38,12 @@ func TestRuntimeRobustnessSuccessionChainEnd(t *testing.T) {
 		return ctx.CreateActionExecutor(sym)
 	}
 	for name, body := range map[string]string{
-		"event_occurrence_target": `first a then v.opened;`,
-		"event_occurrence_source": `first v.opened then a;`,
-		"part_target":             `succession first a then v.door;`,
-		"positional_then":         `first a; then v.opened;`,
-		"guarded_then":            `first a; then decide; if true then v.opened; else v.close;`,
+		"event_occurrence_target":    `first a then v.opened;`,
+		"event_occurrence_source":    `first v.opened then a;`,
+		"part_target":                `succession first a then v.door;`,
+		"state_with_accepter_target": `first a then v.machine;`,
+		"positional_then":            `first a; then v.opened;`,
+		"guarded_then":               `first a; then decide; if true then v.opened; else v.close;`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := create(t, body); !errors.Is(err, lower.ErrSuccessionEndNotPerformed) {
