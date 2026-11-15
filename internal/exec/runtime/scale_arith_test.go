@@ -299,8 +299,8 @@ func TestUniquenessJudgedInContext(t *testing.T) {
 	}
 }
 
-// TestAnchoredOrdinalPointsInSets: a set keeps an ordinal point apart from the
-// magnitude its mapping would carry it to, as `==` does.
+// TestAnchoredOrdinalPointsInSets: a set keeps an ordinal point apart from the magnitude
+// an affine reading of its mapping would carry it to, as `==` and ConvertQuantity do.
 func TestAnchoredOrdinalPointsInSets(t *testing.T) {
 	ctx, idx := libraryModelContext(t, `package test {
 		public import SI::*;
@@ -324,8 +324,8 @@ func TestAnchoredOrdinalPointsInSets(t *testing.T) {
 		t.Fatal("package test not found")
 	}
 	scope := pkg.Scope
-	if ratio, err := ctx.toRatioReference(*evalQuantity(t, ctx, scope, "7 [mohs]")); err != nil || ratio.String() != "279.16 [K]" {
-		t.Fatalf("the mapping does not anchor mohs on K: %v, %v", ratio, err)
+	if ratio, err := ctx.toRatioReference(*evalQuantity(t, ctx, scope, "7 [mohs]")); !errors.Is(err, errScalePoint) {
+		t.Fatalf("7 [mohs] carried to %v, %v; want errScalePoint: one mapped value gives an ordinal scale no interval", ratio, err)
 	}
 	if _, err := evalIn(t, ctx, scope, "7 [mohs] == 279.16 [K]"); !errors.Is(err, errScalePoint) {
 		t.Errorf("7 [mohs] == 279.16 [K]: err = %v, want errScalePoint", err)
@@ -389,5 +389,138 @@ func TestPointsInQuantityOperators(t *testing.T) {
 	}
 	if _, err := ctx.negateQuantity(warm); !errors.Is(err, errScalePoint) {
 		t.Errorf("-warm: err = %v, want errScalePoint", err)
+	}
+}
+
+// scaleKindsModel declares one scale of each kind that is no interval scale.
+const scaleKindsModel = `package test {
+	public import SI::*;
+	private import Collections::*;
+	private import SequenceFunctions::*;
+	private import MeasurementReferences::*;
+	private import QuantityCalculations::*;
+	attribute bearing : CyclicRatioScale { :>> unit = '°'; :>> modulus = 360; }
+	attribute course : CyclicRatioScale { :>> unit = '°'; :>> modulus = 360.0; }
+	attribute dBm : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = 10; :>> exponent = 1; :>> referenceQuantity = 0.001 [W]; }
+	attribute field : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = 10; :>> exponent = 2; :>> referenceQuantity = 1.0 [V]; }
+	attribute headings : Set { :>> elements = (450 [bearing], 90 [bearing], -270 [bearing], 91 [bearing]); }
+	attribute levels : Set { :>> elements = (30.0 [dBm], 1.0 [W], 20.0 [dBm]); }
+}`
+
+// TestCyclicRatioScaleValues: a value on a cyclic ratio scale is a magnitude in the
+// scale's unit, equivalent to every value a whole number of cycles away.
+func TestCyclicRatioScaleValues(t *testing.T) {
+	ctx, idx := libraryModelContext(t, scaleKindsModel)
+	pkg, _ := idx.DocumentRoot("<test>").LookupLocal("test")
+	scope := pkg.Scope
+	for src, want := range map[string]string{
+		"450 [bearing] + 30 ['°']":             "480 [bearing]",
+		"30 ['°'] + 450 [bearing]":             "480 ['°']",
+		"450 [bearing] - 100 [bearing]":        "350 [bearing]",
+		"-(450 [bearing])":                     "-450 [bearing]",
+		"3 * 450 [bearing]":                    "1350 [bearing]",
+		"450 [bearing] / 2":                    "225.0 [bearing]",
+		"450 [bearing] / 9 [s]":                "50.0 ['°'/s]",
+		"ConvertQuantity(450 [bearing], '°')":  "450 ['°']",
+		"ConvertQuantity(90.0 ['°'], bearing)": "90.0 [bearing]",
+		"max(10 [bearing], 20 [bearing])":      "20 [bearing]",
+		"sum((450 [bearing], 30 [bearing]))":   "480 [bearing]",
+	} {
+		if got, err := evalIn(t, ctx, scope, src); err != nil || FormatValue(got) != want {
+			t.Errorf("%s = %s, %v; want %s", src, FormatValue(got), err, want)
+		}
+	}
+	for src, want := range map[string]bool{
+		"450 [bearing] == 90 [bearing]":                        true,
+		"-60 [bearing] == 300 [bearing]":                       true,
+		"450 [bearing] != 90 [bearing]":                        false,
+		"450 [bearing] > 90 [bearing]":                         false,
+		"450 [bearing] >= 90 [bearing]":                        true,
+		"451 [bearing] > 90 [bearing]":                         true,
+		"-60 [bearing] < 10 [bearing]":                         true,
+		"450 [bearing] == 90 ['°']":                            true,
+		"90 ['°'] == 450 [bearing]":                            true,
+		"450 [bearing] == 0":                                   false,
+		"720 [bearing] == 0":                                   true,
+		"0 == 720 [bearing]":                                   true,
+		"90 [course] == 450 [bearing]":                         true,
+		"450 [bearing] <= ConvertQuantity(90.0 ['°'], course)": true,
+		"headings.elements->includes(810 [bearing])":           true,
+		"headings.elements->includes(92 [bearing])":            false,
+	} {
+		got, err := evalIn(t, ctx, scope, src)
+		if err != nil || got.Kind != ValConst || got.Const.Bool != want {
+			t.Errorf("%s = %v, %v; want %v", src, got, err, want)
+		}
+	}
+	if got, err := evalIn(t, ctx, scope, "headings.elements"); err != nil || len(got.Set().Elements()) != 2 {
+		t.Errorf("headings = %s, %v; want the two bearings that are not equivalent", FormatValue(got), err)
+	}
+}
+
+// TestLogarithmicScaleValues: a value on a logarithmic scale converts and compares through
+// `factor * log_base((x / referenceQuantity) ** exponent)`, and has no interval or multiple.
+func TestLogarithmicScaleValues(t *testing.T) {
+	ctx, idx := libraryModelContext(t, scaleKindsModel)
+	pkg, _ := idx.DocumentRoot("<test>").LookupLocal("test")
+	scope := pkg.Scope
+	for src, want := range map[string]string{
+		"ConvertQuantity(30.0 [dBm], W)":   "1.0 [W]",
+		"ConvertQuantity(0.1 [W], dBm)":    "20.0 [dBm]",
+		"ConvertQuantity(10.0 [V], field)": "20.0 [field]",
+		"ConvertQuantity(40.0 [field], V)": "100.0 [V]",
+		"max(20.0 [dBm], 2.0 [W])":         "2.0 [W]",
+	} {
+		if got, err := evalIn(t, ctx, scope, src); err != nil || FormatValue(got) != want {
+			t.Errorf("%s = %s, %v; want %s", src, FormatValue(got), err, want)
+		}
+	}
+	for src, want := range map[string]bool{
+		"30.0 [dBm] == 1.0 [W]":                 true,
+		"1.0 [W] == 30.0 [dBm]":                 true,
+		"20.0 [dBm] < 1.0 [W]":                  true,
+		"1.0 [W] > 20.0 [dBm]":                  true,
+		"20.0 [dBm] < 30.0 [dBm]":               true,
+		"levels.elements->includes(0.1 [W])":    true,
+		"levels.elements->includes(10.0 [dBm])": false,
+	} {
+		got, err := evalIn(t, ctx, scope, src)
+		if err != nil || got.Kind != ValConst || got.Const.Bool != want {
+			t.Errorf("%s = %v, %v; want %v", src, got, err, want)
+		}
+	}
+	if got, err := evalIn(t, ctx, scope, "levels.elements"); err != nil || len(got.Set().Elements()) != 2 {
+		t.Errorf("levels = %s, %v; want 30 dBm and 1 W as one member", FormatValue(got), err)
+	}
+	for _, src := range []string{"30.0 [dBm] - 20.0 [dBm]", "30.0 [dBm] + 1.0 [W]", "2 * 30.0 [dBm]", "-(30.0 [dBm])", "sum((30.0 [dBm], 20.0 [dBm]))"} {
+		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, errScalePoint) {
+			t.Errorf("%s: err = %v, want errScalePoint", src, err)
+		}
+	}
+}
+
+// TestCyclicRatioScaleZero: a cyclic ratio scale's zero is its unit's, so a
+// quantityValueMapping placing it elsewhere is refused rather than read as an offset.
+func TestCyclicRatioScaleZero(t *testing.T) {
+	ctx, idx := libraryModelContext(t, `package test {
+		public import SI::*;
+		private import MeasurementReferences::*;
+		private import QuantityCalculations::*;
+		attribute shifted : CyclicRatioScale {
+			:>> unit = K; :>> modulus = 100;
+			private attribute zero : DefinitionalQuantityValue { :>> num = 0; :>> definition = "zero"; }
+			private attribute zeroInKelvin : QuantityValueMapping {
+				:>> mappedQuantityValue = zero;
+				:>> referenceQuantityValue = K.temperatureOfWaterAtTriplePointInK;
+			}
+			attribute :>> definitionalQuantityValues = (zero);
+			attribute :>> quantityValueMapping = zeroInKelvin;
+		}
+	}`)
+	pkg, _ := idx.DocumentRoot("<test>").LookupLocal("test")
+	for _, src := range []string{"ConvertQuantity(3 [shifted], K)", "2 * 3 [shifted]", "3 [shifted] == 3 [K]"} {
+		if _, err := evalIn(t, ctx, pkg.Scope, src); !errors.Is(err, errUnevaluableLibraryFunction) || !strings.Contains(err.Error(), "a CyclicRatioScale is a ratio scale") {
+			t.Errorf("%s: err = %v, want the mapping refused", src, err)
+		}
 	}
 }

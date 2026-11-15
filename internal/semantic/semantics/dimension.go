@@ -12,6 +12,9 @@ import (
 const (
 	fqnScalarQuantityValue = "Quantities::ScalarQuantityValue"
 	fqnMeasurementScale    = "MeasurementReferences::MeasurementScale"
+	fqnIntervalScale       = "MeasurementReferences::IntervalScale"
+	fqnCyclicRatioScale    = "MeasurementReferences::CyclicRatioScale"
+	fqnLogarithmicScale    = "MeasurementReferences::LogarithmicScale"
 
 	memberQuantityDimension    = "quantityDimension"
 	memberQuantityPowerFactors = "quantityPowerFactors"
@@ -19,6 +22,7 @@ const (
 	memberExponent             = "exponent"
 	memberMRef                 = "mRef"
 	memberUnit                 = "unit"
+	memberReferenceQuantity    = "referenceQuantity"
 )
 
 // Dimension is the quantity dimension of a measurement: a product of powers of
@@ -189,6 +193,10 @@ func (m *Model) dimensionOfPoint(scope *symbols.Scope, n *ast.IndexExpr) (Dimens
 	dim, ok := m.scaleDimension(sym)
 	if !ok {
 		return Dimension{}, false
+	}
+	if m.IsCyclicRatioScale(sym) {
+		// A ratio scale's value is a magnitude in the scale's unit, no point.
+		return Dimension{Term: dim, Unit: UnitExprText(n.Index)}, true
 	}
 	return Dimension{Term: dim, Unit: UnitExprText(n.Index), Scale: sym}, true
 }
@@ -436,11 +444,20 @@ func (m *Model) deriveDimension(sym *symbols.Symbol) (UnitTerm, bool) {
 }
 
 // scaleDimension reports the dimension a measurement scale (a TimeScale) measures
-// in: the one of the unit its points are counted in.
+// in: the one of the unit its points are counted in; a logarithmic scale measures
+// the quantity its referenceQuantity is of, unknown when it binds none.
 func (m *Model) scaleDimension(sym *symbols.Symbol) (UnitTerm, bool) {
 	scale := m.libSymbol(fqnMeasurementScale)
 	if scale == nil || !m.Conforms(sym, scale) {
 		return UnitTerm{}, false
+	}
+	if m.IsLogarithmicScale(sym) {
+		ref, ok := m.LookupMember(sym, memberReferenceQuantity)
+		if !ok || usageValue(ref) == nil {
+			return UnitTerm{}, false
+		}
+		dim, ok := m.DimensionOfExpr(scopeOf(ref), usageValue(ref))
+		return dim.Term, ok && dim.IsMagnitude()
 	}
 	unit, ok := m.LookupMember(sym, memberUnit)
 	if !ok {

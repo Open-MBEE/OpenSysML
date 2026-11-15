@@ -1,0 +1,453 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ISQ" filtered=false)
+      (Import visibility="private" all=false kind=namespace recursive=false imported="SI" filtered=false)
+      (Import visibility="private" all=false kind=namespace recursive=false imported="MeasurementReferences" filtered=false)
+      (Import visibility="private" all=false kind=namespace recursive=false imported="QuantityCalculations" filtered=false)
+      (Membership visibility="default"
+        (Usage kind="attribute" name="mohs" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=OrdinalScale
+            (*ast.QualifiedName))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="redefines" target=unit
+                (*ast.QualifiedName))
+              (FeatureReference name="one")))))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="bearing" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=CyclicRatioScale
+            (*ast.QualifiedName))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="redefines" target=unit
+                (*ast.QualifiedName))
+              (FeatureReference name="SI::°")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="redefines" target=modulus
+                (*ast.QualifiedName))
+              (LiteralInteger value="360")))))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="hourOfDay" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=CyclicRatioScale
+            (*ast.QualifiedName))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="redefines" target=unit
+                (*ast.QualifiedName))
+              (FeatureReference name="SI::h")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="redefines" target=modulus
+                (*ast.QualifiedName))
+              (LiteralInteger value="24")))))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="dBm" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=LogarithmicScale
+            (*ast.QualifiedName))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="redefines" target=unit
+                (*ast.QualifiedName))
+              (FeatureReference name="one")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="redefines" target=logarithmBase
+                (*ast.QualifiedName))
+              (LiteralInteger value="10")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="redefines" target=factor
+                (*ast.QualifiedName))
+              (LiteralInteger value="10")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="redefines" target=exponent
+                (*ast.QualifiedName))
+              (LiteralInteger value="1")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="redefines" target=referenceQuantity
+                (*ast.QualifiedName))
+              (IndexExpr bracket=true
+                (LiteralReal value="0.001")
+                (FeatureReference name="SI::W"))))))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="octave" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=LogarithmicScale
+            (*ast.QualifiedName))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="redefines" target=unit
+                (*ast.QualifiedName))
+              (FeatureReference name="one")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="redefines" target=logarithmBase
+                (*ast.QualifiedName))
+              (LiteralInteger value="2")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="redefines" target=factor
+                (*ast.QualifiedName))
+              (LiteralInteger value="1")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="redefines" target=exponent
+                (*ast.QualifiedName))
+              (LiteralInteger value="1")))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Probe"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="hardness" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (IndexExpr bracket=true
+                (LiteralInteger value="7")
+                (FeatureReference name="mohs"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="sameHardness" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (OperatorExpr operator="=="
+                (FeatureReference name="hardness")
+                (IndexExpr bracket=true
+                  (LiteralInteger value="7")
+                  (FeatureReference name="mohs")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="harder" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (OperatorExpr operator=">"
+                (IndexExpr bracket=true
+                  (LiteralInteger value="9")
+                  (FeatureReference name="mohs"))
+                (FeatureReference name="hardness"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="hardest" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (InvocationExpr type="max"
+                (FeatureReference name="hardness")
+                (IndexExpr bracket=true
+                  (LiteralInteger value="9")
+                  (FeatureReference name="mohs")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="stillHardness" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (InvocationExpr type="ConvertQuantity"
+                (FeatureReference name="hardness")
+                (FeatureReference name="mohs"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="scaledHardness" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="*"
+                (LiteralInteger value="2")
+                (FeatureReference name="hardness"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="summedHardness" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="+"
+                (FeatureReference name="hardness")
+                (IndexExpr bracket=true
+                  (LiteralInteger value="1")
+                  (FeatureReference name="mohs")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="offsetHardness" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="+"
+                (FeatureReference name="hardness")
+                (IndexExpr bracket=true
+                  (LiteralInteger value="1")
+                  (FeatureReference name="one")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="hardnessSpread" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="-"
+                (IndexExpr bracket=true
+                  (LiteralInteger value="9")
+                  (FeatureReference name="mohs"))
+                (FeatureReference name="hardness"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="hardnessAsNumber" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="=="
+                (FeatureReference name="hardness")
+                (IndexExpr bracket=true
+                  (LiteralInteger value="7")
+                  (FeatureReference name="one")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="hardnessInUnit" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (InvocationExpr type="ConvertQuantity"
+                (FeatureReference name="hardness")
+                (FeatureReference name="one"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="negatedHardness" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="-"
+                (FeatureReference name="hardness"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="heading" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (IndexExpr bracket=true
+                (LiteralInteger value="450")
+                (FeatureReference name="bearing"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="sameHeading" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (OperatorExpr operator="=="
+                (FeatureReference name="heading")
+                (IndexExpr bracket=true
+                  (LiteralInteger value="90")
+                  (FeatureReference name="bearing")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="westward" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (OperatorExpr operator="=="
+                (OperatorExpr operator="-"
+                  (IndexExpr bracket=true
+                    (LiteralInteger value="60")
+                    (FeatureReference name="bearing")))
+                (IndexExpr bracket=true
+                  (LiteralInteger value="300")
+                  (FeatureReference name="bearing")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="otherHeading" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (OperatorExpr operator="!="
+                (FeatureReference name="heading")
+                (IndexExpr bracket=true
+                  (LiteralInteger value="91")
+                  (FeatureReference name="bearing")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="notBelow" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (OperatorExpr operator="<"
+                (FeatureReference name="heading")
+                (IndexExpr bracket=true
+                  (LiteralInteger value="90")
+                  (FeatureReference name="bearing")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="notAbove" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (OperatorExpr operator=">"
+                (FeatureReference name="heading")
+                (IndexExpr bracket=true
+                  (LiteralInteger value="90")
+                  (FeatureReference name="bearing")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="atMost" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (OperatorExpr operator="<="
+                (FeatureReference name="heading")
+                (IndexExpr bracket=true
+                  (LiteralInteger value="90")
+                  (FeatureReference name="bearing")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="below" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (OperatorExpr operator="<"
+                (IndexExpr bracket=true
+                  (LiteralInteger value="10")
+                  (FeatureReference name="bearing"))
+                (IndexExpr bracket=true
+                  (LiteralInteger value="90")
+                  (FeatureReference name="bearing")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="turned" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="+"
+                (FeatureReference name="heading")
+                (IndexExpr bracket=true
+                  (LiteralInteger value="30")
+                  (FeatureReference name="°")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="turnedBack" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="-"
+                (FeatureReference name="heading")
+                (IndexExpr bracket=true
+                  (LiteralInteger value="100")
+                  (FeatureReference name="bearing")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="turnedTwice" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="*"
+                (LiteralInteger value="2")
+                (FeatureReference name="heading"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="halved" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="/"
+                (FeatureReference name="heading")
+                (LiteralInteger value="2"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="reversed" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="-"
+                (FeatureReference name="heading"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="inDegrees" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (InvocationExpr type="ConvertQuantity"
+                (FeatureReference name="heading")
+                (FeatureReference name="°"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="onBearing" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (InvocationExpr type="ConvertQuantity"
+                (IndexExpr bracket=true
+                  (LiteralReal value="3.0")
+                  (FeatureReference name="°"))
+                (FeatureReference name="bearing"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="sameAsAngle" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (OperatorExpr operator="=="
+                (FeatureReference name="heading")
+                (IndexExpr bracket=true
+                  (LiteralInteger value="90")
+                  (FeatureReference name="°")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="angleSame" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (OperatorExpr operator="=="
+                (IndexExpr bracket=true
+                  (LiteralInteger value="810")
+                  (FeatureReference name="°"))
+                (FeatureReference name="heading"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="rate" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="/"
+                (FeatureReference name="heading")
+                (IndexExpr bracket=true
+                  (LiteralInteger value="9")
+                  (FeatureReference name="s")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="squared" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="*"
+                (FeatureReference name="heading")
+                (FeatureReference name="heading"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="total" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (InvocationExpr type="sum"
+                (SequenceExpr
+                  (FeatureReference name="heading")
+                  (IndexExpr bracket=true
+                    (LiteralInteger value="30")
+                    (FeatureReference name="bearing"))))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="wake" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="+"
+                (IndexExpr bracket=true
+                  (LiteralInteger value="23")
+                  (FeatureReference name="hourOfDay"))
+                (IndexExpr bracket=true
+                  (LiteralInteger value="2")
+                  (FeatureReference name="h")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="wakeAtOne" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (OperatorExpr operator="=="
+                (FeatureReference name="wake")
+                (IndexExpr bracket=true
+                  (LiteralInteger value="1")
+                  (FeatureReference name="hourOfDay")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="crossCycle" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="=="
+                (FeatureReference name="heading")
+                (IndexExpr bracket=true
+                  (LiteralInteger value="90")
+                  (FeatureReference name="hourOfDay")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="mixedCycles" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="=="
+                (InvocationExpr type="ConvertQuantity"
+                  (IndexExpr bracket=true
+                    (LiteralInteger value="1")
+                    (FeatureReference name="h"))
+                  (FeatureReference name="hourOfDay"))
+                (IndexExpr bracket=true
+                  (LiteralInteger value="25")
+                  (FeatureReference name="hourOfDay")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="level" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (IndexExpr bracket=true
+                (LiteralReal value="30.0")
+                (FeatureReference name="dBm"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="inWatts" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (InvocationExpr type="ConvertQuantity"
+                (FeatureReference name="level")
+                (FeatureReference name="W"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="backOnScale" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (InvocationExpr type="ConvertQuantity"
+                (IndexExpr bracket=true
+                  (LiteralReal value="0.1")
+                  (FeatureReference name="W"))
+                (FeatureReference name="dBm"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="levelAboveWatt" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (OperatorExpr operator=">"
+                (FeatureReference name="level")
+                (IndexExpr bracket=true
+                  (LiteralReal value="1.0")
+                  (FeatureReference name="W")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="levelIsOneWatt" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (OperatorExpr operator="=="
+                (FeatureReference name="level")
+                (IndexExpr bracket=true
+                  (LiteralReal value="1.0")
+                  (FeatureReference name="W")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="wattIsLevel" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (OperatorExpr operator="=="
+                (IndexExpr bracket=true
+                  (LiteralReal value="1.0")
+                  (FeatureReference name="W"))
+                (FeatureReference name="level"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="quieter" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (OperatorExpr operator="<"
+                (IndexExpr bracket=true
+                  (LiteralReal value="20.0")
+                  (FeatureReference name="dBm"))
+                (FeatureReference name="level"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="louder" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="+"
+                (FeatureReference name="level")
+                (IndexExpr bracket=true
+                  (LiteralReal value="3.0")
+                  (FeatureReference name="W")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="doubledLevel" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="*"
+                (FeatureReference name="level")
+                (LiteralInteger value="2"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="levelSpread" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="-"
+                (FeatureReference name="level")
+                (IndexExpr bracket=true
+                  (LiteralReal value="20.0")
+                  (FeatureReference name="dBm")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="noLevel" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (InvocationExpr type="ConvertQuantity"
+                (OperatorExpr operator="-"
+                  (IndexExpr bracket=true
+                    (LiteralReal value="1.0")
+                    (FeatureReference name="W")))
+                (FeatureReference name="dBm"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="unanchored" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (InvocationExpr type="ConvertQuantity"
+                (IndexExpr bracket=true
+                  (LiteralReal value="3.0")
+                  (FeatureReference name="octave"))
+                (FeatureReference name="one")))))))))

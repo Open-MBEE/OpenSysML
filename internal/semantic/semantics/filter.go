@@ -808,6 +808,13 @@ func (m *Model) compareQuantityValues(p *symbols.FilterPredicate, left, right sy
 			Span:   p.Span,
 		}
 	}
+	if lpoint && m.IsCyclicRatioScale(lscale) {
+		return symbols.FilterValue{}, &FilterError{
+			Err:    ErrFilterUnevaluable,
+			Reason: fmt.Sprintf("comparing values on the cyclic ratio scale %s: they are equivalent over its modulus, a value only the runtime reads", m.fqnOf(lscale)),
+			Span:   p.Span,
+		}
+	}
 	c, err := CompareMagnitudes(*lq, *rq)
 	if err != nil {
 		return symbols.FilterValue{}, &FilterError{Err: ErrFilterUnevaluable, Reason: err.Error(), Span: p.Span}

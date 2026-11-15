@@ -70,17 +70,27 @@ func canonicalCompare(a, b Value) int {
 	return (*Context)(nil).canonicalCompare(a, b)
 }
 
-// canonicalQuantity is the quantity as its reference measures it: a point on an interval
-// scale carried through its anchor as `==` does; a point on any other scale stays as written.
+// canonicalQuantity is the quantity as its reference measures it: a point on an interval or
+// logarithmic scale carried to its ratio reference as `==` does, a cyclic value as the principal
+// value of its cycle; a point on any other scale, or one that converts to nothing, stays as written.
 func (ctx *Context) canonicalQuantity(q Quantity) Quantity {
 	if ctx == nil || ctx.model == nil {
 		return q
 	}
-	if scale, ok, err := ctx.pointOf(&q); err != nil || (ok && !ctx.isIntervalScale(scale)) {
+	scale, ok, err := ctx.pointOf(&q)
+	if err != nil || !ok {
 		return q
 	}
-	if ratio, err := ctx.toRatioReference(q); err == nil {
-		return ratio
+	switch ctx.scaleKindOf(scale.Type) {
+	case cyclicRatioScale:
+		if magnitude, err := ctx.ratioMagnitude(q, scale); err == nil && q.Num.IsNumeric() {
+			magnitude.Num = semantics.Value{Kind: semantics.ValReal, Real: principalValue(q.Num.AsReal(), scale.Scale.Modulus)}
+			return magnitude
+		}
+	case intervalScale, logarithmicScale:
+		if ratio, err := ctx.toRatioReference(q); err == nil {
+			return ratio
+		}
 	}
 	return q
 }
