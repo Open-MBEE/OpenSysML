@@ -1,0 +1,99 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="CalcBodyActionItems" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="item" abstract=false variation=false name="Ping"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="v" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Scale"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="a" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="r" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (OperatorExpr operator="*"
+                (FeatureReference name="a")
+                (LiteralInteger value="10"))))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Host"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="total" ref=false direction="none" composite=false derived=false ordered=false nonunique=false initial=true
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (Membership visibility="default"
+            (Usage kind="part" name="peer" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Host
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="calc" name="steps" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="n" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Integer
+                    (*ast.QualifiedName))))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="x" ref=false direction="none" composite=false derived=false ordered=false nonunique=false initial=true
+                  (Relationship kind="typing" target=Integer
+                    (*ast.QualifiedName))
+                  (FeatureReference name="n")))
+              (Membership visibility="default"
+                (Usage kind="action" name="bump" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (*ast.AssignmentActionNode)))
+              (Usage kind="action" name="scaled" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="perform"
+                (Relationship kind="typing" target=Scale
+                  (*ast.QualifiedName))
+                (Membership visibility="default"
+                  (Usage kind="attribute" name="a" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                    (FeatureReference name="n")))
+                (Membership visibility="default"
+                  (Usage kind="attribute" name="r" ref=false direction="out" composite=false derived=false ordered=false nonunique=false)))
+              (SendStatement via=false
+                (ConstructorExpr type="Ping"
+                  (FeatureReference name="n"))
+                (FeatureReference name="peer"))
+              (Membership visibility="default"
+                (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Membership visibility="default"
+                    (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                      (Relationship kind="typing" target=Ping
+                        (*ast.QualifiedName))))))
+              (Membership visibility="default"
+                (Usage kind="action" name="heard" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Membership visibility="default"
+                    (Usage kind="attribute" name="p" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                      (Relationship kind="typing" target=Ping
+                        (*ast.QualifiedName))))))
+              (Membership visibility="default"
+                (Usage kind="action" name="wait" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="via" target=peer
+                    (*ast.QualifiedName))
+                  (Membership visibility="default"
+                    (Usage kind="attribute" name="q" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                      (Relationship kind="typing" target=Ping
+                        (*ast.QualifiedName))))))
+              (*ast.AssignmentActionNode)
+              (*ast.AssignmentActionNode)
+              (IfActionNode
+                (OperatorExpr operator=">"
+                  (FeatureReference name="x")
+                  (LiteralInteger value="10"))
+                (IfBranchNode kind="then"
+                  (TerminateStatement)))
+              (Membership visibility="default"
+                (Usage kind="action" name="stop" ref=false direction="none" composite=false derived=false ordered=false nonunique=false terminate=true
+                  (TerminateStatement
+                    (FeatureReference name="wait"))))
+              (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                (Relationship kind="typing" target=Integer
+                  (*ast.QualifiedName))
+                (OperatorExpr operator="+"
+                  (FeatureReference name="x")
+                  (FeatureChainExpr member="r"
+                    (FeatureReference name="scaled")))))))))))

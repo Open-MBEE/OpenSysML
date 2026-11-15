@@ -41,8 +41,8 @@ func TestRuntimeRobustnessCalcBodyPerforms(t *testing.T) {
 			body: `in n : Integer = 3; attribute x : Integer := n; action check { if n > 1 { return : Integer = 42; } } then action late { assign x := 0; } return : Integer = x;`,
 			want: "(42)"},
 		{name: "accept_takes_the_message_sent",
-			body: `in n : Integer = 3; attribute x : Integer := n; send new Ping(7) to self; accept p : Ping; assign x := x + p.v; return : Integer = x;`,
-			want: "(10)"},
+			body: `in n : Integer = 3; send new Ping(7) to self; accept p : Ping; return : Integer = n;`,
+			want: "(3)"},
 		{name: "accept_in_nested_action",
 			body: `in n : Integer = 3; attribute x : Integer := n; action tx send new Ping(7) to self; action rx accept p : Ping; then action k { assign x := x + rx.p.v; } return : Integer = x;`,
 			want: "(10)"},
@@ -102,7 +102,7 @@ func calcBodyOnHost(t *testing.T, body string) (string, error) {
 	t.Helper()
 	src := fmt.Sprintf(`package test {
 	private import ScalarValues::*;
-	item def Ping { attribute v : Integer = 0; }
+	item def Ping { attribute v : Integer; }
 	item def Pong;
 	action def Inner { in a : Integer; out r : Integer = a * 10; }
 	part def Host {

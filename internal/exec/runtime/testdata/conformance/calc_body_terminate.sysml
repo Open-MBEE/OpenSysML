@@ -11,7 +11,7 @@ package test {
 			assign x := x + 1;
 			if x == cap { terminate; }
 		}
-		assign x := 99;
+		then assign x := 99;
 		return : Integer = x;
 	}
 }

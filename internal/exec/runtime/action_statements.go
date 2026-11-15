@@ -155,8 +155,6 @@ func (h *actionStmtHost) materializeOccurrence() (*Instance, error) {
 	return h.exec.thisOccurrence()
 }
 
-// acceptReturn rejects a `return` in an action: its nodes compute no result. A step of
-// a calculation's body returns the calculation's result, ending its performance.
 // statementOrder is how stmts may be ordered where the schedule picks it: a body's
 // statements are subactions no succession orders.
 func (h *actionStmtHost) statementOrder(stmts []lower.Statement) *lower.StatementOrder {
@@ -226,6 +224,8 @@ func (h *actionStmtHost) orderStep() int {
 
 func (h *actionStmtHost) yieldsBetweenStatements() bool { return true }
 
+// acceptReturn rejects a `return` in an action: its nodes compute no result. A step of
+// a calculation's body returns the calculation's result, ending its performance.
 func (h *actionStmtHost) acceptReturn(value Value, s lower.Return) error {
 	calc, ok := h.exec.owner.(*calcStmtHost)
 	if !ok {
