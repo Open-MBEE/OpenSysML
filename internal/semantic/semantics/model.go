@@ -60,6 +60,8 @@ type Model struct {
 	// chainTargets memoizes the feature each relationship object's chain
 	// target denotes.
 	chainTargets map[*symbols.Symbol]*symbols.Symbol
+	// flowEndChains memoizes the chain Feature each chained flow end references.
+	flowEndChains map[flowEndKey]*symbols.Symbol
 	// defaultMultiplicities memoizes the Multiplicity stating each usage's
 	// implicit [1..1] (DefaultMultiplicityMember).
 	defaultMultiplicities map[*symbols.Symbol]*symbols.Symbol
@@ -124,6 +126,8 @@ type Model struct {
 	aboutByDecl map[ast.Node][]annotation
 	// aboutOrder lists aboutAnnots' targets in first-annotation order.
 	aboutOrder []*symbols.Symbol
+	// aboutUsages keys the `about` metadata usages themselves by what they annotate.
+	aboutUsages aboutUsages
 	// aboutBuilding is set while buildAbout runs, when the index is partial.
 	aboutBuilding bool
 	// aboutShared is the about index shared with other models, nil when m builds its own.
@@ -220,6 +224,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		composed:               make(map[composedKey][]*symbols.Symbol),
 		ends:                   make(map[*symbols.Symbol][]connectorEnd),
 		chainTargets:           make(map[*symbols.Symbol]*symbols.Symbol),
+		flowEndChains:          make(map[flowEndKey]*symbols.Symbol),
 		defaultMultiplicities:  make(map[*symbols.Symbol]*symbols.Symbol),
 		successionEnds:         make(map[*symbols.Symbol][]*symbols.Symbol),
 		declaredMultiplicities: make(map[*symbols.Symbol]*symbols.Symbol),

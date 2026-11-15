@@ -158,6 +158,10 @@ const CapabilitySymbolMembers = "symbol_members"
 // without it symbol_id is read as an id the service reported, as a service predating the field reads it.
 const CapabilitySymbolNameResolution = "symbol_name_resolution"
 
+// CapabilitySymbolAnnotatingMetadata names the capability of populating
+// SymbolInfo.annotating_metadata_ids, the metadata usages annotating the element.
+const CapabilitySymbolAnnotatingMetadata = "symbol_annotating_metadata"
+
 // CapabilityUnsetValue names the capability of reporting a valueless feature of
 // a value type as Value.unset, rather than as the empty object it materializes.
 const CapabilityUnsetValue = "unset_value"
@@ -442,6 +446,7 @@ var capabilities = []string{
 	CapabilityInlineDocumentQuery,
 	CapabilitySymbolNameResolution,
 	CapabilityRenderViewForm,
+	CapabilitySymbolAnnotatingMetadata,
 }
 
 type capabilityAvailability struct {

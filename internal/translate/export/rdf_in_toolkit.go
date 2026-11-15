@@ -962,13 +962,14 @@ func (n *normalizer) bodiedOwners() map[string]bool {
 			meta(memberMembership[member]) == mFeatureMembership {
 			continue
 		}
-		// A transition's `then` succession is its head's target, and the chain
-		// of `first a.b` and its EmptyParameterMembers belong to its head too:
-		// none is a body.
+		// A transition's `then` succession is its head's target; the chain of `first a.b`, its
+		// EmptyParameterMembers and its transitionLink belong to its head too: none is a body.
 		if meta(owner) == mTransition {
 			m, ms := rdf.IRI(member), meta(memberMembership[member])
+			unnamed := !graph.HasProperty(m, rdf.SysML+pDeclaredName)
 			if meta(m) == mSuccession || (meta(m) == mFeature && ms == mOwningMembership) ||
-				(ms == mParameterMembership && !graph.HasProperty(m, rdf.SysML+pDeclaredName)) {
+				(ms == mParameterMembership && unnamed) ||
+				(ms == mFeatureMembership && meta(m) == mReferenceUsage && unnamed) {
 				continue
 			}
 		}
@@ -1169,7 +1170,7 @@ func (n *normalizer) stateQualifiedNames() {
 				continue
 			}
 		}
-		graph.Add(subject, addressTerm(n.nameOf(subject)), rdf.String(n.nameOf(subject)))
+		stateAddress(graph.Add, subject, n.nameOf(subject))
 	}
 }
 
@@ -1632,8 +1633,13 @@ func (d *defaultDropper) literalObject(triple rdf.Triple, object rdf.Term) (rdf.
 	if referenceNameProps[local] && object.Datatype != rdf.OpenSysML+dtExpression && !json {
 		object = rdf.String(canonicalName(object.Value))
 	}
-	if (local == pQualifiedName || local == xPositionalName) && !json {
-		object = rdf.String(plainQualifiedName(object.Value))
+	if !json {
+		switch local {
+		case pQualifiedName:
+			object = rdf.String(naming.Escaped(mappingQualifiedNameFromSpec(object.Value)))
+		case xMappingQualifiedName, xPositionalName:
+			object = rdf.String(plainQualifiedName(object.Value))
+		}
 	}
 	return object, !d.dropsLiteral(triple.Subject, local, object)
 }
@@ -1641,14 +1647,15 @@ func (d *defaultDropper) literalObject(triple rdf.Triple, object rdf.Term) (rdf.
 // dropsLiteral reports a literal that states a default or a derivable value.
 func (d *defaultDropper) dropsLiteral(subject rdf.Term, local string, object rdf.Term) bool {
 	graph, meta := d.graph, d.meta
+	addressed := local == pQualifiedName || local == xMappingQualifiedName
 	switch {
-	case local == pQualifiedName && d.impliedIncluded(subject) &&
+	case addressed && d.impliedIncluded(subject) &&
 		!graph.HasProperty(subject, rdf.SysML+pDeclaredName) &&
 		!graph.HasProperty(subject, rdf.SysML+pDeclaredShortName):
 		// The full form derives a qualified name for the unnamed too;
 		// the compact form leaves the name to be derived.
 		return true
-	case local == pQualifiedName && underSubaction(graph, meta, subject):
+	case addressed && underSubaction(graph, meta, subject):
 		// This mapping positions a subaction's action under its
 		// membership (`S::@0::ops`); the full form's name skips it.
 		return true
@@ -1904,7 +1911,7 @@ func plainQualifiedName(name string) string {
 }
 
 // canonicalName returns a written qualified name in its canonical spelling:
-// segments split on `::` outside quotes, each requoted with its escapes kept.
+// segments split on `::` outside quotes, each requoted and escaped again.
 func canonicalName(name string) string {
 	segments, ok := source.QualifiedNameSegments(name)
 	if !ok {

@@ -35,9 +35,15 @@ package D__outer___400 { part spelledLikeAFormID; }
 // positional and element-form ids a service's symbol context carries.
 func identityContext(t *testing.T) *symbolfacts.Context {
 	t.Helper()
+	return identityContextOf(t, identityModel)
+}
+
+// identityContextOf is identityContext over model.
+func identityContextOf(t *testing.T, model string) *symbolfacts.Context {
+	t.Helper()
 	base, _ := libs.SharedLibrary()
 	idx := symbols.NewOverlay(base)
-	file := source.New("model.sysml", []byte(identityModel))
+	file := source.New("model.sysml", []byte(model))
 	p := parser.New(file)
 	root := p.ParseFile()
 	if len(p.Diagnostics) > 0 {
@@ -190,6 +196,24 @@ func TestUnnamedConnectorEndIDIsTheSameWithoutTheForm(t *testing.T) {
 		}
 		if got := sc.LookupElement("D__holder___402_pend2"); len(got) != 0 {
 			t.Errorf("form %v: LookupElement of a third end = %v, want none", converts, got)
+		}
+	}
+}
+
+// The chain Feature a flow's end references ahead of its payload carries the id the conversion mints under
+// the FlowEnd, each end its own; the element form has no FlowEnd to walk back to it from.
+func TestChainedFlowEndRelatedFeatureIsNamedAsTheConversionWritesIt(t *testing.T) {
+	sc := identityContextOf(t, `package P {
+		part def S { port p { out item q; } }
+		part def T { part a : S; part b : S; flow f from a.p.q to b.p.q; }
+	}`)
+	related, ok := sc.Semantics.ReflectiveElements(reflect(t, sc, "P::T::f"), "relatedFeature")
+	if !ok || len(related) != 2 {
+		t.Fatalf("relatedFeature = %v (%v), want the chains a.p and b.p", related, ok)
+	}
+	for i, want := range []string{"P__T__f_pend0_pchain", "P__T__f_pend1_pchain"} {
+		if got := sc.ElementIdentity(related[i]); got != want {
+			t.Errorf("ElementIdentity(relatedFeature[%d]) = %q, want %q", i, got, want)
 		}
 	}
 }

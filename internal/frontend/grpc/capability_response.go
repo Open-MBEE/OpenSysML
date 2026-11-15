@@ -30,6 +30,9 @@ func (s *Service) filterSymbolInfo(info *pb.SymbolInfo) *pb.SymbolInfo {
 		info.Members = nil
 		info.WithheldLibraryMembers = 0
 	}
+	if !s.capabilities.has(CapabilitySymbolAnnotatingMetadata) {
+		info.AnnotatingMetadataIds = nil
+	}
 	if !s.capabilities.has(CapabilitySymbolAttributes) {
 		info.Attributes = nil
 		info.WithheldLibraryAttributes = 0

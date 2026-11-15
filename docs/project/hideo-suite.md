@@ -43,9 +43,11 @@ Four of the suite's readers are run, in the baseline's column order:
 | `opensysml-go` | Symbol API | Go, in process |
 
 The suite's Rust, TypeScript and Java readers of this implementation, and its readers of other
-MDKs, are not run. Its cross-MDK report needs a pilot checkout and Java; the ratchet reads the
-per-case CSV files each reader writes and needs neither, so the report's failure at the end of
-the suite's own log is expected.
+MDKs, are not run. Its cross-MDK report and the version record beside it need a pilot checkout
+and Java; the ratchet reads the per-case CSV files each reader writes and needs neither, so it
+runs the four readers itself, with the commands of the suite's `run-all.sh`, and leaves that
+report out. A pin whose `run-all.sh` runs one of them differently is refused until the ratchet
+is brought in line.
 
 ## Running it
 
@@ -57,8 +59,9 @@ go run -C tools ./cmd/hideo-suite -check      # the same, failing on any movemen
 
 It needs Go, Python 3.12 and [uv](https://docs.astral.sh/uv/) on `PATH`. Each run builds
 `bin/sysml-grpc` with `make build-grpc`, provisions the suite's Python environment with
-`uv sync`, and runs the four readers through the suite's `run-all.sh` with Go's test cache off;
-a run takes about a minute and a half. The results are left in
+`uv sync`, and runs the four readers with Go's test cache off; a run takes about a minute and
+a half. The command prints one line per reader and then the verdict; what a reader printed is
+in its log. The results are left in
 `build/hideo-suite/test-suite/results/`: one CSV per reader (`suite,matrix,id,outcome,detail`)
 and its log under `logs/`. `-no-run` compares the results already there instead of running.
 The readers are given this checkout's `bin/sysml-grpc` as `OPENSYSML_BINARY` and no
