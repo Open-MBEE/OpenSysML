@@ -60,7 +60,8 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-    timeout-minutes: 5
+    # Seconds, unless the fUML cache is cold and Maven Central makes the one fetch wait.
+    timeout-minutes: 20
     outputs:
       tier: ${{ steps.areas.outputs.tier }}
       go_shards: ${{ steps.shards.outputs.go_shards }}
@@ -111,6 +112,14 @@ jobs:
           else
             echo 'go_shards=["runtime runtime-corpus runtime-exploration model","codegen migrate","cli translate","graph","smt","corpus corpus-sweep","export export-examples","export-library export-corpus","rest grpc"]'
           fi | tee -a "$GITHUB_OUTPUT"
+
+      # A cold fUML cache (a new key, and every merge-queue ref) would send each Go job to Maven
+      # Central at once, which answers 429; every job needs this one, so it fills the cache first.
+      - name: Warm the fUML suite cache
+        if: steps.areas.outputs.go == 'true' || steps.areas.outputs.apijson == 'true'
+        uses: ./.github/actions/fuml-suite
+        with:
+          warm-only: 'true'
 
       # The vendored copy is checked in this job, not static-and-integrity: the
       # changed-areas filter may skip that job for a non-Go change, but drift

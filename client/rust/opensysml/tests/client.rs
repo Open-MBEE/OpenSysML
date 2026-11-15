@@ -51,6 +51,38 @@ fn parse_eval_and_navigation() {
 }
 
 #[test]
+fn a_string_spelled_as_a_name_and_as_an_id_is_read_as_the_kind_stated() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = connection
+        .parse_content(
+            "package Col__V__c_pend0 { part marker; } package Col { port def P; part def V { port q : P; port r : P; connection c connect q to r; } }",
+            &Default::default(),
+        )
+        .unwrap_or_else(|error| panic!("parse failed: {error}"));
+    let named = model
+        .symbol_by_name("Col__V__c_pend0")
+        .unwrap_or_else(|error| panic!("lookup by name failed: {error}"));
+    assert_eq!(named.kind(), "package");
+    let end = model
+        .symbol_by_element_id("Col__V__c_pend0")
+        .unwrap_or_else(|error| panic!("lookup by element id failed: {error}"));
+    assert_eq!(end.kind(), "connectorEnd");
+    assert_eq!(end.id(), "Col__V__c_pend0");
+    let connector = model
+        .symbol("Col::V::c")
+        .unwrap_or_else(|error| panic!("lookup failed: {error}"));
+    let kinds: Vec<String> = connector
+        .children()
+        .unwrap_or_else(|error| panic!("children failed: {error}"))
+        .iter()
+        .map(|child| child.kind().to_owned())
+        .collect();
+    assert_eq!(kinds, ["connectorEnd", "connectorEnd"]);
+}
+
+#[test]
 fn missing_capability_is_legible() {
     let error = Error::MissingCapability {
         capability: "strict_conformance".to_owned(),

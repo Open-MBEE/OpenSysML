@@ -1,0 +1,7 @@
+{
+	"rpc": "GetSymbol",
+	"model": "symbol_lookup_connector_end.sysml",
+	"symbol_id": "Col__V__c_pend1",
+	"lookup": "qualified_name",
+	"expected_error": "symbol not found: Col__V__c_pend1"
+}
