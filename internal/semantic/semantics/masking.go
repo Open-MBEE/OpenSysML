@@ -465,9 +465,8 @@ func (m *Model) namingRedefiner(sym, masked *symbols.Symbol, declared bool) *sym
 	})
 }
 
-// namingRedefinerAmong finds, among the candidates iterate yields, the feature
-// sym keeps that is named by redefining masked. An alias of masked is a name of
-// its membership, not an identifier a redefinition takes (KerML 8.3.3.3.4 effectiveName).
+// namingRedefinerAmong finds the kept candidate named by redefining masked; an
+// alias of masked is no identifier a redefinition takes (KerML 8.3.3.3.4 effectiveName).
 func (m *Model) namingRedefinerAmong(masked *symbols.Symbol, lost func(*symbols.Symbol) bool, iterate func(func(*symbols.Symbol) bool)) *symbols.Symbol {
 	if masked == nil || masked.Kind == symbols.SymbolAlias {
 		return nil

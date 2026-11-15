@@ -257,9 +257,8 @@ func (m *Model) LookupContributedMembers(sym *symbols.Symbol, name string) []*sy
 	return out
 }
 
-// eachContributedMember calls yield with the member each of sym's member
-// sources holds under name and passes on to sym, in name-lookup order, until
-// yield returns false. A member no supertype passes on is not held.
+// eachContributedMember yields, in name-lookup order, the member each of sym's
+// member sources holds under name and a supertype passes on, until yield returns false.
 func (m *Model) eachContributedMember(sym *symbols.Symbol, name string, yield func(*symbols.Symbol) bool) {
 	if sym == nil || name == "" {
 		return

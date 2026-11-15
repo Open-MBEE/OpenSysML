@@ -148,8 +148,10 @@ type Model struct {
 	computingRedefined map[*symbols.Symbol]int
 	// redefLoss memoizes what each type does not inherit, redefOwn what its own
 	// features redefine (inheritance_loss.go).
-	redefLoss    map[*symbols.Symbol]*inheritanceLoss
-	redefOwn     map[*symbols.Symbol]*ownRedefinitions
+	redefLoss map[*symbols.Symbol]*inheritanceLoss
+	redefOwn  map[*symbols.Symbol]*ownRedefinitions
+	// walkingLoss holds the resolver depth of the walk deriving each loss in progress.
+	walkingLoss  map[*symbols.Symbol]int
 	redefClosure map[*symbols.Symbol]map[*symbols.Symbol]bool
 	// restatesFrameRoot and restatesReferenceRoot memoize restatesRoot per symbol (shape.go).
 	restatesFrameRoot          map[*symbols.Symbol]bool
@@ -263,6 +265,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		computingRedefined:    make(map[*symbols.Symbol]int),
 		redefLoss:             make(map[*symbols.Symbol]*inheritanceLoss),
 		redefOwn:              make(map[*symbols.Symbol]*ownRedefinitions),
+		walkingLoss:           make(map[*symbols.Symbol]int),
 		redefClosure:          make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
 		restatesFrameRoot:     make(map[*symbols.Symbol]bool),
 		restatesReferenceRoot: make(map[*symbols.Symbol]bool),

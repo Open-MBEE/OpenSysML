@@ -11,16 +11,17 @@ import (
 
 // ownRedefinitions is what the features a type declares redefine.
 type ownRedefinitions struct {
+	owner *symbols.Symbol
 	// direct holds the features redefined by clause, position or role.
 	direct map[*symbols.Symbol]bool
 	// closure adds what those features redefine in turn.
 	closure map[*symbols.Symbol]bool
 }
 
-// masks reports whether the type does not inherit candidate for its own features:
-// one of them redefines it, or directly redefines a feature candidate redefines.
+// masks reports whether a feature of the type redefines candidate, or directly
+// redefines a feature candidate redefines; a member it declares is never lost.
 func (o *ownRedefinitions) masks(m *Model, candidate *symbols.Symbol) bool {
-	if o == nil || candidate == nil {
+	if o == nil || candidate == nil || candidate.OwnerScope == o.owner.Scope {
 		return false
 	}
 	return o.closure[candidate] || m.redefinesAny(candidate, o.direct)
@@ -35,7 +36,7 @@ type inheritanceLoss struct {
 	// inherited adds what a passed-on feature redefines: the loss a redefinition
 	// written in the type sees.
 	inherited map[*symbols.Symbol]bool
-	// full adds what the type's own features remove.
+	// full adds what the type's own features remove; nil until they are read.
 	full map[*symbols.Symbol]bool
 }
 
@@ -80,9 +81,8 @@ func (m *Model) redefinesAny(feature *symbols.Symbol, targets map[*symbols.Symbo
 	return false
 }
 
-// ownRedefinitions returns what the features sym declares redefine, exclude left
-// out: the declaration being written, whose redefinition masks nothing yet
-// (KerML 8.3.3.3.6). Memoized for a nil exclude.
+// ownRedefinitions returns what the features sym declares redefine, less exclude,
+// a declaration being written (KerML 8.3.3.3.6). Memoized for a nil exclude.
 func (m *Model) ownRedefinitions(sym, exclude *symbols.Symbol) *ownRedefinitions {
 	if m == nil || sym == nil || sym.Scope == nil {
 		return nil
@@ -97,7 +97,7 @@ func (m *Model) ownRedefinitions(sym, exclude *symbols.Symbol) *ownRedefinitions
 		m.redefOwn[sym] = nil // re-entrancy guard: a nested query sees no redefinition
 	}
 	m.resolver.Enter()
-	own := &ownRedefinitions{direct: make(map[*symbols.Symbol]bool), closure: make(map[*symbols.Symbol]bool)}
+	own := &ownRedefinitions{owner: sym, direct: make(map[*symbols.Symbol]bool), closure: make(map[*symbols.Symbol]bool)}
 	sym.Scope.ForEachMember(func(feature *symbols.Symbol) bool {
 		if feature == exclude {
 			return true
@@ -148,18 +148,21 @@ func (m *Model) inheritanceLoss(sym *symbols.Symbol) *inheritanceLoss {
 	if m == nil || sym == nil {
 		return nil
 	}
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.redefLoss[sym]; ok {
+		if cached == nil {
+			m.cutShortLoss(sym)
+		}
 		return cached
 	}
-	m.resolver.Enter()
+	depth := m.resolver.Enter()
 	walked := make(map[*symbols.Symbol]*inheritanceLoss)
-	loss := m.walkInheritanceLoss(sym, walked)
+	loss := m.walkInheritanceLoss(sym, walked, depth)
 	// A redefinition mid-resolution contributes nothing yet, so the answers are not final.
 	settled := m.resolver.Leave() && m.computingRedefinedFeatures == 0
-	for walkedSym, walkedLoss := range walked {
-		if _, stable := m.contributed[walkedSym]; settled && stable {
-			m.redefLoss[walkedSym] = walkedLoss
-		} else {
+	for walkedSym := range walked {
+		delete(m.walkingLoss, walkedSym)
+		if _, stable := m.contributed[walkedSym]; !settled || !stable {
 			delete(m.redefLoss, walkedSym)
 		}
 	}
@@ -168,36 +171,40 @@ func (m *Model) inheritanceLoss(sym *symbols.Symbol) *inheritanceLoss {
 
 // walkInheritanceLoss derives sym's loss from those of the types contributing to
 // it; walked holds the answers of this walk, a type met again answering as it stands.
-func (m *Model) walkInheritanceLoss(sym *symbols.Symbol, walked map[*symbols.Symbol]*inheritanceLoss) *inheritanceLoss {
+func (m *Model) walkInheritanceLoss(sym *symbols.Symbol, walked map[*symbols.Symbol]*inheritanceLoss, depth int) *inheritanceLoss {
 	if loss, ok := walked[sym]; ok {
 		return loss
 	}
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.redefLoss[sym]; ok {
+		if cached.lost() == nil {
+			m.cutShortLoss(sym)
+		}
 		return cached
 	}
-	defer m.own(sym).LeaveDoc()
 	loss := &inheritanceLoss{}
 	walked[sym] = loss
 	journal(m, m.redefLoss, sym, sym.Decl)
 	m.redefLoss[sym] = nil // re-entrancy guard: a nested query sees no loss
+	m.walkingLoss[sym] = depth
 
 	contributors := m.DirectMemberSources(sym)
 	losses := make([]*inheritanceLoss, len(contributors))
 	for i, contributor := range contributors {
-		losses[i] = m.walkInheritanceLoss(contributor, walked)
+		losses[i] = m.walkInheritanceLoss(contributor, walked, depth)
 	}
-	loss.unoffered = make(map[*symbols.Symbol]bool)
+	unoffered := make(map[*symbols.Symbol]bool)
 	for i := range contributors {
 		for lost := range losses[i].lost() {
-			if !loss.unoffered[lost] && !m.offeredByAnother(contributors, losses, i, lost) {
-				loss.unoffered[lost] = true
+			if !unoffered[lost] && !m.offeredByAnother(contributors, losses, i, lost) {
+				unoffered[lost] = true
 			}
 		}
 	}
 	// Condition 1: a feature another inheritable membership redefines is removed.
-	loss.inherited = make(map[*symbols.Symbol]bool, len(loss.unoffered))
-	for lost := range loss.unoffered {
-		loss.inherited[lost] = true
+	inherited := make(map[*symbols.Symbol]bool, len(unoffered))
+	for lost := range unoffered {
+		inherited[lost] = true
 	}
 	offered := make(map[*symbols.Symbol]bool)
 	offer := func(feature *symbols.Symbol) {
@@ -211,7 +218,7 @@ func (m *Model) walkInheritanceLoss(sym *symbols.Symbol, walked map[*symbols.Sym
 		}
 		loss.redefiners = append(loss.redefiners, feature)
 		for target := range reach {
-			loss.inherited[target] = true
+			inherited[target] = true
 		}
 	}
 	for i, contributor := range contributors {
@@ -227,9 +234,20 @@ func (m *Model) walkInheritanceLoss(sym *symbols.Symbol, walked map[*symbols.Sym
 			offer(feature)
 		}
 	}
+	keepOwnMembers(sym, unoffered, inherited)
+	loss.unoffered, loss.inherited = unoffered, inherited
+	// What sym inherits is known before its own features are read: resolving
+	// the features they redefine asks for it.
+	m.redefLoss[sym] = loss
 	loss.full = m.lossWithOwn(sym, loss, m.ownRedefinitions(sym, nil))
-	keepOwnMembers(sym, loss.unoffered, loss.inherited)
 	return loss
+}
+
+// cutShortLoss records that a reader was answered by a loss still being walked.
+func (m *Model) cutShortLoss(sym *symbols.Symbol) {
+	if depth := m.walkingLoss[sym]; depth != 0 {
+		m.resolver.CutShort(depth)
+	}
 }
 
 // lossWithOwn adds to loss's inherited part what own removes (condition 2): what
@@ -296,23 +314,23 @@ func (m *Model) offeredByAnother(contributors []*symbols.Symbol, losses []*inher
 	return false
 }
 
-// redefinitionMask returns the elements sym does not inherit (KerML 8.3.3.1.10).
-// When declared is false the features sym declares remove nothing, which is how
-// a redefinition written in sym sees what sym inherits (KerML 8.3.3.3.6).
+// redefinitionMask returns the elements sym does not inherit (KerML 8.3.3.1.10);
+// declared false leaves out what its own features remove (KerML 8.3.3.3.6).
 func (m *Model) redefinitionMask(sym *symbols.Symbol, declared bool) map[*symbols.Symbol]bool {
 	loss := m.inheritanceLoss(sym)
 	switch {
 	case loss == nil:
 		return nil
-	case declared:
+	case declared && loss.full != nil:
 		return loss.full
+	case declared:
+		m.cutShortLoss(sym)
 	}
 	return loss.inherited
 }
 
-// redefinitionMaskExcluding is the mask on sym with one of its own declarations
-// left out: the declaration being written, whose redefinition must not hide the
-// feature it names (KerML 8.3.3.3.6). Not memoized — it is asked per edit.
+// redefinitionMaskExcluding is the mask on sym less what exclude, a declaration
+// being written in it, removes (KerML 8.3.3.3.6). Not memoized: asked per edit.
 func (m *Model) redefinitionMaskExcluding(sym, exclude *symbols.Symbol) map[*symbols.Symbol]bool {
 	loss := m.inheritanceLoss(sym)
 	if loss == nil {
