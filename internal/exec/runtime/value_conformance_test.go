@@ -788,3 +788,38 @@ func TestAdoptCarriesTheQuantityKindAWrittenQuantityIsHeldAs(t *testing.T) {
 		}
 	}
 }
+
+// Overload selection types a quantity argument by the quantity value type it is held as,
+// and one held as none by `ScalarQuantityValue`.
+func TestCalcCallSelectsByTheQuantityKindAnArgumentIsHeldAs(t *testing.T) {
+	ctx := libraryContextOver(t, `package Demo {
+	private import ISQ::*;
+	private import SI::*;
+	private import ScalarValues::*;
+	attribute def Work :> EnergyValue;
+	part def A { calc def pick { in x : Quantities::ScalarQuantityValue; return : Integer = 1; } }
+	part def B { calc def pick { in x : EnergyValue; return : Integer = 2; } }
+	part def C { calc def pick { in x : TorqueValue; return : Integer = 3; } }
+	part def Engine :> A, B, C {
+		attribute work : Work = 5 [J];
+		calc choose { in v; pick(v) }
+		attribute held = choose(work);
+		attribute constructed = choose(5 [J]);
+	}
+	part engine : Engine;
+}`)
+	engine, err := ctx.Instantiate(lookupOne(t, ctx.Resolver().Index(), "Demo::engine"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	for feature, want := range map[string]string{"held": "2", "constructed": "1"} {
+		fv, err := engine.GetFeatureValue(ctx, feature)
+		if err != nil {
+			t.Errorf("%s: %v", feature, err)
+			continue
+		}
+		if got := FormatValue(fv.HeldValue()); got != want {
+			t.Errorf("%s = %s, want %s", feature, got, want)
+		}
+	}
+}
