@@ -92,7 +92,7 @@ func (c *w9cConflictChecker) check(sym *symbols.Symbol) {
 		return
 	}
 	contribs := c.contributors(reach)
-	c.checkOwnedNames(sym, contribs)
+	c.checkOwnedNames(sym, reach, contribs)
 	if len(contribs) < 2 {
 		// One base contributes each name once, so no name is reached twice.
 		return
@@ -216,12 +216,12 @@ func shortNamed(sym *symbols.Symbol) (string, bool) {
 // checkOwnedNames reports each member sym declares whose name a library base
 // already contributes (KerML 8.4.3.2): the two are indistinguishable unless the
 // declaration redefines or subsets the inherited feature.
-func (c *w9cConflictChecker) checkOwnedNames(sym *symbols.Symbol, contribs []w9cContributor) {
+func (c *w9cConflictChecker) checkOwnedNames(sym *symbols.Symbol, reach w9cReach, contribs []w9cContributor) {
 	if sym.Scope == nil {
 		return
 	}
 	owned, aliases := c.resolver.DistinguishableMembers(sym.Scope)
-	redefined := c.redefinedByMembers(owned)
+	redefined := c.redefinedOnTheWay(owned, reach)
 	for _, mems := range [2][]*symbols.Symbol{owned, aliases} {
 		for _, mem := range mems {
 			if resolve.ImplicitlyRedefined(mem) || c.hasUnresolvedRedefinition(mem) {
@@ -240,17 +240,23 @@ func (c *w9cConflictChecker) checkOwnedNames(sym *symbols.Symbol, contribs []w9c
 	}
 }
 
-// redefinedByMembers are the features the members of one type redefine, by
-// clause or by position, directly or through what those redefine: a redefined
-// feature is not inherited (KerML 8.3.3.1.10), so its name is free again.
-func (c *w9cConflictChecker) redefinedByMembers(owned []*symbols.Symbol) map[*symbols.Symbol]bool {
-	var out map[*symbols.Symbol]bool
-	for _, mem := range owned {
-		for _, target := range c.model.AllRedefinedFeatures(mem) {
-			if out == nil {
-				out = map[*symbols.Symbol]bool{}
+// redefinedOnTheWay are the features redefined, by clause or by position,
+// by sym's members and by those of each type passed on the way to a library base:
+// a redefined feature is not inherited (KerML 8.3.3.1.10), so its name is free.
+func (c *w9cConflictChecker) redefinedOnTheWay(owned []*symbols.Symbol, reach w9cReach) map[*symbols.Symbol]bool {
+	out := map[*symbols.Symbol]bool{}
+	add := func(members []*symbols.Symbol) {
+		for _, mem := range members {
+			for _, target := range c.model.AllRedefinedFeatures(mem) {
+				out[target] = true
 			}
-			out[target] = true
+		}
+	}
+	add(owned)
+	for _, via := range reach.through {
+		if via.Scope != nil {
+			members, _ := c.resolver.DistinguishableMembers(via.Scope)
+			add(members)
 		}
 	}
 	return out

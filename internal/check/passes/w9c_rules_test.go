@@ -1116,6 +1116,15 @@ func TestW9CNameOfARedefinedLibraryFeatureIsFree(t *testing.T) {
 	requirement def R { subject s : Vehicle; part subj : Vehicle; }
 	use case def U { subject s : Vehicle; part obj : Person; actor result : Person; }
 }`,
+		// A supertype's redefinition stops the feature being inherited further down.
+		`package Test {
+	part def Vehicle;
+	requirement def R { subject s : Vehicle; }
+	requirement def R1 :> R { ref subj : Vehicle; }
+	requirement r : R { ref subj : Vehicle; }
+	action def A { action mine :>> subactions; }
+	action def B :> A { ref action subactions; }
+}`,
 	}
 	for _, src := range srcs {
 		for _, warm := range []bool{false, true} {
