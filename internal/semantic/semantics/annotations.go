@@ -2423,7 +2423,7 @@ func ownedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	var members []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
-	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
+	forEachMemberPrefixFirst(sym.Scope, func(member *symbols.Symbol) bool {
 		if member.Kind != symbols.SymbolAlias && !seen[member] && !ownedThroughAnnotation(sym, member) && !symbols.IsFirstMarker(member) {
 			seen[member] = true
 			members = append(members, member)
