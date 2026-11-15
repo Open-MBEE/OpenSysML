@@ -50,7 +50,11 @@ func TestAPIJSONMappingNamesPreserveUnresolvedTargetSegments(t *testing.T) {
 			var turtleName string
 			var qualifiedNames []string
 			for _, candidate := range graph.Subjects() {
-				name, ok := graph.Object(candidate, rdf.SysML+"qualifiedName")
+				// The graph states the address beside a qualifiedName that spells it differently.
+				name, ok := graph.Object(candidate, rdf.OpenSysML+"mappingQualifiedName")
+				if !ok {
+					name, ok = graph.Object(candidate, rdf.SysML+"qualifiedName")
+				}
 				if !ok {
 					continue
 				}
@@ -59,12 +63,12 @@ func TestAPIJSONMappingNamesPreserveUnresolvedTargetSegments(t *testing.T) {
 					continue
 				}
 				if subject.Value != "" {
-					t.Fatalf("multiple elements have qualifiedName ending in %q", test.targetName)
+					t.Fatalf("multiple elements have an address ending in %q", test.targetName)
 				}
 				subject, turtleName = candidate, name.Value
 			}
 			if subject.Value == "" {
-				t.Fatalf("no Turtle graph qualifiedName ends in %q; got %v", test.targetName, qualifiedNames)
+				t.Fatalf("no Turtle graph address ends in %q; got %v", test.targetName, qualifiedNames)
 			}
 			for _, candidate := range graph.Subjects() {
 				if candidate == subject {
@@ -120,7 +124,10 @@ func TestAPIJSONMappingNamesPreserveUnresolvedTargetSegments(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ReadAPIJSON: %v", err)
 			}
-			importedName, ok := imported.Object(subject, rdf.SysML+"qualifiedName")
+			importedName, ok := imported.Object(subject, rdf.OpenSysML+"mappingQualifiedName")
+			if !ok {
+				importedName, ok = imported.Object(subject, rdf.SysML+"qualifiedName")
+			}
 			if !ok || importedName.Value != turtleName {
 				t.Errorf("imported mapping name = %q, %t; want Turtle graph name %q", importedName.Value, ok, turtleName)
 			}

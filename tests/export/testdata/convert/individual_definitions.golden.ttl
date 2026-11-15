@@ -61,7 +61,8 @@ elmt:IndividualDefinitions__Astronaut_om
 
 elmt:IndividualDefinitions__Neil_20Armstrong
     a sysml:PartDefinition ;
-    sysml:qualifiedName "IndividualDefinitions::Neil Armstrong" ;
+    sysml:qualifiedName "IndividualDefinitions::'Neil Armstrong'" ;
+    sysx:mappingQualifiedName "IndividualDefinitions::Neil Armstrong" ;
     sysx:sourceLine "3"^^xsd:integer ;
     sysx:sourceColumn "2"^^xsd:integer ;
     sysx:sourceEndLine "3"^^xsd:integer ;
@@ -156,7 +157,8 @@ elmt:IndividualDefinitions__Sample_om
 
 elmt:IndividualDefinitions__Sample_2010005
     a sysml:ItemDefinition ;
-    sysml:qualifiedName "IndividualDefinitions::Sample 10005" ;
+    sysml:qualifiedName "IndividualDefinitions::'Sample 10005'" ;
+    sysx:mappingQualifiedName "IndividualDefinitions::Sample 10005" ;
     sysx:sourceLine "5"^^xsd:integer ;
     sysx:sourceColumn "2"^^xsd:integer ;
     sysx:sourceEndLine "5"^^xsd:integer ;

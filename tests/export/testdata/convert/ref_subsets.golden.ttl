@@ -260,7 +260,8 @@ elmt:ReferenceSubsets__design__spare_om
 
 elmt:ReferenceSubsets__design__spare_20wheel
     a sysml:ReferenceUsage ;
-    sysml:qualifiedName "ReferenceSubsets::design::spare wheel" ;
+    sysml:qualifiedName "ReferenceSubsets::design::'spare wheel'" ;
+    sysx:mappingQualifiedName "ReferenceSubsets::design::spare wheel" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
