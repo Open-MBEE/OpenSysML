@@ -92,7 +92,7 @@ func (c *w9cConflictChecker) check(sym *symbols.Symbol) {
 		return
 	}
 	contribs := c.contributors(reach)
-	c.checkOwnedNames(sym, reach, contribs)
+	c.checkOwnedNames(sym, contribs)
 	if len(contribs) < 2 {
 		// One base contributes each name once, so no name is reached twice.
 		return
@@ -216,19 +216,18 @@ func shortNamed(sym *symbols.Symbol) (string, bool) {
 // checkOwnedNames reports each member sym declares whose name a library base
 // already contributes (KerML 8.4.3.2): the two are indistinguishable unless the
 // declaration redefines or subsets the inherited feature.
-func (c *w9cConflictChecker) checkOwnedNames(sym *symbols.Symbol, reach w9cReach, contribs []w9cContributor) {
+func (c *w9cConflictChecker) checkOwnedNames(sym *symbols.Symbol, contribs []w9cContributor) {
 	if sym.Scope == nil {
 		return
 	}
 	owned, aliases := c.resolver.DistinguishableMembers(sym.Scope)
-	redefined := c.redefinedOnTheWay(owned, reach)
 	for _, mems := range [2][]*symbols.Symbol{owned, aliases} {
 		for _, mem := range mems {
 			if resolve.ImplicitlyRedefined(mem) || c.hasUnresolvedRedefinition(mem) {
 				continue
 			}
 			for _, key := range ownedKeysOf(mem) {
-				cands := notRedefined(contributionsOf(contribs, key.name), redefined)
+				cands := c.stillInherited(sym, contributionsOf(contribs, key.name))
 				if len(cands) == 0 {
 					continue
 				}
@@ -240,36 +239,12 @@ func (c *w9cConflictChecker) checkOwnedNames(sym *symbols.Symbol, reach w9cReach
 	}
 }
 
-// redefinedOnTheWay are the features redefined, by clause or by position,
-// by sym's members and by those of each type passed on the way to a library base:
-// a redefined feature is not inherited (KerML 8.3.3.1.10), so its name is free.
-func (c *w9cConflictChecker) redefinedOnTheWay(owned []*symbols.Symbol, reach w9cReach) map[*symbols.Symbol]bool {
-	out := map[*symbols.Symbol]bool{}
-	add := func(members []*symbols.Symbol) {
-		for _, mem := range members {
-			for _, target := range c.model.AllRedefinedFeatures(mem) {
-				out[target] = true
-			}
-		}
-	}
-	add(owned)
-	for _, via := range reach.through {
-		if via.Scope != nil {
-			members, _ := c.resolver.DistinguishableMembers(via.Scope)
-			add(members)
-		}
-	}
-	return out
-}
-
-// notRedefined drops the candidates whose member is in redefined.
-func notRedefined(cands []w9cCandidate, redefined map[*symbols.Symbol]bool) []w9cCandidate {
-	if len(redefined) == 0 {
-		return cands
-	}
+// stillInherited drops the candidates sym does not inherit because a feature of
+// its own, or one it inherits, redefines them (KerML 8.3.3.1.10): their name is free.
+func (c *w9cConflictChecker) stillInherited(sym *symbols.Symbol, cands []w9cCandidate) []w9cCandidate {
 	out := make([]w9cCandidate, 0, len(cands))
 	for _, cand := range cands {
-		if !redefined[cand.member] {
+		if !c.model.InheritanceMasked(sym, cand.member) {
 			out = append(out, cand)
 		}
 	}

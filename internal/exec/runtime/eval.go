@@ -896,13 +896,23 @@ func isBehaviorDefKind(kind symbols.SymbolKind) bool {
 // may answer here: in a behavior body only when the name resolves to it.
 func (ec *EvalContext) selfFeatureInScope(name string) bool {
 	if !ec.inBehaviorBody {
-		return true
+		return !ec.conditionOwnFeature(name)
 	}
 	if ec.ctx == nil || ec.ctx.model.resolver == nil || ec.scope == nil {
 		return false
 	}
 	sym, ok := ec.lookupName(name)
 	return ok && performerHoldsFeature(ec.ctx, ec.self, sym)
+}
+
+// conditionOwnFeature reports whether name is the evaluated condition's own feature, not the bound
+// instance's of that spelling (KerML §8.2.3.5); one whose value is being evaluated looks past itself.
+func (ec *EvalContext) conditionOwnFeature(name string) bool {
+	bound, declared := ec.features[name]
+	if !declared || bound.held == nil || ec.resolving[name] {
+		return false
+	}
+	return !performerHoldsFeature(ec.ctx, ec.self, bound.held)
 }
 
 // selfFeatureValue reads the named feature value of the bound instance. Reports whether the
