@@ -15,37 +15,37 @@
         </mxCell>
         <object id="n0" label="«perform action»&#xA;part0.action0" fqn="SwimLanes::part0::action0" kind="perform action" view="SwimLanes::performedView" link="action-swimlanes.sysml:11">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="1">
-            <mxGeometry x="50" y="50" width="520" height="350" as="geometry"/>
+            <mxGeometry x="50" y="50" width="556" height="350" as="geometry"/>
           </mxCell>
         </object>
         <object id="n7" label="«performer»&#xA;part0.part1&#xA;perform actions" kind="swimlane" view="SwimLanes::performedView" link="action-swimlanes.sysml:12">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;dashed=1;align=left;verticalAlign=top;startSize=59;collapsible=0;" vertex="1" parent="n0">
-            <mxGeometry x="16" y="92" width="244" height="162" as="geometry"/>
+            <mxGeometry x="16" y="92" width="262" height="162" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n1" label="«action»&#xA;action1" fqn="SwimLanes::action0::action1" kind="action" view="SwimLanes::performedView" link="action-swimlanes.sysml:23">
+        <object id="n1" label="«action»&#xA;^action1" fqn="SwimLanes::action0::action1" kind="action" view="SwimLanes::performedView" link="action-swimlanes.sysml:23">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n7">
-            <mxGeometry x="16" y="109" width="81" height="37" as="geometry"/>
+            <mxGeometry x="16" y="109" width="90" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n4" label="«action»&#xA;action4" fqn="SwimLanes::action0::action4" kind="action" view="SwimLanes::performedView" link="action-swimlanes.sysml:26">
+        <object id="n4" label="«action»&#xA;^action4" fqn="SwimLanes::action0::action4" kind="action" view="SwimLanes::performedView" link="action-swimlanes.sysml:26">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n7">
-            <mxGeometry x="147" y="109" width="81" height="37" as="geometry"/>
+            <mxGeometry x="156" y="109" width="90" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n8" label="«performer»&#xA;part0.part2&#xA;perform actions" kind="swimlane" view="SwimLanes::performedView" link="action-swimlanes.sysml:16">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;dashed=1;align=left;verticalAlign=top;startSize=59;collapsible=0;" vertex="1" parent="n0">
-            <mxGeometry x="260" y="92" width="244" height="162" as="geometry"/>
+            <mxGeometry x="278" y="92" width="262" height="162" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n2" label="«action»&#xA;action2" fqn="SwimLanes::action0::action2" kind="action" view="SwimLanes::performedView" link="action-swimlanes.sysml:24">
+        <object id="n2" label="«action»&#xA;^action2" fqn="SwimLanes::action0::action2" kind="action" view="SwimLanes::performedView" link="action-swimlanes.sysml:24">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n8">
-            <mxGeometry x="16" y="109" width="81" height="37" as="geometry"/>
+            <mxGeometry x="16" y="109" width="90" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n3" label="«action»&#xA;action3" fqn="SwimLanes::action0::action3" kind="action" view="SwimLanes::performedView" link="action-swimlanes.sysml:25">
+        <object id="n3" label="«action»&#xA;^action3" fqn="SwimLanes::action0::action3" kind="action" view="SwimLanes::performedView" link="action-swimlanes.sysml:25">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n8">
-            <mxGeometry x="147" y="109" width="81" height="37" as="geometry"/>
+            <mxGeometry x="156" y="109" width="90" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n5" label="initial" fqn="SwimLanes::part0::action0::start" kind="initial" view="SwimLanes::performedView" link="action-swimlanes.sysml:27">
@@ -59,11 +59,11 @@
           </mxCell>
         </object>
         <object id="e0" label="" kind="succession" view="SwimLanes::performedView" link="action-swimlanes.sysml:28">
-          <mxCell style="edgeStyle=none;exitX=0.5062;exitY=0;exitPerimeter=0;entryX=0.2469;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n1" target="n2">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.2556;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n1" target="n2">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="123" y="235"/>
-                <mxPoint x="346" y="235"/>
+                <mxPoint x="127" y="235"/>
+                <mxPoint x="367" y="235"/>
               </Array>
             </mxGeometry>
           </mxCell>
@@ -74,29 +74,29 @@
           </mxCell>
         </object>
         <object id="e2" label="" kind="succession" view="SwimLanes::performedView" link="action-swimlanes.sysml:30">
-          <mxCell style="edgeStyle=none;exitX=0.5062;exitY=1;exitPerimeter=0;entryX=0.7531;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n3" target="n4">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.7556;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n3" target="n4">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="498" y="304"/>
-                <mxPoint x="274" y="304"/>
+                <mxPoint x="529" y="304"/>
+                <mxPoint x="290" y="304"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e3" label="" kind="succession" view="SwimLanes::performedView" link="action-swimlanes.sysml:31">
-          <mxCell style="edgeStyle=none;exitX=0.5062;exitY=1;exitPerimeter=0;entryX=1;entryY=0.2667;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n4" target="n6">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.2667;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n4" target="n6">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="254" y="362"/>
+                <mxPoint x="267" y="362"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e4" label="" kind="succession" view="SwimLanes::performedView" link="action-swimlanes.sysml:27">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0.2469;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n5" target="n1">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0.2556;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n5" target="n1">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="102" y="364"/>
+                <mxPoint x="105" y="364"/>
               </Array>
             </mxGeometry>
           </mxCell>

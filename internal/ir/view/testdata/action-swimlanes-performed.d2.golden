@@ -10,13 +10,13 @@ n0: "«perform action»\npart0.action0" {
   class: usage
   n7: "«performer»\npart0.part1\nperform actions" {
     class: region
-    n1: "«action»\naction1" { class: usage }
-    n4: "«action»\naction4" { class: usage }
+    n1: "«action»\n^action1" { class: usage }
+    n4: "«action»\n^action4" { class: usage }
   }
   n8: "«performer»\npart0.part2\nperform actions" {
     class: region
-    n2: "«action»\naction2" { class: usage }
-    n3: "«action»\naction3" { class: usage }
+    n2: "«action»\n^action2" { class: usage }
+    n3: "«action»\n^action3" { class: usage }
   }
   n5: "" { class: initial }
   n6: "" { class: final }

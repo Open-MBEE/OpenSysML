@@ -224,3 +224,44 @@ func TestDrawioImportNeverPlacesThePerformerOfASwimlane(t *testing.T) {
 		}
 	}
 }
+
+// A swimlane is no element and has no Layout: a node it holds sits where the flow's
+// frame puts it, whatever else the flow places, and the lane is drawn around its nodes.
+func TestSwimlaneIsDrawnAroundThePlacedNodesItHolds(t *testing.T) {
+	rendering := render(t, "action-swimlanes-placed.sysml", "PlacedLanes::placedView")
+	a := newArranger(labelsOf(rendering.Roots, false, nil, rendering.Shown), rendering.portView(Options{}.Ports))
+	a.layout(rendering)
+	lane := laneOf(t, rendering, "load")
+	if lane == nil {
+		t.Fatal("load is in no lane")
+	}
+	if box := a.boxes[findNode(t, rendering.Roots, "load").ID]; box.X != 300 || box.Y != 200 {
+		t.Errorf("load at %+v, want its Layout's 300,200", box)
+	}
+	if box := a.boxes[findNode(t, rendering.Roots, "ship").ID]; box.X != 60 || box.Y != 150 {
+		t.Errorf("ship at %+v, want its Layout's 60,150", box)
+	}
+	frame := a.boxes[lane.ID]
+	for _, held := range lane.Children {
+		box := a.boxes[held.ID]
+		if box.X <= frame.X || box.Y <= frame.Y || box.right() >= frame.right() || box.bottom() >= frame.bottom() {
+			t.Errorf("%q at %+v is not inside its lane %+v", held.Name, box, frame)
+		}
+	}
+}
+
+// The nodes of a performed flow are the ones the perform action usage inherits,
+// so a Layout naming one through that usage places it.
+func TestPerformedFlowNodesArePlacedThroughThePerformActionUsage(t *testing.T) {
+	rendering := render(t, "action-swimlanes-placed.sysml", "PlacedLanes::performedView")
+	load := findNode(t, rendering.Roots, "load")
+	if !load.Inherited {
+		t.Error("load is not drawn as inherited by the perform action usage")
+	}
+	if g := load.Geometry; !g.placed() || g.X != 300 || g.Y != 200 {
+		t.Errorf("load geometry %+v, want the Layout about line::run::load", g)
+	}
+	if len(rendering.Notices) != 0 {
+		t.Errorf("notices %q, want none", rendering.Notices)
+	}
+}

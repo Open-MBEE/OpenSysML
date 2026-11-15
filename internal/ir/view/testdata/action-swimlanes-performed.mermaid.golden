@@ -33,17 +33,17 @@ flowchart TD
 perform actions`"]
       direction TD
       n1("`*«action»*
-**action1**`")
+**^action1**`")
       n4("`*«action»*
-**action4**`")
+**^action4**`")
     end
     subgraph n8 ["`*«performer»* **part0.part2**
 perform actions`"]
       direction TD
       n2("`*«action»*
-**action2**`")
+**^action2**`")
       n3("`*«action»*
-**action3**`")
+**^action3**`")
     end
     n5@{ shape: f-circ, label: "" }
     n6@{ shape: fr-circ, label: "" }

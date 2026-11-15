@@ -51,14 +51,8 @@ func statementKind(kind string) bool {
 	return false
 }
 
-// sectionKind reports whether a kind is a body compartment of a compound node,
-// a container drawn as a compartment of the node holding it.
-func sectionKind(kind string) bool {
-	return bodySectionKind(kind) || kind == swimlaneKind
-}
-
-// bodySectionKind reports whether kind is the body of a compound node: an
-// anonymous action headed by its compartment's name alone, as a swimlane is not.
+// bodySectionKind reports whether a kind is a body compartment of a compound node,
+// a container drawn as a compartment of the node holding it; a swimlane is none.
 func bodySectionKind(kind string) bool {
 	switch kind {
 	case loopBodyKind, thenBodyKind, elseBodyKind:

@@ -44,12 +44,12 @@ hide stereotype
 hide empty description
 state "<size:10>//«perform action»//</size>\n**part0.action0**" as n0 <<perform action>> <<usage>> {
   state "<size:10>//«performer»//</size>\n**part0.part1**\nperform actions" as n7 <<swimlane>> <<region>> {
-    state "<size:10>//«action»//</size>\n**action1**" as n1 <<action>> <<usage>>
-    state "<size:10>//«action»//</size>\n**action4**" as n4 <<action>> <<usage>>
+    state "<size:10>//«action»//</size>\n**^action1**" as n1 <<action>> <<usage>>
+    state "<size:10>//«action»//</size>\n**^action4**" as n4 <<action>> <<usage>>
   }
   state "<size:10>//«performer»//</size>\n**part0.part2**\nperform actions" as n8 <<swimlane>> <<region>> {
-    state "<size:10>//«action»//</size>\n**action2**" as n2 <<action>> <<usage>>
-    state "<size:10>//«action»//</size>\n**action3**" as n3 <<action>> <<usage>>
+    state "<size:10>//«action»//</size>\n**^action2**" as n2 <<action>> <<usage>>
+    state "<size:10>//«action»//</size>\n**^action3**" as n3 <<action>> <<usage>>
   }
   state "**initial**" as n5 <<start>>
   state "**final**" as n6 <<end>>

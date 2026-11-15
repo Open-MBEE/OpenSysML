@@ -681,14 +681,15 @@ func (m *drawioMatcher) framesChildren(id string) bool {
 // model does not place, the writer hugs the placed children to the container's
 // corner, so the container is pinned first and the page frame becomes the model's.
 func (m *drawioMatcher) frameShift(base *DrawioCell) DrawioBox {
-	parent := m.nodes[base.Parent]
+	frame := m.frameOf(base)
+	parent := m.nodes[frame]
 	if parent == nil {
 		return DrawioBox{}
 	}
-	if sectionKind(parent.Kind) {
+	if bodySectionKind(parent.Kind) {
 		// A body section is laid out by its node, never placed: its nodes are
 		// placed in the section's frame as the file shows it, the node pinned.
-		section := m.base.Cell(base.Parent)
+		section := m.base.Cell(frame)
 		if owner := m.nodes[section.Parent]; owner != nil && !owner.Geometry.placed() {
 			m.pin(section.Parent)
 		}
@@ -697,11 +698,22 @@ func (m *drawioMatcher) frameShift(base *DrawioCell) DrawioBox {
 		return DrawioBox{X: shift.X, Y: shift.Y}
 	}
 	if !parent.Geometry.placed() {
-		m.pin(base.Parent)
+		m.pin(frame)
 		return DrawioBox{}
 	}
-	shift := m.w.childShift(parent, m.w.boxes[base.Parent])
+	shift := m.w.childShift(parent, m.w.boxes[frame])
 	return DrawioBox{X: shift.X, Y: shift.Y}
+}
+
+// frameOf is the id of the cell a baseline cell's Layout is stated in the frame of: its
+// parent, or the flow a swimlane parent is drawn in — a lane is no element and frames none.
+func (m *drawioMatcher) frameOf(base *DrawioCell) string {
+	if lane := m.nodes[base.Parent]; lane != nil && lane.Kind == swimlaneKind {
+		if cell := m.base.Cell(base.Parent); cell != nil {
+			return cell.Parent
+		}
+	}
+	return base.Parent
 }
 
 // pin places a container the model does not place, and every child drawn in its
@@ -766,7 +778,7 @@ func (m *drawioMatcher) framePlace(cell, base *DrawioCell, node *Node, sized boo
 // its own, the path a Layout about it resolves through (MemberLayoutOf). An
 // element a nested view exposes keeps its own name: the view is no owner.
 func (m *drawioMatcher) targetName(cell, base *DrawioCell) string {
-	parent, name := m.base.Cell(base.Parent), symbols.LastSegment(cell.FQN)
+	parent, name := m.base.Cell(m.frameOf(base)), symbols.LastSegment(cell.FQN)
 	if parent == nil || parent.FQN == "" || !parent.Vertex || cell.FQN == "" {
 		return cell.FQN
 	}

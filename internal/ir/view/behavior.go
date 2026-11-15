@@ -845,6 +845,9 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		record(subject.performing, root)
 		record(owner, root)
 	}
+	if subject.performing != nil {
+		owner = subject.performing // the nodes of the performed flow are drawn as the ones the perform action usage inherits
+	}
 	// Every action has a start even when no succession leaves it; draw it when
 	// the view's Layout positions it, first among the body's nodes.
 	if r.placedStart(subject.view, owner, graph, out) {

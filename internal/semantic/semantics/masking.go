@@ -188,6 +188,12 @@ func (m *Model) EffectiveNamed(sym *symbols.Symbol) (string, bool) {
 	return from.Name, from.Named()
 }
 
+// NameSourceOf is the element whose declared identifiers sym answers to: sym itself,
+// or the one its naming features lead to (KerML 1.1 §8.3.3.3); nil when none declares any.
+func (m *Model) NameSourceOf(sym *symbols.Symbol) *symbols.Symbol {
+	return identifierSource(sym, m.declaresOwnIdentifier, m.namingFeature)
+}
+
 // EffectiveShortNameOf is Element::shortName: the declared short name, or, for
 // a feature declaring neither identifier, that of the feature it takes its
 // identifiers from (KerML 1.1 §8.2.4, §8.3.3.3).
