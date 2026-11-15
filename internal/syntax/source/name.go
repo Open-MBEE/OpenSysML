@@ -206,7 +206,8 @@ func readBasicOrQuotedName(text string) (name, rest string, ok bool) {
 	return name, text[end:], IsIdentifier(name)
 }
 
-// readQuotedName reads a quoted name off the front of text, its escapes decoded.
+// readQuotedName reads a quoted name off the front of text, its escapes decoded;
+// An empty quoted body is the empty name, the repetition of KerML §8.2.2.3 admitting no character.
 func readQuotedName(text string) (name, rest string, ok bool) {
 	if text == "" || text[0] != '\'' {
 		return "", "", false
@@ -216,7 +217,7 @@ func readQuotedName(text string) (name, rest string, ok bool) {
 		case '\\':
 			i++
 		case '\'':
-			return Unescape(text[1:i]), text[i+1:], i > 1
+			return Unescape(text[1:i]), text[i+1:], true
 		}
 	}
 	return "", "", false

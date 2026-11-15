@@ -44,6 +44,13 @@ re-measures our side and takes the pilot column from the committed baseline, roo
 so; `-require-exporter` makes the absence a failure instead. A root the baseline does not record
 then has an empty pilot column, which no rule can be silent against.
 
+**When the exporter does not run.** The launcher exits 78 when it cannot start the bridge (no Java 21,
+pinned jar or library) and the bridge exits 1 when it failed on some files, as in the
+[API-JSON differential](api-json-differential.md). The census refuses a run in which the bridge did
+not run (status 78, or status 1 with an `Error:` line or no document written), and `-check` and
+`-update` refuse a run in which the pilot failed on every file of a root, naming
+`./scripts/download-pilot-json-exporter.sh`.
+
 **Re-recording.** The baseline moves whenever a rule, a fixture under a root, the standard library,
 the pin or the bridge does. Its `provenance` block records the inputs the pilot's column depends on
 by digest — the pin, the bridge, each root, the libraries — and `-check` names the one that moved

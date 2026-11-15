@@ -53,7 +53,7 @@ func (e *performances) carryObjects(frame *actionFrame, node ast.Node, via lower
 		}
 		ec := e.evalContextFor(frame, f.Scope)
 		ec.pushFrame(mapFrame(inputs))
-		value, err := ec.Eval(f.Value)
+		value, err := ec.reading(graph.Exprs).evalPayload(f.ValueID)
 		if err != nil {
 			return fmt.Errorf("%s: %s: %w", describeNode(graph, node), f.Name, err)
 		}

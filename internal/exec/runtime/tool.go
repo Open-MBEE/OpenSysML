@@ -392,7 +392,7 @@ func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 	call := &ToolCall{Action: execution.on, ToolName: tool, URI: execution.uri, ctx: e.ctx, scope: e.root.scope}
 	namedBy := make(map[string]string)
 	for _, param := range e.ctx.model.semantics.BehaviorParametersOf(e.action) {
-		if param.Symbol == nil || param.Symbol.Name == "" {
+		if param.Symbol == nil || !param.Symbol.Named() {
 			continue
 		}
 		variable, named, err := e.ctx.toolVariableOf(param.Symbol)

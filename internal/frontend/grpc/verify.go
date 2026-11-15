@@ -240,7 +240,7 @@ func (v *verifyContext) instantiate(role, symbolID string, sym *symbols.Symbol) 
 // is anonymous: such an element has no name a caller can look up.
 func namedFQN(idx *symbols.Index, sym *symbols.Symbol) string {
 	for s := sym; s != nil; {
-		if s.Name == "" {
+		if !s.Named() {
 			return ""
 		}
 		if s.OwnerScope == nil {

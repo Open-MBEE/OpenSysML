@@ -482,7 +482,7 @@ func selfCheckElementName(element selfCheckElement) string {
 		return selfCheckName(element.symbol)
 	}
 	meta := "relationship"
-	if element.metaclass != nil && element.metaclass.Name != "" {
+	if element.metaclass != nil && element.metaclass.Named() {
 		meta = element.metaclass.Name
 	}
 	return fmt.Sprintf("%s of '%s'", meta, selfCheckName(element.symbol.Implicit.Owner))

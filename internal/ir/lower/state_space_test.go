@@ -126,9 +126,9 @@ func TestStateSpaceDynamicsLowering(t *testing.T) {
 	if kind := StateSpaceKindOf(fall, model); kind != ContinuousDynamics {
 		t.Fatalf("kind of fall = %v, want ContinuousDynamics", kind)
 	}
-	dyn, err := ToStateSpaceDynamics(fall, scope, model)
+	dyn, err := ToStateSpaceDynamics(fall, scope, model, nil)
 	if err != nil {
-		t.Fatalf("ToStateSpaceDynamics(fall): %v", err)
+		t.Fatalf("ToStateSpaceDynamics(fall, nil): %v", err)
 	}
 	if dyn.Action != fall || dyn.Scope != scope {
 		t.Error("the lowering does not carry the action and its body scope")
@@ -175,9 +175,9 @@ func TestStateSpaceDynamicsLowering(t *testing.T) {
 	if kind := StateSpaceKindOf(account, model); kind != DiscreteDynamics {
 		t.Fatalf("kind of account = %v, want DiscreteDynamics", kind)
 	}
-	dyn, err = ToStateSpaceDynamics(account, scope, model)
+	dyn, err = ToStateSpaceDynamics(account, scope, model, nil)
 	if err != nil {
-		t.Fatalf("ToStateSpaceDynamics(account): %v", err)
+		t.Fatalf("ToStateSpaceDynamics(account, nil): %v", err)
 	}
 	if dyn.Difference == nil || dyn.Difference.Name != "getDifference" || model.LibraryDeclared(dyn.Difference) {
 		t.Errorf("difference = %v, want the model's getDifference", dyn.Difference)
@@ -194,8 +194,8 @@ func TestStateSpaceDynamicsLowering(t *testing.T) {
 	if kind := StateSpaceKindOf(plain, model); kind != NotStateSpace {
 		t.Errorf("kind of plain = %v, want NotStateSpace", kind)
 	}
-	if _, err := ToStateSpaceDynamics(plain, scope, model); !errors.Is(err, ErrUnsupportedStateSpace) {
-		t.Errorf("ToStateSpaceDynamics(plain) = %v, want ErrUnsupportedStateSpace", err)
+	if _, err := ToStateSpaceDynamics(plain, scope, model, nil); !errors.Is(err, ErrUnsupportedStateSpace) {
+		t.Errorf("ToStateSpaceDynamics(plain, nil) = %v, want ErrUnsupportedStateSpace", err)
 	}
 }
 
@@ -262,9 +262,9 @@ func TestStateSpaceDynamicsIntegratorChoice(t *testing.T) {
 
 	for name, want := range map[string]Integrator{"unstated": IntegratorUnstated, "rk4": IntegratorRK4, "redeclared": IntegratorUnstated} {
 		action, scope, model := stateSpaceAction(t, src, name)
-		dyn, err := ToStateSpaceDynamics(action, scope, model)
+		dyn, err := ToStateSpaceDynamics(action, scope, model, nil)
 		if err != nil {
-			t.Fatalf("ToStateSpaceDynamics(%s): %v", name, err)
+			t.Fatalf("ToStateSpaceDynamics(%s, nil): %v", name, err)
 		}
 		if dyn.Integrator != want {
 			t.Errorf("integrator of %s = %v, want %v", name, dyn.Integrator, want)
@@ -275,16 +275,16 @@ func TestStateSpaceDynamicsIntegratorChoice(t *testing.T) {
 	}
 
 	heun, scope, model := stateSpaceAction(t, src, "heun")
-	_, err := ToStateSpaceDynamics(heun, scope, model)
+	_, err := ToStateSpaceDynamics(heun, scope, model, nil)
 	if !errors.Is(err, ErrUnsupportedStateSpace) || !strings.Contains(err.Error(), "Heun") {
-		t.Errorf("ToStateSpaceDynamics(heun) = %v, want ErrUnsupportedStateSpace naming Heun", err)
+		t.Errorf("ToStateSpaceDynamics(heun, nil) = %v, want ErrUnsupportedStateSpace naming Heun", err)
 	}
 
 	for _, name := range []string{"bodied", "bodiedEuler"} {
 		bodied, scope, model := stateSpaceAction(t, src, name)
-		dyn, err := ToStateSpaceDynamics(bodied, scope, model)
+		dyn, err := ToStateSpaceDynamics(bodied, scope, model, nil)
 		if err != nil {
-			t.Fatalf("ToStateSpaceDynamics(%s): %v", name, err)
+			t.Fatalf("ToStateSpaceDynamics(%s, nil): %v", name, err)
 		}
 		if dyn.NextState == nil || dyn.NextState.Name != "getNextState" || model.LibraryDeclared(dyn.NextState) {
 			t.Errorf("next state of %s = %v, want the model's bodied getNextState", name, dyn.NextState)
@@ -342,13 +342,13 @@ func TestStateSpaceDynamicsUnsupportedShapes(t *testing.T) {
 		"noGuard":      "zero crossing low of action noGuard binds no guard",
 	} {
 		action, scope, model := stateSpaceAction(t, src, name)
-		_, err := ToStateSpaceDynamics(action, scope, model)
+		_, err := ToStateSpaceDynamics(action, scope, model, nil)
 		if !errors.Is(err, ErrUnsupportedStateSpace) {
-			t.Errorf("ToStateSpaceDynamics(%s) = %v, want ErrUnsupportedStateSpace", name, err)
+			t.Errorf("ToStateSpaceDynamics(%s, nil) = %v, want ErrUnsupportedStateSpace", name, err)
 			continue
 		}
 		if !strings.Contains(err.Error(), says) {
-			t.Errorf("ToStateSpaceDynamics(%s) = %q, want it to say %q", name, err, says)
+			t.Errorf("ToStateSpaceDynamics(%s, nil) = %q, want it to say %q", name, err, says)
 		}
 	}
 }

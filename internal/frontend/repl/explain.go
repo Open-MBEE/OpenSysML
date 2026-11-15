@@ -113,7 +113,7 @@ func conflictRow(p solve.Provenance) string {
 // declaredBy names the element that declared an inherited condition as the notation
 // does, and "" when the element already reported states it itself.
 func declaredBy(p solve.Provenance) string {
-	if p.Declared == nil || p.Declared.Name == "" {
+	if p.Declared == nil || !p.Declared.Named() {
 		return ""
 	}
 	name := notationName(p.Declared.Name)

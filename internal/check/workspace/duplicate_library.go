@@ -65,7 +65,7 @@ func DuplicateLibraries(idx *symbols.Index) []Finding {
 		}
 		library := idx.IsLibraryDocument(doc)
 		root.ForEachMember(func(sym *symbols.Symbol) bool {
-			if sym.Name == "" || sym.Kind != symbols.SymbolPackage || !(library || symbols.IsLibraryPackage(sym)) {
+			if !sym.Named() || sym.Kind != symbols.SymbolPackage || !(library || symbols.IsLibraryPackage(sym)) {
 				return true
 			}
 			if before, seen := first[sym.Name]; !seen {

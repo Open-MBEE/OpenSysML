@@ -32,7 +32,7 @@ func (s *Server) Hover(ctx context.Context, params *protocol.HoverParams) (*prot
 		if target, span, ok := s.referencedSegment(name, *ref, offset); ok && target != nil {
 			target, span = s.hydratedTarget(name, *ref, offset, target, span)
 			signature := target.Notation()
-			if target.Name != "" {
+			if target.Named() {
 				signature += " " + source.NameText(target.Name)
 			}
 			if t := declaredTypeText(target); t != "" {
@@ -55,7 +55,7 @@ func (s *Server) Hover(ctx context.Context, params *protocol.HoverParams) (*prot
 	}
 
 	signature := sym.Notation()
-	if sym.Name != "" {
+	if sym.Named() {
 		signature += " " + source.NameText(sym.Name)
 	}
 	// A metadata body declaration implicitly redefines a feature of the

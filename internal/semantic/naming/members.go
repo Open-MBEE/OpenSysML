@@ -77,55 +77,55 @@ func DeclaredPrefixes(node ast.Node) []*ast.PrefixMetadata {
 
 // DeclaredNameAndMembers returns the name a declaration introduces and the
 // members it owns, for the node kinds that have either.
-func DeclaredNameAndMembers(node ast.Node) (string, []ast.Node) {
+func DeclaredNameAndMembers(node ast.Node) (Name, []ast.Node) {
 	if name, members, ok := BehaviorNameAndMembers(node); ok {
 		return name, members
 	}
 	switch n := node.(type) {
 	case *ast.Package:
-		return n.Ident.Name, n.Members
+		return identName(n.Ident), n.Members
 	case *ast.Namespace:
-		return n.Ident.Name, n.Members
+		return identName(n.Ident), n.Members
 	case *ast.Definition:
-		return n.Ident.Name, n.Members
+		return identName(n.Ident), n.Members
 	case *ast.Usage:
 		if ShorthandRelationship(n) {
-			return "", BodyMembers(n)
+			return Name{}, BodyMembers(n)
 		}
 		// A named send node is the statement it is written as, whose body
 		// declares the node's own members.
 		if send, ok := NodeStatement(n).(*ast.SendStatement); ok {
-			return n.Ident.Name, send.Members
+			return identName(n.Ident), send.Members
 		}
-		return n.Ident.Name, BodyMembers(n)
+		return identName(n.Ident), BodyMembers(n)
 	case *ast.Import:
-		return "", n.Body
+		return Name{}, n.Body
 	case *ast.Alias:
-		return n.Ident.Name, n.Body
+		return identName(n.Ident), n.Body
 	case *ast.Dependency:
-		return n.Ident.Name, n.Body
+		return identName(n.Ident), n.Body
 	case *ast.RelationshipMember:
-		return n.Ident.Name, n.Members
+		return identName(n.Ident), n.Members
 	case *ast.MultiplicityDecl:
-		return n.Ident.Name, n.Members
+		return identName(n.Ident), n.Members
 	case *ast.ConstraintMember:
-		return n.Name, n.Body
+		return NameOf(n.Name), n.Body
 	case *ast.AssumeMember:
-		return n.Ident.Name, n.Body
+		return identName(n.Ident), n.Body
 	case *ast.RequireMember:
-		return n.Ident.Name, n.Body
+		return identName(n.Ident), n.Body
 	case *ast.SubjectMember:
-		return n.Ident.Name, n.Body
+		return identName(n.Ident), n.Body
 	case *ast.PrefixMetadata:
-		return n.Ident.Name, n.Body
+		return identName(n.Ident), n.Body
 	case *ast.Comment:
-		return n.Ident.Name, nil
+		return identName(n.Ident), nil
 	case *ast.Documentation:
-		return n.Ident.Name, nil
+		return identName(n.Ident), nil
 	case *ast.TextualRepresentation:
-		return n.Ident.Name, nil
+		return identName(n.Ident), nil
 	}
-	return "", nil
+	return Name{}, nil
 }
 
 // NodeStatement is the statement an action node is written as, which the node
@@ -164,51 +164,51 @@ func PlainNodeHead(n *ast.Usage) bool {
 
 // BehaviorNameAndMembers returns the name a behavioral node declares and the
 // members it owns, for the nodes DeclaredNameAndMembers does not cover itself.
-func BehaviorNameAndMembers(node ast.Node) (string, []ast.Node, bool) {
+func BehaviorNameAndMembers(node ast.Node) (Name, []ast.Node, bool) {
 	switch n := node.(type) {
 	case *ast.InitialNode:
 		// Its name references the starting member, so it declares none.
-		return "", n.Members, true
+		return Name{}, n.Members, true
 	case *ast.SuccessionEdge:
-		return "", n.Members, true
+		return Name{}, n.Members, true
 	case *ast.FinalNode:
-		return "", nil, true
+		return Name{}, nil, true
 	case *ast.ForkNode:
-		return n.Name, nil, true
+		return spannedName(n.Name, n.NameSpan), nil, true
 	case *ast.JoinNode:
-		return n.Name, nil, true
+		return spannedName(n.Name, n.NameSpan), nil, true
 	case *ast.MergeNode:
-		return n.Name, nil, true
+		return spannedName(n.Name, n.NameSpan), nil, true
 	case *ast.DecisionNode:
-		return n.Name, nil, true
+		return spannedName(n.Name, n.NameSpan), nil, true
 	case *ast.ActionExecutionNode:
-		return n.Name, nil, true
+		return NameOf(n.Name), nil, true
 	case *ast.WhileLoopActionNode:
-		return "", n.Body, true
+		return Name{}, n.Body, true
 	case *ast.IfActionNode:
 		branches := make([]ast.Node, 0, 2)
 		for _, branch := range n.Branches() {
 			branches = append(branches, branch)
 		}
-		return "", branches, true
+		return Name{}, branches, true
 	case *ast.IfBranchNode:
-		return "", n.Body, true
+		return Name{}, n.Body, true
 	case *ast.StateNode:
-		return n.Name, StateBody(n), true
+		return NameOf(n.Name), StateBody(n), true
 	case *ast.SubstateMember:
-		return n.Name, nil, true
+		return spannedName(n.Name, n.NameSpan), nil, true
 	case *ast.PseudostateNode:
-		return n.Name, nil, true
+		return spannedName(n.Name, n.NameSpan), nil, true
 	case *ast.EntryMember:
-		return "", n.Actions, true
+		return Name{}, n.Actions, true
 	case *ast.DoMember:
-		return "", n.Actions, true
+		return Name{}, n.Actions, true
 	case *ast.ExitMember:
-		return "", n.Actions, true
+		return Name{}, n.Actions, true
 	case *ast.TransitionMember:
-		return n.Name, TransitionMembers(n), true
+		return spannedName(n.Name, n.NameSpan), TransitionMembers(n), true
 	}
-	return "", nil, false
+	return Name{}, nil, false
 }
 
 // StateBody lists what a state owns in written order: its entry, do and exit
@@ -241,19 +241,18 @@ func TransitionMembers(n *ast.TransitionMember) []ast.Node {
 
 // MemberName is a member's declared name, else the one its naming feature lends
 // it (KerML Feature::effectiveName): `render tree;` is tree, as the symbol table has it.
-func MemberName(node ast.Node) string {
-	if name, _ := DeclaredNameAndMembers(node); name != "" {
+func MemberName(node ast.Node) Name {
+	if name, _ := DeclaredNameAndMembers(node); name.Named {
 		return name
 	}
 	if rel := ast.DeclNamingFeature(node); rel != nil {
-		name, _ := ast.TargetName(rel.Target)
-		return name
+		return spannedName(ast.TargetName(rel.Target))
 	}
-	return ""
+	return Name{}
 }
 
 // ParamName is the name a parameter declaration introduces.
-func ParamName(node ast.Node) string {
+func ParamName(node ast.Node) Name {
 	name, _ := DeclaredNameAndMembers(node)
 	return name
 }

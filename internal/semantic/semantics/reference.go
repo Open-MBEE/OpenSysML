@@ -42,7 +42,7 @@ func (m *Model) ReferencedFeature(sym *symbols.Symbol) *symbols.Symbol {
 		if target, ok := m.resolver.ResolveReferenceTarget(referenceScope(sym), sym.Decl, node); ok && target != sym {
 			out = target
 		}
-	} else if u, isUsage := sym.Decl.(*ast.Usage); isUsage && u.IsVariantReference() && sym.Name != "" {
+	} else if u, isUsage := sym.Decl.(*ast.Usage); isUsage && u.IsVariantReference() && sym.Named() {
 		// A bare `variant X` is a VariantReference (SysML.xtext:642): a
 		// reference usage subsetting the like-named feature visible outside.
 		if named, ok := m.resolver.LookupNameExcluding(sym.OwnerScope, sym.Name, sym.Decl); ok && named != sym {

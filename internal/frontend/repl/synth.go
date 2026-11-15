@@ -199,7 +199,7 @@ func conflictingConditions(core *solve.Core) []string {
 			continue
 		}
 		line := fmt.Sprintf("  Against: %s %s", m.From.Role, m.From.Condition)
-		if m.From.Declared != nil && m.From.Declared.Name != "" {
+		if m.From.Declared != nil && m.From.Declared.Named() {
 			line += " of " + notationName(m.From.Declared.Name)
 		}
 		if m.From.Location != "" {
