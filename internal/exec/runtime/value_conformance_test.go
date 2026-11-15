@@ -701,3 +701,90 @@ func TestQuantityHeldAsAKindIsRefusedByASiblingKind(t *testing.T) {
 		}
 	}
 }
+
+const heldKindSrc = `package Demo {
+	private import ISQ::*;
+	private import SI::*;
+	attribute def Work :> EnergyValue;
+	attribute def Heat :> EnergyValue;
+	part def Engine {
+		attribute work : Work = 5 [J];
+		attribute heat : Heat = 5 [J];
+		attribute general : Quantities::ScalarQuantityValue = work;
+		attribute generalIsTorque = general istype TorqueValue;
+		attribute generalIsHeat = general istype Heat;
+		attribute generalIsWork = general istype Work;
+		attribute any;
+		attribute anyIsWork = any istype Work;
+	}
+	part engine : Engine;
+}`
+
+// The quantity value type a quantity is held as stays with it through a feature of a
+// wider type, which no sibling type then classifies, and is part of what a derivation
+// reads: an equal quantity of another type derives the classification again.
+func TestQuantityKindIsReadThroughAWiderFeatureAndByDerivations(t *testing.T) {
+	ctx := libraryContextOver(t, heldKindSrc)
+	engine, err := ctx.Instantiate(lookupOne(t, ctx.Resolver().Index(), "Demo::engine"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	held := func(feature string) Value {
+		t.Helper()
+		fv, err := engine.GetFeatureValue(ctx, feature)
+		if err != nil {
+			t.Fatalf("GetFeatureValue(%s): %v", feature, err)
+		}
+		return fv.HeldValue()
+	}
+	for feature, want := range map[string]string{"generalIsTorque": "false", "generalIsHeat": "false", "generalIsWork": "true"} {
+		if got := FormatValue(held(feature)); got != want {
+			t.Errorf("%s = %s, want %s", feature, got, want)
+		}
+	}
+	for _, step := range []struct{ from, want string }{{"work", "true"}, {"heat", "false"}, {"work", "true"}} {
+		if err := engine.SetFeatureValue(ctx, "any", held(step.from)); err != nil {
+			t.Fatalf("write any := %s: %v", step.from, err)
+		}
+		if got := FormatValue(held("anyIsWork")); got != step.want {
+			t.Errorf("anyIsWork after any := %s is %s, want %s", step.from, got, step.want)
+		}
+	}
+}
+
+// A carried quantity is still of the quantity value type it was held as, rebound to that
+// type's declaration in the re-analysis.
+func TestAdoptCarriesTheQuantityKindAWrittenQuantityIsHeldAs(t *testing.T) {
+	prev := libraryContextOver(t, heldKindSrc)
+	engine, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::engine"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	work, err := engine.GetFeatureValue(prev, "work")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(work): %v", err)
+	}
+	if err := engine.SetFeatureValue(prev, "any", work.HeldValue()); err != nil {
+		t.Fatalf("write any: %v", err)
+	}
+	shapes := prev.ShapesOf(engine)
+
+	ctx := libraryContextOver(t, heldKindSrc+"\npart def Widget;")
+	if _, err := ctx.Adopt(prev, shapes, engine); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	carried, err := engine.GetFeatureValue(ctx, "any")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(any): %v", err)
+	}
+	if kind, want := carried.HeldValue().QuantityKind(), lookupOne(t, ctx.Resolver().Index(), "Demo::Work"); kind != want {
+		t.Errorf("any is held as %v, want the Work declared by the re-analysis", kind)
+	}
+	scope := lookupOne(t, ctx.Resolver().Index(), "Demo").Scope
+	for expr, want := range map[string]string{"engine.any hastype Work": "true", "engine.any istype Heat": "false"} {
+		got, err := evalIn(t, ctx, scope, expr)
+		if err != nil || FormatValue(got) != want {
+			t.Errorf("%s after the carry-over = %s, %v; want %s", expr, FormatValue(got), err, want)
+		}
+	}
+}

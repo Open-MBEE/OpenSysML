@@ -234,9 +234,9 @@ func (v Value) payload() any {
 }
 
 // ofQuantityKind is the quantity v as a value of the quantity value type kind; v itself
-// for any other value.
+// for any other value and for no kind.
 func (v Value) ofQuantityKind(kind *symbols.Symbol) Value {
-	if q := v.Quantity(); q != nil {
+	if q := v.Quantity(); q != nil && kind != nil {
 		v.ref = &measured{kind: kind, quantity: q}
 	}
 	return v
