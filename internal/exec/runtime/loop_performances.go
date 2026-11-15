@@ -123,12 +123,17 @@ func (e *performances) frameObject(frame *actionFrame) (*Instance, error) {
 }
 
 // rootObject is the occurrence the run performs, made now for a definition run on
-// its own that has not denoted `this` yet; nil where the run has none to make.
+// its own that has not denoted `this` yet and kept as the run's; nil where it has none to make.
 func (e *performances) rootObject() (*Instance, error) {
 	if e.occurrence != nil || e.thisOccurrence == nil {
 		return e.occurrence, nil
 	}
-	return e.thisOccurrence()
+	occurrence, err := e.thisOccurrence()
+	if err != nil {
+		return nil, err
+	}
+	e.occurrence = occurrence
+	return occurrence, nil
 }
 
 // kernelMemberHolding is the feature value owner holds the objects of the library

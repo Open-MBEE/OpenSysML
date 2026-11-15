@@ -31,6 +31,45 @@ func TestRuntimeRobustnessLoopPerformances(t *testing.T) {
 	t.Run("an_object_bound_a_definition_run_reaches_is_the_typed_error", testDefinitionLoopPastObjectBound)
 	t.Run("a_step_budget_a_definition_run_spends_is_the_typed_error", testDefinitionLoopPastStepBudget)
 	t.Run("an_object_bound_a_case_loop_reaches_is_the_typed_error", testCaseLoopPastObjectBound)
+	t.Run("an_assertion_the_held_loops_fail_is_the_typed_error", testAssertionOverHeldLoops)
+}
+
+// An assertion a definition run reaches reads the loops the run holds by then.
+const assertedLoopPerformancesModel = `package test {
+	private import ScalarValues::Integer;
+	private import SequenceFunctions::size;
+	action def Held {
+		attribute n : Integer = 0;
+		first start;
+		then while n < 2 { assign n := n + 1; }
+		then assert constraint twice { size(loops.body) == 2 }
+		then done;
+	}
+	action def Missed {
+		attribute n : Integer = 0;
+		first start;
+		then while n < 2 { assign n := n + 1; }
+		then assert constraint thrice { size(loops.body) == 3 }
+		then done;
+	}
+}`
+
+func testAssertionOverHeldLoops(t *testing.T) {
+	ctx, idx := libraryModelContext(t, assertedLoopPerformancesModel)
+	run := func(name string) error {
+		exec, err := ctx.CreateActionExecutor(lookupOne(t, idx, name))
+		if err != nil {
+			t.Fatalf("create action executor for %s: %v", name, err)
+		}
+		return exec.RunToCompletion()
+	}
+	if err := run("test::Held"); err != nil {
+		t.Fatalf("an assertion the held iterations satisfy: %v", err)
+	}
+	var violation *ViolationError
+	if err := run("test::Missed"); !errors.As(err, &violation) {
+		t.Fatalf("an assertion the held iterations fail: got %v, want a ViolationError", err)
+	}
 }
 
 // A definition performed on its own holds the loops its body reaches, nested ones
