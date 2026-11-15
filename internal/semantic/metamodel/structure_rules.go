@@ -5313,6 +5313,16 @@ func (e *Evaluator) structureRemoveRedefinedMemberships(
 			ownedRedefined[e.structureFeatureKey(target)] = true
 		}
 	}
+	maskedEnds, ok := e.structureMaskedEndRedefinitions(owner)
+	if !ok {
+		return nil, false
+	}
+	for _, target := range maskedEnds {
+		if ownedRedefined == nil {
+			ownedRedefined = make(map[ElementKey]bool)
+		}
+		ownedRedefined[e.structureFeatureKey(target)] = true
+	}
 	if !redefines && ownedRedefined == nil {
 		return memberships, true
 	}
@@ -5590,28 +5600,12 @@ func (e *Evaluator) structureEffectiveEndFeatures(
 // structureInheritedEndFeatures completes a type's own ends with the ends of its general types at the
 // positions they leave open: an end redefines the one at its position in each supertype (KerML 8.3.3.3.4).
 func (e *Evaluator) structureInheritedEndFeatures(element Element, owned []Value, visited map[ElementKey]bool) ([]Value, bool) {
-	generals, ok := e.structureGeneralTypes(element)
+	generalEnds, ok := e.structureGeneralEndFeatures(element, visited)
 	if !ok {
 		return nil, false
 	}
 	values := append([]Value(nil), owned...)
-	for _, general := range generals {
-		var ends []Value
-		if base, library := e.structureLibraryBase(general); library {
-			if e.model == nil || !e.completeMembers(base.Symbol) {
-				return nil, false
-			}
-			ends = symbolSequence(e.model.EndFeatures(base.Symbol)).Values
-		} else if !visited[general.Key()] {
-			visited[general.Key()] = true
-			generalOwned, handled, ok := e.structureOwnedEndFeatures(general)
-			if !handled || !ok {
-				return nil, false
-			}
-			if ends, ok = e.structureInheritedEndFeatures(general, generalOwned.Values, visited); !ok {
-				return nil, false
-			}
-		}
+	for _, ends := range generalEnds {
 		for index, end := range ends {
 			if index >= len(values) {
 				values = append(values, end)
@@ -5619,6 +5613,68 @@ func (e *Evaluator) structureInheritedEndFeatures(element Element, owned []Value
 		}
 	}
 	return values, true
+}
+
+// structureGeneralEndFeatures lists Type::endFeature of each general type of element, in their order.
+func (e *Evaluator) structureGeneralEndFeatures(element Element, visited map[ElementKey]bool) ([][]Value, bool) {
+	generals, ok := e.structureGeneralTypes(element)
+	if !ok {
+		return nil, false
+	}
+	var out [][]Value
+	for _, general := range generals {
+		if base, library := e.structureLibraryBase(general); library {
+			if e.model == nil || !e.completeMembers(base.Symbol) {
+				return nil, false
+			}
+			out = append(out, symbolSequence(e.model.EndFeatures(base.Symbol)).Values)
+			continue
+		}
+		if visited[general.Key()] {
+			continue
+		}
+		visited[general.Key()] = true
+		owned, handled, ok := e.structureOwnedEndFeatures(general)
+		if !handled || !ok {
+			return nil, false
+		}
+		ends, ok := e.structureInheritedEndFeatures(general, owned.Values, visited)
+		if !ok {
+			return nil, false
+		}
+		out = append(out, ends)
+	}
+	return out, true
+}
+
+// structureMaskedEndRedefinitions is what owner's own ends redefine by position: the end at
+// each one's index in every general type, and what that end redefines (KerML 8.3.3.3.4).
+func (e *Evaluator) structureMaskedEndRedefinitions(owner Element) ([]Element, bool) {
+	owned, handled, ok := e.structureOwnedEndFeatures(owner)
+	if !handled || !ok {
+		return nil, false
+	}
+	if len(owned.Values) == 0 {
+		return nil, true
+	}
+	generalEnds, ok := e.structureGeneralEndFeatures(owner, map[ElementKey]bool{owner.Key(): true})
+	if !ok {
+		return nil, false
+	}
+	var masked []Element
+	for _, ends := range generalEnds {
+		for index, end := range ends {
+			if index >= len(owned.Values) {
+				break
+			}
+			redefined, ok := e.structureAllRedefinedFeatures(end.Element)
+			if !ok {
+				return nil, false
+			}
+			masked = append(masked, redefined...)
+		}
+	}
+	return masked, true
 }
 
 func (e *Evaluator) structureFeatureTypes(element Element) (Value, bool, bool) {

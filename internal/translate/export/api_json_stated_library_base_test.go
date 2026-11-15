@@ -96,6 +96,16 @@ func TestAPIJSONEndFeatureCompletesOwnedEndsWithInheritedOnes(t *testing.T) {
 	if len(owned) != 2 || !slices.Equal(link, owned) {
 		t.Errorf("link.endFeature = %v, want its two own ends %v", link, owned)
 	}
+	// An end redefines the one at its position in each supertype, so that one is not inherited.
+	narrow := referenceIDs(t, elements["Probe__Narrow"], "inheritedFeature")
+	if slices.Contains(narrow, src) || !slices.Contains(narrow, dst) {
+		t.Errorf("Narrow.inheritedFeature holds src=%v dst=%v, want only the end it leaves open", slices.Contains(narrow, src), slices.Contains(narrow, dst))
+	}
+	for _, property := range []string{"inheritedFeature", "feature", "member"} {
+		if ids := referenceIDs(t, elements["Probe__link"], property); slices.Contains(ids, src) || slices.Contains(ids, dst) {
+			t.Errorf("link.%s keeps an end of Link its own ends redefine", property)
+		}
+	}
 	if got, stated := elements["Probe__plain"]["endFeature"]; stated {
 		t.Errorf("plain.endFeature = %v, want none", got)
 	}
