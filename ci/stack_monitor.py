@@ -72,8 +72,9 @@ class Monitor:
         """Join each open PR whose base is another open same-repository PR's head branch to that PR's chain, and return one
         line per addition or refusal. A fork (the predecessor already has another successor), a PR already in a chain
         under another predecessor, or an ambiguous predecessor is reported and left unchanged."""
-        repo = self.cfg.repo
-        prs = sorted((p for p in self.open_prs() if p["repo"] == repo), key=lambda p: p["n"])
+        # GitHub repository names are case-insensitive, and the API answers with the canonical spelling.
+        repo = self.cfg.repo.lower()
+        prs = sorted((p for p in self.open_prs() if (p["repo"] or "").lower() == repo), key=lambda p: p["n"])
         by_head = {}
         for p in prs:
             by_head.setdefault(p["head"], []).append(p["n"])

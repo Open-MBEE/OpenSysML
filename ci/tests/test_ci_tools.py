@@ -1103,6 +1103,10 @@ class StackMonitorTest(Stub):
         self.assertEqual(self.read("stacks.json"), before)
         self.assertNotIn("stacks.json.tmp", os.listdir(self.dir))
 
+    def test_auto_add_matches_the_repository_name_case_insensitively(self):
+        lines, chains = self.auto_add([], [(1, "feat/1", "develop", REPO.upper()), (2, "feat/2", "feat/1", REPO.upper())])
+        self.assertEqual((lines, chains), (["stack: new chain [1, 2]"], [[1, 2]]))
+
     def test_git_refuses_every_mutating_subcommand(self):
         g = stack_monitor.Git(self.dir)
         for sub in ("push", "rebase", "merge", "commit", "reset", "checkout"):
