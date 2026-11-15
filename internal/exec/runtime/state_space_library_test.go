@@ -73,18 +73,18 @@ func coupledDynamics(connect, inside string) string {
 // integrator's performance with the error it failed with, if any.
 func runCoupled(t *testing.T, src string) (*ActionExecutor, error) {
 	t.Helper()
-	return runCoupledIn(t, src, "test::site")
+	return runCoupledIn(t, src, "test::site", "sink")
 }
 
 // runCoupledIn is runCoupled over the object declared as object, a site or one specializing it.
-func runCoupledIn(t *testing.T, src, object string) (*ActionExecutor, error) {
+func runCoupledIn(t *testing.T, src, object, part string) (*ActionExecutor, error) {
 	t.Helper()
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
 	site := performerObject(t, ctx, idx, object)
 	if _, err := ctx.Advance(3); err != nil {
 		t.Fatalf("advance: %v", err)
 	}
-	sink, ok := ctx.Instance(objectAtPath(t, ctx, site, "sink"))
+	sink, ok := ctx.Instance(objectAtPath(t, ctx, site, part))
 	if !ok {
 		t.Fatal("site holds no sink")
 	}
@@ -176,13 +176,33 @@ func TestStateSpaceFlowIntoARedefinedAction(t *testing.T) {
 			}
 		}
 	}`
-	total, err := runCoupledIn(t, src, "test::later")
+	total, err := runCoupledIn(t, src, "test::later", "sink")
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Which of the two steps first at an instant is open: the integrator holds the ramp's
 	// output from the start of each step (3) or from its end (5).
 	if got := FormatValue(total.Results()["stateSpace"]); got != "⟨3.0⟩" && got != "⟨5.0⟩" {
+		t.Errorf("the integrator ended at %s, want ⟨3.0⟩ or ⟨5.0⟩", got)
+	}
+}
+
+// A flow into a part an inheriting object holds under another name, redefining it, is
+// still the flow into the input of the action that part performs.
+func TestStateSpaceFlowIntoARedefinedPart(t *testing.T) {
+	src := coupledDynamics("flow source.ramp.output to sink.sum.input;", "")
+	src = strings.Replace(src, "part site {", "part def Site {", 1)
+	src = src[:strings.LastIndex(src, "}")] + `
+		part later : Later;
+		part def Later :> Site {
+			part drain :>> sink;
+		}
+	}`
+	sum, err := runCoupledIn(t, src, "test::later", "drain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := FormatValue(sum.Results()["stateSpace"]); got != "⟨3.0⟩" && got != "⟨5.0⟩" {
 		t.Errorf("the integrator ended at %s, want ⟨3.0⟩ or ⟨5.0⟩", got)
 	}
 }

@@ -734,7 +734,7 @@ func (e *ActionExecutor) inputFlows() []inputFeed {
 	}
 	var feeds []inputFeed
 	seen := make(map[*ast.Usage]bool)
-	var below []string
+	var below []map[string]bool
 	for current := e.self; current != nil; {
 		for _, typ := range current.types() {
 			for _, flow := range e.ctx.objectFlows(typ) {
@@ -749,16 +749,39 @@ func (e *ActionExecutor) inputFlows() []inputFeed {
 		if owner == nil || ownerFeature == "" {
 			break
 		}
-		below = append([]string{ownerFeature}, below...)
+		below = append([]map[string]bool{e.ctx.featureNames(owner, ownerFeature)}, below...)
 		current = owner
 	}
 	return feeds
 }
 
+// featureNames are the names a feature of owner answers to: its own and those it redefines.
+func (ctx *Context) featureNames(owner *Instance, name string) map[string]bool {
+	names := map[string]bool{name: true}
+	fv := owner.FeatureValues[name]
+	if fv == nil || fv.Feature == nil || fv.Feature.Symbol == nil {
+		return names
+	}
+	for _, typ := range owner.types() {
+		for _, redefined := range ctx.redefinedFeatures(fv.Feature.Symbol, typ) {
+			names[redefined.Name] = true
+		}
+	}
+	return names
+}
+
 // flowsInto reports a target path that walks below, then an action of one of names, to its input.
-func flowsInto(target, below []string, names map[string]bool) bool {
+func flowsInto(target []string, below []map[string]bool, names map[string]bool) bool {
 	n := len(below)
-	return len(target) == n+2 && slices.Equal(target[:n], below) && names[target[n]] && target[n+1] == lower.InputFeature
+	if len(target) != n+2 || !names[target[n]] || target[n+1] != lower.InputFeature {
+		return false
+	}
+	for i, segment := range below {
+		if !segment[target[i]] {
+			return false
+		}
+	}
+	return true
 }
 
 // flowCarriesNothing reports a flow whose own multiplicity admits no flow at all.
