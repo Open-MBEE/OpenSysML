@@ -42,6 +42,8 @@ type Model struct {
 	resolver  *resolve.Resolver
 
 	features map[*symbols.Symbol][]EffectiveFeature
+	// bodyFeatures memoizes loopBodyFeatures by the scope of the loop's body.
+	bodyFeatures map[*symbols.Scope][]EffectiveFeature
 	// effectiveTypes memoizes effectiveTypes by feature symbol.
 	effectiveTypes map[*symbols.Symbol][]*symbols.Symbol
 	// declaresChains memoizes, by type, whether it or a member source of it
@@ -272,6 +274,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		semantics:           sem,
 		resolver:            resolver,
 		features:            make(map[*symbols.Symbol][]EffectiveFeature),
+		bodyFeatures:        make(map[*symbols.Scope][]EffectiveFeature),
 		declaresChains:      make(map[*symbols.Symbol]bool),
 		chainHosts:          make(map[*symbols.Symbol]bool),
 		denotedFeatures:     make(map[*symbols.Symbol]map[*symbols.Symbol]string),

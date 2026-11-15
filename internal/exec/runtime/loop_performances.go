@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -39,26 +40,36 @@ func (e *performances) beginLoopPerformance(frame *actionFrame, stmt lower.Loop)
 	if holder == nil || err != nil {
 		return nil, err
 	}
+	inst, err := e.ctx.holdLoop(holder, stmt)
+	if inst == nil || err != nil {
+		return nil, err
+	}
+	if loopNode {
+		frame.occurrence = inst
+	}
+	return inst, nil
+}
+
+// holdLoop begins the loop stmt as a performance holder holds under its `loops`, with
+// the loop's `body` held empty until the first iteration; nil where holder has no such member.
+func (ctx *Context) holdLoop(holder *Instance, stmt lower.Loop) (*Instance, error) {
 	fqn := whileLoopActionFQN
 	if stmt.Kind == ast.LoopFor {
 		fqn = forLoopActionFQN
 	}
-	typ := e.ctx.librarySymbol(fqn)
+	typ := ctx.librarySymbol(fqn)
 	if typ == nil {
 		return nil, nil
 	}
-	inst, err := e.ctx.holdKernelMember(holder, loopsFQN, typ)
+	inst, err := ctx.holdKernelMember(holder, loopsFQN, typ)
 	if inst == nil || err != nil {
 		return nil, err
 	}
 	// The body is held from the start: `[]` until the first iteration, never refused.
-	if _, err := e.ctx.kernelMemberHolding(inst, loopBodyFQN); err != nil {
+	if _, err := ctx.kernelMemberHolding(inst, loopBodyFQN); err != nil {
 		return nil, err
 	}
-	e.ctx.beginPerformanceLife(inst, e.ctx.newActivation())
-	if loopNode {
-		frame.occurrence = inst
-	}
+	ctx.beginPerformanceLife(inst, ctx.newActivation())
 	return inst, nil
 }
 
@@ -73,7 +84,7 @@ func (e *performances) frameObject(frame *actionFrame) (*Instance, error) {
 	case frame.occurrence != nil:
 		return frame.occurrence, nil
 	case frame == e.root || frame.parent == nil:
-		return e.occurrence, nil
+		return e.rootObject()
 	}
 	owner, err := e.frameObject(frame.parent)
 	if owner == nil || err != nil {
@@ -108,6 +119,15 @@ func (e *performances) frameObject(frame *actionFrame) (*Instance, error) {
 		return nil, nil
 	}
 	return inst, nil
+}
+
+// rootObject is the occurrence the run performs, made now for a definition run on
+// its own that has not denoted `this` yet; nil where the run has none to make.
+func (e *performances) rootObject() (*Instance, error) {
+	if e.occurrence != nil || e.thisOccurrence == nil {
+		return e.occurrence, nil
+	}
+	return e.thisOccurrence()
 }
 
 // kernelMemberHolding is the feature value owner holds the objects of the library
@@ -197,8 +217,45 @@ func (e *stmtEngine) beginLoopBody(loop *Instance, stmt lower.Loop, activation i
 	if inst == nil || err != nil {
 		return nil, err
 	}
+	if stmt.BodyAction == nil {
+		e.ctx.holdLoopBodyFeatures(inst, stmt)
+	}
 	e.ctx.beginPerformanceLife(inst, activation)
 	return inst, nil
+}
+
+// holdLoopBodyFeatures gives the body object of a loop whose body declares no name
+// the features that body declares: the body is an action usage either way
+// (SysML.xtext ActionBodyParameter), so what it nests is the body's, as under a name.
+func (ctx *Context) holdLoopBodyFeatures(body *Instance, stmt lower.Loop) {
+	features := ctx.loopBodyFeatures(body.Type, stmt)
+	for i := range features {
+		feat := &features[i]
+		if _, held := body.FeatureValues[feat.Name]; !held {
+			body.FeatureValues[feat.Name] = ctx.newFeatureValue(body, feat)
+		}
+	}
+}
+
+// loopBodyFeatures are the named features the unnamed body of stmt declares, as
+// members of typ; the iteration variable of a `for` loop is the loop's, not its body's.
+func (ctx *Context) loopBodyFeatures(typ *symbols.Symbol, stmt lower.Loop) []EffectiveFeature {
+	scope := stmt.Body.Scope
+	if scope == nil {
+		return nil
+	}
+	if cached, ok := ctx.model.bodyFeatures[scope]; ok {
+		return cached
+	}
+	var features []EffectiveFeature
+	scope.ForEachNamedMember(func(name string, sym *symbols.Symbol) bool {
+		if sym.Decl != stmt.Node && semantics.IsShapeFeature(sym) && !ctx.model.semantics.FrameFeature(sym) {
+			features = append(features, ctx.effectiveFeature(name, sym, typ))
+		}
+		return true
+	})
+	ctx.model.bodyFeatures[scope] = features
+	return features
 }
 
 // loopBodySymbol is the action usage a loop declares as its body (`loop action body

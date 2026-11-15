@@ -290,6 +290,19 @@ func (h *calcStmtHost) materializeOccurrence() (*Instance, error) {
 	return h.occ.materializeOccurrence()
 }
 
+// beginLoop begins a loop the body reaches as a performance of the case's, else of the
+// invocation's occurrence, made for it: a calculation is an action (`Calculation :> Action`).
+func (h *calcStmtHost) beginLoop(stmt lower.Loop) (*Instance, error) {
+	if h.perfs != nil {
+		return h.perfs.beginLoopPerformance(h.perfs.root, stmt)
+	}
+	holder, err := h.occ.materializeOccurrence()
+	if holder == nil || err != nil {
+		return nil, err
+	}
+	return h.ctx.holdLoop(holder, stmt)
+}
+
 // effect performs the action a `perform` in a case body names, its outputs
 // returning to the body's values; a calculation states no effect at all.
 func (h *calcStmtHost) effect(_ *stmtEngine, s lower.Effect) error {
