@@ -1,7 +1,6 @@
 package solve
 
 import (
-	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
@@ -80,10 +79,10 @@ func (t *translator) quantified(n *lower.ExprEntry, scope *symbols.Scope) (*Term
 // the ControlFunctions one of that name, read through the same resolution the
 // evaluator invokes by, an alias through its target; "" for any other function.
 func (t *translator) quantifierName(n *lower.ExprEntry, scope *symbols.Scope) string {
-	if n.Ref.Name == "" {
+	segments, ok := n.Segments()
+	if !ok {
 		return ""
 	}
-	segments := strings.Split(n.Ref.Name, "::")
 	chain, err := t.resolvePath(n, scope, segments)
 	if err != nil || len(chain) == 0 {
 		return ""

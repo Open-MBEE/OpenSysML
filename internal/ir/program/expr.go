@@ -74,8 +74,8 @@ type Expr struct {
 	// Ref is what an ExprRef names, the type an ExprOp classifies or casts by, and
 	// the name an ExprInvoke, ExprConstruct or ExprMetadata is written with.
 	Ref SymbolRef
-	// Path is the segments of an ExprRef written as a qualified name, each with
-	// the element the name reaches there; nil for a simple name.
+	// Path is the segments of an ExprRef or ExprInvoke written as a qualified name, an ExprRef's
+	// each with the element the name reaches there; nil for a simple name.
 	Path []SymbolRef
 	// Chain is the members an ExprChain reads after its operand, in order.
 	Chain []SymbolRef

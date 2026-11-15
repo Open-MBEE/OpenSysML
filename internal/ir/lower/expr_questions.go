@@ -86,14 +86,14 @@ func (e *ExprEntry) Reference() bool {
 	return false
 }
 
-// Segments are the names a reference or a feature chain steps through, false for
-// any other expression or one naming nothing.
+// Segments are the names a reference, an invoked function's name or a feature chain
+// steps through, false for any other expression or one naming nothing.
 func (e *ExprEntry) Segments() ([]string, bool) {
 	if e == nil {
 		return nil, false
 	}
 	switch e.Kind {
-	case program.ExprRef:
+	case program.ExprRef, program.ExprInvoke:
 		if len(e.Path) > 0 {
 			return names(e.Path), true
 		}

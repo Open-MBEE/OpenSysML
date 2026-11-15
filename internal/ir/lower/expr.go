@@ -234,6 +234,9 @@ func (l *exprLowering) body(entry *ExprEntry, n *ast.BodyExpr) {
 // `x->F(a)` first, or for `x.f(a)` the chain applied and what its last member is read from.
 func (l *exprLowering) invocation(expr *program.Expr, n *ast.InvocationExpr) []ast.Node {
 	written(&expr.Ref, n.Type)
+	if n.Type != nil && len(n.Type.Parts) > 1 {
+		expr.Path = spelled(n.Type.Parts)
+	}
 	var operands []ast.Node
 	if chain := semantics.ChainCallee(n); chain != nil {
 		expr.Applied = true
