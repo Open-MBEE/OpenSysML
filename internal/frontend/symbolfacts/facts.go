@@ -93,14 +93,15 @@ type Options struct {
 // the feature's semantic type (Feature::type), which subsetting, reference
 // subsetting and redefinition contribute to.
 type TypeInfo struct {
-	Declared        string
-	ResolvedId      string
-	ResolvedKind    string
-	Primitive       string
-	PrimitiveSource string
-	Quantity        bool
-	Unit            string
-	Types           []*TypeRef
+	Declared              string
+	ResolvedId            string
+	ResolvedQualifiedName string
+	ResolvedKind          string
+	Primitive             string
+	PrimitiveSource       string
+	Quantity              bool
+	Unit                  string
+	Types                 []*TypeRef
 }
 
 // TypeRef names one derived type of a feature.
@@ -117,10 +118,11 @@ type Multiplicity struct {
 
 // Specialization describes a declared generalization relationship.
 type Specialization struct {
-	Kind       string
-	Declared   string
-	TargetId   string
-	TargetKind string
+	Kind                string
+	Declared            string
+	TargetId            string
+	TargetQualifiedName string
+	TargetKind          string
 }
 
 // Attribute contains a symbol's attribute declaration facts.
@@ -328,6 +330,7 @@ func (sc *Context) specializationsOf(sym *symbols.Symbol) []*Specialization {
 		spec := &Specialization{Kind: kind, Declared: declaredText(rel, qn)}
 		if target := sc.relationshipTarget(sym, rel, qn); target != nil {
 			spec.TargetId = sc.referenceID(target)
+			spec.TargetQualifiedName = sc.Index.GetFQN(target)
 			spec.TargetKind = target.Kind.String()
 		}
 		out = append(out, spec)
@@ -356,10 +359,11 @@ func (sc *Context) referenceSpecializations(sym *symbols.Symbol) []*Specializati
 			declared = feature.Name
 		}
 		out = append(out, &Specialization{
-			Kind:       "references",
-			Declared:   declared,
-			TargetId:   sc.referenceID(feature),
-			TargetKind: feature.Kind.String(),
+			Kind:                "references",
+			Declared:            declared,
+			TargetId:            sc.referenceID(feature),
+			TargetQualifiedName: sc.Index.GetFQN(feature),
+			TargetKind:          feature.Kind.String(),
 		})
 	}
 	return out
@@ -441,6 +445,7 @@ func (sc *Context) annotationTypeInfo(sym *symbols.Symbol, decl *ast.PrefixMetad
 	info := &TypeInfo{Declared: decl.Type.Text()}
 	if target := sc.resolveFrom(sym, decl.Type); target != nil {
 		info.ResolvedId = sc.referenceID(target)
+		info.ResolvedQualifiedName = sc.Index.GetFQN(target)
 		info.ResolvedKind = target.Kind.String()
 	}
 	return info
@@ -470,6 +475,7 @@ func (sc *Context) declareType(sym *symbols.Symbol, info *TypeInfo, qn *ast.Qual
 	info.Declared = qn.Text()
 	if target := sc.resolveFrom(sym, qn); target != nil {
 		info.ResolvedId = sc.referenceID(target)
+		info.ResolvedQualifiedName = sc.Index.GetFQN(target)
 		info.ResolvedKind = target.Kind.String()
 	}
 }
@@ -490,6 +496,7 @@ func (sc *Context) usageTypeInfo(sym *symbols.Symbol, decl *ast.Usage) *TypeInfo
 		info.Declared = declaredText(rel, qn)
 		if target := sc.relationshipTarget(sym, rel, qn); target != nil {
 			info.ResolvedId = sc.referenceID(target)
+			info.ResolvedQualifiedName = sc.Index.GetFQN(target)
 			info.ResolvedKind = target.Kind.String()
 		}
 		break

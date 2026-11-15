@@ -1809,19 +1809,21 @@ class MemberInfo(_message.Message):
     def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., kind: _Optional[str] = ..., inherited: _Optional[bool] = ..., inherited_from: _Optional[str] = ..., library: _Optional[bool] = ...) -> None: ...
 
 class Specialization(_message.Message):
-    __slots__ = ("kind", "declared", "target_id", "target_kind")
+    __slots__ = ("kind", "declared", "target_id", "target_kind", "target_qualified_name")
     KIND_FIELD_NUMBER: _ClassVar[int]
     DECLARED_FIELD_NUMBER: _ClassVar[int]
     TARGET_ID_FIELD_NUMBER: _ClassVar[int]
     TARGET_KIND_FIELD_NUMBER: _ClassVar[int]
+    TARGET_QUALIFIED_NAME_FIELD_NUMBER: _ClassVar[int]
     kind: str
     declared: str
     target_id: str
     target_kind: str
-    def __init__(self, kind: _Optional[str] = ..., declared: _Optional[str] = ..., target_id: _Optional[str] = ..., target_kind: _Optional[str] = ...) -> None: ...
+    target_qualified_name: str
+    def __init__(self, kind: _Optional[str] = ..., declared: _Optional[str] = ..., target_id: _Optional[str] = ..., target_kind: _Optional[str] = ..., target_qualified_name: _Optional[str] = ...) -> None: ...
 
 class TypeInfo(_message.Message):
-    __slots__ = ("declared", "resolved_id", "resolved_kind", "primitive", "primitive_source", "quantity", "unit", "types")
+    __slots__ = ("declared", "resolved_id", "resolved_kind", "primitive", "primitive_source", "quantity", "unit", "types", "resolved_qualified_name")
     DECLARED_FIELD_NUMBER: _ClassVar[int]
     RESOLVED_ID_FIELD_NUMBER: _ClassVar[int]
     RESOLVED_KIND_FIELD_NUMBER: _ClassVar[int]
@@ -1830,6 +1832,7 @@ class TypeInfo(_message.Message):
     QUANTITY_FIELD_NUMBER: _ClassVar[int]
     UNIT_FIELD_NUMBER: _ClassVar[int]
     TYPES_FIELD_NUMBER: _ClassVar[int]
+    RESOLVED_QUALIFIED_NAME_FIELD_NUMBER: _ClassVar[int]
     declared: str
     resolved_id: str
     resolved_kind: str
@@ -1838,7 +1841,8 @@ class TypeInfo(_message.Message):
     quantity: bool
     unit: str
     types: _containers.RepeatedCompositeFieldContainer[TypeRef]
-    def __init__(self, declared: _Optional[str] = ..., resolved_id: _Optional[str] = ..., resolved_kind: _Optional[str] = ..., primitive: _Optional[str] = ..., primitive_source: _Optional[str] = ..., quantity: _Optional[bool] = ..., unit: _Optional[str] = ..., types: _Optional[_Iterable[_Union[TypeRef, _Mapping]]] = ...) -> None: ...
+    resolved_qualified_name: str
+    def __init__(self, declared: _Optional[str] = ..., resolved_id: _Optional[str] = ..., resolved_kind: _Optional[str] = ..., primitive: _Optional[str] = ..., primitive_source: _Optional[str] = ..., quantity: _Optional[bool] = ..., unit: _Optional[str] = ..., types: _Optional[_Iterable[_Union[TypeRef, _Mapping]]] = ..., resolved_qualified_name: _Optional[str] = ...) -> None: ...
 
 class TypeRef(_message.Message):
     __slots__ = ("id", "kind")

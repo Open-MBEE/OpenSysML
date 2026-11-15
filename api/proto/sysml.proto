@@ -2163,11 +2163,13 @@ message Specialization {
   string kind = 1;
   // The target as written in the source ("Engine", "Demo::Engine").
   string declared = 2;
-  // Element id of the resolved target, as GetSymbol reports it; empty when the name does not resolve.
+  // Element id of the resolved target, as GetSymbol reports it, for lookup; empty when the name does not resolve.
   // A "references" feature chain (`x.p`) is one entry per chaining feature, each with the chain as `declared`.
   string target_id = 3;
   // Symbol kind of the resolved target ("partDef", ...); empty when unresolved.
   string target_kind = 4;
+  // Qualified name of the resolved target, for display; empty when the name does not resolve.
+  string target_qualified_name = 5;
 }
 
 // TypeInfo is the static type of a usage, or the classification of a
@@ -2180,7 +2182,7 @@ message Specialization {
 message TypeInfo {
   // Type name as written; empty when none is declared.
   string declared = 1;
-  // Element id of the resolved written type, as GetSymbol reports it; empty when unresolved or undeclared.
+  // Element id of the resolved written type, as GetSymbol reports it, for lookup; empty when unresolved or undeclared.
   string resolved_id = 2;
   // Symbol kind of the resolved written type ("partDef", "attributeDef", ...).
   string resolved_kind = 3;
@@ -2198,6 +2200,8 @@ message TypeInfo {
   // redundant supertypes removed: `part pBoth : V :> q` with `q : T` reports V
   // and T. Empty when the element is not a feature or none derives.
   repeated TypeRef types = 8;
+  // Qualified name of the resolved written type, for display; empty when unresolved or undeclared.
+  string resolved_qualified_name = 9;
 }
 
 // TypeRef names one derived type of a feature.

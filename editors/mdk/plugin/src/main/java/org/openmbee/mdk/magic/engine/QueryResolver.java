@@ -134,7 +134,8 @@ public final class QueryResolver {
         .filter(item -> item.flatMap(Symbol.TypeFacts::resolvedId).filter(id -> !id.isBlank()).isPresent())
         .findFirst()
         .orElse(Optional.empty());
-    String type = facts.flatMap(Symbol.TypeFacts::resolvedId)
+    String type = facts.flatMap(Symbol.TypeFacts::resolvedQualifiedName)
+        .or(() -> facts.flatMap(Symbol.TypeFacts::resolvedId))
         .or(() -> chain.stream().map(item -> item.metadata().get("type")).filter(Objects::nonNull).findFirst())
         .orElse("");
     QueryParameter.Kind kind = QueryParameter.kindOf(facts.flatMap(Symbol.TypeFacts::primitive).orElse(""));

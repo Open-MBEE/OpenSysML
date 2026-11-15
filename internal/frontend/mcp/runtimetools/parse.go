@@ -1,6 +1,7 @@
 package runtimetools
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"maps"
@@ -200,13 +201,13 @@ func symbolText(resp *pb.SymbolResponse) string {
 	}
 	if ti := sym.GetTypeInfo(); ti != nil && ti.GetDeclared() != "" {
 		fmt.Fprintf(&b, "type: %s", ti.GetDeclared())
-		if ti.GetResolvedId() != "" && ti.GetResolvedId() != ti.GetDeclared() {
-			fmt.Fprintf(&b, " (%s)", ti.GetResolvedId())
+		if resolved := cmp.Or(ti.GetResolvedQualifiedName(), ti.GetResolvedId()); resolved != "" && resolved != ti.GetDeclared() {
+			fmt.Fprintf(&b, " (%s)", resolved)
 		}
 		b.WriteByte('\n')
 	}
 	for _, sp := range sym.GetSpecializations() {
-		fmt.Fprintf(&b, "%s %s\n", sp.GetKind(), sp.GetTargetId())
+		fmt.Fprintf(&b, "%s %s\n", sp.GetKind(), cmp.Or(sp.GetTargetQualifiedName(), sp.GetTargetId()))
 	}
 	for _, a := range sym.GetAttributes() {
 		if a.GetValue() != nil {

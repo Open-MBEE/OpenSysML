@@ -68,7 +68,7 @@ def _type_text(symbol, attribute_facts) -> Optional[str]:
     for it as an attribute."""
     facts = symbol.type_facts
     if facts is not None:
-        text = facts.resolved_id or facts.declared or facts.primitive
+        text = facts.resolved_qualified_name or facts.resolved_id or facts.declared or facts.primitive
         if text:
             return text
     if attribute_facts is not None and attribute_facts.type:

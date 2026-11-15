@@ -285,6 +285,8 @@ public record Symbol(
    * @param unit unit as written by the default value, absent when it names none
    * @param types the derived types, most specific first with redundant supertypes removed;
    *     empty for a definition or when none derives
+   * @param resolvedQualifiedName qualified name of the resolved written type, for display;
+   *     {@code resolvedId} is for lookup
    */
   public record TypeFacts(
       Optional<String> declared,
@@ -294,7 +296,8 @@ public record Symbol(
       Optional<String> primitiveSource,
       boolean quantity,
       Optional<String> unit,
-      List<TypeRef> types) {
+      List<TypeRef> types,
+      Optional<String> resolvedQualifiedName) {
     /**
      * Creates type facts, copying the type list.
      *
@@ -306,6 +309,7 @@ public record Symbol(
      * @param quantity whether values carry a unit
      * @param unit unit as written
      * @param types derived types
+     * @param resolvedQualifiedName qualified name of the resolved type
      */
     public TypeFacts {
       types = List.copyOf(types);
@@ -315,6 +319,7 @@ public record Symbol(
       Objects.requireNonNull(primitive, "primitive");
       Objects.requireNonNull(primitiveSource, "primitiveSource");
       Objects.requireNonNull(unit, "unit");
+      Objects.requireNonNull(resolvedQualifiedName, "resolvedQualifiedName");
     }
   }
 
@@ -346,9 +351,15 @@ public record Symbol(
    * @param declared the target as written in the source
    * @param targetId element id of the resolved target, absent when the name does not resolve
    * @param targetKind kind of the resolved target, absent when unresolved
+   * @param targetQualifiedName qualified name of the resolved target, for display; {@code
+   *     targetId} is for lookup
    */
   public record Specialization(
-      String kind, String declared, Optional<String> targetId, Optional<String> targetKind) {
+      String kind,
+      String declared,
+      Optional<String> targetId,
+      Optional<String> targetKind,
+      Optional<String> targetQualifiedName) {
     /**
      * Creates a specialization.
      *
@@ -356,12 +367,14 @@ public record Symbol(
      * @param declared target as written, never {@code null}
      * @param targetId element id of the resolved target
      * @param targetKind kind of the resolved target
+     * @param targetQualifiedName qualified name of the resolved target
      */
     public Specialization {
       Objects.requireNonNull(kind, "kind");
       Objects.requireNonNull(declared, "declared");
       Objects.requireNonNull(targetId, "targetId");
       Objects.requireNonNull(targetKind, "targetKind");
+      Objects.requireNonNull(targetQualifiedName, "targetQualifiedName");
     }
   }
 }

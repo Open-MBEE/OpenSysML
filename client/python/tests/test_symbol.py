@@ -8,7 +8,7 @@ from opensysml.capabilities import (
     ServerInfo,
 )
 from opensysml.errors import SymbolNotFoundError, UnresolvedChildError
-from opensysml.symbol import Symbol
+from opensysml.symbol import Symbol, _type_text
 from opensysml.proto import sysml_pb2
 from tests.lookups import answering
 
@@ -478,6 +478,24 @@ class TestSymbolAttributeFacts:
 
         assert [attr.name for attr in usage.attributes()] == ["mass", "label"]
         assert usage.get_attr("mass").id == "Demo::Car::mass"
+
+    @pytest.mark.parametrize(
+        "resolved_id, qualified_name",
+        [("Col_5f_5fV_5f_5fc_5fpend0", "Col__V__c_pend0"), ("Uses::'@2'", "Uses::@2")],
+    )
+    def test_type_text_shows_a_type_by_qualified_name(self, resolved_id, qualified_name):
+        """A type's id is for lookup; the type column shows its qualified name."""
+        info = sysml_pb2.SymbolInfo(
+            id="Uses::member",
+            name="member",
+            kind="partUsage",
+            type_info=sysml_pb2.TypeInfo(
+                declared="T", resolved_id=resolved_id, resolved_qualified_name=qualified_name
+            ),
+        )
+        symbol = Symbol(info, Mock(), "hash")
+        assert _type_text(symbol, None) == qualified_name
+        assert symbol.type_facts.resolved_id == resolved_id
 
     def test_to_dataframe_does_not_lend_a_value_to_a_same_named_member(self):
         """A member of another kind sharing an attribute's name carries no value."""

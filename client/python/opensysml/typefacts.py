@@ -64,6 +64,9 @@ class TypeFacts:
     supertypes removed: ``part pBoth : V :> q`` with ``q : T`` has ``V`` and
     ``T``. Empty for a definition, or when the model derives none."""
 
+    resolved_qualified_name: str = ""
+    """Qualified name of the resolved written type, for display; :attr:`resolved_id` is for lookup."""
+
     @classmethod
     def from_pb(cls, pb_type_info) -> "TypeFacts":
         """Build from a ``TypeInfo`` protobuf message."""
@@ -76,6 +79,7 @@ class TypeFacts:
             quantity=pb_type_info.quantity,
             unit=pb_type_info.unit,
             types=tuple(TypeRef.from_pb(ref) for ref in pb_type_info.types),
+            resolved_qualified_name=pb_type_info.resolved_qualified_name,
         )
 
 
@@ -128,6 +132,8 @@ class Specialization:
     declared: str = ""
     target_id: str = ""
     target_kind: str = ""
+    target_qualified_name: str = ""
+    """Qualified name of the resolved target, for display; :attr:`target_id` is for lookup."""
 
     @classmethod
     def from_pb(cls, pb_specialization) -> "Specialization":
@@ -137,6 +143,7 @@ class Specialization:
             declared=pb_specialization.declared,
             target_id=pb_specialization.target_id,
             target_kind=pb_specialization.target_kind,
+            target_qualified_name=pb_specialization.target_qualified_name,
         )
 
 

@@ -128,3 +128,45 @@ package Uses {
 		}
 	}
 }
+
+// The id of a type or a general is for lookup; what is shown is its qualified name, in the
+// qualified-name fields and in the type an attribute is listed with.
+func TestTypeAndGeneralAreShownByQualifiedName(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, fmt.Sprintf(reportedIDCollision, "attribute def", "{ }")+`
+package Uses {
+	attribute def '@2'; part filler; part;
+	part def Holder { attribute escaped : Col__V__c_pend0; attribute quoted : '@2'; }
+	attribute def EscapedSub :> Col__V__c_pend0; attribute def QuotedSub :> '@2';
+}
+`, "reported-id-display")
+	symbol := func(name string) *pb.SymbolInfo {
+		t.Helper()
+		resp, err := srv.GetSymbol(context.Background(), &pb.GetSymbolRequest{
+			ModelHash: hash, SymbolId: name, Lookup: pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME,
+		})
+		if err != nil || resp.GetSymbol() == nil {
+			t.Fatalf("GetSymbol(%s): %v, %v", name, err, resp.GetError())
+		}
+		return resp.Symbol
+	}
+	for user, want := range map[string]string{"escaped": "Col__V__c_pend0", "quoted": "Uses::@2"} {
+		info := symbol("Uses::Holder::" + user).GetTypeInfo()
+		if info.GetResolvedQualifiedName() != want || info.GetResolvedId() == want {
+			t.Errorf("%s: resolved type is named %q under the id %q, want the name %q and another id", user, info.GetResolvedQualifiedName(), info.GetResolvedId(), want)
+		}
+	}
+	for user, want := range map[string]string{"EscapedSub": "Col__V__c_pend0", "QuotedSub": "Uses::@2"} {
+		specs := symbol("Uses::" + user).GetSpecializations()
+		if len(specs) != 1 || specs[0].GetTargetQualifiedName() != want || specs[0].GetTargetId() == want {
+			t.Errorf("%s: specializations %v, want one naming %q under another id", user, specs, want)
+		}
+	}
+	listed := map[string]string{}
+	for _, attribute := range symbol("Uses::Holder").GetAttributes() {
+		listed[attribute.GetName()] = attribute.GetType()
+	}
+	if listed["escaped"] != "Col__V__c_pend0" || listed["quoted"] != "Uses::@2" {
+		t.Errorf("attribute types = %v, want the qualified names of the two types", listed)
+	}
+}

@@ -193,6 +193,24 @@ class PipelineEndToEndTest {
         plan.parameters().stream().map(QueryParameter::type).toList(), plan.parameters().toString());
   }
 
+  /** Run query on the v2 path: a parameter's type is shown by qualified name where its reported id is spelled otherwise. */
+  @Test
+  void v2TextualRunQueryShowsAParameterTypeByQualifiedName() throws Exception {
+    V2TextualSource source = new V2TextualSource("""
+        package Demo {
+          part def '@2';
+          part filler;
+          part;
+          calc def Pick :> DocumentQueries::Query {
+            in subject : '@2';
+            DocumentQueries::Descendants(source = ())
+          }
+        }
+        """);
+    QueryPlan plan = engine.plan(new RunRequest(Operation.RUN_QUERY, source, "Demo::Pick", List.of()), () -> false).orElseThrow();
+    assertEquals(List.of("Demo::@2"), plan.parameters().stream().map(QueryParameter::type).toList(), plan.parameters().toString());
+  }
+
   /** Run query on the v2 path: a calc usage's type is read by qualified name, which an unnamed sibling's id spells. */
   @Test
   void v2TextualRunQueryFindsAQueryTypeNamedLikeASiblingId() throws Exception {
