@@ -729,17 +729,19 @@ class StarveSweepTest(Stub):
             [r"event=merge_group&status=queued", {"workflow_runs": [{"id": 900, "status": "queued"}]}, 0],
             [r"event=merge_group&status=", {"workflow_runs": []}, 0],
             [r"runs/900/jobs", {"jobs": []}, 0],
-            [r"event=pull_request&status=queued", {"workflow_runs": queued}, 0],
-            [r"event=pull_request&status=", {"workflow_runs": []}, 0],
+            [r"runs\?status=queued", {"workflow_runs": queued}, 0],
+            [r"runs\?status=", {"workflow_runs": []}, 0],
             [r"runs/11/jobs", {"jobs": [{"status": "queued"}]}, 0],
             [r"runs/12/jobs", {"jobs": [{"status": "in_progress"}]}, 0],
+            [r"runs/14/jobs", {"jobs": [{"status": "queued"}]}, 0],
             [r"runs/15/jobs", {"jobs": []}, 0],
             [r"runs/16/jobs", {"jobs": [{"name": "Changed areas", "status": "completed", "conclusion": "success"}, {"name": "Go", "status": "queued"}]}, 0],
-            [r"^run cancel 1[16] ", "", 0],
+            [r"^run cancel 1[146] ", "", 0],
         ])
         self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
-        self.assertEqual([c for c in self.calls() if c.startswith("run cancel")], ["run cancel 11 -R Example/Repo", "run cancel 16 -R Example/Repo"])
-        self.assertEqual([e["pr"] for e in self.read("auth_rerun.json")], [9, 4, 10])
+        self.assertEqual([c for c in self.calls() if c.startswith("run cancel")], ["run cancel 11 -R Example/Repo", "run cancel 14 -R Example/Repo",
+                                                                                     "run cancel 16 -R Example/Repo"])
+        self.assertEqual([e["pr"] for e in self.read("auth_rerun.json")], [9, 4, 7, 10])
 
     def starved_rules(self, mg_age, mg_jobs, cancel_fails=(), extra=()):
         self.write("starve_cancel.json", {"by": "maintainer", "rule": "keep the merge PR run"})
@@ -756,8 +758,8 @@ class StarveSweepTest(Stub):
             [r"event=merge_group&status=in_progress", {"workflow_runs": [mg]}, 0],
             [r"event=merge_group&status=", {"workflow_runs": []}, 0],
             [r"runs/900/jobs", {"jobs": mg_jobs}, 0],
-            [r"event=pull_request&status=in_progress", {"workflow_runs": [r(21, 4), r(22, 5), r(23, 6), r(24, 7)]}, 0],
-            [r"event=pull_request&status=", {"workflow_runs": []}, 0],
+            [r"runs\?status=in_progress", {"workflow_runs": [r(21, 4), r(22, 5), r(23, 6), r(24, 7)]}, 0],
+            [r"runs\?status=", {"workflow_runs": []}, 0],
             [r"runs/21/jobs", jobs("in_progress", "queued", "queued"), 0],
             [r"runs/22/jobs", jobs("completed", "in_progress"), 0],
             [r"runs/23/jobs", jobs("in_progress", "queued"), 0],
@@ -791,7 +793,7 @@ class StarveSweepTest(Stub):
         self.assertEqual(sorted(self.cancels()), ["21", "23", "24"])
 
     def test_waiting_group_within_the_grace_period_leaves_started_runs_alone(self):
-        self.starved_rules(10, [{"status": "in_progress", "created_at": stamp(10)}, {"status": "queued", "created_at": stamp(1)}])
+        self.starved_rules(1, [{"status": "in_progress", "created_at": stamp(10)}, {"status": "queued", "created_at": stamp(10)}])
         self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
         self.assertEqual(self.cancels(), [])
         self.write("config.json", {"repo": REPO, "cap": 4, "checkout": self.dir})
@@ -801,9 +803,31 @@ class StarveSweepTest(Stub):
         self.assertNotIn("starved: keeping", self.text("watch.log"))
 
     def test_a_job_queued_past_the_grace_period_starves_a_partly_started_group(self):
-        self.starved_rules(10, [{"status": "in_progress", "created_at": stamp(10)}, {"status": "queued", "created_at": stamp(5)}])
+        # A downstream job is created late; the run's age decides, not the job's.
+        self.starved_rules(10, [{"status": "in_progress", "created_at": stamp(10)}, {"status": "queued", "created_at": stamp(1)}])
         self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
         self.assertEqual(sorted(self.cancels()), ["21", "23", "24"])
+
+    def test_every_event_is_a_candidate_except_protected_runs(self):
+        self.cap(2)
+
+        def r(rid, event, branch, n=None):
+            return {"id": rid, "event": event, "name": "Any", "head_branch": branch, "head_sha": f"{rid:040d}",
+                    "pull_requests": [{"number": n}] if n else []}
+        runs = [r(22, "pull_request", "feat/5", 5), r(31, "schedule", "develop"), r(32, "push", "develop"), r(33, "push", "v1.2.3"),
+                r(34, "pull_request", "release/1.0", 9), r(37, "push", "gh-readonly-queue/develop/pr-1-x"), r(38, "dynamic", "feat/d"),
+                r(35, "workflow_dispatch", "feat/x"), r(36, "pull_request", "develop", 8)]
+        busy = {"jobs": [{"name": "j0", "status": "completed", "conclusion": "success"}, {"name": "j1", "status": "in_progress"}]}
+        self.starved_rules(10, [], extra=[[r"runs\?status=in_progress", {"workflow_runs": runs}, 0], [r"runs/3[0-9]/jobs", busy, 0]])
+        self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        self.assertEqual(self.cancels(), ["35"])
+        for rid in (31, 32, 33, 34, 37, 38):
+            self.assertFalse([c for c in self.calls() if f"runs/{rid}/jobs" in c], rid)
+        log = self.text("watch.log")
+        self.assertIn("keeping run 22 (#5), run 36 (#8) (cap 2)", log)
+        self.assertIn("run 35 (workflow_dispatch on feat/x, no PR, 0000000000", log)
+        self.assertIn("cancelled; not queued for re-run (no PR)", log)
+        self.assertIsNone(self.cfg().read("auth_rerun.json"))
 
     def test_failed_starvation_cancel_is_not_queued(self):
         self.starved_rules(10, [{"status": "queued"}], cancel_fails=(23,))
@@ -893,7 +917,7 @@ class StarveSweepTest(Stub):
 
     def test_one_heartbeat_per_pass(self):
         self.cap(4)
-        self.starved_rules(10, [{"status": "queued", "created_at": stamp(1)}])
+        self.starved_rules(1, [{"status": "queued", "created_at": stamp(1)}])
         for _ in range(3):
             self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
         beats = [line for line in self.text("watch.log").splitlines() if "heartbeat:" in line]
@@ -901,7 +925,7 @@ class StarveSweepTest(Stub):
         self.assertTrue(beats[0].endswith("STARVE-SWEEP heartbeat: mq waiting=yes starved=no failing=no; ordinary runs: 4 started, 0 unstarted, 0 being cancelled"))
 
     def test_idle_queue_api_error_and_absent_authorization(self):
-        self.rules([[r"event=merge_group", {"workflow_runs": []}, 0], [r"event=pull_request", {"workflow_runs": []}, 0]])
+        self.rules([[r"event=merge_group", {"workflow_runs": []}, 0], [r"runs\?status=", {"workflow_runs": []}, 0]])
         self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
         self.assertIn("starve_cancel.json absent", self.text("watch.log"))
         self.write("starve_cancel.json", {"by": "maintainer"})

@@ -9,7 +9,7 @@ authenticated `gh`, never in CI. Nothing in the Go build or test suite imports t
 | Tool | What it does |
 | --- | --- |
 | `watcher.py` | The throttle and watch loop. It caps concurrent ordinary pull-request runs, queues the over-cap ones in priority order, re-starts them when a slot frees, holds every slot for the merge queue, and reports each decision. |
-| `starve_sweep.py` | Frees runners for the merge queue. While a merge-queue run has waiting jobs, it cancels ordinary pull-request runs that have jobs but none started. When a merge-queue job has waited longer than `starve_grace_seconds`, it also cancels every started ordinary run except the one closest to finishing. While no merge-queue job waits, it cancels the ordinary runs over `cap`. It cancels a merge-queue run that has a failed job. Each ordinary run it cancels is queued for the watcher to re-run (`auth_rerun.json`). It logs one heartbeat line per pass. |
+| `starve_sweep.py` | Frees runners for the merge queue. While a merge-queue run has waiting jobs, it cancels ordinary runs (every workflow and event except the protected ones) that have jobs but none started. When a merge-queue run with a queued or waiting job is older than `starve_grace_seconds`, it also cancels every started ordinary run except the one closest to finishing. While no merge-queue job waits, it cancels the ordinary runs over `cap`. It cancels a merge-queue run that has a failed job. Each ordinary run it cancels is queued for the watcher to re-run (`auth_rerun.json`). It logs one heartbeat line per pass. |
 | `infra_rerun.py` | Classifies the failed jobs of the runs in `infra_runs.json` as infrastructure (setup steps, DNS, apt mirrors) or real, and re-runs (`--failed`) only the infrastructure failures once the infrastructure has recovered. |
 | `drycheck.sh` | Dry-merges (`git merge-tree`) each pull request in `ready.txt` onto its base branch's head and prints CLEAN or DIRTY. |
 | `drywatch.sh` | Runs `drycheck.sh` every time the base branch moves and appends the results to `dry.log`. |
@@ -76,7 +76,9 @@ the directory that contains the configuration file.
 | `ci_priority` | `{"after_pr", "title_re", "path_re"}`: a new PR into the base branch whose number is above `after_pr`, and whose title or changed paths match, is admitted as a CI priority PR. With `tiers.json`, only PRs in tiers 1 and 2 qualify. `null` turns this off. |
 | `known_flakes` | `[{"job", "test", "note"}]`: a red result whose only failures are this job's (plus the required check) and only this test is reported as the known flake, not as the PR's failure. |
 | `job_timeout_minutes` | A cancelled job that ran at least this long is reported as a timeout (default 59). |
-| `starve_grace_seconds` | How long a merge-queue job may stay queued or waiting before the sweeper counts the queue as starved (default 180). |
+| `starve_grace_seconds` | How old a merge-queue run (its own `created_at`, not its jobs') with a queued or waiting job may get before the sweeper counts the queue as starved (default 180). |
+| `protected_events` | Events whose runs the sweeper never treats as ordinary (default `["merge_group", "schedule", "dynamic", "release", "registry_package"]`). |
+| `protected_tags` | Regular expression for the tags whose non-pull-request runs the sweeper never treats as ordinary (default `^v[0-9]`). |
 | `gh_token_file` | Optional file holding the GitHub token. The `gh` wrapper re-reads it for every call and passes it as `GH_TOKEN`, so a token refresh that rewrites the file takes effect without a restart. Unset, `gh` uses its own credentials. |
 
 ## Starting and stopping
@@ -228,10 +230,12 @@ These rules come from running the tools on this repository and still apply.
     Its waiting jobs make the queue neither waiting nor starved.
   - **Waiting.** While a merge-queue run has queued or waiting jobs, every ordinary run whose
     heavy jobs are all still queued is cancelled.
-  - **Starved.** A merge-queue job that has been queued or waiting for longer than
-    `starve_grace_seconds` means ordinary runs hold the runners it needs. This is true even when
-    other jobs of the same group have started, and typically follows the gap between one queue
-    build finishing and the next being created. A run with no jobs is never starved. Exactly one started
+  - **Starved.** A merge-queue run with a queued or waiting job, created longer than
+    `starve_grace_seconds` ago, means ordinary runs hold the runners it needs. The run's
+    `created_at` decides, not the job's: downstream jobs are created late, so a job's own age may
+    never cross the grace period. This is true even when other jobs of the same group have
+    started, and typically follows the gap between one queue build finishing and the next being
+    created. A run with no jobs is never starved. Exactly one started
     ordinary run is kept, the one closest to finishing, and every other started run is cancelled.
   - **Idle.** While no merge-queue job waits, if more than `cap` ordinary runs are active, started
     or not, `cap` of them (the raised cap while `wide_cap.json` exists) are kept, chosen by tier index and then by closeness to finishing. The
@@ -241,8 +245,15 @@ These rules come from running the tools on this repository and still apply.
   skipped (until then the matrix may not have expanded, so the unfinished count understates the work
   left), then the fewest unfinished jobs, then tier rank.
 
+  Ordinary runs are listed across every workflow and event. Everything is ordinary except runs of a
+  `protected_events` event, runs on `gh-readonly-queue/*` or an `exempt_prefixes` branch (`release/`,
+  `hotfix/`), and non-pull-request runs on an `exempt_branches` branch (`develop`, `main`) or a
+  `protected_tags` tag (`v<digit>…`).
+
   Each successful cancel of an ordinary run is queued in `auth_rerun.json`, one entry per PR, in tier
-  order. A failed cancel is logged and not queued.
+  order. A failed cancel is logged and not queued. A run with no PR (for example a
+  `workflow_dispatch` or `push` run on a feature branch) ranks after every PR run; it is cancelled
+  but never queued for re-run, and the log says so.
 - Each sweeper pass logs one heartbeat line to `watch.log`, for example `STARVE-SWEEP heartbeat: mq
   waiting=yes starved=no failing=no; ordinary runs: 2 started, 1 unstarted, 0 being cancelled`.
   `failing` lists the ids of merge-queue runs with a failed job. A pass that hits an API error logs

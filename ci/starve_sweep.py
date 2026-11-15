@@ -10,7 +10,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from throttle_common import GH, Config, heavy_job_started, priority, protected_branch, utc_stamp  # noqa: E402
+from throttle_common import GH, Config, heavy_job_started, priority, protected_run, utc_stamp  # noqa: E402
 
 WAITING = ("queued", "waiting")
 ACTIVE = ("queued", "in_progress", "waiting", "pending", "requested")
@@ -29,8 +29,17 @@ class Sweeper:
         return self.gh.json(["api", path])
 
     def rank(self, e):
-        """tiers.json order with stacks.json, then every other PR by age (PR number), as the watcher ranks them."""
-        return priority(self.cfg, e["pr"])
+        """tiers.json order with stacks.json, then every other PR by age (PR number), as the watcher ranks them.
+        A run with no PR ranks last."""
+        return (float("inf"),) if e["pr"] is None else priority(self.cfg, e["pr"])
+
+    @staticmethod
+    def pr_of(r):
+        return r["pull_requests"][0]["number"] if r.get("pull_requests") else None
+
+    def label(self, r):
+        n = self.pr_of(r)
+        return f"#{n}" if n is not None else f"{r.get('event')} on {r.get('head_branch')}, no PR"
 
     def merge_group_runs(self):
         runs = {}
@@ -43,26 +52,26 @@ class Sweeper:
         return self.api(f"repos/{self.cfg.repo}/actions/runs/{rid}/jobs?per_page=100")["jobs"]
 
     def queue_state(self):
-        """(waiting, starved, failing): a merge-group job is queued or waiting; one has waited longer than the grace
-        period; the merge-group runs with a job concluded "failure". A failing run's waiting jobs count for neither."""
+        """(waiting, starved, failing): a merge-group job is queued or waiting; such a job's run was created longer than
+        the grace period ago (a job's own created_at is not used: downstream jobs are created late); the merge-group runs
+        with a job concluded "failure". A failing run's waiting jobs count for neither."""
         waiting = starved = False
         failing = []
         now = datetime.datetime.now(datetime.timezone.utc)
         for r in self.merge_group_runs():
             jobs = self.jobs(r["id"])
+            created = r.get("created_at")
+            old = bool(created) and (now - datetime.datetime.fromisoformat(created.replace("Z", "+00:00"))).total_seconds() \
+                >= self.cfg["starve_grace_seconds"]
             bad = [j for j in jobs if j.get("conclusion") == "failure"]
             if bad:
                 failing.append((r, bad[0].get("name")))
                 continue
             waiting = waiting or r["status"] == "queued"
             # A run with no jobs at all has nothing waiting for a runner, so it is never starved.
-            for j in jobs:
-                if j["status"] not in WAITING:
-                    continue
+            if any(j["status"] in WAITING for j in jobs):
                 waiting = True
-                created = j.get("created_at") or r.get("created_at")
-                if created and (now - datetime.datetime.fromisoformat(created.replace("Z", "+00:00"))).total_seconds() >= self.cfg["starve_grace_seconds"]:
-                    starved = True
+                starved = starved or old
         return waiting, starved, failing
 
     def cancel_failing_group(self, r, job):
@@ -79,8 +88,12 @@ class Sweeper:
         return unexpanded, sum(1 for j in jobs if j["status"] != "completed")
 
     def cancel_and_queue(self, r, why):
-        pr, repo = r["pull_requests"][0]["number"], self.cfg.repo
+        pr, repo = self.pr_of(r), self.cfg.repo
         done = self.gh(["run", "cancel", str(r["id"]), "-R", repo], ok_fail=True) is not None
+        if pr is None:
+            self.log(f"run {r['id']} ({self.label(r)}, {r['head_sha'][:10]}, {why}) "
+                     f"{'cancelled; not queued for re-run (no PR)' if done else 'not cancelled'}")
+            return
         if done:
             with self.cfg.locked("auth_rerun.json"):
                 todo = [e for e in self.cfg.read("auth_rerun.json", []) if e["pr"] != pr]
@@ -90,17 +103,17 @@ class Sweeper:
 
     def ordinary_runs(self):
         """(started, unstarted, cancelling) active ordinary runs, each started or unstarted one as (closeness, rank, run).
-        A run with no jobs uses no runner and GitHub refuses to retry it once cancelled; a run with a job concluded
-        "cancelled" is already being cancelled. Neither is kept or cancelled."""
-        repo, workflows = self.cfg.repo, set(self.cfg["workflows"])
+        Every workflow and event is a candidate except protected runs (protected_run). A run with no jobs uses no runner
+        and GitHub refuses to retry it once cancelled; a run with a job concluded "cancelled" is already being cancelled.
+        Neither is kept or cancelled."""
+        repo = self.cfg.repo
         cand = {}
         for st in ACTIVE:
-            for r in self.api(f"repos/{repo}/actions/runs?event=pull_request&status={st}&per_page=100")["workflow_runs"]:
+            for r in self.api(f"repos/{repo}/actions/runs?status={st}&per_page=100")["workflow_runs"]:
                 cand[r["id"]] = r
         started, unstarted, cancelling = [], [], 0
         for r in cand.values():
-            if r["event"] != "pull_request" or r.get("name") not in workflows or not r.get("pull_requests") \
-                    or protected_branch(self.cfg, r["head_branch"], r["event"]):
+            if protected_run(self.cfg, r.get("event"), r.get("head_branch")):
                 continue
             jobs = self.jobs(r["id"])
             if not jobs or all(j["status"] == "completed" for j in jobs):
@@ -108,7 +121,7 @@ class Sweeper:
             if any(j.get("conclusion") == "cancelled" for j in jobs):
                 cancelling += 1
                 continue
-            e = (self.closeness(jobs), self.rank({"pr": r["pull_requests"][0]["number"]}), r)
+            e = (self.closeness(jobs), self.rank({"pr": self.pr_of(r)}), r)
             (started if heavy_job_started(self.cfg, jobs) else unstarted).append(e)
         return started, unstarted, cancelling
 
@@ -132,7 +145,7 @@ class Sweeper:
             if starved and len(started) > 1:
                 started.sort(key=lambda e: (e[0], e[1]))
                 (_, unfinished), _, keep = started[0]
-                self.log(f"merge group starved: keeping run {keep['id']} (#{keep['pull_requests'][0]['number']}, {unfinished} job(s) unfinished)")
+                self.log(f"merge group starved: keeping run {keep['id']} ({self.label(keep)}, {unfinished} job(s) unfinished)")
                 for (_, unfinished), _, r in started[1:]:
                     self.cancel_and_queue(r, f"started, {unfinished} job(s) unfinished, merge group starved")
             return
@@ -141,7 +154,7 @@ class Sweeper:
             return
         # Tier first, then closest to finishing: the lowest tier goes first and, within a tier, the run furthest from finishing.
         active.sort(key=lambda e: (e[1][0], e[0], e[1]))
-        kept = ", ".join("run %d (#%d)" % (r["id"], r["pull_requests"][0]["number"]) for _, _, r in active[:cap]) or "none"
+        kept = ", ".join(f"run {r['id']} ({self.label(r)})" for _, _, r in active[:cap]) or "none"
         self.log(f"over the cap with the merge queue idle: {len(active)} ordinary runs active, keeping {kept} (cap {cap})")
         for (_, unfinished), _, r in reversed(active[cap:]):
             self.cancel_and_queue(r, f"{unfinished} job(s) unfinished, over the cap of {cap} with the merge queue idle")

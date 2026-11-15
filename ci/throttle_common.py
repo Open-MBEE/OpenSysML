@@ -5,6 +5,7 @@ import datetime
 import fcntl
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -21,6 +22,8 @@ DEFAULTS = {
     "fast_poll_seconds": 10,
     "exempt_branches": ["develop", "main"],
     "exempt_prefixes": ["release/", "hotfix/"],
+    "protected_events": ["merge_group", "schedule", "dynamic", "release", "registry_package"],
+    "protected_tags": "^v[0-9]",
     "runner_pin": None,
     "ci_priority": None,
     "known_flakes": [],
@@ -130,6 +133,15 @@ def priority(cfg, pr):
     if s is None:
         return listed(pr) + (0,)
     return min(listed(n) for n in s) + (s.index(pr),)
+
+
+def protected_run(cfg, event, branch):
+    """Runs the sweeper never treats as ordinary: a protected event, the merge-queue and exempt-prefix branches,
+    and any non-pull-request run on an exempt branch or a protected tag."""
+    branch = branch or ""
+    if event in cfg["protected_events"] or branch.startswith((MERGE_QUEUE_PREFIX, *cfg["exempt_prefixes"])):
+        return True
+    return not (event or "").startswith("pull_request") and (branch in cfg["exempt_branches"] or bool(re.match(cfg["protected_tags"], branch)))
 
 
 def protected_branch(cfg, branch, event=None):

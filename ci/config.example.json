@@ -11,6 +11,8 @@
   "fast_poll_seconds": 10,
   "exempt_branches": ["develop", "main"],
   "exempt_prefixes": ["release/", "hotfix/"],
+  "protected_events": ["merge_group", "schedule", "dynamic", "release", "registry_package"],
+  "protected_tags": "^v[0-9]",
   "runner_pin": {"file": ".github/workflows/pr.yml", "require": "ubuntu-24.04", "forbid": "ubuntu-latest"},
   "ci_priority": null,
   "known_flakes": [],
