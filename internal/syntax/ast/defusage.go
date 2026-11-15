@@ -636,9 +636,9 @@ func (u *Usage) IsAssumedConstraint() bool {
 	return u.IsRequirementConstraint() && (u.Keyword == "assume" || u.PrefixKeyword == "assume")
 }
 
-// ReferenceSubsettingKeepsComposite reports the usages a reference subsetting leaves composite:
-// a satisfy or verify owns one without being the EventOccurrenceUsage §8.3.9.3 makes referential.
-func (k UsageKind) ReferenceSubsettingKeepsComposite() bool {
+// ReferenceSubsettingSpecializes reports a satisfy or verify: its ReferenceSubsetting is the Subsetting
+// that types it (KerML §8.3.3.3.9), and it is no EventOccurrenceUsage (§8.3.9.3), so it stays composite.
+func (k UsageKind) ReferenceSubsettingSpecializes() bool {
 	return k == UsageSatisfy
 }
 

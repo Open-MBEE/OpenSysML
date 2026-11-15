@@ -92,7 +92,7 @@ func IsReferenceUsage(sym *symbols.Symbol) bool {
 	if usage.IsReference {
 		return true
 	}
-	if usage.Kind.ReferenceSubsettingKeepsComposite() {
+	if usage.Kind.ReferenceSubsettingSpecializes() {
 		return false
 	}
 	for _, rel := range usage.Relationships {

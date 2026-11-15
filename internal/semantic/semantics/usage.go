@@ -439,7 +439,7 @@ func usageIsComposite(usage *ast.Usage) bool {
 		usage.IsEnd || usage.IsEvent || usage.Kind == ast.UsageEnumeration || usage.IsVariantReference() {
 		return false
 	}
-	if usage.Kind.ReferenceSubsettingKeepsComposite() {
+	if usage.Kind.ReferenceSubsettingSpecializes() {
 		return true
 	}
 	for _, rel := range usage.Relationships {

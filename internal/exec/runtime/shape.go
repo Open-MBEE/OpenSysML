@@ -254,22 +254,16 @@ func (ctx *Context) statedType(featureSym *symbols.Symbol) *symbols.Symbol {
 // parameter of its owner's kind base it implicitly redefines types every such
 // parameter and so says nothing about this one.
 func (ctx *Context) statedTypes(featureSym *symbols.Symbol) []*symbols.Symbol {
-	// A reference subsetting is a subsetting (KerML 1.1 §8.3.3.3.9): `verify r;` has r's
-	// types, so the feature it names is asked once its own generals state none.
-	seen := make(map[*symbols.Symbol]bool)
-	for cur := featureSym; cur != nil && !seen[cur]; cur = ctx.model.semantics.ReferencedFeature(cur) {
-		seen[cur] = true
-		if types := ctx.declaredTypes(cur); len(types) > 0 {
-			return types
+	if types := ctx.declaredTypes(featureSym); len(types) > 0 {
+		return types
+	}
+	baseParam := ctx.model.semantics.ImplicitBaseParameter(featureSym)
+	for _, sup := range ctx.model.semantics.AllDeclaredSupertypes(featureSym) {
+		if sup == baseParam {
+			continue
 		}
-		baseParam := ctx.model.semantics.ImplicitBaseParameter(cur)
-		for _, sup := range ctx.model.semantics.AllDeclaredSupertypes(cur) {
-			if sup == baseParam {
-				continue
-			}
-			if types := ctx.declaredTypes(sup); len(types) > 0 {
-				return types
-			}
+		if types := ctx.declaredTypes(sup); len(types) > 0 {
+			return types
 		}
 	}
 	return nil
