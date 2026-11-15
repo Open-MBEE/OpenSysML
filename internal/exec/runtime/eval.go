@@ -19,6 +19,8 @@ type EvalContext struct {
 	ctx   *Context       // runtime context
 	scope *symbols.Scope // scope context for name resolution
 	self  *Instance      // instance a feature name resolves against, nil when unbound
+	// exprs is the table the ids of the payloads evaluated here index, nil for none.
+	exprs *lower.ExprTable
 	// occurrence is the performance instance `this` denotes where this evaluation
 	// is written inside a behavior definition: the def's own occurrence.
 	occurrence *Instance
@@ -109,7 +111,7 @@ func (ec *EvalContext) evalIn(scope *symbols.Scope) *EvalContext {
 		occurrence: ec.occurrence, thisOccurrence: ec.thisOccurrence,
 		features: ec.features, resolving: ec.resolving, calcRun: ec.calcRun,
 		activation: ec.activation, inBehaviorBody: ec.inBehaviorBody, valuing: ec.valuing,
-		openInputs: ec.openInputs,
+		openInputs: ec.openInputs, exprs: ec.exprs,
 	}
 }
 
@@ -207,7 +209,7 @@ func (ec *EvalContext) over(scope *symbols.Scope, frames []frame) *EvalContext {
 		occurrence: ec.occurrence, thisOccurrence: ec.thisOccurrence,
 		features: ec.features, resolving: ec.resolving, calcRun: ec.calcRun,
 		activation: ec.activation, inBehaviorBody: ec.inBehaviorBody, valuing: ec.valuing,
-		openInputs: ec.openInputs,
+		openInputs: ec.openInputs, exprs: ec.exprs,
 	}
 }
 

@@ -1650,7 +1650,9 @@ func (ctx *Context) argumentScope(inst *Instance, decl classifierBehaviorDecl) *
 func (ctx *Context) classifierBehaviorArgument(inst *Instance, decl classifierBehaviorDecl, scope *symbols.Scope, arg lower.Attribute) (Value, error) {
 	ec := NewEvalContextIn(ctx, scope, inst)
 	defer ec.beginStep()()
-	value, err := ec.Eval(arg.Value)
+	// The scope of an argument is the instance's to say, so its id is the model's table's.
+	exprs := ctx.model.exprs
+	value, err := ec.reading(exprs).evalPayload(exprs.Intern(arg.Value, scope))
 	if err != nil {
 		return Value{}, fmt.Errorf("%s %s of %s: bind %s: %w",
 			decl.behavior.Kind, decl.behavior.Name, SymbolText(inst.Type), arg.Name, err)

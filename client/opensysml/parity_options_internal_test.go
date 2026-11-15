@@ -73,3 +73,20 @@ func TestANilBaseModelClearsTheEarlierOne(t *testing.T) {
 		t.Fatalf("base after WithBaseModel(nil) = %q, want none", o.base)
 	}
 }
+
+// A relative direction is refused the same way without symbol_member_direction,
+// since a service without it would answer the direction the feature declares.
+func TestAMemberDirectionIsNotAskedWithoutTheCapability(t *testing.T) {
+	ctx := context.Background()
+	for name, old := range map[string]*oldCaller{
+		"predates symbol_member_direction": {capabilities: []string{CapabilitySymbolMembers}},
+		"predates GetServerInfo":           {infoErr: &StatusError{Code: CodeUnimplemented, Message: "unknown method"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			old.t = t
+			c := &client{caller: old}
+			_, err := c.LookupSymbol(ctx, &Model{Hash: "h"}, "P::Port::cmd", AsMemberOf("P::Device::pIn"))
+			wantMissingCapability(t, "LookupSymbol", err, CapabilitySymbolMemberDirection)
+		})
+	}
+}

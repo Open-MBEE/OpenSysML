@@ -52,8 +52,6 @@ type CalcTrees struct {
 	// Exprs is the table the calc's ExprIDs index: each expression lowered in the
 	// scope of the calc declaring it.
 	Exprs ExprTable
-	// resolver resolves the names of the expressions interned; nil leaves them to the run.
-	resolver *resolve.Resolver
 }
 
 // Expr is the syntax of the expression behind an id, nil for none.
@@ -77,7 +75,7 @@ func (t *CalcTrees) intern(node ast.Node, declarers ...*symbols.Symbol) program.
 			break
 		}
 	}
-	return t.Exprs.Lower(node, scope, t.resolver)
+	return t.Exprs.Intern(node, scope)
 }
 
 // IsCalcDecl reports whether a declaration is a calc definition or usage, or an
@@ -292,8 +290,8 @@ func ToCalc(sym *symbols.Symbol, env CalcEnv) (*program.Calc, *CalcTrees) {
 		Label:  kind + " " + name,
 		Chain:  chain,
 	}
-	trees := &CalcTrees{resolver: env.Resolver}
-	trees.Body, trees.BodyOrder, calc.BodyOwner = calcBodyWithOrder(chain, env.Resolver)
+	trees := &CalcTrees{Exprs: ExprTable{resolver: env.Resolver}}
+	trees.Body, trees.BodyOrder, calc.BodyOwner = calcBodyWithOrder(chain, env.Resolver, &trees.Exprs)
 	trees.Steps = CalcSteps(trees.Body)
 	trees.Nodes = BlockNodes(trees.Steps)
 	calc.StepCount = len(trees.Nodes)
@@ -326,7 +324,7 @@ func ToPredicate(sym *symbols.Symbol, env CalcEnv) (*program.Calc, *CalcTrees) {
 		Label:  kind + " " + name,
 		Chain:  chain,
 	}
-	trees := &CalcTrees{resolver: env.Resolver}
+	trees := &CalcTrees{Exprs: ExprTable{resolver: env.Resolver}}
 	calc.Params = calcParameters(chain, env, trees, &calc.Aliases)
 	calc.ParamNames = paramNames(calc.Params)
 	return calc, trees
@@ -344,7 +342,7 @@ func ToCalcSignature(sym *symbols.Symbol, libInputs []*symbols.Symbol, env CalcE
 		Kind:   kind,
 		Label:  kind + " " + name,
 	}
-	trees := &CalcTrees{resolver: env.Resolver}
+	trees := &CalcTrees{Exprs: ExprTable{resolver: env.Resolver}}
 	var positions []int
 	for _, p := range env.Semantics.BehaviorParametersOf(sym) {
 		if p.IsResult || (p.Direction != ast.DirIn && p.Direction != ast.DirInOut) {
@@ -677,13 +675,13 @@ func collectAssignedOutputs(stmts []Statement, declared map[string]string, assig
 
 // calcBodyWithOrder returns the body the invoked calc runs — its own, else the closest
 // inherited one — with its statement order and the calc whose scope it is written in.
-func calcBodyWithOrder(chain []*symbols.Symbol, resolver *resolve.Resolver) ([]Statement, *StatementOrder, *symbols.Symbol) {
+func calcBodyWithOrder(chain []*symbols.Symbol, resolver *resolve.Resolver, exprs *ExprTable) ([]Statement, *StatementOrder, *symbols.Symbol) {
 	var stated []Statement
 	var statedOrder *StatementOrder
 	var owner *symbols.Symbol
 	for i := len(chain) - 1; i >= 0; i-- {
 		link := chain[i]
-		stmts, order := CalcBodyWithOrder(link.Decl, UnwrappedDeclMembers(link.Decl), link.Scope, resolver)
+		stmts, order := CalcBodyWithOrder(link.Decl, UnwrappedDeclMembers(link.Decl), link.Scope, resolver, exprs)
 		if Returns(stmts) {
 			return stmts, order, link
 		}
@@ -726,7 +724,7 @@ func resultBindingExpr(bindings []Binding) ast.Node {
 // CalcStatesComputation reports whether a calc chain states a computation: a body
 // that returns or assigns an output, or a binding of the result.
 func CalcStatesComputation(chain []*symbols.Symbol, env CalcEnv) bool {
-	body, _, _ := calcBodyWithOrder(chain, env.Resolver)
+	body, _, _ := calcBodyWithOrder(chain, env.Resolver, nil)
 	if Returns(body) || resultBindingExpr(calcBindings(chain)) != nil {
 		return true
 	}

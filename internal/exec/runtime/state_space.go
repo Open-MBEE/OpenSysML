@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -110,7 +111,7 @@ func (e *ActionExecutor) dynamicsNode() ast.Node { return e.action.Decl }
 // initializeDynamics starts a state-space run: binds the action's features, checks
 // the state and step, computes the output at the start and parks a token until the first step.
 func (e *ActionExecutor) initializeDynamics() error {
-	dyn, err := lower.ToStateSpaceDynamics(e.action, e.graph.Scope, stateSpaceSemantics{e.ctx})
+	dyn, err := lower.ToStateSpaceDynamics(e.action, e.graph.Scope, stateSpaceSemantics{e.ctx}, e.graph.Exprs)
 	if err != nil {
 		return err
 	}
@@ -611,7 +612,7 @@ func (e *ActionExecutor) watchCrossings(run *stateSpaceRun, now float64) (bool, 
 
 // evalGuard is a crossing's guard as a real number, over the action's features.
 func (e *ActionExecutor) evalGuard(crossing lower.ZeroCrossing) (float64, error) {
-	val, err := e.evalCrossingExpr(crossing.Guard, crossing.GuardScope)
+	val, err := e.evalCrossingExpr(crossing.GuardID, crossing.GuardScope)
 	if err != nil {
 		return 0, fmt.Errorf("guard of zero crossing %s of action %s: %w", crossing.Name, SymbolText(e.action), err)
 	}
@@ -628,7 +629,7 @@ func (e *ActionExecutor) crossingTerminal(crossing lower.ZeroCrossing) (bool, er
 		return false, nil
 	}
 	return e.ctx.guardUnderStatementOrders(crossing.Terminal, e.stepCount+1, crossing.TerminalScope, func() (bool, error) {
-		val, err := e.evalCrossingExpr(crossing.Terminal, crossing.TerminalScope)
+		val, err := e.evalCrossingExpr(crossing.TerminalID, crossing.TerminalScope)
 		if err != nil {
 			return false, fmt.Errorf("terminal of zero crossing %s of action %s: %w", crossing.Name, SymbolText(e.action), err)
 		}
@@ -642,11 +643,11 @@ func (e *ActionExecutor) crossingTerminal(crossing lower.ZeroCrossing) (bool, er
 
 // evalCrossingExpr evaluates an expression of a crossing in the scope it was
 // written, over the action's own frame.
-func (e *ActionExecutor) evalCrossingExpr(expr ast.Node, scope *symbols.Scope) (Value, error) {
+func (e *ActionExecutor) evalCrossingExpr(id program.ExprID, scope *symbols.Scope) (Value, error) {
 	if scope == nil {
 		scope = e.graph.Scope
 	}
-	ec := e.evalContextFor(e.root, scope)
+	ec := e.evalContextFor(e.root, scope).reading(e.graph.Exprs)
 	defer ec.beginStep()()
-	return ec.Eval(expr)
+	return ec.evalPayload(id)
 }

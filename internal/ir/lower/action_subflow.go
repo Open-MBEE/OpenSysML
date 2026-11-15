@@ -185,10 +185,10 @@ func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 			actual := unwrapMembership(member)
 			memberScope := effectiveMemberScope(members, actual, scope)
 			graph.recordDeclaredIn(actual, memberScope)
-			graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(actual, memberScope, graph.resolver, graph.lowering))
+			graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(actual, memberScope, graph.resolver, graph.Exprs, graph.lowering))
 		}
 		if _, _, starts := startedBehavior(node, scope); starts {
-			graph.Bodies[node] = append(graph.Bodies[node], performEffect(node, scope))
+			graph.Bodies[node] = append(graph.Bodies[node], withExprs(performEffect(node, scope), graph.Exprs))
 		}
 		return
 	}
@@ -418,10 +418,10 @@ func lowerTerminateNode(
 		if typedBody {
 			ancestors = appendLoweringAncestor(ancestors, typedTarget)
 		}
-		blockGraph, err := lowerActionFlowWithTypingAndAncestors(steps, scope, graph.resolver, typedBody, ancestors)
+		blockGraph, err := lowerActionFlowWithTypingAndAncestors(steps, scope, graph.resolver, graph.Exprs, typedBody, ancestors)
 		if blockGraph == nil {
 			blockGraph = newActionGraph(scope)
-			blockGraph.resolver = graph.resolver
+			blockGraph.resolver, blockGraph.Exprs = graph.resolver, graph.Exprs
 			blockGraph.assignIDs()
 		}
 		if err != nil {
@@ -434,10 +434,10 @@ func lowerTerminateNode(
 			actual := unwrapMembership(member)
 			memberScope := effectiveMemberScope(members, actual, scope)
 			graph.recordDeclaredIn(actual, memberScope)
-			graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(actual, memberScope, graph.resolver, graph.lowering))
+			graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(actual, memberScope, graph.resolver, graph.Exprs, graph.lowering))
 		}
 	}
-	graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(node, scope, graph.resolver, graph.lowering))
+	graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(node, scope, graph.resolver, graph.Exprs, graph.lowering))
 }
 
 // TerminateUsage returns the terminate a terminate action usage stands for, the last of

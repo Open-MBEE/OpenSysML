@@ -131,8 +131,8 @@ named when there is one. The matrices themselves are described in the suite's
 | A03 | 128 | 128 / 0 / 0 | 128 / 0 / 0 | 96 / 0 / 32 | 96 / 0 / 32 |
 | A10 | 36 | 36 / 0 / 0 | 36 / 0 / 0 | 20 / 0 / 16 | 18 / 2 / 16 |
 | A20 | 100 | 100 / 0 / 0 | 100 / 0 / 0 | 80 / 0 / 20 | 80 / 0 / 20 |
-| A30 | 44 | 44 / 0 / 0 | 44 / 0 / 0 | 34 / 10 / 0 | 34 / 10 / 0 |
-| A40 | 45 | 45 / 0 / 0 | 45 / 0 / 0 | 45 / 0 / 0 | 45 / 0 / 0 |
+| A30 | 44 | 44 / 0 / 0 | 44 / 0 / 0 | 44 / 0 / 0 | 34 / 10 / 0 |
+| A40 | 45 | 42 / 3 / 0 | 42 / 3 / 0 | 45 / 0 / 0 | 45 / 0 / 0 |
 | A50 | 54 | 54 / 0 / 0 | 54 / 0 / 0 | 36 / 0 / 18 | 24 / 12 / 18 |
 | A60 | 32 | 32 / 0 / 0 | 32 / 0 / 0 | 32 / 0 / 0 | 32 / 0 / 0 |
 | B10 | 98 | 90 / 8 / 0 | 90 / 8 / 0 | 36 / 0 / 62 | 36 / 0 / 62 |
@@ -149,11 +149,17 @@ named when there is one. The matrices themselves are described in the suite's
 | D20 | 48 | 48 / 0 / 0 | 48 / 0 / 0 | 0 / 0 / 48 | 0 / 0 / 48 |
 | E10 | 48 | 48 / 0 / 0 | 48 / 0 / 0 | 48 / 0 / 0 | 48 / 0 / 0 |
 | F10 | 30 | 30 / 0 / 0 | 30 / 0 / 0 | 30 / 0 / 0 | 30 / 0 / 0 |
-| **All** | 1813 | 1602 / 178 / 33 | 1602 / 178 / 33 | 847 / 105 / 861 | 821 / 131 / 861 |
+| **All** | 1813 | 1599 / 181 / 33 | 1599 / 181 / 33 | 857 / 95 / 861 | 821 / 131 / 861 |
 <!-- hideo-suite:end counts -->
 
-The two element-properties readers agree on every case. The two Symbol readers differ on 14:
-12 cases of `A10` and `A50` pass from Python and fail from Go, whose reader reports an unnamed
-member as not listed, and 2 cases of `A60` fail from Python and pass from Go. The Symbol API
+The two element-properties readers agree on every case. The two Symbol readers differ on 24, every
+one passing from Python and failing from Go: 14 cases of `A10` and `A50`, whose Go reader reports an
+unnamed member as not listed, and the 10 `direction` cases of `A30` that read a feature through a
+conjugated port. A feature's direction is relative to the type it is read as a feature of (KerML 1.1
+§8.3.3.1.10 `Type::directionOf`), so `GetSymbol` answers it for the type named in `member_of`. The
+Python reader keeps the symbol the port's listing returned, which the client fetched as that port's
+member; the Go reader looks the listed id up again without the port, the same call for
+`CmdPort::cmd` through `pOut` (`out`) as through `pIn : ~CmdPort` (`in`), which no answer satisfies
+for both. It would pass by naming the port, `LookupSymbol(…, AsMemberOf(port))`. The Symbol API
 covers fewer of the suite's reads than the element-properties API does, which is what its
 `unsupported` column counts.

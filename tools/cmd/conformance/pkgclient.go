@@ -288,8 +288,15 @@ func (c *pkgClient) getSymbol(ctx context.Context, request protoreflect.Message)
 	if req.IncludeLibraryMembers {
 		opts = append(opts, opensysml.WithLibraryMembers())
 	}
-	if !req.ResolveName {
-		opts = append(opts, opensysml.ByReportedID())
+	switch req.Lookup {
+	case pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME:
+		opts = append(opts, opensysml.ByQualifiedName())
+	case pb.LookupKind_LOOKUP_KIND_ELEMENT_ID:
+		opts = append(opts, opensysml.ByElementID())
+	default:
+		if !req.ResolveName {
+			opts = append(opts, opensysml.ByReportedID())
+		}
 	}
 	symbol, err := c.api.LookupSymbol(ctx, c.model(req.ModelHash), req.SymbolId, opts...)
 	var failure *opensysml.FailureError
@@ -1005,7 +1012,16 @@ func (c *pkgClient) getElementProperties(ctx context.Context, request protorefle
 	if err := retype(request, req); err != nil {
 		return nil, err
 	}
-	read, err := c.api.ElementProperties(ctx, c.model(req.ModelHash), req.ElementId, req.Properties...)
+	var read *opensysml.ElementProperties
+	var err error
+	switch req.Lookup {
+	case pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME:
+		read, err = c.api.ElementPropertiesByName(ctx, c.model(req.ModelHash), req.ElementId, req.Properties...)
+	case pb.LookupKind_LOOKUP_KIND_ELEMENT_ID:
+		read, err = c.api.ElementPropertiesByID(ctx, c.model(req.ModelHash), req.ElementId, req.Properties...)
+	default:
+		read, err = c.api.ElementProperties(ctx, c.model(req.ModelHash), req.ElementId, req.Properties...)
+	}
 	var failure *opensysml.FailureError
 	if errors.As(err, &failure) {
 		return &pb.GetElementPropertiesResponse{Error: failure.Message}, nil

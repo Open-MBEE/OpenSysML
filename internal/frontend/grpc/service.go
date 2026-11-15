@@ -162,6 +162,14 @@ const CapabilitySymbolNameResolution = "symbol_name_resolution"
 // SymbolInfo.annotating_metadata_ids, the metadata usages annotating the element.
 const CapabilitySymbolAnnotatingMetadata = "symbol_annotating_metadata"
 
+// CapabilitySymbolLookupKind names the capability of honouring the lookup of GetSymbolRequest and
+// GetElementPropertiesRequest: a qualified name read only as a name, an element id only as an id.
+const CapabilitySymbolLookupKind = "symbol_lookup_kind"
+
+// CapabilitySymbolMemberDirection names the capability of honouring
+// GetSymbolRequest.member_of, reporting a feature's direction relative to that type.
+const CapabilitySymbolMemberDirection = "symbol_member_direction"
+
 // CapabilityUnsetValue names the capability of reporting a valueless feature of
 // a value type as Value.unset, rather than as the empty object it materializes.
 const CapabilityUnsetValue = "unset_value"
@@ -447,6 +455,8 @@ var capabilities = []string{
 	CapabilitySymbolNameResolution,
 	CapabilityRenderViewForm,
 	CapabilitySymbolAnnotatingMetadata,
+	CapabilitySymbolLookupKind,
+	CapabilitySymbolMemberDirection,
 }
 
 type capabilityAvailability struct {
@@ -1066,8 +1076,8 @@ func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceM
 	return modelHash, store(modelHash, model)
 }
 
-// GetSymbol retrieves symbol information by id, or by qualified name resolved
-// from the root namespace when the request asks for that.
+// GetSymbol retrieves symbol information by qualified name or by element id, as the
+// request's lookup states; without one, symbol_id is read name first, then id.
 func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.SymbolResponse, error) {
 	// Lookup cached model
 	cached, ok := s.cache.Get(req.ModelHash)
@@ -1075,23 +1085,27 @@ func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.
 		return nil, statusErrorf(connect.CodeNotFound, msgModelNotFound, req.ModelHash)
 	}
 
-	// An id the service reported denotes that element; a name is resolved.
-	var syms []*symbols.Symbol
-	if req.ResolveName && s.capabilities.has(CapabilitySymbolNameResolution) {
-		syms = cached.ResolveName(req.SymbolId)
-	} else {
-		syms = cached.LookupSymbol(req.SymbolId)
-	}
+	syms := s.lookupSymbol(cached, req)
 	if len(syms) == 0 {
 		return &pb.SymbolResponse{
 			Error: fmt.Sprintf("symbol not found: %s", req.SymbolId),
 		}, nil
 	}
 
+	opts := symbolfacts.Options{IncludeLibraryMembers: req.IncludeLibraryMembers}
+	if req.MemberOf != "" && s.capabilities.has(CapabilitySymbolMemberDirection) {
+		owners := cached.LookupSymbol(req.MemberOf)
+		if len(owners) == 0 {
+			return &pb.SymbolResponse{
+				Error: fmt.Sprintf("symbol not found: %s", req.MemberOf),
+			}, nil
+		}
+		opts.MemberOf = owners[0]
+	}
+
 	// Convert first match to proto
 	return &pb.SymbolResponse{
-		Symbol: s.symbolToProtoWith(syms[0], cached.SymbolContext(),
-			symbolfacts.Options{IncludeLibraryMembers: req.IncludeLibraryMembers}),
+		Symbol: s.symbolToProtoWith(syms[0], cached.SymbolContext(), opts),
 	}, nil
 }
 
@@ -1763,4 +1777,20 @@ func resolveEvent(lookup func(string) []*symbols.Symbol, action *symbols.Symbol,
 		}
 	}
 	return nil
+}
+
+// lookupSymbol finds what a GetSymbol request names, as the kind it states or name first.
+func (s *Service) lookupSymbol(cached *CachedModel, req *pb.GetSymbolRequest) []*symbols.Symbol {
+	if s.capabilities.has(CapabilitySymbolLookupKind) {
+		switch req.Lookup {
+		case pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME:
+			return cached.ResolveQualifiedName(req.SymbolId)
+		case pb.LookupKind_LOOKUP_KIND_ELEMENT_ID:
+			return cached.LookupElementID(req.SymbolId)
+		}
+	}
+	if req.ResolveName && s.capabilities.has(CapabilitySymbolNameResolution) {
+		return cached.ResolveName(req.SymbolId)
+	}
+	return cached.LookupSymbol(req.SymbolId)
 }

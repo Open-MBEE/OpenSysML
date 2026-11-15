@@ -86,6 +86,9 @@ type Options struct {
 	// IncludeLibraryMembers lists the members inherited from standard-library
 	// content in Members, each marked Library, instead of counting them.
 	IncludeLibraryMembers bool
+	// MemberOf is the type the symbol is read as a feature of; the direction
+	// reported is then the one relative to it (Type::directionOf).
+	MemberOf *symbols.Symbol
 }
 
 // TypeInfo describes a symbol's written, derived and primitive type. Declared,
@@ -154,13 +157,7 @@ func OfWith(sym *symbols.Symbol, sc *Context, opts Options) *Info {
 	// Extract metadata from AST node
 	extractMetadata(sym, info.Metadata)
 	sc.sendMetadata(sym, info.Metadata)
-	// A parameter whose direction its membership gives rather than its text,
-	// such as a subject (`in`), reports that direction.
-	if _, written := info.Metadata["direction"]; !written {
-		if dir, ok := semantics.ReflectiveDirection(sym); ok && dir != ast.DirNone {
-			info.Metadata["direction"] = dir.String()
-		}
-	}
+	sc.directionMetadata(sym, opts.MemberOf, info.Metadata)
 	// Add visibility to metadata
 	info.Metadata["visibility"] = visibilityToString(sym.Visibility)
 	info.ChildIds = sc.collectChildIDs(sc.ownedMembers(sym))
@@ -178,6 +175,24 @@ func OfWith(sym *symbols.Symbol, sc *Context, opts Options) *Info {
 	info.Members, info.WithheldLibraryMembers = sc.membersOf(sym, opts.IncludeLibraryMembers)
 	info.AnnotatingMetadataIds = sc.annotatingMetadataIDs(sym)
 	return info
+}
+
+// directionMetadata states sym's direction: relative to memberOf when one is
+// given (Type::directionOf, KerML 8.3.3.1.10), else its own Feature::direction.
+func (sc *Context) directionMetadata(sym, memberOf *symbols.Symbol, meta map[string]string) {
+	if memberOf != nil {
+		if dir := sc.Semantics.EffectiveDirection(memberOf, sym); dir != ast.DirNone {
+			meta["direction"] = dir.String()
+			return
+		}
+	}
+	// A parameter whose direction its membership gives rather than its text,
+	// such as a subject (`in`), reports that direction.
+	if _, written := meta["direction"]; !written {
+		if dir, ok := semantics.ReflectiveDirection(sym); ok && dir != ast.DirNone {
+			meta["direction"] = dir.String()
+		}
+	}
 }
 
 // Root is one document's root namespace: the index's own root symbol for
@@ -200,10 +215,14 @@ func Root(sc *Context, rootScope *symbols.Scope) *Info {
 	return info
 }
 
-// identityOrFQN is the id a symbol is reported under: the one Lookup answers,
+// identityOrFQN is the id a symbol is reported under: the one LookupID answers,
 // else the index's qualified name, so the report still says where it is.
 func (sc *Context) identityOrFQN(sym *symbols.Symbol) string {
-	if id := sc.ownedIdentity(sym); id != "" {
+	id := sc.ownedIdentity(sym)
+	if id == "" {
+		id = sc.FormID(sym)
+	}
+	if id != "" {
 		return id
 	}
 	return sc.Index.GetFQN(sym)
@@ -252,8 +271,8 @@ func (sc *Context) ownedMembers(sym *symbols.Symbol) []*symbols.Symbol {
 	return members
 }
 
-// collectChildIDs lists the members' ids in declaration order, each one
-// LookupElement resolves; a member no id reaches is left out.
+// collectChildIDs lists the members' ids in declaration order, each one LookupID
+// resolves to that member; a member no id reaches is left out.
 func (sc *Context) collectChildIDs(members []*symbols.Symbol) []string {
 	var ids []string
 	for _, sym := range members {

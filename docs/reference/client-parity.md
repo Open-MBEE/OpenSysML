@@ -121,6 +121,7 @@ from the clients and a gap is a stated gap rather than a silent one.
 | `action_trace` | bound | bound | bound | bound | bound | bound | bound |
 | `render_view` | bound | bound | bound | bound | bound | bound | bound |
 | `render_view_form` | bound | bound | bound | bound | bound | bound | bound |
+| `symbol_lookup_kind` | bound | bound | bound | bound | bound | bound | not bound |
 | `export_graphs` | bound | bound | bound | bound | bound | bound | bound |
 | `import_data` | bound | bound | bound | bound | bound | bound | bound |
 | `compare_results` | bound | bound | bound | bound | bound | bound | bound |
@@ -137,6 +138,7 @@ from the clients and a gap is a stated gap rather than a silent one.
 | `verdict_notes` | bound | not bound | bound | bound | bound | bound | bound |
 | `element_properties` | bound | bound | bound | bound | bound | bound | bound |
 | `symbol_annotating_metadata` | bound | bound | bound | bound | bound | not bound | not bound |
+| `symbol_member_direction` | bound | bound | not bound | not bound | not bound | not bound | not bound |
 
 
 ## Request options

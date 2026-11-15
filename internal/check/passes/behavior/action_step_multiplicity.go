@@ -184,7 +184,7 @@ func (c *actionStepMultiplicityChecker) checkAction(decl ast.Node, scope *symbol
 }
 
 func (c *actionStepMultiplicityChecker) checkBehaviors(actions []ast.Node, scope *symbols.Scope) {
-	for _, behavior := range lower.LowerBehaviors(actions, nil, scope, c.ctx.Resolver()) {
+	for _, behavior := range lower.LowerBehaviors(actions, nil, scope, c.ctx.Resolver(), nil) {
 		if behavior.Multiplicity != nil {
 			c.checkDeclaredMultiplicity(behavior.Node, behavior.Scope)
 		}

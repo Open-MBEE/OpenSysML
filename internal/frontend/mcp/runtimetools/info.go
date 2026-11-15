@@ -36,6 +36,8 @@ var CapabilityTools = map[string]string{
 	sysmlgrpc.CapabilitySymbolMembers:                  "symbol",
 	sysmlgrpc.CapabilitySymbolNameResolution:           "symbol",
 	sysmlgrpc.CapabilitySymbolAnnotatingMetadata:       "symbol",
+	sysmlgrpc.CapabilitySymbolLookupKind:               "symbol",
+	sysmlgrpc.CapabilitySymbolMemberDirection:          "symbol",
 	sysmlgrpc.CapabilityElementProperties:              "element_properties",
 	sysmlgrpc.CapabilityEvaluateSubject:                "evaluate",
 	sysmlgrpc.CapabilityEnumValues:                     "evaluate",

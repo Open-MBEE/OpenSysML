@@ -29,6 +29,8 @@ const (
 	CapabilitySymbolMembers                  = sysmlgrpc.CapabilitySymbolMembers
 	CapabilitySymbolNameResolution           = sysmlgrpc.CapabilitySymbolNameResolution
 	CapabilitySymbolAnnotatingMetadata       = sysmlgrpc.CapabilitySymbolAnnotatingMetadata
+	CapabilitySymbolLookupKind               = sysmlgrpc.CapabilitySymbolLookupKind
+	CapabilitySymbolMemberDirection          = sysmlgrpc.CapabilitySymbolMemberDirection
 	CapabilityImportData                     = sysmlgrpc.CapabilityImportData
 	CapabilityCompareResults                 = sysmlgrpc.CapabilityCompareResults
 	CapabilityCheck                          = sysmlgrpc.CapabilityCheck
