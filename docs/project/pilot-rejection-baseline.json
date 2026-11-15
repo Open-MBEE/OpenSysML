@@ -28,10 +28,10 @@
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
         "files": 349,
-        "digest": "sha256:070219a432a6b326c1e418623b21d9ee35b7731e340489566922e39564263384"
+        "digest": "sha256:a8113fa5ae5e4c7360df1d833f4251a70b069f0320d318a8ef0dd1e784fff61a"
       }
     ],
-    "recorded": "2026-11-14"
+    "recorded": "2026-11-15"
   },
   "totals": {
     "cases": 349,
@@ -42,7 +42,6 @@
   },
   "strictOnlyAgreements": [
     "extensions/x06-history-member.sysml",
-    "extensions/x09-expose-in-view-def-body.sysml",
     "extensions/x10-connector-in-sysml.sysml",
     "extensions/x11-indexed-connector-end.sysml",
     "extensions/x13-typed-by-in-sysml.sysml"
@@ -177,7 +176,8 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 2,
-      "defaultBucket": "pilot-only-rejects"
+      "defaultBucket": "both-reject",
+      "defaultErrors": 1
     },
     {
       "path": "extensions/x10-connector-in-sysml.sysml",
@@ -362,7 +362,7 @@
       "mode": "default",
       "bucket": "both-reject",
       "oursErrors": 3,
-      "pilotErrors": 2
+      "pilotErrors": 1
     },
     {
       "path": "grammar/g17-render-without-usage.sysml",

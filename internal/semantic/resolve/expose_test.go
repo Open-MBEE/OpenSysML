@@ -66,17 +66,17 @@ func TestExposeDoesNotLeakOutsideTheView(t *testing.T) {
 	}
 }
 
-// A view definition body is a namespace too, so an expose declared there
-// behaves the same way.
-func TestExposeInViewDefinitionBody(t *testing.T) {
+// A view usage declared in a view definition body owns its expose like any
+// other view usage (SysML v2 8.2.2.26.2 ViewBodyItem).
+func TestExposeInAViewUsageNestedInAViewDefinition(t *testing.T) {
 	idx := indexOf(t, map[string]string{
 		"lib.sysml": exposeLib,
-		"app.sysml": "package App { view def V { expose Lib::*; } }",
+		"app.sysml": "package App { view def V { view inner { expose Lib::*; } } }",
 	})
-	view := scopeOf(t, scopeOf(t, idx.DocumentRoot("app.sysml"), "App"), "V")
+	view := scopeOf(t, scopeOf(t, scopeOf(t, idx.DocumentRoot("app.sysml"), "App"), "V"), "inner")
 
 	r := New(idx)
 	if _, ok := r.ResolveName(view, "Pub", ident("Pub")); !ok {
-		t.Fatalf("member Pub of the exposed namespace is not visible in the view def body; diags=%v", r.Diagnostics)
+		t.Fatalf("member Pub of the exposed namespace is not visible in the nested view usage; diags=%v", r.Diagnostics)
 	}
 }

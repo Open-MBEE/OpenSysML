@@ -2147,9 +2147,8 @@ var ownedMembers = map[string]ownedMember{
 	// TransitionUsageMember is a StateBodyItem only (SysML.xtext); a transition between
 	// action nodes is an extension the notation pass reports, so those bodies read it too.
 	"transition": {"a transition between states", "state", []bodyContext{bodyState, bodyAction, bodyCalc, bodyCase}, "transition-membership-owning-type"},
-	// Expose is a ViewBodyItem only (SysML.xtext); in a view def body it is an
-	// extension OpenSysML resolves, which the notation pass reports.
-	"expose": {"what a view usage exposes", "view usage", []bodyContext{bodyView, bodyViewDef}, "expose-owning-namespace"},
+	// Expose is a ViewBodyItem only (SysML.xtext): a view def body does not offer it.
+	"expose": {"what a view usage exposes", "view usage", []bodyContext{bodyView}, "expose-owning-namespace"},
 }
 
 // MemberOwner names the body kind that alone offers the member keyword kw

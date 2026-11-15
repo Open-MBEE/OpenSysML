@@ -564,7 +564,7 @@ func TestActionRenderingSaysNothingOfANodePerformingStatements(t *testing.T) {
 }
 
 // The rendering is of the real exposed set: a filtered recursive expose and the
-// exposes inherited from the view definition, and nothing else.
+// exposes inherited from the view it specializes, and nothing else.
 func TestRenderingUsesFilteredAndInheritedExposure(t *testing.T) {
 	rendering := render(t, "filters.sysml", "FilteredViews::safetyView")
 	var roots []string
