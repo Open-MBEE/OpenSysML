@@ -11,8 +11,10 @@ import org.openmbee.mdk.magic.identity.QualifiedNames;
 import org.openmbee.mdk.magic.model.ModelPath;
 import org.openmbee.mdk.magic.source.ModelSource;
 import org.openmbee.opensysml.ElementProperties;
+import org.openmbee.opensysml.Lookup;
 import org.openmbee.opensysml.Model;
 import org.openmbee.opensysml.Symbol;
+import org.openmbee.opensysml.SymbolOptions;
 
 /** Finds the {@code DocumentQueries::Query} definitions a subject stands for: itself, or those behind what the migration wrote for it. */
 public final class QueryResolver {
@@ -67,14 +69,14 @@ public final class QueryResolver {
     }
     if (!symbol.kind().endsWith("Usage") && !symbol.kind().endsWith("Def")) return;
     if (symbol.kind().equals("calcUsage")) {
-      typeOf(symbol).flatMap(model::findSymbol)
+      typeOf(symbol).flatMap(id -> reported(model, id))
           .filter(type -> isQuery(model, type))
           .ifPresent(type -> found.add(type.id()));
       return;
     }
     for (Symbol.Member member : symbol.members()) {
       if (member.library() || !member.kind().endsWith("Usage")) continue;
-      model.findSymbol(member.id()).ifPresent(child -> collect(model, child, visited, found));
+      reported(model, member.id()).ifPresent(child -> collect(model, child, visited, found));
     }
   }
 
@@ -98,7 +100,7 @@ public final class QueryResolver {
     for (Symbol.Specialization general : symbol.specializations()) {
       if (general.targetId().isEmpty() || general.kind().equals("typing")) continue;
       if (general.targetId().get().equals(QUERY)) return true;
-      Optional<Symbol> target = model.findSymbol(general.targetId().get());
+      Optional<Symbol> target = reported(model, general.targetId().get());
       if (target.isPresent() && isQuery(model, target.get(), visited)) return true;
     }
     return false;
@@ -107,7 +109,7 @@ public final class QueryResolver {
   /** The {@code in} parameters of {@code query}, inherited ones included, in declaration order; a redefinition stands for what it redefines. */
   static List<QueryParameter> parameters(Model model, String query) {
     List<QueryParameter> parameters = new ArrayList<>();
-    Optional<Symbol> definition = model.findSymbol(query);
+    Optional<Symbol> definition = reported(model, query);
     if (definition.isEmpty()) return parameters;
     List<Symbol.Member> members = new ArrayList<>(definition.get().members());
     members.sort((a, b) -> Boolean.compare(a.inherited(), b.inherited()));
@@ -121,7 +123,7 @@ public final class QueryResolver {
   /** The member's symbol when it is the first {@code in} parameter of its name; a library member or a repeated name is none. */
   private static Optional<Symbol> inputParameter(Model model, Symbol.Member member, Set<String> named) {
     if (member.library() || !named.add(member.name())) return Optional.empty();
-    return model.findSymbol(member.id()).filter(symbol -> "in".equals(symbol.metadata().get("direction")));
+    return reported(model, member.id()).filter(symbol -> "in".equals(symbol.metadata().get("direction")));
   }
 
   /** Type and multiplicity come from the first declaration along the redefinition chain that states them. */
@@ -156,13 +158,18 @@ public final class QueryResolver {
           .filter(general -> general.kind().startsWith("redefin") || general.kind().startsWith("subset"))
           .flatMap(general -> general.targetId().stream())
           .findFirst()
-          .flatMap(model::findSymbol);
+          .flatMap(id -> reported(model, id));
     }
     return chain;
   }
 
+  /** The symbol an id the service reported names, which a declaration may be spelled like. */
+  private static Optional<Symbol> reported(Model model, String id) {
+    return model.findSymbol(id, SymbolOptions.defaults().lookup(Lookup.ELEMENT_ID));
+  }
+
   private static boolean hasValue(Model model, String parameter) {
-    for (ElementProperties.Property property : model.elementProperties(parameter, "value").properties()) {
+    for (ElementProperties.Property property : model.elementProperties(Lookup.ELEMENT_ID, parameter, "value").properties()) {
       if (property.name().equals("value") && !property.values().isEmpty()) return true;
     }
     return false;
