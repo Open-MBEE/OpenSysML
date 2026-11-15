@@ -8,7 +8,8 @@ if [[ $# -ne 2 ]]; then
 	exit 2
 fi
 
-# Eight retries back off 1, 2, 4 ... 128 seconds, or as long as the server's Retry-After
-# asks; ten minutes bound the whole, so a host that stays down still fails the caller.
+# Eight retries back off 1, 2, 4 ... 128 seconds, or as the server's Retry-After asks, and none
+# starts after ten minutes. An attempt ends at five minutes, or once it stalls for 30 seconds.
 exec curl -fsSL --proto '=https' --proto-redir '=https' --connect-timeout 30 \
-	--retry 8 --retry-all-errors --retry-max-time 600 -o "$2" "$1"
+  --max-time 300 --speed-limit 1024 --speed-time 30 \
+  --retry 8 --retry-all-errors --retry-max-time 600 -o "$2" "$1"

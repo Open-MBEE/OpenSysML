@@ -166,7 +166,8 @@ func TestFetchHTTPSKeepsItsCurlPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, flag := range []string{" -fsSL ", "--proto '=https'", "--proto-redir '=https'", "--retry 8 "} {
+	for _, flag := range []string{" -fsSL ", "--proto '=https'", "--proto-redir '=https'", "--retry 8 ",
+		"--retry-max-time 600 ", "--max-time 300 ", "--speed-limit 1024 ", "--speed-time 30 "} {
 		if !strings.Contains(string(raw), flag) {
 			t.Errorf("scripts/fetch-https.sh no longer passes curl %q", strings.TrimSpace(flag))
 		}
