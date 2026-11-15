@@ -146,6 +146,14 @@ func (h *actionStmtHost) occurrence() *Instance {
 	return h.exec.occurrence
 }
 
+// caseAssertions is the case's when the body is a step of a case's own flow.
+func (h *actionStmtHost) caseAssertions() *caseAssertions {
+	if h.perf != h.exec.root {
+		return nil
+	}
+	return h.perf.assertions
+}
+
 // materializeOccurrence defers to the performance's lazy hook, set on the
 // executor that runs it.
 func (h *actionStmtHost) materializeOccurrence() (*Instance, error) {

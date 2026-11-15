@@ -67,9 +67,9 @@ func (e *ActionExecutor) locateCrossing(run *stateSpaceRun) {
 
 	// A guard the search cannot follow is blind: it keeps its latest sample, and is
 	// watched at the samples the other guards set and at the step's end.
-	blind, followed := make([]bool, len(run.dyn.Crossings)), true
+	blind, followed := make([]bool, len(run.guards)), true
 	cut, short := rest, 0.0
-	for i := range run.dyn.Crossings {
+	for i := range run.guards {
 		search := crossingSearch{
 			guard: func(span float64) (float64, bool) {
 				guards, ok := preview(span)
@@ -148,13 +148,21 @@ func (e *ActionExecutor) previewGuards(run *stateSpaceRun, state Value, input *V
 	if _, err := e.holdFeature(lower.OutputFeature, output); err != nil {
 		return nil, false
 	}
-	guards := make([]float64, len(run.dyn.Crossings))
+	guards := make([]float64, len(run.owners))
+	at := 0
 	for i, crossing := range run.dyn.Crossings {
-		guard, err := e.evalGuard(crossing)
-		if err != nil || math.IsInf(guard, 0) {
-			guard = math.NaN()
+		end := at
+		for end < len(run.owners) && run.owners[end] == i {
+			end++
 		}
-		guards[i] = guard
+		components, err := e.watched(run, crossing, next, input)
+		for j := at; j < end; j++ {
+			guards[j] = math.NaN()
+			if err == nil && len(components) == end-at && !math.IsInf(components[j-at], 0) {
+				guards[j] = components[j-at]
+			}
+		}
+		at = end
 	}
 	return guards, true
 }

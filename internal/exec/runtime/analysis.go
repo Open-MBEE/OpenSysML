@@ -520,14 +520,19 @@ func (ctx *Context) CaseConditionsOf(sym *symbols.Symbol, scope *symbols.Scope) 
 	}
 	out := ctx.appendResultConflict(nil, sym, true)
 	for _, member := range ctx.chainMembers(sym, scope) {
-		// A case's own steps are its procedure, not a statement its conditions miss.
-		if _, step := statementKeyword(member.node); step {
-			continue
-		}
-		out = ctx.appendConditions(out, member.node, member.scope, true, false, nil)
-		out = ctx.appendCheckedConstraint(out, member)
+		out = append(out, ctx.caseMemberConditions(member)...)
 	}
 	return out
+}
+
+// caseMemberConditions are the conditions one member of a case's body states of the case.
+func (ctx *Context) caseMemberConditions(member scopedMember) []Condition {
+	// A case's own steps are its procedure, not a statement its conditions miss.
+	if _, step := statementKeyword(member.node); step {
+		return nil
+	}
+	out := ctx.appendConditions(nil, member.node, member.scope, true, false, nil)
+	return ctx.appendCheckedConstraint(out, member)
 }
 
 // appendCheckedConstraint appends the conditions a nested constraint usage

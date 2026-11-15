@@ -2232,6 +2232,33 @@ true one is the integrator's own error over that span; a guard that crosses and 
 between two previewed quarters without turning visibly towards zero at one of them is not seen, so
 the step still has to be chosen for the guard as well as for the integration.
 
+An event occurrence typed by the library's own `ZeroCrossingEventDef`, or by a specialization
+that declares no `guard`, needs none: it occurs where the derivative crosses zero, as the
+library defines its zero-crossing events (SysML v2 §9.4.4) — when a component of
+`getDerivative(input, stateSpace)` changes sign between two samples or arrives at zero, located
+inside the step like a guarded crossing. `event occurrence apex : Apex;` with
+`action def Apex :> ZeroCrossingEventDef;` marks the apex of a thrown ball, where its velocity —
+the derivative of its height — changes sign.
+
+Dynamics are connected by a flow or a binding the performing object declares, or an object
+owning the parts that perform them:
+
+```sysml
+part def Context {
+    part pusher { perform action pusherBehavior : ContinuousStateSpaceDynamics { /* … */ } }
+    part cart { perform action cartBehavior : ContinuousStateSpaceDynamics { /* … */ } }
+
+    flow pusher.pusherBehavior.output to cart.cartBehavior.input;
+}
+```
+
+Both run on the one clock. Each time the cart steps, its `input` is what the pusher's `output`
+holds then, and once the pusher has ended, what it left; the input is held over the
+step. Two dynamics due at one instant are a `due order` choice point like any other. An input
+takes one flow: two flows into one `input`, or a flow from something that is not a vector, are
+errors naming the action and the source. A flow between two dynamics that are steps of one
+action body is not carried yet; have an object perform them instead.
+
 A shape the runner cannot run truthfully is an error naming the action and the member at fault,
 never a wrong result: a `stateSpace`, `input`, derivative or output that is not a vector or is
 not bound; a `getDerivative`, `getDifference` or `getOutput` left abstract; an `integrate` bound
