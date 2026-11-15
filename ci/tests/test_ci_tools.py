@@ -636,6 +636,11 @@ class StarveSweepTest(Stub):
         self.assertEqual([e["pr"] for e in self.read("auth_rerun.json")], [6, 4, 7])
         self.assertIn("merge group starved: keeping run 22 (#5, 1 job(s) unfinished)", self.text("watch.log"))
 
+    def test_group_with_only_its_preflight_done_is_starved(self):
+        self.starved_rules(10, [{"name": "Changed areas", "status": "completed", "conclusion": "success"}, {"name": "Go", "status": "queued"}])
+        self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        self.assertEqual(sorted(self.cancels()), ["21", "23", "24"])
+
     def test_waiting_group_with_a_started_job_leaves_started_runs_alone(self):
         self.starved_rules(10, [{"status": "in_progress"}, {"status": "queued"}])
         self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)

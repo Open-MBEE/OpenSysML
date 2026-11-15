@@ -176,9 +176,9 @@ These rules come from running the tools on this repository and still apply.
   closest to finishing; keep the merge PR run":
   - **Waiting.** While a merge-queue run has queued or waiting jobs, every ordinary run whose
     heavy jobs are all still queued is cancelled.
-  - **Starved.** A merge-queue run older than `starve_grace_seconds` that has started no job means
-    ordinary runs took the runners first, typically in the gap between one queue build finishing
-    and the next being created. Every ordinary run with a job in progress is cancelled except the
+  - **Starved.** A merge-queue run older than `starve_grace_seconds` that has started no heavy job
+    (its preflight does not count) means ordinary runs took the runners first, typically in the gap
+    between one queue build finishing and the next being created. Every ordinary run with a job in progress is cancelled except the
     one with the fewest unfinished jobs. Ties go by tier rank.
 
   Each successful cancel is queued in `auth_rerun.json`, one entry per PR, in tier order. A

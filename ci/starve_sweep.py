@@ -61,7 +61,7 @@ class Sweeper:
             if created and (now - datetime.datetime.fromisoformat(created.replace("Z", "+00:00"))).total_seconds() >= self.cfg["starve_grace_seconds"]:
                 jobs = self.jobs(r["id"]) if jobs is None else jobs
                 # A run with no jobs at all is a GitHub ghost holding no runner, not a starved build.
-                starved = starved or (bool(jobs) and not any(j["status"] in ("in_progress", "completed") for j in jobs))
+                starved = starved or (bool(jobs) and not heavy_job_started(self.cfg, jobs))
         return waiting, starved
 
     def cancel_and_queue(self, r, why):
