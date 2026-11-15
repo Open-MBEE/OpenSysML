@@ -799,14 +799,14 @@ func stateMachineEndpoint(scope *symbols.Scope) bool {
 			switch {
 			case n.Kind == ast.DefState:
 				return true
-			case n.Kind.IsAction():
+			case n.Kind.HasActionBodyItems():
 				return false
 			}
 		case *ast.Usage:
 			switch {
 			case n.Kind == ast.UsageState:
 				return true
-			case n.Kind.IsAction():
+			case n.Kind.HasActionBodyItems():
 				return false
 			}
 		}

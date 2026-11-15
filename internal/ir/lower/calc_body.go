@@ -13,7 +13,7 @@ import (
 // step, so it runs after the steps; a `return` inside a branch or loop stops
 // the body there. owner is the declaration whose body members are: a case's
 // body whose members include action nodes performs them as its steps, lowered
-// as one Block over the flow they state (caseSteps); a calc's does not.
+// as one Block over the flow they state (caseSteps); a calc's does if it states one.
 // Without a resolver the flow's `@Probability` annotations go unread, as in
 // ToActionGraph; a caller holding one uses CalcBodyWith.
 func CalcBody(owner ast.Node, members []ast.Node, scope *symbols.Scope) []Statement {
@@ -36,7 +36,9 @@ func CalcBodyWithOrder(owner ast.Node, members []ast.Node, scope *symbols.Scope,
 			body = append(body, actual)
 		}
 	}
-	if PerformsSteps(owner) && len(flowNodesAmong(body)) > 0 {
+	// A calculation is an action (SysML v2 §7.19.1), so a body stating successions
+	// or control nodes is the token flow an action body is.
+	if PerformsSteps(owner) && len(flowNodesAmong(body)) > 0 || statesControlFlow(body) {
 		stmts := caseSteps(owner, body, scope, resolver, exprs)
 		return stmts, nil
 	}
@@ -84,6 +86,96 @@ func calcBodyStep(member ast.Node, scope *symbols.Scope, resolver *resolve.Resol
 		}
 	}
 	return calcStep(member, scope, resolver, exprs)
+}
+
+// statesControlFlow reports whether a calculation body states a control node or
+// a succession at an action node: a flow no order of its statements expresses.
+func statesControlFlow(body []ast.Node) bool {
+	nodes := make(map[string]bool)
+	for _, node := range flowNodesAmong(body) {
+		if usage, ok := node.(*ast.Usage); ok && usage.Ident.Name != "" {
+			nodes[usage.Ident.Name] = true
+		}
+	}
+	sequences := func(name *ast.QualifiedName, member ast.Node) bool {
+		if member != nil {
+			return isFlowNode(member)
+		}
+		return name != nil && len(name.Parts) == 1 && nodes[name.Parts[0].Text]
+	}
+	for _, member := range body {
+		switch m := unwrapMembership(member).(type) {
+		case *ast.ControlFlowEdge, *ast.InitialNode, *ast.ForkNode, *ast.JoinNode,
+			*ast.MergeNode, *ast.DecisionNode, *ast.FinalNode:
+			return true
+		case *ast.SuccessionEdge:
+			if sequences(m.Source, m.SourceMember) || sequences(m.Target, m.TargetMember) {
+				return true
+			}
+		case *ast.TransitionMember:
+			if m.IsSuccession && (sequences(m.Source, nil) || sequences(m.Target, nil)) {
+				return true
+			}
+		case *ast.Usage:
+			if m.Kind != ast.UsageSuccession || len(m.ConnectorEnds) != 2 {
+				continue
+			}
+			for _, end := range m.ConnectorEnds {
+				if name, ok := connectorEndReference(end).(*ast.QualifiedName); ok && sequences(name, nil) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// StatesFlow reports whether a block among stmts, or an action node of one, states
+// at any depth a token flow or pin connector only a performance can run.
+func StatesFlow(stmts []Statement) bool {
+	stated := func(block Block) bool {
+		if block.Graph == nil {
+			return StatesFlow(block.Statements)
+		}
+		_, sequential := block.Graph.StatementList()
+		return block.Stated && !sequential || len(block.Graph.Bindings) > 0 || len(block.Graph.DataFlows) > 0 ||
+			nodeStatesFlow(block.Graph)
+	}
+	for _, stmt := range stmts {
+		switch s := stmt.(type) {
+		case If:
+			if stated(s.Then) || s.Else != nil && stated(*s.Else) {
+				return true
+			}
+		case Loop:
+			if stated(s.Body) {
+				return true
+			}
+		case Block:
+			if stated(s) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// nodeStatesFlow reports whether an action node of graph states such a flow, in
+// its own body or in a block of it.
+func nodeStatesFlow(graph *ActionGraph) bool {
+	for _, node := range graph.Nodes {
+		if StatesFlow(graph.Bodies[node]) {
+			return true
+		}
+		sub := graph.Subflows[node]
+		if sub == nil || sub.Graph == nil {
+			continue
+		}
+		if _, sequential := sub.Graph.StatementList(); !sequential || nodeStatesFlow(sub.Graph) {
+			return true
+		}
+	}
+	return false
 }
 
 // CalcSteps returns the statements an invocation performs, excluding bindings

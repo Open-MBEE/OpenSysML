@@ -315,19 +315,21 @@ func TestCalcResultIsAnsweredAfterTheSteps(t *testing.T) {
 // the form `succession first a then b;` a member-attached `then` is written back as.
 const successionModel = `
 package test {
+	private import ScalarValues::*;
 	calc def sequenced {
-		in n;
-		action first;
-		action second;
-		succession first first then second;
-		return : Integer = n + 1;
+		in n : Integer;
+		attribute x : Integer := 0;
+		action add { assign x := x + n; }
+		action seed { assign x := 1; }
+		succession first seed then add;
+		return : Integer = x;
 	}
 }
 `
 
-// TestCalcBodySuccessionIsNotAStep requires a succession among a calculation's
-// members to leave the computation alone: the body states its order already.
-func TestCalcBodySuccessionIsNotAStep(t *testing.T) {
+// TestCalcBodySuccessionSequencesItsNodes requires a succession usage between two
+// action nodes of a calculation body to order them as it does in an action body.
+func TestCalcBodySuccessionSequencesItsNodes(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, successionModel))
 	root := idx.DocumentRoot("<test>")
 
