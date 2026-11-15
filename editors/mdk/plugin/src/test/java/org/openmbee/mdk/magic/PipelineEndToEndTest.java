@@ -202,7 +202,7 @@ class PipelineEndToEndTest {
           part filler;
           part;
           calc def Pick :> DocumentQueries::Query {
-            in subject : '@2';
+            in picked : '@2';
             DocumentQueries::Descendants(source = ())
           }
         }
