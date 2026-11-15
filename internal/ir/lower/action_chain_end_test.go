@@ -255,3 +255,27 @@ func TestActionChainEndInheritedThroughAMarkerNamedPart(t *testing.T) {
 		t.Errorf("a edges = %v, want [done.close]", edges)
 	}
 }
+
+// A performer a nearer general redefines without restating the reference is
+// still the occurrence the chain names: the redefining step is the end.
+func TestActionChainEndJoinsRedefinedInheritedPerformer(t *testing.T) {
+	graph := scopedActionGraph(t, chainEndParts+`
+		action def Base {
+			part v : Vehicle;
+			perform action c ::> v.close;
+		}
+		action def Mid :> Base {
+			action c2 :>> c;
+		}
+		action def Derived :> Mid {
+			action a;
+			first v.close then a;
+		}
+	`, "Derived")
+	if implied := impliedChainSteps(graph); len(implied) != 0 {
+		t.Fatalf("implied steps = %d, want the redefining step to be the end", len(implied))
+	}
+	if edges := graph.Edges[nodeNamed(t, graph, "c2")]; len(edges) != 1 || edges[0].Target != nodeNamed(t, graph, "a") {
+		t.Fatalf("c2 edges = %v, want [a]", edges)
+	}
+}

@@ -117,7 +117,7 @@ func (g *ActionGraph) chainSteps(ref ast.Node, scope *symbols.Scope) []ast.Node 
 		}
 	}
 	// A general's step joins the flow only after the body's own successions are lowered.
-	for _, body := range g.generals {
+	for i, body := range g.generals {
 		if body == nil || body.Node() == nil {
 			continue
 		}
@@ -126,6 +126,7 @@ func (g *ActionGraph) chainSteps(ref ast.Node, scope *symbols.Scope) []ast.Node 
 			if !performsPath(decl, segments) {
 				continue
 			}
+			decl, body := g.nearestRedefinition(i, decl)
 			if matches := inheritedNodeMatches(g, body, decl); len(matches) > 0 {
 				add(matches...)
 			} else if !shadowsInheritedActionNode(g, body, decl) {
@@ -150,6 +151,26 @@ func (g *ActionGraph) chainSteps(ref ast.Node, scope *symbols.Scope) []ast.Node 
 	g.recordDeclaredIn(step, scope)
 	g.Bodies[step] = []Statement{withExprs(performEffect(step, scope), g.Exprs)}
 	return []ast.Node{step}
+}
+
+// nearestRedefinition follows decl, a member of general i, to the member of the
+// nearest general redefining it, and the body declaring that member.
+func (g *ActionGraph) nearestRedefinition(i int, decl ast.Node) (ast.Node, *symbols.Scope) {
+	body := g.generals[i]
+	for nearer := i - 1; nearer >= 0; nearer-- {
+		general := g.generals[nearer]
+		if general == nil || general.Node() == nil {
+			continue
+		}
+		for _, member := range ast.DeclMembers(general.Node()) {
+			redefining := unwrapMembership(member)
+			if slices.Contains(resolve.ActionNodeRedefinitionTargets(general, redefining, false), decl) {
+				decl, body = redefining, general
+				break
+			}
+		}
+	}
+	return decl, body
 }
 
 // performsPath reports whether a node is an action step stated to perform the
