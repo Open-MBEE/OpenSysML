@@ -399,3 +399,93 @@ func (ctx *Context) namespaceReachingContributions(inst *Instance, name string, 
 	}
 	return values, seen, nil
 }
+
+// reachedSubsetted returns the features of other objects that the named feature of inst
+// subsets by a declaration elsewhere: the inverse of reachingSlots, read from the context
+// down the chain the target is written as.
+func (ctx *Context) reachedSubsetted(inst *Instance, name string) ([]subsetterSlot, error) {
+	var slots []subsetterSlot
+	// held is the features the owners hold inst through, innermost first.
+	var held []subsetterSlot
+	for context := inst; context != nil; {
+		for _, typ := range context.types() {
+			subsetters := ctx.reachingSubsetters(typ)
+			for i := range subsetters {
+				sub := &subsetters[i]
+				if len(sub.down) != len(held) || !ctx.denotes(inst, sub.feature, name) || !ctx.heldThrough(held, sub.down) {
+					continue
+				}
+				targets := []*Instance{context}
+				for _, feature := range sub.up {
+					var next []*Instance
+					for _, target := range targets {
+						objects, err := ctx.objectsHeldAs(target, feature, false)
+						if err != nil {
+							return nil, fmt.Errorf("feature %s leading to subsetted feature %s of %s: %w", feature.Name, sub.target.Name, name, err)
+						}
+						next = append(next, objects...)
+					}
+					targets = next
+				}
+				for _, target := range targets {
+					feature, ok := ctx.slotDenoting(target, sub.target)
+					if ok && !(target == inst && feature == name) && !containsSlot(slots, target, feature) {
+						slots = append(slots, subsetterSlot{holder: target, name: feature})
+					}
+				}
+			}
+		}
+		owner, feature := context.Owner()
+		if owner == nil {
+			break
+		}
+		held = append(held, subsetterSlot{holder: owner, name: feature})
+		context = owner
+	}
+	return slots, nil
+}
+
+// subsetsElsewhere reports whether a declaration makes the named feature of inst subset a
+// feature of another object, without reading the chain to it.
+func (ctx *Context) subsetsElsewhere(inst *Instance, name string) bool {
+	var held []subsetterSlot
+	for context := inst; context != nil; {
+		for _, typ := range context.types() {
+			subsetters := ctx.reachingSubsetters(typ)
+			for i := range subsetters {
+				sub := &subsetters[i]
+				if len(sub.down) == len(held) && ctx.denotes(inst, sub.feature, name) && ctx.heldThrough(held, sub.down) {
+					return true
+				}
+			}
+		}
+		owner, feature := context.Owner()
+		if owner == nil {
+			break
+		}
+		held = append(held, subsetterSlot{holder: owner, name: feature})
+		context = owner
+	}
+	return false
+}
+
+// heldDown returns the objects already held from context down the usages given, reading nothing.
+func (ctx *Context) heldDown(context *Instance, down []*symbols.Symbol) []*Instance {
+	holders := []*Instance{context}
+	for _, usage := range down {
+		var next []*Instance
+		for _, holder := range holders {
+			name, ok := ctx.slotDenoting(holder, usage)
+			if !ok || !holder.FeatureValues[name].Materialized {
+				continue
+			}
+			for _, el := range elementsOf(holder.FeatureValues[name].HeldValue()) {
+				if obj := ctx.instances[el.Instance]; el.Kind == ValInstance && obj != nil {
+					next = append(next, obj)
+				}
+			}
+		}
+		holders = next
+	}
+	return holders
+}

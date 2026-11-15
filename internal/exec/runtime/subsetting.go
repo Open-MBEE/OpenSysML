@@ -1047,17 +1047,26 @@ func (inst *Instance) materializeFromSubsetted(ctx *Context, fv *FeatureValue, n
 	}
 	subsetted := ctx.declaredSubsettedNamesOf(inst, fv.Feature.Symbol)
 	key := featureValueRef{instance: inst.ID, feature: name}
-	if len(subsetted) == 0 || ctx.drawingSubsetters[key] {
+	if ctx.drawingSubsetters[key] || len(subsetted) == 0 && !ctx.subsetsElsewhere(inst, name) {
 		return false, nil
 	}
 	ctx.drawingSubsetters[key] = true
 	defer delete(ctx.drawingSubsetters, key)
 
-	pool, pooled, err := ctx.subsettedPool(inst, fv, subsetted, composite)
+	slots := make([]subsetterSlot, 0, len(subsetted))
+	for _, sub := range subsetted {
+		slots = append(slots, subsetterSlot{holder: inst, name: sub})
+	}
+	elsewhere, err := ctx.reachedSubsetted(inst, name)
 	if err != nil {
 		return false, err
 	}
-	taken := ctx.siblingSubsetterValues(inst, fv, subsetted)
+	slots = append(slots, elsewhere...)
+	pool, pooled, err := ctx.subsettedPool(inst, fv, slots, composite)
+	if err != nil {
+		return false, err
+	}
+	taken := ctx.siblingSubsetterValues(inst, fv, slots)
 	chosen, seen, err := ctx.bindingWitnesses(inst, name, composite, pool, pooled, taken)
 	if err != nil {
 		return false, err
@@ -1100,18 +1109,19 @@ func (inst *Instance) materializeFromSubsetted(ctx *Context, fv *FeatureValue, n
 
 // subsettedPool is the values of fv's type every subsetted feature holds by its own declaration (a
 // value, a write or a binding, not a `default`); pooled is false where none does and they hold what fv makes.
-func (ctx *Context) subsettedPool(inst *Instance, fv *FeatureValue, subsetted []string, composite *symbols.Symbol) (pool []Value, pooled bool, err error) {
-	for _, sub := range subsetted {
-		subFV, ok := inst.FeatureValues[sub]
+func (ctx *Context) subsettedPool(inst *Instance, fv *FeatureValue, subsetted []subsetterSlot, composite *symbols.Symbol) (pool []Value, pooled bool, err error) {
+	for _, slot := range subsetted {
+		sub := slot.name
+		subFV, ok := slot.holder.FeatureValues[sub]
 		if !ok || !((ctx.valueBinds(subFV.Feature) && !subFV.Feature.defaultIsFallback()) || subFV.Written || subFV.BindingDerived) {
 			continue
 		}
-		subKey := featureValueRef{instance: inst.ID, feature: sub}
+		subKey := featureValueRef{instance: slot.holder.ID, feature: sub}
 		if !subFV.Materialized {
 			if ctx.collectingSubsets[subKey] || ctx.readingSubsetted[subKey] || ctx.drawingSubsetters[subKey] {
 				continue
 			}
-			if _, err := inst.GetFeatureValue(ctx, sub); err != nil {
+			if _, err := slot.holder.GetFeatureValue(ctx, sub); err != nil {
 				return nil, false, fmt.Errorf("subsetted feature %s of %s: %w", sub, fv.Feature.Name, err)
 			}
 		}
@@ -1220,21 +1230,31 @@ func (ctx *Context) valuesAlsoIn(pool, els []Value) []Value {
 }
 
 // siblingSubsetterValues is the values the other features subsetting what fv subsets already
-// hold on inst: a value drawn for fv is one of them only where the subsetted feature has no other.
-func (ctx *Context) siblingSubsetterValues(inst *Instance, fv *FeatureValue, subsetted []string) map[valueKey]bool {
+// hold: a value drawn for fv is one of them only where the subsetted feature has no other.
+func (ctx *Context) siblingSubsetterValues(inst *Instance, fv *FeatureValue, subsetted []subsetterSlot) map[valueKey]bool {
 	var taken map[valueKey]bool
-	for _, sub := range subsetted {
-		for _, feat := range ctx.subsettingFeaturesOf(inst, sub) {
-			sibling, ok := inst.FeatureValues[feat.Name]
-			if !ok || sibling == fv || !sibling.Materialized {
-				continue
+	take := func(sibling *FeatureValue) {
+		if sibling == nil || sibling == fv || !sibling.Materialized {
+			return
+		}
+		for _, v := range elementsOf(sibling.HeldValue()) {
+			if drawable(v) {
+				if taken == nil {
+					taken = map[valueKey]bool{}
+				}
+				taken[ctx.valueKey(v)] = true
 			}
-			for _, v := range elementsOf(sibling.HeldValue()) {
-				if drawable(v) {
-					if taken == nil {
-						taken = map[valueKey]bool{}
-					}
-					taken[ctx.valueKey(v)] = true
+		}
+	}
+	for _, slot := range subsetted {
+		for _, feat := range ctx.subsettingFeaturesOf(slot.holder, slot.name) {
+			take(slot.holder.FeatureValues[feat.Name])
+		}
+		// A sibling declared elsewhere counts once it holds a value: one not yet reached holds none.
+		for _, rc := range ctx.reachingContextsOf(slot.holder, slot.name) {
+			for _, holder := range ctx.heldDown(rc.context, rc.subsetter.down) {
+				if feature, ok := ctx.slotDenoting(holder, rc.subsetter.feature); ok {
+					take(holder.FeatureValues[feature])
 				}
 			}
 		}
@@ -1431,7 +1451,7 @@ func (d *witnessDraw) pick(candidates []Value, links int64) {
 func (ctx *Context) drawsFromSubsetted(loc bindingLocation) bool {
 	fv, ok := loc.instance.FeatureValues[loc.name]
 	return ok && !fv.Materialized && !fv.Written && !fv.BindingDerived && !ctx.valueBinds(fv.Feature) &&
-		len(ctx.declaredSubsettedNamesOf(loc.instance, fv.Feature.Symbol)) != 0
+		(len(ctx.declaredSubsettedNamesOf(loc.instance, fv.Feature.Symbol)) != 0 || ctx.subsetsElsewhere(loc.instance, loc.name))
 }
 
 // pickFromPool fills chosen to want values from pool, those no sibling subsetter holds first.
