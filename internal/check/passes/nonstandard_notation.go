@@ -23,6 +23,10 @@ const CodeNonstandardNotation = "nonstandard-notation"
 // SysML grammar admits it nowhere.
 const CodeKerMLNotation = "kerml-notation"
 
+// CodeTypingKeyword marks a typing a SysML file spells `typed by`, which
+// SysML spells `:` or `defined by`; analysis rejects it in every mode.
+const CodeTypingKeyword = "typing-keyword"
+
 // CodeSysMLNotation marks SysML notation used in a KerML file, which the pinned
 // KerML grammar admits nowhere.
 const CodeSysMLNotation = "sysml-notation"
@@ -653,15 +657,15 @@ func (w *notationWalker) stateMachinesImport(metadata string) (diag.Edit, bool) 
 	return diag.Edit{}, false
 }
 
-// kermlNamespace reports a `namespace` declaration in a SysML file, whose root
-// production admits package members only.
+// kermlNamespace rejects a `namespace` declaration in a SysML file in every mode:
+// no SysML production declares one (SysML 8.2.2.5.1 RootNamespace, 8.2.2.5.2).
 func (w *notationWalker) kermlNamespace(n *ast.Namespace) {
-	if !w.sysml || w.inKerMLDeclaration > 0 {
+	if !w.sysml {
 		return
 	}
 	w.diags = append(w.diags, diag.Diagnostic{
-		Severity: w.severity,
-		Span:     keywordSpan(n, "namespace"),
+		Severity: diag.SeverityError,
+		Span:     w.declarationKeywordSpan(n, "namespace"),
 		Message: "`namespace` is KerML notation: the SysML v2 grammar has no namespace declaration, " +
 			"so write `package` here or move the declaration to a .kerml file",
 		Code:   CodeKerMLNotation,
@@ -749,16 +753,16 @@ func (w *notationWalker) typedByRelationships(rels []*ast.Relationship) {
 	}
 }
 
-// typedBy reports a typing spelled `typed by` in a SysML file (SysML.xtext:395 admits
-// `:` and `defined by`; KerML.xtext:600 `typed by`); the fix rewrites the keyword alone.
+// typedBy rejects a typing spelled `typed by` in a SysML file (SysML v2 8.2.2.1.2 DEFINED_BY,
+// 8.2.2.6.5 TypedBy; KerML 8.2.2.7 TYPED_BY); the fix rewrites the keyword alone.
 func (w *notationWalker) typedBy(span source.Span) {
 	w.typedByReported++
 	w.diags = append(w.diags, diag.Diagnostic{
-		Severity: w.severity,
+		Severity: diag.SeverityError,
 		Span:     span,
 		Message: "`typed by` is KerML notation: the SysML v2 grammar spells a typing `:` or `defined by`, " +
 			"so write `defined by`",
-		Code:   CodeKerMLNotation,
+		Code:   CodeTypingKeyword,
 		Source: "syntax",
 		Fixes: []diag.Fix{{
 			Title:     "Write `defined by`",
