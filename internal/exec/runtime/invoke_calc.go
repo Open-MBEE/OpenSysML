@@ -914,7 +914,7 @@ func runCalcSteps(engine *stmtEngine, host *calcStmtHost, steps []lower.Statemen
 		case returned:
 			flow, err = flowReturn, nil
 		default:
-			flow, err = engine.run(trailingResults(steps))
+			flow, err = engine.run(statedResults(steps))
 		}
 	}
 	if err != nil {
@@ -928,6 +928,18 @@ func runCalcSteps(engine *stmtEngine, host *calcStmtHost, steps []lower.Statemen
 func (shape *loadedCalc) observationSteps() (steps, results []lower.Statement) {
 	results = trailingResults(shape.Steps)
 	return shape.Steps[:len(shape.Steps)-len(results)], results
+}
+
+// statedResults are the results ending steps that are bindings of the result and
+// no step: a conditional returning on a path is a step, which an ended body skips.
+func statedResults(steps []lower.Statement) []lower.Statement {
+	var stated []lower.Statement
+	for _, step := range trailingResults(steps) {
+		if _, ok := step.(lower.Return); ok {
+			stated = append(stated, step)
+		}
+	}
+	return stated
 }
 
 // trailingResults are the results ending steps (lower.IsResult).
