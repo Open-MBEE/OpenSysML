@@ -16,6 +16,8 @@ type TopMember struct {
 	Kind      string
 	Name      string
 	ShortName string
+	// Named and ShortNamed tell a declared empty name (`''`) from none.
+	Named, ShortNamed bool
 	// Target is what an import names, wildcards included.
 	Target string
 	Span   source.Span
@@ -43,25 +45,30 @@ func TopMemberOf(m ast.Node) TopMember {
 	tm := TopMember{Span: m.Span()}
 	switch d := node.(type) {
 	case *ast.Package:
-		tm.Kind, tm.Name, tm.ShortName = "package", d.Ident.Name, d.Ident.ShortName
+		tm.identify("package", d.Ident)
 	case *ast.Namespace:
-		tm.Kind, tm.Name, tm.ShortName = "namespace", d.Ident.Name, d.Ident.ShortName
+		tm.identify("namespace", d.Ident)
 	case *ast.Alias:
-		tm.Kind, tm.Name, tm.ShortName = "alias", d.Ident.Name, d.Ident.ShortName
+		tm.identify("alias", d.Ident)
 	case *ast.Import:
 		tm.Kind, tm.Target = "import", importTarget(d)
 	case *ast.Dependency:
-		tm.Kind, tm.Name, tm.ShortName = "dependency", d.Ident.Name, d.Ident.ShortName
+		tm.identify("dependency", d.Ident)
 	case *ast.Comment:
 		tm.Kind = "comment"
 	case *ast.RelationshipMember:
-		tm.Kind, tm.Name, tm.ShortName = ast.Notation(d), d.Ident.Name, d.Ident.ShortName
+		tm.identify(ast.Notation(d), d.Ident)
 	case *ast.Definition:
-		tm.Kind, tm.Name, tm.ShortName = ast.Notation(d), d.Ident.Name, d.Ident.ShortName
+		tm.identify(ast.Notation(d), d.Ident)
 	case *ast.Usage:
-		tm.Kind, tm.Name, tm.ShortName = ast.Notation(d), d.Ident.Name, d.Ident.ShortName
+		tm.identify(ast.Notation(d), d.Ident)
 	}
 	return tm
+}
+
+func (tm *TopMember) identify(kind string, id ast.Identification) {
+	tm.Kind, tm.Name, tm.ShortName = kind, id.Name, id.ShortName
+	tm.Named, tm.ShortNamed = id.HasName(), id.HasShortName()
 }
 
 // importTarget spells what an import names, wildcards included.

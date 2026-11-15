@@ -154,7 +154,12 @@ Elements are matched by a **stable key**, computed identically on both sides:
 
 - a named element by its `qualifiedName`, spelled with every segment unquoted
   (`'Derived Probe'::Vehicle` and `Derived Probe::Vehicle` are one key; the `qualifiedName`
-  *property* is still compared as written, so the quoting difference is measured);
+  *property* is still compared as written, so the quoting difference is measured). The empty
+  unrestricted name `''` (KerML 1.1 §8.2.2.3: the repetition between the quotes admits no
+  character) is a name on both sides, `declaredName` and `name` `""`; ours writes its segment as
+  §8.3.2.1.2 `escapedName()` spells an empty non-basic name, `P::''`, where the pilot writes the
+  bare `P::`. The two are one key, and the property difference is the pilot's departure from the
+  clause, not copied here; no compared file declares such a name, so no figure carries it;
 - an unnamed element by its owner: `<ownerKey>/<metaclass>[i]`, `i` counting the owner's preceding
   owned relationships (for a relationship — the owner is its `owningRelatedElement`) or owned
   elements (otherwise) of the same metaclass; the owned elements are the owned relationships'

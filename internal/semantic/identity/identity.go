@@ -14,6 +14,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"strconv"
+	"strings"
 )
 
 // FQNs of the identity metadata definitions in the bundled library.
@@ -263,11 +264,11 @@ func (b *builder) infoOf(sym *symbols.Symbol) *Info {
 	if sym == nil || (sym.Decl == nil && !sym.Recorded()) || sym.Kind == symbols.SymbolAlias {
 		return nil
 	}
-	fqn := b.qualifiedName(sym)
-	if fqn == "" {
+	fqn, derived, ok := b.qualifiedName(sym)
+	if !ok {
 		return nil
 	}
-	info := &Info{Symbol: sym, FQN: fqn, EffectiveID: rdf.EncodeElementID(fqn)}
+	info := &Info{Symbol: sym, FQN: fqn, EffectiveID: rdf.EncodeElementID(derived)}
 	if lang, ok := b.norm.language(sym); ok {
 		info.Source, info.Language = fixedSource(lang), lang
 		info.EffectiveID = ElementID(lang, fqn)
@@ -432,18 +433,22 @@ func collectSymbols(roots []*symbols.Scope) []*symbols.Symbol {
 	return out
 }
 
-// qualifiedName is the symbol's qualified name as the model derives it, through an effective name too
-// (`T::obj::massRequirement`); a metadata body feature's (`mission = …`) is under the usage owning it.
-func (b *builder) qualifiedName(sym *symbols.Symbol) string {
+// qualifiedName is the symbol's qualified name as the model derives it (a metadata body feature's under
+// the usage owning it), and derived the same name in the identity segments the derived id encodes.
+func (b *builder) qualifiedName(sym *symbols.Symbol) (fqn, derived string, ok bool) {
 	if b.model.RestatesMetadataBodyFeature(sym) {
 		if fqn := b.metadataBodyFQN(sym); fqn != "" {
-			return fqn
+			return fqn, fqn, true
 		}
 	}
-	if fqn := b.model.QualifiedNameOf(sym); fqn != "" {
-		return fqn
+	if names, ok := b.model.QualifiedNamesOf(sym); ok {
+		return strings.Join(names, "::"), QualifiedSegments(names), true
 	}
-	return b.idx.GetFQN(sym)
+	fqn = b.idx.GetFQN(sym)
+	if !sym.Named() {
+		return fqn, fqn, fqn != ""
+	}
+	return fqn, QualifiedSegments(symbols.NameChain(sym)), true
 }
 
 // metadataBodyFQN qualifies a metadata body feature under the usage owning it — an unnamed usage
@@ -457,15 +462,16 @@ func (b *builder) metadataBodyFQN(sym *symbols.Symbol) string {
 	if usage == nil {
 		return ""
 	}
-	usageFQN := b.qualifiedName(usage)
-	if usage.Name == "" {
+	usageFQN, _, _ := b.qualifiedName(usage)
+	if !usage.Named() {
 		index, ok := b.memberIndex(usage)
 		if !ok {
 			return ""
 		}
 		usageFQN = "@" + strconv.Itoa(index)
 		if owner := usage.OwnerScope.Owner(); owner != nil {
-			usageFQN = b.qualifiedName(owner) + "::" + usageFQN
+			ownerFQN, _, _ := b.qualifiedName(owner)
+			usageFQN = ownerFQN + "::" + usageFQN
 		}
 	}
 	return usageFQN + "::" + sym.Name

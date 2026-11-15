@@ -576,7 +576,7 @@ func (ctx *Context) metadataSubsettingNames(sym, owner *symbols.Symbol) []string
 			continue
 		}
 		for _, member := range ctx.model.semantics.MembersOf(owner) {
-			if member != sym && member.Name != "" && ctx.redefinesTransitively(member, base) {
+			if member != sym && member.Named() && ctx.redefinesTransitively(member, base) {
 				names = append(names, member.Name)
 				break
 			}

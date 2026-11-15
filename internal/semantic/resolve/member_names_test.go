@@ -1,6 +1,10 @@
 package resolve
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+)
 
 // memberNames is a fixed pair, so the distinguishability checks that range over
 // it for every member of every scope with imports allocate nothing per member;
@@ -11,6 +15,7 @@ func TestMemberNamesIsAFixedPairAndDoesNotAllocate(t *testing.T) {
 			part def Plain;
 			part def <s> Short;
 			part def Same;
+			part def '';
 		}`,
 	})
 	r := New(idx)
@@ -20,24 +25,39 @@ func TestMemberNamesIsAFixedPairAndDoesNotAllocate(t *testing.T) {
 	if plain == nil || short == nil {
 		t.Fatal("Plain or Short has no owning symbol")
 	}
-
-	if got := r.memberNames(plain); got != [2]string{"Plain", ""} {
-		t.Errorf("memberNames(Plain) = %q, want [Plain \"\"]", got)
+	var empty *symbols.Symbol
+	for _, sym := range app.Members() {
+		if sym.Named() && sym.Name == "" {
+			empty = sym
+		}
 	}
-	if got := r.memberNames(short); got != [2]string{"Short", "s"} {
-		t.Errorf("memberNames(Short) = %q, want [Short s]", got)
+	if empty == nil {
+		t.Fatal("the definition named by the empty unrestricted name is not a named member")
+	}
+
+	if got, n := r.memberNames(plain); got != [2]string{"Plain", ""} || n != 1 {
+		t.Errorf("memberNames(Plain) = %q, %d, want [Plain \"\"], 1", got, n)
+	}
+	if got, n := r.memberNames(short); got != [2]string{"Short", "s"} || n != 2 {
+		t.Errorf("memberNames(Short) = %q, %d, want [Short s], 2", got, n)
+	}
+	// The empty name is a name the membership binds, told from none by the count.
+	if got, n := r.memberNames(empty); got != [2]string{} || n != 1 {
+		t.Errorf("memberNames('') = %q, %d, want [\"\" \"\"], 1", got, n)
 	}
 	for _, c := range []struct {
 		label string
 		run   func()
 	}{
 		{"declared name only", func() {
-			for _, name := range r.memberNames(plain) {
+			names, n := r.memberNames(plain)
+			for _, name := range names[:n] {
 				_ = name
 			}
 		}},
 		{"declared short name", func() {
-			for _, name := range r.memberNames(short) {
+			names, n := r.memberNames(short)
+			for _, name := range names[:n] {
 				_ = name
 			}
 		}},

@@ -1,0 +1,5 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "EmptyName::",
+	"expected_kind": "partUsage"
+}

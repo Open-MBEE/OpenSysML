@@ -2335,7 +2335,7 @@ func sameBehaviorMember(behaviors []*ObjectBehavior) *symbols.Symbol {
 func behaviorUsages(behaviors []*ObjectBehavior) []string {
 	usages := make([]string, 0, len(behaviors))
 	for _, b := range behaviors {
-		if member := b.Member(); member != nil && member.Name != "" {
+		if member := b.Member(); member != nil && member.Named() {
 			usages = append(usages, member.Name)
 		}
 	}

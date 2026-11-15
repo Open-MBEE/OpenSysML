@@ -34,12 +34,14 @@ func constraintStepOf(member ast.Node, scope *symbols.Scope, resolver *resolve.R
 		*ast.JoinNode, *ast.MergeNode, *ast.DecisionNode, *ast.FinalNode:
 		return Unsupported{Description: statedFlowKeyword(member), Node: member, Scope: scope}, true
 	case *ast.WhileLoopActionNode:
+		variable, _ := m.Variable.DeclaredName()
 		bodyScope := childScope(scope, m)
 		return Loop{
 			Kind:       m.Kind,
 			Condition:  m.Condition,
 			Until:      m.Until,
-			Variable:   m.Variable.Name,
+			Variable:   variable,
+			Bound:      m.Variable.Declared(),
 			Collection: m.Collection,
 			Body:       constraintLowerBlock(m, m.Body, bodyScope, resolver, exprs),
 			BodyAction: loopBodyAction(m, bodyScope),
