@@ -325,9 +325,8 @@ func (e *encoder) seatHead(subject rdf.Term, anchor int, block []rdf.Term) {
 	}
 }
 
-// relationshipSpec picks the materialization of one collapsed property on
-// subject: the relationship class a target takes depends on what the element
-// is.
+// relationshipSpec picks the materialization of one collapsed property on subject: the
+// relationship class a target takes depends on what the element is.
 func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, count, i int) (normativeRelationship, bool) {
 	metaclass := e.metaclassOf(subject)
 	classifier := ontology.IsAncestorOrSelf(metaclass, "Classifier")

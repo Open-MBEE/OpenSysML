@@ -130,10 +130,8 @@ func collapsedOf(metaclass string) (string, bool) {
 	return "", false
 }
 
-// collapsedKindsOf are the collapsed properties a materialized element of the
-// metaclass may restate targets of — the encoder's relationshipSpec, read the
-// other way. A feature's `:>` is stored as specializes but materialized as a
-// Subsetting.
+// collapsedKindsOf are the collapsed properties a materialized element of the metaclass may restate
+// (relationshipSpec read the other way); a feature's `:>` is stored as specializes, materialized a Subsetting.
 var collapsedKindsOf = map[string][]ast.RelationshipKind{
 	mFeatureTyping:        {ast.RelTyping},
 	mConjugatedPortTyping: {ast.RelTyping},
