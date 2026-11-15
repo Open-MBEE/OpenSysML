@@ -291,7 +291,7 @@ func (r *Renderer) addSuccessionUsage(succession *symbols.Symbol, into *interact
 		return
 	}
 	name := ""
-	if succession.Name != "" && !succession.EffectiveName() {
+	if succession.Named() && !succession.EffectiveName() {
 		name = localName(succession)
 	}
 	into.orders = append(into.orders, order{from: from, to: to, name: name, succession: succession, origin: symbolOrigin(succession)})
@@ -450,7 +450,7 @@ func (r *Renderer) noticeSubject(sym *symbols.Symbol) string {
 // subject names an element a notice is about: what it is and its name, else what
 // it is and where it is written, since anonymity is normal notation.
 func (r *Renderer) subject(sym *symbols.Symbol, kind string) string {
-	if sym.Name != "" && !sym.EffectiveName() {
+	if sym.Named() && !sym.EffectiveName() {
 		return kind + " " + localName(sym)
 	}
 	if owner := sym.Owner(); owner != nil {
@@ -493,7 +493,7 @@ func endText(end ast.Node) string {
 // with, else the payload alone, else the keyword that declared it. An anonymous
 // message is normal notation, so it is never left unlabeled.
 func (r *Renderer) messageLabel(flow *symbols.Symbol) string {
-	if flow.Name != "" && !flow.EffectiveName() {
+	if flow.Named() && !flow.EffectiveName() {
 		if payload := payloadText(flow); payload != "" {
 			return localName(flow) + " of " + payload
 		}

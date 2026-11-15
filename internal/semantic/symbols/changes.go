@@ -132,10 +132,10 @@ func SpelledName(fqn string, syms []*Symbol) string {
 		if sym == nil || !HasFQN(sym, fqn) {
 			continue
 		}
-		if sym.Name != "" && hasFQNAs(sym, fqn, sym.Name) {
+		if sym.Named() && hasFQNAs(sym, fqn, sym.Name) {
 			return sym.Name
 		}
-		if short := shortNameOf(sym); short != "" {
+		if short, ok := shortNamed(sym); ok {
 			return short
 		}
 		break

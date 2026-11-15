@@ -70,7 +70,7 @@ func (c *associationEndTypesChecker) check(assoc *symbols.Symbol) {
 func (c *associationEndTypesChecker) endTypes(assoc, end *symbols.Symbol) []*symbols.Symbol {
 	types := c.declaredTypes(end)
 	for _, super := range c.model.AllSupertypes(assoc) {
-		if super == nil || super.Scope == nil || end.Name == "" {
+		if super == nil || super.Scope == nil || !end.Named() {
 			continue
 		}
 		super.Scope.ForEachMember(func(inherited *symbols.Symbol) bool {

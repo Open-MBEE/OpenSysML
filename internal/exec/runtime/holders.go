@@ -358,7 +358,7 @@ func (ctx *Context) collectReturnedParameters(shape *loadedCalc, passed, params 
 					walk(s.Else.Steps())
 				}
 			case lower.Loop:
-				if s.Variable != "" {
+				if s.Bound {
 					written(s.Body.Scope, s.Variable, valueSource{scope: s.Scope, expr: s.Collection})
 				}
 				walk(s.Body.Steps())

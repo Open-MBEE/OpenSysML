@@ -1,0 +1,35 @@
+{
+  "rpc": "GetElementProperties",
+  "model": "symbol_empty_name.sysml",
+  "element_id": "EmptyName___27_27",
+  "properties": [
+    "declaredName",
+    "name",
+    "qualifiedName"
+  ],
+  "expected_properties": [
+    {
+      "name": "declaredName",
+      "defining_class": "Element",
+      "values": [
+        ""
+      ]
+    },
+    {
+      "name": "name",
+      "defining_class": "Element",
+      "derived": true,
+      "values": [
+        ""
+      ]
+    },
+    {
+      "name": "qualifiedName",
+      "defining_class": "Element",
+      "derived": true,
+      "values": [
+        "EmptyName::''"
+      ]
+    }
+  ]
+}

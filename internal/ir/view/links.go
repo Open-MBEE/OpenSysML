@@ -101,7 +101,7 @@ func (r *Renderer) Sites(locate Locator) Sites {
 			if index := r.resolver.Index(); index != nil {
 				if scope := index.DocumentRoot(origin.Doc); scope != nil {
 					if sym := scope.DeclaredAt(origin.Span); sym != nil {
-						if sym.Name != "" {
+						if sym.Named() {
 							site.QualifiedName = source.QualifiedNameOf(symbols.NameChain(sym))
 						}
 						if info, ok := identity.Of(r.model, r.resolver, sym); ok && info != nil {
