@@ -193,6 +193,13 @@ answers to its qualified name. The `symbol_lookup_kind` capability advertises th
 `GetSymbol` and of `GetElementProperties`; a service without it ignores the field and reads the
 string in the legacy form, so a client checks the capability before relying on the kind.
 
+Every other request that names a declaration — the `symbolId`, `actionSymbolId`,
+`stateMachineSymbolId`, `analysisSymbolId`, `subjectSymbolId` and `performerSymbolId` of the
+evaluation, execution, verification and session RPCs, a query's `scope`, a document query's
+`queryId`, `documentId` and `elementId` binding, and `RenderView`'s `view` — reads its string as a
+qualified name first and then as the id the service reports the element under, so an id taken from
+`GetSymbol` names its element there too, the escaped one of a colliding declaration included.
+
 The legacy form is `symbolId` with no `lookup` (`LOOKUP_KIND_UNSPECIFIED`), one string for either
 kind, kept as it was: a declared name first, then an id, so a declaration spelled like a generated id shadows the
 element the id was generated for (`symbolId: "Col__V__c_pend0"` answers the package,

@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-// TestGetSymbolReadsMemberOfAsAReportedID pins that memberOf is read the way symbolId is:
-// an unnamed connector end's element id names the end, as the gRPC service answers it.
+// TestGetSymbolReadsMemberOfAsAReportedID pins that memberOf is an element id, as the gRPC
+// service reads it: an unnamed connector end's id names the end.
 func TestGetSymbolReadsMemberOfAsAReportedID(t *testing.T) {
 	c, err := New()
 	if err != nil {
