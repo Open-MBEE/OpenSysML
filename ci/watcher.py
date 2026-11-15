@@ -1267,7 +1267,9 @@ def iterate(st):
     res_open = bool(res) and str(res) not in holders
     for k in [k for k in others if k.isdigit() and int(k) in PINNED]:
         g = others.pop(k)
-        if not admit(st, k, slot(g, "pinned")):
+        if any(jobs_started(r) for r in g):
+            holders[k] = dict(slot(g, "pinned"), since=now())
+        elif not admit(st, k, slot(g, "pinned")):
             continue
         st["queue"][:] = [e for e in st["queue"] if str(e["pr"]) != k]
         st.setdefault("parked", {}).pop(k, None)

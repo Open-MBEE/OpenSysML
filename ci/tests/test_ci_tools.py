@@ -332,6 +332,20 @@ class WatcherTest(Stub):
         self.assertIn("(#8 not admitted)", self.text("watch.log"))
         self.assertEqual((st["holders"], [e["pr"] for e in st["queue"]]), ({}, [8]))
 
+    def test_waiting_merge_queue_still_counts_a_started_pinned_run(self):
+        self.write("pinned.json", [7])
+        mg = {"id": 900, "name": "PR", "head_branch": "gh-readonly-queue/develop/pr-5-abc", "head_sha": "e" * 40, "status": "in_progress"}
+        self.pass_rules([run(101, 7, "feat/seven", "in_progress")], mg_runs=[mg], extra=[
+            [r"^run list .*--status in_progress --event merge_group", [{"databaseId": 900, "status": "in_progress"}], 0],
+            [r"^api repos/Example/Repo/actions/runs/900/jobs", 1, 0],
+            [r"^run view 101 --repo Example/Repo --json status,jobs",
+             {"status": "in_progress", "jobs": [{"name": "Changed areas", "status": "completed", "conclusion": "success"},
+                                                {"name": "Build and test", "status": "in_progress"}]}, 0]])
+        log = self.run_once()
+        self.assertIn("#7: pinned PR; run 101 holds a slot", log)
+        self.assertNotIn("(#7 not admitted)", log)
+        self.assertEqual(self.read("state.json")["holders"]["7"]["kind"], "pinned")
+
     def test_authorized_rerun_starts_when_the_queue_is_idle_and_waits_under_dry_run_and_freeze(self):
         self.write("auth_rerun.json", [{"pr": 7, "run": 555, "head": "0000000000"}])
         self.pass_rules([], extra=[[r"^run rerun 555 --failed", "", 0]])
