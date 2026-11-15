@@ -180,17 +180,17 @@ func apiJSONGraphWithQualifiedNames(
 	for i, triple := range triples {
 		position := apiJSONQualifiedNamePosition{triple.Subject, triple.Predicate.Value}
 		if name, ok := before[position]; ok && !emitted[position] {
-			builder.Add(triple.Subject, addressTerm(name), rdf.String(name))
+			stateAddress(builder.Add, triple.Subject, name)
 			emitted[position] = true
 		}
 		builder.AddTriple(triple)
 		if name, ok := afterType[triple.Subject]; ok && triple.Predicate.Value == rdf.RDFType {
-			builder.Add(triple.Subject, addressTerm(name), rdf.String(name))
+			stateAddress(builder.Add, triple.Subject, name)
 			delete(afterType, triple.Subject)
 		}
 		if name, ok := after[position]; ok &&
 			(i+1 == len(triples) || triples[i+1].Subject != triple.Subject || triples[i+1].Predicate.Value != triple.Predicate.Value) {
-			builder.Add(triple.Subject, addressTerm(name), rdf.String(name))
+			stateAddress(builder.Add, triple.Subject, name)
 		}
 	}
 	return builder.Build()

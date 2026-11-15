@@ -27,6 +27,12 @@ type Table struct {
 	// TargetTransitions marks the `then x;` edges of state bodies that are TargetTransitionUsages
 	// (ast.IsStateTargetTransition): a TransitionUsage owning the succession, not the succession itself.
 	TargetTransitions map[ast.Node]bool
+	// Preceding is the member a `then` after each member sequences from: the last
+	// member before it that is not itself an edge, as the parser reads it.
+	Preceding map[ast.Node]ast.Node
+	// Introduced is the member a member-attached `then` sequences to: the one
+	// written right after the keyword, whose edge follows it in the body.
+	Introduced map[ast.Node]ast.Node
 	// Payloads holds the PayloadFeature each flow's `of` clause declares, keyed
 	// by the flow: the declared feature of `of p : T`, or one made up for `of T`.
 	Payloads        map[*ast.Usage]*ast.Usage
@@ -58,6 +64,8 @@ func Build(file *source.SourceFile, root *ast.RootNamespace, model *semantics.Mo
 		Positional:        map[ast.Node]string{},
 		Declared:          map[string]bool{},
 		Absorbed:          map[ast.Node]bool{},
+		Preceding:         map[ast.Node]ast.Node{},
+		Introduced:        map[ast.Node]ast.Node{},
 		TargetTransitions: map[ast.Node]bool{},
 		Payloads:          map[*ast.Usage]*ast.Usage{},
 		PayloadFeatures:   map[*ast.Usage]bool{},
@@ -113,8 +121,8 @@ func (t *Table) Kept(members []ast.Node) []ast.Node {
 
 // EffectiveName is MemberName completed by the model: a feature its clause
 // leaves nameless is named by the feature it implicitly redefines (KerML 1.1 §8.3.3.3).
-func (t *Table) EffectiveName(node ast.Node) string {
-	if name := MemberName(node); name != "" {
+func (t *Table) EffectiveName(node ast.Node) Name {
+	if name := MemberName(node); name.Named {
 		return name
 	}
 	// Only a usage or a subject is so identified: a Membership (`first start;`) names nothing,
@@ -122,18 +130,30 @@ func (t *Table) EffectiveName(node ast.Node) string {
 	switch node.(type) {
 	case *ast.Usage, *ast.SubjectMember:
 	default:
-		return ""
+		return Name{}
 	}
 	if sym := t.declSym[node]; sym != nil && sym.IsFeature() && t.model != nil {
-		return t.model.EffectiveNameOf(sym)
+		name, named := t.model.EffectiveNamed(sym)
+		return Name{Text: name, Named: named}
 	}
-	return ""
+	return Name{}
 }
 
 func (t *Table) collect(members []ast.Node, owner, position string) error {
 	kept := t.Kept(members)
+	// last and beforeLast are the latest members a `then` sequences from; a member-attached
+	// `then` follows its target prev, so its source is the latest of them before prev.
+	var last, beforeLast, prev ast.Node
 	for i, member := range kept {
 		node, _ := UnwrapMember(member)
+		if node == nil {
+			continue
+		}
+		t.sequence(node, last, beforeLast, prev)
+		if ast.IsSuccessionSource(node) {
+			last, beforeLast = node, last
+		}
+		prev = node
 		if _, done := node.(*ast.FinalNode); done && i+1 < len(kept) {
 			if next, _ := UnwrapMember(kept[i+1]); next != nil {
 				if edge, ok := next.(*ast.SuccessionEdge); ok && edge.TargetMember == node {
@@ -153,13 +173,13 @@ func (t *Table) collect(members []ast.Node, owner, position string) error {
 			continue
 		}
 		// A member whose own name is taken is identified by its position.
-		if name != "" && t.Declared[fqn] {
-			fqn = Qualify(owner, "", i)
+		if name.Named && t.Declared[fqn] {
+			fqn = Positional(owner, i)
 		}
 		t.FQN[node] = fqn
 		positional := Qualify(position, declared, i)
-		if declared != "" && t.positionalTaken[positional] {
-			positional = Qualify(position, "", i)
+		if declared.Named && t.positionalTaken[positional] {
+			positional = Positional(position, i)
 		}
 		t.positionalTaken[positional] = true
 		if positional != fqn {
@@ -186,6 +206,21 @@ func (t *Table) collect(members []ast.Node, owner, position string) error {
 	return nil
 }
 
+// sequence records what a `then` at node sequences from (Preceding) and, for a
+// member-attached one, the member it follows (Introduced).
+func (t *Table) sequence(node, last, beforeLast, prev ast.Node) {
+	preceding := last
+	if edge, ok := node.(*ast.SuccessionEdge); ok && edge.TargetImplied && prev != nil {
+		t.Introduced[node] = prev
+		if prev == last {
+			preceding = beforeLast
+		}
+	}
+	if preceding != nil {
+		t.Preceding[node] = preceding
+	}
+}
+
 // collectPayload names the payload feature a flow's `of` clause declares, which
 // the flow owns after its body members and prefixes; `of T` is named by position.
 func (t *Table) collectPayload(node ast.Node, owner string) error {
@@ -198,10 +233,10 @@ func (t *Table) collectPayload(node ast.Node, owner string) error {
 		return nil
 	}
 	index := t.CrossFeatureIndex(u)
-	fqn := Qualify(owner, payload.Ident.Name, index)
+	fqn := Qualify(owner, identName(payload.Ident), index)
 	// A payload whose name a body member took first is identified by its position.
-	if payload.Ident.Name != "" && t.Declared[fqn] {
-		fqn = Qualify(owner, "", index)
+	if payload.Ident.HasName() && t.Declared[fqn] {
+		fqn = Positional(owner, index)
 	}
 	if t.Declared[fqn] {
 		return &PayloadCollision{Payload: payload, Name: fqn}
@@ -252,9 +287,9 @@ func (t *Table) collectCrossFeature(node ast.Node, owner string) {
 		return
 	}
 	cross := u.CrossFeature
-	fqn := Qualify(owner, cross.Ident.Name, t.CrossFeatureIndex(u))
+	fqn := Qualify(owner, identName(cross.Ident), t.CrossFeatureIndex(u))
 	if t.Declared[fqn] {
-		fqn = Qualify(owner, "", t.CrossFeatureIndex(u))
+		fqn = Positional(owner, t.CrossFeatureIndex(u))
 	}
 	t.FQN[cross] = fqn
 	t.Declared[fqn] = true
@@ -279,7 +314,7 @@ func (t *Table) collectPrefixes(node ast.Node, owner string, index int) error {
 		if prefix == nil || t.Skip(prefix) {
 			continue
 		}
-		fqn := Qualify(owner, "", index)
+		fqn := Positional(owner, index)
 		t.FQN[prefix] = fqn
 		t.Declared[fqn] = true
 		if err := t.collect(prefix.Body, fqn, fqn); err != nil {

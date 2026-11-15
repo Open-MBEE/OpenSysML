@@ -227,7 +227,7 @@ func (ctx *Context) placeStage(out []*symbols.Symbol, stage *symbols.Symbol) []*
 		if prev == stage || slices.Contains(ctx.model.semantics.AllRedefinedFeatures(prev), stage) {
 			return out
 		}
-		if slices.Contains(redefined, prev) || (stage.Name != "" && stage.Name == prev.Name) {
+		if slices.Contains(redefined, prev) || (stage.Named() && stage.Name == prev.Name) {
 			out[i] = stage
 			return out
 		}

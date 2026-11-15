@@ -644,7 +644,7 @@ type actionParameter struct {
 func (ctx *Context) actionParametersOf(sym *symbols.Symbol) []actionParameter {
 	var params []actionParameter
 	for _, param := range ctx.model.semantics.BehaviorParametersOf(sym) {
-		if param.Symbol == nil || param.Symbol.Name == "" {
+		if param.Symbol == nil || !param.Symbol.Named() {
 			continue
 		}
 		params = append(params, actionParameter{

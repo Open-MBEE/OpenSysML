@@ -360,7 +360,7 @@ func (ss *Session) Members(symbolID string) ([]SessionMember, error) {
 	}
 	var members []SessionMember
 	for _, member := range sym.Scope.Members() {
-		if member.Name == "" {
+		if !member.Named() {
 			continue
 		}
 		members = append(members, SessionMember{ID: ss.cached.Index.GetFQN(member), Name: member.Name, Kind: member.Kind.String()})

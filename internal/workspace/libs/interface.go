@@ -212,7 +212,7 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 		facts.Ends = make([]symbols.ElementRef, len(ends))
 		for i, end := range ends {
 			// An end with no name of its own has no reference a record can carry.
-			if end != nil && end.Name != "" {
+			if end != nil && end.Named() {
 				facts.Ends[i] = w.ref(sym, end, "connector end")
 			}
 		}
