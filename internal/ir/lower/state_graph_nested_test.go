@@ -997,3 +997,39 @@ func TestScopelessLoweringNamesTheRegionLocalState(t *testing.T) {
 		}
 	}
 }
+
+// An endpoint qualified through the machine or its package names the same
+// vertex whichever way the machine is lowered (KerML 8.2.3.5.2).
+func TestToStateGraph_EndpointQualifiedThroughTheMachine(t *testing.T) {
+	for _, target := range []string{"Machine::busy", "test::Machine::busy", "Machine::busy.deep"} {
+		src := `
+			package test {
+				state Machine {
+					entry; then start;
+					state start;
+					state busy { state deep; }
+					transition first start then ` + target + `;
+				}
+			}
+		`
+		want := "busy"
+		if strings.HasSuffix(target, "deep") {
+			want = "deep"
+		}
+		root, machine := parseStateUsage(t, src)
+		graphs := map[string]*StateGraph{"scoped": graphOf(t, root, machine)}
+		// Lowered on its own, the machine has no package to be qualified through.
+		if !strings.HasPrefix(target, "test::") {
+			scopeless, err := ToStateGraph(machine, nil)
+			if err != nil {
+				t.Fatalf("%s: ToStateGraph without a scope: %v", target, err)
+			}
+			graphs["scopeless"] = scopeless
+		}
+		for name, graph := range graphs {
+			if got := transitionShape(graph)["start"]; len(got) != 1 || got[0] != want {
+				t.Errorf("%s (%s): start leads to %v, want [%s]", target, name, got, want)
+			}
+		}
+	}
+}

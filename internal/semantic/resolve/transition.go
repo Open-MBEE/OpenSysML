@@ -188,12 +188,10 @@ func VertexInScope(scope *symbols.Scope, target ast.Node) (ast.Node, bool) {
 	for s := scope; s != nil; s = s.Parent() {
 		// The innermost scope declaring the first segment answers, vertex or not.
 		if _, declared := s.LookupLocal(parts[0]); declared {
-			if sym, ok := localVertex(s, parts); ok {
+			// A path may start outside the machine, but the vertex is one of its own.
+			if sym, ok := localVertex(s, parts); ok && scopeWithin(sym.OwnerScope, machine) {
 				return sym.Decl, true
 			}
-			break
-		}
-		if s == machine {
 			break
 		}
 	}
@@ -203,6 +201,16 @@ func VertexInScope(scope *symbols.Scope, target ast.Node) (ast.Node, bool) {
 		return sym.Decl, true
 	}
 	return nil, false
+}
+
+// scopeWithin reports whether scope is outer or a scope nested in it.
+func scopeWithin(scope, outer *symbols.Scope) bool {
+	for s := scope; s != nil; s = s.Parent() {
+		if s == outer {
+			return true
+		}
+	}
+	return false
 }
 
 // ActionNodeInScope finds an inherited action node from the scope tree alone.
