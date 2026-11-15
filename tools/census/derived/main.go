@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/exporter"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 	"github.com/Open-MBEE/OpenSysML/tools/referee/diff"
 )
@@ -100,16 +101,16 @@ func run(opts options) error {
 	}
 	record.Recorded = baseline.Today()
 	committed := filepath.Join(opts.repo, filepath.FromSlash(CommittedBaseline))
-	exporter, err := exporterPresent(opts)
+	present, err := exporterPresent(opts)
 	if err != nil {
 		return err
 	}
 	var recorded *Report
-	if !exporter {
+	if !present {
 		if recorded, err = readCommitted(committed); err != nil && !os.IsNotExist(err) {
 			return err
 		}
-		fmt.Fprintf(opts.log, "pilot JSON exporter is absent at %s; the pilot column is the one %s records (run ./scripts/download-pilot-json-exporter.sh to re-export it)\n", opts.launcher, CommittedBaseline)
+		fmt.Fprintf(opts.log, "pilot JSON exporter is absent at %s; the pilot column is the one %s records (run %s to re-export it)\n", opts.launcher, CommittedBaseline, exporter.ProvisionCommand)
 	}
 	classes := newMetaclasses()
 	report := &Report{Provenance: record}
@@ -135,7 +136,7 @@ func run(opts options) error {
 		for name, counts := range ours.Rules {
 			entry.Rules[name] = RuleCounts{Ours: counts}
 		}
-		if exporter {
+		if present {
 			pilot, err := runExporter(opts.launcher, dir, opts.libraries, files, opts.timeout, classes)
 			if err != nil {
 				return err
@@ -159,6 +160,11 @@ func run(opts options) error {
 	report.finish()
 	if _, err := writeReports(opts.out, report, opts.log); err != nil {
 		return err
+	}
+	if opts.update || opts.check {
+		if err := refuseUnexportedRoots(report); err != nil {
+			return err
+		}
 	}
 	if opts.update {
 		if len(opts.roots) > 0 {
@@ -210,11 +216,20 @@ func exporterPresent(opts options) (bool, error) {
 	case err == nil:
 		return true, nil
 	case os.IsNotExist(err) && opts.requireExporter:
-		return false, fmt.Errorf("pilot JSON exporter is absent at %s; run ./scripts/download-pilot-json-exporter.sh to provision it", opts.launcher)
+		return false, fmt.Errorf("pilot JSON exporter is absent at %s; run %s to provision it", opts.launcher, exporter.ProvisionCommand)
 	case os.IsNotExist(err):
 		return false, nil
 	}
 	return false, fmt.Errorf("inspect exporter: %w", err)
+}
+
+// refuseUnexportedRoots refuses a census whose pilot column failed on every file of a root.
+func refuseUnexportedRoots(report *Report) error {
+	roots := make([]exporter.Root, 0, len(report.Roots))
+	for _, root := range report.Roots {
+		roots = append(roots, exporter.Root{Name: root.Name, Files: root.Files, Failed: root.PilotFailed})
+	}
+	return exporter.RefuseUnexported(roots)
 }
 
 // readCommitted reads the recorded census.

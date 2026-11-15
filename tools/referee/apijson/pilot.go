@@ -12,6 +12,8 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/exporter"
 )
 
 // pilotExport is one corpus root exported through the pinned pilot.
@@ -110,25 +112,9 @@ func runPilot(launcher, dir string, libraries, files []string, timeout time.Dura
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return nil, fmt.Errorf("pilot export of %s exceeded %s", dir, timeout)
 	}
-	status := 0
-	if runErr != nil {
-		var exit *exec.ExitError
-		if !errors.As(runErr, &exit) {
-			return nil, fmt.Errorf("pilot export of %s: %w\n%s", dir, runErr, strings.TrimSpace(stderr.String()))
-		}
-		status = exit.ExitCode()
-	}
-	cause := launcherError(stderr.String())
-	switch {
-	case status == launcherSetupStatus:
-		if cause == "" {
-			cause = fmt.Sprintf("the launcher's setup exit status %d", launcherSetupStatus)
-		}
-		return nil, notRun(dir, cause)
-	case status == 1 && cause != "":
-		return nil, notRun(dir, cause)
-	case status != 0 && status != 1:
-		return nil, fmt.Errorf("pilot export of %s: %w\n%s", dir, runErr, strings.TrimSpace(stderr.String()))
+	status, err := exporter.Status(dir, runErr, stderr.String())
+	if err != nil {
+		return nil, err
 	}
 	result := &pilotExport{Log: pilotLog(stderr.String()), Unkeyed: make(map[string]int)}
 	written := 0
@@ -150,8 +136,8 @@ func runPilot(launcher, dir string, libraries, files []string, timeout time.Dura
 		written++
 		result.Elements = append(result.Elements, keyPilot(document, result)...)
 	}
-	if status == 1 && written == 0 && len(files) > 0 {
-		return nil, notRun(dir, fmt.Sprintf("exit status 1 with no document written for its %d files", len(files)))
+	if err := exporter.Wrote(dir, status, written, len(files)); err != nil {
+		return nil, err
 	}
 	var duplicates, ambiguous map[string]int
 	result.Elements, duplicates, ambiguous, result.Shared = dropAmbiguous(result.Elements)
@@ -164,29 +150,6 @@ func runPilot(launcher, dir string, libraries, files []string, timeout time.Dura
 		result.file(file).AmbiguousKeys.Pilot += count
 	}
 	return result, nil
-}
-
-// launcherSetupStatus is the launcher's exit status when it cannot start the bridge
-// (scripts/download-pilot-json-exporter.sh); the bridge exits 1 for files it failed on.
-const launcherSetupStatus = 78
-
-// provisionCommand builds the launcher on the pinned jar.
-const provisionCommand = "./scripts/download-pilot-json-exporter.sh"
-
-// notRun is the error of a run in which the bridge exported nothing.
-func notRun(dir, cause string) error {
-	return fmt.Errorf("pilot JSON exporter did not run on %s: %s; run %s to provision it", dir, cause, provisionCommand)
-}
-
-// launcherError is the first "Error:" line on stderr, which the launcher and the JVM
-// print when the bridge never started; the bridge's own lines name a file first.
-func launcherError(stderr string) string {
-	for _, line := range strings.Split(stderr, "\n") {
-		if line = strings.TrimSpace(line); strings.HasPrefix(line, "Error:") {
-			return line
-		}
-	}
-	return ""
 }
 
 // pilotLog keeps the bridge's per-file diagnostics and drops the logging

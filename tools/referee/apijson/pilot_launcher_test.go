@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/exporter"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 	"github.com/Open-MBEE/OpenSysML/tools/referee/baseline"
 )
@@ -40,15 +41,15 @@ func stubBridge(t *testing.T, stderr string, status int, written ...string) stri
 
 func requireNotRun(t *testing.T, err error, cause string) {
 	t.Helper()
-	if err == nil || !strings.Contains(err.Error(), "did not run") || !strings.Contains(err.Error(), cause) || !strings.Contains(err.Error(), provisionCommand) {
-		t.Fatalf("want a did-not-run error naming %q and %s, got %v", cause, provisionCommand, err)
+	if err == nil || !strings.Contains(err.Error(), "did not run") || !strings.Contains(err.Error(), cause) || !strings.Contains(err.Error(), exporter.ProvisionCommand) {
+		t.Fatalf("want a did-not-run error naming %q and %s, got %v", cause, exporter.ProvisionCommand, err)
 	}
 }
 
 var stubFiles = []string{"a.sysml", "sub/b.sysml"}
 
 func TestRunPilotRefusesTheLauncherSetupStatus(t *testing.T) {
-	launcher := stubBridge(t, "Error: pilot jar not found at /gone.jar", launcherSetupStatus)
+	launcher := stubBridge(t, "Error: pilot jar not found at /gone.jar", exporter.SetupStatus)
 	_, err := runPilot(launcher, t.TempDir(), nil, stubFiles, time.Minute)
 	requireNotRun(t, err, "pilot jar not found at /gone.jar")
 }
@@ -105,8 +106,8 @@ func TestTheLauncherExitsWithTheSetupStatusWithoutItsJar(t *testing.T) {
 	command := exec.Command(launcher, "--out", t.TempDir(), "a.sysml")
 	command.Stderr = &stderr
 	var exit *exec.ExitError
-	if err := command.Run(); !errors.As(err, &exit) || exit.ExitCode() != launcherSetupStatus || !strings.HasPrefix(stderr.String(), "Error:") {
-		t.Fatalf("want exit %d with an Error: line, got %v: %s", launcherSetupStatus, err, stderr.String())
+	if err := command.Run(); !errors.As(err, &exit) || exit.ExitCode() != exporter.SetupStatus || !strings.HasPrefix(stderr.String(), "Error:") {
+		t.Fatalf("want exit %d with an Error: line, got %v: %s", exporter.SetupStatus, err, stderr.String())
 	}
 	_, err = runPilot(launcher, t.TempDir(), nil, []string{"a.sysml"}, time.Minute)
 	requireNotRun(t, err, "Error:")
@@ -144,7 +145,7 @@ func stubRepo(t *testing.T) options {
 
 func requireRefusedRoot(t *testing.T, err error) {
 	t.Helper()
-	if err == nil || !strings.Contains(err.Error(), "failed on every file of testdata (2 files)") || !strings.Contains(err.Error(), provisionCommand) {
+	if err == nil || !strings.Contains(err.Error(), "failed on every file of testdata (2 files)") || !strings.Contains(err.Error(), exporter.ProvisionCommand) {
 		t.Fatalf("want the all-pilotFailed testdata root refused, got %v", err)
 	}
 }

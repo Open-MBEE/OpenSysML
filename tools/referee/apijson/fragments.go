@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/exporter"
 	"github.com/Open-MBEE/OpenSysML/tools/referee/baseline"
 )
 
@@ -217,27 +217,22 @@ func splitScorecardKey(key string) (metaclass, property string, ok bool) {
 	return key, "", false
 }
 
-// refuseUnexportedRoots refuses fragments in which the pilot failed on every file of a
-// root, the record of an exporter that never ran there rather than of the pilot's verdicts.
+// refuseUnexportedRoots refuses fragments in which the pilot failed on every file of a root.
 func refuseUnexportedRoots(fragments []Fragment) error {
-	files, failed := make(map[string]int), make(map[string]int)
+	var roots []exporter.Root
+	index := make(map[string]int)
 	for _, f := range fragments {
-		files[f.Root]++
+		i, ok := index[f.Root]
+		if !ok {
+			i, index[f.Root] = len(roots), len(roots)
+			roots = append(roots, exporter.Root{Name: f.Root})
+		}
+		roots[i].Files++
 		if f.Summary.PilotFailed {
-			failed[f.Root]++
+			roots[i].Failed++
 		}
 	}
-	var roots []string
-	for root, count := range files {
-		if failed[root] == count {
-			roots = append(roots, fmt.Sprintf("%s (%d files)", root, count))
-		}
-	}
-	if len(roots) == 0 {
-		return nil
-	}
-	slices.Sort(roots)
-	return fmt.Errorf("the pilot failed on every file of %s, so its exporter did not run there; run %s and retry, never record or accept such a baseline", strings.Join(roots, ", "), provisionCommand)
+	return exporter.RefuseUnexported(roots)
 }
 
 // committedDir is where the baseline directory lives in a checkout.
