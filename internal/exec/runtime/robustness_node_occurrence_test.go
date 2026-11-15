@@ -37,6 +37,25 @@ const nodeOccurrenceFixture = `package test {
 			first fin then done;
 		}
 	}
+	part stopped {
+		perform action run {
+			action outer {
+				fork split;
+				action slow { action w accept sig : Integer; first start then w; first w then done; }
+				action pre;
+				action quit { terminate outer; }
+				first start;
+				succession first start then split;
+				succession first split then slow;
+				succession first split then pre;
+				succession first pre then quit;
+				succession first slow then done;
+				succession first quit then done;
+			}
+			first start then outer;
+			first outer then done;
+		}
+	}
 	part unreached {
 		perform action run {
 			attribute go : Boolean = false;
@@ -130,6 +149,14 @@ func TestRuntimeRobustnessNodeOccurrence(t *testing.T) {
 		}
 		if got := fv.HeldValue(); !valueEqual(got, intConst(1)) {
 			t.Errorf("run.total = %v, want 1: the run goes on past a node valued by an invocation", got)
+		}
+	})
+
+	t.Run("terminated_node_performance_has_ended", func(t *testing.T) {
+		ctx, self := instantiate(t, "test::stopped")
+		slow := heldNodeObject(t, ctx, self, "run.outer.slow")
+		if life, _ := ctx.OccurrenceLife(slow.ID); life.Began == 0 || life.Ended == 0 {
+			t.Errorf("run.outer.slow life = %v, want one begun and ended by the terminate around it", life)
 		}
 	})
 

@@ -799,9 +799,7 @@ func (e *performances) endPerformance(perf *actionFrame) error {
 	if perf.node != nil {
 		e.markPerformance(perf.flow, perf.node, true)
 	}
-	if perf.occurrence != nil && perf.occurrence.performance == perf {
-		e.ctx.endPerformanceLife(perf.occurrence)
-	}
+	e.endNodeOccurrence(perf)
 	return nil
 }
 

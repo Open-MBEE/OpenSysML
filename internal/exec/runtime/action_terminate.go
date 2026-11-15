@@ -446,6 +446,7 @@ func (e *ActionExecutor) dropTokensIn(perf *actionFrame, keep int64) {
 		}
 		for f := token.frame; f != nil && f != perf; f = f.parent {
 			f.ended, f.live = true, 0
+			e.endNodeOccurrence(f)
 		}
 		e.removeToken(e.tokenIndex(token.ID))
 	}
