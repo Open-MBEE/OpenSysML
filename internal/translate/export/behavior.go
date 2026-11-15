@@ -365,7 +365,7 @@ func (e *encoder) encodeSuccessionEdge(n *ast.SuccessionEdge, head func(rdf.Term
 	positionalSource := n.Source == nil && n.SourceMember != nil
 	if implied || positionalSource {
 		// A `then` succession owns its two ends however its source is reached (SysML.xtext TargetSuccession:
-		// SourceEndMember + ConnectorEndMember); the target end carries the crossing multiplicity `then [m] b;` writes.
+		// MultiplicitySourceEndMember + ConnectorEndMember); the target end carries the crossing multiplicity `then [m] b;` writes.
 		e.graph.Add(subject, e.sysx(xEndForm), rdf.String(formThen))
 		if _, err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: "end0", index: 0, memberName: e.ids.model.ImpliedEndName(ast.UsageSuccession, 0), ends: 2, empty: true, mult: n.SourceMultiplicity, noCollapse: true}); err != nil {
 			return err
