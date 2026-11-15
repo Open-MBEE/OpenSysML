@@ -195,7 +195,12 @@ func TestAPIJSONInheritedEnumeratedValuesAreMembersNotFeatures(t *testing.T) {
 func TestAPIJSONEndFeatureFollowsTheInheritedFeatures(t *testing.T) {
 	src := `package Probe {
 		classifier X;
-		classifier A { end feature shown : X; private end feature hidden : X; }
+		classifier A {
+			end feature shown : X;
+			private end feature hidden : X;
+			private alias shownToo for shown;
+			alias hiddenToo for hidden;
+		}
 		classifier B specializes A;
 	}`
 	file := source.New("probe.kerml", []byte(src))

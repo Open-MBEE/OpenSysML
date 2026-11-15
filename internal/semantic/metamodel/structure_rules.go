@@ -5716,7 +5716,7 @@ func (e *Evaluator) structureGeneralEndFeatures(
 		if !ok {
 			return nil, nil, nil, false
 		}
-		private, ok := e.structurePrivateOwnedMemberKeys(general)
+		private, ok := e.structurePrivateOwnedFeatureKeys(general)
 		if !ok {
 			return nil, nil, nil, false
 		}
@@ -5738,10 +5738,10 @@ func (e *Evaluator) structureGeneralEndFeatures(
 	return all, inheritable, redefined, true
 }
 
-// structurePrivateOwnedMemberKeys is the members element owns through a private membership, which
-// no subtype inherits (KerML 8.3.3.1.10 nonPrivateMemberships).
-func (e *Evaluator) structurePrivateOwnedMemberKeys(element Element) (map[ElementKey]bool, bool) {
-	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
+// structurePrivateOwnedFeatureKeys is the features element owns through a private FeatureMembership,
+// which no subtype inherits whatever aliases them (KerML 8.3.3.1.10 nonPrivateMemberships, feature).
+func (e *Evaluator) structurePrivateOwnedFeatureKeys(element Element) (map[ElementKey]bool, bool) {
+	owned, handled, ok := e.structureOwnedFilter(element, "FeatureMembership", true)
 	if !handled || !ok {
 		return nil, false
 	}
