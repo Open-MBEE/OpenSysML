@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 349,
-        "digest": "sha256:070219a432a6b326c1e418623b21d9ee35b7731e340489566922e39564263384"
+        "files": 354,
+        "digest": "sha256:242d1d20ae780b420f4ed79c6342524764ce454edc12c4cb7c0184b34a86b078"
       }
     ],
-    "recorded": "2026-11-14"
+    "recorded": "2026-11-15"
   },
   "totals": {
-    "cases": 349,
-    "bothReject": 339,
+    "cases": 354,
+    "bothReject": 344,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 10,
     "bothAccept": 0
@@ -66,8 +66,8 @@
     },
     {
       "source": "semantic",
-      "cases": 187,
-      "bothReject": 177,
+      "cases": 192,
+      "bothReject": 182,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 10,
       "bothAccept": 0
@@ -1245,6 +1245,51 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 11
+    },
+    {
+      "path": "semantic/accepter-source-calculation.sysml",
+      "source": "semantic",
+      "rule": "A transition with an accepter must have a state as its source (SysML v2.1 8.3.18.9 validateTransitionUsageTriggerActions; the source is a calculation usage).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/accepter-source-do-action.sysml",
+      "source": "semantic",
+      "rule": "A transition with an accepter must have a state as its source (SysML v2.1 8.3.18.9 validateTransitionUsageTriggerActions; the source is a do action).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/accepter-source-inherited-action.sysml",
+      "source": "semantic",
+      "rule": "A transition with an accepter must have a state as its source (SysML v2.1 8.3.18.9 validateTransitionUsageTriggerActions; the source is an inherited action reached through a feature chain).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/accepter-source-performed-action.sysml",
+      "source": "semantic",
+      "rule": "A transition with an accepter must have a state as its source (SysML v2.1 8.3.18.9 validateTransitionUsageTriggerActions; the source is a performed action).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/accepter-source-previous-action.sysml",
+      "source": "semantic",
+      "rule": "A transition with an accepter must have a state as its source (SysML v2.1 8.3.18.9 validateTransitionUsageTriggerActions; a transition written without a source leaves the action declared before it).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
     },
     {
       "path": "semantic/cn01-fork-two-incoming.sysml",
@@ -3387,8 +3432,8 @@
       }
     ],
     "totals": {
-      "cases": 349,
-      "bothReject": 339,
+      "cases": 354,
+      "bothReject": 344,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 10,
       "bothAccept": 0

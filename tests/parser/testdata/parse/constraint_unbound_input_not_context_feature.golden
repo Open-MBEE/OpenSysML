@@ -1,0 +1,112 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="constraint" abstract=false variation=false name="Above"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="limit" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="margin" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (OperatorExpr operator="-"
+                (FeatureReference name="limit")
+                (LiteralInteger value="1"))))
+          (ConstraintMember assert=true negated=false
+            (OperatorExpr operator=">"
+              (FeatureReference name="margin")
+              (LiteralInteger value="0")))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Rig"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="limit" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="5")))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="masked" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="limit" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Integer
+                    (*ast.QualifiedName))))
+              (ConstraintMember assert=true negated=false
+                (OperatorExpr operator=">"
+                  (FeatureReference name="limit")
+                  (LiteralInteger value="4")))))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="direct" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConstraintMember assert=true negated=false
+                (OperatorExpr operator=">"
+                  (FeatureReference name="limit")
+                  (LiteralInteger value="4")))))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="bound" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="limit" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Integer
+                    (*ast.QualifiedName))
+                  (FeatureReference name="Rig::limit")))
+              (ConstraintMember assert=true negated=false
+                (OperatorExpr operator=">"
+                  (FeatureReference name="limit")
+                  (LiteralInteger value="4")))))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="typed" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Above
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="typedBound" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Above
+                (*ast.QualifiedName))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="limit" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (FeatureReference name="Rig::limit")))))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Bench"
+          (Membership visibility="default"
+            (Usage kind="part" name="rig" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Rig
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="maskedVerdict" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (FeatureChainExpr member="result"
+                (FeatureChainExpr member="masked"
+                  (FeatureReference name="rig")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="maskedLimit" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (FeatureChainExpr member="limit"
+                (FeatureChainExpr member="masked"
+                  (FeatureReference name="rig")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="directVerdict" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (FeatureChainExpr member="result"
+                (FeatureChainExpr member="direct"
+                  (FeatureReference name="rig")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="boundVerdict" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (FeatureChainExpr member="result"
+                (FeatureChainExpr member="bound"
+                  (FeatureReference name="rig")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="typedVerdict" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (FeatureChainExpr member="result"
+                (FeatureChainExpr member="typed"
+                  (FeatureReference name="rig")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="typedMargin" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (FeatureChainExpr member="margin"
+                (FeatureChainExpr member="typed"
+                  (FeatureReference name="rig")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="typedBoundVerdict" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (FeatureChainExpr member="result"
+                (FeatureChainExpr member="typedBound"
+                  (FeatureReference name="rig")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="typedBoundMargin" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (FeatureChainExpr member="margin"
+                (FeatureChainExpr member="typedBound"
+                  (FeatureReference name="rig"))))))))))

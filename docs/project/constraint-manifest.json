@@ -4186,7 +4186,7 @@
         "name": "validateTransitionUsageTriggerActions"
       },
       "checks": "A transition with an accepter has a state as its source",
-      "implementation": "internal/check/passes/behavior/state_transition.go:transitionChecker.checkAccepterSource",
+      "implementation": "internal/check/passes/behavior/state_transition.go:transitionChecker.checkAccepterSources",
       "message": "—",
       "negativeCase": "`xpect/p34-accepter-source-not-state.sysml`",
       "codes": [
