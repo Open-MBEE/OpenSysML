@@ -169,7 +169,7 @@ unless stated otherwise.
 | `stacks.json` | `{"stacks": [[pr]]}` | Stacked PRs in chain order: their rank and successor admission (see [Stacked pull requests](#stacked-pull-requests)). |
 | `stack_state.json` | `{"heads": {"pr": sha}}` | Written by `stack_monitor.py`: the heads it last saw. |
 | `cancel_auth.json` | `[run]` | Runs the watcher may cancel. |
-| `auth_rerun.json` | `[{"pr", "run", "head", "full"}]` | Authorized re-runs, taken when a slot frees and no merge-queue run waits. Each one is `gh run rerun --failed`, or a plain `gh run rerun` of every job when the entry has `"full": true`. An entry is skipped if the PR's head has moved off `head`. The sweeper appends to this file. |
+| `auth_rerun.json` | `[{"pr", "run", "head", "full", "workflow"}]` | Authorized re-runs, taken when a slot frees and no merge-queue run waits. Each one is `gh run rerun --failed`, or a plain `gh run rerun` of every job when the entry has `"full": true`. An entry is skipped if the PR's head has moved off `head`. The sweeper appends to this file, one entry per PR and `workflow`. |
 | `starve_cancel.json` | `{"by", "rule"}` | Authorizes and runs `starve_sweep.py`. |
 | `release.json` | `[{"pr", "sha"}]` | Heads released to CI under the review gate. `"pr": "*"` with a full 40-character SHA releases a head before its PR exists. |
 | `review_gate.json` | `{"since"}` | Admit only released heads that have no unresolved review threads. Unreleased runs caught with only the preflight done are cancelled (authorization still applies) and queued. |
@@ -250,8 +250,8 @@ These rules come from running the tools on this repository and still apply.
   `hotfix/`), and non-pull-request runs on an `exempt_branches` branch (`develop`, `main`) or a
   `protected_tags` tag (`v<digit>…`).
 
-  Each successful cancel of an ordinary run is queued in `auth_rerun.json`, one entry per PR, in tier
-  order. A failed cancel is logged and not queued. A run with no PR (for example a
+  Each successful cancel of an ordinary run is queued in `auth_rerun.json`, one entry per PR and
+  workflow (its `workflow` field), in tier order. A failed cancel is logged and not queued. A run with no PR (for example a
   `workflow_dispatch` or `push` run on a feature branch) ranks after every PR run; it is cancelled
   but never queued for re-run, and the log says so.
 - Each sweeper pass logs one heartbeat line to `watch.log`, for example `STARVE-SWEEP heartbeat: mq

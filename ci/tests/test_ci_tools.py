@@ -829,6 +829,17 @@ class StarveSweepTest(Stub):
         self.assertIn("cancelled; not queued for re-run (no PR)", log)
         self.assertIsNone(self.cfg().read("auth_rerun.json"))
 
+    def test_a_prs_runs_of_two_workflows_both_keep_a_rerun(self):
+        def r(rid, name):
+            return {"id": rid, "event": "pull_request", "name": name, "head_branch": "feat/5", "head_sha": f"{rid:040d}",
+                    "pull_requests": [{"number": 5}]}
+        self.starved_rules(1, [{"status": "queued"}], extra=[
+            [r"runs\?status=in_progress", {"workflow_runs": [r(41, "PR"), r(42, "Docs")]}, 0],
+            [r"runs/4[12]/jobs", {"jobs": [{"name": "Go", "status": "queued"}]}, 0]])
+        self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        self.assertEqual(sorted(self.cancels()), ["41", "42"])
+        self.assertEqual(sorted((e["run"], e["workflow"]) for e in self.read("auth_rerun.json")), [(41, "PR"), (42, "Docs")])
+
     def test_failed_starvation_cancel_is_not_queued(self):
         self.starved_rules(10, [{"status": "queued"}], cancel_fails=(23,))
         self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
@@ -847,7 +858,7 @@ class StarveSweepTest(Stub):
         self.assertIn("heartbeat: mq waiting=no starved=no failing=no; ordinary runs: 3 started, 1 unstarted, 0 being cancelled", log)
         self.assertIn("over the cap with the merge queue idle: 4 ordinary runs active, keeping run 23 (#6), run 22 (#5) (cap 2)", log)
         self.assertEqual(self.cancels(), ["21", "24"])
-        self.assertEqual(self.read("auth_rerun.json"), [{"pr": 4, "run": 21, "head": "0000000000"}])
+        self.assertEqual(self.read("auth_rerun.json"), [{"pr": 4, "run": 21, "head": "0000000000", "workflow": "PR"}])
         self.assertIn("#7: run 24 (0000000000, 2 job(s) unfinished, over the cap of 2 with the merge queue idle) not cancelled", log)
 
     def test_idle_queue_within_the_cap_cancels_nothing(self):
