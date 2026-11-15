@@ -800,9 +800,8 @@ type actionSubject struct {
 	// frame is the node already standing for the action in the enclosing
 	// rendering, whose pins its bindings attach to; nil for a rendered action.
 	frame *Node
-	// performing is the perform action usage the root stands for when the flow
-	// drawn is the performed action's; context is the performer whose nested
-	// performers the swimlanes are, nil for an action drawn on its own.
+	// performing is the perform action usage whose performed flow is drawn and
+	// context its performer, which scopes the lanes; nil for an action drawn on its own.
 	performing *symbols.Symbol
 	context    *symbols.Symbol
 }

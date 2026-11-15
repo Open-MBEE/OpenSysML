@@ -25,10 +25,8 @@ const performedByCompartment = "performed by"
 // performedByRowKind is the kind of a row of the `performed by` compartment.
 const performedByRowKind = "performer"
 
-// performedAction is the action a perform action usage performs without
-// declaring a flow of its own: the action its reference subsetting names
-// (`perform a.b;`, SysML v2 §7.17.6), nil for a usage that declares its own
-// body or names no action.
+// performedAction is the action a bodiless perform action usage references
+// (`perform a.b;`, SysML v2 §7.17.6), nil when it has a body or names no action.
 func (r *Renderer) performedAction(sym *symbols.Symbol) *symbols.Symbol {
 	usage, ok := sym.Decl.(*ast.Usage)
 	if !ok || !usage.IsPerformedAction() || usage.HasBody {
@@ -41,9 +39,8 @@ func (r *Renderer) performedAction(sym *symbols.Symbol) *symbols.Symbol {
 	return target
 }
 
-// performersOf are the elements the model states perform action, in declaration
-// order: the owner of each perform action usage that names it, the action's own
-// flow left out.
+// performersOf are the performers of action in declaration order: the owner of
+// each perform action usage referencing it, the action's own flow left out.
 func (r *Renderer) performersOf(action *symbols.Symbol) []*symbols.Symbol {
 	if action == nil {
 		return nil
@@ -104,9 +101,8 @@ func containsElement(list []*symbols.Symbol, sym *symbols.Symbol) bool {
 	return false
 }
 
-// performersIn are the performers of action a flow drawn for context shows:
-// all of them for an action drawn on its own, and only context and the elements
-// nested in it for the action a perform action usage of context performs.
+// performersIn are the performers of action a flow shows: all of them, or for
+// the flow a perform action usage of context performs, those within context.
 func (r *Renderer) performersIn(action, context *symbols.Symbol) []*symbols.Symbol {
 	all := r.performersOf(action)
 	if context == nil {
@@ -137,10 +133,8 @@ func performerName(sym *symbols.Symbol) string {
 	return strings.Join(names, ".")
 }
 
-// laneNodes moves each node of a flow one performer performs into that
-// performer's swimlane, the lanes placed where their first node stood, and
-// lists on a node several performers perform all of them in its `performed by`
-// compartment, as one lane cannot hold it. symbols gives each node's element.
+// laneNodes moves each node one performer performs into that performer's lane
+// and lists the performers of a node several perform in its `performed by`.
 func (r *Renderer) laneNodes(frame *Node, from int, elements map[*Node]*symbols.Symbol, context *symbols.Symbol, ids *nodeIDs) {
 	lanes := map[symbols.ElementKey]*Node{}
 	kept := frame.Children[:from:from]

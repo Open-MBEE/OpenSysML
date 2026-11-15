@@ -621,15 +621,15 @@ func drawioHTMLText(text string) string {
 	return strings.ReplaceAll(html.UnescapeString(b.String()), "\u00a0", " ")
 }
 
-// originOf is the declaration behind a baseline cell id: a port's or a node's.
+// originOf is the declaration an edit of a baseline cell id is written to: a port's or a node's.
 func (m *drawioMatcher) originOf(id string) (Origin, bool) {
 	if port, ok := m.ports[id]; ok {
 		return port.Origin, true
 	}
-	if node := m.nodes[id]; node != nil {
+	if node := m.nodes[id]; node != nil && node.Kind != swimlaneKind {
 		return node.Origin, false
 	}
-	return Origin{}, false
+	return Origin{}, false // a swimlane is no element: its link names the performer, which no edit of the lane reaches
 }
 
 // layoutDiff is the Layout a node needs for the file's box, nil when the box

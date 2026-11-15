@@ -1,6 +1,8 @@
 package view
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -32,10 +34,8 @@ func performedByNames(node *Node) []string {
 	return names
 }
 
-// The flow a perform action usage of a part performs is drawn with a swimlane
-// for each part nested there that performs its nodes, named by its feature
-// chain, the nodes nothing performs outside every lane (SysML v2 §8.2.3.17,
-// perform-actions-swimlanes).
+// The flow a perform action usage of a part performs has a lane for each nested
+// performer, the unperformed nodes outside (§8.2.3.17 perform-actions-swimlanes).
 func TestSwimlanesGroupThePerformedFlowByPerformer(t *testing.T) {
 	rendering := render(t, "action-swimlanes.sysml", "SwimLanes::performedView")
 	root := rendering.Roots[0]
@@ -77,9 +77,8 @@ func TestSwimlanesGroupThePerformedFlowByPerformer(t *testing.T) {
 	}
 }
 
-// An action several elements perform stays out of the lanes, which hold a node
-// once, and lists its performers in a `performed by` compartment
-// (§8.2.3.17 performed-by-compartment); so does the flow's own action.
+// An action several elements perform stays out of the lanes and lists them in
+// `performed by` (§8.2.3.17 performed-by-compartment), as the flow's own action does.
 func TestPerformedByCompartmentListsSeveralPerformers(t *testing.T) {
 	rendering := render(t, "action-swimlanes.sysml", "SwimLanes::actionView")
 	root := rendering.Roots[0]
@@ -97,9 +96,8 @@ func TestPerformedByCompartmentListsSeveralPerformers(t *testing.T) {
 	}
 }
 
-// Lanes are drawn in the flow that owns the performed nodes, a nested flow
-// included; a definition, an action and an unnamed usage are performers as a
-// named part is; and an action nothing performs is left as it was.
+// Lanes are drawn in the flow owning the performed nodes, nested flows included,
+// for a definition, an action and an unnamed usage as for a named part.
 func TestSwimlanesOfNestedFlowsAndPerformerShapes(t *testing.T) {
 	rendering := render(t, "action-swimlanes.sysml", "LaneShapes::assembleView")
 	for action, performer := range map[string]string{"cut": "Robot", "weld": "Robot", "inspect": "supervise", "pack": ": Robot"} {
@@ -182,6 +180,47 @@ func TestSwimlanesAbutAndAlign(t *testing.T) {
 			if box.X < lane.right() && lane.X < box.right() && box.Y < lane.bottom() && lane.Y < box.bottom() {
 				t.Errorf("%s %q at %+v overlaps a lane %+v", child.Kind, child.Name, box, lane)
 			}
+		}
+	}
+}
+
+// swimlaneImportCase is the action flow whose nodes two performers' lanes hold.
+func swimlaneImportCase(t *testing.T) (c struct {
+	name string
+	file string
+	view string
+	kind Kind
+}, golden string) {
+	t.Helper()
+	for _, c = range plantumlGoldenCases {
+		if c.name == "action-swimlanes-action" {
+			data, err := os.ReadFile(filepath.Join("testdata", c.name+".drawio.golden"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			return c, string(data)
+		}
+	}
+	t.Fatal("no action-swimlanes-action golden case")
+	return c, ""
+}
+
+// TestDrawioImportNeverPlacesThePerformerOfASwimlane: a lane is no element, so
+// moving it or a node in it writes no Layout on the performer's declaration.
+func TestDrawioImportNeverPlacesThePerformerOfASwimlane(t *testing.T) {
+	c, golden := swimlaneImportCase(t)
+	for _, moved := range []string{"n1", "n7"} {
+		document := mutateCell(t, golden, moved, func(cell string) string {
+			return setGeometryAttr(t, cell, "y", "140")
+		})
+		imp := drawioGoldenImport(t, c, document)
+		for _, edit := range imp.Edits {
+			if !strings.HasPrefix(edit.FQN, "SwimLanes::action0") {
+				t.Errorf("moving %s: edit %s of %q (%+v), want only the flow's own nodes placed", moved, edit.Kind, edit.FQN, edit.Origin)
+			}
+		}
+		if moved == "n1" {
+			editOf(t, imp, DrawioEditLayout, "n1")
 		}
 	}
 }
