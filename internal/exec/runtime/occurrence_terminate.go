@@ -28,7 +28,7 @@ func (e *performances) terminateOccurrence(engine *stmtEngine, s lower.Effect) e
 // terminateTargetOf evaluates the occurrence expression of s, spelled text, in the
 // frames of the statement stating it; a value that is no object held here is refused.
 func (e *performances) terminateTargetOf(engine *stmtEngine, s lower.Effect, text string) (*Instance, error) {
-	value, err := engine.evalIn(s.Scope).Eval(s.TargetExpr)
+	value, err := engine.eval(s.TargetExprID, s.Scope)
 	if err != nil {
 		return nil, fmt.Errorf("%w: 'terminate %s': %w", errTerminateTarget, text, err)
 	}

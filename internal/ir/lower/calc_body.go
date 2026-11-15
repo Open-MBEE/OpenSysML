@@ -23,12 +23,13 @@ func CalcBody(owner ast.Node, members []ast.Node, scope *symbols.Scope) []Statem
 // CalcBodyWith is CalcBody reading the metadata the resolver identifies: a
 // weighted succession among a case's steps keeps its weight.
 func CalcBodyWith(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) []Statement {
-	body, _ := CalcBodyWithOrder(owner, members, scope, resolver)
+	body, _ := CalcBodyWithOrder(owner, members, scope, resolver, nil)
 	return body
 }
 
-// CalcBodyWithOrder lowers the body and its calculation-statement order.
-func CalcBodyWithOrder(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) ([]Statement, *StatementOrder) {
+// CalcBodyWithOrder lowers the body and its calculation-statement order, its
+// expressions interned in exprs: nil gives the statements no expression ids.
+func CalcBodyWithOrder(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable) ([]Statement, *StatementOrder) {
 	body := make([]ast.Node, 0, len(members))
 	for _, member := range members {
 		if actual := unwrapMembership(member); actual != nil {
@@ -36,10 +37,10 @@ func CalcBodyWithOrder(owner ast.Node, members []ast.Node, scope *symbols.Scope,
 		}
 	}
 	if PerformsSteps(owner) && len(flowNodesAmong(body)) > 0 {
-		stmts := caseSteps(owner, body, scope, resolver)
+		stmts := caseSteps(owner, body, scope, resolver, exprs)
 		return stmts, nil
 	}
-	stmts, order := calcBodyStatements(body, scope, resolver, !PerformsSteps(owner))
+	stmts, order := calcBodyStatements(body, scope, resolver, exprs, !PerformsSteps(owner))
 	if PerformsSteps(owner) {
 		return stmts, nil
 	}
@@ -49,7 +50,7 @@ func CalcBodyWithOrder(owner ast.Node, members []ast.Node, scope *symbols.Scope,
 	return stmts, order
 }
 
-func calcBodyStatements(body []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, ignoreNonStatementSuccessions bool) ([]Statement, *StatementOrder) {
+func calcBodyStatements(body []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable, ignoreNonStatementSuccessions bool) ([]Statement, *StatementOrder) {
 	members := make([]ast.Node, 0, len(body))
 	for _, member := range body {
 		if actual := unwrapMembership(member); actual != nil && !isAnnotation(actual) {
@@ -61,7 +62,7 @@ func calcBodyStatements(body []ast.Node, scope *symbols.Scope, resolver *resolve
 		if _, ok := member.(*ast.SuccessionEdge); ok {
 			continue
 		}
-		stmt, ok := calcBodyStep(member, scope, resolver, ignoreNonStatementSuccessions)
+		stmt, ok := calcBodyStep(member, scope, resolver, exprs, ignoreNonStatementSuccessions)
 		if !ok {
 			continue
 		}
@@ -76,13 +77,13 @@ func calcBodyStatements(body []ast.Node, scope *symbols.Scope, resolver *resolve
 	return bodyStmts, order
 }
 
-func calcBodyStep(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, ignoreNonStatementSuccessions bool) (Statement, bool) {
+func calcBodyStep(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable, ignoreNonStatementSuccessions bool) (Statement, bool) {
 	if ignoreNonStatementSuccessions {
 		if usage, ok := member.(*ast.Usage); ok && (usage.IsSuccessionFlow() || usage.Kind == ast.UsageSuccession) {
 			return nil, false
 		}
 	}
-	return calcStep(member, scope, resolver)
+	return calcStep(member, scope, resolver, exprs)
 }
 
 // CalcSteps returns the statements an invocation performs, excluding bindings
@@ -106,7 +107,13 @@ func isOutputBinding(node ast.Node) bool {
 
 // calcStep lowers one member of a calculation body and reports whether it
 // states a step or a result; a result is a Return.
-func calcStep(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (Statement, bool) {
+func calcStep(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable) (Statement, bool) {
+	stmt, states := calcStepOf(member, scope, resolver, exprs)
+	return withExprs(stmt, exprs), states
+}
+
+// calcStepOf is calcStep before the step's own expressions are interned.
+func calcStepOf(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable) (Statement, bool) {
 	switch m := member.(type) {
 	case *ast.Usage:
 		if m.Direction == ast.DirIn || m.Direction == ast.DirInOut {
@@ -129,7 +136,7 @@ func calcStep(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver)
 		if ast.IsExpression(member) {
 			return Return{Value: member, Node: member, Scope: scope}, true
 		}
-		return lowerStatement(member, scope, resolver, nil), true
+		return lowerStatement(member, scope, resolver, exprs, nil), true
 	}
 }
 

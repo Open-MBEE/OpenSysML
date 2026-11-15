@@ -55,14 +55,14 @@ type StateBehaviors struct {
 // transition whose body they are the steps of, nil for any other. resolver is
 // the name-resolution tier's, by which a body's Probability metadata is read
 // (ToActionGraphWith).
-func LowerBehaviors(actions []ast.Node, block ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) []StateBehavior {
+func LowerBehaviors(actions []ast.Node, block ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable) []StateBehavior {
 	if len(actions) == 0 {
 		return nil
 	}
 	behaviors := make([]StateBehavior, 0, len(actions))
 	for _, action := range actions {
 		if actual := unwrapMembership(action); actual != nil {
-			behaviors = append(behaviors, lowerStateBehavior(actual, block, scope, resolver))
+			behaviors = append(behaviors, lowerStateBehavior(actual, block, scope, resolver, exprs))
 		}
 	}
 	return behaviors
@@ -70,7 +70,7 @@ func LowerBehaviors(actions []ast.Node, block ast.Node, scope *symbols.Scope, re
 
 // lowerStateBehavior lowers one behavior into the statements it states: the
 // statements of an inline action body, or the one statement every other form is.
-func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) StateBehavior {
+func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable) StateBehavior {
 	behavior := StateBehavior{Node: action, Scope: scope, Block: block}
 	switch node := action.(type) {
 	case *ast.Usage:
@@ -107,18 +107,21 @@ func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, r
 		case node.Kind == ast.UsageAction && node.HasBody:
 			// The body is a namespace of its own, so its locals are declared in the
 			// block's frame rather than in the state machine's data.
-			behavior.Body = []Statement{lowerBehaviorBody(node, childScope(scope, node), resolver)}
+			behavior.Body = []Statement{lowerBehaviorBody(node, childScope(scope, node), resolver, exprs)}
 		case node.Kind == ast.UsageAction && !performsAction(node):
 			// `do action log;` names an action of no content, which executes as nothing.
 			behavior.Body = []Statement{}
 		default:
-			behavior.Body = []Statement{performEffect(node, scope)}
+			behavior.Body = []Statement{withExprs(performEffect(node, scope), exprs)}
 		}
 	case *ast.ActionExecutionNode:
 		behavior.Name = node.Name
 		behavior.Body = lowerActionExecution(node, scope)
+		for i, stmt := range behavior.Body {
+			behavior.Body[i] = withExprs(stmt, exprs)
+		}
 	default:
-		behavior.Body = []Statement{lowerStatement(action, scope, resolver, nil)}
+		behavior.Body = []Statement{lowerStatement(action, scope, resolver, exprs, nil)}
 	}
 	behavior.Nodes = blockNodesOf(behavior.Body, nil)
 	behavior.Multiplicities = make(map[ast.Node]*ast.Multiplicity)
@@ -137,9 +140,9 @@ func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, r
 // successions or control nodes is the token flow a standalone action's body is
 // (ToActionGraph), starting at its one unpreceded node where no `first` says;
 // one stating none runs its statements in declaration order.
-func lowerBehaviorBody(node *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver) Statement {
+func lowerBehaviorBody(node *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable) Statement {
 	if !statesOwnFlow(node.Members) {
-		return lowerBlock(node, node.Members, scope, resolver, nil)
+		return lowerBlock(node, node.Members, scope, resolver, exprs, nil)
 	}
 	graph, err := ToActionGraphWith(node, scope, resolver)
 	if err != nil {
@@ -214,16 +217,16 @@ func performsAction(usage *ast.Usage) bool {
 // its body states, as a behavior's inline body runs, then the terminate ending
 // what the usage names, with the attributes of owner, the composite state
 // declaring the usage, nil for the machine.
-func terminateBehavior(usage *ast.Usage, scope *symbols.Scope, owner *ast.StateNode, resolver *resolve.Resolver) StateBehavior {
+func terminateBehavior(usage *ast.Usage, scope *symbols.Scope, owner *ast.StateNode, resolver *resolve.Resolver, exprs *ExprTable) StateBehavior {
 	name, _ := ast.EffectiveName(usage)
 	var body []Statement
 	if usage.HasBody {
-		body = append(body, lowerBehaviorBody(usage, childScope(scope, usage), resolver))
+		body = append(body, lowerBehaviorBody(usage, childScope(scope, usage), resolver, exprs))
 	}
 	behavior := StateBehavior{
 		Node:           usage,
 		Name:           name,
-		Body:           append(body, terminateUsageEffect(usage, scope)),
+		Body:           append(body, withExprs(terminateUsageEffect(usage, scope), exprs)),
 		Multiplicities: make(map[ast.Node]*ast.Multiplicity),
 		Multiplicity:   usage.Multiplicity,
 		Scope:          scope,

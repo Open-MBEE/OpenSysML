@@ -43,7 +43,7 @@ func (f elementForm) ID(sc *symbolfacts.Context, sym *symbols.Symbol) string {
 		id, _ := f.reader.ReadRelationship(sym.DocName, sym.Implicit.Node)
 		return id
 	}
-	id, _ := f.reader.Read(sym.DocName, sym.Decl, sc.Identity(sym))
+	id, _ := f.reader.Read(sym.DocName, sym.Decl, sc.OwnIdentity(sym))
 	return id
 }
 
@@ -70,4 +70,9 @@ func constraintResultMember(sym *symbols.Symbol) ast.Node {
 		return c
 	}
 	return nil
+}
+
+// LibraryName is the qualified name of the library element whose normative id is id.
+func (elementForm) LibraryName(id string) (string, bool) {
+	return export.LibraryElementName(id)
 }

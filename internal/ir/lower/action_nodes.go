@@ -54,6 +54,7 @@ func ToActionInterface(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph,
 		return nil, err
 	}
 	graph := newActionGraph(scope)
+	graph.Exprs = NewExprTable(nil)
 	graph.Attributes = lowerAttributes(members, scope)
 	graph.Parameters = lowerParameters(members, scope)
 	graph.assignIDs()
@@ -86,14 +87,17 @@ func actionMembers(actionDecl ast.Node) ([]ast.Node, error) {
 }
 
 func collectActionNodes(members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {
-	return collectActionNodesWithAncestors(members, scope, resolver, nil)
+	return collectActionNodesWithAncestors(members, scope, resolver, nil, nil)
 }
 
 func collectActionNodesWithAncestors(
-	members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node,
+	members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable, ancestors []ast.Node,
 ) (*ActionGraph, error) {
+	if exprs == nil {
+		exprs = NewExprTable(resolver)
+	}
 	graph := newActionGraph(scope)
-	graph.resolver = resolver
+	graph.resolver, graph.Exprs = resolver, exprs
 	graph.lowering = actionLoweringAncestors(scope, ancestors)
 	asserted := orderedAssertions(members)
 
@@ -136,14 +140,14 @@ func collectActionNodesWithAncestors(
 			}
 		case *ast.PerformActionNode:
 			graph.Nodes = append(graph.Nodes, n)
-			graph.Bodies[n] = []Statement{performEffect(n, scope)}
+			graph.Bodies[n] = []Statement{withExprs(performEffect(n, scope), graph.Exprs)}
 		case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
 			*ast.SendStatement, *ast.TerminateStatement:
 			// A statement written among the action's own members is a subaction of
 			// it, ordered by the successions that bind it and started with the
 			// owner where none does (StartFlow).
 			graph.Nodes = append(graph.Nodes, n)
-			graph.Bodies[n] = []Statement{lowerStatement(n, scope, graph.resolver, graph.lowering)}
+			graph.Bodies[n] = []Statement{lowerStatement(n, scope, graph.resolver, graph.Exprs, graph.lowering)}
 		}
 	}
 
@@ -249,10 +253,10 @@ func ensureDeclaredActionNode(graph *ActionGraph, decl ast.Node, declaringScope 
 		lowerNodeBody(graph, n, ast.NodeBodyMembers(n), declaringScope)
 		lowerControlFeatures(graph, n, declaringScope)
 	case *ast.PerformActionNode:
-		graph.Bodies[n] = []Statement{performEffect(n, declaringScope)}
+		graph.Bodies[n] = []Statement{withExprs(performEffect(n, declaringScope), graph.Exprs)}
 	case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
 		*ast.SendStatement, *ast.TerminateStatement:
-		graph.Bodies[n] = []Statement{lowerStatement(n, declaringScope, graph.resolver, graph.lowering)}
+		graph.Bodies[n] = []Statement{lowerStatement(n, declaringScope, graph.resolver, graph.Exprs, graph.lowering)}
 	}
 	return decl
 }

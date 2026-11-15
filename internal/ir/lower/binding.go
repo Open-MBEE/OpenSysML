@@ -28,8 +28,12 @@ type Binding struct {
 type BindingEnd struct {
 	Path string
 	Expr ast.Node
+	// ExprID is Expr in the table the binding was interned in, 0 before it is.
+	ExprID program.ExprID
 	// Index selects one element of the feature Path reaches (`xs#(2)`), nil for the whole feature.
-	Index        ast.Node
+	Index ast.Node
+	// IndexID is Index in the table the binding was interned in.
+	IndexID      program.ExprID
 	Multiplicity *ast.Multiplicity
 	// Via leads from the binding's holder to the connector object an expression or a path end is
 	// read on, empty for the holder itself; Default marks the expression of a `default =` value.
@@ -56,6 +60,15 @@ func (e BindingEnd) HolderPath() string {
 		return ""
 	}
 	return e.Path
+}
+
+// Intern interns the expressions the binding's ends state in exprs, in the scope the
+// binding is evaluated in; one lowered apart from a flow has no ids until it is called.
+func (b *Binding) Intern(exprs *ExprTable) {
+	for i := range b.Ends {
+		b.Ends[i].ExprID = exprs.Intern(b.Ends[i].Expr, b.Scope)
+		b.Ends[i].IndexID = exprs.Intern(b.Ends[i].Index, b.Scope)
+	}
 }
 
 // ToBindings lowers binding connectors directly declared by a type or usage.
@@ -183,7 +196,7 @@ func usageName(scope *symbols.Scope, u *ast.Usage) string {
 	if u.Ident.Name != "" {
 		return u.Ident.Name
 	}
-	if sym := scope.MemberDeclaring(u); sym != nil && sym.Name != "" {
+	if sym := scope.MemberDeclaring(u); sym != nil && sym.Named() {
 		return sym.Name
 	}
 	for _, rel := range u.Relationships {

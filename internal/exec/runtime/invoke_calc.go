@@ -800,7 +800,7 @@ func (ctx *Context) runCalcBody(shape *loadedCalc, frame *invocationFrame, calle
 	if thisOccurrence == nil {
 		thisOccurrence = frame.host.materializeOccurrence
 	}
-	frame.engine = stmtEngine{ctx: ctx, host: &frame.host, env: &frame.env, activation: activation, frameBuf: frame.engine.frameBuf, thisOccurrence: thisOccurrence}
+	frame.engine = stmtEngine{ctx: ctx, host: &frame.host, env: &frame.env, activation: activation, frameBuf: frame.engine.frameBuf, thisOccurrence: thisOccurrence, exprs: &shape.Exprs}
 	frame.host.attachPerformances(&frame.engine)
 	result, returned, err := runCalcSteps(&frame.engine, &frame.host, shape.Steps)
 	if err != nil {
@@ -1016,6 +1016,19 @@ func (ctx *Context) calcExpr(shape *loadedCalc, id program.ExprID, scope *symbol
 		return lowered{entry: entry}
 	}
 	return ctx.model.loweredExpr(scope, shape.Expr(id))
+}
+
+// tableExpr is the expression behind id in table for evaluation in scope: the
+// table's own record where it was lowered there, else its tree lowered for scope.
+func (ctx *Context) tableExpr(table *lower.ExprTable, id program.ExprID, scope *symbols.Scope) (lowered, error) {
+	entry := table.Entry(id)
+	if id == 0 || entry == nil {
+		return lowered{}, fmt.Errorf("expression %d is not in the table of its flow", id)
+	}
+	if entry.Scope != scope {
+		return ctx.model.loweredExpr(scope, entry.Tree), nil
+	}
+	return lowered{entry: entry}, nil
 }
 
 // calcScope returns the scope an inherited or own calc body member is written

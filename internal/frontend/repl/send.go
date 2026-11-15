@@ -537,7 +537,7 @@ func receiverStatuses(receivers []signalReceiver) string {
 
 // machineName names a machine the way the notation declares it.
 func machineName(exec *runtime.StateExecutor) string {
-	if sym := exec.StateMachineSymbol(); sym != nil && sym.Name != "" {
+	if sym := exec.StateMachineSymbol(); sym != nil && sym.Named() {
 		return sym.Name
 	}
 	return "<anonymous>"
@@ -545,7 +545,7 @@ func machineName(exec *runtime.StateExecutor) string {
 
 // actionName names an action the way the notation declares it.
 func actionName(exec *runtime.ActionExecutor) string {
-	if sym := exec.ActionSymbol(); sym != nil && sym.Name != "" {
+	if sym := exec.ActionSymbol(); sym != nil && sym.Named() {
 		return sym.Name
 	}
 	return "<anonymous>"

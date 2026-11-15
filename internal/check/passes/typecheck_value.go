@@ -165,7 +165,7 @@ func (ec *exprChecker) checkEnumeratedValue(scope *symbols.Scope, enum *symbols.
 
 // enumeratedText names one enumerated value, `Level::high = 3`, or just `60.0` when unnamed.
 func enumeratedText(enum, literal *symbols.Symbol, want constElement) string {
-	if literal.Name == "" {
+	if !literal.Named() {
 		return want.valueText()
 	}
 	return enum.Name + "::" + literal.Name + " = " + want.valueText()

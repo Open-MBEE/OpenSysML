@@ -1,0 +1,8 @@
+{
+	"rpc": "GetSymbol",
+	"model": "symbol_lookup_connector_end.sysml",
+	"symbol_id": "Col__V__c_pend0",
+	"lookup": "element_id",
+	"expected_id": "Col__V__c_pend0",
+	"expected_kind": "connectorEnd"
+}

@@ -123,7 +123,7 @@ func (e *StateExecutor) rtcOf(state *ast.StateNode) (bool, error) {
 	if literal, ok := config.Value.(*ast.LiteralBool); ok {
 		return literal.Value, nil
 	}
-	value, err := e.evalStepOf(ast.Node(config.ValueOwner), config.Value, config.ValueScope)
+	value, err := e.evalStepOf(ast.Node(config.ValueOwner), config.ValueID, config.ValueScope)
 	if err != nil {
 		return false, &runToCompletionValueError{State: state, Value: config.Value, Err: err}
 	}

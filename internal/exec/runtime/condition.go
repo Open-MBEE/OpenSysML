@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -28,6 +29,9 @@ var ErrNotCarried = errors.New("object does not carry the case")
 type Condition struct {
 	// Expr is the condition's expression, nil for a group.
 	Expr ast.Node
+
+	// ExprID is Expr in the model's table, lowered in Scope; 0 for a group.
+	ExprID program.ExprID
 
 	// Scope is where Expr's names resolve, or the type a Conflict is found on;
 	// nil for a group.
@@ -105,7 +109,7 @@ func (c Condition) Label() string { return conditionLabel(c) }
 // inherited one came from), or nil; a body-local or anonymous scope is skipped.
 func (c Condition) Owner() *symbols.Symbol {
 	for s := c.Scope; s != nil; s = s.Parent() {
-		if owner := s.Owner(); owner != nil && owner.Name != "" {
+		if owner := s.Owner(); owner != nil && owner.Named() {
 			return owner
 		}
 	}
@@ -175,7 +179,7 @@ func (ctx *Context) appendMemberConditions(out []Condition, sym *symbols.Symbol,
 	var stepScope *symbols.Scope
 	var stepNode ast.Node
 	for _, member := range members {
-		if owner := ctx.conditionOwnerOf(member); owner != nil && owner != sym && owner.Name != "" {
+		if owner := ctx.conditionOwnerOf(member); owner != nil && owner != sym && owner.Named() {
 			if effective == nil {
 				effective = ctx.effectiveMembers(sym)
 			}
@@ -275,7 +279,7 @@ func (ctx *Context) appendConditions(out []Condition, node ast.Node, scope *symb
 		negated = negated != m.IsNegated
 		required = required && m.IsAssert
 		if m.Expression != nil {
-			out = append(out, Condition{Expr: m.Expression, Scope: scope, Negated: negated, Required: required})
+			out = append(out, Condition{Expr: m.Expression, ExprID: ctx.model.exprs.Intern(m.Expression, scope), Scope: scope, Negated: negated, Required: required})
 		}
 		if len(m.Body) == 0 {
 			return out
@@ -373,7 +377,7 @@ func (ctx *Context) appendRequirementConditions(out []Condition, member ast.Node
 		return ctx.appendReferencedConditions(out, member, ref, body, scope, required, seen)
 	}
 	if expr != nil {
-		out = append(out, Condition{Expr: expr, Scope: scope, Required: required})
+		out = append(out, Condition{Expr: expr, ExprID: ctx.model.exprs.Intern(expr, scope), Scope: scope, Required: required})
 	}
 	return ctx.appendOwnedConditions(out, member, body, scope, required, seen)
 }
@@ -481,10 +485,13 @@ func (ctx *Context) constraintBodyStep(node ast.Node, scope *symbols.Scope) (low
 	if ctx.model.constraintSteps == nil {
 		ctx.model.constraintSteps = make(map[ast.Node]lower.Statement)
 	}
+	if ctx.model.exprs == nil {
+		ctx.model.exprs = lower.NewExprTable(ctx.model.Resolver())
+	}
 	if stmt, ok := ctx.model.constraintSteps[node]; ok {
 		return stmt, true
 	}
-	stmt, ok := lower.ConstraintStep(node, scope, ctx.model.Resolver())
+	stmt, ok := lower.ConstraintStep(node, scope, ctx.model.Resolver(), ctx.model.exprs)
 	if !ok {
 		return nil, false
 	}
@@ -549,7 +556,7 @@ func (ctx *Context) appendReferencedConditions(out []Condition, decl ast.Node, r
 	scope *symbols.Scope, required bool, seen map[*symbols.Symbol]bool) []Condition {
 	sym := ctx.referencedRequirement(scope, decl, ref)
 	if sym == nil {
-		out = append(out, Condition{Expr: ref, Scope: scope, Required: required})
+		out = append(out, Condition{Expr: ref, ExprID: ctx.model.exprs.Intern(ref, scope), Scope: scope, Required: required})
 		return ctx.appendOwnedConditions(out, decl, body, scope, required, seen)
 	}
 	if seen[sym] {
@@ -1384,7 +1391,7 @@ func (ctx *Context) carrierLabels(carriers []carrier) []string {
 	for _, c := range carriers {
 		inst := c.instance
 		name := "object"
-		if def := ctx.definitionOf(inst.Type); def != nil && def.Name != "" {
+		if def := ctx.definitionOf(inst.Type); def != nil && def.Named() {
 			name = def.Name
 		}
 		label := fmt.Sprintf("%s #%d", name, inst.ID)
@@ -1526,7 +1533,7 @@ func (ctx *Context) conditionHoldsAt(activation int64, cond Condition, features 
 		if stepFrame != nil {
 			ec.pushFrame(*stepFrame)
 		}
-		result, err := ec.Eval(cond.Expr)
+		result, err := ec.reading(ctx.model.exprs).evalPayload(cond.ExprID)
 		if err != nil {
 			return false, err
 		}
