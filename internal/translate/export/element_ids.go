@@ -128,6 +128,7 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 	ids.recordValuePart(e, node, subject)
 	ids.recordDefaultMultiplicity(e, node, subject)
 	ids.recordConnectorEnds(e, node, subject)
+	ids.recordFlowEndChains(e, node, subject)
 	ids.recordSuccessionEnds(e, node, subject)
 	ids.recordTransitionSuccession(e, node, subject)
 	ids.recordTransitionHead(e, node, subject)
@@ -201,6 +202,34 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 	}
 }
 
+// recordFlowEndChains files the chain Feature a flow's end references ahead of its payload (flowEndReferences) and
+// that chain's FeatureChainings under the chain as written (`a.b` of `flow a.b.x to c.y`), at "chain" and "chain.fcN".
+func (ids *ElementIDs) recordFlowEndChains(e *encoder, node ast.Node, subject rdf.Term) {
+	usage, ok := node.(*ast.Usage)
+	if !ok || !verbatimUsage(usage) || (usage.Kind == ast.UsageFlow && usage.Keyword == "message") {
+		return
+	}
+	for i := range 2 {
+		prefix := ast.FlowEndChainPrefix(usage, i)
+		if prefix == nil {
+			continue
+		}
+		slot := fmt.Sprintf("end%d", i)
+		end := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		chain := e.ids.mintedNode(rdf.ExpressionIRI(end, "chain"), end, "chain")
+		file := func(slot string, element rdf.Term) {
+			recorded := partIDs{element: rdf.LocalName(element.Value)}
+			ids.partByNode[partKey{prefix, slot}] = recorded
+			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), prefix.Span()}, slot}] = recorded
+		}
+		file("chain", chain)
+		for link := range endChainLinks(prefix) {
+			position := fmt.Sprintf("fc%d", link)
+			file("chain."+position, e.ids.mintedNode(rdf.ExpressionIRI(chain, position), chain, position))
+		}
+	}
+}
+
 // transitionLinkParameterSlots name a transition's link parameters off its id (transitionHeadMembers):
 // the one every head owns, then the one ahead of a trigger.
 var transitionLinkParameterSlots = [2]string{"linkparam", "triggerparam"}
@@ -208,20 +237,35 @@ var transitionLinkParameterSlots = [2]string{"linkparam", "triggerparam"}
 // recordTransitionHead files what a transition owns ahead of its trigger (transitionHeadMembers): the
 // Membership of its `first` source at "psourcemember", its link parameter at "linkparam", a trigger's at "triggerparam".
 func (ids *ElementIDs) recordTransitionHead(e *encoder, node ast.Node, subject rdf.Term) {
-	n, ok := node.(*ast.TransitionMember)
-	if !ok || n.IsSuccession || n.Target == nil {
+	var sourceMember bool
+	slots := transitionLinkParameterSlots[:1]
+	switch n := node.(type) {
+	case *ast.TransitionMember:
+		if n.IsSuccession || n.Target == nil {
+			return
+		}
+		sourceMember = qualifiedText(n.Source) != "" && !qualifiedNameHasChain(n.Source) ||
+			qualifiedText(n.Source) == "" && e.transitionSourceTerm(n, nil, nil, e.names.Preceding[n]).Value != ""
+		if naming.TriggerPayload(e.file, n) != nil {
+			slots = transitionLinkParameterSlots[:]
+		}
+	case *ast.ControlFlowEdge:
+		// A decision's branch and a state body's `then x;` name their positional source (targetTransitionHeadMembers).
+		sourceMember = e.transitionSourceTerm(n, n.Source, n.SourceMember, e.names.Preceding[n]).Value != ""
+	case *ast.SuccessionEdge:
+		if !e.names.TargetTransitions[n] {
+			return
+		}
+		sourceMember = e.transitionSourceTerm(n, n.Source, n.SourceMember, e.names.Preceding[n]).Value != ""
+	default:
 		return
 	}
 	file := func(slot string, part partIDs) {
 		ids.partByNode[partKey{node, slot}] = part
 		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = part
 	}
-	if qualifiedText(n.Source) != "" && !qualifiedNameHasChain(n.Source) {
+	if sourceMember {
 		file("psourcemember", partIDs{membership: rdf.LocalName(rdf.ExpressionIRI(subject, "sourcemember").Value)})
-	}
-	slots := transitionLinkParameterSlots[:1]
-	if naming.TriggerPayload(e.file, n) != nil {
-		slots = transitionLinkParameterSlots[:]
 	}
 	for _, slot := range slots {
 		feature := rdf.IRI(subject.Value + "_" + slot)

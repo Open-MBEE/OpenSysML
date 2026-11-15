@@ -21,9 +21,13 @@ func TestNameTextQuotesWhatIsNoBasicName(t *testing.T) {
 		{"frame", "'frame'"},
 		{"state", "'state'"},
 		{"render", "'render'"},
-		// An escape the notation wrote stays as it is, rather than being
-		// escaped a second time.
-		{`it\'s`, `'it\'s'`},
+		// The name is the denoted one, so its quote, backslash and control
+		// characters are written as the escapes that read back as them.
+		{`it's`, `'it\'s'`},
+		{`a\b`, `'a\\b'`},
+		{`it\'s`, `'it\\\'s'`},
+		{"two\nlines\tand\ra\fb\bc", `'two\nlines\tand\ra\fb\bc'`},
+		{`q"d`, `'q"d'`},
 	} {
 		if got := source.NameText(tc.name); got != tc.want {
 			t.Errorf("source.NameText(%q) = %q, want %q", tc.name, got, tc.want)
@@ -55,7 +59,7 @@ func TestQualifiedNameOfQuotesEachNameOnItsOwn(t *testing.T) {
 		{nil, ""},
 		{[]string{"x::y"}, "'x::y'"},
 		{[]string{"x", "y"}, "x::y"},
-		{[]string{"P", "x::y", "it\\'s"}, "P::'x::y'::'it\\'s'"},
+		{[]string{"P", "x::y", "it's"}, "P::'x::y'::'it\\'s'"},
 	} {
 		if got := source.QualifiedNameOf(tc.names); got != tc.want {
 			t.Errorf("source.QualifiedNameOf(%q) = %q, want %q", tc.names, got, tc.want)
@@ -71,7 +75,8 @@ func TestQualifiedNameSegmentsReadsTheNotationBack(t *testing.T) {
 		{"x", []string{"x"}},
 		{"x::y", []string{"x", "y"}},
 		{"'x::y'", []string{"x::y"}},
-		{"P::'x::y'::'it\\'s'", []string{"P", "x::y", "it\\'s"}},
+		{"P::'x::y'::'it\\'s'", []string{"P", "x::y", "it's"}},
+		{`'a\\b'::'c\nd'`, []string{`a\b`, "c\nd"}},
 		{"'a b'::c", []string{"a b", "c"}},
 	} {
 		got, ok := source.QualifiedNameSegments(tc.text)
