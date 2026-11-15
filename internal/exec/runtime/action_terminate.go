@@ -434,6 +434,7 @@ func (e *ActionExecutor) leaveTerminated(tokenIdx int, perf *actionFrame) error 
 // with ID keep, lowest ID first, ending their paused work; the trace records the drops.
 func (e *ActionExecutor) dropTokensIn(perf *actionFrame, keep int64) {
 	var dropped []Token
+	var ended []*actionFrame
 	for _, idx := range e.tokensIn(perf) {
 		if e.tokens[idx].ID != keep {
 			dropped = append(dropped, e.tokens[idx])
@@ -446,9 +447,16 @@ func (e *ActionExecutor) dropTokensIn(perf *actionFrame, keep int64) {
 		}
 		for f := token.frame; f != nil && f != perf; f = f.parent {
 			f.ended, f.live = true, 0
-			e.endNodeOccurrence(f)
+			if !slices.Contains(ended, f) {
+				ended = append(ended, f)
+			}
 		}
 		e.removeToken(e.tokenIndex(token.ID))
+	}
+	// The innermost performances end first, so none outlives the one around it.
+	slices.SortStableFunc(ended, func(a, b *actionFrame) int { return cmp.Compare(len(b.within()), len(a.within())) })
+	for _, f := range ended {
+		e.endNodeOccurrence(f)
 	}
 	if tr := e.trace(); tr != nil {
 		tr.recordActionTerminate(perf.describe(), dropped)

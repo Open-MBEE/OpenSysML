@@ -56,6 +56,41 @@ const nodeOccurrenceFixture = `package test {
 			first outer then done;
 		}
 	}
+	part nested {
+		perform action run {
+			action outer {
+				fork split;
+				action mid {
+					fork inner;
+					action s1 { action w accept sig : Integer; first start then w; first w then done; }
+					action s2 { action w accept sig : Integer; first start then w; first w then done; }
+					first start;
+					succession first start then inner;
+					succession first inner then s1;
+					succession first inner then s2;
+					succession first s1 then done;
+					succession first s2 then done;
+				}
+				action pre;
+				action pre2;
+				action pre3;
+				action pre4;
+				action quit { terminate outer; }
+				first start;
+				succession first start then split;
+				succession first split then mid;
+				succession first split then pre;
+				succession first pre then pre2;
+				succession first pre2 then pre3;
+				succession first pre3 then pre4;
+				succession first pre4 then quit;
+				succession first mid then done;
+				succession first quit then done;
+			}
+			first start then outer;
+			first outer then done;
+		}
+	}
 	part unreached {
 		perform action run {
 			attribute go : Boolean = false;
@@ -157,6 +192,17 @@ func TestRuntimeRobustnessNodeOccurrence(t *testing.T) {
 		slow := heldNodeObject(t, ctx, self, "run.outer.slow")
 		if life, _ := ctx.OccurrenceLife(slow.ID); life.Began == 0 || life.Ended == 0 {
 			t.Errorf("run.outer.slow life = %v, want one begun and ended by the terminate around it", life)
+		}
+	})
+
+	t.Run("terminated_performance_ends_after_those_within_it", func(t *testing.T) {
+		ctx, self := instantiate(t, "test::nested")
+		mid, _ := ctx.OccurrenceLife(heldNodeObject(t, ctx, self, "run.outer.mid").ID)
+		for _, path := range []string{"run.outer.mid.s1", "run.outer.mid.s2"} {
+			sub, _ := ctx.OccurrenceLife(heldNodeObject(t, ctx, self, path).ID)
+			if sub.Began == 0 || sub.Ended == 0 || sub.Ended > mid.Ended {
+				t.Errorf("%s life = %v, want one ended no later than mid's %v", path, sub, mid)
+			}
 		}
 	})
 
