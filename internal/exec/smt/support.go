@@ -271,9 +271,6 @@ func (f *Flow) number(fr *Frame) error {
 		f.Nodes = append(f.Nodes, node)
 		fr.Nodes = append(fr.Nodes, node)
 	}
-	if f.FrameOf[initialOf(graph)] != fr {
-		return &FlowError{Node: nodeLabel(initialOf(graph)), Reason: "the initial node is not among the flow's nodes"}
-	}
 	for _, label := range uniqueLabels(fr.Nodes) {
 		f.Labels = append(f.Labels, prefix+label)
 	}
