@@ -230,6 +230,8 @@ var compiledCases = []compiledCase{
 	{"Rec::UnsetNatural", []string{"1.5"}},
 	{"Rec::UnsetDefault", []string{"1.5"}},
 	{"Rec::UnsetString", []string{"1.5"}},
+	{"Rec::UnsetThenSet", []string{`"ab"`, "1"}}, {"Rec::UnsetThenSet", []string{`"ab"`, "40"}},
+	{"Rec::UnsetOrSet", []string{`"ab"`, "false"}}, {"Rec::UnsetOrSet", []string{`"ab"`, "true"}},
 	{"Rec::KeptFeatures", []string{`"ab"`, "1"}}, {"Rec::KeptFeatures", []string{`"ab"`, "40"}},
 	{"Closure::KeptStr", []string{`"abc"`, "1"}}, {"Closure::KeptStr", []string{`"abc"`, "40"}},
 	{"Closure::KeptSeq", []string{"1.5", "1"}}, {"Closure::KeptSeq", []string{"1.5", "40"}},

@@ -813,20 +813,29 @@ func (e *cEmitter) compact(kept []Var, mark string) {
 	for i, v := range kept {
 		e.temps++
 		saved[i] = fmt.Sprintf("sysml_k%d", e.temps)
-		if v.T == TypeString {
-			e.linef("char *%s = sysml_save_text(%s, %s);", saved[i], cLocal(v.Name), mark)
+		if v.T.Concrete() == TypeString {
+			e.linef("char *%s = sysml_save_text(%s, %s);", saved[i], cText(v), mark)
 			continue
 		}
 		e.linef("%s *%s = sysml_save_%s(%s, %s);", cType(v.T.Elem()), saved[i], cSeqSuffix(v.T), cLocal(v.Name), mark)
 	}
 	e.linef("sysml_arena_release(%s);", mark)
 	for i, v := range kept {
-		if v.T == TypeString {
-			e.linef("sysml_restore_text(&%s, %s);", cLocal(v.Name), saved[i])
+		if v.T.Concrete() == TypeString {
+			e.linef("sysml_restore_text(&%s, %s);", cText(v), saved[i])
 			continue
 		}
 		e.linef("sysml_restore_%s(&%s, %s);", cSeqSuffix(v.T), cLocal(v.Name), saved[i])
 	}
+}
+
+// cText is the String a String variable holds; one that may be unset holds an
+// empty one while it is.
+func cText(v Var) string {
+	if v.T.MayUnset() {
+		return cLocal(v.Name) + ".v"
+	}
+	return cLocal(v.Name)
 }
 
 // escapingSeqs lists the collection and String variables a statement stores
@@ -837,7 +846,7 @@ func escapingSeqs(s Stmt) []Var {
 	var walk func(s Stmt, inner map[string]bool)
 	walk = func(s Stmt, inner map[string]bool) {
 		store := func(name string, t Type) {
-			if !t.Many() && t != TypeString || inner[name] || seen[name] {
+			if !t.Many() && t.Concrete() != TypeString || inner[name] || seen[name] {
 				return
 			}
 			seen[name] = true

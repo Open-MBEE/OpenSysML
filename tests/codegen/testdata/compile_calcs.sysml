@@ -812,6 +812,9 @@ package Compiled {
 		// What a record holds outlives the loop passes after it is made.
 		attribute def Tagged { attribute name : String; attribute vals : Real[0..*] nonunique; attribute words : String[0..*] nonunique; }
 		calc def KeptFeatures { in s : String; in n : Integer; attribute t : String = s; attribute r = new Tagged(s, (1.0, 2.0), (s, s)); for i in 1..n { assign t := t + s; if i == 2 { assign r := new Tagged(t, (r.vals, 3.0), (r.words, t)); } } return : String = r.name + r.words#(size(r.words)) + BaseFunctions::ToString(size(r.vals)) + t; }
+		// A String variable that may be unset keeps its bytes past the statement and the loop pass assigning it.
+		calc def UnsetThenSet { in s : String; in n : Integer; attribute t = new Label().s; assign t := s + "x"; attribute u : String = s + "yyyy"; for i in 1..n { if i == 2 { assign t := u + s; } assign u := u + "z"; } return : String = t + u; }
+		calc def UnsetOrSet { in s : String; in b : Boolean; attribute t = if b ? new Label().s else s + "x"; attribute u : String = s + "yyyy"; return : String = t + u; }
 		calc def UnsetString { in a : Real; return : String = new Label().s; }
 		calc def UnsetConcat { in a : Real; return : String = new Label().s + "x"; }
 		calc def UnsetStep { in a : Real; attribute i : Real = 0.0; attribute v : Real = a; while i < 3.0 { assign v := if i == 1.0 ? new Point(a).y else a; assign i := i + 1.0; } return : Real = v; }
