@@ -43,6 +43,7 @@ func TestRuntimeRobustnessCalcInvocation(t *testing.T) {
 	t.Run("calc_assignment_through_this_is_read_back", testCalcAssignmentThroughThisIsReadBack)
 	t.Run("nested_calc_assigns_the_enclosing_calcs_value", testNestedCalcAssignsTheEnclosingCalcsValue)
 	t.Run("nested_calc_assigns_a_wrong_typed_enclosing_value", testNestedCalcAssignsAWrongTypedEnclosingValue)
+	t.Run("nested_calc_write_refreshes_the_enclosing_bindings", testNestedCalcWriteRefreshesTheEnclosingBindings)
 	t.Run("calc_output_write_of_a_wrong_typed_value", testCalcOutputWriteOfAWrongTypedValue)
 }
 
@@ -759,14 +760,14 @@ const nestedCalcWrites = `package test {
 	calc def Outer {
 		attribute n : Integer := 0;
 		calc inner { assign n := %s; return : Integer[1] = 1; }
-		return : Integer[1] = inner() + n;
+		%s
 	}
 }`
 
 // testNestedCalcAssignsTheEnclosingCalcsValue: a calculation declared within
 // another writes the value the enclosing run holds, not a copy of its own.
 func testNestedCalcAssignsTheEnclosingCalcsValue(t *testing.T) {
-	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, fmt.Sprintf(nestedCalcWrites, "3")))
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, fmt.Sprintf(nestedCalcWrites, "3", "return : Integer[1] = inner() + n;")))
 	got, err := ctx.invokeCalcWithSelf(oneSymbol(t, idx, "test::Outer"), calcArgs{}, idx.DocumentRoot("<test>"), nil)
 	if err != nil {
 		t.Fatalf("Outer(): %v", err)
@@ -779,10 +780,24 @@ func testNestedCalcAssignsTheEnclosingCalcsValue(t *testing.T) {
 // testNestedCalcAssignsAWrongTypedEnclosingValue: the write to the enclosing
 // run's value answers to that value's declaration.
 func testNestedCalcAssignsAWrongTypedEnclosingValue(t *testing.T) {
-	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, fmt.Sprintf(nestedCalcWrites, `"three"`)))
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, fmt.Sprintf(nestedCalcWrites, `"three"`, "return : Integer[1] = inner();")))
 	_, err := ctx.invokeCalcWithSelf(oneSymbol(t, idx, "test::Outer"), calcArgs{}, idx.DocumentRoot("<test>"), nil)
 	if !errors.Is(err, ErrTypeMismatch) {
 		t.Fatalf("err = %v, want ErrTypeMismatch", err)
+	}
+}
+
+// testNestedCalcWriteRefreshesTheEnclosingBindings: a value of the enclosing run
+// bound to the one a nested calculation writes is computed again after the write.
+func testNestedCalcWriteRefreshesTheEnclosingBindings(t *testing.T) {
+	src := fmt.Sprintf(nestedCalcWrites, "3", "attribute m : Integer = n + 1; return : Integer[1] = m + inner() + m;")
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	got, err := ctx.invokeCalcWithSelf(oneSymbol(t, idx, "test::Outer"), calcArgs{}, idx.DocumentRoot("<test>"), nil)
+	if err != nil {
+		t.Fatalf("Outer(): %v", err)
+	}
+	if got.Const.Int != 6 {
+		t.Errorf("Outer() = %v, want 6: m is 1 before the write, inner answers 1, m is 4 after", got)
 	}
 }
 

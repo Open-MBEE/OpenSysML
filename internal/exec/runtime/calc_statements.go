@@ -62,6 +62,7 @@ func (o *calcOccurrence) materializeOccurrence() (*Instance, error) {
 // subperformances of the case, whose performance is the root the body reads through.
 func (h *calcStmtHost) attachPerformances(engine *stmtEngine) {
 	h.env = engine.env
+	engine.env.rootWrite = calcFeatureWriter(h.ctx, h.shape, h.occ)
 	if !h.shape.Performs() {
 		return
 	}
@@ -93,6 +94,7 @@ func (h *calcStmtHost) attachPerformances(engine *stmtEngine) {
 // holds, performing none of its own: the results of a body concluded after its runs.
 func (h *calcStmtHost) readPerformance(engine *stmtEngine, perf *actionFrame) {
 	h.env = engine.env
+	engine.env.rootWrite = calcFeatureWriter(h.ctx, h.shape, h.occ)
 	engine.env.perf = perf
 }
 
@@ -144,7 +146,7 @@ func (h *calcStmtHost) assignOuter(env *stmtEnv, name string, value Value, s low
 		return h.mirrorOccurrence(name, value)
 	}
 	if !h.declaredOutput(name) {
-		if written, err := h.assignEnclosing(env, name, value); written || err != nil {
+		if written, err := h.assignEnclosing(env, name, value, s); written || err != nil {
 			return err
 		}
 		if written, err := assignPerformerFeature(h.ctx, h.self, s.Scope, name, value); written || err != nil {
@@ -170,8 +172,10 @@ func (h *calcStmtHost) assignOuter(env *stmtEnv, name string, value Value, s low
 
 // assignEnclosing writes a name a run around the body holds — a calculation
 // declared within another reads that run's values, and writes them — through
-// the innermost such run's own write path.
-func (h *calcStmtHost) assignEnclosing(env *stmtEnv, name string, value Value) (bool, error) {
+// the innermost such run's own write path. A block of that run holds its locals
+// under no path of its own, so the write is checked against the declaration the
+// assignment names and lands in the block's bindings.
+func (h *calcStmtHost) assignEnclosing(env *stmtEnv, name string, value Value, s lower.Assign) (bool, error) {
 	for i := len(env.enclosing) - 1; i >= 0; i-- {
 		f := env.enclosing[i]
 		if f.hides(name) || !f.has(name) {
@@ -180,7 +184,10 @@ func (h *calcStmtHost) assignEnclosing(env *stmtEnv, name string, value Value) (
 		if f.write != nil {
 			return true, f.write(f, name, value)
 		}
-		f.set(name, value)
+		if err := h.ctx.checkNamedWriteComputed(s.Scope, h.describe(), s.Target, &value); err != nil {
+			return true, err
+		}
+		f.setBody(h.ctx, name, value)
 		return true, nil
 	}
 	return false, nil
@@ -204,7 +211,7 @@ func calcFeatureWriter(ctx *Context, shape *loadedCalc, occ *calcOccurrence) fun
 		if err := ctx.checkNamedWriteComputed(shape.BodyScope(), calcBodyDescription, name, &value); err != nil {
 			return err
 		}
-		f.set(name, value)
+		f.setBody(ctx, name, value)
 		if occ == nil || occ.inst == nil {
 			return nil
 		}
