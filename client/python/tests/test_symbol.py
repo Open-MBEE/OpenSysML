@@ -10,6 +10,7 @@ from opensysml.capabilities import (
 from opensysml.errors import SymbolNotFoundError, UnresolvedChildError
 from opensysml.symbol import Symbol
 from opensysml.proto import sysml_pb2
+from tests.lookups import answering
 
 
 class TestSymbolBasicProperties:
@@ -113,10 +114,10 @@ class TestSymbolChildren:
         # Verify RPC calls with model_hash
         assert mock_client.get_symbol.call_count == 2
         mock_client.get_symbol.assert_any_call(
-            "model_abc123", "Vehicles::Vehicle::mass", member_of="Vehicles::Vehicle",
+            "model_abc123", id="Vehicles::Vehicle::mass", member_of="Vehicles::Vehicle",
         )
         mock_client.get_symbol.assert_any_call(
-            "model_abc123", "Vehicles::Vehicle::speed", member_of="Vehicles::Vehicle",
+            "model_abc123", id="Vehicles::Vehicle::speed", member_of="Vehicles::Vehicle",
         )
     
     def test_symbol_children_caching(self):
@@ -346,7 +347,7 @@ class TestSymbolAttributeFacts:
                 type_info=sysml_pb2.TypeInfo(resolved_id="ScalarValues::String"),
             ),
         }
-        mock_client.get_symbol.side_effect = lambda _hash, symbol_id, member_of="": symbols.get(symbol_id)
+        mock_client.get_symbol.side_effect = answering(lambda _hash, symbol_id, member_of="": symbols.get(symbol_id))
 
         car_members = [
             sysml_pb2.MemberInfo(id="Demo::Car::mass", name="mass", kind="attributeUsage"),
@@ -472,7 +473,7 @@ class TestSymbolAttributeFacts:
             ],
         )
         symbols = mock_client.get_symbol.side_effect
-        mock_client.get_symbol.side_effect = (
+        mock_client.get_symbol.side_effect = answering(
             lambda _hash, symbol_id, member_of="": car_info if symbol_id == "Demo::Car"
             else symbols(_hash, symbol_id)
         )
@@ -509,7 +510,7 @@ class TestSymbolAttributeFacts:
                 id="Demo::Car::mass", name="mass", kind="partUsage"
             ),
         }
-        mock_client.get_symbol.side_effect = lambda _hash, symbol_id, member_of="": symbols.get(symbol_id)
+        mock_client.get_symbol.side_effect = answering(lambda _hash, symbol_id, member_of="": symbols.get(symbol_id))
         car = Symbol(
             sysml_pb2.SymbolInfo(
                 id="Demo::Car",
@@ -683,7 +684,7 @@ class TestSymbolMembers:
                 return with_library
             return symbols.get(symbol_id)
 
-        mock_client.get_symbol.side_effect = get_symbol
+        mock_client.get_symbol.side_effect = answering(get_symbol)
         return Symbol(symbols["Demo::system::controller"], mock_client, "model_abc123")
 
     def test_children_are_own_members_by_default(self):
@@ -762,9 +763,9 @@ class TestSymbolMembers:
     def test_own_members_fall_back_to_child_ids(self):
         """A symbol an older service reported still lists its owned members."""
         mock_client = Mock()
-        mock_client.get_symbol.side_effect = lambda _hash, symbol_id, include_library_members=False, member_of="": (
+        mock_client.get_symbol.side_effect = answering(lambda _hash, symbol_id, include_library_members=False, member_of="": (
             sysml_pb2.SymbolInfo(id=symbol_id, name=symbol_id.rsplit("::", 1)[-1], kind="partUsage")
-        )
+        ))
         parent = Symbol(
             sysml_pb2.SymbolInfo(id="P", name="P", kind="partDef", child_ids=["P::a", "P::b"]),
             mock_client, "model_abc123",
@@ -778,7 +779,7 @@ class TestSymbolMembers:
         """A member id the service lists but cannot resolve is reported, not dropped."""
         controller = self._controller(Mock())
         symbols = controller._client.get_symbol.side_effect
-        controller._client.get_symbol.side_effect = (
+        controller._client.get_symbol.side_effect = answering(
             lambda _hash, symbol_id, **kw: None if symbol_id.endswith("delegate") else symbols(_hash, symbol_id, **kw)
         )
 
@@ -862,7 +863,7 @@ class TestMemberDirection:
                 id=symbol_id, name="cmd", kind="attributeUsage", metadata={"direction": direction},
             )
 
-        mock_client.get_symbol.side_effect = get_symbol
+        mock_client.get_symbol.side_effect = answering(get_symbol)
         port = sysml_pb2.SymbolInfo(
             id="Demo::Device::pIn", name="pIn", kind="portUsage",
             members=[sysml_pb2.MemberInfo(
@@ -878,7 +879,7 @@ class TestMemberDirection:
         (cmd,) = port.children(inherited=True)
 
         mock_client.get_symbol.assert_called_once_with(
-            "model_abc123", "Demo::CmdPort::cmd", member_of="Demo::Device::pIn",
+            "model_abc123", id="Demo::CmdPort::cmd", member_of="Demo::Device::pIn",
         )
         assert cmd.metadata["direction"] == "in"
 
@@ -887,7 +888,7 @@ class TestMemberDirection:
 
         (cmd,) = port.children(inherited=True)
 
-        mock_client.get_symbol.assert_called_once_with("model_abc123", "Demo::CmdPort::cmd")
+        mock_client.get_symbol.assert_called_once_with("model_abc123", id="Demo::CmdPort::cmd")
         assert cmd.metadata["direction"] == "out"
 
 
@@ -900,8 +901,8 @@ def test_bindings_select_the_kind_of_either_service_generation(kind):
     client.server_info.return_value = ServerInfo(
         version="v1.0.0", capabilities=frozenset({"symbol_members"}), answered=True, origin="sysml-grpc",
     )
-    client.get_symbol.side_effect = lambda _hash, symbol_id, include_library_members=False: (
-        sysml_pb2.SymbolInfo(id=member.id, kind=kind) if symbol_id == member.id else owner)
+    client.get_symbol.side_effect = answering(lambda _hash, symbol_id, include_library_members=False: (
+        sysml_pb2.SymbolInfo(id=member.id, kind=kind) if symbol_id == member.id else owner))
     symbol = Symbol(owner, client, "model_abc123")
     assert [b.id for b in symbol.bindings()] == ["Demo::C::@0"]
     assert [c.id for c in symbol.connections()] == ["Demo::C::@0"]

@@ -111,7 +111,9 @@ type JGetSymbolRequest struct {
 	SymbolId              string `json:"symbolId,omitempty"`
 	IncludeLibraryMembers bool   `json:"includeLibraryMembers,omitempty"`
 	ResolveName           bool   `json:"resolveName,omitempty"`
-	MemberOf              string `json:"memberOf,omitempty"`
+	// Lookup is the LookupKind as protojson writes it; resolveName is ignored when it states one.
+	Lookup   string `json:"lookup,omitempty"`
+	MemberOf string `json:"memberOf,omitempty"`
 }
 
 // JSymbolResponse is the protojson-shaped GetSymbol response.

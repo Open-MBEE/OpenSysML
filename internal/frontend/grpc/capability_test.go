@@ -458,7 +458,7 @@ func TestSymbolMemberDirectionCapabilityIsTheNewest(t *testing.T) {
 	all := Capabilities()
 	want := []string{
 		CapabilityInlineDocumentQuery, CapabilitySymbolNameResolution, CapabilityRenderViewForm,
-		CapabilitySymbolAnnotatingMetadata, CapabilitySymbolMemberDirection,
+		CapabilitySymbolAnnotatingMetadata, CapabilitySymbolLookupKind, CapabilitySymbolMemberDirection,
 	}
 	if len(all) < len(want) || !slices.Equal(all[len(all)-len(want):], want) {
 		t.Errorf("capabilities %v do not end with %q, the newest last", all, want)
