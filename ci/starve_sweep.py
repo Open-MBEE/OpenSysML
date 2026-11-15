@@ -95,12 +95,15 @@ class Sweeper:
                 self.cancel_and_queue(r, "no job started")
             elif starved and any(j["status"] == "in_progress" for j in jobs):
                 unfinished = sum(1 for j in jobs if j["status"] != "completed")
-                running.append((unfinished, self.rank({"pr": r["pull_requests"][0]["number"]}), r))
+                # Until a non-preflight job completes, the matrix may not have expanded, so the unfinished count understates the work left.
+                unexpanded = not any(j.get("name") not in self.cfg["preflight_jobs"] and j["status"] == "completed"
+                                     and j.get("conclusion") not in ("cancelled", "skipped") for j in jobs)
+                running.append((unexpanded, unfinished, self.rank({"pr": r["pull_requests"][0]["number"]}), r))
         if len(running) > 1:
-            running.sort(key=lambda x: (x[0], x[1]))
-            keep = running[0][2]
-            self.log(f"merge group starved: keeping run {keep['id']} (#{keep['pull_requests'][0]['number']}, {running[0][0]} job(s) unfinished)")
-            for unfinished, _, r in running[1:]:
+            running.sort(key=lambda x: x[:3])
+            keep = running[0][3]
+            self.log(f"merge group starved: keeping run {keep['id']} (#{keep['pull_requests'][0]['number']}, {running[0][1]} job(s) unfinished)")
+            for _, unfinished, _, r in running[1:]:
                 self.cancel_and_queue(r, f"started, {unfinished} job(s) unfinished, merge group starved")
 
 

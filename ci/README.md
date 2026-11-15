@@ -184,7 +184,9 @@ These rules come from running the tools on this repository and still apply.
     `starve_grace_seconds` means ordinary runs hold the runners it needs. This is true even when
     other jobs of the same group have started, and typically follows the gap between one queue
     build finishing and the next being created. A run with no jobs is never starved. Every ordinary run with a job in progress is cancelled except the
-    one with the fewest unfinished jobs. Ties go by tier rank.
+    one closest to finishing. Runs ahead of others are those with a non-preflight job completed (until then
+    the matrix may not have expanded, so the unfinished count understates the work left), then those with
+    the fewest unfinished jobs, then by tier rank.
 
   Each successful cancel is queued in `auth_rerun.json`, one entry per PR, in tier order. A
   failed cancel is logged and not queued.

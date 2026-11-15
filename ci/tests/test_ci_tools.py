@@ -647,7 +647,7 @@ class StarveSweepTest(Stub):
         self.assertEqual([c for c in self.calls() if c.startswith("run cancel")], ["run cancel 11 -R Example/Repo", "run cancel 16 -R Example/Repo"])
         self.assertEqual([e["pr"] for e in self.read("auth_rerun.json")], [9, 4, 10])
 
-    def starved_rules(self, mg_age, mg_jobs, cancel_fails=()):
+    def starved_rules(self, mg_age, mg_jobs, cancel_fails=(), extra=()):
         self.write("starve_cancel.json", {"by": "maintainer", "rule": "keep the merge PR run"})
         self.write("tiers.json", {"tiers": [[6]]})
 
@@ -658,7 +658,7 @@ class StarveSweepTest(Stub):
         def jobs(*sts):
             return {"jobs": [{"name": f"j{i}", "status": s, "conclusion": "success" if s == "completed" else None} for i, s in enumerate(sts)]}
         mg = {"id": 900, "status": "in_progress", "created_at": stamp(mg_age), "head_branch": "gh-readonly-queue/develop/pr-1-x"}
-        rules = [[rf"^run cancel {rid} ", "boom", 1] for rid in cancel_fails] + [
+        rules = list(extra) + [[rf"^run cancel {rid} ", "boom", 1] for rid in cancel_fails] + [
             [r"event=merge_group&status=in_progress", {"workflow_runs": [mg]}, 0],
             [r"event=merge_group&status=", {"workflow_runs": []}, 0],
             [r"runs/900/jobs", {"jobs": mg_jobs}, 0],
@@ -680,6 +680,16 @@ class StarveSweepTest(Stub):
         self.assertEqual(sorted(self.cancels()), ["21", "23", "24"])
         self.assertEqual([e["pr"] for e in self.read("auth_rerun.json")], [6, 4, 7])
         self.assertIn("merge group starved: keeping run 22 (#5, 1 job(s) unfinished)", self.text("watch.log"))
+
+    def test_starved_merge_group_keeps_an_expanded_run_over_an_unexpanded_one(self):
+        done = {"name": "j", "status": "completed", "conclusion": "success"}
+        self.starved_rules(10, [{"status": "queued"}], extra=[
+            [r"runs/21/jobs", {"jobs": [{"name": "Changed areas", "status": "completed", "conclusion": "success"}, {"name": "Go", "status": "in_progress"}]}, 0],
+            [r"runs/22/jobs", {"jobs": [done] * 23 + [{"name": "k", "status": "in_progress"}] + [{"name": "k", "status": "queued"}] * 5}, 0],
+            [r"runs/2[34]/jobs", {"jobs": [{"name": "k", "status": "queued"}]}, 0]])
+        self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        self.assertEqual(sorted(self.cancels()), ["21", "23", "24"])
+        self.assertIn("merge group starved: keeping run 22 (#5, 6 job(s) unfinished)", self.text("watch.log"))
 
     def test_group_with_only_its_preflight_done_is_starved(self):
         self.starved_rules(10, [{"name": "Changed areas", "status": "completed", "conclusion": "success"}, {"name": "Go", "status": "queued"}])
