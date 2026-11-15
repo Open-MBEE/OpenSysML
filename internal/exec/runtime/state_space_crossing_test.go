@@ -146,6 +146,34 @@ func TestZeroCrossingLocatedWithinStep(t *testing.T) {
 		expectInstants(t, got, []float64{0.5, 1}, 1e-12)
 	})
 
+	// The crossing inside the step leaves the guard at an exact zero, and the step's
+	// end is an exact zero again: the guard left zero in between, so it crossed twice.
+	t.Run("exact_zero_inside_a_step_then_at_its_end", func(t *testing.T) {
+		got, _ := crossingInstants(t, stateSpaceSource(fixed, `
+			:>> stateSpace = VectorOf((0.0));
+			:>> timeStep = 1 [s];
+			:>> stopTime = 1 [s];
+			event occurrence band : ZeroCrossing {
+				:>> guard = (stateSpace.elements#(1) - 0.3) * (stateSpace.elements#(1) - 1.0);
+			}
+		`+rampCalcs))
+		expectInstants(t, got, []float64{0.3, 1}, 1e-12)
+	})
+
+	// The run starts at an exact zero, which raises nothing, and is back at one at
+	// the step's end.
+	t.Run("exact_zero_at_the_start_and_at_the_step_end", func(t *testing.T) {
+		got, _ := crossingInstants(t, stateSpaceSource(fixed, `
+			:>> stateSpace = VectorOf((0.0));
+			:>> timeStep = 0.3 [s];
+			:>> stopTime = 0.3 [s];
+			event occurrence back : ZeroCrossing {
+				:>> guard = stateSpace.elements#(1) * (stateSpace.elements#(1) - 0.3);
+			}
+		`+rampCalcs))
+		expectInstants(t, got, []float64{0.3}, 0)
+	})
+
 	t.Run("two_guards_in_one_step", func(t *testing.T) {
 		got, _ := crossingInstants(t, stateSpaceSource(fixed, `
 			:>> stateSpace = VectorOf((0.0));
