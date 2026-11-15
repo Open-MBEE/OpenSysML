@@ -282,6 +282,22 @@ func (m *CachedModel) LookupNamedMember(id string) []*symbols.Symbol {
 	return sc.LookupMember(id)
 }
 
+// LookupDeclared resolves a symbol id as a declared name, else as the id the service reports
+// its element under (symbolfacts.Context.LookupDeclared), under the symbol context's lock.
+func (m *CachedModel) LookupDeclared(id string) []*symbols.Symbol {
+	sc := m.SymbolContext()
+	defer sc.Lock()()
+	return sc.LookupDeclared(id)
+}
+
+// LookupDeclaredMember is LookupDeclared with an inherited member (Sub::inherited) read as
+// a name too (symbolfacts.Context.LookupDeclaredMember), under the symbol context's lock.
+func (m *CachedModel) LookupDeclaredMember(id string) []*symbols.Symbol {
+	sc := m.SymbolContext()
+	defer sc.Lock()()
+	return sc.LookupDeclaredMember(id)
+}
+
 // ResolveQualifiedName resolves a qualified name and nothing else (see
 // symbolfacts.Context.ResolveName), under the symbol context's lock.
 func (m *CachedModel) ResolveQualifiedName(name string) []*symbols.Symbol {
