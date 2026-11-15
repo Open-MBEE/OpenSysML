@@ -563,6 +563,10 @@ func endReferencesFeature(end connectorEnd) bool {
 			return end.feature.Kind == symbols.SymbolConnectorEnd ||
 				len(end.feature.RecordedRelationships(ast.RelReferences)) > 0
 		}
+		if _, ok := symbols.ImpliedConnectorEndIndex(end.feature); ok {
+			// A flow's or a `then` succession's end is minted only once its clause attaches it to a feature.
+			return true
+		}
 		switch d := end.feature.Decl.(type) {
 		case *ast.Usage:
 			return referencesFeature(d.Relationships)
