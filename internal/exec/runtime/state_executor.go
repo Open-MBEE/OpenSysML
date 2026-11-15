@@ -5600,9 +5600,11 @@ func (e *StateExecutor) activeStates() []*ast.StateNode {
 	return nil
 }
 
+// checkStart refuses a machine declaring substates and no entry into them; one
+// declaring no substate has nothing to choose and is simply active.
 func (e *StateExecutor) checkStart() error {
 	if len(e.graph.TopRegions) == 0 {
-		if len(e.graph.StartOf(nil)) == 0 {
+		if len(e.graph.StartOf(nil)) == 0 && len(e.graph.States) > 0 {
 			return fmt.Errorf("%w in state machine %s", errNoInitialState, e.stateMachine.Name)
 		}
 		return nil
@@ -5678,7 +5680,8 @@ func (e *StateExecutor) enterMachineStart() error {
 	if err != nil {
 		return err
 	}
-	if e.state == StateTerminated {
+	// A machine declaring no substate stays active in itself: no state to enter.
+	if e.state == StateTerminated || start == nil {
 		return nil
 	}
 	e.setCurrentState(start)

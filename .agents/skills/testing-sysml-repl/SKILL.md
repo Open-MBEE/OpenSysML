@@ -4019,10 +4019,12 @@ for f in $(grep -rl 'state def\|state .*{' --include=*.sysml examples \
 done
 ```
 
-Error-timing contract worth re-checking whenever this area moves: a structurally empty
-`state def Empty { }` must `-validate` **clean** (exit 0) and only fail at
-`-state Empty` with `failed to create executor: initialize state machine: no initial state found in
-state machine Empty`. A check-time complaint there would be the regression.
+Error-timing contract worth re-checking whenever this area moves: a machine that
+declares substates and no entry into them (`state def NoEntry { state a; state b; }`) must `-validate`
+**clean** (exit 0) and only fail at `-state NoEntry` with `failed to create executor: initialize state
+machine: no initial state found in state machine NoEntry`. A check-time complaint there would be the
+regression. A structurally empty `state def Empty { }` declares no substate and starts: it is active in
+itself, with `Current state: <none>`.
 
 Two message hygiene probes: grep the diagnostics for `ast\.|StateNode|%!` (must be zero hits — the
 messages come from `lower.NotAVertexFormat`/`VertexKind`, not `%T`), and endpoints written as deep
