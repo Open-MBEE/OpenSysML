@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -226,7 +225,7 @@ func (e *stmtEngine) beginLoopBody(loop *Instance, stmt lower.Loop, activation i
 	return inst, nil
 }
 
-// holdLoopBodyFeatures holds on the body object of an unnamed loop body the features that
+// holdLoopBodyFeatures holds on the body object of an unnamed loop body the steps that
 // body declares: it is an action usage either way (SysML.xtext ActionBodyParameter).
 func (ctx *Context) holdLoopBodyFeatures(body *Instance, stmt lower.Loop) {
 	features := ctx.loopBodyFeatures(body.Type, stmt)
@@ -238,8 +237,8 @@ func (ctx *Context) holdLoopBodyFeatures(body *Instance, stmt lower.Loop) {
 	}
 }
 
-// loopBodyFeatures are the named features the unnamed body of stmt declares, as
-// members of typ; the iteration variable of a `for` loop is the loop's, not its body's.
+// loopBodyFeatures are the steps the unnamed body of stmt declares, as members of typ; what
+// else it declares stays in the frame the body's statements write, which the object would only copy.
 func (ctx *Context) loopBodyFeatures(typ *symbols.Symbol, stmt lower.Loop) []EffectiveFeature {
 	scope := stmt.Body.Scope
 	if scope == nil {
@@ -250,7 +249,7 @@ func (ctx *Context) loopBodyFeatures(typ *symbols.Symbol, stmt lower.Loop) []Eff
 	}
 	var features []EffectiveFeature
 	scope.ForEachNamedMember(func(name string, sym *symbols.Symbol) bool {
-		if sym.Decl != stmt.Node && semantics.IsShapeFeature(sym) && !ctx.model.semantics.FrameFeature(sym) {
+		if sym.Decl != stmt.Node && isPerformanceKind(sym.Kind) && !ctx.model.semantics.FrameFeature(sym) {
 			features = append(features, ctx.effectiveFeature(name, sym, typ))
 		}
 		return true
