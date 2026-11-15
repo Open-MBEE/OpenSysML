@@ -117,8 +117,10 @@ for instance in built.instances() {
 ```
 
 `Symbol` exposes `id()`, `name()`, `kind()`, `children()`, `members()`, `own_members()`,
-`inherited_members()` and `withheld_library_members()` (`symbol_with` and
-`include_library_members` need the `symbol_members` capability); `Instance` exposes
+`inherited_members()`, `withheld_library_members()`, `annotating_metadata_ids()` and
+`annotating_metadata()`, the metadata usages annotating it, `about` ones written elsewhere
+included (`symbol_with` and `include_library_members` need the `symbol_members` capability,
+`annotating_metadata()` needs `symbol_annotating_metadata`); `Instance` exposes
 `id()`, `type_symbol_id()`, `feature_values()` and `feature(name)`; `FeatureValue`
 exposes `name()`, `value()`, `values()`, `materialized()` and `error()`, which is
 how a feature the service could not compute is told apart from one it computed as

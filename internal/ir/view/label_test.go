@@ -348,3 +348,24 @@ func TestMermaidContainerTitleShape(t *testing.T) {
 		t.Errorf("unsafe container title lacks its escaped one-line fallback:\n%s", fallback)
 	}
 }
+
+// The Cameo frame titles a view by the name its notation denotes: escapes read, quotes dropped.
+func TestCameoFrameTitleIsTheViewsOwnName(t *testing.T) {
+	for _, tc := range []struct{ written, name, title string }{
+		{`'it\'s'`, "it's", "[ it&#39;s ]"},
+		{`'x::y'`, "x::y", "[ x::y ]"},
+		{`'a\\b'`, `a\b`, `[ a\b ]`},
+		{"'two words'", "two words", "[ two words ]"},
+		{"plain", "plain", "[ plain ]"},
+	} {
+		model := "package P {\n    part def A;\n    view " + tc.written + " {\n        expose A;\n    }\n}\n"
+		rendering := renderSource(t, "P::"+tc.name, model)
+		cameo, err := rendering.DOTWith(Options{Style: StyleCameo})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(cameo, tc.title) {
+			t.Errorf("view %s: the frame title is not %q:\n%s", tc.written, tc.title, cameo)
+		}
+	}
+}

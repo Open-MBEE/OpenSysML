@@ -335,3 +335,11 @@ func TestKeepsTrailingSequenceComma(t *testing.T) {
 		t.Fatalf("got:\n%q\nwant:\n%q", got, want)
 	}
 }
+
+// An unrestricted name is printed as it is written, escape sequences included.
+func TestKeepsUnrestrictedNameEscapes(t *testing.T) {
+	src := "package 'p\\\\q' {\n    part def 'it\\'s';\n    part 'tab\\there' : 'it\\'s' { attribute 'q\\\"d' = 1; }\n}\n"
+	if got := format(t, "package 'p\\\\q' {\npart def 'it\\'s' ;\npart 'tab\\there' : 'it\\'s' { attribute 'q\\\"d' = 1 ; }\n}\n"); got != src {
+		t.Fatalf("got:\n%q\nwant:\n%q", got, src)
+	}
+}
