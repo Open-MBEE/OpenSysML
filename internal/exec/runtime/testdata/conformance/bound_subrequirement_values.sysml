@@ -10,6 +10,8 @@ package test {
 	requirement def Heavy { subject v : Veh; require constraint { v.mass > 10.0 } }
 	requirement def Limit { subject v : Veh; attribute max : Real; require constraint { v.mass < max } }
 	requirement def Tight :> Heavy { require constraint { v.mass > 50.0 } }
+	requirement def Renamed :> Heavy { subject w : Veh :>> v; require constraint { w.mass < 100.0 } }
+	requirement def RenamedTight :> Heavy { subject w : Veh :>> v; require constraint { w.mass < 15.0 } }
 	requirement def Empty { subject v : Veh; requirement s[0..1] : Light = (); }
 	requirement def Null { subject v : Veh; requirement s[0..1] : Light = null; }
 	requirement def Unnamed { subject v : Veh; requirement : Light = (); }
@@ -20,6 +22,8 @@ package test {
 	requirement def ManyHold { subject v : Veh; requirement s[*] : Limit = (new Limit(max = 30.0), new Limit(max = 40.0)); }
 	requirement def ManyOneFails { subject v : Veh; requirement s[*] : Limit = (new Limit(max = 30.0), new Limit(max = 10.0)); }
 	requirement def ManyOfASubtype { subject v : Veh; requirement s[*] : Heavy = (new Heavy(), new Tight()); }
+	requirement def SubtypeRenamesSubject { subject v : Veh; requirement s[0..1] : Heavy = new Renamed(); }
+	requirement def SubtypeRenamesSubjectFails { subject v : Veh; requirement s[0..1] : Heavy = new RenamedTight(); }
 	part box {
 		requirement empty : Empty { subject v = veh; }
 		requirement nul : Null { subject v = veh; }
@@ -31,6 +35,8 @@ package test {
 		requirement manyHold : ManyHold { subject v = veh; }
 		requirement manyOneFails : ManyOneFails { subject v = veh; }
 		requirement manyOfASubtype : ManyOfASubtype { subject v = veh; }
+		requirement subtypeRenamesSubject : SubtypeRenamesSubject { subject v = veh; }
+		requirement subtypeRenamesSubjectFails : SubtypeRenamesSubjectFails { subject v = veh; }
 	}
 	attribute emptyResult = box.empty.result;
 	attribute emptySubrequirements = size(box.empty.subrequirements);
@@ -49,5 +55,7 @@ package test {
 	attribute manyOneFailsResult = box.manyOneFails.result;
 	attribute manyOneFailsSubrequirements = size(box.manyOneFails.subrequirements);
 	attribute manyOfASubtypeResult = box.manyOfASubtype.result;
+	attribute subtypeRenamesSubjectResult = box.subtypeRenamesSubject.result;
+	attribute subtypeRenamesSubjectFailsResult = box.subtypeRenamesSubjectFails.result;
 	calc probe { return one = 1; }
 }

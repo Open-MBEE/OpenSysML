@@ -22,6 +22,8 @@
     "test::manyHoldSubrequirements": {"type": "Integer", "value": 2},
     "test::manyOneFailsResult": {"type": "Boolean", "value": false},
     "test::manyOneFailsSubrequirements": {"type": "Integer", "value": 2},
-    "test::manyOfASubtypeResult": {"type": "Boolean", "value": false}
+    "test::manyOfASubtypeResult": {"type": "Boolean", "value": false},
+    "test::subtypeRenamesSubjectResult": {"type": "Boolean", "value": true},
+    "test::subtypeRenamesSubjectFailsResult": {"type": "Boolean", "value": false}
   }
 }

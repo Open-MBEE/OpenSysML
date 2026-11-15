@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strconv"
@@ -1666,8 +1667,31 @@ func (ctx *Context) boundSubrequirementHolds(activation int64, cond Condition, v
 	if typ := value.Type; typ != nil && typ != cond.Subrequirement && !slices.Contains(ctx.model.semantics.AllSupertypes(cond.Subrequirement), typ) {
 		own := ctx.conditionsOf(typ, ctx.chainMembers(typ, typ.OwnerScope))
 		cond.Group = append(append([]Condition(nil), cond.Group...), own...)
+		bindings = ctx.withSubjectNamesOf(typ, cond.Subrequirement, bindings)
 	}
 	return ctx.subrequirementHoldsAt(activation, cond, features, value, frames, bindings, stepFrame)
+}
+
+// withSubjectNamesOf is bindings with the subject sub reads there bound also under the names typ,
+// a requirement definition specializing sub's, gives the subject it redefines it by.
+func (ctx *Context) withSubjectNamesOf(typ, sub *symbols.Symbol, bindings frame) frame {
+	var subject Value
+	bound := false
+	for _, name := range ctx.subjectParameterNames(sub) {
+		if subject, bound = bindings.lookup(name); bound {
+			break
+		}
+	}
+	if !bound {
+		return bindings
+	}
+	vars := maps.Clone(bindings.vars)
+	for _, name := range ctx.subjectParameterNames(typ) {
+		if _, ok := vars[name]; !ok {
+			vars[name] = subject
+		}
+	}
+	return bindings.withVars(vars)
 }
 
 // negatedText renders what a negated element asserted and did not get: that not
