@@ -100,7 +100,6 @@ static const char *const sysml_literal_names[] = {%s};
 
 static void sysml_print_enum_value(sysml_enum v) { fputs(sysml_literals[v], stdout); }
 static void sysml_print_enum(sysml_enum v) { puts(sysml_literals[v]); }
-static void sysml_format_enum(sysml_enum v, char *out, size_t size) { snprintf(out, size, "%%s", sysml_literals[v]); }
 static const char *sysml_show_enum(sysml_enum v) { return sysml_literals[v]; }
 
 /* Reads a literal of sysml_literals[base, base+n), written as printed or by its qualified name. */

@@ -139,7 +139,6 @@ static void sysml_print_str_value(sysml_str s) {
 	fwrite(q.p, 1, (size_t)q.len, stdout);
 }
 static void sysml_print_str(sysml_str s) { sysml_print_str_value(s); fputc('\n', stdout); }
-static void sysml_format_str(sysml_str s, char *out, size_t size) { snprintf(out, size, "%s", sysml_quote(s).p); }
 static const char *sysml_show_str(sysml_str s) { return sysml_quote(s).p; }
 
 /* Copies a String's bytes out of the arena when a release to m would reclaim them; NULL when it would not. */

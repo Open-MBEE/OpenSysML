@@ -274,7 +274,6 @@ static inline bool sysml_fn_eq(sysml_fn a, sysml_fn b) { return a.c == b.c && a.
 static inline uint64_t sysml_fn_key(sysml_fn f) { return ((((uint64_t)f.run * 0x100000001B3ULL) ^ (uint64_t)(uintptr_t)f.self) * 0x100000001B3ULL) ^ (uint64_t)f.c; }
 static void sysml_print_fn_value(sysml_fn f) { fputs(sysml_fn_names[f.c], stdout); }
 static void sysml_print_fn(sysml_fn f) { puts(sysml_fn_names[f.c]); }
-static void sysml_format_fn(sysml_fn f, char *out, size_t size) { snprintf(out, size, "%%s", sysml_fn_names[f.c]); }
 static const char *sysml_show_fn(sysml_fn f) { return sysml_fn_names[f.c]; }
 static sysml_fn sysml_parse_fn(const char *s, const char *name) { fprintf(stderr, "argument %%s: %%s is not a function value\n", name, s); exit(2); }
 `, env, strings.Join(names, ", "))

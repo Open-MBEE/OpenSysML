@@ -1045,7 +1045,7 @@ func cZero(t Type) string {
 	case t.Many():
 		return fmt.Sprintf("sysml_null_%s()", cSeqSuffix(t))
 	case t == TypeNum:
-		return "sysml_ni(0)"
+		return "sysml_ni(SYSML_I(0))"
 	case t == TypeString:
 		return "sysml_str_empty()"
 	case t.IsFn():
@@ -1190,7 +1190,7 @@ func (e *cEmitter) intLit(x IntLit) string {
 		}
 		limbs = append(limbs, fmt.Sprintf("0x%xu", limb))
 	}
-	return fmt.Sprintf("({ static const struct { bool neg; int32_t n; uint32_t d[%d]; } sysml_l = {%t, %[1]d, {%s}}; (sysml_integer){0, (const sysml_big *)&sysml_l}; })", len(limbs), x.Big.Sign() < 0, strings.Join(limbs, ", "))
+	return fmt.Sprintf("({ static const struct { bool neg; int32_t n; uint32_t d[%d]; } sysml_l = {%t, %d, {%s}}; (sysml_integer){0, (const sysml_big *)&sysml_l}; })", len(limbs), x.Big.Sign() < 0, len(limbs), strings.Join(limbs, ", "))
 }
 
 // cReal renders a float64 so the C compiler reads back the identical value.
