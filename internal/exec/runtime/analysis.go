@@ -535,14 +535,12 @@ func (ctx *Context) caseMemberConditions(member scopedMember) []Condition {
 	return ctx.appendCheckedConstraint(out, member)
 }
 
-// appendCheckedConstraint appends the conditions a nested constraint usage
-// states when the case requires, assumes, asserts or states it as an invariant.
-// A negation it wrote negates what its conditions state together (De Morgan),
-// as a negated constraint body does.
-func (ctx *Context) appendCheckedConstraint(out []Condition, member scopedMember) []Condition {
-	usage, ok := member.node.(*ast.Usage)
-	if !ok || usage.Kind != ast.UsageConstraint {
-		return out
+// checkedConstraint is the nested constraint usage member is when the case requires, assumes,
+// asserts or states it as an invariant, and whether what it states is required.
+func checkedConstraint(member scopedMember) (sym *symbols.Symbol, required, ok bool) {
+	usage, isUsage := member.node.(*ast.Usage)
+	if !isUsage || usage.Kind != ast.UsageConstraint {
+		return nil, false, false
 	}
 	// The keyword sits ahead of a kind keyword (`require constraint { … }`) or
 	// stands for the kind itself (`require c : C`, `inv { … }`).
@@ -550,23 +548,34 @@ func (ctx *Context) appendCheckedConstraint(out []Condition, member scopedMember
 	if keyword == "" {
 		keyword = usage.Keyword
 	}
-	var required bool
 	switch keyword {
 	case "require", "assert", "inv":
 		required = true
 	case "assume":
 		required = false
 	default:
+		return nil, false, false
+	}
+	sym = memberSymbol(member.scope, member.node)
+	return sym, required, sym != nil
+}
+
+// appendCheckedConstraint appends the conditions a nested constraint usage
+// states when the case requires, assumes, asserts or states it as an invariant.
+// A negation it wrote negates what its conditions state together (De Morgan),
+// as a negated constraint body does.
+func (ctx *Context) appendCheckedConstraint(out []Condition, member scopedMember) []Condition {
+	sym, required, ok := checkedConstraint(member)
+	if !ok {
 		return out
 	}
-	sym := memberSymbol(member.scope, member.node)
-	if sym == nil {
-		return out
-	}
+	usage := member.node.(*ast.Usage)
 	conds := ctx.ConditionsOf(sym, nil)
 	for i := range conds {
 		conds[i].Required = required
 	}
+	// The usage's own inputs mask those its definition declares, bound as it writes them.
+	setConstraint(conds, sym)
 	if !usage.IsNegated {
 		return append(out, conds...)
 	}
