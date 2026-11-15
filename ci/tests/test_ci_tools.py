@@ -589,6 +589,7 @@ class StarveSweepTest(Stub):
                   r(16, 10, "feat/e")]
         self.rules([
             [r"event=merge_group&status=queued", {"workflow_runs": [{"id": 900, "status": "queued"}]}, 0],
+            [r"event=merge_group&status=", {"workflow_runs": []}, 0],
             [r"event=pull_request&status=queued", {"workflow_runs": queued}, 0],
             [r"event=pull_request&status=", {"workflow_runs": []}, 0],
             [r"runs/11/jobs", {"jobs": [{"status": "queued"}]}, 0],
@@ -600,6 +601,57 @@ class StarveSweepTest(Stub):
         self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
         self.assertEqual([c for c in self.calls() if c.startswith("run cancel")], ["run cancel 11 -R Example/Repo", "run cancel 16 -R Example/Repo"])
         self.assertEqual([e["pr"] for e in self.read("auth_rerun.json")], [9, 4, 10])
+
+    def starved_rules(self, mg_age, mg_jobs, cancel_fails=()):
+        self.write("starve_cancel.json", {"by": "maintainer", "rule": "keep the merge PR run"})
+        self.write("tiers.json", {"tiers": [[6]]})
+
+        def r(rid, n):
+            return {"id": rid, "event": "pull_request", "name": "PR", "head_branch": f"feat/{n}", "head_sha": f"{rid:040d}",
+                    "pull_requests": [{"number": n}]}
+
+        def jobs(*sts):
+            return {"jobs": [{"name": f"j{i}", "status": s, "conclusion": "success" if s == "completed" else None} for i, s in enumerate(sts)]}
+        mg = {"id": 900, "status": "in_progress", "created_at": stamp(mg_age), "head_branch": "gh-readonly-queue/develop/pr-1-x"}
+        rules = [[rf"^run cancel {rid} ", "boom", 1] for rid in cancel_fails] + [
+            [r"event=merge_group&status=in_progress", {"workflow_runs": [mg]}, 0],
+            [r"event=merge_group&status=", {"workflow_runs": []}, 0],
+            [r"runs/900/jobs", {"jobs": mg_jobs}, 0],
+            [r"event=pull_request&status=in_progress", {"workflow_runs": [r(21, 4), r(22, 5), r(23, 6), r(24, 7)]}, 0],
+            [r"event=pull_request&status=", {"workflow_runs": []}, 0],
+            [r"runs/21/jobs", jobs("in_progress", "queued", "queued"), 0],
+            [r"runs/22/jobs", jobs("completed", "in_progress"), 0],
+            [r"runs/23/jobs", jobs("in_progress", "queued"), 0],
+            [r"runs/24/jobs", jobs("completed", "in_progress", "queued"), 0],
+            [r"^run cancel \d+ ", "", 0]]
+        self.rules(rules)
+
+    def cancels(self):
+        return [c.split()[2] for c in self.calls() if c.startswith("run cancel")]
+
+    def test_starved_merge_group_keeps_the_run_closest_to_finishing(self):
+        self.starved_rules(10, [{"status": "queued"}, {"status": "queued"}])
+        self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        self.assertEqual(sorted(self.cancels()), ["21", "23", "24"])
+        self.assertEqual([e["pr"] for e in self.read("auth_rerun.json")], [6, 4, 7])
+        self.assertIn("merge group starved: keeping run 22 (#5, 1 job(s) unfinished)", self.text("watch.log"))
+
+    def test_waiting_group_with_a_started_job_leaves_started_runs_alone(self):
+        self.starved_rules(10, [{"status": "in_progress"}, {"status": "queued"}])
+        self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        self.assertEqual(self.cancels(), [])
+
+    def test_starvation_waits_for_the_grace_period(self):
+        self.starved_rules(1, [{"status": "queued"}])
+        self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        self.assertEqual(self.cancels(), [])
+
+    def test_failed_starvation_cancel_is_not_queued(self):
+        self.starved_rules(10, [{"status": "queued"}], cancel_fails=(23,))
+        self.assertEqual(starve_sweep.main(["--config", self.config, "--once"]), 0)
+        self.assertEqual([e["pr"] for e in self.read("auth_rerun.json")], [4, 7])
+        self.assertIn("#6: run 23", self.text("watch.log"))
+        self.assertIn("merge group starved) not cancelled", self.text("watch.log"))
 
     def test_idle_queue_api_error_and_absent_authorization(self):
         self.rules([[r"event=merge_group", {"workflow_runs": []}, 0]])

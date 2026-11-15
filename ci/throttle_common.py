@@ -25,6 +25,7 @@ DEFAULTS = {
     "ci_priority": None,
     "known_flakes": [],
     "job_timeout_minutes": 59,
+    "starve_grace_seconds": 180,
 }
 # Commands that change GitHub state; a freeze file or a dry run blocks every one of them.
 MUTATING = (["run", "rerun"], ["run", "cancel"], ["pr", "close"], ["pr", "reopen"], ["pr", "edit"], ["pr", "ready"],

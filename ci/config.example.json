@@ -15,5 +15,6 @@
   "runner_pin": {"file": ".github/workflows/pr.yml", "require": "ubuntu-24.04", "forbid": "ubuntu-latest"},
   "ci_priority": null,
   "known_flakes": [],
-  "job_timeout_minutes": 59
+  "job_timeout_minutes": 59,
+  "starve_grace_seconds": 180
 }

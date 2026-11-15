@@ -9,7 +9,7 @@ authenticated `gh`, never in CI. Nothing in the Go build or test suite imports t
 | Tool | What it does |
 | --- | --- |
 | `watcher.py` | The throttle and watch loop. It caps concurrent ordinary pull-request runs, queues the over-cap ones in priority order, re-starts them when a slot frees, holds every slot for the merge queue, and reports each decision. |
-| `starve_sweep.py` | While a merge-queue run has waiting jobs, it cancels ordinary pull-request runs that have jobs but none started, and queues each one for the watcher to re-run (`auth_rerun.json`). |
+| `starve_sweep.py` | Frees runners for the merge queue. While a merge-queue run has waiting jobs, it cancels ordinary pull-request runs that have jobs but none started. When a merge-queue run older than `starve_grace_seconds` has started no job at all, it also cancels every ordinary run with a job in progress except the one closest to finishing. Each run it cancels is queued for the watcher to re-run (`auth_rerun.json`). |
 | `infra_rerun.py` | Classifies the failed jobs of the runs in `infra_runs.json` as infrastructure (setup steps, DNS, apt mirrors) or real, and re-runs (`--failed`) only the infrastructure failures once the infrastructure has recovered. |
 | `drycheck.sh` | Dry-merges (`git merge-tree`) each pull request in `ready.txt` onto its base branch's head and prints CLEAN or DIRTY. |
 | `drywatch.sh` | Runs `drycheck.sh` every time the base branch moves and appends the results to `dry.log`. |
@@ -70,6 +70,7 @@ the directory that contains the configuration file.
 | `ci_priority` | `{"after_pr", "title_re", "path_re"}`: a new PR into the base branch whose number is above `after_pr`, and whose title or changed paths match, is admitted as a CI priority PR. With `tiers.json`, only PRs in tiers 1 and 2 qualify. `null` turns this off. |
 | `known_flakes` | `[{"job", "test", "note"}]`: a red result whose only failures are this job's (plus the required check) and only this test is reported as the known flake, not as the PR's failure. |
 | `job_timeout_minutes` | A cancelled job that ran at least this long is reported as a timeout (default 59). |
+| `starve_grace_seconds` | How old a merge-queue run with no started job must be before the sweeper counts it as starved (default 180). |
 
 ## Starting and stopping
 
@@ -171,6 +172,17 @@ These rules come from running the tools on this repository and still apply.
   is queued or has waiting jobs. Between two queue builds, a non-empty GraphQL
   `mergeQueue(branch:…).entries` also counts as a busy queue: the next build appears about a
   minute after the previous one finishes, and an ordinary run admitted in that gap delays it.
+- The sweeper's two cases follow the maintainer's rule "cancel all normal PR runs, except the
+  closest to finishing; keep the merge PR run":
+  - **Waiting.** While a merge-queue run has queued or waiting jobs, every ordinary run whose
+    heavy jobs are all still queued is cancelled.
+  - **Starved.** A merge-queue run older than `starve_grace_seconds` that has started no job means
+    ordinary runs took the runners first, typically in the gap between one queue build finishing
+    and the next being created. Every ordinary run with a job in progress is cancelled except the
+    one with the fewest unfinished jobs. Ties go by tier rank.
+
+  Each successful cancel is queued in `auth_rerun.json`, one entry per PR, in tier order. A
+  failed cancel is logged and not queued.
 - Never cancel or hold a `merge_group` run, a tag's runs, or a `release/`/`hotfix/` run.
   Re-running a cancelled release run is the maintainer's call.
 - When a merge-queue entry fails and stays UNMERGEABLE, the entries behind it keep building on its

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""While a merge-queue run waits for runners, cancel ordinary pull_request runs with no started job and queue them for re-run.
+"""While a merge-queue run waits for runners, cancel ordinary pull_request runs that would delay it and queue them for re-run.
 
 Runs only while starve_cancel.json exists: that file is the maintainer's standing authorization for these cancels.
 """
 import argparse
+import datetime
 import os
 import sys
 import time
@@ -35,43 +36,73 @@ class Sweeper:
                 return (i, t.index(e["pr"]))
         return (len(tiers), e["pr"])
 
-    def mq_waiting(self):
-        repo = self.cfg.repo
+    def merge_group_runs(self):
+        runs = {}
         for st in ACTIVE:
-            for r in self.api(f"repos/{repo}/actions/runs?event=merge_group&status={st}&per_page=50")["workflow_runs"]:
-                if r["status"] == "queued":
-                    return True
-                jobs = self.api(f"repos/{repo}/actions/runs/{r['id']}/jobs?per_page=100")["jobs"]
-                if any(j["status"] in WAITING for j in jobs):
-                    return True
-        return False
+            for r in self.api(f"repos/{self.cfg.repo}/actions/runs?event=merge_group&status={st}&per_page=50")["workflow_runs"]:
+                runs[r["id"]] = r
+        return list(runs.values())
+
+    def jobs(self, rid):
+        return self.api(f"repos/{self.cfg.repo}/actions/runs/{rid}/jobs?per_page=100")["jobs"]
+
+    def queue_state(self):
+        """(waiting, starved): a merge-group run has queued or waiting jobs; one older than the grace period has started none."""
+        waiting = starved = False
+        now = datetime.datetime.now(datetime.timezone.utc)
+        for r in self.merge_group_runs():
+            jobs = None
+            if r["status"] == "queued":
+                waiting = True
+            else:
+                jobs = self.jobs(r["id"])
+                waiting = waiting or any(j["status"] in WAITING for j in jobs)
+            created = r.get("created_at")
+            if created and (now - datetime.datetime.fromisoformat(created.replace("Z", "+00:00"))).total_seconds() >= self.cfg["starve_grace_seconds"]:
+                jobs = self.jobs(r["id"]) if jobs is None else jobs
+                starved = starved or not any(j["status"] in ("in_progress", "completed") for j in jobs)
+        return waiting, starved
+
+    def cancel_and_queue(self, r, why):
+        pr, repo = r["pull_requests"][0]["number"], self.cfg.repo
+        done = self.gh(["run", "cancel", str(r["id"]), "-R", repo], ok_fail=True) is not None
+        if done:
+            with self.cfg.locked("auth_rerun.json"):
+                todo = [e for e in self.cfg.read("auth_rerun.json", []) if e["pr"] != pr]
+                todo.append({"pr": pr, "run": r["id"], "head": r["head_sha"][:10]})
+                self.cfg.write("auth_rerun.json", sorted(todo, key=self.rank))
+        self.log(f"#{pr}: run {r['id']} ({r['head_sha'][:10]}, {why}) {'cancelled; queued for re-run under the cap' if done else 'not cancelled'}")
 
     def sweep(self):
-        """One pass; any API error raises before anything is cancelled for that run."""
-        if not self.mq_waiting():
+        """One pass; any API error raises before anything more is cancelled."""
+        waiting, starved = self.queue_state()
+        if not (waiting or starved):
             return
         repo, workflows = self.cfg.repo, set(self.cfg["workflows"])
         cand = {}
         for st in ACTIVE:
             for r in self.api(f"repos/{repo}/actions/runs?event=pull_request&status={st}&per_page=100")["workflow_runs"]:
                 cand[r["id"]] = r
+        running = []
         for r in cand.values():
             if r["event"] != "pull_request" or r.get("name") not in workflows or not r.get("pull_requests") \
                     or protected_branch(self.cfg, r["head_branch"], r["event"]):
                 continue
-            jobs = self.api(f"repos/{repo}/actions/runs/{r['id']}/jobs?per_page=100")["jobs"]
+            jobs = self.jobs(r["id"])
             # A run with no jobs uses no runner, and GitHub refuses to retry it once cancelled.
-            if not jobs or heavy_job_started(self.cfg, jobs):
+            if not jobs:
                 continue
-            pr = r["pull_requests"][0]["number"]
-            done = self.gh(["run", "cancel", str(r["id"]), "-R", repo], ok_fail=True) is not None
-            if done:
-                with self.cfg.locked("auth_rerun.json"):
-                    todo = [e for e in self.cfg.read("auth_rerun.json", []) if e["pr"] != pr]
-                    todo.append({"pr": pr, "run": r["id"], "head": r["head_sha"][:10]})
-                    self.cfg.write("auth_rerun.json", sorted(todo, key=self.rank))
-            self.log(f"#{pr}: run {r['id']} ({r['head_sha'][:10]}, no job started) "
-                     f"{'cancelled; queued for re-run under the cap' if done else 'not cancelled'}")
+            if waiting and not heavy_job_started(self.cfg, jobs):
+                self.cancel_and_queue(r, "no job started")
+            elif starved and any(j["status"] == "in_progress" for j in jobs):
+                unfinished = sum(1 for j in jobs if j["status"] != "completed")
+                running.append((unfinished, self.rank({"pr": r["pull_requests"][0]["number"]}), r))
+        if len(running) > 1:
+            running.sort(key=lambda x: (x[0], x[1]))
+            keep = running[0][2]
+            self.log(f"merge group starved: keeping run {keep['id']} (#{keep['pull_requests'][0]['number']}, {running[0][0]} job(s) unfinished)")
+            for unfinished, _, r in running[1:]:
+                self.cancel_and_queue(r, f"started, {unfinished} job(s) unfinished, merge group starved")
 
 
 def main(argv=None):
