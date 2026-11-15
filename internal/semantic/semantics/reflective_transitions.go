@@ -293,7 +293,7 @@ func (m *Model) transitionElements(sym *symbols.Symbol, feature string) ([]*symb
 		case "source":
 			return optionalElement(m.transitionSource(sym, parts)), true
 		case "target":
-			return optionalElement(m.transitionTarget(parts)), true
+			return optionalElement(m.transitionTarget(sym, parts)), true
 		}
 		return nil, false
 	}
@@ -325,8 +325,36 @@ func (m *Model) transitionSource(sym *symbols.Symbol, parts *transitionParts) *s
 
 // transitionTarget is the ActionUsage the target feature of the transition's succession targets
 // (SysML v2.1 §8.3.18.9 deriveTransitionUsageTarget).
-func (m *Model) transitionTarget(parts *transitionParts) *symbols.Symbol {
-	return m.actionUsageOrNil(m.transitionSuccessionEnd(parts, 1))
+func (m *Model) transitionTarget(sym *symbols.Symbol, parts *transitionParts) *symbols.Symbol {
+	target := m.transitionSuccessionEnd(parts, 1)
+	if target == nil {
+		target = m.transitionTargetEndpoint(sym)
+	}
+	return m.actionUsageOrNil(target)
+}
+
+// transitionTargetEndpoint is the vertex a written target names by endpoint resolution, which reaches one nested
+// in a sibling state as transitionSourceMember does for the source.
+func (m *Model) transitionTargetEndpoint(sym *symbols.Symbol) *symbols.Symbol {
+	if !declaresTransition(sym) || m.resolver == nil {
+		return nil
+	}
+	var written *ast.QualifiedName
+	switch d := sym.Decl.(type) {
+	case *ast.TransitionMember:
+		written = d.Target
+	case *ast.SuccessionEdge:
+		written = d.Target
+	}
+	if written == nil || ast.IsFeatureChain(written) {
+		return nil
+	}
+	scope := sym.OwnerScope
+	if scope == nil {
+		scope = sym.Scope
+	}
+	target, _ := m.resolver.EndpointSymbol(scope, written)
+	return target
 }
 
 // transitionSuccessionEnd is the feature the transition's succession relates at position i, nil when unresolved.
