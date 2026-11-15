@@ -311,3 +311,31 @@ func TestExposedElementsOfAnImportNestedInItsTarget(t *testing.T) {
 			[]string{"Inner", "InnerAll", "OwnPriv", "OwnPub", "X"})
 	})
 }
+
+// An Expose reads its target with the view excluded, and each import on the way
+// with the namespaces before it excluded (KerML 8.3.2.4.5, 8.3.2.4.6): a private
+// member does not come back to its namespace through a cycle of imports, by the
+// scope route or by the expanded index.
+func TestExposedElementsStopAtAnExcludedNamespace(t *testing.T) {
+	const src = `
+		package C1 { public import all C2::*; private part def P1; part def V1; }
+		package C2 { public import all C1::*; private part def P2; part def V2; }
+		package Mid { public import C1::*; }
+		view direct { expose C1::*; }
+		view through { expose Mid::*; }
+	`
+	for _, expanded := range []bool{false, true} {
+		m, root, r, doc := buildUnresolvedModel(t, "t.sysml", source.KindOf("t.sysml"), src)
+		if expanded {
+			r.Index().ExpandWildcardImports()
+		}
+		r.ResolveDocument("t.sysml", doc)
+		// The Expose takes every membership of C1; C2's import of C1 brings nothing back.
+		wantNames(t, fmt.Sprintf("exposed set of direct (expanded index %v)", expanded),
+			exposedNames(t, m, sym(t, root, "direct")), []string{"P1", "P2", "V1", "V2"})
+		// Mid's ordinary import takes C1's public memberships: P2 by the public
+		// `import all`, P1 by no route that does not pass through C1 twice.
+		wantNames(t, fmt.Sprintf("exposed set of through (expanded index %v)", expanded),
+			exposedNames(t, m, sym(t, root, "through")), []string{"P2", "V1", "V2"})
+	}
+}
