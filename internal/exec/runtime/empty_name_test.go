@@ -33,6 +33,39 @@ func TestToolCalcReturnsAnEmptyNamedResult(t *testing.T) {
 	}
 }
 
+// A loop variable with the empty name is declared: the loop binds it each iteration and the
+// body reads it by that name, as it reads any other.
+func TestForLoopBindsAnEmptyNamedVariable(t *testing.T) {
+	ctx, scope := analysisFixture(t, `package test {
+	private import ScalarValues::*;
+
+	action def Named {
+		out total : Integer := 0;
+		for i in (1, 2, 3) {
+			assign total := total + i;
+		}
+	}
+
+	action def Empty {
+		out total : Integer := 0;
+		for '' in (1, 2, 3) {
+			assign total := total + '';
+		}
+	}
+}`)
+	totals := map[string]string{}
+	for _, action := range []string{"Named", "Empty"} {
+		out, err := ctx.ExecuteAction(calcNamed(t, scope, action))
+		if err != nil {
+			t.Fatalf("%s: ExecuteAction: %v", action, err)
+		}
+		totals[action] = FormatValue(out["total"])
+	}
+	if totals["Named"] != "[6]" || totals["Empty"] != totals["Named"] {
+		t.Errorf("totals = %v, want [6] from both", totals)
+	}
+}
+
 // A connector end with the empty name is a declared end: the connected object is
 // bound under that name, as under any other.
 func TestConnectorBindsAnEmptyNamedEnd(t *testing.T) {

@@ -477,6 +477,7 @@ type Loop struct {
 	// iteration (`while c { … } until d;`), nil when it carries none.
 	Until      ast.Node
 	Variable   string   // `for` only: the name each element is bound to
+	Bound      bool     // `for` only: a variable is declared, the empty name included
 	Collection ast.Node // `for` only: the collection iterated over
 	Body       Block
 	// BodyAction is the action usage the loop declares as its body (`loop action
@@ -2192,6 +2193,7 @@ func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Res
 			Condition:  m.Condition,
 			Until:      m.Until,
 			Variable:   variable,
+			Bound:      m.Variable.Declared(),
 			Collection: m.Collection,
 			Body:       lowerBlock(m, m.Body, bodyScope, resolver, ancestors),
 			BodyAction: loopBodyAction(m, bodyScope),

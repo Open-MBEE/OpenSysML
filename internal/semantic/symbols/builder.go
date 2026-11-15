@@ -305,17 +305,22 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 		child := NewScope(scope, d)
 		child.markBodyLocal()
 		scope.AddChild(child)
-		if name, span := d.Variable.DeclaredName(); d.Kind == ast.LoopFor && name != "" {
+		if d.Kind == ast.LoopFor && d.Variable.Declared() {
 			// The variable's own span, not the whole loop's: the editor renames
 			// through NameSpan and jumps to DeclSpan.
-			child.Define(name, &Symbol{
+			name, span := d.Variable.DeclaredName()
+			sym := &Symbol{
 				Name:       name,
 				Kind:       SymbolReferenceUsage,
 				Decl:       d,
 				DeclSpan:   span,
 				NameSpan:   span,
 				OwnerScope: child,
-			})
+			}
+			if name == "" {
+				sym.EmptyNames = EmptyName
+			}
+			child.define(name, sym)
 		}
 		buildMembers(child, d.Body)
 		return true
