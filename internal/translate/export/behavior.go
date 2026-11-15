@@ -1085,7 +1085,12 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 					Note: fmt.Sprintf("it neither names nor reaches the member it %s, so the order it declares cannot be written back", end.sequence),
 				}
 			}
-			e.graph.Add(subject, e.sysx(end.member), e.ids.subjectForNode(end.end.member, fqn))
+			member := e.ids.subjectForNode(end.end.member, fqn)
+			e.graph.Add(subject, e.sysx(end.member), member)
+			// The member it reaches is the end's feature and the relationship's
+			// source or target too, as for a named one (KerML 8.3.4.5.1).
+			e.graph.Add(subject, e.sysml(end.feature), member)
+			e.graph.Add(subject, e.sysml(end.related), member)
 			continue
 		}
 		// A name the parser took from an unnamed member is its naming feature's,
