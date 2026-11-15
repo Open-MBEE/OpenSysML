@@ -427,6 +427,9 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 			}
 		case apiJSONReservedPredicate(predicate):
 			continue
+		case predicate == rdf.OpenSysML+xMappingQualifiedName:
+			// Written beside qualifiedName, wherever it is not the default.
+			continue
 		case strings.HasPrefix(predicate, rdf.OpenSysML):
 			key := "sysx:" + strings.TrimPrefix(predicate, rdf.OpenSysML)
 			objects := w.graph.ObjectsView(subject, predicate)
@@ -499,6 +502,10 @@ func apiJSONGraphPropertyOrder(graph *rdf.Graph, subject rdf.Term) []string {
 	order := make([]string, 0, len(predicates))
 	for _, predicate := range predicates {
 		if predicate == rdf.RDFType || rdf.IsAnnotationJSON(predicate) {
+			continue
+		}
+		// A name's address holds one place, the qualifiedName beside it.
+		if predicate == rdf.OpenSysML+xMappingQualifiedName && graph.HasProperty(subject, rdf.SysML+pQualifiedName) {
 			continue
 		}
 		switch {
@@ -1024,19 +1031,26 @@ func apiJSONMappingQualifiedName(
 	defaults *apiJSONMappingNameIndex,
 	specName any,
 ) (any, bool, error) {
-	objects := graph.ObjectsView(subject, rdf.SysML+"qualifiedName")
+	objects := graph.ObjectsView(subject, rdf.SysML+pQualifiedName)
 	if len(objects) > 1 {
 		return nil, false, fmt.Errorf("subject <%s> has %d sysml:qualifiedName values", subject.Value, len(objects))
 	}
-	if len(objects) == 1 {
-		if !objects[0].IsLiteral() {
+	stated := graph.ObjectsView(subject, rdf.OpenSysML+xMappingQualifiedName)
+	if len(stated) > 1 {
+		return nil, false, fmt.Errorf("subject <%s> has %d sysx:mappingQualifiedName values", subject.Value, len(stated))
+	}
+	if len(objects) == 1 || len(stated) == 1 {
+		if len(objects) == 1 && !objects[0].IsLiteral() {
 			return nil, false, fmt.Errorf("subject <%s> has a non-literal sysml:qualifiedName", subject.Value)
+		}
+		if len(stated) == 1 && !stated[0].IsLiteral() {
+			return nil, false, fmt.Errorf("subject <%s> has a non-literal sysx:mappingQualifiedName", subject.Value)
 		}
 		_, ok := rdf.SubjectID(subject)
 		if !ok {
 			return nil, false, fmt.Errorf("subject <%s> has no API element id", subject.Value)
 		}
-		graphName := objects[0].Value
+		graphName, _ := statedAddress(graph, subject)
 		if defaultName, hasDefault := defaults.name(subject); hasDefault && defaultName == graphName {
 			if specName, hasSpecName := specName.(string); !hasSpecName || specName == graphName {
 				return nil, false, nil
