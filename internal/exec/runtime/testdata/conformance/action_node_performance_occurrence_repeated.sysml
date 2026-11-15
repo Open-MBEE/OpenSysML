@@ -1,7 +1,7 @@
 // A node a merge reaches again is performed again, and each performance is an
 // occurrence of its own: `run.one` lists both in the order they began, so
 // the part's `performed = size(run.one)` is 2 and its `values = run.one.v` the two
-// values (KerML 1.1 §7.4.9.4 feature chaining), not the latest performance's alone.
+// values (KerML 1.1 §7.3.4.6 Feature Chaining), not the latest performance's alone.
 package test {
 	private import ScalarValues::*;
 	private import SequenceFunctions::*;
