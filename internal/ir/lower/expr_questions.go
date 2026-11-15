@@ -203,3 +203,26 @@ func Declared(sym *symbols.Symbol) *ExprEntry {
 	entry.Origin = program.Origin{Doc: sym.DocName, Span: sym.Decl.Span()}
 	return entry
 }
+
+// Valued is the expression the declaration of sym is valued by, nil for a
+// declaration stating none.
+func Valued(sym *symbols.Symbol) *ExprEntry {
+	if sym == nil {
+		return nil
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok || usage == nil || absent(usage.Value) {
+		return nil
+	}
+	entry := &ExprEntry{Tree: usage.Value, Scope: sym.OwnerScope}
+	entry.Origin = program.Origin{Doc: sym.DocName, Span: usage.Value.Span()}
+	return entry
+}
+
+// Extent is where the expression was written, the zero Extent for no expression.
+func (e *ExprEntry) Extent() Extent {
+	if e == nil {
+		return Extent{}
+	}
+	return extentOf(e.Tree)
+}
