@@ -996,7 +996,7 @@ func (ec *EvalContext) bindCalcParameter(
 		}
 		return Value{}, "", shape.unboundParameter(param.Name)
 	}
-	value, err := ec.Eval(shape.Expr(param.Default))
+	value, err := ec.evalExpr(ec.ctx.calcExpr(shape, param.Default, ec.scope))
 	if err != nil {
 		return Value{}, "", calcDefaultError(shape.Kind, shape.Name, param.Name, err)
 	}
@@ -1007,6 +1007,15 @@ func (ec *EvalContext) bindCalcParameter(
 // binds nor defaults: the request cannot proceed without it.
 func (shape *loadedCalc) unboundParameter(name string) error {
 	return fmt.Errorf("%w: %s parameter %q has no argument and no default", errUnboundParameter, shape.Label, name)
+}
+
+// calcExpr is the expression of shape behind id for evaluation in scope: the
+// calc's own record where it was lowered there, else its tree lowered for scope.
+func (ctx *Context) calcExpr(shape *loadedCalc, id program.ExprID, scope *symbols.Scope) lowered {
+	if entry := shape.Exprs.Entry(id); entry != nil && entry.Scope == scope {
+		return lowered{entry: entry}
+	}
+	return ctx.model.loweredExpr(scope, shape.Expr(id))
 }
 
 // calcScope returns the scope an inherited or own calc body member is written

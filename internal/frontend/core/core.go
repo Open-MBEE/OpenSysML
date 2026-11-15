@@ -337,7 +337,11 @@ func (c *Core) getSymbol(req *JGetSymbolRequest) ([]byte, error) {
 	if !ok {
 		return nil, jsonrpc.Errorf(jsonrpc.CodeNotFound, msgModelNotFound, req.ModelHash)
 	}
-	matches := model.symbolContext().Lookup(req.SymbolId)
+	lookup := model.symbolContext().LookupElement
+	if req.ResolveName {
+		lookup = model.symbolContext().Resolve
+	}
+	matches := lookup(req.SymbolId)
 	if len(matches) == 0 {
 		return json.Marshal(&JSymbolResponse{Error: fmt.Sprintf("symbol not found: %s", req.SymbolId)})
 	}
@@ -366,6 +370,9 @@ func (m *cachedModel) symbolContext() *symbolfacts.Context {
 	}
 	m.symbols.Semantics.SetSourceText(source.TextOf(sources, libs.Text(m.library)))
 	m.symbols.Positional = symbolfacts.NewPositional(m.index, m.positionalDocuments)
+	if m.library != nil {
+		m.symbols.Positional.WithLibrary(m.library.Read)
+	}
 	return m.symbols
 }
 
@@ -408,6 +415,7 @@ func symbolInfo(info *symbolfacts.Info) *JSymbolInfo {
 		ChildIds:                  info.ChildIds,
 		WithheldLibraryAttributes: info.WithheldLibraryAttributes,
 		WithheldLibraryMembers:    info.WithheldLibraryMembers,
+		AnnotatingMetadataIds:     info.AnnotatingMetadataIds,
 	}
 	for _, member := range info.Members {
 		out.Members = append(out.Members, &JMemberInfo{

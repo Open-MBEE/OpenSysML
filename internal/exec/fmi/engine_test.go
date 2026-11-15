@@ -15,6 +15,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
@@ -118,7 +119,7 @@ func parseProbe(t *testing.T, text string) *probe {
 func (p *probe) context(r *analysis.Registry) *runtime.Context {
 	resolver := resolve.New(p.idx)
 	model := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
-	model.SetExpressionParser(parser.ParseOneExpression)
+	model.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, model.Resolver()))
 	ctx := runtime.NewContext(model, 10000)
 	ctx.SetToolRunner(r.ToolRunner(context.Background(), ctx, analysis.Budget{}, analysis.Only("tool:fmi")))
 	return ctx

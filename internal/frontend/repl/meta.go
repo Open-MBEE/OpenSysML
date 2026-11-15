@@ -1436,7 +1436,7 @@ func mismatchInExpr(expr string, operand *runtime.OperandTypeError, base int) bo
 func emptyRuntime(budgets runtime.Budgets) (*runtime.Context, error) {
 	resolver := resolve.New(libs.NewModelIndex())
 	model := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
-	model.SetExpressionParser(parser.ParseOneExpression)
+	model.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, model.Resolver()))
 	ctx := runtime.NewContext(model, budgets.MaxSteps)
 	if err := ctx.SetBudgets(budgets); err != nil {
 		return nil, err

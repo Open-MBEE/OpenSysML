@@ -3,10 +3,12 @@ package grpc
 import (
 	"container/list"
 	"fmt"
-	checkws "github.com/Open-MBEE/OpenSysML/internal/check/workspace"
-	"github.com/Open-MBEE/OpenSysML/internal/doc/querytranslate"
 	goruntime "runtime"
 	"sync"
+
+	checkws "github.com/Open-MBEE/OpenSysML/internal/check/workspace"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/querytranslate"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 
 	"connectrpc.com/connect"
 
@@ -103,6 +105,10 @@ type CachedModel struct {
 	// parsed fresh (lineage.go).
 	analysis *analysisSnapshot
 
+	// Prepared export state belongs to this immutable model, never its lineage.
+	exportOnce  sync.Once
+	exportModel *export.PreparedModel
+
 	symCtxOnce sync.Once
 	symCtx     *symbolfacts.Context
 	// elementIDs reads what a conversion of the model writes as each element's
@@ -170,7 +176,7 @@ func (m *CachedModel) Semantics() (*runtime.Model, error) {
 	sem := passes.NewTypedModel(resolver)
 	sem.SetSourceText(cachedSourceText(m))
 	model := runtime.NewModel(sem, resolver)
-	model.SetExpressionParser(parser.ParseOneExpression)
+	model.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, model.Resolver()))
 	for _, doc := range m.Documents {
 		model.RegisterSource(doc.Source)
 	}
@@ -234,6 +240,9 @@ func (m *CachedModel) SymbolContext() *symbolfacts.Context {
 		m.symCtx = NewSymbolContext(m.Index)
 		m.symCtx.Semantics.SetSourceText(cachedSourceText(m))
 		m.symCtx.Positional = symbolfacts.NewPositional(m.Index, m.positionalDocuments)
+		if m.Library != nil {
+			m.symCtx.Positional.WithLibrary(m.Library.Read)
+		}
 		m.symCtx.ElementForm = func() symbolfacts.ElementForm { return elementform.New(m.elementIDReader()) }
 	})
 	return m.symCtx
@@ -261,7 +270,7 @@ func (m *CachedModel) positionalDocuments() []symbolfacts.PositionalDocument {
 func (m *CachedModel) LookupSymbol(id string) []*symbols.Symbol {
 	sc := m.SymbolContext()
 	defer sc.Lock()()
-	return sc.Lookup(id)
+	return sc.LookupElement(id)
 }
 
 // LookupNamedMember resolves a symbol id, a member a subtype inherits included
@@ -270,7 +279,23 @@ func (m *CachedModel) LookupSymbol(id string) []*symbols.Symbol {
 func (m *CachedModel) LookupNamedMember(id string) []*symbols.Symbol {
 	sc := m.SymbolContext()
 	defer sc.Lock()()
-	return symbolfacts.LookupNamedMember(sc.Index, sc.Semantics, id)
+	return sc.LookupMember(id)
+}
+
+// ResolveName resolves a qualified name from the root namespace (see
+// symbolfacts.Context.Resolve), under the symbol context's lock.
+func (m *CachedModel) ResolveName(name string) []*symbols.Symbol {
+	sc := m.SymbolContext()
+	defer sc.Lock()()
+	return sc.Resolve(name)
+}
+
+// ResolveMemberName is ResolveName with an alias answered as its membership
+// (see symbolfacts.Context.ResolveMember).
+func (m *CachedModel) ResolveMemberName(name string) []*symbols.Symbol {
+	sc := m.SymbolContext()
+	defer sc.Lock()()
+	return sc.ResolveMember(name)
 }
 
 // Cache is an LRU cache for parsed models keyed by content hash

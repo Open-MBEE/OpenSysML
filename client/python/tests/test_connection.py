@@ -163,6 +163,28 @@ def test_connection_get_symbol():
             assert pb_result.name == "Engine"
 
 
+@pytest.mark.parametrize(
+    "capabilities, sent",
+    [(["symbol_name_resolution"], True), ([], False)],
+)
+def test_connection_get_symbol_resolves_a_name_only_where_advertised(capabilities, sent):
+    """A service without symbol_name_resolution is asked by reported id, as it reads every id."""
+    with patch('grpc.insecure_channel'):
+        mock_stub = Mock()
+        mock_stub.GetServerInfo.return_value = sysml_pb2.ServerInfoResponse(
+            version="test", capabilities=capabilities,
+        )
+        mock_stub.GetSymbol.return_value = sysml_pb2.SymbolResponse(
+            symbol=sysml_pb2.SymbolInfo(id="Lib::Pump", name="Pump"), error="",
+        )
+        with patch('opensysml.proto.sysml_pb2_grpc.SysMLServiceStub', return_value=mock_stub):
+            conn = Connection(auto_start=False)
+            conn.get_symbol("hash", "Lib::PumpAlias", resolve_name=True)
+            assert mock_stub.GetSymbol.call_args[0][0].resolve_name is sent
+            conn.get_symbol("hash", "Lib::PumpAlias")
+            assert mock_stub.GetSymbol.call_args[0][0].resolve_name is False
+
+
 def test_connection_get_symbol_not_found():
     with patch('grpc.insecure_channel'):
         mock_stub = Mock()

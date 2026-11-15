@@ -126,7 +126,7 @@ func (m *migration) tagColumn(c sysmlv1.Column) columnSource {
 	}
 	segments := append(m.segments(def), m.nameOf(tag))
 	for i, segment := range segments {
-		segments[i] = pathSegment(queryName(segment))
+		segments[i] = pathSegment(segment)
 	}
 	return columnSource{key: strings.Join(segments, "::"), feature: tag, caption: m.nameOf(tag), label: m.nameOf(tag), cell: true}
 }

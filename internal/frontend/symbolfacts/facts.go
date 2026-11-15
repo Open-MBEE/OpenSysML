@@ -1,6 +1,7 @@
 package symbolfacts
 
 import (
+	"slices"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
@@ -75,6 +76,9 @@ type Info struct {
 	// library-inherited ones withheld and counted unless asked for.
 	Members                []*Member
 	WithheldLibraryMembers int32
+	// AnnotatingMetadataIds are the metadata usages annotating the element,
+	// its own prefix and body ones and those naming it with `about` elsewhere.
+	AnnotatingMetadataIds []string
 }
 
 // Options select what Of reports beyond the facts every caller gets.
@@ -159,9 +163,7 @@ func OfWith(sym *symbols.Symbol, sc *Context, opts Options) *Info {
 	}
 	// Add visibility to metadata
 	info.Metadata["visibility"] = visibilityToString(sym.Visibility)
-	if sym.Scope != nil {
-		info.ChildIds = sc.collectChildIDs(sym.Scope)
-	}
+	info.ChildIds = sc.collectChildIDs(sc.ownedMembers(sym))
 	// Static type facts: the resolved type, the declared multiplicity and every
 	// generalization edge. These are what a client needs to reconstruct the
 	// element's type without re-deriving it from the metadata strings.
@@ -174,6 +176,7 @@ func OfWith(sym *symbols.Symbol, sc *Context, opts Options) *Info {
 	// Every member, own and inherited, with its provenance; child_ids above
 	// stays the owned members only.
 	info.Members, info.WithheldLibraryMembers = sc.membersOf(sym, opts.IncludeLibraryMembers)
+	info.AnnotatingMetadataIds = sc.annotatingMetadataIDs(sym)
 	return info
 }
 
@@ -193,25 +196,68 @@ func Root(sc *Context, rootScope *symbols.Scope) *Info {
 		Kind:     "RootNamespace",
 		Metadata: make(map[string]string),
 	}
-	info.ChildIds = sc.collectChildIDs(rootScope)
+	info.ChildIds = sc.collectChildIDs(rootScope.AllMembers())
 	return info
 }
 
 // identityOrFQN is the id a symbol is reported under: the one Lookup answers,
 // else the index's qualified name, so the report still says where it is.
 func (sc *Context) identityOrFQN(sym *symbols.Symbol) string {
-	if id := sc.Identity(sym); id != "" {
+	if id := sc.ownedIdentity(sym); id != "" {
 		return id
 	}
 	return sc.Index.GetFQN(sym)
 }
 
-// collectChildIDs lists the members' ids in declaration order, each one Lookup
-// resolves (qualified or positional); a member no id reaches is left out.
-func (sc *Context) collectChildIDs(scope *symbols.Scope) []string {
+// annotatingMetadataIDs lists the ids of the metadata usages annotating sym,
+// as the semantic model orders them; a usage no id reaches is left out.
+func (sc *Context) annotatingMetadataIDs(sym *symbols.Symbol) []string {
 	var ids []string
-	for _, sym := range scope.AllMembers() {
-		if id := sc.Identity(sym); id != "" {
+	for _, usage := range sc.Semantics.AnnotatingMetadataOf(sym) {
+		if id := sc.Identity(usage); id != "" {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+// ownedIdentity is the id an owned member is listed under: Identity, else, for
+// an end a connector declares without a name (`connect a to b`), its ElementIdentity.
+func (sc *Context) ownedIdentity(sym *symbols.Symbol) string {
+	if id := sc.Identity(sym); id != "" {
+		return id
+	}
+	if sym.Kind != symbols.SymbolConnectorEnd {
+		return ""
+	}
+	if sc.elementForm() == nil {
+		return sc.composedEndID(sym)
+	}
+	return sc.FormID(sym)
+}
+
+// ownedMembers are the members sym owns in declaration order: its scope's, then
+// any end the semantic model has it own (Model.OwnedConnectorEnds) that the scope does not hold.
+func (sc *Context) ownedMembers(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil || sym.Scope == nil {
+		return nil
+	}
+	members := sym.Scope.AllMembers()
+	ends, _ := sc.Semantics.OwnedConnectorEnds(sym)
+	for _, end := range ends {
+		if end != nil && !slices.Contains(members, end) {
+			members = append(slices.Clip(members), end)
+		}
+	}
+	return members
+}
+
+// collectChildIDs lists the members' ids in declaration order, each one
+// LookupElement resolves; a member no id reaches is left out.
+func (sc *Context) collectChildIDs(members []*symbols.Symbol) []string {
+	var ids []string
+	for _, sym := range members {
+		if id := sc.ownedIdentity(sym); id != "" {
 			ids = append(ids, id)
 		}
 	}
@@ -254,13 +300,21 @@ func relationshipName(rel *ast.Relationship) *ast.QualifiedName {
 	return qn
 }
 
-// specializationsOf reports every generalization edge a symbol declares, in
-// declaration order, with each target resolved.
+// specializationsOf reports every generalization edge a symbol declares, in declaration order,
+// with each target resolved; its reference subsetting as referenceSpecializations reads it.
 func (sc *Context) specializationsOf(sym *symbols.Symbol) []*Specialization {
 	var out []*Specialization
+	referenced := false
 	for _, rel := range semantics.RelationshipsOf(sym) {
 		kind := relationshipKindName(rel.Kind)
 		if kind == "" {
+			continue
+		}
+		if rel.Kind.ReferenceSubsets() {
+			if !referenced {
+				out = append(out, sc.referenceSpecializations(sym)...)
+				referenced = true
+			}
 			continue
 		}
 		qn := relationshipName(rel)
@@ -268,19 +322,52 @@ func (sc *Context) specializationsOf(sym *symbols.Symbol) []*Specialization {
 			continue
 		}
 		spec := &Specialization{Kind: kind, Declared: declaredText(rel, qn)}
-		target := sc.relationshipTarget(sym, rel, qn)
-		if kind == "references" {
-			// The semantic model resolves a referenced feature outside the
-			// referencing one, so `ref part a ::> a` does not name itself.
-			target = sc.Semantics.ReferencedFeature(sym)
-		}
-		if target != nil {
+		if target := sc.relationshipTarget(sym, rel, qn); target != nil {
 			spec.TargetId = sc.Index.GetFQN(target)
 			spec.TargetKind = target.Kind.String()
 		}
 		out = append(out, spec)
 	}
+	if !referenced {
+		// A connector end's attachment (`connect a to b`) is written outside the relationship list.
+		out = append(out, sc.referenceSpecializations(sym)...)
+	}
 	return out
+}
+
+// referenceSpecializations reports sym's reference subsetting (KerML 8.3.3.3.9): one `references`
+// entry for the feature named, one per chaining feature of a chain; no id where it does not resolve.
+func (sc *Context) referenceSpecializations(sym *symbols.Symbol) []*Specialization {
+	chain, written := sc.Semantics.ReferencedFeatureChain(sym)
+	declared := sc.expressionText(sym, written)
+	if len(chain) == 0 {
+		if written == nil {
+			return nil
+		}
+		return []*Specialization{{Kind: "references", Declared: declared}}
+	}
+	out := make([]*Specialization, 0, len(chain))
+	for _, feature := range chain {
+		if declared == "" {
+			declared = feature.Name
+		}
+		out = append(out, &Specialization{
+			Kind:       "references",
+			Declared:   declared,
+			TargetId:   sc.referenceID(feature),
+			TargetKind: feature.Kind.String(),
+		})
+	}
+	return out
+}
+
+// referenceID is the id GetSymbol takes for a referenced feature: positional where an
+// owner is unnamed, which the qualified name alone would skip.
+func (sc *Context) referenceID(feature *symbols.Symbol) string {
+	if id := sc.Identity(feature); id != "" {
+		return id
+	}
+	return sc.Index.GetFQN(feature)
 }
 
 // declaredText is the relationship's target as written, with the `~` of a

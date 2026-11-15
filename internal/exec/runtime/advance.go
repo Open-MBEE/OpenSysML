@@ -266,7 +266,8 @@ func (ctx *Context) drawDueOrder(due []clockWaiter) (int, error) {
 		fps[i] = futures.executorFuture(w)
 	}
 	choice.alike = ctx.heldAlike
-	classifyChoice(&choice, fps, func(i, j int) lower.Relation { return ctx.relation(due[i], due[j]) })
+	holder := ctx.slotHolders()
+	classifyChoice(&choice, fps, func(i, j int) lower.Relation { return ctx.relationBy(due[i], due[j], holder) })
 	scheduling := ctx.scheduling()
 	pick := scheduling.choose(choice, nil)
 	if err := scheduling.refusal(); err != nil {
@@ -284,8 +285,9 @@ func (ctx *Context) contended(w clockWaiter) bool {
 		return false
 	}
 	next := nextFootprint(w)
+	holder := ctx.slotHolders()
 	for _, other := range ctx.rivals(w) {
-		if next.DependentBy(ctx.futures.executorFuture(other), ctx.relation(w, other)) {
+		if next.DependentBy(ctx.futures.executorFuture(other), ctx.relationBy(w, other, holder)) {
 			return true
 		}
 	}
@@ -358,8 +360,9 @@ func (ctx *Context) rivals(w clockWaiter) []clockWaiter {
 // wokenBy reports whether a rival's future may not commute with the idle executor's.
 func (ctx *Context) wokenBy(idle clockWaiter, rivals []clockWaiter) bool {
 	future := ctx.futures.executorFuture(idle)
+	holder := ctx.slotHolders()
 	for _, rival := range rivals {
-		if ctx.futures.executorFuture(rival).DependentBy(future, ctx.relation(rival, idle)) {
+		if ctx.futures.executorFuture(rival).DependentBy(future, ctx.relationBy(rival, idle, holder)) {
 			return true
 		}
 	}

@@ -2,12 +2,12 @@
   "root": "spec-examples",
   "file": "sysml/7.18.3/4.sysml",
   "summary": {
-    "pilotFailed": true,
+    "oursRefused": true,
     "pilotLibraryElements": 0,
     "elements": {
       "matched": 0,
       "oursOnly": 0,
-      "pilotOnly": 0,
+      "pilotOnly": 95,
       "pilotOnlyImplied": 0,
       "typeMismatch": 0
     },
@@ -32,7 +32,7 @@
     },
     "unkeyableElements": {
       "ours": 0,
-      "pilot": 0
+      "pilot": 21
     }
   },
   "rows": {}

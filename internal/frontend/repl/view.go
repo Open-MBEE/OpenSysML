@@ -8,6 +8,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -599,7 +600,7 @@ func (r *reportRuntime) runtime() (*runtime.Context, error) {
 	sem.SetSourceText(r.session.sessionSourceText())
 	sem.SetSourceFile(r.session.sessionSourceFile)
 	model := runtime.NewModel(sem, resolver)
-	model.SetExpressionParser(parser.ParseOneExpression)
+	model.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, model.Resolver()))
 	for _, doc := range r.session.sessionDocs() {
 		model.RegisterSource(sourceForKind(doc.Name, doc.Content, doc.Kind()))
 	}
