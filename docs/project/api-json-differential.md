@@ -583,10 +583,10 @@ follows; until it lands, a library parameter gaining a default moves the rows of
 vendored libraries took the `QVTS` library — 16 → 17 files — and eleven files joined the `examples` root: nine
 recorded `QVTS::QueryResult` views under `examples/qvts/expected/views/` and the QVTS repository's
 `observatory.sysml` and `result.sysml`): only the `examples` root moves, 56 → 67 files, and by the new files'
-own elements — 620 more matched (105427 → 106047), 3 ours-only, 13 pilot-only, 413 more
+own elements — 622 more matched (107344 → 107966), 6 ours-only, 11 pilot-only, 413 more
 `pilotLibraryElements` (library elements in the pilot's exports of the new files, left out as every library element is),
-and three more colliding keys of ours (45 → 48). No file is newly refused or failed on either side (36 and
-59 as before), no scorecard row is added or removed (11771), and the other roots read as recorded. The new
+and three more colliding keys of ours (49 → 52). No file is newly refused or failed on either side (38 and
+0 as before), no scorecard row is added or removed (11785), and the other roots read as recorded. The new
 files' properties fall in the buckets their metaclasses already had — the view usages, `expose` imports and
 attribute redefinitions of the result views, and the parts, actions and attributes of `observatory.sysml` —
 so the counts of existing rows grow by what the new files add; no existing example imports `QVTS`. The
