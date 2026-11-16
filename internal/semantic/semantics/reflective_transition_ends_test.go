@@ -26,7 +26,7 @@ func TestTransitionReflectsItsEffectMetaclassAndEnds(t *testing.T) {
             transition t5 first late do { action step; } then idle;
             transition t6 first late then idle;
             transition t7 first idle.inner then busy;
-            transition t8 first busy then inner;
+            transition t8 first busy then idle.inner;
             transition t9 first fin do action effect : A then late;
             transition t10 first fin accept effect : Sig do action e10 then late;
         }
@@ -46,7 +46,7 @@ func TestTransitionReflectsItsEffectMetaclassAndEnds(t *testing.T) {
 		{"t5", "ActionUsage", nested(t, sm, "late"), idle},
 		{"t6", "", nested(t, sm, "late"), idle},
 		{"t7", "", nested(t, idle.Scope, "inner"), nested(t, sm, "busy")},
-		// A target nested in a sibling state is named as the endpoint resolution reaches it.
+		// A target nested in a sibling state is spelt in full: endpoints resolve by name resolution only.
 		{"t8", "", nested(t, sm, "busy"), nested(t, idle.Scope, "inner")},
 		// A member already named `effect`, the effect itself or another, leaves the effect's kind as declared.
 		{"t9", "PerformActionUsage", nested(t, sm, "fin"), nested(t, sm, "late")},
