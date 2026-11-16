@@ -1170,7 +1170,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: maven
+
+      - name: Restore the Maven dependency cache
+        uses: ./.github/actions/maven-cache
 
       - name: Make the service binary executable
         run: chmod +x bin/sysml-grpc
@@ -1831,7 +1833,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: maven
+
+      - name: Restore the Maven dependency cache
+        uses: ./.github/actions/maven-cache
 
       - name: Make the service binary executable
         run: chmod +x bin/sysml-grpc
@@ -1888,7 +1892,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-          cache: maven
+
+      - name: Restore the Maven dependency cache
+        uses: ./.github/actions/maven-cache
 
       - name: Install the client dependency
         run: mvn -B -q -f client/java/pom.xml install -DskipTests -Dmaven.javadoc.skip=true
