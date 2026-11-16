@@ -478,9 +478,8 @@ impl Connection {
         self.element_properties_of(model_hash, element, Lookup::Either, properties)
     }
 
-    /// Read the metamodel properties of the element `element` names as the stated kind: a
-    /// qualified name, or an element form id or symbol id. [`Lookup::Either`] is the legacy
-    /// form, an element form id first, then a name.
+    /// Read the metamodel properties of the element `element` names as the stated kind.
+    /// [`Lookup::Either`] is the legacy form: an element form id first, then a name.
     pub fn element_properties_of(
         &self,
         model_hash: &str,

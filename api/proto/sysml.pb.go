@@ -10286,13 +10286,15 @@ type Specialization struct {
 	Kind string `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
 	// The target as written in the source ("Engine", "Demo::Engine").
 	Declared string `protobuf:"bytes,2,opt,name=declared,proto3" json:"declared,omitempty"`
-	// FQN of the resolved target; empty when the name does not resolve. A "references" feature chain
-	// (`x.p`) is one entry per chaining feature, in chain order, each with the chain as `declared`.
+	// Element id of the resolved target, as GetSymbol reports it, for lookup; empty when the name does not resolve.
+	// A "references" feature chain (`x.p`) is one entry per chaining feature, each with the chain as `declared`.
 	TargetId string `protobuf:"bytes,3,opt,name=target_id,json=targetId,proto3" json:"target_id,omitempty"`
 	// Symbol kind of the resolved target ("partDef", ...); empty when unresolved.
-	TargetKind    string `protobuf:"bytes,4,opt,name=target_kind,json=targetKind,proto3" json:"target_kind,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	TargetKind string `protobuf:"bytes,4,opt,name=target_kind,json=targetKind,proto3" json:"target_kind,omitempty"`
+	// Qualified name of the resolved target, for display; empty when the name does not resolve.
+	TargetQualifiedName string `protobuf:"bytes,5,opt,name=target_qualified_name,json=targetQualifiedName,proto3" json:"target_qualified_name,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *Specialization) Reset() {
@@ -10353,6 +10355,13 @@ func (x *Specialization) GetTargetKind() string {
 	return ""
 }
 
+func (x *Specialization) GetTargetQualifiedName() string {
+	if x != nil {
+		return x.TargetQualifiedName
+	}
+	return ""
+}
+
 // TypeInfo is the static type of a usage, or the classification of a
 // definition, as far as the service derives it without running the model.
 // TypeInfo summarises an element's typing. `declared`, `resolved_id` and
@@ -10364,7 +10373,7 @@ type TypeInfo struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Type name as written; empty when none is declared.
 	Declared string `protobuf:"bytes,1,opt,name=declared,proto3" json:"declared,omitempty"`
-	// FQN of the resolved written type; empty when unresolved or undeclared.
+	// Element id of the resolved written type, as GetSymbol reports it, for lookup; empty when unresolved or undeclared.
 	ResolvedId string `protobuf:"bytes,2,opt,name=resolved_id,json=resolvedId,proto3" json:"resolved_id,omitempty"`
 	// Symbol kind of the resolved written type ("partDef", "attributeDef", ...).
 	ResolvedKind string `protobuf:"bytes,3,opt,name=resolved_kind,json=resolvedKind,proto3" json:"resolved_kind,omitempty"`
@@ -10381,9 +10390,11 @@ type TypeInfo struct {
 	// The feature's derived types (Feature::type), most specific first, with the
 	// redundant supertypes removed: `part pBoth : V :> q` with `q : T` reports V
 	// and T. Empty when the element is not a feature or none derives.
-	Types         []*TypeRef `protobuf:"bytes,8,rep,name=types,proto3" json:"types,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Types []*TypeRef `protobuf:"bytes,8,rep,name=types,proto3" json:"types,omitempty"`
+	// Qualified name of the resolved written type, for display; empty when unresolved or undeclared.
+	ResolvedQualifiedName string `protobuf:"bytes,9,opt,name=resolved_qualified_name,json=resolvedQualifiedName,proto3" json:"resolved_qualified_name,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *TypeInfo) Reset() {
@@ -10470,6 +10481,13 @@ func (x *TypeInfo) GetTypes() []*TypeRef {
 		return x.Types
 	}
 	return nil
+}
+
+func (x *TypeInfo) GetResolvedQualifiedName() string {
+	if x != nil {
+		return x.ResolvedQualifiedName
+	}
+	return ""
 }
 
 // TypeRef names one derived type of a feature.
@@ -19998,13 +20016,14 @@ const file_sysml_proto_rawDesc = "" +
 	"\x04kind\x18\x03 \x01(\tR\x04kind\x12\x1c\n" +
 	"\tinherited\x18\x04 \x01(\bR\tinherited\x12%\n" +
 	"\x0einherited_from\x18\x05 \x01(\tR\rinheritedFrom\x12\x18\n" +
-	"\alibrary\x18\x06 \x01(\bR\alibrary\"~\n" +
+	"\alibrary\x18\x06 \x01(\bR\alibrary\"\xb2\x01\n" +
 	"\x0eSpecialization\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x1a\n" +
 	"\bdeclared\x18\x02 \x01(\tR\bdeclared\x12\x1b\n" +
 	"\ttarget_id\x18\x03 \x01(\tR\btargetId\x12\x1f\n" +
 	"\vtarget_kind\x18\x04 \x01(\tR\n" +
-	"targetKind\"\x8b\x02\n" +
+	"targetKind\x122\n" +
+	"\x15target_qualified_name\x18\x05 \x01(\tR\x13targetQualifiedName\"\xc3\x02\n" +
 	"\bTypeInfo\x12\x1a\n" +
 	"\bdeclared\x18\x01 \x01(\tR\bdeclared\x12\x1f\n" +
 	"\vresolved_id\x18\x02 \x01(\tR\n" +
@@ -20014,7 +20033,8 @@ const file_sysml_proto_rawDesc = "" +
 	"\x10primitive_source\x18\x05 \x01(\tR\x0fprimitiveSource\x12\x1a\n" +
 	"\bquantity\x18\x06 \x01(\bR\bquantity\x12\x12\n" +
 	"\x04unit\x18\a \x01(\tR\x04unit\x12$\n" +
-	"\x05types\x18\b \x03(\v2\x0e.sysml.TypeRefR\x05types\"-\n" +
+	"\x05types\x18\b \x03(\v2\x0e.sysml.TypeRefR\x05types\x126\n" +
+	"\x17resolved_qualified_name\x18\t \x01(\tR\x15resolvedQualifiedName\"-\n" +
 	"\aTypeRef\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\">\n" +

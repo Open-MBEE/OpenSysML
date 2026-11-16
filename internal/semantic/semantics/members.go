@@ -3,6 +3,7 @@ package semantics
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"slices"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
@@ -338,7 +339,11 @@ func (m *Model) PositionallyNamed(sym *symbols.Symbol) bool {
 }
 
 func (m *Model) positionallyNamed(sym *symbols.Symbol) bool {
-	return sym.Naming == symbols.NamedByDeclaration && !declaresIdentifier(sym) && m.EffectiveNameOf(sym) != ""
+	if sym.Naming != symbols.NamedByDeclaration || declaresIdentifier(sym) {
+		return false
+	}
+	_, named := m.EffectiveNamed(sym)
+	return named
 }
 
 // roleNamed reports a usage declared without a name that takes one from the feature its role
@@ -360,26 +365,33 @@ func (m *Model) roleNamed(sym *symbols.Symbol) bool {
 // declared name is, and so is a member under either (`T::obj::massRequirement`);
 // "" where sym has no name, an owner naming nothing is skipped as FQNOf skips it.
 func (m *Model) QualifiedNameOf(sym *symbols.Symbol) string {
+	names, _ := m.QualifiedNamesOf(sym)
+	return strings.Join(names, "::")
+}
+
+// QualifiedNamesOf is the names QualifiedNameOf joins, outermost first, and
+// whether sym has one: kept apart they tell the empty name from none.
+func (m *Model) QualifiedNamesOf(sym *symbols.Symbol) ([]string, bool) {
 	if m == nil || sym == nil {
-		return ""
+		return nil, false
 	}
 	name := sym.Name
-	if name == "" {
+	if !sym.Named() {
 		if !m.PositionallyNamed(sym) && !m.roleNamed(sym) {
-			return ""
+			return nil, false
 		}
 		name = m.EffectiveNameOf(sym)
 	}
 	owner := sym.Owner()
 	if owner == nil {
-		return name
+		return []string{name}, true
 	}
-	ownerName := m.QualifiedNameOf(owner)
-	if ownerName == "" {
-		if sym.Name == "" {
-			return ""
+	ownerNames, ok := m.QualifiedNamesOf(owner)
+	if !ok {
+		if !sym.Named() {
+			return nil, false
 		}
-		return symbols.FQNOf(sym)
+		return symbols.NameChain(sym), true
 	}
-	return ownerName + "::" + name
+	return append(ownerNames, name), true
 }

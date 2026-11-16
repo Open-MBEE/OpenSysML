@@ -738,7 +738,7 @@ func performersError(name string, performers []exhibitor) error {
 	if len(performers) == 1 {
 		for _, b := range performers[0].machines {
 			usage := ""
-			if member := b.Member(); member != nil && member.Name != "" {
+			if member := b.Member(); member != nil && member.Named() {
 				usage = declarationNotation(member)
 			}
 			e.Usages = append(e.Usages, usage)

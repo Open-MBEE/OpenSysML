@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	oraclebaseline "github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/exporter"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 	"github.com/Open-MBEE/OpenSysML/tools/referee/baseline"
 	"github.com/Open-MBEE/OpenSysML/tools/referee/diff"
@@ -20,13 +22,15 @@ const toolName = "pilot-apijson-diff"
 // options are the parsed command line.
 type options struct {
 	repo, launcher, out string
-	roots               []string
-	timeout             time.Duration
-	update, check       bool
-	reindex             bool
-	lostAgainst         string
-	libraries           string
-	log                 io.Writer
+	// pilotRecord, when set, is the directory the pilot's export is recorded in and reused from.
+	pilotRecord   string
+	roots         []string
+	timeout       time.Duration
+	update, check bool
+	reindex       bool
+	lostAgainst   string
+	libraries     string
+	log           io.Writer
 }
 
 // Main runs the referee with the command-line arguments and returns the exit code.
@@ -41,6 +45,7 @@ func Main(args []string, stderr io.Writer) int {
 	updateFlag := flags.Bool("update", false, "re-record "+committedBaseline+" from this run (with -roots, those roots' fragments only)")
 	checkFlag := flags.Bool("check", false, "fail unless this run reproduces "+committedBaseline+" (with -roots, those roots' fragments and the index)")
 	reindexFlag := flags.Bool("reindex", false, "rebuild "+committedBaseline+"/"+baseline.IndexFile+" from the committed fragments, without the pilot")
+	recordFlag := flags.String("pilot-record", "", "directory recording the pilot's export per root: a root whose pin, JVM, bridge, errata, files and libraries are the record's is read from it, without the pilot, and any other is exported and recorded there")
 	lostAgainstFlag := flags.String("lost-against", "", "an earlier run's "+toolName+"-matches.json; list the element matches this run lost and gained against it")
 	siteBlocksFlag := flags.Bool("site-blocks", false, "print the blocks of "+recordPath+" rendered from "+committedBaseline+", as JSON by page and block, and run nothing")
 	if err := flags.Parse(args); err != nil {
@@ -62,6 +67,7 @@ func Main(args []string, stderr io.Writer) int {
 	if opts.launcher == "" {
 		opts.launcher = filepath.Join(root, "build", "pilot-json-exporter", "export-json")
 	}
+	opts.pilotRecord = repo.Resolve(root, *recordFlag)
 	opts.out = repo.Resolve(root, *outFlag)
 	if opts.out == "" {
 		opts.out = filepath.Join(root, "build", toolName)
@@ -85,13 +91,18 @@ func Main(args []string, stderr io.Writer) int {
 		return 0
 	}
 	if _, err := os.Stat(opts.launcher); os.IsNotExist(err) {
-		message := fmt.Sprintf("pilot JSON exporter is absent at %s; run ./scripts/download-pilot-json-exporter.sh to provision it", opts.launcher)
-		if opts.check {
+		message := fmt.Sprintf("pilot JSON exporter is absent at %s; run %s to provision it", opts.launcher, exporter.ProvisionCommand)
+		switch {
+		case opts.pilotRecord != "":
+			fmt.Fprintf(opts.log, "pilot JSON exporter is absent at %s; the pilot's side is the export recorded under %s\n", opts.launcher, opts.pilotRecord)
+			opts.launcher = ""
+		case opts.check:
 			fmt.Fprintf(stderr, "%s: %s\n", toolName, message)
 			return 1
+		default:
+			fmt.Fprintln(opts.log, message)
+			return 0
 		}
-		fmt.Fprintln(opts.log, message)
-		return 0
 	} else if err != nil {
 		fmt.Fprintf(stderr, "%s: inspect exporter: %v\n", toolName, err)
 		return 1
@@ -101,6 +112,23 @@ func Main(args []string, stderr io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+// exportPilot is the pilot's export of one root: a fresh run, or the recorded one under -pilot-record.
+func exportPilot(opts options, record oraclebaseline.Record, root, dir string, files []string) (*pilotExport, error) {
+	libraries := []string{opts.libraries}
+	if opts.pilotRecord == "" {
+		return runPilot(opts.launcher, dir, libraries, files, opts.timeout)
+	}
+	// The record is keyed by the JVM that exports: the launcher's, or the declared one a replay asks for.
+	java, err := oraclebaseline.ReadPilotJava(opts.repo)
+	if err == nil && opts.launcher != "" {
+		java, err = exporter.JVM(opts.launcher)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return recordedPilot(opts.pilotRecord, opts.launcher, java, record, root, dir, libraries, files, opts.timeout, opts.log)
 }
 
 func run(opts options) error {
@@ -127,7 +155,7 @@ func run(opts options) error {
 		}
 		dir := filepath.Join(opts.repo, filepath.FromSlash(root.Dir))
 		fmt.Fprintf(opts.log, "%s: %d files\n", root.Name, len(files))
-		pilot, err := runPilot(opts.launcher, dir, []string{opts.libraries}, files, opts.timeout)
+		pilot, err := exportPilot(opts, record, root.Name, dir, files)
 		if err != nil {
 			return err
 		}
@@ -205,6 +233,11 @@ func run(opts options) error {
 	}
 	if err := writeMatches(opts, Matches{Roots: result.matches}); err != nil {
 		return err
+	}
+	if opts.update || opts.check {
+		if err := refuseUnexportedRoots(fragments); err != nil {
+			return err
+		}
 	}
 	committed := committedDir(opts.repo)
 	switch {

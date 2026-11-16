@@ -96,7 +96,11 @@ policy stay this referee's.
 `scripts/download-pilot-json-exporter.sh` shares `scripts/pilot-pin.sh` with the validators,
 compiles `scripts/pilot-json-exporter/ExportJSON.java` against the pinned shaded jar and writes the
 launcher `build/pilot-json-exporter/export-json --library <sysml.library> --root <dir> --out <dir>
-[--extension-library <dir>]... <files>` (the library defaults to the pinned one). The bridge is the
+[--extension-library <dir>]... <files>` (the library defaults to the pinned one). The launcher exits
+78 when it cannot start the bridge (no Java 21, pinned jar or library), and the bridge exits 1 when it
+failed on some files; the referee refuses a run in which the bridge did not run (status 78, or status 1
+with an `Error:` line or no document written), and `-check` and `-update` refuse a run in which the
+pilot failed on every file of a root, naming `./scripts/download-pilot-json-exporter.sh`. The bridge is the
 pilot's own export path, the one the Jupyter kernel's `%export` magic runs
 (`SysMLInteractive.export`):
 
@@ -154,7 +158,12 @@ Elements are matched by a **stable key**, computed identically on both sides:
 
 - a named element by its `qualifiedName`, spelled with every segment unquoted
   (`'Derived Probe'::Vehicle` and `Derived Probe::Vehicle` are one key; the `qualifiedName`
-  *property* is still compared as written, so the quoting difference is measured);
+  *property* is still compared as written, so the quoting difference is measured). The empty
+  unrestricted name `''` (KerML 1.1 §8.2.2.3: the repetition between the quotes admits no
+  character) is a name on both sides, `declaredName` and `name` `""`; ours writes its segment as
+  §8.3.2.1.2 `escapedName()` spells an empty non-basic name, `P::''`, where the pilot writes the
+  bare `P::`. The two are one key, and the property difference is the pilot's departure from the
+  clause, not copied here; no compared file declares such a name, so no figure carries it;
 - an unnamed element by its owner: `<ownerKey>/<metaclass>[i]`, `i` counting the owner's preceding
   owned relationships (for a relationship — the owner is its `owningRelatedElement`) or owned
   elements (otherwise) of the same metaclass; the owned elements are the owned relationships'

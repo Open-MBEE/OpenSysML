@@ -294,8 +294,12 @@ type Transition struct {
 	Decl   ast.Node
 	Source ast.Node // *ast.StateNode or *ast.PseudostateNode
 	Target ast.Node // *ast.StateNode, *ast.PseudostateNode or a terminate action *ast.Usage
+	// SourceRef and TargetRef are Source and Target by id.
+	SourceRef, TargetRef program.VertexRef
 	// Owner is the state whose body declares the transition, nil for the machine body.
-	Owner   *ast.StateNode
+	Owner *ast.StateNode
+	// OwnerID is Owner by id, 0 for the machine body.
+	OwnerID program.StateID
 	Trigger ast.Node // TimeEvent, ChangeEvent, SignalEvent, CallEvent, nil = completion
 	// TriggerExprID is the condition of a change trigger or the time of a timer, in
 	// the table of the machine; 0 for a trigger stating neither.
@@ -1828,7 +1832,7 @@ func (g *StateGraph) startsAt(decl, guard ast.Node, body transitionBody, source,
 func AcceptedNames(trigger ast.Node) []string {
 	switch t := trigger.(type) {
 	case *ast.AcceptEvent:
-		if t.Payload == nil || t.Payload.Ident.Name == "" {
+		if t.Payload == nil || !t.Payload.Ident.HasName() {
 			return nil
 		}
 		return []string{t.Payload.Ident.Name}

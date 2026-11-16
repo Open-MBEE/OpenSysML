@@ -447,13 +447,14 @@ func symbolInfo(info *symbolfacts.Info) *JSymbolInfo {
 	}
 	if t := info.TypeInfo; t != nil {
 		out.TypeInfo = &JTypeInfo{
-			Declared:        t.Declared,
-			ResolvedId:      t.ResolvedId,
-			ResolvedKind:    t.ResolvedKind,
-			Primitive:       t.Primitive,
-			PrimitiveSource: t.PrimitiveSource,
-			Quantity:        t.Quantity,
-			Unit:            t.Unit,
+			Declared:              t.Declared,
+			ResolvedId:            t.ResolvedId,
+			ResolvedQualifiedName: t.ResolvedQualifiedName,
+			ResolvedKind:          t.ResolvedKind,
+			Primitive:             t.Primitive,
+			PrimitiveSource:       t.PrimitiveSource,
+			Quantity:              t.Quantity,
+			Unit:                  t.Unit,
 		}
 		for _, ref := range t.Types {
 			out.TypeInfo.Types = append(out.TypeInfo.Types, &JTypeRef{Id: ref.Id, Kind: ref.Kind})
@@ -464,10 +465,11 @@ func symbolInfo(info *symbolfacts.Info) *JSymbolInfo {
 	}
 	for _, specialization := range info.Specializations {
 		out.Specializations = append(out.Specializations, &JSpecialization{
-			Kind:       specialization.Kind,
-			Declared:   specialization.Declared,
-			TargetId:   specialization.TargetId,
-			TargetKind: specialization.TargetKind,
+			Kind:                specialization.Kind,
+			Declared:            specialization.Declared,
+			TargetId:            specialization.TargetId,
+			TargetQualifiedName: specialization.TargetQualifiedName,
+			TargetKind:          specialization.TargetKind,
 		})
 	}
 	for _, attribute := range info.Attributes {

@@ -1177,9 +1177,8 @@ pub struct SymbolOptions {
     /// otherwise only counted by [`Symbol::withheld_library_members`]. Needs the
     /// `symbol_members` capability.
     pub include_library_members: bool,
-    /// With [`Lookup::Either`] only: take the string as one the service reported (a child's,
-    /// a member's) rather than resolving it from the root namespace; a declared name still
-    /// comes first.
+    /// With [`Lookup::Either`] only: take the string as one the service reported rather than
+    /// resolving it from the root namespace; a declared name still comes first.
     pub by_reported_id: bool,
     /// What the string names. [`Lookup::Either`], the default, is the legacy form.
     pub lookup: Lookup,
@@ -1195,9 +1194,8 @@ impl SymbolOptions {
     }
 }
 
-/// What the one string of a lookup names. A qualified name and an id can be spelled alike
-/// (a package declared `Col__V__c_pend0`, the id generated for an unnamed connector end; a
-/// member `'@3'` beside the unnamed member `Owner::@3`), so a lookup states which it is.
+/// What the one string of a lookup names: a qualified name and an id can be spelled alike
+/// (a member `'@3'` beside the unnamed member `Owner::@3`), so a lookup states which it is.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum Lookup {
     /// The legacy form, one string for either kind: a declared name first, then an id, so

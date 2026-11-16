@@ -194,7 +194,7 @@ func enumLiteralValueToProto(val runtime.Value, idx *symbols.Index) *JValue {
 // identity, and by that element's own metaclass. Nil when either has no id.
 func metaobjectToProto(val runtime.Value, idx *symbols.Index, ids elementIdentities) *JMetaobject {
 	element, metaclass := val.MetaobjectElement(), val.MetaobjectClass()
-	if element == nil || metaclass == nil || metaclass.Name == "" {
+	if element == nil || metaclass == nil || !metaclass.Named() {
 		return nil
 	}
 	elementID, metaclassID := elementIdentity(element, idx, ids), metaclass.Name
@@ -213,7 +213,7 @@ func elementIdentity(sym *symbols.Symbol, idx *symbols.Index, ids elementIdentit
 	if ids != nil {
 		return ids.ElementIdentity(sym)
 	}
-	if sym == nil || sym.Name == "" {
+	if sym == nil || !sym.Named() {
 		return ""
 	}
 	if idx != nil {

@@ -80,8 +80,7 @@ fetch() {
 		exit 1
 	fi
 	echo "Fetching $url ..."
-	if ! curl -fsSL --proto '=https' --proto-redir '=https' --retry 3 --retry-all-errors \
-		-o "$dest" "$url" 2>"$work/curl.log"; then
+	if ! "$repo_root/scripts/fetch-https.sh" "$url" "$dest" 2>"$work/curl.log"; then
 		sed 's/^/  /' "$work/curl.log" >&2
 		echo "error: could not fetch $url" >&2
 		echo "       if the host is unreachable from this network, fetch it elsewhere, verify its" >&2
