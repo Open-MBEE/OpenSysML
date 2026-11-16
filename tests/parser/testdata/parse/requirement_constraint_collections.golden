@@ -39,7 +39,7 @@
           (Membership visibility="default"
             (Usage kind="objective" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
               (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="verify"
-                (Relationship kind="subsets" target=fullTankRequirement
+                (Relationship kind="references" target=fullTankRequirement
                   (*ast.QualifiedName)))))
           (Usage kind="attribute" name="verdict" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
             (Relationship kind="typing" target=VerdictKind

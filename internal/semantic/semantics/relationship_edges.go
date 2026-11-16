@@ -100,13 +100,12 @@ func (m *Model) satisfactionEdges(sym *symbols.Symbol, kind RelationshipKind) []
 			target = aliased
 		}
 		switch rel.Kind {
+		case ast.RelReferences:
+			if !usage.DeclaresRequirement {
+				requirement = target
+			}
 		case ast.RelSubsets, ast.RelTyping:
-			switch {
-			case !usage.DeclaresRequirement:
-				if rel.Kind == ast.RelSubsets {
-					requirement = target
-				}
-			case isRequirementKind(target.Kind):
+			if usage.DeclaresRequirement && isRequirementKind(target.Kind) {
 				originals = append(originals, target)
 			}
 		case ast.RelSubject:
