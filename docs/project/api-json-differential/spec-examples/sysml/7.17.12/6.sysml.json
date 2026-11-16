@@ -11,16 +11,16 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 111,
-      "presentDifferent": 25,
-      "oursMissing": 21,
+      "presentEqual": 112,
+      "presentDifferent": 27,
+      "oursMissing": 18,
       "pilotMissing": 7,
       "absentBoth": 147,
       "indeterminate": 2,
       "pilotNondeterministic": 0
     },
     "unkeyedReferences": 9,
-    "extensionProperties": 42,
+    "extensionProperties": 39,
     "duplicateElements": {
       "ours": 0,
       "pilot": 0
@@ -46,7 +46,7 @@
     "ActionDefinition.endFeature": [0,0,0,0,1,0,0],
     "ActionDefinition.feature": [0,0,0,0,0,1,0],
     "ActionDefinition.featureMembership": [1,0,0,0,0,0,0],
-    "ActionDefinition.importedMembership": [0,0,1,0,0,0,0],
+    "ActionDefinition.importedMembership": [1,0,0,0,0,0,0],
     "ActionDefinition.inheritedFeature": [0,0,0,0,0,1,0],
     "ActionDefinition.inheritedMembership": [1,0,0,0,0,0,0],
     "ActionDefinition.input": [0,0,0,0,1,0,0],
@@ -58,8 +58,8 @@
     "ActionDefinition.isLibraryElement": [1,0,0,0,0,0,0],
     "ActionDefinition.isSufficient": [1,0,0,0,0,0,0],
     "ActionDefinition.isVariation": [1,0,0,0,0,0,0],
-    "ActionDefinition.member": [0,0,1,0,0,0,0],
-    "ActionDefinition.membership": [0,0,1,0,0,0,0],
+    "ActionDefinition.member": [0,1,0,0,0,0,0],
+    "ActionDefinition.membership": [0,1,0,0,0,0,0],
     "ActionDefinition.name": [1,0,0,0,0,0,0],
     "ActionDefinition.output": [0,0,0,0,1,0,0],
     "ActionDefinition.ownedAction": [1,0,0,0,0,0,0],

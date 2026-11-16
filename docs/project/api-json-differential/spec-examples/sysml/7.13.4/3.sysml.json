@@ -11,16 +11,16 @@
       "typeMismatch": 1
     },
     "properties": {
-      "presentEqual": 433,
-      "presentDifferent": 41,
-      "oursMissing": 74,
+      "presentEqual": 434,
+      "presentDifferent": 43,
+      "oursMissing": 71,
       "pilotMissing": 21,
       "absentBoth": 506,
       "indeterminate": 5,
       "pilotNondeterministic": 0
     },
     "unkeyedReferences": 37,
-    "extensionProperties": 107,
+    "extensionProperties": 80,
     "duplicateElements": {
       "ours": 0,
       "pilot": 0
@@ -706,11 +706,11 @@
     "Package.declaredShortName": [0,0,0,0,1,0,0],
     "Package.documentation": [0,0,0,0,1,0,0],
     "Package.filterCondition": [0,0,0,0,1,0,0],
-    "Package.importedMembership": [0,0,1,0,0,0,0],
+    "Package.importedMembership": [1,0,0,0,0,0,0],
     "Package.isImpliedIncluded": [1,0,0,0,0,0,0],
     "Package.isLibraryElement": [1,0,0,0,0,0,0],
-    "Package.member": [0,0,1,0,0,0,0],
-    "Package.membership": [0,0,1,0,0,0,0],
+    "Package.member": [0,1,0,0,0,0,0],
+    "Package.membership": [0,1,0,0,0,0,0],
     "Package.name": [1,0,0,0,0,0,0],
     "Package.ownedAnnotation": [0,0,0,0,1,0,0],
     "Package.ownedElement": [1,0,0,0,0,0,0],

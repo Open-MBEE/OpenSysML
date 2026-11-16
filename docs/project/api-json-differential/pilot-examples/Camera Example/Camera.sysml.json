@@ -12,15 +12,15 @@
     },
     "properties": {
       "presentEqual": 620,
-      "presentDifferent": 42,
-      "oursMissing": 46,
+      "presentDifferent": 45,
+      "oursMissing": 43,
       "pilotMissing": 23,
       "absentBoth": 705,
       "indeterminate": 19,
       "pilotNondeterministic": 0
     },
     "unkeyedReferences": 62,
-    "extensionProperties": 100,
+    "extensionProperties": 91,
     "duplicateElements": {
       "ours": 0,
       "pilot": 0
@@ -410,7 +410,7 @@
     "PartDefinition.endFeature": [0,0,0,0,1,0,0],
     "PartDefinition.feature": [0,0,0,0,0,1,0],
     "PartDefinition.featureMembership": [1,0,0,0,0,0,0],
-    "PartDefinition.importedMembership": [0,0,1,0,0,0,0],
+    "PartDefinition.importedMembership": [0,1,0,0,0,0,0],
     "PartDefinition.inheritedFeature": [0,0,0,0,0,1,0],
     "PartDefinition.inheritedMembership": [1,0,0,0,0,0,0],
     "PartDefinition.input": [0,0,0,0,1,0,0],
@@ -422,8 +422,8 @@
     "PartDefinition.isLibraryElement": [1,0,0,0,0,0,0],
     "PartDefinition.isSufficient": [1,0,0,0,0,0,0],
     "PartDefinition.isVariation": [1,0,0,0,0,0,0],
-    "PartDefinition.member": [0,0,1,0,0,0,0],
-    "PartDefinition.membership": [0,0,1,0,0,0,0],
+    "PartDefinition.member": [0,1,0,0,0,0,0],
+    "PartDefinition.membership": [0,1,0,0,0,0,0],
     "PartDefinition.name": [1,0,0,0,0,0,0],
     "PartDefinition.output": [0,0,0,0,1,0,0],
     "PartDefinition.ownedAction": [1,0,0,0,0,0,0],

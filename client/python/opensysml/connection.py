@@ -1619,8 +1619,9 @@ class Connection:
             inherited_members (bool): For api-json, also write on every
                 Namespace and Type the derived lists that repeat its inherited
                 and imported members (``membership``, ``member``,
-                ``inheritedMembership``, ``featureMembership``, ``feature``,
-                ``inheritedFeature``); by default an element carries its owned
+                ``inheritedMembership``, ``importedMembership``,
+                ``featureMembership``, ``feature``, ``inheritedFeature``); by
+                default an element carries its owned
                 structure. Needs the ``convert_inherited_members`` capability.
             compact (bool): For notation converted to api-json, write the
                 compact document (``api-json-compact/1``) in place of the

@@ -11,16 +11,16 @@
       "typeMismatch": 26
     },
     "properties": {
-      "presentEqual": 2980,
-      "presentDifferent": 225,
-      "oursMissing": 454,
+      "presentEqual": 2981,
+      "presentDifferent": 227,
+      "oursMissing": 451,
       "pilotMissing": 221,
       "absentBoth": 2771,
       "indeterminate": 0,
       "pilotNondeterministic": 0
     },
-    "unkeyedReferences": 214,
-    "extensionProperties": 420,
+    "unkeyedReferences": 215,
+    "extensionProperties": 399,
     "duplicateElements": {
       "ours": 0,
       "pilot": 0
@@ -258,7 +258,7 @@
     "Feature.featureMembership": [0,19,3,0,0,0,0],
     "Feature.featureTarget": [22,0,0,0,0,0,0],
     "Feature.featuringType": [21,0,1,0,0,0,0],
-    "Feature.importedMembership": [0,0,1,0,21,0,0],
+    "Feature.importedMembership": [1,0,0,0,21,0,0],
     "Feature.inheritedFeature": [0,19,3,0,0,0,0],
     "Feature.inheritedMembership": [0,19,3,0,0,0,0],
     "Feature.input": [0,0,0,0,22,0,0],
@@ -280,8 +280,8 @@
     "Feature.isVariation": [0,0,0,19,0,0,0],
     "Feature.lowerBound": [0,0,0,5,0,0,0],
     "Feature.mayTimeVary": [0,0,0,19,0,0,0],
-    "Feature.member": [0,19,3,0,0,0,0],
-    "Feature.membership": [0,19,3,0,0,0,0],
+    "Feature.member": [0,20,2,0,0,0,0],
+    "Feature.membership": [0,20,2,0,0,0,0],
     "Feature.multiplicity": [13,0,0,2,0,0,0],
     "Feature.name": [19,0,2,0,0,0,0],
     "Feature.nestedAttribute": [0,0,0,1,0,0,0],

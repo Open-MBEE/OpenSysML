@@ -594,7 +594,7 @@ func (e *Evaluator) libraryImportedEntries(namespace *symbols.Symbol) ([]importe
 		case ast.VisibilityProtected:
 			visibility = "protected"
 		}
-		for _, symbol := range e.resolver.ImportedElements(namespace.Scope, imp) {
+		for _, symbol := range e.resolver.ImportedMemberships(namespace.Scope, imp) {
 			if symbol == nil {
 				return nil, false
 			}

@@ -11,16 +11,16 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 1820,
-      "presentDifferent": 106,
-      "oursMissing": 154,
+      "presentEqual": 1821,
+      "presentDifferent": 108,
+      "oursMissing": 151,
       "pilotMissing": 90,
       "absentBoth": 2032,
       "indeterminate": 16,
       "pilotNondeterministic": 0
     },
-    "unkeyedReferences": 127,
-    "extensionProperties": 334,
+    "unkeyedReferences": 128,
+    "extensionProperties": 307,
     "duplicateElements": {
       "ours": 0,
       "pilot": 0
@@ -52,7 +52,7 @@
     "ActionUsage.featureMembership": [1,0,0,0,0,0,0],
     "ActionUsage.featureTarget": [1,0,0,0,0,0,0],
     "ActionUsage.featuringType": [0,0,0,0,1,0,0],
-    "ActionUsage.importedMembership": [0,0,1,0,0,0,0],
+    "ActionUsage.importedMembership": [1,0,0,0,0,0,0],
     "ActionUsage.inheritedFeature": [0,0,0,0,0,1,0],
     "ActionUsage.inheritedMembership": [0,1,0,0,0,0,0],
     "ActionUsage.input": [1,0,0,0,0,0,0],
@@ -74,8 +74,8 @@
     "ActionUsage.isVariable": [1,0,0,0,0,0,0],
     "ActionUsage.isVariation": [1,0,0,0,0,0,0],
     "ActionUsage.mayTimeVary": [1,0,0,0,0,0,0],
-    "ActionUsage.member": [0,0,1,0,0,0,0],
-    "ActionUsage.membership": [0,0,1,0,0,0,0],
+    "ActionUsage.member": [0,1,0,0,0,0,0],
+    "ActionUsage.membership": [0,1,0,0,0,0,0],
     "ActionUsage.name": [1,0,0,0,0,0,0],
     "ActionUsage.nestedAction": [0,0,0,0,1,0,0],
     "ActionUsage.nestedAllocation": [0,0,0,0,1,0,0],

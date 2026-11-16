@@ -2255,9 +2255,9 @@ stubs carry `@id`, `@type`, `declaredName`, `elementId`, `isLibraryElement: true
 for new clients. It composes with `documents`, `idForm` and `compact`.
 
 `inheritedMembers`, advertised as `convert_inherited_members`, also writes on every
-Namespace and Type of the API JSON element array the six derived lists that repeat its
+Namespace and Type of the API JSON element array the seven derived lists that repeat its
 inherited and imported members: `membership`, `member`, `inheritedMembership`,
-`featureMembership`, `feature` and `inheritedFeature`, each named in the element's
+`importedMembership`, `featureMembership`, `feature` and `inheritedFeature`, each named in the element's
 `sysx:completedProperties`. It is default-off and is `invalid_argument` for any other
 target. Without it an element carries its owned structure (`ownedMembership`,
 `ownedMember`, `ownedFeature` and every other property), from which a reader derives

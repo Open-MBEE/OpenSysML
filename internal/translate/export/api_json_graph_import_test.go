@@ -226,6 +226,7 @@ func TestAPIJSONGraphImportedMembershipOfUnnamedLibraryMemberships(t *testing.T)
 	elements := importProbeElements(t, `package Probe {
 	package Scalars { import ScalarValues::*; }
 	package Quantities { import ISQThermodynamics::*; }
+	package Chained { import ISQ::*; }
 }`)
 	if all := referenceIDs(t, elements["Probe__Scalars"], "importedMembership"); len(all) != 12 {
 		t.Errorf("Scalars imports %d memberships, want the 11 types of ScalarValues and its documentation", len(all))
@@ -252,6 +253,13 @@ func TestAPIJSONGraphImportedMembershipOfUnnamedLibraryMemberships(t *testing.T)
 	}
 	if slices.Contains(imported, target.OwningMembershipID) {
 		t.Errorf("ISQThermodynamics::* imports the owning membership of the alias's target, which ISQBase owns")
+	}
+	// ISQ imports ISQThermodynamics::* publicly, so what that import brings ISQ::* brings too.
+	chained := referenceIDs(t, elements["Probe__Chained"], "importedMembership")
+	for _, id := range imported {
+		if !slices.Contains(chained, id) {
+			t.Errorf("ISQ::* imports no membership %s that ISQThermodynamics::* imports", id)
+		}
 	}
 	if members := referenceIDs(t, elements["Probe__Quantities"], "member"); !slices.Contains(members, target.ID) {
 		t.Errorf("the alias membership names no member %s", target.ID)

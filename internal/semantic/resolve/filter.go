@@ -291,6 +291,12 @@ func (r *Resolver) ImportedElements(scope *symbols.Scope, imp *ast.Import) []*sy
 	return r.withoutHiddenMembers(scope, r.importedMembersInto(scope, scope, imp, false), true)
 }
 
+// ImportedMemberships is ImportedElements with the unnamed members and the aliases
+// imp surfaces: every membership it brings into scope, named or not.
+func (r *Resolver) ImportedMemberships(scope *symbols.Scope, imp *ast.Import) []*symbols.Symbol {
+	return r.withoutHiddenMembers(scope, r.importedMembersInto(scope, scope, imp, true), true)
+}
+
 // ImportedElementsInto enumerates the elements imp, declared in scope, surfaces
 // into the namespace owning into, which inherits it: an inherited `expose` is
 // admitted against the inheriting view's conditions too (see importAdmitsInto).
