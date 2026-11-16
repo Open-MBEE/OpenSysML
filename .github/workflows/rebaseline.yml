@@ -66,7 +66,20 @@ jobs:
     timeout-minutes: 180
     steps:
       - name: Check out the pull request branch
+        id: checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        timeout-minutes: 10
+        continue-on-error: true
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.REBASELINE_TOKEN || github.token }}
+
+      # A stalled fetch hangs rather than fails, so the action's own retries never see it.
+      - name: Check out the pull request branch again
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        timeout-minutes: 10
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
