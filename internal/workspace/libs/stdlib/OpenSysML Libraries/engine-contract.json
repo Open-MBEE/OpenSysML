@@ -722,6 +722,114 @@
       ]
     },
     {
+      "name": "NPR7123::Compliance",
+      "kind": "metadata",
+      "attributes": [
+        "comply",
+        "justification"
+      ],
+      "consumers": [
+        "internal/check/passes/npr7123.go"
+      ]
+    },
+    {
+      "name": "NPR7123::ComplianceMatrix",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/npr7123.go"
+      ]
+    },
+    {
+      "name": "NPR7123::ComplyKind",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/npr7123.go"
+      ]
+    },
+    {
+      "name": "NPR7123::EntranceCriterion",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/npr7123.go"
+      ]
+    },
+    {
+      "name": "NPR7123::LifeCycleReview",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/npr7123.go"
+      ]
+    },
+    {
+      "name": "NPR7123::MaturityExpectation",
+      "kind": "metadata",
+      "attributes": [
+        "review",
+        "maturity",
+        "required",
+        "requirementId"
+      ],
+      "consumers": [
+        "internal/check/passes/npr7123.go"
+      ]
+    },
+    {
+      "name": "NPR7123::ReviewKind",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/npr7123.go"
+      ]
+    },
+    {
+      "name": "NPR7123::SEMP",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/npr7123.go"
+      ]
+    },
+    {
+      "name": "NPR7123::SERequirement",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/npr7123.go"
+      ]
+    },
+    {
+      "name": "NPR7123::SERequirements",
+      "kind": "package",
+      "consumers": [
+        "internal/check/passes/npr7123.go"
+      ]
+    },
+    {
+      "name": "NPR7123::SuccessCriterion",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/npr7123.go"
+      ]
+    },
+    {
+      "name": "NPR7123::TechnicalProcess",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/npr7123.go"
+      ]
+    },
+    {
+      "name": "NPR7123::WorkProduct",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/npr7123.go"
+      ]
+    },
+    {
+      "name": "NPR7123::WorkProductMaturity",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/npr7123.go"
+      ]
+    },
+    {
       "name": "OOSEM::ComponentRequirement",
       "kind": "element",
       "consumers": [

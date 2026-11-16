@@ -223,8 +223,10 @@ library package DocumentQueries {
 	 * A feature chain (e.g. stat.runs or 'Monte Carlo'.runs) reads a
 	 * feature of a member nested in the row element, each segment
 	 * resolved against the members of the element reached so far —
-	 * own members before inherited ones; a row lacking a segment is
-	 * absent on that row, a member declaring no value is an empty
+	 * own members before inherited ones, else the element-valued
+	 * metaclass feature of that name (type.documentation reads the
+	 * documentation of a usage's definition); a row lacking a segment
+	 * is absent on that row, a member declaring no value is an empty
 	 * cell, and a member holding more values than its multiplicity
 	 * admits fails the column as a direct feature column does. A cell
 	 * over a metadata row reads its direct features only. A property
