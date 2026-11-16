@@ -56,9 +56,14 @@ jobs:
           java -version
           go version
 
+      # The entry pull requests, merge groups and rebaseline.yml restore: read nightly, saved when absent.
+      - name: Provision the pinned pilot validator, and save it when the cache holds none
+        uses: ./.github/actions/pilot-validator
+        with:
+          save: 'true'
+
       - name: Download the pinned pilot validators
         run: |
-          ./scripts/download-pilot-validator.sh
           ./scripts/download-pilot-sysml-validator.sh
           ./scripts/download-pilot-kerml-validator.sh
           ./scripts/download-pilot-json-exporter.sh

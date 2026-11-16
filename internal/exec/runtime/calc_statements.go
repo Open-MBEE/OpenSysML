@@ -234,7 +234,7 @@ func (h *calcStmtHost) statementFootprint([]lower.Statement, int) lower.Footprin
 }
 
 func (h *calcStmtHost) statementOrder(stmts []lower.Statement) *lower.StatementOrder {
-	if h.shape.Performs() || len(stmts) < 2 {
+	if h.shape.IsCase() || h.shape.FlowBody || len(stmts) < 2 {
 		return nil
 	}
 	key := &stmts[0]
@@ -321,10 +321,8 @@ func (h *calcStmtHost) effect(_ *stmtEngine, s lower.Effect) error {
 	return nil
 }
 
-// performNode performs a nested action of a case body as a subperformance of the
-// case (performances.performNode). A calculation keeps no performances: its nested
-// action runs in a frame of the body, and performing an action, a flow of its own or
-// a connector at its pins is rejected.
+// performNode performs a nested action as a subperformance of a body that performs
+// (performances.performNode); any other calculation runs it in a frame of the body.
 func (h *calcStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph, node *ast.Usage) (stmtFlow, error) {
 	if h.perfs != nil {
 		return h.perfs.performNode(h.perfs.root, engine, graph, node)
@@ -431,8 +429,8 @@ func (h *calcStmtHost) runOwnFlow(perf *actionFrame) error {
 // endsOwn refuses a terminate of the case's own performance: a case runs to its result.
 func (h *calcStmtHost) endsOwn() bool { return false }
 
-// runFlow runs the token flow a case body states with its successions and control
-// nodes, as the case's own performance; a calculation states none.
+// runFlow runs the token flow a case or calculation body states with its
+// successions and control nodes, as its own performance.
 func (h *calcStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
 	if h.flow == nil {
 		return flowNext, fmt.Errorf("%w: %s: a flow of steps in a body is not executable",
