@@ -1328,7 +1328,7 @@ func (ctx *Context) CheckConstraintWith(sym *symbols.Symbol, scope *symbols.Scop
 func (ctx *Context) checkConstraintOn(sym *symbols.Symbol, scope *symbols.Scope, subject carrier, args CheckArgs) (CheckResult, error) {
 	members := ctx.chainMembers(sym, scope)
 	bindings := make(map[string]Value)
-	if err := ctx.bindCheckArgs(sym, "constraint", sym.Name, members, subject.instance, args, bindings); err != nil {
+	if err := ctx.bindCheckArgs(sym, "constraint", sym.Name, members, args, bindings); err != nil {
 		return ctx.checkResultOf(false, subject), err
 	}
 	// Evaluate every condition the constraint states, inherited ones included.
@@ -1725,7 +1725,7 @@ func (ctx *Context) checkRequirementOn(sym *symbols.Symbol, scope *symbols.Scope
 	if err != nil {
 		return ctx.checkResultOf(false, subject), err
 	}
-	if err := ctx.bindCheckArgs(sym, "requirement", sym.Name, members, subject.instance, args, reqBindings); err != nil {
+	if err := ctx.bindCheckArgs(sym, "requirement", sym.Name, members, args, reqBindings); err != nil {
 		return ctx.checkResultOf(false, subject), err
 	}
 
@@ -1993,7 +1993,7 @@ func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *I
 	top := ctx.runDepth == 0
 	defer ctx.beginRun()()
 
-	exec, err := ctx.beginPerformed(performed, action, self, inputs, top, nil, start)
+	exec, err := ctx.beginPerformed(performed, action, self, nil, inputs, top, nil, start)
 	if err != nil {
 		return nil, err
 	}
@@ -2007,8 +2007,8 @@ func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *I
 // action, seeds its inputs and starts it with start, on the clock until it is run;
 // top marks the performance a top-level run begins on; listener, if any, is
 // installed before the start so the outputs' declared values stream too.
-func (ctx *Context) beginPerformed(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value, top bool, listener *outputListener, start func(*ActionExecutor) error) (*ActionExecutor, error) {
-	exec, err := newActionExecutorOf(ctx, performed, action, self, nil)
+func (ctx *Context) beginPerformed(performed, action *symbols.Symbol, self, occurrence *Instance, inputs map[string]Value, top bool, listener *outputListener, start func(*ActionExecutor) error) (*ActionExecutor, error) {
+	exec, err := newActionExecutorOf(ctx, performed, action, self, occurrence)
 	if err != nil {
 		err = fmt.Errorf("create action executor: %w", err)
 		return nil, rootActionError(nil, err, top)

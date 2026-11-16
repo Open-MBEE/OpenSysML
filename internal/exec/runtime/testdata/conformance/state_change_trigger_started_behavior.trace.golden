@@ -20,9 +20,11 @@ start: performed action pulsing of #3
 materialize: pulsing #4
 run: performed action pulsing of #3
 step 1: token 1@rise
+materialize: rise #5
   stmt assign ready
     eval literal true -> true
 step 2: token 1@fall
+materialize: fall #6
   stmt assign ready
     eval literal false -> false
 step 3: token 1@done

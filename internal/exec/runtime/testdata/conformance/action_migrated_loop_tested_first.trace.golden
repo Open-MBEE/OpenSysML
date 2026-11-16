@@ -15,12 +15,21 @@ stmt assign r
 leave action node: setup
 step 6: token 1@iterate
 stmt loop until
+materialize: MigratedLoopTestedFirst #1
+materialize: loop #2
+materialize: setup #3
+materialize: zero #4
+materialize: iterate #5
+materialize: WhileLoopAction #6
   iteration 1
+materialize: body #7
 enter action node: loop body of action node iterate
+materialize: test #8
 enter action node: test
     eval feature i -> 0
     eval feature s -> 0
     eval chain r -> (0)
+materialize: le #9
     stmt assign r
         eval feature x -> (0)
         eval feature y -> (0)
@@ -57,11 +66,14 @@ leave action node: branch body of loop body of action node iterate
 leave action node: loop body of action node iterate
     eval feature ended -> false
   iteration 2
+materialize: body #10
 enter action node: loop body of action node iterate
+materialize: test #11
 enter action node: test
     eval feature i -> 1
     eval feature s -> 0
     eval chain r -> (0)
+materialize: le #12
     stmt assign r
         eval feature x -> (1)
         eval feature y -> (0)
@@ -79,6 +91,7 @@ leave action node: test
 leave action node: loop body of action node iterate
     eval feature ended -> true
 step 7: token 1@results
+materialize: results #13
 enter action node: results
 step 8: token 1@assign iOut
 stmt assign iOut
@@ -89,6 +102,7 @@ stmt assign sOut
 leave action node: results
 leave action node: loop
 step 10: token 1@final
+materialize: final #14
 stmt terminate
 terminate action: no token dropped
 step 11: no active tokens

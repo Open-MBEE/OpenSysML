@@ -1213,6 +1213,17 @@ func isPerformanceEvent(sym *symbols.Symbol) bool {
 	return isBehaviorSymbol(owner)
 }
 
+// denoteSender makes the occurrence of a run no object performs, which is the `this`
+// its sends default their sender to (SysML v2 §8.4.13.5); an object's run sends from the object.
+func (ec *EvalContext) denoteSender(self *Instance) error {
+	if ec == nil || self != nil || ec.occurrence != nil || ec.thisOccurrence == nil {
+		return nil
+	}
+	occurrence, err := ec.thisOccurrence()
+	ec.occurrence = occurrence
+	return err
+}
+
 // send builds and posts the message a send statement describes; a send that
 // cannot deliver leaves nothing its payload or receiver expression created
 // behind, while whatever posting itself materialized survives.
@@ -1230,6 +1241,10 @@ func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Co
 		return err
 	}
 	built, started := len(ctx.created), len(ctx.objectBehaviors)
+	if err := ec.denoteSender(self); err != nil {
+		ctx.abandonCreationBetween(mark, built, attached, started)
+		return err
+	}
 	if err := ctx.postFor(ec, conns, msg, s, receivers, self, behavior); err != nil {
 		ctx.abandonCreationBetween(mark, built, attached, started)
 		return err

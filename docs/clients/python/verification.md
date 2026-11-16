@@ -47,7 +47,7 @@ A requirement or constraint whose condition reads `in` parameters takes their
 values at verification time: `arguments` binds them positionally in declaration
 order, `named_arguments` by name, and the two may be mixed, as `run_analysis`
 binds a case's inputs. An unknown name, more positional values than parameters,
-a parameter left without a value, default or same-named value on the checked object, or a value not of the parameter's
+a parameter left without a value or default, or a value not of the parameter's
 type is reported through `verdict.error`. Arguments need the
 `verification_arguments` capability; only the evaluate question takes them.
 

@@ -1,0 +1,41 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="ChainEnds" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Vehicle"
+          (Membership visibility="default"
+            (Usage kind="action" name="close" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+          (Membership visibility="default"
+            (Usage kind="action" name="lock" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+          (Membership visibility="default"
+            (Usage kind="action" name="open" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Drive"
+          (Membership visibility="default"
+            (Usage kind="part" name="v" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Vehicle
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="go" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=ScalarValues::Boolean
+                (*ast.QualifiedName))))
+          (InitialNode name="start" successor="v.close")
+          (Membership visibility="default"
+            (Usage kind="succession" name="closing" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConnectorEnd target="*ast.FeatureChainExpr"
+                (FeatureChainExpr member="close"
+                  (FeatureReference name="v")))
+              (ConnectorEnd target="*ast.FeatureChainExpr"
+                (FeatureChainExpr member="lock"
+                  (FeatureReference name="v")))))
+          (Usage kind="action" name="idle" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+          (SuccessionEdge source="idle" target="v.open")
+          (SuccessionEdge source="idle" target="v.close"
+            (TargetMultiplicity
+              (Multiplicity range=false
+                (LiteralInteger value="1"))))
+          (DecisionNode name="")
+          (SuccessionEdge source="idle" target="@decide")
+          (ControlFlowEdge source="@decide" target="v.lock" else=false
+            (FeatureReference name="go"))
+          (ControlFlowEdge source="@decide" target="v.open" else=true))))))

@@ -22,43 +22,61 @@ const (
 // loopPerformer is a statement host whose loops are performances: an action body's,
 // where the loop and each iteration of its body are objects of the run.
 type loopPerformer interface {
-	beginLoop(stmt lower.Loop) (*Instance, error)
+	beginLoop(stmt lower.Loop, within *Instance) (*Instance, error)
 }
 
-// beginLoopPerformance begins the loop statement stmt reaches in frame as a
-// performance held under the object of the performance around it; nil where that
-// holds no object or the library declares no loop action, and the loop runs as before.
-func (e *performances) beginLoopPerformance(frame *actionFrame, stmt lower.Loop) (*Instance, error) {
+// beginLoopPerformance begins the loop stmt reaches in frame as a performance held by within, the
+// iteration of the loop it is nested in, else by the object around it; nil where neither holds one.
+func (e *performances) beginLoopPerformance(frame *actionFrame, stmt lower.Loop, within *Instance) (*Instance, error) {
 	// A loop node of a flow performs nothing but its loop: the frame is the loop's.
 	_, loopNode := frame.node.(*ast.WhileLoopActionNode)
 	around := frame
 	if loopNode {
 		around = frame.parent
 	}
-	holder, err := e.frameObject(around)
+	holder, err := e.performanceHolder(around, within)
 	if holder == nil || err != nil {
 		return nil, err
 	}
+	inst, err := e.ctx.holdLoop(holder, stmt)
+	if inst == nil || err != nil {
+		return nil, err
+	}
+	if loopNode {
+		frame.occurrence = inst
+	}
+	return inst, nil
+}
+
+// performanceHolder is the object holding a performance begun in around: within, the
+// iteration of the loop a statement reached it in, else the object around runs as.
+func (e *performances) performanceHolder(around *actionFrame, within *Instance) (*Instance, error) {
+	if within != nil {
+		return within, nil
+	}
+	return e.frameObject(around)
+}
+
+// holdLoop begins the loop stmt as a performance holder holds under its `loops`, its
+// `body` held empty until the first iteration; nil where holder has no such member.
+func (ctx *Context) holdLoop(holder *Instance, stmt lower.Loop) (*Instance, error) {
 	fqn := whileLoopActionFQN
 	if stmt.Kind == ast.LoopFor {
 		fqn = forLoopActionFQN
 	}
-	typ := e.ctx.librarySymbol(fqn)
+	typ := ctx.librarySymbol(fqn)
 	if typ == nil {
 		return nil, nil
 	}
-	inst, err := e.ctx.holdKernelMember(holder, loopsFQN, typ)
+	inst, err := ctx.holdKernelMember(holder, loopsFQN, typ)
 	if inst == nil || err != nil {
 		return nil, err
 	}
 	// The body is held from the start: `[]` until the first iteration, never refused.
-	if _, err := e.ctx.kernelMemberHolding(inst, loopBodyFQN); err != nil {
+	if _, err := ctx.kernelMemberHolding(inst, loopBodyFQN); err != nil {
 		return nil, err
 	}
-	e.ctx.beginPerformanceLife(inst, e.ctx.newActivation())
-	if loopNode {
-		frame.occurrence = inst
-	}
+	ctx.beginPerformanceLife(inst, ctx.newActivation())
 	return inst, nil
 }
 
@@ -73,41 +91,34 @@ func (e *performances) frameObject(frame *actionFrame) (*Instance, error) {
 	case frame.occurrence != nil:
 		return frame.occurrence, nil
 	case frame == e.root || frame.parent == nil:
-		return e.occurrence, nil
+		return e.rootObject()
 	}
 	owner, err := e.frameObject(frame.parent)
 	if owner == nil || err != nil {
 		return nil, err
 	}
-	usage, ok := frame.node.(*ast.Usage)
-	if !ok || frame.body {
+	if _, ok := frame.node.(*ast.Usage); !ok || frame.body {
 		return owner, nil
 	}
-	name := usage.Ident.Name
-	if _, held := owner.FeatureValues[name]; name == "" || !held {
-		return nil, nil
+	// A named node begun before the run had an object takes its own now.
+	if err := e.holdNodeOccurrence(frame, nil); err != nil {
+		return nil, err
 	}
-	fv, err := owner.getFeatureValue(e.ctx, name, nil)
+	return frame.occurrence, nil
+}
+
+// rootObject is the occurrence the run performs, made now for a definition run on
+// its own that has not denoted `this` yet and kept as the run's; nil where it has none to make.
+func (e *performances) rootObject() (*Instance, error) {
+	if e.occurrence != nil || e.thisOccurrence == nil {
+		return e.occurrence, nil
+	}
+	occurrence, err := e.thisOccurrence()
 	if err != nil {
 		return nil, err
 	}
-	elements, err := e.ctx.HeldElements(fv.HeldValue())
-	if err != nil {
-		return nil, err
-	}
-	at := max(frame.repetition-1, 0)
-	if at >= int64(len(elements)) {
-		return nil, nil
-	}
-	id, ok := elements[at].Object()
-	if !ok {
-		return nil, nil
-	}
-	inst, ok := e.ctx.Instance(id)
-	if !ok {
-		return nil, nil
-	}
-	return inst, nil
+	e.occurrence = occurrence
+	return occurrence, nil
 }
 
 // kernelMemberHolding is the feature value owner holds the objects of the library
@@ -182,7 +193,7 @@ func (e *stmtEngine) beginLoopPerformance(stmt lower.Loop) (*Instance, error) {
 	if !ok {
 		return nil, nil
 	}
-	return host.beginLoop(stmt)
+	return host.beginLoop(stmt, e.loopBody())
 }
 
 // beginLoopBody begins one iteration of the loop's body as an occurrence held under
@@ -197,8 +208,44 @@ func (e *stmtEngine) beginLoopBody(loop *Instance, stmt lower.Loop, activation i
 	if inst == nil || err != nil {
 		return nil, err
 	}
+	if stmt.BodyAction == nil {
+		e.ctx.holdLoopBodyFeatures(inst, stmt)
+	}
 	e.ctx.beginPerformanceLife(inst, activation)
 	return inst, nil
+}
+
+// holdLoopBodyFeatures holds on the body object of an unnamed loop body the steps that
+// body declares: it is an action usage either way (SysML.xtext ActionBodyParameter).
+func (ctx *Context) holdLoopBodyFeatures(body *Instance, stmt lower.Loop) {
+	features := ctx.loopBodyFeatures(body.Type, stmt)
+	for i := range features {
+		feat := &features[i]
+		if _, held := body.FeatureValues[feat.Name]; !held {
+			body.FeatureValues[feat.Name] = ctx.newFeatureValue(body, feat)
+		}
+	}
+}
+
+// loopBodyFeatures are the steps the unnamed body of stmt declares, as members of typ; what
+// else it declares stays in the frame the body's statements write, which the object would only copy.
+func (ctx *Context) loopBodyFeatures(typ *symbols.Symbol, stmt lower.Loop) []EffectiveFeature {
+	scope := stmt.Body.Scope
+	if scope == nil {
+		return nil
+	}
+	if cached, ok := ctx.model.bodyFeatures[scope]; ok {
+		return cached
+	}
+	var features []EffectiveFeature
+	scope.ForEachNamedMember(func(name string, sym *symbols.Symbol) bool {
+		if sym.Decl != stmt.Node && isPerformanceKind(sym.Kind) && !ctx.model.semantics.FrameFeature(sym) {
+			features = append(features, ctx.effectiveFeature(name, sym, typ))
+		}
+		return true
+	})
+	ctx.model.bodyFeatures[scope] = features
+	return features
 }
 
 // loopBodySymbol is the action usage a loop declares as its body (`loop action body

@@ -146,6 +146,14 @@ func (h *actionStmtHost) occurrence() *Instance {
 	return h.exec.occurrence
 }
 
+// caseAssertions is the case's when the body is a step of a case's own flow.
+func (h *actionStmtHost) caseAssertions() *caseAssertions {
+	if h.perf != h.exec.root {
+		return nil
+	}
+	return h.perf.assertions
+}
+
 // materializeOccurrence defers to the performance's lazy hook, set on the
 // executor that runs it.
 func (h *actionStmtHost) materializeOccurrence() (*Instance, error) {
@@ -298,8 +306,8 @@ func (h *actionStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (st
 }
 
 // beginLoop begins a loop a body statement reaches as a performance of the one around it.
-func (h *actionStmtHost) beginLoop(stmt lower.Loop) (*Instance, error) {
-	return h.exec.beginLoopPerformance(h.around(), stmt)
+func (h *actionStmtHost) beginLoop(stmt lower.Loop, within *Instance) (*Instance, error) {
+	return h.exec.beginLoopPerformance(h.around(), stmt, within)
 }
 
 // performNode performs node, which a block of parent's body declares, as a subperformance
@@ -322,7 +330,7 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 	if f.perf == nil {
 		locals, localCells, localHeld := engine.env.localFrames()
 		if f.perf, err = e.beginPerformance(
-			parent, graph, node, locals, localCells, localHeld,
+			parent, graph, node, locals, localCells, localHeld, engine.loopBody(),
 		); err != nil {
 			return flowNext, err
 		}

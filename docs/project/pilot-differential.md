@@ -245,7 +245,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-09.1`, 924 files)
+## Results (pilot `2026-09.1`, 926 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -254,10 +254,10 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 55 | 3 | 0 | 0 | 0 | 3 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 12 | 0 | 0 | 0 | 12 | 0 |
 | `examples/spec-examples` | 511 | 151 | 1092 | 3395 | 1040 | 6 | 46 | 2349 |
-| `tests/testdata` | 40 | 25 | 76 | 101 | 60 | 5 | 11 | 36 |
+| `tests/testdata` | 42 | 27 | 88 | 113 | 72 | 5 | 11 | 36 |
 | `examples` | 56 | 49 | 12 | 69 | 4 | 0 | 8 | 65 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **924** | **527** | **1236** | **3565** | **1104** | **11** | **121** | **2450** |
+| **Total** | **926** | **529** | **1248** | **3577** | **1116** | **11** | **121** | **2450** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -1052,7 +1052,7 @@ cascades through the rest of the file. The movement is entirely one file,
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
 | only pilot | 82 | **2450** |
-| pilot diagnostics | 123 | **3565** |
+| pilot diagnostics | 123 | **3577** |
 | severity-only | 9 | **11** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -1276,11 +1276,11 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **527 / 121 / 1236** |
+| overall: fully agreeing / only ours / our diagnostics | **529 / 121 / 1248** |
 | only pilot | **2450** |
-| pilot diagnostics | **3565** |
+| pilot diagnostics | **3577** |
 | severity-only | **11** |
-| unmapped, our side | **53** |
+| unmapped, our side | **65** |
 | kerml-examples: only ours | **12** |
 | pilot-examples: only ours | **34** |
 | examples: only pilot | **65** |
