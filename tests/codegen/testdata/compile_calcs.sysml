@@ -483,6 +483,12 @@ package Compiled {
 		calc def StrClosure { in s : String; in n : Integer; return : String = ApplyS(MkStr(s), n); }
 		calc def SeqClosure { in k : Real; attribute xs : Real[0..*] = (k, k * 2.0); calc f { in v : Real; return : Real = v * xs#(2); } return : Real = Apply(f, 3.0); }
 		calc def FnClosure { in b : Boolean; attribute g = Pick(b); calc f { in v : Real; return : Real = Apply(g, v) + 1.0; } return : Real = Apply(f, 3.0); }
+		// What a closure captures outlives the loop passes after it is made.
+		calc def KeptStr { in s : String; in n : Integer; attribute t : String = s; attribute g = MkStr(s); for i in 1..n { assign t := t + s; if i == 2 { assign g := MkStr(s + "xyz"); } } return : String = ApplyS(g, 2) + t; }
+		calc def MkSeq { in xs : Real[0..*] nonunique; calc f { in v : Real; return : Real = v * xs#(size(xs)); } return r = f; }
+		calc def KeptSeq { in k : Real; in n : Integer; attribute junk : Real[0..*] nonunique = (); attribute g = MkSeq((k, k * 2.0)); for i in 1..n { assign junk := (junk, k); if i == 2 { assign g := MkSeq((k, k * 3.0)); } } return : Real = Apply(g, 3.0) + size(junk); }
+		calc def MkWords { in ws : String[0..*] nonunique; calc f { in n : Integer; return : String = ws#(n); } return r = f; }
+		calc def KeptWords { in s : String; in n : Integer; attribute junk : String = s; attribute g = MkWords((s, s + "b")); for i in 1..n { assign junk := junk + s; if i == 2 { assign g := MkWords((s + "c", s + "d")); } } return : String = ApplyS(g, 2) + junk; }
 		calc def BoolClosure { in b : Boolean; calc f { in v : Real; return : Real = if b ? v else -v; } return : Real = Apply(f, 2.0); }
 		calc def EnumClosure { in c : Compiled::E::Color; calc f { in v : Real; return : Real = if c == Compiled::E::Color::red ? v else 0.0; } return : Real = Apply(f, 2.0); }
 	}
@@ -803,6 +809,12 @@ package Compiled {
 		calc def UnsetPassed { in a : Real; return : Real = Id(new Point(a).y); }
 		calc def UnsetNatural { in a : Real; return : Integer = NatId(new Counted().n); }
 		calc def UnsetDefault { in a : Real; return : Real = new Def(a).y + new Def(a).x; }
+		// What a record holds outlives the loop passes after it is made.
+		attribute def Tagged { attribute name : String; attribute vals : Real[0..*] nonunique; attribute words : String[0..*] nonunique; }
+		calc def KeptFeatures { in s : String; in n : Integer; attribute t : String = s; attribute r = new Tagged(s, (1.0, 2.0), (s, s)); for i in 1..n { assign t := t + s; if i == 2 { assign r := new Tagged(t, (r.vals, 3.0), (r.words, t)); } } return : String = r.name + r.words#(size(r.words)) + BaseFunctions::ToString(size(r.vals)) + t; }
+		// A String variable that may be unset keeps its bytes past the statement and the loop pass assigning it.
+		calc def UnsetThenSet { in s : String; in n : Integer; attribute t = new Label().s; assign t := s + "x"; attribute u : String = s + "yyyy"; for i in 1..n { if i == 2 { assign t := u + s; } assign u := u + "z"; } return : String = t + u; }
+		calc def UnsetOrSet { in s : String; in b : Boolean; attribute t = if b ? new Label().s else s + "x"; attribute u : String = s + "yyyy"; return : String = t + u; }
 		calc def UnsetString { in a : Real; return : String = new Label().s; }
 		calc def UnsetConcat { in a : Real; return : String = new Label().s + "x"; }
 		calc def UnsetStep { in a : Real; attribute i : Real = 0.0; attribute v : Real = a; while i < 3.0 { assign v := if i == 1.0 ? new Point(a).y else a; assign i := i + 1.0; } return : Real = v; }

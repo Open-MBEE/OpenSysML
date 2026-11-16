@@ -773,11 +773,11 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Cache the pinned pilot implementation
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      # A pull request that moves the pin saves its own build; any other restores develop's.
+      - name: Provision the pinned pilot validator
+        uses: ./.github/actions/pilot-validator
         with:
-          path: build/pilot-validator
-          key: pilot-validator-${{ hashFiles('scripts/download-pilot-validator.sh', 'scripts/pilot-pin.sh') }}
+          save: 'true'
 
       - name: Download the pinned pilot JSON exporter
         run: ./scripts/download-pilot-json-exporter.sh
