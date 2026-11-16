@@ -667,6 +667,8 @@ Supported types:
 - `Null`: JSON null
 - `Infinity`: the unbounded `*`, which is no number and carries no `value`
   (`{"type": "Infinity"}`)
+- `NegativeInfinity`: its negation `-*`, the Real below every number, likewise
+  without a `value` (`{"type": "NegativeInfinity"}`)
 - `Quantity`: JSON number, with the `unit` the magnitude is written in
 - `MeasurementRef`: the `unit` a measurement reference names, and no `value`
   (`{"type": "MeasurementRef", "unit": "m**2"}`)

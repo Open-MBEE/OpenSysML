@@ -63,7 +63,7 @@ func TestPowErrors(t *testing.T) {
 		{"integer zero to a negative power", intVal(0), intVal(-1), ErrArithmeticDomain},
 		{"negative base, fractional exponent", realVal(-2), realVal(0.5), ErrArithmeticDomain},
 		{"non-numeric operand", Value{Kind: ValBool, Bool: true}, intVal(2), ErrArithmeticDomain},
-		{"infinity operand", Value{Kind: ValInfinity}, intVal(2), ErrArithmeticDomain},
+		{"infinity to the zeroth power", PositiveInfinity(), intVal(0), ErrArithmeticDomain},
 		{"integer beyond the size budget", intVal(2), intVal(DefaultMaxIntegerBits), ErrIntegerSizeLimit},
 		{"integer to a big power", intVal(2), bigVal("100000000000000000000"), ErrIntegerSizeLimit},
 		{"real overflow", realVal(1e300), realVal(2), ErrArithmeticOverflow},

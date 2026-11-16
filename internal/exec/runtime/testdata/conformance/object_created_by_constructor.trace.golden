@@ -7,88 +7,90 @@ materialize: running #4
 enter: idle
 run: performed action build of #1
 step 1: token 1@make
+materialize: make #5
 stmt assign cars
     enter calc OccurrenceFunctions::addNew
       eval feature cars -> ()
         eval literal 1 -> 1
-materialize: Car #5
-start: exhibited state machine running of #5
-materialize: running #6
+materialize: Car #6
+start: exhibited state machine running of #6
+materialize: running #7
 enter: idle
-      eval construct Car -> instance#5
+      eval construct Car -> instance#6
       bind group = () [argument]
-      bind occ = instance#5 [argument]
-create: Car #5
-    exit calc OccurrenceFunctions::addNew -> (instance#5)
-  eval invoke addNew -> (instance#5)
+      bind occ = instance#6 [argument]
+create: Car #6
+    exit calc OccurrenceFunctions::addNew -> (instance#6)
+  eval invoke addNew -> (instance#6)
 stmt assign cars
     enter calc OccurrenceFunctions::addNew
-      eval feature cars -> (instance#5)
+      eval feature cars -> (instance#6)
         eval literal 2 -> 2
-materialize: Car #7
-start: exhibited state machine running of #7
-materialize: running #8
+materialize: Car #8
+start: exhibited state machine running of #8
+materialize: running #9
 enter: idle
-      eval construct Car -> instance#7
-      bind group = (instance#5) [argument]
-      bind occ = instance#7 [argument]
-create: Car #7
-    exit calc OccurrenceFunctions::addNew -> (instance#5, instance#7)
-  eval invoke addNew -> (instance#5, instance#7)
+      eval construct Car -> instance#8
+      bind group = (instance#6) [argument]
+      bind occ = instance#8 [argument]
+create: Car #8
+    exit calc OccurrenceFunctions::addNew -> (instance#6, instance#8)
+  eval invoke addNew -> (instance#6, instance#8)
 step 2: token 1@measure
+materialize: measure #10
 stmt assign count
     enter calc SequenceFunctions::size
-      eval feature cars -> (instance#5, instance#7)
-      bind seq = (instance#5, instance#7) [argument]
+      eval feature cars -> (instance#6, instance#8)
+      bind seq = (instance#6, instance#8) [argument]
     exit calc SequenceFunctions::size -> 2
   eval invoke size -> 2
 stmt assign extent
     enter calc SequenceFunctions::size
-      eval operator all -> (instance#5, instance#7, instance#3)
-      bind seq = (instance#5, instance#7, instance#3) [argument]
+      eval operator all -> (instance#6, instance#8, instance#3)
+      bind seq = (instance#6, instance#8, instance#3) [argument]
     exit calc SequenceFunctions::size -> 3
   eval invoke size -> 3
 stmt assign distinct
-          eval feature cars -> (instance#5, instance#7)
+          eval feature cars -> (instance#6, instance#8)
           eval literal 1 -> 1
-        eval index -> instance#5
-          eval feature cars -> (instance#5, instance#7)
+        eval index -> instance#6
+          eval feature cars -> (instance#6, instance#8)
           eval literal 2 -> 2
-        eval index -> instance#7
+        eval index -> instance#8
       eval operator === -> false
     eval operator not -> true
-          eval feature cars -> (instance#5, instance#7)
+          eval feature cars -> (instance#6, instance#8)
           eval literal 1 -> 1
-        eval index -> instance#5
+        eval index -> instance#6
         eval feature flagship -> instance#3
       eval operator === -> false
     eval operator not -> true
   eval operator and -> true
 stmt assign secondN
-      eval feature cars -> (instance#5, instance#7)
+      eval feature cars -> (instance#6, instance#8)
       eval literal 2 -> 2
-    eval index -> instance#7
+    eval index -> instance#8
   eval chain n -> 2
 stmt assign secondWheels
-      eval feature cars -> (instance#5, instance#7)
+      eval feature cars -> (instance#6, instance#8)
       eval literal 2 -> 2
-    eval index -> instance#7
+    eval index -> instance#8
   eval chain wheels -> 4
 stmt assign secondAlive
     enter calc OccurrenceFunctions::isDuring
-        eval feature cars -> (instance#5, instance#7)
+        eval feature cars -> (instance#6, instance#8)
         eval literal 2 -> 2
-      eval index -> instance#7
-      bind occ = instance#7 [argument]
+      eval index -> instance#8
+      bind occ = instance#8 [argument]
     exit calc OccurrenceFunctions::isDuring -> true
   eval invoke isDuring -> true
 stmt assign secondIsCar
-      eval feature cars -> (instance#5, instance#7)
+      eval feature cars -> (instance#6, instance#8)
       eval literal 2 -> 2
-    eval index -> instance#7
+    eval index -> instance#8
   eval operator istype -> true
 step 3: token 1@done
 step 4: no active tokens
 run: exhibited state machine running of #3
-run: exhibited state machine running of #5
-run: exhibited state machine running of #7
+run: exhibited state machine running of #6
+run: exhibited state machine running of #8

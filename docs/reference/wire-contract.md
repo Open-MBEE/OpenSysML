@@ -336,7 +336,7 @@ arms, each captured from `Evaluate` against the model at the end of this section
 | `vector` | object | `{"result":{"vector":{"components":[{"realValue":3},{"realValue":4}]}}}` | Numeric vector; each component an `intValue` or `realValue` |
 | `vectorQuantity` | object | `{"result":{"vectorQuantity":{"components":[{"realMagnitude":3,"unit":"m","unitTerm":{…}},…]}}}` | Vector of quantities; one `quantity` body per component |
 | `measurementRef` | object | `{"result":{"measurementRef":{"unit":"m","unitTerm":{…},"unitId":"SI::metre"}}}` | A measurement reference on its own: a unit, its reduction, and the declaration it names |
-| `infinity` | boolean | `{"result":{"infinity":true}}` | The unbounded value `*`, which is no number and no string |
+| `infinity` | boolean | `{"result":{"infinity":true}}` | The unbounded value `*`, the positive infinity, which is no finite number and no string; the negative infinity `-*` is the `realValue` `"-Infinity"`, and a non-finite `realValue` sent in reads as the infinity it denotes |
 | `function` | object | `{"result":{"function":{"calcId":"F::Sq"}}}` | A calc held as a value: the calc it names and, when it was read off an object, that object |
 | `set` | object | `{"result":{"set":{"elements":[{"intValue":"1"},{"intValue":"2"},{"intValue":"3"}]}}}` | Unordered collection without duplicates; `elements` are `Value`s, listed in canonical order |
 | `tensorQuantity` | object | `{"result":{"tensorQuantity":{"dimensions":["2","2","2"],"components":[{"realMagnitude":1,"unit":"m","unitTerm":{…}},…]}}}` | Tensor of quantities of any rank; one `quantity` body per component, row-major |
@@ -1915,7 +1915,7 @@ A constraint or requirement whose condition reads `in` parameters takes their va
 request: `arguments` is a positional list bound in declaration order, `namedArguments` binds by
 parameter name, and the two may be mixed, as `RunAnalysis` binds a case's inputs; the values are
 `Value` messages in the shapes [`EvaluateCalc`](#evaluatecalc) accepts. A name no parameter has,
-more positional values than parameters, a parameter left without a value, default or same-named value on the checked object, or a value
+more positional values than parameters, a parameter left without a value or default, or a value
 not of the parameter's type is an undecided `verdict` whose `error` names it, not a status error.
 Only the evaluate question takes them: `holds` and `satisfiable` with any argument are
 `INVALID_ARGUMENT`, since the solver chooses the free features' values. The service advertises the

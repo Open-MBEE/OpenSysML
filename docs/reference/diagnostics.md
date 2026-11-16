@@ -940,7 +940,7 @@ Specification: SysML v2 validatePortUsageIsReference
 
 | Code | Severity | Summary |
 |------|----------|---------|
-| [`accepter-source-not-state`](#accepter-source-not-state) | error | a transition with a trigger whose source is not a state |
+| [`accepter-source-not-state`](#accepter-source-not-state) | error | a transition with an accepter whose source is an action but no state |
 | [`annotation-annotated-element-ownership`](#annotation-annotated-element-ownership) | error | an annotating element whose `about` names its own owner |
 | [`assignment-chain-in-calc`](#assignment-chain-in-calc) | error | a calculation assigning a feature of another object |
 | [`assignment-chain-step-not-one-object`](#assignment-chain-step-not-one-object) | error | an assignment target stepping through a feature that may hold several objects |
@@ -1058,9 +1058,9 @@ Specification: SysML v2 validatePortUsageIsReference
 
 #### `accepter-source-not-state`
 
-**error** · Constraints · a transition with a trigger whose source is not a state
+**error** · Constraints · a transition with an accepter whose source is an action but no state
 
-A transition's accepter waits in its source for the trigger, which a state can do and a pseudostate cannot. Move the trigger to a transition out of a state, or drop it from the pseudostate's transition.
+A transition's accepter waits in its source for the trigger, which a state usage does and any other action usage does not: an entry, do or exit action, a performed, accept, send, assignment or terminate action, a calculation or a case, written as the source or declared just before a transition written without one. Move the accepter to a transition out of a state, or drop it and keep the guard.
 
 Specification: SysML v2 validateTransitionUsageTriggerActions
 

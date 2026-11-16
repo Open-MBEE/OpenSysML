@@ -130,7 +130,7 @@ func constantText(v semantics.Value) (string, bool) {
 		}
 		return "false", true
 	case semantics.ValInfinity:
-		return "*", true
+		return semantics.FormatConst(v), true
 	}
 	return "", false
 }

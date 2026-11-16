@@ -344,8 +344,8 @@ func compareExactReal(i semantics.Value, r float64) int {
 }
 
 func numberOf(v semantics.Value) float64 {
-	if v.Kind == semantics.ValInfinity {
-		return math.Inf(1)
+	if v.IsInfinite() {
+		return math.Inf(v.Sign())
 	}
 	return v.AsReal()
 }

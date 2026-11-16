@@ -75,7 +75,10 @@ func (h *calcStmtHost) attachPerformances(engine *stmtEngine) {
 		run:        h.ctx.newRun(),
 	}
 	h.flow = &ActionExecutor{
-		performances:     performances{ctx: h.ctx, self: h.self, root: root, owner: h, behavior: h.shape.Sym},
+		performances: performances{
+			ctx: h.ctx, self: h.self, root: root, owner: h, behavior: h.shape.Sym,
+			thisOccurrence: h.materializeOccurrence,
+		},
 		action:           h.shape.Sym,
 		state:            StateRunning,
 		nextTokenID:      1,
@@ -94,6 +97,14 @@ func (h *calcStmtHost) attachPerformances(engine *stmtEngine) {
 func (h *calcStmtHost) readPerformance(engine *stmtEngine, perf *actionFrame) {
 	h.env = engine.env
 	engine.env.perf = perf
+}
+
+// caseAssertions is the case's own, nil for a calculation.
+func (h *calcStmtHost) caseAssertions() *caseAssertions {
+	if h.perfs == nil {
+		return nil
+	}
+	return h.perfs.root.assertions
 }
 
 // performance is the case's own performance, nil for a calculation.
@@ -288,6 +299,15 @@ func (h *calcStmtHost) occurrence() *Instance {
 // materializeOccurrence makes the occurrence the invocation's `this` denotes.
 func (h *calcStmtHost) materializeOccurrence() (*Instance, error) {
 	return h.occ.materializeOccurrence()
+}
+
+// beginLoop begins a loop a case body reaches as a performance of the case's; the
+// body of a calculation that is no case performs nothing, and its loops run unheld.
+func (h *calcStmtHost) beginLoop(stmt lower.Loop, within *Instance) (*Instance, error) {
+	if h.perfs == nil {
+		return nil, nil
+	}
+	return h.perfs.beginLoopPerformance(h.perfs.root, stmt, within)
 }
 
 // effect performs the action a `perform` in a case body names, its outputs

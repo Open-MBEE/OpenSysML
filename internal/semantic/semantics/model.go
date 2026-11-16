@@ -40,7 +40,7 @@ type Model struct {
 	referenced      map[*symbols.Symbol]*symbols.Symbol
 	resolvingRef    map[*symbols.Symbol]bool
 	memberSources   map[*symbols.Symbol][]*symbols.Symbol
-	lookupOrder     map[*symbols.Symbol][]lookupSource    // name-lookup order
+	lookupOrder     map[*symbols.Symbol][]*symbols.Symbol // name-lookup order
 	contributed     map[*symbols.Symbol][]*symbols.Symbol // memoized contributors
 	nestedRedefs    map[*symbols.Symbol][]NestedRedefinition
 	allRedefined    map[*symbols.Symbol][]*symbols.Symbol // memoized redefinition closure
@@ -147,11 +147,12 @@ type Model struct {
 	// computingRedefined holds the resolver depth of each RedefinedFeatures call on
 	// the stack, so a re-entrant query is cut short rather than memoized empty.
 	computingRedefined map[*symbols.Symbol]int
-	redefMask          map[*symbols.Symbol]map[*symbols.Symbol]bool
-	// redefMaskInherited is the same mask counting inherited redefinitions only.
-	redefMaskInherited map[*symbols.Symbol]map[*symbols.Symbol]bool
-	// redefMaskOwn is the same mask counting the type's own redefinitions only.
-	redefMaskOwn map[*symbols.Symbol]map[*symbols.Symbol]bool
+	// redefLoss memoizes what each type does not inherit, redefOwn what its own
+	// features redefine (inheritance_loss.go).
+	redefLoss map[*symbols.Symbol]*inheritanceLoss
+	redefOwn  map[*symbols.Symbol]*ownRedefinitions
+	// walkingLoss holds the resolver depth of the walk deriving each loss in progress.
+	walkingLoss  map[*symbols.Symbol]int
 	redefClosure map[*symbols.Symbol]map[*symbols.Symbol]bool
 	// restatesFrameRoot and restatesReferenceRoot memoize restatesRoot per symbol (shape.go).
 	restatesFrameRoot          map[*symbols.Symbol]bool
@@ -213,7 +214,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		referenced:             make(map[*symbols.Symbol]*symbols.Symbol),
 		resolvingRef:           make(map[*symbols.Symbol]bool),
 		memberSources:          make(map[*symbols.Symbol][]*symbols.Symbol),
-		lookupOrder:            make(map[*symbols.Symbol][]lookupSource),
+		lookupOrder:            make(map[*symbols.Symbol][]*symbols.Symbol),
 		contributed:            make(map[*symbols.Symbol][]*symbols.Symbol),
 		nestedRedefs:           make(map[*symbols.Symbol][]NestedRedefinition),
 		allRedefined:           make(map[*symbols.Symbol][]*symbols.Symbol),
@@ -264,9 +265,9 @@ func NewModel(resolver *resolve.Resolver) *Model {
 
 		redefined:             make(map[*symbols.Symbol][]*symbols.Symbol),
 		computingRedefined:    make(map[*symbols.Symbol]int),
-		redefMask:             make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
-		redefMaskInherited:    make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
-		redefMaskOwn:          make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
+		redefLoss:             make(map[*symbols.Symbol]*inheritanceLoss),
+		redefOwn:              make(map[*symbols.Symbol]*ownRedefinitions),
+		walkingLoss:           make(map[*symbols.Symbol]int),
 		redefClosure:          make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
 		restatesFrameRoot:     make(map[*symbols.Symbol]bool),
 		restatesReferenceRoot: make(map[*symbols.Symbol]bool),

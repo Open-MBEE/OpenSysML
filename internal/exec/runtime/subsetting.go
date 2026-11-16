@@ -586,8 +586,8 @@ func (ctx *Context) metadataSubsettingNames(sym, owner *symbols.Symbol) []string
 }
 
 // implicitSubsettingNames returns the names of the owner features sym and the
-// features it redefines implicitly subset by nesting (SysML v2 §8.3); only
-// model-declared usages contribute theirs.
+// features it redefines implicitly subset by nesting (SysML v2 §8.3), whichever
+// document declares them: a library's nested usages contribute like a model's.
 func (ctx *Context) implicitSubsettingNames(sym, owner *symbols.Symbol) []string {
 	var names []string
 	for _, sub := range ctx.model.semantics.ImplicitSubsettings(sym) {

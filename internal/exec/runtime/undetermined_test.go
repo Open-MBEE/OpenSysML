@@ -674,8 +674,8 @@ func TestQuantifiersDecideFromConstantTests(t *testing.T) {
 	}
 }
 
-// A determined operand that alone makes arithmetic fail — a zero divisor, the
-// unbounded `*` — fails it whatever the open operand holds, in the operator
+// A determined operand that alone makes arithmetic fail — a zero divisor, an
+// infinity under `%` — fails it whatever the open operand holds, in the operator
 // notation and in the library's function forms alike; other arithmetic stays open.
 func TestDefiniteArithmeticErrorsSurviveOpenOperands(t *testing.T) {
 	ctx, scope := undeterminedContext(t)
@@ -688,9 +688,9 @@ func TestDefiniteArithmeticErrorsSurviveOpenOperands(t *testing.T) {
 			t.Errorf("%s: err = %v, want ErrDivisionByZero", src, err)
 		}
 	}
-	for _, src := range []string{"u + *", "RealFunctions::'*'(r, *)"} {
-		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, ErrTypeMismatch) {
-			t.Errorf("%s: err = %v, want ErrTypeMismatch", src, err)
+	for _, src := range []string{"u % *", "IntegerFunctions::'%'(u, -*)"} {
+		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, semantics.ErrArithmeticDomain) {
+			t.Errorf("%s: err = %v, want ErrArithmeticDomain", src, err)
 		}
 	}
 	if _, err := evalIn(t, ctx, scope, "IntegerFunctions::'/'(u, 1.5)"); err == nil {

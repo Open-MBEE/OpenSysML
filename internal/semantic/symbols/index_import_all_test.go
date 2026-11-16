@@ -78,3 +78,48 @@ func TestSnapshotKeepsImportAll(t *testing.T) {
 		t.Errorf("restored index re-derives %v and purges %v, want its settled re-exports kept", derive, purge)
 	}
 }
+
+var importCycleDocs = map[string]string{
+	"s.sysml": "package S { part def A; }",
+	"x.sysml": "package X { private import S::*; public import Y::*; }",
+	"y.sysml": "package Y { public import all X::*; }",
+}
+
+// wantCycleRoutes checks the routes of importCycleDocs: A reaches X privately
+// and Y through X, and does not come back to X by Y's import of it.
+func wantCycleRoutes(t *testing.T, idx *Index) {
+	t.Helper()
+	a := lookupOne(t, idx, "S::A")
+	if routes := idx.ReexportGates("", "X::A", a, ""); len(routes) != 0 {
+		t.Errorf("X::A has %d routes from outside X, want none: Y's import of X is of an excluded namespace", len(routes))
+	}
+	if routes := idx.ReexportGates("", "X::A", a, "X"); len(routes) != 1 {
+		t.Errorf("X::A has %d routes from within X, want its private import's", len(routes))
+	}
+	taken := func([]ElementFilter) bool { return true }
+	if routed, accepted := idx.EachReexportGate("", "Y::A", a, "", nil, taken); !routed || !accepted {
+		t.Errorf("Y::A is routed %v and accepted %v with nothing excluded, want both", routed, accepted)
+	}
+	// A lookup reading X's imported memberships does not take a route through X.
+	if routed, accepted := idx.EachReexportGate("", "Y::A", a, "", []string{"X"}, taken); !routed || accepted {
+		t.Errorf("Y::A is routed %v and accepted %v with X excluded, want routed and not accepted", routed, accepted)
+	}
+}
+
+// A route does not continue into a namespace it came through: computing a
+// namespace's imported memberships excludes it (KerML 8.3.2.4.5, 8.3.2.4.6).
+func TestExpandWildcardImportsStopsARouteAtANamespaceItCameThrough(t *testing.T) {
+	// Repeat: derivation order decides which importer is expanded first.
+	for i := 0; i < 8; i++ {
+		idx := NewIndex()
+		for name, src := range importCycleDocs {
+			addDoc(t, idx, name, src)
+		}
+		idx.ExpandWildcardImports()
+		wantCycleRoutes(t, idx)
+	}
+}
+
+func TestSnapshotKeepsTheNamespacesARouteCameThrough(t *testing.T) {
+	wantCycleRoutes(t, roundTrip(t, frozenBase(t, importCycleDocs)))
+}

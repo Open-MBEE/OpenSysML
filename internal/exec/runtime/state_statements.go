@@ -511,6 +511,9 @@ func (h *stateStmtHost) occurrence() *Instance {
 	return h.exec.occurrence
 }
 
+// caseAssertions is nil: a state behavior is no step of a case's own flow.
+func (h *stateStmtHost) caseAssertions() *caseAssertions { return nil }
+
 // materializeOccurrence defers to the executor's.
 func (h *stateStmtHost) materializeOccurrence() (*Instance, error) {
 	return h.exec.materializeOccurrence()
@@ -579,8 +582,8 @@ func (h *stateStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stm
 }
 
 // beginLoop begins a loop a body statement reaches as a performance of the behavior's.
-func (h *stateStmtHost) beginLoop(stmt lower.Loop) (*Instance, error) {
-	return h.perfs.beginLoopPerformance(h.perfs.root, stmt)
+func (h *stateStmtHost) beginLoop(stmt lower.Loop, within *Instance) (*Instance, error) {
+	return h.perfs.beginLoopPerformance(h.perfs.root, stmt, within)
 }
 
 // runFlow runs the token flow an inline body states with its successions and

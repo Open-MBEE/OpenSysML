@@ -1648,7 +1648,7 @@ func (ctx *Context) aggregate(op string, args []Value, operator ast.OperatorKind
 	}
 	acc := kind.identity(identity)
 	for _, elem := range elements {
-		if elem.Kind != ValConst || !elem.Const.IsNumeric() {
+		if elem.Kind != ValConst || !elem.Const.IsExtendedNumeric() {
 			return Value{}, fmt.Errorf("%w: %s requires numeric elements, got %s", ErrTypeMismatch, op, DescribeValue(elem))
 		}
 		if a, ok := acc.Int64(); ok && operator == ast.OpAdd {
@@ -1723,10 +1723,13 @@ func foldNumeric(op string, operator ast.OperatorKind, acc, elem semantics.Value
 		}
 		return res, nil
 	}
-	// An infinity has no place in a sum or a product of measured values: the
-	// aggregation would answer an infinity for every element that follows.
-	if acc.Kind == semantics.ValInfinity || elem.Kind == semantics.ValInfinity {
-		return semantics.Value{}, fmt.Errorf("%w: %s requires finite elements", ErrTypeMismatch, op)
+	// An infinite element makes the aggregation the extended reals' sum or product.
+	if acc.IsInfinite() || elem.IsInfinite() {
+		res, err := semantics.InfinityArith(operator, acc, elem)
+		if err != nil {
+			return semantics.Value{}, fmt.Errorf("%s: %w", op, err)
+		}
+		return res, nil
 	}
 	if acc.IsExact() && elem.IsExact() {
 		res, err := semantics.RatArith(operator, acc, elem, maxBits)

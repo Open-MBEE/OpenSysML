@@ -387,6 +387,9 @@ type stmtHost interface {
 	// denotes the first time a directly run definition denotes it; nil where
 	// none can be.
 	materializeOccurrence() (*Instance, error)
+	// caseAssertions holds the verdicts of the case whose own flow the body is a
+	// step of; nil for a body that is no step of a case's own flow.
+	caseAssertions() *caseAssertions
 }
 
 // stmtEngine runs lowered body statements for a host: declarations,
@@ -1039,13 +1042,17 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 	}
 }
 
-// assert checks an assertion the flow has reached against the values in reach
-// here, a failing condition ending the run as a ViolationError.
+// assert checks an assertion the flow has reached against the values in reach: a
+// failure ends the run as a ViolationError, or is a case's verdict and the flow moves on.
 func (e *stmtEngine) assert(s lower.Assert) error {
 	if s.Sym == nil {
 		return fmt.Errorf("%w: %s: the assertion is not declared where it was written", ErrNotAConstraint, e.host.describe())
 	}
 	ec := e.evalIn(s.Scope)
+	if judged := e.host.caseAssertions(); judged != nil {
+		judged.judge(e.ctx, ec, e.host.occurrence(), s)
+		return nil
+	}
 	check := conditionCheck{
 		sym:     s.Sym,
 		kind:    "constraint",
@@ -1053,6 +1060,8 @@ func (e *stmtEngine) assert(s lower.Assert) error {
 		self:    ec.self,
 		frames:  slices.Clone(ec.frames),
 		negated: s.Node.IsNegated,
+
+		occurrence: e.host.occurrence(),
 	}
 	_, err := e.ctx.evaluateConditions(check, e.ctx.conditionsOf(s.Sym, e.ctx.chainMembers(s.Sym, s.Scope)))
 	return err
