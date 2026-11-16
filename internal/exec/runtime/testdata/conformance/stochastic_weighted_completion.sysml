@@ -1,4 +1,4 @@
-// The two completion transitions out of decide are weighted: entering it runs
+// The two completion transitions out of choose are weighted: entering it runs
 // its entry, queues the one completion event, and the dispatch of that event
 // draws the branch by weight once, under run-to-completion.
 package test {
@@ -6,8 +6,8 @@ package test {
 	private import Stochastic::*;
 	state def Machine {
 		attribute log : Integer = 0;
-		entry; then decide;
-		state decide {
+		entry; then choose;
+		state choose {
 			entry { assign log := 10 * log + 1; }
 		}
 		state left {
@@ -16,7 +16,7 @@ package test {
 		state right {
 			entry { assign log := 10 * log + 4; }
 		}
-		transition first decide then left { @Probability { p = 0.4; } }
-		transition first decide then right { @Probability { p = 0.6; } }
+		transition first choose then left { @Probability { p = 0.4; } }
+		transition first choose then right { @Probability { p = 0.6; } }
 	}
 }

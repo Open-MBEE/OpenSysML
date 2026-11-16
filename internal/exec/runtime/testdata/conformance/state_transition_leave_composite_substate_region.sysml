@@ -39,7 +39,7 @@ package Test {
 					}
 				}
 
-				succession first rs then mid;
+				succession first rs then wrapper.mid;
 			}
 		}
 		state outside;

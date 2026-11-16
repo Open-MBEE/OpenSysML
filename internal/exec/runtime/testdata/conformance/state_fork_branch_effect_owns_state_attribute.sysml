@@ -26,8 +26,8 @@ package ForkBranchEffectOwnsStateAttribute {
             fork split;
 
             transition first init then split;
-            transition first split do { assign count := count + 1; } then a;
-            transition first split do { assign count := count + 10; } then b;
+            transition first split do { assign count := count + 1; } then work.left.a;
+            transition first split do { assign count := count + 10; } then work.right.b;
             transition first work then done;
             exit { assign seen := count; }
         }

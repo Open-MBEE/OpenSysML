@@ -20,7 +20,7 @@ package Test {
 			transition first pick do { assign log := log + "toW2(effect);"; } then w2;
 		}
 
-		transition first idle accept Go do { assign x := 1; assign log := log + "go(effect);"; } then pick;
+		transition first idle accept Go do { assign x := 1; assign log := log + "go(effect);"; } then work.pick;
 		transition first work accept Stop then done;
 	}
 	attribute def Go;

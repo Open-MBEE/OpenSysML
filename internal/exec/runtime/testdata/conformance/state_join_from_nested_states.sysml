@@ -20,7 +20,7 @@ package Test {
 					entry; then a1;
 					state a1;
 				}
-				transition first a1 accept Go do assign log := log + "a1 " then sync;
+				transition first ia.a1 accept Go do assign log := log + "a1 " then sync;
 			}
 			state b {
 				entry; then ib;
@@ -29,7 +29,7 @@ package Test {
 					entry; then b1;
 					state b1;
 				}
-				transition first b1 accept Go do assign log := log + "b1 " then sync;
+				transition first ib.b1 accept Go do assign log := log + "b1 " then sync;
 			}
 		}
 		join sync;

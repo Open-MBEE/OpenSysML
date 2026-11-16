@@ -463,9 +463,9 @@ func TestChangeTriggerArmsAWatchReenteredDuringThePoll(t *testing.T) {
 				}
 			}
 			fork split;
-			transition first l1 accept when ready then split;
-			transition first split then l2;
-			transition first split then C;
+			transition first Working.left.l1 accept when ready then split;
+			transition first split then Working.left.l2;
+			transition first split then Working.right.C;
 			succession first start then Working;
 		}
 	}`)
