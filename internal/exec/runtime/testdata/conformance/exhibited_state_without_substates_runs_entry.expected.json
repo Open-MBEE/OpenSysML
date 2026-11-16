@@ -1,0 +1,10 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Mission",
+  "slots": {
+    "armed": {"type": "Integer", "value": 1},
+    "launched": {"type": "Integer", "value": 1},
+    "idled": {"type": "Integer", "value": 1}
+  }
+}

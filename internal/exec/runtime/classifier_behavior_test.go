@@ -1007,20 +1007,20 @@ func TestExhibitedStateNamingNothingExhibitsItself(t *testing.T) {
 	}
 }
 
-// An exhibited state naming nothing whose body declares no initial state
-// fails at initialization with ErrNoInitialState, like any machine stating an
-// empty or parameter-only body — the declaration is its own body, not a
-// naming error.
-func TestExhibitedStateNamingNothingWithNoInitialStateIsReported(t *testing.T) {
+// An exhibited state naming nothing is its own body: active in itself with no
+// substate, refused with errNoInitialState with substates and no entry into them.
+func TestExhibitedStateNamingNothingIsItsOwnBody(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		behavior string
 		want     string
+		refused  bool
 	}{
-		{"empty body", "exhibit state idle;", "idle"},
+		{"empty body", "exhibit state idle;", "idle", false},
 		{"parameter-only body", `
 			attribute level : Integer = 3;
-			exhibit state modes { in amount : Integer[1] = level; }`, "modes"},
+			exhibit state modes { in amount : Integer[1] = level; }`, "modes", false},
+		{"substates without an entry", "exhibit state modes { state on; state off; }", "modes", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := `
@@ -1031,9 +1031,16 @@ func TestExhibitedStateNamingNothingWithNoInitialStateIsReported(t *testing.T) {
 			model, resolver, root := parseAndBuildModel(t, src)
 			ctx := NewContext(typedModel(model, resolver), 10000)
 
-			_, err := instantiateReporting(ctx, resolveSymbol(t, root, "Controller"))
+			inst, err := instantiateReporting(ctx, resolveSymbol(t, root, "Controller"))
+			if !tc.refused {
+				if err != nil {
+					t.Fatalf("error = %v, want the state active with no substate to enter", err)
+				}
+				assertSimpleStateActive(t, inst)
+				return
+			}
 			if !errors.Is(err, errNoInitialState) {
-				t.Fatalf("error = %v, want ErrNoInitialState", err)
+				t.Fatalf("error = %v, want errNoInitialState", err)
 			}
 			if !strings.Contains(err.Error(), tc.want) {
 				t.Errorf("error %q does not name the behavior %q", err, tc.want)
@@ -1508,7 +1515,7 @@ func TestFailedMaterializationLeavesNoBehaviorBehind(t *testing.T) {
 		part def Broken {
 			attribute n: Integer = 0;
 			exhibit state modes { entry; then on; state on { entry action bump { assign n := 1; } } }
-			exhibit state missing;
+			exhibit state missing { state a; state b; }
 		}
 		part def Fine {
 			exhibit state modes { entry; then idle; state idle; }
@@ -1518,13 +1525,13 @@ func TestFailedMaterializationLeavesNoBehaviorBehind(t *testing.T) {
 
 	broken, err := instantiateReporting(ctx, resolveSymbol(t, root, "Broken"))
 	if !errors.Is(err, errNoInitialState) {
-		t.Fatalf("error = %v, want the bodiless machine recorded as failed", err)
+		t.Fatalf("error = %v, want the machine with no initial state recorded as failed", err)
 	}
 	if broken == nil {
 		t.Fatal("the object whose machine could not start was not created")
 	}
 	if got := len(ctx.StartFailures(broken)); got != 1 {
-		t.Errorf("%d behavior(s) recorded as failed, want the bodiless machine alone", got)
+		t.Errorf("%d behavior(s) recorded as failed, want the machine with no initial state alone", got)
 	}
 	if got := len(ctx.pendingBehaviors); got != 0 {
 		t.Errorf("%d behavior(s) left queued after the failed start", got)
@@ -1609,7 +1616,7 @@ func TestFailedMaterializationLeavesNoNeighbourBehind(t *testing.T) {
 					entry; then sent;
 					state sent { entry send Ping() to good; }
 				}
-				exhibit state empty;
+				exhibit state unstarted { state a; state b; }
 			}
 
 			part good : Listener;
@@ -1716,7 +1723,7 @@ func TestFailedNestedStartFailsTheHolder(t *testing.T) {
 					entry; then sent;
 					state sent { entry send Ping() to good; }
 				}
-				exhibit state empty;
+				exhibit state unstarted { state a; state b; }
 			}
 
 			part def Group {
