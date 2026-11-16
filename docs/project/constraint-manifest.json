@@ -1489,10 +1489,10 @@
         "clause": "8.3.4.8.4",
         "name": "validateFeatureChainExpressionConformance"
       },
-      "checks": "The target feature of a feature-chain expression is a feature of the source's type (`Must be a valid feature`); the pilot also reports the unresolved chain target from name resolution",
-      "implementation": "internal/check/passes/w8c_feature_reference.go:FeatureReferencePass.Run",
+      "checks": "The target feature of a feature-chain expression is featured within the result of its argument (`Must be a valid feature`): not a nested class, and not a feature of another type that the argument's type only aliases or imports (`k.z` under `alias z for B::y`); the pilot also reports the unresolved chain target from name resolution",
+      "implementation": "internal/check/passes/w8c_feature_reference.go:featureReferenceChecker.checkReferent",
       "message": "—",
-      "negativeCase": "`semantic/k41-chain-expression-to-nested-class.kerml`",
+      "negativeCase": "`semantic/k41-chain-expression-to-nested-class.kerml`, `semantic/k79-chain-expression-through-alias-to-another-type.kerml`",
       "codes": [
         "feature-reference-referent"
       ],

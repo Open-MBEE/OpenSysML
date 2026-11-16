@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 349,
-        "digest": "sha256:a8113fa5ae5e4c7360df1d833f4251a70b069f0320d318a8ef0dd1e784fff61a"
+        "files": 350,
+        "digest": "sha256:41f40adfa91dc12a789ea886313318c5e8c6e224a42e4080f54c1543671bedff"
       }
     ],
-    "recorded": "2026-11-15"
+    "recorded": "2026-11-16"
   },
   "totals": {
-    "cases": 349,
-    "bothReject": 339,
+    "cases": 350,
+    "bothReject": 340,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 10,
     "bothAccept": 0
@@ -63,8 +63,8 @@
     },
     {
       "source": "semantic",
-      "cases": 187,
-      "bothReject": 177,
+      "cases": 188,
+      "bothReject": 178,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 10,
       "bothAccept": 0
@@ -2072,6 +2072,15 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/k79-chain-expression-through-alias-to-another-type.kerml",
+      "source": "semantic",
+      "rule": "the target feature of a feature chain expression must be featured within the result of its argument, and an alias or import reaching another type's feature is not (KerML 8.3.4.8.4 validateFeatureChainExpressionConformance; pilot validateFeatureChainExpressionFeatureConformance).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 3,
+      "pilotErrors": 3
+    },
+    {
       "path": "semantic/s01-action-typed-by-part-def.sysml",
       "source": "semantic",
       "rule": "An action must be typed by action definitions (SysML 7.16 Actions; pilot validateActionUsageType).",
@@ -3387,8 +3396,8 @@
       }
     ],
     "totals": {
-      "cases": 349,
-      "bothReject": 339,
+      "cases": 350,
+      "bothReject": 340,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 10,
       "bothAccept": 0

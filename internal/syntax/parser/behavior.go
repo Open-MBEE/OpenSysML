@@ -442,7 +442,9 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 	if p.atKeyword("individual") {
 		individualKeyword = p.advance().Span
 		isIndividual = true
-	} else if p.atKeyword("snapshot") {
+	}
+	// A portion kind follows `individual` or stands alone (SysML.xtext PortionUsage).
+	if p.atKeyword("snapshot") {
 		p.advance()
 		portion = ast.PortionSnapshot
 	} else if p.atKeyword("timeslice") {

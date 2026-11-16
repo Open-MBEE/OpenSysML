@@ -1,0 +1,38 @@
+name: Provision the pinned pilot validator
+description: >-
+  Restore build/pilot-validator and the Maven repository it was built from, keyed on the pin, or
+  the newest earlier entry when the pin moved; run scripts/download-pilot-validator.sh, which
+  rebuilds a missing or stale copy; and with save, save the entry at once when there was none.
+
+inputs:
+  save:
+    description: Save the entry right after the build when the exact key was not restored.
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Restore the pinned pilot validator
+      id: cache
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: |
+          build/pilot-validator
+          ~/.m2/repository
+        key: pilot-validator-${{ hashFiles('scripts/download-pilot-validator.sh', 'scripts/pilot-pin.sh') }}
+        restore-keys: pilot-validator-
+
+    - name: Build the pinned pilot validator unless the restored copy is at the pin
+      shell: bash
+      run: ./scripts/download-pilot-validator.sh
+
+    # Saved here rather than after the job, so a later failing step does not lose the build.
+    - name: Save the pinned pilot validator
+      if: inputs.save == 'true' && steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          build/pilot-validator
+          ~/.m2/repository
+        key: pilot-validator-${{ hashFiles('scripts/download-pilot-validator.sh', 'scripts/pilot-pin.sh') }}
