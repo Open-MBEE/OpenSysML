@@ -27,11 +27,12 @@ type structureImportedEntry struct {
 // for this path alone.
 type importWalk struct {
 	excluded map[ElementKey]bool
+	hiding   map[ElementKey]bool
 	cut      bool
 }
 
 func newImportWalk() *importWalk {
-	return &importWalk{excluded: make(map[ElementKey]bool)}
+	return &importWalk{excluded: make(map[ElementKey]bool), hiding: make(map[ElementKey]bool)}
 }
 
 // structureGraphImportedMemberships is Namespace::importedMembership (KerML 8.3.2.4.5
@@ -115,7 +116,32 @@ func (e *Evaluator) computeStructureImportedEntries(namespace Element, walk *imp
 	if !ok {
 		return nil, false
 	}
-	return e.structureHideImportCollisions(namespace, entries)
+	inherited, ok := e.structureHidingInherited(namespace, entries, walk)
+	if !ok {
+		return nil, false
+	}
+	return e.structureHideImportCollisions(namespace, entries, inherited)
+}
+
+// structureHidingInherited lists the inherited memberships of a type that imports, which
+// hide what it would import under their names (KerML 7.3.2.1). A type already deriving
+// them further out contributes none, and the result holds for this walk alone.
+func (e *Evaluator) structureHidingInherited(namespace Element, entries []importedEntry, walk *importWalk) ([]Value, bool) {
+	if len(entries) == 0 {
+		return nil, true
+	}
+	isType, known := e.isMetaclass(namespace, "Type")
+	if !known || !isType {
+		return nil, known
+	}
+	key := e.structureFeatureKey(namespace)
+	if walk.hiding[key] {
+		walk.cut = true
+		return nil, true
+	}
+	walk.hiding[key] = true
+	defer delete(walk.hiding, key)
+	return e.structureWalkInheritedMemberships(namespace, walk, map[ElementKey]bool{}, false)
 }
 
 // structureVisibilityName is the visibility a membership or import states.
@@ -392,6 +418,7 @@ func (e *Evaluator) structureWalkInheritedMemberships(
 ) ([]Value, bool) {
 	key := e.structureFeatureKey(element)
 	if visited[key] {
+		walk.cut = true
 		return nil, true
 	}
 	visited[key] = true
@@ -409,6 +436,7 @@ func (e *Evaluator) structureWalkInheritedMemberships(
 	var inheritable []Value
 	for _, base := range bases {
 		if visited[e.structureFeatureKey(base)] {
+			walk.cut = true
 			continue
 		}
 		if library, ok := e.structureLibraryBase(base); ok {
