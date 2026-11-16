@@ -18,7 +18,7 @@ const crossFeatures = `package Crossing {
     connection def C {
         end [0..*] item x : A;
         end [0..1] item cart : A[1];
-        end x1[0..1] typed by Sub1 item y : B;
+        end x1[0..1] defined by Sub1 item y : B;
         end [2] #M item z : B;
         end ref plain : A[3];
     }
@@ -148,7 +148,7 @@ const crossFeatureWithID = `package Crossing {
     part def A;
     part def B;
     connection def C {
-        end x1[0..1] typed by A item x : B {
+        end x1[0..1] defined by A item x : B {
             metadata : IdentityMetadata::ElementId about x1 { id = "stable-x1"; }
         }
         end plain : A[3];
@@ -177,7 +177,7 @@ func TestShortNamedCrossFeatureIDComesBackFromTheGraphAlone(t *testing.T) {
     part def A;
     part def B;
     connection def C {
-        end <x1>[0..1] typed by A item x : B {
+        end <x1>[0..1] defined by A item x : B {
             metadata : IdentityMetadata::ElementId about x1 { id = "stable-x1"; }
         }
     }
@@ -219,9 +219,9 @@ func TestCrossFeaturePrefixComesBackFromTheGraphAlone(t *testing.T) {
     part def A;
     part def B;
     connection def C {
-        end in x1[1] typed by A item x : A;
+        end in x1[1] defined by A item x : A;
         end derived abstract ref x2[1] item y : B;
-        end constant x3[1] typed by B item z : B;
+        end constant x3[1] defined by B item z : B;
         end ref plain : A[3];
     }
 }

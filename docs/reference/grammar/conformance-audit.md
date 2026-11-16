@@ -294,9 +294,12 @@ in a `.sysml` file, the same treatment `namespace` gets.
 `':' | 'defined' 'by'`; `SysML.xtext` has no `typed` literal at all, and the
 pinned pilot answers `part p typed by P;` in a `.sysml` file with
 `no viable alternative at input 'typed'`. The parser reads the three spellings
-alike and records the KerML one on the typing, and the pass warns it as
-`kerml-notation` in a `.sysml` file with a fix that writes `defined by`;
-`.kerml` files are silent. A metadata usage's typing (`@ m typed by Tag;`,
+alike and records the KerML one on the typing, and the pass rejects it as
+`typing-keyword` in a `.sysml` file, an error with or without `-strict`, with a
+fix that writes `defined by`; `.kerml` files are silent. Unlike `namespace` or
+`featured by`, the construct is one SysML has, so the SysML specification itself
+names its spelling (§8.2.2.1.2 `DEFINED_BY`, §8.2.2.6.5 `TypedBy`) and no
+leniency is owed a second one. A metadata usage's typing (`@ m typed by Tag;`,
 `SysML.xtext:150` `DefinedByKeyword`) is the same case.
 
 ## Judgment calls

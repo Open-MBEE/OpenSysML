@@ -65,7 +65,7 @@ systematically from four sources, one subdirectory each:
 2. **`extensions/` — the notation we invented** (13 cases). Every state-machine construct our
    `examples/` tree uses that no pinned production admits: `initial`, `choice`, `junction`,
    `history`, `region`, the since-removed `defer` member, and the `transition <src> to <tgt>` shorthand, plus `require`
-   outside a requirement body (`x08`, since made a parse error), `expose` in a view def body (`x09`), which our grammar admits as an extension, KerML's `connector` declared in a `.sysml` file (`x10`), a `kerml-notation` error in either mode, a typing spelled `typed by` in one (`x13`), which the default mode keeps parsed as a `kerml-notation` warning and strict mode refuses, and a one-name `then <target>;` in a view body (`x12`), a succession member no non-action body admits. The pinned grammar
+   outside a requirement body (`x08`, since made a parse error), `expose` in a view def body (`x09`), which our grammar admits as an extension, KerML's `connector` declared in a `.sysml` file (`x10`), a `kerml-notation` error in either mode, a typing spelled `typed by` in one (`x13`), a `typing-keyword` error in either mode, and a one-name `then <target>;` in a view body (`x12`), a succession member no non-action body admits. The pinned grammar
    spells entry as `entry; then <state>`, concurrency as `state ... parallel`, and transitions as
    `first <src> then <tgt>`, and has no pseudostates or deferral at all. Adjudication: these are
    **intended OpenSysML extensions**, not accidents — each has dedicated parser tests
@@ -278,15 +278,17 @@ rules closed eleven `xpect/` gaps (`p08`, `p17`, `p20`,
 `p21`, `p22`, `p25`, `p26`, `p27`, `p28`, `p32`, `p33`). No case in the corpus is
 accepted by both implementations.
 
-The four strict-only agreements are `x06`, `x09`, `x11` and `x13`: OpenSysML notation
+The three strict-only agreements are `x06`, `x09` and `x11`: OpenSysML notation
 extensions that the default mode reports as `nonstandard-notation` or `kerml-notation` warnings on purpose and strict
 mode reports as errors. `x01` (the
 initial state marker), `x04` (`region r { … }`), `x05` (the `defer <event>;` state member),
 `x07` (`transition <src> to <tgt>`) and `x08` (`require` outside a requirement body) left that
 list when that notation was removed: each is now a parse error in either mode, so both
 implementations reject it by default. `x10` (KerML's `connector` declared in a `.sysml` file) left it
-when a declaration keyword only KerML spells became a `kerml-notation` error in either mode. Judged in
-the default mode the same corpus gives 335 agreements and 4 gaps, which is what `-conformance
+when a declaration keyword only KerML spells became a `kerml-notation` error in either mode. `x13` (a typing spelled `typed by`) left it when that spelling
+became an error in either mode: SysML names the spelling of a typing itself (§8.2.2.1.2
+`DEFINED_BY`), so no second one is owed a warning. Judged in
+the default mode the same corpus gives 336 agreements and 3 gaps, which is what `-conformance
 default` prints. `-conformance strict` gives 339 and 0. Reserved keywords recovered as declared
 names and SysML declaration keywords recovered in KerML are now errors in either mode; the parser
 still preserves their trees for editors and later analysis. Of the 14 gaps this document carried
