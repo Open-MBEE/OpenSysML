@@ -1,0 +1,10 @@
+{
+  "type": "instance",
+  "instantiate": "Sign::plate",
+  "libraries": true,
+  "slots": {
+    "itemCount": {"type": "Integer", "value": 11},
+    "edgeCount": {"type": "Integer", "value": 3},
+    "vertexCount": {"type": "Integer", "value": 6}
+  }
+}

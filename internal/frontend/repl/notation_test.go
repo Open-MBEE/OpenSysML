@@ -27,18 +27,23 @@ func hasCode(diags []diag.Diagnostic, code string) bool {
 	return false
 }
 
-// The buffer carries no file extension, so `namespace` typed at the prompt is
-// read as the SysML the prompt takes and draws the KerML-notation warning.
-func TestSubmittedNamespaceWarnsAsKerMLNotation(t *testing.T) {
+// A prompt buffer has no file kind and reads as SysML, so `namespace` is an error;
+// it describes the writing, so the submission still enters the session.
+func TestSubmittedNamespaceIsAKerMLNotationError(t *testing.T) {
 	s := NewSession()
-	res := s.Submit("namespace N;\n")
-	if !hasCode(res.Diagnostics, passes.CodeKerMLNotation) {
-		t.Fatalf("want a %s finding, got %v", passes.CodeKerMLNotation, codesOf(res.Diagnostics))
-	}
+	res := s.Submit("namespace N { part def D; }\n")
+	var found bool
 	for _, d := range res.Diagnostics {
-		if d.Severity == diag.SeverityError {
-			t.Fatalf("the notation stays parsed, so it must not error: %v", d)
+		if d.Code == passes.CodeKerMLNotation {
+			found = d.Severity == diag.SeverityError && !d.Blocking()
 		}
+	}
+	if !found {
+		t.Fatalf("want a non-blocking %s error, got %v", passes.CodeKerMLNotation, res.Diagnostics)
+	}
+	res = s.Submit("package Q { part d : N::D; }\n")
+	if hasCode(res.Diagnostics, "unresolved") {
+		t.Fatalf("the members of the rejected namespace must stay declared: %v", res.Diagnostics)
 	}
 }
 
