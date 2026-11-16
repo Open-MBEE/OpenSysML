@@ -651,7 +651,6 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		regions:            map[rdf.Term]region{},
 		noteRegions:        map[rdf.Term]region{},
 		noteBodies:         map[rdf.Term]region{},
-		verifiedReferences: map[rdf.Term]bool{},
 		heads:              map[rdf.Term]*declarationHead{},
 		conjugateOriginals: map[string]rdf.Term{},
 		bodies:             map[rdf.Term]region{},
@@ -736,11 +735,6 @@ type encoder struct {
 	noteBodies  map[rdf.Term]region
 	// offsets holds where in file each element's declaration starts.
 	offsets map[string]int
-	// verifiedReferences holds the `verify` members written as a reference
-	// (`verify r;`, `verify r :>> req;`), whose subsetting is the
-	// OwnedReferenceSubsetting of RequirementVerificationUsage, as against a
-	// declaration (`verify requirement :> r;`), whose `:>` is a Subsetting.
-	verifiedReferences map[rdf.Term]bool
 	// heads records each declaration head's clauses in the order the notation
 	// spelled them, for the order its relationship elements are owned in.
 	heads map[rdf.Term]*declarationHead
@@ -1588,9 +1582,6 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 				e.graph.Add(membership, e.sysml(pKind), rdf.String("requirement"))
 				e.graph.Add(membership, e.sysml(pOwnedRequirement), subject)
 				e.graph.Add(membership, e.sysml(pOwnedConstraint), subject)
-			}
-			if !n.DeclaresRequirement {
-				e.verifiedReferences[subject] = true
 			}
 		}
 		implicitTarget := e.implicitMetadataBodyTarget(inBody, n)

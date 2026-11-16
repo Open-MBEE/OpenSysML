@@ -20,7 +20,7 @@ package Test {
 			transition first c do { assign log := log + "c2(effect);"; } then w2;
 		}
 
-		transition first idle accept Go do { assign log := log + "go(effect);"; } then j;
+		transition first idle accept Go do { assign log := log + "go(effect);"; } then work.j;
 		transition first work accept Stop then done;
 	}
 	attribute def Go;

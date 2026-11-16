@@ -46,11 +46,6 @@ func (c *kermlSubsettingMetaclassChecker) check(sym *symbols.Symbol) {
 			rel.Target == nil || c.ctx.DownstreamOfFailure(rel.Target) {
 			continue
 		}
-		// The reference form (`satisfy r;`) is an OwnedReferenceSubsetting the
-		// referent-kind rule judges by what the usage must reference.
-		if ast.IsReferenceSubsetting(usage, rel) {
-			continue
-		}
 		target, ok := c.resolveTarget(sym, usage, rel)
 		if !ok || target == nil {
 			continue

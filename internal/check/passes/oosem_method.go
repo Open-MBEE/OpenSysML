@@ -351,10 +351,7 @@ func (a *oosemAudit) satisfied(sym *symbols.Symbol, usage *ast.Usage) []*symbols
 		return []*symbols.Symbol{sym}
 	}
 	var out []*symbols.Symbol
-	for _, rel := range usage.Relationships {
-		if rel == nil || rel.Target == nil || rel.Kind != ast.RelSubsets {
-			continue
-		}
+	if rel := usage.ReferenceSubsetting(); rel != nil {
 		if target, ok := a.ctx.Resolver().ResolveTarget(sym.OwnerScope, rel.Target); ok && target != nil {
 			out = append(out, target)
 		}

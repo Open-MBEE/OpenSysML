@@ -35,26 +35,26 @@ func joinMachine(left, right, segments string) string {
 func TestToStateGraph_JoinSegmentsShareRegionFail(t *testing.T) {
 	for name, tc := range map[string]struct{ segments, want string }{
 		"two segments from one source": {
-			`transition first a accept Go then sync;
-			 transition first a accept Stop then sync;
-			 transition first b then sync;`,
+			`transition first work.left.a accept Go then sync;
+			 transition first work.left.a accept Stop then sync;
+			 transition first work.right.b then sync;`,
 			"two incoming transitions leave a",
 		},
 		"two sources in one region": {
-			`transition first a then sync;
-			 transition first a2 if true then sync;
-			 transition first b then sync;`,
+			`transition first work.left.a then sync;
+			 transition first work.left.a2 if true then sync;
+			 transition first work.right.b then sync;`,
 			"leave a and a2, in the same region",
 		},
 		"source below a composite of the region": {
-			`transition first a then sync;
-			 transition first w0 then sync;
-			 transition first b then sync;`,
+			`transition first work.left.a then sync;
+			 transition first work.left.wrapper.w0 then sync;
+			 transition first work.right.b then sync;`,
 			"leave a and w0, in the same region",
 		},
 		"source outside the regions": {
-			`transition first a then sync;
-			 transition first b then sync;
+			`transition first work.left.a then sync;
+			 transition first work.right.b then sync;
 			 transition first rest then sync;`,
 			"leaves rest, which is not in an orthogonal region",
 		},
@@ -80,8 +80,8 @@ func TestToStateGraph_JoinSegmentsOnePerRegion(t *testing.T) {
 	graph, err := ToStateGraph(stateDefinitionIn(t, joinMachine(
 		`entry; then wrapper; state wrapper { entry; then w0; state w0; }`,
 		`entry; then b; state b;`,
-		`transition first w0 then sync;
-		 transition first b then sync;`,
+		`transition first work.left.wrapper.w0 then sync;
+		 transition first work.right.b then sync;`,
 	)), nil)
 	if err != nil {
 		t.Fatalf("ToStateGraph: %v", err)
@@ -143,8 +143,8 @@ func parallelMachine(segments string) string {
 // leaves, however deep its source lies, so the region is left once and whole.
 func TestToStateGraph_JoinOfMachineRegionsRecordsTopLevelRegions(t *testing.T) {
 	graph, err := ToStateGraph(stateDefinitionIn(t, parallelMachine(
-		`transition first a accept Go then sync;
-		 transition first b accept Go then sync;`,
+		`transition first left.inner.l1.a accept Go then sync;
+		 transition first right.b accept Go then sync;`,
 	)), nil)
 	if err != nil {
 		t.Fatalf("ToStateGraph: %v", err)
@@ -177,9 +177,9 @@ func TestToStateGraph_JoinOfMachineRegionsRecordsTopLevelRegions(t *testing.T) {
 func TestToStateGraph_JoinOfMachineRegionsShareRegionFail(t *testing.T) {
 	for name, tc := range map[string]struct{ src, want string }{
 		"nested sources in one top-level region": {
-			parallelMachine(`transition first a accept Go then sync;
-			 transition first c accept Go then sync;
-			 transition first b accept Go then sync;`),
+			parallelMachine(`transition first left.inner.l1.a accept Go then sync;
+			 transition first left.inner.l2.c accept Go then sync;
+			 transition first right.b accept Go then sync;`),
 			"leave a and c, in the same region",
 		},
 		"sources in regions of two composite states": {
@@ -196,8 +196,8 @@ func TestToStateGraph_JoinOfMachineRegionsShareRegionFail(t *testing.T) {
 						state r { entry; then d; state d; }
 					}
 					join sync;
-					transition first a accept Go then sync;
-					transition first c accept Go then sync;
+					transition first w1.l.a accept Go then sync;
+					transition first w2.l.c accept Go then sync;
 					transition first sync then done;
 				}
 			}`,
