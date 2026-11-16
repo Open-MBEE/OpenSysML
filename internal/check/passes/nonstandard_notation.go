@@ -839,11 +839,8 @@ func isKerMLOnlyDeclarationKeyword(keyword string) bool {
 	return source.IsKeywordIn(word, source.KindKerML) && !source.IsKeywordIn(word, source.KindSysML)
 }
 
-// kermlDeclaration reports a declaration whose keyword is KerML notation in a
-// SysML file — `connector`, `class`, `feature`, `inv`, … — and reports whether
-// it did, so the walk can withhold the findings its members would repeat. The
-// declaration stays parsed for editor and analysis consumers; no fix rewrites
-// it, since a keyword swap changes the declared kind.
+// kermlDeclaration reports a KerML-only declaration keyword in a SysML file as an error in either
+// mode (SysML v2 §8.2.2.1.2), and whether it did, so the walk withholds what its members would repeat.
 func (w *notationWalker) kermlDeclaration(n ast.Node, keyword string) bool {
 	if !w.sysml || w.inKerMLDeclaration > 0 || keyword == "" || !isKerMLOnlyDeclarationKeyword(keyword) {
 		return false
@@ -853,7 +850,7 @@ func (w *notationWalker) kermlDeclaration(n ast.Node, keyword string) bool {
 		remedy = "write " + alternative + " here or " + remedy
 	}
 	w.diags = append(w.diags, diag.Diagnostic{
-		Severity: w.severity,
+		Severity: diag.SeverityError,
 		Span:     w.declarationKeywordSpan(n, keyword),
 		Message: fmt.Sprintf("`%s` is KerML notation: the SysML v2 grammar has no %s declaration, so %s",
 			keyword, keyword, remedy),

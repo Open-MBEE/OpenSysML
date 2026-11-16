@@ -1223,7 +1223,7 @@ func TestAPIJSONRoundTripSingleMemberCollections(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SysMLToRDF: %v", err)
 	}
-	document, err := export.WriteAPIJSON(graph)
+	document, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatalf("WriteAPIJSON: %v", err)
 	}

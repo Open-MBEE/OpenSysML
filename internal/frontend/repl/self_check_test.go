@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 )
 
 func TestSelfCheckAppliesValidationLibraryToWorkspaceElements(t *testing.T) {
@@ -568,8 +570,8 @@ func TestSelfCheckConnectorRelatedFeaturesCoverEndForms(t *testing.T) {
 			message byMessage of Integer from a.x to b.y;
 			message incoming : Message[*];
 			binding byReferences {
-				end feature references a;
-				end feature references b;
+				end references a;
+				end references b;
 			}
 		}
 		action def Sequence {
@@ -1214,8 +1216,10 @@ func TestSelfCheckKerMLNotationTypesKeepBaseClassification(t *testing.T) {
 }`}
 	s := NewSession()
 	result := s.SubmitFiles([]SourceFile{file})
-	if errs := errorDiagnostics(result.Diagnostics); len(errs) > 0 {
-		t.Fatalf("fixture did not load cleanly: %v", errs)
+	for _, d := range errorDiagnostics(result.Diagnostics) {
+		if d.Code != passes.CodeKerMLNotation {
+			t.Fatalf("fixture carries an error beyond its KerML notation: %v", d)
+		}
 	}
 	if s.HasErrors() {
 		t.Fatal("fixture has model errors")
