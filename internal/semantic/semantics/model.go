@@ -176,6 +176,9 @@ type Model struct {
 	// parameter or member the body declares finds its owner.
 	bodySymbols map[*ast.BodyExpr]*symbols.Symbol
 	bodyIndexed map[*symbols.Scope]bool
+	// constraintResults is the result expression element reflected for the
+	// closing bare condition of each constraint body (see constraint_result.go).
+	constraintResults map[*symbols.Symbol]*symbols.Symbol
 	// assumedSupers holds the supertypes a reducer's first parameter is judged under
 	// while its reducer's result is typed (see bodyparam.go).
 	assumedSupers map[*symbols.Symbol]assumedSupertypes
@@ -337,9 +340,20 @@ func RelationshipsOf(sym *symbols.Symbol) []*ast.Relationship {
 		return d.Relationships
 	case *ast.RequireMember:
 		return d.Relationships
+	case *ast.PrefixMetadata:
+		return metadataRelationships(d)
 	default:
 		return nil
 	}
+}
+
+// metadataRelationships returns a metadata usage's relationships: the typing its
+// `@M` or `#M` states (SysML.xtext MetadataUsage), the one written relationship it has.
+func metadataRelationships(n *ast.PrefixMetadata) []*ast.Relationship {
+	if n.Type == nil {
+		return nil
+	}
+	return []*ast.Relationship{{Kind: ast.RelTyping, Target: n.Type}}
 }
 
 // subjectRelationships returns a subject parameter's relationships, the typing
