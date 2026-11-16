@@ -325,6 +325,13 @@ func (ctx *Context) toCyclicScale(q Quantity, scale *CoordinateFrame) (Quantity,
 	return Quantity{Num: inUnit.Num, Unit: scale.Axes[0]}, nil
 }
 
+// noScaleValueError marks a quantity a well-formed logarithmic scale has no value for,
+// or a value of one no quantity; a scale that is itself malformed is never this.
+type noScaleValueError struct{ err error }
+
+func (e noScaleValueError) Error() string { return e.err.Error() }
+func (e noScaleValueError) Unwrap() error { return e.err }
+
 // logReference is the ratio magnitude x_ref a logarithmic scale's values are relative to.
 func (ctx *Context) logReference(scale *CoordinateFrame) (*Quantity, error) {
 	name := ctx.scaleName(scale)
@@ -356,7 +363,7 @@ func (ctx *Context) fromLogarithm(q Quantity, scale *CoordinateFrame) (Quantity,
 	ratio := math.Pow(log.Base, q.Num.AsReal()/log.Factor/log.Exponent)
 	num, err := semantics.RealResult(ref.Num.AsReal() * ratio)
 	if err != nil {
-		return Quantity{}, fmt.Errorf("%s as a quantity in %s: %w", q.String(), ref.Unit, err)
+		return Quantity{}, noScaleValueError{fmt.Errorf("%s as a quantity in %s: %w", q.String(), ref.Unit, err)}
 	}
 	return Quantity{Num: num, Unit: ref.Unit}, nil
 }
@@ -387,12 +394,12 @@ func (ctx *Context) toLogarithm(q Quantity, scale *CoordinateFrame) (Quantity, e
 	ratio := x.Num.AsReal() / ref.Num.AsReal()
 	if !(ratio > 0) {
 		// A ratio that is not positive has no one value the mapping returns it from.
-		return Quantity{}, fmt.Errorf("%w: %s has no value on %s: its ratio to %s is %g, and a logarithm is of a positive ratio",
-			semantics.ErrArithmeticDomain, q.String(), ctx.describeScale(scale), ref.String(), ratio)
+		return Quantity{}, noScaleValueError{fmt.Errorf("%w: %s has no value on %s: its ratio to %s is %g, and a logarithm is of a positive ratio",
+			semantics.ErrArithmeticDomain, q.String(), ctx.describeScale(scale), ref.String(), ratio)}
 	}
 	num, err := semantics.RealResult(log.Factor * log.Exponent * logarithm(ratio, log.Base))
 	if err != nil {
-		return Quantity{}, err
+		return Quantity{}, noScaleValueError{err}
 	}
 	return Quantity{Num: num, Unit: scale.Axes[0]}, nil
 }

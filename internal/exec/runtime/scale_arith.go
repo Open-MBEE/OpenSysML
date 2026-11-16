@@ -436,19 +436,12 @@ func (ctx *Context) equalQuantities(op ast.OperatorKind, left, right *Quantity) 
 	c, err := ctx.compareMagnitudes(left, right)
 	if err != nil {
 		// A quantity with no value on a logarithmic scale equals none of its values, either way round.
-		if (errors.Is(err, semantics.ErrArithmeticDomain) || errors.Is(err, semantics.ErrArithmeticOverflow)) &&
-			(ctx.isLogarithmic(left) || ctx.isLogarithmic(right)) {
+		if errors.As(err, &noScaleValueError{}) {
 			return boolValue(op == ast.OpNeq), nil
 		}
 		return Value{}, err
 	}
 	return boolValue((c == 0) != (op == ast.OpNeq)), nil
-}
-
-// isLogarithmic reports a value on a logarithmic scale.
-func (ctx *Context) isLogarithmic(q *Quantity) bool {
-	scale, point, err := ctx.pointOf(q)
-	return err == nil && point && ctx.scaleKindOf(scale.Type) == logarithmicScale
 }
 
 // negateQuantity negates a quantity's magnitude, keeping its unit and the magnitude's
