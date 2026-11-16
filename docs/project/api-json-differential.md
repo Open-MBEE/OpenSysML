@@ -836,8 +836,38 @@ ours-missing):
      the pilot has no `usage` to state; the row follows from the existing metaclass difference.
    - `endFeature` present-different (15, all `FlowUsage`: a `message` with no ends inherits
      `Flows::flows::source`/`target` where the pilot states those of `Flows::messages`) is an implied-base
-     difference this step does not change; the residue of `directedFeature`, `input` and `output` was
-     not classified row by row.
+     difference this step does not change.
+   - The residue of `directedFeature`, `input` and `output`, by class (rows over the five roots, the
+     three properties counted separately):
+     - fixed here, the clause and the pilot agreeing: a subject is an `in` parameter (KerML §8.3.4.6.4
+       `parameterDirection`) that redefines the subject of every general of its owner, an implied base
+       feature included (SysML §7.17.2), so `Requirements::RequirementCheck::subj` and its kin are
+       inputs until a stated subject redefines them; an objective redefines the objective of the case
+       its owner specializes and inherits from it (SysML §8.3.21.9
+       `checkRequirementUsageObjectiveRedefinition`); an accept's payload parameter is `in`, where the
+       export stated `out` (SysML.xtext `PayloadParameterMember`, `validateAcceptActionUsageParameters`).
+       `directedFeature` present-different 1093 → 768, `input` ours-missing 1439 → 1102, `output`
+       pilot-missing 146 → 97.
+     - expression elements (`directedFeature` 4967 ours-missing and 535 present-different, `input`
+       311 / 181, `output` 4880 / 306): no implied base in the element form, a separate change.
+     - withheld (`directedFeature` 908, `input` 791, `output` 585 ours-missing on other elements): each
+       depends on `Type::feature`, withheld where a general or a redefined feature is not resolved in
+       the converted graph. Sampled, not attributed row by row: a file converted alone for an id
+       collision loses its cross-file generals, and a type inheriting a parameter that redefines a
+       library feature fails on the library reference row.
+     - the clause over the pilot: a `ConjugatedPortDefinition` and a port typed by one take the
+       original definition's features with the directions reversed (KerML §8.3.3.1.10 `supertypes` of
+       a conjugated type); the pilot states `[]` (`directedFeature` 71, `input` 52, `output` 40
+       pilot-missing).
+     - not adjudicated: a `TransitionUsage` keeps the inherited `StateTransitionAction::payload` beside
+       its own payload parameter (64 rows per property, 55 `output` pilot-missing). The OCL of
+       `checkFeatureParameterRedefinition` (KerML §8.4.4.7) reads the direct general's owned
+       parameters, which the implied `stateTransitions` feature has none of; its prose and the pilot
+       read the inherited ones.
+     - the same elements under another name: the unnamed parameters of a send, an accept and a
+       transition are referenced by position here and by the name they take from the feature they
+       redefine in the pilot (`SendActionUsage` 20–29, `AcceptActionUsage` 20–45 rows); a flow's ends
+       (`FlowUsage` 56, `FlowEnd`) are the flow-end difference above.
 
 Not completed, and why: a namespace's `importedMembership`, and with it the `membership` and `member` of a
 namespace that imports, which the evaluator derives from the notation's import declarations and not yet

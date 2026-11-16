@@ -4315,17 +4315,24 @@ func (e *Evaluator) structureEffectiveDirection(owner, feature Element) (ast.Fea
 	if featureSymbol != nil && e.model != nil {
 		if ownerSymbol == nil {
 			if declaringOwner := featureSymbol.Owner(); declaringOwner != nil {
-				return e.model.EffectiveDirection(declaringOwner, featureSymbol), true
+				if direction := e.model.EffectiveDirection(declaringOwner, featureSymbol); direction != ast.DirNone {
+					return direction, true
+				}
 			}
 		}
 		if direction := e.model.DeclaredDirection(featureSymbol); direction != ast.DirNone {
 			return direction, true
 		}
-		switch ElementOf(featureSymbol).Membership.kind {
-		case "ReturnParameterMembership":
+		// A parameter takes its membership's parameterDirection(): out for a return, else in (KerML 8.3.4.6.4).
+		kind := e.model.MembershipMetaclassOf(featureSymbol.Owner(), featureSymbol)
+		switch {
+		case kind == "ReturnParameterMembership" || e.options.Structure.Specializes(kind, "ReturnParameterMembership"):
 			return ast.DirOut, true
-		case "ParameterMembership":
+		case kind == "ParameterMembership" || e.options.Structure.Specializes(kind, "ParameterMembership"):
 			return ast.DirIn, true
+		}
+		if ownerSymbol == nil && featureSymbol.Owner() != nil {
+			return ast.DirNone, true
 		}
 	}
 
@@ -4789,6 +4796,11 @@ func (e *Evaluator) structureGeneralTypes(element Element) ([]Element, bool) {
 	if !ok {
 		return nil, false
 	}
+	roles, ok := e.structureRoleGenerals(element)
+	if !ok {
+		return nil, false
+	}
+	bases = append(bases, roles...)
 	impliedBases, ok := e.structureImpliedBaseFQNs(element)
 	if !ok {
 		return nil, false
@@ -4812,6 +4824,33 @@ func (e *Evaluator) structureGeneralTypes(element Element) ([]Element, bool) {
 		}
 	}
 	return uniqueStructureElements(bases, e.options.Structure), true
+}
+
+// structureRoleGenerals is what a subject or objective redefines by its role, a general as
+// any redefined feature is (KerML 8.3.3.3.8 Redefinition).
+func (e *Evaluator) structureRoleGenerals(element Element) ([]Element, bool) {
+	if element.IsMembership || !e.structureKnows(element) {
+		return nil, true
+	}
+	// A library reference row has no owner in the structure, so no role there.
+	if _, library := e.structureLibraryBase(element); library {
+		return nil, true
+	}
+	role, ok := e.structureCaseRole(element)
+	if !ok {
+		return nil, false
+	}
+	if role == "" {
+		return nil, true
+	}
+	owner, handled, ok := e.structureOwningType(element)
+	if !handled || !ok {
+		return nil, false
+	}
+	if owner.Kind != ElementValue {
+		return nil, true
+	}
+	return e.structureRoleRedefinitions(owner.Element, element, role)
 }
 
 // structureImpliedBaseFQNs names the library types the element implicitly specializes

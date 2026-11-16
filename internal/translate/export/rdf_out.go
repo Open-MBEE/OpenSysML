@@ -1429,6 +1429,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		h.membershipExtra = func(membership rdf.Term) {
 			e.graph.Add(membership, e.sysml(pOwnedMemberParameter), subject)
 			e.graph.Add(accepter, e.sysml(pParameter), subject)
+			e.graph.Add(accepter, e.sysml(pInput), subject)
 			e.graph.Add(accepter, e.sysml(pPayloadParameter), subject)
 		}
 	}
@@ -1685,8 +1686,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if err := e.prefixes(subject, fqn, n.Prefixes, naming.BodyMembers(n)); err != nil {
 			return err
 		}
-		if trigger {
-			// A trigger action's parameters are its inputs (SysML.xtext PayloadParameterMember, NodeParameterMember).
+		if trigger || n.IsAccept {
+			// An accept's parameters are its inputs (SysML.xtext PayloadParameterMember, NodeParameterMember).
 			e.graph.Add(subject, e.sysml(pDirection), rdf.String("in"))
 		} else if keyword := directionKeyword(n.Direction); keyword != "" {
 			e.graph.Add(subject, e.sysml(pDirection), rdf.String(keyword))

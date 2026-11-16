@@ -12,11 +12,11 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 2136,
-      "presentDifferent": 195,
+      "presentEqual": 2137,
+      "presentDifferent": 194,
       "oursMissing": 147,
-      "pilotMissing": 71,
-      "absentBoth": 2565,
+      "pilotMissing": 70,
+      "absentBoth": 2566,
       "indeterminate": 95,
       "pilotNondeterministic": 1
     },
@@ -106,7 +106,7 @@
     "AcceptActionUsage.nestedView": [0,0,0,0,1,0,0],
     "AcceptActionUsage.nestedViewpoint": [0,0,0,0,1,0,0],
     "AcceptActionUsage.occurrenceDefinition": [0,0,1,0,0,0,0],
-    "AcceptActionUsage.output": [0,0,0,1,0,0,0],
+    "AcceptActionUsage.output": [0,0,0,0,1,0,0],
     "AcceptActionUsage.ownedAnnotation": [0,0,0,0,1,0,0],
     "AcceptActionUsage.ownedDifferencing": [0,0,0,0,1,0,0],
     "AcceptActionUsage.ownedDisjoining": [0,0,0,0,1,0,0],
@@ -1110,7 +1110,7 @@
     "ReferenceUsage.differencingType": [0,0,0,0,4,0,0],
     "ReferenceUsage.directedFeature": [0,0,0,0,4,0,0],
     "ReferenceUsage.directedUsage": [0,0,0,0,4,0,0],
-    "ReferenceUsage.direction": [3,1,0,0,0,0,0],
+    "ReferenceUsage.direction": [4,0,0,0,0,0,0],
     "ReferenceUsage.documentation": [0,0,0,0,4,0,0],
     "ReferenceUsage.endFeature": [0,0,0,0,4,0,0],
     "ReferenceUsage.feature": [1,2,0,0,0,1,0],

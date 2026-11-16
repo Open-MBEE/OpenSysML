@@ -11,12 +11,12 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 2552,
-      "presentDifferent": 264,
+      "presentEqual": 2553,
+      "presentDifferent": 262,
       "oursMissing": 252,
       "pilotMissing": 112,
       "absentBoth": 3272,
-      "indeterminate": 125,
+      "indeterminate": 126,
       "pilotNondeterministic": 0
     },
     "unkeyedReferences": 308,
@@ -1284,10 +1284,10 @@
     "UseCaseDefinition.endFeature": [0,0,0,0,1,0,0],
     "UseCaseDefinition.expression": [0,0,0,0,1,0,0],
     "UseCaseDefinition.feature": [0,1,0,0,0,0,0],
-    "UseCaseDefinition.featureMembership": [0,1,0,0,0,0,0],
+    "UseCaseDefinition.featureMembership": [1,0,0,0,0,0,0],
     "UseCaseDefinition.importedMembership": [0,0,0,0,1,0,0],
     "UseCaseDefinition.includedUseCase": [0,0,0,0,1,0,0],
-    "UseCaseDefinition.inheritedFeature": [0,1,0,0,0,0,0],
+    "UseCaseDefinition.inheritedFeature": [0,0,0,0,0,1,0],
     "UseCaseDefinition.inheritedMembership": [0,1,0,0,0,0,0],
     "UseCaseDefinition.input": [1,0,0,0,0,0,0],
     "UseCaseDefinition.intersectingType": [0,0,0,0,1,0,0],

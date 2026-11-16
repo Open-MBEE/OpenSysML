@@ -174,8 +174,16 @@ func (e *Evaluator) structureParameterTable(owner Element, visiting map[ElementK
 // its positional parameters in order, and its result parameter.
 func (e *Evaluator) structureSymbolParameters(symbol *symbols.Symbol) ([]structureParameter, *structureParameter) {
 	var positional []structureParameter
+	// The subject is the first parameter, an in one (SysML 7.17.2, KerML 8.3.4.6.4 parameterDirection).
+	subject := e.model.SubjectParameterOf(symbol)
+	if subject != nil {
+		positional = append(positional, structureParameter{ElementOf(subject), ast.DirIn})
+	}
 	for i := 0; ; i++ {
 		sym, direction := e.model.PositionalParameter(symbol, i, false)
+		if sym != nil && sym == subject {
+			continue
+		}
 		if sym == nil {
 			break
 		}
@@ -309,6 +317,13 @@ func (e *Evaluator) structureImplicitParameterRedefinitions(feature Element, mat
 	if !behaviorLike {
 		return nil, true
 	}
+	role, ok := e.structureCaseRole(feature)
+	if !ok {
+		return nil, false
+	}
+	if role != "" {
+		return e.structureRoleRedefinitions(owner, feature, role)
+	}
 	direction, ok := e.structureEffectiveDirection(owner, feature)
 	if !ok {
 		return nil, false
@@ -402,6 +417,101 @@ func (e *Evaluator) structureMaskedParameterRedefinitions(feature Element) ([]El
 		return nil, true
 	}
 	return e.structureImplicitParameterRedefinitions(feature, false)
+}
+
+// structureCaseRole is the role membership owning feature, SubjectMembership or
+// ObjectiveMembership, or "" for any other feature.
+func (e *Evaluator) structureCaseRole(feature Element) (string, bool) {
+	membership, handled, ok := e.structureOwningFeatureMembership(feature)
+	if !handled || !ok {
+		return "", false
+	}
+	if membership.Kind != MembershipValue {
+		return "", true
+	}
+	for _, role := range []string{"SubjectMembership", "ObjectiveMembership"} {
+		is, known := e.isMetaclass(MembershipElement(membership.Membership), role)
+		if !known {
+			return "", false
+		}
+		if is {
+			return role, true
+		}
+	}
+	return "", true
+}
+
+// structureRoleRedefinitions is the same-role feature of each type owner specializes, an implied
+// base feature included: a subject or objective redefines the general's (SysML 7.17.2, 8.3.21.9).
+func (e *Evaluator) structureRoleRedefinitions(owner, feature Element, role string) ([]Element, bool) {
+	first, ok := e.structureRoleFeature(owner, role, make(map[ElementKey]bool))
+	if !ok {
+		return nil, false
+	}
+	if first == nil || first.Key() != feature.Key() {
+		return nil, true
+	}
+	supertypes, ok := e.structureOwnedSupertypes(owner)
+	if !ok {
+		return nil, false
+	}
+	var out []Element
+	for _, general := range supertypes {
+		target, ok := e.structureRoleFeature(general, role, map[ElementKey]bool{owner.Key(): true})
+		if !ok {
+			return nil, false
+		}
+		if target != nil && target.Key() != feature.Key() {
+			out = append(out, *target)
+		}
+	}
+	return uniqueStructureElements(out, e.options.Structure), true
+}
+
+// structureRoleFeature is typ's subject or objective: its own first, else a general's.
+func (e *Evaluator) structureRoleFeature(typ Element, role string, visiting map[ElementKey]bool) (*Element, bool) {
+	if symbol := e.structureElementSymbol(typ); symbol != nil && !e.structureKnows(typ) {
+		owned, inherited := e.model.SubjectsOf(symbol)
+		if role == "ObjectiveMembership" {
+			owned, inherited = e.model.ObjectivesOf(symbol)
+		}
+		if features := append(owned, inherited...); len(features) > 0 {
+			element := ElementOf(features[0])
+			return &element, true
+		}
+		return nil, true
+	}
+	if visiting[typ.Key()] {
+		return nil, true
+	}
+	visiting[typ.Key()] = true
+	owned, handled, ok := e.structureOwnedFeatures(typ)
+	if !handled || !ok {
+		return nil, false
+	}
+	for _, value := range owned.Values {
+		if value.Kind != ElementValue {
+			return nil, false
+		}
+		is, ok := e.structureCaseRole(value.Element)
+		if !ok {
+			return nil, false
+		}
+		if is == role {
+			return &value.Element, true
+		}
+	}
+	supertypes, ok := e.structureOwnedSupertypes(typ)
+	if !ok {
+		return nil, false
+	}
+	for _, general := range supertypes {
+		target, ok := e.structureRoleFeature(general, role, visiting)
+		if !ok || target != nil {
+			return target, ok
+		}
+	}
+	return nil, true
 }
 
 // structureIsResultParameter reports whether feature is owned through a ReturnParameterMembership.
