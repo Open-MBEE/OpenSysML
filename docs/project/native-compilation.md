@@ -97,7 +97,7 @@ statements is refused rather than compiled without the effect: a `send` (`a send
 message outside the calc`), a `terminate` (`a statement acting outside the
 calc`), an assignment to a feature the body does not declare, and a body or a loop or branch
 block that is a token flow of its own — an `accept` (`an accept, which waits for a message`), a
-performed action or control node, a flow between pins, or successions ordering the steps other
+performed action or control node, a nested action stating a multiplicity (`action a [2] {…}`), a flow between pins, or successions ordering the steps other
 than as they are declared. Nested actions that only run statements in declaration order
 compile. The refusal names the calc and the construct
 (`codegen.UnsupportedError`, `errors.Is(err, codegen.ErrUnsupported)`).

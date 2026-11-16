@@ -23,6 +23,8 @@ const flowModel = `package test {
     calc def PerformsRead { in n : Integer; perform action b : Bump { in a = n; } return : Integer = b.o; }
     calc def BranchTerminates { in n : Integer; attribute x : Integer := n; if n > 0 { terminate; } return : Integer = x; }
     part def Host { attribute total : Integer := 0; calc def Own { in n : Integer; assign total := n; return : Integer = n; } }
+    calc def NoneOf { in n : Integer; attribute x : Integer := n; action a [0] { assign x := 7; } return : Integer = x; }
+    calc def TwoOf { in n : Integer; attribute x : Integer := n; action a [2] { assign x := 7; } return : Integer = x; }
     calc def Sends { in n : Integer; send new Ping(n) to sink; return : Integer = n; }
     calc def Accepts { in n : Integer; accept p : Ping; return : Integer = n; }
     calc def LoopAccepts { in n : Integer; attribute x : Integer := n; while x < 3 { accept p : Ping; assign x := x + 1; } return : Integer = x; }
@@ -63,6 +65,8 @@ func TestCompileRefusesBodyEffects(t *testing.T) {
 				{"Terminates", "a statement acting outside the calc"},
 				{"NestedTerminates", "a statement acting outside the calc"},
 				{"Performs", "a flow between the pins of action nodes"},
+				{"NoneOf", "an action node stating how many times it is performed"},
+				{"TwoOf", "an action node stating how many times it is performed"},
 				{"Reordered", "a token flow ordering its steps other than as they are declared"},
 				{"PerformsRead", "a flow between the pins of action nodes"},
 				{"BranchTerminates", "a statement acting outside the calc"},

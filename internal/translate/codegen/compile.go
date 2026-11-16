@@ -793,6 +793,9 @@ func (fc *funcCompiler) compileSteps(block lower.Block) ([]Stmt, error) {
 		if len(graph.Bodies[node]) == 0 {
 			return nil, fc.unsupported("a node of a token flow that is no statement: a performed action or a control node")
 		}
+		if graph.Multiplicities[node] != nil {
+			return nil, fc.unsupported("an action node stating how many times it is performed")
+		}
 		for _, edge := range graph.Edges[node] {
 			next := i+1 < len(graph.Nodes) && edge.Target == graph.Nodes[i+1]
 			if !next || edge.Guard != nil || edge.Probability != nil || edge.Else || edge.Carries {
