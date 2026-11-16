@@ -69,3 +69,43 @@ func TestMemberSummaryReadsRecordedDirections(t *testing.T) {
 		t.Fatal("summarizing hydrated base.sysml: the recorded case was not exercised")
 	}
 }
+
+// A member declaring no multiplicity shows the one it takes from the features it redefines or
+// subsets, parsed or recorded; one left to its default shows none.
+func TestMemberSummaryReadsInheritedMultiplicities(t *testing.T) {
+	base := Input{Name: "base.sysml", Version: 1, Content: []byte(
+		"package Hull { part def Tank { part wheels[4]; attribute mass; part spare[0..2]; part crew[1..*]; part pool[2..*]; } }")}
+	user := func(extra string) []byte {
+		return []byte("package Craft { part def Tiger :> Hull::Tank {\n" +
+			"part :>> wheels; attribute :>> mass; part extra :> spare; part :>> crew[3]; part own;\n" +
+			"part both :> wheels, pool; part neither :> wheels, spare; }\n" +
+			"part def Cub :> Tiger { part :>> wheels; } }" + extra)
+	}
+	cache, err := libs.NewCacheIn(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cold := NewWorkspace(WithRecordCache(cache))
+	cold.OpenAll([]Input{base, {Name: "user.sysml", Version: 1, Content: user("")}})
+	cold.DiagnosticsAll([]string{"base.sysml", "user.sysml"})
+	warm := NewWorkspace(WithRecordCache(cache))
+	warm.OpenAll([]Input{base, {Name: "user.sysml", Version: 1, Content: user("")}})
+	warm.Update("user.sysml", user(" package Edited {}"), 2)
+	if !warm.Recorded("base.sysml") || warm.Recorded("user.sysml") {
+		t.Fatal("want base.sysml held as a record beside a parsed user.sysml")
+	}
+	for fqn, want := range map[string][]string{
+		"Craft::Tiger": {"wheels[4]", "mass", "extra[0..2]", "crew[3]", "own", "both[4]", "neither"},
+		"Craft::Cub":   {"wheels[4]"},
+	} {
+		for _, ws := range []*Workspace{cold, warm} {
+			var got []string
+			for _, member := range ws.MemberSummaryOf(ws.LookupQualified(fqn)[0], false) {
+				got = append(got, member.Name+member.Multiplicity)
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("recorded %v: %s lists %q, want %q", ws == warm, fqn, got, want)
+			}
+		}
+	}
+}

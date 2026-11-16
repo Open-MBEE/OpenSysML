@@ -139,7 +139,9 @@ server with `-keep-line-breaks` instead. Both correspond to the CLI's
 
 A hover on a definition or usage, or on a reference to one, lists its named members after
 the signature and documentation: each member's visibility when not public, direction, kind,
-name, type and declared multiplicity, as its declaration would open.
+name, type and multiplicity, as its declaration would open. The multiplicity is the one the
+member declares, or the one it takes from the features it redefines or subsets
+(KerML 7.3.4.5); a member left to its default multiplicity shows none.
 
 ```text
 part def Record

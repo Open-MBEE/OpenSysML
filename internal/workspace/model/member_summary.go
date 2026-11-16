@@ -20,7 +20,8 @@ type Member struct {
 	// Types are the types a feature is written with, directly or through the
 	// features it specializes.
 	Types []*symbols.Symbol
-	// Multiplicity is the multiplicity a feature declares, as `[0..*]`; "" for none.
+	// Multiplicity is the multiplicity a feature declares or takes from the features it
+	// redefines or subsets, as `[0..*]`; "" for a default.
 	Multiplicity string
 	// Origin is the type the member is inherited from; nil for an owned one.
 	Origin *symbols.Symbol
@@ -57,7 +58,7 @@ func (w *Workspace) MemberSummaryOf(sym *symbols.Symbol, inherited bool) []Membe
 				Name:         sem.EffectiveNameOf(member),
 				Direction:    sem.EffectiveDirection(sym, member),
 				Types:        sem.DeclaredFeatureTypes(member),
-				Multiplicity: declaredMultiplicityText(member),
+				Multiplicity: multiplicityText(sem, member),
 				Origin:       origin,
 			})
 		}
@@ -69,6 +70,20 @@ func (w *Workspace) MemberSummaryOf(sym *symbols.Symbol, inherited bool) []Membe
 // a subject or a required constraint with the usages, an import or a comment not.
 func summarized(sym *symbols.Symbol) bool {
 	return !sym.Implied() && (sym.DeclaresDefinition() || sym.Kind.IsDefinition() || sym.IsFeature())
+}
+
+// multiplicityText spells the multiplicity a feature declares, else the one it takes from the
+// features it redefines or subsets where those evaluate to a range; a default is left unsaid.
+func multiplicityText(sem *semantics.Model, sym *symbols.Symbol) string {
+	if declared := declaredMultiplicityText(sym); declared != "" {
+		return declared
+	}
+	if r, ok := sem.InheritedMultiplicityOf(sym); ok {
+		if valid, known := r.LowerLeUpper(); valid && known {
+			return r.Text()
+		}
+	}
+	return ""
 }
 
 // declaredMultiplicityText spells the multiplicity a feature declares: its

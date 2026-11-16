@@ -268,7 +268,7 @@ func TestHoverMemberSummaryKinds(t *testing.T) {
 		return hoverMarkup(t, hoverInSrc(t, s, name, hoverMemberKindsSrc, off)).Value
 	}
 	for at, want := range map[string]string{
-		"Node {": "part children : Node[0..*]\npart selected : Node\npart both : A, B\n```",
+		"Node {": "part children : Node[0..*]\npart selected : Node[0..*]\npart both : A, B\n```",
 		"R {":    "subject s : Node\nassume constraint ac\nrequire constraint rc\nactor who : A\n```",
 		"S {":    "entry action e\nstate s1\nstate s2\ntransition t\n```",
 	} {
