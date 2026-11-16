@@ -187,6 +187,7 @@ type JQuantity struct {
 	BigIntMagnitude *string    `json:"bigIntMagnitude,omitempty"`
 
 	RationalMagnitude *JRational `json:"rationalMagnitude,omitempty"`
+	ValueType         string     `json:"valueType,omitempty"`
 }
 
 // UnmarshalJSON rejects a quantity setting both magnitude arms of its oneof.

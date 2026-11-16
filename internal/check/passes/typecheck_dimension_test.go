@@ -187,7 +187,7 @@ func TestRecursiveRollupThroughACollectBody(t *testing.T) {
 // measurement-reference supertype, and to no quantity value type; the checker
 // judges each as the runtime's write conformance does. A quantity bound to a
 // unit-typed feature (`hp : PowerUnit = 745.7 [W]` in the OMG examples) is not
-// judged, as the pilot implementation accepts it.
+// judged: the pilot validator reports nothing on it.
 func TestBoundMeasurementUnit(t *testing.T) {
 	wantNoDimensionDiags(t, `attribute u : LengthUnit = m;`)
 	wantNoDimensionDiags(t, `attribute u : LengthUnit = km;`)
