@@ -83,7 +83,7 @@ func subsettingMetaclasses(t *testing.T, model *semantics.Model, root *symbols.S
 			}
 			if owner != "" {
 				for _, rel := range model.ImplicitRelationships(sym) {
-					if rel.Implicit != nil && rel.Implicit.Kind == ast.RelSubsets {
+					if rel.Implicit != nil && (rel.Implicit.Kind == ast.RelSubsets || rel.Implicit.Kind.ReferenceSubsets()) {
 						out[owner] = model.MetaclassOf(rel).Name
 					}
 				}

@@ -9,8 +9,6 @@ import (
 // the arena, compared bytewise (which orders code points), counted and cut by
 // code point, and quoted as the interpreter prints a String.
 const cStrRuntime = `
-typedef struct { sysml_int len; const char *p; } sysml_str;
-
 static inline sysml_str sysml_str_empty(void) { return (sysml_str){0, ""}; }
 
 static sysml_str sysml_str_cat(sysml_str a, sysml_str b) {
@@ -151,6 +149,16 @@ static void sysml_restore_text(sysml_str *s, char *t) {
 	memcpy(p, t, (size_t)s->len);
 	free(t);
 	s->p = p;
+}
+
+/* s with its bytes held until the run ends, for a record or a closure keeping it. */
+static sysml_str sysml_keep_str(sysml_str s) {
+	if (s.len && sysml_in_arena(s.p)) s.p = sysml_keep(s.p, (size_t)s.len);
+	return s;
+}
+
+static void sysml_keep_texts(sysml_str *d, sysml_int n) {
+	for (sysml_int i = 0; i < n; i++) d[i] = sysml_keep_str(d[i]);
 }
 
 /* The bytes of saved String elements, copied out with the elements and back in after. */

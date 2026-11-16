@@ -542,13 +542,12 @@ func (e *encoder) writtenDependencyAnnotation(node, parent ast.Node, subject rdf
 // head's clauses (materializeRelationships), by the clause or by the target of an implicit one.
 func (e *encoder) writtenClauseRelationships(node, parent ast.Node, subject rdf.Term, parents map[ast.Node]ast.Node, out map[ast.Node]string) {
 	_, classifier := node.(*ast.Definition)
-	referenceForm := e.referenceFormOf(node)
 	clauses := e.writtenHeadClauses(node, parent, parents)
 	chains := chainTargets(clauses)
 	for _, kind := range materializedKinds {
 		objects, at := e.clauseObjects(subject, clauses, kind, chains)
 		for rel, i := range at {
-			suffix := relationshipSuffix(kind, classifier, referenceForm, len(objects), i)
+			suffix := relationshipSuffix(kind, classifier, len(objects), i)
 			key := ast.Node(rel)
 			if rel.Span().Len == 0 {
 				key = rel.Target
@@ -556,18 +555,6 @@ func (e *encoder) writtenClauseRelationships(node, parent ast.Node, subject rdf.
 			out[key] = rdf.LocalName(e.ids.minted(rdf.RelationshipIRI(subject, suffix), subject, suffix).Value)
 		}
 	}
-}
-
-// referenceFormOf reports whether a head's `subsets` are written as ReferenceSubsettings
-// (referenceSubsettingForm): a satisfy, an end-form binding or a verified requirement.
-func (e *encoder) referenceFormOf(node ast.Node) bool {
-	usage, ok := node.(*ast.Usage)
-	if !ok {
-		return false
-	}
-	form, _ := e.endFormOf(usage)
-	return usage.Kind == ast.UsageSatisfy || form != "" ||
-		(usage.IsVerifiedRequirement() && !usage.DeclaresRequirement)
 }
 
 // writtenHeadClauses are headClauses plus the objects a usage states without a clause (encode):

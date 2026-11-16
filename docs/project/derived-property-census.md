@@ -93,7 +93,9 @@ A merged file is the measurement only once `-check -recorded-pilot` reproduces i
 not, `-update -recorded-pilot` re-records it without the pilot. Such a re-record keeps the
 baseline's `recorded` date, which is the date of the pilot's export, so two branches that each
 re-record our side do not meet on it; a date or digest two branches did rewrite differently is a
-conflict, not a merge.
+conflict, not a merge. It re-records our columns only: where the pilot's column no longer matches
+`pilotRecords`, because a merge summed a pilot cell or took one side's digest, it refuses, and the
+column is re-recorded by `-update` with the exporter.
 
 `TestDerivedCensusBaselineKeysServedRules` (`internal/semantic/metamodel`) holds the committed
 baseline to `rules.go` without corpora or Java: every rule it counts is served and its served total
