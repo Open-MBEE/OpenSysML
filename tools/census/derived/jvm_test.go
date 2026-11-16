@@ -102,15 +102,15 @@ func TestCheckFailsOnARecordFromAnotherJVM(t *testing.T) {
 
 func TestUpdateRefusesToReuseAColumnFromAnotherJVM(t *testing.T) {
 	for _, recorded := range []string{"25", ""} {
-		err := reusable(&Report{Provenance: baseline.Record{PilotJava: recorded}}, "21")
+		err := reusable(&Report{Provenance: baseline.Record{PilotJava: recorded}}, baseline.Record{PilotJava: "21"})
 		if err == nil || !strings.Contains(err.Error(), "declares Java 21") {
 			t.Errorf("a column recorded under %q was re-recorded as Java 21's: %v", recorded, err)
 		}
 	}
-	if err := reusable(&Report{Provenance: baseline.Record{PilotJava: "21"}}, "21"); err != nil {
+	if err := reusable(&Report{Provenance: baseline.Record{PilotJava: "21"}}, baseline.Record{PilotJava: "21"}); err != nil {
 		t.Errorf("the declared JVM's column is refused: %v", err)
 	}
-	if err := reusable(nil, "21"); err != nil {
+	if err := reusable(nil, baseline.Record{PilotJava: "21"}); err != nil {
 		t.Errorf("an absent baseline, which lends no column, is refused: %v", err)
 	}
 }

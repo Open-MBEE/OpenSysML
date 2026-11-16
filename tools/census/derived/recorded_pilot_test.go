@@ -3,6 +3,7 @@ package derived
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -78,6 +79,60 @@ func TestRecordedPilotCheckFailsOnAMovementInAnyColumn(t *testing.T) {
 				t.Errorf("the failure does not name the pilot records' digest:\n%v", err)
 			}
 		})
+	}
+}
+
+// A root's pilot totals are reused with the column, so the digest pins them too.
+func TestRecordedPilotCheckFailsOnAMovedPilotTotal(t *testing.T) {
+	for _, total := range []string{"pilotElements", "pilotImplied", "pilotDuplicates", "pilotFailed"} {
+		t.Run(total, func(t *testing.T) {
+			opts := recordStub(t)
+			path := committedPath(opts)
+			content, err := os.ReadFile(path) // #nosec G304 -- the stub checkout's baseline
+			if err != nil {
+				t.Fatal(err)
+			}
+			moved := regexp.MustCompile(`"`+total+`": \d+`).ReplaceAllString(string(content), `"`+total+`": 987654`)
+			if moved == string(content) {
+				t.Fatalf("the baseline records no %s", total)
+			}
+			if err := writeFile(path, moved); err != nil {
+				t.Fatal(err)
+			}
+			opts.check, opts.recordedPilot = true, true
+			if err := run(opts); err == nil || !strings.Contains(err.Error(), "pilotRecords") {
+				t.Errorf("a moved %s reproduces: %v", total, err)
+			}
+		})
+	}
+}
+
+// A column exported at another pin is not this checkout's pilot: re-recording around it is refused,
+// and one that is reused keeps the date of its export.
+func TestRecordedPilotUpdateRefusesAColumnFromOtherInputs(t *testing.T) {
+	opts := recordStub(t)
+	path := committedPath(opts)
+	content, err := os.ReadFile(path) // #nosec G304 -- the stub checkout's baseline
+	if err != nil {
+		t.Fatal(err)
+	}
+	dated := regexp.MustCompile(`"recorded": "[^"]*"`).ReplaceAllString(string(content), `"recorded": "2001-02-03"`)
+	if err := writeFile(path, dated); err != nil {
+		t.Fatal(err)
+	}
+	opts.update, opts.recordedPilot = true, true
+	if err := run(opts); err != nil {
+		t.Fatalf("a column from this checkout's inputs is refused: %v", err)
+	}
+	if kept, err := os.ReadFile(path); err != nil || !strings.Contains(string(kept), `"recorded": "2001-02-03"`) { // #nosec G304 -- the stub checkout's baseline
+		t.Errorf("the reused column lost the date of its export (%v)", err)
+	}
+	stale := regexp.MustCompile(`"pilotArtifact": "[^"]*"`).ReplaceAllString(dated, `"pilotArtifact": "0.0.0"`)
+	if err := writeFile(path, stale); err != nil {
+		t.Fatal(err)
+	}
+	if err := run(opts); err == nil || !strings.Contains(err.Error(), "pilotArtifact") {
+		t.Errorf("a column exported at another pin was re-recorded as this one's: %v", err)
 	}
 }
 

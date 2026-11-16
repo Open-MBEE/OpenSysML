@@ -80,8 +80,8 @@ go run -C tools ./cmd/derived-census -update -recorded-pilot   # re-records our 
 ```
 
 Every cell stays pinned. Our four columns are compared record by record; the pilot's five are held
-by the baseline's `pilotRecords` digest, so one moved by anything but a re-export (an edit, a bad
-merge) no longer reproduces; the provenance still names a moved pin, bridge, root or library, which
+with each root's pilot totals by the baseline's `pilotRecords` digest, so one moved by anything but
+a re-export (an edit, a bad merge) no longer reproduces; the provenance still names a moved pin, bridge, root or library, which
 `-recorded-pilot` cannot answer and refuses, as it refuses a rule the recorded column does not
 hold. The nightly oracle-reproduction workflow runs `-check -require-exporter`, which re-exports
 the pilot's column and holds the committed records to it.
@@ -90,7 +90,10 @@ The records and the baseline merge cell by cell rather than line by line (`.gita
 `tools/oracle/cellmerge`; run `./scripts/install-baseline-merge-driver.sh` once per clone): a count
 one branch moved takes that branch's value and one both moved takes the sum of the two movements.
 A merged file is the measurement only once `-check -recorded-pilot` reproduces it; when it does
-not, `-update -recorded-pilot` re-records it without the pilot.
+not, `-update -recorded-pilot` re-records it without the pilot. Such a re-record keeps the
+baseline's `recorded` date, which is the date of the pilot's export, so two branches that each
+re-record our side do not meet on it; a date or digest two branches did rewrite differently is a
+conflict, not a merge.
 
 `TestDerivedCensusBaselineKeysServedRules` (`internal/semantic/metamodel`) holds the committed
 baseline to `rules.go` without corpora or Java: every rule it counts is served and its served total

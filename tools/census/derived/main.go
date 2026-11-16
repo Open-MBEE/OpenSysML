@@ -123,8 +123,11 @@ func run(opts options) error {
 			return err
 		}
 		if opts.update {
-			if err := reusable(recorded, record.PilotJava); err != nil {
+			if err := reusable(recorded, record); err != nil {
 				return err
+			}
+			if recorded != nil {
+				record.Recorded = recorded.Provenance.Recorded
 			}
 		}
 		if opts.recordedPilot {
@@ -251,13 +254,22 @@ func underDeclaredJVM(opts options, declared string) error {
 	return nil
 }
 
-// reusable refuses to re-record a pilot column that was recorded under an undeclared JVM.
-func reusable(recorded *Report, declared string) error {
-	if recorded == nil || recorded.Provenance.PilotJava == declared {
+// reusable refuses to re-record around a pilot column the run cannot vouch for: one recorded under
+// an undeclared JVM, or over a pin, bridge or input other than the checkout's. A reused column
+// keeps the date of its export.
+func reusable(recorded *Report, current baseline.Record) error {
+	if recorded == nil {
 		return nil
 	}
-	return fmt.Errorf("%s holds a pilot column recorded under Java %q and %s declares Java %s: provision the exporter and re-record under that Java",
-		CommittedBaseline, recorded.Provenance.PilotJava, baseline.PinPath, declared)
+	if recorded.Provenance.PilotJava != current.PilotJava {
+		return fmt.Errorf("%s holds a pilot column recorded under Java %q and %s declares Java %s: provision the exporter and re-record under that Java",
+			CommittedBaseline, recorded.Provenance.PilotJava, baseline.PinPath, current.PilotJava)
+	}
+	if mismatches := baseline.Compare(recorded.Provenance, current); len(mismatches) > 0 {
+		return fmt.Errorf("the recorded pilot column was not exported from this checkout's inputs, so it cannot be reused:\n%s",
+			baseline.Explain(CommittedBaseline, refreshCommand, mismatches))
+	}
+	return nil
 }
 
 // exporterPresent reports whether the pilot's exporter is provisioned; its

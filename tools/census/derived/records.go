@@ -125,9 +125,13 @@ func header(r *Report) headerView {
 	return h
 }
 
-// pilotRecordsDigest digests each record's rule, root and pilot counts, in the records' order.
+// pilotRecordsDigest digests each root's pilot totals and each record's rule, root and pilot
+// counts, in the report's order.
 func pilotRecordsDigest(r *Report) string {
 	hash := sha256.New()
+	for _, root := range r.Roots {
+		fmt.Fprintf(hash, "%s\t%d\t%d\t%d\t%d\n", root.Name, root.PilotElements, root.PilotImplied, root.PilotDuplicates, root.PilotFailed)
+	}
 	for _, line := range strings.Split(string(encodeRecords(r)), "\n") {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
