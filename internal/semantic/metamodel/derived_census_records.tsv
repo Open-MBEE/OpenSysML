@@ -902,7 +902,7 @@ FeatureChainExpression::operator	pilot-examples	314	314	0	0	269	269	0	0	0
 FeatureChainExpression::operator	pilot-validation	105	105	0	0	97	97	0	0	0
 FeatureChainExpression::operator	kerml-examples	12	12	0	0	14	14	0	0	0
 FeatureChainExpression::operator	spec-examples	26	26	0	0	35	35	0	0	0
-FeatureChainExpression::operator	testdata	1	1	0	0	3	3	0	0	0
+FeatureChainExpression::operator	testdata	2	2	0	0	3	3	0	0	0
 FeatureChainExpression::operator	examples	334	334	0	0	255	255	0	0	0
 FeatureChainExpression::operator	manual-examples	42	42	0	0	37	37	0	0	0
 FeatureChainExpression::targetFeature	training	88	87	1	0	94	94	0	0	0
@@ -910,7 +910,7 @@ FeatureChainExpression::targetFeature	pilot-examples	314	300	14	0	269	269	0	0	0
 FeatureChainExpression::targetFeature	pilot-validation	105	103	2	0	97	97	0	0	0
 FeatureChainExpression::targetFeature	kerml-examples	12	9	3	0	14	14	0	0	0
 FeatureChainExpression::targetFeature	spec-examples	26	14	12	0	35	35	0	0	0
-FeatureChainExpression::targetFeature	testdata	1	0	1	0	3	3	0	0	0
+FeatureChainExpression::targetFeature	testdata	2	0	2	0	3	3	0	0	0
 FeatureChainExpression::targetFeature	examples	334	331	3	0	255	255	0	0	0
 FeatureChainExpression::targetFeature	manual-examples	42	42	0	0	37	37	0	0	0
 FeatureChaining::featureChained	training	202	202	0	0	181	181	0	0	0
