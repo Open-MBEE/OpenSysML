@@ -232,6 +232,9 @@ func TestCombinedWireParity(t *testing.T) {
 			t.Fatalf("grpc Evaluate %q: %v", expression, err)
 		}
 		equal("Evaluate", params, mustMarshal(t, response), call("Evaluate", params))
+		if expression == "enginedemo::speed" {
+			wantSpeedAnswer(t, mustMarshal(t, response))
+		}
 	}
 
 	for _, test := range []struct {
@@ -331,6 +334,7 @@ func TestCombinedWireParity(t *testing.T) {
 				t.Fatalf("grpc Evaluate using ParseFile hash: %v", err)
 			}
 			equal(method+" after ParseFile", params, mustMarshal(t, response), call(method, params))
+			wantSpeedAnswer(t, mustMarshal(t, response))
 		case "GetSymbol":
 			response, err := svc.GetSymbol(ctx, mustUnmarshal[pb.GetSymbolRequest](t, params))
 			if err != nil {

@@ -142,6 +142,22 @@ class ProtosTest {
         Protos.proto(new Value.QuantityValue(kilograms)));
   }
 
+  @Test
+  void aQuantityKeepsTheValueTypeItIsHeldAsAcrossARoundTrip() {
+    var held = metres(5.0).toBuilder().setValueType("ISQSpaceTime::LengthValue").build();
+    Quantity read = Protos.quantity(held);
+    assertEquals(Optional.of("ISQSpaceTime::LengthValue"), read.valueType());
+    assertEquals(
+        org.openmbee.opensysml.proto.Value.newBuilder().setQuantity(held).build(),
+        Protos.proto(new Value.QuantityValue(read)));
+
+    // One held as no type reads back with none, as one a caller builds has none.
+    Quantity bare = Protos.quantity(metres(5.0));
+    assertEquals(Optional.empty(), bare.valueType());
+    assertEquals(bare, new Quantity(5.0, Optional.of("m"), bare.reduction()));
+    assertEquals("", Protos.proto(new Value.QuantityValue(bare)).getQuantity().getValueType());
+  }
+
   private static org.openmbee.opensysml.proto.Value integer(long value) {
     return org.openmbee.opensysml.proto.Value.newBuilder().setIntValue(value).build();
   }

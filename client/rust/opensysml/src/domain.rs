@@ -266,6 +266,9 @@ pub struct Quantity {
     pub unit: String,
     /// Reduced unit term, when supplied by the service.
     pub unit_term: Option<UnitTerm>,
+    /// Qualified name of the quantity value type the service holds it as, empty for none;
+    /// sent back, it is kept, so a sibling type still refuses the quantity.
+    pub value_type: String,
 }
 
 impl fmt::Display for Magnitude {
@@ -1167,6 +1170,7 @@ pub(crate) fn quantity_from_wire(v: wire::Quantity) -> Result<Quantity, Error> {
         magnitude,
         unit: v.unit,
         unit_term: v.unit_term.map(unit_term_from_wire),
+        value_type: v.value_type,
     })
 }
 
@@ -1956,6 +1960,7 @@ mod tests {
 
     fn metres(magnitude: f64) -> wire::Quantity {
         wire::Quantity {
+            value_type: String::new(),
             magnitude: Some(wire::quantity::Magnitude::RealMagnitude(magnitude)),
             unit: "m".to_owned(),
             unit_term: Some(wire::UnitTerm {
@@ -2048,6 +2053,7 @@ mod tests {
         let inner = Array::new(
             vec![1],
             vec![Value::Quantity(Quantity {
+                value_type: String::new(),
                 magnitude: Magnitude::Real(3.0),
                 unit: "m".to_owned(),
                 unit_term: Some(metre_term()),
@@ -2144,11 +2150,13 @@ mod tests {
             position.components(),
             [
                 Quantity {
+                    value_type: String::new(),
                     magnitude: Magnitude::Real(3.0),
                     unit: "m".to_owned(),
                     unit_term: Some(metre_term()),
                 },
                 Quantity {
+                    value_type: String::new(),
                     magnitude: Magnitude::Real(4.0),
                     unit: "m".to_owned(),
                     unit_term: Some(metre_term()),
@@ -2158,6 +2166,7 @@ mod tests {
 
         // Units may differ per component; a composed unit keeps its reduction.
         let speed = wire::Quantity {
+            value_type: String::new(),
             magnitude: Some(wire::quantity::Magnitude::RealMagnitude(5.0)),
             unit: "m/s".to_owned(),
             unit_term: Some(wire::UnitTerm {
@@ -2402,6 +2411,7 @@ mod tests {
         let rational = |n, d| Value::Rational(Rational::parse(n, d).unwrap());
         let metre = |magnitude| {
             Value::Quantity(Quantity {
+                value_type: String::new(),
                 magnitude,
                 unit: "m".to_owned(),
                 unit_term: None,
@@ -2525,6 +2535,7 @@ mod tests {
         };
         let quantity = |magnitude, unit: &str, unit_term| {
             Value::Quantity(Quantity {
+                value_type: String::new(),
                 magnitude,
                 unit: unit.to_owned(),
                 unit_term,
@@ -2834,11 +2845,13 @@ mod tests {
             Value::VectorQuantity(
                 VectorQuantity::new(vec![
                     Quantity {
+                        value_type: String::new(),
                         magnitude: Magnitude::Real(1.0),
                         unit: "m".to_owned(),
                         unit_term: Some(metre_term()),
                     },
                     Quantity {
+                        value_type: String::new(),
                         magnitude: Magnitude::Real(2.0),
                         unit: "m".to_owned(),
                         unit_term: Some(metre_term()),
@@ -2850,6 +2863,7 @@ mod tests {
 
         // Components with differing units report no shared one.
         let speed = wire::Quantity {
+            value_type: String::new(),
             magnitude: Some(wire::quantity::Magnitude::IntMagnitude(5)),
             unit: "m/s".to_owned(),
             unit_term: None,

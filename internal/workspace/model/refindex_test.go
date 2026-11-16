@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 
@@ -194,4 +195,17 @@ func TestReferenceIndexConcurrentQueriesAndUpdates(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+// A segment naming a feature that declares no name writes the name of the feature
+// it takes its name from (KerML 1.1 §8.3.3.3): renaming that feature rewrites it.
+func TestReferenceIndexNamesThroughUnnamedFeatures(t *testing.T) {
+	const src = "package P {\n\taction run;\n\tpart line {\n\t\tperform run;\n\t}\n\talias viaPerform for line::run;\n}\n"
+	ws := NewWorkspace()
+	ws.Open("unnamed.sysml", []byte(src), 1)
+	run := oneSymbol(t, ws, "P::run")
+	want := fmt.Sprintf("[run@%d run@%d]", strings.Index(src, "perform run")+len("perform "), strings.Index(src, "line::run")+len("line::"))
+	if got := fmt.Sprint(spanTexts(namedRefsOf(t, ws, run, "run"))); got != want {
+		t.Errorf("got %s, want %s", got, want)
+	}
 }
