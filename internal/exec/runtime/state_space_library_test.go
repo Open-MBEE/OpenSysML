@@ -455,6 +455,17 @@ func TestStateSpaceFlowFromAReleasedAction(t *testing.T) {
 	}
 }
 
+// A flow stating its ends in its body carries the feature each end owns, as one stating them after from and to does.
+func TestStateSpaceFlowWithEndsInItsBody(t *testing.T) {
+	sum, err := runCoupled(t, coupledDynamics("flow { end ::> source.ramp { ref :>> output; } end ::> sink.sum { ref :>> input; } }", ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := FormatValue(sum.Results()["stateSpace"]), "⟨3.0⟩"; got != want {
+		t.Errorf("the integrator ended at %s, want %s", got, want)
+	}
+}
+
 // A flow leaving the source's stateSpace orders the two as one leaving its output does.
 func TestStateSpaceFlowOfAStateIsIndependentOfDeclarationOrder(t *testing.T) {
 	src := coupledDynamics("flow source.ramp.stateSpace to sink.sum.input;", "")
