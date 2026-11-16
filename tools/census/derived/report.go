@@ -49,6 +49,8 @@ type Report struct {
 	// Silent lists the served rules that answer nothing on every carrier while
 	// the pilot answers on at least one, over all roots; the gate's class.
 	Silent []string `json:"silent"`
+	// pilotRecords is the digest a committed baseline states for its pilot column.
+	pilotRecords string
 }
 
 // RootReport is one root's census.
