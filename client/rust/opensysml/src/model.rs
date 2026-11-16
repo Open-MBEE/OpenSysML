@@ -9,7 +9,7 @@ use crate::conversion::{
     FORMAT_TURTLE,
 };
 use crate::document::{DocumentForm, DocumentQueryResult, DocumentValue};
-use crate::domain::{Model, Symbol, SymbolOptions, Value};
+use crate::domain::{Lookup, Model, Symbol, SymbolOptions, Value};
 use crate::edit::Editor;
 use crate::element_properties::ElementProperties;
 use crate::error::Error;
@@ -126,6 +126,16 @@ impl Model {
     ) -> Result<ElementProperties, Error> {
         self.connection
             .element_properties(self.hash(), element, properties)
+    }
+    /// Read the metamodel properties of the element `element` names as the stated kind.
+    pub fn element_properties_of(
+        &self,
+        element: &str,
+        lookup: Lookup,
+        properties: &[&str],
+    ) -> Result<ElementProperties, Error> {
+        self.connection
+            .element_properties_of(self.hash(), element, lookup, properties)
     }
     /// Select elements with OSLC Query 3.0 parameter text.
     pub fn query_oslc(&self, oslc: &str) -> Result<Vec<QueryElement>, Error> {
@@ -301,7 +311,7 @@ impl Model {
     fn symbol_by_id(&self, fqn: &str) -> Result<Option<Symbol>, Error> {
         match self
             .connection
-            .get_symbol(self.hash(), fqn, &SymbolOptions::reported_id())
+            .get_symbol(self.hash(), fqn, &SymbolOptions::element_id())
         {
             Ok(symbol) if symbol.id() == fqn => Ok(Some(symbol)),
             Ok(_) | Err(Error::Model(_)) => Ok(None),
