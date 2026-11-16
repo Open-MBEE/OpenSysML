@@ -4,7 +4,7 @@ function conversion = convert(conn, toFormat, varargin)
     sources = struct('filePath', [], 'content', [], 'modelHash', []);
     options = struct('fromFormat', '', 'tolerateSyntaxErrors', false, 'idForm', '', ...
         'includeLibraryStubs', false, 'compact', false, 'omitDerived', false, ...
-        'keepDerived', {{}}, 'includeCheckDiagnostics', false);
+        'keepDerived', {{}}, 'includeCheckDiagnostics', false, 'inheritedMembers', false);
     if mod(numel(varargin), 2) ~= 0
         opensysml.internal.raise('opensysml:argument', 'convert options must be name-value pairs');
     end
@@ -40,6 +40,7 @@ function conversion = convert(conn, toFormat, varargin)
     tolerate = logicalOption(options.tolerateSyntaxErrors, 'tolerateSyntaxErrors');
     idForm = textOption(options.idForm, 'idForm');
     includeLibraryStubs = logicalOption(options.includeLibraryStubs, 'includeLibraryStubs');
+    inheritedMembers = logicalOption(options.inheritedMembers, 'inheritedMembers');
     compact = logicalOption(options.compact, 'compact');
     omitDerived = logicalOption(options.omitDerived, 'omitDerived');
     keepDerived = textListOption(options.keepDerived, 'keepDerived');
@@ -58,6 +59,10 @@ function conversion = convert(conn, toFormat, varargin)
     if includeLibraryStubs
         conn.require('convert_library_stubs');
         capabilities{end+1} = 'convert_library_stubs';
+    end
+    if inheritedMembers
+        conn.require('convert_inherited_members');
+        capabilities{end+1} = 'convert_inherited_members';
     end
     if compact || omitDerived || ~isempty(keepDerived)
         conn.require('convert_compact');
@@ -80,6 +85,7 @@ function conversion = convert(conn, toFormat, varargin)
     if tolerate, request.tolerateSyntaxErrors = true; end
     if ~isempty(idForm), request.idForm = idForm; end
     if includeLibraryStubs, request.includeLibraryStubs = true; end
+    if inheritedMembers, request.inheritedMembers = true; end
     if compact, request.compact = true; end
     if omitDerived, request.omitDerived = true; end
     if ~isempty(keepDerived), request.keepDerived = keepDerived; end

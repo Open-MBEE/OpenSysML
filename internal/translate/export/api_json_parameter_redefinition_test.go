@@ -16,7 +16,7 @@ const parameterRedefinitionModel = `package Probe {
 // in the pilot — whatever the directions: a disagreeing pair is a violation, not inheritance.
 func TestAPIJSONPositionalParameterRedefinitionLeavesTheGeneralParameterOut(t *testing.T) {
 	graph := duplicateGraph(t, parameterRedefinitionModel, IDQualifiedName)
-	document, err := WriteAPIJSON(graph)
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}

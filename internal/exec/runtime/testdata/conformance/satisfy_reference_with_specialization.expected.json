@@ -1,0 +1,16 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::relay",
+  "slots": {
+    "rating": {"type": "Real", "value": 10.0}
+  },
+  "validation": {
+    "verdicts": [
+      {"kind": "satisfaction", "assertion": "satisfy ratingOk by relay", "status": "holds"},
+      {"kind": "satisfaction", "assertion": "satisfy group::nested by relay", "status": "holds"},
+      {"kind": "satisfaction", "assertion": "satisfy ratingOk by relay", "status": "violated"}
+    ],
+    "valid": false
+  }
+}

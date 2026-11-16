@@ -438,7 +438,7 @@ func (m *Model) typingValue(sym *symbols.Symbol) ast.Node {
 		return nil
 	}
 	for _, rel := range u.Relationships {
-		if rel != nil && GeneralizationKind(rel.Kind) {
+		if rel != nil && UsageGeneralization(u.Kind, rel.Kind) {
 			return nil
 		}
 	}
@@ -463,7 +463,7 @@ func (m *Model) valueConformance(sym *symbols.Symbol, value ast.Node, want *symb
 // states names an element.
 func (m *Model) generalizationsResolve(sym *symbols.Symbol) bool {
 	for _, rel := range RelationshipsOf(sym) {
-		if !GeneralizationKind(rel.Kind) || rel.Target == nil {
+		if !Generalizes(sym, rel.Kind) || rel.Target == nil {
 			continue
 		}
 		if m.relationshipTarget(sym, rel) == nil {

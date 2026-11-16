@@ -227,7 +227,7 @@ func (c *comparison) compareRoot(root string, ours, pilot []*element) (ElementTo
 				continue
 			}
 			bucket := bucketOf(property, o.Props[property], p.Props[property])
-			if isPilotNondeterministic(p.Type, property) {
+			if IsPilotNondeterministic(p.Type, property) {
 				bucket = bucketPilotNondeterministic
 			}
 			buckets.add(bucket)
