@@ -125,7 +125,7 @@ type seedRowFunc func(rt *runtime.Context, bindings []sweep.SweepBinding) (int64
 // runAction makes the runs of an action and tables the observables they produced.
 func (s *Service) runAction(ctx context.Context, v *verifyContext, req *pb.RunRunsRequest, plan sweep.SweepPlan, seedRow seedRowFunc) (*pb.RunRunsResponse, error) {
 	// An inherited action is named by the subtype too (Sub::inherited).
-	syms := v.cached.LookupNamedMember(req.ActionSymbolId)
+	syms := v.cached.LookupDeclaredMember(req.ActionSymbolId)
 	if len(syms) == 0 {
 		return &pb.RunRunsResponse{Error: fmt.Sprintf("action not found: %s", req.ActionSymbolId),
 			FailureReason: pb.FailureReason_FAILURE_REASON_UNSPECIFIED}, nil

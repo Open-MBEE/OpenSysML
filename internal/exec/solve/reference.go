@@ -374,7 +374,7 @@ func variableName(t *translator, chain []*symbols.Symbol) string {
 		}
 	}
 	name := t.fqn(chain[first])
-	if chain[first].Name == "" {
+	if !chain[first].Named() {
 		// A satisfy's `by` subject shares the value of the requirement's subject
 		// it redefines, so the variable is the one that subject names.
 		if redefined := t.model.ImplicitRoleRedefinitions(chain[first]); len(redefined) > 0 {

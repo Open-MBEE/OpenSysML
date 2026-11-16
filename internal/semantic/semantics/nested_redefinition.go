@@ -92,6 +92,9 @@ func IsReferenceUsage(sym *symbols.Symbol) bool {
 	if usage.IsReference {
 		return true
 	}
+	if usage.Kind.ReferenceSubsettingSpecializes() {
+		return false
+	}
 	for _, rel := range usage.Relationships {
 		if rel != nil && rel.Kind == ast.RelReferences {
 			return true

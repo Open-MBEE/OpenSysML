@@ -26,7 +26,7 @@ package test {
 					entry { assign log := log * 10 + 3; }
 				}
 
-				transition first lstart then Step1;
+				transition first lstart then Grouping.Step1;
 			}
 
 			state right {

@@ -337,9 +337,19 @@ func (c *Core) getSymbol(req *JGetSymbolRequest) ([]byte, error) {
 	if !ok {
 		return nil, jsonrpc.Errorf(jsonrpc.CodeNotFound, msgModelNotFound, req.ModelHash)
 	}
-	lookup := model.symbolContext().LookupElement
-	if req.ResolveName {
-		lookup = model.symbolContext().Resolve
+	sc := model.symbolContext()
+	lookup := sc.LookupElement
+	switch req.Lookup {
+	case "LOOKUP_KIND_QUALIFIED_NAME":
+		lookup = sc.ResolveName
+	case "LOOKUP_KIND_ELEMENT_ID":
+		lookup = sc.LookupID
+	case "", "LOOKUP_KIND_UNSPECIFIED":
+		if req.ResolveName {
+			lookup = sc.Resolve
+		}
+	default:
+		return nil, jsonrpc.Errorf(jsonrpc.CodeInvalidArgument, "unknown lookup %q", req.Lookup)
 	}
 	matches := lookup(req.SymbolId)
 	if len(matches) == 0 {
@@ -415,6 +425,7 @@ func symbolInfo(info *symbolfacts.Info) *JSymbolInfo {
 		ChildIds:                  info.ChildIds,
 		WithheldLibraryAttributes: info.WithheldLibraryAttributes,
 		WithheldLibraryMembers:    info.WithheldLibraryMembers,
+		AnnotatingMetadataIds:     info.AnnotatingMetadataIds,
 	}
 	for _, member := range info.Members {
 		out.Members = append(out.Members, &JMemberInfo{
@@ -428,13 +439,14 @@ func symbolInfo(info *symbolfacts.Info) *JSymbolInfo {
 	}
 	if t := info.TypeInfo; t != nil {
 		out.TypeInfo = &JTypeInfo{
-			Declared:        t.Declared,
-			ResolvedId:      t.ResolvedId,
-			ResolvedKind:    t.ResolvedKind,
-			Primitive:       t.Primitive,
-			PrimitiveSource: t.PrimitiveSource,
-			Quantity:        t.Quantity,
-			Unit:            t.Unit,
+			Declared:              t.Declared,
+			ResolvedId:            t.ResolvedId,
+			ResolvedQualifiedName: t.ResolvedQualifiedName,
+			ResolvedKind:          t.ResolvedKind,
+			Primitive:             t.Primitive,
+			PrimitiveSource:       t.PrimitiveSource,
+			Quantity:              t.Quantity,
+			Unit:                  t.Unit,
 		}
 		for _, ref := range t.Types {
 			out.TypeInfo.Types = append(out.TypeInfo.Types, &JTypeRef{Id: ref.Id, Kind: ref.Kind})
@@ -445,10 +457,11 @@ func symbolInfo(info *symbolfacts.Info) *JSymbolInfo {
 	}
 	for _, specialization := range info.Specializations {
 		out.Specializations = append(out.Specializations, &JSpecialization{
-			Kind:       specialization.Kind,
-			Declared:   specialization.Declared,
-			TargetId:   specialization.TargetId,
-			TargetKind: specialization.TargetKind,
+			Kind:                specialization.Kind,
+			Declared:            specialization.Declared,
+			TargetId:            specialization.TargetId,
+			TargetQualifiedName: specialization.TargetQualifiedName,
+			TargetKind:          specialization.TargetKind,
 		})
 	}
 	for _, attribute := range info.Attributes {

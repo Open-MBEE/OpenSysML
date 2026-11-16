@@ -142,7 +142,7 @@ export async function connect(
  */
 export type SaveOptions = { toFormat?: string } & Pick<
   ConvertOptions,
-  "tolerateSyntaxErrors" | "idForm" | "includeLibraryStubs"
+  "tolerateSyntaxErrors" | "idForm" | "includeLibraryStubs" | "inheritedMembers"
 >;
 
 /**

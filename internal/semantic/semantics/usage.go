@@ -73,6 +73,9 @@ func (m *Model) synthesizedUsageMayTimeVary(sym *symbols.Symbol) (varies, ok boo
 	case symbols.ExpressionPayload:
 		// A trigger's parameters are owned by the AcceptActionUsage the trigger implies, an action.
 		return m.UsageMayTimeVaryUnderKind(ast.UsageAction), true
+	case symbols.ExpressionTransitionLink:
+		// The pilot exports a transition's transitionLink as neither variable nor time-varying.
+		return false, true
 	}
 	return false, false
 }
@@ -435,6 +438,9 @@ func usageIsComposite(usage *ast.Usage) bool {
 	if usage == nil || usage.IsReference || usage.Direction != ast.DirNone || usage.IsBodyParameter ||
 		usage.IsEnd || usage.IsEvent || usage.Kind == ast.UsageEnumeration || usage.IsVariantReference() {
 		return false
+	}
+	if usage.Kind.ReferenceSubsettingSpecializes() {
+		return true
 	}
 	for _, rel := range usage.Relationships {
 		if rel != nil && rel.Kind == ast.RelReferences {

@@ -785,7 +785,7 @@ func w8cOwnedByImplicitNode(target *symbols.Symbol) bool {
 		return false
 	}
 	owner := target.OwnerScope.Owner()
-	return owner != nil && owner.Name == "" && isUsageKind(owner.Kind)
+	return owner != nil && !owner.Named() && isUsageKind(owner.Kind)
 }
 
 // endFeaturedWithin reports whether a connector end's feature is featured within

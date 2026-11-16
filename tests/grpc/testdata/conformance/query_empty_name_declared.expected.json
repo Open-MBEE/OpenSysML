@@ -1,0 +1,10 @@
+{
+  "rpc": "Query",
+  "model": "symbol_empty_name.sysml",
+  "query": {
+    "scope": ["EmptyName"],
+    "select": ["name", "qualifiedName"],
+    "where": {"primitive": {"property": "declaredName", "operator": "PRIMITIVE_OPERATOR_EQUAL", "value": [""]}}
+  },
+  "expected_element_ids": ["EmptyName::"]
+}

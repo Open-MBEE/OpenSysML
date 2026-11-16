@@ -5,8 +5,11 @@ import {
   CAPABILITY_EVALUATE_SUBJECT,
   CAPABILITY_INLINE_LANGUAGE,
   CAPABILITY_STRICT_CONFORMANCE,
+  CAPABILITY_SYMBOL_ANNOTATING_METADATA,
+  CAPABILITY_SYMBOL_LOOKUP_KIND,
   CAPABILITY_SYMBOL_MEMBERS,
   CAPABILITY_SYMBOL_NAME_RESOLUTION,
+  type ServerInfo,
   requireCapability,
   upgradeRemedy,
 } from "./capabilities.js";
@@ -16,7 +19,7 @@ import { EvaluationError, OpenSysMLError, ParseError, SymbolNotFoundError } from
 import { requireLanguage } from "./sources.js";
 import type { ModelDiagnostic } from "./errors.js";
 import type { Conversion, ConvertOptions } from "./conversion.js";
-import type { ElementProperties } from "./element-properties.js";
+import type { ElementLookup, ElementProperties } from "./element-properties.js";
 import type { InstancePaths } from "./instance-paths.js";
 import type { QueryForm, QueryElement, QueryPayload } from "./query.js";
 import type { BindingValues, DocumentQueryResult } from "./document.js";
@@ -37,9 +40,11 @@ import type {
   ImportResult,
   Comparison,
 } from "./verdict.js";
-import { fromJson, type JsonValue } from "@bufbuild/protobuf";
+import { fromJson, type JsonValue, type MessageInitShape } from "@bufbuild/protobuf";
 import {
+  GetSymbolRequestSchema,
   InstanceSchema,
+  LookupKind,
   type Diagnostic,
   type FeatureValue as PbFeatureValue,
   type Instance as PbInstance,
@@ -82,13 +87,17 @@ function editDistance(left: string, right: string): number {
 }
 
 /** What a symbol lookup asks the service for beyond the symbol itself. */
-export interface SymbolOptions {
+export interface SymbolLookupOptions {
   /**
    * List the members inherited from standard-library content too, which the
    * service otherwise leaves out and counts in `withheldLibraryMembers`.
    * Requires `symbol_members`.
    */
   includeLibraryMembers?: boolean;
+}
+
+/** What the legacy one-string lookup, `symbolById`, takes. */
+export interface SymbolOptions extends SymbolLookupOptions {
   /** Take the id as one the service reported (a child's, a member's), whatever its visibility, not as a qualified name. */
   byReportedId?: boolean;
 }
@@ -431,8 +440,11 @@ export class Model {
     return this.connection.query(this.hash, options);
   }
 
-  /** Reads the metamodel properties of one element by their specification names. */
-  elementProperties(element: string, ...properties: string[]): Promise<ElementProperties> {
+  /**
+   * Reads the metamodel properties of one element by their specification names. The element
+   * is `{ name }` or `{ id }`; one string is the legacy form, read as an id first, then a name.
+   */
+  elementProperties(element: string | ElementLookup, ...properties: string[]): Promise<ElementProperties> {
     return this.connection.elementProperties(this.hash, element, properties);
   }
 
@@ -716,31 +728,54 @@ export class Model {
   }
 
   /**
-   * Looks a symbol up by its qualified name, resolved from the root namespace as the notation
-   * resolves one (imports, aliases, visibility); `byReportedId` takes a reported id instead,
-   * which is how a service without `symbol_name_resolution` reads every id.
+   * Looks a symbol up by its qualified name and nothing else, resolved from the root namespace
+   * as the notation resolves one (imports, aliases, visibility). A service without
+   * `symbol_lookup_kind` is asked in the legacy form, which falls back to reading an id.
+   */
+  symbolByName(name: string, options: SymbolLookupOptions = {}): Promise<ModelSymbol> {
+    requireString("name", name);
+    return this.lookUp(name, LookupKind.QUALIFIED_NAME, true, options);
+  }
+
+  /**
+   * Looks a symbol up by an id the service reported (`ModelSymbol.id`, a child's, a member's,
+   * an element reference's) and nothing else, whatever the element's visibility. A service
+   * without `symbol_lookup_kind` is asked in the legacy form, which reads a name first.
+   */
+  symbolByElementId(id: string, options: SymbolLookupOptions = {}): Promise<ModelSymbol> {
+    requireString("id", id);
+    return this.lookUp(id, LookupKind.ELEMENT_ID, false, options);
+  }
+
+  /**
+   * Legacy form, one string for either kind: read as a qualified name first, then as an id
+   * (`byReportedId`: as the service reported it, name first all the same), so a declaration
+   * shadows the element an id of its spelling was reported for. Prefer `symbolByName` or
+   * `symbolByElementId`.
    */
   async symbolById(id: string, options: SymbolOptions = {}): Promise<ModelSymbol> {
     requireString("id", id);
+    return this.lookUp(id, LookupKind.UNSPECIFIED, options.byReportedId !== true, options);
+  }
+
+  private async lookUp(
+    asked: string,
+    lookup: LookupKind,
+    resolveName: boolean,
+    options: SymbolLookupOptions,
+  ): Promise<ModelSymbol> {
     if (options.includeLibraryMembers === true) {
       requireCapability(this.connection.info, CAPABILITY_SYMBOL_MEMBERS, upgradeRemedy(CAPABILITY_SYMBOL_MEMBERS));
     }
     const response = await callRpc(
       this.connection.rpc.getSymbol(
-        {
-          modelHash: this.hash,
-          symbolId: id,
-          includeLibraryMembers: options.includeLibraryMembers === true,
-          resolveName:
-            options.byReportedId !== true &&
-            this.connection.info.has(CAPABILITY_SYMBOL_NAME_RESOLUTION),
-        },
+        symbolRequest(this.connection.info, this.hash, asked, lookup, resolveName, options.includeLibraryMembers === true),
         this.connection.callOptions(),
       ),
     );
     if (response.symbol === undefined) {
       // A single call: near names are symbol()'s to compute.
-      throw new SymbolNotFoundError(id);
+      throw new SymbolNotFoundError(asked);
     }
     return new ModelSymbol(this.connection, this.hash, response.symbol);
   }
@@ -849,6 +884,8 @@ export interface TypeRef {
 export interface TypeFacts {
   declared: string;
   resolvedId: string;
+  /** Qualified name of the resolved written type, for display; `resolvedId` is for lookup. */
+  resolvedQualifiedName?: string | undefined;
   resolvedKind: string;
   primitive: string;
   primitiveSource: string;
@@ -875,6 +912,8 @@ export interface SpecializationFacts {
   kind: string;
   declared: string;
   targetId: string;
+  /** Qualified name of the resolved target, for display; `targetId` is for lookup. */
+  targetQualifiedName?: string | undefined;
   targetKind: string;
 }
 
@@ -899,6 +938,14 @@ export class ModelSymbol {
   readonly members: readonly MemberFacts[];
   /** Members inherited from standard-library content the service did not send. */
   readonly withheldLibraryMembers: number;
+  /**
+   * The metadata usages annotating this symbol, the inverse of KerML
+   * `AnnotatingElement::annotatedElement`: its own `#M` prefixes and body
+   * `@M` usages, then the ones naming it in an `about` clause elsewhere, which
+   * `childIds` and `members` leave out. Empty from a service without
+   * `symbol_annotating_metadata`.
+   */
+  readonly annotatingMetadataIds: readonly string[];
   readonly attributes: readonly AttributeFacts[];
   /** Written typing (`declared`) and derived `Feature::type` (`types`). */
   readonly type: TypeFacts | undefined;
@@ -928,6 +975,7 @@ export class ModelSymbol {
       library: member.library,
     }));
     this.withheldLibraryMembers = info.withheldLibraryMembers;
+    this.annotatingMetadataIds = [...info.annotatingMetadataIds];
     this.attributes = info.attributes.map((attribute) => ({
       name: attribute.name,
       type: attribute.type,
@@ -940,6 +988,7 @@ export class ModelSymbol {
         : {
             declared: info.typeInfo.declared,
             resolvedId: info.typeInfo.resolvedId,
+            resolvedQualifiedName: info.typeInfo.resolvedQualifiedName,
             resolvedKind: info.typeInfo.resolvedKind,
             primitive: info.typeInfo.primitive,
             primitiveSource: info.typeInfo.primitiveSource,
@@ -955,6 +1004,7 @@ export class ModelSymbol {
       kind: specialization.kind,
       declared: specialization.declared,
       targetId: specialization.targetId,
+      targetQualifiedName: specialization.targetQualifiedName,
       targetKind: specialization.targetKind,
     }));
     this.withheldLibraryAttributes = info.withheldLibraryAttributes;
@@ -962,23 +1012,42 @@ export class ModelSymbol {
 
   /** The symbols this one owns, fetched one call each. */
   async children(): Promise<ModelSymbol[]> {
+    return this.fetchSymbols(this.childIds);
+  }
+
+  /**
+   * The metadata usages annotating this symbol (`annotatingMetadataIds`), fetched
+   * one call each: `type` names the metadata definition and `attributes` reads the
+   * values the annotation binds. Refused by a service without
+   * `symbol_annotating_metadata`, which reports none.
+   */
+  async annotatingMetadata(): Promise<ModelSymbol[]> {
+    requireCapability(
+      this.connection.info,
+      CAPABILITY_SYMBOL_ANNOTATING_METADATA,
+      upgradeRemedy(CAPABILITY_SYMBOL_ANNOTATING_METADATA),
+    );
+    return this.fetchSymbols(this.annotatingMetadataIds);
+  }
+
+  private async fetchSymbols(ids: readonly string[]): Promise<ModelSymbol[]> {
     const responses = await Promise.all(
-      this.childIds.map((id) =>
+      ids.map((id) =>
         callRpc(
           this.connection.rpc.getSymbol(
-            { modelHash: this.modelHash, symbolId: id },
+            symbolRequest(this.connection.info, this.modelHash, id, LookupKind.ELEMENT_ID, false, false),
             this.connection.callOptions(),
           ),
         ),
       ),
     );
-    const children: ModelSymbol[] = [];
+    const symbols: ModelSymbol[] = [];
     for (const response of responses) {
       if (response.symbol !== undefined) {
-        children.push(new ModelSymbol(this.connection, this.modelHash, response.symbol));
+        symbols.push(new ModelSymbol(this.connection, this.modelHash, response.symbol));
       }
     }
-    return children;
+    return symbols;
   }
 
   /** The value of one attribute, or undefined when the symbol declares no such attribute. */
@@ -1009,7 +1078,7 @@ export class ModelSymbol {
     requireCapability(this.connection.info, CAPABILITY_SYMBOL_MEMBERS, upgradeRemedy(CAPABILITY_SYMBOL_MEMBERS));
     const response = await callRpc(
       this.connection.rpc.getSymbol(
-        { modelHash: this.modelHash, symbolId: this.id, includeLibraryMembers: true },
+        symbolRequest(this.connection.info, this.modelHash, this.id, LookupKind.ELEMENT_ID, false, true),
         this.connection.callOptions(),
       ),
     );
@@ -1020,9 +1089,30 @@ export class ModelSymbol {
   }
 }
 
+/**
+ * A GetSymbol request stating its lookup kind where the service reports `symbol_lookup_kind`,
+ * and its legacy form (name first when `resolveName`), which is all an older service reads.
+ */
+function symbolRequest(
+  info: ServerInfo,
+  modelHash: string,
+  asked: string,
+  lookup: LookupKind,
+  resolveName: boolean,
+  includeLibraryMembers: boolean,
+): MessageInitShape<typeof GetSymbolRequestSchema> {
+  return {
+    modelHash,
+    symbolId: asked,
+    includeLibraryMembers,
+    resolveName: resolveName && info.has(CAPABILITY_SYMBOL_NAME_RESOLUTION),
+    lookup: info.has(CAPABILITY_SYMBOL_LOOKUP_KIND) ? lookup : LookupKind.UNSPECIFIED,
+  };
+}
+
 /** One member of a type, own or inherited. */
 export interface MemberFacts {
-  /** The member's id, which `symbolById` accepts with `byReportedId`. */
+  /** The member's id, which `symbolByElementId` accepts. */
   id: string;
   /** The declared name, empty for an anonymous member. */
   name: string;

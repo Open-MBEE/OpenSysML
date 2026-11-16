@@ -88,6 +88,9 @@ model.roots();                                  // one Symbol per document; empt
 
 Symbol vehicle = model.symbol("Demo::Vehicle"); // throws if the model has no such symbol
 model.findSymbol("Demo::Vehicle");              // Optional, for a name that may be absent
+model.symbol("Demo::Vehicle", SymbolOptions.defaults().lookup(Lookup.QUALIFIED_NAME)); // only as a name
+model.symbol("Demo::Vehicle::@3", SymbolOptions.defaults().lookup(Lookup.ELEMENT_ID)); // only as a reported id
+model.elementProperties(Lookup.ELEMENT_ID, "Demo::Vehicle::@3");
 model.find("Vehicle");                          // Optional, by short name or qualified id
 model.get("Demo::Vehicle");                     // Optional, by qualified id only
 model.lookup("Vehicle");                        // throws SymbolNotFoundException with suggestions
@@ -134,7 +137,11 @@ paths.paths().get(0).steps();    // InstancePaths.Step records; paths.truncated(
 `members()` is populated by a service advertising `symbol_members` and empty from one that
 does not; asking for library members, `elementProperties` and `instancePaths` are each refused
 with a `CapabilityException` before anything is sent when the service lacks `symbol_members`,
-`element_properties` or `instance_paths`.
+`element_properties` or `instance_paths`. `annotatingMetadataIds()` names the metadata usages
+annotating the symbol: its own `#M` prefixes and body `@M` usages, then the ones naming it in an
+`about` clause elsewhere, which `childIds()` and `members()` leave out; look each up with
+`model.symbol(id)` for its type and attributes. It is empty from a service without
+`symbol_annotating_metadata`.
 
 `ParseOptions` is a record of `Language` (`SYSML` or `KERML`) and
 `strictConformance`, with `defaults()` and `withLanguage`/`withStrictConformance`.
@@ -310,7 +317,9 @@ sniffs it), `tolerateSyntaxErrors` — without it, a syntax error throws a
 `idForm` (`ID_FORM_QUALIFIED`, the default, or `ID_FORM_UUID`) for the derived
 element ids of a graph notation (`ttl`, `api-json`), and `includeLibraryStubs`,
 which restores in `api-json` the ownerless library stubs releases before 0.11.0
-wrote (needs the service's `convert_library_stubs` capability). `Conversion.write(Path)`
+wrote (needs the service's `convert_library_stubs` capability), and `inheritedMembers`,
+which also writes in `api-json` the derived lists that repeat each Namespace's and Type's
+inherited and imported members (needs `convert_inherited_members`). `Conversion.write(Path)`
 saves the content as UTF-8, `Conversion.formatOf(Path)` names a notation by its
 extension, and `EditResult.save(Path)` writes a one-document edit and refuses one whose
 `severalDocuments()` is set, whose text is in `documents()` alone; a model

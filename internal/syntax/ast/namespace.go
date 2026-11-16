@@ -224,7 +224,8 @@ func EffectiveName(u *Usage) (string, source.Span) {
 	return "", source.Span{}
 }
 
-// Identification captures `<shortName> name` or `name` on a declaration.
+// Identification captures `<shortName> name` or `name` on a declaration. A name
+// written as an empty unrestricted name is the empty string, told from no name by its span (KerML §8.2.2.3).
 type Identification struct {
 	ShortName     string
 	ShortNameSpan source.Span
@@ -232,16 +233,26 @@ type Identification struct {
 	NameSpan      source.Span
 }
 
+// HasName reports whether a name is declared, the empty unrestricted name included.
+func (id Identification) HasName() bool {
+	return id.Name != "" || id.NameSpan.Len > 0
+}
+
+// HasShortName reports whether a short name is declared, the empty unrestricted one included.
+func (id Identification) HasShortName() bool {
+	return id.ShortName != "" || id.ShortNameSpan.Len > 0
+}
+
 // Declared reports whether either name is declared, which is when a feature
 // takes no name from its naming feature (KerML 7.3.4.5).
 func (id Identification) Declared() bool {
-	return id.Name != "" || id.ShortName != ""
+	return id.HasName() || id.HasShortName()
 }
 
 // DeclaredName returns the name a declaration is known by: its name, else its
 // short name, as the symbol table registers it.
 func (id Identification) DeclaredName() (string, source.Span) {
-	if id.Name != "" {
+	if id.HasName() {
 		return id.Name, id.NameSpan
 	}
 	return id.ShortName, id.ShortNameSpan

@@ -210,7 +210,7 @@ func (r *Renderer) compoundCompartments(graph *lower.ActionGraph, node program.N
 // iterationText is a for loop's iteration-expression, `i in 1..3`.
 func (r *Renderer) iterationText(doc string, loop lower.Loop) string {
 	collection := r.extentText(doc, loop.CollectionAt())
-	if loop.Variable == "" || collection == "" {
+	if !loop.Bound || collection == "" {
 		return ""
 	}
 	return nameText(loop.Variable) + " in " + collection

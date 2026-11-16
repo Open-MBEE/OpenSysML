@@ -59,8 +59,7 @@ work="$(mktemp -d "$target/.pssm-fetch.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 
 echo "Fetching $PSSM_SUITE_URL ($PSSM_DOCUMENT) ..."
-if ! curl -fsSL --proto '=https' --proto-redir '=https' --retry 3 \
-	-o "$work/$PSSM_SUITE_FILE" "$PSSM_SUITE_URL" 2>"$work/curl.log"; then
+if ! "$repo_root/scripts/fetch-https.sh" "$PSSM_SUITE_URL" "$work/$PSSM_SUITE_FILE" 2>"$work/curl.log"; then
 	sed 's/^/  /' "$work/curl.log" >&2
 	echo "error: could not fetch $PSSM_SUITE_URL" >&2
 	echo "       omg.org publishes the suite at that permanent URL; if the host is unreachable" >&2

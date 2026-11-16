@@ -102,6 +102,12 @@ record; `model.symbol(id)` and model lookup wrap it in a `Symbol` with
 `getAttr(name)`, `facts()`, and `attributeFacts()`. The function is named
 `getSymbol` rather than `symbol` so that its file does not collide with
 `Symbol.m` on a case-insensitive file system.
+A qualified name and an id can be spelled alike, so `getSymbol(model, id, 'lookup', kind)`
+and `model.symbol(id, 'lookup', kind)` state which is meant: `'qualified_name'`,
+`'element_id'`, or `'either'` (the default: a declared name first). `elementProperties`
+takes the same as a trailing `struct('lookup', kind)`. `children()` and `find` read the
+ids the service reports as ids. A service without `symbol_lookup_kind` is asked in the
+legacy form.
 `opensysml.diagnostics(model)` returns diagnostic records as a cell array.
 
 ## Values
@@ -171,7 +177,10 @@ functions request a single run.
 `tolerateSyntaxErrors`, `idForm` (`'qualified'`, the default, or `'uuid'`,
 how a graph spells its derived ids) and `includeLibraryStubs` (restore the
 pre-0.11.0 library stubs in API JSON; needs the `convert_library_stubs`
-capability), `compact`, `omitDerived` and `keepDerived` (the compact API JSON
+capability), `inheritedMembers` (also write, in API JSON, the derived lists
+that repeat each Namespace's and Type's inherited and imported members, where
+by default an element carries its owned structure; needs
+`convert_inherited_members`), `compact`, `omitDerived` and `keepDerived` (the compact API JSON
 document, with or without the metamodel's derived properties; need
 `convert_compact`) and `includeCheckDiagnostics` (the semantic check's
 diagnostics beside the output, each with its severity; needs

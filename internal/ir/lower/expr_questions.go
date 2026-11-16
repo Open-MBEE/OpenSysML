@@ -7,6 +7,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // Folded is the constant the expression folds to under an Integer budget of maxBits,
@@ -118,11 +119,12 @@ func (e *ExprEntry) Invoked() ([]string, bool) {
 }
 
 // spelling is the segments of the name e is written with, false when it names nothing.
+// The empty unrestricted name is a name: only a reference written nowhere names nothing.
 func (e *ExprEntry) spelling() ([]string, bool) {
 	if len(e.Path) > 0 {
 		return names(e.Path), true
 	}
-	if e.Ref.Name == "" {
+	if e.Ref.Name == "" && e.Ref.Span == (source.Span{}) {
 		return nil, false
 	}
 	return []string{e.Ref.Name}, true
@@ -146,6 +148,9 @@ func (e *ExprEntry) Reads(visit func(segments []string, chain, ok bool) bool) {
 	going := true
 	var walk func(n ast.Node) bool
 	walk = func(n ast.Node) bool {
+		if !going {
+			return false
+		}
 		switch ref := n.(type) {
 		case *ast.IndexExpr:
 			if ref.Bracket {

@@ -532,7 +532,7 @@ func (ctx *Context) AssertionsOf(typ *symbols.Symbol, scope *symbols.Scope) []As
 		if sym == nil {
 			continue
 		}
-		if sym.Name != "" {
+		if sym.Named() {
 			if effective == nil {
 				effective = ctx.effectiveMembers(typ)
 			}
@@ -608,7 +608,7 @@ func assertionText(usage *ast.Usage, sym *symbols.Symbol) string {
 	if usage.Keyword != "" {
 		parts = append(parts, usage.Keyword)
 	}
-	if sym != nil && sym.Name != "" {
+	if sym != nil && sym.Named() {
 		parts = append(parts, source.NameText(sym.Name))
 	}
 	return strings.Join(parts, " ")

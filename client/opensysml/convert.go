@@ -43,6 +43,9 @@ func symbolFromProto(sym *pb.SymbolInfo) *Symbol {
 	if len(sym.ChildIds) > 0 {
 		out.ChildIDs = append([]string(nil), sym.ChildIds...)
 	}
+	if len(sym.AnnotatingMetadataIds) > 0 {
+		out.AnnotatingMetadataIDs = append([]string(nil), sym.AnnotatingMetadataIds...)
+	}
 	for _, attr := range sym.Attributes {
 		out.Attributes = append(out.Attributes, Attribute{
 			Name:  attr.Name,
@@ -53,13 +56,14 @@ func symbolFromProto(sym *pb.SymbolInfo) *Symbol {
 	}
 	if sym.TypeInfo != nil {
 		out.Type = &TypeInfo{
-			Declared:        sym.TypeInfo.Declared,
-			ResolvedID:      sym.TypeInfo.ResolvedId,
-			ResolvedKind:    sym.TypeInfo.ResolvedKind,
-			Primitive:       sym.TypeInfo.Primitive,
-			PrimitiveSource: sym.TypeInfo.PrimitiveSource,
-			Quantity:        sym.TypeInfo.Quantity,
-			Unit:            sym.TypeInfo.Unit,
+			Declared:              sym.TypeInfo.Declared,
+			ResolvedID:            sym.TypeInfo.ResolvedId,
+			ResolvedQualifiedName: sym.TypeInfo.ResolvedQualifiedName,
+			ResolvedKind:          sym.TypeInfo.ResolvedKind,
+			Primitive:             sym.TypeInfo.Primitive,
+			PrimitiveSource:       sym.TypeInfo.PrimitiveSource,
+			Quantity:              sym.TypeInfo.Quantity,
+			Unit:                  sym.TypeInfo.Unit,
 		}
 		for _, ref := range sym.TypeInfo.Types {
 			out.Type.Types = append(out.Type.Types, TypeRef{ID: ref.Id, Kind: ref.Kind})
@@ -70,10 +74,11 @@ func symbolFromProto(sym *pb.SymbolInfo) *Symbol {
 	}
 	for _, spec := range sym.Specializations {
 		out.Specializations = append(out.Specializations, Specialization{
-			Kind:       spec.Kind,
-			Declared:   spec.Declared,
-			TargetID:   spec.TargetId,
-			TargetKind: spec.TargetKind,
+			Kind:                spec.Kind,
+			Declared:            spec.Declared,
+			TargetID:            spec.TargetId,
+			TargetQualifiedName: spec.TargetQualifiedName,
+			TargetKind:          spec.TargetKind,
 		})
 	}
 	return out

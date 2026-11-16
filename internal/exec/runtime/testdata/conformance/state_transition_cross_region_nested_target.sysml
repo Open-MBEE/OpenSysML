@@ -19,7 +19,7 @@ package Test {
 
 				succession first lstart then lmid;
 				succession first lmid then lidle;
-				transition first lidle if crossed == 0 then rtarget;
+				transition first lidle if crossed == 0 then right.wrapper.inner.rtarget;
 			}
 			state right {
 				entry; then rstart;

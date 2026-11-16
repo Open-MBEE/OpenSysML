@@ -26,7 +26,8 @@ var invalidFixtures = map[string]bool{
 // pinnedErrors names the one deliberate error a gated fixture carries, documented at its top; the
 // fixture is held to exactly one error of that code and zero others.
 var pinnedErrors = map[string]string{
-	"regions.sysml": "no-outgoing-transition",
+	"notation.sysml": "kerml-notation",
+	"regions.sysml":  "no-outgoing-transition",
 }
 
 // siblingSets lists the fixtures the view tests load together; a fixture in no set is loaded alone.

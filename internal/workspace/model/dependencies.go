@@ -128,7 +128,7 @@ func (d *dependencyWalk) closure(roots []*symbols.Symbol) []Dependency {
 // can be told apart by — or its whole document when none is.
 func (d *dependencyWalk) declaration(sym *symbols.Symbol) (Dependency, source.Span) {
 	for cur := sym; cur != nil; cur = enclosingSymbol(cur) {
-		if cur.Name == "" || cur.Decl == nil {
+		if !cur.Named() || cur.Decl == nil {
 			continue
 		}
 		fqn := d.idx.GetFQN(cur)

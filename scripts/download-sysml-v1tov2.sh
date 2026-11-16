@@ -61,8 +61,7 @@ work="$(mktemp -d "$target/.sysml-v1tov2-fetch.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 
 echo "Fetching $SYSML_V1TOV2_URL ($SYSML_V1TOV2_DOCUMENT) ..."
-if ! curl -fsSL --proto '=https' --proto-redir '=https' --retry 3 \
-	-o "$work/$SYSML_V1TOV2_FILE" "$SYSML_V1TOV2_URL" 2>"$work/curl.log"; then
+if ! "$repo_root/scripts/fetch-https.sh" "$SYSML_V1TOV2_URL" "$work/$SYSML_V1TOV2_FILE" 2>"$work/curl.log"; then
 	sed 's/^/  /' "$work/curl.log" >&2
 	echo "error: could not fetch $SYSML_V1TOV2_URL" >&2
 	echo "       omg.org publishes the model at that permanent URL; if the host is unreachable" >&2

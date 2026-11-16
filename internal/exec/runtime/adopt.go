@@ -119,7 +119,7 @@ func (ctx *Context) recordShapes(obj *Instance, shapes *Shapes, seen map[int64]b
 // notes that there is none to compare it by: a declaration of no name of its own
 // is reached by no name in a later resolution, whatever scope it sits in.
 func (ctx *Context) recordShape(sym *symbols.Symbol, shapes *Shapes) {
-	if sym == nil || sym.Name == "" || ctx.fqnOf(sym) == "" {
+	if sym == nil || !sym.Named() || ctx.fqnOf(sym) == "" {
 		shapes.unnamed = true
 		return
 	}

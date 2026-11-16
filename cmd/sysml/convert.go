@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"os"
 	"path/filepath"
@@ -391,10 +393,11 @@ func convertOptions(from, to convert.Format) (convert.Options, error) {
 	opts := convert.Options{Warn: func(message string) {
 		fmt.Fprintf(os.Stderr, "warning: %s\n", message)
 	}}
-	if (libraryReferencesPath != "" || includeLibraryStubs) && to != convert.FormatAPIJSON {
-		return opts, errors.New("-library-references and -include-library-stubs require -convert api-json")
+	if (libraryReferencesPath != "" || includeLibraryStubs || inheritedMembers) && to != convert.FormatAPIJSON {
+		return opts, errors.New("-library-references, -include-library-stubs and -inherited-members require -convert api-json")
 	}
 	opts.IncludeLibraryStubs = includeLibraryStubs
+	opts.InheritedMembers = inheritedMembers
 	if keepLineBreaks && (from != convert.FormatSysML || to != convert.FormatSysML) {
 		return opts, errors.New("-keep-line-breaks applies to -convert sysml or kerml of a model in that notation")
 	}
@@ -423,12 +426,16 @@ func writeConversion(path string, out []byte, to convert.Format) error {
 	if err != nil {
 		return err
 	}
+	reportConversion(path, to, int64(len(out)), replaced)
+	return nil
+}
+
+func reportConversion(path string, to convert.Format, written int64, replaced bool) {
 	what := ""
 	if replaced {
 		what = ", replaced the existing file"
 	}
-	fmt.Fprintf(os.Stderr, "wrote %s (%s, %d bytes%s)\n", path, to, len(out), what)
-	return nil
+	fmt.Fprintf(os.Stderr, "wrote %s (%s, %d bytes%s)\n", path, to, written, what)
 }
 
 // layoutMisuse reports why -layout would be lost: the export must not name a
@@ -589,17 +596,22 @@ func convertModel(files []string, to convert.Format) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	out, err := convert.ConvertModel(inputs, to, opts)
+	write := func(out io.Writer) error { return convert.ConvertModelTo(out, inputs, to, opts) }
+	if outputPath == "" {
+		// Buffered whole, so a conversion that fails writes nothing to the stream.
+		var out bytes.Buffer
+		if err := write(&out); err != nil {
+			return 0, err
+		}
+		_, err := os.Stdout.Write(out.Bytes())
+		return exitHolds, err
+	}
+	// Streamed to the staged file, so a large model's output is never held whole.
+	replaced, written, err := export.WriteFileFrom(outputPath, write)
 	if err != nil {
 		return 0, err
 	}
-	if outputPath == "" {
-		_, err := os.Stdout.Write(out)
-		return exitHolds, err
-	}
-	if err := writeConversion(outputPath, out, to); err != nil {
-		return 0, err
-	}
+	reportConversion(outputPath, to, written, replaced)
 	return exitHolds, nil
 }
 
