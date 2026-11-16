@@ -215,6 +215,9 @@ ties each of its mapping classes to the code that carries it out (or records why
 | User stereotype | `metadata def`, `:>` the defs of the user stereotypes it specializes; tag definitions `attribute name : String|Integer|Real|Boolean|<enum def>` or `ref name` for element-typed ones, with the v1 multiplicity; `base_*` extension ends and the `Extension`s written as nothing | mapped (a general outside the document, or closing a cycle: approximated) |
 | User stereotype application, on an element, property or relationship the document defines the stereotype of | `@Profile::Name { tag = value; }` in the element's body (`@Profile::Name;` without tags); strings, numbers and booleans as literals, enumeration literals by name, element references by the written element's name — a definition cast to its metaclass, `owner = Acme meta SysML::PartDefinition;`, since a type is not a value a feature can hold, and an activity written as its block's action usage likewise, `runs = Ctl::run meta SysML::ActionUsage;` — HTML-bodied text as plain text; a tag the stereotype does not define, or a value not of the tag's type, a comment | mapped (a value kept as a comment: approximated) |
 | Stereotype applied from a profile the document does not define (a used project not in the archive, an unknown namespace) | recorded by an `@MigrationMetadata::AppliedStereotype { stereotype = "Name"; profile = "<namespace>"; tags = ("tag = value", …); }` marker on the element (a `// applied stereotype «Name»: tag = value` line comment under `-strict`); the report names the namespace | mapped, noted |
+| «AdjunctProperty» whose `principal` is a connector, a call action, an object node, a variable, a parameter, a submachine state or an interaction use the migration writes as a usage, owned by the property's owner or a classifier it specializes, and typed as the property is or more specifically | nothing of its own: the property and its principal are the one usage written for the principal, which keeps the principal's name, kind, type and multiplicity, and every reference to the property — an association end, a connector end, an allocation, a diagram's exposure and layout — names that usage; see [Adjunct properties](#adjunct-properties) | mapped |
+| «AdjunctProperty» the collapse does not cover — no `principal` in the document, a principal of another kind, one owned elsewhere, one typed otherwise, or one written as no v2 usage | the usage the property would be without the stereotype, beside whatever its principal is written as, with the application kept as an `AppliedStereotype` marker naming the principal; the note says which condition failed | approximated |
+| SysML stereotype the migration gives no v2 form («ParticipantProperty», «moe», «objectiveFunction», a «ConstraintParameter» outside a tool's customization profile, …) | recorded by the `@MigrationMetadata::AppliedStereotype` marker as above, `profile` naming the SysML namespace; the note says it is a SysML stereotype without a v2 form rather than one from an undefined profile | mapped, noted |
 | MagicDraw's property-kind markers — «ValueProperty», «PartProperty», «SharedProperty», «ReferenceProperty», «ConstraintProperty» on a UML Property, and «ConstraintParameter» on a constraint block's parameter — recognised by the provenance of their profile (`magicdraw.com` or `nomagic.com`, under `/spec/Customization/`), carrying no tag, on a property whose usage keyword (`attribute`, `part`, `ref part`, `constraint`, `in …`) already says the kind | nothing: the declaration stays one line. A same-named stereotype from any other profile, a marker carrying a tag, or one on a property written as another kind (a «ValueProperty» on a block-typed part) is kept as above | mapped |
 | SysML stereotype tags without a v2 form (`Block.isEncapsulated`, `ValueType.unit`, …) | recorded among the `tags` of the element's `@MigrationMetadata::AppliedStereotype` marker (a `// applied stereotype «Name»: tag = value` line comment under `-strict`) | approximated |
 | Two members of one namespace with the same name (UML allows it, v2 does not) | the later one renamed `Name 2`, a state, pseudostate or history a machine's region puts beside its attributes included, as is a written connection point of a state whichever region a tool listed it in, while one written as no member takes no name; a connection end named like a member of its connection def renamed `name2` | approximated |
@@ -1194,6 +1197,50 @@ no multiplicity) or whose declared bounds are not natural numbers, `*` on an att
 a parameter (neither is held by reference), and a tag that is not one of these spellings. A
 same-named user stereotype outside the MagicDraw profile namespace is a `metadata def` like
 any other.
+
+### Adjunct properties
+
+SysML v1 gives a behavior or block a property for something that is not a property — a call
+action of an activity, a connector of a block — by applying «AdjunctProperty» to a property whose
+`principal` names that element, so the element can be an association end, be allocated or be shown
+in a compartment. In v2 the principal is already a usage, so the pair is written once: as the
+usage the principal is written as.
+
+| Principal (SysML v1.6, 8.3.2.2) | The one usage |
+|---|---|
+| `CallBehaviorAction`, `CallOperationAction`, `StartObjectBehaviorAction` | the action usage of the call, `action fill : Fill;` |
+| `Parameter`, or the `ActivityParameterNode` standing for one | the parameter, `in level : Real[1];` |
+| `Variable` | the private feature of the variable, `private attribute count : Integer;` |
+| `Connector` | the connection usage, `connection feed connect pump to tank;` |
+| `State` with a `submachine` | the state usage, `state Cycling : Cycle { … }` |
+| `InteractionUse` | the occurrence usage of the referenced interaction, `occurrence priming : Prime;` |
+| pin, `CentralBufferNode`, `DataStoreNode`, `ExpansionNode` | the usage the node is written as, when it is written as one; a buffer the flows through it replace has none, and the property is then written apart |
+
+The property declares nothing: no `ref action`, no name of its own (v1 requires it to bear the
+principal's name, so the principal keeps the name the two share rather than becoming `name 2`), no
+`AppliedStereotype` marker. Its report entry is **mapped** and gives the usage's qualified name.
+Whatever referred to the property refers to the usage: an association the property is an end of
+writes that end as `end call : Fill crosses run.call;`, an «Allocate» from it as
+`allocate source.empty to target;`, and a diagram that shows it exposes and lays out the usage. The
+usage keeps the principal's kind, type and multiplicity; the property's, which v1 constrains to
+agree with or generalize them, are not written. Anything else the property owns (a default value, a
+comment) has no place on the usage and is reported **unmapped**.
+
+The collapse applies only where the v1 constraints that tie the two together hold. Otherwise
+the property is written as it would be without the stereotype, the principal as it would be
+without the property, the application is kept as an `AppliedStereotype` marker whose `tags` name
+the principal, and the property's entry is **approximated** with a note beginning
+`«AdjunctProperty» is not collapsed into its principal:` and one of
+
+- `its principal is not in the document` — the tag is unset or names an id nothing defines;
+- `its principal … is a <Type>, which SysML v1 admits as no principal`;
+- `its principal … is owned by <owner>, neither its owner nor a generalization of it`;
+- `its type is neither that of its principal … nor a generalization of it` — the behavior a call
+  invokes, the state machine or interaction referred to, or the type of the connector, node,
+  variable or parameter;
+- `its principal … is not written as a v2 usage` — the principal is refused, inlined or elided.
+
+Neither half of the pair is dropped in any of these cases.
 
 ## Behaviors
 

@@ -224,7 +224,8 @@ func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
 	}
 	for _, owner := range []*sysmlv1.Element{def, act} {
 		for _, c := range owner.Children {
-			if c.Role != "node" && c.Role != "edge" && c.Role != "observation" && c.Role != "variable" && m.nameOf(c) != "" {
+			// A collapsed adjunct property declares no name beside its principal's.
+			if c.Role != "node" && c.Role != "edge" && c.Role != "observation" && c.Role != "variable" && m.principalOf(c) == nil && m.nameOf(c) != "" {
 				a.used[m.nameOf(c)] = true
 			}
 		}

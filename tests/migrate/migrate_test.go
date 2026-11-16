@@ -373,6 +373,7 @@ var constructFixtures = []string{
 	"block_specialization_profile",
 	"uml2_hostless_profile",
 	"property_markers",
+	"adjunct_properties",
 	"nested_requirement_refs",
 	"diagrams",
 	"diagram_edges",
