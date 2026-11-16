@@ -166,9 +166,9 @@ func identityStateGraph(t *testing.T) *StateGraph {
 	graph, err := ToStateGraph(stateDefinitionIn(t, forkMachine(
 		`state a; state b;`,
 		`state c;`,
-		`transition first split then a;
-		 transition first split then c;
-		 transition maintain first a then b;`,
+		`transition first split then work.left.a;
+		 transition first split then work.right.c;
+		 transition maintain first work.left.a then work.left.b;`,
 	)), nil)
 	if err != nil {
 		t.Fatalf("ToStateGraph: %v", err)
@@ -337,7 +337,7 @@ func TestAssignIDs_CaseFlowCoversNodesAddedAfterLowering(t *testing.T) {
 }
 
 func TestAssignIDs_RegionOriginsCarryDocumentAndOwner(t *testing.T) {
-	src := forkMachine(`state a;`, `state c;`, `transition first split then a; transition first split then c;`)
+	src := forkMachine(`state a;`, `state c;`, `transition first split then work.left.a; transition first split then work.right.c;`)
 	p := parser.New(source.New("test.sysml", []byte(src)))
 	root := p.ParseFile()
 	if len(p.Diagnostics) > 0 {
