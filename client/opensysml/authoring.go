@@ -67,6 +67,7 @@ type convertOptions struct {
 	tolerated    bool
 	idForm       IDForm
 	libraryStubs bool
+	inherited    bool
 }
 
 // IDForm is how a graph notation (Turtle, API JSON) spells the ids of elements
@@ -90,6 +91,12 @@ func WithIDForm(form IDForm) ConvertOption {
 // the bare references listed in Conversion.LibraryReferences; requires convert_library_stubs.
 func WithLibraryStubs() ConvertOption {
 	return func(o *convertOptions) { o.libraryStubs = true }
+}
+
+// WithInheritedMembers has API JSON also carry the derived lists of each Namespace's and Type's
+// inherited and imported members; without it an element carries its owned structure.
+func WithInheritedMembers() ConvertOption {
+	return func(o *convertOptions) { o.inherited = true }
 }
 
 // LibraryReference is a standard-library element an API JSON conversion
@@ -200,12 +207,18 @@ func convertRequest(to Format, opts []ConvertOption) *pb.ConvertRequest {
 		TolerateSyntaxErrors: options.tolerated,
 		IdForm:               string(options.idForm),
 		IncludeLibraryStubs:  options.libraryStubs,
+		InheritedMembers:     options.inherited,
 	}
 }
 
 func (c *client) convert(ctx context.Context, req *pb.ConvertRequest) (*Conversion, error) {
 	if req.IncludeLibraryStubs {
 		if err := c.requireCapabilities(ctx, CapabilityConvertLibraryStubs); err != nil {
+			return nil, err
+		}
+	}
+	if req.InheritedMembers {
+		if err := c.requireCapabilities(ctx, CapabilityConvertInheritedMembers); err != nil {
 			return nil, err
 		}
 	}

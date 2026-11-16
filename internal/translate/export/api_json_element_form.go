@@ -67,6 +67,7 @@ func elementFormOfGraph(graph *rdf.Graph) (*ElementForm, error) {
 		omissions:       map[string]map[string]metamodel.Reason{},
 	}
 	options := APIJSONOptions{
+		InheritedMembers: true,
 		LibraryReferences: func(refs []APIJSONLibraryReference) {
 			for _, ref := range refs {
 				form.libraryNames[ref.ID] = ref

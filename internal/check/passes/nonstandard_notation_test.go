@@ -15,6 +15,13 @@ func wantNotation(t *testing.T, name, src, code string, wants ...string) {
 	wantNotationOf(t, diag.SeverityWarning, name, src, code, wants...)
 }
 
+// wantNotationError is wantNotation for a finding that is an error in the
+// default mode, where no conformance option asked for it.
+func wantNotationError(t *testing.T, name, src, code string, wants ...string) {
+	t.Helper()
+	wantNotationOf(t, diag.SeverityError, name, src, code, wants...)
+}
+
 // wantNotationOf asserts one finding of the severity per want, and nothing else.
 func wantNotationOf(t *testing.T, severity diag.Severity, name, src, code string, wants ...string) {
 	t.Helper()
@@ -362,7 +369,7 @@ var kermlDeclarationInventory = []struct {
 // it where the parser, which never fails, kept the declaration.
 func TestKerMLDeclarationInSysMLIsReported(t *testing.T) {
 	for _, tc := range kermlDeclarationInventory {
-		wantNotation(t, "a.sysml", tc.src, CodeKerMLNotation,
+		wantNotationError(t, "a.sysml", tc.src, CodeKerMLNotation,
 			"`"+tc.keyword+"` is KerML notation: the SysML v2 grammar has no "+tc.keyword+" declaration")
 		got := notationDiags(t, "a.sysml", tc.src, diag.ConformanceDefault)
 		if !strings.Contains(got[0].Message, tc.alternative) {
@@ -390,9 +397,9 @@ func TestKerMLDeclarationInKerMLIsSilent(t *testing.T) {
 // The REPL and CLI buffer carry no file kind and read as SysML, so the
 // declaration is reported there as `namespace` is.
 func TestKerMLDeclarationInAnUnnamedDocumentIsReported(t *testing.T) {
-	wantNotation(t, "<repl>", "package P { part def A; part a1 : A; part b1 : A; connector c from a1 to b1; }",
+	wantNotationError(t, "<repl>", "package P { part def A; part a1 : A; part b1 : A; connector c from a1 to b1; }",
 		CodeKerMLNotation, "`connector` is KerML notation")
-	wantNotation(t, "<repl>", "class C;", CodeKerMLNotation, "`class` is KerML notation")
+	wantNotationError(t, "<repl>", "class C;", CodeKerMLNotation, "`class` is KerML notation")
 }
 
 // The finding points at the kind keyword, past the prefixes that open the
@@ -450,10 +457,10 @@ func TestDeclarationKeywordSpanSkipsPrefixMetadata(t *testing.T) {
 // neither their keywords nor their KerML clauses are reported again; a sibling
 // after the declaration still is.
 func TestKerMLDeclarationMembersDoNotCascade(t *testing.T) {
-	wantNotation(t, "a.sysml",
+	wantNotationError(t, "a.sysml",
 		"package P { class C { feature f; struct S; step s featured by C; } step t; }",
 		CodeKerMLNotation, "`class` is KerML notation", "`step` is KerML notation")
-	wantNotation(t, "a.sysml",
+	wantNotationError(t, "a.sysml",
 		"package P { part def A; part a1 : A; part b1 : A; connector c from a1 to b1 { feature f; } }",
 		CodeKerMLNotation, "`connector` is KerML notation")
 }
