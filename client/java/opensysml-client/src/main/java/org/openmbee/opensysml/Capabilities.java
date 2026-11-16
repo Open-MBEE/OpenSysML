@@ -132,6 +132,9 @@ public final class Capabilities {
   /** {@code SymbolInfo} names the metadata usages annotating a symbol, {@code about} ones included. */
   public static final String SYMBOL_ANNOTATING_METADATA = "symbol_annotating_metadata";
 
+  /** {@code GetSymbol} and {@code GetElementProperties} read a name only as a name, an id only as an id. */
+  public static final String SYMBOL_LOOKUP_KIND = "symbol_lookup_kind";
+
   /** The {@code GetElementProperties} RPC: an element's metamodel properties by their specification names. */
   public static final String ELEMENT_PROPERTIES = "element_properties";
 

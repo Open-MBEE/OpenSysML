@@ -296,7 +296,7 @@ func (ctx *Context) initFeatureValue(inst *Instance, fv *FeatureValue, feat *Eff
 	*fv = FeatureValue{Feature: feat}
 	if ctx.valueBinds(feat) && feat.Scalar() && !ctx.model.semantics.IsVariationFeature(feat.Symbol) &&
 		ctx.restatedInValuedBody(feat) == "" && !ctx.defaultYieldsToSubsetters(inst, feat) && !ctx.portionReadsWhole(inst, feat) &&
-		!ctx.readsContainerSubject(inst, feat) {
+		!feat.YieldsToBinding && !ctx.readsContainerSubject(inst, feat) {
 		if semVal, ok := ctx.model.exprs.Entry(feat.DefaultValueID).Folded(ctx.model.semantics, ctx.maxIntegerBits); ok {
 			val := Value{Kind: ValConst, Const: semVal}
 			if ctx.checkDefault(inst, fv, feat.Name, &val, admitDeclared) == nil {
@@ -1256,7 +1256,7 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	// against this instance, so that it sees the sibling feature values it refers to.
 	// The feature holds what the default states, once that conforms to the
 	// feature's multiplicity and type.
-	if ctx.valueBinds(fv.Feature) {
+	if ctx.valueBinds(fv.Feature) && !(fv.Feature.YieldsToBinding && ctx.bindingDeclaredFor(inst, name)) {
 		return inst.materializeDerived(ctx, fv, name)
 	}
 
