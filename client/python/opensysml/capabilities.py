@@ -346,6 +346,10 @@ CAPABILITY_CONVERT_LIBRARY_REFERENCES = "convert_library_references"
 #: of releases before 0.11.0 restored.
 CAPABILITY_CONVERT_LIBRARY_STUBS = "convert_library_stubs"
 
+#: ``ConvertRequest.inherited_members``: api-json written with the derived lists that repeat each
+#: Namespace's and Type's inherited and imported members; a service without it always writes them.
+CAPABILITY_CONVERT_INHERITED_MEMBERS = "convert_inherited_members"
+
 #: ``ParseSourcesRequest.base_model_hash`` and ``ParseSourcesResponse.affected``: the documents
 #: whose results may differ from the base model's, so a client re-reads only those after an edit.
 CAPABILITY_PARSE_SOURCES_AFFECTED = "parse_sources_affected"

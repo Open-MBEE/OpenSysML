@@ -239,7 +239,7 @@ _Generated from the diagnostic code registry by `make diagnostics-catalogue`; `m
 | [`expose-visibility`](#expose-visibility) | error | an `expose` written with `public`, `private` or `protected` |
 | [`framed-concern-membership-owning-type`](#framed-concern-membership-owning-type) | error | `frame` outside a requirement, concern or viewpoint body |
 | [`import-visibility`](#import-visibility) | error | an `import` written without `public`, `private` or `protected` |
-| [`kerml-notation`](#kerml-notation) | warning | KerML notation in a SysML file |
+| [`kerml-notation`](#kerml-notation) | error | KerML notation in a SysML file |
 | [`nonstandard-notation`](#nonstandard-notation) | warning | notation OpenSysML reads that no production of the SysML v2 grammar admits |
 | [`objective-membership-owning-type`](#objective-membership-owning-type) | error | `objective` outside a case body |
 | [`requirement-constraint-membership-owning-type`](#requirement-constraint-membership-owning-type) | error | `assume` or `require` outside a requirement or case body |
@@ -250,6 +250,7 @@ _Generated from the diagnostic code registry by `make diagnostics-catalogue`; `m
 | [`syntax`](#syntax) | error | the text does not parse as KerML or SysML v2 notation |
 | [`sysml-notation`](#sysml-notation) | error | SysML notation in a KerML file |
 | [`transition-membership-owning-type`](#transition-membership-owning-type) | error | `transition` outside a state body |
+| [`typing-keyword`](#typing-keyword) | error | a typing spelled `typed by` in a SysML file |
 | [`undefined-operator`](#undefined-operator) | warning | the unary `~` operator, which the kernel library leaves undefined |
 | [`view-rendering-membership-owning-type`](#view-rendering-membership-owning-type) | error | `render` outside a view body |
 
@@ -319,9 +320,9 @@ Specification: SysML v2 §8.2.2.4 ImportPrefix
 
 #### `kerml-notation`
 
-**warning** · Syntax · KerML notation in a SysML file
+**error** · Syntax · KerML notation in a SysML file
 
-A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) or a KerML spelling (`typed by` for a typing, which SysML spells `:` or `defined by`) that the SysML v2 grammar does not admit. Move the declaration to a `.kerml` file, or write the SysML form the message names. `-strict` promotes this finding to an error.
+A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) that the SysML v2 grammar does not admit. Move the declaration to a `.kerml` file, or write the SysML form the message names. A `namespace` declaration and a declaration keyword only KerML spells (`class`, `feature`, `connector` …) are errors in either mode; `-strict` promotes the other findings to errors.
 
 Specification: the pinned SysML v2 Xtext grammar
 
@@ -404,6 +405,14 @@ Specification: the pinned KerML Xtext grammar
 A transition usage is a member of a state: the `transition` keyword is admitted in the body of a state definition or usage only (a transition between action nodes is an OpenSysML extension the notation rules report separately). Move the transition into the state whose substates it joins, or write a succession (`first a then b;`) between actions.
 
 Specification: SysML v2 §8.2.2.19 TransitionUsageMember (a StateBodyItem)
+
+#### `typing-keyword`
+
+**error** · Syntax · a typing spelled `typed by` in a SysML file
+
+SysML v2 spells a usage's typing `:` or `defined by`; `typed by` is the KerML spelling of the same relationship, and `typed` is not a SysML keyword, so a `.sysml` file that writes it is rejected in every conformance mode. The typing is still read as written, so the rest of the model is analyzed. Write `defined by` (the editor quick fix rewrites the keyword), or move the declaration to a `.kerml` file.
+
+Specification: SysML v2 §8.2.2.1.2 Lexical Structure (DEFINED_BY), §8.2.2.6.5 Specialization (TypedBy), §7.6.3 Usages, §7.27.2 Metadata Definitions and Usages
 
 #### `undefined-operator`
 

@@ -730,6 +730,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&convertFormat, "convert", "", convertUsage())
 	fs.StringVar(&libraryReferencesPath, "library-references", "", "With -convert api-json, write the referenced standard-library name table to this JSON side file; the element array stays unchanged")
 	fs.BoolVar(&includeLibraryStubs, "include-library-stubs", false, "With -convert api-json, restore pre-0.11.0 ownerless library stubs for legacy readers (default off)")
+	fs.BoolVar(&inheritedMembers, "inherited-members", false, "With -convert api-json, also write on every Namespace and Type the derived lists that repeat its inherited and imported members (membership, member, inheritedMembership, featureMembership, feature, inheritedFeature); off, an element carries its owned structure (default off)")
 	fs.BoolVar(&keepLineBreaks, "keep-line-breaks", false, "With -convert sysml or kerml, keep the author's line breaks and fix indentation and spacing only, instead of laying statements out one per line (default off)")
 	fs.StringVar(&fromFormat, "from", "", fromUsage())
 	fs.Var(&dataImports, "import", "Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row per element, before -convert writes the model; an element column names the element and each other column a feature, as `mass [kg]` (repeatable)")
@@ -866,6 +867,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("convert", formatArg),
 			usage.Opt("library-references", fileArg),
 			usage.Opt("include-library-stubs", ""),
+			usage.Opt("inherited-members", ""),
 			usage.Opt("keep-line-breaks", ""),
 			usage.Opt("stdlib", ""),
 			usage.Opt("metaclass-graph", ""),

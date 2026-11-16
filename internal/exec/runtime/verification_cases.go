@@ -108,7 +108,7 @@ func (ctx *Context) verifiedIn(objective *symbols.Symbol) []*symbols.Symbol {
 			continue
 		}
 		for _, rel := range usage.Relationships {
-			if rel == nil || rel.Kind != ast.RelSubsets || rel.Target == nil {
+			if rel == nil || rel.Kind != ast.RelReferences || rel.Target == nil {
 				continue
 			}
 			if target, ok := ctx.resolveTarget(member.OwnerScope, rel.Target); ok && target != nil {

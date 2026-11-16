@@ -177,7 +177,10 @@ functions request a single run.
 `tolerateSyntaxErrors`, `idForm` (`'qualified'`, the default, or `'uuid'`,
 how a graph spells its derived ids) and `includeLibraryStubs` (restore the
 pre-0.11.0 library stubs in API JSON; needs the `convert_library_stubs`
-capability), `compact`, `omitDerived` and `keepDerived` (the compact API JSON
+capability), `inheritedMembers` (also write, in API JSON, the derived lists
+that repeat each Namespace's and Type's inherited and imported members, where
+by default an element carries its owned structure; needs
+`convert_inherited_members`), `compact`, `omitDerived` and `keepDerived` (the compact API JSON
 document, with or without the metamodel's derived properties; need
 `convert_compact`) and `includeCheckDiagnostics` (the semantic check's
 diagnostics beside the output, each with its severity; needs

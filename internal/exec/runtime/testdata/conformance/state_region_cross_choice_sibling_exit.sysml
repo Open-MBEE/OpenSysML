@@ -27,7 +27,7 @@ package Test {
 
 		choice pick;
 
-		transition first pick if x == 1 then seen;
-		transition first pick then missed;
+		transition first pick if x == 1 then outer.right.seen;
+		transition first pick then outer.right.missed;
 	}
 }
