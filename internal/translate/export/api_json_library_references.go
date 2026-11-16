@@ -19,24 +19,20 @@ type APIJSONLibraryReference struct {
 	LibraryPath string `json:"libraryPath,omitempty"`
 }
 
-func apiJSONReferencedLibraryIDs(elements []apiJSONObject) map[string]bool {
-	referenced := map[string]bool{}
-	for _, element := range elements {
-		subject := rdf.ReferenceIRI(rdf.Term{}, element[1].value.(string))
-		for _, member := range element {
-			walkCompactValue(member.value, func(value any) {
-				if ref, ok := value.(APIJSONReference); ok {
-					id, _ := rdf.SubjectID(rdf.ReferenceIRI(subject, ref.ID))
-					referenced[id] = true
-				}
-			})
-		}
+// apiJSONNoteReferencedIDs adds the ids one element object references to referenced.
+func apiJSONNoteReferencedIDs(referenced map[string]bool, element apiJSONObject) {
+	subject := rdf.ReferenceIRI(rdf.Term{}, element[1].value.(string))
+	for _, member := range element {
+		walkCompactValue(member.value, func(value any) {
+			if ref, ok := value.(APIJSONReference); ok {
+				id, _ := rdf.SubjectID(rdf.ReferenceIRI(subject, ref.ID))
+				referenced[id] = true
+			}
+		})
 	}
-	return referenced
 }
 
-func apiJSONLibraryReferences(graph *rdf.Graph, elements []apiJSONObject) ([]APIJSONLibraryReference, error) {
-	referenced := apiJSONReferencedLibraryIDs(elements)
+func apiJSONLibraryReferences(graph *rdf.Graph, referenced map[string]bool) ([]APIJSONLibraryReference, error) {
 	out := make([]APIJSONLibraryReference, 0)
 	named := make(map[string]bool, len(referenced))
 	collect := func(graph *rdf.Graph) error {

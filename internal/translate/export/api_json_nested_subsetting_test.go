@@ -25,7 +25,7 @@ func TestAPIJSONNestedUsageInheritsThroughItsImpliedSubsetting(t *testing.T) {
 		part vehicle : Vehicle { part wheel; }
 	}`, IDQualifiedName)
 	var references []APIJSONLibraryReference
-	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{LibraryReferences: func(refs []APIJSONLibraryReference) {
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true, LibraryReferences: func(refs []APIJSONLibraryReference) {
 		references = refs
 	}})
 	if err != nil {
@@ -87,7 +87,7 @@ func TestAPIJSONRequirementConstraintsInheritThroughTheirCheckCollections(t *tes
 		}
 	}`, IDQualifiedName)
 	var references []APIJSONLibraryReference
-	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{LibraryReferences: func(refs []APIJSONLibraryReference) {
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true, LibraryReferences: func(refs []APIJSONLibraryReference) {
 		references = refs
 	}})
 	if err != nil {
