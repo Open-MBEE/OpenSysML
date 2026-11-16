@@ -590,6 +590,13 @@ const GRPC_BINARY = get(ENV, "OPENSYSML_GRPC_BINARY",
     end
 end
 
+@testset "type and specialization facts still construct without a qualified name" begin
+    type = TypeFacts("T", "P::'@2'", "partDef", "", "", false, "", OpenSysML.TypeRef[])
+    @test type.resolved_id == "P::'@2'"
+    @test type.resolved_qualified_name == ""
+    @test Specialization("typing", "T", "P::T", "partDef").target_qualified_name == ""
+end
+
 include("extended_client.jl")
 include("authoring.jl")
 include("binary.jl")

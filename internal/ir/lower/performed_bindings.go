@@ -37,7 +37,7 @@ func PerformedPinBindings(graph *ActionGraph, prefix []string, bindings []Bindin
 					pinBinding.OtherChain, pinBinding.OtherFeature = chain, feature
 				}
 			}
-			out = append(out, withBindingExprs(pinBinding, exprs))
+			out = append(out, graph.withBindingIDs(withBindingExprs(pinBinding, exprs)))
 		}
 	}
 	return out, nil
