@@ -90,9 +90,8 @@ func TestDerivedFeaturingTypes(t *testing.T) {
 	}
 }
 
-// Feature::canAccess (KerML 1.1 §8.3.3.3.4) walks the featuring types of featuring features, so a
-// nested feature reaches what its enclosing types inherit and nothing a nested classifier's owner does;
-// a variable feature reaches its owning type through the snapshots feature featuring it.
+// Feature::canAccess (KerML 1.1 §8.3.3.3.4) walks the featuring types of featuring features: enclosing
+// types' inherited features are reached, a nested classifier's owner is not, a variable's owning type is.
 func TestCanAccess(t *testing.T) {
 	cases := []struct {
 		feature, target string
