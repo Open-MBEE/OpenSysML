@@ -29,10 +29,10 @@ digraph "NotationGlyphs::Diagrams::definitionGlyphs" {
     { rank=max; "frame_bl" [shape=none, margin=0, label=<<font point-size="10">filter @SysML::Definition or @SysML::Usage</font>>]; }
   }
   "n0" -> "n1" [dir=back, arrowtail=diamond];
-  "n2" -> "n1" [label="references", arrowhead=onormaldot];
+  "n2" -> "n1" [label="references", arrowhead=onormaldot, class="reference-subsetting"];
   "n0" -> "n2" [dir=back, arrowtail=odiamond];
-  "n0" -> "n3" [dir=back, arrowtail=dot];
-  "n0" -> "n4" [dir=back, arrowtail=dot];
+  "n0" -> "n3" [dir=back, arrowtail=dot, class="portion-relationship"];
+  "n0" -> "n4" [dir=back, arrowtail=dot, class="portion-relationship"];
   "n0" -> "n5" [label="event", arrowhead=vee];
   "n6" -> "n9" [label="require", arrowhead=vee];
   "n6" -> "n10" [label="assume", arrowhead=vee];

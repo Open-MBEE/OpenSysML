@@ -28,7 +28,7 @@ package Test {
 			}
 		}
 
-		transition first idle accept Go do { assign log := log + "go(effect);"; } then split;
+		transition first idle accept Go do { assign log := log + "go(effect);"; } then both.left.split;
 		transition first both accept Stop then done;
 	}
 	attribute def Go;

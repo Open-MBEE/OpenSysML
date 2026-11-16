@@ -15,6 +15,6 @@ package test {
             transition first dead if false then active;
         }
 
-        transition first outer accept Reset do assign fired := true then resume;
+        transition first outer accept Reset do assign fired := true then outer.resume;
     }
 }

@@ -79,10 +79,10 @@ func positionalCandidatesOf(doc Document, res *resolve.Resolver, model *semantic
 			if !positionalSymbol(sym, doc.File.Name(), identifies) {
 				continue
 			}
-			// A positional name, or one derived from the feature the symbol implicitly
-			// redefines (`Check::obj`): either is a name the index resolves to nothing.
+			// A name derived from the feature the symbol implicitly redefines (`Check::obj`) is one
+			// the index resolves to nothing; an `@N` address is apart from a declared `'@N'`.
 			name, ok := names.FQN[sym.Decl]
-			if !ok || len(index.LookupQualified(name)) != 0 {
+			if !ok || !IsPositionalIdentity(name) && len(index.LookupQualified(name)) != 0 {
 				continue
 			}
 			if candidates[name] == nil {

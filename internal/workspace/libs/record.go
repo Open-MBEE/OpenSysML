@@ -175,7 +175,7 @@ func supersOf(sym *symbols.Symbol, idx *symbols.Index, model *semantics.Model) (
 	}
 	complete := true
 	for _, rel := range rels {
-		if !semantics.GeneralizationKind(rel.Kind) {
+		if !semantics.Generalizes(sym, rel.Kind) {
 			continue
 		}
 		if ast.AsQualifiedName(rel.Target) == nil {

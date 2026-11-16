@@ -86,6 +86,9 @@ diagnostics(model)
 errors(model)
 symbol(model, "Demo::Car")
 get_symbol(model, "Demo::Car")
+get_symbol(model, "Demo::Car"; lookup=:qualified_name)   # only as a qualified name
+get_symbol(model, "Demo::Car::@3"; lookup=:element_id)   # only as an id the service reported
+element_properties(model, "Demo::Car::@3"; lookup=:element_id)
 find(model, "Car")
 get(model, "Demo::Car", nothing)
 ```

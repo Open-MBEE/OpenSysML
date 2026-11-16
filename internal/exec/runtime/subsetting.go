@@ -586,8 +586,8 @@ func (ctx *Context) metadataSubsettingNames(sym, owner *symbols.Symbol) []string
 }
 
 // implicitSubsettingNames returns the names of the owner features sym and the
-// features it redefines implicitly subset by nesting (SysML v2 §8.3); only
-// model-declared usages contribute theirs.
+// features it redefines implicitly subset by nesting (SysML v2 §8.3), whichever
+// document declares them: a library's nested usages contribute like a model's.
 func (ctx *Context) implicitSubsettingNames(sym, owner *symbols.Symbol) []string {
 	var names []string
 	for _, sub := range ctx.model.semantics.ImplicitSubsettings(sym) {
@@ -1089,10 +1089,12 @@ func (inst *Instance) materializeFromSubsetted(ctx *Context, fv *FeatureValue, n
 		return false, err
 	}
 	taken := ctx.siblingSubsetterValues(inst, fv, slots)
-	chosen, seen, err := ctx.bindingWitnesses(inst, name, composite, pool, pooled, taken)
+	draw, err := ctx.bindingWitnesses(inst, name, composite, pool, pooled, taken)
 	if err != nil {
 		return false, err
 	}
+	chosen, seen := draw.chosen, draw.seen
+	pool, pooled = draw.pool, draw.pooled
 	want := fewestOf(mult)
 	if mult.Upper.Known && !mult.Upper.Infinite && int64(len(chosen)) > mult.Upper.Value {
 		chosen = chosen[:mult.Upper.Value]
@@ -1286,14 +1288,14 @@ func (ctx *Context) siblingSubsetterValues(inst *Instance, fv *FeatureValue, sub
 
 // bindingWitnesses draws, per binding constraining the named feature, as many of its other end's
 // values as the binding links, from pool where the subsetted features fix one (KerML 1.1 §7.4.6).
-func (ctx *Context) bindingWitnesses(inst *Instance, name string, composite *symbols.Symbol, pool []Value, pooled bool, taken map[valueKey]bool) ([]Value, map[valueKey]int, error) {
+func (ctx *Context) bindingWitnesses(inst *Instance, name string, composite *symbols.Symbol, pool []Value, pooled bool, taken map[valueKey]bool) (*witnessDraw, error) {
 	draw := witnessDraw{ctx: ctx, inst: inst, fv: inst.FeatureValues[name], composite: composite, pooled: pooled, pool: pool, taken: taken}
 	// A binding of an owner naming the feature through its path constrains it as well.
 	for current, path := inst, name; current != nil; {
 		if ctx.declaresBindings(current) {
 			for _, binding := range ctx.bindingsOf(current, path) {
 				if err := ctx.drawBindingWitnesses(&draw, inst, current, binding, path); err != nil {
-					return nil, nil, err
+					return nil, err
 				}
 			}
 		}
@@ -1304,7 +1306,8 @@ func (ctx *Context) bindingWitnesses(inst *Instance, name string, composite *sym
 		path = ownerFeature + "." + path
 		current = owner
 	}
-	return draw.chosen, draw.seen, nil
+	draw.narrow()
+	return &draw, nil
 }
 
 // ownersDeclareBindings reports whether inst or an owner of it declares a binding: where none
@@ -1350,6 +1353,39 @@ type witnessDraw struct {
 	taken     map[valueKey]bool
 	chosen    []Value
 	seen      map[valueKey]int
+	// required counts the leading chosen values an end requiring a link makes the feature hold;
+	// within lists, per binding whose other end requires one, the values the feature's are among.
+	required int
+	within   [][]Value
+}
+
+// require draws every candidate ahead of the witnesses a binding only may link.
+func (d *witnessDraw) require(candidates []Value) {
+	n := len(d.chosen)
+	d.pick(candidates, int64(len(candidates)))
+	added := slices.Clone(d.chosen[n:])
+	d.chosen = slices.Insert(d.chosen[:n:n], d.required, added...)
+	d.required += len(added)
+}
+
+// narrow keeps of the chosen values and the pool those every within holds, which stand for
+// the pool of a feature that has none.
+func (d *witnessDraw) narrow() {
+	if len(d.within) == 0 {
+		return
+	}
+	for _, els := range d.within {
+		d.chosen = d.ctx.valuesAlsoIn(d.chosen, els)
+		if !d.pooled {
+			d.pool, d.pooled = d.ctx.poolValues(els, d.fv.Feature.Unique), true
+			continue
+		}
+		d.pool = d.ctx.valuesAlsoIn(d.pool, els)
+	}
+	d.seen = make(map[valueKey]int, len(d.chosen))
+	for _, v := range d.chosen {
+		d.seen[d.ctx.valueKey(v)]++
+	}
 }
 
 // typed keeps the candidates the drawn feature may hold: objects for an object feature, else values its type admits.
@@ -1357,9 +1393,9 @@ func (d *witnessDraw) typed(candidates []Value) ([]Value, error) {
 	kept := candidates[:0:0]
 	for _, v := range candidates {
 		admits := v.Kind == ValInstance
-		if d.composite == nil {
+		if d.composite == nil || (!admits && d.ctx.model.semantics.IsDataType(d.composite)) {
 			var err error
-			if admits, err = d.ctx.poolAdmits(d.inst, d.fv, nil, v); err != nil {
+			if admits, err = d.ctx.poolAdmits(d.inst, d.fv, d.composite, v); err != nil {
 				return nil, err
 			}
 		}
@@ -1383,7 +1419,7 @@ func (d *witnessDraw) pooledOccurrences(v Value) int {
 }
 
 // drawBindingWitnesses draws from the other end of binding, when it constrains path at
-// current, as many of that end's values as the binding links.
+// current, as many of that end's values as the binding links, by its ends' cross multiplicities.
 func (ctx *Context) drawBindingWitnesses(draw *witnessDraw, inst, current *Instance, binding lower.Binding, path string) error {
 	end := bindingEndForPath(binding, path)
 	if end < 0 {
@@ -1421,6 +1457,15 @@ func (ctx *Context) drawBindingWitnesses(draw *witnessDraw, inst, current *Insta
 	}
 	if candidates, err = draw.typed(candidates); err != nil {
 		return err
+	}
+	// The other end requiring a link has this end's values among its own (KerML 1.1 §7.4.5.2).
+	if cross, stated := ctx.endCross(binding, 1-end); stated && requiresLink(cross) {
+		draw.within = append(draw.within, candidates)
+	}
+	// This end requiring one holds every value of the other.
+	if cross, stated := ctx.endCross(binding, end); stated && requiresLink(cross) {
+		draw.require(candidates)
+		return nil
 	}
 	links, _ := ctx.bindingLinks(binding)
 	draw.pick(candidates, links)
