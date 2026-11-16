@@ -21,9 +21,8 @@ const quantityValueTypeSource = `package M {
 	calc asEnergy : AsEnergy;
 }`
 
-// A quantity read off the service names the quantity value type it is held as,
-// over every transport, and sent back it is still of that type: the sibling
-// type refuses it, where the same magnitude held as no type is taken.
+// Over every transport a quantity names the quantity value type it is held as, and sent
+// back the sibling type refuses it, where the same magnitude held as no type is taken.
 func TestQuantityValueTypeCrossesEveryTransport(t *testing.T) {
 	address := startService(t)
 	for name, client := range map[string]opensysml.Client{

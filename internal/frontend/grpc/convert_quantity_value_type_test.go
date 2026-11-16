@@ -37,9 +37,8 @@ package M {
 }
 `
 
-// A quantity crosses with the quantity value type it is held as and reads back
-// as held, so the sibling type that refuses it in the model refuses it when a
-// client sends it back; one held as no type crosses and reads back with none.
+// A quantity crosses with the quantity value type it is held as and reads back as held,
+// so the sibling type refuses it sent back; one held as no type crosses with none.
 func TestQuantityValueTypeRoundTrip(t *testing.T) {
 	srv := mustNewService(t, 4)
 	modelHash := mustParse(t, srv, quantityValueTypeWireModel)
