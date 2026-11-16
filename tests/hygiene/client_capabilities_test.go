@@ -134,9 +134,8 @@ func TestClientCapabilityChecklist(t *testing.T) {
 	}
 }
 
-// capabilityDecodes names, for each capability that only populates a response, the read of
-// the generated message that decodes it: a client has nothing to gate there, so the decoding
-// is what binds it. A capability a request depends on is bound by naming its constant instead.
+// capabilityDecodes names, for each capability that only populates a response and so has
+// nothing to gate, the read of the generated message that decodes it and thereby binds it.
 var capabilityDecodes = map[string]*regexp.Regexp{
 	"ConvertLibraryReferences": regexp.MustCompile(`\bresp\.LibraryReferences\b`),
 	"DiagnosticCodes":          regexp.MustCompile(`\bdiag\.Code\b`),
