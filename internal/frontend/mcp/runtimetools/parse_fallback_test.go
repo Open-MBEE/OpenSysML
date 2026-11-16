@@ -45,3 +45,18 @@ func TestParseOfOneDocumentWithoutParseSources(t *testing.T) {
 		}
 	}
 }
+
+func TestLookupKindReadsTheProtojsonSpelling(t *testing.T) {
+	for lookup, want := range map[string]pb.LookupKind{
+		"":                           pb.LookupKind_LOOKUP_KIND_UNSPECIFIED,
+		"LOOKUP_KIND_QUALIFIED_NAME": pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME,
+		"LOOKUP_KIND_ELEMENT_ID":     pb.LookupKind_LOOKUP_KIND_ELEMENT_ID,
+	} {
+		if got, err := lookupKind(lookup); err != nil || got != want {
+			t.Errorf("lookupKind(%q) = %v, %v; want %v", lookup, got, err, want)
+		}
+	}
+	if _, err := lookupKind("element_id"); err == nil {
+		t.Error("lookupKind accepted a spelling protojson does not write")
+	}
+}

@@ -67,6 +67,10 @@ type Model struct {
 	defaultMultiplicities map[*symbols.Symbol]*symbols.Symbol
 	// successionEnds memoizes the end features each `then` succession implies (SuccessionEndMembers).
 	successionEnds map[*symbols.Symbol][]*symbols.Symbol
+	// flowEnds memoizes the two FlowEnds each flow implies (FlowEndMembers); flowEndFeatures the
+	// ReferenceUsage each of those ends owns (FlowEndFeatureMember).
+	flowEnds        map[*symbols.Symbol][]*symbols.Symbol
+	flowEndFeatures map[*symbols.Symbol]*symbols.Symbol
 	// declaredMultiplicities caches, per usage, the MultiplicityRange its written range
 	// declares (DeclaredMultiplicityMember).
 	declaredMultiplicities map[*symbols.Symbol]*symbols.Symbol
@@ -176,6 +180,9 @@ type Model struct {
 	// parameter or member the body declares finds its owner.
 	bodySymbols map[*ast.BodyExpr]*symbols.Symbol
 	bodyIndexed map[*symbols.Scope]bool
+	// constraintResults is the result expression element reflected for the
+	// closing bare condition of each constraint body (see constraint_result.go).
+	constraintResults map[*symbols.Symbol]*symbols.Symbol
 	// assumedSupers holds the supertypes a reducer's first parameter is judged under
 	// while its reducer's result is typed (see bodyparam.go).
 	assumedSupers map[*symbols.Symbol]assumedSupertypes
@@ -227,6 +234,8 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		flowEndChains:          make(map[flowEndKey]*symbols.Symbol),
 		defaultMultiplicities:  make(map[*symbols.Symbol]*symbols.Symbol),
 		successionEnds:         make(map[*symbols.Symbol][]*symbols.Symbol),
+		flowEnds:               make(map[*symbols.Symbol][]*symbols.Symbol),
+		flowEndFeatures:        make(map[*symbols.Symbol]*symbols.Symbol),
 		declaredMultiplicities: make(map[*symbols.Symbol]*symbols.Symbol),
 		multiplicityBase:       make(map[*symbols.Symbol]*symbols.Symbol),
 		subtracting:            make(map[*symbols.Symbol]bool),
@@ -337,9 +346,20 @@ func RelationshipsOf(sym *symbols.Symbol) []*ast.Relationship {
 		return d.Relationships
 	case *ast.RequireMember:
 		return d.Relationships
+	case *ast.PrefixMetadata:
+		return metadataRelationships(d)
 	default:
 		return nil
 	}
+}
+
+// metadataRelationships returns a metadata usage's relationships: the typing its
+// `@M` or `#M` states (SysML.xtext MetadataUsage), the one written relationship it has.
+func metadataRelationships(n *ast.PrefixMetadata) []*ast.Relationship {
+	if n.Type == nil {
+		return nil
+	}
+	return []*ast.Relationship{{Kind: ast.RelTyping, Target: n.Type}}
 }
 
 // subjectRelationships returns a subject parameter's relationships, the typing
@@ -495,6 +515,13 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	if p := m.implicitEndParticipant(sym, len(ends) > 0 || declaresRedefinition(sym)); p != nil && p != sym && !seen[p] {
 		seen[p] = true
 		out = append(out, p)
+	}
+
+	// The ReferenceUsage a flow's end owns redefines the feature the end names last, and so
+	// takes that feature's type (see flow_ends.go).
+	if redefined := m.flowEndFeatureRedefinition(sym); redefined != nil && redefined != sym && !seen[redefined] {
+		seen[redefined] = true
+		out = append(out, redefined)
 	}
 
 	// The cross feature an end owns is implicitly typed by the end's types and

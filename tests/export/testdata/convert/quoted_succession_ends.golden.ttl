@@ -2806,7 +2806,7 @@ elmt:ba29c6dc-70bc-55d8-941f-f3834db7107b
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:bb171c5a-39c5-5803-b8ee-ff7569dfbee1
-    a sysml:EndFeatureMembership ;
+    a sysml:FeatureMembership ;
     sysml:elementId "bb171c5a-39c5-5803-b8ee-ff7569dfbee1" ;
     sysml:memberElement <urn:sysmlv2:element:7d7065b6-1bb8-5bb5-b421-cc92f2e84584> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
@@ -3032,7 +3032,7 @@ elmt:fa7ae9b8-a423-52af-8914-96842d7b905f
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:fb648cc7-6cf6-504b-9234-7f31f1b42d6c
-    a sysml:EndFeatureMembership ;
+    a sysml:FeatureMembership ;
     sysml:elementId "fb648cc7-6cf6-504b-9234-7f31f1b42d6c" ;
     sysml:memberElement <urn:sysmlv2:element:99bd4b60-e5a9-55fb-8cea-1dcf517e50ec> ;
     sysml:isLibraryElement "true"^^xsd:boolean .

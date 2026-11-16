@@ -1,6 +1,7 @@
 package lower
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -33,6 +34,8 @@ type StateBehavior struct {
 	// Owner is the state whose attributes the behavior reads and writes: the
 	// state it belongs to, or the source of the transition it is an effect of.
 	Owner *ast.StateNode
+	// OwnerID is Owner by id in the machine the behavior was lowered for.
+	OwnerID program.StateID
 	// Block is the transition whose body the behavior is one step of, shared by
 	// the steps of that body and by no other: a `terminate` in one ends them all.
 	// Every other behavior is a performance of its own and has none (nil).
