@@ -257,3 +257,25 @@ func TestMembershipImportOfAnAliasImportsTheAliasMembership(t *testing.T) {
 		}
 	}
 }
+
+// A feature read from a metadata annotation takes the value the annotation's own type binds
+// to it, before the default of the type the filter casts to (KerML 8.4.4.14, 7.3.4.5).
+func TestAPIJSONGraphImportedMembershipFilterReadsARedefinedDefault(t *testing.T) {
+	elements := importProbeElements(t, `package Probe {
+	metadata def Safety { attribute level : ScalarValues::Natural = 1; }
+	metadata def Strict :> Safety { attribute :>> level = 2; }
+	metadata def Stricter :> Strict;
+	package Lib {
+		part a { @Safety; }
+		part b { @Strict; }
+		part c { @Stricter; }
+		part d { @Stricter { level = 3; } }
+	}
+	package One { import Lib::*; filter (as Safety).level == 1; }
+	package Two { import Lib::*; filter (as Safety).level == 2; }
+	package Three { import Lib::*; filter (as Safety).level == 3; }
+}`)
+	wantReferences(t, elements, "Probe__One", "importedMembership", "Probe__Lib__a_om")
+	wantReferences(t, elements, "Probe__Two", "importedMembership", "Probe__Lib__b_om", "Probe__Lib__c_om")
+	wantReferences(t, elements, "Probe__Three", "importedMembership", "Probe__Lib__d_om")
+}

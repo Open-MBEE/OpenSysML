@@ -425,6 +425,11 @@ func (e *Evaluator) structureAnnotationValue(typ, feature Element, metadata []El
 				break
 			}
 		}
+		if e.structureFeatureKey(bound) == target {
+			if bound, ok = e.structureInheritedBinding(annotation, feature, target); !ok {
+				return filterValue{}, false
+			}
+		}
 		value, found, ok := e.structureBoundValue(bound)
 		if !ok {
 			return filterValue{}, false
@@ -434,6 +439,54 @@ func (e *Evaluator) structureAnnotationValue(typ, feature Element, metadata []El
 		}
 	}
 	return filterValue{}, true
+}
+
+// structureInheritedBinding is the feature the types of a metadata annotation bind feature
+// through: the nearest redefinition of it they or their supertypes own, else feature itself.
+func (e *Evaluator) structureInheritedBinding(annotation, feature Element, target ElementKey) (Element, bool) {
+	types, handled, ok := e.structureFeatureTypes(annotation)
+	if !handled || !ok {
+		return Element{}, false
+	}
+	var pending []Element
+	for _, value := range types.Values {
+		if value.Kind != ElementValue {
+			return Element{}, false
+		}
+		pending = append(pending, value.Element)
+	}
+	visited := map[ElementKey]bool{}
+	for len(pending) > 0 {
+		current := pending[0]
+		pending = pending[1:]
+		key := e.structureFeatureKey(current)
+		if visited[key] || e.structureLibrarySymbol(current) != nil {
+			continue
+		}
+		visited[key] = true
+		owned, handled, ok := e.structureOwnedFeatures(current)
+		if !handled || !ok {
+			return Element{}, false
+		}
+		for _, candidate := range owned.Values {
+			if candidate.Kind != ElementValue {
+				return Element{}, false
+			}
+			redefines, ok := e.structureRedefines(candidate.Element, target, map[ElementKey]bool{})
+			if !ok {
+				return Element{}, false
+			}
+			if redefines {
+				return candidate.Element, true
+			}
+		}
+		bases, ok := e.structureOwnedSupertypes(current)
+		if !ok {
+			return Element{}, false
+		}
+		pending = append(pending, bases...)
+	}
+	return feature, true
 }
 
 // structureRedefines reports whether feature redefines target, directly or through the
