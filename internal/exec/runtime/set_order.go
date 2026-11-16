@@ -57,7 +57,9 @@ func (ctx *Context) canonicalCompare(a, b Value) int {
 		if cyclicA != cyclicB {
 			return compareBool(cyclicA, cyclicB)
 		} else if cyclicA {
-			return cmp.Or(cmp.Compare(ma.cycle, mb.cycle), cmp.Compare(ma.class, mb.class))
+			if c := cmp.Or(cmp.Compare(ma.cycle, mb.cycle), compareBool(ma.classed, mb.classed), cmp.Compare(ma.class, mb.class)); c != 0 || ma.classed {
+				return c
+			}
 		}
 		if c, err := semantics.CompareMagnitudes(qa, qb); err == nil {
 			return c
@@ -108,6 +110,7 @@ func (ctx *Context) canonicalQuantity(q Quantity) Quantity {
 type cyclicMembership struct {
 	unit         Unit
 	cycle, class float64
+	classed      bool // false for a magnitude binary64 does not hold, which is a member as written
 }
 
 // cyclicMember is the membership of a value on a cyclic ratio scale; false for any other quantity.
@@ -117,7 +120,8 @@ func (ctx *Context) cyclicMember(q *Quantity) (cyclicMembership, bool) {
 		return cyclicMembership{}, false
 	}
 	period := Quantity{Num: semantics.Value{Kind: semantics.ValReal, Real: scale.Scale.Modulus}, Unit: scale.Scale.Unit}
-	return cyclicMembership{unit: scale.Scale.Unit, cycle: period.BaseMagnitude(), class: cycleClass(q.Num.AsReal(), scale.Scale.Modulus)}, true
+	class, classed := cycleClass(q.Num.AsReal(), scale.Scale.Modulus)
+	return cyclicMembership{unit: scale.Scale.Unit, cycle: period.BaseMagnitude(), class: class, classed: classed}, true
 }
 
 // sameMember is the equality that has to hold or fail (a set member, a sequence element):
@@ -126,8 +130,13 @@ func (ctx *Context) sameMember(a, b *Quantity) bool {
 	ma, cyclicA := ctx.cyclicMember(a)
 	mb, cyclicB := ctx.cyclicMember(b)
 	if cyclicA || cyclicB {
-		return cyclicA && cyclicB && ma.cycle == mb.cycle && ma.class == mb.class &&
-			ma.unit.Term.DimensionKey() == mb.unit.Term.DimensionKey()
+		if !(cyclicA && cyclicB && ma.cycle == mb.cycle && ma.classed == mb.classed &&
+			ma.unit.Term.DimensionKey() == mb.unit.Term.DimensionKey()) {
+			return false
+		}
+		if ma.classed {
+			return ma.class == mb.class
+		}
 	}
 	c, err := semantics.CompareMagnitudes(ctx.canonicalQuantity(*a), ctx.canonicalQuantity(*b))
 	return err == nil && c == 0

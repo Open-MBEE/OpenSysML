@@ -574,3 +574,59 @@ func valueKeyOf(t *testing.T, ctx *Context, scope *symbols.Scope, src string) an
 	}
 	return ctx.valueKey(v)
 }
+
+// TestScaleKindsBeyondFinite: an infinity is no magnitude on any scale, and a magnitude binary64
+// does not hold gives a typed answer on each: never a NaN class, never a panic.
+func TestScaleKindsBeyondFinite(t *testing.T) {
+	ctx, idx := libraryModelContext(t, scaleKindsModel)
+	pkg, _ := idx.DocumentRoot("<test>").LookupLocal("test")
+	scope := pkg.Scope
+	for _, src := range []string{
+		"* [bearing]", "-* [bearing]", "* [dBm]", "-* [acidity]", "450 [bearing] * *", "450 [bearing] + *", "450 [bearing] < *",
+		"30.0 [dBm] < -*", "max(450 [bearing], *)", "ConvertQuantity(* [dBm], W)", "ConvertQuantity(-* ['°'], bearing)",
+	} {
+		if got, err := evalIn(t, ctx, scope, src); err == nil {
+			t.Errorf("%s = %s; want an error: an infinity is no magnitude of a quantity", src, FormatValue(got))
+		}
+	}
+	const huge = "(1.0e308 [bearing] * 10.0)"
+	for src, want := range map[string]bool{
+		"450 [bearing] == *":                                               false,
+		"30.0 [dBm] == -*":                                                 false,
+		huge + " == " + huge:                                               true,
+		huge + " == (1.0e308 [bearing] * 20.0)":                            false,
+		huge + " == 0 [bearing]":                                           false,
+		huge + " > 1 [bearing]":                                            true,
+		"(" + huge + ", 1 [bearing])->includes(" + huge + ")":              true,
+		"(" + huge + ", 1 [bearing])->includes(1.0e308 [bearing] * 20.0)":  false,
+		"(" + huge + ", 1 [bearing])->includes(-1.0e308 [bearing] * 10.0)": false,
+		"(10 ** 400) [bearing] == (10 ** 400) [bearing]":                   true,
+		"30.0 [dBm] == (1.0e308 [W] * 10.0)":                               false,
+		"(1.0e308 [W] * 10.0) == 30.0 [dBm]":                               false,
+		"30.0 [dBm] != (1.0e308 [W] * 10.0)":                               true,
+		"30.0 [dBm] == 0.0 [W]":                                            false,
+		"0.0 [W] == 30.0 [dBm]":                                            false,
+		"1.0e308 [dBm] == 1.0 [W]":                                         false,
+		"1.0 [W] == 1.0e308 [dBm]":                                         false,
+		"(30.0 [dBm], 20.0 [dBm])->includes(1.0e308 [W] * 10.0)":           false,
+	} {
+		if got, err := evalIn(t, ctx, scope, src); err != nil || got.Const.Bool != want {
+			t.Errorf("%s = %v, %v; want %v", src, got, err, want)
+		}
+	}
+	for src, want := range map[string]error{
+		"30.0 [dBm] < (1.0e308 [W] * 10.0)":        semantics.ErrArithmeticOverflow,
+		"ConvertQuantity(1.0e308 [W] * 10.0, dBm)": semantics.ErrArithmeticOverflow,
+		"ConvertQuantity((10 ** 400) [W], dBm)":    semantics.ErrArithmeticOverflow,
+		"ConvertQuantity(1.0e308 [dBm], W)":        semantics.ErrArithmeticOverflow,
+		"30.0 [dBm] > 0.0 [W]":                     semantics.ErrArithmeticDomain,
+		"30.0 [dBm] == 1.0 [s]":                    ErrIncommensurableUnits,
+	} {
+		if got, err := evalIn(t, ctx, scope, src); !errors.Is(err, want) {
+			t.Errorf("%s = %s, %v; want %v", src, FormatValue(got), err, want)
+		}
+	}
+	if got, err := evalIn(t, ctx, scope, "ConvertQuantity("+huge+", '°')"); err != nil || FormatValue(got) != "1e+309 ['°']" {
+		t.Errorf("a cyclic value past binary64 converts as written: got %s, %v", FormatValue(got), err)
+	}
+}

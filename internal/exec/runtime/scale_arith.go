@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"math"
 
@@ -374,13 +375,17 @@ func (ctx *Context) sharedCycle(unit Unit, cycles ...*Quantity) (float64, error)
 // cycleClasses is how finely a cycle is told apart: equivalent values meet up to binary64 rounding.
 const cycleClasses = 1 << 40
 
-// cycleClass numbers the values equivalent to x over cycle: one number per class.
-func cycleClass(x, cycle float64) float64 {
+// cycleClass numbers the values equivalent to x over cycle: one number per class. A magnitude
+// binary64 does not hold has no class it can tell: it is the infinity AsReal gave, and false.
+func cycleClass(x, cycle float64) (float64, bool) {
+	if math.IsInf(x, 0) || math.IsNaN(x) {
+		return x, false
+	}
 	p := math.Mod(x, cycle)
 	if p < 0 {
 		p += cycle
 	}
-	return math.Mod(math.Round(p/cycle*cycleClasses), cycleClasses)
+	return math.Mod(math.Round(p/cycle*cycleClasses), cycleClasses), true
 }
 
 // isBareZero reports a zero with no unit, which adopts the other operand's reference.
@@ -396,7 +401,9 @@ func (ctx *Context) compareMagnitudes(left, right *Quantity) (int, error) {
 		return 0, err
 	}
 	if cycle != 0 && l.Num.IsNumeric() && r.Num.IsNumeric() {
-		if cycleClass(l.Num.AsReal(), cycle) == cycleClass(r.Num.AsReal(), cycle) {
+		lclass, lok := cycleClass(l.Num.AsReal(), cycle)
+		rclass, rok := cycleClass(r.Num.AsReal(), cycle)
+		if lok && rok && lclass == rclass {
 			return 0, nil
 		}
 	}
@@ -428,9 +435,20 @@ func (ctx *Context) compareQuantities(op ast.OperatorKind, left, right *Quantity
 func (ctx *Context) equalQuantities(op ast.OperatorKind, left, right *Quantity) (Value, error) {
 	c, err := ctx.compareMagnitudes(left, right)
 	if err != nil {
+		// A quantity with no value on a logarithmic scale equals none of its values, either way round.
+		if (errors.Is(err, semantics.ErrArithmeticDomain) || errors.Is(err, semantics.ErrArithmeticOverflow)) &&
+			(ctx.isLogarithmic(left) || ctx.isLogarithmic(right)) {
+			return boolValue(op == ast.OpNeq), nil
+		}
 		return Value{}, err
 	}
 	return boolValue((c == 0) != (op == ast.OpNeq)), nil
+}
+
+// isLogarithmic reports a value on a logarithmic scale.
+func (ctx *Context) isLogarithmic(q *Quantity) bool {
+	scale, point, err := ctx.pointOf(q)
+	return err == nil && point && ctx.scaleKindOf(scale.Type) == logarithmicScale
 }
 
 // negateQuantity negates a quantity's magnitude, keeping its unit and the magnitude's
