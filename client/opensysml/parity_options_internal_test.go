@@ -46,6 +46,14 @@ func TestLibraryStubsAreNotRequestedWithoutTheCapability(t *testing.T) {
 	}
 }
 
+// The inherited member lists are refused the same way without convert_inherited_members.
+func TestInheritedMembersAreNotRequestedWithoutTheCapability(t *testing.T) {
+	old := &oldCaller{t: t, capabilities: []string{CapabilityConvert}}
+	c := &client{caller: old}
+	_, err := c.ConvertSource(context.Background(), "package P;", FormatAPIJSON, WithFromFormat(FormatSysML), WithInheritedMembers())
+	wantMissingCapability(t, "ConvertSource", err, CapabilityConvertInheritedMembers)
+}
+
 // A base model is refused the same way without parse_sources_affected, since a
 // service without it would parse the documents and report no affected set.
 func TestABaseModelIsNotSentWithoutTheCapability(t *testing.T) {

@@ -43,8 +43,8 @@ package ForkThroughInactiveAncestors {
             }
         }
         transition first idle do { assign log := log + "T1(effect) "; } then split;
-        transition first split do { assign log := log + "T1.1(effect) "; } then a;
-        transition first split do { assign log := log + "T1.2(effect) "; } then b;
+        transition first split do { assign log := log + "T1.1(effect) "; } then outer.main.work.left.a;
+        transition first split do { assign log := log + "T1.2(effect) "; } then outer.main.work.right.b;
         transition first outer do { assign log := log + "T2(effect) "; } then done;
     }
     attribute def Stop;

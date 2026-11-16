@@ -65,7 +65,7 @@ and is started without `$OPENSYSML_GRPC_TOKEN` in its environment.
 | `server_info()`, `capabilities()` | what `GetServerInfo` reported, asked once at connect |
 | `private_service_pid()` | the child's pid, or `None` for an external service |
 | `parse_sources(&[SourceDocument], &SourcesOptions)` | parses files and named inline content as one model; `SourcesOptions::base_model_hash` relates the parse to a previous model and the `Model`'s `affected()` names the documents whose results may differ from it (needs `parse_sources_affected`) |
-| `convert(to_format, &ConvertSource, &ConvertOptions)` | converts a file, content or held model; `IdForm` spells derived ids, `include_library_stubs` restores the pre-0.11.0 library stubs in API JSON (needs `convert_library_stubs`), `compact` writes the `api-json-compact/1` document with `omit_derived`/`keep_derived` trimming its derived properties (needs `convert_compact`), `include_check_diagnostics` reports the semantic check's diagnostics with their severities beside the output (needs `convert_check_diagnostics`), and a `Conversion` lists the `library_references` API JSON names beside its elements; a SysML v1 model is refused with `InvalidRequest` — it is migrated |
+| `convert(to_format, &ConvertSource, &ConvertOptions)` | converts a file, content or held model; `IdForm` spells derived ids, `include_library_stubs` restores the pre-0.11.0 library stubs in API JSON (needs `convert_library_stubs`), `inherited_members` also writes there the derived lists that repeat each Namespace's and Type's inherited and imported members (needs `convert_inherited_members`), `compact` writes the `api-json-compact/1` document with `omit_derived`/`keep_derived` trimming its derived properties (needs `convert_compact`), `include_check_diagnostics` reports the semantic check's diagnostics with their severities beside the output (needs `convert_check_diagnostics`), and a `Conversion` lists the `library_references` API JSON names beside its elements; a SysML v1 model is refused with `InvalidRequest` — it is migrated |
 | `migrate(to_format, &MigrateSource, &MigrateOptions)` | migrates a SysML v1 model (`.mdzip`, `.xmi`, `.uml`, as a file or inline bytes) to notation or Turtle, answering a `Migration` whose `report` gives every element's verdict and whose `write(path)` puts the image files beside the model |
 | `query(hash, &Query)`, `query_oslc(hash, text)` | selects elements, structured or as OSLC Query 3.0 text |
 | `run_document_query`, `render_document` | runs a named document query, renders a named document as Markdown or HTML |
@@ -107,6 +107,8 @@ for child in car.children()? { }       // one call per level
 car.members();                         // own then inherited, each with inherited_from and library
 car.withheld_library_members();        // standard-library members left out, until:
 model.symbol_with("Demo::Car", &SymbolOptions { include_library_members: true })?;
+model.symbol_by_name("Demo::Car")?;            // only as a qualified name
+model.symbol_by_element_id("Demo::Car::@3")?;  // only as an id the service reported
 
 let value: Value = model.eval("2 + 2")?;
 let evaluation = model.evaluate("mass", &EvalOptions { .. })?;   // subject, context
@@ -115,6 +117,13 @@ for instance in built.instances() {
     instance.feature("wheels");        // Option<&FeatureValue>
 }
 ```
+
+A qualified name and an element id can be spelled alike (`package Col__V__c_pend0` beside the
+unnamed connector end reported under that id), so `symbol_by_name` and `symbol_by_element_id`, or
+`SymbolOptions::lookup` and `element_properties_of` with a `Lookup`, state which the string is;
+`Lookup::Either`, the default, is the legacy form that reads a name first. Navigation over
+children, members and specialization targets asks by element id, and a service without
+`symbol_lookup_kind` is asked in the legacy form.
 
 `Symbol` exposes `id()`, `name()`, `kind()`, `children()`, `members()`, `own_members()`,
 `inherited_members()`, `withheld_library_members()`, `annotating_metadata_ids()` and

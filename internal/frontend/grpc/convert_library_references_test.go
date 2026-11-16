@@ -24,6 +24,41 @@ func TestConvertLibraryCapabilities(t *testing.T) {
 	}
 }
 
+// api-json carries owned structure; inherited_members adds the six inherited lists and
+// nothing else, and is refused for a target that has none.
+func TestConvertInheritedMembers(t *testing.T) {
+	srv := mustNewService(t, 10)
+	if !srv.Supports(CapabilityConvertInheritedMembers) {
+		t.Fatal("convert_inherited_members not advertised")
+	}
+	ctx := context.Background()
+	const source = "package P { part def A { attribute x; } part def B :> A; }"
+	convert := func(target string, inherited bool) (*pb.ConvertResponse, error) {
+		return srv.Convert(ctx, &pb.ConvertRequest{
+			Source: &pb.ConvertRequest_Content{Content: source}, FromFormat: "sysml", ToFormat: target, InheritedMembers: inherited,
+		})
+	}
+	for _, target := range []string{"sysml", "ttl"} {
+		if _, err := convert(target, true); connect.CodeOf(err) != connect.CodeInvalidArgument {
+			t.Fatalf("target %s: %v", target, err)
+		}
+	}
+	owned, err := convert("api-json", false)
+	if err != nil || owned.Error != "" {
+		t.Fatalf("convert: %v %v", owned, err)
+	}
+	complete, err := convert("api-json", true)
+	if err != nil || complete.Error != "" {
+		t.Fatalf("convert with inherited members: %v %v", complete, err)
+	}
+	if strings.Contains(owned.Content, `"inheritedFeature"`) || !strings.Contains(owned.Content, `"ownedFeature"`) {
+		t.Error("the default document is not the owned structure")
+	}
+	if !strings.Contains(complete.Content, `"inheritedFeature"`) {
+		t.Error("inherited_members wrote no inheritedFeature")
+	}
+}
+
 func TestConvertLibraryTableForContentAndCachedDocuments(t *testing.T) {
 	srv := mustNewService(t, 10)
 	ctx := context.Background()
@@ -60,7 +95,7 @@ func TestConvertLibraryTableForContentAndCachedDocuments(t *testing.T) {
 func TestConvertLibraryTableNamesUnnamedMembersByPath(t *testing.T) {
 	srv := mustNewService(t, 10)
 	response, err := srv.Convert(context.Background(), &pb.ConvertRequest{
-		Source: &pb.ConvertRequest_Content{Content: "package P { part def V; part car : V; }"}, FromFormat: "sysml", ToFormat: "api-json",
+		Source: &pb.ConvertRequest_Content{Content: "package P { part def V; part car : V; }"}, FromFormat: "sysml", ToFormat: "api-json", InheritedMembers: true,
 	})
 	if err != nil || response.Error != "" {
 		t.Fatalf("convert: %v %v", response, err)

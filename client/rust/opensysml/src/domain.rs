@@ -1177,17 +1177,45 @@ pub struct SymbolOptions {
     /// otherwise only counted by [`Symbol::withheld_library_members`]. Needs the
     /// `symbol_members` capability.
     pub include_library_members: bool,
-    /// Take the id as one the service reported (a child's, a member's), whatever its
-    /// visibility, instead of resolving it as a qualified name from the root namespace.
+    /// With [`Lookup::Either`] only: take the string as one the service reported rather than
+    /// resolving it from the root namespace; a declared name still comes first.
     pub by_reported_id: bool,
+    /// What the string names. [`Lookup::Either`], the default, is the legacy form.
+    pub lookup: Lookup,
 }
 
 impl SymbolOptions {
-    /// Options looking a symbol up by an id the service reported.
-    pub(crate) fn reported_id() -> Self {
+    /// Options looking a symbol up by an id the service reported, and by nothing else.
+    pub(crate) fn element_id() -> Self {
         Self {
-            by_reported_id: true,
+            lookup: Lookup::ElementId,
             ..Self::default()
+        }
+    }
+}
+
+/// What the one string of a lookup names: a qualified name and an id can be spelled alike
+/// (a member `'@3'` beside the unnamed member `Owner::@3`), so a lookup states which it is.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum Lookup {
+    /// The legacy form, one string for either kind: a declared name first, then an id, so
+    /// a declaration shadows the element an id of its spelling was reported for.
+    #[default]
+    Either,
+    /// A qualified name, resolved from the root namespace; never read as an id.
+    QualifiedName,
+    /// An id the service reported for an element, whatever its visibility; never read as
+    /// a name.
+    ElementId,
+}
+
+impl Lookup {
+    /// The kind as the request states it.
+    pub(crate) fn wire(self) -> wire::LookupKind {
+        match self {
+            Self::Either => wire::LookupKind::Unspecified,
+            Self::QualifiedName => wire::LookupKind::QualifiedName,
+            Self::ElementId => wire::LookupKind::ElementId,
         }
     }
 }
@@ -1311,7 +1339,7 @@ impl Symbol {
         for id in ids {
             match self
                 .connection()
-                .get_symbol(&self.model_hash, id, &SymbolOptions::reported_id())
+                .get_symbol(&self.model_hash, id, &SymbolOptions::element_id())
             {
                 Ok(child) => children.push(child),
                 Err(Error::Model(_)) => {}
@@ -1646,6 +1674,20 @@ impl Model {
     /// Look up a fully qualified symbol, choosing what the service lists for it.
     pub fn symbol_with(&self, fqn: &str, options: &SymbolOptions) -> Result<Symbol, Error> {
         self.connection.get_symbol(self.hash(), fqn, options)
+    }
+    /// Look a symbol up by its qualified name and nothing else, resolved from the root
+    /// namespace. A service without `symbol_lookup_kind` falls back to reading an id.
+    pub fn symbol_by_name(&self, name: &str) -> Result<Symbol, Error> {
+        let options = SymbolOptions {
+            lookup: Lookup::QualifiedName,
+            ..SymbolOptions::default()
+        };
+        self.symbol_with(name, &options)
+    }
+    /// Look a symbol up by an id the service reported ([`Symbol::id`], a child's, a member's)
+    /// and nothing else. A service without `symbol_lookup_kind` reads a declared name first.
+    pub fn symbol_by_element_id(&self, id: &str) -> Result<Symbol, Error> {
+        self.symbol_with(id, &SymbolOptions::element_id())
     }
     /// Instantiate a part or usage.
     pub fn instantiate(&self, fqn: &str) -> Result<Instantiation, Error> {

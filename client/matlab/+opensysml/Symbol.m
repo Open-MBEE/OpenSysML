@@ -161,8 +161,8 @@ end
 function symbol = fetchSymbol(model, id)
     symbol = [];
     try
-        raw = opensysml.call(model.connection, 'GetSymbol', ...
-            struct('modelHash', model.hash, 'symbolId', id));
+        raw = opensysml.call(model.connection, 'GetSymbol', opensysml.internal.lookupKind( ...
+            model.connection, struct('modelHash', model.hash, 'symbolId', id), 'element_id'));
         if isfield(raw, 'error') && ~isempty(raw.error), return; end
         if isfield(raw, 'symbol'), raw = raw.symbol; end
         symbol = opensysml.Symbol(raw, model);

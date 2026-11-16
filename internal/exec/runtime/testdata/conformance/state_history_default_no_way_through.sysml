@@ -21,7 +21,7 @@ package Test {
 			transition first dead if false then w1;
 		}
 
-		transition first idle accept Go then resume;
+		transition first idle accept Go then work.resume;
 		transition first idle accept Continue do assign log := log + " continued" then done;
 	}
 }

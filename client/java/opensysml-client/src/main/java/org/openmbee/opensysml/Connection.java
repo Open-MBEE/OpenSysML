@@ -637,6 +637,10 @@ public final class Connection implements AutoCloseable {
       capabilities.require(Capabilities.CONVERT_LIBRARY_STUBS);
       request.setIncludeLibraryStubs(true);
     }
+    if (options.inheritedMembers()) {
+      capabilities.require(Capabilities.CONVERT_INHERITED_MEMBERS);
+      request.setInheritedMembers(true);
+    }
     if (options.compact() || options.omitDerived() || !options.keepDerived().isEmpty()) {
       capabilities.require(Capabilities.CONVERT_COMPACT);
       request

@@ -16,9 +16,9 @@ use normalize::normalize;
 use opensysml::{
     wire, AnalysisOptions, Connection, ConvertOptions, ConvertSource, DocumentForm, DocumentValue,
     EditError, Error, EvalOptions, ExploredResponse, FailureReason, IdForm, Language, Layout,
-    MigrateOptions, MigrateSource, Model, ModelResponse, ParseOptions, Query, RecordOptions,
-    RenderViewPorts, RunOptions, RunsOptions, SourceDocument, SourcesOptions, Status, SweepOptions,
-    SweepRange, SymbolOptions, Value as SysmlValue, VerifyOptions,
+    Lookup, MigrateOptions, MigrateSource, Model, ModelResponse, ParseOptions, Query,
+    RecordOptions, RenderViewPorts, RunOptions, RunsOptions, SourceDocument, SourcesOptions,
+    Status, SweepOptions, SweepRange, SymbolOptions, Value as SysmlValue, VerifyOptions,
 };
 use prost::Message;
 use prost_reflect::{DescriptorPool, DeserializeOptions, DynamicMessage, SerializeOptions};
@@ -518,6 +518,7 @@ impl Runner {
         let options = SymbolOptions {
             include_library_members: bool_field(request, "include_library_members"),
             by_reported_id: !bool_field(request, "resolve_name"),
+            lookup: lookup_of(enum_field(request, "lookup")),
         };
         match self
             .model_for(&hash, model)
@@ -662,6 +663,7 @@ impl Runner {
             id_form,
             documents: request.documents,
             include_library_stubs: request.include_library_stubs,
+            inherited_members: request.inherited_members,
             compact: request.compact,
             omit_derived: request.omit_derived,
             keep_derived: request.keep_derived,
@@ -814,9 +816,10 @@ impl Runner {
             Err(answer) => return answer,
         };
         let properties: Vec<&str> = request.properties.iter().map(String::as_str).collect();
-        match self.connection.element_properties(
+        match self.connection.element_properties_of(
             &request.model_hash,
             &request.element_id,
+            lookup_of(request.lookup),
             &properties,
         ) {
             Ok(read) => Answer::Response(self.wire_json(
@@ -1914,6 +1917,22 @@ fn string_list_field(request: &DynamicMessage, name: &str) -> Vec<String> {
             })
         })
         .unwrap_or_default()
+}
+
+/// The lookup a request's `LookupKind` number states; an unknown number is the legacy form.
+fn lookup_of(kind: i32) -> Lookup {
+    match wire::LookupKind::try_from(kind) {
+        Ok(wire::LookupKind::QualifiedName) => Lookup::QualifiedName,
+        Ok(wire::LookupKind::ElementId) => Lookup::ElementId,
+        _ => Lookup::Either,
+    }
+}
+
+fn enum_field(request: &DynamicMessage, name: &str) -> i32 {
+    request
+        .get_field_by_name(name)
+        .and_then(|value| value.as_ref().as_enum_number())
+        .unwrap_or(0)
 }
 
 fn bool_field(request: &DynamicMessage, name: &str) -> bool {

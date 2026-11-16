@@ -1,8 +1,11 @@
 package export
 
 import (
+	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"unicode/utf8"
@@ -18,6 +21,9 @@ const newFileMode = 0o644
 // still fits a 255-byte path component wherever the destination itself does.
 const maxTempStemBytes = 240
 
+// writeBufferBytes batches a streamed document's many small writes into few system calls.
+const writeBufferBytes = 1 << 20
+
 // WriteFile writes a converted model to path, reporting whether it replaced a
 // file that was already there.
 //
@@ -32,32 +38,82 @@ const maxTempStemBytes = 240
 // content to protect and replacing it by rename would destroy the pipe or
 // device the user pointed at.
 func WriteFile(path string, data []byte) (replaced bool, err error) {
-	target, info, err := Destination(path)
-	if err != nil {
-		return false, err
-	}
-	switch {
-	case info == nil:
-		return false, writeAtomic(path, target, newFileMode, data)
-	case info.IsDir():
-		return false, fmt.Errorf("cannot write %s: it is a directory", path)
-	case !info.Mode().IsRegular():
-		return false, writeThrough(path, target, 0, data)
-	}
-	err = writeAtomic(path, target, info.Mode().Perm(), data)
-	if errors.Is(err, os.ErrPermission) {
-		// The file is writable but its directory is not, so the temporary file
-		// cannot be created; the model is what the user wants saved.
-		if writeThrough(path, target, os.O_TRUNC, data) == nil {
-			return true, nil
-		}
-	}
-	return err == nil, err
+	replaced, _, err = WriteFileFrom(path, bytesWriter(data))
+	return replaced, err
 }
 
-// writeAtomic writes data beside target and renames it over target.
-func writeAtomic(path, target string, mode os.FileMode, data []byte) error {
-	s, err := stage(path, target, mode, data)
+// WriteFileFrom is WriteFile for output that write produces piece by piece, so a
+// large document is never held whole; it also reports the bytes written.
+func WriteFileFrom(path string, write func(io.Writer) error) (replaced bool, written int64, err error) {
+	target, info, err := Destination(path)
+	if err != nil {
+		return false, 0, err
+	}
+	out := &producedWriter{write: write}
+	switch {
+	case info == nil:
+		err = writeAtomic(path, target, newFileMode, out.run)
+	case info.IsDir():
+		return false, 0, fmt.Errorf("cannot write %s: it is a directory", path)
+	case !info.Mode().IsRegular():
+		err = writeHeld(path, target, 0, out)
+	default:
+		replaced = true
+		err = writeAtomic(path, target, info.Mode().Perm(), out.run)
+		if errors.Is(err, os.ErrPermission) && !out.started {
+			// The file is writable but its directory is not, so the temporary file
+			// cannot be created; the model is what the user wants saved.
+			if writeHeld(path, target, os.O_TRUNC, out) == nil {
+				return true, out.n, nil
+			}
+		}
+	}
+	if out.failed != nil {
+		// What write could not produce is its own error, not a failure to write path.
+		err = out.failed
+	}
+	return replaced && err == nil, out.n, err
+}
+
+func bytesWriter(data []byte) func(io.Writer) error {
+	return func(w io.Writer) error {
+		_, err := w.Write(data)
+		return err
+	}
+}
+
+// producedWriter runs write over a destination, counting the bytes that reach it and
+// keeping apart an error of write's own from one the destination returned.
+type producedWriter struct {
+	write   func(io.Writer) error
+	w       io.Writer
+	n       int64
+	started bool
+	ioErr   error
+	failed  error
+}
+
+func (p *producedWriter) run(w io.Writer) error {
+	p.started, p.w, p.n, p.ioErr, p.failed = true, w, 0, nil, nil
+	err := p.write(p)
+	if err != nil && p.ioErr == nil {
+		p.failed = err
+	}
+	return err
+}
+
+func (p *producedWriter) Write(data []byte) (int, error) {
+	n, err := p.w.Write(data)
+	p.n += int64(n)
+	if err != nil {
+		p.ioErr = err
+	}
+	return n, err
+}
+
+// writeAtomic writes beside target and renames the result over target.
+func writeAtomic(path, target string, mode os.FileMode, write func(io.Writer) error) error {
+	s, err := stage(path, target, mode, write)
 	if err != nil {
 		return err
 	}
@@ -78,17 +134,17 @@ func Stage(path string, data []byte) (*Staged, error) {
 	case err != nil:
 		return nil, err
 	case info == nil:
-		return stage(path, target, newFileMode, data)
+		return stage(path, target, newFileMode, bytesWriter(data))
 	case info.IsDir():
 		return nil, fmt.Errorf("cannot write %s: it is a directory", path)
 	case !info.Mode().IsRegular():
 		return nil, fmt.Errorf("cannot write %s: it is not a regular file", path)
 	}
-	return stage(path, target, info.Mode().Perm(), data)
+	return stage(path, target, info.Mode().Perm(), bytesWriter(data))
 }
 
-// stage writes data, flushed and with mode, to a temporary file beside target.
-func stage(path, target string, mode os.FileMode, data []byte) (s *Staged, err error) {
+// stage writes what write produces, flushed and with mode, to a temporary file beside target.
+func stage(path, target string, mode os.FileMode, write func(io.Writer) error) (s *Staged, err error) {
 	dir := filepath.Dir(target)
 	info, serr := os.Stat(dir)
 	switch {
@@ -110,7 +166,11 @@ func stage(path, target string, mode os.FileMode, data []byte) (s *Staged, err e
 			err = writeError(path, err)
 		}
 	}()
-	if _, err = tmp.Write(data); err != nil {
+	buffered := bufio.NewWriterSize(tmp, writeBufferBytes)
+	if err = write(buffered); err == nil {
+		err = buffered.Flush()
+	}
+	if err != nil {
 		_ = tmp.Close()
 		return nil, err
 	}
@@ -157,6 +217,16 @@ func TempStem(base string) string {
 		n--
 	}
 	return base[:n]
+}
+
+// writeHeld produces the whole output before writing it through, so output that
+// fails to produce leaves a target written in place untouched.
+func writeHeld(path, target string, flags int, out *producedWriter) error {
+	var held bytes.Buffer
+	if err := out.run(&held); err != nil {
+		return err
+	}
+	return writeThrough(path, target, flags, held.Bytes())
 }
 
 // writeThrough writes data into target as it stands, without replacing it. A

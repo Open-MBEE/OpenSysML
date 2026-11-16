@@ -194,7 +194,7 @@ func convertOurs(documents []export.ModelDocument) ([]map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	encoded, err := export.WriteAPIJSON(graph)
+	encoded, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		return nil, fmt.Errorf("write api-json: %w", err)
 	}
