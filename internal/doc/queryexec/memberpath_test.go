@@ -664,3 +664,22 @@ calc def Statements :> Query {
 		t.Fatalf("type.documentation cells = %q, want %q", got, want)
 	}
 }
+
+// A member path fanning out over several members keeps every scalar it reaches: the
+// bound of one member does not cap the union.
+func TestExecuteComputedMemberPathFanOutKeepsEveryScalar(t *testing.T) {
+	fixture := memberPathFixture(t, `
+calc def Runs :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		properties = ("name"),
+		columns = (Column(name = "r", expression = ownedMember.runs))
+	)
+}`)
+	result := memberPathRows(t, fixture, "Runs")
+	got := cellNumbers(t, result, "r")
+	if !slices.EqualFunc(got, [][]float64{{5, 4}, {7}, nil}, slices.Equal) {
+		t.Fatalf("runs cells = %v", got)
+	}
+}

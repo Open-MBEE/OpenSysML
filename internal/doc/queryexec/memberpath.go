@@ -66,6 +66,9 @@ func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]V
 	if !present {
 		return nil, false, nil, nil
 	}
+	if len(reached) != 1 {
+		member = nil
+	}
 	return values, true, member, nil
 }
 
