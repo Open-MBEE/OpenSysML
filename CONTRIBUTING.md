@@ -388,6 +388,11 @@ pull request's or merge group's own cache is private to its ref, and one saved b
 holds a single tree's dependencies. A pull request that changes a `pom.xml` restores the newest
 earlier entry.
 
+Every job that needs Go takes it from `actions/setup-go` v6 with `go-version-file: go.mod`, which
+installs the release the `toolchain` line names and sets `GOTOOLCHAIN=local`. Do not set
+`GOTOOLCHAIN` in a workflow: the action then installs the `go` line's release instead, and a
+toolchain downloaded into the module cache makes the action's cache restore fail.
+
 Every third-party action a workflow or composite action `uses:` is pinned to a full commit SHA
 with the release that commit is as a trailing comment (`actions/checkout@<sha> # v4.4.0`); a new
 step takes the same form, and the comment is what lets the pin be moved by version.
