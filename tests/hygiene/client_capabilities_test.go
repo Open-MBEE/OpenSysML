@@ -27,6 +27,9 @@ type capabilityClient struct {
 	// declares reports whether the module declares the capability, given its wire
 	// name and the suffix of the service's Go identifier (InstancePaths).
 	declares func(source, name, ident string) bool
+	// usedIn is the package directory whose other sources must gate or decode by a
+	// declared capability for it to be bound; empty holds the client to the declaration alone.
+	usedIn string
 }
 
 func quotedLiteral(source, name, _ string) bool {
@@ -42,21 +45,21 @@ func reExportedConstant(source, _, ident string) bool {
 }
 
 var capabilityClients = []capabilityClient{
-	{"Python", "client/python/opensysml/capabilities.py", quotedLiteral},
-	{"Go", "client/opensysml/types.go", reExportedConstant},
-	{"Node", "client/node/src/core/capabilities.ts", quotedLiteral},
-	{"Java", "client/java/opensysml-client/src/main/java/org/openmbee/opensysml/Capabilities.java", quotedLiteral},
-	{"Rust", "client/rust/opensysml/src/capabilities.rs", quotedLiteral},
-	{"Julia", "client/julia/OpenSysML/src/capabilities.jl", quotedLiteral},
-	{"MATLAB", "client/matlab/+opensysml/capabilities.m", singleQuotedLiteral},
+	{"Python", "client/python/opensysml/capabilities.py", quotedLiteral, ""},
+	{"Go", "client/opensysml/types.go", reExportedConstant, "client/opensysml"},
+	{"Node", "client/node/src/core/capabilities.ts", quotedLiteral, ""},
+	{"Java", "client/java/opensysml-client/src/main/java/org/openmbee/opensysml/Capabilities.java", quotedLiteral, ""},
+	{"Rust", "client/rust/opensysml/src/capabilities.rs", quotedLiteral, ""},
+	{"Julia", "client/julia/OpenSysML/src/capabilities.jl", quotedLiteral, ""},
+	{"MATLAB", "client/matlab/+opensysml/capabilities.m", singleQuotedLiteral, ""},
 }
 
 // capabilityConstPattern reads a service capability declaration,
 // `CapabilityInstancePaths = "instance_paths"`, into its identifier and name.
 var capabilityConstPattern = regexp.MustCompile(`\bCapability(\w+)\s*=\s*"([a-z][a-z_0-9]*)"`)
 
-// TestClientCapabilityChecklist holds the capability table of client-parity.md to the code:
-// one row per announced capability, each cell `bound` exactly when the client declares the name.
+// TestClientCapabilityChecklist holds the capability table of client-parity.md to the code: one row per
+// announced capability, each cell `bound` exactly when the client declares the name and, for Go, uses it.
 func TestClientCapabilityChecklist(t *testing.T) {
 	identifiers := serviceCapabilityIdentifiers(t)
 	announced := sysmlgrpc.Capabilities()
@@ -70,6 +73,12 @@ func TestClientCapabilityChecklist(t *testing.T) {
 			t.Fatalf("%s client: %v", client.name, err)
 		}
 		sources[client.name] = string(source)
+	}
+	uses := make(map[string]string, len(capabilityClients))
+	for _, client := range capabilityClients {
+		if client.usedIn != "" {
+			uses[client.name] = packageSourcesBeside(t, client.usedIn, client.path)
+		}
 	}
 
 	rows, columns := readCapabilityChecklist(t)
@@ -111,14 +120,86 @@ func TestClientCapabilityChecklist(t *testing.T) {
 				continue
 			}
 			declared := client.declares(sources[client.name], name, ident)
-			if declared && cell != "bound" {
+			used := client.usedIn == "" || capabilityUsed(ident, uses[client.name])
+			switch {
+			case declared && used && cell != "bound":
 				t.Errorf("%s declares %q but the table says %s does not bind it", client.path, name, client.name)
-			}
-			if !declared && cell != "not bound" {
+			case declared && !used && cell != "not bound":
+				t.Errorf("%s: the table says %s binds %q, which %s declares but nothing else under %s gates or decodes by",
+					capabilityChecklistDoc, client.name, name, client.path, client.usedIn)
+			case !declared && cell != "not bound":
 				t.Errorf("%s: the table says %s binds %q but %s does not declare it", capabilityChecklistDoc, client.name, name, client.path)
 			}
 		}
 	}
+}
+
+// capabilityDecodes names, for each capability that only populates a response, the read of
+// the generated message that decodes it: a client has nothing to gate there, so the decoding
+// is what binds it. A capability a request depends on is bound by naming its constant instead.
+var capabilityDecodes = map[string]*regexp.Regexp{
+	"ConvertLibraryReferences": regexp.MustCompile(`\bresp\.LibraryReferences\b`),
+	"DiagnosticCodes":          regexp.MustCompile(`\bdiag\.Code\b`),
+	"EnumValues":               regexp.MustCompile(`\*pb\.Value_EnumLiteral\b`),
+	"FeatureValues":            regexp.MustCompile(`\binst\.FeatureValues\b`),
+	"SymbolAnnotatingMetadata": regexp.MustCompile(`\bsym\.AnnotatingMetadataIds\b`),
+	"SymbolAttributes":         regexp.MustCompile(`\bsym\.Attributes\b`),
+	"TypeFacts":                regexp.MustCompile(`\bsym\.TypeInfo\b`),
+	"VerdictNotes":             regexp.MustCompile(`\bverdict\.Notes\b`),
+	"UndeterminedValue":        regexp.MustCompile(`\*pb\.Value_Undetermined\b`),
+	"UnsetValue":               regexp.MustCompile(`\*pb\.Value_Unset\b`),
+}
+
+// capabilityUsed reports whether sources gate by the capability's constant or decode what it populates.
+func capabilityUsed(ident, sources string) bool {
+	if regexp.MustCompile(`\bCapability` + ident + `\b`).MatchString(sources) {
+		return true
+	}
+	decodes, ok := capabilityDecodes[ident]
+	return ok && decodes.MatchString(sources)
+}
+
+// TestCapabilityDecodesAreRead keeps capabilityDecodes to reads the Go package still makes of
+// capabilities the service still announces, so a removed decoder cannot leave a cell bound.
+func TestCapabilityDecodesAreRead(t *testing.T) {
+	sources := packageSourcesBeside(t, "client/opensysml", "client/opensysml/types.go")
+	announced := map[string]bool{}
+	for _, ident := range serviceCapabilityIdentifiers(t) {
+		announced[ident] = true
+	}
+	for ident, decodes := range capabilityDecodes {
+		if !announced[ident] {
+			t.Errorf("capabilityDecodes names Capability%s, which the service does not declare", ident)
+		}
+		if !decodes.MatchString(sources) {
+			t.Errorf("capabilityDecodes binds Capability%s by %s, which client/opensysml no longer reads", ident, decodes)
+		}
+	}
+}
+
+// packageSourcesBeside reads the Go sources of a package directory other than its tests and
+// the capabilities module itself: where a declared capability has to be gated or decoded by.
+func packageSourcesBeside(t *testing.T, dir, module string) string {
+	t.Helper()
+	files, err := filepath.Glob(filepath.Join(repoRoot, dir, "*.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sources strings.Builder
+	for _, file := range files {
+		if strings.HasSuffix(file, "_test.go") || file == filepath.Join(repoRoot, module) {
+			continue
+		}
+		source, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sources.Write(source)
+	}
+	if sources.Len() == 0 {
+		t.Fatalf("%s holds no Go source beside %s", dir, module)
+	}
+	return sources.String()
 }
 
 // serviceCapabilityIdentifiers maps every capability name declared under

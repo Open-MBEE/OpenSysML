@@ -247,7 +247,7 @@ func convertRequest(to Format, opts []ConvertOption) *pb.ConvertRequest {
 	}
 }
 
-// convertCapabilities are the capabilities the options of a conversion request need of the service.
+// convertCapabilities are the capabilities a conversion request needs of the service: its options', then Convert's.
 func convertCapabilities(req *pb.ConvertRequest) []string {
 	var needed []string
 	if req.IncludeLibraryStubs {
@@ -265,14 +265,12 @@ func convertCapabilities(req *pb.ConvertRequest) []string {
 	if req.IncludeCheckDiagnostics {
 		needed = append(needed, CapabilityConvertCheckDiagnostics)
 	}
-	return needed
+	return append(needed, CapabilityConvert)
 }
 
 func (c *client) convert(ctx context.Context, req *pb.ConvertRequest) (*Conversion, error) {
-	if needed := convertCapabilities(req); len(needed) > 0 {
-		if err := c.requireCapabilities(ctx, needed...); err != nil {
-			return nil, err
-		}
+	if err := c.requireCapabilities(ctx, convertCapabilities(req)...); err != nil {
+		return nil, err
 	}
 	resp, err := c.caller.convert(ctx, req)
 	if err != nil {
@@ -475,6 +473,9 @@ func migrateRequest(to Format, opts []MigrateOption) *pb.MigrateRequest {
 }
 
 func (c *client) migrate(ctx context.Context, req *pb.MigrateRequest) (*Migration, error) {
+	if err := c.requireCapabilities(ctx, CapabilityMigrate); err != nil {
+		return nil, err
+	}
 	resp, err := c.caller.migrate(ctx, req)
 	if err != nil {
 		return nil, err
@@ -935,6 +936,9 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 			return nil, err
 		}
 		req.Operations = append(req.Operations, operation)
+	}
+	if err := c.requireCapabilities(ctx, CapabilityApplyEdits); err != nil {
+		return nil, err
 	}
 	resp, err := c.caller.applyEdits(ctx, req)
 	if err != nil {
