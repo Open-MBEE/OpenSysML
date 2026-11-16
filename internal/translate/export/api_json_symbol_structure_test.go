@@ -602,7 +602,7 @@ func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationshi
 			if !ok {
 				return "", false
 			}
-			return owner + relationshipSuffix(ast.RelRedefines, false, false, 1, 0), true
+			return owner + relationshipSuffix(ast.RelRedefines, false, 1, 0), true
 		}
 	}
 	return "", false
