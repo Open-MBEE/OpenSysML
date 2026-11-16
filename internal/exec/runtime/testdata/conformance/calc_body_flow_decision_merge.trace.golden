@@ -1,0 +1,64 @@
+enter calc test::counted
+  bind n = 4 [argument]
+  stmt declare i
+    eval literal 0 -> 0
+  stmt declare total
+    eval literal 0 -> 0
+  stmt action body
+enter action node: calc test::counted
+enter action node: step
+    stmt assign i
+        eval feature i -> 0
+        eval literal 1 -> 1
+      eval operator + -> 1
+    stmt assign total
+        eval feature total -> 0
+        eval feature i -> 1
+      eval operator + -> 1
+leave action node: step
+      eval feature i -> 1
+      eval feature n -> 4
+    eval operator < -> true
+enter action node: step
+    stmt assign i
+        eval feature i -> 1
+        eval literal 1 -> 1
+      eval operator + -> 2
+    stmt assign total
+        eval feature total -> 1
+        eval feature i -> 2
+      eval operator + -> 3
+leave action node: step
+      eval feature i -> 2
+      eval feature n -> 4
+    eval operator < -> true
+enter action node: step
+    stmt assign i
+        eval feature i -> 2
+        eval literal 1 -> 1
+      eval operator + -> 3
+    stmt assign total
+        eval feature total -> 3
+        eval feature i -> 3
+      eval operator + -> 6
+leave action node: step
+      eval feature i -> 3
+      eval feature n -> 4
+    eval operator < -> true
+enter action node: step
+    stmt assign i
+        eval feature i -> 3
+        eval literal 1 -> 1
+      eval operator + -> 4
+    stmt assign total
+        eval feature total -> 6
+        eval feature i -> 4
+      eval operator + -> 10
+leave action node: step
+      eval feature i -> 4
+      eval feature n -> 4
+    eval operator < -> false
+leave action node: calc test::counted
+  stmt return
+    eval feature total -> 10
+exit calc test::counted -> (10)
