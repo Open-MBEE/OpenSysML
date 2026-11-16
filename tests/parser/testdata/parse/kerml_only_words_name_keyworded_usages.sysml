@@ -1,6 +1,5 @@
-// SysML v2 8.2.2.1.2 does not reserve the KerML declaration keywords, so after a
-// SysML kind keyword each is the usage's name whatever follows it
-// (`action behavior subsets Parts::Part::ownedActions`, 8.4.13.6).
+// SysML v2 8.2.2.1.2 does not reserve the KerML declaration keywords, so after a SysML
+// kind keyword each names the usage (`action behavior subsets …`, 8.4.13.6).
 package P {
 	part def T {
 		attribute a;
