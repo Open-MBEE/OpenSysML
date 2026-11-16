@@ -31,6 +31,8 @@ type apiJSONGraphStructure struct {
 	ownedRelationshipsCache     []*apiJSONOwnedRelationships
 	annotationsOnce             sync.Once
 	annotationsByAnnotated      map[int][]metamodel.Element
+	annotationsByLibrary        map[*symbols.Symbol][]metamodel.Element
+	annotationsOutside          bool
 	annotationsComplete         bool
 	catalogOnce                 sync.Once
 	catalog                     *identity.Catalog
@@ -54,12 +56,19 @@ func (s *apiJSONGraphStructure) libraryCatalog() *identity.Catalog {
 // Annotations lists the Annotation relationships whose annotatedElement is element, in
 // graph order; nothing is answered when an annotation's annotated element is not placed.
 func (s *apiJSONGraphStructure) Annotations(element metamodel.Element) ([]metamodel.Element, bool) {
-	position, ok := s.position(element)
-	if !ok {
+	position, placed := s.position(element)
+	if !placed && element.Symbol == nil {
 		return nil, false
 	}
 	s.annotationsOnce.Do(s.indexAnnotations)
 	if !s.annotationsComplete {
+		return nil, false
+	}
+	if !placed {
+		// A library element the evaluator reached through the library, not the graph.
+		return s.annotationsByLibrary[element.Symbol], !s.annotationsOutside
+	}
+	if s.annotationsOutside && LibraryReference(s.graph, s.index.subjects[position]) {
 		return nil, false
 	}
 	return s.annotationsByAnnotated[position], true
@@ -67,6 +76,7 @@ func (s *apiJSONGraphStructure) Annotations(element metamodel.Element) ([]metamo
 
 func (s *apiJSONGraphStructure) indexAnnotations() {
 	s.annotationsByAnnotated = make(map[int][]metamodel.Element)
+	s.annotationsByLibrary = make(map[*symbols.Symbol][]metamodel.Element)
 	for _, subject := range s.index.subjects {
 		class, ok := s.metaclass(subject)
 		if !ok || !s.Specializes(class, "Annotation") {
@@ -76,16 +86,25 @@ func (s *apiJSONGraphStructure) indexAnnotations() {
 		if !ok {
 			return
 		}
-		annotated, ok := s.related(subject, "annotatedElement")
-		if !ok {
-			return
-		}
-		for _, target := range annotated {
+		for _, object := range s.graph.ObjectsView(subject, apiJSONSysMLPredicate("annotatedElement")) {
+			if object.IsLiteral() {
+				// A name the graph does not resolve is no element of the graph, so the
+				// annotation is about an element outside it.
+				s.annotationsOutside = true
+				continue
+			}
+			target, ok := s.element(object)
+			if !ok {
+				return
+			}
 			position, ok := s.position(target)
 			if !ok {
 				return
 			}
 			s.annotationsByAnnotated[position] = append(s.annotationsByAnnotated[position], annotation)
+			if symbol, ok := s.LibrarySymbol(target); ok {
+				s.annotationsByLibrary[symbol] = append(s.annotationsByLibrary[symbol], annotation)
+			}
 		}
 	}
 	s.annotationsComplete = true

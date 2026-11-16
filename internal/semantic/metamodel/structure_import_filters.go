@@ -30,19 +30,13 @@ func (e *Evaluator) importedMembershipNames(membership Membership) ([]string, bo
 	return names, true
 }
 
-// importedMember is the element a membership names, an alias resolved to its target.
+// importedMember is the one element a membership names.
 func (e *Evaluator) importedMember(membership Membership) (Element, bool) {
 	members, ok := e.structureMembershipMemberElements(Element{Membership: membership, IsMembership: true})
 	if !ok || len(members) != 1 {
 		return Element{}, false
 	}
-	member := members[0]
-	if member.Symbol != nil && e.resolver != nil {
-		if target, ok := e.resolver.ResolveAliasTarget(member.Symbol); ok && target != nil {
-			member = ElementOf(target)
-		}
-	}
-	return member, true
+	return members[0], true
 }
 
 func (e *Evaluator) importedMetaclassName(element Element) (string, bool) {
@@ -94,10 +88,8 @@ func (e *Evaluator) namedMembership(membership Membership) (namedMembership, boo
 	return namedMembership{names: names, member: member}, ok
 }
 
-// structureHideImportCollisions drops the imported memberships a name collision hides
-// (KerML 7.2.5.4, 7.3.2.1, 8.3.2.4.5 importedMembership): those not distinguishable
-// (8.3.2.4.3 isDistinguishableFrom) from an owned or inherited membership, which stays,
-// or from another imported one, which is hidden with it.
+// structureHideImportCollisions drops the imports a name collision hides (KerML 7.2.5.4,
+// 8.3.2.4.3): an owned or inherited membership stays, two colliding imports both go.
 func (e *Evaluator) structureHideImportCollisions(
 	namespace Element,
 	entries []importedEntry,
@@ -222,39 +214,19 @@ func (e *Evaluator) structureFilterImported(namespace Element, entries []importe
 	return kept, true
 }
 
-// filterVerdict is what a filter condition evaluates to for one element; filterEmpty is
-// a feature read from metadata the element does not carry, which selects nothing.
-type filterVerdict uint8
-
-const (
-	filterFalse filterVerdict = iota
-	filterTrue
-	filterEmpty
-)
-
-func filterBool(value bool) filterVerdict {
-	if value {
-		return filterTrue
-	}
-	return filterFalse
-}
-
 // structureIncludeAsMember is Package::includeAsMember (KerML 8.3.4.13.4): every
 // condition holds for element given the metadata annotating it.
 func (e *Evaluator) structureIncludeAsMember(element Element, conditions []Element) (bool, bool) {
-	if !e.structureKnows(element) || e.structureLibrarySymbol(element) != nil {
-		return false, false
-	}
 	metadata, ok := e.structureMetadataFeatures(element)
 	if !ok {
 		return false, false
 	}
 	for _, condition := range conditions {
-		verdict, ok := e.structureCheckCondition(condition, element, metadata)
+		value, ok := e.structureFilterBoolean(condition, element, metadata)
 		if !ok {
 			return false, false
 		}
-		if verdict != filterTrue {
+		if value.kind != filterValueBoolean || !value.boolean {
 			return false, true
 		}
 	}
@@ -262,10 +234,20 @@ func (e *Evaluator) structureIncludeAsMember(element Element, conditions []Eleme
 }
 
 // structureMetadataFeatures lists the metadata features annotating element (KerML
-// 8.3.2.3.2 annotatedElement): those it owns that state no annotation, and the
-// annotating elements of the annotations about it.
+// 8.3.2.3.2): those it owns that state no annotation, and those annotations make about it.
 func (e *Evaluator) structureMetadataFeatures(element Element) ([]Element, bool) {
 	var candidates []Element
+	if symbol := e.structureLibrarySymbol(element); symbol != nil {
+		// A library element's own metadata is not in the structure; only an annotation
+		// the model states `about` it is.
+		if e.model == nil || len(e.model.AnnotatingMetadataOf(symbol)) != 0 {
+			return nil, false
+		}
+		return e.structureAnnotatingMetadata(element, candidates)
+	}
+	if !e.structureKnows(element) {
+		return nil, false
+	}
 	owned, handled, ok := e.structureOwnedFilter(element, "OwningMembership", true)
 	if !handled || !ok {
 		return nil, false
@@ -295,6 +277,12 @@ func (e *Evaluator) structureMetadataFeatures(element Element) ([]Element, bool)
 			}
 		}
 	}
+	return e.structureAnnotatingMetadata(element, candidates)
+}
+
+// structureAnnotatingMetadata adds to candidates the metadata features annotating element
+// through an Annotation it does not own.
+func (e *Evaluator) structureAnnotatingMetadata(element Element, candidates []Element) ([]Element, bool) {
 	annotating, ok := e.options.Structure.(AnnotationStructure)
 	if !ok {
 		return nil, false
@@ -317,83 +305,6 @@ func (e *Evaluator) structureMetadataFeatures(element Element) ([]Element, bool)
 		}
 	}
 	return uniqueStructureElements(candidates, e.options.Structure), true
-}
-
-// structureCheckCondition evaluates a filter condition for element: Boolean literals and
-// operators, the classification test `@T` and a Boolean feature of annotating metadata.
-// Any other expression is not evaluated here and the derivation is withheld.
-func (e *Evaluator) structureCheckCondition(condition, element Element, metadata []Element) (filterVerdict, bool) {
-	if isLiteral, known := e.isMetaclass(condition, "LiteralBoolean"); !known {
-		return filterFalse, false
-	} else if isLiteral {
-		value, ok := e.structureBooleanAttribute(condition, "value")
-		return filterBool(value), ok
-	}
-	if isReference, known := e.isMetaclass(condition, "FeatureReferenceExpression"); !known {
-		return filterFalse, false
-	} else if isReference {
-		referent, handled, ok := e.structureFeatureReferenceReferent(condition)
-		if !handled || !ok || referent.Kind != ElementValue {
-			return filterFalse, false
-		}
-		return e.structureMetadataBoolean(metadata, referent.Element)
-	}
-	if isOperator, known := e.isMetaclass(condition, "OperatorExpression"); !known || !isOperator {
-		return filterFalse, false
-	}
-	operator, ok := e.options.Structure.Attribute(condition, "operator")
-	if !ok || operator.Kind != StringValue {
-		return filterFalse, false
-	}
-	arguments, ok := e.structureOperandExpressions(condition)
-	if !ok {
-		return filterFalse, false
-	}
-	if operator.String == "@" {
-		if len(arguments) != 0 {
-			return filterFalse, false
-		}
-		classified, ok := e.structureMetadataClassified(condition, element, metadata)
-		return filterBool(classified), ok
-	}
-	operand := func(i int) (filterVerdict, bool) {
-		return e.structureCheckCondition(arguments[i], element, metadata)
-	}
-	if operator.String == "not" && len(arguments) == 1 {
-		verdict, ok := operand(0)
-		if !ok || verdict == filterEmpty {
-			return verdict, ok
-		}
-		return filterBool(verdict == filterFalse), true
-	}
-	if len(arguments) != 2 {
-		return filterFalse, false
-	}
-	switch operator.String {
-	case "and", "&", "or", "|", "xor", "implies":
-	default:
-		return filterFalse, false
-	}
-	left, ok := operand(0)
-	if !ok || left == filterEmpty {
-		return left, ok
-	}
-	switch {
-	case (operator.String == "and" || operator.String == "&") && left == filterFalse:
-		return filterFalse, true
-	case (operator.String == "or" || operator.String == "|") && left == filterTrue:
-		return filterTrue, true
-	case operator.String == "implies" && left == filterFalse:
-		return filterTrue, true
-	}
-	right, ok := operand(1)
-	if !ok || right == filterEmpty {
-		return right, ok
-	}
-	if operator.String == "xor" {
-		return filterBool(left != right), true
-	}
-	return right, true
 }
 
 // structureOperandExpressions lists the expressions an operator expression binds its
@@ -434,34 +345,14 @@ func (e *Evaluator) structureOperandExpressions(expression Element) ([]Element, 
 // structureMetadataClassified evaluates `@T` for element: metadata annotating it is typed
 // by T or a specialization, or T is a metaclass of the abstract syntax element instantiates.
 func (e *Evaluator) structureMetadataClassified(test, element Element, metadata []Element) (bool, bool) {
-	parameters, handled, ok := e.structureOwnedFeatures(test)
-	if !handled || !ok {
+	tested, ok := e.structureTypeArgument(test)
+	if !ok {
 		return false, false
 	}
-	var tested []Element
-	for _, parameter := range parameters.Values {
-		if parameter.Kind != ElementValue {
-			return false, false
-		}
-		types, ok := e.structureSpecializedGeneralTypes(parameter.Element)
-		if !ok {
-			return false, false
-		}
-		tested = append(tested, types...)
+	if symbol := e.reflectiveMetaclass(tested); symbol != nil {
+		return e.isMetaclass(element, symbol.Name)
 	}
-	if len(tested) != 1 {
-		return false, false
-	}
-	if symbol := e.structureLibrarySymbol(tested[0]); symbol != nil {
-		root := symbol
-		for owner := root.Owner(); owner != nil; owner = root.Owner() {
-			root = owner
-		}
-		if root != symbol && (root.Name == "KerML" || root.Name == "SysML") {
-			return e.isMetaclass(element, symbol.Name)
-		}
-	}
-	target := e.structureFeatureKey(tested[0])
+	target := e.structureFeatureKey(tested)
 	for _, feature := range metadata {
 		conforms, ok := e.structureMetadataConforms(feature, target)
 		if !ok || conforms {
@@ -514,82 +405,4 @@ func (e *Evaluator) structureConformsTo(element Element, target ElementKey, visi
 		}
 	}
 	return false, true
-}
-
-// structureMetadataBoolean reads feature from the metadata typed by its owning type: the
-// Boolean literal the annotation binds it to, empty when no such annotation binds it.
-func (e *Evaluator) structureMetadataBoolean(metadata []Element, feature Element) (filterVerdict, bool) {
-	if !e.structureKnows(feature) || e.structureLibrarySymbol(feature) != nil {
-		return filterFalse, false
-	}
-	owner, handled, ok := e.structureOwningType(feature)
-	if !handled || !ok || owner.Kind != ElementValue {
-		return filterFalse, false
-	}
-	ownerKey := e.structureFeatureKey(owner.Element)
-	target := e.structureFeatureKey(feature)
-	for _, annotation := range metadata {
-		conforms, ok := e.structureMetadataConforms(annotation, ownerKey)
-		if !ok {
-			return filterFalse, false
-		}
-		if !conforms {
-			continue
-		}
-		owned, handled, ok := e.structureOwnedFeatures(annotation)
-		if !handled || !ok {
-			return filterFalse, false
-		}
-		for _, candidate := range owned.Values {
-			if candidate.Kind != ElementValue {
-				return filterFalse, false
-			}
-			redefines, ok := e.structureRedefines(candidate.Element, target)
-			if !ok {
-				return filterFalse, false
-			}
-			if !redefines {
-				continue
-			}
-			value, ok := e.structureBoundBoolean(candidate.Element)
-			return filterBool(value), ok
-		}
-	}
-	return filterEmpty, true
-}
-
-// structureRedefines reports whether feature states a redefinition of target.
-func (e *Evaluator) structureRedefines(feature Element, target ElementKey) (bool, bool) {
-	redefinitions, handled, ok := e.structureOwnedFilter(feature, "Redefinition", false)
-	if !handled || !ok {
-		return false, false
-	}
-	for _, redefinition := range redefinitions.Values {
-		redefined, ok := e.relationshipEndpoints(redefinition.Element, "redefinedFeature")
-		if !ok {
-			return false, false
-		}
-		for _, value := range redefined {
-			if value.Kind == ElementValue && e.structureFeatureKey(value.Element) == target {
-				return true, true
-			}
-		}
-	}
-	return false, true
-}
-
-// structureBoundBoolean is the Boolean literal a feature value binds feature to.
-func (e *Evaluator) structureBoundBoolean(feature Element) (bool, bool) {
-	values, handled, ok := e.structureOwnedFilter(feature, "FeatureValue", true)
-	if !handled || !ok || len(values.Values) != 1 {
-		return false, false
-	}
-	expressions, ok := e.structureMembershipMembers(Element{Membership: values.Values[0].Membership, IsMembership: true})
-	if !ok || len(expressions) != 1 {
-		return false, false
-	}
-	if isLiteral, known := e.isMetaclass(expressions[0], "LiteralBoolean"); !known || !isLiteral {
-		return false, false
-	}
-	return e.structureBooleanAttribute(expressions[0], "value")
 }

@@ -5233,10 +5233,21 @@ func (e *Evaluator) computeStructureLibraryTypeMembers(base Element, property st
 }
 
 // structureMembershipMemberElements is structureMembershipMembers for a membership the
-// graph may not state: a semantic membership answers its member symbol directly.
+// graph may not state: a semantic membership answers the element its member symbol names.
 func (e *Evaluator) structureMembershipMemberElements(membership Element) ([]Element, bool) {
-	if membership.Membership.Member != nil && !e.structureKnows(membership) {
-		return []Element{ElementOf(membership.Membership.Member)}, true
+	if member := membership.Membership.Member; member != nil && !e.structureKnows(membership) {
+		if member.Kind == symbols.SymbolAlias {
+			// An alias is a Membership of the element it names (KerML 8.2.3.4.1).
+			if e.resolver == nil {
+				return nil, false
+			}
+			target, ok := e.resolver.ResolveAliasTarget(member)
+			if !ok || target == nil {
+				return nil, false
+			}
+			member = target
+		}
+		return []Element{ElementOf(member)}, true
 	}
 	return e.structureMembershipMembers(membership)
 }

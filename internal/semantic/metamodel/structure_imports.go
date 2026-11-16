@@ -20,11 +20,8 @@ type structureImportedEntry struct {
 	ok      bool
 }
 
-// importWalk is one derivation of imported memberships over a structure. excluded is
-// the `excluded` argument of the KerML operations (8.3.2.4.2 Import::importedMemberships):
-// the namespaces on the path from the namespace the derivation started at. cut records
-// that an import of an excluded namespace was skipped, so what was computed since holds
-// for this path alone.
+// importWalk is one derivation of imported memberships: excluded is the path of namespaces
+// (KerML 8.3.2.4.2 `excluded`), and cut records that the path shaped the result.
 type importWalk struct {
 	excluded map[ElementKey]bool
 	hiding   map[ElementKey]bool
@@ -49,10 +46,8 @@ func (e *Evaluator) structureGraphImportedMemberships(element Element) (Value, b
 	return sequence(values...), true, true
 }
 
-// structureImportedEntries is Namespace::importedMemberships(excluded) (KerML 8.3.2.4.5)
-// with the import visibilities kept: what every owned import brings, less what a Package's
-// filter conditions reject (8.3.4.13.4) and what a name collision hides (7.2.5.4). A result
-// no excluded namespace shaped is the namespace's own and is memoized.
+// structureImportedEntries is Namespace::importedMemberships(excluded) (KerML 8.3.2.4.5),
+// filtered (8.3.4.13.4) and collision-hidden (7.2.5.4); a result no cut shaped is memoized.
 func (e *Evaluator) structureImportedEntries(namespace Element, walk *importWalk) ([]importedEntry, bool) {
 	key := e.structureFeatureKey(namespace)
 	e.mu.Lock()
@@ -123,9 +118,8 @@ func (e *Evaluator) computeStructureImportedEntries(namespace Element, walk *imp
 	return e.structureHideImportCollisions(namespace, entries, inherited)
 }
 
-// structureHidingInherited lists the inherited memberships of a type that imports, which
-// hide what it would import under their names (KerML 7.3.2.1). A type already deriving
-// them further out contributes none, and the result holds for this walk alone.
+// structureHidingInherited lists the inherited memberships of an importing type, which hide
+// imports under their names (KerML 7.3.2.1); a type already deriving them contributes none.
 func (e *Evaluator) structureHidingInherited(namespace Element, entries []importedEntry, walk *importWalk) ([]Value, bool) {
 	if len(entries) == 0 {
 		return nil, true
@@ -231,9 +225,8 @@ func (e *Evaluator) structureImportMemberships(imported Element, walk *importWal
 	return append(values, visible...), true
 }
 
-// structureFilterPackageMemberships is what a filtered import brings (KerML 7.2.5.4): the
-// memberships the filter package's own import selects that meet its conditions. The
-// notation gives that inner import no visibility (8.2.3.4.2), so none is asked of it.
+// structureFilterPackageMemberships is what a filtered import brings (KerML 7.2.5.4): what
+// the filter package's own import selects and its conditions accept, whatever its visibility.
 func (e *Evaluator) structureFilterPackageMemberships(filterPackage Element, walk *importWalk) ([]Value, bool) {
 	key := e.structureFeatureKey(filterPackage)
 	if walk.excluded[key] {
@@ -288,9 +281,8 @@ func (e *Evaluator) structureImportedMembershipValue(imported Element) (Value, b
 	return membershipValue(handle.Membership), true
 }
 
-// structureVisibleMemberships is Namespace::visibleMemberships(excluded, isRecursive,
-// includeAll) (KerML 8.3.2.4.5) with Type's redefinition (8.3.3.1.10), which adds the
-// inherited memberships and, under a recursive import, leaves implied specializations out.
+// structureVisibleMemberships is Namespace::visibleMemberships (KerML 8.3.2.4.5) with Type's
+// redefinition (8.3.3.1.10): inherited memberships, less implied ones when recursive.
 func (e *Evaluator) structureVisibleMemberships(namespace Element, walk *importWalk, recursive, all bool) ([]Value, bool) {
 	if base, ok := e.structureLibraryBase(namespace); ok {
 		return e.libraryVisibleMemberships(base.Symbol, recursive, all, make(map[*symbols.Symbol]bool))
@@ -416,11 +408,8 @@ func (e *Evaluator) structureMembershipIsPublic(value Value) (bool, bool) {
 	return member.Visibility == ast.VisibilityDefault || member.Visibility == ast.VisibilityPublic, true
 }
 
-// structureWalkInheritedMemberships is Type::inheritedMemberships(excludedNamespaces,
-// excludedTypes, excludeImplied) (KerML 8.3.3.1.10) inside an import derivation: the
-// walk's excluded namespaces reach the imports of every supertype, and with excludeImplied
-// only the specializations the model states are followed, at every level (7.2.5.4, second
-// limitation on recursive imports).
+// structureWalkInheritedMemberships is Type::inheritedMemberships (KerML 8.3.3.1.10) inside
+// an import walk; excludeImplied follows stated specializations only, at every level.
 func (e *Evaluator) structureWalkInheritedMemberships(
 	element Element,
 	walk *importWalk,
@@ -637,13 +626,14 @@ func (e *Evaluator) libraryVisibleMemberships(namespace *symbols.Symbol, recursi
 	}
 	var visible []Value
 	var nested []*symbols.Symbol
-	var members []*symbols.Symbol
-	if namespace.Scope != nil {
-		members = namespace.Scope.Members()
-	}
-	for _, member := range members {
+	// The owned memberships carry the unnamed members a scope does not list.
+	for _, owned := range e.model.OwnedMemberships(namespace) {
+		member := owned
+		if owned.Implicit != nil {
+			member = owned.Implicit.Member
+		}
 		if member == nil {
-			continue
+			return nil, false
 		}
 		if !all && member.Visibility != ast.VisibilityDefault && member.Visibility != ast.VisibilityPublic {
 			continue
