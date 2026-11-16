@@ -885,7 +885,7 @@ export interface TypeFacts {
   declared: string;
   resolvedId: string;
   /** Qualified name of the resolved written type, for display; `resolvedId` is for lookup. */
-  resolvedQualifiedName: string;
+  resolvedQualifiedName?: string | undefined;
   resolvedKind: string;
   primitive: string;
   primitiveSource: string;
@@ -913,7 +913,7 @@ export interface SpecializationFacts {
   declared: string;
   targetId: string;
   /** Qualified name of the resolved target, for display; `targetId` is for lookup. */
-  targetQualifiedName: string;
+  targetQualifiedName?: string | undefined;
   targetKind: string;
 }
 
