@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Maven Central answers a burst of resolutions with HTTP 429 and Maven gives up after three
@@ -107,51 +109,96 @@ func TestCIRunsMavenOnlyInATreeThatRetries(t *testing.T) {
 	}
 }
 
-func TestMavenCacheIsSavedOnDevelop(t *testing.T) {
+const mavenCacheAction = "./.github/actions/maven-cache"
+
+// mavenWorkflow reads the steps of any workflow, whatever the shape of its other keys.
+type mavenWorkflow struct {
+	Jobs map[string]struct {
+		Steps []struct {
+			Name string         `yaml:"name"`
+			Uses string         `yaml:"uses"`
+			Run  string         `yaml:"run"`
+			With map[string]any `yaml:"with"`
+		} `yaml:"steps"`
+	} `yaml:"jobs"`
+}
+
+// TestMavenCacheIsSavedOnDevelopAlone fails when a job other than the warm one could save a partial entry.
+func TestMavenCacheIsSavedOnDevelopAlone(t *testing.T) {
 	workflow, raw := loadActionsWorkflow(t, "maven-cache.yml")
-	for _, want := range []string{"branches: [develop]", "- '**/pom.xml'"} {
+	for _, want := range []string{"branches: [develop]", "- '**/pom.xml'", "schedule:"} {
 		if !strings.Contains(raw, want) {
 			t.Errorf("maven-cache.yml does not trigger on %s", want)
 		}
 	}
-	steps := workflow.Jobs["warm"].Steps
-	if len(steps) < 2 || !strings.HasPrefix(steps[0].Uses, "actions/checkout@") ||
-		!strings.HasPrefix(steps[1].Uses, "actions/setup-java@") || steps[1].With["cache"] != "maven" {
-		t.Fatal("maven-cache.yml's warm job must check out and then set up Java with cache: maven, before anything adds a pom.xml to the key")
-	}
+	saves := false
 	resolved := map[string]bool{}
-	for _, step := range steps {
+	for _, step := range workflow.Jobs["warm"].Steps {
+		if step.Uses == mavenCacheAction {
+			saves = step.With["save"] == "true" && len(resolved) == 0
+		}
 		for _, match := range mavenFile.FindAllStringSubmatch(step.Run, -1) {
 			resolved[match[1]] = true
 		}
 	}
+	if !saves {
+		t.Errorf("maven-cache.yml's warm job must use %s with save before it runs mvn", mavenCacheAction)
+	}
 	for _, tree := range mavenTrees(t) {
 		if !resolved[tree] {
-			t.Errorf("maven-cache.yml resolves no dependencies of %s, so its job starts cold", tree)
+			t.Errorf("maven-cache.yml resolves no dependencies of %s, so the entry it saves lacks them", tree)
 		}
 	}
 
-	// A reader takes the entry only under the key the warm job saved: the same action, the same input.
-	pr, _ := loadPRWorkflow(t)
+	_, action := loadCompositeAction(t, "../../.github/actions/maven-cache/action.yml")
+	if strings.Count(action, "key: maven-deps-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}") != 2 {
+		t.Error("the maven-cache action's restore and save steps must share one key over every pom.xml")
+	}
+
+	workflows, err := filepath.Glob("../../.github/workflows/*.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
 	readers := 0
-	for name, job := range pr.Jobs {
-		runsMaven := false
-		for _, step := range job.Steps {
-			runsMaven = runsMaven || mavenFile.MatchString(step.Run) || strings.Contains(step.Run, "make audit-java")
-		}
-		if !runsMaven {
+	for _, path := range workflows {
+		name := filepath.Base(path)
+		if name == "maven-cache.yml" {
 			continue
 		}
-		readers++
-		cached := false
-		for _, step := range job.Steps {
-			cached = cached || (step.Uses == steps[1].Uses && step.With["cache"] == "maven")
+		raw, err := os.ReadFile(path) // #nosec G304 -- a file of this repository
+		if err != nil {
+			t.Fatal(err)
 		}
-		if !cached {
-			t.Errorf("pr.yml job %s runs mvn without the setup-java step (cache: maven) that maven-cache.yml fills", name)
+		var file mavenWorkflow
+		if err := yaml.Unmarshal(raw, &file); err != nil {
+			t.Fatalf("parse %s: %v", name, err)
+		}
+		// setup-java's own cache is saved per ref under one key, whichever tree the job resolved.
+		if strings.Contains(string(raw), "cache: maven") {
+			t.Errorf("%s sets cache: maven on setup-java; use %s instead", name, mavenCacheAction)
+		}
+		for id, job := range file.Jobs {
+			restored, runsMaven := false, false
+			for _, step := range job.Steps {
+				if step.Uses == mavenCacheAction {
+					restored = true
+					if _, saves := step.With["save"]; saves {
+						t.Errorf("%s job %s passes save to %s: only maven-cache.yml saves the entry", name, id, mavenCacheAction)
+					}
+				}
+				if mavenFile.MatchString(step.Run) || strings.Contains(step.Run, "make audit-java") {
+					runsMaven = true
+					if !restored {
+						t.Errorf("%s job %s runs mvn in step %q before %s", name, id, step.Name, mavenCacheAction)
+					}
+				}
+			}
+			if runsMaven {
+				readers++
+			}
 		}
 	}
 	if readers == 0 {
-		t.Fatal("no pr.yml job runs mvn")
+		t.Fatal("no workflow job runs mvn")
 	}
 }

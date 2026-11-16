@@ -380,9 +380,12 @@ eight, about three minutes of backoff, or as long as the server's `Retry-After` 
 count twice because Maven 3.9 (Wagon) reads only `aether.connector.http.retryHandler.count` and
 Maven 3.10 (the Apache transport) only `aether.transport.http.retryHandler.count`. Run `mvn` with
 `-f <tree>/pom.xml` so the file applies. `.github/workflows/maven-cache.yml` resolves the three
-trees on every push to `develop` that changes a `pom.xml`, and daily, and saves `~/.m2` under the key the Java
-jobs' `actions/setup-java` steps (`cache: maven`) restore, so a pull request or merge group, whose
-own caches are private to its ref, starts warm.
+trees on every push to `develop` that changes a `pom.xml`, and daily, and saves `~/.m2/repository`
+keyed on the hash of every `pom.xml`. A job that runs Maven restores that entry with
+`.github/actions/maven-cache` after `actions/setup-java`, and does not set `cache: maven` there: a
+pull request's or merge group's own cache is private to its ref, and one saved by a single job
+holds a single tree's dependencies. A pull request that changes a `pom.xml` restores the newest
+earlier entry.
 
 Every third-party action a workflow or composite action `uses:` is pinned to a full commit SHA
 with the release that commit is as a trailing comment (`actions/checkout@<sha> # v4.4.0`); a new

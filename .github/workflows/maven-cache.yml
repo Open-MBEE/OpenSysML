@@ -1,13 +1,14 @@
 name: Maven dependency cache
 
-# Pull-request and merge-queue caches are private to their ref, so the Java jobs in pr.yml can
-# only start warm from an entry saved on develop: this resolves each Maven tree and saves it.
+# A cache saved by a pull request or merge group is private to its ref, so the Java jobs start
+# warm only from an entry saved on develop: this resolves every Maven tree and saves one.
 on:
   push:
     branches: [develop]
     paths:
       - '**/pom.xml'
       - .github/workflows/maven-cache.yml
+      - .github/actions/maven-cache/**
   # An entry no run read for a week is evicted: the daily run reads it, or saves it again.
   schedule:
     - cron: '17 5 * * *'
@@ -29,13 +30,17 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      # The key is the hash of every pom.xml, the one the Java jobs' own setup-java steps ask for.
       - name: Set up Java
         uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
         with:
           distribution: temurin
           java-version: '21'
-          cache: maven
+
+      # No other job saves this entry, so it cannot be one tree's dependencies under the key.
+      - name: Restore the Maven dependency cache, and save it after the job
+        uses: ./.github/actions/maven-cache
+        with:
+          save: 'true'
 
       # Tests are compiled but not run: they need the service binary, and what is saved is ~/.m2.
       - name: Resolve the Java client
