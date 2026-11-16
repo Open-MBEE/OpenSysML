@@ -58,7 +58,8 @@ var syntaxCodes = []Entry{
 		Summary: "KerML notation in a SysML file",
 		Meaning: "A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) or a KerML spelling " +
 			"(`typed by` for a typing, which SysML spells `:` or `defined by`) that the SysML v2 grammar does not admit. " +
-			"Move the declaration to a `.kerml` file, or write the SysML form the message names. `-strict` promotes this finding to an error.",
+			"Move the declaration to a `.kerml` file, or write the SysML form the message names. A `namespace` declaration is an error in either mode; " +
+			"`-strict` promotes the other findings to errors.",
 		Spec: "the pinned SysML v2 Xtext grammar",
 	},
 	{

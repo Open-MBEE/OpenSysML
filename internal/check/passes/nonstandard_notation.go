@@ -673,15 +673,15 @@ func (w *notationWalker) stateMachinesImport(metadata string) (diag.Edit, bool) 
 	return diag.Edit{}, false
 }
 
-// kermlNamespace reports a `namespace` declaration in a SysML file, whose root
-// production admits package members only.
+// kermlNamespace rejects a `namespace` declaration in a SysML file in every mode:
+// no SysML production declares one (SysML 8.2.2.5.1 RootNamespace, 8.2.2.5.2).
 func (w *notationWalker) kermlNamespace(n *ast.Namespace) {
-	if !w.sysml || w.inKerMLDeclaration > 0 {
+	if !w.sysml {
 		return
 	}
 	w.diags = append(w.diags, diag.Diagnostic{
-		Severity: w.severity,
-		Span:     keywordSpan(n, "namespace"),
+		Severity: diag.SeverityError,
+		Span:     w.declarationKeywordSpan(n, "namespace"),
 		Message: "`namespace` is KerML notation: the SysML v2 grammar has no namespace declaration, " +
 			"so write `package` here or move the declaration to a .kerml file",
 		Code:   CodeKerMLNotation,
