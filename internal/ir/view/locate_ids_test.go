@@ -209,14 +209,20 @@ func TestLocateStatesSkipsGraphOnlyRegionOwners(t *testing.T) {
 		state work parallel {
 			state left {
 				fork split;
-				transition first split then done;
+				state inner parallel {
+					state upper {
+						state a;
+					}
+					state lower {
+						state b;
+					}
+				}
+				transition first split then inner.upper.a;
+				transition first split then inner.lower.b;
 			}
-			state right {
-				transition first split then done;
-			}
+			state right;
 		}
-		transition first idle then split;
-		transition first work then done;
+		transition first idle then work.left.split;
 	}
 }`
 	r, idx := loadSources(t, []string{"owners.sysml"}, [][]byte{[]byte(src)})
@@ -277,7 +283,7 @@ func TestLocateStatesSkipsGraphOnlyRegionOwners(t *testing.T) {
 			}
 		}
 	}
-	if owners != 2 {
-		t.Errorf("found %d graph-only region states, want 2", owners)
+	if owners != 4 {
+		t.Errorf("found %d graph-only region states, want 4", owners)
 	}
 }
