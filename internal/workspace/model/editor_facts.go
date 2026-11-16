@@ -124,13 +124,13 @@ func (w *Workspace) FeatureHintsInDoc(name string, syms []*symbols.Symbol) []Fea
 	return out
 }
 
-// InheritedTypesOf is Feature::type (KerML 8.3.3.3.4) of a usage that writes no typing:
-// the types the features it redefines, subsets or references give it. Nil otherwise.
+// InheritedTypesOf is Feature::type (KerML 8.3.3.3.4) of a usage whose declaration shows no
+// typing: one that writes none, or one held as its record, which keeps no declaration to read.
 func (w *Workspace) InheritedTypesOf(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil || sym.DocName == "" {
 		return nil
 	}
-	if usage, ok := sym.Decl.(*ast.Usage); !ok || declaresType(usage) {
+	if usage, ok := sym.Decl.(*ast.Usage); !sym.Recorded() && (!ok || declaresType(usage)) {
 		return nil
 	}
 	w.mu.Lock()

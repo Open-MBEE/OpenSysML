@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
 
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
@@ -151,5 +153,82 @@ func TestCompletionDetailStatesInheritedTyping(t *testing.T) {
 		if got := optString(items[label].Detail); got != want {
 			t.Errorf("%q detail = %q, want %q", label, got, want)
 		}
+	}
+}
+
+// A document held as its record keeps no declarations, so the completion detail of
+// its features reads their typing, written or inherited, from the model.
+func TestCompletionDetailOfARecordedFeatureStatesItsTyping(t *testing.T) {
+	cache, err := libs.NewCacheIn(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	lib := filepath.Join(dir, "lib.sysml")
+	main := filepath.Join(dir, "main.sysml")
+	const libSource = `package Lib {
+    attribute def Label :> ScalarValues::String;
+    attribute def Record { attribute name : Label; }
+    attribute example : Record { attribute redefines name = "example"; }
+}
+`
+	const mainSource = "package Main { attribute a = Lib::example. }\n"
+	for path, text := range map[string]string{lib: libSource, main: mainSource} {
+		if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ws := model.NewWorkspace(model.WithRecordCache(cache))
+	s := NewServer(ws)
+	s.client = &fakeClient{}
+	ctx := context.Background()
+	if _, err := s.Initialize(ctx, &protocol.InitializeParams{
+		WorkspaceFoldersInitializeParams: workspaceFolders(protocol.WorkspaceFolder{URI: uri.File(dir), Name: "records"}),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Initialized(ctx, &protocol.InitializedParams{}); err != nil {
+		t.Fatal(err)
+	}
+	for path, text := range map[string]string{lib: libSource, main: mainSource} {
+		if err := s.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{TextDocument: protocol.TextDocumentItem{
+			URI: uri.File(path), LanguageID: "sysml", Version: 1, Text: text,
+		}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.DidSave(ctx, &protocol.DidSaveTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(lib)}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DidClose(ctx, &protocol.DidCloseTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(lib)}}); err != nil {
+		t.Fatal(err)
+	}
+	if !ws.Recorded(lib) {
+		t.Fatal("lib.sysml closed unchanged is not held as its record: the fixture is vacuous")
+	}
+	complete := func(marker string) map[string]string {
+		list, err := completions(t, s, ctx, &protocol.CompletionParams{
+			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(main)},
+				Position:     offsetToPosition([]byte(mainSource), strings.Index(mainSource, marker)+len(marker)),
+			},
+		})
+		if err != nil || list == nil {
+			t.Fatalf("Completion = %v, %v", list, err)
+		}
+		details := map[string]string{}
+		for _, it := range list.Items {
+			details[it.Label] = optString(it.Detail)
+		}
+		return details
+	}
+	if got := complete("Lib::example.")["name"]; got != "attribute : Label" {
+		t.Errorf("recorded redefining 'name' detail = %q, want %q", got, "attribute : Label")
+	}
+	if got := complete("Lib::")["example"]; got != "attribute : Record" {
+		t.Errorf("recorded 'example' detail = %q, want %q", got, "attribute : Record")
+	}
+	if !ws.Recorded(lib) {
+		t.Fatal("completion hydrated lib.sysml: the details were not read from its record")
 	}
 }
