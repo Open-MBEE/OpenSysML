@@ -150,10 +150,10 @@ type StateLocator struct {
 	states map[program.StateID]bool
 	// keys are the located keys of the graph's vertices and regions, memoized;
 	// seen numbers same-span children per parent key as the rendering does.
-	keys map[stateItem]locatorKey
-	seen map[locatorKey]map[string]int
-	nodes  map[locatorKey]string
-	edges  map[edgeKey][]int
+	keys  map[stateItem]locatorKey
+	seen  map[locatorKey]map[string]int
+	nodes map[locatorKey]string
+	edges map[edgeKey][]int
 }
 
 // LocateStates matches graph, lowered from machine's declaration, to the root of
