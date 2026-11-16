@@ -194,23 +194,44 @@ func (m *migration) adjunctChain(p *sysmlv1.Element) []string {
 	if principal == nil {
 		return nil
 	}
-	names := []string{writeName(m.nameOf(principal))}
-	for o := memberOwner(principal); o != nil && o != p.Parent && !m.inherits(p.Parent, o); o = memberOwner(o) {
-		if m.isUsage(o) {
-			names = append([]string{writeName(m.nameOf(o))}, names...)
+	full := m.path(principal)
+	steps := full[len(full)-1:]
+	for o := principal.Parent; o != nil; o = o.Parent {
+		if o == p.Parent || m.inherits(p.Parent, o) {
+			if base := m.path(o); len(base) < len(full) {
+				steps = full[len(base):]
+			}
+			break
 		}
 	}
+	names := make([]string, len(steps))
+	for i, s := range steps {
+		names[i] = writeName(s.name)
+	}
 	return names
+}
+
+// adjunctNestedIn returns the member of p's owner that the principal of the collapsed adjunct property p is
+// written inside; nil when the principal is a member of the owner itself. It names nothing, so planning may ask.
+func (m *migration) adjunctNestedIn(p *sysmlv1.Element) *sysmlv1.Element {
+	principal := m.principalOf(p)
+	if principal == nil {
+		return nil
+	}
+	for o := memberOwner(principal); o != nil && o != p.Parent && !m.inherits(p.Parent, o); o = memberOwner(o) {
+		if o.Type != "Region" || m.regionWrittenAsState(o) {
+			return o
+		}
+	}
+	return nil
 }
 
 // adjunctExposure says what reaches the usage of principal through an adjunct property
 // collapsed into it, so the usage must not be hidden; "" when nothing does.
 func (m *migration) adjunctExposure(principal *sysmlv1.Element) string {
-	for owner := principal.Parent; owner != nil; owner = owner.Parent {
-		for _, p := range owner.Owned("ownedAttribute") {
-			if by := m.exposed[p]; by != "" && m.principalOf(p) == principal {
-				return by
-			}
+	for _, p := range m.adjunctExposed[principal] {
+		if m.principalOf(p) == principal {
+			return m.exposed[p]
 		}
 	}
 	return ""

@@ -111,12 +111,15 @@ func TestAdjunctPropertyOfANestedOrHiddenPrincipal(t *testing.T) {
 		"ref item held : Tank;",
 		"end held : Tank crosses batch.held;",
 		"end rinse : Rinse;",
+		"ref item spare : Tank;",
+		"end spare : Tank crosses rebatch.spare;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNoLine(t, r.Notation, "private ref item held")
+	wantNoLine(t, r.Notation, "private ref item")
+	wantNote(t, r, "_spare", migrate.Approximated, "the variable is not written private: the connection def of the association 'RebatchSpare' in Wash crosses it")
 	wantNote(t, r, "_held", migrate.Approximated, "the variable is not written private: the connection def of the association 'BatchHeld' in Wash crosses it")
-	wantNote(t, r, "_batchRinse", migrate.Approximated, "end rinse crosses no property: the end property is the usage stage.rinse of its «AdjunctProperty» principal")
+	wantNote(t, r, "_batchRinse", migrate.Approximated, "end rinse crosses no property: the end property is the usage of its «AdjunctProperty» principal, which is nested in 'stage' of Batch")
 	wantNote(t, r, "_adjRinse", migrate.Approximated, "«moe» applied to the property is not written")
 	for _, d := range errorsMode(t, "adjunct_nested.sysml", r.Notation, diag.ConformanceStrict) {
 		t.Errorf("%v", d)

@@ -1229,7 +1229,8 @@ comment) has no place on the usage and is reported **unmapped**.
 
 Three cases give way so that the output still resolves, each with a note. A variable is written
 `private` unless an association end crosses it through its adjunct property; it is then written
-without `private`, since no path reaches a private feature. A principal nested in a structured
+without `private`, since no path reaches a private feature; that holds as well when the property
+belongs to a specialization of the variable's activity. A principal nested in a structured
 node is reached by a chain (`stage.rinse`), which a connector end takes but an association end's
 `crosses` does not, so that end is written uncrossed. A further stereotype applied to the property
 (other than a tool's notation profile) is not written, since the usage carries no application of

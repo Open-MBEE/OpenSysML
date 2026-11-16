@@ -253,6 +253,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		edgeMembers:       map[*sysmlv1.Element]edgeMember{},
 		adjuncts:          map[*sysmlv1.Element]*adjunct{},
 		resolvingAdjunct:  map[*sysmlv1.Element]bool{},
+		adjunctExposed:    map[*sysmlv1.Element][]*sysmlv1.Element{},
 		sequenceBindings:  map[*sysmlv1.Element][]lifelineBinding{},
 		sequenceParams:    map[*sysmlv1.Element]string{},
 		objectives:        map[*sysmlv1.Element]string{},
@@ -385,6 +386,8 @@ type migration struct {
 	// none; resolvingAdjunct guards asking whether a principal is written from inside the answer.
 	adjuncts         map[*sysmlv1.Element]*adjunct
 	resolvingAdjunct map[*sysmlv1.Element]bool
+	// adjunctExposed lists, for a principal, the exposed adjunct properties that stand for it.
+	adjunctExposed map[*sysmlv1.Element][]*sysmlv1.Element
 	// synthesized marks the elements whose written name the migration made up,
 	// their source having left them unnamed; see madeUp.
 	synthesized map[*sysmlv1.Element]bool
@@ -1078,6 +1081,9 @@ func (m *migration) exposeReached(e *sysmlv1.Element) {
 func (m *migration) expose(f *sysmlv1.Element, by string) {
 	if _, ok := m.exposed[f]; !ok && !f.IsProxy() {
 		m.exposed[f] = by
+		if a := m.adjunctOf(f); a != nil && a.apart == "" {
+			m.adjunctExposed[a.principal] = append(m.adjunctExposed[a.principal], f)
+		}
 	}
 }
 
@@ -2514,8 +2520,8 @@ func (m *migration) crossedProperty(e, end *sysmlv1.Element, typ string) (opp *s
 	if end.Type != "Property" || !m.written(end) || toolContent(end) != "" {
 		return nil, label + "the end property is not written as a feature of " + qualifiedName(ot)
 	}
-	if chain := m.adjunctChain(end); len(chain) > 1 {
-		return nil, label + "the end property is the usage " + strings.Join(chain, ".") + " of its «AdjunctProperty» principal, nested below a feature of " + qualifiedName(ot) + ", and a cross chains through the opposite end alone"
+	if within := m.adjunctNestedIn(end); within != nil {
+		return nil, label + "the end property is the usage of its «AdjunctProperty» principal, which is nested in " + describe(within) + " of " + qualifiedName(ot) + ", and a cross chains through the opposite end alone"
 	}
 	return opp, ""
 }

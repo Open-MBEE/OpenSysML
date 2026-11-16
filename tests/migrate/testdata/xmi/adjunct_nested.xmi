@@ -9,11 +9,19 @@
       <ownedAttribute xmi:type="uml:Property" xmi:id="_adjRinse" name="rinse" type="_rinse" aggregation="composite" association="_batchRinse"/>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_adjHeld" name="held" type="_tank" association="_batchHeld"/>
       <variable xmi:type="uml:Variable" xmi:id="_held" name="held" type="_tank"/>
+      <variable xmi:type="uml:Variable" xmi:id="_spare" name="spare" type="_tank"/>
       <node xmi:type="uml:InitialNode" xmi:id="_init"/>
       <node xmi:type="uml:StructuredActivityNode" xmi:id="_stage" name="stage">
         <node xmi:type="uml:CallBehaviorAction" xmi:id="_callRinse" name="rinse" behavior="_rinse"/>
       </node>
       <edge xmi:type="uml:ControlFlow" xmi:id="_e0" source="_init" target="_stage"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_rebatch" name="Rebatch">
+      <generalization xmi:type="uml:Generalization" xmi:id="_rebatchGen" general="_batch"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_adjSpare" name="spare" type="_tank" association="_rebatchSpare"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Association" xmi:id="_rebatchSpare" name="RebatchSpare" memberEnd="_rebatchSpareWhole _adjSpare">
+      <ownedEnd xmi:type="uml:Property" xmi:id="_rebatchSpareWhole" name="rebatch" type="_rebatch" association="_rebatchSpare"/>
     </packagedElement>
     <packagedElement xmi:type="uml:Association" xmi:id="_batchRinse" name="BatchRinse" memberEnd="_batchRinseWhole _adjRinse">
       <ownedEnd xmi:type="uml:Property" xmi:id="_batchRinseWhole" name="batch" type="_batch" association="_batchRinse"/>
@@ -26,4 +34,5 @@
   <sysml:AdjunctProperty xmi:id="_sRinse" base_Property="_adjRinse" principal="_callRinse"/>
   <sysml:moe xmi:id="_sMoe" base_Property="_adjRinse"/>
   <sysml:AdjunctProperty xmi:id="_sHeld" base_Property="_adjHeld" principal="_held"/>
+  <sysml:AdjunctProperty xmi:id="_sSpare" base_Property="_adjSpare" principal="_spare"/>
 </xmi:XMI>
