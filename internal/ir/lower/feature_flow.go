@@ -53,8 +53,8 @@ func flowEndPaths(flow *ast.Usage) (source, target []string) {
 	return bodyEndPath(ends[0]), bodyEndPath(ends[1])
 }
 
-// bodyEndPath is the feature end references followed by the one its first owned feature
-// redefines (KerML 8.3.4.9.2, deriveFlowSourceOutputFeature); nil for an end that owns none.
+// bodyEndPath is the feature end references followed by the one of it that the end's first owned
+// feature redefines by its own name (KerML 1.1 8.4.4.10.2); nil for an end that states none.
 func bodyEndPath(end *ast.Usage) []string {
 	var related []string
 	for _, rel := range end.Relationships {
@@ -75,8 +75,9 @@ func bodyEndPath(end *ast.Usage) []string {
 			if rel == nil || rel.Kind != ast.RelRedefines {
 				continue
 			}
-			if redefined := endSegments(rel.Target); len(redefined) > 0 {
-				return append(related, redefined[len(redefined)-1])
+			// A qualified name is the library's Transfer::source::sourceOutput or its like.
+			if redefined := endSegments(rel.Target); len(redefined) == 1 {
+				return append(related, redefined[0])
 			}
 		}
 		return nil
