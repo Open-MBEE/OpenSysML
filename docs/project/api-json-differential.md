@@ -848,17 +848,33 @@ ours-missing):
        export stated `out` (SysML.xtext `PayloadParameterMember`, `validateAcceptActionUsageParameters`).
        `directedFeature` present-different 1093 → 768, `input` ours-missing 1439 → 1102, `output`
        pilot-missing 146 → 97.
-     - expression elements (`directedFeature` 4967 ours-missing and 535 present-different, `input`
-       311 / 181, `output` 4880 / 306): no implied base in the element form, a separate change.
-     - withheld (`directedFeature` 908, `input` 791, `output` 585 ours-missing on other elements): each
-       depends on `Type::feature`, withheld where a general or a redefined feature is not resolved in
-       the converted graph. Sampled, not attributed row by row: a file converted alone for an id
-       collision loses its cross-file generals, and a type inheriting a parameter that redefines a
-       library feature fails on the library reference row.
+     - ours-missing, every row assigned to one cause from the omission the writer records for it
+       (`endFeature` 113, `directedFeature` 5268, `input` 579, `output` 5014; none unassigned):
+
+       | Cause | `endFeature` | `directedFeature` | `input` | `output` |
+       |---|---:|---:|---:|---:|
+       | an expression element or a parameter of one: no implied base in the element form, a separate change | 21 | 4959 | 306 | 4872 |
+       | withheld: a general or a redefined feature is not resolved in the graph of a file converted alone | 23 | 96 | 84 | 84 |
+       | withheld: an element the graph does not represent | 0 | 8 | 8 | 0 |
+       | a KerML classifier or feature exported under a SysML usage metaclass, which has no such property (the existing metaclass difference) | 65 | 43 | 37 | 31 |
+       | evaluated empty where the pilot states a value | 4 | 162 | 144 | 27 |
+
+       The last cause is a value difference, not a withheld one, and is not adjudicated per metaclass:
+       `AssignmentActionUsage` (113 `directedFeature`, 113 `input`), `AssertConstraintUsage` (21, 0,
+       21 `output`), `ForLoopActionUsage` and `WhileLoopActionUsage` (8 each, inputs),
+       `AttributeUsage` (6, 6, 2), `FlowDefinition` (2, 2), `FlowEnd` (2, 1, 1), and one to two rows
+       each on `CalculationUsage`, `ConstraintUsage`, `ForkNode`, `Function` and `ReferenceUsage`;
+       `endFeature` one each on a `Connector`, an `InterfaceUsage`, a `ReferenceUsage` and a
+       `TransitionUsage`.
+     - a `FlowFeature` has the direction of the feature it redefines, read from its `FlowEnd`
+       (KerML.xtext `FlowFeature`), so a flow end states its `input` or `output`; a performed feature
+       chain inherits the parameters of the last feature it names (KerML §8.3.3.3.4 `featureTarget`).
      - the clause over the pilot: a `ConjugatedPortDefinition` and a port typed by one take the
        original definition's features with the directions reversed (KerML §8.3.3.1.10 `supertypes` of
-       a conjugated type); the pilot states `[]` (`directedFeature` 71, `input` 52, `output` 40
-       pilot-missing).
+       a conjugated type); the pilot states `[]` (`directedFeature` 96, `input` 67, `output` 52
+       pilot-missing: the conjugated definitions, the ports typed by one, and the connector and flow
+       ends that subset such a port). A feature the conjugated port itself declares keeps the
+       direction it states.
      - not adjudicated: a `TransitionUsage` keeps the inherited `StateTransitionAction::payload` beside
        its own payload parameter (64 rows per property, 55 `output` pilot-missing). The OCL of
        `checkFeatureParameterRedefinition` (KerML §8.4.4.7) reads the direct general's owned

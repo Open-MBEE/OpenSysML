@@ -4225,52 +4225,123 @@ func (e *Evaluator) structureDirectedFeatures(element Element, property string) 
 	return sequence(directed...), true, true
 }
 
-func (e *Evaluator) structureEffectiveDirection(owner, feature Element) (ast.FeatureDirection, bool) {
-	if isConjugatedPortDefinition, known := e.isMetaclass(owner, "ConjugatedPortDefinition"); known &&
-		isConjugatedPortDefinition {
-		original, ok := e.Property(owner, "ConjugatedPortDefinition", "originalPortDefinition")
-		if !ok || original.Kind != ElementValue {
-			return ast.DirNone, false
+// structureConjugatedOriginal is the port definition a conjugated port definition, or a port
+// usage typed by one, takes its features from with their directions reversed.
+func (e *Evaluator) structureConjugatedOriginal(owner Element) (Element, bool, bool) {
+	conjugatedDefinition := owner
+	isConjugatedPortDefinition, known := e.isMetaclass(owner, "ConjugatedPortDefinition")
+	if !known || !isConjugatedPortDefinition {
+		isPortUsage, known := e.isMetaclass(owner, "PortUsage")
+		if !known || !isPortUsage {
+			return Element{}, false, true
 		}
-		direction, ok := e.structureEffectiveDirection(original.Element, feature)
-		if !ok {
-			return ast.DirNone, false
-		}
-		return semantics.ConjugateDirection(direction), true
-	}
-	if isPortUsage, known := e.isMetaclass(owner, "PortUsage"); known && isPortUsage {
 		relationships, known := e.options.Structure.OwnedRelationships(owner)
 		if !known {
-			return ast.DirNone, false
+			return Element{}, false, false
 		}
+		found := false
 		for _, relationship := range relationships {
 			isConjugatedTyping, known := e.isMetaclass(relationship, "ConjugatedPortTyping")
 			if !known {
-				return ast.DirNone, false
+				return Element{}, false, false
 			}
 			if !isConjugatedTyping {
 				continue
 			}
 			conjugated, known := e.relationshipEndpoints(relationship, "conjugatedPortDefinition")
 			if !known || len(conjugated) != 1 || conjugated[0].Kind != ElementValue {
-				return ast.DirNone, false
+				return Element{}, false, false
 			}
-			original, ok := e.Property(
-				conjugated[0].Element, "ConjugatedPortDefinition", "originalPortDefinition",
-			)
-			if !ok || original.Kind != ElementValue {
-				return ast.DirNone, false
-			}
-			direction, ok := e.structureEffectiveDirection(original.Element, feature)
-			if !ok {
-				return ast.DirNone, false
-			}
-			return semantics.ConjugateDirection(direction), true
+			conjugatedDefinition, found = conjugated[0].Element, true
+			break
 		}
+		if !found {
+			return Element{}, false, true
+		}
+	}
+	original, ok := e.Property(conjugatedDefinition, "ConjugatedPortDefinition", "originalPortDefinition")
+	if !ok || original.Kind != ElementValue {
+		return Element{}, false, false
+	}
+	return original.Element, true, true
+}
+
+// structureDirectionThroughGenerals is Type::directionOf for a feature the type inherits: the
+// direction the first general that has the feature gives it, reversed through a conjugated
+// general (KerML 8.3.3.1.10 directionOfExcluding). found is false when the type is not
+// reached from the feature's owning type through the generals the structure states.
+func (e *Evaluator) structureDirectionThroughGenerals(
+	owner, feature Element, visited map[Element]bool,
+) (ast.FeatureDirection, bool, bool) {
+	owningType, handled, ok := e.structureOwningType(feature)
+	if !handled || !ok || owningType.Kind != ElementValue || owningType.Element == owner {
+		return ast.DirNone, false, true
+	}
+	if visited[owner] {
+		return ast.DirNone, false, true
+	}
+	visited[owner] = true
+	generals, ok := e.structureGeneralTypes(owner)
+	if !ok {
+		return ast.DirNone, false, false
+	}
+	for _, general := range generals {
+		if general == owningType.Element {
+			direction, ok := e.structureEffectiveDirection(general, feature)
+			return direction, ok, ok
+		}
+		reversed := false
+		if original, conjugated, ok := e.structureConjugatedOriginal(general); !ok {
+			return ast.DirNone, false, false
+		} else if conjugated {
+			general, reversed = original, true
+			if general == owningType.Element {
+				direction, ok := e.structureEffectiveDirection(general, feature)
+				return semantics.ConjugateDirection(direction), ok, ok
+			}
+		}
+		direction, found, ok := e.structureDirectionThroughGenerals(general, feature, visited)
+		if !ok {
+			return ast.DirNone, false, false
+		}
+		if found {
+			if reversed {
+				direction = semantics.ConjugateDirection(direction)
+			}
+			return direction, true, true
+		}
+	}
+	return ast.DirNone, false, true
+}
+
+func (e *Evaluator) structureEffectiveDirection(owner, feature Element) (ast.FeatureDirection, bool) {
+	original, conjugated, ok := e.structureConjugatedOriginal(owner)
+	if !ok {
+		return ast.DirNone, false
+	}
+	// Conjugation reverses what the original definition gives; a feature the owner declares keeps
+	// the direction it states.
+	if owningType, handled, ok := e.structureOwningType(feature); handled && ok &&
+		owningType.Kind == ElementValue && owningType.Element == owner {
+		conjugated = false
+	}
+	if conjugated {
+		direction, ok := e.structureEffectiveDirection(original, feature)
+		if !ok {
+			return ast.DirNone, false
+		}
+		return semantics.ConjugateDirection(direction), true
 	}
 
 	featureSymbol := e.structureElementSymbol(feature)
 	ownerSymbol := e.structureElementSymbol(owner)
+	if ownerSymbol == nil {
+		// A general the structure cannot walk leaves the feature's own direction to stand.
+		direction, found, ok := e.structureDirectionThroughGenerals(owner, feature, map[Element]bool{})
+		if ok && found {
+			return direction, true
+		}
+	}
 	if ownerSymbol != nil {
 		if featureSymbol != nil {
 			portUsage, portUsageKnown := e.isMetaclass(owner, "PortUsage")
@@ -4801,6 +4872,11 @@ func (e *Evaluator) structureGeneralTypes(element Element) ([]Element, bool) {
 		return nil, false
 	}
 	bases = append(bases, roles...)
+	target, ok := e.structureChainTarget(element)
+	if !ok {
+		return nil, false
+	}
+	bases = append(bases, target...)
 	impliedBases, ok := e.structureImpliedBaseFQNs(element)
 	if !ok {
 		return nil, false
@@ -4826,14 +4902,33 @@ func (e *Evaluator) structureGeneralTypes(element Element) ([]Element, bool) {
 	return uniqueStructureElements(bases, e.options.Structure), true
 }
 
-// structureRoleGenerals is what a subject or objective redefines by its role, a general as
-// any redefined feature is (KerML 8.3.3.3.8 Redefinition).
-func (e *Evaluator) structureRoleGenerals(element Element) ([]Element, bool) {
+// structureChainTarget is the last feature a feature chain names, a supertype of the chain
+// after its generals (KerML 8.3.3.3.4 Feature::supertypes appends featureTarget).
+func (e *Evaluator) structureChainTarget(element Element) ([]Element, bool) {
 	if element.IsMembership || !e.structureKnows(element) {
 		return nil, true
 	}
-	// A library reference row has no owner in the structure, so no role there.
-	if _, library := e.structureLibraryBase(element); library {
+	isFeature, known := e.isMetaclass(element, "Feature")
+	if !known {
+		return nil, false
+	}
+	if !isFeature {
+		return nil, true
+	}
+	target, handled, ok := e.structureFeatureTarget(element)
+	if !handled || !ok || target.Kind != ElementValue {
+		return nil, false
+	}
+	if target.Element.Key() == element.Key() {
+		return nil, true
+	}
+	return []Element{target.Element}, true
+}
+
+// structureRoleGenerals is what a subject or objective redefines by its role, a general as
+// any redefined feature is (KerML 8.3.3.3.8 Redefinition).
+func (e *Evaluator) structureRoleGenerals(element Element) ([]Element, bool) {
+	if element.IsMembership || !e.structureKnows(element) || e.structureLibrarySymbol(element) != nil {
 		return nil, true
 	}
 	role, ok := e.structureCaseRole(element)
@@ -5060,6 +5155,19 @@ func (e *Evaluator) structureLibraryBase(element Element) (Element, bool) {
 		}
 	}
 	return Element{}, false
+}
+
+// structureLibrarySymbol is the symbol of an element the structure has no rows for, or only
+// a library reference row: the semantic model describes it, the structure does not.
+func (e *Evaluator) structureLibrarySymbol(element Element) *symbols.Symbol {
+	symbol := e.structureElementSymbol(element)
+	if symbol == nil || !e.structureKnows(element) {
+		return symbol
+	}
+	if base, ok := e.structureLibraryBase(element); ok && base.Symbol == symbol {
+		return symbol
+	}
+	return nil
 }
 
 // structureLibraryTypeMembers reads a library base's non-private memberships, anonymous ones
@@ -5386,7 +5494,7 @@ type structureElementsCacheEntry struct {
 }
 
 func (e *Evaluator) computeStructureAllRedefinedFeatures(feature Element) ([]Element, bool) {
-	if symbol := e.structureElementSymbol(feature); symbol != nil && e.model != nil && !e.structureKnows(feature) {
+	if symbol := e.structureLibrarySymbol(feature); symbol != nil && e.model != nil {
 		result := []Element{feature}
 		for _, redefined := range e.model.AllRedefinedFeatures(symbol) {
 			result = append(result, ElementOf(redefined))

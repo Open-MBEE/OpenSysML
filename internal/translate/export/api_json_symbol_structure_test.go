@@ -584,6 +584,11 @@ func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationshi
 			return "", false
 		}
 		return d.expressionPartID(rel.Owner, "rs")
+	case symbols.ImplicitShorthandReference:
+		if rel.Owner == nil {
+			return "", false
+		}
+		return d.ids.RelationshipOf(d.doc, rel.Owner.Decl)
 	}
 	return "", false
 }

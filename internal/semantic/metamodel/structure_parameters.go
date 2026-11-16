@@ -13,7 +13,7 @@ type structureParameter struct {
 
 // structureRedefinitionTargets returns the features feature's owned Redefinitions name.
 func (e *Evaluator) structureRedefinitionTargets(feature Element) ([]Element, bool) {
-	if symbol := e.structureElementSymbol(feature); symbol != nil && e.model != nil && !e.structureKnows(feature) {
+	if symbol := e.structureLibrarySymbol(feature); symbol != nil && e.model != nil {
 		return elementsOf(e.model.RedefinedFeatures(symbol)), true
 	}
 	redefinitions, handled, ok := e.structureOwnedFilter(feature, "Redefinition", false)
@@ -64,6 +64,14 @@ func (e *Evaluator) structureBehaviorGenerals(owner Element) ([]Element, bool) {
 		if implied[general.Key()] {
 			impliedFeatures = append(impliedFeatures, general)
 			continue
+		}
+		// A feature chain stands for the last feature it names, whose parameters it inherits.
+		targets, ok := e.structureChainTarget(general)
+		if !ok {
+			return nil, false
+		}
+		if len(targets) > 0 {
+			general = targets[0]
 		}
 		isBehavior, known := e.isMetaclass(general, "Behavior")
 		if !known {
@@ -119,7 +127,7 @@ func (e *Evaluator) structureImpliedBaseBehaviors(bases []Element, nested string
 // structureParameterTable mirrors the semantic parameter table: owner's own positional
 // parameters, then what each general leaves unclaimed by clause or position, and the result.
 func (e *Evaluator) structureParameterTable(owner Element, visiting map[ElementKey]bool) ([]structureParameter, *structureParameter, bool) {
-	if symbol := e.structureElementSymbol(owner); symbol != nil && !e.structureKnows(owner) {
+	if symbol := e.structureLibrarySymbol(owner); symbol != nil {
 		positional, result := e.structureSymbolParameters(symbol)
 		return positional, result, true
 	}
@@ -304,7 +312,7 @@ func (e *Evaluator) structureImplicitParameterRedefinitions(feature Element, mat
 	if e.model == nil {
 		return nil, true
 	}
-	if symbol := e.structureElementSymbol(feature); symbol != nil && !e.structureKnows(feature) {
+	if symbol := e.structureLibrarySymbol(feature); symbol != nil {
 		if matchDirection {
 			return elementsOf(e.model.ImplicitParameterRedefinitions(symbol)), true
 		}
@@ -406,7 +414,7 @@ func (e *Evaluator) structureParameterAt(general Element, position int, isResult
 // structureMaskedParameterRedefinitions is what a parameter without a clause masks for its
 // owner: the general parameters at its position whatever their direction, as the semantic masking.
 func (e *Evaluator) structureMaskedParameterRedefinitions(feature Element) ([]Element, bool) {
-	if symbol := e.structureElementSymbol(feature); symbol != nil && e.model != nil && !e.structureKnows(feature) {
+	if symbol := e.structureLibrarySymbol(feature); symbol != nil && e.model != nil {
 		return elementsOf(e.model.MaskedParameterRedefinitions(symbol)), true
 	}
 	explicit, ok := e.structureRedefinitionTargets(feature)
@@ -470,7 +478,7 @@ func (e *Evaluator) structureRoleRedefinitions(owner, feature Element, role stri
 
 // structureRoleFeature is typ's subject or objective: its own first, else a general's.
 func (e *Evaluator) structureRoleFeature(typ Element, role string, visiting map[ElementKey]bool) (*Element, bool) {
-	if symbol := e.structureElementSymbol(typ); symbol != nil && !e.structureKnows(typ) {
+	if symbol := e.structureLibrarySymbol(typ); symbol != nil {
 		owned, inherited := e.model.SubjectsOf(symbol)
 		if role == "ObjectiveMembership" {
 			owned, inherited = e.model.ObjectivesOf(symbol)

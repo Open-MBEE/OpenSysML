@@ -93,6 +93,18 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 		})
 		ordinal++
 	}
+	if target := m.shorthandReference(owner); target != nil {
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  owner.DocName,
+			DeclSpan: owner.DeclSpan,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Ordinal: ordinal, Kind: ast.RelReferences,
+				Form: symbols.ImplicitShorthandReference, Member: target,
+			},
+		})
+		ordinal++
+	}
 	// A multiplicity member's `subsets` is its one written relationship, held on
 	// the declaration rather than in a Relationships list.
 	if decl, ok := owner.Decl.(*ast.MultiplicityDecl); ok && decl.Subsets != nil {
@@ -197,7 +209,7 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		return "PortConjugation"
 	case symbols.ImplicitMetadataBodyRedefinition:
 		return "Redefinition"
-	case symbols.ImplicitSuccessionEndReference:
+	case symbols.ImplicitSuccessionEndReference, symbols.ImplicitShorthandReference:
 		return "ReferenceSubsetting"
 	case symbols.ImplicitReferenceMembership:
 		return "Membership"
@@ -345,7 +357,8 @@ func relationshipEndFeature(meta, feature string) (sourceSide, targetSide bool) 
 func (m *Model) implicitRelationshipEnds(sym *symbols.Symbol) (src, tgt *symbols.Symbol, tgtOK bool) {
 	rel := sym.Implicit
 	src = rel.Owner
-	if rel.Form == symbols.ImplicitMetadataBodyRedefinition || rel.Form == symbols.ImplicitSuccessionEndReference {
+	switch rel.Form {
+	case symbols.ImplicitMetadataBodyRedefinition, symbols.ImplicitSuccessionEndReference, symbols.ImplicitShorthandReference:
 		return src, rel.Member, rel.Member != nil
 	}
 	if rel.Node != nil {

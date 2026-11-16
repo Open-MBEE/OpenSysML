@@ -40,6 +40,9 @@ const (
 	// ImplicitSuccessionEndReference reflects the ReferenceSubsetting the target end Owner of a
 	// `then x;` succession holds to the Member it reaches, as the conversion mints it (end1's `rs`).
 	ImplicitSuccessionEndReference
+	// ImplicitShorthandReference reflects the ReferenceSubsetting a feature Owner stated by name alone
+	// (`require r;`, `assume r;`, `variant x;`) holds to the Member it names (SysML.xtext OwnedReference).
+	ImplicitShorthandReference
 )
 
 // ImplicitRelationship is a relationship the abstract syntax holds as an
