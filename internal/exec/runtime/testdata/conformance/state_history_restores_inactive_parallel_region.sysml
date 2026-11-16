@@ -26,9 +26,9 @@ package HistoryInactiveRegion {
         state outside;
         state completed;
 
-        transition first active when Leave then outside;
-        transition first outside when ReturnShallow then shallow;
-        transition first outside when ReturnDeep then deep;
+        transition first working.a.active when Leave then outside;
+        transition first outside when ReturnShallow then working.shallow;
+        transition first outside when ReturnDeep then working.deep;
         transition first working then completed;
     }
 }

@@ -386,6 +386,20 @@ When the Go jobs will run, that job also fills the fUML suite's cache
 jobs would each fetch the suite's jars from Maven Central, which answers that with HTTP 429.
 The download scripts fetch through `scripts/fetch-https.sh`, which backs off and retries.
 
+Maven is held to the same policy. Each Maven tree (`client/java`, `editors/mdk`, `editors/syson`)
+carries a `.mvn/maven.config` that raises the resolver's retries on a 429 or 503 from three to
+eight, about three minutes of backoff, or as long as the server's `Retry-After` asks. It names the
+count twice because Maven 3.9 (Wagon) reads only `aether.connector.http.retryHandler.count` and
+Maven 3.10 (the Apache transport) only `aether.transport.http.retryHandler.count`. Run `mvn` with
+`-f <tree>/pom.xml` so the file applies. `.github/workflows/maven-cache.yml` resolves the three
+trees on every push to `develop` that changes a `pom.xml`, and daily, and saves `~/.m2/repository`
+keyed on the hash of every `pom.xml`. A job that runs Maven restores that entry with
+`.github/actions/maven-cache` after `actions/setup-java` (`nightly.yml`, which builds a commit that
+may predate the action, by the same key), and does not set `cache: maven` there: a
+pull request's or merge group's own cache is private to its ref, and one saved by a single job
+holds a single tree's dependencies. A pull request that changes a `pom.xml` restores the newest
+earlier entry.
+
 Every job that needs Go takes it from `actions/setup-go` v6 with `go-version-file: go.mod`, which
 installs the release the `toolchain` line names and sets `GOTOOLCHAIN=local`. Do not set
 `GOTOOLCHAIN` in a workflow: the action then installs the `go` line's release instead, and a
