@@ -277,7 +277,9 @@ Beside the model reads above, the client covers every RPC the service offers:
   refused with an `InvalidRequestError` naming `migrate`, since it is migrated,
   not converted; `idForm` (`"qualified"`, the default, or `"uuid"`) chooses how
   a graph spells its derived ids and `includeLibraryStubs` restores the
-  pre-0.11.0 ownerless library stubs in API JSON — `save` takes both, with
+  pre-0.11.0 ownerless library stubs in API JSON, and `inheritedMembers` also
+  writes there the derived lists that repeat each Namespace's and Type's
+  inherited and imported members — `save` takes all three, with
   `toFormat` and `tolerateSyntaxErrors`, as its `SaveOptions` and hands them to
   `Model.convert` unchanged, so the same refusals and capability gates apply;
 - **`connection.migrate`** migrates a SysML v1 model from a `path` or inline

@@ -6808,8 +6808,11 @@ type ConvertRequest struct {
 	// For api-json, restore the ownerless library stubs written before 0.11.0.
 	// Default false: library elements remain bare references, not roots.
 	IncludeLibraryStubs bool `protobuf:"varint,13,opt,name=include_library_stubs,json=includeLibraryStubs,proto3" json:"include_library_stubs,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// For api-json, also write each Namespace's and Type's derived lists of inherited and imported members;
+	// default false writes owned structure. Capability "convert_inherited_members"; a service without it always writes them.
+	InheritedMembers bool `protobuf:"varint,14,opt,name=inherited_members,json=inheritedMembers,proto3" json:"inherited_members,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ConvertRequest) Reset() {
@@ -6942,6 +6945,13 @@ func (x *ConvertRequest) GetIncludeCheckDiagnostics() bool {
 func (x *ConvertRequest) GetIncludeLibraryStubs() bool {
 	if x != nil {
 		return x.IncludeLibraryStubs
+	}
+	return false
+}
+
+func (x *ConvertRequest) GetInheritedMembers() bool {
+	if x != nil {
+		return x.InheritedMembers
 	}
 	return false
 }
@@ -19717,7 +19727,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\x1aA\n" +
 	"\x13OrderDependentEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\xf1\x03\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\x9e\x04\n" +
 	"\x0eConvertRequest\x12\x1d\n" +
 	"\tfile_path\x18\x01 \x01(\tH\x00R\bfilePath\x12\x1a\n" +
 	"\acontent\x18\x02 \x01(\tH\x00R\acontent\x12\x1f\n" +
@@ -19734,7 +19744,8 @@ const file_sysml_proto_rawDesc = "" +
 	" \x01(\bR\vomitDerived\x12!\n" +
 	"\fkeep_derived\x18\v \x03(\tR\vkeepDerived\x12:\n" +
 	"\x19include_check_diagnostics\x18\f \x01(\bR\x17includeCheckDiagnostics\x122\n" +
-	"\x15include_library_stubs\x18\r \x01(\bR\x13includeLibraryStubsB\b\n" +
+	"\x15include_library_stubs\x18\r \x01(\bR\x13includeLibraryStubs\x12+\n" +
+	"\x11inherited_members\x18\x0e \x01(\bR\x10inheritedMembersB\b\n" +
 	"\x06source\"\xd1\x02\n" +
 	"\x0fConvertResponse\x12\x18\n" +
 	"\acontent\x18\x01 \x01(\tR\acontent\x12\x1f\n" +

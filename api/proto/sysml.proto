@@ -1507,6 +1507,9 @@ message ConvertRequest {
   // For api-json, restore the ownerless library stubs written before 0.11.0.
   // Default false: library elements remain bare references, not roots.
   bool include_library_stubs = 13;
+  // For api-json, also write each Namespace's and Type's derived lists of inherited and imported members;
+  // default false writes owned structure. Capability "convert_inherited_members"; a service without it always writes them.
+  bool inherited_members = 14;
 }
 
 // ConvertResponse contains the converted model.
