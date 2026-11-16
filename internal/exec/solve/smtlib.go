@@ -190,7 +190,7 @@ func varComment(v *Var) string {
 func assertionComment(p Provenance) string {
 	out := p.Role.String() + ": " + comment(p.Condition)
 	out += fmt.Sprintf(" — %s %s", p.Kind, comment(p.Element))
-	if p.Declared != nil && p.Declared.Name != "" && p.Declared.Name != p.Element {
+	if p.Declared != nil && p.Declared.Named() && p.Declared.Name != p.Element {
 		out += ", declared by " + comment(p.Declared.Name)
 	}
 	if p.Location != "" {

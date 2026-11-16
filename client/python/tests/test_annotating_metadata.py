@@ -14,6 +14,7 @@ from opensysml.capabilities import (
 from opensysml.errors import UnresolvedChildError
 from opensysml.proto import sysml_pb2
 from opensysml.symbol import Symbol
+from tests.lookups import answering
 
 MODEL_SOURCE = '''
 package D10 {
@@ -42,7 +43,7 @@ def _pump(client, capabilities=frozenset({CAPABILITY_SYMBOL_ANNOTATING_METADATA}
             id="D10::pumpA_fm", name="pumpA_fm", kind="metadataUsage",
         ),
     }
-    client.get_symbol.side_effect = lambda _hash, symbol_id: symbols.get(symbol_id)
+    client.get_symbol.side_effect = answering(lambda _hash, symbol_id: symbols.get(symbol_id))
     info = sysml_pb2.SymbolInfo(
         id="D10::PumpA", name="PumpA", kind="partDef", annotating_metadata_ids=list(usage_ids),
     )

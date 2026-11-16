@@ -1,0 +1,1 @@
+- Six spec-compliance rows that the code had already closed — a positional `then` end in the RDF conversion, the `individual`/`snapshot` modifiers deciding a usage's symbol kind, guarded action successions, returned usages and body declarations, requirement constraint forms and part/use-case typing — now read ✅ Faithful, their tests and fixtures cited; no behaviour changes.

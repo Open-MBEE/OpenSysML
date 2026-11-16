@@ -27,9 +27,9 @@ package Test {
         state away;
 
         transition first start when Go then outer;
-        transition first one when Leave then away;
-        transition first away when Back then resume;
-        transition first outer do { assign log := log + "completion(effect);"; } then resume;
-        transition first third when End then done;
+        transition first outer.one when Leave then away;
+        transition first away when Back then outer.resume;
+        transition first outer do { assign log := log + "completion(effect);"; } then outer.resume;
+        transition first outer.third when End then done;
     }
 }

@@ -121,8 +121,8 @@ func (t *Table) Kept(members []ast.Node) []ast.Node {
 
 // EffectiveName is MemberName completed by the model: a feature its clause
 // leaves nameless is named by the feature it implicitly redefines (KerML 1.1 §8.3.3.3).
-func (t *Table) EffectiveName(node ast.Node) string {
-	if name := MemberName(node); name != "" {
+func (t *Table) EffectiveName(node ast.Node) Name {
+	if name := MemberName(node); name.Named {
 		return name
 	}
 	// Only a usage or a subject is so identified: a Membership (`first start;`) names nothing,
@@ -130,12 +130,13 @@ func (t *Table) EffectiveName(node ast.Node) string {
 	switch node.(type) {
 	case *ast.Usage, *ast.SubjectMember:
 	default:
-		return ""
+		return Name{}
 	}
 	if sym := t.declSym[node]; sym != nil && sym.IsFeature() && t.model != nil {
-		return t.model.EffectiveNameOf(sym)
+		name, named := t.model.EffectiveNamed(sym)
+		return Name{Text: name, Named: named}
 	}
-	return ""
+	return Name{}
 }
 
 func (t *Table) collect(members []ast.Node, owner, position string) error {
@@ -172,13 +173,13 @@ func (t *Table) collect(members []ast.Node, owner, position string) error {
 			continue
 		}
 		// A member whose own name is taken is identified by its position.
-		if name != "" && t.Declared[fqn] {
-			fqn = Qualify(owner, "", i)
+		if name.Named && t.Declared[fqn] {
+			fqn = Positional(owner, i)
 		}
 		t.FQN[node] = fqn
 		positional := Qualify(position, declared, i)
-		if declared != "" && t.positionalTaken[positional] {
-			positional = Qualify(position, "", i)
+		if declared.Named && t.positionalTaken[positional] {
+			positional = Positional(position, i)
 		}
 		t.positionalTaken[positional] = true
 		if positional != fqn {
@@ -232,10 +233,10 @@ func (t *Table) collectPayload(node ast.Node, owner string) error {
 		return nil
 	}
 	index := t.CrossFeatureIndex(u)
-	fqn := Qualify(owner, payload.Ident.Name, index)
+	fqn := Qualify(owner, identName(payload.Ident), index)
 	// A payload whose name a body member took first is identified by its position.
-	if payload.Ident.Name != "" && t.Declared[fqn] {
-		fqn = Qualify(owner, "", index)
+	if payload.Ident.HasName() && t.Declared[fqn] {
+		fqn = Positional(owner, index)
 	}
 	if t.Declared[fqn] {
 		return &PayloadCollision{Payload: payload, Name: fqn}
@@ -286,9 +287,9 @@ func (t *Table) collectCrossFeature(node ast.Node, owner string) {
 		return
 	}
 	cross := u.CrossFeature
-	fqn := Qualify(owner, cross.Ident.Name, t.CrossFeatureIndex(u))
+	fqn := Qualify(owner, identName(cross.Ident), t.CrossFeatureIndex(u))
 	if t.Declared[fqn] {
-		fqn = Qualify(owner, "", t.CrossFeatureIndex(u))
+		fqn = Positional(owner, t.CrossFeatureIndex(u))
 	}
 	t.FQN[cross] = fqn
 	t.Declared[fqn] = true
@@ -313,7 +314,7 @@ func (t *Table) collectPrefixes(node ast.Node, owner string, index int) error {
 		if prefix == nil || t.Skip(prefix) {
 			continue
 		}
-		fqn := Qualify(owner, "", index)
+		fqn := Positional(owner, index)
 		t.FQN[prefix] = fqn
 		t.Declared[fqn] = true
 		if err := t.collect(prefix.Body, fqn, fqn); err != nil {

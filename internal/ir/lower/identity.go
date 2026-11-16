@@ -175,6 +175,7 @@ func (g *ActionGraph) nodeKind(node ast.Node) program.NodeKind {
 // assignIDs gives every node of the graph its id, dense from 1 in the order of
 // Nodes, and the origin and kind beside it; a graph lowered twice gets the same ids.
 func (g *ActionGraph) assignIDs() {
+	g.internExprs()
 	n := len(g.Nodes) + 1
 	g.ID = make(map[ast.Node]program.NodeID, len(g.Nodes))
 	g.Origins = make([]program.Origin, 1, n)
@@ -192,6 +193,7 @@ func (g *ActionGraph) assignIDs() {
 		g.Kinds = append(g.Kinds, kind)
 		g.Origins = append(g.Origins, g.nodeOrigin(node, kind, paths))
 	}
+	g.stampIDs()
 }
 
 func (g *ActionGraph) nodeOrigin(node ast.Node, kind program.NodeKind, paths originPaths) program.Origin {
@@ -225,6 +227,8 @@ func (g *StateGraph) assignIDs() {
 	g.assignPseudoIDs(paths)
 	g.assignTransIDs(paths)
 	g.assignEntryOrigins()
+	g.internExprs()
+	g.stampIDs()
 }
 
 // assignEntryOrigins gives each entry transition its origin and the text of the

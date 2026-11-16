@@ -410,7 +410,7 @@ func (e *ActionExecutor) labeledFootprints(labels []string, able []Token) []lowe
 // drawn by their weights, read in ec where their guards are; a sole holding
 // succession is taken without a draw, its weight still read and checked.
 func (e *ActionExecutor) chooseBranch(ec *EvalContext, frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, holding []int) (*ChoicePoint, int, error) {
-	declared, err := e.branchWeights(ec, node, successors)
+	declared, err := e.branchWeights(ec.reading(e.graphOf(frame).Exprs), node, successors)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -453,7 +453,7 @@ func (e *ActionExecutor) branchWeights(ec *EvalContext, node *ast.DecisionNode, 
 	weights := make([]float64, len(successors))
 	for pos, edge := range successors {
 		p := edge.Probability
-		val, err := ec.Eval(p.Expr)
+		val, err := ec.evalPayload(p.ExprID)
 		if err != nil {
 			return nil, fmt.Errorf("%w: %s: weight of %s: %v", errBranchWeights, DecisionPlace(node), branchName(successors, pos), err)
 		}

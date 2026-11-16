@@ -224,7 +224,7 @@ func (r *Resolver) ReferringNamespaceFQN(scope *symbols.Scope) string {
 		return ""
 	}
 	for s := scope; s != nil; s = s.Parent() {
-		if owner := s.Owner(); owner != nil && owner.Name != "" {
+		if owner := s.Owner(); owner != nil && owner.Named() {
 			return r.idx.GetFQN(owner)
 		}
 	}

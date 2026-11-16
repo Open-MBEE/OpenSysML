@@ -78,7 +78,7 @@ func (idx *Index) RefTo(sym *Symbol) (ref ElementRef, ok bool) {
 	}
 	var path []int32
 	for cur := sym; cur != nil; {
-		if cur.Name != "" {
+		if cur.Named() {
 			if ref, ok := idx.namedRef(cur); ok {
 				ref.Path = path
 				return ref, true

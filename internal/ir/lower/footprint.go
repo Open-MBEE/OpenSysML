@@ -1098,7 +1098,7 @@ func (b *footprintBuilder) statement(stmt Statement) {
 		b.reads(s.Body.Scope, s.Condition)
 		b.reads(s.Body.Scope, s.Until)
 		b.reads(s.Scope, s.Collection)
-		if s.Variable != "" {
+		if s.Bound {
 			b.write(Place{Name: s.Variable})
 		}
 		b.block(s.Body)

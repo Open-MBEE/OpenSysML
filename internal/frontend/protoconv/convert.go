@@ -205,7 +205,7 @@ const UnsupportedUnidentifiedMetaobject = UnsupportedNullPrefix + "metaobject of
 // identity, and by that element's own metaclass; nil when either has no id.
 func metaobjectToProto(val runtime.Value, idx *symbols.Index, ids ElementIdentities) *pb.Metaobject {
 	element, metaclass := val.MetaobjectElement(), val.MetaobjectClass()
-	if element == nil || metaclass == nil || metaclass.Name == "" {
+	if element == nil || metaclass == nil || !metaclass.Named() {
 		return nil
 	}
 	elementID, metaclassID := ElementIdentity(element, idx, ids), metaclass.Name
@@ -224,7 +224,7 @@ func ElementIdentity(sym *symbols.Symbol, idx *symbols.Index, ids ElementIdentit
 	if ids != nil {
 		return ids.ElementIdentity(sym)
 	}
-	if sym == nil || sym.Name == "" {
+	if sym == nil || !sym.Named() {
 		return ""
 	}
 	if idx != nil {

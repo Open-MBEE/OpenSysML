@@ -10283,7 +10283,8 @@
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "faithful"
+      "status": "approximate",
+      "rationale": "`structureResultFeatures` reads only the owned ReturnParameterMembership, so a result parameter inherited from a supertype is omitted where the rule's `featureMemberships` includes it"
     },
     {
       "name": "deriveFeatureChainExpressionTargetFeature",
@@ -10732,7 +10733,8 @@
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "faithful"
+      "status": "approximate",
+      "rationale": "`structureResultFeatures` reads only the owned ReturnParameterMembership, so a result parameter inherited from a supertype is omitted where the rule's `featureMemberships` includes it"
     },
     {
       "name": "deriveIfActionUsageElseAction",

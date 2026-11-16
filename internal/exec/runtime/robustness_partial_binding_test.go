@@ -236,9 +236,8 @@ func testWholeBindingOfUnlikeTypesIsATypedError(t *testing.T) {
 	}
 }
 
-// A stated link count is a count of shared values, a repeated value counted as often as both
-// ends hold it: two empty ends share none under `binding [1]`, `(1, 1, 2)` and `(1, 1, 3)` share
-// two, `(1, 1, 2)` and `(1, 3, 4)` one; `binding [0]` and an end reaching no object state nothing.
+// A stated link count counts shared values, a repeated one as often as both ends hold it: empty ends
+// or an end reaching no object share none under `binding [1]`; `binding [0]` states nothing.
 func testPartialBindingVerdictEdges(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<partial-binding-verdict-edges>", parseAndBuild(t, `package P {
 		private import ScalarValues::*;
@@ -269,9 +268,10 @@ func testPartialBindingVerdictEdges(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 	want := map[string]ValidationStatus{
-		"binding [1] bind [0..1] a = [0..1] b":         ValidationViolated,
-		"binding [2] bind [0..*] twice = [0..*] again": ValidationHolds,
-		"binding [2] bind [0..*] twice = [0..*] once":  ValidationViolated,
+		"binding [1] bind [0..1] a = [0..1] b":                       ValidationViolated,
+		"binding [2] bind [0..*] twice = [0..*] again":               ValidationHolds,
+		"binding [2] bind [0..*] twice = [0..*] once":                ValidationViolated,
+		"binding [1] bind [0..*] groups.item = [0..*] optional.item": ValidationViolated,
 	}
 	if len(report.Verdicts) != len(want) {
 		t.Fatalf("%d verdict(s), want %d: %+v", len(report.Verdicts), len(want), report.Verdicts)
@@ -334,12 +334,12 @@ func testPartialBindingUnresolvableEndUndecided(t *testing.T) {
 	}
 }
 
-// testPartialBindingEmptyEndOutranksError pins that a binding with an end reaching no object
-// states nothing, whichever end the object cannot resolve and in either order.
+// testPartialBindingEmptyEndOutranksError pins that a binding requiring no link states nothing where
+// an end reaches no object, whichever end the object cannot resolve and in either order.
 func testPartialBindingEmptyEndOutranksError(t *testing.T) {
 	for name, binding := range map[string]string{
-		"error_then_empty": "binding [1] bind [0..1] groups.item.deeper = [0..1] optional.item;",
-		"empty_then_error": "binding [1] bind [0..1] optional.item = [0..1] groups.item.deeper;",
+		"error_then_empty": "bind [0..1] groups.item.deeper = [0..1] optional.item;",
+		"empty_then_error": "bind [0..1] optional.item = [0..1] groups.item.deeper;",
 	} {
 		t.Run(name, func(t *testing.T) {
 			idx, _, ctx := buildRuntimeWithLibraries(t, "<partial-binding-empty-end-"+name+">", parseAndBuild(t, `package P {
