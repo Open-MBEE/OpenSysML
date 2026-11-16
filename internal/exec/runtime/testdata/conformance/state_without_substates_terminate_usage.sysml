@@ -1,6 +1,5 @@
-// A terminate action usage naming an occurrence (`action halt terminate worker;`)
-// is no substate: the machine declaring it and no state is active in itself
-// (SysML v2 §7.18.1), runs its entry action and reads as active.
+// A terminate action usage (`action halt terminate worker;`) is no substate: the
+// machine declaring it and no state is active in itself (SysML v2 §7.18.1).
 package test {
     private import ScalarValues::*;
     private import StateActivity::*;
