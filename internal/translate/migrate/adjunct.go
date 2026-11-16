@@ -194,19 +194,11 @@ func (m *migration) adjunctChain(p *sysmlv1.Element) []string {
 	if principal == nil {
 		return nil
 	}
-	full := m.path(principal)
-	steps := full[len(full)-1:]
-	for o := principal.Parent; o != nil; o = o.Parent {
-		if o == p.Parent || m.inherits(p.Parent, o) {
-			if base := m.path(o); len(base) < len(full) {
-				steps = full[len(base):]
-			}
-			break
+	names := []string{writeName(m.nameOf(principal))}
+	for o := memberOwner(principal); o != nil && o != p.Parent && !m.inherits(p.Parent, o); o = memberOwner(o) {
+		if m.isUsage(o) {
+			names = append([]string{writeName(m.nameOf(o))}, names...)
 		}
-	}
-	names := make([]string, len(steps))
-	for i, s := range steps {
-		names[i] = writeName(s.name)
 	}
 	return names
 }
