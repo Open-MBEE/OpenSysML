@@ -175,6 +175,70 @@ class PipelineEndToEndTest {
         typed.parameters(), "a redefinition that types the parameter anew keeps the multiplicity it inherits");
   }
 
+  /** Run query on the v2 path: an unnamed parameter is read by its reported id, which a sibling's name spells. */
+  @Test
+  void v2TextualRunQueryPlansAParameterWhoseIdASiblingIsNamed() throws Exception {
+    V2TextualSource source = new V2TextualSource("""
+        package Demo {
+          calc def Pick :> DocumentQueries::Query {
+            in '@2' : ScalarValues::Integer;
+            in second : ScalarValues::Boolean;
+            in : ScalarValues::String;
+            DocumentQueries::Descendants(source = ())
+          }
+        }
+        """);
+    QueryPlan plan = engine.plan(new RunRequest(Operation.RUN_QUERY, source, "Demo::Pick", List.of()), () -> false).orElseThrow();
+    assertEquals(List.of("ScalarValues::Integer", "ScalarValues::Boolean", "ScalarValues::String"),
+        plan.parameters().stream().map(QueryParameter::type).toList(), plan.parameters().toString());
+  }
+
+  /** Run query on the v2 path: a parameter's type is shown by qualified name where its reported id is spelled otherwise. */
+  @Test
+  void v2TextualRunQueryShowsAParameterTypeByQualifiedName() throws Exception {
+    V2TextualSource source = new V2TextualSource("""
+        package Demo {
+          part def '@2';
+          part filler;
+          part;
+          calc def Pick :> DocumentQueries::Query {
+            in picked : '@2';
+            DocumentQueries::Descendants(source = ())
+          }
+        }
+        """);
+    QueryPlan plan = engine.plan(new RunRequest(Operation.RUN_QUERY, source, "Demo::Pick", List.of()), () -> false).orElseThrow();
+    assertEquals(List.of("Demo::@2"), plan.parameters().stream().map(QueryParameter::type).toList(), plan.parameters().toString());
+  }
+
+  /** Run query on the v2 path: a calc usage's type is read by qualified name, which an unnamed sibling's id spells. */
+  @Test
+  void v2TextualRunQueryFindsAQueryTypeNamedLikeASiblingId() throws Exception {
+    V2TextualSource source = new V2TextualSource("""
+        package Demo {
+          calc def '@2' :> DocumentQueries::Query { DocumentQueries::Descendants(source = ()) }
+          part filler;
+          part;
+          calc run : '@2';
+        }
+        """);
+    QueryPlan plan = engine.plan(new RunRequest(Operation.RUN_QUERY, source, "Demo::run", List.of()), () -> false).orElseThrow();
+    assertEquals(1, plan.queries().size(), plan.toString());
+  }
+
+  /** Run query on the v2 path: a calc usage typed by a private query, which no qualified name reaches from outside. */
+  @Test
+  void v2TextualRunQueryFindsAPrivateQueryType() throws Exception {
+    V2TextualSource source = new V2TextualSource("""
+        package Demo {
+          private calc def Hidden :> DocumentQueries::Query { DocumentQueries::Descendants(source = ()) }
+          calc run : Hidden;
+        }
+        """);
+    QueryPlan plan = engine.plan(new RunRequest(Operation.RUN_QUERY, source, "Demo::run", List.of()), () -> false).orElseThrow();
+    assertEquals(1, plan.queries().size(), plan.toString());
+  }
+
   /** Run query on the v2 path: bindings of many, none and one, and a parameter left unbound. */
   @Test
   void v2TextualRunQueryBindsParameters() throws Exception {

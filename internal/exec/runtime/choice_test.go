@@ -1499,7 +1499,7 @@ func TestCompletionTransitionArrivesAtUnreadyJoin(t *testing.T) {
 			}
 			join sync;
 			state done;
-			transition first a2 then sync;
+			transition first work.a.a2 then sync;
 			transition first sync then done;
 		}
 	}`

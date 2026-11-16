@@ -422,7 +422,7 @@ func TestDeclaredNondeterminismIsEvidencedAndRecorded(t *testing.T) {
 		t.Errorf("the baseline scores %d comparisons pilot-nondeterministic, the declared rows hold %d", recorded.Totals.Properties.PilotNondeterministic, declared)
 	}
 	for key, counts := range recorded.Scorecard {
-		if counts[6] != 0 && !isPilotNondeterministic(strings.SplitN(key, ".", 2)[0], strings.SplitN(key, ".", 2)[1]) {
+		if counts[6] != 0 && !IsPilotNondeterministic(strings.SplitN(key, ".", 2)[0], strings.SplitN(key, ".", 2)[1]) {
 			t.Errorf("%s has %d pilot-nondeterministic comparisons without a declaration", key, counts[6])
 		}
 	}

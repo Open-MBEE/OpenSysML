@@ -30,3 +30,23 @@ func TestUnquoteInvertsSegment(t *testing.T) {
 		}
 	}
 }
+
+// A declared name reading as an `@N` address is quoted, apart from the unnamed member at
+// that position, and the quoting comes off to the spelling the index records.
+func TestDeclaredQuotesANameThatReadsAsAPositionalAddress(t *testing.T) {
+	cases := map[string]string{
+		"Col::W::a":      "Col::W::a",
+		"Col::W::@2":     "Col::W::'@2'",
+		"Col::W::@2::z":  "Col::W::'@2'::z",
+		"Col::W::@x":     "Col::W::@x",
+		"Col::W::@2tail": "Col::W::@2tail",
+	}
+	for recorded, declared := range cases {
+		if got := Declared(recorded); got != declared {
+			t.Errorf("Declared(%q) = %q, want %q", recorded, got, declared)
+		}
+		if got := Recorded(declared); got != recorded {
+			t.Errorf("Recorded(%q) = %q, want %q", declared, got, recorded)
+		}
+	}
+}

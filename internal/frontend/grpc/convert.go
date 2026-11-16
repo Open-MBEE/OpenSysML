@@ -54,13 +54,14 @@ func infoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
 	}
 	if t := info.TypeInfo; t != nil {
 		out.TypeInfo = &pb.TypeInfo{
-			Declared:        t.Declared,
-			ResolvedId:      t.ResolvedId,
-			ResolvedKind:    t.ResolvedKind,
-			Primitive:       t.Primitive,
-			PrimitiveSource: t.PrimitiveSource,
-			Quantity:        t.Quantity,
-			Unit:            t.Unit,
+			Declared:              t.Declared,
+			ResolvedId:            t.ResolvedId,
+			ResolvedQualifiedName: t.ResolvedQualifiedName,
+			ResolvedKind:          t.ResolvedKind,
+			Primitive:             t.Primitive,
+			PrimitiveSource:       t.PrimitiveSource,
+			Quantity:              t.Quantity,
+			Unit:                  t.Unit,
 		}
 		for _, ref := range t.Types {
 			out.TypeInfo.Types = append(out.TypeInfo.Types, &pb.TypeRef{Id: ref.Id, Kind: ref.Kind})
@@ -72,6 +73,7 @@ func infoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
 	for _, spec := range info.Specializations {
 		out.Specializations = append(out.Specializations, &pb.Specialization{
 			Kind: spec.Kind, Declared: spec.Declared, TargetId: spec.TargetId, TargetKind: spec.TargetKind,
+			TargetQualifiedName: spec.TargetQualifiedName,
 		})
 	}
 	for _, attribute := range info.Attributes {

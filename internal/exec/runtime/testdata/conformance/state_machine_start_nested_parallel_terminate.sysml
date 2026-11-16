@@ -4,7 +4,7 @@ package test {
 	state Machine {
 		attribute marker : Integer = 0;
 
-		entry; then nested;
+		entry; then work.left.nested;
 		state work parallel {
 			state terminating {
 				entry action boot { }

@@ -38,12 +38,12 @@ package Test {
 							state ideep { exit { assign deepExits := deepExits + 1; } }
 
 							succession first is then ideep;
-							transition first ideep if lidleExits == 0 then lstate;
+							transition first ideep if lidleExits == 0 then left.lstate;
 						}
 					}
 				}
 
-				succession first rs then mid;
+				succession first rs then wrapper.mid;
 			}
 		}
 
