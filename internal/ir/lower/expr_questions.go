@@ -148,6 +148,9 @@ func (e *ExprEntry) Reads(visit func(segments []string, chain, ok bool) bool) {
 	going := true
 	var walk func(n ast.Node) bool
 	walk = func(n ast.Node) bool {
+		if !going {
+			return false
+		}
 		switch ref := n.(type) {
 		case *ast.IndexExpr:
 			if ref.Bracket {

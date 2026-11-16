@@ -114,6 +114,15 @@ func TestExprEntryReads(t *testing.T) {
 	if stopped != 1 {
 		t.Errorf("a visit answering false was called %d times, want 1", stopped)
 	}
+	for _, text := range []string{"x + y", "s#(x) + y"} {
+		siblingScope, siblings := attributeExpression(t, `part def T { attribute x = 1; attribute y = 2; attribute s = (1, 2); attribute z = `+text+`; }`, "z")
+		table, id = LowerExpr(siblings, siblingScope, nil)
+		stopped = 0
+		table.Entry(id).Reads(func([]string, bool, bool) bool { stopped++; return false })
+		if stopped != 1 {
+			t.Errorf("%s: a visit answering false was called %d times, want 1", text, stopped)
+		}
+	}
 	(*ExprEntry)(nil).Reads(func([]string, bool, bool) bool { t.Error("nil entry read"); return true })
 }
 
