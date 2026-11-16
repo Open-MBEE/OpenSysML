@@ -68,6 +68,11 @@ type convertOptions struct {
 	idForm       IDForm
 	libraryStubs bool
 	inherited    bool
+	documents    []string
+	compact      bool
+	omitDerived  bool
+	keepDerived  []string
+	checked      bool
 }
 
 // IDForm is how a graph notation (Turtle, API JSON) spells the ids of elements
@@ -97,6 +102,30 @@ func WithLibraryStubs() ConvertOption {
 // inherited and imported members; without it an element carries its owned structure.
 func WithInheritedMembers() ConvertOption {
 	return func(o *convertOptions) { o.inherited = true }
+}
+
+// WithDocuments writes only the named documents of a parsed model, named as the parse named them; the others
+// are read for the references into them. No name writes every document. Convert only; requires convert_documents.
+func WithDocuments(names ...string) ConvertOption {
+	return func(o *convertOptions) { o.documents = slices.Clone(names) }
+}
+
+// WithCompact writes notation as the compact API JSON document (api-json-compact/1): one table of element ids
+// and every reference an index into it. Refused for any other target; requires convert_compact.
+func WithCompact() ConvertOption {
+	return func(o *convertOptions) { o.compact = true }
+}
+
+// WithOmitDerived leaves the metamodel's derived properties out of a compact document, except the ones keep
+// names as the element form does ("owner", "qualifiedName"). Refused without WithCompact; requires convert_compact.
+func WithOmitDerived(keep ...string) ConvertOption {
+	return func(o *convertOptions) { o.omitDerived, o.keepDerived = true, slices.Clone(keep) }
+}
+
+// WithCheckDiagnostics adds the semantic check's diagnostics to Conversion.Diagnostics, each with its severity
+// and code as a parse reports them. Notation sources only; requires convert_check_diagnostics.
+func WithCheckDiagnostics() ConvertOption {
+	return func(o *convertOptions) { o.checked = true }
 }
 
 // LibraryReference is a standard-library element an API JSON conversion
@@ -137,7 +166,8 @@ type Conversion struct {
 	// ExperimentalNotice says what is experimental about the conversion, empty
 	// when it is not.
 	ExperimentalNotice string
-	// Diagnostics are the syntax errors tolerated, when any were.
+	// Diagnostics are the syntax errors tolerated, when any were, and under WithCheckDiagnostics the
+	// semantic check's findings too; each carries its own Severity and Code.
 	Diagnostics []Diagnostic
 	// LibraryReferences are the standard-library elements an API JSON conversion
 	// references outside its element array; empty for any other format.
@@ -208,17 +238,39 @@ func convertRequest(to Format, opts []ConvertOption) *pb.ConvertRequest {
 		IdForm:               string(options.idForm),
 		IncludeLibraryStubs:  options.libraryStubs,
 		InheritedMembers:     options.inherited,
+		Documents:            options.documents,
+		Compact:              options.compact,
+		OmitDerived:          options.omitDerived,
+		KeepDerived:          options.keepDerived,
+
+		IncludeCheckDiagnostics: options.checked,
 	}
 }
 
-func (c *client) convert(ctx context.Context, req *pb.ConvertRequest) (*Conversion, error) {
+// convertCapabilities are the capabilities the options of a conversion request need of the service.
+func convertCapabilities(req *pb.ConvertRequest) []string {
+	var needed []string
 	if req.IncludeLibraryStubs {
-		if err := c.requireCapabilities(ctx, CapabilityConvertLibraryStubs); err != nil {
-			return nil, err
-		}
+		needed = append(needed, CapabilityConvertLibraryStubs)
 	}
 	if req.InheritedMembers {
-		if err := c.requireCapabilities(ctx, CapabilityConvertInheritedMembers); err != nil {
+		needed = append(needed, CapabilityConvertInheritedMembers)
+	}
+	if len(req.Documents) > 0 {
+		needed = append(needed, CapabilityConvertDocuments)
+	}
+	if req.Compact || req.OmitDerived || len(req.KeepDerived) > 0 {
+		needed = append(needed, CapabilityConvertCompact)
+	}
+	if req.IncludeCheckDiagnostics {
+		needed = append(needed, CapabilityConvertCheckDiagnostics)
+	}
+	return needed
+}
+
+func (c *client) convert(ctx context.Context, req *pb.ConvertRequest) (*Conversion, error) {
+	if needed := convertCapabilities(req); len(needed) > 0 {
+		if err := c.requireCapabilities(ctx, needed...); err != nil {
 			return nil, err
 		}
 	}
