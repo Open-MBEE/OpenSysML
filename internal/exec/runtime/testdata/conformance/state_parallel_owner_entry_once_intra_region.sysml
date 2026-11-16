@@ -9,7 +9,7 @@ package ParallelOwnerEntryOnceIntraRegion {
             entry action begin {
                 assign entered := entered + 1;
             }
-            do action work {
+            do action labor {
                 assign worked := worked + 1;
             }
             exit action finish {

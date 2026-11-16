@@ -111,6 +111,8 @@ type JGetSymbolRequest struct {
 	SymbolId              string `json:"symbolId,omitempty"`
 	IncludeLibraryMembers bool   `json:"includeLibraryMembers,omitempty"`
 	ResolveName           bool   `json:"resolveName,omitempty"`
+	// Lookup is the LookupKind as protojson writes it; resolveName is ignored when it states one.
+	Lookup string `json:"lookup,omitempty"`
 }
 
 // JSymbolResponse is the protojson-shaped GetSymbol response.
@@ -162,13 +164,14 @@ type JMemberInfo struct {
 
 // JTypeInfo is the protojson-shaped static type message.
 type JTypeInfo struct {
-	Declared        string `json:"declared,omitempty"`
-	ResolvedId      string `json:"resolvedId,omitempty"`
-	ResolvedKind    string `json:"resolvedKind,omitempty"`
-	Primitive       string `json:"primitive,omitempty"`
-	PrimitiveSource string `json:"primitiveSource,omitempty"`
-	Quantity        bool   `json:"quantity,omitempty"`
-	Unit            string `json:"unit,omitempty"`
+	Declared              string `json:"declared,omitempty"`
+	ResolvedId            string `json:"resolvedId,omitempty"`
+	ResolvedQualifiedName string `json:"resolvedQualifiedName,omitempty"`
+	ResolvedKind          string `json:"resolvedKind,omitempty"`
+	Primitive             string `json:"primitive,omitempty"`
+	PrimitiveSource       string `json:"primitiveSource,omitempty"`
+	Quantity              bool   `json:"quantity,omitempty"`
+	Unit                  string `json:"unit,omitempty"`
 	// Types is the derived Feature::type, as protojson shapes TypeInfo.types.
 	Types []*JTypeRef `json:"types,omitempty"`
 }
@@ -187,10 +190,11 @@ type JMultiplicityInfo struct {
 
 // JSpecialization is one protojson-shaped generalization relationship.
 type JSpecialization struct {
-	Kind       string `json:"kind,omitempty"`
-	Declared   string `json:"declared,omitempty"`
-	TargetId   string `json:"targetId,omitempty"`
-	TargetKind string `json:"targetKind,omitempty"`
+	Kind                string `json:"kind,omitempty"`
+	Declared            string `json:"declared,omitempty"`
+	TargetId            string `json:"targetId,omitempty"`
+	TargetQualifiedName string `json:"targetQualifiedName,omitempty"`
+	TargetKind          string `json:"targetKind,omitempty"`
 }
 
 // JAttributeInfo is the protojson-shaped attribute facts message.

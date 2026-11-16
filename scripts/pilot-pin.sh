@@ -11,6 +11,9 @@ PILOT_TAG="${PILOT_TAG:-2026-09.1}"
 PILOT_COMMIT="${PILOT_COMMIT:-d81b2ad5016f2e2d3d4364b3d06d01d8bb12a896}"
 PILOT_REPO="${PILOT_REPO:-https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation.git}"
 PILOT_ARTIFACT_VERSION="${PILOT_ARTIFACT_VERSION:-0.63.1}"
+# The Java feature release a baseline holding the pilot's export is recorded under, the one
+# the workflows install: the pilot's output is not the same under every JVM.
+PILOT_JAVA="${PILOT_JAVA:-21}"
 
 # The pilot publishes each release's standard library, in notation and as XMI,
 # in a second repository under the same tag. The bundled library under

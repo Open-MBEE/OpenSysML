@@ -22,7 +22,7 @@ package InactiveParallelRegion {
         }
         state outside { entry { assign log := log + "outside(entry) "; } }
         transition first idle accept Go then working;
-        transition first idle accept Direct then B;
+        transition first idle accept Direct then working.b.B;
         transition first working accept Back then idle;
         transition first working then outside;
     }

@@ -185,6 +185,47 @@ def test_connection_get_symbol_resolves_a_name_only_where_advertised(capabilitie
             assert mock_stub.GetSymbol.call_args[0][0].resolve_name is False
 
 
+@pytest.mark.parametrize(
+    "capabilities, by_name, by_id",
+    [
+        (
+            ["symbol_lookup_kind", "symbol_name_resolution"],
+            (sysml_pb2.LOOKUP_KIND_QUALIFIED_NAME, True), (sysml_pb2.LOOKUP_KIND_ELEMENT_ID, False),
+        ),
+        (
+            ["symbol_name_resolution"],
+            (sysml_pb2.LOOKUP_KIND_UNSPECIFIED, True), (sysml_pb2.LOOKUP_KIND_UNSPECIFIED, False),
+        ),
+        ([], (sysml_pb2.LOOKUP_KIND_UNSPECIFIED, False), (sysml_pb2.LOOKUP_KIND_UNSPECIFIED, False)),
+    ],
+)
+def test_connection_get_symbol_states_its_lookup_kind_where_advertised(capabilities, by_name, by_id):
+    """name= and id= go as the lookup; a service without symbol_lookup_kind is asked in the legacy form."""
+    with patch('grpc.insecure_channel'):
+        mock_stub = Mock()
+        mock_stub.GetServerInfo.return_value = sysml_pb2.ServerInfoResponse(
+            version="test", capabilities=capabilities,
+        )
+        mock_stub.GetSymbol.return_value = sysml_pb2.SymbolResponse(
+            symbol=sysml_pb2.SymbolInfo(id="Col__V__c_pend0"), error="",
+        )
+        with patch('opensysml.proto.sysml_pb2_grpc.SysMLServiceStub', return_value=mock_stub):
+            conn = Connection(auto_start=False)
+            for kwargs, (lookup, resolve_name) in (
+                ({"name": "Col__V__c_pend0"}, by_name), ({"id": "Col__V__c_pend0"}, by_id),
+            ):
+                conn.get_symbol("hash", **kwargs)
+                request = mock_stub.GetSymbol.call_args[0][0]
+                assert (request.symbol_id, request.lookup, request.resolve_name) == (
+                    "Col__V__c_pend0", lookup, resolve_name)
+            conn.get_symbol("hash", "Col__V__c_pend0")
+            legacy = mock_stub.GetSymbol.call_args[0][0]
+            assert (legacy.symbol_id, legacy.lookup) == ("Col__V__c_pend0", sysml_pb2.LOOKUP_KIND_UNSPECIFIED)
+            for wrong in ({}, {"name": "A", "id": "A"}, {"symbol_id": "A", "id": "A"}):
+                with pytest.raises(ValueError, match="exactly one"):
+                    conn.get_symbol("hash", **wrong)
+
+
 def test_connection_get_symbol_not_found():
     with patch('grpc.insecure_channel'):
         mock_stub = Mock()

@@ -4,7 +4,9 @@ package elementform
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
@@ -24,6 +26,10 @@ func (f elementForm) ID(sc *symbolfacts.Context, sym *symbols.Symbol) string {
 		return ""
 	}
 	switch {
+	case constraintResultMember(sym) != nil:
+		// A constraint body's closing bare condition is written as the member stating it (encodeMember).
+		id, _ := f.reader.Read(sym.DocName, constraintResultMember(sym), "")
+		return id
 	case sym.Expr != nil:
 		id, _ := export.SynthesizedElementID(sym, sc.FormID)
 		return id
@@ -37,7 +43,7 @@ func (f elementForm) ID(sc *symbolfacts.Context, sym *symbols.Symbol) string {
 		id, _ := f.reader.ReadRelationship(sym.DocName, sym.Implicit.Node)
 		return id
 	}
-	id, _ := f.reader.Read(sym.DocName, sym.Decl, sc.Identity(sym))
+	id, _ := f.reader.Read(sym.DocName, sym.Decl, sc.OwnIdentity(sym))
 	return id
 }
 
@@ -52,4 +58,21 @@ func (elementForm) Owner(id string) (owner string, depth int, ok bool) {
 	}
 	owner, ok = export.SynthesizedElementOwner(id)
 	return owner, 1, ok
+}
+
+// constraintResultMember is the ConstraintMember stating the closing bare condition
+// sym reflects as a constraint's result expression (semantics.ConstraintResultMember), or nil.
+func constraintResultMember(sym *symbols.Symbol) ast.Node {
+	if sym == nil || sym.Expr == nil || sym.Expr.Role != symbols.ExpressionBodyResult || sym.Expr.Owner == nil || sym.Expr.Owner.Expr != nil {
+		return nil
+	}
+	if c := semantics.ConstraintResultCondition(sym.Expr.Owner); c != nil && c.Expression == sym.Decl {
+		return c
+	}
+	return nil
+}
+
+// LibraryName is the qualified name of the library element whose normative id is id.
+func (elementForm) LibraryName(id string) (string, bool) {
+	return export.LibraryElementName(id)
 }
