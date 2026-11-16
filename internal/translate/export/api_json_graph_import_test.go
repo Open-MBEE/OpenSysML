@@ -322,3 +322,18 @@ func TestAPIJSONGraphImportedMembershipSurvivesGraphOnlyReconstruction(t *testin
 	wantReferences(t, after, "Probe__Filtered", "importedMembership", "Probe__Lib__b_om")
 	wantReferences(t, after, "Probe__U", "inheritedMembership", "Probe__Lib__A_om")
 }
+
+// A membership imported twice is as visible as its most visible import makes it, whichever
+// comes first (8.3.2.4.5 visibleMemberships: "Memberships imported with a visibility of public").
+func TestAPIJSONGraphImportedMembershipKeepsTheMostVisibleImport(t *testing.T) {
+	elements := importProbeElements(t, `package Probe {
+	package Lib { part def A; part def B; }
+	package Reexport { private import Lib::*; public import Lib::A; }
+	package Client { import Reexport::*; }
+	part def General { private import Lib::B; protected import Lib::B; }
+	part def Special :> General;
+}`)
+	wantReferences(t, elements, "Probe__Reexport", "importedMembership", "Probe__Lib__A_om", "Probe__Lib__B_om")
+	wantReferences(t, elements, "Probe__Client", "importedMembership", "Probe__Lib__A_om")
+	wantReferences(t, elements, "Probe__Special", "inheritedMembership", "Probe__Lib__B_om")
+}

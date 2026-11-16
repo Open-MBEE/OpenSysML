@@ -85,7 +85,7 @@ func (e *Evaluator) computeStructureImportedEntries(namespace Element, walk *imp
 		return nil, true
 	}
 	var entries []importedEntry
-	var seen seenValues
+	var seen seenMemberships
 	for _, imported := range imports.Values {
 		if imported.Kind != ElementValue {
 			return nil, false
@@ -102,8 +102,12 @@ func (e *Evaluator) computeStructureImportedEntries(namespace Element, walk *imp
 			if membership.Kind != MembershipValue {
 				return nil, false
 			}
-			if !seen.repeats(membership) {
+			at, repeated := seen.index(membership.Membership, len(entries))
+			if !repeated {
 				entries = append(entries, importedEntry{membership: membership, visibility: visibility})
+			} else if visibilityRank(visibility) > visibilityRank(entries[at].visibility) {
+				// Imported twice, a membership is as visible as its most visible import makes it.
+				entries[at].visibility = visibility
 			}
 		}
 	}
@@ -737,4 +741,54 @@ func (e *Evaluator) libraryStatedNonPrivate(base *symbols.Symbol) ([]Value, bool
 		}
 	}
 	return kept, true
+}
+
+// seenMemberships remembers the position each membership was first recorded at.
+type seenMemberships struct {
+	keys    map[MembershipKey]int
+	symbols map[symbols.ElementKey]int
+}
+
+// index is the position membership was recorded at before, or records it at next.
+func (seen *seenMemberships) index(membership Membership, next int) (int, bool) {
+	key := membership.Key()
+	symbol := membership.Symbol
+	if symbol == nil {
+		symbol = membership.Member
+	}
+	symbolKey := symbols.KeyOf(symbol)
+	if key != (MembershipKey{}) {
+		if at, ok := seen.keys[key]; ok {
+			return at, true
+		}
+	}
+	if symbolKey != (symbols.ElementKey{}) {
+		if at, ok := seen.symbols[symbolKey]; ok {
+			return at, true
+		}
+	}
+	if key != (MembershipKey{}) {
+		if seen.keys == nil {
+			seen.keys = map[MembershipKey]int{}
+		}
+		seen.keys[key] = next
+	}
+	if symbolKey != (symbols.ElementKey{}) {
+		if seen.symbols == nil {
+			seen.symbols = map[symbols.ElementKey]int{}
+		}
+		seen.symbols[symbolKey] = next
+	}
+	return next, false
+}
+
+// visibilityRank orders the visibility kinds from private to public.
+func visibilityRank(visibility string) int {
+	switch visibility {
+	case "public":
+		return 2
+	case "protected":
+		return 1
+	}
+	return 0
 }
