@@ -1,1 +1,0 @@
-- The WebAssembly gate's gzipped size budget for the browser REPL build of `sysml` (`-tags sysml_re`) moves from 16,250,000 to 16,300,000 bytes: the build measured 16,240,594 before the solving and satisfiability engines moved from syntax trees to the lowered expression records, and measures 16,257,913 after. The budgets of the other four WebAssembly profiles do not change.

@@ -346,7 +346,7 @@ func qualifiedName(sym *symbols.Symbol) string {
 	}
 	var names []string
 	for cur := sym; cur != nil; cur = cur.Owner() {
-		if cur.Name == "" {
+		if !cur.Named() {
 			break
 		}
 		names = append([]string{cur.Name}, names...)

@@ -8,7 +8,8 @@
 
 elmt:Quoted_20Names
     a sysml:Package ;
-    sysml:qualifiedName "Quoted Names" ;
+    sysml:qualifiedName "'Quoted Names'" ;
+    sysx:mappingQualifiedName "Quoted Names" ;
     sysx:sourceLine "1"^^xsd:integer ;
     sysx:sourceColumn "1"^^xsd:integer ;
     sysx:sourceEndLine "15"^^xsd:integer ;
@@ -29,7 +30,8 @@ elmt:Quoted_20Names
 
 elmt:Quoted_20Names__Mass_20_28kg_29
     a sysml:AttributeDefinition ;
-    sysml:qualifiedName "Quoted Names::Mass (kg)" ;
+    sysml:qualifiedName "'Quoted Names'::'Mass (kg)'" ;
+    sysx:mappingQualifiedName "Quoted Names::Mass (kg)" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "2"^^xsd:integer ;
@@ -61,7 +63,8 @@ elmt:Quoted_20Names__Mass_20_28kg_29_om
 
 elmt:Quoted_20Names__Rover_20Model
     a sysml:PartDefinition ;
-    sysml:qualifiedName "Quoted Names::Rover Model" ;
+    sysml:qualifiedName "'Quoted Names'::'Rover Model'" ;
+    sysx:mappingQualifiedName "Quoted Names::Rover Model" ;
     sysx:sourceLine "3"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "9"^^xsd:integer ;
@@ -106,7 +109,8 @@ elmt:Quoted_20Names__Rover_20Model_om
 
 elmt:Quoted_20Names__Rover_20Model__dry_20mass
     a sysml:AttributeUsage ;
-    sysml:qualifiedName "Quoted Names::Rover Model::dry mass" ;
+    sysml:qualifiedName "'Quoted Names'::'Rover Model'::'dry mass'" ;
+    sysx:mappingQualifiedName "Quoted Names::Rover Model::dry mass" ;
     sysx:sourceLine "4"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "4"^^xsd:integer ;
@@ -173,7 +177,8 @@ expr:Quoted_20Names__Rover_20Model__dry_20mass_pmultiplicity_om
 
 elmt:Quoted_20Names__Rover_20Model__mass_20limit
     a sysml:ConstraintUsage ;
-    sysml:qualifiedName "Quoted Names::Rover Model::mass limit" ;
+    sysml:qualifiedName "'Quoted Names'::'Rover Model'::'mass limit'" ;
+    sysx:mappingQualifiedName "Quoted Names::Rover Model::mass limit" ;
     sysx:sourceLine "5"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "7"^^xsd:integer ;
@@ -442,7 +447,8 @@ expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pout_om
 
 elmt:Quoted_20Names__Rover_20Model__is_20light
     a sysml:AssertConstraintUsage ;
-    sysml:qualifiedName "Quoted Names::Rover Model::is light" ;
+    sysml:qualifiedName "'Quoted Names'::'Rover Model'::'is light'" ;
+    sysx:mappingQualifiedName "Quoted Names::Rover Model::is light" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "8"^^xsd:integer ;
@@ -483,7 +489,8 @@ elmt:Quoted_20Names__Rover_20Model__is_20light_om
 
 elmt:Quoted_20Names__the_20rover
     a sysml:Membership ;
-    sysml:qualifiedName "Quoted Names::the rover" ;
+    sysml:qualifiedName "'Quoted Names'::'the rover'" ;
+    sysx:mappingQualifiedName "Quoted Names::the rover" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;
@@ -506,7 +513,8 @@ elmt:Quoted_20Names__the_20rover
 
 elmt:Quoted_20Names__my_20rover
     a sysml:PartUsage ;
-    sysml:qualifiedName "Quoted Names::my rover" ;
+    sysml:qualifiedName "'Quoted Names'::'my rover'" ;
+    sysx:mappingQualifiedName "Quoted Names::my rover" ;
     sysx:sourceLine "11"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "11"^^xsd:integer ;
@@ -547,7 +555,8 @@ elmt:Quoted_20Names__my_20rover_om
 
 elmt:Quoted_20Names__off_20model
     a sysml:PartUsage ;
-    sysml:qualifiedName "Quoted Names::off model" ;
+    sysml:qualifiedName "'Quoted Names'::'off model'" ;
+    sysx:mappingQualifiedName "Quoted Names::off model" ;
     sysx:sourceLine "12"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "12"^^xsd:integer ;
@@ -584,7 +593,8 @@ elmt:Quoted_20Names__off_20model_om
 
 elmt:Quoted_20Names__state
     a sysml:PartDefinition ;
-    sysml:qualifiedName "Quoted Names::state" ;
+    sysml:qualifiedName "'Quoted Names'::state" ;
+    sysx:mappingQualifiedName "Quoted Names::state" ;
     sysx:sourceLine "13"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "13"^^xsd:integer ;
@@ -616,7 +626,8 @@ elmt:Quoted_20Names__state_om
 
 elmt:Quoted_20Names__a_20state
     a sysml:PartUsage ;
-    sysml:qualifiedName "Quoted Names::a state" ;
+    sysml:qualifiedName "'Quoted Names'::'a state'" ;
+    sysx:mappingQualifiedName "Quoted Names::a state" ;
     sysx:sourceLine "14"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "14"^^xsd:integer ;

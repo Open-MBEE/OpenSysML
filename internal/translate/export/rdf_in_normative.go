@@ -344,7 +344,7 @@ func (r *impliedEnds) checkable() bool {
 			return true
 		}
 		for _, property := range []string{rdf.SysML + pDeclaredName, rdf.SysML + pDeclaredShortName,
-			rdf.SysML + pQualifiedName, rdf.OpenSysML + xPositionalName} {
+			rdf.SysML + pQualifiedName, rdf.OpenSysML + xMappingQualifiedName, rdf.OpenSysML + xPositionalName} {
 			if r.d.graph.HasProperty(rdf.IRI(value), property) {
 				return true
 			}
@@ -518,7 +518,7 @@ func (d *decoder) parameterMember(el *element) bool {
 // verifyConjugated checks the conjugate's declared names against its original.
 func (d *decoder) verifyConjugated(el, parent *element) error {
 	expectedName := ""
-	if original, ok := d.stringOf(parent, rdf.SysML+pDeclaredName); ok {
+	if original, ok := d.nameOf(parent, rdf.SysML+pDeclaredName); ok {
 		expectedName = "~" + original
 	} else if parent.qname != "" {
 		segments := naming.Segments(parent.qname)
@@ -539,7 +539,7 @@ func (d *decoder) verifyConjugated(el, parent *element) error {
 			Note: fmt.Sprintf("its declaredName is %q where the original requires %q", strings.Join(nameValues, ", "), expectedName),
 		}
 	}
-	short, hasShort := d.stringOf(parent, rdf.SysML+pDeclaredShortName)
+	short, hasShort := d.nameOf(parent, rdf.SysML+pDeclaredShortName)
 	expectedShort := ""
 	if hasShort {
 		expectedShort = "~" + short
@@ -1014,7 +1014,11 @@ func (d *decoder) transitionImplied(el, parent *element) (bool, error) {
 			return false, nil
 		}
 		if len(d.graph.Objects(subject, rdf.SysML+pOwnedRelationship)) == 0 {
-			return owning == mParameterMembership, nil
+			// A bare one a FeatureMembership owns is the transitionLink the conversion writes last (transitionLinkMember),
+			// by its minted id, or, in uuid form, by having no place among the body's members as a written `ref;` has.
+			linked := d.linked(parent, xBodyMember)[el.iri] || d.linked(parent, xEffectMember)[el.iri]
+			return owning == mParameterMembership || (!stated && !linked && (strings.HasSuffix(el.iri, transitionLinkSuffix) ||
+				(!d.graph.HasProperty(subject, rdf.OpenSysML+xMemberIndex) && !hasAddress(d.graph, subject)))), nil
 		}
 		if parent == nil || parent.metaclass != mTransition {
 			return false, nil

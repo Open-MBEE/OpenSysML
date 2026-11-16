@@ -169,7 +169,7 @@ func satisfyAssertionUsage(sym *symbols.Symbol) bool {
 // conditionSelf is the object a requirement usage's conditions read: the object owner
 // holds under the usage's name when it holds one (its own features, KerML §7.4.11), else owner.
 func (ctx *Context) conditionSelf(sym *symbols.Symbol, owner *Instance) *Instance {
-	if owner == nil || sym == nil || sym.Name == "" || declaringType(sym) == nil {
+	if owner == nil || sym == nil || !sym.Named() || declaringType(sym) == nil {
 		return owner
 	}
 	if _, has := owner.FeatureValues[sym.Name]; !has {

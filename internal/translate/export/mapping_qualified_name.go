@@ -157,7 +157,7 @@ func mappingQualifiedNamesWithContext(graph *rdf.Graph, context *mappingQualifie
 		visiting[subject.Value] = true
 		defer delete(visiting, subject.Value)
 
-		if name, ok := graph.Lexical(subject, rdf.OpenSysML+"mappingQualifiedName"); ok {
+		if name, ok := graph.Lexical(subject, rdf.OpenSysML+xMappingQualifiedName); ok {
 			resolved[subject.Value] = name
 			known[subject.Value] = true
 			return name, name != ""
@@ -187,10 +187,10 @@ func mappingQualifiedNamesWithContext(graph *rdf.Graph, context *mappingQualifie
 			return "", false
 		}
 
-		value := naming.Qualify(ownerName, name, index)
+		value := naming.Qualify(ownerName, naming.Name{Text: name, Named: hasName}, index)
 		if hasName && context.conforms(graph, subject, "ConjugatedPortDefinition") &&
 			strings.HasPrefix(name, "~") {
-			value = strings.TrimSuffix(value, naming.Segment(name)) + "'" + name + "'"
+			value = strings.TrimSuffix(value, naming.Segment(name)) + naming.QuotedSegment(name)
 		}
 		resolved[subject.Value] = value
 		known[subject.Value] = true
@@ -344,7 +344,7 @@ func mappingQualifiedNameLocalNameUncached(
 		return name, true
 	}
 	if graph.BoolValue(subject, rdf.SysML+"isLibraryElement") {
-		if name, ok := graph.Lexical(subject, rdf.SysML+pQualifiedName); ok {
+		if name, ok := statedAddress(graph, subject); ok {
 			return mappingLastWrittenName(name), true
 		}
 	}
@@ -530,11 +530,7 @@ func mappingLastWrittenName(name string) string {
 	}
 	endName := source.ReferenceEndNames(name)
 	if segments, ok := source.MemberPathSegments(endName); ok && len(segments) > 0 {
-		segment := segments[len(segments)-1]
-		if len(endName) > 0 && endName[0] == '\'' {
-			return source.Unescape(segment)
-		}
-		return segment
+		return segments[len(segments)-1]
 	}
 	qualified := naming.Segments(name)
 	if len(qualified) == 0 {
@@ -543,8 +539,8 @@ func mappingLastWrittenName(name string) string {
 	segment := qualified[len(qualified)-1]
 	if segments, ok := source.MemberPathSegments(segment); ok && len(segments) > 0 {
 		segment = segments[len(segments)-1]
-		if len(qualified[len(qualified)-1]) > 0 && qualified[len(qualified)-1][0] == '\'' {
-			return source.Unescape(segment)
+		if qualified[len(qualified)-1][0] == '\'' {
+			return segment
 		}
 	}
 	return identityName(segment)
@@ -731,7 +727,7 @@ func graphWithoutQualifiedNames(graph *rdf.Graph) *rdf.Graph {
 	}
 	triples := make([]rdf.Triple, 0, graph.Len())
 	for _, triple := range graph.Triples() {
-		if triple.Predicate.Value != rdf.SysML+pQualifiedName && triple.Predicate.Value != rdf.OpenSysML+xPositionalName {
+		if !isAddressPredicate(triple.Predicate.Value) {
 			triples = append(triples, triple)
 		}
 	}

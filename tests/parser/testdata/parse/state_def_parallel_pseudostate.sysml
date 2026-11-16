@@ -22,6 +22,6 @@ state def RegionChoice parallel {
 
 	choice pick;
 
-	transition first pick if mode == 2 then lfast;
-	transition first pick then lslow;
+	transition first pick if mode == 2 then left.lfast;
+	transition first pick then left.lslow;
 }

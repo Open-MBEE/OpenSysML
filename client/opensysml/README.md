@@ -359,7 +359,10 @@ API JSON names the standard-library elements a model uses in the `Conversion`'s
 `LibraryReferences` (each an `ID`, `QualifiedName` and metaclass `Type`) rather
 than writing them as elements; `WithLibraryStubs()` restores the ownerless
 library stubs releases before 0.11.0 wrote, and needs the service's
-`CapabilityConvertLibraryStubs`.
+`CapabilityConvertLibraryStubs`. An element carries its owned structure;
+`WithInheritedMembers()` also writes the derived lists that repeat each
+Namespace's and Type's inherited and imported members, and needs
+`CapabilityConvertInheritedMembers`.
 
 `ParseDocuments` can relate the model it parses to one the program already
 holds results of: `WithBaseModel(previous)` has the service compare the two

@@ -40,8 +40,8 @@
           (ConnectorEnd target="ready"
             (*ast.QualifiedName))))
       (TransitionMember source="ready" target="split")
-      (TransitionMember source="split" target="building")
-      (TransitionMember source="split" target="checking")
-      (TransitionMember source="building" target="sync")
-      (TransitionMember source="checking" target="sync")
+      (TransitionMember source="split" target="working.left.building")
+      (TransitionMember source="split" target="working.right.checking")
+      (TransitionMember source="working.left.building" target="sync")
+      (TransitionMember source="working.right.checking" target="sync")
       (TransitionMember source="sync" target="done"))))

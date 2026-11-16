@@ -269,7 +269,7 @@ func symbolQualifiedText(sym *symbols.Symbol) string {
 	if sym == nil {
 		return unknownText
 	}
-	if sym.Name == "" {
+	if !sym.Named() {
 		if sym.Implicit != nil {
 			return symbolQualifiedText(sym.Implicit.Owner) + "::" + unnamedText
 		}

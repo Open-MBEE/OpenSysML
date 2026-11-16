@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
@@ -90,6 +91,10 @@ func expressionPartSlot(sym *symbols.Symbol) (string, bool) {
 	case symbols.ExpressionBody:
 		return "body", true
 	case symbols.ExpressionBodyResult:
+		if sym.Expr.Owner.Expr == nil {
+			// A constraint body's closing condition is minted as the member stating it (constraintResultMember).
+			return "", false
+		}
 		return "result", true
 	case symbols.ExpressionChainFeature:
 		return sym.Expr.Slot, true
@@ -97,6 +102,8 @@ func expressionPartSlot(sym *symbols.Symbol) (string, bool) {
 		return "succession", true
 	case symbols.ExpressionTransitionLinkParameter:
 		return []string{"linkparam", "triggerparam"}[sym.Expr.Index], true
+	case symbols.ExpressionTransitionLink:
+		return "transitionlink", true
 	}
 	return "", false
 }
@@ -150,6 +157,11 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 		element, _, err := read.ReadExpressionPart(sym.DocName, end, "chain")
 		return element, err
 	}
+	if prefix, ok := flowEndChain(sym); ok {
+		// The chain Feature a flow's end references ahead of its payload is minted under the end (flowEndReferences).
+		element, _, err := read.ReadExpressionPart(sym.DocName, prefix, "chain")
+		return element, err
+	}
 	if target, ok := headClauseChain(sym); ok {
 		// The chain Feature a head clause's chain target denotes is minted under the head (headChain).
 		element, _, err := read.ReadExpressionPart(sym.DocName, target, "chain")
@@ -159,7 +171,23 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 		element, _, err := read.ReadExpressionPart(sym.DocName, spanNode{span}, slot)
 		return element, err
 	}
+	if member := constraintResultMember(sym); member != nil {
+		// A constraint body's closing bare condition is written as that member (encodeMember).
+		return read.Read(sym.DocName, member, "")
+	}
 	return read.Read(sym.DocName, sym.Decl, query.QualifiedIdentity(idx, sym))
+}
+
+// constraintResultMember is the ConstraintMember stating the closing bare condition
+// sym reflects as a constraint's result expression (semantics.ConstraintResultMember), or nil.
+func constraintResultMember(sym *symbols.Symbol) ast.Node {
+	if sym == nil || sym.Expr == nil || sym.Expr.Role != symbols.ExpressionBodyResult || sym.Expr.Owner == nil || sym.Expr.Owner.Expr != nil {
+		return nil
+	}
+	if c := semantics.ConstraintResultCondition(sym.Expr.Owner); c != nil && c.Expression == sym.Decl {
+		return c
+	}
+	return nil
 }
 
 // implicitRelationshipID reads the elementId of the relationship sym records implicitly,
@@ -242,6 +270,10 @@ func implicitMembershipID(read ElementIDReader, idx *symbols.Index, member *symb
 		_, membership, err := read.ReadExpressionPart(member.DocName, edge, slot)
 		return membership, true, err
 	}
+	if node := constraintResultMember(member); node != nil {
+		id, err = read.ReadOwningMembership(member.DocName, node, "")
+		return id, true, err
+	}
 	if member != nil {
 		id, err = read.ReadOwningMembership(member.DocName, member.Decl, query.QualifiedIdentity(idx, member))
 		return id, true, err
@@ -258,6 +290,10 @@ func featureChainingID(read ElementIDReader, rel *symbols.ImplicitRelationship) 
 	}
 	if end, ok := connectorEndChain(rel.Owner); ok {
 		element, _, err := read.ReadExpressionPart(rel.Owner.DocName, end, "chain."+rel.Slot)
+		return element, err
+	}
+	if prefix, ok := flowEndChain(rel.Owner); ok {
+		element, _, err := read.ReadExpressionPart(rel.Owner.DocName, prefix, "chain."+rel.Slot)
 		return element, err
 	}
 	if target, ok := headClauseChain(rel.Owner); ok {
@@ -282,6 +318,15 @@ func connectorEndChain(sym *symbols.Symbol) (*ast.ConnectorEnd, bool) {
 		return nil, false
 	}
 	return end, true
+}
+
+// flowEndChain is the chain as written that sym, the chain Feature a flow's end
+// references ahead of its payload (`a.b` of `flow a.b.x to c.y`), denotes.
+func flowEndChain(sym *symbols.Symbol) (ast.Node, bool) {
+	if sym == nil || sym.Chain == nil || sym.Chain.Flow == nil || sym.Chain.Node == nil {
+		return nil, false
+	}
+	return sym.Chain.Node, true
 }
 
 // headClauseChain is the chain target of the head clause (`part b :> a.x`) whose chain Feature

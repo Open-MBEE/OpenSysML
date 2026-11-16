@@ -63,7 +63,7 @@ func expressionElementMetaclassName(sym *symbols.Symbol) string {
 			return "AcceptActionUsage"
 		case symbols.ExpressionTransitionSuccession:
 			return "SuccessionAsUsage"
-		case symbols.ExpressionPayload, symbols.ExpressionTransitionLinkParameter:
+		case symbols.ExpressionPayload, symbols.ExpressionTransitionLinkParameter, symbols.ExpressionTransitionLink:
 			return "ReferenceUsage"
 		}
 	}
@@ -611,6 +611,10 @@ func (m *Model) expressionScopeOf(expr *symbols.Symbol) *symbols.Scope {
 	for cur := expr; cur != nil; cur = cur.Expr.Owner {
 		if cur.Expr == nil {
 			return referenceScope(cur)
+		}
+		if cur.Expr.Role == symbols.ExpressionBodyResult && cur.Expr.Owner != nil && cur.Expr.Owner.Expr == nil {
+			// A constraint body's closing condition reads its names in the body (ConstraintResultMember).
+			return cur.Expr.Owner.Scope
 		}
 		if cur.Expr.Role == symbols.ExpressionBody {
 			if scope := m.bodyScopeOf(cur); scope != nil {

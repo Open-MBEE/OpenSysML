@@ -89,7 +89,7 @@ func w9cShortNameConflicts(members []*symbols.Symbol, r *resolve.Resolver, sever
 // is what makes the collision resolve's rule does not already report.
 func w9cAnyShort(members []*symbols.Symbol, name string) bool {
 	for _, sym := range members {
-		if id, ok := w9cIdentOf(sym); ok && id.ShortName == name {
+		if id, ok := w9cIdentOf(sym); ok && id.HasShortName() && id.ShortName == name {
 			return true
 		}
 	}
@@ -108,10 +108,10 @@ func w9cKeysOf(sym *symbols.Symbol) []w9cKey {
 		return nil
 	}
 	var out []w9cKey
-	if id.ShortName != "" {
+	if id.HasShortName() {
 		out = append(out, w9cKey{name: id.ShortName, span: id.ShortNameSpan})
 	}
-	if id.Name != "" && id.Name != id.ShortName {
+	if id.HasName() && !(id.HasShortName() && id.Name == id.ShortName) {
 		out = append(out, w9cKey{name: id.Name, span: id.NameSpan})
 	}
 	return out

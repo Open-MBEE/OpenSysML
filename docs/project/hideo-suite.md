@@ -1,13 +1,13 @@
-# The cross-MDK conformance suite as a daily advisory ratchet
+# The cross-MDK conformance suite as a per-case ratchet
 
 `tools/cmd/hideo-suite` runs the OpenSysML readers of
 [hideo67/sysmlv2-tests](https://github.com/hideo67/sysmlv2-tests), a common test suite for
 SysML v2 MDKs, against this tree and holds **every case of every reader** to its committed
-outcome in [`hideo-suite-baseline.tsv`](hideo-suite-baseline.tsv). It is advisory: it runs daily
-in the [oracle reproduction](../../.github/workflows/oracle-reproduction.yml) workflow and on
-demand, never on a pull request and never as a required check, exactly as the
-[PSSM referee](pssm-referee.md) and the [pilot differential](pilot-differential.md) are
-re-run there.
+outcome in [`hideo-suite-baseline.tsv`](hideo-suite-baseline.tsv). It runs on every pull request that
+changes Go or the Python client (`Cross-MDK conformance suite reproduces its baseline` in
+[pr.yml](../../.github/workflows/pr.yml)), so a case that moves is adjudicated and recorded in
+the change that moved it, and daily in the
+[oracle reproduction](../../.github/workflows/oracle-reproduction.yml) workflow and on demand.
 
 **What a pass means.** The suite's expectations are the answers of the OMG pilot implementation,
 recorded by the suite's author. A pass is agreement with the pilot on one read of one model
@@ -43,9 +43,11 @@ Four of the suite's readers are run, in the baseline's column order:
 | `opensysml-go` | Symbol API | Go, in process |
 
 The suite's Rust, TypeScript and Java readers of this implementation, and its readers of other
-MDKs, are not run. Its cross-MDK report needs a pilot checkout and Java; the ratchet reads the
-per-case CSV files each reader writes and needs neither, so the report's failure at the end of
-the suite's own log is expected.
+MDKs, are not run. Its cross-MDK report and the version record beside it need a pilot checkout
+and Java; the ratchet reads the per-case CSV files each reader writes and needs neither, so it
+runs the four readers itself, with the commands of the suite's `run-all.sh`, and leaves that
+report out. A pin whose `run-all.sh` runs one of them differently is refused until the ratchet
+is brought in line.
 
 ## Running it
 
@@ -57,8 +59,9 @@ go run -C tools ./cmd/hideo-suite -check      # the same, failing on any movemen
 
 It needs Go, Python 3.12 and [uv](https://docs.astral.sh/uv/) on `PATH`. Each run builds
 `bin/sysml-grpc` with `make build-grpc`, provisions the suite's Python environment with
-`uv sync`, and runs the four readers through the suite's `run-all.sh` with Go's test cache off;
-a run takes about a minute and a half. The results are left in
+`uv sync`, and runs the four readers with Go's test cache off; a run takes about a minute and
+a half. The command prints one line per reader and then the verdict; what a reader printed is
+in its log. The results are left in
 `build/hideo-suite/test-suite/results/`: one CSV per reader (`suite,matrix,id,outcome,detail`)
 and its log under `logs/`. `-no-run` compares the results already there instead of running.
 The readers are given this checkout's `bin/sysml-grpc` as `OPENSYSML_BINARY` and no
@@ -92,7 +95,7 @@ case.
 
 ## Adjudicating a movement
 
-The daily run fails when `develop` no longer reproduces the baseline. The artifact
+The pull-request and daily runs fail when the tree no longer reproduces the baseline. The artifact
 `hideo-suite-results` of that run holds the CSVs and logs; the `detail` column of a moved case
 says what the reader got and what the pilot answered.
 
@@ -135,7 +138,7 @@ named when there is one. The matrices themselves are described in the suite's
 | B10 | 98 | 90 / 8 / 0 | 90 / 8 / 0 | 36 / 0 / 62 | 36 / 0 / 62 |
 | B11 | 90 | 90 / 0 / 0 | 90 / 0 / 0 | 36 / 0 / 54 | 24 / 12 / 54 |
 | B12 | 108 | 108 / 0 / 0 | 108 / 0 / 0 | 54 / 0 / 54 | 54 / 0 / 54 |
-| B13 | 165 | 65 / 100 / 0 | 65 / 100 / 0 | 6 / 60 / 99 | 6 / 60 / 99 |
+| B13 | 165 | 71 / 94 / 0 | 71 / 94 / 0 | 6 / 60 / 99 | 6 / 60 / 99 |
 | B20 | 75 | 48 / 27 / 0 | 48 / 27 / 0 | 15 / 15 / 45 | 15 / 15 / 45 |
 | C01 | 114 | 99 / 15 / 0 | 99 / 15 / 0 | 76 / 0 / 38 | 76 / 0 / 38 |
 | C10 | 116 | 92 / 4 / 20 | 92 / 4 / 20 | 36 / 0 / 80 | 36 / 0 / 80 |
@@ -146,7 +149,7 @@ named when there is one. The matrices themselves are described in the suite's
 | D20 | 48 | 48 / 0 / 0 | 48 / 0 / 0 | 0 / 0 / 48 | 0 / 0 / 48 |
 | E10 | 48 | 48 / 0 / 0 | 48 / 0 / 0 | 48 / 0 / 0 | 48 / 0 / 0 |
 | F10 | 30 | 30 / 0 / 0 | 30 / 0 / 0 | 30 / 0 / 0 | 30 / 0 / 0 |
-| **All** | 1813 | 1599 / 181 / 33 | 1599 / 181 / 33 | 847 / 105 / 861 | 821 / 131 / 861 |
+| **All** | 1813 | 1605 / 175 / 33 | 1605 / 175 / 33 | 847 / 105 / 861 | 821 / 131 / 861 |
 <!-- hideo-suite:end counts -->
 
 The two element-properties readers agree on every case. The two Symbol readers differ on 14:

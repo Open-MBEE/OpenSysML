@@ -81,6 +81,9 @@ public final class Capabilities {
   /** api-json restores the ownerless library stubs of releases before 0.11.0 when asked. */
   public static final String CONVERT_LIBRARY_STUBS = "convert_library_stubs";
 
+  /** api-json writes the inherited member lists of every Namespace and Type when asked. */
+  public static final String CONVERT_INHERITED_MEMBERS = "convert_inherited_members";
+
   /** Convert reports the semantic check's diagnostics, with their severities, alongside the output. */
   public static final String CONVERT_CHECK_DIAGNOSTICS = "convert_check_diagnostics";
 
@@ -128,6 +131,12 @@ public final class Capabilities {
 
   /** {@code GetSymbol} resolves a qualified name from the root namespace rather than as a reported id. */
   public static final String SYMBOL_NAME_RESOLUTION = "symbol_name_resolution";
+
+  /** {@code SymbolInfo} names the metadata usages annotating a symbol, {@code about} ones included. */
+  public static final String SYMBOL_ANNOTATING_METADATA = "symbol_annotating_metadata";
+
+  /** {@code GetSymbol} and {@code GetElementProperties} read a name only as a name, an id only as an id. */
+  public static final String SYMBOL_LOOKUP_KIND = "symbol_lookup_kind";
 
   /** The {@code GetElementProperties} RPC: an element's metamodel properties by their specification names. */
   public static final String ELEMENT_PROPERTIES = "element_properties";

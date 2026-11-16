@@ -676,7 +676,7 @@ func (idx *Index) expandImporter(pkgFQN string) {
 				idx.routesOnward(imp.doc, targetFQN, childName, child, direct, imp.all))
 
 			// Also re-export under short name if different from primary name
-			if child.ShortName != "" && child.ShortName != childName {
+			if child.HasShortName() && child.ShortName != childName {
 				idx.reexportGated(joinFQN(pkgFQN, child.ShortName), child, imp.doc, imp.private,
 					idx.routesOnward(imp.doc, targetFQN, child.ShortName, child, direct, imp.all))
 			}
@@ -1061,7 +1061,7 @@ func (idx *Index) LibraryTier(sym *Symbol) LibraryTier {
 	if sym == nil {
 		return TierNone
 	}
-	if tier := idx.librarySyms.at(sym); tier != TierNone || sym.Name != "" {
+	if tier := idx.librarySyms.at(sym); tier != TierNone || sym.Named() {
 		return tier
 	}
 	// An unnamed member contributes no name, so its tier is its document's.
@@ -1552,6 +1552,16 @@ func clearMark(marks *layer[string, symbolSet], fqn string, sym *Symbol) {
 // the document root). Every recorded (fqn, symbol) pair is also tracked as a
 // contribution of the named document.
 func (idx *Index) indexScope(doc string, scope *Scope, prefix string) {
+	idx.indexMembers(doc, scope, prefix, false)
+}
+
+// indexMembers is indexScope told whether scope is nested: the members of a
+// root package with the empty name are qualified by that name, not root members.
+func (idx *Index) indexMembers(doc string, scope *Scope, prefix string, nested bool) {
+	join := joinFQN
+	if nested {
+		join = func(prefix, name string) string { return prefix + fqnSeparator + name }
+	}
 	seen := make(map[*Symbol]bool)
 	for _, sym := range scope.syms {
 		if seen[sym] {
@@ -1560,14 +1570,14 @@ func (idx *Index) indexScope(doc string, scope *Scope, prefix string) {
 		seen[sym] = true
 
 		// Index under primary FQN
-		fqn := joinFQN(prefix, sym.Name)
+		fqn := join(prefix, sym.Name)
 		idx.register(fqn, sym)
 		idx.declaredAt.set(sym, fqn)
 		idx.addContribution(doc, fqnEntry{fqn: fqn, sym: sym})
 
 		// Also index under short name FQN if different
-		if shortName := shortNameOf(sym); shortName != "" && shortName != sym.Name {
-			shortFQN := joinFQN(prefix, shortName)
+		if shortName, ok := shortNamed(sym); ok && shortName != sym.Name {
+			shortFQN := join(prefix, shortName)
 			idx.register(shortFQN, sym)
 			idx.addContribution(doc, fqnEntry{fqn: shortFQN, sym: sym})
 		}
@@ -1581,7 +1591,7 @@ func (idx *Index) indexScope(doc string, scope *Scope, prefix string) {
 		}
 
 		if sym.Scope != nil {
-			idx.indexScope(doc, sym.Scope, fqn)
+			idx.indexMembers(doc, sym.Scope, fqn, true)
 		}
 	}
 }
@@ -1797,7 +1807,11 @@ func (idx *Index) shortNamedScan(name string) bool {
 
 // shortNameCandidate includes alternate registrations and explicit short names.
 func shortNameCandidate(sym *Symbol, name string) bool {
-	return sym != nil && name != "" && (LastSegment(sym.Name) != name || shortNameOf(sym) == name)
+	if sym == nil {
+		return false
+	}
+	short, ok := shortNamed(sym)
+	return LastSegment(sym.Name) != name || (ok && short == name)
 }
 
 // LookupUniqueCandidates returns the distinct elements LookupUnique chooses among —
@@ -2070,7 +2084,7 @@ func (idx *Index) lookupDirectChildrenNamed(key directChildrenKey, name string) 
 	for _, sym := range children {
 		leaf := LastSegment(sym.Name)
 		byName[leaf] = append(byName[leaf], sym)
-		if sym.ShortName != "" && sym.ShortName != leaf {
+		if sym.HasShortName() && sym.ShortName != leaf {
 			byName[sym.ShortName] = append(byName[sym.ShortName], sym)
 		}
 	}
@@ -2083,7 +2097,7 @@ func (idx *Index) lookupDirectChildrenNamed(key directChildrenKey, name string) 
 }
 
 // SegmentsOf reads a qualified name as the notation spells it into its names,
-// `'x::y'` one and `x::y` two, quotes dropped and escapes kept as the parser keeps them.
+// `'x::y'` one and `x::y` two, quotes dropped and escapes decoded as the parser decodes them.
 func SegmentsOf(name string) []string {
 	if segments, ok := source.QualifiedNameSegments(name); ok {
 		return segments
@@ -2161,7 +2175,7 @@ func FQNIs(sym *Symbol, parent, leaf string) bool {
 	scope := sym.OwnerScope
 	for scope != nil && scope.Owner() != nil {
 		owner := scope.Owner()
-		if owner.Name != "" {
+		if owner.Named() {
 			if rest == owner.Name {
 				rest = ""
 			} else if strings.HasSuffix(rest, fqnSeparator+owner.Name) {
@@ -2192,7 +2206,7 @@ func FQNOf(sym *Symbol) string {
 	scope := sym.OwnerScope
 	for scope != nil && scope.Owner() != nil {
 		owner := scope.Owner()
-		if owner.Name != "" {
+		if owner.Named() {
 			parts = append(parts, owner.Name)
 			size += len(owner.Name) + len(fqnSeparator)
 		}
@@ -2221,7 +2235,7 @@ func NameChain(sym *Symbol) []string {
 	}
 	names := []string{sym.Name}
 	for scope := sym.OwnerScope; scope != nil && scope.Owner() != nil; scope = scope.Owner().OwnerScope {
-		if owner := scope.Owner(); owner.Name != "" {
+		if owner := scope.Owner(); owner.Named() {
 			names = append(names, owner.Name)
 		}
 	}
@@ -2240,8 +2254,8 @@ func HasFQN(sym *Symbol, fqn string) bool {
 	if hasFQNAs(sym, fqn, sym.Name) {
 		return true
 	}
-	short := shortNameOf(sym)
-	return short != "" && short != sym.Name && hasFQNAs(sym, fqn, short)
+	short, ok := shortNamed(sym)
+	return ok && short != sym.Name && hasFQNAs(sym, fqn, short)
 }
 
 // ShortNamed reports whether fqn reaches sym by its short name rather than its
@@ -2250,13 +2264,14 @@ func ShortNamed(sym *Symbol, fqn string) bool {
 	return sym != nil && !hasFQNAs(sym, fqn, sym.Name)
 }
 
-// shortNameOf is sym's short name: as recorded, else as its declaration spells it.
-func shortNameOf(sym *Symbol) string {
-	if sym.ShortName != "" {
-		return sym.ShortName
+// shortNamed is sym's short name and whether it has one: as recorded, else as
+// its declaration spells it.
+func shortNamed(sym *Symbol) (string, bool) {
+	if sym.HasShortName() {
+		return sym.ShortName, true
 	}
 	id, _ := DeclIdent(sym.Decl)
-	return id.ShortName
+	return id.ShortName, id.HasShortName()
 }
 
 // hasFQNAs is HasFQN with sym's last segment taken to be name.
@@ -2283,7 +2298,7 @@ func hasFQNAs(sym *Symbol, fqn, name string) bool {
 // it, or nil at the document root.
 func namedOwner(scope *Scope) *Symbol {
 	for scope != nil && scope.Owner() != nil {
-		if owner := scope.Owner(); owner.Name != "" {
+		if owner := scope.Owner(); owner.Named() {
 			return owner
 		}
 		scope = scope.Owner().OwnerScope
@@ -2351,15 +2366,15 @@ func (idx *Index) QualifiedIdentity(sym *Symbol) string {
 	if idx == nil || sym == nil {
 		return ""
 	}
-	fqn := idx.GetFQN(sym)
-	if fqn == "" {
+	if !sym.Named() {
 		return ""
 	}
-	for _, segment := range strings.Split(fqn, "::") {
-		if segment == "" {
+	for scope := sym.OwnerScope; scope != nil && scope.Owner() != nil; scope = scope.Owner().OwnerScope {
+		if !scope.Owner().Named() {
 			return ""
 		}
 	}
+	fqn := idx.GetFQN(sym)
 	if !slices.Contains(idx.LookupQualified(fqn), sym) {
 		return ""
 	}

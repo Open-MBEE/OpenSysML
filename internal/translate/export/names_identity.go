@@ -1,8 +1,10 @@
 package export
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 func identityName(segment string) string {
@@ -31,22 +33,16 @@ func identityName(segment string) string {
 	return segment
 }
 
-func parserQualifiedName(qname string) string {
-	global := strings.HasPrefix(qname, "$::")
-	if global {
-		qname = strings.TrimPrefix(qname, "$::")
+// escapedSegmentName is the name a qualifiedName segment spells (KerML
+// §8.3.2.1.2 escapedName): a quoted one with its §8.2.2 escapes read.
+func escapedSegmentName(segment string) string {
+	if len(segment) < 2 || segment[0] != '\'' || segment[len(segment)-1] != '\'' {
+		return segment
 	}
-	segments := naming.Segments(qname)
-	for i, segment := range segments {
-		segments[i] = naming.Segment(escapeName(identityName(segment)))
-	}
-	out := strings.Join(segments, "::")
-	if global {
-		return "$::" + out
-	}
-	return out
+	return source.Unescape(segment[1 : len(segment)-1])
 }
 
+// mappingQualifiedNameFromSpec is the address a qualifiedName stands for.
 func mappingQualifiedNameFromSpec(qname string) string {
 	global := strings.HasPrefix(qname, "$::")
 	if global {
@@ -54,7 +50,7 @@ func mappingQualifiedNameFromSpec(qname string) string {
 	}
 	segments := naming.Segments(qname)
 	for i, segment := range segments {
-		segments[i] = naming.Segment(identityName(segment))
+		segments[i] = naming.Segment(escapedSegmentName(segment))
 	}
 	out := strings.Join(segments, "::")
 	if global {

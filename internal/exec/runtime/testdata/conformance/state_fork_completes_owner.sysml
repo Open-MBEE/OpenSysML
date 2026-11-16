@@ -17,11 +17,11 @@ package ForkCompletesOwner {
                 transition first split do { assign log := log + "T1.1(effect) "; } then done;
             }
             state right {
-                transition first split do { assign log := log + "T1.2(effect) "; } then done;
+                transition first left.split do { assign log := log + "T1.2(effect) "; } then done;
             }
         }
 
-        transition first idle do { assign log := log + "T1(effect) "; } then split;
+        transition first idle do { assign log := log + "T1(effect) "; } then work.left.split;
         transition first work do { assign log := log + "T2(effect) "; } then done;
     }
 }

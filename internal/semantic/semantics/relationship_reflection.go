@@ -106,6 +106,45 @@ func (m *Model) chainTargetFeature(rel *symbols.Symbol) *symbols.Symbol {
 	return feature
 }
 
+// flowEndChainFeature is the chain Feature the end at position of flow references when more than one feature
+// precedes its payload (`flow a.b.x to c.d.y` relates a.b and c.d): synthesized once, nil for any other end.
+func (m *Model) flowEndChainFeature(flow *symbols.Symbol, position int) *symbols.Symbol {
+	usage, ok := flow.Decl.(*ast.Usage)
+	if !ok || flow.Scope == nil {
+		return nil
+	}
+	node := ast.FlowEndChainPrefix(usage, position)
+	if node == nil {
+		return nil
+	}
+	defer m.own(flow).LeaveDoc()
+	key := flowEndKey{flow: flow, position: position}
+	if cached, ok := m.flowEndChains[key]; ok {
+		return cached
+	}
+	if len(m.attachmentPath(flow.OwnerScope, node)) == 0 {
+		return nil
+	}
+	feature := &symbols.Symbol{
+		Kind:       symbols.SymbolReferenceUsage,
+		DocName:    flow.DocName,
+		Decl:       node,
+		DeclSpan:   node.Span(),
+		Visibility: ast.VisibilityDefault,
+		OwnerScope: flow.Scope,
+		Chain:      &symbols.ChainingFeature{Node: node, Flow: flow, End: position},
+	}
+	journal(m, m.flowEndChains, key, flow.Decl)
+	m.flowEndChains[key] = feature
+	return feature
+}
+
+// flowEndKey names one end of a flow by position.
+type flowEndKey struct {
+	flow     *symbols.Symbol
+	position int
+}
+
 // ChainTargetPath is the features a relationship's chain target is written as,
 // outermost first, as resolved for a relationship of kind owned by sym: an end's
 // attachment resolves where its connector is declared, any other target where
@@ -151,6 +190,9 @@ func (m *Model) chainPath(owner *symbols.Symbol, kind ast.RelationshipKind, node
 func (m *Model) chainingFeaturesOf(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym.Chain == nil {
 		return nil
+	}
+	if flow := sym.Chain.Flow; flow != nil {
+		return m.attachmentPath(flow.OwnerScope, sym.Chain.Node)
 	}
 	rel := sym.Chain.Relationship
 	var facts symbols.RelationshipFacts

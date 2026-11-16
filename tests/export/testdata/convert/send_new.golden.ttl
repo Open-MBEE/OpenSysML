@@ -200,6 +200,7 @@ elmt:SendNew__Radio_conjugated
     a sysml:ConjugatedPortDefinition ;
     sysml:elementId "SendNew__Radio_conjugated" ;
     sysml:qualifiedName "SendNew::Radio::'~Radio'" ;
+    sysx:mappingQualifiedName "SendNew::Radio::'~Radio'" ;
     sysml:declaredName "~Radio" ;
     sysml:owner elmt:SendNew__Radio ;
     sysml:owningRelationship elmt:SendNew__Radio_conjugated_om ;
@@ -2295,7 +2296,8 @@ elmt:c07c022c-fe72-5b6a-bd1b-3d8f031127c0
 <urn:sysmlv2:element:548572f0-0efe-5063-9eba-10431829526c>
     a sysml:ConjugatedPortDefinition ;
     sysml:elementId "548572f0-0efe-5063-9eba-10431829526c" ;
-    sysml:qualifiedName "Ports::Port::~Port" ;
+    sysml:qualifiedName "Ports::Port::'~Port'" ;
+    sysx:mappingQualifiedName "Ports::Port::~Port" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:5540acce-64df-5ee7-8698-98d49dc63b88>

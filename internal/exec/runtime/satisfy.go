@@ -112,7 +112,7 @@ func (a *SatisfyAssertion) Text() string {
 	switch {
 	case a.RequirementRef != "":
 		b.WriteString(source.QualifiedNameText(a.RequirementRef))
-	case a.Symbol != nil && a.Symbol.Name != "":
+	case a.Symbol != nil && a.Symbol.Named():
 		b.WriteString(source.NameText(a.Symbol.Name))
 	default:
 		b.WriteString("?")
@@ -205,7 +205,7 @@ func (ctx *Context) satisfyAssertionOf(sym *symbols.Symbol) *SatisfyAssertion {
 			continue
 		}
 		switch rel.Kind {
-		case ast.RelSubsets:
+		case ast.RelReferences:
 			a.RequirementRef, a.Requirement = ctx.resolveRelationship(sym, rel)
 		case ast.RelSubject:
 			a.SubjectRef, a.Subject = ctx.resolveRelationship(sym, rel)
@@ -729,7 +729,7 @@ func symbolLabel(sym *symbols.Symbol) string {
 	switch {
 	case sym == nil:
 		return "<nil>"
-	case sym.Name != "":
+	case sym.Named():
 		return sym.Name
 	default:
 		return fmt.Sprintf("anonymous %T", sym.Decl)
