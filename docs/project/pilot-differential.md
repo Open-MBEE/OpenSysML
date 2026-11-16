@@ -253,11 +253,11 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-examples` | 99 | 92 | 34 | 0 | 0 | 0 | 34 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 55 | 3 | 0 | 0 | 0 | 3 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 12 | 0 | 0 | 0 | 12 | 0 |
-| `examples/spec-examples` | 511 | 151 | 1092 | 3395 | 1040 | 6 | 46 | 2349 |
+| `examples/spec-examples` | 511 | 151 | 1092 | 3395 | 1042 | 4 | 46 | 2349 |
 | `tests/testdata` | 40 | 26 | 76 | 101 | 61 | 4 | 11 | 36 |
 | `examples` | 57 | 49 | 18 | 70 | 4 | 0 | 14 | 66 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **925** | **528** | **1242** | **3566** | **1105** | **10** | **127** | **2451** |
+| **Total** | **925** | **528** | **1242** | **3566** | **1107** | **8** | **127** | **2451** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -1070,7 +1070,7 @@ cascades through the rest of the file. The movement is entirely one file,
 |---|---:|---:|
 | only pilot | 82 | **2451** |
 | pilot diagnostics | 123 | **3566** |
-| severity-only | 9 | **10** |
+| severity-only | 9 | **8** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
 those counts as the later rounds leave them.
@@ -1296,7 +1296,7 @@ page's history.
 | overall: fully agreeing / only ours / our diagnostics | **528 / 127 / 1242** |
 | only pilot | **2451** |
 | pilot diagnostics | **3566** |
-| severity-only | **10** |
+| severity-only | **8** |
 | unmapped, our side | **59** |
 | kerml-examples: only ours | **12** |
 | pilot-examples: only ours | **34** |
