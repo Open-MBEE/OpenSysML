@@ -46,7 +46,7 @@ impl Model {
     }
     /// Convert the model to `to_format` with explicit options, as
     /// [`crate::Connection::convert`] does for a model the service holds: `id_form`,
-    /// `include_library_stubs` and `documents` are gated and sent as it gates and sends them.
+    /// `include_library_stubs`, `inherited_members` and `documents` are gated and sent as it gates and sends them.
     pub fn convert_with(
         &self,
         to_format: &str,

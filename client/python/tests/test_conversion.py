@@ -23,6 +23,7 @@ from opensysml.capabilities import (
     CAPABILITY_CONVERT,
     CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
     CAPABILITY_CONVERT_COMPACT,
+    CAPABILITY_CONVERT_INHERITED_MEMBERS,
     CAPABILITY_CONVERT_LIBRARY_STUBS,
     MissingCapabilityError,
 )
@@ -312,6 +313,37 @@ def test_library_stubs_require_their_own_capability(fake_service):
 
 
 @pytest.mark.usefixtures("no_default_connection")
+def test_inherited_members_require_their_own_capability_and_reach_the_wire(fake_service):
+    """The inherited member lists are asked for only of a service that can leave them out."""
+    port, service = fake_service()
+    with Connection(port=port, auto_start=False) as conn:
+        with pytest.raises(MissingCapabilityError) as excinfo:
+            conn.convert(
+                FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML,
+                inherited_members=True,
+            )
+        assert excinfo.value.capability == CAPABILITY_CONVERT_INHERITED_MEMBERS
+        assert service.requests == []
+
+    port, service = fake_service(
+        capabilities=(CAPABILITY_CONVERT, CAPABILITY_CONVERT_INHERITED_MEMBERS)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        conn.convert(
+            FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML,
+            inherited_members=True,
+        )
+        conn.convert(FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML)
+    opensysml.convert(
+        FORMAT_API_JSON, content=MODEL, from_format=FORMAT_SYSML, port=port,
+        inherited_members=True,
+    )
+    asked, defaulted, module_level = service.requests
+    assert asked.inherited_members is True
+    assert defaulted.inherited_members is False
+    assert module_level.inherited_members is True
+
+
 def test_module_level_convert_sends_the_id_form_and_library_stubs_asked_for(fake_service):
     """opensysml.convert carries the api-json options to the wire as Connection.convert does."""
     port, service = fake_service(

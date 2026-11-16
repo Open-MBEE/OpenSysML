@@ -76,7 +76,7 @@ unknown-property PartUsage subsets                           # subsetting is a S
 unknown-property ReferenceUsage subsets                      # subsetting is a Subsetting element, not a property
 unknown-property AttributeUsage subsets                      # subsetting is a Subsetting element, not a property
 unknown-property OccurrenceUsage subsets                     # subsetting is a Subsetting element, not a property
-unknown-property SatisfyRequirementUsage subsets             # subsetting is a Subsetting element, not a property
+unknown-property SatisfyRequirementUsage references          # the requirement a `satisfy r` names, standardly its satisfiedRequirement through a ReferenceSubsetting
 unknown-property AnalysisCaseUsage subsets                   # subsetting is a Subsetting element, not a property
 unknown-property Multiplicity subsets                        # a MultiplicitySubset's bounds, collapsed the same way as any other subsetting
 unknown-property PartUsage redefines                         # redefinition is a Redefinition element, not a property

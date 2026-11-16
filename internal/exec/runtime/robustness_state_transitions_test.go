@@ -21,6 +21,7 @@ func TestRuntimeRobustnessStateTransitions(t *testing.T) {
 	t.Run("state_transition_endpoint_misspelled", testStateTransitionEndpointMisspelled)
 	t.Run("state_transition_endpoint_in_another_machine", testStateTransitionEndpointInAnotherMachine)
 	t.Run("state_transition_endpoint_never_resolved", testStateTransitionEndpointNeverResolved)
+	t.Run("state_transition_endpoint_nested_without_its_owners", testStateTransitionEndpointNestedWithoutItsOwners)
 	t.Run("state_transition_endpoint_naming_a_first_marker", testStateTransitionEndpointNamingAFirstMarker)
 	t.Run("state_junction_without_an_outgoing_transition", testStateJunctionWithoutAnOutgoingTransition)
 	t.Run("state_choice_without_an_enabled_branch", testStateChoiceWithoutAnEnabledBranch)
@@ -43,8 +44,7 @@ func TestRuntimeRobustnessStateTransitions(t *testing.T) {
 }
 
 // testStateTransitionEndpointMisspelled: a misspelled endpoint is a
-// name-resolution diagnostic, so lowering leaves the edge out and the machine
-// runs to a halt in the state it reached rather than panicking or hanging.
+// name-resolution diagnostic, and lowering refuses the machine with a typed error.
 func testStateTransitionEndpointMisspelled(t *testing.T) {
 	src := `package test {
 		state Machine {
@@ -79,33 +79,18 @@ func testStateTransitionEndpointMisspelled(t *testing.T) {
 	if sym == nil {
 		t.Fatal("Machine not found")
 	}
-	exec, err := newStateExecutor(ctx, sym, nil)
-	if err != nil {
-		t.Fatalf("newStateExecutor: %v", err)
+	_, err := newStateExecutor(ctx, sym, nil)
+	var unresolved *lower.UnresolvedEndpointError
+	if !errors.As(err, &unresolved) {
+		t.Fatalf("newStateExecutor = %v, want an UnresolvedEndpointError", err)
 	}
-	if err := exec.initialize(); err != nil {
-		t.Fatalf("initialize: %v", err)
-	}
-
-	done := make(chan error, 1)
-	go func() { done <- exec.RunToCompletion() }()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("RunToCompletion: %v", err)
-		}
-	case <-watchdog(10 * time.Second):
-		t.Fatal("RunToCompletion hung on a machine whose transition names nothing")
-	}
-	if got := exec.getCurrentState(); got == nil || got.Name != "busy" {
-		t.Errorf("expected the machine to halt in 'busy', got %v", got)
+	if got := lower.EndpointText(unresolved.Endpoint); got != "donee" {
+		t.Errorf("the error names endpoint %q, want donee", got)
 	}
 }
 
-// testStateTransitionEndpointNeverResolved: executed without a name-resolution
-// pass, as the REPL and the service handlers do, an endpoint naming nothing
-// leaves its edge out; the machine still runs, and the misspelling is reported
-// by whoever resolves the document rather than by lowering.
+// testStateTransitionEndpointNeverResolved: executed with no name-resolution
+// pass, an endpoint naming nothing is still a typed error, not a dropped edge.
 func testStateTransitionEndpointNeverResolved(t *testing.T) {
 	src := `package test {
 		state Machine {
@@ -126,26 +111,13 @@ func testStateTransitionEndpointNeverResolved(t *testing.T) {
 	if sym == nil {
 		t.Fatal("Machine not found")
 	}
-	exec, err := newStateExecutor(ctx, sym, nil)
-	if err != nil {
-		t.Fatalf("newStateExecutor: %v", err)
+	_, err := newStateExecutor(ctx, sym, nil)
+	var unresolved *lower.UnresolvedEndpointError
+	if !errors.As(err, &unresolved) {
+		t.Fatalf("newStateExecutor = %v, want an UnresolvedEndpointError", err)
 	}
-	if err := exec.initialize(); err != nil {
-		t.Fatalf("initialize: %v", err)
-	}
-
-	done := make(chan error, 1)
-	go func() { done <- exec.RunToCompletion() }()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("RunToCompletion: %v", err)
-		}
-	case <-watchdog(10 * time.Second):
-		t.Fatal("RunToCompletion hung on an endpoint no resolution pass reported")
-	}
-	if got := exec.getCurrentState(); got == nil || got.Name != "busy" {
-		t.Errorf("expected the machine to halt in 'busy', got %v", got)
+	if got := lower.EndpointText(unresolved.Endpoint); got != "donee" {
+		t.Errorf("the error names endpoint %q, want donee", got)
 	}
 }
 
@@ -209,7 +181,7 @@ func testStateTransitionEndpointNamingAFirstMarker(t *testing.T) {
 			state init;
 			state busy;
 			state other;
-			entry marker { }
+			entry action marker { }
 			succession first init then busy;
 			transition first busy then marker;
 		}
@@ -442,7 +414,7 @@ func testStateCrossRegionTransitionsPingPong(t *testing.T) {
 					state ls;
 					state lidle;
 					succession first ls then lidle;
-					transition first lidle then rtarget;
+					transition first lidle then right.rtarget;
 				}
 				state right {
 					entry; then rs;
@@ -450,7 +422,7 @@ func testStateCrossRegionTransitionsPingPong(t *testing.T) {
 					state ridle;
 					state rtarget;
 					succession first rs then ridle;
-					transition first rtarget then lidle;
+					transition first rtarget then left.lidle;
 				}
 			}
 			succession first init then running;
@@ -516,7 +488,7 @@ func testSignalNoLevelOfACompositeStateAccepts(t *testing.T) {
 				transition first middle accept abort then recovered;
 			}
 			state stopped;
-			succession first init then inner;
+			succession first init then outer.middle.inner;
 			transition first outer accept shutdown then stopped;
 		}
 	}`)
@@ -573,7 +545,7 @@ func testStaleCompositeTimerInARegion(t *testing.T) {
 					}
 					state moved;
 					state late;
-					transition first lstart then step1;
+					transition first lstart then grouping.step1;
 					transition first grouping accept skip then moved;
 				}
 				state right {
@@ -634,7 +606,7 @@ func testExitOfNestedRegionsWithAHistoryPseudostate(t *testing.T) {
 			state away;
 			succession first init then outer;
 			transition first outer accept leave then away;
-			transition first away accept back then resume;
+			transition first away accept back then outer.resume;
 		}
 	}`)
 	for _, signal := range []string{"advance", "leave", "back"} {
@@ -707,7 +679,7 @@ func testHistoryWithoutRecordDefaultOrEntry(t *testing.T) {
 			outer,
 			&ast.StateNode{Name: "away"},
 			transitionMember("init", "away"),
-			transitionMember("away", "H"),
+			transitionMember("away", "outer.H"),
 		},
 	})
 	if err := exec.initialize(); err != nil {
@@ -752,7 +724,7 @@ func testRegionPseudostateWithoutSatisfiedGuard(t *testing.T) {
 			}
 			junction merge;
 
-			transition first merge if x == 1 then b;
+			transition first merge if x == 1 then left.b;
 		}
 	}`)
 	if err := exec.RunToCompletion(); err != nil {
@@ -925,5 +897,46 @@ func testSourcelessTransitionAfterANonState(t *testing.T) {
 				t.Fatalf("message:\n got %q\nwant %q", err.Error(), want)
 			}
 		})
+	}
+}
+
+// testStateTransitionEndpointNestedWithoutItsOwners: a nested vertex named bare
+// or through only some of its owners names nothing (KerML 8.2.3.5): typed error.
+func testStateTransitionEndpointNestedWithoutItsOwners(t *testing.T) {
+	for _, tc := range []struct{ name, edge, endpoint string }{
+		{"bare target", "transition first init then leaf;", "leaf"},
+		{"bare source", "transition first leaf then init;", "leaf"},
+		{"some owners", "transition first init then work.leaf;", "work.leaf"},
+		{"from another state", "state other { state mine; transition first mine then leaf; }", "leaf"},
+	} {
+		src := `package test {
+			state Machine {
+				entry; then init;
+				state init;
+				state work parallel {
+					state left { state deep { state leaf; } }
+					state right { state leaf; }
+				}
+				` + tc.edge + `
+			}
+		}`
+		file := parseAndBuild(t, src)
+		if file == nil {
+			t.Fatalf("%s: parse failed", tc.name)
+		}
+		idx, _, ctx := buildRuntime(t, "<test>", file)
+		sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+		if sym == nil {
+			t.Fatalf("%s: Machine not found", tc.name)
+		}
+		_, err := newStateExecutor(ctx, sym, nil)
+		var unresolved *lower.UnresolvedEndpointError
+		if !errors.As(err, &unresolved) {
+			t.Errorf("%s: newStateExecutor = %v, want an UnresolvedEndpointError", tc.name, err)
+			continue
+		}
+		if got := lower.EndpointText(unresolved.Endpoint); got != tc.endpoint {
+			t.Errorf("%s: the error names endpoint %q, want %q", tc.name, got, tc.endpoint)
+		}
 	}
 }

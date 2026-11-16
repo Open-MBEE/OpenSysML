@@ -325,14 +325,12 @@ func (e *encoder) seatHead(subject rdf.Term, anchor int, block []rdf.Term) {
 	}
 }
 
-// relationshipSpec picks the materialization of one collapsed property on
-// subject: the relationship class a target takes depends on what the element
-// is, and a `subsets` a satisfy or other end-binding head states is written
-// as an OwnedReferenceSubsetting (SysML.xtext).
+// relationshipSpec picks the materialization of one collapsed property on subject: the
+// relationship class a target takes depends on what the element is.
 func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, count, i int) (normativeRelationship, bool) {
 	metaclass := e.metaclassOf(subject)
 	classifier := ontology.IsAncestorOrSelf(metaclass, "Classifier")
-	suffix := relationshipSuffix(kind, classifier, e.referenceSubsettingForm(subject), count, i)
+	suffix := relationshipSuffix(kind, classifier, count, i)
 	switch kind {
 	case ast.RelTyping:
 		return normativeRelationship{mFeatureTyping, suffix,
@@ -360,9 +358,6 @@ func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, 
 				[]string{pOwnedSpecialization, pOwnedRelationship}}, true
 		}
 	case ast.RelSubsets:
-		if e.referenceSubsettingForm(subject) {
-			return referenceSubsettingSpec(suffix), true
-		}
 		return normativeRelationship{mSubsetting, suffix,
 			[]string{pSubsettingFeature, pOwningFeature, pSpecific, pSource, pOwningRelatedElement},
 			[]string{pSubsettedFeature, pGeneral, pTarget},
@@ -388,7 +383,7 @@ func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, 
 // relationshipSuffix names the relationship element materialized for the i-th of count
 // targets of a head clause of kind, after its owner's id: the one rule the writer and the
 // identity reader (writtenRelationships) share. Empty for a kind no element is made for.
-func relationshipSuffix(kind ast.RelationshipKind, classifier, referenceForm bool, count, i int) string {
+func relationshipSuffix(kind ast.RelationshipKind, classifier bool, count, i int) string {
 	index := fmt.Sprintf("%d", i)
 	switch kind {
 	case ast.RelTyping:
@@ -401,9 +396,6 @@ func relationshipSuffix(kind ast.RelationshipKind, classifier, referenceForm boo
 		}
 		return "_sp" + index
 	case ast.RelSubsets:
-		if referenceForm {
-			return referenceSubsettingSuffix(count, i)
-		}
 		return "_ss" + index
 	case ast.RelRedefines:
 		return "_rd" + index
@@ -422,17 +414,8 @@ func referenceSubsettingSuffix(count, i int) string {
 	return "_rs"
 }
 
-// referenceSubsettingForm reports whether a `subsets` subject states is an
-// OwnedReferenceSubsetting: the satisfy head writes the requirement it subsets
-// bare, and the other end-binding forms (`perform`, `exhibit`, `include`,
-// `assert`, `satisfy`) state their targets through `references`.
-func (e *encoder) referenceSubsettingForm(subject rdf.Term) bool {
-	return e.metaclassOf(subject) == "SatisfyRequirementUsage" || e.verifiedReferences[subject] ||
-		e.graph.HasProperty(subject, rdf.OpenSysML+xEndForm)
-}
-
-// referenceSubsettingSpec is the materialization of a `references` target or
-// an end-form `subsets` one: a ReferenceSubsetting per target, under suffix.
+// referenceSubsettingSpec is the materialization of a `references` target: a
+// ReferenceSubsetting per target, under suffix.
 func referenceSubsettingSpec(suffix string) normativeRelationship {
 	return normativeRelationship{mReferenceSubsetting, suffix,
 		[]string{pReferencingFeature, pSubsettingFeature, pOwningFeature, pSpecific, pSource, pOwningRelatedElement},

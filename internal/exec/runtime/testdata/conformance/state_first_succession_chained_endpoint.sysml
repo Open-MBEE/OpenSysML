@@ -24,7 +24,7 @@ package P {
 
         succession first a then b.b1;
         first b.b1 then b::b2;
-        first b.b2 then c1.deep;
+        first b.b2 then c.c1.deep;
         succession first c.c1.deep then done;
     }
 
