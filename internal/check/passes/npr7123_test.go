@@ -131,3 +131,47 @@ func TestNPR7123NeedsTheLibrary(t *testing.T) {
 		}
 	}
 }
+
+// A review inherits its project definition's criteria and products; a product nested without subsetting
+// reviewedProducts is not stated, and the best-matured of two stated products satisfies the minimum in any order.
+func TestNPR7123ReviewReadsInheritedAndSubsettingFeatures(t *testing.T) {
+	src := npr7123Model(`
+		action def ProjectCDR :> LifeCycleReview {
+			:>> kind = ReviewKind::CDR;
+			requirement e1 : ReviewCriteria::CDR::Entrance1 :> entranceCriteria;
+			requirement s1 : ReviewCriteria::CDR::Success1 :> successCriteria;
+			#designSolution item design :> reviewedProducts { :>> maturity = WorkProductMaturity::baseline; }
+			#integrationPlan item plan :> reviewedProducts { :>> maturity = WorkProductMaturity::baseline; }
+			#verificationAndValidationPlan item vv :> reviewedProducts { :>> maturity = WorkProductMaturity::baseline; }
+		}
+		#lifeCycleReview action inherited : ProjectCDR;
+		#lifeCycleReview action nestedOnly {
+			:>> kind = ReviewKind::TRR;
+			requirement e1 : ReviewCriteria::TRR::Entrance1;
+			requirement s1 : ReviewCriteria::TRR::Success1 :> successCriteria;
+		}
+		#lifeCycleReview action twoDesigns {
+			:>> kind = ReviewKind::PDR;
+			requirement e1 : ReviewCriteria::PDR::Entrance1 :> entranceCriteria;
+			requirement s1 : ReviewCriteria::PDR::Success1 :> successCriteria;
+			#designSolution item draft :> reviewedProducts { :>> maturity = WorkProductMaturity::initial; }
+			#designSolution item design :> reviewedProducts { :>> maturity = WorkProductMaturity::preliminary; }
+			#integrationPlan item plan :> reviewedProducts { :>> maturity = WorkProductMaturity::preliminary; }
+			#verificationAndValidationPlan item vv { :>> maturity = WorkProductMaturity::preliminary; }
+		}`)
+	w8dWantLines(t, src, CodeNPR7123ReviewMissingCriteria, 13)
+	w8dWantLines(t, src, CodeNPR7123ReviewMissingProduct, 18, 24)
+}
+
+// A SEMP a review nests without subsetting reviewedProducts is the SEMP itself and is audited.
+func TestNPR7123SEMPNestedInReviewWithoutSubsettingIsAudited(t *testing.T) {
+	src := npr7123Model(`
+		#lifeCycleReview action srr {
+			:>> kind = ReviewKind::SRR;
+			requirement e1 : ReviewCriteria::SRR::Entrance1 :> entranceCriteria;
+			requirement s1 : ReviewCriteria::SRR::Success1 :> successCriteria;
+			#semp part standIn :> reviewedProducts;
+			#semp part theSEMP;
+		}`)
+	w8dWantLines(t, src, CodeNPR7123SEMPMissingProcess, 9)
+}

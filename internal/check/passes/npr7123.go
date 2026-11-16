@@ -229,21 +229,48 @@ func (a *npr7123Audit) isA(sym *symbols.Symbol, fqn string) bool {
 	return false
 }
 
-// nestedFeatures returns the features declared in sym's own body.
-func (a *npr7123Audit) nestedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
-	if sym.Scope == nil {
-		return nil
-	}
+// features returns the features sym states: those of its own body and those it
+// inherits from the types and generals the model, not the library, declares.
+func (a *npr7123Audit) features(sym *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	seen := map[*symbols.Symbol]bool{}
-	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
-		if member.Kind != symbols.SymbolAlias && member.IsFeature() && member.OwnerScope == sym.Scope && !seen[member] {
+	for _, member := range a.model.MembersOf(sym) {
+		if member.Kind != symbols.SymbolAlias && member.IsFeature() && !seen[member] && !a.ctx.Index.Library(member) {
 			seen[member] = true
 			out = append(out, member)
 		}
-		return true
-	})
+	}
 	return out
+}
+
+// statesAs reports whether f subsets, redefines or references, directly or through
+// another feature, the library's LifeCycleReview feature named name.
+func (a *npr7123Audit) statesAs(f *symbols.Symbol, name string) bool {
+	target, ok := a.model.LookupMember(a.defs[npr7123LifeCycleReview], name)
+	return ok && target != nil && a.specializesFeature(f, target, map[*symbols.Symbol]bool{})
+}
+
+func (a *npr7123Audit) specializesFeature(f, target *symbols.Symbol, seen map[*symbols.Symbol]bool) bool {
+	if f == nil || seen[f] {
+		return false
+	}
+	seen[f] = true
+	if f == target {
+		return true
+	}
+	usage, ok := f.Decl.(*ast.Usage)
+	if !ok {
+		return false
+	}
+	for _, rel := range usage.Relationships {
+		if rel == nil || rel.Target == nil || (rel.Kind != ast.RelSubsets && rel.Kind != ast.RelRedefines && rel.Kind != ast.RelReferences) {
+			continue
+		}
+		if t, ok := a.ctx.Resolver().ResolveTarget(f.OwnerScope, rel.Target); ok && a.specializesFeature(t, target, seen) {
+			return true
+		}
+	}
+	return false
 }
 
 // literalOf reads an enumeration-valued feature of sym as its literal name, or "".
@@ -282,11 +309,11 @@ func (a *npr7123Audit) check(root *symbols.Scope) {
 // checkReview expects a life-cycle review to state entrance and success criteria (section
 // 5.2.2.1, SE-34) and the section 5.2.2.2 minimum products of its kind at the maturity asked for.
 func (a *npr7123Audit) checkReview(review *symbols.Symbol) {
-	nested := a.nestedFeatures(review)
+	nested := a.features(review)
 	entrance, success := false, false
 	for _, f := range nested {
-		entrance = entrance || a.isA(f, npr7123EntranceCriterion)
-		success = success || a.isA(f, npr7123SuccessCriterion)
+		entrance = entrance || (a.isA(f, npr7123EntranceCriterion) && a.statesAs(f, "entranceCriteria"))
+		success = success || (a.isA(f, npr7123SuccessCriterion) && a.statesAs(f, "successCriteria"))
 	}
 	switch {
 	case !entrance && !success:
@@ -302,10 +329,14 @@ func (a *npr7123Audit) checkReview(review *symbols.Symbol) {
 	kind := a.literalOf(review, "kind", npr7123ReviewKind)
 	for _, minimum := range a.minimumProducts[kind] {
 		var stated *symbols.Symbol
+		maturity := ""
 		for _, f := range nested {
-			if a.isA(f, npr7123WorkProduct) && a.isAProduct(f, minimum.product) {
-				stated = f
-				break
+			if !a.isA(f, npr7123WorkProduct) || !a.isAProduct(f, minimum.product) || !a.statesAs(f, "reviewedProducts") {
+				continue
+			}
+			m := a.literalOf(f, "maturity", npr7123WorkProductMaturity)
+			if stated == nil || npr7123StatedRank(m) > npr7123StatedRank(maturity) {
+				stated, maturity = f, m
 			}
 		}
 		name := a.model.EffectiveNameOf(minimum.product)
@@ -315,7 +346,6 @@ func (a *npr7123Audit) checkReview(review *symbols.Symbol) {
 				kind, name, minimum.requirementID, minimum.maturity, name))
 			continue
 		}
-		maturity := a.literalOf(stated, "maturity", npr7123WorkProductMaturity)
 		if maturity != "" && npr7123MaturityRank(maturity) < npr7123MaturityRank(minimum.maturity) {
 			a.report(stated, CodeNPR7123ReviewMissingProduct, fmt.Sprintf(
 				"This %s is stated at maturity %s, below the %s NPR 7123.1D section 5.2.2.2 (%s) asks for at %s; mature the product or document the tailoring in the SEMP.",
@@ -332,6 +362,15 @@ func (a *npr7123Audit) isAProduct(f, product *symbols.Symbol) bool {
 		}
 	}
 	return false
+}
+
+// npr7123StatedRank ranks a stated product for the minimum-product check: one
+// stating no maturity is not below any, so it outranks every stated maturity.
+func npr7123StatedRank(maturity string) int {
+	if maturity == "" {
+		return 4
+	}
+	return npr7123MaturityRank(maturity)
 }
 
 // npr7123MaturityRank orders the Appendix F vocabulary: preliminary or initial, then baselined
@@ -416,7 +455,7 @@ func (a *npr7123Audit) hasCompliance(sym *symbols.Symbol) bool {
 // it reviews: a stand-in for the product at the review, not the product itself.
 func (a *npr7123Audit) reviewedProduct(sym *symbols.Symbol) bool {
 	owner := sym.OwnerScope
-	return owner != nil && a.isA(owner.Owner(), npr7123LifeCycleReview)
+	return owner != nil && a.isA(owner.Owner(), npr7123LifeCycleReview) && a.statesAs(sym, "reviewedProducts")
 }
 
 // checkSEMP expects a SEMP to address each of the 17 common technical processes (SE-58).
@@ -424,7 +463,7 @@ func (a *npr7123Audit) checkSEMP(semp *symbols.Symbol) {
 	addressed := map[*symbols.Symbol]bool{}
 	var walk func(sym *symbols.Symbol)
 	walk = func(sym *symbols.Symbol) {
-		for _, f := range a.nestedFeatures(sym) {
+		for _, f := range a.features(sym) {
 			for _, t := range a.model.FeatureTypeSet(f) {
 				for _, p := range a.processes {
 					if t == p || a.model.Conforms(t, p) {
