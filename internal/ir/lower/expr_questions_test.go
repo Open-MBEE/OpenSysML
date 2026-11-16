@@ -5,6 +5,11 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // TestExprEntrySegments pins the names a reference and a chain step through, and
@@ -167,5 +172,36 @@ func TestDeclared(t *testing.T) {
 	}
 	if Declared(nil) != nil {
 		t.Errorf("Declared(nil) is not nil")
+	}
+}
+
+// TestExprEntrySpellsTheEmptyName pins that a reference or an invocation written
+// with the empty unrestricted name names something: its one segment is "".
+func TestExprEntrySpellsTheEmptyName(t *testing.T) {
+	p := parser.New(source.New("empty.sysml", []byte("package P {\n\tattribute '' = 1;\n\tattribute read = '';\n\tattribute call = ''(1);\n}\n")))
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse errors: %v", p.Diagnostics)
+	}
+	idx := symbols.NewIndexFromDoc("empty.sysml", root)
+	pkg := idx.LookupQualified("P")
+	if len(pkg) != 1 || pkg[0].Scope == nil {
+		t.Fatalf("P not indexed: %v", pkg)
+	}
+	scope, resolver := pkg[0].Scope, resolve.New(idx)
+	valueOf := func(name string) *ExprEntry {
+		t.Helper()
+		sym, ok := scope.LookupLocal(name)
+		if !ok {
+			t.Fatalf("%s not declared", name)
+		}
+		table, id := LowerExpr(sym.Decl.(*ast.Usage).Value, scope, resolver)
+		return table.Entry(id)
+	}
+	if got, ok := valueOf("read").Segments(); !ok || !reflect.DeepEqual(got, []string{""}) {
+		t.Errorf("read: Segments = %q, %v; want [\"\"], true", got, ok)
+	}
+	if got, ok := valueOf("call").Invoked(); !ok || !reflect.DeepEqual(got, []string{""}) {
+		t.Errorf("call: Invoked = %q, %v; want [\"\"], true", got, ok)
 	}
 }
