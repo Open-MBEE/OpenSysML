@@ -700,8 +700,8 @@ type inputFeed struct {
 	on *Instance
 }
 
-// objectFlows lowers the streaming flows typeSym and the model's types it specializes
-// declare between features, once per type.
+// objectFlows lowers the streaming flows typeSym and the model's types it specializes declare
+// between features, once per type; a flow another of them redefines is replaced by that one.
 func (ctx *Context) objectFlows(typeSym *symbols.Symbol) []lower.FeatureFlow {
 	if typeSym == nil {
 		return nil
@@ -710,12 +710,23 @@ func (ctx *Context) objectFlows(typeSym *symbols.Symbol) []lower.FeatureFlow {
 		return cached
 	}
 	var flows []lower.FeatureFlow
+	redefined := make(map[ast.Node]bool)
 	for _, decl := range append(ctx.model.semantics.AllSupertypes(typeSym), typeSym) {
 		if decl == nil || ctx.libraryDeclared(decl) {
 			continue
 		}
-		flows = append(flows, lower.ToFeatureFlows(decl.Decl, DeclScope(decl))...)
+		declared := lower.ToFeatureFlows(decl.Decl, DeclScope(decl))
+		for _, flow := range declared {
+			sym := anonymousConnectorSymbol(decl, flow.Decl)
+			for _, rel := range ctx.relationshipsOfKind(sym, ast.RelRedefines) {
+				if general := ctx.model.semantics.RelationshipTarget(sym, rel); general != nil {
+					redefined[general.Decl] = true
+				}
+			}
+		}
+		flows = append(flows, declared...)
 	}
+	flows = slices.DeleteFunc(flows, func(flow lower.FeatureFlow) bool { return redefined[flow.Decl] })
 	ctx.model.flowIR[typeSym] = flows
 	return flows
 }

@@ -263,6 +263,25 @@ func TestStateSpaceFlowOutOfARedefinedAction(t *testing.T) {
 	}
 }
 
+// A flow a specializing type redefines replaces the one it inherits: the input has one feed, not two.
+func TestStateSpaceFlowRedefiningAnInheritedFlow(t *testing.T) {
+	src := coupledDynamics("flow feedIn from source.ramp.output to sink.sum.input;", "")
+	src = strings.Replace(src, "part site {", "part def Site {", 1)
+	src = src[:strings.LastIndex(src, "}")] + `
+		part later : Later;
+		part def Later :> Site {
+			flow :>> feedIn from source.ramp.output to sink.sum.input;
+		}
+	}`
+	sum, err := runCoupledIn(t, src, "test::later", "sink")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := FormatValue(sum.Results()["stateSpace"]), "⟨3.0⟩"; got != want {
+		t.Errorf("the integrator ended at %s, want %s", got, want)
+	}
+}
+
 // A guardless crossing whose type states terminal ends the dynamics at the step that detected it.
 func TestStateSpaceDerivativeCrossingEndsATerminalRun(t *testing.T) {
 	src, err := os.ReadFile(filepath.Join("testdata", "conformance", "state_space_derivative_zero_crossing.sysml"))
