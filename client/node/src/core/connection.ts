@@ -16,6 +16,7 @@ import {
   CAPABILITY_CONVERT,
   CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
   CAPABILITY_CONVERT_COMPACT,
+  CAPABILITY_CONVERT_INHERITED_MEMBERS,
   CAPABILITY_CONVERT_LIBRARY_STUBS,
   CAPABILITY_DOCUMENT_QUERY,
   CAPABILITY_ENGINES,
@@ -476,6 +477,9 @@ export class Connection {
     if (options.includeLibraryStubs) {
       requireCapability(this.info, CAPABILITY_CONVERT_LIBRARY_STUBS, upgradeRemedy(CAPABILITY_CONVERT_LIBRARY_STUBS));
     }
+    if (options.inheritedMembers) {
+      requireCapability(this.info, CAPABILITY_CONVERT_INHERITED_MEMBERS, upgradeRemedy(CAPABILITY_CONVERT_INHERITED_MEMBERS));
+    }
     const keepDerived = [...(options.keepDerived ?? [])];
     if (options.compact || options.omitDerived || keepDerived.length > 0) {
       requireCapability(this.info, CAPABILITY_CONVERT_COMPACT, upgradeRemedy(CAPABILITY_CONVERT_COMPACT));
@@ -493,6 +497,7 @@ export class Connection {
       tolerateSyntaxErrors: options.tolerateSyntaxErrors === true,
       idForm: options.idForm ?? "",
       includeLibraryStubs: options.includeLibraryStubs === true,
+      inheritedMembers: options.inheritedMembers === true,
       compact: options.compact === true,
       omitDerived: options.omitDerived === true,
       keepDerived,
