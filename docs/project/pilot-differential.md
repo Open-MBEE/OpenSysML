@@ -253,11 +253,11 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-examples` | 99 | 92 | 34 | 0 | 0 | 0 | 34 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 55 | 3 | 0 | 0 | 0 | 3 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 12 | 0 | 0 | 0 | 12 | 0 |
-| `examples/spec-examples` | 511 | 151 | 1092 | 3395 | 1040 | 6 | 46 | 2349 |
+| `examples/spec-examples` | 511 | 151 | 1092 | 3395 | 1042 | 4 | 46 | 2349 |
 | `tests/testdata` | 40 | 26 | 76 | 101 | 61 | 4 | 11 | 36 |
 | `examples` | 56 | 49 | 12 | 69 | 4 | 0 | 8 | 65 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **924** | **528** | **1236** | **3565** | **1105** | **10** | **121** | **2450** |
+| **Total** | **924** | **528** | **1236** | **3565** | **1107** | **8** | **121** | **2450** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -313,6 +313,23 @@ Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-exam
 The `spec-examples` figures are dominated by fragments: the specification's examples leave
 cross-example names undeclared, and the pilot's typing and EMF cascade follows each one; every
 file is adjudicated in [spec-examples.md](spec-examples.md).
+
+### KerML declaration keyword round
+
+A declaration written with a keyword only the KerML grammar spells was our `kerml-notation`
+warning in a `.sysml` file and is now an error in the default mode too (SysML v2 8.2.2.1.2 gives
+SysML its own reserved keywords). Three `spec-examples` lines carry such a finding. On two the
+reference reports a syntax error on the same line, so each severity-only pair becomes agreed:
+`sysml/7.13.4/3.sysml:8` (`feature engine[1] : Engine …`) and `sysml/8.4.9.2/3.sysml:7`
+(`connector b : B`). On the third, `sysml/8.4.13.6/8.sysml:6` (`action behavior subsets …`), the
+reference reports nothing on that line, so the finding stays only ours and only its severity
+moves, warning to error. No file becomes fully agreeing and no other count moves.
+
+| Count | Before | Now |
+|---|---:|---:|
+| agreed | 1105 | **1107** |
+| severity-only | 10 | **8** |
+| `spec-examples`: agreed / severity-only | 1040 / 6 | **1042 / 4** |
 
 ### Namespace declaration round
 
@@ -1070,7 +1087,7 @@ cascades through the rest of the file. The movement is entirely one file,
 |---|---:|---:|
 | only pilot | 82 | **2450** |
 | pilot diagnostics | 123 | **3565** |
-| severity-only | 9 | **10** |
+| severity-only | 9 | **8** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
 those counts as the later rounds leave them.
@@ -1296,7 +1313,7 @@ page's history.
 | overall: fully agreeing / only ours / our diagnostics | **528 / 121 / 1236** |
 | only pilot | **2450** |
 | pilot diagnostics | **3565** |
-| severity-only | **10** |
+| severity-only | **8** |
 | unmapped, our side | **53** |
 | kerml-examples: only ours | **12** |
 | pilot-examples: only ours | **34** |
