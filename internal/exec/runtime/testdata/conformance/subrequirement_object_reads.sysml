@@ -1,8 +1,5 @@
-// A subrequirement is a value of its container's `subrequirements`, and so of its `constraints` (SysML v2 §7.21.2, §8.4.17.1;
-// Requirements.sysml `subrequirements :> requirementChecks, constraints`): the object a part holds for `rr` holds one object for
-// each, typed or not, whose `result` is its own check and whose subject, declaring none, is the container's — never one
-// it declares itself (`own`) — and undetermined while the container's is unbound (`bare`).
-// An unnamed one is held and counted as a named one is; one of optional multiplicity, which the model states no value of, is neither.
+// A part's object holds one object per subrequirement of `rr`, typed, untyped or unnamed, in `subrequirements` and `constraints`; each
+// reads the container's subject unless it declares one; one of optional multiplicity is not held (SysML v2 §7.21.2, §8.4.17.1).
 package test {
 	private import ScalarValues::*;
 	private import SequenceFunctions::size;

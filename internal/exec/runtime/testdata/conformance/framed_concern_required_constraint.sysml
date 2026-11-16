@@ -1,6 +1,5 @@
-// A framed concern is a subrequirement (SysML v2 §7.21.3; Requirements.sysml `concerns :> concernChecks, subrequirements`): a
-// required constraint of the requirement framing it, its subject — declaring none — the container's, whether the concern is
-// declared in place, typed, or framed by reference.
+// A framed concern is a subrequirement, a required constraint of the requirement framing it, reading its subject where it declares none,
+// whether declared in place, typed or framed by reference (SysML v2 §7.21.3; `concerns :> concernChecks, subrequirements`).
 package test {
 	private import ScalarValues::*;
 	private import SequenceFunctions::size;

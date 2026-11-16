@@ -1,6 +1,5 @@
-// A package-level requirement usage is read through the object it would hold, made and taken back with the read: a subrequirement's
-// `result` and its subject, the container's (SysML v2 §7.21.2), are read from it, and a collection of the objects it would hold
-// (`subrequirements`, `constraints`) stays unread but of the count the model fixes, so `size` over it is determined.
+// A package-level requirement usage is read through an object made and taken back with the read: a subrequirement's `result` and
+// subject are the container's (SysML v2 §7.21.2); `subrequirements` and `constraints` stay unread, but their `size` is determined.
 package test {
 	private import ScalarValues::*;
 	private import SequenceFunctions::size;
