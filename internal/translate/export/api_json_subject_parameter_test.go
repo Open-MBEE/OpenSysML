@@ -22,7 +22,7 @@ func TestAPIJSONInheritedSubjectIsAnInputUntilRedefined(t *testing.T) {
 			include use case inner { subject = system; }
 		}
 	}`, IDQualifiedName)
-	document, err := WriteAPIJSON(graph)
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func TestAPIJSONObjectiveInheritsFromTheObjectiveItRedefines(t *testing.T) {
 	graph := duplicateGraph(t, `package Probe {
 		verification def Check { objective { doc /* goal */ } }
 	}`, IDQualifiedName)
-	document, err := WriteAPIJSON(graph)
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -177,7 +177,7 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 // apiJSONInheritedFamilies are the completed properties that repeat a Namespace's or Type's
 // inherited and imported members beside its owned ones; APIJSONOptions.InheritedMembers writes them.
 var apiJSONInheritedFamilies = map[string]bool{
-	"membership": true, "member": true, "inheritedMembership": true,
+	"membership": true, "member": true, "inheritedMembership": true, "importedMembership": true,
 	"featureMembership": true, "feature": true, "inheritedFeature": true,
 }
 

@@ -13,7 +13,7 @@ import (
 
 func importProbeElements(t *testing.T, model string) map[string]map[string]any {
 	t.Helper()
-	document, err := WriteAPIJSON(duplicateGraph(t, model, IDQualifiedName))
+	document, err := WriteAPIJSONWithOptions(duplicateGraph(t, model, IDQualifiedName), APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -260,22 +260,38 @@ func TestAPIJSONGraphImportedMembershipOfUnnamedLibraryMemberships(t *testing.T)
 
 // A model read back from its element form alone derives the same three properties.
 func TestAPIJSONGraphImportedMembershipSurvivesGraphOnlyReconstruction(t *testing.T) {
-	first, err := WriteAPIJSON(duplicateGraph(t, `package Probe {
+	const model = `package Probe {
 	metadata def Safety;
 	package Lib { part def A; part b { @Safety; } package Inner { part def C; } }
 	package Client { import Lib::*::**; import ScalarValues::Real; part def Own; }
 	package Filtered { import Lib::*[@Safety]; }
 	part def T { protected import Lib::A; }
 	part def U :> T;
-}`, IDQualifiedName))
+}`
+	first, err := WriteAPIJSONWithOptions(duplicateGraph(t, model, IDQualifiedName), APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	graph, err := ReadAPIJSON(first)
+	// The document read back states the owned structure only, none of the derived lists.
+	owned, err := WriteAPIJSON(duplicateGraph(t, model, IDQualifiedName))
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := WriteAPIJSON(graph)
+	for id, element := range booleansElements(t, owned) {
+		if kind, _ := element["@type"].(string); strings.HasSuffix(kind, "Import") {
+			continue // An import states the membership it imports, its own property of that name.
+		}
+		for _, property := range []string{"importedMembership", "membership", "member"} {
+			if _, stated := element[property]; stated {
+				t.Fatalf("%s states %s without the inherited members", id, property)
+			}
+		}
+	}
+	graph, err := ReadAPIJSON(owned)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
