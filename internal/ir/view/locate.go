@@ -146,12 +146,12 @@ type StateLocator struct {
 	at    anchors
 	doc   string
 	graph *lower.StateGraph
-	// keys are the located keys of the graph's vertices and regions, memoized;
-	// seen numbers same-span children per parent key as the rendering does.
 	// states are the states the rendering draws: graph-only owners are not.
 	states map[program.StateID]bool
-	keys   map[stateItem]locatorKey
-	seen   map[locatorKey]map[string]int
+	// keys are the located keys of the graph's vertices and regions, memoized;
+	// seen numbers same-span children per parent key as the rendering does.
+	keys map[stateItem]locatorKey
+	seen map[locatorKey]map[string]int
 	nodes  map[locatorKey]string
 	edges  map[edgeKey][]int
 }

@@ -9,9 +9,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// The state locator answers by id what it answers by declaration: every state,
-// transition, start marker and entry transition of the machine, and nothing for
-// an id the graph does not hold.
+// The state locator answers by id what it answers by declaration, and nothing
+// for an id the graph does not hold.
 func TestLocateStatesByIDAgreesWithDeclarations(t *testing.T) {
 	rendering, sym := locatorModel(t, "state.sysml", "", "MachineViews::vehicleStates", "Machines::VehicleStates")
 	graph, err := lower.ToStateGraph(sym.Decl, declScope(sym))
@@ -198,9 +197,8 @@ func TestLocateActionsByIDFindsAGatedSuccession(t *testing.T) {
 	}
 }
 
-// A parallel state's regions are owned in the graph by states the rendering
-// does not draw: those answer for no node, and a fork written in a region is
-// still located under the region rather than under its undrawn owner.
+// The graph-only states owning a parallel state's regions answer for no node,
+// and a fork written in a region is located under the region.
 func TestLocateStatesSkipsGraphOnlyRegionOwners(t *testing.T) {
 	const src = `package P {
 	state Machine {
