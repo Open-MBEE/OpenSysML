@@ -5617,10 +5617,15 @@ func (e *StateExecutor) checkStart() error {
 	return nil
 }
 
-// declaresNoSubstate reports a machine with no substate and no region: nothing
-// in it to enter, so it is active in itself (SysML v2 §7.18.1).
+// declaresNoSubstate reports a machine with no region and no substate but a
+// synthesized `done`: nothing to enter, so it is active in itself (§7.18.1).
 func (e *StateExecutor) declaresNoSubstate() bool {
-	return len(e.graph.TopRegions) == 0 && len(e.graph.States) == 0
+	if len(e.graph.TopRegions) != 0 {
+		return false
+	}
+	return !slices.ContainsFunc(e.graph.States, func(state *ast.StateNode) bool {
+		return !e.graph.Completes(state)
+	})
 }
 
 // initialize sets current state to initial state and enters it.
