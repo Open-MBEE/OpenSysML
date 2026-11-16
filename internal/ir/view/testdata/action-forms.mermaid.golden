@@ -33,12 +33,16 @@ in sensor
 out alarm`"]
     direction TD
     n1@{ shape: f-circ, label: "" }
-    n2("`⚑ *«accept action»*
+    subgraph n21 ["`*«performer»* **sensor**
+perform actions`"]
+      direction TD
+      n2("`⚑ *«accept action»*
 **acceptReading**
 reading : Reading
 parameters
 out reading
 in ^receiver`")
+    end
     n3("`⭓ *«send action»*
 **sendAlarm**
 Alarm to sensor
@@ -46,9 +50,13 @@ parameters
 in ^payload
 in ^sender
 in ^receiver`")
-    n4("`*«assign»*
+    subgraph n22 ["`*«performer»* **controller**
+perform actions`"]
+      direction TD
+      n4("`*«assign»*
 **tally**
 count := count + 1`")
+    end
     subgraph n5 ["«loop» wait<br>while condition<br>count #lt; 10"]
       direction TD
       n5_anchor[" "]

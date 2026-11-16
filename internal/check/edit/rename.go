@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -29,7 +30,7 @@ func (m Model) renameSplices(i int, op Operation, sym *symbols.Symbol) ([]splice
 		return nil, err
 	}
 	r, sem := m.resolver()
-	occurrences, elsewhere := m.renameOccurrences(r, sym, ident)
+	occurrences, elsewhere := m.renameOccurrences(r, sem, sym, ident)
 	if len(elsewhere) > 0 {
 		return nil, referencedElsewhere(i, m.Source.Name(), op.Target, elsewhere)
 	}
@@ -73,7 +74,7 @@ type occurrence struct {
 // A reference written with the short name is left alone: the rename does not
 // change the short name. The LSP applies the same rule through
 // Workspace.NameReferencesTo.
-func (m Model) renameOccurrences(r *resolve.Resolver, sym *symbols.Symbol, ident ast.Identification) ([]occurrence, []Referrer) {
+func (m Model) renameOccurrences(r *resolve.Resolver, sem *semantics.Model, sym *symbols.Symbol, ident ast.Identification) ([]occurrence, []Referrer) {
 	var out []occurrence
 	var elsewhere []Referrer
 	for _, doc := range m.workspaceDocuments() {
@@ -98,7 +99,7 @@ func (m Model) renameOccurrences(r *resolve.Resolver, sym *symbols.Symbol, ident
 				// A segment written as an alias name reads the alias membership, so
 				// renaming the alias rewrites it and renaming the target does not.
 				seg, ok := r.PartName(ref.QN, part)
-				if !ok || !symbols.SameElement(seg, sym) {
+				if !ok || !symbols.SameElement(NameWritten(sem, seg), sym) {
 					continue
 				}
 				seen[segment.Span.Offset] = true
@@ -118,6 +119,18 @@ func (m Model) renameOccurrences(r *resolve.Resolver, sym *symbols.Symbol, ident
 	}
 	sortReferrers(elsewhere)
 	return out, elsewhere
+}
+
+// NameWritten is the element whose declared name a segment naming sym spells: sym, or the
+// feature one declaring no name takes its name from (KerML 1.1 §8.3.3.3), which a rename rewrites.
+func NameWritten(sem *semantics.Model, sym *symbols.Symbol) *symbols.Symbol {
+	if sym == nil || !sym.EffectiveName() {
+		return sym
+	}
+	if from := sem.NameSourceOf(sym); from != nil {
+		return from
+	}
+	return sym
 }
 
 // renameable is the declaration an operation renames: in this model's document,
