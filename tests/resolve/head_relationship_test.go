@@ -140,3 +140,46 @@ func isPortion(n ast.Node) bool {
 	u, ok := n.(*ast.Usage)
 	return ok && u.IsPortion
 }
+
+// A chain in a head relationship is placed by the name it opens with, so a trial
+// spelling of that name decides the scope afresh rather than by the written one.
+const headChainLeadModel = `package P {
+	classifier T { feature b; }
+	classifier U { feature b; }
+	classifier C {
+		feature a : T;
+		feature x disjoint from a.b {
+			feature c : U;
+		}
+	}
+}`
+
+func TestHeadChainLeadSpelledDecidesTheScope(t *testing.T) {
+	walk, root, rootScope := resolvedDocNamed(t, "app.kerml", headChainLeadModel)
+	if len(walk.Diagnostics) != 0 {
+		t.Fatalf("the document walk must resolve every name: %v", walk.Diagnostics)
+	}
+
+	var lead *resolve.Reference
+	for _, ref := range resolve.References(root, rootScope) {
+		ref := ref
+		if nameText(ref.QN) == "a" && ref.Head != nil {
+			lead = &ref
+		}
+	}
+	if lead == nil {
+		t.Fatal("the root of `disjoint from a.b` was not collected as a head relationship")
+	}
+	if sym, ok := walk.ResolveReference(*lead); !ok || symbols.FQNOf(sym) != "P::C::a" {
+		t.Fatalf("the root of `disjoint from a.b` resolves to %v, want P::C::a", sym)
+	}
+
+	trial := &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "c"}}}
+	sym, ok := walk.ProbeReference(lead.Spelled(trial))
+	if !ok {
+		t.Fatal("`disjoint from c.b` does not resolve its root in the feature's own namespace")
+	}
+	if got := symbols.FQNOf(sym); got != "P::C::x::c" {
+		t.Errorf("`disjoint from c.b` resolves its root to %s, want P::C::x::c", got)
+	}
+}

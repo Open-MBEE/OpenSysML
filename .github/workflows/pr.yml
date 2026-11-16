@@ -148,7 +148,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           go-version-file: go.mod
           cache: true
@@ -248,7 +248,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           go-version-file: go.mod
           cache: true
@@ -592,7 +592,7 @@ jobs:
       # the gate's own entry, saved by wasm-cache.yml on each develop push, is restored by prefix.
       - name: Set up Go
         id: go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           go-version-file: go.mod
           cache: false
@@ -643,7 +643,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           go-version-file: go.mod
           cache: true
@@ -660,6 +660,80 @@ jobs:
       - name: Xpect oracle reproduces its baseline
         run: go run -C tools ./cmd/pilot-xpect -check
 
+  # Our side of the derived census is re-measured against the recorded pilot column, without Java or the pilot;
+  # the nightly oracle-reproduction workflow re-exports the pilot's column and holds the record to it.
+  derived-census:
+    name: Derived census reproduces its baseline
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Provision the pinned corpora
+        uses: ./.github/actions/corpora
+
+      - name: Derived census reproduces its baseline against the recorded pilot column
+        run: go run -C tools ./cmd/derived-census -check -recorded-pilot
+
+  # The cross-MDK suite's per-case outcomes move with our readers alone (no Java, no pilot), and no workflow held a
+  # pull request to them: a case that moves fails here and is adjudicated and recorded with hideo-suite -update.
+  hideo-suite:
+    name: Cross-MDK conformance suite reproduces its baseline
+    needs: changes
+    if: needs.changes.outputs.go == 'true' || needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # make build-grpc stamps the binary with `git describe`.
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      # The suite's Python readers resolve their environment with uv.
+      - name: Install uv
+        run: python -m pip install uv==0.13.8
+
+      - name: Download the pinned suite
+        run: ./scripts/download-hideo-suite.sh
+
+      - name: Cross-MDK conformance suite reproduces its baseline
+        env:
+          OPENSYSML_REQUIRE_HIDEO_SUITE: "1"
+        run: go run -C tools ./cmd/hideo-suite -check
+
+      - name: Upload the suite's results and logs
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: hideo-suite-results
+          path: build/hideo-suite/test-suite/results/
+          if-no-files-found: warn
+
   # The api-json baseline records no writer digest, so re-running the differential (Java, pilot jar, corpora; 18-25 min) on
   # what can move it proves it current; the queue tier skips it (the push proved the diff) and the nightly reproduces it.
   apijson-differential:
@@ -675,7 +749,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           go-version-file: go.mod
           cache: true
@@ -699,10 +773,20 @@ jobs:
       - name: Provision the pinned corpora
         uses: ./.github/actions/corpora
 
+      # A root the nightly's record (oracle-reproduction.yml) holds for this pin and corpus runs our side alone;
+      # any other root is exported here, as every root was before.
+      - name: Restore the recorded pilot export
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: build/pilot-apijson-record
+          key: pilot-apijson-record-${{ hashFiles('scripts/pilot-pin.sh', 'scripts/pilot-json-exporter/**', 'scripts/download-pilot-json-exporter.sh') }}-${{ github.run_id }}
+          restore-keys: |
+            pilot-apijson-record-${{ hashFiles('scripts/pilot-pin.sh', 'scripts/pilot-json-exporter/**', 'scripts/download-pilot-json-exporter.sh') }}-
+
       # A failure names whether the provenance moved (an input changed underneath the baseline) or
       # only the figures did: adjudicate, then re-record with pilot-apijson-diff -update.
       - name: Derived-property differential reproduces its baseline
-        run: go run -C tools ./cmd/pilot-apijson-diff -check
+        run: go run -C tools ./cmd/pilot-apijson-diff -check -pilot-record build/pilot-apijson-record
 
       # The fresh report, so a failing run can be read without reproducing the environment.
       - name: Upload the fresh report
@@ -737,7 +821,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           go-version-file: go.mod
           cache: true
@@ -809,6 +893,8 @@ jobs:
       - emacs-package
       - wasm-gate
       - xpect-oracle
+      - derived-census
+      - hideo-suite
       - apijson-differential
     runs-on: ubuntu-24.04
     permissions:
@@ -838,6 +924,8 @@ jobs:
           WASM_GATE_RESULT: ${{ needs.wasm-gate.result }}
           XPECT_ORACLE_RESULT: ${{ needs.xpect-oracle.result }}
           APIJSON_DIFFERENTIAL_RESULT: ${{ needs.apijson-differential.result }}
+          DERIVED_CENSUS_RESULT: ${{ needs.derived-census.result }}
+          HIDEO_SUITE_RESULT: ${{ needs.hideo-suite.result }}
         run: |
           ok() { local result="$1"; [ "$result" = success ] || [ "$result" = skipped ]; }
           if [ "$CHANGES_RESULT" != success ] ||
@@ -860,7 +948,9 @@ jobs:
              ! ok "$EMACS_PACKAGE_RESULT" ||
              ! ok "$WASM_GATE_RESULT" ||
              ! ok "$XPECT_ORACLE_RESULT" ||
-             ! ok "$APIJSON_DIFFERENTIAL_RESULT"; then
+             ! ok "$APIJSON_DIFFERENTIAL_RESULT" ||
+             ! ok "$DERIVED_CENSUS_RESULT" ||
+             ! ok "$HIDEO_SUITE_RESULT"; then
             echo "changes=$CHANGES_RESULT"
             echo "build=$BUILD_RESULT"
             echo "mdk-plugin=$MDK_PLUGIN_RESULT"
@@ -882,6 +972,8 @@ jobs:
             echo "wasm-gate=$WASM_GATE_RESULT"
             echo "xpect-oracle=$XPECT_ORACLE_RESULT"
             echo "apijson-differential=$APIJSON_DIFFERENTIAL_RESULT"
+            echo "derived-census=$DERIVED_CENSUS_RESULT"
+            echo "hideo-suite=$HIDEO_SUITE_RESULT"
             exit 1
           fi
 
@@ -904,7 +996,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           go-version-file: go.mod
           cache: true
@@ -1113,7 +1205,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           go-version-file: go.mod
           cache: true
@@ -1160,7 +1252,7 @@ jobs:
           cache-dependency-path: docs-requirements.txt
 
       - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           go-version-file: go.mod
           cache: true
@@ -1838,7 +1930,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           go-version-file: go.mod
           cache: true
