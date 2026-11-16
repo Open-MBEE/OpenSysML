@@ -177,6 +177,9 @@ type Model struct {
 	// parameter or member the body declares finds its owner.
 	bodySymbols map[*ast.BodyExpr]*symbols.Symbol
 	bodyIndexed map[*symbols.Scope]bool
+	// constraintResults is the result expression element reflected for the
+	// closing bare condition of each constraint body (see constraint_result.go).
+	constraintResults map[*symbols.Symbol]*symbols.Symbol
 	// assumedSupers holds the supertypes a reducer's first parameter is judged under
 	// while its reducer's result is typed (see bodyparam.go).
 	assumedSupers map[*symbols.Symbol]assumedSupertypes
@@ -309,6 +312,20 @@ func GeneralizationKind(k ast.RelationshipKind) bool {
 	}
 }
 
+// UsageGeneralization is GeneralizationKind for a relationship a usage of the given kind owns:
+// the ReferenceSubsetting of a satisfy or verify is the edge to the requirement it names.
+func UsageGeneralization(kind ast.UsageKind, k ast.RelationshipKind) bool {
+	return GeneralizationKind(k) || (k == ast.RelReferences && kind.ReferenceSubsettingSpecializes())
+}
+
+// Generalizes reports whether a relationship of kind k that sym owns is a conformance edge.
+func Generalizes(sym *symbols.Symbol, k ast.RelationshipKind) bool {
+	if kind, ok := sym.UsageKind(); ok {
+		return UsageGeneralization(kind, k)
+	}
+	return GeneralizationKind(k)
+}
+
 // RelationshipsOf returns the declared relationships of a symbol's def/usage
 // declaration, or nil for symbols that are not def/usage.
 func RelationshipsOf(sym *symbols.Symbol) []*ast.Relationship {
@@ -338,9 +355,20 @@ func RelationshipsOf(sym *symbols.Symbol) []*ast.Relationship {
 		return d.Relationships
 	case *ast.RequireMember:
 		return d.Relationships
+	case *ast.PrefixMetadata:
+		return metadataRelationships(d)
 	default:
 		return nil
 	}
+}
+
+// metadataRelationships returns a metadata usage's relationships: the typing its
+// `@M` or `#M` states (SysML.xtext MetadataUsage), the one written relationship it has.
+func metadataRelationships(n *ast.PrefixMetadata) []*ast.Relationship {
+	if n.Type == nil {
+		return nil
+	}
+	return []*ast.Relationship{{Kind: ast.RelTyping, Target: n.Type}}
 }
 
 // subjectRelationships returns a subject parameter's relationships, the typing
@@ -416,7 +444,7 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
 	for _, rel := range RelationshipsOf(sym) {
-		if rel == nil || rel.Target == nil || !GeneralizationKind(rel.Kind) {
+		if rel == nil || rel.Target == nil || !Generalizes(sym, rel.Kind) {
 			continue
 		}
 		target := m.GeneralizationTargetOf(sym, rel)

@@ -36,9 +36,9 @@ pub use check::{
 pub use connection::{Connection, TOKEN_ENV};
 pub use domain::{
     Array, BigInteger, Capabilities, Complex, Diagnostic, EnumLiteral, EvalOptions, Evaluation,
-    FeatureValue, Function, Instance, Instantiation, Language, Magnitude, MeasurementRef, Member,
-    Metaobject, Model, ModelResponse, ParseOptions, Quantity, ServerInfo, Set, Span, Symbol,
-    SymbolOptions, TensorQuantity, Undetermined, UnitFactor, UnitTerm, Value, Vector,
+    FeatureValue, Function, Instance, Instantiation, Language, Lookup, Magnitude, MeasurementRef,
+    Member, Metaobject, Model, ModelResponse, ParseOptions, Quantity, ServerInfo, Set, Span,
+    Symbol, SymbolOptions, TensorQuantity, Undetermined, UnitFactor, UnitTerm, Value, Vector,
     VectorQuantity,
 };
 pub use error::{Error, Status};

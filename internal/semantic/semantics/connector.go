@@ -340,7 +340,7 @@ func (m *Model) declaredEndCount(sym *symbols.Symbol) int {
 	owned := m.ownedEnds(sym)
 	var inherited []connectorEnd
 	for _, rel := range RelationshipsOf(sym) {
-		if rel == nil || !GeneralizationKind(rel.Kind) {
+		if rel == nil || !Generalizes(sym, rel.Kind) {
 			continue
 		}
 		sup := m.relationshipTarget(sym, rel)

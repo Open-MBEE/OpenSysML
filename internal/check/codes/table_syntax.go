@@ -56,10 +56,19 @@ var syntaxCodes = []Entry{
 	{
 		Code: "kerml-notation", Tier: TierSyntax, Severity: "warning",
 		Summary: "KerML notation in a SysML file",
-		Meaning: "A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) or a KerML spelling " +
-			"(`typed by` for a typing, which SysML spells `:` or `defined by`) that the SysML v2 grammar does not admit. " +
-			"Move the declaration to a `.kerml` file, or write the SysML form the message names. `-strict` promotes this finding to an error.",
+		Meaning: "A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) " +
+			"that the SysML v2 grammar does not admit. " +
+			"Move the declaration to a `.kerml` file, or write the SysML form the message names. A `namespace` declaration is an error in either mode; " +
+			"`-strict` promotes the other findings to errors.",
 		Spec: "the pinned SysML v2 Xtext grammar",
+	},
+	{
+		Code: "typing-keyword", Tier: TierSyntax, Severity: "error",
+		Summary: "a typing spelled `typed by` in a SysML file",
+		Meaning: "SysML v2 spells a usage's typing `:` or `defined by`; `typed by` is the KerML spelling of the same relationship, and `typed` is not a SysML keyword, " +
+			"so a `.sysml` file that writes it is rejected in every conformance mode. The typing is still read as written, so the rest of the model is analyzed. " +
+			"Write `defined by` (the editor quick fix rewrites the keyword), or move the declaration to a `.kerml` file.",
+		Spec: "SysML v2 §8.2.2.1.2 Lexical Structure (DEFINED_BY), §8.2.2.6.5 Specialization (TypedBy), §7.6.3 Usages, §7.27.2 Metadata Definitions and Usages",
 	},
 	{
 		Code: "sysml-notation", Tier: TierSyntax, Severity: "error",

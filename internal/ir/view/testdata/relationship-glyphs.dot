@@ -1,0 +1,13 @@
+digraph {
+  node [shape=box];
+  edge [color="#181818"];
+  occurrence -> slice [dir=back, arrowtail=dot, class="portion-relationship"];
+  occurrence -> snapshot [label="k", URL="#portion", tooltip="portion", dir=back, arrowtail=dot, class="portion-relationship", style=dashed, color="#ff000080", penwidth=3, arrowsize=2];
+  usage -> referenced [arrowhead=onormaldot, class="reference-subsetting"];
+  other -> referenced [label="references", arrowhead=onormaldot, class="reference-subsetting", color="#ff000080", arrowsize=2];
+  namespace -> member [dir=back, arrowtail=odot, taillabel="+", labeldistance=0.4, labelangle=0, class="owned-membership"];
+  namespace -> named [label="+", headlabel="h", URL="#named", tooltip="named", dir=back, arrowtail=odot, taillabel="+", labeldistance=0.4, labelangle=0, class="owned-membership"];
+  namespace -> alias [dir=back, arrowtail=odot];
+  subsetter -> referenced [arrowhead=empty];
+  holder -> slice [dir=back, arrowtail=dot];
+}
