@@ -22,6 +22,8 @@ struct TypeFacts
     types::Vector{TypeRef}
     resolved_qualified_name::String
 end
+TypeFacts(declared, resolved_id, resolved_kind, primitive, primitive_source, quantity, unit, types) =
+    TypeFacts(declared, resolved_id, resolved_kind, primitive, primitive_source, quantity, unit, types, "")
 TypeFacts(raw::AbstractDict) =
     TypeFacts(String(get(raw, "declared", "")), String(get(raw, "resolvedId", "")),
               String(get(raw, "resolvedKind", "")), String(get(raw, "primitive", "")),
@@ -62,6 +64,8 @@ struct Specialization
     target_kind::String
     target_qualified_name::String
 end
+Specialization(kind, declared, target_id, target_kind) =
+    Specialization(kind, declared, target_id, target_kind, "")
 Specialization(raw::AbstractDict) =
     Specialization(String(get(raw, "kind", "")), String(get(raw, "declared", "")),
                    String(get(raw, "targetId", "")), String(get(raw, "targetKind", "")),
