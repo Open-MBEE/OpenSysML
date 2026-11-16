@@ -394,6 +394,8 @@ static const char *sysml_show_int(sysml_integer a) {
 /* The exact ratio a / b rounded once to binary64 (round to nearest, ties to even). */
 static sysml_real sysml_quot(sysml_integer a, sysml_integer b) {
 	if (__builtin_expect(sysml_isign(b) == 0, 0)) sysml_fail("division by zero");
+	/* The Rational zero has no sign, whatever the divisor's. */
+	if (sysml_isign(a) == 0) return 0.0;
 	if (!a.big && !b.big && a.small > -(1LL << 53) && a.small < (1LL << 53) && b.small > -(1LL << 53) && b.small < (1LL << 53))
 		return (sysml_real)a.small / (sysml_real)b.small;
 	sysml_mag x, y;

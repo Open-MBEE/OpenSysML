@@ -36,6 +36,7 @@ var compiledCases = []compiledCase{
 	{"Quot", []string{"7", "2"}}, {"Quot", []string{"1", "3"}}, {"Quot", []string{"-1", "3"}},
 	{"Quot", []string{"1", "0"}}, {"Quot", []string{"9007199254740993", "1"}},
 	{"Quot", []string{"9223372036854775807", "-9223372036854775808"}},
+	{"Quot", []string{"0", "-5"}}, {"Quot", []string{"0", "-9007199254740992"}}, {"Quot", []string{"0", "-18446744073709551616"}},
 	{"Mixed", []string{"1.5", "3"}}, {"Mixed", []string{"0.1", "0"}},
 	{"Pow", []string{"-4"}}, {"Pow", []string{"3037000500"}},
 	{"RealPow", []string{"2.0", "0.5"}}, {"RealPow", []string{"0.0", "-1.0"}}, {"RealPow", []string{"-8.0", "0.5"}},
