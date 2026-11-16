@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
@@ -49,15 +50,8 @@ func convertLibrary(to convert.Format) (int, error) {
 	if toBranch {
 		return pushLibrary(graph, to, len(inputs))
 	}
-	out, err := convert.FromGraphWith(graph, to, opts)
+	err = writeProduced(to, func(out io.Writer) error { return convert.FromGraphTo(out, graph, to, opts) })
 	if err != nil {
-		return 0, err
-	}
-	if outputPath == "" {
-		_, err := os.Stdout.Write(out)
-		return exitHolds, err
-	}
-	if err := writeConversion(outputPath, out, to); err != nil {
 		return 0, err
 	}
 	return exitHolds, nil
