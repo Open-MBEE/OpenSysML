@@ -26,8 +26,10 @@ type options struct {
 	timeout             time.Duration
 	update, check       bool
 	requireExporter     bool
-	libraries           string
-	log                 io.Writer
+	// recordedPilot reuses the recorded pilot column though the exporter is present.
+	recordedPilot bool
+	libraries     string
+	log           io.Writer
 }
 
 // Main runs the census with the command-line arguments and returns the exit code.
@@ -42,6 +44,7 @@ func Main(args []string, stdout, stderr io.Writer) int {
 	updateFlag := flags.Bool("update", false, "re-record "+CommittedBaseline+" from this run")
 	checkFlag := flags.Bool("check", false, "fail unless this run reproduces "+CommittedBaseline+" and no served rule is newly silent where the pilot answers")
 	requireFlag := flags.Bool("require-exporter", false, "fail rather than reuse the recorded pilot column when the exporter is absent")
+	recordedFlag := flags.Bool("recorded-pilot", false, "measure our side alone and take the pilot column "+CommittedBaseline+" records, though the exporter is present")
 	if err := flags.Parse(args); err != nil {
 		if err == flag.ErrHelp {
 			return 0
@@ -57,7 +60,11 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "%s: %v\n", toolName, err)
 		return 1
 	}
-	opts := options{repo: root, timeout: *timeoutFlag, update: *updateFlag, check: *checkFlag, requireExporter: *requireFlag, log: stdout}
+	opts := options{repo: root, timeout: *timeoutFlag, update: *updateFlag, check: *checkFlag, requireExporter: *requireFlag, recordedPilot: *recordedFlag, log: stdout}
+	if opts.requireExporter && opts.recordedPilot {
+		fmt.Fprintf(stderr, "%s: -require-exporter and -recorded-pilot are exclusive\n", toolName)
+		return 2
+	}
 	if opts.update && opts.check {
 		fmt.Fprintf(stderr, "%s: -update and -check are exclusive\n", toolName)
 		return 2
@@ -106,11 +113,25 @@ func run(opts options) error {
 		return err
 	}
 	var recorded *Report
+	if present {
+		if err := underDeclaredJVM(opts, record.PilotJava); err != nil {
+			return err
+		}
+	}
 	if !present {
 		if recorded, err = readCommitted(committed); err != nil && !os.IsNotExist(err) {
 			return err
 		}
-		fmt.Fprintf(opts.log, "pilot JSON exporter is absent at %s; the pilot column is the one %s records (run %s to re-export it)\n", opts.launcher, CommittedBaseline, exporter.ProvisionCommand)
+		if opts.update {
+			if err := reusable(recorded, record.PilotJava); err != nil {
+				return err
+			}
+		}
+		if opts.recordedPilot {
+			fmt.Fprintf(opts.log, "the pilot column is the one %s records; our side alone is measured\n", CommittedBaseline)
+		} else {
+			fmt.Fprintf(opts.log, "pilot JSON exporter is absent at %s; the pilot column is the one %s records (run %s to re-export it)\n", opts.launcher, CommittedBaseline, exporter.ProvisionCommand)
+		}
 	}
 	classes := newMetaclasses()
 	report := &Report{Provenance: record}
@@ -149,6 +170,9 @@ func run(opts options) error {
 			}
 		} else if previous, ok := recorded.root(root.Name); ok {
 			entry.PilotElements, entry.PilotImplied, entry.PilotDuplicates, entry.PilotFailed = previous.PilotElements, previous.PilotImplied, previous.PilotDuplicates, previous.PilotFailed
+			if err := unrecordedRules(opts, root.Name, entry.Rules, previous.Rules); err != nil {
+				return err
+			}
 			for name, counts := range previous.Rules {
 				row := entry.Rules[name]
 				row.Pilot = counts.Pilot
@@ -208,9 +232,40 @@ func run(opts options) error {
 	return nil
 }
 
+// underDeclaredJVM holds the export to the declared JVM: a record is written under no
+// other, and a run that only compares says which JVM the pilot's column came from.
+func underDeclaredJVM(opts options, declared string) error {
+	jvm, err := exporter.JVM(opts.launcher)
+	if err != nil {
+		return err
+	}
+	if jvm == declared {
+		return nil
+	}
+	if opts.update {
+		return fmt.Errorf("the pilot exporter runs under Java %s and %s declares Java %s for the record: put a Java %s first on PATH and re-run",
+			jvm, baseline.PinPath, declared, declared)
+	}
+	fmt.Fprintf(opts.log, "the pilot exporter runs under Java %s, not the Java %s %s declares; a difference in the pilot's column may be the JVM's\n",
+		jvm, declared, baseline.PinPath)
+	return nil
+}
+
+// reusable refuses to re-record a pilot column that was recorded under an undeclared JVM.
+func reusable(recorded *Report, declared string) error {
+	if recorded == nil || recorded.Provenance.PilotJava == declared {
+		return nil
+	}
+	return fmt.Errorf("%s holds a pilot column recorded under Java %q and %s declares Java %s: provision the exporter and re-record under that Java",
+		CommittedBaseline, recorded.Provenance.PilotJava, baseline.PinPath, declared)
+}
+
 // exporterPresent reports whether the pilot's exporter is provisioned; its
 // absence is an error only when the run requires it.
 func exporterPresent(opts options) (bool, error) {
+	if opts.recordedPilot {
+		return false, nil
+	}
 	_, err := os.Stat(opts.launcher)
 	switch {
 	case err == nil:
@@ -221,6 +276,26 @@ func exporterPresent(opts options) (bool, error) {
 		return false, nil
 	}
 	return false, fmt.Errorf("inspect exporter: %w", err)
+}
+
+// unrecordedRules refuses to record or check a rule the recorded pilot column has no record of:
+// reusing the column would score the pilot as answering nothing there.
+func unrecordedRules(opts options, root string, measured, recorded map[string]RuleCounts) error {
+	if !opts.update && !opts.check {
+		return nil
+	}
+	var missing []string
+	for name := range measured {
+		if _, ok := recorded[name]; !ok {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	slices.Sort(missing)
+	return fmt.Errorf("%s records no pilot column for %s in root %s: provision the exporter with %s and re-record with %s",
+		CommittedBaseline, strings.Join(missing, ", "), root, exporter.ProvisionCommand, refreshCommand)
 }
 
 // refuseUnexportedRoots refuses a census whose pilot column failed on every file of a root.

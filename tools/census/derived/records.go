@@ -2,6 +2,8 @@ package derived
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
 	"sort"
@@ -14,7 +16,13 @@ import (
 const CommittedRecords = "internal/semantic/metamodel/derived_census_records.tsv"
 
 const recordsHeader = "# One line per served rule and corpus root; re-record with " + refreshCommand + "\n" +
-	"# rule\troot\tours.carriers\tours.value\tours.empty\tours.notDerived\tpilot.carriers\tpilot.value\tpilot.empty\tpilot.notDerived\n"
+	"# rule\troot\tours.carriers\tours.value\tours.empty\tours.notDerived\tpilot.carriers\tpilot.value\tpilot.empty\tpilot.notDerived\tpilot.nondeterministic\n"
+
+// recordFields is a record's width: the rule, the root, our four counts and the pilot's five.
+const recordFields = 11
+
+// pilotField is the index of a record's first pilot count.
+const pilotField = 6
 
 // encodeRecords writes the roots' rules, by rule then root order.
 func encodeRecords(r *Report) []byte {
@@ -37,9 +45,9 @@ func encodeRecords(r *Report) []byte {
 			if !ok {
 				continue
 			}
-			fmt.Fprintf(&b, "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", name, root.Name,
+			fmt.Fprintf(&b, "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", name, root.Name,
 				counts.Ours.Carriers, counts.Ours.Value, counts.Ours.Empty, counts.Ours.NotDerived,
-				counts.Pilot.Carriers, counts.Pilot.Value, counts.Pilot.Empty, counts.Pilot.NotDerived)
+				counts.Pilot.Carriers, counts.Pilot.Value, counts.Pilot.Empty, counts.Pilot.NotDerived, counts.Pilot.Nondeterministic)
 		}
 	}
 	return b.Bytes()
@@ -57,14 +65,14 @@ func decodeRecords(data []byte, r *Report) error {
 			continue
 		}
 		fields := strings.Split(line, "\t")
-		if len(fields) != 10 {
-			return fmt.Errorf("%s:%d: want 10 tab-separated fields, got %d", CommittedRecords, number+1, len(fields))
+		if len(fields) != recordFields {
+			return fmt.Errorf("%s:%d: want %d tab-separated fields, got %d", CommittedRecords, number+1, recordFields, len(fields))
 		}
 		root, ok := roots[fields[1]]
 		if !ok {
 			return fmt.Errorf("%s:%d: root %q is not in %s", CommittedRecords, number+1, fields[1], CommittedBaseline)
 		}
-		var n [8]int
+		var n [recordFields - 2]int
 		for i := range n {
 			v, err := strconv.Atoi(fields[2+i])
 			if err != nil {
@@ -73,7 +81,7 @@ func decodeRecords(data []byte, r *Report) error {
 			n[i] = v
 		}
 		root.Rules[fields[0]] = RuleCounts{Ours: Counts{Carriers: n[0], Value: n[1], Empty: n[2], NotDerived: n[3]},
-			Pilot: Counts{Carriers: n[4], Value: n[5], Empty: n[6], NotDerived: n[7]}}
+			Pilot: Counts{Carriers: n[4], Value: n[5], Empty: n[6], NotDerived: n[7], Nondeterministic: n[8]}}
 	}
 	return nil
 }
@@ -85,6 +93,9 @@ type headerView struct {
 	Structure  string          `json:"structure"`
 	Policy     []string        `json:"policy"`
 	Roots      []rootHeader    `json:"roots"`
+	// PilotRecords digests the records' pilot columns, which a run that reuses them cannot
+	// re-measure: a pilot cell moved by anything but a re-export no longer reproduces.
+	PilotRecords string `json:"pilotRecords"`
 }
 
 // rootHeader is a RootReport without its rules.
@@ -102,7 +113,7 @@ type rootHeader struct {
 }
 
 func header(r *Report) headerView {
-	h := headerView{Provenance: r.Provenance, Structure: r.Structure, Policy: r.Policy}
+	h := headerView{Provenance: r.Provenance, Structure: r.Structure, Policy: r.Policy, PilotRecords: pilotRecordsDigest(r)}
 	for _, root := range r.Roots {
 		h.Roots = append(h.Roots, rootHeader{
 			Name: root.Name, Dir: root.Dir, Files: root.Files, Rejected: root.Rejected,
@@ -112,4 +123,17 @@ func header(r *Report) headerView {
 		})
 	}
 	return h
+}
+
+// pilotRecordsDigest digests each record's rule, root and pilot counts, in the records' order.
+func pilotRecordsDigest(r *Report) string {
+	hash := sha256.New()
+	for _, line := range strings.Split(string(encodeRecords(r)), "\n") {
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		fields := strings.Split(line, "\t")
+		fmt.Fprintln(hash, strings.Join(append(fields[:2:2], fields[pilotField:]...), "\t"))
+	}
+	return "sha256:" + hex.EncodeToString(hash.Sum(nil))
 }

@@ -284,13 +284,25 @@ needs to require.
 | The label `ci:full`, an unclaimed path, the nightly full scan, `workflow_dispatch` | full | every shard | whole | on what can move its baseline (everything on an unclaimed path) |
 
 The derived-property differential (`Derived-property differential reproduces its baseline`,
-`go run -C tools ./cmd/pilot-apijson-diff -check`: Java, the pinned pilot jar, 18–25 minutes)
+`go run -C tools ./cmd/pilot-apijson-diff -check -pilot-record build/pilot-apijson-record`: Java and
+the pinned pilot jar for any root whose pilot export the nightly has not recorded for the current
+pin, bridge, corpus and libraries; our side alone otherwise)
 runs on a pull-request push whose diff can move the api-json baseline — the writer, the
 referees, the pilot bridge and pin, the baseline, the corpora action, not the workflow file —
 and under the full tier, so the baseline is also reproduced every night over `develop`. The
 queue tier skips it: the merge group's diff is the one the pull request's push already ran it
 over, and the nightly catches a baseline that `develop` moved under it, which is then
 re-recorded through the `ci:rebaseline` workflow (`.github/workflows/rebaseline.yml`).
+
+The derived census (`Derived census reproduces its baseline`,
+`go run -C tools ./cmd/derived-census -check -recorded-pilot`) runs on every Go change: it
+re-measures our columns against the pilot column the records hold, without Java. The nightly
+oracle-reproduction workflow re-exports the pilot's side of both and holds the baselines to it.
+
+The cross-MDK conformance suite (`Cross-MDK conformance suite reproduces its baseline`,
+`go run -C tools ./cmd/hideo-suite -check`) runs on every Go or Python-client change: it needs
+neither Java nor the pilot, and a case that moves is recorded with `-update` in the change that
+moved it (`docs/project/hideo-suite.md`).
 
 The `examples/` sweeps are the tests that parse and export every model under `examples/` (the
 committed models, the OMG training and pilot corpora and the specification examples, some 920
@@ -550,9 +562,12 @@ When a change needs documenting:
   derived census, the structure differential, the library/prefix sweep, the corpus and round-trip
   expectations, the conversion and parser goldens, the proto stubs), apply the `ci:rebaseline`
   label to the pull request. [.github/workflows/rebaseline.yml](.github/workflows/rebaseline.yml)
-  merges `origin/develop` into the branch taking `develop`'s side of the conflicts confined to the
-  generated paths it lists (a conflict anywhere else fails the run), re-runs every recorder on the
-  merged tree, refuses a movement the merge does not explain
+  merges `origin/develop` into the branch — the count baselines cell by cell
+  (`tools/oracle/cellmerge`, the merge driver `./scripts/install-baseline-merge-driver.sh` configures
+  in a clone), taking `develop`'s side of the remaining conflicts confined to the
+  generated paths it lists (a conflict anywhere else fails the run) — keeps a merged api-json
+  differential or derived census that its check reproduces against the recorded pilot side and
+  re-records one that does not, re-runs every other recorder on the merged tree, refuses a movement the merge does not explain
   (`scripts/rebaseline-movement.py`: a verdict that moved for a record neither side moved), commits
   the result with the movement in its message, pushes to the branch, removes the label and
   comments the movement for adjudication. It never touches
