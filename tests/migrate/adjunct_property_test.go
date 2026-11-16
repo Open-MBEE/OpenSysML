@@ -125,3 +125,35 @@ func TestAdjunctPropertyOfANestedOrHiddenPrincipal(t *testing.T) {
 		t.Errorf("%v", d)
 	}
 }
+
+// A pin of a call behavior action is one usage with its adjunct property: the parameter the call is written
+// with, which a connector end, an allocation and a view reach by its chain; an association end is written
+// uncrossed, and a pin a diagram shows by itself stays unexposed.
+func TestAdjunctPropertyOfAPin(t *testing.T) {
+	r := migrateFixtureFile(t, "adjunct_pins")
+	for _, line := range []string{
+		"action fill : Fill;",
+		"in settled : Tank[0..1];",
+		"connection watch connect gauge to mixing.fill.into;",
+		"connection check connect gauge to mixing.settle.settled;",
+		"allocate source.fill.into to target.gauge;",
+		"end 'from' : Tank;",
+		"expose Mix::fill::into;",
+		"ref part spare : Tank {",
+		"ref part noted : Tank {",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	for _, gone := range []string{"ref part feed", "ref part filled", "ref part settled", "expose Mix::settle::settled;"} {
+		wantNoLine(t, r.Notation, gone)
+	}
+	wantNote(t, r, "_adjFeed", migrate.Mapped, "«AdjunctProperty» and its principal InputPin 'feed' are one v2 usage")
+	wantNote(t, r, "_adjFilled", migrate.Mapped, "«AdjunctProperty» and its principal OutputPin 'filled' are one v2 usage")
+	wantNote(t, r, "_adjSettled", migrate.Mapped, "«AdjunctProperty» and its principal InputPin 'settled' are one v2 usage")
+	wantNote(t, r, "_mixFeed", migrate.Approximated, "end 'from' crosses no property: the end property is the usage of its «AdjunctProperty» principal, which is nested in 'fill' of Mix")
+	wantNote(t, r, "_adjSpare", migrate.Approximated, "its principal 'spare' is not written as a v2 usage")
+	wantNote(t, r, "_adjNoted", migrate.Approximated, "its principal 'noted' is a pin of the OpaqueAction 'note', and only a pin of a call behavior action is written as one usage with its property")
+	for _, d := range errorsMode(t, "adjunct_pins.sysml", r.Notation, diag.ConformanceStrict) {
+		t.Errorf("%v", d)
+	}
+}

@@ -52,6 +52,9 @@ func (m *migration) readAdjunct(p *sysmlv1.Element, s *sysmlv1.Stereotype) *adju
 		principal = param
 	}
 	a := &adjunct{principal: principal}
+	if nodeKind(principal) == nodePin {
+		m.principalPins[principal] = true
+	}
 	submachine := principal.Type == "State" && m.model.Ref(principal, "submachine") != nil
 	switch {
 	case !adjunctPrincipals[principal.Type] && !submachine:
@@ -148,7 +151,12 @@ func (m *migration) adjunctApart(p *sysmlv1.Element) string {
 		return ""
 	}
 	why := a.apart
-	if why == "" {
+	switch {
+	case why != "":
+	case nodeKind(a.principal) == nodePin && a.principal.Parent != nil && a.principal.Parent.Type != "CallBehaviorAction":
+		why = "its principal " + describe(a.principal) + " is a pin of the " + a.principal.Parent.Type + " " + describe(a.principal.Parent) +
+			", and only a pin of a call behavior action is written as one usage with its property"
+	default:
 		why = "its principal " + describe(a.principal) + " is not written as a v2 usage"
 	}
 	return "«AdjunctProperty» is not collapsed into its principal: " + why
@@ -182,7 +190,12 @@ func (m *migration) adjunctFeature(p *sysmlv1.Element) bool {
 		verdict = Approximated
 		lost = "; " + strings.Join(others, ", ") + " applied to the property is not written: the usage of its principal carries no application of the property's"
 	}
-	m.add(p, verdict, m.v2Name(principal), "«AdjunctProperty» and its principal "+kindOf(principal)+" "+describe(principal)+
+	written := m.v2Name(principal)
+	if nodeKind(principal) == nodePin {
+		// A pin is recorded as the parameter of its action, as its own entry is.
+		written = m.v2Name(principal.Parent) + "." + m.nameFor(principal)
+	}
+	m.add(p, verdict, written, "«AdjunctProperty» and its principal "+kindOf(principal)+" "+describe(principal)+
 		" are one v2 usage, written for the principal; what referred to the property refers to that usage"+lost)
 	return true
 }

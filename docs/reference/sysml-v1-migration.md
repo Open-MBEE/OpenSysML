@@ -1215,7 +1215,7 @@ usage the principal is written as.
 | `State` with a `submachine` | the state usage, `state Cycling : Cycle { … }` |
 | `InteractionUse` | the occurrence usage of the referenced interaction, `occurrence priming : Prime;` |
 | `CentralBufferNode`, `DataStoreNode`, `ExpansionNode` | the usage the node is written as, when it is written as one; a buffer the flows through it replace has none, and the property is then written apart |
-| `InputPin`, `OutputPin`, `ValuePin`, `ActionInputPin` | none yet: a pin is written inside its action as a parameter the migration gives no name other elements can refer to, so the property is written apart |
+| `InputPin`, `OutputPin`, `ValuePin`, `ActionInputPin` of a `CallBehaviorAction` | the parameter the call is written with: the called definition's, by position (`fill.into` for `action fill : Fill;`), or the one the action declares for the pin when it is typed by no definition. A pin past the definition's parameters is not written, and a pin of any other action is not collapsed; the property is then written apart |
 
 The property declares nothing: no `ref action`, no name of its own (v1 requires it to bear the
 principal's name, so the principal keeps the name the two share rather than becoming `name 2`), no
@@ -1231,8 +1231,10 @@ Three cases give way so that the output still resolves, each with a note. A vari
 `private` unless an association end crosses it through its adjunct property; it is then written
 without `private`, since no path reaches a private feature; that holds as well when the property
 belongs to a specialization of the variable's activity. A principal nested in a structured
-node is reached by a chain (`stage.rinse`), which a connector end takes but an association end's
-`crosses` does not, so that end is written uncrossed. A further stereotype applied to the property
+node, or a pin, which is nested in its action, is reached by a chain (`stage.rinse`, `fill.into`),
+which a connector end, an allocation and a view's `expose` take but an association end's `crosses`
+does not, so that end is written uncrossed. A pin a diagram shows by its own symbol is still not
+exposed; only the adjunct property's symbol exposes the parameter. A further stereotype applied to the property
 (other than a tool's notation profile) is not written, since the usage carries no application of
 the property's, and the property's entry is **approximated**.
 
@@ -1248,6 +1250,8 @@ the principal, and the property's entry is **approximated** with a note beginnin
 - `its type is neither that of its principal … nor a generalization of it` — the behavior a call
   invokes, the state machine or interaction referred to, or the type of the connector, node,
   variable or parameter;
+- `its principal … is a pin of the <Type> …, and only a pin of a call behavior action is written as
+  one usage with its property`;
 - `its principal … is not written as a v2 usage` — the principal is refused, inlined or elided.
 
 Neither half of the pair is dropped in any of these cases.

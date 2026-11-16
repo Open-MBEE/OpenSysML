@@ -1142,9 +1142,14 @@ func (m *migration) entryRegion(init *sysmlv1.Element) *sysmlv1.Element {
 }
 
 // exposable is the declaration written for e that a view can expose: its own, the
-// operation a behavior is the method of, or a state's named inline action; nil for none.
+// operation a behavior is the method of, or a state's named inline action; nil for none
+// and for a pin.
 func (m *migration) exposable(e *sysmlv1.Element) *sysmlv1.Element {
 	if e == nil || m.scalarValue(e) != "" {
+		return nil
+	}
+	if nodeKind(e) == nodePin {
+		// A pin's own symbol is not laid out; its action's is.
 		return nil
 	}
 	if op := m.methodOf[e]; op != nil {

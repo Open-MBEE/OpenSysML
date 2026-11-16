@@ -252,6 +252,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		shownEdges:        map[*sysmlv1.Element]bool{},
 		edgeMembers:       map[*sysmlv1.Element]edgeMember{},
 		adjuncts:          map[*sysmlv1.Element]*adjunct{},
+		principalPins:     map[*sysmlv1.Element]bool{},
 		resolvingAdjunct:  map[*sysmlv1.Element]bool{},
 		adjunctExposed:    map[*sysmlv1.Element][]*sysmlv1.Element{},
 		sequenceBindings:  map[*sysmlv1.Element][]lifelineBinding{},
@@ -384,7 +385,10 @@ type migration struct {
 	nodeNames map[*sysmlv1.Element]string
 	// adjuncts holds what each «AdjunctProperty» stands for, nil for a property that is
 	// none; resolvingAdjunct guards asking whether a principal is written from inside the answer.
-	adjuncts         map[*sysmlv1.Element]*adjunct
+	adjuncts map[*sysmlv1.Element]*adjunct
+	// principalPins holds the pins that are the principal of an «AdjunctProperty», which
+	// alone are named from outside their action.
+	principalPins    map[*sysmlv1.Element]bool
 	resolvingAdjunct map[*sysmlv1.Element]bool
 	// adjunctExposed lists, for a principal, the exposed adjunct properties that stand for it.
 	adjunctExposed map[*sysmlv1.Element][]*sysmlv1.Element
@@ -3101,6 +3105,8 @@ func (m *migration) memberWritten(e *sysmlv1.Element) (written, decided bool) {
 			return act != nil && m.reaches(act), true
 		}
 		return m.written(p), true
+	case "InputPin", "OutputPin", "ValuePin", "ActionInputPin":
+		return m.pinWritten(e), true
 	case "Connector":
 		return m.connectorWritten(e), true
 	}

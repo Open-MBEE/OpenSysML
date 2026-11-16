@@ -1949,6 +1949,82 @@ func (a *activity) settlePins(n *sysmlv1.Element) {
 	}
 }
 
+// calledActionDef returns the behavior a call behavior action calls when it is written as
+// an action def, its operation for a method; nil otherwise.
+func (m *migration) calledActionDef(n *sysmlv1.Element) *sysmlv1.Element {
+	b := m.model.Ref(n, "behavior")
+	if b == nil {
+		return nil
+	}
+	if op := m.methodOf[b]; op != nil {
+		b = op
+	}
+	if cat, _ := m.classify(b); cat != catActionDef {
+		return nil
+	}
+	return b
+}
+
+// pinPosition returns where pin stands among the input or output pins of its action n, and
+// which; -1 for a pin that is neither.
+func pinPosition(n, pin *sysmlv1.Element) (i int, out bool) {
+	if i := slices.Index(inputPins(n), pin); i >= 0 {
+		return i, false
+	}
+	return slices.Index(outputPins(n), pin), true
+}
+
+// pinWritten reports whether pin is written as a parameter of its action that a feature
+// chain reaches, whichever way the action is written: a pin of a call behavior action,
+// within the parameters of its direction when the behavior called is an action def.
+func (m *migration) pinWritten(pin *sysmlv1.Element) bool {
+	n := pin.Parent
+	if n == nil || n.Type != "CallBehaviorAction" || !m.written(n) {
+		return false
+	}
+	i, out := pinPosition(n, pin)
+	if i < 0 {
+		return false
+	}
+	b := m.calledActionDef(n)
+	if b == nil {
+		return true
+	}
+	ins, outs := m.directedParameters(b)
+	if out {
+		return i < len(outs)
+	}
+	return i < len(ins)
+}
+
+// pinName returns the name of the parameter a written pin an «AdjunctProperty» stands for
+// is, settled ahead of its action's write over the graph linked as for writing; "" otherwise.
+func (m *migration) pinName(pin *sysmlv1.Element) string {
+	if !m.principalPins[pin] || !m.pinWritten(pin) {
+		return ""
+	}
+	if d, ok := m.pins[pin]; ok {
+		return d.name
+	}
+	n := pin.Parent
+	act, def := m.nodeGraph(n)
+	a := m.newActivity(act, def)
+	a.link()
+	a.resolveData()
+	a.deaden()
+	a.awaitData()
+	if callee := a.typedCallee(n); callee != nil {
+		ins, outs := m.directedParameters(callee)
+		if i, out := pinPosition(n, pin); out {
+			return m.nameFor(outs[i])
+		} else {
+			return m.nameFor(ins[i])
+		}
+	}
+	a.settlePins(n)
+	return m.pins[pin].name
+}
+
 // pinDecl is how a pin is declared: the v2 name and direction of the parameter
 // written for it, and the classifier typing it.
 type pinDecl struct {

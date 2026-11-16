@@ -46,6 +46,9 @@ func (m *migration) nameFor(e *sysmlv1.Element) string {
 	if n := m.nameNode(e); n != "" {
 		return n
 	}
+	if n := m.pinName(e); n != "" {
+		return n
+	}
 	if n := m.nameOf(e); n != "" {
 		return n
 	}
