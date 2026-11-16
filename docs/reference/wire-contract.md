@@ -2260,6 +2260,17 @@ stubs carry `@id`, `@type`, `declaredName`, `elementId`, `isLibraryElement: true
 `qualifiedName`; an OMG API reader treats them as roots. Prefer the separate table
 for new clients. It composes with `documents`, `idForm` and `compact`.
 
+`inheritedMembers`, advertised as `convert_inherited_members`, also writes on every
+Namespace and Type of the API JSON element array the six derived lists that repeat its
+inherited and imported members: `membership`, `member`, `inheritedMembership`,
+`featureMembership`, `feature` and `inheritedFeature`, each named in the element's
+`sysx:completedProperties`. It is default-off and is `invalid_argument` for any other
+target. Without it an element carries its owned structure (`ownedMembership`,
+`ownedMember`, `ownedFeature` and every other property), from which a reader derives
+those lists; element ids and every other property are the same either way. A list the
+graph itself states is written regardless. A service without the capability always
+writes the lists.
+
 The Node client exposes `Conversion.libraryReferences` and the
 `includeLibraryStubs` option on `Connection.convert` and `Model.convert`.
 The MCP `convert` tool accepts the same flag and returns the table as `libraryReferences`.

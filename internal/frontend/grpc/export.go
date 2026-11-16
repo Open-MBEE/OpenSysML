@@ -376,7 +376,15 @@ func (s *Service) convertOptions(req *pb.ConvertRequest, from, to convert.Format
 			return convert.Options{}, statusError(connect.CodeInvalidArgument, "include_library_stubs requires to_format api-json")
 		}
 	}
-	opts := convert.Options{IncludeLibraryStubs: req.IncludeLibraryStubs}
+	if req.InheritedMembers {
+		if err := s.requireCapability(CapabilityConvertInheritedMembers); err != nil {
+			return convert.Options{}, err
+		}
+		if to != convert.FormatAPIJSON {
+			return convert.Options{}, statusError(connect.CodeInvalidArgument, "inherited_members requires to_format api-json")
+		}
+	}
+	opts := convert.Options{IncludeLibraryStubs: req.IncludeLibraryStubs, InheritedMembers: req.InheritedMembers}
 	if req.IdForm != "" {
 		if from != convert.FormatSysML || (to != convert.FormatTurtle && to != convert.FormatAPIJSON) {
 			return opts, statusError(connect.CodeInvalidArgument, "id_form applies to notation converted to ttl or api-json")

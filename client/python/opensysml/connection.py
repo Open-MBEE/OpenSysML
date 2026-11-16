@@ -20,6 +20,7 @@ from opensysml.capabilities import (
     CAPABILITY_INLINE_DOCUMENT_QUERY,
     CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
     CAPABILITY_CONVERT_COMPACT,
+    CAPABILITY_CONVERT_INHERITED_MEMBERS,
     CAPABILITY_CONVERT_LIBRARY_STUBS,
     CAPABILITY_OSLC_QUERY,
     CAPABILITY_APPLY_EDITS,
@@ -1582,7 +1583,8 @@ class Connection:
     def convert(self, to_format, file_path=None, content=None, model_hash=None,
                 from_format='', tolerate_syntax_errors=False, id_form='',
                 include_library_stubs=False, compact=False, omit_derived=False,
-                keep_derived=(), include_check_diagnostics=False):
+                keep_derived=(), include_check_diagnostics=False,
+                inherited_members=False):
         """Write a model out in another of the formats OpenSysML writes.
 
         The source is a loaded model, named by its hash, or one named the way
@@ -1615,6 +1617,12 @@ class Connection:
                 library stubs written before 0.11.0; by default library
                 elements remain bare references, not roots. Needs the
                 ``convert_library_stubs`` capability.
+            inherited_members (bool): For api-json, also write on every
+                Namespace and Type the derived lists that repeat its inherited
+                and imported members (``membership``, ``member``,
+                ``inheritedMembership``, ``featureMembership``, ``feature``,
+                ``inheritedFeature``); by default an element carries its owned
+                structure. Needs the ``convert_inherited_members`` capability.
             compact (bool): For notation converted to api-json, write the
                 compact document (``api-json-compact/1``) in place of the
                 element array. Needs the ``convert_compact`` capability.
@@ -1691,6 +1699,12 @@ class Connection:
                 CAPABILITY_CONVERT_LIBRARY_STUBS,
                 upgrade_remedy(CAPABILITY_CONVERT_LIBRARY_STUBS),
             )
+        if inherited_members:
+            require(
+                self.server_info(),
+                CAPABILITY_CONVERT_INHERITED_MEMBERS,
+                upgrade_remedy(CAPABILITY_CONVERT_INHERITED_MEMBERS),
+            )
         keep_derived = list(keep_derived)
         if compact or omit_derived or keep_derived:
             require(
@@ -1711,6 +1725,7 @@ class Connection:
             tolerate_syntax_errors=tolerate_syntax_errors,
             id_form=id_form,
             include_library_stubs=include_library_stubs,
+            inherited_members=inherited_members,
             compact=compact,
             omit_derived=omit_derived,
             keep_derived=keep_derived,

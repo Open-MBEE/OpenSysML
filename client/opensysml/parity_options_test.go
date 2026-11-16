@@ -23,6 +23,33 @@ func apiJSONElements(t *testing.T, content string) []map[string]any {
 	return elements
 }
 
+// A conversion carries owned structure, and WithInheritedMembers adds the inherited lists.
+func TestConvertWritesInheritedMembersOnRequest(t *testing.T) {
+	client := newClient(t)
+	ctx := context.Background()
+	const source = "package P { part def A { attribute x; } part def B :> A; }"
+	inherits := func(content string) bool {
+		for _, element := range apiJSONElements(t, content) {
+			if _, ok := element["inheritedFeature"]; ok {
+				return true
+			}
+		}
+		return false
+	}
+	owned, err := client.ConvertSource(ctx, source, opensysml.FormatAPIJSON, opensysml.WithFromFormat(opensysml.FormatSysML))
+	if err != nil {
+		t.Fatalf("ConvertSource: %v", err)
+	}
+	complete, err := client.ConvertSource(ctx, source, opensysml.FormatAPIJSON,
+		opensysml.WithFromFormat(opensysml.FormatSysML), opensysml.WithInheritedMembers())
+	if err != nil {
+		t.Fatalf("ConvertSource with inherited members: %v", err)
+	}
+	if inherits(owned.Content) || !inherits(complete.Content) {
+		t.Errorf("inheritedFeature written: %v by default, %v with WithInheritedMembers", inherits(owned.Content), inherits(complete.Content))
+	}
+}
+
 func TestConvertNamesLibraryReferencesAndRestoresStubsOnRequest(t *testing.T) {
 	client := newClient(t)
 	ctx := context.Background()
