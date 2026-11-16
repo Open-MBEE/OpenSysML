@@ -12,9 +12,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// coupledDynamics is a ramp and an integrator of it, each performed by a part of
-// site, written against StateSpaceRepresentation alone; connect joins the ramp's
-// output to the integrator's input in site, and inside is the integrator's own extra.
+// coupledDynamics is a ramp and an integrator of it, each performed by a part of site;
+// connect joins them in site, and inside is the integrator's own extra.
 func coupledDynamics(connect, inside string) string {
 	return `package test {
 		private import ScalarValues::*;
