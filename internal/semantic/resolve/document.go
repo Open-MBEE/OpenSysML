@@ -1908,6 +1908,18 @@ func (r *Resolver) getOperandSymbol(scope *symbols.Scope, e ast.Node) *symbols.S
 		}
 		r.resolveExpr(scope, v.Index)
 		return r.getOperandSymbol(scope, v.Operand)
+	case *ast.CastExpr:
+		// `(as T).f` reads f as a member of T, the type its operand is cast to
+		// (KerML 8.2.5.8.1: a FeatureChainMember names a member of the result).
+		r.resolveExpr(scope, e)
+		if v.TargetType == nil {
+			return nil
+		}
+		sym, ok := r.ResolveQualified(scope, v.TargetType)
+		if !ok {
+			return nil
+		}
+		return sym
 	default:
 		r.resolveExpr(scope, e)
 		return nil
