@@ -1769,6 +1769,10 @@ pub struct ConvertRequest {
     /// Default false: library elements remain bare references, not roots.
     #[prost(bool, tag="13")]
     pub include_library_stubs: bool,
+    /// For api-json, also write each Namespace's and Type's derived lists of inherited and imported members;
+    /// default false writes owned structure. Capability "convert_inherited_members"; a service without it always writes them.
+    #[prost(bool, tag="14")]
+    pub inherited_members: bool,
     #[prost(oneof="convert_request::Source", tags="1, 2, 6")]
     pub source: ::core::option::Option<convert_request::Source>,
 }
