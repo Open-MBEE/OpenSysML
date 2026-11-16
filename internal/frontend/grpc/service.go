@@ -267,6 +267,10 @@ const CapabilityConvertCompact = "convert_compact"
 // CapabilityConvertLibraryReferences names ConvertResponse.library_references.
 const CapabilityConvertLibraryReferences = "convert_library_references"
 
+// CapabilityConvertInheritedMembers names ConvertRequest.inherited_members; a service
+// without it writes the inherited member lists on every api-json element.
+const CapabilityConvertInheritedMembers = "convert_inherited_members"
+
 // CapabilityConvertLibraryStubs names ConvertRequest.include_library_stubs.
 const CapabilityConvertLibraryStubs = "convert_library_stubs"
 
@@ -445,6 +449,7 @@ var capabilities = []string{
 	CapabilityConvertCompact,
 	CapabilityConvertLibraryReferences,
 	CapabilityConvertLibraryStubs,
+	CapabilityConvertInheritedMembers,
 	CapabilityConvertCheckDiagnostics,
 	CapabilityParseSourcesAffected,
 	CapabilityRenderDocumentFileName,

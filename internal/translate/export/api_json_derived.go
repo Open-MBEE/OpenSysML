@@ -177,6 +177,13 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	{class: "Flow", name: "payloadType", clause: "8.3.4.9.2 deriveFlowPayloadType"},
 }
 
+// apiJSONInheritedFamilies are the completed properties that repeat a Namespace's or Type's
+// inherited and imported members beside its owned ones; APIJSONOptions.InheritedMembers writes them.
+var apiJSONInheritedFamilies = map[string]bool{
+	"membership": true, "member": true, "inheritedMembership": true,
+	"featureMembership": true, "feature": true, "inheritedFeature": true,
+}
+
 // apiJSONCompletedPropertyNames maps every completed property name to the
 // classes that complete it, for the reader and the compact form.
 var apiJSONCompletedPropertyNames = func() map[string][]string {
@@ -258,7 +265,8 @@ func (w *apiJSONElementWriter) completeDerived(subject rdf.Term, metaclass strin
 	}
 	var completed []any
 	for _, property := range apiJSONCompletedPropertiesOf(metaclass) {
-		if w.graph.HasProperty(subject, property.predicate) || apiJSONHasMember(element, property.name) {
+		if w.graph.HasProperty(subject, property.predicate) || apiJSONHasMember(element, property.name) ||
+			(apiJSONInheritedFamilies[property.name] && !w.options.InheritedMembers) {
 			continue
 		}
 		spelled := property.defaultValue
