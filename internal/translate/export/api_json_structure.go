@@ -91,6 +91,23 @@ func (s *apiJSONGraphStructure) indexAnnotations() {
 	s.annotationsComplete = true
 }
 
+// LibraryMember is the library symbol whose owning membership a library reference names.
+func (s *apiJSONGraphStructure) LibraryMember(membership metamodel.Element) (*symbols.Symbol, bool) {
+	subject, ok := s.subject(membership)
+	if !ok || !LibraryReference(s.graph, subject) {
+		return nil, false
+	}
+	id, ok := rdf.SubjectID(subject)
+	if !ok {
+		return nil, false
+	}
+	library, ok := s.libraryCatalog().OwningMembership(id)
+	if !ok || library == nil || library.Symbol == nil {
+		return nil, false
+	}
+	return library.Symbol, true
+}
+
 // LibrarySymbol resolves a library reference the graph states by id to the library symbol.
 func (s *apiJSONGraphStructure) LibrarySymbol(element metamodel.Element) (*symbols.Symbol, bool) {
 	subject, ok := s.subject(element)

@@ -266,15 +266,26 @@ func (e *Evaluator) structureImportedMembershipValue(imported Element) (Value, b
 	if !ok || len(endpoints) != 1 {
 		return Value{}, false
 	}
+	var handle Element
 	switch endpoint := endpoints[0]; endpoint.Kind {
 	case MembershipValue:
-		return endpoint, true
+		handle = Element{Membership: endpoint.Membership, IsMembership: true}
 	case ElementValue:
-		if endpoint.Element.IsMembership {
-			return membershipValue(endpoint.Element.Membership), true
+		handle = endpoint.Element
+	default:
+		return Value{}, false
+	}
+	// A library membership the graph only references is the library's own.
+	if structure, ok := e.options.Structure.(LibraryMembershipResolver); ok {
+		if member, found := structure.LibraryMember(handle); found && member != nil {
+			membership := ElementOf(member).Membership
+			return membershipValue(membership), hasMembership(membership)
 		}
 	}
-	return Value{}, false
+	if !handle.IsMembership {
+		return Value{}, false
+	}
+	return membershipValue(handle.Membership), true
 }
 
 // structureVisibleMemberships is Namespace::visibleMemberships(excluded, isRecursive,
