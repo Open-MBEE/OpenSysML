@@ -1,0 +1,21 @@
+enter calc test::forked
+  bind n = 3 [argument]
+  stmt declare x
+    eval literal 0 -> 0
+  stmt declare y
+    eval literal 0 -> 0
+  stmt action body
+enter action node: calc test::forked
+    stmt assign y
+        eval feature n -> 3
+        eval literal 1 -> 1
+      eval operator + -> 4
+    stmt assign x
+      eval feature n -> 3
+choice step 3: tokens 2@left, 3@right (unordered; took 3@right first; independent)
+leave action node: calc test::forked
+  stmt return
+      eval feature x -> 3
+      eval feature y -> 4
+    eval operator + -> 7
+exit calc test::forked -> (7)

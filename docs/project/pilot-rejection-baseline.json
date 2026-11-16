@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 350,
-        "digest": "sha256:e34ae6b85ba756fd6a42e7bd3b12d551ab6a779e69ca3c338082c1c77189d8f7"
+        "files": 351,
+        "digest": "sha256:014d16867db77c581535bc3ec840f1e3464ac9fbd414b093f70e9a94df3209ef"
       }
     ],
-    "recorded": "2026-11-15"
+    "recorded": "2026-11-16"
   },
   "totals": {
-    "cases": 350,
-    "bothReject": 340,
+    "cases": 351,
+    "bothReject": 341,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 10,
     "bothAccept": 0
@@ -64,8 +64,8 @@
     },
     {
       "source": "semantic",
-      "cases": 188,
-      "bothReject": 178,
+      "cases": 189,
+      "bothReject": 179,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 10,
       "bothAccept": 0
@@ -2072,6 +2072,15 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/k79-chain-expression-through-alias-to-another-type.kerml",
+      "source": "semantic",
+      "rule": "the target feature of a feature chain expression must be featured within the result of its argument, and an alias or import reaching another type's feature is not (KerML 8.3.4.8.4 validateFeatureChainExpressionConformance; pilot validateFeatureChainExpressionFeatureConformance).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 3,
+      "pilotErrors": 3
+    },
+    {
       "path": "semantic/k79-redefines-inherited-feature-from-nested-classifier.kerml",
       "source": "semantic",
       "rule": "a classifier nested in a type is not featured by it, so a feature of the nested classifier cannot access, and so cannot redefine, a feature the enclosing type inherits (KerML 8.3.3.3.10 validateSubsettingFeaturingTypes; pilot validateSubsettingFeaturingTypes).",
@@ -3396,8 +3405,8 @@
       }
     ],
     "totals": {
-      "cases": 350,
-      "bothReject": 340,
+      "cases": 351,
+      "bothReject": 341,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 10,
       "bothAccept": 0

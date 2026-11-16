@@ -68,3 +68,20 @@ func TestAnonymousParameterBuildsSymbol(t *testing.T) {
 		}
 	}
 }
+
+// `individual` and a portion kind together prefix a parameter as they do a member
+// (SysML.xtext PortionUsage), and the usage is the individual its prefix states.
+func TestIndividualPortionParameterBuildsSymbol(t *testing.T) {
+	scope := buildSysML(t, "action def A { in individual snapshot s : V; in individual timeslice : V; }")
+	act, ok := scope.LookupLocal("A")
+	if !ok {
+		t.Fatal("action def A not indexed")
+	}
+	if s, ok := act.Scope.LookupLocal("s"); !ok || s.Kind != SymbolIndividualUsage {
+		t.Errorf("s indexed = %v as %v, want an individual usage", ok, s.Kind)
+	}
+	anon := act.Scope.AnonymousMembers()
+	if len(anon) != 1 || anon[0].Kind != SymbolIndividualUsage {
+		t.Fatalf("anonymous members = %v, want one individual usage", anon)
+	}
+}
