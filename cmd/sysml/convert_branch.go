@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -135,15 +136,8 @@ func readBranch(ref flexo.BranchRef, to convert.Format) (int, error) {
 	if err != nil {
 		return failRepository(fmt.Errorf("read the repository: %w", err)), nil
 	}
-	out, err := convert.FromGraph(graph, to)
+	err = writeProduced(to, func(out io.Writer) error { return convert.FromGraphTo(out, graph, to, convert.Options{}) })
 	if err != nil {
-		return 0, err
-	}
-	if outputPath == "" {
-		if _, err := os.Stdout.Write(out); err != nil {
-			return 0, err
-		}
-	} else if err := writeConversion(outputPath, out, to); err != nil {
 		return 0, err
 	}
 	if statePath == "" {

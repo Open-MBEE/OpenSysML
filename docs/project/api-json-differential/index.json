@@ -1070,24 +1070,24 @@
       "pilotFailed": 0,
       "pilotLibraryElements": 40368,
       "elements": {
-        "matched": 107344,
-        "oursOnly": 19142,
-        "pilotOnly": 28488,
+        "matched": 107353,
+        "oursOnly": 19133,
+        "pilotOnly": 28479,
         "pilotOnlyImplied": 0,
-        "typeMismatch": 1838
+        "typeMismatch": 1836
       },
       "properties": {
-        "presentEqual": 2093993,
-        "presentDifferent": 147578,
-        "oursMissing": 301469,
-        "pilotMissing": 84347,
-        "absentBoth": 2282452,
+        "presentEqual": 2094208,
+        "presentDifferent": 147569,
+        "oursMissing": 301521,
+        "pilotMissing": 84354,
+        "absentBoth": 2282774,
         "indeterminate": 35820,
         "pilotNondeterministic": 546
       },
       "rows": 11785,
-      "unkeyedReferences": 163189,
-      "extensionProperties": 280517,
+      "unkeyedReferences": 163216,
+      "extensionProperties": 280556,
       "duplicateElements": {
         "ours": 556,
         "pilot": 89584
@@ -1115,14 +1115,14 @@
           "oursOnly": 938,
           "pilotOnly": 1841,
           "pilotOnlyImplied": 0,
-          "typeMismatch": 6
+          "typeMismatch": 4
         },
         "properties": {
-          "presentEqual": 165606,
+          "presentEqual": 165608,
           "presentDifferent": 12754,
-          "oursMissing": 19327,
-          "pilotMissing": 5841,
-          "absentBoth": 184408,
+          "oursMissing": 19325,
+          "pilotMissing": 5839,
+          "absentBoth": 184412,
           "indeterminate": 2894,
           "pilotNondeterministic": 64
         },
@@ -1147,18 +1147,18 @@
         "pilotFailed": 0,
         "pilotLibraryElements": 2447,
         "elements": {
-          "matched": 29429,
-          "oursOnly": 5845,
-          "pilotOnly": 6893,
+          "matched": 29438,
+          "oursOnly": 5836,
+          "pilotOnly": 6884,
           "pilotOnlyImplied": 0,
           "typeMismatch": 27
         },
         "properties": {
-          "presentEqual": 584829,
-          "presentDifferent": 44063,
-          "oursMissing": 79416,
-          "pilotMissing": 21839,
-          "absentBoth": 638353,
+          "presentEqual": 585042,
+          "presentDifferent": 44054,
+          "oursMissing": 79470,
+          "pilotMissing": 21848,
+          "absentBoth": 638671,
           "indeterminate": 8243,
           "pilotNondeterministic": 176
         },

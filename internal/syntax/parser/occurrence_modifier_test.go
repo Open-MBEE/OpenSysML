@@ -244,3 +244,31 @@ func TestParseDirectionParameterOccurrenceModifiers(t *testing.T) {
 		}
 	}
 }
+
+// A parameter's prefix states `individual` and a portion kind together, as a
+// member's does (SysML.xtext PortionUsage: `'individual'? portionKind = PortionKind`).
+func TestParseParameterIndividualPortion(t *testing.T) {
+	for _, tc := range []struct {
+		decl    string
+		portion ast.PortionKind
+		name    string
+	}{
+		{"in individual snapshot s : V;", ast.PortionSnapshot, "s"},
+		{"out individual timeslice ts : V;", ast.PortionTimeslice, "ts"},
+		{"in individual snapshot : V;", ast.PortionSnapshot, ""},
+		{"in ref individual snapshot r : V;", ast.PortionSnapshot, "r"},
+	} {
+		t.Run(tc.decl, func(t *testing.T) {
+			u := parseSingleBodyUsage(t, "action def A { "+tc.decl+" }")
+			if !u.IsIndividual || u.Portion != tc.portion || u.Kind != ast.UsageIndividual {
+				t.Errorf("individual = %v, portion = %v, kind = %v; want an individual usage of portion %v", u.IsIndividual, u.Portion, u.Kind, tc.portion)
+			}
+			if u.Ident.Name != tc.name {
+				t.Errorf("name = %q, want %q", u.Ident.Name, tc.name)
+			}
+			if len(u.Relationships) != 1 {
+				t.Errorf("relationships = %d, want the typing by V", len(u.Relationships))
+			}
+		})
+	}
+}

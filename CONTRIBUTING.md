@@ -400,6 +400,19 @@ pull request's or merge group's own cache is private to its ref, and one saved b
 holds a single tree's dependencies. A pull request that changes a `pom.xml` restores the newest
 earlier entry.
 
+The pinned pilot validator, which `scripts/download-pilot-validator.sh` builds with Maven from a
+clone outside those trees, has a cache of its own: `.github/actions/pilot-validator` restores
+`build/pilot-validator` and `~/.m2/repository` under `pilot-validator-<hash of the script and
+scripts/pilot-pin.sh>`, runs the script, and with `save: 'true'` saves the entry at once when the
+exact key was absent. `.github/workflows/pilot-validator-cache.yml` saves it on every push to
+`develop` and the nightly oracle reproduction on its schedule, because a pull request, a merge group
+and `rebaseline.yml` can restore only an entry saved on `develop` (or their own ref). A run whose
+pin moved restores the newest earlier entry by the `pilot-validator-` prefix; the script rebuilds
+the stale copy, but from the Maven repository that entry holds rather than from Maven Central.
+`rebaseline.yml` never saves, since it runs a pull request's scripts in `develop`'s cache scope.
+The script passes both retry property names on its command line, the clone having no
+`.mvn/maven.config`, and logs `mvn --version`: the `ubuntu-24.04` image ships Maven 3.10.
+
 Every job that needs Go takes it from `actions/setup-go` v6 with `go-version-file: go.mod`, which
 installs the release the `toolchain` line names and sets `GOTOOLCHAIN=local`. Do not set
 `GOTOOLCHAIN` in a workflow: the action then installs the `go` line's release instead, and a
