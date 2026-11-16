@@ -34,6 +34,8 @@ type CompactAPIJSONOptions struct {
 	Diagnostic          func(string)
 	IncludeLibraryStubs bool
 	LibraryReferences   func([]APIJSONLibraryReference)
+	// InheritedMembers is APIJSONOptions.InheritedMembers.
+	InheritedMembers bool
 }
 
 // WriteAPIJSONCompact writes the elements WriteAPIJSON writes in a form built
@@ -59,8 +61,8 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 	var libraryReferences []APIJSONLibraryReference
 	elements, err := apiJSONElementsWithOptions(graph, APIJSONOptions{
 		Omitted: opts.Omitted, Diagnostic: opts.Diagnostic,
-		IncludeLibraryStubs: opts.IncludeLibraryStubs,
-		LibraryReferences:   func(refs []APIJSONLibraryReference) { libraryReferences = refs },
+		IncludeLibraryStubs: opts.IncludeLibraryStubs, InheritedMembers: opts.InheritedMembers,
+		LibraryReferences: func(refs []APIJSONLibraryReference) { libraryReferences = refs },
 	})
 	if err != nil {
 		return nil, err

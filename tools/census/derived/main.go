@@ -254,8 +254,8 @@ func underDeclaredJVM(opts options, declared string) error {
 	return nil
 }
 
-// reusable refuses to re-record around a pilot column recorded under an undeclared JVM or over a
-// pin, bridge or input other than the checkout's; a column that is reused keeps its export's date.
+// reusable refuses to re-record around a pilot column recorded under an undeclared JVM, over a pin,
+// bridge or input other than the checkout's, or moved since its export; a reused column keeps its date.
 func reusable(recorded *Report, current baseline.Record) error {
 	if recorded == nil {
 		return nil
@@ -267,6 +267,10 @@ func reusable(recorded *Report, current baseline.Record) error {
 	if mismatches := baseline.Compare(recorded.Provenance, current); len(mismatches) > 0 {
 		return fmt.Errorf("the recorded pilot column was not exported from this checkout's inputs, so it cannot be reused:\n%s",
 			baseline.Explain(CommittedBaseline, refreshCommand, mismatches))
+	}
+	if digest := pilotRecordsDigest(recorded); digest != recorded.pilotRecords {
+		return fmt.Errorf("the recorded pilot column digests to %s and %s states pilotRecords %q: a merge or an edit moved the column, which only a re-export re-records (%s with the exporter provisioned)",
+			digest, CommittedBaseline, recorded.pilotRecords, refreshCommand)
 	}
 	return nil
 }
@@ -328,9 +332,14 @@ func readCommitted(path string) (*Report, error) {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
 	var report Report
+	var head headerView
 	if err := json.Unmarshal(content, &report); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
+	if err := json.Unmarshal(content, &head); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	report.pilotRecords = head.PilotRecords
 	records, err := os.ReadFile(recordsPath(path)) // #nosec G304 -- the committed records beside the baseline
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", recordsPath(path), err)

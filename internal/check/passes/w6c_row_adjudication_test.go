@@ -262,6 +262,8 @@ func TestW6CNotationNoPinnedProductionAdmitsIsWarned(t *testing.T) {
 		file string
 		src  string
 		code string
+		// rejected marks the notation reported as an error in the default mode.
+		rejected bool
 	}{
 		{
 			name: "binding of clause",
@@ -275,10 +277,11 @@ func TestW6CNotationNoPinnedProductionAdmitsIsWarned(t *testing.T) {
 			code: "",
 		},
 		{
-			name: "connector in sysml",
-			file: "w6c_connector.sysml",
-			src:  "package P { part def A; part a1 : A; part b1 : A; connector c from a1 to b1; }",
-			code: "kerml-notation",
+			name:     "connector in sysml",
+			file:     "w6c_connector.sysml",
+			src:      "package P { part def A; part a1 : A; part b1 : A; connector c from a1 to b1; }",
+			code:     "kerml-notation",
+			rejected: true,
 		},
 		{
 			name: "featured by in sysml",
@@ -296,22 +299,17 @@ func TestW6CNotationNoPinnedProductionAdmitsIsWarned(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got := w6cDiags(t, tc.file, tc.src)
-			for _, d := range got {
-				if d.Severity == diag.SeverityError {
-					t.Fatalf("got %+v, want no error for accepted notation", got)
-				}
-			}
-			if tc.code == "" {
-				return
-			}
 			found := false
 			for _, d := range got {
+				if (d.Severity == diag.SeverityError) != (tc.rejected && d.Code == tc.code) {
+					t.Fatalf("got %+v, want an error only where the notation is rejected", got)
+				}
 				if d.Code == tc.code {
 					found = true
 				}
 			}
-			if !found {
-				t.Fatalf("got %s, want a %s warning", w6cCodes(got), tc.code)
+			if tc.code != "" && !found {
+				t.Fatalf("got %s, want a %s finding", w6cCodes(got), tc.code)
 			}
 		})
 	}

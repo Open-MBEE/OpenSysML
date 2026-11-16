@@ -115,7 +115,7 @@ func Measure(ctx context.Context, c *Stack, fixture string, model, reference []b
 		return report, err
 	}
 
-	elements, err := export.WriteAPIJSON(graph)
+	elements, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		return report, fmt.Errorf("write the api element form: %w", err)
 	}

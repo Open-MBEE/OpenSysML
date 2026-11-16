@@ -5,8 +5,10 @@
 package convert
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -208,6 +210,9 @@ type Options struct {
 	IncludeLibraryStubs bool
 	// LibraryReferences receives the API JSON output's standard-library name table.
 	LibraryReferences func([]export.APIJSONLibraryReference)
+	// InheritedMembers has the API JSON output repeat each Namespace's and Type's inherited
+	// members (export.APIJSONOptions.InheritedMembers); off, it holds the owned structure.
+	InheritedMembers bool
 	// KeepLineBreaks keeps the input's line breaks on notation → notation (a
 	// save or echo); otherwise each statement of a body gets its own line.
 	KeepLineBreaks bool
@@ -235,25 +240,35 @@ type Input struct {
 // from one document to an element another declares links it, as within one
 // document. A document that does not parse fails the conversion.
 func ConvertModel(inputs []Input, to Format, opts Options) ([]byte, error) {
+	var out bytes.Buffer
+	if err := ConvertModelTo(&out, inputs, to, opts); err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
+}
+
+// ConvertModelTo is ConvertModel writing to out; the API's JSON element array is
+// written an element at a time rather than built whole.
+func ConvertModelTo(out io.Writer, inputs []Input, to Format, opts Options) error {
 	if to != FormatTurtle && to != FormatAPIJSON {
-		return nil, fmt.Errorf("a model of several documents converts to %s or %s, not %s", FormatTurtle, FormatAPIJSON, to)
+		return fmt.Errorf("a model of several documents converts to %s or %s, not %s", FormatTurtle, FormatAPIJSON, to)
 	}
+	var graph *rdf.Graph
 	if to == FormatTurtle || opts.WritesLibraryStubs() {
-		graph, err := ModelGraph(inputs, opts)
-		if err != nil {
-			return nil, err
+		var err error
+		if graph, err = ModelGraph(inputs, opts); err != nil {
+			return err
 		}
-		return FromGraphWith(graph, to, opts)
+	} else {
+		documents, err := modelDocuments(inputs)
+		if err != nil {
+			return err
+		}
+		if graph, err = export.ModelElementGraphWith(documents, opts.ID); err != nil {
+			return err
+		}
 	}
-	documents, err := modelDocuments(inputs)
-	if err != nil {
-		return nil, err
-	}
-	graph, err := export.ModelElementGraphWith(documents, opts.ID)
-	if err != nil {
-		return nil, err
-	}
-	return FromGraphWith(graph, to, opts)
+	return FromGraphTo(out, graph, to, opts)
 }
 
 // ModelGraph parses several documents as one model and returns its RDF graph,
@@ -440,32 +455,49 @@ func FromGraph(graph *rdf.Graph, to Format) ([]byte, error) {
 
 // FromGraphWith writes a graph in the to format with conversion options.
 func FromGraphWith(graph *rdf.Graph, to Format, opts Options) ([]byte, error) {
+	var out bytes.Buffer
+	if err := FromGraphTo(&out, graph, to, opts); err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
+}
+
+// FromGraphTo is FromGraphWith writing to out.
+func FromGraphTo(out io.Writer, graph *rdf.Graph, to Format, opts Options) error {
+	var data []byte
+	var err error
 	switch {
 	case to == FormatSysML:
-		return export.ToSysMLWarn(graph, opts.Warn)
+		data, err = export.ToSysMLWarn(graph, opts.Warn)
 	case to == FormatTurtle:
-		return rdf.WriteTurtle(graph), nil
-	case to == FormatAPIJSON:
-		if opts.Compact != nil {
-			compact := *opts.Compact
-			compact.IncludeLibraryStubs = compact.IncludeLibraryStubs || opts.IncludeLibraryStubs
-			if opts.LibraryReferences != nil {
-				inner := compact.LibraryReferences
-				compact.LibraryReferences = func(refs []export.APIJSONLibraryReference) {
-					if inner != nil {
-						inner(refs)
-					}
-					opts.LibraryReferences(refs)
+		data = rdf.WriteTurtle(graph)
+	case to == FormatAPIJSON && opts.Compact != nil:
+		compact := *opts.Compact
+		compact.IncludeLibraryStubs = compact.IncludeLibraryStubs || opts.IncludeLibraryStubs
+		compact.InheritedMembers = compact.InheritedMembers || opts.InheritedMembers
+		if opts.LibraryReferences != nil {
+			inner := compact.LibraryReferences
+			compact.LibraryReferences = func(refs []export.APIJSONLibraryReference) {
+				if inner != nil {
+					inner(refs)
 				}
+				opts.LibraryReferences(refs)
 			}
-			return export.WriteAPIJSONCompact(graph, compact)
 		}
-		return export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{
+		data, err = export.WriteAPIJSONCompact(graph, compact)
+	case to == FormatAPIJSON:
+		return export.WriteAPIJSONTo(out, graph, export.APIJSONOptions{
 			IncludeLibraryStubs: opts.IncludeLibraryStubs, LibraryReferences: opts.LibraryReferences,
+			InheritedMembers: opts.InheritedMembers,
 		})
 	default:
-		return nil, &NotWritableError{Format: to}
+		return &NotWritableError{Format: to}
 	}
+	if err != nil {
+		return err
+	}
+	_, err = out.Write(data)
+	return err
 }
 
 // readAPIJSON parses the API element form, reporting a malformed document as a
