@@ -89,6 +89,8 @@ pin_properties=("-Dsysml.release.tag=$PILOT_TAG" "-Dsysml.artifact.version=$PILO
 # Eight retries ride out a rate limit (HTTP 429) from Maven Central, as the trees' own
 # .mvn/maven.config asks: Maven 3.10 reads the transport name, 3.9 the connector name.
 backoff=(-Daether.transport.http.retryHandler.count=8 -Daether.connector.http.retryHandler.count=8)
+# The version in the log says which of the two names this build read.
+mvn --version
 echo "Downloading the pilot $PILOT_TAG ($PILOT_ARTIFACT_VERSION) release and building the validator ..."
 (cd "$work" &&
 	mvn -B -q "${backoff[@]}" "${pin_properties[@]}" -Psetup-dependency initialize &&

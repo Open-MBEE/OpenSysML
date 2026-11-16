@@ -127,7 +127,7 @@ func cEnumSeqRuntime(p *Program) string {
 		sfx := cSeqSuffix(EnumType(enum))
 		r := strings.NewReplacer("ELEMNAME", sfx, "ELEM", "sysml_enum", "SFX", sfx, "PRINT", "sysml_print_enum_value",
 			"FORMAT", "sysml_format_enum", "KINDOF", "SYSML_KIND_ENUM", "KEY", "(uint64_t)", "SKIP", "false && ",
-			"EQ", "SYSML_SCALAR_EQ", "SHOW", "sysml_show_enum", "SAVEELEMS", "SYSML_NO_ELEMS", "RESTOREELEMS", "SYSML_NO_ELEMS",
+			"EQ", "SYSML_SCALAR_EQ", "SHOW", "sysml_show_enum", "SAVEELEMS", "SYSML_NO_ELEMS", "RESTOREELEMS", "SYSML_NO_ELEMS", "KEEPELEMS", "SYSML_NO_ELEMS",
 			"KOPEN", `" ("`, "KCLOSE", `")"`)
 		b.WriteString(r.Replace(cSeqTemplate))
 	}

@@ -1,0 +1,24 @@
+SwimLanes::actionView - action rendering (view def ActionFlowView)
+
+action action0
+  performed by
+    performer part0
+    performer backup
+  swimlane part0.part1 (perform actions)
+    action action1
+  swimlane part0.part2 (perform actions)
+    action action2
+    action action3
+  action action4
+    performed by
+      performer part0.part1
+      performer backup.standby
+  initial start
+  final done
+
+flow:
+  action1 -> action2
+  action2 -> action3
+  action3 -> action4
+  action4 -> done
+  start -> action1

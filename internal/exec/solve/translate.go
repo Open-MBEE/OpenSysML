@@ -798,6 +798,9 @@ func (t *translator) condition(cond runtime.Condition) (*Term, error) {
 	if cond.Circular != nil {
 		return nil, t.refuse(nil, "require "+cond.Circular.Name, "it names the requirement being translated")
 	}
+	if cond.Bound != nil {
+		return nil, t.refuse(t.ctx.ExprEntry(cond.Bound.DefaultValueID), "bound subrequirement "+cond.Subrequirement.Name, "not covered: the solver does not encode the values a bound subrequirement's binding yields, which its container's check ranges over")
+	}
 	if cond.Subrequirement != nil {
 		// A subrequirement is its own check, its assumptions implying its required
 		// conditions (SysML v2 §7.21.2), as the evaluator reads it; true over none.
