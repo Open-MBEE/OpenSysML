@@ -14,6 +14,9 @@ type ResultExpression struct {
 	// Condition marks a constraint body's condition, one of the several a body
 	// may list; a calculation body's expression is a result on its own.
 	Condition bool
+	// Member is the body member stating the condition (ConstraintMember), the
+	// element the conversion identifies; nil for a bare expression member.
+	Member ast.Node
 }
 
 // ResultExpressionConflict is a second result expression membership of a
@@ -83,7 +86,7 @@ func OwnedResultExpressions(sym *symbols.Symbol) []ResultExpression {
 		}
 		expr := ResultExpression{Owner: sym, Node: member}
 		if c, ok := member.(*ast.ConstraintMember); ok {
-			expr.Node, expr.Condition = c.Expression, true
+			expr.Node, expr.Condition, expr.Member = c.Expression, true, c
 		}
 		out = append(out, expr)
 	}

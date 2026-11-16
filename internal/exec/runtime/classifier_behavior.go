@@ -854,6 +854,13 @@ type quiescence struct {
 	readsData bool
 }
 
+// heldWork is the memo a full behavior scan leaves when it finds some holding
+// work: those behaviors, read and never written, under the marks of quiescence.
+type heldWork struct {
+	quiescence
+	behaviors map[*ObjectBehavior]bool
+}
+
 // holds reports whether the memo still answers: taken, and nothing it depends
 // on moved since, the objects' data counting only where the scan read it.
 func (q quiescence) holds(ctx *Context) bool {
@@ -876,6 +883,12 @@ func (ctx *Context) holdDrivenWork() func() {
 	var held map[*ObjectBehavior]bool
 	if ctx.quiescent.holds(ctx) {
 		// Nothing woke a behavior since a full scan found them all idle.
+	} else if ctx.holding.holds(ctx) && !ctx.wokeMidCall(ctx.holding.behaviors) {
+		// Nothing woke a behavior since a full scan found these holding work.
+		held = ctx.holding.behaviors
+		if ctx.polling != nil && ctx.holding.readsData {
+			ctx.polling.readsData = true
+		}
 	} else if len(ctx.objectBehaviors) == 0 {
 		ctx.quiescent = quiescence{at: ctx.work, writes: ctx.writes}
 	} else {
@@ -896,8 +909,11 @@ func (ctx *Context) holdDrivenWork() func() {
 		if saved != nil && memo.readsData {
 			saved.readsData = true
 		}
+		scan := quiescence{at: ctx.work, writes: ctx.writes, readsData: memo.readsData}
 		if len(held) == 0 {
-			ctx.quiescent = quiescence{at: ctx.work, writes: ctx.writes, readsData: memo.readsData}
+			ctx.quiescent = scan
+		} else {
+			ctx.holding = heldWork{quiescence: scan, behaviors: held}
 		}
 	}
 	ctx.heldBehaviors = held
@@ -909,6 +925,35 @@ func (ctx *Context) holdDrivenWork() func() {
 		for _, behavior := range ctx.objectBehaviors[min(attached, len(ctx.objectBehaviors)):] {
 			behavior.settle()
 		}
+	}
+}
+
+// wokeMidCall reports a behavior mid-call that holds work and is not among kept:
+// its state moves between scans without a mark moving, so it is asked each time.
+func (ctx *Context) wokeMidCall(kept map[*ObjectBehavior]bool) bool {
+	if len(ctx.onStack) == 0 {
+		return false
+	}
+	saved := ctx.polling
+	ctx.polling = &pendingMemo{}
+	ctx.behaviorRunDepth++
+	woke := slices.ContainsFunc(ctx.objectBehaviors, func(b *ObjectBehavior) bool {
+		return !kept[b] && b.midCall() && b.hasPendingWork()
+	})
+	ctx.behaviorRunDepth--
+	ctx.polling = saved
+	return woke
+}
+
+// midCall reports whether a call into the behavior's executor is under way.
+func (b *ObjectBehavior) midCall() bool {
+	switch {
+	case b.State != nil:
+		return !b.State.driven.settled()
+	case b.Action != nil:
+		return !b.Action.driven.settled()
+	default:
+		return false
 	}
 }
 

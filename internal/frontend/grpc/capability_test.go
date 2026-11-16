@@ -453,11 +453,11 @@ func TestRenderDocumentFileNameIsWithheldWithoutItsCapability(t *testing.T) {
 }
 
 // The capability is the newest, appended after every one before it.
-func TestSymbolAnnotatingMetadataCapabilityIsTheNewest(t *testing.T) {
+func TestSymbolLookupKindCapabilityIsTheNewest(t *testing.T) {
 	all := Capabilities()
 	landed := []string{
 		CapabilityInlineDocumentQuery, CapabilitySymbolNameResolution, CapabilityRenderViewForm,
-		CapabilitySymbolAnnotatingMetadata,
+		CapabilitySymbolAnnotatingMetadata, CapabilitySymbolLookupKind,
 	}
 	if !slices.Equal(all[len(all)-len(landed):], landed) {
 		t.Errorf("capabilities %v do not end with %v, the newest in landing order", all, landed)
