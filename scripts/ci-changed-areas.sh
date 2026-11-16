@@ -22,7 +22,8 @@ changed=$(git diff --name-only "$(git merge-base "$base" "$head")" "$head")
 # grammars and the JupyterLab syntax table) are here too: the test that holds
 # them together is a Go test, run by the Go suite.
 service_pattern='^(api/proto/|cmd/|internal/|tools/|client/opensysml/|client/release-digests\.json$|conformance/|tests/|scripts/|examples/|editors/internal/|editors/vscode/tools/|editors/vscode/syntaxes/|editors/jupyterlab/src/syntax\.json$|editors/emacs/tools/|editors/emacs/sysml-mode-keywords\.el$|Makefile$|go\.mod$|go\.sum$|install\.sh$|install\.ps1$|action\.yml$|\.github/workflows/|\.github/dependabot\.yml$|\.circleci/|packaging/npm/)'
-docs_pattern='^(docs/|overrides/|packaging/man/|mkdocs\.yml$|README\.md$|CHANGELOG\.md$|CONTRIBUTING\.md$|AGENTS\.md$|.*\.md$)'
+# The CI coordination tools under ci/ build nothing; their offline test runs in the docs job with the other script tests.
+docs_pattern='^(docs/|overrides/|packaging/man/|ci/|mkdocs\.yml$|README\.md$|CHANGELOG\.md$|CONTRIBUTING\.md$|AGENTS\.md$|.*\.md$)'
 node_pattern='^client/node/'
 python_pattern='^client/python/'
 java_pattern='^client/java/'

@@ -17,7 +17,7 @@ package Test {
 				state lidle;
 
 				succession first ls then lidle;
-				transition first lidle if crossed == 0 then rtarget;
+				transition first lidle if crossed == 0 then right.wrapper.inner.rtarget;
 			}
 			state right {
 				entry; then rs;
@@ -45,6 +45,6 @@ package Test {
 		state done;
 
 		succession first start then running;
-		transition first rtarget if crossed == 1 then done;
+		transition first running.right.wrapper.inner.rtarget if crossed == 1 then done;
 	}
 }

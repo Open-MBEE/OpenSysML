@@ -57,7 +57,7 @@ func TestParallelStateMetadataPseudostateIsNotARegion(t *testing.T) {
 			state a;
 		}
 		choice pick;
-		transition first pick then a;
+		transition first pick then left.a;
 	}
 }`)
 	metadata := transitionDiags(t, `package test {
@@ -67,7 +67,7 @@ func TestParallelStateMetadataPseudostateIsNotARegion(t *testing.T) {
 			state a;
 		}
 		#choice state pick;
-		transition first pick then a;
+		transition first pick then left.a;
 	}
 }`)
 	if len(keyword) != len(metadata) {
@@ -96,7 +96,7 @@ func TestParallelStateTransitionBetweenRegionsWithMetadataPseudostate(t *testing
 			state b;
 		}
 		#choice state pick;
-		transition first pick then a;
+		transition first pick then left.a;
 		transition first left then right;
 	}
 }`, behavior.CodeParallelStateTransition, behavior.MsgParallelStateTransition)
@@ -139,7 +139,7 @@ func TestTransitionTargetInSiblingRegionIsLegal(t *testing.T) {
 				state i1;
 				state x;
 				succession first i1 then x;
-				transition first x then y;
+				transition first x then r2.y;
 			}
 			state r2 {
 				entry; then i2;
@@ -167,7 +167,7 @@ func TestTransitionTargetInSiblingRegionKeywordIsLegal(t *testing.T) {
 				state lidle;
 
 				succession first lstart then lidle;
-				transition first lidle then rtarget;
+				transition first lidle then right.rtarget;
 			}
 			state right {
 				entry; then rstart;
@@ -744,7 +744,7 @@ func TestTransitionOutOfAnotherStatesEntryActionIsNotAVertex(t *testing.T) {
 	state def M {
 		state a { entry action begin { } }
 		state b;
-		transition begin then b;
+		transition a.begin then b;
 	}
 }`, behavior.CodeEndpointNotOfMachine, "begin")
 }

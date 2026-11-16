@@ -59,8 +59,13 @@ func TestAPIJSONConvertRoutes(t *testing.T) {
 		t.Errorf("api-json and ttl read back different notation:\n%s\n---\n%s", fromJSON, fromTTL)
 	}
 
-	// api-json to ttl spells the same graph as the Turtle the model wrote.
-	asTTL, err := convert.Convert("p.json", document, convert.FormatAPIJSON, convert.FormatTurtle)
+	// With the inherited member lists, api-json to ttl spells the same graph as the Turtle the
+	// model wrote: they alone reference the library members a type inherits.
+	complete, err := convert.ConvertWith("p.sysml", text, convert.FormatSysML, convert.FormatAPIJSON, convert.Options{InheritedMembers: true})
+	if err != nil {
+		t.Fatalf("sysml to api-json with inherited members: %v", err)
+	}
+	asTTL, err := convert.Convert("p.json", complete, convert.FormatAPIJSON, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("api-json to ttl: %v", err)
 	}

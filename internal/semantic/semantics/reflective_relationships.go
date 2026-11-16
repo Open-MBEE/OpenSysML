@@ -81,6 +81,32 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 			out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelReferences, false, connectorEndAttachment(target)))
 		}
 	}
+	if target, stated := m.flowEndReference(owner); stated {
+		// A flow's end reference-subsets the feature before the last it names (SysML.xtext FlowEndMember).
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  owner.DocName,
+			DeclSpan: owner.DeclSpan,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Ordinal: ordinal, Kind: ast.RelReferences,
+				Form: symbols.ImplicitSuccessionEndReference, Member: target,
+			},
+		})
+		ordinal++
+	}
+	if _, ok := symbols.ImpliedFlowEndFeatureIndex(owner); ok {
+		// The ReferenceUsage a flow's end owns redefines the last feature the end names (FlowFeatureMember).
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  owner.DocName,
+			DeclSpan: owner.DeclSpan,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Ordinal: ordinal, Kind: ast.RelRedefines,
+				Form: symbols.ImplicitMetadataBodyRedefinition, Member: m.flowEndFeatureRedefinition(owner),
+			},
+		})
+		ordinal++
+	}
 	if target, stated := m.successionEndReference(owner); stated {
 		out = append(out, &symbols.Symbol{
 			Kind:     symbols.SymbolRelationship,
@@ -222,9 +248,6 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		}
 		return "FeatureTyping"
 	case ast.RelSubsets:
-		if isReferenceSubsetting(rel) {
-			return "ReferenceSubsetting"
-		}
 		return "Subsetting"
 	case ast.RelRedefines:
 		return "Redefinition"
@@ -467,6 +490,10 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 		// relationship that targets it (KerML 8.3.3.3.9).
 		if chain := m.chainTargetFeature(sym); chain != nil {
 			return []*symbols.Symbol{chain}, true
+		}
+		if sym.Implicit.Form == symbols.ImplicitSuccessionEndReference && tgt != nil && tgt.Chain != nil && tgt.Chain.Flow != nil {
+			// A flow's end owns the chain Feature it references through its ReferenceSubsetting.
+			return []*symbols.Symbol{tgt}, true
 		}
 		return empty, true
 	case "ownedElement", "ownedRelationship", "ownedAnnotation", "owningRelationship", "owningMembership",
@@ -758,31 +785,4 @@ func (m *Model) chainTargetChainings(chain *symbols.Symbol) []*symbols.Symbol {
 		})
 	}
 	return out
-}
-
-// isReferenceSubsetting reports whether rel is its owner's OwnedReferenceSubsetting — the
-// `satisfy r;` / `verify r;` form (SysML.xtext) — by the written clause or, for a record, its facts.
-func isReferenceSubsetting(rel *symbols.ImplicitRelationship) bool {
-	if rel.Owner == nil {
-		return false
-	}
-	if !rel.Owner.Recorded() {
-		return ast.IsReferenceSubsetting(rel.Owner.Decl, rel.Node)
-	}
-	facts := rel.Owner.Facts
-	if rel.Ordinal < 0 || rel.Ordinal >= len(facts.Relationships) {
-		return false
-	}
-	if facts.Relationships[rel.Ordinal].Kind.ReferenceSubsets() {
-		return true
-	}
-	// As ast.Usage.ReferenceSubsetting: a satisfy's first subsetting, unless it declares its requirement.
-	kind, isUsage := rel.Owner.UsageKind()
-	satisfies := isUsage && kind == ast.UsageSatisfy && facts.Modifiers&symbols.ModDeclaresRequirement == 0
-	for ordinal, rf := range facts.Relationships {
-		if rf.Kind.ReferenceSubsets() || (rf.Kind == ast.RelSubsets && satisfies) {
-			return ordinal == rel.Ordinal
-		}
-	}
-	return false
 }

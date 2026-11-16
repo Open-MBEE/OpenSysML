@@ -12,12 +12,12 @@ import (
 // A rendering names an element the way the notation declares it: several
 // spellings share one kind, and a KerML classifier takes no `def`.
 func TestRenderingsNameElementsAsWritten(t *testing.T) {
-	_, idx := loadFixture(t, "notation.sysml")
+	_, idx := loadFixtures(t, "notation.kerml", "notation.sysml")
 	want := map[string]string{
-		"Notation::M":           "metaclass",
-		"Notation::T":           "datatype",
-		"Notation::f":           "feature",
-		"Notation::C":           "class",
+		"KerMLNotation::M":      "metaclass",
+		"KerMLNotation::T":      "datatype",
+		"KerMLNotation::f":      "feature",
+		"KerMLNotation::C":      "class",
 		"Notation::BD":          "behavior def",
 		"Notation::Wheel":       "part def",
 		"Notation::my wheel":    "part",

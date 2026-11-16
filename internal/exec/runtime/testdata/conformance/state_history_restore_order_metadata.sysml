@@ -33,7 +33,7 @@ package Test {
 		state paused;
 
 		transition first work accept Pause then paused;
-		transition first paused accept Resume then resume;
+		transition first paused accept Resume then work.resume;
 	}
 	attribute def Go;
 	attribute def Pause;

@@ -80,6 +80,10 @@ function test_surface_live()
     assert_equal(numel(legacy.libraryReferences), numel(plain.libraryReferences), 'stubs keep the references');
     qualifiedIds = opensysml.convert(conn, 'api-json', 'content', 'package P { part def A; part a : A; }', ...
         'fromFormat', 'sysml');
+    inheritedIds = opensysml.convert(conn, 'api-json', 'content', 'package P { part def A; part a : A; }', ...
+        'fromFormat', 'sysml', 'inheritedMembers', true);
+    assert_equal(isempty(strfind(qualifiedIds.content, '"inheritedMembership"')), true, 'owned structure by default');
+    assert_equal(isempty(strfind(inheritedIds.content, '"inheritedMembership"')), false, 'inherited members on request');
     uuidIds = opensysml.convert(conn, 'api-json', 'content', 'package P { part def A; part a : A; }', ...
         'fromFormat', 'sysml', 'idForm', 'uuid');
     assert_equal(isempty(strfind(qualifiedIds.content, '"P__a"')), false, 'qualified ids by default');

@@ -645,10 +645,10 @@ func (r *Resolver) resolveRelationships(scope *symbols.Scope, decl ast.Node, rel
 				target = fr.Name
 			}
 
-			referencing := ast.IsReferenceSubsetting(decl, rel)
+			referencing := rel.Kind.ReferenceSubsets()
 			// Special case: redefinitions should resolve in inherited scope
 			// Self-subsetting must resolve in the declaration scope so cycle checks see `p4 :> p4`.
-			if rel.Kind == ast.RelRedefines || (rel.Kind == ast.RelSubsets && !referencing && !relationshipTargetsDecl(rel, decl)) {
+			if rel.Kind == ast.RelRedefines || (rel.Kind == ast.RelSubsets && !relationshipTargetsDecl(rel, decl)) {
 				if qn, ok := target.(*ast.QualifiedName); ok {
 					if rel.Kind == ast.RelSubsets && r.resolveOwnSibling(scope, qn, decl) {
 						continue

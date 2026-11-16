@@ -100,8 +100,8 @@ func TestLoadedKerMLDeclarationsAreSilent(t *testing.T) {
 }
 
 // The same text in a .sysml file, or typed at the prompt that reads as SysML,
-// draws one kerml-notation warning per declaration and no error.
-func TestKerMLDeclarationsWarnInSysMLAndAtThePrompt(t *testing.T) {
+// draws one kerml-notation error per declaration, which stops no later check.
+func TestKerMLDeclarationsAreErrorsInSysMLAndAtThePrompt(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "decl.sysml"), kermlDeclarationsSrc)
 
@@ -112,8 +112,13 @@ func TestKerMLDeclarationsWarnInSysMLAndAtThePrompt(t *testing.T) {
 	if got := countCode(s.Diagnostics(), passes.CodeKerMLNotation); got != 5 {
 		t.Fatalf("loaded .sysml: want 5 %s findings, got %d in %v", passes.CodeKerMLNotation, got, codesOf(s.Diagnostics()))
 	}
+	for _, d := range s.Diagnostics() {
+		if (d.Severity == diag.SeverityError) != (d.Code == passes.CodeKerMLNotation) {
+			t.Fatalf("loaded .sysml: want an error for the KerML notation alone, got %v", d)
+		}
+	}
 	if s.HasErrors() {
-		t.Fatalf("the notation stays parsed, so it must not error: %v", s.DiagnosticLines())
+		t.Fatalf("the notation stays parsed, so it must stop no later check: %v", s.DiagnosticLines())
 	}
 
 	prompt := NewSession()
@@ -122,8 +127,8 @@ func TestKerMLDeclarationsWarnInSysMLAndAtThePrompt(t *testing.T) {
 		t.Fatalf("prompt: want 5 %s findings, got %d in %v", passes.CodeKerMLNotation, got, codesOf(res.Diagnostics))
 	}
 	for _, d := range res.Diagnostics {
-		if d.Severity == diag.SeverityError {
-			t.Fatalf("the notation stays parsed, so it must not error: %v", d)
+		if (d.Severity == diag.SeverityError) != (d.Code == passes.CodeKerMLNotation) {
+			t.Fatalf("prompt: want an error for the KerML notation alone, got %v", d)
 		}
 	}
 }

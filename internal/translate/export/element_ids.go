@@ -131,6 +131,7 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 	ids.recordConnectorEnds(e, node, subject)
 	ids.recordFlowEndChains(e, node, subject)
 	ids.recordSuccessionEnds(e, node, subject)
+	ids.recordFlowEnds(e, node, subject)
 	ids.recordTransitionSuccession(e, node, subject)
 	ids.recordTransitionHead(e, node, subject)
 	ids.recordSatisfySubjects(e, node, subject)
@@ -358,6 +359,47 @@ func (ids *ElementIDs) recordSuccessionEnds(e *encoder, node ast.Node, subject r
 	}
 }
 
+// recordFlowEnds records the ids the conversion mints for a flow's two FlowEnds at end0/end1: the end and its
+// EndFeatureMembership, its ReferenceSubsetting (`.rs`), its ReferenceUsage (`.ff`) and that usage's Redefinition (`.ff.rd0`).
+func (ids *ElementIDs) recordFlowEnds(e *encoder, node ast.Node, subject rdf.Term) {
+	usage, ok := node.(*ast.Usage)
+	if !ok || !semantics.FlowMintsEnds(usage) {
+		return
+	}
+	targets := [2]ast.Node{usage.FlowEnds.From, usage.FlowEnds.To}
+	for i, target := range targets {
+		slot := fmt.Sprintf("end%d", i)
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+		ids.recordPart(e, node, slot, partIDs{element: rdf.LocalName(feature.Value), membership: rdf.LocalName(membership.Value)})
+		if len(flowEndSegmentsOf(ast.EndTarget(target))) > 1 {
+			ids.recordPart(e, node, slot+".rs", partIDs{element: e.referenceSubsettingID(feature)})
+		}
+		flowFeature := e.ids.mintedNode(rdf.ExpressionIRI(feature, "ff"), feature, "ff")
+		flowMembership := e.ids.minted(rdf.OwningMembershipIRIOf(flowFeature), flowFeature, rdf.OwningMembershipSuffix)
+		ids.recordPart(e, node, slot+".ff", partIDs{element: rdf.LocalName(flowFeature.Value), membership: rdf.LocalName(flowMembership.Value)})
+		redefinition := rdf.RelationshipIRI(flowFeature, relationshipSuffix(ast.RelRedefines, false, 1, 0))
+		ids.recordPart(e, node, slot+".ff.rd0", partIDs{element: rdf.LocalName(redefinition.Value)})
+	}
+}
+
+// recordPart files the ids of the part at slot of node, by node and by span.
+func (ids *ElementIDs) recordPart(e *encoder, node ast.Node, slot string, recorded partIDs) {
+	ids.partByNode[partKey{node, slot}] = recorded
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = recorded
+}
+
+// flowEndSegmentsOf is the names a flow end's target is written as, outermost first.
+func flowEndSegmentsOf(target ast.Node) []*ast.QualifiedName {
+	switch target := target.(type) {
+	case *ast.QualifiedName:
+		return []*ast.QualifiedName{target}
+	case *ast.FeatureChainExpr:
+		return featureChainSegments(target)
+	}
+	return nil
+}
+
 // successionTargetStated reports whether the target end of a `then` succession reference-subsets a
 // feature: the target it names, the library's done, or a member after it the conversion addresses.
 func (e *encoder) successionTargetStated(edge *ast.SuccessionEdge) bool {
@@ -500,13 +542,12 @@ func (e *encoder) writtenDependencyAnnotation(node, parent ast.Node, subject rdf
 // head's clauses (materializeRelationships), by the clause or by the target of an implicit one.
 func (e *encoder) writtenClauseRelationships(node, parent ast.Node, subject rdf.Term, parents map[ast.Node]ast.Node, out map[ast.Node]string) {
 	_, classifier := node.(*ast.Definition)
-	referenceForm := e.referenceFormOf(node)
 	clauses := e.writtenHeadClauses(node, parent, parents)
 	chains := chainTargets(clauses)
 	for _, kind := range materializedKinds {
 		objects, at := e.clauseObjects(subject, clauses, kind, chains)
 		for rel, i := range at {
-			suffix := relationshipSuffix(kind, classifier, referenceForm, len(objects), i)
+			suffix := relationshipSuffix(kind, classifier, len(objects), i)
 			key := ast.Node(rel)
 			if rel.Span().Len == 0 {
 				key = rel.Target
@@ -514,18 +555,6 @@ func (e *encoder) writtenClauseRelationships(node, parent ast.Node, subject rdf.
 			out[key] = rdf.LocalName(e.ids.minted(rdf.RelationshipIRI(subject, suffix), subject, suffix).Value)
 		}
 	}
-}
-
-// referenceFormOf reports whether a head's `subsets` are written as ReferenceSubsettings
-// (referenceSubsettingForm): a satisfy, an end-form binding or a verified requirement.
-func (e *encoder) referenceFormOf(node ast.Node) bool {
-	usage, ok := node.(*ast.Usage)
-	if !ok {
-		return false
-	}
-	form, _ := e.endFormOf(usage)
-	return usage.Kind == ast.UsageSatisfy || form != "" ||
-		(usage.IsVerifiedRequirement() && !usage.DeclaresRequirement)
 }
 
 // writtenHeadClauses are headClauses plus the objects a usage states without a clause (encode):

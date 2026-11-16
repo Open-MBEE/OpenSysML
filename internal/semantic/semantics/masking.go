@@ -121,6 +121,10 @@ func (m *Model) directRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	out = append(out, m.ImplicitParameterRedefinitions(sym)...)
 	out = append(out, m.implicitEndRedefinitions(sym)...)
 	out = append(out, m.ImplicitRoleRedefinitions(sym)...)
+	if target := m.flowEndFeatureRedefinition(sym); target != nil {
+		// The ReferenceUsage a flow's end owns is named by the feature it redefines (FlowFeatureMember).
+		out = append(out, target)
+	}
 	return append(out, m.implicitMetadataBodyRedefinitions(sym)...)
 }
 

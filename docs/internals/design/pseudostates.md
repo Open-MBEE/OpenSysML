@@ -92,8 +92,8 @@ state def Player {
     }
     state stopped;
 
-    transition first stopped when Resume then resume;
-    transition first resume then track;  // default history transition
+    transition first stopped when Resume then playing.resume;
+    transition first playing.resume then playing.track;  // default history transition
 }
 ```
 
@@ -307,10 +307,10 @@ state Machine {
 
     succession first init then idle;
     transition first idle then split;
-    transition first split then working;  // one branch per region
-    transition first split then watching;
-    transition first working then sync;
-    transition first watching then sync;
+    transition first split then running.left.working;  // one branch per region
+    transition first split then running.right.watching;
+    transition first running.left.working then sync;
+    transition first running.right.watching then sync;
     transition first sync then done;
 }
 ```
@@ -399,8 +399,8 @@ state def RegionChoice parallel {
 
     choice pick;
 
-    transition first pick if mode == 2 then lfast;  // stays in region left
-    transition first pick then lslow;  // else branch
+    transition first pick if mode == 2 then left.lfast;  // stays in region left
+    transition first pick then left.lslow;  // else branch
 }
 ```
 

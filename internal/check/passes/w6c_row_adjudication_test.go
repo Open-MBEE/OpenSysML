@@ -71,6 +71,40 @@ func TestW6CTransitionEndpointNameIsResolved(t *testing.T) {
 	}
 }
 
+// A bare name for a nested vertex is unresolved (KerML 8.2.3.5), as the pinned
+// validator has it (`Couldn't resolve reference to Feature 'idle'`); the chain is clean.
+func TestW6CTransitionEndpointNestedNameNeedsItsOwners(t *testing.T) {
+	const machine = `package P {
+	state def Machine {
+		entry; then init;
+		state init;
+		then %s;
+		state work parallel {
+			state left {
+				entry; then idle;
+				state idle;
+				state busy;
+			}
+			state right {
+				entry; then idle;
+				state idle;
+				state busy;
+				transition first idle then busy;
+			}
+		}
+		transition first %s then done;
+	}
+}`
+	if got := w6cDiags(t, "w6c_endpoint_chain.sysml", fmt.Sprintf(machine, "work.right.idle", "work.right.busy")); len(got) != 0 {
+		t.Fatalf("got %+v, want no diagnostics for the chained endpoints", got)
+	}
+	got := w6cDiags(t, "w6c_endpoint_bare.sysml", fmt.Sprintf(machine, "idle", "busy"))
+	if len(got) != 2 || got[0].Code != "unresolved" || got[1].Code != "unresolved" ||
+		!strings.Contains(got[0].Message, "idle") || !strings.Contains(got[1].Message, "busy") {
+		t.Fatalf("got %+v, want idle and busy each unresolved", got)
+	}
+}
+
 // Row ~950, the pinned validator resolves an accept name as a type and reports
 // `Couldn't resolve reference to Type 'sigX'`; the resolver does too.
 func TestW6CSignalTriggerNameIsResolved(t *testing.T) {
@@ -228,6 +262,8 @@ func TestW6CNotationNoPinnedProductionAdmitsIsWarned(t *testing.T) {
 		file string
 		src  string
 		code string
+		// rejected marks the notation reported as an error in the default mode.
+		rejected bool
 	}{
 		{
 			name: "binding of clause",
@@ -241,10 +277,11 @@ func TestW6CNotationNoPinnedProductionAdmitsIsWarned(t *testing.T) {
 			code: "",
 		},
 		{
-			name: "connector in sysml",
-			file: "w6c_connector.sysml",
-			src:  "package P { part def A; part a1 : A; part b1 : A; connector c from a1 to b1; }",
-			code: "kerml-notation",
+			name:     "connector in sysml",
+			file:     "w6c_connector.sysml",
+			src:      "package P { part def A; part a1 : A; part b1 : A; connector c from a1 to b1; }",
+			code:     "kerml-notation",
+			rejected: true,
 		},
 		{
 			name: "featured by in sysml",
@@ -262,22 +299,17 @@ func TestW6CNotationNoPinnedProductionAdmitsIsWarned(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got := w6cDiags(t, tc.file, tc.src)
-			for _, d := range got {
-				if d.Severity == diag.SeverityError {
-					t.Fatalf("got %+v, want no error for accepted notation", got)
-				}
-			}
-			if tc.code == "" {
-				return
-			}
 			found := false
 			for _, d := range got {
+				if (d.Severity == diag.SeverityError) != (tc.rejected && d.Code == tc.code) {
+					t.Fatalf("got %+v, want an error only where the notation is rejected", got)
+				}
 				if d.Code == tc.code {
 					found = true
 				}
 			}
-			if !found {
-				t.Fatalf("got %s, want a %s warning", w6cCodes(got), tc.code)
+			if tc.code != "" && !found {
+				t.Fatalf("got %s, want a %s finding", w6cCodes(got), tc.code)
 			}
 		})
 	}

@@ -1,0 +1,29 @@
+exit: init
+enter: work
+choice entering work: next lstart(entry), right.idle(entry) (unordered; took lstart(entry) first; independent)
+enter: lstart
+enter: idle (entry action)
+stmt action body
+  stmt assign log
+        eval literal 10 -> 10
+        eval feature log -> 0
+      eval operator * -> 0
+      eval literal 3 -> 3
+    eval operator + -> 3
+transition: init -> idle
+exit: idle
+enter: busy (entry action)
+stmt action body
+  stmt assign log
+        eval literal 10 -> 10
+        eval feature log -> 3
+      eval operator * -> 30
+      eval literal 4 -> 4
+    eval operator + -> 34
+transition: idle -> busy
+choice exiting work: next lstart(exit), right.busy(exit) (unordered; took lstart(exit) first; independent)
+exit: lstart
+exit: busy
+exit: work
+enter: finished
+transition: busy -> finished (event: accept Leave)

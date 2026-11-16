@@ -260,6 +260,12 @@ this JSON side file; the element array stays unchanged
 With \-convert api\-json, restore pre\-0.11.0 ownerless library stubs for
 legacy readers (default off)
 .TP
+.B \-inherited\-members
+With \-convert api\-json, also write on every Namespace and Type the derived
+lists that repeat its inherited and imported members (membership, member,
+inheritedMembership, featureMembership, feature, inheritedFeature); off, an
+element carries its owned structure (default off)
+.TP
 .B \-keep\-line\-breaks
 With \-convert sysml or kerml, keep the author's line breaks and fix
 indentation and spacing only, instead of laying statements out one per line

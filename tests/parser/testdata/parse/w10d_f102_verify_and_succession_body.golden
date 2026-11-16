@@ -18,7 +18,7 @@
           (Membership visibility="default"
             (Usage kind="objective" name="massObjective" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
               (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="verify"
-                (Relationship kind="subsets" target=vehicleSpecification.vehicleMassRequirement
+                (Relationship kind="references" target=vehicleSpecification.vehicleMassRequirement
                   (*ast.QualifiedName))
                 (Documentation locale=""))))))
       (Membership visibility="default"

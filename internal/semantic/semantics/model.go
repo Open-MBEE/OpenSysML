@@ -67,6 +67,10 @@ type Model struct {
 	defaultMultiplicities map[*symbols.Symbol]*symbols.Symbol
 	// successionEnds memoizes the end features each `then` succession implies (SuccessionEndMembers).
 	successionEnds map[*symbols.Symbol][]*symbols.Symbol
+	// flowEnds memoizes the two FlowEnds each flow implies (FlowEndMembers); flowEndFeatures the
+	// ReferenceUsage each of those ends owns (FlowEndFeatureMember).
+	flowEnds        map[*symbols.Symbol][]*symbols.Symbol
+	flowEndFeatures map[*symbols.Symbol]*symbols.Symbol
 	// declaredMultiplicities caches, per usage, the MultiplicityRange its written range
 	// declares (DeclaredMultiplicityMember).
 	declaredMultiplicities map[*symbols.Symbol]*symbols.Symbol
@@ -231,6 +235,8 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		flowEndChains:          make(map[flowEndKey]*symbols.Symbol),
 		defaultMultiplicities:  make(map[*symbols.Symbol]*symbols.Symbol),
 		successionEnds:         make(map[*symbols.Symbol][]*symbols.Symbol),
+		flowEnds:               make(map[*symbols.Symbol][]*symbols.Symbol),
+		flowEndFeatures:        make(map[*symbols.Symbol]*symbols.Symbol),
 		declaredMultiplicities: make(map[*symbols.Symbol]*symbols.Symbol),
 		multiplicityBase:       make(map[*symbols.Symbol]*symbols.Symbol),
 		subtracting:            make(map[*symbols.Symbol]bool),
@@ -310,6 +316,20 @@ func GeneralizationKind(k ast.RelationshipKind) bool {
 	default:
 		return false
 	}
+}
+
+// UsageGeneralization is GeneralizationKind for a relationship a usage of the given kind owns:
+// the ReferenceSubsetting of a satisfy or verify is the edge to the requirement it names.
+func UsageGeneralization(kind ast.UsageKind, k ast.RelationshipKind) bool {
+	return GeneralizationKind(k) || (k == ast.RelReferences && kind.ReferenceSubsettingSpecializes())
+}
+
+// Generalizes reports whether a relationship of kind k that sym owns is a conformance edge.
+func Generalizes(sym *symbols.Symbol, k ast.RelationshipKind) bool {
+	if kind, ok := sym.UsageKind(); ok {
+		return UsageGeneralization(kind, k)
+	}
+	return GeneralizationKind(k)
 }
 
 // RelationshipsOf returns the declared relationships of a symbol's def/usage
@@ -430,7 +450,7 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
 	for _, rel := range RelationshipsOf(sym) {
-		if rel == nil || rel.Target == nil || !GeneralizationKind(rel.Kind) {
+		if rel == nil || rel.Target == nil || !Generalizes(sym, rel.Kind) {
 			continue
 		}
 		target := m.GeneralizationTargetOf(sym, rel)
@@ -510,6 +530,13 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	if p := m.implicitEndParticipant(sym, len(ends) > 0 || declaresRedefinition(sym)); p != nil && p != sym && !seen[p] {
 		seen[p] = true
 		out = append(out, p)
+	}
+
+	// The ReferenceUsage a flow's end owns redefines the feature the end names last, and so
+	// takes that feature's type (see flow_ends.go).
+	if redefined := m.flowEndFeatureRedefinition(sym); redefined != nil && redefined != sym && !seen[redefined] {
+		seen[redefined] = true
+		out = append(out, redefined)
 	}
 
 	// The cross feature an end owns is implicitly typed by the end's types and
