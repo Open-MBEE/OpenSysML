@@ -1419,10 +1419,10 @@ func TestFiredTransitionsLogsCompoundAndForkSegments(t *testing.T) {
 			transition first route then low;
 			transition first low then split;
 			transition first high then split;
-			transition first split then building;
-			transition first split then checking;
-			transition first building then sync;
-			transition first checking then sync;
+			transition first split then working.left.building;
+			transition first split then working.right.checking;
+			transition first working.left.building then sync;
+			transition first working.right.checking then sync;
 			transition first sync then done;
 		}
 	}`
@@ -1500,7 +1500,7 @@ func TestFiredTransitionsLogsDefaultHistoryRoute(t *testing.T) {
 					transition first previous then idle;
 					transition first idle accept work then busy;
 				}
-				transition first init accept go then previous;
+				transition first init accept go then running.previous;
 			}
 		}`, []string{"->init", "init->previous", "previous->idle"}, false},
 		{"choice", `package test {
@@ -1517,7 +1517,7 @@ func TestFiredTransitionsLogsDefaultHistoryRoute(t *testing.T) {
 					transition first route if priority > 5 then busy;
 					transition first route then idle;
 				}
-				transition first init accept go then previous;
+				transition first init accept go then running.previous;
 			}
 		}`, []string{"->init", "init->previous", "previous->route", "route->idle"}, false},
 		{"terminate", `package test {
@@ -1531,7 +1531,7 @@ func TestFiredTransitionsLogsDefaultHistoryRoute(t *testing.T) {
 					transition first previous then stop;
 					transition first idle accept work then stop;
 				}
-				transition first init accept go then previous;
+				transition first init accept go then running.previous;
 			}
 		}`, []string{"->init", "init->previous", "previous->stop"}, true},
 	} {
@@ -1578,8 +1578,8 @@ func TestFiredTransitionsOmitsAFailedFiring(t *testing.T) {
 				}
 				fork split;
 				transition first init accept go do assign counter := missingName + 1 then split;
-				transition first split then building;
-				transition first split then checking;
+				transition first split then working.left.building;
+				transition first split then working.right.checking;
 			}
 		}`},
 		{"compound", `package test {

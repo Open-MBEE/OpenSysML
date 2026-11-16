@@ -22,8 +22,8 @@ package Test {
         }
 
         transition first start when Go then outer;
-        transition first inner when Again do { assign log := log + "again(effect);"; } then resume;
-        transition first inner when Shallow do { assign log := log + "shallow(effect);"; } then back;
-        transition first inner when Finish then done;
+        transition first outer.inner when Again do { assign log := log + "again(effect);"; } then resume;
+        transition first outer.inner when Shallow do { assign log := log + "shallow(effect);"; } then back;
+        transition first outer.inner when Finish then done;
     }
 }

@@ -200,15 +200,19 @@ transition's ends, which `TransitionUsage` (`:1851-1880`) writes with `first` an
 errors now, and `initial`, which neither grammar reserves, stays an ordinary
 name.
 
-### KerML-only notation in a `.sysml` file — warning `kerml-notation`
+### KerML-only notation in a `.sysml` file — `kerml-notation`
 
 `namespace` is a literal in `KerML.xtext` only (`:125`); `SysML.xtext` does not have
 it. A `.sysml` file's root is `RootNamespace : PackageBodyElement*`
 (`SysML.xtext:38`), which allows package members, element filters, aliases and
 imports, but not a `namespace` declaration. Both spellings, `namespace N;` and
 `namespace N { … }`, are legal KerML, so the semicolon form is not the problem;
-the problem is using the production in a SysML file at all. It is still parsed,
-with a warning in `.sysml` and silently in `.kerml`.
+the problem is using the production in a SysML file at all. SysML does not reserve
+the word either (SysML 8.2.2.1.2), and its root and package bodies list no namespace
+declaration (8.2.2.5.1, 8.2.2.5.2), so the declaration is an error in a `.sysml` file
+in every mode, as it is in the pilot (`no viable alternative at input 'N'`), and
+silent in `.kerml`. It is still parsed, and the error describes the writing, so the
+members of the namespace are resolved and checked as before.
 
 The same holds for every declaration keyword `KerML.xtext` spells and `SysML.xtext`
 does not. `source.IsKeywordIn` reads both pinned keyword sets, so a word that is a
@@ -288,9 +292,12 @@ in a `.sysml` file, the same treatment `namespace` gets.
 `':' | 'defined' 'by'`; `SysML.xtext` has no `typed` literal at all, and the
 pinned pilot answers `part p typed by P;` in a `.sysml` file with
 `no viable alternative at input 'typed'`. The parser reads the three spellings
-alike and records the KerML one on the typing, and the pass warns it as
-`kerml-notation` in a `.sysml` file with a fix that writes `defined by`;
-`.kerml` files are silent. A metadata usage's typing (`@ m typed by Tag;`,
+alike and records the KerML one on the typing, and the pass rejects it as
+`typing-keyword` in a `.sysml` file, an error with or without `-strict`, with a
+fix that writes `defined by`; `.kerml` files are silent. Unlike `namespace` or
+`featured by`, the construct is one SysML has, so the SysML specification itself
+names its spelling (§8.2.2.1.2 `DEFINED_BY`, §8.2.2.6.5 `TypedBy`) and no
+leniency is owed a second one. A metadata usage's typing (`@ m typed by Tag;`,
 `SysML.xtext:150` `DefinedByKeyword`) is the same case.
 
 ## Judgment calls

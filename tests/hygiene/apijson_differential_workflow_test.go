@@ -10,7 +10,7 @@ import (
 // The api-json baseline records no digest of our writer, so pr.yml's apijson-differential job is what
 // keeps it true; these tests hold the workflow and the changed-areas selector to that.
 
-const apijsonCheck = "go run -C tools ./cmd/pilot-apijson-diff -check"
+const apijsonCheck = "go run -C tools ./cmd/pilot-apijson-diff -check -pilot-record build/pilot-apijson-record"
 
 func TestPRWorkflowRerunsTheDerivedPropertyDifferential(t *testing.T) {
 	workflow, _ := loadPRWorkflow(t)
