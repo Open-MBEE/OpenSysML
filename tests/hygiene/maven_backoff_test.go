@@ -109,7 +109,10 @@ func TestCIRunsMavenOnlyInATreeThatRetries(t *testing.T) {
 	}
 }
 
-const mavenCacheAction = "./.github/actions/maven-cache"
+const (
+	mavenCacheAction = "./.github/actions/maven-cache"
+	mavenCacheKey    = "maven-deps-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}"
+)
 
 // mavenWorkflow reads the steps of any workflow, whatever the shape of its other keys.
 type mavenWorkflow struct {
@@ -151,7 +154,7 @@ func TestMavenCacheIsSavedOnDevelopAlone(t *testing.T) {
 	}
 
 	_, action := loadCompositeAction(t, "../../.github/actions/maven-cache/action.yml")
-	if strings.Count(action, "key: maven-deps-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}") != 2 {
+	if strings.Count(action, "key: "+mavenCacheKey+"\n") != 2 {
 		t.Error("the maven-cache action's restore and save steps must share one key over every pom.xml")
 	}
 
@@ -184,6 +187,13 @@ func TestMavenCacheIsSavedOnDevelopAlone(t *testing.T) {
 					restored = true
 					if _, saves := step.With["save"]; saves {
 						t.Errorf("%s job %s passes save to %s: only maven-cache.yml saves the entry", name, id, mavenCacheAction)
+					}
+				}
+				// nightly.yml builds a commit that may predate the action, so it restores by the key itself.
+				if key, _ := step.With["key"].(string); strings.HasPrefix(key, "maven-deps-") {
+					restored = true
+					if !strings.HasPrefix(step.Uses, "actions/cache/restore@") || key != mavenCacheKey || step.With["path"] != "~/.m2/repository" {
+						t.Errorf("%s job %s step %q must only restore ~/.m2/repository under %s", name, id, step.Name, mavenCacheKey)
 					}
 				}
 				if mavenFile.MatchString(step.Run) || strings.Contains(step.Run, "make audit-java") {

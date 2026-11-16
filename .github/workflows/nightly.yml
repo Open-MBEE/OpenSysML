@@ -160,8 +160,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # Not .github/actions/maven-cache: the commit a night checks out may predate it.
       - name: Restore the Maven dependency cache
-        uses: ./.github/actions/maven-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.m2/repository
+          key: maven-deps-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: maven-deps-${{ runner.os }}-
 
       # The editors depend on the Java client at the tree's version, which only a local install provides before its release.
       - name: Install the Java client the editors build against
@@ -637,8 +642,14 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # Not .github/actions/maven-cache: the commit a night checks out may predate it.
       - name: Restore the Maven dependency cache
-        uses: ./.github/actions/maven-cache
+        if: steps.layout.outputs.cameo == 'true' || steps.layout.outputs.syson == 'true'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.m2/repository
+          key: maven-deps-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: maven-deps-${{ runner.os }}-
 
       - name: Install the Java client the Cameo plugin builds against
         if: steps.layout.outputs.cameo == 'true'
@@ -693,9 +704,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-
-      - name: Restore the Maven dependency cache
-        uses: ./.github/actions/maven-cache
 
       - name: Install the Java client the SysON backend builds against
         if: steps.layout.outputs.syson == 'true'

@@ -382,7 +382,8 @@ Maven 3.10 (the Apache transport) only `aether.transport.http.retryHandler.count
 `-f <tree>/pom.xml` so the file applies. `.github/workflows/maven-cache.yml` resolves the three
 trees on every push to `develop` that changes a `pom.xml`, and daily, and saves `~/.m2/repository`
 keyed on the hash of every `pom.xml`. A job that runs Maven restores that entry with
-`.github/actions/maven-cache` after `actions/setup-java`, and does not set `cache: maven` there: a
+`.github/actions/maven-cache` after `actions/setup-java` (`nightly.yml`, which builds a commit that
+may predate the action, by the same key), and does not set `cache: maven` there: a
 pull request's or merge group's own cache is private to its ref, and one saved by a single job
 holds a single tree's dependencies. A pull request that changes a `pom.xml` restores the newest
 earlier entry.
