@@ -27,18 +27,21 @@ func scaToolsTree(t *testing.T) string {
 	if runtime.GOOS == "windows" {
 		t.Skip("the script needs bash")
 	}
-	script, err := os.ReadFile(filepath.Join("..", "..", "scripts", "download-sca-tools.sh"))
-	if err != nil {
-		t.Fatal(err)
-	}
 	root := t.TempDir()
 	for _, dir := range []string{"scripts", filepath.Join("build", "sca", "bin")} {
 		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := os.WriteFile(filepath.Join(root, "scripts", "download-sca-tools.sh"), script, 0o755); err != nil { // #nosec G306 -- the script under test
-		t.Fatal(err)
+	// The script and the fetch helper it calls, as the repository lays them out.
+	for _, name := range []string{"download-sca-tools.sh", "fetch-https.sh"} {
+		script, err := os.ReadFile(filepath.Join("..", "..", "scripts", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(root, "scripts", name), script, 0o755); err != nil { // #nosec G306 -- the script under test
+			t.Fatal(err)
+		}
 	}
 	return root
 }

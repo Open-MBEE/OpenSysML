@@ -8,7 +8,6 @@
 # pip-audit); with no arguments all three are provisioned.
 # Needs: curl, tar, sha256sum, and python3 with venv for pip-audit.
 set -euo pipefail
-HTTPS_ONLY="=https"
 
 CARGO_AUDIT_VERSION="0.22.2"
 CARGO_AUDIT_SHA256_LINUX_X86_64="7fb9497f8594b389e5fce5ef9b92db08432996895b2e0c5a0167a69ed445c428"
@@ -40,7 +39,7 @@ esac
 
 fetch() { # fetch <url> <sha256> <out>
 	local url="$1" sha256="$2" out="$3"
-	curl -fsSL --proto "$HTTPS_ONLY" --proto-redir "$HTTPS_ONLY" -o "$out" "$url"
+	"$root/scripts/fetch-https.sh" "$url" "$out"
 	echo "$sha256  $out" | sha256sum --check --strict --quiet
 }
 

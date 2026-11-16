@@ -116,15 +116,8 @@ runs:
     # The fUML reference implementation's models and jar, checksummed; keyed
     # on its download script and pin. Never run in CI: the Go tests read the
     # committed expected-record (docs/project/fuml-referee.md).
-    - name: Cache the fUML reference-implementation suite
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-      with:
-        path: build/fuml
-        key: fuml-suite-${{ hashFiles('scripts/download-fuml-suite.sh', 'scripts/fuml-pin.sh') }}
-
-    - name: Download the fUML reference-implementation suite
-      shell: bash
-      run: ./scripts/download-fuml-suite.sh
+    - name: Provision the fUML reference-implementation suite
+      uses: ./.github/actions/fuml-suite
 
     # The pilot's XMI of the standard library, one subtree of the release
     # repository; keyed on its download script and the shared pilot pin.

@@ -207,12 +207,15 @@ it. A `.sysml` file's root is `RootNamespace : PackageBodyElement*`
 (`SysML.xtext:38`), which allows package members, element filters, aliases and
 imports, but not a `namespace` declaration. Both spellings, `namespace N;` and
 `namespace N { … }`, are legal KerML, so the semicolon form is not the problem;
-the problem is using the production in a SysML file at all. It is still parsed,
-with a warning in `.sysml` and silently in `.kerml`.
+the problem is using the production in a SysML file at all. SysML does not reserve
+the word either (SysML 8.2.2.1.2), and its root and package bodies list no namespace
+declaration (8.2.2.5.1, 8.2.2.5.2), so the declaration is an error in a `.sysml` file
+in every mode, as it is in the pilot (`no viable alternative at input 'N'`), and
+silent in `.kerml`. It is still parsed, and the error describes the writing, so the
+members of the namespace are resolved and checked as before.
 
 The same holds for every declaration keyword `KerML.xtext` spells and `SysML.xtext`
-does not, except that such a declaration is an error in either mode rather than a
-warning: SysML v2 §8.2.2.1.2 gives SysML the lexical structure of KerML with its own
+does not: such a declaration is an error in either mode. SysML v2 §8.2.2.1.2 gives SysML the lexical structure of KerML with its own
 reserved keywords, none of these among them, and no production of `SysML.xtext` starts
 with one. The declaration is still parsed, so the editor and later checks keep working. `source.IsKeywordIn` reads both pinned keyword sets, so a word that is a
 KerML keyword and not a SysML one is reported on its declaration — `connector`
@@ -239,7 +242,7 @@ and the other prefixes. The message names the SysML spelling where there is one:
 The parser keeps accepting the keywords whatever the file kind where a named
 declaration follows them — a name, a short name, prefix metadata or a further
 declaration keyword (`step s;`, `step <s>;`, `step #M s;`, `feature redefines x`) —
-so the finding is the notation pass's (warning by default, error under `-strict`),
+so the finding is the notation pass's (an error in either mode),
 the members of a reported declaration are not reported again, and there is no
 `-fix`: swapping the keyword changes what kind of element is declared. The pinned
 pilot rejects each of these in a `.sysml` file (`no viable alternative at input …`,

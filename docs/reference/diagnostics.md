@@ -321,7 +321,7 @@ Specification: SysML v2 §8.2.2.4 ImportPrefix
 
 **error** · Syntax · KerML notation in a SysML file
 
-A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) or a KerML spelling (`typed by` for a typing, which SysML spells `:` or `defined by`) that the SysML v2 grammar does not admit. Move the declaration to a `.kerml` file, or write the SysML form the message names. A declaration keyword only KerML spells (`class`, `feature`, `connector` …) is an error; the other forms are warnings that `-strict` promotes to errors.
+A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) or a KerML spelling (`typed by` for a typing, which SysML spells `:` or `defined by`) that the SysML v2 grammar does not admit. Move the declaration to a `.kerml` file, or write the SysML form the message names. A `namespace` declaration and a declaration keyword only KerML spells (`class`, `feature`, `connector` …) are errors in either mode; `-strict` promotes the other findings to errors.
 
 Specification: the pinned SysML v2 Xtext grammar
 
