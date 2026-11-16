@@ -69,20 +69,6 @@ func TestExtensionInventoryIsAnErrorUnderStrictMode(t *testing.T) {
 	}
 }
 
-// KerML notation in a SysML file is non-conforming SysML too, so strict mode
-// errors on it and a KerML file stays silent in either mode.
-func TestKerMLNotationFollowsTheMode(t *testing.T) {
-	const src = "package P { namespace N; }"
-	for _, d := range notationDiags(t, "a.sysml", src, diag.ConformanceStrict) {
-		if d.Severity != diag.SeverityError || d.Code != CodeKerMLNotation {
-			t.Errorf("strict: got %+v, want a kerml-notation error", d)
-		}
-	}
-	if got := notationDiags(t, "a.kerml", src, diag.ConformanceStrict); len(got) != 0 {
-		t.Errorf("a KerML file uses KerML notation: got %+v, want silence", got)
-	}
-}
-
 // A typing spelled `typed by` in a SysML file follows the mode too: a warning
 // by default, an error under strict conformance, silence in a KerML file.
 func TestTypedByFollowsTheMode(t *testing.T) {
@@ -223,9 +209,8 @@ func TestKeywordAsNameLeavesTheNamesTheGrammarAdmits(t *testing.T) {
 	}
 }
 
-// A KerML-only declaration keyword in a SysML file follows the mode the way
-// `namespace` does: a warning by default, an error under strict conformance,
-// and silence in a KerML file either way.
+// A KerML-only declaration keyword in a SysML file follows the mode: a warning by
+// default, an error under strict conformance, and silence in a KerML file either way.
 func TestKerMLDeclarationFollowsTheMode(t *testing.T) {
 	for _, tc := range kermlDeclarationInventory {
 		strict := notationDiags(t, "a.sysml", tc.src, diag.ConformanceStrict)
