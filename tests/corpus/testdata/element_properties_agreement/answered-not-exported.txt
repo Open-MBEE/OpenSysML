@@ -589,7 +589,7 @@ OccurrenceUsage::nestedFlow	2	symbol-45
 OccurrenceUsage::occurrenceDefinition	44	symbol-41
 OccurrenceUsage::type	39	symbol-19
 OperatorExpression::input	16	symbol-51
-OperatorExpression::operand	925	symbol-30
+OperatorExpression::operand	926	symbol-30
 OwningMembership::ownedMemberFeature	44	symbol-16
 OwningMembership::owningType	44	symbol-45
 ParameterMembership::memberName	14	symbol-72
@@ -839,9 +839,8 @@ SuccessionAsUsage::owningFeatureMembership	1	symbol-45
 SuccessionAsUsage::owningType	1	symbol-45
 SuccessionAsUsage::relatedElement	129	symbol-10
 SuccessionAsUsage::relatedFeature	129	symbol-21
-SuccessionAsUsage::source	53	symbol-11
+SuccessionAsUsage::source	12	symbol-11
 SuccessionAsUsage::sourceFeature	8	symbol-22
-SuccessionAsUsage::target	9	symbol-12
 SuccessionAsUsage::type	357	symbol-19
 SuccessionAsUsage::usage	4	symbol-58
 SuccessionFlowUsage::actionDefinition	4	symbol-35

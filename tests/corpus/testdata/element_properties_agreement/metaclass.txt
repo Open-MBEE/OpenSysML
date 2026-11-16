@@ -21,7 +21,6 @@ OwningMembership::@type	44	symbol-46
 ParameterMembership::@type	14	symbol-72
 PerformActionUsage::@type	47	export-26
 PredicateUsage::@type	5	symbol-44
-ReferenceSubsetting::@type	9	export-19
 ReferenceUsage::@type	174	symbol-44
 Specialization::@type	17	export-58
 StructureUsage::@type	31	symbol-44
