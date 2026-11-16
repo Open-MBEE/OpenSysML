@@ -82,7 +82,7 @@ jobs:
       # Each entry is some 3 GB and only the newest is restored; three fill the 10 GB the
       # repository may keep, and GitHub then evicts the other caches saved on develop.
       - name: Delete the WebAssembly build caches this one supersedes
-        if: steps.save.outcome == 'success'
+        if: always() && steps.save.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           SAVED: wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
