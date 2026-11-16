@@ -7,11 +7,12 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
-// Members inherited from a document held as a record keep their directions, reversed through
-// a conjugated typing, as those of a parsed document do.
+// Members of a document held as a record keep their directions, reversed through a conjugated
+// typing, and their multiplicities, as those of a parsed document do.
 func TestMemberSummaryReadsRecordedDirections(t *testing.T) {
 	base := Input{Name: "base.sysml", Version: 1, Content: []byte(
-		"package Hull { port def PD { in attribute a; out attribute b; inout attribute c; attribute d; } }")}
+		"package Hull { port def PD { in attribute a; out attribute b; inout attribute c; attribute d; }\n" +
+			"requirement def Need { subject s : PD[2]; assume constraint ac[0..1] { true } require constraint rc[1..*] { true } part q[3]; } }")}
 	user := func(extra string) Input {
 		return Input{Name: "user.sysml", Version: 1, Content: []byte(
 			"package Craft { port def Sub :> Hull::PD; part def Sat { port p : ~Hull::PD; } }" + extra)}
@@ -53,6 +54,15 @@ func TestMemberSummaryReadsRecordedDirections(t *testing.T) {
 		}
 		if got := summary(warm, fqn); !reflect.DeepEqual(got, want) {
 			t.Errorf("recorded: %s inherits %q, want %q", fqn, got, want)
+		}
+	}
+	for _, ws := range []*Workspace{cold, warm} {
+		var got []string
+		for _, member := range ws.MemberSummaryOf(ws.LookupQualified("Hull::Need")[0], false) {
+			got = append(got, member.Name+member.Multiplicity)
+		}
+		if want := []string{"s[2]", "ac[0..1]", "rc[1..*]", "q[3]"}; !reflect.DeepEqual(got, want) {
+			t.Errorf("recorded %v: Hull::Need lists %q, want %q", ws == warm, got, want)
 		}
 	}
 	if !warm.Recorded("base.sysml") {

@@ -76,7 +76,7 @@ func summarized(sym *symbols.Symbol) bool {
 func declaredMultiplicityText(sym *symbols.Symbol) string {
 	if sym.Recorded() {
 		facts := sym.Facts.Multiplicity
-		if facts == nil || !sym.DeclaresUsage() {
+		if facts == nil || sym.Kind.IsDefinition() || sym.Kind == symbols.SymbolMultiplicity {
 			return ""
 		}
 		lower, upper := boundFactsText(facts.Lower), boundFactsText(facts.Upper)
