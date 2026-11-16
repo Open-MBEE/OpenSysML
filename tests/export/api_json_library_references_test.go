@@ -34,12 +34,13 @@ func TestAPIJSONLibraryReferencesAndLegacyStubs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plain, err := export.WriteAPIJSON(graph)
+	plain, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
 	var names []export.APIJSONLibraryReference
 	withNames, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{
+		InheritedMembers:  true,
 		LibraryReferences: func(refs []export.APIJSONLibraryReference) { names = refs },
 	})
 	if err != nil {
@@ -52,7 +53,7 @@ func TestAPIJSONLibraryReferencesAndLegacyStubs(t *testing.T) {
 	if bytes.Contains(plain, []byte(`"isLibraryElement": true`)) {
 		t.Fatal("default writes library roots")
 	}
-	legacy, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{IncludeLibraryStubs: true})
+	legacy, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{IncludeLibraryStubs: true, InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +92,7 @@ func TestAPIJSONLibraryReferencesAndLegacyStubs(t *testing.T) {
 		t.Fatal("stub mode changed model elements")
 	}
 	for _, omitDerived := range []bool{false, true} {
-		compact, err := export.WriteAPIJSONCompact(graph, export.CompactAPIJSONOptions{OmitDerived: omitDerived})
+		compact, err := export.WriteAPIJSONCompact(graph, export.CompactAPIJSONOptions{OmitDerived: omitDerived, InheritedMembers: !omitDerived})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -113,7 +114,7 @@ func TestAPIJSONLibraryReferencesAndLegacyStubs(t *testing.T) {
 		if bytes.Contains(array, []byte(`"isLibraryElement": true`)) {
 			t.Fatal("compact metadata became model roots")
 		}
-		again, err := export.WriteAPIJSONCompact(read, export.CompactAPIJSONOptions{OmitDerived: omitDerived})
+		again, err := export.WriteAPIJSONCompact(read, export.CompactAPIJSONOptions{OmitDerived: omitDerived, InheritedMembers: !omitDerived})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -284,7 +285,7 @@ func TestAPIJSONUnnamedLibraryMembership(t *testing.T) {
 	if _, err := export.ReadAPIJSON(compact); err != nil {
 		t.Fatal(err)
 	}
-	legacy, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{IncludeLibraryStubs: true})
+	legacy, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{IncludeLibraryStubs: true, InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}

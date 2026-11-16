@@ -244,6 +244,21 @@ class EditorTest {
   }
 
   @Test
+  void inheritedMembersNeedTheirCapabilityBeforeAnythingIsSent() {
+    try (Connection connection = offline(Capabilities.CONVERT)) {
+      ConversionOptions inherited = ConversionOptions.defaults().withInheritedMembers(true);
+      assertTrue(inherited.inheritedMembers());
+      assertFalse(ConversionOptions.defaults().inheritedMembers());
+      assertFalse(inherited.withInheritedMembers(false).inheritedMembers());
+      assertTrue(inherited.withFromFormat("sysml").withIncludeLibraryStubs(true).inheritedMembers());
+      Model model = model(connection);
+      CapabilityException refused =
+          assertThrows(CapabilityException.class, () -> model.convert("api-json", inherited));
+      assertEquals(Capabilities.CONVERT_INHERITED_MEMBERS, refused.capability());
+    }
+  }
+
+  @Test
   void conversionOptionsCarryTheLibraryStubsAndAConversionItsReferences() {
     ConversionOptions options =
         ConversionOptions.defaults().withIncludeLibraryStubs(true).withFromFormat("sysml");
