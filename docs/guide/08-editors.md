@@ -76,6 +76,17 @@ stays on one line and only indentation and spacing are fixed — turn on the ext
 start and again whenever it changes, with no restart. Another editor sets the same setting, or
 starts the server with `sysml-lsp -keep-line-breaks`.
 
+### Member summaries in hovers
+
+Hovering a definition or usage — or a reference to one, such as the type of a usage being
+written — lists its members under its signature and documentation: kind, name, type and
+multiplicity, one per line. The extension's `opensysml.hover.memberLimit` setting (default 10)
+caps the list, a closing line counting what was left out, and 0 turns the summary off;
+`opensysml.hover.inheritedMembers` adds the members the element inherits, grouped under the
+type each comes from. Both reach the running server with no restart, as `sysml.hoverMemberLimit`
+and `sysml.hoverInheritedMembers` ([LSP extensions](../reference/lsp.md#hover-member-summary-settings)),
+which another editor sets directly. Notebook cells show the same summary.
+
 ### Working inside a package-manager project
 
 A workspace folder that is a project — a directory holding a `.project.json`, as a SysML v2
@@ -438,7 +449,9 @@ same way, so its imports of sibling files resolve rather than being reported unr
 - ✅ Diagnostics (syntax + semantic errors, published on open and on change)
 - ✅ Hover (symbol info, type, multiplicity, and the element's documentation: the bodies of the
   `doc` members it owns, in declaration order, then any `//` or `//* ... */` notes written directly
-  above its declaration; a bare `/* ... */` there is a comment of the enclosing namespace, not shown)
+  above its declaration; a bare `/* ... */` there is a comment of the enclosing namespace, not shown;
+  then a summary of its members up to a configurable limit, optionally with the inherited ones
+  under their origin)
 - ✅ Go-to-definition (cross-document navigation, into the bundled standard library as
   `sysml-stdlib:` documents)
 - ✅ Find references (workspace-wide search)

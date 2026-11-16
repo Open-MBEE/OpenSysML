@@ -135,6 +135,44 @@ server with `-keep-line-breaks` instead. Both correspond to the CLI's
 `-convert sysml -keep-line-breaks` and to the `keepLineBreaks` field of the syntax service's
 `Format` request ([WebAssembly](wasm.md#the-syntax-service)).
 
+## Hover member summary (settings)
+
+A hover on a definition or usage, or on a reference to one, lists its named members after
+the signature and documentation: each member's visibility when not public, direction, kind,
+name, type and declared multiplicity, as its declaration would open.
+
+```text
+part def Record
+
+A record.
+
+Members:
+attribute name : ScalarValues::String
+part items : Base[0..*]
+in port p : ~PD
+
+Inherited from P::Base:
+attribute id : ScalarValues::String
+
+… 3 more members
+```
+
+Two settings shape it, read from `initialize`'s `initializationOptions` and from
+`workspace/didChangeConfiguration` in the same three shapes as the settings above:
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `hoverMemberLimit` | `10` | The most members a hover lists; the rest are counted in a closing `… N more members` line. `0` leaves the summary out. |
+| `hoverInheritedMembers` | `false` | Also list the members the element inherits — through specialization, typing, subsetting — after the ones it owns, grouped under the qualified name of the type each comes from, nearest first. |
+
+The limit counts owned and inherited members together. A limit that is not a whole number
+of at least 0, or an inherited flag that is not a boolean, is ignored. A member a feature of
+the element redefines is not inherited, nor is a private one; an unnamed member is listed
+under the name it takes from the feature it redefines, and left out when it has none. A
+direction is the one the element sees, reversed through a conjugated port typing. The summary
+is the same in a model file and in a notebook cell, in Markdown or plain text as the client
+asks.
+
 ## Diagnostic codes
 
 Every published diagnostic carries `code`, the stable kebab-case code of the rule that
