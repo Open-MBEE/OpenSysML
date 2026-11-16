@@ -539,18 +539,21 @@ func defineTransitionEffect(scope *Scope, trans *ast.TransitionMember) {
 	if len(trans.Effect) != 1 {
 		return
 	}
-	if _, exists := scope.LookupLocal(transitionEffectName); exists {
-		return
-	}
 	effect, _ := unwrapMember(trans.Effect[0])
 	if effect == nil {
 		return
 	}
+	_, named := scope.LookupLocal(transitionEffectName)
 	// A declared effect action is already a member of the transition's scope:
 	// name that symbol rather than building a second one for it.
 	if sym, ok := memberDeclaring(scope, effect); ok {
 		sym.Kind = effectActionKind(effect, sym.Kind)
-		scope.Define(transitionEffectName, sym)
+		if !named {
+			scope.Define(transitionEffectName, sym)
+		}
+		return
+	}
+	if named {
 		return
 	}
 	// A statement (`do send x to y`) declares no member of its own, so the

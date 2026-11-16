@@ -162,6 +162,8 @@ func TestBuildClassifiesTransitionEffectsByTheirDeclaration(t *testing.T) {
             transition t4 first idle do assign x := 2 then busy;
             transition t5 first idle do action e5 send new Sig() to sm then busy;
             transition t6 first idle do { action step; } then busy;
+            transition t7 first idle do action effect : A then busy;
+            transition t8 first idle accept effect : Sig do action e8 then busy;
         }
     }
 }
@@ -175,6 +177,9 @@ func TestBuildClassifiesTransitionEffectsByTheirDeclaration(t *testing.T) {
 		"P::Machine::sm::t4::effect":   SymbolAssignmentActionUsage,
 		"P::Machine::sm::t5::effect":   SymbolSendActionUsage,
 		"P::Machine::sm::t6::effect":   SymbolActionUsage,
+		// A member already named `effect` does not stop the effect being classified.
+		"P::Machine::sm::t7::effect": SymbolPerformActionUsage,
+		"P::Machine::sm::t8::e8":     SymbolPerformActionUsage,
 	} {
 		sym := lookupPath(t, root, path)
 		if sym == nil {
