@@ -416,8 +416,8 @@ root examples/pilot-corpora: models 213, skipped 0, matched 52399, unmatched 894
   Type::endFeature: equal 20133, different 0, symbol-missing 30, symbol-extra 546
   Type::feature: equal 17738, different 954, symbol-missing 57, symbol-extra 1960
   Type::featureMembership: equal 17736, different 956, symbol-missing 57, symbol-extra 1960
-  Type::inheritedFeature: equal 17938, different 754, symbol-missing 57, symbol-extra 1960
-  Type::inheritedMembership: equal 17761, different 931, symbol-missing 57, symbol-extra 1960
+  Type::inheritedFeature: equal 17941, different 751, symbol-missing 57, symbol-extra 1960
+  Type::inheritedMembership: equal 17764, different 928, symbol-missing 57, symbol-extra 1960
   Type::input: equal 18606, different 86, symbol-missing 57, symbol-extra 1960
   Type::intersectingType: equal 20705, different 4, symbol-missing 0, symbol-extra 0
   Type::isConjugated: equal 20703, different 6, symbol-missing 0, symbol-extra 0
