@@ -2514,6 +2514,9 @@ func (m *migration) crossedProperty(e, end *sysmlv1.Element, typ string) (opp *s
 	if end.Type != "Property" || !m.written(end) || toolContent(end) != "" {
 		return nil, label + "the end property is not written as a feature of " + qualifiedName(ot)
 	}
+	if chain := m.adjunctChain(end); len(chain) > 1 {
+		return nil, label + "the end property is the usage " + strings.Join(chain, ".") + " of its «AdjunctProperty» principal, nested below a feature of " + qualifiedName(ot) + ", and a cross chains through the opposite end alone"
+	}
 	return opp, ""
 }
 
@@ -3429,7 +3432,9 @@ func (m *migration) connectorForm(c *sysmlv1.Element, segs [][]*sysmlv1.Element)
 	for i, end := range segs {
 		parts := make([]string, len(end))
 		for j, s := range end {
-			parts[j] = writeName(m.nameFor(s))
+			if parts[j] = strings.Join(m.adjunctChain(s), "."); parts[j] == "" {
+				parts[j] = writeName(m.nameFor(s))
+			}
 		}
 		paths[i] = strings.Join(parts, ".")
 	}

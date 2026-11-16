@@ -3195,13 +3195,17 @@ func (a *activity) variableFeature(v *sysmlv1.Element) (name, decl, note string)
 	shape := shaped(mult, v, false, false)
 	switch {
 	case typ != "" && a.variableDataType(t):
-		decl = "private attribute " + name + " : " + typ + shape
+		decl = "attribute " + name + " : " + typ + shape
 	case typ != "":
-		decl = "private ref item " + name + " : " + typ + shape
+		decl = "ref item " + name + " : " + typ + shape
 	default:
-		decl = "private ref " + name + shape
+		decl = "ref " + name + shape
 	}
-	return name, decl, note
+	if by := a.m.adjunctExposure(v); by != "" {
+		// v2 lets no path reach a private feature.
+		return name, decl, joinNotes(note, "the variable is not written private: "+by)
+	}
+	return name, "private " + decl, note
 }
 
 // variableOf is the variable a variable action reads or writes: the v2 name it

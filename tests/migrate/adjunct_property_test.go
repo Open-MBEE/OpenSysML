@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 )
 
@@ -100,4 +101,24 @@ func TestAdjunctPropertyLayoutIsAboutThePrincipalUsage(t *testing.T) {
 		t.Errorf("layout summary: %+v", l)
 	}
 	wantClean(t, "adjunct_layout.sysml", r)
+}
+
+// A principal nested in a structured node, one that is a private variable, and a property carrying a
+// second stereotype: the association end is written so it resolves, and the report says what gave way.
+func TestAdjunctPropertyOfANestedOrHiddenPrincipal(t *testing.T) {
+	r := migrateFixtureFile(t, "adjunct_nested")
+	for _, line := range []string{
+		"ref item held : Tank;",
+		"end held : Tank crosses batch.held;",
+		"end rinse : Rinse;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "private ref item held")
+	wantNote(t, r, "_held", migrate.Approximated, "the variable is not written private: the connection def of the association 'BatchHeld' in Wash crosses it")
+	wantNote(t, r, "_batchRinse", migrate.Approximated, "end rinse crosses no property: the end property is the usage stage.rinse of its «AdjunctProperty» principal")
+	wantNote(t, r, "_adjRinse", migrate.Approximated, "«moe» applied to the property is not written")
+	for _, d := range errorsMode(t, "adjunct_nested.sysml", r.Notation, diag.ConformanceStrict) {
+		t.Errorf("%v", d)
+	}
 }

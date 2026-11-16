@@ -1,6 +1,8 @@
 package migrate
 
 import (
+	"strings"
+
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
@@ -169,7 +171,55 @@ func (m *migration) adjunctFeature(p *sysmlv1.Element) bool {
 		}
 		m.unmapped(c, "owned by an «AdjunctProperty» that is written as the usage of its principal, which has no place for a "+kindOf(c))
 	}
-	m.add(p, Mapped, m.v2Name(principal), "«AdjunctProperty» and its principal "+kindOf(principal)+" "+describe(principal)+
-		" are one v2 usage, written for the principal; what referred to the property refers to that usage")
+	var others []string
+	for _, s := range p.Stereotypes {
+		if !appliesStandard(s, "AdjunctProperty") && toolProfile(s.Namespace) == "" {
+			others = append(others, "«"+s.Name+"»")
+		}
+	}
+	verdict, lost := Mapped, ""
+	if len(others) > 0 {
+		verdict = Approximated
+		lost = "; " + strings.Join(others, ", ") + " applied to the property is not written: the usage of its principal carries no application of the property's"
+	}
+	m.add(p, verdict, m.v2Name(principal), "«AdjunctProperty» and its principal "+kindOf(principal)+" "+describe(principal)+
+		" are one v2 usage, written for the principal; what referred to the property refers to that usage"+lost)
 	return true
+}
+
+// adjunctChain returns the written names leading from the owner of the collapsed adjunct property p to the
+// usage of its principal, more than one for a principal nested in the owner's body; nil for another property.
+func (m *migration) adjunctChain(p *sysmlv1.Element) []string {
+	principal := m.principalOf(p)
+	if principal == nil {
+		return nil
+	}
+	full := m.path(principal)
+	steps := full[len(full)-1:]
+	for o := principal.Parent; o != nil; o = o.Parent {
+		if o == p.Parent || m.inherits(p.Parent, o) {
+			if base := m.path(o); len(base) < len(full) {
+				steps = full[len(base):]
+			}
+			break
+		}
+	}
+	names := make([]string, len(steps))
+	for i, s := range steps {
+		names[i] = writeName(s.name)
+	}
+	return names
+}
+
+// adjunctExposure says what reaches the usage of principal through an adjunct property
+// collapsed into it, so the usage must not be hidden; "" when nothing does.
+func (m *migration) adjunctExposure(principal *sysmlv1.Element) string {
+	for owner := principal.Parent; owner != nil; owner = owner.Parent {
+		for _, p := range owner.Owned("ownedAttribute") {
+			if by := m.exposed[p]; by != "" && m.principalOf(p) == principal {
+				return by
+			}
+		}
+	}
+	return ""
 }

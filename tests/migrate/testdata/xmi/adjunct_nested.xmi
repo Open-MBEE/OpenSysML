@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:id="_m" name="Wash">
+    <packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank"/>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_rinse" name="Rinse"/>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_batch" name="Batch">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_adjRinse" name="rinse" type="_rinse" aggregation="composite" association="_batchRinse"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_adjHeld" name="held" type="_tank" association="_batchHeld"/>
+      <variable xmi:type="uml:Variable" xmi:id="_held" name="held" type="_tank"/>
+      <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+      <node xmi:type="uml:StructuredActivityNode" xmi:id="_stage" name="stage">
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callRinse" name="rinse" behavior="_rinse"/>
+      </node>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_e0" source="_init" target="_stage"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Association" xmi:id="_batchRinse" name="BatchRinse" memberEnd="_batchRinseWhole _adjRinse">
+      <ownedEnd xmi:type="uml:Property" xmi:id="_batchRinseWhole" name="batch" type="_batch" association="_batchRinse"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Association" xmi:id="_batchHeld" name="BatchHeld" memberEnd="_batchHeldWhole _adjHeld">
+      <ownedEnd xmi:type="uml:Property" xmi:id="_batchHeldWhole" name="batch" type="_batch" association="_batchHeld"/>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_bTank" base_Class="_tank"/>
+  <sysml:AdjunctProperty xmi:id="_sRinse" base_Property="_adjRinse" principal="_callRinse"/>
+  <sysml:moe xmi:id="_sMoe" base_Property="_adjRinse"/>
+  <sysml:AdjunctProperty xmi:id="_sHeld" base_Property="_adjHeld" principal="_held"/>
+</xmi:XMI>

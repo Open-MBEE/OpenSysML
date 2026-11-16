@@ -1214,7 +1214,8 @@ usage the principal is written as.
 | `Connector` | the connection usage, `connection feed connect pump to tank;` |
 | `State` with a `submachine` | the state usage, `state Cycling : Cycle { … }` |
 | `InteractionUse` | the occurrence usage of the referenced interaction, `occurrence priming : Prime;` |
-| pin, `CentralBufferNode`, `DataStoreNode`, `ExpansionNode` | the usage the node is written as, when it is written as one; a buffer the flows through it replace has none, and the property is then written apart |
+| `CentralBufferNode`, `DataStoreNode`, `ExpansionNode` | the usage the node is written as, when it is written as one; a buffer the flows through it replace has none, and the property is then written apart |
+| `InputPin`, `OutputPin`, `ValuePin`, `ActionInputPin` | none yet: a pin is written inside its action as a parameter the migration gives no name other elements can refer to, so the property is written apart |
 
 The property declares nothing: no `ref action`, no name of its own (v1 requires it to bear the
 principal's name, so the principal keeps the name the two share rather than becoming `name 2`), no
@@ -1225,6 +1226,14 @@ writes that end as `end call : Fill crosses run.call;`, an «Allocate» from it 
 usage keeps the principal's kind, type and multiplicity; the property's, which v1 constrains to
 agree with or generalize them, are not written. Anything else the property owns (a default value, a
 comment) has no place on the usage and is reported **unmapped**.
+
+Three cases give way so that the output still resolves, each with a note. A variable is written
+`private` unless an association end crosses it through its adjunct property; it is then written
+without `private`, since no path reaches a private feature. A principal nested in a structured
+node is reached by a chain (`stage.rinse`), which a connector end takes but an association end's
+`crosses` does not, so that end is written uncrossed. A further stereotype applied to the property
+(other than a tool's notation profile) is not written, since the usage carries no application of
+the property's, and the property's entry is **approximated**.
 
 The collapse applies only where the v1 constraints that tie the two together hold. Otherwise
 the property is written as it would be without the stereotype, the principal as it would be
