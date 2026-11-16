@@ -455,3 +455,19 @@ func TestStateSpaceFlowFromAReleasedAction(t *testing.T) {
 		t.Errorf("the integrator ended at %s, want %s", got, want)
 	}
 }
+
+// A flow leaving the source's stateSpace orders the two as one leaving its output does.
+func TestStateSpaceFlowOfAStateIsIndependentOfDeclarationOrder(t *testing.T) {
+	src := coupledDynamics("flow source.ramp.stateSpace to sink.sum.input;", "")
+	for name, model := range map[string]string{"source first": src, "sink first": sinkBeforeSource(t, src)} {
+		t.Run(name, func(t *testing.T) {
+			sum, err := runCoupled(t, model)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got, want := FormatValue(sum.Results()["stateSpace"]), "⟨1.5⟩"; got != want {
+				t.Errorf("the integrator ended at %s, want %s", got, want)
+			}
+		})
+	}
+}

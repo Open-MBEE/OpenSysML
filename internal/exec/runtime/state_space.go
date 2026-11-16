@@ -350,7 +350,7 @@ func (ctx *Context) startsDynamicsNow(behavior *ObjectBehavior) bool {
 		!ctx.lifeEnded(behavior.Object) && ctx.deferredBehaviorReady(behavior)
 }
 
-// feedingBehaviors are the performances, started or yet to start, whose output a flow carries
+// feedingBehaviors are the performances, started or yet to start, a feature of which a flow carries
 // into the action's input.
 func (e *ActionExecutor) feedingBehaviors() []*ObjectBehavior {
 	var sources []*ObjectBehavior
@@ -958,11 +958,11 @@ func (ctx *Context) flowSourceHolder(holder *Instance, path []string, keep int) 
 	return holder, path, true, nil
 }
 
-// flowSourceBehaviors are the performances whose output the flow leaves: those of the action the
+// flowSourceBehaviors are the performances whose feature the flow leaves: those of the action the
 // source path names, under any name it answers to on the object performing it.
 func (ctx *Context) flowSourceBehaviors(feed inputFeed) []*ObjectBehavior {
 	holder, path, held, err := ctx.flowSourceHolder(feed.on, feed.Source, 2)
-	if err != nil || !held || len(path) != 2 || path[1] != lower.OutputFeature {
+	if err != nil || !held || len(path) != 2 {
 		return nil
 	}
 	var sources []*ObjectBehavior
