@@ -26,6 +26,14 @@ const (
 	// succession a transition owns for its `then` clause (SysML.xtext TransitionSuccessionMember), under the transition.
 	ImpliedTransitionSuccessionSourceEnd
 	ImpliedTransitionSuccessionTargetEnd
+	// ImpliedFlowSourceEnd and ImpliedFlowTargetEnd are the nameless FlowEnds a flow owns for its `from`
+	// and `to` (SysML.xtext FlowEndMember), named by the Flows::Flow end they redefine.
+	ImpliedFlowSourceEnd
+	ImpliedFlowTargetEnd
+	// ImpliedFlowSourceEndFeature and ImpliedFlowTargetEndFeature are the ReferenceUsages a flow's two
+	// ends own, each redefining the last feature its end names (SysML.xtext FlowFeatureMember).
+	ImpliedFlowSourceEndFeature
+	ImpliedFlowTargetEndFeature
 )
 
 // ImpliedDecl declares an element the abstract syntax implies for a written
@@ -75,6 +83,44 @@ func ImpliedSuccessionEndIndex(sym *Symbol) (int, bool) {
 		return 1, true
 	}
 	return 0, false
+}
+
+// ImpliedFlowEndIndex is the position, 0 or 1, of the flow end sym implies.
+func ImpliedFlowEndIndex(sym *Symbol) (int, bool) {
+	d, ok := ImpliedDeclOf(sym)
+	if !ok {
+		return 0, false
+	}
+	switch d.Form {
+	case ImpliedFlowSourceEnd:
+		return 0, true
+	case ImpliedFlowTargetEnd:
+		return 1, true
+	}
+	return 0, false
+}
+
+// ImpliedFlowEndFeatureIndex is the position, 0 or 1, of the flow end whose owned feature sym implies.
+func ImpliedFlowEndFeatureIndex(sym *Symbol) (int, bool) {
+	d, ok := ImpliedDeclOf(sym)
+	if !ok {
+		return 0, false
+	}
+	switch d.Form {
+	case ImpliedFlowSourceEndFeature:
+		return 0, true
+	case ImpliedFlowTargetEndFeature:
+		return 1, true
+	}
+	return 0, false
+}
+
+// ImpliedConnectorEndIndex is the position of the connector end sym implies: a `then` succession's or a flow's.
+func ImpliedConnectorEndIndex(sym *Symbol) (int, bool) {
+	if i, ok := ImpliedSuccessionEndIndex(sym); ok {
+		return i, true
+	}
+	return ImpliedFlowEndIndex(sym)
 }
 
 // ImpliedTransitionSuccessionEnd reports whether sym is an end of the succession a transition owns,
