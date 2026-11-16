@@ -20,7 +20,10 @@ type EntryTransition struct {
 	GuardID program.ExprID
 	Target  *ast.StateNode
 	Via     *ast.PseudostateNode
-	Effect  []StateBehavior
+	// TargetID and ViaID are Target and Via by id, 0 for none.
+	TargetID program.StateID
+	ViaID    program.PseudoID
+	Effect   []StateBehavior
 	// Scope is the scope Guard resolves in.
 	Scope *symbols.Scope
 	// Origin is where the member was written, Kind "entry transition"; it has no Path.

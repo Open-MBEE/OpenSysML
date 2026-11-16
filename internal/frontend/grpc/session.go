@@ -684,7 +684,7 @@ func (ss *Session) diagnostics(notes []runtime.RunNote) []*pb.Diagnostic {
 // declared resolves a symbol id in the session's model; a member a subtype
 // inherits is named by the subtype too (Sub::inherited).
 func (ss *Session) declared(symbolID string) (*symbols.Symbol, error) {
-	syms := ss.cached.LookupNamedMember(symbolID)
+	syms := ss.cached.LookupDeclaredMember(symbolID)
 	if len(syms) == 0 {
 		return nil, sessionFailuref("symbol not found: %s", symbolID)
 	}

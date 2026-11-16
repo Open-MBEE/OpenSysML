@@ -537,6 +537,7 @@ final class Rendering {
               .setDeclared(specialization.declared());
       specialization.targetId().ifPresent(rendered::setTargetId);
       specialization.targetKind().ifPresent(rendered::setTargetKind);
+      specialization.targetQualifiedName().ifPresent(rendered::setTargetQualifiedName);
       builder.addSpecializations(rendered);
     }
     symbol
@@ -546,6 +547,7 @@ final class Rendering {
               TypeInfo.Builder rendered = TypeInfo.newBuilder().setQuantity(facts.quantity());
               facts.declared().ifPresent(rendered::setDeclared);
               facts.resolvedId().ifPresent(rendered::setResolvedId);
+              facts.resolvedQualifiedName().ifPresent(rendered::setResolvedQualifiedName);
               facts.resolvedKind().ifPresent(rendered::setResolvedKind);
               facts.primitive().ifPresent(rendered::setPrimitive);
               facts.primitiveSource().ifPresent(rendered::setPrimitiveSource);

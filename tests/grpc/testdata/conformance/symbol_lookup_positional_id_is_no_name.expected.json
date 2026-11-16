@@ -1,0 +1,7 @@
+{
+	"rpc": "GetSymbol",
+	"model": "symbol_lookup_positional.sysml",
+	"symbol_id": "Col::W::@2::inner",
+	"lookup": "qualified_name",
+	"expected_error": "symbol not found: Col::W::@2::inner"
+}

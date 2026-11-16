@@ -12,12 +12,12 @@ package Test {
         }
         state away;
 
-        succession first start then first;
+        succession first start then outer.first;
 
-        transition first first when Next then second;
-        transition first second when Leave then away;
-        transition first away when Back then resume;
-        transition first resume then first;
-        transition first second when Finish then done;
+        transition first outer.first when Next then outer.second;
+        transition first outer.second when Leave then away;
+        transition first away when Back then outer.resume;
+        transition first outer.resume then outer.first;
+        transition first outer.second when Finish then done;
     }
 }

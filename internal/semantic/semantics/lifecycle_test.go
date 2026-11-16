@@ -169,9 +169,9 @@ func TestMemberSourcesReadersDependOnTheDeclaringDocument(t *testing.T) {
 	if deps := r.Dependents("a.sysml"); len(deps) != 1 || deps[0] != "b.sysml" {
 		t.Fatalf("a.sysml's dependents = %v, want b.sysml, served from the memo", deps)
 	}
-	var lookup []lookupSource
+	var lookup []*symbols.Symbol
 	r.InDocument("b.sysml", func() { lookup = m.lookupSources(derived) })
-	if len(lookup) != 1 || lookup[0].sym.Name != "Base" {
+	if len(lookup) != 1 || lookup[0].Name != "Base" {
 		t.Fatalf("lookupSources(Derived) = %v, want Base", lookup)
 	}
 	add("a.sysml", "package A { part def Base; part def Derived; }")

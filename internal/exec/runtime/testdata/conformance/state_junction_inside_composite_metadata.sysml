@@ -21,7 +21,7 @@ package Test {
 			transition first split do { assign log := log + "toW2(effect);"; } then w2;
 		}
 
-		transition first idle accept Go do { assign log := log + "go(effect);"; } then split;
+		transition first idle accept Go do { assign log := log + "go(effect);"; } then work.split;
 		transition first work accept Stop then done;
 	}
 	attribute def Go;
