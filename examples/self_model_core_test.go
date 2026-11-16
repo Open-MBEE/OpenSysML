@@ -2,9 +2,11 @@ package examples
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -387,22 +389,40 @@ func TestSelfModelSourceTreeMatchesRepository(t *testing.T) {
 			t.Errorf("quality.sysml places %s at %q, which is no directory of the repository", name, path)
 		}
 	}
-	entries, err := os.ReadDir("..")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, entry := range entries {
-		name := entry.Name()
-		if !entry.IsDir() || strings.HasPrefix(name, ".") || untrackedTopLevel[name] || modelled[name] {
+	for _, name := range trackedTopLevelDirs(t) {
+		if strings.HasPrefix(name, ".") || siteOverrides[name] || modelled[name] {
 			continue
 		}
 		t.Errorf("the repository has a top-level directory %q that quality.sysml's SourceTree does not model", name)
 	}
 }
 
-// untrackedTopLevel names the top-level directories that are build outputs or site
-// overrides rather than source the self-model describes.
-var untrackedTopLevel = map[string]bool{"bin": true, "build": true, "overrides": true, "node_modules": true}
+// trackedTopLevelDirs lists the top-level directories git tracks, so build outputs
+// such as bin/, build/ or the rendered site/ never count as unmodelled source.
+func trackedTopLevelDirs(t *testing.T) []string {
+	t.Helper()
+	cmd := exec.Command("git", "ls-files", "-z")
+	cmd.Dir = ".."
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git ls-files: %v", err)
+	}
+	seen := map[string]bool{}
+	var dirs []string
+	for _, path := range strings.Split(strings.TrimRight(string(out), "\x00"), "\x00") {
+		dir, _, nested := strings.Cut(path, "/")
+		if nested && !seen[dir] {
+			seen[dir] = true
+			dirs = append(dirs, dir)
+		}
+	}
+	sort.Strings(dirs)
+	return dirs
+}
+
+// siteOverrides names the tracked top-level directory holding the documentation
+// site's theme overrides (mkdocs.yml custom_dir), which is no source the self-model describes.
+var siteOverrides = map[string]bool{"overrides": true}
 
 // TestSelfModelRaceSuiteMatchesCI checks the race-suite shards and node count the
 // gates model states against scripts/race-shard.sh and the CircleCI configuration.
