@@ -28,5 +28,5 @@ stmt assign log
     eval feature log -> "X-exit X-effect Y-exit Y-effect owner-exit "
     eval literal "out" -> "out"
   eval operator + -> "X-exit X-effect Y-exit Y-effect owner-exit out"
-enter: done
-transition: S1 -> done (event: accept Y)
+enter: finished
+transition: S1 -> finished (event: accept Y)

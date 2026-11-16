@@ -27,7 +27,7 @@ package Test {
             entry action { assign log := log + "away(entry);"; }
         }
         transition first outer accept Leave do { assign log := log + "leave(effect);"; } then away;
-        transition first away accept Back do { assign log := log + "back(effect);"; } then resume;
+        transition first away accept Back do { assign log := log + "back(effect);"; } then outer.resume;
         transition first outer accept Finish then done;
     }
     attribute def Go;

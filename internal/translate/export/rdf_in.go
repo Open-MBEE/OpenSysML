@@ -3859,6 +3859,15 @@ func constantKeyword(kerml bool) string {
 	return "constant"
 }
 
+// typedByKeyword spells a typing where `:` cannot: KerML.xtext TypedBy `'typed' 'by'`,
+// SysML.xtext DefinedByKeyword `'defined' 'by'`.
+func typedByKeyword(kerml bool) string {
+	if kerml {
+		return "typed by"
+	}
+	return "defined by"
+}
+
 // portionPrefix reports whether isPortion is written as KerML's `portion`; SysML has no
 // such prefix, so there the flag is carried by a portion kind and refused without one.
 func (d *decoder) portionPrefix(el *element, kerml bool, portion string) (bool, error) {
@@ -4141,9 +4150,8 @@ func (d *decoder) ownedCrossFeature(el *element) *element {
 	return nil
 }
 
-// crossFeatureWords writes an end's cross feature after `end`: name, multiplicity
-// and specializations, typing spelled `typed by` since `:` there is the end's own.
-// Its identity goes in the end's body (headFeatureAnnotations); a body of its own has no place.
+// crossFeatureWords writes an end's cross feature after `end`, its typing by keyword since `:` there is
+// the end's own; its identity goes in the end's body (headFeatureAnnotations), and it has no body.
 func (d *decoder) crossFeatureWords(cross *element) ([]string, error) {
 	if len(d.bodyChildren(cross)) > 0 || d.boolOf(cross, rdf.OpenSysML+xHasBody) {
 		return nil, &UnsupportedError{
@@ -4181,7 +4189,7 @@ func (d *decoder) crossFeatureWords(cross *element) ([]string, error) {
 		return nil, err
 	}
 	if len(typed) > 0 {
-		words = append(words, "typed by", strings.Join(typed, ", "))
+		words = append(words, typedByKeyword(d.kerml(cross)), strings.Join(typed, ", "))
 	}
 	relationships, err := d.relationshipWords(cross, "", ast.RelTyping)
 	if err != nil {

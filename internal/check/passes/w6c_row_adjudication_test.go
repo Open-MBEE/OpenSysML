@@ -71,6 +71,40 @@ func TestW6CTransitionEndpointNameIsResolved(t *testing.T) {
 	}
 }
 
+// A bare name for a nested vertex is unresolved (KerML 8.2.3.5), as the pinned
+// validator has it (`Couldn't resolve reference to Feature 'idle'`); the chain is clean.
+func TestW6CTransitionEndpointNestedNameNeedsItsOwners(t *testing.T) {
+	const machine = `package P {
+	state def Machine {
+		entry; then init;
+		state init;
+		then %s;
+		state work parallel {
+			state left {
+				entry; then idle;
+				state idle;
+				state busy;
+			}
+			state right {
+				entry; then idle;
+				state idle;
+				state busy;
+				transition first idle then busy;
+			}
+		}
+		transition first %s then done;
+	}
+}`
+	if got := w6cDiags(t, "w6c_endpoint_chain.sysml", fmt.Sprintf(machine, "work.right.idle", "work.right.busy")); len(got) != 0 {
+		t.Fatalf("got %+v, want no diagnostics for the chained endpoints", got)
+	}
+	got := w6cDiags(t, "w6c_endpoint_bare.sysml", fmt.Sprintf(machine, "idle", "busy"))
+	if len(got) != 2 || got[0].Code != "unresolved" || got[1].Code != "unresolved" ||
+		!strings.Contains(got[0].Message, "idle") || !strings.Contains(got[1].Message, "busy") {
+		t.Fatalf("got %+v, want idle and busy each unresolved", got)
+	}
+}
+
 // Row ~950, the pinned validator resolves an accept name as a type and reports
 // `Couldn't resolve reference to Type 'sigX'`; the resolver does too.
 func TestW6CSignalTriggerNameIsResolved(t *testing.T) {
@@ -211,11 +245,17 @@ func TestW6CImportWithoutVisibilityIsAnError(t *testing.T) {
 	t.Fatalf("got %s, want an import-visibility error", w6cCodes(got))
 }
 
-// Row ~960, the negative row. Each notation below is an OpenSysML extension no
-// pinned production admits: the reference reports a syntax error
-// (`mismatched input 'of' expecting 'bind'`, `no viable alternative at input
-// 'N'`, `no viable alternative at input 'featured'`), while we accept it with a
-// warning naming the language.
+// Row ~960, the namespace case: no SysML production declares a namespace, so it
+// is an error as in the reference (`no viable alternative at input 'N'`).
+func TestW6CNamespaceInSysMLIsAnError(t *testing.T) {
+	got := w6cDiags(t, "w6c_namespace.sysml", "namespace N { part def Q; }")
+	if len(got) != 1 || got[0].Code != "kerml-notation" || got[0].Severity != diag.SeverityError {
+		t.Fatalf("got %s, want one kerml-notation error", w6cCodes(got))
+	}
+}
+
+// Row ~960, the negative row. No pinned production admits these notations and the
+// reference reports a syntax error; we accept each with a warning naming the language.
 func TestW6CNotationNoPinnedProductionAdmitsIsWarned(t *testing.T) {
 	tests := []struct {
 		name string
@@ -233,12 +273,6 @@ func TestW6CNotationNoPinnedProductionAdmitsIsWarned(t *testing.T) {
 	binding bb of full = level;
 }`,
 			code: "",
-		},
-		{
-			name: "namespace in sysml",
-			file: "w6c_namespace.sysml",
-			src:  "namespace N { part def Q; }",
-			code: "kerml-notation",
 		},
 		{
 			name: "connector in sysml",
