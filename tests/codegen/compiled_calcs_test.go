@@ -662,11 +662,11 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 			if target == codegen.TargetC && (!refused["Fib"] || !refused["Wide::Pow"] || refused["Hypot"] || refused["Loop::ChurnFor"]) {
 				t.Errorf("C refusals = %v: want the Integer-arithmetic calcs refused and the rest compiled", refused)
 			}
+			// Integer arithmetic is what the C target still refuses of these.
+			cOnly := map[string]bool{"Rec::UnsetIntAdd": true, "Closure::IntClosure": true}
 			for _, c := range compiledCases {
-				// Integer arithmetic is what the C target still refuses of these.
-				if name := c.calc; (strings.HasPrefix(name, "Rec::") || strings.HasPrefix(name, "Closure::")) && refused[name] &&
-					(target != codegen.TargetC || (name != "Rec::UnsetIntAdd" && name != "Closure::IntClosure")) {
-					t.Errorf("%s is refused for %s", name, target)
+				if name := c.calc; (strings.HasPrefix(name, "Rec::") || strings.HasPrefix(name, "Closure::")) && refused[name] != (target == codegen.TargetC && cOnly[name]) {
+					t.Errorf("%s refused = %v for %s", name, refused[name], target)
 				}
 			}
 			for _, repeat := range []string{"0", "-1", "x", "2x", ""} {
