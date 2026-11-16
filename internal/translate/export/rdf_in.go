@@ -3441,6 +3441,10 @@ func (d *decoder) importedName(el *element) (string, error) {
 	if lib, ok := sharedLibraryIndex().catalog.OwningMembership(rdf.LocalName(term.Value)); ok {
 		return d.referenceName(rdf.ElementIRIForID(lib.ID), el)
 	}
+	// A library alias is imported under the name its Membership gives the member.
+	if alias, ok := sharedLibraryIndex().anonymous.AliasMembership(rdf.LocalName(term.Value)); ok {
+		return d.referenceName(rdf.String(alias.Owner.FQN+"::"+alias.Symbol.Name), el)
+	}
 	return d.referenceName(term, el)
 }
 

@@ -891,10 +891,10 @@ ours-missing):
    (KerML §8.3.2.4.5, §8.3.2.4.2 `Import::importedMemberships`, §8.3.2.4.4 `Package::includeAsMember`,
    §8.3.3.1.10 for the public and protected imports a type inherits), derived over the graph alone and
    written with the inherited members. Measured against step 6 over the 357 rows of each property that
-   moved: `importedMembership` 601 ours-missing rows are stated (432 present-equal, 153 present-different,
-   16 indeterminate), 2 rows the pilot leaves absent are stated (pilot-missing); `membership` and `member`
+   moved: `importedMembership` 601 ours-missing rows are stated (442 present-equal, 147 present-different,
+   12 indeterminate), 2 rows the pilot leaves absent are stated (pilot-missing); `membership` and `member`
    each state 605 ours-missing rows (14 present-equal, 591 present-different, the lists that already
-   differed in their inherited part under step 5). The 153 `importedMembership` lists that differ:
+   differed in their inherited part under step 5). The 147 `importedMembership` lists that differ:
      - 75: `import ISQ::*` (directly or through a public re-export). `ISQ` publicly imports its
        subpackages, several of which declare the same name (`volumeFlowRate` an alias in `ISQAcoustics` and
        a feature of `ISQMechanics`; the `MagneticDipoleMoment…` definitions of `ISQAtomicNuclear` and
@@ -905,16 +905,36 @@ ours-missing):
        name the importer also owns or inherits, or two imports bringing one name), or because the import or
        expose is filtered and the pilot's `importedMembership` is the unfiltered list (§8.3.2.4.4,
        SysML §8.3.26). Thirteen also name an unaddressed element.
-     - 6: an import of an alias. This record states the alias's target's owning membership where the
-       pilot states the alias Membership itself (`ISQBase`'s `TemperatureValue` through
-       `ISQThermodynamics`, `ISQSpaceTime`, `ShapeItems`); the `MembershipImport.importedMembership` rows
-       already differed the same way, and the difference is not adjudicated here.
      - 4: this record's list is the superset. A namespace import of a type (`import RiskLevelEnum::*`)
        brings the type's inherited memberships, `Type::visibleMemberships` (§8.3.3.1.10) including them
        (3 rows); a membership import of a feature named through an imported type
        (`import Occurrence::spaceTimeCoincidentOccurrences`) is stated here and absent in the pilot (1 row).
-     - 11: recursive imports and exposes over large models, where beside the pilot's superset this record
-       names memberships owned deep inside expression elements; not adjudicated.
+     - 11: recursive imports and exposes over large models, decided by `Namespace::visibleMemberships`
+       ("If isRecursive = true, also recursively include all visible Memberships of any public owned
+       Namespaces", §8.3.2.4.5) and `Type::visibleMemberships` ("The visible Memberships of a Type include
+       inheritedMemberships", §8.3.3.1.10). Both sides walk that recursion, into features and expressions
+       alike; no entry this record alone names comes from the import derivation. Each is a Membership of a
+       nested namespace whose own lists already differ: in the six packages and one view of
+       `SimpleVehicleModel` that import or expose `VehicleConfiguration_b` recursively, the memberships
+       under the unnamed parameters of a `send`/`accept` action (keyed by position here and by the
+       effective name `payload`, `sender`, `receiver` in the pilot, whose `via a.b` operand is a
+       `FeatureChainExpression`), under a connector end's `[1]` (the pilot owns the range through the
+       `OwnedCrossMultiplicity` feature of the pinned grammar, this implementation directly) and under a
+       sequence expression `(a, b, c)` (nested binary `,` operators in the pilot and the pinned grammar,
+       one n-ary operator here); in three `OOSEM Views` views the documentation membership a redefining
+       part inherits from the library feature it redefines (the inherited part, step 5); in
+       `relationshipMatrix` the model's package, the third owned membership of a root namespace whose two
+       imports are written as owned members (see below). In the three owned-structure cases the pilot's
+       tree is the one the pinned grammar gives; they are differences of `ownedRelationship`, not of
+       imports, and are not changed here. The pilot's own surplus on these rows is the collision and
+       filter superset of the 57.
+   An import of an alias no longer differs (6 rows, and the `MembershipImport` rows with them; 4 more were
+   indeterminate): "The importedMembership of a MembershipImport is the single case in which the Element
+   required from the resolution [QualifiedName] is the actual Membership identified by the QualifedName,
+   not the memberElement of that Membership" (§8.2.3.4.2), and "the imported membership may be for an
+   alias of the imported member" (§7.2.5.4). The pilot's alias Membership is right; this record stated
+   the owning membership of the alias's target for a library alias (`ISQBase`'s `TemperatureValue`
+   through `ISQThermodynamics`, `ISQSpaceTime`, `ShapeItems`) and now states the alias Membership.
    The 22 rows still ours-missing: 7 root namespaces (a root-level import is written as an owned member of
    the wrapper Namespace, not as its `ownedImport`, so nothing is derived for it), 6 namespaces importing
    from a file the single-file graph does not carry, 6 one of whose imports names nothing the model

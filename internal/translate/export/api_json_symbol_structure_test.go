@@ -26,6 +26,7 @@ type structureDifferential struct {
 	graph    *apiJSONGraphStructure
 	symbolic *metamodel.SymbolStructure
 	ids      *ElementIDs
+	facts    *identityFacts
 	index    *symbols.Index
 	doc      string
 	symbolID map[*symbols.Symbol]string
@@ -390,6 +391,7 @@ func differentialOf(path string, data []byte) (*structureDifferential, bool) {
 		graph:           graphEvaluation.structure,
 		symbolic:        symbolic,
 		ids:             ids,
+		facts:           encoders[0].ids,
 		index:           res.Index(),
 		doc:             sf.Name(),
 		symbolID:        map[*symbols.Symbol]string{},
@@ -487,6 +489,10 @@ func (d *structureDifferential) computeGraphID(sym *symbols.Symbol) (string, boo
 		return d.implicitGraphID(sym.Implicit)
 	case sym.Expr != nil:
 		return d.expressionGraphID(sym)
+	}
+	// A library alias is written under the id its Membership is minted.
+	if membership, ok := d.facts.libraryAliasMembership(sym); ok {
+		return rdf.LocalName(membership.Value), true
 	}
 	// A body's parameter declares no node of its own: its symbol is keyed by the
 	// body, which the conversion writes as the reference the parameter is in<i> of.

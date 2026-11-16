@@ -1077,16 +1077,16 @@
         "typeMismatch": 1838
       },
       "properties": {
-        "presentEqual": 2128184,
-        "presentDifferent": 146231,
+        "presentEqual": 2128214,
+        "presentDifferent": 146215,
         "oursMissing": 259137,
         "pilotMissing": 84515,
         "absentBoth": 2282443,
-        "indeterminate": 45308,
+        "indeterminate": 45294,
         "pilotNondeterministic": 546
       },
       "rows": 11785,
-      "unkeyedReferences": 155490,
+      "unkeyedReferences": 155470,
       "extensionProperties": 280517,
       "duplicateElements": {
         "ours": 556,
@@ -1118,8 +1118,8 @@
           "typeMismatch": 6
         },
         "properties": {
-          "presentEqual": 167956,
-          "presentDifferent": 11788,
+          "presentEqual": 167962,
+          "presentDifferent": 11782,
           "oursMissing": 17013,
           "pilotMissing": 5836,
           "absentBoth": 184413,
@@ -1154,8 +1154,8 @@
           "typeMismatch": 27
         },
         "properties": {
-          "presentEqual": 594031,
-          "presentDifferent": 44101,
+          "presentEqual": 594041,
+          "presentDifferent": 44091,
           "oursMissing": 67942,
           "pilotMissing": 21867,
           "absentBoth": 638325,
@@ -1263,12 +1263,12 @@
           "typeMismatch": 441
         },
         "properties": {
-          "presentEqual": 168077,
+          "presentEqual": 168089,
           "presentDifferent": 9365,
           "oursMissing": 24521,
           "pilotMissing": 7956,
           "absentBoth": 178908,
-          "indeterminate": 3262,
+          "indeterminate": 3250,
           "pilotNondeterministic": 19
         },
         "duplicateElements": {
@@ -1373,12 +1373,12 @@
           "typeMismatch": 0
         },
         "properties": {
-          "presentEqual": 901,
+          "presentEqual": 903,
           "presentDifferent": 28,
           "oursMissing": 72,
           "pilotMissing": 41,
           "absentBoth": 993,
-          "indeterminate": 22,
+          "indeterminate": 20,
           "pilotNondeterministic": 0
         },
         "duplicateElements": {

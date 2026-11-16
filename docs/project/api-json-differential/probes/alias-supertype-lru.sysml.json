@@ -11,15 +11,15 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 485,
+      "presentEqual": 487,
       "presentDifferent": 27,
       "oursMissing": 72,
       "pilotMissing": 20,
       "absentBoth": 477,
-      "indeterminate": 4,
+      "indeterminate": 2,
       "pilotNondeterministic": 0
     },
-    "unkeyedReferences": 21,
+    "unkeyedReferences": 17,
     "extensionProperties": 76,
     "duplicateElements": {
       "ours": 0,
@@ -319,7 +319,7 @@
     "MembershipImport.documentation": [0,0,0,0,1,0,0],
     "MembershipImport.importOwningNamespace": [1,0,0,0,0,0,0],
     "MembershipImport.importedElement": [0,0,1,0,0,0,0],
-    "MembershipImport.importedMembership": [0,0,0,0,0,1,0],
+    "MembershipImport.importedMembership": [1,0,0,0,0,0,0],
     "MembershipImport.isImplied": [1,0,0,0,0,0,0],
     "MembershipImport.isImpliedIncluded": [1,0,0,0,0,0,0],
     "MembershipImport.isImportAll": [1,0,0,0,0,0,0],
@@ -335,7 +335,7 @@
     "MembershipImport.owningRelationship": [0,0,0,0,1,0,0],
     "MembershipImport.relatedElement": [0,0,1,0,0,0,0],
     "MembershipImport.source": [1,0,0,0,0,0,0],
-    "MembershipImport.target": [0,0,0,0,0,1,0],
+    "MembershipImport.target": [1,0,0,0,0,0,0],
     "MembershipImport.textualRepresentation": [0,0,0,0,1,0,0],
     "MembershipImport.visibility": [1,0,0,0,0,0,0],
     "Namespace.aliasIds": [0,0,0,0,1,0,0],

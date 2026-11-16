@@ -569,7 +569,7 @@ triples come); a set of classes with no such member is refused, naming the subje
   `MembershipImport` `importedMembership`, which links the imported element's
   **owning membership** (the metamodel's range), a library member's by its
   normative membership id; an import written through an alias imports the
-  alias's owning membership. The same rule links a succession's `sourceFeature` (an implied `first
+  alias Membership itself, the model's or a library's (KerML 8.2.3.4.2). The same rule links a succession's `sourceFeature` (an implied `first
   start then a` names the `start` the owner inherits from `Actions::Action`),
   a feature chain's `targetFeature`, a feature reference's `referent` and an
   invocation's `function`. A dotted name reaches these from the notation in one

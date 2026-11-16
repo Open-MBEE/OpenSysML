@@ -207,3 +207,53 @@ func TestImportedLibraryAliasMembershipIsAStub(t *testing.T) {
 		t.Errorf("the notation written back is\n%s", out)
 	}
 }
+
+// An import of an alias imports the alias Membership itself (KerML 8.2.3.5, 8.3.2.4.4), not
+// the owning membership of the element the alias names: the model's own alias and a library's.
+func TestMembershipImportOfAnAliasImportsTheAliasMembership(t *testing.T) {
+	const model = `package Probe {
+	package Lib { part def Original; alias Nick for Original; }
+	package Own { import Lib::Nick; }
+	package Quantities { import ISQThermodynamics::TemperatureValue; }
+}
+`
+	graph := graphOfNotation(t, model)
+	var library []rdf.Term
+	for _, subject := range graph.Subjects() {
+		path, ok := graph.Lexical(subject, rdf.OpenSysML+xLibraryPath)
+		if ok && strings.HasPrefix(path, "ISQThermodynamics/Membership[") {
+			library = append(library, subject)
+		}
+	}
+	if len(library) != 1 {
+		t.Fatalf("the graph names the alias memberships %v of ISQThermodynamics, want the one imported", library)
+	}
+	imports := 0
+	for _, subject := range graph.Subjects() {
+		for _, imported := range graph.Objects(subject, rdf.SysML+pImportedMembership) {
+			if imported == library[0] {
+				imports++
+			}
+		}
+	}
+	if imports != 1 {
+		t.Errorf("%d imports name the library alias membership, want 1", imports)
+	}
+	elements := importProbeElements(t, model)
+	wantReferences(t, elements, "Probe__Own", "importedMembership", "Probe__Lib__Nick")
+	wantReferences(t, elements, "Probe__Own", "member", "Probe__Lib__Original")
+	quantities := referenceIDs(t, elements["Probe__Quantities"], "importedMembership")
+	if want := rdf.LocalName(library[0].Value); len(quantities) != 1 || quantities[0] != want {
+		t.Errorf("Probe__Quantities.importedMembership = %v, want [%s]", quantities, want)
+	}
+	var warnings []string
+	out, err := ToSysMLWarn(graph, func(w string) { warnings = append(warnings, w) })
+	if err != nil || len(warnings) != 0 {
+		t.Fatalf("reading the imports back: %v %v", err, warnings)
+	}
+	for _, want := range []string{"import Lib::Nick;", "import ISQThermodynamics::TemperatureValue;"} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("the notation written back lacks %q:\n%s", want, out)
+		}
+	}
+}

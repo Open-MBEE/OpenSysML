@@ -110,7 +110,8 @@ func (s *apiJSONGraphStructure) indexAnnotations() {
 	s.annotationsComplete = true
 }
 
-// LibraryMember is the library symbol whose owning membership a library reference names.
+// LibraryMember is the library symbol whose membership a library reference names: the member
+// an owning membership owns, or the alias a Membership is.
 func (s *apiJSONGraphStructure) LibraryMember(membership metamodel.Element) (*symbols.Symbol, bool) {
 	subject, ok := s.subject(membership)
 	if !ok || !LibraryReference(s.graph, subject) {
@@ -120,11 +121,14 @@ func (s *apiJSONGraphStructure) LibraryMember(membership metamodel.Element) (*sy
 	if !ok {
 		return nil, false
 	}
-	library, ok := s.libraryCatalog().OwningMembership(id)
-	if !ok || library == nil || library.Symbol == nil {
-		return nil, false
+	if library, ok := s.libraryCatalog().OwningMembership(id); ok && library != nil && library.Symbol != nil {
+		return library.Symbol, true
 	}
-	return library.Symbol, true
+	// An alias is the Membership itself, which an import of it imports (KerML 8.2.3.5).
+	if alias, ok := sharedLibraryIndex().anonymous.AliasMembership(id); ok {
+		return alias.Symbol, true
+	}
+	return nil, false
 }
 
 // LibrarySymbol resolves a library reference the graph states by id to the library symbol.

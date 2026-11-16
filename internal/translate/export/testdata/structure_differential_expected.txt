@@ -394,9 +394,9 @@ root examples/pilot-corpora: models 213, skipped 0, matched 51330, unmatched 100
   PortUsage::portDefinition: equal 376, different 0, symbol-missing 0, symbol-extra 8
   Relationship::ownedRelatedElement: equal 30539, different 228, symbol-missing 0, symbol-extra 0
   Relationship::owningRelatedElement: equal 30606, different 161, symbol-missing 0, symbol-extra 0
-  Relationship::relatedElement: equal 30190, different 396, symbol-missing 170, symbol-extra 11
+  Relationship::relatedElement: equal 30193, different 393, symbol-missing 170, symbol-extra 11
   Relationship::source: equal 30451, different 214, symbol-missing 101, symbol-extra 1
-  Relationship::target: equal 30326, different 260, symbol-missing 170, symbol-extra 11
+  Relationship::target: equal 30329, different 257, symbol-missing 170, symbol-extra 11
   RequirementDefinition::text: equal 20, different 0, symbol-missing 21, symbol-extra 0
   RequirementUsage::actorParameter: equal 184, different 0, symbol-missing 1, symbol-extra 0
   RequirementUsage::requirementDefinition: equal 184, different 0, symbol-missing 1, symbol-extra 0
@@ -534,9 +534,9 @@ root examples/spec-examples: models 473, skipped 38, matched 8358, unmatched 325
   OwningMembership::ownedMemberShortName: equal 3060, different 0, symbol-missing 0, symbol-extra 45
   Relationship::ownedRelatedElement: equal 4915, different 46, symbol-missing 0, symbol-extra 0
   Relationship::owningRelatedElement: equal 4939, different 22, symbol-missing 0, symbol-extra 0
-  Relationship::relatedElement: equal 4846, different 53, symbol-missing 51, symbol-extra 11
+  Relationship::relatedElement: equal 4850, different 49, symbol-missing 51, symbol-extra 11
   Relationship::source: equal 4903, different 34, symbol-missing 23, symbol-extra 1
-  Relationship::target: equal 4864, different 35, symbol-missing 51, symbol-extra 11
+  Relationship::target: equal 4868, different 31, symbol-missing 51, symbol-extra 11
   RequirementDefinition::text: equal 15, different 0, symbol-missing 1, symbol-extra 0
   RequirementUsage::text: equal 39, different 0, symbol-missing 4, symbol-extra 0
   Specialization::owningType: equal 1347, different 5, symbol-missing 0, symbol-extra 0
