@@ -23,6 +23,10 @@ const CodeNonstandardNotation = "nonstandard-notation"
 // SysML grammar admits it nowhere.
 const CodeKerMLNotation = "kerml-notation"
 
+// CodeTypingKeyword marks a typing a SysML file spells `typed by`, which
+// SysML spells `:` or `defined by`; analysis rejects it in every mode.
+const CodeTypingKeyword = "typing-keyword"
+
 // CodeSysMLNotation marks SysML notation used in a KerML file, which the pinned
 // KerML grammar admits nowhere.
 const CodeSysMLNotation = "sysml-notation"
@@ -769,16 +773,16 @@ func (w *notationWalker) typedByRelationships(rels []*ast.Relationship) {
 	}
 }
 
-// typedBy reports a typing spelled `typed by` in a SysML file (SysML.xtext:395 admits
-// `:` and `defined by`; KerML.xtext:600 `typed by`); the fix rewrites the keyword alone.
+// typedBy rejects a typing spelled `typed by` in a SysML file (SysML v2 8.2.2.1.2 DEFINED_BY,
+// 8.2.2.6.5 TypedBy; KerML 8.2.2.7 TYPED_BY); the fix rewrites the keyword alone.
 func (w *notationWalker) typedBy(span source.Span) {
 	w.typedByReported++
 	w.diags = append(w.diags, diag.Diagnostic{
-		Severity: w.severity,
+		Severity: diag.SeverityError,
 		Span:     span,
 		Message: "`typed by` is KerML notation: the SysML v2 grammar spells a typing `:` or `defined by`, " +
 			"so write `defined by`",
-		Code:   CodeKerMLNotation,
+		Code:   CodeTypingKeyword,
 		Source: "syntax",
 		Fixes: []diag.Fix{{
 			Title:     "Write `defined by`",

@@ -42,8 +42,8 @@ func TestToStateGraph_ForkEntersRegionsWithoutInitial(t *testing.T) {
 	graph, err := ToStateGraph(stateDefinitionIn(t, forkMachine(
 		`state a;`,
 		`state b;`,
-		`transition first split do { assign x := 1; } then a;
-		 transition first split then b;`,
+		`transition first split do { assign x := 1; } then work.left.a;
+		 transition first split then work.right.b;`,
 	)), nil)
 	if err != nil {
 		t.Fatalf("ToStateGraph: %v", err)
@@ -108,8 +108,8 @@ func TestToStateGraph_ForkBranchEffectsOwnedByDeclaringState(t *testing.T) {
 					}
 					fork split;
 					transition first init then split;
-					transition first split do { assign count := count + 1; } then a;
-					transition first split do { assign count := count + 10; } then b;
+					transition first split do { assign count := count + 1; } then work.left.a;
+					transition first split do { assign count := count + 10; } then work.right.b;
 				}
 			}
 		}
@@ -131,8 +131,8 @@ func TestToStateGraph_ForkKeepsRegionInitialApart(t *testing.T) {
 	graph, err := ToStateGraph(stateDefinitionIn(t, forkMachine(
 		`entry; then a0; state a0; state a;`,
 		`state b;`,
-		`transition first split then a;
-		 transition first split then b;`,
+		`transition first split then work.left.a;
+		 transition first split then work.right.b;`,
 	)), nil)
 	if err != nil {
 		t.Fatalf("ToStateGraph: %v", err)
@@ -158,8 +158,8 @@ func TestToStateGraph_ForkBranchTargetsNestedState(t *testing.T) {
 		 	state p { entry; then p0; state p0; state b; }
 		 	state q { entry; then q0; state q0; }
 		 }`,
-		`transition first split then a;
-		 transition first split then b;`,
+		`transition first split then work.left.wrapper.a;
+		 transition first split then work.right.inner.p.b;`,
 	)), nil)
 	if err != nil {
 		t.Fatalf("ToStateGraph: %v", err)
@@ -182,9 +182,9 @@ func TestToStateGraph_ForkBranchesNestedInOneRegionFail(t *testing.T) {
 		`entry; then l0; state l0;
 		 state wrapper { entry; then w0; state w0; state a; state a2; }`,
 		`state b;`,
-		`transition first split then a;
-		 transition first split then a2;
-		 transition first split then b;`,
+		`transition first split then work.left.wrapper.a;
+		 transition first split then work.left.wrapper.a2;
+		 transition first split then work.right.b;`,
 	)), nil)
 	if err == nil || !strings.Contains(err.Error(), "in the same region") {
 		t.Fatalf("error = %v, want in the same region", err)
@@ -205,8 +205,8 @@ func TestToStateGraph_RegionWithoutInitialOrForkRemainsInactive(t *testing.T) {
 				}
 				fork split;
 				transition first idle then split;
-				transition first split then a;
-				transition first split then b;
+				transition first split then work.left.a;
+				transition first split then work.right.b;
 			}
 		}
 	`), nil)
@@ -225,7 +225,7 @@ func TestToStateGraph_ForkOnlyRegionEnteredByDefaultLeavesItInactive(t *testing.
 		},
 		"transition into the other region": {
 			`entry; then idle;`,
-			`transition first idle accept Go then b;`,
+			`transition first idle accept Go then work.right.b;`,
 		},
 		"self-transition of the composite state": {
 			`entry; then idle;`,
@@ -233,23 +233,23 @@ func TestToStateGraph_ForkOnlyRegionEnteredByDefaultLeavesItInactive(t *testing.
 		},
 		"transition into the composite state's history": {
 			`entry; then idle;`,
-			`transition first idle accept Go then back;`,
+			`transition first idle accept Go then work.back;`,
 		},
 		"entry transition naming the composite state": {
 			`entry; then work;`,
 			``,
 		},
 		"entry transition naming a state in the other region": {
-			`entry; then b;`,
+			`entry; then work.right.b;`,
 			``,
 		},
 		"guarded entry transition naming a state in the other region": {
-			`entry; if false then idle; then b;`,
+			`entry; if false then idle; then work.right.b;`,
 			``,
 		},
 		"junction outside leading into the other region": {
 			`entry; then idle;`,
-			`junction j; transition first idle accept Go then j; transition first j then b;`,
+			`junction j; transition first idle accept Go then j; transition first j then work.right.b;`,
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -266,8 +266,8 @@ func TestToStateGraph_ForkOnlyRegionEnteredByDefaultLeavesItInactive(t *testing.
 						}
 						fork split;
 						transition first idle then split;
-						transition first split then a;
-						transition first split then b;
+						transition first split then work.left.a;
+						transition first split then work.right.b;
 						`+tc.extra+`
 					}
 				}
@@ -298,20 +298,20 @@ func TestToStateGraph_ForkOnlyRegionEnteredByAnEnclosingEntryLeavesItInactive(t 
 						}
 						fork split;
 						transition first start accept Go then split;
-						transition first split then a;
-						transition first split then b;
+						transition first split then work.left.a;
+						transition first split then work.right.b;
 					}
 					transition first idle accept Go then outer;
 				}
 			}
 		`
 	}
-	graph, err := ToStateGraph(stateDefinitionIn(t, machine(`entry; then b;`, ``)), nil)
+	graph, err := ToStateGraph(stateDefinitionIn(t, machine(`entry; then work.right.b;`, ``)), nil)
 	if err != nil {
 		t.Fatalf("outer entry naming b: %v", err)
 	}
 	requireRegionInitial(t, graph, "work", "left", false, true)
-	graph, err = ToStateGraph(stateDefinitionIn(t, machine(`entry; then start;`, `entry; then b;`)), nil)
+	graph, err = ToStateGraph(stateDefinitionIn(t, machine(`entry; then start;`, `entry; then work.right.b;`)), nil)
 	if err != nil {
 		t.Fatalf("right's own entry naming b: %v", err)
 	}
@@ -337,10 +337,10 @@ func TestToStateGraph_ForkOmissionLeavesRegionInactive(t *testing.T) {
 					fork f2;
 					transition first idle accept Go then f1;
 					transition first idle then f2;
-					transition first f1 then a;
-					transition first f1 then b;
-					transition first f2 then b;
-					transition first f2 then c;
+					transition first f1 then work.left.a;
+					transition first f1 then work.right.b;
+					transition first f2 then work.right.b;
+					transition first f2 then work.third.c;
 				}
 			}
 		`
@@ -377,21 +377,21 @@ func TestToStateGraph_NestedForkLeavesUnenteredRegionsInactive(t *testing.T) {
 							}
 							fork split;
 							transition first hold accept Go then split;
-							transition first split then a;
-							transition first split then b;
+							transition first split then inner.left.a;
+							transition first split then inner.right.b;
 						}
 						state o2 { ` + o2Entry + ` state c; }
 					}
 					fork split2;
-					transition first split2 then c;
+					transition first split2 then outer.o2.c;
 					` + routes + `
 				}
 			}
 		`
 	}
 	graph, err := ToStateGraph(stateDefinitionIn(t, machine(``, ``,
-		`transition first idle then split;
-		 transition first split2 then hold;
+		`transition first idle then outer.o1.split;
+		 transition first split2 then outer.o1.hold;
 		 transition first idle accept Go then split2;`)), nil)
 	if err != nil {
 		t.Fatalf("nested fork from outside: %v", err)
@@ -399,14 +399,14 @@ func TestToStateGraph_NestedForkLeavesUnenteredRegionsInactive(t *testing.T) {
 	requireRegionInitial(t, graph, "outer", "o2", false, true)
 	graph, err = ToStateGraph(stateDefinitionIn(t, machine(``, `entry; then a;`,
 		`transition first idle then split2;
-		 transition first split2 then inner;`)), nil)
+		 transition first split2 then outer.o1.inner;`)), nil)
 	if err != nil {
 		t.Fatalf("outer fork naming inner: %v", err)
 	}
 	requireRegionInitial(t, graph, "inner", "right", false, true)
 	if _, err := ToStateGraph(stateDefinitionIn(t, machine(``, ``,
 		`transition first idle then split2;
-		 transition first split2 then hold;`)), nil); err != nil {
+		 transition first split2 then outer.o1.hold;`)), nil); err != nil {
 		t.Fatalf("nested fork reached from inside outer: %v", err)
 	}
 }
@@ -437,10 +437,10 @@ func TestToStateGraph_ForkOnlyRegionKeepsExplicitEntries(t *testing.T) {
 		`state a; state a2; transition first a accept Go then a2;`,
 		`state b; state b2; entry; then b; junction j;
 		 transition first b accept Go then j; transition first j then b2;`,
-		`transition first split then a;
-		 transition first split then b;
-		 transition first idle accept Go then a2;
-		 transition first b2 accept Go then a;`,
+		`transition first split then work.left.a;
+		 transition first split then work.right.b;
+		 transition first idle accept Go then work.left.a2;
+		 transition first work.right.b2 accept Go then work.left.a;`,
 	)), nil)
 	if err != nil {
 		t.Fatalf("ToStateGraph: %v", err)
@@ -451,44 +451,44 @@ func TestToStateGraph_ForkOnlyRegionKeepsExplicitEntries(t *testing.T) {
 func TestToStateGraph_ForkShapeRejected(t *testing.T) {
 	for name, tc := range map[string]struct{ branches, want string }{
 		"guarded branch": {
-			`transition first split if true then a;
-			 transition first split then b;`,
+			`transition first split if true then work.left.a;
+			 transition first split then work.right.b;`,
 			"cannot be guarded",
 		},
 		"triggered branch": {
-			`transition first split accept Go then a;
-			 transition first split then b;`,
+			`transition first split accept Go then work.left.a;
+			 transition first split then work.right.b;`,
 			"cannot have triggers",
 		},
 		"two branches into one region": {
-			`transition first split then a;
-			 transition first split then a2;
-			 transition first split then b;`,
+			`transition first split then work.left.a;
+			 transition first split then work.left.a2;
+			 transition first split then work.right.b;`,
 			"in the same region",
 		},
 		"one branch": {
-			`transition first split then a;`,
+			`transition first split then work.left.a;`,
 			"needs at least two outgoing transitions",
 		},
 		"branch outside a region": {
-			`transition first split then a;
+			`transition first split then work.left.a;
 			 transition first split then idle;`,
 			"not in an orthogonal region",
 		},
 		"branch into a pseudostate": {
-			`transition first split then a;
+			`transition first split then work.left.a;
 			 transition first split then sync;`,
 			"branch target must be a state",
 		},
 		"branch into a terminate action": {
-			`transition first split then a;
+			`transition first split then work.left.a;
 			 transition first split then stop;
 			 action stop terminate;`,
 			"branch target must be a state",
 		},
 		"branches into two composite states": {
-			`transition first split then a;
-			 transition first split then c;`,
+			`transition first split then work.left.a;
+			 transition first split then other.third.c;`,
 			"span more than one composite state",
 		},
 	} {
@@ -498,8 +498,8 @@ func TestToStateGraph_ForkShapeRejected(t *testing.T) {
 				`state b;`,
 				tc.branches+`
 				 join sync;
-				 transition first a then sync;
-				 transition first b then sync;
+				 transition first work.left.a then sync;
+				 transition first work.right.b then sync;
 				 transition first sync then done;
 				 attribute def Go;
 				 state other parallel {

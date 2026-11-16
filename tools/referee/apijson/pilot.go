@@ -101,6 +101,21 @@ func runPilot(launcher, dir string, libraries, files []string, timeout time.Dura
 		return nil, fmt.Errorf("create pilot output: %w", err)
 	}
 	defer os.RemoveAll(out)
+	run, err := launchPilot(launcher, dir, out, libraries, files, timeout)
+	if err != nil {
+		return nil, err
+	}
+	return readPilot(dir, out, files, run)
+}
+
+// pilotRun is what one launcher run left beside the documents it wrote.
+type pilotRun struct {
+	Status int    `json:"status"`
+	Stderr string `json:"stderr"`
+}
+
+// launchPilot runs the launcher over dir's files, writing the bridge's documents under out.
+func launchPilot(launcher, dir, out string, libraries, files []string, timeout time.Duration) (pilotRun, error) {
 	args := pilotArgs(dir, out, libraries, files)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -110,17 +125,23 @@ func runPilot(launcher, dir string, libraries, files []string, timeout time.Dura
 	command.Stdout, command.Stderr = os.Stdout, &stderr
 	runErr := command.Run()
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		return nil, fmt.Errorf("pilot export of %s exceeded %s", dir, timeout)
+		return pilotRun{}, fmt.Errorf("pilot export of %s exceeded %s", dir, timeout)
 	}
 	status, err := exporter.Status(dir, runErr, stderr.String())
 	if err != nil {
-		return nil, err
+		return pilotRun{}, err
 	}
-	result := &pilotExport{Log: pilotLog(stderr.String()), Unkeyed: make(map[string]int)}
+	return pilotRun{Status: status, Stderr: stderr.String()}, nil
+}
+
+// readPilot keys the documents a run wrote under out for dir's files.
+func readPilot(dir, out string, files []string, run pilotRun) (*pilotExport, error) {
+	status := run.Status
+	result := &pilotExport{Log: pilotLog(run.Stderr), Unkeyed: make(map[string]int)}
 	written := 0
 	for _, rel := range files {
 		path := filepath.Join(out, filepath.FromSlash(rel)+".json")
-		content, err := os.ReadFile(path) // #nosec G304 -- the bridge wrote it under our temporary directory
+		content, err := os.ReadFile(path) // #nosec G304 -- the bridge wrote it under the output directory we named
 		if err != nil {
 			if os.IsNotExist(err) {
 				result.Failed = append(result.Failed, rel)

@@ -36,7 +36,7 @@ package ForkEntersNestedParallelState {
         fork split;
 
         transition first idle do { assign log := log + "T1(effect) "; } then split;
-        transition first split do { assign log := log + "T1.1(effect) "; } then a;
-        transition first split do { assign log := log + "T1.2(effect) "; } then b;
+        transition first split do { assign log := log + "T1.1(effect) "; } then work.left.inner.p.a;
+        transition first split do { assign log := log + "T1.2(effect) "; } then work.right.b;
     }
 }
