@@ -32,8 +32,10 @@ impl From<wire::TypeRef> for TypeRef {
 pub struct TypeFacts {
     /// Type name as written; empty when none is declared.
     pub declared: String,
-    /// Qualified name of the resolved written type; empty when unresolved or undeclared.
+    /// Element id of the resolved written type, for lookup; empty when unresolved or undeclared.
     pub resolved_id: String,
+    /// Qualified name of the resolved written type, for display.
+    pub resolved_qualified_name: String,
     /// Symbol kind of the resolved written type, such as `partDef`.
     pub resolved_kind: String,
     /// Library scalar the type reduces to, such as `Real`; empty when it is not one.
@@ -54,6 +56,7 @@ impl From<wire::TypeInfo> for TypeFacts {
         Self {
             declared: info.declared,
             resolved_id: info.resolved_id,
+            resolved_qualified_name: info.resolved_qualified_name,
             resolved_kind: info.resolved_kind,
             primitive: info.primitive,
             primitive_source: info.primitive_source,
@@ -106,8 +109,10 @@ pub struct Specialization {
     pub kind: String,
     /// The target as written.
     pub declared: String,
-    /// Qualified name of the resolved target; empty when unresolved.
+    /// Element id of the resolved target, for lookup; empty when unresolved.
     pub target_id: String,
+    /// Qualified name of the resolved target, for display.
+    pub target_qualified_name: String,
     /// Symbol kind of the resolved target.
     pub target_kind: String,
 }
@@ -118,6 +123,7 @@ impl From<wire::Specialization> for Specialization {
             kind: info.kind,
             declared: info.declared,
             target_id: info.target_id,
+            target_qualified_name: info.target_qualified_name,
             target_kind: info.target_kind,
         }
     }
@@ -280,7 +286,7 @@ impl Symbol {
             let supertype = match self.connection().get_symbol(
                 self.model_hash(),
                 &specialization.target_id,
-                &crate::domain::SymbolOptions::reported_id(),
+                &crate::domain::SymbolOptions::element_id(),
             ) {
                 Ok(symbol) => symbol,
                 Err(Error::Model(_)) => continue,

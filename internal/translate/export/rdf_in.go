@@ -2732,16 +2732,14 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		// notation rather than as a `references` clause.
 		skip = append(skip, ast.RelReferences)
 	}
-	// A satisfy head writes the requirement it subsets bare, after the keyword;
-	// without that form it declares a requirement usage of its own. An unnamed
-	// SatisfyRequirementUsage, or the RequirementUsage of a `verify` whose
-	// subsetting is a ReferenceSubsetting, is the reference form whether or not
-	// sysx:endForm records it (`verify r :>> req;` records none, since it
-	// specializes twice); `verify requirement :> r;` declares one instead.
+	// A satisfy or verify stating a `references` writes that requirement bare after the keyword,
+	// whether or not sysx:endForm records it; without one it declares a requirement of its own.
 	var satisfyTargets []string
+	// The `by` subject follows the specializations written after the reference.
+	satisfySubject := ""
 	if endForm == formSatisfy || el.metaclass == mSatisfyRequirementUsage || d.verifiedReference(el) {
 		var err error
-		satisfyTargets, err = d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelSubsets])
+		satisfyTargets, err = d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelReferences])
 		if err != nil {
 			return "", err
 		}
@@ -2749,11 +2747,11 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	switch {
 	case endForm == formSatisfy || len(satisfyTargets) > 0 && len(identWords) == 0:
 		if len(satisfyTargets) == 0 {
-			return "", d.missing(el, sysmlPrefix+relationshipProperty[ast.RelSubsets],
+			return "", d.missing(el, sysmlPrefix+relationshipProperty[ast.RelReferences],
 				"a satisfy head names the requirement it satisfies")
 		}
 		words = append(words, strings.Join(satisfyTargets, ", "))
-		skip = append(skip, ast.RelSubsets)
+		skip = append(skip, ast.RelReferences)
 		subjects, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelSubject])
 		if err != nil {
 			return "", err
@@ -2765,7 +2763,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 			}
 		}
 		if len(subjects) == 1 {
-			words = append(words, "by", subjects[0])
+			satisfySubject = subjects[0]
 			skip = append(skip, ast.RelSubject)
 		}
 	case kind == ast.UsageSatisfy:
@@ -2955,6 +2953,9 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		return "", err
 	}
 	words = append(words, relationships...)
+	if satisfySubject != "" {
+		words = append(words, "by", satisfySubject)
+	}
 	if hasEnds {
 		// A connector's own multiplicity is its declaration, written ahead of
 		// the ends; after them it would read as the last end's.
@@ -4446,10 +4447,8 @@ type headClause struct {
 	multiplicity bool
 }
 
-// headClauseKinds are the collapsed properties a materialized relationship
-// element may state, by the element's metaclass; a Subsetting is a feature's
-// `subsets` or its `specializes`, a ReferenceSubsetting a `references` or an
-// end form's `subsets`, which the target tells apart.
+// headClauseKinds are the collapsed properties a materialized relationship element may state, by
+// its metaclass; a Subsetting is a feature's `subsets` or its `specializes`, told apart by the target.
 var headClauseKinds = map[string][]ast.RelationshipKind{
 	mFeatureTyping:        {ast.RelTyping},
 	mConjugatedPortTyping: {ast.RelTyping},
@@ -4457,7 +4456,7 @@ var headClauseKinds = map[string][]ast.RelationshipKind{
 	mSpecialization:       {ast.RelSpecializes},
 	mSubsetting:           {ast.RelSubsets, ast.RelSpecializes},
 	mRedefinition:         {ast.RelRedefines},
-	mReferenceSubsetting:  {ast.RelReferences, ast.RelSubsets},
+	mReferenceSubsetting:  {ast.RelReferences},
 }
 
 // headClauseTargets are the properties that state a relationship element's

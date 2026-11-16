@@ -5,6 +5,7 @@ export {
   ElementIdentity,
   ElementProperties,
   ElementProperty,
+  type ElementLookup,
   type PropertyValue,
   elementPropertiesOf,
 } from "./element-properties.js";
@@ -30,6 +31,7 @@ export type {
   ParseOptions,
   ParseSourcesOptions,
   SpecializationFacts,
+  SymbolLookupOptions,
   SymbolOptions,
   TypeFacts,
 } from "./model.js";
@@ -194,6 +196,7 @@ export {
   CAPABILITY_CONVERT_DOCUMENTS,
   CAPABILITY_CONVERT_COMPACT,
   CAPABILITY_CONVERT_LIBRARY_REFERENCES,
+  CAPABILITY_CONVERT_INHERITED_MEMBERS,
   CAPABILITY_CONVERT_LIBRARY_STUBS,
   CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
   CAPABILITY_PARSE_SOURCES_AFFECTED,
@@ -231,6 +234,7 @@ export {
   CAPABILITY_VERIFICATION_VERDICTS,
   CAPABILITY_SYMBOL_ATTRIBUTES,
   CAPABILITY_SYMBOL_MEMBERS,
+  CAPABILITY_SYMBOL_LOOKUP_KIND,
   CAPABILITY_SYMBOL_NAME_RESOLUTION,
   CAPABILITY_SYMBOL_ANNOTATING_METADATA,
   CAPABILITY_ELEMENT_PROPERTIES,

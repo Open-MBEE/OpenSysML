@@ -1209,3 +1209,27 @@ func TestVerificationToolsPrintTheVerdictNotes(t *testing.T) {
 		t.Errorf("text lacks the note:\n%s", out)
 	}
 }
+
+// A type and a general are shown by qualified name where the id GetSymbol takes is spelled otherwise.
+func TestSymbolShowsATypeAndAGeneralByQualifiedName(t *testing.T) {
+	h := attach(t, newService(t))
+	const model = `part def Col__V__c_pend0 { }
+package Col { port def P; part def V { port q : P; port r : P; connection c connect q to r; } }
+package Uses {
+	part def '@2'; part filler; part;
+	part escaped : Col__V__c_pend0; part def EscapedSub :> Col__V__c_pend0;
+	part quoted : '@2'; part def QuotedSub :> '@2';
+}
+`
+	source := []map[string]any{{"path": "", "text": model}}
+	for user, want := range map[string]string{
+		"Uses::escaped": "type: Col__V__c_pend0\ntyping Col__V__c_pend0\n", "Uses::EscapedSub": "specializes Col__V__c_pend0\n",
+		"Uses::quoted": "type: @2 (Uses::@2)\ntyping Uses::@2\n", "Uses::QuotedSub": "specializes Uses::@2\n",
+	} {
+		var resp pb.SymbolResponse
+		_, out := h.ok("symbol", map[string]any{"sources": source, "symbolId": user}, &resp)
+		if !strings.Contains(out, want) {
+			t.Errorf("symbol %s does not show %q:\n%s", user, want, out)
+		}
+	}
+}

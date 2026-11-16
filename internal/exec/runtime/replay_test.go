@@ -1273,7 +1273,7 @@ func TestReplayRefusedChoiceUndoesTheHistoryDefaultsJunctionDraw(t *testing.T) {
 				transition first pick if level > 7 then w2;
 				transition first pick if level > 9 then w3;
 			}
-			transition first idle accept Go do assign level := 8 then resume;
+			transition first idle accept Go do assign level := 8 then work.resume;
 		}
 	}`)
 	sym := m.state(t, "Machine")
@@ -1450,7 +1450,7 @@ func TestReplayRefusedChoiceUndoesTheOwnerEnteredAhead(t *testing.T) {
 				transition first pick if level > 7 then two;
 				transition first pick if level > 9 then three;
 			}
-			transition first idle accept Go do { assign log := log + "go(effect);"; } then split;
+			transition first idle accept Go do { assign log := log + "go(effect);"; } then work.split;
 		}
 	}`)
 	sym := m.state(t, "Machine")

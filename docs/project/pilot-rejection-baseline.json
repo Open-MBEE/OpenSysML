@@ -42,7 +42,6 @@
   },
   "strictOnlyAgreements": [
     "extensions/x06-history-member.sysml",
-    "extensions/x10-connector-in-sysml.sysml",
     "extensions/x11-indexed-connector-end.sysml"
   ],
   "sources": [
@@ -186,7 +185,8 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 3,
-      "defaultBucket": "pilot-only-rejects"
+      "defaultBucket": "both-reject",
+      "defaultErrors": 1
     },
     {
       "path": "extensions/x11-indexed-connector-end.sysml",

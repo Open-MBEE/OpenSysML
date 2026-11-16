@@ -858,7 +858,7 @@ func (m *Model) declaredGeneralizationReaches(sym *symbols.Symbol, want string, 
 	// generalization would (SysML v2 §7.27.3), so it displaces the base too.
 	var targets []*symbols.Symbol
 	for _, rel := range RelationshipsOf(sym) {
-		if rel != nil && GeneralizationKind(rel.Kind) {
+		if rel != nil && Generalizes(sym, rel.Kind) {
 			targets = append(targets, m.relationshipTarget(sym, rel))
 		}
 	}
@@ -907,7 +907,7 @@ func (m *Model) declaredReachesFrom(from, want *symbols.Symbol, visited *reachSe
 	var few [4]*symbols.Symbol
 	targets := few[:0]
 	for _, rel := range RelationshipsOf(from) {
-		if rel != nil && GeneralizationKind(rel.Kind) {
+		if rel != nil && Generalizes(from, rel.Kind) {
 			targets = append(targets, m.relationshipTarget(from, rel))
 		}
 	}

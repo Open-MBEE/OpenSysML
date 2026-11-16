@@ -2373,10 +2373,10 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 			declRels := p.parseRelationships(declFeature)
 			u.Relationships = append(u.Relationships, declRels...)
 		} else if reqName := p.parseChainedName(); reqName != nil {
-			// SysML.xtext:2119's ReferenceSubsetting reaches a nested feature through a '.'
-			// chain (KerML.xtext:699); kept a plain subsetting until its readers migrate.
+			// SysML.xtext:2119's OwnedReferenceSubsetting reaches a nested feature
+			// through a '.' chain (KerML.xtext:699).
 			u.Relationships = append(u.Relationships, &ast.Relationship{
-				Kind:   ast.RelSubsets,
+				Kind:   ast.RelReferences,
 				Target: reqName,
 			})
 			// The reference form takes specializations of its own:

@@ -239,7 +239,7 @@ _Generated from the diagnostic code registry by `make diagnostics-catalogue`; `m
 | [`expose-visibility`](#expose-visibility) | error | an `expose` written with `public`, `private` or `protected` |
 | [`framed-concern-membership-owning-type`](#framed-concern-membership-owning-type) | error | `frame` outside a requirement, concern or viewpoint body |
 | [`import-visibility`](#import-visibility) | error | an `import` written without `public`, `private` or `protected` |
-| [`kerml-notation`](#kerml-notation) | warning | KerML notation in a SysML file |
+| [`kerml-notation`](#kerml-notation) | error | KerML notation in a SysML file |
 | [`nonstandard-notation`](#nonstandard-notation) | warning | notation OpenSysML reads that no production of the SysML v2 grammar admits |
 | [`objective-membership-owning-type`](#objective-membership-owning-type) | error | `objective` outside a case body |
 | [`requirement-constraint-membership-owning-type`](#requirement-constraint-membership-owning-type) | error | `assume` or `require` outside a requirement or case body |
@@ -320,9 +320,9 @@ Specification: SysML v2 §8.2.2.4 ImportPrefix
 
 #### `kerml-notation`
 
-**warning** · Syntax · KerML notation in a SysML file
+**error** · Syntax · KerML notation in a SysML file
 
-A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) that the SysML v2 grammar does not admit. Move the declaration to a `.kerml` file, or write the SysML form the message names. A `namespace` declaration is an error in either mode; `-strict` promotes the other findings to errors.
+A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) that the SysML v2 grammar does not admit. Move the declaration to a `.kerml` file, or write the SysML form the message names. A `namespace` declaration and a declaration keyword only KerML spells (`class`, `feature`, `connector` …) are errors in either mode; `-strict` promotes the other findings to errors.
 
 Specification: the pinned SysML v2 Xtext grammar
 

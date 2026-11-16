@@ -15,6 +15,12 @@ class FailureReason(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     FAILURE_REASON_AMBIGUOUS_SUBJECT: _ClassVar[FailureReason]
     FAILURE_REASON_UNDECIDED: _ClassVar[FailureReason]
 
+class LookupKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    LOOKUP_KIND_UNSPECIFIED: _ClassVar[LookupKind]
+    LOOKUP_KIND_QUALIFIED_NAME: _ClassVar[LookupKind]
+    LOOKUP_KIND_ELEMENT_ID: _ClassVar[LookupKind]
+
 class EditFailure(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     EDIT_FAILURE_UNSPECIFIED: _ClassVar[EditFailure]
@@ -58,6 +64,9 @@ FAILURE_REASON_EVALUATION: FailureReason
 FAILURE_REASON_WRONG_KIND: FailureReason
 FAILURE_REASON_AMBIGUOUS_SUBJECT: FailureReason
 FAILURE_REASON_UNDECIDED: FailureReason
+LOOKUP_KIND_UNSPECIFIED: LookupKind
+LOOKUP_KIND_QUALIFIED_NAME: LookupKind
+LOOKUP_KIND_ELEMENT_ID: LookupKind
 EDIT_FAILURE_UNSPECIFIED: EditFailure
 EDIT_FAILURE_NO_OPERATIONS: EditFailure
 EDIT_FAILURE_UNKNOWN_TARGET: EditFailure
@@ -850,16 +859,18 @@ class ParseFileResponse(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., root: _Optional[_Union[SymbolInfo, _Mapping]] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., error: _Optional[str] = ...) -> None: ...
 
 class GetSymbolRequest(_message.Message):
-    __slots__ = ("model_hash", "symbol_id", "include_library_members", "resolve_name")
+    __slots__ = ("model_hash", "symbol_id", "include_library_members", "resolve_name", "lookup")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_LIBRARY_MEMBERS_FIELD_NUMBER: _ClassVar[int]
     RESOLVE_NAME_FIELD_NUMBER: _ClassVar[int]
+    LOOKUP_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     symbol_id: str
     include_library_members: bool
     resolve_name: bool
-    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., include_library_members: _Optional[bool] = ..., resolve_name: _Optional[bool] = ...) -> None: ...
+    lookup: LookupKind
+    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., include_library_members: _Optional[bool] = ..., resolve_name: _Optional[bool] = ..., lookup: _Optional[_Union[LookupKind, str]] = ...) -> None: ...
 
 class SymbolResponse(_message.Message):
     __slots__ = ("symbol", "error")
@@ -870,14 +881,16 @@ class SymbolResponse(_message.Message):
     def __init__(self, symbol: _Optional[_Union[SymbolInfo, _Mapping]] = ..., error: _Optional[str] = ...) -> None: ...
 
 class GetElementPropertiesRequest(_message.Message):
-    __slots__ = ("model_hash", "element_id", "properties")
+    __slots__ = ("model_hash", "element_id", "properties", "lookup")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     ELEMENT_ID_FIELD_NUMBER: _ClassVar[int]
     PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    LOOKUP_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     element_id: str
     properties: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, model_hash: _Optional[str] = ..., element_id: _Optional[str] = ..., properties: _Optional[_Iterable[str]] = ...) -> None: ...
+    lookup: LookupKind
+    def __init__(self, model_hash: _Optional[str] = ..., element_id: _Optional[str] = ..., properties: _Optional[_Iterable[str]] = ..., lookup: _Optional[_Union[LookupKind, str]] = ...) -> None: ...
 
 class GetElementPropertiesResponse(_message.Message):
     __slots__ = ("element", "properties", "error")
@@ -1231,7 +1244,7 @@ class ExecuteStateResponse(_message.Message):
     def __init__(self, states_visited: _Optional[_Iterable[str]] = ..., final_context: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ..., trace: _Optional[_Iterable[_Union[DocumentEvent, _Mapping]]] = ..., trace_dropped: _Optional[int] = ..., order_dependent: _Optional[_Mapping[str, int]] = ...) -> None: ...
 
 class ConvertRequest(_message.Message):
-    __slots__ = ("file_path", "content", "model_hash", "from_format", "to_format", "tolerate_syntax_errors", "id_form", "documents", "compact", "omit_derived", "keep_derived", "include_check_diagnostics", "include_library_stubs")
+    __slots__ = ("file_path", "content", "model_hash", "from_format", "to_format", "tolerate_syntax_errors", "id_form", "documents", "compact", "omit_derived", "keep_derived", "include_check_diagnostics", "include_library_stubs", "inherited_members")
     FILE_PATH_FIELD_NUMBER: _ClassVar[int]
     CONTENT_FIELD_NUMBER: _ClassVar[int]
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
@@ -1245,6 +1258,7 @@ class ConvertRequest(_message.Message):
     KEEP_DERIVED_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_CHECK_DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_LIBRARY_STUBS_FIELD_NUMBER: _ClassVar[int]
+    INHERITED_MEMBERS_FIELD_NUMBER: _ClassVar[int]
     file_path: str
     content: str
     model_hash: str
@@ -1258,7 +1272,8 @@ class ConvertRequest(_message.Message):
     keep_derived: _containers.RepeatedScalarFieldContainer[str]
     include_check_diagnostics: bool
     include_library_stubs: bool
-    def __init__(self, file_path: _Optional[str] = ..., content: _Optional[str] = ..., model_hash: _Optional[str] = ..., from_format: _Optional[str] = ..., to_format: _Optional[str] = ..., tolerate_syntax_errors: _Optional[bool] = ..., id_form: _Optional[str] = ..., documents: _Optional[_Iterable[str]] = ..., compact: _Optional[bool] = ..., omit_derived: _Optional[bool] = ..., keep_derived: _Optional[_Iterable[str]] = ..., include_check_diagnostics: _Optional[bool] = ..., include_library_stubs: _Optional[bool] = ...) -> None: ...
+    inherited_members: bool
+    def __init__(self, file_path: _Optional[str] = ..., content: _Optional[str] = ..., model_hash: _Optional[str] = ..., from_format: _Optional[str] = ..., to_format: _Optional[str] = ..., tolerate_syntax_errors: _Optional[bool] = ..., id_form: _Optional[str] = ..., documents: _Optional[_Iterable[str]] = ..., compact: _Optional[bool] = ..., omit_derived: _Optional[bool] = ..., keep_derived: _Optional[_Iterable[str]] = ..., include_check_diagnostics: _Optional[bool] = ..., include_library_stubs: _Optional[bool] = ..., inherited_members: _Optional[bool] = ...) -> None: ...
 
 class ConvertResponse(_message.Message):
     __slots__ = ("content", "from_format", "to_format", "error", "diagnostics", "experimental", "experimental_notice", "library_references")
@@ -1796,19 +1811,21 @@ class MemberInfo(_message.Message):
     def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., kind: _Optional[str] = ..., inherited: _Optional[bool] = ..., inherited_from: _Optional[str] = ..., library: _Optional[bool] = ...) -> None: ...
 
 class Specialization(_message.Message):
-    __slots__ = ("kind", "declared", "target_id", "target_kind")
+    __slots__ = ("kind", "declared", "target_id", "target_kind", "target_qualified_name")
     KIND_FIELD_NUMBER: _ClassVar[int]
     DECLARED_FIELD_NUMBER: _ClassVar[int]
     TARGET_ID_FIELD_NUMBER: _ClassVar[int]
     TARGET_KIND_FIELD_NUMBER: _ClassVar[int]
+    TARGET_QUALIFIED_NAME_FIELD_NUMBER: _ClassVar[int]
     kind: str
     declared: str
     target_id: str
     target_kind: str
-    def __init__(self, kind: _Optional[str] = ..., declared: _Optional[str] = ..., target_id: _Optional[str] = ..., target_kind: _Optional[str] = ...) -> None: ...
+    target_qualified_name: str
+    def __init__(self, kind: _Optional[str] = ..., declared: _Optional[str] = ..., target_id: _Optional[str] = ..., target_kind: _Optional[str] = ..., target_qualified_name: _Optional[str] = ...) -> None: ...
 
 class TypeInfo(_message.Message):
-    __slots__ = ("declared", "resolved_id", "resolved_kind", "primitive", "primitive_source", "quantity", "unit", "types")
+    __slots__ = ("declared", "resolved_id", "resolved_kind", "primitive", "primitive_source", "quantity", "unit", "types", "resolved_qualified_name")
     DECLARED_FIELD_NUMBER: _ClassVar[int]
     RESOLVED_ID_FIELD_NUMBER: _ClassVar[int]
     RESOLVED_KIND_FIELD_NUMBER: _ClassVar[int]
@@ -1817,6 +1834,7 @@ class TypeInfo(_message.Message):
     QUANTITY_FIELD_NUMBER: _ClassVar[int]
     UNIT_FIELD_NUMBER: _ClassVar[int]
     TYPES_FIELD_NUMBER: _ClassVar[int]
+    RESOLVED_QUALIFIED_NAME_FIELD_NUMBER: _ClassVar[int]
     declared: str
     resolved_id: str
     resolved_kind: str
@@ -1825,7 +1843,8 @@ class TypeInfo(_message.Message):
     quantity: bool
     unit: str
     types: _containers.RepeatedCompositeFieldContainer[TypeRef]
-    def __init__(self, declared: _Optional[str] = ..., resolved_id: _Optional[str] = ..., resolved_kind: _Optional[str] = ..., primitive: _Optional[str] = ..., primitive_source: _Optional[str] = ..., quantity: _Optional[bool] = ..., unit: _Optional[str] = ..., types: _Optional[_Iterable[_Union[TypeRef, _Mapping]]] = ...) -> None: ...
+    resolved_qualified_name: str
+    def __init__(self, declared: _Optional[str] = ..., resolved_id: _Optional[str] = ..., resolved_kind: _Optional[str] = ..., primitive: _Optional[str] = ..., primitive_source: _Optional[str] = ..., quantity: _Optional[bool] = ..., unit: _Optional[str] = ..., types: _Optional[_Iterable[_Union[TypeRef, _Mapping]]] = ..., resolved_qualified_name: _Optional[str] = ...) -> None: ...
 
 class TypeRef(_message.Message):
     __slots__ = ("id", "kind")
