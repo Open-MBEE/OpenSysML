@@ -88,6 +88,11 @@ jobs:
           SAVED: wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
         run: |
           set -euo pipefail
-          gh cache list --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF" --key wasm-gate- --limit 100 --json id,key \
-            --jq '.[] | select(.key != env.SAVED) | .id' |
+          caches=$(gh cache list --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF" --key wasm-gate- --limit 100 --json id,key)
+          # The save step succeeds over a failed upload, and the older entries are then the only warm ones.
+          if ! jq -e 'any(.[]; .key == env.SAVED)' <<<"$caches" >/dev/null; then
+            echo "::warning::$SAVED was not saved, so the older entries are kept"
+            exit 0
+          fi
+          jq -r '.[] | select(.key != env.SAVED) | .id' <<<"$caches" |
             xargs -r -n1 gh cache delete --repo "$GITHUB_REPOSITORY"
