@@ -249,7 +249,7 @@ func TestModelOfSeveralDocumentsMintsDistinctRootNamespaces(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				out, err := export.WriteAPIJSON(graph)
+				out, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{InheritedMembers: true})
 				if err != nil {
 					t.Fatal(err)
 				}

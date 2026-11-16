@@ -30,7 +30,7 @@ elmt:Lib__io
 	if !export.LibraryReference(graph, subject) {
 		t.Fatal("the fixture's io is not a library reference")
 	}
-	apiJSON, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{IncludeLibraryStubs: true})
+	apiJSON, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{IncludeLibraryStubs: true, InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
