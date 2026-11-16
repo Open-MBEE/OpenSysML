@@ -1531,6 +1531,17 @@ func (d *decoder) libraryStubs() (map[string]bool, error) {
 			catalog := d.libraryCatalog
 			owned, ok := catalog.OwningMembership(id)
 			member := members[0]
+			if alias, found := sharedLibraryIndex().anonymous.AliasMembership(id); !ok && found {
+				target, resolved := sharedLibraryIndex().aliasTarget(alias)
+				if !resolved || len(members) != 1 || !member.IsIRI() || rdf.LocalName(member.Value) != target.ID {
+					return nil, &UnsupportedError{
+						What: fmt.Sprintf("the library membership <%s>", subject.Value),
+						Note: fmt.Sprintf("its id is that of the alias membership %s, and its memberElement is not the element the alias names", alias.Path),
+					}
+				}
+				stubs[subject.Value] = true
+				continue
+			}
 			memberName, memberNameKind, hasMemberName := d.librarySubjectName(member)
 			if !ok && len(members) == 1 && member.IsIRI() && hasMemberName {
 				if candidate, found := catalog.ElementNamed(memberName); found && d.libraryMetaclassCompatible(member, candidate) {

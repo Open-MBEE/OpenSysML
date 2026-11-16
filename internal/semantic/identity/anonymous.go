@@ -148,14 +148,15 @@ func metaclassName(model *semantics.Model, sym *symbols.Symbol) string {
 type AnonymousIndex struct {
 	byID, byMembershipID map[string]AnonymousMember
 	bySymbol             map[*symbols.Symbol]AnonymousMember
+	aliasByID            map[string]AliasMembership
 }
 
-// AnonymousMemberIndex indexes every unnamed member a named element of catalog
-// owns, declared or implied, by element id and by owning-membership id.
+// AnonymousMemberIndex indexes every unnamed member a named element of catalog owns, declared
+// or implied, by element id and by owning-membership id, and every alias membership by its id.
 func AnonymousMemberIndex(model *semantics.Model, catalog *Catalog) *AnonymousIndex {
 	index := &AnonymousIndex{
 		byID: map[string]AnonymousMember{}, byMembershipID: map[string]AnonymousMember{},
-		bySymbol: map[*symbols.Symbol]AnonymousMember{},
+		bySymbol: map[*symbols.Symbol]AnonymousMember{}, aliasByID: map[string]AliasMembership{},
 	}
 	if model == nil || catalog == nil {
 		return index
@@ -163,6 +164,11 @@ func AnonymousMemberIndex(model *semantics.Model, catalog *Catalog) *AnonymousIn
 	for _, owner := range catalog.Elements() {
 		if owner.Symbol == nil {
 			continue
+		}
+		for _, membership := range model.OwnedMemberships(owner.Symbol) {
+			if alias, ok := AliasMembershipOf(model, catalog, membership); ok {
+				index.aliasByID[alias.ID] = alias
+			}
 		}
 		members, ok := model.ReflectiveElements(owner.Symbol, "ownedMember")
 		if !ok {
@@ -198,6 +204,15 @@ func (i *AnonymousIndex) Element(id string) (AnonymousMember, bool) {
 	}
 	member, ok := i.byID[id]
 	return member, ok
+}
+
+// AliasMembership is the membership of a library alias with the given minted id.
+func (i *AnonymousIndex) AliasMembership(id string) (AliasMembership, bool) {
+	if i == nil {
+		return AliasMembership{}, false
+	}
+	alias, ok := i.aliasByID[id]
+	return alias, ok
 }
 
 // OwningMembership is the unnamed member whose owning membership has the given id.

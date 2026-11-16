@@ -2,7 +2,10 @@ package export
 
 import (
 	"fmt"
+	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
 // A condition reads an annotation's feature through a cast and compares it (KerML 7.4.9.2,
@@ -153,5 +156,54 @@ func TestAPIJSONCastChainReferencesItsTargetFeature(t *testing.T) {
 	}
 	if chains != 1 {
 		t.Errorf("%d feature chain expressions, want 1", chains)
+	}
+}
+
+// The notation written back spells a member read past a cast as the member of the type cast
+// to, the way the graph names it (KerML 8.2.5.8.1).
+func TestCastChainSegmentIsWrittenBack(t *testing.T) {
+	out, err := ToSysML(graphOfNotation(t, `package Probe {
+	metadata def Safety { attribute isMandatory : ScalarValues::Boolean; }
+	package Lib { part a { @Safety { isMandatory = true; } } }
+	package Mandatory { import Lib::*; filter (as Safety).isMandatory; }
+}
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(out), "(as Safety).isMandatory") {
+		t.Errorf("the notation written back loses the cast chain:\n%s", out)
+	}
+}
+
+// A library alias a namespace imports is referenced by its own membership, which the graph
+// names beside the element it aliases, and the notation reads back without it.
+func TestImportedLibraryAliasMembershipIsAStub(t *testing.T) {
+	const model = "package Probe {\n\tpackage Quantities { import ISQThermodynamics::*; }\n}\n"
+	graph := graphOfNotation(t, model)
+	aliases := 0
+	for _, subject := range graph.Subjects() {
+		path, ok := graph.Lexical(subject, rdf.OpenSysML+xLibraryPath)
+		if !ok || !strings.HasPrefix(path, "ISQThermodynamics/Membership[") {
+			continue
+		}
+		aliases++
+		if !LibraryReference(graph, subject) || len(graph.Objects(subject, rdf.SysML+pMemberElement)) != 1 {
+			t.Errorf("the alias membership %s is no library stub naming one member", path)
+		}
+	}
+	if aliases == 0 {
+		t.Fatal("the graph names no alias membership of ISQThermodynamics")
+	}
+	var warnings []string
+	out, err := ToSysMLWarn(graph, func(w string) { warnings = append(warnings, w) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warnings) != 0 {
+		t.Errorf("reading the alias memberships back warns: %v", warnings[0])
+	}
+	if !strings.Contains(string(out), "import ISQThermodynamics::*;") || strings.Contains(string(out), "alias") {
+		t.Errorf("the notation written back is\n%s", out)
 	}
 }
