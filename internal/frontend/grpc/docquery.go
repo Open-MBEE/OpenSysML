@@ -11,7 +11,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docset"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
-	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
@@ -73,7 +72,7 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 		}
 	} else {
 		var fqn string
-		program, fqn, err = namedQuery(qctx, req.QueryId)
+		program, fqn, err = namedQuery(cached, qctx, req.QueryId)
 		if err != nil {
 			return nil, err
 		}
@@ -89,7 +88,7 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 			return nil, err
 		}
 	}
-	bindings, err := documentBindings(qctx.Index, qctx.Model, held, req.Bindings)
+	bindings, err := documentBindings(cached, qctx.Model, held, req.Bindings)
 	if err != nil {
 		return nil, err
 	}
@@ -118,8 +117,8 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 }
 
 // namedQuery plans the document query the model declares under id, and answers its qualified name.
-func namedQuery(qctx queryexec.Context, id string) (*queryplan.Program, string, error) {
-	sym, err := documentSymbol(qctx.Index, id)
+func namedQuery(cached *CachedModel, qctx queryexec.Context, id string) (*queryplan.Program, string, error) {
+	sym, err := documentSymbol(cached, id)
 	if err != nil {
 		return nil, "", err
 	}
@@ -209,7 +208,7 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 	held := s.objects(cached)
 	defer held.lock(ctx)()
 	qctx := held.queryContext()
-	sym, err := documentSymbol(qctx.Index, req.DocumentId)
+	sym, err := documentSymbol(cached, req.DocumentId)
 	if err != nil {
 		return nil, err
 	}
@@ -236,8 +235,8 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 
 // documentSymbol resolves the query or document a request names, failing with
 // NOT_FOUND when the model does not declare it.
-func documentSymbol(idx *symbols.Index, id string) (*symbols.Symbol, error) {
-	syms := symbolfacts.LookupNamed(idx, id)
+func documentSymbol(cached *CachedModel, id string) (*symbols.Symbol, error) {
+	syms := cached.LookupDeclared(id)
 	if len(syms) == 0 {
 		return nil, statusErrorf(connect.CodeNotFound, "symbol not found: %s", id)
 	}
@@ -246,7 +245,7 @@ func documentSymbol(idx *symbols.Index, id string) (*symbols.Symbol, error) {
 
 // documentBindings converts a request's typed bindings into the engine's, an object
 // one against the objects held. Repeated parameters append, as %run-query's do.
-func documentBindings(idx *symbols.Index, sem *semantics.Model, held *heldObjects, bindings []*pb.DocumentQueryBinding) (queryexec.Bindings, error) {
+func documentBindings(cached *CachedModel, sem *semantics.Model, held *heldObjects, bindings []*pb.DocumentQueryBinding) (queryexec.Bindings, error) {
 	if len(bindings) == 0 {
 		return nil, nil
 	}
@@ -256,7 +255,7 @@ func documentBindings(idx *symbols.Index, sem *semantics.Model, held *heldObject
 			return nil, statusError(connect.CodeInvalidArgument, "a binding must name the parameter it binds")
 		}
 		for _, value := range binding.GetValues() {
-			bound, err := boundValue(idx, sem, held, binding.GetParameter(), value)
+			bound, err := boundValue(cached, sem, held, binding.GetParameter(), value)
 			if err != nil {
 				return nil, err
 			}
@@ -269,7 +268,7 @@ func documentBindings(idx *symbols.Index, sem *semantics.Model, held *heldObject
 // boundValue converts one request value. An element is bound by qualified name
 // and an object by id or path among those held; infinity and verdicts are only
 // ever answered, so binding them is refused.
-func boundValue(idx *symbols.Index, sem *semantics.Model, held *heldObjects, parameter string, value *pb.DocumentValue) (queryexec.Value, error) {
+func boundValue(cached *CachedModel, sem *semantics.Model, held *heldObjects, parameter string, value *pb.DocumentValue) (queryexec.Value, error) {
 	switch kind := value.GetKind().(type) {
 	case *pb.DocumentValue_Object:
 		inst, label, err := held.resolve(parameter, kind.Object)
@@ -278,7 +277,7 @@ func boundValue(idx *symbols.Index, sem *semantics.Model, held *heldObjects, par
 		}
 		return queryexec.ObjectValue(inst, label), nil
 	case *pb.DocumentValue_ElementId:
-		syms := symbolfacts.LookupNamed(idx, kind.ElementId)
+		syms := cached.LookupDeclared(kind.ElementId)
 		if len(syms) == 0 {
 			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument,
 				"binding %s names an element the model does not have: %q", parameter, kind.ElementId)
@@ -317,7 +316,7 @@ func boundValue(idx *symbols.Index, sem *semantics.Model, held *heldObjects, par
 		return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument,
 			"binding %s: an event row is answered by queries, not bound to them", parameter)
 	case *pb.DocumentValue_Quantity:
-		bound, err := protoconv.ProtoToQuantity(kind.Quantity, idx, sem)
+		bound, err := protoconv.ProtoToQuantity(kind.Quantity, cached.Index, sem)
 		if err != nil {
 			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument, bindingFormat, parameter, err)
 		}

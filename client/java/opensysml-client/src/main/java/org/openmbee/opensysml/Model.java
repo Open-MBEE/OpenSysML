@@ -18,6 +18,7 @@ import org.openmbee.opensysml.proto.DocumentObject;
 import org.openmbee.opensysml.proto.GetElementPropertiesRequest;
 import org.openmbee.opensysml.proto.GetElementPropertiesResponse;
 import org.openmbee.opensysml.proto.GetSymbolRequest;
+import org.openmbee.opensysml.proto.LookupKind;
 import org.openmbee.opensysml.proto.InstancePathsRequest;
 import org.openmbee.opensysml.proto.InstancePathsResponse;
 import org.openmbee.opensysml.proto.InstantiateRequest;
@@ -437,6 +438,24 @@ public final class Model {
    * @throws ServiceException if the service does not hold this model
    */
   public ElementProperties elementProperties(String element, String... properties) {
+    return elementProperties(Lookup.EITHER, element, properties);
+  }
+
+  /**
+   * Reads the metamodel properties of the element a string names as the stated kind.
+   *
+   * @param lookup a qualified name, an element form id or symbol id, or either (the legacy form:
+   *     an element form id first, then a name)
+   * @param element the name or id
+   * @param properties the specification names, none for every property
+   * @return the element and one entry per property, answered or saying why not
+   * @throws SymbolNotFoundException if the model has no such element
+   * @throws ModelException if the service refused the read
+   * @throws CapabilityException if the service does not advertise {@code element_properties}
+   * @throws ServiceException if the service does not hold this model
+   */
+  public ElementProperties elementProperties(Lookup lookup, String element, String... properties) {
+    Objects.requireNonNull(lookup, "lookup");
     Objects.requireNonNull(element, "element");
     connection.capabilities().require(Capabilities.ELEMENT_PROPERTIES);
     GetElementPropertiesResponse response =
@@ -445,6 +464,7 @@ public final class Model {
             GetElementPropertiesRequest.newBuilder()
                 .setModelHash(hash)
                 .setElementId(element)
+                .setLookup(lookupKind(lookup))
                 .addAllProperties(List.of(properties))
                 .build(),
             GetElementPropertiesResponse.getDefaultInstance());
@@ -611,7 +631,7 @@ public final class Model {
   }
 
   private Optional<Symbol> symbolWithId(String id) {
-    return findSymbol(id, SymbolOptions.defaults().byReportedId(true))
+    return findSymbol(id, SymbolOptions.defaults().lookup(Lookup.ELEMENT_ID))
         .filter(symbol -> symbol.id().equals(id));
   }
 
@@ -2465,10 +2485,27 @@ public final class Model {
             .setSymbolId(symbolId)
             .setIncludeLibraryMembers(options.includeLibraryMembers())
             .setResolveName(
-                !options.byReportedId()
+                resolvesName(options)
                     && connection.capabilities().has(Capabilities.SYMBOL_NAME_RESOLUTION))
+            .setLookup(lookupKind(options.lookup()))
             .build(),
         SymbolResponse.getDefaultInstance());
+  }
+
+  // The legacy form of a stated kind, which is all a service without symbol_lookup_kind reads.
+  private static boolean resolvesName(SymbolOptions options) {
+    return switch (options.lookup()) {
+      case EITHER -> !options.byReportedId();
+      case QUALIFIED_NAME -> true;
+      case ELEMENT_ID -> false;
+    };
+  }
+
+  // No kind is stated to a service that would ignore it: it reads the string as either.
+  private LookupKind lookupKind(Lookup lookup) {
+    return connection.capabilities().has(Capabilities.SYMBOL_LOOKUP_KIND)
+        ? lookup.kind()
+        : LookupKind.LOOKUP_KIND_UNSPECIFIED;
   }
 
   private EvaluateRequest.Builder request(String expression) {

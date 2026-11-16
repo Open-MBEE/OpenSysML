@@ -104,7 +104,8 @@ engine.multiplicity
 engine.specializations
 ```
 
-`TypeFacts` describes the typing as written (`declared`, `resolved_id`) and,
+`TypeFacts` describes the typing as written (`declared`, with `resolved_id`
+to look the type up by and `resolved_qualified_name` to show it by) and,
 beside it, the derived types (`types`: KerML `Feature::type`, which the typing
 of every feature the usage subsets, references or redefines contributes to —
 `part pSub :> q` with `q : T` has `types == (TypeRef("P::T", "partDef"),)` and

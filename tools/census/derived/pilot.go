@@ -9,13 +9,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/exporter"
+	"github.com/Open-MBEE/OpenSysML/tools/referee/apijson"
 )
 
 // PilotCensus is the pilot's side of one root: what its export states for
@@ -77,11 +78,12 @@ func runExporter(launcher, dir, libraries string, files []string, timeout time.D
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return nil, fmt.Errorf("pilot export of %s exceeded %s", dir, timeout)
 	}
-	var exit *exec.ExitError
-	if runErr != nil && (!errors.As(runErr, &exit) || exit.ExitCode() != 1) {
-		return nil, fmt.Errorf("pilot export of %s: %w\n%s", dir, runErr, strings.TrimSpace(stderr.String()))
+	status, err := exporter.Status(dir, runErr, stderr.String())
+	if err != nil {
+		return nil, err
 	}
 	census := &PilotCensus{Rules: map[string]Counts{}, seen: map[string]bool{}}
+	written := 0
 	rules := metamodel.Rules()
 	for _, rel := range files {
 		content, err := os.ReadFile(filepath.Join(out, filepath.FromSlash(rel)+".json")) // #nosec G304 -- the bridge wrote it under our temporary directory
@@ -96,9 +98,13 @@ func runExporter(launcher, dir, libraries string, files []string, timeout time.D
 		if err := json.Unmarshal(content, &document); err != nil {
 			return nil, fmt.Errorf("parse pilot export %s: %w", rel, err)
 		}
+		written++
 		for _, item := range document.Elements {
 			countPilotElement(item.Payload, rules, classes, census)
 		}
+	}
+	if err := exporter.Wrote(dir, status, written, len(files)); err != nil {
+		return nil, err
 	}
 	return census, nil
 }
@@ -132,6 +138,8 @@ func countPilotElement(payload map[string]any, rules []metamodel.Rule, classes m
 		counts.Carriers++
 		value, present := payload[rule.Property]
 		switch {
+		case apijson.IsPilotNondeterministic(class, rule.Property):
+			counts.Nondeterministic++
 		case !present:
 			counts.NotDerived++
 		case isAbsent(value):

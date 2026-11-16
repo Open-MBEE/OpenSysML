@@ -88,6 +88,9 @@ model.roots();                                  // one Symbol per document; empt
 
 Symbol vehicle = model.symbol("Demo::Vehicle"); // throws if the model has no such symbol
 model.findSymbol("Demo::Vehicle");              // Optional, for a name that may be absent
+model.symbol("Demo::Vehicle", SymbolOptions.defaults().lookup(Lookup.QUALIFIED_NAME)); // only as a name
+model.symbol("Demo::Vehicle::@3", SymbolOptions.defaults().lookup(Lookup.ELEMENT_ID)); // only as a reported id
+model.elementProperties(Lookup.ELEMENT_ID, "Demo::Vehicle::@3");
 model.find("Vehicle");                          // Optional, by short name or qualified id
 model.get("Demo::Vehicle");                     // Optional, by qualified id only
 model.lookup("Vehicle");                        // throws SymbolNotFoundException with suggestions

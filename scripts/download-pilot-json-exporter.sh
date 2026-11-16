@@ -113,6 +113,8 @@ while [ -L "$SCRIPT" ]; do
 done
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
 
+# Setup failures exit 78 (EX_CONFIG): the bridge exits 1 for the files it failed on,
+# so a run that never started the bridge must not read as one.
 CLASSES="$SCRIPT_DIR/classes"
 JAR="$SCRIPT_DIR/../pilot-validator/target/sysml-download/sysml/jupyter-sysml-kernel-__PILOT_ARTIFACT_VERSION__-all.jar"
 LIBRARY="$SCRIPT_DIR/../pilot-validator/target/sysml-download/sysml/sysml.library"
@@ -123,12 +125,18 @@ elif [ -x /usr/local/jdk-21/bin/java ]; then
 	JAVA=/usr/local/jdk-21/bin/java
 else
 	echo "Error: Java 21+ not found" >&2
-	exit 1
+	exit 78
+fi
+
+# --jvm prints the Java feature release the export runs under, which a baseline records.
+if [ "${1:-}" = "--jvm" ]; then
+	"$JAVA" -XshowSettings:properties -version 2>&1 | sed -n 's/^ *java\.specification\.version = //p'
+	exit 0
 fi
 
 if [ ! -f "$JAR" ]; then
 	echo "Error: pilot jar not found at $JAR" >&2
-	exit 1
+	exit 78
 fi
 
 has_library=0
@@ -138,7 +146,7 @@ done
 if [ "$has_library" -eq 0 ]; then
 	if [ ! -d "$LIBRARY" ]; then
 		echo "Error: SysML library not found at $LIBRARY" >&2
-		exit 1
+		exit 78
 	fi
 	LIBRARY="$(cd "$LIBRARY" && pwd)"
 	set -- --library "$LIBRARY" "$@"

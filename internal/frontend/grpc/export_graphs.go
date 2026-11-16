@@ -56,7 +56,7 @@ func (s *Service) ExportGraphs(ctx context.Context, req *pb.ExportGraphsRequest)
 // of the same name, as every RPC reads a name; a name the model declares more
 // than once denotes none of them.
 func graphsSubject(cached *CachedModel, name string) (*symbols.Symbol, error) {
-	found := cached.LookupNamedMember(name)
+	found := cached.LookupDeclaredMember(name)
 	if len(found) == 0 {
 		return nil, statusErrorf(connect.CodeNotFound, "symbol not found: %s", name)
 	}

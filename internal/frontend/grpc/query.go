@@ -125,10 +125,11 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 		}
 	}
 
-	sc := cached.SymbolContext()
-	defer sc.Lock()()
+	// The held objects are locked first, as every request that looks a symbol up under them does.
 	held := s.objects(cached)
 	defer held.lock(ctx)()
+	sc := cached.SymbolContext()
+	defer sc.Lock()()
 	qctx := held.queryContext()
 	eval := &queryEval{sc: sc, cached: cached}
 	qctx.Identity = eval.identity
@@ -442,6 +443,9 @@ func (e *queryEval) candidates(cached *CachedModel, scope []string) ([]*symbols.
 			if sym := e.sc.Positional.Symbol(fqn); sym != nil {
 				roots = []*symbols.Symbol{sym}
 			}
+		}
+		if len(roots) == 0 {
+			roots = e.sc.LookupID(fqn)
 		}
 		if len(roots) == 0 {
 			return nil, queryErrorf(QueryErrUnknownScope,

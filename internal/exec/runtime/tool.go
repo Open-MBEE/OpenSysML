@@ -392,7 +392,7 @@ func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 	call := &ToolCall{Action: execution.on, ToolName: tool, URI: execution.uri, ctx: e.ctx, scope: e.root.scope}
 	namedBy := make(map[string]string)
 	for _, param := range e.ctx.model.semantics.BehaviorParametersOf(e.action) {
-		if param.Symbol == nil || param.Symbol.Name == "" {
+		if param.Symbol == nil || !param.Symbol.Named() {
 			continue
 		}
 		variable, named, err := e.ctx.toolVariableOf(param.Symbol)
@@ -781,12 +781,12 @@ func (ctx *Context) UnitOf(scope *symbols.Scope, text string) (semantics.Unit, e
 	var unit semantics.Unit
 	err = fmt.Errorf("%w: no scope reads %s", semantics.ErrNotAUnit, text)
 	if scope != nil {
-		unit, err = ctx.model.semantics.UnitOfExpr(scope, expr.tree())
+		unit, err = expr.entry.Unit(ctx.model.semantics, scope)
 	}
 	if errors.Is(err, semantics.ErrNotAUnit) {
 		if si := ctx.librarySymbol(fqnSIPackage); si != nil && si.Scope != nil {
 			if inSI, _ := ctx.model.readExpression("<tool>", text, si.Scope); inSI != nil {
-				if siUnit, siErr := ctx.model.semantics.UnitOfExpr(si.Scope, inSI.tree()); siErr == nil {
+				if siUnit, siErr := inSI.entry.Unit(ctx.model.semantics, si.Scope); siErr == nil {
 					unit, err = siUnit, nil
 				}
 			}

@@ -49,8 +49,8 @@ func testForkBranchesShareRegion(t *testing.T) {
 
 			succession first init then ready;
 			transition first ready then split;
-			transition first split then a;
-			transition first split then b;
+			transition first split then working.left.a;
+			transition first split then working.left.b;
 		}
 	}`)
 	if err == nil {
@@ -77,8 +77,8 @@ func testForkBranchWithATrigger(t *testing.T) {
 			fork split;
 
 			transition first init then split;
-			transition first split accept Go then a;
-			transition first split then b;
+			transition first split accept Go then working.left.a;
+			transition first split then working.right.b;
 		}
 	}`)
 	if err == nil {
@@ -190,7 +190,7 @@ func testJoinFromNestedStatesWrapperExitThatFails(t *testing.T) {
 						entry; then l1;
 						state l1;
 					}
-					transition first l1 then sync;
+					transition first il.l1 then sync;
 				}
 				state right {
 					entry; then ir;
@@ -198,7 +198,7 @@ func testJoinFromNestedStatesWrapperExitThatFails(t *testing.T) {
 						entry; then r1;
 						state r1;
 					}
-					transition first r1 then sync;
+					transition first ir.r1 then sync;
 				}
 			}
 			join sync;
@@ -271,7 +271,7 @@ func testJoinOfMachineRegionsNestedSourceOwnerExitThatFails(t *testing.T) {
 					state l1 { entry; then a; state a; }
 					state l2 { entry; then c; state c; }
 				}
-				transition first a accept Go then sync;
+				transition first inner.l1.a accept Go then sync;
 			}
 			state right {
 				entry; then b;

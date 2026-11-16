@@ -194,6 +194,9 @@ func Rooted(graph *rdf.Graph, qualifiedName string) (*rdf.Graph, error) {
 		if name, ok := graph.Lexical(subject, rdf.SysML+"qualifiedName"); ok && name == qualifiedName {
 			return RootedAt(graph, subject), nil
 		}
+		if name, ok := export.NamedAddress(graph, subject); ok && name == qualifiedName {
+			return RootedAt(graph, subject), nil
+		}
 	}
 	return nil, &NotFoundError{QualifiedName: qualifiedName}
 }

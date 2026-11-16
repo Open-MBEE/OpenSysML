@@ -9,7 +9,7 @@ import (
 // formatVersion is the on-disk record format version. Bump it whenever the
 // persisted shape changes; a change to what a record captures needs no bump,
 // since the build ID in the cache key already invalidates records (see buildid.go).
-const formatVersion = 35
+const formatVersion = 36
 
 // factRecord is the derived analysis persisted for one library symbol, named by
 // the fully-qualified name it is declared under. It holds no declaration and no
@@ -175,7 +175,7 @@ func supersOf(sym *symbols.Symbol, idx *symbols.Index, model *semantics.Model) (
 	}
 	complete := true
 	for _, rel := range rels {
-		if !semantics.GeneralizationKind(rel.Kind) {
+		if !semantics.Generalizes(sym, rel.Kind) {
 			continue
 		}
 		if ast.AsQualifiedName(rel.Target) == nil {

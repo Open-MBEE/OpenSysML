@@ -190,7 +190,7 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 	case *ast.InitialNode:
 		// A start marker is registered by name so transitions can reference it; a
 		// succession's `first a` declares nothing, its body owning a body-local scope.
-		marker := d.Name() != "" && !FirstNamesSource(d)
+		marker := d.Named() && !FirstNamesSource(d)
 		if !marker && len(d.Members) == 0 {
 			return true
 		}
@@ -292,8 +292,7 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 	case *ast.PseudostateNode:
 		// fork/join/choice/junction/history named in a state body are
 		// transition endpoints, so they must be referenceable.
-		if d.Name != "" {
-			id := ast.Identification{Name: d.Name}
+		if id := (ast.Identification{Name: d.Name, NameSpan: d.NameSpan}); id.HasName() {
 			child := NewScope(scope, d)
 			sym := newSymbol(id, SymbolStateUsage, d, vis, child, scope, trivia)
 			defineIdent(scope, id, sym)
@@ -306,17 +305,22 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 		child := NewScope(scope, d)
 		child.markBodyLocal()
 		scope.AddChild(child)
-		if name, span := d.Variable.DeclaredName(); d.Kind == ast.LoopFor && name != "" {
+		if d.Kind == ast.LoopFor && d.Variable.Declared() {
 			// The variable's own span, not the whole loop's: the editor renames
 			// through NameSpan and jumps to DeclSpan.
-			child.Define(name, &Symbol{
+			name, span := d.Variable.DeclaredName()
+			sym := &Symbol{
 				Name:       name,
 				Kind:       SymbolReferenceUsage,
 				Decl:       d,
 				DeclSpan:   span,
 				NameSpan:   span,
 				OwnerScope: child,
-			})
+			}
+			if name == "" {
+				sym.EmptyNames = EmptyName
+			}
+			child.define(name, sym)
 		}
 		buildMembers(child, d.Body)
 		return true
@@ -409,7 +413,7 @@ func buildMetadataBodyScope(parent *Scope, annotated ast.Node, prefix *ast.Prefi
 // but still owns the scope its body declares into.
 func buildControlNode(scope *Scope, decl ast.Node, name string, nameSpan source.Span, vis ast.Visibility, trivia []ast.Trivia) {
 	body := ast.NodeBodyMembers(decl)
-	if name == "" {
+	if name == "" && nameSpan.Len == 0 {
 		// An unnamed node declares an element once its body or a prefix gives it
 		// something to own.
 		if len(body) > 0 || len(prefixMetadataOf(decl)) > 0 {
@@ -598,14 +602,18 @@ func memberDeclaring(scope *Scope, decl ast.Node) (*Symbol, bool) {
 // declaration owns (nil for leaf declarations); owner is the enclosing scope the
 // declaration was declared in. trivia is the leading trivia from the member wrapper.
 func newSymbol(id ast.Identification, kind SymbolKind, decl ast.Node, vis ast.Visibility, scope, owner *Scope, trivia []ast.Trivia) *Symbol {
-	name := id.Name
-	nameSpan := id.NameSpan
-	if name == "" {
-		name, nameSpan = id.ShortName, id.ShortNameSpan
+	name, nameSpan := id.DeclaredName()
+	var empty EmptyNames
+	if id.Declared() && name == "" {
+		empty |= EmptyName
+	}
+	if id.HasShortName() && id.ShortName == "" {
+		empty |= EmptyShortName
 	}
 	sym := &Symbol{
 		Name:          name,
 		ShortName:     id.ShortName,
+		EmptyNames:    empty,
 		Kind:          kind,
 		Decl:          decl,
 		Visibility:    vis,
@@ -649,7 +657,7 @@ func namingIdent(id ast.Identification, rel *ast.Relationship) (ast.Identificati
 // the given kind.
 func derivedIdent(id ast.Identification, kind Naming, target ast.Node) (ast.Identification, derivedNaming) {
 	name, span := ast.TargetName(target)
-	if name == "" {
+	if name == "" && span.Len == 0 {
 		return id, derivedNaming{}
 	}
 	id.Name, id.NameSpan = name, span
@@ -697,17 +705,16 @@ func buildStateSubaction(scope *Scope, subaction ast.Node, actions []ast.Node, v
 	buildMembers(scope, actions)
 }
 
-// defineIdent registers sym under its short and primary name keys, skipping
-// any that are empty (e.g. anonymous usages).
+// defineIdent registers sym under the short and primary names it declares, the
+// empty unrestricted name included, or as anonymous when it declares neither.
 func defineIdent(scope *Scope, id ast.Identification, sym *Symbol) {
-	if id.ShortName != "" {
-		scope.Define(id.ShortName, sym)
+	if id.HasShortName() {
+		scope.define(id.ShortName, sym)
 	}
-	if id.Name != "" {
-		scope.Define(id.Name, sym)
+	if id.HasName() {
+		scope.define(id.Name, sym)
 	}
-	// If both names empty, register as anonymous
-	if id.ShortName == "" && id.Name == "" {
+	if !id.Declared() {
 		scope.DefineAnonymous(sym)
 	}
 }

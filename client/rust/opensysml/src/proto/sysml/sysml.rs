@@ -1153,7 +1153,8 @@ pub struct ParseFileResponse {
 pub struct GetSymbolRequest {
     #[prost(string, tag="1")]
     pub model_hash: ::prost::alloc::string::String,
-    /// Fully qualified name
+    /// A qualified name or an element id, as lookup states; with none stated, read as a
+    /// name first, then an id, so a name declared like a generated id shadows that element.
     #[prost(string, tag="2")]
     pub symbol_id: ::prost::alloc::string::String,
     /// List the members inherited from standard-library content in
@@ -1166,6 +1167,10 @@ pub struct GetSymbolRequest {
     /// symbol_name_resolution capability, it is an id the service reported, whatever its visibility.
     #[prost(bool, tag="4")]
     pub resolve_name: bool,
+    /// What symbol_id is, stated rather than guessed; read with the "symbol_lookup_kind"
+    /// capability, and resolve_name is then ignored.
+    #[prost(enumeration="LookupKind", tag="5")]
+    pub lookup: i32,
 }
 /// SymbolResponse contains symbol information
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1181,14 +1186,18 @@ pub struct SymbolResponse {
 pub struct GetElementPropertiesRequest {
     #[prost(string, tag="1")]
     pub model_hash: ::prost::alloc::string::String,
-    /// The element: its qualified name, the positional id of an unnamed member
-    /// (Owner::@3), or the "@id" of the model's API element form.
+    /// A qualified name or an id, as lookup states; with none stated, the "@id" of the model's
+    /// API element form first, then a qualified name, then a positional id (Owner::@3).
     #[prost(string, tag="2")]
     pub element_id: ::prost::alloc::string::String,
     /// The properties to read, by specification name. Empty reads every property
     /// the element form carries for the element.
     #[prost(string, repeated, tag="3")]
     pub properties: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// What element_id is, stated rather than guessed; read with the "symbol_lookup_kind"
+    /// capability. An alias named by qualified name answers as its membership.
+    #[prost(enumeration="LookupKind", tag="4")]
+    pub lookup: i32,
 }
 /// GetElementPropertiesResponse is one property entry per requested name, in
 /// the request's order, or every property the element carries when none was
@@ -2541,7 +2550,8 @@ pub struct AppliedEdit {
 /// surface whose answer the specification defines.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SymbolInfo {
-    /// Unique identifier (fully qualified name)
+    /// The element id, this element's alone: its qualified name (`Owner::'@3'`), a positional id
+    /// (`Owner::@3`), or its element-form "@id" where another's generated id is spelled like the name.
     #[prost(string, tag="1")]
     pub id: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
@@ -2558,8 +2568,8 @@ pub struct SymbolInfo {
     /// "variation", "variant" and the like.
     #[prost(map="string, string", tag="4")]
     pub metadata: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
-    /// The owned members' ids, each one GetSymbol takes: a qualified name, a positional id (`Owner::@3`), or an unnamed
-    /// connector end's GetElementProperties element id (`Owner__c_pend0`), which a declaration so named answers instead.
+    /// The owned members' ids, each naming its member under LOOKUP_KIND_ELEMENT_ID: a qualified name, a positional id
+    /// (`Owner::@3`), or an unnamed connector end's GetElementProperties element id (`Owner__c_pend0`).
     #[prost(string, repeated, tag="5")]
     pub child_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="6")]
@@ -2603,8 +2613,7 @@ pub struct SymbolInfo {
 /// MemberInfo is one member of an element, own or inherited.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct MemberInfo {
-    /// The id GetSymbol takes: the member's FQN, or the positional id
-    /// (`Owner::@3`) of one declared without a name, library members included.
+    /// The member's element id, as SymbolInfo.id spells it, library members included.
     #[prost(string, tag="1")]
     pub id: ::prost::alloc::string::String,
     /// Declared name; empty for an unnamed member such as `bind a = b;`.
@@ -2633,13 +2642,16 @@ pub struct Specialization {
     /// The target as written in the source ("Engine", "Demo::Engine").
     #[prost(string, tag="2")]
     pub declared: ::prost::alloc::string::String,
-    /// FQN of the resolved target; empty when the name does not resolve. A "references" feature chain
-    /// (`x.p`) is one entry per chaining feature, in chain order, each with the chain as `declared`.
+    /// Element id of the resolved target, as GetSymbol reports it, for lookup; empty when the name does not resolve.
+    /// A "references" feature chain (`x.p`) is one entry per chaining feature, each with the chain as `declared`.
     #[prost(string, tag="3")]
     pub target_id: ::prost::alloc::string::String,
     /// Symbol kind of the resolved target ("partDef", ...); empty when unresolved.
     #[prost(string, tag="4")]
     pub target_kind: ::prost::alloc::string::String,
+    /// Qualified name of the resolved target, for display; empty when the name does not resolve.
+    #[prost(string, tag="5")]
+    pub target_qualified_name: ::prost::alloc::string::String,
 }
 /// TypeInfo is the static type of a usage, or the classification of a
 /// definition, as far as the service derives it without running the model.
@@ -2653,7 +2665,7 @@ pub struct TypeInfo {
     /// Type name as written; empty when none is declared.
     #[prost(string, tag="1")]
     pub declared: ::prost::alloc::string::String,
-    /// FQN of the resolved written type; empty when unresolved or undeclared.
+    /// Element id of the resolved written type, as GetSymbol reports it, for lookup; empty when unresolved or undeclared.
     #[prost(string, tag="2")]
     pub resolved_id: ::prost::alloc::string::String,
     /// Symbol kind of the resolved written type ("partDef", "attributeDef", ...).
@@ -2678,6 +2690,9 @@ pub struct TypeInfo {
     /// and T. Empty when the element is not a feature or none derives.
     #[prost(message, repeated, tag="8")]
     pub types: ::prost::alloc::vec::Vec<TypeRef>,
+    /// Qualified name of the resolved written type, for display; empty when unresolved or undeclared.
+    #[prost(string, tag="9")]
+    pub resolved_qualified_name: ::prost::alloc::string::String,
 }
 /// TypeRef names one derived type of a feature.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -3171,8 +3186,8 @@ pub struct ServerInfoResponse {
     ///                   and the response carries the document in `asciidoc`.
     ///    "render_view" - the RenderView RPC renders a declared view or targeted
     ///                   pseudo-view as machine-readable diagram data.
-    ///    "query_result_view" - as_view writes a query's answer as a QVTS::QueryResult view in result_view (a failed query's
-    ///                   as a QueryResultView detail); RenderView answers such a view's header and, for form, a document.
+    ///    "query_result_view" - as_view writes a query's answer as a QVTS::QueryResult view: result_view on success, a
+    ///                   QueryResultView detail on failure; RenderView answers such a view's header and, for form, a document.
     ///    "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
     ///                   action or state machine as canonical graphs:1 JSON.
     ///    "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
@@ -4906,6 +4921,42 @@ impl FailureReason {
             "FAILURE_REASON_WRONG_KIND" => Some(Self::WrongKind),
             "FAILURE_REASON_AMBIGUOUS_SUBJECT" => Some(Self::AmbiguousSubject),
             "FAILURE_REASON_UNDECIDED" => Some(Self::Undecided),
+            _ => None,
+        }
+    }
+}
+/// LookupKind states what the one string naming an element is, as the SysML v2 API keeps
+/// an element's "@id" apart from its qualifiedName (KerML 8.3.2.1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum LookupKind {
+    /// Not stated: the string is read as either kind, in the order its field documents.
+    Unspecified = 0,
+    /// A qualified name, resolved from the root namespace (KerML 8.2.3.5) through visible
+    /// memberships; never read as an id.
+    QualifiedName = 1,
+    /// An id the service reported for an element (SymbolInfo.id, child_ids, MemberInfo.id,
+    /// ElementRef.id, a metaobject's element_id), whatever its visibility; never read as a name.
+    ElementId = 2,
+}
+impl LookupKind {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "LOOKUP_KIND_UNSPECIFIED",
+            Self::QualifiedName => "LOOKUP_KIND_QUALIFIED_NAME",
+            Self::ElementId => "LOOKUP_KIND_ELEMENT_ID",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "LOOKUP_KIND_UNSPECIFIED" => Some(Self::Unspecified),
+            "LOOKUP_KIND_QUALIFIED_NAME" => Some(Self::QualifiedName),
+            "LOOKUP_KIND_ELEMENT_ID" => Some(Self::ElementId),
             _ => None,
         }
     }

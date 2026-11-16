@@ -53,6 +53,6 @@ package Test {
 		}
 
 		succession first start then running;
-		transition back first away accept after 3 [s] if trips == 1 then resume;
+		transition back first away accept after 3 [s] if trips == 1 then running.resume;
 	}
 }

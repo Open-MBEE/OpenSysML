@@ -7,9 +7,7 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -47,9 +45,7 @@ func (s *Service) RenderView(ctx context.Context, req *pb.RenderViewRequest) (*p
 	defer release()
 	renderer := view.NewRenderer(worker.Model.Semantics(), worker.Model.Resolver(), cachedSourceText(cached))
 	renderer.SetDepth(int(req.Depth))
-	rendering, err := view.RenderNamed(renderer, req.View, func(name string) []*symbols.Symbol {
-		return symbolfacts.LookupNamed(cached.Index, name)
-	})
+	rendering, err := view.RenderNamed(renderer, req.View, cached.LookupDeclared)
 	if err != nil {
 		var selectionErr *view.SelectionError
 		if errors.As(err, &selectionErr) && selectionErr.Kind == view.SelectionNotFound {

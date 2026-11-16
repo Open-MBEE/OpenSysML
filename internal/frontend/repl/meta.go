@@ -2917,7 +2917,7 @@ func ambiguousAction(action string, inst *runtime.Instance, label string, perfor
 	e := &AmbiguousActionError{Object: objectMention(inst, label), Action: action}
 	for _, b := range performed {
 		usage := ""
-		if member := b.Member(); member != nil && member.Name != "" {
+		if member := b.Member(); member != nil && member.Named() {
 			usage = declarationNotation(member)
 		}
 		e.Usages = append(e.Usages, usage)
@@ -3574,7 +3574,7 @@ func collectExhibits(scopes []*symbols.Scope) []exhibitEntry {
 		}
 		if owner := scope.Owner(); owner != nil {
 			scope.ForEachMember(func(member *symbols.Symbol) bool {
-				if member.Name != "" && member.Decl != nil {
+				if member.Named() && member.Decl != nil {
 					if b, ok := lower.ClassifierBehaviorOf(member.Decl); ok && b.Kind == lower.ExhibitedState {
 						entries = append(entries, exhibitEntry{owner: owner, member: member})
 					}
@@ -3637,7 +3637,7 @@ func ambiguousMachine(machine string, inst *runtime.Instance, label string, exhi
 	e := &AmbiguousMachineError{Object: objectMention(inst, label), Machine: machine}
 	for _, b := range exhibited {
 		usage := ""
-		if member := b.Member(); member != nil && member.Name != "" {
+		if member := b.Member(); member != nil && member.Named() {
 			usage = declarationNotation(member)
 		}
 		e.Usages = append(e.Usages, usage)

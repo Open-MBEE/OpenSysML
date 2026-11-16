@@ -69,7 +69,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 67,
-        "digest": "sha256:b67b66785203937d5ef4ffa790086f94cc881fb7b0f791d10b104ed65a04a696"
+        "digest": "sha256:2f44acce1d3234d1ba750b54ac074092f9d8f5090b4a2949149fc8a9a4071d78"
       },
       {
         "name": "probes",
@@ -86,13 +86,13 @@
         "digest": "sha256:903849d31c41320c258b616c32557028426e9824f78e5c47c7bf364769340718"
       }
     ],
-    "recorded": "2026-11-15"
+    "recorded": "2026-11-16"
   },
   "totals": {
     "files": 935,
-    "filesFullyAgreeing": 538,
-    "agreement": 1104,
-    "severityMismatch": 11,
+    "filesFullyAgreeing": 539,
+    "agreement": 1105,
+    "severityMismatch": 10,
     "openSysMLOnly": 121,
     "pilotOnly": 2450,
     "openSysMLDiagnostics": 1236,
@@ -16928,9 +16928,9 @@
       "dir": "tests/testdata",
       "totals": {
         "files": 40,
-        "filesFullyAgreeing": 25,
-        "agreement": 60,
-        "severityMismatch": 5,
+        "filesFullyAgreeing": 26,
+        "agreement": 61,
+        "severityMismatch": 4,
         "openSysMLOnly": 11,
         "pilotOnly": 36,
         "openSysMLDiagnostics": 76,
@@ -17166,6 +17166,12 @@
               "count": 1
             },
             {
+              "line": 5,
+              "severity": "error",
+              "category": "syntax",
+              "count": 1
+            },
+            {
               "line": 6,
               "severity": "error",
               "category": "unresolved-reference",
@@ -17178,15 +17184,7 @@
               "count": 1
             }
           ],
-          "severityMismatch": [
-            {
-              "line": 5,
-              "category": "syntax",
-              "openSysMLSeverity": "warning",
-              "pilotSeverity": "error",
-              "count": 1
-            }
-          ],
+          "severityMismatch": [],
           "openSysMLOnly": [],
           "pilotOnly": []
         },
@@ -24955,9 +24953,9 @@
     ],
     "totals": {
       "files": 935,
-      "filesFullyAgreeing": 539,
-      "agreement": 1104,
-      "severityMismatch": 11,
+      "filesFullyAgreeing": 540,
+      "agreement": 1105,
+      "severityMismatch": 10,
       "openSysMLOnly": 120,
       "pilotOnly": 2450,
       "openSysMLDiagnostics": 1235,

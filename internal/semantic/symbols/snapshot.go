@@ -300,6 +300,7 @@ func (e *snapshotEncoder) writeSymbols() {
 			e.w.Uint(e.facts[s.Facts])
 		}
 		e.w.String(s.ShortName)
+		e.w.Uint(uint64(s.EmptyNames))
 		e.w.Uint(uint64(s.Naming))
 		e.node(s.NamingTarget)
 	}
@@ -828,6 +829,12 @@ func (d *sectionReader) readSymbols() {
 			s.Facts = &d.facts[id-1]
 		}
 		s.ShortName = d.r.String()
+		empty := d.r.Uint()
+		if empty > uint64(EmptyName|EmptyShortName) {
+			d.r.Fail("empty names")
+			return
+		}
+		s.EmptyNames = EmptyNames(empty)
 		naming := d.r.Uint()
 		if naming > uint64(NamedByRedefinition) {
 			d.r.Fail("naming kind")

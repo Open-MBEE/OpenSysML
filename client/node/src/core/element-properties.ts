@@ -150,6 +150,9 @@ export function propertyValueOf(message: ElementPropertyValueMessage): PropertyV
   }
 }
 
+/** The element a read names, by kind: its qualified name, or an element form id or symbol id. */
+export type ElementLookup = { name: string } | { id: string };
+
 /** Decodes a `GetElementPropertiesResponse` the service answered without error. */
 export function elementPropertiesOf(response: GetElementPropertiesResponse): ElementProperties {
   return new ElementProperties(
