@@ -21,7 +21,7 @@ func operatorDiags(t *testing.T, name, code, src string) []diag.Diagnostic {
 	idx.ExpandWildcardImports()
 	var out []diag.Diagnostic
 	for _, d := range Analyze(name, root, nil, idx) {
-		if d.Severity == diag.SeverityError && d.Source != "type" {
+		if d.Blocking() && d.Source != "type" {
 			t.Fatalf("%s does not analyse cleanly: %v", name, d)
 		}
 		if d.Code == code {
@@ -548,7 +548,7 @@ func TestOperatorRulesInEveryMultiplicityForm(t *testing.T) {
 	requirement def D { subject s : K[0..(5 as C)]; }
 	requirement def R { assume constraint ac [0..(6 as C)] { true } require constraint rc [0..(7 as C)] { true } }
 	part e : K[0..(8 as C)] { attribute q = { in v : Integer[0..(9 as C)]; v }; }
-	connection def CD { end e1 [0..(10 as C)] feature x : K; end e2 : K; }
+	connection def CD { end e1 [0..(10 as C)] part x : K; end e2 : K; }
 	package Q { filter { in z : Integer[0..(11 as C)]; z == 1 }; }
 }`,
 		"5:29 cast argument is typed by Integer, unrelated to the target C",
