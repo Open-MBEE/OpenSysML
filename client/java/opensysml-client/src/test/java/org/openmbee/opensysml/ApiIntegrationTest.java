@@ -85,6 +85,24 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void readsAStringAsTheKindOfLookupStated() {
+    Model model =
+        connection.parse(
+            "package Col__V__c_pend0 { part marker; } package Col { port def P; part def V { port q : P; port r : P; connection c connect q to r; } }");
+    String spelling = "Col__V__c_pend0";
+    assertEquals(
+        "package", model.symbol(spelling, SymbolOptions.defaults().lookup(Lookup.QUALIFIED_NAME)).kind());
+    Symbol end = model.symbol(spelling, SymbolOptions.defaults().lookup(Lookup.ELEMENT_ID));
+    assertEquals("connectorEnd", end.kind());
+    assertEquals(spelling, end.id());
+    assertEquals(
+        List.of("connectorEnd", "connectorEnd"),
+        model.symbol("Col::V::c").childIds().stream()
+            .map(id -> model.symbol(id, SymbolOptions.defaults().lookup(Lookup.ELEMENT_ID)).kind())
+            .toList());
+  }
+
+  @Test
   void parsesAFileTheServiceReads() throws Exception {
     Path file = Files.createTempFile("opensysml", ".sysml");
     try {

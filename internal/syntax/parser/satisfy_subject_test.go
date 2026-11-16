@@ -87,17 +87,17 @@ func TestSatisfyByDoesNotNameUsage(t *testing.T) {
 		t.Errorf("satisfy usage should stay anonymous, got name %q", u.Ident.Name)
 	}
 
-	var subsets, subjects []*ast.Relationship
+	var references, subjects []*ast.Relationship
 	for _, rel := range u.Relationships {
 		switch rel.Kind {
-		case ast.RelSubsets:
-			subsets = append(subsets, rel)
+		case ast.RelReferences:
+			references = append(references, rel)
 		case ast.RelSubject:
 			subjects = append(subjects, rel)
 		}
 	}
-	if len(subsets) != 1 || relTargetName(t, subsets[0]) != "touchdown" {
-		t.Errorf("expected one subsets relationship to touchdown, got %v", subsets)
+	if len(references) != 1 || relTargetName(t, references[0]) != "touchdown" {
+		t.Errorf("expected one reference subsetting of touchdown, got %v", references)
 	}
 	if len(subjects) != 1 || relTargetName(t, subjects[0]) != "lander01" {
 		t.Errorf("expected one subject relationship to lander01, got %v", subjects)

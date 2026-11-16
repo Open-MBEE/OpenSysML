@@ -1,0 +1,83 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="SatisfyReferenceSubsetting" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="requirement" abstract=false variation=false name="R"))
+      (Membership visibility="default"
+        (Usage kind="requirement" name="r" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=R
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="requirement" name="group" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Usage kind="requirement" name="nested" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=R
+              (*ast.QualifiedName)))))
+      (Membership visibility="default"
+        (Usage kind="requirement" name="other" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=R
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="part" name="v" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+      (Membership visibility="default"
+        (Usage kind="part" name="context" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="references" target=r
+                (*ast.QualifiedName))
+              (Relationship kind="by" target=v
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="references" target=group.nested
+                (*ast.QualifiedName))
+              (Relationship kind="by" target=v
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="assert" negated=true
+              (Relationship kind="references" target=r
+                (*ast.QualifiedName))
+              (Relationship kind="subsets" target=other
+                (*ast.QualifiedName))
+              (Relationship kind="by" target=v
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="references" target=r
+                (*ast.QualifiedName))
+              (Relationship kind="redefines" target=other
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="satisfy" name="declared" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="subsets" target=r
+                (*ast.QualifiedName))
+              (Relationship kind="by" target=v
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="subsets" target=r
+                (*ast.QualifiedName))
+              (Relationship kind="by" target=v
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="requirement" name="plain" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="subsets" target=r
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="requirement" name="referencing" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="references" target=r
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="verification case" abstract=false variation=false name="V"
+          (Membership visibility="default"
+            (Usage kind="objective" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="verify"
+                (Relationship kind="references" target=r
+                  (*ast.QualifiedName)))
+              (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="verify"
+                (Relationship kind="references" target=group.nested
+                  (*ast.QualifiedName))
+                (Relationship kind="subsets" target=other
+                  (*ast.QualifiedName)))
+              (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="verify"
+                (Relationship kind="subsets" target=r
+                  (*ast.QualifiedName))))))))))

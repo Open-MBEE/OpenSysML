@@ -21,10 +21,10 @@ package Test {
 				transition first j2 do { assign log := log + "j2(effect);"; } then leaf;
 			}
 
-			transition first j1 do { assign log := log + "j1(effect);"; } then j2;
+			transition first j1 do { assign log := log + "j1(effect);"; } then inner.j2;
 		}
 
-		transition first idle accept Go do { assign log := log + "go(effect);"; } then j1;
+		transition first idle accept Go do { assign log := log + "go(effect);"; } then outer.j1;
 		transition first outer accept Stop then done;
 	}
 	attribute def Go;

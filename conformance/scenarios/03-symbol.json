@@ -360,6 +360,128 @@
       }
     },
     {
+      "id": "symbol/a_name_spelled_like_a_generated_id_is_the_declaration",
+      "description": "Stated a qualified name, a string spelled like an unnamed connector end's generated id names the package declared under it.",
+      "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_lookup_kind"
+      ],
+      "model": {
+        "fixture": "lookup_kind.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Col__V__c_pend0",
+        "lookup": "LOOKUP_KIND_QUALIFIED_NAME"
+      },
+      "expect": {
+        "response": {
+          "symbol": {
+            "kind": "package",
+            "name": "Col__V__c_pend0"
+          }
+        }
+      }
+    },
+    {
+      "id": "symbol/a_generated_id_spelled_like_a_name_is_its_element",
+      "description": "Stated an element id, the same string names the connector end the id was generated for.",
+      "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_lookup_kind"
+      ],
+      "model": {
+        "fixture": "lookup_kind.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Col__V__c_pend0",
+        "lookup": "LOOKUP_KIND_ELEMENT_ID"
+      },
+      "expect": {
+        "response": {
+          "symbol": {
+            "id": "Col__V__c_pend0",
+            "kind": "connectorEnd"
+          }
+        }
+      }
+    },
+    {
+      "id": "symbol/a_string_of_no_stated_kind_is_read_name_first",
+      "description": "Without a lookup kind the string is read as a name first, so the declaration shadows the element the id was generated for.",
+      "rpc": "GetSymbol",
+      "model": {
+        "fixture": "lookup_kind.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Col__V__c_pend0"
+      },
+      "expect": {
+        "response": {
+          "symbol": {
+            "kind": "package",
+            "name": "Col__V__c_pend0"
+          }
+        }
+      }
+    },
+    {
+      "id": "symbol/a_positional_id_is_the_unnamed_member",
+      "description": "Stated an element id, Owner::@2 names the unnamed third member, not the member declared '@2' beside it.",
+      "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_lookup_kind"
+      ],
+      "model": {
+        "fixture": "lookup_kind.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Col::W::@2",
+        "lookup": "LOOKUP_KIND_ELEMENT_ID"
+      },
+      "expect": {
+        "response": {
+          "symbol": {
+            "id": "Col::W::@2",
+            "kind": "partUsage",
+            "child_ids": [
+              "Col::W::@2::inner"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "symbol/a_declared_name_reading_as_a_position_is_the_declaration",
+      "description": "Stated a qualified name, the quoted name names the member declared '@2', reported under that spelling.",
+      "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_lookup_kind"
+      ],
+      "model": {
+        "fixture": "lookup_kind.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Col::W::'@2'",
+        "lookup": "LOOKUP_KIND_QUALIFIED_NAME"
+      },
+      "expect": {
+        "response": {
+          "symbol": {
+            "id": "Col::W::'@2'",
+            "kind": "partUsage",
+            "child_ids": [
+              "Col::W::'@2'::named"
+            ]
+          }
+        }
+      }
+    },
+    {
       "id": "symbol/an_unknown_symbol_is_not_found",
       "rpc": "GetSymbol",
       "model": {

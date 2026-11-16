@@ -515,7 +515,7 @@ func IsViewpointSatisfy(sat *symbols.Symbol) bool {
 		switch rel.Kind {
 		case ast.RelSubject:
 			return false
-		case ast.RelSubsets, ast.RelTyping:
+		case ast.RelReferences, ast.RelSubsets, ast.RelTyping:
 			names = names || rel.Target != nil
 		}
 	}

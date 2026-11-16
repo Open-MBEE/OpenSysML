@@ -20,7 +20,7 @@ package Test {
 			entry { assign log := log * 10 + 5; }
 		}
 
-		succession first start then Inner;
+		succession first start then Outer.Middle.Inner;
 		transition first Outer when Abort do assign log := log * 10 + 4 then Done;
 	}
 }

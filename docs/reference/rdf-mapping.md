@@ -1959,7 +1959,7 @@ named one writes `from` as its `sysx:endVerb`. The forms and what each writes:
 | `firstThen` | `<end0> then <end1>` | `succession first a then b`, `succession [n] first a then b` |
 | `fromTo` | `[of <payload>] from <end0> to <end1>` | `flow of P from a to b` |
 | `flowTo` | `[of <payload>] <end0> to <end1>` | `flow a to b` |
-| `satisfy` | `<requirement>` (the `sysml:subsets` end, written bare) | `satisfy R by v`, `verify R` |
+| `satisfy` | `<requirement>` (the `sysml:references` end, written bare) | `satisfy R by v`, `verify R` |
 | `then` | the source end is the nearest feature written before it that is not a connector or a transition; a member that is not a feature is read past | `then b;`, `then part b;` |
 
 A head whose own keyword is the noun form writes a verb ahead of its ends, and
