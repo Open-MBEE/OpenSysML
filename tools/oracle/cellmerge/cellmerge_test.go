@@ -122,12 +122,21 @@ func TestOnlyStandingCountsAreCells(t *testing.T) {
 	}
 }
 
-// A digest both sides changed is not a count: both lines survive, which no check reproduces.
-func TestTextBothSidesChangedIsKeptFromBothSides(t *testing.T) {
-	base := "\"digest\": \"sha256:aaa\"\n"
-	result := merge(t, base, "\"digest\": \"sha256:bbb\"\n", "\"digest\": \"sha256:ccc\"\n")
-	if got := string(result.Content); !strings.Contains(got, "bbb") || !strings.Contains(got, "ccc") {
-		t.Fatalf("got %q, want both digests kept", got)
+// A digest or date both sides rewrote is not a count: keeping both lines is no version of the file.
+func TestTextBothSidesReplacedConflicts(t *testing.T) {
+	doc := func(date string) string {
+		return "{\n  \"provenance\": {\n    \"pilotJava\": \"21\",\n    \"recorded\": \"" + date + "\"\n  },\n  \"files\": 3\n}\n"
+	}
+	requireConflict(t, doc("2026-11-14"), doc("2026-11-15"), doc("2026-11-16"), "2026-11-14")
+	requireConflict(t, "\"digest\": \"sha256:aaa\"\n", "\"digest\": \"sha256:bbb\"\n", "\"digest\": \"sha256:ccc\"\n", "sha256:aaa")
+	for _, sides := range [][2]string{{"2026-11-15", "2026-11-15"}, {"2026-11-15", "2026-11-14"}, {"2026-11-14", "2026-11-16"}} {
+		want := sides[0]
+		if want == "2026-11-14" {
+			want = sides[1]
+		}
+		if got := string(merge(t, doc("2026-11-14"), doc(sides[0]), doc(sides[1])).Content); got != doc(want) {
+			t.Errorf("ours %s, theirs %s: got %q, want %q", sides[0], sides[1], got, doc(want))
+		}
 	}
 }
 

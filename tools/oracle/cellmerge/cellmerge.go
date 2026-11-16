@@ -45,6 +45,9 @@ func Merge(base, ours, theirs []byte) (*Result, error) {
 		return nil, err
 	}
 	inBase, inOurs, inTheirs := index(b), index(o), index(t)
+	if err := replacedByBoth(b, o, t, inOurs, inTheirs); err != nil {
+		return nil, err
+	}
 	result := &Result{}
 	var merged []line
 	placed := make(map[string]bool)
@@ -128,6 +131,49 @@ func Merge(base, ours, theirs []byte) (*Result, error) {
 	}
 	result.Content = []byte(content)
 	return result, nil
+}
+
+// replacedByBoth refuses a place where both sides dropped a line of base and each wrote its own
+// in its stead, as two recordings do to a date or a digest: keeping both lines is no version of the file.
+func replacedByBoth(base, ours, theirs []line, inOurs, inTheirs map[string]line) error {
+	common := func(key string) bool {
+		_, o := inOurs[key]
+		_, t := inTheirs[key]
+		return o && t
+	}
+	dropped := make(map[string]string)
+	anchor := ""
+	for _, l := range base {
+		_, o := inOurs[l.key]
+		_, t := inTheirs[l.key]
+		switch {
+		case o && t:
+			anchor = l.key
+		case !o && !t:
+			dropped[anchor] = l.text()
+		}
+	}
+	written := func(side []line) map[string][]string {
+		out := make(map[string][]string)
+		anchor := ""
+		for _, l := range side {
+			if common(l.key) {
+				anchor = l.key
+				continue
+			}
+			if _, both := dropped[anchor]; both {
+				out[anchor] = append(out[anchor], l.key)
+			}
+		}
+		return out
+	}
+	theirsWrote := written(theirs)
+	for anchor, mine := range written(ours) {
+		if yours := theirsWrote[anchor]; len(yours) > 0 && strings.Join(mine, "\n") != strings.Join(yours, "\n") {
+			return &Conflict{Reason: fmt.Sprintf("both sides replaced %q, each with its own text", dropped[anchor])}
+		}
+	}
+	return nil
 }
 
 // mergeCounts merges one line's counts and reports whether any took the sum of two movements.
