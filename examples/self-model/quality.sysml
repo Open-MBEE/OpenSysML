@@ -443,6 +443,9 @@ package OpenSysMLCodebase {
         part deployment : Directory {
             attribute :>> path = "deploy";
         }
+        part ciTools : Directory {
+            attribute :>> path = "ci";
+        }
     }
 
     part tree : SourceTree;
