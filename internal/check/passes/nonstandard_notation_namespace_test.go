@@ -54,15 +54,15 @@ func TestNamespaceErrorSpansTheKeyword(t *testing.T) {
 }
 
 // Each nested declaration is one more error, and a namespace inside a KerML
-// declaration that is only warned about is still rejected.
+// declaration that is itself an error is still reported.
 func TestNamespaceIsRejectedWhereverItIsNested(t *testing.T) {
 	got := notationDiags(t, "a.sysml", "namespace A { namespace B; }", diag.ConformanceDefault)
 	if len(got) != 2 || got[0].Severity != diag.SeverityError || got[1].Severity != diag.SeverityError {
 		t.Errorf("nested namespaces: got %+v, want two errors", got)
 	}
 	got = notationDiags(t, "a.sysml", "package P { class C { namespace N; } }", diag.ConformanceDefault)
-	if len(got) != 2 || got[0].Severity != diag.SeverityWarning || got[1].Severity != diag.SeverityError {
-		t.Fatalf("namespace in a class: got %+v, want the class warning and the namespace error", got)
+	if len(got) != 2 || got[0].Severity != diag.SeverityError || got[1].Severity != diag.SeverityError {
+		t.Fatalf("namespace in a class: got %+v, want the class error and the namespace error", got)
 	}
 }
 

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"maps"
 	"slices"
 	"strings"
 
@@ -20,6 +22,9 @@ type APIJSONOptions struct {
 	IncludeLibraryStubs bool
 	// LibraryReferences receives the names of referenced standard-library elements.
 	LibraryReferences func([]APIJSONLibraryReference)
+	// InheritedMembers completes the derived families that repeat inherited members
+	// on every Namespace and Type (apiJSONInheritedFamilies); off, an element carries its owned structure.
+	InheritedMembers bool
 }
 
 const (
@@ -48,32 +53,46 @@ func WriteAPIJSON(graph *rdf.Graph) ([]byte, error) {
 // WriteAPIJSONWithOptions writes API JSON and reports unresolved object
 // properties through options.
 func WriteAPIJSONWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]byte, error) {
-	elements, err := apiJSONElementsWithOptions(graph, options)
-	if err != nil {
-		return nil, err
-	}
-	// Written compact in one pass and indented once. Encoding the array through
-	// each object's MarshalJSON had the encoder parse and re-indent every
-	// object it returned, which cost more than building the elements.
-	var compact bytes.Buffer
-	w := apiJSONWriter{buf: &compact, enc: json.NewEncoder(&compact)}
-	compact.WriteByte('[')
-	for i, element := range elements {
-		if i > 0 {
-			compact.WriteByte(',')
-		}
-		if err := w.object(element); err != nil {
-			return nil, err
-		}
-	}
-	compact.WriteByte(']')
 	var out bytes.Buffer
-	out.Grow(compact.Len() * 2)
-	if err := json.Indent(&out, compact.Bytes(), "", "  "); err != nil {
+	if err := WriteAPIJSONTo(&out, graph, options); err != nil {
 		return nil, err
 	}
-	out.WriteByte('\n')
 	return out.Bytes(), nil
+}
+
+// WriteAPIJSONTo writes API JSON to out one element at a time, so the array is
+// never held whole: each object is encoded compact, indented and written.
+func WriteAPIJSONTo(out io.Writer, graph *rdf.Graph, options APIJSONOptions) error {
+	var compact, indented bytes.Buffer
+	w := apiJSONWriter{buf: &compact, enc: json.NewEncoder(&compact)}
+	written := 0
+	err := apiJSONEachElement(graph, options, func(element apiJSONObject) error {
+		compact.Reset()
+		indented.Reset()
+		if err := w.object(element); err != nil {
+			return err
+		}
+		indented.WriteString(",\n  ")
+		if written == 0 {
+			indented.Reset()
+			indented.WriteString("[\n  ")
+		}
+		if err := json.Indent(&indented, compact.Bytes(), "  ", "  "); err != nil {
+			return err
+		}
+		written++
+		_, err := out.Write(indented.Bytes())
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	closing := "\n]\n"
+	if written == 0 {
+		closing = "[]\n"
+	}
+	_, err = io.WriteString(out, closing)
+	return err
 }
 
 // apiJSONElements builds the element object of every subject of the graph,
@@ -83,9 +102,26 @@ func apiJSONElements(graph *rdf.Graph) ([]apiJSONObject, error) {
 }
 
 func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]apiJSONObject, error) {
-	wrapped, err := withRootNamespace(graph)
+	var elements []apiJSONObject
+	err := apiJSONEachElement(graph, options, func(element apiJSONObject) error {
+		elements = append(elements, element)
+		return nil
+	})
 	if err != nil {
 		return nil, err
+	}
+	if elements == nil {
+		elements = []apiJSONObject{}
+	}
+	return elements, nil
+}
+
+// apiJSONEachElement hands visit the element object of every subject in order;
+// the object is visit's to keep, and nothing here holds it afterwards.
+func apiJSONEachElement(graph *rdf.Graph, options APIJSONOptions, visit func(apiJSONObject) error) error {
+	wrapped, err := withRootNamespace(graph)
+	if err != nil {
+		return err
 	}
 	settled, err := rdf.ReconcileCollectionsWithPolicy(wrapped, func(subject rdf.Term, key string) bool {
 		metaclass := apiJSONOntologyMetaclass(strings.TrimPrefix(wrapped.Type(subject), rdf.SysML))
@@ -93,10 +129,13 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 		return ok && property.Nonunique
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	subjects := settled.SubjectsView()
-	elements := make([]apiJSONObject, 0, len(subjects))
+	var referenced map[string]bool
+	if options.LibraryReferences != nil {
+		referenced = map[string]bool{}
+	}
 	index := newAPIJSONWriteIndex(settled)
 	evaluation := newAPIJSONEvaluationWithIndex(index)
 	mappingNames := newAPIJSONMappingNameIndex(index)
@@ -111,17 +150,27 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 		options:            options,
 		scratch:            &apiJSONWriteScratch{},
 	}
+	var reached map[string]bool
+	if options.IncludeLibraryStubs && !options.InheritedMembers {
+		if reached, err = apiJSONOwnedStubIDs(settled, subjects, *writer); err != nil {
+			return err
+		}
+	}
 	for _, subject := range subjects {
 		// The element form holds the model's own elements only; a library element
 		// stays a bare reference, as an ownerless element there is a root (the OMG API JSON shape).
-		if LibraryReference(settled, subject) && !options.IncludeLibraryStubs {
+		library := LibraryReference(settled, subject)
+		if library && !options.IncludeLibraryStubs {
+			continue
+		}
+		if id, _ := rdf.SubjectID(subject); library && reached != nil && !reached[id] {
 			continue
 		}
 		element, err := writer.element(subject)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		if LibraryReference(settled, subject) {
+		if library {
 			// Legacy stubs carry stated properties, not metamodel defaults; a stub typed
 			// IndividualDefinition/IndividualUsage states isIndividual by that type.
 			_, legacyIndividual := legacyMetaclasses[rdf.LocalName(settled.Type(subject))]
@@ -132,16 +181,21 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 				return !settled.HasProperty(subject, rdf.SysML+member.key)
 			})
 		}
-		elements = append(elements, element)
+		if referenced != nil {
+			apiJSONNoteReferencedIDs(referenced, element)
+		}
+		if err := visit(element); err != nil {
+			return err
+		}
 	}
-	if options.LibraryReferences != nil {
-		refs, err := apiJSONLibraryReferences(settled, elements)
+	if referenced != nil {
+		refs, err := apiJSONLibraryReferences(settled, referenced)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		options.LibraryReferences(refs)
 	}
-	return elements, nil
+	return nil
 }
 
 // apiJSONWriter writes element objects compact into one buffer. Strings keep
@@ -1355,4 +1409,38 @@ func apiJSONRealLexical(lexical string) string {
 		return lexical + "0"
 	}
 	return lexical
+}
+
+// apiJSONOwnedStubIDs are the library stubs the owned structure reaches: the ones the model's
+// own elements reference, and what those stubs state in turn.
+func apiJSONOwnedStubIDs(graph *rdf.Graph, subjects []rdf.Term, writer apiJSONElementWriter) (map[string]bool, error) {
+	writer.options.Omitted, writer.options.Diagnostic = nil, nil
+	reached := map[string]bool{}
+	for _, subject := range subjects {
+		if LibraryReference(graph, subject) {
+			continue
+		}
+		element, err := writer.element(subject)
+		if err != nil {
+			return nil, err
+		}
+		apiJSONNoteReferencedIDs(reached, element)
+	}
+	pending := slices.Collect(maps.Keys(reached))
+	for len(pending) > 0 {
+		stub := rdf.ElementIRIForID(pending[len(pending)-1])
+		pending = pending[:len(pending)-1]
+		if !LibraryReference(graph, stub) {
+			continue
+		}
+		for _, predicate := range graph.PredicatesView(stub) {
+			for _, object := range graph.ObjectsView(stub, predicate) {
+				if id, ok := rdf.SubjectID(object); ok && object.IsIRI() && !reached[id] {
+					reached[id] = true
+					pending = append(pending, id)
+				}
+			}
+		}
+	}
+	return reached, nil
 }
