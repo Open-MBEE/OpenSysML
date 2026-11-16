@@ -61,7 +61,7 @@ jobs:
     permissions:
       contents: read
     # Seconds, unless the fUML cache is cold and Maven Central makes the one fetch wait.
-    timeout-minutes: 20
+    timeout-minutes: 30
     outputs:
       tier: ${{ steps.areas.outputs.tier }}
       go_shards: ${{ steps.shards.outputs.go_shards }}
