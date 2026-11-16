@@ -2978,6 +2978,10 @@ pub struct Quantity {
     /// is rejected rather than read as dimension one.
     #[prost(message, optional, tag="4")]
     pub unit_term: ::core::option::Option<UnitTerm>,
+    /// Qualified name of the quantity value type the quantity is held as, empty for
+    /// none: sent back, it is held as that type still, which a sibling type refuses.
+    #[prost(string, tag="7")]
+    pub value_type: ::prost::alloc::string::String,
     /// Magnitude, keeping Integer and Real apart as the rest of Value does.
     #[prost(oneof="quantity::Magnitude", tags="1, 2, 5, 6")]
     pub magnitude: ::core::option::Option<quantity::Magnitude>,

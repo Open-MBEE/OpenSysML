@@ -312,6 +312,7 @@ func wantSpeedAnswer(t *testing.T, body []byte) {
 			Quantity *struct {
 				RealMagnitude float64 `json:"realMagnitude"`
 				Unit          string  `json:"unit"`
+				ValueType     string  `json:"valueType"`
 			} `json:"quantity"`
 		} `json:"result"`
 	}
@@ -319,8 +320,8 @@ func wantSpeedAnswer(t *testing.T, body []byte) {
 		t.Fatalf("decoding the answer for enginedemo::speed: %v\n%s", err, body)
 	}
 	q := answer.Result.Quantity
-	if answer.Error != "" || q == nil || q.RealMagnitude != 5 || q.Unit != "SI::'m/s'" {
-		t.Errorf("enginedemo::speed answered %s, want the quantity 5 [SI::'m/s']", body)
+	if answer.Error != "" || q == nil || q.RealMagnitude != 5 || q.Unit != "SI::'m/s'" || q.ValueType != "ISQSpaceTime::SpeedValue" {
+		t.Errorf("enginedemo::speed answered %s, want the quantity 5 [SI::'m/s'] held as a SpeedValue", body)
 	}
 }
 

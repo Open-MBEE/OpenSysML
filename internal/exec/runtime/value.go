@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -240,6 +241,24 @@ func (v Value) ofQuantityKind(kind *symbols.Symbol) Value {
 		v.ref = &measured{kind: kind, quantity: q}
 	}
 	return v
+}
+
+// ErrNotAQuantityValueType reports a quantity said to be held as a type no quantity is held as.
+var ErrNotAQuantityValueType = errors.New("not a quantity value type")
+
+// QuantityHeldAs is the quantity v held as the quantity value type kind, as a feature typed by
+// kind holds it; refused where kind is no such type or fixes another dimension than v's unit.
+func QuantityHeldAs(sem *semantics.Model, v Value, kind *symbols.Symbol) (Value, error) {
+	q := v.Quantity()
+	if q == nil || !sem.IsQuantityValueType(kind) {
+		return Value{}, fmt.Errorf("%w: %s", ErrNotAQuantityValueType, symbols.FQNOf(kind))
+	}
+	want, fixed := sem.DimensionOfType(kind)
+	if got, ok := sem.DimensionOfUnit(q.Unit.Term); fixed && ok && !want.Term.Commensurable(got.Term) {
+		return Value{}, fmt.Errorf("%w: %s is no %s (%s, not %s)", ErrTypeMismatch,
+			FormatValue(v), symbols.FQNOf(kind), dimensionText(got), dimensionText(want))
+	}
+	return v.ofQuantityKind(kind), nil
 }
 
 // QuantityKind is the quantity value type a quantity was held as; nil for one that was

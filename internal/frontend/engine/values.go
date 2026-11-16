@@ -113,6 +113,7 @@ func valueToProto(rt *runtime.Context, val runtime.Value, idx *symbols.Index, id
 		if pq == nil {
 			return &JValue{Null: text("unsupported: quantity with a non-numeric magnitude")}
 		}
+		pq.ValueType = quantityValueTypeName(val, idx)
 		return &JValue{Quantity: pq}
 	case runtime.ValEnumLiteral:
 		return enumLiteralValueToProto(val, idx)
@@ -361,6 +362,16 @@ func measurementRefToProto(ref *runtime.MeasurementRef) *JMeasurementRef {
 		pm.UnitId = symbols.FQNOf(decl)
 	}
 	return pm
+}
+
+// quantityValueTypeName names the quantity value type a quantity is held as, by the
+// qualified name a client sends back; empty for one held as none or as an unnamed type.
+func quantityValueTypeName(val runtime.Value, idx *symbols.Index) string {
+	kind := val.QuantityKind()
+	if kind == nil || idx == nil || !kind.Named() {
+		return ""
+	}
+	return idx.GetFQN(kind)
 }
 
 // quantityToProto marshals a quantity: the magnitude in the unit written, plus
@@ -837,7 +848,18 @@ func protoToQuantity(pq *JQuantity, idx *symbols.Index, sem *semantics.Model) (r
 		text = product.String()
 	}
 	unit := runtime.Unit{Text: text, Product: product, Term: term}
-	return runtime.NewQuantityValue(&runtime.Quantity{Num: num, Unit: unit}), nil
+	val := runtime.NewQuantityValue(&runtime.Quantity{Num: num, Unit: unit})
+	if pq.ValueType == "" {
+		return val, nil
+	}
+	if idx == nil || sem == nil {
+		return runtime.Value{}, fmt.Errorf("%w: %s", errQuantityNeedsIndex, pq.ValueType)
+	}
+	matches := idx.LookupQualified(pq.ValueType)
+	if len(matches) != 1 {
+		return runtime.Value{}, fmt.Errorf("%w: %s", runtime.ErrNotAQuantityValueType, pq.ValueType)
+	}
+	return runtime.QuantityHeldAs(sem, val, matches[0])
 }
 
 // protoToMeasurementRef rebuilds a bare reference from the wire: by the

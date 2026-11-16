@@ -2015,20 +2015,22 @@ class ValueSequence(_message.Message):
     def __init__(self, elements: _Optional[_Iterable[_Union[Value, _Mapping]]] = ...) -> None: ...
 
 class Quantity(_message.Message):
-    __slots__ = ("int_magnitude", "real_magnitude", "big_int_magnitude", "rational_magnitude", "unit", "unit_term")
+    __slots__ = ("int_magnitude", "real_magnitude", "big_int_magnitude", "rational_magnitude", "unit", "unit_term", "value_type")
     INT_MAGNITUDE_FIELD_NUMBER: _ClassVar[int]
     REAL_MAGNITUDE_FIELD_NUMBER: _ClassVar[int]
     BIG_INT_MAGNITUDE_FIELD_NUMBER: _ClassVar[int]
     RATIONAL_MAGNITUDE_FIELD_NUMBER: _ClassVar[int]
     UNIT_FIELD_NUMBER: _ClassVar[int]
     UNIT_TERM_FIELD_NUMBER: _ClassVar[int]
+    VALUE_TYPE_FIELD_NUMBER: _ClassVar[int]
     int_magnitude: int
     real_magnitude: float
     big_int_magnitude: str
     rational_magnitude: Rational
     unit: str
     unit_term: UnitTerm
-    def __init__(self, int_magnitude: _Optional[int] = ..., real_magnitude: _Optional[float] = ..., big_int_magnitude: _Optional[str] = ..., rational_magnitude: _Optional[_Union[Rational, _Mapping]] = ..., unit: _Optional[str] = ..., unit_term: _Optional[_Union[UnitTerm, _Mapping]] = ...) -> None: ...
+    value_type: str
+    def __init__(self, int_magnitude: _Optional[int] = ..., real_magnitude: _Optional[float] = ..., big_int_magnitude: _Optional[str] = ..., rational_magnitude: _Optional[_Union[Rational, _Mapping]] = ..., unit: _Optional[str] = ..., unit_term: _Optional[_Union[UnitTerm, _Mapping]] = ..., value_type: _Optional[str] = ...) -> None: ...
 
 class MeasurementRef(_message.Message):
     __slots__ = ("unit", "unit_term", "unit_id")
