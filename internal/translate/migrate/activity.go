@@ -1974,9 +1974,8 @@ func pinPosition(n, pin *sysmlv1.Element) (i int, out bool) {
 	return slices.Index(outputPins(n), pin), true
 }
 
-// pinWritten reports whether pin is written as a parameter of its action that a feature
-// chain reaches, whichever way the action is written: a pin of a call behavior action,
-// within the parameters of its direction when the behavior called is an action def.
+// pinWritten reports whether pin is a parameter a chain reaches: a pin of a written call
+// behavior action, within the parameters of its direction when an action def is called.
 func (m *migration) pinWritten(pin *sysmlv1.Element) bool {
 	n := pin.Parent
 	if n == nil || n.Type != "CallBehaviorAction" || !m.written(n) {

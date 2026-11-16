@@ -126,9 +126,8 @@ func TestAdjunctPropertyOfANestedOrHiddenPrincipal(t *testing.T) {
 	}
 }
 
-// A pin of a call behavior action is one usage with its adjunct property: the parameter the call is written
-// with, which a connector end, an allocation and a view reach by its chain; an association end is written
-// uncrossed, and a pin a diagram shows by itself stays unexposed.
+// A pin of a call behavior action is one usage with its adjunct property: the call's parameter, which a connector
+// end, an allocation and a view reach by its chain; an association end is uncrossed, a pin shown alone unexposed.
 func TestAdjunctPropertyOfAPin(t *testing.T) {
 	r := migrateFixtureFile(t, "adjunct_pins")
 	for _, line := range []string{
