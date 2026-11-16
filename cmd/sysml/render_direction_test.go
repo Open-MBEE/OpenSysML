@@ -18,9 +18,8 @@ const layeredModel = `package Platform {
 }
 `
 
-// -render-direction names the direction a graph-shaped form flows in; unset, a
-// view keeps its kind's default, and a name that is no direction is refused
-// with the four there are.
+// -render-direction names the direction a graph-shaped form flows in, a view's default
+// when unset; a name that is no direction is refused with the four there are.
 func TestRenderDirection(t *testing.T) {
 	binary := buildCLI(t)
 

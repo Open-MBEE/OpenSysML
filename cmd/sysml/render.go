@@ -163,11 +163,8 @@ func renderFilenames(views []model.ViewInfo, form view.Form) (map[string]string,
 	return filenames, err
 }
 
-// renderOptions is what -render and -render-all write with: the text width,
-// the palette -render-palette names, the port display -render-ports names,
-// the placement -render-unplaced names, the drawing style -render-style
-// names, the edge routing -render-lines names, the direction -render-direction
-// names and the notation elements -render-show names, each of which must be one there is.
+// renderOptions is what -render and -render-all write with: the text width and what
+// each -render-* option flag names, every one of which must be one there is.
 func renderOptions(width int) (view.Options, error) {
 	options := view.Options{Width: width}
 	if renderLink != "" {
