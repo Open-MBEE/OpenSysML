@@ -4,6 +4,11 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 func importProbeElements(t *testing.T, model string) map[string]map[string]any {
@@ -212,6 +217,44 @@ func TestAPIJSONGraphImportedMembershipOfLibraryNamespaces(t *testing.T) {
 	}
 	if members := referenceIDs(t, elements["Probe__Scalars"], "member"); len(members) != len(all) {
 		t.Errorf("Scalars has %d members for %d imported memberships", len(members), len(all))
+	}
+}
+
+// A library namespace's memberships include the ones no name reaches: its documentation, owned
+// through an unnamed membership, and its aliases, each a Membership of its own (KerML 8.3.2.4).
+func TestAPIJSONGraphImportedMembershipOfUnnamedLibraryMemberships(t *testing.T) {
+	elements := importProbeElements(t, `package Probe {
+	package Scalars { import ScalarValues::*; }
+	package Quantities { import ISQThermodynamics::*; }
+}`)
+	if all := referenceIDs(t, elements["Probe__Scalars"], "importedMembership"); len(all) != 12 {
+		t.Errorf("Scalars imports %d memberships, want the 11 types of ScalarValues and its documentation", len(all))
+	}
+	base := libs.SharedBase()
+	resolver := resolve.New(base)
+	catalog := identity.LibraryCatalogWithOpenSysML(base)
+	owner := resolver.Index().LookupQualified("ISQThermodynamics")[0]
+	aliasSymbol, found := owner.Scope.LookupLocal("TemperatureValue")
+	if !found {
+		t.Fatal("ISQThermodynamics has no alias TemperatureValue")
+	}
+	alias, ok := identity.AliasMembershipOf(semantics.NewModel(resolver), catalog, aliasSymbol)
+	if !ok {
+		t.Fatal("the alias TemperatureValue has no membership id")
+	}
+	target, ok := catalog.ElementForSymbol(resolver.Index().LookupQualified("ISQBase::ThermodynamicTemperatureValue")[0])
+	if !ok {
+		t.Fatal("ISQBase::ThermodynamicTemperatureValue is not catalogued")
+	}
+	imported := referenceIDs(t, elements["Probe__Quantities"], "importedMembership")
+	if !slices.Contains(imported, alias.ID) {
+		t.Errorf("ISQThermodynamics::* imports no membership %s of the alias TemperatureValue", alias.ID)
+	}
+	if slices.Contains(imported, target.OwningMembershipID) {
+		t.Errorf("ISQThermodynamics::* imports the owning membership of the alias's target, which ISQBase owns")
+	}
+	if members := referenceIDs(t, elements["Probe__Quantities"], "member"); !slices.Contains(members, target.ID) {
+		t.Errorf("the alias membership names no member %s", target.ID)
 	}
 }
 

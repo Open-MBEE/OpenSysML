@@ -95,6 +95,47 @@ func AnonymousMemberOf(model *semantics.Model, catalog *Catalog, sym *symbols.Sy
 	return out, true
 }
 
+// AliasMembership is the Membership a named library element owns for an alias: the id this
+// implementation mints for it and the positional path the pilot's exporter keys it by.
+type AliasMembership struct {
+	Symbol *symbols.Symbol
+	Owner  *LibraryElement
+	ID     string
+	Path   string
+}
+
+// AliasMembershipOf describes the membership of sym, an alias a named library element declares,
+// placed among the owner's memberships of the same metaclass; ok is false for anything else.
+func AliasMembershipOf(model *semantics.Model, catalog *Catalog, sym *symbols.Symbol) (AliasMembership, bool) {
+	if model == nil || catalog == nil || sym == nil || sym.Kind != symbols.SymbolAlias {
+		return AliasMembership{}, false
+	}
+	owner := sym.Owner()
+	if owner == nil {
+		return AliasMembership{}, false
+	}
+	ownerElement, ok := catalog.ElementForSymbol(owner)
+	if !ok || ownerElement == nil || ownerElement.ID == "" {
+		return AliasMembership{}, false
+	}
+	metaclass := metaclassName(model, sym)
+	if metaclass == "" {
+		return AliasMembership{}, false
+	}
+	index := 0
+	for _, membership := range model.OwnedMemberships(owner) {
+		if membership == sym {
+			id := AliasMembershipID(ownerElement.ID, metaclass, index)
+			path := ownerElement.FQN + "/" + metaclass + "[" + strconv.Itoa(index) + "]"
+			return AliasMembership{Symbol: sym, Owner: ownerElement, ID: id, Path: path}, id != ""
+		}
+		if metaclassName(model, membership) == metaclass {
+			index++
+		}
+	}
+	return AliasMembership{}, false
+}
+
 func metaclassName(model *semantics.Model, sym *symbols.Symbol) string {
 	if metaclass := model.MetaclassOf(sym); metaclass != nil {
 		return metaclass.Name
