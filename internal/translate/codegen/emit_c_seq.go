@@ -41,6 +41,8 @@ static bool sysml_above_mark(const void *p, sysml_mark m) {
 	return false;
 }
 
+static bool sysml_in_arena(const void *p) { return sysml_above_mark(p, (sysml_mark){NULL, 0}); }
+
 /* A run owns what it allocates until the next run begins, so its result outlives it. */
 static void sysml_run_begin(void) {
 	static sysml_mark mark;
@@ -179,6 +181,17 @@ static void sysml_restore_SFX(sysml_seq_SFX *s, ELEM *t) {
 	RESTOREELEMS(s->data, s->len);
 	free(t);
 }
+
+/* s with its elements held until the run ends, for a record or a closure keeping it. */
+static sysml_kept sysml_keepseq_SFX(sysml_seq_SFX s) {
+	if (s.len && sysml_in_arena(s.data)) {
+		s.data = sysml_keep(s.data, (size_t)s.len * sizeof(ELEM));
+		KEEPELEMS(s.data, s.len);
+	}
+	return (sysml_kept){s.shape, s.len, s.data};
+}
+
+static inline sysml_seq_SFX sysml_keptseq_SFX(sysml_kept h) { return (sysml_seq_SFX){h.shape, h.len, h.data}; }
 
 static sysml_seq_SFX sysml_concat_SFX(int n, const sysml_seq_SFX *parts) {
 	sysml_int total = 0;
@@ -574,11 +587,11 @@ func cSeqRuntime() string {
 	for _, t := range []Type{TypeInt, TypeReal, TypeBool, TypeNum, TypeString} {
 		printer := "sysml_print_" + cSeqSuffix(t)
 		kind, key, skip, eq := "SYSML_KIND_INT", "(uint64_t)", "false && ", "SYSML_SCALAR_EQ"
-		show, save, restore := "sysml_show64_"+cSeqSuffix(t), "SYSML_NO_ELEMS", "SYSML_NO_ELEMS"
+		show, save, restore, keep := "sysml_show64_"+cSeqSuffix(t), "SYSML_NO_ELEMS", "SYSML_NO_ELEMS", "SYSML_NO_ELEMS"
 		switch t {
 		case TypeString:
 			printer, kind, key, skip, eq = "sysml_print_str_value", "SYSML_KIND_STR", "sysml_str_key", "SYSML_NEVER", "sysml_str_eq"
-			show, save, restore = "sysml_show_str", "sysml_save_texts", "sysml_restore_texts"
+			show, save, restore, keep = "sysml_show_str", "sysml_save_texts", "sysml_restore_texts", "sysml_keep_texts"
 		case TypeReal:
 			printer, kind, key, skip = "sysml_print_real_value", "SYSML_KIND_REAL", "sysml_real_key", "isnan"
 		case TypeBool:
@@ -588,7 +601,7 @@ func cSeqRuntime() string {
 		}
 		r := strings.NewReplacer("ELEMNAME", cSeqSuffix(t), "ELEM", cType(t), "SFX", cSeqSuffix(t), "PRINT", printer,
 			"FORMAT", "sysml_format_"+cSeqSuffix(t), "KINDOF", kind, "KEY", key, "SKIP", skip, "EQ", eq,
-			"SHOW", show, "SAVEELEMS", save, "RESTOREELEMS", restore, "KOPEN", `" ("`, "KCLOSE", `")"`)
+			"SHOW", show, "SAVEELEMS", save, "RESTOREELEMS", restore, "KEEPELEMS", keep, "KOPEN", `" ("`, "KCLOSE", `")"`)
 		b.WriteString(r.Replace(cSeqTemplate))
 	}
 	b.WriteString(cSeqTyped)

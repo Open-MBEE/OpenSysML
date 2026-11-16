@@ -230,6 +230,12 @@ var compiledCases = []compiledCase{
 	{"Rec::UnsetNatural", []string{"1.5"}},
 	{"Rec::UnsetDefault", []string{"1.5"}},
 	{"Rec::UnsetString", []string{"1.5"}},
+	{"Rec::UnsetThenSet", []string{`"ab"`, "1"}}, {"Rec::UnsetThenSet", []string{`"ab"`, "40"}},
+	{"Rec::UnsetOrSet", []string{`"ab"`, "false"}}, {"Rec::UnsetOrSet", []string{`"ab"`, "true"}},
+	{"Rec::KeptFeatures", []string{`"ab"`, "1"}}, {"Rec::KeptFeatures", []string{`"ab"`, "40"}},
+	{"Closure::KeptStr", []string{`"abc"`, "1"}}, {"Closure::KeptStr", []string{`"abc"`, "40"}},
+	{"Closure::KeptSeq", []string{"1.5", "1"}}, {"Closure::KeptSeq", []string{"1.5", "40"}},
+	{"Closure::KeptWords", []string{`"a"`, "1"}}, {"Closure::KeptWords", []string{`"a"`, "40"}},
 	{"Rec::UnsetConcat", []string{"1.5"}},
 	{"Rec::UnsetStep", []string{"1.5"}},
 	{"Rec::UnsetIntToNat", []string{"1.5"}},
@@ -653,14 +659,13 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 						c.calc, strings.Join(c.args, ", "), gotValue, gotFailure, wantValue, wantFailure)
 				}
 			}
-			if target == codegen.TargetC && (!refused["Fib"] || !refused["Wide::Pow"] || refused["Hypot"] || refused["Loop::ChurnFor"] ||
-				!refused["Closure::StrClosure"] || !refused["Closure::SeqClosure"] || !refused["Closure::FnClosure"] || refused["Closure::BoolClosure"]) {
-				t.Errorf("C refusals = %v: want the Integer-arithmetic calcs and closures capturing collections, Strings or functions refused and the rest compiled", refused)
+			if target == codegen.TargetC && (!refused["Fib"] || !refused["Wide::Pow"] || refused["Hypot"] || refused["Loop::ChurnFor"]) {
+				t.Errorf("C refusals = %v: want the Integer-arithmetic calcs refused and the rest compiled", refused)
 			}
-			// A C record keeps no String or collection, which the arena may reclaim.
-			cOnly := map[string]bool{"Rec::SeqFeature": true, "Rec::SeqEmpty": true, "Rec::UnsetString": true, "Rec::UnsetConcat": true, "Rec::UnsetIntAdd": true}
+			// Integer arithmetic is what the C target still refuses of these.
+			cOnly := map[string]bool{"Rec::UnsetIntAdd": true, "Closure::IntClosure": true}
 			for _, c := range compiledCases {
-				if name := c.calc; strings.HasPrefix(name, "Rec::") && refused[name] != (target == codegen.TargetC && cOnly[name]) {
+				if name := c.calc; (strings.HasPrefix(name, "Rec::") || strings.HasPrefix(name, "Closure::")) && refused[name] != (target == codegen.TargetC && cOnly[name]) {
 					t.Errorf("%s refused = %v for %s", name, refused[name], target)
 				}
 			}
