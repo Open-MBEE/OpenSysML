@@ -989,30 +989,10 @@ func (m *Model) FeatureTypeSet(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil || !sym.IsFeature() {
 		return nil
 	}
+	if types := m.TypedFeatureTypes(sym); len(types) > 0 {
+		return types
+	}
 	var types []*symbols.Symbol
-	seen := make(map[*symbols.Symbol]bool)
-	var visit func(f *symbols.Symbol)
-	visit = func(f *symbols.Symbol) {
-		if f == nil || seen[f] {
-			return
-		}
-		seen[f] = true
-		bases := m.ImplicitGenerals(f)
-		for _, super := range m.DirectSupertypes(f) {
-			switch {
-			case containsElement(bases, super):
-			case super.IsFeature():
-				visit(super)
-			case !containsElement(types, super):
-				types = append(types, super)
-			}
-		}
-		visit(m.ReferencedFeature(f))
-	}
-	visit(sym)
-	if len(types) > 0 {
-		return m.mostSpecificTypes(types)
-	}
 	// The definition its kind implies types the usage before the base feature's
 	// types stand in: an individual occurrence is a Life (SysML v2 §8.3.9.4).
 	for _, base := range m.implicitBases(sym) {
@@ -1037,6 +1017,36 @@ func (m *Model) FeatureTypeSet(sym *symbols.Symbol) []*symbols.Symbol {
 		return []*symbols.Symbol{base}
 	}
 	return nil
+}
+
+// TypedFeatureTypes is FeatureTypeSet without the kind's base: the most specific types a
+// typing gives sym or a feature it subsets, redefines or references; nil when none does.
+func (m *Model) TypedFeatureTypes(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil || !sym.IsFeature() {
+		return nil
+	}
+	var types []*symbols.Symbol
+	seen := make(map[*symbols.Symbol]bool)
+	var visit func(f *symbols.Symbol)
+	visit = func(f *symbols.Symbol) {
+		if f == nil || seen[f] {
+			return
+		}
+		seen[f] = true
+		bases := m.ImplicitGenerals(f)
+		for _, super := range m.DirectSupertypes(f) {
+			switch {
+			case containsElement(bases, super):
+			case super.IsFeature():
+				visit(super)
+			case !containsElement(types, super):
+				types = append(types, super)
+			}
+		}
+		visit(m.ReferencedFeature(f))
+	}
+	visit(sym)
+	return m.mostSpecificTypes(types)
 }
 
 // FeatureTypeSetWithImplied is FeatureTypeSet plus the types the implied specializations of

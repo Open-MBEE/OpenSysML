@@ -77,14 +77,15 @@ func resultTypeOf(sem *semantics.Model, callee *symbols.Symbol) *symbols.Symbol 
 	return nil
 }
 
-// FeatureHint is what an editor may show beside a feature declaration: the type
-// a feature declared without one is inferred to have, and the constant its
-// value evaluates to from the model alone. Either may be absent.
+// FeatureHint is what an editor may show beside a feature declaration: the
+// types of a feature that writes none, and the constant its value evaluates to.
 type FeatureHint struct {
 	Symbol *symbols.Symbol
-	// Type is the inferred type: that of the value, else the type the features
-	// it redefines or subsets give it. Nil for a feature that declares its type.
-	Type *symbols.Symbol
+	// Types is what types a feature written without a typing: nil when it writes one.
+	Types []*symbols.Symbol
+	// FromValue marks Types as read off the value; otherwise they are the feature's
+	// own, inherited from what it redefines, subsets or references.
+	FromValue bool
 	// Value is the constant the feature's value evaluates to, when HasValue.
 	Value    semantics.Value
 	HasValue bool
@@ -106,12 +107,16 @@ func (w *Workspace) FeatureHintsInDoc(name string, syms []*symbols.Symbol) []Fea
 			hint := FeatureHint{Symbol: sym}
 			scope := sym.OwnerScope
 			if !declaresType(usage) {
-				hint.Type = inferredType(sem, scope, sym, usage)
+				hint.Types = inheritedTypes(sem, sym)
+				if len(hint.Types) == 0 {
+					hint.Types = valueTypes(sem, scope, sym, usage)
+					hint.FromValue = len(hint.Types) > 0
+				}
 			}
 			if usage.Value != nil && !isLiteral(usage.Value) && sem.ModelLevelEvaluable(scope, usage.Value) {
 				hint.Value, hint.HasValue = sem.EvalIn(scope, usage.Value)
 			}
-			if hint.Type != nil || hint.HasValue {
+			if len(hint.Types) > 0 || hint.HasValue {
 				out = append(out, hint)
 			}
 		}
@@ -119,22 +124,49 @@ func (w *Workspace) FeatureHintsInDoc(name string, syms []*symbols.Symbol) []Fea
 	return out
 }
 
-// inferredType is the type a usage written without one is read as having.
-func inferredType(sem *semantics.Model, scope *symbols.Scope, sym *symbols.Symbol, usage *ast.Usage) *symbols.Symbol {
-	var typ *symbols.Symbol
-	if usage.Value != nil {
-		typ = sem.ExprResultType(scope, usage.Value)
-	}
-	if typ == nil {
-		for _, t := range sem.DeclaredFeatureTypes(sym) {
-			typ = t
-			break
-		}
-	}
-	if typ == nil || semantics.IsAnything(typ) || semantics.IsDataValue(typ) || typ == sym {
+// InheritedTypesOf is Feature::type (KerML 8.3.3.3.4) of a usage that writes no typing:
+// the types the features it redefines, subsets or references give it. Nil otherwise.
+func (w *Workspace) InheritedTypesOf(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil || sym.DocName == "" {
 		return nil
 	}
-	return typ
+	if usage, ok := sym.Decl.(*ast.Usage); !ok || declaresType(usage) {
+		return nil
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	var out []*symbols.Symbol
+	w.queryLocked(sym.DocName, func(_ *resolve.Resolver, sem *semantics.Model) {
+		out = inheritedTypes(sem, sym)
+	})
+	return out
+}
+
+// inheritedTypes is the feature's typing less the types every feature of its kind has.
+func inheritedTypes(sem *semantics.Model, sym *symbols.Symbol) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, typ := range sem.TypedFeatureTypes(sym) {
+		if !uninformativeType(typ, sym) {
+			out = append(out, typ)
+		}
+	}
+	return out
+}
+
+// valueTypes is the type of the value an untyped usage is bound to.
+func valueTypes(sem *semantics.Model, scope *symbols.Scope, sym *symbols.Symbol, usage *ast.Usage) []*symbols.Symbol {
+	if usage.Value == nil {
+		return nil
+	}
+	typ := sem.ExprResultType(scope, usage.Value)
+	if uninformativeType(typ, sym) {
+		return nil
+	}
+	return []*symbols.Symbol{typ}
+}
+
+func uninformativeType(typ, sym *symbols.Symbol) bool {
+	return typ == nil || semantics.IsAnything(typ) || semantics.IsDataValue(typ) || typ == sym
 }
 
 // declaresType reports whether the usage writes a typing of its own.
