@@ -127,6 +127,7 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 	}
 	ids.recordValuePart(e, node, subject)
 	ids.recordFilterCondition(e, node, subject)
+	ids.recordConstraintResult(e, node, subject)
 	ids.recordDefaultMultiplicity(e, node, subject)
 	ids.recordConnectorEnds(e, node, subject)
 	ids.recordFlowEnds(e, node, subject)
@@ -171,6 +172,23 @@ func (ids *ElementIDs) recordFilterCondition(e *encoder, node ast.Node, subject 
 	ids.membershipByNode[filter.Condition] = rdf.LocalName(subject.Value)
 	ids.membershipBySpan[spanKey{e.file.Name(), filter.Condition.Span()}] = ids.membershipByNode[filter.Condition]
 	e.registerExpressionIDs(ids, condition, filter.Condition)
+}
+
+// recordConstraintResult records a bare condition's expression under the member stating it, with
+// its parts, for the reflective result expression that declares the expression (ConstraintResultMember).
+func (ids *ElementIDs) recordConstraintResult(e *encoder, node ast.Node, subject rdf.Term) {
+	c, ok := node.(*ast.ConstraintMember)
+	if !ok || c.Keyword != "" || c.Name != "" || c.Body != nil || c.Expression == nil {
+		return
+	}
+	id := rdf.LocalName(subject.Value)
+	ids.byNode[c.Expression] = id
+	ids.bySpan[spanKey{e.file.Name(), c.Expression.Span()}] = id
+	if membership, ok := ids.membershipByNode[node]; ok {
+		ids.membershipByNode[c.Expression] = membership
+		ids.membershipBySpan[spanKey{e.file.Name(), c.Expression.Span()}] = membership
+	}
+	e.registerExpressionIDs(ids, subject, c.Expression)
 }
 
 // recordDefaultMultiplicity records the Multiplicity a usage's implicit [1..1] or an
@@ -542,13 +560,12 @@ func (e *encoder) writtenDependencyAnnotation(node, parent ast.Node, subject rdf
 // head's clauses (materializeRelationships), by the clause or by the target of an implicit one.
 func (e *encoder) writtenClauseRelationships(node, parent ast.Node, subject rdf.Term, parents map[ast.Node]ast.Node, out map[ast.Node]string) {
 	_, classifier := node.(*ast.Definition)
-	referenceForm := e.referenceFormOf(node)
 	clauses := e.writtenHeadClauses(node, parent, parents)
 	chains := chainTargets(clauses)
 	for _, kind := range materializedKinds {
 		objects, at := e.clauseObjects(subject, clauses, kind, chains)
 		for rel, i := range at {
-			suffix := relationshipSuffix(kind, classifier, referenceForm, len(objects), i)
+			suffix := relationshipSuffix(kind, classifier, len(objects), i)
 			key := ast.Node(rel)
 			if rel.Span().Len == 0 {
 				key = rel.Target
@@ -556,18 +573,6 @@ func (e *encoder) writtenClauseRelationships(node, parent ast.Node, subject rdf.
 			out[key] = rdf.LocalName(e.ids.minted(rdf.RelationshipIRI(subject, suffix), subject, suffix).Value)
 		}
 	}
-}
-
-// referenceFormOf reports whether a head's `subsets` are written as ReferenceSubsettings
-// (referenceSubsettingForm): a satisfy, an end-form binding or a verified requirement.
-func (e *encoder) referenceFormOf(node ast.Node) bool {
-	usage, ok := node.(*ast.Usage)
-	if !ok {
-		return false
-	}
-	form, _ := e.endFormOf(usage)
-	return usage.Kind == ast.UsageSatisfy || form != "" ||
-		(usage.IsVerifiedRequirement() && !usage.DeclaresRequirement)
 }
 
 // writtenHeadClauses are headClauses plus the objects a usage states without a clause (encode):

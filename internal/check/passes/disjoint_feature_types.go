@@ -37,7 +37,7 @@ func (cc *constraintChecker) checkDisjointFeatureTypes(sym *symbols.Symbol) {
 // disjointSubject names the feature reported; a connector's end, which has no
 // name of its own, is named by its connector and the feature it attaches to.
 func disjointSubject(sym *symbols.Symbol) string {
-	if sym.Name != "" {
+	if sym.Named() {
 		return sym.Name
 	}
 	if sym.OwnerScope == nil || sym.OwnerScope.Owner() == nil {
@@ -48,7 +48,7 @@ func disjointSubject(sym *symbols.Symbol) string {
 		return "an unnamed feature"
 	}
 	subject := "the end of this " + connectorKindName(owner)
-	if owner.Name != "" {
+	if owner.Named() {
 		subject = "the end of " + connectorKindName(owner) + " " + owner.Name
 	}
 	if end, ok := sym.Decl.(*ast.ConnectorEnd); ok {

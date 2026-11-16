@@ -231,7 +231,7 @@ func usageMetaclassOf(n *ast.Usage, inMetadataBody bool) (string, bool) {
 		// (SysML.xtext ExtendedUsage), not a reference (SysML v2 8.3.6.10).
 		return mUsage, true
 	}
-	if n.Keyword == "" && (n.Kind == ast.UsageAttribute || inMetadataBody && n.Kind == ast.UsageEnumeration || n.Ident.Name == "" && n.Kind < ast.UsageConnection) {
+	if n.Keyword == "" && (n.Kind == ast.UsageAttribute || inMetadataBody && n.Kind == ast.UsageEnumeration || !n.Ident.HasName() && n.Kind < ast.UsageConnection) {
 		// A kindless usage is a DefaultReferenceUsage; an unnamed one is too,
 		// the name it would take being what a reference lacks (SysML.xtext
 		// MemberElement `isReference ?= 'ref'` defaulted for the unnamed).

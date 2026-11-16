@@ -96,7 +96,11 @@ policy stay this referee's.
 `scripts/download-pilot-json-exporter.sh` shares `scripts/pilot-pin.sh` with the validators,
 compiles `scripts/pilot-json-exporter/ExportJSON.java` against the pinned shaded jar and writes the
 launcher `build/pilot-json-exporter/export-json --library <sysml.library> --root <dir> --out <dir>
-[--extension-library <dir>]... <files>` (the library defaults to the pinned one). The bridge is the
+[--extension-library <dir>]... <files>` (the library defaults to the pinned one). The launcher exits
+78 when it cannot start the bridge (no Java 21, pinned jar or library), and the bridge exits 1 when it
+failed on some files; the referee refuses a run in which the bridge did not run (status 78, or status 1
+with an `Error:` line or no document written), and `-check` and `-update` refuse a run in which the
+pilot failed on every file of a root, naming `./scripts/download-pilot-json-exporter.sh`. The bridge is the
 pilot's own export path, the one the Jupyter kernel's `%export` magic runs
 (`SysMLInteractive.export`):
 
@@ -154,7 +158,12 @@ Elements are matched by a **stable key**, computed identically on both sides:
 
 - a named element by its `qualifiedName`, spelled with every segment unquoted
   (`'Derived Probe'::Vehicle` and `Derived Probe::Vehicle` are one key; the `qualifiedName`
-  *property* is still compared as written, so the quoting difference is measured);
+  *property* is still compared as written, so the quoting difference is measured). The empty
+  unrestricted name `''` (KerML 1.1 §8.2.2.3: the repetition between the quotes admits no
+  character) is a name on both sides, `declaredName` and `name` `""`; ours writes its segment as
+  §8.3.2.1.2 `escapedName()` spells an empty non-basic name, `P::''`, where the pilot writes the
+  bare `P::`. The two are one key, and the property difference is the pilot's departure from the
+  clause, not copied here; no compared file declares such a name, so no figure carries it;
 - an unnamed element by its owner: `<ownerKey>/<metaclass>[i]`, `i` counting the owner's preceding
   owned relationships (for a relationship — the owner is its `owningRelatedElement`) or owned
   elements (otherwise) of the same metaclass; the owned elements are the owned relationships'
@@ -285,6 +294,8 @@ disagreement, which `-check` then shows as that row moving out of the column.
 <!-- doc-counts:begin apijson-scorecard -->
 The scorecard headline, rendered from the baseline when the site builds.
 <!-- doc-counts:end apijson-scorecard -->
+
+Re-recorded on the satisfy reference-subsetting change (the requirement a `satisfy r by v;` or a `verify r;` names is the usage's `ast.RelReferences`, SysML v2 §8.2.2.21.2 `OwnedReferenceSubsetting`; the writer no longer turns every `subsets` of a satisfy, verify or end-form head into a ReferenceSubsetting): 46 fragments move. The collapsed head property of the requirement named is `references` where it was `subsets`, so 114 pilot-missing cells move from the `SatisfyRequirementUsage.subsets`/`RequirementUsage.subsets` rows to the `.references` rows of the same owners, no bucket changing: both are this mapping's own shorthand the pilot does not state. Nine more elements match (107335 → 107344), each a `Subsetting` a specialization written after the head's reference owns (`satisfy r :> other`, an `interface a to b :> c`, a KerML `succession`), which was written as a second ReferenceSubsetting the pilot has none of: `InterfaceUsage.ownedReferenceSubsetting` 4, `SatisfyRequirementUsage.ownedReferenceSubsetting` 2 and `Succession.ownedReferenceSubsetting` 1 pilot-missing go, `InterfaceUsage.ownedRelationship`/`ownedSpecialization` 4 different → equal, `ownedSubsetting` 4 different → equal. The newly matched Subsettings bring their own rows into the comparison in the classes those rows already hold: `Subsetting.owner` 9 pilot-missing (stated on our side for every relationship), and one `Subsetting.general`/`subsettedFeature`/`target`/`relatedElement` ours-missing (a target outside the compared file). Nothing matched before stops matching.
 
 Re-recorded on the transitionLink change (a transition owns its `transitionLink` last, a nameless `ReferenceUsage` through a `FeatureMembership` after its succession, on both legs and however it is written, as the pilot exports `TransitionUsage::transitionLink`): 55 fragments move. 64 of the pilot's transitionLink memberships now match ours by position — `TransitionUsage.ownedFeatureMembership` 64 different → equal, `ownedMembership`/`ownedRelationship` 63 each — and their structural rows land equal (`isImplied`, `visibility`, `owningType`, `source`, `membershipOwningNamespace` 64 each). Their `memberName`/`ownedMemberName` 64 ours-missing and `memberElement`/`ownedMemberElement`/`target`/`relatedElement` 63 different are one gap: the pilot names the member `transitionLink` by the library feature it implicitly redefines and keys it by that name, where ours is minted nameless — the family `ParameterMembership.memberName` 4863 already holds (`transitionLinkSource`). `FeatureMembership.owner` 64 pilot-missing is the pilot's as on every membership. The one transitionLink element matched lands its flags equal and its `name`, `type` and `definition` ours-missing, the same gap. No other row moved.
 

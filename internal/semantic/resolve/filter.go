@@ -157,7 +157,7 @@ func isViewSymbol(sym *symbols.Symbol) bool {
 // namespaceFQNOf is the indexed name of the namespace owning scope, or "" for a
 // root or unnamed one, whose filters no other declaration shares.
 func (r *Resolver) namespaceFQNOf(scope *symbols.Scope) string {
-	if r.idx == nil || scope.Owner() == nil || scope.Owner().Name == "" {
+	if r.idx == nil || scope.Owner() == nil || !scope.Owner().Named() {
 		return ""
 	}
 	return r.idx.GetFQN(scope.Owner())
@@ -708,12 +708,12 @@ func (r *Resolver) ImportedBeside(scope *symbols.Scope, name string, sym *symbol
 		var others []*symbols.Symbol
 		for _, imp := range r.scopeImports(s) {
 			for _, m := range r.importedMembersInto(s, s, imp, false) {
-				if m.Name == "" || r.idx.Library(m) || !contributesName(m) || !r.BindsName(m) {
+				if !m.Named() || r.idx.Library(m) || !contributesName(m) || !r.BindsName(m) {
 					continue
 				}
 				if symbols.SameElement(m, sym) {
 					brought = true
-				} else if names := r.memberNames(m); names[0] == name || (names[1] != "" && names[1] == name) {
+				} else if names, n := r.memberNames(m); slices.Contains(names[:n], name) {
 					others = append(others, m)
 				}
 			}

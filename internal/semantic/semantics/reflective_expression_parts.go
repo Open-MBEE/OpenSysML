@@ -612,6 +612,10 @@ func (m *Model) expressionScopeOf(expr *symbols.Symbol) *symbols.Scope {
 		if cur.Expr == nil {
 			return referenceScope(cur)
 		}
+		if cur.Expr.Role == symbols.ExpressionBodyResult && cur.Expr.Owner != nil && cur.Expr.Owner.Expr == nil {
+			// A constraint body's closing condition reads its names in the body (ConstraintResultMember).
+			return cur.Expr.Owner.Scope
+		}
 		if cur.Expr.Role == symbols.ExpressionBody {
 			if scope := m.bodyScopeOf(cur); scope != nil {
 				return scope

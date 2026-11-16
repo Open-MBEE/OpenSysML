@@ -905,9 +905,7 @@ func (d *decoder) readElement(subject rdf.Term) (*element, error) {
 	}
 	el.indexStated = d.graph.HasProperty(subject, rdf.OpenSysML+xMemberIndex)
 	el.trailing = !el.indexStated && d.isResultExpression(el)
-	if el.qname, _ = d.stringOf(el, rdf.SysML+pQualifiedName); el.qname == "" {
-		el.qname, _ = addressOf(d.graph, subject)
-	}
+	el.qname, _ = addressOf(d.graph, subject)
 	if !el.indexStated && !el.trailing && d.statedNames[subject.Value] {
 		if n, ok := positionalIndex(d.graph, subject); ok {
 			el.memberIndex, el.positional = n, true
@@ -1818,7 +1816,7 @@ func nameMembers(members []*element, owner string) {
 	for i, el := range members {
 		el.scope = owner
 		if el.qname == "" {
-			el.qname = naming.Qualify(owner, "", i)
+			el.qname = naming.Positional(owner, i)
 		}
 		nameMembers(el.children, el.qname)
 	}
@@ -2073,9 +2071,9 @@ func (d *decoder) headFeatureAnnotations(feature *element, what string) ([]strin
 	if len(identity) == 0 {
 		return nil, nil
 	}
-	name, ok := d.stringOf(feature, rdf.SysML+pDeclaredName)
+	name, ok := d.nameOf(feature, rdf.SysML+pDeclaredName)
 	if !ok {
-		name, ok = d.stringOf(feature, rdf.SysML+pDeclaredShortName)
+		name, ok = d.nameOf(feature, rdf.SysML+pDeclaredShortName)
 	}
 	if !ok {
 		return nil, &UnsupportedError{
@@ -2734,16 +2732,14 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		// notation rather than as a `references` clause.
 		skip = append(skip, ast.RelReferences)
 	}
-	// A satisfy head writes the requirement it subsets bare, after the keyword;
-	// without that form it declares a requirement usage of its own. An unnamed
-	// SatisfyRequirementUsage, or the RequirementUsage of a `verify` whose
-	// subsetting is a ReferenceSubsetting, is the reference form whether or not
-	// sysx:endForm records it (`verify r :>> req;` records none, since it
-	// specializes twice); `verify requirement :> r;` declares one instead.
+	// A satisfy or verify stating a `references` writes that requirement bare after the keyword,
+	// whether or not sysx:endForm records it; without one it declares a requirement of its own.
 	var satisfyTargets []string
+	// The `by` subject follows the specializations written after the reference.
+	satisfySubject := ""
 	if endForm == formSatisfy || el.metaclass == mSatisfyRequirementUsage || d.verifiedReference(el) {
 		var err error
-		satisfyTargets, err = d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelSubsets])
+		satisfyTargets, err = d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelReferences])
 		if err != nil {
 			return "", err
 		}
@@ -2751,11 +2747,11 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	switch {
 	case endForm == formSatisfy || len(satisfyTargets) > 0 && len(identWords) == 0:
 		if len(satisfyTargets) == 0 {
-			return "", d.missing(el, sysmlPrefix+relationshipProperty[ast.RelSubsets],
+			return "", d.missing(el, sysmlPrefix+relationshipProperty[ast.RelReferences],
 				"a satisfy head names the requirement it satisfies")
 		}
 		words = append(words, strings.Join(satisfyTargets, ", "))
-		skip = append(skip, ast.RelSubsets)
+		skip = append(skip, ast.RelReferences)
 		subjects, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelSubject])
 		if err != nil {
 			return "", err
@@ -2767,7 +2763,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 			}
 		}
 		if len(subjects) == 1 {
-			words = append(words, "by", subjects[0])
+			satisfySubject = subjects[0]
 			skip = append(skip, ast.RelSubject)
 		}
 	case kind == ast.UsageSatisfy:
@@ -2957,6 +2953,9 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		return "", err
 	}
 	words = append(words, relationships...)
+	if satisfySubject != "" {
+		words = append(words, "by", satisfySubject)
+	}
 	if hasEnds {
 		// A connector's own multiplicity is its declaration, written ahead of
 		// the ends; after them it would read as the last end's.
@@ -3442,10 +3441,10 @@ func (d *decoder) aliasHead(el *element) (string, error) {
 	words = append(words, "alias")
 	// A Membership names its member (KerML.xtext AliasMember); an older graph
 	// declared the alias's own name.
-	if short, ok := d.stringOf(el, rdf.SysML+pMemberShortName); ok {
+	if short, ok := d.nameOf(el, rdf.SysML+pMemberShortName); ok {
 		words = append(words, "<"+nameText(short)+">")
 	}
-	if name, ok := d.stringOf(el, rdf.SysML+pMemberName); ok {
+	if name, ok := d.nameOf(el, rdf.SysML+pMemberName); ok {
 		words = append(words, nameText(name))
 	}
 	words = append(words, d.identWords(el)...)
@@ -3861,6 +3860,15 @@ func constantKeyword(kerml bool) string {
 	return "constant"
 }
 
+// typedByKeyword spells a typing where `:` cannot: KerML.xtext TypedBy `'typed' 'by'`,
+// SysML.xtext DefinedByKeyword `'defined' 'by'`.
+func typedByKeyword(kerml bool) string {
+	if kerml {
+		return "typed by"
+	}
+	return "defined by"
+}
+
 // portionPrefix reports whether isPortion is written as KerML's `portion`; SysML has no
 // such prefix, so there the flag is carried by a portion kind and refused without one.
 func (d *decoder) portionPrefix(el *element, kerml bool, portion string) (bool, error) {
@@ -3903,10 +3911,10 @@ func (d *decoder) portionKind(el *element) (string, error) {
 
 func (d *decoder) identWords(el *element) []string {
 	var words []string
-	if short, ok := d.stringOf(el, rdf.SysML+pDeclaredShortName); ok {
+	if short, ok := d.nameOf(el, rdf.SysML+pDeclaredShortName); ok {
 		words = append(words, "<"+nameText(short)+">")
 	}
-	if name, ok := d.stringOf(el, rdf.SysML+pDeclaredName); ok {
+	if name, ok := d.nameOf(el, rdf.SysML+pDeclaredName); ok {
 		words = append(words, nameText(name))
 	}
 	return words
@@ -3934,7 +3942,7 @@ func (d *decoder) writtenQName(el *element) string {
 		return d.writtenQName(el.owner)
 	}
 	if el.owner != nil && el.owner.owner != nil && d.isNodeMembership(rdf.IRI(el.owner.iri)) {
-		if name, ok := d.stringOf(el, rdf.SysML+pDeclaredName); ok {
+		if name, ok := d.nameOf(el, rdf.SysML+pDeclaredName); ok {
 			return d.writtenQName(el.owner.owner) + "::" + naming.Segment(name)
 		}
 	}
@@ -3946,7 +3954,7 @@ func (d *decoder) writtenQName(el *element) string {
 	if !d.metadataBodyMember(el) || d.boolOf(el, rdf.OpenSysML+xImplicitRedefinition) {
 		return q
 	}
-	if _, declared := d.stringOf(el, rdf.SysML+pDeclaredName); declared {
+	if _, declared := d.nameOf(el, rdf.SysML+pDeclaredName); declared {
 		return q
 	}
 	return q[:i] + "::@" + strconv.Itoa(el.memberIndex)
@@ -4143,9 +4151,8 @@ func (d *decoder) ownedCrossFeature(el *element) *element {
 	return nil
 }
 
-// crossFeatureWords writes an end's cross feature after `end`: name, multiplicity
-// and specializations, typing spelled `typed by` since `:` there is the end's own.
-// Its identity goes in the end's body (headFeatureAnnotations); a body of its own has no place.
+// crossFeatureWords writes an end's cross feature after `end`, its typing by keyword since `:` there is
+// the end's own; its identity goes in the end's body (headFeatureAnnotations), and it has no body.
 func (d *decoder) crossFeatureWords(cross *element) ([]string, error) {
 	if len(d.bodyChildren(cross)) > 0 || d.boolOf(cross, rdf.OpenSysML+xHasBody) {
 		return nil, &UnsupportedError{
@@ -4183,7 +4190,7 @@ func (d *decoder) crossFeatureWords(cross *element) ([]string, error) {
 		return nil, err
 	}
 	if len(typed) > 0 {
-		words = append(words, "typed by", strings.Join(typed, ", "))
+		words = append(words, typedByKeyword(d.kerml(cross)), strings.Join(typed, ", "))
 	}
 	relationships, err := d.relationshipWords(cross, "", ast.RelTyping)
 	if err != nil {
@@ -4440,10 +4447,8 @@ type headClause struct {
 	multiplicity bool
 }
 
-// headClauseKinds are the collapsed properties a materialized relationship
-// element may state, by the element's metaclass; a Subsetting is a feature's
-// `subsets` or its `specializes`, a ReferenceSubsetting a `references` or an
-// end form's `subsets`, which the target tells apart.
+// headClauseKinds are the collapsed properties a materialized relationship element may state, by
+// its metaclass; a Subsetting is a feature's `subsets` or its `specializes`, told apart by the target.
 var headClauseKinds = map[string][]ast.RelationshipKind{
 	mFeatureTyping:        {ast.RelTyping},
 	mConjugatedPortTyping: {ast.RelTyping},
@@ -4451,7 +4456,7 @@ var headClauseKinds = map[string][]ast.RelationshipKind{
 	mSpecialization:       {ast.RelSpecializes},
 	mSubsetting:           {ast.RelSubsets, ast.RelSpecializes},
 	mRedefinition:         {ast.RelRedefines},
-	mReferenceSubsetting:  {ast.RelReferences, ast.RelSubsets},
+	mReferenceSubsetting:  {ast.RelReferences},
 }
 
 // headClauseTargets are the properties that state a relationship element's
@@ -4865,7 +4870,7 @@ func (d *decoder) effectiveName(el *element) (string, bool) {
 			segments := naming.Segments(el.qname)
 			return identityName(segments[len(segments)-1]), true
 		}
-		if name, ok := d.stringOf(el, rdf.SysML+pDeclaredName); ok {
+		if name, ok := d.nameOf(el, rdf.SysML+pDeclaredName); ok {
 			return name, true
 		}
 		// A transition's `do` statement answers to its role, `effect`, as the symbol
@@ -4961,10 +4966,12 @@ func notAName(term rdf.Term) string {
 		return "it is empty"
 	}
 	for _, segment := range naming.Segments(strings.TrimPrefix(term.Value, "$::")) {
+		// A segment written `''` is the empty name; one with no text is none.
+		if segment == "" {
+			return "it has an empty name segment"
+		}
 		segment = identityName(segment)
 		switch {
-		case segment == "":
-			return "it has an empty name segment"
 		case strings.ContainsAny(segment, "\n\r"):
 			return "it has a name segment holding a line break"
 		case (len(segment)-len(strings.TrimRight(segment, `\`)))%2 == 1:
@@ -5001,6 +5008,15 @@ func (d *decoder) stringOf(el *element, property string) (string, bool) {
 		return "", false
 	}
 	return value, true
+}
+
+// nameOf is the name el states under property, the empty unrestricted name
+// included (KerML §8.2.2.3): stating it is what tells it from no name.
+func (d *decoder) nameOf(el *element, property string) (string, bool) {
+	if text, ok := el.expressions[property]; ok {
+		return text, text != ""
+	}
+	return d.graph.Lexical(rdf.IRI(el.iri), property)
 }
 
 // statedFalse reports a boolean the graph states as false, as against one it

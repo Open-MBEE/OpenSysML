@@ -25,10 +25,10 @@ package ForkJoinTest {
 
         succession first init then ready;
         transition first ready then split;
-        transition first split then building;
-        transition first split then checking;
-        transition first building then sync;
-        transition first checking then sync;
+        transition first split then working.left.building;
+        transition first split then working.right.checking;
+        transition first working.left.building then sync;
+        transition first working.right.checking then sync;
         transition first sync then done;
     }
 }

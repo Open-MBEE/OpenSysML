@@ -18,9 +18,9 @@ package Test {
         state away;
 
         transition first start when Go then away;
-        transition first away when Back then resume;
-        transition first inner when Next then innerTwo;
-        transition first innerTwo when Leave then away;
-        transition first innerTwo when Finish then done;
+        transition first away when Back then outer.resume;
+        transition first outer.middle.inner when Next then outer.middle.innerTwo;
+        transition first outer.middle.innerTwo when Leave then away;
+        transition first outer.middle.innerTwo when Finish then done;
     }
 }

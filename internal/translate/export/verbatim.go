@@ -340,8 +340,11 @@ func disagreeingTriples(graph, check *rdf.Graph) []rdf.Triple {
 			rdf.OpenSysML + xMemberIndex:
 			return false
 		}
-		return !IsSourceRangeProperty(t.Predicate.Value) && !IsNoteProperty(t.Predicate.Value) && !noteNode(t.Subject)
+		// An address is compared as read, whichever predicates spell it.
+		return !isAddressPredicate(t.Predicate.Value) && !IsSourceRangeProperty(t.Predicate.Value) &&
+			!IsNoteProperty(t.Predicate.Value) && !noteNode(t.Subject)
 	}
+	out = append(out, disagreeingAddresses(graph, check)...)
 	for _, t := range graph.Triples() {
 		if structural(t) && !check.Has(t) {
 			out = append(out, t)
@@ -352,6 +355,37 @@ func disagreeingTriples(graph, check *rdf.Graph) []rdf.Triple {
 			!derivedMembershipOmitted(graph, check, t) && !derivedMultiplicityOmitted(graph, check, t) &&
 			!derivedAnnotatingRelationshipOmitted(graph, check, t) && !derivedConnectorFeatureOmitted(graph, check, t) {
 			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// disagreeingAddresses lists, for each subject the two graphs address by
+// different names, the address triple of the graph that states one.
+func disagreeingAddresses(graph, check *rdf.Graph) []rdf.Triple {
+	var out []rdf.Triple
+	stated := func(g *rdf.Graph, subject rdf.Term) (rdf.Triple, bool) {
+		for _, predicate := range addressPredicates {
+			if object, ok := g.Object(subject, predicate); ok {
+				return rdf.Triple{Subject: subject, Predicate: rdf.IRI(predicate), Object: object}, true
+			}
+		}
+		return rdf.Triple{}, false
+	}
+	for _, subject := range graph.Subjects() {
+		triple, ok := stated(graph, subject)
+		if !ok {
+			continue
+		}
+		address, _ := statedAddress(graph, subject)
+		// The names decide: an earlier release quoted a conjugated definition's differently.
+		if other, ok := statedAddress(check, subject); !ok || naming.Escaped(other) != naming.Escaped(address) {
+			out = append(out, triple)
+		}
+	}
+	for _, subject := range check.Subjects() {
+		if triple, ok := stated(check, subject); ok && !statesAddress(graph, subject) {
+			out = append(out, triple)
 		}
 	}
 	return out

@@ -42,7 +42,7 @@ func (m *Model) ReferencedFeature(sym *symbols.Symbol) *symbols.Symbol {
 		if target, ok := m.resolver.ResolveReferenceTarget(referenceScope(sym), sym.Decl, node); ok && target != sym {
 			out = target
 		}
-	} else if u, isUsage := sym.Decl.(*ast.Usage); isUsage && u.IsVariantReference() && sym.Name != "" {
+	} else if u, isUsage := sym.Decl.(*ast.Usage); isUsage && u.IsVariantReference() && sym.Named() {
 		// A bare `variant X` is a VariantReference (SysML.xtext:642): a
 		// reference usage subsetting the like-named feature visible outside.
 		if named, ok := m.resolver.LookupNameExcluding(sym.OwnerScope, sym.Name, sym.Decl); ok && named != sym {
@@ -173,19 +173,11 @@ func (m *Model) MemberSources(sym *symbols.Symbol) []*symbols.Symbol {
 	return order
 }
 
-// lookupSource is one member source in name-lookup order together with the
-// types the search passed through to reach it, whose own redefinitions decide
-// which of its members are inherited along that path.
-type lookupSource struct {
-	sym *symbols.Symbol
-	via []*symbols.Symbol
-}
-
 // lookupSources is MemberSources in name-lookup order: each contributor and
 // everything it inherits before the next contributor, as a name search through
 // generals visits them (KerML 8.2.3.5.2). A source reached by several paths is
 // listed once, under the first.
-func (m *Model) lookupSources(sym *symbols.Symbol) []lookupSource {
+func (m *Model) lookupSources(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
@@ -194,38 +186,27 @@ func (m *Model) lookupSources(sym *symbols.Symbol) []lookupSource {
 		return cached
 	}
 
-	var order []lookupSource
+	var order []*symbols.Symbol
 	visited := map[*symbols.Symbol]bool{sym: true}
 	provisional := m.supersUnstable(sym)
-	var walk func(cur *symbols.Symbol, via []*symbols.Symbol)
-	walk = func(cur *symbols.Symbol, via []*symbols.Symbol) {
+	var walk func(cur *symbols.Symbol)
+	walk = func(cur *symbols.Symbol) {
 		for _, next := range m.contributors(cur) {
 			if next == nil || visited[next] {
 				continue
 			}
 			visited[next] = true
-			order = append(order, lookupSource{sym: next, via: via})
+			order = append(order, next)
 			provisional = provisional || m.supersUnstable(next)
-			walk(next, append(via[:len(via):len(via)], next))
+			walk(next)
 		}
 	}
-	walk(sym, nil)
+	walk(sym)
 	if len(m.resolvingRef) == 0 && !provisional {
 		journal(m, m.lookupOrder, sym, sym.Decl)
 		m.lookupOrder[sym] = order
 	}
 	return order
-}
-
-// inheritedAlong reports whether member, declared by the last of via, reaches
-// the type the search started from: no type on the way redefines it.
-func (m *Model) inheritedAlong(member *symbols.Symbol, via []*symbols.Symbol) bool {
-	for _, t := range via {
-		if m.OwnRedefinitionMasked(t, member) {
-			return false
-		}
-	}
-	return true
 }
 
 // MemberSourcesStable reports whether the last MemberSources answer for sym was

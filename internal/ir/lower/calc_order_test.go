@@ -19,7 +19,7 @@ func calcOrderFrom(t *testing.T, text string) *StatementOrder {
 	for _, member := range root.Members {
 		def, ok := unwrapMembership(member).(*ast.Definition)
 		if ok && def.Kind == ast.DefCalc {
-			body, order := CalcBodyWithOrder(def, def.Members, nil, nil)
+			body, order := CalcBodyWithOrder(def, def.Members, nil, nil, nil)
 			if len(CalcSteps(body)) != 5 {
 				t.Fatalf("calc body has %d steps, want a local, three assignments, and the result", len(CalcSteps(body)))
 			}
@@ -91,7 +91,7 @@ func TestCalcNestedStatementOrderThen(t *testing.T) {
 	if def == nil {
 		t.Fatal("no calc definition")
 	}
-	body, _ := CalcBodyWithOrder(def, def.Members, nil, nil)
+	body, _ := CalcBodyWithOrder(def, def.Members, nil, nil, nil)
 	var ifStmt, loopStmt Statement
 	for _, stmt := range body {
 		switch stmt.(type) {
@@ -159,7 +159,7 @@ func TestCalcNestedBlocksCarryTheirOwnPrecedence(t *testing.T) {
 	if def == nil {
 		t.Fatal("no calc definition")
 	}
-	body, order := CalcBodyWithOrder(def, def.Members, nil, nil)
+	body, order := CalcBodyWithOrder(def, def.Members, nil, nil, nil)
 	checked := 0
 	assertOrder := func(label string, members []ast.Node, stmts []Statement, order *StatementOrder) {
 		t.Helper()
