@@ -330,7 +330,7 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 	if f.perf == nil {
 		locals, localCells, localHeld := engine.env.localFrames()
 		if f.perf, err = e.beginPerformance(
-			parent, graph, node, locals, localCells, localHeld,
+			parent, graph, node, locals, localCells, localHeld, engine.loopBody(),
 		); err != nil {
 			return flowNext, err
 		}

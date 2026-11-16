@@ -91,6 +91,20 @@ const nodeOccurrenceFixture = `package test {
 			first outer then done;
 		}
 	}
+	part looping {
+		perform action run {
+			attribute n : Integer[1] = 0;
+			action stage {
+				first start;
+				then while n < 2 {
+					action add { out w : Integer[1]; first start; then assign w := n; then assign n := n + 1; then done; }
+				}
+				then done;
+			}
+			first start then stage;
+			first stage then done;
+		}
+	}
 	part unreached {
 		perform action run {
 			attribute go : Boolean = false;
@@ -122,6 +136,32 @@ func heldNodeObject(t *testing.T, ctx *Context, self *Instance, path string) *In
 		t.Fatalf("%s names unknown object #%d", path, id)
 	}
 	return inst
+}
+
+// heldNodeObjects are the objects the path from self holds, in the order held.
+func heldNodeObjects(t *testing.T, ctx *Context, self *Instance, path string) []*Instance {
+	t.Helper()
+	fv, err := featureValueAtPath(t, ctx, self, path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	elements, err := ctx.HeldElements(fv.HeldValue())
+	if err != nil {
+		t.Fatalf("elements of %s: %v", path, err)
+	}
+	held := make([]*Instance, 0, len(elements))
+	for _, elem := range elements {
+		id, ok := elem.Object()
+		if !ok {
+			t.Fatalf("%s holds %s, want objects", path, elem.Kind)
+		}
+		inst, ok := ctx.Instance(id)
+		if !ok {
+			t.Fatalf("%s names unknown object #%d", path, id)
+		}
+		held = append(held, inst)
+	}
+	return held
 }
 
 func TestRuntimeRobustnessNodeOccurrence(t *testing.T) {
@@ -203,6 +243,52 @@ func TestRuntimeRobustnessNodeOccurrence(t *testing.T) {
 			if sub.Began == 0 || sub.Ended == 0 || sub.Ended > mid.Ended {
 				t.Errorf("%s life = %v, want one ended no later than mid's %v", path, sub, mid)
 			}
+		}
+	})
+
+	t.Run("loop_a_node_reaches_lives_within_the_node", func(t *testing.T) {
+		ctx, self := instantiate(t, "test::looping")
+		stage, _ := ctx.OccurrenceLife(heldNodeObject(t, ctx, self, "run.stage").ID)
+		loops := heldNodeObjects(t, ctx, self, "run.stage.loops")
+		if len(loops) != 1 {
+			t.Fatalf("run.stage.loops holds %d, want the one loop the node reached", len(loops))
+		}
+		if life, _ := ctx.OccurrenceLife(loops[0].ID); life.Began < stage.Began || life.Ended == 0 || life.Ended > stage.Ended {
+			t.Errorf("loop life = %v, want one within stage's %v", life, stage)
+		}
+		if under := heldNodeObjects(t, ctx, self, "run.loops"); len(under) != 0 {
+			t.Errorf("run.loops holds %d, want none: the loop is the node's, not the run's", len(under))
+		}
+	})
+
+	t.Run("node_an_iteration_performs_lives_within_the_iteration", func(t *testing.T) {
+		ctx, self := instantiate(t, "test::looping")
+		loops := heldNodeObjects(t, ctx, self, "run.stage.loops")
+		if len(loops) != 1 {
+			t.Fatalf("run.stage.loops holds %d, want the one loop the node reached", len(loops))
+		}
+		bodies := heldNodeObjects(t, ctx, loops[0], "body")
+		if len(bodies) != 2 {
+			t.Fatalf("the loop's body holds %d, want the two iterations", len(bodies))
+		}
+		var seen []*Instance
+		for i, body := range bodies {
+			within, _ := ctx.OccurrenceLife(body.ID)
+			adds := heldNodeObjects(t, ctx, body, "add")
+			if len(adds) != 1 {
+				t.Fatalf("iteration %d holds %d performances of add, want its own alone", i+1, len(adds))
+			}
+			if life, _ := ctx.OccurrenceLife(adds[0].ID); life.Began < within.Began || life.Ended == 0 || life.Ended > within.Ended {
+				t.Errorf("iteration %d: add life = %v, want one within the iteration's %v", i+1, life, within)
+			}
+			fv, err := adds[0].GetFeatureValue(ctx, "w")
+			if err != nil || !valueEqual(fv.HeldValue(), intConst(int64(i))) {
+				t.Errorf("iteration %d: add.w = %v (%v), want %d", i+1, fv, err, i)
+			}
+			seen = append(seen, adds[0])
+		}
+		if seen[0] == seen[1] {
+			t.Error("the two iterations hold one performance of add, want one each")
 		}
 	})
 

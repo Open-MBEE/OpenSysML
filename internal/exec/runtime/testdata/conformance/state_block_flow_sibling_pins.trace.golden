@@ -10,16 +10,19 @@ materialize: WhileLoopAction #2
       eval operator < -> true
 materialize: body #3
       stmt node p
+materialize: p #4
         stmt assign v
             eval feature i -> 0
             eval literal 1 -> 1
           eval operator + -> 1
       stmt node q
+materialize: q #5
         stmt assign v
             eval chain v -> (1)
             eval literal 10 -> 10
           eval operator * -> 10
       stmt node fin
+materialize: fin #6
         stmt assign total
               eval feature total -> 0
               eval chain v -> (1)
@@ -34,18 +37,21 @@ materialize: body #3
         eval feature i -> 1
         eval literal 3 -> 3
       eval operator < -> true
-materialize: body #4
+materialize: body #7
       stmt node p
+materialize: p #8
         stmt assign v
             eval feature i -> 1
             eval literal 1 -> 1
           eval operator + -> 2
       stmt node q
+materialize: q #9
         stmt assign v
             eval chain v -> (2)
             eval literal 10 -> 10
           eval operator * -> 20
       stmt node fin
+materialize: fin #10
         stmt assign total
               eval feature total -> 11
               eval chain v -> (2)
@@ -60,18 +66,21 @@ materialize: body #4
         eval feature i -> 2
         eval literal 3 -> 3
       eval operator < -> true
-materialize: body #5
+materialize: body #11
       stmt node p
+materialize: p #12
         stmt assign v
             eval feature i -> 2
             eval literal 1 -> 1
           eval operator + -> 3
       stmt node q
+materialize: q #13
         stmt assign v
             eval chain v -> (3)
             eval literal 10 -> 10
           eval operator * -> 30
       stmt node fin
+materialize: fin #14
         stmt assign total
               eval feature total -> 33
               eval chain v -> (3)

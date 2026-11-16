@@ -527,7 +527,7 @@ func (f *actionFrame) key(name string) string {
 // then its own declared defaults.
 func (e *performances) beginPerformance(
 	parent *actionFrame, flow *lower.ActionGraph, node ast.Node,
-	locals []map[string]Value, localCells []*bodyCells, localHeld []map[*symbols.Symbol]string,
+	locals []map[string]Value, localCells []*bodyCells, localHeld []map[*symbols.Symbol]string, within *Instance,
 ) (*actionFrame, error) {
 	perf := &actionFrame{
 		node:        node,
@@ -600,7 +600,7 @@ func (e *performances) beginPerformance(
 		}
 		return nil, err
 	}
-	if err := e.holdNodeOccurrence(perf); err != nil {
+	if err := e.holdNodeOccurrence(perf, within); err != nil {
 		return nil, err
 	}
 	e.markPerformance(flow, node, false)

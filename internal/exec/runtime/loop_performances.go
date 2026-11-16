@@ -34,12 +34,9 @@ func (e *performances) beginLoopPerformance(frame *actionFrame, stmt lower.Loop,
 	if loopNode {
 		around = frame.parent
 	}
-	holder := within
-	if holder == nil {
-		var err error
-		if holder, err = e.frameObject(around); holder == nil || err != nil {
-			return nil, err
-		}
+	holder, err := e.performanceHolder(around, within)
+	if holder == nil || err != nil {
+		return nil, err
 	}
 	inst, err := e.ctx.holdLoop(holder, stmt)
 	if inst == nil || err != nil {
@@ -49,6 +46,15 @@ func (e *performances) beginLoopPerformance(frame *actionFrame, stmt lower.Loop,
 		frame.occurrence = inst
 	}
 	return inst, nil
+}
+
+// performanceHolder is the object holding a performance begun in around: within, the
+// iteration of the loop a statement reached it in, else the object around runs as.
+func (e *performances) performanceHolder(around *actionFrame, within *Instance) (*Instance, error) {
+	if within != nil {
+		return within, nil
+	}
+	return e.frameObject(around)
 }
 
 // holdLoop begins the loop stmt as a performance holder holds under its `loops`, its
@@ -95,7 +101,7 @@ func (e *performances) frameObject(frame *actionFrame) (*Instance, error) {
 		return owner, nil
 	}
 	// A named node begun before the run had an object takes its own now.
-	if err := e.holdNodeOccurrence(frame); err != nil {
+	if err := e.holdNodeOccurrence(frame, nil); err != nil {
 		return nil, err
 	}
 	return frame.occurrence, nil

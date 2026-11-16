@@ -42,11 +42,11 @@ func (e *performances) nodeFeature(owner *Instance, perf *actionFrame) *FeatureV
 // holdNodeOccurrence gives perf the object it runs as, where the performance around it
 // runs as one: the first of the node's declared objects no performance has taken, else
 // a new one after them, so the node's feature lists every performance in the order begun.
-func (e *performances) holdNodeOccurrence(perf *actionFrame) error {
-	if perf.occurrence != nil || perf.parent == nil {
+func (e *performances) holdNodeOccurrence(perf *actionFrame, within *Instance) error {
+	if perf.occurrence != nil || perf.parent == nil || e.occurrence == nil {
 		return nil
 	}
-	owner, err := e.frameObject(perf.parent)
+	owner, err := e.performanceHolder(perf.parent, within)
 	if owner == nil || err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func (e *performances) holdNodeOccurrences(frame *actionFrame) error {
 	}
 	sort.SliceStable(under, func(i, j int) bool { return under[i].began < under[j].began })
 	for _, perf := range under {
-		if err := e.holdNodeOccurrence(perf); err != nil {
+		if err := e.holdNodeOccurrence(perf, nil); err != nil {
 			return err
 		}
 		if err := e.holdNodeOccurrences(perf); err != nil {

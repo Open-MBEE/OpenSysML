@@ -3031,7 +3031,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 		}
 	}
 
-	perf, err := e.beginPerformance(token.frame, graph, usage, nil, nil, nil)
+	perf, err := e.beginPerformance(token.frame, graph, usage, nil, nil, nil, nil)
 	if err != nil {
 		return err
 	}
