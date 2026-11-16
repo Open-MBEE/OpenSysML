@@ -346,9 +346,20 @@ func RelationshipsOf(sym *symbols.Symbol) []*ast.Relationship {
 		return d.Relationships
 	case *ast.RequireMember:
 		return d.Relationships
+	case *ast.PrefixMetadata:
+		return metadataRelationships(d)
 	default:
 		return nil
 	}
+}
+
+// metadataRelationships returns a metadata usage's relationships: the typing its
+// `@M` or `#M` states (SysML.xtext MetadataUsage), the one written relationship it has.
+func metadataRelationships(n *ast.PrefixMetadata) []*ast.Relationship {
+	if n.Type == nil {
+		return nil
+	}
+	return []*ast.Relationship{{Kind: ast.RelTyping, Target: n.Type}}
 }
 
 // subjectRelationships returns a subject parameter's relationships, the typing
