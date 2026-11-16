@@ -319,9 +319,9 @@ func (e *ActionExecutor) stepDynamics(tokenIdx int) error {
 	return e.parkDynamics(run, &e.tokens[tokenIdx])
 }
 
-// stepsNow reports dynamics still to sample at this instant: under way with a token due.
+// stepsNow reports dynamics still to sample at this instant: under way, not released, with a token due.
 func (e *ActionExecutor) stepsNow() bool {
-	return e.dynamics != nil && !e.state.Ended() && slices.ContainsFunc(e.tokens, e.dynamicsDue)
+	return e.dynamics != nil && !e.finished() && slices.ContainsFunc(e.tokens, e.dynamicsDue)
 }
 
 // awaitsSource reports dynamics fed by other dynamics still to sample at this instant, which

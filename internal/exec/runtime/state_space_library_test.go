@@ -424,3 +424,34 @@ func TestStateSpaceFlowsInACycleRun(t *testing.T) {
 		})
 	}
 }
+
+// Dynamics released mid-run sample no more, so the dynamics they fed do not wait for them.
+func TestStateSpaceFlowFromAReleasedAction(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, coupledDynamics("flow source.ramp.output to sink.sum.input;", "")))
+	site := performerObject(t, ctx, idx, "test::site")
+	if _, err := ctx.Advance(1); err != nil {
+		t.Fatalf("advance: %v", err)
+	}
+	performance := func(part string) *ObjectBehavior {
+		inst, ok := ctx.Instance(objectAtPath(t, ctx, site, part))
+		if !ok || len(inst.Behaviors()) != 1 || inst.Behaviors()[0].Action == nil {
+			t.Fatalf("%s performs no one action", part)
+		}
+		return inst.Behaviors()[0]
+	}
+	performance("source").Action.Release()
+	if _, err := ctx.Advance(2); err != nil {
+		t.Fatalf("advance: %v", err)
+	}
+	sum := performance("sink")
+	if sum.Err != nil {
+		t.Fatal(sum.Err)
+	}
+	if !sum.Action.state.Ended() {
+		t.Fatalf("the integrator is %v after its stopTime", sum.Action.state)
+	}
+	// The ramp left 2.0 at 1 s: 0, 1 and 2 over the first three steps, 2 held over the last.
+	if got, want := FormatValue(sum.Action.Results()["stateSpace"]), "⟨2.5⟩"; got != want {
+		t.Errorf("the integrator ended at %s, want %s", got, want)
+	}
+}
