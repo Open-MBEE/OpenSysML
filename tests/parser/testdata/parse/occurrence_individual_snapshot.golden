@@ -60,4 +60,8 @@
               (Membership visibility="default"
                 (Usage kind="occurrence" name="vehicleState" ref=false direction="in" composite=false derived=false ordered=false nonunique=false snapshot=true
                   (Relationship kind="typing" target=Flight
+                    (*ast.QualifiedName))))
+              (Membership visibility="default"
+                (Usage kind="individual" name="vehicleAtStart" ref=false direction="in" composite=false derived=false ordered=false nonunique=false individual=true snapshot=true
+                  (Relationship kind="typing" target=TestSystem
                     (*ast.QualifiedName)))))))))))
