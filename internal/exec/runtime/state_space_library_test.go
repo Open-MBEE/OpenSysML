@@ -180,10 +180,9 @@ func TestStateSpaceFlowIntoARedefinedAction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Which of the two steps first at an instant is open: the integrator holds the ramp's
-	// output from the start of each step (3) or from its end (5).
-	if got := FormatValue(total.Results()["stateSpace"]); got != "⟨3.0⟩" && got != "⟨5.0⟩" {
-		t.Errorf("the integrator ended at %s, want ⟨3.0⟩ or ⟨5.0⟩", got)
+	// The ramp samples first at each instant, so the integrator holds its output from the start of each step.
+	if got := FormatValue(total.Results()["stateSpace"]); got != "⟨3.0⟩" {
+		t.Errorf("the integrator ended at %s, want ⟨3.0⟩", got)
 	}
 }
 
@@ -202,8 +201,8 @@ func TestStateSpaceFlowIntoARedefinedPart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := FormatValue(sum.Results()["stateSpace"]); got != "⟨3.0⟩" && got != "⟨5.0⟩" {
-		t.Errorf("the integrator ended at %s, want ⟨3.0⟩ or ⟨5.0⟩", got)
+	if got := FormatValue(sum.Results()["stateSpace"]); got != "⟨3.0⟩" {
+		t.Errorf("the integrator ended at %s, want ⟨3.0⟩", got)
 	}
 }
 
@@ -222,8 +221,8 @@ func TestStateSpaceFlowOutOfARedefinedPart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := FormatValue(sum.Results()["stateSpace"]); got != "⟨3.0⟩" && got != "⟨5.0⟩" {
-		t.Errorf("the integrator ended at %s, want ⟨3.0⟩ or ⟨5.0⟩", got)
+	if got := FormatValue(sum.Results()["stateSpace"]); got != "⟨3.0⟩" {
+		t.Errorf("the integrator ended at %s, want ⟨3.0⟩", got)
 	}
 }
 
@@ -258,8 +257,8 @@ func TestStateSpaceFlowOutOfARedefinedAction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := FormatValue(sum.Results()["stateSpace"]); got != "⟨3.0⟩" && got != "⟨5.0⟩" {
-		t.Errorf("the integrator ended at %s, want ⟨3.0⟩ or ⟨5.0⟩", got)
+	if got := FormatValue(sum.Results()["stateSpace"]); got != "⟨3.0⟩" {
+		t.Errorf("the integrator ended at %s, want ⟨3.0⟩", got)
 	}
 }
 
@@ -375,5 +374,53 @@ func TestOMGStateSpaceExamplesLeaveTheProtocolAbstract(t *testing.T) {
 				t.Errorf("%s: %q, want it to say %q", fqn, err, says)
 			}
 		}
+	}
+}
+
+// sinkBeforeSource is src with the fed part declared ahead of the one feeding it.
+func sinkBeforeSource(t *testing.T, src string) string {
+	t.Helper()
+	source, sink, flow := strings.Index(src, "part source {"), strings.Index(src, "part sink {"), strings.Index(src, "flow ")
+	if source < 0 || sink < source || flow < sink {
+		t.Fatalf("the model does not declare source, sink and flow in that order")
+	}
+	return src[:source] + src[sink:flow] + src[source:sink] + src[flow:]
+}
+
+// The dynamics feeding another sample first at each instant, whichever is declared first: an
+// output computed from the input reads the source's from the start on.
+func TestStateSpaceFlowIsIndependentOfDeclarationOrder(t *testing.T) {
+	src := coupledDynamics("flow source.ramp.output to sink.sum.input;", "")
+	src = strings.Replace(src, "return : Output = 1.0 * stateSpace;", "return : Output = 1.0 * input;", 1)
+	for name, model := range map[string]string{"source first": src, "sink first": sinkBeforeSource(t, src)} {
+		t.Run(name, func(t *testing.T) {
+			sum, err := runCoupled(t, model)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got, want := FormatValue(sum.Results()["stateSpace"]), "⟨3.0⟩"; got != want {
+				t.Errorf("the integrator ended at %s, want %s", got, want)
+			}
+			if got, want := FormatValue(sum.Results()["output"]), "⟨4.0⟩"; got != want {
+				t.Errorf("the integrator's output ended at %s, want %s", got, want)
+			}
+		})
+	}
+}
+
+// Two dynamics feeding each other wait for neither: each runs on what the other last wrote.
+func TestStateSpaceFlowsInACycleRun(t *testing.T) {
+	src := coupledDynamics("flow source.ramp.output to sink.sum.input;\n flow sink.sum.output to source.ramp.input;", "")
+	for name, model := range map[string]string{"source first": src, "sink first": sinkBeforeSource(t, src)} {
+		t.Run(name, func(t *testing.T) {
+			sum, err := runCoupled(t, model)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Which of the two samples first at an instant is the scheduler's draw, so the value is not pinned.
+			if got := sum.Results()["stateSpace"]; !isVectorKind(soleElement(got)) {
+				t.Errorf("the integrator ended at %s, want a vector", FormatValue(got))
+			}
+		})
 	}
 }
