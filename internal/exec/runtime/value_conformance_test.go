@@ -648,8 +648,8 @@ func TestQuantityIsHeldByTheTypesItIsOf(t *testing.T) {
 	}
 }
 
-// A feature typed by a measurement unit or scale holds a quantity unjudged, as the OMG
-// individuals example binds one (`hp : PowerUnit = 745.7 [SI::W]`); other types still refuse it.
+// A feature typed by a measurement reference (a unit, scale or frame) holds a quantity unjudged, as
+// the OMG individuals example binds one (`hp : PowerUnit = 745.7 [SI::W]`); other types refuse it.
 func TestQuantityIsHeldUnjudgedByAUnitTypedFeature(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
 		package test {
@@ -667,14 +667,18 @@ func TestQuantityIsHeldUnjudgedByAUnitTypedFeature(t *testing.T) {
 				attribute plain : ScalarValues::Real;
 				attribute real : ScalarValues::Real = 745.7 [SI::W];
 				attribute count : Count = 745.7 [SI::W];
-				attribute frame : VectorMeasurementReference = 745.7 [SI::W];
+				attribute vectorRef : VectorMeasurementReference = 745.7 [SI::W];
+				attribute tensorRef : TensorMeasurementReference = 745.7 [SI::W];
+				attribute frame : CoordinateFrame = 745.7 [SI::W];
+				attribute writtenFrame : VectorMeasurementReference;
+				attribute conversion : UnitConversion = 745.7 [SI::W];
 				attribute mass : MassValue = 745.7 [SI::W];
 			}
 			part p : P;
 		}
 	`))
 	inst := instantiateNamed(t, ctx, idx, "test::p")
-	for _, feature := range []string{"hp", "brake", "unit", "scalarRef"} {
+	for _, feature := range []string{"hp", "brake", "unit", "scalarRef", "vectorRef", "tensorRef", "frame"} {
 		fv, err := inst.GetFeatureValue(ctx, feature)
 		if err != nil {
 			t.Errorf("%s: %v", feature, err)
@@ -684,7 +688,7 @@ func TestQuantityIsHeldUnjudgedByAUnitTypedFeature(t *testing.T) {
 			t.Errorf("%s = %s, want 745.7 [SI::W]", feature, got)
 		}
 	}
-	for _, feature := range []string{"real", "count", "frame", "mass"} {
+	for _, feature := range []string{"real", "count", "conversion", "mass"} {
 		if _, err := inst.GetFeatureValue(ctx, feature); !errors.Is(err, ErrTypeMismatch) {
 			t.Errorf("%s: error = %v, want ErrTypeMismatch", feature, err)
 		}
@@ -695,6 +699,9 @@ func TestQuantityIsHeldUnjudgedByAUnitTypedFeature(t *testing.T) {
 	}
 	if err := inst.SetFeatureValue(ctx, "written", hp.HeldValue()); err != nil {
 		t.Errorf("write to written : PowerUnit: %v", err)
+	}
+	if err := inst.SetFeatureValue(ctx, "writtenFrame", hp.HeldValue()); err != nil {
+		t.Errorf("write to writtenFrame : VectorMeasurementReference: %v", err)
 	}
 	if err := inst.SetFeatureValue(ctx, "plain", hp.HeldValue()); !errors.Is(err, ErrTypeMismatch) {
 		t.Errorf("write to plain : Real: error = %v, want ErrTypeMismatch", err)
