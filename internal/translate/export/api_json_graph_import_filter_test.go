@@ -265,17 +265,22 @@ func TestAPIJSONGraphImportedMembershipFilterReadsARedefinedDefault(t *testing.T
 	metadata def Safety { attribute level : ScalarValues::Natural = 1; }
 	metadata def Strict :> Safety { attribute :>> level = 2; }
 	metadata def Stricter :> Strict;
+	metadata def Strictest :> Strict { attribute :>> level = 4; }
+	metadata def Redundant :> Strict, Strictest;
 	package Lib {
 		part a { @Safety; }
 		part b { @Strict; }
 		part c { @Stricter; }
 		part d { @Stricter { level = 3; } }
+		part e { @Redundant; }
 	}
 	package One { import Lib::*; filter (as Safety).level == 1; }
 	package Two { import Lib::*; filter (as Safety).level == 2; }
 	package Three { import Lib::*; filter (as Safety).level == 3; }
+	package Four { import Lib::*; filter (as Safety).level == 4; }
 }`)
 	wantReferences(t, elements, "Probe__One", "importedMembership", "Probe__Lib__a_om")
 	wantReferences(t, elements, "Probe__Two", "importedMembership", "Probe__Lib__b_om", "Probe__Lib__c_om")
 	wantReferences(t, elements, "Probe__Three", "importedMembership", "Probe__Lib__d_om")
+	wantReferences(t, elements, "Probe__Four", "importedMembership", "Probe__Lib__e_om")
 }

@@ -442,7 +442,7 @@ func (e *Evaluator) structureAnnotationValue(typ, feature Element, metadata []El
 }
 
 // structureInheritedBinding is the feature the types of a metadata annotation bind feature
-// through: the nearest redefinition of it they or their supertypes own, else feature itself.
+// through: the redefinition of it they inherit that no other one redefines, else feature itself.
 func (e *Evaluator) structureInheritedBinding(annotation, feature Element, target ElementKey) (Element, bool) {
 	types, handled, ok := e.structureFeatureTypes(annotation)
 	if !handled || !ok {
@@ -455,6 +455,7 @@ func (e *Evaluator) structureInheritedBinding(annotation, feature Element, targe
 		}
 		pending = append(pending, value.Element)
 	}
+	var candidates []Element
 	visited := map[ElementKey]bool{}
 	for len(pending) > 0 {
 		current := pending[0]
@@ -477,7 +478,7 @@ func (e *Evaluator) structureInheritedBinding(annotation, feature Element, targe
 				return Element{}, false
 			}
 			if redefines {
-				return candidate.Element, true
+				candidates = append(candidates, candidate.Element)
 			}
 		}
 		bases, ok := e.structureOwnedSupertypes(current)
@@ -486,7 +487,32 @@ func (e *Evaluator) structureInheritedBinding(annotation, feature Element, targe
 		}
 		pending = append(pending, bases...)
 	}
-	return feature, true
+	bound, found := feature, false
+	for at, candidate := range candidates {
+		key := e.structureFeatureKey(candidate)
+		redefined := false
+		for other, overriding := range candidates {
+			if other == at {
+				continue
+			}
+			var ok bool
+			if redefined, ok = e.structureRedefines(overriding, key, map[ElementKey]bool{}); !ok {
+				return Element{}, false
+			}
+			if redefined {
+				break
+			}
+		}
+		if redefined {
+			continue
+		}
+		if found {
+			// Two unrelated redefinitions reach the annotation: the model does not say which binds.
+			return Element{}, false
+		}
+		bound, found = candidate, true
+	}
+	return bound, true
 }
 
 // structureRedefines reports whether feature redefines target, directly or through the
