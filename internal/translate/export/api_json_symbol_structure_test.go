@@ -606,6 +606,10 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 		}
 		return d.expressionPartID(owner, "body")
 	case symbols.ExpressionBodyResult:
+		if owner.Expr == nil {
+			// A constraint body's closing condition is written under the member stating it (recordConstraintResult).
+			return d.ids.OfDeclaration(d.doc, sym.Decl, "")
+		}
 		return d.expressionPartID(owner, "result")
 	case symbols.ExpressionChangeWrapper:
 		if owner.Expr == nil || owner.Expr.Owner == nil {
@@ -634,6 +638,13 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 			return "", false
 		}
 		return base + transitionSuccessionSuffix, true
+	case symbols.ExpressionTransitionLink:
+		// A transition's transitionLink is minted off the transition too (transitionLinkMember).
+		base, ok := d.graphID(owner)
+		if !ok {
+			return "", false
+		}
+		return base + transitionLinkSuffix, true
 	case symbols.ExpressionValue:
 		// The value of a send's argument parameter is the parameter's `value` part.
 		if owner.Expr != nil && owner.Expr.Role == symbols.ExpressionPayload && owner.Expr.Owner != nil &&

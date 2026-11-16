@@ -489,7 +489,8 @@ public final class Protos {
               specialization.getKind(),
               specialization.getDeclared(),
               present(specialization.getTargetId()),
-              present(specialization.getTargetKind())));
+              present(specialization.getTargetKind()),
+              present(specialization.getTargetQualifiedName())));
     }
     List<Symbol.Member> members = new ArrayList<>(symbol.getMembersCount());
     for (MemberInfo member : symbol.getMembersList()) {
@@ -516,7 +517,8 @@ public final class Protos {
         specializations,
         symbol.getWithheldLibraryAttributes(),
         members,
-        symbol.getWithheldLibraryMembers());
+        symbol.getWithheldLibraryMembers(),
+        symbol.getAnnotatingMetadataIdsList());
   }
 
   /**
@@ -600,7 +602,8 @@ public final class Protos {
         present(typeInfo.getUnit()),
         typeInfo.getTypesList().stream()
             .map(ref -> new Symbol.TypeRef(ref.getId(), present(ref.getKind())))
-            .toList());
+            .toList(),
+        present(typeInfo.getResolvedQualifiedName()));
   }
 
   private static Symbol.Multiplicity multiplicity(MultiplicityInfo multiplicity) {

@@ -26,6 +26,7 @@ package D {
     attribute z : Integer = 1 + 2;
   }
   connection def C;
+  constraint def K { attribute x : Integer; x > 0 }
   part holder { part a { part b; } part c; connection : C connect a.b to c; }
 }
 package D__outer___400 { part spelledLikeAFormID; }
@@ -35,9 +36,15 @@ package D__outer___400 { part spelledLikeAFormID; }
 // positional and element-form ids a service's symbol context carries.
 func identityContext(t *testing.T) *symbolfacts.Context {
 	t.Helper()
+	return identityContextOf(t, identityModel)
+}
+
+// identityContextOf is identityContext over model.
+func identityContextOf(t *testing.T, model string) *symbolfacts.Context {
+	t.Helper()
 	base, _ := libs.SharedLibrary()
 	idx := symbols.NewOverlay(base)
-	file := source.New("model.sysml", []byte(identityModel))
+	file := source.New("model.sysml", []byte(model))
 	p := parser.New(file)
 	root := p.ParseFile()
 	if len(p.Diagnostics) > 0 {
@@ -118,6 +125,43 @@ func TestElementIdentityIsTheTreesIDAndRoundTrips(t *testing.T) {
 	}
 }
 
+// A constraint body's closing bare condition carries the id of the member stating
+// it, as the conversion writes it and the query leg reads it, and its parts hang off that id.
+func TestConstraintResultIdentityIsTheMembersID(t *testing.T) {
+	sc := identityContext(t)
+	owned, _ := sc.Semantics.ReflectiveElements(reflect(t, sc, "D::K"), "ownedMember")
+	if len(owned) != 2 {
+		t.Fatalf("D::K ownedMember = %v, want the parameter and the closing condition", owned)
+	}
+	result := owned[1]
+	for _, tc := range []struct {
+		sym  *symbols.Symbol
+		want string
+	}{
+		{result, "D__K___401"},
+		{reflectFrom(t, sc, result, "parameter"), "D__K___401_pin0"},
+		{reflectFrom(t, sc, result, "result"), "D__K___401_pout"},
+	} {
+		if got := sc.ElementIdentity(tc.sym); got != tc.want {
+			t.Errorf("ElementIdentity = %q, want %q", got, tc.want)
+			continue
+		}
+		if back := sc.ResolveElement(tc.want, sc.Semantics); len(back) != 1 || back[0] != tc.sym {
+			t.Errorf("ResolveElement(%s) = %v, want the one symbol it was read from", tc.want, back)
+		}
+	}
+}
+
+// reflectFrom follows one reflective feature from sym.
+func reflectFrom(t *testing.T, sc *symbolfacts.Context, sym *symbols.Symbol, feature string) *symbols.Symbol {
+	t.Helper()
+	elements, ok := sc.Semantics.ReflectiveElements(sym, feature)
+	if !ok || len(elements) == 0 {
+		t.Fatalf("%s derives nothing", feature)
+	}
+	return elements[0]
+}
+
 func TestResolveElementReadsEveryIDFormOfANamedElement(t *testing.T) {
 	sc := identityContext(t)
 	named := sc.Lookup("D::outer::named")
@@ -138,11 +182,18 @@ func TestResolveElementReadsEveryIDFormOfANamedElement(t *testing.T) {
 func TestResolveElementKeepsADeclarationSpelledLikeAFormIDOnlyAsItsOwn(t *testing.T) {
 	sc := identityContext(t)
 	got := sc.ResolveElement("D__outer___400", sc.Semantics)
-	if len(got) != 2 {
-		t.Fatalf("ResolveElement(D__outer___400) = %v, want the package and D::outer::@0 (ambiguous)", got)
+	if len(got) != 1 || got[0] != reflect(t, sc, "D::outer::@0") {
+		t.Fatalf("ResolveElement(D__outer___400) = %v, want D::outer::@0 alone", got)
 	}
-	if got[0].Name != "D__outer___400" || got[1] != reflect(t, sc, "D::outer::@0") {
-		t.Errorf("ResolveElement(D__outer___400) = %v, want the package then D::outer::@0", got)
+	pkg := sc.ResolveName("D__outer___400")
+	if len(pkg) != 1 || sc.ElementIdentity(pkg[0]) != "D_5f_5fouter_5f_5f_5f400" {
+		t.Fatalf("ResolveName(D__outer___400) = %v, want the package under its own form id", pkg)
+	}
+	if got := sc.ResolveElement("D_5f_5fouter_5f_5f_5f400", sc.Semantics); len(got) != 1 || got[0] != pkg[0] {
+		t.Errorf("ResolveElement(D_5f_5fouter_5f_5f_5f400) = %v, want the package", got)
+	}
+	if got := sc.LookupID("D__outer___400"); len(got) != 1 || got[0] != reflect(t, sc, "D::outer::@0") {
+		t.Errorf("LookupID(D__outer___400) = %v, want D::outer::@0 alone", got)
 	}
 	part := sc.Lookup("D__outer___400::spelledLikeAFormID")[0]
 	formID := sc.ElementIdentity(part)
@@ -190,6 +241,24 @@ func TestUnnamedConnectorEndIDIsTheSameWithoutTheForm(t *testing.T) {
 		}
 		if got := sc.LookupElement("D__holder___402_pend2"); len(got) != 0 {
 			t.Errorf("form %v: LookupElement of a third end = %v, want none", converts, got)
+		}
+	}
+}
+
+// The chain Feature a flow's end references ahead of its payload carries the id the conversion mints under
+// the FlowEnd, each end its own; the element form has no FlowEnd to walk back to it from.
+func TestChainedFlowEndRelatedFeatureIsNamedAsTheConversionWritesIt(t *testing.T) {
+	sc := identityContextOf(t, `package P {
+		part def S { port p { out item q; } }
+		part def T { part a : S; part b : S; flow f from a.p.q to b.p.q; }
+	}`)
+	related, ok := sc.Semantics.ReflectiveElements(reflect(t, sc, "P::T::f"), "relatedFeature")
+	if !ok || len(related) != 2 {
+		t.Fatalf("relatedFeature = %v (%v), want the chains a.p and b.p", related, ok)
+	}
+	for i, want := range []string{"P__T__f_pend0_pchain", "P__T__f_pend1_pchain"} {
+		if got := sc.ElementIdentity(related[i]); got != want {
+			t.Errorf("ElementIdentity(relatedFeature[%d]) = %q, want %q", i, got, want)
 		}
 	}
 }

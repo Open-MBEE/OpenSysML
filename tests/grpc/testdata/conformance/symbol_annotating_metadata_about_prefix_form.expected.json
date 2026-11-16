@@ -1,0 +1,10 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "AboutMetadata::PumpP",
+	"expected_child_ids": [
+		"AboutMetadata::PumpP::@0"
+	],
+	"expected_annotating_metadata_ids": [
+		"AboutMetadata::PumpP::@0"
+	]
+}

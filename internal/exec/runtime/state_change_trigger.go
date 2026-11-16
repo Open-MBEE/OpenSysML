@@ -317,7 +317,7 @@ func (e *StateExecutor) changeConditionHolds(changeEvent *ast.ChangeEvent, trans
 	defer func() { e.changeEvaluating = false }()
 	endRead := e.ctx.beginChangeRead()
 	holds, err = e.ctx.guardUnderStatementOrders(changeEvent.Condition, e.ctx.enclosingExecutorStep(), trans.Scope, func() (bool, error) {
-		condVal, err := e.evalStepOf(trans.Source, changeEvent.Condition, trans.Scope)
+		condVal, err := e.evalStepOf(trans.Source, trans.TriggerExprID, trans.Scope)
 		if err != nil {
 			return false, fmt.Errorf("eval change condition: %w", err)
 		}

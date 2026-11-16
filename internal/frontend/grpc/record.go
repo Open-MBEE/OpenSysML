@@ -267,7 +267,10 @@ func (s *Service) recordSample(ctx context.Context, v *verifyContext, sym *symbo
 func (s *Service) mergeRecord(cached *CachedModel, src string, resp *pb.RecordRunResponse) error {
 	describe := func(n ast.Node) string {
 		m := libs.TopMemberOf(n)
-		return strings.TrimSpace(m.Kind + " " + m.Name)
+		if !m.Named {
+			return m.Kind
+		}
+		return m.Kind + " " + source.NameText(m.Name)
 	}
 	root := parser.New(source.New("<record>", []byte(src))).ParseFile()
 	inputs := make([]sourceInput, 0, len(cached.Documents)+1)

@@ -178,6 +178,7 @@ test("a symbol from a service without symbol_members enumerates no members", asy
         withheldLibraryAttributes: 0,
         members: [],
         withheldLibraryMembers: 0,
+        annotatingMetadataIds: [],
       },
     };
   });
@@ -211,6 +212,7 @@ test("a name is resolved only by a service that reports symbol_name_resolution",
           withheldLibraryAttributes: 0,
           members: [],
           withheldLibraryMembers: 0,
+          annotatingMetadataIds: [],
         },
       };
     });

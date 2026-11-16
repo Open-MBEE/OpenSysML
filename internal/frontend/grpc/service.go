@@ -158,6 +158,14 @@ const CapabilitySymbolMembers = "symbol_members"
 // without it symbol_id is read as an id the service reported, as a service predating the field reads it.
 const CapabilitySymbolNameResolution = "symbol_name_resolution"
 
+// CapabilitySymbolAnnotatingMetadata names the capability of populating
+// SymbolInfo.annotating_metadata_ids, the metadata usages annotating the element.
+const CapabilitySymbolAnnotatingMetadata = "symbol_annotating_metadata"
+
+// CapabilitySymbolLookupKind names the capability of honouring the lookup of GetSymbolRequest and
+// GetElementPropertiesRequest: a qualified name read only as a name, an element id only as an id.
+const CapabilitySymbolLookupKind = "symbol_lookup_kind"
+
 // CapabilityUnsetValue names the capability of reporting a valueless feature of
 // a value type as Value.unset, rather than as the empty object it materializes.
 const CapabilityUnsetValue = "unset_value"
@@ -442,6 +450,8 @@ var capabilities = []string{
 	CapabilityInlineDocumentQuery,
 	CapabilitySymbolNameResolution,
 	CapabilityRenderViewForm,
+	CapabilitySymbolAnnotatingMetadata,
+	CapabilitySymbolLookupKind,
 }
 
 type capabilityAvailability struct {
@@ -1061,8 +1071,8 @@ func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceM
 	return modelHash, store(modelHash, model)
 }
 
-// GetSymbol retrieves symbol information by id, or by qualified name resolved
-// from the root namespace when the request asks for that.
+// GetSymbol retrieves symbol information by qualified name or by element id, as the
+// request's lookup states; without one, symbol_id is read name first, then id.
 func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.SymbolResponse, error) {
 	// Lookup cached model
 	cached, ok := s.cache.Get(req.ModelHash)
@@ -1070,13 +1080,7 @@ func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.
 		return nil, statusErrorf(connect.CodeNotFound, msgModelNotFound, req.ModelHash)
 	}
 
-	// An id the service reported denotes that element; a name is resolved.
-	var syms []*symbols.Symbol
-	if req.ResolveName && s.capabilities.has(CapabilitySymbolNameResolution) {
-		syms = cached.ResolveName(req.SymbolId)
-	} else {
-		syms = cached.LookupSymbol(req.SymbolId)
-	}
+	syms := s.lookupSymbol(cached, req)
 	if len(syms) == 0 {
 		return &pb.SymbolResponse{
 			Error: fmt.Sprintf("symbol not found: %s", req.SymbolId),
@@ -1407,7 +1411,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 
 	// An inherited action is named by the subtype too (Sub::inherited).
-	syms := cached.LookupNamedMember(req.ActionSymbolId)
+	syms := cached.LookupDeclaredMember(req.ActionSymbolId)
 	if len(syms) == 0 {
 		return &pb.ExecuteActionResponse{
 			Error: fmt.Sprintf("action not found: %s", req.ActionSymbolId),
@@ -1613,7 +1617,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 
 	// An inherited state machine is named by the subtype too (Sub::inherited).
-	syms := cached.LookupNamedMember(req.StateMachineSymbolId)
+	syms := cached.LookupDeclaredMember(req.StateMachineSymbolId)
 	if len(syms) == 0 {
 		return &pb.ExecuteStateResponse{
 			Error: fmt.Sprintf("state machine not found: %s", req.StateMachineSymbolId),
@@ -1758,4 +1762,20 @@ func resolveEvent(lookup func(string) []*symbols.Symbol, action *symbols.Symbol,
 		}
 	}
 	return nil
+}
+
+// lookupSymbol finds what a GetSymbol request names, as the kind it states or name first.
+func (s *Service) lookupSymbol(cached *CachedModel, req *pb.GetSymbolRequest) []*symbols.Symbol {
+	if s.capabilities.has(CapabilitySymbolLookupKind) {
+		switch req.Lookup {
+		case pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME:
+			return cached.ResolveQualifiedName(req.SymbolId)
+		case pb.LookupKind_LOOKUP_KIND_ELEMENT_ID:
+			return cached.LookupElementID(req.SymbolId)
+		}
+	}
+	if req.ResolveName && s.capabilities.has(CapabilitySymbolNameResolution) {
+		return cached.ResolveName(req.SymbolId)
+	}
+	return cached.LookupSymbol(req.SymbolId)
 }

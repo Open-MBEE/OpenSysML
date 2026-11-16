@@ -197,7 +197,7 @@ func Name(name string) string {
 	if source.IsIdentifier(name) {
 		return name
 	}
-	return "'" + name + "'"
+	return source.UnrestrictedNameText(name)
 }
 
 // Spelled writes the registered fqn whose last segment is name as it is typed
@@ -220,7 +220,7 @@ func Notation(fqn string) string {
 	segs := segments(rest)
 	for i, seg := range segs {
 		if !quoted(seg) && !source.IsIdentifier(seg) {
-			segs[i] = "'" + seg + "'"
+			segs[i] = source.UnrestrictedNameText(seg)
 		}
 	}
 	if global {
@@ -230,7 +230,7 @@ func Notation(fqn string) string {
 }
 
 // segments splits a qualified name at the `::` outside its quoted segments,
-// which are kept as written, quotes and escapes included.
+// which open at a segment's start and are kept as written, escapes included.
 func segments(text string) []string {
 	var out []string
 	start, inQuote := 0, false
@@ -238,7 +238,7 @@ func segments(text string) []string {
 		switch c := text[i]; {
 		case inQuote && c == '\\':
 			i++
-		case c == '\'':
+		case c == '\'' && (inQuote || i == start):
 			inQuote = !inQuote
 		case !inQuote && strings.HasPrefix(text[i:], "::"):
 			out = append(out, text[start:i])

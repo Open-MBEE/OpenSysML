@@ -85,6 +85,24 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void readsAStringAsTheKindOfLookupStated() {
+    Model model =
+        connection.parse(
+            "package Col__V__c_pend0 { part marker; } package Col { port def P; part def V { port q : P; port r : P; connection c connect q to r; } }");
+    String spelling = "Col__V__c_pend0";
+    assertEquals(
+        "package", model.symbol(spelling, SymbolOptions.defaults().lookup(Lookup.QUALIFIED_NAME)).kind());
+    Symbol end = model.symbol(spelling, SymbolOptions.defaults().lookup(Lookup.ELEMENT_ID));
+    assertEquals("connectorEnd", end.kind());
+    assertEquals(spelling, end.id());
+    assertEquals(
+        List.of("connectorEnd", "connectorEnd"),
+        model.symbol("Col::V::c").childIds().stream()
+            .map(id -> model.symbol(id, SymbolOptions.defaults().lookup(Lookup.ELEMENT_ID)).kind())
+            .toList());
+  }
+
+  @Test
   void parsesAFileTheServiceReads() throws Exception {
     Path file = Files.createTempFile("opensysml", ".sysml");
     try {
@@ -2290,6 +2308,37 @@ class ApiIntegrationTest {
     List<String> listed = connection.listEngines().stream().map(EngineInfo::name).toList();
     assertEquals(listed, probed);
     assertTrue(probed.containsAll(List.of("run", "explore", "solve", "sweep")), probed.toString());
+  }
+
+  private static final String ANNOTATED =
+      """
+      package D10 {
+        metadata def FailureMode { attribute severity : ScalarValues::Integer; }
+        #FailureMode part def PumpP;
+        part def PumpB { @FailureMode { severity = 3; } }
+        part def PumpA;
+        metadata pumpA_fm : FailureMode about PumpA { severity = 2; }
+      }
+      """;
+
+  @Test
+  void aSymbolNamesTheMetadataUsagesAnnotatingIt() {
+    assertTrue(connection.capabilities().has(Capabilities.SYMBOL_ANNOTATING_METADATA));
+    Model model = connection.parse(ANNOTATED);
+    assertEquals(List.of("D10::PumpP::@0"), model.symbol("D10::PumpP").annotatingMetadataIds());
+    assertEquals(List.of("D10::PumpB::@0"), model.symbol("D10::PumpB").annotatingMetadataIds());
+    assertEquals(List.of(), model.symbol("D10::pumpA_fm").annotatingMetadataIds());
+
+    Symbol pump = model.symbol("D10::PumpA");
+    assertEquals(List.of(), pump.childIds());
+    assertEquals(List.of("D10::pumpA_fm"), pump.annotatingMetadataIds());
+
+    Symbol usage = model.symbol(pump.annotatingMetadataIds().get(0));
+    assertEquals("metadataUsage", usage.kind());
+    assertEquals(Optional.of("D10::FailureMode"), usage.typeFacts().orElseThrow().resolvedId());
+    Symbol.Attribute severity = usage.attributes().get(0);
+    assertEquals("severity", severity.name());
+    assertEquals(Optional.of(new Value.IntegerValue(2)), severity.value());
   }
 
   private static final String MEMBERS =

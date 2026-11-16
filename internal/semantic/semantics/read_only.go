@@ -220,7 +220,7 @@ func (m *Model) implicitlyConstantEnd(sym *symbols.Symbol) bool {
 // ownedFeatureText names a feature by its owner and its own name (`Base::x`).
 func ownedFeatureText(sym *symbols.Symbol) string {
 	if sym.OwnerScope != nil {
-		if owner := sym.OwnerScope.Owner(); owner != nil && owner.Name != "" {
+		if owner := sym.OwnerScope.Owner(); owner != nil && owner.Named() {
 			return owner.Name + "::" + sym.Name
 		}
 	}

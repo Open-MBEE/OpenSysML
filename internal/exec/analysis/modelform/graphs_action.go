@@ -294,7 +294,7 @@ func (x *graphsExporter) actionForm(sym *symbols.Symbol, graph *lower.ActionGrap
 func (x *graphsExporter) parameters(sym *symbols.Symbol) []ParameterForm {
 	var out []ParameterForm
 	for _, p := range x.sem.BehaviorParametersOf(sym) {
-		if p.Symbol == nil || p.Symbol.Name == "" {
+		if p.Symbol == nil || !p.Symbol.Named() {
 			continue
 		}
 		scope := p.Symbol.OwnerScope

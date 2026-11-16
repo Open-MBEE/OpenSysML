@@ -10,4 +10,8 @@ import "github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 type ChainingFeature struct {
 	Relationship *Symbol               // the relationship object whose target it is
 	Node         *ast.FeatureChainExpr // the chain written; nil when the owner is recorded
+	// Flow and End stand in for Relationship where the chain is the prefix of a flow's
+	// end (`flow a.b.x to c.d.y`), whose FlowEnd and its ReferenceSubsetting have no symbol.
+	Flow *Symbol
+	End  int
 }

@@ -103,7 +103,7 @@ type relatedCollector struct {
 // add records elem under kind unless it is the element itself, unnamed (no
 // qualified name includes it), a library element, or already recorded there.
 func (c *relatedCollector) add(kind RelatedKind, elem *symbols.Symbol) {
-	if elem == nil || elem == c.sym || elem.Name == "" || c.library(elem) {
+	if elem == nil || elem == c.sym || !elem.Named() || c.library(elem) {
 		return
 	}
 	if c.seen[kind] == nil {

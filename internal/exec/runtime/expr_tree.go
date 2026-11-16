@@ -73,6 +73,26 @@ func (ec *EvalContext) evaluateTree(node ast.Node, keep bool) (Value, error) {
 	return ec.evaluate(ec.lowered(node), keep)
 }
 
+// evalPayload evaluates the expression a lowered payload states, behind id in the
+// table of the flow or body it was lowered for.
+func (ec *EvalContext) evalPayload(id program.ExprID) (Value, error) {
+	x, err := ec.ctx.tableExpr(ec.exprs, id, ec.scope)
+	if err != nil {
+		return Value{}, err
+	}
+	return ec.evalExpr(x)
+}
+
+// reading is this context evaluating the payloads whose ids index exprs.
+func (ec *EvalContext) reading(exprs *lower.ExprTable) *EvalContext {
+	if ec.exprs == exprs {
+		return ec
+	}
+	in := *ec
+	in.exprs = exprs
+	return &in
+}
+
 // lowered is node lowered for evaluation here: in this context's scope.
 func (ec *EvalContext) lowered(node ast.Node) lowered {
 	return ec.ctx.model.loweredExpr(ec.scope, node)

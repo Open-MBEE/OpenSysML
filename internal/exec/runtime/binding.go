@@ -73,6 +73,8 @@ type bindingLocation struct {
 type bindingEndpoint struct {
 	locations []bindingLocation
 	expr      ast.Node
+	// exprID and indexID are expr and index in the model's table.
+	exprID, indexID program.ExprID
 	// index selects one element of what the locations hold, nil for the whole feature;
 	// selection is the end as written (`xs#(2)`), for diagnostics.
 	index, selection ast.Node
@@ -148,6 +150,9 @@ func (ctx *Context) objectBindings(typeSym *symbols.Symbol) []lower.Binding {
 	}
 	bindings = append(bindings, ctx.declaredBindings(typeSym)...)
 	bindings = append(bindings, ctx.connectorOwnedBindings(typeSym)...)
+	for i := range bindings {
+		bindings[i].Intern(ctx.model.exprs)
+	}
 	ctx.model.bindingIR[typeSym] = bindings
 	return bindings
 }
@@ -588,9 +593,12 @@ func (ctx *Context) constrainingBinding(inst *Instance, binding lower.Binding) (
 			unresolved = errors.Join(unresolved, err)
 			continue
 		}
-		// An end reaching no object links nothing on inst, so the binding states nothing about it.
+		// An end reaching no object links nothing on inst: the binding states something of it
+		// only where it requires a link, of the connector or of the other end's values to this one.
 		if endpoint.expr == nil && len(endpoint.locations) == 0 {
-			return false, nil
+			cross, crossed := ctx.endCross(binding, end)
+			links, stated := ctx.bindingLinks(binding)
+			return (stated && links > 0) || (crossed && requiresLink(cross)), nil
 		}
 		endpoints[end] = endpoint
 	}
@@ -618,8 +626,8 @@ func (ctx *Context) constrainingBinding(inst *Instance, binding lower.Binding) (
 	return false, nil
 }
 
-// CheckBindingOn checks a binding as the constraint it states about inst (KerML 1.0 §7.4.6, §8.3.4.5.2):
-// its ends share as many values as it declares links — equal or sharing one when it declares none.
+// CheckBindingOn checks a binding as the constraint it states about inst (KerML 1.1 §7.4.6, §8.4.4.6.2): each
+// value of an end is among the other's where that end's cross multiplicity requires a link, and the ends share the links declared.
 func (ctx *Context) CheckBindingOn(binding lower.Binding, inst *Instance) (CheckResult, error) {
 	defer ctx.beginRun()()
 	result := CheckResult{Subject: inst, SubjectRoot: inst}
@@ -641,23 +649,41 @@ func (ctx *Context) CheckBindingOn(binding lower.Binding, inst *Instance) (Check
 		}
 		values[end] = val
 	}
-	links, stated := ctx.bindingLinks(binding)
-	if links == 0 || (!stated && ctx.equalValues(values[0], values[1])) {
-		result.Holds = true
-		return result, nil
-	}
 	shared := ctx.sharedValues(values[0], values[1])
-	if shared >= links {
+	violated := func(format string, args ...any) (CheckResult, error) {
+		return result, &ViolationError{Kind: "binding", Element: ctx.bindingText(binding), What: "identity",
+			Condition: fmt.Sprintf(format, args...)}
+	}
+	// A required cross multiplicity links every value of the other end, to itself among this end's.
+	crossed, forced := false, int64(0)
+	for end := range binding.Ends {
+		cross, stated := ctx.endCross(binding, end)
+		crossed = crossed || stated
+		if !stated || !requiresLink(cross) {
+			continue
+		}
+		others := int64(len(elementsOf(values[1-end])))
+		this, other := ctx.bindingEndpointText(binding, end), ctx.bindingEndpointText(binding, 1-end)
+		if unlinkable(cross) && others > 0 {
+			return violated("each value of %s links to %s of %s where a binding links it to itself alone", other, cross.Text(), this)
+		}
+		if shared < others {
+			return violated("%d value(s) of %s are not values of %s where the binding links each to %s of them",
+				others-shared, other, this, cross.Text())
+		}
+		forced = max(forced, others)
+	}
+	links, stated := ctx.bindingLinks(binding)
+	if r, ok := ctx.model.semantics.RangeIn(binding.Scope, binding.Multiplicity); ok && r.Upper.Known && !r.Upper.Infinite && forced > r.Upper.Value {
+		return violated("the ends link %d value(s) where the binding declares %s link(s)", forced, r.Text())
+	}
+	// Ends stating no multiplicity hold the same values, or share one where an end reaches several objects.
+	if (crossed && !stated) || links == 0 || shared >= links || (!stated && ctx.equalValues(values[0], values[1])) {
 		result.Holds = true
 		return result, nil
 	}
-	return result, &ViolationError{
-		Kind:    "binding",
-		Element: ctx.bindingText(binding),
-		What:    "identity",
-		Condition: fmt.Sprintf("%s and %s share %d value(s) where the binding links %d",
-			ctx.bindingEndpointText(binding, 0), ctx.bindingEndpointText(binding, 1), shared, links),
-	}
+	return violated("%s and %s share %d value(s) where the binding links %d",
+		ctx.bindingEndpointText(binding, 0), ctx.bindingEndpointText(binding, 1), shared, links)
 }
 
 // sharedValues counts the values a and b hold in common, a repeated value as often as both hold it.
@@ -683,9 +709,8 @@ func (ctx *Context) sharedValues(a, b Value) int64 {
 	return shared
 }
 
-// partialBinding reports a binding not determining the target whole: an end linking fewer values
-// than its feature holds (KerML 1.0 §7.4.9.2), a connector declaring fewer links (`binding [1]`) than
-// an end's feature holds, or one reaching the target across a collection.
+// partialBinding reports a binding not determining the target whole: optional cross multiplicities
+// (KerML 1.1 §7.4.5.2), fewer links declared than an end holds, or a target across a collection.
 func (ctx *Context) partialBinding(owner, targetInst *Instance, target *FeatureValue,
 	binding lower.Binding, key featureValueRef) (partial bool, err error) {
 	defer ctx.claimBinding(key, binding.Origin)()
@@ -707,38 +732,50 @@ func (ctx *Context) partialBinding(owner, targetInst *Instance, target *FeatureV
 		}
 		return true, nil
 	}
-	links, linksOK := ctx.model.semantics.RangeIn(binding.Scope, binding.Multiplicity)
+	// An end stating an optional cross multiplicity leaves the other end's values free of it, so
+	// the binding determines neither end unless the links the connector declares do.
+	optional, crossed := false, false
 	for end := range binding.Ends {
-		stated, statedOK := ctx.model.semantics.RangeIn(binding.Scope, binding.Ends[end].Multiplicity)
-		// The binding links at most the smaller finite upper bound of the end's own
-		// multiplicity and the connector's (`binding [1]` declares one link).
-		var upper int64
-		bounded := false
-		if statedOK && stated.Upper.Known && !stated.Upper.Infinite {
-			upper, bounded = stated.Upper.Value, true
-		}
-		if linksOK && links.Upper.Known && !links.Upper.Infinite && (!bounded || links.Upper.Value < upper) {
-			upper, bounded = links.Upper.Value, true
-		}
-		required := statedOK && stated.Lower.Known && stated.Lower.Value > 0
-		if !bounded && !required {
-			continue
+		cross, stated := ctx.endCross(binding, end)
+		crossed = crossed || stated
+		optional = optional || (stated && !requiresLink(cross))
+	}
+	links, linksOK := ctx.model.semantics.RangeIn(binding.Scope, binding.Multiplicity)
+	if crossed && !optional {
+		return false, nil
+	}
+	if optional && !(linksOK && requiresLink(links)) {
+		return true, nil
+	}
+	// Ends stating nothing are whole unless the connector declares fewer links than they hold;
+	// optional ends only where the links required leave no value of either unlinked.
+	if !optional && (!linksOK || !links.Upper.Known || links.Upper.Infinite) {
+		return false, nil
+	}
+	for end := range binding.Ends {
+		upper := links.Upper.Value
+		if optional {
+			upper = links.Lower.Value
+			if cross, stated := ctx.endCross(binding, end); stated && cross.Upper.Known && !cross.Upper.Infinite {
+				upper = min(upper, cross.Upper.Value)
+			}
 		}
 		endpoint, err := ctx.resolveBindingEndpoint(owner, binding, end)
 		if err != nil {
 			return false, err
 		}
-		if endpoint.expr != nil {
-			continue
-		}
-		narrows := bounded && endpointAdmitsMoreThan(endpoint, upper)
-		// A feature that must hold more values than the binding links can never be
-		// linked whole, so the binding is partial without reading the end's value.
-		if narrows && endpointRequiresMoreThan(endpoint, upper) {
+		// Optional ends over an end reaching no object have no value to link, so determine none.
+		if optional && endpoint.expr == nil && len(endpoint.locations) == 0 {
 			partial = true
 			continue
 		}
-		if !narrows && !required {
+		if endpoint.expr != nil || !endpointAdmitsMoreThan(endpoint, upper) {
+			continue
+		}
+		// A feature that must hold more values than the binding links can never be
+		// linked whole, so the binding is partial without reading the end's value.
+		if endpointRequiresMoreThan(endpoint, upper) {
+			partial = true
 			continue
 		}
 		// The end being resolved counts what it holds on its own: reading it through
@@ -754,15 +791,28 @@ func (ctx *Context) partialBinding(owner, targetInst *Instance, target *FeatureV
 		if err != nil {
 			return false, err
 		}
-		count := int64(len(elementsOf(val)))
-		if found && required && count < stated.Lower.Value {
-			return false, ctx.bindingEndCountError(binding, end, stated, count)
-		}
-		if narrows && (carries || !found || count == 0 || count > upper) {
+		if count := int64(len(elementsOf(val))); carries || !found || count == 0 || count > upper {
 			partial = true
 		}
 	}
 	return partial, nil
+}
+
+// endCross is the cross multiplicity stated on a binding end: how many of that end's values each
+// value of the other end is linked to (KerML 1.1 §7.4.5.2, §8.4.4.5.1, §8.4.4.6.1).
+func (ctx *Context) endCross(binding lower.Binding, end int) (semantics.Range, bool) {
+	return ctx.model.semantics.RangeIn(binding.Scope, binding.Ends[end].Multiplicity)
+}
+
+// requiresLink reports a multiplicity whose lower bound is at least one.
+func requiresLink(r semantics.Range) bool {
+	return r.Lower.Known && !r.Lower.Infinite && r.Lower.Value > 0
+}
+
+// unlinkable reports a cross multiplicity no self link meets: a thing is linked to itself alone,
+// once, so each value of the other end reaches at most one value of this end.
+func unlinkable(r semantics.Range) bool {
+	return r.Lower.Known && !r.Lower.Infinite && r.Lower.Value > 1
 }
 
 // endpointRequiresMoreThan reports whether the features an end reaches must hold
@@ -808,21 +858,15 @@ func (ctx *Context) ownEndpointValue(loc bindingLocation) (Value, bool, error) {
 	return val, val.Kind != ValInvalid, nil
 }
 
-// wholeBindingCounts checks the value a whole binding identifies its ends with
-// against the number of values each end states it links.
+// wholeBindingCounts checks the value a whole binding identifies its ends with against the cross
+// multiplicity of each end and the number of links the connector declares, one per value.
 func (ctx *Context) wholeBindingCounts(binding lower.Binding, val Value) error {
 	count := int64(len(elementsOf(val)))
 	for end := range binding.Ends {
-		stated, ok := ctx.model.semantics.RangeIn(binding.Scope, binding.Ends[end].Multiplicity)
-		if !ok {
-			continue
-		}
-		if (stated.Lower.Known && count < stated.Lower.Value) ||
-			(stated.Upper.Known && !stated.Upper.Infinite && count > stated.Upper.Value) {
-			return ctx.bindingEndCountError(binding, end, stated, count)
+		if cross, stated := ctx.endCross(binding, end); stated && unlinkable(cross) && count > 0 {
+			return ctx.bindingEndCrossError(binding, end, cross)
 		}
 	}
-	// The connector's own multiplicity states how many links the binding declares.
 	if links, ok := ctx.model.semantics.RangeIn(binding.Scope, binding.Multiplicity); ok {
 		if (links.Lower.Known && count < links.Lower.Value) ||
 			(links.Upper.Known && !links.Upper.Infinite && count > links.Upper.Value) {
@@ -833,10 +877,10 @@ func (ctx *Context) wholeBindingCounts(binding lower.Binding, val Value) error {
 	return nil
 }
 
-func (ctx *Context) bindingEndCountError(binding lower.Binding, end int, stated semantics.Range, count int64) error {
-	return fmt.Errorf("%w: `%s` links %s of %s, which holds %d value(s)",
-		ErrMultiplicityViolation, ctx.bindingText(binding), stated.Text(),
-		ctx.bindingEndpointText(binding, end), count)
+func (ctx *Context) bindingEndCrossError(binding lower.Binding, end int, cross semantics.Range) error {
+	return fmt.Errorf("%w: `%s` links each value of %s to %s of %s, and a binding links a value to itself alone",
+		ErrMultiplicityViolation, ctx.bindingText(binding), ctx.bindingEndpointText(binding, 1-end),
+		cross.Text(), ctx.bindingEndpointText(binding, end))
 }
 
 // bindingText spells a binding as written, connector and end multiplicities included.
@@ -1084,13 +1128,21 @@ func bindingInvolvesFeature(binding lower.Binding, name string) bool {
 	return false
 }
 
+// evalEndOn evaluates what a binding end states, behind id in the model's table, on
+// obj; it brackets one run, as EvalWithScopeOn does.
+func (ctx *Context) evalEndOn(id program.ExprID, scope *symbols.Scope, obj *Instance) (Value, error) {
+	defer ctx.beginRun()()
+
+	return NewEvalContextIn(ctx, scope, obj).reading(ctx.model.exprs).evalPayload(id)
+}
+
 func (ctx *Context) resolveBindingEndpoint(owner *Instance, binding lower.Binding, end int) (bindingEndpoint, error) {
 	path := binding.Ends[end].Path
 	if path == "" {
 		if binding.Ends[end].Expr == nil {
 			return bindingEndpoint{}, fmt.Errorf("%w: empty endpoint", errBindingEnd)
 		}
-		endpoint := bindingEndpoint{expr: binding.Ends[end].Expr, scope: binding.Scope}
+		endpoint := bindingEndpoint{expr: binding.Ends[end].Expr, exprID: binding.Ends[end].ExprID, scope: binding.Scope}
 		if via := binding.Ends[end].Via; len(via) != 0 {
 			on, err := ctx.bindingEndpointObjects(owner, via)
 			if err != nil {
@@ -1107,7 +1159,7 @@ func (ctx *Context) resolveBindingEndpoint(owner *Instance, binding lower.Bindin
 			return bindingEndpoint{}, err
 		}
 	}
-	endpoint := bindingEndpoint{index: binding.Ends[end].Index, selection: binding.Ends[end].Expr, scope: binding.Scope}
+	endpoint := bindingEndpoint{index: binding.Ends[end].Index, indexID: binding.Ends[end].IndexID, selection: binding.Ends[end].Expr, scope: binding.Scope}
 	for _, obj := range on {
 		reached, err := ctx.resolveBindingLocations(obj, path)
 		if err != nil {
@@ -1252,7 +1304,7 @@ func (ctx *Context) expressionEndValue(endpoint bindingEndpoint, owner *Instance
 	}
 	var agreed Value
 	for i, obj := range on {
-		value, err := ctx.EvalWithScopeOn(endpoint.expr, endpoint.scope, obj)
+		value, err := ctx.evalEndOn(endpoint.exprID, endpoint.scope, obj)
 		if err != nil {
 			if errors.Is(err, errUninitializedFeatureValue) {
 				return Value{}, false, nil
@@ -1405,7 +1457,7 @@ func (ctx *Context) selectedBindingElement(endpoint bindingEndpoint, owner *Inst
 // selectedElementOn is the element of whole at the index the end states, evaluated on obj; a
 // feature holding no element there is a binding end error.
 func (ctx *Context) selectedElementOn(endpoint bindingEndpoint, obj *Instance, whole Value) (Value, error) {
-	indexVal, err := ctx.EvalWithScopeOn(endpoint.index, endpoint.scope, obj)
+	indexVal, err := ctx.evalEndOn(endpoint.indexID, endpoint.scope, obj)
 	if err == nil {
 		const op = "sequence index"
 		var index int64

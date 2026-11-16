@@ -154,7 +154,7 @@ func w8dVariationNoun(sym *symbols.Symbol) string {
 }
 
 func w8dSymbolName(sym *symbols.Symbol) string {
-	if sym.Name == "" {
+	if !sym.Named() {
 		return "(unnamed)"
 	}
 	return "`" + sym.Name + "`"
