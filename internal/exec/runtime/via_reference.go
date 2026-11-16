@@ -50,8 +50,10 @@ func (ec *EvalContext) occurrencePortHolder(send lower.Send, self *Instance) (*I
 		(fv.Feature.Symbol != send.TargetSym && !ec.ctx.modelConforms(fv.Feature.Symbol, send.TargetSym)) {
 		return nil, "", nil // the occurrence's feature is that port or redefines it
 	}
-	if own, ok := self.FeatureValues[send.Target]; ok && own.Feature != nil && own.Feature.Symbol == send.TargetSym {
-		return nil, "", nil
+	if self != nil {
+		if own, ok := self.FeatureValues[send.Target]; ok && own.Feature != nil && own.Feature.Symbol == send.TargetSym {
+			return nil, "", nil
+		}
 	}
 	read, err := occurrence.GetFeatureValue(ec.ctx, send.Target)
 	if err != nil {

@@ -15,7 +15,12 @@ stmt assign r
 leave action node: setup
 step 6: token 1@iterate
 stmt loop until
+materialize: MigratedLoopTestedFirst #1
+materialize: loop #2
+materialize: iterate #3
+materialize: WhileLoopAction #4
   iteration 1
+materialize: body #5
 enter action node: loop body of action node iterate
 enter action node: test
     eval feature i -> 0
@@ -57,6 +62,7 @@ leave action node: branch body of loop body of action node iterate
 leave action node: loop body of action node iterate
     eval feature ended -> false
   iteration 2
+materialize: body #6
 enter action node: loop body of action node iterate
 enter action node: test
     eval feature i -> 1

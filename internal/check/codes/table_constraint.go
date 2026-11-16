@@ -739,9 +739,9 @@ var constraintCodes = []Entry{
 	},
 	{
 		Code: "accepter-source-not-state", Tier: TierConstraint, Severity: "error",
-		Summary: "a transition with a trigger whose source is not a state",
-		Meaning: "A transition's accepter waits in its source for the trigger, which a state can do and a pseudostate cannot. " +
-			"Move the trigger to a transition out of a state, or drop it from the pseudostate's transition.",
+		Summary: "a transition with an accepter whose source is an action but no state",
+		Meaning: "A transition's accepter waits in its source for the trigger, which a state usage does and any other action usage does not: an entry, do or exit action, a performed, accept, send, assignment or terminate action, a calculation or a case, written as the source or declared just before a transition written without one. " +
+			"Move the accepter to a transition out of a state, or drop it and keep the guard.",
 		Spec: "SysML v2 validateTransitionUsageTriggerActions",
 	},
 	{

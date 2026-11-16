@@ -9,6 +9,7 @@ enter action node: state behavior <anonymous>
       eval literal 1 -> 1
       eval literal 2 -> 2
     eval operator .. -> (1, 2)
+materialize: Interleave #1
     iteration 1
       stmt assign seq
             eval feature seq -> 0

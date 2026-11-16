@@ -105,8 +105,14 @@ func nestedInvocationInGraph(graph *lower.ActionGraph, usage *ast.Usage) (action
 	if graph == nil {
 		return actionInvocation{}, false
 	}
-	if performed, ok := graph.Performs[usage]; ok && performed.Target != nil {
+	performed, ok := graph.Performs[usage]
+	if ok && performed.Target != nil {
 		return actionInvocation{target: performed.Target, scope: performed.Scope}, true
+	}
+	if ok && performed.Referrer != nil {
+		inv, referenced := referencedInvocation(performed.Referrer)
+		inv.scope = performed.Scope
+		return inv, referenced
 	}
 	return actionInvocation{}, false
 }

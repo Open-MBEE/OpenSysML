@@ -2,10 +2,13 @@ exit: init
 enter: summing (entry action)
 stmt action body
   stmt while
+materialize: Sums #1
+materialize: WhileLoopAction #2
     iteration 1
         eval feature i -> 0
         eval literal 3 -> 3
       eval operator < -> true
+materialize: body #3
       stmt node p
         stmt assign v
             eval feature i -> 0
@@ -31,6 +34,7 @@ stmt action body
         eval feature i -> 1
         eval literal 3 -> 3
       eval operator < -> true
+materialize: body #4
       stmt node p
         stmt assign v
             eval feature i -> 1
@@ -56,6 +60,7 @@ stmt action body
         eval feature i -> 2
         eval literal 3 -> 3
       eval operator < -> true
+materialize: body #5
       stmt node p
         stmt assign v
             eval feature i -> 2
