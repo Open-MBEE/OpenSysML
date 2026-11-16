@@ -27,6 +27,7 @@ package D {
   }
   connection def C;
   constraint def K { attribute x : Integer; x > 0 }
+  calc def Q { attribute x : Integer; x + 1 }
   part holder { part a { part b; } part c; connection : C connect a.b to c; }
   part def W { attribute a; }
   part w1 : W;
@@ -172,6 +173,33 @@ func TestConstraintResultIdentityIsTheMembersID(t *testing.T) {
 		{result, "D__K___401"},
 		{reflectFrom(t, sc, result, "parameter"), "D__K___401_pin0"},
 		{reflectFrom(t, sc, result, "result"), "D__K___401_pout"},
+	} {
+		if got := sc.ElementIdentity(tc.sym); got != tc.want {
+			t.Errorf("ElementIdentity = %q, want %q", got, tc.want)
+			continue
+		}
+		if back := sc.ResolveElement(tc.want, sc.Semantics); len(back) != 1 || back[0] != tc.sym {
+			t.Errorf("ResolveElement(%s) = %v, want the one symbol it was read from", tc.want, back)
+		}
+	}
+}
+
+// A calc body's closing expression is written as the member stating it too, with its parts under that id.
+func TestCalcResultIdentityIsTheMembersID(t *testing.T) {
+	sc := identityContext(t)
+	owned, _ := sc.Semantics.ReflectiveElements(reflect(t, sc, "D::Q"), "ownedMember")
+	if len(owned) != 2 {
+		t.Fatalf("D::Q ownedMember = %v, want the attribute and the result expression", owned)
+	}
+	result := owned[1]
+	for _, tc := range []struct {
+		sym  *symbols.Symbol
+		want string
+	}{
+		{result, "D__Q___401"},
+		{reflectFrom(t, sc, result, "parameter"), "D__Q___401_pin0"},
+		{reflectFrom(t, sc, result, "result"), "D__Q___401_pout"},
+		{reflectFrom(t, sc, result, "argument"), "D__Q___401_pa0"},
 	} {
 		if got := sc.ElementIdentity(tc.sym); got != tc.want {
 			t.Errorf("ElementIdentity = %q, want %q", got, tc.want)

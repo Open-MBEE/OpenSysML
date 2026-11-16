@@ -128,6 +128,7 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 	ids.recordValuePart(e, node, subject)
 	ids.recordFilterCondition(e, node, subject)
 	ids.recordConstraintResult(e, node, subject)
+	ids.recordResultExpression(e, node, parents[node], subject)
 	ids.recordDefaultMultiplicity(e, node, subject)
 	ids.recordConnectorEnds(e, node, subject)
 	ids.recordFlowEnds(e, node, subject)
@@ -189,6 +190,23 @@ func (ids *ElementIDs) recordConstraintResult(e *encoder, node ast.Node, subject
 		ids.membershipBySpan[spanKey{e.file.Name(), c.Expression.Span()}] = membership
 	}
 	e.registerExpressionIDs(ids, subject, c.Expression)
+}
+
+// recordResultExpression records the parts of a bare expression a definition's or usage's body
+// states (ResultExpressionMembership) under the member it is written as, as recordConstraintResult does.
+func (ids *ElementIDs) recordResultExpression(e *encoder, node, parent ast.Node, subject rdf.Term) {
+	if !ast.IsExpression(node) || ast.DeclMembers(parent) == nil {
+		return
+	}
+	for _, member := range localMembers(parent) {
+		if m, ok := member.(*ast.Membership); ok {
+			member = m.Member
+		}
+		if member == node {
+			e.registerExpressionIDs(ids, subject, node)
+			return
+		}
+	}
 }
 
 // recordDefaultMultiplicity records the Multiplicity a usage's implicit [1..1] or an
