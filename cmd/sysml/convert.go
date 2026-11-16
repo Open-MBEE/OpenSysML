@@ -211,6 +211,8 @@ type produced struct {
 	out      []byte
 	files    map[string][]byte
 	sidecars func() error
+	// empty is a migration's statement that the model holds nothing of its input, "" when it holds some.
+	empty string
 }
 
 // writeSidecars writes the migration's report and results, nothing for a conversion.

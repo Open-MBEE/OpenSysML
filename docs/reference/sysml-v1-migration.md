@@ -363,7 +363,7 @@ ties each of its mapping classes to the code that carries it out (or records why
 | Diagram with no representation serialized, or one naming no diagram type | a view of unknown kind, rendered `asTextualNotation`, exposing what the representation lists — nothing when there is none | approximated |
 | Diagram no written element can hold: every ancestor is library content or otherwise unwritten | comment | **unmapped** |
 | The standard profiles, the SysML/UML libraries themselves | — | skipped |
-| The modeling tool's own profiles and their content, by exact namespace path: MagicDraw's SysML customization (`…/spec/Customization/…`), `DSL_Customization.xmi` («Customization» classes, «derivedPropertySpecification» properties and their structured-expression bodies), `UI_Prototyping_Profile.xmi` («Label», «Button», «GroupBox», … mockups), `SimulationProfile.xmi` classes other than run configurations («SequenceDiagramGeneratorConfig», …); a marked classifier with a standard stereotype or a behavior of its own is model content and migrates as such | — ; the reason names what the content configures | skipped |
+| The modeling tool's own profiles and their content, by exact namespace path: MagicDraw's SysML customization (`…/spec/Customization/…`), `DSL_Customization.xmi` («Customization» classes, «derivedPropertySpecification» properties and their structured-expression bodies), `UI_Prototyping_Profile.xmi` («Label», «Button», «GroupBox», … mockups), `SimulationProfile.xmi` classes other than run configurations («SequenceDiagramGeneratorConfig», …); a marked model or package, an element marked by a stereotype extending an abstract metaclass, and a marked element that has or owns, at any depth, a standard stereotype, a behavior or a package are model content and migrate as such | — ; the reason names what the content configures | skipped |
 
 The v1 element's `xmi:id` is kept as the reason a report line can be found in the source
 model; the notation itself carries no IDs. Stable identity annotations for a re-migration are
@@ -1072,10 +1072,26 @@ not the model. Their profiles are skipped, and so is the content they mark, with
 what it is: specification-dialog customization («Customization» classes and
 «derivedPropertySpecification» properties, whose structured-expression bodies are not
 translated), UI prototyping mockups, or simulation-tool configuration other than the
-«SimulationConfig» run configurations, which [migrate](#run-configurations). A classifier
-the tool also draws as a mockup but that is the model's — one with a standard stereotype, or
-one that is active, names a classifier behavior or owns a behavior — migrates as such, its
-tool marker an `AppliedStereotype` marker. A host alone decides nothing: Cameo gives every locally defined profile a
+«SimulationConfig» run configurations, which [migrate](#run-configurations).
+
+A stereotype of one of these profiles makes an element the tool's own only when it defines the
+element's kind and the element holds nothing of the model; otherwise it annotates model content,
+which migrates as such with the stereotype as an `AppliedStereotype` marker. The rule is the
+same for every tool profile and at every depth:
+
+- a model, package or profile is never the tool's own: its members are each decided on their
+  own, so a tool stereotype on the root model (Cameo's «NumberOwner» numbering settings, for
+  one) leaves the whole model migrated;
+- a stereotype extending an abstract metaclass (`base_Element`, `base_NamedElement`,
+  `base_Classifier`, …) applies to elements of every kind, so it defines none and only annotates;
+- an element with a standard stereotype, a behavior, or a classifier that is active or names a
+  classifier behavior is the model's however the tool also marks it, and so is an element owning
+  any of these, or a package, at any depth — a mockup class nesting a block is written, the
+  block inside it.
+
+What is left is skipped: a plain element with nothing of the model in it whose stereotype
+extends its own metaclass (a «Button» class, a «Customization» class, a
+«derivedPropertySpecification» property). A host alone decides nothing: Cameo gives every locally defined profile a
 `http://www.magicdraw.com/schemas/<Name>.xmi` namespace, so a profile there that is not one of
 the known paths is a user profile.
 
@@ -2197,7 +2213,11 @@ The text form (default) groups by verdict, unmapped first, one line per element:
 stereotypes, qualified v1 name, `xmi:id`, the v2 name it became, and a note. The JSON form
 (`-migration-report x.json`) is the same content as `{source, exporter, entries: [{id, kind,
 name, target, verdict, note}]}` for tooling. Without `-migration-report`, the one-line summary
-goes to stderr. `-migration-results x.json` writes beside it the
+goes to stderr. A migration that wrote nothing of a document holding elements — none mapped or
+approximated — opens its summary with `nothing of the model was written` and the counts, and
+`sysml` exits `3` after writing the output and the report, which gives the reason for each
+element; pushed to a repository branch (`-o flexo://…`), such a migration is refused instead
+and the branch left as it was. `-migration-results x.json` writes beside it the
 [result snapshots](#run-configurations) of every run configuration, and reports what it wrote
 in one line: `results of 3 run configuration(s): 2 with 15 stored snapshot(s)`.
 

@@ -614,7 +614,9 @@ func doc() usage.Doc {
 				usage.Entry("3", "Part of what was asked was carried out: a -render-documents set "+
 					"in which some document could not be rendered. The others were "+
 					"written, a page stating the error stands in for each that was not, "+
-					"and each failure is reported with the document's qualified name."),
+					"and each failure is reported with the document's qualified name. "+
+					"Or a -migrate that wrote the output and report but nothing of the "+
+					"model, none of its elements being mapped or approximated."),
 			},
 		}, {
 			Title: "Output streams",
