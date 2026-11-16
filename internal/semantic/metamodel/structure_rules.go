@@ -6831,6 +6831,9 @@ func (e *Evaluator) structureImportedMemberships(element Element) (Value, bool, 
 	if len(imports.Values) == 0 {
 		return sequence(), true, true
 	}
+	if element.Symbol == nil && element.Node == nil && !element.IsMembership {
+		return e.structureGraphImportedMemberships(element)
+	}
 	if element.Symbol == nil || element.Symbol.Scope == nil || e.resolver == nil {
 		return Value{}, true, false
 	}

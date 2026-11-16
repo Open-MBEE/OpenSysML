@@ -29,6 +29,9 @@ type apiJSONGraphStructure struct {
 	owningRelatedByRelationship [][]rdf.Term
 	metaclassByPosition         []apiJSONMetaclass
 	ownedRelationshipsCache     []*apiJSONOwnedRelationships
+	annotationsOnce             sync.Once
+	annotationsByAnnotated      map[int][]metamodel.Element
+	annotationsComplete         bool
 	catalogOnce                 sync.Once
 	catalog                     *identity.Catalog
 }
@@ -46,6 +49,46 @@ func (s *apiJSONGraphStructure) libraryCatalog() *identity.Catalog {
 		s.catalog = identity.LibraryCatalogWithOpenSysML(libs.SharedBase())
 	})
 	return s.catalog
+}
+
+// Annotations lists the Annotation relationships whose annotatedElement is element, in
+// graph order; nothing is answered when an annotation's annotated element is not placed.
+func (s *apiJSONGraphStructure) Annotations(element metamodel.Element) ([]metamodel.Element, bool) {
+	position, ok := s.position(element)
+	if !ok {
+		return nil, false
+	}
+	s.annotationsOnce.Do(s.indexAnnotations)
+	if !s.annotationsComplete {
+		return nil, false
+	}
+	return s.annotationsByAnnotated[position], true
+}
+
+func (s *apiJSONGraphStructure) indexAnnotations() {
+	s.annotationsByAnnotated = make(map[int][]metamodel.Element)
+	for _, subject := range s.index.subjects {
+		class, ok := s.metaclass(subject)
+		if !ok || !s.Specializes(class, "Annotation") {
+			continue
+		}
+		annotation, ok := s.element(subject)
+		if !ok {
+			return
+		}
+		annotated, ok := s.related(subject, "annotatedElement")
+		if !ok {
+			return
+		}
+		for _, target := range annotated {
+			position, ok := s.position(target)
+			if !ok {
+				return
+			}
+			s.annotationsByAnnotated[position] = append(s.annotationsByAnnotated[position], annotation)
+		}
+	}
+	s.annotationsComplete = true
 }
 
 // LibrarySymbol resolves a library reference the graph states by id to the library symbol.

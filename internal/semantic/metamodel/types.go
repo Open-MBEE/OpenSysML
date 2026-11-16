@@ -147,6 +147,12 @@ type StatedAttributeStructure interface {
 	StatedAttribute(el Element, property string) (Value, bool)
 }
 
+// AnnotationStructure lists the Annotation relationships whose annotatedElement is the
+// element: the inverse an element filter needs to find metadata stated `about` it.
+type AnnotationStructure interface {
+	Annotations(Element) ([]Element, bool)
+}
+
 // ElementIdentityStructure optionally supplies stable API identities for
 // elements whose derived values contain an ID rather than an element handle.
 type ElementIdentityStructure interface {
