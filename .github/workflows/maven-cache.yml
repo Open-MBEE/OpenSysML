@@ -1,0 +1,48 @@
+name: Maven dependency cache
+
+# Pull-request and merge-queue caches are private to their ref, so the Java jobs in pr.yml can
+# only start warm from an entry saved on develop: this resolves each Maven tree and saves it.
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '**/pom.xml'
+      - .github/workflows/maven-cache.yml
+  # An entry no run read for a week is evicted: the daily run reads it, or saves it again.
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maven-cache
+  cancel-in-progress: true
+
+jobs:
+  warm:
+    name: Warm the Maven dependency cache
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # The key is the hash of every pom.xml, the one the Java jobs' own setup-java steps ask for.
+      - name: Set up Java
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      # Tests are compiled but not run: they need the service binary, and what is saved is ~/.m2.
+      - name: Resolve the Java client
+        run: mvn -B -q -f client/java/pom.xml install -DskipTests
+
+      - name: Resolve the Magic MDK plugin
+        run: mvn -B -q -f editors/mdk/pom.xml verify -DskipTests
+
+      - name: Resolve the SysON backend
+        run: mvn -B -q -f editors/syson/pom.xml install -DskipTests

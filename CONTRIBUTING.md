@@ -374,6 +374,16 @@ When the Go jobs will run, that job also fills the fUML suite's cache
 jobs would each fetch the suite's jars from Maven Central, which answers that with HTTP 429.
 The download scripts fetch through `scripts/fetch-https.sh`, which backs off and retries.
 
+Maven is held to the same policy. Each Maven tree (`client/java`, `editors/mdk`, `editors/syson`)
+carries a `.mvn/maven.config` that raises the resolver's retries on a 429 or 503 from three to
+eight, about three minutes of backoff, or as long as the server's `Retry-After` asks. It names the
+count twice because Maven 3.9 (Wagon) reads only `aether.connector.http.retryHandler.count` and
+Maven 3.10 (the Apache transport) only `aether.transport.http.retryHandler.count`. Run `mvn` with
+`-f <tree>/pom.xml` so the file applies. `.github/workflows/maven-cache.yml` resolves the three
+trees on every push to `develop` that changes a `pom.xml`, and daily, and saves `~/.m2` under the key the Java
+jobs' `actions/setup-java` steps (`cache: maven`) restore, so a pull request or merge group, whose
+own caches are private to its ref, starts warm.
+
 Every third-party action a workflow or composite action `uses:` is pinned to a full commit SHA
 with the release that commit is as a trailing comment (`actions/checkout@<sha> # v4.4.0`); a new
 step takes the same form, and the comment is what lets the pin be moved by version.
