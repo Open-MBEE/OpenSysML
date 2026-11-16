@@ -144,3 +144,45 @@ func TestActionNodeKindsShareTheActionFamily(t *testing.T) {
 		}
 	}
 }
+
+// A transition's effect is the usage EffectBehaviorUsage writes it as (SysML v2.1 §8.2.2.18.3): a declared
+// `do action e` a PerformActionUsage, a `do send` or `do assign` that node, and the action's own body unchanged.
+func TestBuildClassifiesTransitionEffectsByTheirDeclaration(t *testing.T) {
+	root := build(t, `package P {
+    private import ScalarValues::*;
+    attribute def Sig;
+    action def A;
+    part def Machine {
+        attribute x : Integer = 1;
+        state sm {
+            state idle; state busy;
+            transition t1 first idle do action e1 then busy;
+            transition t2 first idle do action e2 : A { action step; } then busy;
+            transition t3 first idle do send new Sig() to sm then busy;
+            transition t4 first idle do assign x := 2 then busy;
+            transition t5 first idle do action e5 send new Sig() to sm then busy;
+            transition t6 first idle do { action step; } then busy;
+        }
+    }
+}
+`)
+	for path, want := range map[string]SymbolKind{
+		"P::Machine::sm::t1::effect":   SymbolPerformActionUsage,
+		"P::Machine::sm::t1::e1":       SymbolPerformActionUsage,
+		"P::Machine::sm::t2::effect":   SymbolPerformActionUsage,
+		"P::Machine::sm::t2::e2::step": SymbolActionUsage,
+		"P::Machine::sm::t3::effect":   SymbolSendActionUsage,
+		"P::Machine::sm::t4::effect":   SymbolAssignmentActionUsage,
+		"P::Machine::sm::t5::effect":   SymbolSendActionUsage,
+		"P::Machine::sm::t6::effect":   SymbolActionUsage,
+	} {
+		sym := lookupPath(t, root, path)
+		if sym == nil {
+			t.Errorf("%s is not declared", path)
+			continue
+		}
+		if sym.Kind != want {
+			t.Errorf("%s is a %s, want %s", path, sym.Kind, want)
+		}
+	}
+}
