@@ -5116,6 +5116,14 @@ func (e *Evaluator) computeStructureTypeMembers(element Element, property string
 			protected = append(protected, membershipValue)
 		}
 	}
+	imported, ok := e.structureNonPrivateImported(element)
+	if !ok {
+		return nil, false
+	}
+	for _, list := range imported {
+		public = append(public, list.public...)
+		protected = append(protected, list.protected...)
+	}
 	inherited := make([]Value, 0)
 	bases, ok := e.structureOwnedSupertypes(element)
 	if !ok {
@@ -5332,6 +5340,14 @@ func (e *Evaluator) computeStructureNonPrivateMemberships(
 		} else if visibility.protected {
 			protected = append(protected, membershipValue)
 		}
+	}
+	imported, ok := e.structureNonPrivateImported(element)
+	if !ok {
+		return nil, false
+	}
+	for _, list := range imported {
+		public = append(public, list.public...)
+		protected = append(protected, list.protected...)
 	}
 	inherited := make([]Value, 0)
 	bases, ok := e.structureOwnedSupertypes(element)

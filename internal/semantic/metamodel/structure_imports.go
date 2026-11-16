@@ -62,9 +62,12 @@ func (e *Evaluator) structureImportedEntries(namespace Element, walk *importWalk
 	}
 	cutBefore := walk.cut
 	walk.cut = false
+	outer := walk.excluded[key]
 	walk.excluded[key] = true
 	entries, ok := e.computeStructureImportedEntries(namespace, walk)
-	delete(walk.excluded, key)
+	if !outer {
+		delete(walk.excluded, key)
+	}
 	if !walk.cut {
 		e.mu.Lock()
 		e.structureImported[key] = structureImportedEntry{entries: slices.Clip(entries), ok: ok}
@@ -329,7 +332,7 @@ func (e *Evaluator) structureVisibleMemberships(namespace Element, walk *importW
 		return nil, false
 	}
 	if isType {
-		inherited, ok := e.structureVisibleInherited(namespace, recursive, all)
+		inherited, ok := e.structureVisibleInherited(namespace, walk, recursive, all)
 		if !ok {
 			return nil, false
 		}
@@ -340,14 +343,8 @@ func (e *Evaluator) structureVisibleMemberships(namespace Element, walk *importW
 
 // structureVisibleInherited is the inherited part of Type::visibleMemberships (KerML
 // 8.3.3.1.10): inheritedMemberships(excluded, {}, isRecursive) selected by visibility.
-func (e *Evaluator) structureVisibleInherited(element Element, excludeImplied, all bool) ([]Value, bool) {
-	var inherited []Value
-	var ok bool
-	if excludeImplied {
-		inherited, ok = e.structureStatedInheritedMemberships(element, map[ElementKey]bool{})
-	} else {
-		inherited, ok = e.structureInheritedMembershipList(element)
-	}
+func (e *Evaluator) structureVisibleInherited(element Element, walk *importWalk, excludeImplied, all bool) ([]Value, bool) {
+	inherited, ok := e.structureWalkInheritedMemberships(element, walk, map[ElementKey]bool{}, excludeImplied)
 	if !ok || all {
 		return inherited, ok
 	}
@@ -382,17 +379,30 @@ func (e *Evaluator) structureMembershipIsPublic(value Value) (bool, bool) {
 	return member.Visibility == ast.VisibilityDefault || member.Visibility == ast.VisibilityPublic, true
 }
 
-// structureStatedInheritedMemberships is Type::inheritedMemberships with excludeImplied
-// (KerML 8.3.3.1.10): only the specializations the model states are followed, at every
-// level (7.2.5.4, second limitation on recursive imports).
-func (e *Evaluator) structureStatedInheritedMemberships(element Element, visited map[ElementKey]bool) ([]Value, bool) {
+// structureWalkInheritedMemberships is Type::inheritedMemberships(excludedNamespaces,
+// excludedTypes, excludeImplied) (KerML 8.3.3.1.10) inside an import derivation: the
+// walk's excluded namespaces reach the imports of every supertype, and with excludeImplied
+// only the specializations the model states are followed, at every level (7.2.5.4, second
+// limitation on recursive imports).
+func (e *Evaluator) structureWalkInheritedMemberships(
+	element Element,
+	walk *importWalk,
+	visited map[ElementKey]bool,
+	excludeImplied bool,
+) ([]Value, bool) {
 	key := e.structureFeatureKey(element)
 	if visited[key] {
 		return nil, true
 	}
 	visited[key] = true
 	defer delete(visited, key)
-	bases, ok := e.structureStatedSupertypes(element)
+	var bases []Element
+	var ok bool
+	if excludeImplied {
+		bases, ok = e.structureStatedSupertypes(element)
+	} else {
+		bases, ok = e.structureOwnedSupertypes(element)
+	}
 	if !ok {
 		return nil, false
 	}
@@ -402,7 +412,12 @@ func (e *Evaluator) structureStatedInheritedMemberships(element Element, visited
 			continue
 		}
 		if library, ok := e.structureLibraryBase(base); ok {
-			members, ok := e.libraryStatedNonPrivate(library.Symbol)
+			var members []Value
+			if excludeImplied {
+				members, ok = e.libraryStatedNonPrivate(library.Symbol)
+			} else {
+				members, ok = e.structureLibraryTypeMembers(library, "membership")
+			}
 			if !ok {
 				return nil, false
 			}
@@ -429,15 +444,19 @@ func (e *Evaluator) structureStatedInheritedMemberships(element Element, visited
 				protected = append(protected, value)
 			}
 		}
-		imported, ok := e.structureNonPrivateImported(base)
+		imported, ok := e.structureImportedEntries(base, walk)
 		if !ok {
 			return nil, false
 		}
-		for _, list := range imported {
-			public = append(public, list.public...)
-			protected = append(protected, list.protected...)
+		for _, entry := range imported {
+			switch entry.visibility {
+			case "public":
+				public = append(public, entry.membership)
+			case "protected":
+				protected = append(protected, entry.membership)
+			}
 		}
-		inherited, ok := e.structureStatedInheritedMemberships(base, visited)
+		inherited, ok := e.structureWalkInheritedMemberships(base, walk, visited, excludeImplied)
 		if !ok {
 			return nil, false
 		}
