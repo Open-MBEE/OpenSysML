@@ -39,11 +39,11 @@ func (w *Workspace) MemberSummaryOf(sym *symbols.Symbol, inherited bool) []Membe
 		if target, ok := resolver.ResolveAliasTarget(sym); ok {
 			sym = target
 		}
-		if !sym.DeclaresDefinition() && !sym.DeclaresUsage() {
+		if !summarized(sym) {
 			return
 		}
 		for _, member := range sem.MembersOf(sym) {
-			if !member.DeclaresDefinition() && !member.DeclaresUsage() {
+			if !summarized(member) {
 				continue
 			}
 			origin := member.Owner()
@@ -63,6 +63,12 @@ func (w *Workspace) MemberSummaryOf(sym *symbols.Symbol, inherited bool) []Membe
 		}
 	})
 	return out
+}
+
+// summarized reports whether sym is a definition or a feature: what a summary is of and lists,
+// a subject or a required constraint with the usages, an import or a comment not.
+func summarized(sym *symbols.Symbol) bool {
+	return !sym.Implied() && (sym.DeclaresDefinition() || sym.Kind.IsDefinition() || sym.IsFeature())
 }
 
 // declaredMultiplicityText spells the multiplicity a feature declares: its
