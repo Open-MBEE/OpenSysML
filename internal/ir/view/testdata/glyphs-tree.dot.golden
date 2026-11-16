@@ -27,13 +27,13 @@ digraph "NotationGlyphs::Diagrams::treeGlyphs" {
   }
   "n0" -> "n1" [dir=back, arrowtail=diamond];
   "n0" -> "n3" [dir=back, arrowtail=diamond];
-  "n0" -> "n4" [dir=back, arrowtail=dot];
-  "n0" -> "n5" [dir=back, arrowtail=dot];
+  "n0" -> "n4" [dir=back, arrowtail=dot, class="portion-relationship"];
+  "n0" -> "n5" [dir=back, arrowtail=dot, class="portion-relationship"];
   "n0" -> "n6" [label="event", arrowhead=vee];
   "n0" -> "n7" [dir=back, arrowtail=odiamond];
   "n1" -> "n10" [arrowhead=empty, class=definition];
   "n1" -> "n2" [dir=back, arrowtail=odiamond];
-  "n7" -> "n1" [label="references", arrowhead=onormaldot];
+  "n7" -> "n1" [label="references", arrowhead=onormaldot, class="reference-subsetting"];
   "n7" -> "n8" [dir=back, arrowtail=odiamond];
   "n9" -> "n10" [label="«expose»", arrowhead=vee, style=dashed];
   "n10" -> "n11" [dir=back, arrowtail=odiamond];

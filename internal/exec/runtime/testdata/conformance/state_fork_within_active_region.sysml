@@ -27,8 +27,8 @@ package ForkWithinActiveRegion {
                     }
                 }
                 transition first a do { assign log := log + "T1(effect) "; } then split;
-                transition first split do { assign log := log + "T1.1(effect) "; } then x;
-                transition first split do { assign log := log + "T1.2(effect) "; } then y;
+                transition first split do { assign log := log + "T1.1(effect) "; } then work.one.x;
+                transition first split do { assign log := log + "T1.2(effect) "; } then work.two.y;
                 transition first work then done;
             }
             state right {

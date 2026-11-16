@@ -73,19 +73,19 @@ func TestF51MixedSessionKeepsPerSnippetKinds(t *testing.T) {
 		if d.Span.Offset < len("namespace K { feature f = 1; }\n") {
 			kerml = true
 		} else {
-			sysml = true
+			sysml = d.Severity == diag.SeverityError
 		}
 	}
 	if kerml {
 		t.Fatalf("`namespace` is legal in the .kerml snippet, got %v", codesOf(res.Diagnostics))
 	}
 	if !sysml {
-		t.Fatalf("the .sysml snippet must keep the %s warning, got %v", passes.CodeKerMLNotation, codesOf(res.Diagnostics))
+		t.Fatalf("the .sysml snippet must keep the %s error, got %v", passes.CodeKerMLNotation, codesOf(res.Diagnostics))
 	}
 
 	res = s.Submit("package Q { attribute r = K::f; }\n")
 	for _, d := range res.Diagnostics {
-		if d.Severity == diag.SeverityError {
+		if d.Severity == diag.SeverityError && d.Code != passes.CodeKerMLNotation {
 			t.Fatalf("the prompt must see the .kerml snippet's names: %v", d)
 		}
 	}

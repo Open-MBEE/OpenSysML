@@ -35,8 +35,13 @@ func (cc *constraintChecker) checkSubsettingFeaturingTypes(sym *symbols.Symbol) 
 	if sym.Scope != nil {
 		scope = sym.Scope
 	}
+	// A satisfy or verify names its requirement by a ReferenceSubsetting, a Subsetting the rule
+	// covers; the other reference forms are not judged here.
+	kind, isUsage := sym.UsageKind()
+	referenceForm := isUsage && kind == ast.UsageSatisfy
 	for _, rel := range semantics.RelationshipsOf(sym) {
-		if rel == nil || rel.Kind != ast.RelSubsets || rel.Target == nil {
+		if rel == nil || rel.Target == nil ||
+			(rel.Kind != ast.RelSubsets && (!referenceForm || rel.Kind != ast.RelReferences)) {
 			continue
 		}
 		cc.checkSubsettedFeatureAccessible(sym, scope, rel.Target)

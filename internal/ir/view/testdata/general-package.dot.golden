@@ -20,7 +20,7 @@ digraph "GeneralViews::packageView" {
     { rank=min; "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose VehicleStructure<br/>expose VehicleStructure::Powertrain<br/>expose VehicleRequirements<br/>expose VehicleVerification<br/>expose GeneralViews</font>>]; }
     { rank=max; "frame_bl" [shape=none, margin=0, label=<<font point-size="10">filter @SysML::Package</font>>]; }
   }
-  "n0" -> "n1" [dir=back, arrowtail=odot, taillabel="+", labeldistance=0.4, labelangle=0];
+  "n0" -> "n1" [dir=back, arrowtail=odot, taillabel="+", labeldistance=0.4, labelangle=0, class="owned-membership"];
   "n2" -> "n0" [label="«private import»*", arrowhead=vee, style=dashed];
   "n3" -> "n0" [label="«private import»*", arrowhead=vee, style=dashed];
   "n3" -> "n1" [label="«private import»*", arrowhead=vee, style=dashed];

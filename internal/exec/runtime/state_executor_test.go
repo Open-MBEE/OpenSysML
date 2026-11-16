@@ -758,7 +758,7 @@ func TestStateExecutor_HierarchicalEntryExit(t *testing.T) {
 	}
 
 	transition := &ast.TransitionEdge{
-		Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "childState"}}},
+		Source: chainedName("parentState.childState"),
 		Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "siblingState"}}},
 		Trigger: &ast.TimeEvent{
 			Duration: &ast.LiteralInteger{Value: "1"},
@@ -849,7 +849,7 @@ func TestStateExecutor_StateStackTracking(t *testing.T) {
 	}
 
 	transition := &ast.TransitionEdge{
-		Source:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "deepNested"}}},
+		Source:  chainedName("composite.nested.deepNested"),
 		Target:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "standalone"}}},
 		Trigger: &ast.TimeEvent{Duration: &ast.LiteralInteger{Value: "1"}},
 	}
@@ -985,19 +985,19 @@ func TestStateExecutor_Integration_HierarchicalWorkflow(t *testing.T) {
 	}
 
 	trans1 := &ast.TransitionEdge{
-		Source:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "ready"}}},
-		Target:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "validate"}}},
+		Source:  chainedName("workflow.ready"),
+		Target:  chainedName("workflow.processing.validate"),
 		Trigger: &ast.TimeEvent{Duration: &ast.LiteralInteger{Value: "1"}},
 	}
 
 	trans2 := &ast.TransitionEdge{
-		Source:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "validate"}}},
-		Target:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "execute"}}},
+		Source:  chainedName("workflow.processing.validate"),
+		Target:  chainedName("workflow.processing.execute"),
 		Trigger: &ast.TimeEvent{Duration: &ast.LiteralInteger{Value: "1"}},
 	}
 
 	trans3 := &ast.TransitionEdge{
-		Source:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "execute"}}},
+		Source:  chainedName("workflow.processing.execute"),
 		Target:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "finish"}}},
 		Trigger: &ast.TimeEvent{Duration: &ast.LiteralInteger{Value: "1"}},
 	}

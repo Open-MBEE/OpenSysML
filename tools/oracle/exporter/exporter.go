@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"regexp"
 	"slices"
 	"strings"
 )
@@ -88,4 +89,17 @@ func RefuseUnexported(roots []Root) error {
 	slices.Sort(whole)
 	return fmt.Errorf("the pilot failed on every file of %s, so its exporter did not run there; run %s and retry, never record or accept such a baseline",
 		strings.Join(whole, ", "), ProvisionCommand)
+}
+
+var featureRelease = regexp.MustCompile(`^[0-9]+$`)
+
+// JVM asks the launcher which Java feature release it runs the export under.
+func JVM(launcher string) (string, error) {
+	// #nosec G204 -- launcher is an explicit CLI override or repo-local artifact.
+	out, err := exec.Command(launcher, "--jvm").Output()
+	jvm := strings.TrimSpace(string(out))
+	if err != nil || !featureRelease.MatchString(jvm) {
+		return "", fmt.Errorf("%s --jvm names no Java feature release (%q, %v); re-provision it with %s --force", launcher, jvm, err, ProvisionCommand)
+	}
+	return jvm, nil
 }

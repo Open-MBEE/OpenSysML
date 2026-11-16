@@ -110,22 +110,25 @@ func TestTransitiveMaskStopsAtSiblingEdge(t *testing.T) {
 	if !m.InheritanceMasked(b, ab) || m.InheritanceMasked(b, aa) {
 		t.Fatalf("B masks b and keeps a: %v", visibleNames(m, b))
 	}
-	exact := m.buildMask(b, []*symbols.Symbol{c})
-	if !exact[ab] || exact[aa] {
-		t.Fatalf("exact expansion = %v, want {b}", exact)
+	if reach := m.redefinitionReach(c); !reach[ab] || reach[aa] {
+		t.Fatalf("c's redefinitions reach %v, want {b}", reach)
+	}
+	if own := m.ownRedefinitions(b, nil); !own.direct[ab] || !own.masks(m, ab) || own.masks(m, aa) {
+		t.Fatalf("B's own redefinitions = %+v, want b alone", own)
 	}
 }
 
 func TestRedefinitionMaskFallsBackWhenClosureReachesOwner(t *testing.T) {
 	m := NewModel(nil)
 	owner := &symbols.Symbol{Name: "Owner", Scope: symbols.NewScope(nil, nil)}
-	candidate := &symbols.Symbol{Name: "candidate"}
+	candidate := &symbols.Symbol{Name: "candidate", OwnerScope: owner.Scope}
+	owner.Scope.Define("candidate", candidate)
 	m.redefined[candidate] = []*symbols.Symbol{owner}
-	mask := m.buildMaskFromCandidates(owner, func(yield func(*symbols.Symbol) bool) {
-		yield(candidate)
-	})
-	if len(mask) != 0 {
-		t.Fatalf("owner-dependent fallback produced mask %v, want empty", mask)
+	if own := m.ownRedefinitions(owner, nil); len(own.direct) != 0 || len(own.closure) != 0 {
+		t.Fatalf("a type redefined by its own feature loses %+v, want nothing", own)
+	}
+	if mask := m.redefinitionMask(owner, true); len(mask) != 0 {
+		t.Fatalf("owner-dependent mask = %v, want empty", mask)
 	}
 }
 
@@ -190,12 +193,8 @@ func TestRedefinitionClosureNotCachedDuringRedefinedFeatures(t *testing.T) {
 
 func TestBuildMaskSkipsNilCandidates(t *testing.T) {
 	m := NewModel(nil)
-	owner := &symbols.Symbol{Name: "Owner", Scope: symbols.NewScope(nil, nil)}
-	mask := m.buildMaskFromCandidates(owner, func(yield func(*symbols.Symbol) bool) {
-		yield(nil)
-	})
-	if mask != nil {
-		t.Fatalf("nil candidates should produce no mask, got %v", mask)
+	if reach := m.redefinitionReach(nil); len(reach) != 0 {
+		t.Fatalf("a nil candidate should reach nothing, got %v", reach)
 	}
 	if _, ok := m.redefClosure[nil]; ok {
 		t.Fatal("nil candidate must not create a closure-cache entry")
