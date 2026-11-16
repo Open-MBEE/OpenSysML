@@ -341,10 +341,21 @@ func TestAnchoredOrdinalPointsInSets(t *testing.T) {
 		"(7 [mohs], 1 [mohs])->includes(279.16 [K])": false,
 		"(7 [mohs], 1 [mohs])->includes(7 [mohs])":   true,
 		"(279.16 [K], 1 [mohs])->includes(7 [mohs])": false,
+		"7 [mohs] == *":                                        false,
+		"(7 [mohs], 1 [mohs])->includes(*)":                    false,
+		"(7 [mohs], *)->includes(7 [mohs])":                    true,
+		"(1.0e308 [mohs], 1 [mohs])->includes(1.0e308 [mohs])": true,
+		"1.0e308 [mohs] > 7 [mohs]":                            true,
 	} {
 		got, err := evalIn(t, ctx, scope, src)
 		if err != nil || got.Kind != ValConst || got.Const.Bool != want {
 			t.Errorf("%s = %v, %v; want %v", src, got, err, want)
+		}
+	}
+	// An infinity is no point of an ordinal scale, and ordering one against a point is refused.
+	for _, src := range []string{"* [mohs]", "-* [mohs]", "7 [mohs] < *", "-* < 7 [mohs]", "7 [mohs] * *", "ConvertQuantity(* [mohs], K)", "ConvertQuantity(7 [mohs], *)"} {
+		if got, err := evalIn(t, ctx, scope, src); err == nil {
+			t.Errorf("%s = %s; want an error", src, FormatValue(got))
 		}
 	}
 }
