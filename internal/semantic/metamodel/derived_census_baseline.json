@@ -4,6 +4,7 @@
     "pilotCommit": "d81b2ad5016f2e2d3d4364b3d06d01d8bb12a896",
     "pilotArtifact": "0.63.1",
     "errataRegistry": "sha256:d5782936c5c92f29f24a077477b148fc5d178f83f174b143d1bb95c3693ab1b9",
+    "pilotJava": "21",
     "tools": [
       {
         "name": "pilot-json-exporter",
@@ -84,14 +85,15 @@
         "digest": "sha256:f39db343dafb9c99359f5a92e56dcdd5c52992dc50e50b9268d349aa9cdfdf26"
       }
     ],
-    "recorded": "2026-11-15"
+    "recorded": "2026-11-16"
   },
   "structure": "metamodel.SymbolStructure (symbol-backed; metamodel.New over metamodel.NewSymbolStructure)",
   "policy": [
     "Implied relationships are a deliberate difference: the bridge exports without materializing the relationships the pilot implies (isImplied is false on every element it writes), while the semantic model synthesizes the ones it implies and the walk counts them as carriers; each root's implied count records how many, and no detector compares the two populations.",
     "Library elements the pilot writes beside a file's own are not counted; our walk starts at each document root and never reaches them.",
     "The pilot writes an element in every file whose traversal reaches it; a root's elements are counted once by id.",
-    "A property the pilot's payload leaves out is counted as not derived on its side; one it writes null or empty is counted as empty."
+    "A property the pilot's payload leaves out is counted as not derived on its side; one it writes null or empty is counted as empty.",
+    "A property the api-json referee declares pilot-nondeterministic for an element's metaclass (tools/referee/apijson/nondeterminism.go) is counted as nondeterministic on the pilot's side, whatever the export states: the pilot's answer follows its transformation order, which differs from one JVM to the next, so neither a value nor an empty answer is a measurement."
   ],
   "roots": [
     {
@@ -202,5 +204,6 @@
       "pilotDuplicates": 0,
       "pilotFailed": 0
     }
-  ]
+  ],
+  "pilotRecords": "sha256:77ad17f3298262cf782c35f0df33757346c07b92531b78b263e2004a6ec1041c"
 }

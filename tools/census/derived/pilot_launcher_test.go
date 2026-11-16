@@ -16,12 +16,12 @@ import (
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 )
 
-// stubBridge writes a shell launcher that writes a bridge document for each of
-// written under --out, prints stderr and exits with status.
+// stubBridge writes a shell launcher that answers --jvm with the declared release and otherwise
+// writes a bridge document for each of written under --out, prints stderr and exits with status.
 func stubBridge(t *testing.T, stderr string, status int, written ...string) string {
 	t.Helper()
 	var script strings.Builder
-	script.WriteString("#!/bin/sh\nwhile [ $# -gt 0 ]; do\n\tcase \"$1\" in\n\t--out) out=\"$2\"; shift ;;\n\tesac\n\tshift\ndone\n")
+	script.WriteString("#!/bin/sh\n[ \"$1\" = --jvm ] && { echo 21; exit 0; }\nwhile [ $# -gt 0 ]; do\n\tcase \"$1\" in\n\t--out) out=\"$2\"; shift ;;\n\tesac\n\tshift\ndone\n")
 	for _, rel := range written {
 		path := "\"$out/" + rel + ".json\""
 		script.WriteString("mkdir -p \"$(dirname " + path + ")\"\n")

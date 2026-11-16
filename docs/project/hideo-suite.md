@@ -1,13 +1,13 @@
-# The cross-MDK conformance suite as a daily advisory ratchet
+# The cross-MDK conformance suite as a per-case ratchet
 
 `tools/cmd/hideo-suite` runs the OpenSysML readers of
 [hideo67/sysmlv2-tests](https://github.com/hideo67/sysmlv2-tests), a common test suite for
 SysML v2 MDKs, against this tree and holds **every case of every reader** to its committed
-outcome in [`hideo-suite-baseline.tsv`](hideo-suite-baseline.tsv). It is advisory: it runs daily
-in the [oracle reproduction](../../.github/workflows/oracle-reproduction.yml) workflow and on
-demand, never on a pull request and never as a required check, exactly as the
-[PSSM referee](pssm-referee.md) and the [pilot differential](pilot-differential.md) are
-re-run there.
+outcome in [`hideo-suite-baseline.tsv`](hideo-suite-baseline.tsv). It runs on every pull request that
+changes Go or the Python client (`Cross-MDK conformance suite reproduces its baseline` in
+[pr.yml](../../.github/workflows/pr.yml)), so a case that moves is adjudicated and recorded in
+the change that moved it, and daily in the
+[oracle reproduction](../../.github/workflows/oracle-reproduction.yml) workflow and on demand.
 
 **What a pass means.** The suite's expectations are the answers of the OMG pilot implementation,
 recorded by the suite's author. A pass is agreement with the pilot on one read of one model
@@ -95,7 +95,7 @@ case.
 
 ## Adjudicating a movement
 
-The daily run fails when `develop` no longer reproduces the baseline. The artifact
+The pull-request and daily runs fail when the tree no longer reproduces the baseline. The artifact
 `hideo-suite-results` of that run holds the CSVs and logs; the `detail` column of a moved case
 says what the reader got and what the pilot answered.
 
@@ -152,14 +152,8 @@ named when there is one. The matrices themselves are described in the suite's
 | **All** | 1813 | 1605 / 175 / 33 | 1605 / 175 / 33 | 857 / 95 / 861 | 821 / 131 / 861 |
 <!-- hideo-suite:end counts -->
 
-The two element-properties readers agree on every case. The two Symbol readers differ on 24, every
-one passing from Python and failing from Go: 14 cases of `A10` and `A50`, whose Go reader reports an
-unnamed member as not listed, and the 10 `direction` cases of `A30` that read a feature through a
-conjugated port. A feature's direction is relative to the type it is read as a feature of (KerML 1.1
-§8.3.3.1.10 `Type::directionOf`), so `GetSymbol` answers it for the type named in `member_of`. The
-Python reader keeps the symbol the port's listing returned, which the client fetched as that port's
-member; the Go reader looks the listed id up again without the port, the same call for
-`CmdPort::cmd` through `pOut` (`out`) as through `pIn : ~CmdPort` (`in`), which no answer satisfies
-for both. It would pass by naming the port, `LookupSymbol(…, AsMemberOf(port))`. The Symbol API
+The two element-properties readers agree on every case. The two Symbol readers differ on 14:
+12 cases of `A10` and `A50` pass from Python and fail from Go, whose reader reports an unnamed
+member as not listed, and 2 cases of `A60` fail from Python and pass from Go. The Symbol API
 covers fewer of the suite's reads than the element-properties API does, which is what its
 `unsupported` column counts.
