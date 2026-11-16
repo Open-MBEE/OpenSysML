@@ -254,9 +254,8 @@ func underDeclaredJVM(opts options, declared string) error {
 	return nil
 }
 
-// reusable refuses to re-record around a pilot column the run cannot vouch for: one recorded under
-// an undeclared JVM, or over a pin, bridge or input other than the checkout's. A reused column
-// keeps the date of its export.
+// reusable refuses to re-record around a pilot column recorded under an undeclared JVM or over a
+// pin, bridge or input other than the checkout's; a column that is reused keeps its export's date.
 func reusable(recorded *Report, current baseline.Record) error {
 	if recorded == nil {
 		return nil
