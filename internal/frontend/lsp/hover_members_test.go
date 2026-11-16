@@ -233,3 +233,54 @@ func TestNotebookCellHoverSummarizesMembers(t *testing.T) {
 		t.Errorf("inherited members in a cell:\n%s\nwant prefix:\n%s", got, inherited)
 	}
 }
+
+const hoverMemberKindsSrc = `package Q {
+    part def A; part def B;
+    port def PD { in attribute a; out attribute b; }
+    part def Node {
+        part children : Node[0..*];
+        part selected :> children;
+        part both : A, B;
+    }
+    requirement def R {
+        subject s : Node;
+        assume constraint ac { true }
+        require constraint rc { true }
+        require constraint { true }
+        actor who : A;
+    }
+    state def S { entry action e; state s1; state s2; transition t first s1 then s2; }
+    part c { port z : ~PD; }
+}
+`
+
+// A summary lists every typing a member writes, the owner's own type on a member that takes it
+// from a subsetted feature, and the members a requirement or a state declares by their own keywords.
+func TestHoverMemberSummaryKinds(t *testing.T) {
+	ws := model.NewWorkspace()
+	s := NewServer(ws)
+	initMarkdownHover(t, s)
+	name := uri.File("/tmp/kinds.sysml").FsPath()
+	ws.Open(name, []byte(hoverMemberKindsSrc), 1)
+	hover := func(at string) string {
+		t.Helper()
+		off := strings.Index(hoverMemberKindsSrc, at)
+		return hoverMarkup(t, hoverInSrc(t, s, name, hoverMemberKindsSrc, off)).Value
+	}
+	for at, want := range map[string]string{
+		"Node {": "part children : Node[0..*]\npart selected : Node\npart both : A, B\n```",
+		"R {":    "subject s : Node\nassume constraint ac\nrequire constraint rc\nactor who : A\n```",
+		"S {":    "entry action e\nstate s1\nstate s2\ntransition t\n```",
+	} {
+		if got := hover(at); !strings.HasSuffix(got, "Members:\n\n```sysml\n"+want) {
+			t.Errorf("hover at %q = %q, want members %q", at, got, want)
+		}
+	}
+
+	// The conjugated port definition a port definition implies is not one of its members.
+	changeConfiguration(t, s, map[string]any{"sysml": map[string]any{"hoverInheritedMembers": true, "hoverMemberLimit": 2}})
+	want := "```sysml\nport z\n```\n\nInherited from `Q::PD`:\n\n```sysml\nout attribute a\nin attribute b\n```"
+	if got := hover("z :"); !strings.HasPrefix(got, want) {
+		t.Errorf("hover on the conjugated port = %q, want prefix %q", got, want)
+	}
+}

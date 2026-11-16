@@ -124,15 +124,17 @@ func memberLine(member model.Member) string {
 	return b.String()
 }
 
-// memberTypeText is the type a member is written with, else the types it takes from the
-// features it specializes; the owner an enumerated value is implicitly typed by goes unsaid.
+// memberTypeText is the types a member is written with, else those it takes from the features
+// it specializes; the enumeration an enumerated value is implicitly typed by goes unsaid.
 func memberTypeText(member model.Member) string {
-	if written := declaredTypeText(member.Symbol); written != "" {
-		return written
+	if written := declaredTypeTexts(member.Symbol); len(written) > 0 {
+		return strings.Join(written, ", ")
 	}
+	owner := member.Symbol.Owner()
+	enumerated := owner != nil && owner.Kind == symbols.SymbolEnumerationDef
 	var names []string
 	for _, typ := range member.Types {
-		if typ != member.Symbol.Owner() && typ.Named() {
+		if !(enumerated && typ == owner) && typ.Named() {
 			names = append(names, source.NameText(typ.Name))
 		}
 	}

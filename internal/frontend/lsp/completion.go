@@ -198,6 +198,14 @@ func completionDetail(sym *symbols.Symbol) string {
 // with the `~` of a conjugated typing (SysML v2 8.3.12.3), or
 // "" for anything else — a definition, or an untyped usage.
 func declaredTypeText(sym *symbols.Symbol) string {
+	if texts := declaredTypeTexts(sym); len(texts) > 0 {
+		return texts[0]
+	}
+	return ""
+}
+
+// declaredTypeTexts is every typing a declaration writes, in order.
+func declaredTypeTexts(sym *symbols.Symbol) []string {
 	var rels []*ast.Relationship
 	switch decl := sym.Decl.(type) {
 	case *ast.Usage:
@@ -205,8 +213,9 @@ func declaredTypeText(sym *symbols.Symbol) string {
 	case *ast.CrossFeatureMember:
 		rels = decl.Relationships
 	default:
-		return ""
+		return nil
 	}
+	var texts []string
 	for _, rel := range rels {
 		if rel == nil || rel.Kind != ast.RelTyping || rel.Target == nil {
 			continue
@@ -217,12 +226,13 @@ func declaredTypeText(sym *symbols.Symbol) string {
 		}
 		if qn, ok := target.(*ast.QualifiedName); ok {
 			if rel.Conjugated {
-				return "~" + qn.Text()
+				texts = append(texts, "~"+qn.Text())
+			} else {
+				texts = append(texts, qn.Text())
 			}
-			return qn.Text()
 		}
 	}
-	return ""
+	return texts
 }
 
 // completionKind maps a symbol kind to the LSP completion kind, so client icons
