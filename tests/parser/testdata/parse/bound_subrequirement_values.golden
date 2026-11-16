@@ -1,0 +1,54 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="BoundSubrequirementValues" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="requirement" abstract=false variation=false name="Limit"
+          (SubjectMember name="v" type="")
+          (Usage kind="attribute" name="max" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+          (RequireMember
+            (ConstraintMember assert=true negated=false
+              (OperatorExpr operator="<"
+                (FeatureReference name="v")
+                (FeatureReference name="max"))))))
+      (Membership visibility="default"
+        (Definition kind="requirement" abstract=false variation=false name="Container"
+          (SubjectMember name="v" type="")
+          (Usage kind="requirement" name="none" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Limit
+              (*ast.QualifiedName))
+            (Multiplicity range=true
+              (LiteralInteger value="0")
+              (LiteralInteger value="1"))
+            (NullExpr))
+          (Usage kind="requirement" name="absent" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Limit
+              (*ast.QualifiedName))
+            (Multiplicity range=true
+              (LiteralInteger value="0")
+              (LiteralInteger value="1"))
+            (NullExpr))
+          (Usage kind="requirement" name="one" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Limit
+              (*ast.QualifiedName))
+            (Multiplicity range=true
+              (LiteralInteger value="0")
+              (LiteralInteger value="1"))
+            (ConstructorExpr type="Limit"
+              (NamedArg name="max"
+                (LiteralInteger value="1"))))
+          (Usage kind="requirement" name="several" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Limit
+              (*ast.QualifiedName))
+            (Multiplicity range=false
+              (LiteralInfinity))
+            (SequenceExpr
+              (ConstructorExpr type="Limit"
+                (NamedArg name="max"
+                  (LiteralInteger value="1")))
+              (ConstructorExpr type="Limit"
+                (NamedArg name="max"
+                  (LiteralInteger value="2")))))
+          (Usage kind="requirement" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Limit
+              (*ast.QualifiedName))
+            (NullExpr)))))))
