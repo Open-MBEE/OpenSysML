@@ -95,7 +95,7 @@ func TestReferenceFormSubsettingReadsAsTheConversionWritesIt(t *testing.T) {
 		}
 		var rel *symbols.Symbol
 		for _, candidate := range model.ImplicitRelationships(owner) {
-			if candidate.Implicit != nil && candidate.Implicit.Kind == ast.RelSubsets {
+			if candidate.Implicit != nil && (candidate.Implicit.Kind == ast.RelSubsets || candidate.Implicit.Kind.ReferenceSubsets()) {
 				rel = candidate
 			}
 		}

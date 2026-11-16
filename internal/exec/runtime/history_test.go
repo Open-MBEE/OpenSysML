@@ -62,11 +62,11 @@ func shallowHistoryMachine() *ast.Usage {
 			&ast.StateNode{Name: "init"},
 			outer,
 			&ast.StateNode{Name: "away"},
-			transitionMember("init", "first"),
-			transitionMember("first", "second"),
-			transitionMember("second", "away"),
-			transitionMember("away", "H"),
-			transitionMember("H", "first"), // default history transition
+			transitionMember("init", "outer.first"),
+			transitionMember("outer.first", "outer.second"),
+			transitionMember("outer.second", "away"),
+			transitionMember("away", "outer.H"),
+			transitionMember("outer.H", "outer.first"), // default history transition
 		},
 	}
 }
@@ -140,10 +140,10 @@ func TestDeepHistoryRestoresInnermostSubstate(t *testing.T) {
 					&ast.StateNode{Name: "init"},
 					outer,
 					&ast.StateNode{Name: "away"},
-					transitionMember("init", "inner1"),
-					transitionMember("inner1", "inner2"),
-					transitionMember("inner2", "away"),
-					transitionMember("away", "H"),
+					transitionMember("init", "outer.mid.inner1"),
+					transitionMember("outer.mid.inner1", "outer.mid.inner2"),
+					transitionMember("outer.mid.inner2", "away"),
+					transitionMember("away", "outer.H"),
 				},
 			})
 			if err := exec.initialize(); err != nil {
@@ -171,7 +171,7 @@ func regionHistoryMachine(kind ast.PseudostateKind, nestLeft bool) *ast.Usage {
 	if nestLeft {
 		// A composite region state: its own configuration sits below the region.
 		lwork.Substates = []ast.Node{&ast.StateNode{Name: "ldeep"}}
-		extra = append(extra, transitionMember("lwork", "ldeep"))
+		extra = append(extra, transitionMember("outer.left.lwork", "outer.left.lwork.ldeep"))
 	}
 	rstart := &ast.StateNode{Name: "rstart"}
 	rwork := &ast.StateNode{Name: "rwork"}
@@ -194,10 +194,10 @@ func regionHistoryMachine(kind ast.PseudostateKind, nestLeft bool) *ast.Usage {
 			outer,
 			&ast.StateNode{Name: "away"},
 			transitionMember("init", "outer"),
-			transitionMember("lstart", "lwork"),
-			transitionMember("rstart", "rwork"),
+			transitionMember("outer.left.lstart", "outer.left.lwork"),
+			transitionMember("outer.right.rstart", "outer.right.rwork"),
 			transitionMember("outer", "away"),
-			transitionMember("away", "H"),
+			transitionMember("away", "outer.H"),
 		}, extra...),
 	}
 }
@@ -287,11 +287,11 @@ func TestDeepHistoryRestoresARegionLeftFromInsideItsCompositeState(t *testing.T)
 			outer,
 			&ast.StateNode{Name: "away"},
 			transitionMember("init", "outer"),
-			transitionMember("lstart", "lwork"),
-			transitionMember("rstart", "wrapper"),
-			transitionMember("istart", "ideep"),
-			transitionMember("ideep", "away"),
-			transitionMember("away", "H"),
+			transitionMember("outer.left.lstart", "outer.left.lwork"),
+			transitionMember("outer.right.rstart", "outer.right.wrapper"),
+			transitionMember("outer.right.wrapper.inner.istart", "outer.right.wrapper.inner.ideep"),
+			transitionMember("outer.right.wrapper.inner.ideep", "away"),
+			transitionMember("away", "outer.H"),
 		},
 	})
 	if err := exec.initialize(); err != nil {
@@ -386,8 +386,8 @@ func TestExitingNestedRegionsKeepsSiblingRegions(t *testing.T) {
 			entryStart("init"),
 			&ast.StateNode{Name: "init"},
 			outer,
-			transitionMember("init", "nested"),
-			transitionMember("nested", "leftDone"),
+			transitionMember("init", "outer.left.nested"),
+			transitionMember("outer.left.nested", "outer.left.leftDone"),
 		},
 	})
 	if err := exec.initialize(); err != nil {
@@ -434,13 +434,13 @@ func TestHistoryOverACompletedConfigurationIsADefaultEntry(t *testing.T) {
 							state rdeep;
 						}
 						transition first rstart accept RightWork then rwork;
-						transition first rinner accept RightDeep then rdeep;
+						transition first rwork.rinner accept RightDeep then rwork.rdeep;
 					}
 					deep history h;
 				}
 				state away;
 				transition first outer accept Out then away;
-				transition first away accept Back then h;
+				transition first away accept Back then outer.h;
 			}
 		}`)
 		for _, signal := range []string{"LeftDone", "RightWork", "RightDeep", "Out"} {
@@ -473,8 +473,8 @@ func TestHistoryOverACompletedConfigurationIsADefaultEntry(t *testing.T) {
 				}
 				state away;
 				transition first outer then away;
-				transition first away accept Back then h;
-				transition first b accept Stop then done;
+				transition first away accept Back then outer.h;
+				transition first outer.b accept Stop then done;
 			}
 		}`)
 		exec.SendSignal("Finish", nil)
@@ -506,8 +506,8 @@ func TestHistoryOverACompletedConfigurationIsADefaultEntry(t *testing.T) {
 				}
 				state away;
 				transition first outer then away;
-				transition first away accept Back then h;
-				transition first b accept Stop then done;
+				transition first away accept Back then outer.h;
+				transition first outer.b accept Stop then done;
 			}
 		}`)
 		exec.SendSignal("Finish", nil)

@@ -337,16 +337,16 @@ func TestProbabilityOnPseudostateBranchRefused(t *testing.T) {
 			}
 			fork split;
 			transition first a then split;
-			transition first split then x { @Probability { p = 0.5; } }
-			transition first split then y { @Probability { p = 0.5; } }`, "out of a fork cannot be weighted"},
+			transition first split then work.left.x { @Probability { p = 0.5; } }
+			transition first split then work.right.y { @Probability { p = 0.5; } }`, "out of a fork cannot be weighted"},
 		{"join", `
 			state work parallel {
 				state left { entry; then x; state x; }
 				state right { entry; then y; state y; }
 			}
 			join meet;
-			transition first x then meet;
-			transition first y then meet;
+			transition first work.left.x then meet;
+			transition first work.right.y then meet;
 			transition first meet then b { @Probability { p = 1.0; } }
 			state b;`, "out of a join cannot be weighted"},
 		{"history", `
@@ -356,7 +356,7 @@ func TestProbabilityOnPseudostateBranchRefused(t *testing.T) {
 				entry; then x;
 				history back;
 			}
-			transition first back then b { @Probability { p = 1.0; } }
+			transition first work.back then b { @Probability { p = 1.0; } }
 			state b;`, "out of a shallow history cannot be weighted"},
 	}
 	for _, tc := range cases {

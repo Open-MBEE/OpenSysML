@@ -109,7 +109,7 @@ func TestTransitionOwnerRecordsDeclaringBody(t *testing.T) {
 						state r2;
 					}
 					choice pick;
-					transition first pick then l;
+					transition first pick then left.l;
 				}
 				state done;
 				transition first qualified.inner accept Go then done;

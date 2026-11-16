@@ -633,10 +633,9 @@ func TestPrefixMetadataAfterIndividualIsSilent(t *testing.T) {
 	}
 }
 
-// A typing spelled `typed by` is KerML notation (KerML.xtext:600 TypedBy);
-// SysML.xtext:395 DefinedByKeyword admits `:` and `defined by` only. The
-// warning spans the two keywords and its fix writes the SysML spelling.
-func TestTypedByInSysMLIsKerMLNotation(t *testing.T) {
+// SysML v2 8.2.2.1.2 DEFINED_BY spells a typing `:` or `defined by`; `typed by` is KerML's TYPED_BY.
+// The error spans the two keywords, in either mode, and its fix writes the SysML spelling.
+func TestTypedByInSysMLIsRejected(t *testing.T) {
 	for _, src := range []string{
 		"package P { part def D; part p typed by D; }",
 		"package P { attribute def D; attribute a typed by D; }",
@@ -649,8 +648,21 @@ func TestTypedByInSysMLIsKerMLNotation(t *testing.T) {
 		"package P { attribute def A; action def B { for i typed by A in (1, 2) { } } }",
 		"package P { attribute def A; calc def F { return r = { in x typed by A; x }; } }",
 	} {
-		wantNotation(t, "a.sysml", src, CodeKerMLNotation,
-			"`typed by` is KerML notation: the SysML v2 grammar spells a typing `:` or `defined by`")
+		for _, mode := range []diag.ConformanceMode{diag.ConformanceDefault, diag.ConformanceStrict} {
+			got := notationDiags(t, "a.sysml", src, mode)
+			if len(got) != 1 {
+				t.Fatalf("%s: got %d diagnostics %+v, want 1", src, len(got), got)
+			}
+			if got[0].Severity != diag.SeverityError || got[0].Code != CodeTypingKeyword {
+				t.Errorf("%s: got %v[%s], want error[%s]", src, got[0].Severity, got[0].Code, CodeTypingKeyword)
+			}
+			if got[0].Blocking() {
+				t.Errorf("%s: the typing is read as written, so the finding must not stop analysis", src)
+			}
+			if want := "`typed by` is KerML notation: the SysML v2 grammar spells a typing `:` or `defined by`"; !strings.Contains(got[0].Message, want) {
+				t.Errorf("%s: message = %q, want it to contain %q", src, got[0].Message, want)
+			}
+		}
 	}
 	src := "package P { part def D; part p typed by D; }"
 	root, pd, idx := analyzeInputs(t, "a.sysml", src)

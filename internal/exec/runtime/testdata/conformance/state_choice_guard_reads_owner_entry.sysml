@@ -37,7 +37,7 @@ package Test {
 			transition first hist do { assign log := log + "h(effect);"; } then inner.which;
 		}
 
-		transition first idle accept Go do { assign log := log + "go(effect);"; } then pick;
+		transition first idle accept Go do { assign log := log + "go(effect);"; } then work.pick;
 		transition first work accept Next do { assign log := log + "next(effect);"; } then rest.hist;
 		transition first rest accept Stop then done;
 	}
