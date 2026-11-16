@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -152,6 +153,66 @@ func TestElementFilterMembershipReflected(t *testing.T) {
 	}
 	if owner := fixture.model.ownerOf(condition); owner != p {
 		t.Errorf("filter condition owner = %v, want P", owner)
+	}
+}
+
+func TestElementFilterConditionsKeepDistinctIdentities(t *testing.T) {
+	fixture := reflectiveFixtures(t, "element-filters.sysml", source.KindSysML, `package P {
+    metadata def M;
+    metadata def N;
+    filter @M;
+    filter @N;
+}`)[0]
+	p := relFixtureSymbol(t, fixture, "P")
+	memberships := fixture.model.OwnedMemberships(p)
+	if len(memberships) != 4 {
+		t.Fatalf("P owns %d memberships, want 4", len(memberships))
+	}
+	first, second := memberships[2].Implicit.Member, memberships[3].Implicit.Member
+	if symbols.KeyOf(first) == symbols.KeyOf(second) {
+		t.Errorf("the two filter conditions share the key %v", symbols.KeyOf(first))
+	}
+	if *first.Expr == *second.Expr {
+		t.Errorf("the two filter conditions share the expression record %+v", *first.Expr)
+	}
+}
+
+// unresolvedReflectiveFixture indexes src over the standard library without
+// resolving it, so the reflective layer resolves the names it reads itself.
+func unresolvedReflectiveFixture(t *testing.T, name string, kind source.Kind, src string) reflectiveFixture {
+	t.Helper()
+	idx := stdlibIndex(t)
+	addTestDoc(t, idx, name, src)
+	resolver := resolve.New(idx)
+	model := NewModel(resolver)
+	resolver.SetModel(model)
+	return reflectiveFixture{model: model, root: idx.DocumentRoot(name)}
+}
+
+func TestElementFilterConditionResolvesInItsNamespaceBeforeResolution(t *testing.T) {
+	fixture := unresolvedReflectiveFixture(t, "lazy-filter.sysml", source.KindSysML, `package Outer {
+    attribute x : ScalarValues::Boolean;
+    package P {
+        attribute x : ScalarValues::Boolean;
+        filter x;
+    }
+}`)
+	m := fixture.model
+	outer := sym(t, fixture.root, "Outer")
+	p := sym(t, outer.Scope, "P")
+	inner := sym(t, p.Scope, "x")
+	condition := m.OwnedMemberships(p)[1].Implicit.Member
+	if got := m.expressionScopeOf(condition); got != p.Scope {
+		t.Fatalf("filter condition scope = %v, want P's own scope", got)
+	}
+	var referents []*symbols.Symbol
+	for _, rel := range m.OwnedRelationships(condition) {
+		if relMetaName(m, rel) == "Membership" && rel.Implicit != nil && rel.Implicit.Member != nil {
+			referents = append(referents, rel.Implicit.Member)
+		}
+	}
+	if len(referents) != 1 || referents[0] != inner {
+		t.Errorf("the filter condition refers to %v, want P::x", referents)
 	}
 }
 

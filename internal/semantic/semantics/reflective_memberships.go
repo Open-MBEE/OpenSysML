@@ -184,10 +184,10 @@ func (m *Model) synthesizedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 			}
 		}
 	}
-	for _, filter := range symbols.NamespaceFiltersIn(sym.Scope) {
+	for i, filter := range symbols.NamespaceFiltersIn(sym.Scope) {
 		if filter.Expr != nil {
 			out = append(out, synthesizedMember(sym, filter.Expr, &symbols.ExpressionElement{
-				Owner: sym, Role: symbols.ExpressionFilterCondition,
+				Owner: sym, Role: symbols.ExpressionFilterCondition, Index: i,
 			}))
 		}
 	}

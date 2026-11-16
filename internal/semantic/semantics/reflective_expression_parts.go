@@ -616,6 +616,10 @@ func (m *Model) expressionScopeOf(expr *symbols.Symbol) *symbols.Scope {
 			// A constraint body's closing condition reads its names in the body (ConstraintResultMember).
 			return cur.Expr.Owner.Scope
 		}
+		if cur.Expr.Role == symbols.ExpressionFilterCondition && cur.Expr.Owner != nil {
+			// A `filter` condition reads its names in the namespace stating it (document.go FilterMember).
+			return cur.Expr.Owner.Scope
+		}
 		if cur.Expr.Role == symbols.ExpressionBody {
 			if scope := m.bodyScopeOf(cur); scope != nil {
 				return scope
