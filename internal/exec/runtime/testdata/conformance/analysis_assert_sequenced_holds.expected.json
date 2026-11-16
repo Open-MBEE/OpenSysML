@@ -1,0 +1,13 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::tank",
+  "trace": true,
+  "outputs": {
+    "remaining": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]}
+  },
+  "verdicts": {
+    "filled": "satisfied",
+    "overfull": "satisfied"
+  }
+}

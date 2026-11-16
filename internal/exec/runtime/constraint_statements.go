@@ -168,6 +168,9 @@ func (h *constraintStmtHost) occurrence() *Instance { return nil }
 // materializeOccurrence is nil for the same reason occurrence is.
 func (h *constraintStmtHost) materializeOccurrence() (*Instance, error) { return nil, nil }
 
+// caseAssertions is nil: a constraint body is no step of a case.
+func (h *constraintStmtHost) caseAssertions() *caseAssertions { return nil }
+
 // runConstraintSteps runs the body's steps as one performance in a fresh frame:
 // the check's frames and bindings enclose it, the constraint's parameters are
 // copied into it as the steps write them, and nothing is written back — into

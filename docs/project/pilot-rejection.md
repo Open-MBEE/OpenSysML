@@ -116,9 +116,13 @@ systematically from four sources, one subdirectory each:
    implemented: a payload that invokes a non-behavior (`send-payload-non-behavior`), a state
    subaction or transition effect send with no payload (`send-subaction-no-payload`, which the
    pilot's grammar rejects before its validator would), and a constructed payload whose `new`
-   names a package rather than a type (`send-constructor-non-type`).
+   names a package rather than a type (`send-constructor-non-type`). The five `accepter-source-*` cases are
+   `validateTransitionUsageTriggerActions` (SysML v2.1 8.3.18.9) over sources other than the entry
+   action of `p34`: a do action, a performed action, a calculation, an inherited action reached
+   through a feature chain, and the action a transition written without a source follows; both
+   tools report the constraint's message at the accepter.
 
-What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 349
+What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 354
 cases ourselves**, so the denominator measures our coverage of the rejection surface, not our
 conformance: it is a **sample, not a proof** — a clean bucket here does not mean OpenSysML rejects
 everything the reference rejects, and no official conformance suite exists to make that claim
@@ -166,7 +170,7 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-349 case(s): 339 both reject, 0 only the pilot rejects, 10 only we reject, 0 both accept
+354 case(s): 344 both reject, 0 only the pilot rejects, 10 only we reject, 0 both accept
   of which 5 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
@@ -174,7 +178,7 @@ Under the default `-conformance auto`:
 | --- | --- | --- | --- | --- | --- |
 | extensions | 13 | 13 | 0 | 0 | 0 |
 | grammar | 114 | 114 | 0 | 0 | 0 |
-| semantic | 187 | 177 | 0 | 10 | 0 |
+| semantic | 192 | 182 | 0 | 10 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
 Eight of the ten ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
@@ -295,7 +299,7 @@ when it was first written, six were closed by the validation work itself — `p0
 Read those five as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
 not that the pipeline a user gets by default rejects the notation — by design it does not. And
-because we authored all 349 cases ourselves, a small gap count means we ran out of questions we
+because we authored all 354 cases ourselves, a small gap count means we ran out of questions we
 thought to ask, not that we stopped being permissive: the denominator measures our coverage of the
 rejection surface, not our conformance.
 
@@ -705,7 +709,7 @@ for the gaps, and names where in OpenSysML the rule would have to fire.
 | `validateTransitionFeatureMembershipTriggerAction` | none: `TriggerActionMember` only parses an `AcceptActionUsage` | no violating model | — | — | — |
 | `validateTransitionUsageParameters` | none: `TransitionUsage` always synthesises its `EmptyParameterMember`s | no violating model | — | — | — |
 | `validateTransitionUsageSuccession` | `semantic/s44-transition-target-not-action.sysml` | both-reject | A transition must own a succession to its target. | transition endpoint p is not a state or pseudostate | — |
-| `validateTransitionUsageTriggerActions` | existing: `xpect/p34-accepter-source-not-state.sysml` | both-reject | A transition with an accepter must have a state as its source. | A transition with an accepter must have a state as its source. | — |
+| `validateTransitionUsageTriggerActions` | existing: `xpect/p34-accepter-source-not-state.sysml`, `semantic/accepter-source-*.sysml` | both-reject | A transition with an accepter must have a state as its source. | A transition with an accepter must have a state as its source. | — |
 | `validateUsageIsReferential` | none: adapter post-processing forces `isComposite = false` | no violating model | — | — | — |
 | `validateUsageType` | `semantic/s36-usage-typed-by-feature.sysml` | both-reject | A usage must be typed by definitions. | A usage must be typed by definitions. | — |
 | `validateUsageVariationIsAbstract` | none: adapter post-processing forces `isAbstract = true` | no violating model | — | — | — |

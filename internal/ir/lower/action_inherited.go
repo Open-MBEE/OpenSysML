@@ -2,6 +2,7 @@ package lower
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -158,20 +159,30 @@ func recordInheritedPerform(graph *ActionGraph, replacement, redefined ast.Node,
 	if !ok || !node.Kind.IsAction() || graph == nil {
 		return
 	}
-	target := typingTarget(node)
-	if target == nil {
-		return
+	performed := PerformedType{Target: typingTarget(node), Scope: declaringScope}
+	if performed.Target == nil {
+		if !referenceSubsets(node) {
+			return
+		}
+		performed.Referrer = node
 	}
 	usage, ok := replacement.(*ast.Usage)
-	if !ok || !usage.Kind.IsAction() || typingTarget(usage) != nil {
+	if !ok || !usage.Kind.IsAction() || typingTarget(usage) != nil || referenceSubsets(usage) {
 		return
 	}
 	if graph.Performs == nil {
 		graph.Performs = make(map[ast.Node]PerformedType)
 	}
 	if _, recorded := graph.Performs[replacement]; !recorded {
-		graph.Performs[replacement] = PerformedType{Target: target, Scope: declaringScope}
+		graph.Performs[replacement] = performed
 	}
+}
+
+// referenceSubsets reports whether a usage states a reference subsetting.
+func referenceSubsets(usage *ast.Usage) bool {
+	return slices.ContainsFunc(usage.Relationships, func(rel *ast.Relationship) bool {
+		return rel != nil && rel.Kind.ReferenceSubsets()
+	})
 }
 
 func hasInheritedBody(graph *ActionGraph, body *symbols.Scope) bool {

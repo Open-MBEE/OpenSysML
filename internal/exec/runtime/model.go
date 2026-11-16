@@ -42,6 +42,8 @@ type Model struct {
 	resolver  *resolve.Resolver
 
 	features map[*symbols.Symbol][]EffectiveFeature
+	// bodyFeatures memoizes loopBodyFeatures by the scope of the loop's body.
+	bodyFeatures map[*symbols.Scope][]EffectiveFeature
 	// effectiveTypes memoizes effectiveTypes by feature symbol.
 	effectiveTypes map[*symbols.Symbol][]*symbols.Symbol
 	// declaresChains memoizes, by type, whether it or a member source of it
@@ -174,6 +176,8 @@ type Model struct {
 	// bindingIR memoizes binding connectors declared by each materialized
 	// object type, including bindings inherited from its supertypes.
 	bindingIR map[*symbols.Symbol][]lower.Binding
+	// flowIR memoizes the streaming flows between features each type declares.
+	flowIR map[*symbols.Symbol][]lower.FeatureFlow
 	// hoistingBindings marks the declarations whose connectors' bindings are being
 	// collected, so a connector typed by its own holder's definition ends the descent.
 	hoistingBindings map[*symbols.Symbol]bool
@@ -272,6 +276,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		semantics:           sem,
 		resolver:            resolver,
 		features:            make(map[*symbols.Symbol][]EffectiveFeature),
+		bodyFeatures:        make(map[*symbols.Scope][]EffectiveFeature),
 		declaresChains:      make(map[*symbols.Symbol]bool),
 		chainHosts:          make(map[*symbols.Symbol]bool),
 		denotedFeatures:     make(map[*symbols.Symbol]map[*symbols.Symbol]string),
@@ -305,6 +310,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		toolUnits:           make(map[toolUnitKey]semantics.Unit),
 		objectConns:         make(map[*symbols.Symbol][]lower.Connection),
 		bindingIR:           make(map[*symbols.Symbol][]lower.Binding),
+		flowIR:              make(map[*symbols.Symbol][]lower.FeatureFlow),
 		hoistingBindings:    make(map[*symbols.Symbol]bool),
 		bindingRoots:        make(map[*symbols.Symbol]map[string]bool),
 		bindingFeatures:     make(map[*symbols.Symbol]map[string][]lower.Binding),

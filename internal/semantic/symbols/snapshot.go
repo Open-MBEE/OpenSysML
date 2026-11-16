@@ -485,6 +485,10 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 			for _, route := range claim.routes {
 				e.w.Bool(route.private)
 				e.filters(route.filters)
+				e.w.Len(len(route.via))
+				for _, ns := range route.via {
+					e.w.String(ns)
+				}
 			}
 		}
 	}
@@ -996,6 +1000,12 @@ func (d *sectionReader) readTables() *Index {
 			for r := range claim.routes {
 				claim.routes[r].private = d.r.Bool()
 				claim.routes[r].filters = d.filters()
+				if n := d.r.Len(); n > 0 {
+					claim.routes[r].via = make([]string, n)
+					for v := range claim.routes[r].via {
+						claim.routes[r].via[v] = d.r.String()
+					}
+				}
 			}
 			if len(claims) == cap(claims) {
 				claims = make([]reexportClaim, 0, n)

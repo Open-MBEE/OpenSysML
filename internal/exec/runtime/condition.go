@@ -640,6 +640,10 @@ type conditionCheck struct {
 	// check within a case run, the run's, owned by the case; the zero frame binds nothing.
 	bindings frame
 
+	// occurrence is the performance a check within a behavior run is made of, whose
+	// features (`loops`, `subactions`) its conditions read; nil outside a run.
+	occurrence *Instance
+
 	// frames are the frames a check within a behavior run reads, innermost last:
 	// the performance's own values and those around it. empty outside a run.
 	frames []frame
@@ -719,7 +723,7 @@ func (ctx *Context) judgeConditions(check conditionCheck, conds []Condition) (co
 			}
 			continue
 		}
-		holds, err := ctx.conditionHolds(activation, cond, features, self, check.frames, check.bindings)
+		holds, err := ctx.conditionHolds(activation, cond, features, self, check.occurrence, check.frames, check.bindings)
 		if err != nil {
 			return conditionVerdict{}, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
 		}
@@ -902,7 +906,7 @@ func (ctx *Context) evaluateStepsConditions(activation int64, check conditionChe
 		if err := ctx.circularCondition(check, sub); err != nil {
 			return verdict, false, err
 		}
-		holds, err := ctx.conditionHoldsAt(activation, sub, scoped, self, check.frames, bindings, &stepFrame)
+		holds, err := ctx.conditionHoldsAt(activation, sub, scoped, self, check.occurrence, check.frames, bindings, &stepFrame)
 		if err != nil {
 			return verdict, false, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
 		}
@@ -1479,14 +1483,14 @@ func (ctx *Context) definitionOf(sym *symbols.Symbol) *symbols.Symbol {
 
 // conditionHolds evaluates one condition: an expression, or a group that holds
 // when all of its conditions hold. Its negation, if any, is applied last.
-func (ctx *Context) conditionHolds(activation int64, cond Condition, features map[string]scopedExpr, self *Instance, frames []frame, bindings frame) (bool, error) {
-	return ctx.conditionHoldsAt(activation, cond, features, self, frames, bindings, nil)
+func (ctx *Context) conditionHolds(activation int64, cond Condition, features map[string]scopedExpr, self, occurrence *Instance, frames []frame, bindings frame) (bool, error) {
+	return ctx.conditionHoldsAt(activation, cond, features, self, occurrence, frames, bindings, nil)
 }
 
 // conditionHoldsAt is conditionHolds evaluated in the state stepFrame left when
 // the body's statements ran — innermost of the frames read. A condition stating
 // steps runs them first, replacing stepFrame for the group that follows them.
-func (ctx *Context) conditionHoldsAt(activation int64, cond Condition, features map[string]scopedExpr, self *Instance, frames []frame, bindings frame, stepFrame *frame) (bool, error) {
+func (ctx *Context) conditionHoldsAt(activation int64, cond Condition, features map[string]scopedExpr, self, occurrence *Instance, frames []frame, bindings frame, stepFrame *frame) (bool, error) {
 	if stepFrame != nil && (len(cond.Constraints) > 0 || cond.Steps != nil) {
 		// A nested body is its own performance: the outer body's step frame
 		// encloses it read-only, shadowed by its bindings and its own steps.
@@ -1509,12 +1513,12 @@ func (ctx *Context) conditionHoldsAt(activation int64, cond Condition, features 
 	holds := true
 	if cond.Subrequirement != nil {
 		var err error
-		if holds, err = ctx.subrequirementHoldsAt(activation, cond, features, self, frames, bindings, stepFrame); err != nil {
+		if holds, err = ctx.subrequirementHoldsAt(activation, cond, features, self, occurrence, frames, bindings, stepFrame); err != nil {
 			return false, err
 		}
 	} else if cond.Group != nil {
 		for _, sub := range cond.Group {
-			subHolds, err := ctx.conditionHoldsAt(activation, sub, features, self, frames, bindings, stepFrame)
+			subHolds, err := ctx.conditionHoldsAt(activation, sub, features, self, occurrence, frames, bindings, stepFrame)
 			if err != nil {
 				return false, err
 			}
@@ -1524,6 +1528,7 @@ func (ctx *Context) conditionHoldsAt(activation int64, cond Condition, features 
 		ec := NewEvalContextIn(ctx, cond.Scope, self)
 		ec.activation = activation
 		ec.features = features
+		ec.occurrence = occurrence
 		for _, f := range frames {
 			ec.pushFrame(f)
 		}
@@ -1554,13 +1559,13 @@ func (ctx *Context) conditionHoldsAt(activation int64, cond Condition, features 
 
 // subrequirementHoldsAt is a subrequirement's RequirementCheck::result within its container's
 // check: `allTrue(assumptions()) implies allTrue(constraints())` over its group, true over no required one.
-func (ctx *Context) subrequirementHoldsAt(activation int64, cond Condition, features map[string]scopedExpr, self *Instance, frames []frame, bindings frame, stepFrame *frame) (bool, error) {
+func (ctx *Context) subrequirementHoldsAt(activation int64, cond Condition, features map[string]scopedExpr, self, occurrence *Instance, frames []frame, bindings frame, stepFrame *frame) (bool, error) {
 	for _, required := range []bool{false, true} {
 		for _, sub := range cond.Group {
 			if sub.Required != required {
 				continue
 			}
-			holds, err := ctx.conditionHoldsAt(activation, sub, features, self, frames, bindings, stepFrame)
+			holds, err := ctx.conditionHoldsAt(activation, sub, features, self, occurrence, frames, bindings, stepFrame)
 			if err != nil {
 				return false, err
 			}
