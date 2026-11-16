@@ -17,11 +17,12 @@
             (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
               (ConnectorEnd target="start"
                 (*ast.QualifiedName))
-              (ConnectorEnd target="first"
-                (*ast.QualifiedName))))
-          (TransitionMember source="first" target="second"
+              (ConnectorEnd target="*ast.FeatureChainExpr"
+                (FeatureChainExpr member="first"
+                  (FeatureReference name="outer")))))
+          (TransitionMember source="outer.first" target="outer.second"
             (FeatureReference name="Next"))
-          (TransitionMember source="second" target="away"
+          (TransitionMember source="outer.second" target="away"
             (FeatureReference name="Leave"))
-          (TransitionMember source="away" target="resume"
+          (TransitionMember source="away" target="outer.resume"
             (FeatureReference name="Back")))))))

@@ -750,6 +750,12 @@ end
                 typed_symbol = get_symbol(simple, "Test::SimplePart")
                 @test typed_symbol isa SymbolInfo
                 @test typed_symbol.id == "Test::SimplePart"
+                collision = parse_source(conn, "package Col__V__c_pend0 { part marker; } package Col { port def P; part def V { port q : P; port r : P; connection c connect q to r; } }"; name="collision.sysml")
+                @test get_symbol(collision, "Col__V__c_pend0"; lookup=:qualified_name).kind == "package"
+                by_id = get_symbol(collision, "Col__V__c_pend0"; lookup=:element_id)
+                @test by_id.kind == "connectorEnd"
+                @test by_id.id == "Col__V__c_pend0"
+                @test_throws ArgumentError get_symbol(collision, "Col"; lookup=:name)
                 instance = instantiate(simple, "Test::SimplePart")
                 @test instance.type_symbol_id == "Test::SimplePart"
                 @test instance.graph[instance.id] === instance

@@ -350,11 +350,11 @@ func annotatable(sym *symbols.Symbol) bool {
 
 // qualifiedName reports whether sym and every owner up to its document declare a name.
 func qualifiedName(sym *symbols.Symbol) bool {
-	if sym.Name == "" {
+	if !sym.Named() {
 		return false
 	}
 	for scope := sym.OwnerScope; scope != nil && scope.Owner() != nil; scope = scope.Owner().OwnerScope {
-		if scope.Owner().Name == "" {
+		if !scope.Owner().Named() {
 			return false
 		}
 	}

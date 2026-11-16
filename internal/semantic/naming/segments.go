@@ -8,31 +8,19 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// Segment is the identity segment of a declared name: quoted when it would
-// otherwise read as an unnamed member's `@N` address or as several segments.
+// Segment is the identity segment of a declared name (identity.Segment).
 func Segment(name string) string {
-	if strings.HasPrefix(name, "@") || strings.Contains(name, "::") || strings.HasPrefix(name, "'") {
-		return QuotedSegment(name)
-	}
-	return name
+	return identity.Segment(name)
 }
 
-// QuotedSegment is a declared name as a quoted identity segment, its quote and
-// backslash escaped, which Unquote reads back.
+// QuotedSegment is a declared name as a quoted identity segment
+// (identity.QuotedSegment), which Unquote reads back.
 func QuotedSegment(name string) string {
-	var segment strings.Builder
-	segment.Grow(len(name) + 2)
-	segment.WriteByte('\'')
-	for i := 0; i < len(name); i++ {
-		if name[i] == '\\' || name[i] == '\'' {
-			segment.WriteByte('\\')
-		}
-		segment.WriteByte(name[i])
-	}
-	segment.WriteByte('\'')
-	return segment.String()
+	return identity.QuotedSegment(name)
 }
 
 // Unquote is the declared name an identity segment stands for: Segment's quoting
@@ -129,16 +117,71 @@ func IsPositionalIdentity(name string) bool {
 	return false
 }
 
-// Qualify builds the qualified name of a member; an unnamed declaration is
-// addressed by its position in its owner, which keeps every element identifiable.
-func Qualify(owner, name string, index int) string {
-	if name == "" {
-		name = fmt.Sprintf("@%d", index)
-	} else {
-		name = Segment(name)
+// Qualify builds the qualified name of a member under the name it has, which the
+// empty unrestricted name is too; one without a name is addressed as Positional.
+func Qualify(owner string, name Name, index int) string {
+	if !name.Named {
+		return Positional(owner, index)
 	}
+	return join(owner, Segment(name.Text))
+}
+
+// Positional addresses an unnamed declaration by its position in its owner,
+// which keeps every element identifiable.
+func Positional(owner string, index int) string {
+	return join(owner, fmt.Sprintf("@%d", index))
+}
+
+func join(owner, segment string) string {
 	if owner == "" {
-		return name
+		return segment
 	}
-	return owner + "::" + name
+	return owner + "::" + segment
+}
+
+// Name is a name a declaration may have: Text is the empty unrestricted name when it is
+// empty and Named, and no name at all when not Named (KerML §8.2.2.3).
+type Name struct {
+	Text  string
+	Named bool
+}
+
+// NameOf is the name text states: none when it is empty.
+func NameOf(text string) Name { return Name{Text: text, Named: text != ""} }
+
+// identName is the name an identification declares.
+func identName(id ast.Identification) Name {
+	return Name{Text: id.Name, Named: id.HasName()}
+}
+
+// spannedName is a name stated beside the span it was written at.
+func spannedName(text string, span source.Span) Name {
+	return Name{Text: text, Named: text != "" || span.Len > 0}
+}
+
+// Declared spells a qualified name the index records as an identity: a declared name reading
+// as an `@N` address quoted (Segment), so it stays apart from the unnamed member at that position.
+func Declared(fqn string) string {
+	if !strings.Contains(fqn, "@") {
+		return fqn
+	}
+	segments := strings.Split(fqn, "::")
+	for i, segment := range segments {
+		if PositionalSegment(segment) {
+			segments[i] = Segment(segment)
+		}
+	}
+	return strings.Join(segments, "::")
+}
+
+// Recorded is the spelling the index records for an identity: Segment's quoting removed.
+func Recorded(identity string) string {
+	if !strings.Contains(identity, "'") {
+		return identity
+	}
+	segments := Segments(identity)
+	for i, segment := range segments {
+		segments[i] = Unquote(segment)
+	}
+	return strings.Join(segments, "::")
 }

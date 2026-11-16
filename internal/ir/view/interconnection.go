@@ -894,7 +894,7 @@ func (r *Renderer) connectorLabel(connector *symbols.Symbol) string {
 // connectorName is what names a connector in a drawing: its own given name,
 // else its declared type; "" for one with neither, which its kind stands for.
 func (r *Renderer) connectorName(connector *symbols.Symbol) string {
-	if connector.Name != "" && !connector.EffectiveName() && !r.model.NameSynthesized(connector) {
+	if connector.Named() && !connector.EffectiveName() && !r.model.NameSynthesized(connector) {
 		return localName(connector)
 	}
 	return declType(connector)

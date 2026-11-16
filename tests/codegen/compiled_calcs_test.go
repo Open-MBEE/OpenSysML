@@ -159,7 +159,7 @@ var compiledCases = []compiledCase{
 	{"Seq::ChurnFor", []string{"0"}}, {"Seq::ChurnFor", []string{"9"}},
 	{"Seq::ChurnNest", []string{"0"}}, {"Seq::ChurnNest", []string{"5"}},
 	{"Seq::UntilSeq", []string{"1"}}, {"Seq::UntilSeq", []string{"50"}}, {"Seq::UntilSeq", []string{"1000"}},
-	{"Seq::ForB", []string{"4"}}, {"Seq::ForB", []string{"0"}},
+	{"Seq::ForB", []string{"4"}}, {"Seq::ForB", []string{"0"}}, {"Seq::ForEmpty", []string{"4"}},
 	{"Seq::RS", []string{"(1,2,3)"}}, {"Seq::RS", []string{"null"}}, {"Seq::RS", []string{"4"}},
 	{"Seq::MaxS", []string{"(1.5,2.5)"}}, {"Seq::MaxS", []string{"null"}},
 	{"Seq::UniqI", []string{"(2,3)"}}, {"Seq::UniqI", []string{"(2,2)"}}, {"Seq::UniqI", []string{"(1,2)"}}, {"Seq::UniqI", []string{"null"}},

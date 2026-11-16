@@ -1463,8 +1463,8 @@ func TestStructureNamesDeclaredElements(t *testing.T) {
 	}`)
 	pkg := testSymbol(t, root, "P")
 	named := testSymbol(t, pkg.Scope, "named")
-	if got, _, ok := structureDeclaredNames(ElementOf(named)); !ok || got != "named" {
-		t.Fatalf("declared names = %q, _, %t; want named", got, ok)
+	if got, ok := structureDeclaredNames(ElementOf(named)); !ok || !got.hasName || got.name != "named" {
+		t.Fatalf("declared names = %+v, %t; want named", got, ok)
 	}
 	element := ElementOf(named)
 	evaluator.options.Structure = testStructure{

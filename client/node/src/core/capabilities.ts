@@ -15,6 +15,8 @@ export const CAPABILITY_SYMBOL_MEMBERS = "symbol_members";
 export const CAPABILITY_SYMBOL_NAME_RESOLUTION = "symbol_name_resolution";
 /** Populated `SymbolInfo.annotating_metadata_ids`: the metadata usages annotating a symbol. */
 export const CAPABILITY_SYMBOL_ANNOTATING_METADATA = "symbol_annotating_metadata";
+/** The `lookup` of `GetSymbolRequest` and `GetElementPropertiesRequest` honoured: a name read only as a name, an id only as an id. */
+export const CAPABILITY_SYMBOL_LOOKUP_KIND = "symbol_lookup_kind";
 /** The `GetElementProperties` RPC: an element's metamodel properties by their specification names. */
 export const CAPABILITY_ELEMENT_PROPERTIES = "element_properties";
 /** `RunDocumentQueryRequest.inline_query`: a query expression run in place of a named query. */

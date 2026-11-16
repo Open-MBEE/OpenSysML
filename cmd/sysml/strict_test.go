@@ -165,3 +165,25 @@ func TestKeywordAsNameReportsOnceInEitherMode(t *testing.T) {
 		rejectReport(t, got, "warning[")
 	}
 }
+
+// `typed by` is not a SysML spelling of a typing, so it is an error with or without -strict;
+// the typing is read as written, so only -strict fails the run.
+func TestTypedByInSysMLIsAnErrorInEitherMode(t *testing.T) {
+	binary := buildCLI(t)
+	const typedBy = "package P {\n    part def D;\n    part p typed by D;\n}\n"
+
+	for _, tc := range []struct {
+		status int
+		args   []string
+	}{
+		{0, []string{"-validate"}},
+		{2, []string{"-validate", "-strict"}},
+	} {
+		got := check(t, binary, typedBy, tc.args...)
+		wantReport(t, got, tc.status, "3:12: error[typing-keyword]: `typed by` is KerML notation")
+		rejectReport(t, got, "warning[", ": no errors")
+	}
+	got := check(t, binary, "package P {\n    part def D;\n    part p defined by D;\n    part q : D;\n}\n", "-validate")
+	wantReport(t, got, 0, "no errors")
+	rejectReport(t, got, "error[")
+}

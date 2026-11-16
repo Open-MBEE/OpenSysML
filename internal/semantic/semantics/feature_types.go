@@ -48,7 +48,7 @@ func (m *Model) FeatureTypeInputsComplete(sym *symbols.Symbol) bool {
 		}
 		for _, relationship := range RelationshipsOf(candidate) {
 			if relationship == nil || relationship.Kind == ast.RelTyping ||
-				!GeneralizationKind(relationship.Kind) {
+				!Generalizes(candidate, relationship.Kind) {
 				continue
 			}
 			target := m.RelationshipTarget(candidate, relationship)

@@ -610,6 +610,7 @@ func (ctx *Context) startCalcUsage(shape *loadedCalc, key calcUsageKey, reader *
 		enclosing = shape.bodyEnclosing(start.nested.enclosingRun(shape))
 	}
 	start.engine = newStmtEngineIn(ctx, start.host, start.env, enclosing)
+	start.engine.exprs = &shape.Exprs
 	start.host.attachPerformances(start.engine)
 	return start, nil
 }

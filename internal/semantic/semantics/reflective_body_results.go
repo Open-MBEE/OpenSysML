@@ -28,8 +28,9 @@ func (m *Model) resultExpressionMembers(sym *symbols.Symbol) []*symbols.Symbol {
 			continue
 		}
 		if condition, ok := member.(*ast.ConstraintMember); ok {
-			if condition.Expression == nil || scopeDeclaresNode(sym.Scope, member) {
-				// A declared constraint member is a member of its own.
+			if condition.Expression == nil || scopeDeclaresNode(sym.Scope, member) || condition == ConstraintResultCondition(sym) {
+				// A declared constraint member is a member of its own; the closing bare
+				// condition is the constraint's result (ConstraintResultMember).
 				continue
 			}
 			member = condition.Expression

@@ -171,7 +171,7 @@ func (cc *constraintChecker) checkSpecializationCycle(sym *symbols.Symbol) {
 		span = selfSpan
 	} else {
 		for _, rel := range semantics.RelationshipsOf(sym) {
-			if rel == nil || rel.Target == nil || !semantics.GeneralizationKind(rel.Kind) {
+			if rel == nil || rel.Target == nil || !semantics.Generalizes(sym, rel.Kind) {
 				continue
 			}
 			span = rel.Target.Span()

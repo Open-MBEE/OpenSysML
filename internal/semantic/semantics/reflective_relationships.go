@@ -104,12 +104,6 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 	}
 	// A connector end reference-subsets the feature it attaches to whether or
 	// not a clause of its own says so (SysML v2 8.2.2.13.1).
-	if prefix, ok := owner.Decl.(*ast.PrefixMetadata); ok && prefix.Type != nil {
-		// `@T { … }` types the metadata usage by T (SysML.xtext MetadataUsage), a
-		// FeatureTyping the conversion writes as the head's (metadataUsage).
-		out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelTyping, false, impliedRelationship(ast.RelTyping, prefix.Type)))
-		ordinal++
-	}
 	if end, ok := owner.Decl.(*ast.ConnectorEnd); ok {
 		if target := ImpliedEndReference(end); target != nil {
 			out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelReferences, false, connectorEndAttachment(target)))
@@ -276,9 +270,6 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		}
 		return "FeatureTyping"
 	case ast.RelSubsets:
-		if isReferenceSubsetting(rel) {
-			return "ReferenceSubsetting"
-		}
 		return "Subsetting"
 	case ast.RelRedefines:
 		return "Redefinition"
@@ -867,31 +858,4 @@ func (m *Model) typeArgumentType(sym *symbols.Symbol) *symbols.Symbol {
 		return nil
 	}
 	return m.referencedSymbol(expr, name)
-}
-
-// isReferenceSubsetting reports whether rel is its owner's OwnedReferenceSubsetting — the
-// `satisfy r;` / `verify r;` form (SysML.xtext) — by the written clause or, for a record, its facts.
-func isReferenceSubsetting(rel *symbols.ImplicitRelationship) bool {
-	if rel.Owner == nil {
-		return false
-	}
-	if !rel.Owner.Recorded() {
-		return ast.IsReferenceSubsetting(rel.Owner.Decl, rel.Node)
-	}
-	facts := rel.Owner.Facts
-	if rel.Ordinal < 0 || rel.Ordinal >= len(facts.Relationships) {
-		return false
-	}
-	if facts.Relationships[rel.Ordinal].Kind.ReferenceSubsets() {
-		return true
-	}
-	// As ast.Usage.ReferenceSubsetting: a satisfy's first subsetting, unless it declares its requirement.
-	kind, isUsage := rel.Owner.UsageKind()
-	satisfies := isUsage && kind == ast.UsageSatisfy && facts.Modifiers&symbols.ModDeclaresRequirement == 0
-	for ordinal, rf := range facts.Relationships {
-		if rf.Kind.ReferenceSubsets() || (rf.Kind == ast.RelSubsets && satisfies) {
-			return ordinal == rel.Ordinal
-		}
-	}
-	return false
 }

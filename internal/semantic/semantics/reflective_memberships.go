@@ -206,6 +206,19 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return true
 	})
 	out = mergeMemberships(out, statementMemberships)
+	if result := m.ConstraintResultMember(sym); result != nil {
+		// A constraint body's closing bare condition is its result, owned last through a
+		// ResultExpressionMembership (SysML.xtext ConstraintBody), as the conversion writes it.
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   result.DeclSpan,
+			Visibility: sym.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: len(out), Form: symbols.ImplicitMembership, Member: result,
+			},
+		})
+	}
 	if len(parts) > 0 {
 		out = m.withTransitionMemberships(sym, out, parts)
 	}

@@ -6,7 +6,7 @@
     "elements": {
       "matched": 3346,
       "oursOnly": 329,
-      "pilotOnly": 1440,
+      "pilotOnly": 1436,
       "pilotOnlyImplied": 0,
       "typeMismatch": 0
     },
@@ -5062,6 +5062,7 @@
     "RequirementUsage.portionKind": [0,0,0,0,10,0,0],
     "RequirementUsage.predicate": [0,0,10,0,0,0,0],
     "RequirementUsage.qualifiedName": [10,0,0,0,0,0,0],
+    "RequirementUsage.references": [0,0,0,1,0,0,0],
     "RequirementUsage.reqId": [0,0,5,0,5,0,0],
     "RequirementUsage.requiredConstraint": [1,0,0,0,9,0,0],
     "RequirementUsage.requirementDefinition": [5,0,5,0,0,0,0],
@@ -5069,7 +5070,6 @@
     "RequirementUsage.shortName": [5,0,1,0,0,0,0],
     "RequirementUsage.stakeholderParameter": [0,0,0,0,10,0,0],
     "RequirementUsage.subjectParameter": [2,0,8,0,0,0,0],
-    "RequirementUsage.subsets": [0,0,0,1,0,0,0],
     "RequirementUsage.text": [4,0,0,0,6,0,0],
     "RequirementUsage.textualRepresentation": [0,0,0,0,10,0,0],
     "RequirementUsage.type": [5,0,5,0,0,0,0],

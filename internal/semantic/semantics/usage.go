@@ -482,6 +482,9 @@ func usageIsComposite(usage *ast.Usage) bool {
 	if usage.Kind == ast.UsageBinding || usage.Kind == ast.UsageSuccession {
 		return false
 	}
+	if usage.Kind.ReferenceSubsettingSpecializes() {
+		return true
+	}
 	// A usage referring to what it names (`perform a`, `exhibit s`, `include u`, `render r`) is a
 	// reference; an asserted constraint (`assert c`) subsets c by reference and stays composite.
 	for _, rel := range usage.Relationships {

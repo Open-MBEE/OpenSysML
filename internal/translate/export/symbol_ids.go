@@ -320,7 +320,7 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 		// api-json structure derives as a Redefinition minted off the feature.
 		if rel.Kind == ast.RelRedefines && semantics.IsFlowFeature(rel.Owner) {
 			owner, ok := s.of(rel.Owner)
-			return owner + relationshipSuffix(ast.RelRedefines, false, false, 1, 0), ok
+			return owner + relationshipSuffix(ast.RelRedefines, false, 1, 0), ok
 		}
 		if rel.Node.Span().Len == 0 && rel.Node.Target != nil {
 			return s.ids.RelationshipOf(doc, rel.Node.Target)
@@ -334,12 +334,12 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 	case symbols.ImplicitTypeArgumentTyping:
 		// A type argument's typing is minted off its parameter, as the conversion writes it (typeArgument).
 		owner, ok := s.of(rel.Owner)
-		return owner + relationshipSuffix(ast.RelTyping, false, false, 1, 0), ok
+		return owner + relationshipSuffix(ast.RelTyping, false, 1, 0), ok
 	case symbols.ImplicitMetadataBodyRedefinition, symbols.ImplicitParameterRedefinition:
 		// The Redefinition a metadata body feature's name or a constructor's named
 		// argument implies is minted off the feature, as the conversion writes it.
 		owner, ok := s.of(rel.Owner)
-		return owner + relationshipSuffix(ast.RelRedefines, false, false, 1, 0), ok
+		return owner + relationshipSuffix(ast.RelRedefines, false, 1, 0), ok
 	case symbols.ImplicitImport:
 		if semantics.IsFilterPackage(rel.Owner) {
 			base, ok := s.of(rel.Owner)
@@ -558,5 +558,5 @@ func (s *SymbolIDs) bodyParameterRelationshipID(rel *symbols.ImplicitRelationshi
 		}
 		ordinal++
 	}
-	return element + relationshipSuffix(rel.Kind, false, rel.Kind.ReferenceSubsets(), count, index), true
+	return element + relationshipSuffix(rel.Kind, false, count, index), true
 }

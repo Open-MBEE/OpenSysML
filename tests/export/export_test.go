@@ -572,6 +572,8 @@ func TestFixturesComeBackFromTheGraphAlone(t *testing.T) {
 		"nested_namespace_import.sysml",
 		"quoted_succession_ends.sysml",
 		"individual_definitions.sysml",
+		"empty_names.sysml",
+		"empty_names_behavior.sysml",
 	}
 	for _, fixture := range fixtures {
 		path := filepath.Join("testdata", "convert", fixture)
@@ -3280,7 +3282,11 @@ func TestFixtureElementIDsRoundTrip(t *testing.T) {
 			if materializedSuffixID.MatchString(strings.TrimPrefix(subject.Value, rdf.Element)) {
 				continue
 			}
-			qname, ok := graph.Lexical(subject, rdf.SysML+"qualifiedName")
+			// The address is stated beside a qualified name that spells it differently.
+			qname, ok := graph.Lexical(subject, rdf.OpenSysML+"mappingQualifiedName")
+			if !ok {
+				qname, ok = graph.Lexical(subject, rdf.SysML+"qualifiedName")
+			}
 			if !ok {
 				qname, ok = graph.Lexical(subject, rdf.OpenSysML+"positionalName")
 			}

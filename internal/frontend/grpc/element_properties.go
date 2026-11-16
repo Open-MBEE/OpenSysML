@@ -43,21 +43,41 @@ func (s *Service) GetElementProperties(ctx context.Context, req *pb.GetElementPr
 	if reader.refusal != nil {
 		return &pb.GetElementPropertiesResponse{Error: reader.refusal.Error()}, nil
 	}
-	sym, ok := reader.lookup(req.ElementId)
+	sym, ok := s.lookupElement(reader, req)
 	if ok && !cached.Index.Library(sym) {
 		return reader.read(sym, req.Properties), nil
 	}
 	id := req.ElementId
-	if ok && sym.Name != "" {
+	if ok && sym.Named() {
 		id = cached.Index.GetFQN(sym)
 	}
-	return libraryElementProperties(id, req.Properties)
+	return libraryElementProperties(id, req.Properties, s.looksUpByName(req))
+}
+
+// lookupElement finds the symbol a request names, as the lookup kind it states; without
+// a kind, element_id is read as an id first, then as a name.
+func (s *Service) lookupElement(r *elementReader, req *pb.GetElementPropertiesRequest) (*symbols.Symbol, bool) {
+	if s.capabilities.has(CapabilitySymbolLookupKind) {
+		switch req.Lookup {
+		case pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME:
+			sym, ok, _ := r.lookupNamed(req.ElementId, r.model.ResolveQualifiedMemberName)
+			return sym, ok
+		case pb.LookupKind_LOOKUP_KIND_ELEMENT_ID:
+			return r.lookupID(req.ElementId)
+		}
+	}
+	return r.lookup(req.ElementId)
+}
+
+// looksUpByName reports whether the request reads its element by qualified name alone.
+func (s *Service) looksUpByName(req *pb.GetElementPropertiesRequest) bool {
+	return s.capabilities.has(CapabilitySymbolLookupKind) && req.Lookup == pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME
 }
 
 // libraryElementProperties answers a standard-library element from the API
 // element form of its own library document.
-func libraryElementProperties(id string, properties []string) (*pb.GetElementPropertiesResponse, error) {
-	element, form, known, err := export.LibraryElementForm(id)
+func libraryElementProperties(id string, properties []string, byName bool) (*pb.GetElementPropertiesResponse, error) {
+	element, form, known, err := libraryElementForm(id, byName)
 	if err != nil {
 		return &pb.GetElementPropertiesResponse{Error: err.Error()}, nil
 	}
@@ -75,6 +95,15 @@ func libraryElementProperties(id string, properties []string) (*pb.GetElementPro
 		resp.Properties = append(resp.Properties, libraryElementPropertyOf(form, element, name))
 	}
 	return resp, nil
+}
+
+// libraryElementForm reads a standard-library element by qualified name alone (byName),
+// else by the form's id or the name GetSymbol reports it under.
+func libraryElementForm(id string, byName bool) (export.APIJSONElement, *export.ElementForm, bool, error) {
+	if byName {
+		return export.LibraryElementFormNamed(id)
+	}
+	return export.LibraryElementForm(id)
 }
 
 // elementReader evaluates the metamodel over a model's symbols. The semantic
@@ -177,19 +206,44 @@ func (r *elementReader) lookup(id string) (*symbols.Symbol, bool) {
 	if sym, ok := r.ids.Symbol(id); ok {
 		return sym, true
 	}
-	if syms := r.model.ResolveMemberName(id); len(syms) > 0 {
-		return syms[0], true
-	}
-	if len(symbolfacts.LookupNamed(r.model.Index, id)) > 0 {
-		// Declared, and not visible from the root namespace.
-		return nil, false
-	}
-	if syms := r.model.LookupNamedMember(id); len(syms) > 0 {
-		return syms[0], true
+	if sym, ok, named := r.lookupNamed(id, r.model.ResolveMemberName); named {
+		return sym, ok
 	}
 	if syms := r.model.LookupSymbol(id); len(syms) > 0 {
 		return syms[0], true
 	}
+	return r.lookupPath(id)
+}
+
+// lookupNamed finds the element a name states: resolved from the root by resolve, else as a member
+// chain names it; named reports the name settled it (declared but not visible from the root: nothing).
+func (r *elementReader) lookupNamed(name string, resolve func(string) []*symbols.Symbol) (sym *symbols.Symbol, ok, named bool) {
+	if syms := resolve(name); len(syms) > 0 {
+		return syms[0], true, true
+	}
+	if len(symbolfacts.LookupNamed(r.model.Index, name)) > 0 {
+		return nil, false, true
+	}
+	if syms := r.model.LookupNamedMember(name); len(syms) > 0 {
+		return syms[0], true, true
+	}
+	return nil, false, false
+}
+
+// lookupID finds the element an id names: the id the API element form writes, else the id
+// GetSymbol reports the element under, else a path address.
+func (r *elementReader) lookupID(id string) (*symbols.Symbol, bool) {
+	if sym, ok := r.ids.Symbol(id); ok {
+		return sym, true
+	}
+	if syms := r.model.LookupElementID(id); len(syms) > 0 {
+		return syms[0], true
+	}
+	return r.lookupPath(id)
+}
+
+// lookupPath resolves a path address (pathSymbol) under r.mu.
+func (r *elementReader) lookupPath(id string) (*symbols.Symbol, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.pathSymbol(id, 0)

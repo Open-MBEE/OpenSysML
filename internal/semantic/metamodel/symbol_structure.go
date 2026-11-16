@@ -144,7 +144,7 @@ func (s *SymbolStructure) place(sym *symbols.Symbol) symbolElement {
 	case isSubjectDeclaration(sym):
 		row.class, row.known = "ReferenceUsage", true
 	default:
-		if meta := s.model.MetaclassOf(sym); meta != nil && meta.Name != "" {
+		if meta := s.model.MetaclassOf(sym); meta != nil && meta.Named() {
 			row.class, row.known = meta.Name, true
 		}
 	}
@@ -628,7 +628,7 @@ func (s *SymbolStructure) elementIdentityLocked(element Element) (string, bool) 
 			return id, true
 		}
 	}
-	if row.sym.Implicit != nil || row.sym.Expr != nil || row.sym.Name == "" {
+	if row.sym.Implicit != nil || row.sym.Expr != nil || !row.sym.Named() {
 		return "", false
 	}
 	info, ok := identity.Of(s.model, s.res, row.sym)

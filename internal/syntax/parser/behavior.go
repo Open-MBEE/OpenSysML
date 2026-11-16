@@ -272,7 +272,7 @@ func (p *Parser) parseNodeDeclaration() (string, source.Span) {
 		return "", source.Span{}
 	}
 	id := p.parseIdentification()
-	if id.Name != "" {
+	if id.HasName() {
 		return id.Name, id.NameSpan
 	}
 	return id.ShortName, id.ShortNameSpan
@@ -1004,9 +1004,9 @@ func (p *Parser) parseSuccessionEdgeWithMultiplicity(tok lexer.Token, allowBody 
 		targetMultiplicity = p.parseMultiplicity()
 	}
 
-	// Otherwise, parse as named edge: then [source] target;
-	// If only one name before semicolon, it's the target (source implicit)
-	first := p.parseQualifiedNameRelaxed() // allow keywords like 'fork', 'join'
+	// Otherwise a named edge, `then [source] target;`: a lone name is the target.
+	// Each end is a ConnectorEnd (SysML.xtext), so a feature chain is read too.
+	first := p.parseChainedName() // allow keywords like 'fork', 'join'
 
 	// Check if there's a second name (explicit source + target)
 	var source, target *ast.QualifiedName
@@ -1385,7 +1385,7 @@ func (p *Parser) parseForAction(tok lexer.Token) ast.Node {
 	// The loop variable is a usage declaration (SysML.xtext ForVariableDeclaration), so
 	// a keyword may name it — `in` excepted, since it ends the declaration.
 	variable := p.parseIdentificationStopping("in")
-	if variable.Name == "" && variable.ShortName == "" {
+	if !variable.Declared() {
 		p.error(p.peek().Span, "expected variable name after 'for'")
 		en := &ast.ErrorNode{Message: "expected variable name"}
 		en.NodeSpan = p.spanFrom(start)
@@ -3248,9 +3248,10 @@ func (p *Parser) parsePseudostate(start int, keyword string, kind ast.Pseudostat
 	p.expectSemicolon(keyword + " name")
 
 	ps := &ast.PseudostateNode{
-		Kind:    kind,
-		Name:    seg.Text,
-		Keyword: keyword,
+		Kind:     kind,
+		Name:     seg.Text,
+		NameSpan: seg.Span,
+		Keyword:  keyword,
 	}
 	ps.NodeSpan = source.Span{Offset: start, Len: p.lastEnd() - start}
 	return ps

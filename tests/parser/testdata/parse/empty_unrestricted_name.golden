@@ -1,0 +1,49 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="EmptyName" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Pt"
+          (Membership visibility="default"
+            (Usage kind="part" name="x" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Holder"
+          (Membership visibility="default"
+            (Usage kind="part" name="<''> shortOnly" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Pt
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Both"
+          (Membership visibility="default"
+            (Usage kind="part" name="<''> ''" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))))
+      (Membership visibility="default"
+        (Usage kind="part" name="''" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Pt
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="part" name="   " ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Pt
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="part" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Pt
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="part" name="r" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="subsets" target=''
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="part" name="s" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="subsets" target=(expr)
+            (FeatureChainExpr member="x"
+              (FeatureReference name="EmptyName::''")))))
+      (Membership visibility="default"
+        (Package name="q q" library=false standard=false
+          (Membership visibility="default"
+            (Package name="''" library=false standard=false
+              (Membership visibility="default"
+                (Definition kind="part" abstract=false variation=false name="Q"))))))
+      (Membership visibility="default"
+        (Usage kind="part" name="u" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=q q::''::Q
+            (*ast.QualifiedName))))
+      (Alias visibility="default" name="Al" for="q q::''"))))
