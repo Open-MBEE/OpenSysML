@@ -38,7 +38,7 @@ func ToFeatureFlows(decl ast.Node, scope *symbols.Scope) []FeatureFlow {
 // flowEndPaths returns the paths of the source output and target input features of flow:
 // its `from` and `to` ends, else what the two ends of its body state (bodyEndPath).
 func flowEndPaths(flow *ast.Usage) (source, target []string) {
-	if flow.FlowEnds != nil {
+	if flow.FlowEnds != nil && (flow.FlowEnds.From != nil || flow.FlowEnds.To != nil) {
 		return endSegments(ast.EndTarget(flow.FlowEnds.From)), endSegments(ast.EndTarget(flow.FlowEnds.To))
 	}
 	var ends []*ast.Usage

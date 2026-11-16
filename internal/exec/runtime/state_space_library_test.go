@@ -459,6 +459,7 @@ func TestStateSpaceFlowFromAReleasedAction(t *testing.T) {
 func TestStateSpaceFlowWithEndsInItsBody(t *testing.T) {
 	for name, flow := range map[string]string{
 		"redefining the feature": "flow { end ::> source.ramp { ref :>> output; } end ::> sink.sum { ref :>> input; } }",
+		"declaring a payload":    "flow of ScalarValues::Real { end ::> source.ramp { ref :>> output; } end ::> sink.sum { ref :>> input; } }",
 		"as the clause expands it": `flow {
 			end redefines Transfers::Transfer::source references source.ramp { ref redefines Transfers::Transfer::source::sourceOutput, output; }
 			end references sink.sum redefines Transfers::Transfer::target { ref redefines Transfers::Transfer::target::targetInput, input; }
