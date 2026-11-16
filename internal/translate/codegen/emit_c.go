@@ -27,6 +27,7 @@ const cPrelude = `#include <errno.h>
 #include <math.h>
 #include <setjmp.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,6 +45,27 @@ static int sysml_depth;
 static void sysml_fail(const char *msg) {
 	sysml_error_message = msg;
 	longjmp(sysml_escape, 1);
+}
+
+/* What a record or a closure keeps outlives every arena release: a run owns
+   it until the next run begins. */
+typedef struct sysml_keeper { struct sysml_keeper *next; max_align_t data[]; } sysml_keeper;
+static sysml_keeper *sysml_keepers;
+
+static void *sysml_keep(const void *p, size_t n) {
+	sysml_keeper *k = malloc(sizeof *k + n);
+	if (!k) sysml_fail("out of memory");
+	k->next = sysml_keepers;
+	sysml_keepers = k;
+	return memcpy(k->data, p, n);
+}
+
+static void sysml_keep_release(void) {
+	while (sysml_keepers) {
+		sysml_keeper *k = sysml_keepers;
+		sysml_keepers = k->next;
+		free(k);
+	}
 }
 
 static inline void sysml_enter(void) {
@@ -209,6 +231,9 @@ static inline sysml_int sysml_nonzero(sysml_int b) {
 
 /* A value of a Real-typed feature: an Integer unless real is set. */
 typedef struct { bool real; sysml_int i; sysml_real r; } sysml_num;
+typedef struct { sysml_int len; const char *p; } sysml_str;
+/* A collection as a record or a closure keeps it, whatever its elements. */
+typedef struct { int8_t shape; sysml_int len; void *data; } sysml_kept;
 
 static inline sysml_num sysml_ni(sysml_int i) { return (sysml_num){false, i, 0}; }
 static inline sysml_num sysml_nr(sysml_real r) { return (sysml_num){true, 0, r}; }
@@ -570,6 +595,9 @@ func EmitC(w io.Writer, p *Program, withMain bool) error {
 		e.raw(cEnumSeqRuntime(p))
 		e.raw(cFnSeqRuntime(p))
 		e.raw(cRecSeqRuntime(p))
+		if len(p.Records) > 0 || len(p.FnCases) > 0 {
+			e.raw(cKeepOptStr)
+		}
 	}
 	for _, fn := range p.Funcs {
 		e.linef("static %s %s(%s);", cType(fn.Result), fn.Ident, cParams(fn))
@@ -785,20 +813,29 @@ func (e *cEmitter) compact(kept []Var, mark string) {
 	for i, v := range kept {
 		e.temps++
 		saved[i] = fmt.Sprintf("sysml_k%d", e.temps)
-		if v.T == TypeString {
-			e.linef("char *%s = sysml_save_text(%s, %s);", saved[i], cLocal(v.Name), mark)
+		if v.T.Concrete() == TypeString {
+			e.linef("char *%s = sysml_save_text(%s, %s);", saved[i], cText(v), mark)
 			continue
 		}
 		e.linef("%s *%s = sysml_save_%s(%s, %s);", cType(v.T.Elem()), saved[i], cSeqSuffix(v.T), cLocal(v.Name), mark)
 	}
 	e.linef("sysml_arena_release(%s);", mark)
 	for i, v := range kept {
-		if v.T == TypeString {
-			e.linef("sysml_restore_text(&%s, %s);", cLocal(v.Name), saved[i])
+		if v.T.Concrete() == TypeString {
+			e.linef("sysml_restore_text(&%s, %s);", cText(v), saved[i])
 			continue
 		}
 		e.linef("sysml_restore_%s(&%s, %s);", cSeqSuffix(v.T), cLocal(v.Name), saved[i])
 	}
+}
+
+// cText is the String a String variable holds; one that may be unset holds an
+// empty one while it is.
+func cText(v Var) string {
+	if v.T.MayUnset() {
+		return cLocal(v.Name) + ".v"
+	}
+	return cLocal(v.Name)
 }
 
 // escapingSeqs lists the collection and String variables a statement stores
@@ -809,7 +846,7 @@ func escapingSeqs(s Stmt) []Var {
 	var walk func(s Stmt, inner map[string]bool)
 	walk = func(s Stmt, inner map[string]bool) {
 		store := func(name string, t Type) {
-			if !t.Many() && t != TypeString || inner[name] || seen[name] {
+			if !t.Many() && t.Concrete() != TypeString || inner[name] || seen[name] {
 				return
 			}
 			seen[name] = true
@@ -1223,6 +1260,7 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 	if e.collections {
 		e.linef("sysml_run_begin();")
 	}
+	e.linef("sysml_keep_release();")
 	if e.records {
 		e.linef("sysml_recs_release();")
 	}

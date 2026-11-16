@@ -1,0 +1,1 @@
+- `.github/workflows/wasm-cache.yml` now deletes the WebAssembly build caches a new save supersedes. Each develop push saved a further entry of some 3 GB under a commit-suffixed key, of which only the newest is ever restored; three of them filled the repository's 10 GB of Actions cache, and GitHub evicted other caches saved on `develop` to make room.
