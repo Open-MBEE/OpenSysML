@@ -32,6 +32,8 @@ package M {
   calc asEnergy : AsEnergy;
   calc def AsAny { in x : ScalarQuantityValue[1]; return : ScalarQuantityValue = x; }
   calc asAny : AsAny;
+
+  part rig { part motor { attribute energy : ISQ::EnergyValue = 5.0 [J]; attribute spare = 5.0 [J]; attribute derived : ISQ::EnergyValue = energy + spare; } }
 }
 `
 
@@ -161,6 +163,57 @@ func TestQuantityValueTypeIsChecked(t *testing.T) {
 		back, err := protoconv.ProtoToValueIn(joules(valueType), idx, sem)
 		if err != nil || back.QuantityKind() == nil || symbols.FQNOf(back.QuantityKind()) != want {
 			t.Errorf("ProtoToValueIn(value_type %s) = %v, %v; want it held as %s", valueType, back, err, want)
+		}
+	}
+}
+
+// A quantity a document query projects off a feature crosses held as the
+// evaluated feature is, so the sibling type refuses it sent back all the same.
+func TestQuantityValueTypeCrossesFromADocumentQuery(t *testing.T) {
+	srv := mustNewService(t, 4)
+	modelHash := mustParse(t, srv, quantityValueTypeWireModel)
+	ctx := context.Background()
+
+	resp, err := srv.RunDocumentQuery(ctx, &pb.RunDocumentQueryRequest{
+		ModelHash:   modelHash,
+		InlineQuery: `Project(WhereType(Descendants(M::rig), "PartUsage"), ("energy", "spare", "derived"))`,
+	})
+	if err != nil {
+		t.Fatalf("RunDocumentQuery failed: %v", err)
+	}
+	if len(resp.Rows) != 1 || len(resp.Rows[0].Cells) != 3 {
+		t.Fatalf("the query answered %v, want one row of three cells", resp.Rows)
+	}
+	cell := func(i int) *pb.Quantity {
+		t.Helper()
+		values := resp.Rows[0].Cells[i].Values
+		if len(values) != 1 || values[0].GetQuantity() == nil {
+			t.Fatalf("cell %d = %v, want one quantity", i, values)
+		}
+		return values[0].GetQuantity()
+	}
+	energy, spare, derived := cell(0), cell(1), cell(2)
+	for name, quantity := range map[string]*pb.Quantity{"energy": energy, "derived": derived} {
+		if got := quantity.GetValueType(); got != "ISQThermodynamics::EnergyValue" {
+			t.Errorf("%s crossed with value_type %q, want ISQThermodynamics::EnergyValue", name, got)
+		}
+	}
+	if got := spare.GetValueType(); got != "" {
+		t.Errorf("spare crossed with value_type %q, want none", got)
+	}
+	for _, tc := range []struct {
+		quantity *pb.Quantity
+		refused  bool
+	}{{energy, true}, {derived, true}, {spare, false}} {
+		resp, err := srv.EvaluateCalc(ctx, &pb.EvaluateCalcRequest{
+			ModelHash: modelHash, SymbolId: "M::asTorque",
+			Arguments: []*pb.Value{{Kind: &pb.Value_Quantity{Quantity: tc.quantity}}},
+		})
+		if err != nil {
+			t.Fatalf("EvaluateCalc: %v", err)
+		}
+		if refused := strings.Contains(resp.GetError(), "type mismatch"); refused != tc.refused {
+			t.Errorf("asTorque(%v): error = %q, want refused = %v", tc.quantity, resp.GetError(), tc.refused)
 		}
 	}
 }
