@@ -107,6 +107,8 @@ for child in car.children()? { }       // one call per level
 car.members();                         // own then inherited, each with inherited_from and library
 car.withheld_library_members();        // standard-library members left out, until:
 model.symbol_with("Demo::Car", &SymbolOptions { include_library_members: true })?;
+model.symbol_by_name("Demo::Car")?;            // only as a qualified name
+model.symbol_by_element_id("Demo::Car::@3")?;  // only as an id the service reported
 
 let value: Value = model.eval("2 + 2")?;
 let evaluation = model.evaluate("mass", &EvalOptions { .. })?;   // subject, context
@@ -115,6 +117,13 @@ for instance in built.instances() {
     instance.feature("wheels");        // Option<&FeatureValue>
 }
 ```
+
+A qualified name and an element id can be spelled alike (`package Col__V__c_pend0` beside the
+unnamed connector end reported under that id), so `symbol_by_name` and `symbol_by_element_id`, or
+`SymbolOptions::lookup` and `element_properties_of` with a `Lookup`, state which the string is;
+`Lookup::Either`, the default, is the legacy form that reads a name first. Navigation over
+children, members and specialization targets asks by element id, and a service without
+`symbol_lookup_kind` is asked in the legacy form.
 
 `Symbol` exposes `id()`, `name()`, `kind()`, `children()`, `members()`, `own_members()`,
 `inherited_members()`, `withheld_library_members()`, `annotating_metadata_ids()` and

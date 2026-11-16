@@ -78,6 +78,11 @@ func TestQualifiedNameSegmentsReadsTheNotationBack(t *testing.T) {
 		{"P::'x::y'::'it\\'s'", []string{"P", "x::y", "it's"}},
 		{`'a\\b'::'c\nd'`, []string{`a\b`, "c\nd"}},
 		{"'a b'::c", []string{"a b", "c"}},
+		// `''` is the empty name (KerML §8.2.2.3), a segment like any other.
+		{"''", []string{""}},
+		{"P::''", []string{"P", ""}},
+		{"''::x", []string{"", "x"}},
+		{"'   '", []string{"   "}},
 	} {
 		got, ok := source.QualifiedNameSegments(tc.text)
 		if !ok || !slices.Equal(got, tc.want) {
@@ -87,7 +92,7 @@ func TestQualifiedNameSegmentsReadsTheNotationBack(t *testing.T) {
 			t.Errorf("source.QualifiedNameOf(QualifiedNameSegments(%q)) = %q", tc.text, back)
 		}
 	}
-	for _, bad := range []string{"", "x::", "::y", "'x", "''", "a'b", "'x'y", "x::'y"} {
+	for _, bad := range []string{"", "x::", "::y", "'x", "'", "a'b", "'x'y", "''y", "x::'y"} {
 		if got, ok := source.QualifiedNameSegments(bad); ok {
 			t.Errorf("source.QualifiedNameSegments(%q) = %q, want a refusal", bad, got)
 		}

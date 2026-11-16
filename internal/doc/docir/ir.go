@@ -353,7 +353,7 @@ func elementName(model *semantics.Model, sym *symbols.Symbol) string {
 		if name := model.EffectiveNameOf(sym); name != "" {
 			return name
 		}
-	} else if sym.Name != "" {
+	} else if sym.Named() {
 		return sym.Name
 	}
 	return symbols.FQNOf(sym)

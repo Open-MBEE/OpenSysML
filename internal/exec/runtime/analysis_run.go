@@ -636,7 +636,7 @@ func (ctx *Context) analysisChecks(sym *symbols.Symbol) bool {
 // names it. The symbol is the named constraint, nil when there is none.
 func assertionName(cond Condition) (string, *symbols.Symbol) {
 	for i := len(cond.Constraints) - 1; i >= 0; i-- {
-		if c := cond.Constraints[i]; c.Name != "" {
+		if c := cond.Constraints[i]; c.Named() {
 			return c.Name, c
 		}
 	}

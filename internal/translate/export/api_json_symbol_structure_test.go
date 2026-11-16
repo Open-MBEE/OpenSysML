@@ -626,6 +626,10 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 		}
 		return d.expressionPartID(owner, "body")
 	case symbols.ExpressionBodyResult:
+		if owner.Expr == nil {
+			// A constraint body's closing condition is written under the member stating it (recordConstraintResult).
+			return d.ids.OfDeclaration(d.doc, sym.Decl, "")
+		}
 		return d.expressionPartID(owner, "result")
 	case symbols.ExpressionChangeWrapper:
 		if owner.Expr == nil || owner.Expr.Owner == nil {

@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
@@ -101,6 +102,10 @@ func expressionPartSlot(sym *symbols.Symbol) (string, bool) {
 	case symbols.ExpressionBody:
 		return "body", true
 	case symbols.ExpressionBodyResult:
+		if sym.Expr.Owner.Expr == nil {
+			// A constraint body's closing condition is minted as the member stating it (constraintResultMember).
+			return "", false
+		}
 		return "result", true
 	case symbols.ExpressionChainFeature:
 		return sym.Expr.Slot, true
@@ -181,7 +186,23 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 		element, _, err := read.ReadExpressionPart(sym.DocName, spanNode{span}, slot)
 		return element, err
 	}
+	if member := constraintResultMember(sym); member != nil {
+		// A constraint body's closing bare condition is written as that member (encodeMember).
+		return read.Read(sym.DocName, member, "")
+	}
 	return read.Read(sym.DocName, sym.Decl, query.QualifiedIdentity(idx, sym))
+}
+
+// constraintResultMember is the ConstraintMember stating the closing bare condition
+// sym reflects as a constraint's result expression (semantics.ConstraintResultMember), or nil.
+func constraintResultMember(sym *symbols.Symbol) ast.Node {
+	if sym == nil || sym.Expr == nil || sym.Expr.Role != symbols.ExpressionBodyResult || sym.Expr.Owner == nil || sym.Expr.Owner.Expr != nil {
+		return nil
+	}
+	if c := semantics.ConstraintResultCondition(sym.Expr.Owner); c != nil && c.Expression == sym.Decl {
+		return c
+	}
+	return nil
 }
 
 // implicitRelationshipID reads the elementId of the relationship sym records implicitly,
@@ -273,6 +294,10 @@ func implicitMembershipID(read ElementIDReader, idx *symbols.Index, member *symb
 	if edge, slot, ok := successionEndSlot(member); ok {
 		_, membership, err := read.ReadExpressionPart(member.DocName, edge, slot)
 		return membership, true, err
+	}
+	if node := constraintResultMember(member); node != nil {
+		id, err = read.ReadOwningMembership(member.DocName, node, "")
+		return id, true, err
 	}
 	if member != nil {
 		id, err = read.ReadOwningMembership(member.DocName, member.Decl, query.QualifiedIdentity(idx, member))

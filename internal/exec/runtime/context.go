@@ -364,6 +364,8 @@ type Context struct {
 	// quiescent is the memo a full scan leaves when it finds them all idle.
 	work      uint64
 	quiescent quiescence
+	// holding is the memo a full scan leaves when it finds some holding work.
+	holding heldWork
 	// held counts the behaviors that entered held on a succession; noneHeld is
 	// the memo the cycle check leaves when it finds none held at that count.
 	held     uint64
@@ -2335,7 +2337,7 @@ func sameBehaviorMember(behaviors []*ObjectBehavior) *symbols.Symbol {
 func behaviorUsages(behaviors []*ObjectBehavior) []string {
 	usages := make([]string, 0, len(behaviors))
 	for _, b := range behaviors {
-		if member := b.Member(); member != nil && member.Name != "" {
+		if member := b.Member(); member != nil && member.Named() {
 			usages = append(usages, member.Name)
 		}
 	}

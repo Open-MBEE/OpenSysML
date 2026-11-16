@@ -12,6 +12,8 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/exporter"
 )
 
 // pilotExport is one corpus root exported through the pinned pilot.
@@ -110,11 +112,12 @@ func runPilot(launcher, dir string, libraries, files []string, timeout time.Dura
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return nil, fmt.Errorf("pilot export of %s exceeded %s", dir, timeout)
 	}
-	var exit *exec.ExitError
-	if runErr != nil && (!errors.As(runErr, &exit) || exit.ExitCode() != 1) {
-		return nil, fmt.Errorf("pilot export of %s: %w\n%s", dir, runErr, strings.TrimSpace(stderr.String()))
+	status, err := exporter.Status(dir, runErr, stderr.String())
+	if err != nil {
+		return nil, err
 	}
 	result := &pilotExport{Log: pilotLog(stderr.String()), Unkeyed: make(map[string]int)}
+	written := 0
 	for _, rel := range files {
 		path := filepath.Join(out, filepath.FromSlash(rel)+".json")
 		content, err := os.ReadFile(path) // #nosec G304 -- the bridge wrote it under our temporary directory
@@ -130,7 +133,11 @@ func runPilot(launcher, dir string, libraries, files []string, timeout time.Dura
 		if err != nil {
 			return nil, fmt.Errorf("parse pilot export %s: %w", rel, err)
 		}
+		written++
 		result.Elements = append(result.Elements, keyPilot(document, result)...)
+	}
+	if err := exporter.Wrote(dir, status, written, len(files)); err != nil {
+		return nil, err
 	}
 	var duplicates, ambiguous map[string]int
 	result.Elements, duplicates, ambiguous, result.Shared = dropAmbiguous(result.Elements)

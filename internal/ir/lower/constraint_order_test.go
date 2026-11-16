@@ -36,7 +36,7 @@ func TestConstraintBodyStatementOrderThen(t *testing.T) {
 	var stmts []Statement
 	var members []ast.Node
 	for _, member := range body {
-		if stmt, ok := ConstraintStep(member, nil); ok {
+		if stmt, ok := ConstraintStep(member, nil, nil, nil); ok {
 			stmts = append(stmts, stmt)
 			members = append(members, member)
 		}
@@ -91,7 +91,7 @@ func TestConstraintNestedBlocksCarryTheirOwnPrecedence(t *testing.T) {
 	}
 	var stmts []Statement
 	for _, member := range def.Members {
-		if stmt, ok := ConstraintStep(member, nil); ok {
+		if stmt, ok := ConstraintStep(member, nil, nil, nil); ok {
 			stmts = append(stmts, stmt)
 		}
 	}

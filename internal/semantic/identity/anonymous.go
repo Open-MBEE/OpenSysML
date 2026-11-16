@@ -128,7 +128,7 @@ func AnonymousMemberIndex(model *semantics.Model, catalog *Catalog) *AnonymousIn
 			continue
 		}
 		for _, sym := range members {
-			if sym == nil || sym.Name != "" {
+			if sym == nil || sym.Named() {
 				continue
 			}
 			if member, ok := AnonymousMemberOf(model, catalog, sym); ok {

@@ -61,8 +61,7 @@ work="$(mktemp -d "$target/.reference-fmus-fetch.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 
 echo "Fetching $REFERENCE_FMUS_URL ($REFERENCE_FMUS_TAG) ..."
-if ! curl -fsSL --proto '=https' --proto-redir '=https' --retry 3 \
-	-o "$work/$REFERENCE_FMUS_FILE" "$REFERENCE_FMUS_URL" 2>"$work/curl.log"; then
+if ! "$repo_root/scripts/fetch-https.sh" "$REFERENCE_FMUS_URL" "$work/$REFERENCE_FMUS_FILE" 2>"$work/curl.log"; then
 	sed 's/^/  /' "$work/curl.log" >&2
 	echo "error: could not fetch $REFERENCE_FMUS_URL" >&2
 	echo "       GitHub publishes the asset at that permanent URL; if the host is unreachable" >&2

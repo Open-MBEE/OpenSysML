@@ -140,7 +140,7 @@ func (cc *constraintChecker) reportFeatureValueOverriding(span source.Span, boun
 // featureName is the qualified name the index knows sym by, or its own name;
 // an unnamed feature (a `return` result) is named by its owner.
 func (cc *constraintChecker) featureName(sym *symbols.Symbol) string {
-	if sym.Name == "" {
+	if !sym.Named() {
 		if sym.OwnerScope != nil && sym.OwnerScope.Owner() != nil {
 			return "the unnamed feature of " + cc.featureName(sym.OwnerScope.Owner())
 		}

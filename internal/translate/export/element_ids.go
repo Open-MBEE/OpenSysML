@@ -126,6 +126,7 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 		ids.conjugateBySpan[spanKey{e.file.Name(), node.Span()}] = conjugate
 	}
 	ids.recordValuePart(e, node, subject)
+	ids.recordConstraintResult(e, node, subject)
 	ids.recordDefaultMultiplicity(e, node, subject)
 	ids.recordConnectorEnds(e, node, subject)
 	ids.recordFlowEndChains(e, node, subject)
@@ -155,6 +156,23 @@ func (ids *ElementIDs) recordValuePart(e *encoder, node ast.Node, subject rdf.Te
 	ids.membershipByNode[valued] = membership
 	ids.membershipBySpan[spanKey{e.file.Name(), valued.Span()}] = membership
 	e.registerExpressionIDs(ids, value, valued)
+}
+
+// recordConstraintResult records a bare condition's expression under the member stating it, with
+// its parts, for the reflective result expression that declares the expression (ConstraintResultMember).
+func (ids *ElementIDs) recordConstraintResult(e *encoder, node ast.Node, subject rdf.Term) {
+	c, ok := node.(*ast.ConstraintMember)
+	if !ok || c.Keyword != "" || c.Name != "" || c.Body != nil || c.Expression == nil {
+		return
+	}
+	id := rdf.LocalName(subject.Value)
+	ids.byNode[c.Expression] = id
+	ids.bySpan[spanKey{e.file.Name(), c.Expression.Span()}] = id
+	if membership, ok := ids.membershipByNode[node]; ok {
+		ids.membershipByNode[c.Expression] = membership
+		ids.membershipBySpan[spanKey{e.file.Name(), c.Expression.Span()}] = membership
+	}
+	e.registerExpressionIDs(ids, subject, c.Expression)
 }
 
 // recordDefaultMultiplicity records the Multiplicity a usage's implicit [1..1] or an
