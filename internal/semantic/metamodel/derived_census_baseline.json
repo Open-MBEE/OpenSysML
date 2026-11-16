@@ -4,6 +4,7 @@
     "pilotCommit": "d81b2ad5016f2e2d3d4364b3d06d01d8bb12a896",
     "pilotArtifact": "0.63.1",
     "errataRegistry": "sha256:d5782936c5c92f29f24a077477b148fc5d178f83f174b143d1bb95c3693ab1b9",
+    "pilotJava": "21",
     "tools": [
       {
         "name": "pilot-json-exporter",
@@ -60,7 +61,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 56,
-        "digest": "sha256:2db2f2654409d85b49fd89b992656df6a166342a61879e21127e169f454456c8"
+        "digest": "sha256:da15eed5f1e8a20351f90ea90d4427a0c959569f7ad12a5515afbb8afdf476c2"
       },
       {
         "name": "probes",
@@ -84,14 +85,15 @@
         "digest": "sha256:f39db343dafb9c99359f5a92e56dcdd5c52992dc50e50b9268d349aa9cdfdf26"
       }
     ],
-    "recorded": "2026-11-15"
+    "recorded": "2026-11-16"
   },
   "structure": "metamodel.SymbolStructure (symbol-backed; metamodel.New over metamodel.NewSymbolStructure)",
   "policy": [
     "Implied relationships are a deliberate difference: the bridge exports without materializing the relationships the pilot implies (isImplied is false on every element it writes), while the semantic model synthesizes the ones it implies and the walk counts them as carriers; each root's implied count records how many, and no detector compares the two populations.",
     "Library elements the pilot writes beside a file's own are not counted; our walk starts at each document root and never reaches them.",
     "The pilot writes an element in every file whose traversal reaches it; a root's elements are counted once by id.",
-    "A property the pilot's payload leaves out is counted as not derived on its side; one it writes null or empty is counted as empty."
+    "A property the pilot's payload leaves out is counted as not derived on its side; one it writes null or empty is counted as empty.",
+    "A property the api-json referee declares pilot-nondeterministic for an element's metaclass (tools/referee/apijson/nondeterminism.go) is counted as nondeterministic on the pilot's side, whatever the export states: the pilot's answer follows its transformation order, which differs from one JVM to the next, so neither a value nor an empty answer is a measurement."
   ],
   "roots": [
     {
@@ -99,8 +101,8 @@
       "dir": "examples/sysml-v2-training",
       "files": 100,
       "rejected": 0,
-      "elements": 9925,
-      "implied": 5724,
+      "elements": 9945,
+      "implied": 5744,
       "pilotElements": 11906,
       "pilotImplied": 0,
       "pilotDuplicates": 5797,
@@ -111,8 +113,8 @@
       "dir": "examples/pilot-corpora/sysml-examples",
       "files": 99,
       "rejected": 0,
-      "elements": 35668,
-      "implied": 20767,
+      "elements": 35792,
+      "implied": 20891,
       "pilotElements": 40861,
       "pilotImplied": 0,
       "pilotDuplicates": 10940,
@@ -123,8 +125,8 @@
       "dir": "examples/pilot-corpora/sysml-validation",
       "files": 56,
       "rejected": 0,
-      "elements": 12422,
-      "implied": 7228,
+      "elements": 12457,
+      "implied": 7263,
       "pilotElements": 14222,
       "pilotImplied": 0,
       "pilotDuplicates": 3066,
@@ -135,8 +137,8 @@
       "dir": "examples/pilot-corpora/kerml-examples",
       "files": 58,
       "rejected": 0,
-      "elements": 6921,
-      "implied": 4277,
+      "elements": 6991,
+      "implied": 4347,
       "pilotElements": 8762,
       "pilotImplied": 0,
       "pilotDuplicates": 1105,
@@ -147,8 +149,8 @@
       "dir": "examples/spec-examples",
       "files": 511,
       "rejected": 38,
-      "elements": 9114,
-      "implied": 5165,
+      "elements": 9130,
+      "implied": 5181,
       "pilotElements": 15900,
       "pilotImplied": 0,
       "pilotDuplicates": 40,
@@ -159,8 +161,8 @@
       "dir": "tests/testdata",
       "files": 40,
       "rejected": 0,
-      "elements": 1639,
-      "implied": 895,
+      "elements": 1648,
+      "implied": 904,
       "pilotElements": 2448,
       "pilotImplied": 0,
       "pilotDuplicates": 169,
@@ -171,8 +173,8 @@
       "dir": "examples",
       "files": 56,
       "rejected": 0,
-      "elements": 39108,
-      "implied": 22600,
+      "elements": 39362,
+      "implied": 22854,
       "pilotElements": 51722,
       "pilotImplied": 0,
       "pilotDuplicates": 82277,
@@ -195,12 +197,13 @@
       "dir": "docs/manual/examples",
       "files": 11,
       "rejected": 0,
-      "elements": 4318,
-      "implied": 2588,
+      "elements": 4339,
+      "implied": 2609,
       "pilotElements": 9379,
       "pilotImplied": 0,
       "pilotDuplicates": 0,
       "pilotFailed": 0
     }
-  ]
+  ],
+  "pilotRecords": "sha256:77ad17f3298262cf782c35f0df33757346c07b92531b78b263e2004a6ec1041c"
 }

@@ -584,6 +584,27 @@ split into four stacked pull requests:
   lowering can change *when* an error surfaces, which `AGENTS.md` §4 makes part of the contract.
   `NoValueError.Ref` is not among them: step 4 replaced it with `NoValueError.Symbol`.
 
+Step 7 was re-measured the same way before any consumer moved. Outside `internal/ir/lower` and
+`internal/exec/runtime`, 60 production files (69 with `internal/check`) use a `lower` or
+`runtime` field, method or function whose type mentions `syntax/ast` or `*symbols.Scope`, 612 of
+those uses being reads of a graph or record field in 23 files; and the graphs named their nodes,
+states and vertices by declaration only, so a consumer could reach an id only through the field
+step 8 deletes. The step is split into stacked pull requests:
+
+- **7a**. The graphs name by id what they name by declaration, additively, the way 6b-3 added
+  `ExprID` fields: `SourceID`/`TargetID` on `ActionEdge` and `ObjectFlow`, `NodeID`/`OtherNodeID`
+  on `PinBinding`, `SourceRef`/`TargetRef`/`OwnerID` on `Transition`, `TargetID`/`ViaID` on
+  `EntryTransition`, `OwnerID` on `StateBehavior`, and id-indexed accessors over the tables
+  (`internal/ir/lower/graph_ids.go`). Every id is the one the step-1 tables assigned; step 8
+  removes the tree side. No consumer changes.
+- **7b**. `exec/smt` and `exec/solve`, with their forbidden `→ syntax/ast` edge.
+- **7c**. `exec/analysis/modelform`, `exec/analysis` and `exec/sweep`, with theirs.
+- **7d**. `ir/view` and `ir/queryplan`.
+- **7e**. `doc/queryexec`, `frontend/lsp/debug.go`, `frontend/grpc`, `frontend/repl`,
+  `frontend/engine`, `workspace/modelrt`, `tools/referee/{fuml,pssm}`, `examples/runtime-demo`.
+- **7f**. `translate/codegen` and `check/passes`, which the row does not list but which read the
+  same fields, so that step 8 is deletion and the forbidden edge only.
+
 `docs/project/spec-compliance.md` does not move: no semantic rule changes. The documentation
 census (`make docs-counts`) is unaffected until step 8 renames the graph types, when
 `architecture.md` §"Runtime consumes lowered IR" and `design/action-executor.md` are updated in

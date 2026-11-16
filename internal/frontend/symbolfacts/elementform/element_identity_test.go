@@ -26,6 +26,7 @@ package D {
     attribute z : Integer = 1 + 2;
   }
   connection def C;
+  constraint def K { attribute x : Integer; x > 0 }
   part holder { part a { part b; } part c; connection : C connect a.b to c; }
 }
 package D__outer___400 { part spelledLikeAFormID; }
@@ -122,6 +123,43 @@ func TestElementIdentityIsTheTreesIDAndRoundTrips(t *testing.T) {
 		len(back) != 1 || back[0] != owned[1] || sc.ElementIdentity(owned[1]) != "D__M__sm__t_triggerparam" {
 		t.Errorf("ResolveElement(D__M__sm__t_triggerparam) = %v, want the transition's second owned element", back)
 	}
+}
+
+// A constraint body's closing bare condition carries the id of the member stating
+// it, as the conversion writes it and the query leg reads it, and its parts hang off that id.
+func TestConstraintResultIdentityIsTheMembersID(t *testing.T) {
+	sc := identityContext(t)
+	owned, _ := sc.Semantics.ReflectiveElements(reflect(t, sc, "D::K"), "ownedMember")
+	if len(owned) != 2 {
+		t.Fatalf("D::K ownedMember = %v, want the parameter and the closing condition", owned)
+	}
+	result := owned[1]
+	for _, tc := range []struct {
+		sym  *symbols.Symbol
+		want string
+	}{
+		{result, "D__K___401"},
+		{reflectFrom(t, sc, result, "parameter"), "D__K___401_pin0"},
+		{reflectFrom(t, sc, result, "result"), "D__K___401_pout"},
+	} {
+		if got := sc.ElementIdentity(tc.sym); got != tc.want {
+			t.Errorf("ElementIdentity = %q, want %q", got, tc.want)
+			continue
+		}
+		if back := sc.ResolveElement(tc.want, sc.Semantics); len(back) != 1 || back[0] != tc.sym {
+			t.Errorf("ResolveElement(%s) = %v, want the one symbol it was read from", tc.want, back)
+		}
+	}
+}
+
+// reflectFrom follows one reflective feature from sym.
+func reflectFrom(t *testing.T, sc *symbolfacts.Context, sym *symbols.Symbol, feature string) *symbols.Symbol {
+	t.Helper()
+	elements, ok := sc.Semantics.ReflectiveElements(sym, feature)
+	if !ok || len(elements) == 0 {
+		t.Fatalf("%s derives nothing", feature)
+	}
+	return elements[0]
 }
 
 func TestResolveElementReadsEveryIDFormOfANamedElement(t *testing.T) {
