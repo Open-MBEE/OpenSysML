@@ -11,9 +11,9 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 2727,
+      "presentEqual": 2729,
       "presentDifferent": 205,
-      "oursMissing": 283,
+      "oursMissing": 281,
       "pilotMissing": 103,
       "absentBoth": 2921,
       "indeterminate": 29,
@@ -679,7 +679,7 @@
     "OccurrenceUsage.nestedVerificationCase": [0,0,0,0,5,0,0],
     "OccurrenceUsage.nestedView": [0,0,0,0,5,0,0],
     "OccurrenceUsage.nestedViewpoint": [0,0,0,0,5,0,0],
-    "OccurrenceUsage.occurrenceDefinition": [1,0,4,0,0,0,0],
+    "OccurrenceUsage.occurrenceDefinition": [3,0,2,0,0,0,0],
     "OccurrenceUsage.output": [0,0,0,0,5,0,0],
     "OccurrenceUsage.ownedAnnotation": [0,0,0,0,5,0,0],
     "OccurrenceUsage.ownedDifferencing": [0,0,0,0,5,0,0],
