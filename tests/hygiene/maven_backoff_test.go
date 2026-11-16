@@ -134,18 +134,19 @@ func TestMavenCacheIsSavedOnDevelopAlone(t *testing.T) {
 			t.Errorf("maven-cache.yml does not trigger on %s", want)
 		}
 	}
-	saves := false
+	saves, checkedOut := false, false
 	resolved := map[string]bool{}
 	for _, step := range workflow.Jobs["warm"].Steps {
+		checkedOut = checkedOut || strings.HasPrefix(step.Uses, "actions/checkout@")
 		if step.Uses == mavenCacheAction {
-			saves = step.With["save"] == "true" && len(resolved) == 0
+			saves = step.With["save"] == "true" && len(resolved) == 0 && checkedOut
 		}
 		for _, match := range mavenFile.FindAllStringSubmatch(step.Run, -1) {
 			resolved[match[1]] = true
 		}
 	}
 	if !saves {
-		t.Errorf("maven-cache.yml's warm job must use %s with save before it runs mvn", mavenCacheAction)
+		t.Errorf("maven-cache.yml's warm job must use %s with save after checkout and before it runs mvn", mavenCacheAction)
 	}
 	for _, tree := range mavenTrees(t) {
 		if !resolved[tree] {
@@ -181,10 +182,14 @@ func TestMavenCacheIsSavedOnDevelopAlone(t *testing.T) {
 			t.Errorf("%s sets cache: maven on setup-java; use %s instead", name, mavenCacheAction)
 		}
 		for id, job := range file.Jobs {
-			restored, runsMaven := false, false
+			restored, runsMaven, checkedOut := false, false, false
 			for _, step := range job.Steps {
+				checkedOut = checkedOut || strings.HasPrefix(step.Uses, "actions/checkout@")
 				if step.Uses == mavenCacheAction {
 					restored = true
+					if !checkedOut {
+						t.Errorf("%s job %s uses %s before checkout, so its key hashes no pom.xml", name, id, mavenCacheAction)
+					}
 					if _, saves := step.With["save"]; saves {
 						t.Errorf("%s job %s passes save to %s: only maven-cache.yml saves the entry", name, id, mavenCacheAction)
 					}
@@ -192,6 +197,10 @@ func TestMavenCacheIsSavedOnDevelopAlone(t *testing.T) {
 				// nightly.yml builds a commit that may predate the action, so it restores by the key itself.
 				if key, _ := step.With["key"].(string); strings.HasPrefix(key, "maven-deps-") {
 					restored = true
+					// Before checkout no pom.xml exists, so the key's hash is empty and any older entry restores.
+					if !checkedOut {
+						t.Errorf("%s job %s step %q restores the Maven cache before checkout, so its key hashes no pom.xml", name, id, step.Name)
+					}
 					if !strings.HasPrefix(step.Uses, "actions/cache/restore@") || key != mavenCacheKey || step.With["path"] != "~/.m2/repository" {
 						t.Errorf("%s job %s step %q must only restore ~/.m2/repository under %s", name, id, step.Name, mavenCacheKey)
 					}
