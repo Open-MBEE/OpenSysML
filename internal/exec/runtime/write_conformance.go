@@ -815,9 +815,12 @@ func equalInt64s(a, b []int64) bool {
 	return true
 }
 
-// quantityConforms holds a quantity where classifyValue does not refuse the declared type,
-// so a write and `istype` agree; a refusal by dimension says the two dimensions.
+// quantityConforms holds a quantity where classifyValue does not refuse the declared type, a
+// refusal by dimension saying both; a unit-typed feature holds it unjudged (`hp : PowerUnit = 745.7 [W]`).
 func (ctx *Context) quantityConforms(scope *symbols.Scope, value Value, declared *symbols.Symbol) (bool, string, error) {
+	if unit := ctx.librarySymbol(scalarMRefTypeFQN); unit != nil && ctx.model.semantics.Conforms(declared, unit) {
+		return true, "", nil
+	}
 	verdict, err := ctx.classifyValue(scope, value, declared, nil, byAnyType)
 	if err != nil || verdict != semantics.ClassifiesNone {
 		return err == nil, "", err

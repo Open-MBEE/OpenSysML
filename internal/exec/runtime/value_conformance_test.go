@@ -648,6 +648,59 @@ func TestQuantityIsHeldByTheTypesItIsOf(t *testing.T) {
 	}
 }
 
+// A feature typed by a measurement unit or scale holds a quantity unjudged, as the OMG
+// individuals example binds one (`hp : PowerUnit = 745.7 [SI::W]`); other types still refuse it.
+func TestQuantityIsHeldUnjudgedByAUnitTypedFeature(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import ISQ::*;
+			private import SI::*;
+			private import MeasurementReferences::*;
+			attribute def Count;
+			attribute def Brake :> PowerUnit;
+			part def P {
+				attribute hp : PowerUnit = 745.7 [SI::W];
+				attribute brake : Brake = 745.7 [SI::W];
+				attribute unit : MeasurementUnit = 745.7 [SI::W];
+				attribute scalarRef : ScalarMeasurementReference = 745.7 [SI::W];
+				attribute written : PowerUnit;
+				attribute plain : ScalarValues::Real;
+				attribute real : ScalarValues::Real = 745.7 [SI::W];
+				attribute count : Count = 745.7 [SI::W];
+				attribute frame : VectorMeasurementReference = 745.7 [SI::W];
+				attribute mass : MassValue = 745.7 [SI::W];
+			}
+			part p : P;
+		}
+	`))
+	inst := instantiateNamed(t, ctx, idx, "test::p")
+	for _, feature := range []string{"hp", "brake", "unit", "scalarRef"} {
+		fv, err := inst.GetFeatureValue(ctx, feature)
+		if err != nil {
+			t.Errorf("%s: %v", feature, err)
+			continue
+		}
+		if got := FormatTraceValue(fv.HeldValue()); got != "745.7 [SI::W]" {
+			t.Errorf("%s = %s, want 745.7 [SI::W]", feature, got)
+		}
+	}
+	for _, feature := range []string{"real", "count", "frame", "mass"} {
+		if _, err := inst.GetFeatureValue(ctx, feature); !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("%s: error = %v, want ErrTypeMismatch", feature, err)
+		}
+	}
+	hp, err := inst.GetFeatureValue(ctx, "hp")
+	if err != nil {
+		t.Fatalf("hp: %v", err)
+	}
+	if err := inst.SetFeatureValue(ctx, "written", hp.HeldValue()); err != nil {
+		t.Errorf("write to written : PowerUnit: %v", err)
+	}
+	if err := inst.SetFeatureValue(ctx, "plain", hp.HeldValue()); !errors.Is(err, ErrTypeMismatch) {
+		t.Errorf("write to plain : Real: error = %v, want ErrTypeMismatch", err)
+	}
+}
+
 // A quantity a feature declared by a quantity value type holds is of that type: its
 // supertypes and subtypes hold it, a sibling type of the same dimension, disjoint from
 // it (SysML v2 9.8.9.1), does not, and what an operator computes of it is of no kind.
