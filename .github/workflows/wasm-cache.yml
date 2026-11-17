@@ -57,7 +57,7 @@ jobs:
       - name: Age the restored build cache entries
         run: |
           if [ -d ~/.cache/go-build ]; then
-            find ~/.cache/go-build -type f -exec touch -d '2 hours ago' {} +
+            find ~/.cache/go-build -mindepth 2 -maxdepth 2 -exec touch -d '2 hours ago' {} +
           fi
 
       - name: Set up Node
@@ -81,7 +81,7 @@ jobs:
         if: success() || failure()
         run: |
           du -sh ~/.cache/go-build
-          find ~/.cache/go-build -type f -mmin +60 ! -name trim.txt ! -name README -delete
+          find ~/.cache/go-build -mindepth 2 -maxdepth 2 -mmin +60 -exec rm -rf {} +
           du -sh ~/.cache/go-build
 
       # The objects a failed gate compiled are as good as a passing one's, so a red
