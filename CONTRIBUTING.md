@@ -333,7 +333,8 @@ tier does not do is run the race detector over the sweeps, and walk the whole co
 nightly full scan does both on develop's head.
 
 **The full tier** runs on any pull request carrying the label `ci:full` (adding it re-runs the
-current head), on an unclaimed-path push, on develop's head every night
+current head; any other label starts a run that skips every job and leaves the head's
+`Build and test` as it was), on an unclaimed-path push, on develop's head every night
 (`.github/workflows/full-scan.yml`, 12:07 UTC, the hour the runner pool is idlest; it skips a
 head that already has a full-tier run) and on demand (`workflow_dispatch` of `pr.yml` on any
 ref, with a `tier` input that defaults to full). It is the queue tier without the economies:

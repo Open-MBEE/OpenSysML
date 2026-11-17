@@ -5,6 +5,10 @@ name: PR
 
 # Three tiers (CONTRIBUTING.md, "GitHub Actions"), decided by the Changed areas job: quick on a pull-request
 # push, queue on merge_group, full on the label ci:full, an unclaimed path and a dispatch (full-scan.yml, nightly).
+#
+# GitHub cannot filter `labeled` by label, so every label starts a run; only ci:full changes what runs. Any other
+# label's run takes no runner: Changed areas is skipped, so is everything that needs it, and the aggregate job is
+# skipped under another name, so the head keeps the `Build and test` its last real run reported.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
@@ -20,9 +24,10 @@ on:
 
 concurrency:
   # A queue commit has no pull request; its ref is unique to the entry. A dispatch is one per ref.
-  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('{0}-{1}', github.event_name, github.ref) }}
-  # Any other label, and a second dispatch of a ref (the nightly full scan), waits for the running one.
-  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' && (github.event.action != 'labeled' || github.event.label.name == 'ci:full') }}
+  # The run of a label other than ci:full is alone in its group: it neither waits for the head's run nor displaces a pending one.
+  group: ${{ github.event_name == 'pull_request' && ((github.event.action == 'labeled' && github.event.label.name != 'ci:full') && format('pr-{0}-label-{1}', github.event.pull_request.number, github.run_id) || format('pr-{0}', github.event.pull_request.number)) || format('{0}-{1}', github.event_name, github.ref) }}
+  # A second dispatch of a ref (the nightly full scan) waits for the running one.
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 env:
   # The OMG training corpus is not vendored. Requiring it here turns "corpus
@@ -57,6 +62,8 @@ jobs:
   # on, so a new directory is over-tested rather than untested.
   changes:
     name: Changed areas
+    # A label other than ci:full changes nothing this workflow runs (see the header).
+    if: ${{ !(github.event.action == 'labeled' && github.event.label.name != 'ci:full') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -956,8 +963,10 @@ jobs:
   # A gated job that did not run reports `skipped`, which this gate accepts; a job
   # skipped by a failed dependency is caught through that dependency's own result.
   build-and-test:
-    name: Build and test
-    if: always()
+    # A skipped check counts as passing, so the run of a label other than ci:full must not report one under the
+    # required name: it would replace a red `Build and test` on the same head.
+    name: ${{ (github.event.action == 'labeled' && github.event.label.name != 'ci:full') && 'Label ignored' || 'Build and test' }}
+    if: ${{ always() && !(github.event.action == 'labeled' && github.event.label.name != 'ci:full') }}
     needs:
       - changes
       - build

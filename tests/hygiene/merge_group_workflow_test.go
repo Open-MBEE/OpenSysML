@@ -188,8 +188,18 @@ func TestPRWorkflowAggregateReportsOnEveryEvent(t *testing.T) {
 		t.Fatal("pr.yml build-and-test has no steps")
 	}
 	// The job-level if and name are not in actionsJob; read them where they are written.
-	jobHeader := regexp.MustCompile(`(?m)^  build-and-test:\n    name: Build and test\n    if: always\(\)\n`)
+	// A label other than ci:full is the one event it does not report on, and there it is skipped under
+	// another name: a skipped check passes, and one named Build and test would replace the head's real result.
+	const ignored = `\(github\.event\.action == 'labeled' && github\.event\.label\.name != 'ci:full'\)`
+	jobHeader := regexp.MustCompile(`(?m)^  build-and-test:\n(?:    #.*\n)*` +
+		`    name: \$\{\{ ` + ignored + ` && '[^']+' \|\| 'Build and test' \}\}\n` +
+		`    if: \$\{\{ always\(\) && !` + ignored + ` \}\}\n`)
 	if !jobHeader.MatchString(raw) {
-		t.Fatal("pr.yml build-and-test is not the always-running job named Build and test, the check the develop ruleset requires")
+		t.Fatal("pr.yml build-and-test is not the always-running job named Build and test, the check the develop ruleset requires, " +
+			"skipped under another name on a label other than ci:full alone")
+	}
+	changesHeader := regexp.MustCompile(`(?m)^  changes:\n    name: Changed areas\n(?:    #.*\n)*    if: \$\{\{ !` + ignored + ` \}\}\n`)
+	if !changesHeader.MatchString(raw) {
+		t.Fatal("pr.yml Changed areas is not skipped on a label other than ci:full alone")
 	}
 }

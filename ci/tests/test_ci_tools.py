@@ -562,7 +562,9 @@ class WatcherPartsTest(Stub):
 
     def test_start_next_parks_drops_adopts_and_reopens(self):
         reopen = [r"^api repos/Example/Repo/actions/runs\?branch=feat/seven", {"workflow_runs": [
-            {"id": 70, "name": "PR", "status": "completed", "conclusion": "cancelled", "run_attempt": 1, "created_at": stamp(5)}]}, 0]
+            {"id": 70, "name": "PR", "status": "completed", "conclusion": "cancelled", "run_attempt": 1, "created_at": stamp(5)},
+            # A label other than ci:full: every job skipped, so run 70 is still the head's latest.
+            {"id": 71, "name": "PR", "status": "completed", "conclusion": "skipped", "run_attempt": 1, "created_at": stamp(1)}]}, 0]
         self.use([reopen,
                   [r"^api repos/Example/Repo/actions/runs\?branch=feat/eight", {"workflow_runs": [
                       {"id": 80, "name": "PR", "status": "queued", "run_attempt": 1, "created_at": stamp(5)}]}, 0],

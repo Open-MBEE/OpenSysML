@@ -137,6 +137,13 @@ def ghost(r):
     return False
 
 
+def head_runs(d):
+    """A head's runs of the main workflow, newest first. A run that concluded skipped ran nothing (pr.yml skips every
+    job on a label other than ci:full), so it is not the head's latest run."""
+    return sorted([r for r in (d or {}).get("workflow_runs", []) if r["name"] == MAIN_WF and r.get("conclusion") != "skipped"],
+                  key=lambda r: r["created_at"], reverse=True)
+
+
 def run_pr(run, branch_map):
     n = branch_map.get(run["headBranch"])
     if n:
@@ -462,7 +469,7 @@ def finish_holder(st, pr, h):
         rh = d.get("headSha") or (gh_json(["api", f"repos/{REPO}/actions/runs/{rid}"], ok_fail=True) or {}).get("head_sha")
         if p0 and p0["state"] == "open" and rh and p0["head"]["sha"] != rh:
             rr = gh_json(["api", f"repos/{REPO}/actions/runs?head_sha={p0['head']['sha']}&event=pull_request&per_page=50"], ok_fail=True)
-            cur = sorted([r for r in (rr or {}).get("workflow_runs", []) if r["name"] == MAIN_WF], key=lambda r: r["created_at"], reverse=True)
+            cur = head_runs(rr)
             if cur and cur[0]["status"] == "completed" and cur[0]["conclusion"] == "cancelled" and cur[0]["id"] in st["cancelled"]:
                 where = enqueue(st, {"pr": pr, "run": cur[0]["id"], "sha": p0["head"]["sha"], "kind": "rerun"})
                 rep(f"#{pr}: finished run {rid} was on stale head {rh[:8]}; current head {p0['head']['sha'][:8]}'s pre-cancelled run {cur[0]['id']} "
@@ -591,8 +598,7 @@ def _start_next(st):
         head = p["head"]["sha"]
         branch = p["head"]["ref"]
         d = gh_json(["api", f"repos/{REPO}/actions/runs?branch={branch}&head_sha={head}&event=pull_request&per_page=100"], ok_fail=True)
-        runs = sorted((d or {}).get("workflow_runs", []), key=lambda r: r["created_at"], reverse=True)
-        prs_runs = [r for r in runs if r["name"] == MAIN_WF]
+        prs_runs = head_runs(d)
         if not prs_runs:
             report(f"#{pr}: no PR run on current head {head[:8]} (mergeable_state={p.get('mergeable_state')}); dropped")
             continue
