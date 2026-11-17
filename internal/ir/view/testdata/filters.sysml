@@ -16,12 +16,14 @@ package FilteredViews {
 	private import Views::*;
 
 	// The elements a filtered recursive expose reaches, inherited by every view
-	// typed by this definition.
-	view def SafetyView {
+	// that specializes this one.
+	view safetyElements {
 		expose Systems::**[@Safety];
 	}
 
-	view safetyView : SafetyView {
+	view def SafetyView;
+
+	view safetyView : SafetyView :> safetyElements {
 		expose Systems::Radio;
 	}
 }

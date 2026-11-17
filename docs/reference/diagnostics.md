@@ -290,7 +290,7 @@ Specification: SysML v2 §8.2.2.8 EnumerationBody
 
 **error** · Syntax · `expose` outside a view body
 
-An expose is an import a view usage owns: `expose` is admitted in the body of a view usage (and, as an OpenSysML extension the notation rules report, a view definition) only. Move the expose into the view that shows the exposed elements, or write an `import` where a plain import is meant.
+An expose is an import a view usage owns: `expose` is admitted in the body of a view usage only (SysML v2 8.2.2.26.2 ViewBodyItem); a view definition body states what it renders and filters and admits none. Move the expose into the view that shows the exposed elements, or write an `import` where a plain import is meant.
 
 Specification: SysML v2 validateExposeOwningNamespace
 
