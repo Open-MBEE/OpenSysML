@@ -6,9 +6,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// The ReferenceUsage a flow's end owns is owned by the FlowEnd, which redefines Flows::Flow::source
-// or target, an Occurrence-typed feature (SysML v2.1 §8.3.16.6), so it varies in time and
-// isVariable (deriveUsageMayTimeVary), as the pilot exports it.
+// A flow end's ReferenceUsage is owned by the FlowEnd, an Occurrence-typed feature redefining
+// Flows::Flow::source or target (SysML v2.1 §8.3.16.6), so it varies in time, as the pilot exports it.
 func TestFlowEndFeatureVariesInTime(t *testing.T) {
 	src := `package P {
 		item def Photon;
