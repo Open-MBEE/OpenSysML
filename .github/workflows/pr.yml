@@ -99,10 +99,8 @@ jobs:
       - name: Test the area filter
         run: scripts/ci-changed-areas-test.sh
 
-      # A pull request and a merge-group commit are both diffed from their merge base with the base branch
-      # (the script takes it); a merge group's base_sha is the group commit queued ahead of it, not the branch,
-      # and diffing from it would rerun only what the last entry changed. A dispatch has no diff (every area
-      # runs) and its input is the tier, else the script decides (event, ci:full, paths).
+      # Both a pull request and a merge group are diffed from their merge base with the base branch (a group's
+      # base_sha is the entry ahead, not the branch); a dispatch has no diff and its input is the tier.
       - name: Decide which areas to run
         id: areas
         env:
@@ -380,9 +378,8 @@ jobs:
       - name: Lint the protobuf schema
         run: make proto-lint
 
-      # Wire compatibility against the merge base with the base branch, not its tip, or a field added there since
-      # reads as deleted; a merge group's base_sha is the entry queued ahead, so it too is diffed from the merge
-      # base; a dispatch has no base and compares against the first parent.
+      # Wire compatibility against the merge base with the base branch (never a merge group's base_sha, the entry
+      # ahead), not its tip, or a field added there since reads as deleted; a dispatch compares with its first parent.
       - name: Check the protobuf schema for breaking changes
         env:
           BASE_REF: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_ref || github.base_ref }}

@@ -97,12 +97,8 @@ func TestPRWorkflowConcurrencyGroupSeparatesMergeGroups(t *testing.T) {
 	}
 }
 
-// Changed areas diffs a merge-group commit, like a pull request, from its merge base with the base
-// branch (the script takes it from origin/<base_ref>), never from the group's base_sha: that is the
-// group commit queued ahead, so a diff from it holds only the last entry's files, and a group whose
-// last entry touched one client once skipped the Go shards and the WebAssembly gate while merging
-// four failed entries ahead of it. The step also tells scripts/ci-changed-areas.sh the event, the
-// label and a dispatch's tier, which decide the tier.
+// Changed areas diffs a merge group, like a pull request, from its merge base with origin/<base_ref>, never
+// from the group's base_sha (the entry ahead), and tells the script the event, label and tier that pick the tier.
 func TestPRWorkflowChangedAreasHandlesMergeGroups(t *testing.T) {
 	workflow, _ := loadPRWorkflow(t)
 
@@ -151,8 +147,8 @@ func TestPRWorkflowChangedAreasHandlesMergeGroups(t *testing.T) {
 	}
 }
 
-// No step diffs from a merge group's base_sha: inside the queue it is the group commit of the entry
-// queued ahead, not the base branch, so a diff from it misses everything the earlier entries changed.
+// No step diffs from a merge group's base_sha: that is the entry queued ahead, not the base branch, so a
+// diff from it misses what the earlier entries changed (one such group merged four failed entries ahead of it).
 func TestPRWorkflowNeverDiffsFromMergeGroupBaseSHA(t *testing.T) {
 	_, raw := loadPRWorkflow(t)
 	for i, line := range strings.Split(raw, "\n") {
@@ -177,9 +173,8 @@ func TestPRWorkflowPullRequestReadsHaveMergeGroupBranch(t *testing.T) {
 	}
 }
 
-// The protobuf baseline is where the pull request forked from its base branch, not the branch's
-// tip, or a field added there since reads as deleted; a merge group is measured from the same merge
-// base, as its base_sha is the entry queued ahead.
+// The protobuf baseline is where the pull request forked from its base branch (a merge group too, as its
+// base_sha is the entry ahead), not the branch's tip, or a field added there since reads as deleted.
 func TestPRWorkflowProtoBaselineIsTheMergeBase(t *testing.T) {
 	workflow, _ := loadPRWorkflow(t)
 	step := prWorkflowStep(t, workflow, "static-and-integrity", "Check the protobuf schema for breaking changes")
