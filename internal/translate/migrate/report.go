@@ -188,12 +188,27 @@ func (r *Report) Unreferenced() int {
 	return n
 }
 
+// NothingWritten says that the migration wrote no element of a document
+// holding some, so its output is an empty model; "" when it wrote any, or read none.
+func (r *Report) NothingWritten() string {
+	c := r.Count()
+	if len(r.Entries) == 0 || c[Mapped]+c[Approximated] > 0 {
+		return ""
+	}
+	return fmt.Sprintf("nothing of the model was written: none of the %d element(s) reported is mapped or approximated (%d unmapped, %d skipped), and the report gives the reason for each",
+		len(r.Entries), c[Unmapped], c[Skipped])
+}
+
 // Summary is the one-line account a command prints after migrating.
 func (r *Report) Summary() string {
 	c := r.Count()
 	total := len(r.Entries) - c[Skipped]
 	unreferenced := r.Unreferenced()
-	s := fmt.Sprintf("migrated %d element(s): %d mapped, %d approximated, %d unmapped (%d skipped as profile, library or notation-only content, %d as model elements nothing refers to)",
+	s := ""
+	if nothing := r.NothingWritten(); nothing != "" {
+		s = nothing + "; "
+	}
+	s += fmt.Sprintf("migrated %d element(s): %d mapped, %d approximated, %d unmapped (%d skipped as profile, library or notation-only content, %d as model elements nothing refers to)",
 		total, c[Mapped], c[Approximated], c[Unmapped], c[Skipped]-unreferenced, unreferenced)
 	if l := r.Layout; l != nil {
 		laidOut := l.DiagramsJoined + l.StreamDiagrams
