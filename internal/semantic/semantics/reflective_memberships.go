@@ -495,8 +495,9 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 	if !member.IsFeature() || !m.reflectiveMetaclassConforms(owner, "Type") {
 		return "OwningMembership"
 	}
-	if member.Kind == symbols.SymbolConnectorEnd || usageFlag(member, func(u *ast.Usage) bool { return u.IsEnd }) ||
-		containsElement(m.EndFeatures(owner), member) {
+	if _, implied := symbols.ImpliedSuccessionEndIndex(member); member.Kind == symbols.SymbolConnectorEnd || implied {
+		// A connector's clause end (`connect a to b`, a flow's or a `then` succession's) is an EndFeatureMembership;
+		// a declared `end` feature is a FeatureMembership whose member isEnd, as the pilot exports both.
 		return "EndFeatureMembership"
 	}
 	if isAcceptPayload(owner, member) {
