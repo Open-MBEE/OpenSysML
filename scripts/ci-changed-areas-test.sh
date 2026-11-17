@@ -37,7 +37,7 @@ case_() {
 
   local actual
   actual=$(cd "$work" && CI_TIER="${CI_TIER:-full}" bash scripts/ci-changed-areas.sh "$base" HEAD 2>/dev/null |
-    grep '=true$' | cut -d= -f1 | sort | paste -sd, -)
+    { grep '=true$' || true; } | cut -d= -f1 | sort | paste -sd, -)
   if [[ "$actual" != "$expected" ]]; then
     echo "FAIL $name (${CI_TIER:-full}): expected [$expected], got [$actual]" >&2
     failures=$((failures + 1))
@@ -155,6 +155,16 @@ case_ conformance docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rus
 case_ workflow docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/workflows/pr.yml
 case_ other-workflow docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/workflows/oracle-reproduction.yml
 case_ dependabot docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/dependabot.yml
+# A composite action is a service path like the workflows; the differential runs for the two actions its job uses.
+case_ action-apt-install docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/apt-install/action.yml
+case_ action-maven-cache docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/maven-cache/action.yml
+case_ action-fuml-suite docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/fuml-suite/action.yml
+case_ action-corpora apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/corpora/action.yml
+case_ action-pilot-validator apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/pilot-validator/action.yml
+# Repository metadata builds nothing and no job reads it, so it is claimed with no area.
+case_ codeowners '' .github/CODEOWNERS
+case_ funding '' .github/FUNDING.yml
+case_ issue-template '' .github/ISSUE_TEMPLATE/1-tool-bug.yml
 # The npm runner is tested and its lockfile audited in the Go static job, so its package is a service path.
 case_ mcp-lockfile docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode packaging/npm/sysml-mcp/package-lock.json
 quick_case_ mcp-lockfile go packaging/npm/sysml-mcp/package-lock.json
@@ -177,6 +187,12 @@ quick_case_ apijson-writer apijson,go internal/translate/export/api_json_absence
 quick_case_ proto go api/proto/sysml.proto
 quick_case_ workflow go .github/workflows/pr.yml
 quick_case_ unclaimed go some-new-top-level/thing.txt
+# An action's push runs the Go suite and the other jobs that use the action.
+quick_case_ action-apt-install docs,go,matlab,node,python .github/actions/apt-install/action.yml
+quick_case_ action-maven-cache go,java,mdk,syson .github/actions/maven-cache/action.yml
+quick_case_ action-fuml-suite go .github/actions/fuml-suite/action.yml
+quick_case_ action-corpora apijson,go .github/actions/corpora/action.yml
+quick_case_ action-pilot-validator apijson,go .github/actions/pilot-validator/action.yml
 quick_case_ go-and-node go,node internal/syntax/parser/parser.go client/node/src/node/binary.ts
 quick_case_ go-and-docs docs,go internal/syntax/parser/parser.go docs/guide/index.md
 quick_case_ docs-only docs docs/guide/index.md
@@ -206,6 +222,9 @@ tier_case_ workspace quick internal/workspace/model/index.go
 tier_case_ libs quick internal/workspace/libs/bundle.go
 tier_case_ export-writer quick internal/translate/export/writer.go
 tier_case_ symbols quick internal/semantic/symbols/index.go
+tier_case_ action quick .github/actions/apt-install/action.yml
+tier_case_ other-workflow quick .github/workflows/wasm-cache.yml
+tier_case_ repository-metadata quick .github/CODEOWNERS .github/ISSUE_TEMPLATE/config.yml
 tier_case_ unclaimed full some-new-top-level/thing.txt
 tier_case_ parser-and-runtime quick internal/syntax/parser/parser.go internal/exec/runtime/executor.go
 
