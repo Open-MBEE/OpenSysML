@@ -208,7 +208,8 @@ class Model:
 
     def convert(self, to_format, tolerate_syntax_errors=False, id_form='',
                 include_library_stubs=False, compact=False, omit_derived=False,
-                keep_derived=(), include_check_diagnostics=False):
+                keep_derived=(), include_check_diagnostics=False,
+                inherited_members=False):
         """Write this model out in one of the formats OpenSysML writes.
 
         Converts the source this model was parsed from, not the file as it
@@ -230,6 +231,10 @@ class Model:
                 or :data:`~opensysml.conversion.ID_FORM_UUID`
             include_library_stubs (bool): For api-json, restore the ownerless
                 library stubs written before 0.11.0
+            inherited_members (bool): For api-json, also write the derived
+                lists that repeat each Namespace's and Type's inherited and
+                imported members; by default an element carries its owned
+                structure. Needs the ``convert_inherited_members`` capability.
             compact (bool): For api-json, write the compact document
                 (``api-json-compact/1``) in place of the element array. Needs
                 the ``convert_compact`` capability.
@@ -270,6 +275,7 @@ class Model:
             tolerate_syntax_errors=tolerate_syntax_errors,
             id_form=id_form,
             include_library_stubs=include_library_stubs,
+            inherited_members=inherited_members,
             compact=compact,
             omit_derived=omit_derived,
             keep_derived=keep_derived,

@@ -1,0 +1,1 @@
+- On CircleCI the `corpus-sweep` race shard runs in its own `go-race-sweep` job on the `large` class (4 vCPU, 8 GB) with `-parallel 3` and `GOGC=50`, which peaks at 5.4 GiB in 29 minutes; the plan has no `xlarge` machine, so the job never started on the 16 GB class it first asked for and left every `develop` commit's status pending. The other sixteen race nodes stay on `large`.

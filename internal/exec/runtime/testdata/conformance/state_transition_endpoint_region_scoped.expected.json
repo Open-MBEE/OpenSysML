@@ -1,0 +1,12 @@
+{
+	"type": "state",
+	"libraries": true,
+	"trace": true,
+	"events": [
+		{"signal": "Leave"}
+	],
+	"finalState": "finished",
+	"outputs": {
+		"log": {"type": "Integer", "value": 34}
+	}
+}

@@ -971,6 +971,23 @@ func (m *Model) DeclaredFeatureValues(sym *symbols.Symbol, feature string) ([]sy
 	return m.constantFeatureValues(member, make(map[*symbols.Symbol]bool))
 }
 
+// DeclaredQuantityValueType is the quantity value type a declared member feature holds
+// a quantity as, as evaluation holds it; nil when it declares none.
+func (m *Model) DeclaredQuantityValueType(sym *symbols.Symbol, feature string) *symbols.Symbol {
+	if m == nil || sym == nil || feature == "" {
+		return nil
+	}
+	member, ok := m.LookupMember(sym, feature)
+	if !ok || member == nil {
+		return nil
+	}
+	types := m.FeatureTypes(member)
+	if at := slices.IndexFunc(types, m.IsQuantityValueType); at >= 0 {
+		return types[at]
+	}
+	return nil
+}
+
 // OwnFeatureValues returns the ordered constant values a feature's own
 // valuation binds (KerML Feature::valuation): what its declaration writes, or
 // what the features it redefines write when it writes none. Not a feature: ok
@@ -1273,6 +1290,9 @@ func extendedDefinition(sym *symbols.Symbol) bool {
 // ConnectorEndMetaclassName is the SysML metaclass of a connector end: a
 // PortUsage as an interface's end, a ReferenceUsage otherwise (SysML.xtext).
 func ConnectorEndMetaclassName(sym *symbols.Symbol) string {
+	if _, ok := symbols.ImpliedFlowEndIndex(sym); ok {
+		return "FlowEnd"
+	}
 	if sym.OwnerScope != nil {
 		if kind, ok := connectorKind(sym.OwnerScope); ok && kind == ast.UsageInterface {
 			return metaclassName(symbols.SymbolPortUsage)
@@ -1727,7 +1747,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return nil, true
 	case "ownedMember":
-		return m.withDefaultMultiplicityMember(sym, append(m.nodeParameters(sym), m.withTransitionParts(sym, ownedMembersOf(sym))...)), true
+		return m.withDefaultMultiplicityMember(sym, append(m.nodeParameters(sym), m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym))))...)), true
 	case "multiplicity":
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
 			return nil, false
@@ -1736,10 +1756,10 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "ownedElement":
 		return m.ownedElementsOf(sym), true
 	case "member":
-		return m.withDefaultMultiplicityMember(sym, append(m.nodeParameters(sym), m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))...)), true
+		return m.withDefaultMultiplicityMember(sym, append(m.nodeParameters(sym), m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))))...)), true
 	case "feature":
 		features := m.nodeParameters(sym)
-		for _, member := range m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)) {
+		for _, member := range m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)))) {
 			if member.IsFeature() || isExpressionSymbol(member) {
 				features = append(features, member)
 			}
@@ -1786,7 +1806,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "ownedFeature":
 		features := append([]*symbols.Symbol(nil), m.expressionOwnedParts(sym)...)
 		features = append(features, m.sendParameters(sym)...)
-		for _, member := range m.withTransitionParts(sym, ownedMembersOf(sym)) {
+		for _, member := range m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym)))) {
 			if member.IsFeature() || isExpressionSymbol(member) {
 				features = append(features, member)
 			}
@@ -2133,7 +2153,7 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	members = append(members, m.expressionOwnedElements(sym)...)
 	members = append(members, m.nodeParameters(sym)...)
-	members = append(members, m.withTransitionParts(sym, ownedMembersOf(sym))...)
+	members = append(members, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym))))...)
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
 		seen[member] = true
@@ -2817,7 +2837,7 @@ func (m *Model) reflectiveFeatureBoolean(sym *symbols.Symbol, feature string) (s
 	flags, isUsage := m.reflectiveFeatureFlags(sym)
 	switch feature {
 	case "isEnd":
-		_, impliedEnd := symbols.ImpliedSuccessionEndIndex(sym)
+		_, impliedEnd := symbols.ImpliedConnectorEndIndex(sym)
 		return boolValue(flags.isEnd || impliedEnd), true
 	case "isPortion":
 		return boolValue(flags.isPortion), true
@@ -2986,6 +3006,9 @@ func recordedUsageIsReferential(sym *symbols.Symbol) bool {
 	}
 	if isVariantReferenceSymbol(sym) {
 		return true
+	}
+	if sym.Facts.UsageKind.ReferenceSubsettingSpecializes() {
+		return false
 	}
 	for _, rel := range sym.Facts.Relationships {
 		if rel.Kind == ast.RelReferences {

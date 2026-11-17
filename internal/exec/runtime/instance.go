@@ -295,7 +295,8 @@ func (ctx *Context) newFeatureValue(inst *Instance, feat *EffectiveFeature) *Fea
 func (ctx *Context) initFeatureValue(inst *Instance, fv *FeatureValue, feat *EffectiveFeature) {
 	*fv = FeatureValue{Feature: feat}
 	if ctx.valueBinds(feat) && feat.Scalar() && !ctx.model.semantics.IsVariationFeature(feat.Symbol) &&
-		ctx.restatedInValuedBody(feat) == "" && !ctx.defaultYieldsToSubsetters(inst, feat) && !ctx.portionReadsWhole(inst, feat) {
+		ctx.restatedInValuedBody(feat) == "" && !ctx.defaultYieldsToSubsetters(inst, feat) && !ctx.portionReadsWhole(inst, feat) &&
+		!feat.YieldsToBinding && !ctx.readsContainerSubject(inst, feat) {
 		if semVal, ok := ctx.model.exprs.Entry(feat.DefaultValueID).Folded(ctx.model.semantics, ctx.maxIntegerBits); ok {
 			val := Value{Kind: ValConst, Const: semVal}
 			if ctx.checkDefault(inst, fv, feat.Name, &val, admitDeclared) == nil {
@@ -317,7 +318,7 @@ func (ctx *Context) defaultYieldsToSubsetters(inst *Instance, feat *EffectiveFea
 			return true
 		}
 	}
-	return false
+	return ctx.reachedByASubsetter(inst, feat.Name)
 }
 
 // unfoldSubsettedDefaults reopens the folded fallback defaults of inst that the
@@ -1225,6 +1226,11 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 		return fv, err
 	}
 
+	// A subrequirement declaring no subject reads its container's (SysML v2 §7.21.2).
+	if held, err := inst.materializeFromContainerSubject(ctx, fv, name); err != nil || held {
+		return fv, err
+	}
+
 	// A bound value supplies the feature's own features, so a body restating one
 	// of them states two values for it.
 	if restated := ctx.restatedInValuedBody(fv.Feature); restated != "" {
@@ -1250,7 +1256,7 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	// against this instance, so that it sees the sibling feature values it refers to.
 	// The feature holds what the default states, once that conforms to the
 	// feature's multiplicity and type.
-	if ctx.valueBinds(fv.Feature) {
+	if ctx.valueBinds(fv.Feature) && !(fv.Feature.YieldsToBinding && ctx.bindingDeclaredFor(inst, name)) {
 		return inst.materializeDerived(ctx, fv, name)
 	}
 
@@ -1323,7 +1329,7 @@ func hasNonEndSubsetter(subsetters []EffectiveFeature) bool {
 // subsetting it hold (KerML 1.1 §7.3.4.5): a requirement's `actors` is its actor parameters.
 func (inst *Instance) materializeReferentialCollection(ctx *Context, fv *FeatureValue, name string, open *openPopulation) (*FeatureValue, error) {
 	// A collection only connector ends subset (`participant`) is answered by the ends, not gathered here.
-	if fv.Feature.Scalar() || !hasNonEndSubsetter(ctx.subsettingFeaturesOf(inst, name)) {
+	if fv.Feature.Scalar() || !hasNonEndSubsetter(ctx.subsettingFeaturesOf(inst, name)) && !ctx.reachedByASubsetter(inst, name) {
 		return fv, nil
 	}
 	// A subsetter without a value yet (`otherParticipants` of a port no interface connects)
@@ -1649,7 +1655,8 @@ func (ctx *Context) CompositeTypeOf(feat *EffectiveFeature) *symbols.Symbol {
 	if semantics.IsBehaviorParameter(feat.Symbol) && !ctx.model.semantics.IsDataType(feat.Type) {
 		return nil
 	}
-	if feat.Symbol != nil && (ctx.declaresFeatures(feat) || untypedOccurrenceUsage(feat) || satisfyAssertionUsage(feat.Symbol)) {
+	if feat.Symbol != nil && (ctx.declaresFeatures(feat) || untypedOccurrenceUsage(feat) || satisfyAssertionUsage(feat.Symbol) ||
+		feat.Type == nil && ctx.heldSubrequirement(feat.Symbol)) {
 		return feat.Symbol
 	}
 	return feat.Type

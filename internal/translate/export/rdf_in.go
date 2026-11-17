@@ -2553,8 +2553,9 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	// modifiers, ahead of them, rather than after them in the keyword's place.
 	isVariant := d.boolOf(el, rdf.SysML+"isVariant") && !d.enumeratedValue(el)
 	variantFirst := keyword == "variant" && isVariant
+	isEnd := d.boolOf(el, rdf.SysML+"isEnd")
 	compositeByDefault := usageCompositeByDefault(d.graph, d.metaclass, d.ownership, rdf.IRI(el.iri),
-		d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+pDirection), d.boolOf(el, rdf.SysML+"isEnd"))
+		d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+pDirection), isEnd)
 	// Usage::isReference is derived as not isComposite, so a usage stated
 	// non-composite where its kind is composite was written `ref`.
 	ref := (d.boolOf(el, rdf.SysML+"isReference") || !kerml && d.statedFalse(el, "isComposite") && compositeByDefault) && !variantReference
@@ -2576,13 +2577,15 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		{"portion", isPortion},
 		{"composite", kerml && compositeWord},
 		{constantKeyword(kerml), d.boolOf(el, rdf.SysML+"isConstant") && !d.derivedConstantEnd(el)},
+		// `ref` closes the basic prefix, ahead of the occurrence words
+		// (SysML.xtext BasicUsagePrefix, OccurrenceUsagePrefix); an end's follows `end`.
+		{"ref", ref && !isEnd},
 		{"individual", d.boolOf(el, rdf.SysML+"isIndividual")},
 		{"snapshot", portion == "snapshot"},
 		{"timeslice", portion == "timeslice"},
 		{"event", event},
-		{"end", d.boolOf(el, rdf.SysML+"isEnd")},
-		// A VariantReference is a reference usage by what it is.
-		{"ref", ref},
+		{"end", isEnd},
+		{"ref", ref && isEnd},
 		// SysML has no `composite` of its own; this grammar reads one closing the prefix, after `ref`.
 		{"composite", !kerml && compositeWord},
 	} {
@@ -2732,16 +2735,14 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		// notation rather than as a `references` clause.
 		skip = append(skip, ast.RelReferences)
 	}
-	// A satisfy head writes the requirement it subsets bare, after the keyword;
-	// without that form it declares a requirement usage of its own. An unnamed
-	// SatisfyRequirementUsage, or the RequirementUsage of a `verify` whose
-	// subsetting is a ReferenceSubsetting, is the reference form whether or not
-	// sysx:endForm records it (`verify r :>> req;` records none, since it
-	// specializes twice); `verify requirement :> r;` declares one instead.
+	// A satisfy or verify stating a `references` writes that requirement bare after the keyword,
+	// whether or not sysx:endForm records it; without one it declares a requirement of its own.
 	var satisfyTargets []string
+	// The `by` subject follows the specializations written after the reference.
+	satisfySubject := ""
 	if endForm == formSatisfy || el.metaclass == mSatisfyRequirementUsage || d.verifiedReference(el) {
 		var err error
-		satisfyTargets, err = d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelSubsets])
+		satisfyTargets, err = d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelReferences])
 		if err != nil {
 			return "", err
 		}
@@ -2749,11 +2750,11 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	switch {
 	case endForm == formSatisfy || len(satisfyTargets) > 0 && len(identWords) == 0:
 		if len(satisfyTargets) == 0 {
-			return "", d.missing(el, sysmlPrefix+relationshipProperty[ast.RelSubsets],
+			return "", d.missing(el, sysmlPrefix+relationshipProperty[ast.RelReferences],
 				"a satisfy head names the requirement it satisfies")
 		}
 		words = append(words, strings.Join(satisfyTargets, ", "))
-		skip = append(skip, ast.RelSubsets)
+		skip = append(skip, ast.RelReferences)
 		subjects, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelSubject])
 		if err != nil {
 			return "", err
@@ -2765,7 +2766,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 			}
 		}
 		if len(subjects) == 1 {
-			words = append(words, "by", subjects[0])
+			satisfySubject = subjects[0]
 			skip = append(skip, ast.RelSubject)
 		}
 	case kind == ast.UsageSatisfy:
@@ -2955,6 +2956,9 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		return "", err
 	}
 	words = append(words, relationships...)
+	if satisfySubject != "" {
+		words = append(words, "by", satisfySubject)
+	}
 	if hasEnds {
 		// A connector's own multiplicity is its declaration, written ahead of
 		// the ends; after them it would read as the last end's.
@@ -3859,6 +3863,15 @@ func constantKeyword(kerml bool) string {
 	return "constant"
 }
 
+// typedByKeyword spells a typing where `:` cannot: KerML.xtext TypedBy `'typed' 'by'`,
+// SysML.xtext DefinedByKeyword `'defined' 'by'`.
+func typedByKeyword(kerml bool) string {
+	if kerml {
+		return "typed by"
+	}
+	return "defined by"
+}
+
 // portionPrefix reports whether isPortion is written as KerML's `portion`; SysML has no
 // such prefix, so there the flag is carried by a portion kind and refused without one.
 func (d *decoder) portionPrefix(el *element, kerml bool, portion string) (bool, error) {
@@ -4141,9 +4154,8 @@ func (d *decoder) ownedCrossFeature(el *element) *element {
 	return nil
 }
 
-// crossFeatureWords writes an end's cross feature after `end`: name, multiplicity
-// and specializations, typing spelled `typed by` since `:` there is the end's own.
-// Its identity goes in the end's body (headFeatureAnnotations); a body of its own has no place.
+// crossFeatureWords writes an end's cross feature after `end`, its typing by keyword since `:` there is
+// the end's own; its identity goes in the end's body (headFeatureAnnotations), and it has no body.
 func (d *decoder) crossFeatureWords(cross *element) ([]string, error) {
 	if len(d.bodyChildren(cross)) > 0 || d.boolOf(cross, rdf.OpenSysML+xHasBody) {
 		return nil, &UnsupportedError{
@@ -4181,7 +4193,7 @@ func (d *decoder) crossFeatureWords(cross *element) ([]string, error) {
 		return nil, err
 	}
 	if len(typed) > 0 {
-		words = append(words, "typed by", strings.Join(typed, ", "))
+		words = append(words, typedByKeyword(d.kerml(cross)), strings.Join(typed, ", "))
 	}
 	relationships, err := d.relationshipWords(cross, "", ast.RelTyping)
 	if err != nil {
@@ -4438,10 +4450,8 @@ type headClause struct {
 	multiplicity bool
 }
 
-// headClauseKinds are the collapsed properties a materialized relationship
-// element may state, by the element's metaclass; a Subsetting is a feature's
-// `subsets` or its `specializes`, a ReferenceSubsetting a `references` or an
-// end form's `subsets`, which the target tells apart.
+// headClauseKinds are the collapsed properties a materialized relationship element may state, by
+// its metaclass; a Subsetting is a feature's `subsets` or its `specializes`, told apart by the target.
 var headClauseKinds = map[string][]ast.RelationshipKind{
 	mFeatureTyping:        {ast.RelTyping},
 	mConjugatedPortTyping: {ast.RelTyping},
@@ -4449,7 +4459,7 @@ var headClauseKinds = map[string][]ast.RelationshipKind{
 	mSpecialization:       {ast.RelSpecializes},
 	mSubsetting:           {ast.RelSubsets, ast.RelSpecializes},
 	mRedefinition:         {ast.RelRedefines},
-	mReferenceSubsetting:  {ast.RelReferences, ast.RelSubsets},
+	mReferenceSubsetting:  {ast.RelReferences},
 }
 
 // headClauseTargets are the properties that state a relationship element's

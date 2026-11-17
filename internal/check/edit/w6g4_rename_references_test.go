@@ -501,3 +501,59 @@ func TestTargetsSpellNamesHoldingTheSeparatorApart(t *testing.T) {
 		t.Fatalf("a malformed target was not unknown: %v", err)
 	}
 }
+
+// A feature declaring no name answers to the name of the feature it references or
+// redefines (KerML 1.1 §8.3.3.3), so a reference naming it is rewritten with that feature.
+func TestRenameRewritesReferencesThroughUnnamedFeatures(t *testing.T) {
+	const src = "package P {\n\taction run {\n\t\taction load;\n\t}\n\tpart line {\n\t\tperform run;\n\t}\n" +
+		"\tpart def Base {\n\t\tattribute mass;\n\t}\n\tpart heavy : Base {\n\t\t:>> mass;\n\t}\n" +
+		"\talias viaPerform for line::run;\n\talias viaNode for line::run::load;\n\talias viaRedefinition for heavy::mass;\n}\n"
+	got := renamed(t, "unnamed.sysml", src, "P::run", "go")
+	for _, want := range []string{"action go {", "perform go;", "for line::go;", "for line::go::load;"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q:\n%s", want, got)
+		}
+	}
+	got = renamed(t, "unnamed.sysml", src, "P::Base::mass", "weight")
+	for _, want := range []string{"attribute weight;", ":>> weight;", "for heavy::weight;"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q:\n%s", want, got)
+		}
+	}
+}
+
+// The name passes through every unnamed feature on the way, and a segment spelling the
+// short name is left alone, as it is on the feature itself.
+func TestRenameThroughUnnamedFeaturesKeepsChainsAndShortNames(t *testing.T) {
+	const src = "package P {\n\tpart def Base {\n\t\tattribute <m> mass;\n\t}\n\tpart def Mid :> Base {\n\t\t:>> mass;\n\t}\n" +
+		"\tpart heavy : Mid {\n\t\t:>> mass;\n\t}\n\talias long for heavy::mass;\n\talias short for heavy::m;\n}\n"
+	got := renamed(t, "chain.sysml", src, "P::Base::mass", "weight")
+	for _, want := range []string{"attribute <m> weight;", "for heavy::weight;", "for heavy::m;"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q:\n%s", want, got)
+		}
+	}
+}
+
+// A reference through an unnamed feature that reads the new name by the renamed feature's
+// short name still names that feature, so renaming it to its short name is no capture.
+func TestRenameToTheShortNameThroughAnUnnamedFeatureIsNoCapture(t *testing.T) {
+	const src = "package P {\n\tpart def Base {\n\t\tattribute <m> mass;\n\t}\n\tpart heavy : Base {\n\t\t:>> mass;\n\t}\n" +
+		"\talias through for heavy::mass;\n}\n"
+	got := renamed(t, "short.sysml", src, "P::Base::mass", "m")
+	for _, want := range []string{"attribute <m> m;", ":>> m;", "for heavy::m;"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q:\n%s", want, got)
+		}
+	}
+}
+
+// A feature of another name the new name reaches through the unnamed one is still a capture.
+func TestRenameThroughAnUnnamedFeatureStillRefusesACapture(t *testing.T) {
+	const src = "package P {\n\tpart def Base {\n\t\tattribute mass;\n\t}\n\tpart heavy : Base {\n\t\t:>> mass;\n\t\tattribute load;\n\t}\n" +
+		"\talias through for heavy::mass;\n}\n"
+	e := refusedRename(t, "capture-unnamed.sysml", src, "P::Base::mass", "load")
+	if e.Failure != FailureInvalidName || !strings.Contains(e.Message, "P::heavy::load") {
+		t.Fatalf("refused as %s (%s), want the capture by P::heavy::load", e.Failure, e.Message)
+	}
+}

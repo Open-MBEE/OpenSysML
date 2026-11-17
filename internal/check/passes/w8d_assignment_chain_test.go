@@ -42,9 +42,9 @@ func TestAssignmentChainWritableTargetAnalysesClean(t *testing.T) {
 	}
 }
 
-// A calculation writes no feature of another object, so a chained target is an
-// error of the body rather than a run-time surprise.
-func TestAssignmentChainInCalcBodyIsReported(t *testing.T) {
+// A calculation may have side effects (KerML 7.4.8.1), so a chained target in its
+// body is held to the same rules as one in an action body.
+func TestAssignmentChainInCalcBodyAnalysesClean(t *testing.T) {
 	src := `package Test {
 	part def Sensor { attribute reading : ScalarValues::Real = 0.0; }
 	part s : Sensor;
@@ -54,15 +54,26 @@ func TestAssignmentChainInCalcBodyIsReported(t *testing.T) {
 	}
 }`
 	for _, warm := range []bool{false, true} {
+		if got := assignmentChainFindings(t, src, warm); len(got) != 0 {
+			t.Fatalf("warm=%v: got %v, want a chain target in a calculation to analyse clean", warm, got)
+		}
+	}
+}
+
+func TestAssignmentChainStepHoldingManyInCalcBodyIsReported(t *testing.T) {
+	src := `package Test {
+	part def Sensor { attribute reading : ScalarValues::Real = 0.0; }
+	part def Rig { part sensors : Sensor[2]; }
+	part rig : Rig;
+	calc def Reset {
+		assign rig.sensors.reading := 1.0;
+		2.0
+	}
+}`
+	for _, warm := range []bool{false, true} {
 		got := assignmentChainFindings(t, src, warm)
-		if len(got) != 1 || got[0].Code != "assignment-chain-in-calc" {
-			t.Fatalf("warm=%v: got %v, want the calculation chain-target diagnostic", warm, got)
-		}
-		if want := strings.Index(src, "s.reading := 1.0"); got[0].Span.Offset != want {
-			t.Errorf("warm=%v: span offset %d, want %d", warm, got[0].Span.Offset, want)
-		}
-		if !strings.Contains(got[0].Message, "s.reading") {
-			t.Errorf("warm=%v: message %q, want it to name the target", warm, got[0].Message)
+		if len(got) != 1 || got[0].Code != "assignment-chain-step-not-one-object" {
+			t.Fatalf("warm=%v: got %v, want the several-objects step diagnostic", warm, got)
 		}
 	}
 }

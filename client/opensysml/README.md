@@ -359,7 +359,25 @@ API JSON names the standard-library elements a model uses in the `Conversion`'s
 `LibraryReferences` (each an `ID`, `QualifiedName` and metaclass `Type`) rather
 than writing them as elements; `WithLibraryStubs()` restores the ownerless
 library stubs releases before 0.11.0 wrote, and needs the service's
-`CapabilityConvertLibraryStubs`.
+`CapabilityConvertLibraryStubs`. An element carries its owned structure;
+`WithInheritedMembers()` also writes the derived lists that repeat each
+Namespace's and Type's inherited and imported members, and needs
+`CapabilityConvertInheritedMembers`.
+
+`Convert` of a model parsed from several documents writes all of them;
+`WithDocuments("app.sysml")` writes only the documents named, as the parse
+named them, and still reads the others for the references into them, so a
+program that edited one document of a large model converts that one. It needs
+`CapabilityConvertDocuments`. `WithCompact()` writes notation as the compact
+API JSON document (`api-json-compact/1`, one table of element ids and every
+reference an index into it) and `WithOmitDerived("owner", "qualifiedName")`
+leaves the metamodel's derived properties out of it, except the ones named;
+both need `CapabilityConvertCompact`, and the service refuses the second
+without the first as `CodeInvalidArgument`. `WithCheckDiagnostics()` adds what
+the semantic check reports of a notation source to the `Conversion`'s
+`Diagnostics`, beside any tolerated syntax errors, each `Diagnostic` with the
+`Severity` and `Code` a parse gives it, and needs
+`CapabilityConvertCheckDiagnostics`.
 
 `ParseDocuments` can relate the model it parses to one the program already
 holds results of: `WithBaseModel(previous)` has the service compare the two
@@ -493,7 +511,15 @@ default, or run once, rather than refuse. So is an engine: `WithEngine`,
 `Engine` and `CalcEngine` naming anything but `EngineAuto` need `engines`, since a service without it
 would answer with whichever engine it chose. `WithLibraryStubs` needs `convert_library_stubs`
 and `WithBaseModel` needs `parse_sources_affected`, since a service without them would write
-bare library references, or parse without relating the models, instead of refusing.
+bare library references, or parse without relating the models, instead of refusing; `WithDocuments`
+needs `convert_documents`, `WithCompact` and `WithOmitDerived` `convert_compact`, and
+`WithCheckDiagnostics` `convert_check_diagnostics`, for the same reason. A call the service names a
+capability for is checked before it is sent too: `Convert*` needs `convert`, `Migrate*` `migrate`,
+`ApplyEdits` `apply_edits`, `ParseDocuments` `parse_sources`, the `Verify*` calls, `ValidateInstance`
+and `EvaluateCalc` `verification`, `Query` `query` (with `OrderBy`, `query_order_by`), `QueryOSLC`
+`oslc_query`, `ElementProperties*` `element_properties`, `RunDocumentQuery` `document_query`,
+`RenderDocument` `render_document`, `WithStrictConformance` `strict_conformance`, `WithLanguage` on
+inline content `inline_language` and `WithSubject` `evaluate_subject`.
 
 A `Set` arrives with its elements in the service's canonical order — Booleans,
 then numbers, strings, quantities, enumeration literals and objects, each class

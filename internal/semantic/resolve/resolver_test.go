@@ -5,6 +5,8 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 func TestResolverNewAndMemoEmpty(t *testing.T) {
@@ -34,5 +36,25 @@ func TestResolverMemoizes(t *testing.T) {
 	}
 	if got := len(r.Diagnostics); got != 1 {
 		t.Fatalf("diagnostics recorded %d times, want 1 (memoized)", got)
+	}
+}
+
+// TestResolveSegments pins that names given as segments resolve as the qualified
+// name they spell does.
+func TestResolveSegments(t *testing.T) {
+	src := `package P { part def Q { attribute x; } part q : Q; }`
+	root := parser.New(source.New("s.sysml", []byte(src))).ParseFile()
+	idx := symbols.NewIndexFromDoc("s.sysml", root)
+	r := New(idx)
+	scope := idx.DocumentRoot("s.sysml")
+	want := idx.LookupQualified("P::Q::x")
+	if len(want) != 1 {
+		t.Fatalf("P::Q::x matched %d symbols", len(want))
+	}
+	if got, ok := r.ResolveSegments(scope, "P", "Q", "x"); !ok || got != want[0] {
+		t.Errorf("ResolveSegments(P, Q, x) = %v, %v; want %v", got, ok, want[0])
+	}
+	if got, ok := r.ResolveSegments(scope, "P", "missing"); ok {
+		t.Errorf("ResolveSegments(P, missing) resolved to %v", got)
 	}
 }

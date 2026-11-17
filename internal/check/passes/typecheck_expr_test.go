@@ -82,6 +82,20 @@ func TestExprBindIntegerToRealAttributeOK(t *testing.T) {
 	wantNoDiags(t, `package P { attribute x : ScalarValues::Real = 5; }`)
 }
 
+// A literal is of every type generalizing its scalar type (KerML 8.3.3.3.4), the abstract
+// `NumericalValue` and `ScalarValue` included, and of no unrelated one.
+func TestExprBindLiteralToAScalarSupertype(t *testing.T) {
+	wantLibraryClean(t, `package P {
+		attribute a : ScalarValues::NumericalValue = 0.5;
+		attribute b : ScalarValues::ScalarValue = 3;
+		attribute c : ScalarValues::ScalarValue = "s";
+		attribute d : ScalarValues::ScalarValue = true;
+	}`)
+	wantLibrarySeverity(t,
+		`package P { attribute x : ScalarValues::NumericalValue = "hello"; }`, diag.SeverityError,
+		"binding-connector-type-conformance", "cannot bind String value to a feature typed by NumericalValue")
+}
+
 // A feature reference is typed by the feature's declaration, not by the value
 // it happens to hold: `w` is a Real here, whatever the 3 it was given is.
 func TestExprBindFeatureReferenceRespectsDeclaredType(t *testing.T) {
@@ -679,7 +693,7 @@ func TestExprNodeBodyParameterSuppliesArgument(t *testing.T) {
 	wantNoDiags(t, fmt.Sprintf(model, `action scaled = Scale(a = seven) { in a = 1; in b = a * 10; }`))
 	wantNoDiags(t, fmt.Sprintf(model, `action scaled = Scale(seven) { in a = 1; in b = a * 10; }`))
 	wantNoDiags(t, fmt.Sprintf(model, `action scaled = Scale(a = seven) { in a; in b = 10; }`))
-	wantNoDiags(t, fmt.Sprintf(model, `action scaled = Scale(a = seven) { in x = 1; in y redefines b = 10; }`))
+	wantNoDiags(t, fmt.Sprintf(model, `action scaled = Scale(a = seven) { in a = 1; in y redefines b = 10; }`))
 	wantNoDiags(t, fmt.Sprintf(model, `action inner { action scaled = Scale(a = seven) { in a; in b = 10; } }`))
 	wantNoDiags(t, `package P {
 		action def Scale { in a : ScalarValues::Integer[1]; in b : ScalarValues::Integer[1]; }
@@ -692,7 +706,15 @@ func TestExprNodeBodyParameterSuppliesArgument(t *testing.T) {
 		CodeUnboundParameter, "Scale leaves parameter b unbound")
 	wantOneWarning(t, fmt.Sprintf(model, `action scaled = Scale(a = seven) { in a = 1; }`),
 		CodeUnboundParameter, "Scale leaves parameter b unbound")
-	wantOneDiag(t, fmt.Sprintf(model, `action scaled = Scale(a = seven) { in b = "x"; }`),
+	// The body's `b` redefines `a` by position, an Integer its String value does not conform to.
+	diags := exprDiags(t, fmt.Sprintf(model, `action scaled = Scale(a = seven) { in b = "x"; }`))
+	if len(diags) != 2 || !strings.Contains(diags[0].Message, `Scale has no parameter named "a"`) ||
+		diags[1].Code != "bound-feature-types" || diags[1].Severity != diag.SeverityWarning {
+		t.Fatalf("expected the unknown name and the non-conforming value, got %v", diags)
+	}
+	// The body resolves `b` as a member the node inherits from the value's result (KerML
+	// 8.3.3.3.4), and its `x` redefines `a` by position, so `a` names no parameter here.
+	wantOneDiag(t, fmt.Sprintf(model, `action scaled = Scale(a = seven) { in x = 1; in y redefines b = 10; }`),
 		`Scale has no parameter named "a"`)
 }
 

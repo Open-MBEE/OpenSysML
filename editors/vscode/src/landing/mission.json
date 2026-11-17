@@ -372,7 +372,8 @@
                     "exponent": -1
                   }
                 ]
-              }
+              },
+              "valueType": "ISQSpaceTime::SpeedValue"
             }
           },
           "materialized": true
@@ -496,7 +497,8 @@
                       "exponent": -1
                     }
                   ]
-                }
+                },
+                "valueType": "ISQSpaceTime::SpeedValue"
               }
             }
           ],
@@ -583,7 +585,8 @@
                     "exponent": -1
                   }
                 ]
-              }
+              },
+              "valueType": "ISQSpaceTime::SpeedValue"
             }
           },
           "materialized": true

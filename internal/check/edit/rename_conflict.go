@@ -117,7 +117,8 @@ func capturedAt(r *resolve.Resolver, sem *semantics.Model, sym *symbols.Symbol, 
 	} else if occ.Ref.Invocation != nil {
 		return calledInstead(r, sem, sym, occ, qn)
 	}
-	means, captured := otherThan(r, sym, other, ok)
+	// An unnamed feature read under sym's other identifier still names sym: no capture.
+	means, captured := otherThan(r, sym, other, ok && !symbols.SameElement(NameWritten(sem, other), sym))
 	return RenameConflict{Means: means}, captured
 }
 

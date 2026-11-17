@@ -320,13 +320,13 @@ func TestCheckWeightsViolationMass(t *testing.T) {
 		private import ScalarValues::*;
 		private import Stochastic::*;
 		state def Machine {
-			entry; then decide;
-			state decide;
+			entry; then choose;
+			state choose;
 			state bad;
 			state good;
 			state later;
-			transition first decide then bad { @Probability { p = 0.3; } }
-			transition first decide then good { @Probability { p = 0.7; } }
+			transition first choose then bad { @Probability { p = 0.3; } }
+			transition first choose then good { @Probability { p = 0.7; } }
 			transition first good then later;
 		}
 	}`)
@@ -627,8 +627,8 @@ func testForkBranchWeightRefused(t *testing.T) {
 			}
 			fork split;
 			transition first a then split;
-			transition first split then x { @Probability { p = 0.5; } }
-			transition first split then y { @Probability { p = 0.5; } }
+			transition first split then work.left.x { @Probability { p = 0.5; } }
+			transition first split then work.right.y { @Probability { p = 0.5; } }
 		}
 	}`)
 	ctx, err := m.fresh()

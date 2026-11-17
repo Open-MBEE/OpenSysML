@@ -648,6 +648,14 @@ input. A service that does not advertise `undetermined_value` sends the arm as a
   km/h is 5/18 m/s). A client converting between units multiplies by this ratio; a client
   comparing two quantities for the same dimension compares `factors`. The scale is a
   *ratio*, not a decimal — do not read `scaleNum` alone as "the scale".
+- `valueType` is the fully qualified name of the quantity value type the quantity is held as
+  (`ISQThermodynamics::EnergyValue` for one read off `e : ISQ::EnergyValue`), absent for a
+  quantity held as none, which every computed one is. A client keeps it and sends it back with
+  the quantity, so the quantity is still of that type: `ISQ::TorqueValue` refuses the energy,
+  where it takes the same magnitude sent without a `valueType`. It is no part of the value, so
+  equality does not read it. The service refuses a `valueType` naming no quantity value type of
+  the model, or one of another dimension than the unit. No capability governs it: a service
+  that predates the field sends none and ignores one sent.
 
 **`enumLiteral`.** Three strings: `literalId`, the fully qualified name of the literal and its
 **identity**; `enumerationId`, the fully qualified name of its enumeration; and `name`, a
@@ -2253,6 +2261,17 @@ library stubs written before 0.11.0 inside the API JSON element array (or compac
 stubs carry `@id`, `@type`, `declaredName`, `elementId`, `isLibraryElement: true` and
 `qualifiedName`; an OMG API reader treats them as roots. Prefer the separate table
 for new clients. It composes with `documents`, `idForm` and `compact`.
+
+`inheritedMembers`, advertised as `convert_inherited_members`, also writes on every
+Namespace and Type of the API JSON element array the six derived lists that repeat its
+inherited and imported members: `membership`, `member`, `inheritedMembership`,
+`featureMembership`, `feature` and `inheritedFeature`, each named in the element's
+`sysx:completedProperties`. It is default-off and is `invalid_argument` for any other
+target. Without it an element carries its owned structure (`ownedMembership`,
+`ownedMember`, `ownedFeature` and every other property), from which a reader derives
+those lists; element ids and every other property are the same either way. A list the
+graph itself states is written regardless. A service without the capability always
+writes the lists.
 
 The Node client exposes `Conversion.libraryReferences` and the
 `includeLibraryStubs` option on `Connection.convert` and `Model.convert`.

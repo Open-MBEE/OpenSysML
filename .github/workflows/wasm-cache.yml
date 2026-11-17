@@ -15,6 +15,8 @@ on:
 
 permissions:
   contents: read
+  # Deleting the entries a new save supersedes.
+  actions: write
 
 concurrency:
   group: wasm-cache
@@ -34,7 +36,7 @@ jobs:
 
       - name: Set up Go
         id: go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
           cache: false
@@ -68,6 +70,7 @@ jobs:
       # The objects a failed gate compiled are as good as a passing one's, so a red
       # develop still warms the next pull request.
       - name: Save the WebAssembly build cache
+        id: save
         if: success() || failure()
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -75,3 +78,21 @@ jobs:
             ~/.cache/go-build
             ~/go/pkg/mod
           key: wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+
+      # Each entry is some 3 GB and only the newest is restored; three fill the 10 GB the
+      # repository may keep, and GitHub then evicts the other caches saved on develop.
+      - name: Delete the WebAssembly build caches this one supersedes
+        if: always() && steps.save.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SAVED: wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+        run: |
+          set -euo pipefail
+          caches=$(gh cache list --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF" --key wasm-gate- --limit 100 --json id,key)
+          # The save step succeeds over a failed upload, and the older entries are then the only warm ones.
+          if ! jq -e 'any(.[]; .key == env.SAVED)' <<<"$caches" >/dev/null; then
+            echo "::warning::$SAVED was not saved, so the older entries are kept"
+            exit 0
+          fi
+          jq -r '.[] | select(.key != env.SAVED) | .id' <<<"$caches" |
+            xargs -r -n1 gh cache delete --repo "$GITHUB_REPOSITORY"

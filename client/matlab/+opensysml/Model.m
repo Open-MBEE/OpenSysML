@@ -120,7 +120,8 @@ classdef Model < handle
                         sprintf('%s options must be name-value pairs', label));
                 end
                 if any(strcmp(args{i}, {'tolerateSyntaxErrors', 'idForm', 'includeLibraryStubs', ...
-                        'compact', 'omitDerived', 'keepDerived', 'includeCheckDiagnostics'}))
+                        'compact', 'omitDerived', 'keepDerived', 'includeCheckDiagnostics', ...
+                        'inheritedMembers'}))
                     options(end+1:end+2) = args(i:i+1);
                 else
                     opensysml.internal.raise('opensysml:argument', ...

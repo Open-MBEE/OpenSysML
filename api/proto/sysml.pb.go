@@ -6808,8 +6808,11 @@ type ConvertRequest struct {
 	// For api-json, restore the ownerless library stubs written before 0.11.0.
 	// Default false: library elements remain bare references, not roots.
 	IncludeLibraryStubs bool `protobuf:"varint,13,opt,name=include_library_stubs,json=includeLibraryStubs,proto3" json:"include_library_stubs,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// For api-json, also write each Namespace's and Type's derived lists of inherited and imported members;
+	// default false writes owned structure. Capability "convert_inherited_members"; a service without it always writes them.
+	InheritedMembers bool `protobuf:"varint,14,opt,name=inherited_members,json=inheritedMembers,proto3" json:"inherited_members,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ConvertRequest) Reset() {
@@ -6942,6 +6945,13 @@ func (x *ConvertRequest) GetIncludeCheckDiagnostics() bool {
 func (x *ConvertRequest) GetIncludeLibraryStubs() bool {
 	if x != nil {
 		return x.IncludeLibraryStubs
+	}
+	return false
+}
+
+func (x *ConvertRequest) GetInheritedMembers() bool {
+	if x != nil {
+		return x.InheritedMembers
 	}
 	return false
 }
@@ -11792,7 +11802,10 @@ type Quantity struct {
 	// What the unit reduces to, which decides commensurability and conversion.
 	// Required wherever `unit` names one: a named unit sent without its reduction
 	// is rejected rather than read as dimension one.
-	UnitTerm      *UnitTerm `protobuf:"bytes,4,opt,name=unit_term,json=unitTerm,proto3" json:"unit_term,omitempty"`
+	UnitTerm *UnitTerm `protobuf:"bytes,4,opt,name=unit_term,json=unitTerm,proto3" json:"unit_term,omitempty"`
+	// Qualified name of the quantity value type the quantity is held as, empty for
+	// none: sent back, it is held as that type still, which a sibling type refuses.
+	ValueType     string `protobuf:"bytes,7,opt,name=value_type,json=valueType,proto3" json:"value_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -11882,6 +11895,13 @@ func (x *Quantity) GetUnitTerm() *UnitTerm {
 		return x.UnitTerm
 	}
 	return nil
+}
+
+func (x *Quantity) GetValueType() string {
+	if x != nil {
+		return x.ValueType
+	}
+	return ""
 }
 
 type isQuantity_Magnitude interface {
@@ -19717,7 +19737,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\x1aA\n" +
 	"\x13OrderDependentEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\xf1\x03\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\x9e\x04\n" +
 	"\x0eConvertRequest\x12\x1d\n" +
 	"\tfile_path\x18\x01 \x01(\tH\x00R\bfilePath\x12\x1a\n" +
 	"\acontent\x18\x02 \x01(\tH\x00R\acontent\x12\x1f\n" +
@@ -19734,7 +19754,8 @@ const file_sysml_proto_rawDesc = "" +
 	" \x01(\bR\vomitDerived\x12!\n" +
 	"\fkeep_derived\x18\v \x03(\tR\vkeepDerived\x12:\n" +
 	"\x19include_check_diagnostics\x18\f \x01(\bR\x17includeCheckDiagnostics\x122\n" +
-	"\x15include_library_stubs\x18\r \x01(\bR\x13includeLibraryStubsB\b\n" +
+	"\x15include_library_stubs\x18\r \x01(\bR\x13includeLibraryStubs\x12+\n" +
+	"\x11inherited_members\x18\x0e \x01(\bR\x10inheritedMembersB\b\n" +
 	"\x06source\"\xd1\x02\n" +
 	"\x0fConvertResponse\x12\x18\n" +
 	"\acontent\x18\x01 \x01(\tR\acontent\x12\x1f\n" +
@@ -20112,14 +20133,16 @@ const file_sysml_proto_rawDesc = "" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\"\n" +
 	"\x05value\x18\x04 \x01(\v2\f.sysml.ValueR\x05value\"9\n" +
 	"\rValueSequence\x12(\n" +
-	"\belements\x18\x01 \x03(\v2\f.sysml.ValueR\belements\"\x99\x02\n" +
+	"\belements\x18\x01 \x03(\v2\f.sysml.ValueR\belements\"\xb8\x02\n" +
 	"\bQuantity\x12%\n" +
 	"\rint_magnitude\x18\x01 \x01(\x03H\x00R\fintMagnitude\x12'\n" +
 	"\x0ereal_magnitude\x18\x02 \x01(\x01H\x00R\rrealMagnitude\x12,\n" +
 	"\x11big_int_magnitude\x18\x05 \x01(\tH\x00R\x0fbigIntMagnitude\x12@\n" +
 	"\x12rational_magnitude\x18\x06 \x01(\v2\x0f.sysml.RationalH\x00R\x11rationalMagnitude\x12\x12\n" +
 	"\x04unit\x18\x03 \x01(\tR\x04unit\x12,\n" +
-	"\tunit_term\x18\x04 \x01(\v2\x0f.sysml.UnitTermR\bunitTermB\v\n" +
+	"\tunit_term\x18\x04 \x01(\v2\x0f.sysml.UnitTermR\bunitTerm\x12\x1d\n" +
+	"\n" +
+	"value_type\x18\a \x01(\tR\tvalueTypeB\v\n" +
 	"\tmagnitude\"k\n" +
 	"\x0eMeasurementRef\x12\x12\n" +
 	"\x04unit\x18\x01 \x01(\tR\x04unit\x12,\n" +

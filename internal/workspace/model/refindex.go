@@ -118,7 +118,7 @@ func (w *Workspace) indexReferencesLocked(doc *Document) {
 			r.ResolveReference(ref)
 			sel := invocationSelection(r, sem, ref)
 			elements := segmentElements(r, ref, sel)
-			written := segmentNames(r, ref, sel)
+			written := segmentNames(r, sem, ref, sel)
 			for i := range ref.QN.Parts {
 				w.refs.add(doc, ref, i, elements[i], written[i])
 			}
@@ -205,13 +205,13 @@ func segmentElements(r *resolve.Resolver, ref resolve.Reference, sel *semantics.
 	return out
 }
 
-// segmentNames is what each segment of a resolved ref writes rather than reaches,
-// so a segment written as an alias name is the alias.
-func segmentNames(r *resolve.Resolver, ref resolve.Reference, sel *semantics.InvocationSelection) []*symbols.Symbol {
+// segmentNames is what each segment of a resolved ref writes rather than reaches: the alias
+// for an alias name, the feature an unnamed one takes its name from (KerML 1.1 §8.3.3.3).
+func segmentNames(r *resolve.Resolver, sem *semantics.Model, ref resolve.Reference, sel *semantics.InvocationSelection) []*symbols.Symbol {
 	out := make([]*symbols.Symbol, len(ref.QN.Parts))
 	for i := range ref.QN.Parts {
 		if sym, ok := r.PartName(ref.QN, i); ok {
-			out[i] = sym
+			out[i] = edit.NameWritten(sem, sym)
 		}
 	}
 	// A written alias stays the name — the alias naming the overload the call selects,

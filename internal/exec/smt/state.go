@@ -5,7 +5,6 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // The constructors the finite sorts carry beside the flow's own nodes and edges.
@@ -77,7 +76,7 @@ func (f *Flow) signalTypes() []string {
 	var types []string
 	seen := make(map[string]bool, len(f.Sends))
 	for _, site := range f.Sends {
-		name := sendSignal(site.Send)
+		name := site.Send.Signal()
 		if !seen[name] {
 			seen[name] = true
 			types = append(types, name)
@@ -86,30 +85,18 @@ func (f *Flow) signalTypes() []string {
 	return types
 }
 
-// sendSignal names the signal type a send posts: the type its message names,
-// or the message text where it is a value.
-func sendSignal(send lower.Send) string {
-	switch m := send.Message.(type) {
-	case *ast.QualifiedName:
-		return ast.QualifiedText(m)
-	case *ast.InvocationExpr:
-		return ast.QualifiedText(m.Type)
-	}
-	return nodeLabel(send.Message)
-}
-
 // edgeLabel names succession i of the flow: source, target and its position
 // among the source's successions, as a decision witness names a branch.
 func edgeLabel(f *Flow, i int) string {
-	edge := f.Edges[i]
+	source, target := f.Ends[i][0], f.Ends[i][1]
 	pos := 0
-	for n, out := range f.Outgoing[edge.Source] {
+	for n, out := range f.Outgoing[source] {
 		if out == i {
 			pos = n + 1
 			break
 		}
 	}
-	return fmt.Sprintf("%s>%d->%s", f.label(edge.Source), pos, f.label(edge.Target))
+	return fmt.Sprintf("%s>%d->%s", f.label(source), pos, f.label(target))
 }
 
 // slotLabel names token slot t as a choice.
@@ -242,11 +229,11 @@ func newMove(sorts Sorts, f *Flow, i int) *Move {
 		Held:   make([]*solve.Var, len(f.Edges)),
 	}
 	for _, node := range f.Nodes {
-		if _, decision := node.(*ast.DecisionNode); !decision {
+		if node.form() != lower.FormDecision {
 			continue
 		}
 		for _, edge := range f.Outgoing[node] {
-			if f.Edges[edge].Guard != nil {
+			if f.Edges[edge].GuardID != 0 {
 				m.Held[edge] = boolVar(fmt.Sprintf("held[%d]@%d", edge, i))
 			}
 		}

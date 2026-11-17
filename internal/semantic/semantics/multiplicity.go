@@ -380,22 +380,42 @@ func (m *Model) EffectiveParameterRangeAlong(chain []*symbols.Symbol) Range {
 	if len(chain) == 0 {
 		return UnboundedRange()
 	}
-	w := &rangeWalk{m: m, next: make(map[*symbols.Symbol]*symbols.Symbol, len(chain)), visited: map[*symbols.Symbol]bool{}}
-	for i := 0; i+1 < len(chain); i++ {
-		w.next[chain[i]] = chain[i+1]
-	}
-	if r, ok := w.rangeOf(chain[0]); ok {
+	if r, ok := m.rangeWalkAlong(chain).rangeOf(chain[0]); ok {
 		return r
 	}
 	return UnboundedRange()
 }
 
+// InheritedMultiplicityOf is the range a feature declaring no multiplicity takes from the features
+// it redefines or subsets (KerML 1.1 §7.3.4.5), ok=false when none of them declares one.
+func (m *Model) InheritedMultiplicityOf(sym *symbols.Symbol) (Range, bool) {
+	if sym == nil {
+		return Range{}, false
+	}
+	if _, declared := m.MultiplicityOf(sym); declared || m.ImplicitMultiplicityApplies(sym) {
+		return Range{}, false
+	}
+	defer m.own(sym).LeaveDoc()
+	w := m.rangeWalkAlong(m.ParameterRedefinitionChain(sym))
+	r, ok := w.rangeOf(sym)
+	return r, ok && w.declared
+}
+
+func (m *Model) rangeWalkAlong(chain []*symbols.Symbol) *rangeWalk {
+	w := &rangeWalk{m: m, next: make(map[*symbols.Symbol]*symbols.Symbol, len(chain)), visited: map[*symbols.Symbol]bool{}}
+	for i := 0; i+1 < len(chain); i++ {
+		w.next[chain[i]] = chain[i+1]
+	}
+	return w
+}
+
 // rangeWalk intersects ranges along a redefinition chain and its relationships,
-// visiting each feature once.
+// visiting each feature once; declared records that one of them wrote its range.
 type rangeWalk struct {
-	m       *Model
-	next    map[*symbols.Symbol]*symbols.Symbol
-	visited map[*symbols.Symbol]bool
+	m        *Model
+	next     map[*symbols.Symbol]*symbols.Symbol
+	visited  map[*symbols.Symbol]bool
+	declared bool
 }
 
 func (w *rangeWalk) rangeOf(p *symbols.Symbol) (Range, bool) {
@@ -404,6 +424,7 @@ func (w *rangeWalk) rangeOf(p *symbols.Symbol) (Range, bool) {
 	}
 	w.visited[p] = true
 	if r, ok := w.m.MultiplicityOf(p); ok {
+		w.declared = true
 		return r, true
 	}
 	if w.m.ImplicitMultiplicityApplies(p) {

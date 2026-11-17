@@ -1507,6 +1507,9 @@ message ConvertRequest {
   // For api-json, restore the ownerless library stubs written before 0.11.0.
   // Default false: library elements remain bare references, not roots.
   bool include_library_stubs = 13;
+  // For api-json, also write each Namespace's and Type's derived lists of inherited and imported members;
+  // default false writes owned structure. Capability "convert_inherited_members"; a service without it always writes them.
+  bool inherited_members = 14;
 }
 
 // ConvertResponse contains the converted model.
@@ -2421,6 +2424,9 @@ message Quantity {
   // Required wherever `unit` names one: a named unit sent without its reduction
   // is rejected rather than read as dimension one.
   UnitTerm unit_term = 4;
+  // Qualified name of the quantity value type the quantity is held as, empty for
+  // none: sent back, it is held as that type still, which a sibling type refuses.
+  string value_type = 7;
 }
 
 // MeasurementRef is a MeasurementReferences::ScalarMeasurementReference held as
