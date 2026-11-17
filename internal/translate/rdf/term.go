@@ -15,6 +15,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"sync"
 	"unique"
 )
 
@@ -45,8 +46,18 @@ type literalForm struct {
 	lang     string
 }
 
-// plainLiteral is the form of a literal with neither datatype nor language tag.
-var plainLiteral = unique.Make(literalForm{})
+// plainForm holds the form of a literal with neither datatype nor language tag.
+var plainForm struct {
+	once   sync.Once
+	handle unique.Handle[literalForm]
+}
+
+// plainLiteral makes that form on first use: made at package initialization, it
+// would link the interning tables into every binary importing this package.
+func plainLiteral() unique.Handle[literalForm] {
+	plainForm.once.Do(func() { plainForm.handle = unique.Make(literalForm{}) })
+	return plainForm.handle
+}
 
 // Kind is the node kind of t.
 func (t Term) Kind() TermKind {
@@ -77,7 +88,7 @@ func (t Term) Lang() string {
 func IRI(iri string) Term { return Term{Value: iri} }
 
 // String returns a plain string literal.
-func String(value string) Term { return Term{Value: value, form: plainLiteral} }
+func String(value string) Term { return Term{Value: value, form: plainLiteral()} }
 
 // TypedLiteral returns a literal with an explicit datatype IRI.
 func TypedLiteral(value, datatype string) Term {
