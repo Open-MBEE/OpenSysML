@@ -1,12 +1,49 @@
 name: Pages
 
-# The site is docs/ rendered by MkDocs, republished on every push to develop: the
-# test-suite figures are counted from the whole tree as it builds, so any
-# fixture or test landing in a release moves them. --strict: a broken link
-# fails the deployment.
+# The site is docs/ rendered by MkDocs, republished when a push to develop changes
+# something the build reads; a push that changes none of it would publish the same site.
+# The paths are every input of the build job: the pages and their renderer, the files the
+# hooks copy in, the sources the in-browser modules and the landing diagram compile from,
+# and what tools/cmd/doc-counts counts the test-suite figures from, which is every
+# `_test.go` in the module and the fixture directories named below. A new input of the
+# build belongs on this list. --strict: a broken link fails the deployment.
 on:
   push:
     branches: [develop]
+    paths:
+      # The pages, the theme and the renderer.
+      - docs/**
+      - overrides/**
+      - mkdocs.yml
+      - docs-requirements.txt
+      - scripts/mkdocs_*.py
+      - scripts/spec_compliance.py
+      - scripts/griffe_sphinx_roles.py
+      # Published as they are, or spliced into a page, by the hooks.
+      - install.sh
+      - install.ps1
+      - SECURITY.md
+      # The Python API reference is rendered from the client's docstrings.
+      - client/python/**
+      # The in-browser engine and REPL, the files they embed, and the examples the REPL
+      # offers. `**.go` is also every test the suite figures count and the tools counting them.
+      - '**.go'
+      - go.mod
+      - go.sum
+      - tools/go.mod
+      - tools/go.sum
+      - cmd/**
+      - internal/**
+      - examples/runtime-showcase/**
+      # The landing-page diagram.
+      - client/node/**
+      - editors/vscode/**
+      # The fixtures the suite figures count that are not under internal/.
+      - tests/parser/testdata/parse/**
+      - tests/grpc/testdata/conformance/**
+      # How it is built.
+      - Makefile
+      - .github/workflows/pages.yml
   workflow_dispatch:
 
 # One deployment at a time; cancelling one in flight would leave the site behind. The group was
