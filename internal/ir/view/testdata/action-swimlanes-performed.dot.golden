@@ -1,0 +1,48 @@
+// view: SwimLanes::performedView
+// kind: action
+// stated: view def ActionFlowView
+// layout: dot
+digraph "SwimLanes::performedView" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_frame" {
+    label=<<font point-size="10"><i>«view»</i></font> <b>SwimLanes::performedView</b> : ActionFlowView>;
+    labeljust=l;
+    labelloc=t;
+    penwidth=0.5;
+    margin=8;
+    subgraph "cluster_n0" {
+      label=<<font point-size="10"><i>«perform action»</i></font><br/><b>part0.action0</b>>;
+      color=black;
+      penwidth=0.5;
+      "n0" [shape=point, style=invis, width=0, height=0, label=""];
+      subgraph "cluster_n7" {
+        label=<<font point-size="10"><i>«performer»</i></font><br/><b>part0.part1</b><br/>perform actions>;
+        style=dashed;
+        color=black;
+        penwidth=0.5;
+        "n7" [shape=point, style=invis, width=0, height=0, label=""];
+        "n1" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>^action1</b>>];
+        "n4" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>^action4</b>>];
+      }
+      subgraph "cluster_n8" {
+        label=<<font point-size="10"><i>«performer»</i></font><br/><b>part0.part2</b><br/>perform actions>;
+        style=dashed;
+        color=black;
+        penwidth=0.5;
+        "n8" [shape=point, style=invis, width=0, height=0, label=""];
+        "n2" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>^action2</b>>];
+        "n3" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>^action3</b>>];
+      }
+      "n5" [shape=circle, fillcolor=black, label="", width=0.2];
+      "n6" [shape=doublecircle, fillcolor=black, label="", width=0.2];
+    }
+    { rank=min; "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose part0::action0</font>>]; }
+  }
+  "n1" -> "n2" [style=dashed, arrowhead=vee];
+  "n2" -> "n3" [style=dashed, arrowhead=vee];
+  "n3" -> "n4" [style=dashed, arrowhead=vee];
+  "n4" -> "n6" [style=dashed, arrowhead=vee];
+  "n5" -> "n1" [style=dashed, arrowhead=vee];
+}

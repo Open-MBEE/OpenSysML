@@ -111,7 +111,7 @@ func (e *executor) cellValues(value runtime.Value, property string, row Value) (
 	case runtime.ValString:
 		return []Value{valueAt(StringValue(value.Str()), origin)}, nil
 	case runtime.ValQuantity:
-		return []Value{valueAt(QuantityValue(*value.Quantity()), origin)}, nil
+		return []Value{valueAt(QuantityHeldAs(*value.Quantity(), value.QuantityKind()), origin)}, nil
 	default:
 		return nil, e.unevaluable(queryplan.Expression{}, property, row, notAValue(value))
 	}

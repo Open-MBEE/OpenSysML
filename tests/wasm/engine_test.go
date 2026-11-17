@@ -302,6 +302,29 @@ func nodeRun(t *testing.T, script string, args ...string) result {
 	return res
 }
 
+// wantSpeedAnswer fails unless body is Evaluate's answer for enginedemo::speed, the quantity 5 m/s:
+// two transports agreeing on an error agree as well, so parity alone does not show the value.
+func wantSpeedAnswer(t *testing.T, body []byte) {
+	t.Helper()
+	var answer struct {
+		Error  string `json:"error"`
+		Result struct {
+			Quantity *struct {
+				RealMagnitude float64 `json:"realMagnitude"`
+				Unit          string  `json:"unit"`
+				ValueType     string  `json:"valueType"`
+			} `json:"quantity"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(body, &answer); err != nil {
+		t.Fatalf("decoding the answer for enginedemo::speed: %v\n%s", err, body)
+	}
+	q := answer.Result.Quantity
+	if answer.Error != "" || q == nil || q.RealMagnitude != 5 || q.Unit != "SI::'m/s'" || q.ValueType != "ISQSpaceTime::SpeedValue" {
+		t.Errorf("enginedemo::speed answered %s, want the quantity 5 [SI::'m/s'] held as a SpeedValue", body)
+	}
+}
+
 // TestEngineWireParity proves the engine answers what sysml-grpc answers: the
 // same requests put to a default-capabilities grpc.NewService and marshalled by
 // protojson, and to engine.Call, decode to the same JSON. ParseSources compares
@@ -367,6 +390,9 @@ func TestEngineWireParity(t *testing.T) {
 			t.Fatalf("grpc Evaluate %q: %v", expression, err)
 		}
 		equal("Evaluate", params, mustMarshal(t, res))
+		if expression == "enginedemo::speed" {
+			wantSpeedAnswer(t, mustMarshal(t, res))
+		}
 		if expression == "(1, 2, 3)" {
 			// Equal answers would also match on a shared parse error: the case
 			// must exercise a real sequence, so check what the engine returned.

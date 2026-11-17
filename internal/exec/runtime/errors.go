@@ -245,8 +245,8 @@ var (
 	// event budget.
 	ErrStateEventLimitExceeded = errors.New("state event limit exceeded")
 
-	// errNoInitialState is returned when a state machine initializes with no
-	// entry into its states: it states no `entry; then <state>;`.
+	// errNoInitialState is returned when a state machine declaring substates
+	// initializes with no entry into them: it states no `entry; then <state>;`.
 	errNoInitialState = errors.New("no initial state found")
 
 	// errNoEntryTransitionHolds is returned when a body's guarded entry transitions

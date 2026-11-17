@@ -230,8 +230,8 @@ next:
 	return listed
 }
 
-// heldSame reports whether now is prior as a derivation reads it: `===`, and for a
-// quantity the same unit too, which an operation over it carries into its result.
+// heldSame reports whether now is prior as a derivation reads it: `===`, and for a quantity
+// the same unit and quantity value type too, which an operation or classification reads.
 func heldSame(prior, now Value) bool {
 	if isEmptyValue(prior) || isEmptyValue(now) {
 		return isEmptyValue(prior) && isEmptyValue(now) && emptyUnitSame(prior, now)
@@ -244,7 +244,8 @@ func heldSame(prior, now Value) bool {
 		// Holding nothing, as an optional part with no object does.
 		return true
 	case ValQuantity:
-		return prior.Quantity().Unit.Product.Equal(now.Quantity().Unit.Product) && valueIdentical(prior, now)
+		return prior.QuantityKind() == now.QuantityKind() &&
+			prior.Quantity().Unit.Product.Equal(now.Quantity().Unit.Product) && valueIdentical(prior, now)
 	case ValVectorQuantity:
 		return vectorQuantityHeldSame(prior.VectorQuantity(), now.VectorQuantity())
 	case ValTensorQuantity:

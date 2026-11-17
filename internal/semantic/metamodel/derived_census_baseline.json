@@ -85,7 +85,7 @@
         "digest": "sha256:f39db343dafb9c99359f5a92e56dcdd5c52992dc50e50b9268d349aa9cdfdf26"
       }
     ],
-    "recorded": "2026-11-16"
+    "recorded": "2026-11-17"
   },
   "structure": "metamodel.SymbolStructure (symbol-backed; metamodel.New over metamodel.NewSymbolStructure)",
   "policy": [
@@ -101,8 +101,8 @@
       "dir": "examples/sysml-v2-training",
       "files": 100,
       "rejected": 0,
-      "elements": 9900,
-      "implied": 5717,
+      "elements": 10212,
+      "implied": 5925,
       "pilotElements": 11906,
       "pilotImplied": 0,
       "pilotDuplicates": 5797,
@@ -113,8 +113,8 @@
       "dir": "examples/pilot-corpora/sysml-examples",
       "files": 99,
       "rejected": 0,
-      "elements": 35642,
-      "implied": 20801,
+      "elements": 36647,
+      "implied": 21475,
       "pilotElements": 40861,
       "pilotImplied": 0,
       "pilotDuplicates": 10940,
@@ -125,8 +125,8 @@
       "dir": "examples/pilot-corpora/sysml-validation",
       "files": 56,
       "rejected": 0,
-      "elements": 12417,
-      "implied": 7239,
+      "elements": 12549,
+      "implied": 7327,
       "pilotElements": 14222,
       "pilotImplied": 0,
       "pilotDuplicates": 3066,
@@ -137,8 +137,8 @@
       "dir": "examples/pilot-corpora/kerml-examples",
       "files": 58,
       "rejected": 0,
-      "elements": 6991,
-      "implied": 4347,
+      "elements": 7015,
+      "implied": 4363,
       "pilotElements": 8762,
       "pilotImplied": 0,
       "pilotDuplicates": 1105,
@@ -149,8 +149,8 @@
       "dir": "examples/spec-examples",
       "files": 511,
       "rejected": 38,
-      "elements": 9075,
-      "implied": 5148,
+      "elements": 9253,
+      "implied": 5266,
       "pilotElements": 15900,
       "pilotImplied": 0,
       "pilotDuplicates": 40,
@@ -161,8 +161,8 @@
       "dir": "tests/testdata",
       "files": 40,
       "rejected": 0,
-      "elements": 1623,
-      "implied": 889,
+      "elements": 1635,
+      "implied": 897,
       "pilotElements": 2448,
       "pilotImplied": 0,
       "pilotDuplicates": 169,
@@ -173,8 +173,8 @@
       "dir": "examples",
       "files": 56,
       "rejected": 0,
-      "elements": 39935,
-      "implied": 23179,
+      "elements": 40394,
+      "implied": 23485,
       "pilotElements": 52554,
       "pilotImplied": 0,
       "pilotDuplicates": 85313,
@@ -205,5 +205,5 @@
       "pilotFailed": 0
     }
   ],
-  "pilotRecords": "sha256:8ee10bc8751fb5584d7b08f167c189a5a42d32e838146091bdc036333d136c9a"
+  "pilotRecords": "sha256:3bc07437f3e4687e688f025c5d4230ea63cf6ccef8cc4c9c6b5a4a316e202c28"
 }
