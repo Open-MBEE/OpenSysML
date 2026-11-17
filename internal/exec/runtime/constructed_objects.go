@@ -65,10 +65,7 @@ func (ctx *Context) releaseCheckObjects(set *checkObjects) {
 	for len(constructed) > 0 {
 		kept := false
 		for _, id := range ctx.namedOutside(held) {
-			root := ctx.instances[id]
-			for root.owner != nil && held[root.owner.ID] {
-				root = root.owner
-			}
+			root := ctx.holderWithin(ctx.instances[id], held)
 			if constructed[root] {
 				delete(constructed, root)
 				delete(roots, root)
@@ -96,6 +93,24 @@ func (ctx *Context) releaseCheckObjects(set *checkObjects) {
 	ctx.forgetAbandoned(ctx.dropInstances(set.mark, len(ctx.created), func(inst *Instance) bool {
 		return held[inst.ID]
 	}))
+}
+
+// holderWithin is the outermost object of set holding inst, as its owner or as the object that
+// selected the variant it stands for, directly or above; inst itself when none of set does.
+func (ctx *Context) holderWithin(inst *Instance, set map[int64]bool) *Instance {
+	selectedBy := make(map[int64]int64, len(ctx.variantObjects))
+	for key, id := range ctx.variantObjects {
+		selectedBy[id] = key.owner
+	}
+	for seen := map[*Instance]bool{}; !seen[inst]; {
+		seen[inst] = true
+		if inst.owner != nil && set[inst.owner.ID] {
+			inst = inst.owner
+		} else if selector, live := ctx.instances[selectedBy[inst.ID]]; live && set[selector.ID] {
+			inst = selector
+		}
+	}
+	return inst
 }
 
 // namedOutside lists the objects among set that something outside it names: a value or a
