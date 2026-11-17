@@ -97,8 +97,12 @@ func TestPRWorkflowConcurrencyGroupSeparatesMergeGroups(t *testing.T) {
 	}
 }
 
-// Changed areas diffs a merge-group commit over its own base_sha..head_sha (it has no base_ref) and
-// tells scripts/ci-changed-areas.sh the event, the label and a dispatch's tier, which decide the tier.
+// Changed areas diffs a merge-group commit, like a pull request, from its merge base with the base
+// branch (the script takes it from origin/<base_ref>), never from the group's base_sha: that is the
+// group commit queued ahead, so a diff from it holds only the last entry's files, and a group whose
+// last entry touched one client once skipped the Go shards and the WebAssembly gate while merging
+// four failed entries ahead of it. The step also tells scripts/ci-changed-areas.sh the event, the
+// label and a dispatch's tier, which decide the tier.
 func TestPRWorkflowChangedAreasHandlesMergeGroups(t *testing.T) {
 	workflow, _ := loadPRWorkflow(t)
 
@@ -127,20 +131,34 @@ func TestPRWorkflowChangedAreasHandlesMergeGroups(t *testing.T) {
 		t.Errorf("pr.yml Pick the Go shards TIER = %q does not read the tier the script decided", shards.Env["TIER"])
 	}
 
-	for env, sha := range map[string]string{"DIFF_BASE": "base_sha", "DIFF_HEAD": "head_sha"} {
+	for env, ref := range map[string]string{"DIFF_BASE": "base_ref", "DIFF_HEAD": "head_sha"} {
 		value, ok := areas.Env[env]
 		if !ok {
 			t.Fatalf("pr.yml Decide which areas to run has no %s env", env)
 		}
-		if !strings.Contains(value, "github.event_name == 'merge_group' && github.event.merge_group."+sha) {
-			t.Errorf("pr.yml Decide which areas to run %s = %q does not use the merge group's %s", env, value, sha)
+		if !strings.Contains(value, "github.event_name == 'merge_group' && github.event.merge_group."+ref) {
+			t.Errorf("pr.yml Decide which areas to run %s = %q does not use the merge group's %s", env, value, ref)
 		}
 	}
 	if !strings.Contains(areas.Env["DIFF_BASE"], "github.base_ref") {
 		t.Errorf("pr.yml Decide which areas to run DIFF_BASE = %q no longer diffs a pull request against its base branch", areas.Env["DIFF_BASE"])
 	}
-	if !strings.Contains(areas.Run, `"$DIFF_BASE" "$DIFF_HEAD"`) {
+	if !strings.Contains(areas.Run, `base="origin/${DIFF_BASE#refs/heads/}"`) {
+		t.Errorf("pr.yml Decide which areas to run = %q does not diff from the base branch's remote ref", areas.Run)
+	}
+	if !strings.Contains(areas.Run, `scripts/ci-changed-areas.sh "$base" "$DIFF_HEAD"`) {
 		t.Errorf("pr.yml Decide which areas to run = %q does not pass the diff range to scripts/ci-changed-areas.sh", areas.Run)
+	}
+}
+
+// No step diffs from a merge group's base_sha: inside the queue it is the group commit of the entry
+// queued ahead, not the base branch, so a diff from it misses everything the earlier entries changed.
+func TestPRWorkflowNeverDiffsFromMergeGroupBaseSHA(t *testing.T) {
+	_, raw := loadPRWorkflow(t)
+	for i, line := range strings.Split(raw, "\n") {
+		if strings.Contains(line, "merge_group.base_sha") {
+			t.Errorf("pr.yml:%d reads the merge group's base_sha: %s", i+1, strings.TrimSpace(line))
+		}
 	}
 }
 
@@ -159,13 +177,17 @@ func TestPRWorkflowPullRequestReadsHaveMergeGroupBranch(t *testing.T) {
 	}
 }
 
-// The protobuf baseline is where the pull request forked from its base branch (a merge
-// group's base_sha), not the branch's tip, or a field added there since reads as deleted.
+// The protobuf baseline is where the pull request forked from its base branch, not the branch's
+// tip, or a field added there since reads as deleted; a merge group is measured from the same merge
+// base, as its base_sha is the entry queued ahead.
 func TestPRWorkflowProtoBaselineIsTheMergeBase(t *testing.T) {
 	workflow, _ := loadPRWorkflow(t)
 	step := prWorkflowStep(t, workflow, "static-and-integrity", "Check the protobuf schema for breaking changes")
-	if !strings.Contains(step.Env["BASE_SHA"], "github.event_name == 'merge_group' && github.event.merge_group.base_sha") {
-		t.Errorf("pr.yml protobuf breaking check BASE_SHA = %q does not use the merge group's base_sha", step.Env["BASE_SHA"])
+	if _, ok := step.Env["BASE_SHA"]; ok {
+		t.Errorf("pr.yml protobuf breaking check sets BASE_SHA = %q; the baseline is the merge base, not a merge group's base_sha", step.Env["BASE_SHA"])
+	}
+	if !strings.Contains(step.Env["BASE_REF"], "github.event_name == 'merge_group' && github.event.merge_group.base_ref") {
+		t.Errorf("pr.yml protobuf breaking check BASE_REF = %q does not use the merge group's base_ref", step.Env["BASE_REF"])
 	}
 	if !strings.Contains(step.Env["HEAD_SHA"], "github.event.pull_request.head.sha") {
 		t.Errorf("pr.yml protobuf breaking check HEAD_SHA = %q does not name the pull request's head", step.Env["HEAD_SHA"])
