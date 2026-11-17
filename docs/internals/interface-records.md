@@ -62,6 +62,7 @@ Per symbol, the facts (`LibraryFacts`), each with the reader that needs it:
 | ---- | ------- |
 | `Supers` — direct supertypes, resolved | inheritance, member lookup through the type, conformance |
 | `Redefines`, `References` — redefined features, the feature a reference subsets | masking, distinguishability, end typing |
+| `ValueGeneral` — the entry of `Supers` the feature value implies (KerML 8.3.3.3.4), zero for none | the declared types of the feature, which pass over that general |
 | `Alias` — the element an alias's own target names, an alias itself in a chain; zero when it names nothing | qualified-name resolution through the alias, an alias to nothing skipped as loaded |
 | `Direction`, `Modifiers` — `in`/`out`/`inout`, `end`, `derived`, `variation`, `variant`, `abstract`, `individual`, `ordered`, `nonunique`, `constant`, `parallel`, `ModResult`, `ModValued` (the declaration binds a value), `ModAnnotatesOthers` (a metadata usage written with an `about` clause, resolved or not, so the record joins the workspace-wide `about` index as the loaded document did), and the rest of the boolean traits a declaration states | typing, redefinition conformance, variation and individual checks, the parameter list of a behavior — which parameters a call binds, which it may leave unbound, its result |
 | `ModNamesNothing` — a name borrowed from a referenced or redefined feature that resolved to no feature | `Resolver.BindsName`: whether the member is found by that name, and whether a specialization declaring it inherits a duplicate |
