@@ -73,4 +73,70 @@ func TestRuntimeRobustnessCheckObjects(t *testing.T) {
 			t.Errorf("the checks left %d objects running %d behaviors", objects, behaviors)
 		}
 	})
+	// indirectlyHeld holds a constructed object only through a stored function and a referenced variant.
+	const indirectlyHeld = `
+		package test {
+			private import ScalarValues::*;
+			part def P { attribute x : Integer = 3; calc scale { in n : Integer[1]; return : Integer = x * n; } }
+			part def Engine { attribute power : Real default = 10.0; }
+			abstract part def Powered {
+				variation part engine : Engine { variant part petrol : Engine; variant part electric : Engine; }
+			}
+			part def Tank :> Powered { part :>> engine = engine::electric; }
+			part def W {
+				ref e : Engine = (new Tank()).engine;
+				attribute f = (new P()).scale;
+				assert constraint viaVariant { e.power > 0.0 }
+				assert constraint viaFunction { f != null }
+			}
+			part w : W;
+		}
+	`
+	t.Run("stored_function_keeps_its_receiver", func(t *testing.T) {
+		ctx, idx := libraryShapeContext(t, indirectlyHeld)
+		ctx.SetMaxInstances(2)
+		w := mustInstantiate(t, ctx, oneSymbol(t, idx, "test::w"))
+		typ := oneSymbol(t, idx, "test::W")
+		sym := memberNamed(t, typ, "viaFunction")
+		for i := range 5 {
+			if result, err := ctx.CheckConstraintOn(sym, typ.Scope, w); err != nil || !result.Holds {
+				t.Fatalf("check %d: holds = %v, err = %v", i+1, result.Holds, err)
+			}
+		}
+		fn := mustEvalOn(t, ctx, w, "f")
+		if fn.Kind != ValFunction || fn.FunctionSelf() == nil {
+			t.Fatalf("w.f = %s, want a function of the constructed object", FormatValue(fn))
+		}
+		if held, live := ctx.Instance(fn.FunctionSelf().ID); !live || held != fn.FunctionSelf() {
+			t.Errorf("w.f's receiver #%d was released with the check that derived it", fn.FunctionSelf().ID)
+		}
+		if got := ctx.InstanceCount(); got != 2 {
+			t.Errorf("%d objects stand, want w and the receiver", got)
+		}
+	})
+	t.Run("referenced_variant_keeps_its_selector", func(t *testing.T) {
+		ctx, idx := libraryShapeContext(t, indirectlyHeld)
+		ctx.SetMaxInstances(3)
+		w := mustInstantiate(t, ctx, oneSymbol(t, idx, "test::w"))
+		typ := oneSymbol(t, idx, "test::W")
+		sym := memberNamed(t, typ, "viaVariant")
+		var first Value
+		for i := range 5 {
+			if result, err := ctx.CheckConstraintOn(sym, typ.Scope, w); err != nil || !result.Holds {
+				t.Fatalf("check %d: holds = %v, err = %v", i+1, result.Holds, err)
+			}
+			engine := mustEvalOn(t, ctx, w, "e")
+			if _, live := ctx.Instance(engine.Instance); engine.Kind != ValVariant || !live {
+				t.Fatalf("check %d: w.e = %s, want the variant standing", i+1, FormatValue(engine))
+			}
+			if i == 0 {
+				first = engine
+			} else if engine.Instance != first.Instance {
+				t.Fatalf("check %d: w.e = %s, want %s still", i+1, FormatValue(engine), FormatValue(first))
+			}
+		}
+		if got := ctx.InstanceCount(); got != 3 {
+			t.Errorf("%d objects stand, want w, the tank and the engine it selected", got)
+		}
+	})
 }
