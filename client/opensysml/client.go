@@ -497,6 +497,16 @@ func (c *client) ParseDocuments(ctx context.Context, documents []Document, opts 
 		}
 		req.Documents = append(req.Documents, pbDoc)
 	}
+	needed := []string{CapabilityParseSources}
+	if req.StrictConformance {
+		needed = append(needed, CapabilityStrictConformance)
+	}
+	if slices.ContainsFunc(req.Documents, func(doc *pb.SourceDocument) bool { return doc.Language != "" }) {
+		needed = append(needed, CapabilityInlineLanguage)
+	}
+	if err := c.requireCapabilities(ctx, needed...); err != nil {
+		return nil, err
+	}
 	resp, err := c.caller.parseSources(ctx, req)
 	if err != nil {
 		return nil, err
@@ -534,6 +544,18 @@ func parseRequest(opts []ParseOption) (*pb.ParseFileRequest, error) {
 }
 
 func (c *client) parse(ctx context.Context, req *pb.ParseFileRequest) (*Model, error) {
+	var needed []string
+	if req.StrictConformance {
+		needed = append(needed, CapabilityStrictConformance)
+	}
+	if _, inline := req.Source.(*pb.ParseFileRequest_Content); inline && req.Language != "" {
+		needed = append(needed, CapabilityInlineLanguage)
+	}
+	if len(needed) > 0 {
+		if err := c.requireCapabilities(ctx, needed...); err != nil {
+			return nil, err
+		}
+	}
 	resp, err := c.caller.parseFile(ctx, req)
 	if err != nil {
 		return nil, err
@@ -674,6 +696,11 @@ func (c *client) Evaluate(ctx context.Context, model *Model, expression string, 
 	var options evaluateOptions
 	for _, opt := range opts {
 		opt(&options)
+	}
+	if options.subjectSymbolID != "" {
+		if err := c.requireCapabilities(ctx, CapabilityEvaluateSubject); err != nil {
+			return nil, err
+		}
 	}
 	resp, err := c.caller.evaluate(ctx, &pb.EvaluateRequest{
 		ModelHash:       hash,
