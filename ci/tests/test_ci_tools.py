@@ -730,7 +730,7 @@ class WatcherPartsTest(Stub):
         self.assertIsNone(watcher.start_next(st))
         self.assertIn("no slot granted", self.log())
         with mock.patch.object(watcher.subprocess, "run") as run:
-            self.assertEqual([watcher.probe_code(u) for u in ("-K/etc/passwd", "file:///etc/passwd", "http://example.org/", None)], ["err"] * 4)
+            self.assertEqual([watcher.probe_code(u) for u in ("-K/etc/passwd", "file:///etc/passwd", "http://example.org/", "https://[::1/asset", None)], ["err"] * 5)
             run.return_value.stdout = "206\n"
             self.assertEqual(watcher.probe_code("https://example.org/asset"), "206")
         self.assertEqual(run.call_count, 1)

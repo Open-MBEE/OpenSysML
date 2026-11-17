@@ -736,7 +736,10 @@ def runnable(e):
 
 def probe_code(url):
     """The status of a ranged GET of an https URL; anything else in outage.json is never handed to curl."""
-    if not isinstance(url, str) or urllib.parse.urlsplit(url).scheme != "https":
+    try:
+        if not isinstance(url, str) or urllib.parse.urlsplit(url).scheme != "https":
+            return "err"
+    except ValueError:
         return "err"
     return subprocess.run(["curl", "-fsSL", "--proto", "=https", "--proto-redir", "=https", "--range", "0-1023",
                            "-o", "/dev/null", "-m", "60", "-w", "%{http_code}", "--url", url],
