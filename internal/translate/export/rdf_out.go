@@ -2898,8 +2898,10 @@ func featureChainSegments(node *ast.FeatureChainExpr) []*ast.QualifiedName {
 	return segments
 }
 
-// sysml is the term of a name in the SysML vocabulary, made once per name: the
-// document's triples repeat a few hundred of them.
+// sysml is the term of a name in the SysML vocabulary, made once per name. It is
+// not inlined: its several hundred call sites would each carry the lookup.
+//
+//go:noinline
 func (e *encoder) sysml(name string) rdf.Term {
 	term, ok := e.sysmlTerms[name]
 	if !ok {
