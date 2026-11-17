@@ -303,7 +303,7 @@ type Context struct {
 	sharedTaken    int64
 	// verdicts is the span sharing verdicts between objects of one shape; nil outside one.
 	verdicts *verdictMemo
-	// checkObjects are the objects the innermost check under way made for itself (check_objects.go).
+	// checkObjects are the objects the innermost check under way made for itself (constructed_objects.go).
 	checkObjects *checkObjects
 	// behaviorsAttached counts the object behaviors attached so far, so a
 	// derivation knows whether one was attached under it.
