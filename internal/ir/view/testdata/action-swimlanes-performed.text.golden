@@ -1,0 +1,18 @@
+SwimLanes::performedView - action rendering (view def ActionFlowView)
+
+perform action part0.action0
+  swimlane part0.part1 (perform actions)
+    action ^action1
+    action ^action4
+  swimlane part0.part2 (perform actions)
+    action ^action2
+    action ^action3
+  initial start
+  final done
+
+flow:
+  action1 -> action2
+  action2 -> action3
+  action3 -> action4
+  action4 -> done
+  start -> action1

@@ -794,6 +794,16 @@ func (r *Renderer) renderAction(view *symbols.Symbol, elem *symbols.Symbol, ids 
 	}
 	subject := actionSubject{decl: elem.Decl, kind: declKind(elem), name: r.notationName(elem), typ: r.headType(elem),
 		scope: declScope(elem), doc: elem.DocName, view: view, elem: elem}
+	if performed := r.performedAction(elem); performed != nil {
+		// A perform action usage declaring no flow shows the one it performs,
+		// laned by the performers its own performer nests (§8.2.3.17).
+		subject.decl, subject.scope, subject.doc, subject.elem = performed.Decl, declScope(performed), performed.DocName, performed
+		subject.performing, subject.context = elem, elem.Owner()
+		subject.kind = performActionKind
+		if chain := performerName(subject.context); chain != "" && localName(performed) != "" {
+			subject.name = chain + "." + localName(performed)
+		}
+	}
 	return r.actionNode(subject, ids, out, map[ast.Node]bool{}, map[ast.Node]*Node{}, 0, record)
 }
 
@@ -813,6 +823,10 @@ type actionSubject struct {
 	// frame is the node already standing for the action in the enclosing
 	// rendering, whose pins its bindings attach to; nil for a rendered action.
 	frame *Node
+	// performing is the perform action usage whose performed flow is drawn and
+	// context its performer, which scopes the lanes; nil for an action drawn on its own.
+	performing *symbols.Symbol
+	context    *symbols.Symbol
 }
 
 // actionNode renders one lowered action: its nodes as nested nodes, its
@@ -841,11 +855,21 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		root.Ports = r.inheritedPorts(subject.elem, decl, root.ID, actionPorts(root.ID, graph.Parameters, doc), declaresResult(graph.Parameters))
 		root.Geometry = r.declaredGeometryOf(subject.view, subject.elem, decl, out)
 		r.declaredDress(subject.view, subject.elem, decl, root, out)
+		if shown := subject.performing; shown != nil {
+			root.NameSynthesized, root.Origin = false, nodeOrigin(shown.DocName, shown.Decl)
+			root.Geometry = r.declaredGeometryOf(subject.view, shown, shown.Decl, out)
+			root.Style = nil
+			r.declaredDress(subject.view, shown, shown.Decl, root, out)
+		}
 	}
 	lowered[decl] = true
 	owner := r.declaredSymbol(subject.elem, decl)
 	if record != nil {
+		record(subject.performing, root)
 		record(owner, root)
+	}
+	if subject.performing != nil {
+		owner = subject.performing // the nodes of the performed flow are drawn as the ones the perform action usage inherits
 	}
 	// Every action has a start even when no succession leaves it; draw it when
 	// the view's Layout positions it, first among the body's nodes.
@@ -869,6 +893,12 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 	case len(graph.NodeIDs()) == 0:
 		root.Detail = detailWith(root.Detail, "declares no nodes")
 	}
+	// An action no lane of an enclosing flow holds names who performs it.
+	if subject.frame == nil && subject.performing == nil {
+		if performers := r.performersOf(owner); len(performers) > 0 {
+			root.Compartments = append(root.Compartments, r.performedBy(performers, ids))
+		}
+	}
 	out.folds = append(out.folds, root)
 	return root, true
 }
@@ -890,6 +920,7 @@ func (r *Renderer) flowNodes(subject actionSubject, graph *lower.ActionGraph, fr
 	ids, out, lowered, drawn, record := d.ids, d.out, d.lowered, d.drawn, d.record
 	scope, doc := subject.scope, subject.doc
 	nodes := map[program.NodeID]*Node{}
+	elements, first := map[*Node]*symbols.Symbol{}, len(frame.Children)
 	for _, id := range graph.NodeIDs() {
 		node := graph.Provenance.Node(id)
 		nodeDoc := docOf(graph, node, doc)
@@ -911,6 +942,7 @@ func (r *Renderer) flowNodes(subject actionSubject, graph *lower.ActionGraph, fr
 		}
 		r.statementForm(graph, id, child, nodeDoc)
 		nodes[id], drawn[node] = child, child
+		elements[child] = r.declaredSymbol(subject.elem, node)
 		frame.Children = append(frame.Children, child)
 		if nested, ok := nestedAction(node); ok && depth < maxBehaviorDepth && !lowered[node] {
 			nestedScope := graph.ScopeOf(id)
@@ -918,7 +950,7 @@ func (r *Renderer) flowNodes(subject actionSubject, graph *lower.ActionGraph, fr
 				nestedScope = actionScope(scope, nested)
 			}
 			nestedSubject := actionSubject{decl: nested, kind: child.Kind, name: child.Name, typ: child.Type,
-				scope: nestedScope, doc: nodeDoc, view: subject.view, elem: subject.elem, frame: child}
+				scope: nestedScope, doc: nodeDoc, view: subject.view, elem: subject.elem, frame: child, context: subject.context}
 			// The nested flow's own edges belong to the nested nodes, which the
 			// sub-rendering adds to out.Edges; a flow with no nodes leaves nothing to show.
 			if _, ok := r.actionNode(nestedSubject, ids, out, lowered, drawn, depth+1, record); ok && len(child.Children) > 0 {
@@ -934,10 +966,11 @@ func (r *Renderer) flowNodes(subject actionSubject, graph *lower.ActionGraph, fr
 			section := r.bodySection(body, nodeDoc, ids)
 			child.Children = append(child.Children, section)
 			bodySubject := actionSubject{decl: body.block.Declared(), kind: section.Kind, name: child.Name, scope: body.block.Scope,
-				doc: nodeDoc, view: subject.view, elem: subject.elem, frame: section}
+				doc: nodeDoc, view: subject.view, elem: subject.elem, frame: section, context: subject.context}
 			r.flowNodes(bodySubject, body.block.Graph, section, r.declaredSymbol(subject.elem, node), d, depth+1)
 		}
 	}
+	r.laneNodes(frame, first, elements, subject.context, ids)
 	r.actionEdges(subject, graph, nodes, out)
 	r.bindingEdges(subject, graph, frame, nodes, drawn, out)
 }

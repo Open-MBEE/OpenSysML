@@ -554,6 +554,15 @@ func TestImplicitSubsettingsRequirementRoles(t *testing.T) {
 			t.Errorf("ImplicitSubsettings(%s) = %v, want [%s]", tc.path, fqns(got), tc.want)
 		}
 	}
+	// A plain nested requirement or concern and a framed concern are subrequirements (SysML v2 §7.21.2, §7.21.3).
+	for path, want := range map[string]bool{
+		"P::R::plain": true, "P::R::sf": true, "P::r::sf2": true, "P::VP::vc": true,
+		"P::R::driver": false, "P::R::owner": false, "P::R::spare": false, "P::r": false,
+	} {
+		if got := m.IsSubrequirement(nestedSym(t, root, path)); got != want {
+			t.Errorf("IsSubrequirement(%s) = %v, want %v", path, got, want)
+		}
+	}
 	const verifications = "VerificationCases::VerificationCase::obj::requirementVerifications"
 	for _, path := range []string{"P::VD", "P::v"} {
 		for _, verified := range verifiedRequirementsOf(t, nestedSym(t, root, path)) {

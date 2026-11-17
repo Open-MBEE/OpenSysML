@@ -87,9 +87,7 @@ typed by …`, the interpreter's `type mismatch` at the same binding), a `Sample
 anything but the operand of `Domain` or `Range`, and `Range(Sample(NumericalFunctions::abs, null))`
 where an `Integer[0..*]` is declared (the compiler fixes a null domain's element type from the
 sampled function alone, and a function declared over any `NumericalValue` gives Real; the
-interpreter, which types nothing, computes `[]`). The C target alone also refuses a closure that
-captures a String, a sequence or another function value (`… for the C target: a C closure holds
-its captures inline …`); the Go target computes it. A `meta` cast (`x meta KerML::Feature`), whose
+interpreter, which types nothing, computes `[]`). A `meta` cast (`x meta KerML::Feature`), whose
 result reflects a model element as a metaobject that a native program has no representation of,
 is refused as *a meta cast, whose metaobject reflects a model element and has no native
 representation*; metaobjects stay interpreter-only. The refusal names the calc and the construct
@@ -220,10 +218,10 @@ one (`p.x`) leaves the program as any value does. A record type is also refused 
 specializes another definition, declares a feature other than an `attribute` or a calc, holds a
 function value, binds a feature to its value or computes a default when the object is made, or
 holds a unique collection of records (whose uniqueness violation the interpreter reports by object
-number). The C target refuses a record holding a String or a collection, which its arena would
-reclaim at the end of the statement making it (the Go target computes it); a C record and a
-function value carrying one are allocated outside the arena, so neither is reclaimed while held,
-and a run's records are freed when the next run begins, as its arena is.
+number). A C record and a function value carrying one are allocated outside the arena, and the
+bytes of a String and the elements of a collection a record holds are copied out of it as the
+record is made (`sysml_keep`), so none is reclaimed while held; a run's records and what they keep
+are freed when the next run begins, as its arena is.
 
 A construction that binds no argument to a single-valued feature without a default leaves it
 holding one value nothing determines: the feature's multiplicity defaults to `[1..1]`, and KerML
@@ -447,9 +445,10 @@ The compiler keeps two representations (`compile_fn.go`, `compile_fnval.go`):
   them; one calling itself, or a sibling declared in the same body, recompiles with its captures
   bound from the start, so recursion and mutual reference see the run that read them. In Go the
   captures are an environment slice the value points to, kept alive by the collector after the
-  declaring body returns. C keeps captures inline in the value, which suffices for Integer, Real,
-  Boolean and enumeration captures; a String, sequence or function capture would outlive the arena
-  that holds it, so the C target refuses it by name and the Go target computes it.
+  declaring body returns. C keeps Integer, Real, Boolean and enumeration captures inline in the
+  value; a captured String's bytes, a captured sequence's elements and a captured function value
+  are copied out of the arena as the closure is made and kept until the run ends (`sysml_keep`),
+  so the value outlives every arena release.
 
 `TestCompiledCalcsAgreeWithInterpreter` covers each shape in the `Closure` package of
 `compile_calcs.sysml`: a function chosen by `if` and returned (`Pick`, `PickId`), stored and
