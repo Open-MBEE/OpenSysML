@@ -80,7 +80,7 @@ package OpenSysMLStack {
             }
             part clients : Component {
                 :>> label = "Clients and bindings";
-                :>> role = "Python, Node, Java, Rust, Julia, MATLAB, WebAssembly";
+                :>> role = "Python, Node, Java, Rust, .NET, Julia, MATLAB, WebAssembly";
             }
             part docgen : Component {
                 :>> label = "Document generation";

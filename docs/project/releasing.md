@@ -21,7 +21,9 @@ the Java client to Maven Central as `org.openmbee:opensysml` — see
 [Releasing the Java client to Maven Central](#releasing-the-java-client-to-maven-central) —
 and the Rust client to crates.io as `opensysml`, all at the same version — see
 [Releasing the Rust client to crates.io](#releasing-the-rust-client-to-cratesio).
-No client keeps a tag of its own any more.
+No client keeps a tag of its own any more. The .NET client is published nowhere: the
+checkout of the same tag is its release, at the same version — see
+[Releasing the .NET client as the tag's checkout](#releasing-the-net-client-as-the-tags-checkout).
 
 A second tag, `pysysml-v*`, publishes the one-off final release of the client's
 pre-rename PyPI name — see [The final `pysysml` release](#the-final-pysysml-release).
@@ -246,8 +248,13 @@ branch that moves the integration state onto `main`:
    spelling as package.json. `client/rust/opensysml/Cargo.toml` follows too:
    set `[package] version` to the same spelling and run
    `cargo update -p opensysml` in `client/rust` so the lockfile
-   agrees. The editors carry the same spelling too (the release publishes the VS Code
-   extension and the Cameo and SysON plugins, see below):
+   agrees. `client/dotnet/Directory.Build.props` follows too: set `<Version>` to the same
+   spelling, and promote the .NET client's public API with
+   `python3 client/dotnet/scripts/dotnet-gates.py promote-api`, committing both
+   `PublicAPI.*.txt` files (see
+   [Releasing the .NET client as the tag's checkout](#releasing-the-net-client-as-the-tags-checkout));
+   `build-python-package` fails the release early on either. The editors carry the same spelling
+   too (the release publishes the VS Code extension and the Cameo and SysON plugins, see below):
    `"version"` in `editors/vscode/package.json`, `editors/jupyterlab/package.json` and
    `editors/syson/frontend/package.json`, each lock regenerated with
    `npm install --package-lock-only` in that directory; `<version>` in
@@ -2370,6 +2377,71 @@ Once published the version is immutable — it cannot be replaced or deleted,
 and the availability check makes a re-run fail by design. A mistake is yanked
 (`cargo yank --version <version>`, which stops new resolutions while existing
 lockfiles keep working) and fixed in the next core patch release.
+
+## Releasing the .NET client as the tag's checkout
+
+The `OpenMBEE.OpenSysML` client in `client/dotnet` is not published to any registry. There is
+no NuGet package, no package token or context, and no publishing job; a consumer builds it from a
+checkout and references it with `ProjectReference` (see the
+[client README](../../client/dotnet/README.md#using-it-from-a-checkout)). Its release is the
+checkout of the core `v<version>` tag, so the tag must carry everything the release is: its
+version, its shipped public API and the digests it pins. Nothing is stamped at tag time.
+
+### The version
+
+`Version` in `client/dotnet/Directory.Build.props` follows
+`client/python/opensysml/_version.py`, at the SemVer spelling package.json, the pom and
+Cargo.toml use (`0.9.1`; `0.9.0-rc.1` for `0.9.0rc1`). `check_version.py --dotnet` in
+`build-python-package` fails the release before anything is built when the tag names another
+version, and the pytest gate in `test_check_version.py` holds the two files together on every
+commit; the Python client's job runs whenever `Directory.Build.props` changes. The version also
+names the release a private service downloads when none is asked for: `v<Version>`.
+
+### The public API
+
+The library tracks its public API in `PublicAPI.Shipped.txt` and `PublicAPI.Unshipped.txt`
+beside its project, and a public symbol missing from them fails the build. Pull requests add to
+the unshipped file; the release moves it into the shipped one. On the release branch:
+
+```bash
+python3 client/dotnet/scripts/dotnet-gates.py promote-api   # every unshipped entry into Shipped
+make dotnet-test                                            # the build still holds the API to it
+```
+
+Commit both files. `promote-api` adds each entry, deletes the shipped entry each `*REMOVED*` line
+names, writes the shipped file in ordinal order and leaves the unshipped file with its
+`#nullable enable` header alone; it refuses, writing nothing, an entry listed twice or already
+shipped and a removal of something never shipped. `build-python-package` runs
+`promote-api --check`, which fails the release before anything is built while anything is
+unshipped; a [rehearsal](#rehearsing-the-release) catches a missed promotion before the tag. A
+later removal from the shipped API is a `*REMOVED*` line in the unshipped file and a breaking
+change for the changelog. While the library and the metamodel are marked
+`[Experimental("OSML0001")]`, which a consumer suppresses to use them at all, a promotion records
+what the release had without promising it to the next; declaring the client stable removes the
+attribute and the `[OSML0001]` prefix of every entry.
+
+### Release digests
+
+The client verifies a download against `src/OpenMBEE.OpenSysML/release-digests.json`, a
+committed copy of `client/release-digests.json` that `sync-release-digests.py` keeps byte for
+byte, embedded in the assembly. It is never stamped: the tag's own digests exist only once its
+binaries are built, so the checkout of the tag does not pin its own release. Until the
+`chore/pin-vX.Y.Z` pull request the tag opens (see
+[Pinned release digests](#pinned-release-digests)) lands on `develop`, a default private service
+opened from that checkout refuses `v<Version>` as unpinned and falls back to the cache or
+`PATH`, as its README says; a caller asks for a pinned release with `DownloadVersion` or
+`OPENSYSML_GRPC_VERSION`, names a binary, or opts into same-origin trust with
+`OPENSYSML_ALLOW_UNPINNED_DOWNLOAD`. The pin pull request rewrites the .NET copy with every
+other, so its `.NET client tests` job checks the embedded table.
+
+### What the release relies on
+
+The client is held to its contract by the suite, not at the tag: CircleCI's `build-test`
+workflow and the pull-request workflow run `make dotnet-test` and
+`make conformance-dotnet-check` on Linux, and the pull-request
+workflow's full tier runs the whole suite natively on macOS and Windows. The commit tagged has
+passed them on its way to `main`. There is nothing to rerun if the release goes wrong after the
+tag: the client's release is the tag, and a fix is the next core patch release.
 
 ## Releasing the container image to Docker Hub
 

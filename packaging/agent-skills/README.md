@@ -15,6 +15,7 @@ working *on* OpenSysML itself.
 | [`opensysml-node`](skills/opensysml-node/SKILL.md) | do the same from Node.js, TypeScript or a browser through `@openmbee/opensysml` |
 | [`opensysml-java`](skills/opensysml-java/SKILL.md) | do the same from Java or another JVM host through `org.openmbee:opensysml` |
 | [`opensysml-rust`](skills/opensysml-rust/SKILL.md) | do the same from Rust through the blocking `opensysml` crate |
+| [`opensysml-dotnet`](skills/opensysml-dotnet/SKILL.md) | do the same from C# and .NET 10 through the asynchronous `OpenMBEE.OpenSysML` client |
 | [`opensysml-julia`](skills/opensysml-julia/SKILL.md) | do the same from Julia through the `OpenSysML` package |
 | [`opensysml-matlab`](skills/opensysml-matlab/SKILL.md) | do the same from MATLAB or GNU Octave through the `+opensysml` package |
 
@@ -24,5 +25,5 @@ Each skill is a directory holding a `SKILL.md` with `name` and `description` fro
 `<project>/.agents/skills/`) or per user. The skills assume `sysml` is on `PATH`
 ([installation](../../docs/guide/01-install.md)) and that the client a skill covers is installed
 as its *Install* section describes: `pip install opensysml`, `go get github.com/Open-MBEE/OpenSysML`,
-`npm install @openmbee/opensysml`, the `opensysml` crate, or — for Java, Julia and MATLAB — the
+`npm install @openmbee/opensysml`, the `opensysml` crate, or — for Java, .NET, Julia and MATLAB — the
 client built or added from an OpenSysML checkout.

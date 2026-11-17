@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>OpenMBEE.OpenSysML.Conformance</AssemblyName>
+    <RootNamespace>OpenMBEE.OpenSysML.Conformance</RootNamespace>
+    <!-- The runner: make conformance-dotnet runs it, and the tests reference it for its reader and adapters. -->
+    <OutputType>Exe</OutputType>
+    <Description>Runs the language-independent conformance scenarios through the client's public API and judges what it answered.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The generated protocol code: requests are built from, and responses judged by, its descriptors. -->
+    <ProjectReference Include="../OpenMBEE.OpenSysML/OpenMBEE.OpenSysML.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The runner reaches the service through the typed API alone; BannedSymbols.txt refuses the raw ways in. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
+    <AdditionalFiles Include="BannedSymbols.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpenMBEE.OpenSysML.Conformance.Tests" />
+    <!-- Its adapters and renderings are tested over the client's fake service, in the client's test project. -->
+    <InternalsVisibleTo Include="OpenMBEE.OpenSysML.Tests" />
+  </ItemGroup>
+</Project>

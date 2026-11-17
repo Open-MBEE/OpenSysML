@@ -1,0 +1,30 @@
+{
+  "scenarios": [
+    {
+      "id": "symbol/a_missing_symbol_is_not_found",
+      "description": "A refusal is judged by its canonical status and the substring its message must contain.",
+      "rpc": "GetSymbol",
+      "model": { "fixture": "vehicle.sysml" },
+      "request": { "model_hash": "${model_hash}", "symbol_id": "Demo::Missing" },
+      "expect": { "status": "NOT_FOUND", "status_message_contains": "Demo::Missing" }
+    },
+    {
+      "id": "broken/an_unknown_rpc_is_an_error",
+      "description": "A scenario naming no RPC of the service is wrong, not a disagreement.",
+      "rpc": "Forecast"
+    },
+    {
+      "id": "broken/a_model_the_service_refuses_is_an_error",
+      "description": "A model that does not parse is an error in the suite.",
+      "rpc": "Evaluate",
+      "model": { "fixture": "broken.sysml" },
+      "request": { "model_hash": "${model_hash}", "expression": "1" }
+    },
+    {
+      "id": "convert/an_unexpressible_request_is_skipped",
+      "description": "A request the client cannot express is skipped with the client's reason.",
+      "rpc": "Convert",
+      "request": { "content": "${fixture:vehicle.sysml}", "to_format": "ttl" }
+    }
+  ]
+}

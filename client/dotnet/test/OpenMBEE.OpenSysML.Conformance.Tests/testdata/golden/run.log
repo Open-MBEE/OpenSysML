@@ -1,0 +1,172 @@
+
+Configuration default
+       {
+         "capabilities": [
+           "strict_conformance",
+           "query",
+           "evaluate",
+           "oslc_query"
+         ],
+         "version": "${version}"
+       }
+PASS handshake/reports_its_capabilities             OK
+       {
+         "result": {
+           "real_value": 1500.0000000001
+         }
+       }
+PASS evaluate/a_real_agrees_within_tolerance        OK
+       {
+         "result": {
+           "real_value": 1500.0000000001
+         }
+       }
+FAIL evaluate/a_different_real_disagrees            OK
+       result.real_value: 1500.0000000001, want 1200.0
+       {
+         "instance": {
+           "feature_values": {
+             "engine": {
+               "value": {
+                 "instance_id": "@2"
+               }
+             }
+           },
+           "id": "@1",
+           "type_symbol_id": "Demo::Car"
+         },
+         "instances": [
+           {
+             "id": "@1"
+           },
+           {
+             "id": "@2"
+           }
+         ]
+       }
+PASS instantiate/instances_are_labelled_by_first_appearance OK
+       {
+         "model_hash": "hash-strict"
+       }
+PASS parse/strict_conformance_is_refused_without_the_capability OK
+       {}
+PASS query/oslc_needs_its_capability                OK
+PASS symbol/a_missing_symbol_is_not_found           NOT_FOUND
+ERR  broken/an_unknown_rpc_is_an_error              -
+       sysml.SysMLService has no RPC "Forecast"
+ERR  broken/a_model_the_service_refuses_is_an_error -
+       parsing fixture "broken.sysml": the fake service refuses this model
+SKIP convert/an_unexpressible_request_is_skipped    -
+       the fake client cannot express Convert
+
+[fake-proto] 10 scenarios: 6 passed, 1 failed, 1 skipped, 2 in error
+       {
+         "capabilities": [
+           "strict_conformance",
+           "query",
+           "evaluate",
+           "oslc_query"
+         ],
+         "version": "${version}"
+       }
+PASS handshake/reports_its_capabilities             OK
+       {
+         "result": {
+           "real_value": 1500.0000000001
+         }
+       }
+PASS evaluate/a_real_agrees_within_tolerance        OK
+       {
+         "result": {
+           "real_value": 1500.0000000001
+         }
+       }
+FAIL evaluate/a_different_real_disagrees            OK
+       result.real_value: 1500.0000000001, want 1200.0
+       {
+         "instance": {
+           "feature_values": {
+             "engine": {
+               "value": {
+                 "instance_id": "@2"
+               }
+             }
+           },
+           "id": "@1",
+           "type_symbol_id": "Demo::Car"
+         },
+         "instances": [
+           {
+             "id": "@1"
+           },
+           {
+             "id": "@2"
+           }
+         ]
+       }
+PASS instantiate/instances_are_labelled_by_first_appearance OK
+       {
+         "model_hash": "hash-strict"
+       }
+PASS parse/strict_conformance_is_refused_without_the_capability OK
+       {}
+PASS query/oslc_needs_its_capability                OK
+PASS symbol/a_missing_symbol_is_not_found           NOT_FOUND
+ERR  broken/an_unknown_rpc_is_an_error              -
+       sysml.SysMLService has no RPC "Forecast"
+ERR  broken/a_model_the_service_refuses_is_an_error -
+       parsing fixture "broken.sysml": the fake service refuses this model
+SKIP convert/an_unexpressible_request_is_skipped    -
+       the fake client cannot express Convert
+
+[fake-json] 10 scenarios: 6 passed, 1 failed, 1 skipped, 2 in error
+
+Configuration without-strict_conformance-oslc_query
+       {
+         "result": {
+           "real_value": 1500.0000000001
+         }
+       }
+PASS evaluate/a_real_agrees_within_tolerance        OK
+       {
+         "result": {
+           "real_value": 1500.0000000001
+         }
+       }
+FAIL evaluate/a_different_real_disagrees            OK
+       result.real_value: 1500.0000000001, want 1200.0
+       {
+         "instance": {
+           "feature_values": {
+             "engine": {
+               "value": {
+                 "instance_id": "@2"
+               }
+             }
+           },
+           "id": "@1",
+           "type_symbol_id": "Demo::Car"
+         },
+         "instances": [
+           {
+             "id": "@1"
+           },
+           {
+             "id": "@2"
+           }
+         ]
+       }
+PASS instantiate/instances_are_labelled_by_first_appearance OK
+PASS parse/strict_conformance_is_refused_without_the_capability UNIMPLEMENTED
+       the service does not report strict_conformance, so the without-capability expectation applies
+SKIP query/oslc_needs_its_capability                -
+       the service does not report oslc_query
+PASS symbol/a_missing_symbol_is_not_found           NOT_FOUND
+ERR  broken/an_unknown_rpc_is_an_error              -
+       sysml.SysMLService has no RPC "Forecast"
+ERR  broken/a_model_the_service_refuses_is_an_error -
+       parsing fixture "broken.sysml": the fake service refuses this model
+SKIP convert/an_unexpressible_request_is_skipped    -
+       the fake client cannot express Convert
+
+[fake-proto] 9 scenarios: 4 passed, 1 failed, 2 skipped, 2 in error

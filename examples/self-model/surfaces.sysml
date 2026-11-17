@@ -261,6 +261,16 @@ package OpenSysMLSurfaces {
         attribute :>> tokenOption = "token";
     }
 
+    // Asynchronous over gRPC by default or Connect with protobuf or JSON bodies,
+    // referenced from a checkout; the buf-generated messages are committed.
+    part def DotnetClient :> Client {
+        attribute :>> goPackage = "client/dotnet";
+        attribute :>> implementationLanguage = "csharp";
+        attribute :>> generatedStubs = "client/dotnet/src/OpenMBEE.OpenSysML/Wire";
+        attribute :>> connectionCode = "client/dotnet/src/OpenMBEE.OpenSysML/ConnectionOptions.cs";
+        attribute :>> tokenOption = "Token";
+    }
+
     part def JuliaClient :> Client {
         attribute :>> goPackage = "client/julia";
         attribute :>> implementationLanguage = "julia";
@@ -977,6 +987,7 @@ package OpenSysMLSurfaces {
         part node : NodeClient;
         part rust : RustClient;
         part java : JavaClient;
+        part dotnet : DotnetClient;
         part julia : JuliaClient;
         part matlab : MatlabClient;
         part vscode : VsCodeExtension;
@@ -1037,6 +1048,7 @@ package OpenSysMLSurfaces {
         connection nodeCalls : ArtifactChannel connect node.service to service.pipeline;
         connection rustCalls : ArtifactChannel connect rust.service to service.pipeline;
         connection javaCalls : ArtifactChannel connect java.service to service.pipeline;
+        connection dotnetCalls : ArtifactChannel connect dotnet.service to service.pipeline;
         connection juliaCalls : ArtifactChannel connect julia.service to service.pipeline;
         connection matlabCalls : ArtifactChannel connect matlab.service to service.pipeline;
         connection editorSpeaksLsp : ArtifactChannel connect vscode.languageClient to lsp.pipeline;

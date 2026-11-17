@@ -119,6 +119,9 @@ For signature verification with cosign, see the [install guide](guide/01-install
   [Go client](reference/api.md).
 - **Java:** `org.openmbee:opensysml` on Maven Central at the core's version; for unreleased changes build from a checkout with
   `make build && mvn -f client/java/pom.xml install` ([Java client](reference/java-api.md)).
+- **.NET:** not published to NuGet; reference
+  `client/dotnet/src/OpenMBEE.OpenSysML/OpenMBEE.OpenSysML.csproj` from a checkout with a
+  `ProjectReference` ([.NET client](clients/dotnet.md)).
 - **Julia:** not in the General registry; develop from a checkout with
   `Pkg.develop(path="client/julia/OpenSysML")` ([Julia client](reference/julia-api.md)).
 - **MATLAB:** source files; add `client/matlab` to the MATLAB path

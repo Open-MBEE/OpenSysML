@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Reads an exported model's JSON with the standalone metamodel types: no client library, service or
+    network. make dotnet-test runs it over the sysml-toolkit fixture the reader's tests read.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>MetamodelReader</AssemblyName>
+    <RootNamespace>MetamodelReader</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OpenMBEE.OpenSysML.Metamodel/OpenMBEE.OpenSysML.Metamodel.csproj" />
+  </ItemGroup>
+</Project>

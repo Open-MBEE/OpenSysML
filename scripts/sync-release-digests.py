@@ -30,6 +30,7 @@ COPIES = (
     os.path.join("client", "java", "opensysml-client", "src", "main", "resources", TABLE),
     os.path.join("client", "rust", "opensysml", TABLE),
     os.path.join("client", "julia", "OpenSysML", TABLE),
+    os.path.join("client", "dotnet", "src", "OpenMBEE.OpenSysML", TABLE),
 )
 
 

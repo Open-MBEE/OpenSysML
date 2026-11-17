@@ -1,0 +1,42 @@
+<Project>
+  <!--
+    The single build policy of every .NET client project. Version is the client's
+    release version, in the SemVer spelling of the core version it is released in
+    lockstep with; client/python/scripts/check_version.py enforces that.
+  -->
+  <PropertyGroup>
+    <Version>0.12.1</Version>
+    <Authors>OpenMBEE</Authors>
+    <Copyright>Copyright (c) OpenMBEE contributors</Copyright>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+
+    <!-- Checkout and ProjectReference only: nothing here is a NuGet package. -->
+    <IsPackable>false</IsPackable>
+
+    <Deterministic>true</Deterministic>
+    <!-- The informational version is the declared Version alone, not suffixed with a commit. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Fixed, not latest, so a newer SDK patch cannot add analyzer rules that fail the build. -->
+    <AnalysisLevel>10.0</AnalysisLevel>
+    <AnalysisMode>Recommended</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- A public member without an XML comment fails the build rather than warning. -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS1591</WarningsAsErrors>
+    <!-- The two libraries are experimental (OSML0001), which every project here uses knowingly. -->
+    <NoWarn>$(NoWarn);OSML0001</NoWarn>
+
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+
+  <!-- CI sets CI=true; a local build keeps its absolute source paths for debugging. -->
+  <PropertyGroup Condition="'$(CI)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <RestoreLockedMode>true</RestoreLockedMode>
+  </PropertyGroup>
+</Project>

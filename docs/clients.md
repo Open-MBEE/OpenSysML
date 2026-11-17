@@ -1,5 +1,5 @@
 ---
-description: OpenSysML client libraries — the Go, Python, Node, Java, Rust, Julia and MATLAB APIs that talk to the same runtime behind sysml, sysml-lsp and sysml-grpc.
+description: OpenSysML client libraries — the Go, Python, Node, Java, Rust, .NET, Julia and MATLAB APIs that talk to the same runtime behind sysml, sysml-lsp and sysml-grpc.
 ---
 
 # Client libraries
@@ -53,6 +53,14 @@ service serves.
   <p class="osml-eco__links"><a href="rust/">Rust client</a> ·
   <a href="../reference/rust-api/">Rust API</a> ·
   <a href="https://crates.io/crates/opensysml">crates.io</a></p>
+</div>
+<div class="osml-eco__card">
+  <span class="osml-eco__tag">Checkout · ProjectReference</span>
+  <h3>.NET</h3>
+  <p>An asynchronous C# client for .NET 10, every RPC typed. Not on NuGet; reference
+  <code>client/dotnet</code> from a checkout.</p>
+  <p class="osml-eco__links"><a href="dotnet/">.NET client</a> ·
+  <a href="../reference/dotnet-api/">.NET API</a></p>
 </div>
 <div class="osml-eco__card">
   <span class="osml-eco__tag">Build from source</span>

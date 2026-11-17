@@ -1,0 +1,13 @@
+{
+  "scenarios": [
+    {
+      "id": "handshake/reports_its_capabilities",
+      "description": "The handshake reports a version, which is normalized, and the capabilities scenarios are gated by.",
+      "rpc": "GetServerInfo",
+      "expect": {
+        "response": { "version": "${version}" },
+        "contains_all": { "capabilities": ["evaluate", "query"] }
+      }
+    }
+  ]
+}
