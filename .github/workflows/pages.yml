@@ -1,12 +1,7 @@
 name: Pages
 
-# The site is docs/ rendered by MkDocs, republished when a push to develop changes
-# something the build reads; a push that changes none of it would publish the same site.
-# The paths are every input of the build job: the pages and their renderer, the files the
-# hooks copy in, the sources the in-browser modules and the landing diagram compile from,
-# and what tools/cmd/doc-counts counts the test-suite figures from, which is every
-# `_test.go` in the module and the fixture directories named below. A new input of the
-# build belongs on this list. --strict: a broken link fails the deployment.
+# The site is docs/ rendered by MkDocs, republished when a push to develop changes an input of
+# the build job; a new input belongs under paths. --strict: a broken link fails the deployment.
 on:
   push:
     branches: [develop]
@@ -25,8 +20,8 @@ on:
       - SECURITY.md
       # The Python API reference is rendered from the client's docstrings.
       - client/python/**
-      # The in-browser engine and REPL, the files they embed, and the examples the REPL
-      # offers. `**.go` is also every test the suite figures count and the tools counting them.
+      # The in-browser engine and REPL with what they embed; `**.go` is also every test
+      # tools/cmd/doc-counts counts the suite figures from.
       - '**.go'
       - go.mod
       - go.sum
