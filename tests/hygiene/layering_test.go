@@ -214,6 +214,8 @@ var removed = map[string][]string{
 	"internal/semantic/query":           {"internal/translate/rdf"},
 	"internal/frontend/repl":            {"internal/frontend/grpc"},
 	"internal/ir/program":               {"internal/syntax/ast"},
+	"internal/exec/smt":                 {"internal/syntax/ast"},
+	"internal/exec/solve":               {"internal/syntax/ast"},
 }
 
 // TestPackageLayering checks the import graph against the layer tables: every

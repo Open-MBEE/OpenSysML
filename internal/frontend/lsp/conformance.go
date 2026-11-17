@@ -79,15 +79,15 @@ func (s *Server) applyFormatSettings(payload any) bool {
 	return changed
 }
 
-// DidChangeConfiguration applies the settings the client pushed. Only the
-// conformance mode, the lints, the library roots and keepLineBreaks are read;
-// a payload that mentions none of them changes nothing.
+// DidChangeConfiguration applies those of the pushed settings the server reads: the
+// conformance mode, the lints, the library roots, keepLineBreaks and the hover members.
 func (s *Server) DidChangeConfiguration(ctx context.Context, params *protocol.DidChangeConfigurationParams) error {
 	if params == nil {
 		return nil
 	}
 	settings := decodeSettings(params.Settings)
 	s.applyFormatSettings(settings)
+	s.applyHoverSettings(settings)
 	modeChanged := s.applyConformanceSettings(ctx, settings)
 	lintsChanged := s.applyLintSettings(ctx, settings)
 	if s.applyLibraryRootsSetting(settings) {

@@ -1448,8 +1448,8 @@ The outcome is `Outcome.Terminated` with an empty `FinalState`, the executor's s
 `Execution state: Terminated`, the LSP debug snapshot's `terminated`. A `terminate` naming a
 performance that ended, a value that is no occurrence, or an occurrence `destroy` emptied is a
 typed error (`errPerformanceEnded`, `errTerminateOccurrence`, `errTerminateTarget`,
-`robustness_terminate_test.go`); a calculation still refuses it as `errCalcSideEffect`
-(`robustness_calc_invocation_test.go:calc_terminate_is_rejected`). The PSSM referee translates the suite's
+`robustness_terminate_test.go`); in a calculation body it ends the calculation's steps
+(`robustness_calc_invocation_test.go:calc_terminate_ends_its_steps`). The PSSM referee translates the suite's
 terminate pseudostate to the same spelling, which retired its `terminate-gap` bucket
 (`docs/project/pssm-referee.md`).
 

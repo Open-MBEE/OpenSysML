@@ -86,6 +86,8 @@ type Model struct {
 	featureBaseTypes map[*symbols.Symbol][]*symbols.Symbol
 	// implicitGenerals memoizes ImplicitGenerals: the generals a declaration's kind implies, which every type query of a feature reads.
 	implicitGenerals map[*symbols.Symbol][]*symbols.Symbol
+	// valueGenerals memoizes FeatureValueGeneral: the general a feature value implies, nil for none.
+	valueGenerals map[*symbols.Symbol]*symbols.Symbol
 	// implicitSubsettings memoizes the owner feature each nested usage implicitly
 	// subsets (see nested.go).
 	implicitSubsettings map[*symbols.Symbol][]*symbols.Symbol
@@ -247,6 +249,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		implicitBase:           make(map[*symbols.Symbol][]*symbols.Symbol),
 		featureBaseTypes:       make(map[*symbols.Symbol][]*symbols.Symbol),
 		implicitGenerals:       make(map[*symbols.Symbol][]*symbols.Symbol),
+		valueGenerals:          make(map[*symbols.Symbol]*symbols.Symbol),
 		implicitSubsettings:    make(map[*symbols.Symbol][]*symbols.Symbol),
 		usageBase:              make(map[*symbols.Symbol]*symbols.Symbol),
 		kermlBase:              make(map[*symbols.Symbol]*symbols.Symbol),
@@ -479,6 +482,13 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	if target := m.SubsettedMultiplicity(sym); target != nil && target != sym && !seen[target] {
 		seen[target] = true
 		out = append(out, target)
+	}
+
+	// A feature with a feature value and no declared specialization or direction
+	// specializes the value's result (KerML 8.3.3.3.4 checkFeatureValuationSpecialization).
+	if general := m.FeatureValueGeneral(sym); general != nil && !seen[general] {
+		seen[general] = true
+		out = append(out, general)
 	}
 
 	if variation := m.VariationPointOwning(sym); variation != nil && variation != sym && !seen[variation] {
@@ -1049,7 +1059,7 @@ func (m *Model) TypedFeatureTypes(sym *symbols.Symbol) []*symbols.Symbol {
 			return
 		}
 		seen[f] = true
-		bases := m.ImplicitGenerals(f)
+		bases := m.generalsOutsideTyping(f)
 		for _, super := range m.DirectSupertypes(f) {
 			switch {
 			case containsElement(bases, super):
@@ -1163,7 +1173,7 @@ func (m *Model) featureTypes(sym *symbols.Symbol, visiting map[*symbols.Symbol]b
 		return nil
 	}
 	visiting[sym] = true
-	bases := m.ImplicitGenerals(sym)
+	bases := m.generalsOutsideTyping(sym)
 	var types, features []*symbols.Symbol
 	for _, super := range m.DirectSupertypes(sym) {
 		switch {

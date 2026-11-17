@@ -95,6 +95,17 @@
           "default": false,
           "markdownDescription": "Keep the author's line breaks when formatting: one-line bodies such as `enum def Color { red; green; blue; }` stay on one line and only indentation and spacing are fixed. Off, Format Document lays statements out one per line as `sysml -convert sysml` does."
         },
+        "opensysml.hover.memberLimit": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 10,
+          "markdownDescription": "The most members a hover on a definition or usage, or on a reference to one, lists under its signature and documentation; the rest are counted in a closing line. `0` leaves the member summary out."
+        },
+        "opensysml.hover.inheritedMembers": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Also list inherited members in a hover's member summary, grouped under the type each is inherited from. They count toward `#opensysml.hover.memberLimit#`."
+        },
         "opensysml.trace.server": {
           "type": "string",
           "enum": [

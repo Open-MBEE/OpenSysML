@@ -40,7 +40,7 @@ func (s *Server) Hover(ctx context.Context, params *protocol.HoverParams) (*prot
 			}
 			rng := spanToRange(content, span)
 			return &protocol.Hover{
-				Contents: s.hoverContents(signature, s.ws.DocumentationOf(target), s.symbolNotes(target), s.identityLine(target.DocName, target)),
+				Contents: s.hoverContents(signature, s.ws.DocumentationOf(target), s.symbolNotes(target), s.memberSummaryOf(target), s.identityLine(target.DocName, target)),
 				Range:    &rng,
 			}, nil
 		}
@@ -73,7 +73,7 @@ func (s *Server) Hover(ctx context.Context, params *protocol.HoverParams) (*prot
 
 	rng := spanToRange(content, sym.DeclSpan)
 	return &protocol.Hover{
-		Contents: s.hoverContents(signature, s.ws.DocumentationOf(sym), notes, s.identityLine(name, sym)),
+		Contents: s.hoverContents(signature, s.ws.DocumentationOf(sym), notes, s.memberSummaryOf(sym), s.identityLine(name, sym)),
 		Range:    &rng,
 	}, nil
 }
@@ -111,7 +111,7 @@ func (s *Server) ambiguousCallHover(doc string, content []byte, ref resolve.Refe
 	}
 	rng := spanToRange(content, last.Span)
 	return &protocol.Hover{
-		Contents: s.hoverContents(strings.Join(lines, "\n"), []string{"Ambiguous call: the arguments fit each of these overloads equally."}, nil, ""),
+		Contents: s.hoverContents(strings.Join(lines, "\n"), []string{"Ambiguous call: the arguments fit each of these overloads equally."}, nil, memberSummary{}, ""),
 		Range:    &rng,
 	}
 }
@@ -145,9 +145,9 @@ func (s *Server) symbolNotes(sym *symbols.Symbol) []string {
 	return leadingNotes(doc.Content, sym.LeadingTrivia)
 }
 
-// hoverContents renders the signature, owned documentation, notes and identity
-// as Markdown when the client supports it, plain text otherwise.
-func (s *Server) hoverContents(signature string, docs, notes []string, elementID string) *protocol.MarkupContent {
+// hoverContents renders the signature, owned documentation, notes, member
+// summary and identity as Markdown when the client supports it, plain text otherwise.
+func (s *Server) hoverContents(signature string, docs, notes []string, members memberSummary, elementID string) *protocol.MarkupContent {
 	if s.wantsMarkdownHover() {
 		var b strings.Builder
 		b.WriteString("```sysml\n")
@@ -156,6 +156,10 @@ func (s *Server) hoverContents(signature string, docs, notes []string, elementID
 		if prose := documentationProse(docs, notes); prose != "" {
 			b.WriteString("\n\n")
 			b.WriteString(prose)
+		}
+		if summary := members.render(true); summary != "" {
+			b.WriteString("\n\n")
+			b.WriteString(summary)
 		}
 		if elementID != "" {
 			b.WriteString("\n\n")
@@ -167,6 +171,9 @@ func (s *Server) hoverContents(signature string, docs, notes []string, elementID
 	value := signature
 	if doc := documentationText(docs, notes); doc != "" {
 		value += "\n\n" + doc
+	}
+	if summary := members.render(false); summary != "" {
+		value += "\n\n" + summary
 	}
 	if elementID != "" {
 		value += "\n\n" + strings.ReplaceAll(elementID, "`", "")
@@ -215,7 +222,7 @@ func symbolAtOffset(scope *symbols.Scope, offset int) *symbols.Symbol {
 	}
 	for _, sym := range scope.Members() {
 		sp := sym.DeclSpan
-		if offset >= sp.Offset && offset < sp.End() {
+		if offset >= sp.Offset && offset < sp.End() && !sym.Implied() {
 			return sym
 		}
 	}
