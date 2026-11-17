@@ -98,14 +98,16 @@ COVERAGE_PROFILE ?= coverage.txt
 COVERAGE_SHARD ?=
 # The coverage job's nodes: the race shards but the runtime's corpus ones, since without -race internal/exec/runtime
 # runs whole in about 19 minutes under -coverpkg; tests/export and tests/corpus whole overran 30 (see .circleci/config.yml).
-COVERAGE_SHARDS := runtime model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools internal rest migrate cli
-# coverage-shard's splits of tests/corpus and tests/export by test name, test-shard's; empty for every other shard.
+COVERAGE_SHARDS := runtime model smt corpus corpus-sweep export export-library export-examples export-corpus graph graph-corpora codegen translate grpc tools internal rest migrate cli
+# coverage-shard's splits of tests/corpus, tests/export and tests/model by test name, test-shard's; empty for every other shard.
 COVERAGE_SELECT_corpus = -skip '$(RACE_CORPUS_SWEEP)'
 COVERAGE_SELECT_corpus-sweep = -run '$(RACE_CORPUS_SWEEP)'
 COVERAGE_SELECT_export = -skip '$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_LIBRARY)|$(RACE_EXPORT_EXAMPLES)'
 COVERAGE_SELECT_export-library = -run '$(RACE_EXPORT_LIBRARY)'
 COVERAGE_SELECT_export-examples = -run '$(RACE_EXPORT_EXAMPLES)'
 COVERAGE_SELECT_export-corpus = -run '$(RACE_EXPORT_CORPUS)'
+COVERAGE_SELECT_graph = -skip '$(RACE_GRAPH_CORPORA)'
+COVERAGE_SELECT_graph-corpora = -run '$(RACE_GRAPH_CORPORA)'
 
 # The commands whose manual pages are generated and shipped, in section 1.
 COMMANDS := sysml sysml-lsp sysml-grpc sysml-jupyter-kernel sysml-mcp
@@ -362,6 +364,9 @@ RACE_EXPORT_EXAMPLES := ^TestExamplesCorpusInvariants$$
 # The corpus-sweep shard: tests/corpus's one load of every example model, on which it checks the
 # two round trips, settled collections and the gRPC agreement; corpus is the rest of the package.
 RACE_CORPUS_SWEEP := ^TestExamplesSweep$$
+# The graph-corpora shard: tests/model's record differential over the OMG corpora, 13 of the
+# package's 18 minutes under -race; graph is the rest of the package.
+RACE_GRAPH_CORPORA := ^TestInterfaceRecordDifferentialCorpora$$
 RACE_SHARD_TOOLS_SKIP := ^(TestSuiteRead|TestSuiteClassification|TestEmitSuite|TestSuiteClassificationReasons|TestSuiteLibraryCallsAreClassified|TestSuiteReadsControlAndObjectFlow|TestSuiteReadsClassifiers|TestSuiteReadsExceptionHandlers)$$
 
 # test-shard's -run/-skip per shard: the by-test-name shards and the package shards they are cut
@@ -375,11 +380,13 @@ SHARD_SELECT_export-corpus = -run '$(RACE_EXPORT_CORPUS)' -skip '$(RACE_SHARD_SK
 SHARD_SELECT_export-library = -run '$(RACE_EXPORT_LIBRARY)' -skip '$(RACE_SHARD_SKIP)'
 SHARD_SELECT_export-examples = -run '$(RACE_EXPORT_EXAMPLES)' -skip '$(RACE_SHARD_SKIP)'
 SHARD_SELECT_export = -skip '$(RACE_SHARD_SKIP)|$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_LIBRARY)|$(RACE_EXPORT_EXAMPLES)'
+SHARD_SELECT_graph-corpora = -run '$(RACE_GRAPH_CORPORA)' -skip '$(RACE_SHARD_SKIP)'
+SHARD_SELECT_graph = -skip '$(RACE_SHARD_SKIP)|$(RACE_GRAPH_CORPORA)'
 SHARD_SELECT = $(or $(SHARD_SELECT_$(SHARD)),-skip '$(RACE_SHARD_SKIP)')
 # -race for the race suite (test-shard); test-quick runs the same shards with it empty.
 TEST_SHARD_RACE ?= -race
 
-test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|codegen|translate|grpc|tools|internal|rest|migrate|cli)
+test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|grpc|tools|internal|rest|migrate|cli)
 	@echo "Running Go $(if $(TEST_SHARD_RACE),race ,)tests, shard $(SHARD)$(if $(OPENSYSML_CORPUS_SUBSET), over the $(OPENSYSML_CORPUS_SUBSET) corpus subset,)..."
 	@# 55m per package; its job's ceiling is 60. internal/exec/runtime (31-57 minutes whole under -race), tests/export
 	@# (past 55; four shards) and tests/corpus (about 40; two) run split by test name above.
@@ -391,14 +398,14 @@ test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime
 test-quick: stdlib-snapshot ## Run the race-free quick tier over one or more race shards, in turn (SHARDS="graph" | "export-corpus export-library" | "rest grpc" | ...)
 	@echo "Running Go tests without race detection, shards $(SHARDS)..."
 	@# Every pull-request push runs this instead of test-shard: the same shards, selections and skips, no -race.
-	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools internal rest migrate cli"; exit 1; }
+	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-sweep export export-library export-examples export-corpus graph graph-corpora codegen translate grpc tools internal rest migrate cli"; exit 1; }
 	for shard in $(SHARDS); do $(MAKE) --no-print-directory test-shard SHARD=$$shard TEST_SHARD_RACE= || exit 1; done
 
 test-queue: stdlib-snapshot ## Run the merge queue's tier over one or more race shards, in turn (SHARDS="export-corpus" | "rest grpc" | ...)
 	@echo "Running the queue tier, shards $(SHARDS)..."
 	@# The merge queue runs this: test-shard with -race on every shard but the examples/ sweeps
 	@# (scripts/race-shard.sh --sweeps), which run without -race over the construct-cover subset.
-	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools internal rest migrate cli"; exit 1; }
+	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-sweep export export-library export-examples export-corpus graph graph-corpora codegen translate grpc tools internal rest migrate cli"; exit 1; }
 	sweeps=" $$(scripts/race-shard.sh --sweeps | tr '\n' ' ')" && for shard in $(SHARDS); do \
 		case "$$sweeps" in \
 			*" $$shard "*) OPENSYSML_CORPUS_SUBSET=construct-cover $(MAKE) --no-print-directory test-shard SHARD=$$shard TEST_SHARD_RACE= ;; \

@@ -119,9 +119,9 @@ jobs:
           TIER: ${{ steps.areas.outputs.tier }}
         run: |
           if [ "$TIER" != quick ]; then
-            echo 'go_shards=["runtime","runtime-corpus","runtime-exploration","model","smt","corpus","corpus-sweep","export","export-library","export-examples","export-corpus","graph","codegen","translate","grpc","internal","rest","migrate","cli"]'
+            echo 'go_shards=["runtime","runtime-corpus","runtime-exploration","model","smt","corpus","corpus-sweep","export","export-library","export-examples","export-corpus","graph","graph-corpora","codegen","translate","grpc","internal","rest","migrate","cli"]'
           else
-            echo 'go_shards=["runtime runtime-corpus runtime-exploration model","codegen migrate","cli translate","graph internal","smt","corpus corpus-sweep","export export-examples","export-library export-corpus","rest grpc"]'
+            echo 'go_shards=["runtime runtime-corpus runtime-exploration model","codegen migrate","cli translate","graph graph-corpora internal","smt","corpus corpus-sweep","export export-examples","export-library export-corpus","rest grpc"]'
           fi | tee -a "$GITHUB_OUTPUT"
 
       # A cold fUML cache (a new key, and every merge-queue ref) would send each Go job to Maven
