@@ -19,8 +19,8 @@ internal static class ModelArea
     [
         RpcAdapter.Of<Wire.ParseFileRequest>("ParseFile", ["file_path", "content", "language", "strict_conformance"], ParseFileAsync),
         RpcAdapter.Of<Wire.ParseSourcesRequest>("ParseSources", ["documents", "strict_conformance", "base_model_hash"], ParseSourcesAsync),
-        RpcAdapter.Of<Wire.GetSymbolRequest>("GetSymbol", ["model_hash", "symbol_id", "include_library_members"], GetSymbolAsync),
-        RpcAdapter.Of<Wire.GetElementPropertiesRequest>("GetElementProperties", ["model_hash", "element_id", "properties"], GetElementPropertiesAsync),
+        RpcAdapter.Of<Wire.GetSymbolRequest>("GetSymbol", ["model_hash", "symbol_id", "include_library_members", "resolve_name", "lookup"], GetSymbolAsync),
+        RpcAdapter.Of<Wire.GetElementPropertiesRequest>("GetElementProperties", ["model_hash", "element_id", "properties", "lookup"], GetElementPropertiesAsync),
         RpcAdapter.Of<Wire.DiagnosticsRequest>("GetDiagnostics", ["model_hash", "disable_lint", "enable_lint"], GetDiagnosticsAsync),
         RpcAdapter.Of<Wire.EvaluateRequest>("Evaluate", ["model_hash", "expression", "context_symbol_id", "subject_symbol_id"], EvaluateAsync),
         RpcAdapter.Of<Wire.InstantiateRequest>("Instantiate", ["model_hash", "symbol_id"], InstantiateAsync),
@@ -37,6 +37,15 @@ internal static class ModelArea
         "sysml" => SourceLanguage.SysML,
         "kerml" => SourceLanguage.KerML,
         _ => throw new UnexpressibleRequestException($"the public API names a language as a SourceLanguage, which has none spelled \"{name}\""),
+    };
+
+    // The lookup kind a request states, as the public API names it.
+    private static Lookup Lookup(Wire.LookupKind kind) => kind switch
+    {
+        Wire.LookupKind.Unspecified => OpenSysML.Lookup.Either,
+        Wire.LookupKind.QualifiedName => OpenSysML.Lookup.QualifiedName,
+        Wire.LookupKind.ElementId => OpenSysML.Lookup.ElementId,
+        _ => throw new UnexpressibleRequestException($"the public API names a lookup as a Lookup, which has none for {kind}"),
     };
 
     private static async Task<ScenarioAnswer> ParseFileAsync(Connection connection, Wire.ParseFileRequest request, CancellationToken cancellationToken)
@@ -123,7 +132,12 @@ internal static class ModelArea
     private static async Task<ScenarioAnswer> GetSymbolAsync(Connection connection, Wire.GetSymbolRequest request, CancellationToken cancellationToken)
     {
         var model = ApiAdapters.ModelOf(connection, request.ModelHash);
-        var options = new SymbolOptions { IncludeLibraryMembers = request.IncludeLibraryMembers };
+        var options = new SymbolOptions
+        {
+            IncludeLibraryMembers = request.IncludeLibraryMembers,
+            ResolveName = request.ResolveName,
+            Lookup = Lookup(request.Lookup),
+        };
         var response = new Wire.SymbolResponse();
         try
         {
@@ -153,7 +167,7 @@ internal static class ModelArea
         try
         {
             return new ScenarioAnswer.Answered(Rendering.ElementProperties(
-                await model.ElementPropertiesAsync(request.ElementId, request.Properties, cancellationToken).ConfigureAwait(false)));
+                await model.ElementPropertiesAsync(request.ElementId, request.Properties, Lookup(request.Lookup), cancellationToken).ConfigureAwait(false)));
         }
         catch (ModelException failure)
         {

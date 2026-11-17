@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
@@ -17,6 +18,32 @@ public sealed class ModelElementPropertiesTests
 
     [Theory]
     [MemberData(nameof(Wires))]
+    public async Task ALookupKindIsStatedOnlyToAServiceThatReadsIt(ClientWire wire)
+    {
+        var token = TestContext.Current.CancellationToken;
+        async Task<List<Wire.LookupKind>> SentAsync(params string[] capabilities)
+        {
+            using var handler = new FakeServiceHandler(wire) { Capabilities = [.. FakeModels.ModelCapabilities, .. capabilities] }
+                .On("GetElementProperties", Wire.GetElementPropertiesRequest.Parser, _ => CompleteWire.ElementProperties);
+            await using var connection = await FakeConnection.OpenAsync(handler);
+            var model = connection.ModelByHash("h");
+            await model.ElementPropertiesAsync("Demo::Pair", lookup: Lookup.QualifiedName, cancellationToken: token);
+            await model.ElementPropertiesAsync("e-pair", ["name"], Lookup.ElementId, token);
+            await model.ElementPropertiesAsync("Demo::Pair", cancellationToken: token);
+            return handler.RequestsFor("GetElementProperties").Select(request => request.Message(Wire.GetElementPropertiesRequest.Parser).Lookup).ToList();
+        }
+
+        Assert.Equal([Wire.LookupKind.QualifiedName, Wire.LookupKind.ElementId, Wire.LookupKind.Unspecified], await SentAsync(Capabilities.SymbolLookupKind));
+        Assert.Equal([Wire.LookupKind.Unspecified, Wire.LookupKind.Unspecified, Wire.LookupKind.Unspecified], await SentAsync());
+
+        using var refusing = new FakeServiceHandler(wire) { Capabilities = FakeModels.ModelCapabilities };
+        await using var refusingConnection = await FakeConnection.OpenAsync(refusing);
+        await Assert.ThrowsAsync<ArgumentException>(() => refusingConnection.ModelByHash("h").ElementPropertiesAsync("Demo::Pair", lookup: (Lookup)3, cancellationToken: token));
+        Assert.Empty(refusing.RequestsFor("GetElementProperties"));
+    }
+
+    [Theory]
+    [MemberData(nameof(Wires))]
     public async Task ElementPropertiesAsyncSendsTheNamesInOrderAndReadsEveryArm(ClientWire wire)
     {
         using var handler = new FakeServiceHandler(wire) { Capabilities = FakeModels.ModelCapabilities }
@@ -25,7 +52,7 @@ public sealed class ModelElementPropertiesTests
         await using var connection = await FakeConnection.OpenAsync(handler);
         var model = await connection.LoadAsync();
 
-        var read = await model.ElementPropertiesAsync("Demo::Pair", ["inheritedFeature", "literals", "connectorEnd"], TestContext.Current.CancellationToken);
+        var read = await model.ElementPropertiesAsync("Demo::Pair", ["inheritedFeature", "literals", "connectorEnd"], cancellationToken: TestContext.Current.CancellationToken);
         var every = await model.ElementPropertiesAsync("Demo::Pair", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(
@@ -154,8 +181,8 @@ public sealed class ModelElementPropertiesTests
 
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.ElementPropertiesAsync(null!, cancellationToken: TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ArgumentException>(() => model.ElementPropertiesAsync(" ", cancellationToken: TestContext.Current.CancellationToken));
-        var blank = await Assert.ThrowsAsync<ArgumentException>(() => model.ElementPropertiesAsync("Demo", ["name", " "], TestContext.Current.CancellationToken));
-        await Assert.ThrowsAsync<ArgumentException>(() => model.ElementPropertiesAsync("Demo", ["name", null!], TestContext.Current.CancellationToken));
+        var blank = await Assert.ThrowsAsync<ArgumentException>(() => model.ElementPropertiesAsync("Demo", ["name", " "], cancellationToken: TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.ElementPropertiesAsync("Demo", ["name", null!], cancellationToken: TestContext.Current.CancellationToken));
         var refused = await Assert.ThrowsAsync<CapabilityException>(() => olderConnection.ModelByHash("h").ElementPropertiesAsync("Demo", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal("properties", blank.ParamName);

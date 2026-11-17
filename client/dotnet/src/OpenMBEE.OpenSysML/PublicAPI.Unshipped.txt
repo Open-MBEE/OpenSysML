@@ -183,7 +183,6 @@
 [OSML0001]OpenMBEE.OpenSysML.LibraryReference.Id.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.LibraryReference.QualifiedName.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.LibraryReference.Type.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.Model.ElementPropertiesAsync(string! element, System.Collections.Generic.IEnumerable<string!>? properties = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<OpenMBEE.OpenSysML.ElementProperties!>!
 [OSML0001]OpenMBEE.OpenSysML.Model.FindSymbolAsync(string! symbolId, OpenMBEE.OpenSysML.SymbolOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<OpenMBEE.OpenSysML.Symbol?>!
 [OSML0001]OpenMBEE.OpenSysML.Model.InstancePathsAsync(long instanceId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<OpenMBEE.OpenSysML.InstancePaths!>!
 [OSML0001]OpenMBEE.OpenSysML.Model.InstancePathsAtAsync(string! objectPath, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<OpenMBEE.OpenSysML.InstancePaths!>!
@@ -539,7 +538,6 @@
 [OSML0001]OpenMBEE.OpenSysML.Quantity.Equals(OpenMBEE.OpenSysML.Quantity? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.Quantity.IsExact.get -> bool
 [OSML0001]OpenMBEE.OpenSysML.Quantity.Magnitude.get -> OpenMBEE.OpenSysML.Value.NumberValue!
-[OSML0001]OpenMBEE.OpenSysML.Quantity.Quantity(OpenMBEE.OpenSysML.Value.NumberValue! magnitude, string! unit, OpenMBEE.OpenSysML.UnitTerm? reduction) -> void
 [OSML0001]OpenMBEE.OpenSysML.Quantity.Reduction.get -> OpenMBEE.OpenSysML.UnitTerm?
 [OSML0001]OpenMBEE.OpenSysML.Quantity.Unit.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.Rational
@@ -3344,3 +3342,39 @@
 [OSML0001]static OpenMBEE.OpenSysML.Coverage.operator ==(OpenMBEE.OpenSysML.Coverage? left, OpenMBEE.OpenSysML.Coverage? right) -> bool
 [OSML0001]static OpenMBEE.OpenSysML.CoverageEntry.operator !=(OpenMBEE.OpenSysML.CoverageEntry? left, OpenMBEE.OpenSysML.CoverageEntry? right) -> bool
 [OSML0001]static OpenMBEE.OpenSysML.CoverageEntry.operator ==(OpenMBEE.OpenSysML.CoverageEntry? left, OpenMBEE.OpenSysML.CoverageEntry? right) -> bool
+[OSML0001]OpenMBEE.OpenSysML.ConvertOptions.InheritedMembers.get -> bool
+[OSML0001]OpenMBEE.OpenSysML.ConvertOptions.InheritedMembers.init -> void
+[OSML0001]OpenMBEE.OpenSysML.Lookup
+[OSML0001]OpenMBEE.OpenSysML.Lookup.Either = 0 -> OpenMBEE.OpenSysML.Lookup
+[OSML0001]OpenMBEE.OpenSysML.Lookup.ElementId = 2 -> OpenMBEE.OpenSysML.Lookup
+[OSML0001]OpenMBEE.OpenSysML.Lookup.QualifiedName = 1 -> OpenMBEE.OpenSysML.Lookup
+[OSML0001]OpenMBEE.OpenSysML.Model.ElementPropertiesAsync(string! element, System.Collections.Generic.IEnumerable<string!>? properties = null, OpenMBEE.OpenSysML.Lookup lookup = OpenMBEE.OpenSysML.Lookup.Either, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<OpenMBEE.OpenSysML.ElementProperties!>!
+[OSML0001]OpenMBEE.OpenSysML.Quantity.Quantity(OpenMBEE.OpenSysML.Value.NumberValue! magnitude, string! unit, OpenMBEE.OpenSysML.UnitTerm? reduction, string! valueType = "") -> void
+[OSML0001]OpenMBEE.OpenSysML.Quantity.ValueType.get -> string!
+[OSML0001]OpenMBEE.OpenSysML.RenderViewOptions.Direction.get -> string?
+[OSML0001]OpenMBEE.OpenSysML.RenderViewOptions.Direction.init -> void
+[OSML0001]OpenMBEE.OpenSysML.RenderViewOptions.Form.get -> string?
+[OSML0001]OpenMBEE.OpenSysML.RenderViewOptions.Form.init -> void
+[OSML0001]OpenMBEE.OpenSysML.RenderViewOptions.Lines.get -> string?
+[OSML0001]OpenMBEE.OpenSysML.RenderViewOptions.Lines.init -> void
+[OSML0001]OpenMBEE.OpenSysML.RenderViewOptions.Link.get -> string?
+[OSML0001]OpenMBEE.OpenSysML.RenderViewOptions.Link.init -> void
+[OSML0001]OpenMBEE.OpenSysML.RenderViewOptions.Palette.get -> string?
+[OSML0001]OpenMBEE.OpenSysML.RenderViewOptions.Palette.init -> void
+[OSML0001]OpenMBEE.OpenSysML.RenderViewOptions.Style.get -> string?
+[OSML0001]OpenMBEE.OpenSysML.RenderViewOptions.Style.init -> void
+[OSML0001]OpenMBEE.OpenSysML.RenderViewOptions.Unplaced.get -> string?
+[OSML0001]OpenMBEE.OpenSysML.RenderViewOptions.Unplaced.init -> void
+[OSML0001]OpenMBEE.OpenSysML.RenderedView.Text.get -> string!
+[OSML0001]OpenMBEE.OpenSysML.Specialization.TargetQualifiedName.get -> string!
+[OSML0001]OpenMBEE.OpenSysML.Symbol.AnnotatingMetadataIds.get -> OpenMBEE.OpenSysML.ValueList<string!>
+[OSML0001]OpenMBEE.OpenSysML.SymbolOptions.Lookup.get -> OpenMBEE.OpenSysML.Lookup
+[OSML0001]OpenMBEE.OpenSysML.SymbolOptions.Lookup.init -> void
+[OSML0001]OpenMBEE.OpenSysML.SymbolOptions.ResolveName.get -> bool
+[OSML0001]OpenMBEE.OpenSysML.SymbolOptions.ResolveName.init -> void
+[OSML0001]OpenMBEE.OpenSysML.TypeFacts.ResolvedQualifiedName.get -> string!
+[OSML0001]const OpenMBEE.OpenSysML.Capabilities.ConvertInheritedMembers = "convert_inherited_members" -> string!
+[OSML0001]const OpenMBEE.OpenSysML.Capabilities.RenderViewForm = "render_view_form" -> string!
+[OSML0001]const OpenMBEE.OpenSysML.Capabilities.SymbolAnnotatingMetadata = "symbol_annotating_metadata" -> string!
+[OSML0001]const OpenMBEE.OpenSysML.Capabilities.SymbolLookupKind = "symbol_lookup_kind" -> string!
+[OSML0001]const OpenMBEE.OpenSysML.Capabilities.SymbolNameResolution = "symbol_name_resolution" -> string!

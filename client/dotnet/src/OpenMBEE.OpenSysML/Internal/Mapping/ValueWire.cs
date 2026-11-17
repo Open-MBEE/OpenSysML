@@ -346,7 +346,7 @@ internal static class ValueWire
             Wire.Quantity.MagnitudeOneofCase.RealMagnitude => new Value.RealValue(quantity.RealMagnitude),
             _ => throw Malformed(method, path, $"the quantity in [{quantity.Unit}] has no magnitude"),
         };
-        return new Quantity(magnitude, quantity.Unit, quantity.UnitTerm is { } reduction ? TermOf(reduction) : null);
+        return new Quantity(magnitude, quantity.Unit, quantity.UnitTerm is { } reduction ? TermOf(reduction) : null, quantity.ValueType);
     }
 
     private static UnitTerm TermOf(Wire.UnitTerm term) =>
@@ -501,6 +501,7 @@ internal static class ValueWire
         {
             Unit = quantity.Unit,
             UnitTerm = quantity.Reduction is { } reduction ? WriteTerm(reduction, path) : null,
+            ValueType = quantity.ValueType,
         };
         switch (quantity.Magnitude)
         {

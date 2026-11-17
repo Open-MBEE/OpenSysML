@@ -17,14 +17,18 @@ public sealed record Quantity
     /// <param name="unit">The unit as written (<c>km/h</c>); empty for one never written down.</param>
     /// <param name="reduction">What the unit reduces to; null when the service sent none. A named unit
     /// cannot be sent to the service without it.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="magnitude"/> or <paramref name="unit"/> is null.</exception>
-    public Quantity(Value.NumberValue magnitude, string unit, UnitTerm? reduction)
+    /// <param name="valueType">The qualified name of the quantity value type the quantity is held as
+    /// (<c>ISQThermodynamics::EnergyValue</c>); empty for none, as a quantity a caller builds is.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="magnitude"/>, <paramref name="unit"/> or <paramref name="valueType"/> is null.</exception>
+    public Quantity(Value.NumberValue magnitude, string unit, UnitTerm? reduction, string valueType = "")
     {
         ArgumentNullException.ThrowIfNull(magnitude);
         ArgumentNullException.ThrowIfNull(unit);
+        ArgumentNullException.ThrowIfNull(valueType);
         Magnitude = magnitude;
         Unit = unit;
         Reduction = reduction;
+        ValueType = valueType;
     }
 
     /// <summary>The magnitude: an Integer, an Integer beyond <see cref="long"/>, an exact Rational or a Real.</summary>
@@ -35,6 +39,12 @@ public sealed record Quantity
 
     /// <summary>What the unit reduces to; null when the service sent none.</summary>
     public UnitTerm? Reduction { get; }
+
+    /// <summary>
+    /// The qualified name of the quantity value type the service holds the quantity as (<c>ISQThermodynamics::EnergyValue</c>);
+    /// empty for none. Sent back, it is kept, so a parameter of a sibling type (<c>TorqueValue</c>) still refuses the quantity.
+    /// </summary>
+    public string ValueType { get; }
 
     /// <summary>Whether the magnitude is exact, an Integer or a Rational, rather than a Real.</summary>
     public bool IsExact => Magnitude is not Value.RealValue;

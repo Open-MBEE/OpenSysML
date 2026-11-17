@@ -97,7 +97,7 @@ internal static class RequestValues
             Wire.Quantity.MagnitudeOneofCase.RealMagnitude => new Value.RealValue(quantity.RealMagnitude),
             _ => throw new UnexpressibleRequestException($"the public API holds a quantity with its magnitude, which {path} has none of"),
         };
-        return new Quantity(magnitude, quantity.Unit, quantity.UnitTerm is { } reduction ? Term(reduction) : null);
+        return new Quantity(magnitude, quantity.Unit, quantity.UnitTerm is { } reduction ? Term(reduction) : null, quantity.ValueType);
     }
 
     private static UnitTerm Term(Wire.UnitTerm term) =>

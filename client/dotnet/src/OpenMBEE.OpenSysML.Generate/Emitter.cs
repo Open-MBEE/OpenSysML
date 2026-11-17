@@ -109,7 +109,7 @@ internal static class Emitter
         var described = Identifiers.DocText($"{definition.Symbol.Kind} {definition.Id}");
         writer.Line($"/// <summary>{described}.</summary>");
         var remarks = definition.UngeneratedBases
-            .Select(edge => $"Also {edge.Kind} {edge.TargetId}, which has no generated class.")
+            .Select(edge => $"Also {edge.Kind} {(edge.TargetQualifiedName.Length > 0 ? edge.TargetQualifiedName : edge.TargetId)}, which has no generated class.")
             .ToList();
         if (definition.UnnamedFeatures > 0)
         {

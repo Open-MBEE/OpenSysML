@@ -108,6 +108,83 @@ public sealed class ModelSymbolTests
 
     [Theory]
     [MemberData(nameof(Wires))]
+    public async Task ALookupIsStatedOnlyToAServiceThatReadsItAndInTheLegacyFormToOneThatDoesNot(ClientWire wire)
+    {
+        var token = TestContext.Current.CancellationToken;
+        SymbolOptions[] asked =
+        [
+            new() { Lookup = Lookup.QualifiedName },
+            new() { Lookup = Lookup.ElementId },
+            new() { ResolveName = true },
+            SymbolOptions.Default,
+        ];
+        async Task<List<Wire.GetSymbolRequest>> SentAsync(params string[] capabilities)
+        {
+            using var handler = new FakeServiceHandler(wire) { Capabilities = [.. FakeModels.ModelCapabilities, .. capabilities] }
+                .On("GetSymbol", Wire.GetSymbolRequest.Parser, _ => new Wire.SymbolResponse { Symbol = FakeModels.Symbol("Demo::m", "m", "partUsage") });
+            await using var connection = await FakeConnection.OpenAsync(handler);
+            foreach (var options in asked)
+            {
+                await connection.ModelByHash("h").SymbolAsync("Demo::m", options, token);
+            }
+
+            return handler.RequestsFor("GetSymbol").Select(request => request.Message(Wire.GetSymbolRequest.Parser)).ToList();
+        }
+
+        static Wire.GetSymbolRequest Sent(bool resolveName, Wire.LookupKind lookup = Wire.LookupKind.Unspecified) =>
+            new() { ModelHash = "h", SymbolId = "Demo::m", ResolveName = resolveName, Lookup = lookup };
+
+        Assert.Equal(
+            [Sent(true, Wire.LookupKind.QualifiedName), Sent(false, Wire.LookupKind.ElementId), Sent(true), Sent(false)],
+            await SentAsync(Capabilities.SymbolLookupKind, Capabilities.SymbolNameResolution));
+        Assert.Equal([Sent(true), Sent(false), Sent(true), Sent(false)], await SentAsync(Capabilities.SymbolNameResolution));
+        Assert.Equal([Sent(false), Sent(false), Sent(false), Sent(false)], await SentAsync());
+
+        using var refusing = new FakeServiceHandler(wire) { Capabilities = FakeModels.ModelCapabilities };
+        await using var refusingConnection = await FakeConnection.OpenAsync(refusing);
+        await Assert.ThrowsAsync<ArgumentException>(() => refusingConnection.ModelByHash("h").SymbolAsync("Demo::m", new SymbolOptions { Lookup = (Lookup)3 }, token));
+        Assert.Empty(refusing.RequestsFor("GetSymbol"));
+    }
+
+    [Theory]
+    [MemberData(nameof(Wires))]
+    public async Task ASymbolsOwnIdIsLookedUpAsAnElementIdNeverShadowedByADeclaredName(ClientWire wire)
+    {
+        using var handler = new FakeServiceHandler(wire) { Capabilities = [.. FakeModels.ModelCapabilities, Capabilities.SymbolLookupKind, Capabilities.SymbolNameResolution] }
+            .Parsing("h", FakeModels.Symbol("r", string.Empty, "RootNamespace"))
+            .On("GetSymbol", Wire.GetSymbolRequest.Parser, _ => new Wire.SymbolResponse { Symbol = FakeModels.Symbol("Demo::Col__V__c_pend0", "Col__V__c_pend0", "partDef") });
+        await using var connection = await FakeConnection.OpenAsync(handler);
+        var model = await connection.LoadAsync();
+
+        var found = await model.FindAsync("Demo::Col__V__c_pend0", TestContext.Current.CancellationToken);
+
+        Assert.Equal("Demo::Col__V__c_pend0", found?.Id);
+        Assert.Equal(
+            new Wire.GetSymbolRequest { ModelHash = "h", SymbolId = "Demo::Col__V__c_pend0", Lookup = Wire.LookupKind.ElementId },
+            handler.RequestsFor("GetSymbol")[0].Message(Wire.GetSymbolRequest.Parser));
+    }
+
+    [Theory]
+    [MemberData(nameof(Wires))]
+    public async Task AnnotatingMetadataAndTheQualifiedNamesBesideTheLookupIdsAreRead(ClientWire wire)
+    {
+        var info = FakeModels.Symbol("Demo::pump", "pump", "partUsage");
+        info.AnnotatingMetadataIds.Add(["Demo::pump::@0", "Demo::pump_fm"]);
+        info.TypeInfo = new Wire.TypeInfo { Declared = "Pump", ResolvedId = "Demo::Pump", ResolvedQualifiedName = "Demo::Pump", ResolvedKind = "partDef" };
+        info.Specializations.Add(new Wire.Specialization { Kind = "references", Declared = "x.p", TargetId = "Demo::X::@1", TargetQualifiedName = "Demo::X::p", TargetKind = "partUsage" });
+        using var handler = new FakeServiceHandler(wire) { Capabilities = FakeModels.ModelCapabilities }
+            .On("GetSymbol", Wire.GetSymbolRequest.Parser, _ => new Wire.SymbolResponse { Symbol = info });
+        await using var connection = await FakeConnection.OpenAsync(handler);
+
+        var symbol = await connection.ModelByHash("h").SymbolAsync("Demo::pump", cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(["Demo::pump::@0", "Demo::pump_fm"], symbol.AnnotatingMetadataIds);
+        Assert.Equal(("Demo::Pump", "Demo::Pump"), (symbol.TypeFacts!.ResolvedId, symbol.TypeFacts.ResolvedQualifiedName));
+        Assert.Equal(("Demo::X::@1", "Demo::X::p"), (symbol.Specializations[0].TargetId, symbol.Specializations[0].TargetQualifiedName));
+    }
+
+    [Theory]
+    [MemberData(nameof(Wires))]
     public async Task LibraryMembersAreAskedForOnlyOfAServiceThatListsMembers(ClientWire wire)
     {
         var info = FakeModels.Symbol("Demo::m", "m", "partUsage");

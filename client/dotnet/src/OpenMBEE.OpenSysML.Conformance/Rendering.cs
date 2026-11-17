@@ -62,6 +62,7 @@ internal static class Rendering
             ChildIds = { symbol.ChildIds },
             WithheldLibraryAttributes = symbol.WithheldLibraryAttributes,
             WithheldLibraryMembers = symbol.WithheldLibraryMembers,
+            AnnotatingMetadataIds = { symbol.AnnotatingMetadataIds },
         };
         foreach (var (name, fact) in symbol.Metadata)
         {
@@ -85,6 +86,7 @@ internal static class Rendering
             {
                 Declared = type.Declared,
                 ResolvedId = type.ResolvedId,
+                ResolvedQualifiedName = type.ResolvedQualifiedName,
                 ResolvedKind = type.ResolvedKind,
                 Primitive = type.Primitive,
                 PrimitiveSource = type.PrimitiveSource,
@@ -107,6 +109,7 @@ internal static class Rendering
                 Declared = edge.Declared,
                 TargetId = edge.TargetId,
                 TargetKind = edge.TargetKind,
+                TargetQualifiedName = edge.TargetQualifiedName,
             });
         }
 
@@ -1010,6 +1013,7 @@ internal static class Rendering
             View = view.View,
             Kind = view.Kind,
             Stated = view.Stated,
+            Text = view.Text,
             Nodes =
             {
                 view.Nodes.Select(node => new Wire.RenderNode
@@ -1223,7 +1227,7 @@ internal static class Rendering
 
     private static Wire.Quantity Quantity(Quantity quantity)
     {
-        var rendered = new Wire.Quantity { Unit = quantity.Unit };
+        var rendered = new Wire.Quantity { Unit = quantity.Unit, ValueType = quantity.ValueType };
         switch (quantity.Magnitude)
         {
             case Value.IntegerValue integer:

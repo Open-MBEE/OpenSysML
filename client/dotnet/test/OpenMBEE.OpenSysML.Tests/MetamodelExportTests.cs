@@ -54,8 +54,13 @@ public sealed class MetamodelExportTests(ServiceFixture services) : IClassFixtur
         Assert.Same(definition, Assert.Single(usage.Type));
         Assert.Same(definition, Assert.Single(usage.Definition));
         Assert.Same(definition, Assert.Single(usage.PartDefinition));
-        var inherited = Assert.Throws<UnresolvedReferenceException>(() => usage.Feature);
-        Assert.False(graph.Contains(inherited.TargetId!));
+        Assert.True(Assert.Throws<NotSuppliedException>(() => usage.Feature).IsDerived);
+        var listed = await model.ToApiJsonAsync(new ConvertOptions { InheritedMembers = true }, Token);
+        using var listedStream = new MemoryStream(Encoding.UTF8.GetBytes(listed.Content));
+        var listedGraph = MetamodelGraph.ReadJson(listedStream);
+        var listedUsage = listedGraph.All<IPartUsage>().Single(part => part.DeclaredName == "engine");
+        var inherited = Assert.Throws<UnresolvedReferenceException>(() => listedUsage.Feature);
+        Assert.False(listedGraph.Contains(inherited.TargetId!));
         Assert.Equal("ReaderDemo::engine", usage.QualifiedName);
         Assert.NotEmpty(definition.OwnedFeature);
         Assert.All(definition.OwnedFeature, feature => Assert.Same(feature, graph[feature.Id]));
@@ -71,7 +76,7 @@ public sealed class MetamodelExportTests(ServiceFixture services) : IClassFixtur
         Assert.Contains("part engine : Engine", source, StringComparison.Ordinal);
         Assert.Throws<InvalidOperationException>(() => usage.Extensions);
 
-        var stubbed = await model.ToApiJsonAsync(new ConvertOptions { IncludeLibraryStubs = true }, Token);
+        var stubbed = await model.ToApiJsonAsync(new ConvertOptions { IncludeLibraryStubs = true, InheritedMembers = true }, Token);
         using var whole = System.Text.Json.JsonDocument.Parse(stubbed.Content);
         var withLibrary = MetamodelGraph.ReadJson(whole);
         var engine = withLibrary.All<IPartUsage>().Single(part => part.DeclaredName == "engine");

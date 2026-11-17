@@ -26,12 +26,15 @@ internal sealed record SymbolNode(Symbol Symbol, IReadOnlyList<SymbolNode> Child
         return missing.Count == 0 ? roots : throw new GenerationException(missing);
     }
 
+    // A child id is an element id, which a declaration spelled alike must not shadow.
+    private static readonly SymbolOptions ByElementId = new() { Lookup = Lookup.ElementId };
+
     private static async Task<SymbolNode> ReadAsync(Model model, Symbol symbol, HashSet<string> visited, List<string> missing, CancellationToken cancellationToken)
     {
         var children = new List<SymbolNode>();
         foreach (var childId in symbol.ChildIds)
         {
-            var child = await model.FindSymbolAsync(childId, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var child = await model.FindSymbolAsync(childId, ByElementId, cancellationToken).ConfigureAwait(false);
 
             // An unnamed member is listed under its owner's name and "::", which names nothing the service can look up.
             if (child is null && childId.EndsWith("::", StringComparison.Ordinal))

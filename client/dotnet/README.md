@@ -516,7 +516,7 @@ into a model; `HasErrors` says so, and `RequireNoErrors` turns it into a
 
 | Method | Answers |
 | --- | --- |
-| `SymbolAsync` / `FindSymbolAsync` | The `Symbol` of a qualified name as the service resolves it, through imports and aliases; not found raises `SymbolNotFoundException`, its message the service's own, or answers null. `SymbolOptions.IncludeLibraryMembers` lists the members inherited from standard-library content too |
+| `SymbolAsync` / `FindSymbolAsync` | The `Symbol` of a qualified name or an element id as the service resolves it; not found raises `SymbolNotFoundException`, its message the service's own, or answers null. `SymbolOptions.Lookup` states which kind the string is (`Lookup.QualifiedName`, `Lookup.ElementId`; `Lookup.Either`, the default, reads a declared name first), `SymbolOptions.ResolveName` resolves a legacy-form string from the root namespace through visible memberships, and `SymbolOptions.IncludeLibraryMembers` lists the members inherited from standard-library content too |
 | `FindAsync` / `LookupAsync` | The symbol of a short name or of its own id, the outermost first; not found answers null or raises `SymbolNotFoundException` naming at most three near names |
 | `GetDiagnosticsAsync` | The diagnostics again, under a `DiagnosticsOptions` lint selection |
 | `EvalAsync` / `EvaluateAsync` | The `Value` of an expression, in `EvalOptions.ContextSymbolId`'s scope or against an object of `SubjectSymbolId`; `EvaluateAsync` keeps the diagnostics with it |
@@ -532,14 +532,19 @@ the feature's derived types (KerML `Feature::type`), most specific first. `Membe
 `symbol_members`) lists every member, own then inherited, each a `SymbolMember` naming whether it
 is inherited, the type it is `InheritedFrom` and whether it is library content; those inherited
 from the standard library are counted in `WithheldLibraryMembers` unless asked for, and
-`OwnMembers` and `InheritedMembers` split the list. Several of these facts summarise a metamodel
+`OwnMembers` and `InheritedMembers` split the list. `AnnotatingMetadataIds` (under
+`symbol_annotating_metadata`) are the metadata usages annotating the element, its own and the
+`about` ones written elsewhere. Every id a symbol reports (its `Id`, `ChildIds`, a `TypeFacts.ResolvedId`,
+a `Specialization.TargetId`) is an element id to look up with `Lookup.ElementId`; `ResolvedQualifiedName`
+and `TargetQualifiedName` are the qualified names to display. Several of these facts summarise a metamodel
 property that `ElementPropertiesAsync` answers in full, the surface the specification defines.
 Each fact is read whatever the service advertises, and one the service did not report is
 empty or null, never invented.
 
 `ElementPropertiesAsync` names an element by qualified name, by the positional id of an unnamed
 member, or by the element form's `@id`, which every `ElementRef` in an answer carries, so the
-element graph is walked with one vocabulary. Each `ElementProperty` has its `DefiningClass`,
+element graph is walked with one vocabulary; its `lookup` states which kind the string is, so a
+declaration spelled like a generated id does not shadow the element the id names. Each `ElementProperty` has its `DefiningClass`,
 whether it `IsMany` and `IsDerived`, its `Values` in order, each an `ElementPropertyValue` arm
 (an element, a string, a boolean, an integer, a real, or a number beyond both as its digits),
 and, for one the element's metaclass does not declare or OpenSysML does not derive yet,
@@ -567,7 +572,9 @@ Options a service would silently ignore without its capability are refused first
 inline notation, `parse_sources`, `parse_sources_affected` for `SourcesOptions.BaseModelHash`,
 `evaluate_subject` for a subject, `symbol_members` for `SymbolOptions.IncludeLibraryMembers`,
 `element_properties` for `ElementPropertiesAsync` and `instance_paths` for `InstancePathsAsync`
-and `InstancePathsAtAsync`. A file's notation comes from its extension, so loading
+and `InstancePathsAtAsync`. A stated `Lookup` and `SymbolOptions.ResolveName` are instead asked in the
+form a service reads: without `symbol_lookup_kind` no kind is stated, and without
+`symbol_name_resolution` a name is read as an id the service reported. A file's notation comes from its extension, so loading
 one with `ParseOptions.Language` set is refused with `ArgumentException`.
 
 A model loaded through a connection borrows it: disposing the model does nothing, and the
@@ -783,7 +790,10 @@ directions and options apply is the service's to judge, as is a SysML v1 source 
 the other call. `ConvertOptions` carries the source's `FromFormat` (inline content must name
 it), `TolerateSyntaxErrors`, the `IdForm` of derived ids in a graph, the `Documents` of a
 multi-document model to write, the `Compact` API JSON form with `OmitDerived` and
-`KeepDerived`, `IncludeCheckDiagnostics`, and `IncludeLibraryStubs`. An `api-json` conversion
+`KeepDerived`, `IncludeCheckDiagnostics`, `IncludeLibraryStubs`, and `InheritedMembers`, which
+writes on every Namespace and Type of an `api-json` conversion the derived lists repeating its
+inherited and imported members (`convert_inherited_members`; a service without it always writes
+them). An `api-json` conversion
 lists the standard-library elements it refers to as `LibraryReferences` (each a
 `LibraryReference` with its `Id`, `QualifiedName` and metaclass `Type`, and, for an inherited
 unnamed member, which has no qualified name, its positional `LibraryPath` `owner/Metaclass[i]`) rather than writing them
@@ -797,7 +807,7 @@ model that could not be read raises `MigrationException`. An element with no v2 
 report entry, never an exception. A file the service cannot read is a
 `ModelFileNotFoundException`, a model it no longer holds a `ModelNotFoundException`. Before
 anything is sent the calls need `convert`, then `convert_documents`, `convert_library_stubs`,
-`convert_compact` and `convert_check_diagnostics` for the options that use them, in that order,
+`convert_inherited_members`, `convert_compact` and `convert_check_diagnostics` for the options that use them, in that order,
 or `migrate`.
 
 `MigrateSource.FromFile` requires a fully-qualified path in the client's path syntax, rejecting
@@ -918,7 +928,11 @@ folded member is a node whose `Compartment` names the compartment (`attributes`,
 port the owner has through typing, subclassification or subsetting rather than declares is
 `Inherited`, which the notation marks with `^`; its `Name` stays bare. A service older than
 `Compartments` draws every member as a node whatever it asks, since there is no capability to
-tell it by.
+tell it by. `RenderViewOptions.Form` also writes the rendering as text into `RenderedView.Text`,
+byte for byte what `sysml -render` writes in that form (`mermaid`, `dot`, `plantuml`, `d2`,
+`drawio`, `markdown`, `text`, `csv`, `tsv`), with the writer options `Palette`, `Style`, `Lines`,
+`Direction`, `Link` and `Unplaced` as the CLI's `-render-*` flags name them; any of them needs
+`render_view_form`.
 
 A model the service no longer holds is a `ModelNotFoundException`; a query, document or view
 the model does not declare, or an object it does not hold, is a `ServiceException` with

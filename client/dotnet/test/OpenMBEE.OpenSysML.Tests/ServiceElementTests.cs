@@ -73,7 +73,8 @@ public sealed class ServiceElementTests(ServiceFixture services) : IClassFixture
         Assert.Equal([new SymbolMember("Demo::Base::p", "p", "partUsage", false, string.Empty, false)], root.OwnMembers);
         Assert.Equal(["Demo::Base::p"], root.ChildIds);
         Assert.Equal(0, full.WithheldLibraryMembers);
-        Assert.Equal(m.Members, full.Members.Take(m.Members.Count));
+        // Inheritance order interleaves the library's members with the model's.
+        Assert.Equal(m.Members, full.Members.Where(member => !member.IsLibrary));
         var library = full.Members.Where(member => member.IsLibrary).ToList();
         Assert.Equal(m.WithheldLibraryMembers, library.Count);
         Assert.All(library, member => Assert.True(member.IsInherited && member.InheritedFrom.Length > 0, member.ToString()));
@@ -95,7 +96,7 @@ public sealed class ServiceElementTests(ServiceFixture services) : IClassFixture
         Assert.Equal([new TypeRef("Typed::V", "partDef"), new TypeRef("Typed::T", "partDef")], both.TypeFacts.Types);
         Assert.Equal((string.Empty, string.Empty), (referencing.TypeFacts!.Declared, referencing.TypeFacts.ResolvedId));
         Assert.Equal([new TypeRef("Typed::T", "partDef")], referencing.TypeFacts.Types);
-        Assert.Contains(new Specialization("references", "q", "Typed::Holder::q", "partUsage"), referencing.Specializations);
+        Assert.Contains(new Specialization("references", "q", "Typed::Holder::q", "partUsage", "Typed::Holder::q"), referencing.Specializations);
         Assert.Empty(definition.TypeFacts?.Types ?? []);
     }
 
@@ -106,12 +107,12 @@ public sealed class ServiceElementTests(ServiceFixture services) : IClassFixture
         await using var connection = await OpenAsync(wire);
         var model = await LoadAsync(connection, File.ReadAllText(Fixture("element_properties.sysml")));
 
-        var pair = await model.ElementPropertiesAsync("Demo::Pair", ["inheritedFeature", "isAbstract", "connectorEnd"], Token);
-        var connector = await model.ElementPropertiesAsync("Demo::Pair::@2", ["relatedFeature", "connectorEnd"], Token);
+        var pair = await model.ElementPropertiesAsync("Demo::Pair", ["inheritedFeature", "isAbstract", "connectorEnd"], cancellationToken: Token);
+        var connector = await model.ElementPropertiesAsync("Demo::Pair::@2", ["relatedFeature", "connectorEnd"], cancellationToken: Token);
         var related = connector.Find("relatedFeature")!.Elements;
-        var walked = await model.ElementPropertiesAsync(related[0].Id, ["name"], Token);
+        var walked = await model.ElementPropertiesAsync(related[0].Id, ["name"], cancellationToken: Token);
         var every = await model.ElementPropertiesAsync("Demo::CmdPort::cmd", cancellationToken: Token);
-        var missing = await Assert.ThrowsAsync<SymbolNotFoundException>(() => model.ElementPropertiesAsync("Demo::Nope", ["name"], Token));
+        var missing = await Assert.ThrowsAsync<SymbolNotFoundException>(() => model.ElementPropertiesAsync("Demo::Nope", ["name"], cancellationToken: Token));
         var unheld = await Assert.ThrowsAsync<ModelNotFoundException>(() => connection.ModelByHash("no-such-model").ElementPropertiesAsync("Demo", cancellationToken: Token));
 
         Assert.Equal(("Demo::Pair", "PartDefinition"), (pair.Element.QualifiedName, pair.Element.Metaclass));

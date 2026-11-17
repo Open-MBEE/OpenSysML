@@ -46,13 +46,15 @@ internal static class ModelWire
                     type.PrimitiveSource,
                     type.Quantity,
                     type.Unit,
-                    type.Types_.Select(derived => new TypeRef(derived.Id, derived.Kind)))
+                    type.Types_.Select(derived => new TypeRef(derived.Id, derived.Kind)),
+                    type.ResolvedQualifiedName)
                 : null,
             symbol.Multiplicity is { } multiplicity ? new Multiplicity(multiplicity.Lower, multiplicity.Upper) : null,
-            symbol.Specializations.Select(edge => new Specialization(edge.Kind, edge.Declared, edge.TargetId, edge.TargetKind)),
+            symbol.Specializations.Select(edge => new Specialization(edge.Kind, edge.Declared, edge.TargetId, edge.TargetKind, edge.TargetQualifiedName)),
             symbol.WithheldLibraryAttributes,
             symbol.Members.Select(member => new SymbolMember(member.Id, member.Name, member.Kind, member.Inherited, member.InheritedFrom, member.Library)),
-            symbol.WithheldLibraryMembers);
+            symbol.WithheldLibraryMembers,
+            symbol.AnnotatingMetadataIds);
 
     /// <summary>Reads an object the service built.</summary>
     /// <param name="instance">The message.</param>

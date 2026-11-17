@@ -36,4 +36,41 @@ public sealed class RenderViewOptions
     /// by default. A service older than the field draws every member as a node of its own whatever this asks.
     /// </summary>
     public RenderViewCompartments Compartments { get; init; }
+
+    /// <summary>
+    /// The form to also write the rendering in, into <see cref="RenderedView.Text"/>, as <c>-render-form</c> names it:
+    /// <c>text</c>, <c>mermaid</c>, <c>markdown</c>, <c>dot</c>, <c>plantuml</c>, <c>d2</c>, <c>drawio</c>, <c>csv</c> or
+    /// <c>tsv</c>; null writes none. The service refuses a form there is none of, or one the view's kind is not written in
+    /// (<c>dot</c> of a table). It and every writer option below need <see cref="Capabilities.RenderViewForm"/>.
+    /// </summary>
+    public string? Form { get; init; }
+
+    /// <summary>The palette a graph form fills nodes from, as <c>-render-palette</c> names them; null draws in black and white.</summary>
+    public string? Palette { get; init; }
+
+    /// <summary>The drawing style of the DOT or Mermaid form, as <c>-render-style</c> names them: <c>pilot</c> (the default) or <c>cameo</c>.</summary>
+    public string? Style { get; init; }
+
+    /// <summary>How the DOT or PlantUML form routes its edges, as <c>-render-lines</c> names them: <c>splines</c> (the default), <c>ortho</c> or <c>polyline</c>.</summary>
+    public string? Lines { get; init; }
+
+    /// <summary>The flow direction of a graph-shaped form: <c>TB</c>, <c>LR</c>, <c>RL</c> or <c>BT</c>; null leaves each kind's default, which is what the CLI writes.</summary>
+    public string? Direction { get; init; }
+
+    /// <summary>
+    /// The source link template each node and edge of the form is written with, as <c>-render-link</c> takes it, with the
+    /// placeholders <c>{file}</c>, <c>{line}</c>, <c>{col}</c>, <c>{qname}</c> and <c>{id}</c>; null writes no links.
+    /// </summary>
+    public string? Link { get; init; }
+
+    /// <summary>
+    /// Where a graph form of a view some Layout positions puts the nodes none does, as <c>-render-unplaced</c> names it:
+    /// <c>omit</c> (the default) or <c>strip</c>.
+    /// </summary>
+    public string? Unplaced { get; init; }
+
+    /// <summary>Whether a form or a writer option is asked for, which <see cref="Capabilities.RenderViewForm"/> gates as one.</summary>
+    internal bool AsksForm =>
+        !string.IsNullOrEmpty(Form) || !string.IsNullOrEmpty(Palette) || !string.IsNullOrEmpty(Style) || !string.IsNullOrEmpty(Lines)
+        || !string.IsNullOrEmpty(Direction) || !string.IsNullOrEmpty(Link) || !string.IsNullOrEmpty(Unplaced);
 }

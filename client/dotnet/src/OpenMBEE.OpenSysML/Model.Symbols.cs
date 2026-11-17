@@ -17,15 +17,20 @@ public sealed partial class Model
     private const string PropertyOwner = "owner";
     private const int MaxSuggestions = 3;
 
+    // A child id, a member's and a symbol's own id are element ids, which a declaration spelled alike must not shadow.
+    private static readonly SymbolOptions ByElementId = new() { Lookup = Lookup.ElementId };
+
     /// <summary>
-    /// A symbol by qualified name, as the service resolves it: through imports and aliases, as the
-    /// notation does, so the symbol answered may carry another <see cref="Symbol.Id"/>.
+    /// A symbol by qualified name or element id, as <see cref="SymbolOptions.Lookup"/> states; in the legacy form, a declared
+    /// name first, resolved through imports and aliases as the notation does, so the symbol answered may carry another
+    /// <see cref="Symbol.Id"/>.
     /// </summary>
-    /// <param name="symbolId">A qualified name, such as <c>Demo::Vehicle</c>.</param>
+    /// <param name="symbolId">A qualified name, such as <c>Demo::Vehicle</c>, or an element id the service reported.</param>
     /// <param name="options">What the lookup asks for beyond the symbol; null for <see cref="SymbolOptions.Default"/>.</param>
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The symbol.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="symbolId"/> is null.</exception>
+    /// <exception cref="ArgumentException"><see cref="SymbolOptions.Lookup"/> is not a <see cref="Lookup"/>; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The options ask for the library members and the service lacks <see cref="Capabilities.SymbolMembers"/>, so it would ignore them; nothing was sent.</exception>
     /// <exception cref="SymbolNotFoundException">The model declares no such symbol, as the service worded it; no suggestion is sought.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -37,12 +42,13 @@ public sealed partial class Model
         return symbol ?? throw new SymbolNotFoundException(symbolId, error, GetSymbolMethod);
     }
 
-    /// <summary>A symbol by qualified name, as the service resolves it, or null when the model declares no such symbol.</summary>
-    /// <param name="symbolId">A qualified name, such as <c>Demo::Vehicle</c>.</param>
+    /// <summary>A symbol by qualified name or element id, as <see cref="SymbolAsync"/> finds one, or null when the model declares no such symbol.</summary>
+    /// <param name="symbolId">A qualified name, such as <c>Demo::Vehicle</c>, or an element id the service reported.</param>
     /// <param name="options">What the lookup asks for beyond the symbol; null for <see cref="SymbolOptions.Default"/>.</param>
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The symbol, or null.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="symbolId"/> is null.</exception>
+    /// <exception cref="ArgumentException"><see cref="SymbolOptions.Lookup"/> is not a <see cref="Lookup"/>; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The options ask for the library members and the service lacks <see cref="Capabilities.SymbolMembers"/>, so it would ignore them; nothing was sent.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
     /// <exception cref="ServiceException">The service refused the call.</exception>
@@ -116,12 +122,24 @@ public sealed partial class Model
         ArgumentNullException.ThrowIfNull(symbolId);
         Connection.ThrowIfDisposed();
         options ??= SymbolOptions.Default;
+        if (!Enum.IsDefined(options.Lookup))
+        {
+            throw new ArgumentException($"SymbolOptions.Lookup is {options.Lookup}, which is not a Lookup.", nameof(options));
+        }
+
         if (options.IncludeLibraryMembers)
         {
             Connection.Capabilities.Require(Capabilities.SymbolMembers);
         }
 
-        var request = new Wire.GetSymbolRequest { ModelHash = Hash, SymbolId = symbolId, IncludeLibraryMembers = options.IncludeLibraryMembers };
+        var request = new Wire.GetSymbolRequest
+        {
+            ModelHash = Hash,
+            SymbolId = symbolId,
+            IncludeLibraryMembers = options.IncludeLibraryMembers,
+            ResolveName = ResolvesName(options) && Connection.Capabilities.Has(Capabilities.SymbolNameResolution),
+            Lookup = StatedKind(options.Lookup),
+        };
         var response = await Connection.ModelCallAsync<Wire.GetSymbolRequest, Wire.SymbolResponse>(GetSymbolMethod, request, cancellationToken).ConfigureAwait(false);
         if (response.Error.Length > 0)
         {
@@ -133,13 +151,31 @@ public sealed partial class Model
             : throw TransportException.Malformed(GetSymbolMethod, $"neither a symbol nor a failure for {symbolId}");
     }
 
+    // The legacy form of a stated kind, which is all a service without symbol_lookup_kind reads.
+    private static bool ResolvesName(SymbolOptions options) => options.Lookup switch
+    {
+        Lookup.QualifiedName => true,
+        Lookup.ElementId => false,
+        _ => options.ResolveName,
+    };
+
+    // No kind is stated to a service that would ignore it: it reads the string as either.
+    private Wire.LookupKind StatedKind(Lookup lookup) => !Connection.Capabilities.Has(Capabilities.SymbolLookupKind)
+        ? Wire.LookupKind.Unspecified
+        : lookup switch
+        {
+            Lookup.QualifiedName => Wire.LookupKind.QualifiedName,
+            Lookup.ElementId => Wire.LookupKind.ElementId,
+            _ => Wire.LookupKind.Unspecified,
+        };
+
     private static Query Selecting(string select, string? property = null, IEnumerable<string>? values = null) =>
         new() { Select = [select], Where = property is null ? null : QueryConstraint.Equal(property, values!) };
 
     // The symbol whose own id is this one: the service also resolves a name through imports and aliases.
     private async Task<Symbol?> SymbolWithIdAsync(string id, CancellationToken cancellationToken)
     {
-        var symbol = await FindSymbolAsync(id, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var symbol = await FindSymbolAsync(id, ByElementId, cancellationToken).ConfigureAwait(false);
         return symbol is not null && symbol.Id == id ? symbol : null;
     }
 
@@ -259,7 +295,7 @@ public sealed partial class Model
 
             foreach (var childId in current.Symbol.ChildIds)
             {
-                if (!seen.Add(childId) || await FindSymbolAsync(childId, cancellationToken: cancellationToken).ConfigureAwait(false) is not { } child)
+                if (!seen.Add(childId) || await FindSymbolAsync(childId, ByElementId, cancellationToken).ConfigureAwait(false) is not { } child)
                 {
                     continue;
                 }

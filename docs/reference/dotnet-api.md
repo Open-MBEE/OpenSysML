@@ -108,7 +108,9 @@ borrows it. Each method below is one RPC:
 
 A `Symbol`'s `Members` are its `SymbolMember`s, own then inherited, each naming the type it is
 `InheritedFrom` (`symbol_members`); `SymbolOptions.IncludeLibraryMembers` lists the standard-library
-ones `WithheldLibraryMembers` otherwise counts. `TypeFacts.Types` are a feature's derived types
+ones `WithheldLibraryMembers` otherwise counts, and `SymbolOptions.Lookup` (`Lookup`) states whether a
+string is a qualified name or an element id (`symbol_lookup_kind`). `Symbol.AnnotatingMetadataIds` lists
+the metadata usages annotating an element (`symbol_annotating_metadata`). `TypeFacts.Types` are a feature's derived types
 (`Feature::type`), beside the typing as written. `ElementPropertiesAsync` reads an element's
 metamodel properties by specification name (`element_properties`), each an `ElementProperty` whose
 `Values` are `ElementPropertyValue` arms, an element among them an `ElementRef` whose `Id` it accepts
@@ -128,7 +130,10 @@ which needs `query_order_by`. `RenderDocumentAsync` renders `DocumentForm.Markdo
 rows, each a `ViewNode` naming its `Compartment`; `ViewNode.Inherited` and `ViewPort.Inherited` mark
 what an owner has from its type. A solver's `Verdict.Notes` are the `VerdictNote`s its answer rests
 on, and an `api-json` `Conversion` lists the `LibraryReference`s it refers to, which
-`ConvertOptions.IncludeLibraryStubs` also writes as roots.
+`ConvertOptions.IncludeLibraryStubs` also writes as roots; `ConvertOptions.InheritedMembers` restores the
+derived inherited-member lists (`convert_inherited_members`). `RenderViewOptions.Form` also writes a
+view as text into `RenderedView.Text` (`render_view_form`), and a `Quantity` keeps the `ValueType` it is
+held as when sent back.
 
 ## Writing files
 

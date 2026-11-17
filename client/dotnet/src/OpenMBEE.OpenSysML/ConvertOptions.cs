@@ -86,6 +86,14 @@ public sealed class ConvertOptions
     /// </summary>
     public bool IncludeLibraryStubs { get; init; }
 
+    /// <summary>
+    /// For <c>api-json</c>, also writes on every Namespace and Type the derived lists that repeat its inherited and imported
+    /// members (<c>membership</c>, <c>member</c>, <c>inheritedMembership</c>, <c>featureMembership</c>, <c>feature</c>,
+    /// <c>inheritedFeature</c>); by default an element carries its owned structure. Needs
+    /// <see cref="Capabilities.ConvertInheritedMembers"/>; a service without it always writes them.
+    /// </summary>
+    public bool InheritedMembers { get; init; }
+
     /// <summary>Whether any of the compact form's options is asked for, which the service gates as one.</summary>
     internal bool AsksCompact => Compact || OmitDerived || !keepDerived.IsEmpty;
 }

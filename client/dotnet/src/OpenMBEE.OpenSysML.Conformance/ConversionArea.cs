@@ -20,7 +20,7 @@ internal static class ConversionArea
             "Convert",
             [
                 "file_path", "content", "model_hash", "from_format", "to_format", "tolerate_syntax_errors", "id_form", "documents", "compact", "omit_derived",
-                "keep_derived", "include_check_diagnostics", "include_library_stubs",
+                "keep_derived", "include_check_diagnostics", "include_library_stubs", "inherited_members",
             ],
             ConvertAsync),
         RpcAdapter.Of<Wire.MigrateRequest>(
@@ -48,6 +48,7 @@ internal static class ConversionArea
             KeepDerived = request.KeepDerived,
             IncludeCheckDiagnostics = request.IncludeCheckDiagnostics,
             IncludeLibraryStubs = request.IncludeLibraryStubs,
+            InheritedMembers = request.InheritedMembers,
         };
         Task<Conversion> converting = request.SourceCase switch
         {

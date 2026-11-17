@@ -24,6 +24,7 @@ public sealed record RenderedView
     /// <param name="notices">What the rendering could not represent.</param>
     /// <param name="shown">The optional notation elements drawn.</param>
     /// <param name="frame">The view frame drawn round a graph-shaped rendering; null for a frameless one.</param>
+    /// <param name="text">The rendering written in <see cref="RenderViewOptions.Form"/>; empty when none was asked for.</param>
     /// <exception cref="ArgumentNullException">An argument other than the canvas or the frame is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null.</exception>
     internal RenderedView(
@@ -38,11 +39,13 @@ public sealed record RenderedView
         IEnumerable<ViewNote> notes,
         IEnumerable<string> notices,
         IEnumerable<string> shown,
-        ViewFrame? frame)
+        ViewFrame? frame,
+        string text = "")
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(kind);
         ArgumentNullException.ThrowIfNull(stated);
+        ArgumentNullException.ThrowIfNull(text);
         View = view;
         Kind = kind;
         Stated = stated;
@@ -55,6 +58,7 @@ public sealed record RenderedView
         Notices = new ValueList<string>(notices);
         Shown = new ValueList<string>(shown);
         Frame = frame;
+        Text = text;
     }
 
     /// <summary>The view rendered, by qualified name; empty for a rendering of exposed elements alone.</summary>
@@ -92,6 +96,12 @@ public sealed record RenderedView
 
     /// <summary>The view frame drawn round a graph-shaped rendering; null for a frameless one, such as a table.</summary>
     public ViewFrame? Frame { get; }
+
+    /// <summary>
+    /// The rendering written in <see cref="RenderViewOptions.Form"/>, byte for byte what <c>sysml -render</c> writes in that form at
+    /// no particular width; empty when no form was asked for.
+    /// </summary>
+    public string Text { get; }
 
     /// <summary>The nodes nested in no other, in order.</summary>
     public IEnumerable<ViewNode> Roots => Nodes.Where(node => node.Parent.Length == 0);

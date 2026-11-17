@@ -15,7 +15,7 @@ public sealed partial class Model
     /// states, each absent where the view states none.
     /// </summary>
     /// <param name="view">A view's qualified name, or a <c>#&lt;kind&gt;:&lt;qualified name&gt;</c> pseudo-view.</param>
-    /// <param name="options">The ports drawn, the optional notation shown, the depth drawn and the compartments folded; null for <see cref="RenderViewOptions.Default"/>.</param>
+    /// <param name="options">The ports drawn, the optional notation shown, the depth drawn, the compartments folded and the form written; null for <see cref="RenderViewOptions.Default"/>.</param>
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>Every field the view renderer produced.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="view"/> is null.</exception>
@@ -24,11 +24,12 @@ public sealed partial class Model
     /// <see cref="RenderViewOptions.Compartments"/> is not a <see cref="RenderViewCompartments"/>, or
     /// <see cref="RenderViewOptions.Depth"/> is not positive; nothing was sent.
     /// </exception>
-    /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.RenderView"/>; nothing was sent.</exception>
+    /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.RenderView"/>, or <see cref="Capabilities.RenderViewForm"/> for a form or a writer option; nothing was sent.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
     /// <exception cref="ServiceException">
     /// The service refused the call: <see cref="StatusCode.NotFound"/> for a view the model does not declare,
-    /// <see cref="StatusCode.InvalidArgument"/> for a name that selects no view or a notation element it does not know.
+    /// <see cref="StatusCode.InvalidArgument"/> for a name that selects no view, a notation element it does not know, or a form or
+    /// writer option it does not write.
     /// </exception>
     /// <exception cref="TransportException">The call failed in transport, or the answer was malformed.</exception>
     public async Task<RenderedView> RenderViewAsync(string view, RenderViewOptions? options = null, CancellationToken cancellationToken = default)
@@ -52,6 +53,10 @@ public sealed partial class Model
         }
 
         Connection.Capabilities.Require(Capabilities.RenderView);
+        if (options.AsksForm)
+        {
+            Connection.Capabilities.Require(Capabilities.RenderViewForm);
+        }
 
         // Minimal ports and positioned compartments are what empty selections name, which every service draws.
         var request = new Wire.RenderViewRequest
@@ -67,6 +72,13 @@ public sealed partial class Model
                 RenderViewCompartments.Ports => "ports",
                 _ => string.Empty,
             },
+            Form = options.Form ?? string.Empty,
+            Palette = options.Palette ?? string.Empty,
+            Style = options.Style ?? string.Empty,
+            Lines = options.Lines ?? string.Empty,
+            Direction = options.Direction ?? string.Empty,
+            Link = options.Link ?? string.Empty,
+            Unplaced = options.Unplaced ?? string.Empty,
         };
         var response = await DeclarationCallAsync<Wire.RenderViewRequest, Wire.RenderViewResponse>(RenderViewMethod, request, modelFaults: false, cancellationToken)
             .ConfigureAwait(false);

@@ -20,7 +20,10 @@ internal static class QueryDocsArea
         RpcAdapter.Of<Wire.QueryRequest>("Query", ["model_hash", "query", "oslc_query"], QueryAsync),
         RpcAdapter.Of<Wire.RunDocumentQueryRequest>("RunDocumentQuery", ["model_hash", "query_id", "inline_query", "bindings"], RunDocumentQueryAsync),
         RpcAdapter.Of<Wire.RenderDocumentRequest>("RenderDocument", ["model_hash", "document_id", "form"], RenderDocumentAsync),
-        RpcAdapter.Of<Wire.RenderViewRequest>("RenderView", ["model_hash", "view", "ports", "show", "depth", "compartments"], RenderViewAsync),
+        RpcAdapter.Of<Wire.RenderViewRequest>(
+            "RenderView",
+            ["model_hash", "view", "ports", "show", "depth", "compartments", "form", "palette", "style", "lines", "direction", "link", "unplaced"],
+            RenderViewAsync),
     ];
 
     private static async Task<ScenarioAnswer> QueryAsync(Connection connection, Wire.QueryRequest request, CancellationToken cancellationToken)
@@ -116,9 +119,19 @@ internal static class QueryDocsArea
                 "positioned" => throw new UnexpressibleRequestException("the public API sends positioned compartments as the empty selection they default to"),
                 var other => throw new UnexpressibleRequestException($"the public API names compartments as a RenderViewCompartments, which has none spelled \"{other}\""),
             },
+            Form = Optional(request.Form),
+            Palette = Optional(request.Palette),
+            Style = Optional(request.Style),
+            Lines = Optional(request.Lines),
+            Direction = Optional(request.Direction),
+            Link = Optional(request.Link),
+            Unplaced = Optional(request.Unplaced),
         };
         return new ScenarioAnswer.Answered(Rendering.RenderedView(await model.RenderViewAsync(request.View, options, cancellationToken).ConfigureAwait(false)));
     }
+
+    // A writer option the schema leaves empty is one the public API leaves null.
+    private static string? Optional(string option) => option.Length == 0 ? null : option;
 
     // A structured query, its constraint read form by form; one the public types refuse is unexpressible.
     private static Query Query(Wire.Query query) => new()

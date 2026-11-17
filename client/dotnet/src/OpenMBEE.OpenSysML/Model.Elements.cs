@@ -22,14 +22,17 @@ public sealed partial class Model
     /// <remarks>
     /// The element is its qualified name, the positional id of an unnamed member (<c>Demo::Pair::@2</c>), or the
     /// element form's <c>@id</c>, which every <see cref="ElementRef"/> in an answer carries, so the element graph is
-    /// walked with one vocabulary. A standard-library element the model references is read too.
+    /// walked with one vocabulary. A standard-library element the model references is read too. <paramref name="lookup"/> states
+    /// which kind the string is, so a declaration spelled like an id cannot shadow the element the id names; a service without
+    /// <see cref="Capabilities.SymbolLookupKind"/> reads it as either, the element form's <c>@id</c> first.
     /// </remarks>
     /// <param name="element">The element to read.</param>
     /// <param name="properties">The specification names to read, each answered in this order; null or empty reads every property the element form carries for the element, in its order.</param>
+    /// <param name="lookup">What <paramref name="element"/> is: a qualified name, of which an alias answers as its membership, an id the service reported, or either (the legacy form).</param>
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The element and one entry per property, each with its values or why it has none.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="element"/> is null.</exception>
-    /// <exception cref="ArgumentException"><paramref name="element"/> is empty or white space, or a property name is null, empty or white space; nothing was sent.</exception>
+    /// <exception cref="ArgumentException"><paramref name="element"/> is empty or white space, <paramref name="lookup"/> is not a <see cref="Lookup"/>, or a property name is null, empty or white space; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.ElementProperties"/>; nothing was sent.</exception>
     /// <exception cref="SymbolNotFoundException">The model's element form knows no such element, as the service worded it.</exception>
     /// <exception cref="ModelException">The model has no element form: a document of it could not be read whole.</exception>
@@ -37,9 +40,14 @@ public sealed partial class Model
     /// <exception cref="UnsupportedValueException">A value is of a kind this client does not know.</exception>
     /// <exception cref="ServiceException">The service refused the call.</exception>
     /// <exception cref="TransportException">The call failed in transport, or the answer was malformed.</exception>
-    public async Task<ElementProperties> ElementPropertiesAsync(string element, IEnumerable<string>? properties = null, CancellationToken cancellationToken = default)
+    public async Task<ElementProperties> ElementPropertiesAsync(string element, IEnumerable<string>? properties = null, Lookup lookup = Lookup.Either, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(element);
+        if (!Enum.IsDefined(lookup))
+        {
+            throw new ArgumentException($"The lookup is {lookup}, which is not a Lookup.", nameof(lookup));
+        }
+
         var names = properties?.ToList() ?? [];
         if (names.Any(string.IsNullOrWhiteSpace))
         {
@@ -48,7 +56,7 @@ public sealed partial class Model
 
         Connection.ThrowIfDisposed();
         Connection.Capabilities.Require(Capabilities.ElementProperties);
-        var request = new Wire.GetElementPropertiesRequest { ModelHash = Hash, ElementId = element, Properties = { names } };
+        var request = new Wire.GetElementPropertiesRequest { ModelHash = Hash, ElementId = element, Properties = { names }, Lookup = StatedKind(lookup) };
         var response = await Connection.ModelCallAsync<Wire.GetElementPropertiesRequest, Wire.GetElementPropertiesResponse>(GetElementPropertiesMethod, request, cancellationToken).ConfigureAwait(false);
         if (response.Error.Length > 0)
         {

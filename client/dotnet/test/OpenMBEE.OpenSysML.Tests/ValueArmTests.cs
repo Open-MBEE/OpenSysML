@@ -159,6 +159,14 @@ public sealed class ValueArmTests
             Assert.Equal(arm, wire.Quantity.MagnitudeCase);
             Assert.Equal(quantity, ValueWire.FromWire(Wire.Value.Parser.ParseFrom(wire.ToByteArray()), Method, "result"));
         }
+
+        // The quantity value type a quantity is held as goes back as it came, so a sibling type still refuses it.
+        var energy = new Wire.Value { Quantity = new Wire.Quantity { RealMagnitude = 2, Unit = "J", UnitTerm = new Wire.UnitTerm { ScaleNum = 1, ScaleDen = 1 }, ValueType = "ISQThermodynamics::EnergyValue" } };
+        var held = Assert.IsType<Value.QuantityValue>(ValueWire.FromWire(energy, Method, "result"));
+        Assert.Equal("ISQThermodynamics::EnergyValue", held.Quantity.ValueType);
+        Assert.Equal(energy, ValueWire.ToWire(held, "value"));
+        Assert.NotEqual(held.Quantity, new Quantity(held.Quantity.Magnitude, held.Quantity.Unit, held.Quantity.Reduction));
+        Assert.Equal(string.Empty, speed.ValueType);
     }
 
     [Fact]

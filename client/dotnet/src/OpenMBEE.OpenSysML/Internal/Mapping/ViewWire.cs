@@ -85,7 +85,8 @@ internal static class ViewWire
             response.Notes.Select(note => new ViewNote(note.Text, note.Anchor, note.EdgeFrom, note.EdgeTo, note.X, note.Y, note.Width, note.Height, note.HasSize, Span(note.Origin))),
             response.Notices,
             response.Shown,
-            response.Frame is { } frame ? new ViewFrame(frame.Name, frame.Type, frame.Exposes, frame.Filters, frame.Annotations) : null);
+            response.Frame is { } frame ? new ViewFrame(frame.Name, frame.Type, frame.Exposes, frame.Filters, frame.Annotations) : null,
+            response.Text);
     }
 
     private static SourceSpan? Span(Wire.Span? span) =>

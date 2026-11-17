@@ -97,6 +97,13 @@ public sealed class Capabilities : IEquatable<Capabilities>
     /// </summary>
     public const string ConvertDocuments = "convert_documents";
 
+    /// <summary>
+    /// Names ConvertRequest.inherited_members, which asks api-json for the derived lists that repeat each Namespace's and
+    /// Type's inherited and imported members. A service without it always writes them; one with it writes owned structure
+    /// unless asked.
+    /// </summary>
+    public const string ConvertInheritedMembers = "convert_inherited_members";
+
     /// <summary>Names ConvertResponse.library_references.</summary>
     public const string ConvertLibraryReferences = "convert_library_references";
 
@@ -321,6 +328,12 @@ public sealed class Capabilities : IEquatable<Capabilities>
     /// </summary>
     public const string RenderView = "render_view";
 
+    /// <summary>
+    /// Names RenderViewRequest.form and its writer options, which have RenderView also write the view as text
+    /// (Mermaid, DOT, PlantUML, D2, draw.io, Markdown, CSV, …) into RenderViewResponse.text.
+    /// </summary>
+    public const string RenderViewForm = "render_view_form";
+
     /// <summary>Names the ApplyEdits add_requirement_constraint operation.</summary>
     public const string RequirementConstraintAuthoring = "requirement_constraint_authoring";
 
@@ -378,8 +391,20 @@ public sealed class Capabilities : IEquatable<Capabilities>
     /// </summary>
     public const string StructuredValues = "structured_values";
 
+    /// <summary>
+    /// Names the capability of populating SymbolInfo.annotating_metadata_ids, the metadata usages annotating an element,
+    /// its own and those naming it with <c>about</c> elsewhere.
+    /// </summary>
+    public const string SymbolAnnotatingMetadata = "symbol_annotating_metadata";
+
     /// <summary>Names the capability of populating SymbolInfo.attributes, rather than always reporting none.</summary>
     public const string SymbolAttributes = "symbol_attributes";
+
+    /// <summary>
+    /// Names the capability of honouring the <c>lookup</c> of GetSymbolRequest and GetElementPropertiesRequest, which states
+    /// whether the string is a qualified name or an element id. Without it the field is ignored and the string is read as either.
+    /// </summary>
+    public const string SymbolLookupKind = "symbol_lookup_kind";
 
     /// <summary>
     /// Names the capability of populating SymbolInfo.members, every member of a symbol, own and inherited, with its
@@ -387,6 +412,12 @@ public sealed class Capabilities : IEquatable<Capabilities>
     /// ids, SymbolInfo.child_ids, are reported.
     /// </summary>
     public const string SymbolMembers = "symbol_members";
+
+    /// <summary>
+    /// Names the capability of honouring GetSymbolRequest.resolve_name, which resolves the symbol id as a qualified name from
+    /// the root namespace through visible memberships. Without it the field is ignored and the id is read as one the service reported.
+    /// </summary>
+    public const string SymbolNameResolution = "symbol_name_resolution";
 
     /// <summary>
     /// Names the capability of carrying a tensor quantity of any rank as Value.tensor_quantity, rather than

@@ -71,7 +71,7 @@ from the clients and a gap is a stated gap rather than a silent one.
 | `strict_conformance` | bound | bound | bound | bound | bound | bound | bound | bound |
 | `document_query` | bound | bound | bound | bound | bound | bound | bound | bound |
 | `inline_document_query` | bound | bound | bound | bound | bound | bound | bound | bound |
-| `symbol_name_resolution` | bound | bound | bound | bound | bound | bound | bound | not bound |
+| `symbol_name_resolution` | bound | bound | bound | bound | bound | bound | bound | bound |
 | `render_document` | bound | bound | bound | bound | bound | bound | bound | bound |
 | `parse_sources` | bound | bound | bound | bound | bound | bound | bound | bound |
 | `complex_values` | bound | bound | bound | bound | bound | bound | bound | bound |
@@ -124,8 +124,8 @@ from the clients and a gap is a stated gap rather than a silent one.
 | `state_trace` | bound | bound | bound | bound | bound | bound | bound | bound |
 | `action_trace` | bound | bound | bound | bound | bound | bound | bound | bound |
 | `render_view` | bound | bound | bound | bound | bound | bound | bound | bound |
-| `render_view_form` | bound | bound | bound | bound | bound | bound | bound | not bound |
-| `symbol_lookup_kind` | bound | bound | bound | bound | bound | bound | bound | not bound |
+| `render_view_form` | bound | bound | bound | bound | bound | bound | bound | bound |
+| `symbol_lookup_kind` | bound | bound | bound | bound | bound | bound | bound | bound |
 | `export_graphs` | bound | bound | bound | bound | bound | bound | bound | bound |
 | `import_data` | bound | bound | bound | bound | bound | bound | bound | bound |
 | `compare_results` | bound | bound | bound | bound | bound | bound | bound | bound |
@@ -135,14 +135,14 @@ from the clients and a gap is a stated gap rather than a silent one.
 | `convert_compact` | bound | bound | bound | bound | bound | bound | bound | bound |
 | `convert_library_references` | bound | bound | bound | bound | bound | bound | not bound | bound |
 | `convert_library_stubs` | bound | bound | bound | bound | bound | bound | bound | bound |
-| `convert_inherited_members` | bound | bound | bound | bound | bound | bound | bound | not bound |
+| `convert_inherited_members` | bound | bound | bound | bound | bound | bound | bound | bound |
 | `convert_check_diagnostics` | bound | bound | bound | bound | bound | bound | bound | bound |
 | `parse_sources_affected` | bound | bound | bound | bound | bound | bound | bound | bound |
 | `render_document_file_name` | bound | not bound | bound | bound | bound | bound | not bound | bound |
 | `order_dependence` | bound | not bound | bound | not bound | not bound | not bound | not bound | bound |
 | `verdict_notes` | bound | bound | bound | bound | bound | bound | bound | bound |
 | `element_properties` | bound | bound | bound | bound | bound | bound | bound | bound |
-| `symbol_annotating_metadata` | bound | bound | bound | bound | bound | not bound | not bound | not bound |
+| `symbol_annotating_metadata` | bound | bound | bound | bound | bound | not bound | not bound | bound |
 
 
 ## Request options
@@ -150,7 +150,7 @@ from the clients and a gap is a stated gap rather than a silent one.
 | Option | Go | Python | Node | Java | Rust | Julia | MATLAB | .NET |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `Convert.id_form` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/parity_options_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_conversion.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/dotnet/test/OpenMBEE.OpenSysML.Tests/ModelConversionTests.cs) |
-| `Convert.inherited_members` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/parity_options_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_conversion.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/EditorTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/src/conversion.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) | — |
+| `Convert.inherited_members` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/parity_options_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_conversion.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/EditorTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/src/conversion.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/dotnet/test/OpenMBEE.OpenSysML.Tests/ModelConversionTests.cs) |
 | `Convert.include_library_stubs` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/parity_options_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_conversion.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/dotnet/test/OpenMBEE.OpenSysML.Tests/ModelConversionTests.cs) |
 | `ConvertResponse.library_references` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/parity_options_test.go) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/tests/test_conversion.py) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/convert.test.ts) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/java/opensysml-client/src/test/java/org/openmbee/opensysml/ApiIntegrationTest.java) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_surface_live.m) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/dotnet/test/OpenMBEE.OpenSysML.Tests/ModelConversionTests.cs) |
 | `Convert.documents` | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/parity_options_test.go) | typed | typed | typed | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/rust/opensysml/tests/surface.rs) | typed | typed | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/dotnet/test/OpenMBEE.OpenSysML.Tests/ModelConversionTests.cs) |

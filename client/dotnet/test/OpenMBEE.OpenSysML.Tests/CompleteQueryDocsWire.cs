@@ -140,6 +140,17 @@ internal static class CompleteQueryDocsWire
     };
 
     /// <summary>Every sample, for a test proving they set every reachable field.</summary>
+    // The rendering written in a form beside its data, as RenderViewOptions.Form asks for.
+    internal static Wire.RenderViewResponse FormView
+    {
+        get
+        {
+            var view = View;
+            view.Text = "flowchart LR\n";
+            return view;
+        }
+    }
+
     internal static Google.Protobuf.IMessage[] All =>
-        [Query, DocumentQuery, Markdown, Html, AsciiDoc, View, .. CompleteExecutionWire.DocumentValues.Select(value => (Google.Protobuf.IMessage)value)];
+        [Query, DocumentQuery, Markdown, Html, AsciiDoc, View, FormView, .. CompleteExecutionWire.DocumentValues.Select(value => (Google.Protobuf.IMessage)value)];
 }

@@ -682,6 +682,46 @@ public sealed class ModelQueryDocsTests
 
     [Theory]
     [MemberData(nameof(Wires))]
+    public async Task RenderViewWritesAFormWithItsWriterOptionsOnlyOfAServiceThatWritesOne(ClientWire wire)
+    {
+        using var handler = Serving(wire).On("RenderView", Wire.RenderViewRequest.Parser, request => request.Form.Length > 0 ? CompleteQueryDocsWire.FormView : CompleteQueryDocsWire.View);
+        await using var connection = await FakeConnection.OpenAsync(handler);
+        var model = connection.ModelByHash(Hash);
+        var token = TestContext.Current.CancellationToken;
+        using var older = new FakeServiceHandler(wire) { Capabilities = [.. FakeModels.ModelCapabilities.Except([Capabilities.RenderViewForm])] };
+        await using var olderConnection = await FakeConnection.OpenAsync(older);
+        var options = new RenderViewOptions { Form = "mermaid", Palette = "pastel", Style = "cameo", Lines = "ortho", Direction = "LR", Link = "vscode://file/{file}:{line}", Unplaced = "strip" };
+
+        var view = await model.RenderViewAsync("PlantViews::placedView", options, token);
+        var plain = await model.RenderViewAsync("PlantViews::placedView", cancellationToken: token);
+        var refused = await Assert.ThrowsAsync<CapabilityException>(() => olderConnection.ModelByHash(Hash).RenderViewAsync("V", new RenderViewOptions { Form = "dot" }, token));
+        var refusedOption = await Assert.ThrowsAsync<CapabilityException>(() => olderConnection.ModelByHash(Hash).RenderViewAsync("V", new RenderViewOptions { Palette = "pastel" }, token));
+
+        Assert.Equal(
+            [
+                new Wire.RenderViewRequest
+                {
+                    ModelHash = Hash,
+                    View = "PlantViews::placedView",
+                    Form = "mermaid",
+                    Palette = "pastel",
+                    Style = "cameo",
+                    Lines = "ortho",
+                    Direction = "LR",
+                    Link = "vscode://file/{file}:{line}",
+                    Unplaced = "strip",
+                },
+                new Wire.RenderViewRequest { ModelHash = Hash, View = "PlantViews::placedView" },
+            ],
+            handler.RequestsFor("RenderView").Select(sent => sent.Message(Wire.RenderViewRequest.Parser)));
+        Assert.Equal("flowchart LR\n", view.Text);
+        Assert.Equal(string.Empty, plain.Text);
+        Assert.All([refused, refusedOption], error => Assert.Equal(Capabilities.RenderViewForm, error.Capability));
+        Assert.Empty(older.RequestsFor("RenderView"));
+    }
+
+    [Theory]
+    [MemberData(nameof(Wires))]
     public async Task AGeometryStyleCanvasOrOriginTheRenderingOmitsStaysAbsentRatherThanZero(ClientWire wire)
     {
         using var handler = Serving(wire).On("RenderView", Wire.RenderViewRequest.Parser, _ => CompleteQueryDocsWire.SparseView);

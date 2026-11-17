@@ -94,6 +94,7 @@ internal static class CompleteWire
         {
             Declared = "MassValue",
             ResolvedId = "ISQ::MassValue",
+            ResolvedQualifiedName = "ISQ::MassValue",
             ResolvedKind = "attributeDef",
             Primitive = "Real",
             PrimitiveSource = "ScalarValues::Real",
@@ -102,7 +103,7 @@ internal static class CompleteWire
             Types_ = { new Wire.TypeRef { Id = "ISQ::MassValue", Kind = "attributeDef" }, new Wire.TypeRef { Id = "Demo::Heavy" } },
         },
         Multiplicity = new Wire.MultiplicityInfo { Lower = "0", Upper = "*" },
-        Specializations = { new Wire.Specialization { Kind = "subclassification", Declared = "Base", TargetId = "Demo::Base", TargetKind = "partDef" } },
+        Specializations = { new Wire.Specialization { Kind = "subclassification", Declared = "Base", TargetId = "Demo::Base", TargetKind = "partDef", TargetQualifiedName = "Demo::Base" } },
         WithheldLibraryAttributes = 3,
         Members =
         {
@@ -111,6 +112,7 @@ internal static class CompleteWire
             new Wire.MemberInfo { Id = "Parts::Part::ownedPorts", Name = "ownedPorts", Kind = "portUsage", Inherited = true, InheritedFrom = "Parts::Part", Library = true },
         },
         WithheldLibraryMembers = 12,
+        AnnotatingMetadataIds = { "Demo::Vehicle::@0", "Demo::vehicle_fm" },
     };
 
     /// <summary>An object whose feature holds every fact a feature value has.</summary>
@@ -254,6 +256,7 @@ internal static class CompleteWire
     {
         magnitude.Unit = "m";
         magnitude.UnitTerm = Term();
+        magnitude.ValueType = "ISQSpaceTime::LengthValue";
         return magnitude;
     }
 

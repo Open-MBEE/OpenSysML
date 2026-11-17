@@ -43,6 +43,7 @@ public sealed class ModelConversionTests
             KeepDerived = ["owner", "qualifiedName"],
             IncludeCheckDiagnostics = true,
             IncludeLibraryStubs = true,
+            InheritedMembers = true,
         };
 
         var conversion = await connection.ConvertAsync(ConvertSource.Inline("package P;"), "turtle", options, token);
@@ -65,6 +66,7 @@ public sealed class ModelConversionTests
                     KeepDerived = { "owner", "qualifiedName" },
                     IncludeCheckDiagnostics = true,
                     IncludeLibraryStubs = true,
+                    InheritedMembers = true,
                 },
                 new Wire.ConvertRequest { FilePath = "/models/a.ttl", ToFormat = "sysml", IdForm = "qualified" },
                 new Wire.ConvertRequest { ModelHash = Hash, ToFormat = "api-json" },
@@ -217,13 +219,15 @@ public sealed class ModelConversionTests
     public async Task ConvertGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent()
     {
         var token = TestContext.Current.CancellationToken;
-        var all = new ConvertOptions { Documents = ["a.sysml"], IncludeLibraryStubs = true, KeepDerived = ["owner"], IncludeCheckDiagnostics = true };
+        var all = new ConvertOptions { Documents = ["a.sysml"], IncludeLibraryStubs = true, InheritedMembers = true, KeepDerived = ["owner"], IncludeCheckDiagnostics = true };
         Task Convert(Model model, ConvertOptions options) => model.ConvertAsync("ttl", options, token);
 
         Assert.Equal(Capabilities.Convert, await RefusedAsync(ClientWire.Grpc, [Capabilities.Convert, Capabilities.ConvertDocuments], model => Convert(model, all)));
         Assert.Equal(Capabilities.ConvertDocuments, await RefusedAsync(ClientWire.Grpc, [Capabilities.ConvertDocuments, Capabilities.ConvertLibraryStubs], model => Convert(model, all)));
         Assert.Equal(Capabilities.ConvertLibraryStubs, await RefusedAsync(ClientWire.Grpc, [Capabilities.ConvertLibraryStubs, Capabilities.ConvertCompact], model => Convert(model, all)));
         Assert.Equal(Capabilities.ConvertLibraryStubs, await RefusedAsync(ClientWire.Grpc, [Capabilities.ConvertLibraryStubs], model => Convert(model, new ConvertOptions { IncludeLibraryStubs = true })));
+        Assert.Equal(Capabilities.ConvertInheritedMembers, await RefusedAsync(ClientWire.Grpc, [Capabilities.ConvertInheritedMembers, Capabilities.ConvertCompact], model => Convert(model, all)));
+        Assert.Equal(Capabilities.ConvertInheritedMembers, await RefusedAsync(ClientWire.Grpc, [Capabilities.ConvertInheritedMembers], model => Convert(model, new ConvertOptions { InheritedMembers = true })));
         Assert.Equal(Capabilities.ConvertCompact, await RefusedAsync(ClientWire.Grpc, [Capabilities.ConvertCompact, Capabilities.ConvertCheckDiagnostics], model => Convert(model, all)));
         Assert.Equal(Capabilities.ConvertCheckDiagnostics, await RefusedAsync(ClientWire.Grpc, [Capabilities.ConvertCheckDiagnostics], model => Convert(model, all)));
         Assert.Equal(Capabilities.ConvertCompact, await RefusedAsync(ClientWire.Grpc, [Capabilities.ConvertCompact], model => Convert(model, new ConvertOptions { Compact = true })));

@@ -16,11 +16,11 @@ namespace OpenMBEE.OpenSysML;
 public sealed record Symbol
 {
     /// <summary>Creates a symbol, copying every collection.</summary>
-    /// <param name="id">The fully qualified name, the identity the service reports.</param>
+    /// <param name="id">The element id, this element's alone: usually its qualified name.</param>
     /// <param name="name">The declared name; empty for an anonymous element.</param>
     /// <param name="kind">The declaration keyword kind (<c>partDef</c>, <c>attributeUsage</c>, <c>RootNamespace</c>, …).</param>
     /// <param name="metadata">Further facts by name, as the service reports them.</param>
-    /// <param name="childIds">The qualified names of the element's children.</param>
+    /// <param name="childIds">The element ids of the element's owned members.</param>
     /// <param name="attributes">The element's own attributes with their resolved values.</param>
     /// <param name="typeFacts">The static type facts; null when the element is not a definition or usage.</param>
     /// <param name="multiplicity">The declared multiplicity; null when none is declared.</param>
@@ -28,6 +28,7 @@ public sealed record Symbol
     /// <param name="withheldLibraryAttributes">How many inherited standard-library attributes <paramref name="attributes"/> leaves out.</param>
     /// <param name="members">Every member, own then inherited; null or empty from a service that enumerates none.</param>
     /// <param name="withheldLibraryMembers">How many members inherited from standard-library content <paramref name="members"/> leaves out.</param>
+    /// <param name="annotatingMetadataIds">The ids of the metadata usages annotating the element; null or empty from a service that reports none.</param>
     /// <exception cref="ArgumentNullException">A string or collection is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null, or a metadata name repeats.</exception>
     internal Symbol(
@@ -42,7 +43,8 @@ public sealed record Symbol
         IEnumerable<Specialization> specializations,
         int withheldLibraryAttributes,
         IEnumerable<SymbolMember>? members = null,
-        int withheldLibraryMembers = 0)
+        int withheldLibraryMembers = 0,
+        IEnumerable<string>? annotatingMetadataIds = null)
     {
         ArgumentNullException.ThrowIfNull(id);
         ArgumentNullException.ThrowIfNull(name);
@@ -59,9 +61,13 @@ public sealed record Symbol
         WithheldLibraryAttributes = withheldLibraryAttributes;
         Members = new ValueList<SymbolMember>(members ?? []);
         WithheldLibraryMembers = withheldLibraryMembers;
+        AnnotatingMetadataIds = new ValueList<string>(annotatingMetadataIds ?? []);
     }
 
-    /// <summary>The fully qualified name, the identity the service reports.</summary>
+    /// <summary>
+    /// The element id, this element's alone, as <see cref="Lookup.ElementId"/> reads it: its qualified name (<c>Owner::'@3'</c>), a
+    /// positional id (<c>Owner::@3</c>), or its element-form <c>@id</c> where another's generated id is spelled like the name.
+    /// </summary>
     public string Id { get; }
 
     /// <summary>The declared name; empty for an anonymous element.</summary>
@@ -83,8 +89,8 @@ public sealed record Symbol
     public ValueDictionary<string> Metadata { get; }
 
     /// <summary>
-    /// The qualified names of the element's owned members, in declaration order; an unnamed member is listed under
-    /// its positional id (<c>Demo::Pair::@2</c>). <see cref="Members"/> also lists the inherited ones.
+    /// The element ids of the element's owned members, in declaration order, each read with <see cref="Lookup.ElementId"/>: a qualified
+    /// name, a positional id (<c>Demo::Pair::@2</c>), or an unnamed connector end's element id. <see cref="Members"/> also lists the inherited ones.
     /// </summary>
     public ValueList<string> ChildIds { get; }
 
@@ -129,6 +135,13 @@ public sealed record Symbol
     /// absence is stated rather than silent; 0 when <see cref="SymbolOptions.IncludeLibraryMembers"/> listed them.
     /// </summary>
     public int WithheldLibraryMembers { get; }
+
+    /// <summary>
+    /// The ids of the metadata usages annotating the element, filled under the <see cref="Capabilities.SymbolAnnotatingMetadata"/>
+    /// capability: its own prefix and body ones, then the <c>about</c> ones written elsewhere, which <see cref="ChildIds"/> leaves out.
+    /// Each is an element id, read with <see cref="Lookup.ElementId"/>.
+    /// </summary>
+    public ValueList<string> AnnotatingMetadataIds { get; }
 
     /// <summary>The members the element declares itself: <see cref="Members"/> without the inherited ones, in declaration order.</summary>
     public ValueList<SymbolMember> OwnMembers => new(Members.Where(member => !member.IsInherited));

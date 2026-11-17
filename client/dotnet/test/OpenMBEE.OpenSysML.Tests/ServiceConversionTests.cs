@@ -102,6 +102,7 @@ public sealed class ServiceConversionTests(ServiceFixture services) : IClassFixt
         var bare = await model.ToApiJsonAsync(cancellationToken: Token);
         var stubbed = await model.ToApiJsonAsync(new ConvertOptions { IncludeLibraryStubs = true }, Token);
         var compact = await model.ToApiJsonAsync(new ConvertOptions { Compact = true }, Token);
+        var inherited = await model.ToApiJsonAsync(new ConvertOptions { InheritedMembers = true }, Token);
         var turtle = await model.ToTurtleAsync(cancellationToken: Token);
         var refused = await Assert.ThrowsAsync<ServiceException>(() => model.ToTurtleAsync(new ConvertOptions { IncludeLibraryStubs = true }, Token));
 
@@ -109,7 +110,9 @@ public sealed class ServiceConversionTests(ServiceFixture services) : IClassFixt
             [("SI::second", "AttributeUsage"), ("SI", "LibraryPackage")],
             bare.LibraryReferences.Where(reference => reference.QualifiedName.StartsWith("SI", StringComparison.Ordinal)).Select(reference => (reference.QualifiedName, reference.Type)));
         Assert.DoesNotContain(bare.LibraryReferences, reference => reference.QualifiedName.Length > 0 && reference.LibraryPath.Length > 0);
-        Assert.Contains(bare.LibraryReferences, reference => (reference.QualifiedName, reference.Type, reference.LibraryPath) == (string.Empty, "Documentation", "Base::Anything/Documentation[0]"));
+        // An inherited unnamed library member is reached only through the inherited lists, so by its positional path.
+        Assert.DoesNotContain(bare.LibraryReferences, reference => reference.LibraryPath == "Base::Anything/Documentation[0]");
+        Assert.Contains(inherited.LibraryReferences, reference => (reference.QualifiedName, reference.Type, reference.LibraryPath) == (string.Empty, "Documentation", "Base::Anything/Documentation[0]"));
         var bareIds = Ids(bare.Content);
         var stubbedIds = Ids(stubbed.Content);
         Assert.All(bare.LibraryReferences, reference => Assert.DoesNotContain(reference.Id, bareIds));
