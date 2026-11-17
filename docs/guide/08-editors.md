@@ -264,8 +264,8 @@ import resolves as it does in the editor. A file outside every folder runs alone
 binary is looked for beside the `sysml-lsp` in use,
 then in an open workspace's `bin/`, then on `PATH`. Inside a call's argument list the
 parameter list of what it calls appears as you type, and inlay hints show the type a feature
-declared without one is inferred to have and the constant a value evaluates to from the model
-alone (<kbd>Ctrl</kbd>+<kbd>Alt</kbd> toggles them when `editor.inlayHints.enabled` is
+declared without one inherits from what it redefines or subsets (else the type of its value)
+and the constant a value evaluates to from the model alone (<kbd>Ctrl</kbd>+<kbd>Alt</kbd> toggles them when `editor.inlayHints.enabled` is
 `offUnlessPressed`).
 
 #### Importing a layout from draw.io
@@ -501,9 +501,11 @@ same way, so its imports of sibling files resolve rather than being reported unr
   `opensysml.runElement` with the document URI, the element's qualified name and its kind;
   the VS Code extension implements it, and another client registers a command of that name
 - ✅ Inlay hints (`textDocument/inlayHint`): after the name of a feature declared without a
-  type, the type it is inferred to have — that of its value, else what the features it
-  redefines or subsets give it — when it is more specific than `DataValue`, the result the
-  `DataFunctions` operators declare for arithmetic; after a feature's non-literal value, the constant it
+  type, the types the features it redefines, subsets or references give it (KerML 8.3.3.3.4
+  `deriveFeatureType`, the most specific of them, comma-separated when there are several), else
+  the type of its value when that is more specific than `DataValue`, the result the
+  `DataFunctions` operators declare for arithmetic; the tooltip says which of the two it is. Hover
+  on such a declaration and its completion detail state the same inherited types; after a feature's non-literal value, the constant it
   evaluates to from the model alone (`attribute twice = base * 2;` shows `= 20.0` when `base`
   is a package-level `10.0`). A value that reads an instance's feature gets no hint, since
   the model alone does not fix it. Only the declarations in the requested range are read, so
