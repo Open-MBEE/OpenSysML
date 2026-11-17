@@ -193,3 +193,56 @@ func errText(err error) string {
 	}
 	return " / " + err.Error()
 }
+
+// A constructed object a feature holds only indirectly stays with the feature's value: the receiver
+// of a function the feature holds, and the object that selected the variant the feature references.
+func TestCheckKeepsConstructedObjectsHeldIndirectly(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `
+		package test {
+			private import ScalarValues::*;
+			part def P { attribute x : Integer = 1; calc scale { in n : Integer[1]; return : Integer = x * n; } }
+			part def Engine { attribute power : Real default = 10.0; }
+			abstract part def Powered {
+				variation part engine : Engine {
+					variant part petrol : Engine;
+					variant part electric : Engine;
+				}
+			}
+			part def Tank :> Powered { part :>> engine = engine::electric; }
+			part def W {
+				ref e : Engine = (new Tank()).engine;
+				attribute f = (new P()).scale;
+				assert constraint viaVariant { e.power > 0.0 }
+				assert constraint viaFunction { f != null }
+			}
+			part w : W;
+		}
+	`)
+	w := mustInstantiate(t, ctx, oneSymbol(t, idx, "test::w"))
+	typ := oneSymbol(t, idx, "test::W")
+	for _, name := range []string{"viaVariant", "viaFunction"} {
+		sym := memberNamed(t, typ, name)
+		heldAfter(t, ctx, name, func() string { return verdictText(ctx.CheckConstraintOn(sym, typ.Scope, w)) })
+	}
+	// w, the tank and the engine it selected, and the function's receiver.
+	if got := ctx.InstanceCount(); got != 4 {
+		t.Fatalf("the checks left %d objects, want the 4 w holds", got)
+	}
+	engine := mustEvalOn(t, ctx, w, "e")
+	if _, live := ctx.Instance(engine.Instance); engine.Kind != ValVariant || !live {
+		t.Errorf("w.e = %s, want the variant the check derived, standing", FormatValue(engine))
+	}
+	if got := FormatValue(mustEvalOn(t, ctx, w, "e.power")); got != "10.0" {
+		t.Errorf("w.e.power = %s, want 10.0", got)
+	}
+	fn := mustEvalOn(t, ctx, w, "f")
+	if fn.Kind != ValFunction || fn.FunctionSelf() == nil {
+		t.Fatalf("w.f = %s, want a function of the constructed object", FormatValue(fn))
+	}
+	if held, live := ctx.Instance(fn.FunctionSelf().ID); !live || held != fn.FunctionSelf() {
+		t.Errorf("w.f's receiver #%d no longer stands", fn.FunctionSelf().ID)
+	}
+	if got := ctx.InstanceCount(); got != 4 {
+		t.Errorf("reading what w holds made %d more objects", got-4)
+	}
+}

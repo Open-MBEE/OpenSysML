@@ -156,8 +156,8 @@ func (ctx *Context) namedOutside(set map[int64]bool) []int64 {
 	return named
 }
 
-// eachObjectNamed visits the objects val, or each element of the collection it is, names: itself,
-// the one a variant stands for, the one a structured value keeps, those an array holds.
+// eachObjectNamed visits the objects val, or each element of the collection it is, names: itself, a
+// variant's, the one a structured value keeps, an array's, a function's self and those it closed over.
 func eachObjectNamed(val Value, visit func(int64)) {
 	if val.Kind == ValSequence || val.Kind == ValSet {
 		for _, elem := range listedElements(val) {
@@ -174,6 +174,14 @@ func eachObjectNamed(val Value, visit func(int64)) {
 	case ValArray:
 		for _, elem := range val.Array().Elements {
 			eachObjectNamed(elem, visit)
+		}
+	case ValFunction:
+		fn := val.function()
+		if fn.self != nil {
+			visit(fn.self.ID)
+		}
+		for _, enclosing := range fn.enclosing {
+			enclosing.each(func(_ string, bound Value) { eachObjectNamed(bound, visit) })
 		}
 	}
 }
