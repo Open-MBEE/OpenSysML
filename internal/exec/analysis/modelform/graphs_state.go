@@ -2,10 +2,11 @@ package modelform
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // StateForm is one lowered StateGraph. Vertices — the machine, its states and
@@ -120,145 +121,103 @@ type BehaviorForm struct {
 
 // stateForm writes a lowered state graph.
 func (x *graphsExporter) stateForm(sym *symbols.Symbol, graph *lower.StateGraph) (*StateForm, error) {
-	ids := newVertexIDs()
-	regions := newVertexIDs()
-	ids.add(graph.Machine)
-	ids.add(graph.Initial)
-	for _, s := range graph.States {
-		ids.add(s)
+	outer := x.exprs
+	x.exprs = graph.Exprs
+	defer func() { x.exprs = outer }()
+
+	ids := newVertexIDs[program.VertexRef]()
+	regions := newVertexIDs[program.RegionID]()
+	state := func(id program.StateID) program.VertexRef {
+		ref := program.StateVertex(id)
+		if _, ok := graph.VertexSite(ref); !ok {
+			return program.VertexRef{}
+		}
+		return ref
 	}
-	for _, p := range graph.Pseudostates {
-		ids.add(p)
+	ids.add(state(graph.MachineID()))
+	ids.add(state(graph.InitialID()))
+	for _, id := range graph.StateIDs() {
+		ids.add(state(id))
 	}
-	for _, r := range graph.TopRegions {
+	for _, id := range graph.PseudoIDs() {
+		ids.add(program.PseudoVertex(id))
+	}
+	for _, r := range graph.TopRegionIDs() {
 		regions.add(r)
 	}
-	for _, s := range graph.CompositeStateOrder {
-		ids.add(s)
-		for _, r := range graph.CompositeStates[s] {
+	for _, id := range graph.CompositeIDs() {
+		ids.add(state(id))
+		for _, r := range graph.RegionsOf(id) {
 			regions.add(r)
 		}
 	}
-	var restNodes, restRegions []ast.Node
-	for node := range graph.Transitions {
-		restNodes = append(restNodes, node)
+	// The states, pseudostates and regions only a table of the graph names are
+	// numbered after the declared ones, in an order their sites decide.
+	var restVertices []program.VertexRef
+	for i := 1; i < len(graph.Origins); i++ {
+		restVertices = append(restVertices, state(program.StateID(i)))
 	}
-	for node := range graph.EntryTransitions {
-		if !nilNode(node) {
-			if _, ok := node.(*ast.StateRegion); ok {
-				restRegions = append(restRegions, node)
-			} else {
-				restNodes = append(restNodes, node)
-			}
-		}
+	for i := 1; i < len(graph.PseudoOrigins); i++ {
+		restVertices = append(restVertices, program.PseudoVertex(program.PseudoID(i)))
 	}
-	for s := range graph.StateScopes {
-		restNodes = append(restNodes, s)
+	var restRegions []program.RegionID
+	for i := 1; i < len(graph.RegionOrigins); i++ {
+		restRegions = append(restRegions, program.RegionID(i))
 	}
-	for s := range graph.Behaviors {
-		restNodes = append(restNodes, s)
+	stateName := func(id program.StateID) string {
+		site, _ := graph.VertexSite(program.StateVertex(id))
+		return site.Name
 	}
-	for s := range graph.HiddenStates {
-		restNodes = append(restNodes, s)
-	}
-	for s := range graph.ParentState {
-		restNodes = append(restNodes, s)
-	}
-	for s := range graph.StateAttributes {
-		restNodes = append(restNodes, s)
-	}
-	for p := range graph.PseudostateOwner {
-		restNodes = append(restNodes, p)
-	}
-	for r := range graph.RegionState {
-		restRegions = append(restRegions, r)
-	}
-	for r := range graph.RegionInitials {
-		restRegions = append(restRegions, r)
-	}
-	for r := range graph.RegionOwner {
-		restRegions = append(restRegions, r)
-	}
-	for s, r := range graph.RegionOf {
-		restNodes = append(restNodes, s)
-		restRegions = append(restRegions, r)
-	}
-	for s, r := range graph.HiddenRegionOf {
-		restNodes = append(restNodes, s)
-		restRegions = append(restRegions, r)
-	}
-	owner := func(node ast.Node) string {
-		switch n := node.(type) {
-		case *ast.StateNode:
-			return vertexName(graph.ParentState[n])
-		case *ast.PseudostateNode:
-			return vertexName(graph.PseudostateOwner[n])
-		case *ast.StateRegion:
-			return vertexName(graph.RegionOwner[n])
+	vertexOwner := func(ref program.VertexRef) string {
+		switch ref.Kind {
+		case program.VertexState:
+			return stateName(graph.ParentOf(ref.State()))
+		case program.VertexPseudostate:
+			return stateName(graph.PseudostateOwnerOf(ref.Pseudo()))
 		}
 		return ""
 	}
-	if err := ids.addSorted(restNodes, owner); err != nil {
+	regionOwner := func(id program.RegionID) string { return stateName(graph.RegionOwnerOf(id)) }
+	if err := ids.addSorted(restVertices, graph.VertexSite, vertexOwner); err != nil {
 		return nil, fmt.Errorf("%s: %w", symbols.FQNOf(sym), err)
 	}
-	if err := regions.addSorted(restRegions, owner); err != nil {
+	if err := regions.addSorted(restRegions, graph.RegionSite, regionOwner); err != nil {
 		return nil, fmt.Errorf("%s: %w", symbols.FQNOf(sym), err)
 	}
-	// Vertices reached only as a target or an owner are numbered after the
-	// declared ones, in the order the declared ones reach them.
+	// Vertices reached only as a transition's end or a behavior's owner are
+	// numbered after those, in the order those reach them.
+	owners := func(list []lower.StateBehavior) {
+		for _, behavior := range list {
+			ids.add(state(behavior.OwnerID))
+		}
+	}
+	entries := func(list []*lower.EntryTransition) {
+		for _, et := range list {
+			ids.add(state(et.TargetID))
+			ids.add(program.PseudoVertex(et.ViaID))
+			owners(et.Effect)
+		}
+	}
 	for i := 0; i < len(ids.order); i++ {
-		node := ids.order[i]
-		for _, t := range graph.Transitions[node] {
-			ids.add(t.Source)
-			ids.add(t.Target)
-			for _, b := range t.Effect {
-				ids.add(b.Owner)
-			}
+		ref := ids.order[i]
+		for _, t := range graph.TransitionsOf(ref) {
+			ids.add(t.SourceRef)
+			ids.add(t.TargetRef)
+			owners(t.Effect)
 		}
-		if s, ok := node.(*ast.StateNode); ok {
-			if b := graph.Behaviors[s]; b != nil {
-				for _, list := range [][]lower.StateBehavior{b.Entry, b.Do, b.Exit} {
-					for _, behavior := range list {
-						ids.add(behavior.Owner)
-					}
-				}
-			}
+		if ref.Kind != program.VertexState {
+			continue
 		}
-		for _, et := range graph.EntryTransitions[node] {
-			if et.Target != nil {
-				ids.add(et.Target)
-			}
-			if et.Via != nil {
-				ids.add(et.Via)
-			}
-			for _, behavior := range et.Effect {
-				ids.add(behavior.Owner)
-			}
+		if b := graph.BehaviorsOf(ref.State()); b != nil {
+			owners(b.Entry)
+			owners(b.Do)
+			owners(b.Exit)
 		}
+		entries(graph.EntryTransitionsOf(ref.State()))
 	}
-	for _, et := range graph.EntryTransitions[nil] {
-		if et.Target != nil {
-			ids.add(et.Target)
-		}
-		if et.Via != nil {
-			ids.add(et.Via)
-		}
-		for _, behavior := range et.Effect {
-			ids.add(behavior.Owner)
-		}
-	}
+	entries(graph.EntryTransitionsOf(0))
 	for _, r := range regions.order {
-		for _, et := range graph.EntryTransitions[r] {
-			if et.Target != nil {
-				ids.add(et.Target)
-			}
-			if et.Via != nil {
-				ids.add(et.Via)
-			}
-			for _, behavior := range et.Effect {
-				ids.add(behavior.Owner)
-			}
-		}
+		entries(graph.RegionEntryTransitions(r))
 	}
 	vertices := len(ids.order)
 
@@ -266,74 +225,70 @@ func (x *graphsExporter) stateForm(sym *symbols.Symbol, graph *lower.StateGraph)
 		Name:    symbols.FQNOf(sym),
 		Kind:    sym.Kind.String(),
 		Scope:   scopeName(graph.Scope),
-		Machine: ids.ref(graph.Machine),
-		Initial: ids.ref(graph.Initial),
+		Machine: ids.ref(state(graph.MachineID())),
+		Initial: ids.ref(state(graph.InitialID())),
 	}
 	for _, attr := range graph.Attributes {
 		form.Attributes = append(form.Attributes, x.attribute(graph.Scope, attr))
 	}
-	for id, node := range ids.order {
-		v := StateVertexForm{ID: id, Kind: vertexKind(node), Name: vertexName(node), Span: x.span(graph.Scope, node)}
+	for id, ref := range ids.order {
+		site, _ := graph.VertexSite(ref)
+		v := StateVertexForm{ID: id, Kind: site.Kind, Name: site.Name, Span: x.span(graph.Scope, lower.Extent{Span: site.Span, Written: true})}
 		scope := graph.Scope
-		switch n := node.(type) {
-		case *ast.StateNode:
-			if s := graph.StateScopes[n]; s != nil {
-				scope = s
+		switch ref.Kind {
+		case program.VertexState:
+			n := ref.State()
+			own := graph.StateScope(n)
+			if own != nil {
+				scope = own
 			}
-			v.Scope = scopeName(graph.StateScopes[n])
-			v.Hidden = graph.HiddenStates[n]
-			v.HiddenRegion = regions.ref(graph.HiddenRegionOf[n])
-			v.Parent = ids.ref(graph.ParentState[n])
-			v.Region = regions.ref(graph.RegionOf[n])
-			for _, r := range graph.CompositeStates[n] {
+			v.Scope = scopeName(own)
+			v.Hidden = graph.Hidden(n)
+			v.HiddenRegion = regions.ref(graph.HiddenRegion(n))
+			v.Parent = ids.ref(state(graph.ParentOf(n)))
+			v.Region = regions.ref(graph.StateRegion(n))
+			for _, r := range graph.RegionsOf(n) {
 				v.Regions = append(v.Regions, regions.add(r))
 			}
-			for _, attr := range graph.StateAttributes[n] {
+			for _, attr := range graph.AttributesOf(n) {
 				v.Attributes = append(v.Attributes, x.attribute(scope, attr))
 			}
-			if b := graph.Behaviors[n]; b != nil {
+			if b := graph.BehaviorsOf(n); b != nil {
 				var err error
-				if v.Entry, err = x.behaviors(ids, scope, b.Entry); err != nil {
+				if v.Entry, err = x.behaviors(graph, ids, scope, b.Entry); err != nil {
 					return nil, err
 				}
-				if v.Do, err = x.behaviors(ids, scope, b.Do); err != nil {
+				if v.Do, err = x.behaviors(graph, ids, scope, b.Do); err != nil {
 					return nil, err
 				}
-				if v.Exit, err = x.behaviors(ids, scope, b.Exit); err != nil {
+				if v.Exit, err = x.behaviors(graph, ids, scope, b.Exit); err != nil {
 					return nil, err
 				}
 			}
-		case *ast.PseudostateNode:
-			v.Owner = ids.ref(graph.PseudostateOwner[n])
+		case program.VertexPseudostate:
+			v.Owner = ids.ref(state(graph.PseudostateOwnerOf(ref.Pseudo())))
 		}
 		form.Vertices = append(form.Vertices, v)
-		for _, t := range graph.Transitions[node] {
-			tf, err := x.transition(ids, scope, t)
+		for _, t := range graph.TransitionsOf(ref) {
+			tf, err := x.transition(graph, ids, scope, t)
 			if err != nil {
 				return nil, err
 			}
 			form.Transitions = append(form.Transitions, tf)
 		}
 	}
-	for id, node := range regions.order {
-		r, ok := node.(*ast.StateRegion)
-		if !ok {
-			return nil, fmt.Errorf("%w: %s: %s is not a region", ErrGraphsOrder, symbols.FQNOf(sym), vertexKind(node))
-		}
-		rf := RegionForm{
+	top := graph.TopRegionIDs()
+	for id, r := range regions.order {
+		site, _ := graph.RegionSite(r)
+		form.Regions = append(form.Regions, RegionForm{
 			ID:      id,
-			Name:    r.Name,
-			Span:    x.span(graph.Scope, r),
-			Owner:   ids.ref(graph.RegionOwner[r]),
-			State:   ids.ref(graph.RegionState[r]),
-			Initial: ids.ref(graph.RegionInitials[r]),
-		}
-		for _, top := range graph.TopRegions {
-			if top == r {
-				rf.Top = true
-			}
-		}
-		form.Regions = append(form.Regions, rf)
+			Name:    site.Name,
+			Span:    x.span(graph.Scope, lower.Extent{Span: site.Span, Written: true}),
+			Owner:   ids.ref(state(graph.RegionOwnerOf(r))),
+			State:   ids.ref(state(graph.RegionStateOf(r))),
+			Initial: ids.ref(state(graph.RegionInitialOf(r))),
+			Top:     slices.Contains(top, r),
+		})
 	}
 	if err := x.entryTransitions(form, graph, ids, regions); err != nil {
 		return nil, err
@@ -347,59 +302,49 @@ func (x *graphsExporter) stateForm(sym *symbols.Symbol, graph *lower.StateGraph)
 
 // entryTransitions writes the entry transitions body by body: the machine's own
 // first, then those of each state vertex, then those of each region.
-func (x *graphsExporter) entryTransitions(form *StateForm, graph *lower.StateGraph, ids, regions *vertexIDs) error {
+func (x *graphsExporter) entryTransitions(form *StateForm, graph *lower.StateGraph, ids *vertexIDs[program.VertexRef], regions *vertexIDs[program.RegionID]) error {
 	write := func(body *int, list []*lower.EntryTransition) error {
 		for _, et := range list {
 			scope := orScope(et.Scope, graph.Scope)
-			effect, err := x.behaviors(ids, scope, et.Effect)
+			effect, err := x.behaviors(graph, ids, scope, et.Effect)
 			if err != nil {
 				return err
 			}
-			var target, via *int
-			if et.Target != nil {
-				id := ids.add(et.Target)
-				target = &id
-			}
-			if et.Via != nil {
-				id := ids.add(et.Via)
-				via = &id
-			}
 			form.EntryTransitions = append(form.EntryTransitions, EntryTransitionForm{
 				Body:   body,
-				Guard:  x.expr(scope, et.Guard),
-				Target: target,
-				Via:    via,
+				Guard:  x.expr(scope, et.GuardID),
+				Target: ids.ref(program.StateVertex(et.TargetID)),
+				Via:    ids.ref(program.PseudoVertex(et.ViaID)),
 				Effect: effect,
 				Scope:  scopeName(et.Scope),
-				Decl:   x.span(scope, et.Decl),
+				Decl:   x.span(scope, et.At()),
 			})
 		}
 		return nil
 	}
-	if err := write(nil, graph.EntryTransitions[nil]); err != nil {
+	if err := write(nil, graph.EntryTransitionsOf(0)); err != nil {
 		return err
 	}
-	for id, node := range ids.order {
-		if list, ok := graph.EntryTransitions[node]; ok {
-			body := id
-			if err := write(&body, list); err != nil {
-				return err
-			}
+	for id, ref := range ids.order {
+		if ref.Kind != program.VertexState {
+			continue
+		}
+		body := id
+		if err := write(&body, graph.EntryTransitionsOf(ref.State())); err != nil {
+			return err
 		}
 	}
-	for id, node := range regions.order {
-		if list, ok := graph.EntryTransitions[node]; ok {
-			body := id
-			if err := write(&body, list); err != nil {
-				return err
-			}
+	for id, r := range regions.order {
+		body := id
+		if err := write(&body, graph.RegionEntryTransitions(r)); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
 // behaviors writes the lowered behaviors of one kind in order.
-func (x *graphsExporter) behaviors(ids *vertexIDs, enclosing *symbols.Scope, list []lower.StateBehavior) ([]BehaviorForm, error) {
+func (x *graphsExporter) behaviors(graph *lower.StateGraph, ids *vertexIDs[program.VertexRef], enclosing *symbols.Scope, list []lower.StateBehavior) ([]BehaviorForm, error) {
 	var out []BehaviorForm
 	for _, b := range list {
 		scope := orScope(b.Scope, enclosing)
@@ -410,37 +355,40 @@ func (x *graphsExporter) behaviors(ids *vertexIDs, enclosing *symbols.Scope, lis
 		if body == nil {
 			body = []StatementForm{}
 		}
-		form := BehaviorForm{
-			Name:  b.Name,
-			Span:  x.span(scope, b.Node),
-			Scope: scopeName(b.Scope),
-			Owner: ids.ref(b.Owner),
-			Body:  body,
-			Nodes: vertexNames(b.Nodes),
+		owner := program.StateVertex(b.OwnerID)
+		if _, ok := graph.VertexSite(owner); !ok {
+			owner = program.VertexRef{}
 		}
-		out = append(out, form)
+		out = append(out, BehaviorForm{
+			Name:  b.Name,
+			Span:  x.span(scope, b.At()),
+			Scope: scopeName(b.Scope),
+			Owner: ids.ref(owner),
+			Body:  body,
+			Nodes: b.NodeNames(),
+		})
 	}
 	return out, nil
 }
 
 // transition writes one transition with its trigger, guard and effect.
-func (x *graphsExporter) transition(ids *vertexIDs, enclosing *symbols.Scope, t *lower.Transition) (TransitionForm, error) {
+func (x *graphsExporter) transition(graph *lower.StateGraph, ids *vertexIDs[program.VertexRef], enclosing *symbols.Scope, t *lower.Transition) (TransitionForm, error) {
 	scope := orScope(t.Scope, enclosing)
 	bodyScope := orScope(t.BodyScope, scope)
-	effect, err := x.behaviors(ids, bodyScope, t.Effect)
+	effect, err := x.behaviors(graph, ids, bodyScope, t.Effect)
 	if err != nil {
 		return TransitionForm{}, err
 	}
 	form := TransitionForm{
 		Name:    t.Name,
-		Source:  ids.add(t.Source),
-		Target:  ids.add(t.Target),
-		Trigger: x.trigger(scope, t.Trigger),
-		Guard:   x.expr(bodyScope, t.Guard),
+		Source:  ids.add(t.SourceRef),
+		Target:  ids.add(t.TargetRef),
+		Trigger: x.trigger(scope, t),
+		Guard:   x.expr(bodyScope, t.GuardID),
 		Effect:  effect,
 		Via:     t.Via,
 		Scope:   scopeName(t.Scope),
-		Decl:    x.span(scope, t.Decl),
+		Decl:    x.span(scope, t.At()),
 	}
 	if t.BodyScope != nil && t.BodyScope != t.Scope {
 		form.BodyScope = scopeName(t.BodyScope)
