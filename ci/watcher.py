@@ -734,14 +734,21 @@ def runnable(e):
     return review_gate(e["pr"])
 
 
+def probe_code(url):
+    """The status of a ranged GET of an https URL; anything else in outage.json is never handed to curl."""
+    if not isinstance(url, str) or urllib.parse.urlsplit(url).scheme != "https":
+        return "err"
+    return subprocess.run(["curl", "-fsSL", "--proto", "=https", "--proto-redir", "=https", "--range", "0-1023",
+                           "-o", "/dev/null", "-m", "60", "-w", "%{http_code}", "--url", url],
+                          capture_output=True, text=True).stdout.strip() or "err"
+
+
 def outage_hold():
     f = f"{DIR}/outage.json"
     if not os.path.exists(f):
         return False
     o = load_json(f)
-    codes = [subprocess.run(["curl", "-fsSL", "--range", "0-1023", "-o", "/dev/null", "-m", "60",
-                             "-w", "%{http_code}", u], capture_output=True, text=True).stdout.strip() or "err"
-             for u in o["probes"]]
+    codes = [probe_code(u) for u in o["probes"]]
     code = "200" if all(c in ("200", "206") for c in codes) else "/".join(codes)
     t = time.time()
     if code == "200":

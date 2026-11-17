@@ -197,7 +197,7 @@ unless stated otherwise.
 | `priority_hold_<pr>.json` | `{"pr", "run", "head", "after", "label"}` | Runner-priority hold: no other new run starts until `run` finishes. With `"run": null`, the hold binds to the first run on a head that is not `after`. `infra_rerun.py` and the stale-check re-run write these files. |
 | `wide_cap.json` | `{"prs", "cap", "seen": {}, "done": []}` | Raise the cap to `cap` until each listed PR's next run has finished. The sweeper's idle-queue limit follows the raised cap while the file exists. |
 | `release_hold.json` | `{"reason", "exempt": [pr]}` | No ordinary slot is granted. A new run that starts anyway is cancelled (authorization still applies) and requeued. |
-| `outage.json` | `{"probes": [url]}` | No slot is granted until every probe URL answers a ranged GET with 200 or 206 twice, at least a minute apart. The file is then removed. |
+| `outage.json` | `{"probes": [url]}` | No slot is granted until every probe URL (`https://` only; any other entry counts as a failed probe) answers a ranged GET with 200 or 206 twice, at least a minute apart. The file is then removed. |
 | `strict_base.json` | `{"sha"}` | Every head must contain this commit. Heads without it are parked as needing a base merge. |
 | `need_base.json` | `"sha"` | A green result on a head that lacks this commit is reported for the maintainer to decide. |
 | `reopen_ok.json` | `[pr]` | PRs whose cancelled run may be restarted by one close/reopen. This happens only when `refs/pull/N/merge` sits on the current base head (or the head is in `stale_ok.json`) and carries the runner pin. Each entry is used once. |

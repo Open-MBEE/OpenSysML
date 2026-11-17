@@ -784,7 +784,7 @@ jobs:
 
       # The suite's Python readers resolve their environment with uv.
       - name: Install uv
-        run: python -m pip install uv==0.13.8
+        run: python -m pip install --only-binary ":all:" uv==0.13.8
 
       - name: Download the pinned suite
         run: ./scripts/download-hideo-suite.sh

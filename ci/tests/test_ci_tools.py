@@ -729,6 +729,12 @@ class WatcherPartsTest(Stub):
         self.write("outage.json", {"probes": ["file:///nonexistent/ci-throttle-probe"]})
         self.assertIsNone(watcher.start_next(st))
         self.assertIn("no slot granted", self.log())
+        with mock.patch.object(watcher.subprocess, "run") as run:
+            self.assertEqual([watcher.probe_code(u) for u in ("-K/etc/passwd", "file:///etc/passwd", "http://example.org/", None)], ["err"] * 4)
+            run.return_value.stdout = "206\n"
+            self.assertEqual(watcher.probe_code("https://example.org/asset"), "206")
+        self.assertEqual(run.call_count, 1)
+        self.assertEqual(run.call_args.args[0][-2:], ["--url", "https://example.org/asset"])
         os.remove(os.path.join(self.dir, "outage.json"))
         self.assertIsNone(watcher.start_next(st))
         self.assertIn("release hold (release_hold.json): release in progress", self.log())
