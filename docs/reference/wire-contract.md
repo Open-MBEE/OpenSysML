@@ -654,6 +654,14 @@ input. A service that does not advertise `undetermined_value` sends the arm as a
   km/h is 5/18 m/s). A client converting between units multiplies by this ratio; a client
   comparing two quantities for the same dimension compares `factors`. The scale is a
   *ratio*, not a decimal — do not read `scaleNum` alone as "the scale".
+- `valueType` is the fully qualified name of the quantity value type the quantity is held as
+  (`ISQThermodynamics::EnergyValue` for one read off `e : ISQ::EnergyValue`), absent for a
+  quantity held as none, which every computed one is. A client keeps it and sends it back with
+  the quantity, so the quantity is still of that type: `ISQ::TorqueValue` refuses the energy,
+  where it takes the same magnitude sent without a `valueType`. It is no part of the value, so
+  equality does not read it. The service refuses a `valueType` naming no quantity value type of
+  the model, or one of another dimension than the unit. No capability governs it: a service
+  that predates the field sends none and ignores one sent.
 
 **`enumLiteral`.** Three strings: `literalId`, the fully qualified name of the literal and its
 **identity**; `enumerationId`, the fully qualified name of its enumeration; and `name`, a

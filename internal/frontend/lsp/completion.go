@@ -129,7 +129,7 @@ func (c *completionItems) addSymbol(s *Server, sym *symbols.Symbol) {
 	item := protocol.CompletionItem{
 		Label:  symbols.LastSegment(sym.Name),
 		Kind:   completionKind(sym.Kind),
-		Detail: protocol.NewOptional(completionDetail(sym)),
+		Detail: protocol.NewOptional(s.completionDetail(sym)),
 	}
 	if doc := s.symbolDocumentation(sym); doc != nil {
 		item.Documentation = doc
@@ -150,7 +150,7 @@ func (c *completionItems) addNamedSymbol(s *Server, label string, sym *symbols.S
 	item := protocol.CompletionItem{
 		Label:  label,
 		Kind:   completionKind(sym.Kind),
-		Detail: protocol.NewOptional(completionDetail(sym)),
+		Detail: protocol.NewOptional(s.completionDetail(sym)),
 	}
 	if doc := s.symbolDocumentation(sym); doc != nil {
 		item.Documentation = doc
@@ -184,14 +184,22 @@ func (s *Server) symbolDocumentation(sym *symbols.Symbol) *protocol.MarkupConten
 	return &protocol.MarkupContent{Kind: protocol.MarkupKindPlainText, Value: text}
 }
 
-// completionDetail describes an element the way hover does: its kind, plus the
-// type it declares when it declares one.
-func completionDetail(sym *symbols.Symbol) string {
+// completionDetail describes an element the way hover does: its kind, plus its typing.
+func (s *Server) completionDetail(sym *symbols.Symbol) string {
 	detail := sym.Notation()
-	if t := declaredTypeText(sym); t != "" {
+	if t := s.typingText(sym); t != "" {
 		detail += " : " + t
 	}
 	return detail
+}
+
+// typingText is the typing a usage writes, else the types it inherits from the
+// features it redefines, subsets or references; "" when it has neither.
+func (s *Server) typingText(sym *symbols.Symbol) string {
+	if t := declaredTypeText(sym); t != "" {
+		return t
+	}
+	return typeNames(s.ws.InheritedTypesOf(sym))
 }
 
 // declaredTypeText returns the qualified name a usage declares as its type,

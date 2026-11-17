@@ -1,0 +1,30 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::probe",
+  "outputs": {
+    "one": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]}
+  },
+  "reads": {
+    "test::emptyResult": {"type": "Boolean", "value": true},
+    "test::emptySubrequirements": {"type": "Integer", "value": 0},
+    "test::emptyConstraints": {"type": "Integer", "value": 0},
+    "test::nullResult": {"type": "Boolean", "value": true},
+    "test::nullSubrequirements": {"type": "Integer", "value": 0},
+    "test::unnamedResult": {"type": "Boolean", "value": true},
+    "test::unnamedSubrequirements": {"type": "Integer", "value": 0},
+    "test::emptyAndOwnResult": {"type": "Boolean", "value": false},
+    "test::oneFailsResult": {"type": "Boolean", "value": false},
+    "test::oneFailsSubrequirements": {"type": "Integer", "value": 1},
+    "test::oneHoldsResult": {"type": "Boolean", "value": true},
+    "test::oneWithBodyResult": {"type": "Boolean", "value": false},
+    "test::manyHoldResult": {"type": "Boolean", "value": true},
+    "test::manyHoldSubrequirements": {"type": "Integer", "value": 2},
+    "test::manyOneFailsResult": {"type": "Boolean", "value": false},
+    "test::manyOneFailsSubrequirements": {"type": "Integer", "value": 2},
+    "test::manyOfASubtypeResult": {"type": "Boolean", "value": false},
+    "test::subtypeRenamesSubjectResult": {"type": "Boolean", "value": true},
+    "test::subtypeRenamesSubjectFailsResult": {"type": "Boolean", "value": false},
+    "test::subjectNameOfTheContainersResult": {"type": "Boolean", "value": true}
+  }
+}

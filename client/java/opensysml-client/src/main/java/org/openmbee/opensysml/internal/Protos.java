@@ -410,7 +410,8 @@ public final class Protos {
         };
     Optional<Quantity.UnitTerm> reduction =
         quantity.hasUnitTerm() ? Optional.of(unitTerm(quantity.getUnitTerm())) : Optional.empty();
-    return new Quantity(magnitude, present(quantity.getUnit()), reduction);
+    return new Quantity(
+        magnitude, present(quantity.getUnit()), reduction, present(quantity.getValueType()));
   }
 
   private static Quantity.UnitTerm unitTerm(UnitTerm term) {
@@ -953,6 +954,7 @@ public final class Protos {
     }
     quantity.unit().ifPresent(builder::setUnit);
     quantity.reduction().ifPresent(reduction -> builder.setUnitTerm(proto(reduction)));
+    quantity.valueType().ifPresent(builder::setValueType);
     return builder.build();
   }
 
