@@ -2,9 +2,8 @@
 # Prints the root-module package paths assigned to one race-test shard.
 # Usage: scripts/race-shard.sh runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|codegen|translate|grpc|tools|internal|rest|migrate|cli | --sweeps
 
-# A hyphenated shard is a by-test-name part of its package (runtime, corpus and export are each split
-# that way in make test-shard); the other shards are whole packages, internal every internal/ package
-# not named here but internal/frontend, and rest everything else.
+# A hyphenated shard is a by-test-name part of its package (make test-shard); the others are whole packages:
+# internal is every internal/ package not named here but internal/frontend, rest everything else.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
