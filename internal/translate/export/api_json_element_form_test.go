@@ -2,6 +2,7 @@ package export
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"strings"
 	"testing"
@@ -387,5 +388,45 @@ func TestLibraryElementFormWritesAnonymousMembersUnderTheirMintedIDs(t *testing.
 		if element.ID != c.id || element.Metaclass != c.metaclass || element.QualifiedName != "" {
 			t.Errorf("%s reads back as %+v", c.path, element)
 		}
+	}
+}
+
+// The ReferenceUsage a flow's end owns is named by the feature it redefines (KerML 1.1 §8.3.3.3.4
+// Feature::namingFeature) and varies in time, owned by an Occurrence-typed end, as the pilot exports it.
+func TestElementFormFlowEndFeatureIsNamedByItsRedefinedFeatureAndVaries(t *testing.T) {
+	form := parseElementForm(t, "package M { item def Photon; part def A { out x : Photon; } part def B { in y : Photon; } part a : A; part b : B; flow f from a.x to b.y; }")
+	f, ok := form.ByQualifiedName("M::f")
+	if !ok {
+		t.Fatal("no M::f in the form")
+	}
+	var names []string
+	for _, endID := range formReferenceIDs(t, formPropertyOf(t, f, "connectorEnd")) {
+		end, ok := form.ByID(endID)
+		if !ok || end.Metaclass != "FlowEnd" {
+			t.Fatalf("M::f connectorEnd %q is %v (%v)", endID, end.Metaclass, ok)
+		}
+		for _, membershipID := range formReferenceIDs(t, formPropertyOf(t, end, "ownedFeatureMembership")) {
+			membership, ok := form.ByID(membershipID)
+			if !ok {
+				t.Fatalf("no %q in the form", membershipID)
+			}
+			feature, ok := form.ByID(formReferenceIDs(t, formPropertyOf(t, membership, "memberElement"))[0])
+			if !ok || feature.Metaclass != "ReferenceUsage" {
+				t.Fatalf("%s's member is %v (%v)", membershipID, feature.Metaclass, ok)
+			}
+			if name := formPropertyOf(t, feature, "name"); name != formPropertyOf(t, membership, "memberName") {
+				t.Errorf("name %v, memberName %v", name, formPropertyOf(t, membership, "memberName"))
+			}
+			if declared := formPropertyOf(t, feature, "declaredName"); declared != nil {
+				t.Errorf("%s declares the name %v", feature.ID, declared)
+			}
+			if formPropertyOf(t, feature, "isVariable") != true || formPropertyOf(t, feature, "mayTimeVary") != true {
+				t.Errorf("isVariable %v, mayTimeVary %v", formPropertyOf(t, feature, "isVariable"), formPropertyOf(t, feature, "mayTimeVary"))
+			}
+			names = append(names, fmt.Sprint(formPropertyOf(t, membership, "memberName")))
+		}
+	}
+	if got := strings.Join(names, " "); got != "x y" {
+		t.Fatalf("flow end features = %q, want \"x y\"", got)
 	}
 }
