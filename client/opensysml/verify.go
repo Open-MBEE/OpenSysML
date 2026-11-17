@@ -324,6 +324,9 @@ func (c *client) VerifyConstraint(
 	if err != nil {
 		return nil, err
 	}
+	if err := c.requireCapabilities(ctx, CapabilityVerification); err != nil {
+		return nil, err
+	}
 	resp, err := c.caller.verifyConstraint(ctx, &pb.VerifyConstraintRequest{
 		ModelHash:       hash,
 		SymbolId:        symbolID,
@@ -356,6 +359,9 @@ func (c *client) VerifyRequirement(
 	}
 	arguments, named, err := c.verifyArguments(ctx, &options)
 	if err != nil {
+		return nil, err
+	}
+	if err := c.requireCapabilities(ctx, CapabilityVerification); err != nil {
 		return nil, err
 	}
 	resp, err := c.caller.verifyRequirement(ctx, &pb.VerifyRequirementRequest{
@@ -401,6 +407,9 @@ func (c *client) VerifySatisfaction(
 			Code:    CodeInvalidArgument,
 			Message: "VerifySatisfaction takes no arguments: nothing it checks declares parameters",
 		}
+	}
+	if err := c.requireCapabilities(ctx, CapabilityVerification); err != nil {
+		return nil, err
 	}
 	resp, err := c.caller.verifySatisfaction(ctx, &pb.VerifySatisfactionRequest{
 		ModelHash: hash,
@@ -454,6 +463,9 @@ func (c *client) ValidateInstance(
 			Code:    CodeInvalidArgument,
 			Message: "ValidateInstance takes no arguments: nothing it checks declares parameters",
 		}
+	}
+	if err := c.requireCapabilities(ctx, CapabilityVerification); err != nil {
+		return nil, err
 	}
 	resp, err := c.caller.validateInstance(ctx, &pb.ValidateInstanceRequest{
 		ModelHash: hash,
@@ -557,6 +569,9 @@ func (c *client) calculate(
 		req.Arguments = append(req.Arguments, sent)
 	}
 	if err := c.fitRationals(ctx, req.Arguments...); err != nil {
+		return nil, err
+	}
+	if err := c.requireCapabilities(ctx, CapabilityVerification); err != nil {
 		return nil, err
 	}
 	resp, err := c.caller.evaluateCalc(ctx, req)
