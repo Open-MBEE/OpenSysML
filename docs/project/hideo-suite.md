@@ -149,7 +149,7 @@ named when there is one. The matrices themselves are described in the suite's
 | D20 | 48 | 48 / 0 / 0 | 48 / 0 / 0 | 0 / 0 / 48 | 0 / 0 / 48 |
 | E10 | 48 | 48 / 0 / 0 | 48 / 0 / 0 | 48 / 0 / 0 | 48 / 0 / 0 |
 | F10 | 30 | 30 / 0 / 0 | 30 / 0 / 0 | 30 / 0 / 0 | 30 / 0 / 0 |
-| **All** | 1813 | 1608 / 172 / 33 | 1608 / 172 / 33 | 857 / 95 / 861 | 821 / 131 / 861 |
+| **All** | 1813 | 1611 / 169 / 33 | 1611 / 169 / 33 | 857 / 95 / 861 | 821 / 131 / 861 |
 <!-- hideo-suite:end counts -->
 
 The two element-properties readers agree on every case. The two Symbol readers differ on 14:
