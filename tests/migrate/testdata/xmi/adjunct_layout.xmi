@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg" name="Behavior">
+      <packagedElement xmi:type="uml:Activity" xmi:id="_fill" name="Fill"/>
+      <packagedElement xmi:type="uml:Activity" xmi:id="_drain" name="Drain"/>
+      <packagedElement xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_adjFill" type="_fill" aggregation="composite" association="_runFill"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_adjDrain" name="empty" type="_drain" aggregation="composite"/>
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callFill" behavior="_fill"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callDrain" name="empty" behavior="_drain"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e0" source="_init" target="_callFill"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_callFill" target="_callDrain"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Association" xmi:id="_runFill" memberEnd="_adjFill _runFillWhole">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_runFillWhole" type="_run" association="_runFill"/>
+      </packagedElement>
+    </packagedElement>
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag" name="Run BDD" ownerOfDiagram="_pkg">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_run</usedElements>
+                  <usedElements>_fill</usedElements>
+                  <usedElements>_adjFill</usedElements>
+                  <usedElements>_adjDrain</usedElements>
+                  <usedElements>_runFill</usedElements>
+                </diagramContents>
+                <binaryObject streamContentID="BINARY-adjunct_layout"/>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+  <sysml:AdjunctProperty xmi:id="_sFill" base_Property="_adjFill" principal="_callFill"/>
+  <sysml:AdjunctProperty xmi:id="_sDrain" base_Property="_adjDrain" principal="_callDrain"/>
+</xmi:XMI>
