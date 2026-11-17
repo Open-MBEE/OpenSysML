@@ -31,9 +31,8 @@ runtime="$module/internal/exec/runtime"
 workspace_model="$module/internal/workspace/model"
 corpus="$module/tests/corpus"
 smt="$module/internal/exec/smt"
-# tests/export and tests/model each run about 30 minutes under -race on a four-vCPU
-# node and shared one until that node ran 35 minutes, so each is a shard of its own;
-# tests/model's corpora differential is 13 of its 18 minutes, the graph-corpora shard.
+# tests/export and tests/model each ran about 30 minutes under -race and shared a node until it ran 35, so each
+# is a shard of its own; tests/model's corpora differential, 13 of its 18 minutes, is the graph-corpora shard.
 export="$module/tests/export"
 model="$module/tests/model"
 # internal/translate/export (~20 min under -race) and tests/grpc with internal/frontend/grpc
