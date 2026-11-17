@@ -5,10 +5,6 @@ name: PR
 
 # Three tiers (CONTRIBUTING.md, "GitHub Actions"), decided by the Changed areas job: quick on a pull-request
 # push, queue on merge_group, full on the label ci:full, an unclaimed path and a dispatch (full-scan.yml, nightly).
-#
-# GitHub cannot filter `labeled` by label, so every label starts a run; only ci:full changes what runs. Any other
-# label's run takes no runner: Changed areas is skipped, so is everything that needs it, and the aggregate job is
-# skipped under another name, so the head keeps the `Build and test` its last real run reported.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
@@ -62,7 +58,8 @@ jobs:
   # on, so a new directory is over-tested rather than untested.
   changes:
     name: Changed areas
-    # A label other than ci:full changes nothing this workflow runs (see the header).
+    # GitHub cannot filter `labeled` by label. A label other than ci:full changes nothing this workflow runs, so its
+    # run takes no runner: this job is skipped, and with it every job that needs it.
     if: ${{ !(github.event.action == 'labeled' && github.event.label.name != 'ci:full') }}
     runs-on: ubuntu-24.04
     permissions:
@@ -963,8 +960,8 @@ jobs:
   # A gated job that did not run reports `skipped`, which this gate accepts; a job
   # skipped by a failed dependency is caught through that dependency's own result.
   build-and-test:
-    # A skipped check counts as passing, so the run of a label other than ci:full must not report one under the
-    # required name: it would replace a red `Build and test` on the same head.
+    # A skipped check passes, so an ignored label's run must not report one named `Build and test` over a red one on
+    # the same head. GitHub does not evaluate a skipped job's name: that check is listed under this expression.
     name: ${{ (github.event.action == 'labeled' && github.event.label.name != 'ci:full') && 'Label ignored' || 'Build and test' }}
     if: ${{ always() && !(github.event.action == 'labeled' && github.event.label.name != 'ci:full') }}
     needs:

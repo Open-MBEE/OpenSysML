@@ -188,8 +188,7 @@ func TestPRWorkflowAggregateReportsOnEveryEvent(t *testing.T) {
 		t.Fatal("pr.yml build-and-test has no steps")
 	}
 	// The job-level if and name are not in actionsJob; read them where they are written.
-	// A label other than ci:full is the one event it does not report on, and there it is skipped under
-	// another name: a skipped check passes, and one named Build and test would replace the head's real result.
+	// A label other than ci:full is the one event it skips, under another name: a skipped Build and test would pass.
 	const ignored = `\(github\.event\.action == 'labeled' && github\.event\.label\.name != 'ci:full'\)`
 	jobHeader := regexp.MustCompile(`(?m)^  build-and-test:\n(?:    #.*\n)*` +
 		`    name: \$\{\{ ` + ignored + ` && '[^']+' \|\| 'Build and test' \}\}\n` +
