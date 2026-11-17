@@ -152,11 +152,7 @@ func (m *Model) restrictionViolations(sym *symbols.Symbol, traits featureTraits,
 // reversed when owner reaches the feature's owning type by a conjugation
 // (SysML v2 7.12.2).
 func (m *Model) directionThrough(owner, feature *symbols.Symbol) ast.FeatureDirection {
-	traits, ok := featureTraitsOf(feature)
-	if !ok {
-		return ast.DirNone
-	}
-	dir := traits.Direction
+	dir := declaredDirection(feature)
 	source := owningTypeOf(feature)
 	if owner == nil || source == nil {
 		return dir
@@ -182,10 +178,15 @@ func (m *Model) DeclaredDirection(feature *symbols.Symbol) ast.FeatureDirection 
 	if m == nil {
 		return ast.DirNone
 	}
-	traits, ok := featureTraitsOf(feature)
-	if !ok {
-		return ast.DirNone
+	return declaredDirection(feature)
+}
+
+// declaredDirection reads a feature's stated direction off its declaration or its record.
+func declaredDirection(feature *symbols.Symbol) ast.FeatureDirection {
+	if feature.Recorded() {
+		return feature.Facts.Direction
 	}
+	traits, _ := featureTraitsOf(feature)
 	return traits.Direction
 }
 
