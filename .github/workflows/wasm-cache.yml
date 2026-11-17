@@ -52,6 +52,14 @@ jobs:
             wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-
             wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-
 
+      # Go refreshes the time of an entry it uses only once that time is an hour old,
+      # so the restored entries are aged for the gate to mark the ones it still needs.
+      - name: Age the restored build cache entries
+        run: |
+          if [ -d ~/.cache/go-build ]; then
+            find ~/.cache/go-build -type f -exec touch -d '2 hours ago' {} +
+          fi
+
       - name: Set up Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -67,6 +75,15 @@ jobs:
             exit 1
           fi
 
+      # Go itself keeps an unused entry for five days, and each push adds the objects of
+      # every package it changed: restored and saved whole, the entry grew past 5 GB.
+      - name: Drop the build cache entries this gate did not use
+        if: success() || failure()
+        run: |
+          du -sh ~/.cache/go-build
+          find ~/.cache/go-build -type f -mmin +60 ! -name trim.txt ! -name README -delete
+          du -sh ~/.cache/go-build
+
       # The objects a failed gate compiled are as good as a passing one's, so a red
       # develop still warms the next pull request.
       - name: Save the WebAssembly build cache
@@ -79,8 +96,8 @@ jobs:
             ~/go/pkg/mod
           key: wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
 
-      # Each entry is some 3 GB and only the newest is restored; three fill the 10 GB the
-      # repository may keep, and GitHub then evicts the other caches saved on develop.
+      # Only the newest entry is restored, and the others count against the 10 GB the
+      # repository may keep, past which GitHub evicts the other caches saved on develop.
       - name: Delete the WebAssembly build caches this one supersedes
         if: always() && steps.save.outcome == 'success'
         env:

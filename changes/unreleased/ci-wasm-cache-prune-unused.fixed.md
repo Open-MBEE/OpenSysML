@@ -1,0 +1,1 @@
+- `.github/workflows/wasm-cache.yml` now saves only the Go build cache entries the WebAssembly gate used. Each develop push restored the previous entry whole and saved it again with the objects of every package the push changed, so it had grown from some 2 GB to 5.7 GB within a day and took up to three and a half minutes to restore in every `WebAssembly gate` job.
