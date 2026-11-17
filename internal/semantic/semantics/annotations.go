@@ -2337,6 +2337,22 @@ func (m *Model) reflectiveConnectorEndPaths(sym *symbols.Symbol) []ConnectorEndP
 }
 
 func (m *Model) connectorSuccessionRelatedFeatures(sym *symbols.Symbol) (related []*symbols.Symbol, unrepresented bool) {
+	related, unrepresented = m.successionEndFeatureTargets(sym)
+	if len(related) == 0 {
+		return related, unrepresented
+	}
+	for i, chained := range successionChainedEnds(sym.Decl) {
+		if chained && i < len(related) {
+			// A chained end references the chain Feature it owns, which no element stands for yet.
+			related[i], unrepresented = nil, true
+		}
+	}
+	return related, unrepresented
+}
+
+// successionEndFeatureTargets is the featureTarget of what each end of the succession sym references: the feature
+// written, or the last step of a chain (KerML 1.1 §8.3.3.3.4 deriveFeatureFeatureTarget).
+func (m *Model) successionEndFeatureTargets(sym *symbols.Symbol) (targets []*symbols.Symbol, unrepresented bool) {
 	if sym == nil || sym.Recorded() || sym.Decl == nil || sym.OwnerScope == nil {
 		return nil, false
 	}
@@ -2371,13 +2387,7 @@ func (m *Model) connectorSuccessionRelatedFeatures(sym *symbols.Symbol) (related
 			}
 		}
 	}
-	chained := successionChainedEnds(sym.Decl)
-	for i, end := range ends {
-		if chained[i] {
-			// A chained end references the chain Feature it owns, which no element stands for yet.
-			related, unrepresented = append(related, nil), true
-			continue
-		}
+	for _, end := range ends {
 		target := end.Symbol
 		if target == nil && end.Node != nil {
 			target = memberSymbol(sym.OwnerScope, end.Node)
@@ -2393,9 +2403,9 @@ func (m *Model) connectorSuccessionRelatedFeatures(sym *symbols.Symbol) (related
 			}
 			unrepresented = unrepresented || target == nil
 		}
-		related = append(related, target)
+		targets = append(targets, target)
 	}
-	return related, unrepresented
+	return targets, unrepresented
 }
 
 // successionChainedEnds reports which end of the succession decl is written as a feature chain (`first a.b then c.d;`).
