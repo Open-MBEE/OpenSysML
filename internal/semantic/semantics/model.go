@@ -67,6 +67,10 @@ type Model struct {
 	defaultMultiplicities map[*symbols.Symbol]*symbols.Symbol
 	// successionEnds memoizes the end features each `then` succession implies (SuccessionEndMembers).
 	successionEnds map[*symbols.Symbol][]*symbols.Symbol
+	// flowEnds memoizes the two FlowEnds each flow implies (FlowEndMembers); flowEndFeatures the
+	// ReferenceUsage each of those ends owns (FlowEndFeatureMember).
+	flowEnds        map[*symbols.Symbol][]*symbols.Symbol
+	flowEndFeatures map[*symbols.Symbol]*symbols.Symbol
 	// declaredMultiplicities caches, per usage, the MultiplicityRange its written range
 	// declares (DeclaredMultiplicityMember).
 	declaredMultiplicities map[*symbols.Symbol]*symbols.Symbol
@@ -233,6 +237,8 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		flowEndChains:          make(map[flowEndKey]*symbols.Symbol),
 		defaultMultiplicities:  make(map[*symbols.Symbol]*symbols.Symbol),
 		successionEnds:         make(map[*symbols.Symbol][]*symbols.Symbol),
+		flowEnds:               make(map[*symbols.Symbol][]*symbols.Symbol),
+		flowEndFeatures:        make(map[*symbols.Symbol]*symbols.Symbol),
 		declaredMultiplicities: make(map[*symbols.Symbol]*symbols.Symbol),
 		multiplicityBase:       make(map[*symbols.Symbol]*symbols.Symbol),
 		subtracting:            make(map[*symbols.Symbol]bool),
@@ -534,6 +540,13 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	if p := m.implicitEndParticipant(sym, len(ends) > 0 || declaresRedefinition(sym)); p != nil && p != sym && !seen[p] {
 		seen[p] = true
 		out = append(out, p)
+	}
+
+	// The ReferenceUsage a flow's end owns redefines the feature the end names last, and so
+	// takes that feature's type (see flow_ends.go).
+	if redefined := m.flowEndFeatureRedefinition(sym); redefined != nil && redefined != sym && !seen[redefined] {
+		seen[redefined] = true
+		out = append(out, redefined)
 	}
 
 	// The cross feature an end owns is implicitly typed by the end's types and
@@ -999,30 +1012,10 @@ func (m *Model) FeatureTypeSet(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil || !sym.IsFeature() {
 		return nil
 	}
+	if types := m.TypedFeatureTypes(sym); len(types) > 0 {
+		return types
+	}
 	var types []*symbols.Symbol
-	seen := make(map[*symbols.Symbol]bool)
-	var visit func(f *symbols.Symbol)
-	visit = func(f *symbols.Symbol) {
-		if f == nil || seen[f] {
-			return
-		}
-		seen[f] = true
-		bases := m.generalsOutsideTyping(f)
-		for _, super := range m.DirectSupertypes(f) {
-			switch {
-			case containsElement(bases, super):
-			case super.IsFeature():
-				visit(super)
-			case !containsElement(types, super):
-				types = append(types, super)
-			}
-		}
-		visit(m.ReferencedFeature(f))
-	}
-	visit(sym)
-	if len(types) > 0 {
-		return m.mostSpecificTypes(types)
-	}
 	// The definition its kind implies types the usage before the base feature's
 	// types stand in: an individual occurrence is a Life (SysML v2 §8.3.9.4).
 	for _, base := range m.implicitBases(sym) {
@@ -1047,6 +1040,36 @@ func (m *Model) FeatureTypeSet(sym *symbols.Symbol) []*symbols.Symbol {
 		return []*symbols.Symbol{base}
 	}
 	return nil
+}
+
+// TypedFeatureTypes is FeatureTypeSet without the kind's base: the most specific types a
+// typing gives sym or a feature it subsets, redefines or references; nil when none does.
+func (m *Model) TypedFeatureTypes(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil || !sym.IsFeature() {
+		return nil
+	}
+	var types []*symbols.Symbol
+	seen := make(map[*symbols.Symbol]bool)
+	var visit func(f *symbols.Symbol)
+	visit = func(f *symbols.Symbol) {
+		if f == nil || seen[f] {
+			return
+		}
+		seen[f] = true
+		bases := m.generalsOutsideTyping(f)
+		for _, super := range m.DirectSupertypes(f) {
+			switch {
+			case containsElement(bases, super):
+			case super.IsFeature():
+				visit(super)
+			case !containsElement(types, super):
+				types = append(types, super)
+			}
+		}
+		visit(m.ReferencedFeature(f))
+	}
+	visit(sym)
+	return m.mostSpecificTypes(types)
 }
 
 // FeatureTypeSetWithImplied is FeatureTypeSet plus the types the implied specializations of

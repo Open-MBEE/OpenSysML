@@ -53,10 +53,10 @@ func defaultMultiplicityOwner(sym *symbols.Symbol) (ast.Node, bool) {
 	return spanNode{sym.DeclSpan}, true
 }
 
-// successionEndSlot is the `then` succession edge and the slot (end0, end1) the conversion mints
-// the end feature sym under (encodeSuccessionEdge).
+// successionEndSlot is the `then` succession edge, or the flow, and the slot (end0, end1) the conversion
+// mints the end feature sym under (encodeSuccessionEdge, connectorEnd).
 func successionEndSlot(sym *symbols.Symbol) (ast.Node, string, bool) {
-	i, ok := symbols.ImpliedSuccessionEndIndex(sym)
+	i, ok := symbols.ImpliedConnectorEndIndex(sym)
 	if !ok {
 		return nil, "", false
 	}
@@ -66,6 +66,17 @@ func successionEndSlot(sym *symbols.Symbol) (ast.Node, string, bool) {
 		return decl.Of, fmt.Sprintf("succession.end%d", i), true
 	}
 	return decl.Of, fmt.Sprintf("end%d", i), true
+}
+
+// flowEndFeatureSlot is the flow and the slot (end0.ff, end1.ff) the conversion mints the ReferenceUsage
+// a flow's end owns under (flowEndReferences).
+func flowEndFeatureSlot(sym *symbols.Symbol) (ast.Node, string, bool) {
+	i, ok := symbols.ImpliedFlowEndFeatureIndex(sym)
+	if !ok {
+		return nil, "", false
+	}
+	decl, _ := symbols.ImpliedDeclOf(sym)
+	return decl.Of, fmt.Sprintf("end%d.ff", i), true
 }
 
 // expressionPartSlot is the slot the conversion names a synthesized
@@ -150,6 +161,10 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 	if edge, slot, ok := successionEndSlot(sym); ok {
 		// A `then` succession's end is minted under the edge at end0/end1 (encodeSuccessionEdge).
 		element, _, err := read.ReadExpressionPart(sym.DocName, edge, slot)
+		return element, err
+	}
+	if flow, slot, ok := flowEndFeatureSlot(sym); ok {
+		element, _, err := read.ReadExpressionPart(sym.DocName, flow, slot)
 		return element, err
 	}
 	if end, ok := connectorEndChain(sym); ok {
@@ -241,6 +256,11 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 		}
 		return "", true, nil
 	case symbols.ImplicitPortConjugation, symbols.ImplicitMetadataBodyRedefinition:
+		if flow, slot, ok := flowEndFeatureSlot(rel.Owner); ok {
+			// The Redefinition the ReferenceUsage a flow's end owns states is minted under it (`rd0`).
+			element, _, err := read.ReadExpressionPart(rel.Owner.DocName, flow, slot+".rd0")
+			return element, true, err
+		}
 		// The conversion keys a relationship the declaration states without a clause by the declaration.
 		if rel.Owner != nil && rel.Owner.Decl != nil {
 			id, err = read.ReadRelationship(rel.Owner.DocName, rel.Owner.Decl)
@@ -256,6 +276,11 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 func implicitMembershipID(read ElementIDReader, idx *symbols.Index, member *symbols.Symbol) (id string, ok bool, err error) {
 	if slot, ok := expressionPartSlot(member); ok {
 		_, membership, err := read.ReadExpressionPart(member.DocName, member.Expr.Owner.Decl, slot)
+		return membership, true, err
+	}
+	if flow, slot, ok := flowEndFeatureSlot(member); ok {
+		// The ReferenceUsage a flow's end owns is minted under the end with its FeatureMembership (`_pff_om`).
+		_, membership, err := read.ReadExpressionPart(member.DocName, flow, slot)
 		return membership, true, err
 	}
 	if span, slot, ok := bodyParameterSlot(member); ok {

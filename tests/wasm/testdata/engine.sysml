@@ -6,7 +6,7 @@ package enginedemo {
 
 	enum def Color { red; green; }
 
-	attribute speed : Real = 10.0 [SI::m] / 2.0 [SI::s];
+	attribute speed : ISQ::SpeedValue = 10.0 [SI::m] / 2.0 [SI::s];
 
 	action Double {
 		in x : Integer;

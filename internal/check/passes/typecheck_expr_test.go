@@ -82,6 +82,20 @@ func TestExprBindIntegerToRealAttributeOK(t *testing.T) {
 	wantNoDiags(t, `package P { attribute x : ScalarValues::Real = 5; }`)
 }
 
+// A literal is of every type generalizing its scalar type (KerML 8.3.3.3.4), the abstract
+// `NumericalValue` and `ScalarValue` included, and of no unrelated one.
+func TestExprBindLiteralToAScalarSupertype(t *testing.T) {
+	wantLibraryClean(t, `package P {
+		attribute a : ScalarValues::NumericalValue = 0.5;
+		attribute b : ScalarValues::ScalarValue = 3;
+		attribute c : ScalarValues::ScalarValue = "s";
+		attribute d : ScalarValues::ScalarValue = true;
+	}`)
+	wantLibrarySeverity(t,
+		`package P { attribute x : ScalarValues::NumericalValue = "hello"; }`, diag.SeverityError,
+		"binding-connector-type-conformance", "cannot bind String value to a feature typed by NumericalValue")
+}
+
 // A feature reference is typed by the feature's declaration, not by the value
 // it happens to hold: `w` is a Real here, whatever the 3 it was given is.
 func TestExprBindFeatureReferenceRespectsDeclaredType(t *testing.T) {
