@@ -1,0 +1,6 @@
+{
+	"type": "calc",
+	"evaluate": "test::Stepped",
+	"result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 18}]},
+	"trace": true
+}
