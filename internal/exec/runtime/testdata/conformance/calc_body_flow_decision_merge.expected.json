@@ -1,0 +1,14 @@
+{
+  "type": "calc",
+  "trace": true,
+  "inputs": [
+    {
+      "type": "Integer",
+      "value": 4
+    }
+  ],
+  "result": {"type": "Sequence", "elements": [{
+      "type": "Integer",
+      "value": 10
+    }]}
+}

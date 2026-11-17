@@ -163,20 +163,4 @@ func TestRuntimeRobustnessNestedNodeInBody(t *testing.T) {
 			t.Fatalf("error = %v, want ErrAcceptDeadlock", err)
 		}
 	})
-	t.Run("calc_body_flow_not_executable", func(t *testing.T) {
-		err := invokeCalcInSource(t, `package test {
-			private import ScalarValues::*;
-			calc host {
-				in n : Integer;
-				while n > 0 {
-					action a;
-					first a;
-				}
-				return : Integer = n;
-			}
-		}`, "host", 1, 100)
-		if !errors.Is(err, errStatementNotExecutable) {
-			t.Fatalf("error = %v, want errStatementNotExecutable", err)
-		}
-	})
 }

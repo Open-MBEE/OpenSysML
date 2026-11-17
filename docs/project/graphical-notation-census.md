@@ -91,7 +91,7 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 ## Totals
 
 <!-- census:begin summary -->
-620 production statements (97 of them partial `=|` statements) name 523 distinct productions: **293 drawn**, **34 approximate**, **24 undrawn**, 172 not applicable.
+620 production statements (97 of them partial `=|` statements) name 523 distinct productions: **294 drawn**, **36 approximate**, **21 undrawn**, 172 not applicable.
 
 | Category | Productions |
 | --- | --- |
@@ -124,7 +124,7 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 | §8.2.3.14 Interfaces Graphical Notation | 17 | 12 | 7 | 1 | 0 | 4 |
 | §8.2.3.15 Allocations Graphical Notation | 14 | 9 | 6 | 0 | 0 | 3 |
 | §8.2.3.16 Flows Graphical Notation | 30 | 22 | 16 | 2 | 0 | 4 |
-| §8.2.3.17 Actions Graphical Notation | 72 | 68 | 44 | 3 | 3 | 18 |
+| §8.2.3.17 Actions Graphical Notation | 72 | 68 | 45 | 5 | 0 | 18 |
 | §8.2.3.18 States Graphical Notation | 45 | 41 | 25 | 2 | 0 | 14 |
 | §8.2.3.19 Calculations Graphical Notation | 14 | 9 | 6 | 0 | 0 | 3 |
 | §8.2.3.20 Constraints Graphical Notation | 24 | 19 | 13 | 0 | 0 | 6 |
@@ -135,7 +135,7 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 | §8.2.3.25 Use Cases Graphical Notation | 22 | 16 | 9 | 1 | 0 | 6 |
 | §8.2.3.26 Views and Viewpoints Graphical Notation | 38 | 34 | 19 | 1 | 2 | 12 |
 | §8.2.3.27 Metadata Graphical Notation | 8 | 7 | 2 | 0 | 1 | 4 |
-| **Total** | 620 | 523 | 293 | 34 | 24 | 172 |
+| **Total** | 620 | 523 | 294 | 36 | 21 | 172 |
 <!-- census:end clauses -->
 
 ## Gaps
@@ -231,10 +231,9 @@ package a follow-up can take one at a time (see below).
 | Production | Category | Verdict | Package | Reason |
 | --- | --- | --- | --- | --- |
 | `accept-action-node` | node | approximate | B | a rounded box with the keyword compartment in every form; the send and accept corner glyphs are drawn in DOT, draw.io and the canvas, written as ▷ and ◁ in PlantUML and Mermaid, and not drawn in D2 |
-| `perform-actions-swimlanes` | compartment | undrawn | B | swimlanes are not drawn |
-| `performed-by-compartment` | compartment | undrawn | B | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
+| `perform-actions-swimlanes` | compartment | approximate | B | a dashed box headed «performer», the performer's feature chain and `perform actions`, holding the action nodes that performer performs, in every form; the lanes are attached on their vertical edges and aligned top and bottom in the grid layout of draw.io only, the layout engines of the other forms placing each lane as a cluster of its own |
 | `send-action-node` | node | approximate | B | a rounded box with the keyword compartment in every form; the send and accept corner glyphs are drawn in DOT, draw.io and the canvas, written as ▷ and ◁ in PlantUML and Mermaid, and not drawn in D2 |
-| `swimlane` | compartment | undrawn | B | swimlanes are not drawn |
+| `swimlane` | compartment | approximate | B | a dashed box headed «performer», the performer's feature chain and `perform actions`, holding the action nodes that performer performs, in every form; the lanes are attached on their vertical edges and aligned top and bottom in the grid layout of draw.io only, the layout engines of the other forms placing each lane as a cluster of its own |
 | `terminate-node` | node | approximate | B | the figure's X in a circle in DOT, Mermaid (cross-circ), draw.io (umlDestroy) and the canvas; PlantUML has no terminate pseudostate and D2 no crossed circle, both draw a plain end |
 
 #### §8.2.3.18 States Graphical Notation
@@ -294,7 +293,7 @@ package a follow-up can take one at a time (see below).
 | Package | Scope | Undrawn | Approximate | Productions |
 | --- | --- | --- | --- | --- |
 | A | §8.2.3.26 view frame and §8.2.3.4 annotation nodes | 0 | 0 |  |
-| B | §8.2.3.17–.18 action and state node forms | 3 | 5 | `accept-action-node`, `perform-actions-swimlanes`, `performed-by-compartment`, `send-action-node`, `swimlane`, `terminate-node`, `st-succession`, `transition` |
+| B | §8.2.3.17–.18 action and state node forms | 0 | 7 | `accept-action-node`, `perform-actions-swimlanes`, `send-action-node`, `swimlane`, `terminate-node`, `st-succession`, `transition` |
 | C | §8.2.3.3/.13 n-ary dots and §8.2.3.16 flow-on-connection | 0 | 0 |  |
 | D | §8.2.3.9 sequence glyphs | 1 | 3 | `portion-relationship`, `sequence-compartment`, `sq-succession`, `message` |
 | E | §8.2.3.2 textual-compartment greying | 0 | 1 | `element-inside-textual-compartment` |
