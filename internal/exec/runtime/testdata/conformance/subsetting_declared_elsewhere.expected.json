@@ -1,0 +1,11 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::vehicle",
+  "slots": {
+    "subsystem": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}]},
+    "count": {"type": "Integer", "value": 5},
+    "totalMass": {"type": "Real", "value": 6.0},
+    "onTray": {"type": "Integer", "value": 1}
+  }
+}

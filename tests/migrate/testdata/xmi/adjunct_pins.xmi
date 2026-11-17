@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:id="_m" name="Dose">
+    <packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_gauge" name="Gauge"/>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_fill" name="Fill">
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_fillFrom" name="from" type="_tank" direction="in"/>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_fillInto" name="into" type="_tank" direction="out"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_mix" name="Mix">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_adjFeed" name="feed" type="_tank" association="_mixFeed"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_adjFilled" name="filled" type="_tank"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_adjSpare" name="spare" type="_tank"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_adjSettled" name="settled" type="_tank"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_adjNoted" name="noted" type="_tank"/>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_source" name="source" type="_tank" direction="in"/>
+      <node xmi:type="uml:ActivityParameterNode" xmi:id="_sourceNode" name="source" parameter="_source" type="_tank"/>
+      <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+      <node xmi:type="uml:CallBehaviorAction" xmi:id="_callFill" name="fill" behavior="_fill">
+        <argument xmi:type="uml:InputPin" xmi:id="_pinFeed" name="feed" type="_tank"/>
+        <result xmi:type="uml:OutputPin" xmi:id="_pinFilled" name="filled" type="_tank"/>
+        <result xmi:type="uml:OutputPin" xmi:id="_pinSpare" name="spare" type="_tank"/>
+      </node>
+      <node xmi:type="uml:CallBehaviorAction" xmi:id="_callSettle" name="settle">
+        <argument xmi:type="uml:InputPin" xmi:id="_pinSettled" name="settled" type="_tank"/>
+      </node>
+      <node xmi:type="uml:OpaqueAction" xmi:id="_note" name="note">
+        <inputValue xmi:type="uml:InputPin" xmi:id="_pinNoted" name="noted" type="_tank"/>
+      </node>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_e0" source="_init" target="_callFill"/>
+      <edge xmi:type="uml:ObjectFlow" xmi:id="_e1" source="_sourceNode" target="_pinFeed"/>
+      <edge xmi:type="uml:ObjectFlow" xmi:id="_e2" source="_pinFilled" target="_pinSettled"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_callSettle" target="_note"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_plant" name="Plant">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_gaugePart" name="gauge" type="_gauge" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_mixing" name="mixing" type="_mix" aggregation="composite"/>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_watch" name="watch">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_watchA" role="_gaugePart"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_watchB" role="_adjFilled" partWithPort="_mixing"/>
+      </ownedConnector>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_check" name="check">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_checkA" role="_gaugePart"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_checkB" role="_adjSettled" partWithPort="_mixing"/>
+      </ownedConnector>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Abstraction" xmi:id="_alloc" client="_adjFilled" supplier="_gaugePart"/>
+    <packagedElement xmi:type="uml:Association" xmi:id="_mixFeed" name="MixFeed" memberEnd="_mixFeedWhole _adjFeed">
+      <ownedEnd xmi:type="uml:Property" xmi:id="_mixFeedWhole" name="mix" type="_mix" association="_mixFeed"/>
+    </packagedElement>
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag" name="Mix BDD" ownerOfDiagram="_m">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_mix</usedElements>
+                  <usedElements>_adjFilled</usedElements>
+                  <usedElements>_pinSettled</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+  <sysml:Block xmi:id="_bTank" base_Class="_tank"/>
+  <sysml:Block xmi:id="_bGauge" base_Class="_gauge"/>
+  <sysml:Block xmi:id="_bPlant" base_Class="_plant"/>
+  <sysml:Allocate xmi:id="_sAlloc" base_Abstraction="_alloc"/>
+  <sysml:NestedConnectorEnd xmi:id="_sWatchB" base_ConnectorEnd="_watchB" propertyPath="_mixing"/>
+  <sysml:NestedConnectorEnd xmi:id="_sCheckB" base_ConnectorEnd="_checkB" propertyPath="_mixing"/>
+  <sysml:AdjunctProperty xmi:id="_sFeed" base_Property="_adjFeed" principal="_pinFeed"/>
+  <sysml:AdjunctProperty xmi:id="_sFilled" base_Property="_adjFilled" principal="_pinFilled"/>
+  <sysml:AdjunctProperty xmi:id="_sSpare" base_Property="_adjSpare" principal="_pinSpare"/>
+  <sysml:AdjunctProperty xmi:id="_sSettled" base_Property="_adjSettled" principal="_pinSettled"/>
+  <sysml:AdjunctProperty xmi:id="_sNoted" base_Property="_adjNoted" principal="_pinNoted"/>
+</xmi:XMI>

@@ -353,10 +353,46 @@ func (ctx *Context) checkWriteType(scope *symbols.Scope, what func() string, dec
 // an enumeration admits as the enumerated value they equal.
 func (ctx *Context) holdForDeclared(value *Value, declared *symbols.Symbol) error {
 	ctx.spellForDeclared(value, declared)
+	ctx.holdAsMeasured(value, declared)
 	if err := ctx.holdAsReal(value, declared); err != nil {
 		return err
 	}
 	return ctx.holdAsEnumerated(value, declared)
+}
+
+// holdAsMeasured marks each quantity a feature declared by a quantity value type holds as
+// of that type, so a sibling type, disjoint from it (SysML v2 §9.8.9.1), refuses it later;
+// one already of a narrower type keeps it.
+func (ctx *Context) holdAsMeasured(value *Value, declared *symbols.Symbol) {
+	if declared == nil || ctx.model.semantics == nil {
+		return
+	}
+	switch value.Kind {
+	case ValQuantity:
+		quantity := ctx.librarySymbol(scalarQuantityTypeFQN)
+		if quantity == nil || declared == quantity || !ctx.modelConforms(declared, quantity) {
+			return
+		}
+		if kind := value.QuantityKind(); kind == nil || !ctx.modelConforms(kind, declared) {
+			*value = value.ofQuantityKind(declared)
+		}
+	case ValSequence, ValSet:
+		elements := append([]Value(nil), elementsOf(*value)...)
+		marked := false
+		for i := range elements {
+			before := elements[i].QuantityKind()
+			ctx.holdAsMeasured(&elements[i], declared)
+			marked = marked || elements[i].QuantityKind() != before
+		}
+		if !marked {
+			return
+		}
+		if value.Kind == ValSequence {
+			*value = sequenceOf(elements)
+			return
+		}
+		*value = ctx.setOf(elements)
+	}
 }
 
 // holdAsReal rounds each exact Rational a feature typed by Real holds to the nearest
@@ -450,7 +486,7 @@ func (ctx *Context) spellForDeclared(value *Value, declared *symbols.Symbol) {
 	case ValQuantity:
 		if q := value.Quantity(); q != nil {
 			if spelt := ctx.model.semantics.CoherentSpelling(*q, declared); spelt.Unit.Text != q.Unit.Text {
-				*value = NewQuantityValue(&spelt)
+				*value = NewQuantityValue(&spelt).ofQuantityKind(value.QuantityKind())
 			}
 		}
 	case ValSequence, ValSet:
@@ -523,7 +559,7 @@ func (ctx *Context) valueConforms(scope *symbols.Scope, value *Value, declared *
 		return false, fmt.Sprintf("cannot write %s to a feature typed by %s",
 			ctx.describeOpenOperand(*value), SymbolText(declared)), nil
 	case ValQuantity:
-		return ctx.quantityConforms(*value, declared)
+		return ctx.quantityConforms(scope, *value, declared)
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity:
 		return ctx.structuredConforms(scope, *value, declared, how)
 	case ValMeasurementRef:
@@ -603,8 +639,8 @@ func (ctx *Context) structuredConforms(scope *symbols.Scope, value Value, declar
 	case ValVectorQuantity:
 		vq := value.VectorQuantity()
 		for i := 0; i < vq.dimension(); i++ {
-			if ok, refusal, err := ctx.quantityConforms(NewQuantityValue(vq.component(i)), declared); !ok || err != nil {
-				return ok, refusal, err
+			if refusal := ctx.dimensionRefusal(NewQuantityValue(vq.component(i)), declared); refusal != "" {
+				return false, refusal, nil
 			}
 		}
 		if vq.Frame != nil {
@@ -777,23 +813,32 @@ func equalInt64s(a, b []int64) bool {
 	return true
 }
 
-// quantityConforms judges a written quantity: a scalar target by the lattice, a
-// target declaring a quantity value type by the dimension that type's mRef
-// fixes. A target fixing no dimension, and a unit fixing none, are not judged.
-func (ctx *Context) quantityConforms(value Value, declared *symbols.Symbol) (bool, string, error) {
-	if prim := ctx.model.semantics.PrimTypeOf(declared); prim != semantics.PrimUnknown {
-		return semantics.PrimConforms(semantics.PrimRational, prim), "", nil
+// quantityConforms holds a quantity where classifyValue does not refuse the declared type, a
+// refusal by dimension saying both; a measurement-reference-typed feature holds it unjudged (`hp : PowerUnit = 745.7 [W]`).
+func (ctx *Context) quantityConforms(scope *symbols.Scope, value Value, declared *symbols.Symbol) (bool, string, error) {
+	if ref := ctx.librarySymbol(tensorMRefTypeFQN); ref != nil && ctx.model.semantics.Conforms(declared, ref) {
+		return true, "", nil
 	}
+	verdict, err := ctx.classifyValue(scope, value, declared, nil, byAnyType)
+	if err != nil || verdict != semantics.ClassifiesNone {
+		return err == nil, "", err
+	}
+	return false, ctx.dimensionRefusal(value, declared), nil
+}
+
+// dimensionRefusal words a quantity refused for its dimension, or "" where the declared
+// type fixes none or the unit is commensurable with it.
+func (ctx *Context) dimensionRefusal(value Value, declared *symbols.Symbol) string {
 	want, ok := ctx.model.semantics.DimensionOfType(declared)
 	if !ok || value.Quantity() == nil {
-		return true, "", nil
+		return ""
 	}
 	got, ok := ctx.model.semantics.DimensionOfUnit(value.Quantity().Unit.Term)
 	if !ok || want.Term.Commensurable(got.Term) {
-		return true, "", nil
+		return ""
 	}
-	return false, fmt.Sprintf("cannot write %s (%s) to a feature typed by %s (%s)",
-		FormatValue(value), dimensionText(got), SymbolText(declared), dimensionText(want)), nil
+	return fmt.Sprintf("cannot write %s (%s) to a feature typed by %s (%s)",
+		FormatValue(value), dimensionText(got), SymbolText(declared), dimensionText(want))
 }
 
 // dimensionText names a dimension as a message about a mismatch reads it.

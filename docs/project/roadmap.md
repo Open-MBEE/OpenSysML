@@ -2202,8 +2202,9 @@ and the member at fault: a state, input, derivative or output that is not a vect
 calc left abstract, an integrator the runtime does not provide, a step absent, zero or negative,
 a state a step leaves non-finite. Its stated limitations: a crossing is located to the step
 boundary and not bisected within the step, so a guard that crosses and re-crosses inside one step
-is not seen; `StateSpaceItem` and a `StateSpaceEventDef` that is not a zero crossing are not
-executed. The OMG example `State Space Representation Examples/EVSample1.sysml` runs through the
+is not seen. Since then an event occurrence typed by `ZeroCrossingEventDef` itself occurs where
+the derivative crosses zero, and a `flow` between the output and input of two dynamics that
+objects perform is carried; one between two dynamics that are steps of one action body is not. The OMG example `State Space Representation Examples/EVSample1.sysml` runs through the
 runner once a model of its shape also states a `timeStep`, the library itself stating none. L7's
 census reads `StateSpaceRepresentation` at 6 of 17 with the runner in, the rest the abstract
 protocol probed directly. The lunar-descent case stands as it was.

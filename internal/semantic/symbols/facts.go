@@ -513,6 +513,9 @@ const (
 	// ModPrefixMetadata marks the metadata usage a `#M` prefix declares on the
 	// element owning it (see Symbol.IsPrefixMetadata).
 	ModPrefixMetadata
+	// ModTypeFeatureMember marks a feature declared `member`, owned through an
+	// OwningMembership rather than a FeatureMembership (KerML.xtext TypeFeatureMember).
+	ModTypeFeatureMember
 )
 
 // Has reports whether every modifier of mask is set.

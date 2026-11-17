@@ -540,6 +540,24 @@ func TestResolveEndpointDoneShadowedByANonVertexIsReported(t *testing.T) {
 	}
 }
 
+// A guarded succession in a calculation, constraint or case body sequences action
+// nodes as one in an action body does (SysML.xtext CalculationBodyItem).
+func TestResolveGuardedSuccessionEndsOutsideAnActionBodyAreActions(t *testing.T) {
+	for _, owner := range []string{"calc def", "constraint def", "analysis def", "action def"} {
+		t.Run(owner, func(t *testing.T) {
+			r := resolveDoc(t, "d.sysml", owner+` C {
+				attribute n = 1;
+				action a;
+				action b;
+				first a if n > 0 then b;
+			}`)
+			if len(r.Diagnostics) != 0 {
+				t.Fatalf("expected no diagnostics, got %v", r.Diagnostics)
+			}
+		})
+	}
+}
+
 // An endpoint resolves from the namespace it is written in, outward (KerML
 // 8.2.3.5): a vertex nested below is reached only through its owners, each one.
 func TestResolveEndpointNestedVertexNeedsItsOwners(t *testing.T) {

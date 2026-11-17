@@ -93,7 +93,7 @@ func (m *Model) shapeFeatures(typ *symbols.Symbol, keep func(*symbols.Symbol) bo
 	return m.withAnonymousShapeFeatures(typ, out, keep, byName)
 }
 
-// withAnonymousShapeFeatures adds typ's unnamed constraint usages, own and inherited, each
+// withAnonymousShapeFeatures adds typ's unnamed constraint usages and subrequirements, own and inherited, each
 // under its positional address `Owner::@N` where its owner's features sit in the shape.
 func (m *Model) withAnonymousShapeFeatures(typ *symbols.Symbol, out []ShapeFeature, keep func(*symbols.Symbol) bool, byName map[string]*ShapeFeature) []ShapeFeature {
 	sources := m.MemberSources(typ)
@@ -107,7 +107,7 @@ func (m *Model) withAnonymousShapeFeatures(typ *symbols.Symbol, out []ShapeFeatu
 			return
 		}
 		for _, member := range source.Scope.AnonymousMembers() {
-			if !AnonymousShapeMember(member) || !keep(member) || m.VariationPointOwning(member) != nil ||
+			if !m.anonymousShapeMember(member) || !keep(member) || m.VariationPointOwning(member) != nil ||
 				ownedThroughAnnotation(source, member) || (inherited && !Inheritable(member)) {
 				continue
 			}
@@ -171,6 +171,18 @@ func AnonymousShapeMember(sym *symbols.Symbol) bool {
 	}
 	usage, ok := sym.Decl.(*ast.Usage)
 	return !ok || usage.Keyword != "inv"
+}
+
+// anonymousShapeMember reports an unnamed member an object holds: a constraint usage (AnonymousShapeMember)
+// or a subrequirement (`requirement : R;`, `requirement { … }`, SysML v2 §7.21.2).
+func (m *Model) anonymousShapeMember(sym *symbols.Symbol) bool {
+	if AnonymousShapeMember(sym) {
+		return true
+	}
+	if sym == nil || sym.Named() || sym.ShortName != "" || sym.Naming != symbols.NamedByDeclaration || sym.Implied() {
+		return false
+	}
+	return (sym.Kind == symbols.SymbolRequirementUsage || sym.Kind == symbols.SymbolConcernUsage) && m.IsSubrequirement(sym)
 }
 
 // PositionalNameOf is the address of a member no name reaches, `Owner::@N` (0-based, the
@@ -248,7 +260,7 @@ func (m *Model) computeConstructorSlots(typ *symbols.Symbol) constructorSlots {
 	var declared []*symbols.Symbol
 	for _, f := range m.shapeFeatures(typ, func(member *symbols.Symbol) bool { return m.libraryTier(member) == tier }) {
 		// A positional argument binds a feature a name reaches, never an anonymous one.
-		if f.Declared.DeclaresUsage() && !AnonymousShapeMember(f.Declared) {
+		if f.Declared.DeclaresUsage() && !m.anonymousShapeMember(f.Declared) {
 			declared = append(declared, f.Declared)
 		}
 	}

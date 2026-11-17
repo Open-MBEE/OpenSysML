@@ -151,6 +151,7 @@ var (
 	renderStyle                 string
 	renderPorts                 string
 	renderLines                 string
+	renderDirection             string
 	renderShow                  string
 	renderDepth                 int
 	renderOverlay               string
@@ -491,6 +492,10 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -render-lines is how the dot or plantuml form of -render or -render-all routes its edges; name the view to render with -render or a directory with -render-all")
 		return 2
 	}
+	if renderDirection != "" && renderView == "" && renderAllDir == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -render-direction is the direction a graph-shaped form of -render or -render-all flows in; name the view to render with -render or a directory with -render-all")
+		return 2
+	}
 	if renderCompartments != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -render-compartments folds a tree's owned members into compartment rows; name what to render with -render, -render-all, -render-document or -render-documents")
 		return 2
@@ -782,7 +787,7 @@ func runCLI() int {
 		case convertFormat != "" || migrateFormat != "" || renderView != "" || renderDoc != "" || renderAllDir != "" || renderDocsDir != "" || queryText != "" || graphsSubject != "" || len(evalExprs) > 0:
 			fmt.Fprintf(os.Stderr, "sysml: %s syncs a change set; it cannot be combined with -convert, -migrate, -render, -render-all, -render-document, -render-documents, -query, -graphs or -eval\n", mode)
 			return 2
-		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || renderLink != "" || renderUnplaced != "" || renderCompartments != "" || renderStyle != "" || renderPorts != "" || renderLines != "" || renderShow != "" || renderDepth != 0 || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures:
+		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || renderLink != "" || renderUnplaced != "" || renderCompartments != "" || renderStyle != "" || renderPorts != "" || renderLines != "" || renderDirection != "" || renderShow != "" || renderDepth != 0 || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures:
 			fmt.Fprintf(os.Stderr, "sysml: %s reads SysML or Turtle inputs and reports the change set; -output, -from and the render options do not apply\n", mode)
 			return 2
 		case modelChecks.requested():

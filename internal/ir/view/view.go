@@ -173,6 +173,8 @@ type Renderer struct {
 	verdicts Verdicts
 	// included are elements drawn besides the exposed ones (SetIncluded).
 	included []*symbols.Symbol
+	// performers caches, by performed action, the elements performing it.
+	performers map[symbols.ElementKey][]*symbols.Symbol
 }
 
 // SetIncluded names elements every rendering draws besides what its view

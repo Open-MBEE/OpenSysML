@@ -333,6 +333,25 @@ line, is agreed with there. The other two `kerml-notation` lines of the root,
 | `spec-examples`: only ours / our diagnostics | 46 / 1092 | **45 / 1091** |
 | `spec-examples` only-ours `syntax` | 7 | **6** |
 
+### KerML declaration keyword round
+
+A declaration written with a keyword only the KerML grammar spells was our `kerml-notation`
+warning in a `.sysml` file and is now an error in the default mode too (SysML v2 8.2.2.1.2 gives
+SysML its own reserved keywords). Three `spec-examples` lines carry such a finding. On two the
+reference reports a syntax error on the same line, so each severity-only pair becomes agreed:
+`sysml/7.13.4/3.sysml:8` (`feature engine[1] : Engine …`) and `sysml/8.4.9.2/3.sysml:7`
+(`connector b : B`). On the third, `sysml/8.4.13.6/8.sysml:6` (`action behavior subsets …`), the
+reference reports nothing on that line, so the finding stays only ours and only its severity
+moves, warning to error. There `behavior` is the name of an `action` usage, not a declaration
+keyword, so whether the rule should fire on that line at all is a separate question this round
+records and does not adjudicate. No file becomes fully agreeing and no other count moves.
+
+| Count | Before | Now |
+|---|---:|---:|
+| agreed | 1105 | **1107** |
+| severity-only | 10 | **8** |
+| `spec-examples`: agreed / severity-only | 1040 / 6 | **1042 / 4** |
+
 ### Namespace declaration round
 
 `namespace N { … }` in a `.sysml` file was our `kerml-notation` warning on a line the reference
