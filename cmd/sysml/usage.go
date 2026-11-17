@@ -479,6 +479,8 @@ func doc() usage.Doc {
 					"routing. Under ortho the DOT form lays the drawing out itself, with " +
 					"Graphviz's dot (OPENSYSML_DOT, else PATH) or on a grid, and routes every " +
 					"edge to its port, writing a positioned graph for neato -n2 to draw. " +
+					"-render-direction names the direction a graph-shaped form flows in: TB, LR, " +
+					"RL or BT. " +
 					"A DiagramLayout Style on a member colours it over " +
 					"either look, and a Note is drawn beside the member it is about. " +
 					"A view whose members carry DiagramLayout positions draws the placed " +
@@ -755,6 +757,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderLink, "render-link", "", "Source link template for -render, -render-all, -render-document, -render-documents and -render-run. Placeholders: {file}, {line}, {col}, {qname}, {id}; {file} is the path as loaded (use absolute paths for vscode:// or file:// links)")
 	fs.StringVar(&renderStyle, "render-style", "", "Drawing style of the dot or mermaid form: pilot (default), the Pilot visualizer's black and white, or cameo, the look of Cameo Systems Modeler; applies to -render, -render-all and document diagrams")
 	fs.StringVar(&renderLines, "render-lines", "", "How the dot or plantuml form of -render or -render-all routes its edges: splines (default), each engine's curved routing, ortho, axis-parallel segments (the dot form laid out with Graphviz's dot, OPENSYSML_DOT else PATH, or on a grid, and routed to its ports for neato -n2 to draw), or polyline, straight segments; the Pilot visualizer's ORTHOLINE and POLYLINE styles. Mermaid and D2 note the routing as not represented")
+	fs.StringVar(&renderDirection, "render-direction", "", "Direction a graph-shaped form of -render or -render-all flows in: TB, top to bottom, LR, left to right, RL or BT; unset leaves each kind's default. Mermaid, DOT and D2 draw all four, PlantUML notes RL and BT as not represented, draw.io keeps its positions, text and the tables ignore it")
 	fs.StringVar(&renderPorts, "render-ports", "", "How much of a part's ports -render or -render-all draws on an interconnection or mixed rendering: minimal (default), the ports its interconnection edges end at, each a small square on the part's border named beside it, or full, every port, labelled name : Type")
 	fs.StringVar(&renderShow, "render-show", "", "Optional notation elements -render, -render-all and document diagrams draw besides the default (port symbols, compartments and keywords), comma-separated: parameter-symbols, port-symbols, compartments, edge-labels, keywords, multiplicities, typings, qualifiers, or all; a view's own rendering adds its elements too")
 	fs.IntVar(&renderDepth, "render-depth", 0, "How many levels of nested elements -render and -render-all draw below each exposed element of a tree or interconnection rendering, overriding the depth the view states; 0 (default) draws every level the view's own depth allows")
@@ -914,6 +917,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("render-style", "<style>"),
 			usage.Opt("render-ports", "<display>"),
 			usage.Opt("render-lines", "<routing>"),
+			usage.Opt("render-direction", "<direction>"),
 			usage.Opt("render-show", "<elements>"),
 			usage.Opt("render-depth", "<levels>"),
 			usage.Opt("render-overlay", "<overlay>"),
