@@ -98,7 +98,7 @@ COVERAGE_PROFILE ?= coverage.txt
 COVERAGE_SHARD ?=
 # The coverage job's nodes: the race shards but the runtime's corpus ones, since without -race internal/exec/runtime
 # runs whole in about 19 minutes under -coverpkg; tests/export and tests/corpus whole overran 30 (see .circleci/config.yml).
-COVERAGE_SHARDS := runtime model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools rest migrate cli
+COVERAGE_SHARDS := runtime model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools internal rest migrate cli
 # coverage-shard's splits of tests/corpus and tests/export by test name, test-shard's; empty for every other shard.
 COVERAGE_SELECT_corpus = -skip '$(RACE_CORPUS_SWEEP)'
 COVERAGE_SELECT_corpus-sweep = -run '$(RACE_CORPUS_SWEEP)'
@@ -379,7 +379,7 @@ SHARD_SELECT = $(or $(SHARD_SELECT_$(SHARD)),-skip '$(RACE_SHARD_SKIP)')
 # -race for the race suite (test-shard); test-quick runs the same shards with it empty.
 TEST_SHARD_RACE ?= -race
 
-test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|codegen|translate|grpc|tools|rest|migrate|cli)
+test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|codegen|translate|grpc|tools|internal|rest|migrate|cli)
 	@echo "Running Go $(if $(TEST_SHARD_RACE),race ,)tests, shard $(SHARD)$(if $(OPENSYSML_CORPUS_SUBSET), over the $(OPENSYSML_CORPUS_SUBSET) corpus subset,)..."
 	@# 55m per package; its job's ceiling is 60. internal/exec/runtime (31-57 minutes whole under -race), tests/export
 	@# (past 55; four shards) and tests/corpus (about 40; two) run split by test name above.
@@ -391,14 +391,14 @@ test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime
 test-quick: stdlib-snapshot ## Run the race-free quick tier over one or more race shards, in turn (SHARDS="graph" | "export-corpus export-library" | "rest grpc" | ...)
 	@echo "Running Go tests without race detection, shards $(SHARDS)..."
 	@# Every pull-request push runs this instead of test-shard: the same shards, selections and skips, no -race.
-	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools rest migrate cli"; exit 1; }
+	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools internal rest migrate cli"; exit 1; }
 	for shard in $(SHARDS); do $(MAKE) --no-print-directory test-shard SHARD=$$shard TEST_SHARD_RACE= || exit 1; done
 
 test-queue: stdlib-snapshot ## Run the merge queue's tier over one or more race shards, in turn (SHARDS="export-corpus" | "rest grpc" | ...)
 	@echo "Running the queue tier, shards $(SHARDS)..."
 	@# The merge queue runs this: test-shard with -race on every shard but the examples/ sweeps
 	@# (scripts/race-shard.sh --sweeps), which run without -race over the construct-cover subset.
-	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools rest migrate cli"; exit 1; }
+	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools internal rest migrate cli"; exit 1; }
 	sweeps=" $$(scripts/race-shard.sh --sweeps | tr '\n' ' ')" && for shard in $(SHARDS); do \
 		case "$$sweeps" in \
 			*" $$shard "*) OPENSYSML_CORPUS_SUBSET=construct-cover $(MAKE) --no-print-directory test-shard SHARD=$$shard TEST_SHARD_RACE= ;; \

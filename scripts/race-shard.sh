@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # Prints the root-module package paths assigned to one race-test shard.
-# Usage: scripts/race-shard.sh runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|codegen|translate|grpc|tools|rest|migrate|cli | --sweeps
+# Usage: scripts/race-shard.sh runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|codegen|translate|grpc|tools|internal|rest|migrate|cli | --sweeps
 
 # A hyphenated shard is a by-test-name part of its package (runtime, corpus and export are each split
-# that way in make test-shard); the other shards are whole packages, rest everything not named here.
+# that way in make test-shard); the other shards are whole packages, internal every internal/ package
+# not named here and rest everything else.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-shards='runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|codegen|translate|grpc|tools|rest|migrate|cli'
+shards='runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|codegen|translate|grpc|tools|internal|rest|migrate|cli'
 # The shards whose one test walks every example model, which the queue tier (make test-queue) runs race-free over the subset;
 # export-library walks the bundled libraries, and grpc's and translate's sweeps share a shard with race-prone tests: all keep -race.
 sweeps='corpus-sweep export-corpus export-examples'
@@ -56,7 +57,7 @@ cli="$module/cmd/sysml"
 named_packages=("$runtime" "$workspace_model" "$corpus" "$smt" "$export" "$model" "$translate" "$grpc_tests" "$grpc_frontend" "$passes" "$migrate" "$codegen" "$wasm" "$cli")
 
 case "$shard" in
-  runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|codegen|translate|grpc|tools|rest|migrate|cli) ;;
+  runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|codegen|translate|grpc|tools|internal|rest|migrate|cli) ;;
   *)
     echo "usage: scripts/race-shard.sh $shards | --sweeps" >&2
     exit 2
@@ -108,10 +109,16 @@ case "$shard" in
   cli)
     printf '%s\n' "$cli" "$passes"
     ;;
-  rest)
+  # The unnamed packages ran 27-36 minutes under -race as one shard, the queue build's longest
+  # job, so internal/ is a shard of its own; rest keeps cmd/, tests/, examples/, client/ and editors/.
+  internal|rest)
     while IFS= read -r package; do
       case " ${named_packages[*]} " in
-        *" $package "*) ;;
+        *" $package "*) continue ;;
+      esac
+      case "$shard:$package" in
+        internal:"$module"/internal/*) printf '%s\n' "$package" ;;
+        internal:*|rest:"$module"/internal/*) ;;
         *) printf '%s\n' "$package" ;;
       esac
     done <<<"$packages"
