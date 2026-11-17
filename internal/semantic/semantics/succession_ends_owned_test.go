@@ -294,3 +294,26 @@ func TestSuccessionWithAChainedEndIsUnanswered(t *testing.T) {
 		}
 	}
 }
+
+// A two-ended `first a then b { @M; }` ends in a UsageBody (SysML.xtext SuccessionAsUsage), so the metadata
+// written there annotates the succession; a `first a;` marker's body declares none of its own.
+func TestTwoEndedFirstThenBodyMetadataAnnotatesTheSuccession(t *testing.T) {
+	const src = `package P {
+		metadata def M;
+		action def Two {
+			action a; action b;
+			first a then b { @M; }
+			first b then a;
+		}
+	}`
+	fixture := reflectiveFixtures(t, "two-ended-metadata.sysml", source.KindSysML, src)[0]
+	successions := successionsOf(t, fixture.model, nestedSym(t, fixture.root, "P::Two"))
+	if len(successions) != 2 {
+		t.Fatalf("%d successions, want 2", len(successions))
+	}
+	for i, want := range []int{1, 0} {
+		if got := len(fixture.model.AnnotationSitesOf(successions[i])); got != want {
+			t.Errorf("succession %d has %d annotations, want %d", i, got, want)
+		}
+	}
+}
