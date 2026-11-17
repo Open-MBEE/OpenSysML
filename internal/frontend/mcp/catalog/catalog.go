@@ -141,7 +141,7 @@ var Tools = []Entry{
 		Summary: "Apply workspace edits to a parsed model and answer the edited documents."},
 	{Name: "compare_results", Group: GroupRuntime, Scope: ScopeExecute, RPCs: []string{"CompareResults"}, Flags: []string{"compare-results"},
 		Summary: "Run the configurations a SysML v1 tool's results index and table the tool's distributions beside the runs'."},
-	{Name: "convert", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"Convert"}, Flags: []string{"convert", "from", "id", "include-library-stubs"},
+	{Name: "convert", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"Convert"}, Flags: []string{"convert", "from", "id", "include-library-stubs", "inherited-members"},
 		Summary: "Convert a model between the textual notation, JSON, RDF and XMI."},
 	{Name: "diagnostics", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"GetDiagnostics"}, Flags: []string{"validate", "disable-lint", "enable-lint"},
 		Summary: "Report every diagnostic of a parsed model, as sysml -validate does."},
@@ -178,8 +178,8 @@ var Tools = []Entry{
 		Summary: "Render a document definition as Markdown or HTML."},
 	{Name: "record_run", Group: GroupRuntime, Scope: ScopeExecute, RPCs: []string{"RecordRun"}, Flags: []string{"record-run", "record-into"},
 		Summary: "Run an analysis case and record the runs into the model as AnalysisRecords declarations."},
-	{Name: "render_model_view", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"RenderView"}, Flags: []string{"render", "render-ports", "render-show", "render-depth", "render-compartments"},
-		Summary: "Render a view as its nodes, edges and compartments."},
+	{Name: "render_model_view", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"RenderView"}, Flags: []string{"render", "render-ports", "render-show", "render-depth", "render-compartments", "render-form", "render-palette", "render-style", "render-lines", "render-direction", "render-link", "render-unplaced"},
+		Summary: "Render a view as its nodes, edges and compartments, and in a written form when one is named."},
 	{Name: "check_behavior", Group: GroupRuntime, Scope: ScopeExecute, RPCs: []string{"CheckBehavior"}, Flags: []string{"check-property", "check-diverge", "check-input", "check-assume", "check-witness", "check-depth", "check-states", "check-unroll", "check-timeout"},
 		Summary: "Search every schedule of an action or state machine for violated properties, deadlocks, failures and divergent values."},
 	{Name: "run_analysis", Group: GroupRuntime, Scope: ScopeExecute, RPCs: []string{"RunAnalysis"}, Flags: []string{"analysis", "engine", "tool-dry-run"},
@@ -247,7 +247,6 @@ var RPCsWithoutTools = map[string]string{}
 
 // The reasons several unserved operations and CLI-only flags share.
 const (
-	notDrawn       = "RenderViewRequest answers data, not a drawn form"
 	noListing      = "no RPC lists the documents and views of a model"
 	noHTMLStyling  = "RenderDocumentRequest has no HTML styling fields"
 	hostToolchain  = "drives a native toolchain on the host"
@@ -265,13 +264,7 @@ var Unserved = map[string]string{
 	"portable":            "MigrateRequest has no portable field",
 	"keep-line-breaks":    "ConvertRequest has no keep-line-breaks field",
 	"render-all":          "no RPC renders every declared view",
-	"render-form":         notDrawn,
-	"render-palette":      notDrawn,
-	"render-link":         notDrawn,
-	"render-unplaced":     notDrawn,
-	"render-style":        notDrawn,
-	"render-lines":        notDrawn,
-	"render-overlay":      notDrawn,
+	"render-overlay":      "RenderViewRequest has no overlay field",
 	"list":                noListing,
 	"list-kind":           noListing,
 	"list-form":           noListing,

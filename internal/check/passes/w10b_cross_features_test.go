@@ -430,8 +430,8 @@ func TestW10BCrossFeatureNameTakenByBodyMemberIsAccepted(t *testing.T) {
 	const src = `package P {
 		part def A;
 		connection def C {
-			end x1 [1] feature x : A {
-				feature x1;
+			end x1 [1] part x : A {
+				part x1;
 			}
 			end y : A;
 		}

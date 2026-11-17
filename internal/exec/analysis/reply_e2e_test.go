@@ -13,6 +13,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
@@ -176,7 +177,7 @@ func parseReplyProbe(t *testing.T, src, pkgName string) *rprobe {
 func (p *rprobe) context() *runtime.Context {
 	resolver := resolve.New(p.idx)
 	model := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
-	model.SetExpressionParser(parser.ParseOneExpression)
+	model.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, model.Resolver()))
 	return runtime.NewContext(model, fixtureSteps)
 }
 

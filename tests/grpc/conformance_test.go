@@ -15,6 +15,7 @@ import (
 	"sync"
 	"testing"
 
+	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
@@ -104,6 +105,12 @@ type conformanceCase struct {
 	// GetSymbol, Instantiate, ExecuteAction, ExecuteState, EvaluateCalc
 	SymbolID string `json:"symbol_id,omitempty"`
 
+	// GetSymbol, GetElementProperties: the kind symbol_id (element_id) is stated to be,
+	// "qualified_name" or "element_id"; empty sends the legacy single string.
+	Lookup string `json:"lookup,omitempty"`
+	// The id the symbol, or the element read, is answered under.
+	ExpectedID string `json:"expected_id,omitempty"`
+
 	// Tools names stand-ins under internal/exec/analysis/testdata registered
 	// from a manifest written before the service is built.
 	Tools []string `json:"tools,omitempty"`
@@ -128,6 +135,18 @@ type conformanceCase struct {
 	ExpectedEdgeLabels   []string          `json:"expected_edge_labels,omitempty"`
 	// ExpectedParallel names the nodes drawn «parallel» (a state whose substates run in parallel).
 	ExpectedParallel []string `json:"expected_parallel,omitempty"`
+	// RenderView: the form to write and its writer options, the text it must
+	// write whole or in part, and the status code a refusal must carry.
+	Form                 string   `json:"form,omitempty"`
+	Palette              string   `json:"palette,omitempty"`
+	Style                string   `json:"style,omitempty"`
+	Lines                string   `json:"lines,omitempty"`
+	Direction            string   `json:"direction,omitempty"`
+	Link                 string   `json:"link,omitempty"`
+	Unplaced             string   `json:"unplaced,omitempty"`
+	ExpectedText         string   `json:"expected_text,omitempty"`
+	ExpectedTextContains []string `json:"expected_text_contains,omitempty"`
+	ExpectedErrorCode    string   `json:"expected_error_code,omitempty"`
 
 	// GetDiagnostics lint selection and the codes the answer must and must not carry.
 	DisableLint   []string `json:"disable_lint,omitempty"`
@@ -198,6 +217,9 @@ type conformanceCase struct {
 	ExpectedKind       string                       `json:"expected_kind,omitempty"`
 	ExpectedChildIDs   []string                     `json:"expected_child_ids,omitempty"`
 	ExpectedAttributes map[string]expectedAttribute `json:"expected_attributes,omitempty"`
+	// ExpectedAnnotatingMetadataIDs is the full ordered list of the metadata
+	// usages annotating the symbol; an empty list requires none.
+	ExpectedAnnotatingMetadataIDs []string `json:"expected_annotating_metadata_ids,omitempty"`
 	// MinWithheldLibraryAttributes requires the response to state at least this
 	// many library-inherited attributes withheld from the list.
 	MinWithheldLibraryAttributes int32 `json:"min_withheld_library_attributes,omitempty"`
@@ -892,14 +914,49 @@ func conformanceToolBinary(t *testing.T, name string) string {
 	return path
 }
 
+// lookupKind is the LookupKind a case's lookup names; none is the legacy single string.
+func lookupKind(t *testing.T, lookup string) pb.LookupKind {
+	t.Helper()
+	switch lookup {
+	case "":
+		return pb.LookupKind_LOOKUP_KIND_UNSPECIFIED
+	case "qualified_name":
+		return pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME
+	case "element_id":
+		return pb.LookupKind_LOOKUP_KIND_ELEMENT_ID
+	}
+	t.Fatalf("unknown lookup %q", lookup)
+	return pb.LookupKind_LOOKUP_KIND_UNSPECIFIED
+}
+
+// checkReportedIDsResolve asserts every id a symbol reports — its own, its children's, its
+// members' — names, as an element id, the one element that carries it.
+func checkReportedIDsResolve(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, symbol *pb.SymbolInfo) {
+	t.Helper()
+	ids := append([]string{symbol.GetId()}, symbol.GetChildIds()...)
+	for _, member := range symbol.GetMembers() {
+		ids = append(ids, member.GetId())
+	}
+	for _, id := range ids {
+		resp, err := srv.GetSymbol(ctx, &pb.GetSymbolRequest{
+			ModelHash: modelHash, SymbolId: id, Lookup: pb.LookupKind_LOOKUP_KIND_ELEMENT_ID,
+		})
+		if err != nil {
+			t.Fatalf("GetSymbol(element_id %q): %v", id, err)
+		}
+		if got := resp.GetSymbol().GetId(); got != id {
+			t.Errorf("element_id %q, reported by %q, answers id %q (%s)", id, symbol.GetId(), got, resp.Error)
+		}
+	}
+}
+
 // runGetSymbolCase pins the static facts a symbol is reported with, and is how
 // the attribute set is kept from regressing to empty.
 func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
 
 	resp, err := srv.GetSymbol(ctx, &pb.GetSymbolRequest{
-		ModelHash: modelHash,
-		SymbolId:  tc.SymbolID,
+		ModelHash: modelHash, SymbolId: tc.SymbolID, Lookup: lookupKind(t, tc.Lookup),
 	})
 	if err != nil {
 		t.Fatalf("GetSymbol: %v", err)
@@ -910,12 +967,19 @@ func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, mode
 	if resp.Symbol == nil {
 		t.Fatal("expected a symbol")
 	}
+	if tc.ExpectedID != "" && resp.Symbol.GetId() != tc.ExpectedID {
+		t.Errorf("id = %q, want %q", resp.Symbol.GetId(), tc.ExpectedID)
+	}
+	checkReportedIDsResolve(t, srv, ctx, modelHash, resp.Symbol)
 
 	if tc.ExpectedKind != "" && resp.Symbol.GetKind() != tc.ExpectedKind {
 		t.Errorf("kind = %q, want %q", resp.Symbol.GetKind(), tc.ExpectedKind)
 	}
 	if tc.ExpectedChildIDs != nil && !slices.Equal(resp.Symbol.GetChildIds(), tc.ExpectedChildIDs) {
 		t.Errorf("child_ids = %v, want %v", resp.Symbol.GetChildIds(), tc.ExpectedChildIDs)
+	}
+	if want := tc.ExpectedAnnotatingMetadataIDs; want != nil && !slices.Equal(resp.Symbol.GetAnnotatingMetadataIds(), want) {
+		t.Errorf("annotating_metadata_ids = %v, want %v", resp.Symbol.GetAnnotatingMetadataIds(), want)
 	}
 	attrs := resp.Symbol.GetAttributes()
 	if tc.ExpectedAttributeNames != nil {
@@ -1111,16 +1175,24 @@ func runExecuteActionCase(t *testing.T, srv *grpc.Service, ctx context.Context, 
 // checks the nodes drawn, the compartment each row is drawn in and the edges.
 func runRenderViewCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
-	resp, err := srv.RenderView(ctx, &pb.RenderViewRequest{ModelHash: modelHash, View: tc.View, Compartments: tc.Compartments})
+	resp, err := srv.RenderView(ctx, &pb.RenderViewRequest{
+		ModelHash: modelHash, View: tc.View, Compartments: tc.Compartments,
+		Form: tc.Form, Palette: tc.Palette, Style: tc.Style, Lines: tc.Lines,
+		Direction: tc.Direction, Link: tc.Link, Unplaced: tc.Unplaced,
+	})
 	if tc.ExpectedError != "" {
 		if err == nil || !strings.Contains(err.Error(), tc.ExpectedError) {
 			t.Fatalf("RenderView error = %v, want %q", err, tc.ExpectedError)
+		}
+		if code := connect.CodeOf(err).String(); tc.ExpectedErrorCode != "" && code != tc.ExpectedErrorCode {
+			t.Errorf("RenderView error code = %s, want %s", code, tc.ExpectedErrorCode)
 		}
 		return
 	}
 	if err != nil {
 		t.Fatalf("RenderView: %v", err)
 	}
+	checkRenderViewText(t, resp.GetText(), tc)
 	names := make([]string, 0, len(resp.Nodes))
 	compartments := map[string]string{}
 	var parallel []string
@@ -1148,6 +1220,29 @@ func runRenderViewCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 	}
 	if !slices.Equal(labels, tc.ExpectedEdgeLabels) {
 		t.Errorf("edge labels = %v, want %v", labels, tc.ExpectedEdgeLabels)
+	}
+}
+
+// checkRenderViewText checks the text a RenderView case wrote: none without a
+// form, and with one the whole text or the parts of it the case states.
+func checkRenderViewText(t *testing.T, text string, tc conformanceCase) {
+	t.Helper()
+	if tc.Form == "" {
+		if text != "" {
+			t.Errorf("text without a form = %q, want none", text)
+		}
+		return
+	}
+	if tc.ExpectedText == "" && len(tc.ExpectedTextContains) == 0 {
+		t.Fatalf("a case writing form %q states no expected_text or expected_text_contains", tc.Form)
+	}
+	if tc.ExpectedText != "" && text != tc.ExpectedText {
+		t.Errorf("text = %q, want %q", text, tc.ExpectedText)
+	}
+	for _, want := range tc.ExpectedTextContains {
+		if !strings.Contains(text, want) {
+			t.Errorf("text lacks %q:\n%s", want, text)
+		}
 	}
 }
 
@@ -1335,7 +1430,7 @@ func runQueryCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHas
 func runGetElementPropertiesCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
 	resp, err := srv.GetElementProperties(ctx, &pb.GetElementPropertiesRequest{
-		ModelHash: modelHash, ElementId: tc.ElementID, Properties: tc.Properties,
+		ModelHash: modelHash, ElementId: tc.ElementID, Lookup: lookupKind(t, tc.Lookup), Properties: tc.Properties,
 	})
 	if err != nil {
 		t.Fatalf("GetElementProperties: %v", err)
@@ -1351,6 +1446,9 @@ func runGetElementPropertiesCase(t *testing.T, srv *grpc.Service, ctx context.Co
 	}
 	if resp.Element == nil || resp.Element.Id == "" {
 		t.Fatalf("the answer names no element: %v", resp.Element)
+	}
+	if tc.ExpectedID != "" && resp.Element.Id != tc.ExpectedID {
+		t.Errorf("element = %q, want %q", resp.Element.Id, tc.ExpectedID)
 	}
 	if len(resp.Properties) != len(tc.ExpectedProperties) {
 		names := make([]string, 0, len(resp.Properties))

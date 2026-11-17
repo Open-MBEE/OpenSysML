@@ -25,8 +25,8 @@ package Test {
 				transition first b accept Y do assign log := log + "Y-effect " then sync;
 			}
 			join sync;
-			transition first sync do assign log := log + "out" then done;
+			transition first sync do assign log := log + "out" then finished;
 		}
-		state done;
+		state finished;
 	}
 }

@@ -28,6 +28,15 @@ func (e *StateExecutor) stateID(state *ast.StateNode) program.StateID {
 	return e.graph.ID[state]
 }
 
+// stateOrigin is the origin lowering recorded for state; the zero Origin for the
+// machine state, which the table leaves out.
+func (e *StateExecutor) stateOrigin(state *ast.StateNode) program.Origin {
+	if id := e.stateID(state); int(id) < len(e.graph.Origins) {
+		return e.graph.Origins[id]
+	}
+	return program.Origin{}
+}
+
 // stateDecl is the state declared under id, nil for 0.
 func (e *StateExecutor) stateDecl(id program.StateID) *ast.StateNode {
 	if id == e.machineID() && e.graph.Machine != nil {

@@ -344,7 +344,7 @@ func (e *Evaluator) modelProperty(element Element, class, name string) (Value, b
 			if element.IsMembership {
 				return nullValue(), true, true
 			}
-			if value := e.model.EffectiveNameOf(sym); value != "" {
+			if value, named := e.model.EffectiveNamed(sym); named {
 				return stringValue(value), true, true
 			}
 			return nullValue(), true, true
@@ -552,8 +552,8 @@ func (e *Evaluator) modelQualifiedName(sym *symbols.Symbol, seen map[*symbols.Sy
 		return Value{}, false
 	}
 	seen[sym] = true
-	name := e.model.EffectiveNameOf(sym)
-	if name == "" {
+	name, named := e.model.EffectiveNamed(sym)
+	if !named {
 		return nullValue(), true
 	}
 	if sym.OwnerScope != nil {
@@ -561,7 +561,7 @@ func (e *Evaluator) modelQualifiedName(sym *symbols.Symbol, seen map[*symbols.Sy
 			if member == sym {
 				break
 			}
-			if e.model.EffectiveNameOf(member) == name {
+			if earlier, named := e.model.EffectiveNamed(member); named && earlier == name {
 				return nullValue(), true
 			}
 		}
@@ -572,7 +572,7 @@ func (e *Evaluator) modelQualifiedName(sym *symbols.Symbol, seen map[*symbols.Sy
 			return Value{}, false
 		}
 		seen[namespace] = true
-		if namespaceName := e.model.EffectiveNameOf(namespace); namespaceName != "" {
+		if namespaceName, named := e.model.EffectiveNamed(namespace); named {
 			parts = append(parts, identity.EscapeName(namespaceName))
 		}
 	}

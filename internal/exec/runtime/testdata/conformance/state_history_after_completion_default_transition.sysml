@@ -19,7 +19,7 @@ package Test {
 
         transition first start when Go then outer;
         transition first outer then away;
-        transition first away when Back then resume;
-        transition first first when Leave then away;
+        transition first away when Back then outer.resume;
+        transition first outer.first when Leave then away;
     }
 }

@@ -3,6 +3,7 @@ package lower
 import (
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -13,6 +14,8 @@ type Binding struct {
 	Ends  [2]BindingEnd
 	Scope *symbols.Scope
 	Decl  *ast.Usage
+	// Origin is where the connector was written, Kind "binding"; it has no Path.
+	Origin program.Origin
 	// Multiplicity is the connector's own as written (`binding [1] bind …`), nil when none.
 	Multiplicity *ast.Multiplicity
 }
@@ -25,8 +28,12 @@ type Binding struct {
 type BindingEnd struct {
 	Path string
 	Expr ast.Node
+	// ExprID is Expr in the table the binding was interned in, 0 before it is.
+	ExprID program.ExprID
 	// Index selects one element of the feature Path reaches (`xs#(2)`), nil for the whole feature.
-	Index        ast.Node
+	Index ast.Node
+	// IndexID is Index in the table the binding was interned in.
+	IndexID      program.ExprID
 	Multiplicity *ast.Multiplicity
 	// Via leads from the binding's holder to the connector object an expression or a path end is
 	// read on, empty for the holder itself; Default marks the expression of a `default =` value.
@@ -53,6 +60,15 @@ func (e BindingEnd) HolderPath() string {
 		return ""
 	}
 	return e.Path
+}
+
+// Intern interns the expressions the binding's ends state in exprs, in the scope the
+// binding is evaluated in; one lowered apart from a flow has no ids until it is called.
+func (b *Binding) Intern(exprs *ExprTable) {
+	for i := range b.Ends {
+		b.Ends[i].ExprID = exprs.Intern(b.Ends[i].Expr, b.Scope)
+		b.Ends[i].IndexID = exprs.Intern(b.Ends[i].Index, b.Scope)
+	}
 }
 
 // ToBindings lowers binding connectors directly declared by a type or usage.
@@ -119,7 +135,12 @@ func lowerBinding(u *ast.Usage, scope *symbols.Scope) (Binding, bool) {
 			ends[i].Expr, ends[i].Index = end.AttachedSelection(), index
 		}
 	}
-	return Binding{Ends: ends, Scope: scope, Decl: u, Multiplicity: u.Multiplicity}, true
+	return Binding{Ends: ends, Scope: scope, Decl: u, Origin: bindingOrigin(u, scope), Multiplicity: u.Multiplicity}, true
+}
+
+func bindingOrigin(u *ast.Usage, scope *symbols.Scope) program.Origin {
+	name, _ := ast.EffectiveName(u)
+	return program.Origin{Doc: symbols.DocNameOf(scope), Span: u.Span(), Kind: "binding", Name: name}
 }
 
 // EndValueBindings lowers each `=` or `default =` in a connector end's body as a binding of the end's
@@ -153,7 +174,7 @@ func EndValueBindings(decl ast.Node, scope *symbols.Scope) []Binding {
 					{Path: endName + "." + name, Expr: u.Value},
 					{Expr: u.Value, Default: u.ValueIsDefault},
 				},
-				Scope: endScope, Decl: u,
+				Scope: endScope, Decl: u, Origin: bindingOrigin(u, endScope),
 			})
 		}
 	}
@@ -175,7 +196,7 @@ func usageName(scope *symbols.Scope, u *ast.Usage) string {
 	if u.Ident.Name != "" {
 		return u.Ident.Name
 	}
-	if sym := scope.MemberDeclaring(u); sym != nil && sym.Name != "" {
+	if sym := scope.MemberDeclaring(u); sym != nil && sym.Named() {
 		return sym.Name
 	}
 	for _, rel := range u.Relationships {

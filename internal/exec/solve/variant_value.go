@@ -1,9 +1,9 @@
 package solve
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // valueTypedVariation returns the variation point a term of a variation sort
@@ -12,7 +12,7 @@ import (
 // (KerML BaseFunctions::'==' is value equality for data values), as the
 // evaluator does. A point whose variants are objects, or an enumeration, is
 // nil; a point mixing the two refuses.
-func (t *translator) valueTypedVariation(node ast.Node, construct string, term *Term) (*symbols.Symbol, error) {
+func (t *translator) valueTypedVariation(node *lower.ExprEntry, construct string, term *Term) (*symbols.Symbol, error) {
 	if term.Sort.Kind != SortDatatype || !term.Sort.Variation {
 		return nil, nil
 	}
@@ -22,7 +22,7 @@ func (t *translator) valueTypedVariation(node ast.Node, construct string, term *
 	}
 	valued, objects := 0, 0
 	for _, variant := range t.model.VariantsOf(variation) {
-		if semantics.VariantValue(variant) != nil {
+		if t.ctx.VariantValueEntry(variant) != nil {
 			valued++
 		} else {
 			objects++
@@ -41,12 +41,12 @@ func (t *translator) valueTypedVariation(node ast.Node, construct string, term *
 // for: a variant, the value it declares; the point itself, the value of
 // whichever variant it selects, each variant's value translated under its
 // selection, as the evaluator reads only the selected one.
-func (t *translator) selectionValue(node ast.Node, construct string, variation *symbols.Symbol, term *Term) (*Term, error) {
+func (t *translator) selectionValue(node *lower.ExprEntry, construct string, variation *symbols.Symbol, term *Term) (*Term, error) {
 	variants := t.model.VariantsOf(variation)
 	if term.Op == OpValue {
 		for _, variant := range variants {
 			if term.Str == t.fqn(variant) {
-				return t.expr(semantics.VariantValue(variant), variant.OwnerScope)
+				return t.expr(t.ctx.VariantValueEntry(variant), variant.OwnerScope)
 			}
 		}
 		return nil, t.refuse(node, construct, term.Str+" is not a variant of "+variation.Name)
@@ -56,7 +56,7 @@ func (t *translator) selectionValue(node ast.Node, construct string, variation *
 	defer func() { t.branched-- }()
 	for _, variant := range variants {
 		value, err := t.under(Binary(OpEq, Bool, term, ValueTerm(term.Sort, t.fqn(variant))), func() (*Term, error) {
-			return t.expr(semantics.VariantValue(variant), variant.OwnerScope)
+			return t.expr(t.ctx.VariantValueEntry(variant), variant.OwnerScope)
 		})
 		if err != nil {
 			return nil, err
@@ -102,7 +102,7 @@ func choice(term *Term) bool {
 // equalityOf builds `==` or `!=` of two translated operands. Two variants compare
 // as the choice itself; a value-typed variation point, or one of its variants
 // against anything else, compares by the value it stands for.
-func (t *translator) equalityOf(n ast.Node, scope *symbols.Scope, construct string, op Op, left, right *Term) (*Term, error) {
+func (t *translator) equalityOf(n *lower.ExprEntry, scope *symbols.Scope, construct string, op Op, left, right *Term) (*Term, error) {
 	if !choice(left) || !choice(right) {
 		var err error
 		if left, err = t.asSelectionValue(n, construct, left); err != nil {
@@ -117,8 +117,8 @@ func (t *translator) equalityOf(n ast.Node, scope *symbols.Scope, construct stri
 		return nil, t.refuse(n, construct, "its operands yield "+left.Sort.Name+" and "+right.Sort.Name)
 	}
 	if left.Sort.Numeric() {
-		if cmp, ok := n.(*ast.OperatorExpr); ok {
-			if err := t.sameDimension(cmp, scope); err != nil {
+		if n.Kind == program.ExprOp {
+			if err := t.sameDimension(n, scope); err != nil {
 				return nil, err
 			}
 		}
@@ -128,7 +128,7 @@ func (t *translator) equalityOf(n ast.Node, scope *symbols.Scope, construct stri
 
 // asSelectionValue replaces a term of a value-typed variation sort by the value
 // it stands for, leaving any other term as it is.
-func (t *translator) asSelectionValue(node ast.Node, construct string, term *Term) (*Term, error) {
+func (t *translator) asSelectionValue(node *lower.ExprEntry, construct string, term *Term) (*Term, error) {
 	variation, err := t.valueTypedVariation(node, construct, term)
 	if err != nil || variation == nil {
 		return term, err

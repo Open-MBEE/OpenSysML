@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -242,5 +243,41 @@ func TestWriteRefusesAReportWithoutProvenance(t *testing.T) {
 	}
 	if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
 		t.Error("a report without provenance was still written")
+	}
+}
+
+func TestReadPilotJavaResolvesTheDeclaredJVM(t *testing.T) {
+	java, err := ReadPilotJava("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !regexp.MustCompile(`^[0-9]+$`).MatchString(java) {
+		t.Errorf("declared Java %q is not a feature release", java)
+	}
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "scripts"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	for _, content := range []string{"PILOT_JAVA=21\n", "PILOT_JAVA=\"${PILOT_JAVA:-21.0.4}\"\n", ""} {
+		if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(PinPath)), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if java, err := ReadPilotJava(root); err == nil || !strings.Contains(err.Error(), "declares no PILOT_JAVA") {
+			t.Errorf("pin %q: got %q, %v", content, java, err)
+		}
+	}
+}
+
+func TestCompareNamesARecordFromAnotherJVM(t *testing.T) {
+	recorded, current := Record{PilotJava: "25"}, Record{PilotJava: "21"}
+	mismatches := Compare(recorded, current)
+	if len(mismatches) != 1 || mismatches[0].Field != "pilotJava" || mismatches[0].Cause != CauseJVM {
+		t.Fatalf("mismatches = %+v, want the one JVM mismatch", mismatches)
+	}
+	if text := Explain("b.json", "refresh", mismatches); !strings.Contains(text, `baseline records "25", repository now has "21"`) || !strings.Contains(text, "first on PATH") {
+		t.Errorf("explanation does not name the JVMs and the remedy:\n%s", text)
+	}
+	if got := Compare(Record{}, Record{}); len(got) != 0 {
+		t.Errorf("baselines recording no JVM mismatch: %+v", got)
 	}
 }

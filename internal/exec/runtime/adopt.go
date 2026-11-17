@@ -119,7 +119,7 @@ func (ctx *Context) recordShapes(obj *Instance, shapes *Shapes, seen map[int64]b
 // notes that there is none to compare it by: a declaration of no name of its own
 // is reached by no name in a later resolution, whatever scope it sits in.
 func (ctx *Context) recordShape(sym *symbols.Symbol, shapes *Shapes) {
-	if sym == nil || sym.Name == "" || ctx.fqnOf(sym) == "" {
+	if sym == nil || !sym.Named() || ctx.fqnOf(sym) == "" {
 		shapes.unnamed = true
 		return
 	}
@@ -665,6 +665,18 @@ func (a *adoption) planValue(owner string, val Value) error {
 		}
 		if v.Kind == ValMetaobject {
 			if err = a.planMetaobject(v); err != nil {
+				return
+			}
+		}
+		if kind := v.QuantityKind(); kind != nil {
+			found, rebindErr := a.rebind(kind, "a quantity value type it holds a quantity as")
+			if rebindErr != nil {
+				err = rebindErr
+				return
+			}
+			if a.prev.typeDigest(kind) != a.ctx.typeDigest(found) {
+				err = &adoptError{Type: owner, Reason: fmt.Sprintf(
+					"the quantity value type %s it holds a quantity as resolves differently now", a.ctx.fqnOf(found))}
 				return
 			}
 		}
@@ -1299,7 +1311,7 @@ func (a *adoption) rewrite(val Value) Value {
 	case ValQuantity:
 		q := *val.Quantity()
 		q.Unit = a.rewriteUnit(q.Unit)
-		return NewQuantityValue(&q)
+		return NewQuantityValue(&q).ofQuantityKind(a.rebound[val.QuantityKind()])
 	case ValMeasurementRef:
 		return NewMeasurementRefValue(a.rewriteUnit(val.MeasurementRef().Unit))
 	case ValVectorQuantity:

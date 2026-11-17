@@ -210,7 +210,7 @@ func (ctx *Context) refineNestedBelow(inst *Instance, chain []string, sym *symbo
 		valuedChain(pendingRedefinition{rest: chain, sym: sym}) && ctx.chainGovernsValue(sym, bindingDecl(fv.Feature)) {
 		feat := *fv.Feature
 		feat.GovernedByChain = true
-		feat.DefaultValue = nil
+		feat.DefaultValue, feat.DefaultValueID = nil, 0
 		if err := ctx.installFeatureValue(inst, fv, &feat); err != nil {
 			return err
 		}

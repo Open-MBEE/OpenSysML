@@ -502,10 +502,26 @@ func (d *structureDifferential) computeGraphID(sym *symbols.Symbol) (string, boo
 			return element, ok
 		}
 	}
-	if i, ok := symbols.ImpliedSuccessionEndIndex(sym); ok {
-		// A `then` succession's end is minted under the edge at end0/end1 (encodeSuccessionEdge).
+	if sym.Chain != nil && sym.Chain.Flow != nil && sym.Chain.Node != nil {
+		// The chain Feature a flow's end references is minted under the end, filed by the chain as written.
+		element, _, ok := d.ids.OfExpressionPart(d.doc, sym.Chain.Node, "chain")
+		return element, ok
+	}
+	if i, ok := symbols.ImpliedConnectorEndIndex(sym); ok {
+		// A `then` succession's or a flow's end is minted under its edge at end0/end1 (encodeSuccessionEdge,
+		// connectorEnd); a transition's succession's under the transition at succession.end0/end1.
 		implied, _ := symbols.ImpliedDeclOf(sym)
-		element, _, ok := d.ids.OfExpressionPart(d.doc, implied.Of, fmt.Sprintf("end%d", i))
+		slot := fmt.Sprintf("end%d", i)
+		if symbols.ImpliedTransitionSuccessionEnd(sym) {
+			slot = "succession." + slot
+		}
+		element, _, ok := d.ids.OfExpressionPart(d.doc, implied.Of, slot)
+		return element, ok
+	}
+	if i, ok := symbols.ImpliedFlowEndFeatureIndex(sym); ok {
+		// The ReferenceUsage a flow's end owns is minted under the end (flowEndReferences).
+		implied, _ := symbols.ImpliedDeclOf(sym)
+		element, _, ok := d.ids.OfExpressionPart(d.doc, implied.Of, fmt.Sprintf("end%d.ff", i))
 		return element, ok
 	}
 	if implied, ok := symbols.ImpliedDeclOf(sym); ok && implied.Form == symbols.ImpliedDefaultMultiplicity {
@@ -579,6 +595,15 @@ func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationshi
 			return "", false
 		}
 		return d.expressionPartID(rel.Owner, "rs")
+	case symbols.ImplicitMetadataBodyRedefinition:
+		if _, ok := symbols.ImpliedFlowEndFeatureIndex(rel.Owner); ok {
+			// The Redefinition the ReferenceUsage a flow's end owns states is minted under it (`rd0`).
+			owner, ok := d.graphID(rel.Owner)
+			if !ok {
+				return "", false
+			}
+			return owner + relationshipSuffix(ast.RelRedefines, false, 1, 0), true
+		}
 	}
 	return "", false
 }
@@ -601,6 +626,10 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 		}
 		return d.expressionPartID(owner, "body")
 	case symbols.ExpressionBodyResult:
+		if owner.Expr == nil {
+			// A constraint body's closing condition is written under the member stating it (recordConstraintResult).
+			return d.ids.OfDeclaration(d.doc, sym.Decl, "")
+		}
 		return d.expressionPartID(owner, "result")
 	case symbols.ExpressionChangeWrapper:
 		if owner.Expr == nil || owner.Expr.Owner == nil {
@@ -609,6 +638,9 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 		return d.expressionPartID(owner.Expr.Owner, "a0")
 	case symbols.ExpressionChainFeature:
 		return d.expressionPartID(owner, sym.Expr.Slot)
+	case symbols.ExpressionTransitionLinkParameter:
+		// A transition's link parameters are minted at linkparam and triggerparam (transitionHeadMembers).
+		return d.expressionPartID(owner, []string{"linkparam", "triggerparam"}[sym.Expr.Index])
 	case symbols.ExpressionPayload:
 		// A send's argument parameter is written as the send's unnamed member at
 		// its argument position (encodeSendArguments: qualify(fqn, "", i)).
@@ -626,6 +658,13 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 			return "", false
 		}
 		return base + transitionSuccessionSuffix, true
+	case symbols.ExpressionTransitionLink:
+		// A transition's transitionLink is minted off the transition too (transitionLinkMember).
+		base, ok := d.graphID(owner)
+		if !ok {
+			return "", false
+		}
+		return base + transitionLinkSuffix, true
 	case symbols.ExpressionValue:
 		// The value of a send's argument parameter is the parameter's `value` part.
 		if owner.Expr != nil && owner.Expr.Role == symbols.ExpressionPayload && owner.Expr.Owner != nil &&

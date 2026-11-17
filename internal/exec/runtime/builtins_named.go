@@ -3,6 +3,7 @@ package runtime
 import (
 	"fmt"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -71,12 +72,13 @@ func (ec *EvalContext) deferredCount(val Value) semantics.Range {
 	env := val.exprEnv(ec)
 	body, ok := val.expr().(*ast.BodyExpr)
 	if !ok {
-		return ec.declaredCount(env.scope, val.expr())
+		return ec.declaredCount(env.scope, ec.ctx.model.loweredExpr(env.scope, val.expr()))
 	}
 	if body.Result == nil || env.scope == nil {
 		return openRange()
 	}
-	return ec.declaredCount(symbols.BodyExprScope(env.scope, body), body.Result)
+	within := symbols.BodyExprScope(env.scope, body)
+	return ec.declaredCount(within, ec.ctx.model.loweredExpr(within, body.Result))
 }
 
 // builtinControlIf is ControlFunctions::'if'(test, thenValue, elseValue): the
@@ -133,7 +135,7 @@ func builtinControlLogical(op ast.OperatorKind) builtinFunc {
 			if err != nil {
 				return Value{}, err
 			}
-			if decided, result := shortCircuit(op, l); decided {
+			if decided, result := shortCircuit(lower.OperatorOf(op), l); decided {
 				return boolValue(result), nil
 			}
 		}
@@ -145,7 +147,7 @@ func builtinControlLogical(op ast.OperatorKind) builtinFunc {
 		if err != nil {
 			return Value{}, err
 		}
-		return ec.ctx.combineBooleanValues(op, args[0], second)
+		return ec.ctx.combineBooleanValues(lower.OperatorOf(op), args[0], second)
 	}
 }
 

@@ -44,6 +44,15 @@ type Calc struct {
 	StepsReturn bool
 	// StepCount counts the action nodes a case's body performs as its steps.
 	StepCount int
+	// StatesFlow reports a body, or a loop or branch block of it, stating a token
+	// flow of its own: successions or control nodes among its members.
+	StatesFlow bool
+	// PerformsActions reports a body stating, at any depth, a step only a performance
+	// can take: a nested action or `perform`, an accept, or a terminate.
+	PerformsActions bool
+	// FlowBody reports the body itself stating that flow, lowered as a case body is:
+	// its statements are steps of the flow, not a list to order.
+	FlowBody bool
 }
 
 // CalcParam is one input parameter of a calc, in positional order.
@@ -130,10 +139,10 @@ func (c *Calc) IsCase() bool {
 	return c.Kind == "analysis" || c.Kind == "verification"
 }
 
-// Performs reports whether the body's action nodes are performed as steps: a case
-// is an action, so its body is; a calc's body performs nothing.
+// Performs reports whether the body runs as a performance whose action nodes are its steps:
+// a case's, and a calc's stating a token flow or a step of an action (SysML v2 §7.19.1).
 func (c *Calc) Performs() bool {
-	return c.IsCase()
+	return c.IsCase() || c.StatesFlow || c.PerformsActions
 }
 
 // BodyScope is the namespace the body's names resolve in.

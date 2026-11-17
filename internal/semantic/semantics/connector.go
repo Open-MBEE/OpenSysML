@@ -69,6 +69,9 @@ func (m *Model) ownedEnds(sym *symbols.Symbol) []*symbols.Symbol {
 	if ends := m.SuccessionEndMembers(sym); ends != nil {
 		return ends
 	}
+	if ends := m.FlowEndMembers(sym); ends != nil {
+		return ends
+	}
 	var out []*symbols.Symbol
 	if u, ok := sym.Decl.(*ast.Usage); ok {
 		for _, end := range u.ConnectorEnds {
@@ -234,7 +237,7 @@ func endRedefined(end *symbols.Symbol, i int, owned []*symbols.Symbol, redefined
 	if redefined[end] {
 		return true
 	}
-	return i < len(owned) && (owned[i] == nil || owned[i].Name == "")
+	return i < len(owned) && (owned[i] == nil || !owned[i].Named())
 }
 
 // namedEnds returns the ends of general that end's `:>>` clauses name, matched
@@ -331,6 +334,12 @@ func (m *Model) implicitEndRedefinitions(sym *symbols.Symbol) []*symbols.Symbol 
 			out = append(out, end)
 		}
 	}
+	if i, ok := symbols.ImpliedFlowEndIndex(sym); ok && len(out) == 0 {
+		// A flow's minted end redefines the Flows::flows end at its position (source, target).
+		if end := m.impliedEnd(ast.UsageFlow, i); end != nil {
+			out = append(out, end)
+		}
+	}
 	return out
 }
 
@@ -340,7 +349,7 @@ func (m *Model) declaredEndCount(sym *symbols.Symbol) int {
 	owned := m.ownedEnds(sym)
 	var inherited []connectorEnd
 	for _, rel := range RelationshipsOf(sym) {
-		if rel == nil || !GeneralizationKind(rel.Kind) {
+		if rel == nil || !Generalizes(sym, rel.Kind) {
 			continue
 		}
 		sup := m.relationshipTarget(sym, rel)
@@ -390,7 +399,7 @@ func declaresEnd(sym *symbols.Symbol) bool {
 	case *ast.Usage:
 		return d.IsEnd
 	case *symbols.ImpliedDecl:
-		_, ok := symbols.ImpliedSuccessionEndIndex(sym)
+		_, ok := symbols.ImpliedConnectorEndIndex(sym)
 		return ok
 	}
 	return false
@@ -422,7 +431,7 @@ func (m *Model) UnmatchedConnectorEnds(sym *symbols.Symbol) (*symbols.Symbol, []
 		for i, end := range owned {
 			// An end with no name of its own matches by position alone; one
 			// beyond the general's arity is an excess end, not an unmatched one.
-			if end == nil || end.Name == "" || i < len(supEnds) || len(namedEnds(end, supEnds)) > 0 {
+			if end == nil || !end.Named() || i < len(supEnds) || len(namedEnds(end, supEnds)) > 0 {
 				continue
 			}
 			unmatched = append(unmatched, end)
@@ -553,6 +562,10 @@ func endReferencesFeature(end connectorEnd) bool {
 			// A named clause end always names the feature it references.
 			return end.feature.Kind == symbols.SymbolConnectorEnd ||
 				len(end.feature.RecordedRelationships(ast.RelReferences)) > 0
+		}
+		if _, ok := symbols.ImpliedConnectorEndIndex(end.feature); ok {
+			// A flow's or a `then` succession's end is minted only once its clause attaches it to a feature.
+			return true
 		}
 		switch d := end.feature.Decl.(type) {
 		case *ast.Usage:
@@ -693,6 +706,8 @@ type ConnectorEndAttachment struct {
 	// answers a name — an end of an untyped connector with an arity other than
 	// two, whose ends are the participants of a link and are unnamed.
 	Name string
+	// Named tells an end named by the empty unrestricted name from an unnamed one.
+	Named bool
 	// Attachment is the expression naming the connected feature (`a.p`).
 	Attachment ast.Node
 	// Index is the expression an indexed end selects one element of Attachment's
@@ -866,17 +881,17 @@ func (m *Model) connectorEndAttachments(sym *symbols.Symbol, ends []connectorEnd
 		switch {
 		// An end named by its own declaration names the attachment; one that
 		// only names what it attaches to takes the name of the end it redefines.
-		case i < len(owned) && owned[i] != nil && owned[i].Name != "":
-			att.Name, att.EndFeature = symbols.LastSegment(owned[i].Name), owned[i]
+		case i < len(owned) && owned[i] != nil && owned[i].Named():
+			att.Name, att.Named, att.EndFeature = symbols.LastSegment(owned[i].Name), true, owned[i]
 		case general != nil:
 			att.EndFeature = general
-			if name := m.EffectiveNameOf(general); name != "" {
-				att.Name = symbols.LastSegment(name)
+			if name, named := m.EffectiveNamed(general); named {
+				att.Name, att.Named = symbols.LastSegment(name), true
 			} else if len(ends) == 2 {
-				att.Name = binaryConnectorEndNames[i]
+				att.Name, att.Named = binaryConnectorEndNames[i], true
 			}
 		case len(ends) == 2:
-			att.Name = binaryConnectorEndNames[i]
+			att.Name, att.Named = binaryConnectorEndNames[i], true
 		}
 		out = append(out, att)
 	}
@@ -934,7 +949,7 @@ func (m *Model) ImpliedEndName(kind ast.UsageKind, i int) string {
 func (m *Model) impliedEnd(kind ast.UsageKind, i int) *symbols.Symbol {
 	if fqn, ok := implicitUsageBases[kind]; ok && m.resolver != nil && m.resolver.Index() != nil {
 		for _, base := range m.resolver.Index().LookupQualified(fqn) {
-			if ends := m.endsOf(base); i < len(ends) && ends[i] != nil && ends[i].Name != "" {
+			if ends := m.endsOf(base); i < len(ends) && ends[i] != nil && ends[i].Named() {
 				return ends[i]
 			}
 		}

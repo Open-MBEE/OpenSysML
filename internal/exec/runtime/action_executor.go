@@ -358,6 +358,14 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 			declared[key] = len(features)
 			features = append(features, e.inheritedAttribute(member, usage, key, true))
 		})
+	// A value taken from a general is no expression of the flow: all are read from the model's table.
+	for i := range features {
+		scope := features[i].Scope
+		if scope == nil {
+			scope = e.graph.Scope
+		}
+		features[i].ValueID = e.ctx.model.exprs.Intern(features[i].Value, scope)
+	}
 	return features
 }
 
@@ -1345,7 +1353,7 @@ func (e *ActionExecutor) breakpointNameOf(within []NodeRef, node NodeRef) string
 		if name := ActionNodeName(decl); name != "" {
 			return name
 		}
-		return nodeDescription(decl)
+		return describeNode(node.Graph, decl)
 	}
 	for _, name := range actionNodeNames(decl) {
 		if e.breakpoints[name] {
@@ -1518,7 +1526,7 @@ func (e *ActionExecutor) initializeAttributes() error {
 				e.root.cells, e.root.key(attr.Name), e.root.cells.existingCell(e.root.key(attr.Name)),
 			)
 		} else {
-			value, err = evalDefaults().evalIn(attr.Scope).Eval(attr.Value)
+			value, err = evalDefaults().evalIn(attr.Scope).reading(e.ctx.model.exprs).evalPayload(attr.ValueID)
 		}
 		if err != nil {
 			return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
@@ -1947,14 +1955,15 @@ func (e *ActionExecutor) fixWitnessInputs() error {
 		}
 		value := in.Value
 		if value.Kind == ValInvalid {
-			expr, ok, err := e.ctx.model.parseOneExpression("<witness>", in.Written)
+			expr, err := e.ctx.model.readExpression("<witness>", in.Written, ec.scope)
 			if err != nil {
 				return err
 			}
-			if !ok {
+			if expr == nil {
 				return &WitnessInputError{Feature: in.Feature, Reason: fmt.Sprintf("%q is not an expression the notation reads", in.Written)}
 			}
-			evaluated, err := ec.Eval(expr)
+			evaluated, err := ec.evaluate(expr.lowered, false)
+			expr.forget()
 			if err != nil {
 				return &WitnessInputError{Feature: in.Feature, Reason: fmt.Sprintf("%q does not evaluate: %v", in.Written, err)}
 			}
@@ -2336,7 +2345,7 @@ func (e *ActionExecutor) enabledSuccessions(frame *actionFrame, node ast.Node) (
 
 	enabled := make([]lower.ActionEdge, 0, len(declared))
 	for _, edge := range declared {
-		holds, err := e.guardHolds(ec.evalIn(graph.DeclScope(edge.Decl)), node, edge.Guard)
+		holds, err := e.guardHolds(ec.evalIn(graph.DeclScope(edge.Decl)), graph, node, edge.Guard, edge.GuardID)
 		if err != nil {
 			return nil, err
 		}
@@ -2372,29 +2381,30 @@ func (e *ActionExecutor) falseGuardLeavesRepeated(graph *lower.ActionGraph, edge
 
 // guardHolds evaluates the guard a succession out of node carries; none is unconditional, and
 // one reading a feature with no value is not true, so it does not assert it (SysML v2 7.17.5).
-func (e *ActionExecutor) guardHolds(ec *EvalContext, node, guard ast.Node) (bool, error) {
+func (e *ActionExecutor) guardHolds(ec *EvalContext, graph *lower.ActionGraph, node, guard ast.Node, id program.ExprID) (bool, error) {
+	ec = ec.reading(graph.Exprs)
 	return e.ctx.guardUnderStatementOrders(guard, e.stepCount+1, ec.scope, func() (bool, error) {
-		result, err := guardResult(ec, guard)
+		result, err := guardResult(ec, guard, id)
 		if readsNoValue(err) {
 			return false, nil
 		}
 		if err != nil {
-			return false, fmt.Errorf("eval guard of %s: %w", nodeDescription(node), err)
+			return false, fmt.Errorf("eval guard of %s: %w", describeNode(graph, node), err)
 		}
 		if !result.isBool() {
 			return false, fmt.Errorf("%w: %s: guard must evaluate to boolean, got %v",
-				ErrTypeMismatch, nodeDescription(node), result.Kind)
+				ErrTypeMismatch, describeNode(graph, node), result.Kind)
 		}
 		return result.Const.Bool, nil
 	})
 }
 
 // guardResult is what a guard evaluates to; no guard is true.
-func guardResult(ec *EvalContext, guard ast.Node) (Value, error) {
+func guardResult(ec *EvalContext, guard ast.Node, id program.ExprID) (Value, error) {
 	if guard == nil {
 		return boolValue(true), nil
 	}
-	result, err := ec.Eval(guard)
+	result, err := ec.evalPayload(id)
 	return soleElement(result), err
 }
 
@@ -2410,9 +2420,9 @@ func (e *ActionExecutor) probeGuard(frame *actionFrame, node *ast.DecisionNode, 
 	func() {
 		defer e.ctx.beginProbe()()
 		holds, err = e.ctx.guardUnderStatementOrders(guard, e.stepCount+1, scope, func() (bool, error) {
-			ec := e.evalContextFor(frame, scope)
+			ec := e.evalContextFor(frame, scope).reading(e.graphOf(frame).Exprs)
 			defer ec.beginStep()()
-			result, err := guardResult(ec, guard)
+			result, err := guardResult(ec, guard, successors[i].GuardID)
 			if err != nil {
 				return false, err
 			}
@@ -2497,7 +2507,7 @@ func (e *ActionExecutor) readiness(id int64, eligible func(Token) bool) (ready b
 	}
 	t := e.tokens[i]
 	if e.dynamics != nil {
-		return e.dynamicsDue(t), nil
+		return e.dynamicsDue(t) && !e.awaitsSource(), nil
 	}
 	usage, ok := t.Node().(*ast.Usage)
 	if !ok || t.body != nil {
@@ -2836,7 +2846,7 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 			}
 		} else {
 			var err error
-			if holds, err = e.guardHolds(ec.evalIn(graph.DeclScope(edge.Decl)), decisionNode, edge.Guard); err != nil {
+			if holds, err = e.guardHolds(ec.evalIn(graph.DeclScope(edge.Decl)), graph, decisionNode, edge.Guard, edge.GuardID); err != nil {
 				return err
 			}
 		}
@@ -2857,7 +2867,7 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 		// is the run's own, so the run holds what evaluating it did.
 		if pick > 0 && successors[holding[pick]].Guard != nil {
 			picked := successors[holding[pick]]
-			holds, err := e.guardHolds(ec.evalIn(graph.DeclScope(picked.Decl)), decisionNode, picked.Guard)
+			holds, err := e.guardHolds(ec.evalIn(graph.DeclScope(picked.Decl)), graph, decisionNode, picked.Guard, picked.GuardID)
 			if err != nil {
 				return err
 			}
@@ -3186,10 +3196,10 @@ func (e *ActionExecutor) triggerHolds(token *Token, accept lower.Accept) (bool, 
 	frame := token.frame
 	switch t := accept.Trigger.(type) {
 	case *ast.ChangeEvent:
-		ec := e.evalContextFor(frame, frame.graph.Scope)
+		ec := e.evalContextFor(frame, frame.graph.Scope).reading(frame.graph.Exprs)
 		defer ec.beginStep()()
 		return e.ctx.guardUnderStatementOrders(t.Condition, e.stepCount+1, frame.graph.Scope, func() (bool, error) {
-			result, err := ec.Eval(t.Condition)
+			result, err := ec.evalPayload(accept.TriggerExprID)
 			if err != nil {
 				return false, fmt.Errorf("eval accept condition: %w", err)
 			}
@@ -3206,9 +3216,9 @@ func (e *ActionExecutor) triggerHolds(token *Token, accept lower.Accept) (bool, 
 		if err := e.ctx.judgeTimeTriggerType(frame.graph.Scope, t); err != nil {
 			return false, err
 		}
-		ec := e.evalContextFor(frame, frame.graph.Scope)
+		ec := e.evalContextFor(frame, frame.graph.Scope).reading(frame.graph.Exprs)
 		defer ec.beginStep()()
-		val, err := ec.Eval(t.Duration)
+		val, err := ec.evalPayload(accept.TriggerExprID)
 		if err != nil {
 			return false, fmt.Errorf("eval %s: %w", triggerDescription(t), err)
 		}
@@ -3369,6 +3379,9 @@ func (e *ActionExecutor) dueWork() bool {
 	if e.released || (e.state != StateRunning && e.state != StateWaiting) {
 		return false
 	}
+	if e.awaitsSource() {
+		return false
+	}
 	for _, token := range e.tokens {
 		if token.Wait == nil && !token.pausedOnClock() && !token.pausedOnMessage() && !token.pausedOnChange() &&
 			!e.heldAtSync(token) && token.inFlowOf(e.awaiting) {
@@ -3522,7 +3535,7 @@ func (e *performances) applyDataFlows(
 			}
 			return fmt.Errorf(
 				"%w: %s: %s produced no value at %s",
-				errFlowSource, flowDescription(flow), nodeDescription(sourceNode), orAnyPin(flow.SourcePin),
+				errFlowSource, flowDescription(flow), describeNode(graph, sourceNode), orAnyPin(flow.SourcePin),
 			)
 		}
 		var err error
@@ -3586,13 +3599,14 @@ func orAnyPin(pin string) string {
 	return pin
 }
 
-// nodeDescription names an action node for a diagnostic, falling back to the
-// kind of node it is when the notation gave it no name.
-func nodeDescription(node ast.Node) string {
-	if name := ActionNodeName(node); name != "" {
-		return "node " + name
+//go:noinline
+func describeNode(graph *lower.ActionGraph, node ast.Node) string {
+	// Names a node for a diagnostic by its origin (`node a`, else `the if action`); kept out
+	// of line because inlined into every error path it cost 17 KB of the wasm size budget.
+	if graph == nil {
+		return program.Origin{}.String()
 	}
-	return fmt.Sprintf("the %T", node)
+	return graph.OriginOf(node).String()
 }
 
 // --- Public accessor methods for REPL debugging ---
@@ -3726,7 +3740,7 @@ func (e *ActionExecutor) collectPartsHeld(into map[string]Value) {
 		return
 	}
 	for _, sym := range e.action.Scope.Members() {
-		if sym.Name == "" || (sym.Kind != symbols.SymbolPartUsage && sym.Kind != symbols.SymbolItemUsage) {
+		if !sym.Named() || (sym.Kind != symbols.SymbolPartUsage && sym.Kind != symbols.SymbolItemUsage) {
 			continue
 		}
 		objects, live := e.ctx.liveOccurrences(sym)

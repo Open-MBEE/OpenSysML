@@ -121,6 +121,10 @@ func (m *Model) directRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	out = append(out, m.ImplicitParameterRedefinitions(sym)...)
 	out = append(out, m.implicitEndRedefinitions(sym)...)
 	out = append(out, m.ImplicitRoleRedefinitions(sym)...)
+	if target := m.flowEndFeatureRedefinition(sym); target != nil {
+		// The ReferenceUsage a flow's end owns is named by the feature it redefines (FlowFeatureMember).
+		out = append(out, target)
+	}
 	return append(out, m.implicitMetadataBodyRedefinitions(sym)...)
 }
 
@@ -174,14 +178,41 @@ func (m *Model) maskingRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol 
 // EffectiveNameOf is Element::effectiveName: the declared name, or the one of
 // the feature an unnamed feature takes its identifiers from (KerML 1.1 §8.2.4).
 func (m *Model) EffectiveNameOf(sym *symbols.Symbol) string {
-	return inheritedIdentifier(sym, m.declaresOwnIdentifier, declaredName, m.namingFeature)
+	name, _ := m.EffectiveNamed(sym)
+	return name
+}
+
+// EffectiveNamed is EffectiveNameOf with whether there is such a name, which
+// tells the empty unrestricted name from none (KerML §8.2.2.3).
+func (m *Model) EffectiveNamed(sym *symbols.Symbol) (string, bool) {
+	from := identifierSource(sym, m.declaresOwnIdentifier, m.namingFeature)
+	if from == nil {
+		return "", false
+	}
+	return from.Name, from.Named()
+}
+
+// NameSourceOf is the element whose declared identifiers sym answers to: sym itself,
+// or the one its naming features lead to (KerML 1.1 §8.3.3.3); nil when none declares any.
+func (m *Model) NameSourceOf(sym *symbols.Symbol) *symbols.Symbol {
+	return identifierSource(sym, m.declaresOwnIdentifier, m.namingFeature)
 }
 
 // EffectiveShortNameOf is Element::shortName: the declared short name, or, for
 // a feature declaring neither identifier, that of the feature it takes its
 // identifiers from (KerML 1.1 §8.2.4, §8.3.3.3).
 func (m *Model) EffectiveShortNameOf(sym *symbols.Symbol) string {
-	return inheritedIdentifier(sym, m.declaresOwnIdentifier, declaredShortName, m.namingFeature)
+	name, _ := m.EffectiveShortNamed(sym)
+	return name
+}
+
+// EffectiveShortNamed is EffectiveShortNameOf with whether there is such a short name.
+func (m *Model) EffectiveShortNamed(sym *symbols.Symbol) (string, bool) {
+	from := identifierSource(sym, m.declaresOwnIdentifier, m.namingFeature)
+	if from == nil {
+		return "", false
+	}
+	return from.ShortName, from.HasShortName()
 }
 
 // declaresOwnIdentifier is declaresIdentifier for a symbol that is not a metadata
@@ -190,32 +221,28 @@ func (m *Model) declaresOwnIdentifier(sym *symbols.Symbol) bool {
 	return declaresIdentifier(sym) && !m.RestatesMetadataBodyFeature(sym)
 }
 
-func declaredName(sym *symbols.Symbol) string      { return sym.Name }
-func declaredShortName(sym *symbols.Symbol) string { return sym.ShortName }
-
 // declaresIdentifier reports whether sym's declaration states a name or a short
 // name of its own; a symbol named by its naming feature (KerML 7.3.4.5) declares neither.
 func declaresIdentifier(sym *symbols.Symbol) bool {
-	return sym.Naming == symbols.NamedByDeclaration && (sym.Name != "" || sym.ShortName != "")
+	return sym.Naming == symbols.NamedByDeclaration && (sym.Named() || sym.HasShortName())
 }
 
-// inheritedIdentifier reads identifier id from the first of sym and the
-// features from leads to that declares one; "" past a cycle or the chain's end.
-func inheritedIdentifier(
+// identifierSource is the first of sym and the features from leads to that
+// declares an identifier; nil past a cycle or the chain's end.
+func identifierSource(
 	sym *symbols.Symbol,
 	declares func(*symbols.Symbol) bool,
-	id func(*symbols.Symbol) string,
 	from func(*symbols.Symbol) *symbols.Symbol,
-) string {
+) *symbols.Symbol {
 	seen := make(map[*symbols.Symbol]bool)
 	for sym != nil && !seen[sym] {
 		if declares(sym) {
-			return id(sym)
+			return sym
 		}
 		seen[sym] = true
 		sym = from(sym)
 	}
-	return ""
+	return nil
 }
 
 // namingFeature is Feature::namingFeature, the feature an unnamed feature takes
@@ -302,157 +329,6 @@ func (m *Model) redefinitionTarget(sym *symbols.Symbol, target ast.Node) *symbol
 		return resolved
 	}
 	return nil
-}
-
-// redefinitionMask returns the elements sym does not inherit because a feature
-// of sym — owned or itself inherited — redefines them. Members sym declares are
-// never masked: only inheritance is affected. When declared is false the
-// features sym declares mask nothing, which is how a declaration written in sym
-// sees what sym inherits (KerML 8.3.3.3.6). Memoized.
-func (m *Model) redefinitionMask(sym *symbols.Symbol, declared bool) map[*symbols.Symbol]bool {
-	if m == nil {
-		return nil
-	}
-	cache := m.redefMask
-	if !declared {
-		cache = m.redefMaskInherited
-	}
-	return m.memoizedMask(sym, cache, func(yield func(*symbols.Symbol) bool) {
-		m.forEachMaskCandidate(sym, declared, yield)
-	})
-}
-
-// ownRedefinitionMask returns the elements sym's specializations do not inherit
-// through sym because a feature sym declares redefines them. Memoized.
-func (m *Model) ownRedefinitionMask(sym *symbols.Symbol) map[*symbols.Symbol]bool {
-	if m == nil {
-		return nil
-	}
-	return m.memoizedMask(sym, m.redefMaskOwn, func(yield func(*symbols.Symbol) bool) {
-		if sym.Scope != nil {
-			sym.Scope.ForEachMember(yield)
-		}
-	})
-}
-
-// memoizedMask builds the mask the candidates iterate yields cause on sym, cached
-// in cache once the redefinitions it depends on have settled.
-func (m *Model) memoizedMask(
-	sym *symbols.Symbol,
-	cache map[*symbols.Symbol]map[*symbols.Symbol]bool,
-	iterate func(func(*symbols.Symbol) bool),
-) map[*symbols.Symbol]bool {
-	if m == nil || sym == nil {
-		return nil
-	}
-	defer m.own(sym).LeaveDoc()
-	if cached, ok := cache[sym]; ok {
-		return cached
-	}
-	journal(m, cache, sym, sym.Decl)
-	cache[sym] = nil // re-entrancy guard: a nested query sees no mask
-	m.resolver.Enter()
-	mask := m.buildMaskFromCandidates(sym, iterate)
-	// A redefinition mid-resolution contributes nothing yet, so its mask is not final.
-	if m.resolver.Leave() && m.computingRedefinedFeatures == 0 {
-		cache[sym] = mask
-	} else {
-		delete(cache, sym)
-	}
-	return mask
-}
-
-// redefinitionMaskExcluding is the mask on sym with one of its own declarations
-// left out: the declaration being written, whose redefinition must not hide the
-// feature it names (KerML 8.3.3.3.6). Not memoized — it is asked per edit.
-func (m *Model) redefinitionMaskExcluding(sym, exclude *symbols.Symbol) map[*symbols.Symbol]bool {
-	if m == nil || sym == nil {
-		return nil
-	}
-	return m.buildMaskFromCandidates(sym, func(yield func(*symbols.Symbol) bool) {
-		m.forEachMaskCandidate(sym, true, func(candidate *symbols.Symbol) bool {
-			if candidate == exclude {
-				return true
-			}
-			return yield(candidate)
-		})
-	})
-}
-
-// buildMask closes candidates' redefinitions transitively into the set of
-// elements sym does not inherit.
-func (m *Model) buildMask(sym *symbols.Symbol, candidates []*symbols.Symbol) map[*symbols.Symbol]bool {
-	mask := make(map[*symbols.Symbol]bool)
-	visited := make(map[*symbols.Symbol]bool)
-	pending := candidates
-	for i := 0; i < len(pending); i++ {
-		redefining := pending[i]
-		for _, target := range m.RedefinedFeatures(redefining) {
-			if target == sym {
-				continue
-			}
-			if !redefinesSibling(redefining, target) {
-				mask[target] = true
-			}
-			if !visited[target] {
-				visited[target] = true
-				pending = append(pending, target) // a redefined feature's own targets are masked too
-			}
-		}
-	}
-	// A local declaration is present whatever it redefines.
-	if sym.Scope != nil {
-		sym.Scope.ForEachMember(func(local *symbols.Symbol) bool {
-			delete(mask, local)
-			return true
-		})
-	}
-	if len(mask) == 0 {
-		return nil
-	}
-	return mask
-}
-
-// buildMaskFromCandidates unions cached candidate closures, falling back to the
-// exact expansion when a closure is cyclic or reaches the owner.
-func (m *Model) buildMaskFromCandidates(
-	sym *symbols.Symbol,
-	iterate func(func(*symbols.Symbol) bool),
-) map[*symbols.Symbol]bool {
-	mask := make(map[*symbols.Symbol]bool)
-	fallback := false
-	iterate(func(candidate *symbols.Symbol) bool {
-		if candidate == nil {
-			return true
-		}
-		closure, cyclic := m.redefinitionClosure(candidate)
-		if cyclic || closure[sym] {
-			fallback = true
-			return false
-		}
-		for target := range closure {
-			mask[target] = true
-		}
-		return true
-	})
-	if fallback {
-		candidates := make([]*symbols.Symbol, 0, 8)
-		iterate(func(candidate *symbols.Symbol) bool {
-			candidates = append(candidates, candidate)
-			return true
-		})
-		return m.buildMask(sym, candidates)
-	}
-	if sym.Scope != nil {
-		sym.Scope.ForEachMember(func(local *symbols.Symbol) bool {
-			delete(mask, local)
-			return true
-		})
-	}
-	if len(mask) == 0 {
-		return nil
-	}
-	return mask
 }
 
 // redefinesSibling reports whether target is declared beside redefining: a type
@@ -569,11 +445,10 @@ func (m *Model) NamingRedefinerRedefining(sym, masked *symbols.Symbol) *symbols.
 	return m.namingRedefiner(sym, masked, false)
 }
 
-// OwnRedefinitionMasked reports whether a feature sym declares redefines
-// candidate, so that what specializes sym does not inherit candidate through
-// sym, whatever sym's own generals still offer along another path.
+// OwnRedefinitionMasked reports whether sym's own features keep its
+// specializations from inheriting candidate through sym (KerML 8.3.3.1.10, condition 2).
 func (m *Model) OwnRedefinitionMasked(sym, candidate *symbols.Symbol) bool {
-	return m.maskedBy(m.ownRedefinitionMask(sym), candidate)
+	return m.ownRedefinitions(sym, nil).masks(m, m.aliased(candidate))
 }
 
 // OwnNamingRedefiner returns the feature sym declares in place of masked, named
@@ -582,30 +457,33 @@ func (m *Model) OwnNamingRedefiner(sym, masked *symbols.Symbol) *symbols.Symbol 
 	if m == nil || sym == nil || sym.Scope == nil {
 		return nil
 	}
-	return m.namingRedefinerAmong(masked, m.ownRedefinitionMask(sym), sym.Scope.ForEachMember)
+	own := m.ownRedefinitions(sym, nil)
+	return m.namingRedefinerAmong(masked, func(candidate *symbols.Symbol) bool {
+		return own.masks(m, m.aliased(candidate))
+	}, sym.Scope.ForEachMember)
 }
 
 func (m *Model) namingRedefiner(sym, masked *symbols.Symbol, declared bool) *symbols.Symbol {
 	if m == nil || sym == nil {
 		return nil
 	}
-	return m.namingRedefinerAmong(masked, m.redefinitionMask(sym, declared), func(yield func(*symbols.Symbol) bool) {
+	mask := m.redefinitionMask(sym, declared)
+	return m.namingRedefinerAmong(masked, func(candidate *symbols.Symbol) bool {
+		return m.maskedBy(mask, candidate)
+	}, func(yield func(*symbols.Symbol) bool) {
 		m.forEachMaskCandidate(sym, declared, yield)
 	})
 }
 
-// namingRedefinerAmong finds, among the candidates iterate yields, the unmasked
-// feature named by redefining masked.
-func (m *Model) namingRedefinerAmong(masked *symbols.Symbol, mask map[*symbols.Symbol]bool, iterate func(func(*symbols.Symbol) bool)) *symbols.Symbol {
-	if masked == nil {
+// namingRedefinerAmong finds the kept candidate named by redefining masked; an
+// alias of masked is no identifier a redefinition takes (KerML 8.3.3.3.4 effectiveName).
+func (m *Model) namingRedefinerAmong(masked *symbols.Symbol, lost func(*symbols.Symbol) bool, iterate func(func(*symbols.Symbol) bool)) *symbols.Symbol {
+	if masked == nil || masked.Kind == symbols.SymbolAlias {
 		return nil
-	}
-	if target, ok := m.resolver.ResolveAliasTarget(masked); ok {
-		masked = target
 	}
 	var found *symbols.Symbol
 	iterate(func(candidate *symbols.Symbol) bool {
-		if declaresIdentifier(candidate) || m.maskedBy(mask, candidate) {
+		if declaresIdentifier(candidate) || lost(candidate) {
 			return true
 		}
 		if m.namedThrough(candidate, masked) {
@@ -650,9 +528,13 @@ func (m *Model) maskedBy(mask map[*symbols.Symbol]bool, candidate *symbols.Symbo
 	if len(mask) == 0 || candidate == nil {
 		return false
 	}
-	if mask[candidate] {
-		return true
+	return mask[candidate] || mask[m.aliased(candidate)]
+}
+
+// aliased is the element an alias membership names, else sym itself.
+func (m *Model) aliased(sym *symbols.Symbol) *symbols.Symbol {
+	if target, ok := m.resolver.ResolveAliasTarget(sym); ok {
+		return target
 	}
-	target, ok := m.resolver.ResolveAliasTarget(candidate)
-	return ok && mask[target]
+	return sym
 }

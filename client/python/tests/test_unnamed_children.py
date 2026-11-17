@@ -73,7 +73,7 @@ def test_children_list_every_member_the_query_reports(tmp_path):
         children = [(c.kind, c.id) for c in controller.children()]
         queried = [(e.type, e.id) for e in model.query(scope=[owner]) if e.id != owner]
         assert [c_id for _, c_id in children] == [q_id for _, q_id in queried]
-        assert [c_id for kind, c_id in children if kind == "bindingUsage"] == [
+        assert [c_id for kind, c_id in children if kind == "bindingConnectorAsUsage"] == [
             f"{owner}::@3", f"{owner}::toMonitor", f"{owner}::@5"]
         assert [c_id for kind, c_id in children if kind == "connectionUsage"] == [f"{owner}::@6"]
         assert len(controller.parts()) == 3
@@ -101,3 +101,91 @@ def test_children_list_body_and_prefix_metadata(tmp_path):
             assert children[0].metadata.get("type") == "FailureMode"
             queried = [e.id for e in model.query(scope=[owner]) if e.type == "MetadataUsage"]
             assert queried == [f"{owner}::{leaf}"], owner
+
+
+INHERITED_MODEL = """
+package U {
+    part def Unit { out item o; in item i; }
+    metadata def M;
+    part def Holder {
+        part x : Unit;
+        part y : Unit;
+        part : Unit;
+        attribute : ScalarValues::Real;
+        bind x.o = y.o;
+        connect x to y;
+        flow from x.o to y.i;
+        @M;
+    }
+    part holder : Holder;
+}
+"""
+
+UNNAMED_KINDS = ["partUsage", "attributeUsage", "bindingConnectorAsUsage",
+                 "connectionUsage", "flowUsage", "metadataUsage"]
+
+
+def test_unnamed_members_are_inherited_through_typing(tmp_path):
+    with Connection(auto_start=False) as conn:
+        model = _load(conn, tmp_path, INHERITED_MODEL)
+        owned = [c for c in model.get("U::Holder").children() if not c.name]
+        assert [c.kind for c in owned] == UNNAMED_KINDS
+        assert [b.id for b in model.get("U::Holder").bindings()] == ["U::Holder::@4"]
+        for child in owned:
+            assert model.get(child.id).kind == child.kind
+        holder = model.get("U::holder")
+        assert holder.children() == []
+        inherited = [m for m in holder.members(inherited=True) if not m.name]
+        assert [m.id for m in inherited] == [c.id for c in owned]
+        assert all(m.inherited_from == "U::Holder" for m in inherited)
+
+
+def test_unnamed_library_members_have_positional_ids(tmp_path):
+    with Connection(auto_start=False) as conn:
+        model = _load(conn, tmp_path, INHERITED_MODEL)
+        holder = model.get("U::Holder")
+        listed = holder.members(inherited=True, library=True)
+        assert listed.withheld_library == 0
+        assert len({m.id for m in listed}) == len(listed)
+        unnamed = [m for m in listed if not m.name and m.inherited]
+        assert unnamed
+        for member in unnamed:
+            assert member.id.startswith(member.inherited_from + "::@")
+            assert model.get(member.id).kind == member.kind
+        bindings = [m for m in unnamed if m.kind == "bindingConnectorAsUsage"
+                    and m.inherited_from == "Occurrences::Occurrence"]
+        assert len(bindings) == 3
+
+
+COLLISION_MODEL = """
+package Col__V__c_pend0 { part marker; }
+package Col {
+    port def P;
+    part def V { port q : P; port r : P; connection c connect q to r; }
+    part def W { part a; part b; part { part inner; } part '@2' { part named; } }
+}
+"""
+
+
+def test_a_name_and_an_id_of_one_spelling_are_told_apart_by_kind(tmp_path):
+    with Connection(auto_start=False) as conn:
+        model = _load(conn, tmp_path, COLLISION_MODEL)
+        assert model.get(name="Col__V__c_pend0").kind == "package"
+        assert model.get(id="Col__V__c_pend0").kind == "connectorEnd"
+        assert model.get("Col__V__c_pend0").kind == "package"
+        assert model.get(name="Col__V__c_pend1") is None
+
+        owner = model.get(name="Col::W")
+        assert [child.id for child in owner.children()] == [
+            "Col::W::a", "Col::W::b", "Col::W::@2", "Col::W::'@2'"]
+        unnamed, declared = owner.children()[2:]
+        assert [child.name for child in unnamed.children()] == ["inner"]
+        assert [child.name for child in declared.children()] == ["named"]
+        assert model.get(name="Col::W::'@2'").id == "Col::W::'@2'"
+        assert model.get(id="Col::W::@2").name == ""
+        assert model.get(name="Col::W::@2::inner") is None
+
+        assert model.element_properties(None, "declaredName", name="Col__V__c_pend0").element.metaclass == "Package"
+        assert model.element_properties(None, "declaredName", id="Col__V__c_pend0").element.metaclass == "ReferenceUsage"
+        with pytest.raises(ValueError, match="exactly one"):
+            model.get("Col", id="Col")

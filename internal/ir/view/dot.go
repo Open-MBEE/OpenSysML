@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 const (
@@ -343,9 +344,18 @@ func (w *dotWriter) frameHeader(r *Rendering) string {
 		break
 	}
 	if r.View != "" {
-		parts = append(parts, "[ "+dotEscape(DisplayText(symbols.LastSegment(r.View)))+" ]")
+		parts = append(parts, "[ "+dotEscape(viewTitle(r.View))+" ]")
 	}
 	return strings.Join(parts, " ")
+}
+
+// viewTitle is the view's own name as a frame shows it, read from the view's
+// qualified name as the notation writes it: the last name, unquoted and decoded.
+func viewTitle(view string) string {
+	if names, ok := source.QualifiedNameSegments(view); ok {
+		return glyphs(names[len(names)-1])
+	}
+	return DisplayText(symbols.LastSegment(view))
 }
 
 // dotBB is a pixel box as a Graphviz `bb`, lower-left then upper-right.
@@ -712,7 +722,7 @@ func (s dotSkin) fill(kind string) []string {
 // rounded reports whether the skin rounds a plain node of the kind: the Pilot
 // rounds usages, Cameo states and actions.
 func (s dotSkin) rounded(kind string) bool {
-	if controlKinds[kind] {
+	if controlKinds[kind] || kind == swimlaneKind {
 		return false
 	}
 	if s.cameo {
@@ -2194,12 +2204,12 @@ func (w *dotWriter) dotClusterAttributes(node *Node) []string {
 func (w *dotWriter) clusterStyle(node *Node) []string {
 	if !w.skin.cameo {
 		attrs := []string{}
-		if node.Kind == "region" {
+		if dashedFrameKind(node.Kind) {
 			attrs = append(attrs, dotStyleDashed)
 		}
 		return append(attrs, "color=black", "penwidth="+dotClusterPenwidth(node))
 	}
-	if node.Kind == "region" {
+	if dashedFrameKind(node.Kind) {
 		return []string{`style="rounded,dashed"`, dotColorAttr(cameoLineColor), dotPenWidthOne}
 	}
 	fill, pen := cameoFill(node.Kind)
@@ -2327,8 +2337,8 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 	case EdgeReference:
 		attrs = append(attrs, dotDirBack, "arrowtail=odiamond")
 	case EdgeContainment:
-		// Graphviz has no circle-plus; a `+` tail label set on the hollow circle is nearest.
-		attrs = append(attrs, dotDirBack, "arrowtail=odot", `taillabel="+"`, "labeldistance=0.4", "labelangle=0")
+		// Graphviz has no circle-plus: a `+` tail label is set on the hollow circle, and the class has DrawDOTGlyphs draw the plus in it.
+		attrs = append(attrs, dotDirBack, "arrowtail=odot", `taillabel="+"`, "labeldistance=0.4", "labelangle=0", dotClass(dotOwnedMembershipClass))
 	case EdgeImport, EdgeDerive, EdgeRefine, EdgeDependency:
 		attrs = append(attrs, dotArrowheadVee, dotStyleDashed)
 	case EdgeSatisfy, EdgeVerify, EdgeAllocate, EdgeInclude, EdgePerform, EdgeExhibit:
@@ -2342,11 +2352,11 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 	case EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgeMessage:
 		attrs = append(attrs, dotArrowheadVee)
 	case EdgePortion:
-		// Graphviz has no three-quarter circle: a filled circle stands at the occurrence end.
-		attrs = append(attrs, dotDirBack, "arrowtail=dot")
+		// Graphviz has no three-quarter circle: a filled circle stands at the occurrence end for DrawDOTGlyphs to open.
+		attrs = append(attrs, dotDirBack, "arrowtail=dot", dotClass(dotPortionClass))
 	case EdgeReferenceSubsetting:
-		// The hollow triangle, with one dot behind its base for the notation's four.
-		attrs = append(attrs, "arrowhead=onormaldot")
+		// The hollow triangle, with one dot behind its base that DrawDOTGlyphs makes the notation's four.
+		attrs = append(attrs, "arrowhead=onormaldot", dotClass(dotReferenceSubsettingClass))
 	case EdgeUnownedMembership:
 		attrs = append(attrs, dotDirBack, "arrowtail=odot")
 	case EdgeExpose:
@@ -2818,7 +2828,7 @@ const dotKeywordPointSize = 10
 // the notes, one line each. A state's name is bold too, where the Pilot's is plain:
 // the label's extent estimate (dotLabelExtent) and the other forms are kept to.
 func (l labeller) dotLabel(node *Node) string {
-	if sectionKind(node.Kind) {
+	if bodySectionKind(node.Kind) {
 		return dotLabelAttribute("<" + l.sized(l.sizeOf(node), l.keywordSize(), dotEscape(l.head(node))) + ">")
 	}
 	var parts labelParts

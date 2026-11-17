@@ -251,7 +251,7 @@ func (m *Model) ExprResultType(scope *symbols.Scope, node ast.Node) *symbols.Sym
 		if types := m.collectionResultTypes(scope, n, called); len(types) > 0 {
 			return types[0]
 		}
-		if result := m.ResultParameterOf(called); result != nil {
+		if result := m.typedResultOf(called); result != nil {
 			return m.featureResultType(result)
 		}
 	}
@@ -438,7 +438,7 @@ func (m *Model) typingValue(sym *symbols.Symbol) ast.Node {
 		return nil
 	}
 	for _, rel := range u.Relationships {
-		if rel != nil && GeneralizationKind(rel.Kind) {
+		if rel != nil && UsageGeneralization(u.Kind, rel.Kind) {
 			return nil
 		}
 	}
@@ -463,7 +463,7 @@ func (m *Model) valueConformance(sym *symbols.Symbol, value ast.Node, want *symb
 // states names an element.
 func (m *Model) generalizationsResolve(sym *symbols.Symbol) bool {
 	for _, rel := range RelationshipsOf(sym) {
-		if !GeneralizationKind(rel.Kind) || rel.Target == nil {
+		if !Generalizes(sym, rel.Kind) || rel.Target == nil {
 			continue
 		}
 		if m.relationshipTarget(sym, rel) == nil {
@@ -559,6 +559,21 @@ func (m *Model) IsKindBaseParameter(owner, param *symbols.Symbol) bool {
 		}
 	}
 	return false
+}
+
+// typedResultOf is called's result parameter, or nil when that is its kind base's
+// and typed by Anything alone (`Evaluation::result`): it says nothing of the body.
+func (m *Model) typedResultOf(called *symbols.Symbol) *symbols.Symbol {
+	result := m.ResultParameterOf(called)
+	if result == nil || !m.IsKindBaseParameter(called, result) {
+		return result
+	}
+	for _, typ := range m.featureResultTypes(result) {
+		if !IsAnything(typ) {
+			return result
+		}
+	}
+	return nil
 }
 
 // quantityConformance judges a magnitude paired with a measurement reference
@@ -1025,7 +1040,7 @@ func (m *Model) invocationConformance(scope *symbols.Scope, e *ast.InvocationExp
 	if c, ok := m.collectionConformance(scope, e, want, byUnit); ok {
 		return c
 	}
-	result := m.ResultParameterOf(called)
+	result := m.typedResultOf(called)
 	if result == nil {
 		return conformanceUnknown()
 	}

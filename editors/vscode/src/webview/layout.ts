@@ -54,8 +54,11 @@ export const STATEMENT_KINDS: ReadonlySet<string> = new Set(["send action", "acc
 /** STATEMENT_ROW_KIND is a compartment row that is a statement as written, drawn as its text alone. */
 export const STATEMENT_ROW_KIND = "statement";
 
+/** SWIMLANE_KIND is the kind of a perform-actions swimlane (§8.2.3.17). */
+export const SWIMLANE_KIND = "swimlane";
+
 /** SECTION_KINDS are the body compartments of a compound node drawn as a container: a loop body, a branch, a swimlane. */
-export const SECTION_KINDS: ReadonlySet<string> = new Set(["loop body", "then body", "else body", "swimlane"]);
+export const SECTION_KINDS: ReadonlySet<string> = new Set(["loop body", "then body", "else body", SWIMLANE_KIND]);
 
 /** nodeMark is the small figure in the top-left corner of a node's box: the send-signal pentagon, the accept flag; "" for none. */
 export function nodeMark(kind: string): "send" | "accept" | "" {
@@ -861,7 +864,8 @@ export function labelLines(
   const keyword =
     (node.name !== "" || node.arrow !== undefined || statement || annotationKeyworded(node)) && draws("keywords");
   if (keyword) {
-    lines.push(`«${node.kind}»`);
+    // A swimlane is headed by what it stands for, its performer (§8.2.3.17).
+    lines.push(`«${node.kind === SWIMLANE_KIND ? "performer" : node.kind}»`);
   }
   if (annotation && node.name === "") {
     // Unnamed, the locale or language heads the note, else the body itself does (§8.2.3.4).

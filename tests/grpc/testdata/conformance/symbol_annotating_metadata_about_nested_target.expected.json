@@ -1,0 +1,8 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "AboutMetadata::Pump::motorA",
+	"expected_kind": "partUsage",
+	"expected_annotating_metadata_ids": [
+		"AboutMetadata::motorA_fm"
+	]
+}

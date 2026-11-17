@@ -118,15 +118,15 @@ func outsideBlockFlow(member ast.Node) bool {
 // lowerBlockFlow lowers a block to the flow its members state: a node per action
 // node, a node per run of plain statements, a succession in declaration order.
 // nodeBody says the members are a nested action's own, so a parameter is its own.
-func lowerBlockFlow(members []ast.Node, scope *symbols.Scope, nodeBody bool, resolver *resolve.Resolver, ancestors []ast.Node) *ActionGraph {
-	return lowerBlockFlowWith(members, scope, resolver, ancestors, func(graph *ActionGraph, nodes []ast.Node, member ast.Node) (Statement, bool) {
+func lowerBlockFlow(members []ast.Node, scope *symbols.Scope, nodeBody bool, resolver *resolve.Resolver, exprs *ExprTable, ancestors []ast.Node) *ActionGraph {
+	return lowerBlockFlowWith(members, scope, resolver, exprs, ancestors, func(graph *ActionGraph, nodes []ast.Node, member ast.Node) (Statement, bool) {
 		return blockStep(graph, nodes, member, scope, nodeBody)
 	})
 }
 
 // ToActionNodeFlow lowers one action node as the sole node of a block flow.
 func ToActionNodeFlow(node ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) *ActionGraph {
-	graph := lowerBlockFlow([]ast.Node{node}, scope, false, resolver, nil)
+	graph := lowerBlockFlow([]ast.Node{node}, scope, false, resolver, nil, nil)
 	StartFlow(graph)
 	return graph
 }
@@ -154,11 +154,12 @@ func flowStated(flow *ActionGraph) bool {
 }
 
 // lowerStatedBlock lowers a loop or branch body stating a flow of its own.
-func lowerStatedBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node) Block {
-	graph, err := lowerActionFlowWithTypingAndAncestors(members, scope, resolver, false, ancestors)
+func lowerStatedBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable, ancestors []ast.Node) Block {
+	graph, err := lowerActionFlowWithTypingAndAncestors(members, scope, resolver, exprs, false, ancestors)
 	if err != nil {
 		if graph == nil {
 			graph = newActionGraph(scope)
+			graph.Exprs = exprs
 			graph.assignIDs()
 		}
 		graph.Invalid = err
@@ -175,10 +176,14 @@ type blockStepLowering func(graph *ActionGraph, nodes []ast.Node, member ast.Nod
 
 // lowerBlockFlowWith lowers a block to its declaration-order flow, lowering the
 // members between action nodes with step.
-func lowerBlockFlowWith(members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node, step blockStepLowering) *ActionGraph {
+func lowerBlockFlowWith(members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable, ancestors []ast.Node, step blockStepLowering) *ActionGraph {
+	if exprs == nil {
+		exprs = NewExprTable(resolver)
+	}
 	graph := &ActionGraph{
 		Scope:          scope,
 		resolver:       resolver,
+		Exprs:          exprs,
 		lowering:       slices.Clone(ancestors),
 		Nodes:          make([]ast.Node, 0, len(members)),
 		Edges:          make(map[ast.Node][]ActionEdge),
@@ -383,7 +388,7 @@ func blockNodesIn(block Block, into []ast.Node) []ast.Node {
 func lowerFlowNode(graph *ActionGraph, node ast.Node, scope *symbols.Scope) {
 	switch n := node.(type) {
 	case *ast.PerformActionNode:
-		graph.Bodies[node] = []Statement{performEffect(n, scope)}
+		graph.Bodies[node] = []Statement{withExprs(performEffect(n, scope), graph.Exprs)}
 	case *ast.Usage:
 		if acceptsMessage(n) {
 			lowerActionNode(graph, n, childScope(scope, n))
@@ -395,7 +400,7 @@ func lowerFlowNode(graph *ActionGraph, node ast.Node, scope *symbols.Scope) {
 		}
 		lowerNestedNode(graph, n, childScope(scope, n))
 	default:
-		graph.Bodies[node] = []Statement{lowerStatement(node, scope, graph.resolver, graph.lowering)}
+		graph.Bodies[node] = []Statement{lowerStatement(node, scope, graph.resolver, graph.Exprs, graph.lowering)}
 	}
 }
 
@@ -421,7 +426,7 @@ func lowerNestedNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 	}
 	lowerFeatures(graph, node, scope)
 	if blockNeedsFlow(node.Members) {
-		flow := lowerBlockFlow(node.Members, scope, true, graph.resolver, graph.lowering)
+		flow := lowerBlockFlow(node.Members, scope, true, graph.resolver, graph.Exprs, graph.lowering)
 		graph.Bodies[node] = []Statement{Block{
 			Node:   node,
 			Scope:  scope,
@@ -435,7 +440,7 @@ func lowerNestedNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 		if actual == nil || statesNoStep(actual) {
 			continue
 		}
-		if stmt, states := blockMemberStatement(actual, scope, true, graph.resolver, graph.lowering); states {
+		if stmt, states := blockMemberStatement(actual, scope, true, graph.resolver, graph.Exprs, graph.lowering); states {
 			graph.Bodies[node] = append(graph.Bodies[node], stmt)
 		}
 	}
@@ -461,7 +466,7 @@ func blockStep(graph *ActionGraph, nodes []ast.Node, member ast.Node, scope *sym
 			return stmt, stmt != nil
 		}
 	}
-	return blockMemberStatement(member, scope, nodeBody, graph.resolver, graph.lowering)
+	return blockMemberStatement(member, scope, nodeBody, graph.resolver, graph.Exprs, graph.lowering)
 }
 
 // lowerBlockConnector lowers a binding or flow at a pin of one of the block's nodes into
@@ -507,11 +512,11 @@ func unsupportedConnector(u *ast.Usage, scope *symbols.Scope, err error) Stateme
 
 // blockMemberStatement lowers a member of a block's flow that is a statement, and
 // reports whether it states a step: a nested action's own feature is not one.
-func blockMemberStatement(member ast.Node, scope *symbols.Scope, nodeBody bool, resolver *resolve.Resolver, ancestors []ast.Node) (Statement, bool) {
+func blockMemberStatement(member ast.Node, scope *symbols.Scope, nodeBody bool, resolver *resolve.Resolver, exprs *ExprTable, ancestors []ast.Node) (Statement, bool) {
 	if usage, ok := member.(*ast.Usage); ok && nodeBody && DeclaresNodeFeature(usage) {
 		return nil, false
 	}
-	return lowerStatement(member, scope, resolver, ancestors), true
+	return lowerStatement(member, scope, resolver, exprs, ancestors), true
 }
 
 // statesNoStep reports whether a member declares something about the block

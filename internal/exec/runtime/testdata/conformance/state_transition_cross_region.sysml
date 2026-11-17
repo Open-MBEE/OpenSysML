@@ -18,7 +18,7 @@ package Test {
 				state lidle;
 
 				succession first lstart then lidle;
-				transition first lidle then rtarget;
+				transition first lidle then right.rtarget;
 			}
 			state right {
 				entry; then rstart;

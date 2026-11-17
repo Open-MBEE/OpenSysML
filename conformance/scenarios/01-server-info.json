@@ -22,6 +22,8 @@
             "enum_values",
             "evaluate_subject",
             "symbol_attributes",
+            "symbol_name_resolution",
+            "symbol_lookup_kind",
             "unset_value",
             "undetermined_value",
             "complex_values",

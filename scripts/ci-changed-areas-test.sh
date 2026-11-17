@@ -91,6 +91,7 @@ case_ docs-only docs docs/guide/index.md
 case_ overrides-only docs overrides/home.html
 case_ changelog-only docs CHANGELOG.md
 case_ changelog-fragment docs changes/unreleased/repl-thing.added.md
+case_ ci-tools docs ci/watcher.py ci/tests/test_ci_tools.py
 case_ java-module java,mdk,syson client/java/opensysml-client/pom.xml
 case_ java-source java,mdk,syson client/java/opensysml-client/src/main/java/org/openmbee/opensysml/Exploration.java
 case_ java-manifest java,mdk,python,syson client/java/pom.xml
@@ -218,6 +219,7 @@ tier_case_ parser quick internal/syntax/parser/parser.go
 tier_case_ node-only quick client/node/src/node/binary.ts
 tier_case_ workflow quick .github/workflows/pr.yml
 tier_case_ race-shards quick scripts/race-shard.sh Makefile
+tier_case_ ci-tools quick ci/drycheck.sh
 tier_case_ runtime quick internal/exec/runtime/executor.go
 tier_case_ runtime-test quick internal/exec/runtime/robustness_test.go
 tier_case_ smt quick internal/exec/smt/referee.go

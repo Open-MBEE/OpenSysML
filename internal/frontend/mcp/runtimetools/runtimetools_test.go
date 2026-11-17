@@ -691,6 +691,22 @@ func TestQueriesAndRenderings(t *testing.T) {
 	if !slices.Contains(view.GetShown(), "edge-labels") {
 		t.Errorf("show edge-labels: shown = %v", view.GetShown())
 	}
+	_, out = h.ok("render_model_view", map[string]any{
+		"modelHash": hash, "view": "#tree:Demo", "form": "dot", "palette": "okabe-ito", "lines": "ortho", "direction": "LR",
+	}, &view)
+	if !strings.Contains(view.GetText(), "\ndigraph {\n") || !strings.Contains(view.GetText(), "rankdir=LR, splines=ortho") ||
+		!strings.Contains(view.GetText(), `fillcolor="#`) || len(view.GetNodes()) == 0 || !strings.Contains(out, strings.TrimRight(view.GetText(), "\n")) {
+		t.Errorf("dot form: text %q\n%s", view.GetText(), out)
+	}
+	for form, args := range map[string]map[string]any{
+		"png": {"modelHash": hash, "view": "#tree:Demo", "form": "png"},
+		"svg": {"modelHash": hash, "view": "#tree:Demo", "form": "svg"},
+		"csv": {"modelHash": hash, "view": "#tree:Demo", "form": "csv"},
+	} {
+		if msg := h.fails("render_model_view", args); !strings.Contains(msg, "INVALID_ARGUMENT") {
+			t.Errorf("%s form: %s", form, msg)
+		}
+	}
 
 	var graphs pb.ExportGraphsResponse
 	_, out = h.ok("export_graphs", map[string]any{"modelHash": hash, "subject": "Demo::Lamp"}, &graphs)
@@ -702,6 +718,27 @@ func TestQueriesAndRenderings(t *testing.T) {
 	}
 	if err := json.Unmarshal([]byte(graphs.GetContent()), &exported); err != nil || len(exported.States) != 1 {
 		t.Errorf("exported content: %v, %d states", err, len(exported.States))
+	}
+}
+
+func TestRenderModelViewDrawsNoDeeperThanTheDepthAsked(t *testing.T) {
+	h := attach(t, newService(t))
+	hash := h.parse()
+	for _, form := range []string{"", "dot"} {
+		args := map[string]any{"modelHash": hash, "view": "#tree:Demo"}
+		if form != "" {
+			args["form"] = form
+		}
+		var every, shallow pb.RenderViewResponse
+		h.ok("render_model_view", args, &every)
+		args["depth"] = 1
+		h.ok("render_model_view", args, &shallow)
+		if len(shallow.GetNodes()) == 0 || len(shallow.GetNodes()) >= len(every.GetNodes()) {
+			t.Errorf("form %q at depth 1: %d nodes of %d", form, len(shallow.GetNodes()), len(every.GetNodes()))
+		}
+		if form != "" && strings.Count(shallow.GetText(), "\n") >= strings.Count(every.GetText(), "\n") {
+			t.Errorf("form %q at depth 1 is written no shorter:\n%s", form, shallow.GetText())
+		}
 	}
 }
 
@@ -1170,5 +1207,29 @@ func TestVerificationToolsPrintTheVerdictNotes(t *testing.T) {
 	}
 	if !strings.Contains(out, "\n  "+want) {
 		t.Errorf("text lacks the note:\n%s", out)
+	}
+}
+
+// A type and a general are shown by qualified name where the id GetSymbol takes is spelled otherwise.
+func TestSymbolShowsATypeAndAGeneralByQualifiedName(t *testing.T) {
+	h := attach(t, newService(t))
+	const model = `part def Col__V__c_pend0 { }
+package Col { port def P; part def V { port q : P; port r : P; connection c connect q to r; } }
+package Uses {
+	part def '@2'; part filler; part;
+	part escaped : Col__V__c_pend0; part def EscapedSub :> Col__V__c_pend0;
+	part quoted : '@2'; part def QuotedSub :> '@2';
+}
+`
+	source := []map[string]any{{"path": "", "text": model}}
+	for user, want := range map[string]string{
+		"Uses::escaped": "type: Col__V__c_pend0\ntyping Col__V__c_pend0\n", "Uses::EscapedSub": "specializes Col__V__c_pend0\n",
+		"Uses::quoted": "type: @2 (Uses::@2)\ntyping Uses::@2\n", "Uses::QuotedSub": "specializes Uses::@2\n",
+	} {
+		var resp pb.SymbolResponse
+		_, out := h.ok("symbol", map[string]any{"sources": source, "symbolId": user}, &resp)
+		if !strings.Contains(out, want) {
+			t.Errorf("symbol %s does not show %q:\n%s", user, want, out)
+		}
 	}
 }

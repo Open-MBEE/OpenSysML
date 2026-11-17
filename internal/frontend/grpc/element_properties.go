@@ -9,6 +9,7 @@ import (
 	"connectrpc.com/connect"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
@@ -41,12 +42,12 @@ func (s *Service) GetElementProperties(ctx context.Context, req *pb.GetElementPr
 	if err != nil {
 		return &pb.GetElementPropertiesResponse{Error: err.Error()}, nil
 	}
-	element, ok := cached.elementFormElement(form, req.ElementId)
+	element, ok := s.elementLookup(cached, req)(form)
 	if !ok {
 		// A standard-library element the model's form references, or names,
 		// is read from its own library document's form.
 		var known bool
-		element, form, known, err = export.LibraryElementForm(req.ElementId)
+		element, form, known, err = s.libraryElementForm(req)
 		if err != nil {
 			return &pb.GetElementPropertiesResponse{Error: err.Error()}, nil
 		}
@@ -88,28 +89,73 @@ func (m *CachedModel) ElementForm() (*export.ElementForm, error) {
 	return m.elementForm, m.elementFormErr
 }
 
-// elementFormElement finds the element a request names: by the form's own
-// "@id", by qualified name as the form spells it, or by a symbol id the model
-// resolves — a qualified name in another spelling, an inherited member's id,
-// or the positional id of an unnamed member — through the id Convert writes
-// for the symbol.
-func (m *CachedModel) elementFormElement(form *export.ElementForm, id string) (export.APIJSONElement, bool) {
+// elementLookup is the lookup a request's kind states; without a kind, element_id is read
+// as the form's "@id" first, then as a name.
+func (s *Service) elementLookup(cached *CachedModel, req *pb.GetElementPropertiesRequest) func(*export.ElementForm) (export.APIJSONElement, bool) {
+	if s.capabilities.has(CapabilitySymbolLookupKind) {
+		switch req.Lookup {
+		case pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME:
+			return func(form *export.ElementForm) (export.APIJSONElement, bool) {
+				return cached.elementFormElementNamed(form, req.ElementId, cached.ResolveQualifiedMemberName)
+			}
+		case pb.LookupKind_LOOKUP_KIND_ELEMENT_ID:
+			return func(form *export.ElementForm) (export.APIJSONElement, bool) {
+				return cached.elementFormElementByID(form, req.ElementId)
+			}
+		}
+	}
+	return func(form *export.ElementForm) (export.APIJSONElement, bool) {
+		if element, ok := form.ByID(req.ElementId); ok {
+			return element, true
+		}
+		return cached.elementFormElementNamed(form, req.ElementId, cached.ResolveMemberName)
+	}
+}
+
+// libraryElementForm reads a standard-library element as req's lookup kind states it: by
+// qualified name alone, else by the form's id or the name GetSymbol reports it under.
+func (s *Service) libraryElementForm(req *pb.GetElementPropertiesRequest) (export.APIJSONElement, *export.ElementForm, bool, error) {
+	if s.capabilities.has(CapabilitySymbolLookupKind) && req.Lookup == pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME {
+		return export.LibraryElementFormNamed(req.ElementId)
+	}
+	return export.LibraryElementForm(req.ElementId)
+}
+
+// elementFormElementByID finds the element an id names: the form's "@id", else the id
+// GetSymbol reports the element under.
+func (m *CachedModel) elementFormElementByID(form *export.ElementForm, id string) (export.APIJSONElement, bool) {
 	if element, ok := form.ByID(id); ok {
 		return element, true
 	}
-	if element, ok := form.ByQualifiedName(id); ok {
-		return element, true
+	if syms := m.LookupElementID(id); len(syms) > 0 {
+		return m.elementFormElementOf(form, syms[0])
 	}
+	return export.APIJSONElement{}, false
+}
+
+// elementFormElementNamed finds the element a name states: resolved from the root by
+// resolve, else as the form or a member chain names it.
+func (m *CachedModel) elementFormElementNamed(form *export.ElementForm, name string, resolve func(string) []*symbols.Symbol) (export.APIJSONElement, bool) {
 	var sym *symbols.Symbol
-	if syms := m.LookupNamedMember(id); len(syms) > 0 {
+	if syms := resolve(name); len(syms) > 0 {
 		sym = syms[0]
-	} else if syms := m.LookupSymbol(id); len(syms) > 0 {
+	} else if len(symbolfacts.LookupNamed(m.Index, name)) > 0 {
+		// Declared, and not visible from the root namespace.
+		return export.APIJSONElement{}, false
+	} else if element, ok := form.ByQualifiedName(name); ok {
+		return element, true
+	} else if syms := m.LookupNamedMember(name); len(syms) > 0 {
 		sym = syms[0]
 	}
 	if sym == nil {
 		return export.APIJSONElement{}, false
 	}
-	identity := m.SymbolContext().Identity(sym)
+	return m.elementFormElementOf(form, sym)
+}
+
+// elementFormElementOf is the form's element for a symbol of the model.
+func (m *CachedModel) elementFormElementOf(form *export.ElementForm, sym *symbols.Symbol) (export.APIJSONElement, bool) {
+	identity := m.SymbolContext().OwnIdentity(sym)
 	if fqn := m.Index.GetFQN(sym); fqn != "" {
 		if element, ok := form.ByQualifiedName(fqn); ok {
 			return element, true

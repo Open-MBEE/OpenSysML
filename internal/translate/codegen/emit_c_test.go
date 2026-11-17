@@ -46,7 +46,7 @@ func TestCPrintRealMatchesFormatReal(t *testing.T) {
 
 	dir := t.TempDir()
 	src := filepath.Join(dir, "print.c")
-	program := cBudgetDefines() + cPrelude + `
+	program := cScalarRuntime() + `
 int main(void) {
 	char line[64];
 	while (fgets(line, sizeof line, stdin)) {
@@ -113,7 +113,7 @@ func TestCRealNotationIsLocaleIndependent(t *testing.T) {
 	}
 	dir := t.TempDir()
 	src := filepath.Join(dir, "locale.c")
-	program := cBudgetDefines() + cPrelude + `
+	program := cScalarRuntime() + `
 #include <locale.h>
 /* argv[1] is the locale, argv[2] the Real to parse and print; exits 3 when the locale is not installed. */
 int main(int argc, char **argv) {

@@ -645,10 +645,10 @@ func (r *Resolver) resolveRelationships(scope *symbols.Scope, decl ast.Node, rel
 				target = fr.Name
 			}
 
-			referencing := ast.IsReferenceSubsetting(decl, rel)
+			referencing := rel.Kind.ReferenceSubsets()
 			// Special case: redefinitions should resolve in inherited scope
 			// Self-subsetting must resolve in the declaration scope so cycle checks see `p4 :> p4`.
-			if rel.Kind == ast.RelRedefines || (rel.Kind == ast.RelSubsets && !referencing && !relationshipTargetsDecl(rel, decl)) {
+			if rel.Kind == ast.RelRedefines || (rel.Kind == ast.RelSubsets && !relationshipTargetsDecl(rel, decl)) {
 				if qn, ok := target.(*ast.QualifiedName); ok {
 					if rel.Kind == ast.RelSubsets && r.resolveOwnSibling(scope, qn, decl) {
 						continue
@@ -735,11 +735,11 @@ func (r *Resolver) relationshipScope(parent, header *symbols.Scope, rel *ast.Rel
 	}
 	switch target := target.(type) {
 	case *ast.QualifiedName:
-		if r.resolvesInHeader(header, target, false, rel.Kind) {
+		if r.resolvesInHeader(header, target, rel.Kind) {
 			return header
 		}
 	case *ast.FeatureChainExpr:
-		if r.resolvesInHeader(header, target.Member, true, rel.Kind) {
+		if lead, ok := leadingName(target).(*ast.QualifiedName); ok && r.resolvesInHeader(header, lead, rel.Kind) {
 			return header
 		}
 	}
@@ -752,18 +752,34 @@ func (r *Resolver) RelationshipScope(parent, header *symbols.Scope, rel *ast.Rel
 }
 
 // resolvesInHeader reports whether a head relationship's target, opening with name,
-// resolves in the declaring element's own scope; a plain `: T`, `:> T`, `:>> T` never does.
-func (r *Resolver) resolvesInHeader(header *symbols.Scope, name *ast.QualifiedName, chain bool, kind ast.RelationshipKind) bool {
-	if name == nil || len(name.Parts) == 0 {
+// resolves in the declaring element's own scope (KerML 8.2.3.5.2).
+func (r *Resolver) resolvesInHeader(header *symbols.Scope, name *ast.QualifiedName, kind ast.RelationshipKind) bool {
+	if name == nil || len(name.Parts) == 0 || localNamespaceEncloses(kind) {
 		return false
 	}
-	switch kind {
-	case ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines:
-		if !chain {
-			return false
-		}
-	}
 	return r.headerHasName(header, name.Parts[0].Text, kind)
+}
+
+// localNamespaceEncloses reports whether kind is a Specialization or a chaining of
+// the declared feature, whose names KerML 8.2.3.5.2 resolves from the owning namespace.
+func localNamespaceEncloses(kind ast.RelationshipKind) bool {
+	switch kind {
+	case ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines,
+		ast.RelReferences, ast.RelIncludes, ast.RelCrosses, ast.RelChains:
+		return true
+	}
+	return false
+}
+
+// declaredInOwnNamespace reports whether kind is a relationship the declared type
+// owns that is no Specialization, so its names open in the type's own namespace.
+func declaredInOwnNamespace(kind ast.RelationshipKind) bool {
+	switch kind {
+	case ast.RelFeaturedBy, ast.RelDisjoint, ast.RelInverseOf,
+		ast.RelUnions, ast.RelIntersects, ast.RelDifferences:
+		return true
+	}
+	return false
 }
 
 func (r *Resolver) headerHasName(scope *symbols.Scope, name string, kind ast.RelationshipKind) bool {
@@ -781,9 +797,8 @@ func (r *Resolver) headerHasName(scope *symbols.Scope, name string, kind ast.Rel
 			return true
 		}
 	}
-	// A featuring or crossing name may be one the declaration inherits from its
-	// type; a redefinition or subsetting target may not, as it would find itself.
-	if kind == ast.RelFeaturedBy || kind == ast.RelCrosses {
+	// A type's local resolution includes the memberships it inherits (KerML 8.2.3.5.3).
+	if declaredInOwnNamespace(kind) {
 		if _, ok := r.lookupContributedMember(scope.Owner(), name, nil); ok {
 			return true
 		}
@@ -1736,6 +1751,23 @@ func (r *Resolver) chainedFrom(scope *symbols.Scope, operand *symbols.Symbol) *s
 		}
 	}
 	return operand
+}
+
+// ChainHolders lists what a chain written in scope reads operand's members from, as
+// chainMember does: what operand is chained from, then each type or value the lookup passes to.
+func (r *Resolver) ChainHolders(scope *symbols.Scope, operand *symbols.Symbol) []*symbols.Symbol {
+	var holders []*symbols.Symbol
+	seen := make(map[*symbols.Symbol]bool)
+	for sym := r.chainedFrom(scope, operand); sym != nil && !seen[sym]; {
+		seen[sym] = true
+		holders = append(holders, sym)
+		usage, isUsage := sym.Decl.(*ast.Usage)
+		if !isUsage || r.IsBaseThat(sym) || r.IsOccurrenceThis(sym) {
+			break
+		}
+		sym = r.getUsageType(sym.OwnerScope, usage)
+	}
+	return holders
 }
 
 // chainMember looks a chain segment up as a member of sym itself — flattened over

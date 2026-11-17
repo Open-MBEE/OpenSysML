@@ -22,9 +22,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// engineGzipBudget bounds the gzipped js sysml-engine the gate links (-trimpath, stripped, the library snapshot embedded, as
-// every Makefile build target does): 10,816,237 bytes under go1.27.4 on 2026-11-11 with RenderDocument served, 9,061,783 without the snapshot.
-const engineGzipBudget = 11000000
+// engineGzipBudget bounds the gzipped js sysml-engine the gate links (-trimpath, stripped, the library snapshot embedded, as every Makefile build target does):
+// 11,107,033 bytes under go1.27.4 on 2026-11-16 at develop f67172df95 merged with the symbol-structure census carries, up from 11,031,341 on 2026-11-13.
+const engineGzipBudget = 11200000
 
 func TestEngineDependencies(t *testing.T) {
 	const module = "github.com/Open-MBEE/OpenSysML"
@@ -139,6 +139,17 @@ func engineSubtests(t *testing.T, target wasmTarget, r runner, bins map[string]s
 			if !strings.Contains(got.output, want) {
 				t.Errorf("engine.mjs output is missing %s:\n%s", want, got.output)
 			}
+		}
+	})
+
+	// The engine draws no recorded run, so the run-only SVG writers stay out of it.
+	t.Run("links no run-only SVG writer", func(t *testing.T) {
+		data, err := os.ReadFile(bins["sysml-engine"])
+		if err != nil {
+			t.Fatalf("reading %s: %v", bins["sysml-engine"], err)
+		}
+		if bytes.Contains(data, []byte("<svg xmlns=")) {
+			t.Error("sysml-engine.wasm links the run-only SVG writers: write a model view with WriteViewWith")
 		}
 	})
 
@@ -291,6 +302,29 @@ func nodeRun(t *testing.T, script string, args ...string) result {
 	return res
 }
 
+// wantSpeedAnswer fails unless body is Evaluate's answer for enginedemo::speed, the quantity 5 m/s:
+// two transports agreeing on an error agree as well, so parity alone does not show the value.
+func wantSpeedAnswer(t *testing.T, body []byte) {
+	t.Helper()
+	var answer struct {
+		Error  string `json:"error"`
+		Result struct {
+			Quantity *struct {
+				RealMagnitude float64 `json:"realMagnitude"`
+				Unit          string  `json:"unit"`
+				ValueType     string  `json:"valueType"`
+			} `json:"quantity"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(body, &answer); err != nil {
+		t.Fatalf("decoding the answer for enginedemo::speed: %v\n%s", err, body)
+	}
+	q := answer.Result.Quantity
+	if answer.Error != "" || q == nil || q.RealMagnitude != 5 || q.Unit != "SI::'m/s'" || q.ValueType != "ISQSpaceTime::SpeedValue" {
+		t.Errorf("enginedemo::speed answered %s, want the quantity 5 [SI::'m/s'] held as a SpeedValue", body)
+	}
+}
+
 // TestEngineWireParity proves the engine answers what sysml-grpc answers: the
 // same requests put to a default-capabilities grpc.NewService and marshalled by
 // protojson, and to engine.Call, decode to the same JSON. ParseSources compares
@@ -356,6 +390,9 @@ func TestEngineWireParity(t *testing.T) {
 			t.Fatalf("grpc Evaluate %q: %v", expression, err)
 		}
 		equal("Evaluate", params, mustMarshal(t, res))
+		if expression == "enginedemo::speed" {
+			wantSpeedAnswer(t, mustMarshal(t, res))
+		}
 		if expression == "(1, 2, 3)" {
 			// Equal answers would also match on a shared parse error: the case
 			// must exercise a real sequence, so check what the engine returned.

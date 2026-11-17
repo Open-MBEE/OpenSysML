@@ -24,6 +24,7 @@ package IndividualsAndSnapshots {
         action collectData {
             in individual subjectVehicle : TestSystem;
             in snapshot vehicleState : Flight;
+            in individual snapshot vehicleAtStart : TestSystem;
         }
     }
 }

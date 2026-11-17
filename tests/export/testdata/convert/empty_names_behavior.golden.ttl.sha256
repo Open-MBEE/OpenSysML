@@ -1,0 +1,41 @@
+sha256 de7703a59376be34e3550e25ff1599e66f4cd4bb19371f17bc4dfeb1a39a742a bytes 337416 lines 6174
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:Empty_20Behavior_20Names
+    a sysml:Package ;
+    sysml:qualifiedName "'Empty Behavior Names'" ;
+    sysx:mappingQualifiedName "Empty Behavior Names" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "58"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "Empty_20Behavior_20Names" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "Empty Behavior Names" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Empty_20Behavior_20Names__P, elmt:Empty_20Behavior_20Names__a, elmt:Empty_20Behavior_20Names__b, elmt:Empty_20Behavior_20Names___27_27, elmt:Empty_20Behavior_20Names___404, elmt:Empty_20Behavior_20Names___405, elmt:Empty_20Behavior_20Names__Act, elmt:Empty_20Behavior_20Names__Forked, elmt:Empty_20Behavior_20Names__Joined, elmt:Empty_20Behavior_20Names__Decided, elmt:Empty_20Behavior_20Names__Looped, elmt:Empty_20Behavior_20Names__S, elmt:Empty_20Behavior_20Names__Named, elmt:Empty_20Behavior_20Names__Entered, elmt:Empty_20Behavior_20Names__E, elmt:Empty_20Behavior_20Names__C, elmt:Empty_20Behavior_20Names__R, elmt:Empty_20Behavior_20Names__p ;
+    sysml:ownedMembership elmt:Empty_20Behavior_20Names__P_om, elmt:Empty_20Behavior_20Names__a_om, elmt:Empty_20Behavior_20Names__b_om, elmt:Empty_20Behavior_20Names___27_27_om, elmt:Empty_20Behavior_20Names___404_om, elmt:Empty_20Behavior_20Names___405_om, elmt:Empty_20Behavior_20Names__Act_om, elmt:Empty_20Behavior_20Names__Forked_om, elmt:Empty_20Behavior_20Names__Joined_om, elmt:Empty_20Behavior_20Names__Decided_om, elmt:Empty_20Behavior_20Names__Looped_om, elmt:Empty_20Behavior_20Names__S_om, elmt:Empty_20Behavior_20Names__Named_om, elmt:Empty_20Behavior_20Names__Entered_om, elmt:Empty_20Behavior_20Names__E_om, elmt:Empty_20Behavior_20Names__C_om, elmt:Empty_20Behavior_20Names__R_om, elmt:Empty_20Behavior_20Names__p_om ;
+    sysml:ownedRelationship elmt:Empty_20Behavior_20Names__P_om, elmt:Empty_20Behavior_20Names__a_om, elmt:Empty_20Behavior_20Names__b_om, elmt:Empty_20Behavior_20Names___27_27_om, elmt:Empty_20Behavior_20Names___404_om, elmt:Empty_20Behavior_20Names___405_om, elmt:Empty_20Behavior_20Names__Act_om, elmt:Empty_20Behavior_20Names__Forked_om, elmt:Empty_20Behavior_20Names__Joined_om, elmt:Empty_20Behavior_20Names__Decided_om, elmt:Empty_20Behavior_20Names__Looped_om, elmt:Empty_20Behavior_20Names__S_om, elmt:Empty_20Behavior_20Names__Named_om, elmt:Empty_20Behavior_20Names__Entered_om, elmt:Empty_20Behavior_20Names__E_om, elmt:Empty_20Behavior_20Names__C_om, elmt:Empty_20Behavior_20Names__R_om, elmt:Empty_20Behavior_20Names__p_om ;
+    sysx:sourceText "package 'Empty Behavior Names' {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"Empty_20Behavior_20Names__P\"},{\"@id\":\"Empty_20Behavior_20Names__a\"},{\"@id\":\"Empty_20Behavior_20Names__b\"},{\"@id\":\"Empty_20Behavior_20Names___27_27\"},{\"@id\":\"Empty_20Behavior_20Names___404\"},{\"@id\":\"Empty_20Behavior_20Names___405\"},{\"@id\":\"Empty_20Behavior_20Names__Act\"},{\"@id\":\"Empty_20Behavior_20Names__Forked\"},{\"@id\":\"Empty_20Behavior_20Names__Joined\"},{\"@id\":\"Empty_20Behavior_20Names__Decided\"},{\"@id\":\"Empty_20Behavior_20Names__Looped\"},{\"@id\":\"Empty_20Behavior_20Names__S\"},{\"@id\":\"Empty_20Behavior_20Names__Named\"},{\"@id\":\"Empty_20Behavior_20Names__Entered\"},{\"@id\":\"Empty_20Behavior_20Names__E\"},{\"@id\":\"Empty_20Behavior_20Names__C\"},{\"@id\":\"Empty_20Behavior_20Names__R\"},{\"@id\":\"Empty_20Behavior_20Names__p\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Empty_20Behavior_20Names__P_om\"},{\"@id\":\"Empty_20Behavior_20Names__a_om\"},{\"@id\":\"Empty_20Behavior_20Names__b_om\"},{\"@id\":\"Empty_20Behavior_20Names___27_27_om\"},{\"@id\":\"Empty_20Behavior_20Names___404_om\"},{\"@id\":\"Empty_20Behavior_20Names___405_om\"},{\"@id\":\"Empty_20Behavior_20Names__Act_om\"},{\"@id\":\"Empty_20Behavior_20Names__Forked_om\"},{\"@id\":\"Empty_20Behavior_20Names__Joined_om\"},{\"@id\":\"Empty_20Behavior_20Names__Decided_om\"},{\"@id\":\"Empty_20Behavior_20Names__Looped_om\"},{\"@id\":\"Empty_20Behavior_20Names__S_om\"},{\"@id\":\"Empty_20Behavior_20Names__Named_om\"},{\"@id\":\"Empty_20Behavior_20Names__Entered_om\"},{\"@id\":\"Empty_20Behavior_20Names__E_om\"},{\"@id\":\"Empty_20Behavior_20Names__C_om\"},{\"@id\":\"Empty_20Behavior_20Names__R_om\"},{\"@id\":\"Empty_20Behavior_20Names__p_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Empty_20Behavior_20Names__P_om\"},{\"@id\":\"Empty_20Behavior_20Names__a_om\"},{\"@id\":\"Empty_20Behavior_20Names__b_om\"},{\"@id\":\"Empty_20Behavior_20Names___27_27_om\"},{\"@id\":\"Empty_20Behavior_20Names___404_om\"},{\"@id\":\"Empty_20Behavior_20Names___405_om\"},{\"@id\":\"Empty_20Behavior_20Names__Act_om\"},{\"@id\":\"Empty_20Behavior_20Names__Forked_om\"},{\"@id\":\"Empty_20Behavior_20Names__Joined_om\"},{\"@id\":\"Empty_20Behavior_20Names__Decided_om\"},{\"@id\":\"Empty_20Behavior_20Names__Looped_om\"},{\"@id\":\"Empty_20Behavior_20Names__S_om\"},{\"@id\":\"Empty_20Behavior_20Names__Named_om\"},{\"@id\":\"Empty_20Behavior_20Names__Entered_om\"},{\"@id\":\"Empty_20Behavior_20Names__E_om\"},{\"@id\":\"Empty_20Behavior_20Names__C_om\"},{\"@id\":\"Empty_20Behavior_20Names__R_om\"},{\"@id\":\"Empty_20Behavior_20Names__p_om\"}]" .
+
+elmt:Empty_20Behavior_20Names__P
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "'Empty Behavior Names'::P" ;
+    sysx:mappingQualifiedName "Empty Behavior Names::P" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "16"^^xsd:integer ;
+    sysml:elementId "Empty_20Behavior_20Names__P" ;
+    sysx:memberIndex "0"^^xsd:integer ;

@@ -33,6 +33,14 @@ func refsOf(graph *lower.ActionGraph, nodes []ast.Node) []NodeRef {
 	return refs
 }
 
+// Origin is where the node the reference names was written; the zero Origin for none.
+func (r NodeRef) Origin() program.Origin {
+	if r.Graph == nil || int(r.ID) >= len(r.Graph.Origins) {
+		return program.Origin{}
+	}
+	return r.Graph.Origins[r.ID]
+}
+
 // Node is the declaration the reference names, nil for none.
 func (r NodeRef) Node() ast.Node {
 	if r.Graph == nil {

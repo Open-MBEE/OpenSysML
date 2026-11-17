@@ -32,6 +32,11 @@ import java.util.Optional;
  *     enumerates them; empty from one that does not
  * @param withheldLibraryMembers how many members inherited from standard-library content are left
  *     out, until asked for with {@link SymbolOptions#withLibraryMembers}
+ * @param annotatingMetadataIds FQNs of the metadata usages annotating the element (the inverse of
+ *     KerML {@code AnnotatingElement::annotatedElement}): its own {@code #M} prefixes and body
+ *     {@code @M} usages, then the ones naming it in an {@code about} clause elsewhere, which
+ *     {@code childIds} and {@code members} leave out; empty from a service that does not advertise
+ *     {@code symbol_annotating_metadata}
  */
 public record Symbol(
     String id,
@@ -45,7 +50,8 @@ public record Symbol(
     List<Symbol.Specialization> specializations,
     int withheldLibraryAttributes,
     List<Symbol.Member> members,
-    int withheldLibraryMembers) {
+    int withheldLibraryMembers,
+    List<String> annotatingMetadataIds) {
 
   /**
    * Creates a symbol, copying every collection.
@@ -62,6 +68,7 @@ public record Symbol(
    * @param withheldLibraryAttributes count of omitted library attributes
    * @param members every member enumerated, own then inherited
    * @param withheldLibraryMembers count of omitted library members
+   * @param annotatingMetadataIds FQNs of the metadata usages annotating the element
    */
   public Symbol {
     Objects.requireNonNull(id, "id");
@@ -74,6 +81,52 @@ public record Symbol(
     Objects.requireNonNull(typeFacts, "typeFacts");
     Objects.requireNonNull(multiplicity, "multiplicity");
     members = List.copyOf(members);
+    annotatingMetadataIds = List.copyOf(annotatingMetadataIds);
+  }
+
+  /**
+   * Creates a symbol of a service that names no annotating metadata.
+   *
+   * @param id fully qualified name
+   * @param name declared name
+   * @param kind element kind
+   * @param metadata further facts by name
+   * @param childIds FQNs of the children
+   * @param attributes own attributes
+   * @param typeFacts static type facts, when reported
+   * @param multiplicity declared multiplicity, when declared
+   * @param specializations generalization edges
+   * @param withheldLibraryAttributes count of omitted library attributes
+   * @param members every member enumerated, own then inherited
+   * @param withheldLibraryMembers count of omitted library members
+   */
+  public Symbol(
+      String id,
+      String name,
+      String kind,
+      Map<String, String> metadata,
+      List<String> childIds,
+      List<Symbol.Attribute> attributes,
+      Optional<Symbol.TypeFacts> typeFacts,
+      Optional<Symbol.Multiplicity> multiplicity,
+      List<Symbol.Specialization> specializations,
+      int withheldLibraryAttributes,
+      List<Symbol.Member> members,
+      int withheldLibraryMembers) {
+    this(
+        id,
+        name,
+        kind,
+        metadata,
+        childIds,
+        attributes,
+        typeFacts,
+        multiplicity,
+        specializations,
+        withheldLibraryAttributes,
+        members,
+        withheldLibraryMembers,
+        List.of());
   }
 
   /**
@@ -224,7 +277,7 @@ public record Symbol(
    * redefines contributes to.
    *
    * @param declared type name as written, absent when none is declared
-   * @param resolvedId FQN of the resolved written type, absent when unresolved
+   * @param resolvedId element id of the resolved written type, absent when unresolved
    * @param resolvedKind kind of the resolved written type, absent when unresolved
    * @param primitive library scalar the type reduces to, absent when it is not a scalar
    * @param primitiveSource where {@code primitive} came from, absent when there is none
@@ -232,6 +285,8 @@ public record Symbol(
    * @param unit unit as written by the default value, absent when it names none
    * @param types the derived types, most specific first with redundant supertypes removed;
    *     empty for a definition or when none derives
+   * @param resolvedQualifiedName qualified name of the resolved written type, for display;
+   *     {@code resolvedId} is for lookup
    */
   public record TypeFacts(
       Optional<String> declared,
@@ -241,18 +296,20 @@ public record Symbol(
       Optional<String> primitiveSource,
       boolean quantity,
       Optional<String> unit,
-      List<TypeRef> types) {
+      List<TypeRef> types,
+      Optional<String> resolvedQualifiedName) {
     /**
      * Creates type facts, copying the type list.
      *
      * @param declared declared type name
-     * @param resolvedId FQN of the resolved type
+     * @param resolvedId element id of the resolved type
      * @param resolvedKind kind of the resolved type
      * @param primitive library scalar the type reduces to
      * @param primitiveSource origin of {@code primitive}
      * @param quantity whether values carry a unit
      * @param unit unit as written
      * @param types derived types
+     * @param resolvedQualifiedName qualified name of the resolved type
      */
     public TypeFacts {
       types = List.copyOf(types);
@@ -262,6 +319,31 @@ public record Symbol(
       Objects.requireNonNull(primitive, "primitive");
       Objects.requireNonNull(primitiveSource, "primitiveSource");
       Objects.requireNonNull(unit, "unit");
+      Objects.requireNonNull(resolvedQualifiedName, "resolvedQualifiedName");
+    }
+
+    /**
+     * Creates type facts that state no qualified name for the resolved type.
+     *
+     * @param declared declared type name
+     * @param resolvedId element id of the resolved type
+     * @param resolvedKind kind of the resolved type
+     * @param primitive library scalar the type reduces to
+     * @param primitiveSource origin of {@code primitive}
+     * @param quantity whether values carry a unit
+     * @param unit unit as written
+     * @param types derived types
+     */
+    public TypeFacts(
+        Optional<String> declared,
+        Optional<String> resolvedId,
+        Optional<String> resolvedKind,
+        Optional<String> primitive,
+        Optional<String> primitiveSource,
+        boolean quantity,
+        Optional<String> unit,
+        List<TypeRef> types) {
+      this(declared, resolvedId, resolvedKind, primitive, primitiveSource, quantity, unit, types, Optional.empty());
     }
   }
 
@@ -291,24 +373,44 @@ public record Symbol(
    *     {@code "typing"} or {@code "references"}, reference subsetting: {@code ::>} and {@code
    *     include})
    * @param declared the target as written in the source
-   * @param targetId FQN of the resolved target, absent when the name does not resolve
+   * @param targetId element id of the resolved target, absent when the name does not resolve
    * @param targetKind kind of the resolved target, absent when unresolved
+   * @param targetQualifiedName qualified name of the resolved target, for display; {@code
+   *     targetId} is for lookup
    */
   public record Specialization(
-      String kind, String declared, Optional<String> targetId, Optional<String> targetKind) {
+      String kind,
+      String declared,
+      Optional<String> targetId,
+      Optional<String> targetKind,
+      Optional<String> targetQualifiedName) {
     /**
      * Creates a specialization.
      *
      * @param kind relationship kind, never {@code null}
      * @param declared target as written, never {@code null}
-     * @param targetId FQN of the resolved target
+     * @param targetId element id of the resolved target
      * @param targetKind kind of the resolved target
+     * @param targetQualifiedName qualified name of the resolved target
      */
     public Specialization {
       Objects.requireNonNull(kind, "kind");
       Objects.requireNonNull(declared, "declared");
       Objects.requireNonNull(targetId, "targetId");
       Objects.requireNonNull(targetKind, "targetKind");
+      Objects.requireNonNull(targetQualifiedName, "targetQualifiedName");
+    }
+
+    /**
+     * Creates a specialization that states no qualified name for its target.
+     *
+     * @param kind relationship kind, never {@code null}
+     * @param declared target as written, never {@code null}
+     * @param targetId element id of the resolved target
+     * @param targetKind kind of the resolved target
+     */
+    public Specialization(String kind, String declared, Optional<String> targetId, Optional<String> targetKind) {
+      this(kind, declared, targetId, targetKind, Optional.empty());
     }
   }
 }

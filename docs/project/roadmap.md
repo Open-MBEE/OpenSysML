@@ -1448,8 +1448,8 @@ The outcome is `Outcome.Terminated` with an empty `FinalState`, the executor's s
 `Execution state: Terminated`, the LSP debug snapshot's `terminated`. A `terminate` naming a
 performance that ended, a value that is no occurrence, or an occurrence `destroy` emptied is a
 typed error (`errPerformanceEnded`, `errTerminateOccurrence`, `errTerminateTarget`,
-`robustness_terminate_test.go`); a calculation still refuses it as `errCalcSideEffect`
-(`robustness_calc_invocation_test.go:calc_terminate_is_rejected`). The PSSM referee translates the suite's
+`robustness_terminate_test.go`); in a calculation body it ends the calculation's steps
+(`robustness_calc_invocation_test.go:calc_terminate_ends_its_steps`). The PSSM referee translates the suite's
 terminate pseudostate to the same spelling, which retired its `terminate-gap` bucket
 (`docs/project/pssm-referee.md`).
 
@@ -2202,8 +2202,9 @@ and the member at fault: a state, input, derivative or output that is not a vect
 calc left abstract, an integrator the runtime does not provide, a step absent, zero or negative,
 a state a step leaves non-finite. Its stated limitations: a crossing is located to the step
 boundary and not bisected within the step, so a guard that crosses and re-crosses inside one step
-is not seen; `StateSpaceItem` and a `StateSpaceEventDef` that is not a zero crossing are not
-executed. The OMG example `State Space Representation Examples/EVSample1.sysml` runs through the
+is not seen. Since then an event occurrence typed by `ZeroCrossingEventDef` itself occurs where
+the derivative crosses zero, and a `flow` between the output and input of two dynamics that
+objects perform is carried; one between two dynamics that are steps of one action body is not. The OMG example `State Space Representation Examples/EVSample1.sysml` runs through the
 runner once a model of its shape also states a `timeStep`, the library itself stating none. L7's
 census reads `StateSpaceRepresentation` at 6 of 17 with the runner in, the rest the abstract
 protocol probed directly. The lunar-descent case stands as it was.

@@ -31,7 +31,7 @@ func (s *Server) DocumentSymbol(ctx context.Context, params *protocol.DocumentSy
 func walkDocumentSymbols(pos positions, scope *symbols.Scope) []protocol.DocumentSymbol {
 	var out []protocol.DocumentSymbol
 	for _, sym := range scope.Members() {
-		if sym.Name == "" {
+		if !sym.Named() {
 			continue
 		}
 		ds := protocol.DocumentSymbol{
@@ -94,7 +94,7 @@ func (s *Server) Symbols(ctx context.Context, params *protocol.WorkspaceSymbolPa
 // collectWorkspaceSymbols recursively appends matching symbols to out.
 func collectWorkspaceSymbols(scope *symbols.Scope, container, query string, pos positions, docURI uri.URI, out *[]protocol.SymbolInformation) {
 	for _, sym := range scope.Members() {
-		if sym.Name == "" {
+		if !sym.Named() {
 			continue
 		}
 		if query == "" || strings.Contains(strings.ToLower(sym.Name), query) {

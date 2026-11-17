@@ -284,13 +284,25 @@ needs to require.
 | The label `ci:full`, an unclaimed path, the nightly full scan, `workflow_dispatch` | full | every shard | whole | on what can move its baseline (everything on an unclaimed path) |
 
 The derived-property differential (`Derived-property differential reproduces its baseline`,
-`go run -C tools ./cmd/pilot-apijson-diff -check`: Java, the pinned pilot jar, 18–25 minutes)
+`go run -C tools ./cmd/pilot-apijson-diff -check -pilot-record build/pilot-apijson-record`: Java and
+the pinned pilot jar for any root whose pilot export the nightly has not recorded for the current
+pin, bridge, corpus and libraries; our side alone otherwise)
 runs on a pull-request push whose diff can move the api-json baseline — the writer, the
 referees, the pilot bridge and pin, the baseline, the corpora action, not the workflow file —
 and under the full tier, so the baseline is also reproduced every night over `develop`. The
 queue tier skips it: the merge group's diff is the one the pull request's push already ran it
 over, and the nightly catches a baseline that `develop` moved under it, which is then
 re-recorded through the `ci:rebaseline` workflow (`.github/workflows/rebaseline.yml`).
+
+The derived census (`Derived census reproduces its baseline`,
+`go run -C tools ./cmd/derived-census -check -recorded-pilot`) runs on every Go change: it
+re-measures our columns against the pilot column the records hold, without Java. The nightly
+oracle-reproduction workflow re-exports the pilot's side of both and holds the baselines to it.
+
+The cross-MDK conformance suite (`Cross-MDK conformance suite reproduces its baseline`,
+`go run -C tools ./cmd/hideo-suite -check`) runs on every Go or Python-client change: it needs
+neither Java nor the pilot, and a case that moves is recorded with `-update` in the change that
+moved it (`docs/project/hideo-suite.md`).
 
 The `examples/` sweeps are the tests that parse and export every model under `examples/` (the
 committed models, the OMG training and pilot corpora and the specification examples, some 920
@@ -368,6 +380,43 @@ the proto, `conformance/` or the workflows runs everything (under the queue and 
 `CI_TIER=quick` keeps the clients and docs to their own paths). A path no area claims turns
 every area on, so a new directory is over-tested rather than untested — teach the script about
 it, and add a case to `scripts/ci-changed-areas-test.sh`, which the same job runs.
+
+When the Go jobs will run, that job also fills the fUML suite's cache
+(`.github/actions/fuml-suite` with `warm-only`) before they start: on a cold cache the parallel
+jobs would each fetch the suite's jars from Maven Central, which answers that with HTTP 429.
+The download scripts fetch through `scripts/fetch-https.sh`, which backs off and retries.
+
+Maven is held to the same policy. Each Maven tree (`client/java`, `editors/mdk`, `editors/syson`)
+carries a `.mvn/maven.config` that raises the resolver's retries on a 429 or 503 from three to
+eight, about three minutes of backoff, or as long as the server's `Retry-After` asks. It names the
+count twice because Maven 3.9 (Wagon) reads only `aether.connector.http.retryHandler.count` and
+Maven 3.10 (the Apache transport) only `aether.transport.http.retryHandler.count`. Run `mvn` with
+`-f <tree>/pom.xml` so the file applies. `.github/workflows/maven-cache.yml` resolves the three
+trees on every push to `develop` that changes a `pom.xml`, and daily, and saves `~/.m2/repository`
+keyed on the hash of every `pom.xml`. A job that runs Maven restores that entry with
+`.github/actions/maven-cache` after `actions/setup-java` (`nightly.yml`, which builds a commit that
+may predate the action, by the same key), and does not set `cache: maven` there: a
+pull request's or merge group's own cache is private to its ref, and one saved by a single job
+holds a single tree's dependencies. A pull request that changes a `pom.xml` restores the newest
+earlier entry.
+
+The pinned pilot validator, which `scripts/download-pilot-validator.sh` builds with Maven from a
+clone outside those trees, has a cache of its own: `.github/actions/pilot-validator` restores
+`build/pilot-validator` and `~/.m2/repository` under `pilot-validator-<hash of the script and
+scripts/pilot-pin.sh>`, runs the script, and with `save: 'true'` saves the entry at once when the
+exact key was absent. `.github/workflows/pilot-validator-cache.yml` saves it on every push to
+`develop` and the nightly oracle reproduction on its schedule, because a pull request, a merge group
+and `rebaseline.yml` can restore only an entry saved on `develop` (or their own ref). A run whose
+pin moved restores the newest earlier entry by the `pilot-validator-` prefix; the script rebuilds
+the stale copy, but from the Maven repository that entry holds rather than from Maven Central.
+`rebaseline.yml` never saves, since it runs a pull request's scripts in `develop`'s cache scope.
+The script passes both retry property names on its command line, the clone having no
+`.mvn/maven.config`, and logs `mvn --version`: the `ubuntu-24.04` image ships Maven 3.10.
+
+Every job that needs Go takes it from `actions/setup-go` v6 with `go-version-file: go.mod`, which
+installs the release the `toolchain` line names and sets `GOTOOLCHAIN=local`. Do not set
+`GOTOOLCHAIN` in a workflow: the action then installs the `go` line's release instead, and a
+toolchain downloaded into the module cache makes the action's cache restore fail.
 
 Every third-party action a workflow or composite action `uses:` is pinned to a full commit SHA
 with the release that commit is as a trailing comment (`actions/checkout@<sha> # v4.4.0`); a new
@@ -546,9 +595,12 @@ When a change needs documenting:
   derived census, the structure differential, the library/prefix sweep, the corpus and round-trip
   expectations, the conversion and parser goldens, the proto stubs), apply the `ci:rebaseline`
   label to the pull request. [.github/workflows/rebaseline.yml](.github/workflows/rebaseline.yml)
-  merges `origin/develop` into the branch taking `develop`'s side of the conflicts confined to the
-  generated paths it lists (a conflict anywhere else fails the run), re-runs every recorder on the
-  merged tree, refuses a movement the merge does not explain
+  merges `origin/develop` into the branch — the count baselines cell by cell
+  (`tools/oracle/cellmerge`, the merge driver `./scripts/install-baseline-merge-driver.sh` configures
+  in a clone), taking `develop`'s side of the remaining conflicts confined to the
+  generated paths it lists (a conflict anywhere else fails the run) — keeps a merged api-json
+  differential or derived census that its check reproduces against the recorded pilot side and
+  re-records one that does not, re-runs every other recorder on the merged tree, refuses a movement the merge does not explain
   (`scripts/rebaseline-movement.py`: a verdict that moved for a record neither side moved), commits
   the result with the movement in its message, pushes to the branch, removes the label and
   comments the movement for adjudication. It never touches

@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "pilotTag": "2026-09",
-  "pilotCommit": "38665073bbf02849bd309b106eba79cbb3a1ee1d",
-  "pilotArtifact": "0.63.0",
+  "pilotTag": "2026-09.1",
+  "pilotCommit": "d81b2ad5016f2e2d3d4364b3d06d01d8bb12a896",
+  "pilotArtifact": "0.63.1",
   "jar": {
-    "name": "jupyter-sysml-kernel-0.63.0-all.jar",
-    "digest": "sha256:0de2fb9fdc19da3c00194bbb7e394a793e579a1e02f171279544e83e4a1fb376"
+    "name": "jupyter-sysml-kernel-0.63.1-all.jar",
+    "digest": "sha256:67c914092f4520ba98548b285c5a9a8bc08f92a0aeec7b763e12a574e91f9ff7"
   },
   "extraction": {
     "classes": [
@@ -14,7 +14,7 @@
     ],
     "method": "CONSTANT_String entries of each class's constant pool matching ^(in)?validate[A-Za-z]+_?$, normalized to the validate... name by dropping the in prefix and one trailing underscore; a name found in both classes has source \"both\""
   },
-  "recorded": "2026-10-26",
+  "recorded": "2026-11-14",
   "specifications": {
     "kerml": {
       "name": "KerML",
@@ -1490,10 +1490,10 @@
         "clause": "8.3.4.8.4",
         "name": "validateFeatureChainExpressionConformance"
       },
-      "checks": "The target feature of a feature-chain expression is a feature of the source's type (`Must be a valid feature`); the pilot also reports the unresolved chain target from name resolution",
-      "implementation": "internal/check/passes/w8c_feature_reference.go:FeatureReferencePass.Run",
+      "checks": "The target feature of a feature-chain expression is featured within the result of its argument (`Must be a valid feature`): not a nested class, and not a feature of another type that the argument's type only aliases or imports (`k.z` under `alias z for B::y`); the pilot also reports the unresolved chain target from name resolution",
+      "implementation": "internal/check/passes/w8c_feature_reference.go:featureReferenceChecker.checkReferent",
       "message": "—",
-      "negativeCase": "`semantic/k41-chain-expression-to-nested-class.kerml`",
+      "negativeCase": "`semantic/k41-chain-expression-to-nested-class.kerml`, `semantic/k79-chain-expression-through-alias-to-another-type.kerml`",
       "codes": [
         "feature-reference-referent"
       ],
@@ -3982,9 +3982,9 @@
         "name": "validateSubsettingFeaturingTypes"
       },
       "checks": "A subsetted feature is accessible from the subsetting feature's featuring types",
-      "implementation": "internal/check/passes/subsetting_featuring.go:checkSubsettingFeaturingTypes, internal/check/passes/constraint.go:checkPackageLevelRedefinition",
+      "implementation": "internal/check/passes/subsetting_featuring.go:checkSubsettingFeaturingTypes, internal/check/passes/constraint.go:checkRedefinition",
       "message": "—",
-      "negativeCase": "`semantic/k13-subsets-inaccessible-feature.kerml`, `semantic/k77-standalone-subsetting-inaccessible-feature.kerml`, `semantic/s105-package-level-redefines-type-feature.sysml`, `semantic/k74-package-level-redefines-featured-feature.kerml`",
+      "negativeCase": "`semantic/k13-subsets-inaccessible-feature.kerml`, `semantic/k77-standalone-subsetting-inaccessible-feature.kerml`, `semantic/s105-package-level-redefines-type-feature.sysml`, `semantic/k74-package-level-redefines-featured-feature.kerml`, `semantic/k79-redefines-inherited-feature-from-nested-classifier.kerml`",
       "codes": [
         "subsetting-featuring-types"
       ],
@@ -10283,7 +10283,8 @@
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "faithful"
+      "status": "approximate",
+      "rationale": "`structureResultFeatures` reads only the owned ReturnParameterMembership, so a result parameter inherited from a supertype is omitted where the rule's `featureMemberships` includes it"
     },
     {
       "name": "deriveFeatureChainExpressionTargetFeature",
@@ -10732,7 +10733,8 @@
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "faithful"
+      "status": "approximate",
+      "rationale": "`structureResultFeatures` reads only the owned ReturnParameterMembership, so a result parameter inherited from a supertype is omitted where the rule's `featureMemberships` includes it"
     },
     {
       "name": "deriveIfActionUsageElseAction",

@@ -3,6 +3,7 @@ package lower
 import (
 	"fmt"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -14,12 +15,21 @@ type EntryTransition struct {
 	// succession usage or a `first start then s;` marker.
 	Decl ast.Node
 	// Guard is nil for an unconditional entry transition.
-	Guard  ast.Node
-	Target *ast.StateNode
-	Via    *ast.PseudostateNode
-	Effect []StateBehavior
+	Guard ast.Node
+	// GuardID is Guard in the table of the machine.
+	GuardID program.ExprID
+	Target  *ast.StateNode
+	Via     *ast.PseudostateNode
+	// TargetID and ViaID are Target and Via by id, 0 for none.
+	TargetID program.StateID
+	ViaID    program.PseudoID
+	Effect   []StateBehavior
 	// Scope is the scope Guard resolves in.
 	Scope *symbols.Scope
+	// Origin is where the member was written, Kind "entry transition"; it has no Path.
+	Origin program.Origin
+	// SourceText is the source a TransitionMember names as written (`boot`), "" for the other forms.
+	SourceText string
 }
 
 const (

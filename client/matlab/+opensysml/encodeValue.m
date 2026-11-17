@@ -195,6 +195,8 @@ function body = encodeQuantityBody(q, conn)
     if isfield(q, 'unitTerm') && ~isempty(q.unitTerm)
         body.unitTerm = wireUnitTerm(q.unitTerm);
     end
+    valueType = getField(q, 'valueType', '');
+    if ~isempty(valueType), body.valueType = char(valueType); end
 end
 
 function body = wireUnitTerm(term)

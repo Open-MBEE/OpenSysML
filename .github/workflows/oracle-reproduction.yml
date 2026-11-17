@@ -37,7 +37,10 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache: true
 
       # The pinned pilot implementation is a Java artifact and the two bridges
       # are plain-Java programs compiled against it.
@@ -53,9 +56,14 @@ jobs:
           java -version
           go version
 
+      # The entry pull requests, merge groups and rebaseline.yml restore: read nightly, saved when absent.
+      - name: Provision the pinned pilot validator, and save it when the cache holds none
+        uses: ./.github/actions/pilot-validator
+        with:
+          save: 'true'
+
       - name: Download the pinned pilot validators
         run: |
-          ./scripts/download-pilot-validator.sh
           ./scripts/download-pilot-sysml-validator.sh
           ./scripts/download-pilot-kerml-validator.sh
           ./scripts/download-pilot-json-exporter.sh
@@ -94,9 +102,24 @@ jobs:
 
       # Bucket counts only: the scorecard of derived properties against the
       # pilot's JSON export, see docs/project/api-json-differential.md.
-      - name: Derived-property differential reproduces its baseline
+      - name: Derived-property differential reproduces its baseline and records the pilot's export
         if: ${{ !cancelled() }}
-        run: go run -C tools ./cmd/pilot-apijson-diff -check
+        run: |
+          rm -rf build/pilot-apijson-record
+          go run -C tools ./cmd/pilot-apijson-diff -check -pilot-record build/pilot-apijson-record
+
+      - name: Save the recorded pilot export
+        if: ${{ !cancelled() }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/pilot-apijson-record
+          key: pilot-apijson-record-${{ hashFiles('scripts/pilot-pin.sh', 'scripts/pilot-json-exporter/**', 'scripts/download-pilot-json-exporter.sh') }}-${{ github.run_id }}
+
+      # The census's pilot column is re-exported and the committed records held to it: pull requests
+      # re-measure our side alone against that column (derived-census -check -recorded-pilot).
+      - name: Derived census reproduces its baseline, pilot column included
+        if: ${{ !cancelled() }}
+        run: go run -C tools ./cmd/derived-census -check -require-exporter
 
       # Bucket counts only: a pass is never evidence of SysML v2 conformance.
       - name: PSSM referee reproduces its baseline counts
@@ -129,6 +152,7 @@ jobs:
             build/pilot-xpect/
             build/pilot-reject/
             build/pilot-apijson-diff/
+            build/derived-census/
           if-no-files-found: warn
 
   # The cross-MDK suite needs neither Java nor the pilot, so it runs beside the
@@ -145,7 +169,10 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache: true
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0

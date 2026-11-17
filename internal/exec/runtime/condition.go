@@ -1,13 +1,17 @@
 package runtime
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -28,6 +32,9 @@ var ErrNotCarried = errors.New("object does not carry the case")
 type Condition struct {
 	// Expr is the condition's expression, nil for a group.
 	Expr ast.Node
+
+	// ExprID is Expr in the model's table, lowered in Scope; 0 for a group.
+	ExprID program.ExprID
 
 	// Scope is where Expr's names resolve, or the type a Conflict is found on;
 	// nil for a group.
@@ -66,6 +73,10 @@ type Condition struct {
 	// Subrequirement is the requirement usage whose check Group states, its assumptions
 	// implying its required conditions (RequirementCheck::result); nil for a body's conjunction.
 	Subrequirement *symbols.Symbol
+
+	// Bound is the Subrequirement's feature where a value is bound to it: the container's check ranges
+	// over the values the binding yields, Group judged on each (`constraints` holds values). Nil otherwise.
+	Bound *EffectiveFeature
 }
 
 // BodySteps is the statements one constraint body performs before its
@@ -105,7 +116,7 @@ func (c Condition) Label() string { return conditionLabel(c) }
 // inherited one came from), or nil; a body-local or anonymous scope is skipped.
 func (c Condition) Owner() *symbols.Symbol {
 	for s := c.Scope; s != nil; s = s.Parent() {
-		if owner := s.Owner(); owner != nil && owner.Name != "" {
+		if owner := s.Owner(); owner != nil && owner.Named() {
 			return owner
 		}
 	}
@@ -175,7 +186,7 @@ func (ctx *Context) appendMemberConditions(out []Condition, sym *symbols.Symbol,
 	var stepScope *symbols.Scope
 	var stepNode ast.Node
 	for _, member := range members {
-		if owner := ctx.conditionOwnerOf(member); owner != nil && owner != sym && owner.Name != "" {
+		if owner := ctx.conditionOwnerOf(member); owner != nil && owner != sym && owner.Named() {
 			if effective == nil {
 				effective = ctx.effectiveMembers(sym)
 			}
@@ -250,6 +261,11 @@ func (ctx *Context) subrequirementOf(node ast.Node, scope *symbols.Scope) *symbo
 	if sym == nil || !ctx.model.semantics.IsSubrequirement(sym) {
 		return nil
 	}
+	// An optional one the model states no value of, bound or in its body, is no constraint: `constraints` holds its values.
+	feat := ctx.effectiveFeature(sym.Name, sym, ctx.findOwnerType(sym))
+	if lower := feat.Multiplicity.Lower; lower.Known && !lower.Infinite && lower.Value == 0 && feat.DefaultValue == nil && !ctx.bodyBindsAFeature(&feat) {
+		return nil
+	}
 	return sym
 }
 
@@ -275,7 +291,7 @@ func (ctx *Context) appendConditions(out []Condition, node ast.Node, scope *symb
 		negated = negated != m.IsNegated
 		required = required && m.IsAssert
 		if m.Expression != nil {
-			out = append(out, Condition{Expr: m.Expression, Scope: scope, Negated: negated, Required: required})
+			out = append(out, Condition{Expr: m.Expression, ExprID: ctx.model.exprs.Intern(m.Expression, scope), Scope: scope, Negated: negated, Required: required})
 		}
 		if len(m.Body) == 0 {
 			return out
@@ -361,7 +377,11 @@ func (ctx *Context) appendSubrequirementConditions(out []Condition, sub *symbols
 	start := len(out)
 	out = ctx.appendMemberConditions(out, sub, ctx.chainMembers(sub, scope), true, seen)
 	group := append([]Condition(nil), out[start:]...)
-	return append(out[:start], Condition{Group: group, Required: required, Subrequirement: sub, Constraints: []*symbols.Symbol{sub}})
+	cond := Condition{Group: group, Required: required, Subrequirement: sub, Constraints: []*symbols.Symbol{sub}}
+	if feat := ctx.effectiveFeature(sub.Name, sub, ctx.findOwnerType(sub)); ctx.valueBinds(&feat) {
+		cond.Bound = &feat
+	}
+	return append(out[:start], cond)
 }
 
 // appendRequirementConditions appends what a require/assume member states: the
@@ -373,7 +393,7 @@ func (ctx *Context) appendRequirementConditions(out []Condition, member ast.Node
 		return ctx.appendReferencedConditions(out, member, ref, body, scope, required, seen)
 	}
 	if expr != nil {
-		out = append(out, Condition{Expr: expr, Scope: scope, Required: required})
+		out = append(out, Condition{Expr: expr, ExprID: ctx.model.exprs.Intern(expr, scope), Scope: scope, Required: required})
 	}
 	return ctx.appendOwnedConditions(out, member, body, scope, required, seen)
 }
@@ -481,10 +501,13 @@ func (ctx *Context) constraintBodyStep(node ast.Node, scope *symbols.Scope) (low
 	if ctx.model.constraintSteps == nil {
 		ctx.model.constraintSteps = make(map[ast.Node]lower.Statement)
 	}
+	if ctx.model.exprs == nil {
+		ctx.model.exprs = lower.NewExprTable(ctx.model.Resolver())
+	}
 	if stmt, ok := ctx.model.constraintSteps[node]; ok {
 		return stmt, true
 	}
-	stmt, ok := lower.ConstraintStep(node, scope, ctx.model.Resolver())
+	stmt, ok := lower.ConstraintStep(node, scope, ctx.model.Resolver(), ctx.model.exprs)
 	if !ok {
 		return nil, false
 	}
@@ -549,7 +572,7 @@ func (ctx *Context) appendReferencedConditions(out []Condition, decl ast.Node, r
 	scope *symbols.Scope, required bool, seen map[*symbols.Symbol]bool) []Condition {
 	sym := ctx.referencedRequirement(scope, decl, ref)
 	if sym == nil {
-		out = append(out, Condition{Expr: ref, Scope: scope, Required: required})
+		out = append(out, Condition{Expr: ref, ExprID: ctx.model.exprs.Intern(ref, scope), Scope: scope, Required: required})
 		return ctx.appendOwnedConditions(out, decl, body, scope, required, seen)
 	}
 	if seen[sym] {
@@ -1384,7 +1407,7 @@ func (ctx *Context) carrierLabels(carriers []carrier) []string {
 	for _, c := range carriers {
 		inst := c.instance
 		name := "object"
-		if def := ctx.definitionOf(inst.Type); def != nil && def.Name != "" {
+		if def := ctx.definitionOf(inst.Type); def != nil && def.Named() {
 			name = def.Name
 		}
 		label := fmt.Sprintf("%s #%d", name, inst.ID)
@@ -1486,6 +1509,13 @@ func (ctx *Context) conditionHoldsAt(activation int64, cond Condition, features 
 		frames = append(append([]frame{}, frames...), *stepFrame)
 		stepFrame = nil
 	}
+	var bound []*Instance
+	if cond.Bound != nil {
+		var err error
+		if bound, err = ctx.boundSubrequirements(activation, cond, features, self, frames, bindings, stepFrame); err != nil {
+			return false, err
+		}
+	}
 	for _, constraint := range cond.Constraints {
 		features, bindings = ctx.constraintScope(features, bindings, constraint)
 	}
@@ -1500,7 +1530,21 @@ func (ctx *Context) conditionHoldsAt(activation int64, cond Condition, features 
 		}
 	}
 	holds := true
-	if cond.Subrequirement != nil {
+	if cond.Bound != nil {
+		// `allTrue` over the values: one violated decides it whatever another, reaching no verdict, reads.
+		var unjudged error
+		for _, value := range bound {
+			valueHolds, err := ctx.boundSubrequirementHolds(activation, cond, value, features, frames, bindings, stepFrame)
+			if err != nil {
+				unjudged = cmp.Or(unjudged, err)
+				continue
+			}
+			holds = holds && valueHolds
+		}
+		if holds && unjudged != nil {
+			return false, unjudged
+		}
+	} else if cond.Subrequirement != nil {
 		var err error
 		if holds, err = ctx.subrequirementHoldsAt(activation, cond, features, self, frames, bindings, stepFrame); err != nil {
 			return false, err
@@ -1526,7 +1570,7 @@ func (ctx *Context) conditionHoldsAt(activation int64, cond Condition, features 
 		if stepFrame != nil {
 			ec.pushFrame(*stepFrame)
 		}
-		result, err := ec.Eval(cond.Expr)
+		result, err := ec.reading(ctx.model.exprs).evalPayload(cond.ExprID)
 		if err != nil {
 			return false, err
 		}
@@ -1548,12 +1592,22 @@ func (ctx *Context) conditionHoldsAt(activation int64, cond Condition, features 
 // subrequirementHoldsAt is a subrequirement's RequirementCheck::result within its container's
 // check: `allTrue(assumptions()) implies allTrue(constraints())` over its group, true over no required one.
 func (ctx *Context) subrequirementHoldsAt(activation int64, cond Condition, features map[string]scopedExpr, self *Instance, frames []frame, bindings frame, stepFrame *frame) (bool, error) {
+	return ctx.checkHoldsAt(activation, cond.Group, nil, features, self, frames, bindings, bindings, stepFrame)
+}
+
+// checkHoldsAt is a requirement check over two groups of conditions read in their own bindings: the
+// assumptions of both implying the required conditions of both.
+func (ctx *Context) checkHoldsAt(activation int64, group, own []Condition, features map[string]scopedExpr, self *Instance, frames []frame, bindings, ownBindings frame, stepFrame *frame) (bool, error) {
 	for _, required := range []bool{false, true} {
-		for _, sub := range cond.Group {
+		for i, sub := range slices.Concat(group, own) {
 			if sub.Required != required {
 				continue
 			}
-			holds, err := ctx.conditionHoldsAt(activation, sub, features, self, frames, bindings, stepFrame)
+			in := bindings
+			if i >= len(group) {
+				in = ownBindings
+			}
+			holds, err := ctx.conditionHoldsAt(activation, sub, features, self, frames, in, stepFrame)
 			if err != nil {
 				return false, err
 			}
@@ -1563,6 +1617,92 @@ func (ctx *Context) subrequirementHoldsAt(activation int64, cond Condition, feat
 		}
 	}
 	return true, nil
+}
+
+// boundSubrequirements is the requirement objects the binding of a bound subrequirement yields in its
+// container's check: those self holds for it, else the binding read in the container's environment.
+func (ctx *Context) boundSubrequirements(activation int64, cond Condition, features map[string]scopedExpr, self *Instance, frames []frame, bindings frame, stepFrame *frame) ([]*Instance, error) {
+	feat := cond.Bound
+	var value Value
+	if ctx.heldBy(self, feat) {
+		fv, err := self.GetFeatureValue(ctx, feat.Name)
+		if err != nil {
+			return nil, err
+		}
+		value = fv.HeldValue()
+	} else {
+		ec := NewEvalContextIn(ctx, feat.DefaultScope(), self)
+		ec.activation = activation
+		ec.features = features
+		for _, f := range frames {
+			ec.pushFrame(f)
+		}
+		if bindings.vars != nil {
+			ec.pushFrame(bindings)
+		}
+		if stepFrame != nil {
+			ec.pushFrame(*stepFrame)
+		}
+		var err error
+		if value, err = ec.reading(ctx.model.exprs).evalPayload(feat.DefaultValueID); err != nil {
+			return nil, err
+		}
+	}
+	if u := value.Undetermined(); u != nil {
+		return nil, fmt.Errorf("%w: %s %s is undetermined: %s", ErrNoValue, requirementKeyword(cond.Subrequirement), feat.Name, u.Reason())
+	}
+	var out []*Instance
+	for _, element := range elementsOf(value) {
+		inst, ok := ctx.Instance(element.Instance)
+		if element.Kind != ValInstance || !ok {
+			return nil, fmt.Errorf("%s %s must be bound to requirements, got %s", requirementKeyword(cond.Subrequirement), feat.Name, FormatValue(element))
+		}
+		out = append(out, inst)
+	}
+	return out, nil
+}
+
+// heldBy reports whether self is an object holding feat, the feature of its type so named.
+func (ctx *Context) heldBy(self *Instance, feat *EffectiveFeature) bool {
+	if self == nil || feat.Name == "" {
+		return false
+	}
+	fv, ok := self.FeatureValues[feat.Name]
+	return ok && fv.Feature != nil && fv.Feature.Symbol == feat.Symbol
+}
+
+// boundSubrequirementHolds is the check of one value of a bound subrequirement: the conditions its
+// declaration states and those of the value's own type, judged on the value.
+func (ctx *Context) boundSubrequirementHolds(activation int64, cond Condition, value *Instance, features map[string]scopedExpr, frames []frame, bindings frame, stepFrame *frame) (bool, error) {
+	var own []Condition
+	ownBindings := bindings
+	if typ := value.Type; typ != nil && typ != cond.Subrequirement && !slices.Contains(ctx.model.semantics.AllSupertypes(cond.Subrequirement), typ) {
+		own = ctx.conditionsOf(typ, ctx.chainMembers(typ, typ.OwnerScope))
+		ownBindings = ctx.withSubjectNamesOf(typ, cond.Subrequirement, bindings)
+	}
+	return ctx.checkHoldsAt(activation, cond.Group, own, features, value, frames, bindings, ownBindings, stepFrame)
+}
+
+// withSubjectNamesOf is bindings with the subject sub reads there bound also under the names typ,
+// a requirement definition specializing sub's, gives the subject it redefines it by.
+func (ctx *Context) withSubjectNamesOf(typ, sub *symbols.Symbol, bindings frame) frame {
+	var subject Value
+	bound := false
+	for _, name := range ctx.subjectParameterNames(sub) {
+		if subject, bound = bindings.lookup(name); bound {
+			break
+		}
+	}
+	if !bound {
+		return bindings
+	}
+	vars := maps.Clone(bindings.vars)
+	for _, name := range ctx.subjectParameterNames(typ) {
+		if _, ok := vars[name]; !ok {
+			vars[name] = subject
+		}
+	}
+	return bindings.withVars(vars)
 }
 
 // negatedText renders what a negated element asserted and did not get: that not

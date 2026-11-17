@@ -31,6 +31,9 @@ type Counts struct {
 	// NotDerived counts the carriers the evaluator declined (ours) or the
 	// pilot's payload left the property out of (pilot).
 	NotDerived int `json:"notDerived"`
+	// Nondeterministic counts the pilot's carriers whose answer the apijson referee
+	// declares unstable from one JVM to the next, scored apart from the three above.
+	Nondeterministic int `json:"nondeterministic,omitempty"`
 }
 
 func (c *Counts) add(o Counts) {
@@ -38,6 +41,7 @@ func (c *Counts) add(o Counts) {
 	c.Value += o.Value
 	c.Empty += o.Empty
 	c.NotDerived += o.NotDerived
+	c.Nondeterministic += o.Nondeterministic
 }
 
 // RuleCounts is one rule's row: ours and the pilot's answers.

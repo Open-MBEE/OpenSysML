@@ -263,7 +263,7 @@ func inheritedNodeMatches(graph *ActionGraph, body *symbols.Scope, decl ast.Node
 
 func shadowsInheritedActionNode(graph *ActionGraph, body *symbols.Scope, decl ast.Node) bool {
 	name := getNodeName(decl)
-	if name == "" {
+	if !nodeHasName(decl) {
 		return false
 	}
 	for _, node := range graph.Nodes {

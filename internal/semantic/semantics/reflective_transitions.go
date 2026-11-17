@@ -22,6 +22,12 @@ type transitionParts struct {
 	// succession is the Succession the transition owns through an OwningMembership, from its source
 	// to its target (SysML.xtext TransitionSuccessionMember, TargetTransitionUsage).
 	succession *symbols.Symbol
+	// linkParameters are the `in` ReferenceUsages a `transition` owns through a ParameterMembership
+	// each, ahead of its trigger: one, and a second when it declares a trigger (EmptyParameterMember).
+	linkParameters []*symbols.Symbol
+	// transitionLink is the ReferenceUsage every transition with a target owns last, through a
+	// FeatureMembership after its succession, as the pilot exports it.
+	transitionLink *symbols.Symbol
 }
 
 // acceptParameters are the payload and receiver parameters of the trigger accept sym, in that
@@ -68,13 +74,33 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 		// transition's owner, so it reads them in the scope the transition is declared in.
 		parts.succession = transitionPart(sym, sym.Decl, target.Span(), symbols.SymbolSuccessionUsage, sym, symbols.ExpressionTransitionSuccession)
 		parts.succession.OwnerScope = sym.OwnerScope
+		// Its two ends (SuccessionEndMembers) are members of a scope of its own, owned by it.
+		parts.succession.Scope = symbols.NewScope(sym.OwnerScope, sym.Decl)
+		parts.succession.Scope.SetOwner(parts.succession)
+		link := &ast.Usage{IsReference: true}
+		// It spans the transition's end, so it sorts after every member the transition owns.
+		link.NodeSpan = source.Span{Offset: sym.Decl.Span().End()}
+		parts.transitionLink = transitionPart(sym, link, link.NodeSpan, symbols.SymbolReferenceUsage, sym, symbols.ExpressionTransitionLink)
 	}
 	trans, ok := transitionDecl(sym)
+	var payload *ast.Usage
+	var event ast.Node
+	if ok {
+		payload, event = triggerPayload(trans)
+	}
+	// Every form owns one link parameter, a state body's `then x;` too (SysML.xtext TargetTransitionUsage).
+	for i := 0; i < 1+boolInt(payload != nil || event != nil); i++ {
+		link := &ast.Usage{IsReference: true, Direction: ast.DirIn}
+		link.NodeSpan = sym.DeclSpan
+		parameter := transitionPart(sym, link, link.NodeSpan, symbols.SymbolReferenceUsage, sym, symbols.ExpressionTransitionLinkParameter)
+		parameter.Expr.Index = i
+		parts.linkParameters = append(parts.linkParameters, parameter)
+	}
 	if !ok {
 		m.transitionParts[sym] = parts
 		return parts
 	}
-	if payload, event := triggerPayload(trans); payload != nil || event != nil {
+	if payload != nil || event != nil {
 		if payload != nil && payload.Value != nil {
 			event = payload.Value
 		}
@@ -217,7 +243,7 @@ func (m *Model) transitionMembers(sym *symbols.Symbol) []*symbols.Symbol {
 		return nil
 	}
 	var out []*symbols.Symbol
-	for _, part := range []*symbols.Symbol{parts.accepter, parts.guard, parts.succession} {
+	for _, part := range append(append([]*symbols.Symbol{}, parts.linkParameters...), parts.accepter, parts.guard, parts.succession, parts.transitionLink) {
 		if part != nil {
 			out = append(out, part)
 		}
@@ -264,6 +290,10 @@ func (m *Model) transitionElements(sym *symbols.Symbol, feature string) ([]*symb
 			return optionalElement(m.transitionEffect(sym)), true
 		case "succession":
 			return optionalElement(parts.succession), true
+		case "source":
+			return optionalElement(m.transitionSource(sym, parts)), true
+		case "target":
+			return optionalElement(m.transitionTarget(sym, parts)), true
 		}
 		return nil, false
 	}
@@ -280,6 +310,70 @@ func (m *Model) transitionElements(sym *symbols.Symbol, feature string) ([]*symb
 		return optionalElement(parts.receiverValue), true
 	}
 	return nil, false
+}
+
+// transitionSource is the ActionUsage the transition's source feature targets: the member of its source
+// Membership, or the last feature of a chained source (SysML v2.1 §8.3.18.9 deriveTransitionUsageSource).
+func (m *Model) transitionSource(sym *symbols.Symbol, parts *transitionParts) *symbols.Symbol {
+	source, ok := m.transitionSourceMember(sym)
+	if !ok {
+		// A chained source is the first feature the succession relates, already the chain's featureTarget.
+		source = m.transitionSuccessionEnd(parts, 0)
+	}
+	return m.actionUsageOrNil(source)
+}
+
+// transitionTarget is the ActionUsage the target feature of the transition's succession targets
+// (SysML v2.1 §8.3.18.9 deriveTransitionUsageTarget).
+func (m *Model) transitionTarget(sym *symbols.Symbol, parts *transitionParts) *symbols.Symbol {
+	target := m.transitionSuccessionEnd(parts, 1)
+	if target == nil {
+		target = m.transitionTargetEndpoint(sym)
+	}
+	return m.actionUsageOrNil(target)
+}
+
+// transitionTargetEndpoint is the vertex a written target names by endpoint resolution, which reaches one nested
+// in a sibling state as transitionSourceMember does for the source.
+func (m *Model) transitionTargetEndpoint(sym *symbols.Symbol) *symbols.Symbol {
+	if !declaresTransition(sym) || m.resolver == nil {
+		return nil
+	}
+	var written *ast.QualifiedName
+	switch d := sym.Decl.(type) {
+	case *ast.TransitionMember:
+		written = d.Target
+	case *ast.SuccessionEdge:
+		written = d.Target
+	}
+	if written == nil || ast.IsFeatureChain(written) {
+		return nil
+	}
+	scope := sym.OwnerScope
+	if scope == nil {
+		scope = sym.Scope
+	}
+	target, _ := m.resolver.EndpointSymbol(scope, written)
+	return target
+}
+
+// transitionSuccessionEnd is the feature the transition's succession relates at position i, nil when unresolved.
+func (m *Model) transitionSuccessionEnd(parts *transitionParts, i int) *symbols.Symbol {
+	if parts.succession == nil {
+		return nil
+	}
+	if related, _ := m.connectorSuccessionRelatedFeatures(parts.succession); len(related) == 2 {
+		return related[i]
+	}
+	return nil
+}
+
+// actionUsageOrNil is sym when it is an ActionUsage, which a transition's source and target must be.
+func (m *Model) actionUsageOrNil(sym *symbols.Symbol) *symbols.Symbol {
+	if !m.reflectiveMetaclassConforms(sym, "ActionUsage") {
+		return nil
+	}
+	return sym
 }
 
 func optionalElement(sym *symbols.Symbol) []*symbols.Symbol {
@@ -301,4 +395,45 @@ func triggerKind(node ast.Node) string {
 		return "after"
 	}
 	return ""
+}
+
+// transitionSourceMember is the state a `transition first x` names as its source, when the name
+// resolves and is no chain: the member of the Membership the transition owns ahead of its parameters.
+func (m *Model) transitionSourceMember(sym *symbols.Symbol) (*symbols.Symbol, bool) {
+	if !declaresTransition(sym) || m.resolver == nil {
+		return nil, false
+	}
+	scope := sym.OwnerScope
+	if scope == nil {
+		scope = sym.Scope
+	}
+	switch d := sym.Decl.(type) {
+	case *ast.TransitionMember:
+		if d.IsSuccession || d.Source == nil || ast.IsFeatureChain(d.Source) {
+			return nil, false
+		}
+		// The endpoint resolution, which reaches a vertex nested in a sibling state as the conversion's does.
+		source, ok := m.resolver.EndpointSymbol(scope, d.Source)
+		return source, ok && source != nil
+	case *ast.SuccessionEdge:
+		// A state body's `then x;` leaves the member before it (SysML.xtext TargetTransitionUsage): the
+		// state it names, or the nameless member it reaches by position.
+		if d.SourceMember != nil {
+			source, ok := m.SymbolDeclaring(scope, d.SourceMember)
+			return source, ok && source != nil
+		}
+		if d.Source == nil || ast.IsFeatureChain(d.Source) {
+			return nil, false
+		}
+		source, ok := m.resolver.EndpointSymbol(scope, d.Source)
+		return source, ok && source != nil
+	}
+	return nil, false
+}
+
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }

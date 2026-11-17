@@ -1,0 +1,17 @@
+{
+  "type": "state",
+  "libraries": true,
+  "trace": true,
+  "evaluate": "test::Ball::watch",
+  "performers": [
+    {
+      "object": "test::ball",
+      "finalState": "falling",
+      "stateVisits": ["rising", "falling"],
+      "outputs": {
+        "apexes": {"type": "Integer", "value": 1},
+        "height": {"type": "Real", "value": 2.5}
+      }
+    }
+  ]
+}

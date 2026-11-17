@@ -5,6 +5,11 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
 
 - **[The action executor](action-executor.md)** — how a token moves through a lowered
   `ActionGraph`
+- **[The self-model as the source of truth](model-led-architecture.md)** — a proposal: a
+  change to the architecture is a change to `examples/self-model/` in the same pull request as its
+  implementation and tests; as-built facts generated from the code and compared with the design by
+  requirements the tool evaluates, the tables the code and the documents then read from the model,
+  and what the rule would cost measured over 100 merged pull requests
 - **[Query outcomes](query-outcomes.md)** — how a document query's failures are told apart:
   a value (possibly empty), a path error that says where the path stopped resolving and what the
   model offers there, or a model error about the element; where the engine stands step by step

@@ -51,14 +51,20 @@ func statementKind(kind string) bool {
 	return false
 }
 
-// sectionKind reports whether a kind is a body compartment of a compound node,
-// a container drawn as a compartment of the node holding it.
-func sectionKind(kind string) bool {
+// bodySectionKind reports whether a kind is a body compartment of a compound node,
+// a container drawn as a compartment of the node holding it; a swimlane is none.
+func bodySectionKind(kind string) bool {
 	switch kind {
-	case loopBodyKind, thenBodyKind, elseBodyKind, swimlaneKind:
+	case loopBodyKind, thenBodyKind, elseBodyKind:
 		return true
 	}
 	return false
+}
+
+// dashedFrameKind reports whether a container of the kind is drawn with a
+// dashed outline: an orthogonal region (§8.2.3.18) or a swimlane (§8.2.3.17).
+func dashedFrameKind(kind string) bool {
+	return kind == "region" || kind == swimlaneKind
 }
 
 // statementNodeKind names an action usage by the one statement its body is —
@@ -213,7 +219,7 @@ func (r *Renderer) compoundCompartments(graph *lower.ActionGraph, node ast.Node,
 // iterationText is a for loop's iteration-expression, `i in 1..3`.
 func (r *Renderer) iterationText(doc string, loop lower.Loop) string {
 	collection := r.nodeText(doc, loop.Collection)
-	if loop.Variable == "" || collection == "" {
+	if !loop.Bound || collection == "" {
 		return ""
 	}
 	return nameText(loop.Variable) + " in " + collection

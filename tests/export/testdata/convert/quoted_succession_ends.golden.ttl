@@ -29,7 +29,8 @@ elmt:QuotedSuccessionEnds
 
 elmt:QuotedSuccessionEnds__provide_20power
     a sysml:ActionDefinition ;
-    sysml:qualifiedName "QuotedSuccessionEnds::provide power" ;
+    sysml:qualifiedName "QuotedSuccessionEnds::'provide power'" ;
+    sysx:mappingQualifiedName "QuotedSuccessionEnds::provide power" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
     sysx:sourceEndLine "10"^^xsd:integer ;
@@ -72,7 +73,8 @@ elmt:QuotedSuccessionEnds__provide_20power_om
 
 elmt:QuotedSuccessionEnds__provide_20power__engineStarted
     a sysml:ActionUsage ;
-    sysml:qualifiedName "QuotedSuccessionEnds::provide power::engineStarted" ;
+    sysml:qualifiedName "QuotedSuccessionEnds::'provide power'::engineStarted" ;
+    sysx:mappingQualifiedName "QuotedSuccessionEnds::provide power::engineStarted" ;
     sysx:sourceLine "3"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "3"^^xsd:integer ;
@@ -107,7 +109,8 @@ elmt:QuotedSuccessionEnds__provide_20power__engineStarted_om
 
 elmt:QuotedSuccessionEnds__provide_20power__generate_20torque
     a sysml:ActionUsage ;
-    sysml:qualifiedName "QuotedSuccessionEnds::provide power::generate torque" ;
+    sysml:qualifiedName "QuotedSuccessionEnds::'provide power'::'generate torque'" ;
+    sysx:mappingQualifiedName "QuotedSuccessionEnds::provide power::generate torque" ;
     sysx:sourceLine "4"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "4"^^xsd:integer ;
@@ -142,7 +145,8 @@ elmt:QuotedSuccessionEnds__provide_20power__generate_20torque_om
 
 elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque
     a sysml:ActionUsage ;
-    sysml:qualifiedName "QuotedSuccessionEnds::provide power::amplify torque" ;
+    sysml:qualifiedName "QuotedSuccessionEnds::'provide power'::'amplify torque'" ;
+    sysx:mappingQualifiedName "QuotedSuccessionEnds::provide power::amplify torque" ;
     sysx:sourceLine "5"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "5"^^xsd:integer ;
@@ -615,7 +619,8 @@ expr:QuotedSuccessionEnds__provide_20power___405_pend1_prs
 
 elmt:QuotedSuccessionEnds__provide_20power__s
     a sysml:SuccessionAsUsage ;
-    sysml:qualifiedName "QuotedSuccessionEnds::provide power::s" ;
+    sysml:qualifiedName "QuotedSuccessionEnds::'provide power'::s" ;
+    sysx:mappingQualifiedName "QuotedSuccessionEnds::provide power::s" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "9"^^xsd:integer ;
@@ -865,7 +870,8 @@ elmt:QuotedSuccessionEnds__drive_om
 
 elmt:QuotedSuccessionEnds__drive__enter_20vehicle
     a sysml:ActionUsage ;
-    sysml:qualifiedName "QuotedSuccessionEnds::drive::enter vehicle" ;
+    sysml:qualifiedName "QuotedSuccessionEnds::drive::'enter vehicle'" ;
+    sysx:mappingQualifiedName "QuotedSuccessionEnds::drive::enter vehicle" ;
     sysx:sourceLine "12"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "12"^^xsd:integer ;
@@ -1024,7 +1030,8 @@ expr:QuotedSuccessionEnds__drive___401_pend1_prs
 
 elmt:QuotedSuccessionEnds__drive__start_20engine
     a sysml:ActionUsage ;
-    sysml:qualifiedName "QuotedSuccessionEnds::drive::start engine" ;
+    sysml:qualifiedName "QuotedSuccessionEnds::drive::'start engine'" ;
+    sysx:mappingQualifiedName "QuotedSuccessionEnds::drive::start engine" ;
     sysx:sourceLine "14"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "14"^^xsd:integer ;
@@ -1264,7 +1271,8 @@ expr:QuotedSuccessionEnds__drive___403_pend1_pmultiplicity_om
 
 elmt:QuotedSuccessionEnds__drive__drive_20vehicle
     a sysml:ActionUsage ;
-    sysml:qualifiedName "QuotedSuccessionEnds::drive::drive vehicle" ;
+    sysml:qualifiedName "QuotedSuccessionEnds::drive::'drive vehicle'" ;
+    sysx:mappingQualifiedName "QuotedSuccessionEnds::drive::drive vehicle" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
     sysx:sourceEndLine "16"^^xsd:integer ;
@@ -2798,7 +2806,7 @@ elmt:ba29c6dc-70bc-55d8-941f-f3834db7107b
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:bb171c5a-39c5-5803-b8ee-ff7569dfbee1
-    a sysml:EndFeatureMembership ;
+    a sysml:FeatureMembership ;
     sysml:elementId "bb171c5a-39c5-5803-b8ee-ff7569dfbee1" ;
     sysml:memberElement <urn:sysmlv2:element:7d7065b6-1bb8-5bb5-b421-cc92f2e84584> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
@@ -3024,7 +3032,7 @@ elmt:fa7ae9b8-a423-52af-8914-96842d7b905f
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:fb648cc7-6cf6-504b-9234-7f31f1b42d6c
-    a sysml:EndFeatureMembership ;
+    a sysml:FeatureMembership ;
     sysml:elementId "fb648cc7-6cf6-504b-9234-7f31f1b42d6c" ;
     sysml:memberElement <urn:sysmlv2:element:99bd4b60-e5a9-55fb-8cea-1dcf517e50ec> ;
     sysml:isLibraryElement "true"^^xsd:boolean .

@@ -65,8 +65,6 @@ func (fc *funcCompiler) recordFields(r *Record) string {
 		switch e := b.t.Elem(); {
 		case e.IsFn():
 			return fmt.Sprintf("%s.%s holds a function value", r.Short, sf.Name)
-		case c.target == TargetC && (b.t.Many() || e == TypeString):
-			return fmt.Sprintf("%s.%s, a %s, for the C target: a C record cannot keep a String or a collection past the statement making it (the Go target computes it)", r.Short, sf.Name, b.t)
 		case b.t.Many() && b.unique && e.IsRec():
 			return fmt.Sprintf("%s.%s, a unique collection of records, whose uniqueness violation names an object by its number", r.Short, sf.Name)
 		}

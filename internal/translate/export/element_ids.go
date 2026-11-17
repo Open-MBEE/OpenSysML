@@ -126,9 +126,14 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 		ids.conjugateBySpan[spanKey{e.file.Name(), node.Span()}] = conjugate
 	}
 	ids.recordValuePart(e, node, subject)
+	ids.recordConstraintResult(e, node, subject)
 	ids.recordDefaultMultiplicity(e, node, subject)
 	ids.recordConnectorEnds(e, node, subject)
+	ids.recordFlowEndChains(e, node, subject)
 	ids.recordSuccessionEnds(e, node, subject)
+	ids.recordFlowEnds(e, node, subject)
+	ids.recordTransitionSuccession(e, node, subject)
+	ids.recordTransitionHead(e, node, subject)
 	ids.recordSatisfySubjects(e, node, subject)
 	ids.registerHeadChains(e, subject, chainTargets(e.writtenHeadClauses(node, parents[node], parents)))
 	for key, id := range e.writtenRelationships(node, parents[node], subject, parents) {
@@ -151,6 +156,23 @@ func (ids *ElementIDs) recordValuePart(e *encoder, node ast.Node, subject rdf.Te
 	ids.membershipByNode[valued] = membership
 	ids.membershipBySpan[spanKey{e.file.Name(), valued.Span()}] = membership
 	e.registerExpressionIDs(ids, value, valued)
+}
+
+// recordConstraintResult records a bare condition's expression under the member stating it, with
+// its parts, for the reflective result expression that declares the expression (ConstraintResultMember).
+func (ids *ElementIDs) recordConstraintResult(e *encoder, node ast.Node, subject rdf.Term) {
+	c, ok := node.(*ast.ConstraintMember)
+	if !ok || c.Keyword != "" || c.Name != "" || c.Body != nil || c.Expression == nil {
+		return
+	}
+	id := rdf.LocalName(subject.Value)
+	ids.byNode[c.Expression] = id
+	ids.bySpan[spanKey{e.file.Name(), c.Expression.Span()}] = id
+	if membership, ok := ids.membershipByNode[node]; ok {
+		ids.membershipByNode[c.Expression] = membership
+		ids.membershipBySpan[spanKey{e.file.Name(), c.Expression.Span()}] = membership
+	}
+	e.registerExpressionIDs(ids, subject, c.Expression)
 }
 
 // recordDefaultMultiplicity records the Multiplicity a usage's implicit [1..1] or an
@@ -199,6 +221,120 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 	}
 }
 
+// recordFlowEndChains files the chain Feature a flow's end references ahead of its payload (flowEndReferences) and
+// that chain's FeatureChainings under the chain as written (`a.b` of `flow a.b.x to c.y`), at "chain" and "chain.fcN".
+func (ids *ElementIDs) recordFlowEndChains(e *encoder, node ast.Node, subject rdf.Term) {
+	usage, ok := node.(*ast.Usage)
+	if !ok || !verbatimUsage(usage) || (usage.Kind == ast.UsageFlow && usage.Keyword == "message") {
+		return
+	}
+	for i := range 2 {
+		prefix := ast.FlowEndChainPrefix(usage, i)
+		if prefix == nil {
+			continue
+		}
+		slot := fmt.Sprintf("end%d", i)
+		end := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		chain := e.ids.mintedNode(rdf.ExpressionIRI(end, "chain"), end, "chain")
+		file := func(slot string, element rdf.Term) {
+			recorded := partIDs{element: rdf.LocalName(element.Value)}
+			ids.partByNode[partKey{prefix, slot}] = recorded
+			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), prefix.Span()}, slot}] = recorded
+		}
+		file("chain", chain)
+		for link := range endChainLinks(prefix) {
+			position := fmt.Sprintf("fc%d", link)
+			file("chain."+position, e.ids.mintedNode(rdf.ExpressionIRI(chain, position), chain, position))
+		}
+	}
+}
+
+// transitionLinkParameterSlots name a transition's link parameters off its id (transitionHeadMembers):
+// the one every head owns, then the one ahead of a trigger.
+var transitionLinkParameterSlots = [2]string{"linkparam", "triggerparam"}
+
+// recordTransitionHead files what a transition owns ahead of its trigger (transitionHeadMembers): the
+// Membership of its `first` source at "psourcemember", its link parameter at "linkparam", a trigger's at "triggerparam".
+func (ids *ElementIDs) recordTransitionHead(e *encoder, node ast.Node, subject rdf.Term) {
+	var sourceMember bool
+	slots := transitionLinkParameterSlots[:1]
+	switch n := node.(type) {
+	case *ast.TransitionMember:
+		if n.IsSuccession || n.Target == nil {
+			return
+		}
+		sourceMember = qualifiedText(n.Source) != "" && !qualifiedNameHasChain(n.Source) ||
+			qualifiedText(n.Source) == "" && e.transitionSourceTerm(n, nil, nil, e.names.Preceding[n]).Value != ""
+		if naming.TriggerPayload(e.file, n) != nil {
+			slots = transitionLinkParameterSlots[:]
+		}
+	case *ast.ControlFlowEdge:
+		// A decision's branch and a state body's `then x;` name their positional source (targetTransitionHeadMembers).
+		sourceMember = e.transitionSourceTerm(n, n.Source, n.SourceMember, e.names.Preceding[n]).Value != ""
+	case *ast.SuccessionEdge:
+		if !e.names.TargetTransitions[n] {
+			return
+		}
+		sourceMember = e.transitionSourceTerm(n, n.Source, n.SourceMember, e.names.Preceding[n]).Value != ""
+	default:
+		return
+	}
+	file := func(slot string, part partIDs) {
+		ids.partByNode[partKey{node, slot}] = part
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = part
+	}
+	if sourceMember {
+		file("psourcemember", partIDs{membership: rdf.LocalName(rdf.ExpressionIRI(subject, "sourcemember").Value)})
+	}
+	for _, slot := range slots {
+		feature := rdf.IRI(subject.Value + "_" + slot)
+		file(slot, partIDs{element: rdf.LocalName(feature.Value), membership: rdf.LocalName(rdf.OwningMembershipIRIOf(feature).Value)})
+	}
+}
+
+// recordTransitionSuccession files the succession a transition owns (transitionSuccession) under the
+// transition's node at the slot "succession", and its transitionLink, so the query leg reads the conversion's ids.
+func (ids *ElementIDs) recordTransitionSuccession(e *encoder, node ast.Node, subject rdf.Term) {
+	switch n := node.(type) {
+	case *ast.TransitionMember:
+		if n.IsSuccession || n.Target == nil {
+			return
+		}
+	case *ast.ControlFlowEdge:
+	case *ast.SuccessionEdge:
+		if !e.names.TargetTransitions[n] {
+			return
+		}
+	default:
+		return
+	}
+	succession := e.ids.minted(rdf.IRI(subject.Value+transitionSuccessionSuffix), subject, transitionSuccessionSuffix)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(succession), succession, rdf.OwningMembershipSuffix)
+	recorded := partIDs{element: rdf.LocalName(succession.Value), membership: rdf.LocalName(membership.Value)}
+	ids.partByNode[partKey{node, "succession"}] = recorded
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, "succession"}] = recorded
+	// The transitionLink the transition owns last (transitionLinkMember) files at "transitionlink".
+	link := e.ids.minted(rdf.IRI(subject.Value+transitionLinkSuffix), subject, transitionLinkSuffix)
+	linkMembership := e.ids.minted(rdf.OwningMembershipIRIOf(link), link, rdf.OwningMembershipSuffix)
+	transitionLink := partIDs{element: rdf.LocalName(link.Value), membership: rdf.LocalName(linkMembership.Value)}
+	ids.partByNode[partKey{node, "transitionlink"}] = transitionLink
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, "transitionlink"}] = transitionLink
+	for i := 0; i < 2; i++ {
+		// The succession's two ends and the target end's ReferenceSubsetting are minted under it (transitionSuccession).
+		slot := fmt.Sprintf("succession.end%d", i)
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(succession, fmt.Sprintf("end%d", i)), succession, fmt.Sprintf("end%d", i))
+		endMembership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+		end := partIDs{element: rdf.LocalName(feature.Value), membership: rdf.LocalName(endMembership.Value)}
+		ids.partByNode[partKey{node, slot}] = end
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = end
+		if i == 1 {
+			reference := partIDs{element: e.referenceSubsettingID(feature)}
+			ids.partByNode[partKey{node, slot + ".rs"}] = reference
+			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot + ".rs"}] = reference
+		}
+	}
+}
+
 // recordSuccessionEnds records the two ends a `then` succession's conversion mints at end0/end1
 // under the edge (encodeSuccessionEdge), each with the EndFeatureMembership minted beside it.
 func (ids *ElementIDs) recordSuccessionEnds(e *encoder, node ast.Node, subject rdf.Term) {
@@ -221,6 +357,47 @@ func (ids *ElementIDs) recordSuccessionEnds(e *encoder, node ast.Node, subject r
 			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot + ".rs"}] = reference
 		}
 	}
+}
+
+// recordFlowEnds records the ids the conversion mints for a flow's two FlowEnds at end0/end1: the end and its
+// EndFeatureMembership, its ReferenceSubsetting (`.rs`), its ReferenceUsage (`.ff`) and that usage's Redefinition (`.ff.rd0`).
+func (ids *ElementIDs) recordFlowEnds(e *encoder, node ast.Node, subject rdf.Term) {
+	usage, ok := node.(*ast.Usage)
+	if !ok || !semantics.FlowMintsEnds(usage) {
+		return
+	}
+	targets := [2]ast.Node{usage.FlowEnds.From, usage.FlowEnds.To}
+	for i, target := range targets {
+		slot := fmt.Sprintf("end%d", i)
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+		ids.recordPart(e, node, slot, partIDs{element: rdf.LocalName(feature.Value), membership: rdf.LocalName(membership.Value)})
+		if len(flowEndSegmentsOf(ast.EndTarget(target))) > 1 {
+			ids.recordPart(e, node, slot+".rs", partIDs{element: e.referenceSubsettingID(feature)})
+		}
+		flowFeature := e.ids.mintedNode(rdf.ExpressionIRI(feature, "ff"), feature, "ff")
+		flowMembership := e.ids.minted(rdf.OwningMembershipIRIOf(flowFeature), flowFeature, rdf.OwningMembershipSuffix)
+		ids.recordPart(e, node, slot+".ff", partIDs{element: rdf.LocalName(flowFeature.Value), membership: rdf.LocalName(flowMembership.Value)})
+		redefinition := rdf.RelationshipIRI(flowFeature, relationshipSuffix(ast.RelRedefines, false, 1, 0))
+		ids.recordPart(e, node, slot+".ff.rd0", partIDs{element: rdf.LocalName(redefinition.Value)})
+	}
+}
+
+// recordPart files the ids of the part at slot of node, by node and by span.
+func (ids *ElementIDs) recordPart(e *encoder, node ast.Node, slot string, recorded partIDs) {
+	ids.partByNode[partKey{node, slot}] = recorded
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = recorded
+}
+
+// flowEndSegmentsOf is the names a flow end's target is written as, outermost first.
+func flowEndSegmentsOf(target ast.Node) []*ast.QualifiedName {
+	switch target := target.(type) {
+	case *ast.QualifiedName:
+		return []*ast.QualifiedName{target}
+	case *ast.FeatureChainExpr:
+		return featureChainSegments(target)
+	}
+	return nil
 }
 
 // successionTargetStated reports whether the target end of a `then` succession reference-subsets a
@@ -365,13 +542,12 @@ func (e *encoder) writtenDependencyAnnotation(node, parent ast.Node, subject rdf
 // head's clauses (materializeRelationships), by the clause or by the target of an implicit one.
 func (e *encoder) writtenClauseRelationships(node, parent ast.Node, subject rdf.Term, parents map[ast.Node]ast.Node, out map[ast.Node]string) {
 	_, classifier := node.(*ast.Definition)
-	referenceForm := e.referenceFormOf(node)
 	clauses := e.writtenHeadClauses(node, parent, parents)
 	chains := chainTargets(clauses)
 	for _, kind := range materializedKinds {
 		objects, at := e.clauseObjects(subject, clauses, kind, chains)
 		for rel, i := range at {
-			suffix := relationshipSuffix(kind, classifier, referenceForm, len(objects), i)
+			suffix := relationshipSuffix(kind, classifier, len(objects), i)
 			key := ast.Node(rel)
 			if rel.Span().Len == 0 {
 				key = rel.Target
@@ -379,18 +555,6 @@ func (e *encoder) writtenClauseRelationships(node, parent ast.Node, subject rdf.
 			out[key] = rdf.LocalName(e.ids.minted(rdf.RelationshipIRI(subject, suffix), subject, suffix).Value)
 		}
 	}
-}
-
-// referenceFormOf reports whether a head's `subsets` are written as ReferenceSubsettings
-// (referenceSubsettingForm): a satisfy, an end-form binding or a verified requirement.
-func (e *encoder) referenceFormOf(node ast.Node) bool {
-	usage, ok := node.(*ast.Usage)
-	if !ok {
-		return false
-	}
-	form, _ := e.endFormOf(usage)
-	return usage.Kind == ast.UsageSatisfy || form != "" ||
-		(usage.IsVerifiedRequirement() && !usage.DeclaresRequirement)
 }
 
 // writtenHeadClauses are headClauses plus the objects a usage states without a clause (encode):

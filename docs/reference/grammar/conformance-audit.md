@@ -9,7 +9,7 @@ against the pinned OMG grammars, and states the resulting policy for each.
 ## Ground truth
 
 The grammars are the ones at the pin in `scripts/pilot-pin.sh`
-(`PILOT_TAG=2026-09`, `Systems-Modeling/SysML-v2-Pilot-Implementation`), read
+(`PILOT_TAG=2026-09.1`, `Systems-Modeling/SysML-v2-Pilot-Implementation`), read
 from a sparse clone rather than vendored:
 
 - `org.omg.kerml.xtext/src/org/omg/kerml/xtext/KerML.xtext` — cited as `KerML.xtext`
@@ -200,18 +200,24 @@ transition's ends, which `TransitionUsage` (`:1851-1880`) writes with `first` an
 errors now, and `initial`, which neither grammar reserves, stays an ordinary
 name.
 
-### KerML-only notation in a `.sysml` file — warning `kerml-notation`
+### KerML-only notation in a `.sysml` file — `kerml-notation`
 
 `namespace` is a literal in `KerML.xtext` only (`:125`); `SysML.xtext` does not have
 it. A `.sysml` file's root is `RootNamespace : PackageBodyElement*`
 (`SysML.xtext:38`), which allows package members, element filters, aliases and
 imports, but not a `namespace` declaration. Both spellings, `namespace N;` and
 `namespace N { … }`, are legal KerML, so the semicolon form is not the problem;
-the problem is using the production in a SysML file at all. It is still parsed,
-with a warning in `.sysml` and silently in `.kerml`.
+the problem is using the production in a SysML file at all. SysML does not reserve
+the word either (SysML 8.2.2.1.2), and its root and package bodies list no namespace
+declaration (8.2.2.5.1, 8.2.2.5.2), so the declaration is an error in a `.sysml` file
+in every mode, as it is in the pilot (`no viable alternative at input 'N'`), and
+silent in `.kerml`. It is still parsed, and the error describes the writing, so the
+members of the namespace are resolved and checked as before.
 
 The same holds for every declaration keyword `KerML.xtext` spells and `SysML.xtext`
-does not. `source.IsKeywordIn` reads both pinned keyword sets, so a word that is a
+does not: such a declaration is an error in either mode. SysML v2 §8.2.2.1.2 gives SysML the lexical structure of KerML with its own
+reserved keywords, none of these among them, and no production of `SysML.xtext` starts
+with one. The declaration is still parsed, so the editor and later checks keep working. `source.IsKeywordIn` reads both pinned keyword sets, so a word that is a
 KerML keyword and not a SysML one is reported on its declaration — `connector`
 (`KerML.xtext:824`), `class` (`:795`), `struct`, `datatype`, `classifier`,
 `subclassifier`, `feature` (`:537`), `step` (`:911`), `expr`, `bool`, `behavior`,
@@ -236,7 +242,7 @@ and the other prefixes. The message names the SysML spelling where there is one:
 The parser keeps accepting the keywords whatever the file kind where a named
 declaration follows them — a name, a short name, prefix metadata or a further
 declaration keyword (`step s;`, `step <s>;`, `step #M s;`, `feature redefines x`) —
-so the finding is the notation pass's (warning by default, error under `-strict`),
+so the finding is the notation pass's (an error in either mode),
 the members of a reported declaration are not reported again, and there is no
 `-fix`: swapping the keyword changes what kind of element is declared. The pinned
 pilot rejects each of these in a `.sysml` file (`no viable alternative at input …`,
@@ -252,7 +258,7 @@ usages named `step` and `namespace`, clean in the pilot too. An anonymous KerML
 declaration therefore has no reading in a `.sysml` file — `inv { x > 0 }` is the
 syntax error `no viable alternative at input '>'` and `connector [1] a to b;` the one
 at `a` in `validate-sysml-batch`, and `expected a body member` here — so the
-`kerml-notation` warning covers the named declarations only.
+`kerml-notation` error covers the named declarations only.
 `binding`/`bind`, `succession`, `connection`/`connect`, `flow`, `interface` and
 `allocate` are SysML productions and stay silent.
 
@@ -288,9 +294,12 @@ in a `.sysml` file, the same treatment `namespace` gets.
 `':' | 'defined' 'by'`; `SysML.xtext` has no `typed` literal at all, and the
 pinned pilot answers `part p typed by P;` in a `.sysml` file with
 `no viable alternative at input 'typed'`. The parser reads the three spellings
-alike and records the KerML one on the typing, and the pass warns it as
-`kerml-notation` in a `.sysml` file with a fix that writes `defined by`;
-`.kerml` files are silent. A metadata usage's typing (`@ m typed by Tag;`,
+alike and records the KerML one on the typing, and the pass rejects it as
+`typing-keyword` in a `.sysml` file, an error with or without `-strict`, with a
+fix that writes `defined by`; `.kerml` files are silent. Unlike `namespace` or
+`featured by`, the construct is one SysML has, so the SysML specification itself
+names its spelling (§8.2.2.1.2 `DEFINED_BY`, §8.2.2.6.5 `TypedBy`) and no
+leniency is owed a second one. A metadata usage's typing (`@ m typed by Tag;`,
 `SysML.xtext:150` `DefinedByKeyword`) is the same case.
 
 ## Judgment calls

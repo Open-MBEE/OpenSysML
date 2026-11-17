@@ -226,10 +226,9 @@ func usageMetaclassOf(n *ast.Usage, inMetadataBody bool) (string, bool) {
 	if n.IsSuccessionFlow() {
 		return mSuccessionFlowUsage, true
 	}
-	if n.Keyword == "" && (n.Kind == ast.UsageAttribute || inMetadataBody && n.Kind == ast.UsageEnumeration || n.Ident.Name == "" && n.Kind < ast.UsageConnection) {
-		// A kindless usage is a DefaultReferenceUsage; an unnamed one is too,
-		// the name it would take being what a reference lacks (SysML.xtext
-		// MemberElement `isReference ?= 'ref'` defaulted for the unnamed).
+	if n.Keyword == "" && (n.Kind == ast.UsageAttribute || inMetadataBody && n.Kind == ast.UsageEnumeration) {
+		// A kindless usage is a DefaultReferenceUsage; a name decides nothing, the
+		// prefix does (SysML.xtext IndividualUsage, PortionUsage, EnumeratedValue).
 		return "ReferenceUsage", true
 	}
 	m, ok := usageMetaclass[n.Kind]

@@ -3,10 +3,12 @@ package grpc
 import (
 	"container/list"
 	"fmt"
-	checkws "github.com/Open-MBEE/OpenSysML/internal/check/workspace"
-	"github.com/Open-MBEE/OpenSysML/internal/doc/querytranslate"
 	goruntime "runtime"
 	"sync"
+
+	checkws "github.com/Open-MBEE/OpenSysML/internal/check/workspace"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/querytranslate"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 
 	"connectrpc.com/connect"
 
@@ -174,7 +176,7 @@ func (m *CachedModel) Semantics() (*runtime.Model, error) {
 	sem := passes.NewTypedModel(resolver)
 	sem.SetSourceText(cachedSourceText(m))
 	model := runtime.NewModel(sem, resolver)
-	model.SetExpressionParser(parser.ParseOneExpression)
+	model.SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, model.Resolver()))
 	for _, doc := range m.Documents {
 		model.RegisterSource(doc.Source)
 	}
@@ -238,6 +240,9 @@ func (m *CachedModel) SymbolContext() *symbolfacts.Context {
 		m.symCtx = NewSymbolContext(m.Index)
 		m.symCtx.Semantics.SetSourceText(cachedSourceText(m))
 		m.symCtx.Positional = symbolfacts.NewPositional(m.Index, m.positionalDocuments)
+		if m.Library != nil {
+			m.symCtx.Positional.WithLibrary(m.Library.Read)
+		}
 		m.symCtx.ElementForm = func() symbolfacts.ElementForm { return elementform.New(m.elementIDReader()) }
 	})
 	return m.symCtx
@@ -260,12 +265,12 @@ func (m *CachedModel) positionalDocuments() []symbolfacts.PositionalDocument {
 	return docs
 }
 
-// LookupSymbol resolves a symbol id in either form the service reports one, under
+// LookupSymbol reads a string stated without a lookup kind (symbolfacts.Context.Lookup), under
 // the symbol context's lock: the member walk memoizes into the shared semantic model.
 func (m *CachedModel) LookupSymbol(id string) []*symbols.Symbol {
 	sc := m.SymbolContext()
 	defer sc.Lock()()
-	return sc.Lookup(id)
+	return sc.LookupElement(id)
 }
 
 // LookupNamedMember resolves a symbol id, a member a subtype inherits included
@@ -274,7 +279,63 @@ func (m *CachedModel) LookupSymbol(id string) []*symbols.Symbol {
 func (m *CachedModel) LookupNamedMember(id string) []*symbols.Symbol {
 	sc := m.SymbolContext()
 	defer sc.Lock()()
-	return symbolfacts.LookupNamedMember(sc.Index, sc.Semantics, id)
+	return sc.LookupMember(id)
+}
+
+// LookupDeclared resolves a symbol id as a declared name, else as the id the service reports
+// its element under (symbolfacts.Context.LookupDeclared), under the symbol context's lock.
+func (m *CachedModel) LookupDeclared(id string) []*symbols.Symbol {
+	sc := m.SymbolContext()
+	defer sc.Lock()()
+	return sc.LookupDeclared(id)
+}
+
+// LookupDeclaredMember is LookupDeclared with an inherited member (Sub::inherited) read as
+// a name too (symbolfacts.Context.LookupDeclaredMember), under the symbol context's lock.
+func (m *CachedModel) LookupDeclaredMember(id string) []*symbols.Symbol {
+	sc := m.SymbolContext()
+	defer sc.Lock()()
+	return sc.LookupDeclaredMember(id)
+}
+
+// ResolveQualifiedName resolves a qualified name and nothing else (see
+// symbolfacts.Context.ResolveName), under the symbol context's lock.
+func (m *CachedModel) ResolveQualifiedName(name string) []*symbols.Symbol {
+	sc := m.SymbolContext()
+	defer sc.Lock()()
+	return sc.ResolveName(name)
+}
+
+// ResolveQualifiedMemberName is ResolveQualifiedName with an alias answered as its
+// membership (see symbolfacts.Context.ResolveMemberName).
+func (m *CachedModel) ResolveQualifiedMemberName(name string) []*symbols.Symbol {
+	sc := m.SymbolContext()
+	defer sc.Lock()()
+	return sc.ResolveMemberName(name)
+}
+
+// LookupElementID finds the element the service reports under an id and nothing else
+// (see symbolfacts.Context.LookupID), under the symbol context's lock.
+func (m *CachedModel) LookupElementID(id string) []*symbols.Symbol {
+	sc := m.SymbolContext()
+	defer sc.Lock()()
+	return sc.LookupID(id)
+}
+
+// ResolveName reads a string stated without a lookup kind as a qualified name from the root
+// first, then as an id (see symbolfacts.Context.Resolve), under the symbol context's lock.
+func (m *CachedModel) ResolveName(name string) []*symbols.Symbol {
+	sc := m.SymbolContext()
+	defer sc.Lock()()
+	return sc.Resolve(name)
+}
+
+// ResolveMemberName is ResolveName with an alias answered as its membership
+// (see symbolfacts.Context.ResolveMember).
+func (m *CachedModel) ResolveMemberName(name string) []*symbols.Symbol {
+	sc := m.SymbolContext()
+	defer sc.Lock()()
+	return sc.ResolveMember(name)
 }
 
 // Cache is an LRU cache for parsed models keyed by content hash

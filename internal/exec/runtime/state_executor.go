@@ -472,7 +472,7 @@ func (e *StateExecutor) initializeAttributes() error {
 		if attr.Binding {
 			continue
 		}
-		value, err := evalDefaults().evalIn(attr.Scope).Eval(attr.Value)
+		value, err := evalDefaults().evalIn(attr.Scope).evalPayload(attr.ValueID)
 		if err != nil {
 			return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
 		}
@@ -595,6 +595,7 @@ func (e *StateExecutor) newEvalContext(scope *symbols.Scope) *EvalContext {
 	ec := NewEvalContextIn(e.ctx, scope, e.self)
 	ec.occurrence = e.occurrence
 	ec.thisOccurrence = e.materializeOccurrence
+	ec.exprs = e.graph.Exprs
 	return ec
 }
 
@@ -655,7 +656,7 @@ func (e *StateExecutor) initializeStateAttributes() error {
 				ec := e.newEvalContext(scope)
 				ec.pushFrame(e.dataFrame())
 				end := ec.beginStep()
-				value, err = ec.Eval(attr.Value)
+				value, err = ec.evalPayload(attr.ValueID)
 				end()
 			}
 			if err != nil {
@@ -867,14 +868,14 @@ func (e *StateExecutor) assignAttribute(name string, value Value) error {
 // performance — a change condition, a duration, an entry guard, a run-to-completion
 // value — in scope, in an activation of its own (see beginStep), with the
 // machine's data and the attributes of the state the step leaves shadowing it.
-func (e *StateExecutor) evalStepOf(owner ast.Node, node ast.Node, scope *symbols.Scope) (Value, error) {
-	return e.evalStepWithin(owner, nil, node, scope)
+func (e *StateExecutor) evalStepOf(owner ast.Node, id program.ExprID, scope *symbols.Scope) (Value, error) {
+	return e.evalStepWithin(owner, nil, id, scope)
 }
 
 // evalTransitionStep evaluates a transition's guard or weight within the firing
 // it belongs to (see stepFiring), so `T.d` reads what the accepting segment bound.
-func (e *StateExecutor) evalTransitionStep(trans *lower.Transition, node ast.Node, scope *symbols.Scope) (Value, error) {
-	return e.evalStepWithin(trans.Source, e.stepFiring(trans), node, scope)
+func (e *StateExecutor) evalTransitionStep(trans *lower.Transition, id program.ExprID, scope *symbols.Scope) (Value, error) {
+	return e.evalStepWithin(trans.Source, e.stepFiring(trans), id, scope)
 }
 
 // stepFiring is the firing a step of trans is read within: trans's own, with the
@@ -889,7 +890,7 @@ func (e *StateExecutor) stepFiring(trans *lower.Transition) *firing {
 
 // evalStepWithin evaluates a step's expression over the machine's data read
 // within f, nil for a step no transition performance carries.
-func (e *StateExecutor) evalStepWithin(owner ast.Node, f *firing, node ast.Node, scope *symbols.Scope) (Value, error) {
+func (e *StateExecutor) evalStepWithin(owner ast.Node, f *firing, id program.ExprID, scope *symbols.Scope) (Value, error) {
 	ec := e.newEvalContext(scope)
 	ec.inBehaviorBody = true
 	data := e.dataFrame()
@@ -901,7 +902,7 @@ func (e *StateExecutor) evalStepWithin(owner ast.Node, f *firing, node ast.Node,
 		}
 	}
 	defer ec.beginStep()()
-	return ec.Eval(node)
+	return ec.evalPayload(id)
 }
 
 // StateVertexName returns the name of a StateNode or PseudostateNode, "" for
@@ -1056,7 +1057,7 @@ func (e *StateExecutor) scheduleTimeTransitions(state *ast.StateNode) error {
 		}
 		// Evaluate duration expression in the scope the transition was written
 		// in, the machine's data shadowing it.
-		durationVal, err := e.evalStepOf(first.Source, timeEvent.Duration, first.Scope)
+		durationVal, err := e.evalStepOf(first.Source, first.TriggerExprID, first.Scope)
 		if err != nil {
 			return fmt.Errorf("eval time duration: %w", err)
 		}
@@ -1353,7 +1354,7 @@ func (e *StateExecutor) firedTransition(trans *lower.Transition) FiredTransition
 }
 
 // firedEntry is the entry transition at position index of owner's body as the firing
-// log records it; lowering gives it no id or origin yet, so the origin is the declaration's span.
+// log records it; lowering gives it no id yet, so the record carries its origin alone.
 func (e *StateExecutor) firedEntry(owner ast.Node, index int, entry *lower.EntryTransition) FiredTransition {
 	ref := EntryRef{Index: index}
 	switch owner := e.graph.EntryOwner(owner).(type) {
@@ -1365,7 +1366,7 @@ func (e *StateExecutor) firedEntry(owner ast.Node, index int, entry *lower.Entry
 	return FiredTransition{
 		Target: e.vertexRef(entryTarget(entry)),
 		Entry:  ref,
-		Origin: program.Origin{Doc: e.graph.DocOf(entry.Decl), Span: entry.Decl.Span(), Kind: "entry transition"},
+		Origin: entry.Origin,
 	}
 }
 
@@ -1483,8 +1484,9 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 				Target:  targetState,
 				Trigger: edge.Trigger,
 				Guard:   edge.Guard,
-				Effect:  lower.LowerBehaviors(edge.Effect, nil, e.stateMachine.Scope, e.ctx.Resolver()),
+				Effect:  lower.LowerBehaviors(edge.Effect, nil, e.stateMachine.Scope, e.ctx.Resolver(), e.graph.Exprs),
 			}
+			lowerTrans.GuardID = e.graph.Exprs.Intern(lowerTrans.Guard, lowerTrans.BodyScope)
 			var err error
 			dispatch.Fired, err = e.fireTransition(lowerTrans, route{segments: []*lower.Transition{lowerTrans}, target: e.stateID(targetState)})
 			return dispatch, err
@@ -2405,7 +2407,7 @@ func (w *weighing) evalWeight(pos int) (float64, error) {
 			return 0, fmt.Errorf("%w: %s: weight of %s: %v", errBranchWeights, w.where(pos), w.name(pos), err)
 		}
 	}
-	val, err := w.e.evalTransitionStep(trans, trans.Probability.Expr, trans.BodyScope)
+	val, err := w.e.evalTransitionStep(trans, trans.Probability.ExprID, trans.BodyScope)
 	if err != nil {
 		return 0, fmt.Errorf("%w: %s: weight of %s: %v", errBranchWeights, w.where(pos), w.name(pos), err)
 	}
@@ -3113,7 +3115,7 @@ func (e *StateExecutor) guardHolds(trans *lower.Transition) (holds bool, unvalue
 		return true, nil, nil
 	}
 	holds, err = e.ctx.guardUnderStatementOrders(trans.Guard, e.ctx.enclosingExecutorStep(), trans.BodyScope, func() (bool, error) {
-		val, err := e.evalTransitionStep(trans, trans.Guard, trans.BodyScope)
+		val, err := e.evalTransitionStep(trans, trans.GuardID, trans.BodyScope)
 		if err != nil {
 			err = fmt.Errorf("eval guard of %s: %w", transitionDescription(trans), err)
 			if readsNoValue(err) {
@@ -5598,9 +5600,11 @@ func (e *StateExecutor) activeStates() []*ast.StateNode {
 	return nil
 }
 
+// checkStart refuses a machine declaring substates and no entry into them; one
+// declaring no substate has nothing to choose and is simply active.
 func (e *StateExecutor) checkStart() error {
 	if len(e.graph.TopRegions) == 0 {
-		if len(e.graph.StartOf(nil)) == 0 {
+		if len(e.graph.StartOf(nil)) == 0 && !e.declaresNoSubstate() {
 			return fmt.Errorf("%w in state machine %s", errNoInitialState, e.stateMachine.Name)
 		}
 		return nil
@@ -5611,6 +5615,17 @@ func (e *StateExecutor) checkStart() error {
 		}
 	}
 	return nil
+}
+
+// declaresNoSubstate reports a machine with no region and no substate but a
+// synthesized `done`: nothing to enter, so it is active in itself (§7.18.1).
+func (e *StateExecutor) declaresNoSubstate() bool {
+	if len(e.graph.TopRegions) != 0 {
+		return false
+	}
+	return !slices.ContainsFunc(e.graph.States, func(state *ast.StateNode) bool {
+		return !e.graph.Completes(state)
+	})
 }
 
 // initialize sets current state to initial state and enters it.
@@ -5676,7 +5691,8 @@ func (e *StateExecutor) enterMachineStart() error {
 	if err != nil {
 		return err
 	}
-	if e.state == StateTerminated {
+	// A machine declaring no substate stays active in itself: no state to enter.
+	if e.state == StateTerminated || start == nil {
 		return nil
 	}
 	e.setCurrentState(start)
@@ -5764,10 +5780,8 @@ func (e *StateExecutor) startIn(owner ast.Node) (*ast.StateNode, error) {
 }
 
 func entryFromName(owner ast.Node, entry *lower.EntryTransition) string {
-	if transition, ok := entry.Decl.(*ast.TransitionMember); ok {
-		if source := lower.EndpointText(transition.Source); source != "" {
-			return source
-		}
+	if entry.SourceText != "" {
+		return entry.SourceText
 	}
 	switch body := owner.(type) {
 	case *ast.StateNode:
@@ -5875,7 +5889,7 @@ func (e *StateExecutor) entryGuardHolds(owner ast.Node, entry *lower.EntryTransi
 		return true, nil
 	}
 	return e.ctx.guardUnderStatementOrders(entry.Guard, e.ctx.enclosingExecutorStep(), entry.Scope, func() (bool, error) {
-		val, err := e.evalStepOf(e.bodyState(owner), entry.Guard, entry.Scope)
+		val, err := e.evalStepOf(e.bodyState(owner), entry.GuardID, entry.Scope)
 		if readsNoValue(err) {
 			return false, nil
 		}
@@ -6567,7 +6581,7 @@ func (e *StateExecutor) sourcePathNames(trans *lower.Transition, fromName string
 }
 
 func (e *StateExecutor) stateSourceOrigin(state *ast.StateNode) symbols.Origin {
-	doc := e.graph.DocOf(state)
+	doc := e.stateOrigin(state).Doc
 	if doc == "" && e.stateMachine != nil {
 		doc = e.stateMachine.DocName
 	}
