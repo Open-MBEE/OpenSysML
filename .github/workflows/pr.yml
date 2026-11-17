@@ -1416,9 +1416,8 @@ jobs:
       - name: Check documentation links
         run: python3 scripts/check-doc-links.py
 
-      # Whether the shipped pages are what each command renders is a Go test, which the
-      # Go shards run on any change to the commands or the pages (scripts/ci-changed-areas.sh);
-      # compiling the five commands again here took about three minutes.
+      # Whether the shipped pages are what each command renders is a Go test, which the Go
+      # shards run on any change to the commands or the pages; compiling them again here took three minutes.
       - name: Install mandoc
         timeout-minutes: 10
         uses: ./.github/actions/apt-install
