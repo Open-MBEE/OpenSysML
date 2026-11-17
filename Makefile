@@ -1,4 +1,4 @@
-.PHONY: all build docker stdlib-snapshot vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check textmate-grammars-check textmate-grammars-publish build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab test test-shard test-quick test-queue coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package emacs-keywords emacs-compile emacs-test docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render spec-compliance-check spec-compliance-render self-model mcp-registry-check
+.PHONY: all build docker stdlib-snapshot vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check textmate-grammars-check textmate-grammars-publish build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check man-lint install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab test test-shard test-quick test-queue coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package emacs-keywords emacs-compile emacs-test docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render spec-compliance-check spec-compliance-render self-model mcp-registry-check
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -280,6 +280,10 @@ man: ## Regenerate the shipped manual pages from each command's description
 man-check: ## Verify the shipped pages are current and formatter-clean
 	@echo "Checking the manual pages..."
 	go test -count=1 -run 'TestTheShippedManualPage|TestTheManualPage' ./cmd/sysml ./cmd/sysml-lsp ./cmd/sysml-grpc ./cmd/sysml-jupyter-kernel ./cmd/sysml-mcp
+	@$(MAKE) --no-print-directory man-lint
+	@echo "✓ Manual pages are current"
+
+man-lint: ## Run the shipped pages through a formatter, without rebuilding the commands
 	@# mandoc is the strictest reader; groff is the one always at hand.
 	@if command -v mandoc >/dev/null 2>&1; then \
 		mandoc -T lint -W warning $(MAN_PAGES) || exit 1; \
@@ -288,7 +292,7 @@ man-check: ## Verify the shipped pages are current and formatter-clean
 	else \
 		echo "note: neither mandoc nor groff is installed; the pages were not formatted"; \
 	fi
-	@echo "✓ Manual pages are current"
+	@echo "✓ Manual pages are formatter-clean"
 
 pgo-profile: stdlib-snapshot ## Regenerate cmd/*/default.pgo, the CPU profile go build optimizes the binaries against
 	@echo "Collecting the PGO profile..."
