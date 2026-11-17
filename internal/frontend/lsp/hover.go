@@ -35,7 +35,7 @@ func (s *Server) Hover(ctx context.Context, params *protocol.HoverParams) (*prot
 			if target.Named() {
 				signature += " " + source.NameText(target.Name)
 			}
-			if t := declaredTypeText(target); t != "" {
+			if t := s.typingText(target); t != "" {
 				signature += " : " + t
 			}
 			rng := spanToRange(content, span)
@@ -62,9 +62,12 @@ func (s *Server) Hover(ctx context.Context, params *protocol.HoverParams) (*prot
 	// annotation's metadata definition (KerML 7.4.7); name it and its type.
 	if target, fqn, ok := s.ws.MetadataBodyRedefines(sym); ok {
 		signature += " redefines " + fqn
-		if t := declaredTypeText(target); t != "" {
+		if t := s.typingText(target); t != "" {
 			signature += " : " + t
 		}
+	} else if t := typeNames(s.ws.InheritedTypesOf(sym)); t != "" {
+		// The typing a declaration writes is in view; the one it inherits is not.
+		signature += " : " + t
 	}
 	notes := leadingNotes(content, sym.LeadingTrivia)
 

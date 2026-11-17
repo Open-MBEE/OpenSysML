@@ -466,6 +466,12 @@ or on a grid, and routed to its ports for neato \-n2 to draw), or polyline,
 straight segments; the Pilot visualizer's ORTHOLINE and POLYLINE styles.
 Mermaid and D2 note the routing as not represented
 .TP
+.BR \-render\-direction " \fIdirection\fP"
+Direction a graph\-shaped form of \-render or \-render\-all flows in: TB, top
+to bottom, LR, left to right, RL or BT; unset leaves each kind's default.
+Mermaid, DOT and D2 draw all four, PlantUML notes RL and BT as not
+represented, draw.io keeps its positions, text and the tables ignore it
+.TP
 .BR \-render\-show " \fIelements\fP"
 Optional notation elements \-render, \-render\-all and document diagrams draw
 besides the default (port symbols, compartments and keywords),
@@ -1142,15 +1148,17 @@ polyline, straight segments, as the Pilot visualizer's ORTHOLINE and POLYLINE
 styles do; Mermaid and D2 note the routing. Under ortho the DOT form lays the
 drawing out itself, with Graphviz's dot (OPENSYSML_DOT, else PATH) or on a
 grid, and routes every edge to its port, writing a positioned graph for neato
-\-n2 to draw. A DiagramLayout Style on a member colours it over either look,
-and a Note is drawn beside the member it is about. A view whose members carry
-DiagramLayout positions draws the placed members and the edges between them in
-every graph form, and leaves a member with no position undrawn: the DOT form
-pins each at its stated place, so nothing lands on a positioned box, while
-Mermaid, PlantUML and D2 lay the same members out themselves and drawio puts
-them on a grid for draw.io to arrange. \-render\-unplaced strip draws the
-unplaced members too, in rows in a strip below a DOT drawing. The same setting
-shapes the diagrams of \-render\-document and \-render\-documents.
+\-n2 to draw. \-render\-direction names the direction a graph\-shaped form
+flows in: TB, LR, RL or BT. A DiagramLayout Style on a member colours it over
+either look, and a Note is drawn beside the member it is about. A view whose
+members carry DiagramLayout positions draws the placed members and the edges
+between them in every graph form, and leaves a member with no position
+undrawn: the DOT form pins each at its stated place, so nothing lands on a
+positioned box, while Mermaid, PlantUML and D2 lay the same members out
+themselves and drawio puts them on a grid for draw.io to arrange.
+\-render\-unplaced strip draws the unplaced members too, in rows in a strip
+below a DOT drawing. The same setting shapes the diagrams of
+\-render\-document and \-render\-documents.
 .SH LISTING DOCUMENTS AND VIEWS
 .RS 2
 .nf

@@ -184,6 +184,9 @@ func TestGoldenRenderings(t *testing.T) {
 		{"spec-compartments", "spec-compartments.sysml", "HeadingViews::headings", KindTree},
 		{"spec-node-forms", "spec-compartments.sysml", "HeadingViews::nodes", KindTree},
 		{"glyphs-interconnection", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::lineGlyphs", KindInterconnection},
+		{"action-swimlanes-performed", "action-swimlanes.sysml", "SwimLanes::performedView", KindAction},
+		{"action-swimlanes-action", "action-swimlanes.sysml", "SwimLanes::actionView", KindAction},
+		{"action-swimlanes-shapes", "action-swimlanes.sysml", "LaneShapes::assembleView", KindAction},
 		{"glyphs-action", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::fillGlyphs", KindAction},
 		{"glyphs-mixed", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::mixedGlyphs", KindMixed},
 	}

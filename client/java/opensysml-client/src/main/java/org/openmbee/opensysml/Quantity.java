@@ -16,8 +16,15 @@ import java.util.Optional;
  *     {@link Double}
  * @param unit the unit as written ({@code "km/h"}), or empty for one never written down
  * @param reduction what the unit reduces to, absent when the service sent none
+ * @param valueType qualified name of the quantity value type the service holds the quantity as
+ *     ({@code "ISQThermodynamics::EnergyValue"}), absent for none; sent back, it is kept, so a
+ *     sibling type still refuses the quantity
  */
-public record Quantity(Number magnitude, Optional<String> unit, Optional<UnitTerm> reduction) {
+public record Quantity(
+    Number magnitude,
+    Optional<String> unit,
+    Optional<UnitTerm> reduction,
+    Optional<String> valueType) {
 
   /**
    * Creates a quantity.
@@ -26,11 +33,13 @@ public record Quantity(Number magnitude, Optional<String> unit, Optional<UnitTer
    *     long}, a {@link Rational}, or a {@link Double}
    * @param unit the unit as written, absent when unnamed
    * @param reduction the unit's reduction to base units, absent when the service sent none
+   * @param valueType the quantity value type it is held as, absent for none
    */
   public Quantity {
     Objects.requireNonNull(magnitude, "magnitude");
     Objects.requireNonNull(unit, "unit");
     Objects.requireNonNull(reduction, "reduction");
+    Objects.requireNonNull(valueType, "valueType");
     if (magnitude instanceof java.math.BigInteger big) {
       if (big.bitLength() < 64) {
         throw new IllegalArgumentException(
@@ -42,6 +51,17 @@ public record Quantity(Number magnitude, Optional<String> unit, Optional<UnitTer
       throw new IllegalArgumentException(
           "magnitude must be a Long, a BigInteger, a Rational or a Double: " + magnitude);
     }
+  }
+
+  /**
+   * Creates a quantity held as no quantity value type, as one a caller builds is.
+   *
+   * @param magnitude the magnitude, as the canonical constructor takes it
+   * @param unit the unit as written, absent when unnamed
+   * @param reduction the unit's reduction to base units, absent when the service sent none
+   */
+  public Quantity(Number magnitude, Optional<String> unit, Optional<UnitTerm> reduction) {
+    this(magnitude, unit, reduction, Optional.empty());
   }
 
   /**

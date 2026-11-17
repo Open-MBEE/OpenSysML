@@ -27,6 +27,13 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return cached
 	}
 	value := m.ValueExpression(sym)
+	if feature := m.FlowEndFeatureMember(sym); feature != nil {
+		// A flow's end owns the ReferenceUsage redefining the feature it names (SysML.xtext FlowFeatureMember).
+		journal(m, m.memberships, sym, sym.Decl)
+		out := appendOwningMembership(nil, sym, feature)
+		m.memberships[sym] = out
+		return out
+	}
 	if sym.Scope == nil && value == nil {
 		return nil
 	}
@@ -76,6 +83,11 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 			},
 		})
 		ordinal++
+	}
+	if !flowDeclaresPayload(sym) {
+		// A flow owns its two FlowEnds ahead of its body (SysML.xtext FlowDeclaration); one declaring
+		// a payload owns them after it, below.
+		out, ordinal = m.withFlowEndMemberships(sym, out, ordinal)
 	}
 	for _, end := range m.SuccessionEndMembers(sym) {
 		// A `then` succession owns its two ends ahead of its body (SysML.xtext TargetSuccession).
@@ -129,6 +141,10 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 			},
 		})
 		ordinal++
+		if m.IsFlowPayload(member) {
+			// A flow declaring its payload owns its two FlowEnds right after it, as the pilot orders them.
+			out, ordinal = m.withFlowEndMemberships(sym, out, ordinal)
+		}
 		return true
 	})
 	if result := m.ConstraintResultMember(sym); result != nil {
@@ -150,6 +166,29 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	out = m.withDefaultMultiplicity(sym, out, len(out))
 	m.memberships[sym] = out
 	return out
+}
+
+// withFlowEndMemberships adds the EndFeatureMembership of each FlowEnd sym owns (FlowEndMembers).
+func (m *Model) withFlowEndMemberships(sym *symbols.Symbol, out []*symbols.Symbol, ordinal int) ([]*symbols.Symbol, int) {
+	for _, end := range m.FlowEndMembers(sym) {
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   end.DeclSpan,
+			Visibility: sym.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: end,
+			},
+		})
+		ordinal++
+	}
+	return out, ordinal
+}
+
+// flowDeclaresPayload reports whether sym is a flow declaring its payload (`flow of p : T`, `flow of T`).
+func flowDeclaresPayload(sym *symbols.Symbol) bool {
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.FlowEnds != nil && usage.FlowEnds.PayloadDecl != nil
 }
 
 // withDefaultMultiplicity adds the OwningMembership of the Multiplicity sym states
@@ -309,6 +348,9 @@ func (m *Model) OwningRelationship(sym *symbols.Symbol) *symbols.Symbol {
 		return nil
 	}
 	if sym.Chain != nil {
+		if sym.Chain.Flow != nil {
+			return m.flowEndChainReference(sym)
+		}
 		return sym.Chain.Relationship
 	}
 	if membership := m.OwningMembership(sym); membership != nil {
@@ -453,8 +495,9 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 	if !member.IsFeature() || !m.reflectiveMetaclassConforms(owner, "Type") {
 		return "OwningMembership"
 	}
-	if member.Kind == symbols.SymbolConnectorEnd || usageFlag(member, func(u *ast.Usage) bool { return u.IsEnd }) ||
-		containsElement(m.EndFeatures(owner), member) {
+	if _, implied := symbols.ImpliedSuccessionEndIndex(member); member.Kind == symbols.SymbolConnectorEnd || implied {
+		// A connector's clause end (`connect a to b`, a flow's or a `then` succession's) is an EndFeatureMembership;
+		// a declared `end` feature is a FeatureMembership whose member isEnd, as the pilot exports both.
 		return "EndFeatureMembership"
 	}
 	if isAcceptPayload(owner, member) {

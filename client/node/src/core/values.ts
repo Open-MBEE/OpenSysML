@@ -100,6 +100,8 @@ export interface QuantityValue {
   magnitude: Magnitude;
   unit: string;
   unitTerm?: UnitFactorization;
+  /** The quantity value type the service holds it as; sent back, it is kept. */
+  valueType?: string;
 }
 
 /**
@@ -749,6 +751,7 @@ function decodeQuantity(quantity: Quantity): QuantityValue {
     magnitude,
     unit: quantity.unit,
     ...(unitTerm === undefined ? {} : { unitTerm }),
+    ...(quantity.valueType === "" ? {} : { valueType: quantity.valueType }),
   };
 }
 
@@ -757,6 +760,7 @@ function encodeQuantity(quantity: QuantityValue): Quantity {
     magnitude: encodeQuantityMagnitude(quantity.magnitude),
     unit: quantity.unit,
     ...(quantity.unitTerm === undefined ? {} : { unitTerm: encodeUnitTerm(quantity.unitTerm) }),
+    ...(quantity.valueType === undefined ? {} : { valueType: quantity.valueType }),
   });
 }
 

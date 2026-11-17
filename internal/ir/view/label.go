@@ -397,6 +397,9 @@ func (l labeller) keyword(node *Node) string {
 	if !l.shown.Has(ElementKeywords) || !l.keyworded(node) {
 		return ""
 	}
+	if node.Kind == swimlaneKind {
+		return "«" + performerKeyword + "»"
+	}
 	return "«" + node.Kind + "»"
 }
 

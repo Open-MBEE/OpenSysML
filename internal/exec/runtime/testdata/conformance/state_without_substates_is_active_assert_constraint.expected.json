@@ -1,0 +1,10 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Controller",
+  "constraints": {
+    "idleIsActive": true,
+    "phasesIsActive": true,
+    "idleIsNotActiveWrong": false
+  }
+}

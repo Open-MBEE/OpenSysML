@@ -155,15 +155,17 @@ func (s *FeatureValue) declared() bool {
 	return s.Materialized && s.intrinsic && !s.Written && !s.BindingDerived && !s.Assumed
 }
 
-// subsettersDeclared reports whether every feature of inst subsetting the named one
-// holds a declared value, so what they contribute to it follows from declarations alone.
+// subsettersDeclared reports whether every feature subsetting the named one of inst is one of
+// inst holding a declared value, so what they contribute to it follows from its declarations alone.
 func (ctx *Context) subsettersDeclared(inst *Instance, name string) bool {
 	for _, feat := range ctx.subsettingFeaturesOf(inst, name) {
 		if fv, ok := inst.FeatureValues[feat.Name]; !ok || !fv.declared() {
 			return false
 		}
 	}
-	return true
+	// A subsetter declared elsewhere is read through other objects, whose values
+	// this object's declarations alone do not settle.
+	return !ctx.reachedByASubsetter(inst, name)
 }
 
 // shareable reports whether a derived value may be held by every occurrence of the

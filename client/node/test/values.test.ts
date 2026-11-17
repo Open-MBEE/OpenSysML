@@ -207,6 +207,29 @@ test("a quantity carries its magnitude, unit and reduction", () => {
 
 const int = (value: bigint) => create(ValueSchema, { kind: { case: "intValue", value } });
 const real = (value: number) => create(ValueSchema, { kind: { case: "realValue", value } });
+test("a quantity keeps the value type it is held as across a round trip", () => {
+  const held = create(QuantitySchema, {
+    magnitude: { case: "realMagnitude", value: 5 },
+    unit: "J",
+    unitTerm: create(UnitTermSchema, { scaleNum: 1, scaleDen: 1, factors: [] }),
+    valueType: "ISQThermodynamics::EnergyValue",
+  });
+  const decoded = decodeValue(create(ValueSchema, { kind: { case: "quantity", value: held } }));
+  assert.ok(decoded.kind === "quantity");
+  assert.equal(decoded.valueType, "ISQThermodynamics::EnergyValue");
+  const again = encodeValue(decoded);
+  assert.ok(again.kind.case === "quantity");
+  assert.equal(again.kind.value.valueType, "ISQThermodynamics::EnergyValue");
+
+  // One held as no type says so by leaving the property out, and is sent with none.
+  const bare = decodeValue(create(ValueSchema, { kind: { case: "quantity", value: metres(1) } }));
+  assert.ok(bare.kind === "quantity");
+  assert.equal("valueType" in bare, false);
+  const sent = encodeValue(bare);
+  assert.ok(sent.kind.case === "quantity");
+  assert.equal(sent.kind.value.valueType, "");
+});
+
 const metres = (value: number) =>
   create(QuantitySchema, {
     magnitude: { case: "realMagnitude", value },

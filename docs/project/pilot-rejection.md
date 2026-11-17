@@ -166,7 +166,7 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-350 case(s): 340 both reject, 0 only the pilot rejects, 10 only we reject, 0 both accept
+351 case(s): 341 both reject, 0 only the pilot rejects, 10 only we reject, 0 both accept
   of which 2 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
@@ -174,7 +174,7 @@ Under the default `-conformance auto`:
 | --- | --- | --- | --- | --- | --- |
 | extensions | 13 | 13 | 0 | 0 | 0 |
 | grammar | 114 | 114 | 0 | 0 | 0 |
-| semantic | 188 | 178 | 0 | 10 | 0 |
+| semantic | 189 | 179 | 0 | 10 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
 Eight of the ten ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
@@ -288,8 +288,8 @@ implementations reject it by default. `x10` (KerML's `connector` declared in a `
 when a declaration keyword only KerML spells became a `kerml-notation` error in either mode. `x13` (a typing spelled `typed by`) left it when that spelling
 became an error in either mode: SysML names the spelling of a typing itself (§8.2.2.1.2
 `DEFINED_BY`), so no second one is owed a warning. Judged in
-the default mode the same corpus gives 338 agreements and 2 gaps, which is what `-conformance
-default` prints. `-conformance strict` gives 340 and 0. Reserved keywords recovered as declared
+the default mode the same corpus gives 339 agreements and 2 gaps, which is what `-conformance
+default` prints. `-conformance strict` gives 341 and 0. Reserved keywords recovered as declared
 names and SysML declaration keywords recovered in KerML are now errors in either mode; the parser
 still preserves their trees for editors and later analysis. Of the 14 gaps this document carried
 when it was first written, six were closed by the validation work itself — `p01`, `p02`, `p03`,
