@@ -103,7 +103,7 @@ root examples: models 56, skipped 0, matched 37897, unmatched 11255
   Type::ownedSpecialization: equal 15619, different 132, symbol-missing 0, symbol-extra 0
   Type::ownedUnioning: equal 15750, different 1, symbol-missing 0, symbol-extra 0
   Type::unioningType: equal 15750, different 1, symbol-missing 0, symbol-extra 0
-  Usage::directedUsage: equal 4129, different 36, symbol-missing 77, symbol-extra 2254
+  Usage::directedUsage: equal 4186, different 36, symbol-missing 77, symbol-extra 2254
   Usage::isReference: equal 6534, different 19, symbol-missing 0, symbol-extra 0
   Usage::mayTimeVary: equal 6550, different 0, symbol-missing 3, symbol-extra 0
   Usage::nestedAction: equal 6448, different 105, symbol-missing 0, symbol-extra 0
