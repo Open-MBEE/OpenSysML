@@ -151,6 +151,8 @@ type Model struct {
 	// subsetters memoizes, per type, the features subsetting each named feature of it
 	// under any of its redefinition names; callers read the shared slice.
 	subsetters map[*symbols.Symbol]map[string][]EffectiveFeature
+	// reaching memoizes reachingSubsetters per type; callers read the shared slice.
+	reaching map[*symbols.Symbol][]reachingSubsetter
 	// subsetted memoizes subsettedNames per feature of a type, declaredSubsetted
 	// declaredSubsettedNames; callers read the shared slices.
 	subsetted         map[featureOfType][]string
@@ -296,6 +298,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		redefGroups:         make(map[*symbols.Symbol][][]string),
 		slots:               make(map[featureOfType]string),
 		subsetters:          make(map[*symbols.Symbol]map[string][]EffectiveFeature),
+		reaching:            make(map[*symbols.Symbol][]reachingSubsetter),
 		subsetted:           make(map[featureOfType][]string),
 		declaredSubsetted:   make(map[featureOfType][]string),
 		relationships:       make(map[relationshipsKey][]*ast.Relationship),
