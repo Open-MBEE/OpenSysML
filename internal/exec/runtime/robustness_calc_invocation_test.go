@@ -45,6 +45,7 @@ func TestRuntimeRobustnessCalcInvocation(t *testing.T) {
 	t.Run("nested_calc_assigns_a_wrong_typed_enclosing_value", testNestedCalcAssignsAWrongTypedEnclosingValue)
 	t.Run("nested_calc_write_refreshes_the_enclosing_bindings", testNestedCalcWriteRefreshesTheEnclosingBindings)
 	t.Run("calc_assignment_through_this_to_a_constant", testCalcAssignmentThroughThisToAConstant)
+	t.Run("calc_assignment_through_this_past_a_shadowing_local", testCalcAssignmentThroughThisPastAShadowingLocal)
 	t.Run("calc_output_write_of_a_wrong_typed_value", testCalcOutputWriteOfAWrongTypedValue)
 }
 
@@ -697,9 +698,8 @@ func testCalcSendToNoObject(t *testing.T) {
 	}
 }
 
-// testCalcTerminateEndsItsSteps: a terminate ends the calculation's own performance
-// (SysML v2 §7.17.10), so the steps after it are not taken; the result, a binding
-// of the calculation rather than a step, answers with the values held then.
+// testCalcTerminateEndsItsSteps: a terminate ends the calculation's own performance (SysML v2
+// §7.17.10), so later steps are not taken; the result, a binding, answers with the values held.
 func testCalcTerminateEndsItsSteps(t *testing.T) {
 	src := `package test {
 		private import ScalarValues::*;
@@ -822,6 +822,36 @@ func testCalcAssignmentThroughThisToAConstant(t *testing.T) {
 	_, err := ctx.invokeCalcWithSelf(oneSymbol(t, idx, "test::Fixed"), calcArgs{}, idx.DocumentRoot("<test>"), nil)
 	if !errors.Is(err, errReadOnlyFeature) {
 		t.Fatalf("err = %v, want errReadOnlyFeature", err)
+	}
+}
+
+// testCalcAssignmentThroughThisPastAShadowingLocal: `this.x` names the calculation's own x,
+// so a block's local of that name neither types nor freezes the write, and x's declaration does.
+func testCalcAssignmentThroughThisPastAShadowingLocal(t *testing.T) {
+	const model = `package test {
+		private import ScalarValues::*;
+		calc def C { %s return : Integer[1] = x; }
+	}`
+	for _, c := range []struct {
+		name, body string
+		want       int64
+		err        error
+	}{
+		{"parameter under a local of another type", `in x : Integer; if true { attribute x : String := "s"; assign this.x := 5; }`, 5, nil},
+		{"root local under a loop's local", `in n : Integer; attribute x : Integer := n; attribute i : Integer := 0;
+			while i < 1 { attribute x : String := "s"; assign this.x := 7; assign i := i + 1; }`, 7, nil},
+		{"parameter under a constant local", `in x : Integer; if true { constant attribute x : Integer = 2; assign this.x := 5; }`, 5, nil},
+		{"value of the local's type, not the parameter's", `in x : Integer; if true { attribute x : String := "s"; assign this.x := "t"; }`, 0, ErrTypeMismatch},
+		{"constant under a variable local", `in n : Integer; constant attribute x : Integer = 2; if true { attribute x : Integer := 1; assign this.x := 5; }`, 0, errReadOnlyFeature},
+	} {
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, fmt.Sprintf(model, c.body)))
+		got, err := ctx.invokeCalcWithSelf(oneSymbol(t, idx, "test::C"),
+			calcArgs{positional: []Value{integerValue(1)}}, idx.DocumentRoot("<test>"), nil)
+		if !errors.Is(err, c.err) || (c.err == nil && err != nil) {
+			t.Errorf("%s: err = %v, want %v", c.name, err, c.err)
+		} else if c.err == nil && got.Const.Int != c.want {
+			t.Errorf("%s: C(1) = %v, want %d", c.name, got, c.want)
+		}
 	}
 }
 

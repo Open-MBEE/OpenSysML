@@ -254,11 +254,12 @@ func (h *calcStmtHost) assignChain(ec *EvalContext, s lower.Assign, value Value)
 	if h.occ != nil && h.occ.inst != nil && target == h.occ.inst && h.holds(s.Target) {
 		// Judged as the unchained name is, not on the object as a chained write is.
 		what := func() string { return fmt.Sprintf("%s: assignment to %s", h.describe(), s.Chain.Text) }
-		if err := h.ctx.checkMutable(s.Scope, what, s.Target); err != nil {
+		// The name is the run's own feature, whatever a block around the write declares.
+		own := s
+		own.Chain, own.Scope = nil, h.shape.BodyScope()
+		if err := h.ctx.checkMutable(own.Scope, what, s.Target); err != nil {
 			return err
 		}
-		own := s
-		own.Chain = nil
 		if !h.declaredOutput(s.Target) && !h.env.rootDeclares(s.Target) {
 			return h.assignData(h.env, s.Target, value, own)
 		}
