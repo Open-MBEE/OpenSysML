@@ -1,0 +1,15 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Mission",
+  "objects": [
+    {
+      "slots": {
+        "started": {"type": "Integer", "value": 1}
+      }
+    }
+  ],
+  "constraints": {
+    "idleIsActive": true
+  }
+}
