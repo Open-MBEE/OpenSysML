@@ -8,9 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// TestRuntimeRobustnessCalcBodyPerforms: a calculation is an action (SysML v2
-// §7.19.1) whose body admits every action body item (CalculationBodyItem), so the
-// steps it states are performed, and fail, as an action's are.
+// TestRuntimeRobustnessCalcBodyPerforms: a calculation body admits every action body item
+// (SysML v2 §7.19.1, CalculationBodyItem), so its steps are performed, and fail, as an action's.
 func TestRuntimeRobustnessCalcBodyPerforms(t *testing.T) {
 	cases := []struct {
 		name, body, want string

@@ -904,9 +904,8 @@ func runCalcSteps(engine *stmtEngine, host *calcStmtHost, steps []lower.Statemen
 	engine.ctx.deriving = nil
 	defer func() { engine.ctx.deriving = deriving }()
 	flow, err := engine.run(steps)
-	// A terminate of the body's own performance ends its steps; its result is a
-	// binding of the calculation, not a step, and is still evaluated. A `return`
-	// a step reached ends them with the result settled.
+	// A terminate of the body's own performance ends its steps, and its result, a binding
+	// rather than a step, is still evaluated; a `return` a step reached settles the result.
 	if ended, returned, endErr := host.endedOwn(err); ended {
 		switch {
 		case endErr != nil:

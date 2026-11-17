@@ -139,9 +139,8 @@ func (c *Calc) IsCase() bool {
 	return c.Kind == "analysis" || c.Kind == "verification"
 }
 
-// Performs reports whether the body runs as a performance whose action nodes are
-// its steps: a case's body does, and so does a calc's that states a token flow or
-// a step of an action (SysML v2 §7.19.1: a calculation is an action).
+// Performs reports whether the body runs as a performance whose action nodes are its steps:
+// a case's, and a calc's stating a token flow or a step of an action (SysML v2 §7.19.1).
 func (c *Calc) Performs() bool {
 	return c.IsCase() || c.StatesFlow || c.PerformsActions
 }

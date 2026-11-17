@@ -16,13 +16,12 @@ import (
 // statement named after perf, ended in place once perf has, in that order.
 // A terminate of an occurrence the body runs within unwinds with perf nil instead:
 // object is the occurrence and ended the identities of the objects ending with it.
-// returns marks the unwinding of a `return` a step of a calculation's body reached,
-// which ends the calculation's performance with its result settled.
 type terminated struct {
-	perf    *actionFrame
-	then    []*actionFrame
-	object  *Instance
-	ended   map[int64]bool
+	perf   *actionFrame
+	then   []*actionFrame
+	object *Instance
+	ended  map[int64]bool
+	// returns marks a `return` a step of a calculation's body reached, ending its performance.
 	returns bool
 }
 

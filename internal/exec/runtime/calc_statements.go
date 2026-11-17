@@ -8,10 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// calcStmtHost runs a calculation body's statements: it owns its locals, its
-// output features and its returned value. A calculation is an action (SysML v2
-// §7.19.1): a body stating a step of one, or a token flow, holds a performance its
-// steps run as subperformances of, as a case body (an analysis) always does.
+// calcStmtHost runs a calculation body's statements, owning its locals, outputs and returned
+// value; a body stating an action's step or a token flow holds a performance (SysML v2 §7.19.1).
 type calcStmtHost struct {
 	ctx    *Context
 	shape  *loadedCalc
@@ -170,11 +168,8 @@ func (h *calcStmtHost) assignOuter(env *stmtEnv, name string, value Value, s low
 	return h.mirrorOccurrence(name, value)
 }
 
-// assignEnclosing writes a name a run around the body holds — a calculation
-// declared within another reads that run's values, and writes them — through
-// the innermost such run's own write path. A block of that run holds its locals
-// under no path of its own, so the write is checked against the declaration the
-// assignment names and lands in the block's bindings.
+// assignEnclosing writes a name a run around the body holds through the innermost such
+// run's write path; a block's local is checked against the declaration the assignment names.
 func (h *calcStmtHost) assignEnclosing(env *stmtEnv, name string, value Value, s lower.Assign) (bool, error) {
 	for i := len(env.enclosing) - 1; i >= 0; i-- {
 		f := env.enclosing[i]
@@ -249,10 +244,8 @@ func (h *calcStmtHost) mirrorBodyBinding(name string, cell *bodyCell, value *Val
 	return nil
 }
 
-// assignChain writes the feature a chained target names on the object its chain
-// reaches: a calculation may have side effects (KerML 7.4.8.1).
-// A chain reaching the calculation's own occurrence (`this.x`) names a value the
-// body holds, written as the unchained name is so later reads of it see the write.
+// assignChain writes the feature a chained target names on the object its chain reaches
+// (KerML 7.4.8.1); `this.x` names a value the body holds and is written as plain x is.
 func (h *calcStmtHost) assignChain(ec *EvalContext, s lower.Assign, value Value) error {
 	target, err := ec.chainCarrier(s.Chain)
 	if err != nil {
@@ -401,9 +394,8 @@ func (h *calcStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
 	return nil
 }
 
-// performNode performs a nested action as a subperformance of the body
-// (performances.performNode). A body stating one holds a performance
-// (program.Calc.Performs); only the results read after it concluded hold none.
+// performNode performs a nested action as a subperformance of the body, which holds a
+// performance (program.Calc.Performs); only the results read after it concluded hold none.
 func (h *calcStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph, node *ast.Usage) (stmtFlow, error) {
 	if h.perfs == nil {
 		return flowNext, fmt.Errorf("%w: %s: performing action %s after the performance concluded",
@@ -427,9 +419,8 @@ func (h *calcStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stmt
 		errStatementNotExecutable, h.describe())
 }
 
-// setFeature writes a feature the body's performance holds; it holds none of its
-// own, so the write reaches the body's values: one a step binds there, an accept's
-// payload, is held from then on.
+// setFeature writes a feature the body's performance holds, which is one of the body's
+// values: one a step binds there, an accept's payload, is held from then on.
 func (h *calcStmtHost) setFeature(name string, value Value) error {
 	if written, err := h.assignAround(name, value); written || err != nil {
 		return err
@@ -481,9 +472,8 @@ func (h *calcStmtHost) runOwnFlow(perf *actionFrame) error {
 // endsOwn allows a terminate to end the body's own performance (SysML v2 §7.17.10).
 func (h *calcStmtHost) endsOwn() bool { return true }
 
-// endedOwn settles a run of the steps that err ended with a terminate of the body's
-// own performance, or a `return` a step of it reached: what its flow still ran is
-// dropped and the performances in it end. returned reports the `return`.
+// endedOwn settles steps that err ended with a terminate of the body's own performance, or
+// a `return` a step reached (returned): what its flow still ran is dropped and ended.
 func (h *calcStmtHost) endedOwn(err error) (ended, returned bool, _ error) {
 	if h.perfs == nil || !terminates(err, h.perfs.root) {
 		return false, false, err

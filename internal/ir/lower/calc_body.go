@@ -175,9 +175,8 @@ func nodeStatesFlow(graph *ActionGraph) bool {
 	return false
 }
 
-// PerformsActions reports whether stmts state, at any depth, a step only a
-// performance can take: an action node or `perform` to perform as a
-// subperformance, an accept to wait at, or a terminate to end one.
+// PerformsActions reports whether stmts state, at any depth, a step only a performance
+// can take: an action node or `perform`, an accept to wait at, or a terminate to end one.
 func PerformsActions(stmts []Statement) bool {
 	within := func(block Block) bool {
 		if block.Graph == nil {
