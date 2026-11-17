@@ -36,22 +36,24 @@ type Model struct {
 	computingSupers map[*symbols.Symbol]int
 	// valuing holds the features whose typing value is being judged, so a value
 	// that leads back to its own feature is not followed again.
-	valuing         map[*symbols.Symbol]bool
-	referenced      map[*symbols.Symbol]*symbols.Symbol
-	resolvingRef    map[*symbols.Symbol]bool
-	memberSources   map[*symbols.Symbol][]*symbols.Symbol
-	lookupOrder     map[*symbols.Symbol][]*symbols.Symbol // name-lookup order
-	contributed     map[*symbols.Symbol][]*symbols.Symbol // memoized contributors
-	nestedRedefs    map[*symbols.Symbol][]NestedRedefinition
-	allRedefined    map[*symbols.Symbol][]*symbols.Symbol // memoized redefinition closure
-	primTypes       map[*symbols.Symbol]PrimType
-	scalars         map[*symbols.Symbol]PrimType // stdlib scalar symbols, resolved once
-	params          map[*symbols.Symbol]behaviorParameters
-	computingParams map[*symbols.Symbol]int // lookup depth of a params entry being computed
-	invocations     map[invocationKey]*InvocationSelection
-	arguments       ArgumentTyper // the checker's argument typing, nil when no checker runs
-	sourceText      source.Lookup // notation of the loaded documents, nil when unavailable
-	sourceFile      source.Locate // the files the documents were read from, nil for source.FileNamed
+	valuing       map[*symbols.Symbol]bool
+	referenced    map[*symbols.Symbol]*symbols.Symbol
+	resolvingRef  map[*symbols.Symbol]bool
+	memberSources map[*symbols.Symbol][]*symbols.Symbol
+	lookupOrder   map[*symbols.Symbol][]*symbols.Symbol // name-lookup order
+	contributed   map[*symbols.Symbol][]*symbols.Symbol // memoized contributors
+	nestedRedefs  map[*symbols.Symbol][]NestedRedefinition
+	allRedefined  map[*symbols.Symbol][]*symbols.Symbol // memoized redefinition closure
+	// derivedFeaturing memoizes DerivedFeaturingTypes (see featuring.go).
+	derivedFeaturing map[*symbols.Symbol][]FeaturingType
+	primTypes        map[*symbols.Symbol]PrimType
+	scalars          map[*symbols.Symbol]PrimType // stdlib scalar symbols, resolved once
+	params           map[*symbols.Symbol]behaviorParameters
+	computingParams  map[*symbols.Symbol]int // lookup depth of a params entry being computed
+	invocations      map[invocationKey]*InvocationSelection
+	arguments        ArgumentTyper // the checker's argument typing, nil when no checker runs
+	sourceText       source.Lookup // notation of the loaded documents, nil when unavailable
+	sourceFile       source.Locate // the files the documents were read from, nil for source.FileNamed
 	// typingArgs holds the calls whose arguments are being typed, so an argument
 	// whose type leads back to its own call is not typed again.
 	typingArgs map[*ast.InvocationExpr]bool
@@ -224,6 +226,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		contributed:            make(map[*symbols.Symbol][]*symbols.Symbol),
 		nestedRedefs:           make(map[*symbols.Symbol][]NestedRedefinition),
 		allRedefined:           make(map[*symbols.Symbol][]*symbols.Symbol),
+		derivedFeaturing:       make(map[*symbols.Symbol][]FeaturingType),
 		primTypes:              make(map[*symbols.Symbol]PrimType),
 		params:                 make(map[*symbols.Symbol]behaviorParameters),
 		computingParams:        make(map[*symbols.Symbol]int),
@@ -1002,30 +1005,10 @@ func (m *Model) FeatureTypeSet(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil || !sym.IsFeature() {
 		return nil
 	}
+	if types := m.TypedFeatureTypes(sym); len(types) > 0 {
+		return types
+	}
 	var types []*symbols.Symbol
-	seen := make(map[*symbols.Symbol]bool)
-	var visit func(f *symbols.Symbol)
-	visit = func(f *symbols.Symbol) {
-		if f == nil || seen[f] {
-			return
-		}
-		seen[f] = true
-		bases := m.ImplicitGenerals(f)
-		for _, super := range m.DirectSupertypes(f) {
-			switch {
-			case containsElement(bases, super):
-			case super.IsFeature():
-				visit(super)
-			case !containsElement(types, super):
-				types = append(types, super)
-			}
-		}
-		visit(m.ReferencedFeature(f))
-	}
-	visit(sym)
-	if len(types) > 0 {
-		return m.mostSpecificTypes(types)
-	}
 	// The definition its kind implies types the usage before the base feature's
 	// types stand in: an individual occurrence is a Life (SysML v2 §8.3.9.4).
 	for _, base := range m.implicitBases(sym) {
@@ -1050,6 +1033,36 @@ func (m *Model) FeatureTypeSet(sym *symbols.Symbol) []*symbols.Symbol {
 		return []*symbols.Symbol{base}
 	}
 	return nil
+}
+
+// TypedFeatureTypes is FeatureTypeSet without the kind's base: the most specific types a
+// typing gives sym or a feature it subsets, redefines or references; nil when none does.
+func (m *Model) TypedFeatureTypes(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil || !sym.IsFeature() {
+		return nil
+	}
+	var types []*symbols.Symbol
+	seen := make(map[*symbols.Symbol]bool)
+	var visit func(f *symbols.Symbol)
+	visit = func(f *symbols.Symbol) {
+		if f == nil || seen[f] {
+			return
+		}
+		seen[f] = true
+		bases := m.ImplicitGenerals(f)
+		for _, super := range m.DirectSupertypes(f) {
+			switch {
+			case containsElement(bases, super):
+			case super.IsFeature():
+				visit(super)
+			case !containsElement(types, super):
+				types = append(types, super)
+			}
+		}
+		visit(m.ReferencedFeature(f))
+	}
+	visit(sym)
+	return m.mostSpecificTypes(types)
 }
 
 // FeatureTypeSetWithImplied is FeatureTypeSet plus the types the implied specializations of

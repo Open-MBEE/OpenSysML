@@ -32,7 +32,7 @@ what cannot be checked by anything is in
 - Inherited parameters and result through a typed calc usage, including redeclaration
 - Nested calc invocation, and invocation from a constraint
 - Statement bodies: local declarations, assignment, `if`/`else`, `while`, `loop … until`, `for`, and early `return`
-- Purity and termination: a side effect or an outside assignment is rejected, and every loop iteration spends a step of the budget
+- Effects and termination: a calculation is an action, so the `send`, `accept`, `terminate`, `perform`, nested action and outside assignment its body states are performed under the rules of an action body, and every loop iteration spends a step of the budget
 - Control flow (if/else), including the conditional expression `if c ? a else b` evaluated lazily at runtime
 - Unary operators (not, -, +)
 - Type coercion (Integer→Real)
