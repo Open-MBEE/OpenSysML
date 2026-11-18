@@ -11,6 +11,10 @@ const (
 	memoOwnedFilter
 	memoOwnedMembershipFilter
 	memoOwnedMembers
+	memoOwnedFeatures
+	memoOwnedSupertypes
+	memoSpecializedGeneralTypes
+	memoFeatureDirections
 	memoEffectiveFeatures
 	memoNamespaceMemberships
 	memoInheritedMemberships

@@ -3796,7 +3796,13 @@ func (e *Evaluator) computeStructureOwnedFilter(element Element, expected string
 	return uniqueStructureValueSequence(structureSequence(values).Values, e.options.Structure), true, true
 }
 
+// structureOwnedFeatures is Type::ownedFeature, computed once per element: every feature's
+// direction asks its owner and each general type on the way whether they own it.
 func (e *Evaluator) structureOwnedFeatures(element Element) (Value, bool, bool) {
+	return e.memoizedStructureValue(memoOwnedFeatures, element, e.computeStructureOwnedFeatures)
+}
+
+func (e *Evaluator) computeStructureOwnedFeatures(element Element) (Value, bool, bool) {
 	memberships, handled, ok := e.structureOwnedFilter(element, "FeatureMembership", true)
 	if !handled || !ok {
 		return Value{}, true, false
@@ -4084,15 +4090,22 @@ func (e *Evaluator) structureDirectedFeatures(element Element, property string) 
 			Dependency: "Type::feature",
 		})
 	}
+	directions := e.structureFeatureDirections(element, features.Values)
 	var directed []Value
-	for _, feature := range features.Values {
+	for i, feature := range features.Values {
 		if feature.Kind != ElementValue {
 			return unsupported(Reason{
 				Category: ReasonUnrepresentedEndpoint,
 				Detail:   "Type::" + property + " effective feature is not an element",
 			})
 		}
-		direction, known := e.structureEffectiveDirection(element, feature.Element)
+		// A feature list longer than the one the directions were derived from is read directly.
+		direction, known := ast.DirNone, false
+		if i >= len(directions) {
+			direction, known = e.structureEffectiveDirection(element, feature.Element)
+		} else if directions[i].Kind == IntegerValue {
+			direction, known = ast.FeatureDirection(directions[i].Integer), true
+		}
 		if !known {
 			reason := Reason{
 				Category: ReasonIncompleteStructure,
@@ -4137,6 +4150,29 @@ func (e *Evaluator) structureDirectedFeatures(element Element, property string) 
 
 func (e *Evaluator) structureEffectiveDirection(owner, feature Element) (ast.FeatureDirection, bool) {
 	return e.structureDirectionThrough(owner, feature, map[ElementKey]bool{})
+}
+
+// structureFeatureDirections holds the direction the element gives each of its effective
+// features, in their order, up to the first that is not an element or has none (held as null).
+func (e *Evaluator) structureFeatureDirections(element Element, features []Value) []Value {
+	directions, _, _ := e.memoizedStructureValue(memoFeatureDirections, element, func(Element) (Value, bool, bool) {
+		directions := make([]Value, 0, len(features))
+		visited := map[ElementKey]bool{}
+		for _, feature := range features {
+			if feature.Kind != ElementValue {
+				break
+			}
+			clear(visited)
+			direction, known := e.structureDirectionThrough(element, feature.Element, visited)
+			if !known {
+				directions = append(directions, nullValue())
+				break
+			}
+			directions = append(directions, Value{Kind: IntegerValue, Integer: int64(direction), Success: true})
+		}
+		return sequence(directions...), true, true
+	})
+	return directions.Values
 }
 
 // structureDirectionThrough reads feature's direction from owner; visited holds the types
@@ -4300,17 +4336,17 @@ func (e *Evaluator) structureGeneralWithFeature(
 	if !known || owns {
 		return Element{}, false, known
 	}
-	generals, known := e.structureSpecializedGeneralTypes(owner)
+	generals, known := e.sharedSpecializedGeneralTypes(owner)
 	if !known {
 		return Element{}, false, false
 	}
 	for _, general := range generals {
-		has, known := e.structureHasFeature(general, feature, maps.Clone(visited))
+		has, known := e.structureHasFeature(general.Element, feature, maps.Clone(visited))
 		if !known {
 			return Element{}, false, false
 		}
 		if has {
-			return general, true, true
+			return general.Element, true, true
 		}
 	}
 	return Element{}, false, true
@@ -4341,12 +4377,12 @@ func (e *Evaluator) structureHasFeature(typ, feature Element, visited map[Elemen
 	if !known || owns {
 		return owns, known
 	}
-	supertypes, known := e.structureOwnedSupertypes(typ)
+	supertypes, known := e.sharedOwnedSupertypes(typ)
 	if !known {
 		return false, false
 	}
 	for _, supertype := range supertypes {
-		has, known := e.structureHasFeature(supertype, feature, visited)
+		has, known := e.structureHasFeature(supertype.Element, feature, visited)
 		if !known || has {
 			return has, known
 		}
@@ -4593,7 +4629,17 @@ func (e *Evaluator) structureInheritedSymbols(element Element, members []*symbol
 	return inherited, true
 }
 
+// structureOwnedSupertypes lists the types the element conjugates or specializes, computed
+// once per element: each inherited feature's direction walks them.
 func (e *Evaluator) structureOwnedSupertypes(element Element) ([]Element, bool) {
+	return elementsOfValues(e.sharedOwnedSupertypes(element))
+}
+
+func (e *Evaluator) sharedOwnedSupertypes(element Element) ([]Value, bool) {
+	return e.memoizedElementValues(memoOwnedSupertypes, element, e.computeStructureOwnedSupertypes)
+}
+
+func (e *Evaluator) computeStructureOwnedSupertypes(element Element) ([]Element, bool) {
 	conjugators, handled, ok := e.structureOwnedFilter(element, "Conjugation", false)
 	if !handled || !ok {
 		return nil, false
@@ -4718,6 +4764,34 @@ func (e *Evaluator) memoizedStructureValue(
 	return e.memoize(key, kind, "", value, handled, ok)
 }
 
+// memoizedElementValues is memoizedStructureValue for a list of elements, served as the
+// stored element values: a reader only reads them.
+func (e *Evaluator) memoizedElementValues(
+	kind memoKind, element Element, compute func(Element) ([]Element, bool),
+) ([]Value, bool) {
+	value, _, ok := e.memoizedStructureValue(kind, element, func(element Element) (Value, bool, bool) {
+		elements, ok := compute(element)
+		values := make([]Value, len(elements))
+		for i, member := range elements {
+			values[i] = elementValue(member)
+		}
+		return sequence(values...), true, ok
+	})
+	return value.Values, ok
+}
+
+// elementsOfValues copies the elements out of element values, so the caller may edit its list.
+func elementsOfValues(values []Value, ok bool) ([]Element, bool) {
+	if !ok {
+		return nil, false
+	}
+	elements := make([]Element, len(values))
+	for i, value := range values {
+		elements[i] = value.Element
+	}
+	return elements, true
+}
+
 // structureInheritedMembershipList is Type::inheritedMembership (KerML 8.3.3.1.10):
 // the supertypes' non-private memberships with the redefined features removed.
 func (e *Evaluator) structureInheritedMembershipList(element Element) ([]Value, bool) {
@@ -4807,6 +4881,14 @@ func (e *Evaluator) structureImpliedBaseFQNs(element Element) ([]string, bool) {
 
 // structureSpecializedGeneralTypes lists the types the element's owned specializations name as general.
 func (e *Evaluator) structureSpecializedGeneralTypes(element Element) ([]Element, bool) {
+	return elementsOfValues(e.sharedSpecializedGeneralTypes(element))
+}
+
+func (e *Evaluator) sharedSpecializedGeneralTypes(element Element) ([]Value, bool) {
+	return e.memoizedElementValues(memoSpecializedGeneralTypes, element, e.computeStructureSpecializedGeneralTypes)
+}
+
+func (e *Evaluator) computeStructureSpecializedGeneralTypes(element Element) ([]Element, bool) {
 	specializations, handled, ok := e.structureOwnedFilter(element, "Specialization", false)
 	if !handled || !ok {
 		return nil, false
