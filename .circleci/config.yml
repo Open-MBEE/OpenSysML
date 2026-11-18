@@ -32,7 +32,7 @@ executors:
 
   rust-executor:
     docker:
-      - image: cimg/rust:1.83
+      - image: cimg/rust:1.85
     resource_class: medium
 
   # JDK 17, the client's compile target, with Maven 3.9 preinstalled. Testing on
@@ -1626,7 +1626,7 @@ jobs:
       - halt-if-verified
 
       - run:
-          name: Verify Rust 1.83
+          name: Verify Rust 1.85
           command: |
             rustc --version
             cargo --version

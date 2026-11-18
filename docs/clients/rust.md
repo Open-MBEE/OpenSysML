@@ -20,7 +20,7 @@ For checkout development, use a path dependency:
 opensysml = { path = "../OpenSysML/client/rust/opensysml" }
 ```
 
-The minimum supported Rust version is 1.83.
+The minimum supported Rust version is 1.85.
 
 ## First model
 
