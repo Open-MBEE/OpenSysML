@@ -196,6 +196,7 @@ func (ctx *Context) conditionSelf(sym *symbols.Symbol, owner *Instance) *Instanc
 // result reads an unbound input, negated for an element asserting the contrary.
 func (ctx *Context) conditionResultValue(typ *symbols.Symbol, inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (Value, error) {
 	defer ctx.beginRun()()
+	defer ctx.beginCheckObjects(false)()
 	members := ctx.chainMembers(typ, typ.OwnerScope)
 	// A nested usage's bindings name the owner's features (`subject s :>> s = sub;`) and are
 	// read against it, as the check on that object reads them; its conditions read its own object.

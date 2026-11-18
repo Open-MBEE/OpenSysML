@@ -710,9 +710,7 @@ func (ctx *Context) judgeConditions(check conditionCheck, conds []Condition) (co
 	}
 	features := ctx.conditionFeatures(check.sym)
 	self := check.self
-	if self == nil {
-		defer ctx.beginExemplars()()
-	}
+	defer ctx.beginCheckObjects(self == nil)()
 	// One check is one evaluation: its conditions share what a calc usage they
 	// read answers, and the next check reads it again.
 	activation, endStep := ctx.beginStep()
