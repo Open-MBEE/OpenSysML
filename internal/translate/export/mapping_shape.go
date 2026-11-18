@@ -348,6 +348,11 @@ func mappingMembershipMemberIsElementUncached(
 		return false
 	}
 	if owner.IsIRI() && !ownerIsElement && !resultExpression {
+		// A nameless feature its FeatureMembership names — a flow end's ReferenceUsage, named by
+		// the feature it redefines — is positional under a positional owner, as the end is.
+		if context.conforms(graph, membership, "FeatureMembership") && !mappingHasElementName(graph, member) {
+			return false
+		}
 		return mappingHasElementName(graph, member) || mappingHasMemberName(graph, membership)
 	}
 	if context.conforms(graph, membership, "TransitionFeatureMembership") {

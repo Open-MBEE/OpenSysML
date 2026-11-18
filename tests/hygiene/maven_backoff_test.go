@@ -111,7 +111,7 @@ func TestCIRunsMavenOnlyInATreeThatRetries(t *testing.T) {
 
 const (
 	mavenCacheAction = "./.github/actions/maven-cache"
-	mavenCacheKey    = "maven-deps-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}"
+	mavenCacheKey    = "maven-deps-${{ runner.os }}-${{ hashFiles('**/pom.xml', '.github/workflows/maven-cache.yml') }}"
 )
 
 // mavenWorkflow reads the steps of any workflow, whatever the shape of its other keys.
@@ -148,15 +148,36 @@ func TestMavenCacheIsSavedOnDevelopAlone(t *testing.T) {
 	if !saves {
 		t.Errorf("maven-cache.yml's warm job must use %s with save after checkout and before it runs mvn", mavenCacheAction)
 	}
+	// Surefire resolves its provider and the JUnit launcher only when tests run.
+	purged := false
+	offline := map[string]bool{}
+	for _, step := range workflow.Jobs["warm"].Steps {
+		if strings.Contains(step.Run, "skipTests") || strings.Contains(step.Run, "maven.test.skip") {
+			t.Errorf("maven-cache.yml step %q skips the tests, so the entry lacks what a test run resolves", step.Name)
+		}
+		purged = purged || strings.Contains(step.Run, "find ~/.m2/repository -name '*.lastUpdated' -delete")
+		for _, line := range strings.Split(step.Run, "\n") {
+			if match := mavenFile.FindStringSubmatch(line); match != nil && strings.Contains(line, "mvn -o ") {
+				// Checked after the purge, so the saved entry is what the offline build read.
+				offline[match[1]] = purged
+			}
+		}
+	}
+	if !purged {
+		t.Error("maven-cache.yml must delete *.lastUpdated: a restored marker of a failed download stops the retry")
+	}
 	for _, tree := range mavenTrees(t) {
 		if !resolved[tree] {
 			t.Errorf("maven-cache.yml resolves no dependencies of %s, so the entry it saves lacks them", tree)
+		}
+		if !offline[tree] {
+			t.Errorf("maven-cache.yml must build %s with mvn -o after the purge, so an incomplete entry is not saved", tree)
 		}
 	}
 
 	_, action := loadCompositeAction(t, "../../.github/actions/maven-cache/action.yml")
 	if strings.Count(action, "key: "+mavenCacheKey+"\n") != 2 {
-		t.Error("the maven-cache action's restore and save steps must share one key over every pom.xml")
+		t.Error("the maven-cache action's restore and save steps must share one key over every pom.xml and the warm workflow")
 	}
 
 	workflows, err := filepath.Glob("../../.github/workflows/*.yml")

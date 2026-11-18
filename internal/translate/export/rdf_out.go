@@ -2702,7 +2702,7 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) (rdf.Term
 	if end.target != nil || end.targetTerm.Value != "" {
 		switch {
 		case len(flowSegments) > 0:
-			reference = e.flowEndReferences(feature, flowSegments)
+			reference = e.flowEndReferences(feature, flowSegments, e.flowEndFeatureName(end))
 		case end.targetTerm.Value != "":
 			e.referenceSubsetting(feature, end.targetTerm)
 			reference = end.targetTerm
@@ -2752,7 +2752,7 @@ func (e *encoder) flowEndSegments(end connectorEndSpec) []rdf.Term {
 // FlowFeature, a ReferenceUsage the end owns, redefining the last segment.
 // `a.p.fuel` subsets the chain a.p and redefines fuel; a lone `a` only redefines a.
 // It returns the feature the end's ReferenceSubsetting references, none for a lone name.
-func (e *encoder) flowEndReferences(feature rdf.Term, segments []rdf.Term) rdf.Term {
+func (e *encoder) flowEndReferences(feature rdf.Term, segments []rdf.Term, name string) rdf.Term {
 	prefix, last := segments[:len(segments)-1], segments[len(segments)-1]
 	var reference rdf.Term
 	switch len(prefix) {
@@ -2772,6 +2772,12 @@ func (e *encoder) flowEndReferences(feature rdf.Term, segments []rdf.Term) rdf.T
 	e.graph.Add(feature, e.sysml(pOwnedFeatureMembership), membership)
 	e.graph.Add(feature, e.sysml(pOwnedFeature), flowFeature)
 	e.emitMembershipCore(membership, flowFeature, feature, mFeatureMembership, true)
+	// The nameless usage is named by the feature it redefines (KerML 1.1 §8.3.3.3.4
+	// Feature::namingFeature): derived, so stated by sysml:name alone.
+	if name != "" {
+		e.graph.Add(flowFeature, e.sysml(pName), rdf.String(name))
+		e.graph.Add(membership, e.sysml(pMemberName), rdf.String(name))
+	}
 	// Its owning type is the FlowEnd, which redefines Flows::Flow::source or
 	// target, an Occurrence-typed feature (SysML v2.1 §8.3.16.6).
 	if e.file.Kind() != source.KindKerML && e.ids.model.UsageMayTimeVaryUnderLibraryFeature("Flows::Flow::source") {
@@ -2779,6 +2785,16 @@ func (e *encoder) flowEndReferences(feature rdf.Term, segments []rdf.Term) rdf.T
 	}
 	e.graph.Add(flowFeature, e.sysml(relationshipProperty[ast.RelRedefines]), last)
 	return reference
+}
+
+// flowEndFeatureName is the effective name of the ReferenceUsage the flow end at end.index owns, the
+// name of the feature it redefines as the semantic model derives it; empty when it resolves to nothing.
+func (e *encoder) flowEndFeatureName(end connectorEndSpec) string {
+	ends := e.ids.model.FlowEndMembers(end.ownerSym)
+	if end.index >= len(ends) {
+		return ""
+	}
+	return e.ids.model.EffectiveNameOf(e.ids.model.FlowEndFeatureMember(ends[end.index]))
 }
 
 // endReferences writes a simple reference, structural chain, or expression target and

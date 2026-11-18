@@ -41,6 +41,9 @@ hygiene_pattern='(^|/)testdata/|\.golden\.|_test\.go$'
 # Go tests (the referees' provenance and figure checks, doc-counts) read the committed
 # baselines and figure pages under docs/project, so a change there runs Go as well as docs.
 project_inputs_pattern='^docs/project/.*\.(json|md)$'
+# The shipped manual pages are compared with what each command renders by a Go test
+# (cmd/*/man_test.go); the docs job only runs them through a formatter.
+man_pages_pattern='^packaging/man/'
 # The derived-property differential (Java, the pinned pilot jar, 18-25 minutes) runs on what can move its baseline
 # (writer, referee, bridge, pin, baseline, corpora), not on the workflow; the queue tier skips it (the push ran it).
 apijson_pattern='^(internal/translate/export/|tools/referee/apijson/|tools/referee/baseline/|tools/referee/diff/|tools/oracle/baseline/|scripts/pilot-json-exporter/|scripts/pilot-pin\.sh$|scripts/download-pilot-validator\.sh$|scripts/download-pilot-json-exporter\.sh$|docs/project/api-json-differential/|\.github/actions/corpora/)'
@@ -89,7 +92,7 @@ fanout=$service
 client_fanout=$fanout
 [[ "$tier" = queue ]] && client_fanout=false
 
-emit go "$( { [[ "$service" = true ]] || matches "$hygiene_pattern" || matches "$project_inputs_pattern"; } && echo true || echo false)"
+emit go "$( { [[ "$service" = true ]] || matches "$hygiene_pattern" || matches "$project_inputs_pattern" || matches "$man_pages_pattern"; } && echo true || echo false)"
 emit apijson "$( [[ "$tier" != queue ]] && { [[ "$everything" = true && "$fanout" = true ]] || matches "$apijson_pattern"; } && echo true || echo false)"
 emit docs "$( { [[ "$fanout" = true ]] || matches "$docs_pattern"; } && echo true || echo false)"
 emit node "$( { [[ "$client_fanout" = true ]] || matches "$node_pattern"; } && echo true || echo false)"
