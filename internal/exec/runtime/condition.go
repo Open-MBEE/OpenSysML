@@ -154,6 +154,9 @@ type conditionEnv struct {
 	features map[string]scopedExpr
 	bindings frame
 
+	// frames are the behavior run's frames the check reads beneath bindings; empty outside a run.
+	frames []frame
+
 	// enclosing marks the environment around a constraint usage, which its
 	// arguments read: `in v = v` names the outer v, not the parameter it binds.
 	enclosing bool
@@ -903,7 +906,7 @@ func circularReference(conds []Condition) *symbols.Symbol {
 func (ctx *Context) evaluateStepsConditions(activation int64, check conditionCheck, cond Condition, features map[string]scopedExpr, self *Instance) (verdict conditionVerdict, done bool, err error) {
 	scoped, bindings := features, check.bindings
 	for _, constraint := range cond.Constraints {
-		scoped, bindings = ctx.constraintScope(scoped, bindings, constraint)
+		scoped, bindings, check.frames = ctx.constraintScope(scoped, bindings, check.frames, constraint)
 	}
 	stepFrame, err := ctx.runConstraintSteps(cond.Steps, scoped, self, check.frames, bindings)
 	if err != nil {
@@ -1515,7 +1518,7 @@ func (ctx *Context) conditionHoldsAt(activation int64, cond Condition, features 
 		}
 	}
 	for _, constraint := range cond.Constraints {
-		features, bindings = ctx.constraintScope(features, bindings, constraint)
+		features, bindings, frames = ctx.constraintScope(features, bindings, frames, constraint)
 	}
 	if cond.Steps != nil {
 		left, err := ctx.runConstraintSteps(cond.Steps, features, self, frames, bindings)
@@ -1758,21 +1761,21 @@ func (ctx *Context) conditionFeatures(sym *symbols.Symbol) map[string]scopedExpr
 	return out
 }
 
-// constraintScope overlays a named constraint usage's features on those in scope:
-// its parameters mask same-named ones (subject and actors included). The
-// arguments binding them (`in v = v`) read the enclosing environment; a default
-// its definition wrote (`in y default = x`) reads the usage's own parameters.
-func (ctx *Context) constraintScope(features map[string]scopedExpr, bindings frame, constraint *symbols.Symbol) (map[string]scopedExpr, frame) {
+// constraintScope overlays a constraint usage's features, masking same-named ones in scope and in the run's
+// frames: its arguments (`in v = v`) read the enclosing environment, its definition's defaults its own parameters.
+func (ctx *Context) constraintScope(
+	features map[string]scopedExpr, bindings frame, frames []frame, constraint *symbols.Symbol,
+) (map[string]scopedExpr, frame, []frame) {
 	own := ctx.conditionFeatures(constraint)
 	if len(own) == 0 {
-		return features, bindings
+		return features, bindings, frames
 	}
-	enclosing := &conditionEnv{features: features, bindings: bindings, enclosing: true}
+	enclosing := &conditionEnv{features: features, bindings: bindings, frames: frames, enclosing: true}
 	out := make(map[string]scopedExpr, len(features)+len(own))
 	for name, feat := range features {
 		out[name] = feat
 	}
-	inner := &conditionEnv{features: out, bindings: unmasked(bindings, own)}
+	inner := &conditionEnv{features: out, bindings: unmasked(bindings, own), frames: maskedFrames(frames, own)}
 	if names, value, ok := ctx.subrequirementSubject(constraint, bindings); ok {
 		vars := make(map[string]Value, len(inner.bindings.vars)+len(names))
 		for name, v := range inner.bindings.vars {
@@ -1790,7 +1793,7 @@ func (ctx *Context) constraintScope(features map[string]scopedExpr, bindings fra
 		}
 		out[name] = feat
 	}
-	return out, inner.bindings
+	return out, inner.bindings, inner.frames
 }
 
 // subrequirementSubject is the container's subject value a subrequirement owning no subject declaration
@@ -1822,6 +1825,27 @@ func isArgument(decl *symbols.Symbol) bool {
 	}
 	_, definition := decl.OwnerScope.Owner().Decl.(*ast.Definition)
 	return !definition
+}
+
+// maskedFrames returns frames whose behavior runs pass over the names features declare, as a
+// parameter masks a same-named feature around its usage; a constraint body's own frame is no run's.
+func maskedFrames(frames []frame, features map[string]scopedExpr) []frame {
+	if !slices.ContainsFunc(frames, func(f frame) bool { return f.run != 0 }) {
+		return frames
+	}
+	out := slices.Clone(frames)
+	for i := range out {
+		if out[i].run == 0 {
+			continue
+		}
+		masked := make(map[string]bool, len(out[i].masked)+len(features))
+		maps.Copy(masked, out[i].masked)
+		for name := range features {
+			masked[program.Canonical(out[i].aliases, name)] = true
+		}
+		out[i].masked = masked
+	}
+	return out
 }
 
 // unmasked returns bindings without the names features declare.
