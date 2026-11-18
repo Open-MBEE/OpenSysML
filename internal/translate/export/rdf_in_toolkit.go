@@ -1620,7 +1620,7 @@ func (d *defaultDropper) literalObject(triple rdf.Triple, object rdf.Term) (rdf.
 		// only while none is dropped; the derived list is dropped whole instead.
 		return object, false
 	}
-	if referenceNameProps[local] && object.Datatype != rdf.OpenSysML+dtExpression && !json {
+	if referenceNameProps[local] && object.Datatype() != rdf.OpenSysML+dtExpression && !json {
 		object = rdf.String(canonicalName(object.Value))
 	}
 	if !json {

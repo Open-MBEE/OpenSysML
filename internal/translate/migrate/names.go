@@ -29,6 +29,9 @@ func pathSegment(name string) string {
 // for an anonymous element that something refers to; "" when it is anonymous
 // and stays so.
 func (m *migration) nameOf(e *sysmlv1.Element) string {
+	if p := m.principalOf(e); p != nil {
+		return m.nameFor(p)
+	}
 	if n, ok := m.names[e]; ok {
 		return n
 	}
@@ -38,8 +41,12 @@ func (m *migration) nameOf(e *sysmlv1.Element) string {
 // nameFor returns the v2 name of an element, synthesizing one for an anonymous
 // element the first time it is asked for, so it can be referred to.
 func (m *migration) nameFor(e *sysmlv1.Element) string {
+	e = m.surviving(e)
 	// An action node is named as its graph's writer names it.
 	if n := m.nameNode(e); n != "" {
+		return n
+	}
+	if n := m.pinName(e); n != "" {
 		return n
 	}
 	if n := m.nameOf(e); n != "" {
@@ -96,7 +103,7 @@ func upperCamel(s string) string {
 // the migration made up when e's source left it unnamed: the block's
 // SynthesizedName marker lists it. written is the name as the notation writes it.
 func (m *migration) madeUp(e *sysmlv1.Element, written string) {
-	if m.synthesized[e] && written != "" {
+	if m.synthesized[m.surviving(e)] && written != "" {
 		m.w.madeUp(written)
 	}
 }
@@ -311,7 +318,7 @@ type segment struct {
 // transition's effect) are named under the member the edge was written as.
 func (m *migration) path(e *sysmlv1.Element) []segment {
 	var segs []segment
-	for cur := e; cur != nil; cur = memberOwner(cur) {
+	for cur := m.surviving(e); cur != nil; cur = memberOwner(cur) {
 		if em, ok := m.edgeMembers[cur]; ok && em.name != "" {
 			return append(m.edgePath(em.edgePlace), segs...)
 		}
@@ -464,6 +471,7 @@ func (m *migration) synthesizedRef(host *sysmlv1.Element, name string, scope *sy
 // and the full qualified name otherwise. A feature of a feature is chained. An
 // edge's member is referred to where the writer placed it, not under its v1 owner.
 func (m *migration) ref(target, scope *sysmlv1.Element) string {
+	target = m.surviving(target)
 	if em, ok := m.edgeMembers[target]; ok && em.name != "" {
 		return m.refEdge(em.edgePlace, scope)
 	}
@@ -473,6 +481,7 @@ func (m *migration) ref(target, scope *sysmlv1.Element) string {
 // memberRef writes a reference to target from inside scope's body as an import
 // or expose names its member: by qualified name alone, never a feature chain.
 func (m *migration) memberRef(target, scope *sysmlv1.Element) string {
+	target = m.surviving(target)
 	return m.refMember(target.Parent, m.nameOf(target), m.path(target), scope, false)
 }
 
@@ -480,6 +489,7 @@ func (m *migration) memberRef(target, scope *sysmlv1.Element) string {
 // name alone, as a dependency end or an annotated element is named; an edge's
 // member is referred to where the writer placed it.
 func (m *migration) qualifiedRef(target, scope *sysmlv1.Element) string {
+	target = m.surviving(target)
 	if em, ok := m.edgeMembers[target]; ok && em.name != "" {
 		return m.refEdge(em.edgePlace, scope)
 	}

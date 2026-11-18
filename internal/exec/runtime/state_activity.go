@@ -67,7 +67,7 @@ func (ec *EvalContext) activityOf(machine *StateExecutor, operand ast.Node) (Val
 		return boolValue(machine.activity(state)), true
 	}
 	if usage, ok := ec.ctx.resolveTarget(ec.scope, operand); ok && machine.performs(usage) {
-		return boolValue(!machine.State().Ended() && len(machine.ActiveStates()) > 0), true
+		return boolValue(machine.machineActive()), true
 	}
 	return Value{}, false
 }
@@ -233,6 +233,15 @@ func (ctx *Context) denotedInstance(sym *symbols.Symbol) *Instance {
 		return nil
 	}
 	return ctx.instances[val.Instance]
+}
+
+// machineActive reports the machine itself active: started, not ended, and holding
+// an active configuration unless it declares no substate to hold one of.
+func (e *StateExecutor) machineActive() bool {
+	if e.state == StateReady || e.state.Ended() {
+		return false
+	}
+	return len(e.activeStates()) > 0 || e.declaresNoSubstate()
 }
 
 // performs reports whether sym names the machine itself: the usage or

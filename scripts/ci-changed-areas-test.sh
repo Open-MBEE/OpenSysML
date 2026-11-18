@@ -130,7 +130,8 @@ case_ shared-keyword-groups docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,
 case_ vscode-syntaxes docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode editors/vscode/syntaxes/sysml.tmLanguage.json
 case_ jupyterlab-syntax docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode editors/jupyterlab/src/syntax.json
 # Any markdown counts as documentation: the site links out to repository files.
-case_ man-page docs packaging/man/man1/sysml.1
+# A shipped manual page is held to its command by a Go test, so it runs the Go area too.
+case_ man-page docs,go packaging/man/man1/sysml.1
 case_ two-client-readmes docs,java,mdk,node,python,syson client/java/README.md client/node/README.md
 case_ two-clients java,mdk,node,python,syson client/java/pom.xml client/node/tsconfig.json
 case_ go-source docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/syntax/parser/parser.go

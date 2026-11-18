@@ -27,17 +27,24 @@ func (cc *constraintChecker) checkW10BRedefinition(sym *symbols.Symbol) {
 		if rel == nil || rel.Kind != ast.RelRedefines || rel.Target == nil {
 			continue
 		}
+		if path := cc.model.ChainTargetPath(sym, rel.Kind, rel.Target); len(path) > 0 {
+			if !cc.model.ChainRedefinitionFeaturingTypesDiffer(sym, path[0]) {
+				cc.addRedefineDiag(rel.Target, msgRedefineSameFeaturing, "redefinition-same-featuring")
+			}
+			continue
+		}
 		redefined := cc.resolveRelationshipTarget(sym, rel)
 		if redefined == nil || redefined == sym || !isUsageKind(redefined.Kind) {
 			continue
 		}
 		switch {
-		// A package-level feature is featured by Anything, so redefining it from
-		// inside a type is legal; only another package-level feature conflicts.
-		case isPackageLevelFeature(redefined) && isPackageLevelFeature(sym):
-			cc.addRedefineDiag(rel.Target, msgRedefinePackageLevel, "redefinition-package-level")
-		case cc.sameFeaturingType(sym, redefined):
-			cc.addRedefineDiag(rel.Target, msgRedefineSameFeaturing, "redefinition-same-featuring")
+		case !cc.model.RedefinitionFeaturingTypesDiffer(sym, redefined):
+			// Both featured by Anything alone is the package-level pair.
+			if len(cc.model.DerivedFeaturingTypes(sym)) == 0 && len(cc.model.DerivedFeaturingTypes(redefined)) == 0 {
+				cc.addRedefineDiag(rel.Target, msgRedefinePackageLevel, "redefinition-package-level")
+			} else {
+				cc.addRedefineDiag(rel.Target, msgRedefineSameFeaturing, "redefinition-same-featuring")
+			}
 		case w10bIsEndFeature(redefined) && !w10bIsEndFeature(sym) && cc.ownedByAssociationOrConnector(sym):
 			cc.addRedefineDiag(rel.Target, msgRedefineEndFeature, "redefinition-not-end")
 		}
@@ -52,36 +59,6 @@ func (cc *constraintChecker) addRedefineDiag(target ast.Node, msg, code string) 
 		Code:     code,
 		Source:   "constraint",
 	})
-}
-
-// sameFeaturingType reports whether the redefining and redefined features are
-// featured by exactly the same type, which leaves the redefinition with nothing
-// to specialize.
-func (cc *constraintChecker) sameFeaturingType(sym, redefined *symbols.Symbol) bool {
-	mine := cc.featuringContexts(sym)
-	// A member of a metadata annotation body is featured by the annotation
-	// usage its body scope hangs off, not the metaclass stamped on that scope
-	// for member lookup; restating a metaclass feature is a restatement, not a
-	// redefinition within the metaclass.
-	if sym.OwnerScope != nil {
-		if _, isBody := sym.OwnerScope.Node().(*ast.PrefixMetadata); isBody && sym.OwnerScope.BodyLocal() {
-			if usage := sym.OwnerScope.Parent().MemberDeclaring(sym.OwnerScope.Node()); usage != nil {
-				mine = []*symbols.Symbol{usage}
-			}
-		}
-	}
-	theirs := cc.featuringContexts(redefined)
-	if len(mine) == 0 || len(theirs) == 0 {
-		return false
-	}
-	for _, m := range mine {
-		for _, t := range theirs {
-			if m == t {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // ownedByAssociationOrConnector reports whether sym's owning type is an Association or a

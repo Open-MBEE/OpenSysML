@@ -1,0 +1,135 @@
+name: Python wheel cache
+
+# A cache saved by a pull request or merge group is private to its ref, so a job that installs Python
+# packages starts warm only from an entry saved on develop: this downloads every set and saves it.
+on:
+  push:
+    branches: [develop]
+    paths:
+      - .github/workflows/**
+      - .github/actions/**
+      - scripts/ci-pip-install.sh
+      - scripts/download-sca-tools.sh
+      - scripts/download-doc-pdf-toolchain.sh
+      - docs-requirements.txt
+      - client/python/pyproject.toml
+      - client/jupyter-kernel/pyproject.toml
+  # A change to the installer is tried here before the queue depends on it; its entries stay the pull request's.
+  pull_request:
+    paths:
+      - .github/workflows/pip-cache.yml
+      - .github/actions/pip-install/**
+      - scripts/ci-pip-install.sh
+  # An entry no run read for a week is evicted: the daily run reads it, or saves it again.
+  schedule:
+    - cron: '41 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pip-cache-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  warm:
+    name: Warm ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      # One entry per request a workflow or action makes of .github/actions/pip-install, with the
+      # Python its job sets up (none: the runner's own); tests/hygiene/pip_install_test.go holds the two together.
+      matrix:
+        include:
+          - name: uv (3.12)
+            python-version: '3.12'
+            packages: uv==0.13.8
+          - name: JupyterLab (3.11)
+            python-version: '3.11'
+            packages: jupyterlab==4.6.5
+          - name: JupyterLab (3.12)
+            python-version: '3.12'
+            packages: jupyterlab==4.6.5
+          - name: the Python client's test tooling (3.11)
+            python-version: '3.11'
+            packages: >-
+              pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2 fmpy==0.3.32 mypy==2.4.0
+              types-protobuf==7.35.1.20260906 pyright[nodejs]==1.1.414
+              jupyter_client==8.10.0 build==1.6.1
+            projects: client/python client/jupyter-kernel
+          - name: grpcio-tools (3.11)
+            python-version: '3.11'
+            packages: grpcio-tools==1.83.0
+          - name: grpcio-tools (3.12)
+            python-version: '3.12'
+            packages: grpcio-tools==1.83.0
+          - name: fmpy (the runner's Python)
+            python-version: ''
+            packages: fmpy==0.3.32
+          - name: pip-audit (3.11)
+            python-version: '3.11'
+            packages: pip-audit==2.10.1
+          - name: WeasyPrint (3.12)
+            python-version: '3.12'
+            packages: weasyprint==69.0
+          - name: the documentation toolchain (3.12)
+            python-version: '3.12'
+            requirements: docs-requirements.txt
+          - name: the snapshot's build tooling (3.12)
+            python-version: '3.12'
+            packages: pip==26.2.1 build==1.6.1 twine==7.0.0 packaging==26.3
+            projects: client/python client/jupyter-kernel
+          - name: the release's checking tools (3.11)
+            python-version: '3.11'
+            packages: pip==26.2.1 twine==7.0.0 packaging==26.3
+            projects: client/python
+    steps:
+      - name: Check out repository
+        id: checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        timeout-minutes: 3
+        continue-on-error: true
+
+      # A stalled fetch hangs rather than fails, so the action's own retries never see it.
+      - name: Check out repository again
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        timeout-minutes: 3
+
+      - name: Set up Python
+        if: matrix.python-version != ''
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # No other job saves these entries, so one always holds a set this workflow installed.
+      - name: Download the wheels, install from them and save them
+        uses: ./.github/actions/pip-install
+        with:
+          packages: ${{ matrix.packages }}
+          requirements: ${{ matrix.requirements }}
+          projects: ${{ matrix.projects }}
+          save: 'true'
+
+      # The entry just saved or restored is read back with the index unreachable: a warm run asks PyPI nothing.
+      - name: Put PyPI out of reach
+        run: |
+          rm -rf "$RUNNER_TEMP/pip-wheels"
+          echo "PIP_INDEX_URL=http://127.0.0.1:9/simple" >> "$GITHUB_ENV"
+          echo "CI_PIP_ATTEMPTS=1" >> "$GITHUB_ENV"
+
+      - name: Install again from the saved wheels
+        id: offline
+        uses: ./.github/actions/pip-install
+        with:
+          packages: ${{ matrix.packages }}
+          requirements: ${{ matrix.requirements }}
+          projects: ${{ matrix.projects }}
+
+      - name: Require the second install to have been a cache hit
+        env:
+          CACHE_HIT: ${{ steps.offline.outputs.cache-hit }}
+        run: |
+          [ "$CACHE_HIT" = true ] || { echo "::error::the wheels saved a step earlier were not restored"; exit 1; }

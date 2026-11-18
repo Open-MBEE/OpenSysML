@@ -318,7 +318,7 @@ func (ctx *Context) defaultYieldsToSubsetters(inst *Instance, feat *EffectiveFea
 			return true
 		}
 	}
-	return false
+	return ctx.reachedByASubsetter(inst, feat.Name)
 }
 
 // unfoldSubsettedDefaults reopens the folded fallback defaults of inst that the
@@ -1329,7 +1329,7 @@ func hasNonEndSubsetter(subsetters []EffectiveFeature) bool {
 // subsetting it hold (KerML 1.1 §7.3.4.5): a requirement's `actors` is its actor parameters.
 func (inst *Instance) materializeReferentialCollection(ctx *Context, fv *FeatureValue, name string, open *openPopulation) (*FeatureValue, error) {
 	// A collection only connector ends subset (`participant`) is answered by the ends, not gathered here.
-	if fv.Feature.Scalar() || !hasNonEndSubsetter(ctx.subsettingFeaturesOf(inst, name)) {
+	if fv.Feature.Scalar() || !hasNonEndSubsetter(ctx.subsettingFeaturesOf(inst, name)) && !ctx.reachedByASubsetter(inst, name) {
 		return fv, nil
 	}
 	// A subsetter without a value yet (`otherParticipants` of a port no interface connects)

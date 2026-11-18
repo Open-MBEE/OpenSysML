@@ -916,9 +916,9 @@ B13-009	pass	pass	fail	fail
 B13-010	pass	pass	fail	fail
 B13-011	pass	pass	fail	fail
 B13-012	pass	pass	fail	fail
-B13-013	fail	fail	fail	fail
-B13-014	fail	fail	fail	fail
-B13-015	fail	fail	fail	fail
+B13-013	pass	pass	fail	fail
+B13-014	pass	pass	fail	fail
+B13-015	pass	pass	fail	fail
 B13-016	pass	pass	fail	fail
 B13-017	pass	pass	fail	fail
 B13-018	pass	pass	fail	fail
@@ -1286,10 +1286,10 @@ C10-025	pass	pass	unsupported	unsupported
 C10-026	pass	pass	unsupported	unsupported
 C10-027	pass	pass	unsupported	unsupported
 C10-028	pass	pass	unsupported	unsupported
-C10-029	fail	fail	unsupported	unsupported
-C10-030	fail	fail	unsupported	unsupported
-C10-031	fail	fail	unsupported	unsupported
-C10-032	fail	fail	unsupported	unsupported
+C10-029	pass	pass	unsupported	unsupported
+C10-030	pass	pass	unsupported	unsupported
+C10-031	pass	pass	unsupported	unsupported
+C10-032	pass	pass	unsupported	unsupported
 C10-033	pass	pass	unsupported	unsupported
 C10-034	pass	pass	unsupported	unsupported
 C10-035	pass	pass	unsupported	unsupported

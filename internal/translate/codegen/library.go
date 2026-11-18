@@ -17,6 +17,7 @@ const (
 	LibAbsInt
 	LibFloor
 	LibRound
+	LibWholeInt
 	LibMaxReal
 	LibMinReal
 	LibMaxInt
@@ -58,12 +59,13 @@ type libSpec struct {
 
 var libSpecs = map[LibOp]libSpec{
 	LibSqrt:       {"sqrt", []Type{TypeReal}, TypeReal, "sysml_lib_real(sqrt(%s))", "sysmlLibReal(math.Sqrt(%s))"},
-	LibAbsReal:    {"abs", []Type{TypeReal}, TypeReal, "fabs(%s)", "math.Abs(%s)"},
+	LibAbsReal:    {"abs", []Type{TypeReal}, TypeReal, "sysml_lib_real(fabs(%s))", "sysmlLibReal(math.Abs(%s))"},
 	LibAbsInt:     {"abs", []Type{TypeInt}, TypeInt, "sysml_iabs(%s)", "sysmlIAbs(%s)"},
 	LibFloor:      {"floor", []Type{TypeReal}, TypeInt, "sysml_lib_int(floor(%s))", "sysmlLibInt(math.Floor(%s))"},
 	LibRound:      {"round", []Type{TypeReal}, TypeInt, "sysml_lib_int(round(%s))", "sysmlLibInt(math.Round(%s))"},
-	LibMaxReal:    {"max", []Type{TypeReal, TypeReal}, TypeReal, "sysml_rmax(%s, %s)", "math.Max(%s, %s)"},
-	LibMinReal:    {"min", []Type{TypeReal, TypeReal}, TypeReal, "sysml_rmin(%s, %s)", "math.Min(%s, %s)"},
+	LibWholeInt:   {"floor", []Type{TypeInt}, TypeInt, "(%s)", "(%s)"},
+	LibMaxReal:    {"max", []Type{TypeReal, TypeReal}, TypeReal, "sysml_lib_real(sysml_rmax(%s, %s))", "sysmlLibReal(math.Max(%s, %s))"},
+	LibMinReal:    {"min", []Type{TypeReal, TypeReal}, TypeReal, "sysml_lib_real(sysml_rmin(%s, %s))", "sysmlLibReal(math.Min(%s, %s))"},
 	LibMaxInt:     {"max", []Type{TypeInt, TypeInt}, TypeInt, "sysml_imax(%s, %s)", "sysmlIMax(%s, %s)"},
 	LibMinInt:     {"min", []Type{TypeInt, TypeInt}, TypeInt, "sysml_imin(%s, %s)", "sysmlIMin(%s, %s)"},
 	LibMaxNatural: {"max", []Type{TypeInt, TypeInt}, TypeInt, "sysml_natural_max(%s, %s)", "sysmlIMax(sysmlNaturalArg(%s), sysmlNaturalArg(%s))"},
@@ -84,7 +86,7 @@ var libSpecs = map[LibOp]libSpec{
 	LibLog:        {"log", []Type{TypeReal, TypeReal}, TypeReal, "sysml_log(%s, %s)", "sysmlLog(%s, %s)"},
 	LibAtan2:      {"atan2", []Type{TypeReal, TypeReal}, TypeReal, "sysml_atan2(%s, %s)", "sysmlAtan2(%s, %s)"},
 
-	LibLength:          {"Length", []Type{TypeString}, TypeInt, "sysml_str_length(%s)", "sysmlLength(%s)"},
+	LibLength:          {"Length", []Type{TypeString}, TypeInt, "SYSML_I(sysml_str_length(%s))", "sysmlLength(%s)"},
 	LibSubstring:       {"Substring", []Type{TypeString, TypeInt, TypeInt}, TypeString, "sysml_substring(%s, %s, %s)", "sysmlSubstring(%s, %s, %s)"},
 	LibIntToString:     {"ToString", []Type{TypeInt}, TypeString, "sysml_int_string(%s)", "(%s).String()"},
 	LibNaturalToString: {"ToString", []Type{TypeInt}, TypeString, "sysml_natural_string(%s)", "sysmlNaturalString(%s)"},
@@ -135,6 +137,9 @@ func libOpFor(fqn string, args []Type) (LibOp, string) {
 		return LibSqrt, ""
 	case fqn == "RealFunctions::abs":
 		return LibAbsReal, ""
+	case fqn == "RealFunctions::floor" && ints, fqn == "RealFunctions::round" && ints:
+		// An Integer is already whole, and is kept exactly.
+		return LibWholeInt, ""
 	case fqn == "RealFunctions::floor":
 		return LibFloor, ""
 	case fqn == "RealFunctions::round":

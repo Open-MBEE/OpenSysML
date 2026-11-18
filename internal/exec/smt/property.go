@@ -157,7 +157,7 @@ func (e *Encoding) Consistency() *solve.Query {
 // adopt rewrites a property's reads to the encoding's features and declares the
 // sorts it ranges over, refusing a read of a feature no state carries.
 func (e *Encoding) adopt(translator *solve.Translator, expr *solve.Expression, within string) error {
-	label := nodeLabel(e.Flow.Graph.Initial)
+	label := nodeLabel(initialOf(e.Flow.Graph))
 	var refused error
 	visit := func(v *solve.Var) *solve.Term {
 		held := e.resolve(v)

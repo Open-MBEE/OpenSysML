@@ -18,7 +18,7 @@ import { SHOW_REFERENCES_COMMAND, showReferencesArguments } from "./references";
 import { ElementRunner } from "./run";
 import { documentSelector } from "./selector";
 import { declaredVersion, serverReport } from "./serverinfo";
-import { FORMAT_SECTION, serverSettings } from "./settings";
+import { SERVER_SETTING_SECTIONS, serverSettings } from "./settings";
 import { StdlibDocuments } from "./stdlib";
 
 const EXECUTABLE = process.platform === "win32" ? "sysml-lsp.exe" : "sysml-lsp";
@@ -81,8 +81,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration("opensysml.server")) {
         void restart();
-      } else if (event.affectsConfiguration(FORMAT_SECTION)) {
-        // Formatting settings reach the running server without a restart.
+      } else if (SERVER_SETTING_SECTIONS.some((section) => event.affectsConfiguration(section))) {
+        // The server's own settings reach it while it runs, without a restart.
         void client?.sendNotification(DidChangeConfigurationNotification.type, {
           settings: serverSettings(vscode.workspace.getConfiguration("opensysml")),
         });
