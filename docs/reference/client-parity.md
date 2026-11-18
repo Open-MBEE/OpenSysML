@@ -140,6 +140,7 @@ from the clients and a gap is a stated gap rather than a silent one.
 | `verdict_notes` | bound | bound | bound | bound | bound | bound | bound |
 | `element_properties` | bound | bound | bound | bound | bound | bound | bound |
 | `symbol_annotating_metadata` | bound | bound | bound | bound | bound | not bound | not bound |
+| `symbol_member_direction` | bound | bound | not bound | not bound | not bound | not bound | not bound |
 
 
 ## Request options

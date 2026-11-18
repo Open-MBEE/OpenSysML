@@ -32,7 +32,7 @@ func TestBodyContextFindingsSurviveAnUnrelatedSyntaxError(t *testing.T) {
 		want string
 	}{
 		{"expose in a view def", "package P { view def V { expose P::*; }" + broken, "expose",
-			"warning: `expose` in a view def body is an OpenSysML extension"},
+			"error: 'expose' declares what a view usage exposes and is only allowed in a view usage body"},
 		{"frame in a view", "package P { concern def C; view v { frame concern c : C; }" + broken, "frame",
 			"error: 'frame' declares the concern a requirement or viewpoint frames and is only allowed in a requirement body"},
 		{"transition in a part def", "package P { part def D { state s1; state s2; transition first s1 then s2; }" + broken, "transition",

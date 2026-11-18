@@ -4642,7 +4642,10 @@ type GetSymbolRequest struct {
 	ResolveName bool `protobuf:"varint,4,opt,name=resolve_name,json=resolveName,proto3" json:"resolve_name,omitempty"`
 	// What symbol_id is, stated rather than guessed; read with the "symbol_lookup_kind"
 	// capability, and resolve_name is then ignored.
-	Lookup        LookupKind `protobuf:"varint,5,opt,name=lookup,proto3,enum=sysml.LookupKind" json:"lookup,omitempty"`
+	Lookup LookupKind `protobuf:"varint,5,opt,name=lookup,proto3,enum=sysml.LookupKind" json:"lookup,omitempty"`
+	// Id of the type the symbol is read as a feature of: metadata["direction"] is then relative to
+	// it (KerML Type::directionOf), reversed by a conjugation; capability "symbol_member_direction".
+	MemberOf      string `protobuf:"bytes,6,opt,name=member_of,json=memberOf,proto3" json:"member_of,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4710,6 +4713,13 @@ func (x *GetSymbolRequest) GetLookup() LookupKind {
 		return x.Lookup
 	}
 	return LookupKind_LOOKUP_KIND_UNSPECIFIED
+}
+
+func (x *GetSymbolRequest) GetMemberOf() string {
+	if x != nil {
+		return x.MemberOf
+	}
+	return ""
 }
 
 // SymbolResponse contains symbol information
@@ -19535,14 +19545,15 @@ const file_sysml_proto_rawDesc = "" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12%\n" +
 	"\x04root\x18\x02 \x01(\v2\x11.sysml.SymbolInfoR\x04root\x123\n" +
 	"\vdiagnostics\x18\x03 \x03(\v2\x11.sysml.DiagnosticR\vdiagnostics\x12\x14\n" +
-	"\x05error\x18\x04 \x01(\tR\x05error\"\xd4\x01\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error\"\xf1\x01\n" +
 	"\x10GetSymbolRequest\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12\x1b\n" +
 	"\tsymbol_id\x18\x02 \x01(\tR\bsymbolId\x126\n" +
 	"\x17include_library_members\x18\x03 \x01(\bR\x15includeLibraryMembers\x12!\n" +
 	"\fresolve_name\x18\x04 \x01(\bR\vresolveName\x12)\n" +
-	"\x06lookup\x18\x05 \x01(\x0e2\x11.sysml.LookupKindR\x06lookup\"Q\n" +
+	"\x06lookup\x18\x05 \x01(\x0e2\x11.sysml.LookupKindR\x06lookup\x12\x1b\n" +
+	"\tmember_of\x18\x06 \x01(\tR\bmemberOf\"Q\n" +
 	"\x0eSymbolResponse\x12)\n" +
 	"\x06symbol\x18\x01 \x01(\v2\x11.sysml.SymbolInfoR\x06symbol\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\"\xa6\x01\n" +

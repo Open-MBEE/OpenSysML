@@ -28,10 +28,10 @@
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
         "files": 351,
-        "digest": "sha256:014d16867db77c581535bc3ec840f1e3464ac9fbd414b093f70e9a94df3209ef"
+        "digest": "sha256:cc6b44460f71dc111fe42083fcb73786a73c5946a0010d170d1b120047999597"
       }
     ],
-    "recorded": "2026-11-16"
+    "recorded": "2026-11-17"
   },
   "totals": {
     "cases": 351,
@@ -42,7 +42,6 @@
   },
   "strictOnlyAgreements": [
     "extensions/x06-history-member.sysml",
-    "extensions/x09-expose-in-view-def-body.sysml",
     "extensions/x11-indexed-connector-end.sysml"
   ],
   "sources": [
@@ -175,7 +174,8 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 2,
-      "defaultBucket": "pilot-only-rejects"
+      "defaultBucket": "both-reject",
+      "defaultErrors": 1
     },
     {
       "path": "extensions/x10-connector-in-sysml.sysml",
@@ -362,7 +362,7 @@
       "mode": "default",
       "bucket": "both-reject",
       "oursErrors": 3,
-      "pilotErrors": 2
+      "pilotErrors": 1
     },
     {
       "path": "grammar/g17-render-without-usage.sysml",

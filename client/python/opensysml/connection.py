@@ -28,6 +28,7 @@ from opensysml.capabilities import (
     CAPABILITY_CONNECTION_AUTHORING,
     CAPABILITY_MEMBER_MODIFIERS,
     CAPABILITY_SYMBOL_LOOKUP_KIND,
+    CAPABILITY_SYMBOL_MEMBER_DIRECTION,
     CAPABILITY_SYMBOL_NAME_RESOLUTION,
     CAPABILITY_CONSTRAINT_BODY_AUTHORING,
     CAPABILITY_STATE_ACTION_AUTHORING,
@@ -2418,6 +2419,7 @@ class Connection:
 
     def get_symbol(
         self, model_hash, symbol_id=None, include_library_members=False, resolve_name=False, *, name=None, id=None,
+        member_of="",
     ):
         """Fetch a symbol of a cached model by qualified name or by element id.
 
@@ -2447,16 +2449,29 @@ class Connection:
                 element whatever its visibility. Never read as a name. A
                 service without ``symbol_lookup_kind`` is sent ``name`` or
                 ``id`` in the legacy form, and reads it name first
+            member_of (str): Fully-qualified ID of the type the symbol is read
+                as a feature of; ``metadata["direction"]`` is then the direction
+                relative to that type, which a conjugated port typing reverses.
+                Empty reports the feature's own direction
 
         Returns:
             sysml_pb2.SymbolInfo or None: Symbol protobuf, or None if not found
 
         Raises:
             ValueError: Unless exactly one of ``symbol_id``, ``name`` and ``id`` is given
+            MissingCapabilityError: ``member_of`` is given and the service
+                does not report ``symbol_member_direction``
         """
         asked = _one_lookup("symbol_id", symbol_id, name, id)
+        if member_of:
+            require(
+                self.server_info(),
+                CAPABILITY_SYMBOL_MEMBER_DIRECTION,
+                upgrade_remedy(CAPABILITY_SYMBOL_MEMBER_DIRECTION),
+            )
         request = sysml_pb2.GetSymbolRequest(
             model_hash=model_hash, symbol_id=asked, include_library_members=include_library_members,
+            member_of=member_of,
         )
         if symbol_id is None and self.server_info().has(CAPABILITY_SYMBOL_LOOKUP_KIND):
             request.lookup = _lookup_kind(name)
