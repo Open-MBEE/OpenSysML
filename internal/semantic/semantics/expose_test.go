@@ -117,21 +117,20 @@ func TestExposedElementsOfNestedViews(t *testing.T) {
 	wantNames(t, "exposed set of inner", exposedNames(t, m, nested[0]), []string{"C"})
 }
 
-// A view usage typed by a view definition exposes what the definition exposes:
-// an Expose is protected, so specialization carries it.
-func TestExposedElementsInheritedFromAViewDefinition(t *testing.T) {
+// A view usage specializing another exposes what that one exposes: an Expose is
+// protected, so specialization carries it.
+func TestExposedElementsInheritedFromASpecializedView(t *testing.T) {
 	m, root := buildModel(t, `
 		package Lib { part def A; }
 		package More { part def C; }
-		view def V { expose Lib::*; }
-		view v : V { expose More::*; }
+		view base { expose Lib::*; }
+		view v :> base { expose More::*; }
 	`)
 	wantNames(t, "exposed set of v", exposedNames(t, m, sym(t, root, "v")), []string{"A", "C"})
 }
 
 // A view usage's exposes satisfy the view conditions of its definition, and of
-// what that definition specializes in turn (SysML v2 7.24.2); the definition's
-// own exposes are filtered the same way.
+// what that definition specializes in turn (SysML v2 7.24.2).
 func TestExposedElementsSatisfyInheritedViewConditions(t *testing.T) {
 	m, root := buildModel(t, `
 		metadata def Safety;
@@ -139,9 +138,9 @@ func TestExposedElementsSatisfyInheritedViewConditions(t *testing.T) {
 		package Lib { #Safety part def A; part def B; #Safety #Reviewed part def C; }
 		package More { #Safety #Reviewed part def D; part def E; }
 		view def Safe { filter @Safety; }
-		view def SafeReviewed :> Safe { filter @Reviewed; expose More::*; }
+		view def SafeReviewed :> Safe { filter @Reviewed; }
 		view s : Safe { expose Lib::*; }
-		view sr : SafeReviewed { expose Lib::*; }
+		view sr : SafeReviewed { expose Lib::*; expose More::*; }
 		view again :> sr;
 	`)
 	wantNames(t, "exposed set of s", exposedNames(t, m, sym(t, root, "s")), []string{"A", "C"})
@@ -150,17 +149,18 @@ func TestExposedElementsSatisfyInheritedViewConditions(t *testing.T) {
 }
 
 // An expose a view inherits is admitted against the inheriting view's own
-// conditions: the definition's set stays its own, the narrower usage's shrinks.
+// conditions: the specialized view's set stays its own, the narrower one's shrinks.
 func TestExposedElementsInheritedExposeSatisfiesDerivedConditions(t *testing.T) {
 	m, root := buildModel(t, `
 		metadata def Safety;
 		metadata def Reviewed;
 		package Lib { #Safety part def A; part def B; #Safety #Reviewed part def C; }
-		view def Safe { filter @Safety; expose Lib::*; }
-		view sr : Safe { filter @Reviewed; }
+		view def Safe { filter @Safety; }
+		view safe : Safe { expose Lib::*; }
+		view sr :> safe { filter @Reviewed; }
 		view srr :> sr;
 	`)
-	wantNames(t, "exposed set of Safe", exposedNames(t, m, sym(t, root, "Safe")), []string{"A", "C"})
+	wantNames(t, "exposed set of safe", exposedNames(t, m, sym(t, root, "safe")), []string{"A", "C"})
 	wantNames(t, "exposed set of sr", exposedNames(t, m, sym(t, root, "sr")), []string{"C"})
 	wantNames(t, "exposed set of srr", exposedNames(t, m, sym(t, root, "srr")), []string{"C"})
 
@@ -243,9 +243,9 @@ func TestExposedMembersAppliesInheritedAndExposeFilters(t *testing.T) {
 		metadata def Pick;
 		metadata def Include;
 		package Model { #Pick part def A; #Pick #Include part def B; #Include part def C; }
-		view def Base { filter @Pick; expose Model::*[@Include]; }
+		view def Base { filter @Pick; }
 		view def Child :> Base { filter @Include; }
-		view v : Child;
+		view v : Child { expose Model::*[@Include]; }
 	`)
 	members, err := m.ExposedMembers(sym(t, root, "v"))
 	if err != nil {

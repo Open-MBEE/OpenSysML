@@ -30,7 +30,7 @@ func CalcBodyWithOrder(owner ast.Node, members []ast.Node, scope *symbols.Scope,
 	}
 	// A calculation is an action (SysML v2 §7.19.1), so a body stating successions
 	// or control nodes is the token flow an action body is.
-	if PerformsSteps(owner) && len(flowNodesAmong(body)) > 0 || statesControlFlow(body) {
+	if len(flowNodesAmong(body)) > 0 || statesControlFlow(body) {
 		stmts := caseSteps(owner, body, scope, resolver, exprs)
 		return stmts, nil
 	}
@@ -170,6 +170,47 @@ func nodeStatesFlow(graph *ActionGraph) bool {
 		}
 		if _, sequential := sub.Graph.StatementList(); !sequential || nodeStatesFlow(sub.Graph) {
 			return true
+		}
+	}
+	return false
+}
+
+// PerformsActions reports whether stmts state, at any depth, a step only a performance
+// can take: an action node or `perform`, an accept to wait at, or a terminate to end one.
+func PerformsActions(stmts []Statement) bool {
+	within := func(block Block) bool {
+		if block.Graph == nil {
+			return PerformsActions(block.Statements)
+		}
+		if len(block.Graph.Accepts) > 0 {
+			return true
+		}
+		for _, node := range block.Graph.Nodes {
+			if _, usage := node.(*ast.Usage); usage && !block.Graph.StatementRuns[node] {
+				return true
+			}
+			if PerformsActions(block.Graph.Bodies[node]) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, stmt := range stmts {
+		switch s := stmt.(type) {
+		case Effect:
+			return true
+		case If:
+			if within(s.Then) || s.Else != nil && within(*s.Else) {
+				return true
+			}
+		case Loop:
+			if within(s.Body) {
+				return true
+			}
+		case Block:
+			if within(s) {
+				return true
+			}
 		}
 	}
 	return false

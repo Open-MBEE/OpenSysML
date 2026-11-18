@@ -1,0 +1,21 @@
+enter calc test::Stepped
+  stmt declare x
+    eval literal 1 -> 1
+  stmt action body
+enter action node: calc test::Stepped
+enter action node: a
+    stmt assign x
+        eval feature x -> 1
+        eval literal 8 -> 8
+      eval operator + -> 9
+    stmt terminate
+terminate action node a: no token dropped
+leave action node: a
+    stmt assign x
+        eval feature x -> 9
+        eval literal 2 -> 2
+      eval operator * -> 18
+leave action node: calc test::Stepped
+  stmt return
+    eval feature x -> 18
+exit calc test::Stepped -> (18)

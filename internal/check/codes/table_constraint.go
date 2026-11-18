@@ -570,13 +570,6 @@ var constraintCodes = []Entry{
 		Spec: "SysML v2 validateAssignmentActionUsageReferentIsTimeVarying",
 	},
 	{
-		Code: "assignment-chain-in-calc", Tier: TierConstraint, Severity: "error",
-		Summary: "a calculation assigning a feature of another object",
-		Meaning: "A calculation computes a result and has no side effects; an assignment whose target chains into another object (`assign a.x := v`) would write that object. " +
-			"Move the assignment into an action, or compute the value as the calculation's result.",
-		Spec: "KerML 1.0 §8.4.4.9 (functions have no side effects)",
-	},
-	{
 		Code: "assignment-chain-step-not-one-object", Tier: TierConstraint, Severity: "error",
 		Summary: "an assignment target stepping through a feature that may hold several objects",
 		Meaning: "`assign a.x := v` writes `x` of the one object `a` holds; a feature with multiplicity above 1 in the chain leaves it unclear which object is written. " +

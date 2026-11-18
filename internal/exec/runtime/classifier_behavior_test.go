@@ -2544,12 +2544,12 @@ func TestQualifiedWriteStreamsLikeARunWrite(t *testing.T) {
 	}
 }
 
-// A calculation names no object outside its own run: a qualified write to the
-// performing object's feature is an external assignment, rejected outright.
-func TestCalcQualifiedWriteRejectsAnotherObject(t *testing.T) {
+// A calculation may have side effects (KerML 7.4.8.1): a qualified write to the
+// performing object's feature is performed, as in an action body.
+func TestCalcQualifiedWriteReachesThePerformer(t *testing.T) {
 	ctx, idx := contextForSource(t, `package test {
 		private import ScalarValues::*;
-		part def Host { attribute count : Integer = 0; }
+		part def Host { attribute count : Integer := 0; }
 		calc def Bump {
 			assign Host::count := 3;
 			return : Integer[1] = 1;
@@ -2558,13 +2558,13 @@ func TestCalcQualifiedWriteRejectsAnotherObject(t *testing.T) {
 	host := findSymbolByName(idx.DocumentRoot("<test>"), "Host", ast.DefPart)
 	inst := mustInstantiate(t, ctx, host)
 	bump := lookupOne(t, idx, "test::Bump")
-	if _, err := ctx.invokeCalcWithSelf(bump, calcArgs{}, idx.DocumentRoot("<test>"), inst); !errors.Is(err, errCalcExternalAssignment) {
-		t.Fatalf("Bump on Host: err = %v; want ErrCalcExternalAssignment", err)
+	if _, err := ctx.invokeCalcWithSelf(bump, calcArgs{}, idx.DocumentRoot("<test>"), inst); err != nil {
+		t.Fatalf("Bump on Host: %v", err)
 	}
 	if fv, err := inst.GetFeatureValue(ctx, "count"); err != nil {
 		t.Fatalf("read Host.count: %v", err)
-	} else if got := fv.HeldValue(); got.Const.Int != 0 {
-		t.Errorf("Host.count = %v, want 0: the rejected write changed nothing", got)
+	} else if got := fv.HeldValue(); got.Const.Int != 3 {
+		t.Errorf("Host.count = %v, want the 3 the calculation wrote", got)
 	}
 }
 

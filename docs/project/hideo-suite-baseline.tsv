@@ -1286,10 +1286,10 @@ C10-025	pass	pass	unsupported	unsupported
 C10-026	pass	pass	unsupported	unsupported
 C10-027	pass	pass	unsupported	unsupported
 C10-028	pass	pass	unsupported	unsupported
-C10-029	fail	fail	unsupported	unsupported
-C10-030	fail	fail	unsupported	unsupported
-C10-031	fail	fail	unsupported	unsupported
-C10-032	fail	fail	unsupported	unsupported
+C10-029	pass	pass	unsupported	unsupported
+C10-030	pass	pass	unsupported	unsupported
+C10-031	pass	pass	unsupported	unsupported
+C10-032	pass	pass	unsupported	unsupported
 C10-033	pass	pass	unsupported	unsupported
 C10-034	pass	pass	unsupported	unsupported
 C10-035	pass	pass	unsupported	unsupported

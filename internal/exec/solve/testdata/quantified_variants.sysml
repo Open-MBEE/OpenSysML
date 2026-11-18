@@ -5,6 +5,7 @@
 package test {
 	private import ControlFunctions::*;
 	alias each for ControlFunctions::forAll;
+	alias 'each::one' for ControlFunctions::forAll;
 	part def Wheel;
 	part def NarrowWheel :> Wheel;
 	part def WideWheel :> Wheel;
@@ -41,6 +42,12 @@ package test {
 		}
 		assert constraint aliasedAll {
 			wheelChoice->each { in ref w; w == wheelChoice::narrow }
+		}
+		assert constraint quotedAll {
+			wheelChoice->'each::one' { in ref w; w == wheelChoice::narrow }
+		}
+		assert constraint qualifiedAll {
+			wheelChoice->test::each { in ref w; w == wheelChoice::narrow }
 		}
 		assert constraint spareNarrow {
 			spareChoice->forAll { in ref w; w == spareChoice::narrowSpare }

@@ -198,7 +198,7 @@ func TestEncodeFanOutJoinCompletes(t *testing.T) {
 		t.Fatalf("encode: %v", err)
 	}
 	fans := false
-	for _, node := range graph.Nodes {
+	for _, node := range enc.Flow.Nodes {
 		fans = fans || (nodeLabel(node) == "split" && enc.Flow.fansOut(node))
 	}
 	if !fans {
