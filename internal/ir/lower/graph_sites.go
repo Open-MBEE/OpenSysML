@@ -233,6 +233,24 @@ type Trigger struct {
 	Expr Extent
 	// Absolute reports a time trigger written `at` rather than `after`.
 	Absolute bool
+	// Signal and Called are the last segments of the signal type and of the
+	// operation; Typed and Calls report that one was written.
+	Signal, Called string
+	Typed, Calls   bool
+	// PayloadName is the payload's declared name.
+	PayloadName string
+	// Subset is what the trigger subsets, spelled as the notation writes it;
+	// Subsetting reports that it subsets something.
+	Subset     string
+	Subsetting bool
+}
+
+// endSegment is the last segment of a qualified name, "" for none.
+func endSegment(name *ast.QualifiedName) string {
+	if name == nil || len(name.Parts) == 0 {
+		return ""
+	}
+	return name.Parts[len(name.Parts)-1].Text
 }
 
 // triggerOf describes a trigger, false for none.
@@ -252,10 +270,16 @@ func triggerOf(node ast.Node) (Trigger, bool) {
 		}
 		if t.Payload != nil {
 			form.Payload, _ = ast.EffectiveName(t.Payload)
+			form.PayloadName = t.Payload.Ident.Name
+		}
+		form.Typed, form.Signal = t.SignalType != nil, endSegment(t.SignalType)
+		if t.Subsets != nil {
+			form.Subsetting, form.Subset = true, ast.ExprPrinter{}.Text(t.Subsets)
 		}
 	case *ast.CallEvent:
 		form.Kind = "call"
 		form.Operation = t.Operation.Text()
+		form.Calls, form.Called = t.Operation != nil, endSegment(t.Operation)
 		for _, p := range t.Parameters {
 			form.Parameters = append(form.Parameters, p.Text)
 		}

@@ -615,7 +615,17 @@ step 8 deletes. The step is split into stacked pull requests:
   a node performs). A node a body's block declares is a node of the block's flow, written by its
   identity alone; a footprint converging on a node outside the graph's own is still refused.
   `exec/analysis/record` reads symbol declarations, not lowered graphs, and keeps its import.
-- **7d**. `ir/view` and `ir/queryplan`.
+- **7d**. `ir/view` and `ir/queryplan`, without an edge: neither can hold package-wide. The
+  behavior views (`behavior.go`, `behavior_forms.go`, `locate.go`, `origin.go`) walk a flow by
+  `NodeID` and a machine by `program.VertexRef` and `RegionID`, and ask the records where an
+  expression was written (`graph_declared.go`) instead of reading its syntax; every rendering is
+  unchanged. They still take the declaration behind an id from `Provenance`, because a symbol,
+  stored geometry, a style, a route and an origin are all looked up by declaration, and the other
+  view kinds read symbol declarations and no lowered graph. `StateLocator` and `ActionLocator`
+  gain id-typed methods beside the declaration-typed ones, which 7e removes with their one caller
+  (`frontend/lsp/debug.go`). In `queryplan`, `declaredResult` reads a calc's result through
+  `Return.Syntax` and `BindingEnd.Syntax`; the query compiler (`columns.go`, `navigation.go`)
+  compiles expression syntax into a plan, so the tree is its input as it is `lower`'s.
 - **7e**. `doc/queryexec`, `frontend/lsp/debug.go`, `frontend/grpc`, `frontend/repl`,
   `frontend/engine`, `workspace/modelrt`, `tools/referee/{fuml,pssm}`, `examples/runtime-demo`.
 - **7f**. `translate/codegen` and `check/passes`, which the row does not list but which read the
