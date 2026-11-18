@@ -191,6 +191,12 @@ end
     @test !(CAPABILITY_RATIONAL_VALUES in value_capabilities(1//2))
     @test encode_value(big(7)) == Dict("intValue" => "7")
     @test encode_value(Quantity(big(2)^63, "kg", nothing)) == Dict("quantity" => Dict("bigIntMagnitude" => "9223372036854775808", "unit" => "kg"))
+    held = decode_value(Dict("quantity" => Dict("realMagnitude" => 5.0, "unit" => "J", "valueType" => "ISQThermodynamics::EnergyValue")))
+    @test held.value_type == "ISQThermodynamics::EnergyValue"
+    @test encode_value(held)["quantity"]["valueType"] == "ISQThermodynamics::EnergyValue"
+    @test held == Quantity(5.0, "J") && Quantity(5.0, "J").value_type == "" && (held * 2).value_type == ""
+    @test !haskey(encode_value(Quantity(5.0, "J"))["quantity"], "valueType")
+    @test Quantity(5, "J"; value_type="M::Work").value_type == "M::Work"
     wide = Quantity(big(2)^63, "kg", nothing)
     for value in (big(2)^70, Any[1, Any[big(2)^70]], Set([big(2)^70]), wide,
                   VectorQuantity([wide]), TensorQuantity([1], [wide]))

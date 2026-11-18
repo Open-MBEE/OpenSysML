@@ -1423,9 +1423,9 @@
         "clause": "8.3.26.2",
         "name": "validateExposeOwningNamespace"
       },
-      "checks": "Only view usages expose elements. Every owner probed agrees in direction with the pilot — a view usage (plain, typed, nested in a part or a view def, `expose D`, `D::*`, `D::**`, filtered) is silent in both; a part, action, requirement, viewpoint or rendering definition or usage is an error in OpenSysML where the pilot grammar has a syntax error (`mismatched input 'expose' expecting '}'`), and a package body is a parse error in both. The one deliberate residue is a `view def` body: a `nonstandard-notation` **warning** in OpenSysML (`` `expose` in a view def body``, the maintainer decision recorded in [spec-compliance.md](spec-compliance.md)) where the pilot has the same syntax error",
-      "implementation": "internal/syntax/parser/defusage.go:misplacedMember (syntax tier, so an unrelated syntax error elsewhere no longer hides it); the view def warning is internal/check/passes/nonstandard_notation.go:notationWalker.expose",
-      "message": "`'expose' declares what a view usage exposes and is only allowed in a view usage body`. Stays approximate: `expose` in a view definition body is a deliberate extension (warning), see spec-compliance.md.",
+      "checks": "Only view usages expose elements. Every owner probed agrees in direction with the pilot — a view usage (plain, typed, nested in a part or a view def, `expose D`, `D::*`, `D::**`, filtered) is silent in both; a part, action, requirement, viewpoint or rendering definition or usage is an error in OpenSysML where the pilot grammar has a syntax error (`mismatched input 'expose' expecting '}'`), and a package body is a parse error in both. A `view def` body is the same error: `ViewDefinitionBodyItem` (SysML v2 8.2.2.26.2) offers no `Expose`, which only `ViewBodyItem` does, and the pilot has the same syntax error",
+      "implementation": "internal/syntax/parser/defusage.go:Parser.misplacedMember, reached through internal/syntax/parser/defusage.go:Parser.bodyAdmitsMember, which admits `expose` in a view usage body alone (syntax tier, like the pilot)",
+      "message": "`'expose' declares what a view usage exposes and is only allowed in a view usage body`",
       "negativeCase": "`grammar/g67-expose-outside-view-body.sysml`",
       "codes": [
         "expose-owning-namespace"
@@ -1433,8 +1433,7 @@
       "passes": [
         "syntax"
       ],
-      "status": "approximate",
-      "rationale": "an `expose` in a `view def` body is a `nonstandard-notation` warning where the pilot has a syntax error"
+      "status": "faithful"
     },
     {
       "name": "validateExpressionResultExpressionMembership",
@@ -3982,9 +3981,9 @@
         "name": "validateSubsettingFeaturingTypes"
       },
       "checks": "A subsetted feature is accessible from the subsetting feature's featuring types",
-      "implementation": "internal/check/passes/subsetting_featuring.go:checkSubsettingFeaturingTypes, internal/check/passes/constraint.go:checkPackageLevelRedefinition",
+      "implementation": "internal/check/passes/subsetting_featuring.go:checkSubsettingFeaturingTypes, internal/check/passes/constraint.go:checkRedefinition",
       "message": "—",
-      "negativeCase": "`semantic/k13-subsets-inaccessible-feature.kerml`, `semantic/k77-standalone-subsetting-inaccessible-feature.kerml`, `semantic/s105-package-level-redefines-type-feature.sysml`, `semantic/k74-package-level-redefines-featured-feature.kerml`",
+      "negativeCase": "`semantic/k13-subsets-inaccessible-feature.kerml`, `semantic/k77-standalone-subsetting-inaccessible-feature.kerml`, `semantic/s105-package-level-redefines-type-feature.sysml`, `semantic/k74-package-level-redefines-featured-feature.kerml`, `semantic/k79-redefines-inherited-feature-from-nested-classifier.kerml`",
       "codes": [
         "subsetting-featuring-types"
       ],
@@ -6378,13 +6377,13 @@
       },
       "checks": "If a Feature has a FeatureValue, no ownedSpecializations that are not implied, and is not directed, then it must specialize the result of the value Expression of the FeatureValue.",
       "ocl": "direction = null and\nownedSpecializations->forAll(isImplied) implies\n    ownedMembership->\n        selectByKind(FeatureValue)->\n        forAll(fv | specializes(fv.value.result))",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures",
-      "message": "not computed: `feature e1 = 1;` gets only the implied general `Base::things`; the value's result type does not become an implied specialization",
+      "implementation": "internal/semantic/semantics/valuation.go:Model.FeatureValueGeneral",
+      "message": "computed: the feature the value's result is — a referenced feature or chain, the result parameter or behavior of an invocation, the instance of `new T()` — is a direct supertype of an undirected feature valued without `default` and without a declared specialization (`Model.FeatureValueGeneral`, appended by `Model.DirectSupertypes`), so the feature inherits and redefines that result's members; no implied Specialization element is materialized",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "not-implemented",
-      "rationale": "the implicit-base side table does not specialize an untyped feature by its value's result type"
+      "status": "approximate",
+      "rationale": "a `default` value is exempted as the pilot exempts it, where the clause's text is not; a literal or operator result names no feature, and a call several same-named declarations could answer names none, so those values add no general; the implied relationship is recorded but not exported"
     },
     {
       "name": "checkFeatureValueBindingConnector",

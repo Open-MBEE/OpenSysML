@@ -1,0 +1,339 @@
+materialize: ball #1
+start: performed action flight of #1
+materialize: flight #2
+  eval literal 10.0 -> 10.0
+  enter calc VectorFunctions::VectorOf
+    bind components = 10.0 [argument]
+  exit calc VectorFunctions::VectorOf -> ⟨10.0⟩
+eval invoke VectorOf -> ⟨10.0⟩
+    eval literal 0.0 -> 0.0
+    eval literal 7.5 -> 7.5
+  eval sequence of 2 -> (0.0, 7.5)
+  enter calc VectorFunctions::VectorOf
+    bind components = (0.0, 7.5) [argument]
+  exit calc VectorFunctions::VectorOf -> ⟨0.0, 7.5⟩
+eval invoke VectorOf -> ⟨0.0, 7.5⟩
+  eval literal 0.5 -> 0.5
+eval index -> 0.5 [s]
+  eval literal 2 -> 2
+eval index -> 2 [s]
+run: performed action flight of #1
+enter calc test::Ball::flight::getOutput
+  bind input = ⟨10.0⟩ [argument]
+  bind stateSpace = ⟨0.0, 7.5⟩ [argument]
+  stmt return
+          eval feature stateSpace -> ⟨0.0, 7.5⟩
+        eval chain elements -> (0.0, 7.5)
+        eval literal 1 -> 1
+      eval index -> 0.0
+      enter calc VectorFunctions::VectorOf
+        bind components = 0.0 [argument]
+      exit calc VectorFunctions::VectorOf -> ⟨0.0⟩
+    eval invoke VectorOf -> ⟨0.0⟩
+exit calc test::Ball::flight::getOutput -> (⟨0.0⟩)
+state: flight t=0.0 x=⟨0.0, 7.5⟩ y=[⟨0.0⟩]
+enter calc test::Ball::flight::getDerivative
+  bind input = ⟨10.0⟩ [argument]
+  bind stateSpace = ⟨0.0, 7.5⟩ [argument]
+  stmt return
+              eval feature stateSpace -> ⟨0.0, 7.5⟩
+            eval chain elements -> (0.0, 7.5)
+            eval literal 2 -> 2
+          eval index -> 7.5
+            eval literal 0.0 -> 0.0
+                eval feature input -> ⟨10.0⟩
+              eval chain elements -> (10.0)
+              eval literal 1 -> 1
+            eval index -> 10.0
+          eval operator - -> -10.0
+        eval sequence of 2 -> (7.5, -10.0)
+        enter calc VectorFunctions::VectorOf
+          bind components = (7.5, -10.0) [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨7.5, -10.0⟩
+      eval invoke VectorOf -> ⟨7.5, -10.0⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨7.5, -10.0⟩ [1/s]
+exit calc test::Ball::flight::getDerivative -> (⟨7.5, -10.0⟩ [1/s])
+step 1: token 1@flight
+eval literal 0 -> 0
+eval literal 0.0 -> 0.0
+enter: rising
+  eval literal 10 -> 10
+eval index -> 10 [s]
+run: performed action flight of #1
+enter calc test::Ball::flight::getDerivative
+  bind input = ⟨10.0⟩ [argument]
+  bind stateSpace = ⟨0.0, 7.5⟩ [argument]
+  stmt return
+              eval feature stateSpace -> ⟨0.0, 7.5⟩
+            eval chain elements -> (0.0, 7.5)
+            eval literal 2 -> 2
+          eval index -> 7.5
+            eval literal 0.0 -> 0.0
+                eval feature input -> ⟨10.0⟩
+              eval chain elements -> (10.0)
+              eval literal 1 -> 1
+            eval index -> 10.0
+          eval operator - -> -10.0
+        eval sequence of 2 -> (7.5, -10.0)
+        enter calc VectorFunctions::VectorOf
+          bind components = (7.5, -10.0) [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨7.5, -10.0⟩
+      eval invoke VectorOf -> ⟨7.5, -10.0⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨7.5, -10.0⟩ [1/s]
+exit calc test::Ball::flight::getDerivative -> (⟨7.5, -10.0⟩ [1/s])
+enter calc test::Ball::flight::getDerivative
+  bind input = ⟨10.0⟩ [argument]
+  bind stateSpace = ⟨1.875, 5.0⟩ [argument]
+  stmt return
+              eval feature stateSpace -> ⟨1.875, 5.0⟩
+            eval chain elements -> (1.875, 5.0)
+            eval literal 2 -> 2
+          eval index -> 5.0
+            eval literal 0.0 -> 0.0
+                eval feature input -> ⟨10.0⟩
+              eval chain elements -> (10.0)
+              eval literal 1 -> 1
+            eval index -> 10.0
+          eval operator - -> -10.0
+        eval sequence of 2 -> (5.0, -10.0)
+        enter calc VectorFunctions::VectorOf
+          bind components = (5.0, -10.0) [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨5.0, -10.0⟩
+      eval invoke VectorOf -> ⟨5.0, -10.0⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨5.0, -10.0⟩ [1/s]
+exit calc test::Ball::flight::getDerivative -> (⟨5.0, -10.0⟩ [1/s])
+enter calc test::Ball::flight::getDerivative
+  bind input = ⟨10.0⟩ [argument]
+  bind stateSpace = ⟨1.25, 5.0⟩ [argument]
+  stmt return
+              eval feature stateSpace -> ⟨1.25, 5.0⟩
+            eval chain elements -> (1.25, 5.0)
+            eval literal 2 -> 2
+          eval index -> 5.0
+            eval literal 0.0 -> 0.0
+                eval feature input -> ⟨10.0⟩
+              eval chain elements -> (10.0)
+              eval literal 1 -> 1
+            eval index -> 10.0
+          eval operator - -> -10.0
+        eval sequence of 2 -> (5.0, -10.0)
+        enter calc VectorFunctions::VectorOf
+          bind components = (5.0, -10.0) [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨5.0, -10.0⟩
+      eval invoke VectorOf -> ⟨5.0, -10.0⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨5.0, -10.0⟩ [1/s]
+exit calc test::Ball::flight::getDerivative -> (⟨5.0, -10.0⟩ [1/s])
+enter calc test::Ball::flight::getDerivative
+  bind input = ⟨10.0⟩ [argument]
+  bind stateSpace = ⟨2.5, 2.5⟩ [argument]
+  stmt return
+              eval feature stateSpace -> ⟨2.5, 2.5⟩
+            eval chain elements -> (2.5, 2.5)
+            eval literal 2 -> 2
+          eval index -> 2.5
+            eval literal 0.0 -> 0.0
+                eval feature input -> ⟨10.0⟩
+              eval chain elements -> (10.0)
+              eval literal 1 -> 1
+            eval index -> 10.0
+          eval operator - -> -10.0
+        eval sequence of 2 -> (2.5, -10.0)
+        enter calc VectorFunctions::VectorOf
+          bind components = (2.5, -10.0) [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨2.5, -10.0⟩
+      eval invoke VectorOf -> ⟨2.5, -10.0⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨2.5, -10.0⟩ [1/s]
+exit calc test::Ball::flight::getDerivative -> (⟨2.5, -10.0⟩ [1/s])
+enter calc test::Ball::flight::getOutput
+  bind input = ⟨10.0⟩ [argument]
+  bind stateSpace = ⟨2.5, 2.5⟩ [argument]
+  stmt return
+          eval feature stateSpace -> ⟨2.5, 2.5⟩
+        eval chain elements -> (2.5, 2.5)
+        eval literal 1 -> 1
+      eval index -> 2.5
+      enter calc VectorFunctions::VectorOf
+        bind components = 2.5 [argument]
+      exit calc VectorFunctions::VectorOf -> ⟨2.5⟩
+    eval invoke VectorOf -> ⟨2.5⟩
+exit calc test::Ball::flight::getOutput -> (⟨2.5⟩)
+state: flight t=0.5 x=⟨2.5, 2.5⟩ y=[⟨2.5⟩]
+enter calc test::Ball::flight::getDerivative
+  bind input = ⟨10.0⟩ [argument]
+  bind stateSpace = ⟨2.5, 2.5⟩ [argument]
+  stmt return
+              eval feature stateSpace -> ⟨2.5, 2.5⟩
+            eval chain elements -> (2.5, 2.5)
+            eval literal 2 -> 2
+          eval index -> 2.5
+            eval literal 0.0 -> 0.0
+                eval feature input -> ⟨10.0⟩
+              eval chain elements -> (10.0)
+              eval literal 1 -> 1
+            eval index -> 10.0
+          eval operator - -> -10.0
+        eval sequence of 2 -> (2.5, -10.0)
+        enter calc VectorFunctions::VectorOf
+          bind components = (2.5, -10.0) [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨2.5, -10.0⟩
+      eval invoke VectorOf -> ⟨2.5, -10.0⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨2.5, -10.0⟩ [1/s]
+exit calc test::Ball::flight::getDerivative -> (⟨2.5, -10.0⟩ [1/s])
+step 2: token 1@flight
+run: performed action flight of #1
+enter calc test::Ball::flight::getDerivative
+  bind input = ⟨10.0⟩ [argument]
+  bind stateSpace = ⟨2.5, 2.5⟩ [argument]
+  stmt return
+              eval feature stateSpace -> ⟨2.5, 2.5⟩
+            eval chain elements -> (2.5, 2.5)
+            eval literal 2 -> 2
+          eval index -> 2.5
+            eval literal 0.0 -> 0.0
+                eval feature input -> ⟨10.0⟩
+              eval chain elements -> (10.0)
+              eval literal 1 -> 1
+            eval index -> 10.0
+          eval operator - -> -10.0
+        eval sequence of 2 -> (2.5, -10.0)
+        enter calc VectorFunctions::VectorOf
+          bind components = (2.5, -10.0) [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨2.5, -10.0⟩
+      eval invoke VectorOf -> ⟨2.5, -10.0⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨2.5, -10.0⟩ [1/s]
+exit calc test::Ball::flight::getDerivative -> (⟨2.5, -10.0⟩ [1/s])
+enter calc test::Ball::flight::getDerivative
+  bind input = ⟨10.0⟩ [argument]
+  bind stateSpace = ⟨3.125, 0.0⟩ [argument]
+  stmt return
+              eval feature stateSpace -> ⟨3.125, 0.0⟩
+            eval chain elements -> (3.125, 0.0)
+            eval literal 2 -> 2
+          eval index -> 0.0
+            eval literal 0.0 -> 0.0
+                eval feature input -> ⟨10.0⟩
+              eval chain elements -> (10.0)
+              eval literal 1 -> 1
+            eval index -> 10.0
+          eval operator - -> -10.0
+        eval sequence of 2 -> (0.0, -10.0)
+        enter calc VectorFunctions::VectorOf
+          bind components = (0.0, -10.0) [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨0.0, -10.0⟩
+      eval invoke VectorOf -> ⟨0.0, -10.0⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨0.0, -10.0⟩ [1/s]
+exit calc test::Ball::flight::getDerivative -> (⟨0.0, -10.0⟩ [1/s])
+enter calc test::Ball::flight::getDerivative
+  bind input = ⟨10.0⟩ [argument]
+  bind stateSpace = ⟨2.5, 0.0⟩ [argument]
+  stmt return
+              eval feature stateSpace -> ⟨2.5, 0.0⟩
+            eval chain elements -> (2.5, 0.0)
+            eval literal 2 -> 2
+          eval index -> 0.0
+            eval literal 0.0 -> 0.0
+                eval feature input -> ⟨10.0⟩
+              eval chain elements -> (10.0)
+              eval literal 1 -> 1
+            eval index -> 10.0
+          eval operator - -> -10.0
+        eval sequence of 2 -> (0.0, -10.0)
+        enter calc VectorFunctions::VectorOf
+          bind components = (0.0, -10.0) [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨0.0, -10.0⟩
+      eval invoke VectorOf -> ⟨0.0, -10.0⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨0.0, -10.0⟩ [1/s]
+exit calc test::Ball::flight::getDerivative -> (⟨0.0, -10.0⟩ [1/s])
+enter calc test::Ball::flight::getDerivative
+  bind input = ⟨10.0⟩ [argument]
+  bind stateSpace = ⟨2.5, -2.5⟩ [argument]
+  stmt return
+              eval feature stateSpace -> ⟨2.5, -2.5⟩
+            eval chain elements -> (2.5, -2.5)
+            eval literal 2 -> 2
+          eval index -> -2.5
+            eval literal 0.0 -> 0.0
+                eval feature input -> ⟨10.0⟩
+              eval chain elements -> (10.0)
+              eval literal 1 -> 1
+            eval index -> 10.0
+          eval operator - -> -10.0
+        eval sequence of 2 -> (-2.5, -10.0)
+        enter calc VectorFunctions::VectorOf
+          bind components = (-2.5, -10.0) [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨-2.5, -10.0⟩
+      eval invoke VectorOf -> ⟨-2.5, -10.0⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨-2.5, -10.0⟩ [1/s]
+exit calc test::Ball::flight::getDerivative -> (⟨-2.5, -10.0⟩ [1/s])
+enter calc test::Ball::flight::getOutput
+  bind input = ⟨10.0⟩ [argument]
+  bind stateSpace = ⟨2.5, -2.5⟩ [argument]
+  stmt return
+          eval feature stateSpace -> ⟨2.5, -2.5⟩
+        eval chain elements -> (2.5, -2.5)
+        eval literal 1 -> 1
+      eval index -> 2.5
+      enter calc VectorFunctions::VectorOf
+        bind components = 2.5 [argument]
+      exit calc VectorFunctions::VectorOf -> ⟨2.5⟩
+    eval invoke VectorOf -> ⟨2.5⟩
+exit calc test::Ball::flight::getOutput -> (⟨2.5⟩)
+state: flight t=1.0 x=⟨2.5, -2.5⟩ y=[⟨2.5⟩]
+enter calc test::Ball::flight::getDerivative
+  bind input = ⟨10.0⟩ [argument]
+  bind stateSpace = ⟨2.5, -2.5⟩ [argument]
+  stmt return
+              eval feature stateSpace -> ⟨2.5, -2.5⟩
+            eval chain elements -> (2.5, -2.5)
+            eval literal 2 -> 2
+          eval index -> -2.5
+            eval literal 0.0 -> 0.0
+                eval feature input -> ⟨10.0⟩
+              eval chain elements -> (10.0)
+              eval literal 1 -> 1
+            eval index -> 10.0
+          eval operator - -> -10.0
+        eval sequence of 2 -> (-2.5, -10.0)
+        enter calc VectorFunctions::VectorOf
+          bind components = (-2.5, -10.0) [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨-2.5, -10.0⟩
+      eval invoke VectorOf -> ⟨-2.5, -10.0⟩
+        eval literal 1 -> 1
+      eval index -> 1 [s]
+    eval operator / -> ⟨-2.5, -10.0⟩ [1/s]
+exit calc test::Ball::flight::getDerivative -> (⟨-2.5, -10.0⟩ [1/s])
+event: zero crossing apex of flight (t=1.0)
+step 3: token 1@flight
+exit: rising
+enter: falling (entry action)
+stmt action body
+  stmt assign apexes
+      eval feature apexes -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+  stmt assign height
+        eval feature flight -> instance#2
+      eval chain elements -> (2.5)
+      eval literal 1 -> 1
+    eval index -> 2.5
+transition: rising -> falling (event: accept Apex)

@@ -323,17 +323,13 @@ func (s *Server) mapObject(v map[string]any, implicit *notebookDocument) any {
 	// done holds the keys mapped with the document their uri names, which
 	// the loop below must not read again as the request document's.
 	done := map[string]bool{"uri": true, "targetUri": true, "changes": true, "documentChanges": true, "data": true}
-	if nb := s.notebookOf(v["uri"]); nb != nil {
-		done["range"] = true
-		if rng, ok := v["range"].(map[string]any); ok && isRange(rng) {
-			if cell, mapped, ok := nb.toCellRange(decodeRange(rng)); ok {
-				v["uri"], v["range"] = string(cell), encodeValue(mapped)
-			}
-		}
+	if _, ok := v["uri"].(string); ok {
+		done["range"], done["selectionRange"] = true, true
+		s.mapLocation(v, "uri", "range", "selectionRange")
 	}
-	if nb := s.notebookOf(v["targetUri"]); nb != nil {
+	if _, ok := v["targetUri"].(string); ok {
 		done["targetRange"], done["targetSelectionRange"] = true, true
-		s.mapTarget(v, nb)
+		s.mapLocation(v, "targetUri", "targetRange", "targetSelectionRange")
 	}
 	if changes, ok := v["changes"].(map[string]any); ok {
 		v["changes"] = s.mapChanges(changes)
@@ -382,20 +378,22 @@ func (s *Server) mapPositional(field any, nb *notebookDocument) any {
 	return m
 }
 
-// mapTarget moves a LocationLink's target into the cell its range is in.
-func (s *Server) mapTarget(link map[string]any, nb *notebookDocument) {
-	target, ok := link["targetRange"].(map[string]any)
-	if !ok || !isRange(target) {
+// mapLocation moves the ranges an object states of the document its uri key
+// names into the cell the first of them is in; a file's ranges stay the file's.
+func (s *Server) mapLocation(v map[string]any, uriKey, rangeKey, selectionKey string) {
+	nb := s.notebookOf(v[uriKey])
+	target, ok := v[rangeKey].(map[string]any)
+	if nb == nil || !ok || !isRange(target) {
 		return
 	}
 	cell, rng, ok := nb.toCellRange(decodeRange(target))
 	if !ok {
 		return
 	}
-	link["targetUri"], link["targetRange"] = string(cell), encodeValue(rng)
-	if sel, ok := link["targetSelectionRange"].(map[string]any); ok && isRange(sel) {
+	v[uriKey], v[rangeKey] = string(cell), encodeValue(rng)
+	if sel, ok := v[selectionKey].(map[string]any); ok && isRange(sel) {
 		if _, rng, ok := nb.toCellRange(decodeRange(sel)); ok {
-			link["targetSelectionRange"] = encodeValue(rng)
+			v[selectionKey] = encodeValue(rng)
 		}
 	}
 }

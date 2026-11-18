@@ -222,6 +222,9 @@ func pushBranch(input string, to convert.Format, ref flexo.BranchRef, verb strin
 	if err := made.writeSidecars(); err != nil {
 		return 0, err
 	}
+	if made.empty != "" {
+		return 0, fmt.Errorf("%s; the branch is left as it was", made.empty)
+	}
 	return pushGraph(repo, ref, scope, made.out, fmt.Sprintf("sysml %s %s", verb, to), state, statePath)
 }
 

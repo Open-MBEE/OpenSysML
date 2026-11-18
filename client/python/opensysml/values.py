@@ -383,13 +383,19 @@ class Quantity:
     Attributes:
         magnitude (int | float): The magnitude, in :attr:`unit`
         unit (Unit): The unit it is expressed in
+        value_type (str): Qualified name of the quantity value type the service
+            holds it as (``ISQThermodynamics::EnergyValue``); empty for none. A
+            quantity sent back keeps it, so a sibling type (a torque) still
+            refuses it; one computed here carries none, as one the model
+            computes does. Equality does not read it.
     """
 
-    __slots__ = ("magnitude", "unit")
+    __slots__ = ("magnitude", "unit", "value_type")
 
-    def __init__(self, magnitude: Magnitude, unit: Unit) -> None:
+    def __init__(self, magnitude: Magnitude, unit: Unit, value_type: str = "") -> None:
         self.magnitude = magnitude
         self.unit = unit
+        self.value_type = value_type
 
     @classmethod
     def from_pb(cls, pb_quantity) -> "Quantity":
@@ -419,8 +425,8 @@ class Quantity:
                 raise UnsupportedValueError(
                     f"quantity in [{pb_quantity.unit}] carries no reduction to base units"
                 )
-            return cls(magnitude, Unit())
-        return cls(magnitude, Unit.from_pb(pb_quantity.unit, pb_quantity.unit_term))
+            return cls(magnitude, Unit(), pb_quantity.value_type)
+        return cls(magnitude, Unit.from_pb(pb_quantity.unit, pb_quantity.unit_term), pb_quantity.value_type)
 
     def to_pb(self) -> "sysml_pb2.Quantity":
         """Encode as a ``Quantity`` message, magnitude and unit as written.
@@ -441,7 +447,9 @@ class Quantity:
                 f"so the service cannot tell what it measures: build it from a unit "
                 f"the service sent, or from one the model declares"
             )
-        pb_quantity = sysml_pb2.Quantity(unit=self.unit.text, unit_term=self.unit.to_pb())
+        pb_quantity = sysml_pb2.Quantity(
+            unit=self.unit.text, unit_term=self.unit.to_pb(), value_type=self.value_type
+        )
         if isinstance(self.magnitude, int) and not fits_int64(self.magnitude):
             pb_quantity.big_int_magnitude = integer_to_decimal(self.magnitude)
         elif isinstance(self.magnitude, int):
@@ -576,6 +584,8 @@ class Quantity:
         return f"{_format_number(self.magnitude)} [{self.unit}]"
 
     def __repr__(self) -> str:
+        if self.value_type:
+            return f"Quantity({self.magnitude!r}, {self.unit!r}, {self.value_type!r})"
         return f"Quantity({self.magnitude!r}, {self.unit!r})"
 
 

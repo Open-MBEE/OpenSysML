@@ -3,6 +3,7 @@ package opensysml
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -79,5 +80,89 @@ func TestANilBaseModelClearsTheEarlierOne(t *testing.T) {
 	}
 	if o.base != "" {
 		t.Fatalf("base after WithBaseModel(nil) = %q, want none", o.base)
+	}
+}
+
+// Each Convert option the service gates is refused before the request leaves the client when the
+// service lacks its capability, since such a service would ignore the field and answer as if unasked.
+func TestConvertOptionsAreNotRequestedWithoutTheirCapability(t *testing.T) {
+	ctx := context.Background()
+	others := []string{CapabilityConvert, CapabilityConvertDocuments, CapabilityConvertCompact, CapabilityConvertCheckDiagnostics}
+	for _, tc := range []struct {
+		name       string
+		capability string
+		options    []ConvertOption
+	}{
+		{"WithDocuments", CapabilityConvertDocuments, []ConvertOption{WithDocuments("a.sysml")}},
+		{"WithCompact", CapabilityConvertCompact, []ConvertOption{WithCompact()}},
+		{"WithOmitDerived", CapabilityConvertCompact, []ConvertOption{WithOmitDerived()}},
+		{"WithOmitDerived keeping", CapabilityConvertCompact, []ConvertOption{WithOmitDerived("qualifiedName")}},
+		{"WithCheckDiagnostics", CapabilityConvertCheckDiagnostics, []ConvertOption{WithCheckDiagnostics()}},
+	} {
+		without := slices.DeleteFunc(slices.Clone(others), func(name string) bool { return name == tc.capability })
+		for name, old := range map[string]*oldCaller{
+			"predates " + tc.capability: {capabilities: without},
+			"predates GetServerInfo":    {infoErr: &StatusError{Code: CodeUnimplemented, Message: "unknown method"}},
+		} {
+			t.Run(tc.name+"/"+name, func(t *testing.T) {
+				old.t = t
+				c := &client{caller: old}
+				_, err := c.Convert(ctx, &Model{Hash: "h"}, FormatAPIJSON, tc.options...)
+				wantMissingCapability(t, "Convert", err, tc.capability)
+			})
+		}
+	}
+}
+
+// recordingCaller announces every capability and keeps the conversion requests it is sent.
+type recordingCaller struct {
+	caller
+	requests []*pb.ConvertRequest
+}
+
+func (r *recordingCaller) serverInfo(context.Context) (*pb.ServerInfoResponse, error) {
+	return &pb.ServerInfoResponse{Version: "new", Capabilities: []string{
+		CapabilityConvert, CapabilityConvertDocuments, CapabilityConvertCompact, CapabilityConvertCheckDiagnostics,
+	}}, nil
+}
+
+func (r *recordingCaller) convert(_ context.Context, req *pb.ConvertRequest) (*pb.ConvertResponse, error) {
+	r.requests = append(r.requests, req)
+	return &pb.ConvertResponse{Content: "{}", Diagnostics: []*pb.Diagnostic{
+		{Severity: SeverityWarning, Message: "unused import", Code: "unused-import"},
+		{Severity: SeverityError, Message: "unresolved name", Code: "unresolved-reference"},
+	}}, nil
+}
+
+// The Convert options reach the wire as the fields they name, a plain conversion sets none of
+// them, and each diagnostic comes back with the severity and code the service gave it.
+func TestConvertOptionsReachTheWire(t *testing.T) {
+	ctx := context.Background()
+	recorded := &recordingCaller{}
+	c := &client{caller: recorded}
+	keep := []string{"qualifiedName", "owner"}
+	asked, err := c.Convert(ctx, &Model{Hash: "h"}, FormatAPIJSON,
+		WithDocuments("a.sysml", "b.sysml"), WithCompact(), WithOmitDerived(keep...), WithCheckDiagnostics())
+	if err != nil {
+		t.Fatalf("Convert: %v", err)
+	}
+	keep[0] = "changed after the option was built"
+	if _, err := c.Convert(ctx, &Model{Hash: "h"}, FormatAPIJSON); err != nil {
+		t.Fatalf("Convert: %v", err)
+	}
+	wanted, plain := recorded.requests[0], recorded.requests[1]
+	if !slices.Equal(wanted.Documents, []string{"a.sysml", "b.sysml"}) || !wanted.Compact || !wanted.OmitDerived ||
+		!slices.Equal(wanted.KeepDerived, []string{"qualifiedName", "owner"}) || !wanted.IncludeCheckDiagnostics {
+		t.Errorf("request with every option = %v", wanted)
+	}
+	if plain.Documents != nil || plain.Compact || plain.OmitDerived || plain.KeepDerived != nil || plain.IncludeCheckDiagnostics {
+		t.Errorf("request with no option = %v", plain)
+	}
+	want := []Diagnostic{
+		{Severity: SeverityWarning, Message: "unused import", Code: "unused-import"},
+		{Severity: SeverityError, Message: "unresolved name", Code: "unresolved-reference"},
+	}
+	if !slices.EqualFunc(asked.Diagnostics, want, func(a, b Diagnostic) bool { return a == b }) {
+		t.Errorf("diagnostics = %+v, want %+v", asked.Diagnostics, want)
 	}
 }

@@ -234,6 +234,8 @@ function q = decodeQuantity(b)
     term = [];
     if isfield(b, 'unitTerm'), term = b.unitTerm; end
     q = struct('magnitude', mag, 'unit', unit, 'unitTerm', term);
+    % the quantity value type the service holds it as: sent back, it is kept
+    if isfield(b, 'valueType') && ~isempty(b.valueType), q.valueType = b.valueType; end
 end
 
 function b = bigIntegerOf(s)
