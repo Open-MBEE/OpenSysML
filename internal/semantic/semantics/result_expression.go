@@ -3,6 +3,7 @@ package semantics
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // ResultExpression is a result expression a function or expression owns
@@ -164,4 +165,12 @@ func (m *Model) ResultExpressionConflict(sym *symbols.Symbol) *ResultExpressionC
 		c.Node = memberships[0].Node
 	}
 	return c
+}
+
+// Written is where the conflict is anchored, empty for none.
+func (c *ResultExpressionConflict) Written() source.Span {
+	if c == nil || c.Node == nil {
+		return source.Span{}
+	}
+	return c.Node.Span()
 }

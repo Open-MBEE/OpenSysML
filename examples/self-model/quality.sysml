@@ -312,6 +312,21 @@ package OpenSysMLGates {
         return attribute verdict : VerdictKind;
     }
 
+    // The whole suite under the race detector, as CircleCI runs it: the package groups of
+    // scripts/race-shard.sh, the runtime and tests/export split by test name, light shards paired on a node.
+    verification def RaceSuite {
+        doc /* make test-shard SHARD=<shard> */
+        attribute shardList : String = "scripts/race-shard.sh";
+        attribute shards : String = "runtime, runtime-corpus, runtime-exploration, model, smt, corpus, corpus-sweep, export, export-library, export-examples, export-corpus, graph, codegen, translate, grpc, tools, internal, rest, migrate, cli";
+        attribute shardCount : Integer = 20;
+        attribute nodeCount : Integer = 17;
+        subject runtime : Runtime;
+        objective {
+            verify executionIsBounded;
+        }
+        return attribute verdict : VerdictKind;
+    }
+
     verification parserGate : ParserGate {
         subject parser = opensysml.pipeline.parser;
     }
@@ -344,8 +359,21 @@ package OpenSysMLGates {
         subject runtime = opensysml.pipeline.runtime;
     }
 
-    // The contributor's loop, and who takes part in it.
+    verification raceSuite : RaceSuite {
+        subject runtime = opensysml.pipeline.runtime;
+    }
+
+    // The contributor's loop: a branch cut from develop, a pull request opened ready for review against
+    // it, the quick tier on every push, the queue tier in the merge queue, the full on a label, a maintainer's merge.
     use case def LandAChange {
+        attribute baseBranch : String = "develop";
+        attribute opensReadyForReview : Boolean = true;
+        attribute pullRequestEvents : String = "opened, synchronize, reopened, ready_for_review, labeled";
+        attribute tierDecider : String = "scripts/ci-changed-areas.sh";
+        attribute pushTier : String = "quick";
+        attribute mergeQueueTier : String = "queue";
+        attribute fullTierLabel : String = "ci:full";
+        attribute mergeQueueEvent : String = "merge_group";
         subject change : SourceUnit;
         actor contributor : Contributor;
         actor ci : ContinuousIntegration;
@@ -393,6 +421,30 @@ package OpenSysMLCodebase {
         }
         part suites : Directory {
             attribute :>> path = "tests";
+        }
+        part conformance : Directory {
+            attribute :>> path = "conformance";
+        }
+        part packaging : Directory {
+            attribute :>> path = "packaging";
+        }
+        part scripts : Directory {
+            attribute :>> path = "scripts";
+        }
+        part documentation : Directory {
+            attribute :>> path = "docs";
+        }
+        part examples : Directory {
+            attribute :>> path = "examples";
+        }
+        part changes : Directory {
+            attribute :>> path = "changes";
+        }
+        part deployment : Directory {
+            attribute :>> path = "deploy";
+        }
+        part ciTools : Directory {
+            attribute :>> path = "ci";
         }
     }
 

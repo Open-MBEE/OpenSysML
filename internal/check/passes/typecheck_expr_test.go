@@ -693,7 +693,7 @@ func TestExprNodeBodyParameterSuppliesArgument(t *testing.T) {
 	wantNoDiags(t, fmt.Sprintf(model, `action scaled = Scale(a = seven) { in a = 1; in b = a * 10; }`))
 	wantNoDiags(t, fmt.Sprintf(model, `action scaled = Scale(seven) { in a = 1; in b = a * 10; }`))
 	wantNoDiags(t, fmt.Sprintf(model, `action scaled = Scale(a = seven) { in a; in b = 10; }`))
-	wantNoDiags(t, fmt.Sprintf(model, `action scaled = Scale(a = seven) { in x = 1; in y redefines b = 10; }`))
+	wantNoDiags(t, fmt.Sprintf(model, `action scaled = Scale(a = seven) { in a = 1; in y redefines b = 10; }`))
 	wantNoDiags(t, fmt.Sprintf(model, `action inner { action scaled = Scale(a = seven) { in a; in b = 10; } }`))
 	wantNoDiags(t, `package P {
 		action def Scale { in a : ScalarValues::Integer[1]; in b : ScalarValues::Integer[1]; }
@@ -706,7 +706,15 @@ func TestExprNodeBodyParameterSuppliesArgument(t *testing.T) {
 		CodeUnboundParameter, "Scale leaves parameter b unbound")
 	wantOneWarning(t, fmt.Sprintf(model, `action scaled = Scale(a = seven) { in a = 1; }`),
 		CodeUnboundParameter, "Scale leaves parameter b unbound")
-	wantOneDiag(t, fmt.Sprintf(model, `action scaled = Scale(a = seven) { in b = "x"; }`),
+	// The body's `b` redefines `a` by position, an Integer its String value does not conform to.
+	diags := exprDiags(t, fmt.Sprintf(model, `action scaled = Scale(a = seven) { in b = "x"; }`))
+	if len(diags) != 2 || !strings.Contains(diags[0].Message, `Scale has no parameter named "a"`) ||
+		diags[1].Code != "bound-feature-types" || diags[1].Severity != diag.SeverityWarning {
+		t.Fatalf("expected the unknown name and the non-conforming value, got %v", diags)
+	}
+	// The body resolves `b` as a member the node inherits from the value's result (KerML
+	// 8.3.3.3.4), and its `x` redefines `a` by position, so `a` names no parameter here.
+	wantOneDiag(t, fmt.Sprintf(model, `action scaled = Scale(a = seven) { in x = 1; in y redefines b = 10; }`),
 		`Scale has no parameter named "a"`)
 }
 

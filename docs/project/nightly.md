@@ -37,7 +37,8 @@ the [install guide](../guide/01-install.md)) carries it.
   few commits behind `develop`; the release notes name the commit and link the
   compare against the last stable tag. The walk ends at the commit the current snapshot was
   built from, so the snapshot never moves backwards, and a green commit that predates
-  `scripts/build-release-artifacts.sh` or `client/python/scripts/snapshot_version.py` is
+  `scripts/build-release-artifacts.sh`, `client/python/scripts/snapshot_version.py` or
+  `.github/actions/pip-install`, which installs the build's Python tooling, is
   skipped, since the workflow cannot build it.
   Snapshots built from commits predating the WASM build do not include WebAssembly assets.
 - **Kept for 14 days, under two names.** Each night publishes its own prerelease,

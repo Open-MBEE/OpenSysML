@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"math/big"
 	"strconv"
 	"strings"
 
@@ -13,13 +14,19 @@ import (
 
 const cAssign = "%s = %s;"
 
-// cPrelude is the runtime every generated C program carries: checked int64,
-// finite-only binary64, and the interpreter's once-rounded Integer quotient.
-// cBudgetDefines are the interpreter's budget defaults the C prelude reads.
+// cBudgetDefines are the interpreter's budget defaults the C runtime reads.
 func cBudgetDefines() string {
-	return fmt.Sprintf("#define SYSML_MAX_CALC_DEPTH %d\n#define SYSML_DEFAULT_MAX_STEPS %d\n", runtime.DefaultMaxCalcDepth, runtime.DefaultMaxSteps)
+	return fmt.Sprintf("#define SYSML_MAX_CALC_DEPTH %d\n#define SYSML_DEFAULT_MAX_STEPS %d\n#define SYSML_DEFAULT_MAX_INTEGER_BITS %d\n#define SYSML_MIN_MAX_INTEGER_BITS %d\n",
+		runtime.DefaultMaxCalcDepth, runtime.DefaultMaxSteps, runtime.DefaultMaxIntegerBits, runtime.MinMaxIntegerBits)
 }
 
+// cScalarRuntime is the runtime every generated C program carries: the budgets,
+// the arena, the unbounded Integer, finite-only binary64 and their notation.
+func cScalarRuntime() string {
+	return cBudgetDefines() + cPrelude + cBigRuntime + cNumeric
+}
+
+// cPrelude is the base of cScalarRuntime: failure, the step budget and the arena.
 const cPrelude = `#include <errno.h>
 #include <inttypes.h>
 #include <locale.h>
@@ -34,7 +41,12 @@ const cPrelude = `#include <errno.h>
 #include <string.h>
 
 
+/* A machine word: a length, a position, a count. */
 typedef int64_t sysml_int;
+/* An Integer: small while big is NULL, as the interpreter holds one. */
+typedef struct sysml_big sysml_big;
+typedef struct { int64_t small; const sysml_big *big; } sysml_integer;
+#define SYSML_I(v) ((sysml_integer){(v), NULL})
 typedef double sysml_real;
 typedef bool sysml_bool;
 
@@ -66,6 +78,75 @@ static void sysml_keep_release(void) {
 		sysml_keepers = k->next;
 		free(k);
 	}
+}
+
+typedef struct sysml_block { struct sysml_block *next; size_t used, cap; char data[]; } sysml_block;
+static sysml_block *sysml_arena;
+
+typedef struct { sysml_block *block; size_t used; } sysml_mark;
+
+static sysml_mark sysml_arena_mark(void) {
+	return (sysml_mark){sysml_arena, sysml_arena ? sysml_arena->used : 0};
+}
+
+static void sysml_arena_release(sysml_mark m) {
+	while (sysml_arena != m.block) {
+		sysml_block *next = sysml_arena->next;
+		free(sysml_arena);
+		sysml_arena = next;
+	}
+	if (sysml_arena) sysml_arena->used = m.used;
+}
+
+/* Whether p lies in memory a release to m would reclaim. */
+static bool sysml_above_mark(const void *p, sysml_mark m) {
+	const char *c = p;
+	for (sysml_block *b = sysml_arena; b; b = b->next) {
+		if (c >= b->data && c < b->data + b->used) return b != m.block || (size_t)(c - b->data) >= m.used;
+		if (b == m.block) break;
+	}
+	return false;
+}
+
+static bool sysml_in_arena(const void *p) { return sysml_above_mark(p, (sysml_mark){NULL, 0}); }
+
+/* A run owns what it allocates until the next run begins, so its result outlives it. */
+static void sysml_run_begin(void) {
+	static sysml_mark mark;
+	static bool ran;
+	if (ran) sysml_arena_release(mark);
+	mark = sysml_arena_mark();
+	ran = true;
+}
+
+static void *sysml_alloc(size_t n) {
+	n = (n + 15) & ~(size_t)15;
+	if (!sysml_arena || sysml_arena->cap - sysml_arena->used < n) {
+		size_t cap = n > (1 << 16) ? n : (1 << 16);
+		sysml_block *b = malloc(sizeof *b + cap);
+		if (!b) sysml_fail("out of memory");
+		b->next = sysml_arena; b->used = 0; b->cap = cap;
+		sysml_arena = b;
+	}
+	void *p = sysml_arena->data + sysml_arena->used;
+	sysml_arena->used += n;
+	return p;
+}
+
+static void sysml_failf(const char *fmt, ...) __attribute__((format(printf, 1, 2), noreturn));
+static void sysml_failf(const char *fmt, ...) {
+	static char *msg;
+	va_list ap, again;
+	va_start(ap, fmt);
+	va_copy(again, ap);
+	int n = vsnprintf(NULL, 0, fmt, ap);
+	va_end(ap);
+	free(msg);
+	msg = malloc((size_t)n + 1);
+	if (!msg) sysml_fail("out of memory");
+	vsnprintf(msg, (size_t)n + 1, fmt, again);
+	va_end(again);
+	sysml_fail(msg);
 }
 
 static inline void sysml_enter(void) {
@@ -117,94 +198,33 @@ static sysml_int sysml_read_budget(const char *env, const char *counts, sysml_in
 	return n;
 }
 
-static inline sysml_int sysml_add(sysml_int a, sysml_int b) {
-	sysml_int r;
-	if (__builtin_expect(__builtin_add_overflow(a, b, &r), 0)) sysml_fail("arithmetic overflow: + leaves int64, which a C program holds");
-	return r;
-}
+`
 
-static inline sysml_int sysml_sub(sysml_int a, sysml_int b) {
-	sysml_int r;
-	if (__builtin_expect(__builtin_sub_overflow(a, b, &r), 0)) sysml_fail("arithmetic overflow: - leaves int64, which a C program holds");
-	return r;
-}
-
-static inline sysml_int sysml_mul(sysml_int a, sysml_int b) {
-	sysml_int r;
-	if (__builtin_expect(__builtin_mul_overflow(a, b, &r), 0)) sysml_fail("arithmetic overflow: * leaves int64, which a C program holds");
-	return r;
-}
-
-static inline sysml_int sysml_neg(sysml_int a) {
-	if (__builtin_expect(a == INT64_MIN, 0)) sysml_fail("arithmetic overflow: negation leaves int64, which a C program holds");
-	return -a;
-}
-
-static inline sysml_int sysml_mod(sysml_int a, sysml_int b) {
-	if (__builtin_expect(b == 0, 0)) sysml_fail("division by zero");
-	if (b == -1) return 0;
-	return a % b;
-}
-
-/* The exact ratio a/b rounded once to binary64 (round to nearest, ties to even). */
-static sysml_real sysml_quot(sysml_int a, sysml_int b) {
-	if (__builtin_expect(b == 0, 0)) sysml_fail("division by zero");
-	if (a > -(1LL << 53) && a < (1LL << 53) && b > -(1LL << 53) && b < (1LL << 53))
-		return (sysml_real)a / (sysml_real)b;
-	bool negative = (a < 0) != (b < 0);
-	uint64_t ua = a < 0 ? -(uint64_t)a : (uint64_t)a;
-	uint64_t ub = b < 0 ? -(uint64_t)b : (uint64_t)b;
-	if (ua == 0) return 0.0;
-	int la = 63 - __builtin_clzll(ua), lb = 63 - __builtin_clzll(ub);
-	int s = 64 + lb - la;
-	unsigned __int128 n = (unsigned __int128)ua << s;
-	unsigned __int128 q = n / ub;
-	bool sticky = (n % ub) != 0;
-	int qbits = q >> 64 ? 128 - __builtin_clzll((uint64_t)(q >> 64)) : 64 - __builtin_clzll((uint64_t)q);
-	int shift = qbits - 53;
-	uint64_t mant = (uint64_t)(q >> shift);
-	unsigned __int128 rem = q & (((unsigned __int128)1 << shift) - 1);
-	unsigned __int128 half = (unsigned __int128)1 << (shift - 1);
-	if (rem > half || (rem == half && (sticky || (mant & 1)))) {
-		mant++;
-		if (mant == (1ULL << 53)) { mant >>= 1; shift++; }
-	}
-	sysml_real r = ldexp((sysml_real)mant, shift - s);
-	return negative ? -r : r;
-}
-
-static inline sysml_int sysml_at_least_at(sysml_int v, sysml_int lo, const char *type, const char *where) {
-	if (__builtin_expect(v < lo, 0)) {
-		static char msg[512];
-		snprintf(msg, sizeof msg, "%s: type mismatch: cannot write %lld (an Integer) to a feature typed by %s", where, (long long)v, type);
-		sysml_fail(msg);
+// cNumeric is the scalar runtime over the Integer of cBigRuntime.
+const cNumeric = `
+static inline sysml_integer sysml_at_least_at(sysml_integer v, int64_t lo, const char *type, const char *where) {
+	if (__builtin_expect(v.big ? v.big->neg : v.small < lo, 0)) {
+		int64_t n;
+		const char *digits = sysml_int_digits(v, &n);
+		sysml_failf("%s: type mismatch: cannot write %.*s (an Integer) to a feature typed by %s", where, (int)n, digits, type);
 	}
 	return v;
 }
 
-static inline sysml_int sysml_at_least(sysml_int v, sysml_int lo, const char *type) {
-	if (__builtin_expect(v < lo, 0)) {
-		static char msg[128];
-		snprintf(msg, sizeof msg, "type mismatch: cannot write %lld (an Integer) to a feature typed by %s", (long long)v, type);
-		sysml_fail(msg);
+static inline sysml_integer sysml_at_least(sysml_integer v, int64_t lo, const char *type) {
+	if (__builtin_expect(v.big ? v.big->neg : v.small < lo, 0)) {
+		int64_t n;
+		const char *digits = sysml_int_digits(v, &n);
+		sysml_failf("type mismatch: cannot write %.*s (an Integer) to a feature typed by %s", (int)n, digits, type);
 	}
 	return v;
 }
 
-/* Orders the Integer a against the non-NaN Real r exactly, neither rounded to the other. */
-static inline int sysml_cmp_ir(sysml_int a, sysml_real r) {
-	if (r >= 9223372036854775808.0) return -1;
-	if (r < -9223372036854775808.0) return 1;
-	sysml_real t = trunc(r);
-	sysml_int w = (sysml_int)t;
-	if (a != w) return a < w ? -1 : 1;
-	return r > t ? -1 : (r < t ? 1 : 0);
-}
 
 /* An Integer in exact Rational arithmetic, computed in binary64 only over values binary64 holds. */
-static inline sysml_real sysml_to_real_exact(sysml_int a) {
-	if (__builtin_expect(a > (1LL << 53) || a < -(1LL << 53), 0)) sysml_fail("unsupported: exact Rational arithmetic over an Integer beyond 2^53, which binary64 does not hold exactly");
-	return (sysml_real)a;
+static inline sysml_real sysml_to_real_exact(sysml_integer a) {
+	if (__builtin_expect(a.big || a.small > (1LL << 53) || a.small < -(1LL << 53), 0)) sysml_fail("unsupported: exact Rational arithmetic over an Integer beyond 2^53, which binary64 does not hold exactly");
+	return (sysml_real)a.small;
 }
 
 /* r with an exact Rational's unsigned zero. */
@@ -216,32 +236,45 @@ static inline sysml_real sysml_whole(sysml_real r) {
 	return sysml_unsigned_zero(r);
 }
 
-/* Orders the exact quotient a/b, b nonzero, against the whole number c. */
-static inline int sysml_cmp_q(sysml_int a, sysml_int b, __int128 c) {
-	__int128 n = a, d = b;
-	if (d < 0) { n = -n; d = -d; }
-	__int128 m = c * d;
-	return n < m ? -1 : (n > m ? 1 : 0);
+/* Orders the exact quotient a/b, b nonzero, against the Integer c. */
+static int sysml_cmp_qi(sysml_integer a, sysml_integer b, sysml_integer c) {
+	int c0 = sysml_icmp(a, sysml_mul_exact(c, b));
+	return sysml_isign(b) < 0 ? -c0 : c0;
 }
 
-static inline sysml_int sysml_nonzero(sysml_int b) {
-	if (__builtin_expect(b == 0, 0)) sysml_fail("division by zero");
+/* Orders the exact quotient a/b, b nonzero, against the Real r. */
+static int sysml_cmp_qr(sysml_integer a, sysml_integer b, sysml_real r) {
+	if (isnan(r)) return 0;
+	if (isinf(r)) return r > 0 ? -1 : 1;
+	int e;
+	/* r is m * 2^e for the whole number m. */
+	sysml_integer m = SYSML_I((int64_t)ldexp(frexp(r, &e), 53));
+	e -= 53;
+	sysml_integer rhs = sysml_mul_exact(m, b);
+	if (e >= 0) rhs = sysml_shift(rhs, e);
+	else a = sysml_shift(a, -e);
+	int c0 = sysml_icmp(a, rhs);
+	return sysml_isign(b) < 0 ? -c0 : c0;
+}
+
+static inline sysml_integer sysml_nonzero(sysml_integer b) {
+	if (__builtin_expect(sysml_isign(b) == 0, 0)) sysml_fail("division by zero");
 	return b;
 }
 
 /* A value of a Real-typed feature: an Integer unless real is set. */
-typedef struct { bool real; sysml_int i; sysml_real r; } sysml_num;
+typedef struct { bool real; sysml_integer i; sysml_real r; } sysml_num;
 typedef struct { sysml_int len; const char *p; } sysml_str;
 /* A collection as a record or a closure keeps it, whatever its elements. */
 typedef struct { int8_t shape; sysml_int len; void *data; } sysml_kept;
 
-static inline sysml_num sysml_ni(sysml_int i) { return (sysml_num){false, i, 0}; }
-static inline sysml_num sysml_nr(sysml_real r) { return (sysml_num){true, 0, r}; }
-static inline sysml_real sysml_num_real(sysml_num n) { return n.real ? n.r : (sysml_real)n.i; }
+static inline sysml_num sysml_ni(sysml_integer i) { return (sysml_num){false, i, 0}; }
+static inline sysml_num sysml_nr(sysml_real r) { return (sysml_num){true, SYSML_I(0), r}; }
+static inline sysml_real sysml_num_real(sysml_num n) { return n.real ? n.r : sysml_to_real(n.i); }
 
 /* Orders two numbers exactly, whatever their kinds. */
 static inline int sysml_ncmp(sysml_num a, sysml_num b) {
-	if (!a.real && !b.real) return a.i < b.i ? -1 : (a.i > b.i ? 1 : 0);
+	if (!a.real && !b.real) return sysml_icmp(a.i, b.i);
 	if (!a.real) return sysml_cmp_ir(a.i, b.r);
 	if (!b.real) return -sysml_cmp_ir(b.i, a.r);
 	return a.r < b.r ? -1 : (a.r > b.r ? 1 : 0);
@@ -266,31 +299,28 @@ static inline sysml_real sysml_lib_real(sysml_real r) {
 	return r;
 }
 
-static inline sysml_int sysml_lib_int(sysml_real x) {
+/* The Integer a whole Real is, exactly. */
+static inline sysml_integer sysml_lib_int(sysml_real x) {
 	if (__builtin_expect(isnan(x), 0)) sysml_fail("arithmetic domain error: argument outside the function's domain");
-	if (__builtin_expect(!(x < 9223372036854775808.0 && x >= -9223372036854775808.0), 0)) sysml_fail("arithmetic overflow: result leaves int64, which a C program holds");
-	return (sysml_int)x;
+	return sysml_int_of_real(x);
 }
 
-static inline sysml_int sysml_iabs(sysml_int a) {
-	if (__builtin_expect(a == INT64_MIN, 0)) sysml_fail("arithmetic overflow: abs leaves int64, which a C program holds");
-	return a < 0 ? -a : a;
-}
+static inline sysml_integer sysml_iabs(sysml_integer a) { return sysml_isign(a) < 0 ? sysml_neg(a) : a; }
 
-static inline sysml_int sysml_imax(sysml_int a, sysml_int b) { return a > b ? a : b; }
-static inline sysml_int sysml_imin(sysml_int a, sysml_int b) { return a < b ? a : b; }
+static inline sysml_integer sysml_imax(sysml_integer a, sysml_integer b) { return sysml_icmp(a, b) > 0 ? a : b; }
+static inline sysml_integer sysml_imin(sysml_integer a, sysml_integer b) { return sysml_icmp(a, b) < 0 ? a : b; }
 
-static inline sysml_int sysml_natural_arg(sysml_int v) {
-	if (__builtin_expect(v < 0, 0)) sysml_fail("type mismatch: requires Natural arguments");
+static inline sysml_integer sysml_natural_arg(sysml_integer v) {
+	if (__builtin_expect(sysml_isign(v) < 0, 0)) sysml_fail("type mismatch: requires Natural arguments");
 	return v;
 }
 
 /* Both arguments are checked, first then second, before comparing. */
-static inline sysml_int sysml_natural_max(sysml_int a, sysml_int b) {
+static inline sysml_integer sysml_natural_max(sysml_integer a, sysml_integer b) {
 	sysml_natural_arg(a); sysml_natural_arg(b);
 	return sysml_imax(a, b);
 }
-static inline sysml_int sysml_natural_min(sysml_int a, sysml_int b) {
+static inline sysml_integer sysml_natural_min(sysml_integer a, sysml_integer b) {
 	sysml_natural_arg(a); sysml_natural_arg(b);
 	return sysml_imin(a, b);
 }
@@ -338,17 +368,25 @@ static inline sysml_real sysml_rmod(sysml_real a, sysml_real b) {
 	return sysml_finite(fmod(a, b));
 }
 
-static sysml_int sysml_ipow(sysml_int a, sysml_int n) {
-	sysml_int res = 1;
-	while (n > 0) {
-		if (n & 1) {
-			if (__builtin_mul_overflow(res, a, &res)) sysml_fail("arithmetic overflow: ** leaves int64, which a C program holds");
-		}
-		n >>= 1;
-		if (n == 0) break;
-		if (__builtin_mul_overflow(a, a, &a)) sysml_fail("arithmetic overflow: ** leaves int64, which a C program holds");
+/* a ** n for a non-negative n, refused before it is computed when the result
+   would exceed the size budget. */
+static sysml_integer sysml_ipow(sysml_integer a, sysml_integer n) {
+	if (sysml_isign(n) == 0) return SYSML_I(1);
+	if (!a.big && (a.small == 0 || a.small == 1)) return a;
+	if (!a.big && a.small == -1) return sysml_low_bit(n) ? a : SYSML_I(1);
+	sysml_mag x;
+	sysml_view(a, &x);
+	/* |a| >= 2, so a ** n has at least (bitlen(a)-1)*n+1 bits. */
+	int64_t lower;
+	if (n.big || __builtin_mul_overflow(sysml_mag_bits(x.d, x.n) - 1, n.small, &lower) || __builtin_add_overflow(lower, 1, &lower)) lower = INT64_MAX;
+	if (lower > 64 && lower > sysml_max_integer_bits) sysml_size_fail(lower);
+	sysml_integer res = SYSML_I(1);
+	for (int64_t k = n.small;;) {
+		if (k & 1) res = sysml_mul_exact(res, a);
+		if ((k >>= 1) == 0) break;
+		a = sysml_mul_exact(a, a);
 	}
-	return res;
+	return sysml_sized(res);
 }
 
 static sysml_real sysml_rpow(sysml_real base, sysml_real exp) {
@@ -477,35 +515,63 @@ static void sysml_print_real(sysml_real r) {
 	fputc('\n', stdout);
 }
 
-static void sysml_format_num(sysml_num n, char *out, size_t size) {
-	if (n.real) sysml_format_real(n.r, out, size);
-	else snprintf(out, size, "%" PRId64, n.i);
+/* A number as the interpreter prints it, in the arena. */
+static const char *sysml_show_num(sysml_num n) {
+	if (!n.real) return sysml_show_int(n.i);
+	char *text = sysml_alloc(64);
+	sysml_format_real(n.r, text, 64);
+	return text;
 }
 
-static void sysml_print_num_value(sysml_num n) {
-	char text[64];
-	sysml_format_num(n, text, sizeof text);
-	fputs(text, stdout);
-}
+static void sysml_print_num_value(sysml_num n) { fputs(sysml_show_num(n), stdout); }
 
 static void sysml_print_num(sysml_num n) {
 	sysml_print_num_value(n);
 	fputc('\n', stdout);
 }
 
-static sysml_int sysml_parse_int(const char *s, const char *name) {
-	char *end;
-	errno = 0;
-	long long v = strtoll(s, &end, 10);
-	if (*s == 0 || *end != 0) {
+/* An Integer argument, of any size; it lives as long as the program. */
+static sysml_integer sysml_parse_int(const char *s, const char *name) {
+	bool ok;
+	sysml_integer v = sysml_int_of_digits(s, &ok);
+	if (!ok) {
 		fprintf(stderr, "argument %s: %s is not an Integer\n", name, s);
 		exit(2);
 	}
-	if (errno != 0) {
-		fprintf(stderr, "argument %s: %s is beyond int64, the Integers a compiled C program holds\n", name, s);
-		exit(2);
+	if (v.big) {
+		size_t size = sizeof(sysml_big) + (size_t)v.big->n * sizeof(uint32_t);
+		sysml_big *b = malloc(size);
+		if (!b) { fputs("out of memory\n", stderr); exit(1); }
+		memcpy(b, v.big, size);
+		v.big = b;
 	}
 	return v;
+}
+
+/* The Integer size budget OPENSYSML_MAX_INTEGER_BITS sets. */
+static void sysml_read_max_integer_bits(void) {
+	const char *raw = getenv("OPENSYSML_MAX_INTEGER_BITS");
+	if (!raw) return;
+	const char *s = raw;
+	while (*s == ' ' || *s == '\t' || *s == '\n') s++;
+	if (!*s) return;
+	char *end;
+	errno = 0;
+	long long n = strtoll(s, &end, 10);
+	while (*end == ' ' || *end == '\t' || *end == '\n') end++;
+	if (*end || errno) {
+		fprintf(stderr, "OPENSYSML_MAX_INTEGER_BITS=\"%s\" is not an integer: set it to a positive number of bits of one Integer (default %d)\n", raw, SYSML_DEFAULT_MAX_INTEGER_BITS);
+		exit(2);
+	}
+	if (n <= 0) {
+		fprintf(stderr, "OPENSYSML_MAX_INTEGER_BITS=\"%s\" must be greater than zero: the budget is what stops a runaway run (default %d)\n", raw, SYSML_DEFAULT_MAX_INTEGER_BITS);
+		exit(2);
+	}
+	if (n < SYSML_MIN_MAX_INTEGER_BITS) {
+		fprintf(stderr, "OPENSYSML_MAX_INTEGER_BITS=\"%s\" must be at least %d: every machine-word Integer fits within it (default %d)\n", raw, SYSML_MIN_MAX_INTEGER_BITS, SYSML_DEFAULT_MAX_INTEGER_BITS);
+		exit(2);
+	}
+	sysml_max_integer_bits = n;
 }
 
 /* Whether s is decimal Real notation: optional sign, digits with an optional fraction, optional decimal exponent. */
@@ -544,13 +610,7 @@ static bool sysml_int_notation(const char *s) {
 	return true;
 }
 
-/* A Real argument is read only in Real notation: the interpreter keeps an
-   Integer argument an Integer, which a Real-typed C parameter cannot hold. */
 static sysml_real sysml_parse_real(const char *s, const char *name) {
-	if (sysml_int_notation(s)) {
-		fprintf(stderr, "argument %s: %s is an Integer, which a compiled C program reads for a Real parameter only in Real notation (as %s.0)\n", name, s, s);
-		exit(2);
-	}
 	if (!sysml_real_notation(s)) {
 		fprintf(stderr, "argument %s: %s is not a finite Real in decimal notation\n", name, s);
 		exit(2);
@@ -579,16 +639,15 @@ static sysml_bool sysml_parse_bool(const char *s, const char *name) {
 // EmitC writes program as a self-contained C translation unit, with a main that
 // reads argv and prints the result when withMain is set (errors: status 1, stderr).
 func EmitC(w io.Writer, p *Program, withMain bool) error {
-	if err := cIntegerRefusal(p); err != nil {
-		return err
-	}
 	e := &cEmitter{w: w}
 	e.collections = p.Collections
 	e.records = len(p.Records) > 0
-	e.raw(cBudgetDefines())
-	e.raw(cPrelude)
+	e.raw(cScalarRuntime())
 	e.raw(cEnumRuntime(p))
 	e.raw(cFnRuntime(p))
+	if len(p.Records) > 0 || len(p.FnCases) > 0 {
+		e.raw(cKeepNumbers)
+	}
 	if p.Collections {
 		e.raw(fmt.Sprintf("#define SYSML_DEFAULT_MAX_ELEMENTS %d\n", runtime.DefaultMaxElements))
 		e.raw(cSeqRuntime())
@@ -701,7 +760,7 @@ func cType(t Type) string {
 	}
 	switch t {
 	case TypeInt:
-		return "sysml_int"
+		return "sysml_integer"
 	case TypeReal:
 		return "sysml_real"
 	case TypeBool:
@@ -775,7 +834,7 @@ func (e *cEmitter) block(stmts []Stmt) {
 			releases = true
 		}
 	}
-	if !e.collections || !releases {
+	if !releases {
 		for _, s := range stmts {
 			e.stmt(s)
 		}
@@ -783,7 +842,9 @@ func (e *cEmitter) block(stmts []Stmt) {
 	}
 	e.temps++
 	held := fmt.Sprintf("sysml_h%d", e.temps)
-	e.linef("sysml_int %s = sysml_elements;", held)
+	if e.collections {
+		e.linef("sysml_int %s = sysml_elements;", held)
+	}
 	for _, s := range stmts {
 		if _, ok := s.(Return); ok {
 			e.stmt(s)
@@ -794,7 +855,9 @@ func (e *cEmitter) block(stmts []Stmt) {
 		if len(escapingSeqs(s)) == 0 {
 			e.linef("sysml_arena_release(%s);", mark)
 		}
-		e.linef("sysml_elements = %s;", held)
+		if e.collections {
+			e.linef("sysml_elements = %s;", held)
+		}
 	}
 }
 
@@ -813,16 +876,24 @@ func (e *cEmitter) compact(kept []Var, mark string) {
 	for i, v := range kept {
 		e.temps++
 		saved[i] = fmt.Sprintf("sysml_k%d", e.temps)
-		if v.T.Concrete() == TypeString {
+		switch v.T.Concrete() {
+		case TypeString:
 			e.linef("char *%s = sysml_save_text(%s, %s);", saved[i], cText(v), mark)
+			continue
+		case TypeInt, TypeNum:
+			e.linef("sysml_big *%s = sysml_save_big(%s, %s);", saved[i], cWhole(v), mark)
 			continue
 		}
 		e.linef("%s *%s = sysml_save_%s(%s, %s);", cType(v.T.Elem()), saved[i], cSeqSuffix(v.T), cLocal(v.Name), mark)
 	}
 	e.linef("sysml_arena_release(%s);", mark)
 	for i, v := range kept {
-		if v.T.Concrete() == TypeString {
+		switch v.T.Concrete() {
+		case TypeString:
 			e.linef("sysml_restore_text(&%s, %s);", cText(v), saved[i])
+			continue
+		case TypeInt, TypeNum:
+			e.linef("sysml_restore_big(&%s, %s);", cWhole(v), saved[i])
 			continue
 		}
 		e.linef("sysml_restore_%s(&%s, %s);", cSeqSuffix(v.T), cLocal(v.Name), saved[i])
@@ -838,7 +909,30 @@ func cText(v Var) string {
 	return cLocal(v.Name)
 }
 
-// escapingSeqs lists the collection and String variables a statement stores
+// cWhole is the Integer an Integer or number variable holds; a Real number
+// and an unset variable hold zero there.
+func cWhole(v Var) string {
+	name := cText(v)
+	if v.T.Concrete() == TypeNum {
+		return name + ".i"
+	}
+	return name
+}
+
+// arenaHeld reports whether a value of type t may point into the arena: a
+// collection, a String, or an Integer beyond int64.
+func arenaHeld(t Type) bool {
+	if t.Many() {
+		return true
+	}
+	switch t.Concrete() {
+	case TypeString, TypeInt, TypeNum:
+		return true
+	}
+	return false
+}
+
+// escapingSeqs lists the collection, String and Integer variables a statement stores
 // into that outlive it: its own declaration and assignments to enclosing variables.
 func escapingSeqs(s Stmt) []Var {
 	var out []Var
@@ -846,7 +940,7 @@ func escapingSeqs(s Stmt) []Var {
 	var walk func(s Stmt, inner map[string]bool)
 	walk = func(s Stmt, inner map[string]bool) {
 		store := func(name string, t Type) {
-			if !t.Many() && t.Concrete() != TypeString || inner[name] || seen[name] {
+			if !arenaHeld(t) || inner[name] || seen[name] {
 				return
 			}
 			seen[name] = true
@@ -907,24 +1001,16 @@ func (e *cEmitter) stmt(s Stmt) {
 		}
 		e.linef("}")
 	case While:
-		var mark string
-		if e.collections {
-			mark = e.arenaMark()
-		}
+		mark := e.arenaMark()
 		e.linef("while ((sysml_step(1), %s)) {", e.expr(s.Cond))
 		e.indent++
 		e.block(s.Body)
 		until := ""
 		if s.Until != nil {
-			until = e.expr(s.Until)
-			if e.collections {
-				e.linef("bool sysml_until = %s;", until)
-				until = "sysml_until"
-			}
+			e.linef("bool sysml_until = %s;", e.expr(s.Until))
+			until = "sysml_until"
 		}
-		if e.collections {
-			e.compact(escapingSeqs(s), mark)
-		}
+		e.compact(escapingSeqs(s), mark)
 		if until != "" {
 			e.linef("if (%s) break;", until)
 		}
@@ -958,11 +1044,13 @@ func cZero(t Type) string {
 	case t.Many():
 		return fmt.Sprintf("sysml_null_%s()", cSeqSuffix(t))
 	case t == TypeNum:
-		return "sysml_ni(0)"
+		return "sysml_ni(SYSML_I(0))"
 	case t == TypeString:
 		return "sysml_str_empty()"
 	case t.IsFn():
 		return "((sysml_fn){0})"
+	case t == TypeInt:
+		return "SYSML_I(0)"
 	}
 	return "0"
 }
@@ -970,10 +1058,7 @@ func cZero(t Type) string {
 func (e *cEmitter) expr(x Expr) string {
 	switch x := x.(type) {
 	case IntLit:
-		if x.Value == math.MinInt64 {
-			return "INT64_MIN"
-		}
-		return fmt.Sprintf("INT64_C(%d)", x.Value)
+		return e.intLit(x)
 	case RealLit:
 		return cReal(x.Value)
 	case BoolLit:
@@ -1001,7 +1086,7 @@ func (e *cEmitter) expr(x Expr) string {
 		if x.Exact {
 			return "sysml_to_real_exact(" + e.expr(x.X) + ")"
 		}
-		return "(sysml_real)" + e.expr(x.X)
+		return "sysml_to_real(" + e.expr(x.X) + ")"
 	case ToNum:
 		switch x.X.Type() {
 		case TypeInt:
@@ -1077,6 +1162,36 @@ func inParamOrder(args []Arg, nParams int) bool {
 	return true
 }
 
+// cCmpQ names the comparison of an exact quotient with the whole number x: an
+// Integer where x widens one, a Real otherwise.
+func cCmpQ(x Expr) string {
+	if isWidenedInt(x) {
+		return "sysml_cmp_qi"
+	}
+	return "sysml_cmp_qr"
+}
+
+// intLit is an Integer literal; one beyond int64 is a constant of the program.
+func (e *cEmitter) intLit(x IntLit) string {
+	if x.Big == nil {
+		if x.Value == math.MinInt64 {
+			return "SYSML_I(INT64_MIN)"
+		}
+		return fmt.Sprintf("SYSML_I(INT64_C(%d))", x.Value)
+	}
+	// Least significant limb first, as sysml_big holds them.
+	bytes := new(big.Int).Abs(x.Big).Bytes()
+	var limbs []string
+	for end := len(bytes); end > 0; end -= 4 {
+		var limb uint32
+		for _, b := range bytes[max(end-4, 0):end] {
+			limb = limb<<8 | uint32(b)
+		}
+		limbs = append(limbs, fmt.Sprintf("0x%xu", limb))
+	}
+	return fmt.Sprintf("({ static const struct { bool neg; int32_t n; uint32_t d[%d]; } sysml_l = {%t, %d, {%s}}; (sysml_integer){0, (const sysml_big *)&sysml_l}; })", len(limbs), x.Big.Sign() < 0, len(limbs), strings.Join(limbs, ", "))
+}
+
 // cReal renders a float64 so the C compiler reads back the identical value.
 func cReal(v float64) string {
 	s := strconv.FormatFloat(v, 'g', -1, 64)
@@ -1110,13 +1225,13 @@ func (e *cEmitter) binary(x Binary) string {
 	if q, ok := exactQuotient(x.L); ok && isComparison(x.Op) {
 		return e.sequenced([]Expr{q.L, q.R}, func(v []string) string {
 			return fmt.Sprintf("({ sysml_nonzero(%s); %s; })", v[1], e.sequenced([]Expr{wholeOperand(x.R)}, func(c []string) string {
-				return fmt.Sprintf("(sysml_cmp_q(%s, %s, (__int128)%s) %s 0)", v[0], v[1], c[0], cOperator(x.Op))
+				return fmt.Sprintf("(%s(%s, %s, %s) %s 0)", cCmpQ(x.R), v[0], v[1], c[0], cOperator(x.Op))
 			}))
 		})
 	}
 	if q, ok := exactQuotient(x.R); ok && isComparison(x.Op) {
 		return e.sequenced([]Expr{wholeOperand(x.L), q.L, q.R}, func(v []string) string {
-			return fmt.Sprintf("(-sysml_cmp_q(%s, sysml_nonzero(%s), (__int128)%s) %s 0)", v[1], v[2], v[0], cOperator(x.Op))
+			return fmt.Sprintf("(-%s(%s, sysml_nonzero(%s), %s) %s 0)", cCmpQ(x.L), v[1], v[2], v[0], cOperator(x.Op))
 		})
 	}
 	if i, ok := widenedInt(x.L); ok && isComparison(x.Op) && !isWidenedInt(x.R) {
@@ -1190,6 +1305,9 @@ func (e *cEmitter) strict(x Binary, l, r string) string {
 	case ast.OpPow:
 		return e.pow(x, l, r)
 	case ast.OpLt, ast.OpLe, ast.OpGt, ast.OpGe, ast.OpEq, ast.OpNeq:
+		if operands == TypeInt {
+			return fmt.Sprintf("(sysml_icmp(%s, %s) %s 0)", l, r, cOperator(x.Op))
+		}
 		return fmt.Sprintf("(%s %s %s)", l, cOperator(x.Op), r)
 	case ast.OpXor:
 		return fmt.Sprintf("(%s != %s)", l, r)
@@ -1257,8 +1375,9 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 	e.indent++
 	e.linef("sysml_depth = 0;")
 	e.linef("sysml_steps = 0;")
+	e.linef("sysml_run_begin();")
 	if e.collections {
-		e.linef("sysml_run_begin();")
+		e.linef("sysml_elements = 0;")
 	}
 	e.linef("sysml_keep_release();")
 	if e.records {
@@ -1298,6 +1417,7 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 	e.indent--
 	e.linef("}")
 	e.linef("sysml_max_steps = sysml_read_budget(\"OPENSYSML_MAX_STEPS\", \"evaluation steps\", SYSML_DEFAULT_MAX_STEPS);")
+	e.linef("sysml_read_max_integer_bits();")
 	if e.collections {
 		e.linef("sysml_max_elements = sysml_read_budget(\"OPENSYSML_MAX_ELEMENTS\", \"collection elements\", SYSML_DEFAULT_MAX_ELEMENTS);")
 	}
@@ -1305,6 +1425,9 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 		parser := cType(p.Type)[len("sysml_"):]
 		if p.Type.IsEnum() && !p.Type.Many() {
 			parser = cSeqSuffix(p.Type)
+		}
+		if p.Type == TypeInt {
+			parser = "int"
 		}
 		e.linef("%s %s = sysml_parse_%s(argv[%d], \"%s\");", cType(p.Type), cLocal(p.Name), parser, i+1, p.Name)
 	}
@@ -1339,7 +1462,7 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 	case res.IsFn() && !res.Many():
 		e.linef("sysml_print_fn_value(%s);", result)
 	case res == TypeInt:
-		e.linef("printf(\"%%\" PRId64, %s);", result)
+		e.linef("sysml_print_int_value(%s);", result)
 	case res == TypeReal:
 		e.linef("sysml_print_real_value(%s);", result)
 	case res == TypeBool:

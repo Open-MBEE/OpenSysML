@@ -244,7 +244,7 @@ func assertAPIJSONGraphsEqual(t *testing.T, want, got *rdf.Graph) {
 }
 
 func apiJSONComparableTriple(triple rdf.Triple) rdf.Triple {
-	if triple.Object.Datatype == rdf.XSD+"decimal" {
+	if triple.Object.Datatype() == rdf.XSD+"decimal" {
 		if value, ok := new(big.Rat).SetString(triple.Object.Value); ok {
 			triple.Object.Value = value.RatString()
 		}

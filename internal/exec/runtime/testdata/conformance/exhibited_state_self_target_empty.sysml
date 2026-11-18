@@ -1,7 +1,5 @@
-// An `exhibit state` usage with an empty body names nothing and exhibits
-// itself (SysML v2 §8.3.17, exhibitedState): the machine is its own body, so
-// instantiation fails like any machine declaring no initial state, not with
-// `classifier behavior names no body`.
+// An `exhibit state` with an empty body exhibits itself (SysML v2 §8.3.17) and,
+// declaring no substate, is active in itself (§7.18.1).
 package test {
 	part def Idle {
 		exhibit state idle;
