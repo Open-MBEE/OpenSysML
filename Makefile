@@ -31,7 +31,8 @@ GOSEC_EXCLUDE := -exclude=G602,G703
 GOVULNCHECK_VERSION := v1.9.0
 CYCLONEDX_MAVEN_VERSION := 2.9.1
 SCA_BIN := build/sca/bin
-PIP_AUDIT := build/sca/venv/bin/pip-audit
+# pip-audit asks PyPI for every package; the wrapper retries an answer that was slow or failed.
+PIP_AUDIT := scripts/pip-audit-retry.sh build/sca/venv/bin/pip-audit
 # `npm audit` fails on production advisories at this severity and above, in every lockfile directory.
 NPM_AUDIT_LEVEL := moderate
 BUF_VERSION := v1.57.2

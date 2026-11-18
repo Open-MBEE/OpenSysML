@@ -122,6 +122,38 @@ func TestAptInstallsGoThroughTheCachedAction(t *testing.T) {
 	}
 }
 
+// cachePinsAgreeWithTheWorkflows: the workflows pin the cache actions by commit, and the action
+// at self pins its restore and save steps to the same commits.
+func cachePinsAgreeWithTheWorkflows(t *testing.T, self string, restore, save *actionsStep) {
+	t.Helper()
+	for _, pin := range []struct {
+		step   *actionsStep
+		action string
+	}{{restore, "actions/cache/restore"}, {save, "actions/cache/save"}} {
+		got := strings.TrimPrefix(pin.step.Uses, pin.action+"@")
+		pinned := regexp.MustCompile(regexp.QuoteMeta(pin.action) + `@([0-9a-f]{40})`)
+		pins := 0
+		for _, path := range actionsFiles(t) {
+			if strings.HasSuffix(filepath.ToSlash(path), self) {
+				continue
+			}
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, match := range pinned.FindAllStringSubmatch(string(raw), -1) {
+				pins++
+				if match[1] != got {
+					t.Errorf("the action pins %s to %s; %s pins it to %s", pin.action, got, path, match[1])
+				}
+			}
+		}
+		if pins == 0 {
+			t.Errorf("no workflow pins %s; the action's pin %s has nothing to agree with", pin.action, got)
+		}
+	}
+}
+
 // TestAptInstallActionCachesTheArchiveSet: the action restores the set into the directory the script
 // seeds and refills, saves it under the restore key plus the set's digest when it changed, and pins as the workflows do.
 func TestAptInstallActionCachesTheArchiveSet(t *testing.T) {
@@ -149,33 +181,7 @@ func TestAptInstallActionCachesTheArchiveSet(t *testing.T) {
 		t.Fatalf("the action lacks a cache restore (%v), an install (%v) or a cache save (%v) step", restore != nil, install != nil, save != nil)
 	}
 
-	// The workflows pin the cache actions by commit; the action pins them to the same commits.
-	for _, pin := range []struct {
-		step   *actionsStep
-		action string
-	}{{restore, "actions/cache/restore"}, {save, "actions/cache/save"}} {
-		got := strings.TrimPrefix(pin.step.Uses, pin.action+"@")
-		pinned := regexp.MustCompile(regexp.QuoteMeta(pin.action) + `@([0-9a-f]{40})`)
-		pins := 0
-		for _, path := range actionsFiles(t) {
-			if strings.HasSuffix(filepath.ToSlash(path), "/.github/actions/apt-install/action.yml") {
-				continue
-			}
-			raw, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			for _, match := range pinned.FindAllStringSubmatch(string(raw), -1) {
-				pins++
-				if match[1] != got {
-					t.Errorf("the action pins %s to %s; %s pins it to %s", pin.action, got, path, match[1])
-				}
-			}
-		}
-		if pins == 0 {
-			t.Errorf("no workflow pins %s; the action's pin %s has nothing to agree with", pin.action, got)
-		}
-	}
+	cachePinsAgreeWithTheWorkflows(t, "/.github/actions/apt-install/action.yml", restore, save)
 
 	path := restore.With["path"]
 	if path == "" {
