@@ -346,8 +346,12 @@ func (l *StateLocator) StateStart(owner program.StateID) (string, bool) {
 	return l.start(stateItem{vertex: program.StateVertex(owner)})
 }
 
-// RegionStart is the ID of the start marker of the region's body, and false when none is drawn.
+// RegionStart is the ID of the start marker of the region's body, and false
+// when none is drawn or owner names no region.
 func (l *StateLocator) RegionStart(owner program.RegionID) (string, bool) {
+	if owner == 0 {
+		return "", false
+	}
 	return l.start(stateItem{region: owner})
 }
 

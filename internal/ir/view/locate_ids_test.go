@@ -89,6 +89,9 @@ func TestLocateStatesByIDAgreesWithDeclarations(t *testing.T) {
 	if id, ok := loc.RegionStart(1); ok {
 		t.Errorf("RegionStart(1) located at %q in a machine with no regions", id)
 	}
+	if id, ok := loc.RegionStart(0); ok {
+		t.Errorf("RegionStart of no region located at %q, the machine's own start", id)
+	}
 }
 
 // The action locator answers by id what it answers by declaration, in the
