@@ -1306,6 +1306,7 @@ expr:Payloads__Ctx___404__cmd_pvalue
     sysx:sourceText "m.cmd" ;
     sysml:elementId "Payloads__Ctx___404__cmd_pvalue" ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:operator "." ;
     sysml:argument expr:Payloads__Ctx___404__cmd_pvalue_pa0 ;
     sysml:ownedRelationship expr:Payloads__Ctx___404__cmd_pvalue_pin0_om, expr:Payloads__Ctx___404__cmd_pvalue_ptargetFeature, expr:Payloads__Ctx___404__cmd_pvalue_pout_om ;
     sysml:ownedMembership expr:Payloads__Ctx___404__cmd_pvalue_pin0_om, expr:Payloads__Ctx___404__cmd_pvalue_ptargetFeature, expr:Payloads__Ctx___404__cmd_pvalue_pout_om ;

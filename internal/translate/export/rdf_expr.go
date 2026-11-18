@@ -204,6 +204,8 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 		return e.multiplicity(subject, owner, n.Multiplicity)
 
 	case *ast.FeatureChainExpr:
+		// A feature chain expression is the `.` operator applied (KerML 1.0 § 8.3.4.8.4).
+		e.graph.Add(subject, e.sysml(pOperator), rdf.String("."))
 		if err := e.arguments(subject, owner, []ast.Node{n.Operand}, true); err != nil {
 			return err
 		}
