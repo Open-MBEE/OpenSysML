@@ -294,7 +294,8 @@ source → lexer → parser → AST → symbol index → resolve → passes
   `go install` from the module proxy — still compiles, and its binaries load the files, noted at
   debug level only; a snapshot that fails to decode is a build defect and is warned about.
   `TestEmbeddedSnapshotIsCurrent` fails when the snapshot a test build embeds lags the files.
-- **Encoding:** `internal/syntax/pack` (varint scalars over a string table) and
+- **Encoding:** `internal/syntax/pack` (varint scalars over a string table, one stream per kind of
+  value so the gzip a wasm artefact is served with sees like values together) and
   `internal/syntax/ast/astcodec` (a node table, every node type, index references in place of
   pointers); `symbols.WriteSnapshot`/`ReadSnapshot` number scopes and symbols the same way. No
   reflection or `encoding/gob`. Decoding reproduces the object graph a fresh load builds, sharing
