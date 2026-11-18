@@ -61,9 +61,14 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		(!actionKind && !m.conformsByName(sym, "Actions::Action"))
 }
 
-// synthesizedUsageMayTimeVary derives Usage::mayTimeVary for a referential part the model synthesizes
-// with no scope of its own: a transition's link parameter, or a trigger's payload and receiver parameters.
+// synthesizedUsageMayTimeVary derives Usage::mayTimeVary for a referential part the model synthesizes:
+// a flow end's ReferenceUsage, a transition's link parameter, or a trigger's payload and receiver parameters.
 func (m *Model) synthesizedUsageMayTimeVary(sym *symbols.Symbol) (varies, ok bool) {
+	if _, ok := symbols.ImpliedFlowEndFeatureIndex(sym); ok {
+		// A flow end's ReferenceUsage is owned by the FlowEnd, which redefines Flows::Flow::source
+		// or target, an Occurrence-typed feature (SysML v2.1 §8.3.16.6), as the pilot exports it.
+		return !m.isKerMLDoc(sym) && m.UsageMayTimeVaryUnderLibraryFeature("Flows::Flow::source"), true
+	}
 	if sym.OwnerScope != nil || sym.Expr == nil {
 		return false, false
 	}
