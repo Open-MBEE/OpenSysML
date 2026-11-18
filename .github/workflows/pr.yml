@@ -99,12 +99,12 @@ jobs:
       - name: Test the area filter
         run: scripts/ci-changed-areas-test.sh
 
-      # A pull request is diffed against its base branch, a merge-group commit against its base_sha; a dispatch
-      # has no diff (every area runs) and its input is the tier, else the script decides (event, ci:full, paths).
+      # Both a pull request and a merge group are diffed from their merge base with the base branch (a group's
+      # base_sha is the entry ahead, not the branch); a dispatch has no diff and its input is the tier.
       - name: Decide which areas to run
         id: areas
         env:
-          DIFF_BASE: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD' }}
+          DIFF_BASE: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_ref || github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD' }}
           DIFF_HEAD: ${{ github.event_name == 'merge_group' && github.event.merge_group.head_sha || 'HEAD' }}
           CI_EVENT: ${{ github.event_name }}
           CI_FULL_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:full') }}
@@ -381,12 +381,11 @@ jobs:
       - name: Lint the protobuf schema
         run: make proto-lint
 
-      # Wire compatibility against the merge base with the base branch (a merge group's base_sha), not its tip,
-      # or a field added there since reads as deleted; a dispatch has no base and compares against the first parent.
+      # Wire compatibility against the merge base with the base branch (never a merge group's base_sha, the entry
+      # ahead), not its tip, or a field added there since reads as deleted; a dispatch compares with its first parent.
       - name: Check the protobuf schema for breaking changes
         env:
           BASE_REF: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_ref || github.base_ref }}
-          BASE_SHA: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || '' }}
           HEAD_SHA: ${{ github.event_name == 'merge_group' && github.event.merge_group.head_sha || github.event.pull_request.head.sha || github.sha }}
         run: |
           BASE_REF=${BASE_REF#refs/heads/}
@@ -401,7 +400,7 @@ jobs:
           else
             git fetch --no-tags --filter=tree:0 origin "$BASE_REF" "$HEAD_SHA"
           fi
-          baseline=${BASE_SHA:-$(git merge-base "origin/$BASE_REF" "$HEAD_SHA")}
+          baseline=$(git merge-base "origin/$BASE_REF" "$HEAD_SHA")
           echo "comparing against $(git rev-parse --short "$baseline")"
           make proto-breaking BUF_BREAKING_REF="$baseline"
 

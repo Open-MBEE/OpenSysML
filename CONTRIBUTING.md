@@ -367,9 +367,10 @@ does).
 
 **The merge queue**, when the `develop` ruleset has one, runs the queue tier on the commit it
 builds for each queued pull request (`refs/heads/gh-readonly-queue/develop/...`, the
-`merge_group` event): the diff is the merge group's own, `base_sha..head_sha`, the run is never
-a draft, and `Build and test` reporting on that commit is what lets the entry merge. A queue
-commit therefore gets at least the checks a ready pull request with the same diff gets. The Go
+`merge_group` event): the diff runs from the group's merge base with `develop` to its `head_sha`
+(never from its `base_sha`, which is the entry queued ahead), the run is never a draft, and
+`Build and test` reporting on that commit is what lets the entry merge. A queue commit therefore
+gets at least the checks a ready pull request with the same diff gets. The Go
 test jobs are named by tier — `Go tests (…)`, `Go queue tests (…)`, `Go race tests (…)` — and
 `scripts/ci-verified-tree.py` reads the names back: CircleCI's `build-test` on `develop` skips
 the suite over a commit with a queue-tier or full-tier run, while `build-test` on `main` and a
