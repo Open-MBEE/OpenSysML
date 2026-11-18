@@ -3796,7 +3796,12 @@ func (e *Evaluator) computeStructureOwnedFilter(element Element, expected string
 	return uniqueStructureValueSequence(structureSequence(values).Values, e.options.Structure), true, true
 }
 
+// structureOwnedFeatures is Type::ownedFeature, computed once per element.
 func (e *Evaluator) structureOwnedFeatures(element Element) (Value, bool, bool) {
+	return e.memoizedStructureValue(memoOwnedFeatures, element, e.computeStructureOwnedFeatures)
+}
+
+func (e *Evaluator) computeStructureOwnedFeatures(element Element) (Value, bool, bool) {
 	memberships, handled, ok := e.structureOwnedFilter(element, "FeatureMembership", true)
 	if !handled || !ok {
 		return Value{}, true, false
@@ -4161,8 +4166,7 @@ func (e *Evaluator) structureDirectionThrough(
 		return semantics.ConjugateDirection(direction), true
 	}
 	// A feature the port owns keeps its own direction; a typing reverses only what it inherits.
-	owns, ownsKnown := e.structureOwnsFeature(owner, feature)
-	if isPortUsage, known := e.isMetaclass(owner, "PortUsage"); known && isPortUsage && !(ownsKnown && owns) {
+	if isPortUsage, known := e.isMetaclass(owner, "PortUsage"); known && isPortUsage && !e.structureKnownToOwnFeature(owner, feature) {
 		relationships, known := e.options.Structure.OwnedRelationships(owner)
 		if !known {
 			return ast.DirNone, false
@@ -4314,6 +4318,11 @@ func (e *Evaluator) structureGeneralWithFeature(
 		}
 	}
 	return Element{}, false, true
+}
+
+func (e *Evaluator) structureKnownToOwnFeature(owner, feature Element) bool {
+	owns, known := e.structureOwnsFeature(owner, feature)
+	return known && owns
 }
 
 // structureOwnsFeature reports whether feature is an owned feature of owner.
@@ -4593,7 +4602,24 @@ func (e *Evaluator) structureInheritedSymbols(element Element, members []*symbol
 	return inherited, true
 }
 
+// structureOwnedSupertypes lists the type an element conjugates, else the types it
+// specializes by clause or by implication, computed once per element.
 func (e *Evaluator) structureOwnedSupertypes(element Element) ([]Element, bool) {
+	values, ok := e.memoizedValueList(structureValueListKey{element.Key(), "ownedSupertypes"}, func() ([]Value, bool) {
+		supertypes, ok := e.computeStructureOwnedSupertypes(element)
+		return structureSequence(supertypes).Values, ok
+	})
+	if !ok {
+		return nil, false
+	}
+	supertypes := make([]Element, len(values))
+	for i, value := range values {
+		supertypes[i] = value.Element
+	}
+	return supertypes, true
+}
+
+func (e *Evaluator) computeStructureOwnedSupertypes(element Element) ([]Element, bool) {
 	conjugators, handled, ok := e.structureOwnedFilter(element, "Conjugation", false)
 	if !handled || !ok {
 		return nil, false

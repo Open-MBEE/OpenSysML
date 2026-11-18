@@ -11,6 +11,7 @@ const (
 	memoOwnedFilter
 	memoOwnedMembershipFilter
 	memoOwnedMembers
+	memoOwnedFeatures
 	memoEffectiveFeatures
 	memoNamespaceMemberships
 	memoInheritedMemberships

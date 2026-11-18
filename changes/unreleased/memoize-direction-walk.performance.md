@@ -1,0 +1,1 @@
+- The effective direction of a port feature reads memoized owned features and owned supertypes instead of recomputing them at every step of the inheritance walk, so the api-json export and its symbol/graph structure differential return to their earlier run time with unchanged output.
