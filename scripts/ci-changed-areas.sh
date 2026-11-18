@@ -84,10 +84,8 @@ emit tier "$tier"
 
 fanout=$service
 [[ "$tier" = quick ]] && fanout=false
-# The clients fetch their toolchains and dependencies from PyPI, Maven Central, npm, crates.io,
-# the Julia registry and ftp.gnu.org on every run, so a merge group only runs a client when that
-# client's own files changed; the service-wide fan-out to every client is the full tier's, which
-# full-scan.yml dispatches on develop nightly.
+# Every client job fetches from a registry (PyPI, Maven Central, npm, crates.io, Julia, ftp.gnu.org), so a
+# merge group runs a client only on its own paths; the service-wide fan-out is the nightly full tier's.
 client_fanout=$fanout
 [[ "$tier" = queue ]] && client_fanout=false
 

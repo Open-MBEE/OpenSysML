@@ -12,9 +12,8 @@ import (
 // them fetches a toolchain or dependencies from a registry on every run.
 var clientAreas = []string{"node", "python", "java", "rust", "julia", "matlab", "vscode", "jupyterlab", "emacs", "mdk", "syson"}
 
-// changedAreas runs scripts/ci-changed-areas.sh in a throwaway repository whose
-// head commit adds the given files over an empty base, under the given
-// environment, and returns the area=value lines it prints.
+// changedAreas runs scripts/ci-changed-areas.sh in a throwaway repository whose head
+// adds the given files over an empty base, and returns the area=value lines it prints.
 func changedAreas(t *testing.T, files []string, env ...string) map[string]string {
 	t.Helper()
 	script, err := filepath.Abs("../../scripts/ci-changed-areas.sh")
