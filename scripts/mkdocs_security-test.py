@@ -39,8 +39,8 @@ POLICY = textwrap.dedent(
 )
 
 
-def pages_archive(site: pathlib.Path) -> list[str]:
-    """The members of the archive pages.yml uploads for site, by the upload action's own rule."""
+def pages_archive(root: pathlib.Path) -> list[str]:
+    """The members of the archive pages.yml uploads from a tree at root, by the upload action's own rule."""
     workflow = yaml.safe_load((ROOT / ".github" / "workflows" / "pages.yml").read_text(encoding="utf-8"))
     uploads = [
         step.get("with", {})
@@ -52,6 +52,7 @@ def pages_archive(site: pathlib.Path) -> list[str]:
         raise AssertionError(f"pages.yml uploads the Pages artifact {len(uploads)} times, want once")
     # actions/upload-pages-artifact's tar step: dot entries are left out unless the input is true.
     hidden = [] if str(uploads[0].get("include-hidden-files", "false")).lower() == "true" else ["--exclude=.[^/]*"]
+    site = root / uploads[0]["path"]
     tar = ["tar", "--directory", str(site), "-cf", "-", "--exclude=.git", "--exclude=.github", *hidden, "."]
     archive = subprocess.run(tar, check=True, capture_output=True).stdout
     return subprocess.run(["tar", "-tf", "-"], input=archive, check=True, capture_output=True).stdout.decode().split()
@@ -169,7 +170,7 @@ class SiteBuildTest(unittest.TestCase):
             self.assertIn("Contact: mailto:sec@example.org\n", txt)
             self.assertIn("Expires: 2028-01-15T08:00:00Z\n", txt)
             # Pages serves what the workflow archives, not site/ itself.
-            archived = pages_archive(root / "site")
+            archived = pages_archive(root)
             self.assertIn("./.well-known/security.txt", archived)
             self.assertIn("./security.txt", archived)
             page = (root / "site" / "guide" / "security" / "index.html").read_text()
