@@ -317,3 +317,33 @@ func TestTwoEndedFirstThenBodyMetadataAnnotatesTheSuccession(t *testing.T) {
 		}
 	}
 }
+
+// A `then c;` written after a two-ended `first a then b;` (an extension with no SysML v2 production) keeps the
+// source the parser binds, the action `a`: the SuccessionAsUsage before it is no occurrence a `then` sequences from.
+func TestThenAfterTwoEndedFirstThenIsNotSourcedFromTheSuccession(t *testing.T) {
+	const src = `package P {
+		action def A {
+			action a; action b; action c;
+			first a then b;
+			then c;
+		}
+	}`
+	for f, fixture := range reflectiveFixtures(t, "then-after-first-then.sysml", source.KindSysML, src) {
+		model := fixture.model
+		successions := successionsOf(t, model, nestedSym(t, fixture.root, "P::A"))
+		if len(successions) != 2 {
+			t.Fatalf("fixture %d: %d successions, want 2", f, len(successions))
+		}
+		for property, want := range map[string]string{"sourceFeature": "a", "targetFeature": "c", "relatedFeature": "a c"} {
+			if got := reflectedFeatures(model, successions[1], property); got != want {
+				t.Errorf("fixture %d `then c;` %s = %q, want %q", f, property, got, want)
+			}
+		}
+		sources, _ := model.ReflectiveElements(successions[1], "sourceFeature")
+		for _, sourceFeature := range sources {
+			if mc := model.MetaclassOf(sourceFeature); mc == nil || mc.Name != "ActionUsage" {
+				t.Errorf("fixture %d `then c;` source is a %v, want an ActionUsage", f, mc)
+			}
+		}
+	}
+}
