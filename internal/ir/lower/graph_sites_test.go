@@ -182,35 +182,41 @@ func TestTriggerWrittenDescribesATimer(t *testing.T) {
 func TestTriggerWrittenNamesWhatAnAcceptSubsets(t *testing.T) {
 	graph, err := ToStateGraph(stateDefinitionIn(t, `
 		state def Machine {
-			part fall { ref touchdown; }
+			part fall { ref touchdown; ref 'touch::d'; }
 			ref alert;
 			entry; then idle;
 			state idle;
 			state falling;
 			state landed;
+			state rooted;
+			state quoted;
 			transition first idle accept :> alert then falling;
 			transition first falling accept :> fall.touchdown then landed;
+			transition first landed accept :> $::P::fall.touchdown then rooted;
+			transition first rooted accept :> fall.'touch::d' then quoted;
 		}
 	`), nil)
 	if err != nil {
 		t.Fatalf("ToStateGraph: %v", err)
 	}
-	want := map[string][]string{"idle": {"alert"}, "falling": {"fall", "touchdown"}}
+	want := map[string]string{"idle": "alert", "falling": "fall.touchdown",
+		"landed": "$::P::fall.touchdown", "rooted": "fall.'touch::d'"}
 	for _, id := range graph.StateIDs() {
-		subset, ok := want[graph.Origins[id].Name]
+		name := graph.Origins[id].Name
+		subset, ok := want[name]
 		if !ok {
 			continue
 		}
-		delete(want, graph.Origins[id].Name)
 		for _, trans := range graph.TransitionsOf(program.StateVertex(id)) {
 			trigger, ok := trans.TriggerWritten()
-			if !ok || trigger.Kind != "accept" || !trigger.Subsetting || !reflect.DeepEqual(trigger.Subset, subset) {
-				t.Errorf("TriggerWritten out of %s = %+v, %v; want an accept subsetting %v", graph.Origins[id].Name, trigger, ok, subset)
+			if !ok || trigger.Kind != "accept" || !trigger.Subsetting || trigger.Subset != subset {
+				t.Errorf("TriggerWritten out of %s = %+v, %v; want an accept subsetting %s", name, trigger, ok, subset)
 			}
+			delete(want, name)
 		}
 	}
 	if len(want) != 0 {
-		t.Errorf("the machine has no states %v", want)
+		t.Errorf("no transition was checked out of %v", want)
 	}
 }
 
