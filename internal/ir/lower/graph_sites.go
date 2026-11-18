@@ -238,9 +238,11 @@ type Trigger struct {
 	Signal, Called string
 	Typed, Calls   bool
 	// PayloadName is the payload's declared name; Subset is what the trigger
-	// subsets, and Subsetting reports that it subsets something.
-	PayloadName, Subset string
-	Subsetting          bool
+	// subsets, one name per link of a feature chain, and Subsetting reports
+	// that it subsets something.
+	PayloadName string
+	Subset      []string
+	Subsetting  bool
 }
 
 // endSegment is the last segment of a qualified name, "" for none.
@@ -261,6 +263,15 @@ func writtenName(node ast.Node) string {
 		return strings.Join(parts, "::")
 	}
 	return ast.SimpleName(node)
+}
+
+// writtenChain is the names a feature chain was written with, first link
+// first; a name that is no chain is its only link.
+func writtenChain(node ast.Node) []string {
+	if chain, ok := node.(*ast.FeatureChainExpr); ok {
+		return append(writtenChain(chain.Operand), writtenName(chain.Member))
+	}
+	return []string{writtenName(node)}
 }
 
 // triggerOf describes a trigger, false for none.
@@ -284,7 +295,7 @@ func triggerOf(node ast.Node) (Trigger, bool) {
 		}
 		form.Typed, form.Signal = t.SignalType != nil, endSegment(t.SignalType)
 		if t.Subsets != nil {
-			form.Subsetting, form.Subset = true, writtenName(t.Subsets)
+			form.Subsetting, form.Subset = true, writtenChain(t.Subsets)
 		}
 	case *ast.CallEvent:
 		form.Kind = "call"
