@@ -556,6 +556,7 @@ for (const thread of ["worker", "inline"] as const) {
       "render_view_form",
       "symbol_annotating_metadata",
       "symbol_lookup_kind",
+      "symbol_member_direction",
     ]);
 
     const wasmModel = await wasm.loads(SAMPLE);

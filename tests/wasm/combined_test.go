@@ -394,6 +394,7 @@ func TestCombinedWireParity(t *testing.T) {
 		"render_view_form",
 		"symbol_annotating_metadata",
 		"symbol_lookup_kind",
+		"symbol_member_direction",
 	}
 	if info.Version != "combined-wire-test" {
 		t.Errorf("GetServerInfo version = %q", info.Version)

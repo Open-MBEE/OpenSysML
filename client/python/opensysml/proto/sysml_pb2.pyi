@@ -859,18 +859,20 @@ class ParseFileResponse(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., root: _Optional[_Union[SymbolInfo, _Mapping]] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., error: _Optional[str] = ...) -> None: ...
 
 class GetSymbolRequest(_message.Message):
-    __slots__ = ("model_hash", "symbol_id", "include_library_members", "resolve_name", "lookup")
+    __slots__ = ("model_hash", "symbol_id", "include_library_members", "resolve_name", "lookup", "member_of")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_LIBRARY_MEMBERS_FIELD_NUMBER: _ClassVar[int]
     RESOLVE_NAME_FIELD_NUMBER: _ClassVar[int]
     LOOKUP_FIELD_NUMBER: _ClassVar[int]
+    MEMBER_OF_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     symbol_id: str
     include_library_members: bool
     resolve_name: bool
     lookup: LookupKind
-    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., include_library_members: _Optional[bool] = ..., resolve_name: _Optional[bool] = ..., lookup: _Optional[_Union[LookupKind, str]] = ...) -> None: ...
+    member_of: str
+    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., include_library_members: _Optional[bool] = ..., resolve_name: _Optional[bool] = ..., lookup: _Optional[_Union[LookupKind, str]] = ..., member_of: _Optional[str] = ...) -> None: ...
 
 class SymbolResponse(_message.Message):
     __slots__ = ("symbol", "error")

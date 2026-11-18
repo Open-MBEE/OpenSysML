@@ -1,6 +1,7 @@
 package metamodel
 
 import (
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -4135,19 +4136,33 @@ func (e *Evaluator) structureDirectedFeatures(element Element, property string) 
 }
 
 func (e *Evaluator) structureEffectiveDirection(owner, feature Element) (ast.FeatureDirection, bool) {
+	return e.structureDirectionThrough(owner, feature, map[ElementKey]bool{})
+}
+
+// structureDirectionThrough reads feature's direction from owner; visited holds the types
+// already read on the way here, so types that specialize or conjugate each other end the walk.
+func (e *Evaluator) structureDirectionThrough(
+	owner, feature Element, visited map[ElementKey]bool,
+) (ast.FeatureDirection, bool) {
+	if visited[owner.Key()] {
+		return ast.DirNone, false
+	}
+	visited[owner.Key()] = true
 	if isConjugatedPortDefinition, known := e.isMetaclass(owner, "ConjugatedPortDefinition"); known &&
 		isConjugatedPortDefinition {
 		original, ok := e.Property(owner, "ConjugatedPortDefinition", "originalPortDefinition")
 		if !ok || original.Kind != ElementValue {
 			return ast.DirNone, false
 		}
-		direction, ok := e.structureEffectiveDirection(original.Element, feature)
+		direction, ok := e.structureDirectionThrough(original.Element, feature, visited)
 		if !ok {
 			return ast.DirNone, false
 		}
 		return semantics.ConjugateDirection(direction), true
 	}
-	if isPortUsage, known := e.isMetaclass(owner, "PortUsage"); known && isPortUsage {
+	// A feature the port owns keeps its own direction; a typing reverses only what it inherits.
+	owns, ownsKnown := e.structureOwnsFeature(owner, feature)
+	if isPortUsage, known := e.isMetaclass(owner, "PortUsage"); known && isPortUsage && !(ownsKnown && owns) {
 		relationships, known := e.options.Structure.OwnedRelationships(owner)
 		if !known {
 			return ast.DirNone, false
@@ -4170,7 +4185,7 @@ func (e *Evaluator) structureEffectiveDirection(owner, feature Element) (ast.Fea
 			if !ok || original.Kind != ElementValue {
 				return ast.DirNone, false
 			}
-			direction, ok := e.structureEffectiveDirection(original.Element, feature)
+			direction, ok := e.structureDirectionThrough(original.Element, feature, visited)
 			if !ok {
 				return ast.DirNone, false
 			}
@@ -4180,6 +4195,12 @@ func (e *Evaluator) structureEffectiveDirection(owner, feature Element) (ast.Fea
 
 	featureSymbol := e.structureElementSymbol(feature)
 	ownerSymbol := e.structureElementSymbol(owner)
+	if ownerSymbol == nil {
+		// An inheritance the graph leaves unstated keeps the feature's own direction.
+		if general, found, known := e.structureGeneralWithFeature(owner, feature, visited); known && found {
+			return e.structureDirectionThrough(general, feature, visited)
+		}
+	}
 	if ownerSymbol != nil {
 		if featureSymbol != nil {
 			portUsage, portUsageKnown := e.isMetaclass(owner, "PortUsage")
@@ -4268,6 +4289,69 @@ func (e *Evaluator) structureEffectiveDirection(owner, feature Element) (ast.Fea
 		return ast.DirIn, true
 	}
 	return ast.DirNone, true
+}
+
+// structureGeneralWithFeature is the general type a graph owner inherits feature from, whose view
+// Type::directionOf takes (KerML 8.3.3.1.10); none when owner owns it or only visited types reach it.
+func (e *Evaluator) structureGeneralWithFeature(
+	owner, feature Element, visited map[ElementKey]bool,
+) (Element, bool, bool) {
+	owns, known := e.structureOwnsFeature(owner, feature)
+	if !known || owns {
+		return Element{}, false, known
+	}
+	generals, known := e.structureSpecializedGeneralTypes(owner)
+	if !known {
+		return Element{}, false, false
+	}
+	for _, general := range generals {
+		has, known := e.structureHasFeature(general, feature, maps.Clone(visited))
+		if !known {
+			return Element{}, false, false
+		}
+		if has {
+			return general, true, true
+		}
+	}
+	return Element{}, false, true
+}
+
+// structureOwnsFeature reports whether feature is an owned feature of owner.
+func (e *Evaluator) structureOwnsFeature(owner, feature Element) (bool, bool) {
+	owned, handled, ok := e.structureOwnedFeatures(owner)
+	if !handled || !ok {
+		return false, false
+	}
+	for _, value := range owned.Values {
+		if value.Kind == ElementValue && sameStructureElement(value.Element, feature, e.options.Structure) {
+			return true, true
+		}
+	}
+	return false, true
+}
+
+// structureHasFeature reports whether typ owns feature or reaches it through
+// the types it specializes or conjugates.
+func (e *Evaluator) structureHasFeature(typ, feature Element, visited map[ElementKey]bool) (bool, bool) {
+	if visited[typ.Key()] {
+		return false, true
+	}
+	visited[typ.Key()] = true
+	owns, known := e.structureOwnsFeature(typ, feature)
+	if !known || owns {
+		return owns, known
+	}
+	supertypes, known := e.structureOwnedSupertypes(typ)
+	if !known {
+		return false, false
+	}
+	for _, supertype := range supertypes {
+		has, known := e.structureHasFeature(supertype, feature, visited)
+		if !known || has {
+			return has, known
+		}
+	}
+	return false, true
 }
 
 func (e *Evaluator) structureElementSymbol(element Element) *symbols.Symbol {
