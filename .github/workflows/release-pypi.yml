@@ -61,8 +61,13 @@ jobs:
         with:
           python-version: "3.11"
 
+      # The client's dependencies join the wheels: the built wheel is installed from them below.
       - name: Install the checking tools
-        run: python -m pip install --only-binary ":all:" pip==26.2.1 twine==7.0.0 packaging==26.3
+        id: wheels
+        uses: ./.github/actions/pip-install
+        with:
+          packages: pip==26.2.1 twine==7.0.0 packaging==26.3
+          projects: client/python
 
       # A release tag must name the version both packages declare (a pre-release goes to
       # TestPyPI); a night's release carries the development version its build derived.
@@ -210,6 +215,8 @@ jobs:
       - name: Run the built wheel against the release it names
         env:
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          PIP_NO_INDEX: '1'
+          PIP_FIND_LINKS: ${{ steps.wheels.outputs.wheels }}
         run: |
           python -m venv /tmp/verify-zero-config
           /tmp/verify-zero-config/bin/python -m pip install --only-binary ":all:" pip==26.2.1

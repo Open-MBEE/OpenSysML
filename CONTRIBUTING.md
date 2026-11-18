@@ -410,6 +410,22 @@ and `rebaseline.yml` can restore only an entry saved on `develop` (or their own 
 pin moved restores the newest earlier entry by the `pilot-validator-` prefix; the script rebuilds
 the stale copy, but from the Maven repository that entry holds rather than from Maven Central.
 `rebaseline.yml` never saves, since it runs a pull request's scripts in `develop`'s cache scope.
+
+Python packages are held to the same policy. No workflow or action runs `pip install` against PyPI:
+each names its pins to `.github/actions/pip-install` (`packages`, a pinned `requirements` file, or
+`projects`, whose build requirements and dependencies join the set without being installed), which
+restores a directory of exactly those wheels, keyed on the request and the interpreter, and installs
+from it with `--no-index`. On a miss `scripts/ci-pip-install.sh` downloads the set wheel-only in up
+to four bounded attempts, because pip's own `--retries` covers a connection it could not make but
+not an index page or a wheel that arrived truncated; it reads every wheel back, records their
+checksums, and installs only from a complete set, so a run fails with nothing installed rather than
+half-installed. A step that must run pip itself (`make python-install`, a virtualenv a release
+check builds) sets `PIP_NO_INDEX: '1'` and `PIP_FIND_LINKS` to the action's `wheels` output.
+`.github/workflows/pip-cache.yml` alone saves the entries, on every push to `develop` that changes a
+workflow, an action or a pinned file, and daily; its matrix lists every request with the Python its
+job sets up, and it installs each a second time with the index unreachable. A new or changed pin
+therefore changes the call site and the matrix together; `tests/hygiene/pip_install_test.go` fails
+on a direct `pip install`, and on a request the matrix does not warm.
 The script passes both retry property names on its command line, the clone having no
 `.mvn/maven.config`, and logs `mvn --version`: the `ubuntu-24.04` image ships Maven 3.10.
 
