@@ -140,10 +140,45 @@ func (r *Resolver) Endpoint(scope *symbols.Scope, target ast.Node) (ast.Node, bo
 	return nil, false
 }
 
+// EndpointNames reports whether an endpoint names any element, a vertex or not;
+// like Endpoint it reports nothing itself.
+func (r *Resolver) EndpointNames(scope *symbols.Scope, target ast.Node) bool {
+	var ok bool
+	r.aside(func() {
+		switch t := target.(type) {
+		case *ast.QualifiedName:
+			_, ok = r.lookupEndpoint(scope, t)
+		case *ast.FeatureReference:
+			ok = t != nil && r.EndpointNames(scope, t.Name)
+		case *ast.FeatureChainExpr:
+			if t == nil || t.Member == nil {
+				return
+			}
+			owner, found := r.ResolveEndpointRef(scope, t.Operand)
+			if found && owner != nil {
+				_, ok = r.lookupEndpointChain(scope, t, owner)
+			}
+		}
+	})
+	return ok
+}
+
+// NamedInScope is EndpointNames from the scope tree alone: a member of a scope
+// enclosing the endpoint, or one such a scope's declaration inherits.
+func NamedInScope(scope *symbols.Scope, target ast.Node) bool {
+	parts := endpointParts(target)
+	if scope == nil || len(parts) == 0 {
+		return false
+	}
+	if _, ok := lookupScopePartsText(scope, parts); ok {
+		return true
+	}
+	_, ok := inheritedVertexInScope(scope, parts)
+	return ok
+}
+
 // VertexInScope finds the vertex an endpoint names from the scope tree alone,
-// innermost scope first, for a machine lowered without a resolver over its
-// document (lower.ToStateGraph): no index is consulted, so nothing outside the
-// scopes the endpoint was written in can answer it.
+// as a member of the scope it is written in or of one enclosing it (KerML 8.2.3.5.4).
 func VertexInScope(scope *symbols.Scope, target ast.Node) (ast.Node, bool) {
 	parts := endpointParts(target)
 	if scope == nil || len(parts) == 0 {
@@ -151,10 +186,12 @@ func VertexInScope(scope *symbols.Scope, target ast.Node) (ast.Node, bool) {
 	}
 	machine := machineScope(scope)
 	for s := scope; s != nil; s = s.Parent() {
-		if sym, ok := firstVertex(s, parts); ok {
-			return sym.Decl, true
-		}
-		if s == machine {
+		// The innermost scope declaring the first segment answers, vertex or not.
+		if _, declared := s.LookupLocal(parts[0]); declared {
+			// A path may start outside the machine, but the vertex is one of its own.
+			if sym, ok := localVertex(s, parts); ok && scopeWithin(sym.OwnerScope, machine) {
+				return sym.Decl, true
+			}
 			break
 		}
 	}
@@ -164,6 +201,16 @@ func VertexInScope(scope *symbols.Scope, target ast.Node) (ast.Node, bool) {
 		return sym.Decl, true
 	}
 	return nil, false
+}
+
+// scopeWithin reports whether scope is outer or a scope nested in it.
+func scopeWithin(scope, outer *symbols.Scope) bool {
+	for s := scope; s != nil; s = s.Parent() {
+		if s == outer {
+			return true
+		}
+	}
+	return false
 }
 
 // ActionNodeInScope finds an inherited action node from the scope tree alone.
@@ -674,46 +721,21 @@ func IsAssertion(u *ast.Usage) bool {
 	return u.Kind == ast.UsageConstraint && u.PrefixKeyword == "assert"
 }
 
-// lookupEndpoint finds what an endpoint names: the declaration ordinary lookup
-// reaches, or else a vertex of the enclosing machine, which a transition may
-// name across a region or into a nested state (`TransitionUsage::source` and
-// `::target : ActionUsage[1..1]`, stdlib `Systems Library/SysML.sysml`).
+// lookupEndpoint finds what an endpoint names by ordinary name resolution from
+// the namespace it is written in, outward (KerML 8.2.3.5): nothing else answers it.
 func (r *Resolver) lookupEndpoint(scope *symbols.Scope, qn *ast.QualifiedName) (*symbols.Symbol, bool) {
 	var sym *symbols.Symbol
 	var ok bool
 	r.aside(func() { sym, ok = r.resolveQualified(scope, qn, nil) })
-	machine := machineScope(scope)
-	if ok && r.endpointIsVertex(scope, qn, sym) && declaredWithin(machine, sym) {
-		return sym, true
-	}
-	// A vertex of the machine itself outranks one the name reaches elsewhere, so an
-	// inherited member does not shadow the state declared beside the transition.
-	if vertex, found := firstVertex(machine, qualifiedParts(qn)); found {
-		return vertex, true
-	}
-	if ok && r.endpointIsVertex(scope, qn, sym) {
-		return sym, true
-	}
 	return sym, ok
 }
 
-// lookupEndpointChain finds the vertex a chained endpoint names: the member
-// segments read from owner, its operand's feature, then as lookupEndpoint ranks
-// a vertex of the machine itself ahead of one the name reaches elsewhere.
+// lookupEndpointChain finds what a chained endpoint names: the member segments
+// read from owner, its operand's feature, and from nowhere else.
 func (r *Resolver) lookupEndpointChain(scope *symbols.Scope, chain *ast.FeatureChainExpr, owner *symbols.Symbol) (*symbols.Symbol, bool) {
 	var sym *symbols.Symbol
 	var ok bool
 	r.aside(func() { sym, ok = r.memberChain(scope, owner, chain.Member, chain) })
-	machine := machineScope(scope)
-	if ok && r.endpointIsVertex(scope, chain.Member, sym) && declaredWithin(machine, sym) {
-		return sym, true
-	}
-	if vertex, found := firstVertex(machine, endpointParts(chain)); found {
-		return vertex, true
-	}
-	if ok && r.endpointIsVertex(scope, chain.Member, sym) {
-		return sym, true
-	}
 	return sym, ok
 }
 
@@ -799,14 +821,14 @@ func stateMachineEndpoint(scope *symbols.Scope) bool {
 			switch {
 			case n.Kind == ast.DefState:
 				return true
-			case n.Kind.IsAction():
+			case n.Kind.HasActionBodyItems():
 				return false
 			}
 		case *ast.Usage:
 			switch {
 			case n.Kind == ast.UsageState:
 				return true
-			case n.Kind.IsAction():
+			case n.Kind.HasActionBodyItems():
 				return false
 			}
 		}
@@ -817,7 +839,7 @@ func stateMachineEndpoint(scope *symbols.Scope) bool {
 // endpointMessage is what an endpoint resolving to nothing reports: the ordinary
 // unresolved wording, hinting the vertices of the machine it was written in.
 func (r *Resolver) endpointMessage(scope *symbols.Scope, qn *ast.QualifiedName) string {
-	name := qnText(qn)
+	name := ast.QualifiedNameText(qn)
 	return suggest.With(unresolvedReferencePrefix+name, name, r.vertexSuggestions(scope, qn))
 }
 
@@ -899,53 +921,20 @@ func stateBody(node ast.Node) bool {
 	return false
 }
 
-// firstVertex searches scope's subtree, outermost and in declaration order, for
-// a vertex whose name path ends in parts, or an entry action standing in for a
-// start pseudostate.
-func firstVertex(scope *symbols.Scope, parts []string) (*symbols.Symbol, bool) {
-	if scope == nil || len(parts) == 0 {
+// localVertex is the vertex parts name read from scope itself: the first
+// segment a member of scope, each later one a member of the one before it.
+func localVertex(scope *symbols.Scope, parts []string) (*symbols.Symbol, bool) {
+	sym, ok := scope.LookupLocal(parts[0])
+	for _, part := range parts[1:] {
+		if !ok || sym.Scope == nil {
+			return nil, false
+		}
+		sym, ok = sym.Scope.LookupLocal(part)
+	}
+	if !ok || !(IsVertex(sym.Decl) || startAction(sym)) {
 		return nil, false
 	}
-	name := parts[len(parts)-1]
-	for _, key := range scope.MemberNames() {
-		if key != name {
-			continue
-		}
-		if !ownedBy(scope, parts[:len(parts)-1]) {
-			continue
-		}
-		for _, sym := range symbols.PreferDeclared(scope.LookupLocalAll(key)) {
-			if IsVertex(sym.Decl) || startAction(sym) {
-				return sym, true
-			}
-		}
-	}
-	for _, child := range scope.Children() {
-		if sym, ok := firstVertex(child, parts); ok {
-			return sym, true
-		}
-	}
-	return nil, false
-}
-
-// ownedBy reports whether the scopes enclosing scope are named by owners,
-// innermost last: `outer::inner` need not name the scopes between them.
-func ownedBy(scope *symbols.Scope, owners []string) bool {
-	remaining := len(owners)
-	for s := scope; s != nil && remaining > 0; s = s.Parent() {
-		if scopeName(s) == owners[remaining-1] {
-			remaining--
-		}
-	}
-	return remaining == 0
-}
-
-// scopeName is the name of the declaration owning scope, empty when it has none.
-func scopeName(scope *symbols.Scope) string {
-	if owner := scope.Owner(); owner != nil {
-		return owner.Name
-	}
-	return ast.SimpleName(scope.Node())
+	return sym, true
 }
 
 // vertexNames lists the distinct names of the vertices declared in scope's

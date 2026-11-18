@@ -91,6 +91,7 @@ case_ docs-only docs docs/guide/index.md
 case_ overrides-only docs overrides/home.html
 case_ changelog-only docs CHANGELOG.md
 case_ changelog-fragment docs changes/unreleased/repl-thing.added.md
+case_ ci-tools docs ci/watcher.py ci/tests/test_ci_tools.py
 case_ java-module java,mdk,syson client/java/opensysml-client/pom.xml
 case_ java-source java,mdk,syson client/java/opensysml-client/src/main/java/org/openmbee/opensysml/Exploration.java
 case_ java-manifest java,mdk,python,syson client/java/pom.xml
@@ -129,7 +130,8 @@ case_ shared-keyword-groups docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,
 case_ vscode-syntaxes docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode editors/vscode/syntaxes/sysml.tmLanguage.json
 case_ jupyterlab-syntax docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode editors/jupyterlab/src/syntax.json
 # Any markdown counts as documentation: the site links out to repository files.
-case_ man-page docs packaging/man/man1/sysml.1
+# A shipped manual page is held to its command by a Go test, so it runs the Go area too.
+case_ man-page docs,go packaging/man/man1/sysml.1
 case_ two-client-readmes docs,java,mdk,node,python,syson client/java/README.md client/node/README.md
 case_ two-clients java,mdk,node,python,syson client/java/pom.xml client/node/tsconfig.json
 case_ go-source docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/syntax/parser/parser.go
@@ -192,6 +194,7 @@ tier_case_ parser quick internal/syntax/parser/parser.go
 tier_case_ node-only quick client/node/src/node/binary.ts
 tier_case_ workflow quick .github/workflows/pr.yml
 tier_case_ race-shards quick scripts/race-shard.sh Makefile
+tier_case_ ci-tools quick ci/drycheck.sh
 tier_case_ runtime quick internal/exec/runtime/executor.go
 tier_case_ runtime-test quick internal/exec/runtime/robustness_test.go
 tier_case_ smt quick internal/exec/smt/referee.go
@@ -212,9 +215,13 @@ tier_case_ parser-and-runtime quick internal/syntax/parser/parser.go internal/ex
 queue_case_() {
   CI_TIER=queue case_ "$@"
 }
-queue_case_ apijson-writer docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/translate/export/api_json_absence.go
+# A merge group runs a client only on that client's own paths: the fan-out from a service change
+# to every client is the full tier's, so a registry timeout cannot fail a group that never touched the client.
+queue_case_ apijson-writer docs,go internal/translate/export/api_json_absence.go
 queue_case_ apijson-baseline docs,go docs/project/api-json-differential/index.json
-queue_case_ unclaimed docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode some-new-top-level/thing.txt
+queue_case_ unclaimed docs,go some-new-top-level/thing.txt
+queue_case_ emacs-own emacs editors/emacs/sysml-mode.el
+queue_case_ java-own java,mdk,python,syson client/java/pom.xml
 area_for_event_() {
   local event=$1 label=$2 area=$3 expected=$4
   local actual

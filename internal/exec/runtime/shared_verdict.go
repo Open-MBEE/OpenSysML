@@ -77,6 +77,7 @@ func (ctx *Context) checkOnWith(element *symbols.Symbol, kind, name string, carr
 	if err != nil {
 		return CheckResult{}, err
 	}
+	defer ctx.beginCheckObjects(false)()
 	if resolved.instance != self || args.supplies() {
 		return check(resolved)
 	}

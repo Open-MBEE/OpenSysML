@@ -220,8 +220,6 @@ func membershipKind(sym *symbols.Symbol) string {
 			return "ReturnParameterMembership"
 		case usage.IsBodyParameter:
 			return "ParameterMembership"
-		case usage.IsEnd:
-			return "EndFeatureMembership"
 		}
 	}
 	if sym.Kind == symbols.SymbolConnectorEnd {

@@ -303,8 +303,8 @@ type Context struct {
 	sharedTaken    int64
 	// verdicts is the span sharing verdicts between objects of one shape; nil outside one.
 	verdicts *verdictMemo
-	// exemplars are the objects `this` denotes in the check about no object under way (exemplar.go).
-	exemplars *exemplars
+	// checkObjects are the objects the innermost check under way made for itself (constructed_objects.go).
+	checkObjects *checkObjects
 	// behaviorsAttached counts the object behaviors attached so far, so a
 	// derivation knows whether one was attached under it.
 	behaviorsAttached int64
@@ -364,6 +364,8 @@ type Context struct {
 	// quiescent is the memo a full scan leaves when it finds them all idle.
 	work      uint64
 	quiescent quiescence
+	// holding is the memo a full scan leaves when it finds some holding work.
+	holding heldWork
 	// held counts the behaviors that entered held on a succession; noneHeld is
 	// the memo the cycle check leaves when it finds none held at that count.
 	held     uint64

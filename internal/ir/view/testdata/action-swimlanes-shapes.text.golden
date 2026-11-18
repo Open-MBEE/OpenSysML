@@ -1,0 +1,24 @@
+LaneShapes::assembleView - action rendering (view def ActionFlowView)
+
+action assemble
+  action fetch
+    performed by
+      performer loader
+      performer bench
+  action build
+    action flow
+    swimlane Robot (perform actions)
+      action cut
+      action weld
+  swimlane supervise (perform actions)
+    action inspect
+  swimlane : Robot (perform actions)
+    action pack
+  initial start
+
+flow:
+  cut -> weld
+  fetch -> build
+  build -> inspect
+  inspect -> pack
+  start -> fetch

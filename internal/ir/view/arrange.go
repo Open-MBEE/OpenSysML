@@ -146,13 +146,17 @@ func (a *arranger) settleChildren(node *Node, box drawioBox) {
 	shift := a.childShift(node, box)
 	var unplaced []*Node
 	for _, child := range node.Children {
-		if child.Geometry.placed() {
+		switch {
+		case child.Geometry.placed():
 			a.settle(child, drawioBox{X: child.Geometry.X + shift.X, Y: child.Geometry.Y + shift.Y})
-		} else {
+		case holdsPlaced(child):
+			a.settleHeld(child, shift)
+		default:
 			unplaced = append(unplaced, child)
 		}
 	}
 	unplaced = a.settlePositioned(unplaced)
+	lanes, unplaced := swimlanesOf(unplaced)
 	sizes := make([]drawioBox, len(unplaced))
 	for i, child := range unplaced {
 		sizes[i] = a.fitted(child)
@@ -165,13 +169,99 @@ func (a *arranger) settleChildren(node *Node, box drawioBox) {
 	}
 	origin := drawioBox{X: box.X + drawioNestedPad, Y: box.Y + a.headroom(node) + gap}
 	for _, child := range node.Children {
-		if child.Geometry.placed() {
+		if child.Geometry.placed() || holdsPlaced(child) {
 			origin.Y = math.Max(origin.Y, a.boxes[child.ID].bottom()+gap)
 		}
 	}
+	origin.Y = a.settleLanes(lanes, origin, gap)
 	for i, child := range drawioGrid(sizes, origin, gap) {
 		a.settle(unplaced[i], child)
 	}
+}
+
+// holdsPlaced reports whether node is a swimlane holding a node the model places.
+func holdsPlaced(node *Node) bool {
+	if node.Kind != swimlaneKind {
+		return false
+	}
+	for _, child := range node.Children {
+		if child.Geometry.placed() {
+			return true
+		}
+	}
+	return false
+}
+
+// settleHeld draws a swimlane around the nodes it holds: a lane is no element and has no Layout,
+// so its placed nodes sit where the flow's frame puts them, the rest in a grid under them.
+func (a *arranger) settleHeld(lane *Node, shift drawioBox) {
+	var unplaced []*Node
+	var bounds drawioBox
+	cover := func(child *Node) {
+		box := a.boxes[child.ID]
+		if bounds.Width == 0 && bounds.Height == 0 {
+			bounds = box
+			return
+		}
+		x, y := math.Min(bounds.X, box.X), math.Min(bounds.Y, box.Y)
+		bounds = drawioBox{X: x, Y: y, Width: math.Max(bounds.right(), box.right()) - x, Height: math.Max(bounds.bottom(), box.bottom()) - y}
+	}
+	for _, child := range lane.Children {
+		if child.Geometry.placed() {
+			a.settle(child, drawioBox{X: child.Geometry.X + shift.X, Y: child.Geometry.Y + shift.Y})
+			cover(child)
+		} else {
+			unplaced = append(unplaced, child)
+		}
+	}
+	sizes := make([]drawioBox, len(unplaced))
+	for i, child := range unplaced {
+		sizes[i] = a.fitted(child)
+	}
+	for i, at := range drawioGrid(sizes, drawioBox{X: bounds.X, Y: bounds.bottom() + drawioNestedGap}, drawioNestedGap) {
+		a.settle(unplaced[i], at)
+		cover(unplaced[i])
+	}
+	left, top := a.laneMargins(lane)
+	width, _ := a.labels.dotBox(lane)
+	a.boxes[lane.ID] = drawioBox{X: bounds.X - left, Y: bounds.Y - top,
+		Width: math.Max(math.Max(width, drawioMinWidth), bounds.Width+2*left), Height: bounds.Height + top + drawioNestedPad}
+}
+
+// laneMargins is what a swimlane keeps left of and above the nodes it holds: the pad and its header.
+func (a *arranger) laneMargins(lane *Node) (left, top float64) {
+	return drawioNestedPad, a.headroom(lane) + drawioNestedGap
+}
+
+// swimlanesOf splits the swimlanes off nodes, both in their order.
+func swimlanesOf(nodes []*Node) (lanes, rest []*Node) {
+	for _, node := range nodes {
+		if node.Kind == swimlaneKind {
+			lanes = append(lanes, node)
+		} else {
+			rest = append(rest, node)
+		}
+	}
+	return lanes, rest
+}
+
+// settleLanes sets swimlanes side by side from origin, attached on their vertical edges and
+// as tall as the tallest (SysML v2 §8.2.3.17), and returns where the nodes under them start.
+func (a *arranger) settleLanes(lanes []*Node, origin drawioBox, gap float64) float64 {
+	if len(lanes) == 0 {
+		return origin.Y
+	}
+	x, height := origin.X, 0.0
+	for _, lane := range lanes {
+		a.settle(lane, drawioBox{X: x, Y: origin.Y})
+		x, height = a.boxes[lane.ID].right(), math.Max(height, a.boxes[lane.ID].Height)
+	}
+	for _, lane := range lanes {
+		box := a.boxes[lane.ID]
+		box.Height = height
+		a.boxes[lane.ID] = box
+	}
+	return origin.Y + height + gap
 }
 
 // childShift is what a container's placed children move by: nothing when the
@@ -180,7 +270,7 @@ func (a *arranger) childShift(node *Node, box drawioBox) drawioBox {
 	if node.Geometry.placed() {
 		return drawioBox{}
 	}
-	if sectionKind(node.Kind) {
+	if bodySectionKind(node.Kind) {
 		// A body section is no element and never placed: its nodes are placed
 		// relative to its frame, so a moved one stays where it was put.
 		return drawioBox{X: box.X + drawioNestedPad, Y: box.Y + a.headroom(node) + drawioNestedGap}
@@ -189,6 +279,16 @@ func (a *arranger) childShift(node *Node, box drawioBox) drawioBox {
 	for _, child := range node.Children {
 		if child.Geometry.placed() {
 			minX, minY, found = math.Min(minX, child.Geometry.X), math.Min(minY, child.Geometry.Y), true
+		}
+		if !holdsPlaced(child) {
+			continue
+		}
+		// A lane's placed nodes are the container's: the lane drawn around them is what is hugged.
+		left, top := a.laneMargins(child)
+		for _, held := range child.Children {
+			if held.Geometry.placed() {
+				minX, minY, found = math.Min(minX, held.Geometry.X-left), math.Min(minY, held.Geometry.Y-top), true
+			}
 		}
 	}
 	if !found {
@@ -721,7 +821,7 @@ func drawioRound(v float64) float64 { return math.Round(v*1000) / 1000 }
 // sectionsOnly reports whether every node is a body section of its container.
 func sectionsOnly(nodes []*Node) bool {
 	for _, node := range nodes {
-		if !sectionKind(node.Kind) {
+		if !bodySectionKind(node.Kind) {
 			return false
 		}
 	}

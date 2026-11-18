@@ -1187,7 +1187,11 @@ func documentValueToJSON(idx *symbols.Index, value queryexec.Value) *JDocumentVa
 		return &JDocumentValue{Infinity: &yes}
 	case queryexec.ValueQuantity:
 		quantity, _ := value.Quantity()
-		return &JDocumentValue{Quantity: quantityToProto(&quantity)}
+		wire := quantityToProto(&quantity)
+		if wire != nil {
+			wire.ValueType = quantityValueTypeName(value.QuantityKind(), idx)
+		}
+		return &JDocumentValue{Quantity: wire}
 	default:
 		return &JDocumentValue{}
 	}

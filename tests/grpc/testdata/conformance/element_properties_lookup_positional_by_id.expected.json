@@ -1,0 +1,9 @@
+{
+	"rpc": "GetElementProperties",
+	"model": "symbol_lookup_positional.sysml",
+	"element_id": "Col::W::@2",
+	"lookup": "element_id",
+	"expected_id": "Col__W___402",
+	"properties": ["declaredName"],
+	"expected_properties": [{"name": "declaredName", "defining_class": "Element", "values": []}]
+}

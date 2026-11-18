@@ -100,7 +100,6 @@ static const char *const sysml_literal_names[] = {%s};
 
 static void sysml_print_enum_value(sysml_enum v) { fputs(sysml_literals[v], stdout); }
 static void sysml_print_enum(sysml_enum v) { puts(sysml_literals[v]); }
-static void sysml_format_enum(sysml_enum v, char *out, size_t size) { snprintf(out, size, "%%s", sysml_literals[v]); }
 static const char *sysml_show_enum(sysml_enum v) { return sysml_literals[v]; }
 
 /* Reads a literal of sysml_literals[base, base+n), written as printed or by its qualified name. */
@@ -125,9 +124,8 @@ func cEnumSeqRuntime(p *Program) string {
 	b.WriteString("#define SYSML_KIND_ENUM(v) \"enumeration literal\"\n")
 	for _, enum := range p.Enums {
 		sfx := cSeqSuffix(EnumType(enum))
-		r := strings.NewReplacer("ELEMNAME", sfx, "ELEM", "sysml_enum", "SFX", sfx, "PRINT", "sysml_print_enum_value",
-			"FORMAT", "sysml_format_enum", "KINDOF", "SYSML_KIND_ENUM", "KEY", "(uint64_t)", "SKIP", "false && ",
-			"EQ", "SYSML_SCALAR_EQ", "SHOW", "sysml_show_enum", "SAVEELEMS", "SYSML_NO_ELEMS", "RESTOREELEMS", "SYSML_NO_ELEMS",
+		r := strings.NewReplacer("ELEMNAME", sfx, "ELEM", "sysml_enum", "SFX", sfx, "PRINT", "sysml_print_enum_value", "KINDOF", "SYSML_KIND_ENUM", "KEY", "(uint64_t)", "SKIP", "SYSML_NEVER",
+			"EQ", "SYSML_SCALAR_EQ", "SHOW", "sysml_show_enum", "SAVEELEMS", "SYSML_NO_ELEMS", "RESTOREELEMS", "SYSML_NO_ELEMS", "KEEPELEMS", "SYSML_NO_ELEMS",
 			"KOPEN", `" ("`, "KCLOSE", `")"`)
 		b.WriteString(r.Replace(cSeqTemplate))
 	}

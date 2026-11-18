@@ -360,6 +360,17 @@ sysml model.sysml -convert api-json -o model.json -library-references library-na
 It restores the ownerless library stubs written before 0.11.0, with `@id`, `@type`,
 `declaredName`, `elementId`, `isLibraryElement: true` and `qualifiedName`.
 An OMG API reader treats these as roots, so prefer the separate table for new clients.
+
+An element of the array carries its owned structure. The six derived lists that repeat a
+Namespace's or Type's inherited and imported members — `membership`, `member`,
+`inheritedMembership`, `featureMembership`, `feature` and `inheritedFeature` — are written
+only with `-inherited-members` (or `ConvertRequest.inherited_members`, advertised as
+`convert_inherited_members`): they follow from `ownedMembership`, the specializations and the
+imports, and repeating them on every element is most of a large model's document. Element ids
+and every other property are the same with or without them. The library members a model only
+inherits are referenced by those lists alone, so without them the library-reference table and
+a graph read back from the document name only the library elements the owned structure
+references, and `-include-library-stubs` writes a stub for those alone.
 Both CLI options require `-convert api-json` (or its `json` alias); the side file must
 not name an input or the output, including through a symlink or hard link.
 For a graph source, the table can name only references whose library metadata the graph carries.
@@ -1959,7 +1970,7 @@ named one writes `from` as its `sysx:endVerb`. The forms and what each writes:
 | `firstThen` | `<end0> then <end1>` | `succession first a then b`, `succession [n] first a then b` |
 | `fromTo` | `[of <payload>] from <end0> to <end1>` | `flow of P from a to b` |
 | `flowTo` | `[of <payload>] <end0> to <end1>` | `flow a to b` |
-| `satisfy` | `<requirement>` (the `sysml:subsets` end, written bare) | `satisfy R by v`, `verify R` |
+| `satisfy` | `<requirement>` (the `sysml:references` end, written bare) | `satisfy R by v`, `verify R` |
 | `then` | the source end is the nearest feature written before it that is not a connector or a transition; a member that is not a feature is read past | `then b;`, `then part b;` |
 
 A head whose own keyword is the noun form writes a verb ahead of its ends, and

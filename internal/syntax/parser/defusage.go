@@ -671,7 +671,7 @@ func (p *Parser) atKindPrefix() bool {
 		p.peekN(1).Kind == lexer.Keyword && featureModifierKeywords[p.peekN(1).KeywordID]) {
 		return true
 	}
-	if !p.isKindKeyword(p.peekN(1)) {
+	if !p.isKindKeywordAfter(kw, p.peekN(1)) {
 		return false
 	}
 	return kindPrefixKeywords[kw] || !namesDeclaration(p.peekN(2))
@@ -681,7 +681,7 @@ func (p *Parser) atKindPrefix() bool {
 // of the declaration whose first kind keyword was already consumed, rather than
 // being that declaration's name.
 func (p *Parser) atSecondaryKind(firstKeyword string) bool {
-	if notKindPrefixKeywords[firstKeyword] || !p.isKindKeyword(p.peek()) {
+	if notKindPrefixKeywords[firstKeyword] || !p.isKindKeywordAfter(firstKeyword, p.peek()) {
 		return false
 	}
 	if compoundDefKinds[[2]string{firstKeyword, p.peek().KeywordID}] || kindPrefixKeywords[firstKeyword] {
@@ -694,12 +694,21 @@ func (p *Parser) atSecondaryKind(firstKeyword string) bool {
 // usage a portion prefix portions (`timeslice item : Cargo`). A kind keyword
 // there is always the kind, never the portion's name, since the portion keyword
 // itself is the only kind a bare portion usage declares.
-func (p *Parser) atPortionedKind() bool {
-	if !p.at(lexer.Keyword) {
+func (p *Parser) atPortionedKind(portion string) bool {
+	if !p.at(lexer.Keyword) || !p.isKindKeywordAfter(portion, p.peek()) {
 		return false
 	}
 	_, ok := p.usageKind(p.peek().KeywordID)
 	return ok
+}
+
+// isKindKeywordAfter reports whether t continues the kind the keyword first opened. A word
+// the file's language does not reserve names it instead (SysML v2 8.2.2.1.2): `action behavior`.
+func (p *Parser) isKindKeywordAfter(first string, t lexer.Token) bool {
+	if !p.isKindKeyword(t) {
+		return false
+	}
+	return !p.reservedWord(first) || p.reservedWord(t.KeywordID)
 }
 
 // isKindKeyword reports whether the token is a def or usage kind keyword.
@@ -733,7 +742,7 @@ func (p *Parser) atAssertedReference() bool {
 	if p.peekN(0).Kind == lexer.Dollar && p.peekN(1).Kind == lexer.ColonColon {
 		nameOffset = 2
 	}
-	if p.isKindKeyword(p.peekN(nameOffset)) || !p.namesReference(nameOffset) {
+	if p.isKindKeywordAfter("assert", p.peekN(nameOffset)) || !p.namesReference(nameOffset) {
 		return false
 	}
 	for i := nameOffset + 1; ; i += 2 {
@@ -1408,7 +1417,7 @@ func (p *Parser) parsePortionPrefix(start int, mods *featureMods, prefixes *[]*a
 		// The portion kind is part of the usage prefix, so prefix metadata may
 		// still follow it: `snapshot #Classified part s;`.
 		*prefixes = append(*prefixes, p.parsePrefixMetadata()...)
-		if !p.atPortionedKind() {
+		if !p.atPortionedKind(tok.KeywordID) {
 			isAll := p.acceptSufficientAll()
 			return p.parseUsage(start, ast.UsageOccurrence, tok.KeywordID, *mods, isAll)
 		}
@@ -1558,7 +1567,7 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 			}
 			// `variant part def D;`: a VariantUsageElement is a usage (SysML.xtext:700),
 			// so the definition is read and rejected at `variant`.
-			if p.isKindKeyword(p.peek()) && p.peekN(1).Kind == lexer.Keyword && p.peekN(1).KeywordID == "def" {
+			if p.isKindKeywordAfter(kw, p.peek()) && p.peekN(1).Kind == lexer.Keyword && p.peekN(1).KeywordID == "def" {
 				defKw := p.advance().KeywordID
 				p.advance() // 'def'
 				return applyPrefixes(p.parseDefinition(start, p.definitionKindOf(defKw), defKw, mods, false, true))
@@ -1740,7 +1749,7 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 		// the reference form the same way, where `assert not (x > 1);` does negate
 		// an expression (SysML.xtext:2008, AssertConstraintUsage).
 		if kindPrefixKeywords[kw] && p.atKeyword("not") &&
-			(p.isKindKeyword(p.peekN(1)) || p.namesReference(1)) {
+			(p.isKindKeywordAfter(kw, p.peekN(1)) || p.namesReference(1)) {
 			mods.isNegated = true
 			p.advance()
 		}
@@ -1778,7 +1787,7 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 		}
 
 		kindKeyword := kw
-		if p.isKindKeyword(p.peek()) &&
+		if p.isKindKeywordAfter(kw, p.peek()) &&
 			(kindPrefixKeywords[kw] || (kw == "variant" && !namesDeclaration(p.peekN(1)))) {
 			kindKeyword = p.peek().KeywordID
 			// `variant` is a modifier of the declaration it prefixes, recorded
@@ -2147,9 +2156,8 @@ var ownedMembers = map[string]ownedMember{
 	// TransitionUsageMember is a StateBodyItem only (SysML.xtext); a transition between
 	// action nodes is an extension the notation pass reports, so those bodies read it too.
 	"transition": {"a transition between states", "state", []bodyContext{bodyState, bodyAction, bodyCalc, bodyCase}, "transition-membership-owning-type"},
-	// Expose is a ViewBodyItem only (SysML.xtext); in a view def body it is an
-	// extension OpenSysML resolves, which the notation pass reports.
-	"expose": {"what a view usage exposes", "view usage", []bodyContext{bodyView, bodyViewDef}, "expose-owning-namespace"},
+	// Expose is a ViewBodyItem only (SysML.xtext): a view def body does not offer it.
+	"expose": {"what a view usage exposes", "view usage", []bodyContext{bodyView}, "expose-owning-namespace"},
 }
 
 // MemberOwner names the body kind that alone offers the member keyword kw
@@ -2374,10 +2382,10 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 			declRels := p.parseRelationships(declFeature)
 			u.Relationships = append(u.Relationships, declRels...)
 		} else if reqName := p.parseChainedName(); reqName != nil {
-			// SysML.xtext:2119's ReferenceSubsetting reaches a nested feature through a '.'
-			// chain (KerML.xtext:699); kept a plain subsetting until its readers migrate.
+			// SysML.xtext:2119's OwnedReferenceSubsetting reaches a nested feature
+			// through a '.' chain (KerML.xtext:699).
 			u.Relationships = append(u.Relationships, &ast.Relationship{
-				Kind:   ast.RelSubsets,
+				Kind:   ast.RelReferences,
 				Target: reqName,
 			})
 			// The reference form takes specializations of its own:
