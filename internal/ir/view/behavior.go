@@ -591,11 +591,7 @@ func (r *Renderer) triggerLabel(doc string, written func() (lower.Trigger, bool)
 		return joinNonEmpty("when", r.extentText(doc, trigger.Expr))
 	case "accept":
 		if trigger.Subsetting {
-			links := make([]string, len(trigger.Subset))
-			for i, link := range trigger.Subset {
-				links[i] = notationName(link)
-			}
-			return "accept :> " + strings.Join(links, ".")
+			return "accept :> " + trigger.Subset
 		}
 		return "accept event"
 	case "call":
