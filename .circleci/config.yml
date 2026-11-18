@@ -700,12 +700,12 @@ jobs:
           name: Check Go dependencies for known vulnerabilities
           command: make vulncheck
 
-  # The race-enabled suite, the pipeline's longest step: the larger class and sixteen executors of one
+  # The race-enabled suite, the pipeline's longest step: the larger class and seventeen executors of one
   # or two scripts/race-shard.sh shards each, sized so that no node runs much over 25 minutes.
   go-race-test:
     executor: go-executor
     resource_class: large
-    parallelism: 16
+    parallelism: 17
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -728,7 +728,7 @@ jobs:
             set -o pipefail
             # One entry per node; a quoted entry runs its shards in turn (tests/hygiene keeps
             # the entries the shard list of scripts/race-shard.sh).
-            shards=(runtime runtime-corpus model smt "corpus codegen" export export-library export-examples export-corpus graph translate grpc tools rest "migrate runtime-exploration" cli)
+            shards=(runtime runtime-corpus model smt "corpus codegen" export export-library export-examples export-corpus graph translate grpc tools internal rest "migrate runtime-exploration" cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but the shard array has ${#shards[@]} nodes" >&2
               exit 1
@@ -838,7 +838,7 @@ jobs:
     executor: go-executor
     resource_class: large
     # The race test's shards but the runtime's corpus ones: without -race the runtime runs whole in about 19 minutes.
-    parallelism: 17
+    parallelism: 18
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -861,7 +861,7 @@ jobs:
           command: |
             # tests/export and tests/corpus whole overran 30 minutes, so make coverage-shard splits them by test name.
             # cmd/sysml has its own node: its exploration budgets took 23-30 minutes on the rest node.
-            shards=(runtime model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools rest migrate cli)
+            shards=(runtime model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools internal rest migrate cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but the Makefile's COVERAGE_SHARDS has ${#shards[@]} shards" >&2
               exit 1

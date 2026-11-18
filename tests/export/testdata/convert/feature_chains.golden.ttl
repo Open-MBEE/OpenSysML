@@ -1331,6 +1331,7 @@ expr:Chains__ctx__x_pvalue
     sysx:sourceText "launchVehicle.instrumentUnit.pip" ;
     sysml:elementId "Chains__ctx__x_pvalue" ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:operator "." ;
     sysml:argument expr:Chains__ctx__x_pvalue_pa0 ;
     sysml:ownedRelationship expr:Chains__ctx__x_pvalue_pin0_om, expr:Chains__ctx__x_pvalue_ptargetFeature, expr:Chains__ctx__x_pvalue_pout_om ;
     sysml:ownedMembership expr:Chains__ctx__x_pvalue_pin0_om, expr:Chains__ctx__x_pvalue_ptargetFeature, expr:Chains__ctx__x_pvalue_pout_om ;
@@ -1354,6 +1355,7 @@ expr:Chains__ctx__x_pvalue_pa0
     sysx:sourceText "launchVehicle.instrumentUnit" ;
     sysml:elementId "Chains__ctx__x_pvalue_pa0" ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:operator "." ;
     sysml:argument expr:Chains__ctx__x_pvalue_pa0_pa0 ;
     sysml:ownedRelationship expr:Chains__ctx__x_pvalue_pa0_pin0_om, expr:Chains__ctx__x_pvalue_pa0_ptargetFeature, expr:Chains__ctx__x_pvalue_pa0_pout_om ;
     sysml:ownedMembership expr:Chains__ctx__x_pvalue_pa0_pin0_om, expr:Chains__ctx__x_pvalue_pa0_ptargetFeature, expr:Chains__ctx__x_pvalue_pa0_pout_om ;

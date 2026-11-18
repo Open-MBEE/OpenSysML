@@ -182,7 +182,9 @@ jobs:
 
       # Pinned to the version recorded in the committed stubs (GRPC_GENERATED_VERSION).
       - name: Install the pinned grpcio-tools
-        run: 'pip install --only-binary :all: grpcio-tools==1.83.0'
+        uses: ./.github/actions/pip-install
+        with:
+          packages: grpcio-tools==1.83.0
 
       # Restored only: this job runs a pull request's scripts in develop's cache scope.
       - name: Provision the pinned pilot validator

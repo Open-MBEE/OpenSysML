@@ -1,5 +1,5 @@
-// Package pack is the compact binary encoding the library snapshot is written
-// in: a string table, then a body of varint-packed scalars and string indices.
+// Package pack is the compact binary encoding the library snapshot is written in: a string
+// table, then varint-packed scalars and string indices, one stream per kind so gzip sees like values together.
 package pack
 
 import (
@@ -13,11 +13,26 @@ import (
 // index past a table, or a length past the end of the data.
 var ErrCorrupt = errors.New("pack: corrupt stream")
 
+// The streams of a body. A longer varint is split, its low seven bits in the kind's first
+// stream and the rest in its tail stream, so the varied low bytes do not break up the high ones.
+const (
+	streamLen = iota
+	streamBool
+	streamFloat
+	streamUint
+	streamUintTail
+	streamInt
+	streamIntTail
+	streamString
+	streamStringTail
+	numStreams
+)
+
 // Writer accumulates a stream. Strings are interned into the table as they are
 // written, so a stream's bytes depend only on the sequence of writes.
 type Writer struct {
-	body []byte
-	strs *stringTable
+	streams [numStreams][]byte
+	strs    *stringTable
 }
 
 // stringTable is the interned strings of a stream, shared by the writers of
@@ -33,23 +48,37 @@ func NewWriter() *Writer {
 	return &Writer{strs: &stringTable{ids: make(map[string]uint64)}}
 }
 
-// Section writes what write produces as a length-prefixed section, which a
-// Reader can decode apart from the rest; it shares the string table.
+// Section writes what write produces as a section, which a Reader can decode apart from the
+// rest; it shares the string table and is led by the lengths of its streams.
 func (w *Writer) Section(write func(*Writer)) {
 	sub := &Writer{strs: w.strs}
 	write(sub)
-	w.Len(len(sub.body))
-	w.body = append(w.body, sub.body...)
+	for i := range sub.streams {
+		w.Len(len(sub.streams[i]))
+	}
+	for i := range sub.streams {
+		w.streams[i] = append(w.streams[i], sub.streams[i]...)
+	}
+}
+
+// split writes v to a first and a tail stream.
+func (w *Writer) split(first int, v uint64) {
+	if v < 0x80 {
+		w.streams[first] = append(w.streams[first], byte(v))
+		return
+	}
+	w.streams[first] = append(w.streams[first], byte(v&0x7f)|0x80)
+	w.streams[first+1] = binary.AppendUvarint(w.streams[first+1], v>>7)
 }
 
 // Uint writes an unsigned varint.
 func (w *Writer) Uint(v uint64) {
-	w.body = binary.AppendUvarint(w.body, v)
+	w.split(streamUint, v)
 }
 
 // Int writes a signed varint (zigzag).
 func (w *Writer) Int(v int64) {
-	w.body = binary.AppendVarint(w.body, v)
+	w.split(streamInt, uint64(v<<1)^uint64(v>>63)) // #nosec G115 -- zig-zag reinterprets the bits
 }
 
 // Len writes a slice length or a count.
@@ -57,21 +86,21 @@ func (w *Writer) Len(n int) {
 	if n < 0 {
 		panic("pack: negative length")
 	}
-	w.Uint(uint64(n))
+	w.streams[streamLen] = binary.AppendUvarint(w.streams[streamLen], uint64(n))
 }
 
 // Bool writes one byte.
 func (w *Writer) Bool(b bool) {
+	var v byte
 	if b {
-		w.body = append(w.body, 1)
-	} else {
-		w.body = append(w.body, 0)
+		v = 1
 	}
+	w.streams[streamBool] = append(w.streams[streamBool], v)
 }
 
 // Float writes the IEEE-754 bits of f, little-endian.
 func (w *Writer) Float(f float64) {
-	w.body = binary.LittleEndian.AppendUint64(w.body, math.Float64bits(f))
+	w.streams[streamFloat] = binary.LittleEndian.AppendUint64(w.streams[streamFloat], math.Float64bits(f))
 }
 
 // String writes s as its string-table index, interning it on first use.
@@ -84,14 +113,18 @@ func (w *Writer) String(s string) {
 		t.table = append(t.table, s)
 		t.size += len(s)
 	}
-	w.Uint(id)
+	w.split(streamString, id)
 }
 
 // Bytes returns the stream: the string table (count, each length, the joined
-// bytes) followed by the body.
+// bytes) followed by the body (each stream's length, then the streams).
 func (w *Writer) Bytes() []byte {
 	t := w.strs
-	out := make([]byte, 0, len(w.body)+t.size+4*len(t.table)+16)
+	body := 0
+	for _, s := range w.streams {
+		body += len(s)
+	}
+	out := make([]byte, 0, body+t.size+4*len(t.table)+16+numStreams*binary.MaxVarintLen64)
 	out = binary.AppendUvarint(out, uint64(len(t.table)))
 	for _, s := range t.table {
 		out = binary.AppendUvarint(out, uint64(len(s)))
@@ -99,97 +132,148 @@ func (w *Writer) Bytes() []byte {
 	for _, s := range t.table {
 		out = append(out, s...)
 	}
-	return append(out, w.body...)
+	for _, s := range w.streams {
+		out = binary.AppendUvarint(out, uint64(len(s)))
+	}
+	for _, s := range w.streams {
+		out = append(out, s...)
+	}
+	return out
 }
 
 // Reader decodes a stream written by Writer. A malformed stream sets a sticky
 // error and later reads return zero values, so a caller checks Err at the end.
 type Reader struct {
-	data  []byte
-	pos   int
-	table []string
-	err   error
+	streams [numStreams][]byte // what is left of each stream
+	extra   int                // bytes after the last stream, which nothing reads
+	table   []string
+	err     error
 }
 
-// NewReader parses the string table of data and positions the reader at the
-// body. The table's strings are substrings of one copy of the table's bytes.
+// NewReader parses the string table of data and the lengths of the body's
+// streams. The table's strings are substrings of one copy of the table's bytes.
 func NewReader(data []byte) (*Reader, error) {
-	r := &Reader{data: data}
-	count := r.Len()
-	if r.err != nil {
-		return nil, r.err
+	pos := 0
+	length := func(what string) (int, error) {
+		v, n := binary.Uvarint(data[pos:])
+		if n <= 0 || v > uint64(len(data)-pos-n) { // #nosec G115 -- n is at most the bytes after pos
+			return 0, fmt.Errorf("%w: %s at byte %d", ErrCorrupt, what, pos)
+		}
+		pos += n
+		return int(v), nil // #nosec G115 -- at most the bytes left, which is an int
+	}
+	count, err := length("string table")
+	if err != nil {
+		return nil, err
 	}
 	lengths := make([]int, count)
 	size := 0
 	for i := range lengths {
-		lengths[i] = r.Len()
-		if r.err != nil {
-			return nil, r.err
+		if lengths[i], err = length("string table"); err != nil {
+			return nil, err
 		}
-		if lengths[i] > len(data)-r.pos-size {
-			r.fail("string table")
-			return nil, r.err
+		if lengths[i] > len(data)-pos-size {
+			return nil, fmt.Errorf("%w: string table at byte %d", ErrCorrupt, pos)
 		}
 		size += lengths[i]
 	}
-	if size > len(data)-r.pos {
-		r.fail("string table")
-		return nil, r.err
+	if size > len(data)-pos {
+		return nil, fmt.Errorf("%w: string table at byte %d", ErrCorrupt, pos)
 	}
-	all := string(data[r.pos : r.pos+size])
-	r.pos += size
-	r.table = make([]string, count)
+	all := string(data[pos : pos+size])
+	pos += size
+	r := &Reader{table: make([]string, count)}
 	off := 0
 	for i, n := range lengths {
 		r.table[i] = all[off : off+n]
 		off += n
 	}
+	var sizes [numStreams]int
+	for i := range sizes {
+		if sizes[i], err = length("stream length"); err != nil {
+			return nil, err
+		}
+	}
+	for i, n := range sizes {
+		if n > len(data)-pos {
+			return nil, fmt.Errorf("%w: stream length at byte %d", ErrCorrupt, pos)
+		}
+		r.streams[i] = data[pos : pos+n : pos+n]
+		pos += n
+	}
+	r.extra = len(data) - pos
 	return r, nil
+}
+
+// split reads a varint from a first and a tail stream.
+func (r *Reader) split(first int) uint64 {
+	if r.err != nil {
+		return 0
+	}
+	s := r.streams[first]
+	if len(s) == 0 {
+		r.fail("varint")
+		return 0
+	}
+	b := s[0]
+	r.streams[first] = s[1:]
+	if b < 0x80 { // the common one-byte value
+		return uint64(b)
+	}
+	high, n := binary.Uvarint(r.streams[first+1])
+	if n <= 0 || high>>57 != 0 {
+		r.fail("varint")
+		return 0
+	}
+	r.streams[first+1] = r.streams[first+1][n:]
+	return high<<7 | uint64(b&0x7f)
 }
 
 // Uint reads an unsigned varint.
 func (r *Reader) Uint() uint64 {
-	if r.err != nil {
-		return 0
-	}
-	if r.pos < len(r.data) && r.data[r.pos] < 0x80 { // the common one-byte value
-		v := r.data[r.pos]
-		r.pos++
-		return uint64(v)
-	}
-	v, n := binary.Uvarint(r.data[r.pos:])
-	if n <= 0 {
-		r.fail("varint")
-		return 0
-	}
-	r.pos += n
-	return v
+	return r.split(streamUint)
 }
 
 // Int reads a signed varint.
 func (r *Reader) Int() int64 {
-	if r.err != nil {
-		return 0
+	v := r.split(streamInt)
+	return int64(v>>1) ^ -int64(v&1) // #nosec G115 -- zig-zag, as binary.Varint
+}
+
+// left is the bytes not yet read, over every stream and what follows them.
+func (r *Reader) left() uint64 {
+	n := r.extra
+	for _, s := range r.streams {
+		n += len(s)
 	}
-	if r.pos < len(r.data) && r.data[r.pos] < 0x80 {
-		v := r.data[r.pos]
-		r.pos++
-		return int64(v>>1) ^ -int64(v&1) // zig-zag, as binary.Varint
+	return uint64(n) // #nosec G115 -- a sum of lengths is not negative
+}
+
+// holds reports whether at least n bytes are left, stopping at the first
+// stream that settles it.
+func (r *Reader) holds(n uint64) bool {
+	for _, s := range r.streams {
+		if n <= uint64(len(s)) {
+			return true
+		}
+		n -= uint64(len(s))
 	}
-	v, n := binary.Varint(r.data[r.pos:])
-	if n <= 0 {
-		r.fail("varint")
-		return 0
-	}
-	r.pos += n
-	return v
+	return false
 }
 
 // Len reads a slice length or count. A length beyond the bytes left is
 // corrupt, since every element takes at least one byte.
 func (r *Reader) Len() int {
-	v := r.Uint()
-	if r.err == nil && v > uint64(len(r.data[r.pos:])) {
+	if r.err != nil {
+		return 0
+	}
+	v, n := binary.Uvarint(r.streams[streamLen])
+	if n <= 0 {
+		r.fail("varint")
+		return 0
+	}
+	r.streams[streamLen] = r.streams[streamLen][n:]
+	if !r.holds(v) {
 		r.fail("length")
 		return 0
 	}
@@ -201,13 +285,13 @@ func (r *Reader) Bool() bool {
 	if r.err != nil {
 		return false
 	}
-	if r.pos >= len(r.data) {
+	s := r.streams[streamBool]
+	if len(s) == 0 {
 		r.fail("bool")
 		return false
 	}
-	b := r.data[r.pos]
-	r.pos++
-	return b != 0
+	r.streams[streamBool] = s[1:]
+	return s[0] != 0
 }
 
 // Float reads a little-endian IEEE-754 value.
@@ -215,18 +299,18 @@ func (r *Reader) Float() float64 {
 	if r.err != nil {
 		return 0
 	}
-	if len(r.data)-r.pos < 8 {
+	s := r.streams[streamFloat]
+	if len(s) < 8 {
 		r.fail("float")
 		return 0
 	}
-	v := binary.LittleEndian.Uint64(r.data[r.pos:])
-	r.pos += 8
-	return math.Float64frombits(v)
+	r.streams[streamFloat] = s[8:]
+	return math.Float64frombits(binary.LittleEndian.Uint64(s))
 }
 
 // String reads a string-table index.
 func (r *Reader) String() string {
-	id := r.Uint()
+	id := r.split(streamString)
 	if r.err != nil {
 		return ""
 	}
@@ -237,15 +321,27 @@ func (r *Reader) String() string {
 	return r.table[id]
 }
 
-// Section returns a Reader over the next length-prefixed section, which the
-// receiver skips; the two keep separate errors and may be read concurrently.
+// Section returns a Reader over the next section, which the receiver skips;
+// the two keep separate errors and may be read concurrently.
 func (r *Reader) Section() *Reader {
-	n := r.Len()
-	if r.err != nil {
-		return &Reader{err: r.err, table: r.table}
+	sub := &Reader{table: r.table}
+	var sizes [numStreams]int
+	for i := range sizes {
+		sizes[i] = r.Len()
 	}
-	sub := &Reader{data: r.data[r.pos : r.pos+n], table: r.table}
-	r.pos += n
+	for i, n := range sizes {
+		if r.err == nil && n > len(r.streams[i]) {
+			r.fail("section length")
+		}
+	}
+	if r.err != nil {
+		sub.err = r.err
+		return sub
+	}
+	for i, n := range sizes {
+		sub.streams[i] = r.streams[i][:n:n]
+		r.streams[i] = r.streams[i][n:]
+	}
 	return sub
 }
 
@@ -253,7 +349,7 @@ func (r *Reader) Section() *Reader {
 func (r *Reader) Err() error { return r.err }
 
 // Done reports whether the whole stream has been read without error.
-func (r *Reader) Done() bool { return r.err == nil && r.pos == len(r.data) }
+func (r *Reader) Done() bool { return r.err == nil && r.left() == 0 }
 
 // Fail records a malformation the caller found in the decoded values, such as
 // an index past a table it built.
@@ -263,6 +359,6 @@ func (r *Reader) Fail(what string) {
 
 func (r *Reader) fail(what string) {
 	if r.err == nil {
-		r.err = fmt.Errorf("%w: %s at byte %d", ErrCorrupt, what, r.pos)
+		r.err = fmt.Errorf("%w: %s with %d bytes left", ErrCorrupt, what, r.left())
 	}
 }

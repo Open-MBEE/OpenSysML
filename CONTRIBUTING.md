@@ -321,16 +321,20 @@ client wait for the full tier. Only a push touching a path no area claims escala
 the full tier (`scripts/ci-changed-areas.sh`, and its test pins it).
 
 **The queue tier** runs on the merge queue's commit (below). It runs every job and gate of the
-full tier — gofmt, `go vet`, `make lint`, every shard of the test suite (eighteen, `make
-test-queue`), the binaries, the client suites, the conformance suite over each transport, the
+full tier — gofmt, `go vet`, `make lint`, every shard of the test suite (nineteen, `make
+test-queue`), the binaries, the conformance suite over each transport, the
 protobuf lint and wire-compatibility checks, the documentation hygiene checks (`make docs-check`,
 `make man-check` and the census check), the site build, the PDF toolchain, and in each client's
-job the release-digest copy it ships and the stubs it commits — with two economies, both on the
-`examples/` sweeps alone: those shards run without the race detector, and over the
+job the release-digest copy it ships and the stubs it commits — with three economies. Two are on
+the `examples/` sweeps alone: those shards run without the race detector, and over the
 construct-cover subset rather than the whole corpus (in the shards and in the static job's two
-round-trip gate steps). Every other shard runs under `-race`, over everything, so what the queue
-tier does not do is run the race detector over the sweeps, and walk the whole corpus. The
-nightly full scan does both on develop's head.
+round-trip gate steps). The third is the clients, editors and plugins: as in the quick tier, a
+group runs only those whose own paths changed, not the fan-out from a service change to every
+client, because every client job fetches its toolchain and dependencies from a registry (PyPI,
+Maven Central, npm, crates.io, the Julia registry, ftp.gnu.org) and one registry timeout fails
+the whole group. Every other shard runs under `-race`, over everything, so what the queue tier
+does not do is run the race detector over the sweeps, walk the whole corpus, and fan a service
+change out to the clients. The nightly full scan does all three on develop's head.
 
 **The full tier** runs on any pull request carrying the label `ci:full` (adding it re-runs the
 current head), on an unclaimed-path push, on develop's head every night
@@ -395,7 +399,10 @@ count twice because Maven 3.9 (Wagon) reads only `aether.connector.http.retryHan
 Maven 3.10 (the Apache transport) only `aether.transport.http.retryHandler.count`. Run `mvn` with
 `-f <tree>/pom.xml` so the file applies. `.github/workflows/maven-cache.yml` resolves the three
 trees on every push to `develop` that changes a `pom.xml`, and daily, and saves `~/.m2/repository`
-keyed on the hash of every `pom.xml`. A job that runs Maven restores that entry with
+keyed on the hash of every `pom.xml` and of that workflow. It runs the tests and ignores their
+result, because Surefire resolves its provider and the JUnit launcher only when tests run; deletes
+every `*.lastUpdated` marker of a failed download; and then builds the three trees again with
+`mvn -o`, so an entry that lacks an artifact is not saved. A job that runs Maven restores that entry with
 `.github/actions/maven-cache` after `actions/setup-java` (`nightly.yml`, which builds a commit that
 may predate the action, by the same key), and does not set `cache: maven` there: a
 pull request's or merge group's own cache is private to its ref, and one saved by a single job
@@ -412,6 +419,31 @@ and `rebaseline.yml` can restore only an entry saved on `develop` (or their own 
 pin moved restores the newest earlier entry by the `pilot-validator-` prefix; the script rebuilds
 the stale copy, but from the Maven repository that entry holds rather than from Maven Central.
 `rebaseline.yml` never saves, since it runs a pull request's scripts in `develop`'s cache scope.
+
+Python packages are held to the same policy. No workflow or action runs `pip install` against PyPI:
+each names its pins to `.github/actions/pip-install` (`packages`, a pinned `requirements` file, or
+`projects`, whose build requirements and dependencies join the set without being installed), which
+restores a directory of exactly those wheels, keyed on the request and the interpreter, and installs
+from it with `--no-index`. On a miss `scripts/ci-pip-install.sh` downloads the set wheel-only in up
+to four bounded attempts, because pip's own `--retries` covers a connection it could not make but
+not an index page or a wheel that arrived truncated; it reads every wheel back, records their
+checksums, and installs only from a complete set, so a run fails with nothing installed rather than
+half-installed. A step that must run pip itself (`make python-install`, a virtualenv a release
+check builds, a script that installs a pinned tool into one: `scripts/download-sca-tools.sh`,
+`scripts/download-doc-pdf-toolchain.sh`) sets `PIP_NO_INDEX: '1'` and `PIP_FIND_LINKS` to the
+action's `wheels` output, which for a script holds the script's own pin.
+`.github/workflows/pip-cache.yml` alone saves the entries, on every push to `develop` that changes a
+workflow, an action or a pinned file, and daily; its matrix lists every request with the Python its
+job sets up, and it installs each a second time with the index unreachable. A new or changed pin
+therefore changes the call site and the matrix together; `tests/hygiene/pip_install_test.go` fails
+on a direct `pip install`, and on a request the matrix does not warm.
+
+The dependency audit is the one step that cannot run from the wheels: `pip-audit` asks PyPI which
+versions an install would resolve today and which of them are vulnerable, and it gives up on the
+first read that takes 15 seconds. `make audit-python` therefore runs it through
+`scripts/pip-audit-retry.sh`, which gives each read 60 seconds, for the vulnerability feed and for
+the pip that resolves alike, and repeats an audit that did not complete, up to four bounded
+attempts. An audit that reports a vulnerability is not repeated: it fails at once.
 The script passes both retry property names on its command line, the clone having no
 `.mvn/maven.config`, and logs `mvn --version`: the `ubuntu-24.04` image ships Maven 3.10.
 

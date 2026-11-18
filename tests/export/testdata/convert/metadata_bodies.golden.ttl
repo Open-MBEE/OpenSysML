@@ -1320,6 +1320,7 @@ expr:Annotated___403__level_pvalue
     sysx:sourceText "car.range" ;
     sysml:elementId "Annotated___403__level_pvalue" ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:operator "." ;
     sysml:argument expr:Annotated___403__level_pvalue_pa0 ;
     sysml:ownedRelationship expr:Annotated___403__level_pvalue_pin0_om, expr:Annotated___403__level_pvalue_ptargetFeature, expr:Annotated___403__level_pvalue_pout_om ;
     sysml:ownedMembership expr:Annotated___403__level_pvalue_pin0_om, expr:Annotated___403__level_pvalue_ptargetFeature, expr:Annotated___403__level_pvalue_pout_om ;

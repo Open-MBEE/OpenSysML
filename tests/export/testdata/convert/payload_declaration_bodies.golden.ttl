@@ -586,6 +586,7 @@ expr:Payloads__Ctx___402_pend0_pff
     sysml:owner expr:Payloads__Ctx___402_pend0 ;
     sysml:owningRelationship expr:Payloads__Ctx___402_pend0_pff_om ;
     sysml:owningMembership expr:Payloads__Ctx___402_pend0_pff_om ;
+    sysml:name "i" ;
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:Payloads__A__i ;
@@ -606,6 +607,7 @@ expr:Payloads__Ctx___402_pend0_pff_om
     sysml:source expr:Payloads__Ctx___402_pend0 ;
     sysml:target expr:Payloads__Ctx___402_pend0_pff ;
     sysml:relatedElement expr:Payloads__Ctx___402_pend0, expr:Payloads__Ctx___402_pend0_pff ;
+    sysml:memberName "i" ;
     json:relatedElement "[{\"@id\":\"Payloads__Ctx___402_pend0\"},{\"@id\":\"Payloads__Ctx___402_pend0_pff\"}]" .
 
 expr:Payloads__Ctx___402_pend1
@@ -667,6 +669,7 @@ expr:Payloads__Ctx___402_pend1_pff
     sysml:owner expr:Payloads__Ctx___402_pend1 ;
     sysml:owningRelationship expr:Payloads__Ctx___402_pend1_pff_om ;
     sysml:owningMembership expr:Payloads__Ctx___402_pend1_pff_om ;
+    sysml:name "j" ;
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:Payloads__B__j ;
@@ -687,6 +690,7 @@ expr:Payloads__Ctx___402_pend1_pff_om
     sysml:source expr:Payloads__Ctx___402_pend1 ;
     sysml:target expr:Payloads__Ctx___402_pend1_pff ;
     sysml:relatedElement expr:Payloads__Ctx___402_pend1, expr:Payloads__Ctx___402_pend1_pff ;
+    sysml:memberName "j" ;
     json:relatedElement "[{\"@id\":\"Payloads__Ctx___402_pend1\"},{\"@id\":\"Payloads__Ctx___402_pend1_pff\"}]" .
 
 elmt:Payloads__Ctx___402__fuel
@@ -1306,6 +1310,7 @@ expr:Payloads__Ctx___404__cmd_pvalue
     sysx:sourceText "m.cmd" ;
     sysml:elementId "Payloads__Ctx___404__cmd_pvalue" ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:operator "." ;
     sysml:argument expr:Payloads__Ctx___404__cmd_pvalue_pa0 ;
     sysml:ownedRelationship expr:Payloads__Ctx___404__cmd_pvalue_pin0_om, expr:Payloads__Ctx___404__cmd_pvalue_ptargetFeature, expr:Payloads__Ctx___404__cmd_pvalue_pout_om ;
     sysml:ownedMembership expr:Payloads__Ctx___404__cmd_pvalue_pin0_om, expr:Payloads__Ctx___404__cmd_pvalue_ptargetFeature, expr:Payloads__Ctx___404__cmd_pvalue_pout_om ;

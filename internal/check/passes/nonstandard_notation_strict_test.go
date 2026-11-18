@@ -16,7 +16,6 @@ var extensionInventory = []string{
 	"state def S { history h; }",
 	"state def S { shallow history h; }",
 	"state def S { deep history h; }",
-	"package P { view def V { expose P::*; } }",
 	"action def A { action x; action y; transition first x then y; }",
 	"action def A { action a; decide d; succession s first d if true then a; else a; }",
 	"action def A { action a; merge m; succession first m then a; then a; }",
