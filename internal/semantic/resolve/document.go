@@ -2023,6 +2023,27 @@ func (r *Resolver) valueType(scope *symbols.Scope, usage *ast.Usage) *symbols.Sy
 	return sym
 }
 
+// FeatureValueGeneral returns the feature sym's feature value has it specialize, nil when
+// it has none (KerML 8.3.3.3.4 checkFeatureValuationSpecialization).
+func (r *Resolver) FeatureValueGeneral(sym *symbols.Symbol) *symbols.Symbol {
+	usage, isUsage := sym.Decl.(*ast.Usage)
+	if !isUsage {
+		return nil
+	}
+	// `a#(1)` is an operator expression, whose result is the index function's own; only
+	// a chain through it reads a's members.
+	if _, indexed := usage.Value.(*ast.IndexExpr); indexed {
+		return nil
+	}
+	// A name several declarations share is settled by the arguments, at run time when
+	// their types leave it open, so the call's result is no one declaration's.
+	if inv, called := usage.Value.(*ast.InvocationExpr); called && inv.Type != nil &&
+		len(r.InvocationCandidates(sym.OwnerScope, inv.Type)) > 1 {
+		return nil
+	}
+	return r.valueType(sym.OwnerScope, usage)
+}
+
 // invocationResult returns the feature the result of a call specializes: the result
 // parameter of the function it calls, nothing a function without one has beyond
 // Anything, else the behavior itself (KerML checkInvocationExpressionBehaviorResultSpecialization).

@@ -1100,7 +1100,7 @@ func TestWriteAPIJSONRefuses(t *testing.T) {
 		},
 		"language tag": func() *rdf.Graph {
 			g := typed(rdf.SysMLTerm("Package"))
-			g.Add(element, rdf.SysMLTerm("declaredName"), rdf.Term{Kind: rdf.TermLiteral, Value: "x", Lang: "en"})
+			g.Add(element, rdf.SysMLTerm("declaredName"), rdf.LangString("x", "en"))
 			return g
 		},
 		"foreign subject": func() *rdf.Graph {

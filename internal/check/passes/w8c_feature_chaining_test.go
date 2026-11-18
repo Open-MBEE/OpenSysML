@@ -111,3 +111,28 @@ func TestW8CFeatureChainingConformanceValid(t *testing.T) {
 		}
 	}
 }
+
+// A feature valued by another specializes it (KerML 8.3.3.3.4), so a chain through it to a
+// member of the value is a valid connection end; a `bind` specializes nothing.
+func TestW8CFeatureChainThroughValuedFeatureIsAConnectionEnd(t *testing.T) {
+	const model = `package P {
+		part HAPS { part payload { part 'CU-air'; } }
+		package Network {
+			%s
+			part userEquipment { part UE; }
+			connection userDownLink connect (payload.'CU-air', userEquipment.UE);
+			interface connect payload.'CU-air' to userEquipment.UE;
+			bind payload.'CU-air' = userEquipment.UE;
+		}
+	}`
+	valued := strings.Replace(model, "%s", `ref part payload = HAPS.payload;`, 1)
+	if got := w8cLibraryErrorsIn(t, "<t>.sysml", valued); len(got) != 0 {
+		t.Errorf("feature value: errors = %q, want none", got)
+	}
+	bound := strings.Replace(model, "%s", `ref part payload; bind payload = HAPS.payload;`, 1)
+	got := w8cLibraryErrorsIn(t, "<t>.sysml", bound)
+	want := []string{"unresolved member: CU-air", "unresolved member: CU-air", "unresolved member: CU-air"}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("binding connector: errors = %q, want %q", got, want)
+	}
+}

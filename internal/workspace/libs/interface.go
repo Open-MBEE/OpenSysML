@@ -189,6 +189,9 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	if ref := m.ReferencedFeature(sym); ref != nil {
 		facts.References = w.ref(sym, ref, "referenced feature")
 	}
+	if general := m.FeatureValueGeneral(sym); general != nil {
+		facts.ValueGeneral = w.ref(sym, general, "feature value general")
+	}
 	if sym.Kind == symbols.SymbolAlias {
 		if target, ok := w.r.AliasTarget(sym); ok {
 			facts.Alias = w.ref(sym, target, "alias target")
