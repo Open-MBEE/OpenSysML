@@ -2282,7 +2282,7 @@ func (d *decoder) transitionGuard(el *element) (string, error) {
 	var text string
 	var err error
 	if guard.IsLiteral() {
-		if guard.Datatype != rdf.OpenSysML+dtExpression {
+		if guard.Datatype() != rdf.OpenSysML+dtExpression {
 			return "", refuse("its guard is a literal that is not a SysML expression")
 		}
 		text = guard.Value

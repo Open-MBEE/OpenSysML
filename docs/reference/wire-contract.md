@@ -243,6 +243,12 @@ namespace it is written in and owns its Annotation (KerML 8.3.2.3), so it is nei
 member of what it annotates: `childIds` and `members` leave it out, and this field is where it is
 found. The `symbol_annotating_metadata` capability advertises the field; a service without it
 answers none.
+`memberOf` names the type the symbol is read as a feature of, by id: `metadata.direction` is then
+the feature's direction relative to that type (KerML 8.3.3.1.10 `Type::directionOf`), which a
+conjugation on the way reverses, so a feature declared `out` reads `in` through a port typed
+`~P` (SysML 8.3.12.3). Without it `direction` is the feature's own. An id that names nothing is
+an error. The `symbol_member_direction` capability advertises the field; a service without it
+ignores it.
 Beside the other typed fields (`typeInfo`, `multiplicity`, `specializations`, `attributes`),
 `metadata` is a string map of facts about the declaration, each present only when it holds:
 

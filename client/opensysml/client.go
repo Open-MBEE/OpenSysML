@@ -634,6 +634,12 @@ func ByElementID() SymbolOption {
 	return func(req *pb.GetSymbolRequest) { req.Lookup = pb.LookupKind_LOOKUP_KIND_ELEMENT_ID }
 }
 
+// AsMemberOf reports the symbol's direction relative to the type with the given id, which a
+// conjugated port typing reverses; it needs the "symbol_member_direction" capability.
+func AsMemberOf(typeID string) SymbolOption {
+	return func(req *pb.GetSymbolRequest) { req.MemberOf = typeID }
+}
+
 func (c *client) LookupSymbol(ctx context.Context, model *Model, symbolID string, opts ...SymbolOption) (*Symbol, error) {
 	if err := c.live(); err != nil {
 		return nil, err
@@ -664,6 +670,11 @@ func (c *client) LookupSymbol(ctx context.Context, model *Model, symbolID string
 	}
 	// A service without the capability reads every id as one it reported.
 	req.ResolveName = req.ResolveName && info.Has(CapabilitySymbolNameResolution)
+	if req.MemberOf != "" {
+		if err := c.requireCapabilities(ctx, CapabilitySymbolMemberDirection); err != nil {
+			return nil, err
+		}
+	}
 	resp, err := c.caller.getSymbol(ctx, req)
 	if err != nil {
 		return nil, err

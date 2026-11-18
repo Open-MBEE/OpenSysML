@@ -30,6 +30,7 @@ type SymbolInput struct {
 	IncludeLibraryMembers bool   `json:"includeLibraryMembers,omitempty" jsonschema:"list the members inherited from standard-library content too, which are otherwise withheld and counted"`
 	ResolveName           bool   `json:"resolveName,omitempty" jsonschema:"resolve symbolId as a qualified name from the root namespace as the notation does: through imports, an alias answered by the element it names, a member not visible from outside its namespace not found; otherwise symbolId is an id the service reported"`
 	Lookup                string `json:"lookup,omitempty" jsonschema:"what symbolId is, stated rather than guessed: LOOKUP_KIND_QUALIFIED_NAME reads it only as a qualified name, LOOKUP_KIND_ELEMENT_ID only as an id an answer reported (a childIds or members entry, a positional id as Owner::@3, an unnamed connector end's id); empty reads a name first, then an id; resolveName is ignored once it is stated"`
+	MemberOf              string `json:"memberOf,omitempty" jsonschema:"the type the element is read as a feature of, as Demo::Vehicle::fuelPort: the direction reported is then the one relative to that type, which a conjugated port typing reverses"`
 }
 
 // ElementPropertiesInput names an element and the metamodel properties to read.
@@ -106,7 +107,7 @@ func (g *group) registerParse(s *mcp.Server) {
 		}
 		resp, err := g.svc.GetSymbol(ctx, &pb.GetSymbolRequest{
 			ModelHash: m.hash, SymbolId: in.SymbolID, IncludeLibraryMembers: in.IncludeLibraryMembers,
-			ResolveName: in.ResolveName, Lookup: lookup,
+			ResolveName: in.ResolveName, Lookup: lookup, MemberOf: in.MemberOf,
 		})
 		if err != nil {
 			return nil, nil, toolError(err)

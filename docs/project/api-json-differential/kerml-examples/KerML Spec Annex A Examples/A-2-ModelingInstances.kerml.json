@@ -11,16 +11,16 @@
       "typeMismatch": 13
     },
     "properties": {
-      "presentEqual": 884,
-      "presentDifferent": 66,
+      "presentEqual": 885,
+      "presentDifferent": 65,
       "oursMissing": 103,
-      "pilotMissing": 56,
+      "pilotMissing": 57,
       "absentBoth": 821,
       "indeterminate": 0,
       "pilotNondeterministic": 0
     },
     "unkeyedReferences": 30,
-    "extensionProperties": 217,
+    "extensionProperties": 218,
     "duplicateElements": {
       "ours": 0,
       "pilot": 21
@@ -127,7 +127,7 @@
     "Feature.chainingFeature": [0,0,0,0,2,0,0],
     "Feature.declaredName": [1,0,0,0,1,0,0],
     "Feature.declaredShortName": [0,0,0,0,2,0,0],
-    "Feature.definition": [0,0,0,1,0,0,0],
+    "Feature.definition": [0,0,0,2,0,0,0],
     "Feature.differencingType": [0,0,0,0,2,0,0],
     "Feature.directedFeature": [0,0,0,0,2,0,0],
     "Feature.direction": [0,0,0,0,2,0,0],
@@ -192,7 +192,7 @@
     "Feature.qualifiedName": [2,0,0,0,0,0,0],
     "Feature.redefines": [0,0,0,1,0,0,0],
     "Feature.textualRepresentation": [0,0,0,0,2,0,0],
-    "Feature.type": [1,1,0,0,0,0,0],
+    "Feature.type": [2,0,0,0,0,0,0],
     "Feature.unioningType": [0,0,0,0,2,0,0],
     "Feature.upperBound": [0,0,0,2,0,0,0],
     "FeatureMembership.aliasIds": [0,0,0,0,2,0,0],
