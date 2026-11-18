@@ -96,6 +96,14 @@ func (h *calcStmtHost) readPerformance(engine *stmtEngine, perf *actionFrame) {
 	engine.env.perf = perf
 }
 
+// caseAssertions is the case's own, nil for a calculation.
+func (h *calcStmtHost) caseAssertions() *caseAssertions {
+	if h.perfs == nil {
+		return nil
+	}
+	return h.perfs.root.assertions
+}
+
 // performance is the case's own performance, nil for a calculation.
 func (h *calcStmtHost) performance() *actionFrame {
 	if h.perfs == nil {

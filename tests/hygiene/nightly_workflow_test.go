@@ -35,6 +35,7 @@ type actionsJob struct {
 }
 
 type actionsStep struct {
+	ID   string            `yaml:"id"`
 	Name string            `yaml:"name"`
 	Uses string            `yaml:"uses"`
 	Run  string            `yaml:"run"`
@@ -238,7 +239,7 @@ func TestNightlyJupyterKernelSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *
 		"--table client/jupyter-kernel/jupyter_opensysml_kernel/release-digests.json",
 	)
 	build := stepIndex(steps, `"$KERNEL_DIST_SCRIPT" dist/jupyter client/jupyter-kernel/dist`, "-py3-none-*.whl")
-	labextension := stepIndex(steps, `pip install --only-binary ":all:" jupyterlab==`,
+	labextension := stepIndex(steps,
 		`(cd editors/jupyterlab && npm version --no-git-tag-version "$NPM_VERSION")`,
 		`"$KERNEL_DIST_SCRIPT" dist/jupyter client/jupyter-kernel/dist`,
 		`labextensions/jupyterlab-opensysml/package.json`, `[ "$stamped" != "$NPM_VERSION" ]`,
@@ -281,6 +282,19 @@ func TestNightlyJupyterKernelSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *
 		if !strings.Contains(steps[verify].Command, asset) {
 			t.Errorf("the kernel distribution check does not require %s", asset)
 		}
+	}
+	// jupyterlab provides the `jupyter labextension build` the distribution build runs.
+	jupyterlab, distributions := -1, -1
+	for i, step := range nightlyJob(t, workflow, "publish").Steps {
+		switch {
+		case step.Uses == pipInstallAction && strings.Contains(step.With["packages"], "jupyterlab=="):
+			jupyterlab = i
+		case strings.Contains(step.Run, `"$KERNEL_DIST_SCRIPT" dist/jupyter client/jupyter-kernel/dist`):
+			distributions = i
+		}
+	}
+	if jupyterlab < 0 || jupyterlab > distributions {
+		t.Errorf("the publish job does not install a pinned jupyterlab through %s before the kernel distributions are built", pipInstallAction)
 	}
 }
 
