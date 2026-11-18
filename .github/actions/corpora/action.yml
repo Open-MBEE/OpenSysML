@@ -136,8 +136,9 @@ runs:
     # and wheel-only like every pip install of the workflows.
     - name: Install fmpy
       if: inputs.reference-fmus == 'true'
-      shell: bash
-      run: pip install --only-binary ":all:" fmpy==0.3.32
+      uses: ./.github/actions/pip-install
+      with:
+        packages: fmpy==0.3.32
 
     # The Modelica Reference-FMUs, checksummed; keyed on the download script
     # and its pin. A restored cache is verified by the script's own check.

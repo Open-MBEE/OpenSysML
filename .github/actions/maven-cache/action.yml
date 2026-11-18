@@ -1,7 +1,8 @@
 name: Restore the Maven dependency cache
 description: >-
   Restore ~/.m2/repository from the entry .github/workflows/maven-cache.yml saves on develop,
-  keyed on the hash of every pom.xml, or from the newest earlier one when a pom.xml changed.
+  keyed on the hash of every pom.xml and of that workflow, or from the newest earlier one when
+  either changed.
   Only that workflow passes save, so an entry always holds every Maven tree's dependencies.
 
 inputs:
@@ -18,7 +19,7 @@ runs:
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.m2/repository
-        key: maven-deps-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+        key: maven-deps-${{ runner.os }}-${{ hashFiles('**/pom.xml', '.github/workflows/maven-cache.yml') }}
         restore-keys: maven-deps-${{ runner.os }}-
 
     - name: Restore the Maven dependency cache, and save it after the job
@@ -26,4 +27,4 @@ runs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.m2/repository
-        key: maven-deps-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+        key: maven-deps-${{ runner.os }}-${{ hashFiles('**/pom.xml', '.github/workflows/maven-cache.yml') }}
