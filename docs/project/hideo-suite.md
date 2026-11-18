@@ -67,6 +67,13 @@ and its log under `logs/`. `-no-run` compares the results already there instead 
 The readers are given this checkout's `bin/sysml-grpc` as `OPENSYSML_BINARY` and no
 `OPENSYSML_SERVICE`, whatever the caller's environment names, so the outcomes are this tree's.
 
+The suite's Go readers have a `go.mod` of their own, which pins the versions this module required
+when the suite was recorded. Go refuses to build them once this module requires a newer version
+of any of them, so the ratchet runs the Go readers with `-mod=mod -modfile=` over a temporary copy
+of the suite's `go.mod` and `go.sum`: Go raises the copy to what this tree requires, the checkout
+keeps the pinned files, and a dependency update here is measured rather than reported as a
+provisioning failure.
+
 The checkout holds the suite's own Go sources, one of which is not `gofmt`-formatted, so
 `gofmt -l .` names it while the checkout is under `build/`. Set `HIDEO_SUITE_ROOT` to a
 directory outside the repository for the download and pass the same directory as `-suite` to
