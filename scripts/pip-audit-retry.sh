@@ -14,11 +14,21 @@ read_timeout=${PIP_AUDIT_READ_SECONDS:-60}
 # The pip that pip-audit resolves with reads its timeout and retries from the environment.
 export PIP_TIMEOUT=${PIP_TIMEOUT:-$read_timeout} PIP_RETRIES=${PIP_RETRIES:-8}
 
+# GNU timeout bounds an attempt where there is one (gtimeout on macOS with coreutils); without
+# it, as on a stock macOS, the attempt runs under the read timeouts alone.
+bounded=()
+for command in timeout gtimeout; do
+  if command -v "$command" >/dev/null 2>&1; then
+    bounded=("$command" -k 10 "$bound")
+    break
+  fi
+done
+
 log=$(mktemp)
 trap 'rm -f "$log"' EXIT
 for ((attempt = 1; attempt <= attempts; attempt++)); do
   status=0
-  timeout --kill-after=10s "$bound" "$tool" --timeout "$read_timeout" "$@" 2>&1 | tee "$log" || status=$?
+  ${bounded[@]+"${bounded[@]}"} "$tool" --timeout "$read_timeout" "$@" 2>&1 | tee "$log" || status=$?
   ((status != 0)) || exit 0
   # A finding is the audit's answer, not a failure to get one: it is reported at once.
   if grep -Eq 'Found [0-9]+ known vulnerabilit' "$log"; then
