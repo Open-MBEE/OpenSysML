@@ -93,9 +93,9 @@
     "filesFullyAgreeing": 528,
     "agreement": 1107,
     "severityMismatch": 8,
-    "openSysMLOnly": 121,
+    "openSysMLOnly": 120,
     "pilotOnly": 2450,
-    "openSysMLDiagnostics": 1236,
+    "openSysMLDiagnostics": 1235,
     "pilotDiagnostics": 3565
   },
   "roots": [
@@ -577,9 +577,9 @@
         "filesFullyAgreeing": 151,
         "agreement": 1042,
         "severityMismatch": 4,
-        "openSysMLOnly": 46,
+        "openSysMLOnly": 45,
         "pilotOnly": 2349,
-        "openSysMLDiagnostics": 1092,
+        "openSysMLDiagnostics": 1091,
         "pilotDiagnostics": 3395
       },
       "files": [
@@ -14560,12 +14560,6 @@
           "severityMismatch": [],
           "openSysMLOnly": [
             {
-              "line": 6,
-              "severity": "error",
-              "category": "syntax",
-              "count": 1
-            },
-            {
               "line": 9,
               "severity": "error",
               "category": "syntax",
@@ -24952,9 +24946,9 @@
       "filesFullyAgreeing": 529,
       "agreement": 1107,
       "severityMismatch": 8,
-      "openSysMLOnly": 120,
+      "openSysMLOnly": 119,
       "pilotOnly": 2450,
-      "openSysMLDiagnostics": 1235,
+      "openSysMLDiagnostics": 1234,
       "pilotDiagnostics": 3565
     },
     "findings": [
