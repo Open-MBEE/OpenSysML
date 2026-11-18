@@ -13,6 +13,8 @@ set -euo pipefail
 
 base=${1:?usage: ci-changed-areas.sh <base> [head]}
 head=${2:-HEAD}
+# A merge group names its base branch as refs/heads/<branch>, which the checkout holds as origin/<branch>.
+base=${base/#refs\/heads\//origin/}
 
 changed=$(git diff --name-only "$(git merge-base "$base" "$head")" "$head")
 

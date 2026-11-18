@@ -104,17 +104,12 @@ jobs:
       - name: Decide which areas to run
         id: areas
         env:
-          DIFF_BASE: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_ref || github.event_name == 'pull_request' && github.base_ref || '' }}
+          DIFF_BASE: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_ref || github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD' }}
           DIFF_HEAD: ${{ github.event_name == 'merge_group' && github.event.merge_group.head_sha || 'HEAD' }}
           CI_EVENT: ${{ github.event_name }}
           CI_FULL_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:full') }}
           CI_TIER: ${{ github.event_name == 'workflow_dispatch' && inputs.tier || '' }}
-        run: |
-          base=HEAD
-          if [ -n "$DIFF_BASE" ]; then
-            base="origin/${DIFF_BASE#refs/heads/}"
-          fi
-          scripts/ci-changed-areas.sh "$base" "$DIFF_HEAD" | tee -a "$GITHUB_OUTPUT"
+        run: scripts/ci-changed-areas.sh "$DIFF_BASE" "$DIFF_HEAD" | tee -a "$GITHUB_OUTPUT"
 
       # go_shards is the Go test job's matrix: every race shard under the full and queue tiers (make test-shard,
       # make test-queue), ten race-free groups of them under quick (make test-quick); tests/hygiene keeps both whole.

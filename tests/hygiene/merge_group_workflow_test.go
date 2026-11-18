@@ -2,6 +2,7 @@ package hygiene
 
 import (
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -139,11 +140,18 @@ func TestPRWorkflowChangedAreasHandlesMergeGroups(t *testing.T) {
 	if !strings.Contains(areas.Env["DIFF_BASE"], "github.base_ref") {
 		t.Errorf("pr.yml Decide which areas to run DIFF_BASE = %q no longer diffs a pull request against its base branch", areas.Env["DIFF_BASE"])
 	}
-	if !strings.Contains(areas.Run, `base="origin/${DIFF_BASE#refs/heads/}"`) {
-		t.Errorf("pr.yml Decide which areas to run = %q does not diff from the base branch's remote ref", areas.Run)
+	if !strings.Contains(areas.Env["DIFF_BASE"], "format('origin/{0}', github.base_ref)") {
+		t.Errorf("pr.yml Decide which areas to run DIFF_BASE = %q does not name the base branch's remote ref", areas.Env["DIFF_BASE"])
 	}
-	if !strings.Contains(areas.Run, `scripts/ci-changed-areas.sh "$base" "$DIFF_HEAD"`) {
+	if !strings.Contains(areas.Run, `scripts/ci-changed-areas.sh "$DIFF_BASE" "$DIFF_HEAD"`) {
 		t.Errorf("pr.yml Decide which areas to run = %q does not pass the diff range to scripts/ci-changed-areas.sh", areas.Run)
+	}
+	script, err := os.ReadFile(filepath.Join("..", "..", "scripts", "ci-changed-areas.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(script), `base=${base/#refs\/heads\//origin/}`) {
+		t.Error("scripts/ci-changed-areas.sh does not map a merge group's refs/heads/<branch> base to origin/<branch>")
 	}
 }
 
