@@ -350,6 +350,8 @@ Re-recorded on the occurrence-prefix classification change (a usage whose prefix
 
 Re-recorded on the feature chain operator change (a `FeatureChainExpression` — `d.a` as a value, an operand or a constraint's result — states `operator "."` in the conversion, as KerML 1.0 § 8.3.4.8.4 defines it and the pilot exports it): one row moves, `FeatureChainExpression.operator`, from `oursMissing` to `presentEqual` in the 122 fragments whose models chain a feature, 547 values in all (`presentEqual` 2105606 → 2106153, `oursMissing` 303083 → 302536). No element matching changes and no other row moves; the native walk had answered the operator already, so the two legs now agree on the cell.
 
+Re-recorded on the flow end feature naming change (the `ReferenceUsage` a flow's end owns, redefining the last feature the end names, is named by that feature — `name` on the usage, `memberName` on its `FeatureMembership`, derived as KerML 1.1 § 8.3.3.3.4 Feature::namingFeature defines them and the pilot exports them): one row moves, `FeatureMembership.memberName`, from `oursMissing` to `presentEqual` in the 11 fragments whose flows name their ends, 92 values in all (`presentEqual` 2106153 → 2106245, `oursMissing` 302536 → 302444) — the interaction-sequencing, Arrowhead and room models with many flows carry most of them, and `kerml-examples/Behavior Examples/TakePicture.kerml` two, a KerML flow's ends being named the same way. No element matching changes and no other row moves; the usage's `isVariable` and `mayTimeVary`, which the conversion already stated true, now agree with the native walk too.
+
 <!-- doc-counts:begin apijson-roots -->
 The per-root table, rendered from the baseline when the site builds.
 <!-- doc-counts:end apijson-roots -->
