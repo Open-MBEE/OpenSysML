@@ -237,12 +237,12 @@ type Trigger struct {
 	// operation; Typed and Calls report that one was written.
 	Signal, Called string
 	Typed, Calls   bool
-	// PayloadName is the payload's declared name; Subset is what the trigger
-	// subsets, one name per link of a feature chain, and Subsetting reports
-	// that it subsets something.
+	// PayloadName is the payload's declared name.
 	PayloadName string
-	Subset      []string
-	Subsetting  bool
+	// Subset is what the trigger subsets, one name per link of a feature
+	// chain; Subsetting reports that it subsets something.
+	Subset     []string
+	Subsetting bool
 }
 
 // endSegment is the last segment of a qualified name, "" for none.
