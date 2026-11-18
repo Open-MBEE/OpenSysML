@@ -1344,10 +1344,12 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      # setup-emacs uses a Nix already on PATH; this one has flakes enabled,
-      # which the nix-emacs-ci build of each Emacs version needs.
+      # Without flakes Nix takes the sources nix-emacs-ci evaluates over from its
+      # binary cache; with them it downloads each from its origin, ftp.gnu.org included.
       - name: Install Nix
         uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31.11.5
+        with:
+          extra_nix_config: experimental-features = nix-command
 
       # Emacs 29.1 is the oldest the package supports.
       - name: Set up Emacs
