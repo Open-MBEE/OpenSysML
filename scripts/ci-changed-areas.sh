@@ -41,6 +41,9 @@ hygiene_pattern='(^|/)testdata/|\.golden\.|_test\.go$'
 # Go tests (the referees' provenance and figure checks, doc-counts) read the committed
 # baselines and figure pages under docs/project, so a change there runs Go as well as docs.
 project_inputs_pattern='^docs/project/.*\.(json|md)$'
+# The shipped manual pages are compared with what each command renders by a Go test
+# (cmd/*/man_test.go); the docs job only runs them through a formatter.
+man_pages_pattern='^packaging/man/'
 # The derived-property differential (Java, the pinned pilot jar, 18-25 minutes) runs on what can move its baseline
 # (writer, referee, bridge, pin, baseline, corpora), not on the workflow; the queue tier skips it (the push ran it).
 apijson_pattern='^(internal/translate/export/|tools/referee/apijson/|tools/referee/baseline/|tools/referee/diff/|tools/oracle/baseline/|scripts/pilot-json-exporter/|scripts/pilot-pin\.sh$|scripts/download-pilot-validator\.sh$|scripts/download-pilot-json-exporter\.sh$|docs/project/api-json-differential/|\.github/actions/corpora/)'
@@ -84,25 +87,29 @@ emit tier "$tier"
 
 fanout=$service
 [[ "$tier" = quick ]] && fanout=false
+# Every client job fetches from a registry (PyPI, Maven Central, npm, crates.io, Julia, ftp.gnu.org), so a
+# merge group runs a client only on its own paths; the service-wide fan-out is the nightly full tier's.
+client_fanout=$fanout
+[[ "$tier" = queue ]] && client_fanout=false
 
-emit go "$( { [[ "$service" = true ]] || matches "$hygiene_pattern" || matches "$project_inputs_pattern"; } && echo true || echo false)"
+emit go "$( { [[ "$service" = true ]] || matches "$hygiene_pattern" || matches "$project_inputs_pattern" || matches "$man_pages_pattern"; } && echo true || echo false)"
 emit apijson "$( [[ "$tier" != queue ]] && { [[ "$everything" = true && "$fanout" = true ]] || matches "$apijson_pattern"; } && echo true || echo false)"
 emit docs "$( { [[ "$fanout" = true ]] || matches "$docs_pattern"; } && echo true || echo false)"
-emit node "$( { [[ "$fanout" = true ]] || matches "$node_pattern"; } && echo true || echo false)"
+emit node "$( { [[ "$client_fanout" = true ]] || matches "$node_pattern"; } && echo true || echo false)"
 # The client-manifest/Python version lockstep tests live in the Python suite,
 # so the Node, Java and Rust manifests, every editor manifest
 # check_version.py --editors reads, the editors' client references and the
 # Markdown <dependency> snippets that quote the Java client's version have to
 # run it too.
-emit python "$( { [[ "$fanout" = true ]] || matches "$python_pattern" || matches '^packaging/pypi-pysysml/' || matches '^client/node/package\.json$' || matches '^client/java/(pom\.xml|README\.md)$' || matches '^docs/reference/java-api\.md$' || matches '^packaging/agent-skills/skills/opensysml-java/SKILL\.md$' || matches '^client/rust/opensysml/Cargo\.toml$' || matches '^client/rust/Cargo\.lock$' || matches '^editors/(mdk|syson(/backend)?)/pom\.xml$' || matches '^editors/(mdk/(plugin|tools|openapi-stubs|mdk-api-stubs|mdk-bridge|dist)|syson/syson-api-stubs)/pom\.xml$' || matches '^editors/(vscode|jupyterlab|syson/frontend)/package(-lock)?\.json$'; } && echo true || echo false)"
-emit java "$( { [[ "$fanout" = true ]] || matches "$java_pattern"; } && echo true || echo false)"
-emit rust "$( { [[ "$fanout" = true ]] || matches "$rust_pattern"; } && echo true || echo false)"
-emit julia "$( { [[ "$fanout" = true ]] || matches "$julia_pattern"; } && echo true || echo false)"
-emit matlab "$( { [[ "$fanout" = true ]] || matches "$matlab_pattern"; } && echo true || echo false)"
-emit vscode "$( { [[ "$fanout" = true ]] || matches "$vscode_pattern"; } && echo true || echo false)"
-emit jupyterlab "$( { [[ "$fanout" = true ]] || matches "$jupyterlab_pattern"; } && echo true || echo false)"
-emit emacs "$( { [[ "$fanout" = true ]] || matches "$emacs_pattern"; } && echo true || echo false)"
+emit python "$( { [[ "$client_fanout" = true ]] || matches "$python_pattern" || matches '^packaging/pypi-pysysml/' || matches '^client/node/package\.json$' || matches '^client/java/(pom\.xml|README\.md)$' || matches '^docs/reference/java-api\.md$' || matches '^packaging/agent-skills/skills/opensysml-java/SKILL\.md$' || matches '^client/rust/opensysml/Cargo\.toml$' || matches '^client/rust/Cargo\.lock$' || matches '^editors/(mdk|syson(/backend)?)/pom\.xml$' || matches '^editors/(mdk/(plugin|tools|openapi-stubs|mdk-api-stubs|mdk-bridge|dist)|syson/syson-api-stubs)/pom\.xml$' || matches '^editors/(vscode|jupyterlab|syson/frontend)/package(-lock)?\.json$'; } && echo true || echo false)"
+emit java "$( { [[ "$client_fanout" = true ]] || matches "$java_pattern"; } && echo true || echo false)"
+emit rust "$( { [[ "$client_fanout" = true ]] || matches "$rust_pattern"; } && echo true || echo false)"
+emit julia "$( { [[ "$client_fanout" = true ]] || matches "$julia_pattern"; } && echo true || echo false)"
+emit matlab "$( { [[ "$client_fanout" = true ]] || matches "$matlab_pattern"; } && echo true || echo false)"
+emit vscode "$( { [[ "$client_fanout" = true ]] || matches "$vscode_pattern"; } && echo true || echo false)"
+emit jupyterlab "$( { [[ "$client_fanout" = true ]] || matches "$jupyterlab_pattern"; } && echo true || echo false)"
+emit emacs "$( { [[ "$client_fanout" = true ]] || matches "$emacs_pattern"; } && echo true || echo false)"
 # The MDK plugin builds on the Java client, so a client change re-runs it too.
-emit mdk "$( { [[ "$fanout" = true ]] || matches "$mdk_pattern" || matches "$java_pattern"; } && echo true || echo false)"
+emit mdk "$( { [[ "$client_fanout" = true ]] || matches "$mdk_pattern" || matches "$java_pattern"; } && echo true || echo false)"
 # The SysON backend builds on the Java client too, so a client change re-runs it.
-emit syson "$( { [[ "$fanout" = true ]] || matches "$syson_pattern" || matches "$java_pattern"; } && echo true || echo false)"
+emit syson "$( { [[ "$client_fanout" = true ]] || matches "$syson_pattern" || matches "$java_pattern"; } && echo true || echo false)"
