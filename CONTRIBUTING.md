@@ -322,15 +322,19 @@ the full tier (`scripts/ci-changed-areas.sh`, and its test pins it).
 
 **The queue tier** runs on the merge queue's commit (below). It runs every job and gate of the
 full tier — gofmt, `go vet`, `make lint`, every shard of the test suite (nineteen, `make
-test-queue`), the binaries, the client suites, the conformance suite over each transport, the
+test-queue`), the binaries, the conformance suite over each transport, the
 protobuf lint and wire-compatibility checks, the documentation hygiene checks (`make docs-check`,
 `make man-check` and the census check), the site build, the PDF toolchain, and in each client's
-job the release-digest copy it ships and the stubs it commits — with two economies, both on the
-`examples/` sweeps alone: those shards run without the race detector, and over the
+job the release-digest copy it ships and the stubs it commits — with three economies. Two are on
+the `examples/` sweeps alone: those shards run without the race detector, and over the
 construct-cover subset rather than the whole corpus (in the shards and in the static job's two
-round-trip gate steps). Every other shard runs under `-race`, over everything, so what the queue
-tier does not do is run the race detector over the sweeps, and walk the whole corpus. The
-nightly full scan does both on develop's head.
+round-trip gate steps). The third is the clients, editors and plugins: as in the quick tier, a
+group runs only those whose own paths changed, not the fan-out from a service change to every
+client, because every client job fetches its toolchain and dependencies from a registry (PyPI,
+Maven Central, npm, crates.io, the Julia registry, ftp.gnu.org) and one registry timeout fails
+the whole group. Every other shard runs under `-race`, over everything, so what the queue tier
+does not do is run the race detector over the sweeps, walk the whole corpus, and fan a service
+change out to the clients. The nightly full scan does all three on develop's head.
 
 **The full tier** runs on any pull request carrying the label `ci:full` (adding it re-runs the
 current head), on an unclaimed-path push, on develop's head every night

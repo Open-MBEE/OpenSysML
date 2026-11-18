@@ -215,9 +215,13 @@ tier_case_ parser-and-runtime quick internal/syntax/parser/parser.go internal/ex
 queue_case_() {
   CI_TIER=queue case_ "$@"
 }
-queue_case_ apijson-writer docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/translate/export/api_json_absence.go
+# A merge group runs a client only on that client's own paths: the fan-out from a service change
+# to every client is the full tier's, so a registry timeout cannot fail a group that never touched the client.
+queue_case_ apijson-writer docs,go internal/translate/export/api_json_absence.go
 queue_case_ apijson-baseline docs,go docs/project/api-json-differential/index.json
-queue_case_ unclaimed docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode some-new-top-level/thing.txt
+queue_case_ unclaimed docs,go some-new-top-level/thing.txt
+queue_case_ emacs-own emacs editors/emacs/sysml-mode.el
+queue_case_ java-own java,mdk,python,syson client/java/pom.xml
 area_for_event_() {
   local event=$1 label=$2 area=$3 expected=$4
   local actual
