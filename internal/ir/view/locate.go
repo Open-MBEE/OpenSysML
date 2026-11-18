@@ -488,14 +488,15 @@ func (l *ActionLocator) Node(within []ast.Node, node ast.Node) (string, bool) {
 func (l *ActionLocator) NodeAt(within []lower.FlowNode, node lower.FlowNode) (string, bool) {
 	key := locatorKey("")
 	for _, outer := range within {
-		next := key + "/@" + l.placeOf(outer)
-		if _, ok := l.nodes[next]; !ok {
+		place, ok := l.placeOf(outer)
+		next := key + "/@" + place
+		if _, drawn := l.nodes[next]; !ok || !drawn {
 			return l.nodes[key], false
 		}
 		key = next
 	}
-	if node != (lower.FlowNode{}) {
-		if id, ok := l.nodes[key+"/@"+l.placeOf(node)]; ok {
+	if place, ok := l.placeOf(node); ok {
+		if id, ok := l.nodes[key+"/@"+place]; ok {
 			return id, true
 		}
 	}
@@ -516,12 +517,17 @@ func (l *ActionLocator) EdgeAt(within []lower.FlowNode, graph *lower.ActionGraph
 	return firstEdge(l.edges, l.place(graph, edge.Succession()), from, to)
 }
 
-// placeOf spells where a node was written, as the rendering does.
-func (l *ActionLocator) placeOf(node lower.FlowNode) string {
+// placeOf spells where a node was written, as the rendering does, false for
+// one the graph declares nowhere: a node drawn without source is not that node.
+func (l *ActionLocator) placeOf(node lower.FlowNode) (string, bool) {
 	if node.Graph == nil {
-		return l.at.place("", source.Span{})
+		return "", false
 	}
-	return l.place(node.Graph, node.Graph.Provenance.Node(node.ID))
+	decl := node.Graph.Provenance.Node(node.ID)
+	if decl == nil {
+		return "", false
+	}
+	return l.place(node.Graph, decl), true
 }
 
 // flowOf is the graph of the flow node owns within graph, nil where it owns none.

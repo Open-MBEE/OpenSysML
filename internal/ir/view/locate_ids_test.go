@@ -156,6 +156,13 @@ func TestLocateActionsByIDAgreesWithDeclarations(t *testing.T) {
 	if id, ok := loc.NodeAt(nil, lower.FlowNode{}); ok || id != loc.Root() {
 		t.Errorf("NodeAt(no node) = %q, %v; want the root, not located", id, ok)
 	}
+	undeclared := lower.FlowNode{Graph: graph, ID: program.NodeID(len(graph.NodeIDs()) + 100)}
+	if id, ok := loc.NodeAt(nil, undeclared); ok || id != loc.Root() {
+		t.Errorf("NodeAt(an id the graph does not hold) = %q, %v; want the root, not located", id, ok)
+	}
+	if id, ok := loc.NodeAt([]lower.FlowNode{undeclared}, monitor); ok || id != loc.Root() {
+		t.Errorf("NodeAt(within an id the graph does not hold) = %q, %v; want the root, not located", id, ok)
+	}
 	record := lower.FlowNode{Graph: nested, ID: nested.NodeIDs()[len(nested.NodeIDs())-1]}
 	id, ok := loc.NodeAt([]lower.FlowNode{monitor, record}, lower.FlowNode{})
 	if ok || nodeName(t, rendering, id) != "record" {
@@ -286,5 +293,43 @@ func TestLocateStatesSkipsGraphOnlyRegionOwners(t *testing.T) {
 	}
 	if owners != 4 {
 		t.Errorf("found %d graph-only region states, want 4", owners)
+	}
+}
+
+// A node id the graph does not hold is not located at a node drawn without
+// source, such as the body of a loop: it falls back to the action around it.
+func TestLocateActionsByIDDoesNotMatchUnsourcedNodes(t *testing.T) {
+	rendering, sym := locatorModel(t, "action-forms.sysml", "", "ActionFormViews::monitorView", "ActionForms::Monitor")
+	graph, err := lower.ToActionGraph(sym.Decl, declScope(sym))
+	if err != nil {
+		t.Fatalf("ToActionGraph: %v", err)
+	}
+	loc, err := LocateActions(rendering, sym, sym, graph)
+	if err != nil {
+		t.Fatalf("LocateActions: %v", err)
+	}
+	var wait lower.FlowNode
+	for _, id := range graph.NodeIDs() {
+		if behaviorNodeName(graph.Provenance.Node(id)) == "wait" {
+			wait = lower.FlowNode{Graph: graph, ID: id}
+		}
+	}
+	drawn, ok := loc.NodeAt(nil, wait)
+	if !ok || nodeName(t, rendering, drawn) != "wait" {
+		t.Fatalf("NodeAt(wait) = %q, %v; want wait, located", drawn, ok)
+	}
+	unsourced := false
+	for _, node := range rendering.Data().Nodes {
+		unsourced = unsourced || node.Parent == drawn && node.Origin.Span.Len == 0
+	}
+	if !unsourced {
+		t.Fatal("wait draws no node without source, so the test proves nothing")
+	}
+	undeclared := lower.FlowNode{Graph: graph, ID: program.NodeID(len(graph.NodeIDs()) + 100)}
+	if id, ok := loc.NodeAt([]lower.FlowNode{wait}, undeclared); ok || id != drawn {
+		t.Errorf("NodeAt(wait/an id the graph does not hold) = %q, %v; want wait (%q), not located", id, ok, drawn)
+	}
+	if id, ok := loc.NodeAt([]lower.FlowNode{wait, undeclared}, lower.FlowNode{}); ok || id != drawn {
+		t.Errorf("NodeAt(within wait/an id the graph does not hold) = %q, %v; want wait (%q), not located", id, ok, drawn)
 	}
 }
