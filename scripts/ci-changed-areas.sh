@@ -84,25 +84,31 @@ emit tier "$tier"
 
 fanout=$service
 [[ "$tier" = quick ]] && fanout=false
+# The clients fetch their toolchains and dependencies from PyPI, Maven Central, npm, crates.io,
+# the Julia registry and ftp.gnu.org on every run, so a merge group only runs a client when that
+# client's own files changed; the service-wide fan-out to every client is the full tier's, which
+# full-scan.yml dispatches on develop nightly.
+client_fanout=$fanout
+[[ "$tier" = queue ]] && client_fanout=false
 
 emit go "$( { [[ "$service" = true ]] || matches "$hygiene_pattern" || matches "$project_inputs_pattern"; } && echo true || echo false)"
 emit apijson "$( [[ "$tier" != queue ]] && { [[ "$everything" = true && "$fanout" = true ]] || matches "$apijson_pattern"; } && echo true || echo false)"
 emit docs "$( { [[ "$fanout" = true ]] || matches "$docs_pattern"; } && echo true || echo false)"
-emit node "$( { [[ "$fanout" = true ]] || matches "$node_pattern"; } && echo true || echo false)"
+emit node "$( { [[ "$client_fanout" = true ]] || matches "$node_pattern"; } && echo true || echo false)"
 # The client-manifest/Python version lockstep tests live in the Python suite,
 # so the Node, Java and Rust manifests, every editor manifest
 # check_version.py --editors reads, the editors' client references and the
 # Markdown <dependency> snippets that quote the Java client's version have to
 # run it too.
-emit python "$( { [[ "$fanout" = true ]] || matches "$python_pattern" || matches '^packaging/pypi-pysysml/' || matches '^client/node/package\.json$' || matches '^client/java/(pom\.xml|README\.md)$' || matches '^docs/reference/java-api\.md$' || matches '^packaging/agent-skills/skills/opensysml-java/SKILL\.md$' || matches '^client/rust/opensysml/Cargo\.toml$' || matches '^client/rust/Cargo\.lock$' || matches '^editors/(mdk|syson(/backend)?)/pom\.xml$' || matches '^editors/(mdk/(plugin|tools|openapi-stubs|mdk-api-stubs|mdk-bridge|dist)|syson/syson-api-stubs)/pom\.xml$' || matches '^editors/(vscode|jupyterlab|syson/frontend)/package(-lock)?\.json$'; } && echo true || echo false)"
-emit java "$( { [[ "$fanout" = true ]] || matches "$java_pattern"; } && echo true || echo false)"
-emit rust "$( { [[ "$fanout" = true ]] || matches "$rust_pattern"; } && echo true || echo false)"
-emit julia "$( { [[ "$fanout" = true ]] || matches "$julia_pattern"; } && echo true || echo false)"
-emit matlab "$( { [[ "$fanout" = true ]] || matches "$matlab_pattern"; } && echo true || echo false)"
-emit vscode "$( { [[ "$fanout" = true ]] || matches "$vscode_pattern"; } && echo true || echo false)"
-emit jupyterlab "$( { [[ "$fanout" = true ]] || matches "$jupyterlab_pattern"; } && echo true || echo false)"
-emit emacs "$( { [[ "$fanout" = true ]] || matches "$emacs_pattern"; } && echo true || echo false)"
+emit python "$( { [[ "$client_fanout" = true ]] || matches "$python_pattern" || matches '^packaging/pypi-pysysml/' || matches '^client/node/package\.json$' || matches '^client/java/(pom\.xml|README\.md)$' || matches '^docs/reference/java-api\.md$' || matches '^packaging/agent-skills/skills/opensysml-java/SKILL\.md$' || matches '^client/rust/opensysml/Cargo\.toml$' || matches '^client/rust/Cargo\.lock$' || matches '^editors/(mdk|syson(/backend)?)/pom\.xml$' || matches '^editors/(mdk/(plugin|tools|openapi-stubs|mdk-api-stubs|mdk-bridge|dist)|syson/syson-api-stubs)/pom\.xml$' || matches '^editors/(vscode|jupyterlab|syson/frontend)/package(-lock)?\.json$'; } && echo true || echo false)"
+emit java "$( { [[ "$client_fanout" = true ]] || matches "$java_pattern"; } && echo true || echo false)"
+emit rust "$( { [[ "$client_fanout" = true ]] || matches "$rust_pattern"; } && echo true || echo false)"
+emit julia "$( { [[ "$client_fanout" = true ]] || matches "$julia_pattern"; } && echo true || echo false)"
+emit matlab "$( { [[ "$client_fanout" = true ]] || matches "$matlab_pattern"; } && echo true || echo false)"
+emit vscode "$( { [[ "$client_fanout" = true ]] || matches "$vscode_pattern"; } && echo true || echo false)"
+emit jupyterlab "$( { [[ "$client_fanout" = true ]] || matches "$jupyterlab_pattern"; } && echo true || echo false)"
+emit emacs "$( { [[ "$client_fanout" = true ]] || matches "$emacs_pattern"; } && echo true || echo false)"
 # The MDK plugin builds on the Java client, so a client change re-runs it too.
-emit mdk "$( { [[ "$fanout" = true ]] || matches "$mdk_pattern" || matches "$java_pattern"; } && echo true || echo false)"
+emit mdk "$( { [[ "$client_fanout" = true ]] || matches "$mdk_pattern" || matches "$java_pattern"; } && echo true || echo false)"
 # The SysON backend builds on the Java client too, so a client change re-runs it.
-emit syson "$( { [[ "$fanout" = true ]] || matches "$syson_pattern" || matches "$java_pattern"; } && echo true || echo false)"
+emit syson "$( { [[ "$client_fanout" = true ]] || matches "$syson_pattern" || matches "$java_pattern"; } && echo true || echo false)"
