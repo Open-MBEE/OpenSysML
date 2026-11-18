@@ -21,10 +21,10 @@ var (
 `)
 	stationViews = []byte(`package StationViews {
 	private import StandardViewDefinitions::*;
-	view def StationView {
+	view def StationView;
+	view stationView : StationView {
 		expose Stations::station::**;
 	}
-	view stationView : StationView;
 }
 `)
 )

@@ -12,7 +12,7 @@ import (
 // admission name resolution makes — element filters included.
 
 // ErrNotAView is returned when the exposed set is asked of an element that is no
-// view; only a view usage or a view definition exposes elements.
+// view. A view definition owns no expose, so its own set is empty.
 var ErrNotAView = errors.New("not a view")
 
 // ExposedElements returns what view exposes, in declaration order and once each:
@@ -95,8 +95,8 @@ func (m *Model) ViewExposureConditions(view *symbols.Symbol) []symbols.ElementFi
 	return m.resolver.ViewExposureConditions(view)
 }
 
-// IsView reports whether sym is a view usage or a view definition, the two
-// elements that own Expose relationships.
+// IsView reports whether sym is a view usage or a view definition. Only the
+// usage owns Expose relationships; the definition states filters its usages inherit.
 func IsView(sym *symbols.Symbol) bool {
 	switch sym.Kind {
 	case symbols.SymbolViewUsage, symbols.SymbolViewDef:
@@ -111,20 +111,15 @@ func IsView(sym *symbols.Symbol) bool {
 	return false
 }
 
-// exposesIn returns the `expose` relationships declared directly in a view's
-// body; a plain `import` there exposes nothing.
+// exposesIn returns the `expose` relationships a view usage owns, the one body
+// that admits them (SysML v2 8.3.26.2); a plain `import` there exposes nothing.
 func exposesIn(decl ast.Node) []*ast.Import {
-	var members []ast.Node
-	switch n := decl.(type) {
-	case *ast.Definition:
-		members = n.Members
-	case *ast.Usage:
-		members = n.Members
-	default:
+	usage, ok := decl.(*ast.Usage)
+	if !ok {
 		return nil
 	}
 	var out []*ast.Import
-	for _, member := range members {
+	for _, member := range usage.Members {
 		if imp, ok := member.(*ast.Import); ok && imp.IsExpose {
 			out = append(out, imp)
 		}

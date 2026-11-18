@@ -2507,7 +2507,7 @@ func (e *ActionExecutor) readiness(id int64, eligible func(Token) bool) (ready b
 	}
 	t := e.tokens[i]
 	if e.dynamics != nil {
-		return e.dynamicsDue(t), nil
+		return e.dynamicsDue(t) && !e.awaitsSource(), nil
 	}
 	usage, ok := t.Node().(*ast.Usage)
 	if !ok || t.body != nil {
@@ -3377,6 +3377,9 @@ func (e *ActionExecutor) tokenWaits() []ClockWait {
 // in the flow awaiting the clock, else the action's.
 func (e *ActionExecutor) dueWork() bool {
 	if e.released || (e.state != StateRunning && e.state != StateWaiting) {
+		return false
+	}
+	if e.awaitsSource() {
 		return false
 	}
 	for _, token := range e.tokens {

@@ -597,8 +597,24 @@ step 8 deletes. The step is split into stacked pull requests:
   `EntryTransition`, `OwnerID` on `StateBehavior`, and id-indexed accessors over the tables
   (`internal/ir/lower/graph_ids.go`). Every id is the one the step-1 tables assigned; step 8
   removes the tree side. No consumer changes.
-- **7b**. `exec/smt` and `exec/solve`, with their forbidden `→ syntax/ast` edge.
-- **7c**. `exec/analysis/modelform`, `exec/analysis` and `exec/sweep`, with theirs.
+- **7b**. `exec/smt` and `exec/solve`, with their forbidden `→ syntax/ast` edge. `solve`
+  translates `lower.ExprEntry` records by `program.ExprKind` and `program.Operator`; `smt` names
+  a node by its graph and `NodeID` and reads the 7a accessors. What neither can yet read from a
+  record, `lower` answers by id from the tree it still holds (`graph_questions.go`,
+  `expr_questions.go`: a node's form and trace label, a loop's keyword, the names an expression
+  reads), so step 8 moves those answers and no consumer. An `ExprBody` record gains its
+  parameters, its result and its count of other members. A held feature's value id is in the
+  model's table, not the graph's, and is read through `runtime.Context.ExprEntry`. Two flows
+  typed by one definition have nodes of their own, so `smt` refuses the first as a nested flow
+  where keying by declaration reported the definition's initial node as outside the flow.
+- **7c**. `exec/analysis/modelform`, `exec/analysis` and `exec/sweep`, with theirs. Only
+  `modelform` read the tree: `exec/analysis` and `exec/sweep` gain the edge alone. The graphs
+  export numbers an action vertex by `lower.FlowNode`, a state vertex by `program.VertexRef` and
+  a region by `RegionID`, and its bytes are unchanged. What a record does not yet say, `lower`
+  answers from the tree (`graph_sites.go`: a declaration's `Site` and `Extent`, a `Trigger`, what
+  a node performs). A node a body's block declares is a node of the block's flow, written by its
+  identity alone; a footprint converging on a node outside the graph's own is still refused.
+  `exec/analysis/record` reads symbol declarations, not lowered graphs, and keeps its import.
 - **7d**. `ir/view` and `ir/queryplan`.
 - **7e**. `doc/queryexec`, `frontend/lsp/debug.go`, `frontend/grpc`, `frontend/repl`,
   `frontend/engine`, `workspace/modelrt`, `tools/referee/{fuml,pssm}`, `examples/runtime-demo`.

@@ -2226,6 +2226,36 @@ state the machine reads is the post-step state, so a crossing is reported up to 
 late and a guard that crosses and crosses back inside one step is not seen — choose the step for
 the guard as much as for the integration.
 
+An event occurrence typed by the library's own `ZeroCrossingEventDef`, or by a specialization
+that declares no `guard`, needs none: it occurs where the derivative crosses zero, as the
+library defines its zero-crossing events (SysML v2 §9.4.4) — when a component of
+`getDerivative(input, stateSpace)` changes sign between two steps or arrives at zero, located to
+the end of the detecting step like a guarded crossing. `event occurrence apex : Apex;` with
+`action def Apex :> ZeroCrossingEventDef;` marks the apex of a thrown ball, where its velocity —
+the derivative of its height — changes sign.
+
+Dynamics are connected by a flow or a binding the performing object declares, or an object
+owning the parts that perform them:
+
+```sysml
+part def Context {
+    part pusher { perform action pusherBehavior : ContinuousStateSpaceDynamics { /* … */ } }
+    part cart { perform action cartBehavior : ContinuousStateSpaceDynamics { /* … */ } }
+
+    flow pusher.pusherBehavior.output to cart.cartBehavior.input;
+}
+```
+
+Both run on the one clock. As each step of the cart settles, its `input` becomes what the
+pusher's `output` holds then, and once the pusher has ended, what it left; the input is held over
+the next step. At an instant the pusher samples before the cart it feeds, whichever is declared
+first; two dynamics that do not feed one another, or that feed each other in a cycle, are a
+`due order` choice point like any other. A flow a specializing type redefines replaces the one it
+inherits. A flow may state its ends in its body instead, each end owning the feature it flows:
+`flow { end ::> pusher.push { ref :>> output; } end ::> cart.roll { ref :>> input; } }`. An input takes one flow: two flows into one `input`, or a flow from something that is not a vector, are
+errors naming the action and the source. A flow between two dynamics that are steps of one
+action body is not carried yet; have an object perform them instead.
+
 A shape the runner cannot run truthfully is an error naming the action and the member at fault,
 never a wrong result: a `stateSpace`, `input`, derivative or output that is not a vector or is
 not bound; a `getDerivative`, `getDifference` or `getOutput` left abstract; an `integrate` bound

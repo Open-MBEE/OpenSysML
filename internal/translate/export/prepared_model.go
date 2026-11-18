@@ -55,10 +55,9 @@ func (p *PreparedModel) graph(selection []string, form IDForm, nameLibrary func(
 	if p.res == nil {
 		p.res, p.model = analyzeModel(p.documents)
 	}
-	res, encoders, err := modelEncodersOver(documents, form, p.res, p.model)
+	_, encoders, err := modelEncodersOver(documents, form, p.res, p.model)
 	if err != nil {
 		return nil, err
 	}
-	graph, _, _, err := encodeModelDocuments(documents, res, encoders, nameLibrary)
-	return graph, err
+	return encodeModelDocuments(documents, encoders, nameLibrary)
 }

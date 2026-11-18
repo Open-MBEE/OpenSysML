@@ -91,8 +91,8 @@
   "totals": {
     "files": 924,
     "filesFullyAgreeing": 528,
-    "agreement": 1105,
-    "severityMismatch": 10,
+    "agreement": 1107,
+    "severityMismatch": 8,
     "openSysMLOnly": 121,
     "pilotOnly": 2450,
     "openSysMLDiagnostics": 1236,
@@ -575,8 +575,8 @@
       "totals": {
         "files": 511,
         "filesFullyAgreeing": 151,
-        "agreement": 1040,
-        "severityMismatch": 6,
+        "agreement": 1042,
+        "severityMismatch": 4,
         "openSysMLOnly": 46,
         "pilotOnly": 2349,
         "openSysMLDiagnostics": 1092,
@@ -6948,19 +6948,17 @@
             {
               "line": 8,
               "severity": "error",
+              "category": "syntax",
+              "count": 1
+            },
+            {
+              "line": 8,
+              "severity": "error",
               "category": "unresolved-reference",
               "count": 2
             }
           ],
-          "severityMismatch": [
-            {
-              "line": 8,
-              "category": "syntax",
-              "openSysMLSeverity": "warning",
-              "pilotSeverity": "error",
-              "count": 1
-            }
-          ],
+          "severityMismatch": [],
           "openSysMLOnly": [],
           "pilotOnly": [
             {
@@ -14563,7 +14561,7 @@
           "openSysMLOnly": [
             {
               "line": 6,
-              "severity": "warning",
+              "severity": "error",
               "category": "syntax",
               "count": 1
             },
@@ -16723,6 +16721,12 @@
           "path": "sysml/8.4.9.2/3.sysml",
           "agreement": [
             {
+              "line": 7,
+              "severity": "error",
+              "category": "syntax",
+              "count": 1
+            },
+            {
               "line": 8,
               "severity": "error",
               "category": "syntax",
@@ -16735,15 +16739,7 @@
               "count": 1
             }
           ],
-          "severityMismatch": [
-            {
-              "line": 7,
-              "category": "syntax",
-              "openSysMLSeverity": "warning",
-              "pilotSeverity": "error",
-              "count": 1
-            }
-          ],
+          "severityMismatch": [],
           "openSysMLOnly": [],
           "pilotOnly": [
             {
@@ -24954,8 +24950,8 @@
     "totals": {
       "files": 924,
       "filesFullyAgreeing": 529,
-      "agreement": 1105,
-      "severityMismatch": 10,
+      "agreement": 1107,
+      "severityMismatch": 8,
       "openSysMLOnly": 120,
       "pilotOnly": 2450,
       "openSysMLDiagnostics": 1235,

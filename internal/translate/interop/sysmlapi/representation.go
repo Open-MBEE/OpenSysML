@@ -62,10 +62,10 @@ func carryTerm(term rdf.Term) (rdf.Term, error) {
 		}
 		return term, &UnrepresentableError{Term: term, Reason: "an IRI is only writable as a reference to an element"}
 	}
-	if term.Lang != "" {
+	if term.Lang() != "" {
 		return term, &UnrepresentableError{Term: term, Reason: "JSON strings carry no language tag"}
 	}
-	switch term.Datatype {
+	switch term.Datatype() {
 	case "", rdf.XSD + "string":
 		return rdf.String(term.Value), nil
 	case rdf.XSD + "boolean":
@@ -87,5 +87,5 @@ func carryTerm(term rdf.Term) (rdf.Term, error) {
 		}
 		return term, &UnrepresentableError{Term: term, Reason: "not a JSON number"}
 	}
-	return term, &UnrepresentableError{Term: term, Reason: "JSON has no value of datatype " + term.Datatype}
+	return term, &UnrepresentableError{Term: term, Reason: "JSON has no value of datatype " + term.Datatype()}
 }

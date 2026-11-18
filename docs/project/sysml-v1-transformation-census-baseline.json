@@ -22,7 +22,7 @@
       },
       {
         "name": "fixtures",
-        "files": 132
+        "files": 136
       }
     ],
     "counts": {
@@ -32,7 +32,7 @@
       },
       "sysml:Allocate": {
         "pssm": 0,
-        "fixtures": 6
+        "fixtures": 8
       },
       "sysml:Block[isEncapsulated=true]": {
         "pssm": 0,
@@ -112,7 +112,7 @@
       },
       "uml:Association": {
         "pssm": 4,
-        "fixtures": 39
+        "fixtures": 45
       },
       "uml:BroadcastSignalAction": {
         "pssm": 0,
@@ -120,7 +120,7 @@
       },
       "uml:CallBehaviorAction": {
         "pssm": 1170,
-        "fixtures": 241
+        "fixtures": 249
       },
       "uml:CallEvent": {
         "pssm": 8,
@@ -132,7 +132,7 @@
       },
       "uml:CentralBufferNode": {
         "pssm": 0,
-        "fixtures": 2
+        "fixtures": 3
       },
       "uml:ChangeEvent": {
         "pssm": 0,
@@ -140,7 +140,7 @@
       },
       "uml:Class": {
         "pssm": 311,
-        "fixtures": 595
+        "fixtures": 602
       },
       "uml:ClearAssociationAction": {
         "pssm": 0,
@@ -228,7 +228,7 @@
       },
       "uml:ObjectFlow": {
         "pssm": 11312,
-        "fixtures": 126
+        "fixtures": 128
       },
       "uml:ObjectFlow[weight]": {
         "pssm": 2065,
@@ -236,7 +236,7 @@
       },
       "uml:OpaqueAction": {
         "pssm": 0,
-        "fixtures": 168
+        "fixtures": 170
       },
       "uml:OpaqueBehavior": {
         "pssm": 0,
@@ -256,7 +256,7 @@
       },
       "uml:Property": {
         "pssm": 25,
-        "fixtures": 586
+        "fixtures": 622
       },
       "uml:Property[qualifier]": {
         "pssm": 0,
@@ -264,7 +264,7 @@
       },
       "uml:Pseudostate": {
         "pssm": 289,
-        "fixtures": 78
+        "fixtures": 80
       },
       "uml:RaiseExceptionAction": {
         "pssm": 0,
@@ -312,7 +312,7 @@
       },
       "uml:Region": {
         "pssm": 248,
-        "fixtures": 59
+        "fixtures": 61
       },
       "uml:RemoveStructuralFeatureValueAction": {
         "pssm": 0,
@@ -368,7 +368,7 @@
       },
       "uml:Variable": {
         "pssm": 0,
-        "fixtures": 9
+        "fixtures": 12
       }
     }
   },
