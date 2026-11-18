@@ -317,9 +317,9 @@ package OpenSysMLGates {
     verification def RaceSuite {
         doc /* make test-shard SHARD=<shard> */
         attribute shardList : String = "scripts/race-shard.sh";
-        attribute shards : String = "runtime, runtime-corpus, runtime-exploration, model, smt, corpus, corpus-sweep, export, export-library, export-examples, export-corpus, graph, codegen, translate, grpc, tools, rest, migrate, cli";
-        attribute shardCount : Integer = 19;
-        attribute nodeCount : Integer = 16;
+        attribute shards : String = "runtime, runtime-corpus, runtime-exploration, model, smt, corpus, corpus-sweep, export, export-library, export-examples, export-corpus, graph, codegen, translate, grpc, tools, internal, rest, migrate, cli";
+        attribute shardCount : Integer = 20;
+        attribute nodeCount : Integer = 17;
         subject runtime : Runtime;
         objective {
             verify executionIsBounded;

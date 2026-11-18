@@ -364,6 +364,7 @@ expr:P__h__r_pvalue
     sysx:sourceText "n.next.next" ;
     sysml:elementId "P__h__r_pvalue" ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:operator "." ;
     sysml:argument expr:P__h__r_pvalue_pa0 ;
     sysml:ownedRelationship expr:P__h__r_pvalue_pin0_om, expr:P__h__r_pvalue_ptargetFeature, expr:P__h__r_pvalue_pout_om ;
     sysml:ownedMembership expr:P__h__r_pvalue_pin0_om, expr:P__h__r_pvalue_ptargetFeature, expr:P__h__r_pvalue_pout_om ;
@@ -387,6 +388,7 @@ expr:P__h__r_pvalue_pa0
     sysx:sourceText "n.next" ;
     sysml:elementId "P__h__r_pvalue_pa0" ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:operator "." ;
     sysml:argument expr:P__h__r_pvalue_pa0_pa0 ;
     sysml:ownedRelationship expr:P__h__r_pvalue_pa0_pin0_om, expr:P__h__r_pvalue_pa0_ptargetFeature, expr:P__h__r_pvalue_pa0_pout_om ;
     sysml:ownedMembership expr:P__h__r_pvalue_pa0_pin0_om, expr:P__h__r_pvalue_pa0_ptargetFeature, expr:P__h__r_pvalue_pa0_pout_om ;

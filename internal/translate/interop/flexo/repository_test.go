@@ -152,7 +152,7 @@ func TestRepositoryReadsGraphsAndWritesCommits(t *testing.T) {
 	if got, _ := graph.Object(x, rdf.SysML+"declaredName"); got != rdf.String("X") {
 		t.Errorf("plain literal read back as %s", got)
 	}
-	if got, _ := graph.Object(x, rdf.SysML+"note"); got.Lang != "en" {
+	if got, _ := graph.Object(x, rdf.SysML+"note"); got.Lang() != "en" {
 		t.Errorf("language tag lost: %s", got)
 	}
 	if at, err := repo.GraphAt(ctx, "c-0"); err != nil || len(at.Triples()) != 4 {
