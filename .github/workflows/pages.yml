@@ -76,6 +76,8 @@ jobs:
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site
+          # site/.well-known/security.txt (scripts/mkdocs_security.py) is in a dot-directory.
+          include-hidden-files: true
 
   deploy:
     name: Deploy to Pages
