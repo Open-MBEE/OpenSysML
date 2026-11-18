@@ -307,7 +307,7 @@ function namesAType(typeFacts: TypeFacts | undefined): boolean {
 /** Resolve the type to the most specific of the service's derived types. */
 function derivedType(typeFacts: TypeFacts): TypeFacts {
   const derived = typeFacts.types[0];
-  return { ...typeFacts, resolvedId: derived.id, resolvedKind: derived.kind };
+  return { ...typeFacts, resolvedId: derived.id, resolvedQualifiedName: derived.id, resolvedKind: derived.kind };
 }
 
 function mergedType(own: TypeFacts | undefined, inherited: TypeFacts): TypeFacts {
@@ -317,6 +317,7 @@ function mergedType(own: TypeFacts | undefined, inherited: TypeFacts): TypeFacts
   return {
     declared: inherited.declared,
     resolvedId: inherited.resolvedId,
+    resolvedQualifiedName: inherited.resolvedQualifiedName,
     resolvedKind: inherited.resolvedKind,
     primitive: own.primitive !== "" ? own.primitive : inherited.primitive,
     primitiveSource: own.primitiveSource !== "" ? own.primitiveSource : inherited.primitiveSource,
@@ -437,7 +438,7 @@ export function elementType(
     return {
       annotation: "_t.SysMLValue",
       decoder: OBJECT_DECODER,
-      comment: `SysML type ${typeFacts.resolvedId} has no generated class`,
+      comment: `SysML type ${typeFacts.resolvedQualifiedName || typeFacts.resolvedId} has no generated class`,
     };
   }
 

@@ -1091,12 +1091,12 @@ func TestJSONReport(t *testing.T) {
 	}
 }
 
-// warningModel analyses cleanly but states an expose where the spec constrains
-// one, which analysis reports as a warning rather than an error.
+// warningModel analyses cleanly but spells a definition in notation no SysML
+// production admits, which analysis reports as a warning rather than an error.
 const warningModel = `package Rover {
     constraint MassBudget { 180.0 <= 200.0 }
     part p;
-    view def V { expose Rover::**; }
+    analysis case def Trade;
 }
 `
 

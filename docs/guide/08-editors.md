@@ -76,6 +76,17 @@ stays on one line and only indentation and spacing are fixed — turn on the ext
 start and again whenever it changes, with no restart. Another editor sets the same setting, or
 starts the server with `sysml-lsp -keep-line-breaks`.
 
+### Member summaries in hovers
+
+Hovering a definition or usage — or a reference to one, such as the type of a usage being
+written — lists its members under its signature and documentation: kind, name, type and
+multiplicity, one per line. The extension's `opensysml.hover.memberLimit` setting (default 10)
+caps the list, a closing line counting what was left out, and 0 turns the summary off;
+`opensysml.hover.inheritedMembers` adds the members the element inherits, grouped under the
+type each comes from. Both reach the running server with no restart, as `sysml.hoverMemberLimit`
+and `sysml.hoverInheritedMembers` ([LSP extensions](../reference/lsp.md#hover-member-summary-settings)),
+which another editor sets directly. Notebook cells show the same summary.
+
 ### Working inside a package-manager project
 
 A workspace folder that is a project — a directory holding a `.project.json`, as a SysML v2
@@ -264,8 +275,8 @@ import resolves as it does in the editor. A file outside every folder runs alone
 binary is looked for beside the `sysml-lsp` in use,
 then in an open workspace's `bin/`, then on `PATH`. Inside a call's argument list the
 parameter list of what it calls appears as you type, and inlay hints show the type a feature
-declared without one is inferred to have and the constant a value evaluates to from the model
-alone (<kbd>Ctrl</kbd>+<kbd>Alt</kbd> toggles them when `editor.inlayHints.enabled` is
+declared without one inherits from what it redefines or subsets (else the type of its value)
+and the constant a value evaluates to from the model alone (<kbd>Ctrl</kbd>+<kbd>Alt</kbd> toggles them when `editor.inlayHints.enabled` is
 `offUnlessPressed`).
 
 #### Importing a layout from draw.io
@@ -438,7 +449,9 @@ same way, so its imports of sibling files resolve rather than being reported unr
 - ✅ Diagnostics (syntax + semantic errors, published on open and on change)
 - ✅ Hover (symbol info, type, multiplicity, and the element's documentation: the bodies of the
   `doc` members it owns, in declaration order, then any `//` or `//* ... */` notes written directly
-  above its declaration; a bare `/* ... */` there is a comment of the enclosing namespace, not shown)
+  above its declaration; a bare `/* ... */` there is a comment of the enclosing namespace, not shown;
+  then a summary of its members up to a configurable limit, optionally with the inherited ones
+  under their origin)
 - ✅ Go-to-definition (cross-document navigation, into the bundled standard library as
   `sysml-stdlib:` documents)
 - ✅ Find references (workspace-wide search)
@@ -501,9 +514,11 @@ same way, so its imports of sibling files resolve rather than being reported unr
   `opensysml.runElement` with the document URI, the element's qualified name and its kind;
   the VS Code extension implements it, and another client registers a command of that name
 - ✅ Inlay hints (`textDocument/inlayHint`): after the name of a feature declared without a
-  type, the type it is inferred to have — that of its value, else what the features it
-  redefines or subsets give it — when it is more specific than `DataValue`, the result the
-  `DataFunctions` operators declare for arithmetic; after a feature's non-literal value, the constant it
+  type, the types the features it redefines, subsets or references give it (KerML 8.3.3.3.4
+  `deriveFeatureType`, the most specific of them, comma-separated when there are several), else
+  the type of its value when that is more specific than `DataValue`, the result the
+  `DataFunctions` operators declare for arithmetic; the tooltip says which of the two it is. Hover
+  on such a declaration and its completion detail state the same inherited types; after a feature's non-literal value, the constant it
   evaluates to from the model alone (`attribute twice = base * 2;` shows `= 20.0` when `base`
   is a package-level `10.0`). A value that reads an instance's feature gets no hint, since
   the model alone does not fix it. Only the declarations in the requested range are read, so

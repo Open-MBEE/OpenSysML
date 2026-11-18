@@ -4,7 +4,7 @@
   "tools": [
     {
       "name": "explain_diagnostic",
-      "description": "Explain a diagnostic code (as the CLI's -explain does): what it means, how to resolve it and the specification clause or validation constraint behind it. Every diagnostic the `parse`, `diagnostics` and LSP tools report carries one of these codes. With no code, list every code with its one-line summary.",
+      "description": "Explain a diagnostic code (as the CLI's -explain does): what it means, how to resolve it and the specification clause or validation constraint behind it. Every diagnostic the `parse`, `diagnostics` and `workspace_diagnostics` tools report carries one of these codes. With no code, list every code with its one-line summary.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -75,10 +75,18 @@
     },
     {
       "name": "symbol",
-      "description": "Describe one element of a parsed model by qualified name (the GetSymbol RPC): its kind, metadata, children, attributes with their declared values, static type facts, multiplicity and specializations. An unknown name answers with `error` set rather than failing. The result is the SymbolResponse as protojson writes it.",
+      "description": "Describe one element of a parsed model by qualified name or, with lookup, by a reported id (the GetSymbol RPC): its kind, metadata, children, members (own, then inherited with the type each comes from; standard-library ones withheld unless asked for), attributes with their declared values, static type facts, multiplicity and specializations. An unknown name answers with `error` set rather than failing. The result is the SymbolResponse as protojson writes it.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
+          "includeLibraryMembers": {
+            "description": "list the members inherited from standard-library content too, which are otherwise withheld and counted",
+            "type": "boolean"
+          },
+          "lookup": {
+            "description": "what symbolId is, stated rather than guessed: LOOKUP_KIND_QUALIFIED_NAME reads it only as a qualified name, LOOKUP_KIND_ELEMENT_ID only as an id an answer reported (a childIds or members entry, a positional id as Owner::@3, an unnamed connector end's id); empty reads a name first, then an id; resolveName is ignored once it is stated",
+            "type": "string"
+          },
           "modelHash": {
             "description": "the model_hash a parse answered; give this, or paths and/or sources to parse first",
             "type": "string"
@@ -92,6 +100,10 @@
               "null",
               "array"
             ]
+          },
+          "resolveName": {
+            "description": "resolve symbolId as a qualified name from the root namespace as the notation does: through imports, an alias answered by the element it names, a member not visible from outside its namespace not found; otherwise symbolId is an id the service reported",
+            "type": "boolean"
           },
           "sources": {
             "description": "documents given inline, parsed with paths as one model",
@@ -139,7 +151,7 @@
     },
     {
       "name": "tool_catalog",
-      "description": "List the tools this server serves: each tool's name, group, the sysml-grpc RPC or `sysml` CLI flag it stands for, and a one-line summary. Pass `group` (lsp, runtime, session) to narrow the list. The same catalog generates the Tools section of the sysml-mcp manual page.",
+      "description": "List the tools this server serves: each tool's name, group, the scope a caller needs to call it, the sysml-grpc RPC or `sysml` CLI flag it stands for, and a one-line summary. Pass `group` (lsp, runtime, session) to narrow the list. The same catalog generates the Tools section of the sysml-mcp manual page.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -269,45 +281,45 @@
     ],
     "B01/mcp/1": [
       {
-        "requestDigest": "f2390178d0dfc035c4bec412973a70781356c92302ea5d4a17744313b5ac655c",
+        "requestDigest": "80725b40956c3132bcc1710d8fdaa85a0647d37ed655ea8a6e22f5892b69328d",
         "response": {
-          "content": "package CoffeeMaker;\n\nimport StandardViewDefinitions::*;\n\naction Brew {\n    body: [\n        heatWater,\n        grindBeans,\n        pourWater\n    ]\n}\n\naction heatWater {\n    // Implementation details\n}\n\naction grindBeans {\n    // Implementation details\n}\n\naction pourWater {\n    // Implementation details\n}",
+          "content": "package CoffeeMaker {\n  private import StandardViewDefinitions::*;\n  private import VerificationCases::*;\n  private import ScalarValues::*;\n\n  action Brew {\n    body: [\n      heatWater,\n      grindBeans,\n      pourWater\n    ]\n  }\n}",
           "usage": {
-            "inputTokens": 1658,
-            "outputTokens": 62
+            "inputTokens": 1872,
+            "outputTokens": 49
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "1ff4492d54ed92505dcb2d742c5a7c2aa16d487c879a0c023b86492007e4de6a",
+        "requestDigest": "3914ca9e03cd0e27dadb6f6acfec6d6c343e4e81933bf6a115cbfac01bc8f5e8",
         "response": {
-          "content": "package CoffeeMaker;\n\nimport StandardViewDefinitions::*;\n\npublic action Brew {\n    body: [\n        heatWater,\n        grindBeans,\n        pourWater\n    ]\n}\n\npublic action heatWater {\n    // Implementation details\n}\n\npublic action grindBeans {\n    // Implementation details\n}\n\npublic action pourWater {\n    // Implementation details\n}",
+          "content": "package CoffeeMaker {\n  private import StandardViewDefinitions::*;\n  private import VerificationCases::*;\n  private import ScalarValues::*;\n\n  action Brew {\n    body: [\n      heatWater,\n      grindBeans,\n      pourWater\n    ]\n  }\n}",
           "usage": {
-            "inputTokens": 1884,
-            "outputTokens": 66
+            "inputTokens": 2051,
+            "outputTokens": 49
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "82524841eb4358bc48edd5edea7682ec5cd93cdb1f7a8218e081340ca0c84a41",
+        "requestDigest": "d4e584a1ac48510dd8eea252924e6aa3eb290323a7b6f8503f9b4de422d46a6f",
         "response": {
-          "content": "package CoffeeMaker;\n\nimport StandardViewDefinitions::*;\n\npublic action Brew {\n    body: [\n        heatWater,\n        grindBeans,\n        pourWater\n    ]\n}\n\npublic action heatWater {\n    // Implementation details\n}\n\npublic action grindBeans {\n    // Implementation details\n}\n\npublic action pourWater {\n    // Implementation details\n}",
+          "content": "package CoffeeMaker {\n  private import StandardViewDefinitions::*;\n  private import VerificationCases::*;\n  private import ScalarValues::*;\n\n  action Brew {\n    body: [\n      heatWater,\n      grindBeans,\n      pourWater\n    ]\n  }\n}",
           "usage": {
-            "inputTokens": 2114,
-            "outputTokens": 66
+            "inputTokens": 2230,
+            "outputTokens": 49
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "0a400be4c27b00003af698aee609d41ea6412efa27fce2aa651940885ccab97f",
+        "requestDigest": "880ce5365caa0042126e56294876193a46561b608b38959c092b84593a992b21",
         "response": {
-          "content": "package CoffeeMaker;\n\nimport StandardViewDefinitions::*;\n\npublic action Brew {\n    body: [\n        heatWater,\n        grindBeans,\n        pourWater\n    ]\n}\n\npublic action heatWater {\n    // Implementation details\n}\n\npublic action grindBeans {\n    // Implementation details\n}\n\npublic action pourWater {\n    // Implementation details\n}",
+          "content": "package CoffeeMaker {\n  private import StandardViewDefinitions::*;\n  private import VerificationCases::*;\n  private import ScalarValues::*;\n\n  action Brew {\n    body: [\n      heatWater,\n      grindBeans,\n      pourWater\n    ]\n  }\n}",
           "usage": {
-            "inputTokens": 2344,
-            "outputTokens": 66
+            "inputTokens": 2409,
+            "outputTokens": 49
           },
           "model": "qwen2.5-coder:7b"
         }
@@ -317,43 +329,43 @@
       {
         "requestDigest": "a939cb4e6cc1383f417161a3532278de6821db5affc1247f0e4eecdf64c2b3a5",
         "response": {
-          "content": "```sysml\npackage Payment {\n    private import StandardViewDefinitions::*;\n    private import ScalarValues::*;\n\n    action Checkout {\n        in amount : Real;\n        out approved : Boolean;\n\n        action checkBalance {\n            in amount : Real;\n            out sufficient : Boolean;\n        }\n\n        decision {\n            if checkBalance.sufficient {\n                action charge {\n                    out approved : Boolean;\n                }\n            } else {\n                action reject {\n                    out approved : Boolean;\n                }\n            }\n        }\n\n        merge continue;\n        done;\n    }\n}\n```",
+          "content": "```sysml\npackage Payment {\n    private import StandardViewDefinitions::*;\n    private import ScalarValues::*;\n\n    action Checkout {\n        in amount : Real;\n        out approved : Boolean;\n\n        action checkBalance {\n            in amount : Real;\n            out sufficient : Boolean;\n        }\n\n        checkBalance.amount = amount;\n\n        decision {\n            if checkBalance.sufficient {\n                action charge {\n                    out approved : Boolean;\n                }\n            } else {\n                action reject {\n                    out approved : Boolean;\n                }\n            }\n        }\n\n        merge continue;\n        done;\n    }\n}\n```",
           "usage": {
             "inputTokens": 312,
-            "outputTokens": 109
+            "outputTokens": 116
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "6077a6fd44a68ca9f38f198cc6afcae72b82e0006cb0680dac041ceed5798f7b",
+        "requestDigest": "2113ac641767458e7ebc1b28efcae08d64a3249226cb54048c88491d8354703c",
         "response": {
-          "content": "package Payment {\n    private import StandardViewDefinitions::*;\n    private import ScalarValues::*;\n\n    action Checkout {\n        in amount : Real;\n        out approved : Boolean;\n\n        action checkBalance {\n            in amount : Real;\n            out sufficient : Boolean;\n        }\n\n        decision {\n            if checkBalance.sufficient {\n                action charge {\n                    out approved : Boolean;\n                }\n            } else {\n                action reject {\n                    out approved : Boolean;\n                }\n            }\n        }\n\n        merge continue;\n        done;\n    }\n}",
+          "content": "package Payment {\n    private import StandardViewDefinitions::*;\n    private import ScalarValues::*;\n\n    action Checkout {\n        in amount : Real;\n        out approved : Boolean;\n\n        action checkBalance {\n            in amount : Real;\n            out sufficient : Boolean;\n        }\n\n        checkBalance.amount = amount;\n\n        decision {\n            if checkBalance.sufficient {\n                action charge {\n                    out approved : Boolean;\n                }\n            } else {\n                action reject {\n                    out approved : Boolean;\n                }\n            }\n        }\n\n        merge continue;\n        done;\n    }\n}",
           "usage": {
-            "inputTokens": 599,
-            "outputTokens": 104
+            "inputTokens": 624,
+            "outputTokens": 111
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "2335011696ad37bf58ef1a21b97a7bffb1ed594058140712c242e40e32bfd709",
+        "requestDigest": "fb7df4cfbba676905990f6516dca429a259ac3274670816ae3c9700bbdee6fa2",
         "response": {
-          "content": "package Payment {\n    private import StandardViewDefinitions::*;\n    private import ScalarValues::*;\n\n    action Checkout {\n        in amount : Real;\n        out approved : Boolean;\n\n        action checkBalance {\n            in amount : Real;\n            out sufficient : Boolean;\n        }\n\n        decision {\n            if checkBalance.sufficient {\n                action charge {\n                    out approved : Boolean;\n                }\n            } else {\n                action reject {\n                    out approved : Boolean;\n                }\n            }\n        }\n\n        merge continue;\n        done;\n    }\n}",
+          "content": "package Payment {\n    private import StandardViewDefinitions::*;\n    private import ScalarValues::*;\n\n    action Checkout {\n        in amount : Real;\n        out approved : Boolean;\n\n        action checkBalance {\n            in amount : Real;\n            out sufficient : Boolean;\n        }\n\n        checkBalance.amount = amount;\n\n        decision {\n            if checkBalance.sufficient {\n                action charge {\n                    out approved : Boolean;\n                }\n            } else {\n                action reject {\n                    out approved : Boolean;\n                }\n            }\n        }\n\n        merge continue;\n        done;\n    }\n}",
           "usage": {
-            "inputTokens": 886,
-            "outputTokens": 104
+            "inputTokens": 936,
+            "outputTokens": 111
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "17f709639921cf0d3f18dec4aba78489482fbdfbd73f17fa3ea3e949bea7909c",
+        "requestDigest": "01a0efb728e6b83e7b3dd744945d74382ac85e65d95f577241f11a9d14b7ab22",
         "response": {
-          "content": "package Payment {\n    private import StandardViewDefinitions::*;\n    private import ScalarValues::*;\n\n    action Checkout {\n        in amount : Real;\n        out approved : Boolean;\n\n        action checkBalance {\n            in amount : Real;\n            out sufficient : Boolean;\n        }\n\n        decision {\n            if checkBalance.sufficient {\n                action charge {\n                    out approved : Boolean;\n                }\n            } else {\n                action reject {\n                    out approved : Boolean;\n                }\n            }\n        }\n\n        merge continue;\n        done;\n    }\n}",
+          "content": "package Payment {\n    private import StandardViewDefinitions::*;\n    private import ScalarValues::*;\n\n    action Checkout {\n        in amount : Real;\n        out approved : Boolean;\n\n        action checkBalance {\n            in amount : Real;\n            out sufficient : Boolean;\n        }\n\n        checkBalance.amount = amount;\n\n        decision {\n            if checkBalance.sufficient {\n                action charge {\n                    out approved : Boolean;\n                }\n            } else {\n                action reject {\n                    out approved : Boolean;\n                }\n            }\n        }\n\n        merge continue;\n        done;\n    }\n}",
           "usage": {
-            "inputTokens": 1173,
-            "outputTokens": 104
+            "inputTokens": 1248,
+            "outputTokens": 111
           },
           "model": "qwen2.5-coder:7b"
         }
@@ -361,44 +373,44 @@
     ],
     "B05/mcp/1": [
       {
-        "requestDigest": "25374465d5ee49189528e73ba098955ab1ab451413b1ea795d2b985d51591834",
+        "requestDigest": "f3655da2f7e788e5662645bdb47d9de6317da2a6aa6a283bd9d50829750cf615",
         "response": {
-          "content": "package Payment {\n    import StandardViewDefinitions::*;\n    import ScalarValues::*;\n\n    action Checkout {\n        in amount : Real;\n        out approved : Boolean;\n\n        action checkBalance {\n            in amount : Real;\n            out sufficient : Boolean;\n        }\n\n        checkBalance.amount = amount;\n\n        decision {\n            if checkBalance.sufficient {\n                action charge {\n                    out approved : Boolean;\n                }\n                approved = true;\n            } else {\n                action reject {\n                    out approved : Boolean;\n                }\n                approved = false;\n            }\n        }\n\n        merge continue;\n        done;\n    }\n}",
+          "content": "package Payment {\n  import StandardViewDefinitions::*;\n  import ScalarValues::*;\n\n  action Checkout {\n    in amount : Real;\n    out approved : Boolean;\n\n    action checkBalance {\n      in amount : Real;\n      out sufficient : Boolean;\n      sufficient = amount \u003c= balance;\n    }\n\n    decision {\n      if checkBalance.sufficient {\n        action charge {\n          out approved : Boolean;\n          approved = true;\n        }\n      } else {\n        action reject {\n          out approved : Boolean;\n          approved = false;\n        }\n      }\n    }\n\n    merge continue;\n    done;\n  }\n}",
           "usage": {
-            "inputTokens": 1728,
+            "inputTokens": 1942,
             "outputTokens": 119
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "a806fde708f0e4d6d4fede937d22eb86c1f77956f2b21e57a45fc1156d164a72",
+        "requestDigest": "9d7933554f82696fa0e75f22d487fbd09c943b8377a4c7811d2dd188da8af3a2",
         "response": {
-          "content": "package Payment {\n    public import StandardViewDefinitions::*;\n    public import ScalarValues::*;\n\n    action Checkout {\n        in amount : Real;\n        out approved : Boolean;\n\n        action checkBalance {\n            in amount : Real;\n            out sufficient : Boolean;\n        }\n\n        checkBalance.amount = amount;\n\n        decision {\n            if checkBalance.sufficient {\n                action charge {\n                    out approved : Boolean;\n                }\n                approved = true;\n            } else {\n                action reject {\n                    out approved : Boolean;\n                }\n                approved = false;\n            }\n        }\n\n        merge continue;\n        done;\n    }\n}",
+          "content": "package Payment {\n  public import StandardViewDefinitions::*;\n  public import ScalarValues::*;\n\n  action Checkout {\n    in amount : Real;\n    out approved : Boolean;\n\n    action checkBalance {\n      in amount : Real;\n      out sufficient : Boolean;\n      sufficient = amount \u003c= balance;\n    }\n\n    decision {\n      if checkBalance.sufficient {\n        action charge {\n          out approved : Boolean;\n          approved = true;\n        }\n      } else {\n        action reject {\n          out approved : Boolean;\n          approved = false;\n        }\n      }\n    }\n\n    merge continue;\n    done;\n  }\n}",
           "usage": {
-            "inputTokens": 2117,
+            "inputTokens": 2311,
             "outputTokens": 121
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "3a36df476948cda04ee2523d3af703f557175cfe7d5311ec2047727404359564",
+        "requestDigest": "cedac2c404ed4586b83d61eba319803882288e903df2ac4a17781737309cac50",
         "response": {
-          "content": "package Payment {\n    public import StandardViewDefinitions::*;\n    public import ScalarValues::*;\n\n    action Checkout {\n        in amount : Real;\n        out approved : Boolean;\n\n        action checkBalance {\n            in amount : Real;\n            out sufficient : Boolean;\n        }\n\n        checkBalance.amount = amount;\n\n        decision {\n            if checkBalance.sufficient {\n                action charge {\n                    out approved : Boolean;\n                }\n                approved = true;\n            } else {\n                action reject {\n                    out approved : Boolean;\n                }\n                approved = false;\n            }\n        }\n\n        merge continue;\n        done;\n    }\n}",
+          "content": "package Payment {\n  public import StandardViewDefinitions::*;\n  public import ScalarValues::*;\n\n  action Checkout {\n    in amount : Real;\n    out approved : Boolean;\n\n    action checkBalance {\n      in amount : Real;\n      out sufficient : Boolean;\n      sufficient = amount \u003c= balance;\n    }\n\n    decision {\n      if checkBalance.sufficient {\n        action charge {\n          out approved : Boolean;\n          approved = true;\n        }\n      } else {\n        action reject {\n          out approved : Boolean;\n          approved = false;\n        }\n      }\n    }\n\n    merge continue;\n    done;\n  }\n}",
           "usage": {
-            "inputTokens": 2439,
+            "inputTokens": 2614,
             "outputTokens": 121
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "e0831cb51731cb80cc1fed845827c51fb514ddac231b85fecd1eaa237b599eb3",
+        "requestDigest": "be37aa384566e1628eb8a304e1b3f58d78ab8a4e8e884ec39622bb6d54d7b952",
         "response": {
-          "content": "package Payment {\n    public import StandardViewDefinitions::*;\n    public import ScalarValues::*;\n\n    action Checkout {\n        in amount : Real;\n        out approved : Boolean;\n\n        action checkBalance {\n            in amount : Real;\n            out sufficient : Boolean;\n        }\n\n        checkBalance.amount = amount;\n\n        decision {\n            if checkBalance.sufficient {\n                action charge {\n                    out approved : Boolean;\n                }\n                approved = true;\n            } else {\n                action reject {\n                    out approved : Boolean;\n                }\n                approved = false;\n            }\n        }\n\n        merge continue;\n        done;\n    }\n}",
+          "content": "package Payment {\n  public import StandardViewDefinitions::*;\n  public import ScalarValues::*;\n\n  action Checkout {\n    in amount : Real;\n    out approved : Boolean;\n\n    action checkBalance {\n      in amount : Real;\n      out sufficient : Boolean;\n      sufficient = amount \u003c= balance;\n    }\n\n    decision {\n      if checkBalance.sufficient {\n        action charge {\n          out approved : Boolean;\n          approved = true;\n        }\n      } else {\n        action reject {\n          out approved : Boolean;\n          approved = false;\n        }\n      }\n    }\n\n    merge continue;\n    done;\n  }\n}",
           "usage": {
-            "inputTokens": 2761,
+            "inputTokens": 2917,
             "outputTokens": 121
           },
           "model": "qwen2.5-coder:7b"
@@ -409,7 +421,7 @@
       {
         "requestDigest": "444ab54ccf5f42271dc5c6d7f19f3f91d3ccca1a76204c12a00b90f181be0290",
         "response": {
-          "content": "```sysml\npackage Package {\n  private import ISQ::*;\n  private import SI::*;\n\n  part definition Parcel {\n    attribute mass : ISQ::mass = 2.5 [kg];\n    attribute length : ISQ::length = 0.4 [m];\n  }\n}\n```",
+          "content": "```sysml\npackage Package {\n    private import ISQ::*;\n    private import SI::*;\n\n    part definition Parcel {\n        attribute mass : ISQ::mass = 2.5 [kg];\n        attribute length : ISQ::length = 0.4 [m];\n    }\n}\n```",
           "usage": {
             "inputTokens": 268,
             "outputTokens": 60
@@ -418,9 +430,9 @@
         }
       },
       {
-        "requestDigest": "b430451e52b93c831906727f7a6d2598a8aaf247e3a0c5b6f604e5addd7e8202",
+        "requestDigest": "9fa6ad2af3f42ac2bb5b7acbec0f4d202cac99e9d8e1dad6e301fc8528e043be",
         "response": {
-          "content": "package Package {\n  private import ISQ::*;\n  private import SI::*;\n\n  part definition Parcel {\n    attribute mass : ISQ::mass = 2.5 [kg];\n    attribute length : ISQ::length = 0.4 [m];\n  }\n}",
+          "content": "package Package {\n    private import ISQ::*;\n    private import SI::*;\n\n    part definition Parcel {\n        attribute mass : ISQ::mass = 2.5 [kg];\n        attribute length : ISQ::length = 0.4 [m];\n    }\n}",
           "usage": {
             "inputTokens": 397,
             "outputTokens": 55
@@ -429,9 +441,9 @@
         }
       },
       {
-        "requestDigest": "38888c88465ebbd52724edbebf8af62dc9269010f0a611f34597810ae9818eec",
+        "requestDigest": "67c91de8299c4de998101fcb6f5ea20e0d173c8d62c697d27dace7ec5bb2efbd",
         "response": {
-          "content": "package Package {\n  private import ISQ::*;\n  private import SI::*;\n\n  part definition Parcel {\n    attribute mass : ISQ::mass = 2.5 [kg];\n    attribute length : ISQ::length = 0.4 [m];\n  }\n}",
+          "content": "package Package {\n    private import ISQ::*;\n    private import SI::*;\n\n    part definition Parcel {\n        attribute mass : ISQ::mass = 2.5 [kg];\n        attribute length : ISQ::length = 0.4 [m];\n    }\n}",
           "usage": {
             "inputTokens": 526,
             "outputTokens": 55
@@ -440,9 +452,9 @@
         }
       },
       {
-        "requestDigest": "97d91e40446f41eef18756395e05bd1f0bec99f4c9be08cb1104310508d0f480",
+        "requestDigest": "c40bc106bee319a78a68ae0b88efb9fa7367369f7cc4964be0d54a1410924ee0",
         "response": {
-          "content": "package Package {\n  private import ISQ::*;\n  private import SI::*;\n\n  part definition Parcel {\n    attribute mass : ISQ::mass = 2.5 [kg];\n    attribute length : ISQ::length = 0.4 [m];\n  }\n}",
+          "content": "package Package {\n    private import ISQ::*;\n    private import SI::*;\n\n    part definition Parcel {\n        attribute mass : ISQ::mass = 2.5 [kg];\n        attribute length : ISQ::length = 0.4 [m];\n    }\n}",
           "usage": {
             "inputTokens": 655,
             "outputTokens": 55
@@ -453,45 +465,45 @@
     ],
     "C01/mcp/1": [
       {
-        "requestDigest": "37dee5f74618d59dc334eb70ddb1099038a3c15b47c1450df627b88f274d0b63",
+        "requestDigest": "a56e1c7dbfd8f01fbd6f1d9dc4c67d5fe744bf9d0bc81646f9b5d83f22c0eb09",
         "response": {
-          "content": "package Package {\n  private import ISQ::*;\n  private import SI::*;\n\n  part definition Parcel {\n    attribute mass : ISQ::mass = 2.5 [kg];\n    attribute length : ISQ::length = 0.4 [m];\n  }\n}",
+          "content": "package Package {\n  private import ISQ::*;\n  private import SI::*;\n\n  part Parcel {\n    attribute mass : ISQ::mass = 2.5 [kg];\n    attribute length : ISQ::length = 0.4 [m];\n  }\n}",
           "usage": {
-            "inputTokens": 1684,
-            "outputTokens": 55
+            "inputTokens": 1898,
+            "outputTokens": 54
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "1c2787081da90345415fdaf6ad04d5cee07000ca98fb1e881fafef7b843c6973",
+        "requestDigest": "af294a31ce940549860ec89360a7c6ddb3ac3a02f337860a2b95106525f93d48",
         "response": {
-          "content": "package Package {\n  private import ISQ::*;\n  private import SI::*;\n\n  part definition Parcel {\n    attribute mass : ISQ::mass = 2.5 [kg];\n    attribute length : ISQ::length = 0.4 [m];\n  }\n}",
+          "content": "package Package {\n  private import ISQ::*;\n  private import SI::*;\n\n  part Parcel {\n    attribute mass : ISQ::mass = 2.5 [kg];\n    attribute length : ISQ::length = 0.4 [m];\n  }\n}",
           "usage": {
-            "inputTokens": 1813,
-            "outputTokens": 55
+            "inputTokens": 2053,
+            "outputTokens": 54
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "b36e59aecc3e3d1e558a20cb86cbad6a9220d308219bb588916f1dfb5082986d",
+        "requestDigest": "a9151899eae7ec0caa6d2db9ce5a394de1eb899368478cb0fcae10bf5fc7c013",
         "response": {
-          "content": "package Package {\n  private import ISQ::*;\n  private import SI::*;\n\n  part definition Parcel {\n    attribute mass : ISQ::mass = 2.5 [kg];\n    attribute length : ISQ::length = 0.4 [m];\n  }\n}",
+          "content": "package Package {\n  private import ISQ::*;\n  private import SI::*;\n\n  part Parcel {\n    attribute mass : ISQ::mass = 2.5 [kg];\n    attribute length : ISQ::length = 0.4 [m];\n  }\n}",
           "usage": {
-            "inputTokens": 1942,
-            "outputTokens": 55
+            "inputTokens": 2208,
+            "outputTokens": 54
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "7492d45c01142923d080f7139a75ebfd26e24330d9c6433f5892416ff0794011",
+        "requestDigest": "2d8c4215f7aaa2d4c1f45ba2c62fb92854b91fb1da82f2cb51d1e6e0d55d2adf",
         "response": {
-          "content": "package Package {\n  private import ISQ::*;\n  private import SI::*;\n\n  part definition Parcel {\n    attribute mass : ISQ::mass = 2.5 [kg];\n    attribute length : ISQ::length = 0.4 [m];\n  }\n}",
+          "content": "package Package {\n  private import ISQ::*;\n  private import SI::*;\n\n  part Parcel {\n    attribute mass : ISQ::mass = 2.5 [kg];\n    attribute length : ISQ::length = 0.4 [m];\n  }\n}",
           "usage": {
-            "inputTokens": 2071,
-            "outputTokens": 55
+            "inputTokens": 2363,
+            "outputTokens": 54
           },
           "model": "qwen2.5-coder:7b"
         }
@@ -501,43 +513,43 @@
       {
         "requestDigest": "9451451fce00d2bc8e6ff96df12f13c03bfd49e337493d29cd8dfd1d25830952",
         "response": {
-          "content": "```sysml\npackage Circuit {\n  private import ScalarValues::*;\n  private import ISQ::*;\n  private import SI::*;\n\n  definition OhmsLaw : ElectricCurrentValue = (in voltage : ElectricPotentialValue, in resistance : ResistanceValue) -\u003e ElectricCurrentValue {\n    return voltage / resistance;\n  }\n\n  definition Power : PowerValue = (in voltage : ElectricPotentialValue, in current : ElectricCurrentValue) -\u003e PowerValue {\n    return voltage * current;\n  }\n\n  part Heater : Part {\n    attribute supplyVoltage : ElectricPotentialValue = 230 [V];\n    attribute resistance : ResistanceValue = 26.45 [ohm];\n    attribute current : ElectricCurrentValue = OhmsLaw(supplyVoltage, resistance);\n    attribute power : PowerValue = Power(supplyVoltage, current);\n  }\n}\n```",
+          "content": "```sysml\npackage Circuit {\n    private import ScalarValues::*;\n    private import ISQ::*;\n    private import SI::*;\n\n    calculation OhmsLaw {\n        in voltage : ElectricPotentialValue;\n        in resistance : ResistanceValue;\n        return current : ElectricCurrentValue = voltage / resistance;\n    }\n\n    calculation Power {\n        in voltage : ElectricPotentialValue;\n        in current : ElectricCurrentValue;\n        return power : PowerValue = voltage * current;\n    }\n\n    part Heater {\n        attribute supplyVoltage : ElectricPotentialValue = 230 [V];\n        attribute resistance : ResistanceValue = 26.45 [ohm];\n        attribute current : ElectricCurrentValue = OhmsLaw(supplyVoltage, resistance);\n        attribute power : PowerValue = Power(supplyVoltage, current);\n    }\n}\n```",
           "usage": {
             "inputTokens": 348,
-            "outputTokens": 166
+            "outputTokens": 162
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "65d57fc135a902e4ea87867cefaa0d30701dd2384a612f78b2c1c5074ae52b33",
+        "requestDigest": "bb438846e414b08f2b166a16cf3302542d2b1b65c5a964af8105cdae0d641c37",
         "response": {
-          "content": "package Circuit {\n  private import ScalarValues::*;\n  private import ISQ::*;\n  private import SI::*;\n\n  definition OhmsLaw : ElectricCurrentValue = (in voltage : ElectricPotentialValue, in resistance : ResistanceValue) -\u003e ElectricCurrentValue {\n    return voltage / resistance;\n  }\n\n  definition Power : PowerValue = (in voltage : ElectricPotentialValue, in current : ElectricCurrentValue) -\u003e PowerValue {\n    return voltage * current;\n  }\n\n  part Heater : Part {\n    attribute supplyVoltage : ElectricPotentialValue = 230 [V];\n    attribute resistance : ResistanceValue = 26.45 [ohm];\n    attribute current : ElectricCurrentValue = OhmsLaw(supplyVoltage, resistance);\n    attribute power : PowerValue = Power(supplyVoltage, current);\n  }\n}",
+          "content": "package Circuit {\n    private import ScalarValues::*;\n    private import ISQ::*;\n    private import SI::*;\n\n    calculation OhmsLaw {\n        in voltage : ElectricPotentialValue;\n        in resistance : ResistanceValue;\n        return current : ElectricCurrentValue = voltage / resistance;\n    }\n\n    calculation Power {\n        in voltage : ElectricPotentialValue;\n        in current : ElectricCurrentValue;\n        return power : PowerValue = voltage * current;\n    }\n\n    part Heater {\n        attribute supplyVoltage : ElectricPotentialValue = 230 [V];\n        attribute resistance : ResistanceValue = 26.45 [ohm];\n        attribute current : ElectricCurrentValue = OhmsLaw(supplyVoltage, resistance);\n        attribute power : PowerValue = Power(supplyVoltage, current);\n    }\n}",
           "usage": {
-            "inputTokens": 761,
-            "outputTokens": 161
+            "inputTokens": 664,
+            "outputTokens": 157
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "c359697e792b081e27a76fea6861802ea464c74b3a2781b399370fb418bcedab",
+        "requestDigest": "e9b6b8eb34c3e64873da5b50df28751d524581142e06c782a14cc721af11bea3",
         "response": {
-          "content": "package Circuit {\n  private import ScalarValues::*;\n  private import ISQ::*;\n  private import SI::*;\n\n  definition OhmsLaw : ElectricCurrentValue = (in voltage : ElectricPotentialValue, in resistance : ResistanceValue) -\u003e ElectricCurrentValue {\n    return voltage / resistance;\n  }\n\n  definition Power : PowerValue = (in voltage : ElectricPotentialValue, in current : ElectricCurrentValue) -\u003e PowerValue {\n    return voltage * current;\n  }\n\n  part Heater : Part {\n    attribute supplyVoltage : ElectricPotentialValue = 230 [V];\n    attribute resistance : ResistanceValue = 26.45 [ohm];\n    attribute current : ElectricCurrentValue = OhmsLaw(supplyVoltage, resistance);\n    attribute power : PowerValue = Power(supplyVoltage, current);\n  }\n}",
+          "content": "package Circuit {\n    private import ScalarValues::*;\n    private import ISQ::*;\n    private import SI::*;\n\n    calculation OhmsLaw {\n        in voltage : ElectricPotentialValue;\n        in resistance : ResistanceValue;\n        return current : ElectricCurrentValue = voltage / resistance;\n    }\n\n    calculation Power {\n        in voltage : ElectricPotentialValue;\n        in current : ElectricCurrentValue;\n        return power : PowerValue = voltage * current;\n    }\n\n    part Heater {\n        attribute supplyVoltage : ElectricPotentialValue = 230 [V];\n        attribute resistance : ResistanceValue = 26.45 [ohm];\n        attribute current : ElectricCurrentValue = OhmsLaw(supplyVoltage, resistance);\n        attribute power : PowerValue = Power(supplyVoltage, current);\n    }\n}",
           "usage": {
-            "inputTokens": 1174,
-            "outputTokens": 161
+            "inputTokens": 980,
+            "outputTokens": 157
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "aedc59f239fa021f552c9615f306ad1c95e5c8e5b425debdda9b608c6eac8880",
+        "requestDigest": "d4d5a40a0aad3e7f4ab0188c3befdbb0f1d3982a5571cbe10dbc6f40b56f0018",
         "response": {
-          "content": "package Circuit {\n  private import ScalarValues::*;\n  private import ISQ::*;\n  private import SI::*;\n\n  definition OhmsLaw : ElectricCurrentValue = (in voltage : ElectricPotentialValue, in resistance : ResistanceValue) -\u003e ElectricCurrentValue {\n    return voltage / resistance;\n  }\n\n  definition Power : PowerValue = (in voltage : ElectricPotentialValue, in current : ElectricCurrentValue) -\u003e PowerValue {\n    return voltage * current;\n  }\n\n  part Heater : Part {\n    attribute supplyVoltage : ElectricPotentialValue = 230 [V];\n    attribute resistance : ResistanceValue = 26.45 [ohm];\n    attribute current : ElectricCurrentValue = OhmsLaw(supplyVoltage, resistance);\n    attribute power : PowerValue = Power(supplyVoltage, current);\n  }\n}",
+          "content": "package Circuit {\n    private import ScalarValues::*;\n    private import ISQ::*;\n    private import SI::*;\n\n    calculation OhmsLaw {\n        in voltage : ElectricPotentialValue;\n        in resistance : ResistanceValue;\n        return current : ElectricCurrentValue = voltage / resistance;\n    }\n\n    calculation Power {\n        in voltage : ElectricPotentialValue;\n        in current : ElectricCurrentValue;\n        return power : PowerValue = voltage * current;\n    }\n\n    part Heater {\n        attribute supplyVoltage : ElectricPotentialValue = 230 [V];\n        attribute resistance : ResistanceValue = 26.45 [ohm];\n        attribute current : ElectricCurrentValue = OhmsLaw(supplyVoltage, resistance);\n        attribute power : PowerValue = Power(supplyVoltage, current);\n    }\n}",
           "usage": {
-            "inputTokens": 1587,
-            "outputTokens": 161
+            "inputTokens": 1296,
+            "outputTokens": 157
           },
           "model": "qwen2.5-coder:7b"
         }
@@ -545,44 +557,44 @@
     ],
     "C05/mcp/1": [
       {
-        "requestDigest": "18428999f22f30883ec30db5bf304ff02c986c0c0dec3b22c3ee9d5ca59442a7",
-        "response": {
-          "content": "package Circuit {\n  import StandardViewDefinitions::*;\n  import ScalarValues::*;\n\n  definition OhmsLaw {\n    in voltage : ElectricPotentialValue;\n    in resistance : ResistanceValue;\n    return current : ElectricCurrentValue = voltage / resistance;\n  }\n\n  definition Power {\n    in voltage : ElectricPotentialValue;\n    in current : ElectricCurrentValue;\n    return power : PowerValue = voltage * current;\n  }\n\n  part Heater {\n    attribute supplyVoltage : ElectricPotentialValue = 230 [V];\n    attribute resistance : ResistanceValue = 26.45 [ohm];\n    attribute current : ElectricCurrentValue = OhmsLaw(supplyVoltage, resistance);\n    attribute power : PowerValue = Power(supplyVoltage, current);\n  }\n}",
-          "usage": {
-            "inputTokens": 1764,
-            "outputTokens": 151
-          },
-          "model": "qwen2.5-coder:7b"
-        }
-      },
-      {
-        "requestDigest": "29aca92bb5dc529207d12260b3b71d9324cd65700bafe56837c8a0ae7eb93f4e",
+        "requestDigest": "14e128da48ddcaf457d39316a7cbe9b925ca365f73ab8613392db306a45d22cc",
         "response": {
           "content": "package Circuit {\n  private import StandardViewDefinitions::*;\n  private import ScalarValues::*;\n\n  definition OhmsLaw {\n    in voltage : ElectricPotentialValue;\n    in resistance : ResistanceValue;\n    return current : ElectricCurrentValue = voltage / resistance;\n  }\n\n  definition Power {\n    in voltage : ElectricPotentialValue;\n    in current : ElectricCurrentValue;\n    return power : PowerValue = voltage * current;\n  }\n\n  part Heater {\n    attribute supplyVoltage : ElectricPotentialValue = 230 [V];\n    attribute resistance : ResistanceValue = 26.45 [ohm];\n    attribute current : ElectricCurrentValue = OhmsLaw(supplyVoltage, resistance);\n    attribute power : PowerValue = Power(supplyVoltage, current);\n  }\n}",
           "usage": {
-            "inputTokens": 2142,
+            "inputTokens": 1978,
             "outputTokens": 153
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "ad443c0e8f17a1b680ec0a146071719d2e44d17bc60311df35b5f98f1011e73a",
+        "requestDigest": "5ac614c8d20aa84eb7939bd9d9fdaf9f9fda36f4175d065efb5015f74fb2821e",
         "response": {
           "content": "package Circuit {\n  private import StandardViewDefinitions::*;\n  private import ScalarValues::*;\n\n  definition OhmsLaw {\n    in voltage : ElectricPotentialValue;\n    in resistance : ResistanceValue;\n    return current : ElectricCurrentValue = voltage / resistance;\n  }\n\n  definition Power {\n    in voltage : ElectricPotentialValue;\n    in current : ElectricCurrentValue;\n    return power : PowerValue = voltage * current;\n  }\n\n  part Heater {\n    attribute supplyVoltage : ElectricPotentialValue = 230 [V];\n    attribute resistance : ResistanceValue = 26.45 [ohm];\n    attribute current : ElectricCurrentValue = OhmsLaw(supplyVoltage, resistance);\n    attribute power : PowerValue = Power(supplyVoltage, current);\n  }\n}",
           "usage": {
-            "inputTokens": 2454,
+            "inputTokens": 2290,
             "outputTokens": 153
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "dc325e51ac322061dedd6dc3102724f50c30d3d869a64c1e679444f550017829",
+        "requestDigest": "1a21f7222f5030ea8927c13407f1ce6aa32c92852884ed09585d0e9e54c43166",
         "response": {
           "content": "package Circuit {\n  private import StandardViewDefinitions::*;\n  private import ScalarValues::*;\n\n  definition OhmsLaw {\n    in voltage : ElectricPotentialValue;\n    in resistance : ResistanceValue;\n    return current : ElectricCurrentValue = voltage / resistance;\n  }\n\n  definition Power {\n    in voltage : ElectricPotentialValue;\n    in current : ElectricCurrentValue;\n    return power : PowerValue = voltage * current;\n  }\n\n  part Heater {\n    attribute supplyVoltage : ElectricPotentialValue = 230 [V];\n    attribute resistance : ResistanceValue = 26.45 [ohm];\n    attribute current : ElectricCurrentValue = OhmsLaw(supplyVoltage, resistance);\n    attribute power : PowerValue = Power(supplyVoltage, current);\n  }\n}",
           "usage": {
-            "inputTokens": 2766,
+            "inputTokens": 2602,
+            "outputTokens": 153
+          },
+          "model": "qwen2.5-coder:7b"
+        }
+      },
+      {
+        "requestDigest": "29a6d11ba161ce89ebf1abb4138ed01b1495904780ef5b2ef6fb5be28510d0e1",
+        "response": {
+          "content": "package Circuit {\n  private import StandardViewDefinitions::*;\n  private import ScalarValues::*;\n\n  definition OhmsLaw {\n    in voltage : ElectricPotentialValue;\n    in resistance : ResistanceValue;\n    return current : ElectricCurrentValue = voltage / resistance;\n  }\n\n  definition Power {\n    in voltage : ElectricPotentialValue;\n    in current : ElectricCurrentValue;\n    return power : PowerValue = voltage * current;\n  }\n\n  part Heater {\n    attribute supplyVoltage : ElectricPotentialValue = 230 [V];\n    attribute resistance : ResistanceValue = 26.45 [ohm];\n    attribute current : ElectricCurrentValue = OhmsLaw(supplyVoltage, resistance);\n    attribute power : PowerValue = Power(supplyVoltage, current);\n  }\n}",
+          "usage": {
+            "inputTokens": 2914,
             "outputTokens": 153
           },
           "model": "qwen2.5-coder:7b"
@@ -593,43 +605,43 @@
       {
         "requestDigest": "b701347c0203e8ec9f3418f0a5cfb297101bf654c661fe726af128020661fc0a",
         "response": {
-          "content": "```sysml\npackage Kettle {\n  private import ScalarValues::*;\n  private import ISQ::*;\n  private import SI::*;\n\n  requirement BoilTimeRequirement {\n    description: \"The kettle shall boil one litre of water in under three minutes.\";\n    specification: Time \u003c 3 * minute;\n  }\n}\n```",
+          "content": "```sysml\npackage Kettle {\n  private import StandardViewDefinitions::*;\n  private import ScalarValues::*;\n\n  requirement BoilTimeRequirement {\n    description: \"The kettle shall boil one litre of water in under three minutes.\";\n    type: RequirementType::Functional;\n    priority: RequirementPriority::High;\n    status: RequirementStatus::Active;\n    verification: VerificationCase {\n      name: \"BoilTimeVerification\";\n      description: \"Verify that the kettle boils one litre of water in under three minutes.\";\n      method: VerificationMethod::Test;\n      resources: [\n        Resource {\n          name: \"Kettle\";\n          type: ResourceType::Hardware;\n        },\n        Resource {\n          name: \"Water\";\n          type: ResourceType::Material;\n        },\n        Resource {\n          name: \"Timer\";\n          type: ResourceType::Software;\n        }\n      ];\n      steps: [\n        Step {\n          name: \"FillKettle\";\n          description: \"Fill the kettle with one litre of water.\";\n        },\n        Step {\n          name: \"StartBoil\";\n          description: \"Start boiling the water using the kettle.\";\n        },\n        Step {\n          name: \"MeasureTime\";\n          description: \"Measure the time taken for the water to boil.\";\n        },\n        Step {\n          name: \"CheckBoilTime\";\n          description: \"Check if the time taken is under three minutes.\";\n        }\n      ];\n      expectedOutcome: \"The water boils in under three minutes.\";\n    };\n  };\n};\n```",
           "usage": {
             "inputTokens": 235,
-            "outputTokens": 64
+            "outputTokens": 302
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "acc689e83d93793f0718307c88a68b236f8c32f519491565e3f071fb159470f3",
+        "requestDigest": "d60b2d23cd01ca5c8fb659470bf8cadf9d5159cc4d00e93f2981c8c076197554",
         "response": {
-          "content": "package Kettle {\n  private import ScalarValues::*;\n  private import ISQ::*;\n  private import SI::*;\n\n  requirement BoilTimeRequirement {\n    description: \"The kettle shall boil one litre of water in under three minutes.\";\n    specification: Time \u003c 3 * minute;\n  }\n}",
+          "content": "package Kettle {\n  private import StandardViewDefinitions::*;\n  private import ScalarValues::*;\n\n  requirement BoilTimeRequirement {\n    description: \"The kettle shall boil one litre of water in under three minutes.\";\n    type: RequirementType::Functional;\n    priority: RequirementPriority::High;\n    status: RequirementStatus::Active;\n    verification: VerificationCase {\n      name: \"BoilTimeVerification\";\n      description: \"Verify that the kettle boils one litre of water in under three minutes.\";\n      method: VerificationMethod::Test;\n      resources: [\n        Resource {\n          name: \"Kettle\";\n          type: ResourceType::Hardware;\n        },\n        Resource {\n          name: \"Water\";\n          type: ResourceType::Material;\n        },\n        Resource {\n          name: \"Timer\";\n          type: ResourceType::Software;\n        }\n      ];\n      steps: [\n        Step {\n          name: \"FillKettle\";\n          description: \"Fill the kettle with one litre of water.\";\n        },\n        Step {\n          name: \"StartBoil\";\n          description: \"Start boiling the water using the kettle.\";\n        },\n        Step {\n          name: \"MeasureTime\";\n          description: \"Measure the time taken for the water to boil.\";\n        },\n        Step {\n          name: \"CheckBoilTime\";\n          description: \"Check if the time taken is under three minutes.\";\n        }\n      ];\n      expectedOutcome: \"The water boils in under three minutes.\";\n    };\n  };\n};",
           "usage": {
-            "inputTokens": 442,
-            "outputTokens": 59
+            "inputTokens": 1293,
+            "outputTokens": 297
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "2c2dc550e9cb864b9e618b6d1d2f35e2728ca8a1e2a2ec54e3b9e57461ae3a24",
+        "requestDigest": "64ae6b6aeefa3da1b0fd0edbd500d2aa7859014475d672375673f7cde84a0b58",
         "response": {
-          "content": "package Kettle {\n  private import ScalarValues::*;\n  private import ISQ::*;\n  private import SI::*;\n\n  requirement BoilTimeRequirement {\n    description: \"The kettle shall boil one litre of water in under three minutes.\";\n    specification: Time \u003c 3 * minute;\n  }\n}",
+          "content": "package Kettle {\n  private import StandardViewDefinitions::*;\n  private import ScalarValues::*;\n\n  requirement BoilTimeRequirement {\n    description: \"The kettle shall boil one litre of water in under three minutes.\";\n    type: RequirementType::Functional;\n    priority: RequirementPriority::High;\n    status: RequirementStatus::Active;\n    verification: VerificationCase {\n      name: \"BoilTimeVerification\";\n      description: \"Verify that the kettle boils one litre of water in under three minutes.\";\n      method: VerificationMethod::Test;\n      resources: [\n        Resource {\n          name: \"Kettle\";\n          type: ResourceType::Hardware;\n        },\n        Resource {\n          name: \"Water\";\n          type: ResourceType::Material;\n        },\n        Resource {\n          name: \"Timer\";\n          type: ResourceType::Software;\n        }\n      ];\n      steps: [\n        Step {\n          name: \"FillKettle\";\n          description: \"Fill the kettle with one litre of water.\";\n        },\n        Step {\n          name: \"StartBoil\";\n          description: \"Start boiling the water using the kettle.\";\n        },\n        Step {\n          name: \"MeasureTime\";\n          description: \"Measure the time taken for the water to boil.\";\n        },\n        Step {\n          name: \"CheckBoilTime\";\n          description: \"Check if the time taken is under three minutes.\";\n        }\n      ];\n      expectedOutcome: \"The water boils in under three minutes.\";\n    };\n  };\n};",
           "usage": {
-            "inputTokens": 649,
-            "outputTokens": 59
+            "inputTokens": 2351,
+            "outputTokens": 297
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "8d62a98953516dffc56ead8aff297bbbeecacb9f32af1d38a2b5f6f21203b632",
+        "requestDigest": "e8a03351dccab963d3f84658f25a6f85aa110e30d935e6ed23f919b9b2159949",
         "response": {
-          "content": "package Kettle {\n  private import ScalarValues::*;\n  private import ISQ::*;\n  private import SI::*;\n\n  requirement BoilTimeRequirement {\n    description: \"The kettle shall boil one litre of water in under three minutes.\";\n    specification: Time \u003c 3 * minute;\n  }\n}",
+          "content": "package Kettle {\n  private import StandardViewDefinitions::*;\n  private import ScalarValues::*;\n\n  requirement BoilTimeRequirement {\n    description: \"The kettle shall boil one litre of water in under three minutes.\";\n    type: RequirementType::Functional;\n    priority: RequirementPriority::High;\n    status: RequirementStatus::Active;\n    verification: VerificationCase {\n      name: \"BoilTimeVerification\";\n      description: \"Verify that the kettle boils one litre of water in under three minutes.\";\n      method: VerificationMethod::Test;\n      resources: [\n        Resource {\n          name: \"Kettle\";\n          type: ResourceType::Hardware;\n        },\n        Resource {\n          name: \"Water\";\n          type: ResourceType::Material;\n        },\n        Resource {\n          name: \"Timer\";\n          type: ResourceType::Software;\n        }\n      ];\n      steps: [\n        Step {\n          name: \"FillKettle\";\n          description: \"Fill the kettle with one litre of water.\";\n        },\n        Step {\n          name: \"StartBoil\";\n          description: \"Start boiling the water using the kettle.\";\n        },\n        Step {\n          name: \"MeasureTime\";\n          description: \"Measure the time taken for the water to boil.\";\n        },\n        Step {\n          name: \"CheckBoilTime\";\n          description: \"Check if the time taken is under three minutes.\";\n        }\n      ];\n      expectedOutcome: \"The water boils in under three minutes.\";\n    };\n  };\n};",
           "usage": {
-            "inputTokens": 856,
-            "outputTokens": 59
+            "inputTokens": 3409,
+            "outputTokens": 297
           },
           "model": "qwen2.5-coder:7b"
         }
@@ -637,45 +649,45 @@
     ],
     "R01/mcp/1": [
       {
-        "requestDigest": "ad2d700765887251efae77ae89adddd129aadf16da99c0811ee3893bed17ea5f",
+        "requestDigest": "9420869995f56ceb9c6b63156690c85f13c2bf254182d6d954c143089d79287d",
         "response": {
-          "content": "package Kettle {\n  requirement BoilTimeRequirement {\n    description: \"The kettle shall boil one litre of water in under three minutes.\";\n    type: VerificationCase;\n    verificationMethod: \"Time measurement\";\n    verificationData: {\n      input: \"One litre of water\";\n      expectedOutput: \"Boiled in less than 3 minutes\";\n    };\n  }\n}",
+          "content": "package Kettle {\n  private import StandardViewDefinitions::*;\n  private import VerificationCases::*;\n  private import ISQ::*;\n  private import SI::*;\n\n  requirement BoilTimeRequirement {\n    description: \"The kettle shall boil one litre of water in under three minutes.\";\n    type: VerificationCase;\n    verificationMethod: TimeBasedVerification;\n    verificationParameters: {\n      timeLimit: 3 * minute;\n      quantity: 1 * litre;\n      substance: Water;\n    };\n  }\n}",
           "usage": {
-            "inputTokens": 1651,
-            "outputTokens": 76
+            "inputTokens": 1865,
+            "outputTokens": 99
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "ad4e355d4286334c89a28de0b159ae4b1729841cd76220c8c03e0360592d4141",
+        "requestDigest": "b9c9b0c635601c07dff1b1c58d081dc2bb403f93906f0d0ba1efaee7298e42e7",
         "response": {
-          "content": "package Kettle {\n  requirement BoilTimeRequirement {\n    description: \"The kettle shall boil one litre of water in under three minutes.\";\n    type: VerificationCase;\n    verificationMethod: \"Time measurement\";\n    verificationData: {\n      input: \"One litre of water\";\n      expectedOutput: \"Boiled in less than 3 minutes\";\n    };\n  }\n}",
+          "content": "package Kettle {\n  private import StandardViewDefinitions::*;\n  private import VerificationCases::*;\n  private import ISQ::*;\n  private import SI::*;\n\n  requirement BoilTimeRequirement {\n    description: \"The kettle shall boil one litre of water in under three minutes.\";\n    type: VerificationCase;\n    verificationMethod: TimeBasedVerification;\n    verificationParameters: {\n      timeLimit: 3 * minute;\n      quantity: 1 * litre;\n      substance: Water;\n    };\n  }\n}",
           "usage": {
-            "inputTokens": 2039,
-            "outputTokens": 76
+            "inputTokens": 2228,
+            "outputTokens": 99
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "f3d90d74d5882bc9ca0515d16c7c7150182e5d3bd5528c87291cca1715b06607",
+        "requestDigest": "277a75486d86d49827107dcc7ede5998c65bfa93865282aa7132ba916f5bb042",
         "response": {
-          "content": "package Kettle {\n  requirement BoilTimeRequirement {\n    description: \"The kettle shall boil one litre of water in under three minutes.\";\n    type: VerificationCase;\n    verificationMethod: \"Time measurement\";\n    verificationData: {\n      input: \"One litre of water\";\n      expectedOutput: \"Boiled in less than 3 minutes\";\n    };\n  }\n}",
+          "content": "package Kettle {\n  private import StandardViewDefinitions::*;\n  private import VerificationCases::*;\n  private import ISQ::*;\n  private import SI::*;\n\n  requirement BoilTimeRequirement {\n    description: \"The kettle shall boil one litre of water in under three minutes.\";\n    type: VerificationCase;\n    verificationMethod: TimeBasedVerification;\n    verificationParameters: {\n      timeLimit: 3 * minute;\n      quantity: 1 * litre;\n      substance: Water;\n    };\n  }\n}",
           "usage": {
-            "inputTokens": 2427,
-            "outputTokens": 76
+            "inputTokens": 2591,
+            "outputTokens": 99
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "29959438f2d38ba82f6a6b9ff34c614ee1480d9495f0155c3ec3fa669ff9aec7",
+        "requestDigest": "b2ae0329561d43b7dd966ffdfadcbad12a0e83982ebcdbd71fa003afac405f1f",
         "response": {
-          "content": "package Kettle {\n  requirement BoilTimeRequirement {\n    description: \"The kettle shall boil one litre of water in under three minutes.\";\n    type: VerificationCase;\n    verificationMethod: \"Time measurement\";\n    verificationData: {\n      input: \"One litre of water\";\n      expectedOutput: \"Boiled in less than 3 minutes\";\n    };\n  }\n}",
+          "content": "package Kettle {\n  private import StandardViewDefinitions::*;\n  private import VerificationCases::*;\n  private import ISQ::*;\n  private import SI::*;\n\n  requirement BoilTimeRequirement {\n    description: \"The kettle shall boil one litre of water in under three minutes.\";\n    type: VerificationCase;\n    verificationMethod: TimeBasedVerification;\n    verificationParameters: {\n      timeLimit: 3 * minute;\n      quantity: 1 * litre;\n      substance: Water;\n    };\n  }\n}",
           "usage": {
-            "inputTokens": 2815,
-            "outputTokens": 76
+            "inputTokens": 2954,
+            "outputTokens": 99
           },
           "model": "qwen2.5-coder:7b"
         }
@@ -729,45 +741,45 @@
     ],
     "R05/mcp/1": [
       {
-        "requestDigest": "dab92eeb212730ffa28ace7f33e5cf2c4602ecc534dc01277c0c9dde4c954b43",
+        "requestDigest": "c5cf6a533f9a9d8687eda53e257d752b5026024db22fc9b9e36ace3303a24647",
         "response": {
-          "content": "package Vehicle {\n    private import ScalarValues::*;\n    private import StandardViewDefinitions::*;\n\n    part Vehicle {\n        attribute topSpeedKilometresPerHour : Real;\n        attribute rangeKilometres : Real;\n    }\n\n    requirement definition PerformanceRequirement {\n        subject vehicle : Vehicle;\n        specialization TopSpeedRequirement {\n            requirement vehicle.topSpeedKilometresPerHour \u003e= 120.0;\n        }\n        specialization RangeRequirement {\n            requirement vehicle.rangeKilometres \u003e= 400.0;\n        }\n    }\n\n    requirement usage vehiclePerformance : PerformanceRequirement {\n        nesting topSpeed : TopSpeedRequirement;\n        nesting range : RangeRequirement;\n    }\n}",
+          "content": "package Vehicle {\n    private import ScalarValues::*;\n    private import ISQ::*;\n    private import SI::*;\n\n    part Vehicle {\n        attribute topSpeedKilometresPerHour : Real;\n        attribute rangeKilometres : Real;\n    }\n\n    requirement definition PerformanceRequirement {\n        subject vehicle : Vehicle;\n        specialization TopSpeedRequirement {\n            requirement vehicle.topSpeedKilometresPerHour \u003e= 120.0;\n        }\n        specialization RangeRequirement {\n            requirement vehicle.rangeKilometres \u003e= 400.0;\n        }\n    }\n\n    requirement usage vehiclePerformance : PerformanceRequirement {\n        nesting topSpeed : TopSpeedRequirement;\n        nesting range : RangeRequirement;\n    }\n}",
           "usage": {
-            "inputTokens": 1746,
-            "outputTokens": 138
+            "inputTokens": 1960,
+            "outputTokens": 142
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "72cb00a807cfe66b0185b688b58977fc1984e8b5976db6c8b5c334fe4bd98495",
+        "requestDigest": "799211d4ce587fbd45f01fbe104ed8bfb81c026e75401c776ad57c486d725270",
         "response": {
-          "content": "package Vehicle {\n    private import ScalarValues::*;\n    private import StandardViewDefinitions::*;\n\n    part Vehicle {\n        attribute topSpeedKilometresPerHour : Real;\n        attribute rangeKilometres : Real;\n    }\n\n    requirement definition PerformanceRequirement {\n        specialization TopSpeedRequirement {\n            requirement vehicle.topSpeedKilometresPerHour \u003e= 120.0;\n        }\n        specialization RangeRequirement {\n            requirement vehicle.rangeKilometres \u003e= 400.0;\n        }\n    }\n\n    requirement usage vehiclePerformance : PerformanceRequirement {\n        nesting topSpeed : TopSpeedRequirement;\n        nesting range : RangeRequirement;\n    }\n}",
+          "content": "package Vehicle {\n    private import ScalarValues::*;\n    private import ISQ::*;\n    private import SI::*;\n\n    part Vehicle {\n        attribute topSpeedKilometresPerHour : Real;\n        attribute rangeKilometres : Real;\n    }\n\n    requirement definition PerformanceRequirement {\n        requirement vehicle : Vehicle;\n        specialization TopSpeedRequirement {\n            requirement vehicle.topSpeedKilometresPerHour \u003e= 120.0;\n        }\n        specialization RangeRequirement {\n            requirement vehicle.rangeKilometres \u003e= 400.0;\n        }\n    }\n\n    requirement usage vehiclePerformance : PerformanceRequirement {\n        nesting topSpeed : TopSpeedRequirement;\n        nesting range : RangeRequirement;\n    }\n}",
           "usage": {
-            "inputTokens": 2224,
-            "outputTokens": 132
+            "inputTokens": 2442,
+            "outputTokens": 142
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "cd8480293a81d58de01bb48a94b79cc7a1b67a17d70ca5ad7964a51cf89ce179",
+        "requestDigest": "4d3c9eee119a9093beaf22f303703c5dab2f9b282baebcf37f7abdfd67b375b7",
         "response": {
-          "content": "package Vehicle {\n    private import ScalarValues::*;\n    private import StandardViewDefinitions::*;\n\n    part Vehicle {\n        attribute topSpeedKilometresPerHour : Real;\n        attribute rangeKilometres : Real;\n    }\n\n    requirement definition PerformanceRequirement {\n        subject vehicle : Vehicle;\n        specialization TopSpeedRequirement {\n            requirement vehicle.topSpeedKilometresPerHour \u003e= 120.0;\n        }\n        specialization RangeRequirement {\n            requirement vehicle.rangeKilometres \u003e= 400.0;\n        }\n    }\n\n    requirement usage vehiclePerformance : PerformanceRequirement {\n        nesting topSpeed : TopSpeedRequirement;\n        nesting range : RangeRequirement;\n    }\n}",
+          "content": "package Vehicle {\n    private import ScalarValues::*;\n    private import ISQ::*;\n    private import SI::*;\n\n    part Vehicle {\n        attribute topSpeedKilometresPerHour : Real;\n        attribute rangeKilometres : Real;\n    }\n\n    requirement definition PerformanceRequirement {\n        requirement vehicle : Vehicle;\n        specialization TopSpeedRequirement {\n            requirement vehicle.topSpeedKilometresPerHour \u003e= 120.0;\n        }\n        specialization RangeRequirement {\n            requirement vehicle.rangeKilometres \u003e= 400.0;\n        }\n    }\n\n    requirement usage vehiclePerformance : PerformanceRequirement {\n        nesting topSpeed : TopSpeedRequirement;\n        nesting range : RangeRequirement;\n    }\n}",
           "usage": {
-            "inputTokens": 2644,
-            "outputTokens": 138
+            "inputTokens": 2872,
+            "outputTokens": 142
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "013dc3047fec4603ee49b70da15b099dd1f87842da7a6a82ccb8e818675fd1fa",
+        "requestDigest": "2435c44e38589efe42bc560d7fb4697027fe9691235d76662c1874cc57a4e6fc",
         "response": {
-          "content": "package Vehicle {\n    private import ScalarValues::*;\n    private import StandardViewDefinitions::*;\n\n    part Vehicle {\n        attribute topSpeedKilometresPerHour : Real;\n        attribute rangeKilometres : Real;\n    }\n\n    requirement definition PerformanceRequirement {\n        subject vehicle : Vehicle;\n        specialization TopSpeedRequirement {\n            requirement vehicle.topSpeedKilometresPerHour \u003e= 120.0;\n        }\n        specialization RangeRequirement {\n            requirement vehicle.rangeKilometres \u003e= 400.0;\n        }\n    }\n\n    requirement usage vehiclePerformance : PerformanceRequirement {\n        nesting topSpeed : TopSpeedRequirement;\n        nesting range : RangeRequirement;\n    }\n}",
+          "content": "package Vehicle {\n    private import ScalarValues::*;\n    private import ISQ::*;\n    private import SI::*;\n\n    part Vehicle {\n        attribute topSpeedKilometresPerHour : Real;\n        attribute rangeKilometres : Real;\n    }\n\n    requirement definition PerformanceRequirement {\n        requirement vehicle : Vehicle;\n        specialization TopSpeedRequirement {\n            requirement vehicle.topSpeedKilometresPerHour \u003e= 120.0;\n        }\n        specialization RangeRequirement {\n            requirement vehicle.rangeKilometres \u003e= 400.0;\n        }\n    }\n\n    requirement usage vehiclePerformance : PerformanceRequirement {\n        nesting topSpeed : TopSpeedRequirement;\n        nesting range : RangeRequirement;\n    }\n}",
           "usage": {
-            "inputTokens": 3122,
-            "outputTokens": 138
+            "inputTokens": 3302,
+            "outputTokens": 142
           },
           "model": "qwen2.5-coder:7b"
         }
@@ -777,43 +789,43 @@
       {
         "requestDigest": "e751fa5901a407a00d4998369478ce9e08e5c3849da30f4df2943f90b02cb3b9",
         "response": {
-          "content": "```sysml\npackage Bicycle {\n    private import StandardViewDefinitions::*;\n\n    part Frame {\n        attribute mass : ScalarValues::Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : ScalarValues::Length = 0.7 m;\n        attribute width : ScalarValues::Length = 0.2 m;\n    }\n\n    part Saddle {\n        attribute height : ScalarValues::Length = 0.3 m;\n    }\n\n    part Bicycle {\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}\n```",
+          "content": "```sysml\npackage Bicycle {\n    private import StandardViewDefinitions::*;\n\n    part Frame {\n        attribute mass : ScalarValues::Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : ScalarValues::Length = 0.7 m;\n        attribute width : ScalarValues::Length = 0.2 m;\n    }\n\n    part Saddle {\n        attribute length : ScalarValues::Length = 0.5 m;\n        attribute width : ScalarValues::Length = 0.4 m;\n    }\n\n    part Bicycle {\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}\n```",
           "usage": {
             "inputTokens": 261,
-            "outputTokens": 133
+            "outputTokens": 148
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "61291b4219e819fb1590441a4b010ade38973c8d85f0952d687185ae2dff3a16",
+        "requestDigest": "0d4c44ffad1be5b1d2fce99b242551c193c87eee9720ac4aff8190b8b9e146fb",
         "response": {
-          "content": "package Bicycle {\n    private import StandardViewDefinitions::*;\n\n    part Frame {\n        attribute mass : ScalarValues::Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : ScalarValues::Length = 0.7 m;\n        attribute width : ScalarValues::Length = 0.2 m;\n    }\n\n    part Saddle {\n        attribute height : ScalarValues::Length = 0.3 m;\n    }\n\n    part Bicycle {\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}",
+          "content": "package Bicycle {\n    private import StandardViewDefinitions::*;\n\n    part Frame {\n        attribute mass : ScalarValues::Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : ScalarValues::Length = 0.7 m;\n        attribute width : ScalarValues::Length = 0.2 m;\n    }\n\n    part Saddle {\n        attribute length : ScalarValues::Length = 0.5 m;\n        attribute width : ScalarValues::Length = 0.4 m;\n    }\n\n    part Bicycle {\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}",
           "usage": {
-            "inputTokens": 600,
-            "outputTokens": 128
+            "inputTokens": 637,
+            "outputTokens": 143
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "49c9ae9690adc5b1eeb2e7766769ddebb235b1b631705bf22859489d4973a9e5",
+        "requestDigest": "5e4f600ec6acd60a8c4100004ab7ce568b6e120ae7138797e7cb64021ab2b1e8",
         "response": {
-          "content": "package Bicycle {\n    private import StandardViewDefinitions::*;\n\n    part Frame {\n        attribute mass : ScalarValues::Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : ScalarValues::Length = 0.7 m;\n        attribute width : ScalarValues::Length = 0.2 m;\n    }\n\n    part Saddle {\n        attribute height : ScalarValues::Length = 0.3 m;\n    }\n\n    part Bicycle {\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}",
+          "content": "package Bicycle {\n    private import StandardViewDefinitions::*;\n\n    part Frame {\n        attribute mass : ScalarValues::Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : ScalarValues::Length = 0.7 m;\n        attribute width : ScalarValues::Length = 0.2 m;\n    }\n\n    part Saddle {\n        attribute length : ScalarValues::Length = 0.5 m;\n        attribute width : ScalarValues::Length = 0.4 m;\n    }\n\n    part Bicycle {\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}",
           "usage": {
-            "inputTokens": 939,
-            "outputTokens": 128
+            "inputTokens": 1013,
+            "outputTokens": 143
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "2f07291fd03b1fca93069742cf98b146db64d65dc0b4c29b69ee3357c183c8b5",
+        "requestDigest": "6b29d9da061a2fe22a1075305d020ad2a333687486ed6d97f52dd028f99fa23f",
         "response": {
-          "content": "package Bicycle {\n    private import StandardViewDefinitions::*;\n\n    part Frame {\n        attribute mass : ScalarValues::Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : ScalarValues::Length = 0.7 m;\n        attribute width : ScalarValues::Length = 0.2 m;\n    }\n\n    part Saddle {\n        attribute height : ScalarValues::Length = 0.3 m;\n    }\n\n    part Bicycle {\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}",
+          "content": "package Bicycle {\n    private import StandardViewDefinitions::*;\n\n    part Frame {\n        attribute mass : ScalarValues::Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : ScalarValues::Length = 0.7 m;\n        attribute width : ScalarValues::Length = 0.2 m;\n    }\n\n    part Saddle {\n        attribute length : ScalarValues::Length = 0.5 m;\n        attribute width : ScalarValues::Length = 0.4 m;\n    }\n\n    part Bicycle {\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}",
           "usage": {
-            "inputTokens": 1278,
-            "outputTokens": 128
+            "inputTokens": 1389,
+            "outputTokens": 143
           },
           "model": "qwen2.5-coder:7b"
         }
@@ -821,45 +833,45 @@
     ],
     "S01/mcp/1": [
       {
-        "requestDigest": "7a9b395cc83a4a30975e7908ef1194b1512574ca8ca2ec9321be37dc824caed6",
+        "requestDigest": "d17cf21e0dd76e9698955647fbff9ac062f42545191e3778d72d670f3f2a7fef",
         "response": {
-          "content": "package Bicycle {\n    private import StandardViewDefinitions::*;\n    private import ScalarValues::*;\n\n    part Frame {\n        attribute mass : Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : Length = 700 mm;\n    }\n\n    part Saddle {\n        attribute width : Length = 300 mm;\n    }\n\n    part Bicycle {\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}",
+          "content": "package Bicycle {\n    private import StandardViewDefinitions::*;\n    private import ScalarValues::*;\n\n    part Frame {\n        attribute mass : Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : Length = 700 mm;\n    }\n\n    part Saddle {\n        attribute width : Length = 300 mm;\n    }\n\n    part Bicycle {\n        attribute name : String = \"Mountain Bike\";\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}",
           "usage": {
-            "inputTokens": 1677,
-            "outputTokens": 110
+            "inputTokens": 1891,
+            "outputTokens": 120
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "6316fbbd58fb9d73194a12903f200fc434b8117d7e9d93dc8b2daefa7cf3b838",
+        "requestDigest": "47f6095b7ad71ec9346d10c4c6e46d7e7b1524efda5e8fb1764cc75676f6edeb",
         "response": {
-          "content": "package Bicycle {\n    private import StandardViewDefinitions::*;\n    private import ScalarValues::*;\n\n    part Frame {\n        attribute mass : Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : Length = 700 mm;\n    }\n\n    part Saddle {\n        attribute width : Length = 300 mm;\n    }\n\n    part Bicycle {\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}",
+          "content": "package Bicycle {\n    private import StandardViewDefinitions::*;\n    private import ScalarValues::*;\n\n    part Frame {\n        attribute mass : Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : Length = 700 mm;\n    }\n\n    part Saddle {\n        attribute width : Length = 300 mm;\n    }\n\n    part Bicycle {\n        attribute name : String = \"Mountain Bike\";\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}",
           "usage": {
-            "inputTokens": 1977,
-            "outputTokens": 110
+            "inputTokens": 2201,
+            "outputTokens": 120
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "9ae59171415f0a8d0b083c40d723d00c7c3a8b964bb1d38923ed2b45801717b0",
+        "requestDigest": "d2529da659e7d5ce71efa186e5f322e90f554c9a717fb5d72d56b7b045698865",
         "response": {
-          "content": "package Bicycle {\n    private import StandardViewDefinitions::*;\n    private import ScalarValues::*;\n\n    part Frame {\n        attribute mass : Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : Length = 700 mm;\n    }\n\n    part Saddle {\n        attribute width : Length = 300 mm;\n    }\n\n    part Bicycle {\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}",
+          "content": "package Bicycle {\n    private import StandardViewDefinitions::*;\n    private import ScalarValues::*;\n\n    part Frame {\n        attribute mass : Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : Length = 700 mm;\n    }\n\n    part Saddle {\n        attribute width : Length = 300 mm;\n    }\n\n    part Bicycle {\n        attribute name : String = \"Mountain Bike\";\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}",
           "usage": {
-            "inputTokens": 2277,
-            "outputTokens": 110
+            "inputTokens": 2511,
+            "outputTokens": 120
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "d5207c687bda5fed0cde37ab645a5b05a985fd347090fa83e154f94886507dff",
+        "requestDigest": "f0ccbfaa0dfd58063b4117f2b21275bf6cbd5e526f378759943deff6ec1fea0b",
         "response": {
-          "content": "package Bicycle {\n    private import StandardViewDefinitions::*;\n    private import ScalarValues::*;\n\n    part Frame {\n        attribute mass : Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : Length = 700 mm;\n    }\n\n    part Saddle {\n        attribute width : Length = 300 mm;\n    }\n\n    part Bicycle {\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}",
+          "content": "package Bicycle {\n    private import StandardViewDefinitions::*;\n    private import ScalarValues::*;\n\n    part Frame {\n        attribute mass : Mass = 10 kg;\n    }\n\n    part Wheel {\n        attribute diameter : Length = 700 mm;\n    }\n\n    part Saddle {\n        attribute width : Length = 300 mm;\n    }\n\n    part Bicycle {\n        attribute name : String = \"Mountain Bike\";\n        ownedPart mainFrame : Frame;\n        ownedPart frontWheel : Wheel;\n        ownedPart rearWheel : Wheel;\n        ownedPart saddle : Saddle;\n    }\n}",
           "usage": {
-            "inputTokens": 2577,
-            "outputTokens": 110
+            "inputTokens": 2821,
+            "outputTokens": 120
           },
           "model": "qwen2.5-coder:7b"
         }
@@ -869,43 +881,43 @@
       {
         "requestDigest": "c709fa5128d991bc7ae04aa03358880e3e2b6ae28b0ca6df7606cc34be3f65ab",
         "response": {
-          "content": "```sysml\npackage Charger {\n  private import StandardViewDefinitions::*;\n  private import ScalarValues::*;\n\n  itemDefinition Electricity {\n    attribute voltage : Real;\n    attribute current : Real;\n  }\n\n  portDefinition PowerOutPort {\n    out item power : Electricity;\n  }\n\n  partDefinition PowerSupply {\n    port supply : PowerOutPort;\n  }\n\n  partDefinition Battery {\n    port charge : ~PowerOutPort;\n  }\n\n  partDefinition ChargingStation {\n    owned psu : PowerSupply;\n    owned battery : Battery;\n\n    connection psu_supply_to_battery_charge : Connection {\n      source : psu.supply;\n      target : battery.charge;\n    }\n  }\n}\n```",
+          "content": "```sysml\npackage Charger {\n  private import StandardViewDefinitions::*;\n  private import ScalarValues::*;\n\n  itemDefinition Electricity {\n    attribute voltage : Quantity\u003cISQ::ElectricPotential\u003e { type = SI::Volt }\n    attribute current : Quantity\u003cISQ::ElectricCurrent\u003e { type = SI::Ampere }\n  }\n\n  portDefinition PowerOutPort {\n    out item power : Electricity\n  }\n\n  partDefinition PowerSupply {\n    port supply : PowerOutPort\n  }\n\n  partDefinition Battery {\n    port charge : ~PowerOutPort\n  }\n\n  partDefinition ChargingStation {\n    owned psu : PowerSupply\n    owned battery : Battery\n    connection psu.supply to battery.charge\n  }\n}\n```",
           "usage": {
             "inputTokens": 307,
-            "outputTokens": 140
+            "outputTokens": 151
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "f6fc907b06332d31c91d66d6e8f3de0da9095c5413d179201981882780c831bd",
+        "requestDigest": "c85390c2316a6c106b30b1e695a6f57cfbd5b706db9e072231d8fb14b7766029",
         "response": {
-          "content": "package Charger {\n  private import StandardViewDefinitions::*;\n  private import ScalarValues::*;\n\n  itemDefinition Electricity {\n    attribute voltage : Real;\n    attribute current : Real;\n  }\n\n  portDefinition PowerOutPort {\n    out item power : Electricity;\n  }\n\n  partDefinition PowerSupply {\n    port supply : PowerOutPort;\n  }\n\n  partDefinition Battery {\n    port charge : ~PowerOutPort;\n  }\n\n  partDefinition ChargingStation {\n    owned psu : PowerSupply;\n    owned battery : Battery;\n\n    connection psu_supply_to_battery_charge : Connection {\n      source : psu.supply;\n      target : battery.charge;\n    }\n  }\n}",
+          "content": "package Charger {\n  private import StandardViewDefinitions::*;\n  private import ScalarValues::*;\n\n  itemDefinition Electricity {\n    attribute voltage : Quantity\u003cISQ::ElectricPotential\u003e { type = SI::Volt }\n    attribute current : Quantity\u003cISQ::ElectricCurrent\u003e { type = SI::Ampere }\n  }\n\n  portDefinition PowerOutPort {\n    out item power : Electricity\n  }\n\n  partDefinition PowerSupply {\n    port supply : PowerOutPort\n  }\n\n  partDefinition Battery {\n    port charge : ~PowerOutPort\n  }\n\n  partDefinition ChargingStation {\n    owned psu : PowerSupply\n    owned battery : Battery\n    connection psu.supply to battery.charge\n  }\n}",
           "usage": {
-            "inputTokens": 693,
-            "outputTokens": 135
+            "inputTokens": 883,
+            "outputTokens": 146
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "9485f72792c56c0570aa6e8b90b1616ba71091305abad462dfd3813d213cd3f1",
+        "requestDigest": "087c0d250b78083bb35a576d1f742ebc72bebb0db2a546249d92a8d743956acc",
         "response": {
-          "content": "package Charger {\n  private import StandardViewDefinitions::*;\n  private import ScalarValues::*;\n\n  itemDefinition Electricity {\n    attribute voltage : Real;\n    attribute current : Real;\n  }\n\n  portDefinition PowerOutPort {\n    out item power : Electricity;\n  }\n\n  partDefinition PowerSupply {\n    port supply : PowerOutPort;\n  }\n\n  partDefinition Battery {\n    port charge : ~PowerOutPort;\n  }\n\n  partDefinition ChargingStation {\n    owned psu : PowerSupply;\n    owned battery : Battery;\n\n    connection psu_supply_to_battery_charge : Connection {\n      source : psu.supply;\n      target : battery.charge;\n    }\n  }\n}",
+          "content": "package Charger {\n  private import StandardViewDefinitions::*;\n  private import ScalarValues::*;\n\n  itemDefinition Electricity {\n    attribute voltage : Quantity\u003cISQ::ElectricPotential\u003e { type = SI::Volt }\n    attribute current : Quantity\u003cISQ::ElectricCurrent\u003e { type = SI::Ampere }\n  }\n\n  portDefinition PowerOutPort {\n    out item power : Electricity\n  }\n\n  partDefinition PowerSupply {\n    port supply : PowerOutPort\n  }\n\n  partDefinition Battery {\n    port charge : ~PowerOutPort\n  }\n\n  partDefinition ChargingStation {\n    owned psu : PowerSupply\n    owned battery : Battery\n    connection psu.supply to battery.charge\n  }\n}",
           "usage": {
-            "inputTokens": 1079,
-            "outputTokens": 135
+            "inputTokens": 1459,
+            "outputTokens": 146
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "4904ca56f8554c50e86c63cb4c4bf7616411aeaaf7683aba0cacff81db23da6e",
+        "requestDigest": "6e5b4184c323797059b43adfef1cbbc3afb5ab6825a0aadebbac7a9f1a10e6bb",
         "response": {
-          "content": "package Charger {\n  private import StandardViewDefinitions::*;\n  private import ScalarValues::*;\n\n  itemDefinition Electricity {\n    attribute voltage : Real;\n    attribute current : Real;\n  }\n\n  portDefinition PowerOutPort {\n    out item power : Electricity;\n  }\n\n  partDefinition PowerSupply {\n    port supply : PowerOutPort;\n  }\n\n  partDefinition Battery {\n    port charge : ~PowerOutPort;\n  }\n\n  partDefinition ChargingStation {\n    owned psu : PowerSupply;\n    owned battery : Battery;\n\n    connection psu_supply_to_battery_charge : Connection {\n      source : psu.supply;\n      target : battery.charge;\n    }\n  }\n}",
+          "content": "package Charger {\n  private import StandardViewDefinitions::*;\n  private import ScalarValues::*;\n\n  itemDefinition Electricity {\n    attribute voltage : Quantity\u003cISQ::ElectricPotential\u003e { type = SI::Volt }\n    attribute current : Quantity\u003cISQ::ElectricCurrent\u003e { type = SI::Ampere }\n  }\n\n  portDefinition PowerOutPort {\n    out item power : Electricity\n  }\n\n  partDefinition PowerSupply {\n    port supply : PowerOutPort\n  }\n\n  partDefinition Battery {\n    port charge : ~PowerOutPort\n  }\n\n  partDefinition ChargingStation {\n    owned psu : PowerSupply\n    owned battery : Battery\n    connection psu.supply to battery.charge\n  }\n}",
           "usage": {
-            "inputTokens": 1465,
-            "outputTokens": 135
+            "inputTokens": 2035,
+            "outputTokens": 146
           },
           "model": "qwen2.5-coder:7b"
         }
@@ -913,44 +925,44 @@
     ],
     "S05/mcp/1": [
       {
-        "requestDigest": "c9bfd659473ede2e9b88d81c70032423e72c1a9aab2f5e6d5593dff1f0d389d9",
+        "requestDigest": "92f586b30dd01a84921120a38f8c6f9887fa52c381c72cdb13fe8dc2b5ceb94c",
         "response": {
           "content": "package Charger;\n\nimport StandardViewDefinitions::*;\nimport ScalarValues::*;\n\nitemdef Electricity;\n\nportdef PowerOutPort {\n    out item power : Electricity;\n}\n\npartdef PowerSupply {\n    port supply : PowerOutPort;\n}\n\npartdef Battery {\n    port charge : ~PowerOutPort;\n}\n\npartdef ChargingStation {\n    owned psu : PowerSupply;\n    owned battery : Battery;\n    connect psu.supply to battery.charge;\n}",
           "usage": {
-            "inputTokens": 1723,
+            "inputTokens": 1937,
             "outputTokens": 90
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "8a21b669440d9ca051f6a96eb2ad0266abdc2d0e8343f0016e579740644dbbec",
+        "requestDigest": "5f021587251a93c6a0d4fb2e150324cf6772be4797388e69e1be4abf025d2f91",
         "response": {
           "content": "package Charger;\n\nimport public StandardViewDefinitions::*;\nimport public ScalarValues::*;\n\nitemdef Electricity;\n\nportdef PowerOutPort {\n    out item power : Electricity;\n}\n\npartdef PowerSupply {\n    port supply : PowerOutPort;\n}\n\npartdef Battery {\n    port charge : ~PowerOutPort;\n}\n\npartdef ChargingStation {\n    owned psu : PowerSupply;\n    owned battery : Battery;\n    connect psu.supply to battery.charge;\n}",
           "usage": {
-            "inputTokens": 2113,
+            "inputTokens": 2327,
             "outputTokens": 92
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "489f09bee0b2cc5811af95d63eaefb1fe6befd81d8552a896cb26cade7f02bc8",
+        "requestDigest": "a96c00b3914b81fddf3738d6b2c6b72d139b80fed00467dc9cbed4516db6cffa",
         "response": {
           "content": "package Charger;\n\nimport public StandardViewDefinitions::*;\nimport public ScalarValues::*;\n\nitemdef Electricity;\n\nportdef PowerOutPort {\n    out item power : Electricity;\n}\n\npartdef PowerSupply {\n    port supply : PowerOutPort;\n}\n\npartdef Battery {\n    port charge : ~PowerOutPort;\n}\n\npartdef ChargingStation {\n    owned psu : PowerSupply;\n    owned battery : Battery;\n    connect psu.supply to battery.charge;\n}",
           "usage": {
-            "inputTokens": 2613,
+            "inputTokens": 2827,
             "outputTokens": 92
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "1b624b06b9d7ec254766d7f62c0c3097b30b71b1b3030d3b9e6bad978199e37c",
+        "requestDigest": "edddb8a0e5deea330a7c3728791527d3f9769692210d569dc90aa05ea97ca91e",
         "response": {
           "content": "package Charger;\n\nimport public StandardViewDefinitions::*;\nimport public ScalarValues::*;\n\nitemdef Electricity;\n\nportdef PowerOutPort {\n    out item power : Electricity;\n}\n\npartdef PowerSupply {\n    port supply : PowerOutPort;\n}\n\npartdef Battery {\n    port charge : ~PowerOutPort;\n}\n\npartdef ChargingStation {\n    owned psu : PowerSupply;\n    owned battery : Battery;\n    connect psu.supply to battery.charge;\n}",
           "usage": {
-            "inputTokens": 3113,
+            "inputTokens": 3327,
             "outputTokens": 92
           },
           "model": "qwen2.5-coder:7b"
@@ -1005,45 +1017,45 @@
     ],
     "V01/mcp/1": [
       {
-        "requestDigest": "47ccdc7527d8dc37278ac8d50211a77d304c22c0e88915b978ea41bd9dd994e2",
+        "requestDigest": "bea8db0cec1c748c37bb041447a1f159693f9fbd8a1168e2906087fd3d05b635",
         "response": {
-          "content": "package Garden {\n  import StandardViewDefinitions::*;\n  import ScalarValues::*;\n\n  class Shed {\n    doc \"A structure for storing tools and equipment.\"\n  }\n\n  class Greenhouse {\n    doc \"A structure for growing plants.\"\n  }\n\n  class Garden {\n    doc \"A collection of outdoor spaces for gardening.\"\n    part shed : Shed;\n    part greenhouse : Greenhouse;\n  }\n}",
+          "content": "package Garden {\n    private import StandardViewDefinitions::*;\n    private import ScalarValues::*;\n\n    class Shed {\n        doc \"A structure for storing tools and equipment.\"\n    }\n\n    class Greenhouse {\n        doc \"A structure for growing plants.\"\n    }\n\n    class Garden {\n        doc \"A collection of outdoor spaces for gardening.\"\n        ownedPart shed : Shed;\n        ownedPart greenhouse : Greenhouse;\n    }\n}",
           "usage": {
-            "inputTokens": 1672,
-            "outputTokens": 79
+            "inputTokens": 1886,
+            "outputTokens": 83
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "dfdb93de57439aff53403ebbfb8e9e8e922398db38eef8531e5be8347a888e40",
+        "requestDigest": "e5f1132251b9ad364d901cb69bb24d6487d6790ab52fad9a6f1220fdb9efb70c",
         "response": {
-          "content": "package Garden {\n  public import StandardViewDefinitions::*;\n  public import ScalarValues::*;\n\n  class Shed {\n    doc \"A structure for storing tools and equipment.\"\n  }\n\n  class Greenhouse {\n    doc \"A structure for growing plants.\"\n  }\n\n  class Garden {\n    doc \"A collection of outdoor spaces for gardening.\"\n    part shed : Shed;\n    part greenhouse : Greenhouse;\n  }\n}",
+          "content": "package Garden {\n    private import StandardViewDefinitions::*;\n    private import ScalarValues::*;\n\n    occurrence def Shed {\n        doc \"A structure for storing tools and equipment.\"\n    }\n\n    occurrence def Greenhouse {\n        doc \"A structure for growing plants.\"\n    }\n\n    occurrence def Garden {\n        doc \"A collection of outdoor spaces for gardening.\"\n        ownedPart shed : Shed;\n        ownedPart greenhouse : Greenhouse;\n    }\n}",
           "usage": {
-            "inputTokens": 1987,
-            "outputTokens": 81
+            "inputTokens": 2322,
+            "outputTokens": 86
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "98cd1277e4dfb6a07ab5e5f78f6c52fc91432b1c73f0956776338545c7bfa493",
+        "requestDigest": "ce6155b16c44bd3676a111da855d5ec2a6df85a548aa6488f0712184ab8df80c",
         "response": {
-          "content": "package Garden {\n  public import StandardViewDefinitions::*;\n  public import ScalarValues::*;\n\n  class Shed {\n    doc \"A structure for storing tools and equipment.\"\n  }\n\n  class Greenhouse {\n    doc \"A structure for growing plants.\"\n  }\n\n  class Garden {\n    doc \"A collection of outdoor spaces for gardening.\"\n    part shed : Shed;\n    part greenhouse : Greenhouse;\n  }\n}",
+          "content": "package Garden {\n    private import StandardViewDefinitions::*;\n    private import ScalarValues::*;\n\n    occurrence def Shed {\n        doc \"A structure for storing tools and equipment.\"\n    }\n\n    occurrence def Greenhouse {\n        doc \"A structure for growing plants.\"\n    }\n\n    occurrence def Garden {\n        doc \"A collection of outdoor spaces for gardening.\"\n        ownedPart shed : Shed;\n        ownedPart greenhouse : Greenhouse;\n    }\n}",
           "usage": {
-            "inputTokens": 2236,
-            "outputTokens": 81
+            "inputTokens": 2600,
+            "outputTokens": 86
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "de5dd1707b1ecc2b113376bce4eefd61779453f0a1ffcf9134fffb421fa2d7cd",
+        "requestDigest": "eb6987c83d7622c2c46c4f6c54eb6d7770ffd65cf2806fd3f814d81b7d15cd2e",
         "response": {
-          "content": "package Garden {\n  public import StandardViewDefinitions::*;\n  public import ScalarValues::*;\n\n  class Shed {\n    doc \"A structure for storing tools and equipment.\"\n  }\n\n  class Greenhouse {\n    doc \"A structure for growing plants.\"\n  }\n\n  class Garden {\n    doc \"A collection of outdoor spaces for gardening.\"\n    part shed : Shed;\n    part greenhouse : Greenhouse;\n  }\n}",
+          "content": "package Garden {\n    private import StandardViewDefinitions::*;\n    private import ScalarValues::*;\n\n    occurrence def Shed {\n        doc \"A structure for storing tools and equipment.\"\n    }\n\n    occurrence def Greenhouse {\n        doc \"A structure for growing plants.\"\n    }\n\n    occurrence def Garden {\n        doc \"A collection of outdoor spaces for gardening.\"\n        ownedPart shed : Shed;\n        ownedPart greenhouse : Greenhouse;\n    }\n}",
           "usage": {
-            "inputTokens": 2485,
-            "outputTokens": 81
+            "inputTokens": 2878,
+            "outputTokens": 86
           },
           "model": "qwen2.5-coder:7b"
         }
@@ -1053,7 +1065,7 @@
       {
         "requestDigest": "796b02038c98ec2642312c8b3f5b1c74b80f984f82e9df6e16c4219e8548d6d7",
         "response": {
-          "content": "```sysml\npackage Factory {\n    private import StandardViewDefinitions::*;\n\n    part definition Press {\n        // Define properties and operations for Press\n    }\n\n    part definition Conveyor {\n        // Define properties and operations for Conveyor\n    }\n\n    part definition Robot {\n        // Define properties and operations for Robot\n    }\n\n    part definition Line {\n        press : Press;\n        conveyor : Conveyor;\n        robots : Robot[2];\n    }\n\n    view usage lineTree : BrowserView {\n        expose Line::press;\n        expose Line::conveyor;\n        expose Line::robots;\n    }\n}\n```",
+          "content": "```sysml\npackage Factory {\n    private import StandardViewDefinitions::*;\n\n    part definition Press {\n        attribute pressure : ScalarValues::Pressure;\n    }\n\n    part definition Conveyor {\n        attribute speed : ScalarValues::Speed;\n    }\n\n    part definition Robot {\n        attribute model : String;\n    }\n\n    part definition Line {\n        attribute press : Press;\n        attribute conveyor : Conveyor;\n        attribute robots : Robot[2];\n    }\n\n    view usage lineTree : BrowserView {\n        expose Line::press;\n        expose Line::conveyor;\n        expose Line::robots;\n    }\n}\n```",
           "usage": {
             "inputTokens": 275,
             "outputTokens": 119
@@ -1062,9 +1074,9 @@
         }
       },
       {
-        "requestDigest": "034490c87494c2453894e7384bb2ac2aaedf6247e76c62a50dd8b707e2d1b54e",
+        "requestDigest": "471fb451cc9419be9c9c6620a1817f9ae9281ee0b9d5add213c08549d00ce73c",
         "response": {
-          "content": "package Factory {\n    private import StandardViewDefinitions::*;\n\n    part definition Press {\n        // Define properties and operations for Press\n    }\n\n    part definition Conveyor {\n        // Define properties and operations for Conveyor\n    }\n\n    part definition Robot {\n        // Define properties and operations for Robot\n    }\n\n    part definition Line {\n        press : Press;\n        conveyor : Conveyor;\n        robots : Robot[2];\n    }\n\n    view usage lineTree : BrowserView {\n        expose Line::press;\n        expose Line::conveyor;\n        expose Line::robots;\n    }\n}",
+          "content": "package Factory {\n    private import StandardViewDefinitions::*;\n\n    part definition Press {\n        attribute pressure : ScalarValues::Pressure;\n    }\n\n    part definition Conveyor {\n        attribute speed : ScalarValues::Speed;\n    }\n\n    part definition Robot {\n        attribute model : String;\n    }\n\n    part definition Line {\n        attribute press : Press;\n        attribute conveyor : Conveyor;\n        attribute robots : Robot[2];\n    }\n\n    view usage lineTree : BrowserView {\n        expose Line::press;\n        expose Line::conveyor;\n        expose Line::robots;\n    }\n}",
           "usage": {
             "inputTokens": 697,
             "outputTokens": 114
@@ -1073,9 +1085,9 @@
         }
       },
       {
-        "requestDigest": "0319723e6fd3ae6959294902bf5542b93084af7243a6ad347fb5ed9bc4da7006",
+        "requestDigest": "c85ca0ced3951470587e6eae8802379b589536a90104d49160c9a1a0055a91d8",
         "response": {
-          "content": "package Factory {\n    private import StandardViewDefinitions::*;\n\n    part definition Press {\n        // Define properties and operations for Press\n    }\n\n    part definition Conveyor {\n        // Define properties and operations for Conveyor\n    }\n\n    part definition Robot {\n        // Define properties and operations for Robot\n    }\n\n    part definition Line {\n        press : Press;\n        conveyor : Conveyor;\n        robots : Robot[2];\n    }\n\n    view usage lineTree : BrowserView {\n        expose Line::press;\n        expose Line::conveyor;\n        expose Line::robots;\n    }\n}",
+          "content": "package Factory {\n    private import StandardViewDefinitions::*;\n\n    part definition Press {\n        attribute pressure : ScalarValues::Pressure;\n    }\n\n    part definition Conveyor {\n        attribute speed : ScalarValues::Speed;\n    }\n\n    part definition Robot {\n        attribute model : String;\n    }\n\n    part definition Line {\n        attribute press : Press;\n        attribute conveyor : Conveyor;\n        attribute robots : Robot[2];\n    }\n\n    view usage lineTree : BrowserView {\n        expose Line::press;\n        expose Line::conveyor;\n        expose Line::robots;\n    }\n}",
           "usage": {
             "inputTokens": 1119,
             "outputTokens": 114
@@ -1084,9 +1096,9 @@
         }
       },
       {
-        "requestDigest": "f9e32915a572d1ee5c2f8946665fbe22beceb15edef8e64b8f66834801a051c9",
+        "requestDigest": "a712d15567d0816613ada29a3ab085fcd25c75d9268fd2a9d4ed4b6f9725f6ec",
         "response": {
-          "content": "package Factory {\n    private import StandardViewDefinitions::*;\n\n    part definition Press {\n        // Define properties and operations for Press\n    }\n\n    part definition Conveyor {\n        // Define properties and operations for Conveyor\n    }\n\n    part definition Robot {\n        // Define properties and operations for Robot\n    }\n\n    part definition Line {\n        press : Press;\n        conveyor : Conveyor;\n        robots : Robot[2];\n    }\n\n    view usage lineTree : BrowserView {\n        expose Line::press;\n        expose Line::conveyor;\n        expose Line::robots;\n    }\n}",
+          "content": "package Factory {\n    private import StandardViewDefinitions::*;\n\n    part definition Press {\n        attribute pressure : ScalarValues::Pressure;\n    }\n\n    part definition Conveyor {\n        attribute speed : ScalarValues::Speed;\n    }\n\n    part definition Robot {\n        attribute model : String;\n    }\n\n    part definition Line {\n        attribute press : Press;\n        attribute conveyor : Conveyor;\n        attribute robots : Robot[2];\n    }\n\n    view usage lineTree : BrowserView {\n        expose Line::press;\n        expose Line::conveyor;\n        expose Line::robots;\n    }\n}",
           "usage": {
             "inputTokens": 1541,
             "outputTokens": 114
@@ -1097,44 +1109,44 @@
     ],
     "V05/mcp/1": [
       {
-        "requestDigest": "4e8fb44e1407f93f2915f9f531d17b9272857307861c234b0469fa10a57c7195",
+        "requestDigest": "c5004166227f4e35723c56d712f6a7cf8a321bca616208126c40d048826a301e",
         "response": {
-          "content": "package Factory {\n    private import StandardViewDefinitions::*;\n\n    part definition Press {\n        attribute mass : ScalarValues::Mass = 100 kg;\n    }\n\n    part definition Conveyor {\n        attribute length : ScalarValues::Length = 10 m;\n    }\n\n    part definition Robot {\n        attribute model : String = \"ModelX\";\n    }\n\n    part definition Line {\n        attribute press : Press;\n        attribute conveyor : Conveyor;\n        attribute robots : Robot[2];\n    }\n\n    view usage lineTree : BrowserView {\n        expose Line::press;\n        expose Line::conveyor;\n        expose Line::robots;\n    }\n}",
+          "content": "package Factory {\n  private import StandardViewDefinitions::*;\n\n  part definition Press {\n    attribute mass : ScalarValues::Mass = 100 kg;\n  }\n\n  part definition Conveyor {\n    attribute length : ScalarValues::Length = 10 m;\n  }\n\n  part definition Robot {\n    attribute model : String = \"ModelX\";\n  }\n\n  part definition Line {\n    attribute press : Press;\n    attribute conveyor : Conveyor;\n    attribute robots : Robot[2];\n  }\n\n  view usage lineTree : BrowserView {\n    expose Line::press;\n    expose Line::conveyor;\n    expose Line::robots;\n  }\n}",
           "usage": {
-            "inputTokens": 1691,
+            "inputTokens": 1905,
             "outputTokens": 129
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "78b43bffc9e2d90bacf081e16ae0b1c5218a493f4ead128419fb1efa445f717d",
+        "requestDigest": "9dfde91008bb48839cc93a6284fe6e74419e5c26585952b9e09eaa73bef0fbd0",
         "response": {
-          "content": "package Factory {\n    private import StandardViewDefinitions::*;\n\n    part definition Press {\n        attribute mass : ScalarValues::Mass = 100 kg;\n    }\n\n    part definition Conveyor {\n        attribute length : ScalarValues::Length = 10 m;\n    }\n\n    part definition Robot {\n        attribute model : String = \"ModelX\";\n    }\n\n    part definition Line {\n        attribute press : Press;\n        attribute conveyor : Conveyor;\n        attribute robots : Robot[2];\n    }\n\n    view usage lineTree : BrowserView {\n        expose Line.press;\n        expose Line.conveyor;\n        expose Line.robots;\n    }\n}",
+          "content": "package Factory {\n  private import StandardViewDefinitions::*;\n\n  part definition Press {\n    attribute mass : ScalarValues::Mass = 100 kg;\n  }\n\n  part definition Conveyor {\n    attribute length : ScalarValues::Length = 10 m;\n  }\n\n  part definition Robot {\n    attribute model : String = \"ModelX\";\n  }\n\n  part definition Line {\n    attribute press : Press;\n    attribute conveyor : Conveyor;\n    attribute robots : Robot[2];\n  }\n\n  view usage lineTree : BrowserView {\n    expose Line.press;\n    expose Line.conveyor;\n    expose Line.robots;\n  }\n}",
           "usage": {
-            "inputTokens": 2171,
+            "inputTokens": 2385,
             "outputTokens": 127
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "9775f77432241db2a960fe93d5f36c08100dfa35536d67722527a35718d4844a",
+        "requestDigest": "41e7f741a34a945581dd240ba44883453b7cffdf2fedfeed4501378fcb3674fa",
         "response": {
-          "content": "package Factory {\n    private import StandardViewDefinitions::*;\n\n    part definition Press {\n        attribute mass : ScalarValues::Mass = 100 kg;\n    }\n\n    part definition Conveyor {\n        attribute length : ScalarValues::Length = 10 m;\n    }\n\n    part definition Robot {\n        attribute model : String = \"ModelX\";\n    }\n\n    part definition Line {\n        attribute press : Press;\n        attribute conveyor : Conveyor;\n        attribute robots : Robot[2];\n    }\n\n    view usage lineTree : BrowserView {\n        expose Line.press;\n        expose Line.conveyor;\n        expose Line.robots;\n    }\n}",
+          "content": "package Factory {\n  private import StandardViewDefinitions::*;\n\n  part definition Press {\n    attribute mass : ScalarValues::Mass = 100 kg;\n  }\n\n  part definition Conveyor {\n    attribute length : ScalarValues::Length = 10 m;\n  }\n\n  part definition Robot {\n    attribute model : String = \"ModelX\";\n  }\n\n  part definition Line {\n    attribute press : Press;\n    attribute conveyor : Conveyor;\n    attribute robots : Robot[2];\n  }\n\n  view usage lineTree : BrowserView {\n    expose Line.press;\n    expose Line.conveyor;\n    expose Line.robots;\n  }\n}",
           "usage": {
-            "inputTokens": 2766,
+            "inputTokens": 2980,
             "outputTokens": 127
           },
           "model": "qwen2.5-coder:7b"
         }
       },
       {
-        "requestDigest": "e0a2775ae326939b50db8fc9aa5dee3055e7d0bd40b0520ff7a01ff9a6cc77a6",
+        "requestDigest": "87e76d2c1f5475deba58c7834b0e3e808113ab170633bf8a0e5a2c49dcdeecd6",
         "response": {
-          "content": "package Factory {\n    private import StandardViewDefinitions::*;\n\n    part definition Press {\n        attribute mass : ScalarValues::Mass = 100 kg;\n    }\n\n    part definition Conveyor {\n        attribute length : ScalarValues::Length = 10 m;\n    }\n\n    part definition Robot {\n        attribute model : String = \"ModelX\";\n    }\n\n    part definition Line {\n        attribute press : Press;\n        attribute conveyor : Conveyor;\n        attribute robots : Robot[2];\n    }\n\n    view usage lineTree : BrowserView {\n        expose Line.press;\n        expose Line.conveyor;\n        expose Line.robots;\n    }\n}",
+          "content": "package Factory {\n  private import StandardViewDefinitions::*;\n\n  part definition Press {\n    attribute mass : ScalarValues::Mass = 100 kg;\n  }\n\n  part definition Conveyor {\n    attribute length : ScalarValues::Length = 10 m;\n  }\n\n  part definition Robot {\n    attribute model : String = \"ModelX\";\n  }\n\n  part definition Line {\n    attribute press : Press;\n    attribute conveyor : Conveyor;\n    attribute robots : Robot[2];\n  }\n\n  view usage lineTree : BrowserView {\n    expose Line.press;\n    expose Line.conveyor;\n    expose Line.robots;\n  }\n}",
           "usage": {
-            "inputTokens": 3361,
+            "inputTokens": 3575,
             "outputTokens": 127
           },
           "model": "qwen2.5-coder:7b"

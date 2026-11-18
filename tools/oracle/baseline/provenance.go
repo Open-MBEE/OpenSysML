@@ -44,9 +44,12 @@ type Record struct {
 	PilotArtifact string `json:"pilotArtifact"`
 	// Errata is the digest of the declared overlay, which changes what the
 	// oracles read and therefore what they measure.
-	Errata string  `json:"errataRegistry"`
-	Tools  []Tool  `json:"tools,omitempty"`
-	Inputs []Input `json:"inputs"`
+	Errata string `json:"errataRegistry"`
+	// PilotJava is the Java feature release declared for the pilot's side, where a baseline
+	// records one; its oracle records under no other, as the pilot's output varies by JVM.
+	PilotJava string  `json:"pilotJava,omitempty"`
+	Tools     []Tool  `json:"tools,omitempty"`
+	Inputs    []Input `json:"inputs"`
 	// Recorded is the date an -update stamped, if it stamps one: a plain run leaves it empty so
 	// two runs stay byte-identical, and the api-json baseline omits it so branches never conflict on it.
 	Recorded string `json:"recorded,omitempty"`
@@ -104,6 +107,22 @@ func ReadPin(root string) (Pin, error) {
 		return Pin{}, fmt.Errorf("%s pins no PILOT_TAG/PILOT_COMMIT/PILOT_ARTIFACT_VERSION", PinPath)
 	}
 	return Pin{Tag: string(tag[1]), Commit: string(commit[1]), Artifact: string(artifact[1])}, nil
+}
+
+var pinJavaRe = regexp.MustCompile(`PILOT_JAVA="\$\{PILOT_JAVA:-([0-9]+)\}"`)
+
+// ReadPilotJava resolves the Java feature release scripts/pilot-pin.sh declares for the
+// baselines that record the JVM their pilot side was produced under.
+func ReadPilotJava(root string) (string, error) {
+	content, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(PinPath))) // #nosec G304 -- the pin is at a fixed path in this repository
+	if err != nil {
+		return "", fmt.Errorf("read %s: %w", PinPath, err)
+	}
+	java := pinJavaRe.FindSubmatch(content)
+	if java == nil {
+		return "", fmt.Errorf("%s declares no PILOT_JAVA", PinPath)
+	}
+	return string(java[1]), nil
 }
 
 // Today is the stamp -update writes into a baseline.
@@ -199,12 +218,16 @@ const (
 	CauseOurs
 	// CausePinned: the pinned reference material changed underneath the baseline.
 	CausePinned
+	// CauseJVM: the baseline's pilot side was produced under a JVM other than the declared one.
+	CauseJVM
 )
 
 func (c Cause) action() string {
 	switch c {
 	case CausePin:
 		return "the repository's pilot pin has moved since this baseline was recorded: re-run the oracle against the new pin"
+	case CauseJVM:
+		return "the baseline's pilot side was produced under a JVM other than the one " + PinPath + " declares: re-record it with that Java first on PATH"
 	case CausePinned:
 		return "pinned reference material differs from what the baseline measured, at an unchanged pin: investigate the provisioning before re-recording, because the reference is not supposed to move underneath a pin"
 	default:
@@ -241,6 +264,7 @@ func Compare(recorded, current Record) []Mismatch {
 	add("pilotCommit", recorded.PilotCommit, current.PilotCommit, CausePin)
 	add("pilotArtifact", recorded.PilotArtifact, current.PilotArtifact, CausePin)
 	add("errataRegistry", recorded.Errata, current.Errata, CauseOurs)
+	add("pilotJava", recorded.PilotJava, current.PilotJava, CauseJVM)
 
 	recordedTools := make(map[string]Tool, len(recorded.Tools))
 	for _, tool := range recorded.Tools {

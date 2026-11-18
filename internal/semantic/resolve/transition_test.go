@@ -1,6 +1,7 @@
 package resolve
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -195,7 +196,7 @@ func TestResolveEndpointsThatNameVertices(t *testing.T) {
 					state inner;
 				}
 				state done;
-				transition first inner then done;
+				transition first outer.inner then done;
 			}
 		`,
 		"sibling orthogonal region": `
@@ -536,5 +537,68 @@ func TestResolveEndpointDoneShadowedByANonVertexIsReported(t *testing.T) {
 	}
 	if r.Diagnostics[0].Code != CodeNotAVertex {
 		t.Errorf("expected the %s code, got %q", CodeNotAVertex, r.Diagnostics[0].Code)
+	}
+}
+
+// A guarded succession in a calculation, constraint or case body sequences action
+// nodes as one in an action body does (SysML.xtext CalculationBodyItem).
+func TestResolveGuardedSuccessionEndsOutsideAnActionBodyAreActions(t *testing.T) {
+	for _, owner := range []string{"calc def", "constraint def", "analysis def", "action def"} {
+		t.Run(owner, func(t *testing.T) {
+			r := resolveDoc(t, "d.sysml", owner+` C {
+				attribute n = 1;
+				action a;
+				action b;
+				first a if n > 0 then b;
+			}`)
+			if len(r.Diagnostics) != 0 {
+				t.Fatalf("expected no diagnostics, got %v", r.Diagnostics)
+			}
+		})
+	}
+}
+
+// An endpoint resolves from the namespace it is written in, outward (KerML
+// 8.2.3.5): a vertex nested below is reached only through its owners, each one.
+func TestResolveEndpointNestedVertexNeedsItsOwners(t *testing.T) {
+	const machine = `
+		state def M {
+			entry; then idle;
+			state idle;
+			state work parallel {
+				state left { state deep { state leaf; } }
+				state right { state other; %s }
+			}
+			%s
+		}
+	`
+	for _, tc := range []struct{ name, inner, outer, unresolved string }{
+		{"bare nested", "", "transition first idle then leaf;", "leaf"},
+		{"bare nested source", "", "transition first leaf then idle;", "leaf"},
+		{"owners left out", "", "transition first idle then work.leaf;", "work.leaf"},
+		{"some owners left out", "", "transition first idle then work.left.leaf;", "work.left.leaf"},
+		{"qualified owners left out", "", "transition first idle then work::leaf;", "work::leaf"},
+		{"sibling region", "transition first other then leaf;", "", "leaf"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := resolveDoc(t, "d.sysml", fmt.Sprintf(machine, tc.inner, tc.outer))
+			if len(r.Diagnostics) != 1 {
+				t.Fatalf("expected one diagnostic for %s, got %v", tc.unresolved, r.Diagnostics)
+			}
+			if diag := r.Diagnostics[0]; diag.Code != "unresolved" || !strings.Contains(diag.Message, tc.unresolved) {
+				t.Errorf("expected %s unresolved, got %s %q", tc.unresolved, diag.Code, diag.Message)
+			}
+		})
+	}
+	for _, tc := range []struct{ name, inner, outer string }{
+		{"every owner", "", "transition first idle then work.left.deep.leaf;"},
+		{"every owner qualified", "", "transition first work::left::deep::leaf then idle;"},
+		{"owner visible from the sibling region", "transition first other then left.deep.leaf;", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if r := resolveDoc(t, "d.sysml", fmt.Sprintf(machine, tc.inner, tc.outer)); len(r.Diagnostics) != 0 {
+				t.Errorf("expected the endpoint to resolve, got %v", r.Diagnostics)
+			}
+		})
 	}
 }

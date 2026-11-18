@@ -363,10 +363,9 @@ func (e *encoder) encodeSuccessionEdge(n *ast.SuccessionEdge, head func(rdf.Term
 		e.graph.Add(subject, e.sysx(xSourceMultiplicityBeforeThen), rdf.Bool(true))
 	}
 	positionalSource := n.Source == nil && n.SourceMember != nil
-	if implied || positionalSource && (n.SourceMultiplicity != nil || n.TargetMultiplicity != nil) {
-		// A `then` source reached by position needs a structural end to carry its
-		// multiplicity, even when the preceding member has no referenceable name;
-		// the target end carries the crossing multiplicity `then [m] b;` writes.
+	if implied || positionalSource {
+		// A `then` succession owns its two ends however its source is reached (SysML.xtext TargetSuccession:
+		// MultiplicitySourceEndMember + ConnectorEndMember); the target end carries the crossing multiplicity `then [m] b;` writes.
 		e.graph.Add(subject, e.sysx(xEndForm), rdf.String(formThen))
 		if _, err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: "end0", index: 0, memberName: e.ids.model.ImpliedEndName(ast.UsageSuccession, 0), ends: 2, empty: true, mult: n.SourceMultiplicity, noCollapse: true}); err != nil {
 			return err
@@ -456,6 +455,27 @@ func (e *encoder) encodeSubaction(n ast.Node, actions []ast.Node, kind string, h
 		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(kind+" do"))
 	}
 	return e.encode(actions, fqn, subject)
+}
+
+// performedSubaction is the action a state's `entry`, `do` or `exit` subaction performs (encodeSubaction's
+// one member), nil for a bare one or any other node.
+func performedSubaction(node ast.Node) ast.Node {
+	var actions []ast.Node
+	switch n := node.(type) {
+	case *ast.EntryMember:
+		actions = n.Actions
+	case *ast.DoMember:
+		actions = n.Actions
+	case *ast.ExitMember:
+		actions = n.Actions
+	}
+	if len(actions) != 1 {
+		return nil
+	}
+	if m, ok := actions[0].(*ast.Membership); ok {
+		return m.Member
+	}
+	return actions[0]
 }
 
 // bareSubactionKind is the `entry`, `do` or `exit` of a state subaction written without an action, "" otherwise.
@@ -1085,7 +1105,20 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 					Note: fmt.Sprintf("it neither names nor reaches the member it %s, so the order it declares cannot be written back", end.sequence),
 				}
 			}
-			e.graph.Add(subject, e.sysx(end.member), e.ids.subjectForNode(end.end.member, fqn))
+			member := e.ids.subjectForNode(end.end.member, fqn)
+			e.graph.Add(subject, e.sysx(end.member), member)
+			// The feature it reaches is the end's feature and the relationship's source or target too, as for a
+			// named one (KerML 8.3.4.5.1): the member, or the action a subaction (a StateSubactionMembership) performs.
+			element := member
+			if action := performedSubaction(end.end.member); action != nil {
+				actionFQN, ok := e.names.FQN[action]
+				if !ok {
+					actionFQN = naming.Qualify(fqn, e.names.EffectiveName(action), 0)
+				}
+				element = e.ids.subjectForNode(action, actionFQN)
+			}
+			e.graph.Add(subject, e.sysml(end.feature), element)
+			e.graph.Add(subject, e.sysml(end.related), element)
 			continue
 		}
 		// A name the parser took from an unnamed member is its naming feature's,

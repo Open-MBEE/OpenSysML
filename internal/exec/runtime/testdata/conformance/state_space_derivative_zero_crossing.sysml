@@ -1,10 +1,5 @@
-// A ball thrown up at 7.5 m/s under 10 m/s^2, written against
-// StateSpaceRepresentation alone. Its apex is an event occurrence typed by a
-// ZeroCrossingEventDef that states no guard: the library's zero-crossing events
-// occur where the derivative crosses zero (SysML v2 9.4.4.2), and the derivative
-// of the height is the velocity, which goes 7.5, 2.5, -2.5: the event occurs at
-// the end of the step that detected the change of sign, t = 1 s, and the machine
-// beside the dynamics accepts it there. The other component, -10, never crosses.
+// A thrown ball whose apex is a guardless ZeroCrossingEventDef event: it occurs where the derivative
+// of the height (7.5, 2.5, -2.5) crosses zero (SysML v2 9.4.4.2), at the end of that step, t = 1 s.
 package test {
 	private import ScalarValues::*;
 	private import SI::*;

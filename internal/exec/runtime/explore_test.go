@@ -803,7 +803,7 @@ func TestExploreHistoryDefaultThroughJunction(t *testing.T) {
 				transition first split do assign route := 1 then w1;
 				transition first split do assign route := 2 then w2;
 			}
-			transition first idle accept go then resume;
+			transition first idle accept go then work.resume;
 		}
 	}`)
 	policy, err := ParseSchedulePolicy("explore")

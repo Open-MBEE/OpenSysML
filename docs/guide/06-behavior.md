@@ -2246,10 +2246,13 @@ part def Context {
 }
 ```
 
-Both run on the one clock. Each time the cart steps, its `input` is what the pusher's `output`
-holds then, and once the pusher has ended, what it left; the input is held over the
-step. Two dynamics due at one instant are a `due order` choice point like any other. An input
-takes one flow: two flows into one `input`, or a flow from something that is not a vector, are
+Both run on the one clock. As each step of the cart settles, its `input` becomes what the
+pusher's `output` holds then, and once the pusher has ended, what it left; the input is held over
+the next step. At an instant the pusher samples before the cart it feeds, whichever is declared
+first; two dynamics that do not feed one another, or that feed each other in a cycle, are a
+`due order` choice point like any other. A flow a specializing type redefines replaces the one it
+inherits. A flow may state its ends in its body instead, each end owning the feature it flows:
+`flow { end ::> pusher.push { ref :>> output; } end ::> cart.roll { ref :>> input; } }`. An input takes one flow: two flows into one `input`, or a flow from something that is not a vector, are
 errors naming the action and the source. A flow between two dynamics that are steps of one
 action body is not carried yet; have an object perform them instead.
 

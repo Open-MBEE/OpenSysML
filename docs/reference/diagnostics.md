@@ -239,7 +239,7 @@ _Generated from the diagnostic code registry by `make diagnostics-catalogue`; `m
 | [`expose-visibility`](#expose-visibility) | error | an `expose` written with `public`, `private` or `protected` |
 | [`framed-concern-membership-owning-type`](#framed-concern-membership-owning-type) | error | `frame` outside a requirement, concern or viewpoint body |
 | [`import-visibility`](#import-visibility) | error | an `import` written without `public`, `private` or `protected` |
-| [`kerml-notation`](#kerml-notation) | warning | KerML notation in a SysML file |
+| [`kerml-notation`](#kerml-notation) | error | KerML notation in a SysML file |
 | [`nonstandard-notation`](#nonstandard-notation) | warning | notation OpenSysML reads that no production of the SysML v2 grammar admits |
 | [`objective-membership-owning-type`](#objective-membership-owning-type) | error | `objective` outside a case body |
 | [`requirement-constraint-membership-owning-type`](#requirement-constraint-membership-owning-type) | error | `assume` or `require` outside a requirement or case body |
@@ -250,6 +250,7 @@ _Generated from the diagnostic code registry by `make diagnostics-catalogue`; `m
 | [`syntax`](#syntax) | error | the text does not parse as KerML or SysML v2 notation |
 | [`sysml-notation`](#sysml-notation) | error | SysML notation in a KerML file |
 | [`transition-membership-owning-type`](#transition-membership-owning-type) | error | `transition` outside a state body |
+| [`typing-keyword`](#typing-keyword) | error | a typing spelled `typed by` in a SysML file |
 | [`undefined-operator`](#undefined-operator) | warning | the unary `~` operator, which the kernel library leaves undefined |
 | [`view-rendering-membership-owning-type`](#view-rendering-membership-owning-type) | error | `render` outside a view body |
 
@@ -289,7 +290,7 @@ Specification: SysML v2 §8.2.2.8 EnumerationBody
 
 **error** · Syntax · `expose` outside a view body
 
-An expose is an import a view usage owns: `expose` is admitted in the body of a view usage (and, as an OpenSysML extension the notation rules report, a view definition) only. Move the expose into the view that shows the exposed elements, or write an `import` where a plain import is meant.
+An expose is an import a view usage owns: `expose` is admitted in the body of a view usage only (SysML v2 8.2.2.26.2 ViewBodyItem); a view definition body states what it renders and filters and admits none. Move the expose into the view that shows the exposed elements, or write an `import` where a plain import is meant.
 
 Specification: SysML v2 validateExposeOwningNamespace
 
@@ -319,9 +320,9 @@ Specification: SysML v2 §8.2.2.4 ImportPrefix
 
 #### `kerml-notation`
 
-**warning** · Syntax · KerML notation in a SysML file
+**error** · Syntax · KerML notation in a SysML file
 
-A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) or a KerML spelling (`typed by` for a typing, which SysML spells `:` or `defined by`) that the SysML v2 grammar does not admit. Move the declaration to a `.kerml` file, or write the SysML form the message names. `-strict` promotes this finding to an error.
+A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) that the SysML v2 grammar does not admit. Move the declaration to a `.kerml` file, or write the SysML form the message names. A `namespace` declaration and a declaration keyword only KerML spells (`class`, `feature`, `connector` …) are errors in either mode; `-strict` promotes the other findings to errors.
 
 Specification: the pinned SysML v2 Xtext grammar
 
@@ -404,6 +405,14 @@ Specification: the pinned KerML Xtext grammar
 A transition usage is a member of a state: the `transition` keyword is admitted in the body of a state definition or usage only (a transition between action nodes is an OpenSysML extension the notation rules report separately). Move the transition into the state whose substates it joins, or write a succession (`first a then b;`) between actions.
 
 Specification: SysML v2 §8.2.2.19 TransitionUsageMember (a StateBodyItem)
+
+#### `typing-keyword`
+
+**error** · Syntax · a typing spelled `typed by` in a SysML file
+
+SysML v2 spells a usage's typing `:` or `defined by`; `typed by` is the KerML spelling of the same relationship, and `typed` is not a SysML keyword, so a `.sysml` file that writes it is rejected in every conformance mode. The typing is still read as written, so the rest of the model is analyzed. Write `defined by` (the editor quick fix rewrites the keyword), or move the declaration to a `.kerml` file.
+
+Specification: SysML v2 §8.2.2.1.2 Lexical Structure (DEFINED_BY), §8.2.2.6.5 Specialization (TypedBy), §7.6.3 Usages, §7.27.2 Metadata Definitions and Usages
 
 #### `undefined-operator`
 
@@ -942,7 +951,6 @@ Specification: SysML v2 validatePortUsageIsReference
 |------|----------|---------|
 | [`accepter-source-not-state`](#accepter-source-not-state) | error | a transition with a trigger whose source is not a state |
 | [`annotation-annotated-element-ownership`](#annotation-annotated-element-ownership) | error | an annotating element whose `about` names its own owner |
-| [`assignment-chain-in-calc`](#assignment-chain-in-calc) | error | a calculation assigning a feature of another object |
 | [`assignment-chain-step-not-one-object`](#assignment-chain-step-not-one-object) | error | an assignment target stepping through a feature that may hold several objects |
 | [`assignment-referent`](#assignment-referent) | error | an assignment whose target is no feature |
 | [`assignment-referent-read-only`](#assignment-referent-read-only) | error | an assignment to a constant or derived feature |
@@ -1071,14 +1079,6 @@ Specification: SysML v2 validateTransitionUsageTriggerActions
 An annotation owned by its annotated element must own its annotating element: a comment, documentation or metadata usage whose `about` names the element its body sits in annotates that element twice over, through ownership and through the clause. Drop the `about` clause, or move the annotating element out of the body of what it annotates.
 
 Specification: KerML 1.0 validateAnnotationAnnotatedElementOwnership
-
-#### `assignment-chain-in-calc`
-
-**error** · Constraints · a calculation assigning a feature of another object
-
-A calculation computes a result and has no side effects; an assignment whose target chains into another object (`assign a.x := v`) would write that object. Move the assignment into an action, or compute the value as the calculation's result.
-
-Specification: KerML 1.0 §8.4.4.9 (functions have no side effects)
 
 #### `assignment-chain-step-not-one-object`
 

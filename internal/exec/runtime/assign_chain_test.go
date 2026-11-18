@@ -124,23 +124,21 @@ func testAssignChainUnreachableBase(t *testing.T) {
 	}
 }
 
-// A calculation writes nothing outside its own body, so a chained target is
-// rejected as an assignment to any name it does not declare is.
-func testAssignChainRejectedInCalcBody(t *testing.T) {
+// A calculation's chained target answers to the rules of any other, so a base
+// its body cannot reach is the unresolved reference it is in an action.
+func testAssignChainUnreachableBaseInCalcBody(t *testing.T) {
 	ctx, idx := contextForSource(t, `package test {
-		part def Sensor { attribute reading : Real = 0.0; }
-		part s : Sensor;
 		calc def Reset {
-			assign s.reading := 1.0;
+			assign missingPart.reading := 1.0;
 			2.0
 		}
 	}`)
 	_, err := ctx.InvokeCalc(lookupOne(t, idx, "test::Reset"), nil, nil)
-	if !errors.Is(err, errCalcExternalAssignment) {
-		t.Fatalf("err = %v; want errCalcExternalAssignment", err)
+	if !errors.Is(err, ErrUnresolvedReference) {
+		t.Fatalf("err = %v; want ErrUnresolvedReference", err)
 	}
-	if !strings.Contains(err.Error(), "s.reading") {
-		t.Errorf("err = %v; want it to name the target", err)
+	if !strings.Contains(err.Error(), "missingPart") {
+		t.Errorf("err = %v; want it to name the unreachable step", err)
 	}
 }
 

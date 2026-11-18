@@ -792,11 +792,11 @@ jobs:
             # the FMI gate runs rather than skips (tests/fmi).
             OPENSYSML_REQUIRE_REFERENCE_FMUS: "1"
 
-  # tests/corpus's sweep alone: -parallel models in hand at once, a whole corpus directory as one model among
-  # them, peaked at 11.1 GB under -race with eight on an 8-vCPU box, so it gets the 16 GB class rather than a large node.
+  # tests/corpus's sweep alone: -parallel models in hand at once, a whole corpus directory as one model among them.
+  # Under -race on four CPUs four peaked at 7.6 GiB; three with GOGC=50 peak at 5.4 GiB in 29 minutes, inside large's 8 GB.
   go-race-sweep:
     executor: go-executor
-    resource_class: xlarge
+    resource_class: large
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -818,9 +818,10 @@ jobs:
             stream() { python3 scripts/go-test-stream.py; }
             # The Makefile's RACE_CORPUS_SWEEP; tests/hygiene keeps the two the same.
             corpussweep='^TestExamplesSweep$'
-            go test -json -race -pgo=off -timeout 55m -parallel 8 -run "$corpussweep" $pkgs | stream
+            go test -json -race -pgo=off -timeout 55m -parallel 3 -run "$corpussweep" $pkgs | stream
           no_output_timeout: 30m
           environment:
+            GOGC: "50"
             # An absent corpus fails rather than skips, as in go-race-test.
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"

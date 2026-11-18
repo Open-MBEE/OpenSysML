@@ -2147,9 +2147,8 @@ var ownedMembers = map[string]ownedMember{
 	// TransitionUsageMember is a StateBodyItem only (SysML.xtext); a transition between
 	// action nodes is an extension the notation pass reports, so those bodies read it too.
 	"transition": {"a transition between states", "state", []bodyContext{bodyState, bodyAction, bodyCalc, bodyCase}, "transition-membership-owning-type"},
-	// Expose is a ViewBodyItem only (SysML.xtext); in a view def body it is an
-	// extension OpenSysML resolves, which the notation pass reports.
-	"expose": {"what a view usage exposes", "view usage", []bodyContext{bodyView, bodyViewDef}, "expose-owning-namespace"},
+	// Expose is a ViewBodyItem only (SysML.xtext): a view def body does not offer it.
+	"expose": {"what a view usage exposes", "view usage", []bodyContext{bodyView}, "expose-owning-namespace"},
 }
 
 // MemberOwner names the body kind that alone offers the member keyword kw
@@ -2374,10 +2373,10 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 			declRels := p.parseRelationships(declFeature)
 			u.Relationships = append(u.Relationships, declRels...)
 		} else if reqName := p.parseChainedName(); reqName != nil {
-			// SysML.xtext:2119's ReferenceSubsetting reaches a nested feature through a '.'
-			// chain (KerML.xtext:699); kept a plain subsetting until its readers migrate.
+			// SysML.xtext:2119's OwnedReferenceSubsetting reaches a nested feature
+			// through a '.' chain (KerML.xtext:699).
 			u.Relationships = append(u.Relationships, &ast.Relationship{
-				Kind:   ast.RelSubsets,
+				Kind:   ast.RelReferences,
 				Target: reqName,
 			})
 			// The reference form takes specializations of its own:

@@ -67,6 +67,36 @@ the baseline without moving a count), so a rule change is caught where it moves 
    gate exists to refuse;
 4. `go run -C tools ./cmd/derived-census -check` reproduces the recorded baseline.
 
+### Our side alone: `-recorded-pilot`
+
+The pilot's column moves only with the pin, the bridge, a root or a library, never with this
+repository's rules, and re-exporting it is what makes a run take a quarter of an hour. With
+`-recorded-pilot` a run measures our side and takes the pilot's column from the committed records,
+though the exporter is present:
+
+```bash
+go run -C tools ./cmd/derived-census -check -recorded-pilot    # what a pull request's CI runs: no Java, under a minute
+go run -C tools ./cmd/derived-census -update -recorded-pilot   # re-records our columns; the pilot's stay as recorded
+```
+
+Every cell stays pinned. Our four columns are compared record by record; the pilot's five are held
+with each root's pilot totals by the baseline's `pilotRecords` digest, so one moved by anything but
+a re-export (an edit, a bad merge) no longer reproduces; the provenance still names a moved pin, bridge, root or library, which
+`-recorded-pilot` cannot answer and refuses, as it refuses a rule the recorded column does not
+hold. The nightly oracle-reproduction workflow runs `-check -require-exporter`, which re-exports
+the pilot's column and holds the committed records to it.
+
+The records and the baseline merge cell by cell rather than line by line (`.gitattributes`,
+`tools/oracle/cellmerge`; run `./scripts/install-baseline-merge-driver.sh` once per clone): a count
+one branch moved takes that branch's value and one both moved takes the sum of the two movements.
+A merged file is the measurement only once `-check -recorded-pilot` reproduces it; when it does
+not, `-update -recorded-pilot` re-records it without the pilot. Such a re-record keeps the
+baseline's `recorded` date, which is the date of the pilot's export, so two branches that each
+re-record our side do not meet on it; a date or digest two branches did rewrite differently is a
+conflict, not a merge. It re-records our columns only: where the pilot's column no longer matches
+`pilotRecords`, because a merge summed a pilot cell or took one side's digest, it refuses, and the
+column is re-recorded by `-update` with the exporter.
+
 `TestDerivedCensusBaselineKeysServedRules` (`internal/semantic/metamodel`) holds the committed
 baseline to `rules.go` without corpora or Java: every rule it counts is served and its served total
 is the registry's, so a rule added or withdrawn re-records the census.
@@ -95,6 +125,20 @@ not the file's and is left out, as our walk never reaches a library element. For
 element the same conformance test applies, from the standard library's metaclass declarations, and
 a property **absent** from the payload is *not derived*, one written `null` or `[]` is *empty*,
 anything else is *a value*.
+
+**Pilot-nondeterministic cells.** Where the API-JSON referee declares a (metaclass, property) pair
+pilot-nondeterministic (`tools/referee/apijson/nondeterminism.go`, the one list both tools read),
+the pilot's side counts the carrier as *nondeterministic* instead, whatever the export states. The
+declared pair is `FeatureChainExpression::featuringType`: the pilot fills it in transformation
+order, so three expressions of the pilot corpora had a value under one JVM and none under another,
+and a count of values there recorded the Java that ran the export rather than the model. Scored
+apart, the records are the same under either. Our side is counted as everywhere else.
+
+**The declared JVM.** `scripts/pilot-pin.sh` declares the Java feature release the pilot's column
+is recorded under (`PILOT_JAVA`, the one the workflows install) and the baseline states it as
+`provenance.pilotJava`. `-update` refuses to record under any other, `-check` fails on a baseline
+whose `pilotJava` is not the declared one, and a run that only compares under another JVM says so
+before it exports, so an undeclared JVM dependence is named where it appears.
 
 **Implied relationships — a deliberate difference, not a failure.** The pilot materializes the
 relationships it implies (the implicit specializations, typings and subsettings

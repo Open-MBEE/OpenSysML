@@ -27,14 +27,14 @@
         (Usage kind="requirement" name="r" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
       (Membership visibility="default"
         (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
-          (Relationship kind="subsets" target=r
+          (Relationship kind="references" target=r
             (*ast.QualifiedName))
           (Relationship kind="by" target=(expr)
             (FeatureChainExpr member="child"
               (FeatureReference name="config")))))
       (Membership visibility="default"
         (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
-          (Relationship kind="subsets" target=r
+          (Relationship kind="references" target=r
             (*ast.QualifiedName))
           (Relationship kind="by" target=(expr)
             (FeatureChainExpr member="child"
@@ -42,14 +42,14 @@
                 (FeatureReference name="assembly"))))))
       (Membership visibility="default"
         (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="assert"
-          (Relationship kind="subsets" target=r
+          (Relationship kind="references" target=r
             (*ast.QualifiedName))
           (Relationship kind="by" target=(expr)
             (FeatureChainExpr member="child"
               (FeatureReference name="config")))))
       (Membership visibility="default"
         (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="assert" negated=true
-          (Relationship kind="subsets" target=r
+          (Relationship kind="references" target=r
             (*ast.QualifiedName))
           (Relationship kind="by" target=(expr)
             (FeatureChainExpr member="child"

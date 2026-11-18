@@ -66,11 +66,43 @@ jobs:
     timeout-minutes: 180
     steps:
       - name: Check out the pull request branch
+        id: checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        timeout-minutes: 10
+        continue-on-error: true
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
           token: ${{ secrets.REBASELINE_TOKEN || github.token }}
+
+      # A stalled fetch hangs rather than fails, so the action's own retries never see it.
+      - name: Check out the pull request branch again
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        timeout-minutes: 10
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.REBASELINE_TOKEN || github.token }}
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # The count baselines merge cell by cell (tools/oracle/cellmerge) where git's line merge conflicts. The driver
+      # and its paths are develop's, so a branch cut before them merges the same way; the checks below accept the result.
+      - name: Install develop's cell-wise merge driver
+        run: |
+          set -euo pipefail
+          git fetch -q origin develop
+          git worktree add -q --detach "$RUNNER_TEMP/develop" origin/develop
+          go build -C "$RUNNER_TEMP/develop/tools" -o "$RUNNER_TEMP/baseline-merge" ./cmd/baseline-merge
+          git config merge.opensysml-cells.name "cell-wise merge of the count baselines"
+          git config merge.opensysml-cells.driver "$RUNNER_TEMP/baseline-merge %O %A %B %P"
+          grep 'merge=opensysml-cells' "$RUNNER_TEMP/develop/.gitattributes" > .git/info/attributes
+          git worktree remove --force "$RUNNER_TEMP/develop"
 
       - name: Merge origin/develop, taking develop's side of the generated paths only
         id: merge
@@ -85,7 +117,6 @@ jobs:
             echo "the branch moved since the label was applied ($HEAD_SHA); apply the label again" >&2
             exit 1
           fi
-          git fetch -q origin develop
           base=$(git merge-base HEAD origin/develop)
           theirs=$(git rev-parse origin/develop)
           echo "base=$base" >> "$GITHUB_OUTPUT"
@@ -123,12 +154,6 @@ jobs:
           fi
           echo "merged=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
-        with:
-          go-version-file: go.mod
-          cache: true
-
       # The pilot JSON exporter the differential and the census run is Java, built against the pin.
       - name: Set up Java
         uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
@@ -159,11 +184,9 @@ jobs:
       - name: Install the pinned grpcio-tools
         run: 'pip install --only-binary :all: grpcio-tools==1.83.0'
 
-      - name: Cache the pinned pilot implementation
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: build/pilot-validator
-          key: pilot-validator-${{ hashFiles('scripts/download-pilot-validator.sh', 'scripts/pilot-pin.sh') }}
+      # Restored only: this job runs a pull request's scripts in develop's cache scope.
+      - name: Provision the pinned pilot validator
+        uses: ./.github/actions/pilot-validator
 
       - name: Download the pinned pilot JSON exporter
         run: ./scripts/download-pilot-json-exporter.sh
@@ -180,10 +203,25 @@ jobs:
           make stdlib-snapshot
           make proto-buf proto-ts proto-rust python-proto BUF=buf
 
-      - name: Re-record the derived-property differential and the derived census
+      # The pilot's export the nightly recorded for this pin (oracle-reproduction.yml); a root it does not hold is exported here.
+      - name: Restore the recorded pilot export
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: build/pilot-apijson-record
+          key: pilot-apijson-record-${{ hashFiles('scripts/pilot-pin.sh', 'scripts/pilot-json-exporter/**', 'scripts/download-pilot-json-exporter.sh') }}-${{ github.run_id }}
+          restore-keys: |
+            pilot-apijson-record-${{ hashFiles('scripts/pilot-pin.sh', 'scripts/pilot-json-exporter/**', 'scripts/download-pilot-json-exporter.sh') }}-
+
+      # Our side alone is re-measured against the recorded pilot side. A merged baseline that reproduces is kept as it
+      # is; one that does not is re-recorded, with the pilot only for a rule the recorded column does not hold.
+      - name: Accept the merged derived-property differential and derived census, or re-record them
         run: |
-          go run -C tools ./cmd/pilot-apijson-diff -update
-          go run -C tools ./cmd/derived-census -update
+          set -euo pipefail
+          go run -C tools ./cmd/pilot-apijson-diff -check -pilot-record build/pilot-apijson-record ||
+            go run -C tools ./cmd/pilot-apijson-diff -update -pilot-record build/pilot-apijson-record
+          go run -C tools ./cmd/derived-census -check -recorded-pilot ||
+            go run -C tools ./cmd/derived-census -update -recorded-pilot ||
+            go run -C tools ./cmd/derived-census -update
 
       - name: Re-record the per-file ratchets
         run: |

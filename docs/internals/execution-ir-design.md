@@ -166,7 +166,7 @@ graph. No cache of lowered graphs exists anywhere: every entry point above re-lo
 | `eval.go` | 2 | `invocationKey.node *ast.InvocationExpr` (cache key), `writtenArgument.expr` |
 | `executor_common.go` | 1 | `Token.Location ast.Node` |
 | `shape.go` | 1 | `EffectiveFeature.DefaultValue ast.Node` |
-| `errors.go` | 1 | `NoValueError.Ref *ast.QualifiedName` |
+| `errors.go` | 0 | `NoValueError.Ref *ast.QualifiedName` is gone: the error carries the feature's `Symbol` |
 
 Pointer identity is compared directly at `action_executor.go:137` (breakpoints),
 `state_executor.go:2815,2918` (transition source matching), `check_moves.go:110`,
@@ -223,6 +223,7 @@ to move into lowering.
 | `invocationKey.node *ast.InvocationExpr` | cache the resolved callee per call site | id | key by `ExprID` |
 | `calcShape{Nodes, ResultExpr}` and its lowering in `invoke_calc.go` | the calc's parameters, steps and result | smell (lowering in the wrong layer; named by the roadmap) | `lower.CalcBody` grows into `lower.ToCalc` returning an IR `Calc`; the runtime memoizes by symbol as now |
 | every expression payload (44 fields in `lower`, `Condition.Expr`, `Objective.Value`, `actionInvocation.args/named/expr`, `messageArgs`, `valueSource.expr`, `writtenArgument.expr`, `SatisfyAssertion.SubjectChain`, `passedReference.ref`) | evaluate | expression | `ExprID` into the graph's expression table; `eval` and `compile` switch on `ExprKind`. Each `lower` graph carries its table as `Exprs` and each payload field its id beside the tree (`Guard`/`GuardID`), the runtime's own payloads theirs in the model's table; the runtime evaluates the id, and the tree fields go in step 8 |
+| the semantic questions asked of an expression's syntax: `EvalWithin`, `DimensionOfExpr`, `ValuesHeldBy`, `EvalClassification`, `UnitOfExpr` (ten call sites, `Context.UnitOf` among them) | constant fold, declared dimension and count, classification verdict, unit of a quantity | expression | asked of the lowered record: `lower.ExprEntry.Folded/Dimension/Held/Classifies/Unit` take the semantic model and the scope to read in, and answer from the syntax the record keeps until step 8; the runtime passes no tree to the semantic layer |
 | `ExpressionParser func(origin, text string) (ast.Node, bool)` | parse notation text handed to a run | seam | the seam returns a lowered expression: `func(origin, text string, scope *symbols.Scope) (*lower.ExprTable, program.ExprID, bool)`, the table-and-id shape every lowered expression has, read in the scope the run names; the installer (frontend/workspace) parses *and* lowers with `lower.ExpressionReader`, so parsing and lowering both stay out of `exec` |
 | `lower`'s exported AST-signature helpers (56 first counted, 118 now) (`DeclaresNodeFeature`, `SendPayload`, `IsCaseNode`, `ClassifierBehaviorOf`, `StartShot`, …) | used by `check/passes`, `ir/view`, `tools` on declarations | not on the runtime path | unchanged; `lower` stays the one package that reads both the tree and the IR |
 
@@ -582,6 +583,36 @@ split into four stacked pull requests:
   with `semantics.UnitOfExpr`. They stay tree-backed until then because computing them at
   lowering can change *when* an error surfaces, which `AGENTS.md` §4 makes part of the contract.
   `NoValueError.Ref` is not among them: step 4 replaced it with `NoValueError.Symbol`.
+
+Step 7 was re-measured the same way before any consumer moved. Outside `internal/ir/lower` and
+`internal/exec/runtime`, 60 production files (69 with `internal/check`) use a `lower` or
+`runtime` field, method or function whose type mentions `syntax/ast` or `*symbols.Scope`, 612 of
+those uses being reads of a graph or record field in 23 files; and the graphs named their nodes,
+states and vertices by declaration only, so a consumer could reach an id only through the field
+step 8 deletes. The step is split into stacked pull requests:
+
+- **7a**. The graphs name by id what they name by declaration, additively, the way 6b-3 added
+  `ExprID` fields: `SourceID`/`TargetID` on `ActionEdge` and `ObjectFlow`, `NodeID`/`OtherNodeID`
+  on `PinBinding`, `SourceRef`/`TargetRef`/`OwnerID` on `Transition`, `TargetID`/`ViaID` on
+  `EntryTransition`, `OwnerID` on `StateBehavior`, and id-indexed accessors over the tables
+  (`internal/ir/lower/graph_ids.go`). Every id is the one the step-1 tables assigned; step 8
+  removes the tree side. No consumer changes.
+- **7b**. `exec/smt` and `exec/solve`, with their forbidden `→ syntax/ast` edge. `solve`
+  translates `lower.ExprEntry` records by `program.ExprKind` and `program.Operator`; `smt` names
+  a node by its graph and `NodeID` and reads the 7a accessors. What neither can yet read from a
+  record, `lower` answers by id from the tree it still holds (`graph_questions.go`,
+  `expr_questions.go`: a node's form and trace label, a loop's keyword, the names an expression
+  reads), so step 8 moves those answers and no consumer. An `ExprBody` record gains its
+  parameters, its result and its count of other members. A held feature's value id is in the
+  model's table, not the graph's, and is read through `runtime.Context.ExprEntry`. Two flows
+  typed by one definition have nodes of their own, so `smt` refuses the first as a nested flow
+  where keying by declaration reported the definition's initial node as outside the flow.
+- **7c**. `exec/analysis/modelform`, `exec/analysis` and `exec/sweep`, with theirs.
+- **7d**. `ir/view` and `ir/queryplan`.
+- **7e**. `doc/queryexec`, `frontend/lsp/debug.go`, `frontend/grpc`, `frontend/repl`,
+  `frontend/engine`, `workspace/modelrt`, `tools/referee/{fuml,pssm}`, `examples/runtime-demo`.
+- **7f**. `translate/codegen` and `check/passes`, which the row does not list but which read the
+  same fields, so that step 8 is deletion and the forbidden edge only.
 
 `docs/project/spec-compliance.md` does not move: no semantic rule changes. The documentation
 census (`make docs-counts`) is unaffected until step 8 renames the graph types, when

@@ -441,8 +441,8 @@ func TestTransitionFootprintsCoverForkOmittedRegions(t *testing.T) {
 				fork split;
 				transition first idle accept Go do assign k := 1 then split;
 				transition first idle accept Tick do assign n := 0 then other;
-				transition first split then a;
-				transition first split then b;
+				transition first split then work.left.a;
+				transition first split then work.right.b;
 			}
 		}
 	`), nil)
@@ -491,8 +491,8 @@ func TestTransitionFootprintsCoverForkSiblingRegionExits(t *testing.T) {
 					}
 				}
 				fork split;
-				transition first split then c;
-				transition first split then d;
+				transition first split then work.left.c;
+				transition first split then work.right.d;
 			}
 		}
 	`), nil)

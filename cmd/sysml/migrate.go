@@ -88,6 +88,9 @@ func runMigrate(files []string) (int, error) {
 	if err := writeConverted(input, to, made); err != nil {
 		return 0, err
 	}
+	if made.empty != "" {
+		return exitPartial, nil
+	}
 	return exitHolds, nil
 }
 
@@ -127,6 +130,7 @@ func migrateInput(name string, data []byte, _ convert.Format, to convert.Format)
 	return produced{
 		out:   migrated.Output,
 		files: migrated.Files,
+		empty: migrated.Report.NothingWritten(),
 		sidecars: func() error {
 			if err := writeMigrationReport(migrated.Report); err != nil {
 				return err

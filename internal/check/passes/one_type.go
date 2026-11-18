@@ -127,7 +127,7 @@ func (tc *typeChecker) enumeratedValueTypes(scope *symbols.Scope, u *ast.Usage) 
 		return nil
 	}
 	for _, rel := range u.Relationships {
-		if rel != nil && semantics.GeneralizationKind(rel.Kind) {
+		if rel != nil && semantics.UsageGeneralization(u.Kind, rel.Kind) {
 			return nil
 		}
 	}

@@ -410,7 +410,8 @@ public final class Protos {
         };
     Optional<Quantity.UnitTerm> reduction =
         quantity.hasUnitTerm() ? Optional.of(unitTerm(quantity.getUnitTerm())) : Optional.empty();
-    return new Quantity(magnitude, present(quantity.getUnit()), reduction);
+    return new Quantity(
+        magnitude, present(quantity.getUnit()), reduction, present(quantity.getValueType()));
   }
 
   private static Quantity.UnitTerm unitTerm(UnitTerm term) {
@@ -489,7 +490,8 @@ public final class Protos {
               specialization.getKind(),
               specialization.getDeclared(),
               present(specialization.getTargetId()),
-              present(specialization.getTargetKind())));
+              present(specialization.getTargetKind()),
+              present(specialization.getTargetQualifiedName())));
     }
     List<Symbol.Member> members = new ArrayList<>(symbol.getMembersCount());
     for (MemberInfo member : symbol.getMembersList()) {
@@ -601,7 +603,8 @@ public final class Protos {
         present(typeInfo.getUnit()),
         typeInfo.getTypesList().stream()
             .map(ref -> new Symbol.TypeRef(ref.getId(), present(ref.getKind())))
-            .toList());
+            .toList(),
+        present(typeInfo.getResolvedQualifiedName()));
   }
 
   private static Symbol.Multiplicity multiplicity(MultiplicityInfo multiplicity) {
@@ -951,6 +954,7 @@ public final class Protos {
     }
     quantity.unit().ifPresent(builder::setUnit);
     quantity.reduction().ifPresent(reduction -> builder.setUnitTerm(proto(reduction)));
+    quantity.valueType().ifPresent(builder::setValueType);
     return builder.build();
   }
 

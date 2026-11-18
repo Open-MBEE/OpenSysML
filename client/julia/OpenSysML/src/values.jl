@@ -79,23 +79,35 @@ dimensionless(unit::Unit) = isempty(exponents(unit))
 Base.show(io::IO, unit::Unit) = print(io, isempty(unit.text) ? reduction(unit) : unit.text)
 Base.string(unit::Unit) = isempty(unit.text) ? reduction(unit) : unit.text
 
-"""A numeric magnitude associated with a named unit and optional reduction."""
+"""
+A numeric magnitude associated with a named unit and optional reduction.
+
+`value_type` is the qualified name of the quantity value type the service holds it as, empty
+for none: sent back it is kept, so a sibling type still refuses the quantity. Equality does
+not read it, and a quantity computed here carries none.
+"""
 struct Quantity
     magnitude::Union{Int64,BigInt,Rational{BigInt},Float64}
     unit::String
     unit_term::Union{Nothing,Unit}
+    value_type::String
 end
-Quantity(magnitude::Bool, unit::AbstractString, term=nothing) =
-    Quantity(Float64(magnitude), unit, term)
-Quantity(magnitude::Integer, unit::AbstractString, term=nothing) =
+Quantity(magnitude::Union{Int64,BigInt,Rational{BigInt},Float64}, unit::String, term::Union{Nothing,Unit};
+         value_type::AbstractString="") = Quantity(magnitude, unit, term, String(value_type))
+Quantity(magnitude::Bool, unit::AbstractString, term=nothing; value_type::AbstractString="") =
+    Quantity(Float64(magnitude), unit, term; value_type=value_type)
+Quantity(magnitude::Integer, unit::AbstractString, term=nothing; value_type::AbstractString="") =
     Quantity(Int64(magnitude), String(unit), term === nothing ? nothing :
-             term isa Unit ? term : term isa AbstractDict ? Unit(unit, term) : throw(ArgumentError("invalid unit term")))
-Quantity(magnitude::Rational, unit::AbstractString, term=nothing) =
+             term isa Unit ? term : term isa AbstractDict ? Unit(unit, term) : throw(ArgumentError("invalid unit term"));
+             value_type=value_type)
+Quantity(magnitude::Rational, unit::AbstractString, term=nothing; value_type::AbstractString="") =
     Quantity(_exact_rational(magnitude), String(unit), term === nothing ? nothing :
-             term isa Unit ? term : term isa AbstractDict ? Unit(unit, term) : throw(ArgumentError("invalid unit term")))
-Quantity(magnitude::AbstractFloat, unit::AbstractString, term=nothing) =
+             term isa Unit ? term : term isa AbstractDict ? Unit(unit, term) : throw(ArgumentError("invalid unit term"));
+             value_type=value_type)
+Quantity(magnitude::AbstractFloat, unit::AbstractString, term=nothing; value_type::AbstractString="") =
     Quantity(Float64(magnitude), String(unit), term === nothing ? nothing :
-             term isa Unit ? term : term isa AbstractDict ? Unit(unit, term) : throw(ArgumentError("invalid unit term")))
+             term isa Unit ? term : term isa AbstractDict ? Unit(unit, term) : throw(ArgumentError("invalid unit term"));
+             value_type=value_type)
 struct EnumLiteral
     literal_id::String
     enumeration_id::String
@@ -420,7 +432,8 @@ function decode_quantity(q)
                 haskey(q, "realMagnitude") ? asreal(q["realMagnitude"]) :
                 _unsupported_value("quantity carries neither intMagnitude nor realMagnitude")
     term = get(q, "unitTerm", nothing)
-    Quantity(magnitude, get(q, "unit", ""), term === nothing ? nothing : Unit(get(q, "unit", ""), term))
+    Quantity(magnitude, get(q, "unit", ""), term === nothing ? nothing : Unit(get(q, "unit", ""), term);
+             value_type=get(q, "valueType", ""))
 end
 
 function decode_elements(body, key)
@@ -551,6 +564,7 @@ function encode_quantity(q::Quantity)
             "factors" => Any[Dict("unitId" => f.unit_id, "exponent" => _json_real(f.exponent))
                              for f in q.unit_term.factors])
     end
+    isempty(q.value_type) || (body["valueType"] = q.value_type)
     return body
 end
 

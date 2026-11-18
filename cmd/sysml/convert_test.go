@@ -556,6 +556,43 @@ func TestMigrateMigratesXMI(t *testing.T) {
 	}
 }
 
+// toolOnlyXMI is a v1 document holding one element, a mockup of the tool's UI prototyping profile.
+const toolOnlyXMI = `<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:UI="http://www.magicdraw.com/schemas/UI_Prototyping_Profile.xmi">
+  <uml:Class xmi:type="uml:Class" xmi:id="_b" name="Start button"/>
+  <UI:Button xmi:id="_a_b" base_Class="_b"/>
+</xmi:XMI>
+`
+
+// A migration that writes no element of a document holding some says so ahead
+// of its summary and exits 3, the output and the report written all the same.
+func TestMigrateThatWritesNothingExitsPartial(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	xmi := writeModel(t, dir, "mockup.xmi", toolOnlyXMI)
+	out, report := filepath.Join(dir, "out.sysml"), filepath.Join(dir, "report.txt")
+
+	got := runCommand(t, exec.Command(binary, xmi, "-migrate", "sysml", "-o", out, "-migration-report", report))
+	const nothing = "nothing of the model was written: none of the 1 element(s) reported is mapped or approximated (0 unmapped, 1 skipped)"
+	if got.status != 3 || !strings.Contains(got.stderr, nothing) {
+		t.Fatalf("exit %d:\n%s%s", got.status, got.stdout, got.stderr)
+	}
+	if _, err := os.Stat(out); err != nil {
+		t.Errorf("the output is not written: %v", err)
+	}
+	if text, err := os.ReadFile(report); err != nil || !strings.Contains(string(text), "Start button") {
+		t.Errorf("the report is not written: %v\n%s", err, text)
+	}
+
+	vehicle := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "vehicle.xmi")
+	written := runCommand(t, exec.Command(binary, vehicle, "-migrate", "sysml", "-o", out))
+	if written.status != 0 || strings.Contains(written.stderr, "nothing of the model") {
+		t.Errorf("a migration that wrote the model: exit %d:\n%s", written.status, written.stderr)
+	}
+}
+
 func TestLoadingXMIDirectlyPointsAtMigration(t *testing.T) {
 	binary := buildCLI(t)
 	xmi := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "vehicle.xmi")
