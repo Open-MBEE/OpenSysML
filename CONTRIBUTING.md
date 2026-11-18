@@ -321,7 +321,7 @@ client wait for the full tier. Only a push touching a path no area claims escala
 the full tier (`scripts/ci-changed-areas.sh`, and its test pins it).
 
 **The queue tier** runs on the merge queue's commit (below). It runs every job and gate of the
-full tier — gofmt, `go vet`, `make lint`, every shard of the test suite (eighteen, `make
+full tier — gofmt, `go vet`, `make lint`, every shard of the test suite (nineteen, `make
 test-queue`), the binaries, the conformance suite over each transport, the
 protobuf lint and wire-compatibility checks, the documentation hygiene checks (`make docs-check`,
 `make man-check` and the census check), the site build, the PDF toolchain, and in each client's
