@@ -356,12 +356,11 @@ func ModelToRDFWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) 
 // ModelElementGraphWith is ModelToRDFWith for a graph only the element form is written
 // from: it leaves the library members only a completed property references to that writer.
 func ModelElementGraphWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) {
-	res, encoders, err := modelEncodersOf(documents, form)
+	_, encoders, err := modelEncodersOf(documents, form)
 	if err != nil {
 		return nil, err
 	}
-	out, _, _, err := encodeModelDocuments(documents, res, encoders, addLinkedLibraryStubs)
-	return out, err
+	return encodeModelDocuments(documents, encoders, addLinkedLibraryStubs)
 }
 
 // addLinkedLibraryStubs names the library elements the graph's triples link to.
@@ -375,11 +374,16 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return encodeModelDocuments(documents, res, encoders, nameInheritedLibraryMembers)
+	out, err := encodeModelDocuments(documents, encoders, nameInheritedLibraryMembers)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return out, res, encoders, nil
 }
 
 // encodeModelDocuments merges the documents' graphs; nameLibrary states the library stubs of the merged one.
-func encodeModelDocuments(documents []ModelDocument, res *resolve.Resolver, encoders []*encoder, nameLibrary func(*rdf.Graph)) (*rdf.Graph, *resolve.Resolver, []*encoder, error) {
+// It returns the graph alone, so a caller done with the encoders holds no document's graph beside it.
+func encodeModelDocuments(documents []ModelDocument, encoders []*encoder, nameLibrary func(*rdf.Graph)) (*rdf.Graph, error) {
 	// declaredIn is the document and declaration each subject was minted for:
 	// two documents declaring one subject would merge two elements into one.
 	declaredIn := map[string]mintedSubject{}
@@ -389,12 +393,15 @@ func encodeModelDocuments(documents []ModelDocument, res *resolve.Resolver, enco
 			minted = e.declaredSubjects()
 		} else {
 			if err := e.encodeDocument(documents[i].Root); err != nil {
-				return nil, nil, nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
+				return nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
 			}
+			// The document is written: its graph waits for the merge as its triples
+			// alone, without the lookup tables the writing built over them.
+			e.graph = rdf.NewGraphOf(e.graph.Triples(), e.graph.Prefixes)
 			minted = e.minted
 		}
 		if err := declaredOnce(declaredIn, minted); err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 	}
 	out := mergeDocumentGraphs(encoders, documents)
@@ -402,7 +409,7 @@ func encodeModelDocuments(documents []ModelDocument, res *resolve.Resolver, enco
 	// Each document's encoder annotated its collections from its own triples,
 	// in their order, and no two documents declare one subject (refused above).
 	out.MarkCollectionsSettled()
-	return out, res, encoders, nil
+	return out, nil
 }
 
 // modelEncodersOf analyzes the model and makes each document's encoder with
@@ -678,6 +685,8 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 }
 
 type encoder struct {
+	// sysmlTerms are the SysML vocabulary terms the document's triples have used, by name.
+	sysmlTerms map[string]rdf.Term
 	// libraryRefs are the standard library elements the document links to, by
 	// subject IRI, so the graph can name the ones it references.
 	libraryRefs map[string]libraryRef
@@ -2905,8 +2914,22 @@ func featureChainSegments(node *ast.FeatureChainExpr) []*ast.QualifiedName {
 	return segments
 }
 
-func (e *encoder) sysml(name string) rdf.Term { return rdf.SysMLTerm(name) }
-func (e *encoder) sysx(name string) rdf.Term  { return rdf.OpenSysMLTerm(name) }
+//go:noinline
+func (e *encoder) sysml(name string) rdf.Term {
+	// The term of a name in the SysML vocabulary, made once per name; kept out of
+	// line, as its several hundred call sites would each carry the lookup.
+	term, ok := e.sysmlTerms[name]
+	if !ok {
+		if e.sysmlTerms == nil {
+			e.sysmlTerms = map[string]rdf.Term{}
+		}
+		term = rdf.SysMLTerm(name)
+		e.sysmlTerms[name] = term
+	}
+	return term
+}
+
+func (e *encoder) sysx(name string) rdf.Term { return rdf.OpenSysMLTerm(name) }
 
 // documentation emits what a `doc` states: its identification, locale and body.
 func (e *encoder) documentation(subject rdf.Term, n *ast.Documentation) {

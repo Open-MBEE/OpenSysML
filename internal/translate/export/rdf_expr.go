@@ -204,6 +204,8 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 		return e.multiplicity(subject, owner, n.Multiplicity)
 
 	case *ast.FeatureChainExpr:
+		// A feature chain expression is the `.` operator applied (KerML 1.0 § 8.3.4.8.4).
+		e.graph.Add(subject, e.sysml(pOperator), rdf.String("."))
 		if err := e.arguments(subject, owner, []ast.Node{n.Operand}, true); err != nil {
 			return err
 		}
@@ -393,7 +395,7 @@ func decimalText(r *big.Rat, places int) string {
 // exact decimal of the binary value (`"0.1"^^xsd:float` is 0.100000001490116119384765625).
 func binaryLiteralText(term rdf.Term) string {
 	bits := 64
-	switch term.Datatype {
+	switch term.Datatype() {
 	case rdf.XSD + "double":
 	case rdf.XSD + "float":
 		bits = 32
@@ -1371,7 +1373,7 @@ func realValueText(lexical string) (string, bool) {
 // where that name alone reads as another element after the operand.
 func (d *decoder) segmentName(chain, term rdf.Term, in *element) (string, error) {
 	if term.IsLiteral() {
-		if term.Datatype == rdf.OpenSysML+dtExpression {
+		if term.Datatype() == rdf.OpenSysML+dtExpression {
 			return term.Value, nil
 		}
 		return qualifiedNameText(term.Value), nil
@@ -2170,7 +2172,7 @@ func (d *decoder) metadataAccessReference(node rdf.Term, in *element) (string, e
 // reference (noteSegment records it as a segment). It returns the element reached.
 func (d *decoder) chainLinkName(term rdf.Term, operand string, in *element) (string, string, error) {
 	if term.IsLiteral() {
-		if term.Datatype == rdf.OpenSysML+dtExpression {
+		if term.Datatype() == rdf.OpenSysML+dtExpression {
 			return term.Value, "", nil
 		}
 		return qualifiedNameText(term.Value), "", nil

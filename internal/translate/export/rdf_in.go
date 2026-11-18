@@ -257,12 +257,12 @@ func (d *decoder) notation() ([]byte, []*element, error) {
 func checkExtensionNamespace(graph *rdf.Graph) error {
 	for _, triple := range graph.Triples() {
 		for _, term := range []rdf.Term{triple.Subject, triple.Predicate, triple.Object} {
-			if term.Kind == rdf.TermIRI && strings.HasPrefix(term.Value, rdf.LegacyExtension) {
+			if term.Kind() == rdf.TermIRI && strings.HasPrefix(term.Value, rdf.LegacyExtension) {
 				return legacyNamespaceError(term.Value)
 			}
 		}
-		if strings.HasPrefix(triple.Object.Datatype, rdf.LegacyExtension) {
-			return legacyNamespaceError(triple.Object.Datatype)
+		if strings.HasPrefix(triple.Object.Datatype(), rdf.LegacyExtension) {
+			return legacyNamespaceError(triple.Object.Datatype())
 		}
 	}
 	return nil
@@ -289,7 +289,7 @@ var supersededPredicates = map[string]string{
 func checkSupersededPredicates(graph *rdf.Graph) error {
 	for _, triple := range graph.Triples() {
 		now, superseded := supersededPredicates[triple.Predicate.Value]
-		if !superseded || triple.Predicate.Kind != rdf.TermIRI {
+		if !superseded || triple.Predicate.Kind() != rdf.TermIRI {
 			continue
 		}
 		return &UnsupportedError{
@@ -320,7 +320,7 @@ func checkRemovedNotation(graph *rdf.Graph) error {
 				What: fmt.Sprintf("the element <%s> of type sysx:%s", triple.Subject.Value, mDeferMember),
 				Note: removedDeferNote,
 			}
-		case triple.Predicate.Kind == rdf.TermIRI && triple.Predicate.Value == rdf.OpenSysML+xDeferredEvent:
+		case triple.Predicate.Kind() == rdf.TermIRI && triple.Predicate.Value == rdf.OpenSysML+xDeferredEvent:
 			return &UnsupportedError{
 				What: fmt.Sprintf("the property sysx:%s of <%s>", xDeferredEvent, triple.Subject.Value),
 				Note: removedDeferNote,
@@ -390,17 +390,17 @@ func checkLiterals(graph *rdf.Graph, metaclasses map[rdf.Term]string) error {
 		if !object.IsLiteral() || !mappingPredicate(triple.Predicate.Value) {
 			continue
 		}
-		if object.Lang != "" {
+		if object.Lang() != "" {
 			return literalError(triple, "a language-tagged literal is an rdf:langString, and no property this mapping reads takes one")
 		}
 		allowed := literalDatatypes(rdf.LocalName(metaclasses[triple.Subject]), triple.Predicate.Value)
-		if !slices.Contains(allowed, object.Datatype) {
+		if !slices.Contains(allowed, object.Datatype()) {
 			return literalError(triple, fmt.Sprintf("%s takes %s", curie(triple.Predicate.Value), datatypeList(allowed)))
 		}
-		if !inLexicalSpace(object.Datatype, object.Value) {
-			return literalError(triple, fmt.Sprintf("%q is not in the lexical space of %s", object.Value, curie(object.Datatype)))
+		if !inLexicalSpace(object.Datatype(), object.Value) {
+			return literalError(triple, fmt.Sprintf("%q is not in the lexical space of %s", object.Value, curie(object.Datatype())))
 		}
-		if object.Datatype == rdf.XSD+"int" {
+		if object.Datatype() == rdf.XSD+"int" {
 			if _, err := strconv.ParseInt(object.Value, 10, 32); err != nil {
 				return literalError(triple, fmt.Sprintf("%q is outside the value space of xsd:int, -2147483648 to 2147483647", object.Value))
 			}
@@ -549,10 +549,10 @@ func termText(term rdf.Term) string {
 	}
 	literal := rdf.String(term.Value).String()
 	switch {
-	case term.Lang != "":
-		return literal + "@" + term.Lang
-	case term.Datatype != "":
-		return literal + "^^" + curie(term.Datatype)
+	case term.Lang() != "":
+		return literal + "@" + term.Lang()
+	case term.Datatype() != "":
+		return literal + "^^" + curie(term.Datatype())
 	}
 	return literal
 }
@@ -1382,7 +1382,7 @@ var referenceProperties = func() map[string]bool {
 // from the graph itself, which would otherwise be written back mis-named.
 func (d *decoder) checkReferences() error {
 	for _, triple := range d.graph.Triples() {
-		if triple.Object.Kind != rdf.TermIRI || !referenceProperties[triple.Predicate.Value] {
+		if triple.Object.Kind() != rdf.TermIRI || !referenceProperties[triple.Predicate.Value] {
 			continue
 		}
 		if d.isFilterPackageNode(triple.Object) || d.isFilterPackageNode(triple.Subject) {
@@ -4284,7 +4284,7 @@ func (d *decoder) metadataDefinition(el *element) (rdf.Term, error) {
 	case 1:
 		if types[0].IsLiteral() {
 			why := notAName(types[0])
-			if types[0].Datatype == rdf.OpenSysML+dtExpression {
+			if types[0].Datatype() == rdf.OpenSysML+dtExpression {
 				why = "it is an expression, not a name"
 			}
 			if why != "" {
@@ -4741,7 +4741,7 @@ func (d *decoder) referenceList(el *element, property string) ([]string, error) 
 // resolves to its element there.
 func (d *decoder) referenceName(term rdf.Term, el *element) (string, error) {
 	if term.IsLiteral() {
-		if term.Datatype == rdf.OpenSysML+dtExpression {
+		if term.Datatype() == rdf.OpenSysML+dtExpression {
 			return term.Value, nil
 		}
 		if why := notAName(term); why != "" {
@@ -4987,7 +4987,7 @@ func notAName(term rdf.Term) string {
 // literalTargetName is the name a usage takes from a naming feature the graph
 // keeps as text: the last segment of a name, or of the member a chain reaches.
 func literalTargetName(term rdf.Term) (string, bool) {
-	if term.Datatype != rdf.OpenSysML+dtExpression {
+	if term.Datatype() != rdf.OpenSysML+dtExpression {
 		return lastName(term.Value), true
 	}
 	name, _ := ast.TargetName(literalTarget(term))
@@ -4996,7 +4996,7 @@ func literalTargetName(term rdf.Term) (string, bool) {
 
 // literalTarget parses a relationship target the graph keeps as expression text.
 func literalTarget(term rdf.Term) ast.Node {
-	if !term.IsLiteral() || term.Datatype != rdf.OpenSysML+dtExpression {
+	if !term.IsLiteral() || term.Datatype() != rdf.OpenSysML+dtExpression {
 		return nil
 	}
 	return parser.New(source.New("<naming>", []byte(term.Value))).ParseExpression()

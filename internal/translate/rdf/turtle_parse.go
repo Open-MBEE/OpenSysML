@@ -390,13 +390,12 @@ func (p *parser) readLiteral() (Term, error) {
 		}
 		b.WriteByte(p.next())
 	}
-	term := Term{Kind: TermLiteral, Value: b.String()}
 	if !p.eof() && p.peek() == '@' {
 		p.next()
-		term.Lang = p.readWhile(func(r rune) bool {
+		lang := p.readWhile(func(r rune) bool {
 			return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '-'
 		})
-		return term, nil
+		return LangString(b.String(), lang), nil
 	}
 	if strings.HasPrefix(p.src[p.pos:], "^^") {
 		p.next()
@@ -408,9 +407,9 @@ func (p *parser) readLiteral() (Term, error) {
 		if !datatype.IsIRI() {
 			return Term{}, p.errf("datatype must be an IRI")
 		}
-		term.Datatype = datatype.Value
+		return TypedLiteral(b.String(), datatype.Value), nil
 	}
-	return term, nil
+	return String(b.String()), nil
 }
 
 func hexDigit(c byte) (byte, bool) {

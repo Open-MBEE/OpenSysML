@@ -391,6 +391,24 @@ func TestLibraryElementFormWritesAnonymousMembersUnderTheirMintedIDs(t *testing.
 	}
 }
 
+// A feature chain expression is the `.` operator applied (KerML 1.0 § 8.3.4.8.4), as the pilot
+// exports FeatureChainExpression::operator.
+func TestElementFormFeatureChainExpressionStatesItsOperator(t *testing.T) {
+	form := parseElementForm(t, "package M { part def D { attribute a; } part d : D; attribute x = d.a; }")
+	x, ok := form.ByQualifiedName("M::x")
+	if !ok {
+		t.Fatal("no M::x in the form")
+	}
+	valueID := formReferenceIDs(t, formPropertyOf(t, x, "value"))[0]
+	expression, ok := form.ByID(valueID)
+	if !ok || expression.Metaclass != "FeatureChainExpression" {
+		t.Fatalf("M::x.value %q is %v (%v)", valueID, expression.Metaclass, ok)
+	}
+	if operator := formPropertyOf(t, expression, "operator"); operator != "." {
+		t.Fatalf("operator = %v", operator)
+	}
+}
+
 // The ReferenceUsage a flow's end owns is named by the feature it redefines (KerML 1.1 §8.3.3.3.4
 // Feature::namingFeature) and varies in time, owned by an Occurrence-typed end, as the pilot exports it.
 func TestElementFormFlowEndFeatureIsNamedByItsRedefinedFeatureAndVaries(t *testing.T) {

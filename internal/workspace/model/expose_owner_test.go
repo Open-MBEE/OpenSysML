@@ -23,26 +23,24 @@ func exposeOwnerFindings(t *testing.T, uri string, docs map[string]string) []str
 	return out
 }
 
-// Expose is a ViewBodyItem alone (SysML.xtext): legal in a view usage, a
-// nonstandard-notation warning in a view def body, a syntax error elsewhere.
+// Expose is a ViewBodyItem alone (SysML v2 8.2.2.26.2): legal in a view usage, a
+// syntax error in every other body, a view def body included.
 func TestExposeOwnerAcrossDocuments(t *testing.T) {
 	lib := `package Lib { part def Pub; }`
 	docs := map[string]string{
-		"lib.sysml":  lib,
-		"ok.sysml":   `package Ok { view v { expose Lib::**; } }`,
-		"warn.sysml": `package Warn { view def V { expose Lib::**; } }`,
-		"bad.sysml":  `package Bad { part def D { expose Lib::**; } }`,
+		"lib.sysml": lib,
+		"ok.sysml":  `package Ok { view v { expose Lib::**; } }`,
+		"def.sysml": `package Def { view def V { expose Lib::**; } }`,
+		"bad.sysml": `package Bad { part def D { expose Lib::**; } }`,
 	}
 
 	if found := exposeOwnerFindings(t, "ok.sysml", docs); len(found) != 0 {
 		t.Errorf("expose in a view usage must be legal, got %v", found)
 	}
-	warn := exposeOwnerFindings(t, "warn.sysml", docs)
-	if len(warn) != 1 || !strings.HasPrefix(warn[0], "warning: `expose` in a view def body") {
-		t.Errorf("expose in a view def body must warn once, got %v", warn)
-	}
-	bad := exposeOwnerFindings(t, "bad.sysml", docs)
-	if len(bad) != 1 || !strings.HasPrefix(bad[0], "error: 'expose' declares what a view usage exposes and is only allowed in a view usage body") {
-		t.Errorf("expose outside a view must be a syntax error once, got %v", bad)
+	for _, name := range []string{"def.sysml", "bad.sysml"} {
+		bad := exposeOwnerFindings(t, name, docs)
+		if len(bad) != 1 || !strings.HasPrefix(bad[0], "error: 'expose' declares what a view usage exposes and is only allowed in a view usage body") {
+			t.Errorf("%s: expose outside a view usage must be a syntax error once, got %v", name, bad)
+		}
 	}
 }
