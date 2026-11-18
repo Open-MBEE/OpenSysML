@@ -10,6 +10,7 @@ on:
       - go.mod
       - go.sum
       - Makefile
+      - scripts/ci-go-build-cache.sh
       - .github/workflows/wasm-cache.yml
   workflow_dispatch:
 
@@ -52,20 +53,17 @@ jobs:
             wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-
             wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-
 
-      # Go refreshes the time of an entry it uses only once that time is an hour old,
-      # so the restored entries are aged for the gate to mark the ones it still needs.
-      - name: Age the restored build cache entries
-        run: |
-          if [ -d ~/.cache/go-build ]; then
-            find ~/.cache/go-build -mindepth 2 -maxdepth 2 -exec touch -d '2 hours ago' {} +
-          fi
-
       - name: Set up Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
 
+      # After every setup step, so that whatever is marked is marked for a gate that then starts.
+      - name: Mark the restored build cache entries unused
+        run: scripts/ci-go-build-cache.sh age
+
       - name: Run the WebAssembly gate
+        id: gate
         run: |
           set -o pipefail
           node --version
@@ -78,17 +76,18 @@ jobs:
       # Go itself keeps an unused entry for five days, and each push adds the objects of
       # every package it changed: restored and saved whole, the entry grew past 5 GB.
       - name: Drop the build cache entries this gate did not use
-        if: success() || failure()
+        id: prune
+        if: steps.gate.outcome == 'success'
         run: |
           du -sh ~/.cache/go-build
-          find ~/.cache/go-build -mindepth 2 -maxdepth 2 -mmin +60 -exec rm -rf {} +
+          scripts/ci-go-build-cache.sh prune
           du -sh ~/.cache/go-build
 
-      # The objects a failed gate compiled are as good as a passing one's, so a red
-      # develop still warms the next pull request.
+      # A failed gate may have stopped before using what a passing one needs, so its cache is saved
+      # unpruned for the next passing gate to prune; one that never ran or was cancelled saves nothing.
       - name: Save the WebAssembly build cache
         id: save
-        if: success() || failure()
+        if: always() && (steps.prune.outcome == 'success' || steps.gate.outcome == 'failure')
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |

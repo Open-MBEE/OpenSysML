@@ -289,6 +289,10 @@ jobs:
       - name: Test the apt installer
         run: scripts/ci-apt-install-test.sh
 
+      # wasm-cache.yml prunes the build cache it saves on develop pushes only, so its pruning is checked here.
+      - name: Test the build cache pruning
+        run: scripts/ci-go-build-cache-test.sh
+
       - name: Install Z3
         if: needs.changes.outputs.tier != 'quick'
         timeout-minutes: 10
