@@ -1441,16 +1441,16 @@ jobs:
       - name: Check documentation links
         run: python3 scripts/check-doc-links.py
 
-      # The shipped pages are generated from each command's description, so a
-      # flag added without regenerating them would ship a stale page.
+      # Whether the shipped pages are what each command renders is a Go test, which the Go
+      # shards run on any change to the commands or the pages; compiling them again here took three minutes.
       - name: Install mandoc
         timeout-minutes: 10
         uses: ./.github/actions/apt-install
         with:
           packages: --no-install-recommends mandoc
 
-      - name: Verify the committed manual pages are current
-        run: make man-check
+      - name: Check the committed manual pages are formatter-clean
+        run: make man-lint
 
       # Internal work-item labels have no public referent, so they may not
       # appear in the pages a user reads.
