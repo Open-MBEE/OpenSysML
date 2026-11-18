@@ -20,7 +20,71 @@ const (
 )
 
 // pipCommand matches pip run as a command, not named in a message a step prints.
-var pipCommand = regexp.MustCompile(`(?m)(?:(?:^|&&|;|\|\|)\s*@?(?:cd \S+ && )?(?:\S+\s+-m\s+)?|\(\s*)pip3?\s+(?:install|download)\b`)
+var pipCommand = regexp.MustCompile(`(?m)(?:(?:^|&&|;|\|\|)\s*@?(?:cd \S+ && )?(?:\S+\s+-m\s+|"?\S*/)?|\(\s*)pip3?"?\s+(?:install|download)\b`)
+
+// pipScriptPin matches a requirement a script pins through one of its own variables.
+var pipScriptPin = regexp.MustCompile(`"([A-Za-z0-9_.-]+)==\$\{?([A-Z_]+)\}?"`)
+
+// pipScripts maps each script under scripts/ that runs pip to the pins it installs, as the
+// action is asked for them; the installer itself and the tests are not among them.
+func pipScripts(t *testing.T) map[string][]string {
+	t.Helper()
+	paths, err := filepath.Glob("../../scripts/*.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	scripts := map[string][]string{}
+	for _, path := range paths {
+		name := "scripts/" + filepath.Base(path)
+		if name == pipInstallScript || strings.HasSuffix(name, "-test.sh") {
+			continue
+		}
+		raw, err := os.ReadFile(path) // #nosec G304 -- a file of this repository
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !pipCommand.Match(raw) {
+			continue
+		}
+		scripts[name] = []string{}
+		for _, line := range strings.Split(string(raw), "\n") {
+			if !pipCommand.MatchString(line) {
+				continue
+			}
+			pins := pipScriptPin.FindAllStringSubmatch(line, -1)
+			if len(pins) == 0 {
+				t.Errorf("%s runs pip without a requirement pinned through a variable of the script: %s", name, strings.TrimSpace(line))
+			}
+			for _, pin := range pins {
+				value := regexp.MustCompile(`(?m)^` + pin[2] + `="([^"]+)"$`).FindSubmatch(raw)
+				if value == nil {
+					t.Errorf("%s pins %s through %s, which it does not set", name, pin[1], pin[2])
+					continue
+				}
+				scripts[name] = append(scripts[name], pin[1]+"=="+string(value[1]))
+			}
+		}
+	}
+	if len(scripts) < 2 {
+		t.Fatalf("found %d scripts that run pip; the scan no longer finds them", len(scripts))
+	}
+	return scripts
+}
+
+// scaToolsWithoutPip matches a run of the audit-tool script that names only tools pip does not install.
+var scaToolsWithoutPip = regexp.MustCompile(`download-sca-tools\.sh(\s+(cargo-audit|osv-scanner))+\s*$`)
+
+// pipScriptsRun lists the pins of the pip-running scripts a step's command runs.
+func pipScriptsRun(scripts map[string][]string, run string) (pins []string, runs bool) {
+	for _, line := range strings.Split(run, "\n") {
+		for script, scriptPins := range scripts {
+			if strings.Contains(line, script) && !scaToolsWithoutPip.MatchString(line) {
+				pins, runs = append(pins, scriptPins...), true
+			}
+		}
+	}
+	return pins, runs
+}
 
 // pipMakeTargets lists the Makefile targets whose recipe runs pip.
 func pipMakeTargets(t *testing.T) []string {
@@ -58,8 +122,8 @@ func pipRequestOf(python string, with map[string]string) pipRequest {
 	return pipRequest{python, fields(with["packages"]), fields(with["requirements"]), fields(with["projects"])}
 }
 
-// TestPipInstallsGoThroughTheCachedAction: a step that runs pip, or a make target that does, reads
-// only the wheels a use of the action in its job provided, and every use of the action names a request.
+// TestPipInstallsGoThroughTheCachedAction: a step that runs pip, or a make target or script that does, reads
+// only the wheels a use of the action in its job provided, and they hold what the script pins.
 func TestPipInstallsGoThroughTheCachedAction(t *testing.T) {
 	var targets []string
 	for _, target := range pipMakeTargets(t) {
@@ -67,6 +131,7 @@ func TestPipInstallsGoThroughTheCachedAction(t *testing.T) {
 	}
 	pipTarget := regexp.MustCompile(`\bmake\b[^\n]*\s(` + strings.Join(targets, "|") + `)\b`)
 	wheels := regexp.MustCompile(`steps\.([A-Za-z0-9_-]+)\.outputs\.wheels`)
+	scripts := pipScripts(t)
 
 	uses := 0
 	for _, path := range actionsFiles(t) {
@@ -74,11 +139,11 @@ func TestPipInstallsGoThroughTheCachedAction(t *testing.T) {
 			continue
 		}
 		for where, steps := range actionsSteps(t, path) {
-			provided := map[string]bool{}
+			provided := map[string]string{}
 			for _, step := range steps {
 				if step.Uses == pipInstallAction {
 					uses++
-					provided[step.ID] = true
+					provided[step.ID] = " " + pipRequestOf("", step.With).packages + " "
 					if pipRequestOf("", step.With) == (pipRequest{}) {
 						t.Errorf("%s step %q uses %s without packages, requirements or projects", where, step.Name, pipInstallAction)
 					}
@@ -87,12 +152,19 @@ func TestPipInstallsGoThroughTheCachedAction(t *testing.T) {
 				if strings.Contains(step.Run, pipInstallScript) {
 					t.Errorf("%s step %q runs %s directly; use `uses: %s` so the wheels are cached", where, step.Name, pipInstallScript, pipInstallAction)
 				}
-				if !pipCommand.MatchString(step.Run) && !pipTarget.MatchString(step.Run) {
+				pins, script := pipScriptsRun(scripts, step.Run)
+				if !script && !pipCommand.MatchString(step.Run) && !pipTarget.MatchString(step.Run) {
 					continue
 				}
 				from := wheels.FindStringSubmatch(step.Env["PIP_FIND_LINKS"])
-				if step.Env["PIP_NO_INDEX"] != "1" || from == nil || !provided[from[1]] {
+				if step.Env["PIP_NO_INDEX"] != "1" || from == nil || provided[from[1]] == "" {
 					t.Errorf("%s step %q runs pip against PyPI; install through `uses: %s`, or set PIP_NO_INDEX to 1 and PIP_FIND_LINKS to the wheels output of an earlier use of it", where, step.Name, pipInstallAction)
+					continue
+				}
+				for _, pin := range pins {
+					if !strings.Contains(provided[from[1]], " "+pin+" ") {
+						t.Errorf("%s step %q runs a script that installs %s, which the wheels of step %q do not hold", where, step.Name, pin, from[1])
+					}
 				}
 			}
 		}
@@ -291,6 +363,41 @@ func TestPipCacheWarmsEveryRequest(t *testing.T) {
 	for request, where := range requests {
 		if !warmed[request] {
 			t.Errorf("%s asks for %+v, which %s does not warm", where, request, pipCacheWorkflow)
+		}
+	}
+}
+
+// TestPipAuditIsRetried: the audit cannot run from the wheels, since it asks PyPI what is vulnerable
+// today, so every pip-audit the Makefile runs goes through the wrapper that retries a failed answer.
+func TestPipAuditIsRetried(t *testing.T) {
+	raw, err := os.ReadFile("../../Makefile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "\nPIP_AUDIT := scripts/pip-audit-retry.sh build/sca/venv/bin/pip-audit\n") {
+		t.Error("the Makefile's PIP_AUDIT does not run pip-audit through scripts/pip-audit-retry.sh")
+	}
+	for i, line := range strings.Split(string(raw), "\n") {
+		if strings.Contains(line, "bin/pip-audit") && !strings.HasPrefix(line, "PIP_AUDIT := ") {
+			t.Errorf("Makefile:%d runs pip-audit outside $(PIP_AUDIT), so one slow answer from PyPI fails it", i+1)
+		}
+	}
+	script, err := os.ReadFile("../../scripts/pip-audit-retry.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`--timeout "$read_timeout"`, "PIP_AUDIT_ATTEMPTS", "PIP_TIMEOUT", "known vulnerabilit"} {
+		if !strings.Contains(string(script), want) {
+			t.Errorf("scripts/pip-audit-retry.sh lacks %q", want)
+		}
+	}
+	for _, path := range actionsFiles(t) {
+		for where, steps := range actionsSteps(t, path) {
+			for _, step := range steps {
+				if strings.Contains(step.Run, "pip-audit ") && !strings.Contains(step.Run, "download-sca-tools.sh") {
+					t.Errorf("%s step %q runs pip-audit itself; run `make audit-python`, which retries", where, step.Name)
+				}
+			}
 		}
 	}
 }

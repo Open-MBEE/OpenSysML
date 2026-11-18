@@ -9,6 +9,8 @@ on:
       - .github/workflows/**
       - .github/actions/**
       - scripts/ci-pip-install.sh
+      - scripts/download-sca-tools.sh
+      - scripts/download-doc-pdf-toolchain.sh
       - docs-requirements.txt
       - client/python/pyproject.toml
       - client/jupyter-kernel/pyproject.toml
@@ -66,6 +68,12 @@ jobs:
           - name: fmpy (the runner's Python)
             python-version: ''
             packages: fmpy==0.3.32
+          - name: pip-audit (3.11)
+            python-version: '3.11'
+            packages: pip-audit==2.10.1
+          - name: WeasyPrint (3.12)
+            python-version: '3.12'
+            packages: weasyprint==69.0
           - name: the documentation toolchain (3.12)
             python-version: '3.12'
             requirements: docs-requirements.txt

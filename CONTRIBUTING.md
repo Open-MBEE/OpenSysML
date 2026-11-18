@@ -420,12 +420,21 @@ to four bounded attempts, because pip's own `--retries` covers a connection it c
 not an index page or a wheel that arrived truncated; it reads every wheel back, records their
 checksums, and installs only from a complete set, so a run fails with nothing installed rather than
 half-installed. A step that must run pip itself (`make python-install`, a virtualenv a release
-check builds) sets `PIP_NO_INDEX: '1'` and `PIP_FIND_LINKS` to the action's `wheels` output.
+check builds, a script that installs a pinned tool into one: `scripts/download-sca-tools.sh`,
+`scripts/download-doc-pdf-toolchain.sh`) sets `PIP_NO_INDEX: '1'` and `PIP_FIND_LINKS` to the
+action's `wheels` output, which for a script holds the script's own pin.
 `.github/workflows/pip-cache.yml` alone saves the entries, on every push to `develop` that changes a
 workflow, an action or a pinned file, and daily; its matrix lists every request with the Python its
 job sets up, and it installs each a second time with the index unreachable. A new or changed pin
 therefore changes the call site and the matrix together; `tests/hygiene/pip_install_test.go` fails
 on a direct `pip install`, and on a request the matrix does not warm.
+
+The dependency audit is the one step that cannot run from the wheels: `pip-audit` asks PyPI which
+versions an install would resolve today and which of them are vulnerable, and it gives up on the
+first read that takes 15 seconds. `make audit-python` therefore runs it through
+`scripts/pip-audit-retry.sh`, which gives each read 60 seconds, for the vulnerability feed and for
+the pip that resolves alike, and repeats an audit that did not complete, up to four bounded
+attempts. An audit that reports a vulnerability is not repeated: it fails at once.
 The script passes both retry property names on its command line, the clone having no
 `.mvn/maven.config`, and logs `mvn --version`: the `ubuntu-24.04` image ships Maven 3.10.
 

@@ -293,6 +293,10 @@ jobs:
       - name: Test the pip installer
         run: scripts/ci-pip-install-test.sh
 
+      # The audit's retry of a read timeout, and its refusal to retry a finding, run only here.
+      - name: Test the pip-audit wrapper
+        run: scripts/pip-audit-retry-test.sh
+
       - name: Install Z3
         if: needs.changes.outputs.tier != 'quick'
         timeout-minutes: 10
@@ -1140,7 +1144,18 @@ jobs:
             libnss3 libatk-bridge2.0-0 libgbm1 libxkbcommon0 libasound2t64 fonts-dejavu-core libgts-0.7-5
             poppler-utils
 
+      # The pin is scripts/download-doc-pdf-toolchain.sh's, which installs it into a virtualenv from these wheels.
+      - name: Provide WeasyPrint's wheels
+        id: wheels
+        uses: ./.github/actions/pip-install
+        with:
+          packages: weasyprint==69.0
+          install: 'false'
+
       - name: Provision the PDF toolchain
+        env:
+          PIP_NO_INDEX: '1'
+          PIP_FIND_LINKS: ${{ steps.wheels.outputs.wheels }}
         run: ./scripts/download-doc-pdf-toolchain.sh
 
       - name: Run the PDF integration tests
@@ -1715,10 +1730,23 @@ jobs:
           make python-install
           make jupyter-kernel-install
 
+      # The pin is scripts/download-sca-tools.sh's, which installs it into a virtualenv from these wheels.
+      - name: Provide pip-audit's wheels
+        id: audit-wheels
+        uses: ./.github/actions/pip-install
+        with:
+          packages: pip-audit==2.10.1
+          install: 'false'
+
+      - name: Provision pip-audit
+        env:
+          PIP_NO_INDEX: '1'
+          PIP_FIND_LINKS: ${{ steps.audit-wheels.outputs.wheels }}
+        run: scripts/download-sca-tools.sh pip-audit
+
+      # The audit asks PyPI what is vulnerable today, so it is retried rather than run from the wheels.
       - name: Audit the Python packages' dependencies
-        run: |
-          scripts/download-sca-tools.sh pip-audit
-          make audit-python
+        run: make audit-python
 
       # The FMI runner test's FMUs, same pin as the Go gate's.
       - name: Cache the Reference-FMUs

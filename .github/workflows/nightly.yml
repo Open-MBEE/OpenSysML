@@ -174,7 +174,18 @@ jobs:
       - name: Install the Java client the editors build against
         run: mvn -B -q -f client/java/pom.xml -pl :opensysml -am install -DskipTests -Dmaven.javadoc.skip=true
 
+      # The pin is scripts/download-sca-tools.sh's, which installs it into a virtualenv from these wheels.
+      - name: Provide pip-audit's wheels
+        id: audit-wheels
+        uses: ./.github/actions/pip-install
+        with:
+          packages: pip-audit==2.10.1
+          install: 'false'
+
       - name: Provision the audit tools
+        env:
+          PIP_NO_INDEX: '1'
+          PIP_FIND_LINKS: ${{ steps.audit-wheels.outputs.wheels }}
         run: scripts/download-sca-tools.sh
 
       # Each audit runs even when an earlier one failed, so one night reports every tree.
