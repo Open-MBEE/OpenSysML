@@ -451,7 +451,7 @@ installs the release the `toolchain` line names and sets `GOTOOLCHAIN=local`. Do
 toolchain downloaded into the module cache makes the action's cache restore fail.
 
 Every third-party action a workflow or composite action `uses:` is pinned to a full commit SHA
-with the release that commit is as a trailing comment (`actions/checkout@<sha> # v4.4.0`); a new
+with the release that commit is as a trailing comment (`actions/checkout@<sha> # v7.0.1`); a new
 step takes the same form, and the comment is what lets the pin be moved by version.
 
 **Dependency audits** run in both tiers, each in the job whose ecosystem it covers and gated
@@ -477,8 +477,9 @@ advisories without a fix.
 
 [`.github/dependabot.yml`](.github/dependabot.yml) opens at most one grouped pull request a week
 per ecosystem (both Go modules, every npm lockfile, the Python packages, the Rust client, the
-three Maven trees, and the GitHub Actions the workflows pin), against `develop`, with minor and
-patch updates in one group and a Conventional Commits title (`chore(deps): …`). Major versions
+three Maven trees, and the GitHub Actions the workflows and composite actions pin), against
+`develop`, with minor and patch updates in one group and a Conventional Commits title
+(`chore(deps): …`). Major versions
 are not offered at all (`open-pull-requests-limit: 1` and a `version-update:semver-major` ignore
 in every entry): the workflows pin actions to commit SHAs and the TypeScript and Node majors
 break the builds, so a maintainer takes each major by hand. Dependabot alerts and security

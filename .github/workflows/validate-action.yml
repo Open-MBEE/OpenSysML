@@ -32,7 +32,7 @@ jobs:
     steps:
       - name: Check out repository
         id: checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         timeout-minutes: 10
         continue-on-error: true
         with:
@@ -40,7 +40,7 @@ jobs:
       # A stalled fetch hangs rather than fails, so the action's own retries never see it.
       - name: Check out repository again
         if: steps.checkout.outcome == 'failure'
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         timeout-minutes: 10
         with:
           fetch-depth: 0
@@ -59,13 +59,13 @@ jobs:
     steps:
       - name: Check out repository
         id: checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         timeout-minutes: 3
         continue-on-error: true
       # A stalled fetch hangs rather than fails, so the action's own retries never see it.
       - name: Check out repository again
         if: steps.checkout.outcome == 'failure'
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         timeout-minutes: 3
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
@@ -153,13 +153,13 @@ jobs:
     steps:
       - name: Check out repository
         id: checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         timeout-minutes: 3
         continue-on-error: true
       # A stalled fetch hangs rather than fails, so the action's own retries never see it.
       - name: Check out repository again
         if: steps.checkout.outcome == 'failure'
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         timeout-minutes: 3
       - name: Validate the showcase with the latest release
         uses: ./
