@@ -208,7 +208,7 @@ func TestLocateActionsByIDFindsAGatedSuccession(t *testing.T) {
 }
 
 // The graph-only states owning a parallel state's regions answer for no node,
-// and a fork written in a region is located under the region.
+// and a fork written in a region is still located, where the rendering draws it.
 func TestLocateStatesSkipsGraphOnlyRegionOwners(t *testing.T) {
 	const src = `package P {
 	state Machine {
