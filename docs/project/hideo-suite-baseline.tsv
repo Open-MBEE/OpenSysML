@@ -916,9 +916,9 @@ B13-009	pass	pass	fail	fail
 B13-010	pass	pass	fail	fail
 B13-011	pass	pass	fail	fail
 B13-012	pass	pass	fail	fail
-B13-013	fail	fail	fail	fail
-B13-014	fail	fail	fail	fail
-B13-015	fail	fail	fail	fail
+B13-013	pass	pass	fail	fail
+B13-014	pass	pass	fail	fail
+B13-015	pass	pass	fail	fail
 B13-016	pass	pass	fail	fail
 B13-017	pass	pass	fail	fail
 B13-018	pass	pass	fail	fail

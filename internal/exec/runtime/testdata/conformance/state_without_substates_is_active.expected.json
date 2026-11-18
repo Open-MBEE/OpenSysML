@@ -1,0 +1,6 @@
+{
+  "type": "state",
+  "outputs": {
+    "entered": {"type": "Integer", "value": 1}
+  }
+}

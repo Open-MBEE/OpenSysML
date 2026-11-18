@@ -37,7 +37,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Go
-        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
           cache: true
@@ -56,9 +56,14 @@ jobs:
           java -version
           go version
 
+      # The entry pull requests, merge groups and rebaseline.yml restore: read nightly, saved when absent.
+      - name: Provision the pinned pilot validator, and save it when the cache holds none
+        uses: ./.github/actions/pilot-validator
+        with:
+          save: 'true'
+
       - name: Download the pinned pilot validators
         run: |
-          ./scripts/download-pilot-validator.sh
           ./scripts/download-pilot-sysml-validator.sh
           ./scripts/download-pilot-kerml-validator.sh
           ./scripts/download-pilot-json-exporter.sh
@@ -164,7 +169,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
           cache: true

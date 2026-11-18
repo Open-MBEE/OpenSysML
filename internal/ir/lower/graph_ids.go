@@ -53,6 +53,9 @@ func (g *ActionGraph) nodeIDs(nodes []ast.Node) []program.NodeID {
 	return ids
 }
 
+// NodeIDs are the ids of the graph's nodes, in graph order.
+func (g *ActionGraph) NodeIDs() []program.NodeID { return g.nodeIDs(g.Nodes) }
+
 // InitialID is the node the flow's ordered part starts at, 0 for none.
 func (g *ActionGraph) InitialID() program.NodeID { return g.ID[g.Initial] }
 

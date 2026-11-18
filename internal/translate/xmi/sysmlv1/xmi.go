@@ -79,6 +79,9 @@ type Stereotype struct {
 	// BaseID is the value of the base_* attribute; Base resolves it.
 	BaseID string
 	Base   *Element
+	// BaseMetaclass is the UML metaclass the stereotype extends, as the base_*
+	// attribute names it: "Class" of base_Class, "Element" of base_Element.
+	BaseMetaclass string
 	// document is the archive entry the application was read from, which a
 	// relative href in BaseID is resolved against.
 	document string
@@ -779,7 +782,7 @@ func (m *Model) newStereotype(raw *xmi.Element) *Stereotype {
 	for name, value := range raw.Attrs {
 		switch {
 		case strings.HasPrefix(name, "base_"):
-			s.BaseID = value
+			s.BaseID, s.BaseMetaclass = value, strings.TrimPrefix(name, "base_")
 		default:
 			s.Tags[name] = append(s.Tags[name], value)
 			s.attrValues[name]++
@@ -796,7 +799,7 @@ func (m *Model) newStereotype(raw *xmi.Element) *Stereotype {
 		}
 		if value != "" && strings.HasPrefix(child.Tag, "base_") {
 			if s.BaseID == "" {
-				s.BaseID = value
+				s.BaseID, s.BaseMetaclass = value, strings.TrimPrefix(child.Tag, "base_")
 			}
 			continue
 		}

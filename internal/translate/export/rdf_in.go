@@ -2564,8 +2564,9 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	// modifiers, ahead of them, rather than after them in the keyword's place.
 	isVariant := d.boolOf(el, rdf.SysML+"isVariant") && !d.enumeratedValue(el)
 	variantFirst := keyword == "variant" && isVariant
+	isEnd := d.boolOf(el, rdf.SysML+"isEnd")
 	compositeByDefault := usageCompositeByDefault(d.graph, d.metaclass, d.ownership, rdf.IRI(el.iri),
-		d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+pDirection), d.boolOf(el, rdf.SysML+"isEnd"))
+		d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+pDirection), isEnd)
 	// Usage::isReference is derived as not isComposite, so a usage stated
 	// non-composite where its kind is composite was written `ref`.
 	ref := (d.boolOf(el, rdf.SysML+"isReference") || !kerml && d.statedFalse(el, "isComposite") && compositeByDefault) && !variantReference
@@ -2587,13 +2588,15 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		{"portion", isPortion},
 		{"composite", kerml && compositeWord},
 		{constantKeyword(kerml), d.boolOf(el, rdf.SysML+"isConstant") && !d.derivedConstantEnd(el)},
+		// `ref` closes the basic prefix, ahead of the occurrence words
+		// (SysML.xtext BasicUsagePrefix, OccurrenceUsagePrefix); an end's follows `end`.
+		{"ref", ref && !isEnd},
 		{"individual", d.boolOf(el, rdf.SysML+"isIndividual")},
 		{"snapshot", portion == "snapshot"},
 		{"timeslice", portion == "timeslice"},
 		{"event", event},
-		{"end", d.boolOf(el, rdf.SysML+"isEnd")},
-		// A VariantReference is a reference usage by what it is.
-		{"ref", ref},
+		{"end", isEnd},
+		{"ref", ref && isEnd},
 		// SysML has no `composite` of its own; this grammar reads one closing the prefix, after `ref`.
 		{"composite", !kerml && compositeWord},
 	} {
