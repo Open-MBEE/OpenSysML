@@ -27,6 +27,8 @@ type frameEncoder struct {
 	idx         *symbols.Index
 	ids         ElementIdentities
 	unsupported string
+	// open holds the frames being written, which a cyclic model reaches again.
+	open []*runtime.CoordinateFrame
 }
 
 // coordinateValueToProto sends a frame through the coordinate_frame arm and a
@@ -68,8 +70,10 @@ func (e *frameEncoder) frame(f *runtime.CoordinateFrame, within *runtime.Coordin
 			out.Scale.Mapping = &pb.QuantityValueMapping{Mapped: e.quantity(&m.Mapped), Reference: e.quantity(&m.Reference)}
 		}
 	}
-	if t := f.Transformation; t != nil && !sameTransformation(t, within) {
+	if t := f.Transformation; t != nil && !sameTransformation(t, within) && !e.writing(f) {
+		e.open = append(e.open, f)
 		out.Transformation = e.transformation(t, f)
+		e.open = e.open[:len(e.open)-1]
 	}
 	return out
 }
@@ -113,6 +117,14 @@ func (e *frameEncoder) transformation(t *runtime.CoordinateTransformation, owner
 		out.Pose = &pb.FramePose{Origin: pose.Origin, Basis: pose.Basis}
 	}
 	return out
+}
+
+// writing reports whether f's transformation is already being written, so a
+// frame posed, however indirectly, in itself is named there without it.
+func (e *frameEncoder) writing(f *runtime.CoordinateFrame) bool {
+	return slices.ContainsFunc(e.open, func(open *runtime.CoordinateFrame) bool {
+		return open == f || f.Object != 0 && open.Object == f.Object
+	})
 }
 
 // sameTransformation holds for the one transformation read twice: a frame's

@@ -230,6 +230,22 @@ func TestValueToProto_CoordinateShapes(t *testing.T) {
 	}
 }
 
+// Two frames each posed in the other end where the first is reached again.
+func TestValueToProto_FramesPosedInEachOtherEnd(t *testing.T) {
+	a := &runtime.CoordinateFrame{Text: "a", Object: 1}
+	b := &runtime.CoordinateFrame{Text: "b", Object: 2}
+	a.Transformation = &runtime.CoordinateTransformation{Source: b, Target: a}
+	b.Transformation = &runtime.CoordinateTransformation{Source: a, Target: b}
+	got := protoconv.ValueToProto(runtime.NewCoordinateFrameValue(a), nil).GetCoordinateFrame()
+	inner := got.GetTransformation().GetSource()
+	if inner.GetName() != "b" || inner.GetTransformation().GetSource().GetName() != "a" {
+		t.Fatalf("frame = %v, want a posed in b posed in a", got)
+	}
+	if again := inner.GetTransformation().GetSource().GetTransformation(); again != nil {
+		t.Errorf("a reached again carries %v, want no transformation", again)
+	}
+}
+
 // A frame is read from the model's objects, never supplied, alone or nested.
 func TestProtoToValue_RejectsCoordinateArms(t *testing.T) {
 	frame := &pb.Value{Kind: &pb.Value_CoordinateFrame{CoordinateFrame: &pb.CoordinateFrame{Name: "f"}}}
