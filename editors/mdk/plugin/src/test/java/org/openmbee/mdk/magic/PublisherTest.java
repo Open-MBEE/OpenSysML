@@ -165,6 +165,22 @@ class PublisherTest {
   }
 
   @Test
+  void aCancellationWhileTheBranchIsReadSendsNoCommit() {
+    publisher.publish(MODEL, target("p1", "main"));
+    boolean[] cancelled = new boolean[1];
+    api.afterElements = () -> cancelled[0] = true;
+
+    Optional<Publisher.Result> result = publisher.publish(
+        "[" + MODEL.substring(MODEL.indexOf("{\"@type\": \"PartDefinition\"")),
+        new Publisher.Target("p1", "", "main", Optional.empty(), true, ""), () -> cancelled[0]);
+
+    assertTrue(result.isEmpty());
+    assertTrue(cancelled[0], "the branch was read before the cancellation");
+    assertEquals(1, api.posted.size());
+    assertEquals(2, api.elements("p1", "main").size());
+  }
+
+  @Test
   void refusesAModelItCannotPublishWhole() {
     ApiException unheld = assertThrows(ApiException.class, () -> publisher.publish(
         "[{\"@type\": \"sysx:Thing\", \"@id\": \"T\"}]", target("p1", "main")));

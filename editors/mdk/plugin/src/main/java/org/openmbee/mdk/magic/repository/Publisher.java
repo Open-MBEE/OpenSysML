@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BooleanSupplier;
 
 /**
  * Publishes a model, given as the API's JSON element array, to one project branch of a SysML v2
@@ -99,8 +100,17 @@ public final class Publisher {
 
   /** Publishes {@code apiJson}, the element array a conversion to {@code api-json} writes. */
   public Result publish(String apiJson, Target target) {
+    return publish(apiJson, target, () -> false).orElseThrow();
+  }
+
+  /**
+   * Publishes as {@link #publish(String, Target)} does, unless {@code cancelled} answers true
+   * before the commit is sent: the result is then empty and the branch untouched.
+   */
+  public Optional<Result> publish(String apiJson, Target target, BooleanSupplier cancelled) {
     Map<String, JsonObject> local = payloads(apiJson);
     if (local.isEmpty()) throw new ApiException("the model holds no element to publish");
+    if (cancelled.getAsBoolean()) return Optional.empty();
 
     boolean createdProject = false;
     SysmlApiClient.ProjectInfo project;
@@ -155,13 +165,15 @@ public final class Publisher {
         leftInPlace++;
       }
     }
+    if (cancelled.getAsBoolean()) return Optional.empty();
     if (changes.isEmpty()) {
-      return new Result(project.id(), project.name(), createdProject, branchId, Optional.empty(), head, 0, 0, 0, leftInPlace);
+      return Optional.of(new Result(project.id(), project.name(), createdProject, branchId, Optional.empty(), head, 0, 0, 0, leftInPlace));
     }
 
     // The API takes no precondition, so the head is read again just before the write.
     String now = client.branch(project.id(), branchId).head();
     if (!now.equals(head)) throw new BranchMovedException(branchId, project.id(), head, now);
+    if (cancelled.getAsBoolean()) return Optional.empty();
     JsonObject commit = new JsonObject();
     commit.addProperty("@type", "Commit");
     commit.add("change", changes);
@@ -171,7 +183,8 @@ public final class Publisher {
       throw new ApiException("the server accepted the commit to branch " + branchId + " of " + project.id()
           + " but named no commit; read the branch before publishing again");
     }
-    return new Result(project.id(), project.name(), createdProject, branchId, Optional.of(made), made, created, updated, deleted, leftInPlace);
+    return Optional.of(new Result(
+        project.id(), project.name(), createdProject, branchId, Optional.of(made), made, created, updated, deleted, leftInPlace));
   }
 
   private static SysmlApiClient.ProjectInfo named(SysmlApiClient.ProjectInfo read, SysmlApiClient.ProjectInfo created) {
