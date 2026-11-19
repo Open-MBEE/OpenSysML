@@ -11,9 +11,9 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 456,
+      "presentEqual": 459,
       "presentDifferent": 83,
-      "oursMissing": 28,
+      "oursMissing": 25,
       "pilotMissing": 20,
       "absentBoth": 557,
       "indeterminate": 18,
@@ -125,7 +125,7 @@
     "LiteralInteger.owningNamespace": [3,0,0,0,0,0,0],
     "LiteralInteger.owningRelationship": [3,0,0,0,0,0,0],
     "LiteralInteger.parameter": [0,0,3,0,0,0,0],
-    "LiteralInteger.result": [0,0,3,0,0,0,0],
+    "LiteralInteger.result": [3,0,0,0,0,0,0],
     "LiteralInteger.textualRepresentation": [0,0,0,0,3,0,0],
     "LiteralInteger.type": [3,0,0,0,0,0,0],
     "LiteralInteger.unioningType": [0,0,0,0,3,0,0],

@@ -11,15 +11,15 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 10234,
+      "presentEqual": 10241,
       "presentDifferent": 784,
-      "oursMissing": 972,
+      "oursMissing": 965,
       "pilotMissing": 313,
       "absentBoth": 10383,
       "indeterminate": 127,
       "pilotNondeterministic": 10
     },
-    "unkeyedReferences": 692,
+    "unkeyedReferences": 842,
     "extensionProperties": 1033,
     "duplicateElements": {
       "ours": 0,
@@ -861,7 +861,7 @@
     "LiteralInfinity.owningNamespace": [3,0,0,0,0,0,0],
     "LiteralInfinity.owningRelationship": [3,0,0,0,0,0,0],
     "LiteralInfinity.parameter": [0,0,3,0,0,0,0],
-    "LiteralInfinity.result": [0,0,3,0,0,0,0],
+    "LiteralInfinity.result": [3,0,0,0,0,0,0],
     "LiteralInfinity.textualRepresentation": [0,0,0,0,3,0,0],
     "LiteralInfinity.type": [3,0,0,0,0,0,0],
     "LiteralInfinity.unioningType": [0,0,0,0,3,0,0],
@@ -927,7 +927,7 @@
     "LiteralInteger.owningNamespace": [4,0,0,0,0,0,0],
     "LiteralInteger.owningRelationship": [4,0,0,0,0,0,0],
     "LiteralInteger.parameter": [0,0,4,0,0,0,0],
-    "LiteralInteger.result": [0,0,4,0,0,0,0],
+    "LiteralInteger.result": [4,0,0,0,0,0,0],
     "LiteralInteger.textualRepresentation": [0,0,0,0,4,0,0],
     "LiteralInteger.type": [4,0,0,0,0,0,0],
     "LiteralInteger.unioningType": [0,0,0,0,4,0,0],

@@ -11,9 +11,9 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 593,
+      "presentEqual": 594,
       "presentDifferent": 75,
-      "oursMissing": 114,
+      "oursMissing": 113,
       "pilotMissing": 16,
       "absentBoth": 679,
       "indeterminate": 5,
@@ -726,7 +726,7 @@
     "NullExpression.owningNamespace": [1,0,0,0,0,0,0],
     "NullExpression.owningRelationship": [1,0,0,0,0,0,0],
     "NullExpression.parameter": [0,0,1,0,0,0,0],
-    "NullExpression.result": [0,0,1,0,0,0,0],
+    "NullExpression.result": [1,0,0,0,0,0,0],
     "NullExpression.textualRepresentation": [0,0,0,0,1,0,0],
     "NullExpression.type": [1,0,0,0,0,0,0],
     "NullExpression.unioningType": [0,0,0,0,1,0,0],

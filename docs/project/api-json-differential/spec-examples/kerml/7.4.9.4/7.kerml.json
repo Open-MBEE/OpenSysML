@@ -11,9 +11,9 @@
       "typeMismatch": 1
     },
     "properties": {
-      "presentEqual": 128,
+      "presentEqual": 129,
       "presentDifferent": 12,
-      "oursMissing": 11,
+      "oursMissing": 10,
       "pilotMissing": 8,
       "absentBoth": 119,
       "indeterminate": 0,
@@ -217,7 +217,7 @@
     "MetadataAccessExpression.owningRelationship": [1,0,0,0,0,0,0],
     "MetadataAccessExpression.parameter": [0,0,1,0,0,0,0],
     "MetadataAccessExpression.referencedElement": [0,0,1,0,0,0,0],
-    "MetadataAccessExpression.result": [0,0,1,0,0,0,0],
+    "MetadataAccessExpression.result": [1,0,0,0,0,0,0],
     "MetadataAccessExpression.textualRepresentation": [0,0,0,0,1,0,0],
     "MetadataAccessExpression.type": [1,0,0,0,0,0,0],
     "MetadataAccessExpression.unioningType": [0,0,0,0,1,0,0],
