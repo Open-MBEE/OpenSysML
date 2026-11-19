@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Prints the root-module package paths assigned to one race-test shard.
-# Usage: scripts/race-shard.sh runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|grpc|tools|internal|rest|migrate|cli | --sweeps
+# Usage: scripts/race-shard.sh runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|translate-structure|grpc|tools|internal|rest|migrate|cli | --sweeps
 
 # A hyphenated shard is a by-test-name part of its package (make test-shard); the others are whole packages:
 # internal is every internal/ package not named here but internal/frontend, rest everything else.
@@ -8,9 +8,9 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-shards='runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|grpc|tools|internal|rest|migrate|cli'
+shards='runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|translate-structure|grpc|tools|internal|rest|migrate|cli'
 # The shards whose one test walks every example model, which the queue tier (make test-queue) runs race-free over the subset;
-# export-library walks the bundled libraries, and grpc's and translate's sweeps share a shard with race-prone tests: all keep -race.
+# export-library walks the bundled libraries, grpc's sweeps share a shard with race-prone tests and translate-structure compares its models concurrently: all keep -race.
 sweeps='corpus-sweep export-corpus export-examples'
 
 if [[ $# -eq 1 && $1 == --sweeps ]]; then
@@ -35,8 +35,8 @@ smt="$module/internal/exec/smt"
 # is a shard of its own; tests/model's corpora differential, 13 of its 18 minutes, is the graph-corpora shard.
 export="$module/tests/export"
 model="$module/tests/model"
-# internal/translate/export (~20 min under -race) and tests/grpc with internal/frontend/grpc
-# (~18 and ~13 min) held the rest node at 40-57 minutes, so they are shards of their own.
+# internal/translate/export and tests/grpc with internal/frontend/grpc (~18 and ~13 min under -race) are shards of their own;
+# the export package's structure differential over every model, 36-46 of its 39-50 minutes, is the translate-structure shard.
 translate="$module/internal/translate/export"
 grpc_tests="$module/tests/grpc"
 grpc_frontend="$module/internal/frontend/grpc"
@@ -56,7 +56,7 @@ cli="$module/cmd/sysml"
 named_packages=("$runtime" "$workspace_model" "$corpus" "$smt" "$export" "$model" "$translate" "$grpc_tests" "$grpc_frontend" "$passes" "$migrate" "$codegen" "$wasm" "$cli")
 
 case "$shard" in
-  runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|grpc|tools|internal|rest|migrate|cli) ;;
+  runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|translate-structure|grpc|tools|internal|rest|migrate|cli) ;;
   *)
     echo "usage: scripts/race-shard.sh $shards | --sweeps" >&2
     exit 2
@@ -93,7 +93,7 @@ case "$shard" in
   codegen)
     printf '%s\n' "$codegen"
     ;;
-  translate)
+  translate|translate-structure)
     printf '%s\n' "$translate"
     ;;
   grpc)
