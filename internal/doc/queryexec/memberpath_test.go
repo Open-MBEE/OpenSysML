@@ -761,8 +761,8 @@ calc def Over :> Query {
 	}
 }
 
-// A reader property's answer is not bounded by a same-named declared member:
-// two doc comments survive an attribute named documentation.
+// A reader property's answer is not bounded by a same-named declared member, which is
+// never evaluated for it: two doc comments survive an attribute named documentation.
 func TestProjectPropertyPathFallbackKeepsReaderProperties(t *testing.T) {
 	fixture := loadExecutionFixture(t, `
 attribute def Row { attribute documentation : String; }

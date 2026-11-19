@@ -1038,15 +1038,14 @@ func (e *executor) propertyPathValues(row Value, property string) ([]Value, bool
 	return out, present, nil
 }
 
-// declaredMemberOverfull reports whether values are the declared member name of sym
-// reads, not a reader property's answer, and more than its multiplicity admits.
+// declaredMemberOverfull reports whether values, read as the declared member name of sym
+// rather than as a built-in reader property, are more than that member's multiplicity admits.
 func (e *executor) declaredMemberOverfull(sym *symbols.Symbol, name string, values []Value) bool {
-	member, _ := e.context.Model.LookupMember(sym, name)
-	if member == nil || !e.exceedsMultiplicity(member, len(values)) {
+	if isQueryableProperty(name) && readsAnnotationProperty(sym, name) {
 		return false
 	}
-	declared, ok, err := e.declaredFeatureValues(sym, name)
-	return err == nil && ok && len(declared) == len(values)
+	member, _ := e.context.Model.LookupMember(sym, name)
+	return member != nil && e.exceedsMultiplicity(member, len(values))
 }
 
 // relatedElements follows the property path's segments from the row to the
