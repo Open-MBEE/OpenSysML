@@ -194,6 +194,24 @@ class PublisherTest {
   }
 
   @Test
+  void aCancellationAfterCreatingTheProjectReportsIt() {
+    int[] asked = new int[1];
+
+    // The first question is asked before the project is created, the second after.
+    Publisher.Result result = publisher.publish(
+        MODEL, new Publisher.Target("", "Rover", "", Publisher.LastSeen.NEVER, false, ""), () -> asked[0]++ > 0)
+        .orElseThrow();
+
+    assertTrue(result.cancelled());
+    assertTrue(result.createdProject());
+    assertTrue(result.commit().isEmpty());
+    assertEquals("main", result.branch());
+    assertEquals(0, api.posted.size());
+    assertTrue(result.describe().contains("Created project Rover (" + result.project() + ")"), result.describe());
+    assertTrue(result.describe().contains("Cancelled before anything was published"), result.describe());
+  }
+
+  @Test
   void refusesAModelItCannotPublishWhole() {
     ApiException unheld = assertThrows(ApiException.class, () -> publisher.publish(
         "[{\"@type\": \"sysx:Thing\", \"@id\": \"T\"}]", target("p1", "main")));

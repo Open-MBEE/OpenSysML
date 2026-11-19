@@ -62,7 +62,11 @@ public final class Publisher {
     Optional<String> commit(String project, String branch);
   }
 
-  /** What a publication did; the commit is empty when the branch already agreed with the model. */
+  /**
+   * What a publication did; the commit is empty when the branch already agreed with the model, or
+   * when the publication was cancelled after it had created the project, which is then reported
+   * so that the next publication goes to it rather than creating another.
+   */
   public record Result(
       String project,
       String projectName,
@@ -73,12 +77,15 @@ public final class Publisher {
       int created,
       int updated,
       int deleted,
-      int leftInPlace) {
+      int leftInPlace,
+      boolean cancelled) {
 
     public String describe() {
       StringBuilder text = new StringBuilder();
       if (createdProject) text.append("Created project ").append(projectName).append(" (").append(project).append(").\n");
-      if (commit.isEmpty()) {
+      if (cancelled) {
+        text.append("Cancelled before anything was published to branch ").append(branch).append('.');
+      } else if (commit.isEmpty()) {
         text.append("Nothing to publish: branch ").append(branch).append(" of project ").append(project)
             .append(" already agrees with the model.");
       } else {
@@ -176,15 +183,15 @@ public final class Publisher {
         leftInPlace++;
       }
     }
-    if (cancelled.getAsBoolean()) return Optional.empty();
+    if (cancelled.getAsBoolean()) return stopped(project, createdProject, branchId, head);
     if (changes.isEmpty()) {
-      return Optional.of(new Result(project.id(), project.name(), createdProject, branchId, Optional.empty(), head, 0, 0, 0, leftInPlace));
+      return Optional.of(new Result(project.id(), project.name(), createdProject, branchId, Optional.empty(), head, 0, 0, 0, leftInPlace, false));
     }
 
     // The API takes no precondition, so the head is read again just before the write.
     String now = client.branch(project.id(), branchId).head();
     if (!now.equals(head)) throw new BranchMovedException(branchId, project.id(), head, now);
-    if (cancelled.getAsBoolean()) return Optional.empty();
+    if (cancelled.getAsBoolean()) return stopped(project, createdProject, branchId, head);
     JsonObject commit = new JsonObject();
     commit.addProperty("@type", "Commit");
     commit.add("change", changes);
@@ -195,7 +202,14 @@ public final class Publisher {
           + " but named no commit; read the branch before publishing again");
     }
     return Optional.of(new Result(
-        project.id(), project.name(), createdProject, branchId, Optional.of(made), made, created, updated, deleted, leftInPlace));
+        project.id(), project.name(), createdProject, branchId, Optional.of(made), made, created, updated, deleted, leftInPlace, false));
+  }
+
+  /** A cancellation before the commit: nothing to report, unless a project was created on the way. */
+  private static Optional<Result> stopped(
+      SysmlApiClient.ProjectInfo project, boolean createdProject, String branch, String head) {
+    if (!createdProject) return Optional.empty();
+    return Optional.of(new Result(project.id(), project.name(), true, branch, Optional.empty(), head, 0, 0, 0, 0, true));
   }
 
   private static SysmlApiClient.ProjectInfo named(SysmlApiClient.ProjectInfo read, SysmlApiClient.ProjectInfo created) {

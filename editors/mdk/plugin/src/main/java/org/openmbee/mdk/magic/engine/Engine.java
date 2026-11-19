@@ -165,7 +165,8 @@ public final class Engine implements AutoCloseable {
    * Publishes the model to a project branch of a SysML v2 API server: the service converts it to
    * the API's JSON, and the publisher commits what the branch lacks or holds differently. A model
    * with parse errors is refused, since it would publish a partial model as the whole. Empty when
-   * cancelled before the commit was sent, which a cancellation during the reads of the branch is.
+   * cancelled before the commit was sent, unless the publication had created its project by
+   * then: that result says so.
    */
   public Optional<Publisher.Result> publish(
       ModelSource source, Publisher publisher, Publisher.Target target, Cancellation cancellation) {
