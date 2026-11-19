@@ -157,3 +157,30 @@ func TestResultViewsOfOneRunAreDistinct(t *testing.T) {
 		runCLI(t, binary, root, 0, append(append([]string(nil), lander...), written, "-render", view, "-render-form", "text", "-o", out)...)
 	}
 }
+
+// A view specializing a written result view states the run its supertype binds.
+func TestResultViewHeaderIsInherited(t *testing.T) {
+	root := repoRoot(t)
+	binary := buildCLI(t, root)
+	lander := []string{"examples/qvts/lander.sysml", "examples/qvts/queries.sysml"}
+	dir := t.TempDir()
+	written := filepath.Join(dir, "views.sysml")
+	runCLI(t, binary, root, 0, append(append([]string(nil), lander...), "-run-query", "QVTSDemo::CabinMass", "-as-view", written)...)
+	derived := filepath.Join(dir, "derived.sysml")
+	if err := os.WriteFile(derived, []byte("package Kept {\n\tview kept :> CabinMassResult::cabinMass;\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	header := func(view string) string {
+		out := filepath.Join(t.TempDir(), "rendered.txt")
+		runCLI(t, binary, root, 0, append(append([]string(nil), lander...), written, derived, "-render", view, "-render-form", "text", "-o", out)...)
+		_, rest, found := strings.Cut(string(readFile(t, out)), "\nquery: ")
+		if !found {
+			t.Fatalf("%s renders no header", view)
+		}
+		return rest
+	}
+	want, got := header("CabinMassResult::cabinMass"), header("Kept::kept")
+	if got != want || !strings.Contains(got, "outcome: established") {
+		t.Errorf("Kept::kept states\n%s\nwant its supertype's\n%s", got, want)
+	}
+}

@@ -49,13 +49,23 @@ func (r *Renderer) renderQueryResult(view *symbols.Symbol, exposed []*symbols.Sy
 	}
 }
 
-// statedValue is the value view binds its attribute name to, a string as its
-// text and a reference by its last name; false when the view binds none.
+// statedValue is the value view binds its attribute name to, itself or by the nearest
+// supertype that binds it: a string as its text, a reference by its last name.
 func (r *Renderer) statedValue(view *symbols.Symbol, name string) (string, bool) {
-	if view == nil || view.Scope == nil {
+	for _, holder := range append([]*symbols.Symbol{view}, r.model.AllSupertypes(view)...) {
+		if value, ok := r.boundValue(holder, name); ok {
+			return value, true
+		}
+	}
+	return "", false
+}
+
+// boundValue is the value holder's own attribute name is bound to; false when it binds none.
+func (r *Renderer) boundValue(holder *symbols.Symbol, name string) (string, bool) {
+	if holder == nil || holder.Scope == nil {
 		return "", false
 	}
-	members := append(view.Scope.Members(), view.Scope.AnonymousMembers()...)
+	members := append(holder.Scope.Members(), holder.Scope.AnonymousMembers()...)
 	sort.SliceStable(members, func(i, j int) bool { return members[i].DeclSpan.Offset < members[j].DeclSpan.Offset })
 	for _, member := range members {
 		if !member.Kind.IsAttributeLike() || r.model.EffectiveNameOf(member) != name {
