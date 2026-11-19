@@ -880,6 +880,29 @@ the engine, the window or the bridge distinguishes these outcomes from any other
 window lists them, `DocGenBridge.flatten` carries them, and `DocBookRenderer` writes them as
 rows of the outcome table, so a DocGen document shows the same failure text.
 
+### 10.8 The "Publish to SysML v2 API" sequence
+
+```
+user: right-click an element ▸ OpenSysML ▸ Publish to SysML v2 API…
+  PublishAction (EDT)      dialog: server URL, token, project, branch, message, deletions
+                           ApiConfig.checkedBase() refuses a URL the token may not travel to
+                           selection.export() → ModelSource (as §10.6)
+  Engine.publish (worker)  parseSources → refuse on errors → Model.convert("api-json")
+  Publisher.publish        GET project, branch (head) → refuse a head other than the one last seen
+                           GET commits/{head}/elements, paged → creates, updates, deletions
+                           GET branch again → refuse a moved head
+                           POST projects/{id}/commits?branchId=… → the new head
+  PublishSettings          remember server, project, branch and the head, per Cameo project
+```
+
+The HTTP client (`repository/SysmlApiClient`) is the plugin's own, on `java.net.http` and the
+gson the bundle already carries: the service converts, the plugin talks to the server, and no
+RPC was added for it. It mirrors `internal/translate/interop/sysmlapi` on the wire — both
+spellings of the paging parameters, the `Link` header when a server sends one, the commit
+request's `DataVersion` changes — and in where a bearer token may go. The diff is by element id
+over the properties the model states; it is not the three-way `reposync` diff of `sysml -sync`,
+which is why the action is a one-way publication and row 4 of the parity plan is still open.
+
 ## 11. Phased plan
 
 | Phase | Delivers | Prerequisites in OpenSysML |

@@ -88,6 +88,8 @@ type Model struct {
 	implicitGenerals map[*symbols.Symbol][]*symbols.Symbol
 	// valueGenerals memoizes FeatureValueGeneral: the general a feature value implies, nil for none.
 	valueGenerals map[*symbols.Symbol]*symbols.Symbol
+	// allDeclaredSupers memoizes AllDeclaredSupertypes, which every variation-point query at run time reads.
+	allDeclaredSupers map[*symbols.Symbol][]*symbols.Symbol
 	// implicitSubsettings memoizes the owner feature each nested usage implicitly
 	// subsets (see nested.go).
 	implicitSubsettings map[*symbols.Symbol][]*symbols.Symbol
@@ -212,7 +214,6 @@ type Model struct {
 	expressionParts         map[*symbols.Symbol]*expressionParts
 	transitionParts         map[*symbols.Symbol]*transitionParts
 	sendParts               map[*symbols.Symbol]*sendParts
-	edgeEnds                map[*symbols.Symbol][]*symbols.Symbol
 	ownedAnnotations        map[*symbols.Symbol][]*symbols.Symbol
 	annotatingRels          map[*symbols.Symbol][]*symbols.Symbol
 	ownedImports            map[*symbols.Symbol][]*symbols.Symbol
@@ -263,6 +264,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		featureBaseTypes:       make(map[*symbols.Symbol][]*symbols.Symbol),
 		implicitGenerals:       make(map[*symbols.Symbol][]*symbols.Symbol),
 		valueGenerals:          make(map[*symbols.Symbol]*symbols.Symbol),
+		allDeclaredSupers:      make(map[*symbols.Symbol][]*symbols.Symbol),
 		implicitSubsettings:    make(map[*symbols.Symbol][]*symbols.Symbol),
 		usageBase:              make(map[*symbols.Symbol]*symbols.Symbol),
 		kermlBase:              make(map[*symbols.Symbol]*symbols.Symbol),

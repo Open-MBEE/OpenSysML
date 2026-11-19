@@ -192,6 +192,11 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 		// A start marker is registered by name so transitions can reference it; a
 		// succession's `first a` declares nothing, its body owning a body-local scope.
 		marker := d.Named() && !FirstNamesSource(d)
+		if FirstNamesSource(d) && d.Named() && d.Guard == nil {
+			// `first a then b;` is the SuccessionAsUsage its owner owns (SysML.xtext ActionBodyItem → SuccessionAsUsage).
+			buildAnonymousNode(scope, d, SymbolSuccessionUsage, d.Members, vis, trivia)
+			return true
+		}
 		if !marker && len(d.Members) == 0 {
 			return true
 		}
@@ -215,6 +220,13 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 			return true
 		}
 		buildAnonymousNode(scope, d, SymbolSendActionUsage, d.Members, vis, trivia)
+		return true
+	case *ast.AssignmentActionNode, *ast.TerminateStatement, *ast.PerformActionNode:
+		// A bare `assign x := v;`, `terminate;` or `perform a;` is the action usage its owner owns
+		// (SysML.xtext AssignmentNode, TerminateNode, PerformActionUsage), as a bare `send` is.
+		if kind := statementNodeKind(scope, d); kind != SymbolUnknown {
+			buildAnonymousNode(scope, d, kind, nil, vis, trivia)
+		}
 		return true
 	case *ast.SuccessionEdge:
 		// A `then x` after a state in a state body is a TargetTransitionUsage (SysML.xtext:1866) whose body is
@@ -968,6 +980,23 @@ func classifyUsage(u *ast.Usage) SymbolKind {
 
 	// Default: treat as usage
 	return SymbolAttributeUsage
+}
+
+// statementNodeKind is the kind of the action usage a bare statement declares in scope; SymbolUnknown
+// where it is the statement an action usage is written as (`action a assign …`), which is that usage.
+func statementNodeKind(scope *Scope, statement ast.Node) SymbolKind {
+	if usage, ok := scope.Node().(*ast.Usage); ok && ActionNodeStatementOf(usage) == statement {
+		return SymbolUnknown
+	}
+	switch statement.(type) {
+	case *ast.AssignmentActionNode:
+		return SymbolAssignmentActionUsage
+	case *ast.TerminateStatement:
+		return SymbolTerminateActionUsage
+	case *ast.PerformActionNode:
+		return SymbolPerformActionUsage
+	}
+	return SymbolUnknown
 }
 
 // classifyActionNode is the kind of the node an action usage is written as

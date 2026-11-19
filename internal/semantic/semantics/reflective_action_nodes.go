@@ -42,7 +42,8 @@ func (m *Model) statementNodes(sym *symbols.Symbol) []*symbols.Symbol {
 		if wrapper, ok := member.(*ast.Membership); ok {
 			member = wrapper.Member
 		}
-		if !IsStatementNode(member) {
+		if !IsStatementNode(member) || lookup != nil && lookup.MemberDeclaring(member) != nil {
+			// A bare assign, terminate or perform is the action usage the builder declares (statementNodeKind).
 			continue
 		}
 		kind := symbols.SymbolActionUsage
@@ -130,11 +131,10 @@ func (m *Model) statementScopeOwner(scope *symbols.Scope) *symbols.Symbol {
 // IsStatementNode reports whether node is a statement the reflective layer
 // synthesizes an action node for.
 func IsStatementNode(node ast.Node) bool {
-	switch node := node.(type) {
+	switch node.(type) {
 	case *ast.InitialNode:
-		// A bodiless `first a then b;` is a SuccessionAsUsage of the body (SysML.xtext
-		// SourceSuccessionMember); `first a;` is the body's start marker, a Membership.
-		return node.Successor != nil && len(node.Members) == 0
+		// `first a then b;` is the SuccessionAsUsage the builder declares; `first a;` is the body's start marker.
+		return false
 	case *ast.IfActionNode, *ast.IfBranchNode, *ast.WhileLoopActionNode, *ast.AssignmentActionNode,
 		*ast.TerminateStatement, *ast.PerformActionNode, *ast.ActionExecutionNode:
 		return true

@@ -34,24 +34,53 @@ func (ctx *Context) reachingSubsetters(typ *symbols.Symbol) []reachingSubsetter 
 	if found, ok := ctx.model.reaching[typ]; ok {
 		return found
 	}
+	sources := ctx.model.semantics.MemberSources(typ)
+	stable := ctx.model.semantics.MemberSourcesStable(typ)
 	var found []reachingSubsetter
 	collect := func(src *symbols.Symbol) {
-		if src != nil && src.Scope != nil {
-			found = ctx.collectReachingSubsetters(typ, src.Scope, nil, found)
+		for _, sub := range ctx.declaredReachingSubsetters(src, stable) {
+			// The innermost object carrying the feature named first is the context.
+			if _, ok := ctx.denotedFeature(typ, sub.first()); ok {
+				found = append(found, sub)
+			}
 		}
 	}
 	collect(typ)
-	for _, src := range ctx.model.semantics.MemberSources(typ) {
+	for _, src := range sources {
 		collect(src)
 	}
-	if ctx.model.semantics.MemberSourcesStable(typ) {
+	if stable {
 		ctx.model.reaching[typ] = found
 	}
 	return found
 }
 
+// first is the feature the subsetting names first: where its chain starts, or its target.
+func (sub *reachingSubsetter) first() *symbols.Symbol {
+	if len(sub.up) > 0 {
+		return sub.up[0]
+	}
+	return sub.target
+}
+
+// declaredReachingSubsetters returns the features declared under src that subset a feature none of
+// the usages between carries, whatever type inherits them; memoized per declaring symbol where memo is set.
+func (ctx *Context) declaredReachingSubsetters(src *symbols.Symbol, memo bool) []reachingSubsetter {
+	if src == nil || src.Scope == nil {
+		return nil
+	}
+	if found, ok := ctx.model.declaredReaching[src]; ok {
+		return found
+	}
+	found := ctx.collectReachingSubsetters(src.Scope, nil, nil)
+	if memo {
+		ctx.model.declaredReaching[src] = found
+	}
+	return found
+}
+
 // collectReachingSubsetters walks the usages nested in scope, down being those entered so far.
-func (ctx *Context) collectReachingSubsetters(typ *symbols.Symbol, scope *symbols.Scope, down []*symbols.Symbol, found []reachingSubsetter) []reachingSubsetter {
+func (ctx *Context) collectReachingSubsetters(scope *symbols.Scope, down []*symbols.Symbol, found []reachingSubsetter) []reachingSubsetter {
 	scope.ForEachMember(func(sym *symbols.Symbol) bool {
 		if _, ok := sym.Decl.(*ast.Usage); !ok || sym.OwnerScope != scope {
 			return true
@@ -66,7 +95,7 @@ func (ctx *Context) collectReachingSubsetters(typ *symbols.Symbol, scope *symbol
 			if len(path) == 0 || len(path) == 1 && len(down) == 0 || path[len(path)-1] == sym {
 				continue
 			}
-			if !ctx.reachedFrom(typ, down, path[0]) {
+			if !ctx.reachedFromNamespace(down, path[0]) {
 				continue
 			}
 			found = append(found, reachingSubsetter{
@@ -78,28 +107,16 @@ func (ctx *Context) collectReachingSubsetters(typ *symbols.Symbol, scope *symbol
 		}
 		if sym.Scope != nil && sym.Scope != scope {
 			nested := append(down[:len(down):len(down)], sym)
-			found = ctx.collectReachingSubsetters(typ, sym.Scope, nested, found)
+			found = ctx.collectReachingSubsetters(sym.Scope, nested, found)
 		}
 		return true
 	})
 	return found
 }
 
-// reachedFrom reports whether first, the feature a subsetting names first, is a feature of
-// typ and of none of the usages nested between: the innermost object carrying it is the context.
-func (ctx *Context) reachedFrom(typ *symbols.Symbol, down []*symbols.Symbol, first *symbols.Symbol) bool {
-	for _, usage := range down {
-		if _, ok := ctx.denotedFeature(usage, first); ok {
-			return false
-		}
-	}
-	_, ok := ctx.denotedFeature(typ, first)
-	return ok
-}
-
 // denotes reports whether sym names the feature of inst called name, under any name a redefinition gives it.
 func (ctx *Context) denotes(inst *Instance, sym *symbols.Symbol, name string) bool {
-	for _, typ := range inst.types() {
+	for typ := range inst.eachType {
 		if denoted, ok := ctx.denotedFeature(typ, sym); ok && (denoted == name || ctx.redefinitionAliases(typ, name)[denoted]) {
 			return true
 		}
@@ -117,14 +134,14 @@ type reachingContext struct {
 // of inst, each with its context: inst, or the owner holding inst through the chain written.
 func (ctx *Context) reachingContextsOf(inst *Instance, name string) []reachingContext {
 	var out []reachingContext
-	// held is the features the owners hold inst through, innermost first.
-	var held []subsetterSlot
-	for context := inst; context != nil; {
-		for _, typ := range context.types() {
+	// depth is how many owners up from inst context is.
+	depth := 0
+	for context := inst; context != nil; context, depth = context.owner, depth+1 {
+		for typ := range context.eachType {
 			subsetters := ctx.reachingSubsetters(typ)
 			for i := range subsetters {
 				sub := &subsetters[i]
-				if len(sub.up) != len(held) || !ctx.denotes(inst, sub.target, name) || !ctx.heldThrough(held, sub.up) {
+				if len(sub.up) != depth || !ctx.denotes(inst, sub.target, name) || !ctx.heldThrough(inst, sub.up) {
 					continue
 				}
 				if !containsReaching(out, context, sub.feature) {
@@ -132,12 +149,6 @@ func (ctx *Context) reachingContextsOf(inst *Instance, name string) []reachingCo
 				}
 			}
 		}
-		owner, feature := context.Owner()
-		if owner == nil {
-			break
-		}
-		held = append(held, subsetterSlot{holder: owner, name: feature})
-		context = owner
 	}
 	return out
 }
@@ -151,15 +162,25 @@ func containsReaching(found []reachingContext, context *Instance, feature *symbo
 	return false
 }
 
-// heldThrough reports whether the chain up, outermost first, names the features held, innermost first.
-func (ctx *Context) heldThrough(held []subsetterSlot, up []*symbols.Symbol) bool {
-	for i, feature := range up {
-		slot := held[len(held)-1-i]
-		if !ctx.denotes(slot.holder, feature, slot.name) {
+// heldThrough reports whether the chain up, outermost first, names the features the
+// owners of inst hold it through, as many owners up as the chain is long.
+func (ctx *Context) heldThrough(inst *Instance, up []*symbols.Symbol) bool {
+	for i := len(up) - 1; i >= 0; i-- {
+		owner, name := inst.Owner()
+		if owner == nil || !ctx.denotes(owner, up[i], name) {
 			return false
 		}
+		inst = owner
 	}
 	return true
+}
+
+// rootOf returns the outermost owner of inst and how many owners up it is.
+func rootOf(inst *Instance) (root *Instance, depth int) {
+	for root = inst; root.owner != nil; root = root.owner {
+		depth++
+	}
+	return root, depth
 }
 
 // reachedByASubsetter reports whether a feature declared elsewhere subsets the named feature of inst.
@@ -264,9 +285,12 @@ func (ctx *Context) indexNamespaceReaching(index *namespaceModelIndex, sym *symb
 	if sym.Scope == nil {
 		return
 	}
-	nested := append(down[:len(down):len(down)], sym)
+	var nested []*symbols.Symbol
 	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
 		if _, ok := member.Decl.(*ast.Usage); ok && member.OwnerScope == sym.Scope {
+			if nested == nil {
+				nested = append(down[:len(down):len(down)], sym)
+			}
 			ctx.indexNamespaceReaching(index, member, nested)
 		}
 		return true
@@ -286,21 +310,19 @@ func (ctx *Context) reachedFromNamespace(down []*symbols.Symbol, first *symbols.
 // namespaceReachingOf returns the subsetters declared in a namespace that subset the named
 // feature of inst through a chain starting at the namespace usage whose occurrence holds inst.
 func (ctx *Context) namespaceReachingOf(inst *Instance, name string) []*reachingSubsetter {
-	var held []subsetterSlot
-	root := inst
-	for {
-		owner, feature := root.Owner()
-		if owner == nil {
-			break
-		}
-		held = append(held, subsetterSlot{holder: owner, name: feature})
-		root = owner
+	reaching := ctx.namespaceModelIndex().reaching
+	if len(reaching) == 0 {
+		return nil
 	}
+	root, depth := rootOf(inst)
 	var out []*reachingSubsetter
-	for usage, subsetters := range ctx.namespaceRootUsages(root) {
+	for usage, subsetters := range reaching {
+		if !ctx.occurrenceOfUsage(root, usage) {
+			continue
+		}
 		for i := range subsetters {
 			sub := &subsetters[i]
-			if len(sub.up) != len(held)+1 || sub.up[0] != usage || !ctx.denotes(inst, sub.target, name) || !ctx.heldThrough(held, sub.up[1:]) {
+			if len(sub.up) != depth+1 || sub.up[0] != usage || !ctx.denotes(inst, sub.target, name) || !ctx.heldThrough(inst, sub.up[1:]) {
 				continue
 			}
 			out = append(out, sub)
@@ -315,25 +337,6 @@ func (ctx *Context) namespaceReachingOf(inst *Instance, name string) []*reaching
 		}
 		return 0
 	})
-	return out
-}
-
-// namespaceRootUsages is the namespace usages root is an occurrence of that a subsetter
-// reaches through, each with those subsetters.
-func (ctx *Context) namespaceRootUsages(root *Instance) map[*symbols.Symbol][]reachingSubsetter {
-	reaching := ctx.namespaceModelIndex().reaching
-	if len(reaching) == 0 {
-		return nil
-	}
-	var out map[*symbols.Symbol][]reachingSubsetter
-	for usage, subsetters := range reaching {
-		if ctx.occurrenceOfUsage(root, usage) {
-			if out == nil {
-				out = make(map[*symbols.Symbol][]reachingSubsetter)
-			}
-			out[usage] = subsetters
-		}
-	}
 	return out
 }
 
@@ -460,15 +463,14 @@ func (ctx *Context) subsetsElsewhere(inst *Instance, name string) bool {
 // where the target starts at a namespace usage. With first set it stops at the first found.
 func (ctx *Context) subsettingElsewhere(inst *Instance, name string, first bool) []reachingContext {
 	var out []reachingContext
-	// held is the features the owners hold inst through, innermost first.
-	var held []subsetterSlot
-	root := inst
+	// depth is how many owners up from inst root is.
+	root, depth := inst, 0
 	for {
-		for _, typ := range root.types() {
+		for typ := range root.eachType {
 			subsetters := ctx.reachingSubsetters(typ)
 			for i := range subsetters {
 				sub := &subsetters[i]
-				if len(sub.down) != len(held) || !ctx.denotes(inst, sub.feature, name) || !ctx.heldThrough(held, sub.down) {
+				if len(sub.down) != depth || !ctx.denotes(inst, sub.feature, name) || !ctx.heldThrough(inst, sub.down) {
 					continue
 				}
 				if out = append(out, reachingContext{context: root, subsetter: sub}); first {
@@ -476,17 +478,15 @@ func (ctx *Context) subsettingElsewhere(inst *Instance, name string, first bool)
 				}
 			}
 		}
-		owner, feature := root.Owner()
-		if owner == nil {
+		if root.owner == nil {
 			break
 		}
-		held = append(held, subsetterSlot{holder: owner, name: feature})
-		root = owner
+		root, depth = root.owner, depth+1
 	}
 	for _, subsetters := range ctx.namespaceModelIndex().reaching {
 		for i := range subsetters {
 			sub := &subsetters[i]
-			if len(sub.down) != len(held)+1 || !ctx.occurrenceOfUsage(root, sub.down[0]) || !ctx.denotes(inst, sub.feature, name) || !ctx.heldThrough(held, sub.down[1:]) {
+			if len(sub.down) != depth+1 || !ctx.occurrenceOfUsage(root, sub.down[0]) || !ctx.denotes(inst, sub.feature, name) || !ctx.heldThrough(inst, sub.down[1:]) {
 				continue
 			}
 			if out = append(out, reachingContext{subsetter: sub}); first {

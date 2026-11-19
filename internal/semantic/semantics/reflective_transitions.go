@@ -162,7 +162,7 @@ func (p *transitionParts) withSuccession(trans *symbols.Symbol, target *ast.Qual
 }
 
 // synthesizedSuccessionEnds are the ends of the succession sym owns though its scope declares none: a
-// `then` succession's and a transition's (SuccessionEndMembers), a body's `first a then b;` (initialEndsOf).
+// `then` succession's, a body's `first a then b;` and a transition's (SuccessionEndMembers).
 func (m *Model) synthesizedSuccessionEnds(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
@@ -170,8 +170,8 @@ func (m *Model) synthesizedSuccessionEnds(sym *symbols.Symbol) []*symbols.Symbol
 	if _, ok := sym.Decl.(*ast.SuccessionEdge); ok && (sym.Expr == nil || sym.Expr.Role != symbols.ExpressionConnectorEnd) {
 		return m.SuccessionEndMembers(sym)
 	}
-	if node, ok := sym.Decl.(*ast.InitialNode); ok && node.Successor != nil && sym.Expr == nil && sym.Implicit == nil {
-		return m.initialEndsOf(sym, node)
+	if _, ok := sym.Decl.(*ast.InitialNode); ok && sym.Expr == nil && sym.Implicit == nil {
+		return m.SuccessionEndMembers(sym)
 	}
 	if transitionSuccessionPart(sym) {
 		return m.SuccessionEndMembers(sym)
@@ -458,13 +458,13 @@ func (m *Model) transitionTargetEndpoint(sym *symbols.Symbol) *symbols.Symbol {
 	return target
 }
 
-// transitionSuccessionEnd is the feature the transition's succession relates at position i, nil when unresolved.
+// transitionSuccessionEnd is the featureTarget of the end at position i of the transition's succession, nil when unresolved.
 func (m *Model) transitionSuccessionEnd(parts *transitionParts, i int) *symbols.Symbol {
 	if parts.succession == nil {
 		return nil
 	}
-	if related, _ := m.connectorSuccessionRelatedFeatures(parts.succession); len(related) == 2 {
-		return related[i]
+	if targets, _ := m.successionEndFeatureTargets(parts.succession); len(targets) == 2 {
+		return targets[i]
 	}
 	return nil
 }
@@ -515,35 +515,6 @@ func (m *Model) isRecordedTriggerPayload(trans, member *symbols.Symbol) bool {
 	}
 	parts := m.transitionPartsOf(trans)
 	return parts != nil && parts.accepter != nil && parts.payload != nil && parts.payload.Decl == member.Decl
-}
-
-// initialEndsOf synthesizes the two ends a body's `first a then b;` succession owns (SysML.xtext
-// SourceSuccessionMember): one referring to each member, the target's with the multiplicity (encodeInitialSuccession).
-func (m *Model) initialEndsOf(sym *symbols.Symbol, node *ast.InitialNode) []*symbols.Symbol {
-	if cached, ok := m.edgeEnds[sym]; ok {
-		return cached
-	}
-	if m.edgeEnds == nil {
-		m.edgeEnds = make(map[*symbols.Symbol][]*symbols.Symbol)
-	}
-	var ends []*symbols.Symbol
-	for i, ref := range []*ast.QualifiedName{node.First, node.Successor} {
-		end := &ast.ConnectorEnd{Target: ref}
-		if i == 1 {
-			end.Multiplicity = node.TargetMultiplicity
-		}
-		end.NodeSpan = node.Span()
-		if ref != nil {
-			end.NodeSpan = ref.Span()
-		}
-		part := transitionPart(sym, end, end.NodeSpan, symbols.SymbolConnectorEnd, sym, symbols.ExpressionConnectorEnd)
-		part.Expr.Index = i
-		part.OwnerScope = sym.OwnerScope
-		ends = append(ends, part)
-	}
-	journal(m, m.edgeEnds, sym, sym.Decl)
-	m.edgeEnds[sym] = ends
-	return ends
 }
 
 func nameHasChain(name *ast.QualifiedName) bool {

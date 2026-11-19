@@ -8,7 +8,7 @@ import (
 )
 
 // The reflective memos (statement nodes and operands, body results, filter memberships and
-// packages, root namespaces, synthesized succession ends) are journaled with the document
+// packages, root namespaces) are journaled with the document
 // that declares them, so an edit drops every entry rather than keeping the old tree alive.
 func TestReflectiveMemosFollowTheDeclaringDocument(t *testing.T) {
 	const doc = "reflective.sysml"
@@ -54,7 +54,6 @@ func TestReflectiveMemosFollowTheDeclaringDocument(t *testing.T) {
 			"filterPackageImports":    len(m.filterPackageImports),
 			"filterPackageMembers":    len(m.filterPackageMembers),
 			"rootNamespaces":          len(m.rootNamespaces),
-			"edgeEnds":                len(m.edgeEnds),
 		}
 	}
 	for table, n := range sizes() {

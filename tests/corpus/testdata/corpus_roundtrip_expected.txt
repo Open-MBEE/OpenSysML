@@ -21,6 +21,7 @@ stable	general-views-demo/use-cases.sysml
 stable	general-views-demo/vehicle.sysml
 stable	gridview-relationship-matrix.sysml
 stable	mosa-demo/mosa-demo.sysml
+stable	npr7123-demo/npr7123-demo.sysml
 stable	oosem-demo/oosem-demo.sysml
 stable	orthogonal-regions-demo.sysml
 stable	parser_features_demo_action_semantics.sysml
@@ -270,6 +271,7 @@ stable	self-model/execution.sysml
 stable	self-model/identity.sysml
 stable	self-model/pipeline.sysml
 stable	self-model/quality.sysml
+stable	self-model/queries.sysml
 stable	self-model/surfaces.sysml
 stable	self-model/views.sysml
 stable	semantic-layer/demo.sysml

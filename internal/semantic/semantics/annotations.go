@@ -2349,7 +2349,10 @@ func (m *Model) ConnectorRelatedFeaturesByEnd(sym *symbols.Symbol) []*symbols.Sy
 		recorded = m.recordedPositions(sym.Facts.RelatedFeatures)
 	} else {
 		paths = m.reflectiveConnectorEndPaths(sym)
-		successionEnds, _ = m.connectorSuccessionRelatedFeatures(sym)
+		if len(ends) == 0 {
+			// A succession owning no end feature (a succession flow's inherited ends) is read from what it sequences.
+			successionEnds, _ = m.connectorSuccessionRelatedFeatures(sym)
+		}
 	}
 	count := max(len(ends), len(paths), len(successionEnds), len(recorded))
 	if count == 0 {
@@ -2403,6 +2406,11 @@ func (m *Model) EndReferencedFeature(end *symbols.Symbol) *symbols.Symbol {
 			return target
 		}
 	}
+	if _, minted := symbols.ImpliedSuccessionEndIndex(end); minted {
+		// A `then` succession's source end references the occurrence before it without owning the subsetting.
+		target, _ := m.successionEndReference(end)
+		return target
+	}
 	return m.ReferencedFeature(end)
 }
 
@@ -2418,6 +2426,22 @@ func (m *Model) reflectiveConnectorEndPaths(sym *symbols.Symbol) []ConnectorEndP
 }
 
 func (m *Model) connectorSuccessionRelatedFeatures(sym *symbols.Symbol) (related []*symbols.Symbol, unrepresented bool) {
+	related, unrepresented = m.successionEndFeatureTargets(sym)
+	if len(related) == 0 {
+		return related, unrepresented
+	}
+	for i, chained := range successionChainedEnds(sym.Decl) {
+		if chained && i < len(related) {
+			// A chained end references the chain Feature it owns, which no element stands for yet.
+			related[i], unrepresented = nil, true
+		}
+	}
+	return related, unrepresented
+}
+
+// successionEndFeatureTargets is the featureTarget of what each end of the succession sym references: the feature
+// written, or the last step of a chain (KerML 1.1 §8.3.3.3.4 deriveFeatureFeatureTarget).
+func (m *Model) successionEndFeatureTargets(sym *symbols.Symbol) (targets []*symbols.Symbol, unrepresented bool) {
 	if sym == nil || sym.Recorded() || sym.Decl == nil || sym.OwnerScope == nil {
 		return nil, false
 	}
@@ -2478,9 +2502,26 @@ func (m *Model) connectorSuccessionRelatedFeatures(sym *symbols.Symbol) (related
 			}
 			unrepresented = unrepresented || target == nil
 		}
-		related = append(related, target)
+		targets = append(targets, target)
 	}
-	return related, unrepresented
+	return targets, unrepresented
+}
+
+// successionChainedEnds reports which end of the succession decl is written as a feature chain (`first a.b then c.d;`).
+func successionChainedEnds(decl ast.Node) (chained [2]bool) {
+	var names [2]*ast.QualifiedName
+	switch d := decl.(type) {
+	case *ast.InitialNode:
+		names = [2]*ast.QualifiedName{d.First, d.Successor}
+	case *ast.TransitionMember:
+		names = [2]*ast.QualifiedName{d.Source, d.Target}
+	case *ast.SuccessionEdge:
+		names[1] = d.Target
+	}
+	for i, name := range names {
+		chained[i] = name != nil && slices.ContainsFunc(name.Parts, func(part ast.NameSegment) bool { return part.Chained })
+	}
+	return chained
 }
 
 // successionEndUnrepresented reports whether an end of the succession sym names a member the symbol

@@ -44,7 +44,7 @@ func TestThenSuccessionIsAnOwnedMember(t *testing.T) {
 }
 
 // A `then done;` relates the member before it to the library's done the action inherits; a `then assign …;`
-// reaches the statement itself, a nameless node of the body (statementNodes), as the conversion writes it.
+// reaches the nameless AssignmentActionUsage the statement declares.
 func TestThenSuccessionRelatedFeatures(t *testing.T) {
 	const src = `package P {
 		action def Settle { out t : Real; first start; then assign t := 1.0; then done; }
@@ -69,13 +69,12 @@ func TestThenSuccessionRelatedFeatures(t *testing.T) {
 			for _, r := range related {
 				out = append(out, r.Name)
 			}
-			// A recorded fixture keeps no statement node, so the nameless end is read by its name alone.
-			return strings.TrimSpace(strings.Join(out, " ")), ok
+			return strings.Join(out, " "), ok
 		}
 		for i, want := range []struct {
 			related string
 			ok      bool
-		}{{"start", true}, {"done", true}, {"start acquire", true}, {"acquire done", true}} {
+		}{{"start ", true}, {" done", true}, {"start acquire", true}, {"acquire done", true}} {
 			got, ok := names(successions[i])
 			if ok != want.ok || ok && got != want.related {
 				t.Errorf("succession %d relatedFeature = %q, %v; want %q, %v", i, got, ok, want.related, want.ok)
