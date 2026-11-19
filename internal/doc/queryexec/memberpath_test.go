@@ -683,3 +683,33 @@ calc def Runs :> Query {
 		t.Fatalf("runs cells = %v", got)
 	}
 }
+
+func TestExecuteComputedMemberPathFanOutRefusesOverfullMember(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+attribute def Bounded { attribute runs : Integer; }
+part def Row;
+package Results {
+	individual part def Over :> Row {
+		attribute one : Bounded { attribute redefines runs = 1; }
+		attribute two : Bounded { attribute redefines runs = (2, 3); }
+	}
+}
+calc def Over :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "N", expression = ownedMember.runs))
+	)
+}
+`)
+	_, err := fixture.execute(t, "Over", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "Results"))},
+	}, Options{})
+	var executionError *Error
+	if !errors.As(err, &executionError) || executionError.Kind != ErrorColumnCardinality {
+		t.Fatalf("error = %v, want %v", err, ErrorColumnCardinality)
+	}
+	if executionError.Expected != "1..1" {
+		t.Fatalf("Expected = %q, want %q", executionError.Expected, "1..1")
+	}
+}

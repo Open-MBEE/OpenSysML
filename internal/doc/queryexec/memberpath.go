@@ -25,9 +25,15 @@ func (e *executor) memberPathStep(current *symbols.Symbol, segment string) []*sy
 	return nil
 }
 
-// memberPathValues walks a member path from the row element; a segment naming neither a member
-// nor a metaclass feature makes the path absent. The declared member the last segment names is returned.
-func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]Value, bool, *symbols.Symbol, error) {
+// memberOverflow names a declared member a path reached holding more values than its multiplicity admits.
+type memberOverflow struct {
+	member *symbols.Symbol
+	count  int
+}
+
+// memberPathValues walks a member path from the row element; a segment naming neither a member nor a
+// metaclass feature makes the path absent. The first declared member read over its multiplicity is reported.
+func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]Value, bool, *memberOverflow, error) {
 	reached := []*symbols.Symbol{sym}
 	for _, segment := range segments[:len(segments)-1] {
 		var next []*symbols.Symbol
@@ -41,7 +47,7 @@ func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]V
 	}
 	last := segments[len(segments)-1]
 	var values []Value
-	var member *symbols.Symbol
+	var overflow *memberOverflow
 	present := false
 	for _, current := range reached {
 		found, ok, err := e.declaredFeatureValues(current, last)
@@ -49,8 +55,8 @@ func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]V
 			return nil, false, nil, err
 		}
 		if ok {
-			if m, _ := e.context.Model.LookupMember(current, last); member == nil {
-				member = m
+			if m, _ := e.context.Model.LookupMember(current, last); m != nil && overflow == nil && e.exceedsMultiplicity(m, len(found)) {
+				overflow = &memberOverflow{member: m, count: len(found)}
 			}
 		} else {
 			found, ok, err = e.metaclassSegmentValues(current, last)
@@ -66,10 +72,13 @@ func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]V
 	if !present {
 		return nil, false, nil, nil
 	}
-	if len(reached) != 1 {
-		member = nil
-	}
-	return values, true, member, nil
+	return values, true, overflow, nil
+}
+
+// exceedsMultiplicity reports whether count values are more than member's governing multiplicity admits.
+func (e *executor) exceedsMultiplicity(member *symbols.Symbol, count int) bool {
+	rng := e.context.Model.GoverningMultiplicityOf(member)
+	return rng.Upper.Known && !rng.Upper.Infinite && int64(count) > rng.Upper.Value
 }
 
 // metaclassSegmentValues reads a last segment with no declared value: the metaclass property a
