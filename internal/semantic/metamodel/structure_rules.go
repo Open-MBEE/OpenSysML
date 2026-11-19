@@ -7316,6 +7316,12 @@ func (e *Evaluator) structureConnectorRelatedFeatures(element Element) (Value, b
 				Detail:   "Connector::relatedFeature end ReferenceSubsetting relationships are unavailable",
 			})
 		}
+		if len(references.Values) == 0 {
+			if implied, found := e.structureImpliedEndReference(end.Element); found {
+				features = append(features, implied)
+			}
+			continue
+		}
 		for _, reference := range references.Values {
 			if reference.Kind != ElementValue {
 				return unsupported(Reason{
@@ -7347,6 +7353,27 @@ func (e *Evaluator) structureConnectorRelatedFeatures(element Element) (Value, b
 		}
 	}
 	return sequence(features...), true, true
+}
+
+// structureImpliedEndReference is the feature a succession's minted end references without owning the
+// subsetting: the occurrence before a `then x;` or a transition's source (EndReferencedFeature), as written.
+func (e *Evaluator) structureImpliedEndReference(end Element) (Value, bool) {
+	sym, ok := e.structureSymbolOf(end)
+	if !ok || e.model == nil {
+		return Value{}, false
+	}
+	if _, minted := symbols.ImpliedConnectorEndIndex(sym); !minted {
+		return Value{}, false
+	}
+	structure, ok := e.options.Structure.(symbolBackedStructure)
+	if !ok {
+		return Value{}, false
+	}
+	target := e.model.EndReferencedFeature(sym)
+	if target == nil {
+		return Value{}, false
+	}
+	return Value{Kind: ElementValue, Element: structure.ElementFor(target), Success: true}, true
 }
 
 func (e *Evaluator) structureConnectorEndpoint(element Element, endpoint string) (Value, bool, bool) {
