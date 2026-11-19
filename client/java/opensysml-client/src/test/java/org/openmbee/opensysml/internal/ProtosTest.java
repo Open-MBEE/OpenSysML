@@ -893,12 +893,11 @@ class ProtosTest {
                 org.openmbee.opensysml.proto.FramePose.newBuilder()
                     .addAllOrigin(List.of(10.0, 0.0, 0.0))
                     .addAllBasis(List.of(-1.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 1.0)));
-    Value read =
-        Protos.value(
-                org.openmbee.opensysml.proto.Value.newBuilder()
-                    .setCoordinateFrame(wireFrame("lbcf").setInstanceId(4).setTransformation(posing))
-                    .build())
-            .orElseThrow();
+    org.openmbee.opensysml.proto.Value sent =
+        org.openmbee.opensysml.proto.Value.newBuilder()
+            .setCoordinateFrame(wireFrame("lbcf").setInstanceId(4).setTransformation(posing))
+            .build();
+    Value read = Protos.value(sent).orElseThrow();
     org.openmbee.opensysml.CoordinateFrame frame = ((Value.CoordinateFrameValue) read).frame();
     assertEquals("lbcf", frame.name());
     assertEquals(Optional.of("Frames::lbcf"), frame.frameId());
@@ -924,13 +923,12 @@ class ProtosTest {
     assertEquals(List.of(10.0, 0.0, 0.0), t.pose().orElseThrow().origin());
     assertEquals(9, t.pose().orElseThrow().basis().size());
 
-    assertThrows(IllegalArgumentException.class, () -> Protos.proto(read));
+    assertEquals(sent, Protos.proto(read));
   }
 
   @Test
   void aTransformationCarriesItsEndpointsAndTheShapeItIsStatedIn() {
-    Value placed =
-        Protos.value(
+    org.openmbee.opensysml.proto.Value placement =
                 org.openmbee.opensysml.proto.Value.newBuilder()
                     .setCoordinateTransformation(
                         org.openmbee.opensysml.proto.CoordinateTransformation.newBuilder()
@@ -941,8 +939,9 @@ class ProtosTest {
                                 org.openmbee.opensysml.proto.FramePlacement.newBuilder()
                                     .setOrigin(wireVector(1, 2, 3))
                                     .addBasisDirections(wireVector(1, 0, 0))))
-                    .build())
-            .orElseThrow();
+                    .build();
+    Value placed = Protos.value(placement).orElseThrow();
+    assertEquals(placement, Protos.proto(placed));
     org.openmbee.opensysml.CoordinateTransformation t =
         ((Value.CoordinateTransformationValue) placed).transformation();
     assertEquals("placed", t.target().orElseThrow().name());
