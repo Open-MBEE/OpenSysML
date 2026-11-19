@@ -853,14 +853,6 @@
           "result.coordinate_frame.transformation",
           "result.null"
         ]
-      },
-      "expect_without_capability": {
-        "non_empty": [
-          "result.null"
-        ],
-        "absent": [
-          "result.coordinate_frame"
-        ]
       }
     },
     {
@@ -964,14 +956,6 @@
         },
         "absent": [
           "result.coordinate_transformation.target.transformation"
-        ]
-      },
-      "expect_without_capability": {
-        "non_empty": [
-          "result.null"
-        ],
-        "absent": [
-          "result.coordinate_transformation"
         ]
       }
     }
