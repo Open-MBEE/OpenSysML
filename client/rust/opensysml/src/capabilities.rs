@@ -150,6 +150,9 @@ pub const CAPABILITY_ENGINES: &str = "engines";
 pub const CAPABILITY_ENGINES_EXTERNAL: &str = "engines_external";
 /// A model-level result the model leaves open, as `Value.undetermined`.
 pub const CAPABILITY_UNDETERMINED_VALUE: &str = "undetermined_value";
+/// A coordinate frame as `Value.coordinate_frame` and a coordinate transformation as
+/// `Value.coordinate_transformation`; without it each crosses as an unsupported null.
+pub const CAPABILITY_COORDINATE_FRAME_VALUES: &str = "coordinate_frame_values";
 /// An Integer beyond int64 as `Value.big_int_value`, `Quantity.big_int_magnitude` and
 /// `DocumentValue.big_int_value`; a service without it reads one sent to it as null.
 pub const CAPABILITY_BIG_INT_VALUES: &str = "big_int_values";

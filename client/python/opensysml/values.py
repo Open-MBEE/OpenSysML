@@ -1331,6 +1331,229 @@ class _Infinity:
 INFINITY = _Infinity()
 
 
+
+@dataclass(frozen=True)
+class MeasurementScale:
+    """The unit a measurement scale is measured in, and the point defining it.
+
+    Attributes:
+        unit (MeasurementRef): The unit the scale is measured in
+        mapped (Optional[Quantity]): A point on the scale, when the model
+            defines the scale against another reference
+        reference (Optional[Quantity]): The same point on that reference
+    """
+
+    unit: MeasurementRef
+    mapped: Optional["Quantity"] = None
+    reference: Optional["Quantity"] = None
+
+
+@dataclass(frozen=True)
+class CoordinateFrame:
+    """A coordinate frame or measurement scale held as a value.
+
+    What a feature typed by a ``MeasurementReferences::CoordinateFrame``
+    evaluates to. Reported, never accepted.
+
+    Attributes:
+        name (str): The frame as a reader names it: its declared name, else the
+            expression that composed it (``datum / s``)
+        frame_id (str): FQN of the usage declaring the frame; empty for one composed
+        type_id (str): FQN of the frame's type; empty for none
+        instance_id (int): The object the frame was read from; 0 for none
+        dimensions (Tuple[int, ...]): The frame's ``dimensions``
+        axes (Tuple[MeasurementRef, ...]): Its ``mRefs``, one per axis
+        transformation (Optional[CoordinateTransformation]): What places the
+            frame in another, its ``target`` left ``None`` because this frame
+            is that target; ``None`` for a frame stating none
+        scale (Optional[MeasurementScale]): Set for a measurement scale, which
+            has no axes
+    """
+
+    name: str = ""
+    frame_id: str = ""
+    type_id: str = ""
+    instance_id: int = 0
+    dimensions: Tuple[int, ...] = ()
+    axes: Tuple[MeasurementRef, ...] = ()
+    transformation: Optional["CoordinateTransformation"] = None
+    scale: Optional[MeasurementScale] = None
+
+    @classmethod
+    def from_pb(cls, pb_frame, resolve_instance=None) -> "CoordinateFrame":
+        """Build from a ``CoordinateFrame`` protobuf message.
+
+        Raises:
+            UnsupportedValueError: If an axis or the scale names no readable unit.
+        """
+        scale = None
+        if pb_frame.HasField('scale'):
+            mapping = pb_frame.scale.mapping if pb_frame.scale.HasField('mapping') else None
+            scale = MeasurementScale(
+                unit=MeasurementRef.from_pb(pb_frame.scale.unit),
+                mapped=Quantity.from_pb(mapping.mapped) if mapping is not None else None,
+                reference=Quantity.from_pb(mapping.reference) if mapping is not None else None,
+            )
+        transformation = None
+        if pb_frame.HasField('transformation'):
+            transformation = CoordinateTransformation.from_pb(pb_frame.transformation, resolve_instance)
+        return cls(
+            name=pb_frame.name, frame_id=pb_frame.frame_id, type_id=pb_frame.type_id,
+            instance_id=pb_frame.instance_id,
+            dimensions=tuple(pb_frame.dimensions),
+            axes=tuple(MeasurementRef.from_pb(axis) for axis in pb_frame.axes),
+            transformation=transformation, scale=scale,
+        )
+
+    def __str__(self) -> str:
+        units = [self.scale.unit.unit.text] if self.scale is not None else [a.unit.text for a in self.axes]
+        return f"{self.name} [{', '.join(units)}]"
+
+
+@dataclass(frozen=True)
+class FramePlacement:
+    """A target frame's origin in its source frame and, when stated, its basis directions there."""
+
+    origin: Any = None
+    basis_directions: Tuple[Any, ...] = ()
+
+
+@dataclass(frozen=True)
+class FrameRotation:
+    """A turn by ``angle`` about ``axis_direction``.
+
+    About the axes as already rotated when ``intrinsic``, about the source's
+    fixed axes otherwise.
+    """
+
+    axis_direction: Any = None
+    angle: Optional["Quantity"] = None
+    intrinsic: bool = False
+
+
+@dataclass(frozen=True)
+class FrameStep:
+    """One step of a ``TranslationRotationSequence``: a translation, or else a rotation.
+
+    Attributes:
+        translation: The translation vector; ``None`` for a rotation
+        rotation (Optional[FrameRotation]): The rotation; ``None`` for a translation
+        instance_id (int): The Translation or Rotation object the step was read from
+    """
+
+    translation: Any = None
+    rotation: Optional[FrameRotation] = None
+    instance_id: int = 0
+
+
+@dataclass(frozen=True)
+class AffineTransformation3d:
+    """A 3x3 rotation matrix, row-major, and a translation."""
+
+    rotation: Tuple[float, ...] = ()
+    translation: Tuple[float, ...] = ()
+
+
+@dataclass(frozen=True)
+class FramePose:
+    """Where a target frame sits in its source frame, in the source's axis units.
+
+    Target coordinates ``v`` lie at ``origin + basis · v``, ``basis`` an n×n
+    matrix in row-major order.
+    """
+
+    origin: Tuple[float, ...] = ()
+    basis: Tuple[float, ...] = ()
+
+
+@dataclass(frozen=True)
+class CoordinateTransformation:
+    """A coordinate transformation held as a value.
+
+    The frames it relates, the shape the model states it in, and the pose that
+    shape resolves to. At most one of ``placement``, ``steps`` and ``affine``
+    is set. Reported, never accepted.
+
+    Attributes:
+        name (str): The transformation as a reader names it
+        transformation_id (str): FQN of the usage declaring it; empty for none
+        type_id (str): FQN of the transformation's type; empty for none
+        instance_id (int): The object it was read from; 0 for none
+        source (Optional[CoordinateFrame]): The frame it is stated in
+        target (Optional[CoordinateFrame]): The frame it places; ``None`` on a
+            frame's own ``transformation``
+        placement (Optional[FramePlacement]): Set for a ``CoordinateFramePlacement``
+        steps (Optional[Tuple[FrameStep, ...]]): The elements of a
+            ``TranslationRotationSequence``, in the order applied
+        affine (Optional[AffineTransformation3d]): Set for an
+            ``AffineTransformationMatrix3d``
+        pose (Optional[FramePose]): Where the target sits in the source; ``None``
+            when no source is stated or the shape resolves to none
+    """
+
+    name: str = ""
+    transformation_id: str = ""
+    type_id: str = ""
+    instance_id: int = 0
+    source: Optional[CoordinateFrame] = None
+    target: Optional[CoordinateFrame] = None
+    placement: Optional[FramePlacement] = None
+    steps: Optional[Tuple[FrameStep, ...]] = None
+    affine: Optional[AffineTransformation3d] = None
+    pose: Optional[FramePose] = None
+
+    @classmethod
+    def from_pb(cls, pb_t, resolve_instance=None) -> "CoordinateTransformation":
+        """Build from a ``CoordinateTransformation`` protobuf message.
+
+        Raises:
+            UnsupportedValueError: If a part of it cannot be read.
+        """
+        placement = steps = affine = pose = None
+        shape = pb_t.WhichOneof('shape')
+        if shape == 'placement':
+            placement = FramePlacement(
+                origin=value_to_python(pb_t.placement.origin, resolve_instance),
+                basis_directions=tuple(
+                    value_to_python(d, resolve_instance) for d in pb_t.placement.basis_directions),
+            )
+        elif shape == 'sequence':
+            steps = tuple(_frame_step_from_pb(step, resolve_instance) for step in pb_t.sequence.steps)
+        elif shape == 'affine':
+            affine = AffineTransformation3d(
+                rotation=tuple(pb_t.affine.rotation), translation=tuple(pb_t.affine.translation))
+        if pb_t.HasField('pose'):
+            pose = FramePose(origin=tuple(pb_t.pose.origin), basis=tuple(pb_t.pose.basis))
+        return cls(
+            name=pb_t.name, transformation_id=pb_t.transformation_id, type_id=pb_t.type_id,
+            instance_id=pb_t.instance_id,
+            source=CoordinateFrame.from_pb(pb_t.source, resolve_instance) if pb_t.HasField('source') else None,
+            target=CoordinateFrame.from_pb(pb_t.target, resolve_instance) if pb_t.HasField('target') else None,
+            placement=placement, steps=steps, affine=affine, pose=pose,
+        )
+
+    def __str__(self) -> str:
+        source = self.source.name if self.source is not None else "?"
+        target = self.target.name if self.target is not None else "?"
+        return f"{self.name} ({source} → {target})"
+
+
+def _frame_step_from_pb(pb_step, resolve_instance) -> FrameStep:
+    kind = pb_step.WhichOneof('step')
+    if kind == 'translation':
+        return FrameStep(
+            translation=value_to_python(pb_step.translation, resolve_instance),
+            instance_id=pb_step.instance_id)
+    if kind == 'rotation':
+        return FrameStep(
+            rotation=FrameRotation(
+                axis_direction=value_to_python(pb_step.rotation.axis_direction, resolve_instance),
+                angle=Quantity.from_pb(pb_step.rotation.angle),
+                intrinsic=pb_step.rotation.is_intrinsic),
+            instance_id=pb_step.instance_id)
+    raise UnsupportedValueError("a transformation step this client does not know")
+
+
 # The value arms a single conversion settles, keyed by the oneof field set.
 _SIMPLE_VALUE_ARMS = {
     'int_value': lambda pb, resolve: pb.int_value,
@@ -1352,6 +1575,9 @@ _SIMPLE_VALUE_ARMS = {
     'tensor_quantity': lambda pb, resolve: TensorQuantity.from_pb(pb.tensor_quantity),
     'unset': lambda pb, resolve: UNSET,
     'undetermined': lambda pb, resolve: Undetermined.from_pb(pb.undetermined),
+    'coordinate_frame': lambda pb, resolve: CoordinateFrame.from_pb(pb.coordinate_frame, resolve),
+    'coordinate_transformation': lambda pb, resolve: CoordinateTransformation.from_pb(
+        pb.coordinate_transformation, resolve),
 }
 
 def value_to_python(pb_value, resolve_instance=None):
@@ -1366,7 +1592,8 @@ def value_to_python(pb_value, resolve_instance=None):
     Returns:
         int, :class:`fractions.Fraction` for an exact Rational no double
         holds, float, complex, bool, str, list, None, :data:`UNSET`,
-        :data:`INFINITY`, an :class:`Undetermined`, a
+        :data:`INFINITY`, an :class:`Undetermined`, a :class:`CoordinateFrame`,
+        a :class:`CoordinateTransformation`, a
         :class:`Quantity`, a :class:`MeasurementRef`, a :class:`Function`, a
         :class:`Metaobject`, an :class:`Array`, a :class:`Vector`, a
         :class:`VectorQuantity`, a :class:`SetValue`, a
