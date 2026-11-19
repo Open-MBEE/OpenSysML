@@ -226,31 +226,3 @@ func presentValues(values ...*pb.Value) []*pb.Value {
 func presentQuantities(quantities ...*pb.Quantity) []*pb.Quantity {
 	return slices.DeleteFunc(slices.Clone(quantities), func(q *pb.Quantity) bool { return q == nil })
 }
-
-// ValueCarriesCoordinateFrame reports whether a value, or any value nested in
-// it, is a coordinate frame or transformation, which coordinate_frame_values governs.
-func ValueCarriesCoordinateFrame(pv *pb.Value) bool {
-	return valueCarries(pv, IsCoordinateValue)
-}
-
-// IsCoordinateValue reports whether a value is itself a CoordinateFrame or a
-// CoordinateTransformation.
-func IsCoordinateValue(pv *pb.Value) bool {
-	switch pv.GetKind().(type) {
-	case *pb.Value_CoordinateFrame, *pb.Value_CoordinateTransformation:
-		return true
-	}
-	return false
-}
-
-// CoordinateValueName is the name a frame or transformation value crosses
-// under; "" for any other value.
-func CoordinateValueName(pv *pb.Value) string {
-	switch k := pv.GetKind().(type) {
-	case *pb.Value_CoordinateFrame:
-		return k.CoordinateFrame.GetName()
-	case *pb.Value_CoordinateTransformation:
-		return k.CoordinateTransformation.GetName()
-	}
-	return ""
-}
