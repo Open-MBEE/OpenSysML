@@ -1,4 +1,4 @@
-package org.openmbee.mdk.magic;
+package org.openmbee.opensysml.repository;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -17,40 +17,41 @@ import java.util.Map;
 
 /**
  * An in-process SysML v2 API server holding projects, branches and commits in memory: enough of
- * the standard's wire for the plugin's client to be driven over real HTTP.
+ * the standard's wire for the client to be driven over real HTTP. The editor plugins' tests use it
+ * too, from this module's test jar.
  */
-final class FakeSysmlApi implements AutoCloseable {
+public final class FakeSysmlApi implements AutoCloseable {
   /** How the element listing pages: by Link header, by the Flexo cursor, or not at all. */
-  enum Paging { LINKED, CURSOR, IGNORED }
+  public enum Paging { LINKED, CURSOR, IGNORED }
 
   private final HttpServer server;
   private final Map<String, JsonObject> projects = new LinkedHashMap<>();
   private final Map<String, Map<String, String>> heads = new LinkedHashMap<>();
   private final Map<String, Map<String, JsonObject>> commits = new LinkedHashMap<>();
-  final List<String> requests = new ArrayList<>();
-  final List<String> authorizations = new ArrayList<>();
-  final List<JsonObject> posted = new ArrayList<>();
-  Paging paging = Paging.CURSOR;
-  int pageLimit = Integer.MAX_VALUE;
+  public final List<String> requests = new ArrayList<>();
+  public final List<String> authorizations = new ArrayList<>();
+  public final List<JsonObject> posted = new ArrayList<>();
+  public Paging paging = Paging.CURSOR;
+  public int pageLimit = Integer.MAX_VALUE;
   /** Whether a next-page link is the query alone, relative to the listing. */
-  boolean queryOnlyLinks;
-  String requiredToken = "";
+  public boolean queryOnlyLinks;
+  public String requiredToken = "";
   /** Run once, after the next element listing is answered: a concurrent writer. */
-  Runnable afterElements = () -> {};
+  public Runnable afterElements = () -> {};
   private int minted;
 
-  FakeSysmlApi() throws IOException {
+  public FakeSysmlApi() throws IOException {
     server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
     server.createContext("/", this::handle);
     server.start();
   }
 
-  String url() {
+  public String url() {
     return "http://127.0.0.1:" + server.getAddress().getPort();
   }
 
   /** Seeds a project with a default branch at no commit. */
-  synchronized void project(String id, String name, String branch) {
+  public synchronized void project(String id, String name, String branch) {
     JsonObject project = new JsonObject();
     project.addProperty("@id", id);
     project.addProperty("@type", "Project");
@@ -62,16 +63,16 @@ final class FakeSysmlApi implements AutoCloseable {
     heads.computeIfAbsent(id, key -> new LinkedHashMap<>()).put(branch, "");
   }
 
-  synchronized String head(String project, String branch) {
+  public synchronized String head(String project, String branch) {
     return heads.get(project).get(branch);
   }
 
-  synchronized Map<String, JsonObject> elements(String project, String branch) {
+  public synchronized Map<String, JsonObject> elements(String project, String branch) {
     return new LinkedHashMap<>(commits.getOrDefault(head(project, branch), Map.of()));
   }
 
   /** Commits changes as another client would, moving the branch. */
-  synchronized String commit(String project, String branch, JsonArray changes) {
+  public synchronized String commit(String project, String branch, JsonArray changes) {
     Map<String, JsonObject> next = new LinkedHashMap<>(commits.getOrDefault(heads.get(project).get(branch), Map.of()));
     for (JsonElement change : changes) {
       JsonObject version = change.getAsJsonObject();

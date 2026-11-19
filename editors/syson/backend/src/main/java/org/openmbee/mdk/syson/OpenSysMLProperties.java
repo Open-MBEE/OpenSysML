@@ -5,6 +5,8 @@ import java.time.Duration;
 
 import org.openmbee.opensysml.ConnectionOptions;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import java.util.Map;
+import org.openmbee.opensysml.repository.ApiConfig;
 
 @ConfigurationProperties("opensysml")
 public class OpenSysMLProperties {
@@ -20,6 +22,7 @@ public class OpenSysMLProperties {
     private Integer exploreRuns;
     private Integer exploreDepth;
     private String performer;
+    private final Publish publish = new Publish();
 
     public Path getBinaryPath() { return binaryPath; }
     public void setBinaryPath(Path value) { binaryPath = value; }
@@ -45,6 +48,7 @@ public class OpenSysMLProperties {
     public void setExploreDepth(Integer value) { exploreDepth = value; }
     public String getPerformer() { return performer; }
     public void setPerformer(String value) { performer = value; }
+    public Publish getPublish() { return publish; }
 
     public ConnectionOptions toConnectionOptions() {
         ConnectionOptions.Builder builder = ConnectionOptions.builder()
@@ -71,5 +75,34 @@ public class OpenSysMLProperties {
             result.append("depth=").append(exploreDepth);
         }
         return result.toString();
+    }
+
+    /**
+     * The SysML v2 API server models are published to. What is unset falls back to the environment
+     * variables {@code sysml -sync-apply} reads, so the command line and the plugin address a server alike.
+     */
+    public static class Publish {
+        private String url;
+        private String token;
+        private Boolean allowPlainHttp;
+        private Duration timeout;
+
+        public String getUrl() { return url; }
+        public void setUrl(String value) { url = value; }
+        public String getToken() { return token; }
+        public void setToken(String value) { token = value; }
+        public Boolean getAllowPlainHttp() { return allowPlainHttp; }
+        public void setAllowPlainHttp(Boolean value) { allowPlainHttp = value; }
+        public Duration getTimeout() { return timeout; }
+        public void setTimeout(Duration value) { timeout = value; }
+
+        public ApiConfig apiConfig(Map<String, String> environment) {
+            ApiConfig fallback = ApiConfig.fromEnvironment(environment);
+            return new ApiConfig(
+                    url == null || url.isBlank() ? fallback.baseUrl() : url,
+                    token == null || token.isBlank() ? fallback.token() : token.strip(),
+                    timeout == null ? fallback.timeout() : timeout,
+                    allowPlainHttp == null ? fallback.allowPlainHttp() : allowPlainHttp);
+        }
     }
 }
