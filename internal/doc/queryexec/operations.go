@@ -1023,29 +1023,15 @@ func (e *executor) propertyPathValues(row Value, property string) ([]Value, bool
 	}
 	var out []Value
 	present := false
-	last := segments[len(segments)-1]
 	for _, value := range current {
-		values, found, err := e.propertyValuesBeforeMemberPath(value, last)
+		values, found, err := e.propertyValuesBeforeMemberPath(value, segments[len(segments)-1])
 		if err != nil {
 			return nil, false, err
-		}
-		if sym, ok := value.Element(); ok && found && e.declaredMemberOverfull(sym, last, values) {
-			return nil, false, fmt.Errorf("%s holds %d values, more than its multiplicity admits", property, len(values))
 		}
 		present = present || found
 		out = append(out, values...)
 	}
 	return out, present, nil
-}
-
-// declaredMemberOverfull reports whether values, read as the declared member name of sym
-// rather than as a built-in reader property, are more than that member's multiplicity admits.
-func (e *executor) declaredMemberOverfull(sym *symbols.Symbol, name string, values []Value) bool {
-	if isQueryableProperty(name) && readsAnnotationProperty(sym, name) {
-		return false
-	}
-	member, _ := e.context.Model.LookupMember(sym, name)
-	return member != nil && e.exceedsMultiplicity(member, len(values))
 }
 
 // relatedElements follows the property path's segments from the row to the
