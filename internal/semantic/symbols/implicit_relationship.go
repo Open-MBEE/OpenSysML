@@ -78,3 +78,9 @@ func (s *Symbol) ImplicitOrdinal() int {
 func (s *Symbol) ImplicitWrittenRelationship() bool {
 	return s != nil && s.Implicit != nil && s.Implicit.Form == ImplicitWritten
 }
+
+// ImplicitShorthandChain reports whether sym reflects the reference subsetting a feature stated as a
+// feature chain alone (`require h.r1;`), whose target is the chain.
+func (s *Symbol) ImplicitShorthandChain() bool {
+	return s != nil && s.Implicit != nil && s.Implicit.Form == ImplicitShorthandReference && s.Implicit.Node != nil
+}

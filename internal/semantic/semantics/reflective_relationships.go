@@ -120,13 +120,18 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 		ordinal++
 	}
 	if target := m.shorthandReference(owner); target != nil {
+		// A shorthand written as a chain (`require h.r1;`) carries it, to reference the chain as a whole.
+		var written *ast.Relationship
+		if chain := chainNode(referenceSubsettingTarget(owner)); chain != nil {
+			written = connectorEndAttachment(chain)
+		}
 		out = append(out, &symbols.Symbol{
 			Kind:     symbols.SymbolRelationship,
 			DocName:  owner.DocName,
 			DeclSpan: owner.DeclSpan,
 			Implicit: &symbols.ImplicitRelationship{
 				Owner: owner, Ordinal: ordinal, Kind: ast.RelReferences,
-				Form: symbols.ImplicitShorthandReference, Member: target,
+				Form: symbols.ImplicitShorthandReference, Member: target, Node: written,
 			},
 		})
 		ordinal++
@@ -381,7 +386,13 @@ func (m *Model) implicitRelationshipEnds(sym *symbols.Symbol) (src, tgt *symbols
 	rel := sym.Implicit
 	src = rel.Owner
 	switch rel.Form {
-	case symbols.ImplicitMetadataBodyRedefinition, symbols.ImplicitSuccessionEndReference, symbols.ImplicitShorthandReference:
+	case symbols.ImplicitShorthandReference:
+		if rel.Node != nil {
+			tgt = m.chainTargetFeature(sym)
+			return src, tgt, tgt != nil
+		}
+		return src, rel.Member, rel.Member != nil
+	case symbols.ImplicitMetadataBodyRedefinition, symbols.ImplicitSuccessionEndReference:
 		return src, rel.Member, rel.Member != nil
 	}
 	if rel.Node != nil {
