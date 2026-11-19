@@ -119,6 +119,19 @@ func expressionPartSlot(sym *symbols.Symbol) (string, bool) {
 	return "", false
 }
 
+// sendArgumentSlot is the send whose argument parameter sym is and the slot the conversion
+// files it at (`arg%d`, the argument's position: payload, sender, receiver).
+func sendArgumentSlot(sym *symbols.Symbol) (ast.Node, string, bool) {
+	if sym == nil || sym.Expr == nil || sym.Expr.Role != symbols.ExpressionPayload || sym.Expr.Owner == nil || sym.Expr.Owner.Expr != nil {
+		return nil, "", false
+	}
+	send := symbols.SendStatementOf(sym.Expr.Owner.Decl)
+	if send == nil {
+		return nil, "", false
+	}
+	return send, fmt.Sprintf("arg%d", sym.Expr.Index), true
+}
+
 // bodyParameterSlot is the slot the conversion mints a body's parameter at
 // (`in%d`, its position among the body's declarations), keyed by the
 // parameter's own span: every parameter of a body shares the body as its node.
@@ -151,6 +164,10 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 	}
 	if slot, ok := expressionPartSlot(sym); ok {
 		element, _, err := read.ReadExpressionPart(sym.DocName, sym.Expr.Owner.Decl, slot)
+		return element, err
+	}
+	if send, slot, ok := sendArgumentSlot(sym); ok {
+		element, _, err := read.ReadExpressionPart(sym.DocName, send, slot)
 		return element, err
 	}
 	if owner, ok := defaultMultiplicityOwner(sym); ok {
@@ -276,6 +293,10 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 func implicitMembershipID(read ElementIDReader, idx *symbols.Index, member *symbols.Symbol) (id string, ok bool, err error) {
 	if slot, ok := expressionPartSlot(member); ok {
 		_, membership, err := read.ReadExpressionPart(member.DocName, member.Expr.Owner.Decl, slot)
+		return membership, true, err
+	}
+	if send, slot, ok := sendArgumentSlot(member); ok {
+		_, membership, err := read.ReadExpressionPart(member.DocName, send, slot)
 		return membership, true, err
 	}
 	if flow, slot, ok := flowEndFeatureSlot(member); ok {
