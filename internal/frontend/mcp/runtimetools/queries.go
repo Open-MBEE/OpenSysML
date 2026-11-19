@@ -65,7 +65,7 @@ func (g *group) registerQueries(s *mcp.Server) {
 			"text (the Query RPC), run as a document-query plan over the model's elements, or over the objects instantiate created " +
 			"when @type names an element (rdf:type=elmt:<id>). Each matched element answers its qualified name, metamodel type and " +
 			"the properties select asked for; an object answers its path too. A query the service cannot evaluate fails with " +
-			"INVALID_ARGUMENT and a QueryOutcome detail rather than answering empty. asView also writes the answer as a QVTS::QueryResult view, in resultView. The result is the QueryResponse as protojson writes it.",
+			"INVALID_ARGUMENT and a QueryOutcome detail rather than answering empty. asView also writes the answer as a QVTS::QueryResult view, in resultView, and a failed query's error carries its view after resultView:. The result is the QueryResponse as protojson writes it.",
 		Annotations: toolkit.ReadOnly("Query model"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in QueryInput) (*mcp.CallToolResult, Result, error) {
 		m, err := g.resolve(ctx, in.ModelInput)
@@ -89,7 +89,7 @@ func (g *group) registerQueries(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "run_document_query",
 		Description: "Run a named document query, or a query expression written in inlineQuery in place of a name, with parameter " +
-			"bindings and answer its typed rows (the RunDocumentQuery RPC, the REPL's %run-query); asView also writes the answer as a QVTS::QueryResult view, in resultView. The query runs over the model and " +
+			"bindings and answer its typed rows (the RunDocumentQuery RPC, the REPL's %run-query); asView also writes the answer as a QVTS::QueryResult view, in resultView, and a failed query's error carries its view after resultView:. The query runs over the model and " +
 			"over the objects instantiate created for the same modelHash, which a binding may name. The result is the " +
 			"RunDocumentQueryResponse as protojson writes it; the text is the table.",
 		Annotations: toolkit.ReadOnly("Run document query"),

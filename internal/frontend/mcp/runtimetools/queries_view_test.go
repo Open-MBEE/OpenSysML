@@ -51,3 +51,24 @@ func TestRenderModelViewRendersAResultViewAsADocument(t *testing.T) {
 		t.Errorf("text:\n%s\nmarkdown:\n%s", out, view.GetText())
 	}
 }
+
+func TestFailedQueriesKeepTheirResultView(t *testing.T) {
+	h := attach(t, newService(t))
+	telescope := h.copyIn(telescopeFixture, "telescope.sysml")
+	failures := map[string]map[string]any{
+		"run_document_query": {"paths": []string{telescope}, "inlineQuery": `Named("Observatory::telescope::missing")`, "asView": true},
+		"query":              {"paths": []string{telescope}, "oslcQuery": `oslc.where=sysml:noSuchProperty="x"`, "asView": true},
+	}
+	for tool, args := range failures {
+		out := h.fails(tool, args)
+		for _, want := range []string{"resultView:", " : QueryResult {", "outcome = Outcome::pathError;"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("%s failure lacks %q:\n%s", tool, want, out)
+			}
+		}
+		delete(args, "asView")
+		if out := h.fails(tool, args); strings.Contains(out, "resultView:") {
+			t.Errorf("%s not asked for a view failed with one:\n%s", tool, out)
+		}
+	}
+}

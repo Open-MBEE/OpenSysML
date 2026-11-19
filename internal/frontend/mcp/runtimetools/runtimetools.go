@@ -203,15 +203,30 @@ func argumentError(format string, args ...any) error {
 	return toolError(connect.NewError(connect.CodeInvalidArgument, fmt.Errorf(format, args...)))
 }
 
-// toolError turns a refused RPC into a tool error that keeps the status code's
-// name and the message, so an agent reads NOT_FOUND here as a client reads it
-// on the wire.
+// toolError turns a refused RPC into a tool error that keeps the status code's name and the message, as a client
+// reads them on the wire, and after them the QVTS::QueryResult view a query asked for with asView failed with.
 func toolError(err error) error {
 	var cerr *connect.Error
 	if errors.As(err, &cerr) {
-		return fmt.Errorf("%s: %s", strings.ToUpper(cerr.Code().String()), cerr.Message())
+		text := fmt.Sprintf("%s: %s", strings.ToUpper(cerr.Code().String()), cerr.Message())
+		if view := resultViewOf(cerr); view != "" {
+			text += "\nresultView:\n" + view
+		}
+		return errors.New(text)
 	}
 	return err
+}
+
+// resultViewOf reads the QueryResultView detail a refused query carries.
+func resultViewOf(cerr *connect.Error) string {
+	for _, detail := range cerr.Details() {
+		if message, err := detail.Value(); err == nil {
+			if view, ok := message.(*pb.QueryResultView); ok {
+				return view.GetText()
+			}
+		}
+	}
+	return ""
 }
 
 // unmarshal reads a proto message from the JSON name/value fields of a tool's
