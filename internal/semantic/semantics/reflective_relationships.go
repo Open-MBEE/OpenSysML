@@ -108,14 +108,35 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 		if target := ImpliedEndReference(end); target != nil {
 			out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelReferences, false, connectorEndAttachment(target)))
 		}
-	} else if _, ok := flowEndOwner(owner); ok {
-		// A flow's `from`/`to` end is declared by the node naming what it attaches to.
-		if target := FlowEndReference(owner); target != nil {
-			out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelReferences, false, impliedRelationship(ast.RelReferences, target)))
-		}
-	} else if IsFlowFeature(owner) {
-		// A flow feature redefines the feature the end's last segment names (SysML.xtext FlowFeature).
-		out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelRedefines, false, impliedRelationship(ast.RelRedefines, owner.Decl)))
+	} else if target := MessageEndReference(owner); target != nil {
+		// A message's end is declared by the node naming the event it relates.
+		out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelReferences, false, impliedRelationship(ast.RelReferences, target)))
+	}
+	if target, stated := m.flowEndReference(owner); stated {
+		// A flow's end reference-subsets the feature before the last it names (SysML.xtext FlowEndMember).
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  owner.DocName,
+			DeclSpan: owner.DeclSpan,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Ordinal: ordinal, Kind: ast.RelReferences,
+				Form: symbols.ImplicitSuccessionEndReference, Member: target,
+			},
+		})
+		ordinal++
+	}
+	if _, ok := symbols.ImpliedFlowEndFeatureIndex(owner); ok {
+		// The ReferenceUsage a flow's end owns redefines the last feature the end names (FlowFeatureMember).
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  owner.DocName,
+			DeclSpan: owner.DeclSpan,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Ordinal: ordinal, Kind: ast.RelRedefines,
+				Form: symbols.ImplicitMetadataBodyRedefinition, Member: m.flowEndFeatureRedefinition(owner),
+			},
+		})
+		ordinal++
 	}
 	if target, stated := m.successionEndReference(owner); stated {
 		// A chained target (`then a.b`) is the chain Feature the end's ReferenceSubsetting owns (chainTargetFeature).
@@ -513,6 +534,10 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 		// relationship that targets it (KerML 8.3.3.3.9).
 		if chain := m.chainTargetFeature(sym); chain != nil {
 			return []*symbols.Symbol{chain}, true
+		}
+		if sym.Implicit.Form == symbols.ImplicitSuccessionEndReference && tgt != nil && tgt.Chain != nil && tgt.Chain.Flow != nil {
+			// A flow's end owns the chain Feature it references through its ReferenceSubsetting.
+			return []*symbols.Symbol{tgt}, true
 		}
 		return empty, true
 	case "ownedElement", "ownedRelationship", "ownedAnnotation", "owningRelationship", "owningMembership",

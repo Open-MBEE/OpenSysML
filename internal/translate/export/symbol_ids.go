@@ -168,11 +168,11 @@ func (s *SymbolIDs) compute(sym *symbols.Symbol) (string, bool) {
 				return element, true
 			}
 		}
-		// A flow end's flow feature is minted off the end (flowEndReferences).
-		if semantics.IsFlowFeature(sym) {
-			element, _, ok := s.ids.OfExpressionPart(doc, sym.OwnerScope.Node(), "ff")
-			return element, ok
-		}
+	}
+	if sym.Chain != nil && sym.Chain.Flow != nil && sym.Chain.Node != nil {
+		// The chain Feature a flow's end references is minted under the end, filed by the chain as written.
+		element, _, ok := s.ids.OfExpressionPart(doc, sym.Chain.Node, "chain")
+		return element, ok
 	}
 	// The chain Feature a relationship's chain target denotes is minted off the element
 	// the relationship is written on: an end's `_pend0_pchain`, a transition's `_psourcechain`.
@@ -189,15 +189,21 @@ func (s *SymbolIDs) compute(sym *symbols.Symbol) (string, bool) {
 			return rdf.ExpressionNodeID(base, slot), true
 		}
 	}
-	if i, ok := symbols.ImpliedSuccessionEndIndex(sym); ok {
-		// A `then` succession's end is minted under the edge at end0/end1 (recordSuccessionEnds); a
-		// transition's succession's under the transition at succession.end0/end1 (recordTransitionSuccession).
+	if i, ok := symbols.ImpliedConnectorEndIndex(sym); ok {
+		// A `then` succession's or a flow's end is minted under its edge at end0/end1 (recordSuccessionEnds,
+		// recordFlowEnds); a transition's succession's under the transition at succession.end0/end1.
 		implied, _ := symbols.ImpliedDeclOf(sym)
 		slot := fmt.Sprintf("end%d", i)
 		if symbols.ImpliedTransitionSuccessionEnd(sym) {
 			slot = "succession." + slot
 		}
 		element, _, ok := s.ids.OfExpressionPart(doc, implied.Of, slot)
+		return element, ok
+	}
+	if i, ok := symbols.ImpliedFlowEndFeatureIndex(sym); ok {
+		// The ReferenceUsage a flow's end owns is minted under the end (recordFlowEnds).
+		implied, _ := symbols.ImpliedDeclOf(sym)
+		element, _, ok := s.ids.OfExpressionPart(doc, implied.Of, fmt.Sprintf("end%d.ff", i))
 		return element, ok
 	}
 	if implied, ok := symbols.ImpliedDeclOf(sym); ok &&
@@ -315,12 +321,6 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 			// An end's reference subsetting is minted off the end (connectorEnd).
 			end, ok := s.of(rel.Owner)
 			return rdf.ExpressionNodeID(end, "rs"), ok
-		}
-		// A flow feature's redefinition is a property the conversion writes, which the
-		// api-json structure derives as a Redefinition minted off the feature.
-		if rel.Kind == ast.RelRedefines && semantics.IsFlowFeature(rel.Owner) {
-			owner, ok := s.of(rel.Owner)
-			return owner + relationshipSuffix(ast.RelRedefines, false, 1, 0), ok
 		}
 		if rel.Node.Span().Len == 0 && rel.Node.Target != nil {
 			return s.ids.RelationshipOf(doc, rel.Node.Target)

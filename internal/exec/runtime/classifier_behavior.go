@@ -360,16 +360,6 @@ func (ctx *Context) abandonInstancesBetween(mark, end int) {
 	ctx.forgetAbandoned(ctx.dropInstances(mark, end, func(*Instance) bool { return true }))
 }
 
-// abandonInstancesHeldBy removes the objects registered since mark that are one
-// of roots or held by one, directly or below, as a nested value or as the
-// variant it selected; the others stay, in order.
-func (ctx *Context) abandonInstancesHeldBy(mark int, roots map[*Instance]bool) {
-	held := ctx.heldSince(mark, roots)
-	ctx.forgetAbandoned(ctx.dropInstances(mark, len(ctx.created), func(inst *Instance) bool {
-		return held[inst.ID]
-	}))
-}
-
 // heldSince names the objects registered since mark that are one of roots or
 // held by one, directly or below. A variant's object names the object that
 // selected it only through the selection, so that link is followed as well.

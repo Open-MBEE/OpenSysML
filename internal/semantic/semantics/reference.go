@@ -83,8 +83,8 @@ func (m *Model) ReferencedFeatureChain(sym *symbols.Symbol) ([]*symbols.Symbol, 
 // that clause outside its relationship list when it is written with the
 // `references` keyword, so it is asked for its own.
 func referenceSubsettingTarget(sym *symbols.Symbol) ast.Node {
-	if _, ok := flowEndOwner(sym); ok {
-		return FlowEndReference(sym)
+	if target := MessageEndReference(sym); target != nil {
+		return target
 	}
 	switch decl := sym.Decl.(type) {
 	case *ast.ConnectorEnd:

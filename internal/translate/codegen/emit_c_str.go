@@ -50,8 +50,15 @@ static sysml_int sysml_str_length(sysml_str s) {
 	return n;
 }
 
-static sysml_str sysml_substring(sysml_str x, sysml_int lo, sysml_int hi) {
+/* A Substring position as a machine word, which any Integer naming a character is. */
+static sysml_int sysml_position(sysml_integer v, const char *param) {
+	if (v.big) sysml_failf("integer beyond the addressable range: StringFunctions::Substring parameter \"%s\" is %s", param, sysml_show_int(v));
+	return v.small;
+}
+
+static sysml_str sysml_substring(sysml_str x, sysml_integer lower, sysml_integer upper) {
 	sysml_int n = sysml_str_length(x);
+	sysml_int lo = sysml_position(lower, "lower"), hi = sysml_position(upper, "upper");
 	if (lo < 1) sysml_failf("index out of range: function StringFunctions::Substring lower character %lld is outside 1..%lld", (long long)lo, (long long)n);
 	if (lo > hi) return sysml_str_empty();
 	if (hi > n) sysml_failf("index out of range: function StringFunctions::Substring upper character %lld is outside 1..%lld", (long long)hi, (long long)n);
@@ -66,14 +73,16 @@ static sysml_str sysml_str_of(const char *text) {
 	return (sysml_str){(sysml_int)n, p};
 }
 
-static sysml_str sysml_int_string(sysml_int v) {
-	char text[24];
-	snprintf(text, sizeof text, "%" PRId64, v);
-	return sysml_str_of(text);
+static sysml_str sysml_int_string(sysml_integer v) {
+	int64_t n;
+	const char *digits = sysml_int_digits(v, &n);
+	char *p = sysml_alloc((size_t)n);
+	memcpy(p, digits, (size_t)n);
+	return (sysml_str){n, p};
 }
 
-static sysml_str sysml_natural_string(sysml_int v) {
-	if (v < 0) sysml_failf("type mismatch: function NaturalFunctions::ToString parameter \"x\" requires a Natural value, got %" PRId64, v);
+static sysml_str sysml_natural_string(sysml_integer v) {
+	if (sysml_isign(v) < 0) sysml_failf("type mismatch: function NaturalFunctions::ToString parameter \"x\" requires a Natural value, got %s", sysml_show_int(v));
 	return sysml_int_string(v);
 }
 
@@ -130,7 +139,6 @@ static void sysml_print_str_value(sysml_str s) {
 	fwrite(q.p, 1, (size_t)q.len, stdout);
 }
 static void sysml_print_str(sysml_str s) { sysml_print_str_value(s); fputc('\n', stdout); }
-static void sysml_format_str(sysml_str s, char *out, size_t size) { snprintf(out, size, "%s", sysml_quote(s).p); }
 static const char *sysml_show_str(sysml_str s) { return sysml_quote(s).p; }
 
 /* Copies a String's bytes out of the arena when a release to m would reclaim them; NULL when it would not. */

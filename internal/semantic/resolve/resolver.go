@@ -967,3 +967,8 @@ func qnText(qn *ast.QualifiedName) string {
 	}
 	return s
 }
+
+// ResolveSegments is ResolveQualified of the qualified name segments spell.
+func (r *Resolver) ResolveSegments(scope *symbols.Scope, segments ...string) (*symbols.Symbol, bool) {
+	return r.ResolveQualified(scope, ast.QualifiedNameOf(segments...))
+}

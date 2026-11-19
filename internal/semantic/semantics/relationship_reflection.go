@@ -131,9 +131,8 @@ func (m *Model) flowEndChainFeature(flow *symbols.Symbol, position int) *symbols
 	if cached, ok := m.flowEndChains[key]; ok {
 		return cached
 	}
-	if len(m.attachmentPath(flow.OwnerScope, node)) == 0 {
-		return nil
-	}
+	// The chain Feature is written whether or not its segments resolve (KerML 8.3.3.3.9), as the
+	// conversion mints it; one that resolves to nothing chains no feature (chainTargetChainings).
 	feature := &symbols.Symbol{
 		Kind:       symbols.SymbolReferenceUsage,
 		DocName:    flow.DocName,
@@ -206,7 +205,10 @@ func (m *Model) chainingFeaturesOf(sym *symbols.Symbol) []*symbols.Symbol {
 		return nil
 	}
 	if flow := sym.Chain.Flow; flow != nil {
-		return m.attachmentPath(flow.OwnerScope, sym.Chain.Node)
+		// Resolved as far as it goes, as the conversion chains a flow end's prefix (recordFlowEndChains).
+		return chainPrefix(sym.Chain.Node, func(prefix ast.Node) (*symbols.Symbol, bool) {
+			return m.resolver.ResolveTarget(flow.OwnerScope, prefix)
+		})
 	}
 	rel := sym.Chain.Relationship
 	if sym.Chain.Node != nil {

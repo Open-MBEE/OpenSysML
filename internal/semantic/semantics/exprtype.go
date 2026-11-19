@@ -223,7 +223,7 @@ func (m *Model) DeclaresResolvedType(sym *symbols.Symbol, prim PrimType) bool {
 		queue = queue[1:]
 		bases := m.ImplicitGenerals(cur)
 		for _, sup := range m.DirectSupertypes(cur) {
-			if seen[sup] {
+			if seen[sup] || sup == m.FeatureValueGeneral(cur) {
 				continue
 			}
 			if slices.Contains(bases, sup) {

@@ -6,7 +6,7 @@
 # here the run no longer produces, and on a ? key; a count that fell is re-recorded
 # with -update-agreement-ratchet.
 AttributeUsage::attributeDefinition	74	symbol-43
-AttributeUsage::definition	126	symbol-44
+AttributeUsage::definition	128	symbol-44
 AttributeUsage::directedUsage	10	symbol-43
 AttributeUsage::isReference	333	symbol-44
 AttributeUsage::isVariation	333	symbol-44

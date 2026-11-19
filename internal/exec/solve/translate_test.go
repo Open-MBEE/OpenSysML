@@ -411,6 +411,10 @@ func TestRefusals(t *testing.T) {
 			in i : Integer;
 			calc def Double { in x : Integer; return : Integer = x * 2; }
 			assert constraint { Double(i) == 4 }`, "invocation"},
+		{"feature of an invocation's result", `
+			part def Box { attribute flag : Boolean; }
+			in make : Box;
+			assert constraint { make().flag }`, "it names nothing this translation can ground"},
 		{"string ordering", `in s : String; assert constraint { s < "x" }`, "rather than numbers"},
 		{"non-boolean condition", `in i : Integer; assert constraint { i }`, "rather than a boolean"},
 		{"non-scalar feature", `

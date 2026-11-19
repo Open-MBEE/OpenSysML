@@ -404,7 +404,7 @@ func valueToProto(value Value) (*pb.Value, error) {
 // quantityToProto marshals a quantity, refusing one without a magnitude —
 // the zero Quantity — which the service would reject.
 func quantityToProto(quantity Quantity) (*pb.Quantity, error) {
-	out := &pb.Quantity{Unit: quantity.Unit}
+	out := &pb.Quantity{Unit: quantity.Unit, ValueType: quantity.ValueType}
 	switch magnitude := quantity.Magnitude.(type) {
 	case Int:
 		out.Magnitude = &pb.Quantity_IntMagnitude{IntMagnitude: int64(magnitude)}
@@ -474,7 +474,7 @@ func instancesFromProto(instances []*pb.Instance) []*Instance {
 // quantityFromProto is false for a quantity carrying no magnitude, which no
 // number stands in for.
 func quantityFromProto(quantity *pb.Quantity) (Quantity, bool) {
-	out := Quantity{Unit: quantity.GetUnit()}
+	out := Quantity{Unit: quantity.GetUnit(), ValueType: quantity.GetValueType()}
 	switch magnitude := quantity.GetMagnitude().(type) {
 	case *pb.Quantity_IntMagnitude:
 		out.Magnitude = Int(magnitude.IntMagnitude)

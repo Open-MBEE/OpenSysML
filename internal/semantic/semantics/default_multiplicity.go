@@ -13,6 +13,13 @@ func (m *Model) ImpliesDefaultMultiplicity(sym *symbols.Symbol) bool {
 	if m == nil || sym == nil || sym.Implicit != nil || sym.Chain != nil || sym.Expr != nil || m.isKerMLDoc(sym) {
 		return false
 	}
+	if _, ok := symbols.ImpliedFlowEndIndex(sym); ok {
+		// A FlowEnd and the feature it owns state no multiplicity (FlowEndMember), as the pilot exports them.
+		return false
+	}
+	if _, ok := symbols.ImpliedFlowEndFeatureIndex(sym); ok {
+		return false
+	}
 	if IsIndividualDefinition(sym) {
 		// An `individual` definition's prefix owns an empty Multiplicity (SysML.xtext
 		// OccurrenceDefinitionPrefix, EmptyMultiplicityMember), first among its relationships.

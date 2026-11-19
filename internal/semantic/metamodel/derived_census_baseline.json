@@ -61,7 +61,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 56,
-        "digest": "sha256:da15eed5f1e8a20351f90ea90d4427a0c959569f7ad12a5515afbb8afdf476c2"
+        "digest": "sha256:b637f67538a277b2e2077d3c838ec5b02809fd5e40041bde44d36bedf90b43e1"
       },
       {
         "name": "probes",
@@ -85,7 +85,7 @@
         "digest": "sha256:f39db343dafb9c99359f5a92e56dcdd5c52992dc50e50b9268d349aa9cdfdf26"
       }
     ],
-    "recorded": "2026-11-16"
+    "recorded": "2026-11-19"
   },
   "structure": "metamodel.SymbolStructure (symbol-backed; metamodel.New over metamodel.NewSymbolStructure)",
   "policy": [
@@ -101,8 +101,8 @@
       "dir": "examples/sysml-v2-training",
       "files": 100,
       "rejected": 0,
-      "elements": 11194,
-      "implied": 6484,
+      "elements": 11249,
+      "implied": 6517,
       "pilotElements": 11906,
       "pilotImplied": 0,
       "pilotDuplicates": 5797,
@@ -113,8 +113,8 @@
       "dir": "examples/pilot-corpora/sysml-examples",
       "files": 99,
       "rejected": 0,
-      "elements": 39277,
-      "implied": 22932,
+      "elements": 39427,
+      "implied": 23022,
       "pilotElements": 40861,
       "pilotImplied": 0,
       "pilotDuplicates": 10940,
@@ -125,8 +125,8 @@
       "dir": "examples/pilot-corpora/sysml-validation",
       "files": 56,
       "rejected": 0,
-      "elements": 13726,
-      "implied": 7991,
+      "elements": 13786,
+      "implied": 8027,
       "pilotElements": 14222,
       "pilotImplied": 0,
       "pilotDuplicates": 3066,
@@ -149,8 +149,8 @@
       "dir": "examples/spec-examples",
       "files": 511,
       "rejected": 38,
-      "elements": 11707,
-      "implied": 6667,
+      "elements": 11767,
+      "implied": 6703,
       "pilotElements": 15900,
       "pilotImplied": 0,
       "pilotDuplicates": 40,
@@ -161,8 +161,8 @@
       "dir": "tests/testdata",
       "files": 40,
       "rejected": 0,
-      "elements": 2088,
-      "implied": 1146,
+      "elements": 2113,
+      "implied": 1161,
       "pilotElements": 2448,
       "pilotImplied": 0,
       "pilotDuplicates": 169,
@@ -173,11 +173,11 @@
       "dir": "examples",
       "files": 56,
       "rejected": 0,
-      "elements": 48148,
-      "implied": 27729,
-      "pilotElements": 51722,
+      "elements": 49092,
+      "implied": 28277,
+      "pilotElements": 52554,
       "pilotImplied": 0,
-      "pilotDuplicates": 82277,
+      "pilotDuplicates": 85313,
       "pilotFailed": 0
     },
     {
@@ -197,13 +197,13 @@
       "dir": "docs/manual/examples",
       "files": 11,
       "rejected": 0,
-      "elements": 8401,
-      "implied": 4807,
+      "elements": 8416,
+      "implied": 4816,
       "pilotElements": 9379,
       "pilotImplied": 0,
       "pilotDuplicates": 0,
       "pilotFailed": 0
     }
   ],
-  "pilotRecords": "sha256:62df6d2421147cad3847435efb95624597810b8fc9cddfbff8ce6d252521183b"
+  "pilotRecords": "sha256:3bc07437f3e4687e688f025c5d4230ea63cf6ccef8cc4c9c6b5a4a316e202c28"
 }

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdOwnedViews>
+  <mdElement elementClass='DiagramFrame' xmi:id='_sym_frame'>
+    <elementID xmi:idref='_diag'></elementID>
+    <geometry>0, 0, 400, 300</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_sym_run'>
+    <elementID xmi:idref='_run'></elementID>
+    <geometry>40, 20, 120, 90</geometry>
+    <mdOwnedViews>
+      <mdElement elementClass='Part' xmi:id='_sym_drain'>
+        <elementID xmi:idref='_adjDrain'></elementID>
+        <geometry>55, 60, 90, 30</geometry>
+      </mdElement>
+    </mdOwnedViews>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_sym_fill'>
+    <elementID xmi:idref='_fill'></elementID>
+    <geometry>40, 200, 120, 50</geometry>
+  </mdElement>
+  <mdElement elementClass='Association' xmi:id='_sym_assoc'>
+    <elementID xmi:idref='_runFill'></elementID>
+    <linkFirstEndID xmi:idref='_sym_run'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_fill'></linkSecondEndID>
+    <geometry>100, 110; 100, 200; </geometry>
+    <mdOwnedViews>
+      <mdElement elementClass='Role' xmi:id='_sym_end_run'>
+        <elementID xmi:idref='_runFillWhole'></elementID>
+        <geometry>95, 110, 10, 10</geometry>
+        <mdOwnedViews/>
+      </mdElement>
+      <mdElement elementClass='Role' xmi:id='_sym_end_fill'>
+        <elementID xmi:idref='_adjFill'></elementID>
+        <geometry>95, 190, 10, 10</geometry>
+        <mdOwnedViews/>
+      </mdElement>
+    </mdOwnedViews>
+    <associationFirstEndID xmi:idref='_sym_end_run'></associationFirstEndID>
+    <associationSecondEndID xmi:idref='_sym_end_fill'></associationSecondEndID>
+  </mdElement>
+</mdOwnedViews>

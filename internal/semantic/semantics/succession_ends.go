@@ -7,14 +7,14 @@ import (
 )
 
 // SuccessionMintsEnds reports whether a `then` succession owns two end features, as the conversion mints
-// them: its source is the member before it, or a positional source carries a multiplicity (TargetSuccession).
+// them and the pilot exports them: its source is the member before it, named or reached by position (TargetSuccession).
 func SuccessionMintsEnds(edge *ast.SuccessionEdge) bool {
 	if edge == nil {
 		return false
 	}
 	implied := edge.Source != nil && edge.Source.Span().Offset < edge.Span().Offset
 	positional := edge.Source == nil && edge.SourceMember != nil
-	return implied || positional && (edge.SourceMultiplicity != nil || edge.TargetMultiplicity != nil)
+	return implied || positional
 }
 
 // SuccessionEndMembers are the source and target end features a `then x;` succession owns through

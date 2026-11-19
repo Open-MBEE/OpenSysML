@@ -76,6 +76,9 @@ func (m *Model) ownedEnds(sym *symbols.Symbol) []*symbols.Symbol {
 	if ends := m.SuccessionEndMembers(sym); ends != nil {
 		return ends
 	}
+	if ends := m.FlowEndMembers(sym); ends != nil {
+		return ends
+	}
 	var out []*symbols.Symbol
 	if u, ok := sym.Decl.(*ast.Usage); ok {
 		for _, end := range u.ConnectorEnds {
@@ -83,13 +86,6 @@ func (m *Model) ownedEnds(sym *symbols.Symbol) []*symbols.Symbol {
 				continue
 			}
 			out = append(out, memberSymbol(sym.Scope, end))
-		}
-		if u.FlowEnds != nil && u.Keyword != "message" {
-			for _, end := range []ast.Node{u.FlowEnds.From, u.FlowEnds.To} {
-				if end != nil {
-					out = append(out, memberSymbol(sym.Scope, end))
-				}
-			}
 		}
 	}
 	for _, member := range declMembers(sym) {
@@ -345,6 +341,12 @@ func (m *Model) implicitEndRedefinitions(sym *symbols.Symbol) []*symbols.Symbol 
 			out = append(out, end)
 		}
 	}
+	if i, ok := symbols.ImpliedFlowEndIndex(sym); ok && len(out) == 0 {
+		// A flow's minted end redefines the Flows::flows end at its position (source, target).
+		if end := m.impliedEnd(ast.UsageFlow, i); end != nil {
+			out = append(out, end)
+		}
+	}
 	return out
 }
 
@@ -404,7 +406,7 @@ func declaresEnd(sym *symbols.Symbol) bool {
 	case *ast.Usage:
 		return d.IsEnd
 	case *symbols.ImpliedDecl:
-		_, ok := symbols.ImpliedSuccessionEndIndex(sym)
+		_, ok := symbols.ImpliedConnectorEndIndex(sym)
 		return ok
 	}
 	// A flow's `from`/`to` end, declared by the node naming what it attaches to;
@@ -570,14 +572,18 @@ func endReferencesFeature(end connectorEnd) bool {
 			return end.feature.Kind == symbols.SymbolConnectorEnd ||
 				len(end.feature.RecordedRelationships(ast.RelReferences)) > 0
 		}
+		if _, ok := symbols.ImpliedConnectorEndIndex(end.feature); ok {
+			// A flow's or a `then` succession's end is minted only once its clause attaches it to a feature.
+			return true
+		}
 		switch d := end.feature.Decl.(type) {
 		case *ast.Usage:
 			return referencesFeature(d.Relationships)
 		case *ast.ConnectorEnd:
 			return d.AttachedTarget() != nil
 		default:
-			// A flow end is declared by the node naming the feature it attaches to.
-			return d != nil && FlowEndReference(end.feature) != nil
+			// A message's end is declared by the node naming the event it relates.
+			return d != nil && MessageEndReference(end.feature) != nil
 		}
 	}
 	if end.owner.Recorded() {

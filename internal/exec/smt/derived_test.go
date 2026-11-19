@@ -86,7 +86,7 @@ func holdsDerived(t *testing.T, d *document, action *symbols.Symbol, budget anal
 	}
 	graph, held := started(t, ctx, action)
 	for _, attr := range held.Features() {
-		if _, derived := derivation(graph, attr); derived {
+		if _, derived := derivation(ctx, graph, attr); derived {
 			return true
 		}
 	}

@@ -93,3 +93,28 @@ func TestNestedRedefinitionsOfMemoized(t *testing.T) {
 	}
 	var _ *symbols.Symbol = first[0].Feature
 }
+
+// TestDeclaresSubjectAndFeature pins which declarations hold a value: a usage and
+// a subject do, a definition does not.
+func TestDeclaresSubjectAndFeature(t *testing.T) {
+	idx := stdlibIndex(t)
+	_, _, replace := trackedModel(t, idx, "d.sysml")
+	p := sym(t, replace(`package P {
+		part def V { attribute mass; }
+		requirement def R { subject v : V; attribute limit; }
+	}`), "P").Scope
+	r := sym(t, p, "R")
+	for _, tc := range []struct {
+		sym              *symbols.Symbol
+		subject, feature bool
+	}{
+		{sym(t, r.Scope, "v"), true, true},
+		{sym(t, r.Scope, "limit"), false, true},
+		{r, false, false},
+		{sym(t, p, "V"), false, false},
+	} {
+		if DeclaresSubject(tc.sym) != tc.subject || DeclaresFeature(tc.sym) != tc.feature {
+			t.Errorf("%s: subject %v feature %v, want %v %v", tc.sym.Name, DeclaresSubject(tc.sym), DeclaresFeature(tc.sym), tc.subject, tc.feature)
+		}
+	}
+}

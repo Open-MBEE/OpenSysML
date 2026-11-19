@@ -359,7 +359,8 @@ func TestParameterAndEndMemberships(t *testing.T) {
 		assertRelUnsupported(t, model, memberships[3], "ownedMemberParameter")
 		cd := relFixtureSymbol(t, fixture, "CD")
 		for _, membership := range model.OwnedMemberships(cd) {
-			assertRelMetaclass(t, model, membership, "EndFeatureMembership")
+			// A definition's declared `end` is a FeatureMembership whose member isEnd, as the pilot exports it.
+			assertRelMetaclass(t, model, membership, "FeatureMembership")
 		}
 		asm := relFixtureSymbol(t, fixture, "Asm")
 		connector := model.OwnedMemberships(asm)[2].Implicit.Member

@@ -1,0 +1,1 @@
+- The cross-MDK conformance suite ratchet (`go run -C tools ./cmd/hideo-suite`) runs the suite's Go readers when this module requires a newer version of a dependency than the suite's own `go.mod` pins, resolving them through a temporary copy of that file instead of stopping at `go: updates to go.mod needed` with no results recorded.

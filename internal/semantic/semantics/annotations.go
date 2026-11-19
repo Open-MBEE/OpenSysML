@@ -971,6 +971,23 @@ func (m *Model) DeclaredFeatureValues(sym *symbols.Symbol, feature string) ([]sy
 	return m.constantFeatureValues(member, make(map[*symbols.Symbol]bool))
 }
 
+// DeclaredQuantityValueType is the quantity value type a declared member feature holds
+// a quantity as, as evaluation holds it; nil when it declares none.
+func (m *Model) DeclaredQuantityValueType(sym *symbols.Symbol, feature string) *symbols.Symbol {
+	if m == nil || sym == nil || feature == "" {
+		return nil
+	}
+	member, ok := m.LookupMember(sym, feature)
+	if !ok || member == nil {
+		return nil
+	}
+	types := m.FeatureTypes(member)
+	if at := slices.IndexFunc(types, m.IsQuantityValueType); at >= 0 {
+		return types[at]
+	}
+	return nil
+}
+
 // OwnFeatureValues returns the ordered constant values a feature's own
 // valuation binds (KerML Feature::valuation): what its declaration writes, or
 // what the features it redefines write when it writes none. Not a feature: ok
@@ -1305,6 +1322,9 @@ func extendedDefinition(sym *symbols.Symbol) bool {
 // ConnectorEndMetaclassName is the SysML metaclass of a connector end: a
 // PortUsage as an interface's end, a ReferenceUsage otherwise (SysML.xtext).
 func ConnectorEndMetaclassName(sym *symbols.Symbol) string {
+	if _, ok := symbols.ImpliedFlowEndIndex(sym); ok {
+		return "FlowEnd"
+	}
 	if sym.OwnerScope != nil {
 		if kind, ok := connectorKind(sym.OwnerScope); ok && kind == ast.UsageInterface {
 			return metaclassName(symbols.SymbolPortUsage)
@@ -1313,7 +1333,7 @@ func ConnectorEndMetaclassName(sym *symbols.Symbol) string {
 			// A message's ends are the event occurrences it relates (SysML.xtext MessageEventMember).
 			return "EventOccurrenceUsage"
 		}
-		if IsFlowEnd(sym) {
+		if _, ok := symbols.ImpliedFlowEndIndex(sym); ok {
 			return "FlowEnd"
 		}
 	}
@@ -1341,65 +1361,25 @@ func IsFlowPayload(sym *symbols.Symbol) bool {
 		decl.Relationships[0].Kind == ast.RelTyping && decl.Relationships[0].Target == flow.FlowEnds.Payload
 }
 
-// IsFlowFeature reports whether sym is the feature a flow end owns to redefine
-// the last segment of what the end names (SysML.xtext FlowFeature).
-func IsFlowFeature(sym *symbols.Symbol) bool {
-	if sym == nil || sym.Kind != symbols.SymbolReferenceUsage || sym.OwnerScope == nil {
-		return false
-	}
-	decl, ok := sym.Decl.(*ast.QualifiedName)
-	if !ok {
-		return false
-	}
-	end := sym.OwnerScope.Owner()
-	if !IsFlowEnd(end) {
-		return false
-	}
-	_, last := ast.FlowEndSegments(end.Decl)
-	return last == decl
-}
-
-// FlowEndReference is the node a flow's `from`/`to` end reference-subsets: a flow end's name prefix
-// (its flow feature redefines the rest), a message end's whole name; nil when it references nothing.
-func FlowEndReference(end *symbols.Symbol) ast.Node {
-	usage, ok := flowEndOwner(end)
-	if !ok {
+// MessageEndReference is the node a message's `from`/`to` end names: the event occurrence it relates.
+func MessageEndReference(end *symbols.Symbol) ast.Node {
+	if !IsMessageEnd(end) {
 		return nil
 	}
-	if usage.Keyword == "message" {
-		return ast.EndTarget(end.Decl)
-	}
-	prefix, _ := ast.FlowEndSegments(end.Decl)
-	return prefix
+	return ast.EndTarget(end.Decl)
 }
 
-// IsFlowEnd reports whether sym is a `from`/`to` end of a flow usage other than
-// a message (SysML.xtext FlowEnd).
-func IsFlowEnd(sym *symbols.Symbol) bool {
-	usage, ok := flowEndOwner(sym)
-	return ok && usage.Keyword != "message"
-}
-
-// IsMessageEnd reports whether sym is a `from`/`to` end of a message.
+// IsMessageEnd reports whether sym is a `from`/`to` end of a message, declared by
+// the node naming the event it relates (SysML.xtext MessageEventMember).
 func IsMessageEnd(sym *symbols.Symbol) bool {
-	usage, ok := flowEndOwner(sym)
-	return ok && usage.Keyword == "message"
-}
-
-// flowEndOwner is the flow usage whose `from`/`to` end sym is, declared by the
-// node naming what the end attaches to rather than by a ConnectorEnd.
-func flowEndOwner(sym *symbols.Symbol) (*ast.Usage, bool) {
 	if sym == nil || sym.Kind != symbols.SymbolConnectorEnd || sym.OwnerScope == nil {
-		return nil, false
+		return false
 	}
 	if _, clause := sym.Decl.(*ast.ConnectorEnd); clause {
-		return nil, false
+		return false
 	}
 	usage, ok := sym.OwnerScope.Node().(*ast.Usage)
-	if !ok || usage.Kind != ast.UsageFlow || usage.FlowEnds == nil {
-		return nil, false
-	}
-	return usage, true
+	return ok && usage.Kind == ast.UsageFlow && usage.Keyword == "message" && usage.FlowEnds != nil
 }
 
 // usageMetaclassNames maps the usage kinds the symbol taxonomy keeps no kind
@@ -1863,10 +1843,10 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "ownedElement":
 		return m.ownedElementsOf(sym), true
 	case "member":
-		return m.withDefaultMultiplicityMember(sym, append(m.nodeParameters(sym), m.withConstraintResult(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)))...)), true
+		return m.withDefaultMultiplicityMember(sym, append(m.nodeParameters(sym), m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))))...)), true
 	case "feature":
 		features := m.nodeParameters(sym)
-		for _, member := range m.withConstraintResult(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))) {
+		for _, member := range m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)))) {
 			if member.IsFeature() || isExpressionSymbol(member) {
 				features = append(features, member)
 			}
@@ -1913,7 +1893,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "ownedFeature":
 		features := append([]*symbols.Symbol(nil), m.expressionOwnedParts(sym)...)
 		features = append(features, m.sendParameters(sym)...)
-		for _, member := range m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym))) {
+		for _, member := range m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym)))) {
 			// A metadata feature is owned through an OwningMembership, not a
 			// FeatureMembership (KerML.xtext AnnotatingMember, SysML.xtext PrefixMetadataMember).
 			if (member.IsFeature() || isExpressionSymbol(member)) && member.Kind != symbols.SymbolMetadataUsage {
@@ -2262,7 +2242,7 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	members = append(members, m.expressionOwnedElements(sym)...)
 	members = append(members, m.nodeParameters(sym)...)
-	members = append(members, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym)))...)
+	members = append(members, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym))))...)
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
 		seen[member] = true
@@ -2476,6 +2456,16 @@ func (m *Model) connectorSuccessionRelatedFeatures(sym *symbols.Symbol) (related
 		target := end.Symbol
 		if target == nil && end.Node != nil {
 			target = memberSymbol(sym.OwnerScope, end.Node)
+		}
+		if target == nil && end.Node != nil {
+			// `then assign x := 1;` sequences the statement itself, which the structure
+			// reflects as a node of the owner's body (statementNodes).
+			for _, statement := range m.statementNodes(owner) {
+				if statement.Decl == end.Node {
+					target = statement
+					break
+				}
+			}
 		}
 		if target == nil && end.Node != nil {
 			// `then done;` and `first start;` reach the library's done and start the
@@ -2933,7 +2923,7 @@ func (m *Model) reflectiveFeatureBoolean(sym *symbols.Symbol, feature string) (s
 	flags, isUsage := m.reflectiveFeatureFlags(sym)
 	switch feature {
 	case "isEnd":
-		_, impliedEnd := symbols.ImpliedSuccessionEndIndex(sym)
+		_, impliedEnd := symbols.ImpliedConnectorEndIndex(sym)
 		return boolValue(flags.isEnd || impliedEnd), true
 	case "isPortion":
 		return boolValue(flags.isPortion), true

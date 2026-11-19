@@ -121,6 +121,10 @@ func (m *Model) directRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	out = append(out, m.ImplicitParameterRedefinitions(sym)...)
 	out = append(out, m.implicitEndRedefinitions(sym)...)
 	out = append(out, m.ImplicitRoleRedefinitions(sym)...)
+	if target := m.flowEndFeatureRedefinition(sym); target != nil {
+		// The ReferenceUsage a flow's end owns is named by the feature it redefines (FlowFeatureMember).
+		out = append(out, target)
+	}
 	return append(out, m.implicitMetadataBodyRedefinitions(sym)...)
 }
 
@@ -186,6 +190,12 @@ func (m *Model) EffectiveNamed(sym *symbols.Symbol) (string, bool) {
 		return "", false
 	}
 	return from.Name, from.Named()
+}
+
+// NameSourceOf is the element whose declared identifiers sym answers to: sym itself,
+// or the one its naming features lead to (KerML 1.1 §8.3.3.3); nil when none declares any.
+func (m *Model) NameSourceOf(sym *symbols.Symbol) *symbols.Symbol {
+	return identifierSource(sym, m.declaresOwnIdentifier, m.namingFeature)
 }
 
 // EffectiveShortNameOf is Element::shortName: the declared short name, or, for

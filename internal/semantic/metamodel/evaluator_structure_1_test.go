@@ -1296,9 +1296,11 @@ func TestStructureFlowEndsRedefineInheritedConnectorEnds(t *testing.T) {
 	}`)
 	pkg := testSymbol(t, root, "P")
 	flowSymbol := testSymbol(t, pkg.Scope, "f")
+	// A flow owns its two FlowEnds (FlowEndMembers), named by the inherited source and target they redefine.
 	semanticEnds := evaluator.model.EndFeatures(flowSymbol)
-	if len(semanticEnds) != 2 || !isOwnedFlowEnd(semanticEnds[0], flowSymbol) || !isOwnedFlowEnd(semanticEnds[1], flowSymbol) {
-		t.Fatalf("semantic flow ends = %#v, want the flow's own from and to ends", semanticEnds)
+	if len(semanticEnds) != 2 || evaluator.model.EffectiveNameOf(semanticEnds[0]) != "source" ||
+		evaluator.model.EffectiveNameOf(semanticEnds[1]) != "target" {
+		t.Fatalf("semantic flow ends = %#v, want the owned ends named source and target", semanticEnds)
 	}
 
 	flow := ElementOf(flowSymbol)
@@ -1356,8 +1358,9 @@ func TestStructureFlowUsageEndsRedefineStandardLibraryEnds(t *testing.T) {
 	semanticEnds := evaluator.model.EndFeatures(flowSymbol)
 	ownedSemanticEnds, hasOwnedEnds := evaluator.model.OwnedConnectorEnds(flowSymbol)
 	flow := ElementOf(flowSymbol)
-	if len(semanticEnds) != 2 || !isOwnedFlowEnd(semanticEnds[0], flowSymbol) || !isOwnedFlowEnd(semanticEnds[1], flowSymbol) {
-		t.Fatalf("semantic flow ends = %#v, want the flow's own from and to ends", semanticEnds)
+	if len(semanticEnds) != 2 || evaluator.model.EffectiveNameOf(semanticEnds[0]) != "source" ||
+		evaluator.model.EffectiveNameOf(semanticEnds[1]) != "target" {
+		t.Fatalf("semantic flow ends = %#v, want the owned ends named source and target", semanticEnds)
 	}
 	firstEnd := Element{Aspect: "library-flow-end-source"}
 	secondEnd := Element{Aspect: "library-flow-end-target"}
@@ -1428,10 +1431,10 @@ func TestStructureFlowUsageEndsRedefineStandardLibraryEnds(t *testing.T) {
 	}
 }
 
-func TestStructureFlowEndsAreTheFlowsOwnEnds(t *testing.T) {
-	// A flow with `from` and `to` ends owns them (SysML v2 §7.21.2), so the
-	// library's source and target it inherits are redefined, never its ends.
-	evaluator, root := newTestEvaluatorWithIndex(t, libs.NewModelIndex(), "owned-flow-ends.sysml", `package P {
+// A flow's connectorEnd are the two FlowEnds it owns (FlowEndMembers), derived from the flow's own
+// declaration whether or not the Structure lists them, as a `then` succession's minted ends are.
+func TestStructureFlowUsageConnectorEndsAreItsOwnedFlowEnds(t *testing.T) {
+	evaluator, root := newTestEvaluatorWithIndex(t, libs.NewModelIndex(), "unrepresented-library-flow-ends.sysml", `package P {
 		item x { feature i; }
 		item y { feature j; }
 		flow f from x.i to y.j;
@@ -1439,18 +1442,23 @@ func TestStructureFlowEndsAreTheFlowsOwnEnds(t *testing.T) {
 	pkg := testSymbol(t, root, "P")
 	flow := ElementOf(testSymbol(t, pkg.Scope, "f"))
 	features := evaluator.model.EndFeatures(flow.Symbol)
-	if len(features) != 2 || !isOwnedFlowEnd(features[0], flow.Symbol) || !isOwnedFlowEnd(features[1], flow.Symbol) {
-		t.Fatalf("flow semantic ends = %#v, want the flow's own from and to ends", features)
+	_, firstImplied := symbols.ImpliedFlowEndIndex(features[0])
+	_, secondImplied := symbols.ImpliedFlowEndIndex(features[1])
+	if len(features) != 2 || !firstImplied || !secondImplied {
+		t.Fatalf("flow semantic ends = %#v, want the flow's two owned FlowEnds", features)
 	}
-	for index, feature := range features {
-		if evaluator.resolver.Index().Library(feature) {
-			t.Errorf("flow end %d is a library feature %s, want the flow's own end", index, symbols.FQNOf(feature))
-		}
-		redefined := evaluator.model.AllRedefinedFeatures(feature)
-		want := []string{"source", "target"}[index]
-		if len(redefined) == 0 || redefined[0].Name != want {
-			t.Errorf("flow end %d redefines %#v, want the inherited %s end", index, redefined, want)
-		}
+	evaluator.options.Structure = testStructure{
+		metaclasses: map[ElementKey]string{
+			flow.Key(): "FlowUsage",
+		},
+		ownedRelationships: map[ElementKey][]Element{
+			flow.Key(): {},
+		},
+	}
+
+	ends := valueElements(t, testProperty(t, evaluator, flow, "Connector", "connectorEnd"))
+	if len(ends) != 2 || ends[0].Symbol != features[0] || ends[1].Symbol != features[1] {
+		t.Fatalf("FlowUsage::connectorEnd = %#v, want the flow's two owned FlowEnds", ends)
 	}
 }
 

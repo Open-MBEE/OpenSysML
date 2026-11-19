@@ -10,7 +10,7 @@ Comment::@id	2	export-60
 DecisionNode::@id	6	export-49
 Documentation::@id	4	export-49
 Feature::@id	4	export-54
-FeatureMembership::@id	13	export-50
+FeatureMembership::@id	11	export-50
 FeatureReferenceExpression::@id	2	export-63
 FeatureTyping::@id	5	export-55
 FeatureValue::@id	2	export-63

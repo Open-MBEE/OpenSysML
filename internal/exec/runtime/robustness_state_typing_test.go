@@ -276,7 +276,7 @@ func testStateDefSpecializingALibraryStateKeepsItsContent(t *testing.T) {
 }
 
 // A body-less usage typed by the library's StateAction, however named, lowers
-// without recursing into `ref state self` and fails only for no initial state.
+// without recursing into `ref state self` and is active with no substate.
 func testExhibitedStateTypedByTheLibraryStateAction(t *testing.T) {
 	for _, tc := range []struct{ name, typing string }{
 		{"imported", "StateAction"},
@@ -291,21 +291,15 @@ func testExhibitedStateTypedByTheLibraryStateAction(t *testing.T) {
 					exhibit state phases : ` + tc.typing + `;
 				}
 			}`
-			_, _, err := instantiateWithLibraries(t, src, "test::Mission")
-			if err == nil {
-				t.Fatal("expected the machine with no initial state to fail materialization")
-			}
+			ctx, inst, err := instantiateWithLibraries(t, src, "test::Mission")
 			if errors.Is(err, lower.ErrRecursiveStateTyping) {
 				t.Fatalf("error = %v, want StateAction's content withheld rather than recursed into", err)
 			}
-			if !errors.Is(err, errNoInitialState) {
-				t.Fatalf("error = %v, want errNoInitialState", err)
+			if err != nil {
+				t.Fatalf("instantiate: %v, want the state active with no substate to enter", err)
 			}
-			for _, want := range []string{"phases", "Mission", "StateAction"} {
-				if !strings.Contains(err.Error(), want) {
-					t.Errorf("error = %v, want it to name %s", err, want)
-				}
-			}
+			assertExhibitedMachineIn(t, ctx, inst, "mass", 1, "")
+			assertSimpleStateActive(t, inst)
 		})
 	}
 }
@@ -373,6 +367,23 @@ func testExhibitedStateTypedByAStateActionSpecialization(t *testing.T) {
 				exhibit state phases : Phase;
 			}
 		}`
+		ctx, inst, err := instantiateWithLibraries(t, src, "test::Mission")
+		if err != nil {
+			t.Fatalf("instantiate: %v, want the state active with no substate to enter", err)
+		}
+		assertExhibitedMachineIn(t, ctx, inst, "mass", 5, "")
+		assertSimpleStateActive(t, inst)
+	})
+	t.Run("substates_without_entry", func(t *testing.T) {
+		src := `
+		package test {
+			private import States::StateAction;
+			state def Phase :> StateAction { state x; state y; }
+			part def Mission {
+				attribute mass = 6;
+				exhibit state phases : Phase;
+			}
+		}`
 		_, _, err := instantiateWithLibraries(t, src, "test::Mission")
 		if !errors.Is(err, errNoInitialState) {
 			t.Fatalf("error = %v, want errNoInitialState", err)
@@ -381,6 +392,22 @@ func testExhibitedStateTypedByAStateActionSpecialization(t *testing.T) {
 			t.Errorf("error = %v, want it to name the machine and its definition", err)
 		}
 	})
+}
+
+// assertSimpleStateActive checks that the machine inst exhibits is still
+// active, quiescent or not, with no substate active.
+func assertSimpleStateActive(t *testing.T, inst *Instance) {
+	t.Helper()
+	machine, ok := inst.ExhibitedState()
+	if !ok || machine.State == nil {
+		t.Fatal("the object exhibits no machine")
+	}
+	if !machine.State.drivable() {
+		t.Errorf("machine state = %v, want it still active", machine.State.state)
+	}
+	if got := machine.State.activeStates(); len(got) != 0 {
+		t.Errorf("active substates = %v, want none", got)
+	}
 }
 
 // assertExhibitedMachineIn checks that an object exhibits a machine resting in

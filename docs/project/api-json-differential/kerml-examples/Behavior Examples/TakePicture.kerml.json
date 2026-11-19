@@ -11,9 +11,9 @@
       "typeMismatch": 10
     },
     "properties": {
-      "presentEqual": 1127,
+      "presentEqual": 1129,
       "presentDifferent": 91,
-      "oursMissing": 144,
+      "oursMissing": 142,
       "pilotMissing": 72,
       "absentBoth": 1005,
       "indeterminate": 18,
@@ -238,7 +238,7 @@
     "FeatureMembership.isLibraryElement": [11,0,0,0,0,0,0],
     "FeatureMembership.memberElement": [9,0,0,0,0,2,0],
     "FeatureMembership.memberElementId": [9,0,0,0,0,2,0],
-    "FeatureMembership.memberName": [6,0,3,0,0,0,0],
+    "FeatureMembership.memberName": [8,0,1,0,0,0,0],
     "FeatureMembership.membershipOwningNamespace": [11,0,0,0,0,0,0],
     "FeatureMembership.ownedAnnotation": [0,0,0,0,11,0,0],
     "FeatureMembership.ownedElement": [0,0,0,0,11,0,0],

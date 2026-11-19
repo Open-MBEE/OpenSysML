@@ -1,0 +1,37 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="StateSpaceConnections" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="StateSpaceRepresentation" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Context"
+          (Membership visibility="default"
+            (Definition kind="action" abstract=false variation=false name="Apex"
+              (Relationship kind="specializes" target=ZeroCrossingEventDef
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="part" name="pusher" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="action" name="pusherBehavior" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="perform"
+                  (Relationship kind="typing" target=ContinuousStateSpaceDynamics
+                    (*ast.QualifiedName))
+                  (Membership visibility="default"
+                    (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                      (Relationship kind="redefines" target=output
+                        (*ast.QualifiedName))))))))
+          (Membership visibility="default"
+            (Usage kind="part" name="cart" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="action" name="cartBehavior" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="perform"
+                  (Relationship kind="typing" target=ContinuousStateSpaceDynamics
+                    (*ast.QualifiedName))
+                  (Membership visibility="default"
+                    (Usage kind="attribute" name="" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                      (Relationship kind="redefines" target=input
+                        (*ast.QualifiedName))))
+                  (Membership visibility="default"
+                    (Usage kind="occurrence" name="apex" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                      (Relationship kind="typing" target=Apex
+                        (*ast.QualifiedName))))))))
+          (Membership visibility="default"
+            (Usage kind="flow" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (FlowEnds from="pusher.pusherBehavior.output" to="cart.cartBehavior.input" payload="nil" declared=false))))))))

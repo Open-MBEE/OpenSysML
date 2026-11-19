@@ -44,7 +44,7 @@ func TestThenSuccessionIsAnOwnedMember(t *testing.T) {
 }
 
 // A `then done;` relates the member before it to the library's done the action inherits; a `then assign …;`
-// reaches a statement no element stands for yet, so its relatedFeature is unanswered rather than one short.
+// reaches the statement itself, a nameless node of the body (statementNodes), as the conversion writes it.
 func TestThenSuccessionRelatedFeatures(t *testing.T) {
 	const src = `package P {
 		action def Settle { out t : Real; first start; then assign t := 1.0; then done; }
@@ -69,12 +69,13 @@ func TestThenSuccessionRelatedFeatures(t *testing.T) {
 			for _, r := range related {
 				out = append(out, r.Name)
 			}
-			return strings.Join(out, " "), ok
+			// A recorded fixture keeps no statement node, so the nameless end is read by its name alone.
+			return strings.TrimSpace(strings.Join(out, " ")), ok
 		}
 		for i, want := range []struct {
 			related string
 			ok      bool
-		}{{"", false}, {"", false}, {"start acquire", true}, {"acquire done", true}} {
+		}{{"start", true}, {"done", true}, {"start acquire", true}, {"acquire done", true}} {
 			got, ok := names(successions[i])
 			if ok != want.ok || ok && got != want.related {
 				t.Errorf("succession %d relatedFeature = %q, %v; want %q, %v", i, got, ok, want.related, want.ok)
@@ -108,7 +109,8 @@ func TestThenSuccessionOwnsItsEnds(t *testing.T) {
 		if len(successions) != 3 {
 			t.Fatalf("%d successions, want 3", len(successions))
 		}
-		for i, want := range [][]string{ends, ends, nil} {
+		// `entry; then idle;` reaches its source by position and owns its ends all the same (SysML.xtext TargetSuccession).
+		for i, want := range [][]string{ends, ends, ends} {
 			var kinds []string
 			for _, rel := range model.OwnedRelationships(successions[i]) {
 				name := relMetaName(model, rel)
@@ -134,7 +136,7 @@ func TestThenSuccessionOwnsItsEnds(t *testing.T) {
 						referenced = append(referenced, target.Name)
 					}
 				}
-				want := [][]string{{"acquire"}, {"done"}}[i]
+				want := [][]string{{"acquire"}, {"done"}, {"idle"}}[i]
 				if len(kinds) == 1 {
 					want = nil
 				}

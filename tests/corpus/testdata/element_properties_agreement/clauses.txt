@@ -134,3 +134,5 @@ symbol-78	symbol	KerML 8.3.2.3.5 Documentation::documentedElement subsets annota
 symbol-79	symbol	KerML 8.3.4.8.7 SelectExpression::operator is "select" (redefines OperatorExpression::operator); the export writes none for it
 export-64	export	the form is an RDF graph whose triples are a set: an Association::relatedType list that repeats a type (both ends typed by T, KerML 8.3.4.4.2) is written once; the structure answers each end's type
 symbol-80	symbol	KerML 8.3.4.5.3 Connector::relatedFeature collects the feature each end references, an unresolved end contributing none, so sourceFeature is relatedFeature[0] and target (targetFeature) the rest; the export keeps the written end positions
+export-65	export	KerML 8.3.3.3.5 Feature::type includes the types of the features a feature subsets, so a FlowEnd referencing `tank` is typed by Tank (8.3.3.3.4 checkFeatureTypeFeaturing); the structure answers only the end's implied library typing
+export-66	export	KerML 8.3.3.3.4 Feature::featureTarget is the last chainingFeature; the structure does not derive chainingFeature of a flow end's chain Feature when a segment resolves to nothing

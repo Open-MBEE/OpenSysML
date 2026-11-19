@@ -16,9 +16,11 @@ const (
 	CapabilityMigrate                        = sysmlgrpc.CapabilityMigrate
 	CapabilityVerification                   = sysmlgrpc.CapabilityVerification
 	CapabilityVerificationQuestions          = sysmlgrpc.CapabilityVerificationQuestions
+	CapabilityVerdictNotes                   = sysmlgrpc.CapabilityVerdictNotes
 	CapabilityVerificationArguments          = sysmlgrpc.CapabilityVerificationArguments
 	CapabilityQuery                          = sysmlgrpc.CapabilityQuery
 	CapabilityOSLCQuery                      = sysmlgrpc.CapabilityOSLCQuery
+	CapabilityQueryOrderBy                   = sysmlgrpc.CapabilityQueryOrderBy
 	CapabilityDocumentQuery                  = sysmlgrpc.CapabilityDocumentQuery
 	CapabilityInlineDocumentQuery            = sysmlgrpc.CapabilityInlineDocumentQuery
 	CapabilityRenderDocument                 = sysmlgrpc.CapabilityRenderDocument
@@ -30,6 +32,7 @@ const (
 	CapabilitySymbolNameResolution           = sysmlgrpc.CapabilitySymbolNameResolution
 	CapabilitySymbolAnnotatingMetadata       = sysmlgrpc.CapabilitySymbolAnnotatingMetadata
 	CapabilitySymbolLookupKind               = sysmlgrpc.CapabilitySymbolLookupKind
+	CapabilitySymbolMemberDirection          = sysmlgrpc.CapabilitySymbolMemberDirection
 	CapabilityImportData                     = sysmlgrpc.CapabilityImportData
 	CapabilityCompareResults                 = sysmlgrpc.CapabilityCompareResults
 	CapabilityCheck                          = sysmlgrpc.CapabilityCheck

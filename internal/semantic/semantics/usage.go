@@ -47,12 +47,6 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		// A trigger's payload parameter: its owning type is the accept action
 		// the trigger synthesizes, an action and so an Occurrence.
 		bodyParameter = true
-	case *ast.QualifiedName:
-		// A flow end's flow feature; its owning type is the flow end, which
-		// references the connected occurrence.
-		if !IsFlowFeature(sym) {
-			return false
-		}
 	default:
 		return false
 	}
@@ -74,9 +68,14 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		(!actionKind && !m.conformsByName(sym, "Actions::Action"))
 }
 
-// synthesizedUsageMayTimeVary derives Usage::mayTimeVary for a referential part the model synthesizes
-// with no scope of its own: a transition's link parameter, or a trigger's payload and receiver parameters.
+// synthesizedUsageMayTimeVary derives Usage::mayTimeVary for a referential part the model synthesizes:
+// a flow end's ReferenceUsage, a transition's link parameter, or a trigger's payload and receiver parameters.
 func (m *Model) synthesizedUsageMayTimeVary(sym *symbols.Symbol) (varies, ok bool) {
+	if _, ok := symbols.ImpliedFlowEndFeatureIndex(sym); ok {
+		// A flow end's ReferenceUsage is owned by the FlowEnd, which redefines Flows::Flow::source
+		// or target, an Occurrence-typed feature (SysML v2.1 §8.3.16.6), as the pilot exports it.
+		return !m.isKerMLDoc(sym) && m.UsageMayTimeVaryUnderLibraryFeature("Flows::Flow::source"), true
+	}
 	if sym.OwnerScope != nil || sym.Expr == nil {
 		return false, false
 	}
@@ -149,11 +148,6 @@ func (m *Model) UsageMayTimeVaryForOwningType(sym, owner *symbols.Symbol) bool {
 		case *ast.TimeEvent, *ast.ChangeEvent, *ast.AcceptEvent:
 			// A trigger's payload parameter, owned by the accept action.
 			underAction = true
-		case *ast.QualifiedName:
-			// A flow end's flow feature, owned by the flow end.
-			if !IsFlowFeature(sym) {
-				return false
-			}
 		case *ast.Relationship:
 			// A satisfy's `by` subject parameter.
 			if d.Kind != ast.RelSubject {
@@ -204,9 +198,6 @@ func (m *Model) FeatureIsVariable(sym *symbols.Symbol) bool {
 	case *ast.RequireMember, *ast.AssumeMember, *ast.SubjectMember, *ast.BodyExpr, *ast.ConnectorEnd,
 		*ast.TimeEvent, *ast.ChangeEvent, *ast.AcceptEvent:
 		return !m.isKerMLDoc(sym) && m.UsageMayTimeVary(sym)
-	case *ast.QualifiedName:
-		// A flow end's flow feature (`from a.x`: the ReferenceUsage for x the end owns).
-		return IsFlowFeature(sym) && !m.isKerMLDoc(sym) && m.UsageMayTimeVary(sym)
 	case *ast.Relationship:
 		// A satisfy's `by` subject parameter.
 		return d.Kind == ast.RelSubject && !m.isKerMLDoc(sym) && m.UsageMayTimeVary(sym)

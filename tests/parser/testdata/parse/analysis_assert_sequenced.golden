@@ -1,0 +1,36 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Usage kind="analysis case" name="tank" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="analysis"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="level" ref=false direction="none" composite=false derived=false ordered=false nonunique=false initial=true
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (Membership visibility="default"
+            (Usage kind="action" name="fill" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (*ast.AssignmentActionNode)))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="filled" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="assert"
+              (ConstraintMember assert=true negated=false
+                (OperatorExpr operator="=="
+                  (FeatureReference name="level")
+                  (LiteralInteger value="3")))))
+          (SuccessionEdge source="fill" target="filled")
+          (Membership visibility="default"
+            (Usage kind="constraint" name="overfull" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="assert" negated=true
+              (ConstraintMember assert=true negated=false
+                (OperatorExpr operator=">"
+                  (FeatureReference name="level")
+                  (LiteralInteger value="3")))))
+          (SuccessionEdge source="filled" target="overfull")
+          (Membership visibility="default"
+            (Usage kind="action" name="drain" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (*ast.AssignmentActionNode)))
+          (SuccessionEdge source="overfull" target="drain")
+          (Usage kind="attribute" name="remaining" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Integer
+              (*ast.QualifiedName))
+            (FeatureReference name="level")))))))

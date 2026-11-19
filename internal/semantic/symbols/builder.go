@@ -513,11 +513,11 @@ func buildConnectorEnds(scope *Scope, u *ast.Usage) {
 		defineIdent(scope, id, sym)
 		scope.AddChild(child)
 	}
-	if u.FlowEnds == nil {
+	if u.FlowEnds == nil || u.Keyword != "message" {
+		// A flow's FlowEnds are implied by the semantics (FlowEndMembers); only a message's ends are symbols here.
 		return
 	}
-	// A flow's `from`/`to` ends are anonymous end features (SysML v2 §7.21.2 FlowEnd): each references its
-	// name's prefix and owns a flow feature redefining the last segment; a message end references the whole event.
+	// A message's `from`/`to` ends are the event occurrences it relates (SysML.xtext MessageEventMember).
 	for _, end := range []ast.Node{u.FlowEnds.From, u.FlowEnds.To} {
 		if end == nil {
 			continue
@@ -526,15 +526,6 @@ func buildConnectorEnds(scope *Scope, u *ast.Usage) {
 		sym := newSymbol(ast.Identification{}, SymbolConnectorEnd, end, ast.VisibilityDefault, child, scope, nil)
 		defineIdent(scope, ast.Identification{}, sym)
 		scope.AddChild(child)
-		if u.Keyword == "message" {
-			continue
-		}
-		if _, last := ast.FlowEndSegments(end); last != nil {
-			flowFeatureScope := NewScope(child, last)
-			flowFeature := newSymbol(ast.Identification{}, SymbolReferenceUsage, last, ast.VisibilityDefault, flowFeatureScope, child, nil)
-			defineIdent(child, ast.Identification{}, flowFeature)
-			child.AddChild(flowFeatureScope)
-		}
 	}
 }
 
@@ -576,35 +567,54 @@ func defineTransitionEffect(scope *Scope, trans *ast.TransitionMember) {
 	if len(trans.Effect) != 1 {
 		return
 	}
-	if _, exists := scope.LookupLocal(transitionEffectName); exists {
-		return
-	}
 	effect, _ := unwrapMember(trans.Effect[0])
 	if effect == nil {
 		return
 	}
+	_, named := scope.LookupLocal(transitionEffectName)
 	// A declared effect action is already a member of the transition's scope:
 	// name that symbol rather than building a second one for it.
 	if sym, ok := memberDeclaring(scope, effect); ok {
-		scope.Define(transitionEffectName, sym)
+		sym.Kind = effectActionKind(effect, sym.Kind)
+		if !named {
+			scope.Define(transitionEffectName, sym)
+		}
+		return
+	}
+	if named {
 		return
 	}
 	// A statement (`do send x to y`) declares no member of its own, so the
 	// action it performs is named here, its members staying the transition's.
 	statement := NewScope(scope, effect)
-	kind := SymbolActionUsage
-	if SendStatementOf(effect) != nil {
-		kind = SymbolSendActionUsage
-	}
 	sym := newSymbol(
 		ast.Identification{Name: transitionEffectName, NameSpan: effect.Span()},
-		kind, effect, ast.VisibilityDefault, statement, scope, nil,
+		effectActionKind(effect, SymbolActionUsage), effect, ast.VisibilityDefault, statement, scope, nil,
 	)
 	// The statement's action subsets TransitionAction::effect (SysML v2.1 §8.4.11.x
 	// checkTransitionUsageTransitionFeatureSpecialization) and declares no name.
 	sym.Naming = NamedByRole
 	scope.Define(transitionEffectName, sym)
 	scope.AddChild(statement)
+}
+
+// effectActionKind is the kind of a transition's effect action, built as declared: the node it is written as, else the
+// PerformActionUsage of a PerformActionUsageDeclaration (SysML v2.1 §8.2.2.18.3 EffectBehaviorUsage).
+func effectActionKind(effect ast.Node, declared SymbolKind) SymbolKind {
+	switch d := effect.(type) {
+	case *ast.SendStatement:
+		return SymbolSendActionUsage
+	case *ast.AssignmentActionNode:
+		return SymbolAssignmentActionUsage
+	case *ast.PerformActionNode:
+		return SymbolPerformActionUsage
+	case *ast.Usage:
+		// A braced `do { … }` writes no declaration, so it stays the plain action it is read as.
+		if declared == SymbolActionUsage && d.Kind == ast.UsageAction && d.Keyword != "" {
+			return SymbolPerformActionUsage
+		}
+	}
+	return declared
 }
 
 // buildEffect builds a transition's effect. A `do send` statement's parameters

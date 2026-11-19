@@ -131,6 +131,7 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 	ids.recordConnectorEnds(e, node, subject)
 	ids.recordFlowEndChains(e, node, subject)
 	ids.recordSuccessionEnds(e, node, subject)
+	ids.recordFlowEnds(e, node, subject)
 	ids.recordTransitionSuccession(e, node, subject)
 	ids.recordTransitionHead(e, node, subject)
 	ids.recordSatisfySubjects(e, node, subject)
@@ -382,6 +383,47 @@ func (ids *ElementIDs) recordSuccessionEnds(e *encoder, node ast.Node, subject r
 			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot + ".rs"}] = reference
 		}
 	}
+}
+
+// recordFlowEnds records the ids the conversion mints for a flow's two FlowEnds at end0/end1: the end and its
+// EndFeatureMembership, its ReferenceSubsetting (`.rs`), its ReferenceUsage (`.ff`) and that usage's Redefinition (`.ff.rd0`).
+func (ids *ElementIDs) recordFlowEnds(e *encoder, node ast.Node, subject rdf.Term) {
+	usage, ok := node.(*ast.Usage)
+	if !ok || !semantics.FlowMintsEnds(usage) {
+		return
+	}
+	targets := [2]ast.Node{usage.FlowEnds.From, usage.FlowEnds.To}
+	for i, target := range targets {
+		slot := fmt.Sprintf("end%d", i)
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+		ids.recordPart(e, node, slot, partIDs{element: rdf.LocalName(feature.Value), membership: rdf.LocalName(membership.Value)})
+		if len(flowEndSegmentsOf(ast.EndTarget(target))) > 1 {
+			ids.recordPart(e, node, slot+".rs", partIDs{element: e.referenceSubsettingID(feature)})
+		}
+		flowFeature := e.ids.mintedNode(rdf.ExpressionIRI(feature, "ff"), feature, "ff")
+		flowMembership := e.ids.minted(rdf.OwningMembershipIRIOf(flowFeature), flowFeature, rdf.OwningMembershipSuffix)
+		ids.recordPart(e, node, slot+".ff", partIDs{element: rdf.LocalName(flowFeature.Value), membership: rdf.LocalName(flowMembership.Value)})
+		redefinition := rdf.RelationshipIRI(flowFeature, relationshipSuffix(ast.RelRedefines, false, 1, 0))
+		ids.recordPart(e, node, slot+".ff.rd0", partIDs{element: rdf.LocalName(redefinition.Value)})
+	}
+}
+
+// recordPart files the ids of the part at slot of node, by node and by span.
+func (ids *ElementIDs) recordPart(e *encoder, node ast.Node, slot string, recorded partIDs) {
+	ids.partByNode[partKey{node, slot}] = recorded
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = recorded
+}
+
+// flowEndSegmentsOf is the names a flow end's target is written as, outermost first.
+func flowEndSegmentsOf(target ast.Node) []*ast.QualifiedName {
+	switch target := target.(type) {
+	case *ast.QualifiedName:
+		return []*ast.QualifiedName{target}
+	case *ast.FeatureChainExpr:
+		return featureChainSegments(target)
+	}
+	return nil
 }
 
 // successionTargetStated reports whether the target end of a `then` succession reference-subsets a
