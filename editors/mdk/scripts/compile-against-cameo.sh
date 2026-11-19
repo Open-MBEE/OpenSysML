@@ -9,7 +9,8 @@ fi
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 client_dir="$root/../../client/java"
 # The client's own classes go on the class path beside its dependencies, which is all build-classpath lists.
-client_cp=$(mvn -q -f "$client_dir/pom.xml" -pl :opensysml -am compile dependency:build-classpath -Dmdep.outputAbsoluteArtifactFilename=true -Dmdep.outputFile="$root/target/cameo-client.cp" >/dev/null && cat "$root/target/cameo-client.cp")
+# Under -q Maven prints only its errors, and on standard output: they go to standard error, not into the class path.
+client_cp=$(mvn -q -f "$client_dir/pom.xml" -pl :opensysml -am compile dependency:build-classpath -Dmdep.outputAbsoluteArtifactFilename=true -Dmdep.outputFile="$root/target/cameo-client.cp" >&2 && cat "$root/target/cameo-client.cp")
 cameo_cp=$(find "$CAMEO_HOME/lib" "$CAMEO_HOME/plugins" -name '*.jar' -print | tr '\n' ':')
 cp="${cameo_cp}${client_cp}:$client_dir/opensysml-client/target/classes"
 out=$(mktemp -d)

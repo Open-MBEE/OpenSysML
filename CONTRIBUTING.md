@@ -403,7 +403,9 @@ trees on every push to `develop` that changes a `pom.xml`, and daily, and saves 
 keyed on the hash of every `pom.xml` and of that workflow. It runs the tests and ignores their
 result, because Surefire resolves its provider and the JUnit launcher only when tests run; deletes
 every `*.lastUpdated` marker of a failed download; and then builds the three trees again with
-`mvn -o`, so an entry that lacks an artifact is not saved. A job that runs Maven restores that entry with
+`mvn -o`, so an entry that lacks an artifact is not saved. It runs
+`editors/mdk/scripts/compile-against-cameo-test.sh` in both passes too, whose helper calls the
+dependency plugin, which no tree's build binds. A job that runs Maven restores that entry with
 `.github/actions/maven-cache` after `actions/setup-java` (`nightly.yml`, which builds a commit that
 may predate the action, by the same key), and does not set `cache: maven` there: a
 pull request's or merge group's own cache is private to its ref, and one saved by a single job

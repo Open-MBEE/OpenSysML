@@ -54,4 +54,12 @@ done
 [[ $client_classes == true ]] || fail "javac's class path lacks the client's target/classes: $class_path"
 ((dependency_jars > 0)) || fail "javac's class path lacks the client's dependencies: $class_path"
 
+# Offline against an empty local repository Maven resolves nothing: the helper must fail and say why.
+if MAVEN_ARGS="${MAVEN_ARGS:-} -o -Dmaven.repo.local=$work/empty-repository" CAMEO_HOME="$cameo" \
+  "$work/editors/mdk/scripts/compile-against-cameo.sh" >"$work/failed.out" 2>"$work/failed.err"; then
+  fail "the helper succeeded although Maven could resolve nothing"
+fi
+grep -q -F '[ERROR]' "$work/failed.err" || fail "the helper discarded Maven's error: $(cat "$work/failed.err")"
+[[ ! -s $work/failed.out ]] || fail "the helper wrote Maven's error to standard output: $(cat "$work/failed.out")"
+
 echo "ok: compiled against the stand-in Cameo with $dependency_jars client dependencies and the client's classes"
