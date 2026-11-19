@@ -76,7 +76,7 @@ column no row carries is left out, and a nested `sysml:owner{*}` reads the
 related element's. A query that selects nothing reports every property but
 `sysml:elementId`, the ones of particular metaclasses absent on the other rows.
 There a feature of the model that shares a property's name (`attribute text = …`) and cannot be
-evaluated leaves its cell empty; selected by name, it is an error naming the feature.
+evaluated leaves its cell empty; selected or ordered by name, it is an error naming the feature.
 `oslc.searchTerms="wheel","axle"` keeps the elements whose text properties
 contain any of the quoted terms, case-insensitively, as `WhereText` matches.
 

@@ -65,3 +65,16 @@ func TestQuerySelectingAnUnevaluableNamesakeStillFails(t *testing.T) {
 		}
 	}
 }
+
+func TestQueryOrderingByAnUnevaluableNamesakeStillFails(t *testing.T) {
+	srv, hash, _ := runQueryOnSource(t, unevaluableNamesakes, &pb.Query{Scope: []string{"Namesakes"}})
+	for _, property := range namesakeProperties {
+		_, err := srv.Query(context.Background(), &pb.QueryRequest{
+			ModelHash: hash,
+			Query:     &pb.Query{Scope: []string{"Namesakes"}, OrderBy: []string{property}},
+		})
+		if err == nil || !strings.Contains(err.Error(), "cannot evaluate feature "+property+" of "+namesakeOwner(property)) {
+			t.Errorf("orderBy %s: err = %v, want the unevaluable feature named", property, err)
+		}
+	}
+}

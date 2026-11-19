@@ -85,9 +85,19 @@ func Translate(q Query, ctx Context, name string) (*Plan, error) {
 		arg("tolerate", queryplan.BooleanLiteral(true, origin)),
 	}
 	if len(q.Select) == 0 {
-		// Nothing was asked for by name, so a feature of the model that shares a
-		// property's name and cannot be evaluated leaves its cell empty.
-		project = append(project, arg(queryplan.ArgumentTolerateUnevaluable, queryplan.BooleanLiteral(true, origin)))
+		// A column nobody named may share its name with a feature that cannot be evaluated: its
+		// cell is left empty. One the query orders by was named, and fails as a selected one does.
+		ordered := make(map[string]bool, len(q.OrderBy))
+		for _, term := range q.OrderBy {
+			ordered[term.Property] = true
+		}
+		var unnamed []string
+		for _, column := range columns {
+			if !ordered[column] {
+				unnamed = append(unnamed, column)
+			}
+		}
+		project = append(project, arg(queryplan.ArgumentTolerateUnevaluable, stringList(unnamed)))
 	}
 	expression = operate(queryplan.OperationProject, project...)
 	for i := len(q.OrderBy) - 1; i >= 0; i-- {

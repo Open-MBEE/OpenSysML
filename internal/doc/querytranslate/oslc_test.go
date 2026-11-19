@@ -617,26 +617,49 @@ func TestObjectQuerySelectingNothingProjectsSymbolKind(t *testing.T) {
 	}
 }
 
-func TestOnlyAQuerySelectingNothingToleratesUnevaluableFeatures(t *testing.T) {
-	tolerates := func(text string, selected ...Selection) bool {
-		q := mustParse(t, text)
-		q.Select = selected
+func TestOnlyUnnamedColumnsTolerateUnevaluableFeatures(t *testing.T) {
+	tolerated := func(q Query) []string {
 		plan, err := Translate(q, Context{}, "Test")
 		if err != nil {
 			t.Fatal(err)
 		}
 		project := plan.Program.Definitions()[0].Expression()
-		if project.Operation() != queryplan.OperationProject {
-			t.Fatalf("root operation = %s, want project", project.Operation())
+		for project.Operation() == queryplan.OperationOrderBy {
+			project = argumentNamed(t, project, "source")
 		}
-		return slices.ContainsFunc(project.Arguments(), func(a queryplan.Argument) bool {
-			return a.Name == queryplan.ArgumentTolerateUnevaluable
-		})
+		if project.Operation() != queryplan.OperationProject {
+			t.Fatalf("operation under the ordering = %s, want project", project.Operation())
+		}
+		var names []string
+		for _, a := range project.Arguments() {
+			if a.Name == queryplan.ArgumentTolerateUnevaluable {
+				for _, item := range a.Value.Arguments() {
+					_, name := item.Value.Literal()
+					names = append(names, name)
+				}
+			}
+		}
+		return names
 	}
-	if !tolerates(`sysml:name="car"`) {
-		t.Error("a query selecting nothing does not tolerate an unevaluable feature")
+	if got := tolerated(Query{}); !slices.Equal(got, DefaultProjection()) {
+		t.Errorf("a query naming nothing tolerates %v, want every default column", got)
 	}
-	if tolerates(`sysml:name="car"`, Selection{Property: query.PropertyText}) {
-		t.Error("a query selecting text tolerates an unevaluable feature it asked for")
+	got := tolerated(Query{OrderBy: []OrderTerm{{Property: query.PropertyText}}})
+	if slices.Contains(got, query.PropertyText) || !slices.Contains(got, query.PropertyBody) {
+		t.Errorf("ordered by text, tolerated = %v, want every default column but text", got)
 	}
+	if got := tolerated(Query{Select: []Selection{{Property: query.PropertyText}}}); len(got) != 0 {
+		t.Errorf("a query selecting text tolerates %v, want none", got)
+	}
+}
+
+func argumentNamed(t *testing.T, expression queryplan.Expression, name string) queryplan.Expression {
+	t.Helper()
+	for _, a := range expression.Arguments() {
+		if a.Name == name {
+			return a.Value
+		}
+	}
+	t.Fatalf("%s has no argument %s", expression.Operation(), name)
+	return queryplan.Expression{}
 }

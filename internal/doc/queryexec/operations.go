@@ -859,8 +859,8 @@ type projection struct {
 	properties []string
 	computed   []computedColumn
 	tolerate   bool
-	// tolerateUnevaluable leaves empty the cell of a feature that cannot be evaluated.
-	tolerateUnevaluable bool
+	// tolerateUnevaluable names the properties whose cell stays empty when a feature cannot be evaluated.
+	tolerateUnevaluable map[string]bool
 	tracker             *propertyTracker
 	known               []bool
 	missing             [][]*Error
@@ -895,8 +895,13 @@ func (e *executor) newProjection(expression queryplan.Expression) (*projection, 
 		return nil, err
 	}
 	if hasArgument(expression, queryplan.ArgumentTolerateUnevaluable) {
-		if p.tolerateUnevaluable, err = e.booleanArgument(expression, queryplan.ArgumentTolerateUnevaluable); err != nil {
+		names, err := e.stringsArgument(expression, queryplan.ArgumentTolerateUnevaluable)
+		if err != nil {
 			return nil, err
+		}
+		p.tolerateUnevaluable = make(map[string]bool, len(names))
+		for _, name := range names {
+			p.tolerateUnevaluable[name] = true
 		}
 	}
 	seen := make(map[string]bool, total)
@@ -926,7 +931,7 @@ func (p *projection) cells(value Value) ([]Cell, error) {
 				// A wildcard projects what the evaluator serves; tolerated, an
 				// unserved property is an empty cell.
 				values, present, err = nil, false, nil
-			} else if p.tolerateUnevaluable && unevaluableFeature(err) {
+			} else if p.tolerateUnevaluable[property] && unevaluableFeature(err) {
 				values, present, err = nil, false, nil
 			} else {
 				return nil, p.e.unevaluable(p.expression, property, value, err)

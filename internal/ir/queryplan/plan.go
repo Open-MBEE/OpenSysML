@@ -132,8 +132,8 @@ func (p Parameter) clone() Parameter {
 	return p
 }
 
-// ArgumentTolerateUnevaluable is the Project argument a translated query that selects nothing sets:
-// a feature whose value cannot be evaluated leaves its cell empty rather than failing the query.
+// ArgumentTolerateUnevaluable is the Project argument naming the properties a translated query did not ask for
+// by name: a feature of that name whose value cannot be evaluated leaves its cell empty.
 const ArgumentTolerateUnevaluable = "tolerateUnevaluable"
 
 // Argument is one normalized invocation argument.
