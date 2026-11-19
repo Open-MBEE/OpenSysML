@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // countingContext is done from its live-th look on, with the error it was
@@ -249,13 +250,27 @@ func TestPreCancelledLongCallsDoNoWork(t *testing.T) {
 	}
 }
 
+// parseInOwnService parses in a service over cache that it closes on return:
+// a test's cleanup would keep the service of every attempt until the test ends.
+func parseInOwnService(ctx context.Context, t *testing.T, cache *libs.Cache, req *pb.ParseSourcesRequest) (*pb.ParseSourcesResponse, error) {
+	t.Helper()
+	srv, err := NewService(10, "test", WithRecordCache(cache))
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	defer srv.Close()
+	return srv.ParseSources(ctx, req)
+}
+
 // A parse stopped while it analyzes writes no record of the model, so no later
 // process reads part of a report; one stopped while a record answers is as whole.
 func TestCancelledParseRecordsNoAnalysis(t *testing.T) {
 	for _, cause := range []error{context.Canceled, context.DeadlineExceeded} {
 		t.Run(cause.Error(), func(t *testing.T) {
 			req := &pb.ParseSourcesRequest{Documents: inlineDocuments(recordedModels[2]...)}
-			want, err := mustNewService(t, 8).ParseSources(context.Background(), req)
+			undisturbed := mustNewService(t, 8)
+			defer undisturbed.Close()
+			want, err := undisturbed.ParseSources(context.Background(), req)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -265,7 +280,7 @@ func TestCancelledParseRecordsNoAnalysis(t *testing.T) {
 			cache, dir := recordCacheIn(t)
 			// A service per attempt: a second parse of the documents goes through their lineage, which records nothing.
 			written, analyzing := cancelAtEveryCheck(t, cause, func(ctx context.Context) (*pb.ParseSourcesResponse, error) {
-				resp, err := recordingService(t, cache).ParseSources(ctx, req)
+				resp, err := parseInOwnService(ctx, t, cache, req)
 				if n := len(recordFiles(t, dir)); err != nil && n != 0 {
 					t.Fatalf("a cancelled parse wrote %d records", n)
 				}
@@ -275,7 +290,7 @@ func TestCancelledParseRecordsNoAnalysis(t *testing.T) {
 				t.Fatalf("the finished parse wrote %d records, want 1", n)
 			}
 			read, reading := cancelAtEveryCheck(t, cause, func(ctx context.Context) (*pb.ParseSourcesResponse, error) {
-				return recordingService(t, cache).ParseSources(ctx, req)
+				return parseInOwnService(ctx, t, cache, req)
 			})
 			if reading >= analyzing {
 				t.Errorf("reading the record looked at the context %d times, analyzing %d: the record was not read", reading, analyzing)
