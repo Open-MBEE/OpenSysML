@@ -78,14 +78,16 @@ run_case() {
 
 # calls <name> <command>: how many pip calls of the case ran the command.
 calls() {
-  grep -c "^$2 " "$work/$1/pip.log" 2>/dev/null || true
+  local name=$1 command=$2
+  grep -c "^$command " "$work/$name/pip.log" 2>/dev/null || true
 }
 expect_calls() {
   local name=$1 command=$2 expected=$3
   [[ $(calls "$name" "$command") == "$expected" ]] || fail "$name: $(calls "$name" "$command") pip $command calls, expected $expected"
 }
 mentions() {
-  grep -q -- "$2" "$work/$1/out" || fail "$1: output lacks \"$2\""
+  local name=$1 text=$2
+  grep -q -- "$text" "$work/$name/out" || fail "$name: output lacks \"$text\""
 }
 holds() {
   local name=$1 expected=$2 actual

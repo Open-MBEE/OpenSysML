@@ -22,7 +22,8 @@ families=(
 # move FILE PATTERN FIELD adds one to a standing count of the first matching line: the last count,
 # or the FIELD-th tab-separated one.
 move() {
-	python3 - "$1" "$2" "${3:-}" <<'PY'
+	local file=$1 pattern=$2 field=${3:-}
+	python3 - "$file" "$pattern" "$field" <<'PY'
 import re, sys
 path, pattern, field = sys.argv[1], re.compile(sys.argv[2]), sys.argv[3]
 lines = open(path, encoding="utf-8").read().split("\n")
@@ -49,7 +50,7 @@ PY
 failed=0
 for family in "${families[@]}"; do
 	IFS='|' read -r name file pattern check <<<"$family"
-	if [ "$#" -gt 0 ] && ! printf '%s\n' "$@" | grep -qx "$name"; then
+	if [[ "$#" -gt 0 ]] && ! printf '%s\n' "$@" | grep -qx "$name"; then
 		continue
 	fi
 	echo "== $name: $check"
@@ -64,6 +65,7 @@ for family in "${families[@]}"; do
 	case "$name" in
 	census-records-ours) field=3 ;;
 	census-records-pilot) field=7 ;;
+	*) ;;
 	esac
 	if ! move "$file" "$pattern" "$field"; then
 		failed=1

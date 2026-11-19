@@ -3,6 +3,7 @@ package queryexec
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -711,5 +712,29 @@ calc def Over :> Query {
 	}
 	if executionError.Expected != "1..1" {
 		t.Fatalf("Expected = %q, want %q", executionError.Expected, "1..1")
+	}
+}
+
+func TestProjectPropertyMemberPathRefusesOverfullMember(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+attribute def Bounded { attribute runs : Integer; }
+part def Row;
+package Results {
+	individual part def Over :> Row {
+		attribute one : Bounded { attribute redefines runs = 1; }
+		attribute two : Bounded { attribute redefines runs = (2, 3); }
+	}
+}
+calc def Over :> Query {
+	in root : Element;
+	Project(source = Descendants(source = root, maxDepth = 1), properties = ("ownedMember.runs"))
+}
+`)
+	_, err := fixture.execute(t, "Over", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "Results"))},
+	}, Options{})
+	var executionError *Error
+	if !errors.As(err, &executionError) || !strings.Contains(err.Error(), "more than its multiplicity admits") {
+		t.Fatalf("error = %v, want the over-full member refused", err)
 	}
 }
