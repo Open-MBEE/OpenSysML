@@ -830,12 +830,12 @@ ours-missing):
    feature per expression metaclass, read for a symbol and for a graph element known by metaclass alone, and a
    feature declaring no typing takes its types from what it implicitly specializes (`metamodel/structure_implied_types.go`):
    the function an operator, chain, select, collect or trigger invokes or a stated callee resolves to,
-   else the implied base's type. Movement against develop's record above:
-   present-equal +36687 (2106876 → 2143571), present-different +35812 (148373 → 184193),
-   ours-missing −74710 (301823 → 227097), indeterminate +2211 (36020 → 38231), elements unchanged, 128 rows
+   else the implied base's type. Movement against the record this branch stacks on (develop's with the NPR7123 library and its example):
+   present-equal +37158 (2138604 → 2175762), present-different +36238 (149181 → 185419),
+   ours-missing −75607 (307485 → 231878), indeterminate +2211 (39130 → 41341), elements unchanged, 128 rows
    moved, no row grew in ours-missing, no new row. `type`, `function` and `behavior` ours-missing → equal for
-   `FeatureReferenceExpression` (2367; the one present-different is a `while` condition the pilot types by
-   `Performances::BooleanEvaluation`, `StructuredControlTest`), `LiteralInteger` (2051), `LiteralString` (1385),
+   `FeatureReferenceExpression` (2453; the one present-different is a `while` condition the pilot types by
+   `Performances::BooleanEvaluation`, `StructuredControlTest`), `LiteralInteger` (2051), `LiteralString` (1426),
    `FeatureChainExpression` (547), `LiteralBoolean` (431), `LiteralRational` (342), `LiteralInfinity` (320),
    `OperatorExpression` (1429, 1419 on `type` — the 10 present-different, 20 on `type`, are boolean positions where the pilot
    types the expression by `Performances::BooleanEvaluation` beside the operator's function; 6 indeterminate),
@@ -845,10 +845,10 @@ ours-missing):
    `TriggerInvocationExpression` (6 each), `SelectExpression` (3), `CollectExpression` (1); `InvocationExpression`
    261 equal (257 on `type`), 5 different (9 on `type`), 291 indeterminate — the callee is a Function of the model the
    referee keys differently on the two sides — and none left ours-missing. Two `Feature.type`
-   rows move ours-missing → equal (10333 → 10331). The inherited families (`inheritedMembership`,
+   rows move ours-missing → equal (10419 → 10417). The inherited families (`inheritedMembership`,
    `inheritedFeature`, and for a literal `member`, `membership`, `feature`, `featureMembership`) move
-   ours-missing → present-different for every expression metaclass (`FeatureReferenceExpression` 2368,
-   `LiteralInteger` 2051, `OperatorExpression` 1445, `LiteralString` 1385, `InvocationExpression` 557,
+   ours-missing → present-different for every expression metaclass (`FeatureReferenceExpression` 2454,
+   `LiteralInteger` 2051, `OperatorExpression` 1445, `LiteralString` 1426, `InvocationExpression` 557,
    `FeatureChainExpression` 547, `LiteralBoolean` 431, `LiteralRational` 342, `LiteralInfinity` 320,
    `ConstructorExpression` 64, `IndexExpression` 47, `NullExpression` 15, the rest under 10; where the invoked
    function is one the referee keys differently on the two sides, part of the `inheritedFeature`,
@@ -861,9 +861,9 @@ ours-missing):
    implied base feature's behavior stand in for it (KerML 1.1 §8.4.4.6); `Evaluation::result` itself appears only where
    no behavior of its own redefines it. For an expression owning a result parameter `output` and `directedFeature` do not move (develop's record
    already carries the inherited `result` beside the own one in both lists); for a literal, which owns no result
-   parameter, the two rows move ours-missing → equal (`LiteralInteger` 2051, `LiteralString` 1385, `LiteralBoolean`
+   parameter, the two rows move ours-missing → equal (`LiteralInteger` 2051, `LiteralString` 1426, `LiteralBoolean`
    431, `LiteralRational` 342, `LiteralInfinity` 320, `NullExpression` 15, `MetadataAccessExpression` 6), the
-   inherited `result` alone on both sides. The unkeyed references rise by 29370, the library membership stubs
+   inherited `result` alone on both sides. The unkeyed references rise by 29751, the library membership stubs
    these families name; the Turtle changes additively (the stubs; two conversion goldens cross 200 KiB into
    digest form).
 
