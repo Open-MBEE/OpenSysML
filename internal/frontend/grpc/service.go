@@ -25,6 +25,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // msgModelNotFound formats the not-found status for an unknown model hash.
@@ -165,6 +166,10 @@ const CapabilitySymbolAnnotatingMetadata = "symbol_annotating_metadata"
 // CapabilitySymbolLookupKind names the capability of honouring the lookup of GetSymbolRequest and
 // GetElementPropertiesRequest: a qualified name read only as a name, an element id only as an id.
 const CapabilitySymbolLookupKind = "symbol_lookup_kind"
+
+// CapabilitySymbolMemberDirection names the capability of honouring
+// GetSymbolRequest.member_of, reporting a feature's direction relative to that type.
+const CapabilitySymbolMemberDirection = "symbol_member_direction"
 
 // CapabilityUnsetValue names the capability of reporting a valueless feature of
 // a value type as Value.unset, rather than as the empty object it materializes.
@@ -457,6 +462,7 @@ var capabilities = []string{
 	CapabilityRenderViewForm,
 	CapabilitySymbolAnnotatingMetadata,
 	CapabilitySymbolLookupKind,
+	CapabilitySymbolMemberDirection,
 }
 
 type capabilityAvailability struct {
@@ -531,6 +537,9 @@ type Service struct {
 	// lineages are the incremental workspaces of the document sets parsed more
 	// than once (lineage.go).
 	lineages *lineages
+	// records persists what the analysis of a model reported, for the next process
+	// that parses it (modelrecord.go); nil holds nothing across processes.
+	records *libs.Cache
 }
 
 // Option adjusts how NewService builds a service.
@@ -539,6 +548,13 @@ type Option func(*serviceOptions)
 type serviceOptions struct {
 	unavailable []string
 	serve       []string
+	records     *libs.Cache
+}
+
+// WithRecordCache has the service read a parsed model's analysis from cache when one is
+// recorded there, and record what it analyzes itself; a nil cache is none.
+func WithRecordCache(cache *libs.Cache) Option {
+	return func(o *serviceOptions) { o.records = cache }
 }
 
 // ServeExternalEngines names the manifest engines the service runs, as
@@ -638,6 +654,7 @@ func newService(cacheSize int, version string, opts []Option) (*Service, error) 
 		engines:        engines,
 		version:        version,
 		capabilities:   availability,
+		records:        options.records,
 	}, nil
 }
 
@@ -1063,9 +1080,14 @@ func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceM
 		}
 		batch := &passes.Batch{Documents: names, Gathers: passes.NewGathers()}
 		passes.PrepareBatch(idx, batch)
-		for i, doc := range documents {
-			doc.Unfiltered, _ = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind, doc.Root,
-				doc.Diagnostics, idx, passes.Options{Conformance: mode}, batch)
+		if !s.analysisFromRecord(modelHash, idx, documents) {
+			for i, doc := range documents {
+				doc.Unfiltered, _ = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind, doc.Root,
+					doc.Diagnostics, idx, passes.Options{Conformance: mode}, batch)
+			}
+			s.recordAnalysis(modelHash, idx, documents)
+		}
+		for _, doc := range documents {
 			doc.Diagnostics = passes.WithoutLints(doc.Unfiltered, nil, nil)
 		}
 	}
@@ -1092,10 +1114,20 @@ func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.
 		}, nil
 	}
 
+	opts := symbolfacts.Options{IncludeLibraryMembers: req.IncludeLibraryMembers}
+	if req.MemberOf != "" && s.capabilities.has(CapabilitySymbolMemberDirection) {
+		owners := cached.LookupElementID(req.MemberOf)
+		if len(owners) == 0 {
+			return &pb.SymbolResponse{
+				Error: fmt.Sprintf("symbol not found: %s", req.MemberOf),
+			}, nil
+		}
+		opts.MemberOf = owners[0]
+	}
+
 	// Convert first match to proto
 	return &pb.SymbolResponse{
-		Symbol: s.symbolToProtoWith(syms[0], cached.SymbolContext(),
-			symbolfacts.Options{IncludeLibraryMembers: req.IncludeLibraryMembers}),
+		Symbol: s.symbolToProtoWith(syms[0], cached.SymbolContext(), opts),
 	}, nil
 }
 

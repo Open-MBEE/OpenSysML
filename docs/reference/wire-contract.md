@@ -243,6 +243,12 @@ namespace it is written in and owns its Annotation (KerML 8.3.2.3), so it is nei
 member of what it annotates: `childIds` and `members` leave it out, and this field is where it is
 found. The `symbol_annotating_metadata` capability advertises the field; a service without it
 answers none.
+`memberOf` names the type the symbol is read as a feature of, by id: `metadata.direction` is then
+the feature's direction relative to that type (KerML 8.3.3.1.10 `Type::directionOf`), which a
+conjugation on the way reverses, so a feature declared `out` reads `in` through a port typed
+`~P` (SysML 8.3.12.3). Without it `direction` is the feature's own. An id that names nothing is
+an error. The `symbol_member_direction` capability advertises the field; a service without it
+ignores it.
 Beside the other typed fields (`typeInfo`, `multiplicity`, `specializations`, `attributes`),
 `metadata` is a string map of facts about the declaration, each present only when it holds:
 
@@ -295,6 +301,17 @@ time-to-live: a model stays until it is one of the least recently *used* when th
 and a new model arrives, or until the process exits. Every call that names a hash counts as a
 use, so a model in active use is not evicted. Re-parsing a model the cache still holds returns
 the same hash and does not re-parse.
+
+What a process restart keeps is the model's analysis, not the model: a parse whose documents all
+parse clean files the diagnostics its validation passes reported in the record cache (the
+`sysml-ls/libs` directory under `XDG_CACHE_HOME` or the user cache directory), under the model
+hash, the standard library's identity and the build. The next process to parse the same documents
+at the same strictness parses and indexes them, reads the diagnostics from the record instead of
+running the passes, and answers exactly what a first parse answers. A record that is missing,
+unreadable or of another model is a miss, and the model is analyzed. The model records of a cache
+directory are held to 64 MiB together, the least recently used going first, and a record no parse
+has read for 30 days is removed. `sysml-grpc -no-record-cache`, or `OPENSYSML_RECORD_CACHE=0`,
+reads and writes none.
 
 The consequence for a client: a hash is a **cache key, not a durable identifier**. Store the
 documents, not the hash; recompute by re-parsing whenever the service says the hash is gone.
@@ -1049,7 +1066,7 @@ HTTP/1.1 400 Bad Request
 
 $ … /Query -d '{"modelHash":"2af5…dea2","query":{"where":{"primitive":{"property":"colour","operator":"PRIMITIVE_OPERATOR_EQUAL","value":["red"]}}}}'
 HTTP/1.1 400 Bad Request
-{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, body, declaredName, declaredShortName, documentation, elementId, general, isAbstract, isIndividual, language, locale, multiplicityLower, multiplicityUpper, name, owner, payloadArgument, qualifiedName, receiverArgument, satisfiedRequirement, satisfyingFeature, senderArgument, shortName, textualRepresentation, type"}
+{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, body, declaredName, declaredShortName, documentation, elementId, general, isAbstract, isIndividual, language, locale, multiplicityLower, multiplicityUpper, name, owner, payloadArgument, qualifiedName, receiverArgument, satisfiedRequirement, satisfyingFeature, senderArgument, shortName, symbolKind, text, textualRepresentation, type"}
 
 $ … /ApplyEdits -d '{"modelHash":"997e…6134","acceptDocuments":true,"document":"nope.sysml","operations":[{"rename":{"target":"EngineUser::Car","newName":"Automobile"}}]}'
 HTTP/1.1 400 Bad Request

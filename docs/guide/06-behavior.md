@@ -2216,21 +2216,27 @@ part def Lander {
 }
 ```
 
-After each step every guard is evaluated; one that changed sign since the previous step, or has
+Every guard is watched along the run; one that changed sign since the previous sample, or has
 just reached exactly zero, posts an event of its type — once: a guard resting at zero raises no
 more — which the machine's `accept Touchdown` takes as it takes any signal, and the trace records
-`event: zero crossing touchdown of fall (t=2.0)`. Two performances of the same dynamics each post
-their own event, so a machine accepting `fall.touchdown` takes its performer's crossing. The crossing
-is located to the end of the step that detected it: the event carries that step's instant and the
-state the machine reads is the post-step state, so a crossing is reported up to one `timeStep`
-late and a guard that crosses and crosses back inside one step is not seen — choose the step for
-the guard as much as for the integration.
+`event: zero crossing touchdown of fall (t=1.949358868961793)`. Two performances of the same
+dynamics each post their own event, so a machine accepting `fall.touchdown` takes its performer's
+crossing. The crossing is located inside the step: before each step the runner previews the guards
+at the quarters of the step, over the state the integrator reaches from the step's start in that
+shorter span, and where a guard changes sign between two of them — or turns towards zero and away
+again and is found to reach it in between — bisects the first such instant down to two adjacent
+floating-point instants. The run takes a sample there: the event carries that instant, the state,
+`time` and `output` the machine reads are the ones at the crossing, a terminal crossing ends the
+run there, and otherwise the step goes on from it. What stands between the located instant and the
+true one is the integrator's own error over that span; a guard that crosses and crosses back
+between two previewed quarters without turning visibly towards zero at one of them is not seen, so
+the step still has to be chosen for the guard as well as for the integration.
 
 An event occurrence typed by the library's own `ZeroCrossingEventDef`, or by a specialization
 that declares no `guard`, needs none: it occurs where the derivative crosses zero, as the
 library defines its zero-crossing events (SysML v2 §9.4.4) — when a component of
-`getDerivative(input, stateSpace)` changes sign between two steps or arrives at zero, located to
-the end of the detecting step like a guarded crossing. `event occurrence apex : Apex;` with
+`getDerivative(input, stateSpace)` changes sign between two samples or arrives at zero, located
+inside the step like a guarded crossing. `event occurrence apex : Apex;` with
 `action def Apex :> ZeroCrossingEventDef;` marks the apex of a thrown ball, where its velocity —
 the derivative of its height — changes sign.
 

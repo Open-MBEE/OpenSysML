@@ -859,9 +859,11 @@ type projection struct {
 	properties []string
 	computed   []computedColumn
 	tolerate   bool
-	tracker    *propertyTracker
-	known      []bool
-	missing    [][]*Error
+	// tolerateUnevaluable names the properties whose cell stays empty when a feature cannot be evaluated.
+	tolerateUnevaluable map[string]bool
+	tracker             *propertyTracker
+	known               []bool
+	missing             [][]*Error
 	// wildcard marks the properties a wildcard expanded to, which a row may
 	// lack and no row need carry.
 	wildcard []bool
@@ -892,6 +894,16 @@ func (e *executor) newProjection(expression queryplan.Expression) (*projection, 
 	if p.tolerate, err = e.tolerateArgument(expression); err != nil {
 		return nil, err
 	}
+	if hasArgument(expression, queryplan.ArgumentTolerateUnevaluable) {
+		names, err := e.stringsArgument(expression, queryplan.ArgumentTolerateUnevaluable)
+		if err != nil {
+			return nil, err
+		}
+		p.tolerateUnevaluable = make(map[string]bool, len(names))
+		for _, name := range names {
+			p.tolerateUnevaluable[name] = true
+		}
+	}
 	seen := make(map[string]bool, total)
 	for _, property := range p.properties {
 		seen[property] = true
@@ -918,6 +930,8 @@ func (p *projection) cells(value Value) ([]Cell, error) {
 			if (p.tolerate || (p.wildcard != nil && p.wildcard[column])) && unserved(err) {
 				// A wildcard projects what the evaluator serves; tolerated, an
 				// unserved property is an empty cell.
+				values, present, err = nil, false, nil
+			} else if p.tolerateUnevaluable[property] && unevaluableFeature(err) {
 				values, present, err = nil, false, nil
 			} else {
 				return nil, p.e.unevaluable(p.expression, property, value, err)
@@ -946,6 +960,13 @@ func (p *projection) cells(value Value) ([]Cell, error) {
 func unserved(err error) bool {
 	var failure *Error
 	return errors.As(err, &failure) && failure.Kind == ErrorUnservedProperty
+}
+
+// unevaluableFeature reports the error of a feature the model declares whose
+// value could not be evaluated.
+func unevaluableFeature(err error) bool {
+	var failure *Error
+	return errors.As(err, &failure) && failure.Kind == ErrorUnevaluableFeature
 }
 
 // checkProperties reports, once every row is read, a property no row carried
@@ -1219,7 +1240,8 @@ func isQueryableProperty(property string) bool {
 		query.PropertyIsIndividual,
 		query.PropertyMultiplicityLower,
 		query.PropertyMultiplicityUpper,
-		query.PropertyElementID:
+		query.PropertyElementID,
+		query.PropertySymbolKind:
 		return true
 	default:
 		return false

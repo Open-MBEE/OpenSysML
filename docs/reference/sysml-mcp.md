@@ -765,7 +765,7 @@ token, and client scopes named after the server's scopes with *Include in token 
 | `-root DIR` | `.` | Workspace folder whose model documents the server indexes and edits |
 | `-tools GROUPS` | `all` | Tool groups to serve, comma-separated: `lsp`, `runtime`, `session` |
 | `-strict` | off | Strict conformance from the start: notation no pinned SysML v2 production admits is an error |
-| `-no-record-cache` | off | Parse every document and hold it loaded, reading and writing no interface record (also `OPENSYSML_RECORD_CACHE=0`) |
+| `-no-record-cache` | off | Parse every document and hold it loaded, reading and writing no interface record, and analyze every model the runtime tools parse, reading and writing no model record (also `OPENSYSML_RECORD_CACHE=0`) |
 | `-cache-size N` | `100` | Parsed models the runtime tools hold, at least 1 |
 | `-log-level LEVEL` | `warn` | Lowest level logged to stderr: `debug`, `info`, `warn` or `error` |
 | `-stdio` | — | Serve over stdin/stdout; the default transport, accepted for hosts that name it; not with `-http` |

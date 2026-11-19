@@ -4572,7 +4572,11 @@ below was observed at 41dc35cb with `/usr/bin/z3` 4.8.12; `bin/sysml` needs no e
 - **Quantities come back in base units**, as with `%check`: `10 [kg] .. 90 [kg]` minimized reads
   `10000.0 [gram]`. Mixed units in one case (`>= 500 [g]`, `<= 2 [kg]`) are reconciled correctly
   (`2000.0 [gram]`) — a good adversarial case that a naive translation would get wrong.
-- **Bad input:** `%optimize` alone → `usage: %optimize <name>`; an unknown name →
+- **`-json`:** `%optimize <name> -json` and `%configure <name> ... -json` (the flag anywhere after
+  the command) print one JSON document and no prose: `command`, and per report `subject`, `status`,
+  `solver`, `values` (a quantity's magnitude with `unit`/`dimension` apart), `lines`, plus `optima`
+  or `selections`/`truncated`. Compare `lines` with the text run to see nothing is lost.
+- **Bad input:** `%optimize` alone → `usage: %optimize <name> [-json]`; an unknown name →
   `error: unresolved reference: X`; a package/part def/constraint def →
   `error: not an analysis case: X is a <kind>, not an analysis case definition or usage`
   (the article follows the kind's first letter, `articleFor` in `internal/exec/runtime/describe.go`).
@@ -5086,7 +5090,7 @@ wildcard `import R::Widget::*;` (must not change), a same-named member in an unr
 (`bin/sysml -validate`) and that it is *not* byte-identical to the input (catches a silent no-op).
 
 **Query property names are JSON-LD-ish:** `@id` and `@type`, not `id`/`type`. Requesting an unknown
-property returns an error listing the valid set. `isIndividual` is **not** in `QueryPropertyNames()`
+property returns an error listing the valid set. `isIndividual` is **not** in `query.PropertyNames()`
 — individual status is only observable through `@type` = `OccurrenceDefinition`/`OccurrenceUsage`.
 If a PR description claims `isIndividual`, verify whether it is a queryable property or only a
 type refinement, and report the difference.

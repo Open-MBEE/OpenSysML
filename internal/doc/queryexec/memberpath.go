@@ -1,6 +1,7 @@
 package queryexec
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -12,41 +13,96 @@ func parseMemberPath(property string) ([]string, bool) {
 	return segments, ok && len(segments) >= 2
 }
 
-// memberPathValues walks a member path from the row element, own members
-// first; a segment naming no member makes the path absent on this row. The
-// member the last segment names is returned with the values (nil when absent).
-func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]Value, bool, *symbols.Symbol, error) {
-	current := sym
+// memberPathStep resolves one inner segment on an element: the member it names, own members
+// first, else the elements of the metaclass feature it names (`type`, `owner`, …).
+func (e *executor) memberPathStep(current *symbols.Symbol, segment string) []*symbols.Symbol {
+	if member, ok := e.context.Model.LookupMember(current, segment); ok && member != nil {
+		return []*symbols.Symbol{member}
+	}
+	if elements, ok := e.context.Model.ReflectiveElements(current, segment); ok {
+		return elements
+	}
+	return nil
+}
+
+// memberOverflow names a declared member a path reached holding more values than its multiplicity admits.
+type memberOverflow struct {
+	member *symbols.Symbol
+	count  int
+}
+
+// memberPathValues walks a member path from the row element; a segment naming neither a member nor a
+// metaclass feature makes the path absent. The first declared member read over its multiplicity is reported.
+func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]Value, bool, *memberOverflow, error) {
+	reached := []*symbols.Symbol{sym}
 	for _, segment := range segments[:len(segments)-1] {
-		member, ok := e.context.Model.LookupMember(current, segment)
-		if !ok || member == nil {
+		var next []*symbols.Symbol
+		for _, current := range reached {
+			next = append(next, e.memberPathStep(current, segment)...)
+		}
+		if len(next) == 0 {
 			return nil, false, nil, nil
 		}
-		current = member
+		reached = next
 	}
 	last := segments[len(segments)-1]
-	values, present, err := e.declaredFeatureValues(current, last)
-	if !present && err == nil && e.valuelessMemberYieldsMetaclassProperty(current, last) {
-		values, present, err = e.metaclassPropertyValues(current, last)
-		return values, present, nil, err
+	var values []Value
+	var overflow *memberOverflow
+	present := false
+	for _, current := range reached {
+		found, ok, err := e.declaredFeatureValues(current, last)
+		if err != nil {
+			return nil, false, nil, err
+		}
+		if ok {
+			if m, _ := e.context.Model.LookupMember(current, last); m != nil && overflow == nil && e.exceedsMultiplicity(m, len(found)) {
+				overflow = &memberOverflow{member: m, count: len(found)}
+			}
+		} else {
+			found, ok, err = e.metaclassSegmentValues(current, last)
+			if err != nil {
+				return nil, false, nil, err
+			}
+		}
+		if ok {
+			present = true
+			values = append(values, found...)
+		}
 	}
-	if !present || err != nil {
-		return values, present, nil, err
+	if !present {
+		return nil, false, nil, nil
 	}
-	member, _ := e.context.Model.LookupMember(current, last)
-	return values, true, member, nil
+	return values, true, overflow, nil
+}
+
+// exceedsMultiplicity reports whether count values are more than member's governing multiplicity admits.
+func (e *executor) exceedsMultiplicity(member *symbols.Symbol, count int) bool {
+	rng := e.context.Model.GoverningMultiplicityOf(member)
+	return rng.Upper.Known && !rng.Upper.Infinite && int64(count) > rng.Upper.Value
+}
+
+// metaclassSegmentValues reads a last segment with no declared value: the metaclass property a
+// valueless member yields to, else, where no member bears the name, the metaclass feature itself.
+func (e *executor) metaclassSegmentValues(current *symbols.Symbol, last string) ([]Value, bool, error) {
+	if e.valuelessMemberYieldsMetaclassProperty(current, last) {
+		return e.metaclassPropertyValues(current, last)
+	}
+	if member, ok := e.context.Model.LookupMember(current, last); ok && member != nil {
+		return nil, false, nil
+	}
+	return e.reflectiveValues(queryplan.Expression{}, current, last)
 }
 
 // memberPathStop walks a member path as memberPathValues does and reports where
-// it stopped: the last member reached and the segment that names no member there.
+// it stopped: the last element reached and the segment that names nothing there.
 func (e *executor) memberPathStop(sym *symbols.Symbol, segments []string) (*symbols.Symbol, string) {
 	current := sym
 	for _, segment := range segments {
-		member, ok := e.context.Model.LookupMember(current, segment)
-		if !ok || member == nil {
+		next := e.memberPathStep(current, segment)
+		if len(next) == 0 {
 			return current, segment
 		}
-		current = member
+		current = next[0]
 	}
 	return current, segments[len(segments)-1]
 }

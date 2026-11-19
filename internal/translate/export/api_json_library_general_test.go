@@ -98,9 +98,8 @@ func TestAPIJSONDoneOfAUseCaseIsTheUseCaseLibraryFeature(t *testing.T) {
 	}
 }
 
-// A performed feature chain's own parameters redefine those of the action the chain names
-// by position (KerML 8.4.4.7 checkFeatureParameterRedefinition), so the named action's
-// parameters are not inherited beside them.
+// A performed chain's parameters redefine the named action's by position (KerML 8.4.4.7
+// checkFeatureParameterRedefinition), so that action's parameters are not inherited beside them.
 func TestAPIJSONParametersOfAPerformedChainRedefineItsTargets(t *testing.T) {
 	graph := duplicateGraph(t, `package Probe {
 		action region {

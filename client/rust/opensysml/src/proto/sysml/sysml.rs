@@ -1171,6 +1171,10 @@ pub struct GetSymbolRequest {
     /// capability, and resolve_name is then ignored.
     #[prost(enumeration="LookupKind", tag="5")]
     pub lookup: i32,
+    /// Id of the type the symbol is read as a feature of: metadata\["direction"\] is then relative to
+    /// it (KerML Type::directionOf), reversed by a conjugation; capability "symbol_member_direction".
+    #[prost(string, tag="6")]
+    pub member_of: ::prost::alloc::string::String,
 }
 /// SymbolResponse contains symbol information
 #[derive(Clone, PartialEq, ::prost::Message)]

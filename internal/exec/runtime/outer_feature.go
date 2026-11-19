@@ -89,6 +89,18 @@ func (inst *Instance) types() []*symbols.Symbol {
 	return append([]*symbols.Symbol{inst.Type}, inst.classifiers...)
 }
 
+// eachType yields what types answers, without building the slice.
+func (inst *Instance) eachType(yield func(*symbols.Symbol) bool) {
+	if inst.Type != nil && !yield(inst.Type) {
+		return
+	}
+	for _, typ := range inst.classifiers {
+		if !yield(typ) {
+			return
+		}
+	}
+}
+
 // ObjectFeature is a feature of an object under one of its names: the declaration its
 // feature value reads, or its type's when it holds no value under the name.
 type ObjectFeature struct {

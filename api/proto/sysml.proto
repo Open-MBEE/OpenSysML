@@ -1039,6 +1039,9 @@ message GetSymbolRequest {
   // What symbol_id is, stated rather than guessed; read with the "symbol_lookup_kind"
   // capability, and resolve_name is then ignored.
   LookupKind lookup = 5;
+  // Id of the type the symbol is read as a feature of: metadata["direction"] is then relative to
+  // it (KerML Type::directionOf), reversed by a conjugation; capability "symbol_member_direction".
+  string member_of = 6;
 }
 
 // LookupKind states what the one string naming an element is, as the SysML v2 API keeps

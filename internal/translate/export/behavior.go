@@ -1639,11 +1639,18 @@ func (d *decoder) successionHead(el *element) (string, error) {
 		return "if " + guard + thenKeyword + target, nil
 	}
 	if form, _ := d.stringOf(el, rdf.OpenSysML+xEndForm); form == formThen || positionalSource {
-		// `then done;` names the library's final node positionally: the
-		// notation reads it back without a reference, so no spelling is checked.
+		// `then done;` names the final node its owner inherits positionally, with no reference to spell:
+		// chooseNames checks it reaches this one, and names a library `done` of another kind instead.
 		if term, ok := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+pTargetFeature); ok && term.IsIRI() {
-			if done, err := d.referencedElement(term.Value); err == nil && d.isLibraryDone(done) {
+			owner := ""
+			if el.owner != nil {
+				owner = d.writtenQName(el.owner)
+			}
+			done, err := d.referencedElement(term.Value)
+			if err == nil && d.isLibraryDone(done) &&
+				!(d.names != nil && d.names.namedDones[nameKey{member: owner, target: done.qname}]) {
 				delete(d.wanted.references, nameKey{member: el.qname, target: done.qname})
+				d.wanted.dones[nameKey{member: owner, target: done.qname}] = true
 				return d.thenSuccessionText("done", el)
 			}
 		}
@@ -2305,7 +2312,7 @@ func (d *decoder) transitionGuard(el *element) (string, error) {
 	var text string
 	var err error
 	if guard.IsLiteral() {
-		if guard.Datatype != rdf.OpenSysML+dtExpression {
+		if guard.Datatype() != rdf.OpenSysML+dtExpression {
 			return "", refuse("its guard is a literal that is not a SysML expression")
 		}
 		text = guard.Value

@@ -6,9 +6,11 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
@@ -181,8 +183,7 @@ func TestSymbolStructureMatchesGraphStructure(t *testing.T) {
 		defer dump.Close()
 	}
 	subset := corpussubset.Must(t, "../../..")
-	totals := map[string]*structureDifferentialTotals{}
-	samples := map[string][]string{}
+	var paths []string
 	for _, path := range corpusModelPaths(t) {
 		if filter != "" && !strings.Contains(filepath.ToSlash(path), filter) {
 			continue
@@ -190,24 +191,31 @@ func TestSymbolStructureMatchesGraphStructure(t *testing.T) {
 		if !subset.WantsPath("examples", path) {
 			continue
 		}
+		paths = append(paths, path)
+	}
+	// The models are compared concurrently and merged here in path order, so the
+	// totals, the samples and the dump are those of a sequential sweep.
+	results := structureDifferentialsOf(paths)
+	totals := map[string]*structureDifferentialTotals{}
+	samples := map[string][]string{}
+	for i, path := range paths {
 		root := structureDifferentialRoot(path)
 		total := totals[root]
 		if total == nil {
 			total = &structureDifferentialTotals{properties: map[string]*differentialCounts{}}
 			totals[root] = total
 		}
-		data, err := os.ReadFile(filepath.Join("..", "..", "..", path))
-		if err != nil {
+		if err := results[i].err; err != nil {
 			t.Fatal(err)
 		}
-		diff, ok := differentialOf(path, data)
-		if !ok {
+		diff := results[i].diff
+		if diff == nil {
 			total.skipped++
 			continue
 		}
 		total.add(diff)
-		for property, lines := range diff.samples {
-			for _, line := range lines {
+		for _, property := range slices.Sorted(maps.Keys(diff.samples)) {
+			for _, line := range diff.samples[property] {
 				if len(samples[property]) < 8 {
 					samples[property] = append(samples[property], filepath.ToSlash(path)+": "+line)
 				}
@@ -218,8 +226,8 @@ func TestSymbolStructureMatchesGraphStructure(t *testing.T) {
 			for _, id := range diff.unmatched {
 				fmt.Fprintf(dump, "unmatched %s %s\n", filepath.ToSlash(path), id)
 			}
-			for property, lines := range diff.samples {
-				for _, line := range lines {
+			for _, property := range slices.Sorted(maps.Keys(diff.samples)) {
+				for _, line := range diff.samples[property] {
 					fmt.Fprintf(dump, "%s %s: %s\n", property, filepath.ToSlash(path), line)
 				}
 			}
@@ -274,6 +282,52 @@ func TestSymbolStructureMatchesGraphStructure(t *testing.T) {
 		t.Errorf("%s moved against %s (review, then re-record with -update-structure-differential):\n%s",
 			root.name, structureDifferentialExpectation, structureDifferentialDelta(want, got, samples))
 	}
+}
+
+// modelDifferential is one model's outcome: its differential, nil for a model
+// the sweep skips, or the error reading it.
+type modelDifferential struct {
+	diff *structureDifferential
+	err  error
+}
+
+// structureDifferentialsOf compares the models on one worker per processor and
+// returns their outcomes in the order of paths.
+func structureDifferentialsOf(paths []string) []modelDifferential {
+	results := make([]modelDifferential, len(paths))
+	next := make(chan int)
+	var workers sync.WaitGroup
+	for range min(runtime.GOMAXPROCS(0), len(paths)) {
+		workers.Go(func() {
+			for i := range next {
+				results[i] = modelDifferentialOf(paths[i])
+			}
+		})
+	}
+	for i := range paths {
+		next <- i
+	}
+	close(next)
+	workers.Wait()
+	return results
+}
+
+func modelDifferentialOf(path string) modelDifferential {
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", path))
+	if err != nil {
+		return modelDifferential{err: err}
+	}
+	diff, ok := differentialOf(path, data)
+	if !ok {
+		return modelDifferential{}
+	}
+	return modelDifferential{diff: diff.outcome()}
+}
+
+// outcome is the differential without the model it was computed over, which a
+// sweep holding every model's outcome must not keep alive.
+func (d *structureDifferential) outcome() *structureDifferential {
+	return &structureDifferential{counts: d.counts, samples: d.samples, matched: d.matched, unmatched: d.unmatched}
 }
 
 // structureDifferentialExceeds lists the counts of a partial sweep that exceed the
@@ -512,6 +566,14 @@ func (d *structureDifferential) computeGraphID(sym *symbols.Symbol) (string, boo
 		// The chain Feature a flow's end references is minted under the end, filed by the chain as written.
 		element, _, ok := d.ids.OfExpressionPart(d.doc, sym.Chain.Node, "chain")
 		return element, ok
+	}
+	if sym.Chain != nil && sym.Chain.Relationship != nil && sym.Chain.Relationship.Implicit != nil {
+		// The chain Feature a head clause's chain target denotes is minted under the head (headChain).
+		if node := sym.Chain.Relationship.Implicit.Node; node != nil && node.Target != nil {
+			if element, _, ok := d.ids.OfExpressionPart(d.doc, node.Target, "chain"); ok {
+				return element, true
+			}
+		}
 	}
 	if i, ok := symbols.ImpliedConnectorEndIndex(sym); ok {
 		// A `then` succession's or a flow's end is minted under its edge at end0/end1 (encodeSuccessionEdge,

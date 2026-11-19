@@ -650,10 +650,10 @@ func apiJSONGraphAttributeDefault(definition ontology.Property) metamodel.Value 
 }
 
 func apiJSONGraphAttributeValue(object rdf.Term) (metamodel.Value, bool) {
-	if object.Kind == rdf.TermIRI {
+	if object.Kind() == rdf.TermIRI {
 		return metamodel.Value{}, false
 	}
-	switch object.Datatype {
+	switch object.Datatype() {
 	case rdf.XSD + "boolean":
 		return metamodel.Value{Kind: metamodel.BooleanValue, Boolean: object.Value == "true" || object.Value == "1", Success: true}, true
 	case rdf.XSD + "integer", rdf.XSD + "int", rdf.XSD + "long", rdf.XSD + "short", rdf.XSD + "byte":

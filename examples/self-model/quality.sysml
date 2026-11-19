@@ -72,7 +72,7 @@ package OpenSysMLInvariants {
         doc /* Every bundled standard library file parses clean. */
         subject stdlib : StandardLibrary;
         require constraint {
-            stdlib.bundledFileCount == 110
+            stdlib.bundledFileCount == 111
         }
     }
 
@@ -313,13 +313,13 @@ package OpenSysMLGates {
     }
 
     // The whole suite under the race detector, as CircleCI runs it: the package groups of
-    // scripts/race-shard.sh, the runtime and tests/export split by test name, light shards paired on a node.
+    // scripts/race-shard.sh, the runtime, tests/export, tests/model and internal/translate/export split by test name, light shards paired on a node.
     verification def RaceSuite {
         doc /* make test-shard SHARD=<shard> */
         attribute shardList : String = "scripts/race-shard.sh";
-        attribute shards : String = "runtime, runtime-corpus, runtime-exploration, model, smt, corpus, corpus-sweep, export, export-library, export-examples, export-corpus, graph, codegen, translate, grpc, tools, rest, migrate, cli";
-        attribute shardCount : Integer = 19;
-        attribute nodeCount : Integer = 16;
+        attribute shards : String = "runtime, runtime-corpus, runtime-exploration, model, smt, corpus, corpus-sweep, export, export-library, export-examples, export-corpus, graph, graph-corpora, codegen, translate, translate-structure, grpc, tools, internal, rest, migrate, cli";
+        attribute shardCount : Integer = 22;
+        attribute nodeCount : Integer = 17;
         subject runtime : Runtime;
         objective {
             verify executionIsBounded;

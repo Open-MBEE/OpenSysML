@@ -38,7 +38,7 @@ The current Git dependency form is:
 opensysml = { git = "https://github.com/Open-MBEE/OpenSysML.git", branch = "main" }
 ```
 
-The minimum supported Rust version is **Rust 1.83**.
+The minimum supported Rust version is **Rust 1.85**.
 
 ## Why blocking
 

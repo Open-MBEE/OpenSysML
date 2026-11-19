@@ -20,6 +20,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/lsptools"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/runtimetools"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/sessiontools"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
@@ -70,6 +71,9 @@ type Config struct {
 	// CacheSize bounds the runtime service's parsed-model cache; 0 is the
 	// service's default of 100.
 	CacheSize int
+	// Records is the record cache the runtime service keeps the analysis of the
+	// models it parses in; nil keeps none.
+	Records *libs.Cache
 	// UnavailableCapabilities are capabilities the runtime service deliberately
 	// lacks, for conformance testing of a client's fallbacks; nil lacks none.
 	UnavailableCapabilities []string
@@ -147,9 +151,10 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 			var svc *sysmlgrpc.Service
 			var err error
 			if len(cfg.UnavailableCapabilities) == 0 {
-				svc, err = sysmlgrpc.NewService(size, cfg.Version)
+				svc, err = sysmlgrpc.NewService(size, cfg.Version, sysmlgrpc.WithRecordCache(cfg.Records))
 			} else {
-				svc, err = sysmlgrpc.NewServiceWithUnavailableCapabilitiesForTesting(size, cfg.Version, cfg.UnavailableCapabilities)
+				svc, err = sysmlgrpc.NewServiceWithUnavailableCapabilitiesForTesting(size, cfg.Version, cfg.UnavailableCapabilities,
+					sysmlgrpc.WithRecordCache(cfg.Records))
 			}
 			if err != nil {
 				s.Close(ctx)

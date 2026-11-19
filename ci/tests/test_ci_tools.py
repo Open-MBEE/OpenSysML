@@ -604,7 +604,7 @@ class WatcherPartsTest(Stub):
     def test_review_threads_beyond_one_page_are_not_clear(self):
         self.use([[r"^api graphql", {"data": {"repository": {"pullRequest": {"reviewThreads": {
             "totalCount": 101, "nodes": [{"isResolved": True}] * 100}}}}}, 0]])
-        self.assertFalse(watcher.review_clear(7, SHA7))
+        self.assertFalse(watcher.review_clear(7))
         self.assertIn("101 review threads, more than one page", self.log())
 
     def test_unreadable_pr_keeps_its_authorized_rerun_and_dry_run_keeps_reopen(self):
@@ -729,11 +729,356 @@ class WatcherPartsTest(Stub):
         self.write("outage.json", {"probes": ["file:///nonexistent/ci-throttle-probe"]})
         self.assertIsNone(watcher.start_next(st))
         self.assertIn("no slot granted", self.log())
+        with mock.patch.object(watcher.subprocess, "run") as run:
+            self.assertEqual([watcher.probe_code(u) for u in ("-K/etc/passwd", "file:///etc/passwd", "http://example.org/", "https://[::1/asset", None)], ["err"] * 5)
+            run.return_value.stdout = "206\n"
+            self.assertEqual(watcher.probe_code("https://example.org/asset"), "206")
+        self.assertEqual(run.call_count, 1)
+        self.assertEqual(run.call_args.args[0][-2:], ["--url", "https://example.org/asset"])
         os.remove(os.path.join(self.dir, "outage.json"))
         self.assertIsNone(watcher.start_next(st))
         self.assertIn("release hold (release_hold.json): release in progress", self.log())
         watcher.wait_for_new(st)
         self.assertIn("fast poll: new queued run(s) [555]; running a pass now", self.log())
+
+    def cancelled_view(self, rid, head=SHA7, minutes=1):
+        return [rf"^run view {rid} --repo Example/Repo --json conclusion,status,jobs", {
+            "status": "completed", "conclusion": "cancelled", "headSha": head, "attempt": 1, "startedAt": stamp(90),
+            "jobs": [{"name": "Go", "conclusion": "cancelled", "startedAt": stamp(minutes), "completedAt": stamp(0)}]}, 0]
+
+    def test_finish_holder_words_a_cancelled_run_by_what_became_of_its_pr(self):
+        self.use([self.cancelled_view(1, head=SHA8), self.cancelled_view(2, head=f"{9:040d}"), self.cancelled_view(3), self.cancelled_view(4, minutes=61),
+                  [r"^api repos/Example/Repo/pulls/9$", dict(pull(9, "feat/nine"), mergeable_state="dirty"), 0],
+                  [r"^run rerun 3 ", "", 0]])
+        st = watcher.load()
+        watcher.CANCEL_ATT["3"] = 1
+        watcher.PINNED.add(7)
+        watcher.finish_holder(st, 7, {"run": 1})
+        watcher.finish_holder(st, 9, {"run": 2, "retries": 2})
+        watcher.finish_holder(st, 7, {"run": 3})
+        watcher.finish_holder(st, 7, {"run": 4})
+        log = self.log()
+        self.assertIn("#7: run 1 cancelled on stale head 00000000 (PR head 00000000); not re-queued", log)
+        self.assertIn("#9: run 2 attempt 1 was CANCELLED (not by me; cancelled jobs: Go); PR is dirty, parked until its head changes", log)
+        self.assertIn("#7: pinned run 3 attempt 1 was CANCELLED (by the watcher); re-ran it immediately on current head 00000000", log)
+        self.assertIn("#7: run 4 attempt 1 was TIMEOUT (Go, 61 min) (job timeout-minutes) after holding a slot; not re-run (maintainer decides), dropped", log)
+        self.assertEqual((st["parked"]["9"]["retries"], st["holders"]["7"]["run"]), (2, 3))
+
+    def test_finish_holder_names_the_base_and_the_authorized_exception(self):
+        red = [("Go", "failure"), ("Build and test", "failure")]
+        self.use([self.view(1, "success"), self.view(2, "failure", red), self.view(3, "failure", red + [("Docs", "failure")]),
+                  self.view(4, "failure", red), self.view(5, "success"), self.view(6, "success"),
+                  [r"^api repos/Example/Repo/pulls/9$", dict(pull(9, "feat/nine"), base={"ref": "feat/seven"}), 0],
+                  [r"^api repos/Example/Repo/pulls/10$", dict(pull(10, "feat/ten"), mergeable_state="dirty"), 0],
+                  [r"^api repos/Example/Repo/compare/b+\.\.\.feat/seven", {"commits": [
+                      {"sha": "c" * 40, "parents": [{"sha": "b" * 40}], "commit": {"committer": {"date": "2000-01-01T00:00:00Z"}}}]}, 0],
+                  [r"compare/n+\.\.\.0+7 --jq", {"s": "behind"}, 0],
+                  [r"^run view 9 --repo Example/Repo --json conclusion,status,jobs", "", 1],
+                  [r"^run view 8 --repo Example/Repo --json conclusion,status,jobs", {"status": "in_progress", "conclusion": None}, 0]])
+        self.write("fail_ok.json", {"2": {"jobs": ["Go", "Build and test"], "why": "accepted", "label": "EXCUSED"},
+                                    "3": {"jobs": ["Go", "Build and test"], "why": "accepted"},
+                                    "4": {"jobs": ["Go", "Build and test"], "why": "accepted"}})
+        self.write("unreleased.json", [6])
+        self.write("release.json", [{"pr": 7, "sha": "0000"}])
+        st = watcher.load()
+        watcher.finish_holder(st, 9, {"run": 1})
+        watcher.finish_holder(st, 7, {"run": 2})
+        watcher.finish_holder(st, 7, {"run": 3})
+        watcher.finish_holder(st, 10, {"run": 4})
+        self.write("need_base.json", "n" * 40)
+        watcher.finish_holder(st, 7, {"run": 5})
+        os.remove(os.path.join(self.dir, "need_base.json"))
+        watcher.finish_holder(st, 7, {"run": 6})
+        watcher.finish_holder(st, 7, {"run": 9})
+        watcher.finish_holder(st, 7, {"run": 8})
+        log = self.log()
+        self.assertIn("#9: run 1 (base=feat/seven@bbbbbbbbbb) finished GREEN (base bbbbbbbbbb; feat/seven now cccccccccc, freshness supplied by the merge queue)", log)
+        self.assertIn("#7: run 2 (base bbbbbbbbbb) finished EXCUSED (Go, Build and test; accepted); every other job success/skipped", log)
+        self.assertIn("#7: run 3 (base bbbbbbbbbb) finished RED (failure); failed jobs: Go, Build and test, Docs; dropped", log)
+        self.assertIn("#10: run 4 (base bbbbbbbbbb) finished RED only on Go, Build and test; validated under the authorized exception (accepted); PR is dirty at head", log)
+        self.assertIn("#7: run 5 (base bbbbbbbbbb, head lacks nnnnnnnnnn) finished GREEN on bbbbbbbbbb, head lacks nnnnnnnnnn; maintainer decides", log)
+        self.assertIn("#7: run 6 (base bbbbbbbbbb) finished GREEN [UNRELEASED run: re-run without a release", log)
+        self.assertIn("#7: run 9 finished (could not read result)", log)
+        self.assertIn("#7: run 8 still in_progress; keeps its slot", log)
+        self.assertEqual((st["stale_bt"]["7"], st["holders"]["7"]), ({"head": SHA7, "green": 6}, {"run": 8}))
+
+    def test_finish_holder_queues_the_current_head_after_a_run_on_a_stale_one(self):
+        self.use([self.view(1, "success", head=SHA8),
+                  [r"actions/runs\?head_sha=0+7&event=pull_request", {"workflow_runs": [
+                      {"id": 70, "name": "PR", "status": "completed", "conclusion": "cancelled", "created_at": stamp(5)}]}, 0]])
+        st = watcher.load()
+        st["cancelled"] = [70]
+        watcher.finish_holder(st, 7, {"run": 1})
+        self.assertIn("#7: finished run 1 was on stale head 00000000; current head 00000000's pre-cancelled run 70 queued (by tier, position 1/1)", self.log())
+        self.assertEqual(st["queue"], [{"pr": 7, "run": 70, "sha": SHA7, "kind": "rerun"}])
+
+    def test_start_next_keeps_or_drops_an_entry_it_cannot_start(self):
+        def runs(n, **kw):
+            return [rf"^api repos/Example/Repo/actions/runs\?branch=feat/{n}&", {"workflow_runs": [
+                dict({"id": n * 10, "name": "PR", "status": "completed", "conclusion": "cancelled", "run_attempt": 1, "created_at": stamp(5)}, **kw)]}, 0]
+        self.write("strict_base.json", {"sha": "b" * 40})
+        self.write("reopen_ok.json", [18])
+        self.use([[r"^api repos/Example/Repo/pulls/11$", dict(pull(11, "feat/11"), state="closed", merged=True), 0],
+                  [r"^api repos/Example/Repo/pulls/13$", pull(13, "feat/13"), 0],
+                  [r"^api repos/Example/Repo/pulls/14$", dict(pull(14, "feat/14"), draft=True, mergeable_state="unknown"), 0],
+                  [r"^api repos/Example/Repo/pulls/15$", dict(pull(15, "feat/15"), draft=True), 0],
+                  [r"^api repos/Example/Repo/pulls/16$", pull(16, "feat/16"), 0], runs(16, conclusion="failure"),
+                  [r"^api repos/Example/Repo/pulls/17$", pull(17, "feat/17"), 0], runs(17, conclusion="success"),
+                  [r"^api repos/Example/Repo/pulls/18$", pull(18, "feat/18"), 0], runs(18),
+                  [r"^api repos/Example/Repo/pulls/19$", pull(19, "feat/19"), 0], runs(19, status="in_progress", conclusion=None),
+                  [r"^api repos/Example/Repo/pulls/12$", pull(12, "feat/12"), 0],
+                  [rf"compare/b+\.\.\.{13:040d} --jq", {"s": "behind"}, 0],
+                  [rf"compare/b+\.\.\.{12:040d} --jq", "", 1],
+                  [r"compare/b+\.\.\.\d+ --jq", {"s": "ahead"}, 0],
+                  [r"^api repos/Example/Repo/actions/runs/190 --jq", {"a": 1, "b": "feat/19", "e": "pull_request"}, 0],
+                  [r"^run cancel 190 ", "", 0]])
+        st = watcher.load()
+        watcher.HOLDS["7"] = ["0000"]
+        watcher.NOCANCEL.add(16)
+        watcher.cancel(190)
+        st["cancelled"] = [190]
+        st["queue"] = [{"pr": n, "run": None, "kind": "ready" if n == 15 else "rerun"} for n in (7, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19)]
+        for _ in range(3):
+            watcher._start_next(st)
+        log = self.log()
+        for line in ("#7: owner announced a push; skipped until a new head lands", "#10: could not fetch PR; dropped from queue", "#11: merged; skipped",
+                     "#13: head 0000000000 lacks develop bbbbbbbbbb; parked (needs develop merge)", "#14: mergeable_state still unknown; not marking ready this pass",
+                     "#15: draft (owner's WIP); taken out of the queue, its runs are never cancelled or re-run",
+                     "#16: latest PR run 160 on head 00000000 is failure (not cancelled by me); not re-run, dropped",
+                     "#17: latest PR run 170 on head 00000000 is success, not cancelled; dropped",
+                     "#18: refs/pull/18/merge not yet on current develop or without the runner pin; close/reopen deferred",
+                     "#12: could not compare head with bbbbbbbbbb; retrying next pass"):
+            self.assertIn(line, log)
+        self.assertEqual([e["pr"] for e in st["queue"]], [7, 12, 14, 18, 19])
+        st["queue"] = [e for e in st["queue"] if e["pr"] == 19]
+        watcher._start_next(st)
+        self.assertIn("#19: my cancel of run 190 still settling; retry next pass", self.log())
+        self.assertEqual((st["queue"], st["holders"], list(st["parked"])), ([], {}, ["13"]))
+
+    def test_the_fast_poll_ends_for_a_finished_run_and_a_failing_sweep_is_logged(self):
+        self.use([[r"^run view 300 --repo Example/Repo --json status$", {"status": "completed"}, 0],
+                  [r"^run view 301 --repo Example/Repo --json status$", {"status": "in_progress"}, 0],
+                  [r"^run list --repo Example/Repo --status queued -L 50", [], 0],
+                  [r"^api repos/Example/Repo/pulls/8$", dict(pull(8, "feat/eight"), draft=True), 0],
+                  [r"^api repos/Example/Repo/pulls/9$", dict(pull(9, "feat/nine"), state="closed"), 0],
+                  [r"^api repos/Example/Repo/actions/runs/102 --jq", {"a": 1, "b": "feat/eight", "e": "pull_request"}, 0],
+                  [r"^api repos/Example/Repo/actions/runs/102$", {"head_sha": SHA8, "pull_requests": [{"number": 8}]}, 0],
+                  [r"^run view 10[23] --repo Example/Repo --json status,jobs", {"status": "queued", "jobs": []}, 0],
+                  [r"^run cancel 102 ", "", 0]], interval_seconds=1)
+        st = watcher.load()
+        self.write("state.json", {"holders": {"8": {"run": 300}, "7": {"run": 301}}})
+        self.write("solo.json", {"pr": 7, "run": 301})
+        watcher.NOCANCEL.update([7, 8])
+        watcher.wait_for_new(st)
+        self.assertIn("fast poll: #8's run 300 completed; running a pass now", self.log())
+        self.write("solo.json", {"pr": 7, "run": 300})
+        watcher.wait_for_new(st)
+        self.assertIn("fast poll: #7's solo run 300 completed; running a pass now", self.log())
+        os.remove(os.path.join(self.dir, "solo.json"))
+        watcher.NOCANCEL.clear()
+        self.write("review_gate.json", {})
+        self.write("cancel_auth.json", [102])
+        st["holders"]["8"] = {"run": 102}
+
+        def sweep(extra=()):
+            self.rules([[r"runs\?event=pull_request&status=queued", {"workflow_runs": [
+                {"id": 102, "name": "PR", "head_sha": SHA8, "pull_requests": [{"number": 8, "base": {"ref": "develop"}}]},
+                {"id": 103, "name": "PR", "head_sha": f"{9:040d}", "pull_requests": [{"number": 9, "base": {"ref": "develop"}}]},
+                *extra]}, 0], [r"runs\?event=pull_request&status=in_progress", {"workflow_runs": []}, 0]] + self.read("gh.rules"))
+        sweep()
+        watcher.wait_for_new(st)
+        self.assertIn("fast poll: cancelled unreleased run(s) during preflight; running a pass now", self.log())
+        self.assertIn("#8: draft head 0000000000 not released; run 102 caught with only the preflight running; cancelled, held until released", self.log())
+        self.assertEqual((st["holders"], st["queue"]), ({}, []))
+        sweep([{"id": 104, "name": "PR", "head_sha": SHA7, "pull_requests": [{}]}])
+        watcher.wait_for_new(st)
+        self.assertIn("ERROR gate_sweep Traceback", self.log())
+
+
+class WatcherPassTest(Stub):
+    """One pass over a prepared state directory, for the decisions the tests above do not reach."""
+    run_once = WatcherTest.run_once
+
+    def setUp(self):
+        super().setUp()
+        importlib.reload(watcher)
+
+    def state(self, **kw):
+        self.write("state.json", dict({"holders": {}, "queue": [], "parked": {}, "cancelled": [], "order": []}, **kw))
+
+    def world(self, runs=(), prs=(7, 8), started=(), extra=(), cap=1):
+        """Rules for open PRs (numbers or pr() dicts) and their queued runs; the runs listed in started have a heavy job executing."""
+        self.write("config.json", {"repo": REPO, "cap": cap, "checkout": self.dir})
+        prs = [p if isinstance(p, dict) else pr(p, f"feat/{p}") for p in prs]
+        rules = list(extra) + [[r"^pr list ", prs, 0],
+                               [r"^api repos/Example/Repo/actions/runs\?event=merge_group&per_page=30", {"workflow_runs": []}, 0],
+                               [r"^run list .*--event merge_group", [], 0],
+                               [r"^api graphql", queue_nodes([]), 0],
+                               [r"^api repos/Example/Repo/commits/develop --jq", {"s": "d" * 40, "m": "Merge"}, 0],
+                               [r"^run list --repo Example/Repo --status queued -L 100", list(runs), 0],
+                               [r"^run list --repo Example/Repo --status \w+ -L 100", [], 0],
+                               [r"^api repos/Example/Repo/actions/runs\?branch=", {"workflow_runs": []}, 0]]
+        for p in prs:
+            rules.append([rf"^api repos/Example/Repo/pulls/{p['number']}$", dict(pull(p["number"], p["headRefName"]), draft=p["isDraft"]), 0])
+        for r in runs:
+            rid, n = r["databaseId"], int(r["headSha"])
+            rules += [[rf"^api repos/Example/Repo/actions/runs/{rid} --jq", {"a": 1, "b": r["headBranch"], "e": "pull_request"}, 0],
+                      [rf"^api repos/Example/Repo/actions/runs/{rid}$", {"head_sha": r["headSha"], "pull_requests": [{"number": n}]}, 0],
+                      [rf"^run cancel {rid} ", "", 0]]
+            if rid in started:
+                rules.append([rf"^run view {rid} --repo Example/Repo --json (status,)?jobs", {"status": "in_progress", "jobs": [
+                    {"name": "Go", "status": "in_progress"}, {"name": "Docs", "status": "completed", "conclusion": "success"}]}, 0])
+        rules.append([r"^run view \d+ --repo Example/Repo --json status,jobs", {"status": "queued", "jobs": [{"name": "Changed areas", "status": "queued"}]}, 0])
+        self.rules(rules)
+
+    def said(self, log, *lines):
+        for line in lines:
+            self.assertIn(line, log)
+
+    def holder(self, rid, **kw):
+        return dict({"run": rid, "since": 0, "seen_active": True}, **kw)
+
+    def test_a_pass_reports_what_moved_since_the_last_one(self):
+        self.state(develop_head="a" * 40, mergeable={"7": "MERGEABLE"}, baseref={"8": "develop", "9": "develop"},
+                   parked={"5": {"pr": 5, "parked_sha": "x"}, "7": {"pr": 7, "parked_sha": "old", "kind": "rerun"},
+                           "8": {"pr": 8, "parked_sha": "old"}, "9": {"pr": 9, "parked_sha": "old"}})
+        self.write("strict_base.json", {"sha": "b" * 40})
+        self.world(prs=[dict(pr(7, "feat/7"), mergeable="CONFLICTING"), dict(pr(8, "feat/8"), baseRefName="feat/7"),
+                        dict(pr(9, "feat/9"), baseRefName="main")],
+                   extra=[[r"^api repos/Example/Repo/pulls/8$", dict(pull(8, "feat/8"), mergeable_state="dirty"), 0],
+                          [rf"compare/b+\.\.\.{9:040d} --jq", {"s": "behind"}, 0],
+                          [r"compare/b+\.\.\.\d+ --jq", {"s": "ahead"}, 0]])
+        self.said(self.run_once(), "develop moved aaaaaaaaaa -> dddddddddd: Merge",
+                  "#7 turned DIRTY (CONFLICTING) at head 0000000000 against develop dddddddddd",
+                  "#8: base branch changed develop -> feat/7 (#7's branch; stacked behind it)",
+                  "#5: parked PR no longer open; dropped",
+                  "#7: head moved to 00000000, no longer dirty; back in queue (unparked, position 1/1)",
+                  "#8: head moved to 00000000 but still dirty; stays parked",
+                  "#9: head moved to 00000000 but still lacks develop bbbbbbbbbb; stays parked",
+                  "slot free for #8 (1 free; #8 is parked, dirty): it may push its prepared head now")
+
+    def test_approved_drafts_are_queued_parked_or_marked_ready(self):
+        self.write("ready_ok.json", [10, 11, 12])
+        self.state(queue=[{"pr": 12, "run": None, "kind": "rerun"}])
+        self.world(prs=[pr(10, "feat/10", draft=True), dict(pr(11, "feat/11", draft=True), mergeable="CONFLICTING"), pr(12, "feat/12", draft=True)],
+                   extra=[[r"^pr ready 10 ", "", 0]], cap=3)
+        self.run_once()
+        self.said(self.run_once(), "#10: draft on develop queued for un-draft (by tier, position 1/1)",
+                  "#12: draft on develop queued for un-draft (by tier, position 2/2)",
+                  "#11: draft is CONFLICTING at 00000000; parked until a new non-dirty head lands",
+                  "#10: slot granted, marked ready for review (gh pr ready)", "#12: gh pr ready failed; dropped")
+        self.assertEqual(self.read("state.json")["holders"]["10"]["kind"], "ready")
+
+    def test_a_head_without_the_strict_base_is_parked(self):
+        self.write("strict_base.json", {"sha": "b" * 40})
+        self.write("cancel_auth.json", [102])
+        self.write("nocancel.json", [9])
+        self.state(queue=[{"pr": 7, "run": None, "kind": "rerun"}])
+        self.world([run(102, 8, "feat/8"), run(103, 9, "feat/9")], prs=(7, 8, 9), extra=[[r"compare/b+\.\.\.\d+ --jq", {"s": "behind"}, 0]])
+        self.run_once()
+        self.said(self.run_once(), "needs develop merge (head lacks bbbbbbbbbb); parked until a new head contains it: #7 (0000000000)",
+                  "#8: head 0000000000 lacks develop bbbbbbbbbb; cancelled not-yet-started run(s) [102]; parked (needs develop merge)",
+                  "#9: run(s) [103] on 0000000000 lack develop bbbbbbbbbb; not cancelled (never cancelled before start)")
+        self.assertEqual(sorted(self.read("state.json")["parked"]), ["7", "8"])
+
+    def test_a_gate_holds_every_pr_outside_its_allow_list_until_its_pr_merges(self):
+        self.write("gate.json", {"pr": 7, "allow": [7]})
+        self.write("cancel_auth.json", [102, 103])
+        runs = [run(102, 8, "feat/8"), run(103, 9, "feat/9")]
+        self.world(runs, prs=(7, 8, 9), extra=[[r"^api repos/Example/Repo/pulls/9$", dict(pull(9, "feat/9"), mergeable_state="dirty"), 0]])
+        self.said(self.run_once(), "#8: held until #7 merges; cancelled run(s) [102]; queued (by tier)",
+                  "#9: held until #7 merges; cancelled run(s) [103]; PR is dirty, parked")
+        self.world(prs=(7, 8), extra=[[r"^api repos/Example/Repo/pulls/7$", dict(pull(7, "feat/7"), merged=True), 0]])
+        self.said(self.run_once(), "#7 merged; hold released, filling free slots in normal order")
+        self.assertFalse(os.path.exists(os.path.join(self.dir, "gate.json")))
+
+    def test_a_newer_run_takes_over_its_prs_slot(self):
+        self.state(holders={"7": self.holder(100, kind="ready"), "8": self.holder(None)})
+        self.world([run(101, 7, "feat/7"), run(102, 8, "feat/8")], cap=2)
+        self.said(self.run_once(), "#7: new head 00000000; run 101 takes over the slot from 100", "#7: ready event started run 101")
+        self.assertEqual({k: h["run"] for k, h in self.read("state.json")["holders"].items()}, {"7": 101, "8": 102})
+
+    def test_an_unreleased_new_head_gives_its_slot_back(self):
+        self.write("review_gate.json", {})
+        self.write("cancel_auth.json", [101, 102])
+        self.state(holders={"7": self.holder(100), "8": self.holder(102)})
+        self.world([run(101, 7, "feat/7"), run(102, 8, "feat/8")], cap=2,
+                   extra=[[r"runs\?event=pull_request&status=", {"workflow_runs": []}, 0],
+                          [r"^run view 101 --repo Example/Repo --json status,jobs", {"status": "queued", "jobs": [{"name": "Go", "status": "pending"}]}, 0]])
+        self.said(self.run_once(), "#7: new head 0000000000 not released; cancelled queued run 101, slot freed; held under the review gate (by tier)",
+                  "#8: head 0000000000 not released; run(s) [102] had only the preflight done, no job executing; cancelled, slot freed, held under the review gate (by tier)",
+                  "2 slot(s) free; no released head waiting (top held: #7, queued, no runnable head); no invitation sent")
+
+    def test_a_dirty_holder_keeps_a_started_or_protected_run(self):
+        self.write("nocancel.json", [8])
+        self.state(holders={"7": self.holder(101), "8": self.holder(102)})
+        dirty = [[rf"^api repos/Example/Repo/pulls/{n}$", dict(pull(n, f"feat/{n}"), mergeable_state="dirty"), 0] for n in (7, 8)]
+        self.world([run(101, 7, "feat/7"), run(102, 8, "feat/8")], started=[101], extra=dirty, cap=2)
+        self.said(self.run_once(), "#7: head 00000000 is DIRTY but run(s) [101] already started; not cancelled, still holding a slot",
+                  "#8: head 00000000 is DIRTY; run(s) [102] not cancelled (never cancelled before start), still holding a slot")
+        self.assertEqual(self.run_once().count("is DIRTY"), 2)
+
+    def test_a_started_run_is_adopted_and_a_branch_without_a_pr_is_cancelled(self):
+        self.write("cancel_auth.json", [104])
+        orphan = dict(run(104, 0, "feat/gone"))
+        self.world([run(101, 7, "feat/7"), orphan], started=[101], cap=2,
+                   extra=[[r"^api repos/Example/Repo/actions/runs/104$", {"head_sha": "0" * 40, "pull_requests": []}, 0]])
+        self.said(self.run_once(), "#7: run 101 already executing jobs (1 done / 1 in progress / 0 queued); never cancelled once started; holding a slot",
+                  "cancelled run(s) [104] on branch:feat/gone (no open PR); not queued")
+
+    def test_pinned_reserved_and_sole_priority_runs_take_their_slots(self):
+        self.write("pinned.json", ["feat/7"])
+        self.write("reserve.json", {"pr": 8})
+        self.world([run(101, 7, "feat/7"), run(102, 8, "feat/8")])
+        self.said(self.run_once(), "#7: pinned PR; run 101 holds a slot (never cancelled for the cap)",
+                  "ATTENTION #8: reserved PR pushed while 1 runs were active; run 102 NOT cancelled, now 2 active",
+                  "#8: reserved slot filled by run 102; reservation cleared")
+        os.remove(os.path.join(self.dir, "pinned.json"))
+        self.state(queue=[{"pr": 7, "run": None, "kind": "rerun"}])
+        self.write("reserve.json", {"pr": 8})
+        self.world()
+        self.said(self.run_once(), "slot reserved for #8; not starting [7]")
+        os.remove(os.path.join(self.dir, "reserve.json"))
+        self.state()
+        self.write("solo.json", {"pr": 8, "run": None})
+        self.write("cancel_auth.json", [101])
+        self.world([run(101, 7, "feat/7"), run(102, 8, "feat/8")], cap=2)
+        self.said(self.run_once(), "#8: sole-priority run 102 took the slot", "#7: cancelled not-yet-started run(s) [101] over the cap; queued (by tier)")
+
+    def test_a_protected_run_over_the_cap_waits_uncancelled(self):
+        self.write("nocancel.json", [8])
+        self.world([run(101, 7, "feat/7"), run(102, 8, "feat/8")])
+        self.run_once()
+        log = self.run_once()
+        self.said(log, "#8: run 102 on 0000000000 queued at position 1/1, NOT cancelled; takes the first free slot (slots: #7 101)")
+        self.assertEqual(log.count("NOT cancelled"), 1)
+
+    def test_holders_over_the_cap_lose_the_lowest_ranked_unstarted_run(self):
+        self.write("cancel_auth.json", [101, 102])
+        self.state(holders={"7": self.holder(101), "8": self.holder(102)}, cancelled=[103], cancelled_att={"103": 1})
+        self.world([run(101, 7, "feat/7"), run(102, 8, "feat/8"), run(103, 9, "feat/9")], prs=(7, 8, 9),
+                   extra=[[r"^api -X POST repos/Example/Repo/actions/runs/103/force-cancel", "", 0]])
+        self.said(self.run_once(), "#8: cancelled not-yet-started run(s) [102] over the cap; queued (by tier)",
+                  "#9: runs [103] still active after my cancel; force-cancel sent")
+        self.assertEqual(list(self.read("state.json")["holders"]), ["7"])
+
+    def test_a_block_releases_a_finished_holder_and_lifts_once_its_run_executes(self):
+        self.write("blocked.json", {"prs": [8], "until": 7})
+        self.state(holders={"7": self.holder(101), "8": self.holder(100)}, parked={"8": {"pr": 8, "parked_sha": SHA8}})
+        self.world([run(101, 7, "feat/7")], started=[101], cap=2,
+                   extra=[[r"^run view 100 --repo Example/Repo --json conclusion,jobs", {"conclusion": "failure", "jobs": [{"name": "Go", "conclusion": "failure"}]}, 0]])
+        self.said(self.run_once(), "#8: run 100 finished failure; failed jobs: Go; slot released (blocked until #7's run is executing; not re-queued)",
+                  "#7: run 101 is executing; block on [8] lifted")
+        self.assertEqual(self.read("state.json")["parked"], {})
+
+    def test_a_jobless_ghost_and_a_runner_priority_run(self):
+        ghost = dict(run(101, 7, "feat/7"), createdAt=stamp(20))
+        self.write("priority_hold_8.json", {"pr": 8, "run": 102, "head": SHA8, "label": "#8 run"})
+        self.state(holders={"7": self.holder(101)})
+        self.world([ghost, run(102, 8, "feat/8")], extra=[[r"runs/101/jobs\?per_page=1 --jq", 0, 0],
+                                                         [r"^run view 102 --repo Example/Repo --json status,conclusion", {"status": "queued"}, 0]])
+        self.said(self.run_once(), "#7: run 101 is a jobless ghost (0 jobs); slot no longer counted",
+                  "#8: runner-priority run 102 holds a slot (exempt from its own hold)")
 
 
 class StarveSweepTest(Stub):
@@ -1028,7 +1373,7 @@ class StackMonitorTest(Stub):
         lines = []
         stack_monitor.Monitor(self.cfg(), out=lines.append).report()
         gits = [line.split()[0] for line in self.text("git.calls").splitlines()]
-        self.assertTrue(set(gits) <= {"fetch", "merge-base", "diff"}, gits)
+        self.assertLessEqual(set(gits), {"fetch", "merge-base", "diff"}, gits)
         self.assertFalse([c for c in self.calls() if throttle_common.mutating(c.split())])
         return lines
 

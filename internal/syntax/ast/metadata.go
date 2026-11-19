@@ -18,6 +18,9 @@ func DeclaredMetadata(node Node) (prefixes []*PrefixMetadata, body []Node, ok bo
 		return nil, d.Members, true
 	case *SuccessionEdge:
 		return nil, d.Members, true
+	case *InitialNode:
+		// A two-ended `first a then b { … }` is a succession whose UsageBody is its own; a `first a;` marker declares none.
+		return nil, d.Members, d.Successor != nil
 	case *ForkNode:
 		return d.Prefixes, d.Members, true
 	case *JoinNode:
