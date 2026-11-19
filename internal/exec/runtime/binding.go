@@ -376,9 +376,17 @@ func (ctx *Context) resolveBindings(inst *Instance, target *FeatureValue, name s
 	// The innermost `default =` values, applied once no owner's other binding determines the feature.
 	var defaults *bindingSetResult
 	path := name
+	// The owner features walked past since path was last spelled out, innermost first:
+	// the path is spelled out only at an owner declaring bindings, the one place it is read.
+	var walked [8]string
+	pending := walked[:0]
 	for current := inst; current != nil; {
 		var bindings []lower.Binding
 		if ctx.declaresBindings(current) {
+			for _, feature := range pending {
+				path = feature + "." + path
+			}
+			pending = pending[:0]
 			bindings = ctx.bindingsOf(current, path)
 		}
 		if len(bindings) != 0 {
@@ -403,7 +411,7 @@ func (ctx *Context) resolveBindings(inst *Instance, target *FeatureValue, name s
 		if owner == nil || ownerFeature == "" || !ctx.ownersDeclareBindings(owner) {
 			break
 		}
-		path = ownerFeature + "." + path
+		pending = append(pending, ownerFeature)
 		current = owner
 	}
 	if defaults != nil {

@@ -1,6 +1,6 @@
 @startuml
 ' FurnaceViews::runningTree — tree rendering (view def GeneralView)
-' not represented: 5 member(s) drawn as compartment rows of their owner
+' not represented: 5 member(s) drawn as compartment rows of their owner, and 1 node(s) under them left undrawn
 mainframe <size:10>//«view»//</size> **FurnaceViews::runningTree** : GeneralView\n<size:10>expose Furnace::Burner::running</size>
 <style>
 root {

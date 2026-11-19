@@ -324,26 +324,24 @@ func (e *executor) memberPathRowValues(expression queryplan.Expression, column s
 	if !ok || len(segments) <= 1 {
 		return nil, false, nil
 	}
-	values, present, member, err := e.memberPathValues(sym, segments)
+	values, present, overflow, err := e.memberPathValues(sym, segments)
 	if err != nil {
 		return nil, false, e.unevaluable(expression, path, row, err)
 	}
 	if !present {
 		return nil, false, nil
 	}
-	if member != nil {
-		rng := e.context.Model.GoverningMultiplicityOf(member)
-		if rng.Upper.Known && !rng.Upper.Infinite && int64(len(values)) > rng.Upper.Value {
-			failure := e.columnError(
-				ErrorColumnCardinality, column, row, expression.Origin(), "", strconv.Itoa(len(values)))
-			failure.Expected = multiplicityString(queryplan.Multiplicity{
-				Lower:         rng.Lower.Value,
-				Upper:         rng.Upper.Value,
-				UpperInfinite: rng.Upper.Infinite,
-				Known:         rng.Lower.Known && rng.Upper.Known,
-			})
-			return nil, false, failure
-		}
+	if overflow != nil {
+		rng := e.context.Model.GoverningMultiplicityOf(overflow.member)
+		failure := e.columnError(
+			ErrorColumnCardinality, column, row, expression.Origin(), "", strconv.Itoa(overflow.count))
+		failure.Expected = multiplicityString(queryplan.Multiplicity{
+			Lower:         rng.Lower.Value,
+			Upper:         rng.Upper.Value,
+			UpperInfinite: rng.Upper.Infinite,
+			Known:         rng.Lower.Known && rng.Upper.Known,
+		})
+		return nil, false, failure
 	}
 	return values, true, nil
 }
