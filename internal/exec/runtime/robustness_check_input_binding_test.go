@@ -185,10 +185,10 @@ func testCheckInputBindingTypedAssertion(t *testing.T) {
 	if got, ok := verdicts["unbound"]; !ok || got.Status != VerdictUndecided || got.Detail == "" {
 		t.Errorf("unbound = %v (%q, reported %v), want undecided: the case's x of 7 does not bind it", got.Status, got.Detail, ok)
 	}
-	if got := verdicts["bound"]; got.Status != VerdictSatisfied {
-		t.Errorf("bound = %v (%q), want satisfied: its binding reads the case's x of 7", got.Status, got.Detail)
+	if got, ok := verdicts["bound"]; !ok || got.Status != VerdictSatisfied {
+		t.Errorf("bound = %v (%q, reported %v), want satisfied: its binding reads the case's x of 7", got.Status, got.Detail, ok)
 	}
-	if got := verdicts["low"]; got.Status != VerdictNotSatisfied {
-		t.Errorf("low = %v (%q), want not satisfied: its binding of 3 masks the case's x", got.Status, got.Detail)
+	if got, ok := verdicts["low"]; !ok || got.Status != VerdictNotSatisfied {
+		t.Errorf("low = %v (%q, reported %v), want not satisfied: its binding of 3 masks the case's x", got.Status, got.Detail, ok)
 	}
 }
