@@ -52,12 +52,13 @@ run_case() {
   echo "ok   $name: exit $actual"
 }
 expect_calls() {
-  local actual
-  actual=$(grep -c . "$work/$1/log")
-  [[ $actual == "$2" ]] || fail "$1: pip-audit ran $actual times, expected $2"
+  local name=$1 expected=$2 actual
+  actual=$(grep -c . "$work/$name/log")
+  [[ $actual == "$expected" ]] || fail "$name: pip-audit ran $actual times, expected $expected"
 }
 mentions() {
-  grep -q -- "$2" "$work/$1/out" || fail "$1: output lacks \"$2\""
+  local name=$1 text=$2
+  grep -q -- "$text" "$work/$name/out" || fail "$name: output lacks \"$text\""
 }
 
 # A clean audit runs once, with the longer read timeout for the feed and for pip's resolution.
