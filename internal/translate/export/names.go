@@ -658,9 +658,6 @@ func (e *encoder) doneReaches(succession ast.Node, target string) bool {
 	if !ok {
 		return false
 	}
-	if _, done := edge.TargetMember.(*ast.FinalNode); !done || edge.Target != nil {
-		return false
-	}
 	sym := e.ids.declSym[edge]
 	if sym == nil {
 		return false
