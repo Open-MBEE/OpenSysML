@@ -9,6 +9,7 @@ state def Burner
     entry action ignite
     exit action
     do action
+      assignment action usage
     state low
     state high
   transition
