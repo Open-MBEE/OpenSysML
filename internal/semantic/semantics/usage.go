@@ -202,15 +202,6 @@ func usageIsReferential(usage *ast.Usage) bool {
 	return !usageIsComposite(usage)
 }
 
-// UsageIsReferential reports whether a usage is a reference rather than composition.
-func UsageIsReferential(sym *symbols.Symbol) bool {
-	if sym == nil {
-		return false
-	}
-	usage, ok := sym.Decl.(*ast.Usage)
-	return ok && usageIsReferential(usage)
-}
-
 // UsageIsComposite derives SysML Usage::isComposite (SysML v2 §7.6.2) for the usage sym declares:
 // the objects it holds are portions of the object holding it. A symbol declaring no usage is not.
 func UsageIsComposite(sym *symbols.Symbol) bool {
@@ -376,6 +367,22 @@ func (m *Model) EffectiveIsComposite(sym *symbols.Symbol) bool {
 	if m == nil || sym == nil {
 		return false
 	}
+	defer m.own(sym).LeaveDoc()
+	if cached, ok := m.effectiveComposite[sym]; ok {
+		return cached
+	}
+	m.resolver.Enter()
+	composite := m.effectiveIsComposite(sym)
+	// A derivation a resolution guard cut short is recomputed, not memoized.
+	if !m.resolver.Leave() {
+		return composite
+	}
+	journal(m, m.effectiveComposite, sym, sym.Decl)
+	m.effectiveComposite[sym] = composite
+	return composite
+}
+
+func (m *Model) effectiveIsComposite(sym *symbols.Symbol) bool {
 	if isControlNode(sym) || m.metaclassConforms(sym, sysmlMetaclassPrefix+"ControlNode") {
 		return true
 	}

@@ -80,6 +80,9 @@ client with `CodeUnimplemented` — and is not part of the `Client` interface; t
 explains why.
 
 `ListEngines` names the analysis engines the service answers with, as `EngineInfo` in name order.
+Each carries its origin beside what it answers: `Kind` (`built-in`, or the manifest entry's `tool`,
+`engine`, `policy` or `sampler`), `Protocol`, the entry's `Source`, `Command` and `Version`, and
+`Served`, false for a manifest engine the service lists without running.
 `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction` and `ValidateInstance` take `WithEngine(name)` and
 `RunAnalysis` and `ExploreAnalysis` take `Engine(name)`, and `Calculate` (`EvaluateCalc` with
 options, its arguments under `CalcArguments`) takes `CalcEngine(name)`, to put the question to one engine,
