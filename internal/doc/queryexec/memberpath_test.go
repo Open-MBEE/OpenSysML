@@ -738,3 +738,25 @@ calc def Over :> Query {
 		t.Fatalf("error = %v, want the over-full member refused", err)
 	}
 }
+
+// The property-path fallback (a reader property naming the element, then its
+// feature) refuses an over-full member as the member path does.
+func TestProjectPropertyPathFallbackRefusesOverfullMember(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+attribute def Bounded { attribute runs : Integer; }
+package Results {
+	attribute def Over :> Bounded { attribute redefines runs = (2, 3); }
+}
+calc def Over :> Query {
+	in root : Element;
+	Project(source = Descendants(source = root, maxDepth = 1), properties = ("qualifiedName.runs"))
+}
+`)
+	_, err := fixture.execute(t, "Over", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "Results"))},
+	}, Options{})
+	var executionError *Error
+	if !errors.As(err, &executionError) || !strings.Contains(err.Error(), "more than its multiplicity admits") {
+		t.Fatalf("error = %v, want the over-full member refused", err)
+	}
+}
