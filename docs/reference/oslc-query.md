@@ -75,6 +75,8 @@ metaclasses the evaluator serves (`isComposite` and `portionKind` of a
 column no row carries is left out, and a nested `sysml:owner{*}` reads the
 related element's. A query that selects nothing reports every property but
 `sysml:elementId`, the ones of particular metaclasses absent on the other rows.
+There a feature of the model that shares a property's name (`attribute text = …`) and cannot be
+evaluated leaves its cell empty; selected or ordered by name, it is an error naming the feature.
 `oslc.searchTerms="wheel","axle"` keeps the elements whose text properties
 contain any of the quoted terms, case-insensitively, as `WhereText` matches.
 
@@ -105,7 +107,7 @@ A property is one of three things, told apart by its namespace:
 | --- | --- |
 | `rdf:type` | The element's metaclass (`@type`); the `elmt:` form selects objects, below |
 | `sysml:<property>` | A property the SysML metamodel declares, read reflectively from the model's metaclass declarations — `sysml:name`, `sysml:qualifiedName`, `sysml:owner`, `sysml:isAbstract`, `sysml:documentation`, `sysml:type`, `sysml:satisfiedRequirement`, … every property `Project` can read of the element |
-| `sysx:<property>` | What the metamodel does not declare: the two evaluator-derived properties `sysx:multiplicityLower` and `sysx:multiplicityUpper`, and the features of the model itself (`sysx:pressure`, `sysx:wheels.diameter`), read of each row as a document query's `WhereFeature` reads them |
+| `sysx:<property>` | What the metamodel does not declare: the evaluator-derived properties `sysx:multiplicityLower`, `sysx:multiplicityUpper` and `sysx:symbolKind`, and the features of the model itself (`sysx:pressure`, `sysx:wheels.diameter`), read of each row as a document query's `WhereFeature` reads them |
 
 An element-valued property reads as the element's identity, and a scoped term
 or nested selection continues through it. An expression element the metamodel
