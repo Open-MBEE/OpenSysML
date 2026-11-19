@@ -88,13 +88,6 @@ func impliedMultiplicity(owner *symbols.Symbol, span source.Span, form symbols.I
 	}
 }
 
-// IsDeclaredMultiplicityRange reports whether sym is the MultiplicityRange a usage's
-// written range declares (DeclaredMultiplicityMember), owned at the clause.
-func IsDeclaredMultiplicityRange(sym *symbols.Symbol) bool {
-	decl, ok := symbols.ImpliedDeclOf(sym)
-	return ok && decl.Form == symbols.ImpliedMultiplicityRange
-}
-
 // IsDefaultMultiplicity reports whether sym is the Multiplicity a usage's implicit
 // [1..1] is stated by (DefaultMultiplicityMember).
 func IsDefaultMultiplicity(sym *symbols.Symbol) bool {

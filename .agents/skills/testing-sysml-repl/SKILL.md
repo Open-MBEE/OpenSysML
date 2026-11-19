@@ -5086,7 +5086,7 @@ wildcard `import R::Widget::*;` (must not change), a same-named member in an unr
 (`bin/sysml -validate`) and that it is *not* byte-identical to the input (catches a silent no-op).
 
 **Query property names are JSON-LD-ish:** `@id` and `@type`, not `id`/`type`. Requesting an unknown
-property returns an error listing the valid set. `isIndividual` is **not** in `QueryPropertyNames()`
+property returns an error listing the valid set. `isIndividual` is **not** in `query.PropertyNames()`
 — individual status is only observable through `@type` = `OccurrenceDefinition`/`OccurrenceUsage`.
 If a PR description claims `isIndividual`, verify whether it is a queryable property or only a
 type refinement, and report the difference.
