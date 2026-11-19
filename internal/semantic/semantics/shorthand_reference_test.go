@@ -6,9 +6,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// A feature stated as a name alone reference-subsets what the name resolves to
-// (SysML.xtext OwnedReference), a feature chain included; a declared feature and an implied
-// multiplicity do not.
+// A feature stated as a name alone, a chain included, reference-subsets what the name resolves to
+// (SysML.xtext OwnedReference); a declared feature and an implied multiplicity do not.
 func TestShorthandReferenceIsAReferenceSubsetting(t *testing.T) {
 	m, root := buildModelWithStdlibNamedKind(t, "p.sysml", source.KindSysML,
 		`package P {

@@ -2797,9 +2797,8 @@ func (e *encoder) flowEndReferences(
 	return reference
 }
 
-// flowFeatureDirection is the direction of a flow end's FlowFeature: that of the feature it
-// redefines as the end inherits it, through the feature the end references (KerML.xtext
-// FlowFeature, note 1: owningType.directionOf(redefinedFeature)).
+// flowFeatureDirection is the direction of a flow end's FlowFeature: that of the feature it redefines
+// as the end inherits it (KerML.xtext FlowFeature, note 1: owningType.directionOf(redefinedFeature)).
 func (e *encoder) flowFeatureDirection(end connectorEndSpec) ast.FeatureDirection {
 	var owner, redefined *symbols.Symbol
 	switch target := end.target.(type) {

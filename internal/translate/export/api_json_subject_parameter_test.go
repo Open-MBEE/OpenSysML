@@ -56,9 +56,8 @@ func TestAPIJSONInheritedSubjectIsAnInputUntilRedefined(t *testing.T) {
 	}
 }
 
-// An objective redefines the objective of the case its owner specializes, so it inherits that
-// objective's members in place of the ones they redefine (SysML 8.3.21.9
-// checkRequirementUsageObjectiveRedefinition).
+// An objective redefines the objective of the case its owner specializes and inherits its
+// members (SysML 8.3.21.9 checkRequirementUsageObjectiveRedefinition).
 func TestAPIJSONObjectiveInheritsFromTheObjectiveItRedefines(t *testing.T) {
 	graph := duplicateGraph(t, `package Probe {
 		verification def Check { objective { doc /* goal */ } }
