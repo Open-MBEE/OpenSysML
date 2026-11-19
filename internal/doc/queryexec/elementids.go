@@ -115,6 +115,9 @@ func expressionPartSlot(sym *symbols.Symbol) (string, bool) {
 		return []string{"linkparam", "triggerparam"}[sym.Expr.Index], true
 	case symbols.ExpressionTransitionLink:
 		return "transitionlink", true
+	case symbols.ExpressionTriggerAction:
+		// A trigger's accept shares its payload's node, so it is filed under the transition's (recordTransitionHead).
+		return "trigger", true
 	}
 	return "", false
 }

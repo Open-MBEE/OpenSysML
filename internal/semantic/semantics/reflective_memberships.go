@@ -108,7 +108,7 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return out
 	}
 	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
-		if member == nil || seen[member] || member.Chain != nil || ownedThroughAnnotation(sym, member) {
+		if member == nil || seen[member] || member.Chain != nil || ownedThroughAnnotation(sym, member) || m.isTriggerPayload(sym, member) {
 			return true
 		}
 		seen[member] = true
