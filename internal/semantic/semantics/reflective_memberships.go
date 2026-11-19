@@ -329,6 +329,10 @@ func (m *Model) OwningMembership(sym *symbols.Symbol) *symbols.Symbol {
 	if owner == nil {
 		return nil
 	}
+	if sym.Expr == nil && m.isTriggerPayload(owner, sym) {
+		// A named trigger payload is declared in the transition's scope and owned by the trigger's accept.
+		return m.OwningMembership(m.transitionPartsOf(owner).payload)
+	}
 	for _, membership := range m.OwnedMemberships(owner) {
 		// A `first x;` marker's Membership refers to x without owning it.
 		if membership.Implicit != nil && membership.Implicit.Member == sym && membership.Implicit.Form != symbols.ImplicitReferenceMembership {

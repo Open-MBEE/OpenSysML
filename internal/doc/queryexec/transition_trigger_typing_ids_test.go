@@ -60,6 +60,10 @@ func TestTransitionTriggerPayloadTypingReadsOnce(t *testing.T) {
 	if id, err := ElementIDOf(read, fixture.index, accepts[0]); err != nil || id != "Observatory__S__t___40trigger" {
 		t.Fatalf("trigger accept id = %q, %v, want Observatory__S__t___40trigger", id, err)
 	}
+	// A named payload, declared in the transition's scope, is owned through the accept's membership.
+	if fixture.model.OwningMembership(fixture.symbol(t, "S::u::x")) == nil {
+		t.Fatal("named trigger payload reads no owning membership")
+	}
 	walk(fixture.symbol(t, "S"))
 	walk(fixture.symbol(t, "A"))
 	sort.Strings(typings)
