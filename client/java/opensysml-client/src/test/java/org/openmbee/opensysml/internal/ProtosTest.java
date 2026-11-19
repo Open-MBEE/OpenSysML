@@ -924,6 +924,17 @@ class ProtosTest {
     assertEquals(9, t.pose().orElseThrow().basis().size());
 
     assertEquals(sent, Protos.proto(read));
+
+    org.openmbee.opensysml.Capabilities all =
+        new org.openmbee.opensysml.Capabilities(
+            "test", java.util.Set.of(org.openmbee.opensysml.Capabilities.RATIONAL_VALUES));
+    assertThrows(IllegalArgumentException.class, () -> Protos.protos(List.of(read), all));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> Protos.protos(java.util.Map.of("x", new Value.Sequence(List.of(read))), all));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> Protos.proto(org.openmbee.opensysml.SweepRange.of("x", read, read)));
   }
 
   @Test

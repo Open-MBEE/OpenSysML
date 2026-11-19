@@ -1026,7 +1026,36 @@ public final class Protos {
 
   private static org.openmbee.opensysml.proto.Value fitted(
       org.openmbee.opensysml.proto.Value value, Capabilities capabilities) {
+    suppliable(value);
     return capabilities.has(Capabilities.RATIONAL_VALUES) ? value : rationalsAsReals(value);
+  }
+
+  /** Refuses a value holding, at any depth, a coordinate frame or transformation: answers only. */
+  private static org.openmbee.opensysml.proto.Value suppliable(
+      org.openmbee.opensysml.proto.Value value) {
+    refuseCoordinates(value);
+    return value;
+  }
+
+  private static void refuseCoordinates(com.google.protobuf.Message message) {
+    if (message instanceof org.openmbee.opensysml.proto.Value value) {
+      switch (value.getKindCase()) {
+        case COORDINATE_FRAME ->
+            throw new IllegalArgumentException(
+                "a coordinate frame is not a value a caller can supply");
+        case COORDINATE_TRANSFORMATION ->
+            throw new IllegalArgumentException(
+                "a coordinate transformation is not a value a caller can supply");
+        default -> {}
+      }
+    }
+    for (Object field : message.getAllFields().values()) {
+      for (Object item : field instanceof List<?> items ? items : List.of(field)) {
+        if (item instanceof com.google.protobuf.Message nested) {
+          refuseCoordinates(nested);
+        }
+      }
+    }
   }
 
   /**
@@ -2127,9 +2156,9 @@ public final class Protos {
     org.openmbee.opensysml.proto.SweepRange.Builder builder =
         org.openmbee.opensysml.proto.SweepRange.newBuilder()
             .setParameter(range.parameter())
-            .setStart(proto(range.start()))
-            .setEnd(proto(range.end()));
-    range.step().ifPresent(step -> builder.setStep(proto(step)));
+            .setStart(suppliable(proto(range.start())))
+            .setEnd(suppliable(proto(range.end())));
+    range.step().ifPresent(step -> builder.setStep(suppliable(proto(step))));
     return builder.build();
   }
 
