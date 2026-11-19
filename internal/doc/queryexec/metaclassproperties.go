@@ -23,6 +23,7 @@ var MetaclassPackages = []string{"KerML::Root", "KerML::Core", "KerML::Kernel", 
 var ownProperties = []string{
 	query.PropertyID, query.PropertyType, query.PropertyElementType, query.PropertyGeneral,
 	query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper,
+	query.PropertyVerifyingCase,
 }
 
 // metaclassProperty is a feature the library's metaclass declaration has,

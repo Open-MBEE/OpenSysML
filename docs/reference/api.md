@@ -1131,6 +1131,15 @@ derives — a send's `payloadArgument`, `senderArgument`, `receiverArgument` —
 has none, so it reports, compares and orders as written (`new Alarm(3)`), and
 a path continues through it (`senderArgument.@type`, `senderArgument.referent.name`).
 
+A connector — a connection, an interface, a binding — is a row whose
+`sourceFeature` and `targetFeature` are the features its ends relate, so the port graph is
+one scoped query. An end written as a chain (`connect a.p to b.p`) relates a chain feature
+with no `@id`, reported as written (`a.p`); `sourceFeature.featureTarget` and
+`targetFeature.featureTarget` are the ports themselves on either kind of end, and
+`relatedFeature.featureTarget` in a constraint selects the connectors reaching a port. A
+`transition` is a `TransitionUsage` row with its own `@id` (positional when unnamed),
+`owner`, `source` and `target`.
+
 | Property | Reports | Ordered |
 |---|---|---|
 | `@id` | The element's qualified name or export-compatible positional name, which is also how `scope` names it | |
@@ -1151,6 +1160,8 @@ a path continues through it (`senderArgument.@type`, `senderArgument.referent.na
 | `type` | Qualified name of the resolved type of a typed feature; absent when untyped or unresolved | |
 | `satisfiedRequirement` | The requirement a non-verification satisfy usage references, or the satisfy usage itself when it declares the requirement; absent when unresolved or not a satisfy usage | |
 | `satisfyingFeature` | The feature named by a satisfy usage's `by` clause; a feature chain (`by v.heater`) reports the feature the chain ends at; absent when there is no `by` clause or it is unresolved | |
+| `verifiedRequirement` | On a `verify` in an objective, the requirement it references, or the `verify` itself when it declares the requirement; on a verification case, the first requirement its objective verifies; absent when unresolved or on any other element | |
+| `verifyingCase` | The verification case whose objective holds a `verify`; absent for a `verify` no verification case's objective holds and for any other element | |
 | `elementId` | The `elementId` `Convert` writes for the element (qualified id form), read from a conversion of the model made once: a declared id as declared, a bundled library element's fixed id — a standard-library element's normative id, an OpenSysML extension's extension id (a library file's copy included) — any other the encoding of its qualified or positional name. It is the API JSON `@id` too, except in a model of several identity scopes, whose `@id` the scope qualifies. Absent for a library element a model gives an id of its own, which `Convert` references by name. A query reading it of a model `Convert` refuses is `FAILED_PRECONDITION`. Reported only when a query selects or constrains it, never by an empty `select`, since reading it converts the model | |
 | `multiplicityLower` | Declared lower bound | ✅ |
 | `multiplicityUpper` | Declared upper bound, `*` when unbounded | ✅ |

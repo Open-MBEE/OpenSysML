@@ -1129,7 +1129,31 @@ func (e *executor) propertyValuesBeforeMemberPath(row Value, property string) ([
 	if values, present, err := e.metadataPathValues(sym, property); present || err != nil {
 		return values, present, err
 	}
+	if values, present := e.verifyEndValues(sym, property); present {
+		return values, true, nil
+	}
 	return e.metaclassPropertyValues(sym, property)
+}
+
+// verifyEndValues reads an end of an objective's `verify` — verifiedRequirement, which the
+// metamodel declares of its membership and its case, and verifyingCase, which it does not
+// declare — as the elements they are; present only for such a row with the end resolved.
+func (e *executor) verifyEndValues(sym *symbols.Symbol, property string) ([]Value, bool) {
+	if property != query.PropertyVerifiedRequirement && property != query.PropertyVerifyingCase {
+		return nil, false
+	}
+	ends, ok := e.context.Model.VerifyEndsOf(sym)
+	if !ok {
+		return nil, false
+	}
+	end := ends.Case
+	if property == query.PropertyVerifiedRequirement {
+		end = ends.Requirement
+	}
+	if end == nil {
+		return nil, false
+	}
+	return reflectiveElementValues(sym, []*symbols.Symbol{end}), true
 }
 
 // declaredFeatureValues reads a declared (non-metadata) feature of a row.
