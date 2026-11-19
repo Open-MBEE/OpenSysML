@@ -11,16 +11,16 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 4273,
+      "presentEqual": 4281,
       "presentDifferent": 331,
-      "oursMissing": 349,
+      "oursMissing": 341,
       "pilotMissing": 157,
       "absentBoth": 4669,
       "indeterminate": 63,
       "pilotNondeterministic": 4
     },
     "unkeyedReferences": 312,
-    "extensionProperties": 551,
+    "extensionProperties": 521,
     "duplicateElements": {
       "ours": 0,
       "pilot": 0
@@ -457,7 +457,7 @@
     "FeatureChainExpression.member": [0,4,0,0,0,0,0],
     "FeatureChainExpression.membership": [0,4,0,0,0,0,0],
     "FeatureChainExpression.operand": [0,0,0,0,4,0,0],
-    "FeatureChainExpression.operator": [0,0,4,0,0,0,0],
+    "FeatureChainExpression.operator": [4,0,0,0,0,0,0],
     "FeatureChainExpression.output": [4,0,0,0,0,0,0],
     "FeatureChainExpression.ownedAnnotation": [0,0,0,0,4,0,0],
     "FeatureChainExpression.ownedDifferencing": [0,0,0,0,4,0,0],
@@ -518,7 +518,7 @@
     "FeatureMembership.isLibraryElement": [31,0,0,0,0,0,0],
     "FeatureMembership.memberElement": [31,0,0,0,0,0,0],
     "FeatureMembership.memberElementId": [31,0,0,0,0,0,0],
-    "FeatureMembership.memberName": [27,0,4,0,0,0,0],
+    "FeatureMembership.memberName": [31,0,0,0,0,0,0],
     "FeatureMembership.membershipOwningNamespace": [31,0,0,0,0,0,0],
     "FeatureMembership.ownedAnnotation": [0,0,0,0,31,0,0],
     "FeatureMembership.ownedElement": [0,0,0,0,31,0,0],

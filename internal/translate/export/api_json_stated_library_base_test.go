@@ -20,7 +20,7 @@ func TestAPIJSONStatedLibraryBaseCompletesTheInheritedFamily(t *testing.T) {
 		}
 		part meter : Parts::Part;
 	}`, IDQualifiedName)
-	document, err := WriteAPIJSON(graph)
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func TestAPIJSONEndFeatureCompletesOwnedEndsWithInheritedOnes(t *testing.T) {
 		connection bare : Link;
 		part plain;
 	}`, IDQualifiedName)
-	document, err := WriteAPIJSON(graph)
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +131,7 @@ func TestAPIJSONEndFeatureLeavesOutRedefinedInheritedEnds(t *testing.T) {
 		part def G :> D;
 		part def H :> F, G;
 	}`, IDQualifiedName)
-	document, err := WriteAPIJSON(graph)
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestAPIJSONInheritedEnumeratedValuesAreMembersNotFeatures(t *testing.T) {
 	graph := duplicateGraph(t, `package Probe {
 		part def Run { attribute verdict : VerificationCases::VerdictKind; }
 	}`, IDQualifiedName)
-	document, err := WriteAPIJSON(graph)
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +213,7 @@ func TestAPIJSONEndFeatureFollowsTheInheritedFeatures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	document, err := WriteAPIJSON(graph)
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}

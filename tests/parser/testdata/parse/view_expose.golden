@@ -2,12 +2,12 @@
   (Membership visibility="default"
     (Package name="Views" library=false standard=false
       (Membership visibility="default"
-        (Definition kind="view" abstract=false variation=false name="SystemView"
-          (Expose visibility="protected" all=true kind=membership recursive=false imported="VehicleModel" filtered=false)))
+        (Definition kind="view" abstract=false variation=false name="SystemView"))
       (Membership visibility="default"
         (Usage kind="view" name="vehicleView" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
           (Relationship kind="typing" target=SystemView
             (*ast.QualifiedName))
+          (Expose visibility="protected" all=true kind=membership recursive=false imported="VehicleModel" filtered=false)
           (Expose visibility="protected" all=true kind=namespace recursive=false imported="VehicleModel" filtered=false)
           (Expose visibility="protected" all=true kind=membership recursive=true imported="VehicleModel" filtered=false)
           (Expose visibility="protected" all=true kind=namespace recursive=true imported="VehicleModel" filtered=false)

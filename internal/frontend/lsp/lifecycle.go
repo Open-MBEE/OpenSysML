@@ -18,6 +18,7 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 		s.applyLintSettings(ctx, options)
 		s.applyLibraryRootsSetting(options)
 		s.applyFormatSettings(options)
+		s.applyHoverSettings(options)
 		s.setHoverMarkdown(clientRendersMarkdownHover(params.Capabilities))
 		s.setCompletionMarkdown(clientRendersMarkdownCompletion(params.Capabilities))
 		s.setCrossDocument(clientAdvertisesCrossDocument(params.Capabilities))

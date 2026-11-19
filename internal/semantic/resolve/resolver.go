@@ -430,7 +430,7 @@ func (r *Resolver) resolveInitial(scope *symbols.Scope, n *ast.InitialNode) {
 	}
 	sym, ok := memberPastLabels(scope, n.Name())
 	if !ok {
-		sym, ok = r.lookupContributedMember(scope.Owner(), n.Name(), nil)
+		sym, ok = r.inheritedMember(scope.Owner(), n.Name())
 	}
 	if ok {
 		journalNew(r, r.initials, n, n)
@@ -491,7 +491,7 @@ func (r *Resolver) ResolveInitialMember(scope *symbols.Scope, name string) (*sym
 		return sym, true
 	}
 	// An inherited start marker bearing the name is a label too, not the start.
-	if sym, ok := r.lookupContributedMember(scope.Owner(), name, nil); ok && !symbols.IsFirstMarker(sym) {
+	if sym, ok := r.inheritedMember(scope.Owner(), name); ok && !symbols.IsFirstMarker(sym) {
 		return sym, true
 	}
 	return nil, false
@@ -556,6 +556,16 @@ func (r *Resolver) lookupMemberThrough(sym *symbols.Symbol, name string, hide *r
 		}
 	}
 	return nil, false
+}
+
+// inheritedMember resolves name as a member sym inherits, or the feature of sym
+// named by redefining that member (KerML 8.3.3.1.10).
+func (r *Resolver) inheritedMember(sym *symbols.Symbol, name string) (*symbols.Symbol, bool) {
+	found, ok := r.lookupContributedMember(sym, name, nil)
+	if !ok || !visibleAsInheritedMember(sym, found) {
+		return nil, false
+	}
+	return r.inheritedAs(sym, found)
 }
 
 // lookupContributedMember resolves name as a member sym inherits or
@@ -952,4 +962,9 @@ func qnText(qn *ast.QualifiedName) string {
 		s = "$::" + s
 	}
 	return s
+}
+
+// ResolveSegments is ResolveQualified of the qualified name segments spell.
+func (r *Resolver) ResolveSegments(scope *symbols.Scope, segments ...string) (*symbols.Symbol, bool) {
+	return r.ResolveQualified(scope, ast.QualifiedNameOf(segments...))
 }

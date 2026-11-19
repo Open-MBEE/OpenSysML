@@ -1,0 +1,15 @@
+{
+  "type": "instance",
+  "instantiate": "test::vals",
+  "slots": {
+    "few": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}, {"type": "Integer", "value": 2}]}
+  },
+  "materialization": {},
+  "validation": {
+    "verdicts": [
+      {"kind": "binding", "assertion": "bind [1] few = [0..1] many", "status": "violated"},
+      {"kind": "binding", "assertion": "binding [1] bind [0..1] hubs.spokes = [0..1] mine", "status": "violated"}
+    ],
+    "valid": false
+  }
+}

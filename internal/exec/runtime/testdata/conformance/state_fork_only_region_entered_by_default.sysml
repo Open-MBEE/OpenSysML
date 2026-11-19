@@ -34,10 +34,10 @@ package ForkOnlyRegion {
         transition first init accept All then all;
         transition first working accept Back then init;
         transition first working then finished;
-        transition first split then a;
-        transition first split then b;
-        transition first all then a;
-        transition first all then b;
-        transition first all then c;
+        transition first split then working.left.a;
+        transition first split then working.right.b;
+        transition first all then working.left.a;
+        transition first all then working.right.b;
+        transition first all then working.third.c;
     }
 }

@@ -21,7 +21,7 @@
       "pilotNondeterministic": 0
     },
     "unkeyedReferences": 234,
-    "extensionProperties": 401,
+    "extensionProperties": 381,
     "duplicateElements": {
       "ours": 0,
       "pilot": 0
@@ -31,7 +31,7 @@
       "pilot": 0
     },
     "unkeyableElements": {
-      "ours": 21,
+      "ours": 36,
       "pilot": 54
     }
   },

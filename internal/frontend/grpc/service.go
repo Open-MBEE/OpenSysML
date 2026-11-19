@@ -166,6 +166,10 @@ const CapabilitySymbolAnnotatingMetadata = "symbol_annotating_metadata"
 // GetElementPropertiesRequest: a qualified name read only as a name, an element id only as an id.
 const CapabilitySymbolLookupKind = "symbol_lookup_kind"
 
+// CapabilitySymbolMemberDirection names the capability of honouring
+// GetSymbolRequest.member_of, reporting a feature's direction relative to that type.
+const CapabilitySymbolMemberDirection = "symbol_member_direction"
+
 // CapabilityUnsetValue names the capability of reporting a valueless feature of
 // a value type as Value.unset, rather than as the empty object it materializes.
 const CapabilityUnsetValue = "unset_value"
@@ -262,6 +266,10 @@ const CapabilityConvertCompact = "convert_compact"
 
 // CapabilityConvertLibraryReferences names ConvertResponse.library_references.
 const CapabilityConvertLibraryReferences = "convert_library_references"
+
+// CapabilityConvertInheritedMembers names ConvertRequest.inherited_members; a service
+// without it writes the inherited member lists on every api-json element.
+const CapabilityConvertInheritedMembers = "convert_inherited_members"
 
 // CapabilityConvertLibraryStubs names ConvertRequest.include_library_stubs.
 const CapabilityConvertLibraryStubs = "convert_library_stubs"
@@ -441,6 +449,7 @@ var capabilities = []string{
 	CapabilityConvertCompact,
 	CapabilityConvertLibraryReferences,
 	CapabilityConvertLibraryStubs,
+	CapabilityConvertInheritedMembers,
 	CapabilityConvertCheckDiagnostics,
 	CapabilityParseSourcesAffected,
 	CapabilityRenderDocumentFileName,
@@ -452,6 +461,7 @@ var capabilities = []string{
 	CapabilityRenderViewForm,
 	CapabilitySymbolAnnotatingMetadata,
 	CapabilitySymbolLookupKind,
+	CapabilitySymbolMemberDirection,
 }
 
 type capabilityAvailability struct {
@@ -1087,10 +1097,20 @@ func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.
 		}, nil
 	}
 
+	opts := symbolfacts.Options{IncludeLibraryMembers: req.IncludeLibraryMembers}
+	if req.MemberOf != "" && s.capabilities.has(CapabilitySymbolMemberDirection) {
+		owners := cached.LookupElementID(req.MemberOf)
+		if len(owners) == 0 {
+			return &pb.SymbolResponse{
+				Error: fmt.Sprintf("symbol not found: %s", req.MemberOf),
+			}, nil
+		}
+		opts.MemberOf = owners[0]
+	}
+
 	// Convert first match to proto
 	return &pb.SymbolResponse{
-		Symbol: s.symbolToProtoWith(syms[0], cached.SymbolContext(),
-			symbolfacts.Options{IncludeLibraryMembers: req.IncludeLibraryMembers}),
+		Symbol: s.symbolToProtoWith(syms[0], cached.SymbolContext(), opts),
 	}, nil
 }
 

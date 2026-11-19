@@ -54,12 +54,21 @@ var syntaxCodes = []Entry{
 		Spec: "the pinned SysML v2 and KerML Xtext grammars",
 	},
 	{
-		Code: "kerml-notation", Tier: TierSyntax, Severity: "warning",
+		Code: "kerml-notation", Tier: TierSyntax, Severity: "error",
 		Summary: "KerML notation in a SysML file",
-		Meaning: "A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) or a KerML spelling " +
-			"(`typed by` for a typing, which SysML spells `:` or `defined by`) that the SysML v2 grammar does not admit. " +
-			"Move the declaration to a `.kerml` file, or write the SysML form the message names. `-strict` promotes this finding to an error.",
+		Meaning: "A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) " +
+			"that the SysML v2 grammar does not admit. " +
+			"Move the declaration to a `.kerml` file, or write the SysML form the message names. A `namespace` declaration and a declaration keyword only KerML spells (`class`, `feature`, `connector` …) are errors in either mode; " +
+			"`-strict` promotes the other findings to errors.",
 		Spec: "the pinned SysML v2 Xtext grammar",
+	},
+	{
+		Code: "typing-keyword", Tier: TierSyntax, Severity: "error",
+		Summary: "a typing spelled `typed by` in a SysML file",
+		Meaning: "SysML v2 spells a usage's typing `:` or `defined by`; `typed by` is the KerML spelling of the same relationship, and `typed` is not a SysML keyword, " +
+			"so a `.sysml` file that writes it is rejected in every conformance mode. The typing is still read as written, so the rest of the model is analyzed. " +
+			"Write `defined by` (the editor quick fix rewrites the keyword), or move the declaration to a `.kerml` file.",
+		Spec: "SysML v2 §8.2.2.1.2 Lexical Structure (DEFINED_BY), §8.2.2.6.5 Specialization (TypedBy), §7.6.3 Usages, §7.27.2 Metadata Definitions and Usages",
 	},
 	{
 		Code: "sysml-notation", Tier: TierSyntax, Severity: "error",
@@ -148,7 +157,7 @@ var syntaxCodes = []Entry{
 	{
 		Code: "expose-owning-namespace", Tier: TierSyntax, Severity: "error",
 		Summary: "`expose` outside a view body",
-		Meaning: "An expose is an import a view usage owns: `expose` is admitted in the body of a view usage (and, as an OpenSysML extension the notation rules report, a view definition) only. " +
+		Meaning: "An expose is an import a view usage owns: `expose` is admitted in the body of a view usage only (SysML v2 8.2.2.26.2 ViewBodyItem); a view definition body states what it renders and filters and admits none. " +
 			"Move the expose into the view that shows the exposed elements, or write an `import` where a plain import is meant.",
 		Spec: "SysML v2 validateExposeOwningNamespace",
 	},

@@ -20,6 +20,6 @@ package Test {
 			transition first split do assign route := 2 then w2;
 		}
 
-		transition first idle accept Go then resume;
+		transition first idle accept Go then work.resume;
 	}
 }

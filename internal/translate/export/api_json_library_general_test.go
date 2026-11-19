@@ -32,7 +32,7 @@ func TestAPIJSONInheritedParameterRedefiningALibraryFeatureCompletes(t *testing.
 			in ref b redefines C::b;
 		}
 	}`, IDQualifiedName)
-	document, err := WriteAPIJSON(graph)
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestAPIJSONFeatureChainInheritsFromItsTarget(t *testing.T) {
 			require spec.economy;
 		}
 	}`, IDQualifiedName)
-	document, err := WriteAPIJSON(graph)
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestAPIJSONDoneOfAUseCaseIsTheUseCaseLibraryFeature(t *testing.T) {
 		use case def UC { first start; then done; }
 		action def A { first start; then done; }
 	}`, IDQualifiedName)
-	document, err := WriteAPIJSON(graph)
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +110,7 @@ func TestAPIJSONParametersOfAPerformedChainRedefineItsTargets(t *testing.T) {
 			perform region.produce { in cmd; out light; }
 		}
 	}`, IDQualifiedName)
-	document, err := WriteAPIJSON(graph)
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func TestAPIJSONFlowFeatureHasTheDirectionOfTheFeatureItRedefines(t *testing.T) 
 			flow f from h.x.air to c.y.air;
 		}
 	}`, IDQualifiedName)
-	document, err := WriteAPIJSON(graph)
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +168,7 @@ func TestAPIJSONConjugatedPortKeepsTheDirectionOfTheFeatureItDeclares(t *testing
 		part a { port x : ~P { out ref :>> air; } }
 		part b { port y : ~P { in ref :>> air; } }
 	}`, IDQualifiedName)
-	document, err := WriteAPIJSON(graph)
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}

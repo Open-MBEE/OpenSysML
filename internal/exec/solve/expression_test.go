@@ -47,7 +47,7 @@ func assignments(body []lower.Statement) []lower.Assign {
 // each feature as one variable named and sorted as a condition's translation
 // names it, with a datatype sort declared once for an enumeration read.
 func TestTranslatorReadsFeaturesAsOneVariableEach(t *testing.T) {
-	x, _, body := actionBody(t, `
+	x, graph, body := actionBody(t, `
 		package test {
 			private import ScalarValues::*;
 			enum def Mode { enum idle; enum busy; }
@@ -66,7 +66,7 @@ func TestTranslatorReadsFeaturesAsOneVariableEach(t *testing.T) {
 	if len(assigns) != 2 {
 		t.Fatalf("lowered %d assignments, want 2", len(assigns))
 	}
-	sum, err := x.Expression(assigns[0].Value, assigns[0].Scope, "assign total")
+	sum, err := x.Expression(graph.Exprs.Entry(assigns[0].ValueID), assigns[0].Scope, "assign total")
 	if err != nil {
 		t.Fatalf("translate the sum: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestTranslatorReadsFeaturesAsOneVariableEach(t *testing.T) {
 		t.Fatalf("the sum is %s with %d side conditions, want an unbounded Int with none",
 			sum.Term.Sort.Name, len(sum.Defined))
 	}
-	flag, err := x.Boolean(assigns[1].Value, assigns[1].Scope, "assign done")
+	flag, err := x.Boolean(graph.Exprs.Entry(assigns[1].ValueID), assigns[1].Scope, "assign done")
 	if err != nil {
 		t.Fatalf("translate the flag: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestTranslatorReadsFeaturesAsOneVariableEach(t *testing.T) {
 // condition of the expression that reads it, not of the whole translation, and
 // two expressions dividing by the same feature each carry it.
 func TestTranslatorReportsDefinednessPerExpression(t *testing.T) {
-	x, _, body := actionBody(t, `
+	x, graph, body := actionBody(t, `
 		package test {
 			private import ScalarValues::*;
 			action def Ratio {
@@ -131,7 +131,7 @@ func TestTranslatorReportsDefinednessPerExpression(t *testing.T) {
 		}`, "test::Ratio")
 	assigns := assignments(body)
 	for i, a := range assigns {
-		expr, err := x.Expression(a.Value, a.Scope, "assign "+a.Target)
+		expr, err := x.Expression(graph.Exprs.Entry(a.ValueID), a.Scope, "assign "+a.Target)
 		if err != nil {
 			t.Fatalf("translate assignment %d: %v", i, err)
 		}
@@ -149,7 +149,7 @@ func TestTranslatorReportsDefinednessPerExpression(t *testing.T) {
 // step of execution translates with no range side condition; a literal beyond
 // int64 is the Integer it spells.
 func TestTranslatorLeavesIntegerArithmeticUnbounded(t *testing.T) {
-	x, _, body := actionBody(t, `
+	x, graph, body := actionBody(t, `
 		package test {
 			private import ScalarValues::*;
 			action def Arith {
@@ -181,7 +181,7 @@ func TestTranslatorLeavesIntegerArithmeticUnbounded(t *testing.T) {
 		"(+ |test::Arith::a| 9223372036854775808)",
 	}
 	for i, result := range want {
-		expr, err := x.Expression(assigns[i].Value, assigns[i].Scope, "assign")
+		expr, err := x.Expression(graph.Exprs.Entry(assigns[i].ValueID), assigns[i].Scope, "assign")
 		if err != nil {
 			t.Fatalf("translate assignment %d: %v", i, err)
 		}
@@ -197,7 +197,7 @@ func TestTranslatorLeavesIntegerArithmeticUnbounded(t *testing.T) {
 // TestTranslatorRefusesNamingTheStatement: a construct outside the subset refuses
 // with ErrNotTranslatable, the refusal naming the statement it appeared in.
 func TestTranslatorRefusesNamingTheStatement(t *testing.T) {
-	x, _, body := actionBody(t, `
+	x, graph, body := actionBody(t, `
 		package test {
 			private import ScalarValues::*;
 			action def Power {
@@ -211,7 +211,7 @@ func TestTranslatorRefusesNamingTheStatement(t *testing.T) {
 			}
 		}`, "test::Power")
 	assigns := assignments(body)
-	_, err := x.Expression(assigns[0].Value, assigns[0].Scope, "assign p := a ** 2")
+	_, err := x.Expression(graph.Exprs.Entry(assigns[0].ValueID), assigns[0].Scope, "assign p := a ** 2")
 	var refused *NotTranslatableError
 	if !errors.As(err, &refused) || !errors.Is(err, ErrNotTranslatable) {
 		t.Fatalf("translating a ** 2: %v, want a NotTranslatableError", err)
@@ -222,7 +222,7 @@ func TestTranslatorRefusesNamingTheStatement(t *testing.T) {
 	if refused.Span.Len == 0 || refused.Location == "" {
 		t.Errorf("refusal carries no position: %+v", refused)
 	}
-	_, err = x.Boolean(assigns[1].Value, assigns[1].Scope, "assign ok := a")
+	_, err = x.Boolean(graph.Exprs.Entry(assigns[1].ValueID), assigns[1].Scope, "assign ok := a")
 	if !errors.As(err, &refused) || !strings.Contains(refused.Reason, "Int rather than a boolean") {
 		t.Fatalf("translating a as a condition: %v, want a refusal for its sort", err)
 	}
@@ -235,7 +235,7 @@ func TestTranslatorRefusesNamingTheStatement(t *testing.T) {
 // statement's own scope, as the evaluator resolves it, and reads through a
 // feature chain refuse as a condition's do.
 func TestTranslatorResolvesBodyLocals(t *testing.T) {
-	x, _, body := actionBody(t, `
+	x, graph, body := actionBody(t, `
 		package test {
 			private import ScalarValues::*;
 			action def Local {
@@ -250,7 +250,7 @@ func TestTranslatorResolvesBodyLocals(t *testing.T) {
 	if len(assigns) != 1 {
 		t.Fatalf("lowered %d assignments, want 1", len(assigns))
 	}
-	expr, err := x.Expression(assigns[0].Value, assigns[0].Scope, "assign total")
+	expr, err := x.Expression(graph.Exprs.Entry(assigns[0].ValueID), assigns[0].Scope, "assign total")
 	if err != nil {
 		t.Fatalf("translate: %v", err)
 	}

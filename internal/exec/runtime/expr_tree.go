@@ -159,8 +159,8 @@ func chainText(n ast.Node) string {
 	return traceLabel(n)
 }
 
-// valueArgument types an evaluated argument for overload selection: a scalar as the literal
-// spelling it, an object by every type classifying it, a collection by what its elements share.
+// valueArgument types an evaluated argument for overload selection: a scalar as its literal, a
+// quantity by the type it is held as, an object by its classifiers, a collection by what its elements share.
 func (ec *EvalContext) valueArgument(val Value, name *ast.QualifiedName) semantics.Argument {
 	arg := semantics.Argument{Name: name}
 	elements := elementsOf(val)
@@ -177,6 +177,9 @@ func (ec *EvalContext) valueArgument(val Value, name *ast.QualifiedName) semanti
 		types, err := ec.ctx.valueTypes(ec.scope, el)
 		if err != nil || len(types) == 0 {
 			return arg
+		}
+		if kind := el.QuantityKind(); kind != nil {
+			types = []*symbols.Symbol{kind}
 		}
 		if i == 0 {
 			common = types

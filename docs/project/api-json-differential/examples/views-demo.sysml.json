@@ -12,16 +12,16 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 7139,
+      "presentEqual": 7140,
       "presentDifferent": 594,
-      "oursMissing": 611,
+      "oursMissing": 610,
       "pilotMissing": 264,
       "absentBoth": 8609,
       "indeterminate": 279,
       "pilotNondeterministic": 1
     },
     "unkeyedReferences": 704,
-    "extensionProperties": 1141,
+    "extensionProperties": 1073,
     "duplicateElements": {
       "ours": 0,
       "pilot": 1
@@ -31,7 +31,7 @@
       "pilot": 7
     },
     "unkeyableElements": {
-      "ours": 179,
+      "ours": 189,
       "pilot": 174
     }
   },
@@ -1331,7 +1331,7 @@
     "FeatureChainExpression.member": [0,1,0,0,0,0,0],
     "FeatureChainExpression.membership": [0,1,0,0,0,0,0],
     "FeatureChainExpression.operand": [0,0,0,0,1,0,0],
-    "FeatureChainExpression.operator": [0,0,1,0,0,0,0],
+    "FeatureChainExpression.operator": [1,0,0,0,0,0,0],
     "FeatureChainExpression.output": [1,0,0,0,0,0,0],
     "FeatureChainExpression.ownedAnnotation": [0,0,0,0,1,0,0],
     "FeatureChainExpression.ownedDifferencing": [0,0,0,0,1,0,0],
@@ -3632,6 +3632,7 @@
     "SatisfyRequirementUsage.parameter": [0,0,1,0,0,0,0],
     "SatisfyRequirementUsage.portionKind": [0,0,0,0,1,0,0],
     "SatisfyRequirementUsage.predicate": [0,0,1,0,0,0,0],
+    "SatisfyRequirementUsage.references": [0,0,0,1,0,0,0],
     "SatisfyRequirementUsage.reqId": [0,0,0,0,1,0,0],
     "SatisfyRequirementUsage.requiredConstraint": [0,0,0,0,1,0,0],
     "SatisfyRequirementUsage.requirementDefinition": [1,0,0,0,0,0,0],
@@ -3639,7 +3640,6 @@
     "SatisfyRequirementUsage.satisfiedRequirement": [0,0,1,0,0,0,0],
     "SatisfyRequirementUsage.stakeholderParameter": [0,0,0,0,1,0,0],
     "SatisfyRequirementUsage.subjectParameter": [0,0,1,0,0,0,0],
-    "SatisfyRequirementUsage.subsets": [0,0,0,1,0,0,0],
     "SatisfyRequirementUsage.text": [0,0,0,0,1,0,0],
     "SatisfyRequirementUsage.textualRepresentation": [0,0,0,0,1,0,0],
     "SatisfyRequirementUsage.type": [1,0,0,0,0,0,0],

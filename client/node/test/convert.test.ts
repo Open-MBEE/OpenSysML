@@ -159,6 +159,36 @@ test("save refuses an id form for a notation target before writing", async () =>
   assert.equal(existsSync(path), false);
 });
 
+test("convert gates the inherited member lists on the service's capability and sends them", async () => {
+  const unable = await fakeConnection(["convert"]);
+  await assert.rejects(
+    () => Model.adopt(unable, "hash").convert("api-json", { inheritedMembers: true }),
+    (error: unknown) =>
+      error instanceof MissingCapabilityError && error.capability === "convert_inherited_members",
+  );
+  await unable.close();
+
+  const seen: { inheritedMembers?: boolean }[] = [];
+  const able = await fakeConnection(["convert", "convert_inherited_members"], (method, input) => {
+    assert.equal(method, "Convert");
+    seen.push(input as { inheritedMembers?: boolean });
+    return {
+      content: "[]",
+      fromFormat: "sysml",
+      toFormat: "api-json",
+      diagnostics: [],
+      error: "",
+      experimental: false,
+      experimentalNotice: "",
+      libraryReferences: [],
+    };
+  });
+  await Model.adopt(able, "hash").convert("api-json", { inheritedMembers: true });
+  await Model.adopt(able, "hash").convert("api-json");
+  assert.deepEqual(seen.map((request) => request.inheritedMembers), [true, false]);
+  await able.close();
+});
+
 test("save gates library stubs on the service's capability, as convert does", async () => {
   const dir = mkdtempSync(join(tmpdir(), "opensysml-save-"));
   const path = join(dir, "out.json");

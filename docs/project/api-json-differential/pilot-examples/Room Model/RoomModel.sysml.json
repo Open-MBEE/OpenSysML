@@ -11,16 +11,16 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 4362,
+      "presentEqual": 4374,
       "presentDifferent": 325,
-      "oursMissing": 143,
+      "oursMissing": 131,
       "pilotMissing": 187,
       "absentBoth": 4694,
       "indeterminate": 121,
       "pilotNondeterministic": 0
     },
     "unkeyedReferences": 388,
-    "extensionProperties": 566,
+    "extensionProperties": 560,
     "duplicateElements": {
       "ours": 0,
       "pilot": 0
@@ -258,7 +258,7 @@
     "FeatureMembership.isLibraryElement": [31,0,0,0,0,0,0],
     "FeatureMembership.memberElement": [31,0,0,0,0,0,0],
     "FeatureMembership.memberElementId": [31,0,0,0,0,0,0],
-    "FeatureMembership.memberName": [19,0,12,0,0,0,0],
+    "FeatureMembership.memberName": [31,0,0,0,0,0,0],
     "FeatureMembership.membershipOwningNamespace": [31,0,0,0,0,0,0],
     "FeatureMembership.ownedAnnotation": [0,0,0,0,31,0,0],
     "FeatureMembership.ownedElement": [0,0,0,0,31,0,0],

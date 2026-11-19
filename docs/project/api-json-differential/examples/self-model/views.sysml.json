@@ -20,10 +20,10 @@
       "pilotNondeterministic": 0
     },
     "unkeyedReferences": 376,
-    "extensionProperties": 1403,
+    "extensionProperties": 1189,
     "duplicateElements": {
       "ours": 0,
-      "pilot": 17284
+      "pilot": 18028
     },
     "ambiguousKeys": {
       "ours": 0,
@@ -31,7 +31,7 @@
     },
     "unkeyableElements": {
       "ours": 0,
-      "pilot": 4229
+      "pilot": 4317
     }
   },
   "rows": {
@@ -947,6 +947,7 @@
     "SatisfyRequirementUsage.parameter": [0,0,1,0,0,0,0],
     "SatisfyRequirementUsage.portionKind": [0,0,0,0,1,0,0],
     "SatisfyRequirementUsage.predicate": [0,0,1,0,0,0,0],
+    "SatisfyRequirementUsage.references": [0,0,0,1,0,0,0],
     "SatisfyRequirementUsage.reqId": [0,0,0,0,1,0,0],
     "SatisfyRequirementUsage.requiredConstraint": [0,0,0,0,1,0,0],
     "SatisfyRequirementUsage.requirementDefinition": [1,0,0,0,0,0,0],
@@ -954,7 +955,6 @@
     "SatisfyRequirementUsage.satisfiedRequirement": [0,0,1,0,0,0,0],
     "SatisfyRequirementUsage.stakeholderParameter": [0,0,0,0,1,0,0],
     "SatisfyRequirementUsage.subjectParameter": [0,0,1,0,0,0,0],
-    "SatisfyRequirementUsage.subsets": [0,0,0,1,0,0,0],
     "SatisfyRequirementUsage.text": [0,0,0,0,1,0,0],
     "SatisfyRequirementUsage.textualRepresentation": [0,0,0,0,1,0,0],
     "SatisfyRequirementUsage.type": [1,0,0,0,0,0,0],

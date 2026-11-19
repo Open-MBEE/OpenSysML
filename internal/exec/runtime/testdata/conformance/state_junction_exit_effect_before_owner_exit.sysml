@@ -21,7 +21,7 @@ package Test {
 				}
 			}
 			junction XP;
-			transition first S111 accept Go do assign log := log + "T12(effect);" then XP;
+			transition first S11.S111 accept Go do assign log := log + "T12(effect);" then XP;
 		}
 		transition first S1::XP do assign log := log + "T3(effect);" then S2;
 		state S2 {

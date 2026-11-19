@@ -400,6 +400,7 @@ func (in interner) facts(f *LibraryFacts) {
 	}
 	in.ref(&f.Alias)
 	in.ref(&f.References)
+	in.ref(&f.ValueGeneral)
 	in.ref(&f.BaseType)
 	in.ref(&f.MetadataType)
 	for i := range f.Relationships {

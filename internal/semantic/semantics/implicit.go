@@ -858,7 +858,7 @@ func (m *Model) declaredGeneralizationReaches(sym *symbols.Symbol, want string, 
 	// generalization would (SysML v2 §7.27.3), so it displaces the base too.
 	var targets []*symbols.Symbol
 	for _, rel := range RelationshipsOf(sym) {
-		if rel != nil && GeneralizationKind(rel.Kind) {
+		if rel != nil && Generalizes(sym, rel.Kind) {
 			targets = append(targets, m.relationshipTarget(sym, rel))
 		}
 	}
@@ -907,7 +907,7 @@ func (m *Model) declaredReachesFrom(from, want *symbols.Symbol, visited *reachSe
 	var few [4]*symbols.Symbol
 	targets := few[:0]
 	for _, rel := range RelationshipsOf(from) {
-		if rel != nil && GeneralizationKind(rel.Kind) {
+		if rel != nil && Generalizes(from, rel.Kind) {
 			targets = append(targets, m.relationshipTarget(from, rel))
 		}
 	}
@@ -1226,10 +1226,10 @@ func (m *Model) computeDeclaredChainReachesKindBase(sym *symbols.Symbol) bool {
 	return ok && fqn != "" && m.declaredGeneralizationReaches(sym, fqn, nil)
 }
 
-// DeclaredSupertypes returns sym's direct supertypes without the generals its
-// kind implies: what a declaration states, directly or through a chain it names.
+// DeclaredSupertypes returns sym's direct supertypes without the generals its kind or
+// its feature value implies: what a declaration states, directly or through a chain it names.
 func (m *Model) DeclaredSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
-	implicit := m.ImplicitGenerals(sym)
+	implicit := m.generalsOutsideTyping(sym)
 	var out []*symbols.Symbol
 	for _, super := range m.DirectSupertypes(sym) {
 		if !slices.Contains(implicit, super) {

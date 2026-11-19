@@ -99,7 +99,7 @@ func jsonValue(subject, value Term) (any, error) {
 	if value.IsIRI() {
 		return reference{ID: ReferenceID(subject, value)}, nil
 	}
-	switch value.Datatype {
+	switch value.Datatype() {
 	case XSD + "boolean":
 		return value.Value == "true" || value.Value == "1", nil
 	case XSD + "integer", XSD + "decimal", XSD + "double", XSD + "float":

@@ -16,6 +16,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/exporter"
+	"github.com/Open-MBEE/OpenSysML/tools/referee/apijson"
 )
 
 // PilotCensus is the pilot's side of one root: what its export states for
@@ -137,6 +138,8 @@ func countPilotElement(payload map[string]any, rules []metamodel.Rule, classes m
 		counts.Carriers++
 		value, present := payload[rule.Property]
 		switch {
+		case apijson.IsPilotNondeterministic(class, rule.Property):
+			counts.Nondeterministic++
 		case !present:
 			counts.NotDerived++
 		case isAbsent(value):

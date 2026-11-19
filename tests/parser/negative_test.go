@@ -47,6 +47,9 @@ func TestNegative(t *testing.T) {
 		// short name.
 		{"kerml_word_name_missing_operand", "part def R { attribute step : Real; assert constraint { step <= } }"},
 		{"kerml_word_name_unclosed_comparison", "part def R { attribute step : Real; assert constraint { step < } }"},
+		// After a SysML kind keyword the KerML-only word is the usage's name, so
+		// a second name is the pilot's `no viable alternative at input 'x'`.
+		{"kerml_word_names_usage_second_name", "package P { part def D { action behavior x; } }"},
 		{"numeric_name", "part def 123;"},
 		{"missing_semicolon", "part def Engine"},
 		{"ref_anonymous_unclosed_multiplicity", "package P { ref [1 = x; }"},
@@ -95,6 +98,9 @@ func TestNegative(t *testing.T) {
 		{"state_entry_no_keyword", "state s { entry }"},
 		{"action_dangling_fork", "action a { fork }"},
 		{"transition_then_only", "transition first then"},
+		// A `then` target is a ConnectorEnd: a chain needs a name after each `.`.
+		{"then_chain_trailing_dot", "state def S { state a { state b; } state c; then a.; }"},
+		{"then_chain_double_dot", "state def S { state a { state b; } state c; then a..b; }"},
 		{"named_final_node", "action a { done finish; }"},
 		// InitialNodeMember is an ActionBodyItem production alone (SysML.xtext:1376):
 		// a one-ended `first` outside an action body names no target.

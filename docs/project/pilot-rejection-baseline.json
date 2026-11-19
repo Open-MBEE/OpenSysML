@@ -27,25 +27,22 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 349,
-        "digest": "sha256:070219a432a6b326c1e418623b21d9ee35b7731e340489566922e39564263384"
+        "files": 351,
+        "digest": "sha256:cc6b44460f71dc111fe42083fcb73786a73c5946a0010d170d1b120047999597"
       }
     ],
-    "recorded": "2026-11-14"
+    "recorded": "2026-11-17"
   },
   "totals": {
-    "cases": 349,
-    "bothReject": 339,
+    "cases": 351,
+    "bothReject": 341,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 10,
     "bothAccept": 0
   },
   "strictOnlyAgreements": [
     "extensions/x06-history-member.sysml",
-    "extensions/x09-expose-in-view-def-body.sysml",
-    "extensions/x10-connector-in-sysml.sysml",
-    "extensions/x11-indexed-connector-end.sysml",
-    "extensions/x13-typed-by-in-sysml.sysml"
+    "extensions/x11-indexed-connector-end.sysml"
   ],
   "sources": [
     {
@@ -66,8 +63,8 @@
     },
     {
       "source": "semantic",
-      "cases": 187,
-      "bothReject": 177,
+      "cases": 189,
+      "bothReject": 179,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 10,
       "bothAccept": 0
@@ -177,7 +174,8 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 2,
-      "defaultBucket": "pilot-only-rejects"
+      "defaultBucket": "both-reject",
+      "defaultErrors": 1
     },
     {
       "path": "extensions/x10-connector-in-sysml.sysml",
@@ -187,7 +185,8 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 3,
-      "defaultBucket": "pilot-only-rejects"
+      "defaultBucket": "both-reject",
+      "defaultErrors": 1
     },
     {
       "path": "extensions/x11-indexed-connector-end.sysml",
@@ -218,7 +217,8 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 2,
-      "defaultBucket": "pilot-only-rejects"
+      "defaultBucket": "both-reject",
+      "defaultErrors": 1
     },
     {
       "path": "grammar/g01-unclosed-package-body.sysml",
@@ -362,7 +362,7 @@
       "mode": "default",
       "bucket": "both-reject",
       "oursErrors": 3,
-      "pilotErrors": 2
+      "pilotErrors": 1
     },
     {
       "path": "grammar/g17-render-without-usage.sysml",
@@ -2072,6 +2072,24 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/k79-chain-expression-through-alias-to-another-type.kerml",
+      "source": "semantic",
+      "rule": "the target feature of a feature chain expression must be featured within the result of its argument, and an alias or import reaching another type's feature is not (KerML 8.3.4.8.4 validateFeatureChainExpressionConformance; pilot validateFeatureChainExpressionFeatureConformance).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 3,
+      "pilotErrors": 3
+    },
+    {
+      "path": "semantic/k79-redefines-inherited-feature-from-nested-classifier.kerml",
+      "source": "semantic",
+      "rule": "a classifier nested in a type is not featured by it, so a feature of the nested classifier cannot access, and so cannot redefine, a feature the enclosing type inherits (KerML 8.3.3.3.10 validateSubsettingFeaturingTypes; pilot validateSubsettingFeaturingTypes).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
       "path": "semantic/s01-action-typed-by-part-def.sysml",
       "source": "semantic",
       "rule": "An action must be typed by action definitions (SysML 7.16 Actions; pilot validateActionUsageType).",
@@ -3387,8 +3405,8 @@
       }
     ],
     "totals": {
-      "cases": 349,
-      "bothReject": 339,
+      "cases": 351,
+      "bothReject": 341,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 10,
       "bothAccept": 0

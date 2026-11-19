@@ -11,16 +11,16 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 7757,
+      "presentEqual": 7759,
       "presentDifferent": 433,
-      "oursMissing": 1118,
+      "oursMissing": 1116,
       "pilotMissing": 265,
       "absentBoth": 7871,
       "indeterminate": 81,
       "pilotNondeterministic": 2
     },
     "unkeyedReferences": 360,
-    "extensionProperties": 807,
+    "extensionProperties": 760,
     "duplicateElements": {
       "ours": 0,
       "pilot": 0
@@ -528,7 +528,7 @@
     "FeatureChainExpression.member": [0,2,0,0,0,0,0],
     "FeatureChainExpression.membership": [0,2,0,0,0,0,0],
     "FeatureChainExpression.operand": [0,0,0,0,2,0,0],
-    "FeatureChainExpression.operator": [0,0,2,0,0,0,0],
+    "FeatureChainExpression.operator": [2,0,0,0,0,0,0],
     "FeatureChainExpression.output": [2,0,0,0,0,0,0],
     "FeatureChainExpression.ownedAnnotation": [0,0,0,0,2,0,0],
     "FeatureChainExpression.ownedDifferencing": [0,0,0,0,2,0,0],
@@ -2085,6 +2085,7 @@
     "SatisfyRequirementUsage.parameter": [0,0,2,0,0,0,0],
     "SatisfyRequirementUsage.portionKind": [0,0,0,0,2,0,0],
     "SatisfyRequirementUsage.predicate": [0,0,2,0,0,0,0],
+    "SatisfyRequirementUsage.references": [0,0,0,2,0,0,0],
     "SatisfyRequirementUsage.reqId": [0,0,0,0,2,0,0],
     "SatisfyRequirementUsage.requiredConstraint": [0,0,0,0,2,0,0],
     "SatisfyRequirementUsage.requirementDefinition": [2,0,0,0,0,0,0],
@@ -2094,7 +2095,6 @@
     "SatisfyRequirementUsage.stakeholderParameter": [0,0,0,0,2,0,0],
     "SatisfyRequirementUsage.subject": [0,0,0,2,0,0,0],
     "SatisfyRequirementUsage.subjectParameter": [2,0,0,0,0,0,0],
-    "SatisfyRequirementUsage.subsets": [0,0,0,2,0,0,0],
     "SatisfyRequirementUsage.text": [0,0,0,0,2,0,0],
     "SatisfyRequirementUsage.textualRepresentation": [0,0,0,0,2,0,0],
     "SatisfyRequirementUsage.type": [2,0,0,0,0,0,0],

@@ -11,16 +11,16 @@
       "typeMismatch": 10
     },
     "properties": {
-      "presentEqual": 1277,
+      "presentEqual": 1279,
       "presentDifferent": 70,
-      "oursMissing": 180,
+      "oursMissing": 178,
       "pilotMissing": 67,
       "absentBoth": 1124,
       "indeterminate": 37,
       "pilotNondeterministic": 2
     },
     "unkeyedReferences": 98,
-    "extensionProperties": 194,
+    "extensionProperties": 191,
     "duplicateElements": {
       "ours": 0,
       "pilot": 0
@@ -236,7 +236,7 @@
     "FeatureChainExpression.member": [0,2,0,0,0,0,0],
     "FeatureChainExpression.membership": [0,2,0,0,0,0,0],
     "FeatureChainExpression.operand": [0,0,0,0,2,0,0],
-    "FeatureChainExpression.operator": [0,0,2,0,0,0,0],
+    "FeatureChainExpression.operator": [2,0,0,0,0,0,0],
     "FeatureChainExpression.output": [2,0,0,0,0,0,0],
     "FeatureChainExpression.ownedAnnotation": [0,0,0,0,2,0,0],
     "FeatureChainExpression.ownedDifferencing": [0,0,0,0,2,0,0],

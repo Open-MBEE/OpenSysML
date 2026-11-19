@@ -21,6 +21,6 @@ package test {
 			entry { assign log := log * 10 + 3; }
 		}
 
-		succession first start then Step1;
+		succession first start then Working.Step1;
 	}
 }

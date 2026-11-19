@@ -266,15 +266,18 @@ func (a *activity) typedCallee(n *sysmlv1.Element) *sysmlv1.Element {
 	if n.Type == "CallOperationAction" {
 		return a.m.model.Ref(n, "operation")
 	}
-	b := a.m.model.Ref(n, "behavior")
-	if b == nil || a.m.primitiveCalled(n) != nil {
+	if a.m.primitiveCalled(n) != nil {
 		return nil
 	}
-	if op := a.m.methodOf[b]; op != nil {
-		b = op
+	b := a.m.calledActionDef(n)
+	if b == nil {
+		return nil
 	}
-	if cat, _ := a.m.classify(b); cat == catActionDef {
-		return b
+	if l, _, _ := a.m.lanePerformer(n); l == nil && a.m.asUsage[b] {
+		if obj, _, _ := a.m.objectOf(b.Parent, a.selfType(), a.self()); obj == "" {
+			// No object performs the usage, so an empty step declares the pins.
+			return nil
+		}
 	}
-	return nil
+	return b
 }

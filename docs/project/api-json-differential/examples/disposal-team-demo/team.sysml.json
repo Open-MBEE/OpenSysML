@@ -11,16 +11,16 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 20089,
+      "presentEqual": 20099,
       "presentDifferent": 1238,
-      "oursMissing": 2730,
+      "oursMissing": 2720,
       "pilotMissing": 654,
       "absentBoth": 20912,
       "indeterminate": 278,
       "pilotNondeterministic": 10
     },
     "unkeyedReferences": 1215,
-    "extensionProperties": 2273,
+    "extensionProperties": 2203,
     "duplicateElements": {
       "ours": 0,
       "pilot": 0
@@ -30,7 +30,7 @@
       "pilot": 0
     },
     "unkeyableElements": {
-      "ours": 102,
+      "ours": 112,
       "pilot": 79
     }
   },
@@ -1228,7 +1228,7 @@
     "FeatureChainExpression.member": [0,10,0,0,0,0,0],
     "FeatureChainExpression.membership": [0,10,0,0,0,0,0],
     "FeatureChainExpression.operand": [0,0,0,0,10,0,0],
-    "FeatureChainExpression.operator": [0,0,10,0,0,0,0],
+    "FeatureChainExpression.operator": [10,0,0,0,0,0,0],
     "FeatureChainExpression.output": [9,1,0,0,0,0,0],
     "FeatureChainExpression.ownedAnnotation": [0,0,0,0,10,0,0],
     "FeatureChainExpression.ownedDifferencing": [0,0,0,0,10,0,0],
@@ -3632,13 +3632,13 @@
     "RequirementUsage.portionKind": [0,0,0,0,6,0,0],
     "RequirementUsage.predicate": [0,0,6,0,0,0,0],
     "RequirementUsage.qualifiedName": [6,0,0,0,0,0,0],
+    "RequirementUsage.references": [0,0,0,1,0,0,0],
     "RequirementUsage.reqId": [0,0,0,0,6,0,0],
     "RequirementUsage.requiredConstraint": [2,0,0,0,4,0,0],
     "RequirementUsage.requirementDefinition": [4,0,2,0,0,0,0],
     "RequirementUsage.result": [0,0,6,0,0,0,0],
     "RequirementUsage.stakeholderParameter": [0,0,0,0,6,0,0],
     "RequirementUsage.subjectParameter": [4,0,2,0,0,0,0],
-    "RequirementUsage.subsets": [0,0,0,1,0,0,0],
     "RequirementUsage.text": [1,0,0,0,5,0,0],
     "RequirementUsage.textualRepresentation": [0,0,0,0,6,0,0],
     "RequirementUsage.type": [4,0,2,0,0,0,0],
@@ -3840,6 +3840,7 @@
     "SatisfyRequirementUsage.parameter": [0,0,1,0,0,0,0],
     "SatisfyRequirementUsage.portionKind": [0,0,0,0,1,0,0],
     "SatisfyRequirementUsage.predicate": [0,0,1,0,0,0,0],
+    "SatisfyRequirementUsage.references": [0,0,0,1,0,0,0],
     "SatisfyRequirementUsage.reqId": [0,0,0,0,1,0,0],
     "SatisfyRequirementUsage.requiredConstraint": [0,0,0,0,1,0,0],
     "SatisfyRequirementUsage.requirementDefinition": [1,0,0,0,0,0,0],
@@ -3849,7 +3850,6 @@
     "SatisfyRequirementUsage.stakeholderParameter": [0,0,0,0,1,0,0],
     "SatisfyRequirementUsage.subject": [0,0,0,1,0,0,0],
     "SatisfyRequirementUsage.subjectParameter": [1,0,0,0,0,0,0],
-    "SatisfyRequirementUsage.subsets": [0,0,0,1,0,0,0],
     "SatisfyRequirementUsage.text": [0,0,0,0,1,0,0],
     "SatisfyRequirementUsage.textualRepresentation": [0,0,0,0,1,0,0],
     "SatisfyRequirementUsage.type": [1,0,0,0,0,0,0],

@@ -6,7 +6,7 @@ description: Parse, query, instantiate, execute and verify SysML v2 models from 
 # Using OpenSysML from Rust
 
 `opensysml` is a blocking client for the `sysml-grpc` service; it starts a private one for you and
-pulls in no async runtime, so it is safe to call from inside one. MSRV is Rust 1.83. Reference:
+pulls in no async runtime, so it is safe to call from inside one. MSRV is Rust 1.85. Reference:
 `docs/guide/09-clients.md` (From Rust), `client/rust/README.md` and `docs/reference/rust-api.md` in
 the OpenSysML repository.
 

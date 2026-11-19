@@ -140,6 +140,9 @@ func (c *client) elementProperties(ctx context.Context, model *Model, lookup pb.
 			lookup = pb.LookupKind_LOOKUP_KIND_UNSPECIFIED
 		}
 	}
+	if err := c.requireCapabilities(ctx, CapabilityElementProperties); err != nil {
+		return nil, err
+	}
 	resp, err := c.caller.getElementProperties(ctx, &pb.GetElementPropertiesRequest{
 		ModelHash: hash, ElementId: element, Lookup: lookup, Properties: append([]string(nil), properties...),
 	})

@@ -11,16 +11,16 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 932,
+      "presentEqual": 933,
       "presentDifferent": 50,
-      "oursMissing": 9,
+      "oursMissing": 8,
       "pilotMissing": 35,
       "absentBoth": 1096,
       "indeterminate": 37,
       "pilotNondeterministic": 0
     },
     "unkeyedReferences": 75,
-    "extensionProperties": 140,
+    "extensionProperties": 139,
     "duplicateElements": {
       "ours": 0,
       "pilot": 0
@@ -770,7 +770,7 @@
     "ReferenceUsage.chainingFeature": [0,0,0,0,1,0,0],
     "ReferenceUsage.declaredName": [1,0,0,0,0,0,0],
     "ReferenceUsage.declaredShortName": [0,0,0,0,1,0,0],
-    "ReferenceUsage.definition": [0,0,1,0,0,0,0],
+    "ReferenceUsage.definition": [1,0,0,0,0,0,0],
     "ReferenceUsage.differencingType": [0,0,0,0,1,0,0],
     "ReferenceUsage.directedFeature": [0,0,0,0,1,0,0],
     "ReferenceUsage.directedUsage": [0,0,0,0,1,0,0],

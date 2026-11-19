@@ -11,16 +11,16 @@
       "typeMismatch": 104
     },
     "properties": {
-      "presentEqual": 11090,
+      "presentEqual": 11106,
       "presentDifferent": 868,
-      "oursMissing": 1222,
-      "pilotMissing": 932,
+      "oursMissing": 1206,
+      "pilotMissing": 945,
       "absentBoth": 9540,
       "indeterminate": 6,
       "pilotNondeterministic": 0
     },
     "unkeyedReferences": 757,
-    "extensionProperties": 1713,
+    "extensionProperties": 1573,
     "duplicateElements": {
       "ours": 0,
       "pilot": 21
@@ -194,7 +194,7 @@
     "Feature.crossFeature": [0,0,6,0,0,0,0],
     "Feature.declaredName": [31,0,0,0,59,0,0],
     "Feature.declaredShortName": [0,0,0,0,90,0,0],
-    "Feature.definition": [0,0,0,19,0,0,0],
+    "Feature.definition": [0,0,0,32,0,0,0],
     "Feature.differencingType": [0,0,0,0,90,0,0],
     "Feature.directedFeature": [6,0,0,0,84,0,0],
     "Feature.directedUsage": [0,0,0,6,0,0,0],
@@ -267,7 +267,7 @@
     "Feature.redefines": [0,0,0,38,0,0,0],
     "Feature.subsets": [0,0,0,11,0,0,0],
     "Feature.textualRepresentation": [0,0,0,0,90,0,0],
-    "Feature.type": [47,0,43,0,0,0,0],
+    "Feature.type": [56,0,34,0,0,0,0],
     "Feature.unioningType": [0,0,0,0,90,0,0],
     "Feature.upperBound": [0,0,0,22,0,0,0],
     "Feature.usage": [0,0,0,46,0,0,0],
@@ -924,7 +924,7 @@
     "ReturnParameterMembership.textualRepresentation": [0,0,0,0,7,0,0],
     "ReturnParameterMembership.visibility": [7,0,0,0,0,0,0],
     "Step.aliasIds": [0,0,0,0,14,0,0],
-    "Step.behavior": [7,0,7,0,0,0,0],
+    "Step.behavior": [14,0,0,0,0,0,0],
     "Step.chainingFeature": [0,0,0,0,14,0,0],
     "Step.declaredName": [7,0,0,0,7,0,0],
     "Step.declaredShortName": [0,0,0,0,14,0,0],
