@@ -130,6 +130,18 @@ class SysmlApiClientTest {
   }
 
   @Test
+  void followsALinkThatIsAQueryAlone() {
+    api.project("p1", "Mission", "main");
+    String commit = api.commit("p1", "main", creates(25));
+    api.paging = FakeSysmlApi.Paging.LINKED;
+    api.pageLimit = 10;
+    api.queryOnlyLinks = true;
+
+    assertEquals(25, client("").elements("p1", commit).size());
+    assertTrue(api.requests.contains("GET /projects/p1/commits/" + commit + "/elements?cursor=e9"), api.requests.toString());
+  }
+
+  @Test
   void takesAServerIgnoringPagingAtItsWord() {
     api.project("p1", "Mission", "main");
     String commit = api.commit("p1", "main", creates(1203));

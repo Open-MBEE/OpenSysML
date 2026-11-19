@@ -250,7 +250,7 @@ public final class SysmlApiClient {
         if (target.startsWith("<") && target.endsWith(">")) target = target.substring(1, target.length() - 1);
         URI to;
         try {
-          to = requested.resolve(target);
+          to = resolve(requested, target);
         } catch (IllegalArgumentException malformed) {
           return Optional.empty();
         }
@@ -259,6 +259,17 @@ public final class SysmlApiClient {
       }
     }
     return Optional.empty();
+  }
+
+  /** RFC 3986 resolution; a query-only reference keeps the whole path, which {@link URI#resolve} does not. */
+  private static URI resolve(URI requested, String reference) {
+    if (!reference.startsWith("?")) return requested.resolve(reference);
+    String whole = requested.toString();
+    int end = whole.indexOf('#');
+    if (end >= 0) whole = whole.substring(0, end);
+    end = whole.indexOf('?');
+    if (end >= 0) whole = whole.substring(0, end);
+    return URI.create(whole + reference);
   }
 
   private String projectPath(String project) {

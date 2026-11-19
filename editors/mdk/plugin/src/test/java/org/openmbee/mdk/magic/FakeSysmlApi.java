@@ -32,6 +32,8 @@ final class FakeSysmlApi implements AutoCloseable {
   final List<JsonObject> posted = new ArrayList<>();
   Paging paging = Paging.CURSOR;
   int pageLimit = Integer.MAX_VALUE;
+  /** Whether a next-page link is the query alone, relative to the listing. */
+  boolean queryOnlyLinks;
   String requiredToken = "";
   /** Run once, after the next element listing is answered: a concurrent writer. */
   Runnable afterElements = () -> {};
@@ -203,7 +205,8 @@ final class FakeSysmlApi implements AutoCloseable {
     if (paging == Paging.LINKED && end < all.size()) {
       String last = all.get(end - 1).get("@id").getAsString();
       exchange.getResponseHeaders().add(
-          "Link", "<" + exchange.getRequestURI().getRawPath() + "?cursor=" + last + ">; rel=\"next\"");
+          "Link", "<" + (queryOnlyLinks ? "" : exchange.getRequestURI().getRawPath()) + "?cursor=" + last
+              + ">; rel=\"next\"");
     }
     Runnable concurrent;
     synchronized (this) {
