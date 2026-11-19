@@ -200,7 +200,8 @@ func TestInstantiateAnswersCoordinateFrames(t *testing.T) {
 // A frame or transformation built with no model behind it crosses with what it
 // holds: an affine matrix as bare numbers, a measurement scale as its unit.
 func TestValueToProto_CoordinateShapes(t *testing.T) {
-	metre := semantics.Unit{Text: "m", Product: semantics.OpaqueUnitProduct("m", semantics.UnitTerm{Scale: semantics.UnitScale(1)})}
+	base := semantics.UnitTerm{Scale: semantics.UnitScale(1)}
+	metre := semantics.Unit{Text: "m", Product: semantics.OpaqueUnitProduct("m", base), Term: base}
 	frame := &runtime.CoordinateFrame{Dimensions: []int64{3}, Axes: []runtime.Unit{metre, metre, metre}, Text: "spatialCF"}
 	affine := &runtime.AffineTransformation3d{Rotation: [9]float64{1, 0, 0, 0, 1, 0, 0, 0, 1}, Translation: [3]float64{4, 5, 6}}
 	pv := protoconv.ValueToProto(runtime.NewCoordinateTransformationValue(&runtime.CoordinateTransformation{Source: frame, Target: frame, Affine: affine}), nil)
@@ -291,5 +292,31 @@ func TestCapabilities_IncludeCoordinateFrameValues(t *testing.T) {
 	}
 	if mustEvaluate(t, srv, modelHash, "Frames::datum").GetCoordinateFrame() == nil {
 		t.Errorf("Frames::datum holds no vector, and should cross")
+	}
+}
+
+// A pose maps target coordinates in the target's units to the source's, so a
+// metre frame placed in a millimetre one scales each basis column by 1000.
+func TestEvaluatePoseScalesTargetUnitsIntoTheSource(t *testing.T) {
+	srv := mustNewService(t, 4)
+	modelHash := mustParse(t, srv, `
+package Scaled {
+  private import ISQ::*;
+  private import SI::*;
+  private import MeasurementReferences::*;
+
+  attribute datum : CartesianSpatial3dCoordinateFrame { :>> mRefs = (mm, mm, mm); }
+  attribute metric : CartesianSpatial3dCoordinateFrame {
+    :>> mRefs = (m, m, m);
+    :>> transformation : CoordinateFramePlacement {
+      :>> source = datum;
+      :>> origin = (1.0, 2.0, 3.0) [datum];
+    }
+  }
+}
+`)
+	pose := mustCoordinateFrame(t, mustEvaluate(t, srv, modelHash, "Scaled::metric")).GetTransformation().GetPose()
+	if !nearly(pose.GetOrigin(), []float64{1, 2, 3}) || !nearly(pose.GetBasis(), []float64{1000, 0, 0, 0, 1000, 0, 0, 0, 1000}) {
+		t.Errorf("pose = %v, want origin (1, 2, 3) mm and a metre along each axis as 1000 mm", pose)
 	}
 }

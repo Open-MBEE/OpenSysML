@@ -3,6 +3,7 @@ package runtime
 import (
 	"fmt"
 	"math"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
@@ -99,15 +100,16 @@ func (ctx *Context) poseOf(name string, t *CoordinateTransformation) (framePose,
 		errUnevaluableLibraryFunction, name, t.Name(), SymbolText(t.Type))
 }
 
-// FramePose is where a target frame sits in its source, in the source's axis units:
-// target coordinates v lie at Origin + Basis · v, Basis row-major over n axes.
+// FramePose is where a target frame sits in its source: target coordinates v, in
+// the target's axis units, lie at Origin + Basis · v in the source's axis units,
+// Basis row-major over n axes.
 type FramePose struct {
 	Origin []float64
 	Basis  []float64
 }
 
 // TransformationPose resolves whichever shape t has to the pose it states; false
-// when t names no source or its shape resolves to none.
+// when t names no source, its shape resolves to none or its axis units do not convert.
 func (ctx *Context) TransformationPose(t *CoordinateTransformation) (FramePose, bool) {
 	if t == nil || t.Source == nil {
 		return FramePose{}, false
@@ -116,11 +118,43 @@ func (ctx *Context) TransformationPose(t *CoordinateTransformation) (FramePose, 
 	if err != nil {
 		return FramePose{}, false
 	}
-	out := FramePose{Origin: pose.origin}
+	n := len(pose.origin)
+	out := FramePose{Origin: slices.Clone(pose.origin), Basis: make([]float64, 0, n*n)}
 	for _, row := range pose.basis {
 		out.Basis = append(out.Basis, row...)
 	}
+	if t.Target == nil {
+		return out, true
+	}
+	if len(t.Target.Axes) != n {
+		return FramePose{}, false
+	}
+	// Column j carries target axis j into source units: w = at0 + per1 · v.
+	for j := range n {
+		at0, ok0 := inSourceUnit(0, t.Target.Axes[j], t.Source.Axes[j])
+		at1, ok1 := inSourceUnit(1, t.Target.Axes[j], t.Source.Axes[j])
+		if !ok0 || !ok1 {
+			return FramePose{}, false
+		}
+		for i := range n {
+			out.Origin[i] += pose.basis[i][j] * at0
+			out.Basis[i*n+j] *= at1 - at0
+		}
+	}
 	return out, true
+}
+
+// inSourceUnit is a magnitude on a target axis read on the source axis it maps to.
+func inSourceUnit(magnitude float64, target, source semantics.Unit) (float64, bool) {
+	num, err := semantics.RealResult(magnitude)
+	if err != nil {
+		return 0, false
+	}
+	q, err := semantics.ConvertQuantity(Quantity{Num: num, Unit: target}, source)
+	if err != nil {
+		return 0, false
+	}
+	return q.Num.AsReal(), true
 }
 
 // placementPose reads origin and basisDirections: the origin as the target's

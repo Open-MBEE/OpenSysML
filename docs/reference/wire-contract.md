@@ -963,8 +963,10 @@ rendering of it:
   present for a transformation that states none.
 - **Pose.** `pose` is what the shape resolves to, so a consumer placing geometry needs no
   rotation algebra of its own: a point with coordinates `v` in the target frame lies at
-  `origin + basis · v` in the source frame, in the source's axis units. `origin` has one number
-  per source axis and `basis` is n×n, row-major. It is computed from the units the model
+  `origin + basis · v` in the source frame, in the source's axis units. `v` is read in the
+  target's own axis units, so `basis` carries the conversion between the two as well as the
+  rotation: a metre frame placed unrotated in a millimetre one has 1000 down its diagonal.
+  `origin` has one number per source axis and `basis` is n×n, row-major. It is computed from the units the model
   names, so the library's degree (0.01745329 rad) puts a 180° turn within 5e-7 of a half turn, as above. It is absent when the transformation states no
   source or its shape resolves to no pose; it is never a guess.
 - **Output only.** Neither arm is an argument: a request carrying one, at any depth, is
