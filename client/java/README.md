@@ -64,7 +64,9 @@ records (`IntegerValue`, `BigIntegerValue` for an Integer beyond `long`, `RealVa
 `VectorValue`, `VectorQuantityValue`, `SetValue`, `TensorQuantityValue`, `MeasurementRefValue`,
 `FunctionValue`, `MetaobjectValue`, `EnumerationValue` (whose `EnumLiteral` carries the scalar a
 `high = 3` literal was given as `value()`), `InstanceReference`, `Sequence`, `NullValue`,
-`UnsetValue`, `UndeterminedValue`, `InfinityValue`), and `Symbol`,
+`UnsetValue`, `UndeterminedValue`, `InfinityValue`, and the answer-only `CoordinateFrameValue`
+and `CoordinateTransformationValue` over the `CoordinateFrame` and `CoordinateTransformation`
+records), and `Symbol`,
 `Diagnostic`, `Instance` and `Instantiation` are records with copied collections, as are
 the answers of execution (`ActionRun`, `StateRun`, `Exploration` of `Outcome`s),
 verification (`Verification`, `Satisfaction`, `Validation`, each over `Verdict`s and

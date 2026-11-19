@@ -433,6 +433,14 @@ Decoded value kinds carried by the service wire format.
     options:
       heading_level: 3
 
+::: opensysml.CoordinateFrame
+    options:
+      heading_level: 3
+
+::: opensysml.CoordinateTransformation
+    options:
+      heading_level: 3
+
 ::: opensysml.Array
     options:
       heading_level: 3
