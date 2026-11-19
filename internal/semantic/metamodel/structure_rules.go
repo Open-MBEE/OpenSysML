@@ -5729,7 +5729,9 @@ func (e *Evaluator) structureFeatureTypes(element Element) (Value, bool, bool) {
 		// One derivation for every surface: the Symbol facts answer Feature::type
 		// from the semantic model, so the structure reads the same answer.
 		if sym, found := resolver.SymbolOf(element); found && sym != nil {
-			if types, supported := e.featureTypes(sym); supported {
+			// An expression declaring no type is typed by the function it invokes or the evaluations
+			// feature its metaclass implies, which only the structural derivation reads (structureImpliedFeatureTypes).
+			if types, supported := e.featureTypes(sym); supported && len(types) > 0 {
 				values := make([]Value, 0, len(types))
 				for _, typ := range types {
 					values = append(values, Value{Kind: ElementValue, Element: resolver.ElementFor(typ), Success: true})
