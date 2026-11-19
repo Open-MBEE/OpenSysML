@@ -357,6 +357,9 @@ type Context struct {
 	// clockRun the run an advance of it draws its due-order choices from.
 	clock    Clock
 	clockRun executorRun
+	// advance is the advance of the clock under way, nil outside one: where a
+	// behavior that fails while it runs is noted for the advance to report.
+	advance *clockAdvance
 	// futures memoizes what each executor on the clock may still touch, for
 	// telling the turns whose moves interleave.
 	futures *futureFootprints
