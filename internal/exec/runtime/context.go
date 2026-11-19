@@ -1334,7 +1334,7 @@ func (ctx *Context) CheckConstraintWith(sym *symbols.Symbol, scope *symbols.Scop
 func (ctx *Context) checkConstraintOn(sym *symbols.Symbol, scope *symbols.Scope, subject carrier, args CheckArgs) (CheckResult, error) {
 	members := ctx.chainMembers(sym, scope)
 	bindings := make(map[string]Value)
-	if err := ctx.bindCheckArgs(sym, "constraint", sym.Name, members, subject.instance, args, bindings); err != nil {
+	if err := ctx.bindCheckArgs(sym, "constraint", sym.Name, members, args, bindings); err != nil {
 		return ctx.checkResultOf(false, subject), err
 	}
 	// Evaluate every condition the constraint states, inherited ones included.
@@ -1731,7 +1731,7 @@ func (ctx *Context) checkRequirementOn(sym *symbols.Symbol, scope *symbols.Scope
 	if err != nil {
 		return ctx.checkResultOf(false, subject), err
 	}
-	if err := ctx.bindCheckArgs(sym, "requirement", sym.Name, members, subject.instance, args, reqBindings); err != nil {
+	if err := ctx.bindCheckArgs(sym, "requirement", sym.Name, members, args, reqBindings); err != nil {
 		return ctx.checkResultOf(false, subject), err
 	}
 
