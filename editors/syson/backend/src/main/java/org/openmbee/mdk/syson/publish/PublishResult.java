@@ -6,9 +6,8 @@ import org.openmbee.mdk.syson.run.RunDiagnostic;
 import org.openmbee.opensysml.repository.Publisher;
 
 /**
- * What a publication did. {@code ok} is false when nothing was written: the model has errors
- * ({@code diagnostics}) or the branch moved since this browser last saw it ({@code branchMoved}).
- * {@code head} is the commit the branch is at afterwards, empty for a branch with no commit.
+ * What a publication did; {@code ok} is false when nothing was written (model errors, or
+ * {@code branchMoved}). {@code head} is the branch's commit afterwards, empty when it has none.
  */
 public record PublishResult(boolean ok, boolean branchMoved, String summary, String server, String project,
         String projectName, boolean createdProject, String branch, String commit, String head, int created,

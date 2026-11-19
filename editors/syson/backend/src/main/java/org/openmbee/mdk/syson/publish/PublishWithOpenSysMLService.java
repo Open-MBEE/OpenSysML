@@ -24,10 +24,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
- * Publishes an editing context's model to a project branch of the configured SysML v2 API
- * server: the service converts the exported model to the API's JSON and the publisher commits
- * what the branch lacks or holds differently. A model with errors is refused, since it would
- * publish a partial model as the whole.
+ * Publishes an editing context's model to a project branch of the configured SysML v2 API server.
+ * A model with errors is refused, since it would publish a partial model as the whole.
  */
 @Service
 public class PublishWithOpenSysMLService {

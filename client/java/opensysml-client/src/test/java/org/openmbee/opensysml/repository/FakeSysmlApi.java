@@ -16,9 +16,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * An in-process SysML v2 API server holding projects, branches and commits in memory: enough of
- * the standard's wire for the client to be driven over real HTTP. The editor plugins' tests use it
- * too, from this module's test jar.
+ * An in-process SysML v2 API server holding projects, branches and commits in memory, driven
+ * over real HTTP; the editor plugins' tests use it from this module's test jar.
  */
 public final class FakeSysmlApi implements AutoCloseable {
   /** How the element listing pages: by Link header, by the Flexo cursor, or not at all. */

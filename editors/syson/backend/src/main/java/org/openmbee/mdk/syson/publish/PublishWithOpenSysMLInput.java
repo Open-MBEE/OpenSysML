@@ -5,12 +5,8 @@ import java.util.UUID;
 import org.eclipse.sirius.components.core.api.IInput;
 
 /**
- * One publication of an editing context's model to the configured SysML v2 API server.
- *
- * @param project the project's id; blank creates a project named {@code projectName}
- * @param branch the branch's id; blank is the project's default branch
- * @param lastSeenCommit the commit this browser last saw the branch at, {@code null} to publish wherever it is
- * @param token a bearer token for this publication, blank for the configured one
+ * One publication of a model: a blank {@code project} creates one named {@code projectName}, a blank
+ * {@code branch} is the default, a null {@code lastSeenCommit} publishes wherever the branch is.
  */
 public record PublishWithOpenSysMLInput(UUID id, String editingContextId, String project, String projectName,
         String branch, String message, boolean deleteMissing, String lastSeenCommit, String token) implements IInput {

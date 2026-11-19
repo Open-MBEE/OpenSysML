@@ -78,8 +78,8 @@ public class OpenSysMLProperties {
     }
 
     /**
-     * The SysML v2 API server models are published to. What is unset falls back to the environment
-     * variables {@code sysml -sync-apply} reads, so the command line and the plugin address a server alike.
+     * The SysML v2 API server models are published to; what is unset falls back to the
+     * environment variables {@code sysml -sync-apply} reads.
      */
     public static class Publish {
         private String url;
