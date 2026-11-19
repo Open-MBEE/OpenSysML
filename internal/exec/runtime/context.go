@@ -808,9 +808,8 @@ type runState struct {
 	performers []*Instance
 	// scheduler is the resolutions the run's choices draw from (scheduler.go).
 	scheduler *scheduler
-	// calcUsageRuns holds, per activation under way, the evaluation of each calc
-	// usage read in it, so its outputs answer from one run of the body (calc_usage.go);
-	// nil until the run evaluates one.
+	// calcUsageRuns holds, per activation under way, each calc usage's one evaluation
+	// its outputs answer from (calc_usage.go); nil until the run evaluates one.
 	calcUsageRuns map[int64]map[calcUsageKey]*calcRun
 	// extentCandidates holds, per type an extent was taken of, the namespace usages
 	// that may hold one (extent.go).
