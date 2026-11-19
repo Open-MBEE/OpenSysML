@@ -42,6 +42,7 @@ type Model struct {
 	memberSources map[*symbols.Symbol][]*symbols.Symbol
 	lookupOrder   map[*symbols.Symbol][]*symbols.Symbol // name-lookup order
 	contributed   map[*symbols.Symbol][]*symbols.Symbol // memoized contributors
+	metaclassFQNs map[[2]string]string                  // qualified metaclass names by prefix and simple name
 	nestedRedefs  map[*symbols.Symbol][]NestedRedefinition
 	allRedefined  map[*symbols.Symbol][]*symbols.Symbol // memoized redefinition closure
 	// derivedFeaturing memoizes DerivedFeaturingTypes (see featuring.go).
@@ -228,6 +229,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		memberSources:          make(map[*symbols.Symbol][]*symbols.Symbol),
 		lookupOrder:            make(map[*symbols.Symbol][]*symbols.Symbol),
 		contributed:            make(map[*symbols.Symbol][]*symbols.Symbol),
+		metaclassFQNs:          make(map[[2]string]string),
 		nestedRedefs:           make(map[*symbols.Symbol][]NestedRedefinition),
 		allRedefined:           make(map[*symbols.Symbol][]*symbols.Symbol),
 		derivedFeaturing:       make(map[*symbols.Symbol][]FeaturingType),

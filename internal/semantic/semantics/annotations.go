@@ -1353,10 +1353,21 @@ func (m *Model) sysmlMetaclass(name string) *symbols.Symbol {
 	if name == "" {
 		return nil
 	}
-	if meta := m.typeByFQN(sysmlMetaclassPrefix + name); meta != nil {
+	if meta := m.typeByFQN(m.metaclassFQN(sysmlMetaclassPrefix, name)); meta != nil {
 		return meta
 	}
 	return m.typeByFQN(name)
+}
+
+// metaclassFQN is prefix+name, kept per model so that classifying an element builds no name.
+func (m *Model) metaclassFQN(prefix, name string) string {
+	key := [2]string{prefix, name}
+	if fqn, ok := m.metaclassFQNs[key]; ok {
+		return fqn
+	}
+	fqn := prefix + name
+	m.metaclassFQNs[key] = fqn
+	return fqn
 }
 
 // kermlMetaclass is the library element declaring the named KerML metaclass,
@@ -1366,7 +1377,7 @@ func (m *Model) kermlMetaclass(name string) *symbols.Symbol {
 		return nil
 	}
 	for _, prefix := range kermlMetaclassPrefixes {
-		if meta := m.typeByFQN(prefix + name); meta != nil {
+		if meta := m.typeByFQN(m.metaclassFQN(prefix, name)); meta != nil {
 			return meta
 		}
 	}
@@ -1519,7 +1530,7 @@ func (m *Model) Metaclass(name string) *symbols.Symbol {
 	if m == nil || name == "" {
 		return nil
 	}
-	if meta := m.typeByFQN(sysmlMetaclassPrefix + name); meta != nil {
+	if meta := m.typeByFQN(m.metaclassFQN(sysmlMetaclassPrefix, name)); meta != nil {
 		return meta
 	}
 	return m.kermlMetaclass(name)
