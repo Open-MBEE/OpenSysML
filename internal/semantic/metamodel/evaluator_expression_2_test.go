@@ -213,6 +213,9 @@ func TestTransitionPayloadNamingUsesSecondInputParameter(t *testing.T) {
 		attributes: map[testRelatedKey]Value{
 			{element: receiver.Key(), property: "direction"}:     enumValue("in"),
 			{element: payload.Key(), property: "direction"}:      enumValue("in"),
+			{element: receiver.Key(), property: "isEnd"}:         booleanValue(false),
+			{element: payload.Key(), property: "isEnd"}:          booleanValue(false),
+			{element: trigger.Key(), property: "isEnd"}:          booleanValue(false),
 			{element: triggerMembership.Key(), property: "kind"}: stringValue("trigger"),
 		},
 	}

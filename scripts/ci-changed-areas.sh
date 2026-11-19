@@ -49,9 +49,10 @@ man_pages_pattern='^packaging/man/'
 # The derived-property differential (Java, the pinned pilot jar, 18-25 minutes) runs on what can move its baseline
 # (writer, referee, bridge, pin, baseline, corpora), not on the workflow; the queue tier skips it (the push ran it).
 apijson_pattern='^(internal/translate/export/|tools/referee/apijson/|tools/referee/baseline/|tools/referee/diff/|tools/oracle/baseline/|scripts/pilot-json-exporter/|scripts/pilot-pin\.sh$|scripts/download-pilot-validator\.sh$|scripts/download-pilot-json-exporter\.sh$|docs/project/api-json-differential/|\.github/actions/corpora/|\.github/actions/pilot-validator/)'
-# A composite action is a service path (Go tests read it); these two also run the other jobs that use them, even under quick.
+# A composite action is a service path (Go tests read it); these three also run the other jobs that use them, even under quick.
 apt_install_action_pattern='^\.github/actions/apt-install/'
 maven_cache_action_pattern='^\.github/actions/maven-cache/'
+pip_install_action_pattern='^\.github/actions/pip-install/'
 
 known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$julia_pattern|$matlab_pattern|$vscode_pattern|$jupyterlab_pattern|$emacs_pattern|$mdk_pattern|$syson_pattern|^\.agents/|^\.github/(CODEOWNERS|FUNDING\.yml)$|^\.github/ISSUE_TEMPLATE/|^\.gitignore$|^\.gitattributes$|^LICENSE|^packaging/"
 
@@ -99,20 +100,20 @@ client_fanout=$fanout
 
 emit go "$( { [[ "$service" = true ]] || matches "$hygiene_pattern" || matches "$project_inputs_pattern" || matches "$man_pages_pattern"; } && echo true || echo false)"
 emit apijson "$( [[ "$tier" != queue ]] && { [[ "$everything" = true && "$fanout" = true ]] || matches "$apijson_pattern"; } && echo true || echo false)"
-emit docs "$( { [[ "$fanout" = true ]] || matches "$docs_pattern" || matches "$apt_install_action_pattern"; } && echo true || echo false)"
+emit docs "$( { [[ "$fanout" = true ]] || matches "$docs_pattern" || matches "$apt_install_action_pattern" || matches "$pip_install_action_pattern"; } && echo true || echo false)"
 emit node "$( { [[ "$client_fanout" = true ]] || matches "$node_pattern" || matches "$apt_install_action_pattern"; } && echo true || echo false)"
 # The client-manifest/Python version lockstep tests live in the Python suite,
 # so the Node, Java and Rust manifests, every editor manifest
 # check_version.py --editors reads, the editors' client references and the
 # Markdown <dependency> snippets that quote the Java client's version have to
 # run it too.
-emit python "$( { [[ "$client_fanout" = true ]] || matches "$python_pattern" || matches "$apt_install_action_pattern" || matches '^packaging/pypi-pysysml/' || matches '^client/node/package\.json$' || matches '^client/java/(pom\.xml|README\.md)$' || matches '^docs/reference/java-api\.md$' || matches '^packaging/agent-skills/skills/opensysml-java/SKILL\.md$' || matches '^client/rust/opensysml/Cargo\.toml$' || matches '^client/rust/Cargo\.lock$' || matches '^editors/(mdk|syson(/backend)?)/pom\.xml$' || matches '^editors/(mdk/(plugin|tools|openapi-stubs|mdk-api-stubs|mdk-bridge|dist)|syson/syson-api-stubs)/pom\.xml$' || matches '^editors/(vscode|jupyterlab|syson/frontend)/package(-lock)?\.json$'; } && echo true || echo false)"
+emit python "$( { [[ "$client_fanout" = true ]] || matches "$python_pattern" || matches "$apt_install_action_pattern" || matches "$pip_install_action_pattern" || matches '^packaging/pypi-pysysml/' || matches '^client/node/package\.json$' || matches '^client/java/(pom\.xml|README\.md)$' || matches '^docs/reference/java-api\.md$' || matches '^packaging/agent-skills/skills/opensysml-java/SKILL\.md$' || matches '^client/rust/opensysml/Cargo\.toml$' || matches '^client/rust/Cargo\.lock$' || matches '^editors/(mdk|syson(/backend)?)/pom\.xml$' || matches '^editors/(mdk/(plugin|tools|openapi-stubs|mdk-api-stubs|mdk-bridge|dist)|syson/syson-api-stubs)/pom\.xml$' || matches '^editors/(vscode|jupyterlab|syson/frontend)/package(-lock)?\.json$'; } && echo true || echo false)"
 emit java "$( { [[ "$client_fanout" = true ]] || matches "$java_pattern" || matches "$maven_cache_action_pattern"; } && echo true || echo false)"
 emit rust "$( { [[ "$client_fanout" = true ]] || matches "$rust_pattern"; } && echo true || echo false)"
 emit julia "$( { [[ "$client_fanout" = true ]] || matches "$julia_pattern"; } && echo true || echo false)"
 emit matlab "$( { [[ "$client_fanout" = true ]] || matches "$matlab_pattern" || matches "$apt_install_action_pattern"; } && echo true || echo false)"
 emit vscode "$( { [[ "$client_fanout" = true ]] || matches "$vscode_pattern"; } && echo true || echo false)"
-emit jupyterlab "$( { [[ "$client_fanout" = true ]] || matches "$jupyterlab_pattern"; } && echo true || echo false)"
+emit jupyterlab "$( { [[ "$client_fanout" = true ]] || matches "$jupyterlab_pattern" || matches "$pip_install_action_pattern"; } && echo true || echo false)"
 emit emacs "$( { [[ "$client_fanout" = true ]] || matches "$emacs_pattern"; } && echo true || echo false)"
 # The MDK plugin builds on the Java client, so a client change re-runs it too.
 emit mdk "$( { [[ "$client_fanout" = true ]] || matches "$mdk_pattern" || matches "$java_pattern" || matches "$maven_cache_action_pattern"; } && echo true || echo false)"
