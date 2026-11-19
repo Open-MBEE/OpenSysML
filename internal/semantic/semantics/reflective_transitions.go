@@ -357,13 +357,13 @@ func (m *Model) transitionTargetEndpoint(sym *symbols.Symbol) *symbols.Symbol {
 	return target
 }
 
-// transitionSuccessionEnd is the feature the transition's succession relates at position i, nil when unresolved.
+// transitionSuccessionEnd is the featureTarget of the end at position i of the transition's succession, nil when unresolved.
 func (m *Model) transitionSuccessionEnd(parts *transitionParts, i int) *symbols.Symbol {
 	if parts.succession == nil {
 		return nil
 	}
-	if related, _ := m.connectorSuccessionRelatedFeatures(parts.succession); len(related) == 2 {
-		return related[i]
+	if targets, _ := m.successionEndFeatureTargets(parts.succession); len(targets) == 2 {
+		return targets[i]
 	}
 	return nil
 }
