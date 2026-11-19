@@ -11,7 +11,7 @@
       "typeMismatch": 10
     },
     "properties": {
-      "presentEqual": 765,
+      "presentEqual": 766,
       "presentDifferent": 67,
       "oursMissing": 67,
       "pilotMissing": 51,
@@ -20,7 +20,7 @@
       "pilotNondeterministic": 0
     },
     "unkeyedReferences": 21,
-    "extensionProperties": 178,
+    "extensionProperties": 185,
     "duplicateElements": {
       "ours": 0,
       "pilot": 21

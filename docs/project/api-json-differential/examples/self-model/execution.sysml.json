@@ -12,8 +12,8 @@
     },
     "properties": {
       "presentEqual": 18564,
-      "presentDifferent": 2122,
-      "oursMissing": 2025,
+      "presentDifferent": 1840,
+      "oursMissing": 1662,
       "pilotMissing": 742,
       "absentBoth": 22415,
       "indeterminate": 698,
@@ -23,7 +23,7 @@
     "extensionProperties": 2542,
     "duplicateElements": {
       "ours": 0,
-      "pilot": 9410
+      "pilot": 9094
     },
     "ambiguousKeys": {
       "ours": 0,

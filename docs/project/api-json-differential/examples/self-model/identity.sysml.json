@@ -11,9 +11,9 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 18878,
-      "presentDifferent": 1290,
-      "oursMissing": 1701,
+      "presentEqual": 18168,
+      "presentDifferent": 1255,
+      "oursMissing": 1626,
       "pilotMissing": 639,
       "absentBoth": 20650,
       "indeterminate": 475,
@@ -23,7 +23,7 @@
     "extensionProperties": 2237,
     "duplicateElements": {
       "ours": 0,
-      "pilot": 10572
+      "pilot": 10221
     },
     "ambiguousKeys": {
       "ours": 0,
