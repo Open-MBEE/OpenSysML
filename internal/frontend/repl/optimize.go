@@ -70,6 +70,7 @@ func optimizeQueryReport(name string, q *solve.Query, optimized analysis.Evaluat
 			lines = append(lines, optimumLines(optimum)...)
 		}
 		return SolveReport{Subject: name, Status: status, Solver: result.Solver,
+			Values: solveValues(result.Model), Optima: solveOptima(result.Optima),
 			Lines: append(lines, assignmentLines(result.Model)...)}
 	default:
 		lines := []string{fmt.Sprintf("? %s is undecided, so no optimum was reported (%s)",
@@ -157,10 +158,10 @@ func extremeWord(dir solve.Direction) string {
 }
 
 // doOptimize carries out %optimize.
-func (s *Session) doOptimize(name string) ([]string, bool, error) {
-	var out []string
-	for _, r := range s.optimizeSolve(name) {
-		out = append(out, r.Lines...)
+func (s *Session) doOptimize(args []string) ([]string, bool, error) {
+	args, asJSON := solveJSONFlag(args)
+	if len(args) == 0 {
+		return []string{optimizeUsage}, false, nil
 	}
-	return out, false, nil
+	return solveOutput("optimize", s.optimizeSolve(args[0]), asJSON)
 }
