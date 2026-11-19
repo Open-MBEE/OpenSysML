@@ -1072,24 +1072,24 @@
       "pilotFailed": 0,
       "pilotLibraryElements": 53217,
       "elements": {
-        "matched": 111578,
-        "oursOnly": 19322,
-        "pilotOnly": 28987,
+        "matched": 113314,
+        "oursOnly": 17586,
+        "pilotOnly": 27251,
         "pilotOnlyImplied": 0,
         "typeMismatch": 1836
       },
       "properties": {
-        "presentEqual": 2225052,
-        "presentDifferent": 222890,
-        "oursMissing": 191159,
-        "pilotMissing": 88204,
-        "absentBoth": 2379826,
-        "indeterminate": 44049,
-        "pilotNondeterministic": 550
+        "presentEqual": 2262078,
+        "presentDifferent": 225864,
+        "oursMissing": 196387,
+        "pilotMissing": 89189,
+        "absentBoth": 2413448,
+        "indeterminate": 44120,
+        "pilotNondeterministic": 564
       },
       "rows": 11785,
-      "unkeyedReferences": 232989,
-      "extensionProperties": 291719,
+      "unkeyedReferences": 234750,
+      "extensionProperties": 293751,
       "duplicateElements": {
         "ours": 556,
         "pilot": 106874
@@ -1113,20 +1113,20 @@
         "oursColliding": 6,
         "pilotLibraryElements": 781,
         "elements": {
-          "matched": 8325,
-          "oursOnly": 938,
-          "pilotOnly": 1841,
+          "matched": 8351,
+          "oursOnly": 912,
+          "pilotOnly": 1815,
           "pilotOnlyImplied": 0,
           "typeMismatch": 4
         },
         "properties": {
-          "presentEqual": 168271,
-          "presentDifferent": 15959,
-          "oursMissing": 13266,
-          "pilotMissing": 5841,
-          "absentBoth": 184410,
-          "indeterminate": 3085,
-          "pilotNondeterministic": 64
+          "presentEqual": 168855,
+          "presentDifferent": 15953,
+          "oursMissing": 13344,
+          "pilotMissing": 5853,
+          "absentBoth": 184904,
+          "indeterminate": 3091,
+          "pilotNondeterministic": 66
         },
         "duplicateElements": {
           "ours": 87,
@@ -1149,20 +1149,20 @@
         "pilotFailed": 0,
         "pilotLibraryElements": 2447,
         "elements": {
-          "matched": 29438,
-          "oursOnly": 5836,
-          "pilotOnly": 6884,
+          "matched": 31092,
+          "oursOnly": 4182,
+          "pilotOnly": 5230,
           "pilotOnlyImplied": 0,
           "typeMismatch": 27
         },
         "properties": {
-          "presentEqual": 596759,
-          "presentDifferent": 59182,
-          "oursMissing": 52097,
-          "pilotMissing": 21855,
-          "absentBoth": 638664,
-          "indeterminate": 8771,
-          "pilotNondeterministic": 176
+          "presentEqual": 631909,
+          "presentDifferent": 62107,
+          "oursMissing": 57074,
+          "pilotMissing": 22807,
+          "absentBoth": 670617,
+          "indeterminate": 8833,
+          "pilotNondeterministic": 187
         },
         "duplicateElements": {
           "ours": 0,
@@ -1185,18 +1185,18 @@
         "pilotFailed": 0,
         "pilotLibraryElements": 751,
         "elements": {
-          "matched": 10431,
-          "oursOnly": 1814,
-          "pilotOnly": 2168,
+          "matched": 10437,
+          "oursOnly": 1808,
+          "pilotOnly": 2162,
           "pilotOnlyImplied": 0,
           "typeMismatch": 0
         },
         "properties": {
-          "presentEqual": 208904,
-          "presentDifferent": 20019,
-          "oursMissing": 16314,
-          "pilotMissing": 7729,
-          "absentBoth": 225935,
+          "presentEqual": 209054,
+          "presentDifferent": 20008,
+          "oursMissing": 16330,
+          "pilotMissing": 7731,
+          "absentBoth": 226054,
           "indeterminate": 3205,
           "pilotNondeterministic": 66
         },
@@ -1258,20 +1258,20 @@
         "pilotFailed": 0,
         "pilotLibraryElements": 530,
         "elements": {
-          "matched": 9266,
-          "oursOnly": 2947,
-          "pilotOnly": 3650,
+          "matched": 9313,
+          "oursOnly": 2900,
+          "pilotOnly": 3603,
           "pilotOnlyImplied": 0,
           "typeMismatch": 441
         },
         "properties": {
-          "presentEqual": 168503,
-          "presentDifferent": 13817,
-          "oursMissing": 19909,
-          "pilotMissing": 7972,
-          "absentBoth": 178894,
-          "indeterminate": 2996,
-          "pilotNondeterministic": 19
+          "presentEqual": 169551,
+          "presentDifferent": 13894,
+          "oursMissing": 20060,
+          "pilotMissing": 7991,
+          "absentBoth": 179880,
+          "indeterminate": 2999,
+          "pilotNondeterministic": 20
         },
         "duplicateElements": {
           "ours": 0,
@@ -1332,18 +1332,18 @@
         "oursColliding": 20,
         "pilotLibraryElements": 30512,
         "elements": {
-          "matched": 37788,
-          "oursOnly": 5778,
-          "pilotOnly": 11081,
+          "matched": 37791,
+          "oursOnly": 5775,
+          "pilotOnly": 11078,
           "pilotOnlyImplied": 0,
           "typeMismatch": 199
         },
         "properties": {
-          "presentEqual": 766652,
-          "presentDifferent": 81920,
-          "oursMissing": 58222,
+          "presentEqual": 766746,
+          "presentDifferent": 81909,
+          "oursMissing": 58228,
           "pilotMissing": 28925,
-          "absentBoth": 838878,
+          "absentBoth": 838948,
           "indeterminate": 20244,
           "pilotNondeterministic": 180
         },
