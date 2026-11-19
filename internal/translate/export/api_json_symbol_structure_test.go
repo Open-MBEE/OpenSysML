@@ -561,6 +561,14 @@ func (d *structureDifferential) computeGraphID(sym *symbols.Symbol) (string, boo
 		element, _, ok := d.ids.OfExpressionPart(d.doc, sym.Chain.Node, "chain")
 		return element, ok
 	}
+	if sym.Chain != nil && sym.Chain.Relationship != nil && sym.Chain.Relationship.Implicit != nil {
+		// The chain Feature a head clause's chain target denotes is minted under the head (headChain).
+		if node := sym.Chain.Relationship.Implicit.Node; node != nil && node.Target != nil {
+			if element, _, ok := d.ids.OfExpressionPart(d.doc, node.Target, "chain"); ok {
+				return element, true
+			}
+		}
+	}
 	if i, ok := symbols.ImpliedConnectorEndIndex(sym); ok {
 		// A `then` succession's or a flow's end is minted under its edge at end0/end1 (encodeSuccessionEdge,
 		// connectorEnd); a transition's succession's under the transition at succession.end0/end1.
@@ -649,6 +657,11 @@ func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationshi
 			return "", false
 		}
 		return d.expressionPartID(rel.Owner, "rs")
+	case symbols.ImplicitShorthandReference:
+		if rel.Owner == nil {
+			return "", false
+		}
+		return d.ids.RelationshipOf(d.doc, rel.Owner.Decl)
 	case symbols.ImplicitMetadataBodyRedefinition:
 		if _, ok := symbols.ImpliedFlowEndFeatureIndex(rel.Owner); ok {
 			// The Redefinition the ReferenceUsage a flow's end owns states is minted under it (`rd0`).

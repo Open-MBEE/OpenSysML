@@ -12,14 +12,14 @@
     },
     "properties": {
       "presentEqual": 68,
-      "presentDifferent": 19,
+      "presentDifferent": 18,
       "oursMissing": 5,
       "pilotMissing": 11,
       "absentBoth": 93,
-      "indeterminate": 0,
+      "indeterminate": 1,
       "pilotNondeterministic": 0
     },
-    "unkeyedReferences": 6,
+    "unkeyedReferences": 5,
     "extensionProperties": 28,
     "duplicateElements": {
       "ours": 0,
@@ -53,7 +53,7 @@
     "ActionUsage.featureTarget": [1,0,0,0,0,0,0],
     "ActionUsage.featuringType": [0,0,0,0,1,0,0],
     "ActionUsage.importedMembership": [0,0,0,0,1,0,0],
-    "ActionUsage.inheritedFeature": [0,1,0,0,0,0,0],
+    "ActionUsage.inheritedFeature": [0,0,0,0,0,1,0],
     "ActionUsage.inheritedMembership": [0,1,0,0,0,0,0],
     "ActionUsage.input": [0,0,0,0,1,0,0],
     "ActionUsage.intersectingType": [0,0,0,0,1,0,0],

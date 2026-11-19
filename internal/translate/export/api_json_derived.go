@@ -70,6 +70,7 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	{class: "Type", name: "directedFeature", clause: "8.3.3.1.10 deriveTypeDirectedFeature"},
 	{class: "Type", name: "input", clause: "8.3.3.1.10 deriveTypeInput"},
 	{class: "Type", name: "output", clause: "8.3.3.1.10 deriveTypeOutput"},
+	{class: "Type", name: "endFeature", clause: "8.3.3.1.10 deriveTypeEndFeature"},
 	{class: "Usage", name: "usage", clause: "SysML 8.3.6.4 deriveUsageUsage"},
 	{class: "Usage", name: "directedUsage", clause: "SysML 8.3.6.4 deriveUsageDirectedUsage"},
 	{class: "Usage", name: "isReference", clause: "SysML 8.3.6.4 deriveUsageIsReference"},
@@ -402,9 +403,26 @@ func (w *apiJSONElementWriter) derivedElementID(element metamodel.Element) (stri
 		return w.anonymousLibraryID(symbol, element.IsMembership)
 	}
 	if element.IsMembership {
+		if declared, ok := w.declaredOwningMembershipID(library.ID); ok {
+			return declared, true
+		}
 		return library.OwningMembershipID, library.OwningMembershipID != ""
 	}
 	return library.ID, library.ID != ""
+}
+
+// declaredOwningMembershipID is the id of the membership the graph itself declares a library
+// element under: a library file's own graph, whose memberships are not library references.
+func (w *apiJSONElementWriter) declaredOwningMembershipID(id string) (string, bool) {
+	subject := rdf.IRI(rdf.Element + id)
+	if LibraryReference(w.graph, subject) {
+		return "", false
+	}
+	membership, ok := w.graph.Object(subject, rdf.SysML+pOwningMembership)
+	if !ok || !membership.IsIRI() {
+		return "", false
+	}
+	return rdf.SubjectID(membership)
 }
 
 // anonymousLibraryID mints the id of a library member no qualified name
