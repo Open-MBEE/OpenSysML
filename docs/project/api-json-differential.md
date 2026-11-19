@@ -380,6 +380,30 @@ documentation, which the referee keys `Comments::A::a` on ours and `Comments::A/
 the pilot's; and one comment's annotation is pilot-missing (`Simple Tests/CommentTest.sysml`), the
 pilot listing none for it.
 
+**A `crosses` clause's CrossSubsetting and a type's operand relationships** (re-recorded when the
+writer began stating the `CrossSubsetting` an end owns for `crosses x` or `=> x`, with the chain
+`Feature` and `FeatureChaining`s of a chain target, and one `Unioning`, `Intersecting` or
+`Differencing` per operand of `unions`, `intersects` and `differences` — KerML.xtext
+`OwnedCrossSubsetting`, `UnioningPart`, `IntersectingPart`, `DifferencingPart`, each an
+`ownedRelationship` of the feature or type — where the collapsed `crosses`, `unions`, `intersects`
+and `differences` alone stood): 25 fragments moved. 201 more elements match, every one a pilot-only
+element before (matched 109597 → 109798, pilot-only 28700 → 28499; ours-only and type mismatches
+unchanged): 26 `CrossSubsetting`, 59 `Unioning`, 10 `Intersecting`, 13 `Differencing`, 31 chain
+`Feature`s and their 62 `FeatureChaining`s. Present-equal grows 2173330 → 2175849 and ours-missing
+falls 264043 → 263988: `ownedCrossSubsetting`, `ownedUnioning`, `ownedIntersecting` and
+`ownedDifferencing` go from ours-missing to equal on every owner (26, 25, 5 and 6 values), and
+`ownedRelationship`, `ownedElement`, `ownedSpecialization` and `ownedSubsetting` lose 34, 19, 26 and
+8 present-different values on the owners. No row loses an equal value. What the new elements add
+to the other buckets is what their classes already carry: `owner` on each of the 170 relationships
+is pilot-missing, as on every relationship element (the pilot states none); the 31 chain Features
+join the rows every plain `Feature` disagrees on (`member`, `membership`, `feature`,
+`featureMembership`, `inheritedFeature`, `inheritedMembership`: 28 present-different, 3
+ours-missing; `featuringType` 8 ours-missing and 6 indeterminate, as on the other chain Features);
+and the operands and links a specification snippet never declares are written as no reference, as
+everywhere — five `Unioning` targets (`kerml/7.3.2.7/2`–`4`: `unions Adult, Child`) and two chain
+links (`kerml/7.4.5.2/4`: `crosses ownedAsset.owningEntities`) are ours-missing with the
+`relatedElement`, `chainingFeature`, `featureTarget` and `type` derived from them.
+
 **Every connector end's `[1..1]`** (re-recorded when the writer began stating the implicit `[1..1]`
 of a positional end — `connect a to b`, `bind a = b`, `first s1 then s2`, `allocate a to b` — as it
 already did a named end's, SysML v2 §7.13.2 "If a multiplicity is not explicitly declared for an end

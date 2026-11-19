@@ -140,6 +140,10 @@ var collapsedKindsOf = map[string][]ast.RelationshipKind{
 	mSubsetting:           {ast.RelSubsets, ast.RelSpecializes},
 	mRedefinition:         {ast.RelRedefines},
 	mReferenceSubsetting:  {ast.RelReferences},
+	mCrossSubsetting:      {ast.RelCrosses},
+	mUnioning:             {ast.RelUnions},
+	mIntersecting:         {ast.RelIntersects},
+	mDifferencing:         {ast.RelDifferences},
 	mAnnotation:           {ast.RelAnnotates},
 }
 

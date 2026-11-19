@@ -59,6 +59,10 @@ var impliedRelationshipMetaclasses = map[string]bool{
 	mSpecialization:       true,
 	mRedefinition:         true,
 	mReferenceSubsetting:  true,
+	mCrossSubsetting:      true,
+	mUnioning:             true,
+	mIntersecting:         true,
+	mDifferencing:         true,
 	mAnnotation:           true,
 }
 
@@ -79,6 +83,10 @@ var derivedSatelliteMetaclasses = map[string]bool{
 	mSpecialization:           true,
 	mRedefinition:             true,
 	mReferenceSubsetting:      true,
+	mCrossSubsetting:          true,
+	mUnioning:                 true,
+	mIntersecting:             true,
+	mDifferencing:             true,
 	mPortConjugation:          true,
 	mConjugatedPortDefinition: true,
 	mMultiplicityRange:        true,
