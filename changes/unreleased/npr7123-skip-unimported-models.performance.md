@@ -1,0 +1,1 @@
+- The NPR7123 pass reads the library's minimum-product, requirement and process tables only for a document that states a life-cycle review, a SEMP or a compliance matrix, instead of once for every document analyzed. Analyzing 800 documents that never use the library under coverage instrumentation took over 10 s and now takes about 2.5 s; no diagnostic changes.
