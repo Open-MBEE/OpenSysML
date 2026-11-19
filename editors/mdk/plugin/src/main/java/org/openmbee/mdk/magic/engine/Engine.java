@@ -23,6 +23,7 @@ import org.openmbee.opensysml.StatusCode;
 import org.openmbee.opensysml.Symbol;
 import org.openmbee.mdk.magic.bin.HostBinary;
 import org.openmbee.mdk.magic.export.ModelExport;
+import org.openmbee.mdk.magic.repository.Publisher;
 import org.openmbee.mdk.magic.results.QueryAnswer;
 import org.openmbee.mdk.magic.results.ResultsMapper;
 import org.openmbee.mdk.magic.results.RunResult;
@@ -158,6 +159,48 @@ public final class Engine implements AutoCloseable {
     } finally {
       stop(watcher);
     }
+  }
+
+  /**
+   * Publishes the model to a project branch of a SysML v2 API server: the service converts it to
+   * the API's JSON, and the publisher commits what the branch lacks or holds differently. A model
+   * with parse errors is refused, since it would publish a partial model as the whole. Empty when
+   * cancelled before the commit was sent.
+   */
+  public Optional<Publisher.Result> publish(
+      ModelSource source, Publisher publisher, Publisher.Target target, Cancellation cancellation) {
+    Objects.requireNonNull(source);
+    Objects.requireNonNull(publisher);
+    Objects.requireNonNull(target);
+    Objects.requireNonNull(cancellation);
+    if (cancellation.requested()) return Optional.empty();
+    Thread watcher = null;
+    Connection current = null;
+    String converted;
+    try {
+      current = connection();
+      watcher = watcher(cancellation, current);
+      Model model = current.parseSources(source.sources(current));
+      if (cancellation.requested()) return Optional.empty();
+      List<Diagnostic> errors = new ArrayList<>();
+      for (Diagnostic diagnostic : source.exportDiagnostics()) {
+        if (diagnostic.severity() == Diagnostic.Severity.ERROR) errors.add(diagnostic);
+      }
+      errors.addAll(model.errors());
+      if (!errors.isEmpty()) {
+        throw new IllegalStateException("the model has " + errors.size()
+            + " error(s) and was not published; the first: " + errors.get(0).message());
+      }
+      converted = model.convert("api-json").content();
+    } catch (RuntimeException exception) {
+      if (cancellation.requested()) return Optional.empty();
+      if (current != null && isUnavailable(exception)) dropConnection(current);
+      throw exception;
+    } finally {
+      stop(watcher);
+    }
+    if (cancellation.requested()) return Optional.empty();
+    return Optional.of(publisher.publish(converted, target));
   }
 
   /** The first document under the destination's file name, so the diagnostics name the file the user saved. */
