@@ -305,6 +305,12 @@ it. Each result is a `Symbol` of kind `metadataUsage`: `type_facts` names the me
 definition and `attribute_facts()` reads the values the annotation binds. It needs the
 service's `symbol_annotating_metadata` capability.
 
+A member is fetched as a feature of the symbol that lists it, so its
+`metadata["direction"]` is the direction relative to that symbol: `cmd`, declared `out` in
+`port def CmdPort`, reads `in` among the members of `port pIn : ~CmdPort`, and `out` when
+looked up on its own with `model.symbol("Demo::CmdPort::cmd")`. This needs the service's
+`symbol_member_direction` capability; an older service reports the declared direction.
+
 ::: opensysml.Symbol
     options:
       heading_level: 3

@@ -340,6 +340,9 @@ func (c *client) runDocumentQuery(ctx context.Context, model *Model, req *pb.Run
 			return nil, err
 		}
 	}
+	if err := c.requireCapabilities(ctx, CapabilityDocumentQuery); err != nil {
+		return nil, err
+	}
 	resp, err := c.caller.runDocumentQuery(ctx, req)
 	if err != nil {
 		return nil, err
@@ -426,6 +429,9 @@ func (c *client) RenderDocument(ctx context.Context, model *Model, documentID st
 		}
 	}
 	if err != nil {
+		return "", err
+	}
+	if err := c.requireCapabilities(ctx, CapabilityRenderDocument); err != nil {
 		return "", err
 	}
 	resp, err := c.caller.renderDocument(ctx, &pb.RenderDocumentRequest{ModelHash: hash, DocumentId: documentID, Form: options.form})

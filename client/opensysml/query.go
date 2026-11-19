@@ -163,16 +163,10 @@ func (c *client) QueryOSLC(ctx context.Context, model *Model, oslc string) ([]Qu
 }
 
 func (c *client) QueryAsView(ctx context.Context, model *Model, query Query) (*QueryAnswer, error) {
-	if err := c.requireCapabilities(ctx, CapabilityQueryResultView); err != nil {
-		return nil, err
-	}
 	return c.selectElements(ctx, model, &pb.QueryRequest{Query: queryToProto(query), AsView: true})
 }
 
 func (c *client) QueryOSLCAsView(ctx context.Context, model *Model, oslc string) (*QueryAnswer, error) {
-	if err := c.requireCapabilities(ctx, CapabilityQueryResultView); err != nil {
-		return nil, err
-	}
 	return c.selectElements(ctx, model, &pb.QueryRequest{OslcQuery: oslc, AsView: true})
 }
 
@@ -191,6 +185,19 @@ func (c *client) selectElements(ctx context.Context, model *Model, req *pb.Query
 		return nil, err
 	}
 	req.ModelHash = hash
+	needed := []string{CapabilityQuery}
+	if req.OslcQuery != "" {
+		needed = append(needed, CapabilityOSLCQuery)
+	}
+	if len(req.GetQuery().GetOrderBy()) > 0 {
+		needed = append(needed, CapabilityQueryOrderBy)
+	}
+	if req.AsView {
+		needed = append(needed, CapabilityQueryResultView)
+	}
+	if err := c.requireCapabilities(ctx, needed...); err != nil {
+		return nil, err
+	}
 	resp, err := c.caller.query(ctx, req)
 	if err != nil {
 		return nil, err

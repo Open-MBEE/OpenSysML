@@ -180,8 +180,8 @@ func (ctx *Context) tensorQuantityMRef(tq *TensorQuantity) (Value, error) {
 // and by each component's unit against the dimension the declared type fixes.
 func (ctx *Context) tensorQuantityConforms(tq *TensorQuantity, declared *symbols.Symbol) (bool, string, error) {
 	for i := range tq.Num {
-		if ok, refusal, err := ctx.quantityConforms(NewQuantityValue(tq.component(i)), declared); !ok || err != nil {
-			return ok, refusal, err
+		if refusal := ctx.dimensionRefusal(NewQuantityValue(tq.component(i)), declared); refusal != "" {
+			return false, refusal, nil
 		}
 	}
 	return true, "", nil

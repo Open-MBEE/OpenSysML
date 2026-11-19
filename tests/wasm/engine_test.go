@@ -23,8 +23,8 @@ import (
 )
 
 // engineGzipBudget bounds the gzipped js sysml-engine the gate links (-trimpath, stripped, the library snapshot embedded, as every Makefile build target does):
-// 11,031,341 bytes under go1.27.4 on 2026-11-13 with RenderView's written forms served, up from 10,936,997 on develop 0757270e94 by the draw.io, text and table writers.
-const engineGzipBudget = 11100000
+// 11,196,231 bytes under go1.27.4 on 2026-11-17 at develop 508d0fab4a, up from 11,107,033 on 2026-11-16 at f67172df95 and 11,031,341 on 2026-11-13.
+const engineGzipBudget = 11300000
 
 func TestEngineDependencies(t *testing.T) {
 	const module = "github.com/Open-MBEE/OpenSysML"
@@ -302,6 +302,29 @@ func nodeRun(t *testing.T, script string, args ...string) result {
 	return res
 }
 
+// wantSpeedAnswer fails unless body is Evaluate's answer for enginedemo::speed, the quantity 5 m/s:
+// two transports agreeing on an error agree as well, so parity alone does not show the value.
+func wantSpeedAnswer(t *testing.T, body []byte) {
+	t.Helper()
+	var answer struct {
+		Error  string `json:"error"`
+		Result struct {
+			Quantity *struct {
+				RealMagnitude float64 `json:"realMagnitude"`
+				Unit          string  `json:"unit"`
+				ValueType     string  `json:"valueType"`
+			} `json:"quantity"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(body, &answer); err != nil {
+		t.Fatalf("decoding the answer for enginedemo::speed: %v\n%s", err, body)
+	}
+	q := answer.Result.Quantity
+	if answer.Error != "" || q == nil || q.RealMagnitude != 5 || q.Unit != "SI::'m/s'" || q.ValueType != "ISQSpaceTime::SpeedValue" {
+		t.Errorf("enginedemo::speed answered %s, want the quantity 5 [SI::'m/s'] held as a SpeedValue", body)
+	}
+}
+
 // TestEngineWireParity proves the engine answers what sysml-grpc answers: the
 // same requests put to a default-capabilities grpc.NewService and marshalled by
 // protojson, and to engine.Call, decode to the same JSON. ParseSources compares
@@ -367,6 +390,9 @@ func TestEngineWireParity(t *testing.T) {
 			t.Fatalf("grpc Evaluate %q: %v", expression, err)
 		}
 		equal("Evaluate", params, mustMarshal(t, res))
+		if expression == "enginedemo::speed" {
+			wantSpeedAnswer(t, mustMarshal(t, res))
+		}
 		if expression == "(1, 2, 3)" {
 			// Equal answers would also match on a shared parse error: the case
 			// must exercise a real sequence, so check what the engine returned.

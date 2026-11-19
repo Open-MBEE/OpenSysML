@@ -16,7 +16,6 @@ var extensionInventory = []string{
 	"state def S { history h; }",
 	"state def S { shallow history h; }",
 	"state def S { deep history h; }",
-	"package P { view def V { expose P::*; } }",
 	"action def A { action x; action y; transition first x then y; }",
 	"action def A { action a; decide d; succession s first d if true then a; else a; }",
 	"action def A { action a; merge m; succession first m then a; then a; }",
@@ -209,9 +208,9 @@ func TestKeywordAsNameLeavesTheNamesTheGrammarAdmits(t *testing.T) {
 	}
 }
 
-// A KerML-only declaration keyword in a SysML file follows the mode: a warning by
-// default, an error under strict conformance, and silence in a KerML file either way.
-func TestKerMLDeclarationFollowsTheMode(t *testing.T) {
+// A KerML-only declaration keyword in a SysML file is an error in either mode,
+// the SysML grammar having no production for it, and silent in a KerML file.
+func TestKerMLDeclarationIsAnErrorInEitherMode(t *testing.T) {
 	for _, tc := range kermlDeclarationInventory {
 		strict := notationDiags(t, "a.sysml", tc.src, diag.ConformanceStrict)
 		def := notationDiags(t, "a.sysml", tc.src, diag.ConformanceDefault)
@@ -221,8 +220,14 @@ func TestKerMLDeclarationFollowsTheMode(t *testing.T) {
 		if strict[0].Severity != diag.SeverityError || strict[0].Code != CodeKerMLNotation {
 			t.Errorf("%s: strict: got %+v, want a kerml-notation error", tc.keyword, strict[0])
 		}
-		if def[0].Severity != diag.SeverityWarning || def[0].Code != CodeKerMLNotation {
-			t.Errorf("%s: default: got %+v, want a kerml-notation warning", tc.keyword, def[0])
+		if def[0].Severity != diag.SeverityError || def[0].Code != CodeKerMLNotation {
+			t.Errorf("%s: default: got %+v, want a kerml-notation error", tc.keyword, def[0])
+		}
+		if !def[0].Notation || def[0].Blocking() {
+			t.Errorf("%s: default: got %+v, want a notation error that gates no later tier", tc.keyword, def[0])
+		}
+		if def[0].Span != strict[0].Span || def[0].Message != strict[0].Message {
+			t.Errorf("%s: default %+v and strict %+v must be the same finding", tc.keyword, def[0], strict[0])
 		}
 		if got := notationDiags(t, "a.kerml", kermlTwin(tc.src), diag.ConformanceStrict); len(got) != 0 {
 			t.Errorf("%s: a KerML file uses KerML notation: got %+v, want silence", tc.keyword, got)

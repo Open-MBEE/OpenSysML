@@ -1154,6 +1154,10 @@ func (e *executor) declaredFeatureValues(sym *symbols.Symbol, property string) (
 			}
 			return nil, true, e.featureError(queryplan.Expression{}, property, ElementValue(sym))
 		}
+		if quantity, ok := converted.Quantity(); ok {
+			held := QuantityHeldAs(quantity, e.context.Model.DeclaredQuantityValueType(sym, property))
+			converted = valueAt(held, converted.Origin())
+		}
 		result = append(result, converted)
 	}
 	if len(result) == 0 && e.valuelessMemberYieldsMetaclassProperty(sym, property) {

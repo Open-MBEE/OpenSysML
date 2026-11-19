@@ -209,6 +209,34 @@ end
     end
 end
 
+@testset "convert sends the inherited members asked for" begin
+    answer = Dict{String,Any}("content" => "[]", "fromFormat" => "sysml", "toFormat" => "api-json")
+    server, requests, address = recording_service(["convert", "convert_inherited_members"];
+                                                  handler=(method, body) -> answer)
+    conn = external(address)
+    try
+        @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn, "package P;", "api-json";
+            from_format="sysml", inherited_members=true)
+        @test requests[end].body["inheritedMembers"] === true
+        @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn, "package P;", "api-json";
+                                                               from_format="sysml")
+        @test !haskey(requests[end].body, "inheritedMembers")
+    finally
+        close(conn)
+        close(server)
+    end
+    server, requests, address = recording_service(["convert"])
+    conn = external(address)
+    try
+        @test_throws MissingCapabilityError convert_source(conn, "package P;", "api-json";
+            from_format="sysml", inherited_members=true)
+        @test all(request -> request.method != "Convert", requests)
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
 @testset "convert sends the compact and check-diagnostics options asked for" begin
     answer = Dict{String,Any}("content" => "{}", "fromFormat" => "sysml", "toFormat" => "api-json",
         "diagnostics" => [Dict("severity" => "warning", "message" => "unused import"),

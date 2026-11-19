@@ -253,11 +253,11 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-examples` | 99 | 92 | 34 | 0 | 0 | 0 | 34 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 55 | 3 | 0 | 0 | 0 | 3 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 12 | 0 | 0 | 0 | 12 | 0 |
-| `examples/spec-examples` | 511 | 151 | 1092 | 3395 | 1040 | 6 | 46 | 2349 |
+| `examples/spec-examples` | 511 | 151 | 1091 | 3395 | 1042 | 4 | 45 | 2349 |
 | `tests/testdata` | 40 | 26 | 76 | 101 | 61 | 4 | 11 | 36 |
 | `examples` | 67 | 60 | 12 | 69 | 4 | 0 | 8 | 65 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **935** | **539** | **1236** | **3565** | **1105** | **10** | **121** | **2450** |
+| **Total** | **935** | **539** | **1235** | **3565** | **1107** | **8** | **120** | **2450** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -305,7 +305,7 @@ Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-exam
 `unmapped`, 26 `unresolved-reference`, 2 `units`, 1 `kind-mismatch`, 1 `multiplicity`; `pilot-validation`
 3 `unresolved-reference`; `kerml-examples` 9 `unmapped`, 3 `unresolved-reference`; `testdata` 8 `unmapped`,
 1 `unresolved-reference`, 2 `multiplicity`; `examples` 4
-`unmapped`, 1 `kind-mismatch`, 2 `multiplicity`, 1 `unresolved-reference`; `probes` 6 `unmapped`; `spec-examples` 7 `syntax`,
+`unmapped`, 1 `kind-mismatch`, 2 `multiplicity`, 1 `unresolved-reference`; `probes` 6 `unmapped`; `spec-examples` 6 `syntax`,
 38 `unresolved-reference`, 1 `unmapped`. Only-pilot: `testdata` 14 `kind-mismatch`, 17 `unmapped`,
 3 `syntax`, 2 `unresolved-reference`; `examples` 24 `unmapped`, 41 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
 586 `kind-mismatch`, 196 `syntax`, 154 `unresolved-reference`, 50 `multiplicity`, 4 `units`.
@@ -313,6 +313,44 @@ Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-exam
 The `spec-examples` figures are dominated by fragments: the specification's examples leave
 cross-example names undeclared, and the pilot's typing and EMF cascade follows each one; every
 file is adjudicated in [spec-examples.md](spec-examples.md).
+
+### Keyword named by a SysML usage round
+
+`sysml/8.4.13.6/8.sysml:6` reads `action behavior subsets Parts::Part::ownedActions { … }`. SysML v2
+8.2.2.1.2 lists the reserved keywords of SysML and `behavior` is not among them, so it is the name of
+the `action` usage (`UsageDeclaration`, SysML.xtext). The parser took the second word for a kind
+keyword whenever a relationship followed it, and `kerml-notation` then reported a `behavior`
+declaration. A word the file's language does not reserve is now the name of the declaration whose
+kind keyword precedes it, so the finding is gone and the reference, which reports nothing on that
+line, is agreed with there. The other two `kerml-notation` lines of the root,
+`sysml/7.13.4/3.sysml:8` (`feature engine[1] : Engine …`) and `sysml/8.4.9.2/3.sysml:7`
+(`connector b : B`), open their declarations with the KerML keyword and keep the finding.
+
+| Count | Before | Now |
+|---|---:|---:|
+| only ours | 121 | **120** |
+| our diagnostics | 1236 | **1235** |
+| `spec-examples`: only ours / our diagnostics | 46 / 1092 | **45 / 1091** |
+| `spec-examples` only-ours `syntax` | 7 | **6** |
+
+### KerML declaration keyword round
+
+A declaration written with a keyword only the KerML grammar spells was our `kerml-notation`
+warning in a `.sysml` file and is now an error in the default mode too (SysML v2 8.2.2.1.2 gives
+SysML its own reserved keywords). Three `spec-examples` lines carry such a finding. On two the
+reference reports a syntax error on the same line, so each severity-only pair becomes agreed:
+`sysml/7.13.4/3.sysml:8` (`feature engine[1] : Engine …`) and `sysml/8.4.9.2/3.sysml:7`
+(`connector b : B`). On the third, `sysml/8.4.13.6/8.sysml:6` (`action behavior subsets …`), the
+reference reports nothing on that line, so the finding stays only ours and only its severity
+moves, warning to error. There `behavior` is the name of an `action` usage, not a declaration
+keyword, so whether the rule should fire on that line at all is a separate question this round
+records and does not adjudicate. No file becomes fully agreeing and no other count moves.
+
+| Count | Before | Now |
+|---|---:|---:|
+| agreed | 1105 | **1107** |
+| severity-only | 10 | **8** |
+| `spec-examples`: agreed / severity-only | 1040 / 6 | **1042 / 4** |
 
 ### Namespace declaration round
 
@@ -1070,7 +1108,7 @@ cascades through the rest of the file. The movement is entirely one file,
 |---|---:|---:|
 | only pilot | 82 | **2450** |
 | pilot diagnostics | 123 | **3565** |
-| severity-only | 9 | **10** |
+| severity-only | 9 | **8** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
 those counts as the later rounds leave them.
@@ -1159,11 +1197,11 @@ Vendoring the `QVTS` library (`OpenSysML Libraries` 16 → 17 files) and adding 
 `examples/qvts` — nine recorded `QVTS::QueryResult` views under `expected/views/` and the QVTS
 repository's `observatory.sysml` and `result.sysml` — moves **no existing row**: the `examples` root
 goes from 56 files, 49 fully agreeing to 67 and 60, the totals from 924 and 528 to 935 and 539, and
-every diagnostic count stays as recorded (1105 agreed, 121 only ours, 2450 only the pilot's). The
+every diagnostic count stays as recorded (1107 agreed, 120 only ours, 2450 only the pilot's). The
 pilot, given the library through `--extension-library`, reads each view's `expose` and attribute
 redefinitions as this repository does and reports nothing on any of the eleven, so the baseline is
 re-recorded for the `examples` and `opensysml-libraries` digests and those file counts alone. The
-`examples` digest also carries the self-model's `bundledFileCount`, 110 → 111, a literal no diagnostic reads.
+`examples` digest also carries the self-model's `bundledFileCount`, a literal no diagnostic reads.
 
 ### Step 2 resolver round
 
@@ -1305,10 +1343,10 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **539 / 121 / 1236** |
+| overall: fully agreeing / only ours / our diagnostics | **539 / 120 / 1235** |
 | only pilot | **2450** |
 | pilot diagnostics | **3565** |
-| severity-only | **10** |
+| severity-only | **8** |
 | unmapped, our side | **53** |
 | kerml-examples: only ours | **12** |
 | pilot-examples: only ours | **34** |

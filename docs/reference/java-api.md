@@ -321,7 +321,9 @@ sniffs it), `tolerateSyntaxErrors` — without it, a syntax error throws a
 `idForm` (`ID_FORM_QUALIFIED`, the default, or `ID_FORM_UUID`) for the derived
 element ids of a graph notation (`ttl`, `api-json`), and `includeLibraryStubs`,
 which restores in `api-json` the ownerless library stubs releases before 0.11.0
-wrote (needs the service's `convert_library_stubs` capability). `Conversion.write(Path)`
+wrote (needs the service's `convert_library_stubs` capability), and `inheritedMembers`,
+which also writes in `api-json` the derived lists that repeat each Namespace's and Type's
+inherited and imported members (needs `convert_inherited_members`). `Conversion.write(Path)`
 saves the content as UTF-8, `Conversion.formatOf(Path)` names a notation by its
 extension, and `EditResult.save(Path)` writes a one-document edit and refuses one whose
 `severalDocuments()` is set, whose text is in `documents()` alone; a model

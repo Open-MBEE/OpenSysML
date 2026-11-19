@@ -324,7 +324,7 @@ func boundValue(cached *CachedModel, sem *semantics.Model, held *heldObjects, pa
 		if quantity == nil {
 			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument, "binding %s carries no quantity", parameter)
 		}
-		return queryexec.QuantityValue(*quantity), nil
+		return queryexec.QuantityHeldAs(*quantity, bound.QuantityKind()), nil
 	default:
 		return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument,
 			"binding %s carries no value", parameter)
@@ -408,7 +408,11 @@ func documentValue(idx *symbols.Index, value queryexec.Value) *pb.DocumentValue 
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_Infinity{Infinity: true}}
 	case queryexec.ValueQuantity:
 		quantity, _ := value.Quantity()
-		return &pb.DocumentValue{Kind: &pb.DocumentValue_Quantity{Quantity: protoconv.QuantityToProto(&quantity)}}
+		wire := protoconv.QuantityToProto(&quantity)
+		if wire != nil {
+			wire.ValueType = protoconv.QuantityValueTypeName(value.QuantityKind(), idx)
+		}
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_Quantity{Quantity: wire}}
 	default:
 		return &pb.DocumentValue{}
 	}

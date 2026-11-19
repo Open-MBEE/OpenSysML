@@ -248,7 +248,15 @@ and `Experimental` with its `ExperimentalNotice` when either side is RDF or the 
 both experimental mappings. `WithIDForm(IDFormUUID)` spells the derived ids of a graph notation as
 name-based uuids rather than from qualified names; API JSON names the library elements a model
 uses in `LibraryReferences`, and `WithLibraryStubs()` writes them as the pre-0.11.0 ownerless
-stubs instead, under the `convert_library_stubs` capability.
+stubs instead, under the `convert_library_stubs` capability. An API JSON element carries its
+owned structure; `WithInheritedMembers()` also writes the derived lists that repeat each
+Namespace's and Type's inherited and imported members, under `convert_inherited_members`. `WithDocuments(names...)`
+writes only the named documents of a model parsed from several, reading the others for the
+references into them (`convert_documents`); `WithCompact()` writes the compact API JSON document
+and `WithOmitDerived(keep...)` trims its derived properties to the ones kept (`convert_compact`);
+`WithCheckDiagnostics()` adds the semantic check's diagnostics of a notation source to
+`Conversion.Diagnostics`, each with its severity and code (`convert_check_diagnostics`). The client
+refuses each as `CodeUnimplemented` before the call when the service lacks the capability.
 
 A SysML v1 model — UML XMI, an Eclipse UML2 `.uml` file or a `.mdzip` archive, `FormatXMI` with
 the aliases `FormatUML` and `FormatMDZip` — is **migrated, not converted**: a conversion is

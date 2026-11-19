@@ -16,9 +16,11 @@ const (
 	CapabilityMigrate                        = sysmlgrpc.CapabilityMigrate
 	CapabilityVerification                   = sysmlgrpc.CapabilityVerification
 	CapabilityVerificationQuestions          = sysmlgrpc.CapabilityVerificationQuestions
+	CapabilityVerdictNotes                   = sysmlgrpc.CapabilityVerdictNotes
 	CapabilityVerificationArguments          = sysmlgrpc.CapabilityVerificationArguments
 	CapabilityQuery                          = sysmlgrpc.CapabilityQuery
 	CapabilityOSLCQuery                      = sysmlgrpc.CapabilityOSLCQuery
+	CapabilityQueryOrderBy                   = sysmlgrpc.CapabilityQueryOrderBy
 	CapabilityDocumentQuery                  = sysmlgrpc.CapabilityDocumentQuery
 	CapabilityInlineDocumentQuery            = sysmlgrpc.CapabilityInlineDocumentQuery
 	CapabilityQueryResultView                = sysmlgrpc.CapabilityQueryResultView
@@ -31,6 +33,7 @@ const (
 	CapabilitySymbolNameResolution           = sysmlgrpc.CapabilitySymbolNameResolution
 	CapabilitySymbolAnnotatingMetadata       = sysmlgrpc.CapabilitySymbolAnnotatingMetadata
 	CapabilitySymbolLookupKind               = sysmlgrpc.CapabilitySymbolLookupKind
+	CapabilitySymbolMemberDirection          = sysmlgrpc.CapabilitySymbolMemberDirection
 	CapabilityImportData                     = sysmlgrpc.CapabilityImportData
 	CapabilityCompareResults                 = sysmlgrpc.CapabilityCompareResults
 	CapabilityCheck                          = sysmlgrpc.CapabilityCheck
@@ -90,6 +93,7 @@ const (
 	CapabilityConvertCheckDiagnostics        = sysmlgrpc.CapabilityConvertCheckDiagnostics
 	CapabilityConvertLibraryReferences       = sysmlgrpc.CapabilityConvertLibraryReferences
 	CapabilityConvertLibraryStubs            = sysmlgrpc.CapabilityConvertLibraryStubs
+	CapabilityConvertInheritedMembers        = sysmlgrpc.CapabilityConvertInheritedMembers
 	CapabilityParseSourcesAffected           = sysmlgrpc.CapabilityParseSourcesAffected
 	CapabilityRenderDocumentFileName         = sysmlgrpc.CapabilityRenderDocumentFileName
 	CapabilityRenderDocumentHTML             = sysmlgrpc.CapabilityRenderDocumentHTML

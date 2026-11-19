@@ -154,8 +154,8 @@ pilot answers the representation's own. See
   `pilot-exec-diff: <file>:<line>: model no/such/model.sysml: stat <abs>: no
   such file or directory`.
 - **Additivity.** `go run -C tools ./cmd/pilot-diff` must still print the headline the
-  committed baseline holds (`935 file(s), 539 fully agreeing; 1105 agreed
-  diagnostic(s), 121 only ours, 2450 only the pilot's` at the `2026-09.1` pin — read it from the baseline JSON, not from this line, since each
+  committed baseline holds (`935 file(s), 539 fully agreeing; 1107 agreed
+  diagnostic(s), 120 only ours, 2450 only the pilot's` at the `2026-09.1` pin — read it from the baseline JSON, not from this line, since each
   fix round moves it) and `jq -S` diff clean against
   `docs/project/pilot-differential-baseline.json`; `git status --porcelain`
   empty at the end.

@@ -1226,10 +1226,10 @@ func (m *Model) computeDeclaredChainReachesKindBase(sym *symbols.Symbol) bool {
 	return ok && fqn != "" && m.declaredGeneralizationReaches(sym, fqn, nil)
 }
 
-// DeclaredSupertypes returns sym's direct supertypes without the generals its
-// kind implies: what a declaration states, directly or through a chain it names.
+// DeclaredSupertypes returns sym's direct supertypes without the generals its kind or
+// its feature value implies: what a declaration states, directly or through a chain it names.
 func (m *Model) DeclaredSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
-	implicit := m.ImplicitGenerals(sym)
+	implicit := m.generalsOutsideTyping(sym)
 	var out []*symbols.Symbol
 	for _, super := range m.DirectSupertypes(sym) {
 		if !slices.Contains(implicit, super) {

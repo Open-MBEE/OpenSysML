@@ -119,17 +119,15 @@ func (ctx *Context) checkResultValue(result CheckResult, err error, read *symbol
 	return boolValue(result.Holds), nil
 }
 
-// statesConditions reports whether sym is a definition or usage whose result is
-// the conjunction of the conditions it states: a requirement, viewpoint, concern
-// or a case's objective (SysML v2 §7.21, §7.22.2, Requirements.sysml `RequirementCheck::result`),
-// a satisfy usage among them (SysML v2 §7.21.4, §8.3.21.10 SatisfyRequirementUsage).
+// statesConditions reports whether sym's result is the conjunction of the conditions it states: a requirement, viewpoint,
+// concern (framed or not), case objective or satisfy usage (SysML v2 §7.21, §7.21.4, §7.22.2, `RequirementCheck::result`).
 func statesConditions(sym *symbols.Symbol) bool {
 	switch decl := sym.Decl.(type) {
 	case *ast.Definition:
 		return decl.Kind == ast.DefRequirement || decl.Kind == ast.DefViewpoint || decl.Kind == ast.DefConcern
 	case *ast.Usage:
 		return decl.Kind == ast.UsageRequirement || decl.Kind == ast.UsageViewpoint || decl.Kind == ast.UsageConcern ||
-			decl.Kind == ast.UsageObjective || satisfyAssertionUsage(sym)
+			decl.Kind == ast.UsageFramedConcern || decl.Kind == ast.UsageObjective || satisfyAssertionUsage(sym)
 	}
 	return false
 }
@@ -198,6 +196,7 @@ func (ctx *Context) conditionSelf(sym *symbols.Symbol, owner *Instance) *Instanc
 // result reads an unbound input, negated for an element asserting the contrary.
 func (ctx *Context) conditionResultValue(typ *symbols.Symbol, inst *Instance, sym *symbols.Symbol, feat *EffectiveFeature) (Value, error) {
 	defer ctx.beginRun()()
+	defer ctx.beginCheckObjects(false)()
 	members := ctx.chainMembers(typ, typ.OwnerScope)
 	// A nested usage's bindings name the owner's features (`subject s :>> s = sub;`) and are
 	// read against it, as the check on that object reads them; its conditions read its own object.
@@ -208,6 +207,14 @@ func (ctx *Context) conditionResultValue(typ *symbols.Symbol, inst *Instance, sy
 	bindings, err := ctx.memberBindings(typ, "requirement", typ.Name, members, bindingSelf, implicitSatisfactionSubject(typ, inst), frame{})
 	if err != nil {
 		return ctx.conditionResultOf(err, sym, feat)
+	}
+	// A subrequirement declaring no subject reads its container's (SysML v2 §7.21.2), as the container's check binds it.
+	if subject, _, ok, err := ctx.containerSubjectValue(inst); err != nil {
+		return ctx.conditionResultOf(err, sym, feat)
+	} else if ok {
+		for _, name := range ctx.subjectParameterNames(typ) {
+			bindings[name] = subject
+		}
 	}
 	conds := ctx.conditionsOf(typ, members)
 	check := conditionCheck{sym: typ, kind: "requirement", what: "require condition", self: inst, bindings: mapFrame(bindings)}

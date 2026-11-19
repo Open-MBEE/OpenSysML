@@ -107,6 +107,30 @@ func TestRecordedPilotCheckFailsOnAMovedPilotTotal(t *testing.T) {
 	}
 }
 
+// A pilot cell a merge moved fails the check; re-recording our side must not restate the digest over it.
+func TestRecordedPilotUpdateRefusesAMovedPilotColumn(t *testing.T) {
+	for field := pilotField; field < recordFields; field++ {
+		opts := recordStub(t)
+		records := recordsPath(committedPath(opts))
+		moveCell(t, records, field)
+		moved, err := os.ReadFile(records) // #nosec G304 -- the stub checkout's records
+		if err != nil {
+			t.Fatal(err)
+		}
+		opts.update, opts.recordedPilot = true, true
+		if err := run(opts); err == nil || !strings.Contains(err.Error(), "pilotRecords") {
+			t.Fatalf("field %d: a moved pilot cell was re-recorded as the pilot's: %v", field, err)
+		}
+		if kept, err := os.ReadFile(records); err != nil || string(kept) != string(moved) { // #nosec G304 -- the stub checkout's records
+			t.Errorf("field %d: the refused update rewrote the records (%v)", field, err)
+		}
+		opts.update, opts.check = false, true
+		if err := run(opts); err == nil {
+			t.Errorf("field %d: the moved pilot cell reproduces after the refused update", field)
+		}
+	}
+}
+
 // A column exported at another pin is not this checkout's pilot: re-recording around it is refused,
 // and one that is reused keeps the date of its export.
 func TestRecordedPilotUpdateRefusesAColumnFromOtherInputs(t *testing.T) {
@@ -147,6 +171,19 @@ func TestRecordedPilotRefusesARuleThePilotColumnDoesNotRecord(t *testing.T) {
 	lines := strings.Split(string(content), "\n")
 	gone := strings.SplitN(lines[2], "\t", 2)[0]
 	if err := writeFile(path, strings.Join(append(lines[:2:2], lines[3:]...), "\n")); err != nil {
+		t.Fatal(err)
+	}
+	// The column is as its export left it but for the rule, so the baseline states its digest.
+	column, err := readCommitted(committedPath(opts))
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err := os.ReadFile(committedPath(opts)) // #nosec G304 -- the stub checkout's baseline
+	if err != nil {
+		t.Fatal(err)
+	}
+	stated := regexp.MustCompile(`"pilotRecords": "[^"]*"`).ReplaceAllString(string(head), `"pilotRecords": "`+pilotRecordsDigest(column)+`"`)
+	if err := writeFile(committedPath(opts), stated); err != nil {
 		t.Fatal(err)
 	}
 	for _, mode := range []string{"check", "update"} {

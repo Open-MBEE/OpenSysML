@@ -663,6 +663,7 @@ impl Runner {
             id_form,
             documents: request.documents,
             include_library_stubs: request.include_library_stubs,
+            inherited_members: request.inherited_members,
             compact: request.compact,
             omit_derived: request.omit_derived,
             keep_derived: request.keep_derived,

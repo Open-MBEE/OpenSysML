@@ -36,22 +36,24 @@ type Model struct {
 	computingSupers map[*symbols.Symbol]int
 	// valuing holds the features whose typing value is being judged, so a value
 	// that leads back to its own feature is not followed again.
-	valuing         map[*symbols.Symbol]bool
-	referenced      map[*symbols.Symbol]*symbols.Symbol
-	resolvingRef    map[*symbols.Symbol]bool
-	memberSources   map[*symbols.Symbol][]*symbols.Symbol
-	lookupOrder     map[*symbols.Symbol][]*symbols.Symbol // name-lookup order
-	contributed     map[*symbols.Symbol][]*symbols.Symbol // memoized contributors
-	nestedRedefs    map[*symbols.Symbol][]NestedRedefinition
-	allRedefined    map[*symbols.Symbol][]*symbols.Symbol // memoized redefinition closure
-	primTypes       map[*symbols.Symbol]PrimType
-	scalars         map[*symbols.Symbol]PrimType // stdlib scalar symbols, resolved once
-	params          map[*symbols.Symbol]behaviorParameters
-	computingParams map[*symbols.Symbol]int // lookup depth of a params entry being computed
-	invocations     map[invocationKey]*InvocationSelection
-	arguments       ArgumentTyper // the checker's argument typing, nil when no checker runs
-	sourceText      source.Lookup // notation of the loaded documents, nil when unavailable
-	sourceFile      source.Locate // the files the documents were read from, nil for source.FileNamed
+	valuing       map[*symbols.Symbol]bool
+	referenced    map[*symbols.Symbol]*symbols.Symbol
+	resolvingRef  map[*symbols.Symbol]bool
+	memberSources map[*symbols.Symbol][]*symbols.Symbol
+	lookupOrder   map[*symbols.Symbol][]*symbols.Symbol // name-lookup order
+	contributed   map[*symbols.Symbol][]*symbols.Symbol // memoized contributors
+	nestedRedefs  map[*symbols.Symbol][]NestedRedefinition
+	allRedefined  map[*symbols.Symbol][]*symbols.Symbol // memoized redefinition closure
+	// derivedFeaturing memoizes DerivedFeaturingTypes (see featuring.go).
+	derivedFeaturing map[*symbols.Symbol][]FeaturingType
+	primTypes        map[*symbols.Symbol]PrimType
+	scalars          map[*symbols.Symbol]PrimType // stdlib scalar symbols, resolved once
+	params           map[*symbols.Symbol]behaviorParameters
+	computingParams  map[*symbols.Symbol]int // lookup depth of a params entry being computed
+	invocations      map[invocationKey]*InvocationSelection
+	arguments        ArgumentTyper // the checker's argument typing, nil when no checker runs
+	sourceText       source.Lookup // notation of the loaded documents, nil when unavailable
+	sourceFile       source.Locate // the files the documents were read from, nil for source.FileNamed
 	// typingArgs holds the calls whose arguments are being typed, so an argument
 	// whose type leads back to its own call is not typed again.
 	typingArgs map[*ast.InvocationExpr]bool
@@ -67,6 +69,10 @@ type Model struct {
 	defaultMultiplicities map[*symbols.Symbol]*symbols.Symbol
 	// successionEnds memoizes the end features each `then` succession implies (SuccessionEndMembers).
 	successionEnds map[*symbols.Symbol][]*symbols.Symbol
+	// flowEnds memoizes the two FlowEnds each flow implies (FlowEndMembers); flowEndFeatures the
+	// ReferenceUsage each of those ends owns (FlowEndFeatureMember).
+	flowEnds        map[*symbols.Symbol][]*symbols.Symbol
+	flowEndFeatures map[*symbols.Symbol]*symbols.Symbol
 	// declaredMultiplicities caches, per usage, the MultiplicityRange its written range
 	// declares (DeclaredMultiplicityMember).
 	declaredMultiplicities map[*symbols.Symbol]*symbols.Symbol
@@ -80,6 +86,8 @@ type Model struct {
 	featureBaseTypes map[*symbols.Symbol][]*symbols.Symbol
 	// implicitGenerals memoizes ImplicitGenerals: the generals a declaration's kind implies, which every type query of a feature reads.
 	implicitGenerals map[*symbols.Symbol][]*symbols.Symbol
+	// valueGenerals memoizes FeatureValueGeneral: the general a feature value implies, nil for none.
+	valueGenerals map[*symbols.Symbol]*symbols.Symbol
 	// implicitSubsettings memoizes the owner feature each nested usage implicitly
 	// subsets (see nested.go).
 	implicitSubsettings map[*symbols.Symbol][]*symbols.Symbol
@@ -220,6 +228,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		contributed:            make(map[*symbols.Symbol][]*symbols.Symbol),
 		nestedRedefs:           make(map[*symbols.Symbol][]NestedRedefinition),
 		allRedefined:           make(map[*symbols.Symbol][]*symbols.Symbol),
+		derivedFeaturing:       make(map[*symbols.Symbol][]FeaturingType),
 		primTypes:              make(map[*symbols.Symbol]PrimType),
 		params:                 make(map[*symbols.Symbol]behaviorParameters),
 		computingParams:        make(map[*symbols.Symbol]int),
@@ -231,6 +240,8 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		flowEndChains:          make(map[flowEndKey]*symbols.Symbol),
 		defaultMultiplicities:  make(map[*symbols.Symbol]*symbols.Symbol),
 		successionEnds:         make(map[*symbols.Symbol][]*symbols.Symbol),
+		flowEnds:               make(map[*symbols.Symbol][]*symbols.Symbol),
+		flowEndFeatures:        make(map[*symbols.Symbol]*symbols.Symbol),
 		declaredMultiplicities: make(map[*symbols.Symbol]*symbols.Symbol),
 		multiplicityBase:       make(map[*symbols.Symbol]*symbols.Symbol),
 		subtracting:            make(map[*symbols.Symbol]bool),
@@ -238,6 +249,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		implicitBase:           make(map[*symbols.Symbol][]*symbols.Symbol),
 		featureBaseTypes:       make(map[*symbols.Symbol][]*symbols.Symbol),
 		implicitGenerals:       make(map[*symbols.Symbol][]*symbols.Symbol),
+		valueGenerals:          make(map[*symbols.Symbol]*symbols.Symbol),
 		implicitSubsettings:    make(map[*symbols.Symbol][]*symbols.Symbol),
 		usageBase:              make(map[*symbols.Symbol]*symbols.Symbol),
 		kermlBase:              make(map[*symbols.Symbol]*symbols.Symbol),
@@ -472,6 +484,13 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		out = append(out, target)
 	}
 
+	// A feature with a feature value and no declared specialization or direction
+	// specializes the value's result (KerML 8.3.3.3.4 checkFeatureValuationSpecialization).
+	if general := m.FeatureValueGeneral(sym); general != nil && !seen[general] {
+		seen[general] = true
+		out = append(out, general)
+	}
+
 	if variation := m.VariationPointOwning(sym); variation != nil && variation != sym && !seen[variation] {
 		seen[variation] = true
 		out = append(out, variation)
@@ -524,6 +543,13 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	if p := m.implicitEndParticipant(sym, len(ends) > 0 || declaresRedefinition(sym)); p != nil && p != sym && !seen[p] {
 		seen[p] = true
 		out = append(out, p)
+	}
+
+	// The ReferenceUsage a flow's end owns redefines the feature the end names last, and so
+	// takes that feature's type (see flow_ends.go).
+	if redefined := m.flowEndFeatureRedefinition(sym); redefined != nil && redefined != sym && !seen[redefined] {
+		seen[redefined] = true
+		out = append(out, redefined)
 	}
 
 	// The cross feature an end owns is implicitly typed by the end's types and
@@ -989,30 +1015,10 @@ func (m *Model) FeatureTypeSet(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil || !sym.IsFeature() {
 		return nil
 	}
+	if types := m.TypedFeatureTypes(sym); len(types) > 0 {
+		return types
+	}
 	var types []*symbols.Symbol
-	seen := make(map[*symbols.Symbol]bool)
-	var visit func(f *symbols.Symbol)
-	visit = func(f *symbols.Symbol) {
-		if f == nil || seen[f] {
-			return
-		}
-		seen[f] = true
-		bases := m.ImplicitGenerals(f)
-		for _, super := range m.DirectSupertypes(f) {
-			switch {
-			case containsElement(bases, super):
-			case super.IsFeature():
-				visit(super)
-			case !containsElement(types, super):
-				types = append(types, super)
-			}
-		}
-		visit(m.ReferencedFeature(f))
-	}
-	visit(sym)
-	if len(types) > 0 {
-		return m.mostSpecificTypes(types)
-	}
 	// The definition its kind implies types the usage before the base feature's
 	// types stand in: an individual occurrence is a Life (SysML v2 §8.3.9.4).
 	for _, base := range m.implicitBases(sym) {
@@ -1037,6 +1043,36 @@ func (m *Model) FeatureTypeSet(sym *symbols.Symbol) []*symbols.Symbol {
 		return []*symbols.Symbol{base}
 	}
 	return nil
+}
+
+// TypedFeatureTypes is FeatureTypeSet without the kind's base: the most specific types a
+// typing gives sym or a feature it subsets, redefines or references; nil when none does.
+func (m *Model) TypedFeatureTypes(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil || !sym.IsFeature() {
+		return nil
+	}
+	var types []*symbols.Symbol
+	seen := make(map[*symbols.Symbol]bool)
+	var visit func(f *symbols.Symbol)
+	visit = func(f *symbols.Symbol) {
+		if f == nil || seen[f] {
+			return
+		}
+		seen[f] = true
+		bases := m.generalsOutsideTyping(f)
+		for _, super := range m.DirectSupertypes(f) {
+			switch {
+			case containsElement(bases, super):
+			case super.IsFeature():
+				visit(super)
+			case !containsElement(types, super):
+				types = append(types, super)
+			}
+		}
+		visit(m.ReferencedFeature(f))
+	}
+	visit(sym)
+	return m.mostSpecificTypes(types)
 }
 
 // FeatureTypeSetWithImplied is FeatureTypeSet plus the types the implied specializations of
@@ -1137,7 +1173,7 @@ func (m *Model) featureTypes(sym *symbols.Symbol, visiting map[*symbols.Symbol]b
 		return nil
 	}
 	visiting[sym] = true
-	bases := m.ImplicitGenerals(sym)
+	bases := m.generalsOutsideTyping(sym)
 	var types, features []*symbols.Symbol
 	for _, super := range m.DirectSupertypes(sym) {
 		switch {

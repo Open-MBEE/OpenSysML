@@ -4642,7 +4642,10 @@ type GetSymbolRequest struct {
 	ResolveName bool `protobuf:"varint,4,opt,name=resolve_name,json=resolveName,proto3" json:"resolve_name,omitempty"`
 	// What symbol_id is, stated rather than guessed; read with the "symbol_lookup_kind"
 	// capability, and resolve_name is then ignored.
-	Lookup        LookupKind `protobuf:"varint,5,opt,name=lookup,proto3,enum=sysml.LookupKind" json:"lookup,omitempty"`
+	Lookup LookupKind `protobuf:"varint,5,opt,name=lookup,proto3,enum=sysml.LookupKind" json:"lookup,omitempty"`
+	// Id of the type the symbol is read as a feature of: metadata["direction"] is then relative to
+	// it (KerML Type::directionOf), reversed by a conjugation; capability "symbol_member_direction".
+	MemberOf      string `protobuf:"bytes,6,opt,name=member_of,json=memberOf,proto3" json:"member_of,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4710,6 +4713,13 @@ func (x *GetSymbolRequest) GetLookup() LookupKind {
 		return x.Lookup
 	}
 	return LookupKind_LOOKUP_KIND_UNSPECIFIED
+}
+
+func (x *GetSymbolRequest) GetMemberOf() string {
+	if x != nil {
+		return x.MemberOf
+	}
+	return ""
 }
 
 // SymbolResponse contains symbol information
@@ -6808,8 +6818,11 @@ type ConvertRequest struct {
 	// For api-json, restore the ownerless library stubs written before 0.11.0.
 	// Default false: library elements remain bare references, not roots.
 	IncludeLibraryStubs bool `protobuf:"varint,13,opt,name=include_library_stubs,json=includeLibraryStubs,proto3" json:"include_library_stubs,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// For api-json, also write each Namespace's and Type's derived lists of inherited and imported members;
+	// default false writes owned structure. Capability "convert_inherited_members"; a service without it always writes them.
+	InheritedMembers bool `protobuf:"varint,14,opt,name=inherited_members,json=inheritedMembers,proto3" json:"inherited_members,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ConvertRequest) Reset() {
@@ -6942,6 +6955,13 @@ func (x *ConvertRequest) GetIncludeCheckDiagnostics() bool {
 func (x *ConvertRequest) GetIncludeLibraryStubs() bool {
 	if x != nil {
 		return x.IncludeLibraryStubs
+	}
+	return false
+}
+
+func (x *ConvertRequest) GetInheritedMembers() bool {
+	if x != nil {
+		return x.InheritedMembers
 	}
 	return false
 }
@@ -11792,7 +11812,10 @@ type Quantity struct {
 	// What the unit reduces to, which decides commensurability and conversion.
 	// Required wherever `unit` names one: a named unit sent without its reduction
 	// is rejected rather than read as dimension one.
-	UnitTerm      *UnitTerm `protobuf:"bytes,4,opt,name=unit_term,json=unitTerm,proto3" json:"unit_term,omitempty"`
+	UnitTerm *UnitTerm `protobuf:"bytes,4,opt,name=unit_term,json=unitTerm,proto3" json:"unit_term,omitempty"`
+	// Qualified name of the quantity value type the quantity is held as, empty for
+	// none: sent back, it is held as that type still, which a sibling type refuses.
+	ValueType     string `protobuf:"bytes,7,opt,name=value_type,json=valueType,proto3" json:"value_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -11882,6 +11905,13 @@ func (x *Quantity) GetUnitTerm() *UnitTerm {
 		return x.UnitTerm
 	}
 	return nil
+}
+
+func (x *Quantity) GetValueType() string {
+	if x != nil {
+		return x.ValueType
+	}
+	return ""
 }
 
 type isQuantity_Magnitude interface {
@@ -19666,14 +19696,15 @@ const file_sysml_proto_rawDesc = "" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12%\n" +
 	"\x04root\x18\x02 \x01(\v2\x11.sysml.SymbolInfoR\x04root\x123\n" +
 	"\vdiagnostics\x18\x03 \x03(\v2\x11.sysml.DiagnosticR\vdiagnostics\x12\x14\n" +
-	"\x05error\x18\x04 \x01(\tR\x05error\"\xd4\x01\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error\"\xf1\x01\n" +
 	"\x10GetSymbolRequest\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12\x1b\n" +
 	"\tsymbol_id\x18\x02 \x01(\tR\bsymbolId\x126\n" +
 	"\x17include_library_members\x18\x03 \x01(\bR\x15includeLibraryMembers\x12!\n" +
 	"\fresolve_name\x18\x04 \x01(\bR\vresolveName\x12)\n" +
-	"\x06lookup\x18\x05 \x01(\x0e2\x11.sysml.LookupKindR\x06lookup\"Q\n" +
+	"\x06lookup\x18\x05 \x01(\x0e2\x11.sysml.LookupKindR\x06lookup\x12\x1b\n" +
+	"\tmember_of\x18\x06 \x01(\tR\bmemberOf\"Q\n" +
 	"\x0eSymbolResponse\x12)\n" +
 	"\x06symbol\x18\x01 \x01(\v2\x11.sysml.SymbolInfoR\x06symbol\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\"\xa6\x01\n" +
@@ -19868,7 +19899,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\x1aA\n" +
 	"\x13OrderDependentEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\xf1\x03\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\x9e\x04\n" +
 	"\x0eConvertRequest\x12\x1d\n" +
 	"\tfile_path\x18\x01 \x01(\tH\x00R\bfilePath\x12\x1a\n" +
 	"\acontent\x18\x02 \x01(\tH\x00R\acontent\x12\x1f\n" +
@@ -19885,7 +19916,8 @@ const file_sysml_proto_rawDesc = "" +
 	" \x01(\bR\vomitDerived\x12!\n" +
 	"\fkeep_derived\x18\v \x03(\tR\vkeepDerived\x12:\n" +
 	"\x19include_check_diagnostics\x18\f \x01(\bR\x17includeCheckDiagnostics\x122\n" +
-	"\x15include_library_stubs\x18\r \x01(\bR\x13includeLibraryStubsB\b\n" +
+	"\x15include_library_stubs\x18\r \x01(\bR\x13includeLibraryStubs\x12+\n" +
+	"\x11inherited_members\x18\x0e \x01(\bR\x10inheritedMembersB\b\n" +
 	"\x06source\"\xd1\x02\n" +
 	"\x0fConvertResponse\x12\x18\n" +
 	"\acontent\x18\x01 \x01(\tR\acontent\x12\x1f\n" +
@@ -20263,14 +20295,16 @@ const file_sysml_proto_rawDesc = "" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\"\n" +
 	"\x05value\x18\x04 \x01(\v2\f.sysml.ValueR\x05value\"9\n" +
 	"\rValueSequence\x12(\n" +
-	"\belements\x18\x01 \x03(\v2\f.sysml.ValueR\belements\"\x99\x02\n" +
+	"\belements\x18\x01 \x03(\v2\f.sysml.ValueR\belements\"\xb8\x02\n" +
 	"\bQuantity\x12%\n" +
 	"\rint_magnitude\x18\x01 \x01(\x03H\x00R\fintMagnitude\x12'\n" +
 	"\x0ereal_magnitude\x18\x02 \x01(\x01H\x00R\rrealMagnitude\x12,\n" +
 	"\x11big_int_magnitude\x18\x05 \x01(\tH\x00R\x0fbigIntMagnitude\x12@\n" +
 	"\x12rational_magnitude\x18\x06 \x01(\v2\x0f.sysml.RationalH\x00R\x11rationalMagnitude\x12\x12\n" +
 	"\x04unit\x18\x03 \x01(\tR\x04unit\x12,\n" +
-	"\tunit_term\x18\x04 \x01(\v2\x0f.sysml.UnitTermR\bunitTermB\v\n" +
+	"\tunit_term\x18\x04 \x01(\v2\x0f.sysml.UnitTermR\bunitTerm\x12\x1d\n" +
+	"\n" +
+	"value_type\x18\a \x01(\tR\tvalueTypeB\v\n" +
 	"\tmagnitude\"k\n" +
 	"\x0eMeasurementRef\x12\x12\n" +
 	"\x04unit\x18\x01 \x01(\tR\x04unit\x12,\n" +

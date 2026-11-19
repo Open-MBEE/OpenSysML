@@ -54,11 +54,11 @@ var syntaxCodes = []Entry{
 		Spec: "the pinned SysML v2 and KerML Xtext grammars",
 	},
 	{
-		Code: "kerml-notation", Tier: TierSyntax, Severity: "warning",
+		Code: "kerml-notation", Tier: TierSyntax, Severity: "error",
 		Summary: "KerML notation in a SysML file",
 		Meaning: "A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) " +
 			"that the SysML v2 grammar does not admit. " +
-			"Move the declaration to a `.kerml` file, or write the SysML form the message names. A `namespace` declaration is an error in either mode; " +
+			"Move the declaration to a `.kerml` file, or write the SysML form the message names. A `namespace` declaration and a declaration keyword only KerML spells (`class`, `feature`, `connector` …) are errors in either mode; " +
 			"`-strict` promotes the other findings to errors.",
 		Spec: "the pinned SysML v2 Xtext grammar",
 	},
@@ -157,7 +157,7 @@ var syntaxCodes = []Entry{
 	{
 		Code: "expose-owning-namespace", Tier: TierSyntax, Severity: "error",
 		Summary: "`expose` outside a view body",
-		Meaning: "An expose is an import a view usage owns: `expose` is admitted in the body of a view usage (and, as an OpenSysML extension the notation rules report, a view definition) only. " +
+		Meaning: "An expose is an import a view usage owns: `expose` is admitted in the body of a view usage only (SysML v2 8.2.2.26.2 ViewBodyItem); a view definition body states what it renders and filters and admits none. " +
 			"Move the expose into the view that shows the exposed elements, or write an `import` where a plain import is meant.",
 		Spec: "SysML v2 validateExposeOwningNamespace",
 	},

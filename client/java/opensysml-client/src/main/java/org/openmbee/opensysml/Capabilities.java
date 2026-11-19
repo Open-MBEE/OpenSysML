@@ -81,6 +81,9 @@ public final class Capabilities {
   /** api-json restores the ownerless library stubs of releases before 0.11.0 when asked. */
   public static final String CONVERT_LIBRARY_STUBS = "convert_library_stubs";
 
+  /** api-json writes the inherited member lists of every Namespace and Type when asked. */
+  public static final String CONVERT_INHERITED_MEMBERS = "convert_inherited_members";
+
   /** Convert reports the semantic check's diagnostics, with their severities, alongside the output. */
   public static final String CONVERT_CHECK_DIAGNOSTICS = "convert_check_diagnostics";
 
