@@ -347,11 +347,23 @@ func (a *npr7123Audit) checkReview(review *symbols.Symbol) {
 			continue
 		}
 		if maturity != "" && npr7123MaturityRank(maturity) < npr7123MaturityRank(minimum.maturity) {
-			a.report(stated, CodeNPR7123ReviewMissingProduct, fmt.Sprintf(
-				"This %s is stated at maturity %s, below the %s NPR 7123.1D section 5.2.2.2 (%s) asks for at %s; mature the product or document the tailoring in the SEMP.",
-				name, maturity, minimum.maturity, minimum.requirementID, kind))
+			target, inherited := stated, ""
+			if stated.OwnerScope == nil || stated.OwnerScope.Owner() != review {
+				target, inherited = review, a.inheritedFrom(stated)
+			}
+			a.report(target, CodeNPR7123ReviewMissingProduct, fmt.Sprintf(
+				"This %s%s is stated at maturity %s, below the %s NPR 7123.1D section 5.2.2.2 (%s) asks for at %s; mature the product or document the tailoring in the SEMP.",
+				name, inherited, maturity, minimum.maturity, minimum.requirementID, kind))
 		}
 	}
+}
+
+// inheritedFrom names the owner a feature is inherited from, as ", inherited from <owner>".
+func (a *npr7123Audit) inheritedFrom(f *symbols.Symbol) string {
+	if f.OwnerScope == nil || f.OwnerScope.Owner() == nil {
+		return ""
+	}
+	return ", inherited from " + a.model.EffectiveNameOf(f.OwnerScope.Owner())
 }
 
 // isAProduct reports whether a feature is typed by the given work product definition or a specialization of it.
