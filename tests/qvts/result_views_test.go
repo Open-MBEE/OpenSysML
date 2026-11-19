@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -130,5 +131,29 @@ func compareRecording(t *testing.T, root, path string, got []byte) {
 	want := readFile(t, path)
 	if !bytes.Equal(got, want) {
 		t.Errorf("recording differs from %s\n--- got ---\n%s\n--- want ---\n%s", path, got, want)
+	}
+}
+
+// TestResultViewsOfOneRunAreDistinct runs two inline queries and one named twice into one
+// file: each view after the first of a name is numbered, and each renders by its own name.
+func TestResultViewsOfOneRunAreDistinct(t *testing.T) {
+	root := repoRoot(t)
+	binary := buildCLI(t, root)
+	lander := []string{"examples/qvts/lander.sysml", "examples/qvts/queries.sysml"}
+	written := filepath.Join(t.TempDir(), "views.sysml")
+	inline := `WhereType(Descendants(Named("Lander::lander")), "PartUsage", true)`
+	args := append(append([]string(nil), lander...),
+		"-run-inline-query", inline, "-run-inline-query", inline,
+		"-run-query", "QVTSDemo::CabinMass", "-run-query", "QVTSDemo::CabinMass", "-as-view", written)
+	runCLI(t, binary, root, 0, args...)
+	text := readFile(t, written)
+	views := []string{"AnswerResult::answer", "Answer2Result::answer2", "CabinMassResult::cabinMass", "CabinMass2Result::cabinMass2"}
+	for _, view := range views {
+		pkg, _, _ := strings.Cut(view, "::")
+		if got := bytes.Count(text, []byte("package "+pkg+" {")); got != 1 {
+			t.Errorf("package %s is declared %d times, want once\n%s", pkg, got, text)
+		}
+		out := filepath.Join(t.TempDir(), "rendered.txt")
+		runCLI(t, binary, root, 0, append(append([]string(nil), lander...), written, "-render", view, "-render-form", "text", "-o", out)...)
 	}
 }

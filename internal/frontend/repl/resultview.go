@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
@@ -29,11 +30,30 @@ type queryAnswer struct {
 	view   string
 }
 
-// SetResultViews makes each document query the session runs also write its
-// answer as a QVTS::QueryResult view, reported in Verdict.ResultView.
+// SetResultViews makes each document query the session runs also write its answer as a
+// QVTS::QueryResult view, reported in Verdict.ResultView; a view name written before is numbered.
 func (s *Session) SetResultViews(on bool) {
 	defer s.enter()()
 	s.resultViews = on
+	s.resultViewNames = nil
+	if on {
+		s.resultViewNames = map[string]bool{}
+	}
+}
+
+// distinctViewName is name, numbered from 2 when a view of the session already took it,
+// so the views one invocation writes into one file declare distinct packages.
+func (s *Session) distinctViewName(name string) string {
+	if s.resultViewNames == nil {
+		return name
+	}
+	key := func(candidate string) string { return strings.ToLower(candidate[:1]) + candidate[1:] }
+	candidate := name
+	for n := 2; s.resultViewNames[key(candidate)]; n++ {
+		candidate = name + strconv.Itoa(n)
+	}
+	s.resultViewNames[key(candidate)] = true
+	return candidate
 }
 
 // writingResultViews turns result views on until the returned func is called.
@@ -96,7 +116,7 @@ func (s *Session) resultViewSpec(name, query string) queryexec.ResultView {
 		digest.Write([]byte{0})
 	}
 	return queryexec.ResultView{
-		Name:       name,
+		Name:       s.distinctViewName(name),
 		Query:      query,
 		Source:     origin,
 		Provenance: "sha256:" + hex.EncodeToString(digest.Sum(nil)),
