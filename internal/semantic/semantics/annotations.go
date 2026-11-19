@@ -3183,10 +3183,10 @@ func (m *Model) reflectiveNamed(sym *symbols.Symbol) (string, bool) {
 	return m.EffectiveNamed(sym)
 }
 
-// declaredSymbolNamed is the name the declaration states, if any: not one the symbol table gave it for
-// its role (a transition's `effect`), nor the feature a metadata body feature's `mission = …` redefines.
+// declaredSymbolNamed is the name the declaration states, if any: not a role's (a transition's `effect`), the
+// feature a metadata body's `mission = …` redefines, nor an implied conjugate's derived `~P` (SysML 8.3.12.2).
 func (m *Model) declaredSymbolNamed(sym *symbols.Symbol) (string, bool) {
-	if sym == nil || sym.Naming == symbols.NamedByRole {
+	if sym == nil || sym.Naming == symbols.NamedByRole || sym.IsConjugatedPortDefinition() {
 		return "", false
 	}
 	if m.RestatesMetadataBodyFeature(sym) {

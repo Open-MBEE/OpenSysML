@@ -79,7 +79,7 @@ func TestElementIDReaderSpellsTheConjugateAsTheConversionWritesIt(t *testing.T) 
 
 func TestConversionNamesConjugatesFromOriginalDeclaredNames(t *testing.T) {
 	for _, tc := range []struct {
-		name, source, predicate, address, declaredName string
+		name, source, predicate, address string
 	}{
 		{
 			name: "short only", source: "package P { port def <s>; }",
@@ -87,11 +87,11 @@ func TestConversionNamesConjugatesFromOriginalDeclaredNames(t *testing.T) {
 		},
 		{
 			name: "short and name", source: "package P { port def <q> Q; }",
-			predicate: rdf.SysML + "qualifiedName", address: "P::Q::'~Q'", declaredName: "~Q",
+			predicate: rdf.SysML + "qualifiedName", address: "P::Q::'~Q'",
 		},
 		{
 			name: "name", source: "package P { port def Q; }",
-			predicate: rdf.SysML + "qualifiedName", address: "P::Q::'~Q'", declaredName: "~Q",
+			predicate: rdf.SysML + "qualifiedName", address: "P::Q::'~Q'",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -106,8 +106,8 @@ func TestConversionNamesConjugatesFromOriginalDeclaredNames(t *testing.T) {
 				t.Fatalf("ToRDF: %v", err)
 			}
 			conjugate := typedSubject(t, graph, rdf.SysML+"ConjugatedPortDefinition")
-			if got := graph.Objects(conjugate, rdf.SysML+"declaredName"); tc.declaredName == "" && len(got) != 0 || tc.declaredName != "" && (len(got) != 1 || got[0].Value != tc.declaredName) {
-				t.Errorf("declaredName = %v, want %q", got, tc.declaredName)
+			if got := graph.Objects(conjugate, rdf.SysML+"declaredName"); len(got) != 0 {
+				t.Errorf("declaredName = %v, want none: `~P` is the derived name", got)
 			}
 			if got := graph.Objects(conjugate, rdf.SysML+"declaredShortName"); len(got) != 0 {
 				t.Errorf("declaredShortName = %v, want none", got)
@@ -336,4 +336,45 @@ func graphDifference(before, after *rdf.Graph) (missing, extra []rdf.Triple) {
 		}
 	}
 	return missing, extra
+}
+
+// A conjugate states no declaredName (SysML 8.3.12.2); an older graph's `~P` still reads back.
+func TestConjugatedPortDefinitionVerificationAcceptsLegacyName(t *testing.T) {
+	file := source.New("legacy.sysml", []byte("package P { port def Q; }\n"))
+	p := parser.New(file)
+	graph, err := ToRDF(file, p.ParseFile())
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	conjugate := typedSubject(t, graph, rdf.SysML+"ConjugatedPortDefinition")
+	current := withoutSourceLayout(graph)
+	legacy := replaceElementProperty(current, conjugate, rdf.SysML+"declaredName", rdf.String("~Q"))
+	for name, g := range map[string]*rdf.Graph{"no declaredName": current, "legacy declaredName": legacy} {
+		if got, err := ToSysML(g); err != nil || !strings.Contains(string(got), "port def Q;") {
+			t.Errorf("ToSysML with %s = %q, %v; want the port definition", name, got, err)
+		}
+	}
+}
+
+// The element form derives the conjugate's name from its original and states no declaredName.
+func TestAPIJSONConjugateNameIsDerivedNotDeclared(t *testing.T) {
+	file := source.New("derived.sysml", []byte("package P { port def PD; }\n"))
+	graph, err := ToRDF(file, parser.New(file).ParseFile())
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	document, err := WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatalf("WriteAPIJSON: %v", err)
+	}
+	conjugate := booleansElements(t, document)["P__PD_conjugated"]
+	if conjugate["@type"] != "ConjugatedPortDefinition" {
+		t.Fatalf("P__PD_conjugated = %v, want the ConjugatedPortDefinition", conjugate)
+	}
+	if conjugate["declaredName"] != nil {
+		t.Errorf("declaredName = %v, want null", conjugate["declaredName"])
+	}
+	if conjugate["name"] != "~PD" {
+		t.Errorf("name = %v, want ~PD", conjugate["name"])
+	}
 }
