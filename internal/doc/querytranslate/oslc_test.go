@@ -603,3 +603,16 @@ func TestDefaultProjectionReportsEveryPropertyButElementID(t *testing.T) {
 		t.Errorf("DefaultProjection reads elementId: %v", got)
 	}
 }
+
+func TestObjectQuerySelectingNothingProjectsSymbolKind(t *testing.T) {
+	plan, err := Translate(mustParse(t, `rdf:type=elmt:`+rdf.EncodeElementID("Demo::Vehicle")), Context{}, "Test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !plan.Objects || !slices.Contains(plan.Columns, query.PropertySymbolKind) {
+		t.Errorf("objects = %v, columns = %v, want symbolKind among them", plan.Objects, plan.Columns)
+	}
+	if slices.Contains(plan.Columns, query.PropertyText) {
+		t.Errorf("columns = %v, want no metaclass property", plan.Columns)
+	}
+}
