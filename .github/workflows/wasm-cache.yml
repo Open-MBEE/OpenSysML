@@ -10,6 +10,7 @@ on:
       - go.mod
       - go.sum
       - Makefile
+      - scripts/ci-go-build-cache.sh
       - .github/workflows/wasm-cache.yml
   workflow_dispatch:
 
@@ -57,7 +58,12 @@ jobs:
         with:
           node-version: '24'
 
+      # After every setup step, so that whatever is marked is marked for a gate that then starts.
+      - name: Mark the restored build cache entries unused
+        run: scripts/ci-go-build-cache.sh age
+
       - name: Run the WebAssembly gate
+        id: gate
         run: |
           set -o pipefail
           node --version
@@ -67,11 +73,21 @@ jobs:
             exit 1
           fi
 
-      # The objects a failed gate compiled are as good as a passing one's, so a red
-      # develop still warms the next pull request.
+      # Go itself keeps an unused entry for five days, and each push adds the objects of
+      # every package it changed: restored and saved whole, the entry grew past 5 GB.
+      - name: Drop the build cache entries this gate did not use
+        id: prune
+        if: steps.gate.outcome == 'success'
+        run: |
+          du -sh ~/.cache/go-build
+          scripts/ci-go-build-cache.sh prune
+          du -sh ~/.cache/go-build
+
+      # A failed gate may have stopped before using what a passing one needs, so its cache is saved
+      # unpruned for the next passing gate to prune; one that never ran or was cancelled saves nothing.
       - name: Save the WebAssembly build cache
         id: save
-        if: success() || failure()
+        if: always() && (steps.prune.outcome == 'success' || steps.gate.outcome == 'failure')
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -79,8 +95,8 @@ jobs:
             ~/go/pkg/mod
           key: wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
 
-      # Each entry is some 3 GB and only the newest is restored; three fill the 10 GB the
-      # repository may keep, and GitHub then evicts the other caches saved on develop.
+      # Only the newest entry is restored, and the others count against the 10 GB the
+      # repository may keep, past which GitHub evicts the other caches saved on develop.
       - name: Delete the WebAssembly build caches this one supersedes
         if: always() && steps.save.outcome == 'success'
         env:

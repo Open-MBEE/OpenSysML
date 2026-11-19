@@ -321,7 +321,7 @@ client wait for the full tier. Only a push touching a path no area claims escala
 the full tier (`scripts/ci-changed-areas.sh`, and its test pins it).
 
 **The queue tier** runs on the merge queue's commit (below). It runs every job and gate of the
-full tier — gofmt, `go vet`, `make lint`, every shard of the test suite (nineteen, `make
+full tier — gofmt, `go vet`, `make lint`, every shard of the test suite (twenty, `make
 test-queue`), the binaries, the conformance suite over each transport, the
 protobuf lint and wire-compatibility checks, the documentation hygiene checks (`make docs-check`,
 `make man-check` and the census check), the site build, the PDF toolchain, and in each client's
@@ -381,8 +381,10 @@ The first job, `Changed areas`, runs `scripts/ci-changed-areas.sh`, which decide
 the event, the label `ci:full` and the paths (`CI_TIER=quick|queue|full` forces it), and the
 areas from the pull request's files; the rest of the jobs are gated on what it reports: a
 change confined to one client runs that client's job alone, while a change to the Go sources,
-the proto, `conformance/` or the workflows runs everything (under the queue and full tiers;
-`CI_TIER=quick` keeps the clients and docs to their own paths). A path no area claims turns
+the proto, `conformance/`, the workflows or a composite action under `.github/actions/` runs
+everything (under the queue and full tiers; `CI_TIER=quick` keeps the clients and docs to their
+own paths, and an action's push also runs the jobs that use that action). The repository
+metadata under `.github` (`CODEOWNERS`, `FUNDING.yml`, the issue templates) runs no area. A path no area claims turns
 every area on, so a new directory is over-tested rather than untested — teach the script about
 it, and add a case to `scripts/ci-changed-areas-test.sh`, which the same job runs.
 

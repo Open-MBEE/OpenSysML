@@ -67,6 +67,13 @@ and its log under `logs/`. `-no-run` compares the results already there instead 
 The readers are given this checkout's `bin/sysml-grpc` as `OPENSYSML_BINARY` and no
 `OPENSYSML_SERVICE`, whatever the caller's environment names, so the outcomes are this tree's.
 
+The suite's Go readers have a `go.mod` of their own, which pins the versions this module required
+when the suite was recorded. Go refuses to build them once this module requires a newer version
+of any of them, so the ratchet runs the Go readers with `-mod=mod -modfile=` over a temporary copy
+of the suite's `go.mod` and `go.sum`: Go raises the copy to what this tree requires, the checkout
+keeps the pinned files, and a dependency update here is measured rather than reported as a
+provisioning failure.
+
 The checkout holds the suite's own Go sources, one of which is not `gofmt`-formatted, so
 `gofmt -l .` names it while the checkout is under `build/`. Set `HIDEO_SUITE_ROOT` to a
 directory outside the repository for the download and pass the same directory as `-suite` to
@@ -132,7 +139,7 @@ named when there is one. The matrices themselves are described in the suite's
 | A10 | 36 | 36 / 0 / 0 | 36 / 0 / 0 | 20 / 0 / 16 | 18 / 2 / 16 |
 | A20 | 100 | 100 / 0 / 0 | 100 / 0 / 0 | 80 / 0 / 20 | 80 / 0 / 20 |
 | A30 | 44 | 44 / 0 / 0 | 44 / 0 / 0 | 44 / 0 / 0 | 34 / 10 / 0 |
-| A40 | 45 | 42 / 3 / 0 | 42 / 3 / 0 | 45 / 0 / 0 | 45 / 0 / 0 |
+| A40 | 45 | 45 / 0 / 0 | 45 / 0 / 0 | 45 / 0 / 0 | 45 / 0 / 0 |
 | A50 | 54 | 54 / 0 / 0 | 54 / 0 / 0 | 36 / 0 / 18 | 24 / 12 / 18 |
 | A60 | 32 | 32 / 0 / 0 | 32 / 0 / 0 | 32 / 0 / 0 | 32 / 0 / 0 |
 | B10 | 98 | 90 / 8 / 0 | 90 / 8 / 0 | 36 / 0 / 62 | 36 / 0 / 62 |
@@ -149,7 +156,7 @@ named when there is one. The matrices themselves are described in the suite's
 | D20 | 48 | 48 / 0 / 0 | 48 / 0 / 0 | 0 / 0 / 48 | 0 / 0 / 48 |
 | E10 | 48 | 48 / 0 / 0 | 48 / 0 / 0 | 48 / 0 / 0 | 48 / 0 / 0 |
 | F10 | 30 | 30 / 0 / 0 | 30 / 0 / 0 | 30 / 0 / 0 | 30 / 0 / 0 |
-| **All** | 1813 | 1612 / 168 / 33 | 1612 / 168 / 33 | 857 / 95 / 861 | 821 / 131 / 861 |
+| **All** | 1813 | 1615 / 165 / 33 | 1615 / 165 / 33 | 857 / 95 / 861 | 821 / 131 / 861 |
 <!-- hideo-suite:end counts -->
 
 The two element-properties readers agree on every case. The two Symbol readers differ on 14:

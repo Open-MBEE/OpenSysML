@@ -177,6 +177,49 @@ func TestTriggerWrittenDescribesATimer(t *testing.T) {
 	}
 }
 
+// TestTriggerWrittenNamesWhatAnAcceptSubsets pins the event an accept subsets as
+// it was written, a feature chain with every segment.
+func TestTriggerWrittenNamesWhatAnAcceptSubsets(t *testing.T) {
+	graph, err := ToStateGraph(stateDefinitionIn(t, `
+		state def Machine {
+			part fall { ref touchdown; ref 'touch::d'; }
+			ref alert;
+			entry; then idle;
+			state idle;
+			state falling;
+			state landed;
+			state rooted;
+			state quoted;
+			transition first idle accept :> alert then falling;
+			transition first falling accept :> fall.touchdown then landed;
+			transition first landed accept :> $::P::fall.touchdown then rooted;
+			transition first rooted accept :> fall.'touch::d' then quoted;
+		}
+	`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	want := map[string]string{"idle": "alert", "falling": "fall.touchdown",
+		"landed": "$::P::fall.touchdown", "rooted": "fall.'touch::d'"}
+	for _, id := range graph.StateIDs() {
+		name := graph.Origins[id].Name
+		subset, ok := want[name]
+		if !ok {
+			continue
+		}
+		for _, trans := range graph.TransitionsOf(program.StateVertex(id)) {
+			trigger, ok := trans.TriggerWritten()
+			if !ok || trigger.Kind != "accept" || !trigger.Subsetting || trigger.Subset != subset {
+				t.Errorf("TriggerWritten out of %s = %+v, %v; want an accept subsetting %s", name, trigger, ok, subset)
+			}
+			delete(want, name)
+		}
+	}
+	if len(want) != 0 {
+		t.Errorf("no transition was checked out of %v", want)
+	}
+}
+
 // TestVertexSiteNamesTheVerticesOfAMachine pins what an export calls the states,
 // pseudostates and regions of a machine, by id.
 func TestVertexSiteNamesTheVerticesOfAMachine(t *testing.T) {
