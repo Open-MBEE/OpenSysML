@@ -324,6 +324,7 @@ impl Connection {
                     .capabilities()
                     .has(crate::capabilities::CAPABILITY_SYMBOL_NAME_RESOLUTION),
                 lookup: self.lookup_kind(options.lookup),
+                member_of: String::new(),
             },
         )?;
         if !response.error.is_empty() {

@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -465,7 +466,8 @@ func varNameOfReference(ctx *runtime.Context, subject Subject, node ast.Node, sc
 		guarded:   map[string]bool{},
 		baseUnits: map[string]string{},
 	}
-	term, err := t.reference(node, scope)
+	table, id := lower.LowerExpr(node, scope, ctx.Resolver())
+	term, err := t.reference(table.Entry(id), scope)
 	if err != nil || term.Op != OpVar || term.Var == nil {
 		return "", false
 	}

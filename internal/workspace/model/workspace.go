@@ -1080,7 +1080,7 @@ func (w *Workspace) ResolveReferenceNameSegmentsInDoc(name string, ref resolve.R
 	var out []*symbols.Symbol
 	w.queryLocked(name, func(r *resolve.Resolver, sem *semantics.Model) {
 		r.ResolveReference(ref)
-		out = segmentNames(r, ref, invocationSelection(r, sem, ref))
+		out = segmentNames(r, sem, ref, invocationSelection(r, sem, ref))
 	})
 	return out
 }

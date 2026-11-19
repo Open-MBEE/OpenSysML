@@ -69,6 +69,9 @@ func (m *Model) ownedEnds(sym *symbols.Symbol) []*symbols.Symbol {
 	if ends := m.SuccessionEndMembers(sym); ends != nil {
 		return ends
 	}
+	if ends := m.FlowEndMembers(sym); ends != nil {
+		return ends
+	}
 	var out []*symbols.Symbol
 	if u, ok := sym.Decl.(*ast.Usage); ok {
 		for _, end := range u.ConnectorEnds {
@@ -331,6 +334,12 @@ func (m *Model) implicitEndRedefinitions(sym *symbols.Symbol) []*symbols.Symbol 
 			out = append(out, end)
 		}
 	}
+	if i, ok := symbols.ImpliedFlowEndIndex(sym); ok && len(out) == 0 {
+		// A flow's minted end redefines the Flows::flows end at its position (source, target).
+		if end := m.impliedEnd(ast.UsageFlow, i); end != nil {
+			out = append(out, end)
+		}
+	}
 	return out
 }
 
@@ -390,7 +399,7 @@ func declaresEnd(sym *symbols.Symbol) bool {
 	case *ast.Usage:
 		return d.IsEnd
 	case *symbols.ImpliedDecl:
-		_, ok := symbols.ImpliedSuccessionEndIndex(sym)
+		_, ok := symbols.ImpliedConnectorEndIndex(sym)
 		return ok
 	}
 	return false
@@ -553,6 +562,10 @@ func endReferencesFeature(end connectorEnd) bool {
 			// A named clause end always names the feature it references.
 			return end.feature.Kind == symbols.SymbolConnectorEnd ||
 				len(end.feature.RecordedRelationships(ast.RelReferences)) > 0
+		}
+		if _, ok := symbols.ImpliedConnectorEndIndex(end.feature); ok {
+			// A flow's or a `then` succession's end is minted only once its clause attaches it to a feature.
+			return true
 		}
 		switch d := end.feature.Decl.(type) {
 		case *ast.Usage:

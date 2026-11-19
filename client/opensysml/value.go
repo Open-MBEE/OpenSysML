@@ -127,6 +127,9 @@ type Quantity struct {
 	Unit string
 	// Term is what the unit reduces to, which decides commensurability.
 	Term *UnitTerm
+	// ValueType is the quantity value type the service holds the quantity as
+	// ("ISQThermodynamics::EnergyValue"); empty for none. Sent back, it is kept.
+	ValueType string
 }
 
 // UnitTerm is a unit's reduction to base units, with its scale kept as an

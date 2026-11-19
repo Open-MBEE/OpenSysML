@@ -67,6 +67,13 @@ and its log under `logs/`. `-no-run` compares the results already there instead 
 The readers are given this checkout's `bin/sysml-grpc` as `OPENSYSML_BINARY` and no
 `OPENSYSML_SERVICE`, whatever the caller's environment names, so the outcomes are this tree's.
 
+The suite's Go readers have a `go.mod` of their own, which pins the versions this module required
+when the suite was recorded. Go refuses to build them once this module requires a newer version
+of any of them, so the ratchet runs the Go readers with `-mod=mod -modfile=` over a temporary copy
+of the suite's `go.mod` and `go.sum`: Go raises the copy to what this tree requires, the checkout
+keeps the pinned files, and a dependency update here is measured rather than reported as a
+provisioning failure.
+
 The checkout holds the suite's own Go sources, one of which is not `gofmt`-formatted, so
 `gofmt -l .` names it while the checkout is under `build/`. Set `HIDEO_SUITE_ROOT` to a
 directory outside the repository for the download and pass the same directory as `-suite` to
@@ -131,17 +138,17 @@ named when there is one. The matrices themselves are described in the suite's
 | A03 | 128 | 128 / 0 / 0 | 128 / 0 / 0 | 96 / 0 / 32 | 96 / 0 / 32 |
 | A10 | 36 | 36 / 0 / 0 | 36 / 0 / 0 | 20 / 0 / 16 | 18 / 2 / 16 |
 | A20 | 100 | 100 / 0 / 0 | 100 / 0 / 0 | 80 / 0 / 20 | 80 / 0 / 20 |
-| A30 | 44 | 44 / 0 / 0 | 44 / 0 / 0 | 34 / 10 / 0 | 34 / 10 / 0 |
-| A40 | 45 | 42 / 3 / 0 | 42 / 3 / 0 | 45 / 0 / 0 | 45 / 0 / 0 |
+| A30 | 44 | 44 / 0 / 0 | 44 / 0 / 0 | 44 / 0 / 0 | 34 / 10 / 0 |
+| A40 | 45 | 45 / 0 / 0 | 45 / 0 / 0 | 45 / 0 / 0 | 45 / 0 / 0 |
 | A50 | 54 | 54 / 0 / 0 | 54 / 0 / 0 | 36 / 0 / 18 | 24 / 12 / 18 |
 | A60 | 32 | 32 / 0 / 0 | 32 / 0 / 0 | 32 / 0 / 0 | 32 / 0 / 0 |
 | B10 | 98 | 90 / 8 / 0 | 90 / 8 / 0 | 36 / 0 / 62 | 36 / 0 / 62 |
 | B11 | 90 | 90 / 0 / 0 | 90 / 0 / 0 | 36 / 0 / 54 | 24 / 12 / 54 |
 | B12 | 108 | 108 / 0 / 0 | 108 / 0 / 0 | 54 / 0 / 54 | 54 / 0 / 54 |
-| B13 | 165 | 71 / 94 / 0 | 71 / 94 / 0 | 6 / 60 / 99 | 6 / 60 / 99 |
+| B13 | 165 | 74 / 91 / 0 | 74 / 91 / 0 | 6 / 60 / 99 | 6 / 60 / 99 |
 | B20 | 75 | 48 / 27 / 0 | 48 / 27 / 0 | 15 / 15 / 45 | 15 / 15 / 45 |
 | C01 | 114 | 99 / 15 / 0 | 99 / 15 / 0 | 76 / 0 / 38 | 76 / 0 / 38 |
-| C10 | 116 | 92 / 4 / 20 | 92 / 4 / 20 | 36 / 0 / 80 | 36 / 0 / 80 |
+| C10 | 116 | 96 / 0 / 20 | 96 / 0 / 20 | 36 / 0 / 80 | 36 / 0 / 80 |
 | C20 | 120 | 117 / 0 / 3 | 117 / 0 / 3 | 24 / 0 / 96 | 24 / 0 / 96 |
 | C21 | 72 | 48 / 24 / 0 | 48 / 24 / 0 | 0 / 0 / 72 | 0 / 0 / 72 |
 | C30 | 78 | 78 / 0 / 0 | 78 / 0 / 0 | 6 / 0 / 72 | 6 / 0 / 72 |
@@ -149,7 +156,7 @@ named when there is one. The matrices themselves are described in the suite's
 | D20 | 48 | 48 / 0 / 0 | 48 / 0 / 0 | 0 / 0 / 48 | 0 / 0 / 48 |
 | E10 | 48 | 48 / 0 / 0 | 48 / 0 / 0 | 48 / 0 / 0 | 48 / 0 / 0 |
 | F10 | 30 | 30 / 0 / 0 | 30 / 0 / 0 | 30 / 0 / 0 | 30 / 0 / 0 |
-| **All** | 1813 | 1605 / 175 / 33 | 1605 / 175 / 33 | 847 / 105 / 861 | 821 / 131 / 861 |
+| **All** | 1813 | 1615 / 165 / 33 | 1615 / 165 / 33 | 857 / 95 / 861 | 821 / 131 / 861 |
 <!-- hideo-suite:end counts -->
 
 The two element-properties readers agree on every case. The two Symbol readers differ on 14:

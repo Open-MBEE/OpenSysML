@@ -102,11 +102,12 @@ func runConvert(files []string) (status int, err error) {
 	if from == convert.FormatFMU && outputPath != "" && input != "-" && samePath(outputPath, input) {
 		return 0, fmt.Errorf("-o names the FMU being imported, %s; the archive would be replaced by its import", input)
 	}
-	made, err := convertInput(name, data, from, to)
+	opts, err := convertOptions(from, to)
 	if err != nil {
 		return 0, err
 	}
-	if err := writeConverted(input, to, made); err != nil {
+	err = writeProduced(to, func(out io.Writer) error { return convert.ConvertTo(out, name, data, from, to, opts) })
+	if err != nil {
 		return 0, err
 	}
 	return exitHolds, nil
@@ -182,7 +183,10 @@ func writeConverted(input string, to convert.Format, made produced) error {
 		if err := made.writeSidecars(); err != nil {
 			return err
 		}
-		return writeConversion(outputPath, made.out, to)
+		return writeProduced(to, func(out io.Writer) error {
+			_, err := out.Write(made.out)
+			return err
+		})
 	}
 	if info != nil && !info.Mode().IsRegular() {
 		return fmt.Errorf("-o names %s, which is not a file; the migration writes a model file and the images beside it", outputPath)
@@ -211,6 +215,8 @@ type produced struct {
 	out      []byte
 	files    map[string][]byte
 	sidecars func() error
+	// empty is a migration's statement that the model holds nothing of its input, "" when it holds some.
+	empty string
 }
 
 // writeSidecars writes the migration's report and results, nothing for a conversion.
@@ -371,7 +377,11 @@ func convertRecorded(input string, to convert.Format) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	out, tolerated, err := convert.ConvertTolerantWith(repl.SessionOrigin, []byte(sess.Text()), convert.FormatSysML, to, opts)
+	var tolerated *convert.SyntaxError
+	err = writeProduced(to, func(out io.Writer) (err error) {
+		tolerated, err = convert.ConvertTolerantTo(out, repl.SessionOrigin, []byte(sess.Text()), convert.FormatSysML, to, opts)
+		return err
+	})
 	if err != nil {
 		return 0, err
 	}
@@ -380,11 +390,7 @@ func convertRecorded(input string, to convert.Format) (int, error) {
 			fmt.Fprintln(os.Stderr, line)
 		}
 	}
-	if outputPath != "" {
-		return exitHolds, writeConversion(outputPath, out, to)
-	}
-	_, err = os.Stdout.Write(out)
-	return exitHolds, err
+	return exitHolds, nil
 }
 
 // convertOptions are the conversion settings -id asks for, refusing it for a
@@ -420,13 +426,23 @@ func convertOptions(from, to convert.Format) (convert.Options, error) {
 	return opts, nil
 }
 
-// writeConversion writes converted output to a file and reports it.
-func writeConversion(path string, out []byte, to convert.Format) error {
-	replaced, err := export.WriteFile(path, out)
+// writeProduced writes what write produces to stdout or the -o file and reports the
+// file. The file is staged from the stream, so a large output is never held whole.
+func writeProduced(to convert.Format, write func(io.Writer) error) error {
+	if outputPath == "" {
+		// Buffered whole, so a conversion that fails writes nothing to the stream.
+		var out bytes.Buffer
+		if err := write(&out); err != nil {
+			return err
+		}
+		_, err := os.Stdout.Write(out.Bytes())
+		return err
+	}
+	replaced, written, err := export.WriteFileFrom(outputPath, write)
 	if err != nil {
 		return err
 	}
-	reportConversion(path, to, int64(len(out)), replaced)
+	reportConversion(outputPath, to, written, replaced)
 	return nil
 }
 
@@ -596,22 +612,10 @@ func convertModel(files []string, to convert.Format) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	write := func(out io.Writer) error { return convert.ConvertModelTo(out, inputs, to, opts) }
-	if outputPath == "" {
-		// Buffered whole, so a conversion that fails writes nothing to the stream.
-		var out bytes.Buffer
-		if err := write(&out); err != nil {
-			return 0, err
-		}
-		_, err := os.Stdout.Write(out.Bytes())
-		return exitHolds, err
-	}
-	// Streamed to the staged file, so a large model's output is never held whole.
-	replaced, written, err := export.WriteFileFrom(outputPath, write)
+	err = writeProduced(to, func(out io.Writer) error { return convert.ConvertModelTo(out, inputs, to, opts) })
 	if err != nil {
 		return 0, err
 	}
-	reportConversion(outputPath, to, written, replaced)
 	return exitHolds, nil
 }
 

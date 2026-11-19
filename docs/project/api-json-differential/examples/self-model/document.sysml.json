@@ -6,7 +6,7 @@
     "elements": {
       "matched": 2089,
       "oursOnly": 98,
-      "pilotOnly": 2458,
+      "pilotOnly": 2488,
       "pilotOnlyImplied": 0,
       "typeMismatch": 0
     },
@@ -23,7 +23,7 @@
     "extensionProperties": 4425,
     "duplicateElements": {
       "ours": 0,
-      "pilot": 5467
+      "pilot": 5657
     },
     "ambiguousKeys": {
       "ours": 0,
@@ -31,7 +31,7 @@
     },
     "unkeyableElements": {
       "ours": 0,
-      "pilot": 4439
+      "pilot": 4527
     }
   },
   "rows": {

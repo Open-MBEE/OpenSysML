@@ -14,6 +14,6 @@ Property	Imaging Subsystem::gain	_imagingGain	-> SEM::'Imaging Subsystem'::gain
 «BindingConnector» Connector	Imaging Subsystem::gain = BSED.gain	_bind	-> SEM::'Imaging Subsystem'::'gain = BSED.gain'
 «ConstraintBlock» Class	Noise Figure	_noise	-> SEM::'Noise Figure'
 Property	Noise Figure::f	_f	-> SEM::'Noise Figure'::f
-«ConstraintParameter» Property	Noise Figure::nf	_nf	-> SEM::'Noise Figure'::nf	(«ConstraintParameter» from http://www.omg.org/spec/SysML/20181001/SysML is applied from a profile the document does not define; the application is kept as metadata)
+«ConstraintParameter» Property	Noise Figure::nf	_nf	-> SEM::'Noise Figure'::nf	(«ConstraintParameter» from http://www.omg.org/spec/SysML/20181001/SysML is a SysML stereotype the migration gives no v2 form; the application is kept as metadata)
 «ValueType» DataType	Real	_real	-> SEM::Real
 Model	SEM	_m	-> SEM	(written as package SEM)

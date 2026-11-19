@@ -23,11 +23,11 @@ package EmptyReasons {
 		filter @ActionUsage;
 	}
 
-	// The filter is on the expose, and inherited from the view definition.
-	view def ActionsOnly {
+	// The filter is on the expose, and inherited from the view specialized.
+	view actionsOnly {
 		expose Cart::**[@ActionUsage];
 	}
-	view inheritedFilter : ActionsOnly;
+	view inheritedFilter :> actionsOnly;
 
 	// The expose names a namespace that does not exist.
 	view unresolved {

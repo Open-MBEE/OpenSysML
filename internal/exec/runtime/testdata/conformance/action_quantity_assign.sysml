@@ -6,7 +6,7 @@ package test {
 	public import SI::*;
 
 	action travel {
-		attribute speed : ScalarValues::Real = 0.0;
+		attribute speed : ISQ::SpeedValue = 0.0 [SI::m / SI::s];
 		attribute quick : ScalarValues::Boolean = false;
 
 		first start;

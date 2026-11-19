@@ -4,14 +4,16 @@ action def Monitor
   in sensor
   out alarm
   initial start
-  accept action acceptReading (reading : Reading)
-    out reading
-    in ^receiver
+  swimlane sensor (perform actions)
+    accept action acceptReading (reading : Reading)
+      out reading
+      in ^receiver
   send action sendAlarm (Alarm to sensor)
     in ^payload
     in ^sender
     in ^receiver
-  assign tally (count := count + 1)
+  swimlane controller (perform actions)
+    assign tally (count := count + 1)
   loop wait
     while condition
       count < 10

@@ -6,6 +6,7 @@ from opensysml.errors import UnresolvedChildError
 from opensysml.capabilities import (
     CAPABILITY_SYMBOL_ATTRIBUTES,
     CAPABILITY_SYMBOL_ANNOTATING_METADATA,
+    CAPABILITY_SYMBOL_MEMBER_DIRECTION,
     CAPABILITY_SYMBOL_MEMBERS,
     require,
     upgrade_remedy,
@@ -55,6 +56,7 @@ class SymbolSource(Protocol):
     def get_symbol(
         self, model_hash: str, symbol_id: Optional[str] = None, include_library_members: bool = False,
         resolve_name: bool = False, *, name: Optional[str] = None, id: Optional[str] = None,
+        member_of: str = "",
     ) -> Any:
         """The ``SymbolInfo`` for a qualified ``name`` or a reported ``id``, or None
         when the model has no such symbol."""
@@ -380,8 +382,13 @@ class Symbol:
         rather than dropping them."""
         symbols: List["Symbol"] = []
         unresolved: List[str] = []
+        # Read as this symbol's member, a feature states its direction relative to
+        # this symbol: reversed where a conjugated port typing lies between.
+        relative = {}
+        if self._client.server_info().has(CAPABILITY_SYMBOL_MEMBER_DIRECTION):
+            relative = {"member_of": self.id}
         for symbol_id, inherited_from in ids:
-            info = self._client.get_symbol(self._model_hash, id=symbol_id)
+            info = self._client.get_symbol(self._model_hash, id=symbol_id, **relative)
             if info is None:
                 unresolved.append(symbol_id)
                 continue

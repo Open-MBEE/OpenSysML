@@ -50,18 +50,9 @@ type assignmentReferentChecker struct {
 	ctx      *Context
 	model    *semantics.Model
 	resolver *resolve.Resolver
-	inCalc   bool
 	// occurrence: Occurrences::Occurrence is loaded, so time-varying is decidable.
 	occurrence bool
 	diags      []diag.Diagnostic
-}
-
-// enterBody records whether the body being walked is a calculation's and returns
-// the function restoring what the enclosing body was.
-func (c *assignmentReferentChecker) enterBody(isCalc bool) func() {
-	was := c.inCalc
-	c.inCalc = isCalc
-	return func() { c.inCalc = was }
 }
 
 func (c *assignmentReferentChecker) walk(scope *symbols.Scope, members []ast.Node) {
@@ -73,10 +64,8 @@ func (c *assignmentReferentChecker) walk(scope *symbols.Scope, members []ast.Nod
 func (c *assignmentReferentChecker) walkNode(scope *symbols.Scope, node ast.Node) {
 	switch n := node.(type) {
 	case *ast.Definition:
-		defer c.enterBody(n.Kind == ast.DefCalc)()
 		c.walk(childScopeOr(scope, n), n.Members)
 	case *ast.Usage:
-		defer c.enterBody(n.Kind == ast.UsageCalc)()
 		c.walk(childScopeOr(scope, n), n.Members)
 	case *ast.Package:
 		c.walk(childScopeOr(scope, n), n.Members)
@@ -199,17 +188,10 @@ func targetText(target ast.Node) string {
 }
 
 // checkChain reports a chained assignment target the runtime cannot write: one
-// written in a calculation body, or one stepping through a feature whose stated
-// multiplicity lets it hold several objects.
+// stepping through a feature whose stated multiplicity lets it hold several objects.
 func (c *assignmentReferentChecker) checkChain(scope *symbols.Scope, chain *ast.FeatureChainExpr) {
 	path := lower.FeaturePath(chain)
 	if path == "" {
-		return
-	}
-	if c.inCalc {
-		c.report(chain.Span(), fmt.Sprintf(
-			"A calculation must not write %s, a feature of another object.", path),
-			"assignment-chain-in-calc")
 		return
 	}
 	for _, step := range chainSteps(chain) {
