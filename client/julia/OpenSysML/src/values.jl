@@ -231,6 +231,13 @@ end
 # Steps are equal for one kind with equal parts, whatever object each was read from.
 Base.:(==)(a::FrameStep, b::FrameStep) = a.translation == b.translation && a.rotation == b.rotation
 
+# Each hashes by no more than its `==` compares, so equal values share a `Set` or `Dict` slot.
+Base.hash(f::CoordinateFrame, h::UInt) = f.instance_id === nothing ?
+    hash((:CoordinateFrame, f.dimensions, length(f.axes)), h) :
+    hash((:CoordinateFrame, f.instance_id, f.frame_id), h)
+Base.hash(::CoordinateTransformation, h::UInt) = hash(:CoordinateTransformation, h)
+Base.hash(s::FrameStep, h::UInt) = hash((:FrameStep, s.rotation === nothing), h)
+
 """A unit value with its optional model declaration identity."""
 struct MeasurementRef
     unit::String

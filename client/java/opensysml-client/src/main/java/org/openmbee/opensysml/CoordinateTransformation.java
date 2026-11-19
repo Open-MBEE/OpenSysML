@@ -68,9 +68,10 @@ public record CoordinateTransformation(
     return shape.isEmpty() && that.shape.isEmpty() ? sameObject : shape.equals(that.shape);
   }
 
+  // One object read twice is equal whatever else differs, so no component may enter the hash.
   @Override
   public int hashCode() {
-    return shape.map(s -> s.getClass().hashCode()).orElse(0);
+    return CoordinateTransformation.class.hashCode();
   }
 
   /** The shape a model states a transformation in. */

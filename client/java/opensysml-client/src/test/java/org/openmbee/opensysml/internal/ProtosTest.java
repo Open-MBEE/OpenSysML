@@ -1002,6 +1002,15 @@ class ProtosTest {
             wirePlacing("trs", 1).setInstanceId(9).setTarget(wireFrame("posed").setInstanceId(7)));
     assertEquals(own, direct);
     assertEquals(own.hashCode(), direct.hashCode());
+    org.openmbee.opensysml.CoordinateTransformation reshaped =
+        readTransformation(
+            org.openmbee.opensysml.proto.CoordinateTransformation.newBuilder()
+                .setName("placed")
+                .setInstanceId(9)
+                .setAffine(org.openmbee.opensysml.proto.AffineTransformation3d.newBuilder()));
+    assertEquals(own, reshaped);
+    assertEquals(own.hashCode(), reshaped.hashCode());
+    assertEquals(1, java.util.Set.copyOf(List.of(own, direct, reshaped)).size());
     assertEquals(
         readTransformation(wirePlacing("a", 1)), readTransformation(wirePlacing("b", 1).setPose(pose)));
     assertNotEquals(readTransformation(wirePlacing("a", 1)), readTransformation(wirePlacing("a", 2)));

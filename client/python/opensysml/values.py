@@ -1583,7 +1583,8 @@ class CoordinateTransformation:
         return same_object
 
     def __hash__(self) -> int:
-        return hash((self.placement is not None, self.steps is not None, self.affine is not None))
+        # One object read twice is equal whatever else differs, so no field may enter the hash.
+        return hash(CoordinateTransformation)
 
     def __str__(self) -> str:
         source = self.source.name if self.source is not None else "?"

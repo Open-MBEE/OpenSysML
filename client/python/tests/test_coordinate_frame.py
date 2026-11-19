@@ -161,6 +161,8 @@ def test_frames_and_transformations_compare_as_the_service_does():
     assert constructed == replace(constructed, name="b", type_id="F::P", pose=own.pose)
     assert constructed != replace(constructed, placement=FramePlacement(origin=2.0))
     assert constructed != replace(constructed, target=cut)
+    reshaped = replace(own, placement=None, affine=AffineTransformation3d(), source=None)
+    assert own == reshaped and hash(own) == hash(reshaped) and len({own, direct, reshaped}) == 1
     shapeless = CoordinateTransformation(name="a", instance_id=4, source=datum)
     assert shapeless != replace(shapeless, instance_id=5)
     step = FrameStep(translation=1.0, instance_id=7)

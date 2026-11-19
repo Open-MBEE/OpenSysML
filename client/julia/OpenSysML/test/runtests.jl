@@ -333,6 +333,10 @@ end
     @test built("a", 1.0) == built("b", 1.0) && built("a", 1.0) != built("a", 2.0)
     @test ct(""""source":$datum,"instanceId":"4\"""") != ct(""""source":$datum,"instanceId":"5\"""")
     @test FrameStep(1.0, nothing, 7) == FrameStep(1.0, nothing, 8)
+    @test hash(posed) == hash(cut) && length(Set([posed, cut])) == 1
+    @test hash(FrameStep(1.0, nothing, 7)) == hash(FrameStep(1.0, nothing, 8))
+    trs = ct(""""name":"trs",$own,"target":$datum""")
+    @test hash(trs) == hash(ct(""""name":"placed",$own""")) && length(Set([trs, ct(""""name":"placed",$own""")])) == 1
     @test_throws UnsupportedValueError decode_value(JSON.parse("""{"fromTheFuture":1}"""))
     @test_throws UnsupportedValueError decode_value(Dict{String,Any}())
 end
