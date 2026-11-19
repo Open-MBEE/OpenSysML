@@ -1,7 +1,9 @@
 package identity_test
 
 import (
+	"runtime"
 	"testing"
+	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -619,4 +621,24 @@ func TestShadowingElementIdKeepsItsPosition(t *testing.T) {
 		}
 	}
 	t.Fatalf("no body feature identified as %q", want)
+}
+
+func TestLibraryCatalogsAreReleasedWithTheirIndex(t *testing.T) {
+	done := make(chan struct{})
+	func() {
+		base, _ := libs.FrozenLibrary()
+		if identity.LibraryCatalogWithOpenSysML(base) != identity.LibraryCatalogWithOpenSysML(base) {
+			t.Fatal("a frozen library index should build its catalog once")
+		}
+		runtime.AddCleanup(base, func(ch chan struct{}) { close(ch) }, done)
+	}()
+	for range 50 {
+		runtime.GC()
+		select {
+		case <-done:
+			return
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
+	t.Fatal("frozen library index remained reachable through the catalog memo")
 }
