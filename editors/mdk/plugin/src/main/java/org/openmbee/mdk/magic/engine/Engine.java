@@ -165,11 +165,8 @@ public final class Engine implements AutoCloseable {
   }
 
   /**
-   * Lays out the views of {@code result} as {@code RenderView} does: the model of {@code source}
-   * is parsed with each view's text beside it, so the header and rows are the service's reading
-   * of what it wrote.
-   *
-   * @return the result with its views rendered, or unchanged when it has none or was cancelled
+   * Lays out the views of {@code result} as {@code RenderView} does, over the model of {@code
+   * source} with each view's text beside it; unchanged when it has none or was cancelled.
    */
   public RunResult renderViews(ModelSource source, RunResult result, Cancellation cancellation) {
     Objects.requireNonNull(source);
@@ -196,13 +193,8 @@ public final class Engine implements AutoCloseable {
   }
 
   /**
-   * Renders what {@code subjectQualifiedName} stands for into {@code directory} as Markdown and
-   * HTML: each {@code DocumentQueries::Document} it is, or the migration wrote for it, through
-   * {@code RenderDocument}; a {@code QVTS::QueryResult} view through {@code RenderView}.
-   *
-   * @return the files written, or empty when cancelled
-   * @throws IllegalArgumentException when the subject is neither a document nor a result view
-   * @throws RuntimeException when the service or the file system fails; the caller reports it
+   * Renders the documents or the {@code QVTS::QueryResult} view {@code subjectQualifiedName} names
+   * into {@code directory} as Markdown and HTML; empty when cancelled, refused for any other subject.
    */
   public Optional<List<Path>> render(
       ModelSource source, String subjectQualifiedName, Path directory, Cancellation cancellation) {

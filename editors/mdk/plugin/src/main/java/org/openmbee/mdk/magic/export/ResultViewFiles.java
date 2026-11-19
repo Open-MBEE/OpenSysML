@@ -15,9 +15,8 @@ import org.openmbee.mdk.magic.results.ResultViews;
 import org.openmbee.mdk.magic.results.RunResult;
 
 /**
- * Writes the {@code QVTS::QueryResult} views of a run as files named by query: beside the SysML v2
- * text a v1 project was last exported to (where its migration report is), else next to the
- * project file, which is where a v2 project's always go.
+ * Writes the {@code QVTS::QueryResult} views of a run as files named by query, beside a v1
+ * project's last SysML v2 export when it has one, else next to the project file.
  */
 public final class ResultViewFiles {
   /** The model file each project (by its file name) was last exported to in this session. */
@@ -39,10 +38,7 @@ public final class ResultViewFiles {
 
   /**
    * Writes each view beside {@code anchor} as {@code <anchor stem>.<query>.result.sysml}, replacing
-   * the file a previous run of the same query wrote.
-   *
-   * @return the files written, in the views' order
-   * @throws UncheckedIOException when a file cannot be written
+   * a previous run's file, and answers the files in the views' order.
    */
   public static List<Path> write(Path anchor, List<RunResult.View> views) {
     Path directory = anchor.toAbsolutePath().normalize().getParent();

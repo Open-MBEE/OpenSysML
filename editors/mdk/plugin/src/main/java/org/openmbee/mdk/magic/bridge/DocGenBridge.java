@@ -58,11 +58,8 @@ public final class DocGenBridge {
   }
 
   /**
-   * Runs as {@link #run(Project, BaseElement, String, String)} does; for "Run query", {@code view}
-   * asks for each answer as a {@code QVTS::QueryResult} view too: {@link #VIEW_TEXT} for its SysML
-   * text, {@link #VIEW_RENDERED} for the text with the header and rows {@code RenderView} lays out.
-   *
-   * @throws IllegalArgumentException also when {@code view} is neither of those nor blank
+   * Runs as the four-argument {@code run} does; {@code view} also asks "Run query" for each answer
+   * as a view: {@link #VIEW_TEXT}, {@link #VIEW_RENDERED} or blank, anything else is refused.
    */
   public Map<String, Object> run(
       Project project, BaseElement element, String operation, String calcArguments, String view) {

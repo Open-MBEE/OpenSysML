@@ -66,9 +66,8 @@ public record RunResult(
   }
 
   /**
-   * A query's answer as a {@code QVTS::QueryResult} view: {@code name} is the view's qualified
-   * name and {@code text} the SysML declaring it. {@code header}, {@code columns} and {@code rows}
-   * are the view as {@code RenderView} lays it out, empty until it was rendered.
+   * A query's answer as a {@code QVTS::QueryResult} view: its qualified name and SysML text, and
+   * the header, columns and rows {@code RenderView} lays out, empty until it was rendered.
    */
   public record View(
       String query, String name, String text, List<Field> header, List<String> columns, List<List<String>> rows) {

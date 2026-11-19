@@ -286,9 +286,8 @@ public final class OperationActions implements BrowserContextAMConfigurator, Dia
   }
 
   /**
-   * Renders the selected document — a {@code DocumentQueries::Document}, or the one a v1 DocGen
-   * «Document» migrates to — or {@code QVTS::QueryResult} view as Markdown and HTML into a folder
-   * the user picks, then opens the folder.
+   * Renders the selected document (or the one a v1 «Document» migrates to) or {@code
+   * QVTS::QueryResult} view as Markdown and HTML into a folder the user picks, then opens it.
    */
   private final class RenderAction extends MDAction {
     static final String TITLE = "Magic MDK: Render document";
