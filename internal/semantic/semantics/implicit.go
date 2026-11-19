@@ -73,6 +73,32 @@ var implicitUsageBases = map[ast.UsageKind]string{
 	ast.UsageUseCase:          "UseCases::useCases",
 }
 
+// impliedExpressionBases maps each expression metaclass to the evaluations feature it
+// implicitly subsets (KerML 1.1 §8.4.4.7, §8.4.4.8): a literal's, constructor's, null's, …
+var impliedExpressionBases = map[string]string{
+	"Expression":                  evaluationsFQN,
+	"OperatorExpression":          evaluationsFQN,
+	"InvocationExpression":        evaluationsFQN,
+	"FeatureReferenceExpression":  evaluationsFQN,
+	"FeatureChainExpression":      evaluationsFQN,
+	"IndexExpression":             evaluationsFQN,
+	"CollectExpression":           evaluationsFQN,
+	"SelectExpression":            evaluationsFQN,
+	"TriggerInvocationExpression": evaluationsFQN,
+	"InstantiationExpression":     evaluationsFQN,
+	"ConstructorExpression":       "Performances::constructorEvaluations",
+	"BooleanExpression":           "Performances::booleanEvaluations",
+	"Invariant":                   "Performances::trueEvaluations",
+	"LiteralExpression":           "Performances::literalEvaluations",
+	"LiteralInfinity":             "Performances::literalIntegerEvaluations", // `*` is an unbounded integer
+	"LiteralBoolean":              "Performances::literalBooleanEvaluations",
+	"LiteralInteger":              "Performances::literalIntegerEvaluations",
+	"LiteralRational":             "Performances::literalRationalEvaluations",
+	"LiteralString":               "Performances::literalStringEvaluations",
+	"NullExpression":              "Performances::nullEvaluations",
+	"MetadataAccessExpression":    "Performances::metadataAccessEvaluations",
+}
+
 // implicitDefinitionBases maps a definition kind to the qualified name of the
 // standard library definition every definition of that kind implicitly
 // specializes, so the members that base supplies resolve inside the
@@ -241,6 +267,13 @@ func (m *Model) ImpliedBaseFQNs(node ast.Node, kind source.Kind) []string {
 	return slices.Compact(bases)
 }
 
+// ImpliedExpressionBaseFQN returns the evaluations feature an expression of the
+// given metaclass implicitly subsets, if it is an expression metaclass.
+func (m *Model) ImpliedExpressionBaseFQN(metaclass string) (string, bool) {
+	fqn, ok := impliedExpressionBases[metaclass]
+	return fqn, ok
+}
+
 // ImpliedBaseFQNsForMetaclass returns standard-library bases implied by a
 // graph element's metaclass when its semantic symbol is unavailable.
 func (m *Model) ImpliedBaseFQNsForMetaclass(metaclass string, kind source.Kind) []string {
@@ -250,6 +283,9 @@ func (m *Model) ImpliedBaseFQNsForMetaclass(metaclass string, kind source.Kind) 
 	if metaclass == "ReferenceUsage" && kind != source.KindKerML {
 		// A reference usage has no kind base: it subsets only Base::things (SysML v2 §7.6.2).
 		return []string{baseUsageFQN}
+	}
+	if fqn, ok := impliedExpressionBases[metaclass]; ok {
+		return []string{fqn}
 	}
 	if base, ok := impliedNodeUsageBases[metaclass]; ok && kind != source.KindKerML {
 		return []string{base}
@@ -323,7 +359,6 @@ var impliedUsageKinds = map[string]ast.UsageKind{
 	"ConnectionUsage":         ast.UsageConnection,
 	"ConstraintUsage":         ast.UsageConstraint,
 	"EnumerationUsage":        ast.UsageEnumeration,
-	"Expression":              ast.UsageExpr,
 	"FlowUsage":               ast.UsageFlow,
 	"ForLoopActionUsage":      ast.UsageAction,
 	"IfActionUsage":           ast.UsageAction,
@@ -531,6 +566,10 @@ func (m *Model) kindBaseFQN(sym *symbols.Symbol, isKerML bool) (string, bool) {
 		return decisionsFQN, true
 	case *ast.SendStatement:
 		return sendActionsFQN, true
+	}
+	if sym.Expr != nil && sym.Kind == symbols.SymbolExpression {
+		fqn, ok := impliedExpressionBases[expressionMetaclassName(sym.Decl)]
+		return fqn, ok
 	}
 	return "", false
 }
@@ -1240,11 +1279,20 @@ func (m *Model) DeclaredSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 }
 
 // AllDeclaredSupertypes returns the transitive closure of DeclaredSupertypes,
-// nearest first, leaving out every implied kind base along the way.
+// nearest first, leaving out every implied kind base along the way. The result is memoized.
 func (m *Model) AllDeclaredSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil {
+		return nil
+	}
+	defer m.own(sym).LeaveDoc()
+	if cached, ok := m.allDeclaredSupers[sym]; ok {
+		return cached
+	}
 	var out []*symbols.Symbol
 	seen := map[*symbols.Symbol]bool{sym: true}
 	queue := []*symbols.Symbol{sym}
+	provisional := false
+	m.resolver.Enter()
 	for len(queue) > 0 {
 		cur := queue[0]
 		queue = queue[1:]
@@ -1256,6 +1304,12 @@ func (m *Model) AllDeclaredSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 			out = append(out, super)
 			queue = append(queue, super)
 		}
+		provisional = provisional || m.supersUnstable(cur)
+	}
+	// A closure over a provisional or cut-short answer is provisional too.
+	if m.resolver.Leave() && !provisional {
+		journal(m, m.allDeclaredSupers, sym, sym.Decl)
+		m.allDeclaredSupers[sym] = out
 	}
 	return out
 }

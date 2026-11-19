@@ -23,7 +23,7 @@ config:
 title: "«view» FurnaceViews::runningTree : GeneralView"
 ---
 %% FurnaceViews::runningTree — tree rendering (view def GeneralView)
-%% not represented: 5 member(s) drawn as compartment rows of their owner
+%% not represented: 5 member(s) drawn as compartment rows of their owner, and 1 node(s) under them left undrawn
 flowchart TD
   n0("`*«state»*
 **running**
