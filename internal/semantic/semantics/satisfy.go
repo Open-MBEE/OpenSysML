@@ -37,8 +37,7 @@ func SatisfyEndsOf(sym *symbols.Symbol) (SatisfyEnds, bool) {
 	return ends, true
 }
 
-// VerifyEnds is what an objective's `verify` relates: the requirement it verifies —
-// the one it reference-subsets, or itself when it declares the requirement — and the
+// VerifyEnds is what a `verify` relates: the requirement it references or declares, and the
 // verification case whose objective holds it. An end that does not resolve is nil.
 type VerifyEnds struct {
 	Requirement *symbols.Symbol

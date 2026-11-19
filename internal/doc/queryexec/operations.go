@@ -1135,9 +1135,8 @@ func (e *executor) propertyValuesBeforeMemberPath(row Value, property string) ([
 	return e.metaclassPropertyValues(sym, property)
 }
 
-// verifyEndValues reads an end of an objective's `verify` — verifiedRequirement, which the
-// metamodel declares of its membership and its case, and verifyingCase, which it does not
-// declare — as the elements they are; present only for such a row with the end resolved.
+// verifyEndValues reads verifiedRequirement or verifyingCase of a `verify`, whose own metaclass
+// declares neither; present only for such a row with the end resolved.
 func (e *executor) verifyEndValues(sym *symbols.Symbol, property string) ([]Value, bool) {
 	if property != query.PropertyVerifiedRequirement && property != query.PropertyVerifyingCase {
 		return nil, false
