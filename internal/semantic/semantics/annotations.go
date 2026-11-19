@@ -1315,10 +1315,7 @@ func isExhibitedState(sym *symbols.Symbol) bool {
 // `include u;` (SysML.xtext IncludeUseCaseUsage).
 func isIncludedUseCase(sym *symbols.Symbol) bool {
 	if sym.Recorded() {
-		return sym.Facts.UsageKind == ast.UsageUseCase &&
-			slices.ContainsFunc(sym.Facts.Relationships, func(rel symbols.RelationshipFacts) bool {
-				return rel.Kind == ast.RelIncludes
-			})
+		return sym.Facts.Modifiers.Has(symbols.ModInclude)
 	}
 	usage, ok := sym.Decl.(*ast.Usage)
 	return ok && usage.IsIncludedUseCase()

@@ -18,6 +18,7 @@ func TestMetaclassOfTheProductionWritten(t *testing.T) {
 			exhibit state exhibited : T;
 			state plainState : T;
 			include use case included : U;
+			include use case untyped;
 			use case plainUseCase : U;
 		}
 		#M attribute keyworded;
@@ -27,7 +28,7 @@ func TestMetaclassOfTheProductionWritten(t *testing.T) {
 		for name, want := range map[string]string{
 			"Lib": "LibraryPackage", "Plain": "Package",
 			"exhibited": "ExhibitStateUsage", "plainState": "StateUsage",
-			"included": "IncludeUseCaseUsage", "plainUseCase": "UseCaseUsage",
+			"included": "IncludeUseCaseUsage", "untyped": "IncludeUseCaseUsage", "plainUseCase": "UseCaseUsage",
 			"keyworded": "AttributeUsage", "plainRef": "ReferenceUsage",
 		} {
 			if got := relMetaName(fixture.model, relFixtureSymbol(t, fixture, name)); got != want {

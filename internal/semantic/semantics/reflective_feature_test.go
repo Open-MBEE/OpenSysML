@@ -1107,6 +1107,7 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 			{d.IsResult, symbols.ModResult},
 			{d.IsNegated, symbols.ModNegated},
 			{d.Keyword == "assert" || d.PrefixKeyword == "assert", symbols.ModAssert},
+			{d.IsIncludedUseCase(), symbols.ModInclude},
 		}
 		for _, modifier := range mods {
 			if modifier.on {
