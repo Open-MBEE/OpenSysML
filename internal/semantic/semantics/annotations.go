@@ -1160,6 +1160,13 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	case symbols.SymbolAlias:
 		// `alias` declares a Membership of the aliased element (KerML 8.2.3.5.2).
 		return m.kermlMetaclass("Membership")
+	case symbols.SymbolPackage:
+		// A `library package` is a KerML LibraryPackage in either language (KerML 1.0 §8.3.4.13.3).
+		if symbols.IsLibraryPackage(sym) {
+			if meta := m.kermlMetaclass("LibraryPackage"); meta != nil {
+				return meta
+			}
+		}
 	}
 	if meta := m.kermlMetaclass(kermlMetaclassName(sym, m.isKerMLDoc(sym))); meta != nil {
 		return meta
@@ -1228,6 +1235,12 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 	if sym.IsConjugatedPortDefinition() {
 		return "ConjugatedPortDefinition"
 	}
+	switch {
+	case isExhibitedState(sym):
+		return "ExhibitStateUsage"
+	case isIncludedUseCase(sym):
+		return "IncludeUseCaseUsage"
+	}
 	if sym.Expr != nil {
 		if isExpressionParameterSymbol(sym) || sym.Expr.Role == symbols.ExpressionChainFeature {
 			return "Feature"
@@ -1285,6 +1298,30 @@ func extendedDefinition(sym *symbols.Symbol) bool {
 	}
 	d, ok := sym.Decl.(*ast.Definition)
 	return ok && d.Keyword == "" && d.HasDefKeyword
+}
+
+// isExhibitedState reports whether sym is an `exhibit state s : S;` or an
+// `exhibit s;` (SysML.xtext ExhibitStateUsage).
+func isExhibitedState(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.UsageKind == ast.UsageState &&
+			(sym.Facts.Keyword == "exhibit" || sym.Facts.Keyword == "exhibit state")
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.IsExhibitedState()
+}
+
+// isIncludedUseCase reports whether sym is an `include use case u : U;` or an
+// `include u;` (SysML.xtext IncludeUseCaseUsage).
+func isIncludedUseCase(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.UsageKind == ast.UsageUseCase &&
+			slices.ContainsFunc(sym.Facts.Relationships, func(rel symbols.RelationshipFacts) bool {
+				return rel.Kind == ast.RelIncludes
+			})
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.IsIncludedUseCase()
 }
 
 // ConnectorEndMetaclassName is the SysML metaclass of a connector end: a
@@ -1485,6 +1522,10 @@ var kermlMetaclassNames = map[string]string{
 func kermlMetaclassName(sym *symbols.Symbol, isKerML bool) string {
 	if !isKerML {
 		return ""
+	}
+	if sym.Kind == symbols.SymbolSuccessionFlowUsage {
+		// A `succession flow` also orders its ends (KerML.xtext SuccessionFlow).
+		return "SuccessionFlow"
 	}
 	if sym.Recorded() {
 		switch sym.Facts.Node {
