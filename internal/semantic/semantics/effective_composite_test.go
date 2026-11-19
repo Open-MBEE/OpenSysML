@@ -35,8 +35,10 @@ func TestEffectiveIsCompositeMemoFollowsTheDeclaringDocument(t *testing.T) {
 		return out
 	}
 	p := add("package A { part def Whole { part p; } }")
-	if !composite(p) || !composite(p) {
-		t.Fatalf("part p must be composite, asked once or again")
+	for _, ask := range []string{"first", "memoized"} {
+		if !composite(p) {
+			t.Fatalf("part p must be composite on the %s read", ask)
+		}
 	}
 	if _, ok := m.effectiveComposite[p]; !ok {
 		t.Fatalf("the settled composite-ness of p was not memoized")
