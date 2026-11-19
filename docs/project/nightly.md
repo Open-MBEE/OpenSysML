@@ -280,7 +280,8 @@ tarballs; builds, tests and packages the Cameo plugin around the night's five `s
 (checking the zip's `DIGESTS` against the manifest) and the SysON backend jar and frontend
 tarball, listing the three in the manifest; signs the manifest, which now lists the wheel and
 the plugins, with its own GitHub OIDC identity; keeps the tarballs as workflow artifacts; and publishes the per-night release
-with the repository's own `GITHUB_TOKEN`. A second job recreates the
+with the repository's own `GITHUB_TOKEN`, at a tag it pushes with git first: the Releases API refuses that token a new tag
+at a commit that itself changes a workflow file. A second job recreates the
 alias at the same commit from the night's own assets, title and notes, then deletes the
 per-night releases published more than 14 days ago. Two further jobs publish the clients. One
 runs [`release-pypi.yml`](../../.github/workflows/release-pypi.yml) on the night's tag and

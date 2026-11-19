@@ -280,7 +280,7 @@ func TestStateSpaceFlowRedefiningAnInheritedFlow(t *testing.T) {
 	}
 }
 
-// A guardless crossing whose type states terminal ends the dynamics at the step that detected it.
+// A guardless crossing whose type states terminal ends the dynamics where it is located.
 func TestStateSpaceDerivativeCrossingEndsATerminalRun(t *testing.T) {
 	src, err := os.ReadFile(filepath.Join("testdata", "conformance", "state_space_derivative_zero_crossing.sysml"))
 	if err != nil {
@@ -300,7 +300,7 @@ func TestStateSpaceDerivativeCrossingEndsATerminalRun(t *testing.T) {
 		if behavior.Err != nil {
 			t.Fatal(behavior.Err)
 		}
-		if got, want := FormatValue(behavior.Action.Results()["stateSpace"]), "⟨2.5, -2.5⟩"; got != want {
+		if got, want := FormatValue(behavior.Action.Results()["stateSpace"]), "⟨2.8125, 0.0⟩"; got != want {
 			t.Errorf("the flight ended at %s, want %s, the state at its apex", got, want)
 		}
 	}

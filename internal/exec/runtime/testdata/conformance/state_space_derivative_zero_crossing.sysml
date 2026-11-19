@@ -1,5 +1,5 @@
 // A thrown ball whose apex is a guardless ZeroCrossingEventDef event: it occurs where the derivative
-// of the height (7.5, 2.5, -2.5) crosses zero (SysML v2 9.4.4.2), at the end of that step, t = 1 s.
+// of the height (7.5, 2.5, -2.5) crosses zero (SysML v2 9.4.4.2), inside that step, at t = 0.75 s.
 package test {
 	private import ScalarValues::*;
 	private import SI::*;
