@@ -1334,6 +1334,10 @@ jobs:
       - name: Build and test the plugin
         run: mvn -B -f editors/mdk/pom.xml verify -Dopensysml.requireService=true
 
+      # A stand-in Cameo of the OpenAPI stubs: the helper itself needs a licensed installation.
+      - name: Test the compile against Cameo from an uncompiled client
+        run: editors/mdk/scripts/compile-against-cameo-test.sh
+
       - name: Audit the plugin's dependencies
         run: |
           scripts/download-sca-tools.sh osv-scanner
