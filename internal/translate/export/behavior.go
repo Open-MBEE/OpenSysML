@@ -1639,11 +1639,14 @@ func (d *decoder) successionHead(el *element) (string, error) {
 		return "if " + guard + thenKeyword + target, nil
 	}
 	if form, _ := d.stringOf(el, rdf.OpenSysML+xEndForm); form == formThen || positionalSource {
-		// `then done;` names the library's final node positionally: the
-		// notation reads it back without a reference, so no spelling is checked.
+		// `then done;` names the final node its owner inherits positionally, with no reference to spell:
+		// chooseNames checks it reaches this one, and names a library `done` of another kind instead.
 		if term, ok := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+pTargetFeature); ok && term.IsIRI() {
-			if done, err := d.referencedElement(term.Value); err == nil && d.isLibraryDone(done) {
-				delete(d.wanted.references, nameKey{member: el.qname, target: done.qname})
+			written := d.writtenQName(el)
+			named := d.names != nil && d.names.namedDones[written]
+			if done, err := d.referencedElement(term.Value); err == nil && d.isLibraryDone(done) && !named {
+				delete(d.wanted.references, nameKey{member: written, target: done.qname})
+				d.wanted.dones[written] = done.qname
 				return d.thenSuccessionText("done", el)
 			}
 		}

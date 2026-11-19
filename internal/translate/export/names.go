@@ -3,6 +3,7 @@ package export
 import (
 	"fmt"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
+	"maps"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -24,6 +25,8 @@ type nameChoices struct {
 	references map[nameKey]string
 	// segments holds the segments that need more than their element's own name.
 	segments map[segmentKey]string
+	// namedDones holds the successions whose `done` target `then done;` does not reach, written by name.
+	namedDones map[string]bool
 }
 
 // segmentKey identifies the chain segments of one name written in one
@@ -50,6 +53,8 @@ type wanted struct {
 	starts map[string]string
 	// variants holds the feature each `variant x;` names, keyed by the variant.
 	variants map[string]string
+	// dones holds the `done` feature each `then done;` reaches, keyed by the succession.
+	dones map[string]string
 }
 
 type wantedReference struct {
@@ -67,11 +72,12 @@ func newWanted() *wanted {
 		segments:   map[segmentKey]bool{},
 		starts:     map[string]string{},
 		variants:   map[string]string{},
+		dones:      map[string]string{},
 	}
 }
 
 func (w *wanted) empty() bool {
-	return len(w.references) == 0 && len(w.segments) == 0 && len(w.starts) == 0 && len(w.variants) == 0
+	return len(w.references) == 0 && len(w.segments) == 0 && len(w.starts) == 0 && len(w.variants) == 0 && len(w.dones) == 0
 }
 
 // chooseNames reads a rendering as the language name says, in the place of the
@@ -80,7 +86,10 @@ func (w *wanted) empty() bool {
 // never shorter than what previous chose; none is a refusal. changed reports
 // whether any choice differs from the spelling the rendering wrote.
 func chooseNames(name, library string, text []byte, want *wanted, previous *nameChoices) (names *nameChoices, changed bool, err error) {
-	names = &nameChoices{references: map[nameKey]string{}, segments: map[segmentKey]string{}}
+	names = &nameChoices{references: map[nameKey]string{}, segments: map[segmentKey]string{}, namedDones: map[string]bool{}}
+	if previous != nil {
+		maps.Copy(names.namedDones, previous.namedDones)
+	}
 	if want.empty() {
 		return names, false, nil
 	}
@@ -205,6 +214,12 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 	}
 	if err := e.checkVariants(want.variants, declared); err != nil {
 		return nil, false, err
+	}
+	for fqn, target := range want.dones {
+		if !e.doneReaches(declared[fqn], target) {
+			names.namedDones[fqn] = true
+			changed = true
+		}
 	}
 	for key := range want.references {
 		if _, ok := occurrences[key]; !ok {
@@ -634,6 +649,28 @@ func (e *encoder) checkStarts(starts map[string]string, declared map[string]ast.
 		}
 	}
 	return nil
+}
+
+// doneReaches reports whether succession, read back, is a `then done;` reaching the feature target names:
+// the `done` its owner inherits (doneReference), which is not every library feature of that name.
+func (e *encoder) doneReaches(succession ast.Node, target string) bool {
+	edge, ok := succession.(*ast.SuccessionEdge)
+	if !ok {
+		return false
+	}
+	if _, done := edge.TargetMember.(*ast.FinalNode); !done || edge.Target != nil {
+		return false
+	}
+	sym := e.ids.declSym[edge]
+	if sym == nil {
+		return false
+	}
+	related := e.ids.model.ConnectorRelatedFeaturesByEnd(sym)
+	if len(related) != 2 {
+		return false
+	}
+	_, reached, ok := e.linked(related[1], true)
+	return ok && reached == target
 }
 
 // checkVariants refuses a `variant x;` written for a variant whose x does not
