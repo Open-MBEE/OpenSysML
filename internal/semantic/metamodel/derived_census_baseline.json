@@ -60,8 +60,8 @@
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 56,
-        "digest": "sha256:b637f67538a277b2e2077d3c838ec5b02809fd5e40041bde44d36bedf90b43e1"
+        "files": 57,
+        "digest": "sha256:f172999b1e0322c4c121fedae3b1ba8de45351a78e4bcdf0ee0d9a91f85972eb"
       },
       {
         "name": "probes",
@@ -85,7 +85,7 @@
         "digest": "sha256:f39db343dafb9c99359f5a92e56dcdd5c52992dc50e50b9268d349aa9cdfdf26"
       }
     ],
-    "recorded": "2026-11-17"
+    "recorded": "2026-11-19"
   },
   "structure": "metamodel.SymbolStructure (symbol-backed; metamodel.New over metamodel.NewSymbolStructure)",
   "policy": [
@@ -171,13 +171,13 @@
     {
       "name": "examples",
       "dir": "examples",
-      "files": 56,
+      "files": 57,
       "rejected": 0,
-      "elements": 40539,
-      "implied": 23572,
-      "pilotElements": 52554,
+      "elements": 42818,
+      "implied": 24917,
+      "pilotElements": 55032,
       "pilotImplied": 0,
-      "pilotDuplicates": 85313,
+      "pilotDuplicates": 101108,
       "pilotFailed": 0
     },
     {
@@ -205,5 +205,5 @@
       "pilotFailed": 0
     }
   ],
-  "pilotRecords": "sha256:3bc07437f3e4687e688f025c5d4230ea63cf6ccef8cc4c9c6b5a4a316e202c28"
+  "pilotRecords": "sha256:ca6b4ab529c833fcc4c571a3b6bb63f951cfbada25833079232f092f7282e30e"
 }

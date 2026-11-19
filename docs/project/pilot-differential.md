@@ -257,7 +257,7 @@ nor double-counted as two independent disagreements.
 | `tests/testdata` | 40 | 26 | 76 | 101 | 61 | 4 | 11 | 36 |
 | `examples` | 57 | 50 | 12 | 76 | 4 | 0 | 8 | 72 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **924** | **528** | **1235** | **3565** | **1107** | **8** | **120** | **2450** |
+| **Total** | **925** | **529** | **1235** | **3572** | **1107** | **8** | **120** | **2457** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -1106,8 +1106,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **2450** |
-| pilot diagnostics | 123 | **3565** |
+| only pilot | 82 | **2457** |
+| pilot diagnostics | 123 | **3572** |
 | severity-only | 9 | **8** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -1340,9 +1340,9 @@ overall count 2450 → **2457**, with no movement in any other root or column.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **528 / 120 / 1235** |
-| only pilot | **2450** |
-| pilot diagnostics | **3565** |
+| overall: fully agreeing / only ours / our diagnostics | **529 / 120 / 1235** |
+| only pilot | **2457** |
+| pilot diagnostics | **3572** |
 | severity-only | **8** |
 | unmapped, our side | **53** |
 | kerml-examples: only ours | **12** |
