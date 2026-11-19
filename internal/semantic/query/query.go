@@ -52,6 +52,10 @@ const (
 	PropertySatisfiedRequirement = "satisfiedRequirement"
 	// PropertySatisfyingFeature is the feature a satisfy usage is by.
 	PropertySatisfyingFeature = "satisfyingFeature"
+	// PropertyVerifiedRequirement is the requirement an objective's `verify` verifies.
+	PropertyVerifiedRequirement = "verifiedRequirement"
+	// PropertyVerifyingCase is the verification case whose objective holds a `verify`.
+	PropertyVerifyingCase = "verifyingCase"
 	// PropertyPayloadArgument, PropertySenderArgument and PropertyReceiverArgument
 	// are the arguments of a send action as written: what it sends, the `via`
 	// sender and the `to` receiver (SysML v2 §8.3.17.15 SendActionUsage).
@@ -78,6 +82,7 @@ var propertyNames = []string{
 	PropertyGeneral,
 	PropertyMultiplicityLower, PropertyMultiplicityUpper,
 	PropertySatisfiedRequirement, PropertySatisfyingFeature,
+	PropertyVerifiedRequirement, PropertyVerifyingCase,
 	PropertyPayloadArgument, PropertySenderArgument, PropertyReceiverArgument,
 	PropertyElementID,
 	PropertySymbolKind, PropertyText,
