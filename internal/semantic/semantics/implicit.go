@@ -1279,11 +1279,20 @@ func (m *Model) DeclaredSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 }
 
 // AllDeclaredSupertypes returns the transitive closure of DeclaredSupertypes,
-// nearest first, leaving out every implied kind base along the way.
+// nearest first, leaving out every implied kind base along the way. The result is memoized.
 func (m *Model) AllDeclaredSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil {
+		return nil
+	}
+	defer m.own(sym).LeaveDoc()
+	if cached, ok := m.allDeclaredSupers[sym]; ok {
+		return cached
+	}
 	var out []*symbols.Symbol
 	seen := map[*symbols.Symbol]bool{sym: true}
 	queue := []*symbols.Symbol{sym}
+	provisional := false
+	m.resolver.Enter()
 	for len(queue) > 0 {
 		cur := queue[0]
 		queue = queue[1:]
@@ -1295,6 +1304,12 @@ func (m *Model) AllDeclaredSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 			out = append(out, super)
 			queue = append(queue, super)
 		}
+		provisional = provisional || m.supersUnstable(cur)
+	}
+	// A closure over a provisional or cut-short answer is provisional too.
+	if m.resolver.Leave() && !provisional {
+		journal(m, m.allDeclaredSupers, sym, sym.Decl)
+		m.allDeclaredSupers[sym] = out
 	}
 	return out
 }
