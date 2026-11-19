@@ -7,9 +7,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
-// An expression declaring no type is typed, through the symbol structure as through the graph
-// one, by the evaluations feature its metaclass implies (KerML 1.1 §8.4.4.7): the semantic
-// model's empty answer does not stand in for the implied one.
+// An untyped expression is typed, through the symbol structure as through the graph one, by the
+// evaluations feature its metaclass implies (KerML 1.1 §8.4.4.7), not by the model's empty answer.
 func TestSymbolStructureTypesAnExpressionByItsImpliedEvaluations(t *testing.T) {
 	evaluator, root := newTestEvaluatorWithIndex(t, libs.NewModelIndex(), "literal.sysml", `package P {
 	attribute x = 1;
