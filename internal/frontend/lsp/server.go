@@ -71,6 +71,12 @@ type Server struct {
 	// keepLineBreaks makes formatting keep the author's line breaks instead of
 	// laying statements out one per line: the keepLineBreaks setting.
 	keepLineBreaks bool
+	// hoverMemberLimit caps the members a hover summarizes, 0 for no summary:
+	// the hoverMemberLimit setting.
+	hoverMemberLimit int
+	// hoverInheritedMembers adds inherited members to that summary: the
+	// hoverInheritedMembers setting.
+	hoverInheritedMembers bool
 	// version is what initialize reports as the server's version.
 	version string
 }
@@ -116,6 +122,8 @@ func NewServer(ws *model.Workspace, opts ...Option) *Server {
 		renderNotify: model.NewDebouncer(crossDocRefreshWindow),
 		debug:        newDebugService(),
 		version:      buildinfo.Unversioned,
+
+		hoverMemberLimit: defaultHoverMemberLimit,
 	}
 	for _, opt := range opts {
 		opt(s)

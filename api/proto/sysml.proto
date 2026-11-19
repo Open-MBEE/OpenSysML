@@ -1039,6 +1039,9 @@ message GetSymbolRequest {
   // What symbol_id is, stated rather than guessed; read with the "symbol_lookup_kind"
   // capability, and resolve_name is then ignored.
   LookupKind lookup = 5;
+  // Id of the type the symbol is read as a feature of: metadata["direction"] is then relative to
+  // it (KerML Type::directionOf), reversed by a conjugation; capability "symbol_member_direction".
+  string member_of = 6;
 }
 
 // LookupKind states what the one string naming an element is, as the SysML v2 API keeps
@@ -2424,6 +2427,9 @@ message Quantity {
   // Required wherever `unit` names one: a named unit sent without its reduction
   // is rejected rather than read as dimension one.
   UnitTerm unit_term = 4;
+  // Qualified name of the quantity value type the quantity is held as, empty for
+  // none: sent back, it is held as that type still, which a sibling type refuses.
+  string value_type = 7;
 }
 
 // MeasurementRef is a MeasurementReferences::ScalarMeasurementReference held as

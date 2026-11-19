@@ -5,8 +5,8 @@ import (
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // ActionForm is one lowered ActionGraph. Vertices are numbered by their position
@@ -298,10 +298,7 @@ func (x *graphsExporter) parameters(sym *symbols.Symbol) []ParameterForm {
 			continue
 		}
 		scope := p.Symbol.OwnerScope
-		var value ast.Node
-		if usage, ok := p.Symbol.Decl.(*ast.Usage); ok {
-			value = usage.Value
-		}
+		value := lower.Valued(p.Symbol)
 		types, unit := x.typing(scope, p.Symbol.Name, value)
 		direction := ""
 		if p.Direction != 0 {
@@ -314,73 +311,49 @@ func (x *graphsExporter) parameters(sym *symbols.Symbol) []ParameterForm {
 			Optional:  x.sem.OptionalParameter(p.Symbol),
 			Types:     types,
 			Unit:      unit,
-			Value:     x.expr(scope, value),
-			Span:      x.span(scope, p.Symbol.Decl),
+			Value:     x.exprAt(scope, value.Extent()),
+			Span:      x.span(scope, lower.Declared(p.Symbol).Extent()),
 			Scope:     scopeName(scope),
 		})
 	}
 	return out
 }
 
+// flowNode names the node behind id in graph, the zero FlowNode for none.
+func flowNode(graph *lower.ActionGraph, id program.NodeID) lower.FlowNode {
+	if graph == nil || id == 0 {
+		return lower.FlowNode{}
+	}
+	return lower.FlowNode{Graph: graph, ID: id}
+}
+
 // actionGraph writes a graph without naming it, as a nested flow is written.
 func (x *graphsExporter) actionGraph(graph *lower.ActionGraph) (*ActionForm, error) {
-	ids := newVertexIDs()
-	for _, node := range graph.Nodes {
-		ids.add(node)
+	outer := x.exprs
+	x.exprs = graph.Exprs
+	defer func() { x.exprs = outer }()
+
+	ids := newVertexIDs[lower.FlowNode]()
+	for _, id := range graph.NodeIDs() {
+		ids.add(flowNode(graph, id))
 	}
-	ids.add(graph.Initial)
-	for _, node := range graph.Concurrent {
-		ids.add(node)
+	ids.add(flowNode(graph, graph.InitialID()))
+	for _, id := range graph.ConcurrentIDs() {
+		ids.add(flowNode(graph, id))
 	}
-	for _, node := range graph.Finals {
-		ids.add(node)
+	for _, id := range graph.FinalIDs() {
+		ids.add(flowNode(graph, id))
 	}
-	var rest []ast.Node
-	for node := range graph.Edges {
-		rest = append(rest, node)
-	}
-	for node := range graph.DataFlows {
-		rest = append(rest, node)
-	}
-	for node := range graph.Bodies {
-		rest = append(rest, node)
-	}
-	for node := range graph.Features {
-		rest = append(rest, node)
-	}
-	for node := range graph.Accepts {
-		rest = append(rest, node)
-	}
-	for node := range graph.Subflows {
-		rest = append(rest, node)
-	}
-	for node := range graph.StatementRuns {
-		rest = append(rest, node)
-	}
-	for node := range graph.BlockNodes {
-		rest = append(rest, node)
-	}
-	if err := ids.addSorted(rest, func(ast.Node) string { return "" }); err != nil {
-		return nil, err
-	}
-	// Vertices reached only as an edge's end are numbered after the declared
-	// ones, in the order the declared ones reach them.
+	// The nodes a body's blocks declare are numbered after the graph's own, in
+	// the order the graph's own reach them; each is a node of its block's flow.
 	for i := 0; i < len(ids.order); i++ {
 		node := ids.order[i]
-		for _, edge := range graph.Edges[node] {
-			ids.add(edge.Source)
-			ids.add(edge.Target)
+		if node.Graph != graph {
+			continue
 		}
-		for _, flow := range graph.DataFlows[node] {
-			ids.add(flow.Target)
+		for _, member := range graph.BlockNodesOf(node.ID) {
+			ids.add(flowNode(member.Graph, member.ID))
 		}
-		for _, member := range graph.BlockNodes[node] {
-			ids.add(member)
-		}
-	}
-	for _, b := range graph.Bindings {
-		ids.add(b.Node)
-		ids.add(b.OtherNode)
 	}
 	vertices := len(ids.order)
 
@@ -388,48 +361,52 @@ func (x *graphsExporter) actionGraph(graph *lower.ActionGraph) (*ActionForm, err
 	for _, attr := range graph.Attributes {
 		form.Attributes = append(form.Attributes, x.attribute(graph.Scope, attr))
 	}
-	form.Initial = ids.ref(graph.Initial)
-	for _, node := range graph.Concurrent {
-		form.Concurrent = append(form.Concurrent, ids.add(node))
+	form.Initial = ids.ref(flowNode(graph, graph.InitialID()))
+	for _, id := range graph.ConcurrentIDs() {
+		form.Concurrent = append(form.Concurrent, ids.add(flowNode(graph, id)))
 	}
-	for _, node := range graph.Finals {
-		form.Finals = append(form.Finals, ids.add(node))
+	for _, id := range graph.FinalIDs() {
+		form.Finals = append(form.Finals, ids.add(flowNode(graph, id)))
 	}
 	for id, node := range ids.order {
-		scope := graph.Scopes[node]
+		if node.Graph != graph {
+			form.Nodes = append(form.Nodes, x.blockNode(graph, id, node))
+			continue
+		}
+		scope := graph.ScopeOf(node.ID)
 		if scope == nil {
 			scope = graph.Scope
 		}
-		nf, err := x.node(graph, ids, id, node, scope)
+		nf, err := x.node(graph, ids, id, node.ID, scope)
 		if err != nil {
 			return nil, err
 		}
 		form.Nodes = append(form.Nodes, nf)
-		for _, edge := range graph.Edges[node] {
-			decl, _ := edge.Decl.(*ast.ControlFlowEdge)
+		for _, edge := range graph.EdgesOf(node.ID) {
 			ef := EdgeForm{
-				Source: ids.add(edge.Source),
-				Target: ids.add(edge.Target),
-				Guard:  x.expr(scope, edge.Guard),
-				Else:   decl != nil && decl.IsElse,
-				Decl:   x.span(scope, edge.Decl),
+				Source: ids.add(flowNode(graph, edge.SourceID)),
+				Target: ids.add(flowNode(graph, edge.TargetID)),
+				Guard:  x.expr(scope, edge.GuardID),
+				Else:   edge.Else,
+				Decl:   x.span(scope, edge.At()),
 			}
 			if edge.Probability != nil {
-				ef.Probability = x.expr(scope, edge.Probability.Expr)
+				ef.Probability = x.expr(scope, edge.Probability.ExprID)
 			}
-			ef.Gate = x.gate(scope, edge.Gate)
+			ef.Gate = x.gate(scope, edge.GateAt())
 			form.Edges = append(form.Edges, ef)
 		}
-		for _, flow := range graph.DataFlows[node] {
+		for _, flow := range graph.FlowsOf(node.ID) {
+			written, ok := flow.Written()
 			form.Flows = append(form.Flows, ObjectFlowForm{
 				Name:      flow.Name,
 				Kind:      flowKindForm(flow.Kind),
 				Source:    id,
 				SourcePin: flow.SourcePin,
-				Target:    ids.add(flow.Target),
+				Target:    ids.add(flowNode(graph, flow.TargetID)),
 				TargetPin: flow.TargetPin,
-				Decl:      x.span(scope, flow.Decl),
-				Gate:      x.gate(scope, flow.Gate),
+				Decl:      x.span(scope, lower.Extent{Span: written, Written: ok}),
+				Gate:      x.gate(scope, flow.GateAt()),
 			})
 		}
 	}
@@ -438,60 +415,71 @@ func (x *graphsExporter) actionGraph(graph *lower.ActionGraph) (*ActionForm, err
 		if scope == nil {
 			scope = graph.Scope
 		}
-		bf := PinBindingForm{
-			Node:         ids.ref(b.Node),
-			Path:         vertexNames(b.Path),
+		form.Bindings = append(form.Bindings, PinBindingForm{
+			Node:         ids.ref(flowNode(graph, b.NodeID)),
+			Path:         b.PathNames(),
 			Pin:          b.Pin,
-			Other:        x.expr(scope, b.Other),
-			OtherNode:    ids.ref(b.OtherNode),
-			OtherPath:    vertexNames(b.OtherPath),
+			Other:        x.exprAt(scope, b.OtherAt()),
+			OtherNode:    ids.ref(flowNode(graph, b.OtherNodeID)),
+			OtherPath:    b.OtherPathNames(),
 			OtherPin:     b.OtherPin,
 			OtherChain:   x.chain(scope, b.OtherChain),
 			OtherFeature: b.OtherFeature,
 			Scope:        scopeName(b.Scope),
 			FromValue:    b.FromValue,
-		}
-		if b.Decl != nil {
-			bf.Decl = x.span(scope, b.Decl)
-		}
-		form.Bindings = append(form.Bindings, bf)
+			Decl:         x.span(scope, b.At()),
+		})
 	}
-	if len(ids.order) != vertices {
+	if len(ids.order) != vertices || ids.late {
 		return nil, fmt.Errorf("%w: a vertex is reached only while it is written", ErrGraphsOrder)
 	}
 	form.Connections = connections(graph.Connections)
 	return form, nil
 }
 
+// blockNode writes a node a body's block declares: a node of the block's flow,
+// which the graph names and resolves but holds nothing else about.
+func (x *graphsExporter) blockNode(graph *lower.ActionGraph, id int, node lower.FlowNode) NodeForm {
+	site, _ := node.Graph.SiteOf(node.ID)
+	return NodeForm{
+		ID:       id,
+		Kind:     site.Kind,
+		Name:     site.Name,
+		Span:     x.span(graph.Scope, lower.Extent{Span: site.Span, Written: true}),
+		Performs: x.perform(node.Graph.PerformedBy(node.ID, x.model.Resolver(), graph.Scope)),
+	}
+}
+
 // node writes one vertex with its features, body, accept and nested flow.
-func (x *graphsExporter) node(graph *lower.ActionGraph, ids *vertexIDs, id int, node ast.Node, scope *symbols.Scope) (NodeForm, error) {
+func (x *graphsExporter) node(graph *lower.ActionGraph, ids *vertexIDs[lower.FlowNode], id int, node program.NodeID, scope *symbols.Scope) (NodeForm, error) {
+	site, _ := graph.SiteOf(node)
 	nf := NodeForm{
 		ID:           id,
-		Kind:         vertexKind(node),
-		Name:         vertexName(node),
-		Span:         x.span(graph.Scope, node),
-		Scope:        scopeName(graph.Scopes[node]),
-		StatementRun: graph.StatementRuns[node],
-		Performs:     x.perform(scope, node),
+		Kind:         site.Kind,
+		Name:         site.Name,
+		Span:         x.span(graph.Scope, lower.Extent{Span: site.Span, Written: true}),
+		Scope:        scopeName(graph.ScopeOf(node)),
+		StatementRun: graph.StatementRun(node),
+		Performs:     x.perform(graph.PerformedBy(node, x.model.Resolver(), scope)),
 	}
-	for _, f := range graph.Features[node] {
+	for _, f := range graph.FeaturesOf(node) {
 		nf.Features = append(nf.Features, x.feature(scope, f))
 	}
-	body, err := x.statements(scope, graph.Bodies[node])
+	body, err := x.statements(scope, graph.BodyOf(node))
 	if err != nil {
 		return nf, err
 	}
 	nf.Body = body
-	for _, member := range graph.BlockNodes[node] {
-		nf.Block = append(nf.Block, ids.add(member))
+	for _, member := range graph.BlockNodesOf(node) {
+		nf.Block = append(nf.Block, ids.add(flowNode(member.Graph, member.ID)))
 	}
-	if accept, ok := graph.Accepts[node]; ok {
+	if accept, ok := graph.AcceptOf(node); ok {
 		nf.Accept = x.accept(scope, accept)
 	}
-	if fp, ok := graph.Footprints()[node]; ok {
-		nf.Footprint = footprintForm(ids, fp)
+	if fp, ok := graph.FootprintOf(node); ok {
+		nf.Footprint = footprintForm(graph, ids, fp)
 	}
-	if sub, ok := graph.Subflows[node]; ok && sub != nil {
+	if sub := graph.SubflowOf(node); sub != nil {
 		sf := &SubflowForm{}
 		if sub.Err != nil {
 			sf.Error = sub.Err.Error()
@@ -510,7 +498,7 @@ func (x *graphsExporter) node(graph *lower.ActionGraph, ids *vertexIDs, id int, 
 
 // footprintForm writes a footprint with its places, channels and control
 // vertices sorted, since the lowering collects them in no fixed order.
-func footprintForm(ids *vertexIDs, fp lower.Footprint) *FootprintForm {
+func footprintForm(graph *lower.ActionGraph, ids *vertexIDs[lower.FlowNode], fp lower.Footprint) *FootprintForm {
 	form := &FootprintForm{
 		Reads:   places(fp.Reads),
 		Writes:  places(fp.Writes),
@@ -518,10 +506,13 @@ func footprintForm(ids *vertexIDs, fp lower.Footprint) *FootprintForm {
 		Accepts: channels(fp.Accepts),
 		Dynamic: fp.Dynamic,
 	}
-	for _, node := range fp.Control {
-		if id := ids.ref(node); id != nil {
-			form.Control = append(form.Control, *id)
+	for _, node := range graph.ControlIDs(fp) {
+		// A node the footprint converges on outside the graph's own has no number.
+		if node == 0 {
+			ids.late = true
+			continue
 		}
+		form.Control = append(form.Control, ids.add(flowNode(graph, node)))
 	}
 	sort.Ints(form.Control)
 	return form
@@ -579,17 +570,17 @@ func (x *graphsExporter) statement(enclosing *symbols.Scope, s lower.Statement) 
 	case lower.Send:
 		scope := orScope(s.Scope, enclosing)
 		var targetExpr, receiverExpr *ExprForm
-		if s.Target == "" && s.TargetExpr != nil {
-			targetExpr = x.expr(scope, s.TargetExpr)
+		if s.Target == "" {
+			targetExpr = x.expr(scope, s.TargetExprID)
 		}
-		if s.Receiver == "" && s.ReceiverExpr != nil {
-			receiverExpr = x.expr(scope, s.ReceiverExpr)
+		if s.Receiver == "" {
+			receiverExpr = x.expr(scope, s.ReceiverExprID)
 		}
 		return StatementForm{
 			Kind:         "send",
-			Span:         x.span(scope, s.Message),
+			Span:         x.span(scope, lower.StatementAt(s)),
 			Scope:        scopeName(s.Scope),
-			Message:      x.expr(scope, s.Message),
+			Message:      x.expr(scope, s.MessageID),
 			Target:       s.Target,
 			TargetSymbol: symbols.FQNOf(s.TargetSym),
 			TargetPath:   s.TargetPath,
@@ -604,35 +595,31 @@ func (x *graphsExporter) statement(enclosing *symbols.Scope, s lower.Statement) 
 		scope := orScope(s.Scope, enclosing)
 		return StatementForm{
 			Kind:  "assign",
-			Span:  x.span(scope, s.Node),
+			Span:  x.span(scope, lower.StatementAt(s)),
 			Scope: scopeName(s.Scope),
 			Name:  s.Target,
 			Chain: x.chain(scope, s.Chain),
-			Value: x.expr(scope, s.Value),
+			Value: x.expr(scope, s.ValueID),
 		}, nil
 	case lower.Declare:
 		scope := orScope(s.Scope, enclosing)
 		return StatementForm{
 			Kind:  "declare",
-			Span:  x.span(scope, s.Node),
+			Span:  x.span(scope, lower.StatementAt(s)),
 			Scope: scopeName(s.Scope),
 			Name:  s.Name,
-			Value: x.expr(scope, s.Value),
+			Value: x.expr(scope, s.ValueID),
 		}, nil
 	case lower.DeclareUsage:
 		scope := orScope(s.Scope, enclosing)
-		var span SpanForm
-		if s.Node != nil {
-			span = x.span(scope, s.Node)
-		}
-		return StatementForm{Kind: "declare usage", Span: span, Scope: scopeName(s.Scope), Name: s.Name}, nil
+		return StatementForm{Kind: "declare usage", Span: x.span(scope, lower.StatementAt(s)), Scope: scopeName(s.Scope), Name: s.Name}, nil
 	case lower.Block:
 		scope := orScope(s.Scope, enclosing)
 		body, err := x.block(scope, s)
 		if err != nil {
 			return StatementForm{}, err
 		}
-		return StatementForm{Kind: "block", Span: x.span(scope, s.Node), Scope: scopeName(s.Scope), Body: body}, nil
+		return StatementForm{Kind: "block", Span: x.span(scope, lower.StatementAt(s)), Scope: scopeName(s.Scope), Body: body}, nil
 	case lower.Loop:
 		scope := orScope(s.Scope, enclosing)
 		body, err := x.block(scope, s.Body)
@@ -641,13 +628,13 @@ func (x *graphsExporter) statement(enclosing *symbols.Scope, s lower.Statement) 
 		}
 		return StatementForm{
 			Kind:       "loop",
-			Span:       x.span(scope, s.Node),
+			Span:       x.span(scope, lower.StatementAt(s)),
 			Scope:      scopeName(s.Scope),
-			Loop:       s.Kind.String(),
-			Condition:  x.expr(scope, s.Condition),
-			Until:      x.expr(scope, s.Until),
+			Loop:       s.Word(),
+			Condition:  x.expr(scope, s.ConditionID),
+			Until:      x.expr(scope, s.UntilID),
 			Variable:   s.Variable,
-			Collection: x.expr(scope, s.Collection),
+			Collection: x.expr(scope, s.CollectionID),
 			Body:       body,
 		}, nil
 	case lower.If:
@@ -658,9 +645,9 @@ func (x *graphsExporter) statement(enclosing *symbols.Scope, s lower.Statement) 
 		}
 		sf := StatementForm{
 			Kind:      "if",
-			Span:      x.span(scope, s.Node),
+			Span:      x.span(scope, lower.StatementAt(s)),
 			Scope:     scopeName(s.Scope),
-			Condition: x.expr(scope, s.Condition),
+			Condition: x.expr(scope, s.ConditionID),
 			Then:      then,
 		}
 		if s.Else != nil {
@@ -674,24 +661,24 @@ func (x *graphsExporter) statement(enclosing *symbols.Scope, s lower.Statement) 
 		scope := orScope(s.Scope, enclosing)
 		return StatementForm{
 			Kind:  "return",
-			Span:  x.span(scope, s.Node),
+			Span:  x.span(scope, lower.StatementAt(s)),
 			Scope: scopeName(s.Scope),
-			Value: x.expr(scope, s.Value),
+			Value: x.expr(scope, s.ValueID),
 		}, nil
 	case lower.Effect:
 		scope := orScope(s.Scope, enclosing)
 		return StatementForm{
 			Kind:     "effect",
-			Span:     x.span(scope, s.Node),
+			Span:     x.span(scope, lower.StatementAt(s)),
 			Scope:    scopeName(s.Scope),
 			Effect:   s.Kind.String(),
-			Performs: x.perform(scope, s.Node),
+			Performs: x.perform(s.Performed(x.model.Resolver(), scope)),
 		}, nil
 	case lower.Unsupported:
 		scope := orScope(s.Scope, enclosing)
 		return StatementForm{
 			Kind:        "unsupported",
-			Span:        x.span(scope, s.Node),
+			Span:        x.span(scope, lower.StatementAt(s)),
 			Scope:       scopeName(s.Scope),
 			Description: s.Description,
 		}, nil
@@ -724,49 +711,40 @@ func (x *graphsExporter) accept(enclosing *symbols.Scope, a lower.Accept) *Accep
 	scope := orScope(a.Scope, enclosing)
 	return &AcceptForm{
 		Param:        a.ParamName,
-		SignalType:   a.SignalType.Text(),
+		SignalType:   a.SignalName(),
 		ViaPort:      a.ViaPort,
 		ViaSelf:      a.ViaSelf,
-		SubsetsEvent: x.expr(scope, a.SubsetsEvent),
-		Trigger:      x.trigger(scope, a.Trigger),
+		SubsetsEvent: x.exprAt(scope, a.SubsetsAt()),
+		Trigger:      x.trigger(scope, a),
 		Scope:        scopeName(a.Scope),
 	}
 }
 
 // trigger writes a trigger event by the class the lowering gave it.
-func (x *graphsExporter) trigger(scope *symbols.Scope, node ast.Node) *TriggerForm {
-	if nilNode(node) {
+func (x *graphsExporter) trigger(scope *symbols.Scope, waiting interface {
+	TriggerWritten() (lower.Trigger, bool)
+}) *TriggerForm {
+	t, ok := waiting.TriggerWritten()
+	if !ok {
 		return nil
 	}
-	e := x.expr(scope, node)
-	form := &TriggerForm{Text: e.Text, Span: e.Span}
-	switch t := node.(type) {
-	case *ast.AcceptEvent:
-		form.Kind = "accept"
-		form.SignalType = t.SignalType.Text()
-		if qn := ast.AsQualifiedName(t.Subsets); qn != nil {
-			form.Subsets = qn.Text()
-		} else {
-			form.Subsets = lower.FeaturePath(t.Subsets)
-		}
-		if t.Payload != nil {
-			form.Payload, _ = ast.EffectiveName(t.Payload)
-		}
-	case *ast.CallEvent:
-		form.Kind = "call"
-		form.Operation = t.Operation.Text()
-		for _, p := range t.Parameters {
-			form.Parameters = append(form.Parameters, p.Text)
-		}
-	case *ast.ChangeEvent:
-		form.Kind = "change"
-		form.Condition = x.expr(scope, t.Condition)
-	case *ast.TimeEvent:
-		form.Kind = "time"
-		form.Duration = x.expr(scope, t.Duration)
-		form.Absolute = t.Absolute
-	default:
-		form.Kind = vertexKind(node)
+	e := x.exprAt(scope, lower.Extent{Span: t.Span, Written: true})
+	form := &TriggerForm{
+		Text:       e.Text,
+		Span:       e.Span,
+		Kind:       t.Kind,
+		SignalType: t.SignalType,
+		Subsets:    t.Subsets,
+		Payload:    t.Payload,
+		Operation:  t.Operation,
+		Parameters: t.Parameters,
+		Absolute:   t.Absolute,
+	}
+	switch t.Kind {
+	case "change":
+		form.Condition = x.exprAt(scope, t.Expr)
+	case "time":
+		form.Duration = x.exprAt(scope, t.Expr)
 	}
 	return form
 }
@@ -774,13 +752,13 @@ func (x *graphsExporter) trigger(scope *symbols.Scope, node ast.Node) *TriggerFo
 // attribute writes an attribute with the types and unit the semantic model derives.
 func (x *graphsExporter) attribute(enclosing *symbols.Scope, a lower.Attribute) AttributeForm {
 	scope := orScope(a.Scope, enclosing)
-	types, unit := x.typing(scope, a.Name, a.Value)
+	types, unit := x.typing(scope, a.Name, x.exprs.Entry(a.ValueID))
 	return AttributeForm{
 		Name:  a.Name,
 		Types: types,
 		Unit:  unit,
-		Value: x.expr(scope, a.Value),
-		Span:  x.span(scope, a.Node),
+		Value: x.expr(scope, a.ValueID),
+		Span:  x.span(scope, a.At()),
 		Scope: scopeName(a.Scope),
 	}
 }
@@ -788,7 +766,7 @@ func (x *graphsExporter) attribute(enclosing *symbols.Scope, a lower.Attribute) 
 // feature writes a node's own parameter or attribute.
 func (x *graphsExporter) feature(enclosing *symbols.Scope, f lower.Feature) FeatureForm {
 	scope := orScope(f.Scope, enclosing)
-	types, unit := x.typing(scope, f.Name, f.Value)
+	types, unit := x.typing(scope, f.Name, x.exprs.Entry(f.ValueID))
 	direction := ""
 	if f.Direction != 0 {
 		direction = f.Direction.String()
@@ -799,15 +777,15 @@ func (x *graphsExporter) feature(enclosing *symbols.Scope, f lower.Feature) Feat
 		Result:    f.IsResult,
 		Types:     types,
 		Unit:      unit,
-		Value:     x.expr(scope, f.Value),
-		Span:      x.span(scope, f.Node),
+		Value:     x.expr(scope, f.ValueID),
+		Span:      x.span(scope, f.At()),
 		Scope:     scopeName(f.Scope),
 	}
 }
 
 // typing is the declared types of the feature named in scope, by qualified name,
 // and the unit its value carries; each empty where the semantic model derives none.
-func (x *graphsExporter) typing(scope *symbols.Scope, name string, value ast.Node) ([]string, string) {
+func (x *graphsExporter) typing(scope *symbols.Scope, name string, value *lower.ExprEntry) ([]string, string) {
 	var types []string
 	if scope != nil && name != "" {
 		if sym, ok := scope.LookupLocal(name); ok {
@@ -818,7 +796,7 @@ func (x *graphsExporter) typing(scope *symbols.Scope, name string, value ast.Nod
 	}
 	unit := ""
 	if value != nil {
-		if u, err := x.sem.UnitOfExpr(scope, value); err == nil {
+		if u, err := value.Unit(x.sem, scope); err == nil {
 			unit = u.String()
 		}
 	}
@@ -830,24 +808,23 @@ func (x *graphsExporter) chain(scope *symbols.Scope, c *lower.AssignTarget) *Cha
 	if c == nil {
 		return nil
 	}
-	return &ChainForm{Base: x.expr(scope, c.Base), Steps: c.Steps, Text: c.Text}
+	return &ChainForm{Base: x.expr(scope, c.BaseID), Steps: c.Steps, Text: c.Text}
 }
 
-// span locates a node written in scope; zero for nil.
-func (x *graphsExporter) span(scope *symbols.Scope, node ast.Node) SpanForm {
-	if nilNode(node) {
+// span locates what was written at an extent in scope; zero for nothing written.
+func (x *graphsExporter) span(scope *symbols.Scope, at lower.Extent) SpanForm {
+	if !at.Written {
 		return SpanForm{}
 	}
-	s := node.Span()
-	return SpanForm{Document: docOf(scope), Offset: s.Offset, Len: s.Len}
+	return SpanForm{Document: docOf(scope), Offset: at.Span.Offset, Len: at.Span.Len}
 }
 
 // gate is the span of the succession gating a succession flow, nil when none does.
-func (x *graphsExporter) gate(scope *symbols.Scope, node ast.Node) *SpanForm {
-	if nilNode(node) {
+func (x *graphsExporter) gate(scope *symbols.Scope, at lower.Extent) *SpanForm {
+	if !at.Written {
 		return nil
 	}
-	span := x.span(scope, node)
+	span := x.span(scope, at)
 	return &span
 }
 
@@ -866,15 +843,6 @@ func connections(conns []lower.Connection) []ConnectionForm {
 		out = append(out, ConnectionForm{Ends: ends, Variation: c.Variation, Variant: c.Variant, Owner: owner, Scope: scopeName(c.Scope)})
 	}
 	return out
-}
-
-// vertexNames names the nodes of a path under a vertex.
-func vertexNames(path []ast.Node) []string {
-	var names []string
-	for _, node := range path {
-		names = append(names, vertexName(node))
-	}
-	return names
 }
 
 // orScope is scope, or enclosing when the lowering recorded none.

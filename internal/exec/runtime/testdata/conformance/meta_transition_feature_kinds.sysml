@@ -30,6 +30,10 @@ package test {
         attribute whenIsLiteral = (Machine::sm::t2 meta SysML::TransitionUsage).triggerAction.payloadArgument.kind == SysML::Systems::TriggerKind::'when';
         attribute atIsLiteral = (Machine::sm::t3 meta SysML::TransitionUsage).triggerAction.payloadArgument.kind == SysML::Systems::TriggerKind::'at';
         attribute afterIsLiteral = (Machine::sm::t4 meta SysML::TransitionUsage).triggerAction.payloadArgument.kind == SysML::Systems::TriggerKind::'after';
+        attribute effectIsPerformed = (Machine::sm::t1 meta SysML::TransitionUsage).effectAction istype SysML::PerformActionUsage;
+        attribute sourceIsIdle = (Machine::sm::t1 meta SysML::TransitionUsage).source == (Machine::sm::idle meta SysML::StateUsage);
+        attribute targetIsBusy = (Machine::sm::t1 meta SysML::TransitionUsage).target == (Machine::sm::busy meta SysML::StateUsage);
+        attribute targetIsNotIdle = (Machine::sm::t1 meta SysML::TransitionUsage).target == (Machine::sm::idle meta SysML::StateUsage);
         attribute argumentIsTrigger = (Machine::sm::t4 meta SysML::TransitionUsage).triggerAction.payloadArgument istype SysML::TriggerInvocationExpression;
     }
 }

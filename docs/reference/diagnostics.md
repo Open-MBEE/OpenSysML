@@ -290,7 +290,7 @@ Specification: SysML v2 §8.2.2.8 EnumerationBody
 
 **error** · Syntax · `expose` outside a view body
 
-An expose is an import a view usage owns: `expose` is admitted in the body of a view usage (and, as an OpenSysML extension the notation rules report, a view definition) only. Move the expose into the view that shows the exposed elements, or write an `import` where a plain import is meant.
+An expose is an import a view usage owns: `expose` is admitted in the body of a view usage only (SysML v2 8.2.2.26.2 ViewBodyItem); a view definition body states what it renders and filters and admits none. Move the expose into the view that shows the exposed elements, or write an `import` where a plain import is meant.
 
 Specification: SysML v2 validateExposeOwningNamespace
 
@@ -951,7 +951,6 @@ Specification: SysML v2 validatePortUsageIsReference
 |------|----------|---------|
 | [`accepter-source-not-state`](#accepter-source-not-state) | error | a transition with a trigger whose source is not a state |
 | [`annotation-annotated-element-ownership`](#annotation-annotated-element-ownership) | error | an annotating element whose `about` names its own owner |
-| [`assignment-chain-in-calc`](#assignment-chain-in-calc) | error | a calculation assigning a feature of another object |
 | [`assignment-chain-step-not-one-object`](#assignment-chain-step-not-one-object) | error | an assignment target stepping through a feature that may hold several objects |
 | [`assignment-referent`](#assignment-referent) | error | an assignment whose target is no feature |
 | [`assignment-referent-read-only`](#assignment-referent-read-only) | error | an assignment to a constant or derived feature |
@@ -1080,14 +1079,6 @@ Specification: SysML v2 validateTransitionUsageTriggerActions
 An annotation owned by its annotated element must own its annotating element: a comment, documentation or metadata usage whose `about` names the element its body sits in annotates that element twice over, through ownership and through the clause. Drop the `about` clause, or move the annotating element out of the body of what it annotates.
 
 Specification: KerML 1.0 validateAnnotationAnnotatedElementOwnership
-
-#### `assignment-chain-in-calc`
-
-**error** · Constraints · a calculation assigning a feature of another object
-
-A calculation computes a result and has no side effects; an assignment whose target chains into another object (`assign a.x := v`) would write that object. Move the assignment into an action, or compute the value as the calculation's result.
-
-Specification: KerML 1.0 §8.4.4.9 (functions have no side effects)
 
 #### `assignment-chain-step-not-one-object`
 

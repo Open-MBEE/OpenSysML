@@ -217,7 +217,7 @@ func (t sparqlTerm) term() (rdf.Term, error) {
 	case "literal", "typed-literal":
 		switch {
 		case t.Lang != "":
-			return rdf.Term{Kind: rdf.TermLiteral, Value: t.Value, Lang: t.Lang}, nil
+			return rdf.LangString(t.Value, t.Lang), nil
 		case t.Datatype == "" || t.Datatype == rdf.XSD+"string":
 			return rdf.String(t.Value), nil
 		}

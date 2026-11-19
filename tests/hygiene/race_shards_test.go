@@ -20,6 +20,7 @@ const (
 	raceRuntimeDir = "../../internal/exec/runtime"
 	raceExportDir  = "../../tests/export"
 	raceCorpusDir  = "../../tests/corpus"
+	raceModelDir   = "../../tests/model"
 )
 
 var (
@@ -34,6 +35,8 @@ var (
 	circleExamples     = regexp.MustCompile(`(?m)^\s*exportexamples='([^']+)'$`)
 	makefileSweep      = regexp.MustCompile(`(?m)^RACE_CORPUS_SWEEP := (.+)$`)
 	circleSweep        = regexp.MustCompile(`(?m)^\s*corpussweep='([^']+)'$`)
+	makefileGraph      = regexp.MustCompile(`(?m)^RACE_GRAPH_CORPORA := (.+)$`)
+	circleGraph        = regexp.MustCompile(`(?m)^\s*graphcorpora='([^']+)'$`)
 	makefileCoverage   = regexp.MustCompile(`(?m)^COVERAGE_SHARDS := (.+)$`)
 	circleShardArrays  = regexp.MustCompile(`(?m)^\s*shards=\(([^)]+)\)$`)
 	circleSweepJob     = regexp.MustCompile(`(?m)^\s*sweep_shard=(\S+)$`)
@@ -224,6 +227,12 @@ func TestExportCorpusPatternsPartitionTheExportTests(t *testing.T) {
 // tests/corpus split the same way by RACE_CORPUS_SWEEP.
 func TestCorpusPatternsPartitionTheCorpusTests(t *testing.T) {
 	corpusPatternPartitions(t, "RACE_CORPUS_SWEEP", makefileSweep, circleSweep, "corpussweep=", raceCorpusDir, 10)
+}
+
+// TestGraphPatternPartitionsTheModelTests: the graph and graph-corpora shards are
+// tests/model split the same way by RACE_GRAPH_CORPORA.
+func TestGraphPatternPartitionsTheModelTests(t *testing.T) {
+	corpusPatternPartitions(t, "RACE_GRAPH_CORPORA", makefileGraph, circleGraph, "graphcorpora=", raceModelDir, 20)
 }
 
 // corpusPatternPartitions checks one by-test-name split: the Makefile variable and the

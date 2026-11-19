@@ -24,6 +24,13 @@ type Undetermined struct {
 	causes    []*symbols.Symbol // the valueless features the result is open for, carried through operations
 }
 
+// counting is u read as holding count values: the same open read, of the count the model fixes.
+func (u *Undetermined) counting(count semantics.Range) Value {
+	counted := *u
+	counted.count, counted.known, counted.positions = count, nil, nil
+	return Value{Kind: ValUndetermined, ref: &counted}
+}
+
 // Feature is the feature the result is the read of, nil for a computed result.
 func (u *Undetermined) Feature() *symbols.Symbol {
 	if u == nil {

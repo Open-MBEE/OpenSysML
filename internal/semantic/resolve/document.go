@@ -1753,6 +1753,23 @@ func (r *Resolver) chainedFrom(scope *symbols.Scope, operand *symbols.Symbol) *s
 	return operand
 }
 
+// ChainHolders lists what a chain written in scope reads operand's members from, as
+// chainMember does: what operand is chained from, then each type or value the lookup passes to.
+func (r *Resolver) ChainHolders(scope *symbols.Scope, operand *symbols.Symbol) []*symbols.Symbol {
+	var holders []*symbols.Symbol
+	seen := make(map[*symbols.Symbol]bool)
+	for sym := r.chainedFrom(scope, operand); sym != nil && !seen[sym]; {
+		seen[sym] = true
+		holders = append(holders, sym)
+		usage, isUsage := sym.Decl.(*ast.Usage)
+		if !isUsage || r.IsBaseThat(sym) || r.IsOccurrenceThis(sym) {
+			break
+		}
+		sym = r.getUsageType(sym.OwnerScope, usage)
+	}
+	return holders
+}
+
 // chainMember looks a chain segment up as a member of sym itself — flattened over
 // its generalizations when a model is attached — else of its type or its value.
 func (r *Resolver) chainMember(scope *symbols.Scope, sym *symbols.Symbol, name string, chain ast.Node) (*symbols.Symbol, bool) {
@@ -2004,6 +2021,27 @@ func (r *Resolver) valueType(scope *symbols.Scope, usage *ast.Usage) *symbols.Sy
 		}
 	})
 	return sym
+}
+
+// FeatureValueGeneral returns the feature sym's feature value has it specialize, nil when
+// it has none (KerML 8.3.3.3.4 checkFeatureValuationSpecialization).
+func (r *Resolver) FeatureValueGeneral(sym *symbols.Symbol) *symbols.Symbol {
+	usage, isUsage := sym.Decl.(*ast.Usage)
+	if !isUsage {
+		return nil
+	}
+	// `a#(1)` is an operator expression, whose result is the index function's own; only
+	// a chain through it reads a's members.
+	if _, indexed := usage.Value.(*ast.IndexExpr); indexed {
+		return nil
+	}
+	// A name several declarations share is settled by the arguments, at run time when
+	// their types leave it open, so the call's result is no one declaration's.
+	if inv, called := usage.Value.(*ast.InvocationExpr); called && inv.Type != nil &&
+		len(r.InvocationCandidates(sym.OwnerScope, inv.Type)) > 1 {
+		return nil
+	}
+	return r.valueType(sym.OwnerScope, usage)
 }
 
 // invocationResult returns the feature the result of a call specializes: the result

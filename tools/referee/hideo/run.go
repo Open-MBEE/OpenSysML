@@ -139,13 +139,47 @@ func Execute(ctx context.Context, dir, repo string, log io.Writer) error {
 	if err := os.MkdirAll(filepath.Join(results, "logs"), 0o750); err != nil {
 		return err
 	}
+	scratch, err := os.MkdirTemp("", "hideo-suite-go-")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = os.RemoveAll(scratch) }()
+	modfile, err := scratchModule(filepath.Join(dir, filepath.FromSlash(goDir)), scratch)
+	if err != nil {
+		return err
+	}
 	env := append(suiteEnv(os.Environ(), repo), "RESULTS_DIR="+results)
 	for _, r := range readers {
+		if r.dir == goDir {
+			r.args = withModfile(r.args, modfile)
+		}
 		if err := r.run(ctx, dir, results, env, log); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// scratchModule copies the Go readers' go.mod and go.sum from module to scratch and names the
+// copy, so the requirements of the tree under test are resolved without editing the pinned suite.
+func scratchModule(module, scratch string) (string, error) {
+	for _, name := range []string{"go.mod", "go.sum"} {
+		data, err := os.ReadFile(filepath.Join(module, name)) // #nosec G304 -- a module file of the suite checkout the caller named
+		if err != nil {
+			return "", err
+		}
+		if err := os.WriteFile(filepath.Join(scratch, name), data, 0o600); err != nil {
+			return "", err
+		}
+	}
+	return filepath.Join(scratch, "go.mod"), nil
+}
+
+// withModfile is a go command resolving its module through modfile, which it may update: the
+// suite pins the versions this module required at the pin, and this module's move on.
+func withModfile(args []string, modfile string) []string {
+	out := append([]string{}, args[:2]...)
+	return append(append(out, "-mod=mod", "-modfile="+modfile), args[2:]...)
 }
 
 // run runs one reader in place of run-all.sh, whose version and report stages are the

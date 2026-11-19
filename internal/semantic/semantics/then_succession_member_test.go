@@ -108,7 +108,8 @@ func TestThenSuccessionOwnsItsEnds(t *testing.T) {
 		if len(successions) != 3 {
 			t.Fatalf("%d successions, want 3", len(successions))
 		}
-		for i, want := range [][]string{ends, ends, nil} {
+		// `entry; then idle;` reaches its source by position and owns its ends all the same (SysML.xtext TargetSuccession).
+		for i, want := range [][]string{ends, ends, ends} {
 			var kinds []string
 			for _, rel := range model.OwnedRelationships(successions[i]) {
 				name := relMetaName(model, rel)
@@ -134,7 +135,7 @@ func TestThenSuccessionOwnsItsEnds(t *testing.T) {
 						referenced = append(referenced, target.Name)
 					}
 				}
-				want := [][]string{{"acquire"}, {"done"}}[i]
+				want := [][]string{{"acquire"}, {"done"}, {"idle"}}[i]
 				if len(kinds) == 1 {
 					want = nil
 				}

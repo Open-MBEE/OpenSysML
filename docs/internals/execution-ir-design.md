@@ -597,9 +597,35 @@ step 8 deletes. The step is split into stacked pull requests:
   `EntryTransition`, `OwnerID` on `StateBehavior`, and id-indexed accessors over the tables
   (`internal/ir/lower/graph_ids.go`). Every id is the one the step-1 tables assigned; step 8
   removes the tree side. No consumer changes.
-- **7b**. `exec/smt` and `exec/solve`, with their forbidden `→ syntax/ast` edge.
-- **7c**. `exec/analysis/modelform`, `exec/analysis` and `exec/sweep`, with theirs.
-- **7d**. `ir/view` and `ir/queryplan`.
+- **7b**. `exec/smt` and `exec/solve`, with their forbidden `→ syntax/ast` edge. `solve`
+  translates `lower.ExprEntry` records by `program.ExprKind` and `program.Operator`; `smt` names
+  a node by its graph and `NodeID` and reads the 7a accessors. What neither can yet read from a
+  record, `lower` answers by id from the tree it still holds (`graph_questions.go`,
+  `expr_questions.go`: a node's form and trace label, a loop's keyword, the names an expression
+  reads), so step 8 moves those answers and no consumer. An `ExprBody` record gains its
+  parameters, its result and its count of other members. A held feature's value id is in the
+  model's table, not the graph's, and is read through `runtime.Context.ExprEntry`. Two flows
+  typed by one definition have nodes of their own, so `smt` refuses the first as a nested flow
+  where keying by declaration reported the definition's initial node as outside the flow.
+- **7c**. `exec/analysis/modelform`, `exec/analysis` and `exec/sweep`, with theirs. Only
+  `modelform` read the tree: `exec/analysis` and `exec/sweep` gain the edge alone. The graphs
+  export numbers an action vertex by `lower.FlowNode`, a state vertex by `program.VertexRef` and
+  a region by `RegionID`, and its bytes are unchanged. What a record does not yet say, `lower`
+  answers from the tree (`graph_sites.go`: a declaration's `Site` and `Extent`, a `Trigger`, what
+  a node performs). A node a body's block declares is a node of the block's flow, written by its
+  identity alone; a footprint converging on a node outside the graph's own is still refused.
+  `exec/analysis/record` reads symbol declarations, not lowered graphs, and keeps its import.
+- **7d**. `ir/view` and `ir/queryplan`, without an edge: neither can hold package-wide. The
+  behavior views (`behavior.go`, `behavior_forms.go`, `locate.go`, `origin.go`) walk a flow by
+  `NodeID` and a machine by `program.VertexRef` and `RegionID`, and ask the records where an
+  expression was written (`graph_declared.go`) instead of reading its syntax; every rendering is
+  unchanged. They still take the declaration behind an id from `Provenance`, because a symbol,
+  stored geometry, a style, a route and an origin are all looked up by declaration, and the other
+  view kinds read symbol declarations and no lowered graph. `StateLocator` and `ActionLocator`
+  gain id-typed methods beside the declaration-typed ones, which 7e removes with their one caller
+  (`frontend/lsp/debug.go`). In `queryplan`, `declaredResult` reads a calc's result through
+  `Return.Syntax` and `BindingEnd.Syntax`; the query compiler (`columns.go`, `navigation.go`)
+  compiles expression syntax into a plan, so the tree is its input as it is `lower`'s.
 - **7e**. `doc/queryexec`, `frontend/lsp/debug.go`, `frontend/grpc`, `frontend/repl`,
   `frontend/engine`, `workspace/modelrt`, `tools/referee/{fuml,pssm}`, `examples/runtime-demo`.
 - **7f**. `translate/codegen` and `check/passes`, which the row does not list but which read the

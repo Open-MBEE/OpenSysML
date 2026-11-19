@@ -68,8 +68,8 @@
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 57,
-        "digest": "sha256:18c52a0b21548042bd9db0dc3fb13be63d11760c1dce1964de9b2be248fb3a06"
+        "files": 56,
+        "digest": "sha256:b637f67538a277b2e2077d3c838ec5b02809fd5e40041bde44d36bedf90b43e1"
       },
       {
         "name": "probes",
@@ -82,21 +82,21 @@
         "name": "opensysml-libraries",
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
-        "files": 17,
-        "digest": "sha256:b90165d947c4a27f6affb7637e2f9cf3a87bd92f591108288829002a90159fd9"
+        "files": 16,
+        "digest": "sha256:f39db343dafb9c99359f5a92e56dcdd5c52992dc50e50b9268d349aa9cdfdf26"
       }
     ],
-    "recorded": "2026-11-16"
+    "recorded": "2026-11-17"
   },
   "totals": {
-    "files": 925,
+    "files": 924,
     "filesFullyAgreeing": 528,
     "agreement": 1107,
     "severityMismatch": 8,
-    "openSysMLOnly": 127,
-    "pilotOnly": 2451,
-    "openSysMLDiagnostics": 1242,
-    "pilotDiagnostics": 3566
+    "openSysMLOnly": 120,
+    "pilotOnly": 2450,
+    "openSysMLDiagnostics": 1235,
+    "pilotDiagnostics": 3565
   },
   "roots": [
     {
@@ -577,9 +577,9 @@
         "filesFullyAgreeing": 151,
         "agreement": 1042,
         "severityMismatch": 4,
-        "openSysMLOnly": 46,
+        "openSysMLOnly": 45,
         "pilotOnly": 2349,
-        "openSysMLDiagnostics": 1092,
+        "openSysMLDiagnostics": 1091,
         "pilotDiagnostics": 3395
       },
       "files": [
@@ -14560,12 +14560,6 @@
           "severityMismatch": [],
           "openSysMLOnly": [
             {
-              "line": 6,
-              "severity": "error",
-              "category": "syntax",
-              "count": 1
-            },
-            {
               "line": 9,
               "severity": "error",
               "category": "syntax",
@@ -17679,14 +17673,14 @@
       "name": "examples",
       "dir": "examples",
       "totals": {
-        "files": 57,
+        "files": 56,
         "filesFullyAgreeing": 49,
         "agreement": 4,
         "severityMismatch": 0,
-        "openSysMLOnly": 14,
-        "pilotOnly": 66,
-        "openSysMLDiagnostics": 18,
-        "pilotDiagnostics": 70
+        "openSysMLOnly": 8,
+        "pilotOnly": 65,
+        "openSysMLDiagnostics": 12,
+        "pilotDiagnostics": 69
       },
       "files": [
         {
@@ -17786,51 +17780,6 @@
             },
             {
               "line": 362,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            }
-          ]
-        },
-        {
-          "path": "npr7123-demo/npr7123-demo.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 75,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 1
-            },
-            {
-              "line": 180,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 1
-            },
-            {
-              "line": 186,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 2
-            },
-            {
-              "line": 398,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 1
-            },
-            {
-              "line": 441,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 1
-            }
-          ],
-          "pilotOnly": [
-            {
-              "line": 436,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18362,37 +18311,7 @@
     },
     {
       "side": "opensysml",
-      "message": "This CDR states no DesignSolution: NPR 7123.1D section 5.2.2.2 (SE-46) has the technical team provide it at this review at maturity baseline, so nest a `DesignSolution` item subsetting `reviewedProducts` with its `maturity`.",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "This SEMP does not address 13 of the 17 common technical processes: ProductImplementation, ProductIntegration, ProductVerification, ProductValidation, ProductTransition, TechnicalPlanning, RequirementsManagement, InterfaceManagement, TechnicalRiskManagement, ConfigurationManagement, TechnicalDataManagement, TechnicalAssessment, DecisionAnalysis. NPR 7123.1D section 6.2.3 (SE-58) has the SEMP define how each process, as tailored, is applied, so nest one usage per process (e.g. `#productImplementation action ...`).",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "This VerificationAndValidationPlan is stated at maturity preliminary, below the baseline NPR 7123.1D section 5.2.2.2 (SE-68) asks for at PDR; mature the product or document the tailoring in the SEMP.",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "This compliance entry is marked tailored with no justification: NPR 7123.1D Table H-1 asks for the justification of every tailored or not-applicable requirement, so give the `@Compliance` annotation a `justification`.",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "This compliance matrix has no compliance entry for 1 active NPR 7123.1D requirement(s): SE31. Table H-1 covers every active requirement, so add a `@Compliance` usage of each from `NPR7123::SERequirements`.",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
       "message": "This element is marked @Proprietary with no rationale: MOSA expects the justification for each proprietary element to be recorded, so give the annotation a `rationale`.",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "This life-cycle review states no entrance criteria and no success criteria: NPR 7123.1D section 5.2.2.1 (SE-34) has the technical team define both for each review, so nest `EntranceCriterion` and `SuccessCriterion` requirement usages, subsetting `entranceCriteria` and `successCriteria`, from the library's `ReviewCriteria` package.",
       "count": 1
     },
     {
@@ -25023,14 +24942,14 @@
       }
     ],
     "totals": {
-      "files": 925,
+      "files": 924,
       "filesFullyAgreeing": 529,
       "agreement": 1107,
       "severityMismatch": 8,
-      "openSysMLOnly": 126,
-      "pilotOnly": 2451,
-      "openSysMLDiagnostics": 1241,
-      "pilotDiagnostics": 3566
+      "openSysMLOnly": 119,
+      "pilotOnly": 2450,
+      "openSysMLDiagnostics": 1234,
+      "pilotDiagnostics": 3565
     },
     "findings": [
       {
