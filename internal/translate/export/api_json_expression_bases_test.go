@@ -18,7 +18,7 @@ func TestAPIJSONExpressionsInheritThroughTheirImpliedBase(t *testing.T) {
 			attribute s = x#(1);
 		}
 	}`, IDQualifiedName)
-	document, err := WriteAPIJSON(graph)
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}

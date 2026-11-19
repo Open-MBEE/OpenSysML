@@ -1712,7 +1712,8 @@ elmt:b4fe98b7-dae4-5828-9747-517a04275b2a
 <urn:sysmlv2:element:2c0e77cb-a0ea-5619-9172-dfcab075a8cc>
     a sysml:Function ;
     sysml:elementId "2c0e77cb-a0ea-5619-9172-dfcab075a8cc" ;
-    sysml:qualifiedName "DataFunctions::*" ;
+    sysml:qualifiedName "DataFunctions::'*'" ;
+    sysx:mappingQualifiedName "DataFunctions::*" ;
     sysml:declaredName "*" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
@@ -2244,7 +2245,8 @@ elmt:ea462915-971b-556c-82e5-465debcb637d
 <urn:sysmlv2:element:7dd66700-8d22-5eb2-9fd0-a3f972f4ef05>
     a sysml:Function ;
     sysml:elementId "7dd66700-8d22-5eb2-9fd0-a3f972f4ef05" ;
-    sysml:qualifiedName "DataFunctions::+" ;
+    sysml:qualifiedName "DataFunctions::'+'" ;
+    sysx:mappingQualifiedName "DataFunctions::+" ;
     sysml:declaredName "+" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 

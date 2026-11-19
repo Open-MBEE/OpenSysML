@@ -925,7 +925,8 @@ elmt:b626df09-dcc4-54b0-befb-f513bf50f9da
 <urn:sysmlv2:element:0faf5d9e-a55e-54b4-9e94-c39e9ecf560a>
     a sysml:Function ;
     sysml:elementId "0faf5d9e-a55e-54b4-9e94-c39e9ecf560a" ;
-    sysml:qualifiedName "ControlFunctions::." ;
+    sysml:qualifiedName "ControlFunctions::'.'" ;
+    sysx:mappingQualifiedName "ControlFunctions::." ;
     sysml:declaredName "." ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 

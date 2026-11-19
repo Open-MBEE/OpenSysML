@@ -830,42 +830,40 @@ ours-missing):
    feature per expression metaclass, read for a symbol and for a graph element known by metaclass alone, and a
    feature declaring no typing takes its types from what it implicitly specializes (`metamodel/structure_implied_types.go`):
    the function an operator, chain, select, collect or trigger invokes or a stated callee resolves to,
-   else the implied base's type. Movement against develop's record above (re-recorded on the implied-generalization
-   audit): present-equal +34947 (2024875 → 2059822), present-different +34275 (143814 → 178089),
-   ours-missing −71393 (305457 → 234064), indeterminate +2171 (35136 → 37307), elements unchanged, 122 rows
+   else the implied base's type. Movement against develop's record above:
+   present-equal +36687 (2106876 → 2143571), present-different +35812 (148373 → 184193),
+   ours-missing −74710 (301823 → 227097), indeterminate +2211 (36020 → 38231), elements unchanged, 128 rows
    moved, no row grew in ours-missing, no new row. `type`, `function` and `behavior` ours-missing → equal for
-   `FeatureReferenceExpression` (2276; the one present-different is a `while` condition the pilot types by
-   `Performances::BooleanEvaluation`, `StructuredControlTest`), `LiteralInteger` (2036), `LiteralString` (1228),
-   `FeatureChainExpression` (534), `LiteralBoolean` (400), `LiteralRational` (334), `LiteralInfinity` (317),
-   `OperatorExpression` (1400 — the 10 present-different, 16 on `type`, are boolean positions where the pilot
+   `FeatureReferenceExpression` (2367; the one present-different is a `while` condition the pilot types by
+   `Performances::BooleanEvaluation`, `StructuredControlTest`), `LiteralInteger` (2051), `LiteralString` (1385),
+   `FeatureChainExpression` (547), `LiteralBoolean` (431), `LiteralRational` (342), `LiteralInfinity` (320),
+   `OperatorExpression` (1429, 1419 on `type` — the 10 present-different, 20 on `type`, are boolean positions where the pilot
    types the expression by `Performances::BooleanEvaluation` beside the operator's function; 6 indeterminate),
    `ConstructorExpression` (64), `IndexExpression` (47: the `#` form invokes `BaseFunctions::'#'` as the bracket
-   form does `'['`, on the symbol-backed and the graph-backed reader alike), `Expression` (34; one KerML body
-   the pilot types by `BooleanEvaluation`, 5 left ours-missing), `NullExpression` (14), `MetadataAccessExpression`,
+   form does `'['`, on the symbol-backed and the graph-backed reader alike), `Expression` (35; one KerML body
+   the pilot types by `BooleanEvaluation`, 5 left ours-missing), `NullExpression` (15), `MetadataAccessExpression`,
    `TriggerInvocationExpression` (6 each), `SelectExpression` (3), `CollectExpression` (1); `InvocationExpression`
-   130 equal (127 on `type`), 5 different (8), 291 indeterminate — the callee is a Function of the model the
-   referee keys differently on the two sides — and 123 left ours-missing, where the callee is a constraint
-   definition of the model (`StraightLineDynamicsEquations(…)` in the training `Analysis Case Definition
-   Example`), which the pilot states as the expression's type and this repository does not. Two `Feature.type`
-   rows move ours-missing → equal (10146 → 10144). The inherited families (`inheritedMembership`,
+   261 equal (257 on `type`), 5 different (9 on `type`), 291 indeterminate — the callee is a Function of the model the
+   referee keys differently on the two sides — and none left ours-missing. Two `Feature.type`
+   rows move ours-missing → equal (10333 → 10331). The inherited families (`inheritedMembership`,
    `inheritedFeature`, and for a literal `member`, `membership`, `feature`, `featureMembership`) move
-   ours-missing → present-different for every expression metaclass (`FeatureReferenceExpression` 2277,
-   `LiteralInteger` 2036, `OperatorExpression` 1416, `LiteralString` 1228, `InvocationExpression` 549,
-   `FeatureChainExpression` 534, `LiteralBoolean` 400, `LiteralRational` 334, `LiteralInfinity` 317,
-   `ConstructorExpression` 64, `IndexExpression` 47, `NullExpression` 14, the rest under 10; where the invoked
+   ours-missing → present-different for every expression metaclass (`FeatureReferenceExpression` 2368,
+   `LiteralInteger` 2051, `OperatorExpression` 1445, `LiteralString` 1385, `InvocationExpression` 557,
+   `FeatureChainExpression` 547, `LiteralBoolean` 431, `LiteralRational` 342, `LiteralInfinity` 320,
+   `ConstructorExpression` 64, `IndexExpression` 47, `NullExpression` 15, the rest under 10; where the invoked
    function is one the referee keys differently on the two sides, part of the `inheritedFeature`,
-   `featureMembership` and `feature` rows is indeterminate instead — `FeatureChainExpression` 520/520/425,
-   `OperatorExpression` 26/25/52, `InvocationExpression` 1 each — which with the 291 `InvocationExpression`
-   `type`/`behavior` and the 6 `OperatorExpression` boolean positions is the indeterminate +2171): the pilot's lists
+   `featureMembership` and `feature` rows is indeterminate instead — `FeatureChainExpression` 533/533/437,
+   `OperatorExpression` 26/25/54, `InvocationExpression` 1 each — which with the 291 `InvocationExpression`
+   `type`/`behavior` and the 6 `OperatorExpression` boolean positions is the indeterminate +2211): the pilot's lists
    also carry the documentation memberships and the `self` feature of the typing function, and ours carry
    the typing behavior's own `result` (`Performances::LiteralIntegerEvaluation::result`, `BooleanEvaluation::result`, …),
    which redefines `Evaluation::result` (§8.4.4.7.1) and masks it now that the implied-generalization audit lets a direct
    implied base feature's behavior stand in for it (KerML 1.1 §8.4.4.6); `Evaluation::result` itself appears only where
    no behavior of its own redefines it. For an expression owning a result parameter `output` and `directedFeature` do not move (develop's record
    already carries the inherited `result` beside the own one in both lists); for a literal, which owns no result
-   parameter, the two rows move ours-missing → equal (`LiteralInteger` 2036, `LiteralString` 1228, `LiteralBoolean`
-   400, `LiteralRational` 334, `LiteralInfinity` 317, `NullExpression` 14, `MetadataAccessExpression` 6), the
-   inherited `result` alone on both sides. The unkeyed references rise by 28296, the library membership stubs
+   parameter, the two rows move ours-missing → equal (`LiteralInteger` 2051, `LiteralString` 1385, `LiteralBoolean`
+   431, `LiteralRational` 342, `LiteralInfinity` 320, `NullExpression` 15, `MetadataAccessExpression` 6), the
+   inherited `result` alone on both sides. The unkeyed references rise by 29370, the library membership stubs
    these families name; the Turtle changes additively (the stubs; two conversion goldens cross 200 KiB into
    digest form).
 
@@ -1078,6 +1076,7 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 | `FeatureReferenceExpression` | `inheritedMembership` | completed from `Performances::evaluations` (this record's step 5, the expression paragraph); present-different for the causes that paragraph states | `Type::inheritedMembership = inheritedMemberships(Set{}, Set{}, false)` (KerML 8.3.3.1.10, deriveTypeInheritedMembership) |
 | `FeatureReferenceExpression` | `inheritedFeature` | completed from `Performances::evaluations` (this record's step 5, the expression paragraph); present-different for the causes that paragraph states | `Type::inheritedFeature = inheritedMembership.memberElement->selectByKind(Feature)` (KerML 8.3.3.1.10, deriveTypeInheritedFeature) |
 | `FeatureReferenceExpression` | `behavior` | completed — the expression's implied base and its function type it (this record's step 5, the expression paragraph) | `Step::behavior = type->selectByKind(Behavior)` (KerML 8.3.4.6.3, deriveStepBehavior); for an expression the implied `Performances::Evaluation` typing |
+| `FeatureReferenceExpression` | `featuringType` | not completed — this record's step 5 types the expression from its implied base but states no featuring type for it; the pilot's answer is the adapter's implicit featuring type, filled while the owner is transformed (the `FeatureChainExpression.featuringType` paragraph above) | `Feature::featuringType = typeFeaturing.featuringType`, plus the owning type of an owned feature (KerML 8.3.3.3.4, deriveFeatureFeaturingType); an expression owned through a `FeatureValue` has neither, so the stable answer is the valued feature's featuring types (`FeatureUtil.insertImplicitTypeFeaturings`) |
 | `FeatureMembership` | `memberName` | closed for a named member — the conversion states `memberName` as the member's effective name; the 357 left are implied parameters the pilot names by the library feature they implicitly redefine | `Membership::memberName = memberElement.name` (KerML 8.3.2.4.3, deriveMembershipMemberName) |
 | `FeatureMembership` | `ownedMemberName` | PR #1232 (`feature/api-json-derived-properties-layered`) | `OwningMembership::ownedMemberName = ownedMemberElement.name` (KerML 8.3.2.3.6) |
 | `Feature` | `featuringType` | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::featuringType = typeFeaturing.featuringType`, plus the owning type of an owned feature (KerML 8.3.3.3, deriveFeatureFeaturingType; KERML11-3/4 multiplicity featuring) |

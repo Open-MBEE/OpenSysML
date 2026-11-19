@@ -1798,7 +1798,8 @@ elmt:ee33d7cc-1719-5123-a34a-c40f275f9f1b
 <urn:sysmlv2:element:54438b46-a4ff-5910-8d0d-cd90edcbfef1>
     a sysml:Function ;
     sysml:elementId "54438b46-a4ff-5910-8d0d-cd90edcbfef1" ;
-    sysml:qualifiedName "DataFunctions::>" ;
+    sysml:qualifiedName "DataFunctions::'>'" ;
+    sysx:mappingQualifiedName "DataFunctions::>" ;
     sysml:declaredName ">" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 

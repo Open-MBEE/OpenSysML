@@ -1942,7 +1942,8 @@ elmt:ea462915-971b-556c-82e5-465debcb637d
 <urn:sysmlv2:element:7dd66700-8d22-5eb2-9fd0-a3f972f4ef05>
     a sysml:Function ;
     sysml:elementId "7dd66700-8d22-5eb2-9fd0-a3f972f4ef05" ;
-    sysml:qualifiedName "DataFunctions::+" ;
+    sysml:qualifiedName "DataFunctions::'+'" ;
+    sysx:mappingQualifiedName "DataFunctions::+" ;
     sysml:declaredName "+" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
