@@ -11,6 +11,7 @@ import org.openmbee.opensysml.Capabilities;
 import org.openmbee.opensysml.CapabilityException;
 import org.openmbee.opensysml.Condition;
 import org.openmbee.opensysml.Connection;
+import org.openmbee.opensysml.Lookup;
 import org.openmbee.opensysml.Conversion;
 import org.openmbee.opensysml.ConversionOptions;
 import org.openmbee.opensysml.DocumentQueryResult;
@@ -417,7 +418,10 @@ final class Api {
   private SymbolResponse symbol(GetSymbolRequest request) {
     Model model = connection.model(request.getModelHash());
     SymbolOptions options =
-        SymbolOptions.defaults().withLibraryMembers(request.getIncludeLibraryMembers());
+        SymbolOptions.defaults()
+            .withLibraryMembers(request.getIncludeLibraryMembers())
+            .byReportedId(!request.getResolveName())
+            .lookup(Lookup.of(request.getLookup()));
     try {
       Symbol symbol = model.symbol(request.getSymbolId(), options);
       return SymbolResponse.newBuilder().setSymbol(Rendering.symbol(symbol)).build();
@@ -431,7 +435,9 @@ final class Api {
     try {
       ElementProperties read =
           model.elementProperties(
-              request.getElementId(), request.getPropertiesList().toArray(String[]::new));
+              Lookup.of(request.getLookup()),
+              request.getElementId(),
+              request.getPropertiesList().toArray(String[]::new));
       return Rendering.elementProperties(read);
     } catch (SymbolNotFoundException e) {
       // The service reports an unknown element in band; the client raises it, in its own words.

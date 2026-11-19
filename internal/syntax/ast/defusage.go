@@ -91,6 +91,16 @@ func (k DefinitionKind) IsAction() bool {
 	return k == DefAction || k == DefUseCase
 }
 
+// HasActionBodyItems reports whether a definition of the kind owns ActionBodyItems, so a `then` among its members
+// may carry a body: an action or occurrence body, and a calculation, constraint or case body, which carry them too.
+func (k DefinitionKind) HasActionBodyItems() bool {
+	switch k {
+	case DefAction, DefOccurrence, DefCalc, DefConstraint, DefCase, DefAnalysisCase, DefVerificationCase, DefUseCase:
+		return true
+	}
+	return false
+}
+
 func (k DefinitionKind) String() string {
 	if int(k) < 0 || int(k) >= len(definitionKindNames) {
 		return "unknown"
@@ -244,6 +254,17 @@ func (k UsageKind) String() string {
 		return "unknown"
 	}
 	return usageKindNames[k]
+}
+
+// HasActionBodyItems reports whether a usage of the kind owns ActionBodyItems, as the parser reads its body: an action
+// body, or a calculation, constraint or case body (SysML.xtext CalculationBodyItem, CaseBodyItem); a step's is a feature body.
+func (k UsageKind) HasActionBodyItems() bool {
+	switch k {
+	case UsageAction, UsageCalc, UsageExpr, UsageConstraint, UsagePredicate, UsageBool,
+		UsageCase, UsageAnalysisCase, UsageVerificationCase, UsageUseCase:
+		return true
+	}
+	return false
 }
 
 // IsAction reports whether a usage of the kind is an action usage: an action, or a
@@ -615,9 +636,14 @@ func (u *Usage) IsAssumedConstraint() bool {
 	return u.IsRequirementConstraint() && (u.Keyword == "assume" || u.PrefixKeyword == "assume")
 }
 
+// ReferenceSubsettingSpecializes reports a satisfy or verify: its ReferenceSubsetting is the Subsetting
+// that types it (KerML §8.3.3.3.9), and it is no EventOccurrenceUsage (§8.3.9.3), so it stays composite.
+func (k UsageKind) ReferenceSubsettingSpecializes() bool {
+	return k == UsageSatisfy
+}
+
 // ReferenceSubsetting returns the usage's OwnedReferenceSubsetting clause, or
-// nil. The reference form of satisfy/verify (`satisfy r;`) is parsed as a plain
-// subsetting of the requirement it names (SysML.xtext:2119, 2272).
+// nil: a `::>` clause, or the feature a reference form names (`satisfy r;`).
 func (u *Usage) ReferenceSubsetting() *Relationship {
 	if u == nil {
 		return nil
@@ -626,24 +652,11 @@ func (u *Usage) ReferenceSubsetting() *Relationship {
 		if rel == nil || rel.Target == nil {
 			continue
 		}
-		if rel.Kind.ReferenceSubsets() || (rel.Kind == RelSubsets && u.Kind == UsageSatisfy && !u.DeclaresRequirement) {
+		if rel.Kind.ReferenceSubsets() {
 			return rel
 		}
 	}
 	return nil
-}
-
-// IsReferenceSubsetting reports whether rel is decl's OwnedReferenceSubsetting,
-// whatever kind the parser recorded it under.
-func IsReferenceSubsetting(decl Node, rel *Relationship) bool {
-	if rel == nil || rel.Target == nil {
-		return false
-	}
-	if rel.Kind.ReferenceSubsets() {
-		return true
-	}
-	u, ok := decl.(*Usage)
-	return ok && u.ReferenceSubsetting() == rel
 }
 
 // NamedByReference reports whether an unnamed usage takes its name from the
@@ -810,6 +823,24 @@ func EndSelection(target Node) (feature, index Node) {
 func EndTarget(target Node) Node {
 	feature, _ := EndSelection(target)
 	return feature
+}
+
+// FlowEndChainPrefix is the chain before the payload of a flow's end at position (0 its `from`, 1 its `to`) when
+// more than one feature precedes it (`a.b` of `flow a.b.x to c.y`): the chain Feature the end references, else nil.
+func FlowEndChainPrefix(usage *Usage, position int) *FeatureChainExpr {
+	if usage == nil || usage.FlowEnds == nil || position < 0 || position > 1 {
+		return nil
+	}
+	end := usage.FlowEnds.From
+	if position == 1 {
+		end = usage.FlowEnds.To
+	}
+	payload, ok := EndTarget(end).(*FeatureChainExpr)
+	if !ok {
+		return nil
+	}
+	prefix, _ := payload.Operand.(*FeatureChainExpr)
+	return prefix
 }
 
 // SplitRedefinitions partitions rels into the redefinitions and the rest,

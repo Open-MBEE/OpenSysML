@@ -126,24 +126,42 @@ func modelFirst(idx *symbols.Index, syms []*symbols.Symbol) []*symbols.Symbol {
 // quoting of its unrestricted segments removed, or false for an ID the notation
 // does not read as one whole name.
 func UnquotedName(id string) (string, bool) {
-	if id == "" {
+	segments, ok := notationSegments(id)
+	if !ok {
 		return "", false
+	}
+	return strings.Join(segments, "::"), true
+}
+
+// notationSegments is the segments of a notation-legal qualified name, unquoted.
+func notationSegments(id string) ([]string, bool) {
+	if id == "" {
+		return nil, false
 	}
 	p := parser.New(source.New("<symbol-id>", []byte(id)))
 	expr := p.ParseExpression()
 	if len(p.Diagnostics) > 0 || p.Offset() != len(id) {
-		return "", false
+		return nil, false
 	}
 	ref, ok := expr.(*ast.FeatureReference)
 	if !ok || ref.Name == nil || ref.Name.Global || len(ref.Name.Parts) == 0 {
-		return "", false
+		return nil, false
 	}
 	segments := make([]string, 0, len(ref.Name.Parts))
 	for _, part := range ref.Name.Parts {
 		if part.Text == "" {
-			return "", false
+			return nil, false
 		}
 		segments = append(segments, part.Text)
 	}
-	return strings.Join(segments, "::"), true
+	return segments, true
+}
+
+// nameSegments is the segments of a qualified name in either spelling: the
+// notation's, or the unquoted one the index records.
+func nameSegments(id string) []string {
+	if segments, ok := notationSegments(id); ok {
+		return segments
+	}
+	return strings.Split(id, "::")
 }

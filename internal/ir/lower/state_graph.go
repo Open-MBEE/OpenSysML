@@ -1,11 +1,12 @@
 package lower
 
 import (
+	"errors"
 	"fmt"
 	"slices"
-	"strings"
 	"sync"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -99,8 +100,35 @@ type StateGraph struct {
 	resolver *resolve.Resolver
 	sem      *semantics.Model
 
+	// Exprs is the table the graph's ExprIDs index, shared with the flows of its behaviors.
+	Exprs *ExprTable
+
 	// States in the machine (flat list, includes nested)
 	States []*ast.StateNode
+
+	// ID is each state's graph-local id, dense from 1 in the order of States.
+	ID map[*ast.StateNode]program.StateID
+
+	// Origins is each state's origin by id; Origins[0] is unused.
+	Origins []program.Origin
+
+	// RegionID is each region's id, the machine's own regions first, then each
+	// state's in state order; RegionOrigins is its origin by id.
+	RegionID      map[*ast.StateRegion]program.RegionID
+	RegionOrigins []program.Origin
+
+	// PseudoID is each pseudostate's id in the order of Pseudostates;
+	// PseudoOrigins is its origin by id.
+	PseudoID      map[*ast.PseudostateNode]program.PseudoID
+	PseudoOrigins []program.Origin
+
+	// TransID is each transition's id, those leaving each state in state order,
+	// then each pseudostate's; TransOrigins is its origin by id.
+	TransID      map[*Transition]program.TransID
+	TransOrigins []program.Origin
+
+	// Provenance maps the ids back to the records they were lowered from.
+	Provenance Provenance
 
 	// Pseudostates of the machine in declaration order. Not keyed by name:
 	// sibling regions may declare same-named pseudostates.
@@ -266,13 +294,22 @@ type Transition struct {
 	Decl   ast.Node
 	Source ast.Node // *ast.StateNode or *ast.PseudostateNode
 	Target ast.Node // *ast.StateNode, *ast.PseudostateNode or a terminate action *ast.Usage
+	// SourceRef and TargetRef are Source and Target by id.
+	SourceRef, TargetRef program.VertexRef
 	// Owner is the state whose body declares the transition, nil for the machine body.
-	Owner   *ast.StateNode
+	Owner *ast.StateNode
+	// OwnerID is Owner by id, 0 for the machine body.
+	OwnerID program.StateID
 	Trigger ast.Node // TimeEvent, ChangeEvent, SignalEvent, CallEvent, nil = completion
+	// TriggerExprID is the condition of a change trigger or the time of a timer, in
+	// the table of the machine; 0 for a trigger stating neither.
+	TriggerExprID program.ExprID
 	// Accepted names what the trigger binds when the transition fires — an accept's
 	// payload, a call's parameters — in declaration order; nil binds nothing.
 	Accepted []string
 	Guard    ast.Node // guard expression, nil = no guard
+	// GuardID is Guard in the table of the machine.
+	GuardID program.ExprID
 	// Effect are the transition's effect behaviors, lowered the same way a state's
 	// entry, do and exit behaviors are.
 	Effect []StateBehavior
@@ -341,6 +378,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	if held, ok := endpoints.(interface{ nameResolver() *resolve.Resolver }); ok {
 		graph.resolver = held.nameResolver()
 	}
+	graph.Exprs = NewExprTable(graph.resolver)
 
 	members, err := machineMembers(stateMachineDecl)
 	if err != nil {
@@ -417,6 +455,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 		return nil, err
 	}
 
+	graph.assignIDs()
 	return graph, nil
 }
 
@@ -620,7 +659,7 @@ func (g *StateGraph) lowerBehaviorsFor(state *ast.StateNode, actions []ast.Node,
 		if inherited := g.behaviorScope[actual]; inherited != nil {
 			declared = inherited
 		}
-		behavior := lowerStateBehavior(actual, nil, declared, g.resolver)
+		behavior := lowerStateBehavior(actual, nil, declared, g.resolver, g.Exprs)
 		behavior.Owner = state
 		behaviors = append(behaviors, behavior)
 		g.lowerBehaviorFeatures(actual, declared)
@@ -873,6 +912,16 @@ func (g *StateGraph) startShot(target, decl ast.Node) bool {
 func (g *StateGraph) targetVertex(scope *symbols.Scope, target ast.Node, owner ast.Node) (ast.Node, error) {
 	node, err := g.vertex(scope, target)
 	if node == nil && isDoneEndpoint(target) {
+		return g.completion(owner, scope, target.Span()), nil
+	}
+	return node, err
+}
+
+// succeedingVertex is targetVertex for a succession's target, as endpointVertex
+// is vertex for its source.
+func (g *StateGraph) succeedingVertex(scope *symbols.Scope, target ast.Node, owner ast.Node) (ast.Node, error) {
+	node, err := g.endpointVertex(scope, target)
+	if node == nil && err == nil && isDoneEndpoint(target) {
 		return g.completion(owner, scope, target.Span()), nil
 	}
 	return node, err
@@ -1402,17 +1451,17 @@ func (g *StateGraph) regionScope(scope *symbols.Scope, region *ast.StateRegion) 
 	return childScope(scope, region)
 }
 
-// endpointVertex is the vertex a succession's or a marker's endpoint names, or
-// nil when it names none: the same resolution a transition's endpoints get, so a
-// nested or region-local vertex is reached and a same-named one elsewhere is not.
-// A succession naming no vertex is left out of the graph, which the
-// name-resolution tier reports about (UML 2.5.1 §14.2.3.9 leniency).
-func (g *StateGraph) endpointVertex(scope *symbols.Scope, target ast.Node) ast.Node {
+// endpointVertex is the vertex a succession's or a marker's endpoint names, by
+// the resolution a transition's endpoints get; nil when it names a non-vertex.
+func (g *StateGraph) endpointVertex(scope *symbols.Scope, target ast.Node) (ast.Node, error) {
 	node, err := g.vertex(scope, target)
-	if err != nil {
-		return nil
+	if unresolved := (*UnresolvedEndpointError)(nil); errors.As(err, &unresolved) {
+		return nil, err
 	}
-	return node
+	if err != nil {
+		return nil, nil
+	}
+	return node, nil
 }
 
 // addVertex records the graph node standing for a state, and for the
@@ -1481,7 +1530,7 @@ func (g *StateGraph) addTerminate(usage *ast.Usage, scope *symbols.Scope, owner 
 	}
 	if TerminatedOccurrence(usage) != nil {
 		declared := g.declaredIn[usage]
-		g.TerminateBehaviors[usage] = terminateBehavior(usage, declared, owner, g.resolver)
+		g.TerminateBehaviors[usage] = terminateBehavior(usage, declared, owner, g.resolver, g.Exprs)
 		g.TerminateCompletion[usage] = g.completion(body, declared, usage.Span())
 	}
 }
@@ -1520,16 +1569,17 @@ func (g *StateGraph) DocOf(decl ast.Node) string {
 	return symbols.DocNameOf(scope)
 }
 
-// vertex is the graph node a transition endpoint names: name resolution says
-// which declaration it reaches, and lowering collected a vertex from that. An
-// endpoint naming no vertex yields a nil node and no error — the name-resolution
-// tier reports it, and how strictly the machine then runs is the runtime's call.
+// vertex is the graph node the endpoint resolves to. One naming nothing is an
+// UnresolvedEndpointError (KerML 8.2.3.5); `done` and a non-vertex yield nil.
 func (g *StateGraph) vertex(scope *symbols.Scope, target ast.Node) (ast.Node, error) {
 	if isNilEndpoint(target) {
 		return nil, fmt.Errorf("transition endpoint names nothing")
 	}
 	decl, ok := g.endpoints.Endpoint(scope, target)
 	if !ok {
+		if !isDoneEndpoint(target) && !g.endpoints.EndpointNames(scope, target) {
+			return nil, &UnresolvedEndpointError{Endpoint: target}
+		}
 		return nil, nil
 	}
 	node, ok := g.vertexFor(scope, target, decl)
@@ -1606,6 +1656,16 @@ func (g *StateGraph) vertexFor(scope *symbols.Scope, target ast.Node, decl ast.N
 	return node, ok
 }
 
+// UnresolvedEndpointError marks a transition or succession endpoint that names
+// no element from the namespace it is written in (KerML 8.2.3.5).
+type UnresolvedEndpointError struct {
+	Endpoint ast.Node
+}
+
+func (e *UnresolvedEndpointError) Error() string {
+	return "unresolved transition endpoint " + EndpointText(e.Endpoint)
+}
+
 // NotAVertexFormat reports an endpoint naming an element outside the machine's
 // vertices, shared by the check reporting it and the lowering backstopping it.
 const NotAVertexFormat = "transition endpoint %s names a %s that is not a vertex of this state machine"
@@ -1637,11 +1697,7 @@ func EndpointText(target ast.Node) string {
 	case *ast.FeatureReference:
 		return EndpointText(t.Name)
 	case *ast.QualifiedName:
-		parts := make([]string, 0, len(t.Parts))
-		for _, p := range t.Parts {
-			parts = append(parts, p.Text)
-		}
-		return strings.Join(parts, "::")
+		return ast.QualifiedNameText(t)
 	}
 	return ""
 }
@@ -1673,7 +1729,7 @@ func lowerTransitionEdge(graph *StateGraph, edge *ast.TransitionEdge, owner ast.
 		Trigger:   edge.Trigger,
 		Accepted:  AcceptedNames(edge.Trigger),
 		Guard:     edge.Guard,
-		Effect:    LowerBehaviors(edge.Effect, nil, scope, graph.resolver),
+		Effect:    LowerBehaviors(edge.Effect, nil, scope, graph.resolver, graph.Exprs),
 		Scope:     scope,
 		BodyScope: scope,
 	}
@@ -1733,7 +1789,7 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 		Trigger:     trigger,
 		Accepted:    AcceptedNames(trigger),
 		Guard:       member.Guard,
-		Effect:      transitionEffects(member, bodyScope, graph.resolver),
+		Effect:      transitionEffects(member, bodyScope, graph.resolver, graph.Exprs),
 		Via:         via,
 		ViaSelf:     viaSelf,
 		Scope:       scope,
@@ -1747,9 +1803,9 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 // transitionEffects are the behaviors a transition performs: those written with
 // `do`, then the steps its body states (SysML.xtext:1863, where TransitionUsage
 // ends in ActionBody). The body's steps are one block, the transition's own.
-func transitionEffects(member *ast.TransitionMember, scope *symbols.Scope, resolver *resolve.Resolver) []StateBehavior {
-	effects := LowerBehaviors(member.Effect, nil, scope, resolver)
-	body := LowerBehaviors(BodyStatementMembers(member.Members), member, scope, resolver)
+func transitionEffects(member *ast.TransitionMember, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable) []StateBehavior {
+	effects := LowerBehaviors(member.Effect, nil, scope, resolver, exprs)
+	body := LowerBehaviors(BodyStatementMembers(member.Members), member, scope, resolver, exprs)
 	return append(effects, body...)
 }
 
@@ -1793,7 +1849,7 @@ func (g *StateGraph) startsAt(decl, guard ast.Node, body transitionBody, source,
 func AcceptedNames(trigger ast.Node) []string {
 	switch t := trigger.(type) {
 	case *ast.AcceptEvent:
-		if t.Payload == nil || t.Payload.Ident.Name == "" {
+		if t.Payload == nil || !t.Payload.Ident.HasName() {
 			return nil
 		}
 		return []string{t.Payload.Ident.Name}
@@ -2082,8 +2138,14 @@ func collectUsageTransitions(graph *StateGraph, n *ast.Usage, body transitionBod
 		if source == nil || target == nil {
 			return nil
 		}
-		sourceVertex := graph.endpointVertex(scope, source)
-		targetVertex, _ := graph.targetVertex(scope, target, owner)
+		sourceVertex, err := graph.endpointVertex(scope, source)
+		if err != nil {
+			return err
+		}
+		targetVertex, err := graph.succeedingVertex(scope, target, owner)
+		if err != nil {
+			return err
+		}
 
 		// `succession first begin then off;` out of a named entry action names the
 		// state the machine starts in, not an edge (SysML 7.19.3).
@@ -2109,8 +2171,14 @@ func collectUsageTransitions(graph *StateGraph, n *ast.Usage, body transitionBod
 // or the body's starting state when the source is its entry action.
 func collectSuccessionEdge(graph *StateGraph, n *ast.SuccessionEdge, body transitionBody) error {
 	scope, owner, entryOwner := body.scope, body.owner, body.entryOwner
-	sourceVertex := graph.endpointVertex(scope, n.Source)
-	targetVertex, _ := graph.targetVertex(scope, n.Target, owner)
+	sourceVertex, err := graph.endpointVertex(scope, n.Source)
+	if err != nil {
+		return err
+	}
+	targetVertex, err := graph.succeedingVertex(scope, n.Target, owner)
+	if err != nil {
+		return err
+	}
 
 	// `entry; then off;` — a succession out of the body's own entry
 	// subaction names the state it starts in (SysML 7.19.3), the same as
@@ -2148,7 +2216,7 @@ func collectTransitionMember(graph *StateGraph, n *ast.TransitionMember, body tr
 			return err
 		}
 		entryScope := symbols.TriggerScope(scope, n)
-		entry := &EntryTransition{Decl: n, Guard: n.Guard, Effect: transitionEffects(n, entryScope, graph.resolver), Scope: entryScope}
+		entry := &EntryTransition{Decl: n, Guard: n.Guard, Effect: transitionEffects(n, entryScope, graph.resolver, graph.Exprs), Scope: entryScope}
 		return addEntryTransitionTarget(graph, entry, target, entryOwner, scope)
 	}
 	// `transition initial then off;` out of the entry action names the

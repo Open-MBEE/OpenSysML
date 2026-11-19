@@ -34,8 +34,8 @@
               (ConnectorEnd target="rwatch"
                 (*ast.QualifiedName))))))
       (PseudostateNode kind="choice" name="pick")
-      (TransitionMember source="pick" target="lfast"
+      (TransitionMember source="pick" target="left.lfast"
         (OperatorExpr operator="=="
           (FeatureReference name="mode")
           (LiteralInteger value="2")))
-      (TransitionMember source="pick" target="lslow"))))
+      (TransitionMember source="pick" target="left.lslow"))))

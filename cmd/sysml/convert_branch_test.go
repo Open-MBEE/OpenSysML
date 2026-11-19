@@ -270,6 +270,18 @@ func TestMigratePushRefusesAMigrationReportOverTheInput(t *testing.T) {
 	}
 }
 
+// A migration that wrote nothing of its model is not pushed: the branch keeps its graph.
+func TestMigratePushRefusesAMigrationThatWroteNothing(t *testing.T) {
+	binary := buildCLI(t)
+	stack := newFakeStack(t, liveGraph(t, syncedModel))
+	xmi := writeModel(t, t.TempDir(), "mockup.xmi", toolOnlyXMI)
+
+	out, code := exitCode(t, branchCommand(stack, binary, xmi, "-migrate", "ttl", "-o", "flexo://proj-1/main"))
+	if code != 2 || !strings.Contains(out, "nothing of the model was written") || !strings.Contains(out, "the branch is left as it was") || len(stack.puts) != 0 {
+		t.Fatalf("pushing an empty migration: exit %d, %d write(s):\n%s", code, len(stack.puts), out)
+	}
+}
+
 func TestConvertReadRefusesOutputOverTheSyncState(t *testing.T) {
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))

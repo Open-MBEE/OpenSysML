@@ -1,6 +1,7 @@
 package model
 
 import (
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,6 +31,7 @@ func TestFindDoneStartErrors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	files = corpussubset.Must(t, "../../..").FilterPaths(filepath.Join("..", "..", "..", "examples"), files)
 
 	t.Logf("Checking %d files", len(files))
 

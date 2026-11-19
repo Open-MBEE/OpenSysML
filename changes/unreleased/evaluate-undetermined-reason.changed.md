@@ -1,0 +1,2 @@
+- `%eval`, the MCP `evaluate` and `session_eval` tools spell an undetermined result with why the model leaves it open — `<undetermined>: mass has no value in the model` — where the text said only `<undetermined>` and the reason stood in the structured value alone.
+- The MCP `advance` tool's description states that no event is skipped however long the step — each runs at its own instant, so one advance of 300 is the same run as three hundred of 1 — and that `lastEventAt` is the exact instant of the last event that ran.

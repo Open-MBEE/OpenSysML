@@ -219,8 +219,9 @@ by its path (`Garage::car.wheels[2]`) with its features (`sysx:pressure`,
 joins, no ordering beyond `orderBy`, no paging, nothing about runs or verdicts,
 and nothing from the standard library unless a scope names a library element.
 An unknown parameter or property is refused as written (`unknown OSLC query
-parameter "oslc.paging"`, `unknown property "nam"; did you mean "name"`), not
-answered empty.
+parameter "oslc.wher"`, `unknown property "nam"; did you mean "name"`), not
+answered empty; the paging parameters, `oslc.paging` and `oslc.pageSize`, are
+accepted and ignored, as the specification lets a server do.
 
 Read [SysML v2 API & Services `Query`](../reference/api.md#sysml-v2-api--services-query)
 for the structured form and its comparison semantics, and

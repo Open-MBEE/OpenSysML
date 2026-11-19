@@ -454,27 +454,9 @@ func (m *Model) implicitParameterTargets(sym *symbols.Symbol, skipExplicit, matc
 	if sym == nil {
 		return nil
 	}
-	var direction ast.FeatureDirection
-	var isResult bool
-	if sym.Recorded() {
-		if sym.Facts == nil || sym.Facts.Direction == ast.DirNone {
-			return nil
-		}
-		if skipExplicit && len(sym.Facts.Redefines) > 0 {
-			return nil
-		}
-		direction = sym.Facts.Direction
-		isResult = sym.Facts.Modifiers.Has(symbols.ModResult)
-	} else {
-		usage, ok := sym.Decl.(*ast.Usage)
-		if !ok || usage.Direction == ast.DirNone {
-			return nil
-		}
-		if skipExplicit && declaresRedefinitionAST(usage) {
-			return nil
-		}
-		direction = usage.Direction
-		isResult = usage.IsResult
+	direction, isResult, ok := parameterDirectionOf(sym, skipExplicit)
+	if !ok {
+		return nil
 	}
 	if sym.OwnerScope == nil {
 		return nil
@@ -518,6 +500,28 @@ func (m *Model) implicitParameterTargets(sym *symbols.Symbol, skipExplicit, matc
 		out = append(out, target.sym)
 	})
 	return out
+}
+
+// parameterDirectionOf is sym's direction and whether it is the result parameter; ok is
+// false for a non-parameter and, with skipExplicit, for one redefining by clause.
+func parameterDirectionOf(sym *symbols.Symbol, skipExplicit bool) (direction ast.FeatureDirection, isResult, ok bool) {
+	if sym.Recorded() {
+		if sym.Facts == nil || sym.Facts.Direction == ast.DirNone {
+			return ast.DirNone, false, false
+		}
+		if skipExplicit && len(sym.Facts.Redefines) > 0 {
+			return ast.DirNone, false, false
+		}
+		return sym.Facts.Direction, sym.Facts.Modifiers.Has(symbols.ModResult), true
+	}
+	usage, isUsage := sym.Decl.(*ast.Usage)
+	if !isUsage || usage.Direction == ast.DirNone {
+		return ast.DirNone, false, false
+	}
+	if skipExplicit && declaresRedefinitionAST(usage) {
+		return ast.DirNone, false, false
+	}
+	return usage.Direction, usage.IsResult, true
 }
 
 // positionalParameters returns the parameters that participate in redefinition

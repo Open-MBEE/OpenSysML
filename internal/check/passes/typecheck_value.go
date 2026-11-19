@@ -60,10 +60,12 @@ func (ec *exprChecker) checkElementConformance(valueScope *symbols.Scope, wants 
 		ec.checkEnumeratedTarget(valueScope, wants, value)
 		return
 	}
-	// The feature's type has no scalar ancestor, so no literal value can
-	// conform to it. Only literals and bodies are judged here: any other
-	// expression may produce an instance of the type.
+	// The feature's type has no scalar ancestor, so a literal conforms only where the type
+	// generalizes its scalar type. Only literals and bodies are judged: others may produce an instance.
 	if prim := literalPrimType(value); prim != semantics.PrimUnknown {
+		if lit := ec.model.ScalarSymbol(prim); lit != nil && ec.boundTypesConform(nil, []*symbols.Symbol{lit}, wants) {
+			return
+		}
 		ec.errorCode(codeBindingConnectorTypeConformance, value.Span(), "cannot bind %s value to a feature typed by %s", prim, typeNames(wants))
 		return
 	}
@@ -165,7 +167,7 @@ func (ec *exprChecker) checkEnumeratedValue(scope *symbols.Scope, enum *symbols.
 
 // enumeratedText names one enumerated value, `Level::high = 3`, or just `60.0` when unnamed.
 func enumeratedText(enum, literal *symbols.Symbol, want constElement) string {
-	if literal.Name == "" {
+	if !literal.Named() {
 		return want.valueText()
 	}
 	return enum.Name + "::" + literal.Name + " = " + want.valueText()

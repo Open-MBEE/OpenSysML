@@ -148,34 +148,39 @@ func TestBehavioralStatementsRoundTrip(t *testing.T) {
 func TestStateMembersRoundTrip(t *testing.T) {
 	t.Parallel()
 	members := map[string]string{
-		"entry succession":     "entry;\n        then launch;",
-		"start state":          "state launch;",
-		"substate":             "state waiting;",
-		"empty entry":          "entry;",
-		"entry action":         "entry perform Warm;",
-		"entry braced":         "entry {\n            perform Warm;\n        }",
-		"entry do braced":      "entry do {\n            perform Warm;\n        }",
-		"anonymous action":     "entry action {\n            perform Warm;\n        }",
-		"do action":            "do action running : Warm;",
-		"exit action":          "exit perform Warm;",
-		"choice":               "choice pick;",
-		"junction":             "junction meet;",
-		"fork pseudostate":     "fork split;",
-		"join pseudostate":     "join sync;",
-		"shallow history":      "shallow history last;",
-		"deep history":         "deep history deepest;",
-		"history synonym":      "history last;",
-		"nested state":         "state working {\n            entry perform Warm;\n        }",
-		"nested transition":    "state working {\n            state a;\n            transition first a then a;\n        }",
-		"nested substates":     "state working {\n            state first_gear;\n            state second_gear;\n        }",
-		"nested regions":       "state working parallel {\n            state left {\n                state stopped;\n            }\n            state right {\n                state moving;\n            }\n        }",
-		"nested full body":     "state working {\n            entry perform Warm;\n            do action spin : Warm;\n            exit perform Warm;\n            state deeper;\n        }",
-		"unordered subactions": "state working {\n            do action spin : Warm;\n            entry perform Warm;\n        }",
-		"transition first":     "transition first idle then idle;",
-		"named transition":     "transition go first idle then idle;",
-		"trigger":              "transition first idle accept sig : Signal then idle;",
-		"guard":                "transition first idle if speed > 0 then idle;",
-		"effect":               "transition first idle do action stop : Warm then idle;",
+		"entry succession":               "entry;\n        then launch;",
+		"start state":                    "state launch;",
+		"substate":                       "state waiting;",
+		"empty entry":                    "entry;",
+		"entry action":                   "entry perform Warm;",
+		"entry braced":                   "entry {\n            perform Warm;\n        }",
+		"entry do braced":                "entry do {\n            perform Warm;\n        }",
+		"anonymous action":               "entry action {\n            perform Warm;\n        }",
+		"do action":                      "do action running : Warm;",
+		"exit action":                    "exit perform Warm;",
+		"choice":                         "choice pick;",
+		"junction":                       "junction meet;",
+		"fork pseudostate":               "fork split;",
+		"join pseudostate":               "join sync;",
+		"shallow history":                "shallow history last;",
+		"deep history":                   "deep history deepest;",
+		"history synonym":                "history last;",
+		"nested state":                   "state working {\n            entry perform Warm;\n        }",
+		"nested transition":              "state working {\n            state a;\n            transition first a then a;\n        }",
+		"nested substates":               "state working {\n            state first_gear;\n            state second_gear;\n        }",
+		"nested regions":                 "state working parallel {\n            state left {\n                state stopped;\n            }\n            state right {\n                state moving;\n            }\n        }",
+		"nested full body":               "state working {\n            entry perform Warm;\n            do action spin : Warm;\n            exit perform Warm;\n            state deeper;\n        }",
+		"unordered subactions":           "state working {\n            do action spin : Warm;\n            entry perform Warm;\n        }",
+		"transition first":               "transition first idle then idle;",
+		"named transition":               "transition go first idle then idle;",
+		"trigger":                        "transition first idle accept sig : Signal then idle;",
+		"guard":                          "transition first idle if speed > 0 then idle;",
+		"effect":                         "transition first idle do action stop : Warm then idle;",
+		"target transition":              "then idle;",
+		"target transition multiplicity": "then [2] idle;",
+		"target transition body":         "then idle {\n            perform Warm;\n        }",
+		"entry transition":               "entry; then idle;",
+		"source succession":              "then state busy;",
 	}
 	for name, member := range members {
 		t.Run(name, func(t *testing.T) {
@@ -873,12 +878,12 @@ func TestTerminateUsageKeepsItsNameFromTheMappingAlone(t *testing.T) {
 func TestChainedSuccessionEndLinksItsRootAsAVertex(t *testing.T) {
 	src := "package P {\n    state def M {\n        entry;\n        then src;\n        state src;\n" +
 		"        state outer {\n            state inner {\n                state deep;\n            }\n        }\n" +
-		"        first src then inner.deep;\n        succession first inner.deep then src;\n    }\n}\n"
+		"        first src then outer.inner.deep;\n        succession first outer.inner.deep then src;\n    }\n}\n"
 	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	if n := strings.Count(string(turtle), "sysml:chainingFeature elmt:P__M__outer__inner, elmt:P__M__outer__inner__deep"); n != 2 {
+	if n := strings.Count(string(turtle), "sysml:chainingFeature elmt:P__M__outer, elmt:P__M__outer__inner, elmt:P__M__outer__inner__deep"); n != 2 {
 		t.Errorf("want the root of both chained ends linked to the nested state, found %d:\n%s", n, turtle)
 	}
 	if strings.Contains(string(turtle), `sysml:chainingFeature "`) {
@@ -888,7 +893,7 @@ func TestChainedSuccessionEndLinksItsRootAsAVertex(t *testing.T) {
 	if err != nil {
 		t.Fatalf("back to notation from the mapping alone: %v\n%s", err, turtle)
 	}
-	if !strings.Contains(string(back), "first inner.deep then src;") || !strings.Contains(string(back), "first src then inner.deep;") {
+	if !strings.Contains(string(back), "first outer.inner.deep then src;") || !strings.Contains(string(back), "first src then outer.inner.deep;") {
 		t.Errorf("the chained ends should be written back as chains:\n%s", back)
 	}
 }

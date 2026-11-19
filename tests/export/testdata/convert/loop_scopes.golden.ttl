@@ -149,6 +149,7 @@ expr:Loops__Charge___401_puntilCondition
     sysx:sourceText "charging.done" ;
     sysml:elementId "Loops__Charge___401_puntilCondition" ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:operator "." ;
     sysml:argument expr:Loops__Charge___401_puntilCondition_pa0 ;
     sysml:ownedRelationship expr:Loops__Charge___401_puntilCondition_pin0_om, expr:Loops__Charge___401_puntilCondition_ptargetFeature, expr:Loops__Charge___401_puntilCondition_pout_om ;
     sysml:ownedMembership expr:Loops__Charge___401_puntilCondition_pin0_om, expr:Loops__Charge___401_puntilCondition_ptargetFeature, expr:Loops__Charge___401_puntilCondition_pout_om ;
@@ -398,6 +399,7 @@ expr:Loops__Charge___402_pwhileCondition
     sysx:sourceText "prep.done" ;
     sysml:elementId "Loops__Charge___402_pwhileCondition" ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:operator "." ;
     sysml:argument expr:Loops__Charge___402_pwhileCondition_pa0 ;
     sysml:ownedRelationship expr:Loops__Charge___402_pwhileCondition_pin0_om, expr:Loops__Charge___402_pwhileCondition_ptargetFeature, expr:Loops__Charge___402_pwhileCondition_pout_om ;
     sysml:ownedMembership expr:Loops__Charge___402_pwhileCondition_pin0_om, expr:Loops__Charge___402_pwhileCondition_ptargetFeature, expr:Loops__Charge___402_pwhileCondition_pout_om ;
@@ -569,6 +571,7 @@ expr:Loops__Charge___402_puntilCondition
     sysx:sourceText "pace.done" ;
     sysml:elementId "Loops__Charge___402_puntilCondition" ;
     sysml:isComposite "false"^^xsd:boolean ;
+    sysml:operator "." ;
     sysml:argument expr:Loops__Charge___402_puntilCondition_pa0 ;
     sysml:ownedRelationship expr:Loops__Charge___402_puntilCondition_pin0_om, expr:Loops__Charge___402_puntilCondition_ptargetFeature, expr:Loops__Charge___402_puntilCondition_pout_om ;
     sysml:ownedMembership expr:Loops__Charge___402_puntilCondition_pin0_om, expr:Loops__Charge___402_puntilCondition_ptargetFeature, expr:Loops__Charge___402_puntilCondition_pout_om ;

@@ -3,7 +3,9 @@ package grpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
+	"slices"
 	"strings"
 	"testing"
 
@@ -888,4 +890,76 @@ func TestActionRunReportsItsPerformerOverTheWire(t *testing.T) {
 			t.Errorf("rate alone reports %s", name)
 		}
 	}
+}
+
+// coverageModel is a machine whose two orders reach one outcome through viaA
+// and through viaB; the witness enters viaA, the coverage carries viaB too.
+const coverageModel = `
+package Cov {
+  part def M {
+    exhibit state run {
+      entry; then s0;
+      state s0;
+      transition first s0 then viaA;
+      transition first s0 then viaB;
+      state viaA;
+      transition first viaA then fin;
+      state viaB;
+      transition first viaB then fin;
+      state fin;
+    }
+  }
+  part def Sys {
+    part m : M;
+    exhibit state judge { entry; then watching; state watching; }
+  }
+  part sys : Sys;
+}
+`
+
+func TestExploreCoverageOverTheWire(t *testing.T) {
+	ctx := context.Background()
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, coverageModel, "explore-coverage")
+
+	advance := 5.0
+	resp, err := srv.ExecuteState(ctx, &pb.ExecuteStateRequest{
+		ModelHash: hash, StateMachineSymbolId: "Cov::Sys::judge", PerformerSymbolId: "Cov::sys", Schedule: "explore", Advance: &advance,
+	})
+	if err != nil || resp.Error != "" {
+		t.Fatalf("ExecuteState under explore: %v %q", err, resp.GetError())
+	}
+	x := resp.Exploration
+	if !x.Complete || x.Runs != 2 || len(resp.Outcomes) != 1 || resp.Outcomes[0].Linearizations != 2 {
+		t.Fatalf("exploration status %v with %d outcomes, want one outcome of 2 runs", x, len(resp.Outcomes))
+	}
+	states := coverageTexts(x.Coverage.States)
+	wantStates := []string{
+		"Cov::sys#1.judge: watching (Cov::Sys::judge::watching) 2",
+		"Cov::sys#1.m.run: fin (Cov::M::run::fin) 2",
+		"Cov::sys#1.m.run: s0 (Cov::M::run::s0) 2",
+		"Cov::sys#1.m.run: viaA (Cov::M::run::viaA) 1",
+		"Cov::sys#1.m.run: viaB (Cov::M::run::viaB) 1",
+	}
+	if !slices.Equal(states, wantStates) {
+		t.Errorf("states entered %q\nwant %q", states, wantStates)
+	}
+	transitions := coverageTexts(x.Coverage.Transitions)
+	wantTransitions := []string{
+		"Cov::sys#1.m.run: s0 -> viaA (Cov::M::run::s0 -> viaA) 1",
+		"Cov::sys#1.m.run: s0 -> viaB (Cov::M::run::s0 -> viaB) 1",
+		"Cov::sys#1.m.run: viaA -> fin (Cov::M::run::viaA -> fin) 1",
+		"Cov::sys#1.m.run: viaB -> fin (Cov::M::run::viaB -> fin) 1",
+	}
+	if !slices.Equal(transitions, wantTransitions) {
+		t.Errorf("transitions taken %q\nwant %q", transitions, wantTransitions)
+	}
+}
+
+func coverageTexts(entries []*pb.CoverageEntry) []string {
+	out := make([]string, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, fmt.Sprintf("%s (%s) %d", e.Path, e.Declaration, e.Runs))
+	}
+	return out
 }

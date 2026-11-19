@@ -11,8 +11,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/tools/referee/diff"
 )
 
-// The Java-free guard: the committed baseline must state the pin, the bridge
-// source and the corpora as this checkout has them, without the pilot.
+// The Java-free guard: the committed baseline's index must state the pin, the
+// bridge source and the corpora as this checkout has them, without the pilot.
 func TestCommittedBaselineStatesThisRepositorysProvenance(t *testing.T) {
 	path, current := currentProvenance(t)
 	if err := baseline.CheckCommitted(path, refreshCommand, current); err != nil {
@@ -67,7 +67,7 @@ func currentProvenance(t *testing.T) (string, baseline.Record) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return filepath.Join(root, filepath.FromSlash(committedBaseline)), current
+	return committedIndex(root), current
 }
 
 // The baseline names the reference side only (pinned tools, no digest of our sources, no date), so a

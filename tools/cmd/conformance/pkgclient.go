@@ -288,6 +288,16 @@ func (c *pkgClient) getSymbol(ctx context.Context, request protoreflect.Message)
 	if req.IncludeLibraryMembers {
 		opts = append(opts, opensysml.WithLibraryMembers())
 	}
+	switch req.Lookup {
+	case pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME:
+		opts = append(opts, opensysml.ByQualifiedName())
+	case pb.LookupKind_LOOKUP_KIND_ELEMENT_ID:
+		opts = append(opts, opensysml.ByElementID())
+	default:
+		if !req.ResolveName {
+			opts = append(opts, opensysml.ByReportedID())
+		}
+	}
 	symbol, err := c.api.LookupSymbol(ctx, c.model(req.ModelHash), req.SymbolId, opts...)
 	var failure *opensysml.FailureError
 	if errors.As(err, &failure) {
@@ -1002,7 +1012,16 @@ func (c *pkgClient) getElementProperties(ctx context.Context, request protorefle
 	if err := retype(request, req); err != nil {
 		return nil, err
 	}
-	read, err := c.api.ElementProperties(ctx, c.model(req.ModelHash), req.ElementId, req.Properties...)
+	var read *opensysml.ElementProperties
+	var err error
+	switch req.Lookup {
+	case pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME:
+		read, err = c.api.ElementPropertiesByName(ctx, c.model(req.ModelHash), req.ElementId, req.Properties...)
+	case pb.LookupKind_LOOKUP_KIND_ELEMENT_ID:
+		read, err = c.api.ElementPropertiesByID(ctx, c.model(req.ModelHash), req.ElementId, req.Properties...)
+	default:
+		read, err = c.api.ElementProperties(ctx, c.model(req.ModelHash), req.ElementId, req.Properties...)
+	}
 	var failure *opensysml.FailureError
 	if errors.As(err, &failure) {
 		return &pb.GetElementPropertiesResponse{Error: failure.Message}, nil
@@ -1281,7 +1300,12 @@ func (c *pkgClient) renderView(ctx context.Context, request protoreflect.Message
 	if err := retype(request, req); err != nil {
 		return nil, err
 	}
-	var options []opensysml.RenderViewOption
+	options := []opensysml.RenderViewOption{
+		opensysml.WithShow(req.Show...), opensysml.WithDepth(int(req.Depth)), opensysml.WithCompartments(req.Compartments),
+		opensysml.WithForm(req.Form), opensysml.WithPalette(req.Palette), opensysml.WithStyle(req.Style),
+		opensysml.WithLines(req.Lines), opensysml.WithDirection(req.Direction), opensysml.WithLink(req.Link),
+		opensysml.WithUnplaced(req.Unplaced),
+	}
 	if req.Ports == "full" {
 		options = append(options, opensysml.WithFullPorts())
 	}
@@ -1291,7 +1315,7 @@ func (c *pkgClient) renderView(ctx context.Context, request protoreflect.Message
 	}
 	response := &pb.RenderViewResponse{
 		View: rendered.View, Kind: rendered.Kind, Stated: rendered.Stated,
-		Columns: rendered.Columns, Notices: rendered.Notices,
+		Columns: rendered.Columns, Notices: rendered.Notices, Text: rendered.Text,
 	}
 	if rendered.Canvas != nil {
 		response.Canvas = &pb.RenderCanvas{
@@ -1618,6 +1642,7 @@ func symbolToProto(symbol *opensysml.Symbol) *pb.SymbolInfo {
 		Kind:                      symbol.Kind,
 		Metadata:                  symbol.Metadata,
 		ChildIds:                  symbol.ChildIDs,
+		AnnotatingMetadataIds:     symbol.AnnotatingMetadataIDs,
 		WithheldLibraryAttributes: int32(symbol.WithheldLibraryAttributes), // #nosec G115 -- attribute counts are small
 		WithheldLibraryMembers:    int32(symbol.WithheldLibraryMembers),    // #nosec G115 -- member counts are small
 	}
@@ -1641,13 +1666,14 @@ func symbolToProto(symbol *opensysml.Symbol) *pb.SymbolInfo {
 	}
 	if symbol.Type != nil {
 		out.TypeInfo = &pb.TypeInfo{
-			Declared:        symbol.Type.Declared,
-			ResolvedId:      symbol.Type.ResolvedID,
-			ResolvedKind:    symbol.Type.ResolvedKind,
-			Primitive:       symbol.Type.Primitive,
-			PrimitiveSource: symbol.Type.PrimitiveSource,
-			Quantity:        symbol.Type.Quantity,
-			Unit:            symbol.Type.Unit,
+			Declared:              symbol.Type.Declared,
+			ResolvedId:            symbol.Type.ResolvedID,
+			ResolvedQualifiedName: symbol.Type.ResolvedQualifiedName,
+			ResolvedKind:          symbol.Type.ResolvedKind,
+			Primitive:             symbol.Type.Primitive,
+			PrimitiveSource:       symbol.Type.PrimitiveSource,
+			Quantity:              symbol.Type.Quantity,
+			Unit:                  symbol.Type.Unit,
 		}
 	}
 	if symbol.Multiplicity != nil {
@@ -1655,10 +1681,11 @@ func symbolToProto(symbol *opensysml.Symbol) *pb.SymbolInfo {
 	}
 	for _, specialization := range symbol.Specializations {
 		out.Specializations = append(out.Specializations, &pb.Specialization{
-			Kind:       specialization.Kind,
-			Declared:   specialization.Declared,
-			TargetId:   specialization.TargetID,
-			TargetKind: specialization.TargetKind,
+			Kind:                specialization.Kind,
+			Declared:            specialization.Declared,
+			TargetId:            specialization.TargetID,
+			TargetQualifiedName: specialization.TargetQualifiedName,
+			TargetKind:          specialization.TargetKind,
 		})
 	}
 	return out

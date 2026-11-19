@@ -149,32 +149,7 @@ func (e *encoder) materializeRelationships(subject rdf.Term) {
 	if ontology.IsAncestorOrSelf(e.metaclassOf(subject), "Membership") {
 		return
 	}
-	type pending struct {
-		kind   ast.RelationshipKind
-		target rdf.Term
-		count  int
-		index  int
-	}
-	var targets []pending
-	position := map[headItem]int{}
-	aboutPosition := map[headItem]int{}
-	for _, kind := range materializedKinds {
-		if kind == ast.RelAnnotates {
-			// Each `about` entry is its own Annotation, a repeated name included (KerML
-			// 8.3.2.3.2); the collapsed annotatedElement states each target once.
-			items := e.aboutItems(subject)
-			for i, item := range items {
-				aboutPosition[item] = len(targets)
-				targets = append(targets, pending{kind, item.element, len(items), i})
-			}
-			continue
-		}
-		objects := e.graph.Objects(subject, rdf.SysML+relationshipProperty[kind])
-		for i, target := range objects {
-			position[headItem{kind: kind, element: target}] = len(targets)
-			targets = append(targets, pending{kind, target, len(objects), i})
-		}
-	}
+	targets, position, aboutPosition := e.pendingRelationships(subject)
 	emitted := make([]bool, len(targets))
 	var block []rdf.Term
 	emit := func(at int) {
@@ -204,13 +179,7 @@ func (e *encoder) materializeRelationships(subject rdf.Term) {
 				block = append(block, item.element)
 				continue
 			}
-			if item.kind == ast.RelAnnotates {
-				if at, ok := aboutPosition[item]; ok {
-					emit(at)
-				}
-				continue
-			}
-			if at, ok := position[headItem{kind: item.kind, element: item.element}]; ok {
+			if at, ok := pendingAt(item, position, aboutPosition); ok {
 				emit(at)
 			}
 		}
@@ -221,6 +190,51 @@ func (e *encoder) materializeRelationships(subject rdf.Term) {
 	if head != nil {
 		e.seatHead(subject, head.anchor, block)
 	}
+}
+
+// pendingRelationship is one target of a collapsed head property awaiting its
+// relationship element: the clause kind and the target's place among that kind's.
+type pendingRelationship struct {
+	kind   ast.RelationshipKind
+	target rdf.Term
+	count  int
+	index  int
+}
+
+// pendingRelationships lists the targets of every collapsed head property
+// subject states, kind by kind, with the position of each head item among them.
+func (e *encoder) pendingRelationships(subject rdf.Term) (targets []pendingRelationship, position, aboutPosition map[headItem]int) {
+	position = map[headItem]int{}
+	aboutPosition = map[headItem]int{}
+	for _, kind := range materializedKinds {
+		if kind == ast.RelAnnotates {
+			// Each `about` entry is its own Annotation, a repeated name included (KerML
+			// 8.3.2.3.2); the collapsed annotatedElement states each target once.
+			items := e.aboutItems(subject)
+			for i, item := range items {
+				aboutPosition[item] = len(targets)
+				targets = append(targets, pendingRelationship{kind, item.element, len(items), i})
+			}
+			continue
+		}
+		objects := e.graph.Objects(subject, rdf.SysML+relationshipProperty[kind])
+		for i, target := range objects {
+			position[headItem{kind: kind, element: target}] = len(targets)
+			targets = append(targets, pendingRelationship{kind, target, len(objects), i})
+		}
+	}
+	return targets, position, aboutPosition
+}
+
+// pendingAt finds the pending target a spelled head item names: an `about`
+// entry by the item itself, a specialization clause by its kind and object.
+func pendingAt(item headItem, position, aboutPosition map[headItem]int) (int, bool) {
+	if item.kind == ast.RelAnnotates {
+		at, ok := aboutPosition[item]
+		return at, ok
+	}
+	at, ok := position[headItem{kind: item.kind, element: item.element}]
+	return at, ok
 }
 
 // aboutItems are the `about` entries an annotating element's head spelled, in
@@ -311,14 +325,12 @@ func (e *encoder) seatHead(subject rdf.Term, anchor int, block []rdf.Term) {
 	}
 }
 
-// relationshipSpec picks the materialization of one collapsed property on
-// subject: the relationship class a target takes depends on what the element
-// is, and a `subsets` a satisfy or other end-binding head states is written
-// as an OwnedReferenceSubsetting (SysML.xtext).
+// relationshipSpec picks the materialization of one collapsed property on subject: the
+// relationship class a target takes depends on what the element is.
 func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, count, i int) (normativeRelationship, bool) {
 	metaclass := e.metaclassOf(subject)
 	classifier := ontology.IsAncestorOrSelf(metaclass, "Classifier")
-	suffix := relationshipSuffix(kind, classifier, e.referenceSubsettingForm(subject), count, i)
+	suffix := relationshipSuffix(kind, classifier, count, i)
 	switch kind {
 	case ast.RelTyping:
 		return normativeRelationship{mFeatureTyping, suffix,
@@ -346,9 +358,6 @@ func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, 
 				[]string{pOwnedSpecialization, pOwnedRelationship}}, true
 		}
 	case ast.RelSubsets:
-		if e.referenceSubsettingForm(subject) {
-			return referenceSubsettingSpec(suffix), true
-		}
 		return normativeRelationship{mSubsetting, suffix,
 			[]string{pSubsettingFeature, pOwningFeature, pSpecific, pSource, pOwningRelatedElement},
 			[]string{pSubsettedFeature, pGeneral, pTarget},
@@ -374,7 +383,7 @@ func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, 
 // relationshipSuffix names the relationship element materialized for the i-th of count
 // targets of a head clause of kind, after its owner's id: the one rule the writer and the
 // identity reader (writtenRelationships) share. Empty for a kind no element is made for.
-func relationshipSuffix(kind ast.RelationshipKind, classifier, referenceForm bool, count, i int) string {
+func relationshipSuffix(kind ast.RelationshipKind, classifier bool, count, i int) string {
 	index := fmt.Sprintf("%d", i)
 	switch kind {
 	case ast.RelTyping:
@@ -387,9 +396,6 @@ func relationshipSuffix(kind ast.RelationshipKind, classifier, referenceForm boo
 		}
 		return "_sp" + index
 	case ast.RelSubsets:
-		if referenceForm {
-			return referenceSubsettingSuffix(count, i)
-		}
 		return "_ss" + index
 	case ast.RelRedefines:
 		return "_rd" + index
@@ -408,17 +414,8 @@ func referenceSubsettingSuffix(count, i int) string {
 	return "_rs"
 }
 
-// referenceSubsettingForm reports whether a `subsets` subject states is an
-// OwnedReferenceSubsetting: the satisfy head writes the requirement it subsets
-// bare, and the other end-binding forms (`perform`, `exhibit`, `include`,
-// `assert`, `satisfy`) state their targets through `references`.
-func (e *encoder) referenceSubsettingForm(subject rdf.Term) bool {
-	return e.metaclassOf(subject) == "SatisfyRequirementUsage" || e.verifiedReferences[subject] ||
-		e.graph.HasProperty(subject, rdf.OpenSysML+xEndForm)
-}
-
-// referenceSubsettingSpec is the materialization of a `references` target or
-// an end-form `subsets` one: a ReferenceSubsetting per target, under suffix.
+// referenceSubsettingSpec is the materialization of a `references` target: a
+// ReferenceSubsetting per target, under suffix.
 func referenceSubsettingSpec(suffix string) normativeRelationship {
 	return normativeRelationship{mReferenceSubsetting, suffix,
 		[]string{pReferencingFeature, pSubsettingFeature, pOwningFeature, pSpecific, pSource, pOwningRelatedElement},
@@ -543,13 +540,13 @@ func (e *encoder) conjugatedPortDefinition(subject rdf.Term, fqn string, n *ast.
 	e.typed(conjugated, mConjugatedPortDefinition)
 	e.graph.Add(conjugated, e.sysml(pElementID), rdf.String(rdf.LocalName(conjugated.Value)))
 	address := fqn + "::" + conjugateSegment
-	named := n.Ident.Name != ""
+	named := n.Ident.HasName()
 	name := ""
 	if named {
 		name = "~" + n.Ident.Name
 		address = fqn + "::" + identity.EscapeName(name)
 	}
-	e.graph.Add(conjugated, addressTerm(address), rdf.String(address))
+	stateAddress(e.graph.Add, conjugated, address)
 	if named {
 		e.graph.Add(conjugated, e.sysml(pDeclaredName), rdf.String(name))
 	}
@@ -599,7 +596,7 @@ func (e *encoder) subjectParameter(subject rdf.Term, owner string, ownerSym *sym
 	}
 	e.typed(usage, mReferenceUsage)
 	e.graph.Add(usage, e.sysml(pElementID), rdf.String(rdf.LocalName(usage.Value)))
-	e.graph.Add(usage, addressTerm(owner), rdf.String(owner+"::_subject"))
+	stateAddress(e.graph.Add, usage, owner+"::_subject")
 	// The subject is a referential usage owned by the satisfy usage, an Occurrence.
 	if e.ids.model.UsageMayTimeVaryUnder(ownerSym) {
 		e.flags(usage, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})

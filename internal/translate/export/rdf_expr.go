@@ -204,6 +204,8 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 		return e.multiplicity(subject, owner, n.Multiplicity)
 
 	case *ast.FeatureChainExpr:
+		// A feature chain expression is the `.` operator applied (KerML 1.0 § 8.3.4.8.4).
+		e.graph.Add(subject, e.sysml(pOperator), rdf.String("."))
 		if err := e.arguments(subject, owner, []ast.Node{n.Operand}, true); err != nil {
 			return err
 		}
@@ -393,7 +395,7 @@ func decimalText(r *big.Rat, places int) string {
 // exact decimal of the binary value (`"0.1"^^xsd:float` is 0.100000001490116119384765625).
 func binaryLiteralText(term rdf.Term) string {
 	bits := 64
-	switch term.Datatype {
+	switch term.Datatype() {
 	case rdf.XSD + "double":
 	case rdf.XSD + "float":
 		bits = 32
@@ -486,7 +488,7 @@ func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, body *ast.
 	e.graph.Add(node, e.sysml(pElementID), rdf.String(rdf.LocalName(node.Value)))
 	e.graph.Add(node, e.sysx(xMemberIndex), rdf.Int(index))
 	e.graph.Add(node, e.sysml(pDirection), rdf.String(directionKeyword(ast.DirIn)))
-	e.name(node, param.Name)
+	e.name(node, param.Name, source.Span{})
 	// The parameter's symbol derives its variability; a body it declares as its
 	// node is looked up by the parameter's name (deriveUsageMayTimeVary).
 	var variable, timeVarying bool
@@ -1140,11 +1142,12 @@ func (d *decoder) valueOwner(triple rdf.Triple, valueTargets map[string]string, 
 	return feature, false, nil
 }
 
-// derivedConnectorFeature reports a connector's relatedFeature, sourceFeature or
-// targetFeature, which restate what its ends reference and carry no notation of their own.
+// derivedConnectorFeature reports a connector's relatedFeature, sourceFeature, targetFeature and the
+// relatedElement, source, target they redefine, which restate what its ends reference and carry no notation.
 func (d *decoder) derivedConnectorFeature(triple rdf.Triple) bool {
 	switch triple.Predicate.Value {
-	case rdf.SysML + pRelatedFeature, rdf.SysML + pSourceFeature, rdf.SysML + pTargetFeature:
+	case rdf.SysML + pRelatedFeature, rdf.SysML + pSourceFeature, rdf.SysML + pTargetFeature,
+		rdf.SysML + pRelatedElement, rdf.SysML + pSource, rdf.SysML + pTarget:
 		return ontology.IsAncestorOrSelf(d.metaclass(triple.Subject), "Connector")
 	}
 	return false
@@ -1370,7 +1373,7 @@ func realValueText(lexical string) (string, bool) {
 // where that name alone reads as another element after the operand.
 func (d *decoder) segmentName(chain, term rdf.Term, in *element) (string, error) {
 	if term.IsLiteral() {
-		if term.Datatype == rdf.OpenSysML+dtExpression {
+		if term.Datatype() == rdf.OpenSysML+dtExpression {
 			return term.Value, nil
 		}
 		return qualifiedNameText(term.Value), nil
@@ -1818,7 +1821,7 @@ func (d *decoder) bodyParameterText(param rdf.Term, in *element) (string, error)
 			Note: fmt.Sprintf("a parameter of an expression body is written `in`, and its sysml:direction is %q", direction),
 		}
 	}
-	name, ok := d.stringOf(el, rdf.SysML+pDeclaredName)
+	name, ok := d.nameOf(el, rdf.SysML+pDeclaredName)
 	if !ok {
 		return "", &UnsupportedError{
 			What: what,
@@ -2169,7 +2172,7 @@ func (d *decoder) metadataAccessReference(node rdf.Term, in *element) (string, e
 // reference (noteSegment records it as a segment). It returns the element reached.
 func (d *decoder) chainLinkName(term rdf.Term, operand string, in *element) (string, string, error) {
 	if term.IsLiteral() {
-		if term.Datatype == rdf.OpenSysML+dtExpression {
+		if term.Datatype() == rdf.OpenSysML+dtExpression {
 			return term.Value, "", nil
 		}
 		return qualifiedNameText(term.Value), "", nil

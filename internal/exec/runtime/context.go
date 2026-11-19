@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -78,7 +79,7 @@ type Context struct {
 
 	// calcUsageRunning holds the calc usages whose bodies are running, so a body
 	// reading its own usage is a recursion rather than a nested evaluation.
-	calcUsageRunning map[calcUsageKey]*calcShape
+	calcUsageRunning map[calcUsageKey]*loadedCalc
 
 	// activations numbers the body activations begun in this context: a calc
 	// invocation, a block entry, a loop iteration, a body application.
@@ -137,7 +138,7 @@ type Context struct {
 	// resolvingBindings guards binding endpoint resolution for one instance
 	// feature, so a valueless binding cycle is reported rather than recursed.
 	resolvingBindings map[featureValueRef]bool
-	bindingOwners     map[featureValueRef]*ast.Usage
+	bindingOwners     map[featureValueRef]program.Origin
 
 	// pendingBehaviors are the object behaviors attached but not yet run, drained
 	// by the outermost materialization so a start reached from inside a running
@@ -182,6 +183,11 @@ type Context struct {
 	// coverageGaps holds the constructs this run performed in one order without
 	// a choice point, recorded once each (coverage_gap.go).
 	coverageGaps map[CoverageGap]bool
+	// coverage holds the states this run entered and the transitions it took,
+	// qualified by the object running the machine, whether or not it is traced.
+	coverage map[coverageKey]CoverageEntry
+	// covering is whether a check or an exploration runs this context and reads its coverage.
+	covering bool
 
 	// heldBehaviors are the behaviors already holding work when the outermost
 	// start under way began: a driver put it in flight, and dispatches it.
@@ -199,10 +205,12 @@ type Context struct {
 	// stepWrites is the ledger of the action step under way, nil between steps.
 	stepWrites *stepWriteLedger
 	// controls is the choice points the move under way stands on by control: the
-	// guards read and branches drawn around it (order_marks.go), each once;
-	// controlSet is the same as a set, nil until controlling computes it.
-	controls   []int64
-	controlSet []int64
+	// guards read and branches drawn around it (order_marks.go), each once.
+	controls []int64
+	// controlSet is controls sorted, nil until controlling computes it, and
+	// controlHeld the same by serial, which keeps each once.
+	controlSet  []int64
+	controlHeld map[int64]struct{}
 	// performing is the node whose performance the executor running is, nil for a
 	// run of its own: a body's own place is stamped as that performance's.
 	performing ast.Node
@@ -295,8 +303,8 @@ type Context struct {
 	sharedTaken    int64
 	// verdicts is the span sharing verdicts between objects of one shape; nil outside one.
 	verdicts *verdictMemo
-	// exemplars are the objects `this` denotes in the check about no object under way (exemplar.go).
-	exemplars *exemplars
+	// checkObjects are the objects the innermost check under way made for itself (constructed_objects.go).
+	checkObjects *checkObjects
 	// behaviorsAttached counts the object behaviors attached so far, so a
 	// derivation knows whether one was attached under it.
 	behaviorsAttached int64
@@ -356,6 +364,8 @@ type Context struct {
 	// quiescent is the memo a full scan leaves when it finds them all idle.
 	work      uint64
 	quiescent quiescence
+	// holding is the memo a full scan leaves when it finds some holding work.
+	holding heldWork
 	// held counts the behaviors that entered held on a succession; noneHeld is
 	// the memo the cycle check leaves when it finds none held at that count.
 	held     uint64
@@ -439,7 +449,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		run: &runState{
 			calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
 		},
-		calcUsageRunning: make(map[calcUsageKey]*calcShape),
+		calcUsageRunning: make(map[calcUsageKey]*loadedCalc),
 
 		maxActionSteps: DefaultMaxActionSteps,
 		maxStateEvents: DefaultMaxStateEvents,
@@ -461,7 +471,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		materializingConnectors: make(map[connectorRef]bool),
 		derivingFeatureValues:   make(map[featureValueRef]bool),
 		resolvingBindings:       make(map[featureValueRef]bool),
-		bindingOwners:           make(map[featureValueRef]*ast.Usage),
+		bindingOwners:           make(map[featureValueRef]program.Origin),
 		collectingSubsets:       make(map[featureValueRef]bool),
 		readingSubsetted:        make(map[featureValueRef]bool),
 		drawingSubsetters:       make(map[featureValueRef]bool),
@@ -491,11 +501,11 @@ func (ctx *Context) declaredSymbol(sym *symbols.Symbol) *symbols.Symbol {
 	return ctx.model.declaredSymbol(sym)
 }
 
-// collectDeclared records the symbol declared by each node under scope.
-func collectDeclared(scope *symbols.Scope, into map[ast.Node]*symbols.Symbol) {
+// collectDeclared records the symbol declaring each element under scope, by the element's key.
+func collectDeclared(scope *symbols.Scope, into map[symbols.ElementKey]*symbols.Symbol) {
 	scope.ForEachMember(func(sym *symbols.Symbol) bool {
 		if sym.Decl != nil {
-			into[sym.Decl] = sym
+			into[symbols.KeyOf(sym)] = sym
 		}
 		return true
 	})
@@ -1644,11 +1654,11 @@ func (ctx *Context) chainMembers(sym *symbols.Symbol, scope *symbols.Scope) []sc
 		if link == nil || ctx.frameDeclared(link) {
 			continue
 		}
-		for _, node := range unwrappedDeclMembers(link.Decl) {
+		for _, node := range lower.UnwrappedDeclMembers(link.Decl) {
 			out = append(out, scopedMember{node: node, scope: bodyScope(link, link.OwnerScope)})
 		}
 	}
-	for _, node := range unwrappedDeclMembers(sym.Decl) {
+	for _, node := range lower.UnwrappedDeclMembers(sym.Decl) {
 		out = append(out, scopedMember{node: node, scope: bodyScope(sym, scope)})
 	}
 	return out
@@ -2327,7 +2337,7 @@ func sameBehaviorMember(behaviors []*ObjectBehavior) *symbols.Symbol {
 func behaviorUsages(behaviors []*ObjectBehavior) []string {
 	usages := make([]string, 0, len(behaviors))
 	for _, b := range behaviors {
-		if member := b.Member(); member != nil && member.Name != "" {
+		if member := b.Member(); member != nil && member.Named() {
 			usages = append(usages, member.Name)
 		}
 	}

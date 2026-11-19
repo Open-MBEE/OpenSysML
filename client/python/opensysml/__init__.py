@@ -65,7 +65,7 @@ from opensysml.verdict import (
     AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, ToolDryRun, Validation,
     Verdict, VerificationVerdict,
 )
-from opensysml.exploration import Exploration, Outcome
+from opensysml.exploration import Coverage, CoverageEntry, Exploration, Outcome
 from opensysml.action_run import ActionOutputs
 from opensysml.engines import Bound, EngineInfo, Standing
 from opensysml.runs import (
@@ -148,7 +148,7 @@ __all__ = [
     "Verdict", "CalcResult", "AnalysisResult", "CaseEvaluation", "SweepRow", "SweepTable",
     "ToolDryRun",
     "Validation", "VerificationVerdict",
-    "Exploration", "Outcome", "ActionOutputs",
+    "Exploration", "Outcome", "ActionOutputs", "Coverage", "CoverageEntry",
     "Bound", "EngineInfo", "Standing",
     "QueryElement", "QueryError",
     "ElementIdentity", "ElementProperties", "ElementProperty", "CAPABILITY_ELEMENT_PROPERTIES", "CAPABILITY_INLINE_DOCUMENT_QUERY",
@@ -366,7 +366,8 @@ def connect(host='localhost', port=None, auto_start=True, version=None,
 def convert(to_format, file_path=None, content=None, model_hash=None,
             from_format='', tolerate_syntax_errors=False, host='localhost',
             port=None, id_form='', include_library_stubs=False, compact=False,
-            omit_derived=False, keep_derived=(), include_check_diagnostics=False):
+            omit_derived=False, keep_derived=(), include_check_diagnostics=False,
+            inherited_members=False):
     """Write a model out in another format (module-level convenience).
 
     Args:
@@ -394,6 +395,10 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
             library stubs written before 0.11.0; by default library elements
             remain bare references, not roots. Needs the
             ``convert_library_stubs`` capability
+        inherited_members (bool): For api-json, also write the derived lists
+            that repeat each Namespace's and Type's inherited and imported
+            members; by default an element carries its owned structure. Needs
+            the ``convert_inherited_members`` capability
         compact (bool): For notation converted to api-json, write the compact
             document (``api-json-compact/1``) in place of the element array.
             Needs the ``convert_compact`` capability
@@ -441,6 +446,7 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
         tolerate_syntax_errors=tolerate_syntax_errors,
         id_form=id_form,
         include_library_stubs=include_library_stubs,
+        inherited_members=inherited_members,
         compact=compact,
         omit_derived=omit_derived,
         keep_derived=keep_derived,

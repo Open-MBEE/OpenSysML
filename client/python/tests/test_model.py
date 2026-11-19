@@ -10,6 +10,7 @@ from opensysml.proto import sysml_pb2
 from opensysml.errors import ExecutionError, SymbolNotFoundError
 from opensysml.model import Model
 from opensysml.query import QueryElement
+from tests.lookups import answering, asked
 
 
 def _server_info(*capabilities):
@@ -29,9 +30,9 @@ def _client(symbols, capabilities=(CAPABILITY_QUERY,), library=()):
     """
     client = Mock()
     client.server_info.return_value = _server_info(*capabilities)
-    client.get_symbol.side_effect = lambda model_hash, symbol_id: (
+    client.get_symbol.side_effect = answering(lambda model_hash, symbol_id, resolve_name=False: (
         symbols.get(symbol_id) or next((s for s in library if s.id == symbol_id), None)
-    )
+    ))
 
     def owner(info):
         for parent in symbols.values():
@@ -277,7 +278,7 @@ def test_model_find_short_circuit():
     assert target.name == "Target"
 
     # Only the match itself was fetched, not the symbols around or below it.
-    fetched = [call.args[1] for call in mock_client.get_symbol.call_args_list]
+    fetched = [asked(call) for call in mock_client.get_symbol.call_args_list]
     assert "Root::Target::Nested" not in fetched
 
 
@@ -379,7 +380,7 @@ class TestModelLookup:
         assert model.find("engine").id == "Demo::Vehicle::engine"
 
         assert client.query.call_count == 1
-        fetched = [call.args[1] for call in client.get_symbol.call_args_list]
+        fetched = [asked(call) for call in client.get_symbol.call_args_list]
         assert fetched == ["Demo::Vehicle::engine"]
 
     def test_a_missing_short_name_is_one_query_and_one_fetch(self):
@@ -390,7 +391,7 @@ class TestModelLookup:
 
         assert client.query.call_count == 1
         # A bare name may still be the id of a library package, so that is tried.
-        fetched = [call.args[1] for call in client.get_symbol.call_args_list]
+        fetched = [asked(call) for call in client.get_symbol.call_args_list]
         assert fetched == ["Nope"]
 
     LIBRARY = [sysml_pb2.SymbolInfo(id="Base", name="Base", kind="package")]
@@ -446,7 +447,7 @@ class TestModelLookup:
             child_ids=["Demo::mass", *self.ROOT.child_ids],
         )
         client = _client({k: v for k, v in symbols.items() if k != "Demo::mass"})
-        client.get_symbol.side_effect = lambda model_hash, symbol_id: symbols.get(symbol_id)
+        client.get_symbol.side_effect = answering(lambda model_hash, symbol_id: symbols.get(symbol_id))
         error = sysml_pb2.Diagnostic(severity="error", message="unresolved reference: Base")
         model = Model(
             sysml_pb2.ParseFileResponse(model_hash="hash", root=root, diagnostics=[error]),
@@ -455,7 +456,7 @@ class TestModelLookup:
 
         assert model.find("mass").id == "Demo::mass"
         # The walk stops at the queried answer's depth, not at the bottom.
-        fetched = [call.args[1] for call in client.get_symbol.call_args_list]
+        fetched = [asked(call) for call in client.get_symbol.call_args_list]
         assert "Demo::Vehicle::engine" not in fetched
 
     def test_the_walk_under_a_files_unnamed_root_reaches_the_queried_depth(self):
@@ -486,7 +487,7 @@ class TestModelLookup:
         }
         root = sysml_pb2.SymbolInfo(id="", name="", kind="file", child_ids=["Demo"])
         client = _client({k: v for k, v in symbols.items() if k != "Demo::First::mass"})
-        client.get_symbol.side_effect = lambda model_hash, symbol_id: symbols.get(symbol_id)
+        client.get_symbol.side_effect = answering(lambda model_hash, symbol_id: symbols.get(symbol_id))
         error = sysml_pb2.Diagnostic(severity="error", message="unresolved reference: mass")
         model = Model(
             sysml_pb2.ParseFileResponse(model_hash="hash", root=root, diagnostics=[error]),
@@ -494,7 +495,7 @@ class TestModelLookup:
         )
 
         assert model.find("mass").id == "Demo::First::mass"
-        fetched = [call.args[1] for call in client.get_symbol.call_args_list]
+        fetched = [asked(call) for call in client.get_symbol.call_args_list]
         assert "Demo::Second::mass::deep" not in fetched
 
     def test_outermost_of_a_shared_short_name_wins(self):
@@ -534,15 +535,16 @@ class TestModelLookup:
         # Both owners are packages of the root, so one hop up settled the depths.
         assert client.query.call_count == 2
 
-    def test_an_id_the_service_resolves_to_another_symbol_is_not_found(self):
-        """The service follows imports; an id lookup names only the symbol carrying that id."""
+    def test_a_name_the_service_resolves_to_another_symbol_is_got_not_found(self):
+        """get resolves the qualified name, through imports; find names only the symbol carrying the id."""
         library = sysml_pb2.SymbolInfo(
             id="ISQBase::MassValue", name="MassValue", kind="attributeDef"
         )
         client = _client({**self.SYMBOLS, "Demo::MassValue": library})
         model = self._model(client)
 
-        assert model.get("Demo::MassValue") is None
+        assert model.get("Demo::MassValue").id == "ISQBase::MassValue"
+        assert client.get_symbol.call_args.kwargs == {"resolve_name": True}
         assert model.find("Demo::MassValue") is None
         assert "Demo::MassValue" not in model
 
@@ -555,7 +557,7 @@ class TestModelLookup:
 
         assert "Vehicle" in str(excinfo.value)
         # The declared names came from one query, not from walking the tree.
-        fetched = [call.args[1] for call in client.get_symbol.call_args_list]
+        fetched = [asked(call) for call in client.get_symbol.call_args_list]
         assert fetched == ["Vehicel"]
 
     def test_a_service_without_query_is_walked(self):

@@ -81,7 +81,7 @@ func (r *Rendering) D2With(options Options) (string, error) {
 		fmt.Fprintf(&b, " (%s)", r.Stated)
 	}
 	b.WriteString("\n")
-	for _, notice := range slices.Concat(r.Notices, notices) {
+	for _, notice := range slices.Concat(r.notices(), notices) {
 		fmt.Fprintf(&b, "# not represented: %s\n", notice)
 	}
 	if r.Kind.SupportsDirection() && options.Direction != "" {
@@ -424,7 +424,7 @@ func d2NodeClass(node *Node, glyphs bool) string {
 			return "choice"
 		case "shallow history", "deep history":
 			return "history"
-		case "region":
+		case "region", swimlaneKind:
 			return "region"
 		}
 	}

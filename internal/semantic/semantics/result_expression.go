@@ -3,6 +3,7 @@ package semantics
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // ResultExpression is a result expression a function or expression owns
@@ -14,6 +15,9 @@ type ResultExpression struct {
 	// Condition marks a constraint body's condition, one of the several a body
 	// may list; a calculation body's expression is a result on its own.
 	Condition bool
+	// Member is the body member stating the condition (ConstraintMember), the
+	// element the conversion identifies; nil for a bare expression member.
+	Member ast.Node
 }
 
 // ResultExpressionConflict is a second result expression membership of a
@@ -83,7 +87,7 @@ func OwnedResultExpressions(sym *symbols.Symbol) []ResultExpression {
 		}
 		expr := ResultExpression{Owner: sym, Node: member}
 		if c, ok := member.(*ast.ConstraintMember); ok {
-			expr.Node, expr.Condition = c.Expression, true
+			expr.Node, expr.Condition, expr.Member = c.Expression, true, c
 		}
 		out = append(out, expr)
 	}
@@ -161,4 +165,12 @@ func (m *Model) ResultExpressionConflict(sym *symbols.Symbol) *ResultExpressionC
 		c.Node = memberships[0].Node
 	}
 	return c
+}
+
+// Written is where the conflict is anchored, empty for none.
+func (c *ResultExpressionConflict) Written() source.Span {
+	if c == nil || c.Node == nil {
+		return source.Span{}
+	}
+	return c.Node.Span()
 }

@@ -22,6 +22,7 @@ import org.openmbee.opensysml.EditResult;
 import org.openmbee.opensysml.EditedDocument;
 import org.openmbee.opensysml.EngineInfo;
 import org.openmbee.opensysml.EnumLiteral;
+import org.openmbee.opensysml.Coverage;
 import org.openmbee.opensysml.Exploration;
 import org.openmbee.opensysml.FailureReason;
 import org.openmbee.opensysml.Instance;
@@ -409,7 +410,8 @@ public final class Protos {
         };
     Optional<Quantity.UnitTerm> reduction =
         quantity.hasUnitTerm() ? Optional.of(unitTerm(quantity.getUnitTerm())) : Optional.empty();
-    return new Quantity(magnitude, present(quantity.getUnit()), reduction);
+    return new Quantity(
+        magnitude, present(quantity.getUnit()), reduction, present(quantity.getValueType()));
   }
 
   private static Quantity.UnitTerm unitTerm(UnitTerm term) {
@@ -488,7 +490,8 @@ public final class Protos {
               specialization.getKind(),
               specialization.getDeclared(),
               present(specialization.getTargetId()),
-              present(specialization.getTargetKind())));
+              present(specialization.getTargetKind()),
+              present(specialization.getTargetQualifiedName())));
     }
     List<Symbol.Member> members = new ArrayList<>(symbol.getMembersCount());
     for (MemberInfo member : symbol.getMembersList()) {
@@ -515,7 +518,8 @@ public final class Protos {
         specializations,
         symbol.getWithheldLibraryAttributes(),
         members,
-        symbol.getWithheldLibraryMembers());
+        symbol.getWithheldLibraryMembers(),
+        symbol.getAnnotatingMetadataIdsList());
   }
 
   /**
@@ -599,7 +603,8 @@ public final class Protos {
         present(typeInfo.getUnit()),
         typeInfo.getTypesList().stream()
             .map(ref -> new Symbol.TypeRef(ref.getId(), present(ref.getKind())))
-            .toList());
+            .toList(),
+        present(typeInfo.getResolvedQualifiedName()));
   }
 
   private static Symbol.Multiplicity multiplicity(MultiplicityInfo multiplicity) {
@@ -949,6 +954,7 @@ public final class Protos {
     }
     quantity.unit().ifPresent(builder::setUnit);
     quantity.reduction().ifPresent(reduction -> builder.setUnitTerm(proto(reduction)));
+    quantity.valueType().ifPresent(builder::setValueType);
     return builder.build();
   }
 
@@ -1095,7 +1101,27 @@ public final class Protos {
         s.getMassBounded(),
         s.getNotesList(),
         s.getScopeList(),
-        s.getStatus());
+        s.getStatus(),
+        s.hasCoverage() ? coverage(s.getCoverage()) : Coverage.NONE);
+  }
+
+  /**
+   * The states entered and transitions taken across every run or schedule.
+   *
+   * @param c the generated coverage
+   * @return the immutable coverage
+   */
+  public static Coverage coverage(org.openmbee.opensysml.proto.Coverage c) {
+    return new Coverage(coverageEntries(c.getStatesList()), coverageEntries(c.getTransitionsList()));
+  }
+
+  private static List<Coverage.Entry> coverageEntries(
+      List<org.openmbee.opensysml.proto.CoverageEntry> entries) {
+    List<Coverage.Entry> out = new ArrayList<>(entries.size());
+    for (org.openmbee.opensysml.proto.CoverageEntry e : entries) {
+      out.add(new Coverage.Entry(e.getPath(), e.getDeclaration(), e.getRuns()));
+    }
+    return out;
   }
 
   private static CheckResult.Witness checkWitness(org.openmbee.opensysml.proto.CheckWitness w) {
@@ -1503,7 +1529,8 @@ public final class Protos {
         status.getRunsBudget(),
         status.getDepthBudget(),
         status.getFailedLinearizations(),
-        status.getProbabilitiesLowerBound());
+        status.getProbabilitiesLowerBound(),
+        status.hasCoverage() ? coverage(status.getCoverage()) : Coverage.NONE);
   }
 
   /**
@@ -2455,7 +2482,10 @@ public final class Protos {
         outcome.getStep(),
         queryFailures(outcome.getFailuresList()),
         findings,
-        queryFailures(outcome.getPathFailuresList()));
+        queryFailures(outcome.getPathFailuresList()),
+        outcome.getFailuresTotal(),
+        outcome.getFindingsTotal(),
+        outcome.getPathFailuresTotal());
   }
 
   private static List<QueryOutcome.Failure> queryFailures(
@@ -2480,7 +2510,10 @@ public final class Protos {
                   members,
                   features,
                   frontier.getKindsList(),
-                  frontier.getNearest())));
+                  frontier.getNearest(),
+                  frontier.getMembersTotal(),
+                  frontier.getFeaturesTotal(),
+                  frontier.getKindsTotal())));
     }
     return out;
   }

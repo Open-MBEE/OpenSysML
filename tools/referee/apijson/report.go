@@ -31,7 +31,8 @@ var normalizations = []string{
 	"Standard-library elements the pilot writes (isLibraryElement, one copy per file that refers to them) are left out and counted under pilotLibraryElements; this repository's writer refers to library elements and never writes them.",
 }
 
-// Report is what one run writes; it is also the committed baseline's shape.
+// Report is what one run writes under build/; the committed baseline holds the
+// same figures as index.json's Summary and the scorecard split per source file.
 type Report struct {
 	Provenance     baseline.Record `json:"provenance"`
 	Exporter       string          `json:"exporter"`

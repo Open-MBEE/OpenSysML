@@ -63,6 +63,9 @@ func TestGoldenDOT(t *testing.T) {
 		{"calc-parameters", "calc-parameters.sysml", "ParameterCalcViews::calculations", KindTree, false},
 		{"calc-parameter-definitions", "calc-parameters.sysml", "ParameterCalcViews::definitions", KindTree, false},
 		{"glyphs-interconnection", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::lineGlyphs", KindInterconnection, false},
+		{"action-swimlanes-performed", "action-swimlanes.sysml", "SwimLanes::performedView", KindAction, false},
+		{"action-swimlanes-action", "action-swimlanes.sysml", "SwimLanes::actionView", KindAction, false},
+		{"action-swimlanes-shapes", "action-swimlanes.sysml", "LaneShapes::assembleView", KindAction, false},
 		{"glyphs-action", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::fillGlyphs", KindAction, false},
 		{"glyphs-mixed", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::mixedGlyphs", KindMixed, false},
 	}
@@ -373,7 +376,8 @@ func TestDOTDirections(t *testing.T) {
 	}
 }
 
-// Every edge kind is drawn in the style parallel to its Mermaid arrow.
+// Every edge kind is drawn in the style parallel to its Mermaid arrow; a typing is the triangle under a
+// class, its two dots drawn into the SVG beside the line (DrawDOTGlyphs), where no arrowhead sets one.
 func TestDOTEdgeKinds(t *testing.T) {
 	styles := map[EdgeKind]string{
 		EdgeConnection:          `"a" -> "b" [label="k", arrowhead=none, penwidth=3];`,
@@ -382,10 +386,10 @@ func TestDOTEdgeKinds(t *testing.T) {
 		EdgeFlow:                `"a" -> "b" [label="k"];`,
 		EdgeBinding:             `"a" -> "b" [label="k", arrowhead=none];`,
 		EdgeSpecialization:      `"a" -> "b" [label="k", arrowhead=empty];`,
-		EdgeTyping:              `"a" -> "b" [label="k", arrowhead=onormaldotdot];`,
+		EdgeTyping:              `"a" -> "b" [label="k", arrowhead=empty, class=definition];`,
 		EdgeComposition:         `"a" -> "b" [label="k", dir=back, arrowtail=diamond];`,
 		EdgeReference:           `"a" -> "b" [label="k", dir=back, arrowtail=odiamond];`,
-		EdgeContainment:         `"a" -> "b" [label="k", dir=back, arrowtail=odot, taillabel="+", labeldistance=0.4, labelangle=0];`,
+		EdgeContainment:         `"a" -> "b" [label="k", dir=back, arrowtail=odot, taillabel="+", labeldistance=0.4, labelangle=0, class="owned-membership"];`,
 		EdgeImport:              `"a" -> "b" [label="k", arrowhead=vee, style=dashed];`,
 		EdgeSatisfy:             `"a" -> "b" [label="k", arrowhead=vee];`,
 		EdgeVerify:              `"a" -> "b" [label="k", arrowhead=vee];`,
@@ -406,8 +410,8 @@ func TestDOTEdgeKinds(t *testing.T) {
 		EdgeAssert:              `"a" -> "b" [label="k", arrowhead=vee];`,
 		EdgeFrame:               `"a" -> "b" [label="k", arrowhead=vee];`,
 		EdgeEvent:               `"a" -> "b" [label="k", arrowhead=vee];`,
-		EdgePortion:             `"a" -> "b" [label="k", dir=back, arrowtail=dot];`,
-		EdgeReferenceSubsetting: `"a" -> "b" [label="k", arrowhead=onormaldot];`,
+		EdgePortion:             `"a" -> "b" [label="k", dir=back, arrowtail=dot, class="portion-relationship"];`,
+		EdgeReferenceSubsetting: `"a" -> "b" [label="k", arrowhead=onormaldot, class="reference-subsetting"];`,
 		EdgeUnownedMembership:   `"a" -> "b" [label="k", dir=back, arrowtail=odot];`,
 		EdgeExpose:              `"a" -> "b" [label="k", arrowhead=vee, style=dashed];`,
 		EdgeDependencyClient:    `"a" -> "b" [label="k", dir=none, style=dashed];`,

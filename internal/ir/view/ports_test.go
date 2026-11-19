@@ -90,11 +90,10 @@ func TestTheMinimalDisplayDrawsTheConnectedPortsAlone(t *testing.T) {
 			t.Errorf("%s lacks %q", label, want)
 		}
 	}
-	// The connected pins are squares: a cell of the part's label in DOT, a
-	// `port` in PlantUML, a node in the part's subgraph in Mermaid, each ending
-	// the connector.
+	// The connected pins are squares, each ending the connector: one on the edge of the part's box
+	// in DOT, a `port` in PlantUML, a node in the part's subgraph in Mermaid.
 	for label, wants := range map[string][]string{
-		"DOT": {`"` + backup.ID + `" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0">`,
+		"DOT": {`"` + backup.ID + `" [shape=plain, style=solid, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0">`,
 			`<td port="` + standby.ID + `" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">^durationOut</font></td>`,
 			`"` + backup.ID + `":"` + standby.ID + `" -> "` + heating.ID + `":"` + in.ID + `" [label="standby"`},
 		"PlantUML": {"    port \"^durationOut\" as " + standby.ID + "\n", standby.ID + " -[thickness=3]- " + in.ID + " : standby\n"},

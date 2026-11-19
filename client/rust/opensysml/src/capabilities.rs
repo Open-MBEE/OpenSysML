@@ -35,6 +35,8 @@ pub const CAPABILITY_RENDER_DOCUMENT_HTML: &str = "render_document_html";
 pub const CAPABILITY_RENDER_DOCUMENT_ASCIIDOC: &str = "render_document_asciidoc";
 /// The `RenderView` RPC, rendering named views as machine-readable diagram data.
 pub const CAPABILITY_RENDER_VIEW: &str = "render_view";
+/// `form` and the writer options on `RenderViewRequest`, answered in `text`.
+pub const CAPABILITY_RENDER_VIEW_FORM: &str = "render_view_form";
 /// The `ExportGraphs` RPC, exporting a behavior's lowered graph as `graphs:1` JSON.
 pub const CAPABILITY_EXPORT_GRAPHS: &str = "export_graphs";
 /// The ImportData RPC, which sets the feature values data files assign.
@@ -51,6 +53,13 @@ pub const CAPABILITY_EVALUATE_SUBJECT: &str = "evaluate_subject";
 pub const CAPABILITY_SYMBOL_ATTRIBUTES: &str = "symbol_attributes";
 /// Populated `SymbolInfo.members`: every member, own and inherited, with its provenance.
 pub const CAPABILITY_SYMBOL_MEMBERS: &str = "symbol_members";
+/// `GetSymbolRequest.resolve_name` honoured; without it every id is read as one the service reported.
+pub const CAPABILITY_SYMBOL_NAME_RESOLUTION: &str = "symbol_name_resolution";
+/// Populated `SymbolInfo.annotating_metadata_ids`: the metadata usages annotating a symbol.
+pub const CAPABILITY_SYMBOL_ANNOTATING_METADATA: &str = "symbol_annotating_metadata";
+/// The `lookup` of `GetSymbolRequest` and `GetElementPropertiesRequest` honoured: a name read
+/// only as a name, an id only as an id.
+pub const CAPABILITY_SYMBOL_LOOKUP_KIND: &str = "symbol_lookup_kind";
 /// The `GetElementProperties` RPC: an element's metamodel properties by their specification names.
 pub const CAPABILITY_ELEMENT_PROPERTIES: &str = "element_properties";
 /// A valueless feature of a value type as `Value.unset`.
@@ -159,6 +168,9 @@ pub const CAPABILITY_CONVERT_LIBRARY_REFERENCES: &str = "convert_library_referen
 /// `ConvertRequest.include_library_stubs`: api-json written with the ownerless library stubs of
 /// releases before 0.11.0 restored.
 pub const CAPABILITY_CONVERT_LIBRARY_STUBS: &str = "convert_library_stubs";
+/// `ConvertRequest.inherited_members`: api-json written with the derived lists that repeat each
+/// Namespace's and Type's inherited and imported members; a service without it always writes them.
+pub const CAPABILITY_CONVERT_INHERITED_MEMBERS: &str = "convert_inherited_members";
 /// `ConvertRequest.include_check_diagnostics`: the semantic check's diagnostics, each with its
 /// own severity, reported alongside the converted output.
 pub const CAPABILITY_CONVERT_CHECK_DIAGNOSTICS: &str = "convert_check_diagnostics";

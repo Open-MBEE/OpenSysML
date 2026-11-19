@@ -21,6 +21,8 @@ type terminated struct {
 	then   []*actionFrame
 	object *Instance
 	ended  map[int64]bool
+	// returns marks a `return` a step of a calculation's body reached, ending its performance.
+	returns bool
 }
 
 func (t *terminated) Error() string {
@@ -123,7 +125,7 @@ func (e *performances) terminateTargets(perf *actionFrame, s lower.Effect) ([]*a
 				pending, err := e.flow.beginPending(f.parent, s.Target)
 				return append(ongoing, pending...), err
 			}
-			latest, performed := f.subactions[s.Target]
+			latest, performed := f.subactions[f.refUnder(s.Target)]
 			ongoing := e.flow.ongoing(f, s.Target)
 			pending, err := e.flow.beginPending(f, s.Target)
 			if err != nil {
@@ -150,7 +152,7 @@ func (e *performances) terminateTargets(perf *actionFrame, s lower.Effect) ([]*a
 func (f *actionFrame) declaresAround(node ast.Node) bool {
 	name := ActionNodeName(node)
 	for ; f != nil; f = f.parent {
-		if slices.Contains(f.nodesNamed(name), node) {
+		if slices.Contains(NodesOf(f.nodesNamed(name)), node) {
 			return true
 		}
 	}
@@ -187,7 +189,7 @@ func (e *ActionExecutor) ongoing(parent *actionFrame, node ast.Node) []*actionFr
 			found = append(found, f)
 		}
 	}
-	add(parent.subactions[node], math.MaxInt64)
+	add(parent.subactions[parent.refUnder(node)], math.MaxInt64)
 	for _, state := range parent.repeats {
 		if state.node != node {
 			continue
@@ -219,7 +221,7 @@ func (e *ActionExecutor) beginPending(parent *actionFrame, node ast.Node) ([]*ac
 	}
 	var parked []int64
 	for _, token := range e.tokens {
-		if token.frame == parent && token.Location == node && token.body == nil {
+		if token.frame == parent && token.Node() == node && token.body == nil {
 			parked = append(parked, token.ID)
 		}
 	}
@@ -416,7 +418,7 @@ func (e *ActionExecutor) leaveTerminated(tokenIdx int, perf *actionFrame) error 
 	}
 	perf.live = 0
 	token.frame = perf.parent
-	token.Location = perf.node
+	token.Location = perf.ref()
 	token.Via = lower.ActionEdge{}
 	token.Wait = nil
 	token.repetition = perf.repetition
@@ -433,6 +435,14 @@ func (e *ActionExecutor) leaveTerminated(tokenIdx int, perf *actionFrame) error 
 // dropTokensIn drops every token in perf's flow and the flows nested in it but the one
 // with ID keep, lowest ID first, ending their paused work; the trace records the drops.
 func (e *ActionExecutor) dropTokensIn(perf *actionFrame, keep int64) {
+	dropped := e.discardTokensIn(perf, keep)
+	if tr := e.trace(); tr != nil {
+		tr.recordActionTerminate(perf.describe(), dropped)
+	}
+}
+
+// discardTokensIn drops the tokens dropTokensIn does and returns them, unrecorded.
+func (e *ActionExecutor) discardTokensIn(perf *actionFrame, keep int64) []Token {
 	var dropped []Token
 	for _, idx := range e.tokensIn(perf) {
 		if e.tokens[idx].ID != keep {
@@ -449,7 +459,5 @@ func (e *ActionExecutor) dropTokensIn(perf *actionFrame, keep int64) {
 		}
 		e.removeToken(e.tokenIndex(token.ID))
 	}
-	if tr := e.trace(); tr != nil {
-		tr.recordActionTerminate(perf.describe(), dropped)
-	}
+	return dropped
 }

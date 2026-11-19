@@ -30,19 +30,22 @@ permissions:
 jobs:
   reproduce:
     name: Reproduce the committed oracle baselines
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - name: Check out repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache: true
 
       # The pinned pilot implementation is a Java artifact and the two bridges
       # are plain-Java programs compiled against it.
       - name: Set up Java
-        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: '21'
@@ -53,12 +56,22 @@ jobs:
           java -version
           go version
 
+      # The entry pull requests, merge groups and rebaseline.yml restore: read nightly, saved when absent.
+      - name: Provision the pinned pilot validator, and save it when the cache holds none
+        uses: ./.github/actions/pilot-validator
+        with:
+          save: 'true'
+
       - name: Download the pinned pilot validators
         run: |
-          ./scripts/download-pilot-validator.sh
           ./scripts/download-pilot-sysml-validator.sh
           ./scripts/download-pilot-kerml-validator.sh
           ./scripts/download-pilot-json-exporter.sh
+
+      - name: Install poppler-utils
+        uses: ./.github/actions/apt-install
+        with:
+          packages: --no-install-recommends poppler-utils
 
       - name: Download the OMG corpora the oracles compare
         run: |
@@ -67,7 +80,6 @@ jobs:
           ./scripts/download-pilot-xpect.sh
           ./scripts/download-pssm-suite.sh
           ./scripts/download-sysml-v1tov2.sh
-          ./scripts/ci-apt-install.sh --no-install-recommends poppler-utils
           ./scripts/download-spec-examples.sh
 
       # Each oracle's -check re-runs the comparison and diffs the fresh report
@@ -90,9 +102,24 @@ jobs:
 
       # Bucket counts only: the scorecard of derived properties against the
       # pilot's JSON export, see docs/project/api-json-differential.md.
-      - name: Derived-property differential reproduces its baseline
+      - name: Derived-property differential reproduces its baseline and records the pilot's export
         if: ${{ !cancelled() }}
-        run: go run -C tools ./cmd/pilot-apijson-diff -check
+        run: |
+          rm -rf build/pilot-apijson-record
+          go run -C tools ./cmd/pilot-apijson-diff -check -pilot-record build/pilot-apijson-record
+
+      - name: Save the recorded pilot export
+        if: ${{ !cancelled() }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/pilot-apijson-record
+          key: pilot-apijson-record-${{ hashFiles('scripts/pilot-pin.sh', 'scripts/pilot-json-exporter/**', 'scripts/download-pilot-json-exporter.sh') }}-${{ github.run_id }}
+
+      # The census's pilot column is re-exported and the committed records held to it: pull requests
+      # re-measure our side alone against that column (derived-census -check -recorded-pilot).
+      - name: Derived census reproduces its baseline, pilot column included
+        if: ${{ !cancelled() }}
+        run: go run -C tools ./cmd/derived-census -check -require-exporter
 
       # Bucket counts only: a pass is never evidence of SysML v2 conformance.
       - name: PSSM referee reproduces its baseline counts
@@ -125,4 +152,60 @@ jobs:
             build/pilot-xpect/
             build/pilot-reject/
             build/pilot-apijson-diff/
+            build/derived-census/
+          if-no-files-found: warn
+
+  # The cross-MDK suite needs neither Java nor the pilot, so it runs beside the
+  # job above rather than after it; see docs/project/hideo-suite.md.
+  hideo-suite:
+    name: Reproduce the cross-MDK conformance suite baseline
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # make build-grpc stamps the binary with `git describe`.
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      # The suite's Python readers resolve their environment with uv.
+      - name: Install uv
+        uses: ./.github/actions/pip-install
+        with:
+          packages: uv==0.13.8
+
+      - name: Report the pin and the toolchain
+        run: |
+          cat scripts/hideo-suite-pin.sh
+          go version
+          python --version
+          uv --version
+
+      - name: Download the pinned suite
+        run: ./scripts/download-hideo-suite.sh
+
+      # Per-case outcomes: a pass is agreement with the pilot on one read,
+      # never evidence of SysML v2 conformance. Builds bin/sysml-grpc first.
+      - name: Cross-MDK conformance suite reproduces its baseline
+        env:
+          OPENSYSML_REQUIRE_HIDEO_SUITE: "1"
+        run: go run -C tools ./cmd/hideo-suite -check
+
+      - name: Upload the suite's results and logs
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: hideo-suite-results
+          path: build/hideo-suite/test-suite/results/
           if-no-files-found: warn

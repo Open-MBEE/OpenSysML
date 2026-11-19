@@ -119,7 +119,7 @@ func (r *steppedRun) digest() string {
 	for _, exec := range r.actions {
 		fmt.Fprintf(&b, "action %s state=%v tokens=%d results=%s\n", SymbolText(exec.action), exec.State(), len(exec.tokens), formatValues(exec.Results()))
 		for _, token := range exec.tokens {
-			fmt.Fprintf(&b, "  token %d at %s\n", token.ID, ActionNodeName(token.Location))
+			fmt.Fprintf(&b, "  token %d at %s\n", token.ID, ActionNodeName(token.Node()))
 		}
 	}
 	for _, exec := range r.states {

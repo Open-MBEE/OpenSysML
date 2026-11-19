@@ -120,7 +120,8 @@ classdef Model < handle
                         sprintf('%s options must be name-value pairs', label));
                 end
                 if any(strcmp(args{i}, {'tolerateSyntaxErrors', 'idForm', 'includeLibraryStubs', ...
-                        'compact', 'omitDerived', 'keepDerived', 'includeCheckDiagnostics'}))
+                        'compact', 'omitDerived', 'keepDerived', 'includeCheckDiagnostics', ...
+                        'inheritedMembers'}))
                     options(end+1:end+2) = args(i:i+1);
                 else
                     opensysml.internal.raise('opensysml:argument', ...
@@ -190,12 +191,14 @@ classdef Model < handle
             result = opensysml.compareResults(m, results, varargin{:});
         end
 
-        function result = symbol(m, id)
-            result = opensysml.Symbol(opensysml.getSymbol(m, id), m);
+        function result = symbol(m, id, varargin)
+            result = opensysml.Symbol(opensysml.getSymbol(m, id, varargin{:}), m);
         end
 
         function result = get(m, fqn)
-            result = findById(m, char(fqn));
+            % The symbol a qualified name resolves to from the root namespace,
+            % which may carry another id (an import, an alias), or [].
+            result = resolveName(m, char(fqn));
         end
 
         function result = find(m, name)
@@ -409,11 +412,25 @@ function result = walkNamed(model, name, depth)
     end
 end
 
-function result = findById(model, id)
+function result = resolveName(model, name)
     result = [];
     try
         raw = opensysml.call(model.connection, 'GetSymbol', ...
-            struct('modelHash', model.hash, 'symbolId', id));
+            struct('modelHash', model.hash, 'symbolId', name, 'resolveName', ...
+            model.connection.hasCapability('symbol_name_resolution')));
+        if isfield(raw, 'error') && ~isempty(raw.error), return; end
+        if isfield(raw, 'symbol'), raw = raw.symbol; end
+        result = opensysml.Symbol(raw, model);
+    catch e
+        if ~strcmp(e.identifier, 'opensysml:connect:symbolNotFound'), rethrow(e); end
+    end
+end
+
+function result = findById(model, id)
+    result = [];
+    try
+        raw = opensysml.call(model.connection, 'GetSymbol', opensysml.internal.lookupKind( ...
+            model.connection, struct('modelHash', model.hash, 'symbolId', id), 'element_id'));
         if isfield(raw, 'error') && ~isempty(raw.error), return; end
         if isfield(raw, 'symbol'), raw = raw.symbol; end
         if isfield(raw, 'id') && strcmp(raw.id, id)

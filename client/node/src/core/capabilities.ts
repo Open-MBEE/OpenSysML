@@ -11,6 +11,12 @@ export const CAPABILITY_TYPE_FACTS = "type_facts";
 export const CAPABILITY_SYMBOL_ATTRIBUTES = "symbol_attributes";
 /** Populated `SymbolInfo.members`: every member, own and inherited, with its provenance. */
 export const CAPABILITY_SYMBOL_MEMBERS = "symbol_members";
+/** `GetSymbolRequest.resolveName` honoured; without it every id is read as one the service reported. */
+export const CAPABILITY_SYMBOL_NAME_RESOLUTION = "symbol_name_resolution";
+/** Populated `SymbolInfo.annotating_metadata_ids`: the metadata usages annotating a symbol. */
+export const CAPABILITY_SYMBOL_ANNOTATING_METADATA = "symbol_annotating_metadata";
+/** The `lookup` of `GetSymbolRequest` and `GetElementPropertiesRequest` honoured: a name read only as a name, an id only as an id. */
+export const CAPABILITY_SYMBOL_LOOKUP_KIND = "symbol_lookup_kind";
 /** The `GetElementProperties` RPC: an element's metamodel properties by their specification names. */
 export const CAPABILITY_ELEMENT_PROPERTIES = "element_properties";
 /** `RunDocumentQueryRequest.inline_query`: a query expression run in place of a named query. */
@@ -80,6 +86,8 @@ export const CAPABILITY_RENDER_DOCUMENT_HTML = "render_document_html";
 export const CAPABILITY_RENDER_DOCUMENT_ASCIIDOC = "render_document_asciidoc";
 /** The `RenderView` RPC, returning typed diagram data. */
 export const CAPABILITY_RENDER_VIEW = "render_view";
+/** `form` and the writer options on `RenderViewRequest`, answered in `text`. */
+export const CAPABILITY_RENDER_VIEW_FORM = "render_view_form";
 /** The `ExportGraphs` RPC, exporting a behavior's lowered graph as `graphs:1` JSON. */
 export const CAPABILITY_EXPORT_GRAPHS = "export_graphs";
 export const CAPABILITY_IMPORT_DATA = "import_data";
@@ -157,6 +165,8 @@ export const CAPABILITY_CONVERT_COMPACT = "convert_compact";
 export const CAPABILITY_CONVERT_LIBRARY_REFERENCES = "convert_library_references";
 /** Opt-in ownerless library stubs for legacy API JSON readers. */
 export const CAPABILITY_CONVERT_LIBRARY_STUBS = "convert_library_stubs";
+/** `ConvertRequest.inheritedMembers`: api-json written with the derived lists that repeat each Namespace's and Type's inherited and imported members; a service without it always writes them. */
+export const CAPABILITY_CONVERT_INHERITED_MEMBERS = "convert_inherited_members";
 /** `ConvertRequest.includeCheckDiagnostics`: the semantic check's diagnostics, each with its own severity, reported alongside the converted output. */
 export const CAPABILITY_CONVERT_CHECK_DIAGNOSTICS = "convert_check_diagnostics";
 /** `ParseSourcesRequest.baseModelHash` and `ParseSourcesResponse.affected`: the documents whose results may differ from the base model's, so a client re-reads only those after an edit. */

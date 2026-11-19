@@ -96,7 +96,7 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 		fmt.Fprintf(b, " (%s)", r.Stated)
 	}
 	b.WriteString("\n")
-	for _, notice := range slices.Concat(r.Notices, notices) {
+	for _, notice := range slices.Concat(r.notices(), notices) {
 		fmt.Fprintf(b, "' not represented: %s\n", notice)
 	}
 	w.writeMainframe(r, b)
@@ -758,13 +758,14 @@ var plantumlUnlinkedPseudostates = map[string]struct{}{
 	"start": {}, "fork": {}, "join": {}, "end": {}, "choice": {}, "history": {}, "history*": {},
 }
 
-// plantumlShapeStereotype is the stereotype the style block shapes a node by:
-// `package` for a package's heavier border, `usage` for a usage's rounded
-// corners; a definition or an orthogonal region keeps the element rules.
+// plantumlShapeStereotype is the stereotype the style block shapes a node by: `package`,
+// `usage` (rounded), `region` for a swimlane's dashes; none for a definition or region.
 func plantumlShapeStereotype(node *Node) string {
 	switch {
 	case slices.Contains(strings.Fields(node.Kind), plantumlPackageStereotype):
 		return plantumlPackageStereotype
+	case node.Kind == swimlaneKind:
+		return "region"
 	case node.Kind == "region", isDefinitionKind(node.Kind):
 		return ""
 	}

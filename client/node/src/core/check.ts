@@ -7,6 +7,7 @@ import type {
   CheckWitness as PbCheckWitness,
 } from "../generated/sysml_pb.js";
 import { type Standing, standingOf } from "./engines.js";
+import { type Coverage, coverageOf } from "./exploration.js";
 
 /** One schedule replayed: pass `schedule` as a run's schedule to follow it. */
 export interface CheckWitness {
@@ -55,6 +56,8 @@ export interface CheckSearch {
   notes: readonly string[];
   scope: readonly string[];
   status: string;
+  /** Every state entered and transition taken over all the searched schedules. */
+  coverage: Coverage;
 }
 
 /** What `CheckBehavior` answered: the verdict over every schedule, each finding witnessed. */
@@ -151,6 +154,7 @@ function searchOf(pb: PbCheckSearch | undefined): CheckSearch | undefined {
     notes: pb.notes,
     scope: pb.scope,
     status: pb.status,
+    coverage: coverageOf(pb.coverage),
   };
 }
 

@@ -60,7 +60,7 @@ public final class QueryArguments {
       case STRING -> new DocumentValue.StringValue(unquoted(scalar, token));
       case INTEGER -> integer(token, parameter);
       case REAL -> {
-        if (scalar instanceof Value.IntegerValue item) yield new DocumentValue.RealValue(item.value());
+        if (scalar instanceof Value.IntegerValue item) yield new DocumentValue.RealValue((double) item.value());
         if (scalar instanceof Value.RealValue item) yield new DocumentValue.RealValue(item.value());
         throw mismatch(token, parameter);
       }

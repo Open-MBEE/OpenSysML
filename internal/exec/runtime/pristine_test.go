@@ -429,7 +429,7 @@ func TestActionBodyFailingAfterAWriteRecordsTheMove(t *testing.T) {
 func tokenNodes(exec *ActionExecutor) string {
 	names := make([]string, 0, len(exec.tokens))
 	for _, token := range exec.tokens {
-		names = append(names, ActionNodeName(token.Location))
+		names = append(names, ActionNodeName(token.Node()))
 	}
 	slices.Sort(names)
 	return strings.Join(names, " ")

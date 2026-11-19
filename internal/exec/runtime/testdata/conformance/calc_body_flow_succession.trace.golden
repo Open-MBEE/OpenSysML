@@ -1,0 +1,18 @@
+enter calc test::sequenced
+  bind n = 3 [argument]
+  stmt declare x
+    eval literal 1 -> 1
+  stmt action body
+enter action node: calc test::sequenced
+    stmt assign x
+        eval feature x -> 1
+        eval literal 2 -> 2
+      eval operator * -> 2
+    stmt assign x
+        eval feature x -> 2
+        eval feature n -> 3
+      eval operator + -> 5
+leave action node: calc test::sequenced
+  stmt return
+    eval feature x -> 5
+exit calc test::sequenced -> (5)

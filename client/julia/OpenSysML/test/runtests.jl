@@ -84,6 +84,27 @@ end
     @test AnalysisResult(Dict{String,Any}(), []; tool_dry_run=bare).tool_dry_run === bare
 end
 
+@testset "coverage decoders read every run's states and transitions" begin
+    entry = Dict{String,Any}("path" => "Cov::sys#1.m.run: viaB",
+        "declaration" => "Cov::M::run::viaB", "runs" => 1)
+    edge = Dict{String,Any}("path" => "Cov::sys#1.m.run: s0 -> viaB",
+        "declaration" => "Cov::M::run::s0 -> viaB", "runs" => 1)
+    exploration = Exploration(Dict{String,Any}("outcomes" => Any[],
+        "exploration" => Dict{String,Any}("complete" => true, "runs" => 2,
+            "coverage" => Dict{String,Any}("states" => Any[entry], "transitions" => Any[edge]))))
+    @test exploration.coverage.states == [CoverageEntry("Cov::sys#1.m.run: viaB", "Cov::M::run::viaB", 1)]
+    @test exploration.coverage.transitions ==
+        [CoverageEntry("Cov::sys#1.m.run: s0 -> viaB", "Cov::M::run::s0 -> viaB", 1)]
+    bare = Exploration(Dict{String,Any}("exploration" => Dict{String,Any}("complete" => true)))
+    @test isempty(bare.coverage.states) && isempty(bare.coverage.transitions)
+    search = CheckSearch(Dict{String,Any}("states" => 5,
+        "coverage" => Dict{String,Any}("states" => Any[entry])))
+    @test search.states == 5
+    @test search.coverage.states == [CoverageEntry("Cov::sys#1.m.run: viaB", "Cov::M::run::viaB", 1)]
+    @test isempty(search.coverage.transitions)
+    @test isempty(CheckSearch(Dict{String,Any}("states" => 1)).coverage.states)
+end
+
 @testset "run options are encoded as the service reads them" begin
     request = OpenSysML._run_options!(Dict{String,Any}())
     @test isempty(request)
@@ -170,6 +191,12 @@ end
     @test !(CAPABILITY_RATIONAL_VALUES in value_capabilities(1//2))
     @test encode_value(big(7)) == Dict("intValue" => "7")
     @test encode_value(Quantity(big(2)^63, "kg", nothing)) == Dict("quantity" => Dict("bigIntMagnitude" => "9223372036854775808", "unit" => "kg"))
+    held = decode_value(Dict("quantity" => Dict("realMagnitude" => 5.0, "unit" => "J", "valueType" => "ISQThermodynamics::EnergyValue")))
+    @test held.value_type == "ISQThermodynamics::EnergyValue"
+    @test encode_value(held)["quantity"]["valueType"] == "ISQThermodynamics::EnergyValue"
+    @test held == Quantity(5.0, "J") && Quantity(5.0, "J").value_type == "" && (held * 2).value_type == ""
+    @test !haskey(encode_value(Quantity(5.0, "J"))["quantity"], "valueType")
+    @test Quantity(5, "J"; value_type="M::Work").value_type == "M::Work"
     wide = Quantity(big(2)^63, "kg", nothing)
     for value in (big(2)^70, Any[1, Any[big(2)^70]], Set([big(2)^70]), wide,
                   VectorQuantity([wide]), TensorQuantity([1], [wide]))
@@ -567,6 +594,13 @@ const GRPC_BINARY = get(ENV, "OPENSYSML_GRPC_BINARY",
             close(conn)
         end
     end
+end
+
+@testset "type and specialization facts still construct without a qualified name" begin
+    type = TypeFacts("T", "P::'@2'", "partDef", "", "", false, "", OpenSysML.TypeRef[])
+    @test type.resolved_id == "P::'@2'"
+    @test type.resolved_qualified_name == ""
+    @test Specialization("typing", "T", "P::T", "partDef").target_qualified_name == ""
 end
 
 include("extended_client.jl")

@@ -140,7 +140,11 @@ and include `inputs`, `events`, `schedule`, `performer`, `trace`, `subject`, `ar
 `namedArguments`, `engine`, and `question`. Explore schedules return an `Exploration`; a normal
 `executeAction`, `executeState`, or `runAnalysis` request answers one run. Exploration entry
 points are `opensysml.exploreAction`, `opensysml.exploreState`, and
-`opensysml.exploreAnalysis`.
+`opensysml.exploreAnalysis`. An `Exploration`'s `coverage` holds the states entered and
+transitions taken across every run, not only each outcome's witness, as cell arrays
+`states` and `transitions` of structs with `path` (under the running instance),
+`declaration` (under the machine) and `runs`; a check result's `search.coverage` holds the
+same over every schedule.
 
 `executeState(..., 'trace', true)` returns typed `DocumentEvent` entries in
 `trace` and the discarded-record count in `traceDropped`; it checks the
@@ -194,7 +198,9 @@ saved = model.save('model.ttl');
 `filePath`, `content`, or `modelHash`. Optional fields are `fromFormat`,
 `tolerateSyntaxErrors`, `idForm` (`'qualified'`, the default, or `'uuid'`, how a graph spells
 its derived ids) and `includeLibraryStubs` (restore the pre-0.11.0 library stubs in API JSON;
-needs the `convert_library_stubs` capability). For notation converted to API JSON, `compact`
+needs the `convert_library_stubs` capability) and `inheritedMembers` (also write, in API JSON,
+the derived lists that repeat each Namespace's and Type's inherited and imported members; needs
+`convert_inherited_members`). For notation converted to API JSON, `compact`
 writes the compact document (`api-json-compact/1`, see [the compact form](api-json-compact.md)),
 `omitDerived` leaves out every derived property of the metamodel and `keepDerived` (a cell
 array of names) names the ones still written — all three need the `convert_compact`

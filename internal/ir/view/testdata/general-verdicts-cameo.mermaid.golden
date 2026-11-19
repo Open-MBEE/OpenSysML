@@ -24,7 +24,7 @@ title: "«view» GeneralViews::requirementView : GeneralView"
 ---
 %% GeneralViews::requirementView — requirement rendering (view def GeneralView, filter @RequirementDefinition or @RequirementUsage)
 %% style cameo
-%% not represented: 4 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements
+%% not represented: 2 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements
 %% not represented: Cameo gradients are drawn flat
 %% not represented: Mermaid has no diagram frame with header tab
 flowchart TD

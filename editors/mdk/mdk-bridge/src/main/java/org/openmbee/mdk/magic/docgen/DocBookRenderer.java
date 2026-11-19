@@ -58,7 +58,8 @@ public final class DocBookRenderer {
   }
 
   private static String rowCount(int rows) {
-    return rows == 0 ? "no rows" : rows + (rows == 1 ? " row" : " rows");
+    if (rows == 0) return "no rows";
+    return rows + (rows == 1 ? " row" : " rows");
   }
 
   static String summary(BridgeResult result) {

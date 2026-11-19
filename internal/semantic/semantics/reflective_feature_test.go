@@ -119,7 +119,7 @@ func TestReflectiveConnectorRelatedFeaturesCoverEndForms(t *testing.T) {
 	for _, fixture := range reflectiveFixtures(t, "connector-related.sysml", source.KindSysML, src) {
 		for path, want := range map[string][]string{
 			"P::Host::byPair":       {"P::Host::a", "P::Host::b"},
-			"P::Host::byFlow":       {"P::A::x", "P::A::y"},
+			"P::Host::byFlow":       {"P::Host::a", "P::Host::b"}, // the features before the payloads x and y
 			"P::Host::byMessage":    {"P::A::x", "P::A::y"},
 			"P::Host::byReferences": {"P::Host::a", "P::Host::b"},
 			"P::Sequence::explicit": {"P::Sequence::firstNode", "P::Sequence::secondNode"},
@@ -979,7 +979,7 @@ func reflectiveFixtures(t *testing.T, name string, kind source.Kind, src string)
 
 func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symbol) symbols.LibraryFacts {
 	facts := symbols.LibraryFacts{
-		Node:     symbols.NodeKindOf(sym.Decl),
+		Node:     sym.NodeKind(),
 		Keyword:  sym.Keyword(),
 		Notation: sym.Notation(),
 		Abstract: symbols.IsAbstract(sym),
@@ -995,6 +995,9 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 	}
 	if symbols.IsFirstMarker(sym) {
 		facts.Modifiers |= symbols.ModFirstMarker
+	}
+	if model.IsTypeFeatureMember(sym) {
+		facts.Modifiers |= symbols.ModTypeFeatureMember
 	}
 	if sym.IsPrefixMetadata() {
 		facts.Modifiers |= symbols.ModPrefixMetadata
@@ -1036,6 +1039,10 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 		for i, feature := range related {
 			if feature == nil {
 				continue
+			}
+			// As the interface writer records a chained end: the feature its chain reaches.
+			if chain := model.chainingFeaturesOf(feature); len(chain) > 0 {
+				feature = chain[len(chain)-1]
 			}
 			if ref, found := idx.RefTo(feature); found {
 				facts.RelatedFeatures[i] = ref
@@ -1118,8 +1125,10 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 			if scope == nil {
 				scope = sym.Scope
 			}
-			if src, resolved := model.resolver.ResolveTarget(scope, member.Source); resolved && src != nil {
-				rel.Source = refOf(src)
+			if !ast.IsFeatureChain(member.Source) {
+				if src, resolved := model.resolver.ResolveTarget(scope, member.Source); resolved && src != nil {
+					rel.Source = refOf(src)
+				}
 			}
 			if !ast.IsFeatureChain(member.Target) {
 				if tgt, resolved := model.resolver.ResolveTarget(scope, member.Target); resolved && tgt != nil {

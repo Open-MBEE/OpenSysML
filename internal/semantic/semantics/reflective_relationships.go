@@ -81,6 +81,44 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 			out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelReferences, false, connectorEndAttachment(target)))
 		}
 	}
+	if target, stated := m.flowEndReference(owner); stated {
+		// A flow's end reference-subsets the feature before the last it names (SysML.xtext FlowEndMember).
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  owner.DocName,
+			DeclSpan: owner.DeclSpan,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Ordinal: ordinal, Kind: ast.RelReferences,
+				Form: symbols.ImplicitSuccessionEndReference, Member: target,
+			},
+		})
+		ordinal++
+	}
+	if _, ok := symbols.ImpliedFlowEndFeatureIndex(owner); ok {
+		// The ReferenceUsage a flow's end owns redefines the last feature the end names (FlowFeatureMember).
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  owner.DocName,
+			DeclSpan: owner.DeclSpan,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Ordinal: ordinal, Kind: ast.RelRedefines,
+				Form: symbols.ImplicitMetadataBodyRedefinition, Member: m.flowEndFeatureRedefinition(owner),
+			},
+		})
+		ordinal++
+	}
+	if target, stated := m.successionEndReference(owner); stated {
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  owner.DocName,
+			DeclSpan: owner.DeclSpan,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Ordinal: ordinal, Kind: ast.RelReferences,
+				Form: symbols.ImplicitSuccessionEndReference, Member: target,
+			},
+		})
+		ordinal++
+	}
 	// A multiplicity member's `subsets` is its one written relationship, held on
 	// the declaration rather than in a Relationships list.
 	if decl, ok := owner.Decl.(*ast.MultiplicityDecl); ok && decl.Subsets != nil {
@@ -185,6 +223,8 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		return "PortConjugation"
 	case symbols.ImplicitMetadataBodyRedefinition:
 		return "Redefinition"
+	case symbols.ImplicitSuccessionEndReference:
+		return "ReferenceSubsetting"
 	case symbols.ImplicitReferenceMembership:
 		return "Membership"
 	case symbols.ImplicitFeatureChaining:
@@ -208,9 +248,6 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		}
 		return "FeatureTyping"
 	case ast.RelSubsets:
-		if isReferenceSubsetting(rel) {
-			return "ReferenceSubsetting"
-		}
 		return "Subsetting"
 	case ast.RelRedefines:
 		return "Redefinition"
@@ -331,7 +368,7 @@ func relationshipEndFeature(meta, feature string) (sourceSide, targetSide bool) 
 func (m *Model) implicitRelationshipEnds(sym *symbols.Symbol) (src, tgt *symbols.Symbol, tgtOK bool) {
 	rel := sym.Implicit
 	src = rel.Owner
-	if rel.Form == symbols.ImplicitMetadataBodyRedefinition {
+	if rel.Form == symbols.ImplicitMetadataBodyRedefinition || rel.Form == symbols.ImplicitSuccessionEndReference {
 		return src, rel.Member, rel.Member != nil
 	}
 	if rel.Node != nil {
@@ -386,11 +423,13 @@ func (m *Model) relationshipMemberEnds(sym *symbols.Symbol) (src, tgt *symbols.S
 	if scope == nil {
 		scope = sym.Scope
 	}
-	if resolved, ok := m.resolver.ResolveTarget(scope, member.Source); ok {
-		src = resolved
-	}
-	// A chain target names an implicit chaining feature the model has no
+	// A chain end names an implicit chaining feature the model has no
 	// element for, so the end stays unresolved and its features stay underived.
+	if !ast.IsFeatureChain(member.Source) {
+		if resolved, ok := m.resolver.ResolveTarget(scope, member.Source); ok {
+			src = resolved
+		}
+	}
 	if !ast.IsFeatureChain(member.Target) {
 		if resolved, ok := m.resolver.ResolveTarget(scope, member.Target); ok {
 			tgt = resolved
@@ -452,6 +491,10 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 		if chain := m.chainTargetFeature(sym); chain != nil {
 			return []*symbols.Symbol{chain}, true
 		}
+		if sym.Implicit.Form == symbols.ImplicitSuccessionEndReference && tgt != nil && tgt.Chain != nil && tgt.Chain.Flow != nil {
+			// A flow's end owns the chain Feature it references through its ReferenceSubsetting.
+			return []*symbols.Symbol{tgt}, true
+		}
 		return empty, true
 	case "ownedElement", "ownedRelationship", "ownedAnnotation", "owningRelationship", "owningMembership",
 		"owningNamespace", "documentation", "textualRepresentation":
@@ -461,8 +504,14 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 			return nil, false
 		}
 	}
-	// Per-metaclass ends: the source end answers the owning element, the
-	// target end what the edge resolves to.
+	return m.implicitRelationshipEndElements(meta, feature, src, tgt, tgtOK)
+}
+
+// implicitRelationshipEndElements answers the ends a reflected relationship's metaclass
+// declares: the source end is the owning element, the target end what the edge resolves to.
+func (m *Model) implicitRelationshipEndElements(meta, feature string, src, tgt *symbols.Symbol, tgtOK bool) ([]*symbols.Symbol, bool) {
+	source := []*symbols.Symbol{src}
+	empty := []*symbols.Symbol{}
 	srcEnd, tgtEnd := relationshipEndFeature(meta, feature)
 	switch {
 	case feature == "specific" && specializationMetaclassNames[meta]:
@@ -499,7 +548,7 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 // derivations to answer instead.
 func (m *Model) relationshipMemberElements(sym *symbols.Symbol, rel symbols.RelationshipDecl, feature string) (elems []*symbols.Symbol, derived bool) {
 	meta := relationshipMetaclassName(rel)
-	if !specializationMetaclassNames[meta] && meta != "Conjugation" {
+	if meta == "" {
 		return nil, false
 	}
 	src, tgt := m.relationshipMemberEnds(sym)
@@ -528,7 +577,7 @@ func (m *Model) relationshipMemberElements(sym *symbols.Symbol, rel symbols.Rela
 		}
 		return append(append([]*symbols.Symbol{}, source...), target...), true
 	case "owningRelatedElement", "ownedRelatedElement",
-		"owningType", "owningClassifier", "owningFeature":
+		"owningType", "owningClassifier", "owningFeature", "owningFeatureOfType":
 		return []*symbols.Symbol{}, true
 	}
 	srcEnd, tgtEnd := relationshipEndFeature(meta, feature)
@@ -550,6 +599,45 @@ func (m *Model) relationshipMemberElements(sym *symbols.Symbol, rel symbols.Rela
 		return source, true
 	}
 	return nil, false
+}
+
+// declaredRelationshipEnds reads Relationship::source, target and relatedElement of a declared
+// connector or dependency, whose own ends redefine them (KerML 8.3.4.5.3, 8.3.2.2.2).
+func (m *Model) declaredRelationshipEnds(sym *symbols.Symbol, feature string) ([]*symbols.Symbol, bool) {
+	if dep, ok := sym.Decl.(*ast.Dependency); ok {
+		switch feature {
+		case "source":
+			return m.dependencyEnds(sym, dep.Clients), true
+		case "target":
+			return m.dependencyEnds(sym, dep.Suppliers), true
+		}
+		return append(m.dependencyEnds(sym, dep.Clients), m.dependencyEnds(sym, dep.Suppliers)...), true
+	}
+	if m.reflectiveMetaclassConforms(sym, "Connector") {
+		// A connector's first end resolving to nothing leaves the ends unanswered; a flow's bare end references
+		// nothing by construction and drops out (`flow from a to b.y` relates b alone, its source), as the pilot derives.
+		if ends := m.ConnectorRelatedFeaturesByEnd(sym); len(ends) > 0 && ends[0] == nil && !isFlowUsage(sym) && anyReferenced(ends[1:]) {
+			return nil, false
+		}
+		return m.ReflectiveElements(sym, connectorEndRedefinition[feature])
+	}
+	return nil, false
+}
+
+// anyReferenced reports whether any end references a feature.
+func anyReferenced(ends []*symbols.Symbol) bool {
+	for _, end := range ends {
+		if end != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// isFlowUsage reports a `flow` (not a message), whose ends may reference nothing.
+func isFlowUsage(sym *symbols.Symbol) bool {
+	kind, ok := sym.UsageKind()
+	return ok && kind == ast.UsageFlow && sym.Keyword() != "message"
 }
 
 // implicitRelationshipValue is what a reflected relationship object states for
@@ -697,31 +785,4 @@ func (m *Model) chainTargetChainings(chain *symbols.Symbol) []*symbols.Symbol {
 		})
 	}
 	return out
-}
-
-// isReferenceSubsetting reports whether rel is its owner's OwnedReferenceSubsetting — the
-// `satisfy r;` / `verify r;` form (SysML.xtext) — by the written clause or, for a record, its facts.
-func isReferenceSubsetting(rel *symbols.ImplicitRelationship) bool {
-	if rel.Owner == nil {
-		return false
-	}
-	if !rel.Owner.Recorded() {
-		return ast.IsReferenceSubsetting(rel.Owner.Decl, rel.Node)
-	}
-	facts := rel.Owner.Facts
-	if rel.Ordinal < 0 || rel.Ordinal >= len(facts.Relationships) {
-		return false
-	}
-	if facts.Relationships[rel.Ordinal].Kind.ReferenceSubsets() {
-		return true
-	}
-	// As ast.Usage.ReferenceSubsetting: a satisfy's first subsetting, unless it declares its requirement.
-	kind, isUsage := rel.Owner.UsageKind()
-	satisfies := isUsage && kind == ast.UsageSatisfy && facts.Modifiers&symbols.ModDeclaresRequirement == 0
-	for ordinal, rf := range facts.Relationships {
-		if rf.Kind.ReferenceSubsets() || (rf.Kind == ast.RelSubsets && satisfies) {
-			return ordinal == rel.Ordinal
-		}
-	}
-	return false
 }

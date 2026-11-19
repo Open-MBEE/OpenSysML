@@ -130,11 +130,11 @@ func apiJSONEvaluationGraph(graph *rdf.Graph) *rdf.Graph {
 		add(subject, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(metaclass))
 		add(subject, rdf.SysMLTerm("elementId"), rdf.String(id))
 		add(subject, rdf.SysMLTerm("isLibraryElement"), rdf.Bool(true))
-		if library.Symbol.Name != "" {
+		if library.Symbol.Named() {
 			add(subject, rdf.SysMLTerm("declaredName"), rdf.String(library.Symbol.Name))
 		}
 		if library.FQN != "" {
-			add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(library.FQN))
+			stateAddress(add, subject, library.FQN)
 		}
 	}
 	triples := make([]rdf.Triple, 0, graph.Len()+len(additions))
@@ -567,10 +567,10 @@ func apiJSONGraphAttributeDefault(definition ontology.Property) metamodel.Value 
 }
 
 func apiJSONGraphAttributeValue(object rdf.Term) (metamodel.Value, bool) {
-	if object.Kind == rdf.TermIRI {
+	if object.Kind() == rdf.TermIRI {
 		return metamodel.Value{}, false
 	}
-	switch object.Datatype {
+	switch object.Datatype() {
 	case rdf.XSD + "boolean":
 		return metamodel.Value{Kind: metamodel.BooleanValue, Boolean: object.Value == "true" || object.Value == "1", Success: true}, true
 	case rdf.XSD + "integer", rdf.XSD + "int", rdf.XSD + "long", rdf.XSD + "short", rdf.XSD + "byte":

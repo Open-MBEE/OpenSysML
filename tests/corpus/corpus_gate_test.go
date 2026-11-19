@@ -4,6 +4,7 @@ package corpus
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 	"os"
 	"path/filepath"
 	"sort"
@@ -150,6 +151,25 @@ func (g corpusGate) files(t *testing.T) map[string][]string {
 	return roots
 }
 
+// visited keeps, per root, the files OPENSYSML_CORPUS_SUBSET iterates and their
+// expectation keys: the files whose diagnostics are counted and checked.
+func (g corpusGate) visited(subset corpussubset.Subset, files map[string][]string) (map[string][]string, map[string]bool) {
+	kept := make(map[string][]string, len(files))
+	keys := map[string]bool{}
+	for _, root := range g.roots {
+		for _, rel := range files[root.name] {
+			if subset.WantsPath(corpusGateExamples, filepath.Join(root.dir, filepath.FromSlash(rel))) {
+				kept[root.name] = append(kept[root.name], rel)
+				keys[g.key(root, rel)] = true
+			}
+		}
+	}
+	return kept, keys
+}
+
+// corpusGateExamples is the examples/ directory the subset list is relative to.
+const corpusGateExamples = "../../examples"
+
 // wants reports whether a file belongs to this root's counted set.
 func (r corpusRoot) wants(path string) bool {
 	switch source.KindOf(path) {
@@ -163,14 +183,14 @@ func (r corpusRoot) wants(path string) bool {
 }
 
 // counts loads every root and returns the number of diagnostics per recorded
-// path, logging each file's messages.
-func (g corpusGate) counts(t *testing.T, files map[string][]string) map[string]int {
+// path, logging each file's messages; a nil keys counts every file.
+func (g corpusGate) counts(t *testing.T, files map[string][]string, keys map[string]bool) map[string]int {
 	t.Helper()
 
 	got := make(map[string]int)
 	for _, root := range g.roots {
 		for _, batch := range languageBatches(files[root.name]) {
-			for key, count := range g.batchCounts(t, root, batch) {
+			for key, count := range g.batchCounts(t, root, batch, keys) {
 				got[key] = count
 			}
 		}
@@ -178,9 +198,9 @@ func (g corpusGate) counts(t *testing.T, files map[string][]string) map[string]i
 	return got
 }
 
-// batchCounts loads one language batch of a root and counts its diagnostics. Every
-// file is opened before any is diagnosed, because the corpora import across files.
-func (g corpusGate) batchCounts(t *testing.T, root corpusRoot, files []string) map[string]int {
+// batchCounts loads one language batch of a root and counts the diagnostics of its
+// files in keys. Every file is opened before any is diagnosed: the corpora import across files.
+func (g corpusGate) batchCounts(t *testing.T, root corpusRoot, files []string, keys map[string]bool) map[string]int {
 	t.Helper()
 
 	got := make(map[string]int, len(files))
@@ -201,6 +221,9 @@ func (g corpusGate) batchCounts(t *testing.T, root corpusRoot, files []string) m
 	}
 
 	for _, rel := range files {
+		if keys != nil && !keys[g.key(root, rel)] {
+			continue
+		}
 		current = rel
 
 		var messages []string
@@ -328,8 +351,8 @@ func TestCorpusGatesCacheStateIndependent(t *testing.T) {
 			files := gate.files(t)
 			t.Setenv("XDG_CACHE_HOME", t.TempDir())
 
-			cold := gate.counts(t, files)
-			warm := gate.counts(t, files)
+			cold := gate.counts(t, files, nil)
+			warm := gate.counts(t, files, nil)
 
 			for _, path := range sortedKeys(cold) {
 				if warm[path] != cold[path] {

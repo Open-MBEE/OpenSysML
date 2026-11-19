@@ -194,6 +194,9 @@ func Rooted(graph *rdf.Graph, qualifiedName string) (*rdf.Graph, error) {
 		if name, ok := graph.Lexical(subject, rdf.SysML+"qualifiedName"); ok && name == qualifiedName {
 			return RootedAt(graph, subject), nil
 		}
+		if name, ok := export.NamedAddress(graph, subject); ok && name == qualifiedName {
+			return RootedAt(graph, subject), nil
+		}
 	}
 	return nil, &NotFoundError{QualifiedName: qualifiedName}
 }
@@ -247,7 +250,6 @@ func isOwnerPredicate(predicate string) bool {
 // graph rather than recomputing — a collection's order among them — so a
 // publish without derived properties keeps them: a project written without
 // them could not be loaded back as notation.
-// TestWithoutDerivedReadsBackEveryExample pins the list against the reader.
 var readerDerived = map[string]bool{}
 
 func init() {

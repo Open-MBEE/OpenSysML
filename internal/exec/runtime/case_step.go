@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -33,8 +34,8 @@ func stepSymbol(flow *lower.ActionGraph, node ast.Node) (*symbols.Symbol, *symbo
 // caseStepSymbol resolves the case a nested usage node declares, in the body that declares it.
 func caseStepSymbol(flow *lower.ActionGraph, node ast.Node) (*symbols.Symbol, *symbols.Scope, error) {
 	sym, declaring := stepSymbol(flow, node)
-	if sym == nil || !isCalcUsageSymbol(sym) {
-		return nil, nil, fmt.Errorf("%w: %s is not resolved to a case", errNotACalcUsage, nodeDescription(node))
+	if sym == nil || !lower.IsCalcUsageSymbol(sym) {
+		return nil, nil, fmt.Errorf("%w: %s is not resolved to a case", errNotACalcUsage, describeNode(flow, node))
 	}
 	return sym, declaring, nil
 }
@@ -75,7 +76,7 @@ func (e *performances) performCase(perf *actionFrame) error {
 		f = &caseStepFrame{endStep: endStep}
 		if f.start, f.run, err = e.ctx.beginCalcUsage(reader, sym); err != nil {
 			endStep()
-			return fmt.Errorf("%s: %w", nodeDescription(perf.node), err)
+			return fmt.Errorf("%s: %w", describeNode(perf.flow, perf.node), err)
 		}
 	}
 	if f.run == nil {
@@ -87,7 +88,7 @@ func (e *performances) performCase(perf *actionFrame) error {
 		}
 		if err != nil {
 			f.endStep()
-			return fmt.Errorf("%s: %w", nodeDescription(perf.node), err)
+			return fmt.Errorf("%s: %w", describeNode(perf.flow, perf.node), err)
 		}
 		f.run = run
 	}
@@ -95,17 +96,22 @@ func (e *performances) performCase(perf *actionFrame) error {
 	run := f.run
 	outputs, err := run.outputValues(e.ctx)
 	if err != nil {
-		return fmt.Errorf("%s: %w", nodeDescription(perf.node), err)
+		return fmt.Errorf("%s: %w", describeNode(perf.flow, perf.node), err)
 	}
 	for _, out := range outputs {
 		perf.features[out.Name] = ast.DirOut
 		e.ctx.writeBodyValue(perf.cells, perf.data, perf.key(out.Name), out.Value)
 	}
-	if out := run.shape.resultOutput(); out != nil {
+	if out := run.shape.ResultOutput(); out != nil {
 		perf.result = out.Name
 		if perf.result == "" {
-			perf.result = resultOutputName
+			perf.result = program.ResultOutputName
 		}
+	} else if run.returned {
+		// A result a `return` on a path of the body yields, with no result parameter declared.
+		perf.result = program.ResultOutputName
+		perf.features[perf.result] = ast.DirOut
+		e.ctx.writeBodyValue(perf.cells, perf.data, perf.key(perf.result), run.result)
 	}
 	return nil
 }

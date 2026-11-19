@@ -221,7 +221,8 @@ class ModelExamplesTest {
         leaf.attributes().stream()
             .collect(Collectors.toMap(Symbol.Attribute::name, attribute -> attribute.value().orElseThrow())));
     assertEquals(
-        List.of(new Symbol.Specialization("specializes", "Mid", Optional.of("Inherit::Mid"), Optional.of("partDef"))),
+        List.of(new Symbol.Specialization(
+                "specializes", "Mid", Optional.of("Inherit::Mid"), Optional.of("partDef"), Optional.of("Inherit::Mid"))),
         leaf.specializations());
   }
 

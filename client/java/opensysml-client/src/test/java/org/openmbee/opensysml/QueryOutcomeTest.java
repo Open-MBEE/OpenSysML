@@ -69,6 +69,7 @@ class QueryOutcomeTest {
         outcome.failures());
     assertEquals(List.of(), outcome.findings());
     assertEquals(List.of(), outcome.pathFailures());
+    assertEquals(2, outcome.failuresTotal(), "both failures fit, so the total is their count");
   }
 
   @Test
@@ -98,6 +99,7 @@ class QueryOutcomeTest {
             List.of(),
             "cabin"),
         failure.frontier());
+    assertEquals(5, failure.frontier().membersTotal(), "every member fits, so none is left out");
   }
 
   @Test
@@ -125,6 +127,7 @@ class QueryOutcomeTest {
                 "Duplicates::repeated (declared 2 times)")),
         outcome.findings());
     assertEquals(List.of(), outcome.pathFailures());
+    assertEquals(1, outcome.findingsTotal());
   }
 
   @Test
@@ -146,5 +149,102 @@ class QueryOutcomeTest {
     assertTrue(
         failure.frontier().features().contains(new QueryOutcome.Frontier.Feature("sysml:name", "")),
         failure.frontier().features().toString());
+    assertEquals(8, failure.frontier().features().size(), "the nearest spellings only");
+    assertTrue(
+        failure.frontier().featuresTotal() > 8,
+        "every property of the metamodel is counted: " + failure.frontier().featuresTotal());
+    assertEquals(0, failure.frontier().membersTotal());
+    assertEquals(0, failure.frontier().kindsTotal());
+    assertEquals(1, outcome.failuresTotal());
+  }
+
+  private static final String FLEET =
+      """
+      package Fleet {
+          part def Truck {
+              attribute mass = 9000;
+          }
+          part fleet {
+              part alpha;
+              part bravo;
+              part charlie;
+              part delta;
+              part echo;
+              part foxtrot;
+              part golf;
+              part hotel;
+              part india;
+              part juliett;
+              part kilo;
+              part lead : Truck;
+          }
+      }
+      package FleetQueries {
+          private import DocumentQueries::*;
+
+          calc def Misspelled :> Query {
+              Project(
+                  source = Named(qualifiedName = "Fleet::fleet::kili"),
+                  properties = ("qualifiedName")
+              )
+          }
+
+          calc def Masses :> Query {
+              Project(
+                  source = WhereType(
+                      source = Descendants(source = Named(qualifiedName = "Fleet::fleet")),
+                      type = "PartUsage"
+                  ),
+                  properties = ("qualifiedName", "mass")
+              )
+          }
+      }
+      """;
+
+  @Test
+  void aFrontierOfManyMembersHoldsTheNearestAndCountsThemAll() {
+    Model model = connection.parseSources(List.of(SourceDocument.inline("fleet.sysml", FLEET)));
+    QueryOutcomeException failed =
+        assertThrows(
+            QueryOutcomeException.class, () -> model.runDocumentQuery("FleetQueries::Misspelled"));
+
+    QueryOutcome outcome = failed.outcome();
+    assertEquals(1, outcome.failures().size(), outcome.toString());
+    assertEquals(1, outcome.failuresTotal());
+    QueryOutcome.Frontier frontier = outcome.failures().get(0).frontier();
+    assertEquals("Fleet::fleet", frontier.at());
+    assertEquals("kilo", frontier.nearest());
+    assertEquals(12, frontier.membersTotal());
+    assertEquals(8, frontier.members().size(), frontier.toString());
+    assertTrue(
+        frontier.members().stream().allMatch(member -> member.metaclass().equals("PartUsage")),
+        frontier.toString());
+    assertEquals(0, frontier.featuresTotal());
+    assertEquals(0, frontier.kindsTotal());
+  }
+
+  @Test
+  void aStepFailingOnManyElementsHoldsTheFirstFailuresAndCountsThemAll() {
+    Model model = connection.parseSources(List.of(SourceDocument.inline("fleet.sysml", FLEET)));
+    QueryOutcomeException failed =
+        assertThrows(
+            QueryOutcomeException.class, () -> model.runDocumentQuery("FleetQueries::Masses"));
+
+    QueryOutcome outcome = failed.outcome();
+    assertTrue(outcome.isPathError());
+    assertEquals(11, outcome.failuresTotal());
+    assertEquals(
+        List.of(
+            "Fleet::fleet::alpha",
+            "Fleet::fleet::bravo",
+            "Fleet::fleet::charlie",
+            "Fleet::fleet::delta",
+            "Fleet::fleet::echo",
+            "Fleet::fleet::foxtrot",
+            "Fleet::fleet::golf",
+            "Fleet::fleet::hotel"),
+        outcome.failures().stream().map(failure -> failure.frontier().at()).toList());
+    assertEquals(0, outcome.findingsTotal());
+    assertEquals(0, outcome.pathFailuresTotal());
   }
 }

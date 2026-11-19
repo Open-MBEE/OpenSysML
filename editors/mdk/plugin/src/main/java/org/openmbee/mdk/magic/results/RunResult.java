@@ -110,12 +110,15 @@ public record RunResult(
   }
 
   private static Row rename(Row row, UnaryOperator<String> rename) {
-    List<Cell> cells = row.cells().stream()
-        .map(cell -> cell.elementId() == null ? cell : new Cell(
-            cell.text().equals(cell.elementId()) ? rename.apply(cell.text()) : cell.text(),
-            rename.apply(cell.elementId())))
-        .toList();
+    List<Cell> cells = row.cells().stream().map(cell -> rename(cell, rename)).toList();
     return new Row(row.elementId() == null ? null : rename.apply(row.elementId()), cells);
+  }
+
+  /** A cell whose text is its element id follows the renaming; any other text stays. */
+  private static Cell rename(Cell cell, UnaryOperator<String> rename) {
+    if (cell.elementId() == null) return cell;
+    String text = cell.text().equals(cell.elementId()) ? rename.apply(cell.text()) : cell.text();
+    return new Cell(text, rename.apply(cell.elementId()));
   }
 
   public RunResult withLeadingDiagnostics(List<Diagnostic> leading) {

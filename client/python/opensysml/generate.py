@@ -260,7 +260,9 @@ def _names_a_type(type_facts: Optional[TypeFacts]) -> bool:
 def _derived_type(type_facts: TypeFacts) -> TypeFacts:
     """Resolve the type to the most specific of the service's derived types."""
     derived = type_facts.types[0]
-    return replace(type_facts, resolved_id=derived.id, resolved_kind=derived.kind)
+    return replace(
+        type_facts, resolved_id=derived.id, resolved_qualified_name=derived.id, resolved_kind=derived.kind
+    )
 
 
 def _merged_type(own: Optional[TypeFacts], inherited: TypeFacts) -> TypeFacts:
@@ -271,6 +273,7 @@ def _merged_type(own: Optional[TypeFacts], inherited: TypeFacts) -> TypeFacts:
         own,
         declared=inherited.declared,
         resolved_id=inherited.resolved_id,
+        resolved_qualified_name=inherited.resolved_qualified_name,
         resolved_kind=inherited.resolved_kind,
         primitive=own.primitive or inherited.primitive,
         primitive_source=own.primitive_source or inherited.primitive_source,
@@ -367,7 +370,7 @@ def element_type(type_facts: Optional[TypeFacts], names: Dict[str, str]) -> Pyth
 
     if type_facts.resolved_id:
         return PythonType(
-            "object", _OBJECT_DECODER, f"SysML type {type_facts.resolved_id} has no generated class"
+            "object", _OBJECT_DECODER, f"SysML type {type_facts.resolved_qualified_name or type_facts.resolved_id} has no generated class"
         )
 
     if type_facts.declared:

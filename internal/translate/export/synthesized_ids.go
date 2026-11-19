@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -51,6 +52,12 @@ func SynthesizedElementID(sym *symbols.Symbol, ownerID func(*symbols.Symbol) str
 		return memberElementID(owner, naming.TriggerSegment), true
 	case symbols.ExpressionPayload:
 		return memberElementID(owner, naming.Qualify("", naming.ParamName(sym.Decl), part.Index)), true
+	case symbols.ExpressionTransitionSuccession:
+		return owner + transitionSuccessionSuffix, true
+	case symbols.ExpressionTransitionLinkParameter:
+		return owner + "_" + transitionLinkParameterSlots[part.Index], true
+	case symbols.ExpressionTransitionLink:
+		return owner + transitionLinkSuffix, true
 	}
 	return "", false
 }
@@ -59,4 +66,20 @@ func SynthesizedElementID(sym *symbols.Symbol, ownerID func(*symbols.Symbol) str
 // element with elementId owner, as EncodeElementID spells the qualified name.
 func memberElementID(owner, segment string) string {
 	return owner + "__" + rdf.EncodeElementID(segment)
+}
+
+// SynthesizedElementOwner decodes the id of an element the conversion mints off its owner's with a suffix
+// of its own — a transition's succession, link parameters and transitionLink — into the owner's qualified name.
+func SynthesizedElementOwner(id string) (string, bool) {
+	for _, suffix := range []string{
+		transitionSuccessionSuffix,
+		"_" + transitionLinkParameterSlots[0],
+		"_" + transitionLinkParameterSlots[1],
+		transitionLinkSuffix,
+	} {
+		if prefix, found := strings.CutSuffix(id, suffix); found {
+			return rdf.DecodeElementID(prefix)
+		}
+	}
+	return "", false
 }

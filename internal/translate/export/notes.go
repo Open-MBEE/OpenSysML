@@ -94,7 +94,9 @@ func (e *encoder) noteNodes(subject rdf.Term, r region, tail bool, n int) int {
 // tokensIn returns the range of the tokens lying within a region of the text.
 func (s *authoredSource) tokensIn(r region) (first, end int) {
 	first = sort.Search(len(s.spans), func(k int) bool { return s.spans[k].Offset >= r.start })
-	for end = first; end < len(s.spans) && s.spans[end].End() <= r.end; end++ {
+	end = first
+	for end < len(s.spans) && s.spans[end].End() <= r.end {
+		end++
 	}
 	return first, end
 }
@@ -127,21 +129,24 @@ func IsNoteProperty(iri string) bool {
 // lines, written back with them, and no element or expression of its own.
 func (d *decoder) isNote(subject rdf.Term) bool { return d.metaclass(subject) == mNote }
 
-// notesOf lists an element's notes: those of the head before those of the tail,
-// each in the order of the tokens they follow, notes at one token as the graph states them.
-func (d *decoder) notesOf(el *element) []note {
+// notesOf lists an element's notes as the graph states them.
+func (d *decoder) notesOf(el *element) []note { return notesIn(d.graph, rdf.IRI(el.iri)) }
+
+// notesIn lists a subject's notes in a graph: those of the head before those of
+// the tail, each in the order of the tokens they follow, notes at one token as stated.
+func notesIn(g *rdf.Graph, subject rdf.Term) []note {
 	var out []note
-	for _, node := range d.graph.Objects(rdf.IRI(el.iri), rdf.OpenSysML+xNote) {
-		text, ok := d.graph.Lexical(node, rdf.OpenSysML+xNoteText)
+	for _, node := range g.Objects(subject, rdf.OpenSysML+xNote) {
+		text, ok := g.Lexical(node, rdf.OpenSysML+xNoteText)
 		if !ok {
 			continue
 		}
 		out = append(out, note{
 			text:     text,
-			token:    intOf(d.graph, node, rdf.OpenSysML+xNoteToken),
-			ownLine:  d.graph.BoolValue(node, rdf.OpenSysML+xNoteOwnLine),
-			tail:     d.graph.BoolValue(node, rdf.OpenSysML+xNoteTail),
-			trailing: d.graph.BoolValue(node, rdf.OpenSysML+xNoteTrailing),
+			token:    intOf(g, node, rdf.OpenSysML+xNoteToken),
+			ownLine:  g.BoolValue(node, rdf.OpenSysML+xNoteOwnLine),
+			tail:     g.BoolValue(node, rdf.OpenSysML+xNoteTail),
+			trailing: g.BoolValue(node, rdf.OpenSysML+xNoteTrailing),
 		})
 	}
 	sort.SliceStable(out, func(i, j int) bool {
@@ -156,36 +161,31 @@ func (d *decoder) notesOf(el *element) []note {
 	return out
 }
 
-// statesNotes reports whether the graph states any note: one that states none
-// predates them, or set them aside, and its text is trusted for them.
-func (d *decoder) statesNotes() bool {
-	if d.notesStated == nil {
-		stated := false
-		for _, triple := range d.graph.Triples() {
-			if triple.Predicate.Value == rdf.OpenSysML+xNote {
-				stated = true
-				break
-			}
+// notedSubjects lists the subjects the graph states notes of, in the graph's order.
+func notedSubjects(g *rdf.Graph) []rdf.Term {
+	var out []rdf.Term
+	seen := map[string]bool{}
+	for _, t := range g.Triples() {
+		if t.Predicate.Value == rdf.OpenSysML+xNote && !seen[t.Subject.Value] {
+			seen[t.Subject.Value] = true
+			out = append(out, t.Subject)
 		}
-		d.notesStated = &stated
 	}
-	return *d.notesStated
+	return out
 }
 
-// notesAgree reports whether an element's verbatim text holds the notes the graph
-// states, in order: the graph is authoritative, so a note edited or added there
-// demotes the text. A comment the graph does not state is passed over: a body, or a
-// note of another subject written inside this text (a filter's, a folded succession's).
-func (d *decoder) notesAgree(el *element, text string) bool {
-	tail, _ := d.graph.Lexical(rdf.IRI(el.iri), rdf.OpenSysML+xSourceTail)
-	notes := d.notesInText(el)
+// compareNotes matches the notes stated to those derived in order, each in every field
+// (text, token, line, head or tail), and lists the stated and the derived left unmatched.
+func compareNotes(stated, derived []note) (stale, unstated []note) {
 	i := 0
-	for _, c := range commentTexts(text + tail) {
-		if i < len(notes) && c == notes[i] {
+	for _, m := range derived {
+		if i < len(stated) && m == stated[i] {
 			i++
+		} else {
+			unstated = append(unstated, m)
 		}
 	}
-	return i == len(notes)
+	return stated[i:], unstated
 }
 
 // notesWritten lists the notes written with an element: those of a succession
@@ -198,29 +198,6 @@ func (d *decoder) notesWritten(el *element) []note {
 		}
 	}
 	return append(out, d.notesOf(el)...)
-}
-
-// notesInText lists the notes an element's text holds, in order: its head's, then
-// those of each member written inside it — one with no text of its own — then its tail's.
-func (d *decoder) notesInText(el *element) []string {
-	notes := d.notesWritten(el)
-	var out []string
-	for _, n := range notes {
-		if !n.tail {
-			out = append(out, n.text)
-		}
-	}
-	for _, child := range el.children {
-		if _, own := d.graph.Lexical(rdf.IRI(child.iri), rdf.OpenSysML+xSourceText); !own {
-			out = append(out, d.notesInText(child)...)
-		}
-	}
-	for _, n := range notes {
-		if n.tail {
-			out = append(out, n.text)
-		}
-	}
-	return out
 }
 
 // commentTexts lists the notes and comments of a text in order, as written.
@@ -266,14 +243,15 @@ func withNotes(text string, notes []note, body region, hasBody bool, indent, nl 
 	if hasBody {
 		tail = unwritten(tail, text[body.end:])
 	}
-	ins := placeNotes(text[:headEnd], head, 0, func(n int) string {
-		if n == 0 {
+	ins := placeNotes(text[:headEnd], head, 0, func(n int, last bool) string {
+		// A note ahead of the head, or after a bodiless declaration, lines up with it.
+		if n == 0 || last && !hasBody {
 			return indent
 		}
 		return inner
 	}, nl)
 	if hasBody {
-		ins = append(ins, placeNotes(text[body.end:], tail, body.end, func(n int) string {
+		ins = append(ins, placeNotes(text[body.end:], tail, body.end, func(n int, _ bool) string {
 			if n == 0 {
 				return inner
 			}
@@ -306,51 +284,107 @@ func unwritten(notes []note, part string) []note {
 	return out
 }
 
-// placeNotes computes the insertions of notes into one part of the notation, which
-// starts at base; indentOf is the indentation of a note on its own line after n tokens.
-// A note followed by none of the part's tokens goes after its last, whatever their count.
-func placeNotes(part string, notes []note, base int, indentOf func(n int) string, nl string) []insertion {
+// placeNotes computes the insertions of notes into one part of the notation starting
+// at base; indentOf indents a note on its own line after n tokens, last when none follows.
+func placeNotes(part string, notes []note, base int, indentOf func(n int, last bool) string, nl string) []insertion {
 	tokens := codeTokens(part)
-	var out []insertion
+	// The notes after one token share its place, so they are written as one run.
+	runs := map[int][]note{}
+	var counts []int
 	for _, n := range notes {
 		count := min(n.token, len(tokens))
 		if n.trailing {
 			count = len(tokens)
 		}
-		at := len(part)
-		if count == 0 && len(tokens) > 0 {
-			at = tokens[0].Offset
-		} else if count > 0 {
-			at = tokens[count-1].End()
+		if _, ok := runs[count]; !ok {
+			counts = append(counts, count)
 		}
-		ind := indentOf(count)
-		rest := part[at:]
-		// Only indentation ahead of it on its line puts the note at the line's start.
-		lineBegin := strings.LastIndexByte(part[:at], '\n') + 1
-		lineStart := strings.TrimLeft(part[lineBegin:at], " \t") == ""
-		restBreaks := strings.HasPrefix(rest, "\n") || strings.HasPrefix(rest, "\r\n")
+		runs[count] = append(runs[count], n)
+	}
+	sort.Ints(counts)
+	var out []insertion
+	for _, count := range counts {
+		ind := indentOf(count, count == len(tokens))
+		if count > 0 {
+			out = append(out, notesAfter(part, runs[count], tokens[count-1].End(), base, ind, nl))
+			continue
+		}
+		at := len(part)
+		if len(tokens) > 0 {
+			at = tokens[0].Offset
+		}
+		out = append(out, notesAhead(part, runs[count], at, base, ind, nl)...)
+	}
+	return out
+}
+
+// notesAhead places the notes no code token precedes, in order: the first ones on lines of
+// their own above the line at holds, the rest from the first inline one ahead of the token.
+func notesAhead(part string, notes []note, at, base int, ind, nl string) []insertion {
+	lineBegin := strings.LastIndexByte(part[:at], '\n') + 1
+	hasToken := at < len(part)
+	var above, inline strings.Builder
+	first := 0
+	// A `//` note ahead of the first token would run on over it; it takes its line.
+	for ; first < len(notes) && (notes[first].ownLine || isLineNote(notes[first].text) && hasToken); first++ {
+		above.WriteString(ind + notes[first].text + nl)
+	}
+	breaks := false
+	for i, n := range notes[first:] {
 		switch {
-		case n.ownLine && lineStart:
-			out = append(out, insertion{base + lineBegin, ind + n.text + nl, 0})
-		case n.ownLine:
-			// The rest of the line moves below the note, less the blanks it began with.
-			blanks := len(rest) - len(strings.TrimLeft(rest, " \t"))
-			after := ""
-			if !restBreaks {
-				after = nl + ind
-			}
-			out = append(out, insertion{base + at, nl + ind + n.text + after, blanks})
-		case count == 0 && len(tokens) > 0:
-			out = append(out, insertion{base + at, n.text + " ", 0})
-		case isLineNote(n.text) && !restBreaks && len(rest) > 0:
-			blanks := len(rest) - len(strings.TrimLeft(rest, " \t"))
-			out = append(out, insertion{base + at, " " + n.text + nl + ind, blanks})
+		case i == 0 && hasToken:
+		case n.ownLine || breaks:
+			inline.WriteString(nl + ind)
 		default:
-			out = append(out, insertion{base + at, " " + n.text, 0})
+			inline.WriteString(" ")
+		}
+		inline.WriteString(n.text)
+		breaks = isLineNote(n.text)
+		// The token follows a note on its own line, or a `//` note, on the next line.
+		if i == len(notes[first:])-1 && hasToken {
+			if n.ownLine || breaks {
+				inline.WriteString(nl + ind)
+			} else {
+				inline.WriteString(" ")
+			}
 		}
 	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].at < out[j].at })
+	var out []insertion
+	if above.Len() > 0 {
+		out = append(out, insertion{base + lineBegin, above.String(), 0})
+	}
+	if inline.Len() > 0 {
+		out = append(out, insertion{base + at, inline.String(), 0})
+	}
 	return out
+}
+
+// notesAfter writes the notes following the code token that ends at at as one insertion:
+// the rest of the line moves below a note on its own line or a `//` note, once for them all.
+func notesAfter(part string, notes []note, at, base int, ind, nl string) insertion {
+	rest := part[at:]
+	restBreaks := strings.HasPrefix(rest, "\n") || strings.HasPrefix(rest, "\r\n")
+	var b strings.Builder
+	lineNote := false
+	for _, n := range notes {
+		// A note stated inline after a `//` note cannot share its line.
+		if n.ownLine || lineNote {
+			b.WriteString(nl + ind)
+		} else {
+			b.WriteString(" ")
+		}
+		b.WriteString(n.text)
+		lineNote = isLineNote(n.text)
+	}
+	ownLine := notes[len(notes)-1].ownLine
+	if !ownLine && (!lineNote || restBreaks || len(rest) == 0) {
+		return insertion{base + at, b.String(), 0}
+	}
+	if !restBreaks {
+		b.WriteString(nl + ind)
+	}
+	// The rest of the line moves below the notes, less the blanks it began with.
+	return insertion{base + at, b.String(), len(rest) - len(strings.TrimLeft(rest, " \t"))}
 }
 
 // codeTokens is the spans of a text's code tokens: a `/* */` here is a body,

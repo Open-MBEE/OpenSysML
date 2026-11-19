@@ -928,28 +928,38 @@ func TestQueryOmitsSatisfyingFeatureWithoutQueryIdentity(t *testing.T) {
 	}
 }
 
-// TestQueryVerifyReadsSatisfyEndsReflectively verifies a verify reported as a
-// SatisfyRequirementUsage carries the metaclass property its model states.
-func TestQueryVerifyReadsSatisfyEndsReflectively(t *testing.T) {
+// TestQueryVerifyIsARequirementUsage: an objective's `verify r;` is the RequirementUsage its
+// RequirementVerificationMembership owns (SysML 8.3.19), not a SatisfyRequirementUsage.
+func TestQueryVerifyIsARequirementUsage(t *testing.T) {
 	model := `package Demo {
 		requirement r;
 		verification def Check {
 			objective { verify r; }
 		}
 	}`
-	_, _, resp := runQueryOnSource(t, model, satisfyUsageQuery(
-		QueryPropSatisfiedRequirement, QueryPropSatisfyingFeature,
-	))
-	if len(resp.Elements) != 1 {
-		t.Fatalf("verify elements = %d, want 1: %v", len(resp.Elements), resp.Elements)
+	_, _, satisfies := runQueryOnSource(t, model, satisfyUsageQuery(QueryPropSatisfiedRequirement))
+	if len(satisfies.Elements) != 0 {
+		t.Fatalf("satisfy elements = %d, want none: %v", len(satisfies.Elements), satisfies.Elements)
 	}
-	// The metamodel's satisfiedRequirement is read reflectively of the element
-	// the service reports as a SatisfyRequirementUsage; it is satisfied by nothing.
-	if got := resp.Elements[0].Properties[QueryPropSatisfiedRequirement]; got != "Demo::r" {
-		t.Errorf("verify properties[%q] = %q, want Demo::r", QueryPropSatisfiedRequirement, got)
+	_, _, requirements := runQueryOnSource(t, model, &pb.Query{
+		Where:  primitive(QueryPropType, opEqual, false, "RequirementUsage"),
+		Select: []string{QueryPropOwner, QueryPropName},
+	})
+	// The verify is the RequirementUsage the objective owns, named by the requirement it references.
+	var verify *pb.QueryResultElement
+	for _, element := range requirements.Elements {
+		if element.Properties[QueryPropOwner] == "Demo::Check::obj" {
+			if verify != nil {
+				t.Fatalf("two requirement usages under the objective: %v and %v", verify, element)
+			}
+			verify = element
+		}
 	}
-	if got, ok := resp.Elements[0].Properties[QueryPropSatisfyingFeature]; ok {
-		t.Errorf("verify properties[%q] = %q, want absent", QueryPropSatisfyingFeature, got)
+	if verify == nil {
+		t.Fatalf("no RequirementUsage owned by the objective Demo::Check::obj: %v", requirements.Elements)
+	}
+	if verify.Id != "Demo::Check::obj::r" || verify.Properties[QueryPropName] != "r" {
+		t.Errorf("verify = %q named %q, want Demo::Check::obj::r named r (by the requirement it references)", verify.Id, verify.Properties[QueryPropName])
 	}
 }
 

@@ -187,7 +187,7 @@ var symbolKindNames = map[SymbolKind]string{
 	SymbolRenderingUsage:          "renderingUsage",
 	SymbolConcernUsage:            "concernUsage",
 	SymbolConnectionUsage:         "connectionUsage",
-	SymbolBindingUsage:            "bindingUsage",
+	SymbolBindingUsage:            "bindingConnectorAsUsage",
 	SymbolSuccessionUsage:         "successionUsage",
 	SymbolFlowUsage:               "flowUsage",
 	SymbolSuccessionFlowUsage:     "successionFlowUsage",
@@ -407,9 +407,8 @@ type Symbol struct {
 	Scope      *Scope         // the child scope this declaration owns, or nil for leaves
 	OwnerScope *Scope         // the enclosing scope this declaration was declared in
 
-	// LeadingTrivia is the comment/note trivia attached to the member wrapper
-	// preceding this declaration (captured before unwrap, since wrappers carry
-	// the trivia while the unwrapped inner Decl does not). Used for doc hover.
+	// LeadingTrivia is the comment/note trivia of the member wrapper preceding this
+	// declaration, captured before unwrap since the inner Decl does not carry it.
 	LeadingTrivia []ast.Trivia
 
 	DocName string // name of the document that declares this symbol (stamped after Build)
@@ -425,6 +424,10 @@ type Symbol struct {
 	// ShortName is the short name from Identification (e.g., "kg" for "kilogram").
 	// Empty if the declaration states none.
 	ShortName string
+
+	// EmptyNames tells which of Name and ShortName is the empty name `''`
+	// rather than no name at all (KerML §8.2.2.3).
+	EmptyNames EmptyNames
 
 	// Naming records how the symbol came by its Name: declared, or derived
 	// from its naming feature (KerML 7.3.4.5 Feature::effectiveName).
@@ -443,6 +446,26 @@ type Symbol struct {
 	// Chain is the chain target this symbol denotes as a feature, or nil for
 	// every ordinary symbol (see ChainingFeature).
 	Chain *ChainingFeature
+}
+
+// EmptyNames is the set of a symbol's identifiers that are the empty name.
+type EmptyNames uint8
+
+const (
+	// EmptyName: Name is the empty name, by which the symbol is a named member.
+	EmptyName EmptyNames = 1 << iota
+	// EmptyShortName: ShortName is the empty name.
+	EmptyShortName
+)
+
+// Named reports whether the symbol has a name, the empty unrestricted name included.
+func (s *Symbol) Named() bool {
+	return s.Name != "" || s.EmptyNames&EmptyName != 0
+}
+
+// HasShortName reports whether the symbol has a short name, the empty one included.
+func (s *Symbol) HasShortName() bool {
+	return s.ShortName != "" || s.EmptyNames&EmptyShortName != 0
 }
 
 // Naming tells where a symbol's Name comes from.

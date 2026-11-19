@@ -1,0 +1,1 @@
+- Layout validation reuses shared definition expansions and computes reachability on demand instead of materializing every inherited occurrence or allocating quadratic reachability tables, while preserving typed features, placement diagnostics and rendered diagrams.

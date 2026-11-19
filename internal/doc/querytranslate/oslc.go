@@ -23,6 +23,14 @@ const (
 	paramPrefix     = "oslc.prefix"
 	paramProperties = "oslc.properties"
 	paramSearch     = "oslc.searchTerms"
+	paramPaging     = "oslc.paging"
+	paramPageSize   = "oslc.pageSize"
+)
+
+// Refusals several parameters share; each takes the parameter's name.
+const (
+	msgEmptyTerm     = "%s contains an empty term"
+	msgTermSeparator = "%s terms are separated by ','"
 )
 
 // oslcParameters is the closed set of query parameters this implementation
@@ -33,11 +41,25 @@ var oslcParameters = map[string]bool{
 	paramPrefix: true, paramProperties: true, paramSearch: true,
 }
 
+// ignoredParameters are the paging parameters, which OSLC Query 3.0 lets a
+// server ignore: this implementation answers no paged result container.
+var ignoredParameters = map[string]bool{paramPaging: true, paramPageSize: true}
+
 // ParameterNames returns the query parameters this implementation reads, in
 // stable order. It is what an unknown-parameter error lists.
 func ParameterNames() []string {
-	out := make([]string, 0, len(oslcParameters))
-	for name := range oslcParameters {
+	return sortedKeys(oslcParameters)
+}
+
+// IgnoredParameterNames returns the parameters this implementation accepts
+// without reading, in stable order.
+func IgnoredParameterNames() []string {
+	return sortedKeys(ignoredParameters)
+}
+
+func sortedKeys(set map[string]bool) []string {
+	out := make([]string, 0, len(set))
+	for name := range set {
 		out = append(out, name)
 	}
 	sort.Strings(out)
@@ -151,9 +173,8 @@ var omitting = map[string]string{
 	paramSearch:  "search no text",
 }
 
-// checkParameters refuses a parameter this implementation does not read, one
-// given more than once (reading only the first would discard the rest), and
-// one given no value.
+// checkParameters refuses an unread parameter, one given more than once (reading
+// only the first would discard the rest) and one given no value; paging passes unread.
 func checkParameters(values url.Values) error {
 	names := make([]string, 0, len(values))
 	for name := range values {
@@ -161,9 +182,12 @@ func checkParameters(values url.Values) error {
 	}
 	sort.Strings(names)
 	for _, name := range names {
+		if ignoredParameters[name] {
+			continue
+		}
 		if !oslcParameters[name] {
-			return errorf(ErrMalformed, "unknown OSLC query parameter %q; this implementation reads %s",
-				name, strings.Join(ParameterNames(), ", "))
+			return errorf(ErrMalformed, "unknown OSLC query parameter %q; this implementation reads %s and ignores %s",
+				name, strings.Join(ParameterNames(), ", "), strings.Join(IgnoredParameterNames(), ", "))
 		}
 		if len(values[name]) > 1 {
 			return errorf(ErrMalformed, "OSLC query parameter %q is given %d times", name, len(values[name]))
@@ -228,7 +252,7 @@ func parseSearchTerms(text string) ([]string, error) {
 			return nil, err
 		}
 		if term == "" {
-			return nil, errorf(ErrMalformed, "%s contains an empty term", paramSearch)
+			return nil, errorf(ErrMalformed, msgEmptyTerm, paramSearch)
 		}
 		terms = append(terms, term)
 		p.skipSpace()
@@ -236,44 +260,100 @@ func parseSearchTerms(text string) ([]string, error) {
 			return terms, nil
 		}
 		if !p.consume(',') {
-			return nil, errorf(ErrMalformed, "%s terms are separated by ','", paramSearch)
+			return nil, errorf(ErrMalformed, msgTermSeparator, paramSearch)
 		}
 	}
 }
 
+// parseOrder reads oslc.orderBy as the specification's sort_terms: signed
+// properties, and scoped terms `property{sort_terms}` signed inside the braces.
 func parseOrder(text string, prefixes map[string]string, table *Table, features map[string]bool) ([]OrderTerm, error) {
-	var out []OrderTerm
-	terms, err := splitCommaStrict(text, paramOrderBy)
+	p := newParser(text, prefixes, table)
+	terms, err := p.sortTerms("", signNone)
 	if err != nil {
 		return nil, err
 	}
-	for _, raw := range terms {
-		raw = strings.TrimSpace(raw)
-		if raw == "" {
-			return nil, errorf(ErrMalformed, "oslc.orderBy contains an empty term")
+	p.skipSpace()
+	if p.pos < len(p.s) {
+		return nil, errorf(ErrMalformed, "%s has trailing text at %q", paramOrderBy, p.s[p.pos:])
+	}
+	maps.Copy(features, p.features)
+	return terms, nil
+}
+
+// sortSign is the direction a sort term is written with: none means ascending
+// unless an enclosing scoped term carries one.
+type sortSign int
+
+const (
+	signNone sortSign = iota
+	signAscending
+	signDescending
+)
+
+func (p *oslcParser) sortSign() sortSign {
+	switch {
+	case p.consume('+'):
+		return signAscending
+	case p.consume('-'):
+		return signDescending
+	}
+	return signNone
+}
+
+// sortTerms reads `sort_term ("," sort_term)*` under prefix; outer is the sign an
+// enclosing scoped term carries outside its braces, which its unsigned terms take.
+func (p *oslcParser) sortTerms(prefix string, outer sortSign) ([]OrderTerm, error) {
+	var out []OrderTerm
+	for {
+		p.skipSpace()
+		if p.pos >= len(p.s) || p.peek('}') {
+			return nil, errorf(ErrMalformed, msgEmptyTerm, paramOrderBy)
 		}
-		desc := false
-		if raw[0] == '+' || raw[0] == '-' {
-			desc, raw = raw[0] == '-', strings.TrimSpace(raw[1:])
-		}
-		if raw == SelectAll {
-			return nil, errorf(ErrMalformed, "oslc.orderBy sorts by named properties; '*' names none")
-		}
-		p := newParser(raw, prefixes, table)
-		name, err := p.parsePath()
+		sign := p.sortSign()
+		p.skipSpace()
+		identifier, err := p.identifier()
 		if err != nil {
 			return nil, err
 		}
+		if identifier == SelectAll {
+			return nil, errorf(ErrMalformed, "%s sorts by named properties; '*' names none", paramOrderBy)
+		}
+		property, err := p.resolveProperty(identifier)
+		if err != nil {
+			return nil, err
+		}
+		if property == query.PropertyType {
+			return nil, errorf(ErrMalformed, "rdf:type names a metaclass; %s sorts by a property's values", paramOrderBy)
+		}
+		if sign != signNone && outer != signNone {
+			return nil, errorf(ErrMalformed, "%s term %q is signed both inside and outside its scope", paramOrderBy, identifier)
+		}
+		if sign == signNone {
+			sign = outer
+		}
 		p.skipSpace()
-		if p.pos < len(p.s) {
-			return nil, errorf(ErrMalformed, "oslc.orderBy term %q has trailing text", raw)
+		if p.consume('{') {
+			nested, err := p.sortTerms(prefix+property+".", sign)
+			if err != nil {
+				return nil, err
+			}
+			p.skipSpace()
+			if !p.consume('}') {
+				return nil, errorf(ErrMalformed, "%s nested term for %q is not closed by '}'", paramOrderBy, identifier)
+			}
+			out = append(out, nested...)
+		} else {
+			out = append(out, OrderTerm{Property: prefix + property, Desc: sign == signDescending})
 		}
-		for feature := range p.features {
-			features[feature] = true
+		p.skipSpace()
+		if p.pos >= len(p.s) || p.peek('}') {
+			return out, nil
 		}
-		out = append(out, OrderTerm{Property: name, Desc: desc})
+		if !p.consume(',') {
+			return nil, errorf(ErrMalformed, msgTermSeparator, paramOrderBy)
+		}
 	}
-	return out, nil
 }
 
 type oslcParser struct {
@@ -507,7 +587,7 @@ func (p *oslcParser) selectionList(prefix string, spelling map[string]string, wr
 		p.skipSpace()
 		if p.pos >= len(p.s) || p.peek('}') {
 			if len(out) == 0 {
-				return nil, errorf(ErrMalformed, "%s contains an empty term", paramSelect)
+				return nil, errorf(ErrMalformed, msgEmptyTerm, paramSelect)
 			}
 			return out, nil
 		}
@@ -516,39 +596,20 @@ func (p *oslcParser) selectionList(prefix string, spelling map[string]string, wr
 			return nil, err
 		}
 		spelled := identifier
-		var selection Selection
-		if identifier == SelectAll {
-			selection = Selection{Property: SelectAll}
-		} else {
-			property, err := p.resolveProperty(identifier)
-			if err != nil {
-				return nil, err
-			}
-			selection = Selection{Property: property}
+		selection, err := p.selectedProperty(identifier)
+		if err != nil {
+			return nil, err
 		}
 		p.skipSpace()
 		if p.consume('{') {
-			if selection.Property == SelectAll {
-				return nil, errorf(ErrMalformed, "the %s wildcard '*' cannot be scoped", paramSelect)
-			}
-			nested, err := p.selectionList(prefix+selection.Property+".", spelling, func(spelled string) string {
-				return wrap(identifier + "{" + spelled + "}")
-			})
+			nested, err := p.nestedSelection(identifier, selection.Property, prefix, spelling, wrap)
 			if err != nil {
 				return nil, err
 			}
-			p.skipSpace()
-			if !p.consume('}') {
-				return nil, errorf(ErrMalformed, "%s nested selection for %q is not closed by '}'", paramSelect, identifier)
-			}
 			selection.Nested = nested
 		}
-		if first, repeated := seen[selection.Property]; repeated {
-			if first == identifier {
-				return nil, errorf(ErrMalformed, "%s names %q twice", paramSelect, identifier)
-			}
-			return nil, errorf(ErrMalformed, "%s names one property twice: %q and %q are the same property",
-				paramSelect, first, identifier)
+		if err := repeatedSelection(seen, selection.Property, identifier); err != nil {
+			return nil, err
 		}
 		seen[selection.Property] = identifier
 		if len(selection.Nested) == 0 {
@@ -560,46 +621,59 @@ func (p *oslcParser) selectionList(prefix string, spelling map[string]string, wr
 			return out, nil
 		}
 		if !p.consume(',') {
-			return nil, errorf(ErrMalformed, "%s terms are separated by ','", paramSelect)
+			return nil, errorf(ErrMalformed, msgTermSeparator, paramSelect)
 		}
 		p.skipSpace()
 		if p.pos >= len(p.s) || p.peek('}') {
-			return nil, errorf(ErrMalformed, "%s contains an empty term", paramSelect)
+			return nil, errorf(ErrMalformed, msgEmptyTerm, paramSelect)
 		}
 	}
 }
 
-// parsePath reads a property, or a nested one `property{property}`, as a
-// dotted path, for oslc.orderBy.
-func (p *oslcParser) parsePath() (string, error) {
-	identifier, err := p.identifier()
-	if err != nil {
-		return "", err
-	}
+// selectedProperty is the selection for identifier: the `*` wildcard, or the
+// property it resolves to.
+func (p *oslcParser) selectedProperty(identifier string) (Selection, error) {
 	if identifier == SelectAll {
-		return "", errorf(ErrMalformed, "oslc.orderBy sorts by named properties; '*' names none")
+		return Selection{Property: SelectAll}, nil
 	}
 	property, err := p.resolveProperty(identifier)
 	if err != nil {
-		return "", err
+		return Selection{}, err
 	}
-	if property == query.PropertyType {
-		return "", errorf(ErrMalformed, "rdf:type names a metaclass; oslc.orderBy sorts by a property's values")
+	return Selection{Property: property}, nil
+}
+
+// nestedSelection reads the `selection}` scoped to property, which identifier
+// names, after its opening brace.
+func (p *oslcParser) nestedSelection(identifier, property, prefix string, spelling map[string]string, wrap func(string) string) ([]Selection, error) {
+	if property == SelectAll {
+		return nil, errorf(ErrMalformed, "the %s wildcard '*' cannot be scoped", paramSelect)
 	}
-	p.skipSpace()
-	if !p.consume('{') {
-		return property, nil
-	}
-	p.skipSpace()
-	inner, err := p.parsePath()
+	nested, err := p.selectionList(prefix+property+".", spelling, func(spelled string) string {
+		return wrap(identifier + "{" + spelled + "}")
+	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	p.skipSpace()
 	if !p.consume('}') {
-		return "", errorf(ErrMalformed, "oslc.orderBy nested term for %q is not closed by '}'", identifier)
+		return nil, errorf(ErrMalformed, "%s nested selection for %q is not closed by '}'", paramSelect, identifier)
 	}
-	return property + "." + inner, nil
+	return nested, nil
+}
+
+// repeatedSelection refuses identifier when seen already holds its property,
+// under the same spelling or another one.
+func repeatedSelection(seen map[string]string, property, identifier string) error {
+	first, repeated := seen[property]
+	if !repeated {
+		return nil
+	}
+	if first == identifier {
+		return errorf(ErrMalformed, "%s names %q twice", paramSelect, identifier)
+	}
+	return errorf(ErrMalformed, "%s names one property twice: %q and %q are the same property",
+		paramSelect, first, identifier)
 }
 
 func (p *oslcParser) identifier() (string, error) {
@@ -653,52 +727,14 @@ func (p *oslcParser) value() (text string, wild bool, err error) {
 		return "", false, errorf(ErrMalformed, "OSLC term has no value")
 	}
 	if p.s[p.pos] == '<' {
-		start := p.pos + 1
-		end := strings.IndexByte(p.s[start:], '>')
-		if end < 0 {
-			return "", false, errorf(ErrMalformed, "unterminated URI value")
-		}
-		p.pos = start + end + 1
-		return localValue(p.s[start : start+end]), false, nil
+		p.pos++
+		text, err = p.uriValue()
+		return text, false, err
 	}
 	if p.s[p.pos] == '"' {
 		p.pos++
-		var b strings.Builder
-		for p.pos < len(p.s) {
-			c := p.s[p.pos]
-			p.pos++
-			if c == '"' {
-				if p.pos < len(p.s) && p.s[p.pos] == '@' {
-					return "", false, errorf(ErrUnsupportedLiteral, "language-tagged literals are not supported")
-				}
-				if p.pos+1 < len(p.s) && strings.HasPrefix(p.s[p.pos:], "^^") {
-					p.pos += 2
-					dt, err := p.identifier()
-					if err != nil {
-						return "", false, err
-					}
-					if !strings.HasPrefix(dt, "xsd:") {
-						return "", false, errorf(ErrUnsupportedLiteral, "non-xsd datatype %q is not supported", dt)
-					}
-					switch strings.TrimPrefix(dt, "xsd:") {
-					case "string", "boolean", "integer", "decimal", "double":
-					default:
-						return "", false, errorf(ErrUnsupportedLiteral, "xsd datatype %q is not supported", dt)
-					}
-				}
-				return b.String(), false, nil
-			}
-			if c == '\\' {
-				if p.pos >= len(p.s) || (p.s[p.pos] != '\\' && p.s[p.pos] != '"') {
-					return "", false, errorf(ErrMalformed, "literal contains unsupported escape")
-				}
-				b.WriteByte(p.s[p.pos])
-				p.pos++
-				continue
-			}
-			b.WriteByte(c)
-		}
-		return "", false, errorf(ErrMalformed, "unterminated string literal")
+		text, err = p.quotedValue()
+		return text, false, err
 	}
 	if p.s[p.pos] == '*' {
 		p.pos++
@@ -716,7 +752,7 @@ func (p *oslcParser) value() (text string, wild bool, err error) {
 	if raw == "true" || raw == "false" {
 		return raw, false, nil
 	}
-	if _, err := strconv.ParseFloat(raw, 64); err == nil {
+	if isXSDDecimal(raw) {
 		return raw, false, nil
 	}
 	if strings.Contains(raw, ":") {
@@ -726,9 +762,120 @@ func (p *oslcParser) value() (text string, wild bool, err error) {
 	if raw == "" {
 		return "", false, errorf(ErrMalformed, "OSLC comparison has no value")
 	}
+	if _, err := strconv.ParseFloat(raw, 64); err == nil {
+		return "", false, errorf(ErrMalformed,
+			"invalid OSLC value %q: a decimal is digits with an optional sign and decimal point, as 42 or -3.5", raw)
+	}
 	// A bare name is the answer's own spelling of a value, so say what quoting it takes.
 	return "", false, errorf(ErrMalformed,
 		"invalid OSLC value %q: write a name as a quoted literal %s", raw, strconv.Quote(raw))
+}
+
+// uriValue reads a `<uri>` value after its opening bracket.
+func (p *oslcParser) uriValue() (string, error) {
+	var b strings.Builder
+	for p.pos < len(p.s) {
+		c := p.s[p.pos]
+		p.pos++
+		switch c {
+		case '>':
+			return localValue(b.String()), nil
+		case '\\':
+			// uri_ref_esc escapes '>' and '\' alone.
+			if p.pos >= len(p.s) || (p.s[p.pos] != '>' && p.s[p.pos] != '\\') {
+				return "", errorf(ErrMalformed, "URI value contains unsupported escape: only '>' and '\\' are escaped")
+			}
+			b.WriteByte(p.s[p.pos])
+			p.pos++
+		default:
+			b.WriteByte(c)
+		}
+	}
+	return "", errorf(ErrMalformed, "unterminated URI value")
+}
+
+// quotedValue reads a string literal after its opening quote, with the
+// datatype it may carry.
+func (p *oslcParser) quotedValue() (string, error) {
+	var b strings.Builder
+	for p.pos < len(p.s) {
+		c := p.s[p.pos]
+		p.pos++
+		if c == '"' {
+			if err := p.literalSuffix(); err != nil {
+				return "", err
+			}
+			return b.String(), nil
+		}
+		if c == '\\' {
+			if p.pos >= len(p.s) || (p.s[p.pos] != '\\' && p.s[p.pos] != '"') {
+				return "", errorf(ErrMalformed, "literal contains unsupported escape")
+			}
+			b.WriteByte(p.s[p.pos])
+			p.pos++
+			continue
+		}
+		b.WriteByte(c)
+	}
+	return "", errorf(ErrMalformed, "unterminated string literal")
+}
+
+// literalSuffix reads what follows a literal's closing quote: a language tag,
+// which is refused, or a `^^datatype`.
+func (p *oslcParser) literalSuffix() error {
+	if p.pos < len(p.s) && p.s[p.pos] == '@' {
+		return errorf(ErrUnsupportedLiteral, "language-tagged literals are not supported")
+	}
+	if p.pos+1 < len(p.s) && strings.HasPrefix(p.s[p.pos:], "^^") {
+		p.pos += 2
+		dt, err := p.identifier()
+		if err != nil {
+			return err
+		}
+		return p.datatype(dt)
+	}
+	return nil
+}
+
+// datatype admits the typed-literal datatypes a comparison reads: the xsd types
+// it compares, and rdf:XMLLiteral, which OSLC lets a server read as a plain string.
+func (p *oslcParser) datatype(name string) error {
+	iri, err := expandName(name, p.prefixes)
+	if err != nil {
+		return err
+	}
+	if iri == rdf.RDFNS+"XMLLiteral" {
+		return nil
+	}
+	local, ok := strings.CutPrefix(iri, rdf.XSD)
+	if !ok {
+		return errorf(ErrUnsupportedLiteral, "non-xsd datatype %q is not supported", name)
+	}
+	switch local {
+	case "string", "boolean", "integer", "decimal", "double":
+		return nil
+	}
+	return errorf(ErrUnsupportedLiteral, "xsd datatype %q is not supported", name)
+}
+
+// isXSDDecimal reports the lexical form of an xsd:decimal, OSLC's decimal term:
+// an optional sign, digits, and an optional decimal point; no exponent, infinity or NaN.
+func isXSDDecimal(text string) bool {
+	i := 0
+	if i < len(text) && (text[i] == '+' || text[i] == '-') {
+		i++
+	}
+	digits := 0
+	for i < len(text) && text[i] >= '0' && text[i] <= '9' {
+		i, digits = i+1, digits+1
+	}
+	if i < len(text) && text[i] == '.' {
+		i++
+		for i < len(text) && text[i] >= '0' && text[i] <= '9' {
+			i, digits = i+1, digits+1
+		}
+	}
+	return digits > 0 && i == len(text)
 }
 
 func (p *oslcParser) skipSpace() {
@@ -757,7 +904,7 @@ func (p *oslcParser) consumeWord(word string) bool {
 	}
 	end := p.pos + len(word)
 	if end < len(p.s) {
-		if r, _ := utf8.DecodeRuneInString(p.s[end:]); !unicode.IsSpace(r) && r != '{' {
+		if r, _ := utf8.DecodeRuneInString(p.s[end:]); !unicode.IsSpace(r) && r != '{' && r != '[' {
 			return false
 		}
 	}
@@ -939,7 +1086,7 @@ func splitCommaStrict(text, parameter string) ([]string, error) {
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 		if part == "" {
-			return nil, errorf(ErrMalformed, "%s contains an empty term", parameter)
+			return nil, errorf(ErrMalformed, msgEmptyTerm, parameter)
 		}
 		out = append(out, part)
 	}

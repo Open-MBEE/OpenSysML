@@ -190,7 +190,7 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 	case *ast.InitialNode:
 		// A start marker is registered by name so transitions can reference it; a
 		// succession's `first a` declares nothing, its body owning a body-local scope.
-		marker := d.Name() != "" && !FirstNamesSource(d)
+		marker := d.Named() && !FirstNamesSource(d)
 		if !marker && len(d.Members) == 0 {
 			return true
 		}
@@ -216,11 +216,13 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 		buildAnonymousNode(scope, d, SymbolSendActionUsage, d.Members, vis, trivia)
 		return true
 	case *ast.SuccessionEdge:
-		// A succession with a body is a SuccessionAsUsage whose body declares its
-		// own features (SysML.xtext ActionTargetSuccession ends in a UsageBody).
-		if len(d.Members) > 0 {
-			buildAnonymousNode(scope, d, SymbolSuccessionUsage, d.Members, vis, trivia)
+		// A `then x` after a state in a state body is a TargetTransitionUsage (SysML.xtext:1866) whose body is
+		// its ActionBody; any other is a SuccessionAsUsage its owner owns, with or without a body (:1698).
+		kind := SymbolSuccessionUsage
+		if ast.IsStateTargetTransition(scope.Node(), d) {
+			kind = SymbolActionUsage
 		}
+		buildAnonymousNode(scope, d, kind, d.Members, vis, trivia)
 		return true
 	case *ast.StateNode:
 		// Register state node by name (including initial/final pseudostates)
@@ -279,19 +281,18 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 		// An entry/do/exit action is a feature of the state declaring it, so a
 		// named one (`entry action entryAction :>> 'entry';`) is a member of the
 		// state's scope rather than of the wrapper the parser puts it in.
-		buildMembers(scope, d.Actions)
+		buildStateSubaction(scope, d, d.Actions, vis, trivia)
 		return true
 	case *ast.DoMember:
-		buildMembers(scope, d.Actions)
+		buildStateSubaction(scope, d, d.Actions, vis, trivia)
 		return true
 	case *ast.ExitMember:
-		buildMembers(scope, d.Actions)
+		buildStateSubaction(scope, d, d.Actions, vis, trivia)
 		return true
 	case *ast.PseudostateNode:
 		// fork/join/choice/junction/history named in a state body are
 		// transition endpoints, so they must be referenceable.
-		if d.Name != "" {
-			id := ast.Identification{Name: d.Name}
+		if id := (ast.Identification{Name: d.Name, NameSpan: d.NameSpan}); id.HasName() {
 			child := NewScope(scope, d)
 			sym := newSymbol(id, SymbolStateUsage, d, vis, child, scope, trivia)
 			defineIdent(scope, id, sym)
@@ -304,17 +305,22 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 		child := NewScope(scope, d)
 		child.markBodyLocal()
 		scope.AddChild(child)
-		if name, span := d.Variable.DeclaredName(); d.Kind == ast.LoopFor && name != "" {
+		if d.Kind == ast.LoopFor && d.Variable.Declared() {
 			// The variable's own span, not the whole loop's: the editor renames
 			// through NameSpan and jumps to DeclSpan.
-			child.Define(name, &Symbol{
+			name, span := d.Variable.DeclaredName()
+			sym := &Symbol{
 				Name:       name,
 				Kind:       SymbolReferenceUsage,
 				Decl:       d,
 				DeclSpan:   span,
 				NameSpan:   span,
 				OwnerScope: child,
-			})
+			}
+			if name == "" {
+				sym.EmptyNames = EmptyName
+			}
+			child.define(name, sym)
 		}
 		buildMembers(child, d.Body)
 		return true
@@ -407,7 +413,7 @@ func buildMetadataBodyScope(parent *Scope, annotated ast.Node, prefix *ast.Prefi
 // but still owns the scope its body declares into.
 func buildControlNode(scope *Scope, decl ast.Node, name string, nameSpan source.Span, vis ast.Visibility, trivia []ast.Trivia) {
 	body := ast.NodeBodyMembers(decl)
-	if name == "" {
+	if name == "" && nameSpan.Len == 0 {
 		// An unnamed node declares an element once its body or a prefix gives it
 		// something to own.
 		if len(body) > 0 || len(prefixMetadataOf(decl)) > 0 {
@@ -533,35 +539,54 @@ func defineTransitionEffect(scope *Scope, trans *ast.TransitionMember) {
 	if len(trans.Effect) != 1 {
 		return
 	}
-	if _, exists := scope.LookupLocal(transitionEffectName); exists {
-		return
-	}
 	effect, _ := unwrapMember(trans.Effect[0])
 	if effect == nil {
 		return
 	}
+	_, named := scope.LookupLocal(transitionEffectName)
 	// A declared effect action is already a member of the transition's scope:
 	// name that symbol rather than building a second one for it.
 	if sym, ok := memberDeclaring(scope, effect); ok {
-		scope.Define(transitionEffectName, sym)
+		sym.Kind = effectActionKind(effect, sym.Kind)
+		if !named {
+			scope.Define(transitionEffectName, sym)
+		}
+		return
+	}
+	if named {
 		return
 	}
 	// A statement (`do send x to y`) declares no member of its own, so the
 	// action it performs is named here, its members staying the transition's.
 	statement := NewScope(scope, effect)
-	kind := SymbolActionUsage
-	if SendStatementOf(effect) != nil {
-		kind = SymbolSendActionUsage
-	}
 	sym := newSymbol(
 		ast.Identification{Name: transitionEffectName, NameSpan: effect.Span()},
-		kind, effect, ast.VisibilityDefault, statement, scope, nil,
+		effectActionKind(effect, SymbolActionUsage), effect, ast.VisibilityDefault, statement, scope, nil,
 	)
 	// The statement's action subsets TransitionAction::effect (SysML v2.1 §8.4.11.x
 	// checkTransitionUsageTransitionFeatureSpecialization) and declares no name.
 	sym.Naming = NamedByRole
 	scope.Define(transitionEffectName, sym)
 	scope.AddChild(statement)
+}
+
+// effectActionKind is the kind of a transition's effect action, built as declared: the node it is written as, else the
+// PerformActionUsage of a PerformActionUsageDeclaration (SysML v2.1 §8.2.2.18.3 EffectBehaviorUsage).
+func effectActionKind(effect ast.Node, declared SymbolKind) SymbolKind {
+	switch d := effect.(type) {
+	case *ast.SendStatement:
+		return SymbolSendActionUsage
+	case *ast.AssignmentActionNode:
+		return SymbolAssignmentActionUsage
+	case *ast.PerformActionNode:
+		return SymbolPerformActionUsage
+	case *ast.Usage:
+		// A braced `do { … }` writes no declaration, so it stays the plain action it is read as.
+		if declared == SymbolActionUsage && d.Kind == ast.UsageAction && d.Keyword != "" {
+			return SymbolPerformActionUsage
+		}
+	}
+	return declared
 }
 
 // buildEffect builds a transition's effect. A `do send` statement's parameters
@@ -596,14 +621,18 @@ func memberDeclaring(scope *Scope, decl ast.Node) (*Symbol, bool) {
 // declaration owns (nil for leaf declarations); owner is the enclosing scope the
 // declaration was declared in. trivia is the leading trivia from the member wrapper.
 func newSymbol(id ast.Identification, kind SymbolKind, decl ast.Node, vis ast.Visibility, scope, owner *Scope, trivia []ast.Trivia) *Symbol {
-	name := id.Name
-	nameSpan := id.NameSpan
-	if name == "" {
-		name, nameSpan = id.ShortName, id.ShortNameSpan
+	name, nameSpan := id.DeclaredName()
+	var empty EmptyNames
+	if id.Declared() && name == "" {
+		empty |= EmptyName
+	}
+	if id.HasShortName() && id.ShortName == "" {
+		empty |= EmptyShortName
 	}
 	sym := &Symbol{
 		Name:          name,
 		ShortName:     id.ShortName,
+		EmptyNames:    empty,
 		Kind:          kind,
 		Decl:          decl,
 		Visibility:    vis,
@@ -647,7 +676,7 @@ func namingIdent(id ast.Identification, rel *ast.Relationship) (ast.Identificati
 // the given kind.
 func derivedIdent(id ast.Identification, kind Naming, target ast.Node) (ast.Identification, derivedNaming) {
 	name, span := ast.TargetName(target)
-	if name == "" {
+	if name == "" && span.Len == 0 {
 		return id, derivedNaming{}
 	}
 	id.Name, id.NameSpan = name, span
@@ -685,17 +714,26 @@ func buildAnonymousNode(scope *Scope, node ast.Node, kind SymbolKind, members []
 	buildMembers(child, members)
 }
 
-// defineIdent registers sym under its short and primary name keys, skipping
-// any that are empty (e.g. anonymous usages).
+// buildStateSubaction builds the action a state's `entry`/`do`/`exit` performs; a bare `entry;` performs
+// an anonymous empty action the StateSubactionMembership owns (SysML.xtext EmptyActionUsage).
+func buildStateSubaction(scope *Scope, subaction ast.Node, actions []ast.Node, vis ast.Visibility, trivia []ast.Trivia) {
+	if len(actions) == 0 {
+		buildAnonymousNode(scope, subaction, SymbolActionUsage, nil, vis, trivia)
+		return
+	}
+	buildMembers(scope, actions)
+}
+
+// defineIdent registers sym under the short and primary names it declares, the
+// empty unrestricted name included, or as anonymous when it declares neither.
 func defineIdent(scope *Scope, id ast.Identification, sym *Symbol) {
-	if id.ShortName != "" {
-		scope.Define(id.ShortName, sym)
+	if id.HasShortName() {
+		scope.define(id.ShortName, sym)
 	}
-	if id.Name != "" {
-		scope.Define(id.Name, sym)
+	if id.HasName() {
+		scope.define(id.Name, sym)
 	}
-	// If both names empty, register as anonymous
-	if id.ShortName == "" && id.Name == "" {
+	if !id.Declared() {
 		scope.DefineAnonymous(sym)
 	}
 }
@@ -860,6 +898,11 @@ func classifyUsage(u *ast.Usage) SymbolKind {
 	}
 	if u.IsSuccessionFlow() {
 		return SymbolSuccessionFlowUsage
+	}
+	// An objective's `verify r;` is the RequirementUsage its RequirementVerificationMembership
+	// owns, not a satisfy (SysML 8.3.19), as the RDF writer and the pilot state it.
+	if u.IsVerifiedRequirement() {
+		return SymbolRequirementUsage
 	}
 	// Only classify attribute usages (datatype, attribute, feature keywords)
 	if u.Kind != ast.UsageAttribute {

@@ -78,9 +78,10 @@ test('lists carry their items with line numbers, and nested lists as item blocks
   const [third] = convert('[start=3]\n. third\n. fourth\n');
   assert.equal(third.start, 3);
   assert.equal(third.items.length, 2);
-  const [zero, text] = convert('[start=0]\n. zero\n\n[start=abc]\n. abc\n');
+  const [zero, text, empty] = convert('[start=0]\n. zero\n\n[start=abc]\n. abc\n\n[start=]\n. empty\n');
   assert.equal(zero.start, 0);
-  assert.equal(text.start, 1);
+  assert.equal(text.start, 0);
+  assert.equal(empty.start, 0);
 });
 
 test('an admonition keeps its label and style', () => {

@@ -1,0 +1,39 @@
+{
+  "root": "spec-examples",
+  "file": "sysml/8.4.14.2/3.sysml",
+  "summary": {
+    "oursRefused": true,
+    "pilotLibraryElements": 4,
+    "elements": {
+      "matched": 0,
+      "oursOnly": 0,
+      "pilotOnly": 28,
+      "pilotOnlyImplied": 0,
+      "typeMismatch": 0
+    },
+    "properties": {
+      "presentEqual": 0,
+      "presentDifferent": 0,
+      "oursMissing": 0,
+      "pilotMissing": 0,
+      "absentBoth": 0,
+      "indeterminate": 0,
+      "pilotNondeterministic": 0
+    },
+    "unkeyedReferences": 0,
+    "extensionProperties": 0,
+    "duplicateElements": {
+      "ours": 0,
+      "pilot": 0
+    },
+    "ambiguousKeys": {
+      "ours": 0,
+      "pilot": 0
+    },
+    "unkeyableElements": {
+      "ours": 0,
+      "pilot": 5
+    }
+  },
+  "rows": {}
+}

@@ -1,0 +1,301 @@
+package semantics
+
+import (
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+)
+
+// A connector's relatedElement, source and target are what its relatedFeature, sourceFeature and targetFeature redefine (KerML
+// 8.3.4.5.1): a flow end's feature before its payload, none for a bare `from a to b`; `then idle;` after `entry;` sources from the entry action.
+func TestConnectorRelationshipEndsAreItsRelatedFeatures(t *testing.T) {
+	const src = `package P {
+		action observe {
+			first start;
+			then action acquire { out image : Real; }
+			then action readout { in image : Real; }
+			then done;
+			flow acquire.image to readout.image;
+			flow bare from acquire to readout;
+			flow mixed from acquire to readout.image;
+		}
+		state ts { entry; then idle; state idle; }
+	}`
+	for _, fixture := range reflectiveFixtures(t, "connector-ends.sysml", source.KindSysML, src) {
+		model := fixture.model
+		connectors := func(owner string) []*symbols.Symbol {
+			var out []*symbols.Symbol
+			for _, rel := range model.OwnedRelationships(nestedSym(t, fixture.root, owner)) {
+				if member := rel.Implicit.Member; member != nil && model.reflectiveMetaclassConforms(member, "Connector") {
+					out = append(out, member)
+				}
+			}
+			return out
+		}
+		names := func(sym *symbols.Symbol, property string) (string, bool) {
+			elements, ok := model.ReflectiveElements(sym, property)
+			var out []string
+			for _, e := range elements {
+				out = append(out, e.Name)
+			}
+			return strings.Join(out, " "), ok
+		}
+		observe := connectors("P::observe")
+		if len(observe) != 6 {
+			t.Fatalf("observe owns %d connectors, want 3 successions and 3 flows", len(observe))
+		}
+		for i, want := range []struct{ related, source, target string }{
+			{"start acquire", "start", "acquire"}, {"acquire readout", "acquire", "readout"},
+			{"readout done", "readout", "done"}, {"acquire readout", "acquire", "readout"}, {"", "", ""}, {"readout", "readout", ""},
+		} {
+			for property, w := range map[string]string{"relatedElement": want.related, "source": want.source, "target": want.target} {
+				if got, ok := names(observe[i], property); !ok || got != w {
+					t.Errorf("connector %d %s = %q, %v; want %q", i, property, got, ok, w)
+				}
+			}
+		}
+		entry := connectors("P::ts")
+		if len(entry) != 1 {
+			t.Fatalf("ts owns %d connectors, want the entry succession", len(entry))
+		}
+		for property, want := range map[string]string{"relatedElement": " idle", "source": "", "target": "idle"} {
+			if got, ok := names(entry[0], property); !ok || got != want {
+				t.Errorf("entry succession %s = %q (%v), want %q: the anonymous entry action and idle", property, got, ok, want)
+			}
+		}
+	}
+}
+
+// A KerML flow's ends reference the features before their payloads too: `flow a.x to b.y` relates a and b.
+func TestKerMLFlowRelationshipEndsAreTheFeaturesBeforeItsPayloads(t *testing.T) {
+	const src = `package P {
+		datatype D;
+		behavior B {
+			step a { out feature x : D; }
+			step b { in feature y : D; }
+			flow f from a.x to b.y;
+			flow bare from a to b;
+		}
+	}`
+	for _, fixture := range reflectiveFixtures(t, "kerml-flow-ends.kerml", source.KindKerML, src) {
+		for name, want := range map[string]string{"f": "a b", "bare": ""} {
+			flow := nestedSym(t, fixture.root, "P::B::"+name)
+			for property, w := range map[string]string{"relatedElement": want, "relatedFeature": want} {
+				elements, ok := fixture.model.ReflectiveElements(flow, property)
+				var names []string
+				for _, e := range elements {
+					names = append(names, e.Name)
+				}
+				if got := strings.Join(names, " "); !ok || got != w {
+					t.Errorf("%s %s = %q (%v), want %q", name, property, got, ok, w)
+				}
+			}
+		}
+	}
+}
+
+// A flow end with more than one feature before its payload references their chain: `flow a.p.q to b.p.q` relates the
+// chain Features a.p and b.p (KerML 8.3.3.3.9), so it has two related features; a record names the feature each chain reaches.
+func TestChainedFlowEndReferencesTheChainBeforeItsPayload(t *testing.T) {
+	const src = `package P {
+		part def S { port p { out item q; } part n { port p { in item q; } } }
+		part def T {
+			part a : S;
+			part b : S;
+			flow chained from a.p.q to b.p.q;
+			flow deep from a.p.q to b.n.p.q;
+			flow mixed from a.p.q to b;
+		}
+	}`
+	for i, fixture := range reflectiveFixtures(t, "chained-flow-ends.sysml", source.KindSysML, src) {
+		model, recorded := fixture.model, i == 1
+		for name, want := range map[string]struct{ related, source, target []string }{
+			"chained": {[]string{"a.p", "b.p"}, []string{"a.p"}, []string{"b.p"}},
+			"deep":    {[]string{"a.p", "b.n.p"}, []string{"a.p"}, []string{"b.n.p"}},
+			"mixed":   {[]string{"a.p"}, []string{"a.p"}, nil},
+		} {
+			flow := nestedSym(t, fixture.root, "P::T::"+name)
+			for property, chains := range map[string][]string{
+				"relatedFeature": want.related, "sourceFeature": want.source, "targetFeature": want.target,
+				"relatedElement": want.related, "source": want.source, "target": want.target,
+			} {
+				var w []string
+				for _, chain := range chains {
+					if recorded {
+						chain = chain[strings.LastIndex(chain, ".")+1:]
+					}
+					w = append(w, chain)
+				}
+				elements, ok := model.ReflectiveElements(flow, property)
+				var got []string
+				for _, e := range elements {
+					if recorded {
+						got = append(got, e.Name)
+						continue
+					}
+					var chain []string
+					for _, f := range model.chainingFeaturesOf(e) {
+						chain = append(chain, f.Name)
+					}
+					if metaclass := model.MetaclassOf(e); metaclass == nil || metaclass.Name != "Feature" {
+						t.Errorf("%s %s: metaclass %v, want the KerML Feature", name, property, metaclass)
+					}
+					got = append(got, strings.Join(chain, "."))
+				}
+				if !ok || !slices.Equal(got, w) {
+					t.Errorf("%s %s = %q (%v), want %q (recorded %v)", name, property, got, ok, w, recorded)
+				}
+			}
+			first, _ := model.ReflectiveElements(flow, "relatedFeature")
+			again, _ := model.ReflectiveElements(flow, "relatedFeature")
+			distinct := recorded || len(first) < 2 || symbols.KeyOf(first[0]) != symbols.KeyOf(first[1])
+			if len(first) == 0 || first[0] != again[0] || !distinct {
+				t.Errorf("%s: each end's chain Feature is one element with its own identity, got %v then %v", name, first, again)
+			}
+		}
+	}
+}
+
+// An association's relatedElement, source and target are the relatedType, sourceType and targetType that
+// redefine them (KerML 8.3.4.4.2): its ends' types in order, the first the source, as the pilot derives them.
+func TestAssociationRelationshipEndsAreItsEndTypes(t *testing.T) {
+	const src = `package P {
+		part def A;
+		part def B;
+		action def Observe;
+		allocation def F2P { end function : Observe; end part : A; }
+		connection def C { end a : A; end b : B; end c : B; }
+		allocation def Multi { end x : A, B; end y : Observe; }
+	}`
+	for _, fixture := range reflectiveFixtures(t, "association-ends.sysml", source.KindSysML, src) {
+		model := fixture.model
+		for owner, want := range map[string]struct{ related, source, target string }{
+			"P::F2P": {"Observe A", "Observe", "A"},
+			// relatedElement keeps repeats, target is unique (KerML 8.3.2.1), as the pilot derives both.
+			"P::C": {"A B B", "A", "B"},
+			// An end typed twice contributes both types in order: the first is the source, the second a target.
+			"P::Multi": {"A B Observe", "A", "B Observe"},
+		} {
+			sym := nestedSym(t, fixture.root, owner)
+			for property, w := range map[string]string{"relatedElement": want.related, "source": want.source, "target": want.target} {
+				elements, ok := model.ReflectiveElements(sym, property)
+				var got []string
+				for _, e := range elements {
+					got = append(got, e.Name)
+				}
+				if !ok || strings.Join(got, " ") != w {
+					t.Errorf("%s %s = %q, %v; want %q", owner, property, got, ok, w)
+				}
+			}
+		}
+	}
+}
+
+// An n-ary connector relates its ends' features in order: the first is the source, every other a target
+// (KerML 8.3.4.5.1), typed by a three-ended definition or not, as the pilot exports them.
+func TestNaryConnectorRelationshipEnds(t *testing.T) {
+	const src = `package P {
+		part def A;
+		part def B;
+		part def C;
+		part a : A;
+		part b : B;
+		part c : C;
+		connection def Tri { end e1 : A; end e2 : B; end e3 : C; }
+		connection t : Tri connect (a, b, c);
+		connection u connect (a, b, c);
+	}`
+	for _, fixture := range reflectiveFixtures(t, "nary-connector.sysml", source.KindSysML, src) {
+		model := fixture.model
+		for _, owner := range []string{"P::t", "P::u"} {
+			sym := nestedSym(t, fixture.root, owner)
+			for property, want := range map[string]string{
+				"relatedElement": "a b c", "source": "a", "target": "b c",
+				"relatedFeature": "a b c", "sourceFeature": "a", "targetFeature": "b c",
+			} {
+				elements, ok := model.ReflectiveElements(sym, property)
+				var got []string
+				for _, e := range elements {
+					got = append(got, e.Name)
+				}
+				if !ok || strings.Join(got, " ") != want {
+					t.Errorf("%s %s = %q, %v; want %q", owner, property, got, ok, want)
+				}
+			}
+		}
+	}
+}
+
+// Specializing an association reorders its ends — its own first, in declaration order, then the inherited
+// ends it does not redefine — and so its source; target stays unique. `Sub2 :> Rev` puts its `s2` first.
+func TestSpecializedAssociationRelationshipEndsFollowItsEndOrder(t *testing.T) {
+	const src = `package P {
+		part def A;
+		part def B;
+		part def C;
+		part def C2 :> C;
+		connection def Tri { end e1 : A; end e2 : B; end e3 : C; }
+		connection def Rev :> Tri { end r3 : C2 redefines e3; end r1 : A redefines e1; }
+		connection def Sub2 :> Rev { end s2 : B redefines e2; }
+		connection def Sub :> Rev;
+	}`
+	for f, fixture := range reflectiveFixtures(t, "association-end-order.sysml", source.KindSysML, src) {
+		model := fixture.model
+		for owner, want := range map[string]struct{ related, source, target string }{
+			"P::Tri":  {"A B C", "A", "B C"},
+			"P::Rev":  {"C2 A A B", "C2", "A B"},
+			"P::Sub2": {"B C2 A A B", "B", "C2 A B"},
+			// With no ends of its own, Sub inherits both of Rev's, though r3 and r1 each redefine e1.
+			"P::Sub": {"C2 A A B", "C2", "A B"},
+		} {
+			if f == 1 && owner != "P::Tri" {
+				// A record keeps the type an end's redefined general declares (C beside C2) where the
+				// source and the pilot keep the most specific: the recorded Feature::type is its own gap.
+				continue
+			}
+			sym := nestedSym(t, fixture.root, owner)
+			for property, w := range map[string]string{"relatedElement": want.related, "source": want.source, "target": want.target} {
+				elements, ok := model.ReflectiveElements(sym, property)
+				var got []string
+				for _, e := range elements {
+					got = append(got, e.Name)
+				}
+				if !ok || strings.Join(got, " ") != w {
+					t.Errorf("fixture %d %s %s = %q, %v; want %q", f, owner, property, got, ok, w)
+				}
+			}
+		}
+	}
+}
+
+// A connector relating the same feature twice lists it twice as relatedElement and once as target,
+// as the pilot exports `connect (a, b, b)`.
+func TestConnectorTargetIsUnique(t *testing.T) {
+	const src = `package P {
+		part def A;
+		part def B;
+		part a : A;
+		part b : B;
+		connection d connect (a, b, b);
+	}`
+	for _, fixture := range reflectiveFixtures(t, "connector-target-unique.sysml", source.KindSysML, src) {
+		model := fixture.model
+		sym := nestedSym(t, fixture.root, "P::d")
+		for property, want := range map[string]string{
+			"relatedElement": "a b b", "source": "a", "target": "b",
+			"relatedFeature": "a b b", "sourceFeature": "a", "targetFeature": "b",
+		} {
+			elements, ok := model.ReflectiveElements(sym, property)
+			var got []string
+			for _, e := range elements {
+				got = append(got, e.Name)
+			}
+			if !ok || strings.Join(got, " ") != want {
+				t.Errorf("d %s = %q, %v; want %q", property, got, ok, want)
+			}
+		}
+	}
+}

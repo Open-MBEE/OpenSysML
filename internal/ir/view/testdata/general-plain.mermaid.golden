@@ -63,32 +63,32 @@ flowchart TD
     n18["`*«part def»*
 **Engine**`"]
   n17 --- n18
-  n19["`*«datatype»*
-**Boolean**`"]
+  n19["`*«abstract datatype»*
+**ScalarValue**`"]
   n20["`*«datatype»*
-**Complex**`"]
+**Boolean**`"]
   n21["`*«datatype»*
-**Integer**`"]
-  n22["`*«datatype»*
-**Natural**`"]
+**String**`"]
+  n22["`*«abstract datatype»*
+**NumericalValue**`"]
   n23["`*«abstract datatype»*
 **Number**`"]
-  n24["`*«abstract datatype»*
-**NumericalValue**`"]
+  n24["`*«datatype»*
+**Complex**`"]
   n25["`*«datatype»*
-**Positive**`"]
+**Real**`"]
   n26["`*«datatype»*
 **Rational**`"]
   n27["`*«datatype»*
-**Real**`"]
-  n28["`*«abstract datatype»*
-**ScalarValue**`"]
+**Integer**`"]
+  n28["`*«datatype»*
+**Natural**`"]
   n29["`*«datatype»*
-**String**`"]
+**Positive**`"]
   n0 ---|"◇"| n1
   n0 ---|"◆"| n2
   n0 ---|"◇"| n3
-  n1 -->|"typing"| n27
+  n1 -->|"typing"| n25
   n2 -->|"typing"| n4
   n3 -->|"typing"| n6
   n5 -->|"specialization"| n4
@@ -103,13 +103,13 @@ flowchart TD
   n12 ---|"◇"| n15
   n13 -->|"redefinition"| n1
   n16 -->|"typing"| n7
-  n19 -->|"specialization"| n28
-  n20 -->|"specialization"| n23
-  n21 -->|"specialization"| n26
-  n22 -->|"specialization"| n21
-  n23 -->|"specialization"| n24
-  n24 -->|"specialization"| n28
-  n25 -->|"specialization"| n22
-  n26 -->|"specialization"| n27
-  n27 -->|"specialization"| n20
+  n20 -->|"specialization"| n19
+  n21 -->|"specialization"| n19
+  n22 -->|"specialization"| n19
+  n23 -->|"specialization"| n22
+  n24 -->|"specialization"| n23
+  n25 -->|"specialization"| n24
+  n26 -->|"specialization"| n25
+  n27 -->|"specialization"| n26
+  n28 -->|"specialization"| n27
   n29 -->|"specialization"| n28

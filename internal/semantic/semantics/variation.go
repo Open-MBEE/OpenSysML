@@ -87,9 +87,8 @@ func (m *Model) VariationPointOwning(sym *symbols.Symbol) *symbols.Symbol {
 	return owner
 }
 
-// IsVariationFeature reports whether sym is a variation point: a variation itself
-// (declared, or an enumeration definition) or a usage specializing a declared one.
-// A usage typed by an enumeration holds one of its values, as any attribute does.
+// IsVariationFeature reports whether sym is a variation point: a variation itself (declared, or an enumeration
+// definition) or a usage declared to specialize one; one typed by an enumeration or valued by a variant holds a value.
 func (m *Model) IsVariationFeature(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
@@ -97,7 +96,7 @@ func (m *Model) IsVariationFeature(sym *symbols.Symbol) bool {
 	if IsVariation(sym) {
 		return true
 	}
-	for _, sup := range m.AllSupertypes(sym) {
+	for _, sup := range m.AllDeclaredSupertypes(sym) {
 		if DeclaresVariation(sup) {
 			return true
 		}

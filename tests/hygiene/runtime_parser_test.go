@@ -10,9 +10,8 @@ import (
 	"testing"
 )
 
-// TestRuntimeDoesNotDependOnTheParser keeps the runtime a consumer of parsed trees:
-// the notation text a run reads (witness files, tool units) is parsed by the
-// runtime.ExpressionParser its frontend installs, never by the runtime itself.
+// TestRuntimeDoesNotDependOnTheParser keeps the runtime from parsing the notation text a run
+// reads (witness files, tool units): the runtime.ExpressionParser its frontend installs does.
 func TestRuntimeDoesNotDependOnTheParser(t *testing.T) {
 	cmd := exec.Command("go", "list", "-deps", "./internal/exec/runtime")
 	cmd.Dir = "../.."
@@ -63,14 +62,12 @@ func TestRuntimeModelsInstallTheExpressionParser(t *testing.T) {
 					case isPackageSelector(sel, "runtime", "NewModel"):
 						builds = true
 					case sel.Sel.Name == "SetExpressionParser" && len(call.Args) == 1:
-						if arg, ok := call.Args[0].(*ast.SelectorExpr); ok && isPackageSelector(arg, "parser", "ParseOneExpression") {
-							installs = true
-						}
+						installs = installs || readsWithTheNotationsParser(call.Args[0])
 					}
 					return true
 				})
 				if builds && !installs {
-					t.Errorf("%s: %s builds a runtime.Model without SetExpressionParser(parser.ParseOneExpression)", path, fn.Name.Name)
+					t.Errorf("%s: %s builds a runtime.Model without SetExpressionParser(lower.ExpressionReader(parser.ParseOneExpression, …))", path, fn.Name.Name)
 				}
 				if builds {
 					sites++
@@ -81,6 +78,19 @@ func TestRuntimeModelsInstallTheExpressionParser(t *testing.T) {
 	if sites == 0 {
 		t.Fatal("no shipped code builds a runtime.Model; the check is vacuous")
 	}
+}
+
+// readsWithTheNotationsParser reports whether arg spells lower.ExpressionReader over
+// parser.ParseOneExpression: the notation's parser, lowering what it reads.
+func readsWithTheNotationsParser(arg ast.Expr) bool {
+	reader, ok := arg.(*ast.CallExpr)
+	if !ok || len(reader.Args) != 2 {
+		return false
+	}
+	fun, ok := reader.Fun.(*ast.SelectorExpr)
+	parse, parses := reader.Args[0].(*ast.SelectorExpr)
+	return ok && parses && isPackageSelector(fun, "lower", "ExpressionReader") &&
+		isPackageSelector(parse, "parser", "ParseOneExpression")
 }
 
 // isPackageSelector reports whether sel spells pkg.name.

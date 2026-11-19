@@ -1,8 +1,7 @@
 package Views {
-    view def SystemView {
-        expose VehicleModel;
-    }
+    view def SystemView;
     view vehicleView : SystemView {
+        expose VehicleModel;
         expose VehicleModel::*;
         expose VehicleModel::**;
         expose VehicleModel::*::**;

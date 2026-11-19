@@ -2,6 +2,7 @@ package hygiene
 
 import (
 	"os"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -9,7 +10,7 @@ import (
 // The api-json baseline records no digest of our writer, so pr.yml's apijson-differential job is what
 // keeps it true; these tests hold the workflow and the changed-areas selector to that.
 
-const apijsonCheck = "go run -C tools ./cmd/pilot-apijson-diff -check"
+const apijsonCheck = "go run -C tools ./cmd/pilot-apijson-diff -check -pilot-record build/pilot-apijson-record"
 
 func TestPRWorkflowRerunsTheDerivedPropertyDifferential(t *testing.T) {
 	workflow, _ := loadPRWorkflow(t)
@@ -75,12 +76,29 @@ func TestChangedAreasClaimWhatMovesTheAPIJSONBaseline(t *testing.T) {
 	for _, claimed := range []string{
 		"internal/translate/export/",
 		"tools/referee/apijson/",
+		"tools/referee/baseline/",
 		"scripts/pilot-json-exporter/",
 		`scripts/pilot-pin\.sh$`,
-		`docs/project/api-json-differential-baseline\.json$`,
+		"docs/project/api-json-differential/",
 	} {
 		if !strings.Contains(script, claimed) {
 			t.Errorf("scripts/ci-changed-areas.sh's apijson area does not claim %s", claimed)
 		}
 	}
+}
+
+// The fragments are recorded, not written: .gitattributes marks them generated so
+// that GitHub collapses a re-record in a diff, as it did the monolithic baseline.
+func TestFragmentsAreMarkedGenerated(t *testing.T) {
+	raw, err := os.ReadFile("../../.gitattributes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range strings.Split(string(raw), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && fields[0] == "docs/project/api-json-differential/**/*.json" && slices.Contains(fields[1:], "linguist-generated=true") {
+			return
+		}
+	}
+	t.Error(".gitattributes does not mark docs/project/api-json-differential/**/*.json linguist-generated=true")
 }

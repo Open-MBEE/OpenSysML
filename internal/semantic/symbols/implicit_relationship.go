@@ -37,6 +37,9 @@ const (
 	// ImplicitMetadataBodyRedefinition reflects the Redefinition a metadata body
 	// feature Owner implies to the Member its name restates (SysML.xtext MetadataBodyUsage).
 	ImplicitMetadataBodyRedefinition
+	// ImplicitSuccessionEndReference reflects the ReferenceSubsetting the target end Owner of a
+	// `then x;` succession holds to the Member it reaches, as the conversion mints it (end1's `rs`).
+	ImplicitSuccessionEndReference
 )
 
 // ImplicitRelationship is a relationship the abstract syntax holds as an

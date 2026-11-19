@@ -18,6 +18,7 @@ public final class RunResult {
     private final List<RunNamedValue> outputs;
     private final List<String> trace;
     private final List<RunOutcome> outcomes;
+    private final RunCoverage coverage;
     private final String resultText;
     private final List<RunVerdict> verdicts;
     private final List<RunInstance> instances;
@@ -36,6 +37,7 @@ public final class RunResult {
         this.outputs = List.copyOf(builder.outputs);
         this.trace = List.copyOf(builder.trace);
         this.outcomes = List.copyOf(builder.outcomes);
+        this.coverage = builder.coverage;
         this.resultText = builder.resultText;
         this.verdicts = List.copyOf(builder.verdicts);
         this.instances = List.copyOf(builder.instances);
@@ -59,6 +61,7 @@ public final class RunResult {
         private List<RunNamedValue> outputs = List.of();
         private List<String> trace = List.of();
         private List<RunOutcome> outcomes = List.of();
+        private RunCoverage coverage;
         private String resultText;
         private List<RunVerdict> verdicts = List.of();
         private List<RunInstance> instances = List.of();
@@ -76,6 +79,7 @@ public final class RunResult {
         public Builder outputs(List<RunNamedValue> outputs) { this.outputs = outputs; return this; }
         public Builder trace(List<String> trace) { this.trace = trace; return this; }
         public Builder outcomes(List<RunOutcome> outcomes) { this.outcomes = outcomes; return this; }
+        public Builder coverage(RunCoverage coverage) { this.coverage = coverage; return this; }
         public Builder resultText(String resultText) { this.resultText = resultText; return this; }
         public Builder verdicts(List<RunVerdict> verdicts) { this.verdicts = verdicts; return this; }
         public Builder instances(List<RunInstance> instances) { this.instances = instances; return this; }
@@ -98,6 +102,7 @@ public final class RunResult {
     public List<RunNamedValue> outputs() { return outputs; }
     public List<String> trace() { return trace; }
     public List<RunOutcome> outcomes() { return outcomes; }
+    public RunCoverage coverage() { return coverage; }
     public String resultText() { return resultText; }
     public List<RunDiagnostic> diagnostics() {
         return mappedDiagnostics.stream().map(MappedDiagnostic::diagnostic).toList();

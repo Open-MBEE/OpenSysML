@@ -3,6 +3,7 @@ package opensysml_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/client/opensysml"
@@ -269,5 +270,109 @@ func TestLookupSymbolListsLibraryMembersOnRequest(t *testing.T) {
 	}
 	if library != withheld.WithheldLibraryMembers {
 		t.Errorf("listed %d library members, want the %d withheld before", library, withheld.WithheldLibraryMembers)
+	}
+}
+
+const annotatedSource = `package D10 {
+    metadata def FailureMode { attribute severity : ScalarValues::Integer; }
+    #FailureMode part def PumpP;
+    part def PumpB { @FailureMode { severity = 3; } }
+    part def PumpA;
+    metadata pumpA_fm : FailureMode about PumpA { severity = 2; }
+}
+`
+
+func TestLookupSymbolNamesItsAnnotatingMetadata(t *testing.T) {
+	client := newClient(t)
+	model, err := client.ParseSource(context.Background(), annotatedSource)
+	if err != nil {
+		t.Fatalf("ParseSource: %v", err)
+	}
+	lookup := func(id string) *opensysml.Symbol {
+		t.Helper()
+		sym, err := client.LookupSymbol(context.Background(), model, id)
+		if err != nil {
+			t.Fatalf("LookupSymbol(%s): %v", id, err)
+		}
+		return sym
+	}
+	for id, want := range map[string][]string{
+		"D10::PumpP":    {"D10::PumpP::@0"},
+		"D10::PumpB":    {"D10::PumpB::@0"},
+		"D10::PumpA":    {"D10::pumpA_fm"},
+		"D10::pumpA_fm": nil,
+	} {
+		if got := lookup(id).AnnotatingMetadataIDs; !slices.Equal(got, want) {
+			t.Errorf("%s: AnnotatingMetadataIDs = %v, want %v", id, got, want)
+		}
+	}
+	// An `about` usage is a member of the namespace it is written in.
+	pump := lookup("D10::PumpA")
+	if len(pump.ChildIDs) != 0 {
+		t.Errorf("D10::PumpA: ChildIDs = %v, want none", pump.ChildIDs)
+	}
+	usage := lookup(pump.AnnotatingMetadataIDs[0])
+	if usage.Kind != "metadataUsage" || usage.Type == nil || usage.Type.ResolvedID != "D10::FailureMode" {
+		t.Errorf("usage = %s typed %+v, want a metadataUsage typed D10::FailureMode", usage.Kind, usage.Type)
+	}
+	if len(usage.Attributes) != 1 || usage.Attributes[0].Name != "severity" || usage.Attributes[0].Value != opensysml.Int(2) {
+		t.Errorf("usage attributes = %+v, want severity = 2", usage.Attributes)
+	}
+}
+
+const conjugatedPortSource = `package Demo {
+	port def CmdPort {
+		out attribute cmd;
+		in attribute ack;
+	}
+	part def Device {
+		port pOut : CmdPort;
+		port pIn : ~CmdPort;
+	}
+}`
+
+func TestLookupSymbolAsMemberOfReportsTheRelativeDirection(t *testing.T) {
+	client := newClient(t)
+	ctx := context.Background()
+	model, err := client.ParseSource(ctx, conjugatedPortSource)
+	if err != nil {
+		t.Fatalf("ParseSource: %v", err)
+	}
+	for _, tc := range []struct {
+		feature, memberOf, want string
+	}{
+		{"Demo::CmdPort::cmd", "", "out"},
+		{"Demo::CmdPort::ack", "", "in"},
+		{"Demo::CmdPort::cmd", "Demo::Device::pOut", "out"},
+		{"Demo::CmdPort::ack", "Demo::Device::pOut", "in"},
+		{"Demo::CmdPort::cmd", "Demo::Device::pIn", "in"},
+		{"Demo::CmdPort::ack", "Demo::Device::pIn", "out"},
+	} {
+		var opts []opensysml.SymbolOption
+		if tc.memberOf != "" {
+			opts = append(opts, opensysml.AsMemberOf(tc.memberOf))
+		}
+		symbol, err := client.LookupSymbol(ctx, model, tc.feature, opts...)
+		if err != nil {
+			t.Fatalf("LookupSymbol(%s as a member of %q): %v", tc.feature, tc.memberOf, err)
+		}
+		if got := symbol.Metadata["direction"]; got != tc.want {
+			t.Errorf("%s as a member of %q: direction = %q, want %q", tc.feature, tc.memberOf, got, tc.want)
+		}
+	}
+	// The port lists the features it is asked about as its members.
+	port, err := client.LookupSymbol(ctx, model, "Demo::Device::pIn")
+	if err != nil {
+		t.Fatalf("LookupSymbol: %v", err)
+	}
+	listed := map[string]bool{}
+	for _, member := range port.Members {
+		listed[member.ID] = true
+	}
+	if !listed["Demo::CmdPort::cmd"] || !listed["Demo::CmdPort::ack"] {
+		t.Errorf("pIn members = %+v, want cmd and ack", port.Members)
+	}
+	if _, err := client.LookupSymbol(ctx, model, "Demo::CmdPort::cmd", opensysml.AsMemberOf("Demo::Missing")); err == nil {
+		t.Error("LookupSymbol as a member of an unknown type succeeded")
 	}
 }

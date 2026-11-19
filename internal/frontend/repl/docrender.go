@@ -8,14 +8,13 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docset"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
 )
 
 // renderDocumentUsage is what %render-document accepts: a document's name,
@@ -111,12 +110,12 @@ func (s *Session) evaluateDocument(invocation, extension string) (*docir.Documen
 		for _, sibling := range s.documentSymbols(idx, sem) {
 			names = append(names, symbols.FQNOf(sibling))
 		}
-		if files, err = modeldoc.DocumentFiles(names, extension); err != nil {
+		if files, err = docset.Files(names, extension); err != nil {
 			return nil, nil, err
 		}
 	}
 	document, err := docir.EvaluateLinked(plan,
-		model.SiblingDocumentPlans(idx, sem, resolver, sym),
+		docset.SiblingPlans(idx, sem, resolver, sym),
 		s.queryContext(ctx),
 		queryexec.Options{},
 		s.sessionSourceText())
@@ -183,7 +182,7 @@ func (s *Session) renderDocumentSet(
 	for _, sym := range syms {
 		names = append(names, symbols.FQNOf(sym))
 	}
-	files, err := modeldoc.DocumentFiles(names, extension)
+	files, err := docset.Files(names, extension)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +236,7 @@ func (s *Session) renderDocumentSet(
 // in fully-qualified-name order.
 func (s *Session) documentSymbols(idx *symbols.Index, sem *semantics.Model) []*symbols.Symbol {
 	syms := s.symbolsInLoadOrder(func(scope *symbols.Scope) []*symbols.Symbol {
-		return model.DeclaredDocumentDefinitions(idx, sem, scope)
+		return docset.Definitions(idx, sem, scope)
 	})
 	sort.SliceStable(syms, func(i, j int) bool {
 		return symbols.FQNOf(syms[i]) < symbols.FQNOf(syms[j])

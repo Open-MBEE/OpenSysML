@@ -572,6 +572,8 @@ func TestFixturesComeBackFromTheGraphAlone(t *testing.T) {
 		"nested_namespace_import.sysml",
 		"quoted_succession_ends.sysml",
 		"individual_definitions.sysml",
+		"empty_names.sysml",
+		"empty_names_behavior.sysml",
 	}
 	for _, fixture := range fixtures {
 		path := filepath.Join("testdata", "convert", fixture)
@@ -3230,7 +3232,7 @@ func TestElementIRIsEncodeQualifiedNames(t *testing.T) {
 // the succession a transition owns (`_succession`), the referent memberships an
 // expression's referent edge restates, and a
 // filtered import's unnamed `_fp` package with its `_im` import and `_efm` filter.
-var materializedSuffixID = regexp.MustCompile(`_(ft|sc|ss|sp|rd|rs)[0-9]*(_om)?$|_(subject|conjugated|pc|referent|preferent|targetFeature|succession|linkparam|triggerparam)(_om)?$|_fp(_im|_efm)?$|_an[0-9]*$`)
+var materializedSuffixID = regexp.MustCompile(`_(ft|sc|ss|sp|rd|rs)[0-9]*(_om)?$|_(subject|conjugated|pc|referent|preferent|targetFeature|succession|linkparam|triggerparam|transitionlink)(_om)?$|_fp(_im|_efm)?$|_an[0-9]*$`)
 
 // materializedExprID is the same convention inside an expression node's id.
 var materializedExprID = regexp.MustCompile(`_(subject|conjugated|pc|referent|preferent|targetFeature|succession)(_|$)|_(ft|sc|ss|sp|rd|rs)[0-9]`)
@@ -3280,7 +3282,11 @@ func TestFixtureElementIDsRoundTrip(t *testing.T) {
 			if materializedSuffixID.MatchString(strings.TrimPrefix(subject.Value, rdf.Element)) {
 				continue
 			}
-			qname, ok := graph.Lexical(subject, rdf.SysML+"qualifiedName")
+			// The address is stated beside a qualified name that spells it differently.
+			qname, ok := graph.Lexical(subject, rdf.OpenSysML+"mappingQualifiedName")
+			if !ok {
+				qname, ok = graph.Lexical(subject, rdf.SysML+"qualifiedName")
+			}
 			if !ok {
 				qname, ok = graph.Lexical(subject, rdf.OpenSysML+"positionalName")
 			}
@@ -3978,7 +3984,9 @@ func TestLoopConditionsLinkTheLoopBodysActions(t *testing.T) {
 func TestMachineEndpointsLinkAcrossRegionsAndNesting(t *testing.T) {
 	turtle := toTurtle(t, filepath.Join("testdata", "convert", "endpoint_scopes.sysml"))
 	for _, want := range []string{
-		"sysml:targetFeature elmt:Machines__Lamp__on__heat__warm .",
+		"sysml:targetFeature elmt:Machines__Lamp__on__heat__warm",
+		// The `then warm` succession's Relationship::target, which its targetFeature redefines.
+		"sysml:target elmt:Machines__Lamp__on__heat__warm",
 		// A transition's own target, ahead of the order annotations its
 		// several owned relationships carry.
 		"sysml:target elmt:Machines__Lamp__on__light__bright ;\n    json:ownedRelationship",

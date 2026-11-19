@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -141,7 +142,7 @@ func (t *translator) objective(obj runtime.Objective) (Objective, error) {
 		return Objective{}, t.refuseObjective(obj, "computes its evaluation in steps rather than stating it as one expression",
 			"write the value to optimize as the body of `eval` ("+spelling+")")
 	}
-	if obj.Value == nil {
+	if obj.ValueID == 0 {
 		return Objective{}, t.refuseObjective(obj, "states no value to improve",
 			"state the value to optimize as the objective's evaluation ("+spelling+")")
 	}
@@ -149,7 +150,7 @@ func (t *translator) objective(obj runtime.Objective) (Objective, error) {
 	// a condition that is already nonlinear says nothing about the objective.
 	outer := t.nonlinear
 	t.nonlinear = false
-	term, err := t.expr(obj.Value, obj.Scope)
+	term, err := t.expr(t.ctx.ExprEntry(obj.ValueID), obj.Scope)
 	nonlinear := t.nonlinear
 	t.nonlinear = outer || nonlinear
 	if err != nil {
@@ -173,7 +174,7 @@ func (t *translator) objective(obj runtime.Objective) (Objective, error) {
 		Name:       obj.Name,
 		Symbol:     obj.Symbol,
 		Expression: obj.Text(),
-		Dimension:  t.dimensionText(obj.Scope, obj.Value),
+		Dimension:  t.dimensionText(obj.Scope, t.ctx.ExprEntry(obj.ValueID)),
 		File:       t.condFile,
 		Span:       objectiveSpan(obj),
 		Location:   t.ctx.SourceLocation(t.condFile, objectiveSpan(obj)),
@@ -190,7 +191,7 @@ func (t *translator) bindBest(obj runtime.Objective, term *Term) error {
 	if _, read := t.vars[variableName(t, chain)]; !read {
 		return nil
 	}
-	best, err := t.variableOf(obj.Best.Decl, obj.Scope, chain, []string{obj.Best.Name})
+	best, err := t.variableOf(lower.Declared(obj.Best), obj.Scope, chain, []string{obj.Best.Name})
 	if err != nil {
 		return err
 	}
@@ -199,7 +200,7 @@ func (t *translator) bindBest(obj runtime.Objective, term *Term) error {
 		return t.refuseObjective(obj, "states a value of sort "+right.Sort.Name+
 			" for a `best` of sort "+left.Sort.Name, "")
 	}
-	t.guard(Binary(OpEq, Bool, left, right), obj.Best.Decl)
+	t.guard(Binary(OpEq, Bool, left, right), lower.Declared(obj.Best))
 	return nil
 }
 
@@ -242,8 +243,8 @@ func objectiveLabel(obj runtime.Objective) string {
 // objectiveSpan is where the objective's value was written, falling back to the
 // objective's own declaration when it states none.
 func objectiveSpan(obj runtime.Objective) source.Span {
-	if obj.Value != nil {
-		return obj.Value.Span()
+	if span, ok := obj.Written(); ok {
+		return span
 	}
 	if obj.Symbol != nil {
 		return obj.Symbol.DeclSpan

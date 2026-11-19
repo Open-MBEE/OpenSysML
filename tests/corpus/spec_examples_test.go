@@ -2,6 +2,7 @@ package corpus
 
 import (
 	"flag"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 	"testing"
 )
 
@@ -28,16 +29,21 @@ const specExamplesExpectedHeader = "# Files extracted from the pinned OMG specif
 // vendored, so this skips when they are absent unless
 // OPENSYSML_REQUIRE_SPEC_EXAMPLES is set, as CI does.
 func TestSpecExamplesDiagnostics(t *testing.T) {
+	subset := corpussubset.Must(t, "../..")
 	files := specExamplesGate.files(t)
+	visited, visitedKeys := specExamplesGate.visited(subset, files)
 
 	// Measure the implementation rather than the developer's machine: an empty
 	// semantic cache makes the run index the standard library by parsing it,
 	// which is what a fresh checkout, the LSP on a new machine, and CI all do.
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 
-	got := specExamplesGate.counts(t, files)
+	got := specExamplesGate.counts(t, files, visitedKeys)
 
 	if *updateSpecExamples {
+		if err := subset.Recording("-update-spec-examples"); err != nil {
+			t.Fatal(err)
+		}
 		specExamplesGate.writeExpected(t, specExamplesExpectedHeader, files, got)
 		t.Logf("wrote %s: %d file(s) reporting diagnostics", specExamplesGate.expected, len(got))
 		return
@@ -48,6 +54,8 @@ func TestSpecExamplesDiagnostics(t *testing.T) {
 
 	for _, path := range sortedKeys(want) {
 		switch gotCount, ok := got[path]; {
+		case !visitedKeys[path]:
+			// Not iterated under the subset; its recorded count stands unchecked.
 		case !ok:
 			t.Errorf("%s: expected %d diagnostic(s) but the file is now clean; "+
 				"regenerate with -update-spec-examples", path, want[path])
@@ -71,12 +79,12 @@ func TestSpecExamplesDiagnostics(t *testing.T) {
 
 	for _, root := range specExamplesGate.roots {
 		reporting := 0
-		for _, rel := range files[root.name] {
+		for _, rel := range visited[root.name] {
 			if got[specExamplesGate.key(root, rel)] > 0 {
 				reporting++
 			}
 		}
 		t.Logf("%s: %d/%d specification examples clean",
-			root.name, len(files[root.name])-reporting, len(files[root.name]))
+			root.name, len(visited[root.name])-reporting, len(visited[root.name]))
 	}
 }

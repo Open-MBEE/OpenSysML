@@ -1745,7 +1745,7 @@ func TestSelfModelDocumentProseReadsTheModel(t *testing.T) {
 		t.Errorf("%d Markdown bodies in the document, want %d", n, want)
 	}
 	valueRuns := regexp.MustCompile(`\]\(sysml:value:([^)]+)\)`).FindAllStringSubmatch(doc, -1)
-	if n, want := len(valueRuns), 12; n != want {
+	if n, want := len(valueRuns), 16; n != want {
 		t.Errorf("%d value runs in the document, want %d", n, want)
 	}
 

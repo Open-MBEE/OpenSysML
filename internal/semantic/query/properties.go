@@ -149,21 +149,22 @@ func (r *PropertyReader) nameValues(sym *symbols.Symbol, property string) ([]str
 	switch property {
 	case PropertyName:
 		if r.semantics != nil {
-			return presentValues(r.semantics.EffectiveNameOf(sym))
+			return valueIfPresent(r.semantics.EffectiveNamed(sym))
 		}
-		return presentValues(sym.Name)
+		return valueIfPresent(sym.Name, sym.Named())
 	case PropertyDeclaredName:
-		if sym.EffectiveName() {
+		// A metadata body's `mission = …` declares no name: the Redefinition it implies names it.
+		if sym.EffectiveName() || (r.semantics != nil && r.semantics.RestatesMetadataBodyFeature(sym)) {
 			return nil, false
 		}
-		return presentValues(sym.Name)
+		return valueIfPresent(sym.Name, sym.Named())
 	case PropertyShortName:
 		if r.semantics != nil {
-			return presentValues(r.semantics.EffectiveShortNameOf(sym))
+			return valueIfPresent(r.semantics.EffectiveShortNamed(sym))
 		}
-		return presentValues(sym.ShortName)
+		return valueIfPresent(sym.ShortName, sym.HasShortName())
 	case PropertyDeclaredShortName:
-		return presentValues(sym.ShortName)
+		return valueIfPresent(sym.ShortName, sym.HasShortName())
 	}
 	return nil, false
 }
@@ -355,6 +356,15 @@ func generalizes(sym *symbols.Symbol, kind ast.RelationshipKind) bool {
 		return kind == ast.RelTyping
 	}
 	return false
+}
+
+// valueIfPresent is the one value of a property that has it, the empty
+// unrestricted name included (KerML §8.2.2.3).
+func valueIfPresent(value string, present bool) ([]string, bool) {
+	if !present {
+		return nil, false
+	}
+	return []string{value}, true
 }
 
 func presentValues(value string) ([]string, bool) {

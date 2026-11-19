@@ -471,7 +471,7 @@ func (m *Model) kindBaseDefinitionFQNs(sym *symbols.Symbol, isKerML bool) []stri
 			}
 			found = true
 			if base.IsFeature() {
-				for _, typ := range m.baseFeatureTypes(base, nil) {
+				for _, typ := range m.baseFeatureTypes(base) {
 					if typ != nil {
 						out = append(out, m.resolver.Index().GetFQN(typ))
 					}
@@ -544,6 +544,12 @@ func (m *Model) kindBaseFQN(sym *symbols.Symbol, isKerML bool) (string, bool) {
 		// gets the same base as `transition` written as a usage.
 		fqn, ok := implicitUsageBases[ast.UsageTransition]
 		return fqn, ok
+	case *ast.SuccessionEdge:
+		// A state body's `then x;` after a state is a TargetTransitionUsage (SysML.xtext:1866).
+		if sym.DeclaresTransition() {
+			fqn, ok := implicitUsageBases[ast.UsageTransition]
+			return fqn, ok
+		}
 	case *ast.AssumeMember, *ast.RequireMember:
 		// An assume/require member owns a ConstraintUsage (SysML v2
 		// RequirementConstraintUsage), so it takes a constraint's base.
@@ -792,9 +798,28 @@ func (m *Model) computeImplicitBases(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// baseFeatureTypes returns the definition types supplied by a feature and all
-// feature bases it subsets, retaining first-seen most-specific types.
-func (m *Model) baseFeatureTypes(base *symbols.Symbol, visiting map[*symbols.Symbol]bool) []*symbols.Symbol {
+// baseFeatureTypes returns the most specific definition types a feature and the bases it
+// subsets supply, first seen first; memoized once settled and shared, so not to be edited.
+func (m *Model) baseFeatureTypes(base *symbols.Symbol) []*symbols.Symbol {
+	if base == nil {
+		return nil
+	}
+	defer m.own(base).LeaveDoc()
+	if cached, ok := m.featureBaseTypes[base]; ok {
+		return cached
+	}
+	m.resolver.Enter()
+	out := m.computeBaseFeatureTypes(base, nil)
+	if m.resolver.Leave() {
+		journal(m, m.featureBaseTypes, base, base.Decl)
+		m.featureBaseTypes[base] = out
+	}
+	return out
+}
+
+// computeBaseFeatureTypes derives baseFeatureTypes' answer; visiting holds the
+// features on the walk, so a subsetting cycle ends it.
+func (m *Model) computeBaseFeatureTypes(base *symbols.Symbol, visiting map[*symbols.Symbol]bool) []*symbols.Symbol {
 	if base == nil {
 		return nil
 	}
@@ -816,7 +841,7 @@ func (m *Model) baseFeatureTypes(base *symbols.Symbol, visiting map[*symbols.Sym
 		}
 	}
 	for _, feature := range features {
-		types = append(types, m.baseFeatureTypes(feature, visiting)...)
+		types = append(types, m.computeBaseFeatureTypes(feature, visiting)...)
 	}
 
 	var out []*symbols.Symbol
@@ -872,7 +897,7 @@ func (m *Model) declaredGeneralizationReaches(sym *symbols.Symbol, want string, 
 	// generalization would (SysML v2 §7.27.3), so it displaces the base too.
 	var targets []*symbols.Symbol
 	for _, rel := range RelationshipsOf(sym) {
-		if rel != nil && GeneralizationKind(rel.Kind) {
+		if rel != nil && Generalizes(sym, rel.Kind) {
 			targets = append(targets, m.relationshipTarget(sym, rel))
 		}
 	}
@@ -895,7 +920,7 @@ func (m *Model) declaredGeneralizationReaches(sym *symbols.Symbol, want string, 
 			if (slices.Contains(m.kindBaseFQNs(target, m.isKerMLDoc(target)), want) ||
 				slices.Contains(m.kindBaseDefinitionFQNs(target, m.isKerMLDoc(target)), want) ||
 				m.multiplicityBaseIs(target, want)) &&
-				!declaresConjugation(target) && !m.declaredReaches(target, sym, nil) {
+				!declaresConjugation(target) && !m.declaredReaches(target, sym) {
 				sameBase = true
 			}
 		}
@@ -908,21 +933,20 @@ func (m *Model) declaredGeneralizationReaches(sym *symbols.Symbol, want string, 
 
 // declaredReaches reports whether want is on from's declared generalization
 // chain: a cycle, when asked of a type's own supertype.
-func (m *Model) declaredReaches(from, want *symbols.Symbol, visiting map[*symbols.Symbol]bool) bool {
-	if from == nil || want == nil {
-		return false
-	}
-	if visiting == nil {
-		visiting = make(map[*symbols.Symbol]bool)
-	}
-	if visiting[from] {
-		return false
-	}
-	visiting[from] = true
+func (m *Model) declaredReaches(from, want *symbols.Symbol) bool {
+	var visited reachSet
+	return m.declaredReachesFrom(from, want, &visited)
+}
 
-	var targets []*symbols.Symbol
+// declaredReachesFrom is declaredReaches over the declarations visited has not seen.
+func (m *Model) declaredReachesFrom(from, want *symbols.Symbol, visited *reachSet) bool {
+	if from == nil || want == nil || !visited.add(from) {
+		return false
+	}
+	var few [4]*symbols.Symbol
+	targets := few[:0]
 	for _, rel := range RelationshipsOf(from) {
-		if rel != nil && GeneralizationKind(rel.Kind) {
+		if rel != nil && Generalizes(from, rel.Kind) {
 			targets = append(targets, m.relationshipTarget(from, rel))
 		}
 	}
@@ -930,11 +954,36 @@ func (m *Model) declaredReaches(from, want *symbols.Symbol, visiting map[*symbol
 		targets = append(targets, sub)
 	}
 	for _, target := range targets {
-		if target == want || m.declaredReaches(target, want, visiting) {
+		if target == want || m.declaredReachesFrom(target, want, visited) {
 			return true
 		}
 	}
 	return false
+}
+
+// reachSet is the declarations a declaredReaches walk has visited: the first
+// few held in place, so a short chain allocates nothing, the rest in a map.
+type reachSet struct {
+	few  [32]*symbols.Symbol
+	n    int
+	more map[*symbols.Symbol]bool
+}
+
+// add records sym as visited and reports whether it was not already.
+func (s *reachSet) add(sym *symbols.Symbol) bool {
+	if slices.Contains(s.few[:s.n], sym) || s.more[sym] {
+		return false
+	}
+	if s.n < len(s.few) {
+		s.few[s.n] = sym
+		s.n++
+		return true
+	}
+	if s.more == nil {
+		s.more = make(map[*symbols.Symbol]bool)
+	}
+	s.more[sym] = true
+	return true
 }
 
 // baseUsageFQN is the most general base usage every usage element subsets,
@@ -1216,10 +1265,10 @@ func (m *Model) computeDeclaredChainReachesKindBase(sym *symbols.Symbol) bool {
 	return ok && fqn != "" && m.declaredGeneralizationReaches(sym, fqn, nil)
 }
 
-// DeclaredSupertypes returns sym's direct supertypes without the generals its
-// kind implies: what a declaration states, directly or through a chain it names.
+// DeclaredSupertypes returns sym's direct supertypes without the generals its kind or
+// its feature value implies: what a declaration states, directly or through a chain it names.
 func (m *Model) DeclaredSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
-	implicit := m.ImplicitGenerals(sym)
+	implicit := m.generalsOutsideTyping(sym)
 	var out []*symbols.Symbol
 	for _, super := range m.DirectSupertypes(sym) {
 		if !slices.Contains(implicit, super) {

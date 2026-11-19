@@ -236,7 +236,7 @@ func drawioDiagramID(view string) string {
 
 // notices are what the file does not represent, written as leading comments.
 func (w *drawioWriter) notices(r *Rendering, options Options) []string {
-	notices := append([]string(nil), r.Notices...)
+	notices := append([]string(nil), r.notices()...)
 	if w.unrouted {
 		notices = append(notices, "edges not routed: this build runs no router; draw.io routes them when the file opens")
 	}
@@ -428,8 +428,11 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 		rel = box.relativeTo(w.boxes[parent])
 	}
 	fqn := w.fqn(node, parentFQN)
-	if w.sections > 0 || sectionKind(node.Kind) {
+	if w.sections > 0 || bodySectionKind(node.Kind) {
 		fqn = "" // a body section and its nodes: the body is an anonymous action, so no name reaches them
+	}
+	if node.Kind == swimlaneKind {
+		fqn = "" // a swimlane is no element: its nodes keep the names the flow gives them
 	}
 	nested := fqn
 	if nested == "" {
@@ -474,7 +477,7 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 		w.writeTextCell(node.ID+":ellipsis", node, ellipsisMark, drawioBox{Y: y, Width: box.Width, Height: ellipsis})
 	}
 	w.writePorts(node, nested)
-	if sectionKind(node.Kind) {
+	if bodySectionKind(node.Kind) {
 		w.sections++
 		defer func() { w.sections-- }()
 	}
@@ -763,7 +766,7 @@ func (w *drawioWriter) nodeStyle(node *Node, header float64, compartmented bool)
 		style = fmt.Sprintf("swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=%s;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;", formatCoord(header))
 	case compartmented || len(node.Children) > 0:
 		style = fmt.Sprintf("swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=%s;collapsible=1;", formatCoord(header))
-		if node.Kind == "region" {
+		if dashedFrameKind(node.Kind) {
 			style = fmt.Sprintf("swimlane;html=0;whiteSpace=wrap;dashed=1;align=left;verticalAlign=top;startSize=%s;collapsible=0;", formatCoord(header))
 		}
 	default:

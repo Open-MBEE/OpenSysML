@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -69,6 +70,9 @@ type Objective struct {
 	// Value is the expression stating the value to improve, nil when the
 	// objective states none.
 	Value ast.Node
+
+	// ValueID is Value in the model's table, lowered in Scope; 0 when it states none.
+	ValueID program.ExprID
 
 	// Scope is where Value's names resolve.
 	Scope *symbols.Scope
@@ -223,7 +227,7 @@ func (ctx *Context) placeStage(out []*symbols.Symbol, stage *symbols.Symbol) []*
 		if prev == stage || slices.Contains(ctx.model.semantics.AllRedefinedFeatures(prev), stage) {
 			return out
 		}
-		if slices.Contains(redefined, prev) || (stage.Name != "" && stage.Name == prev.Name) {
+		if slices.Contains(redefined, prev) || (stage.Named() && stage.Name == prev.Name) {
 			out[i] = stage
 			return out
 		}
@@ -256,6 +260,13 @@ func (ctx *Context) redefines(obj, prev Objective) bool {
 // conditions from its own body. owner is the case stating it, which is where a
 // value it takes from a redeclared objective is looked for.
 func (ctx *Context) objectiveOf(objSym, owner *symbols.Symbol) Objective {
+	obj := ctx.statedObjective(objSym, owner)
+	obj.ValueID = ctx.model.exprs.Intern(obj.Value, obj.Scope)
+	return obj
+}
+
+// statedObjective is objectiveOf before the value is interned.
+func (ctx *Context) statedObjective(objSym, owner *symbols.Symbol) Objective {
 	typ := ctx.extractType(objSym)
 	obj := Objective{
 		Name:      ctx.model.semantics.EffectiveNameOf(objSym),
@@ -329,7 +340,7 @@ func (ctx *Context) readEvalValue(obj *Objective, objSym *symbols.Symbol) bool {
 		return true
 	}
 	body := bodyScope(evalSym, evalSym.OwnerScope)
-	stmts := lower.CalcBodyWith(evalSym.Decl, unwrappedDeclMembers(evalSym.Decl), body, ctx.Resolver())
+	stmts := lower.CalcBodyWith(evalSym.Decl, lower.UnwrappedDeclMembers(evalSym.Decl), body, ctx.Resolver())
 	if len(stmts) == 1 {
 		if ret, ok := stmts[0].(lower.Return); ok && ret.Value != nil {
 			obj.Value, obj.Scope = ret.Value, ret.Scope
@@ -378,7 +389,7 @@ func (ctx *Context) objectiveMember(objSym *symbols.Symbol, name string) *symbol
 	if body == nil {
 		return nil
 	}
-	for _, node := range unwrappedDeclMembers(objSym.Decl) {
+	for _, node := range lower.UnwrappedDeclMembers(objSym.Decl) {
 		member := memberSymbol(body, node)
 		if member != nil && restatesFeatureNamed(member, name) {
 			return member
@@ -481,7 +492,7 @@ func (ctx *Context) objectiveConditionsOf(sym *symbols.Symbol) (model, library [
 		if link == nil || ctx.frameDeclared(link) {
 			continue
 		}
-		for _, node := range unwrappedDeclMembers(link.Decl) {
+		for _, node := range lower.UnwrappedDeclMembers(link.Decl) {
 			if ctx.libraryDeclared(link) {
 				libraryMembers = append(libraryMembers, scopedMember{node: node, scope: body})
 			} else {
@@ -489,7 +500,7 @@ func (ctx *Context) objectiveConditionsOf(sym *symbols.Symbol) (model, library [
 			}
 		}
 	}
-	for _, node := range unwrappedDeclMembers(sym.Decl) {
+	for _, node := range lower.UnwrappedDeclMembers(sym.Decl) {
 		members = append(members, scopedMember{node: node, scope: body})
 	}
 	return ctx.conditionsOf(sym, members), ctx.conditionsOf(sym, libraryMembers)
@@ -509,24 +520,27 @@ func (ctx *Context) CaseConditionsOf(sym *symbols.Symbol, scope *symbols.Scope) 
 	}
 	out := ctx.appendResultConflict(nil, sym, true)
 	for _, member := range ctx.chainMembers(sym, scope) {
-		// A case's own steps are its procedure, not a statement its conditions miss.
-		if _, step := statementKeyword(member.node); step {
-			continue
-		}
-		out = ctx.appendConditions(out, member.node, member.scope, true, false, nil)
-		out = ctx.appendCheckedConstraint(out, member)
+		out = append(out, ctx.caseMemberConditions(member)...)
 	}
 	return out
 }
 
-// appendCheckedConstraint appends the conditions a nested constraint usage
-// states when the case requires, assumes, asserts or states it as an invariant.
-// A negation it wrote negates what its conditions state together (De Morgan),
-// as a negated constraint body does.
-func (ctx *Context) appendCheckedConstraint(out []Condition, member scopedMember) []Condition {
-	usage, ok := member.node.(*ast.Usage)
-	if !ok || usage.Kind != ast.UsageConstraint {
-		return out
+// caseMemberConditions are the conditions one member of a case's body states of the case.
+func (ctx *Context) caseMemberConditions(member scopedMember) []Condition {
+	// A case's own steps are its procedure, not a statement its conditions miss.
+	if _, step := statementKeyword(member.node); step {
+		return nil
+	}
+	out := ctx.appendConditions(nil, member.node, member.scope, true, false, nil)
+	return ctx.appendCheckedConstraint(out, member)
+}
+
+// checkedConstraint is the nested constraint usage member is when the case requires, assumes,
+// asserts or states it as an invariant, and whether what it states is required.
+func checkedConstraint(member scopedMember) (sym *symbols.Symbol, required, ok bool) {
+	usage, isUsage := member.node.(*ast.Usage)
+	if !isUsage || usage.Kind != ast.UsageConstraint {
+		return nil, false, false
 	}
 	// The keyword sits ahead of a kind keyword (`require constraint { … }`) or
 	// stands for the kind itself (`require c : C`, `inv { … }`).
@@ -534,23 +548,32 @@ func (ctx *Context) appendCheckedConstraint(out []Condition, member scopedMember
 	if keyword == "" {
 		keyword = usage.Keyword
 	}
-	var required bool
 	switch keyword {
 	case "require", "assert", "inv":
 		required = true
 	case "assume":
 		required = false
 	default:
+		return nil, false, false
+	}
+	sym = memberSymbol(member.scope, member.node)
+	return sym, required, sym != nil
+}
+
+// appendCheckedConstraint appends the conditions of a nested constraint usage the case requires,
+// assumes, asserts or states as an invariant; its negation negates them together (De Morgan).
+func (ctx *Context) appendCheckedConstraint(out []Condition, member scopedMember) []Condition {
+	sym, required, ok := checkedConstraint(member)
+	if !ok {
 		return out
 	}
-	sym := memberSymbol(member.scope, member.node)
-	if sym == nil {
-		return out
-	}
+	usage := member.node.(*ast.Usage)
 	conds := ctx.ConditionsOf(sym, nil)
 	for i := range conds {
 		conds[i].Required = required
 	}
+	// The usage's own inputs mask those its definition declares, bound as it writes them.
+	setConstraint(conds, sym)
 	if !usage.IsNegated {
 		return append(out, conds...)
 	}

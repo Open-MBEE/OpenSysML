@@ -98,6 +98,7 @@ func (s *Service) exploreWith(ctx context.Context, subject string, policy runtim
 		DepthBudget:             int32Clamp(x.Budget.Depth),
 		ProbabilitiesLowerBound: x.ProbabilitiesBounded(),
 		FailedLinearizations:    int32Clamp(x.FailedLinearizations()),
+		Coverage:                coverageProto(x.Coverage),
 	}
 	return explored{outcomes: outcomes, status: status, plan: plan}, nil
 }

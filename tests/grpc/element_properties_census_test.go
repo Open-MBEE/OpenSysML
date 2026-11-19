@@ -17,6 +17,31 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
 
+// agreementExamples are the committed single-document models under examples/;
+// the downloaded corpora have gates of their own.
+func agreementExamples(t *testing.T) []string {
+	t.Helper()
+	root := filepath.Join("..", "..", "examples")
+	var paths []string
+	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() && entry.Name() == "pilot-corpora" {
+			return filepath.SkipDir
+		}
+		if ext := filepath.Ext(path); !entry.IsDir() && (ext == ".sysml" || ext == ".kerml") {
+			paths = append(paths, path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sort.Strings(paths)
+	return paths
+}
+
 // censusWitness is one element of one model whose metaclass carries a
 // metamodel property under the defining class a rule or omission names.
 type censusWitness struct {

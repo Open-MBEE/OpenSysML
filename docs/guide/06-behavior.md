@@ -894,9 +894,19 @@ fails under some order is an outcome of its own (`error: …`), not the end of t
 behavior with no choice point explores in exactly one run (`no choice points`
 in the witness column); the same model explores to the same table every time. With `-trace`, the
 table is followed by the trace of each outcome's witness run (`trace of outcome 1's witness
-(run 4):`). With `-json`, each check carries `outcomes` (values, `linearizations`, optional exact
-`probability`, optional `probabilityRange`, `witness`) and `exploration` (`complete`, `runs`,
-`budgetsHit`, optional `failedLinearizations`, `probabilitiesLowerBound`) beside the table's lines.
+(run 4):`). The table shows one witness per outcome, but the other runs of an outcome may have
+entered other states — two orders through `viaA` and through `viaB` collapse into one outcome when
+only the subject machine's final state is observed — so the table is followed by the coverage of
+every run: `coverage over all runs: 5 states entered, 4 transitions taken`, then one line per
+state entered and transition taken, qualified by the instance that ran the machine and by its
+declaration, with how many runs did so (`state Cov::sys#1.m.run: viaB (Cov::M::run::viaB): 1 run`).
+A transition between the same two states as another is told apart by its own name and its
+trigger (`transition … : idle -> busy (wake, event: accept Go)`).
+The same list follows an `-engine check` verdict, counting schedules. With `-json`, each check
+carries `outcomes` (values, `linearizations`, optional exact `probability`, optional
+`probabilityRange`, `witness`) and `exploration` (`complete`, `runs`, `budgetsHit`, optional
+`failedLinearizations`, `probabilitiesLowerBound`, `coverage` with its `states` and
+`transitions`) beside the table's lines.
 
 If the runtime context or root executor cannot be created, or a pure structural start check fails
 before root model behavior runs, no schedule ran: the exploration fails with no outcome. Failures
@@ -2215,6 +2225,36 @@ is located to the end of the step that detected it: the event carries that step'
 state the machine reads is the post-step state, so a crossing is reported up to one `timeStep`
 late and a guard that crosses and crosses back inside one step is not seen — choose the step for
 the guard as much as for the integration.
+
+An event occurrence typed by the library's own `ZeroCrossingEventDef`, or by a specialization
+that declares no `guard`, needs none: it occurs where the derivative crosses zero, as the
+library defines its zero-crossing events (SysML v2 §9.4.4) — when a component of
+`getDerivative(input, stateSpace)` changes sign between two steps or arrives at zero, located to
+the end of the detecting step like a guarded crossing. `event occurrence apex : Apex;` with
+`action def Apex :> ZeroCrossingEventDef;` marks the apex of a thrown ball, where its velocity —
+the derivative of its height — changes sign.
+
+Dynamics are connected by a flow or a binding the performing object declares, or an object
+owning the parts that perform them:
+
+```sysml
+part def Context {
+    part pusher { perform action pusherBehavior : ContinuousStateSpaceDynamics { /* … */ } }
+    part cart { perform action cartBehavior : ContinuousStateSpaceDynamics { /* … */ } }
+
+    flow pusher.pusherBehavior.output to cart.cartBehavior.input;
+}
+```
+
+Both run on the one clock. As each step of the cart settles, its `input` becomes what the
+pusher's `output` holds then, and once the pusher has ended, what it left; the input is held over
+the next step. At an instant the pusher samples before the cart it feeds, whichever is declared
+first; two dynamics that do not feed one another, or that feed each other in a cycle, are a
+`due order` choice point like any other. A flow a specializing type redefines replaces the one it
+inherits. A flow may state its ends in its body instead, each end owning the feature it flows:
+`flow { end ::> pusher.push { ref :>> output; } end ::> cart.roll { ref :>> input; } }`. An input takes one flow: two flows into one `input`, or a flow from something that is not a vector, are
+errors naming the action and the source. A flow between two dynamics that are steps of one
+action body is not carried yet; have an object perform them instead.
 
 A shape the runner cannot run truthfully is an error naming the action and the member at fault,
 never a wrong result: a `stateSpace`, `input`, derivative or output that is not a vector or is

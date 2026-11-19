@@ -713,7 +713,7 @@ func (e *ActionExecutor) resumeBody(tokenIdx int) error {
 
 // pauseAt pauses the run before a node a breakpoint is set on performs, as the run
 // pauses before a token steps such a node; a run not made pausable goes on.
-func (e *ActionExecutor) pauseAt(within []ast.Node, node ast.Node) error {
+func (e *ActionExecutor) pauseAt(within []NodeRef, node NodeRef) error {
 	if stop, set := e.stopAt(within, node); set {
 		return e.ctx.pauseBody(bodyPause{breakpoint: stop})
 	}

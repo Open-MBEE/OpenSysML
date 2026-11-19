@@ -33,17 +33,9 @@ type Evaluator struct {
 	cache                        map[propertyKey]cachedValue
 	reasons                      map[propertyKey]Reason
 	internedStrings              map[string]string
-	structureQualifiedNames      map[ElementKey]structureQualifiedNameCacheEntry
-	structureInherited           map[ElementKey]structureInheritedCacheEntry
-	structureEffective           map[ElementKey]structureValueCacheEntry
-	structureNamespace           map[ElementKey]structureValueCacheEntry
-	structureValueLists          map[structureValueListKey]structureInheritedCacheEntry
+	memos                        map[ElementKey][]memoEntry
 	structureRedefined           map[ElementKey]structureElementsCacheEntry
-	structureQualifiedNameBases  map[ElementKey]structureQualifiedNameCacheEntry
 	qualifiedNameNamespaceCaches map[ElementKey]structureQualifiedNameNamespaceCache
-	structureOwnedFilters        map[structureOwnedFilterKey]structureMemoEntry
-	structureOwnedMemberLists    map[ElementKey]structureMemoEntry
-	structureNames               map[structureNameKey]structureMemoEntry
 }
 
 // New creates an evaluator over the resolver and semantic model for one model.
@@ -59,17 +51,9 @@ func New(res *resolve.Resolver, model *semantics.Model, options ...Options) *Eva
 		cache:                        make(map[propertyKey]cachedValue),
 		reasons:                      make(map[propertyKey]Reason),
 		internedStrings:              make(map[string]string),
-		structureQualifiedNames:      make(map[ElementKey]structureQualifiedNameCacheEntry),
-		structureInherited:           make(map[ElementKey]structureInheritedCacheEntry),
-		structureEffective:           make(map[ElementKey]structureValueCacheEntry),
-		structureNamespace:           make(map[ElementKey]structureValueCacheEntry),
-		structureValueLists:          make(map[structureValueListKey]structureInheritedCacheEntry),
+		memos:                        make(map[ElementKey][]memoEntry),
 		structureRedefined:           make(map[ElementKey]structureElementsCacheEntry),
-		structureQualifiedNameBases:  make(map[ElementKey]structureQualifiedNameCacheEntry),
 		qualifiedNameNamespaceCaches: make(map[ElementKey]structureQualifiedNameNamespaceCache),
-		structureOwnedFilters:        make(map[structureOwnedFilterKey]structureMemoEntry),
-		structureOwnedMemberLists:    make(map[ElementKey]structureMemoEntry),
-		structureNames:               make(map[structureNameKey]structureMemoEntry),
 	}
 }
 
@@ -99,6 +83,10 @@ func (e *Evaluator) Explain(el Element, definingClass, name string) (Reason, boo
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	reason, ok := e.reasons[key]
+	if _, served := ruleConstraints[keyName(definingClass, name)]; !ok && !served {
+		// No element has a rule for the property, so the cause is not recorded per element.
+		return Reason{Category: ReasonNoRule, Detail: keyName(definingClass, name)}, true
+	}
 	return reason, ok
 }
 
@@ -139,10 +127,6 @@ func (e *Evaluator) propertyWithPolicy(el Element, definingClass, name string, c
 		}
 	}
 	if _, served := ruleConstraints[keyName(definingClass, name)]; !served {
-		if _, recorded := e.reasons[key]; !recorded {
-			e.reasons[key] = Reason{Category: ReasonNoRule, Detail: keyName(definingClass, name)}
-		}
-		e.cache[key] = cachedValue{}
 		e.mu.Unlock()
 		return Value{}, false
 	}
@@ -173,7 +157,10 @@ func (e *Evaluator) propertyWithPolicy(el Element, definingClass, name string, c
 	} else {
 		interned := e.internValueStrings(cloneValue(value))
 		e.cache[key] = cachedValue{value: interned, ok: ok}
-		if !clone {
+		if clone {
+			// The derived value may share a memoized list of the structure rules.
+			value = cloneValue(value)
+		} else {
 			value = interned
 		}
 	}
@@ -341,7 +328,7 @@ func (e *Evaluator) modelProperty(element Element, class, name string) (Value, b
 			if element.IsMembership {
 				return nullValue(), true, true
 			}
-			if value := e.model.EffectiveNameOf(sym); value != "" {
+			if value, named := e.model.EffectiveNamed(sym); named {
 				return stringValue(value), true, true
 			}
 			return nullValue(), true, true
@@ -549,8 +536,8 @@ func (e *Evaluator) modelQualifiedName(sym *symbols.Symbol, seen map[*symbols.Sy
 		return Value{}, false
 	}
 	seen[sym] = true
-	name := e.model.EffectiveNameOf(sym)
-	if name == "" {
+	name, named := e.model.EffectiveNamed(sym)
+	if !named {
 		return nullValue(), true
 	}
 	if sym.OwnerScope != nil {
@@ -558,7 +545,7 @@ func (e *Evaluator) modelQualifiedName(sym *symbols.Symbol, seen map[*symbols.Sy
 			if member == sym {
 				break
 			}
-			if e.model.EffectiveNameOf(member) == name {
+			if earlier, named := e.model.EffectiveNamed(member); named && earlier == name {
 				return nullValue(), true
 			}
 		}
@@ -569,7 +556,7 @@ func (e *Evaluator) modelQualifiedName(sym *symbols.Symbol, seen map[*symbols.Sy
 			return Value{}, false
 		}
 		seen[namespace] = true
-		if namespaceName := e.model.EffectiveNameOf(namespace); namespaceName != "" {
+		if namespaceName, named := e.model.EffectiveNamed(namespace); named {
 			parts = append(parts, identity.EscapeName(namespaceName))
 		}
 	}

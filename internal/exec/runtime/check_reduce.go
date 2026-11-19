@@ -44,7 +44,7 @@ func standing(exec *ActionExecutor, t Token) lower.Footprint {
 	if exec.dynamics != nil {
 		return dynamicsFootprint()
 	}
-	return tokenGraphOf(exec, t).Footprints()[t.Location]
+	return tokenGraphOf(exec, t).Footprints()[t.Node()]
 }
 
 // machineStanding is what the machine's next unit may touch: a dispatch out of
@@ -52,7 +52,7 @@ func standing(exec *ActionExecutor, t Token) lower.Footprint {
 func machineStanding(e *StateExecutor) lower.Footprint {
 	fp := dispatchFootprint(e)
 	for _, act := range e.doActions {
-		fp = unionFootprints(fp, doStepFootprint(e, act.state))
+		fp = unionFootprints(fp, doStepFootprint(e, e.stateDecl(act.state)))
 	}
 	return fp
 }
@@ -114,7 +114,7 @@ func triggerChannel(trans *lower.Transition) (lower.Channel, bool) {
 // by that behavior's, or the next one pending.
 func doStepFootprint(e *StateExecutor, state ast.Node) lower.Footprint {
 	for _, act := range e.doActions {
-		if act.state != state {
+		if e.stateDecl(act.state) != state {
 			continue
 		}
 		if run := act.run; run != nil {
@@ -148,6 +148,21 @@ func unionFootprints(f, g lower.Footprint) lower.Footprint {
 		Routes:     f.Routes || g.Routes,
 		Flows:      append(slices.Clone(f.Flows), g.Flows...),
 	}
+}
+
+// addFootprint adds g to into, which the caller alone holds: a footprint built
+// up from empty, so the union of many is copied once and not once for each.
+func addFootprint(into *lower.Footprint, g lower.Footprint) {
+	into.Reads = append(into.Reads, g.Reads...)
+	into.Writes = append(into.Writes, g.Writes...)
+	into.Sends = append(into.Sends, g.Sends...)
+	into.Accepts = append(into.Accepts, g.Accepts...)
+	into.Control = append(into.Control, g.Control...)
+	into.Completion = into.Completion || g.Completion
+	into.Dynamic = into.Dynamic || g.Dynamic
+	into.Creates = into.Creates || g.Creates
+	into.Routes = into.Routes || g.Routes
+	into.Flows = append(into.Flows, g.Flows...)
 }
 
 // dependent reports whether the two moves may not commute: the moves of one

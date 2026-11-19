@@ -62,6 +62,7 @@ var packageLayer = map[string]string{
 	"internal/semantic/metamodel": "semantic",
 
 	"internal/ir/lower":                     "ir",
+	"internal/ir/program":                   "ir",
 	"internal/ir/queryplan":                 "ir",
 	"internal/ir/docplan":                   "ir",
 	"internal/ir/docplan/markup":            "ir",
@@ -120,6 +121,7 @@ var packageLayer = map[string]string{
 	"internal/doc/querytranslate":       "doc",
 	"internal/doc/docir":                "doc",
 	"internal/doc/docrender":            "doc",
+	"internal/doc/docset":               "doc",
 	"internal/doc/docpdf":               "doc",
 
 	"internal/workspace/model":       "workspace",
@@ -156,6 +158,9 @@ var packageLayer = map[string]string{
 	"internal/frontend/usage":                   "frontend",
 	"internal/frontend/buildinfo":               "frontend",
 	"internal/frontend/guard":                   "frontend",
+	"internal/frontend/guard/apikey":            "frontend",
+	"internal/frontend/guard/flags":             "frontend",
+	"internal/frontend/guard/oidc":              "frontend",
 	"internal/frontend/mcp":                     "frontend",
 	"internal/frontend/mcp/catalog":             "frontend",
 	"internal/frontend/mcp/toolkit":             "frontend",
@@ -196,7 +201,7 @@ var tolerated = map[string][]string{
 // removed is the imports the layering took out, importer → imported; reintroducing
 // one fails even where the layer table would permit it.
 var removed = map[string][]string{
-	"internal/exec/analysis":            {"internal/translate/export"},
+	"internal/exec/analysis":            {"internal/translate/export", "internal/syntax/ast"},
 	"internal/exec/analysis/enginewire": {"internal/translate/export"},
 	"internal/translate/export":         {"internal/translate/migrate", "internal/exec/runtime", "internal/ir/lower"},
 	"internal/workspace/model":          {"internal/exec/runtime", "internal/doc/queryexec", "internal/doc/docir", "internal/doc/docrender", "internal/translate/filename"},
@@ -208,6 +213,11 @@ var removed = map[string][]string{
 	"internal/exec/runtime":             {"internal/syntax/parser", "internal/check/passes"},
 	"internal/semantic/query":           {"internal/translate/rdf"},
 	"internal/frontend/repl":            {"internal/frontend/grpc"},
+	"internal/ir/program":               {"internal/syntax/ast"},
+	"internal/exec/smt":                 {"internal/syntax/ast"},
+	"internal/exec/solve":               {"internal/syntax/ast"},
+	"internal/exec/analysis/modelform":  {"internal/syntax/ast"},
+	"internal/exec/sweep":               {"internal/syntax/ast"},
 }
 
 // TestPackageLayering checks the import graph against the layer tables: every

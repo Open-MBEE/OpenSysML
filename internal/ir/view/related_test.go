@@ -209,7 +209,7 @@ func TestActionNodeRootsAreJoinedByTheirOwnersSuccessions(t *testing.T) {
 	src := "package Nodes {\n action def Run {\n  attribute ok : ScalarValues::Boolean;\n  action prepare;\n  action check if ok { action pass; }\n  action spin while ok { action turn; }\n  first prepare then check;\n  first check then spin;\n }\n}\n"
 	r, idx := loadSources(t, []string{"nodes.sysml"}, [][]byte{[]byte(src)})
 	for _, fqn := range []string{"Nodes::Run::check", "Nodes::Run::spin"} {
-		if kind := lookup(t, idx, fqn).Kind; kind == symbols.SymbolActionUsage {
+		if lookup(t, idx, fqn).Kind == symbols.SymbolActionUsage {
 			t.Fatalf("fixture: %s is a plain action usage, want a node kind", fqn)
 		}
 	}

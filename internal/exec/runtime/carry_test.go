@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
@@ -135,7 +136,7 @@ func TestCarryRefusesWhatNoOtherContextHolds(t *testing.T) {
 
 	sym := &symbols.Symbol{Name: "inBody"}
 	fn := Value{Kind: ValFunction, ref: &functionValue{
-		shape:     &calcShape{Sym: sym, Name: "inBody"},
+		shape:     &loadedCalc{Calc: &program.Calc{Sym: sym, Name: "inBody"}},
 		enclosing: []frame{{vars: map[string]Value{"k": integerValue(1)}, run: 1}},
 	}}
 	var notPortable *notPortableError

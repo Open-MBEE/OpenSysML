@@ -1290,10 +1290,11 @@ func TestStructureFlowEndsRedefineInheritedConnectorEnds(t *testing.T) {
 	}`)
 	pkg := testSymbol(t, root, "P")
 	flowSymbol := testSymbol(t, pkg.Scope, "f")
+	// A flow owns its two FlowEnds (FlowEndMembers), named by the inherited source and target they redefine.
 	semanticEnds := evaluator.model.EndFeatures(flowSymbol)
-	if len(semanticEnds) != 2 || semanticEnds[0] == nil || semanticEnds[0].Name != "source" ||
-		semanticEnds[1] == nil || semanticEnds[1].Name != "target" {
-		t.Fatalf("semantic flow ends = %#v, want the inherited source and target features", semanticEnds)
+	if len(semanticEnds) != 2 || evaluator.model.EffectiveNameOf(semanticEnds[0]) != "source" ||
+		evaluator.model.EffectiveNameOf(semanticEnds[1]) != "target" {
+		t.Fatalf("semantic flow ends = %#v, want the owned ends named source and target", semanticEnds)
 	}
 
 	flow := ElementOf(flowSymbol)
@@ -1351,9 +1352,9 @@ func TestStructureFlowUsageEndsRedefineStandardLibraryEnds(t *testing.T) {
 	semanticEnds := evaluator.model.EndFeatures(flowSymbol)
 	ownedSemanticEnds, hasOwnedEnds := evaluator.model.OwnedConnectorEnds(flowSymbol)
 	flow := ElementOf(flowSymbol)
-	if len(semanticEnds) != 2 || semanticEnds[0] == nil || semanticEnds[0].Name != "source" ||
-		semanticEnds[1] == nil || semanticEnds[1].Name != "target" {
-		t.Fatalf("semantic flow ends = %#v, want the inherited source and target ends", semanticEnds)
+	if len(semanticEnds) != 2 || evaluator.model.EffectiveNameOf(semanticEnds[0]) != "source" ||
+		evaluator.model.EffectiveNameOf(semanticEnds[1]) != "target" {
+		t.Fatalf("semantic flow ends = %#v, want the owned ends named source and target", semanticEnds)
 	}
 	firstEnd := Element{Aspect: "library-flow-end-source"}
 	secondEnd := Element{Aspect: "library-flow-end-target"}
@@ -1424,7 +1425,9 @@ func TestStructureFlowUsageEndsRedefineStandardLibraryEnds(t *testing.T) {
 	}
 }
 
-func TestStructureFlowEndsOmitUnrepresentedLibraryEndpointsWithExplicitFlowEnds(t *testing.T) {
+// A flow's connectorEnd are the two FlowEnds it owns (FlowEndMembers), derived from the flow's own
+// declaration whether or not the Structure lists them, as a `then` succession's minted ends are.
+func TestStructureFlowUsageConnectorEndsAreItsOwnedFlowEnds(t *testing.T) {
 	evaluator, root := newTestEvaluatorWithIndex(t, libs.NewModelIndex(), "unrepresented-library-flow-ends.sysml", `package P {
 		item x { feature i; }
 		item y { feature j; }
@@ -1433,9 +1436,10 @@ func TestStructureFlowEndsOmitUnrepresentedLibraryEndpointsWithExplicitFlowEnds(
 	pkg := testSymbol(t, root, "P")
 	flow := ElementOf(testSymbol(t, pkg.Scope, "f"))
 	features := evaluator.model.EndFeatures(flow.Symbol)
-	if len(features) != 2 || !evaluator.resolver.Index().Library(features[0]) ||
-		!evaluator.resolver.Index().Library(features[1]) {
-		t.Fatalf("flow semantic ends = %#v, want two library ends", features)
+	_, firstImplied := symbols.ImpliedFlowEndIndex(features[0])
+	_, secondImplied := symbols.ImpliedFlowEndIndex(features[1])
+	if len(features) != 2 || !firstImplied || !secondImplied {
+		t.Fatalf("flow semantic ends = %#v, want the flow's two owned FlowEnds", features)
 	}
 	evaluator.options.Structure = testStructure{
 		metaclasses: map[ElementKey]string{
@@ -1446,9 +1450,9 @@ func TestStructureFlowEndsOmitUnrepresentedLibraryEndpointsWithExplicitFlowEnds(
 		},
 	}
 
-	value, handled := evaluator.Property(flow, "Connector", "connectorEnd")
-	if handled || value.Success {
-		t.Fatalf("FlowUsage::connectorEnd = %#v, %t; want unsupported for library ends absent from Structure", value, handled)
+	ends := valueElements(t, testProperty(t, evaluator, flow, "Connector", "connectorEnd"))
+	if len(ends) != 2 || ends[0].Symbol != features[0] || ends[1].Symbol != features[1] {
+		t.Fatalf("FlowUsage::connectorEnd = %#v, want the flow's two owned FlowEnds", ends)
 	}
 }
 
@@ -1461,8 +1465,8 @@ func TestStructureNamesDeclaredElements(t *testing.T) {
 	}`)
 	pkg := testSymbol(t, root, "P")
 	named := testSymbol(t, pkg.Scope, "named")
-	if got, _, ok := structureDeclaredNames(ElementOf(named)); !ok || got != "named" {
-		t.Fatalf("declared names = %q, _, %t; want named", got, ok)
+	if got, ok := structureDeclaredNames(ElementOf(named)); !ok || !got.hasName || got.name != "named" {
+		t.Fatalf("declared names = %+v, %t; want named", got, ok)
 	}
 	element := ElementOf(named)
 	evaluator.options.Structure = testStructure{

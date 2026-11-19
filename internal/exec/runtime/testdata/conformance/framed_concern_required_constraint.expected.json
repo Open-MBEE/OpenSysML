@@ -1,0 +1,23 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::probe",
+  "outputs": {
+    "one": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]}
+  },
+  "reads": {
+    "test::typedResult": {"type": "Boolean", "value": false},
+    "test::typedOkResult": {"type": "Boolean", "value": true},
+    "test::typedConcern": {"type": "Boolean", "value": false},
+    "test::typedOkConcern": {"type": "Boolean", "value": true},
+    "test::typedConcernMass": {"type": "Real", "value": 20.0},
+    "test::typedConcerns": {"type": "Integer", "value": 1},
+    "test::typedSubrequirements": {"type": "Integer", "value": 1},
+    "test::referencedResult": {"type": "Boolean", "value": false},
+    "test::referencedOkResult": {"type": "Boolean", "value": true},
+    "test::inlineResult": {"type": "Boolean", "value": false},
+    "test::inlineOkResult": {"type": "Boolean", "value": true},
+    "test::inlineConcern": {"type": "Boolean", "value": false},
+    "test::inlineOkConcern": {"type": "Boolean", "value": true}
+  }
+}

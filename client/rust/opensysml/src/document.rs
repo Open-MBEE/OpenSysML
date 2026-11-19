@@ -844,6 +844,7 @@ mod render_view_tests {
                 exposes: vec!["expose Demo::car".to_owned()],
                 ..Default::default()
             }),
+            ..Default::default()
         };
 
         let rendered = rendered_view_of(response);
@@ -1197,6 +1198,7 @@ mod tests {
                 DocumentValue::Object(ObjectRef::at("v.e")),
                 DocumentValue::Integer(3),
                 DocumentValue::Quantity(Quantity {
+                    value_type: String::new(),
                     magnitude: Magnitude::Integer(2),
                     unit: String::new(),
                     unit_term: None,
@@ -1226,6 +1228,7 @@ mod tests {
         let magnitude = bindings_to_wire(&[(
             "m",
             vec![DocumentValue::Quantity(Quantity {
+                value_type: String::new(),
                 magnitude: Magnitude::BigInteger(wide),
                 unit: String::new(),
                 unit_term: None,
@@ -1255,6 +1258,7 @@ mod tests {
         let magnitude = bindings_to_wire(&[(
             "m",
             vec![DocumentValue::Quantity(Quantity {
+                value_type: String::new(),
                 magnitude: Magnitude::Rational(third),
                 unit: String::new(),
                 unit_term: None,
@@ -1272,6 +1276,7 @@ mod tests {
             DocumentValue::Infinity,
             DocumentValue::Object(ObjectRef::default()),
             DocumentValue::Quantity(Quantity {
+                value_type: String::new(),
                 magnitude: Magnitude::Real(1.0),
                 unit: "kg".to_owned(),
                 unit_term: None,

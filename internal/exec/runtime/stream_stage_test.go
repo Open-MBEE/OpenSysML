@@ -17,7 +17,7 @@ func intConst(i int64) Value {
 // flow: a source's next write to a pin replaces its own earlier value however many other
 // sources wrote in between, and taking a delivery shifts what every source left waiting.
 func TestStagedStreamsAreKeptPerSource(t *testing.T) {
-	target := &ast.Usage{NodeBase: ast.NodeBase{NodeSpan: source.Span{Offset: 10, Len: 1}}, Kind: ast.UsageAction}
+	target := NodeRef{ID: 1}
 	flow := &ast.Usage{NodeBase: ast.NodeBase{NodeSpan: source.Span{Offset: 20, Len: 1}}, Kind: ast.UsageFlow}
 	frame, a, b := &actionFrame{}, &actionFrame{}, &actionFrame{}
 	queue := func() []int64 {

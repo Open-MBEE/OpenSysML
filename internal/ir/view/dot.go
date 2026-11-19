@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 const (
@@ -121,7 +122,7 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 		return b.String(), nil
 	}
 	depth := 1
-	framed := w.skin.cameo || r.Frame != nil
+	framed := w.skin.cameo || r.Frame != nil || r.ExpansionFoldNotice != ""
 	if framed {
 		w.openFrame(r, edges)
 		depth = 2
@@ -209,7 +210,7 @@ func (w *dotWriter) writeHeader(r *Rendering) {
 	if r.Stated != "" {
 		fmt.Fprintf(b, "// stated: %s\n", r.Stated)
 	}
-	for _, notice := range slices.Concat(r.Notices, w.notices) {
+	for _, notice := range slices.Concat(r.notices(), w.notices) {
 		fmt.Fprintf(b, "// not represented: %s\n", notice)
 	}
 	if c := r.Canvas; c != nil {
@@ -231,13 +232,20 @@ func (w *dotWriter) writeHeader(r *Rendering) {
 func (w *dotWriter) openFrame(r *Rendering, edges []Edge) {
 	fmt.Fprintf(&w.b, "  subgraph %s {\n", dotQuote(dotFrameCluster))
 	attrs := []string{"labeljust=l", dotLabelTop}
+	header := w.viewFrameName(r.Frame)
 	if w.skin.cameo {
-		fmt.Fprintf(&w.b, "    label=<%s>;\n", w.frameHeader(r))
+		header = w.frameHeader(r)
 		attrs = append(attrs, dotFontSizeAttr(cameoFontSize), dotColorAttr(cameoFrameColor), dotPenWidthOne)
 	} else {
-		fmt.Fprintf(&w.b, "    label=<%s>;\n", w.viewFrameName(r.Frame))
 		attrs = append(attrs, "penwidth=0.5")
 	}
+	if r.ExpansionFoldNotice != "" {
+		if header != "" {
+			header += "<br align=\"left\"/>"
+		}
+		header += dotEscape(r.ExpansionFoldNotice)
+	}
+	fmt.Fprintf(&w.b, "    label=<%s>;\n", header)
 	for _, attr := range append(attrs, "margin="+formatCoord(dotFrameMargin)) {
 		fmt.Fprintf(&w.b, "    %s;\n", attr)
 	}
@@ -336,9 +344,18 @@ func (w *dotWriter) frameHeader(r *Rendering) string {
 		break
 	}
 	if r.View != "" {
-		parts = append(parts, "[ "+dotEscape(DisplayText(symbols.LastSegment(r.View)))+" ]")
+		parts = append(parts, "[ "+dotEscape(viewTitle(r.View))+" ]")
 	}
 	return strings.Join(parts, " ")
+}
+
+// viewTitle is the view's own name as a frame shows it, read from the view's
+// qualified name as the notation writes it: the last name, unquoted and decoded.
+func viewTitle(view string) string {
+	if names, ok := source.QualifiedNameSegments(view); ok {
+		return glyphs(names[len(names)-1])
+	}
+	return DisplayText(symbols.LastSegment(view))
 }
 
 // dotBB is a pixel box as a Graphviz `bb`, lower-left then upper-right.
@@ -705,7 +722,7 @@ func (s dotSkin) fill(kind string) []string {
 // rounded reports whether the skin rounds a plain node of the kind: the Pilot
 // rounds usages, Cameo states and actions.
 func (s dotSkin) rounded(kind string) bool {
-	if controlKinds[kind] {
+	if controlKinds[kind] || kind == swimlaneKind {
 		return false
 	}
 	if s.cameo {
@@ -1399,19 +1416,16 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 			attrs = append(attrs, `style="rounded,filled"`)
 		}
 		attrs = append(attrs, w.fillAttributes(node)...)
-		switch {
-		case stated:
+		if stated {
 			attrs = append(attrs, w.dotStatedLabel(node)...)
-		case len(w.ports.of(node)) > 0 && !w.pinNode(node):
-			attrs = append(attrs, w.dotPortedLabel(node, w.labels.dotLabel(node)))
-		default:
+		} else {
 			attrs = append(attrs, w.labels.dotLabel(node))
 		}
 	}
 	for i, attr := range attrs {
 		attrs[i] = dotStyledLabel(attr, node.Style)
 	}
-	attrs = dotOverridden(append(attrs, dotStyleAttributes(node.Style, w.fills.filled(node) || w.pinned(node))...))
+	attrs = dotOverridden(append(attrs, dotStyleAttributes(node.Style, w.fills.filled(node))...))
 	if box, ok := w.boxes[node.ID]; ok {
 		width, height := box.size()
 		attrs = append(attrs, w.dotPin(box.centre()))
@@ -1429,12 +1443,11 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 	return attrs
 }
 
-// pinned reports whether a plain node is drawn as dotPinnedAttributes draws it:
-// an unboxed node of an interconnection under the minimal display with a drawn
-// port, whose squares sit on its box's outer edge rather than in cells of it.
+// pinned reports whether a plain node is drawn as dotPinnedAttributes draws it: an
+// unboxed node with a drawn port or pin, whose squares sit on its box's outer edge.
 func (w *dotWriter) pinned(node *Node) bool {
 	stated := node.Geometry != nil && node.Geometry.HasSize
-	return w.ports.minimal && !stated && !w.pinNode(node) && len(w.ports.of(node)) > 0
+	return !stated && !w.pinNode(node) && len(w.ports.of(node)) > 0
 }
 
 // dotStatedLabel is a stated box's label attributes: the label fitted to the
@@ -1585,6 +1598,21 @@ func (w *dotWriter) dotSymbolAttributes(node *Node) []string {
 // dotTerminateLabel is the X of a terminate node's crossed circle (§8.2.3.17
 // terminate-node), set in the circle in place of a label.
 const dotTerminateLabel = `label=<<b>✕</b>>`
+
+// boxFill is the colour a plain node's box is filled with: the palette's for its
+// family, else its Style's, else the skin's for its kind.
+func (w *dotWriter) boxFill(node *Node) string {
+	switch {
+	case w.fills.filled(node):
+		return w.fills.fill(node)
+	case node.Style != nil && node.Style.Fill != "":
+		return node.Style.Fill
+	case w.skin.cameo:
+		fill, _ := cameoFill(node.Kind)
+		return fill
+	}
+	return "white"
+}
 
 // fillAttributes is a plain node's fill beyond the node defaults: the palette's
 // family colours when one fills it, else the skin's fill for its kind.
@@ -2176,12 +2204,12 @@ func (w *dotWriter) dotClusterAttributes(node *Node) []string {
 func (w *dotWriter) clusterStyle(node *Node) []string {
 	if !w.skin.cameo {
 		attrs := []string{}
-		if node.Kind == "region" {
+		if dashedFrameKind(node.Kind) {
 			attrs = append(attrs, dotStyleDashed)
 		}
 		return append(attrs, "color=black", "penwidth="+dotClusterPenwidth(node))
 	}
-	if node.Kind == "region" {
+	if dashedFrameKind(node.Kind) {
 		return []string{`style="rounded,dashed"`, dotColorAttr(cameoLineColor), dotPenWidthOne}
 	}
 	fill, pen := cameoFill(node.Kind)
@@ -2298,8 +2326,8 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 		// The figure's bar crosses the line at the triangle's base, where onormaltee sets its tee.
 		attrs = append(attrs, "arrowhead=onormaltee")
 	case EdgeTyping:
-		// Graphviz sets the two dots in line behind the triangle; the figure stacks them beside its base.
-		attrs = append(attrs, "arrowhead=onormaldotdot")
+		// No arrowhead sets a dot beside the line, so the class marks the edge for DrawDOTGlyphs to dot.
+		attrs = append(attrs, "arrowhead=empty", "class="+dotDefinitionClass)
 	case EdgeComposition:
 		if caseNotation(w.kind) {
 			attrs = append(attrs, arrowTailDiamond, dotDirBack)
@@ -2309,8 +2337,8 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 	case EdgeReference:
 		attrs = append(attrs, dotDirBack, "arrowtail=odiamond")
 	case EdgeContainment:
-		// Graphviz has no circle-plus; a `+` tail label set on the hollow circle is nearest.
-		attrs = append(attrs, dotDirBack, "arrowtail=odot", `taillabel="+"`, "labeldistance=0.4", "labelangle=0")
+		// Graphviz has no circle-plus: a `+` tail label is set on the hollow circle, and the class has DrawDOTGlyphs draw the plus in it.
+		attrs = append(attrs, dotDirBack, "arrowtail=odot", `taillabel="+"`, "labeldistance=0.4", "labelangle=0", dotClass(dotOwnedMembershipClass))
 	case EdgeImport, EdgeDerive, EdgeRefine, EdgeDependency:
 		attrs = append(attrs, dotArrowheadVee, dotStyleDashed)
 	case EdgeSatisfy, EdgeVerify, EdgeAllocate, EdgeInclude, EdgePerform, EdgeExhibit:
@@ -2324,11 +2352,11 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 	case EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgeMessage:
 		attrs = append(attrs, dotArrowheadVee)
 	case EdgePortion:
-		// Graphviz has no three-quarter circle: a filled circle stands at the occurrence end.
-		attrs = append(attrs, dotDirBack, "arrowtail=dot")
+		// Graphviz has no three-quarter circle: a filled circle stands at the occurrence end for DrawDOTGlyphs to open.
+		attrs = append(attrs, dotDirBack, "arrowtail=dot", dotClass(dotPortionClass))
 	case EdgeReferenceSubsetting:
-		// The hollow triangle, with one dot behind its base for the notation's four.
-		attrs = append(attrs, "arrowhead=onormaldot")
+		// The hollow triangle, with one dot behind its base that DrawDOTGlyphs makes the notation's four.
+		attrs = append(attrs, "arrowhead=onormaldot", dotClass(dotReferenceSubsettingClass))
 	case EdgeUnownedMembership:
 		attrs = append(attrs, dotDirBack, "arrowtail=odot")
 	case EdgeExpose:
@@ -2800,7 +2828,7 @@ const dotKeywordPointSize = 10
 // the notes, one line each. A state's name is bold too, where the Pilot's is plain:
 // the label's extent estimate (dotLabelExtent) and the other forms are kept to.
 func (l labeller) dotLabel(node *Node) string {
-	if sectionKind(node.Kind) {
+	if bodySectionKind(node.Kind) {
 		return dotLabelAttribute("<" + l.sized(l.sizeOf(node), l.keywordSize(), dotEscape(l.head(node))) + ">")
 	}
 	var parts labelParts

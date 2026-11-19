@@ -28,10 +28,32 @@ function Base.show(io::IO, info::SymbolInfo)
     print(io, "$(info.id) ($(info.kind))")
 end
 
-"""Return typed symbol metadata for a qualified identifier, or `nothing`."""
-function get_symbol(model::Model, id::AbstractString)
-    answer = call(model.connection, "GetSymbol",
-                  Dict{String,Any}("modelHash" => model.hash, "symbolId" => String(id)))
+"""
+Return typed symbol metadata for a qualified name, or `nothing`.
+
+The name is resolved from the root namespace the way the notation resolves one:
+through imports, an alias answered by the element it names, and a member not
+visible from outside its namespace (`private`, `protected`) not found.
+`by_reported_id` takes `id` as one the service reported instead (a symbol's id, a
+child's, a specialization target's), which names that element whatever its
+visibility, and is how a service without `symbol_name_resolution` reads every id.
+
+`lookup` states what `id` names, since a qualified name and an id can be spelled alike
+(a package declared `Col__V__c_pend0`, the id generated for an unnamed connector end):
+`:qualified_name` reads it only as a name, `:element_id` only as an id the service
+reported, and `:either`, the default and the legacy form, a declared name first. A
+service without `symbol_lookup_kind` is asked in the legacy form.
+"""
+function get_symbol(model::Model, id::AbstractString; by_reported_id::Bool=false,
+                    lookup::Symbol=:either)
+    resolve = lookup === :either ? !by_reported_id : lookup === :qualified_name
+    request = Dict{String,Any}("modelHash" => model.hash, "symbolId" => String(id),
+                               "resolveName" => resolve &&
+                                   has_capability(model.connection,
+                                                  CAPABILITY_SYMBOL_NAME_RESOLUTION))
+    stated = lookup_kind(model, lookup)
+    stated === nothing || (request["lookup"] = stated)
+    answer = call(model.connection, "GetSymbol", request)
     haskey(answer, "error") && !isempty(answer["error"]) && return nothing
     raw = get(answer, "symbol", nothing)
     raw isa AbstractDict || return nothing
@@ -43,7 +65,7 @@ function children(info::SymbolInfo)
     info.children_cache !== nothing && return info.children_cache
     result = SymbolInfo[]
     for id in get(info.raw, "childIds", Any[])
-        child = get_symbol(info.model, String(id))
+        child = get_symbol(info.model, String(id); lookup=:element_id)
         child === nothing || push!(result, child)
     end
     info.children_cache = result
@@ -76,7 +98,7 @@ function _inherited_attributes(info::SymbolInfo, visited::Set{String})
     for specialization in info.specializations
         target = specialization.target_id
         (isempty(target) || target in visited) && continue
-        supertype = get_symbol(info.model, target)
+        supertype = get_symbol(info.model, target; lookup=:element_id)
         supertype === nothing && continue
         append!(inherited, SymbolInfo[c for c in children(supertype)
                                       if _kind_is(c, ATTRIBUTE_KINDS)])
@@ -117,13 +139,16 @@ function Base.getproperty(model::Model, name::Symbol)
     return getfield(model, name)
 end
 
-"""Return the symbol with qualified identifier `fqn`, or `default`."""
+"""
+Return the symbol the qualified name `fqn` resolves to (see `get_symbol`), which
+may carry another id, or `default`.
+"""
 function Base.get(model::Model, fqn::AbstractString, default=nothing)
     for r in model.roots
         r.id == fqn && return r
     end
     info = get_symbol(model, fqn)
-    (info === nothing || info.id != fqn) ? default : info
+    info === nothing ? default : info
 end
 
 function _walk_symbols(model::Model)
@@ -169,13 +194,16 @@ function _near_names(model::Model, name::String)
     String[entry[2] for entry in Iterators.take(scored, 3)]
 end
 
-"""Find a model symbol by short name or qualified identifier."""
+"""
+Find a model symbol by short name or by the id it reports; an alias is found as the
+alias, where `get` resolves the name to the element it names.
+"""
 function find(model::Model, name::AbstractString)
     for r in model.roots
         (r.name == name || r.id == name) && return r
     end
     if occursin("::", name)
-        exact = get(model, name, nothing)
+        exact = get_symbol(model, name; lookup=:element_id)
         exact === nothing || return exact
     end
     if has_capability(model.connection, CAPABILITY_QUERY)
@@ -183,7 +211,7 @@ function find(model::Model, name::AbstractString)
                          where=Dict("@type" => "PrimitiveConstraint", "operator" => "=",
                                     "property" => "name", "value" => String(name)))
         for element in elements
-            info = get(model, element.id, nothing)
+            info = get_symbol(model, String(element.id); lookup=:element_id)
             info === nothing || return info
         end
     end
@@ -195,7 +223,7 @@ function find(model::Model, name::AbstractString)
         elements = query(model; select=[], where=Dict("@type" => "PrimitiveConstraint",
             "operator" => "=", "property" => "qualifiedName", "value" => String(name)))
         for element in elements
-            info = get(model, element.id, nothing)
+            info = get_symbol(model, String(element.id); lookup=:element_id)
             info === nothing || return info
         end
     end

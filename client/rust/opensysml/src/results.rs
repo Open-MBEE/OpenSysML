@@ -1041,6 +1041,50 @@ impl Outcome {
     }
 }
 
+/// One state entered or transition taken by the explored runs, and how many did.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct CoverageEntry {
+    /// The state or transition under the instance running the machine, `<object>.<machine>: <state>`
+    /// or `<object>.<machine>: <from> -> <to>`.
+    pub path: String,
+    /// The same under its declaration, `<machine>::<state>` or `<machine>::<from> -> <to>`.
+    pub declaration: String,
+    /// How many runs (schedules, for a check) entered the state or took the transition.
+    pub runs: i32,
+}
+
+/// The states entered and transitions taken across every run of an exploration or every
+/// schedule of a check, not only the witness of each outcome.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Coverage {
+    /// The states entered, in the service's order.
+    pub states: Vec<CoverageEntry>,
+    /// The transitions taken, in the service's order.
+    pub transitions: Vec<CoverageEntry>,
+}
+
+impl Coverage {
+    pub(crate) fn from_wire(pb: Option<wire::Coverage>) -> Self {
+        let Some(pb) = pb else {
+            return Self::default();
+        };
+        let entries = |entries: Vec<wire::CoverageEntry>| {
+            entries
+                .into_iter()
+                .map(|e| CoverageEntry {
+                    path: e.path,
+                    declaration: e.declaration,
+                    runs: e.runs,
+                })
+                .collect()
+        };
+        Self {
+            states: entries(pb.states),
+            transitions: entries(pb.transitions),
+        }
+    }
+}
+
 /// Every distinct outcome a behavior reached under `explore`, and how the exploration ended.
 #[derive(Clone, Debug)]
 pub struct Exploration {
@@ -1058,6 +1102,8 @@ pub struct Exploration {
     pub depth_budget: i32,
     /// Whether the probabilities are lower bounds.
     pub probabilities_lower_bound: bool,
+    /// The states entered and transitions taken across every run.
+    pub coverage: Coverage,
     wire: ExploredResponse,
 }
 
@@ -1540,6 +1586,7 @@ pub(crate) fn exploration_of(response: ExploredResponse) -> Result<Exploration, 
         runs_budget: status.runs_budget,
         depth_budget: status.depth_budget,
         probabilities_lower_bound: status.probabilities_lower_bound,
+        coverage: Coverage::from_wire(status.coverage),
         wire: response,
     })
 }
@@ -2626,6 +2673,18 @@ mod tests {
                     runs: 3,
                     budgets_hit: vec!["runs".to_owned()],
                     runs_budget: 3,
+                    coverage: Some(wire::Coverage {
+                        states: vec![wire::CoverageEntry {
+                            path: "Cov::sys#1.m.run: viaB".to_owned(),
+                            declaration: "Cov::M::run::viaB".to_owned(),
+                            runs: 1,
+                        }],
+                        transitions: vec![wire::CoverageEntry {
+                            path: "Cov::sys#1.m.run: s0 -> viaB".to_owned(),
+                            declaration: "Cov::M::run::s0 -> viaB".to_owned(),
+                            runs: 1,
+                        }],
+                    }),
                     ..Default::default()
                 }),
                 ..Default::default()
@@ -2638,6 +2697,63 @@ mod tests {
         assert!(!exploration.complete);
         assert!(exploration.require_complete().is_err());
         assert_eq!(exploration.budgets_hit, vec!["runs".to_owned()]);
+        assert_eq!(
+            exploration.coverage,
+            Coverage {
+                states: vec![CoverageEntry {
+                    path: "Cov::sys#1.m.run: viaB".to_owned(),
+                    declaration: "Cov::M::run::viaB".to_owned(),
+                    runs: 1,
+                }],
+                transitions: vec![CoverageEntry {
+                    path: "Cov::sys#1.m.run: s0 -> viaB".to_owned(),
+                    declaration: "Cov::M::run::s0 -> viaB".to_owned(),
+                    runs: 1,
+                }],
+            }
+        );
+    }
+
+    #[test]
+    fn an_exploration_without_coverage_has_none() {
+        let exploration = exploration_of(ExploredResponse::Action(Box::new(
+            wire::ExecuteActionResponse {
+                exploration: Some(wire::ExplorationStatus {
+                    complete: true,
+                    runs: 1,
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+        )))
+        .unwrap();
+        assert_eq!(exploration.coverage, Coverage::default());
+    }
+
+    #[test]
+    fn a_check_search_carries_the_coverage_of_every_schedule() {
+        let result = crate::CheckResult::from_wire(wire::CheckBehaviorResponse {
+            verdict: "holds".to_owned(),
+            search: Some(wire::CheckSearch {
+                states: 5,
+                coverage: Some(wire::Coverage {
+                    states: vec![wire::CoverageEntry {
+                        path: "Cov::sys#1.m.run: viaB".to_owned(),
+                        declaration: "Cov::M::run::viaB".to_owned(),
+                        runs: 1,
+                    }],
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        });
+        let search = result.search.expect("an explicit-state search");
+        assert_eq!(search.states, 5);
+        assert_eq!(search.coverage.states.len(), 1);
+        assert_eq!(search.coverage.states[0].declaration, "Cov::M::run::viaB");
+        assert_eq!(search.coverage.states[0].runs, 1);
+        assert!(search.coverage.transitions.is_empty());
     }
 
     #[test]

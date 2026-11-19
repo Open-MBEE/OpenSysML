@@ -63,7 +63,7 @@ func (q *qualifier) qualified(sym *symbols.Symbol) bool {
 	if known, seen := q.memo[sym]; seen {
 		return known
 	}
-	ok := sym.Kind != symbols.SymbolAlias && (sym.Name != "" && firstSoNamed(sym) || q.model.PositionallyNamed(sym))
+	ok := sym.Kind != symbols.SymbolAlias && (sym.Named() && firstSoNamed(sym) || q.model.PositionallyNamed(sym))
 	if ok && sym.OwnerScope != nil {
 		if owner := sym.OwnerScope.Owner(); owner != nil {
 			ok = q.qualified(owner)
@@ -76,7 +76,7 @@ func (q *qualifier) qualified(sym *symbols.Symbol) bool {
 // qualifiedName is the qualified name of a symbol qualified reports: the index's,
 // or the one a parameter takes from the parameter its position redefines.
 func (q *qualifier) qualifiedName(sym *symbols.Symbol) string {
-	if sym.Name == "" && q.model != nil {
+	if !sym.Named() && q.model != nil {
 		return q.model.QualifiedNameOf(sym)
 	}
 	return q.idx.GetFQN(sym)

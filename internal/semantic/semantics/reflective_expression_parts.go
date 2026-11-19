@@ -61,7 +61,9 @@ func expressionElementMetaclassName(sym *symbols.Symbol) string {
 			return "Expression"
 		case symbols.ExpressionTriggerAction:
 			return "AcceptActionUsage"
-		case symbols.ExpressionPayload:
+		case symbols.ExpressionTransitionSuccession:
+			return "SuccessionAsUsage"
+		case symbols.ExpressionPayload, symbols.ExpressionTransitionLinkParameter, symbols.ExpressionTransitionLink:
 			return "ReferenceUsage"
 		}
 	}
@@ -381,7 +383,12 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return out
 	}
 	var out []*symbols.Symbol
-	if parts := m.acceptParts(sym); parts != nil {
+	if transitionSuccessionPart(sym) {
+		// The succession a transition owns holds its two ends through an EndFeatureMembership each.
+		for _, end := range m.SuccessionEndMembers(sym) {
+			out = appendOwningMembership(out, sym, end)
+		}
+	} else if parts := m.acceptParts(sym); parts != nil {
 		// A trigger's accept owns its payload and receiver parameters, which own their values.
 		members := m.acceptParameters(sym)
 		if sym.Expr.Role == symbols.ExpressionPayload {
@@ -604,6 +611,10 @@ func (m *Model) expressionScopeOf(expr *symbols.Symbol) *symbols.Scope {
 	for cur := expr; cur != nil; cur = cur.Expr.Owner {
 		if cur.Expr == nil {
 			return referenceScope(cur)
+		}
+		if cur.Expr.Role == symbols.ExpressionBodyResult && cur.Expr.Owner != nil && cur.Expr.Owner.Expr == nil {
+			// A constraint body's closing condition reads its names in the body (ConstraintResultMember).
+			return cur.Expr.Owner.Scope
 		}
 		if cur.Expr.Role == symbols.ExpressionBody {
 			if scope := m.bodyScopeOf(cur); scope != nil {

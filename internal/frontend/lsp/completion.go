@@ -2,7 +2,6 @@ package lsp
 
 import (
 	"context"
-	"strings"
 
 	"go.lsp.dev/protocol"
 
@@ -130,7 +129,7 @@ func (c *completionItems) addSymbol(s *Server, sym *symbols.Symbol) {
 	item := protocol.CompletionItem{
 		Label:  symbols.LastSegment(sym.Name),
 		Kind:   completionKind(sym.Kind),
-		Detail: protocol.NewOptional(completionDetail(sym)),
+		Detail: protocol.NewOptional(s.completionDetail(sym)),
 	}
 	if doc := s.symbolDocumentation(sym); doc != nil {
 		item.Documentation = doc
@@ -151,7 +150,7 @@ func (c *completionItems) addNamedSymbol(s *Server, label string, sym *symbols.S
 	item := protocol.CompletionItem{
 		Label:  label,
 		Kind:   completionKind(sym.Kind),
-		Detail: protocol.NewOptional(completionDetail(sym)),
+		Detail: protocol.NewOptional(s.completionDetail(sym)),
 	}
 	if doc := s.symbolDocumentation(sym); doc != nil {
 		item.Documentation = doc
@@ -163,49 +162,58 @@ func (c *completionItems) list() *protocol.CompletionList {
 	return &protocol.CompletionList{IsIncomplete: false, Items: c.items}
 }
 
-// symbolDocumentation returns the comment trivia preceding a symbol's
-// declaration, when the document declaring it is loaded; a declaration held as
-// its record is listed without, since completing must not parse every closed
-// file a candidate comes from. A client that renders
-// Markdown is sent the comments as prose, as hover does, rather than the source
-// with its delimiters. Nil when there is nothing to show.
+// symbolDocumentation returns a declaration's owned `doc` bodies, then the notes
+// above it, as prose for a Markdown client; nil when there is nothing to show.
 func (s *Server) symbolDocumentation(sym *symbols.Symbol) *protocol.MarkupContent {
-	if len(sym.LeadingTrivia) == 0 || sym.DocName == "" {
+	if sym.DocName == "" {
 		return nil
 	}
-	doc := s.ws.Document(sym.DocName)
-	if doc == nil {
-		return nil
-	}
-	comments := leadingDocComments(doc.Content, sym.LeadingTrivia)
+	docs := s.ws.DocumentationOf(sym)
+	notes := s.symbolNotes(sym)
 	if s.wantsMarkdownCompletion() {
-		prose := docCommentProse(comments)
+		prose := documentationProse(docs, notes)
 		if prose == "" {
 			return nil
 		}
 		return &protocol.MarkupContent{Kind: protocol.MarkupKindMarkdown, Value: prose}
 	}
-	text := strings.Join(comments, "\n")
+	text := documentationText(docs, notes)
 	if text == "" {
 		return nil
 	}
 	return &protocol.MarkupContent{Kind: protocol.MarkupKindPlainText, Value: text}
 }
 
-// completionDetail describes an element the way hover does: its kind, plus the
-// type it declares when it declares one.
-func completionDetail(sym *symbols.Symbol) string {
+// completionDetail describes an element the way hover does: its kind, plus its typing.
+func (s *Server) completionDetail(sym *symbols.Symbol) string {
 	detail := sym.Notation()
-	if t := declaredTypeText(sym); t != "" {
+	if t := s.typingText(sym); t != "" {
 		detail += " : " + t
 	}
 	return detail
+}
+
+// typingText is the typing a usage writes, else the types it inherits from the
+// features it redefines, subsets or references; "" when it has neither.
+func (s *Server) typingText(sym *symbols.Symbol) string {
+	if t := declaredTypeText(sym); t != "" {
+		return t
+	}
+	return typeNames(s.ws.InheritedTypesOf(sym))
 }
 
 // declaredTypeText returns the qualified name a usage declares as its type,
 // with the `~` of a conjugated typing (SysML v2 8.3.12.3), or
 // "" for anything else — a definition, or an untyped usage.
 func declaredTypeText(sym *symbols.Symbol) string {
+	if texts := declaredTypeTexts(sym); len(texts) > 0 {
+		return texts[0]
+	}
+	return ""
+}
+
+// declaredTypeTexts is every typing a declaration writes, in order.
+func declaredTypeTexts(sym *symbols.Symbol) []string {
 	var rels []*ast.Relationship
 	switch decl := sym.Decl.(type) {
 	case *ast.Usage:
@@ -213,8 +221,9 @@ func declaredTypeText(sym *symbols.Symbol) string {
 	case *ast.CrossFeatureMember:
 		rels = decl.Relationships
 	default:
-		return ""
+		return nil
 	}
+	var texts []string
 	for _, rel := range rels {
 		if rel == nil || rel.Kind != ast.RelTyping || rel.Target == nil {
 			continue
@@ -225,12 +234,13 @@ func declaredTypeText(sym *symbols.Symbol) string {
 		}
 		if qn, ok := target.(*ast.QualifiedName); ok {
 			if rel.Conjugated {
-				return "~" + qn.Text()
+				texts = append(texts, "~"+qn.Text())
+			} else {
+				texts = append(texts, qn.Text())
 			}
-			return qn.Text()
 		}
 	}
-	return ""
+	return texts
 }
 
 // completionKind maps a symbol kind to the LSP completion kind, so client icons

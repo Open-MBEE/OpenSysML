@@ -99,6 +99,7 @@ elmt:Accepts__Camera_conjugated
     a sysml:ConjugatedPortDefinition ;
     sysml:elementId "Accepts__Camera_conjugated" ;
     sysml:qualifiedName "Accepts::Camera::'~Camera'" ;
+    sysx:mappingQualifiedName "Accepts::Camera::'~Camera'" ;
     sysml:declaredName "~Camera" ;
     sysml:owner elmt:Accepts__Camera ;
     sysml:owningRelationship elmt:Accepts__Camera_conjugated_om ;
@@ -1753,7 +1754,8 @@ elmt:e6f154ee-5b28-5e45-93be-649e39e7c684
 <urn:sysmlv2:element:548572f0-0efe-5063-9eba-10431829526c>
     a sysml:ConjugatedPortDefinition ;
     sysml:elementId "548572f0-0efe-5063-9eba-10431829526c" ;
-    sysml:qualifiedName "Ports::Port::~Port" ;
+    sysml:qualifiedName "Ports::Port::'~Port'" ;
+    sysx:mappingQualifiedName "Ports::Port::~Port" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:5540acce-64df-5ee7-8698-98d49dc63b88>

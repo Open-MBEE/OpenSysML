@@ -21,7 +21,7 @@ permissions:
 jobs:
   upstream:
     name: OpenSysML against upstream extension libraries
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
       REF: ${{ inputs.ref || 'main' }}
@@ -41,10 +41,10 @@ jobs:
       OPENSYSML_REQUIRE_LLM_BENCH_TOOLCHAIN: "1"
     steps:
       - name: Check out repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
           cache: true
@@ -58,9 +58,10 @@ jobs:
 
       - name: Install Z3
         timeout-minutes: 10
-        run: |
-          scripts/ci-apt-install.sh z3
-          z3 --version
+        uses: ./.github/actions/apt-install
+        with:
+          packages: z3
+          verify: z3 --version
 
       - name: Install cvc5
         run: |

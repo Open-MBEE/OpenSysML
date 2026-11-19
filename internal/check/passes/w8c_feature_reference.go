@@ -1,6 +1,8 @@
 package passes
 
 import (
+	"slices"
+
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -725,9 +727,21 @@ func (c *featureReferenceChecker) checkReferent(site refSite, scope *symbols.Sco
 		})
 		return
 	}
-	// A single-segment chain member is a feature of the preceding one, so the
-	// naming context need not reach it; a qualified member names it through its
-	// own namespace and is checked like any other reference.
+	// A chain expression's member answers to the argument's result, not to the
+	// naming context (KerML 8.3.4.8.4 validateFeatureChainExpressionConformance).
+	if isChain && !site.inElementFilter {
+		if !c.chainMemberFeaturedWithin(scope, chain, target) {
+			c.diags = append(c.diags, diag.Diagnostic{
+				Severity: diag.SeverityError,
+				Span:     span,
+				Message:  msgReferentIsFeature,
+				Code:     "feature-reference-referent",
+				Source:   "constraint",
+			})
+		}
+		return
+	}
+	// In an element filter only a qualified member is checked, like any other reference.
 	if isChain && (chain.Member == nil || len(chain.Member.Parts) < 2) {
 		return
 	}
@@ -765,15 +779,11 @@ func (c *featureReferenceChecker) checkReferent(site refSite, scope *symbols.Sco
 	if w8cOwnedByImplicitNode(target) || semantics.AcceptPayload(target) {
 		return
 	}
-	msg, code := msgSubsettingFeaturingTypes, "feature-reference-featuring-types"
-	if isChain && !site.inElementFilter {
-		msg, code = msgReferentIsFeature, "feature-reference-referent"
-	}
 	c.diags = append(c.diags, diag.Diagnostic{
 		Severity: diag.SeverityError,
 		Span:     span,
-		Message:  msg,
-		Code:     code,
+		Message:  msgSubsettingFeaturingTypes,
+		Code:     "feature-reference-featuring-types",
 		Source:   "constraint",
 	})
 }
@@ -785,7 +795,7 @@ func w8cOwnedByImplicitNode(target *symbols.Symbol) bool {
 		return false
 	}
 	owner := target.OwnerScope.Owner()
-	return owner != nil && owner.Name == "" && isUsageKind(owner.Kind)
+	return owner != nil && !owner.Named() && isUsageKind(owner.Kind)
 }
 
 // endFeaturedWithin reports whether a connector end's feature is featured within
@@ -885,8 +895,11 @@ func (c *featureReferenceChecker) chainMemberFeaturedWithin(scope *symbols.Scope
 	if !ok || prev == nil || !isUsageKind(prev.Kind) {
 		return true
 	}
+	holders := c.cc.resolver.ChainHolders(scope, prev)
 	for _, ctx := range ctxs {
-		if !c.chainingFeatureConforms(prev, ctx) {
+		if !slices.ContainsFunc(holders, func(holder *symbols.Symbol) bool {
+			return c.chainingFeatureConforms(holder, ctx)
+		}) {
 			return false
 		}
 	}

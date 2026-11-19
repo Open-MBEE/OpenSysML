@@ -3,7 +3,7 @@
 ## Overview
 
 **Corpora:** the three pinned OMG pilot corpora, fetched by `./scripts/download-pilot-corpora.sh`
-at release `2026-09`, commit `38665073bbf02849bd309b106eba79cbb3a1ee1d` (`scripts/pilot-pin.sh`)
+at release `2026-09.1`, commit `d81b2ad5016f2e2d3d4364b3d06d01d8bb12a896` (`scripts/pilot-pin.sh`)
 
 `scripts/check-upstream-drift.sh` (the weekly `Upstream drift` workflow) reports when either upstream repository publishes a release newer than this pin, when the pinned tag moves, whether the newest release changed the specification PDFs whose clause numbers [spec-compliance.md](spec-compliance.md) cites, and when the OMG specification pages list a version it has not recorded. It re-pins nothing: a failing run is the cue to move the pin here deliberately and re-run the downloads and gates below.
 
@@ -162,6 +162,12 @@ that never ran must not look like a gate that passed. Fetch them once:
 ./scripts/download-pilot-corpora.sh
 go test -count=1 ./tests/corpus -run TestPilotCorpora
 ```
+
+Under `OPENSYSML_CORPUS_SUBSET=construct-cover` the gate still opens each root whole (its files
+import across each other) but diagnoses only the files listed in
+`tests/corpus/testdata/construct_cover.txt` and checks their counts against the expectation,
+leaving the other recorded lines unchecked; `-update-pilot-corpora` refuses to run under it. See
+[construct-cover-subset.md](construct-cover-subset.md).
 
 The pilot's XMI serialization of the standard library is fetched the same way, from the release
 repository at the pin in `scripts/pilot-pin.sh`, into `build/pilot-library-xmi/`; the identity gate

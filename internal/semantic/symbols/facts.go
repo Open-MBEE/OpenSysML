@@ -56,6 +56,10 @@ type LibraryFacts struct {
 	// reference-subsets (`references f`, `perform a`), or "".
 	References ElementRef
 
+	// ValueGeneral is the entry of Supers the declaration's feature value implies:
+	// the result of the value expression (KerML 8.3.3.3.4), or zero.
+	ValueGeneral ElementRef
+
 	// Direction is the declared feature direction of a usage.
 	Direction ast.FeatureDirection
 
@@ -222,6 +226,7 @@ func (f LibraryFacts) Clone() LibraryFacts {
 	f.EndPaths = clonePaths(f.EndPaths)
 	f.Alias = f.Alias.Clone()
 	f.References = f.References.Clone()
+	f.ValueGeneral = f.ValueGeneral.Clone()
 	f.BaseType = f.BaseType.Clone()
 	f.MetadataType = f.MetadataType.Clone()
 	f.Relationships = slices.Clone(f.Relationships)
@@ -313,14 +318,32 @@ func (s *Symbol) RelationshipDecl() (RelationshipDecl, bool) {
 	return RelationshipDecl{}, false
 }
 
-// DeclaresTransition reports whether the symbol was declared by a transition
-// member (`transition t first a then b;`), from its declaration or its record.
+// NodeKind classifies the symbol's declaring node, as a record keeps it: NodeKindOf its
+// declaration, except that a state body's `then x;` after a state declares a transition.
+func (s *Symbol) NodeKind() NodeKind {
+	if s.Recorded() {
+		return s.Facts.Node
+	}
+	if s.DeclaresTransition() {
+		return NodeTransition
+	}
+	return NodeKindOf(s.Decl)
+}
+
+// DeclaresTransition reports whether the symbol was declared by a transition member (`transition t
+// first a then b;`) or a state body's `then x;` after a state, from its declaration or its record.
 func (s *Symbol) DeclaresTransition() bool {
 	if s.Recorded() {
 		return s.Facts.Node == NodeTransition
 	}
-	_, ok := s.Decl.(*ast.TransitionMember)
-	return ok
+	switch s.Decl.(type) {
+	case *ast.TransitionMember:
+		return true
+	case *ast.SuccessionEdge:
+		// A state body's `then x;` after a state is a TargetTransitionUsage (symbols.buildDecl).
+		return s.Kind == SymbolActionUsage
+	}
+	return false
 }
 
 // SendStatementOf is the send statement decl declares: the statement itself,
@@ -395,6 +418,12 @@ func (s *Symbol) Keyword() string {
 		return d.Keyword
 	case *ast.Usage:
 		return d.Keyword
+	case *ast.EntryMember:
+		return "entry"
+	case *ast.DoMember:
+		return "do"
+	case *ast.ExitMember:
+		return "exit"
 	}
 	return ""
 }
@@ -489,6 +518,9 @@ const (
 	// ModPrefixMetadata marks the metadata usage a `#M` prefix declares on the
 	// element owning it (see Symbol.IsPrefixMetadata).
 	ModPrefixMetadata
+	// ModTypeFeatureMember marks a feature declared `member`, owned through an
+	// OwningMembership rather than a FeatureMembership (KerML.xtext TypeFeatureMember).
+	ModTypeFeatureMember
 )
 
 // Has reports whether every modifier of mask is set.

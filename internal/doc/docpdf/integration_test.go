@@ -387,6 +387,69 @@ func TestRenderDiagramsWithInstalledMermaid(t *testing.T) {
 	}
 }
 
+// TestInstalledGraphvizDrawsTheDefinitionGlyph checks what a reader of a drawn DOT view is handed: a
+// real Graphviz's drawing with two dots at each typing edge's triangle and none at a specialization's.
+func TestInstalledGraphvizDrawsTheDefinitionGlyph(t *testing.T) {
+	if _, err := graphvizTool.locate(""); err != nil {
+		skipWithout(t, "Graphviz dot", err)
+	}
+	source := "digraph G {\n  a -> b [arrowhead=empty, class=definition];\n  c -> b [arrowhead=empty, class=definition];\n  d -> b [arrowhead=empty];\n}"
+	svgs, err := Graphviz{}.Draw([]docrender.Diagram{{Form: view.FormDot, Source: source}})
+	if err != nil || len(svgs) != 1 {
+		t.Fatalf("Draw: %v, %d drawings", err, len(svgs))
+	}
+	groups := strings.Split(svgs[0], `<g id="edge`)[1:]
+	if len(groups) != 3 {
+		t.Fatalf("the drawing has %d edges, want 3:\n%s", len(groups), svgs[0])
+	}
+	for i, want := range []int{2, 2, 0} {
+		group, _, _ := strings.Cut(groups[i], "</g>")
+		if got := strings.Count(group, "<circle "); got != want || strings.Count(group, "<polygon ") != 1 || strings.Contains(group, "<ellipse") {
+			t.Errorf("edge %d is drawn with %d dots, want %d beside one triangle:\n%s", i+1, got, want, group)
+		}
+	}
+}
+
+// TestInstalledGraphvizDrawsTheRelationshipGlyphs checks a drawn DOT view's portion, reference subsetting and
+// owned membership: a three-quarter circle, four dots and a circle-plus in place of Graphviz's nearest arrowheads.
+func TestInstalledGraphvizDrawsTheRelationshipGlyphs(t *testing.T) {
+	if _, err := graphvizTool.locate(""); err != nil {
+		skipWithout(t, "Graphviz dot", err)
+	}
+	source := `digraph G {
+  a -> b [dir=back, arrowtail=dot, class="portion-relationship"];
+  c -> b [arrowhead=onormaldot, class="reference-subsetting"];
+  a -> d [dir=back, arrowtail=odot, taillabel="+", labeldistance=0.4, labelangle=0, class="owned-membership"];
+  a -> e [dir=back, arrowtail=odot];
+}`
+	svgs, err := Graphviz{}.Draw([]docrender.Diagram{{Form: view.FormDot, Source: source}})
+	if err != nil || len(svgs) != 1 {
+		t.Fatalf("Draw: %v, %d drawings", err, len(svgs))
+	}
+	groups := strings.Split(svgs[0], `<g id="edge`)[1:]
+	if len(groups) != 4 {
+		t.Fatalf("the drawing has %d edges, want 4:\n%s", len(groups), svgs[0])
+	}
+	// Graphviz writes the edges in an order of its own, each under its class.
+	for class, want := range map[string]struct{ ellipses, circles, paths int }{
+		`class="edge portion&#45;relationship"`: {0, 0, 3},
+		`class="edge reference&#45;subsetting"`: {0, 4, 2},
+		`class="edge owned&#45;membership"`:     {1, 0, 2},
+		`class="edge"`:                          {1, 0, 1},
+	} {
+		index := slices.IndexFunc(groups, func(group string) bool { return strings.Contains(group, class) })
+		if index < 0 {
+			t.Errorf("no edge is drawn under %s:\n%s", class, svgs[0])
+			continue
+		}
+		group, _, _ := strings.Cut(groups[index], "</g>")
+		if strings.Count(group, "<ellipse ") != want.ellipses || strings.Count(group, "<circle ") != want.circles ||
+			strings.Count(group, "<path ") != want.paths || strings.Contains(group, ">+</text>") {
+			t.Errorf("%s is not drawn with %d full circles, %d dots, %d paths and no `+` label:\n%s", class, want.ellipses, want.circles, want.paths, group)
+		}
+	}
+}
+
 // TestRenderDiagramsWithInstalledGraphviz draws the telescope report's
 // diagrams as DOT through a real Graphviz when one is installed, and skips
 // otherwise; a positioned diagram is laid out by the engine its header names,

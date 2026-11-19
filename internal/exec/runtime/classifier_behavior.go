@@ -360,16 +360,6 @@ func (ctx *Context) abandonInstancesBetween(mark, end int) {
 	ctx.forgetAbandoned(ctx.dropInstances(mark, end, func(*Instance) bool { return true }))
 }
 
-// abandonInstancesHeldBy removes the objects registered since mark that are one
-// of roots or held by one, directly or below, as a nested value or as the
-// variant it selected; the others stay, in order.
-func (ctx *Context) abandonInstancesHeldBy(mark int, roots map[*Instance]bool) {
-	held := ctx.heldSince(mark, roots)
-	ctx.forgetAbandoned(ctx.dropInstances(mark, len(ctx.created), func(inst *Instance) bool {
-		return held[inst.ID]
-	}))
-}
-
 // heldSince names the objects registered since mark that are one of roots or
 // held by one, directly or below. A variant's object names the object that
 // selected it only through the selection, so that link is followed as well.
@@ -854,6 +844,13 @@ type quiescence struct {
 	readsData bool
 }
 
+// heldWork is the memo a full behavior scan leaves when it finds some holding
+// work: those behaviors, read and never written, under the marks of quiescence.
+type heldWork struct {
+	quiescence
+	behaviors map[*ObjectBehavior]bool
+}
+
 // holds reports whether the memo still answers: taken, and nothing it depends
 // on moved since, the objects' data counting only where the scan read it.
 func (q quiescence) holds(ctx *Context) bool {
@@ -876,6 +873,12 @@ func (ctx *Context) holdDrivenWork() func() {
 	var held map[*ObjectBehavior]bool
 	if ctx.quiescent.holds(ctx) {
 		// Nothing woke a behavior since a full scan found them all idle.
+	} else if ctx.holding.holds(ctx) && !ctx.wokeMidCall(ctx.holding.behaviors) {
+		// Nothing woke a behavior since a full scan found these holding work.
+		held = ctx.holding.behaviors
+		if ctx.polling != nil && ctx.holding.readsData {
+			ctx.polling.readsData = true
+		}
 	} else if len(ctx.objectBehaviors) == 0 {
 		ctx.quiescent = quiescence{at: ctx.work, writes: ctx.writes}
 	} else {
@@ -896,8 +899,11 @@ func (ctx *Context) holdDrivenWork() func() {
 		if saved != nil && memo.readsData {
 			saved.readsData = true
 		}
+		scan := quiescence{at: ctx.work, writes: ctx.writes, readsData: memo.readsData}
 		if len(held) == 0 {
-			ctx.quiescent = quiescence{at: ctx.work, writes: ctx.writes, readsData: memo.readsData}
+			ctx.quiescent = scan
+		} else {
+			ctx.holding = heldWork{quiescence: scan, behaviors: held}
 		}
 	}
 	ctx.heldBehaviors = held
@@ -909,6 +915,35 @@ func (ctx *Context) holdDrivenWork() func() {
 		for _, behavior := range ctx.objectBehaviors[min(attached, len(ctx.objectBehaviors)):] {
 			behavior.settle()
 		}
+	}
+}
+
+// wokeMidCall reports a behavior mid-call that holds work and is not among kept:
+// its state moves between scans without a mark moving, so it is asked each time.
+func (ctx *Context) wokeMidCall(kept map[*ObjectBehavior]bool) bool {
+	if len(ctx.onStack) == 0 {
+		return false
+	}
+	saved := ctx.polling
+	ctx.polling = &pendingMemo{}
+	ctx.behaviorRunDepth++
+	woke := slices.ContainsFunc(ctx.objectBehaviors, func(b *ObjectBehavior) bool {
+		return !kept[b] && b.midCall() && b.hasPendingWork()
+	})
+	ctx.behaviorRunDepth--
+	ctx.polling = saved
+	return woke
+}
+
+// midCall reports whether a call into the behavior's executor is under way.
+func (b *ObjectBehavior) midCall() bool {
+	switch {
+	case b.State != nil:
+		return !b.State.driven.settled()
+	case b.Action != nil:
+		return !b.Action.driven.settled()
+	default:
+		return false
 	}
 }
 
@@ -1567,7 +1602,7 @@ func (ctx *Context) namedBehavior(sym *symbols.Symbol) *symbols.Symbol {
 	if typ := ctx.extractType(sym); typ != nil {
 		return typ
 	}
-	if sym.Name != "" && sym.OwnerScope != nil {
+	if sym.Named() && sym.OwnerScope != nil {
 		if named, ok := ctx.lookupNameExcluding(sym.OwnerScope, sym.Name, sym); ok {
 			return named
 		}
@@ -1650,7 +1685,9 @@ func (ctx *Context) argumentScope(inst *Instance, decl classifierBehaviorDecl) *
 func (ctx *Context) classifierBehaviorArgument(inst *Instance, decl classifierBehaviorDecl, scope *symbols.Scope, arg lower.Attribute) (Value, error) {
 	ec := NewEvalContextIn(ctx, scope, inst)
 	defer ec.beginStep()()
-	value, err := ec.Eval(arg.Value)
+	// The scope of an argument is the instance's to say, so its id is the model's table's.
+	exprs := ctx.model.exprs
+	value, err := ec.reading(exprs).evalPayload(exprs.Intern(arg.Value, scope))
 	if err != nil {
 		return Value{}, fmt.Errorf("%s %s of %s: bind %s: %w",
 			decl.behavior.Kind, decl.behavior.Name, SymbolText(inst.Type), arg.Name, err)
@@ -1662,7 +1699,7 @@ func (ctx *Context) classifierBehaviorArgument(inst *Instance, decl classifierBe
 // its declaration redefines (`in <a> :>> x = 4` binds x), else its own name.
 func (ctx *Context) argumentParameter(scope *symbols.Scope, arg lower.Attribute) string {
 	for _, redefined := range ctx.model.semantics.RedefinedFeatures(memberSymbol(scope, arg.Node)) {
-		if redefined.Name != "" {
+		if redefined.Named() {
 			return redefined.Name
 		}
 	}
@@ -1788,7 +1825,7 @@ func SymbolText(sym *symbols.Symbol) string {
 	if sym == nil {
 		return unknownText
 	}
-	if sym.Name != "" {
+	if sym.Named() {
 		return sym.Name
 	}
 	return sym.Kind.String()

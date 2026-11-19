@@ -376,7 +376,15 @@ func (s *Service) convertOptions(req *pb.ConvertRequest, from, to convert.Format
 			return convert.Options{}, statusError(connect.CodeInvalidArgument, "include_library_stubs requires to_format api-json")
 		}
 	}
-	opts := convert.Options{IncludeLibraryStubs: req.IncludeLibraryStubs}
+	if req.InheritedMembers {
+		if err := s.requireCapability(CapabilityConvertInheritedMembers); err != nil {
+			return convert.Options{}, err
+		}
+		if to != convert.FormatAPIJSON {
+			return convert.Options{}, statusError(connect.CodeInvalidArgument, "inherited_members requires to_format api-json")
+		}
+	}
+	opts := convert.Options{IncludeLibraryStubs: req.IncludeLibraryStubs, InheritedMembers: req.InheritedMembers}
 	if req.IdForm != "" {
 		if from != convert.FormatSysML || (to != convert.FormatTurtle && to != convert.FormatAPIJSON) {
 			return opts, statusError(connect.CodeInvalidArgument, "id_form applies to notation converted to ttl or api-json")
@@ -613,7 +621,12 @@ func (s *Service) convertModelOfDocuments(req *pb.ConvertRequest) (*pb.ConvertRe
 	if req.IncludeCheckDiagnostics {
 		defer func() { resp.Diagnostics = append(resp.Diagnostics, s.cachedCheckDiagnostics(req, cached)...) }()
 	}
-	graph, err := export.ModelToRDFWith(documents, opts.ID)
+	cached.exportOnce.Do(func() { cached.exportModel = export.PrepareModel(documents) })
+	toGraph := cached.exportModel.ToRDF
+	if to == convert.FormatAPIJSON && !opts.WritesLibraryStubs() {
+		toGraph = cached.exportModel.ElementGraph
+	}
+	graph, err := toGraph(req.Documents, opts.ID)
 	if err != nil {
 		resp.Error = err.Error()
 		return resp, true, nil

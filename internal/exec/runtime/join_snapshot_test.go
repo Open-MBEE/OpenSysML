@@ -3,8 +3,6 @@ package runtime
 import (
 	"strings"
 	"testing"
-
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 func TestCloneNilJoinArrivalsIsWritable(t *testing.T) {
@@ -12,7 +10,7 @@ func TestCloneNilJoinArrivalsIsWritable(t *testing.T) {
 	if arrived == nil {
 		t.Fatal("cloneJoinArrivals(nil) = nil, want an initialized map")
 	}
-	arrived[&ast.PseudostateNode{}] = nil
+	arrived[1] = nil
 }
 
 func TestSnapshotRestoresJoinArrivals(t *testing.T) {

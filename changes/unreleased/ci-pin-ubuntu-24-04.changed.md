@@ -1,0 +1,1 @@
+- CI pins every GitHub Actions job to `ubuntu-24.04` instead of the moving `ubuntu-latest` label, whose rollover to Ubuntu 26.04 brought a gcc that rejects the generated C of `tests/codegen` (implicit declaration of `sysml_parse_rec`) and a z3 whose optimize report differs from what `internal/frontend/repl` expects; the image moves again only by an explicit bump.

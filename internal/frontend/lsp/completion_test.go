@@ -401,9 +401,11 @@ func initMarkdownCompletion(t *testing.T, s *Server) {
 }
 
 const documentedSrc = `package P {
-	/* A wheel. */
-	/* Load-bearing. */
-	part def Wheel;
+	part def Wheel {
+		doc /* A wheel. */
+		doc /* Load-bearing. */
+	}
+	/* A comment of P, about P. */
 	//* Carries the wheels.
 	   Two axles. */
 	part def Vehicle;
@@ -411,8 +413,8 @@ const documentedSrc = `package P {
 }
 `
 
-// Markdown documentation reads as prose: each comment loses its delimiters and
-// stands as its own paragraph, and the lines an author wrote stay apart.
+// Markdown documentation reads as prose: each owned doc is an undelimited paragraph,
+// a note keeps its line breaks, and the namespace's bare comment is not shown.
 func TestCompletionDocumentationIsProseWhenTheClientRendersMarkdown(t *testing.T) {
 	items := completionAtFor(t, documentedSrc, "part v : Vehicle;", true)
 
@@ -437,7 +439,7 @@ func TestCompletionDocumentationIsProseWhenTheClientRendersMarkdown(t *testing.T
 	}
 	vdoc, _ := vehicle.Documentation.(*protocol.MarkupContent)
 	if vdoc.Value != "Carries the wheels.  \nTwo axles." {
-		t.Errorf("'Vehicle' documentation = %q, want a block note with its line break kept", vdoc.Value)
+		t.Errorf("'Vehicle' documentation = %q, want the block note alone, with its line break kept", vdoc.Value)
 	}
 }
 
@@ -588,5 +590,23 @@ func TestCompletionOnDotOmitsRedefinedRoleNames(t *testing.T) {
 	}
 	if _, ok := items["subj"]; ok {
 		t.Error("completion after 'u.' offered 'subj', which the subject 's' redefines")
+	}
+}
+
+// A standard-library candidate carries its own doc, read from the bundled
+// library text, as hover shows it.
+func TestCompletionDocumentsAStandardLibraryCandidate(t *testing.T) {
+	src := "package Q {\n\tattribute a : Base::Anyth;\n}\n"
+	items := completionAtFor(t, src, "Base::Anyth", true)
+	item, ok := items["Anything"]
+	if !ok {
+		t.Fatalf("Anything not offered among %d items", len(items))
+	}
+	doc, ok := item.Documentation.(*protocol.MarkupContent)
+	if !ok || doc == nil {
+		t.Fatalf("Anything documentation = %#v, want Markdown", item.Documentation)
+	}
+	if !strings.Contains(doc.Value, "Anything is the top level generalized type in the language.") || strings.Contains(doc.Value, "Base package") {
+		t.Errorf("Anything documentation = %q, want its own doc only", doc.Value)
 	}
 }

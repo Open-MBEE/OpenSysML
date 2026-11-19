@@ -17,7 +17,7 @@ func (sc *Context) attributesOf(sym *symbols.Symbol) ([]*Attribute, int32) {
 	var withheld int32
 	seen := make(map[string]bool)
 	for _, member := range sc.Semantics.MembersOf(sym) {
-		if !isAttributeSymbol(member) || member.Name == "" || seen[member.Name] {
+		if !isAttributeSymbol(member) || !member.Named() || seen[member.Name] {
 			continue
 		}
 		seen[member.Name] = true
@@ -138,8 +138,8 @@ func (sc *Context) inheritedValue(sym *symbols.Symbol, depth int) (*Value, strin
 // to, else what it wrote, else the library scalar the element reduces to.
 func attributeTypeText(t *TypeInfo) string {
 	switch {
-	case t.ResolvedId != "":
-		return t.ResolvedId
+	case t.ResolvedQualifiedName != "":
+		return t.ResolvedQualifiedName
 	case t.Declared != "":
 		return t.Declared
 	default:

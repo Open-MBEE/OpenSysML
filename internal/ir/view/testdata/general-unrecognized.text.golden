@@ -2,5 +2,5 @@ RobustViews::unrecognized - tree rendering (view def GeneralView)
 
 part def A
 part def B
-part def C
 abstract connection def Derivation
+part def C

@@ -7,7 +7,7 @@ its [grammar coverage](grammar-coverage.md) census and the v1→v2 mapping its
 a committed baseline and a CI gate that fails when the measurement moves.
 
 <!-- census:begin source -->
-Measured over `build/spec-docs/sysml.txt`, rendered with `pdftotext -layout` from the SysML v2 specification PDF of pilot release `2026-09` (SysML-v2-Release commit `b7a6b77000c9136f8f24822fc9d2cb237c76267f`), clause §8.2.3.
+Measured over `build/spec-docs/sysml.txt`, rendered with `pdftotext -layout` from the SysML v2 specification PDF of pilot release `2026-09.1` (SysML-v2-Release commit `9546486f49f704d1df092e3f252f4fcfbce534dd`), clause §8.2.3.
 <!-- census:end source -->
 
 ## Method
@@ -91,7 +91,7 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 ## Totals
 
 <!-- census:begin summary -->
-620 production statements (97 of them partial `=|` statements) name 523 distinct productions: **292 drawn**, **34 approximate**, **25 undrawn**, 172 not applicable.
+620 production statements (97 of them partial `=|` statements) name 523 distinct productions: **294 drawn**, **36 approximate**, **21 undrawn**, 172 not applicable.
 
 | Category | Productions |
 | --- | --- |
@@ -124,9 +124,9 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 | §8.2.3.14 Interfaces Graphical Notation | 17 | 12 | 7 | 1 | 0 | 4 |
 | §8.2.3.15 Allocations Graphical Notation | 14 | 9 | 6 | 0 | 0 | 3 |
 | §8.2.3.16 Flows Graphical Notation | 30 | 22 | 16 | 2 | 0 | 4 |
-| §8.2.3.17 Actions Graphical Notation | 72 | 68 | 44 | 3 | 3 | 18 |
+| §8.2.3.17 Actions Graphical Notation | 72 | 68 | 45 | 5 | 0 | 18 |
 | §8.2.3.18 States Graphical Notation | 45 | 41 | 25 | 2 | 0 | 14 |
-| §8.2.3.19 Calculations Graphical Notation | 14 | 9 | 5 | 0 | 1 | 3 |
+| §8.2.3.19 Calculations Graphical Notation | 14 | 9 | 6 | 0 | 0 | 3 |
 | §8.2.3.20 Constraints Graphical Notation | 24 | 19 | 13 | 0 | 0 | 6 |
 | §8.2.3.21 Requirements Graphical Notation | 63 | 57 | 34 | 2 | 1 | 20 |
 | §8.2.3.22 Cases Graphical Notation | 4 | 3 | 0 | 1 | 0 | 2 |
@@ -135,7 +135,7 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 | §8.2.3.25 Use Cases Graphical Notation | 22 | 16 | 9 | 1 | 0 | 6 |
 | §8.2.3.26 Views and Viewpoints Graphical Notation | 38 | 34 | 19 | 1 | 2 | 12 |
 | §8.2.3.27 Metadata Graphical Notation | 8 | 7 | 2 | 0 | 1 | 4 |
-| **Total** | 620 | 523 | 292 | 34 | 25 | 172 |
+| **Total** | 620 | 523 | 294 | 36 | 21 | 172 |
 <!-- census:end clauses -->
 
 ## Gaps
@@ -158,7 +158,7 @@ package a follow-up can take one at a time (see below).
 | `imported-package-with-name-in-tab` | node | undrawn | F | an imported package is drawn as an ordinary package node at the end of an import edge |
 | `imported-package-with-name-inside` | node | undrawn | F | an imported package is drawn as an ordinary package node at the end of an import edge |
 | `members-compartment` | compartment | undrawn | F | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
-| `owned-membership` | edge | approximate | F | view-rendering-forms.md § Notation table: Circle-plus at the namespace: Graphviz has no such arrow, so a `+` tail label is set on its hollow circle; D2 puts a `+` arrowhead label beside its circle; Mermaid draws a plain line, a tree's nesting showing the ownership. A mixed rendering draws it from an owner to every nested member that is no feature — a nested package or definition — as above. |
+| `owned-membership` | edge | approximate | F | view-rendering-forms.md § Notation table: Circle-plus at the namespace: Graphviz has no such arrow, so a `+` tail label is set on its hollow circle under a class, and every drawing this project has Graphviz make draws the plus inside the circle in the label's place ([the drawn glyphs](view-rendering-forms.md#the-definition-glyph)); D2 puts a `+` arrowhead label beside its circle; Mermaid draws a plain line, a tree's nesting showing the ownership. A mixed rendering draws it from an owner to every nested member that is no feature — a nested package or definition — as above. |
 | `package-node` | node | approximate | F | a «package» box without the tab; PlantUML's `package` folder is the nearest form |
 | `package-with-name-in-tab` | node | undrawn | F | the name-in-tab form is not drawn; packages are keyword boxes |
 | `package-with-name-inside` | node | approximate | F | a «package» box without the tab; PlantUML's `package` folder is the nearest form |
@@ -170,11 +170,11 @@ package a follow-up can take one at a time (see below).
 | Production | Category | Verdict | Package | Reason |
 | --- | --- | --- | --- | --- |
 | `composite-feature-membership` | edge | approximate | F | view-rendering-forms.md § Notation table: Filled diamond at the owner; Mermaid has no diamond and leads the edge text with `◆`. A case or mixed diagram writes the DOT attributes as `arrowtail=diamond, dir=back`. A mixed rendering draws it from an owner to every composite usage nested in its node — a part, action or state usage, a view usage — where PlantUML and the text form show it and DOT and Mermaid leave it to the nesting ([case and mixed diagrams](view-rendering-forms.md#case-and-mixed-diagrams)). |
-| `definition` | edge | approximate | F | view-rendering-forms.md § Notation table: Solid hollow triangle at the definition with two dots stacked beside its base, as PlantUML's `--:\|>` sets them: Graphviz sets the dots in line behind the triangle, D2 and draw.io have no dots and draw the plain triangle, Mermaid writes `typing` as the edge text. |
+| `definition` | edge | approximate | F | view-rendering-forms.md § Notation table: Solid hollow triangle at the definition with two dots beside its base, one each side of the line, as PlantUML's `--:\|>` sets them: no Graphviz arrowhead sets a dot beside the line, so the DOT edge is the triangle under a class and the dots are drawn into the SVG of every drawing this project has Graphviz make ([the definition glyph](view-rendering-forms.md#the-definition-glyph)), D2 and draw.io have no dots and draw the plain triangle, Mermaid writes `typing` as the edge text. |
 | `features-compartment` | compartment | undrawn | F | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all (a KerML `feature` member never folds into a SysML node's compartments) |
 | `noncomposite-feature-membership` | edge | approximate | F | view-rendering-forms.md § Notation table: Hollow diamond at the owner; Mermaid leads the edge text with `◇`. A mixed rendering draws it to every referential usage nested in its owner's node — a `ref` part, an attribute, a port — as above. |
 | `redefinition` | edge | approximate | F | view-rendering-forms.md § Notation table: Hollow triangle with a bar across the line at its base, as Graphviz's `onormaltee` sets it; PlantUML sets the bar a little behind the triangle, D2 and draw.io have no bar and draw the plain triangle, Mermaid writes `redefinition` as the edge text. |
-| `reference-subsetting` | edge | approximate | F | view-rendering-forms.md § Notation table: Hollow triangle with four dots behind its base, from a usage to the one it `::>` references, labelled `references` as `subsets` and `redefines` are: Graphviz sets one dot behind the triangle, PlantUML, D2 and draw.io draw the plain triangle, Mermaid has none; the canvas draws the four dots. The Pilot writes `--\|>`. |
+| `reference-subsetting` | edge | approximate | F | view-rendering-forms.md § Notation table: Hollow triangle with four dots behind its base, from a usage to the one it `::>` references, labelled `references` as `subsets` and `redefines` are: Graphviz sets one dot behind the triangle under a class, which every drawing this project has Graphviz make redraws as the four ([the drawn glyphs](view-rendering-forms.md#the-definition-glyph)); PlantUML, D2 and draw.io draw the plain triangle, Mermaid has none; the canvas draws the four dots. The Pilot writes `--\|>`. |
 | `subclassification` | edge | approximate | F | view-rendering-forms.md § Notation table: Solid hollow triangle; Mermaid has no triangle head and names the kind as the edge text instead. |
 | `subsetting` | edge | approximate | F | view-rendering-forms.md § Notation table: The same hollow triangle, no text; Mermaid writes `subsetting` as the edge text, having no triangle. |
 
@@ -182,7 +182,7 @@ package a follow-up can take one at a time (see below).
 
 | Production | Category | Verdict | Package | Reason |
 | --- | --- | --- | --- | --- |
-| `portion-relationship` | edge | approximate | D | view-rendering-forms.md § Notation table: Solid line with a filled three-quarter circle at the occurrence, from the occurrence to a `timeslice` or `snapshot` it owns, in the definition graph and the tree: Graphviz and D2 draw a filled circle, PlantUML a filled square, Mermaid a plain line with `◕` leading the text; the canvas draws the three-quarter circle, which no Graphviz, PlantUML, D2 or draw.io arrowhead is. The Pilot writes `*--`. |
+| `portion-relationship` | edge | approximate | D | view-rendering-forms.md § Notation table: Solid line with a filled three-quarter circle at the occurrence, from the occurrence to a `timeslice` or `snapshot` it owns, in the definition graph and the tree: Graphviz and D2 draw a filled circle, PlantUML a filled square, Mermaid a plain line with `◕` leading the text; the canvas draws the three-quarter circle, which no Graphviz, PlantUML, D2 or draw.io arrowhead is, so the DOT edge is the filled circle under a class and every drawing this project has Graphviz make opens it into the three-quarter circle ([the drawn glyphs](view-rendering-forms.md#the-definition-glyph)). The Pilot writes `*--`. |
 | `sequence-compartment` | compartment | undrawn | D | holds a sequence view; no box form nests a diagram, and the canvas lays a sequence out as a diagram of its own |
 | `sq-succession` | edge | approximate | D | dashed with an open head in PlantUML (`-->>`), Mermaid (`--)`) and the canvas; D2's dashed arrow carries a filled head |
 
@@ -231,10 +231,9 @@ package a follow-up can take one at a time (see below).
 | Production | Category | Verdict | Package | Reason |
 | --- | --- | --- | --- | --- |
 | `accept-action-node` | node | approximate | B | a rounded box with the keyword compartment in every form; the send and accept corner glyphs are drawn in DOT, draw.io and the canvas, written as ▷ and ◁ in PlantUML and Mermaid, and not drawn in D2 |
-| `perform-actions-swimlanes` | compartment | undrawn | B | swimlanes are not drawn |
-| `performed-by-compartment` | compartment | undrawn | B | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
+| `perform-actions-swimlanes` | compartment | approximate | B | a dashed box headed «performer», the performer's feature chain and `perform actions`, holding the action nodes that performer performs, in every form; the lanes are attached on their vertical edges and aligned top and bottom in the grid layout of draw.io only, the layout engines of the other forms placing each lane as a cluster of its own |
 | `send-action-node` | node | approximate | B | a rounded box with the keyword compartment in every form; the send and accept corner glyphs are drawn in DOT, draw.io and the canvas, written as ▷ and ◁ in PlantUML and Mermaid, and not drawn in D2 |
-| `swimlane` | compartment | undrawn | B | swimlanes are not drawn |
+| `swimlane` | compartment | approximate | B | a dashed box headed «performer», the performer's feature chain and `perform actions`, holding the action nodes that performer performs, in every form; the lanes are attached on their vertical edges and aligned top and bottom in the grid layout of draw.io only, the layout engines of the other forms placing each lane as a cluster of its own |
 | `terminate-node` | node | approximate | B | the figure's X in a circle in DOT, Mermaid (cross-circ), draw.io (umlDestroy) and the canvas; PlantUML has no terminate pseudostate and D2 no crossed circle, both draw a plain end |
 
 #### §8.2.3.18 States Graphical Notation
@@ -243,12 +242,6 @@ package a follow-up can take one at a time (see below).
 | --- | --- | --- | --- | --- |
 | `st-succession` | edge | approximate | B | view-rendering-forms.md § Notation table: Solid with an open head and the transition label (figures of §8.2.3.18), as DOT, PlantUML, draw.io and the canvas draw it; Mermaid and D2 have only a filled head. |
 | `transition` | edge | approximate | B | view-rendering-forms.md § Notation table: Solid with an open head and the transition label (figures of §8.2.3.18), as DOT, PlantUML, draw.io and the canvas draw it; Mermaid and D2 have only a filled head. |
-
-#### §8.2.3.19 Calculations Graphical Notation
-
-| Production | Category | Verdict | Package | Reason |
-| --- | --- | --- | --- | --- |
-| `result-compartment` | compartment | undrawn | F | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
 
 #### §8.2.3.21 Requirements Graphical Notation
 
@@ -300,11 +293,11 @@ package a follow-up can take one at a time (see below).
 | Package | Scope | Undrawn | Approximate | Productions |
 | --- | --- | --- | --- | --- |
 | A | §8.2.3.26 view frame and §8.2.3.4 annotation nodes | 0 | 0 |  |
-| B | §8.2.3.17–.18 action and state node forms | 3 | 5 | `accept-action-node`, `perform-actions-swimlanes`, `performed-by-compartment`, `send-action-node`, `swimlane`, `terminate-node`, `st-succession`, `transition` |
+| B | §8.2.3.17–.18 action and state node forms | 0 | 7 | `accept-action-node`, `perform-actions-swimlanes`, `send-action-node`, `swimlane`, `terminate-node`, `st-succession`, `transition` |
 | C | §8.2.3.3/.13 n-ary dots and §8.2.3.16 flow-on-connection | 0 | 0 |  |
 | D | §8.2.3.9 sequence glyphs | 1 | 3 | `portion-relationship`, `sequence-compartment`, `sq-succession`, `message` |
 | E | §8.2.3.2 textual-compartment greying | 0 | 1 | `element-inside-textual-compartment` |
-| F | everything else | 21 | 25 | `general-compartment`, `imported-package-with-name-in-tab`, `imported-package-with-name-inside`, `members-compartment`, `owned-membership`, `package-node`, `package-with-name-in-tab`, `package-with-name-inside`, `packages-compartment`, `relationships-compartment`, `composite-feature-membership`, `definition`, `features-compartment`, `noncomposite-feature-membership`, `redefinition`, `reference-subsetting`, `subclassification`, `subsetting`, `directed-features-compartment`, `interconnection-compartment`, `pdh`, `pdv`, `port-b`, `port-l`, `port-r`, `port-t`, `proxy-h`, `proxy-v`, `connection-definition-elaboration`, `connection-usage-elaboration`, `interface-connection`, `flow`, `result-compartment`, `actor`, `concern-stakeholder-link`, `satisfy-requirements-compartment`, `objective-compartment`, `verification-methods-compartment`, `verifies-compartment`, `verify-requirement-name-compartment`, `verify-requirement-node`, `includes-compartment`, `exposes-compartment`, `filters-compartment`, `rendering-compartment`, `metadata-feature-annotation-node` |
+| F | everything else | 20 | 25 | `general-compartment`, `imported-package-with-name-in-tab`, `imported-package-with-name-inside`, `members-compartment`, `owned-membership`, `package-node`, `package-with-name-in-tab`, `package-with-name-inside`, `packages-compartment`, `relationships-compartment`, `composite-feature-membership`, `definition`, `features-compartment`, `noncomposite-feature-membership`, `redefinition`, `reference-subsetting`, `subclassification`, `subsetting`, `directed-features-compartment`, `interconnection-compartment`, `pdh`, `pdv`, `port-b`, `port-l`, `port-r`, `port-t`, `proxy-h`, `proxy-v`, `connection-definition-elaboration`, `connection-usage-elaboration`, `interface-connection`, `flow`, `actor`, `concern-stakeholder-link`, `satisfy-requirements-compartment`, `objective-compartment`, `verification-methods-compartment`, `verifies-compartment`, `verify-requirement-name-compartment`, `verify-requirement-node`, `includes-compartment`, `exposes-compartment`, `filters-compartment`, `rendering-compartment`, `metadata-feature-annotation-node` |
 <!-- census:end packages -->
 
 ## Decisions

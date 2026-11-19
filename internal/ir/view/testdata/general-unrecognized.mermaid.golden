@@ -28,7 +28,7 @@ flowchart TD
 **A**`"]
   n1["`*«part def»*
 **B**`"]
-  n2["`*«part def»*
-**C**`"]
-  n3["`*«abstract connection def»*
+  n2["`*«abstract connection def»*
 **Derivation**`"]
+  n3["`*«part def»*
+**C**`"]

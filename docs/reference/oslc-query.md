@@ -22,15 +22,20 @@ The supported filter is a compound term:
 ```text
 compound   ::= term (" and " term)*
 term       ::= identifier comparison_op value
-             | identifier " in " "[" value ("," value)* "]"
+             | identifier " in" " "? "[" value ("," value)* "]"
              | identifier "{" compound "}"
 comparison_op ::= "=" | "!=" | "<" | ">" | "<=" | ">="
 ```
 
-Identifiers are prefixed names. Values may be `<uri>`, a prefixed name,
-quoted strings (with `\"` and `\\` escapes), `true`, `false`, or a decimal.
-The supported typed literal suffixes are `^^xsd:string`, `^^xsd:boolean`,
-`^^xsd:integer`, `^^xsd:decimal`, and `^^xsd:double`.
+Identifiers are prefixed names. Values may be `<uri>` (with `\>` and `\\`
+escapes, as the specification's `uri_ref_esc`), a prefixed name, quoted
+strings (with `\"` and `\\` escapes), `true`, `false`, or a decimal. A decimal
+is the lexical form of `xsd:decimal`: an optional sign, digits and an optional
+decimal point (`42`, `-3.5`, `.5`); an exponent, `inf` or `NaN` is refused
+rather than read as a number. The supported typed literal suffixes are
+`^^xsd:string`, `^^xsd:boolean`, `^^xsd:integer`, `^^xsd:decimal`,
+`^^xsd:double`, and `^^rdf:XMLLiteral`, which the specification lets a server
+read as a plain string and this implementation does.
 
 A `<uri>` in the SysML namespace and the prefixed name that expands to it are
 the same value, so `rdf:type=<https://www.omg.org/spec/SysML#PartUsage>`,
@@ -52,10 +57,15 @@ The `oslc.where`, `oslc.select`, `oslc.orderBy`, `oslc.searchTerms`, and
 `oslc.prefix` parameters may be supplied as a URL-encoded query-parameter
 string. Standard decoding applies: `+` means a space and percent-encoded
 sequences are decoded. A bare where-clause remains accepted. `oslc.orderBy`
-accepts `+` and `-` prefixes. Selection and ordering are comma-separated, and
+takes the specification's sort terms: each property carries a `+` or `-`
+(unsigned, it ascends), and a scoped term `sysml:owner{+sysml:name,-sysml:qualifiedName}`
+orders by the related element's properties, signed inside the braces as
+`scoped_sort_terms` writes them. A sign outside the braces,
+`-sysml:owner{sysml:name}`, applies to the unsigned terms inside; a term signed
+on both sides is refused. Selection and ordering are comma-separated, and
 both take nested properties: `oslc.select=sysml:name,sysml:owner{sysml:name}`
 reports the owner's name as the column `owner.name`, and
-`oslc.orderBy=-sysml:owner{sysml:name}` orders by it. `*` in `oslc.select`,
+`oslc.orderBy=sysml:owner{-sysml:name}` orders by it. `*` in `oslc.select`,
 alone or inside a nested selection, is every property the selected rows could
 name, read of the reflective table `Project` reads (see [query
 kinds](../manual/query-kinds.md)): the properties of the element rows'
@@ -70,9 +80,12 @@ contain any of the quoted terms, case-insensitively, as `WhereText` matches.
 
 A parameter this implementation does not recognize is a typed error, not something
 to ignore, because ignoring it would answer a different question than the one asked:
-a misspelt `oslc.wheree` would otherwise select the whole model. A parameter
-given twice is refused for the same reason, and so is a parameter with no
-value: `oslc.select=` narrows nothing, so rather than quietly returning every
+a misspelt `oslc.wheree` would otherwise select the whole model. The two paging
+parameters, `oslc.paging` and `oslc.pageSize`, are the exception: they ask how
+the answer is delivered, not which answer, and OSLC Query 3.0 lets a server
+ignore them, so they are accepted unread — every result arrives in one answer.
+A parameter given twice is refused for the same reason, and so is a parameter
+with no value: `oslc.select=` narrows nothing, so rather than quietly returning every
 property (which is what omitting it means), it is refused. A property named
 twice in one `oslc.select`, whether by the same prefix or by two prefixes that
 name the same namespace, is refused as well: it is reported once, so the second
@@ -149,7 +162,11 @@ every other term a `WhereFeature` with `tolerate=true`, which keeps a row whose
 property is absent out of the answer without failing the query. Equality,
 inequality and `in` compare typed values — a number against a number, a
 boolean against `true`/`false`, a string lexically — and a multi-valued
-property matches when any value equals an operand. `in [...]` keeps the rows
+property matches when any value equals an operand. Of the three string
+semantics OSLC Query 3.0 lets a server choose, this is the first: a
+case-sensitive comparison of the whole value, in which `%` and `_` are ordinary
+characters, not pattern wildcards (`sysml:name="battery"` does not select
+`Battery`, and `sysml:name="Batt%"` selects nothing). `in [...]` keeps the rows
 any alternative keeps, in source order (`Except` of the rows no alternative
 kept). Ordered comparisons take exactly one numeric operand and apply to the
 numeric properties: the two multiplicity bounds, where `*` is positive
@@ -160,7 +177,8 @@ and a metaclass the library does not declare are refused before any element
 is read.
 
 Results keep declaration order, with parents before their children, unless
-`oslc.orderBy` is supplied. `oslc.select` is a `Project`; identity and
+`oslc.orderBy` is supplied; `oslc.searchTerms` computes no relevance score, so
+a search is ordered by `oslc.orderBy` alone, or stays in declaration order. `oslc.select` is a `Project`; identity and
 metamodel type are always present on every result. `oslc.orderBy=+a,-b` is a
 nested `OrderBy` per term, applied in reverse precedence so the stable sort
 keeps `b` within equal `a`; it compares values as the evaluator orders them
@@ -187,13 +205,16 @@ beside the project's other query surfaces.
 | Property wildcard `*` in `oslc.where` or `oslc.orderBy` | Typed error. A term compares one property and an order has one key; the wildcard names every property. |
 | Value wildcard `*` on the multiplicity bounds | Supported: `*` is the model's own infinity value, not a wildcard. |
 | Value wildcard `*` on any other property | Typed error. A `*` value would be a wildcard, which no plan operation evaluates; refusing it avoids a lexical comparison that silently matches nothing. |
-| `oslc.searchTerms` | Supported: `WhereText` over the result's text properties, any quoted term matching, case-insensitively. Terms are quoted strings; an empty parameter or an unquoted term is refused. |
+| `oslc.searchTerms` | Supported: `WhereText` over the result's text properties, any quoted term matching, case-insensitively. Terms are quoted strings; an empty parameter or an unquoted term is refused. No relevance score is computed, so `oslc.orderBy` orders a search alone. |
+| Scoped sort terms `sysml:owner{+sysml:name,-sysml:qualifiedName}` | Supported: the sign sits on each property inside the braces, as the specification writes it; a sign outside the braces applies to the unsigned terms inside. |
+| `oslc.paging`, `oslc.pageSize` | Accepted and ignored, as the specification allows: every result arrives in one answer. |
 | `rdf:type=elmt:<id>` | Supported: the held objects of that element, under their paths. |
 | `or` | Typed error. OSLC Query 3.0 defines no disjunction; the structured API `Query` does. |
 | `oslc.properties` | Typed error naming `oslc.select`, which reports the property projection. |
 | Any other `oslc.*` parameter, or a repeated one | Typed error. |
 | Language-tagged literals | Typed error; model properties do not carry language tags. |
-| Non-`xsd:` or unsupported `xsd:` datatypes | Typed error rather than a potentially misleading comparison. |
+| `^^rdf:XMLLiteral` | Supported: read as a plain string, as the specification allows. |
+| Other non-`xsd:` or unsupported `xsd:` datatypes | Typed error rather than a potentially misleading comparison. |
 
 ## API and command surfaces
 

@@ -19,6 +19,9 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		// A KerML feature has no Usage::mayTimeVary; its isVariable is declared.
 		return false
 	}
+	if varies, ok := m.synthesizedUsageMayTimeVary(sym); ok {
+		return varies
+	}
 	var portion, actionKind, bodyParameter bool
 	switch d := sym.Decl.(type) {
 	case *ast.Usage:
@@ -58,6 +61,30 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		(!actionKind && !m.conformsByName(sym, "Actions::Action"))
 }
 
+// synthesizedUsageMayTimeVary derives Usage::mayTimeVary for a referential part the model synthesizes:
+// a flow end's ReferenceUsage, a transition's link parameter, or a trigger's payload and receiver parameters.
+func (m *Model) synthesizedUsageMayTimeVary(sym *symbols.Symbol) (varies, ok bool) {
+	if _, ok := symbols.ImpliedFlowEndFeatureIndex(sym); ok {
+		// A flow end's ReferenceUsage is owned by the FlowEnd, which redefines Flows::Flow::source
+		// or target, an Occurrence-typed feature (SysML v2.1 §8.3.16.6), as the pilot exports it.
+		return !m.isKerMLDoc(sym) && m.UsageMayTimeVaryUnderLibraryFeature("Flows::Flow::source"), true
+	}
+	if sym.OwnerScope != nil || sym.Expr == nil {
+		return false, false
+	}
+	switch sym.Expr.Role {
+	case symbols.ExpressionTransitionLinkParameter:
+		return m.UsageMayTimeVaryUnder(sym.Expr.Owner), true
+	case symbols.ExpressionPayload:
+		// A trigger's parameters are owned by the AcceptActionUsage the trigger implies, an action.
+		return m.UsageMayTimeVaryUnderKind(ast.UsageAction), true
+	case symbols.ExpressionTransitionLink:
+		// The pilot exports a transition's transitionLink as neither variable nor time-varying.
+		return false, true
+	}
+	return false, false
+}
+
 // UsageMayTimeVaryUnder derives Usage::mayTimeVary for a referential usage that
 // declares nothing of its own — a connector end, a parameter a transition or a
 // satisfy's subject implies — whose owning type is owner (deriveUsageMayTimeVary).
@@ -90,6 +117,9 @@ func (m *Model) isPayloadFeature(sym *symbols.Symbol) bool {
 func (m *Model) UsageMayTimeVaryForOwningType(sym, owner *symbols.Symbol) bool {
 	if sym == nil {
 		return false
+	}
+	if varies, ok := m.synthesizedUsageMayTimeVary(sym); ok {
+		return varies
 	}
 	isPortion := false
 	if sym.Recorded() {
@@ -127,6 +157,9 @@ func (m *Model) UsageMayTimeVaryForOwningType(sym, owner *symbols.Symbol) bool {
 func (m *Model) FeatureIsVariable(sym *symbols.Symbol) bool {
 	if sym == nil || isKerMLTypeDecl(sym) {
 		return false
+	}
+	if varies, ok := m.synthesizedUsageMayTimeVary(sym); ok {
+		return varies
 	}
 	if sym.Recorded() {
 		mods := sym.Facts.Modifiers
@@ -410,6 +443,9 @@ func usageIsComposite(usage *ast.Usage) bool {
 	if usage == nil || usage.IsReference || usage.Direction != ast.DirNone || usage.IsBodyParameter ||
 		usage.IsEnd || usage.IsEvent || usage.Kind == ast.UsageEnumeration || usage.IsVariantReference() {
 		return false
+	}
+	if usage.Kind.ReferenceSubsettingSpecializes() {
+		return true
 	}
 	for _, rel := range usage.Relationships {
 		if rel != nil && rel.Kind == ast.RelReferences {

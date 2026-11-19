@@ -52,7 +52,7 @@ func ModelElementForm(documents []ModelDocument) (*ElementForm, error) {
 }
 
 func modelElementFormWith(documents []ModelDocument, idForm IDForm) (*ElementForm, error) {
-	graph, err := ModelToRDFWith(documents, idForm)
+	graph, err := ModelElementGraphWith(documents, idForm)
 	if err != nil {
 		return nil, err
 	}
@@ -67,6 +67,7 @@ func elementFormOfGraph(graph *rdf.Graph) (*ElementForm, error) {
 		omissions:       map[string]map[string]metamodel.Reason{},
 	}
 	options := APIJSONOptions{
+		InheritedMembers: true,
 		LibraryReferences: func(refs []APIJSONLibraryReference) {
 			for _, ref := range refs {
 				form.libraryNames[ref.ID] = ref

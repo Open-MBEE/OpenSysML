@@ -451,7 +451,7 @@ func (g *generalGraph) unresolved(relationship string, of *symbols.Symbol, targe
 // nearest named element owning an anonymous one.
 func (r *Renderer) relationshipOwnerName(sym *symbols.Symbol) string {
 	for s := sym; s != nil; {
-		if s.Name != "" {
+		if s.Named() {
 			return r.notationName(s)
 		}
 		if s.OwnerScope == nil {
@@ -1060,7 +1060,7 @@ func (g *generalGraph) dependencyEdges(sym *symbols.Symbol, kind EdgeKind, name 
 	if !ok {
 		return nil
 	}
-	if len(dep.Clients) > 1 || len(dep.Suppliers) > 1 {
+	if dependencyDot(dep) {
 		return g.naryDependency(sym, kind, name, dep)
 	}
 	var out []Edge
@@ -1086,7 +1086,7 @@ func (g *generalGraph) dependencyEdges(sym *symbols.Symbol, kind EdgeKind, name 
 // dependencyLabel is the name a dependency of no particular kind is drawn
 // with, which the notation makes optional; a name a migration made up is none.
 func (g *generalGraph) dependencyLabel(sym *symbols.Symbol) string {
-	if sym.Name == "" || g.r.model.NameSynthesized(sym) {
+	if !sym.Named() || g.r.model.NameSynthesized(sym) {
 		return ""
 	}
 	return localName(sym)

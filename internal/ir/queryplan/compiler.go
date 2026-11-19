@@ -539,8 +539,10 @@ func (c *compiler) declaredResult(sym *symbols.Symbol) (effectiveResult, bool, e
 	members := declarationMembers(sym)
 	statements := lower.CalcBodyWith(sym.Decl, members, sym.Scope, c.resolver)
 	if len(statements) == 1 {
-		if result, ok := statements[0].(lower.Return); ok && result.Value != nil {
-			return effectiveResult{node: result.Value, owner: sym}, true, nil
+		if result, ok := statements[0].(lower.Return); ok {
+			if value := result.Syntax(); value != nil {
+				return effectiveResult{node: value, owner: sym}, true, nil
+			}
 		}
 	}
 	if len(statements) > 0 {
@@ -561,10 +563,10 @@ func (c *compiler) declaredResult(sym *symbols.Symbol) (effectiveResult, bool, e
 				return effectiveResult{}, false, &Error{
 					Kind:   ErrorUnsupportedResult,
 					Query:  name,
-					Origin: symbols.NodeOrigin(sym.DocName, binding.Decl),
+					Origin: symbols.NodeOrigin(sym.DocName, binding.Declared()),
 				}
 			}
-			expression = binding.Ends[1-i].Expr
+			expression = binding.Ends[1-i].Syntax()
 		}
 	}
 	if expression == nil {

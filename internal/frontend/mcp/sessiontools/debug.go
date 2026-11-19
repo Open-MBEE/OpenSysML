@@ -188,7 +188,7 @@ func registerDebug(s *mcp.Server, m *Manager) {
 		return Output{Text: text(lines)}, nil
 	}))
 	debugTool(s, m, "advance", "Advance clock",
-		"Advance the debuggers' simulation clock (%advance), running every state event, action token, change-condition poll and do behavior that comes due, in due order, and report what ran and where the debuggers stand. The clock is the session's: a debugged action and machine both move.",
+		"Advance the debuggers' simulation clock (%advance), running every state event, action token, change-condition poll and do behavior that comes due, in due order, and report what ran and where the debuggers stand. No event is skipped however long the step: each runs at its own instant, so one advance of 300 is the same run as three hundred of 1, and lastEventAt in the result is the exact instant of the last event that ran. The clock is the session's: a debugged action and machine both move.",
 		true, func(sess *repl.Session, in AdvanceInput) (repl.DebugReport, error) { return sess.Advance(in.Time) })
 	registerInspect(s, m)
 }

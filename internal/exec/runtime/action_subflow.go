@@ -58,7 +58,7 @@ func unfoldSubflow(sub *lower.Subflow, node ast.Node) (*lower.ActionGraph, error
 // initialize(), so an unbuildable one is an error here.
 func (e *ActionExecutor) enterSubflow(tokenIdx int, perf *actionFrame) error {
 	token := &e.tokens[tokenIdx]
-	node := token.Location
+	node := token.Node()
 	if perf.graph != nil && perf.graph.Invalid != nil {
 		return fmt.Errorf("%w: action node %s: %w",
 			errInvalidActionFlow, ActionNodeName(node), perf.graph.Invalid)
@@ -86,7 +86,7 @@ func (e *ActionExecutor) enterSubflow(tokenIdx int, perf *actionFrame) error {
 	if len(starts) == 0 {
 		return e.leaveSubflow(tokenIdx)
 	}
-	token.Location = starts[0]
+	token.Location = refOf(perf.graph, starts[0])
 	e.recordTokenAt(token, nil)
 	e.seedTokens(perf, starts[1:], e.sweep)
 	return nil
@@ -96,7 +96,7 @@ func (e *ActionExecutor) enterSubflow(tokenIdx int, perf *actionFrame) error {
 // performance of it starts at concurrently (lower.StartFlow).
 func (e *ActionExecutor) seedTokens(frame *actionFrame, starts []ast.Node, moved uint64) {
 	for _, start := range starts {
-		e.tokens = append(e.tokens, Token{ID: e.nextTokenID, Location: start, frame: frame, moved: moved})
+		e.tokens = append(e.tokens, Token{ID: e.nextTokenID, Location: refOf(frame.graph, start), frame: frame, moved: moved})
 		e.nextTokenID++
 		e.recordTokenAt(&e.tokens[len(e.tokens)-1], nil)
 	}
@@ -387,7 +387,7 @@ func (e *ActionExecutor) drawOneMove(perf *actionFrame) (acted, performed bool, 
 		did, err = e.stepTokenNoting(i, &order)
 		schedule.Acted(id, did)
 		if did {
-			acted, performed = true, e.performs(t.frame, t.Location)
+			acted, performed = true, e.performs(t.frame, t.Node())
 		}
 		if err != nil || did {
 			break
@@ -457,16 +457,16 @@ func (e *ActionExecutor) silentMove(t Token) bool {
 	if t.body != nil {
 		return false
 	}
-	switch t.Location.(type) {
+	switch t.Node().(type) {
 	case *ast.InitialNode, *ast.ForkNode, *ast.JoinNode, *ast.MergeNode:
 	default:
 		return false
 	}
 	graph := e.graphOf(t.frame)
-	if len(graph.Bodies[t.Location]) > 0 {
+	if len(graph.Bodies[t.Node()]) > 0 {
 		return false
 	}
-	for _, edge := range graph.Edges[t.Location] {
+	for _, edge := range graph.Edges[t.Node()] {
 		if edge.Guard != nil || edge.Probability != nil {
 			return false
 		}
@@ -507,7 +507,7 @@ func (e *ActionExecutor) yieldedIn(perf *actionFrame, pauses int64) bool {
 func (e *ActionExecutor) subflowLocations(perf *actionFrame) map[int64]ast.Node {
 	locations := make(map[int64]ast.Node)
 	for _, idx := range e.tokensIn(perf) {
-		locations[e.tokens[idx].ID] = e.tokens[idx].Location
+		locations[e.tokens[idx].ID] = e.tokens[idx].Node()
 	}
 	return locations
 }
@@ -517,7 +517,7 @@ func (e *ActionExecutor) subflowLocations(perf *actionFrame) map[int64]ast.Node 
 func (e *ActionExecutor) performingTokens(perf *actionFrame) map[int64]bool {
 	performing := make(map[int64]bool)
 	for _, idx := range e.tokensIn(perf) {
-		if t := e.tokens[idx]; e.performs(t.frame, t.Location) {
+		if t := e.tokens[idx]; e.performs(t.frame, t.Node()) {
 			performing[t.ID] = true
 		}
 	}
@@ -585,7 +585,7 @@ func (t Token) drivenUnder(perf *actionFrame) bool {
 // owning the flow nested under perf it runs in; false for a token outside perf's flow.
 func (t Token) positionIn(perf *actionFrame) (ast.Node, bool) {
 	if t.frame == perf {
-		return t.Location, true
+		return t.Node(), true
 	}
 	for f := t.frame; f != nil; f = f.parent {
 		if f.parent == perf {
@@ -601,7 +601,7 @@ func (e *ActionExecutor) leaveSubflow(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
 	frame := token.frame
 	token.frame = frame.parent
-	token.Location = frame.node
+	token.Location = frame.ref()
 	token.Via = lower.ActionEdge{}
 	token.Wait = nil
 	token.repetition = frame.repetition

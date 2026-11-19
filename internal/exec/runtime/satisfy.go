@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -50,6 +52,9 @@ type SatisfyAssertion struct {
 	// is reached through the objects of the features before its last; nil for a
 	// plain name.
 	SubjectChain *ast.FeatureChainExpr
+
+	// SubjectChainID is SubjectChain in the model's table, lowered in the scope of Symbol.
+	SubjectChainID program.ExprID
 
 	// SubjectRoot is the feature a chained `by` operand starts from (`config`),
 	// and SubjectPath the features walked from its object to the subject's
@@ -107,7 +112,7 @@ func (a *SatisfyAssertion) Text() string {
 	switch {
 	case a.RequirementRef != "":
 		b.WriteString(source.QualifiedNameText(a.RequirementRef))
-	case a.Symbol != nil && a.Symbol.Name != "":
+	case a.Symbol != nil && a.Symbol.Named():
 		b.WriteString(source.NameText(a.Symbol.Name))
 	default:
 		b.WriteString("?")
@@ -200,12 +205,13 @@ func (ctx *Context) satisfyAssertionOf(sym *symbols.Symbol) *SatisfyAssertion {
 			continue
 		}
 		switch rel.Kind {
-		case ast.RelSubsets:
+		case ast.RelReferences:
 			a.RequirementRef, a.Requirement = ctx.resolveRelationship(sym, rel)
 		case ast.RelSubject:
 			a.SubjectRef, a.Subject = ctx.resolveRelationship(sym, rel)
 			if chain, ok := rel.Target.(*ast.FeatureChainExpr); ok {
 				a.SubjectChain = chain
+				a.SubjectChainID = ctx.model.exprs.Intern(chain, sym.OwnerScope)
 				a.SubjectRoot, a.SubjectPath = ctx.chainRoot(sym, chain)
 			}
 		}
@@ -664,7 +670,9 @@ func (ctx *Context) statedOf(a *SatisfyAssertion, inst *Instance) bool {
 // chainSubject evaluates a chained `by` operand in the assertion's scope, as
 // one run bounded by the step budget, and returns the one object it denotes.
 func (ctx *Context) chainSubject(a *SatisfyAssertion) (*Instance, error) {
-	value, err := ctx.EvalWithScope(a.SubjectChain, a.Symbol.OwnerScope)
+	endRun := ctx.beginRun()
+	value, err := newEvalContext(ctx, a.Symbol.OwnerScope).reading(ctx.model.exprs).evalPayload(a.SubjectChainID)
+	endRun()
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w: %w", a.Text(), errNoSubject, err)
 	}
@@ -683,7 +691,7 @@ func (ctx *Context) chainSubject(a *SatisfyAssertion) (*Instance, error) {
 // which is how a `satisfy requirement r by p { require ... }` form carries one
 // without referencing another requirement.
 func (ctx *Context) declaresConditions(sym *symbols.Symbol) bool {
-	for _, node := range unwrappedDeclMembers(sym.Decl) {
+	for _, node := range lower.UnwrappedDeclMembers(sym.Decl) {
 		if len(ctx.appendConditions(nil, node, nil, true, false, nil)) > 0 {
 			return true
 		}
@@ -721,7 +729,7 @@ func symbolLabel(sym *symbols.Symbol) string {
 	switch {
 	case sym == nil:
 		return "<nil>"
-	case sym.Name != "":
+	case sym.Named():
 		return sym.Name
 	default:
 		return fmt.Sprintf("anonymous %T", sym.Decl)

@@ -14,6 +14,7 @@ from opensysml.connection import (
     _private_services,
 )
 from opensysml.errors import ConnectionError, OpenSysMLError, ServiceError
+from opensysml.capabilities import MissingCapabilityError
 from opensysml.proto import sysml_pb2
 
 
@@ -161,6 +162,100 @@ def test_connection_get_symbol():
             # Verify SymbolInfo returned
             assert pb_result.id == "Vehicle::Engine"
             assert pb_result.name == "Engine"
+
+
+@pytest.mark.parametrize(
+    "capabilities, sent",
+    [(["symbol_name_resolution"], True), ([], False)],
+)
+def test_connection_get_symbol_resolves_a_name_only_where_advertised(capabilities, sent):
+    """A service without symbol_name_resolution is asked by reported id, as it reads every id."""
+    with patch('grpc.insecure_channel'):
+        mock_stub = Mock()
+        mock_stub.GetServerInfo.return_value = sysml_pb2.ServerInfoResponse(
+            version="test", capabilities=capabilities,
+        )
+        mock_stub.GetSymbol.return_value = sysml_pb2.SymbolResponse(
+            symbol=sysml_pb2.SymbolInfo(id="Lib::Pump", name="Pump"), error="",
+        )
+        with patch('opensysml.proto.sysml_pb2_grpc.SysMLServiceStub', return_value=mock_stub):
+            conn = Connection(auto_start=False)
+            conn.get_symbol("hash", "Lib::PumpAlias", resolve_name=True)
+            assert mock_stub.GetSymbol.call_args[0][0].resolve_name is sent
+            conn.get_symbol("hash", "Lib::PumpAlias")
+            assert mock_stub.GetSymbol.call_args[0][0].resolve_name is False
+
+
+@pytest.mark.parametrize(
+    "capabilities, by_name, by_id",
+    [
+        (
+            ["symbol_lookup_kind", "symbol_name_resolution"],
+            (sysml_pb2.LOOKUP_KIND_QUALIFIED_NAME, True), (sysml_pb2.LOOKUP_KIND_ELEMENT_ID, False),
+        ),
+        (
+            ["symbol_name_resolution"],
+            (sysml_pb2.LOOKUP_KIND_UNSPECIFIED, True), (sysml_pb2.LOOKUP_KIND_UNSPECIFIED, False),
+        ),
+        ([], (sysml_pb2.LOOKUP_KIND_UNSPECIFIED, False), (sysml_pb2.LOOKUP_KIND_UNSPECIFIED, False)),
+    ],
+)
+def test_connection_get_symbol_states_its_lookup_kind_where_advertised(capabilities, by_name, by_id):
+    """name= and id= go as the lookup; a service without symbol_lookup_kind is asked in the legacy form."""
+    with patch('grpc.insecure_channel'):
+        mock_stub = Mock()
+        mock_stub.GetServerInfo.return_value = sysml_pb2.ServerInfoResponse(
+            version="test", capabilities=capabilities,
+        )
+        mock_stub.GetSymbol.return_value = sysml_pb2.SymbolResponse(
+            symbol=sysml_pb2.SymbolInfo(id="Col__V__c_pend0"), error="",
+        )
+        with patch('opensysml.proto.sysml_pb2_grpc.SysMLServiceStub', return_value=mock_stub):
+            conn = Connection(auto_start=False)
+            for kwargs, (lookup, resolve_name) in (
+                ({"name": "Col__V__c_pend0"}, by_name), ({"id": "Col__V__c_pend0"}, by_id),
+            ):
+                conn.get_symbol("hash", **kwargs)
+                request = mock_stub.GetSymbol.call_args[0][0]
+                assert (request.symbol_id, request.lookup, request.resolve_name) == (
+                    "Col__V__c_pend0", lookup, resolve_name)
+            conn.get_symbol("hash", "Col__V__c_pend0")
+            legacy = mock_stub.GetSymbol.call_args[0][0]
+            assert (legacy.symbol_id, legacy.lookup) == ("Col__V__c_pend0", sysml_pb2.LOOKUP_KIND_UNSPECIFIED)
+            for wrong in ({}, {"name": "A", "id": "A"}, {"symbol_id": "A", "id": "A"}):
+                with pytest.raises(ValueError, match="exactly one"):
+                    conn.get_symbol("hash", **wrong)
+
+
+def test_connection_get_symbol_names_the_type_the_symbol_is_a_member_of():
+    with patch('grpc.insecure_channel'):
+        mock_stub = Mock()
+        mock_stub.GetServerInfo.return_value = sysml_pb2.ServerInfoResponse(
+            version="test", capabilities=["symbol_member_direction"],
+        )
+        mock_stub.GetSymbol.return_value = sysml_pb2.SymbolResponse(
+            symbol=sysml_pb2.SymbolInfo(id="Demo::CmdPort::cmd", name="cmd", kind="attributeUsage"),
+        )
+
+        with patch('opensysml.proto.sysml_pb2_grpc.SysMLServiceStub', return_value=mock_stub):
+            conn = Connection(auto_start=False)
+            conn.get_symbol("model_hash", "Demo::CmdPort::cmd", member_of="Demo::Device::pIn")
+            assert mock_stub.GetSymbol.call_args[0][0].member_of == "Demo::Device::pIn"
+
+            conn.get_symbol("model_hash", "Demo::CmdPort::cmd")
+            assert mock_stub.GetSymbol.call_args[0][0].member_of == ""
+
+
+def test_connection_get_symbol_refuses_a_member_direction_the_service_cannot_answer():
+    """A service without symbol_member_direction would answer the declared direction unasked."""
+    with patch('grpc.insecure_channel'):
+        mock_stub = Mock()
+        mock_stub.GetServerInfo.return_value = sysml_pb2.ServerInfoResponse(version="test")
+        with patch('opensysml.proto.sysml_pb2_grpc.SysMLServiceStub', return_value=mock_stub):
+            conn = Connection(auto_start=False)
+            with pytest.raises(MissingCapabilityError):
+                conn.get_symbol("model_hash", "Demo::CmdPort::cmd", member_of="Demo::Device::pIn")
+            mock_stub.GetSymbol.assert_not_called()
 
 
 def test_connection_get_symbol_not_found():

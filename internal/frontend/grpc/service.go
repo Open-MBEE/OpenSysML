@@ -108,6 +108,10 @@ const CapabilityRenderDocumentAsciiDoc = "render_document_asciidoc"
 // renders a declared or targeted pseudo-view as machine-readable diagram data.
 const CapabilityRenderView = "render_view"
 
+// CapabilityRenderViewForm names the capability of RenderViewRequest's form
+// field and writer options, answered in RenderViewResponse.text.
+const CapabilityRenderViewForm = "render_view_form"
+
 // CapabilityExportGraphs names the capability of the ExportGraphs RPC, which
 // exports the lowered graph of an action or state machine as `graphs:1` JSON.
 const CapabilityExportGraphs = "export_graphs"
@@ -149,6 +153,22 @@ const CapabilitySymbolAttributes = "symbol_attributes"
 // SymbolInfo.members, the element's members own and inherited with their
 // provenance, and of honouring GetSymbolRequest.include_library_members.
 const CapabilitySymbolMembers = "symbol_members"
+
+// CapabilitySymbolNameResolution names the capability of honouring GetSymbolRequest.resolve_name;
+// without it symbol_id is read as an id the service reported, as a service predating the field reads it.
+const CapabilitySymbolNameResolution = "symbol_name_resolution"
+
+// CapabilitySymbolAnnotatingMetadata names the capability of populating
+// SymbolInfo.annotating_metadata_ids, the metadata usages annotating the element.
+const CapabilitySymbolAnnotatingMetadata = "symbol_annotating_metadata"
+
+// CapabilitySymbolLookupKind names the capability of honouring the lookup of GetSymbolRequest and
+// GetElementPropertiesRequest: a qualified name read only as a name, an element id only as an id.
+const CapabilitySymbolLookupKind = "symbol_lookup_kind"
+
+// CapabilitySymbolMemberDirection names the capability of honouring
+// GetSymbolRequest.member_of, reporting a feature's direction relative to that type.
+const CapabilitySymbolMemberDirection = "symbol_member_direction"
 
 // CapabilityUnsetValue names the capability of reporting a valueless feature of
 // a value type as Value.unset, rather than as the empty object it materializes.
@@ -246,6 +266,10 @@ const CapabilityConvertCompact = "convert_compact"
 
 // CapabilityConvertLibraryReferences names ConvertResponse.library_references.
 const CapabilityConvertLibraryReferences = "convert_library_references"
+
+// CapabilityConvertInheritedMembers names ConvertRequest.inherited_members; a service
+// without it writes the inherited member lists on every api-json element.
+const CapabilityConvertInheritedMembers = "convert_inherited_members"
 
 // CapabilityConvertLibraryStubs names ConvertRequest.include_library_stubs.
 const CapabilityConvertLibraryStubs = "convert_library_stubs"
@@ -425,6 +449,7 @@ var capabilities = []string{
 	CapabilityConvertCompact,
 	CapabilityConvertLibraryReferences,
 	CapabilityConvertLibraryStubs,
+	CapabilityConvertInheritedMembers,
 	CapabilityConvertCheckDiagnostics,
 	CapabilityParseSourcesAffected,
 	CapabilityRenderDocumentFileName,
@@ -432,6 +457,11 @@ var capabilities = []string{
 	CapabilityVerdictNotes,
 	CapabilityElementProperties,
 	CapabilityInlineDocumentQuery,
+	CapabilitySymbolNameResolution,
+	CapabilityRenderViewForm,
+	CapabilitySymbolAnnotatingMetadata,
+	CapabilitySymbolLookupKind,
+	CapabilitySymbolMemberDirection,
 }
 
 type capabilityAvailability struct {
@@ -619,12 +649,19 @@ func newService(cacheSize int, version string, opts []Option) (*Service, error) 
 // Prewarm starts building the service's standard library index in the
 // background, so the first model to arrive is not the one that pays for the
 // library. It returns immediately and is safe to call more than once.
-func (s *Service) Prewarm() {
+func (s *Service) Prewarm() <-chan struct{} {
 	if !s.prewarm {
-		return
+		return closedChannel
 	}
-	s.libIndexes.prewarm()
+	return s.libIndexes.prewarm()
 }
+
+// closedChannel is what Prewarm answers when there is nothing to wait for.
+var closedChannel = func() chan struct{} {
+	done := make(chan struct{})
+	close(done)
+	return done
+}()
 
 // Close waits for a background library build in flight and releases the
 // service's reference to the shared index. The service still answers
@@ -1044,7 +1081,8 @@ func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceM
 	return modelHash, store(modelHash, model)
 }
 
-// GetSymbol retrieves symbol information by FQN
+// GetSymbol retrieves symbol information by qualified name or by element id, as the
+// request's lookup states; without one, symbol_id is read name first, then id.
 func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.SymbolResponse, error) {
 	// Lookup cached model
 	cached, ok := s.cache.Get(req.ModelHash)
@@ -1052,18 +1090,27 @@ func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.
 		return nil, statusErrorf(connect.CodeNotFound, msgModelNotFound, req.ModelHash)
 	}
 
-	// Lookup symbol by FQN or positional identity
-	syms := cached.LookupSymbol(req.SymbolId)
+	syms := s.lookupSymbol(cached, req)
 	if len(syms) == 0 {
 		return &pb.SymbolResponse{
 			Error: fmt.Sprintf("symbol not found: %s", req.SymbolId),
 		}, nil
 	}
 
+	opts := symbolfacts.Options{IncludeLibraryMembers: req.IncludeLibraryMembers}
+	if req.MemberOf != "" && s.capabilities.has(CapabilitySymbolMemberDirection) {
+		owners := cached.LookupElementID(req.MemberOf)
+		if len(owners) == 0 {
+			return &pb.SymbolResponse{
+				Error: fmt.Sprintf("symbol not found: %s", req.MemberOf),
+			}, nil
+		}
+		opts.MemberOf = owners[0]
+	}
+
 	// Convert first match to proto
 	return &pb.SymbolResponse{
-		Symbol: s.symbolToProtoWith(syms[0], cached.SymbolContext(),
-			symbolfacts.Options{IncludeLibraryMembers: req.IncludeLibraryMembers}),
+		Symbol: s.symbolToProtoWith(syms[0], cached.SymbolContext(), opts),
 	}, nil
 }
 
@@ -1384,7 +1431,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 
 	// An inherited action is named by the subtype too (Sub::inherited).
-	syms := cached.LookupNamedMember(req.ActionSymbolId)
+	syms := cached.LookupDeclaredMember(req.ActionSymbolId)
 	if len(syms) == 0 {
 		return &pb.ExecuteActionResponse{
 			Error: fmt.Sprintf("action not found: %s", req.ActionSymbolId),
@@ -1590,7 +1637,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 
 	// An inherited state machine is named by the subtype too (Sub::inherited).
-	syms := cached.LookupNamedMember(req.StateMachineSymbolId)
+	syms := cached.LookupDeclaredMember(req.StateMachineSymbolId)
 	if len(syms) == 0 {
 		return &pb.ExecuteStateResponse{
 			Error: fmt.Sprintf("state machine not found: %s", req.StateMachineSymbolId),
@@ -1735,4 +1782,20 @@ func resolveEvent(lookup func(string) []*symbols.Symbol, action *symbols.Symbol,
 		}
 	}
 	return nil
+}
+
+// lookupSymbol finds what a GetSymbol request names, as the kind it states or name first.
+func (s *Service) lookupSymbol(cached *CachedModel, req *pb.GetSymbolRequest) []*symbols.Symbol {
+	if s.capabilities.has(CapabilitySymbolLookupKind) {
+		switch req.Lookup {
+		case pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME:
+			return cached.ResolveQualifiedName(req.SymbolId)
+		case pb.LookupKind_LOOKUP_KIND_ELEMENT_ID:
+			return cached.LookupElementID(req.SymbolId)
+		}
+	}
+	if req.ResolveName && s.capabilities.has(CapabilitySymbolNameResolution) {
+		return cached.ResolveName(req.SymbolId)
+	}
+	return cached.LookupSymbol(req.SymbolId)
 }
