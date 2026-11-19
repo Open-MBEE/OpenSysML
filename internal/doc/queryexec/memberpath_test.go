@@ -760,3 +760,31 @@ calc def Over :> Query {
 		t.Fatalf("error = %v, want the over-full member refused", err)
 	}
 }
+
+// A reader property's answer is not bounded by a same-named declared member:
+// two doc comments survive an attribute named documentation.
+func TestProjectPropertyPathFallbackKeepsReaderProperties(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+attribute def Row { attribute documentation : String; }
+package Results {
+	attribute def Over :> Row {
+		doc /* first */
+		doc /* second */
+		attribute redefines documentation = "x";
+	}
+}
+calc def Over :> Query {
+	in root : Element;
+	Project(source = Descendants(source = root, maxDepth = 1), properties = ("qualifiedName.documentation"))
+}
+`)
+	result, err := fixture.execute(t, "Over", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "Results"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if rows := result.Rows(); len(rows) != 1 || len(rows[0].Cells()[0].Values()) != 2 {
+		t.Fatalf("rows = %+v, want one row with two documentation values", rows)
+	}
+}
