@@ -2,15 +2,15 @@
 # served properties the two disagree on. Re-record with
 #   go test ./internal/translate/export -run TestSymbolStructureMatchesGraphStructure -update-structure-differential
 # after adjudicating every movement; the downloaded roots need their corpora present.
-root examples: models 57, skipped 0, matched 41730, unmatched 11477
+root examples: models 58, skipped 0, matched 41730, unmatched 11477
   AcceptActionUsage::receiverArgument: equal 5, different 1, symbol-missing 0, symbol-extra 0
   AnnotatingElement::annotation: equal 292, different 263, symbol-missing 0, symbol-extra 0
   Behavior::step: equal 165, different 21, symbol-missing 0, symbol-extra 28
   ConjugatedPortDefinition::ownedPortConjugator: equal 0, different 20, symbol-missing 0, symbol-extra 0
   Connector::connectorEnd: equal 604, different 0, symbol-missing 0, symbol-extra 12
-  Connector::relatedFeature: equal 530, different 3, symbol-missing 79, symbol-extra 2
-  Connector::sourceFeature: equal 533, different 0, symbol-missing 79, symbol-extra 2
-  Connector::targetFeature: equal 530, different 3, symbol-missing 79, symbol-extra 2
+  Connector::relatedFeature: equal 530, different 3, symbol-missing 81, symbol-extra 2
+  Connector::sourceFeature: equal 533, different 0, symbol-missing 81, symbol-extra 2
+  Connector::targetFeature: equal 530, different 3, symbol-missing 81, symbol-extra 2
   Definition::directedUsage: equal 659, different 0, symbol-missing 0, symbol-extra 42
   Definition::ownedAction: equal 689, different 12, symbol-missing 0, symbol-extra 0
   Definition::ownedItem: equal 570, different 131, symbol-missing 0, symbol-extra 0
@@ -30,7 +30,7 @@ root examples: models 57, skipped 0, matched 41730, unmatched 11477
   Element::qualifiedName: equal 41728, different 2, symbol-missing 0, symbol-extra 0
   Element::shortName: equal 41618, different 2, symbol-missing 0, symbol-extra 110
   Expression::result: equal 4040, different 0, symbol-missing 10, symbol-extra 0
-  Feature::chainingFeature: equal 15873, different 0, symbol-missing 0, symbol-extra 16
+  Feature::chainingFeature: equal 16560, different 0, symbol-missing 0, symbol-extra 16
   Feature::direction: equal 16546, different 30, symbol-missing 0, symbol-extra 0
   Feature::endOwningType: equal 16574, different 2, symbol-missing 0, symbol-extra 0
   Feature::featureTarget: equal 16557, different 3, symbol-missing 0, symbol-extra 16
@@ -39,7 +39,7 @@ root examples: models 57, skipped 0, matched 41730, unmatched 11477
   Feature::isConstant: equal 332, different 0, symbol-missing 0, symbol-extra 16244
   Feature::isEnd: equal 16574, different 2, symbol-missing 0, symbol-extra 0
   Feature::isVariable: equal 16387, different 0, symbol-missing 0, symbol-extra 189
-  Feature::ownedFeatureChaining: equal 15873, different 16, symbol-missing 0, symbol-extra 0
+  Feature::ownedFeatureChaining: equal 16560, different 16, symbol-missing 0, symbol-extra 0
   Feature::ownedFeatureInverting: equal 16574, different 2, symbol-missing 0, symbol-extra 0
   Feature::ownedRedefinition: equal 16421, different 155, symbol-missing 0, symbol-extra 0
   Feature::ownedReferenceSubsetting: equal 16543, different 33, symbol-missing 0, symbol-extra 0
@@ -77,7 +77,7 @@ root examples: models 57, skipped 0, matched 41730, unmatched 11477
   Relationship::ownedRelatedElement: equal 24658, different 104, symbol-missing 0, symbol-extra 0
   Relationship::owningRelatedElement: equal 24698, different 64, symbol-missing 0, symbol-extra 0
   Relationship::relatedElement: equal 24483, different 102, symbol-missing 163, symbol-extra 14
-  Relationship::source: equal 24614, different 65, symbol-missing 79, symbol-extra 2
+  Relationship::source: equal 24614, different 65, symbol-missing 81, symbol-extra 2
   Relationship::target: equal 24534, different 51, symbol-missing 163, symbol-extra 14
   RequirementDefinition::text: equal 23, different 0, symbol-missing 38, symbol-extra 0
   RequirementUsage::actorParameter: equal 159, different 0, symbol-missing 0, symbol-extra 80
