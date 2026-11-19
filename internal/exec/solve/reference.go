@@ -3,17 +3,17 @@ package solve
 import (
 	"slices"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // reference translates a name or a feature chain: an enumeration literal or a
 // variant becomes a value of its finite sort, and a scalar-valued feature becomes
 // a variable standing for the values it may take.
-func (t *translator) reference(node ast.Node, scope *symbols.Scope) (*Term, error) {
-	segments, ok := pathSegments(node)
+func (t *translator) reference(node *lower.ExprEntry, scope *symbols.Scope) (*Term, error) {
+	segments, ok := node.Segments()
 	if !ok || len(segments) == 0 {
 		return nil, t.refuse(node, "reference", "it names nothing this translation can ground")
 	}
@@ -28,40 +28,6 @@ func (t *translator) reference(node ast.Node, scope *symbols.Scope) (*Term, erro
 	return t.variableOf(node, scope, chain, segments)
 }
 
-// pathSegments flattens a name or a feature chain into the names it steps
-// through, reporting false for anything else.
-func pathSegments(node ast.Node) ([]string, bool) {
-	switch n := node.(type) {
-	case *ast.FeatureReference:
-		return nameSegments(n.Name)
-	case *ast.QualifiedName:
-		return nameSegments(n)
-	case *ast.FeatureChainExpr:
-		base, ok := pathSegments(n.Operand)
-		if !ok {
-			return nil, false
-		}
-		rest, ok := nameSegments(n.Member)
-		if !ok {
-			return nil, false
-		}
-		return append(base, rest...), true
-	}
-	return nil, false
-}
-
-// nameSegments returns the names a qualified name steps through.
-func nameSegments(qn *ast.QualifiedName) ([]string, bool) {
-	if qn == nil || len(qn.Parts) == 0 {
-		return nil, false
-	}
-	out := make([]string, 0, len(qn.Parts))
-	for _, part := range qn.Parts {
-		out = append(out, part.Text)
-	}
-	return out, true
-}
-
 // msgReferencePrefix names the reference a refusal is about.
 const msgReferencePrefix = "reference `"
 
@@ -69,7 +35,7 @@ const msgReferencePrefix = "reference `"
 // evaluator resolves them: the first as an effective feature of the element the
 // conditions are stated by, else in scope, each further one as a member or a
 // variant of what the previous named.
-func (t *translator) resolvePath(node ast.Node, scope *symbols.Scope, segments []string) ([]*symbols.Symbol, error) {
+func (t *translator) resolvePath(node *lower.ExprEntry, scope *symbols.Scope, segments []string) ([]*symbols.Symbol, error) {
 	if len(segments) == 0 {
 		return nil, t.refuse(node, "reference", "it names nothing this translation can ground")
 	}
@@ -101,7 +67,7 @@ func (t *translator) resolvePath(node ast.Node, scope *symbols.Scope, segments [
 	}
 	if !ok {
 		// A qualified name may name a package member or a library element.
-		if whole, found := resolver.ResolveQualified(scope, ast.QualifiedNameOf(segments...)); found {
+		if whole, found := resolver.ResolveSegments(scope, segments...); found {
 			return []*symbols.Symbol{whole}, nil
 		}
 		return nil, t.refuse(node, msgReferencePrefix+joinPath(segments)+"`", "it resolves to nothing")
@@ -218,7 +184,7 @@ func (t *translator) variationDeclaring(sym *symbols.Symbol, variants []*symbols
 // the first time the feature is read. A feature whose type determines no scalar
 // sort, or that holds more than one value, refuses.
 func (t *translator) variableOf(
-	node ast.Node,
+	node *lower.ExprEntry,
 	scope *symbols.Scope,
 	chain []*symbols.Symbol,
 	segments []string,
@@ -266,7 +232,7 @@ func (t *translator) variableOf(
 
 // holdsOne refuses a read of a feature whose stated or implicit multiplicity admits
 // several (what names what is read), and records one the default 0..* alone governs as assumed one.
-func (t *translator) holdsOne(node ast.Node, step *symbols.Symbol, written, what string, object bool) error {
+func (t *translator) holdsOne(node *lower.ExprEntry, step *symbols.Symbol, written, what string, object bool) error {
 	r := t.model.GoverningMultiplicityOf(step)
 	if singleValued(r) {
 		return nil
@@ -299,7 +265,7 @@ func singleValued(r semantics.Range) bool {
 // sortOf decides the sort a feature's values range over, from the type facts the
 // semantic model holds rather than from any value written for it.
 func (t *translator) sortOf(
-	node ast.Node,
+	node *lower.ExprEntry,
 	scope *symbols.Scope,
 	sym *symbols.Symbol,
 	written string,
@@ -330,7 +296,7 @@ func (t *translator) sortOf(
 	case semantics.PrimComplex:
 		return Sort{}, "", t.refuse(node, written, "a complex number has no sort here")
 	}
-	if dim, ok := t.model.DimensionOfExpr(scope, node); ok {
+	if dim, ok := node.Dimension(t.model, scope); ok {
 		return Real, dimensionUnits(dim), nil
 	}
 	return Sort{}, "", t.refuse(node, written, "its type determines no scalar sort")
@@ -348,8 +314,8 @@ func (t *translator) enumerationTypeOf(sym *symbols.Symbol) *symbols.Symbol {
 
 // dimensionText names the dimension a reference's magnitudes are expressed in,
 // empty for a plain number.
-func (t *translator) dimensionText(scope *symbols.Scope, node ast.Node) string {
-	dim, ok := t.model.DimensionOfExpr(scope, node)
+func (t *translator) dimensionText(scope *symbols.Scope, node *lower.ExprEntry) string {
+	dim, ok := node.Dimension(t.model, scope)
 	if !ok {
 		return ""
 	}
@@ -421,26 +387,11 @@ func variableName(t *translator, chain []*symbols.Symbol) string {
 	return name
 }
 
-// featureDecl reports whether sym declares a feature holding a value: a usage, or
-// the subject a requirement declares. A definition or a package holds none.
-func featureDecl(sym *symbols.Symbol) bool {
-	if _, ok := sym.Decl.(*ast.Usage); ok {
-		return true
-	}
-	return subjectDecl(sym)
-}
+// featureDecl reports whether sym declares a feature holding a value.
+func featureDecl(sym *symbols.Symbol) bool { return semantics.DeclaresFeature(sym) }
 
-// subjectDecl reports whether sym declares a subject: a requirement's or case's
-// `subject` member, or the subject a satisfy usage's `by` clause declares.
-func subjectDecl(sym *symbols.Symbol) bool {
-	switch d := sym.Decl.(type) {
-	case *ast.SubjectMember:
-		return true
-	case *ast.Relationship:
-		return d.Kind == ast.RelSubject
-	}
-	return false
-}
+// subjectDecl reports whether sym declares a subject.
+func subjectDecl(sym *symbols.Symbol) bool { return semantics.DeclaresSubject(sym) }
 
 // fqn names a symbol as its qualified name, falling back to its own name for one
 // no scope chain qualifies.

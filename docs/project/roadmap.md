@@ -220,10 +220,10 @@ A tag cannot be cut over a corpus regression. Pull requests run one CI, the GitH
 workflow `.github/workflows/pr.yml`. Its `changes` job decides the tier — *quick* for a push to a pull
 request, draft or ready; *full* for a merge-queue commit, a pull request labelled `ci:full`, or a push
 touching a package where `-race` has found bugs (`scripts/ci-changed-areas.sh`) — and which of the
-client, editor and documentation jobs the diff touches; the Go suite runs sharded (eighteen race
+client, editor and documentation jobs the diff touches; the Go suite runs sharded (nineteen race
 shards in the full tier — `runtime`, `runtime-corpus`, `runtime-exploration`, `model`, `smt`, `corpus`,
 `corpus-sweep`, `export`, `export-library`, `export-examples`, `export-corpus`, `graph`, `codegen`,
-`translate`, `grpc`, `rest`, `migrate` and `cli`, #1440 — and nine race-free groups of them in the quick tier) with every corpus
+`translate`, `grpc`, `internal`, `rest`, `migrate` and `cli`, #1440 — and nine race-free groups of them in the quick tier) with every corpus
 required — `OPENSYSML_REQUIRE_TRAINING_CORPUS`, `_PILOT_CORPORA`, `_SPEC_EXAMPLES`, `_PSSM_SUITE`,
 `_SYSML_V1TOV2`, `_FUML_SUITE`, `_PILOT_LIBRARY_XMI`, `_SMT`, `_WASM` and `_REFERENCE_FMUS` set to
 `1`, the LLM-benchmark and PDF toolchains required where their jobs run — beside the
@@ -1448,8 +1448,8 @@ The outcome is `Outcome.Terminated` with an empty `FinalState`, the executor's s
 `Execution state: Terminated`, the LSP debug snapshot's `terminated`. A `terminate` naming a
 performance that ended, a value that is no occurrence, or an occurrence `destroy` emptied is a
 typed error (`errPerformanceEnded`, `errTerminateOccurrence`, `errTerminateTarget`,
-`robustness_terminate_test.go`); a calculation still refuses it as `errCalcSideEffect`
-(`robustness_calc_invocation_test.go:calc_terminate_is_rejected`). The PSSM referee translates the suite's
+`robustness_terminate_test.go`); in a calculation body it ends the calculation's steps
+(`robustness_calc_invocation_test.go:calc_terminate_ends_its_steps`). The PSSM referee translates the suite's
 terminate pseudostate to the same spelling, which retired its `terminate-gap` bucket
 (`docs/project/pssm-referee.md`).
 

@@ -1,0 +1,70 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+title: "«view» LaneShapes::assembleView : ActionFlowView"
+---
+%% LaneShapes::assembleView — action rendering (view def ActionFlowView)
+flowchart TD
+  subgraph n0 ["`*«action»* **assemble**`"]
+    direction TD
+    n1("`*«action»*
+**fetch**
+performed by
+loader
+bench`")
+    subgraph n2 ["`*«action»* **build**
+action flow`"]
+      direction TD
+      n2_anchor[" "]
+      subgraph n5 ["`*«performer»* **Robot**
+perform actions`"]
+        direction TD
+        n3("`*«action»*
+**cut**`")
+        n4("`*«action»*
+**weld**`")
+      end
+    end
+    subgraph n11 ["`*«performer»* **supervise**
+perform actions`"]
+      direction TD
+      n6("`*«action»*
+**inspect**`")
+    end
+    subgraph n12 ["`*«performer»* **: Robot**
+perform actions`"]
+      direction TD
+      n7("`*«action»*
+**pack**`")
+    end
+    n8@{ shape: f-circ, label: "" }
+  end
+  n3 -.-> n4
+  n1 -.-> n2_anchor
+  n2_anchor -.-> n6
+  n6 -.-> n7
+  n8 -.-> n1
+  classDef anchor fill:none,stroke:none
+  class n2_anchor anchor

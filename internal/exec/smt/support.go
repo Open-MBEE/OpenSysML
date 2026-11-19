@@ -8,7 +8,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 const (
@@ -32,20 +31,22 @@ type Flow struct {
 	// Frames lists the root flow first, then each flow a node states of its own,
 	// in the order the nodes are met; FrameOf gives the frame each node runs in.
 	Frames  []*Frame
-	FrameOf map[ast.Node]*Frame
+	FrameOf map[Node]*Frame
 	// Nodes lists every frame's nodes, frame by frame in graph order; Index inverts it.
-	Nodes []ast.Node
-	Index map[ast.Node]int
+	Nodes []Node
+	Index map[Node]int
 	// Labels names each node as a trace does, made unique by position where
 	// two nodes share a name.
 	Labels []string
 	// Edges lists every succession, in the order of its source node then its
 	// declaration; EdgeIndex inverts it. Incoming and Outgoing list a node's
 	// successions by index.
-	Edges     []lower.ActionEdge
+	Edges []lower.ActionEdge
+	// Ends gives each succession's source and target nodes, by its index.
+	Ends      [][2]Node
 	EdgeIndex map[lower.ActionEdge]int
-	Incoming  map[ast.Node][]int
-	Outgoing  map[ast.Node][]int
+	Incoming  map[Node][]int
+	Outgoing  map[Node][]int
 	// Loops lists the body loops the encoding unrolls, in the order their
 	// statements are met walking the nodes.
 	Loops []BodyLoop
@@ -61,9 +62,9 @@ type Flow struct {
 	// Repeats is how many times each step is performed when that is not once,
 	// RepeatText its declared multiplicity for diagnostics, and Crosses those
 	// whose tokens each succeed to their join or merge on their own.
-	Repeats    map[ast.Node]int64
-	RepeatText map[ast.Node]string
-	Crosses    map[ast.Node]bool
+	Repeats    map[Node]int64
+	RepeatText map[Node]string
+	Crosses    map[Node]bool
 	// Repeated is set when any step is performed other than once, so a state
 	// records a slot the extra tokens needed but did not find.
 	Repeated bool
@@ -82,25 +83,25 @@ type Frame struct {
 	// Index is the frame's position in Flow.Frames; the root is 0.
 	Index int
 	Graph *lower.ActionGraph
-	// Node performs the frame's flow; nil for the root. Parent is its frame.
-	Node   ast.Node
+	// Node performs the frame's flow; none for the root. Parent is its frame.
+	Node   Node
 	Parent *Frame
 	// Nodes lists the frame's own nodes, in graph order.
-	Nodes []ast.Node
+	Nodes []Node
 	// Slots is how many tokens the frame's flow may hold at once within k moves.
 	Slots int
 }
 
 // SendSite is one send statement and the node whose body runs it.
 type SendSite struct {
-	Node  ast.Node
+	Node  Node
 	Label string
 	Send  lower.Send
 }
 
 // AcceptSite is one accept node and what it waits for.
 type AcceptSite struct {
-	Node   ast.Node
+	Node   Node
 	Label  string
 	Accept lower.Accept
 }
@@ -118,7 +119,7 @@ func (fr *Frame) path() string {
 
 // BodyLoop is one body loop the encoding unrolls, and the node whose body it is in.
 type BodyLoop struct {
-	Node  ast.Node
+	Node  Node
 	Label string
 	Loop  lower.Loop
 }
@@ -132,34 +133,34 @@ func Analyze(graph *lower.ActionGraph, model *semantics.Model, k int) (*Flow, er
 	if k < 0 {
 		return nil, fmt.Errorf("smt: a bound of %d moves", k)
 	}
-	if len(graph.Concurrent) > 0 {
+	if len(graph.ConcurrentIDs()) > 0 {
 		return nil, unorderedStart(graph)
 	}
-	if graph.Initial == nil {
+	if graph.InitialID() == 0 {
 		return nil, &FlowError{Reason: "the flow has no initial node"}
 	}
 	f := &Flow{
 		Graph:     graph,
-		FrameOf:   make(map[ast.Node]*Frame, len(graph.Nodes)),
-		Index:     make(map[ast.Node]int, len(graph.Nodes)),
+		FrameOf:   make(map[Node]*Frame),
+		Index:     make(map[Node]int),
 		EdgeIndex: make(map[lower.ActionEdge]int),
-		Incoming:  make(map[ast.Node][]int),
-		Outgoing:  make(map[ast.Node][]int),
+		Incoming:  make(map[Node][]int),
+		Outgoing:  make(map[Node][]int),
 	}
 	if err := f.number(&Frame{Graph: graph}); err != nil {
 		return nil, err
 	}
 	for _, fr := range f.Frames {
 		if len(fr.Graph.Bindings) > 0 {
-			return nil, &UnsupportedError{Node: nodeLabel(fr.Graph.Bindings[0].Node), Construct: "pin binding",
+			return nil, &UnsupportedError{Node: nodeLabel(Node{Graph: fr.Graph, ID: fr.Graph.Bindings[0].NodeID}), Construct: "pin binding",
 				Reason: "a binding connector at a pin is not encoded; object flows are"}
 		}
 	}
 	for _, node := range f.Nodes {
-		if frame := f.FrameOf[node]; frame != nil && frame.Graph.HasStepMultiplicity(node, model) {
-			count, err := frame.Graph.StepCount(node, model)
+		if frame := f.FrameOf[node]; frame != nil && frame.Graph.HasStepMultiplicityOf(node.ID, model) {
+			count, err := frame.Graph.StepCountOf(node.ID, model)
 			if err != nil {
-				multiplicity := frame.Graph.MultiplicityText(node, model)
+				multiplicity := frame.Graph.MultiplicityTextOf(node.ID, model)
 				var stepErr *lower.StepMultiplicityError
 				if errors.As(err, &stepErr) {
 					multiplicity = stepErr.Multiplicity
@@ -176,10 +177,10 @@ func Analyze(graph *lower.ActionGraph, model *semantics.Model, k int) (*Flow, er
 			}
 			// CheckStep's refusals (a plain `then`, a contradicting control end,
 			// a guarded edge it does not admit) are the engine's refusals too.
-			if stepErr := frame.Graph.CheckStep(node, model); stepErr != nil {
+			if stepErr := frame.Graph.CheckStepOf(node.ID, model); stepErr != nil {
 				unsupported := &UnsupportedError{
 					Node:      nodeLabel(node),
-					Construct: actionStepMultiplicity + frame.Graph.MultiplicityText(node, model),
+					Construct: actionStepMultiplicity + frame.Graph.MultiplicityTextOf(node.ID, model),
 					Reason:    stepErr.Error(),
 				}
 				var multErr *lower.StepMultiplicityError
@@ -191,12 +192,12 @@ func Analyze(graph *lower.ActionGraph, model *semantics.Model, k int) (*Flow, er
 			}
 			if count != 1 {
 				if f.Repeats == nil {
-					f.Repeats = make(map[ast.Node]int64)
-					f.RepeatText = make(map[ast.Node]string)
-					f.Crosses = make(map[ast.Node]bool)
+					f.Repeats = make(map[Node]int64)
+					f.RepeatText = make(map[Node]string)
+					f.Crosses = make(map[Node]bool)
 				}
 				f.Repeats[node] = count
-				f.RepeatText[node] = frame.Graph.MultiplicityText(node, model)
+				f.RepeatText[node] = frame.Graph.MultiplicityTextOf(node.ID, model)
 				f.Repeated = true
 			}
 		}
@@ -210,17 +211,17 @@ func Analyze(graph *lower.ActionGraph, model *semantics.Model, k int) (*Flow, er
 		if f.Repeats[node] < 2 {
 			continue
 		}
-		graph := f.FrameOf[node].Graph
-		if len(graph.Features[node]) > 0 || len(graph.DataFlows[node]) > 0 {
+		graph := node.Graph
+		if len(graph.FeaturesOf(node.ID)) > 0 || len(graph.FlowsOf(node.ID)) > 0 {
 			return nil, &UnsupportedError{Node: nodeLabel(node), Construct: "features of a repeated step",
 				Reason: "each performance holds its own values, which one feature variable per state does not encode"}
 		}
-		f.Crosses[node] = graph.CrossesPerPerformance(node, model)
+		f.Crosses[node] = graph.CrossesPerPerformanceOf(node.ID, model)
 	}
 	for _, node := range f.Nodes {
-		for _, flow := range f.FrameOf[node].Graph.DataFlows[node] {
-			if f.Repeats[flow.Target] >= 2 {
-				return nil, &UnsupportedError{Node: nodeLabel(flow.Target), Construct: "features of a repeated step",
+		for _, flow := range node.Graph.FlowsOf(node.ID) {
+			if target := node.at(flow.TargetID); f.Repeats[target] >= 2 {
+				return nil, &UnsupportedError{Node: nodeLabel(target), Construct: "features of a repeated step",
 					Reason: "each performance holds its own values, which one feature variable per state does not encode"}
 			}
 		}
@@ -253,55 +254,52 @@ func Analyze(graph *lower.ActionGraph, model *semantics.Model, k int) (*Flow, er
 // each flow a node of it states of its own, so every frame's labels stay distinct.
 func (f *Flow) number(fr *Frame) error {
 	graph := fr.Graph
-	if graph != nil && len(graph.Concurrent) > 0 {
+	if graph != nil && len(graph.ConcurrentIDs()) > 0 {
 		return unorderedStart(graph)
 	}
-	if graph == nil || graph.Initial == nil {
+	if graph == nil || graph.InitialID() == 0 {
 		return &FlowError{Node: nodeLabel(fr.Node), Reason: "the flow has no initial node"}
 	}
 	fr.Index = len(f.Frames)
 	f.Frames = append(f.Frames, fr)
 	prefix := fr.path()
 	first := len(f.Nodes)
-	for _, node := range graph.Nodes {
-		if _, seen := f.Index[node]; seen {
-			continue
-		}
+	for _, id := range graph.NodeIDs() {
+		node := Node{Graph: graph, ID: id}
 		f.Index[node] = len(f.Nodes)
 		f.FrameOf[node] = fr
 		f.Nodes = append(f.Nodes, node)
 		fr.Nodes = append(fr.Nodes, node)
 	}
-	if f.FrameOf[graph.Initial] != fr {
-		return &FlowError{Node: nodeLabel(graph.Initial), Reason: "the initial node is not among the flow's nodes"}
-	}
 	for _, label := range uniqueLabels(fr.Nodes) {
 		f.Labels = append(f.Labels, prefix+label)
 	}
 	for _, node := range fr.Nodes {
-		for _, edge := range graph.Edges[node] {
+		for _, edge := range graph.EdgesOf(node.ID) {
 			if _, seen := f.EdgeIndex[edge]; seen {
 				continue
 			}
-			if f.FrameOf[edge.Target] != fr {
+			target := node.at(edge.TargetID)
+			if f.FrameOf[target] != fr {
 				return &FlowError{Node: f.label(node), Reason: "a succession leaves the flow's nodes"}
 			}
 			i := len(f.Edges)
 			f.Edges = append(f.Edges, edge)
+			f.Ends = append(f.Ends, [2]Node{node, target})
 			f.EdgeIndex[edge] = i
 			f.Outgoing[node] = append(f.Outgoing[node], i)
-			f.Incoming[edge.Target] = append(f.Incoming[edge.Target], i)
+			f.Incoming[target] = append(f.Incoming[target], i)
 		}
 	}
 	for _, node := range f.Nodes[first:] {
-		sub := graph.Subflows[node]
+		sub := graph.SubflowOf(node.ID)
 		if sub == nil {
 			continue
 		}
-		if sub.Err == nil && sub.Graph != nil && len(sub.Graph.Concurrent) > 0 {
+		if sub.Err == nil && sub.Graph != nil && len(sub.Graph.ConcurrentIDs()) > 0 {
 			return unorderedStart(sub.Graph)
 		}
-		if sub.Err != nil || sub.Graph == nil || sub.Graph.Initial == nil {
+		if sub.Err != nil || sub.Graph == nil || sub.Graph.InitialID() == 0 {
 			return f.refuseNested(node)
 		}
 		if err := f.number(&Frame{Graph: sub.Graph, Node: node, Parent: fr}); err != nil {
@@ -314,12 +312,12 @@ func (f *Flow) number(fr *Frame) error {
 // unorderedStart refuses a flow with a subaction no succession reaches: one more
 // start than the encoding seeds.
 func unorderedStart(graph *lower.ActionGraph) error {
-	return &UnsupportedError{Node: nodeLabel(graph.Concurrent[0]), Construct: "unordered subaction",
+	return &UnsupportedError{Node: nodeLabel(Node{Graph: graph, ID: graph.ConcurrentIDs()[0]}), Construct: "unordered subaction",
 		Reason: "a subaction no succession reaches starts with its owner; the encoding seeds one start"}
 }
 
 // graphOf returns the lowered flow node runs in.
-func (f *Flow) graphOf(node ast.Node) *lower.ActionGraph {
+func (f *Flow) graphOf(node Node) *lower.ActionGraph {
 	if fr, ok := f.FrameOf[node]; ok {
 		return fr.Graph
 	}
@@ -327,7 +325,7 @@ func (f *Flow) graphOf(node ast.Node) *lower.ActionGraph {
 }
 
 // label names node as the encoding does.
-func (f *Flow) label(node ast.Node) string {
+func (f *Flow) label(node Node) string {
 	if i, ok := f.Index[node]; ok {
 		return f.Labels[i]
 	}
@@ -336,15 +334,15 @@ func (f *Flow) label(node ast.Node) string {
 
 // checkNode refuses what the stage does not encode at node and what the
 // interpreter would refuse to run there.
-func (f *Flow) checkNode(node ast.Node) error {
+func (f *Flow) checkNode(node Node) error {
 	label := f.label(node)
-	graph := f.FrameOf[node].Graph
-	if graph.Subflows[node] != nil {
+	graph := node.Graph
+	if graph.SubflowOf(node.ID) != nil {
 		return f.refuseNested(node)
 	}
-	if accept, ok := graph.Accepts[node]; ok {
+	if accept, ok := graph.AcceptOf(node.ID); ok {
 		f.Accepts = append(f.Accepts, AcceptSite{Node: node, Label: label, Accept: accept})
-		if _, timed := accept.Trigger.(*ast.TimeEvent); timed {
+		if accept.Timed() {
 			f.Timed = true
 		}
 		return &UnsupportedError{Node: label, Construct: "accept", Reason: "messages and the clock are encoded by a later stage"}
@@ -352,67 +350,68 @@ func (f *Flow) checkNode(node ast.Node) error {
 	if err := f.checkNodeKind(node, label); err != nil {
 		return err
 	}
-	for _, flow := range graph.DataFlows[node] {
-		if _, ok := f.Index[flow.Target]; !ok {
+	for _, flow := range graph.FlowsOf(node.ID) {
+		target := node.at(flow.TargetID)
+		if _, ok := f.Index[target]; !ok {
 			return &FlowError{Node: label, Reason: "an object flow leaves the flow's nodes"}
 		}
 		if flow.SourcePin == "" || flow.TargetPin == "" {
 			return &FlowError{Node: label, Reason: "an object flow names no pin at one end"}
 		}
-		if _, performs := flow.Target.(*ast.Usage); performs {
+		if target.performs() {
 			f.Delivers = true
 		}
 	}
-	return f.checkBody(graph, node, label, graph.Bodies[node])
+	return f.checkBody(graph, node, label, graph.BodyOf(node.ID))
 }
 
 // refuseNested refuses a node stating a flow of its own, whatever that flow holds.
-func (f *Flow) refuseNested(node ast.Node) error {
+func (f *Flow) refuseNested(node Node) error {
 	return &UnsupportedError{Node: f.label(node), Construct: "nested flow", Reason: "a node stating a flow of its own is encoded by a later stage"}
 }
 
 // checkNodeKind refuses a node of a kind the stage does not encode, or with
 // successors the interpreter would refuse.
-func (f *Flow) checkNodeKind(node ast.Node, label string) error {
+func (f *Flow) checkNodeKind(node Node, label string) error {
 	out := len(f.Outgoing[node])
-	switch n := node.(type) {
-	case *ast.InitialNode:
+	switch node.form() {
+	case lower.FormInitial:
 		if out == 0 {
 			return &FlowError{Node: label, Reason: "the initial node has no successors"}
 		}
-	case *ast.FinalNode, *ast.ForkNode, *ast.DecisionNode:
-	case *ast.JoinNode:
+	case lower.FormFinal, lower.FormFork, lower.FormDecision:
+	case lower.FormJoin:
 		if out == 0 {
 			return &FlowError{Node: label, Reason: "the join has no successors"}
 		}
 		if out > 1 {
 			return &FlowError{Node: label, Reason: "the join has multiple successors"}
 		}
-	case *ast.MergeNode:
+	case lower.FormMerge:
 		if out == 0 {
 			return &FlowError{Node: label, Reason: "the merge has no successors"}
 		}
 		if out > 1 {
 			return &FlowError{Node: label, Reason: "the merge has multiple successors"}
 		}
-	case *ast.ActionExecutionNode:
-		if n.ActionRef != nil {
+	case lower.FormAction:
+		if node.Graph.Invokes(node.ID) {
 			return &UnsupportedError{Node: label, Construct: "action invocation", Reason: "a node performing another action is encoded by a later stage"}
 		}
-	case *ast.Usage:
-		if lower.IsCaseNode(n) {
+	case lower.FormUsage:
+		if node.Graph.CaseNode(node.ID) {
 			return &UnsupportedError{Node: label, Construct: "case", Reason: "a nested case is not encoded"}
 		}
-		if performsAction(n) {
+		if node.Graph.Invokes(node.ID) {
 			return &UnsupportedError{Node: label, Construct: "action invocation", Reason: "a node performing another action is encoded by a later stage"}
 		}
-	case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode:
-	case *ast.SendStatement:
+	case lower.FormLoop, lower.FormIf, lower.FormAssign:
+	case lower.FormSend:
 		return &UnsupportedError{Node: label, Construct: "send", Reason: "messages are encoded by a later stage"}
-	case *ast.TerminateStatement:
+	case lower.FormTerminate:
 		return &UnsupportedError{Node: label, Construct: "terminate", Reason: "terminating a performance is not encoded"}
 	default:
-		return &UnsupportedError{Node: label, Construct: fmt.Sprintf("%T", node), Reason: "the interpreter runs no such node"}
+		return &UnsupportedError{Node: label, Construct: node.Graph.FormName(node.ID), Reason: "the interpreter runs no such node"}
 	}
 	return nil
 }
@@ -420,9 +419,9 @@ func (f *Flow) checkNodeKind(node ast.Node, label string) error {
 // checkImplicitJoin refuses a node other than a join or a merge that several
 // successions enter while forks put several tokens in flight: the interpreter
 // synchronizes it over the successions still reachable, which is not encoded.
-func (f *Flow) checkImplicitJoin(node ast.Node) error {
-	switch node.(type) {
-	case *ast.JoinNode, *ast.MergeNode:
+func (f *Flow) checkImplicitJoin(node Node) error {
+	switch node.form() {
+	case lower.FormJoin, lower.FormMerge:
 		return nil
 	}
 	if len(f.Incoming[node]) < 2 {
@@ -434,8 +433,8 @@ func (f *Flow) checkImplicitJoin(node ast.Node) error {
 
 // checkBodyInterleaving refuses a body another token's moves may interleave
 // inside while tokens run concurrently: the encoding performs a body as one move.
-func (f *Flow) checkBodyInterleaving(node ast.Node) error {
-	if !lower.BodyDivides(f.FrameOf[node].Graph, node) {
+func (f *Flow) checkBodyInterleaving(node Node) error {
+	if !node.Graph.BodyDividesOf(node.ID) {
 		return nil
 	}
 	return &UnsupportedError{Node: f.label(node), Construct: "body interleaving",
@@ -444,15 +443,15 @@ func (f *Flow) checkBodyInterleaving(node ast.Node) error {
 
 // checkBody refuses the statements of a body the stage does not encode, and
 // records the loops it unrolls.
-func (f *Flow) checkBody(graph *lower.ActionGraph, node ast.Node, label string, body []lower.Statement) error {
-	if lower.BodyStatementOrder(graph, node, body).Reorders(false) {
+func (f *Flow) checkBody(graph *lower.ActionGraph, node Node, label string, body []lower.Statement) error {
+	if graph.BodyOrderOf(node.ID, body).Reorders(false) {
 		return &UnsupportedError{Node: label, Construct: "statement order",
 			Reason: "two statements no succession orders depend on each other; the encoding performs them in declaration order"}
 	}
 	for _, stmt := range body {
 		switch s := stmt.(type) {
 		case lower.Assign:
-			if s.Chain != nil {
+			if s.Chained() {
 				return &UnsupportedError{Node: label, Construct: "assignment through a chain", Reason: "objects and their features are encoded by a later stage"}
 			}
 			if s.Target == "" {
@@ -475,10 +474,10 @@ func (f *Flow) checkBody(graph *lower.ActionGraph, node ast.Node, label string, 
 				}
 			}
 		case lower.Loop:
-			if s.Kind == ast.LoopFor {
+			if s.For() {
 				return &UnsupportedError{Node: label, Construct: "for loop", Reason: "iteration over a collection is not encoded"}
 			}
-			if s.Condition == nil && s.Until == nil {
+			if s.ConditionID == 0 && s.UntilID == 0 {
 				return &UnsupportedError{Node: label, Construct: "loop", Reason: "a loop with no condition ends only at the step budget"}
 			}
 			if err := f.checkBlock(graph, node, label, s.Body); err != nil {
@@ -502,7 +501,7 @@ func (f *Flow) checkBody(graph *lower.ActionGraph, node ast.Node, label string, 
 }
 
 // checkBlock refuses a block that runs a flow of its own and checks its statements.
-func (f *Flow) checkBlock(graph *lower.ActionGraph, node ast.Node, label string, block lower.Block) error {
+func (f *Flow) checkBlock(graph *lower.ActionGraph, node Node, label string, block lower.Block) error {
 	if block.Graph != nil {
 		return &UnsupportedError{Node: label, Construct: "nested flow", Reason: "a block declaring action nodes is encoded by a later stage"}
 	}
@@ -542,18 +541,17 @@ func (f *Flow) sizeSlots(fr *Frame, k int) error {
 
 // fansOut reports a node a token leaves along every enabled succession of
 // several: any node but a decision, which takes one.
-func (f *Flow) fansOut(node ast.Node) bool {
-	_, decision := node.(*ast.DecisionNode)
-	return !decision && len(f.Outgoing[node]) > 1
+func (f *Flow) fansOut(node Node) bool {
+	return node.form() != lower.FormDecision && len(f.Outgoing[node]) > 1
 }
 
 // arrivals bounds how often a token may reach each node of the frame within k
 // moves: a fork or decision passes on all that reach it, a merge sums them, a
 // join passes on the most over one succession, and a cycle multiplying tokens
 // passes on k.
-func (f *Flow) arrivals(fr *Frame, k int) map[ast.Node]int {
-	reached := make(map[ast.Node]int, len(fr.Nodes))
-	leaving := make(map[ast.Node]int, len(fr.Nodes))
+func (f *Flow) arrivals(fr *Frame, k int) map[Node]int {
+	reached := make(map[Node]int, len(fr.Nodes))
+	leaving := make(map[Node]int, len(fr.Nodes))
 	for _, comp := range f.components(fr) {
 		cyclic := len(comp) > 1 || f.reaches(comp[0], comp[0])
 		entering, multiplies := f.entering(fr, comp, cyclic, leaving)
@@ -570,10 +568,10 @@ func (f *Flow) arrivals(fr *Frame, k int) map[ast.Node]int {
 			continue
 		}
 		node := comp[0]
-		if _, ok := node.(*ast.JoinNode); ok {
+		if node.form() == lower.FormJoin {
 			entering = 0
 			for _, ei := range f.Incoming[node] {
-				entering = max(entering, leaving[f.Edges[ei].Source])
+				entering = max(entering, leaving[node.at(f.Edges[ei].SourceID)])
 			}
 		}
 		reached[node], leaving[node] = entering, entering
@@ -583,17 +581,17 @@ func (f *Flow) arrivals(fr *Frame, k int) map[ast.Node]int {
 
 // entering is how many tokens may enter the component comp from outside it, given
 // how many leave each node before it, and whether a fork inside a cycle multiplies them.
-func (f *Flow) entering(fr *Frame, comp []ast.Node, cyclic bool, leaving map[ast.Node]int) (entering int, multiplies bool) {
-	inside := make(map[ast.Node]bool, len(comp))
+func (f *Flow) entering(fr *Frame, comp []Node, cyclic bool, leaving map[Node]int) (entering int, multiplies bool) {
+	inside := make(map[Node]bool, len(comp))
 	for _, node := range comp {
 		inside[node] = true
 	}
 	for _, node := range comp {
-		if node == fr.Graph.Initial {
+		if node == initialOf(fr.Graph) {
 			entering++
 		}
 		for _, ei := range f.Incoming[node] {
-			if source := f.Edges[ei].Source; !inside[source] {
+			if source := node.at(f.Edges[ei].SourceID); !inside[source] {
 				entering += leaving[source]
 			}
 		}
@@ -606,21 +604,21 @@ func (f *Flow) entering(fr *Frame, comp []ast.Node, cyclic bool, leaving map[ast
 
 // components are the frame's strongly connected components, each before any
 // the successions lead to from it.
-func (f *Flow) components(fr *Frame) [][]ast.Node {
-	index := make(map[ast.Node]int, len(fr.Nodes))
-	low := make(map[ast.Node]int, len(fr.Nodes))
-	onStack := make(map[ast.Node]bool, len(fr.Nodes))
-	var stack []ast.Node
-	var comps [][]ast.Node
+func (f *Flow) components(fr *Frame) [][]Node {
+	index := make(map[Node]int, len(fr.Nodes))
+	low := make(map[Node]int, len(fr.Nodes))
+	onStack := make(map[Node]bool, len(fr.Nodes))
+	var stack []Node
+	var comps [][]Node
 	next := 0
-	var visit func(node ast.Node)
-	visit = func(node ast.Node) {
+	var visit func(node Node)
+	visit = func(node Node) {
 		index[node], low[node] = next, next
 		next++
 		stack = append(stack, node)
 		onStack[node] = true
 		for _, ei := range f.Outgoing[node] {
-			target := f.Edges[ei].Target
+			target := node.at(f.Edges[ei].TargetID)
 			if _, seen := index[target]; !seen {
 				visit(target)
 				low[node] = min(low[node], low[target])
@@ -631,7 +629,7 @@ func (f *Flow) components(fr *Frame) [][]ast.Node {
 		if low[node] != index[node] {
 			return
 		}
-		var comp []ast.Node
+		var comp []Node
 		for {
 			top := stack[len(stack)-1]
 			stack = stack[:len(stack)-1]
@@ -653,11 +651,11 @@ func (f *Flow) components(fr *Frame) [][]ast.Node {
 }
 
 // reaches reports whether a token at from can arrive at to over the successions.
-func (f *Flow) reaches(from, to ast.Node) bool {
-	seen := make(map[ast.Node]bool)
-	stack := []ast.Node{}
+func (f *Flow) reaches(from, to Node) bool {
+	seen := make(map[Node]bool)
+	stack := []Node{}
 	for _, edge := range f.Outgoing[from] {
-		stack = append(stack, f.Edges[edge].Target)
+		stack = append(stack, from.at(f.Edges[edge].TargetID))
 	}
 	for len(stack) > 0 {
 		node := stack[len(stack)-1]
@@ -670,24 +668,7 @@ func (f *Flow) reaches(from, to ast.Node) bool {
 		}
 		seen[node] = true
 		for _, edge := range f.Outgoing[node] {
-			stack = append(stack, f.Edges[edge].Target)
-		}
-	}
-	return false
-}
-
-// performsAction reports whether a usage node performs another action rather
-// than stating its own body, as the interpreter decides it.
-func performsAction(usage *ast.Usage) bool {
-	if usage.PerformedInvocation() != nil {
-		return true
-	}
-	for _, rel := range usage.Relationships {
-		if rel.Kind != ast.RelTyping && rel.Kind != ast.RelReferences {
-			continue
-		}
-		if _, ok := rel.Target.(*ast.QualifiedName); ok {
-			return true
+			stack = append(stack, node.at(f.Edges[edge].TargetID))
 		}
 	}
 	return false
@@ -708,44 +689,9 @@ func effectName(kind lower.EffectKind) string {
 	return fmt.Sprintf("effect %d", kind)
 }
 
-// nodeLabel names a node as a trace names it: by its name, else by what it does.
-func nodeLabel(node ast.Node) string {
-	switch n := node.(type) {
-	case nil:
-		return "nil"
-	case *ast.InitialNode:
-		return controlLabel(n.Name(), "initial")
-	case *ast.FinalNode:
-		return "done"
-	case *ast.ForkNode:
-		return controlLabel(n.Name, "fork")
-	case *ast.JoinNode:
-		return controlLabel(n.Name, "join")
-	case *ast.MergeNode:
-		return controlLabel(n.Name, "merge")
-	case *ast.DecisionNode:
-		return controlLabel(n.Name, "decision")
-	case *ast.ActionExecutionNode:
-		return controlLabel(n.Name, "action")
-	case *ast.Usage:
-		if name, _ := ast.EffectiveName(n); name != "" {
-			return name
-		}
-		return fmt.Sprintf("usage_%s", n.Kind)
-	}
-	return fmt.Sprintf("%T", node)
-}
-
-func controlLabel(name, kind string) string {
-	if name != "" {
-		return name
-	}
-	return kind
-}
-
 // uniqueLabels labels the nodes as traces do, suffixing a repeated name with the
 // node's position so every constructor of the node sort is distinct.
-func uniqueLabels(nodes []ast.Node) []string {
+func uniqueLabels(nodes []Node) []string {
 	labels := make([]string, len(nodes))
 	count := make(map[string]int, len(nodes))
 	for i, node := range nodes {

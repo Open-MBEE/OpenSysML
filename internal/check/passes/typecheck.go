@@ -907,7 +907,7 @@ func referentKindMessage(decl declKind, rel ast.RelationshipKind, target symbols
 	switch {
 	// `satisfy`/`verify <name>` is a reference subsetting of an existing
 	// requirement usage; viewpoint and concern usages are requirement usages.
-	case decl.useKind == ast.UsageSatisfy && rel == ast.RelSubsets:
+	case decl.useKind == ast.UsageSatisfy && rel == ast.RelReferences:
 		if !isRequirementUsageKind(target) {
 			return fmt.Sprintf("satisfy target must be a requirement usage, found %s", found)
 		}

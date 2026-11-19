@@ -645,7 +645,7 @@ func (m *Model) ParameterRedefinitionChain(sym *symbols.Symbol) []*symbols.Symbo
 // redefines a parameter it may take one from.
 func (m *Model) declaresType(sym *symbols.Symbol) bool {
 	for _, rel := range RelationshipsOf(sym) {
-		if rel != nil && GeneralizationKind(rel.Kind) {
+		if rel != nil && Generalizes(sym, rel.Kind) {
 			return true
 		}
 	}

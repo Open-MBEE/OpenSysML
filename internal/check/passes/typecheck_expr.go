@@ -667,7 +667,7 @@ func typingValue(sym *symbols.Symbol) ast.Node {
 		return nil
 	}
 	for _, rel := range u.Relationships {
-		if rel != nil && semantics.GeneralizationKind(rel.Kind) {
+		if rel != nil && semantics.UsageGeneralization(u.Kind, rel.Kind) {
 			return nil
 		}
 	}

@@ -301,6 +301,15 @@ func (e *ActionExecutor) stepDynamics(tokenIdx int) error {
 	if !e.dynamicsDue(*token) {
 		return nil
 	}
+	if e.awaitsSource() {
+		token.Wait = &AcceptWait{
+			Trigger: fmt.Sprintf("the dynamics feeding %s", SymbolText(e.action)),
+			Since:   e.stepCount + 1,
+			Timed:   true,
+			Due:     e.ctx.clock.now,
+		}
+		return nil
+	}
 	token.Wait = nil
 	token.moved = e.sweep
 
@@ -308,7 +317,15 @@ func (e *ActionExecutor) stepDynamics(tokenIdx int) error {
 	if err != nil {
 		return err
 	}
-	input, err := e.inputVector()
+	// A fed input is sampled as each step settles; the step itself advances from the one held since.
+	fed := len(e.inputFlows()) > 0
+	var input *Value
+	if fed && run.settled() {
+		input, err = e.carriedInput()
+	}
+	if input == nil && err == nil {
+		input, err = e.inputVector()
+	}
 	if err != nil {
 		return err
 	}
@@ -344,6 +361,9 @@ func (e *ActionExecutor) stepDynamics(tokenIdx int) error {
 	if err := e.setFeature(lower.StateSpaceFeature, next); err != nil {
 		return err
 	}
+	if fed {
+		input = nil
+	}
 	ended, err := e.settleStep(run, next, input)
 	if err != nil {
 		return err
@@ -352,6 +372,65 @@ func (e *ActionExecutor) stepDynamics(tokenIdx int) error {
 		return e.retireToken(tokenIdx)
 	}
 	return e.parkDynamics(run, &e.tokens[tokenIdx])
+}
+
+// stepsNow reports dynamics still to sample at this instant: under way, not released, with a token due.
+func (e *ActionExecutor) stepsNow() bool {
+	return e.dynamics != nil && !e.finished() && slices.ContainsFunc(e.tokens, e.dynamicsDue)
+}
+
+// awaitsSource reports dynamics fed by other dynamics still to sample at this instant, which
+// sample first; two that feed each other wait for neither, each reading what the other last wrote.
+func (e *ActionExecutor) awaitsSource() bool {
+	if e.dynamics == nil {
+		return false
+	}
+	for _, source := range e.feedingBehaviors() {
+		if source.deferred != nil {
+			if e.ctx.startsDynamicsNow(source) {
+				return true
+			}
+			continue
+		}
+		if source.Action.stepsNow() && !source.Action.fedBy(e, map[*ActionExecutor]bool{}) {
+			return true
+		}
+	}
+	return false
+}
+
+// startsDynamicsNow reports a behavior yet to start that starts state-space dynamics at this instant.
+func (ctx *Context) startsDynamicsNow(behavior *ObjectBehavior) bool {
+	return ctx.stateSpaceKindOf(behavior.deferred.member) != lower.NotStateSpace &&
+		!ctx.lifeEnded(behavior.Object) && ctx.deferredBehaviorReady(behavior)
+}
+
+// feedingBehaviors are the performances, started or yet to start, a feature of which a flow carries
+// into the action's input.
+func (e *ActionExecutor) feedingBehaviors() []*ObjectBehavior {
+	var sources []*ObjectBehavior
+	for _, feed := range e.inputFlows() {
+		for _, source := range e.ctx.flowSourceBehaviors(feed) {
+			if source.Action != e {
+				sources = append(sources, source)
+			}
+		}
+	}
+	return sources
+}
+
+// fedBy reports whether other feeds the action, directly or through dynamics between them.
+func (e *ActionExecutor) fedBy(other *ActionExecutor, seen map[*ActionExecutor]bool) bool {
+	if seen[e] {
+		return false
+	}
+	seen[e] = true
+	for _, source := range e.feedingBehaviors() {
+		if source.Action != nil && (source.Action == other || source.Action.fedBy(other, seen)) {
+			return true
+		}
+	}
+	return false
 }
 
 // due is the instant the run's next sample is due at.
@@ -772,8 +851,8 @@ type inputFeed struct {
 	on *Instance
 }
 
-// objectFlows lowers the streaming flows typeSym and the model's types it specializes
-// declare between features, once per type.
+// objectFlows lowers the streaming flows typeSym and the model's types it specializes declare
+// between features, once per type; a flow another of them redefines is replaced by that one.
 func (ctx *Context) objectFlows(typeSym *symbols.Symbol) []lower.FeatureFlow {
 	if typeSym == nil {
 		return nil
@@ -782,12 +861,23 @@ func (ctx *Context) objectFlows(typeSym *symbols.Symbol) []lower.FeatureFlow {
 		return cached
 	}
 	var flows []lower.FeatureFlow
+	redefined := make(map[ast.Node]bool)
 	for _, decl := range append(ctx.model.semantics.AllSupertypes(typeSym), typeSym) {
 		if decl == nil || ctx.libraryDeclared(decl) {
 			continue
 		}
-		flows = append(flows, lower.ToFeatureFlows(decl.Decl, DeclScope(decl))...)
+		declared := lower.ToFeatureFlows(decl.Decl, DeclScope(decl))
+		for _, flow := range declared {
+			sym := anonymousConnectorSymbol(decl, flow.Decl)
+			for _, rel := range ctx.relationshipsOfKind(sym, ast.RelRedefines) {
+				if general := ctx.model.semantics.RelationshipTarget(sym, rel); general != nil {
+					redefined[general.Decl] = true
+				}
+			}
+		}
+		flows = append(flows, declared...)
 	}
+	flows = slices.DeleteFunc(flows, func(flow lower.FeatureFlow) bool { return redefined[flow.Decl] })
 	ctx.model.flowIR[typeSym] = flows
 	return flows
 }
@@ -904,19 +994,17 @@ func (e *ActionExecutor) carriedInput() (*Value, error) {
 // flowSourceValue reads the feature a flow leaves, down its source path from the object declaring
 // it: an action's from its performance, any other from its value; held is false where it holds nothing.
 func (ctx *Context) flowSourceValue(feed inputFeed) (Value, bool, error) {
-	holder := feed.on
-	path := feed.Source
-	for ; len(path) > 1; path = path[1:] {
-		if len(path) == 2 {
-			if val, held, performs, err := ctx.performedFeatureValue(holder, path[0], path[1]); performs {
-				return val, held, err
-			}
+	holder, path, held, err := ctx.flowSourceHolder(feed.on, feed.Source, 2)
+	if err != nil || !held {
+		return Value{}, false, err
+	}
+	if len(path) == 2 {
+		if val, held, performs, err := ctx.performedFeatureValue(holder, path[0], path[1]); performs {
+			return val, held, err
 		}
-		next, held, err := ctx.flowSourceObject(holder, path[0])
-		if err != nil || !held {
+		if holder, path, held, err = ctx.flowSourceHolder(holder, path, 1); err != nil || !held {
 			return Value{}, false, err
 		}
-		holder = next
 	}
 	fv, err := holder.MemberValue(ctx, path[0])
 	if errors.Is(err, ErrNoValue) {
@@ -927,6 +1015,48 @@ func (ctx *Context) flowSourceValue(feed inputFeed) (Value, bool, error) {
 	}
 	val := fv.HeldValue()
 	return val, val.Kind != ValInvalid, nil
+}
+
+// flowSourceHolder walks a flow's source path object by object until keep segments remain,
+// held false where an object on the way holds nothing.
+func (ctx *Context) flowSourceHolder(holder *Instance, path []string, keep int) (*Instance, []string, bool, error) {
+	for ; len(path) > keep; path = path[1:] {
+		next, held, err := ctx.flowSourceObject(holder, path[0])
+		if err != nil || !held {
+			return nil, nil, false, err
+		}
+		holder = next
+	}
+	return holder, path, true, nil
+}
+
+// flowSourceBehaviors are the performances whose feature the flow leaves: those of the action the
+// source path names, under any name it answers to on the object performing it.
+func (ctx *Context) flowSourceBehaviors(feed inputFeed) []*ObjectBehavior {
+	holder, path, held, err := ctx.flowSourceHolder(feed.on, feed.Source, 2)
+	if err != nil || !held || len(path) != 2 {
+		return nil
+	}
+	var sources []*ObjectBehavior
+	for _, behavior := range ctx.objectBehaviors {
+		if behavior.Object != holder || behavior.Kind != lower.PerformedAction || behavior.Err != nil {
+			continue
+		}
+		if (behavior.Action != nil || behavior.deferred != nil) && ctx.featureNames(holder, behavior.Name)[path[0]] {
+			sources = append(sources, behavior)
+		}
+	}
+	return sources
+}
+
+// performanceUnderWay is the performance of holder's action under way, nil when it performs none now.
+func (ctx *Context) performanceUnderWay(holder *Instance, action string) *ActionExecutor {
+	for _, exec := range ctx.actionExecutors {
+		if exec.self == holder && exec.performed != nil && exec.performed.Name == action {
+			return exec
+		}
+	}
+	return nil
 }
 
 // flowSourceObject is the one object a feature of holder holds, held false while it holds nothing.
@@ -957,20 +1087,19 @@ func (ctx *Context) performedFeatureValue(holder *Instance, action, feature stri
 	if !declared || fv.Feature == nil || fv.Feature.Symbol == nil || !fv.Feature.Symbol.Kind.IsAction() {
 		return Value{}, false, false, nil
 	}
-	for _, exec := range ctx.actionExecutors {
-		if exec.self == holder && exec.performed != nil && exec.performed.Name == action {
-			// Dynamics write their output as each step settles; before the first it holds none.
-			if exec.dynamicsKind != lower.NotStateSpace && feature == lower.OutputFeature && (exec.dynamics == nil || !exec.dynamics.settled()) {
-				return Value{}, false, true, nil
-			}
-			val, held, err = ctx.readBodyValue(exec.root.cells, exec.root.data, exec.root.key(feature))
-			if errors.Is(err, ErrNoValue) {
-				return Value{}, false, true, nil
-			}
-			return val, held, true, err
-		}
+	exec := ctx.performanceUnderWay(holder, action)
+	if exec == nil {
+		return ctx.endedFeatureValue(fv, feature)
 	}
-	return ctx.endedFeatureValue(fv, feature)
+	// Dynamics write their output as each step settles; before the first it holds none.
+	if exec.dynamicsKind != lower.NotStateSpace && feature == lower.OutputFeature && (exec.dynamics == nil || !exec.dynamics.settled()) {
+		return Value{}, false, true, nil
+	}
+	val, held, err = ctx.readBodyValue(exec.root.cells, exec.root.data, exec.root.key(feature))
+	if errors.Is(err, ErrNoValue) {
+		return Value{}, false, true, nil
+	}
+	return val, held, true, err
 }
 
 // endedFeatureValue is what the occurrence of a performance not under way holds for feature,

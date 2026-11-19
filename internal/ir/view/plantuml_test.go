@@ -61,6 +61,9 @@ var plantumlGoldenCases = []struct {
 	{"calc-parameters", "calc-parameters.sysml", "ParameterCalcViews::calculations", KindTree},
 	{"calc-parameter-definitions", "calc-parameters.sysml", "ParameterCalcViews::definitions", KindTree},
 	{"glyphs-interconnection", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::lineGlyphs", KindInterconnection},
+	{"action-swimlanes-performed", "action-swimlanes.sysml", "SwimLanes::performedView", KindAction},
+	{"action-swimlanes-action", "action-swimlanes.sysml", "SwimLanes::actionView", KindAction},
+	{"action-swimlanes-shapes", "action-swimlanes.sysml", "LaneShapes::assembleView", KindAction},
 	{"glyphs-action", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::fillGlyphs", KindAction},
 	{"glyphs-mixed", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::mixedGlyphs", KindMixed},
 }

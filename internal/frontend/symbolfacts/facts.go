@@ -86,6 +86,9 @@ type Options struct {
 	// IncludeLibraryMembers lists the members inherited from standard-library
 	// content in Members, each marked Library, instead of counting them.
 	IncludeLibraryMembers bool
+	// MemberOf is the type the symbol is read as a feature of; the direction
+	// reported is then the one relative to it (Type::directionOf).
+	MemberOf *symbols.Symbol
 }
 
 // TypeInfo describes a symbol's written, derived and primitive type. Declared,
@@ -93,14 +96,15 @@ type Options struct {
 // the feature's semantic type (Feature::type), which subsetting, reference
 // subsetting and redefinition contribute to.
 type TypeInfo struct {
-	Declared        string
-	ResolvedId      string
-	ResolvedKind    string
-	Primitive       string
-	PrimitiveSource string
-	Quantity        bool
-	Unit            string
-	Types           []*TypeRef
+	Declared              string
+	ResolvedId            string
+	ResolvedQualifiedName string
+	ResolvedKind          string
+	Primitive             string
+	PrimitiveSource       string
+	Quantity              bool
+	Unit                  string
+	Types                 []*TypeRef
 }
 
 // TypeRef names one derived type of a feature.
@@ -117,10 +121,11 @@ type Multiplicity struct {
 
 // Specialization describes a declared generalization relationship.
 type Specialization struct {
-	Kind       string
-	Declared   string
-	TargetId   string
-	TargetKind string
+	Kind                string
+	Declared            string
+	TargetId            string
+	TargetQualifiedName string
+	TargetKind          string
 }
 
 // Attribute contains a symbol's attribute declaration facts.
@@ -154,13 +159,7 @@ func OfWith(sym *symbols.Symbol, sc *Context, opts Options) *Info {
 	// Extract metadata from AST node
 	extractMetadata(sym, info.Metadata)
 	sc.sendMetadata(sym, info.Metadata)
-	// A parameter whose direction its membership gives rather than its text,
-	// such as a subject (`in`), reports that direction.
-	if _, written := info.Metadata["direction"]; !written {
-		if dir, ok := semantics.ReflectiveDirection(sym); ok && dir != ast.DirNone {
-			info.Metadata["direction"] = dir.String()
-		}
-	}
+	sc.directionMetadata(sym, opts.MemberOf, info.Metadata)
 	// Add visibility to metadata
 	info.Metadata["visibility"] = visibilityToString(sym.Visibility)
 	info.ChildIds = sc.collectChildIDs(sc.ownedMembers(sym))
@@ -178,6 +177,24 @@ func OfWith(sym *symbols.Symbol, sc *Context, opts Options) *Info {
 	info.Members, info.WithheldLibraryMembers = sc.membersOf(sym, opts.IncludeLibraryMembers)
 	info.AnnotatingMetadataIds = sc.annotatingMetadataIDs(sym)
 	return info
+}
+
+// directionMetadata states sym's direction: relative to memberOf when one is
+// given (Type::directionOf, KerML 8.3.3.1.10), else its own Feature::direction.
+func (sc *Context) directionMetadata(sym, memberOf *symbols.Symbol, meta map[string]string) {
+	if memberOf != nil {
+		if dir := sc.Semantics.EffectiveDirection(memberOf, sym); dir != ast.DirNone {
+			meta["direction"] = dir.String()
+			return
+		}
+	}
+	// A parameter whose direction its membership gives rather than its text,
+	// such as a subject (`in`), reports that direction.
+	if _, written := meta["direction"]; !written {
+		if dir, ok := semantics.ReflectiveDirection(sym); ok && dir != ast.DirNone {
+			meta["direction"] = dir.String()
+		}
+	}
 }
 
 // Root is one document's root namespace: the index's own root symbol for
@@ -200,10 +217,14 @@ func Root(sc *Context, rootScope *symbols.Scope) *Info {
 	return info
 }
 
-// identityOrFQN is the id a symbol is reported under: the one Lookup answers,
+// identityOrFQN is the id a symbol is reported under: the one LookupID answers,
 // else the index's qualified name, so the report still says where it is.
 func (sc *Context) identityOrFQN(sym *symbols.Symbol) string {
-	if id := sc.ownedIdentity(sym); id != "" {
+	id := sc.ownedIdentity(sym)
+	if id == "" {
+		id = sc.FormID(sym)
+	}
+	if id != "" {
 		return id
 	}
 	return sc.Index.GetFQN(sym)
@@ -252,8 +273,8 @@ func (sc *Context) ownedMembers(sym *symbols.Symbol) []*symbols.Symbol {
 	return members
 }
 
-// collectChildIDs lists the members' ids in declaration order, each one
-// LookupElement resolves; a member no id reaches is left out.
+// collectChildIDs lists the members' ids in declaration order, each one LookupID
+// resolves to that member; a member no id reaches is left out.
 func (sc *Context) collectChildIDs(members []*symbols.Symbol) []string {
 	var ids []string
 	for _, sym := range members {
@@ -323,7 +344,8 @@ func (sc *Context) specializationsOf(sym *symbols.Symbol) []*Specialization {
 		}
 		spec := &Specialization{Kind: kind, Declared: declaredText(rel, qn)}
 		if target := sc.relationshipTarget(sym, rel, qn); target != nil {
-			spec.TargetId = sc.Index.GetFQN(target)
+			spec.TargetId = sc.referenceID(target)
+			spec.TargetQualifiedName = sc.Index.GetFQN(target)
 			spec.TargetKind = target.Kind.String()
 		}
 		out = append(out, spec)
@@ -352,10 +374,11 @@ func (sc *Context) referenceSpecializations(sym *symbols.Symbol) []*Specializati
 			declared = feature.Name
 		}
 		out = append(out, &Specialization{
-			Kind:       "references",
-			Declared:   declared,
-			TargetId:   sc.referenceID(feature),
-			TargetKind: feature.Kind.String(),
+			Kind:                "references",
+			Declared:            declared,
+			TargetId:            sc.referenceID(feature),
+			TargetQualifiedName: sc.Index.GetFQN(feature),
+			TargetKind:          feature.Kind.String(),
 		})
 	}
 	return out
@@ -436,7 +459,8 @@ func (sc *Context) annotationTypeInfo(sym *symbols.Symbol, decl *ast.PrefixMetad
 	}
 	info := &TypeInfo{Declared: decl.Type.Text()}
 	if target := sc.resolveFrom(sym, decl.Type); target != nil {
-		info.ResolvedId = sc.Index.GetFQN(target)
+		info.ResolvedId = sc.referenceID(target)
+		info.ResolvedQualifiedName = sc.Index.GetFQN(target)
 		info.ResolvedKind = target.Kind.String()
 	}
 	return info
@@ -465,7 +489,8 @@ func (sc *Context) subjectTypeInfo(sym *symbols.Symbol, decl *ast.SubjectMember)
 func (sc *Context) declareType(sym *symbols.Symbol, info *TypeInfo, qn *ast.QualifiedName) {
 	info.Declared = qn.Text()
 	if target := sc.resolveFrom(sym, qn); target != nil {
-		info.ResolvedId = sc.Index.GetFQN(target)
+		info.ResolvedId = sc.referenceID(target)
+		info.ResolvedQualifiedName = sc.Index.GetFQN(target)
 		info.ResolvedKind = target.Kind.String()
 	}
 }
@@ -485,7 +510,8 @@ func (sc *Context) usageTypeInfo(sym *symbols.Symbol, decl *ast.Usage) *TypeInfo
 		}
 		info.Declared = declaredText(rel, qn)
 		if target := sc.relationshipTarget(sym, rel, qn); target != nil {
-			info.ResolvedId = sc.Index.GetFQN(target)
+			info.ResolvedId = sc.referenceID(target)
+			info.ResolvedQualifiedName = sc.Index.GetFQN(target)
 			info.ResolvedKind = target.Kind.String()
 		}
 		break

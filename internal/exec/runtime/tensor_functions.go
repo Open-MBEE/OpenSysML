@@ -206,15 +206,12 @@ func (ctx *Context) tensorMRefIsBound(name string, object int64) (bool, error) {
 		if !ok || member == nil {
 			return false, fmt.Errorf("%w: function %s: %s declares no isBound", ErrNoSuchFeature, name, SymbolText(inst.Type))
 		}
-		value := ctx.extractDefaultValue(member)
-		if value == nil {
-			value, _ = ctx.redefinedDefault(member, ctx.objectType(inst))
-		}
-		if value == nil {
+		value, ok := ctx.loweredDefault(member, ctx.objectType(inst))
+		if !ok {
 			return false, fmt.Errorf("%w: function %s: %s states no isBound and its type declares no default",
 				errUnevaluableLibraryFunction, name, SymbolText(inst.Type))
 		}
-		c, ok := ctx.model.semantics.EvalWithin(value, ctx.maxIntegerBits)
+		c, ok := value.entry.Folded(ctx.model.semantics, ctx.maxIntegerBits)
 		if !ok {
 			return false, fmt.Errorf("%w: function %s: the default of %s::isBound is not a constant",
 				errUnevaluableLibraryFunction, name, SymbolText(inst.Type))
