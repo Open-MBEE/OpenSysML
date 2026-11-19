@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
@@ -32,13 +33,19 @@ type Runs struct {
 	Diagnostics []Diagnostic
 }
 
-// RunRow is one run: the run number it bound, what it observed, what it
-// decided, and the error that stopped it where it failed.
+// RunRow is one run: what it bound, what it observed, what it decided, and
+// the error that stopped it where it failed.
 type RunRow struct {
 	Inputs   []CalcOutput
 	Outputs  []CalcOutput
 	Verdicts []Verdict
-	Error    string
+	// Evaluations are the applications the run made of the case's own calcs.
+	Evaluations []Evaluation
+	// Elapsed is the run's wall time.
+	Elapsed time.Duration
+	// Error is set when the run failed, and Reason says what kind of failure it was.
+	Error  string
+	Reason Reason
 }
 
 // RunDistribution summarises one observable over the completed runs: the
@@ -284,7 +291,11 @@ func calcOutputsFromProto(outputs []*pb.CalcOutput) []CalcOutput {
 func runRowsFromProto(rows []*pb.SweepRow) []RunRow {
 	out := make([]RunRow, 0, len(rows))
 	for _, row := range rows {
-		converted := RunRow{Outputs: calcOutputsFromProto(row.Outputs), Error: row.Error}
+		converted := RunRow{
+			Outputs: calcOutputsFromProto(row.Outputs), Evaluations: evaluationsFromProto(row.Evaluations),
+			Elapsed: time.Duration(row.ElapsedMicros) * time.Microsecond,
+			Error:   row.Error, Reason: Reason(row.FailureReason),
+		}
 		for _, in := range row.Inputs {
 			converted.Inputs = append(converted.Inputs, CalcOutput{Name: in.Name, Value: valueFromProto(in.Value)})
 		}
@@ -438,18 +449,12 @@ func RecordInto(pkg string) RecordOption {
 // make their product.
 func RecordRange(parameter string, start, end, step Value) RecordOption {
 	return func(o *recordOptions) {
-		r := &pb.SweepRange{Parameter: parameter}
-		var err error
-		for _, bound := range []struct {
-			into **pb.Value
-			from Value
-		}{{&r.Start, start}, {&r.End, end}, {&r.Step, step}} {
-			if bound.from == nil {
-				continue
-			}
-			if *bound.into, err = valueToProto(bound.from); err != nil && o.err == nil {
+		r, err := sweepRangeToProto(SweepRange{Parameter: parameter, Start: start, End: end, Step: step})
+		if err != nil {
+			if o.err == nil {
 				o.err = fmt.Errorf("RecordRange %s: %w", parameter, err)
 			}
+			return
 		}
 		o.ranges = append(o.ranges, r)
 	}

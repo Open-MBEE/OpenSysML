@@ -2774,19 +2774,6 @@ elmt:ConnectorEnds__Vehicle__trigger_ft0
     sysx:libraryPath "Base::DataValue/Documentation[0]" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
-<urn:sysmlv2:element:2804586b-de79-5d1a-98ab-493f1e706a87>
-    a sysml:Feature ;
-    sysml:elementId "2804586b-de79-5d1a-98ab-493f1e706a87" ;
-    sysml:qualifiedName "Base::Anything::self" ;
-    sysml:declaredName "self" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:2a6f6b7e-adef-5837-a428-aebb4bc0a042>
-    a sysml:FeatureMembership ;
-    sysml:elementId "2a6f6b7e-adef-5837-a428-aebb4bc0a042" ;
-    sysml:memberElement <urn:sysmlv2:element:2804586b-de79-5d1a-98ab-493f1e706a87> ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
 elmt:eaa33a0d-7766-5e2b-b40d-a19a7ea7f941
     a sysml:MultiplicityRange ;
     sysml:elementId "eaa33a0d-7766-5e2b-b40d-a19a7ea7f941" ;

@@ -97,6 +97,16 @@ var libraryStateStart = ast.QualifiedNameOf("States", "StateAction", "start")
 
 var libraryTransitionLinkSource = ast.QualifiedNameOf("Actions", "TransitionAction", "transitionLinkSource")
 
+// isLibraryDone reports whether el is the library's Actions::Action::done or a library
+// feature of that name, which redefines it for its kind (UseCases::UseCase::done).
+func (d *decoder) isLibraryDone(el *element) bool {
+	if el.qname == qualifiedText(libraryDone) {
+		return true
+	}
+	library, _ := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+pIsLibraryElement)
+	return (el.library || library.Value == "true") && strings.HasSuffix(el.qname, "::done")
+}
+
 // libraryReference is the subject of a standard library element named from
 // the global scope, or its name when no library is loaded.
 func (e *encoder) libraryReference(name *ast.QualifiedName) rdf.Term {
@@ -104,6 +114,19 @@ func (e *encoder) libraryReference(name *ast.QualifiedName) rdf.Term {
 		return e.ids.subjectForNode(decl, fqn)
 	}
 	return rdf.String(qualifiedText(name))
+}
+
+// doneReference is the feature the `then done;` of succession reaches: the `done` its owner
+// inherits, which a kind's library base may redefine (UseCases::UseCase::done), else Action's.
+func (e *encoder) doneReference(succession ast.Node) rdf.Term {
+	if sym := e.ids.declSym[succession]; sym != nil {
+		if related := e.ids.model.ConnectorRelatedFeaturesByEnd(sym); len(related) == 2 && related[1] != nil {
+			if term := e.symbolTerm(related[1]); term.Value != "" {
+				return term
+			}
+		}
+	}
+	return e.libraryReference(libraryDone)
 }
 
 // encodeBehavior emits the triples of a behavioral node, reporting whether the
@@ -376,7 +399,7 @@ func (e *encoder) encodeSuccessionEdge(n *ast.SuccessionEdge, head func(rdf.Term
 		} else if _, done := n.TargetMember.(*ast.FinalNode); done {
 			// `then done;` targets the library's Actions::Action::done, the
 			// same end `succession first x then done;` states outright.
-			target.targetTerm = e.libraryReference(libraryDone)
+			target.targetTerm = e.doneReference(n)
 		} else if n.TargetMember != nil {
 			if fqn, ok := e.names.FQN[n.TargetMember]; ok {
 				target.targetTerm = e.ids.subjectForNode(n.TargetMember, fqn)
@@ -1094,8 +1117,8 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 			if _, done := end.end.member.(*ast.FinalNode); done {
 				// `then done;` reaches the library's Actions::Action::done
 				// feature, which an explicit succession end names outright.
-				e.graph.Add(subject, e.sysml(end.feature), e.libraryReference(libraryDone))
-				e.graph.Add(subject, e.sysml(end.related), e.libraryReference(libraryDone))
+				e.graph.Add(subject, e.sysml(end.feature), e.doneReference(node))
+				e.graph.Add(subject, e.sysml(end.related), e.doneReference(node))
 				continue
 			}
 			fqn, ok := e.names.FQN[end.end.member]
@@ -1616,11 +1639,18 @@ func (d *decoder) successionHead(el *element) (string, error) {
 		return "if " + guard + thenKeyword + target, nil
 	}
 	if form, _ := d.stringOf(el, rdf.OpenSysML+xEndForm); form == formThen || positionalSource {
-		// `then done;` names the library's final node positionally: the
-		// notation reads it back without a reference, so no spelling is checked.
+		// `then done;` names the final node its owner inherits positionally, with no reference to spell:
+		// chooseNames checks it reaches this one, and names a library `done` of another kind instead.
 		if term, ok := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+pTargetFeature); ok && term.IsIRI() {
-			if done, err := d.referencedElement(term.Value); err == nil && done.qname == qualifiedText(libraryDone) {
+			owner := ""
+			if el.owner != nil {
+				owner = d.writtenQName(el.owner)
+			}
+			done, err := d.referencedElement(term.Value)
+			if err == nil && d.isLibraryDone(done) &&
+				!(d.names != nil && d.names.namedDones[nameKey{member: owner, target: done.qname}]) {
 				delete(d.wanted.references, nameKey{member: el.qname, target: done.qname})
+				d.wanted.dones[nameKey{member: owner, target: done.qname}] = true
 				return d.thenSuccessionText("done", el)
 			}
 		}

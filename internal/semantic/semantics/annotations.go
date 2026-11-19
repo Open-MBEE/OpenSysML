@@ -1390,10 +1390,21 @@ func (m *Model) sysmlMetaclass(name string) *symbols.Symbol {
 	if name == "" {
 		return nil
 	}
-	if meta := m.typeByFQN(sysmlMetaclassPrefix + name); meta != nil {
+	if meta := m.typeByFQN(m.metaclassFQN(sysmlMetaclassPrefix, name)); meta != nil {
 		return meta
 	}
 	return m.typeByFQN(name)
+}
+
+// metaclassFQN is prefix+name, kept per model so that classifying an element builds no name.
+func (m *Model) metaclassFQN(prefix, name string) string {
+	key := [2]string{prefix, name}
+	if fqn, ok := m.metaclassFQNs[key]; ok {
+		return fqn
+	}
+	fqn := prefix + name
+	m.metaclassFQNs[key] = fqn
+	return fqn
 }
 
 // kermlMetaclass is the library element declaring the named KerML metaclass,
@@ -1403,7 +1414,7 @@ func (m *Model) kermlMetaclass(name string) *symbols.Symbol {
 		return nil
 	}
 	for _, prefix := range kermlMetaclassPrefixes {
-		if meta := m.typeByFQN(prefix + name); meta != nil {
+		if meta := m.typeByFQN(m.metaclassFQN(prefix, name)); meta != nil {
 			return meta
 		}
 	}
@@ -1559,7 +1570,7 @@ func (m *Model) Metaclass(name string) *symbols.Symbol {
 	if m == nil || name == "" {
 		return nil
 	}
-	if meta := m.typeByFQN(sysmlMetaclassPrefix + name); meta != nil {
+	if meta := m.typeByFQN(m.metaclassFQN(sysmlMetaclassPrefix, name)); meta != nil {
 		return meta
 	}
 	return m.kermlMetaclass(name)
@@ -2580,12 +2591,19 @@ func ReflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
 		if sym.Facts.Direction == ast.DirNone && hasDefaultInputParameterDirection(sym) {
 			return ast.DirIn, true
 		}
+		if sym.Facts.Modifiers.Has(symbols.ModAcceptPayload) {
+			return ast.DirIn, true
+		}
 		return sym.Facts.Direction, true
 	}
 	if sym == nil || !sym.IsFeature() {
 		return ast.DirNone, false
 	}
 	if _, ok := sym.Decl.(*ast.SubjectMember); ok {
+		return ast.DirIn, true
+	}
+	if usage, isUsage := sym.Decl.(*ast.Usage); isUsage && usage.IsAccept {
+		// An accept's payload is a parameter member, so an input (KerML 8.3.4.6.4 parameterDirection).
 		return ast.DirIn, true
 	}
 	traits, ok := featureTraitsOf(sym)
@@ -2951,7 +2969,8 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 				flags.isComposite = d.IsComposite
 			}
 		case *ast.CrossFeatureMember:
-			flags.isEnd = true
+			// An end owns its cross feature through an OwningMembership, never an
+			// EndFeatureMembership (KerML 8.3.3.3.4 ownedCrossFeature), so it is not an end.
 			flags.isPortion = d.IsPortion
 			flags.isDerived = d.IsDerived
 			flags.isAbstract = d.IsAbstract

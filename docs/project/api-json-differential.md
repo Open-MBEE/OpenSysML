@@ -824,7 +824,106 @@ ours-missing):
    compact form spells a membership stub without a `libraryPath`.
 
 
-Not completed, and why: `Type::endFeature` (not taken up in this step; it awaits a measurement of its own) and the
+6. A general type the model states that lives in the library (`attribute a : ScalarValues::Integer`,
+   `part g : Parts::Part`) contributes its members to the same family as an implied base does: the evaluator
+   resolves the library reference the graph carries through `LibrarySymbolResolver`, which the graph
+   structure implements over the library catalog, where before only the symbol structure was asked and
+   every such feature was withheld the whole family. `Type::endFeature` (§8.3.3.1.10
+   `deriveTypeEndFeature`) joins the table: the owned ends, then the inherited ones an owned end does not
+   redefine — by an explicit redefinition or by position (§8.3.3.3.4 `checkFeatureEndRedefinition`), the
+   redefinitions of every general applied before any general's ends are inherited, so an end redefined
+   along one general is not inherited along another. Two classifications are corrected with it, each
+   decided by the clause and each also what the pilot exports: a type's multiplicity is owned through an
+   `OwningMembership`, not a `FeatureMembership` (§8.3.3.1.10 `Type::multiplicity`), so an inherited
+   `MultiplicityRange` stays in `inheritedMembership`, `membership` and `member` and leaves `feature`,
+   `featureMembership` and `inheritedFeature`; an enumerated value is held by a `VariantMembership`
+   (SysML 2.1 Beta 2 §8.3.6.5), which is no `FeatureMembership` either. Measured against step 5 as
+   re-recorded above (718 of 935 fragments move): 2123042 present-equal (+29182), 143317 present-different
+   (−4281), 269059 ours-missing (−32406), 84409 pilot-missing (+64), 43325 indeterminate (+7505); no
+   element match moves, and no row of any file loses a present-equal comparison. Per property (change in
+   present-equal / present-different / ours-missing / indeterminate, summed over metaclasses):
+   `featureMembership` +10979 / −6226 / −4923 / +170, `feature` +7832 / −6210 / −4923 / +3301,
+   `inheritedFeature` +7831 / −6253 / −4907 / +3329, `usage` +1813 / −71 / −2115 / +373, `endFeature`
+   +355 / +15 / −410 / +40, `inheritedMembership` +84 / +4811 / −4912 / +17, `membership` +84 / +4768 /
+   −4869 / +17, `member` +28 / +4770 / −4869 / +71, `directedFeature` +43 / +44 / −148 / +61,
+   `directedUsage` +27 / +44 / −132 / +61, `output` +63 / +3 / −127 / +61, `input` +35 / +21 / −60 / +4,
+   `subjectParameter` +8 / +3 / −11 / 0; no property outside these moves. Adjudication:
+   - The feature lists move from different to equal because the multiplicity ranges and enumerated values
+     left them; the unkeyed references fall by 10233 with them, an inherited library `MultiplicityRange`
+     being a member neither key table addresses.
+   - `inheritedMembership`, `membership` and `member` move from ours-missing to present-different rather
+     than to equal: these are the features with a stated library general, and their membership lists
+     differ from the pilot's by the causes already itemised under step 5 (the order of members inherited
+     through several generals, the `MultiplicityRange` of an intermediate feature of a subsetting chain),
+     not by a cause this step adds.
+   - The new indeterminate rows are lists that agree at every keyed position and reference an unnamed
+     library member neither key table addresses, the family step 5 describes.
+   - The 64 new pilot-missing rows are all `usage` (`Feature.usage` 63, `Succession.usage` 1) in the KerML
+     roots: the element is one this writer states as a SysML usage where the pilot states a KerML
+     `Feature` (a `typeMismatch` pair, counted under the pilot's metaclass and unchanged in number), so
+     the pilot has no `usage` to state; the row follows from the existing metaclass difference.
+   - `endFeature` present-different (15, all `FlowUsage`: a `message` with no ends inherits
+     `Flows::flows::source`/`target` where the pilot states those of `Flows::messages`) is an implied-base
+     difference this step does not change.
+   - The residue of `directedFeature`, `input` and `output`, by class (rows over the five roots, the
+     three properties counted separately):
+     - fixed here, the clause and the pilot agreeing: a subject is an `in` parameter (KerML §8.3.4.6.4
+       `parameterDirection`) that redefines the subject of every general of its owner, an implied base
+       feature included (SysML §7.17.2), so `Requirements::RequirementCheck::subj` and its kin are
+       inputs until a stated subject redefines them; an objective redefines the objective of the case
+       its owner specializes and inherits from it (SysML §8.3.21.9
+       `checkRequirementUsageObjectiveRedefinition`); an accept's payload parameter is `in`, where the
+       export stated `out` (SysML.xtext `PayloadParameterMember`, `validateAcceptActionUsageParameters`).
+       `directedFeature` present-different 1093 → 768, `input` ours-missing 1439 → 1102, `output`
+       pilot-missing 146 → 97.
+     - ours-missing, every row assigned to one cause from the omission the writer records for it
+       (`endFeature` 113, `directedFeature` 5268, `input` 579, `output` 5014; none unassigned):
+
+       | Cause | `endFeature` | `directedFeature` | `input` | `output` |
+       |---|---:|---:|---:|---:|
+       | an expression element or a parameter of one: no implied base in the element form, a separate change | 21 | 4959 | 306 | 4872 |
+       | withheld: a general or a redefined feature is not resolved in the graph of a file converted alone | 23 | 96 | 84 | 84 |
+       | withheld: an element the graph does not represent | 0 | 8 | 8 | 0 |
+       | a KerML classifier or feature exported under a SysML usage metaclass, which has no such property (the existing metaclass difference) | 65 | 43 | 37 | 31 |
+       | evaluated empty where the pilot states a value | 4 | 162 | 144 | 27 |
+
+       The last cause is a value difference, not a withheld one, and is not adjudicated per metaclass:
+       `AssignmentActionUsage` (113 `directedFeature`, 113 `input`), `AssertConstraintUsage` (21, 0,
+       21 `output`), `ForLoopActionUsage` and `WhileLoopActionUsage` (8 each, inputs),
+       `AttributeUsage` (6, 6, 2), `FlowDefinition` (2, 2), `FlowEnd` (2, 1, 1), and one to two rows
+       each on `CalculationUsage`, `ConstraintUsage`, `ForkNode`, `Function` and `ReferenceUsage`;
+       `endFeature` one each on a `Connector`, an `InterfaceUsage`, a `ReferenceUsage` and a
+       `TransitionUsage`.
+     - a `FlowFeature` has the direction of the feature it redefines, read from its `FlowEnd`
+       (KerML.xtext `FlowFeature`), so a flow end states its `input` or `output`; a performed feature
+       chain inherits the parameters of the last feature it names (KerML §8.3.3.3.4 `featureTarget`).
+     - the clause over the pilot: a `ConjugatedPortDefinition` and a port typed by one take the
+       original definition's features with the directions reversed (KerML §8.3.3.1.10 `supertypes` of
+       a conjugated type); the pilot states `[]` (`directedFeature` 96, `input` 67, `output` 52
+       pilot-missing: the conjugated definitions, the ports typed by one, and the connector and flow
+       ends that subset such a port). A feature the conjugated port itself declares keeps the
+       direction it states.
+     - not adjudicated: a `TransitionUsage` keeps the inherited `StateTransitionAction::payload` beside
+       its own payload parameter (64 rows per property, 55 `output` pilot-missing). The OCL of
+       `checkFeatureParameterRedefinition` (KerML §8.4.4.7) reads the direct general's owned
+       parameters, which the implied `stateTransitions` feature has none of; its prose and the pilot
+       read the inherited ones.
+     - the same elements under another name: the unnamed parameters of a send, an accept and a
+       transition are referenced by position here and by the name they take from the feature they
+       redefine in the pilot (`SendActionUsage` 20–29, `AcceptActionUsage` 20–45 rows); a flow's ends
+       (`FlowUsage` 56, `FlowEnd`) are the flow-end difference above.
+   - Re-measured on the tree this step is merged into (660 of 935 fragments differ from the record
+     without it, 10938 rows): 2141037 present-equal (+34161), 145631 present-different (−2742), 260894
+     ours-missing (−40929), 85030 pilot-missing (+168), 45530 indeterminate (+9510); no element match
+     moves. Sixteen properties move and no other: the six of the inherited family, `usage`,
+     `directedFeature`, `directedUsage`, `input`, `output`, `endFeature`, `direction`, and
+     `subjectParameter`, `actorParameter` and `stakeholderParameter` (`actorParameter` 4 and
+     `stakeholderParameter` 1, each ours-missing → present-equal). The per-property figures above are the earlier
+     measurement and were not re-derived row by row on this tree.
+
+Not completed, and why: a namespace's `importedMembership`, and with it the `membership` and `member` of a
+namespace that imports, which the evaluator derives from the notation's import declarations and not yet
+from the graph; the family of a type one of whose generals the single-file graph does not resolve; and the
 causes itemised under step 5. `Behavior::step` (0 equal / 257 different),
 `Step::parameter` and `Behavior::parameter` (21 / 530), `InstantiationExpression::instantiatedType`
 (143 / 464), `Usage::nestedTransition`, `Definition::ownedTransition`, `objectiveRequirement`,
@@ -1033,6 +1132,7 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 | `FeatureReferenceExpression` | `inheritedMembership` | not completed — the result-feature family of this record's step 5 | `Type::inheritedMembership = inheritedMemberships(Set{}, Set{}, false)` (KerML 8.3.3.1.10, deriveTypeInheritedMembership) |
 | `FeatureReferenceExpression` | `inheritedFeature` | not completed — the result-feature family of this record's step 5 | `Type::inheritedFeature = inheritedMembership.memberElement->selectByKind(Feature)` (KerML 8.3.3.1.10, deriveTypeInheritedFeature) |
 | `FeatureReferenceExpression` | `behavior` | not completed — the result-feature family of this record's step 5 | `Step::behavior = type->selectByKind(Behavior)` (KerML 8.3.4.6.3, deriveStepBehavior); for an expression the implied `Performances::Evaluation` typing |
+| `FeatureReferenceExpression` | `function` | not completed — the result-feature family of this record's step 5 (as `behavior`) | `Expression::function = behavior->selectByKind(Function)` (KerML 8.3.4.7.3, deriveExpressionFunction); for a feature reference the implied `Performances::Evaluation` typing |
 | `FeatureMembership` | `memberName` | closed for a named member — the conversion states `memberName` as the member's effective name; the 357 left are implied parameters the pilot names by the library feature they implicitly redefine | `Membership::memberName = memberElement.name` (KerML 8.3.2.4.3, deriveMembershipMemberName) |
 | `FeatureMembership` | `ownedMemberName` | PR #1232 (`feature/api-json-derived-properties-layered`) | `OwningMembership::ownedMemberName = ownedMemberElement.name` (KerML 8.3.2.3.6) |
 | `Feature` | `featuringType` | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::featuringType = typeFeaturing.featuringType`, plus the owning type of an owned feature (KerML 8.3.3.3, deriveFeatureFeaturingType; KERML11-3/4 multiplicity featuring) |
@@ -1075,6 +1175,12 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 | `Multiplicity` | `inheritedMembership` | present-different as the rest of the inherited family (the base `Base::naturals` is stated; causes 1–2 of the inherited-member entry: library member ids the key does not reach, implied bases ordered first) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
 | `Multiplicity` | `member` | present-different as the rest of the inherited family (the base `Base::naturals` is stated; causes 1–2 of the inherited-member entry: library member ids the key does not reach, implied bases ordered first) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
 | `Multiplicity` | `membership` | present-different as the rest of the inherited family (the base `Base::naturals` is stated; causes 1–2 of the inherited-member entry: library member ids the key does not reach, implied bases ordered first) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
+| `FeatureReferenceExpression` | `function` | not completed — an expression element has no implied base in the graph (the result-feature family of this record's step 5; PR #2002 `feat/api-json-expression-implied-bases`) | `Expression::function = type->selectByKind(Function)` (KerML 8.3.4.7.3, deriveExpressionFunction); the implied typing by `Performances::Evaluation` |
+| `LiteralInteger` | `function` | not completed — an expression element has no implied base in the graph (the result-feature family of this record's step 5; PR #2002 `feat/api-json-expression-implied-bases`) | `Expression::function = type->selectByKind(Function)` (KerML 8.3.4.7.3, deriveExpressionFunction); the implied typing by `Performances::LiteralEvaluation` |
+| `LiteralInteger` | `behavior` | not completed — an expression element has no implied base in the graph (the result-feature family of this record's step 5; PR #2002 `feat/api-json-expression-implied-bases`) | `Step::behavior = type->selectByKind(Behavior)` (KerML 8.3.4.6.3, deriveStepBehavior); the implied typing by `Performances::LiteralEvaluation` |
+| `LiteralInteger` | `featureMembership` | not completed — an expression element has no implied base in the graph (the result-feature family of this record's step 5; PR #2002 `feat/api-json-expression-implied-bases`) | `Type::featureMembership = ownedFeatureMembership->union(inheritedMembership->selectByKind(FeatureMembership))` (KerML 8.3.3.1.10, deriveTypeFeatureMembership) |
+| `LiteralInteger` | `feature` | not completed — an expression element has no implied base in the graph (the result-feature family of this record's step 5; PR #2002 `feat/api-json-expression-implied-bases`) | `Type::feature = featureMembership.ownedMemberFeature` (KerML 8.3.3.1.10, deriveTypeFeature) |
+| `LiteralInteger` | `directedFeature` | not completed — an expression element has no implied base in the graph (the result-feature family of this record's step 5; PR #2002 `feat/api-json-expression-implied-bases`) | `Type::directedFeature`, the `feature`s whose `directionOf` is not null (KerML 8.3.3.1.10, deriveTypeDirectedFeature) |
 <!-- doc-counts:end apijson-launch-ready-gaps -->
 
 Rows an evaluator rule in PR #1232 (`internal/semantic/metamodel/rules.go`) already names are marked; that PR adds a lazy metamodel evaluator and layers its derived values into the API-JSON writer, so its merge is expected to move those rows from ours-missing to present-equal or present-different, and this referee is how that movement is measured.

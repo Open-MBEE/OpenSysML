@@ -553,6 +553,10 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 		// A type owns its multiplicity through an OwningMembership (KerML 8.3.3.1.10 Type::multiplicity).
 		return "OwningMembership"
 	}
+	if member != nil && member.Kind == symbols.SymbolCrossFeature {
+		// An end owns its inline cross feature through an OwningMembership (KerML.xtext OwnedCrossFeatureMember).
+		return "OwningMembership"
+	}
 	if member != nil && member.Expr != nil {
 		switch member.Expr.Role {
 		case symbols.ExpressionParameter:

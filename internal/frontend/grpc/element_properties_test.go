@@ -261,9 +261,17 @@ func TestElementPropertiesReportsWhyAPropertyHasNoAnswer(t *testing.T) {
 	if none.Unsupported != "" || len(none.Values) != 0 {
 		t.Errorf("EP::Unit.ownedSubclassification = %+v, want declared and empty", none)
 	}
-	perElement := r.property("EP::CmdPort::cmd", "inheritedFeature")
-	if len(perElement.Values) != 0 || !strings.Contains(perElement.Unsupported, "Type::inheritedFeature is not derived for this element") {
+	importing := parseForElementProperties(t, "package Q { private import ScalarValues::*; part def A; }")
+	perElement := importing.property("Q", "membership")
+	if len(perElement.Values) != 0 || !strings.Contains(perElement.Unsupported, "Namespace::membership is not derived for this element") {
 		t.Errorf("a property the evaluator could not derive for one element answers %+v", perElement)
+	}
+	if derived := importing.property("Q::A", "membership"); derived.Unsupported != "" || len(derived.Values) == 0 {
+		t.Errorf("Q::A.membership = %+v, want derived", derived)
+	}
+	if typed := r.property("EP::CmdPort::cmd", "inheritedFeature"); typed.Unsupported != "" ||
+		!containsAll(elementNames(typed.Values), "Base::DataValue::self") {
+		t.Errorf("EP::CmdPort::cmd.inheritedFeature = %+v, want the features of its library type", typed)
 	}
 	if inherited := r.property("EP::Pair", "inheritedFeature"); inherited.Unsupported != "" || len(inherited.Values) == 0 {
 		t.Errorf("EP::Pair.inheritedFeature = %+v, want derived", inherited)

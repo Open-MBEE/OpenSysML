@@ -549,7 +549,18 @@ func (e *encoder) writtenRelationships(node, parent ast.Node, subject rdf.Term, 
 	e.writtenDependencyAnnotation(node, parent, subject, out)
 	e.writtenClauseRelationships(node, parent, subject, parents, out)
 	e.writtenBoundEndReferences(node, subject, out)
+	e.writtenConstraintReference(node, subject, out)
 	return out
+}
+
+// writtenConstraintReference records the ReferenceSubsetting of an assume or require member
+// stated by reference alone (`require r;`, requirementCondition), by the member.
+func (e *encoder) writtenConstraintReference(node ast.Node, subject rdf.Term, out map[ast.Node]string) {
+	if ast.ConstraintReferenceOf(node) == nil {
+		return
+	}
+	suffix := referenceSubsettingSuffix(1, 0)
+	out[node] = rdf.LocalName(e.ids.minted(rdf.RelationshipIRI(subject, suffix), subject, suffix).Value)
 }
 
 // referenceSubsettingID is the id of the ReferenceSubsetting written under feature (referenceSubsetting).
