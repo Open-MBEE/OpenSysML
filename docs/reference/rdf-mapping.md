@@ -2333,6 +2333,8 @@ graph states a flag only when true (`isComposite` and a `LiteralBoolean`'s
 implies — the metaclass default from the ontology table (`isUnique` true, every
 other flag false), or the flag another spelling of the graph carries:
 `isVariable` from `sysx:declaredPrefix "var"`, `isSufficient` from `sysml:isAll`.
+The graph itself states `isSufficient` on a connection, interface or allocation definition,
+which is sufficient without a keyword (SysML v2.1 §8.3.13.3, `validateConnectionDefinitionIsSufficient`).
 Derived booleans (`isReference`, `isLibraryElement`, `mayTimeVary`, …) are not
 completed here; they are written as the graph states them or as their `derive*`
 constraint defines them (below) — nor is a boolean whose

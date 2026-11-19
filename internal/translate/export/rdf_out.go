@@ -1504,6 +1504,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			{"isAbstract", n.IsAbstract || n.IsVariation || n.Kind == ast.DefEnumeration},
 			{"isVariation", n.IsVariation || n.Kind == ast.DefEnumeration},
 			{"isAll", n.IsAll},
+			// A ConnectionDefinition is sufficient though no keyword notates it (SysML v2.1 §8.3.13.3).
+			{"isSufficient", ontology.IsAncestorOrSelf(metaclass, "ConnectionDefinition")},
 			{"isConstant", n.IsConstant},
 			{"isEvent", n.IsEvent},
 			{"isIndividual", n.IsIndividual},

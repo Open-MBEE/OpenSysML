@@ -1,0 +1,1 @@
+- The RDF export and the API JSON now state `isSufficient = true` on a connection, interface and allocation definition (SysML v2.1 §8.3.13.3, `validateConnectionDefinitionIsSufficient`), as the reflective read of the same element already answered; they stated nothing, which read as the default `false`.

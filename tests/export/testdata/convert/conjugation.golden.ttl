@@ -365,6 +365,7 @@ elmt:Conjugation__Link
     sysml:owningRelationship elmt:Conjugation__Link_om ;
     sysml:owningMembership elmt:Conjugation__Link_om ;
     sysml:declaredName "Link" ;
+    sysml:isSufficient "true"^^xsd:boolean ;
     sysml:relatedElement elmt:Conjugation__CommunicationPort, elmt:Conjugation__CommunicationPort_conjugated ;
     sysml:source elmt:Conjugation__CommunicationPort ;
     sysml:target elmt:Conjugation__CommunicationPort_conjugated ;
