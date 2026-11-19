@@ -181,6 +181,10 @@ func (p *inprocess) runAnalysis(ctx context.Context, req *pb.RunAnalysisRequest)
 	return answer(ctx, req, p.svc.RunAnalysis)
 }
 
+func (p *inprocess) runSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.RunSweepResponse, error) {
+	return answer(ctx, req, p.svc.RunSweep)
+}
+
 func (p *inprocess) runRuns(ctx context.Context, req *pb.RunRunsRequest) (*pb.RunRunsResponse, error) {
 	return answer(ctx, req, p.svc.RunRuns)
 }
