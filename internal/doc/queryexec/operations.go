@@ -1023,10 +1023,16 @@ func (e *executor) propertyPathValues(row Value, property string) ([]Value, bool
 	}
 	var out []Value
 	present := false
+	last := segments[len(segments)-1]
 	for _, value := range current {
-		values, found, err := e.propertyValuesBeforeMemberPath(value, segments[len(segments)-1])
+		values, found, err := e.propertyValuesBeforeMemberPath(value, last)
 		if err != nil {
 			return nil, false, err
+		}
+		if sym, ok := value.Element(); ok && found {
+			if m, _ := e.context.Model.LookupMember(sym, last); m != nil && e.exceedsMultiplicity(m, len(values)) {
+				return nil, false, fmt.Errorf("%s holds %d values, more than its multiplicity admits", property, len(values))
+			}
 		}
 		present = present || found
 		out = append(out, values...)
