@@ -25,6 +25,13 @@
       <scope>provided</scope>
     </dependency>
     <dependency>
+      <groupId>org.openmbee</groupId>
+      <artifactId>opensysml</artifactId>
+      <version>${opensysml.client.version}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
       <scope>test</scope>

@@ -132,7 +132,7 @@ The compile-scope dependency is protobuf-java. Nothing else, by default:
 | ---------------------------- | ----: | --------------------------------------- |
 | `protobuf-java` 4.33.1       | 1.8 M | always: the generated messages need it  |
 | `protobuf-java-util` 4.33.1  |  76 K | only `Encoding.JSON`, declared optional  |
-| `gson` 2.11.0                | 291 K | only `Encoding.JSON`, behind the above   |
+| `gson` 2.11.0                | 291 K | only `Encoding.JSON` and `org.openmbee.opensysml.repository` (publication to a SysML v2 API server), declared optional |
 
 There is no gRPC, no Netty and no `tcnative`. The transport is
 `java.net.http.HttpClient` from the JDK, speaking the Connect protocol: unary
