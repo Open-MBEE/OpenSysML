@@ -230,22 +230,23 @@ func (s *SymbolIDs) compute(sym *symbols.Symbol) (string, bool) {
 // rootNamespaceID mirrors rootNamespaceIDs: the root Namespace is named off the document's first
 // top-level element (an alias or import included) with RootNamespaceSuffix, repeated while written.
 func (s *SymbolIDs) rootNamespaceID(root *symbols.Symbol) (string, bool) {
-	for _, relationship := range s.model.OwnedRelationships(root) {
-		element := relationship
-		if relationship.Implicit != nil && relationship.Implicit.Member != nil {
-			element = relationship.Implicit.Member
-		}
-		first, ok := s.of(element)
-		if !ok {
-			return "", false
-		}
-		id := first + RootNamespaceSuffix
-		for s.ids.writes(id) {
-			id += RootNamespaceSuffix
-		}
-		return id, true
+	relationships := s.model.OwnedRelationships(root)
+	if len(relationships) == 0 {
+		return "", false
 	}
-	return "", false
+	element := relationships[0]
+	if element.Implicit != nil && element.Implicit.Member != nil {
+		element = element.Implicit.Member
+	}
+	first, ok := s.of(element)
+	if !ok {
+		return "", false
+	}
+	id := first + RootNamespaceSuffix
+	for s.ids.writes(id) {
+		id += RootNamespaceSuffix
+	}
+	return id, true
 }
 
 // writes reports whether the conversion writes id for a declared element or a
