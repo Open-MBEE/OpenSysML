@@ -100,9 +100,8 @@ func (ctx *Context) poseOf(name string, t *CoordinateTransformation) (framePose,
 		errUnevaluableLibraryFunction, name, t.Name(), SymbolText(t.Type))
 }
 
-// FramePose is where a target frame sits in its source: target coordinates v, in
-// the target's axis units, lie at Origin + Basis · v in the source's axis units,
-// Basis row-major over n axes.
+// FramePose places a target frame in its source: v in the target's axis units lies
+// at Origin + Basis · v in the source's, Basis row-major over n axes.
 type FramePose struct {
 	Origin []float64
 	Basis  []float64
