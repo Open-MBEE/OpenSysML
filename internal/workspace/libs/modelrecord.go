@@ -57,6 +57,12 @@ func (c *Cache) StoreModel(key string, rec *ModelRecord) error {
 	if err := c.store(key, rec); err != nil {
 		return err
 	}
+	// A process's first record prunes the directory: processes storing little each still bound it.
+	pruned := false
+	c.modelPruneOnce.Do(func() { pruned = true; c.Prune() })
+	if pruned {
+		return nil
+	}
 	// #nosec G703 -- the path is the one store just wrote.
 	if info, err := os.Stat(c.path(key)); err == nil {
 		if c.modelBytesStored.Add(info.Size()) >= maxModelRecordBytes/4 {

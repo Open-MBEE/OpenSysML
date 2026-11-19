@@ -140,3 +140,29 @@ func TestPruneRemovesIdleModelRecords(t *testing.T) {
 		t.Fatal("a model record idle past maxIdleAge survived Prune")
 	}
 }
+
+// A process's first model record prunes the directory, whatever it stores itself.
+func TestFirstStoreModelOfAProcessPrunes(t *testing.T) {
+	dir := t.TempDir()
+	earlier := &Cache{dir: dir}
+	stale, kept := earlier.ModelKey("stale", "l"), earlier.ModelKey("kept", "l")
+	for _, key := range []string{stale, kept} {
+		if err := earlier.StoreModel(key, sampleModelRecord("m")); err != nil {
+			t.Fatalf("StoreModel: %v", err)
+		}
+	}
+	old := time.Now().Add(-maxIdleAge - time.Hour)
+	if err := os.Chtimes(earlier.path(stale), old, old); err != nil {
+		t.Fatal(err)
+	}
+	later := &Cache{dir: dir}
+	if err := later.StoreModel(later.ModelKey("new", "l"), sampleModelRecord("m")); err != nil {
+		t.Fatalf("StoreModel: %v", err)
+	}
+	if _, ok := later.LoadModel(stale); ok {
+		t.Error("a record idle past maxIdleAge survived the next process's first store")
+	}
+	if _, ok := later.LoadModel(kept); !ok {
+		t.Error("a record in use was pruned")
+	}
+}

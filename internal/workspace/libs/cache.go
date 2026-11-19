@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -31,6 +32,8 @@ type Cache struct {
 	// modelBytesStored is the bytes of model records stored since the last
 	// eviction of any (modelrecord.go).
 	modelBytesStored atomic.Int64
+	// modelPruneOnce prunes the directory at the process's first model record.
+	modelPruneOnce sync.Once
 }
 
 // ErrNoCacheRoot is the error NewCache wraps when the process has no cache root
