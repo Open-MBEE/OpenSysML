@@ -129,9 +129,9 @@ Publication is one-way. Nothing on the server is read back into the Cameo projec
 no element-level diff view, branch management or merge: see `docs/project/mdk-parity.md`. The
 `sysx:` extension properties of the conversion have no place in the API and are not sent. The
 standard API has no conditional write, so the head check narrows the window for a concurrent
-commit but cannot close it. The action has been run against an in-process API server in the test
-suite; see `docs/project/mdk-parity.md` for what has been run in a licensed Cameo and against a
-deployed server.
+commit but cannot close it. The test suite runs the publication against an in-process API
+server, and it has been run by hand against a local Flexo MMS stack (the published compose
+images); the action itself has not yet been run in a licensed Cameo.
 
 ## Run query
 
