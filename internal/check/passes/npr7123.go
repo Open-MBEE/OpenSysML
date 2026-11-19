@@ -81,7 +81,8 @@ type npr7123Audit struct {
 	model *semantics.Model
 	// defs holds the library definitions by qualified name.
 	defs map[string]*symbols.Symbol
-	// minimumProducts maps a review kind literal name to its required products.
+	// minimumProducts maps a review kind literal name to its required products;
+	// it, requirements and processes are filled by loadTables.
 	minimumProducts map[string][]npr7123MinimumProduct
 	// requirements are the active SE requirement definitions, in library order.
 	requirements []*symbols.Symbol
@@ -89,7 +90,9 @@ type npr7123Audit struct {
 	processes []*symbols.Symbol
 	// conforms memoizes conformance of a type to a library definition.
 	conforms map[[2]*symbols.Symbol]bool
-	diags    []diag.Diagnostic
+	// tablesLoaded marks minimumProducts, requirements and processes as read.
+	tablesLoaded bool
+	diags        []diag.Diagnostic
 }
 
 // newNPR7123Audit returns nil when the bundled NPR7123 library is not loaded:
@@ -114,10 +117,20 @@ func newNPR7123Audit(ctx *Context) *npr7123Audit {
 		}
 		a.defs[fqn] = def
 	}
-	library := a.defs[npr7123WorkProduct].OwnerScope
-	if library == nil {
+	if a.defs[npr7123WorkProduct].OwnerScope == nil {
 		return nil
 	}
+	return a
+}
+
+// loadTables reads Table 5-1, the SE requirements and the technical processes off the
+// library, once, when the document first states a review, a SEMP or a compliance matrix.
+func (a *npr7123Audit) loadTables() {
+	if a.tablesLoaded {
+		return
+	}
+	a.tablesLoaded = true
+	library := a.defs[npr7123WorkProduct].OwnerScope
 	seen := map[*symbols.Symbol]bool{}
 	library.ForEachMember(func(member *symbols.Symbol) bool {
 		if member.Kind == symbols.SymbolAlias || !member.DeclaresDefinition() || seen[member] {
@@ -141,7 +154,6 @@ func newNPR7123Audit(ctx *Context) *npr7123Audit {
 			return true
 		})
 	}
-	return a
 }
 
 // npr7123LibraryElement returns the bundled library element registered under fqn, or nil.
@@ -309,6 +321,7 @@ func (a *npr7123Audit) check(root *symbols.Scope) {
 // checkReview expects a life-cycle review to state entrance and success criteria (section
 // 5.2.2.1, SE-34) and the section 5.2.2.2 minimum products of its kind at the maturity asked for.
 func (a *npr7123Audit) checkReview(review *symbols.Symbol) {
+	a.loadTables()
 	nested := a.features(review)
 	entrance, success := false, false
 	for _, f := range nested {
@@ -413,6 +426,7 @@ func (a *npr7123Audit) checkCompliance(sym *symbols.Symbol) {
 // checkMatrix expects the document holding a ComplianceMatrix to state a
 // compliance entry for every active SE requirement.
 func (a *npr7123Audit) checkMatrix(matrix *symbols.Symbol, root *symbols.Scope) {
+	a.loadTables()
 	covered := map[*symbols.Symbol]bool{}
 	kit.WalkSymbols(a.ctx, root, func(sym *symbols.Symbol) {
 		if !sym.IsFeature() || !a.hasCompliance(sym) {
@@ -471,6 +485,7 @@ func (a *npr7123Audit) isReview(sym *symbols.Symbol) bool {
 
 // checkSEMP expects a SEMP to address each of the 17 common technical processes (SE-58).
 func (a *npr7123Audit) checkSEMP(semp *symbols.Symbol) {
+	a.loadTables()
 	addressed := map[*symbols.Symbol]bool{}
 	visited := map[*symbols.Symbol]bool{}
 	var walk func(sym *symbols.Symbol)

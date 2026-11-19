@@ -14,6 +14,7 @@ from throttle_common import GH, Config, heavy_job_started, priority, protected_r
 
 WAITING = ("queued", "waiting")
 ACTIVE = ("queued", "in_progress", "waiting", "pending", "requested")
+AUTH_RERUN = "auth_rerun.json"
 
 
 class Sweeper:
@@ -95,17 +96,17 @@ class Sweeper:
                      f"{'cancelled; not queued for re-run (no PR)' if done else 'not cancelled'}")
             return
         if done:
-            with self.cfg.locked("auth_rerun.json"):
+            with self.cfg.locked(AUTH_RERUN):
                 # One entry per PR and workflow: a PR's runs of other workflows keep theirs.
                 key, head = (pr, r.get("name")), r["head_sha"][:10]
-                old = self.cfg.read("auth_rerun.json", [])
+                old = self.cfg.read(AUTH_RERUN, [])
                 todo = [e for e in old if (e["pr"], e.get("workflow")) != key]
                 entry = {"pr": pr, "run": r["id"], "head": head, "workflow": r.get("name")}
                 # A re-cancel of the same run and head keeps a full re-run full.
                 if any(e.get("full") and (e["pr"], e.get("workflow"), e["run"], e["head"]) == (*key, r["id"], head) for e in old):
                     entry["full"] = True
                 todo.append(entry)
-                self.cfg.write("auth_rerun.json", sorted(todo, key=self.rank))
+                self.cfg.write(AUTH_RERUN, sorted(todo, key=self.rank))
         self.log(f"#{pr}: run {r['id']} ({r['head_sha'][:10]}, {why}) {'cancelled; queued for re-run under the cap' if done else 'not cancelled'}")
 
     def ordinary_runs(self):
@@ -183,9 +184,10 @@ def main(argv=None):
         except Exception as ex:
             s.log(f"error, nothing more cancelled this pass: {ex}")
         if args.once:
-            return 0
+            break
         time.sleep(60)
-    s.log("starve_cancel.json absent; sweeper exiting")
+    else:
+        s.log("starve_cancel.json absent; sweeper exiting")
     return 0
 
 

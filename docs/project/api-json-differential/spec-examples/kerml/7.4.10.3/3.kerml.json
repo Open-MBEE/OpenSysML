@@ -11,15 +11,15 @@
       "typeMismatch": 2
     },
     "properties": {
-      "presentEqual": 275,
+      "presentEqual": 276,
       "presentDifferent": 26,
-      "oursMissing": 52,
+      "oursMissing": 51,
       "pilotMissing": 25,
       "absentBoth": 221,
       "indeterminate": 0,
       "pilotNondeterministic": 0
     },
-    "unkeyedReferences": 33,
+    "unkeyedReferences": 32,
     "extensionProperties": 56,
     "duplicateElements": {
       "ours": 0,
@@ -197,7 +197,7 @@
     "Flow.directedUsage": [0,0,0,1,0,0,0],
     "Flow.direction": [0,0,0,0,1,0,0],
     "Flow.documentation": [0,0,0,0,1,0,0],
-    "Flow.endFeature": [0,0,1,0,0,0,0],
+    "Flow.endFeature": [1,0,0,0,0,0,0],
     "Flow.feature": [0,1,0,0,0,0,0],
     "Flow.featureMembership": [0,1,0,0,0,0,0],
     "Flow.featureTarget": [1,0,0,0,0,0,0],

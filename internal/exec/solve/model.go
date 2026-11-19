@@ -211,13 +211,24 @@ func assign(v *Var, value sexpr) Assignment {
 // is written; a dimension whose base units are unnamed is named as the dimension
 // it is, since the magnitude is not in the unit any literal was written in.
 func withUnit(magnitude, unit, dimension string) string {
+	return magnitude + unitSuffix(unit, dimension)
+}
+
+// unitSuffix is what withUnit writes after a magnitude.
+func unitSuffix(unit, dimension string) string {
 	switch {
 	case unit != "":
-		return magnitude + " [" + unit + "]"
+		return " [" + unit + "]"
 	case dimension != "":
-		return magnitude + " (in the base units of " + dimension + ")"
+		return " (in the base units of " + dimension + ")"
 	}
-	return magnitude
+	return ""
+}
+
+// Magnitude is a rendered quantity without the units written after it, for a
+// reader that takes the unit and the dimension as fields of their own.
+func Magnitude(rendered, unit, dimension string) string {
+	return strings.TrimSuffix(rendered, unitSuffix(unit, dimension))
 }
 
 // renderRat writes an exact rational as the notation writes a number: a decimal

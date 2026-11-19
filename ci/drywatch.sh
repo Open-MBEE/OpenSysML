@@ -10,7 +10,7 @@ branch=$(conf "$@" get base_branch) || exit 1
 last=""
 while true; do
   d=$(timeout 30 gh api "repos/$repo/commits/$branch" --jq .sha 2>/dev/null)
-  if [ -n "$d" ] && [ "$d" != "$last" ]; then
+  if [[ -n "$d" && "$d" != "$last" ]]; then
     echo "$(date -u +%FT%TZ) $branch ${d:0:10}" >>"$state/dry.log"
     "$here/drycheck.sh" "$@" >>"$state/dry.log" 2>&1
     last=$d

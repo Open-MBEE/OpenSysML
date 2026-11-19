@@ -222,6 +222,20 @@ from `invalidateLocked`). A record is thus valid across processes and edits
 that do not touch what it read, and never serves a diagnostic its siblings no
 longer justify.
 
+### Model records
+
+The gRPC service parses a model whole and answers with its trees, so it holds no document as an
+interface. What it keeps across processes is a **model record** (`libs.ModelRecord`): the
+diagnostics the analysis of the model reported, per document, filed under the model hash (every
+document's name, language and content, in order, and the conformance mode), the library identity
+and the build (`libs.Cache.ModelKey`). The key covers everything the analysis reads, so a record
+needs no provenance; it names each document and the language it was read as, which the hash does
+not state for a file, and found of exactly the model's documents it is the analysis a fresh parse
+would run
+(`internal/frontend/grpc/modelrecord.go`). Only the fresh path reads and writes it; a model
+answered from a lineage is analyzed incrementally in the process. Model records are bounded
+together (`maxModelRecordBytes`), the least recently used evicted first.
+
 ## Hydration and demotion
 
 Hydration is an invalidation. `Workspace.Hydrate(name)` parses a recorded
