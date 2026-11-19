@@ -6,9 +6,8 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
 
-// CoordinateFrame is a coordinate frame or measurement scale held as a value:
-// what a feature typed by a MeasurementReferences::CoordinateFrame evaluates
-// to. It is reported, never accepted.
+// CoordinateFrame is a coordinate frame or measurement scale held as a value.
+// It is reported, never accepted.
 type CoordinateFrame struct {
 	// Name is the frame as a reader names it: its declared name, else the
 	// expression that composed it ("datum / s").
@@ -42,10 +41,8 @@ type QuantityValueMapping struct {
 	Mapped, Reference Quantity
 }
 
-// CoordinateTransformation is a coordinate transformation held as a value: the
-// frames it relates, the shape the model states it in, and the pose that
-// shape resolves to. At most one of Placement, Steps and Affine is set. It is
-// reported, never accepted.
+// CoordinateTransformation is a transformation held as a value: its frames, stated shape and resolved pose.
+// At most one of Placement, Steps and Affine is set. It is reported, never accepted.
 type CoordinateTransformation struct {
 	// Name is the transformation as a reader names it: its declared name, else its type.
 	Name string

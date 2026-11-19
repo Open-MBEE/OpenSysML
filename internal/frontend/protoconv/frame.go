@@ -19,9 +19,8 @@ var (
 	ErrCoordinateTransformationNotAccepted = errors.New("a coordinate transformation is not a value a caller can supply")
 )
 
-// frameEncoder marshals one frame or transformation value with everything it
-// reaches. unsupported is the reason of the first part with no wire form,
-// which withholds the whole value: a frame short of an origin is another frame.
+// frameEncoder marshals one frame or transformation with everything it reaches.
+// unsupported is the first part with no wire form, which withholds the whole value.
 type frameEncoder struct {
 	rt          *runtime.Context
 	idx         *symbols.Index
@@ -31,9 +30,8 @@ type frameEncoder struct {
 	open []*runtime.CoordinateFrame
 }
 
-// coordinateValueToProto sends a frame through the coordinate_frame arm and a
-// transformation through coordinate_transformation, or the unsupported null
-// when a quantity or vector either holds has no wire form.
+// coordinateValueToProto sends a frame or transformation through its arm, or
+// the unsupported null when a quantity or vector it holds has no wire form.
 func coordinateValueToProto(rt *runtime.Context, val runtime.Value, idx *symbols.Index, ids ElementIdentities) *pb.Value {
 	enc := &frameEncoder{rt: rt, idx: idx, ids: ids}
 	var out *pb.Value
@@ -176,9 +174,8 @@ func (e *frameEncoder) quantity(q *runtime.Quantity) *pb.Quantity {
 	return out
 }
 
-// coordinateParts lists the Values and the Quantities a frame or
-// transformation value holds at any depth of the frames it relates; both are
-// empty for any other value.
+// coordinateParts lists the Values and Quantities a frame or transformation
+// value holds at any depth; both are empty for any other value.
 func coordinateParts(pv *pb.Value) (values []*pb.Value, quantities []*pb.Quantity) {
 	var frame func(*pb.CoordinateFrame)
 	var transformation func(*pb.CoordinateTransformation)
@@ -231,8 +228,7 @@ func presentQuantities(quantities ...*pb.Quantity) []*pb.Quantity {
 }
 
 // ValueCarriesCoordinateFrame reports whether a value, or any value nested in
-// it, is a CoordinateFrame or a CoordinateTransformation: the kinds
-// coordinate_frame_values governs.
+// it, is a coordinate frame or transformation, which coordinate_frame_values governs.
 func ValueCarriesCoordinateFrame(pv *pb.Value) bool {
 	return valueCarries(pv, IsCoordinateValue)
 }

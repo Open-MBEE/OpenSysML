@@ -6,9 +6,8 @@ use crate::domain::{
 use crate::error::Error;
 use crate::wire;
 
-/// A coordinate frame or measurement scale held as a value: what a feature
-/// typed by a `MeasurementReferences::CoordinateFrame` evaluates to. Sent by a
-/// service advertising `coordinate_frame_values`; an answer, never an argument.
+/// A coordinate frame or measurement scale held as a value, sent by a service
+/// advertising `coordinate_frame_values`; an answer, never an argument.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CoordinateFrame {
     /// The frame as a reader names it: its declared name, else the expression

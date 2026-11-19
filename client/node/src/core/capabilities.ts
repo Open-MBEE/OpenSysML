@@ -154,11 +154,7 @@ export const CAPABILITY_ENGINES = "engines";
 /** A model-level result the model leaves open as `Value.undetermined`, read as an `undetermined` value. */
 export const CAPABILITY_UNDETERMINED_VALUE = "undetermined_value";
 
-/**
- * A coordinate frame as `Value.coordinate_frame` and a coordinate transformation as
- * `Value.coordinate_transformation`, read as `coordinateFrame` and `coordinateTransformation`
- * values; without it each crosses as an unsupported null.
- */
+/** `Value.coordinate_frame` and `Value.coordinate_transformation`; without it each is an unsupported null. */
 export const CAPABILITY_COORDINATE_FRAME_VALUES = "coordinate_frame_values";
 /** An Integer beyond int64 as `Value.bigIntValue`, `Quantity.bigIntMagnitude` and `DocumentValue.bigIntValue`; a service without it reads one sent to it as null. */
 export const CAPABILITY_BIG_INT_VALUES = "big_int_values";

@@ -812,9 +812,8 @@ func valueCarries(pv *pb.Value, is func(*pb.Value) bool) bool {
 	return false
 }
 
-// NestedValues lists the Values a value holds directly: a sequence's or a set's
-// elements, an array's elements, a vector's components, and the origins,
-// directions and translations of a frame or transformation.
+// NestedValues lists the Values a value holds directly: the members of a sequence, set,
+// array or vector, and the origins, directions and translations of a frame or transformation.
 func NestedValues(pv *pb.Value) []*pb.Value {
 	switch k := pv.GetKind().(type) {
 	case *pb.Value_Sequence:
