@@ -8,9 +8,10 @@ if [ -z "$CAMEO_HOME" ] || [ ! -d "$CAMEO_HOME" ]; then
 fi
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 client_dir="$root/../../client/java"
-client_cp=$(mvn -q -f "$client_dir/pom.xml" -pl :opensysml -am dependency:build-classpath -Dmdep.outputAbsoluteArtifactFilename=true -Dmdep.outputFile="$root/target/cameo-client.cp" >/dev/null && cat "$root/target/cameo-client.cp")
+# The client's own classes go on the class path beside its dependencies, which is all build-classpath lists.
+client_cp=$(mvn -q -f "$client_dir/pom.xml" -pl :opensysml -am compile dependency:build-classpath -Dmdep.outputAbsoluteArtifactFilename=true -Dmdep.outputFile="$root/target/cameo-client.cp" >/dev/null && cat "$root/target/cameo-client.cp")
 cameo_cp=$(find "$CAMEO_HOME/lib" "$CAMEO_HOME/plugins" -name '*.jar' -print | tr '\n' ':')
-cp="${cameo_cp}${client_cp}"
+cp="${cameo_cp}${client_cp}:$client_dir/opensysml-client/target/classes"
 out=$(mktemp -d)
 trap 'rm -rf "$out"' EXIT HUP INT TERM
 find "$root/plugin/src/main/java" -name '*.java' -print0 | xargs -0 javac --release 17 -cp "$cp" -d "$out"
