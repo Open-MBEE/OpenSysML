@@ -11,10 +11,13 @@ const (
 	memoOwnedFilter
 	memoOwnedMembershipFilter
 	memoOwnedMembers
+	memoOwnedFeatures
 	memoEffectiveFeatures
 	memoNamespaceMemberships
 	memoInheritedMemberships
 	memoValueList
+	memoSpecializedGeneralTypes
+	memoFeatureDirections
 )
 
 // memoEntry is one memoized derivation of an element: a string, a list, null or nothing
