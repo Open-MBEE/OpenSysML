@@ -226,9 +226,8 @@ func (m *Model) synthesizedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// withSynthesizedMembers places the members sym owns without a declaration of
-// their own — its flow's FlowEnds, its synthesized conditions and results — among
-// the members it declares, each at its clause.
+// withSynthesizedMembers places the members sym owns without a declaration of their
+// own (FlowEnds, synthesized conditions and results) among its declared ones, by clause.
 func (m *Model) withSynthesizedMembers(sym *symbols.Symbol, members []*symbols.Symbol) []*symbols.Symbol {
 	for _, member := range slices.Concat(m.FlowEndMembers(sym), m.synthesizedMembersOf(sym)) {
 		members = slices.Insert(members, ownedClausePosition(sym, members, member.DeclSpan.Offset), member)
