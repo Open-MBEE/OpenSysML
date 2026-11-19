@@ -1,5 +1,5 @@
 # FurnaceViews::burnerTree — tree rendering (view def GeneralView)
-# not represented: 7 member(s) drawn as compartment rows of their owner, and 5 node(s) under them left undrawn
+# not represented: 7 member(s) drawn as compartment rows of their owner, and 6 node(s) under them left undrawn
 classes: {
   definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
 }
