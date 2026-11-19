@@ -57,7 +57,10 @@ func (s *Service) ImportData(ctx context.Context, req *pb.ImportDataRequest) (*p
 		if file.Values == 0 {
 			continue
 		}
-		model, hash, err := s.importAssignments(current, ops, resp)
+		model, hash, err := s.importAssignments(ctx, current, ops, resp)
+		if gone := callerGone(ctx, err); gone != nil {
+			return nil, gone
+		}
 		if err != nil {
 			return importRefused(resp, err), nil
 		}
@@ -133,13 +136,16 @@ func lowerImport(model *CachedModel, own map[string]bool, in *pb.DataImport) ([]
 
 // importAssignments applies one file's assignments and re-parses the model under its
 // hash; values that make the model invalid are refused with the diagnostics they raised.
-func (s *Service) importAssignments(current *CachedModel, ops []dataimport.Assignment, resp *pb.ImportDataResponse) (*CachedModel, string, error) {
+func (s *Service) importAssignments(ctx context.Context, current *CachedModel, ops []dataimport.Assignment, resp *pb.ImportDataResponse) (*CachedModel, string, error) {
 	inputs, err := s.importEdits(current, ops)
 	if err != nil {
 		return nil, "", err
 	}
 	before := diagnosticErrorCounts(s.modelDiagnostics(current))
-	hash, model := s.parseModelKeeping(inputs, current.Mode, true, false)
+	hash, model, err := s.parseModelKeeping(ctx, inputs, current.Mode, true, false)
+	if err != nil {
+		return nil, "", err
+	}
 	after := s.modelDiagnostics(model)
 	if problems := addedErrors(before, after); len(problems) > 0 {
 		resp.Diagnostics = after

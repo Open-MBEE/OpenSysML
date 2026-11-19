@@ -422,10 +422,13 @@ it worth keeping.
 
 Contexts are honoured as the wire honours them. A call whose context is already
 done is refused with `CodeCanceled` or `CodeDeadlineExceeded`; a context that
-ends while a call is running withholds the answer the same way, because the
-engine — like a service answering a caller who stopped listening — still runs
-the call it started. A deadline therefore bounds how long a caller waits, not
-how long the engine works.
+ends while a call is running withholds the answer the same way. What the engine
+does with the work depends on the call: a parse (`ParseSource`, `ParseFile`,
+`ParseDocuments`) and a conversion of a model of several documents stop at their
+next document or analysis pass and cache nothing, the runs, sweeps, checks and
+explorations stop between runs, and any other call — like a service answering a
+caller who stopped listening — still runs to its end. For those a deadline
+bounds how long a caller waits, not how long the engine works.
 
 After `Close`, every call is refused with `CodeUnavailable`, and closing twice is
 not an error, so a deferred `Close` beside an explicit one is safe.

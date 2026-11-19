@@ -1,6 +1,7 @@
 package passes
 
 import (
+	"context"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -128,5 +129,29 @@ func TestRegistrySameLevelNeverSkips(t *testing.T) {
 	got := reg.Run(NewContext("t", nil, nil), "t", nil)
 	if len(got) != 2 {
 		t.Fatalf("got %d diagnostics, want 2 (same-level passes never skip)", len(got))
+	}
+}
+
+// cancellingPass cancels the run's context when it runs.
+type cancellingPass struct {
+	stubPass
+	cancel context.CancelFunc
+}
+
+func (p cancellingPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
+	p.cancel()
+	return p.stubPass.Run(ctx, name, root)
+}
+
+func TestRegistryStopsBeforeTheNextPassOnceItsContextIsDone(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	reg := NewRegistry()
+	reg.Register(cancellingPass{stubPass{level: LevelSyntax, diags: []diag.Diagnostic{{Severity: diag.SeverityWarning, Source: "a"}}}, cancel})
+	reg.Register(stubPass{level: LevelSyntax, diags: []diag.Diagnostic{{Severity: diag.SeverityWarning, Source: "b"}}})
+	reg.Register(stubPass{level: LevelNameResolution, diags: []diag.Diagnostic{{Severity: diag.SeverityWarning, Source: "c"}}})
+	got := reg.Run(NewContextWithOptions("t", source.KindSysML, nil, nil, Options{Context: ctx}), "t", nil)
+	if len(got) != 1 || got[0].Source != "a" {
+		t.Fatalf("a run cancelled in its first pass reported %v, want that pass's diagnostic alone", got)
 	}
 }

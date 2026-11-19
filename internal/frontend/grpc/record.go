@@ -102,7 +102,10 @@ func (s *Service) RecordRun(ctx context.Context, req *pb.RecordRunRequest) (*pb.
 		return resp, nil
 	}
 	resp.Package, resp.Definition, resp.Records, resp.Source = placed.Package, res.Definition, res.Records, res.Source
-	if err := s.mergeRecord(v.cached, res.Source, resp); err != nil {
+	if err := s.mergeRecord(ctx, v.cached, res.Source, resp); err != nil {
+		if gone := ctx.Err(); gone != nil {
+			return nil, gone
+		}
 		resp.Error = err.Error()
 		resp.Content, resp.Documents, resp.ModelHash = "", nil, ""
 	}
@@ -264,7 +267,7 @@ func (s *Service) recordSample(ctx context.Context, v *verifyContext, sym *symbo
 // document already holding the deepest prefix of the target package's nesting,
 // or as a document of their own, then analyzes the result and refuses one that
 // errors or drops a declaration, so the model is left unchanged.
-func (s *Service) mergeRecord(cached *CachedModel, src string, resp *pb.RecordRunResponse) error {
+func (s *Service) mergeRecord(ctx context.Context, cached *CachedModel, src string, resp *pb.RecordRunResponse) error {
 	describe := func(n ast.Node) string {
 		m := libs.TopMemberOf(n)
 		if !m.Named {
@@ -309,7 +312,10 @@ func (s *Service) mergeRecord(cached *CachedModel, src string, resp *pb.RecordRu
 	before := errorCounts(s.modelDiagnostics(cached))
 	// The edited model is staged, and cached only once it is known to be valid,
 	// so a refused recording evicts nothing.
-	hash, model := s.parseModelKeeping(inputs, cached.Mode, true, false)
+	hash, model, err := s.parseModelKeeping(ctx, inputs, cached.Mode, true, false)
+	if err != nil {
+		return err
+	}
 	after := s.modelDiagnostics(model)
 	if problems := newErrors(before, after); len(problems) > 0 {
 		resp.Diagnostics = after
