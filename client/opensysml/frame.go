@@ -1,7 +1,7 @@
 package opensysml
 
 import (
-	"reflect"
+	"slices"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
@@ -138,9 +138,84 @@ func (t *CoordinateTransformation) String() string {
 func (*CoordinateFrame) isValue()          { /* marker: closed Value set */ }
 func (*CoordinateTransformation) isValue() { /* marker: closed Value set */ }
 
-// coordinatesEqual compares two frames or transformations by everything sent of them.
+// coordinatesEqual compares two frames or two transformations as the service does.
 func coordinatesEqual(a, b Value) bool {
-	return reflect.DeepEqual(a, b)
+	switch x := a.(type) {
+	case *CoordinateFrame:
+		y, ok := b.(*CoordinateFrame)
+		return ok && x.equal(y)
+	case *CoordinateTransformation:
+		y, ok := b.(*CoordinateTransformation)
+		return ok && x.equal(y)
+	}
+	return false
+}
+
+// equal holds for one identity: the object and usage a frame was read from when either
+// has an object, otherwise its dimensions, axes, scale and transformation, whatever names it.
+func (f *CoordinateFrame) equal(other *CoordinateFrame) bool {
+	if f == nil || other == nil {
+		return f == other
+	}
+	if f.InstanceID != 0 || other.InstanceID != 0 {
+		return f.InstanceID == other.InstanceID && f.FrameID == other.FrameID
+	}
+	return slices.Equal(f.Dimensions, other.Dimensions) &&
+		slices.EqualFunc(f.Axes, other.Axes, measurementRefEqual) &&
+		f.Scale.equal(other.Scale) && f.Transformation.equal(other.Transformation)
+}
+
+func (s *MeasurementScale) equal(other *MeasurementScale) bool {
+	if s == nil || other == nil {
+		return s == other
+	}
+	if !measurementRefEqual(s.Unit, other.Unit) || (s.Mapping == nil) != (other.Mapping == nil) {
+		return false
+	}
+	return s.Mapping == nil ||
+		quantityEqual(s.Mapping.Mapped, other.Mapping.Mapped) && quantityEqual(s.Mapping.Reference, other.Mapping.Reference)
+}
+
+// equal holds for one object read twice, else for equal source, target and stated
+// shape; a transformation of no library shape is only the object it was read from.
+func (t *CoordinateTransformation) equal(other *CoordinateTransformation) bool {
+	if t == nil || other == nil {
+		return t == other
+	}
+	if t.InstanceID != 0 && t.InstanceID == other.InstanceID && t.TransformationID == other.TransformationID {
+		return true
+	}
+	if !t.Source.equal(other.Source) || !t.Target.equal(other.Target) {
+		return false
+	}
+	if (t.Placement == nil) != (other.Placement == nil) || (t.Steps == nil) != (other.Steps == nil) ||
+		(t.Affine == nil) != (other.Affine == nil) {
+		return false
+	}
+	switch {
+	case t.Placement != nil:
+		return Equal(t.Placement.Origin, other.Placement.Origin) &&
+			slices.EqualFunc(t.Placement.BasisDirections, other.Placement.BasisDirections, Equal)
+	case t.Steps != nil:
+		return slices.EqualFunc(t.Steps, other.Steps, FrameStep.equal)
+	case t.Affine != nil:
+		return slices.Equal(t.Affine.Rotation, other.Affine.Rotation) &&
+			slices.Equal(t.Affine.Translation, other.Affine.Translation)
+	}
+	return false
+}
+
+// equal holds for one step kind with equal parts.
+func (s FrameStep) equal(other FrameStep) bool {
+	if (s.Rotation == nil) != (other.Rotation == nil) {
+		return false
+	}
+	if s.Rotation == nil {
+		return Equal(s.Translation, other.Translation)
+	}
+	return s.Rotation.Intrinsic == other.Rotation.Intrinsic &&
+		Equal(s.Rotation.AxisDirection, other.Rotation.AxisDirection) &&
+		quantityEqual(s.Rotation.Angle, other.Rotation.Angle)
 }
 
 // frameFromProto reads a frame; ok is false when a part of it cannot be read.

@@ -257,3 +257,71 @@ test("a frame that contradicts itself is malformed", () => {
 test("the capability is named as the service names it", () => {
   assert.equal(CAPABILITY_COORDINATE_FRAME_VALUES, "coordinate_frame_values");
 });
+
+// A frame is the object it was read from when it has one, else what it measures,
+// so one cut short at a cycle or read under another name is still itself.
+test("frames and transformations compare as the service does", () => {
+  const read = (init: Parameters<typeof wire>[0]) => decodeValue(wire(init));
+  const asFrame = (name: string, extra: Record<string, unknown> = {}) =>
+    read({ kind: { case: "coordinateFrame", value: frame(name, extra) } });
+  const placement = (x: number) => ({
+    case: "placement" as const,
+    value: { origin: vector(x, 0, 0) },
+  });
+  const datum = frame("datum", { instanceId: 3n });
+  const own = {
+    name: "placed",
+    instanceId: 9n,
+    source: datum,
+    shape: placement(1),
+    pose: { origin: [1, 0, 0], basis: [1, 0, 0, 0, 1, 0, 0, 0, 1] },
+  };
+  const asTransformation = (extra: Record<string, unknown>) =>
+    read({ kind: { case: "coordinateTransformation", value: extra } });
+
+  const posed = asFrame("posed", { instanceId: 7n, transformation: own });
+  const cut = asFrame("posed", { instanceId: 7n });
+  assert.ok(valuesEqual(posed, cut) && valuesEqual(cut, posed));
+  assert.ok(
+    !valuesEqual(posed, asFrame("posed", { instanceId: 8n, transformation: own })),
+  );
+  assert.ok(!valuesEqual(cut, asFrame("datum", { instanceId: 7n })));
+
+  const composed = asFrame("datum / s", { frameId: "" });
+  assert.ok(valuesEqual(composed, asFrame("rate", { typeId: "Frames::Rate" })));
+  assert.ok(!valuesEqual(composed, asFrame("datum / s", { dimensions: [1n] })));
+  assert.ok(!valuesEqual(composed, asFrame("datum", { instanceId: 3n })));
+  assert.ok(
+    valuesEqual(
+      { kind: "set", elements: [posed] },
+      { kind: "set", elements: [cut] },
+    ),
+  );
+
+  const direct = asTransformation({
+    ...own,
+    name: "trs",
+    target: frame("posed", { instanceId: 7n }),
+    pose: undefined,
+  });
+  assert.ok(valuesEqual(asTransformation(own), direct));
+  const constructed = { source: datum, shape: placement(1) };
+  assert.ok(
+    valuesEqual(
+      asTransformation({ ...constructed, name: "a" }),
+      asTransformation({ ...constructed, name: "b", pose: own.pose }),
+    ),
+  );
+  assert.ok(
+    !valuesEqual(
+      asTransformation(constructed),
+      asTransformation({ source: datum, shape: placement(2) }),
+    ),
+  );
+  assert.ok(
+    !valuesEqual(
+      asTransformation({ source: datum, instanceId: 4n }),
+      asTransformation({ source: datum, instanceId: 5n }),
+    ),
+  );
+});

@@ -1003,16 +1003,18 @@ function optionalEqual<T>(
   return a === undefined || b === undefined ? a === b : eq(a, b);
 }
 
-/** Frames are equal when everything read of them is. */
+/**
+ * A frame is the object and usage it was read from when either has an object,
+ * otherwise its dimensions, axes, scale and transformation, whatever names it.
+ */
 function framesEqual(
   a: CoordinateFrameValue,
   b: CoordinateFrameValue,
 ): boolean {
+  if (a.instanceId !== 0n || b.instanceId !== 0n) {
+    return a.instanceId === b.instanceId && a.frameId === b.frameId;
+  }
   return (
-    a.name === b.name &&
-    a.frameId === b.frameId &&
-    a.typeId === b.typeId &&
-    a.instanceId === b.instanceId &&
     dimensionsEqual(a.dimensions, b.dimensions) &&
     a.axes.length === b.axes.length &&
     a.axes.every((axis, i) => measurementRefsEqual(axis, b.axes[i])) &&
@@ -1033,24 +1035,27 @@ function framesEqual(
   );
 }
 
+/**
+ * One object read twice is one transformation; otherwise source, target and stated
+ * shape decide, and a transformation of no library shape equals no other.
+ */
 function transformationsEqual(
   a: CoordinateTransformationValue,
   b: CoordinateTransformationValue,
 ): boolean {
-  return (
-    a.name === b.name &&
-    a.transformationId === b.transformationId &&
-    a.typeId === b.typeId &&
+  if (
+    a.instanceId !== 0n &&
     a.instanceId === b.instanceId &&
+    a.transformationId === b.transformationId
+  ) {
+    return true;
+  }
+  return (
     optionalEqual(a.source, b.source, framesEqual) &&
     optionalEqual(a.target, b.target, framesEqual) &&
-    optionalEqual(a.shape, b.shape, shapesEqual) &&
-    optionalEqual(
-      a.pose,
-      b.pose,
-      (x, y) =>
-        numbersMatch(x.origin, y.origin) && numbersMatch(x.basis, y.basis),
-    )
+    a.shape !== undefined &&
+    b.shape !== undefined &&
+    shapesEqual(a.shape, b.shape)
   );
 }
 
@@ -1078,9 +1083,6 @@ function shapesEqual(a: FrameShapeValue, b: FrameShapeValue): boolean {
 }
 
 function stepsEqual(a: FrameStepValue, b: FrameStepValue): boolean {
-  if (a.instanceId !== b.instanceId) {
-    return false;
-  }
   if (a.kind === "translation") {
     return (
       b.kind === "translation" && valuesEqual(a.translation, b.translation)
