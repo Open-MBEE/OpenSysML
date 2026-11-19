@@ -971,8 +971,18 @@ jobs:
             fi
             gh release delete "$VERSION" --yes
           fi
+          # The tag is pushed with git, as the alias's is: the Releases API refuses the job's token
+          # (403) a new tag at a commit that itself changes a workflow file, which a push does not.
+          tagged=$(git ls-remote origin "refs/tags/$VERSION" | cut -f1)
+          if [[ -z "$tagged" ]]; then
+            git tag --force "$VERSION" "$sha"
+            git push origin "refs/tags/$VERSION"
+          elif [[ "$tagged" != "$sha" ]]; then
+            echo "::error::The tag $VERSION is already at $tagged, not at $sha."
+            exit 1
+          fi
           gh release create "$VERSION" \
-            --target "$sha" \
+            --verify-tag \
             --title "Nightly snapshot $DATE ($VERSION)" \
             --notes-file notes.md \
             --prerelease \
