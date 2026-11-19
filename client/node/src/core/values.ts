@@ -1003,10 +1003,8 @@ function optionalEqual<T>(
   return a === undefined || b === undefined ? a === b : eq(a, b);
 }
 
-/**
- * A frame is the object and usage it was read from when either has an object,
- * otherwise its dimensions, axes, scale and transformation, whatever names it.
- */
+// A frame is the object and usage it was read from when either has an object,
+// otherwise its dimensions, axes, scale and transformation, whatever names it.
 function framesEqual(
   a: CoordinateFrameValue,
   b: CoordinateFrameValue,
@@ -1035,28 +1033,27 @@ function framesEqual(
   );
 }
 
-/**
- * One object read twice is one transformation; otherwise source, target and stated
- * shape decide, and a transformation of no library shape equals no other.
- */
+// One object read twice is one transformation; otherwise source, target and stated
+// shape decide, and a transformation of no library shape is only its object.
 function transformationsEqual(
   a: CoordinateTransformationValue,
   b: CoordinateTransformationValue,
 ): boolean {
-  if (
-    a.instanceId !== 0n &&
-    a.instanceId === b.instanceId &&
-    a.transformationId === b.transformationId
-  ) {
+  const sameObject =
+    a.instanceId === b.instanceId && a.transformationId === b.transformationId;
+  if (sameObject && a.instanceId !== 0n) {
     return true;
   }
-  return (
-    optionalEqual(a.source, b.source, framesEqual) &&
-    optionalEqual(a.target, b.target, framesEqual) &&
-    a.shape !== undefined &&
-    b.shape !== undefined &&
-    shapesEqual(a.shape, b.shape)
-  );
+  if (
+    !optionalEqual(a.source, b.source, framesEqual) ||
+    !optionalEqual(a.target, b.target, framesEqual)
+  ) {
+    return false;
+  }
+  if (a.shape === undefined || b.shape === undefined) {
+    return a.shape === b.shape && sameObject;
+  }
+  return shapesEqual(a.shape, b.shape);
 }
 
 function shapesEqual(a: FrameShapeValue, b: FrameShapeValue): boolean {

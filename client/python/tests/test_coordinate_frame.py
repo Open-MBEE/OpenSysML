@@ -6,13 +6,15 @@ The service sends a feature typed by a ``CoordinateFrame`` as the
 is rather than as an unsupported null.
 """
 
+from dataclasses import replace
+
 import opensysml
 from opensysml.capabilities import CAPABILITY_COORDINATE_FRAME_VALUES
 from opensysml.errors import UnsupportedValueError
 from opensysml.proto import sysml_pb2
 from opensysml.values import (
-    AffineTransformation3d, CoordinateFrame, CoordinateTransformation, FramePose, Quantity,
-    VectorQuantity, value_to_python,
+    AffineTransformation3d, CoordinateFrame, CoordinateTransformation, FramePlacement, FramePose,
+    FrameRotation, FrameStep, MeasurementRef, Quantity, VectorQuantity, value_to_python,
 )
 
 import pytest
@@ -133,3 +135,33 @@ def test_frames_are_exported_with_their_capability():
     assert opensysml.CoordinateFrame is CoordinateFrame
     assert opensysml.CoordinateTransformation is CoordinateTransformation
     assert CAPABILITY_COORDINATE_FRAME_VALUES == "coordinate_frame_values"
+
+
+def test_frames_and_transformations_compare_as_the_service_does():
+    mm = MeasurementRef.from_pb(millimetre())
+    datum = CoordinateFrame(name="datum", frame_id="F::datum", instance_id=3, dimensions=(3,), axes=(mm,) * 3)
+    own = CoordinateTransformation(
+        name="placed", instance_id=9, source=datum, placement=FramePlacement(origin=1.0),
+        pose=FramePose(origin=(1.0,), basis=(1.0,)))
+    posed = CoordinateFrame(name="posed", frame_id="F::posed", instance_id=7, axes=(mm,) * 3, transformation=own)
+    cut = replace(posed, transformation=None)
+    assert posed == cut and cut == posed and hash(posed) == hash(cut)
+    assert posed != replace(posed, instance_id=8)
+    assert cut != replace(cut, name="datum", frame_id="F::datum")
+
+    composed = CoordinateFrame(name="datum / s", dimensions=(3,), axes=(mm,) * 3)
+    renamed = replace(composed, name="rate", type_id="F::Rate")
+    assert composed == renamed and hash(composed) == hash(renamed)
+    assert composed != replace(composed, dimensions=(1,))
+    assert composed != datum and composed != "datum / s"
+
+    direct = replace(own, name="trs", target=cut, pose=None)
+    assert own == direct and hash(own) == hash(direct)
+    constructed = CoordinateTransformation(name="a", source=datum, placement=FramePlacement(origin=1.0))
+    assert constructed == replace(constructed, name="b", type_id="F::P", pose=own.pose)
+    assert constructed != replace(constructed, placement=FramePlacement(origin=2.0))
+    assert constructed != replace(constructed, target=cut)
+    shapeless = CoordinateTransformation(name="a", instance_id=4, source=datum)
+    assert shapeless != replace(shapeless, instance_id=5)
+    step = FrameStep(translation=1.0, instance_id=7)
+    assert step == replace(step, instance_id=8) and step != FrameStep(rotation=FrameRotation(intrinsic=True))

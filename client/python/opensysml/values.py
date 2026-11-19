@@ -1348,12 +1348,17 @@ class MeasurementScale:
     reference: Optional["Quantity"] = None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class CoordinateFrame:
     """A coordinate frame or measurement scale held as a value.
 
     What a feature typed by a ``MeasurementReferences::CoordinateFrame``
     evaluates to. Reported, never accepted.
+
+    Two frames are equal as the service judges them: a frame read from an
+    object is that object of that usage (``instance_id`` and ``frame_id``),
+    however much of its transformation was sent; one composed by arithmetic is
+    its dimensions, axes, scale and transformation, whatever names it.
 
     Attributes:
         name (str): The frame as a reader names it: its declared name, else the
@@ -1405,6 +1410,19 @@ class CoordinateFrame:
             transformation=transformation, scale=scale,
         )
 
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, CoordinateFrame):
+            return NotImplemented
+        if self.instance_id != 0 or other.instance_id != 0:
+            return self.instance_id == other.instance_id and self.frame_id == other.frame_id
+        return (self.dimensions == other.dimensions and self.axes == other.axes
+                and self.scale == other.scale and self.transformation == other.transformation)
+
+    def __hash__(self) -> int:
+        if self.instance_id != 0:
+            return hash((self.instance_id, self.frame_id))
+        return hash((self.dimensions, len(self.axes)))
+
     def __str__(self) -> str:
         units = [self.scale.unit.unit.text] if self.scale is not None else [a.unit.text for a in self.axes]
         return f"{self.name} [{', '.join(units)}]"
@@ -1431,9 +1449,11 @@ class FrameRotation:
     intrinsic: bool = False
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class FrameStep:
     """One step of a ``TranslationRotationSequence``: a translation, or else a rotation.
+
+    Steps are equal for one kind with equal parts, whatever object each was read from.
 
     Attributes:
         translation: The translation vector; ``None`` for a rotation
@@ -1444,6 +1464,14 @@ class FrameStep:
     translation: Any = None
     rotation: Optional[FrameRotation] = None
     instance_id: int = 0
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, FrameStep):
+            return NotImplemented
+        return self.translation == other.translation and self.rotation == other.rotation
+
+    def __hash__(self) -> int:
+        return hash(self.rotation is None)
 
 
 @dataclass(frozen=True)
@@ -1466,13 +1494,18 @@ class FramePose:
     basis: Tuple[float, ...] = ()
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class CoordinateTransformation:
     """A coordinate transformation held as a value.
 
     The frames it relates, the shape the model states it in, and the pose that
     shape resolves to. At most one of ``placement``, ``steps`` and ``affine``
     is set. Reported, never accepted.
+
+    Two transformations are equal as the service judges them: one object of
+    one usage read twice (``instance_id`` and ``transformation_id``), or equal
+    ``source``, ``target`` and stated shape; one of no library shape is only
+    its object. The name, the type and the pose do not count.
 
     Attributes:
         name (str): The transformation as a reader names it
@@ -1531,6 +1564,26 @@ class CoordinateTransformation:
             target=CoordinateFrame.from_pb(pb_t.target, resolve_instance) if pb_t.HasField('target') else None,
             placement=placement, steps=steps, affine=affine, pose=pose,
         )
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, CoordinateTransformation):
+            return NotImplemented
+        same_object = (self.instance_id == other.instance_id
+                       and self.transformation_id == other.transformation_id)
+        if same_object and self.instance_id != 0:
+            return True
+        if self.source != other.source or self.target != other.target:
+            return False
+        if self.placement is not None or other.placement is not None:
+            return self.placement == other.placement
+        if self.steps is not None or other.steps is not None:
+            return self.steps == other.steps
+        if self.affine is not None or other.affine is not None:
+            return self.affine == other.affine
+        return same_object
+
+    def __hash__(self) -> int:
+        return hash((self.placement is not None, self.steps is not None, self.affine is not None))
 
     def __str__(self) -> str:
         source = self.source.name if self.source is not None else "?"

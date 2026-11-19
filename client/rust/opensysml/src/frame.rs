@@ -8,7 +8,7 @@ use crate::wire;
 
 /// A coordinate frame or measurement scale held as a value, sent by a service
 /// advertising `coordinate_frame_values`; an answer, never an argument.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct CoordinateFrame {
     /// The frame as a reader names it: its declared name, else the expression
     /// that composed it (`datum / s`).
@@ -51,7 +51,7 @@ pub struct QuantityValueMapping {
 
 /// A coordinate transformation held as a value: the frames it relates, the
 /// shape the model states it in, and the pose that shape resolves to.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct CoordinateTransformation {
     /// The transformation as a reader names it.
     pub name: String,
@@ -95,7 +95,7 @@ pub enum FrameShape {
 }
 
 /// One step of a `TranslationRotationSequence`.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct FrameStep {
     /// What the step does.
     pub kind: FrameStepKind,
@@ -127,6 +127,46 @@ pub struct FramePose {
     pub origin: Vec<f64>,
     /// The target's axes in the source, row-major.
     pub basis: Vec<f64>,
+}
+
+/// A frame is the object and usage it was read from when either has an object,
+/// otherwise its dimensions, axes, scale and transformation, whatever names it.
+impl PartialEq for CoordinateFrame {
+    fn eq(&self, other: &Self) -> bool {
+        if self.instance_id.is_some() || other.instance_id.is_some() {
+            return self.instance_id == other.instance_id && self.frame_id == other.frame_id;
+        }
+        self.dimensions == other.dimensions
+            && self.axes == other.axes
+            && self.scale == other.scale
+            && self.transformation == other.transformation
+    }
+}
+
+/// One object read twice is one transformation; otherwise source, target and stated
+/// shape decide, and a transformation of no library shape is only its object.
+impl PartialEq for CoordinateTransformation {
+    fn eq(&self, other: &Self) -> bool {
+        let same_object = self.instance_id == other.instance_id
+            && self.transformation_id == other.transformation_id;
+        if same_object && self.instance_id.is_some() {
+            return true;
+        }
+        if self.source != other.source || self.target != other.target {
+            return false;
+        }
+        match (&self.shape, &other.shape) {
+            (None, None) => same_object,
+            (a, b) => a == b,
+        }
+    }
+}
+
+/// Steps are equal for one kind with equal parts, whatever object each was read from.
+impl PartialEq for FrameStep {
+    fn eq(&self, other: &Self) -> bool {
+        self.kind == other.kind
+    }
 }
 
 fn named(text: String) -> Option<String> {
@@ -480,5 +520,89 @@ mod tests {
             no_step
         )))
         .is_err());
+    }
+
+    #[test]
+    fn frames_and_transformations_compare_as_the_service_does() {
+        let read = |frame: wire::CoordinateFrame| {
+            decode(wire::value::Kind::CoordinateFrame(Box::new(frame))).expect("a frame decodes")
+        };
+        let read_t = |t: wire::CoordinateTransformation| {
+            decode(wire::value::Kind::CoordinateTransformation(Box::new(t)))
+                .expect("a transformation decodes")
+        };
+        let object = |name: &str, instance_id: i64| wire::CoordinateFrame {
+            instance_id,
+            ..frame(name)
+        };
+        let placement = |x: f64| {
+            Some(wire::coordinate_transformation::Shape::Placement(Box::new(
+                wire::FramePlacement {
+                    origin: Some(Box::new(vector([x, 0.0, 0.0]))),
+                    ..Default::default()
+                },
+            )))
+        };
+        let own = wire::CoordinateTransformation {
+            name: "placed".to_owned(),
+            instance_id: 9,
+            source: Some(Box::new(object("datum", 3))),
+            shape: placement(1.0),
+            pose: Some(wire::FramePose {
+                origin: vec![1.0, 0.0, 0.0],
+                basis: vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+            }),
+            ..Default::default()
+        };
+        let posed = |instance_id| wire::CoordinateFrame {
+            transformation: Some(Box::new(own.clone())),
+            ..object("posed", instance_id)
+        };
+
+        assert_eq!(read(posed(7)), read(object("posed", 7)));
+        assert_ne!(read(posed(7)), read(posed(8)));
+        assert_ne!(read(object("posed", 7)), read(object("datum", 7)));
+
+        let composed = || wire::CoordinateFrame {
+            frame_id: String::new(),
+            ..frame("datum / s")
+        };
+        let renamed = wire::CoordinateFrame {
+            type_id: "Frames::Rate".to_owned(),
+            ..frame("rate")
+        };
+        assert_eq!(read(composed()), read(renamed));
+        let shorter = wire::CoordinateFrame {
+            dimensions: vec![1],
+            ..composed()
+        };
+        assert_ne!(read(composed()), read(shorter));
+        assert_ne!(read(composed()), read(object("datum", 3)));
+
+        let direct = wire::CoordinateTransformation {
+            name: "trs".to_owned(),
+            target: Some(Box::new(object("posed", 7))),
+            pose: None,
+            ..own.clone()
+        };
+        assert_eq!(read_t(own.clone()), read_t(direct));
+        let constructed = |name: &str, x: f64| wire::CoordinateTransformation {
+            name: name.to_owned(),
+            source: Some(Box::new(object("datum", 3))),
+            shape: placement(x),
+            ..Default::default()
+        };
+        let with_pose = wire::CoordinateTransformation {
+            pose: own.pose.clone(),
+            ..constructed("b", 1.0)
+        };
+        assert_eq!(read_t(constructed("a", 1.0)), read_t(with_pose));
+        assert_ne!(read_t(constructed("a", 1.0)), read_t(constructed("a", 2.0)));
+        let shapeless = |instance_id| wire::CoordinateTransformation {
+            instance_id,
+            shape: None,
+            ..constructed("a", 1.0)
+        };
+        assert_ne!(read_t(shapeless(4)), read_t(shapeless(5)));
     }
 }

@@ -314,6 +314,25 @@ end
     scale = decode_value(JSON.parse("""{"coordinateFrame":{"name":"celsius","scale":{"unit":$mm,"mapping":{"mapped":$(len(0.0)),"reference":$(len(273.15))}}}}"""))
     @test scale.scale.unit.unit_id == "SI::millimetre" && scale.scale.reference.magnitude == 273.15
     @test_throws OpenSysML.UnsupportedValueError decode_value(JSON.parse("""{"coordinateTransformation":{"sequence":{"steps":[{}]}}}"""))
+
+    # A frame is the object it was read from when it has one, else what it measures.
+    cf(fields) = decode_value(JSON.parse("""{"coordinateFrame":{$fields,"dimensions":["3"],"axes":[$mm,$mm,$mm]}}"""))
+    ct(fields) = decode_value(JSON.parse("""{"coordinateTransformation":{$fields}}"""))
+    cut = cf(""""name":"lbcf","frameId":"Frames::lbcf","instanceId":"4\"""")
+    @test posed == cut && cut == posed
+    @test cut != cf(""""name":"lbcf","frameId":"Frames::lbcf","instanceId":"5\"""")
+    @test cut != cf(""""name":"datum","frameId":"Frames::datum","instanceId":"4\"""")
+    composed = cf(""""name":"datum / s\"""")
+    @test composed == cf(""""name":"rate","typeId":"Frames::Rate\"""")
+    @test composed != cf(""""name":"datum / s","scale":{"unit":$mm}""")
+    @test composed != cut
+    own = """"instanceId":"9","source":$datum,"placement":{"origin":$(vec(1.0, 0.0, 0.0))}"""
+    @test ct(""""name":"placed",$own,"pose":{"origin":[1,0,0],"basis":[1,0,0,0,1,0,0,0,1]}""") ==
+          ct(""""name":"trs",$own,"target":$datum""")
+    built(name, x) = ct(""""name":"$name","source":$datum,"placement":{"origin":{"realValue":$x}}""")
+    @test built("a", 1.0) == built("b", 1.0) && built("a", 1.0) != built("a", 2.0)
+    @test ct(""""source":$datum,"instanceId":"4\"""") != ct(""""source":$datum,"instanceId":"5\"""")
+    @test FrameStep(1.0, nothing, 7) == FrameStep(1.0, nothing, 8)
     @test_throws UnsupportedValueError decode_value(JSON.parse("""{"fromTheFuture":1}"""))
     @test_throws UnsupportedValueError decode_value(Dict{String,Any}())
 end

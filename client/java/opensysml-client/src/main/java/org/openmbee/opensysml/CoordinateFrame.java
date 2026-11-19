@@ -51,6 +51,29 @@ public record CoordinateFrame(
     Objects.requireNonNull(scale, "scale");
   }
 
+  // As the service compares: the object and usage read from when either frame has an object,
+  // otherwise dimensions, axes, scale and transformation, whatever names the frame.
+  @Override
+  public boolean equals(Object other) {
+    if (!(other instanceof CoordinateFrame that)) {
+      return false;
+    }
+    if (instanceId.isPresent() || that.instanceId.isPresent()) {
+      return instanceId.equals(that.instanceId) && frameId.equals(that.frameId);
+    }
+    return dimensions.equals(that.dimensions)
+        && axes.equals(that.axes)
+        && scale.equals(that.scale)
+        && transformation.equals(that.transformation);
+  }
+
+  @Override
+  public int hashCode() {
+    return instanceId.isPresent()
+        ? Objects.hash(instanceId, frameId)
+        : Objects.hash(dimensions, axes.size());
+  }
+
   /**
    * The unit a measurement scale is measured in and, when the model defines the scale against
    * another reference, the point defining it.

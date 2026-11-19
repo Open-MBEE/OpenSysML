@@ -202,7 +202,7 @@ func (t *CoordinateTransformation) equal(other *CoordinateTransformation) bool {
 		return slices.Equal(t.Affine.Rotation, other.Affine.Rotation) &&
 			slices.Equal(t.Affine.Translation, other.Affine.Translation)
 	}
-	return false
+	return t.InstanceID == other.InstanceID && t.TransformationID == other.TransformationID
 }
 
 // equal holds for one step kind with equal parts.

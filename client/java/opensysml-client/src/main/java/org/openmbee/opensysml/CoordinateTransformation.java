@@ -50,6 +50,29 @@ public record CoordinateTransformation(
     Objects.requireNonNull(pose, "pose");
   }
 
+  // As the service compares: one object read twice, else equal source, target and stated shape;
+  // a transformation of no library shape is only its object.
+  @Override
+  public boolean equals(Object other) {
+    if (!(other instanceof CoordinateTransformation that)) {
+      return false;
+    }
+    boolean sameObject =
+        instanceId.equals(that.instanceId) && transformationId.equals(that.transformationId);
+    if (sameObject && instanceId.isPresent()) {
+      return true;
+    }
+    if (!source.equals(that.source) || !target.equals(that.target)) {
+      return false;
+    }
+    return shape.isEmpty() && that.shape.isEmpty() ? sameObject : shape.equals(that.shape);
+  }
+
+  @Override
+  public int hashCode() {
+    return shape.map(s -> s.getClass().hashCode()).orElse(0);
+  }
+
   /** The shape a model states a transformation in. */
   public sealed interface Shape {}
 
@@ -135,6 +158,17 @@ public record CoordinateTransformation(
       Objects.requireNonNull(translation, "translation");
       Objects.requireNonNull(instanceId, "instanceId");
     }
+
+    // Whatever object the step was read from.
+    @Override
+    public boolean equals(Object other) {
+      return other instanceof Translation that && translation.equals(that.translation);
+    }
+
+    @Override
+    public int hashCode() {
+      return translation.hashCode();
+    }
   }
 
   /**
@@ -160,6 +194,20 @@ public record CoordinateTransformation(
       Objects.requireNonNull(axisDirection, "axisDirection");
       Objects.requireNonNull(angle, "angle");
       Objects.requireNonNull(instanceId, "instanceId");
+    }
+
+    // Whatever object the step was read from.
+    @Override
+    public boolean equals(Object other) {
+      return other instanceof Rotation that
+          && intrinsic == that.intrinsic
+          && axisDirection.equals(that.axisDirection)
+          && angle.equals(that.angle);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(axisDirection, angle, intrinsic);
     }
   }
 

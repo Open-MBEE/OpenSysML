@@ -937,6 +937,84 @@ class ProtosTest {
         () -> Protos.proto(org.openmbee.opensysml.SweepRange.of("x", read, read)));
   }
 
+  private static org.openmbee.opensysml.CoordinateFrame readFrame(
+      org.openmbee.opensysml.proto.CoordinateFrame.Builder frame) {
+    Value read =
+        Protos.value(
+                org.openmbee.opensysml.proto.Value.newBuilder().setCoordinateFrame(frame).build())
+            .orElseThrow();
+    return ((Value.CoordinateFrameValue) read).frame();
+  }
+
+  private static org.openmbee.opensysml.CoordinateTransformation readTransformation(
+      org.openmbee.opensysml.proto.CoordinateTransformation.Builder transformation) {
+    Value read =
+        Protos.value(
+                org.openmbee.opensysml.proto.Value.newBuilder()
+                    .setCoordinateTransformation(transformation)
+                    .build())
+            .orElseThrow();
+    return ((Value.CoordinateTransformationValue) read).transformation();
+  }
+
+  private static org.openmbee.opensysml.proto.CoordinateTransformation.Builder wirePlacing(
+      String name, double x) {
+    return org.openmbee.opensysml.proto.CoordinateTransformation.newBuilder()
+        .setName(name)
+        .setSource(wireFrame("datum").setInstanceId(3))
+        .setPlacement(
+            org.openmbee.opensysml.proto.FramePlacement.newBuilder()
+                .setOrigin(wireVector(x, 0, 0)));
+  }
+
+  @Test
+  void framesAndTransformationsCompareAsTheServiceDoes() {
+    org.openmbee.opensysml.proto.FramePose.Builder pose =
+        org.openmbee.opensysml.proto.FramePose.newBuilder()
+            .addAllOrigin(List.of(1.0, 0.0, 0.0))
+            .addAllBasis(List.of(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0));
+    org.openmbee.opensysml.CoordinateFrame posed =
+        readFrame(
+            wireFrame("posed")
+                .setInstanceId(7)
+                .setTransformation(wirePlacing("placed", 1).setInstanceId(9).setPose(pose)));
+    org.openmbee.opensysml.CoordinateFrame cut = readFrame(wireFrame("posed").setInstanceId(7));
+    assertEquals(posed, cut);
+    assertEquals(cut, posed);
+    assertEquals(posed.hashCode(), cut.hashCode());
+    assertEquals(new Value.CoordinateFrameValue(posed), new Value.CoordinateFrameValue(cut));
+    assertNotEquals(cut, readFrame(wireFrame("posed").setInstanceId(8)));
+    assertNotEquals(cut, readFrame(wireFrame("datum").setInstanceId(7)));
+
+    org.openmbee.opensysml.CoordinateFrame composed =
+        readFrame(wireFrame("datum / s").clearFrameId());
+    org.openmbee.opensysml.CoordinateFrame renamed =
+        readFrame(wireFrame("rate").setTypeId("Frames::Rate"));
+    assertEquals(composed, renamed);
+    assertEquals(composed.hashCode(), renamed.hashCode());
+    assertNotEquals(composed, readFrame(wireFrame("datum / s").clearFrameId().addDimensions(1)));
+    assertNotEquals(composed, readFrame(wireFrame("datum").setInstanceId(3)));
+
+    org.openmbee.opensysml.CoordinateTransformation own =
+        readTransformation(wirePlacing("placed", 1).setInstanceId(9).setPose(pose));
+    org.openmbee.opensysml.CoordinateTransformation direct =
+        readTransformation(
+            wirePlacing("trs", 1).setInstanceId(9).setTarget(wireFrame("posed").setInstanceId(7)));
+    assertEquals(own, direct);
+    assertEquals(own.hashCode(), direct.hashCode());
+    assertEquals(
+        readTransformation(wirePlacing("a", 1)), readTransformation(wirePlacing("b", 1).setPose(pose)));
+    assertNotEquals(readTransformation(wirePlacing("a", 1)), readTransformation(wirePlacing("a", 2)));
+    assertNotEquals(
+        readTransformation(wirePlacing("a", 1).clearPlacement().setInstanceId(4)),
+        readTransformation(wirePlacing("a", 1).clearPlacement().setInstanceId(5)));
+    assertEquals(
+        new org.openmbee.opensysml.CoordinateTransformation.Translation(
+            new Value.RealValue(1), Optional.of(7L)),
+        new org.openmbee.opensysml.CoordinateTransformation.Translation(
+            new Value.RealValue(1), Optional.of(8L)));
+  }
+
   @Test
   void aTransformationCarriesItsEndpointsAndTheShapeItIsStatedIn() {
     org.openmbee.opensysml.proto.Value placement =

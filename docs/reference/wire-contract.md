@@ -969,6 +969,20 @@ rendering of it:
   `origin` has one number per source axis and `basis` is n×n, row-major. It is computed from the units the model
   names, so the library's degree (0.01745329 rad) puts a 180° turn within 5e-7 of a half turn, as above. It is absent when the transformation states no
   source or its shape resolves to no pose; it is never a guess.
+- **Equality.** A client compares two frames as the service does. When either carries an
+  `instanceId`, they are equal exactly when `instanceId` and `frameId` both match: one object
+  of one usage, whether or not its `transformation` was sent (a frame cut short at a cycle is
+  still itself) and whatever `name` it was read under. Frames with no `instanceId`, composed
+  by an operation, are equal when `dimensions`, `axes`, `scale` and `transformation` are;
+  `name`, `frameId` and `typeId` do not count. Two transformations are equal when `source`,
+  `target` and the stated shape are, steps compared by what they do and not by their
+  `instanceId`; `name`, `typeId` and `pose` do not count, and a transformation stating no
+  shape equals only one with the same `instanceId` and `transformationId`. Two limits follow
+  from what is sent. An `instanceId` means nothing across responses, so the comparison is
+  sound within one response; `frameId` keeps two different usages apart across responses,
+  but not two objects of one usage. And a frame's own `transformation` carries no `target`,
+  so a client equates it with a transformation read directly only when both carry the same
+  `instanceId` and `transformationId`; an absent `target` otherwise equals only an absent one.
 - **Output only.** Neither arm is an argument: a request carrying one, at any depth, is
   answered with `INVALID_ARGUMENT`, and the typed clients refuse to encode one.
 - A frame or transformation holding a value that itself has no wire form is withheld whole, as
@@ -980,7 +994,9 @@ rendering of it:
 
 The typed clients read them as `CoordinateFrame` and `CoordinateTransformation` (Go, Python,
 Java, Rust, Julia), `CoordinateFrameValue` and `CoordinateTransformationValue` (Node), and
-structs marked `coordinateFrame` / `coordinateTransformation` (MATLAB).
+structs marked `coordinateFrame` / `coordinateTransformation` (MATLAB). Go, Python, Node, Java,
+Rust and Julia define equality over them by the rule above; MATLAB returns plain structs and
+defines none.
 
 ### What a client must not do
 

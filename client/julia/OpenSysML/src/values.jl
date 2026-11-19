@@ -204,10 +204,32 @@ struct CoordinateTransformation
     pose::Union{Nothing,FramePose}
 end
 
-for T in (:MeasurementScale, :CoordinateFrame, :FramePlacement, :FrameRotation, :FrameStep,
-          :AffineTransformation3d, :FramePose, :CoordinateTransformation)
+for T in (:MeasurementScale, :FramePlacement, :FrameRotation, :AffineTransformation3d, :FramePose)
     @eval Base.:(==)(a::$T, b::$T) = all(getfield(a, f) == getfield(b, f) for f in fieldnames($T))
 end
+
+# A frame is the object and usage it was read from when either has an object, otherwise
+# its dimensions, axes, scale and transformation, whatever names it: the service's rule.
+function Base.:(==)(a::CoordinateFrame, b::CoordinateFrame)
+    if a.instance_id !== nothing || b.instance_id !== nothing
+        return a.instance_id == b.instance_id && a.frame_id == b.frame_id
+    end
+    a.dimensions == b.dimensions && a.axes == b.axes && a.scale == b.scale &&
+        a.transformation == b.transformation
+end
+
+# One object read twice is one transformation; otherwise source, target and stated shape
+# decide, and a transformation of no library shape is only its object.
+function Base.:(==)(a::CoordinateTransformation, b::CoordinateTransformation)
+    same_object = a.instance_id == b.instance_id && a.transformation_id == b.transformation_id
+    same_object && a.instance_id !== nothing && return true
+    a.source == b.source && a.target == b.target || return false
+    shapes(t) = (t.placement, t.steps, t.affine)
+    all(isnothing, shapes(a)) && all(isnothing, shapes(b)) ? same_object : shapes(a) == shapes(b)
+end
+
+# Steps are equal for one kind with equal parts, whatever object each was read from.
+Base.:(==)(a::FrameStep, b::FrameStep) = a.translation == b.translation && a.rotation == b.rotation
 
 """A unit value with its optional model declaration identity."""
 struct MeasurementRef
