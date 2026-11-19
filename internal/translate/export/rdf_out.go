@@ -1432,6 +1432,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		h.membershipExtra = func(membership rdf.Term) {
 			e.graph.Add(membership, e.sysml(pOwnedMemberParameter), subject)
 			e.graph.Add(accepter, e.sysml(pParameter), subject)
+			e.graph.Add(accepter, e.sysml(pInput), subject)
 			e.graph.Add(accepter, e.sysml(pPayloadParameter), subject)
 		}
 	}
@@ -1685,8 +1686,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if err := e.prefixes(subject, fqn, n.Prefixes, naming.BodyMembers(n)); err != nil {
 			return err
 		}
-		if trigger {
-			// A trigger action's parameters are its inputs (SysML.xtext PayloadParameterMember, NodeParameterMember).
+		if trigger || n.IsAccept {
+			// An accept's parameters are its inputs (SysML.xtext PayloadParameterMember, NodeParameterMember).
 			e.graph.Add(subject, e.sysml(pDirection), rdf.String("in"))
 		} else if keyword := directionKeyword(n.Direction); keyword != "" {
 			e.graph.Add(subject, e.sysml(pDirection), rdf.String(keyword))
@@ -2702,7 +2703,8 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) (rdf.Term
 	if end.target != nil || end.targetTerm.Value != "" {
 		switch {
 		case len(flowSegments) > 0:
-			reference = e.flowEndReferences(feature, flowSegments, e.flowEndFeatureName(end))
+			reference = e.flowEndReferences(
+				feature, flowSegments, e.flowEndFeatureName(end), e.flowFeatureDirection(end))
 		case end.targetTerm.Value != "":
 			e.referenceSubsetting(feature, end.targetTerm)
 			reference = end.targetTerm
@@ -2752,7 +2754,12 @@ func (e *encoder) flowEndSegments(end connectorEndSpec) []rdf.Term {
 // FlowFeature, a ReferenceUsage the end owns, redefining the last segment.
 // `a.p.fuel` subsets the chain a.p and redefines fuel; a lone `a` only redefines a.
 // It returns the feature the end's ReferenceSubsetting references, none for a lone name.
-func (e *encoder) flowEndReferences(feature rdf.Term, segments []rdf.Term, name string) rdf.Term {
+func (e *encoder) flowEndReferences(
+	feature rdf.Term,
+	segments []rdf.Term,
+	name string,
+	direction ast.FeatureDirection,
+) rdf.Term {
 	prefix, last := segments[:len(segments)-1], segments[len(segments)-1]
 	var reference rdf.Term
 	switch len(prefix) {
@@ -2784,7 +2791,43 @@ func (e *encoder) flowEndReferences(feature rdf.Term, segments []rdf.Term, name 
 		e.flags(flowFeature, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
 	}
 	e.graph.Add(flowFeature, e.sysml(relationshipProperty[ast.RelRedefines]), last)
+	if keyword := directionKeyword(direction); keyword != "" {
+		e.graph.Add(flowFeature, e.sysml(pDirection), rdf.String(keyword))
+	}
 	return reference
+}
+
+// flowFeatureDirection is the direction of a flow end's FlowFeature: that of the feature it redefines
+// as the end inherits it (KerML.xtext FlowFeature, note 1: owningType.directionOf(redefinedFeature)).
+func (e *encoder) flowFeatureDirection(end connectorEndSpec) ast.FeatureDirection {
+	var owner, redefined *symbols.Symbol
+	switch target := end.target.(type) {
+	case *ast.QualifiedName:
+		last := len(target.Parts) - 1
+		redefined, _ = e.res.PartSymbol(target, last)
+		for i := last; i > 0 && owner == nil; i-- {
+			if target.Parts[i].Chained {
+				owner, _ = e.res.PartSymbol(target, i-1)
+			}
+		}
+	case *ast.FeatureChainExpr:
+		segments := featureChainSegments(target)
+		if len(segments) < 2 {
+			return ast.DirNone
+		}
+		symbolOf := func(name *ast.QualifiedName) *symbols.Symbol {
+			if sym, ok := e.links[name]; ok {
+				return sym
+			}
+			sym, _ := e.res.PartSymbol(name, len(name.Parts)-1)
+			return sym
+		}
+		owner, redefined = symbolOf(segments[len(segments)-2]), symbolOf(segments[len(segments)-1])
+	}
+	if owner == nil || redefined == nil {
+		return ast.DirNone
+	}
+	return e.ids.model.EffectiveDirection(owner, redefined)
 }
 
 // flowEndFeatureName is the effective name of the ReferenceUsage the flow end at end.index owns, the

@@ -159,6 +159,7 @@ case_ dependabot docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust
 # A composite action is a service path like the workflows; the differential runs for the two actions its job uses.
 case_ action-apt-install docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/apt-install/action.yml
 case_ action-maven-cache docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/maven-cache/action.yml
+case_ action-pip-install docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/pip-install/action.yml
 case_ action-fuml-suite docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/fuml-suite/action.yml
 case_ action-corpora apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/corpora/action.yml
 case_ action-pilot-validator apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/pilot-validator/action.yml
@@ -191,6 +192,7 @@ quick_case_ unclaimed go some-new-top-level/thing.txt
 # An action's push runs the Go suite and the other jobs that use the action.
 quick_case_ action-apt-install docs,go,matlab,node,python .github/actions/apt-install/action.yml
 quick_case_ action-maven-cache go,java,mdk,syson .github/actions/maven-cache/action.yml
+quick_case_ action-pip-install docs,go,jupyterlab,python .github/actions/pip-install/action.yml
 quick_case_ action-fuml-suite go .github/actions/fuml-suite/action.yml
 quick_case_ action-corpora apijson,go .github/actions/corpora/action.yml
 quick_case_ action-pilot-validator apijson,go .github/actions/pilot-validator/action.yml
@@ -241,6 +243,7 @@ queue_case_ apijson-baseline docs,go docs/project/api-json-differential/index.js
 queue_case_ unclaimed docs,go some-new-top-level/thing.txt
 queue_case_ emacs-own emacs editors/emacs/sysml-mode.el
 queue_case_ java-own java,mdk,python,syson client/java/pom.xml
+queue_case_ action-pip-install docs,go,jupyterlab,python .github/actions/pip-install/action.yml
 area_for_event_() {
   local event=$1 label=$2 area=$3 expected=$4
   local actual

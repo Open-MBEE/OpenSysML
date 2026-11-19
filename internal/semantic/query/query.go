@@ -58,6 +58,12 @@ const (
 	PropertyPayloadArgument  = "payloadArgument"
 	PropertySenderArgument   = "senderArgument"
 	PropertyReceiverArgument = "receiverArgument"
+	// PropertySymbolKind is the kind of the element's symbol, as SymbolInfo.kind
+	// spells it ("partDef", "stateUsage").
+	PropertySymbolKind = "symbolKind"
+	// PropertyText is RequirementDefinition::text / RequirementUsage::text: the
+	// body of each `doc` the requirement owns, in order.
+	PropertyText = "text"
 	// PropertyElementID is the elementId a conversion of the model writes for
 	// the element, reported only where the reader is given one (WithElementID).
 	PropertyElementID = "elementId"
@@ -74,6 +80,7 @@ var propertyNames = []string{
 	PropertySatisfiedRequirement, PropertySatisfyingFeature,
 	PropertyPayloadArgument, PropertySenderArgument, PropertyReceiverArgument,
 	PropertyElementID,
+	PropertySymbolKind, PropertyText,
 }
 
 // PropertyNames returns the supported property names in stable order.

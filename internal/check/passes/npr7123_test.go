@@ -241,3 +241,29 @@ func TestNPR7123InheritedProductIsReportedAtTheReview(t *testing.T) {
 		t.Fatalf("design solution diagnostics = %+v, want one at the review on line 4 naming CDRTemplate", got)
 	}
 }
+
+// The library's tables are read only for a document stating a review, a SEMP or a
+// compliance matrix: reading them for every document of a large model dominated its analysis.
+func TestNPR7123ReadsLibraryTablesOnlyWhenUsed(t *testing.T) {
+	loaded := func(src string) bool {
+		t.Helper()
+		root := parser.New(source.New("<t>", []byte(src))).ParseFile()
+		idx := newTestIndex()
+		idx.AddDocument("<t>", root)
+		a := newNPR7123Audit(NewContext("<t>", idx, nil))
+		if a == nil {
+			t.Fatal("the bundled NPR7123 library is not loaded")
+		}
+		a.check(idx.DocumentRoot("<t>"))
+		return a.tablesLoaded
+	}
+	if loaded("package M { part def D; part p : D; }") {
+		t.Error("a model that never uses the library read its tables")
+	}
+	if loaded(npr7123Model("\n\tpart entries { requirement c : SE09 { @Compliance { comply = ComplyKind::tailored; } } }")) {
+		t.Error("a model with compliance entries alone read the library's tables")
+	}
+	if !loaded(npr7123Model("\n\t#lifeCycleReview action bare { :>> kind = ReviewKind::TRR; }")) {
+		t.Error("a model stating a life-cycle review did not read the library's tables")
+	}
+}
