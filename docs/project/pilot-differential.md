@@ -245,7 +245,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-09.1`, 924 files)
+## Results (pilot `2026-09.1`, 925 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -255,9 +255,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 12 | 0 | 0 | 0 | 12 | 0 |
 | `examples/spec-examples` | 511 | 151 | 1091 | 3395 | 1042 | 4 | 45 | 2349 |
 | `tests/testdata` | 40 | 26 | 76 | 101 | 61 | 4 | 11 | 36 |
-| `examples` | 56 | 49 | 12 | 69 | 4 | 0 | 8 | 65 |
+| `examples` | 57 | 49 | 18 | 70 | 4 | 0 | 14 | 66 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **924** | **528** | **1235** | **3565** | **1107** | **8** | **120** | **2450** |
+| **Total** | **925** | **528** | **1241** | **3566** | **1107** | **8** | **126** | **2451** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -304,10 +304,10 @@ errors — the pair sits in severity-only rather than either side changing what 
 Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-examples` 4
 `unmapped`, 26 `unresolved-reference`, 2 `units`, 1 `kind-mismatch`, 1 `multiplicity`; `pilot-validation`
 3 `unresolved-reference`; `kerml-examples` 9 `unmapped`, 3 `unresolved-reference`; `testdata` 8 `unmapped`,
-1 `unresolved-reference`, 2 `multiplicity`; `examples` 4
+1 `unresolved-reference`, 2 `multiplicity`; `examples` 10
 `unmapped`, 1 `kind-mismatch`, 2 `multiplicity`, 1 `unresolved-reference`; `probes` 6 `unmapped`; `spec-examples` 6 `syntax`,
 38 `unresolved-reference`, 1 `unmapped`. Only-pilot: `testdata` 14 `kind-mismatch`, 17 `unmapped`,
-3 `syntax`, 2 `unresolved-reference`; `examples` 24 `unmapped`, 41 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
+3 `syntax`, 2 `unresolved-reference`; `examples` 24 `unmapped`, 42 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
 586 `kind-mismatch`, 196 `syntax`, 154 `unresolved-reference`, 50 `multiplicity`, 4 `units`.
 
 The `spec-examples` figures are dominated by fragments: the specification's examples leave
@@ -1106,8 +1106,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **2450** |
-| pilot diagnostics | 123 | **3565** |
+| only pilot | 82 | **2451** |
+| pilot diagnostics | 123 | **3566** |
 | severity-only | 9 | **8** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -1331,14 +1331,14 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **528 / 120 / 1235** |
-| only pilot | **2450** |
-| pilot diagnostics | **3565** |
+| overall: fully agreeing / only ours / our diagnostics | **528 / 126 / 1241** |
+| only pilot | **2451** |
+| pilot diagnostics | **3566** |
 | severity-only | **8** |
-| unmapped, our side | **53** |
+| unmapped, our side | **59** |
 | kerml-examples: only ours | **12** |
 | pilot-examples: only ours | **34** |
-| examples: only pilot | **65** |
+| examples: only pilot | **66** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **9** only-ours against 6
 only-pilot, with 56 of 58 files fully agreeing (439 / 6 and 10 / 58 when the root was added, and
