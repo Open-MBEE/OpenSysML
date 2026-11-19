@@ -24,6 +24,11 @@ func (m *Model) RootNamespace(doc string) *symbols.Symbol {
 			root.Decl, root.DeclSpan = node, node.Span()
 		}
 	}
+	var node ast.Node
+	if root != nil {
+		node = root.Decl
+	}
+	journal(m, m.rootNamespaces, doc, node)
 	m.rootNamespaces[doc] = root
 	return root
 }

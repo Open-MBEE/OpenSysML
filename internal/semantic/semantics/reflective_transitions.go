@@ -541,6 +541,7 @@ func (m *Model) initialEndsOf(sym *symbols.Symbol, node *ast.InitialNode) []*sym
 		part.OwnerScope = sym.OwnerScope
 		ends = append(ends, part)
 	}
+	journal(m, m.edgeEnds, sym, sym.Decl)
 	m.edgeEnds[sym] = ends
 	return ends
 }

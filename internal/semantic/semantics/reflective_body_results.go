@@ -48,6 +48,7 @@ func (m *Model) resultExpressionMembers(sym *symbols.Symbol) []*symbols.Symbol {
 	if m.resultExpressionSymbols == nil {
 		m.resultExpressionSymbols = make(map[*symbols.Symbol][]*symbols.Symbol)
 	}
+	journal(m, m.resultExpressionSymbols, sym, sym.Decl)
 	m.resultExpressionSymbols[sym] = out
 	return out
 }
@@ -91,6 +92,7 @@ func (m *Model) filterMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	if m.filterMembershipSymbols == nil {
 		m.filterMembershipSymbols = make(map[*symbols.Symbol][]*symbols.Symbol)
 	}
+	journal(m, m.filterMembershipSymbols, sym, sym.Decl)
 	m.filterMembershipSymbols[sym] = out
 	return out
 }

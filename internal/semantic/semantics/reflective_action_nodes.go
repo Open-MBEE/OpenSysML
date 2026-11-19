@@ -33,6 +33,7 @@ func (m *Model) statementNodes(sym *symbols.Symbol) []*symbols.Symbol {
 					m.statementOwners = make(map[*symbols.Symbol]*symbols.Symbol)
 					m.statementScopes = make(map[*symbols.Scope]*symbols.Symbol)
 				}
+				journal(m, m.statementScopes, child, statement)
 				m.statementScopes[child] = sym
 			}
 		}
@@ -63,8 +64,10 @@ func (m *Model) statementNodes(sym *symbols.Symbol) []*symbols.Symbol {
 			m.statementOwners = make(map[*symbols.Symbol]*symbols.Symbol)
 			m.statementScopes = make(map[*symbols.Scope]*symbols.Symbol)
 		}
+		journal(m, m.statementOwners, node, member)
 		m.statementOwners[node] = sym
 		if node.Scope != nil {
+			journal(m, m.statementScopes, node.Scope, member)
 			m.statementScopes[node.Scope] = node
 		}
 		out = append(out, node)
@@ -72,6 +75,7 @@ func (m *Model) statementNodes(sym *symbols.Symbol) []*symbols.Symbol {
 	if m.statementSymbols == nil {
 		m.statementSymbols = make(map[*symbols.Symbol][]*symbols.Symbol)
 	}
+	journal(m, m.statementSymbols, sym, sym.Decl)
 	m.statementSymbols[sym] = out
 	return out
 }
@@ -225,6 +229,7 @@ func (m *Model) statementOperands(sym *symbols.Symbol) []*symbols.Symbol {
 	if m.statementOperandSymbols == nil {
 		m.statementOperandSymbols = make(map[*symbols.Symbol][]*symbols.Symbol)
 	}
+	journal(m, m.statementOperandSymbols, sym, sym.Decl)
 	m.statementOperandSymbols[sym] = out
 	return out
 }

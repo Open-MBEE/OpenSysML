@@ -37,6 +37,8 @@ func (m *Model) filterPackageOf(imp *symbols.Symbol) *symbols.Symbol {
 		m.filterPackages = make(map[*symbols.Symbol]*symbols.Symbol)
 		m.filterPackageImports = make(map[*symbols.Symbol]*symbols.Symbol)
 	}
+	journal(m, m.filterPackages, imp, decl)
+	journal(m, m.filterPackageImports, pkg, decl)
 	m.filterPackages[imp] = pkg
 	m.filterPackageImports[pkg] = imp
 	return pkg
@@ -94,6 +96,7 @@ func (m *Model) filterPackagePartsOf(pkg *symbols.Symbol) filterPackageParts {
 	if m.filterPackageMembers == nil {
 		m.filterPackageMembers = make(map[*symbols.Symbol]filterPackageParts)
 	}
+	journal(m, m.filterPackageMembers, pkg, decl)
 	m.filterPackageMembers[pkg] = parts
 	return parts
 }
