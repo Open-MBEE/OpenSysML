@@ -248,3 +248,43 @@ func TestPreCancelledLongCallsDoNoWork(t *testing.T) {
 		t.Error("a pre-cancelled Convert prepared the model for export")
 	}
 }
+
+// A parse stopped while it analyzes writes no record of the model, so no later
+// process reads part of a report; one stopped while a record answers is as whole.
+func TestCancelledParseRecordsNoAnalysis(t *testing.T) {
+	for _, cause := range []error{context.Canceled, context.DeadlineExceeded} {
+		t.Run(cause.Error(), func(t *testing.T) {
+			req := &pb.ParseSourcesRequest{Documents: inlineDocuments(recordedModels[2]...)}
+			want, err := mustNewService(t, 8).ParseSources(context.Background(), req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(want.Diagnostics) == 0 {
+				t.Fatal("the model reports nothing, so a partial report would not show")
+			}
+			cache, dir := recordCacheIn(t)
+			// A service per attempt: a second parse of the documents goes through their lineage, which records nothing.
+			written, analyzing := cancelAtEveryCheck(t, cause, func(ctx context.Context) (*pb.ParseSourcesResponse, error) {
+				resp, err := recordingService(t, cache).ParseSources(ctx, req)
+				if n := len(recordFiles(t, dir)); err != nil && n != 0 {
+					t.Fatalf("a cancelled parse wrote %d records", n)
+				}
+				return resp, err
+			})
+			if n := len(recordFiles(t, dir)); n != 1 {
+				t.Fatalf("the finished parse wrote %d records, want 1", n)
+			}
+			read, reading := cancelAtEveryCheck(t, cause, func(ctx context.Context) (*pb.ParseSourcesResponse, error) {
+				return recordingService(t, cache).ParseSources(ctx, req)
+			})
+			if reading >= analyzing {
+				t.Errorf("reading the record looked at the context %d times, analyzing %d: the record was not read", reading, analyzing)
+			}
+			for label, got := range map[string]*pb.ParseSourcesResponse{"writing the record": written, "reading the record": read} {
+				if !proto.Equal(got, want) {
+					t.Errorf("%s after cancelled parses differs from an undisturbed parse:\n got %v\nwant %v", label, got, want)
+				}
+			}
+		})
+	}
+}

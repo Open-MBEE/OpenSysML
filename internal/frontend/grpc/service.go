@@ -25,6 +25,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // msgModelNotFound formats the not-found status for an unknown model hash.
@@ -536,6 +537,9 @@ type Service struct {
 	// lineages are the incremental workspaces of the document sets parsed more
 	// than once (lineage.go).
 	lineages *lineages
+	// records persists what the analysis of a model reported, for the next process
+	// that parses it (modelrecord.go); nil holds nothing across processes.
+	records *libs.Cache
 }
 
 // Option adjusts how NewService builds a service.
@@ -544,6 +548,13 @@ type Option func(*serviceOptions)
 type serviceOptions struct {
 	unavailable []string
 	serve       []string
+	records     *libs.Cache
+}
+
+// WithRecordCache has the service read a parsed model's analysis from cache when one is
+// recorded there, and record what it analyzes itself; a nil cache is none.
+func WithRecordCache(cache *libs.Cache) Option {
+	return func(o *serviceOptions) { o.records = cache }
 }
 
 // ServeExternalEngines names the manifest engines the service runs, as
@@ -643,6 +654,7 @@ func newService(cacheSize int, version string, opts []Option) (*Service, error) 
 		engines:        engines,
 		version:        version,
 		capabilities:   availability,
+		records:        options.records,
 	}, nil
 }
 
@@ -1092,17 +1104,23 @@ func (s *Service) parseModelKeeping(ctx context.Context, inputs []sourceInput, m
 		}
 		batch := &passes.Batch{Documents: names, Gathers: passes.NewGathers()}
 		passes.PrepareBatch(idx, batch)
-		for i, doc := range documents {
+		if !s.analysisFromRecord(modelHash, idx, documents) {
+			for i, doc := range documents {
+				if err := ctx.Err(); err != nil {
+					return "", nil, err
+				}
+				doc.Unfiltered, _ = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind, doc.Root,
+					doc.Diagnostics, idx, passes.Options{Conformance: mode, Context: ctx}, batch)
+			}
+			// An analysis its context stopped between passes holds part of a report,
+			// which is neither recorded nor answered.
 			if err := ctx.Err(); err != nil {
 				return "", nil, err
 			}
-			doc.Unfiltered, _ = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind, doc.Root,
-				doc.Diagnostics, idx, passes.Options{Conformance: mode, Context: ctx}, batch)
-			doc.Diagnostics = passes.WithoutLints(doc.Unfiltered, nil, nil)
+			s.recordAnalysis(modelHash, idx, documents)
 		}
-		// An analysis its context stopped between passes holds part of a report.
-		if err := ctx.Err(); err != nil {
-			return "", nil, err
+		for _, doc := range documents {
+			doc.Diagnostics = passes.WithoutLints(doc.Unfiltered, nil, nil)
 		}
 	}
 

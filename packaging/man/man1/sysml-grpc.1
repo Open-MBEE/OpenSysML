@@ -58,6 +58,10 @@ Log level (debug, info, warn, error). The default is info.
 .B \-man
 Write this command's manual page, in roff, to stdout and exit
 .TP
+.B \-no\-record\-cache
+Analyze every model parsed, reading no model record from the record cache and
+writing none; default off, or OPENSYSML_RECORD_CACHE=0
+.TP
 .BI \-oidc\-audience " string"
 Audience (aud) a token must name to be accepted; default the URL the service
 is reached at

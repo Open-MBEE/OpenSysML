@@ -302,6 +302,17 @@ and a new model arrives, or until the process exits. Every call that names a has
 use, so a model in active use is not evicted. Re-parsing a model the cache still holds returns
 the same hash and does not re-parse.
 
+What a process restart keeps is the model's analysis, not the model: a parse whose documents all
+parse clean files the diagnostics its validation passes reported in the record cache (the
+`sysml-ls/libs` directory under `XDG_CACHE_HOME` or the user cache directory), under the model
+hash, the standard library's identity and the build. The next process to parse the same documents
+at the same strictness parses and indexes them, reads the diagnostics from the record instead of
+running the passes, and answers exactly what a first parse answers. A record that is missing,
+unreadable or of another model is a miss, and the model is analyzed. The model records of a cache
+directory are held to 64 MiB together, the least recently used going first, and a record no parse
+has read for 30 days is removed. `sysml-grpc -no-record-cache`, or `OPENSYSML_RECORD_CACHE=0`,
+reads and writes none.
+
 The consequence for a client: a hash is a **cache key, not a durable identifier**. Store the
 documents, not the hash; recompute by re-parsing whenever the service says the hash is gone.
 Here it is happening, against a service started with `-cache-size 1`:
