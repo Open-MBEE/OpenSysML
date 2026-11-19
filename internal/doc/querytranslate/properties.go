@@ -14,6 +14,7 @@ import (
 // declares, spelled in the OpenSysML namespace by OSLC query text.
 var derivedProperties = []string{
 	query.PropertyID, query.PropertyType, query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper,
+	query.PropertySymbolKind,
 	query.PropertyVerifyingCase,
 }
 
@@ -24,7 +25,7 @@ var objectProjection = []string{
 	query.PropertyShortName, query.PropertyDeclaredShortName, query.PropertyDocumentation,
 	query.PropertyTextualRepresentation, query.PropertyQualifiedName, query.PropertyOwner,
 	query.PropertyElementType, query.PropertyGeneral, query.PropertyIsAbstract, query.PropertyIsIndividual,
-	query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper,
+	query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper, query.PropertySymbolKind,
 }
 
 // textProperties are the universal properties whose values are text, which

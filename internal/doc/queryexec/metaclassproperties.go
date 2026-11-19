@@ -22,7 +22,7 @@ var MetaclassPackages = []string{"KerML::Root", "KerML::Core", "KerML::Kernel", 
 // against them.
 var ownProperties = []string{
 	query.PropertyID, query.PropertyType, query.PropertyElementType, query.PropertyGeneral,
-	query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper,
+	query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper, query.PropertySymbolKind,
 	query.PropertyVerifyingCase,
 }
 

@@ -1165,6 +1165,8 @@ with no `@id`, reported as written (`a.p`); `sourceFeature.featureTarget` and
 | `elementId` | The `elementId` `Convert` writes for the element (qualified id form), read from a conversion of the model made once: a declared id as declared, a bundled library element's fixed id — a standard-library element's normative id, an OpenSysML extension's extension id (a library file's copy included) — any other the encoding of its qualified or positional name. It is the API JSON `@id` too, except in a model of several identity scopes, whose `@id` the scope qualifies. Absent for a library element a model gives an id of its own, which `Convert` references by name. A query reading it of a model `Convert` refuses is `FAILED_PRECONDITION`. Reported only when a query selects or constrains it, never by an empty `select`, since reading it converts the model | |
 | `multiplicityLower` | Declared lower bound | ✅ |
 | `multiplicityUpper` | Declared upper bound, `*` when unbounded | ✅ |
+| `symbolKind` | The symbol kind `GetSymbol` reports as `SymbolInfo.kind` (`partDef`, `stateUsage`, `actionUsage`), present on every row, one with a positional `@id` included. It tells apart rows no `LookupSymbol` reaches; a transition is an `actionUsage` here and a `TransitionUsage` by `@type` | |
+| `text` | `RequirementDefinition::text` / `RequirementUsage::text`: the body of the requirement's `doc`, as `documentation` reads it; absent for a requirement that states none. This single-valued record reports the first body. On any other element `text` names a feature of the model, as every name outside this table does | |
 
 ### `@type` — symbol kind → metamodel type
 
