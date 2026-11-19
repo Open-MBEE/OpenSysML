@@ -228,13 +228,14 @@ func (s *SymbolIDs) compute(sym *symbols.Symbol) (string, bool) {
 }
 
 // rootNamespaceID mirrors rootNamespaceIDs: the root Namespace is named off the document's first
-// top-level element with RootNamespaceSuffix, repeated while the candidate is an id already written.
+// top-level element (an alias or import included) with RootNamespaceSuffix, repeated while written.
 func (s *SymbolIDs) rootNamespaceID(root *symbols.Symbol) (string, bool) {
-	for _, membership := range s.model.OwnedMemberships(root) {
-		if membership.Implicit == nil || membership.Implicit.Member == nil {
-			continue
+	for _, relationship := range s.model.OwnedRelationships(root) {
+		element := relationship
+		if relationship.Implicit != nil && relationship.Implicit.Member != nil {
+			element = relationship.Implicit.Member
 		}
-		first, ok := s.of(membership.Implicit.Member)
+		first, ok := s.of(element)
 		if !ok {
 			return "", false
 		}
