@@ -1,9 +1,10 @@
 // A lander performs the dynamics of a body dropped from 19 m under 10 m/s^2 and
 // runs a state machine on the same clock. The machine's own 10 s timeout drives
 // the clock, so the dynamics step beside it. The height crosses zero between the
-// steps at 1.5 s and 2 s: the crossing raises Touchdown at the end of the
-// detecting step, the machine's accept takes it before the timeout, and the
-// terminal crossing ends the dynamics there.
+// steps at 1.5 s and 2 s, at the square root of 3.8 s: the crossing is located
+// there, inside the step, and raises Touchdown at that instant with the height
+// a rounding error below zero; the machine's accept takes it before the
+// timeout, and the terminal crossing ends the dynamics there.
 package test {
 	private import ScalarValues::*;
 	private import SI::*;
