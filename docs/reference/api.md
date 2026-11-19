@@ -1322,9 +1322,9 @@ result table, captured, is on [the wire contract](wire-contract.md#rundocumentqu
 
 `RunDocumentQueryRequest.as_view` and `QueryRequest.as_view` ask for the answer written as a
 `QVTS::QueryResult` view as well ([QVTS guide](../guide/qvts.md#write-the-answer-as-a-view)):
-the response's `result_view` is a `QueryResultView` whose `text` is the SysML declaring it,
-absent when the request did not ask, and a query that fails with a `QueryOutcome` detail
-carries a `QueryResultView` detail beside it. `RenderViewResponse.header` holds such a view's
+the response's `result_view` is the SysML text declaring it, a string that is empty when the
+request did not ask, and a query that fails with a `QueryOutcome` detail carries a
+`QueryResultView` detail beside it, whose `text` is the view. `RenderViewResponse.header` holds such a view's
 four attributes as `RenderHeaderField`s, and `RenderViewRequest.form` writes it into
 `RenderViewResponse.text` as a document of that header and its rows in `markdown`, `html` or
 `asciidoc`, besides the forms every view takes: `markdown` on a `QVTS::QueryResult` view is the
