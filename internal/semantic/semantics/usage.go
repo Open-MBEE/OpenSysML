@@ -376,6 +376,22 @@ func (m *Model) EffectiveIsComposite(sym *symbols.Symbol) bool {
 	if m == nil || sym == nil {
 		return false
 	}
+	defer m.own(sym).LeaveDoc()
+	if cached, ok := m.effectiveComposite[sym]; ok {
+		return cached
+	}
+	m.resolver.Enter()
+	composite := m.effectiveIsComposite(sym)
+	// A derivation a resolution guard cut short is recomputed, not memoized.
+	if !m.resolver.Leave() {
+		return composite
+	}
+	journal(m, m.effectiveComposite, sym, sym.Decl)
+	m.effectiveComposite[sym] = composite
+	return composite
+}
+
+func (m *Model) effectiveIsComposite(sym *symbols.Symbol) bool {
 	if isControlNode(sym) || m.metaclassConforms(sym, sysmlMetaclassPrefix+"ControlNode") {
 		return true
 	}
