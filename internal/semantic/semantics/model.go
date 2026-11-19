@@ -42,6 +42,7 @@ type Model struct {
 	memberSources map[*symbols.Symbol][]*symbols.Symbol
 	lookupOrder   map[*symbols.Symbol][]*symbols.Symbol // name-lookup order
 	contributed   map[*symbols.Symbol][]*symbols.Symbol // memoized contributors
+	metaclassFQNs map[[2]string]string                  // qualified metaclass names by prefix and simple name
 	nestedRedefs  map[*symbols.Symbol][]NestedRedefinition
 	allRedefined  map[*symbols.Symbol][]*symbols.Symbol // memoized redefinition closure
 	// derivedFeaturing memoizes DerivedFeaturingTypes (see featuring.go).
@@ -80,6 +81,8 @@ type Model struct {
 	subtracting map[*symbols.Symbol]bool
 	// referential memoizes a parameter's referentiality (see shape.go).
 	referential map[*symbols.Symbol]bool
+	// effectiveComposite memoizes EffectiveIsComposite, read for every feature a redefinition or restriction is checked against.
+	effectiveComposite map[*symbols.Symbol]bool
 	// implicitBase memoizes each declaration's kind bases once settled (see implicit.go).
 	implicitBase map[*symbols.Symbol][]*symbols.Symbol
 	// featureBaseTypes memoizes baseFeatureTypes: the types a base feature supplies, read for every usage of its kind.
@@ -228,6 +231,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		memberSources:          make(map[*symbols.Symbol][]*symbols.Symbol),
 		lookupOrder:            make(map[*symbols.Symbol][]*symbols.Symbol),
 		contributed:            make(map[*symbols.Symbol][]*symbols.Symbol),
+		metaclassFQNs:          make(map[[2]string]string),
 		nestedRedefs:           make(map[*symbols.Symbol][]NestedRedefinition),
 		allRedefined:           make(map[*symbols.Symbol][]*symbols.Symbol),
 		derivedFeaturing:       make(map[*symbols.Symbol][]FeaturingType),
@@ -248,6 +252,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		multiplicityBase:       make(map[*symbols.Symbol]*symbols.Symbol),
 		subtracting:            make(map[*symbols.Symbol]bool),
 		referential:            make(map[*symbols.Symbol]bool),
+		effectiveComposite:     make(map[*symbols.Symbol]bool),
 		implicitBase:           make(map[*symbols.Symbol][]*symbols.Symbol),
 		featureBaseTypes:       make(map[*symbols.Symbol][]*symbols.Symbol),
 		implicitGenerals:       make(map[*symbols.Symbol][]*symbols.Symbol),
@@ -959,11 +964,15 @@ func (m *Model) conforms(a, b *symbols.Symbol, unioning map[*symbols.Symbol]bool
 	if a == nil || b == nil {
 		return false
 	}
-	if symbols.SameElement(a, b) || m.isTopType(b) {
+	if a == b || m.isTopType(b) {
+		return true
+	}
+	key := symbols.KeyOf(b)
+	if symbols.KeyOf(a) == key {
 		return true
 	}
 	for _, s := range m.AllSupertypes(a) {
-		if symbols.SameElement(s, b) {
+		if s == b || (s != nil && symbols.KeyOf(s) == key) {
 			return true
 		}
 	}
