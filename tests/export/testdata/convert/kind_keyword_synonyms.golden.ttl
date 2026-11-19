@@ -1722,7 +1722,7 @@ elmt:f277fbd2-272e-5481-9f32-12ef121301b0
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:9fb58344-df3d-5123-b5bc-4c742344dede>
-    a sysml:ActionUsage ;
+    a sysml:PerformActionUsage ;
     sysml:elementId "9fb58344-df3d-5123-b5bc-4c742344dede" ;
     sysml:qualifiedName "States::StateAction::exitAction" ;
     sysml:declaredName "exitAction" ;
@@ -2975,7 +2975,7 @@ elmt:e24b4cdf-0f1e-5b60-a62a-b09e0d1e6956
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:683a0ec4-7bdc-58e5-883b-ec7f4f1963d6>
-    a sysml:ActionUsage ;
+    a sysml:PerformActionUsage ;
     sysml:elementId "683a0ec4-7bdc-58e5-883b-ec7f4f1963d6" ;
     sysml:qualifiedName "States::StateAction::entryAction" ;
     sysml:declaredName "entryAction" ;
@@ -4025,7 +4025,7 @@ elmt:bd909aa8-dcdb-59fb-a116-8670f6db05b1
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:be1e82ae-d5b8-53cf-8ae6-092905daf358
-    a sysml:ActionUsage ;
+    a sysml:PerformActionUsage ;
     sysml:elementId "be1e82ae-d5b8-53cf-8ae6-092905daf358" ;
     sysml:qualifiedName "States::StateAction::doAction" ;
     sysml:declaredName "doAction" ;
