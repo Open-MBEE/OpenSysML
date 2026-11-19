@@ -61,10 +61,11 @@ wanted=$(request)
 
 # complete <dir>: the directory answers this request and every wheel in it is the one recorded.
 complete() {
-  [[ -f $1/REQUEST && -f $1/SHA256SUMS ]] || return 1
-  [[ $(<"$1/REQUEST") == "$wanted" ]] || return 1
-  (cd "$1" && sha256sum --check --strict --quiet SHA256SUMS >&2) || return 1
-  [[ $(cd "$1" && find . -maxdepth 1 -name '*.whl' -printf '%f\n' | sort) == $(awk '{print $2}' "$1/SHA256SUMS" | sort) ]]
+  local dir=$1
+  [[ -f $dir/REQUEST && -f $dir/SHA256SUMS ]] || return 1
+  [[ $(<"$dir/REQUEST") == "$wanted" ]] || return 1
+  (cd "$dir" && sha256sum --check --strict --quiet SHA256SUMS >&2) || return 1
+  [[ $(cd "$dir" && find . -maxdepth 1 -name '*.whl' -printf '%f\n' | sort) == $(awk '{print $2}' "$dir/SHA256SUMS" | sort) ]]
 }
 
 download=("${requirements[@]}" "${needs[@]}")

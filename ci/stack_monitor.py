@@ -95,50 +95,47 @@ class Monitor:
         data = self.cfg.read("stacks.json") or {}
         chains = [list(s) for s in data.get("stacks", [])]
         lines = []
-
-        def chain_of(n):
-            return next((s for s in chains if n in s), None)
         for p in prs:
             n, preds = p["n"], [m for m in by_head.get(p["base"], []) if m != p["n"]]
             if p["base"] == self.base or not preds:
                 continue
             if len(preds) > 1:
                 lines.append(f"#{n}: base {p['base']} is the head of several open PRs {preds}; stacks.json not changed")
-                continue
-            pred = preds[0]
-            if on_cycle(n):
-                lines.append(f"#{n}: builds on #{pred}, whose branch builds on #{n}'s (a cycle); not changed")
-                continue
-            cp, cn = chain_of(pred), chain_of(n)
-            if cp is not None and cp is cn and cp.index(n) == cp.index(pred) + 1:
-                continue
-            if cn is not None and cn.index(n) > 0:
-                lines.append(f"#{n}: builds on #{pred} but follows #{cn[cn.index(n) - 1]} in stacks.json; not changed")
-                continue
-            if cp is not None and cp[-1] != pred:
-                lines.append(f"#{n}: builds on #{pred}, which already has successor #{cp[cp.index(pred) + 1]} (a fork); not changed")
-                continue
-            if cp is not None and cp is cn:
-                lines.append(f"#{n}: builds on #{pred}, which follows it in the same chain (a cycle); not changed")
-                continue
-            if cp is not None and cn is not None:
-                cp.extend(cn)
-                chains.remove(cn)
-                lines.append(f"stack: #{n} joined after #{pred}, concatenating their chains: {cp}")
-            elif cp is not None:
-                cp.append(n)
-                lines.append(f"stack: #{n} appended after #{pred}: {cp}")
-            elif cn is not None:
-                cn.insert(0, pred)
-                lines.append(f"stack: #{pred} prepended before #{n}: {cn}")
+            elif on_cycle(n):
+                lines.append(f"#{n}: builds on #{preds[0]}, whose branch builds on #{n}'s (a cycle); not changed")
             else:
-                chains.append([pred, n])
-                lines.append(f"stack: new chain {[pred, n]}")
+                lines += self.join(chains, n, preds[0])
         if any(line.startswith("stack: ") for line in lines):
             self.cfg.write("stacks.json", dict(data, stacks=chains))
         for line in lines:
             self.log(line)
         return lines
+
+    @staticmethod
+    def join(chains, n, pred):
+        """Place n after its predecessor pred in chains; the line saying what changed or why nothing did, if any."""
+        cp = next((s for s in chains if pred in s), None)
+        cn = next((s for s in chains if n in s), None)
+        if cp is not None and cp is cn and cp.index(n) == cp.index(pred) + 1:
+            return []
+        if cn is not None and cn.index(n) > 0:
+            return [f"#{n}: builds on #{pred} but follows #{cn[cn.index(n) - 1]} in stacks.json; not changed"]
+        if cp is not None and cp[-1] != pred:
+            return [f"#{n}: builds on #{pred}, which already has successor #{cp[cp.index(pred) + 1]} (a fork); not changed"]
+        if cp is not None and cp is cn:
+            return [f"#{n}: builds on #{pred}, which follows it in the same chain (a cycle); not changed"]
+        if cp is not None and cn is not None:
+            cp.extend(cn)
+            chains.remove(cn)
+            return [f"stack: #{n} joined after #{pred}, concatenating their chains: {cp}"]
+        if cp is not None:
+            cp.append(n)
+            return [f"stack: #{n} appended after #{pred}: {cp}"]
+        if cn is not None:
+            cn.insert(0, pred)
+            return [f"stack: #{pred} prepended before #{n}: {cn}"]
+        chains.append([pred, n])
+        return [f"stack: new chain {[pred, n]}"]
 
     def report(self):
         """Stack additions, then one report line per finding; any GitHub or git error raises before anything more is
@@ -185,7 +182,12 @@ class Monitor:
             mh = prs[merged]["headRefOid"]
             mb = self.git("merge-base", f"origin/{self.base}", head).stdout.strip()
             same = self.diff(mh, head) == self.diff(mb, head)
-            moved = "unchanged" if last == head else f"first seen at {head[:10]}" if last is None else f"changed from {last[:10]} to {head[:10]}"
+            if last == head:
+                moved = "unchanged"
+            elif last is None:
+                moved = f"first seen at {head[:10]}"
+            else:
+                moved = f"changed from {last[:10]} to {head[:10]}"
             lines.append(f"#{n}: retargeted to {self.base} after #{merged} merged; its diff vs the merged #{merged} head {mh[:10]} "
                          f"{'matches' if same else 'differs from'} its diff vs merge-base({self.base}) {mb[:10]}; head {moved}")
         if p["isInMergeQueue"] and (p.get("mergeQueueEntry") or {}).get("state") == "UNMERGEABLE":
