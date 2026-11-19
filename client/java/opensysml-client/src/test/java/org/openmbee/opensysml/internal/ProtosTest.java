@@ -826,6 +826,186 @@ class ProtosTest {
         Optional.of(new Value.UndeterminedValue("x", "", "")), Protos.value(uncounted));
   }
 
+  private static org.openmbee.opensysml.proto.MeasurementRef millimetre() {
+    return org.openmbee.opensysml.proto.MeasurementRef.newBuilder()
+        .setUnit("mm")
+        .setUnitId("SI::millimetre")
+        .setUnitTerm(
+            org.openmbee.opensysml.proto.UnitTerm.newBuilder()
+                .setScaleNum(1)
+                .setScaleDen(1000)
+                .addFactors(
+                    org.openmbee.opensysml.proto.UnitFactor.newBuilder()
+                        .setUnitId("SI::metre")
+                        .setExponent(1)))
+        .build();
+  }
+
+  private static org.openmbee.opensysml.proto.CoordinateFrame.Builder wireFrame(String name) {
+    return org.openmbee.opensysml.proto.CoordinateFrame.newBuilder()
+        .setName(name)
+        .setFrameId("Frames::" + name)
+        .setTypeId("ISQSpaceTime::CartesianSpatial3dCoordinateFrame")
+        .addDimensions(3)
+        .addAxes(millimetre())
+        .addAxes(millimetre())
+        .addAxes(millimetre());
+  }
+
+  private static org.openmbee.opensysml.proto.Quantity wireLength(double real) {
+    return org.openmbee.opensysml.proto.Quantity.newBuilder()
+        .setRealMagnitude(real)
+        .setUnit("mm")
+        .setUnitTerm(millimetre().getUnitTerm())
+        .build();
+  }
+
+  private static org.openmbee.opensysml.proto.Value wireVector(double x, double y, double z) {
+    return org.openmbee.opensysml.proto.Value.newBuilder()
+        .setVectorQuantity(
+            org.openmbee.opensysml.proto.VectorQuantity.newBuilder()
+                .addComponents(wireLength(x))
+                .addComponents(wireLength(y))
+                .addComponents(wireLength(z)))
+        .build();
+  }
+
+  @Test
+  void aPosedFrameCarriesItsIdentityAxesSequenceAndPose() {
+    org.openmbee.opensysml.proto.CoordinateTransformation.Builder posing =
+        org.openmbee.opensysml.proto.CoordinateTransformation.newBuilder()
+            .setName("transformation")
+            .setSource(wireFrame("datum"))
+            .setSequence(
+                org.openmbee.opensysml.proto.TranslationRotationSequence.newBuilder()
+                    .addSteps(
+                        org.openmbee.opensysml.proto.FrameStep.newBuilder()
+                            .setTranslation(wireVector(10, 0, 0))
+                            .setInstanceId(7))
+                    .addSteps(
+                        org.openmbee.opensysml.proto.FrameStep.newBuilder()
+                            .setRotation(
+                                org.openmbee.opensysml.proto.FrameRotation.newBuilder()
+                                    .setAxisDirection(wireVector(0, 0, 1))
+                                    .setAngle(wireLength(180))
+                                    .setIsIntrinsic(true))))
+            .setPose(
+                org.openmbee.opensysml.proto.FramePose.newBuilder()
+                    .addAllOrigin(List.of(10.0, 0.0, 0.0))
+                    .addAllBasis(List.of(-1.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 1.0)));
+    Value read =
+        Protos.value(
+                org.openmbee.opensysml.proto.Value.newBuilder()
+                    .setCoordinateFrame(wireFrame("lbcf").setInstanceId(4).setTransformation(posing))
+                    .build())
+            .orElseThrow();
+    org.openmbee.opensysml.CoordinateFrame frame = ((Value.CoordinateFrameValue) read).frame();
+    assertEquals("lbcf", frame.name());
+    assertEquals(Optional.of("Frames::lbcf"), frame.frameId());
+    assertEquals(Optional.of(4L), frame.instanceId());
+    assertEquals(List.of(3L), frame.dimensions());
+    assertEquals(3, frame.axes().size());
+    assertEquals(Optional.of("SI::millimetre"), frame.axes().get(0).unitId());
+    assertEquals(Optional.empty(), frame.scale());
+
+    org.openmbee.opensysml.CoordinateTransformation t = frame.transformation().orElseThrow();
+    assertEquals(Optional.of("Frames::datum"), t.source().orElseThrow().frameId());
+    assertEquals(Optional.empty(), t.target());
+    org.openmbee.opensysml.CoordinateTransformation.Sequence sequence =
+        (org.openmbee.opensysml.CoordinateTransformation.Sequence) t.shape().orElseThrow();
+    org.openmbee.opensysml.CoordinateTransformation.Translation shift =
+        (org.openmbee.opensysml.CoordinateTransformation.Translation) sequence.steps().get(0);
+    assertTrue(shift.translation() instanceof Value.VectorQuantityValue);
+    assertEquals(Optional.of(7L), shift.instanceId());
+    org.openmbee.opensysml.CoordinateTransformation.Rotation turn =
+        (org.openmbee.opensysml.CoordinateTransformation.Rotation) sequence.steps().get(1);
+    assertTrue(turn.intrinsic());
+    assertEquals(Optional.empty(), turn.instanceId());
+    assertEquals(List.of(10.0, 0.0, 0.0), t.pose().orElseThrow().origin());
+    assertEquals(9, t.pose().orElseThrow().basis().size());
+
+    assertThrows(IllegalArgumentException.class, () -> Protos.proto(read));
+  }
+
+  @Test
+  void aTransformationCarriesItsEndpointsAndTheShapeItIsStatedIn() {
+    Value placed =
+        Protos.value(
+                org.openmbee.opensysml.proto.Value.newBuilder()
+                    .setCoordinateTransformation(
+                        org.openmbee.opensysml.proto.CoordinateTransformation.newBuilder()
+                            .setName("placement")
+                            .setSource(wireFrame("datum"))
+                            .setTarget(wireFrame("placed"))
+                            .setPlacement(
+                                org.openmbee.opensysml.proto.FramePlacement.newBuilder()
+                                    .setOrigin(wireVector(1, 2, 3))
+                                    .addBasisDirections(wireVector(1, 0, 0))))
+                    .build())
+            .orElseThrow();
+    org.openmbee.opensysml.CoordinateTransformation t =
+        ((Value.CoordinateTransformationValue) placed).transformation();
+    assertEquals("placed", t.target().orElseThrow().name());
+    assertEquals(Optional.empty(), t.pose());
+    assertEquals(
+        1,
+        ((org.openmbee.opensysml.CoordinateTransformation.Placement) t.shape().orElseThrow())
+            .basisDirections()
+            .size());
+
+    Value affine =
+        Protos.value(
+                org.openmbee.opensysml.proto.Value.newBuilder()
+                    .setCoordinateTransformation(
+                        org.openmbee.opensysml.proto.CoordinateTransformation.newBuilder()
+                            .setAffine(
+                                org.openmbee.opensysml.proto.AffineTransformation3d.newBuilder()
+                                    .addAllRotation(
+                                        List.of(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0))
+                                    .addAllTranslation(List.of(1.0, 2.0, 3.0))))
+                    .build())
+            .orElseThrow();
+    assertEquals(
+        Optional.of(
+            new org.openmbee.opensysml.CoordinateTransformation.Affine(
+                List.of(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0), List.of(1.0, 2.0, 3.0))),
+        ((Value.CoordinateTransformationValue) affine).transformation().shape());
+
+    org.openmbee.opensysml.proto.Value noStep =
+        org.openmbee.opensysml.proto.Value.newBuilder()
+            .setCoordinateTransformation(
+                org.openmbee.opensysml.proto.CoordinateTransformation.newBuilder()
+                    .setSequence(
+                        org.openmbee.opensysml.proto.TranslationRotationSequence.newBuilder()
+                            .addSteps(org.openmbee.opensysml.proto.FrameStep.newBuilder())))
+            .build();
+    assertThrows(TransportException.class, () -> Protos.value(noStep));
+  }
+
+  @Test
+  void aMeasurementScaleCarriesItsUnitAndMapping() {
+    Value read =
+        Protos.value(
+                org.openmbee.opensysml.proto.Value.newBuilder()
+                    .setCoordinateFrame(
+                        org.openmbee.opensysml.proto.CoordinateFrame.newBuilder()
+                            .setName("celsius")
+                            .setScale(
+                                org.openmbee.opensysml.proto.MeasurementScale.newBuilder()
+                                    .setUnit(millimetre())
+                                    .setMapping(
+                                        org.openmbee.opensysml.proto.QuantityValueMapping
+                                            .newBuilder()
+                                            .setMapped(wireLength(0))
+                                            .setReference(wireLength(273.15)))))
+                    .build())
+            .orElseThrow();
+    org.openmbee.opensysml.CoordinateFrame.Scale scale =
+        ((Value.CoordinateFrameValue) read).frame().scale().orElseThrow();
+    assertEquals(Optional.of("SI::millimetre"), scale.unit().unitId());
+    assertTrue(scale.mapping().isPresent());
+  }
+
   @Test
   void onlyAnAssertedInfinityArmIsTheUnboundedValue() {
     org.openmbee.opensysml.proto.Value asserted =

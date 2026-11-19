@@ -8,6 +8,8 @@ import org.openmbee.opensysml.Capabilities;
 import org.openmbee.opensysml.CaseEvaluation;
 import org.openmbee.opensysml.Condition;
 import org.openmbee.opensysml.Conversion;
+import org.openmbee.opensysml.CoordinateFrame;
+import org.openmbee.opensysml.CoordinateTransformation;
 import org.openmbee.opensysml.CheckResult;
 import org.openmbee.opensysml.Diagnostic;
 import org.openmbee.opensysml.LibraryReference;
@@ -170,7 +172,114 @@ public final class Protos {
       case SET -> Optional.of(set(value.getSet()));
       case TENSOR_QUANTITY -> Optional.of(tensorQuantity(value.getTensorQuantity()));
       case METAOBJECT -> Optional.of(metaobject(value.getMetaobject()));
+      case COORDINATE_FRAME ->
+          Optional.of(new Value.CoordinateFrameValue(frame(value.getCoordinateFrame())));
+      case COORDINATE_TRANSFORMATION ->
+          Optional.of(
+              new Value.CoordinateTransformationValue(
+                  transformation(value.getCoordinateTransformation())));
       case KIND_NOT_SET -> Optional.empty();
+    };
+  }
+
+  private static Optional<Long> presentId(long id) {
+    return id == 0 ? Optional.empty() : Optional.of(id);
+  }
+
+  private static Value required(org.openmbee.opensysml.proto.Value value, String what) {
+    return value(value)
+        .orElseThrow(
+            () ->
+                new TransportException(
+                    "the service answered a malformed coordinate transformation: " + what, null));
+  }
+
+  private static CoordinateFrame frame(org.openmbee.opensysml.proto.CoordinateFrame frame) {
+    Optional<CoordinateFrame.Scale> scale = Optional.empty();
+    if (frame.hasScale()) {
+      org.openmbee.opensysml.proto.MeasurementScale wire = frame.getScale();
+      Optional<CoordinateFrame.Mapping> mapping = Optional.empty();
+      if (wire.hasMapping()) {
+        mapping =
+            Optional.of(
+                new CoordinateFrame.Mapping(
+                    quantity(wire.getMapping().getMapped()),
+                    quantity(wire.getMapping().getReference())));
+      }
+      scale =
+          Optional.of(
+              new CoordinateFrame.Scale(
+                  (Value.MeasurementRefValue) measurementRef(wire.getUnit()), mapping));
+    }
+    return new CoordinateFrame(
+        frame.getName(),
+        present(frame.getFrameId()),
+        present(frame.getTypeId()),
+        presentId(frame.getInstanceId()),
+        frame.getDimensionsList(),
+        frame.getAxesList().stream()
+            .map(axis -> (Value.MeasurementRefValue) measurementRef(axis))
+            .toList(),
+        frame.hasTransformation()
+            ? Optional.of(transformation(frame.getTransformation()))
+            : Optional.empty(),
+        scale);
+  }
+
+  private static CoordinateTransformation transformation(
+      org.openmbee.opensysml.proto.CoordinateTransformation t) {
+    Optional<CoordinateTransformation.Shape> shape =
+        switch (t.getShapeCase()) {
+          case PLACEMENT ->
+              Optional.of(
+                  new CoordinateTransformation.Placement(
+                      required(t.getPlacement().getOrigin(), "a placement states no origin"),
+                      t.getPlacement().getBasisDirectionsList().stream()
+                          .map(d -> required(d, "a basis direction holds no value"))
+                          .toList()));
+          case SEQUENCE ->
+              Optional.of(
+                  new CoordinateTransformation.Sequence(
+                      t.getSequence().getStepsList().stream().map(Protos::frameStep).toList()));
+          case AFFINE ->
+              Optional.of(
+                  new CoordinateTransformation.Affine(
+                      t.getAffine().getRotationList(), t.getAffine().getTranslationList()));
+          case SHAPE_NOT_SET -> Optional.empty();
+        };
+    return new CoordinateTransformation(
+        t.getName(),
+        present(t.getTransformationId()),
+        present(t.getTypeId()),
+        presentId(t.getInstanceId()),
+        t.hasSource() ? Optional.of(frame(t.getSource())) : Optional.empty(),
+        t.hasTarget() ? Optional.of(frame(t.getTarget())) : Optional.empty(),
+        shape,
+        t.hasPose()
+            ? Optional.of(
+                new CoordinateTransformation.Pose(
+                    t.getPose().getOriginList(), t.getPose().getBasisList()))
+            : Optional.empty());
+  }
+
+  private static CoordinateTransformation.Step frameStep(
+      org.openmbee.opensysml.proto.FrameStep step) {
+    Optional<Long> id = presentId(step.getInstanceId());
+    return switch (step.getStepCase()) {
+      case TRANSLATION ->
+          new CoordinateTransformation.Translation(
+              required(step.getTranslation(), "a translation holds no value"), id);
+      case ROTATION ->
+          new CoordinateTransformation.Rotation(
+              required(step.getRotation().getAxisDirection(), "a rotation states no axis"),
+              quantity(step.getRotation().getAngle()),
+              step.getRotation().getIsIntrinsic(),
+              id);
+      case STEP_NOT_SET ->
+          throw new TransportException(
+              "the service answered a malformed coordinate transformation: a step is neither a"
+                  + " translation nor a rotation",
+              null);
     };
   }
 
