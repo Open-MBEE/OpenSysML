@@ -41,6 +41,8 @@ const (
 	QueryPropPayloadArgument       = corequery.PropertyPayloadArgument
 	QueryPropSenderArgument        = corequery.PropertySenderArgument
 	QueryPropReceiverArgument      = corequery.PropertyReceiverArgument
+	QueryPropSymbolKind            = corequery.PropertySymbolKind
+	QueryPropText                  = corequery.PropertyText
 )
 
 // QueryErrorKind classifies why a query could not be evaluated. Every kind fails
@@ -84,13 +86,6 @@ func (e *QueryError) Unwrap() error { return e.Err }
 
 func queryErrorf(kind QueryErrorKind, format string, args ...any) *QueryError {
 	return &QueryError{Kind: kind, Message: fmt.Sprintf(format, args...)}
-}
-
-// QueryPropertyNames returns the queryable property names the evaluator derives
-// for every element, sorted: what docs/reference/api.md's table documents. The
-// metamodel's own properties are queryable besides, by their declared names.
-func QueryPropertyNames() []string {
-	return corequery.PropertyNames()
 }
 
 // Query evaluates a SysML v2 API & Services Query, or OSLC Query 3.0 text, over

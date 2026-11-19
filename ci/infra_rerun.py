@@ -54,23 +54,27 @@ class Tracker:
                 continue
             key = (rid, d["attempt"], j["databaseId"])
             if key not in self.logs:
-                kind = "INFRA" if fs and all(SETUP.search(x) for x in fs) else "RED"
-                if kind == "RED":
-                    lg = self.gh(["api", f"repos/{self.cfg.repo}/actions/jobs/{j['databaseId']}/logs"], ok_fail=True) or ""
-                    if APTNET.search(re.sub(r"(?m)^\S+Z ", "", lg)):
-                        kind = "INFRA"
-                if kind == "INFRA" and d["attempt"] > 1 and self.prevfail.get((rid, j["name"])) == fs:
-                    kind = "ESCALATE"
-                self.prevfail[(rid, j["name"])] = fs
-                self.logs[key] = kind
-                self.out(f"{kind} #{self.runs[rid]['pr']} {rid} attempt {d['attempt']}: job '{j['name']}' failed at {j.get('completedAt')} in {fs}")
+                self.logs[key] = self.kind_of(rid, d, j, fs)
             if self.logs[key] == "INFRA":
                 self.last_fail = max(self.last_fail, ts(j.get("completedAt")))
         return probe
 
+    def kind_of(self, rid, d, j, fs):
+        """Classify one failed job by its failed steps fs, remember them for the next attempt, and log the verdict."""
+        kind = "INFRA" if fs and all(SETUP.search(x) for x in fs) else "RED"
+        if kind == "RED":
+            lg = self.gh(["api", f"repos/{self.cfg.repo}/actions/jobs/{j['databaseId']}/logs"], ok_fail=True) or ""
+            if APTNET.search(re.sub(r"(?m)^\S+Z ", "", lg)):
+                kind = "INFRA"
+        if kind == "INFRA" and d["attempt"] > 1 and self.prevfail.get((rid, j["name"])) == fs:
+            kind = "ESCALATE"
+        self.prevfail[(rid, j["name"])] = fs
+        self.out(f"{kind} #{self.runs[rid]['pr']} {rid} attempt {d['attempt']}: job '{j['name']}' failed at {j.get('completedAt')} in {fs}")
+        return kind
+
     def step(self):
         data, probe = {}, 0
-        for rid in list(self.runs):
+        for rid in self.runs:
             s = self.gh(["run", "view", str(rid), "--repo", self.cfg.repo, "--json", "status,conclusion,attempt,headSha,jobs"], ok_fail=True)
             if s:
                 data[rid] = json.loads(s)
@@ -85,35 +89,38 @@ class Tracker:
                 f"a setup step succeeded at {hhmm(probe)}, 5+ quiet min after the last failure at {hhmm(self.last_fail)}"
                 if probe > self.last_fail else f"10 min since the last failure at {hhmm(self.last_fail)}"))
         for rid in [r for r in self.order if r in data]:
-            d, m = data[rid], self.runs[rid]
-            if d["status"] != "completed":
-                if m.get("hold") and not self.reruns.get(rid):
-                    break
-                continue
-            kinds = {self.logs[k] for k in self.logs if k[0] == rid and k[1] == d["attempt"]}
-            if d["conclusion"] == "success":
-                self.out(f"DONE #{m['pr']} {rid} attempt {d['attempt']}: GREEN")
-                self.runs.pop(rid)
-                continue
-            if "RED" in kinds or "ESCALATE" in kinds or not kinds or d["headSha"] != m["head"] or self.reruns.get(rid, 0) >= MAX_RERUNS:
-                self.out(f"FINAL #{m['pr']} {rid} attempt {d['attempt']}: {d['conclusion']} kinds={sorted(kinds)}; no auto-rerun")
-                self.runs.pop(rid)
-                continue
-            if not recovered:
+            if self.settle(rid, data[rid], recovered):
                 break
-            if self.cfg.frozen() or self.cfg.dry_run:
-                self.out(f"{'FROZEN (freeze.json)' if self.cfg.frozen() else 'DRY RUN'}: rerun --failed of {rid} deferred")
-                break
-            if self.gh(["run", "rerun", str(rid), "--repo", self.cfg.repo, "--failed"], ok_fail=True) is None:
-                self.out(f"ERROR #{m['pr']} {rid}: rerun --failed refused")
-                self.runs.pop(rid)
-                continue
-            self.reruns[rid] = self.reruns.get(rid, 0) + 1
-            if m.get("hold"):
-                self.cfg.write(f"priority_hold_{m['pr']}.json", {"pr": m["pr"], "after": m["head"][:10], "run": rid, "head": m["head"],
-                                                                 "label": f"#{m['pr']} {m['head'][:10]} run"})
-            self.out(f"RERUN #{m['pr']} {rid}: rerun --failed sent (attempt {d['attempt'] + 1})" + ("; priority hold re-armed" if m.get("hold") else ""))
-            break
+
+    def settle(self, rid, d, recovered):
+        """Close out or re-run one tracked run; True when the runs after it wait for the next pass."""
+        m = self.runs[rid]
+        if d["status"] != "completed":
+            return bool(m.get("hold") and not self.reruns.get(rid))
+        kinds = {self.logs[k] for k in self.logs if k[0] == rid and k[1] == d["attempt"]}
+        if d["conclusion"] == "success":
+            self.out(f"DONE #{m['pr']} {rid} attempt {d['attempt']}: GREEN")
+            self.runs.pop(rid)
+            return False
+        if "RED" in kinds or "ESCALATE" in kinds or not kinds or d["headSha"] != m["head"] or self.reruns.get(rid, 0) >= MAX_RERUNS:
+            self.out(f"FINAL #{m['pr']} {rid} attempt {d['attempt']}: {d['conclusion']} kinds={sorted(kinds)}; no auto-rerun")
+            self.runs.pop(rid)
+            return False
+        if not recovered:
+            return True
+        if self.cfg.frozen() or self.cfg.dry_run:
+            self.out(f"{'FROZEN (freeze.json)' if self.cfg.frozen() else 'DRY RUN'}: rerun --failed of {rid} deferred")
+            return True
+        if self.gh(["run", "rerun", str(rid), "--repo", self.cfg.repo, "--failed"], ok_fail=True) is None:
+            self.out(f"ERROR #{m['pr']} {rid}: rerun --failed refused")
+            self.runs.pop(rid)
+            return False
+        self.reruns[rid] = self.reruns.get(rid, 0) + 1
+        if m.get("hold"):
+            self.cfg.write(f"priority_hold_{m['pr']}.json", {"pr": m["pr"], "after": m["head"][:10], "run": rid, "head": m["head"],
+                                                             "label": f"#{m['pr']} {m['head'][:10]} run"})
+        self.out(f"RERUN #{m['pr']} {rid}: rerun --failed sent (attempt {d['attempt'] + 1})" + ("; priority hold re-armed" if m.get("hold") else ""))
+        return True
 
 
 def main(argv=None):
@@ -126,9 +133,10 @@ def main(argv=None):
     while t.runs:
         t.step()
         if args.once:
-            return 0
+            break
         time.sleep(30)
-    t.out("all tracked runs settled; exiting")
+    else:
+        t.out("all tracked runs settled; exiting")
     return 0
 
 
