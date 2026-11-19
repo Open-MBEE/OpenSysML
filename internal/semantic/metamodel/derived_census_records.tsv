@@ -26,7 +26,7 @@ ActionUsage::actionDefinition	pilot-examples	661	148	436	77	715	705	10	0	0
 ActionUsage::actionDefinition	pilot-validation	276	80	183	13	294	294	0	0	0
 ActionUsage::actionDefinition	spec-examples	282	2	164	116	572	378	194	0	0
 ActionUsage::actionDefinition	testdata	36	0	35	1	60	46	14	0	0
-ActionUsage::actionDefinition	examples	813	74	727	11	1003	1003	0	0	0
+ActionUsage::actionDefinition	examples	813	75	727	11	1003	1003	0	0	0
 ActionUsage::actionDefinition	manual-examples	73	53	20	0	73	73	0	0	0
 ActorMembership::ownedActorParameter	training	16	16	0	0	16	16	0	0	0
 ActorMembership::ownedActorParameter	pilot-examples	15	15	0	0	15	15	0	0	0
@@ -135,7 +135,7 @@ CalculationUsage::calculationDefinition	training	19	14	3	2	19	19	0	0	0
 CalculationUsage::calculationDefinition	pilot-examples	64	47	10	7	64	64	0	0	0
 CalculationUsage::calculationDefinition	pilot-validation	24	9	11	4	24	24	0	0	0
 CalculationUsage::calculationDefinition	spec-examples	35	1	2	32	37	37	0	0	0
-CalculationUsage::calculationDefinition	examples	84	62	14	8	84	84	0	0	0
+CalculationUsage::calculationDefinition	examples	85	63	14	8	85	85	0	0	0
 CalculationUsage::calculationDefinition	manual-examples	52	52	0	0	52	52	0	0	0
 CaseDefinition::actorParameter	training	5	3	2	0	5	3	2	0	0
 CaseDefinition::actorParameter	pilot-examples	26	5	21	0	26	5	21	0	0
@@ -440,7 +440,7 @@ Definition::ownedReference	pilot-examples	728	156	572	0	697	143	554	0	0
 Definition::ownedReference	pilot-validation	386	64	322	0	360	49	311	0	0
 Definition::ownedReference	spec-examples	226	50	176	0	264	54	210	0	0
 Definition::ownedReference	testdata	99	3	96	0	96	3	93	0	0
-Definition::ownedReference	examples	669	140	528	0	669	140	528	0	0
+Definition::ownedReference	examples	669	141	528	0	669	141	528	0	0
 Definition::ownedReference	probes	7	1	6	0	7	1	6	0	0
 Definition::ownedReference	manual-examples	164	88	76	0	164	88	76	0	0
 Definition::ownedRendering	training	346	0	346	0	336	0	336	0	0
@@ -1740,7 +1740,7 @@ Type::directedFeature	pilot-validation	4905	995	3865	45	5619	1523	4096	0	0
 Type::directedFeature	kerml-examples	2447	268	2058	121	3204	959	2245	0	0
 Type::directedFeature	spec-examples	3434	551	2188	695	6448	1441	5007	0	0
 Type::directedFeature	testdata	641	73	558	10	962	266	696	0	0
-Type::directedFeature	examples	17298	2959	14281	57	22670	7063	15607	0	0
+Type::directedFeature	examples	17298	2959	14281	58	22670	7063	15607	0	0
 Type::directedFeature	probes	15	2	13	0	15	3	12	0	0
 Type::directedFeature	manual-examples	1657	309	1228	120	3710	1511	2199	0	0
 Type::endFeature	training	4160	0	1605	2555	4842	229	4613	0	0
@@ -1758,7 +1758,7 @@ Type::feature	pilot-validation	4905	3460	1400	45	5619	5593	26	0	0
 Type::feature	kerml-examples	2447	1357	969	121	3204	3197	7	0	0
 Type::feature	spec-examples	3434	2062	677	695	6448	5384	1064	0	0
 Type::feature	testdata	641	422	209	10	962	928	34	0	0
-Type::feature	examples	17298	11766	5474	57	22670	22644	26	0	0
+Type::feature	examples	17298	11766	5474	58	22670	22644	26	0	0
 Type::feature	probes	15	10	5	0	15	15	0	0	0
 Type::feature	manual-examples	1657	1149	388	120	3710	3707	3	0	0
 Type::featureMembership	training	4160	3087	1059	14	4842	4834	8	0	0
@@ -1767,7 +1767,7 @@ Type::featureMembership	pilot-validation	4905	3460	1400	45	5619	5593	26	0	0
 Type::featureMembership	kerml-examples	2447	1357	969	121	3204	3197	7	0	0
 Type::featureMembership	spec-examples	3434	2062	677	695	6448	5384	1064	0	0
 Type::featureMembership	testdata	641	422	209	10	962	928	34	0	0
-Type::featureMembership	examples	17298	11766	5474	57	22670	22644	26	0	0
+Type::featureMembership	examples	17298	11766	5474	58	22670	22644	26	0	0
 Type::featureMembership	probes	15	10	5	0	15	15	0	0	0
 Type::featureMembership	manual-examples	1657	1149	388	120	3710	3707	3	0	0
 Type::inheritedFeature	training	4160	2541	1605	14	4842	4842	0	0	0
@@ -1776,7 +1776,7 @@ Type::inheritedFeature	pilot-validation	4905	2773	2087	45	5619	5618	1	0	0
 Type::inheritedFeature	kerml-examples	2447	904	1422	121	3204	3203	1	0	0
 Type::inheritedFeature	spec-examples	3434	1646	1093	695	6448	5390	1058	0	0
 Type::inheritedFeature	testdata	641	374	257	10	962	937	25	0	0
-Type::inheritedFeature	examples	17298	9885	7355	57	22670	22663	7	0	0
+Type::inheritedFeature	examples	17298	9885	7355	58	22670	22663	7	0	0
 Type::inheritedFeature	probes	15	8	7	0	15	15	0	0	0
 Type::inheritedFeature	manual-examples	1657	1020	517	120	3710	3710	0	0	0
 Type::inheritedMembership	training	4160	2541	1605	14	4842	4842	0	0	0
@@ -1785,7 +1785,7 @@ Type::inheritedMembership	pilot-validation	4905	2774	2086	45	5619	5619	0	0	0
 Type::inheritedMembership	kerml-examples	2447	956	1370	121	3204	3203	1	0	0
 Type::inheritedMembership	spec-examples	3434	1646	1093	695	6448	5390	1058	0	0
 Type::inheritedMembership	testdata	641	374	257	10	962	937	25	0	0
-Type::inheritedMembership	examples	17298	9901	7339	57	22670	22664	6	0	0
+Type::inheritedMembership	examples	17298	9901	7339	58	22670	22664	6	0	0
 Type::inheritedMembership	probes	15	8	7	0	15	15	0	0	0
 Type::inheritedMembership	manual-examples	1657	1020	517	120	3710	3710	0	0	0
 Type::input	training	4160	555	3591	14	4842	759	4083	0	0
@@ -1794,7 +1794,7 @@ Type::input	pilot-validation	4905	520	4340	45	5619	738	4881	0	0
 Type::input	kerml-examples	2447	140	2186	121	3204	224	2980	0	0
 Type::input	spec-examples	3434	281	2458	695	6448	571	5877	0	0
 Type::input	testdata	641	64	567	10	962	104	858	0	0
-Type::input	examples	17298	1641	15599	57	22670	2759	19911	0	0
+Type::input	examples	17298	1641	15599	58	22670	2759	19911	0	0
 Type::input	probes	15	1	14	0	15	1	14	0	0
 Type::input	manual-examples	1657	106	1431	120	3710	731	2979	0	0
 Type::intersectingType	training	4160	0	4160	0	4842	0	4842	0	0
@@ -1830,7 +1830,7 @@ Type::output	pilot-validation	4905	926	3934	45	5619	1367	4252	0	0
 Type::output	kerml-examples	2447	232	2094	121	3204	905	2299	0	0
 Type::output	spec-examples	3434	465	2274	695	6448	1258	5190	0	0
 Type::output	testdata	641	60	571	10	962	234	728	0	0
-Type::output	examples	17298	2772	14468	57	22670	6557	16113	0	0
+Type::output	examples	17298	2772	14468	58	22670	6557	16113	0	0
 Type::output	probes	15	2	13	0	15	3	12	0	0
 Type::output	manual-examples	1657	305	1232	120	3710	1502	2208	0	0
 Type::ownedConjugator	training	4160	8	4152	0	4842	8	0	4834	0
@@ -1940,7 +1940,7 @@ Usage::directedUsage	pilot-validation	1912	234	1639	39	2012	315	1697	0	0
 Usage::directedUsage	kerml-examples	4	0	4	0	0	0	0	0	0
 Usage::directedUsage	spec-examples	1350	139	795	416	2002	257	1745	0	0
 Usage::directedUsage	testdata	218	18	191	9	279	28	251	0	0
-Usage::directedUsage	examples	6809	733	6035	40	7923	1055	6868	0	0
+Usage::directedUsage	examples	6809	733	6035	41	7923	1055	6868	0	0
 Usage::directedUsage	probes	1	0	1	0	1	0	1	0	0
 Usage::directedUsage	manual-examples	785	119	610	56	789	206	583	0	0
 Usage::isReference	training	1728	1728	0	0	1821	1821	0	0	0
@@ -2228,7 +2228,7 @@ Usage::usage	pilot-validation	1912	1353	520	39	2012	1684	328	0	0
 Usage::usage	kerml-examples	4	0	4	0	0	0	0	0	0
 Usage::usage	spec-examples	1350	530	404	416	2002	1100	902	0	0
 Usage::usage	testdata	218	133	76	9	279	190	89	0	0
-Usage::usage	examples	6809	3836	2932	40	7923	5392	2531	0	0
+Usage::usage	examples	6809	3836	2932	41	7923	5392	2531	0	0
 Usage::usage	probes	1	1	0	0	1	1	0	0	0
 Usage::usage	manual-examples	785	375	354	56	789	505	284	0	0
 Usage::variant	training	1728	1	1727	0	1821	1	1820	0	0
