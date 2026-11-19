@@ -7,7 +7,8 @@ import (
 )
 
 // A state owns one StateSubactionMembership per `entry`, `do` or `exit` member (SysML.xtext
-// EntryActionMember…): a bare `entry;` owns the empty ActionUsage it performs, a statement or usage is owned through it.
+// EntryActionMember…): a bare `entry;` owns the empty ActionUsage it performs, a statement is owned through it, and
+// an action usage written there is the PerformActionUsage of a PerformedActionUsage (SysML.xtext).
 func TestReflectiveStateOwnsItsSubactionMemberships(t *testing.T) {
 	m, root := buildModelWithStdlib(t, `package P {
 	attribute x : ScalarValues::Boolean;
@@ -39,7 +40,7 @@ func TestReflectiveStateOwnsItsSubactionMemberships(t *testing.T) {
 	want := []string{
 		"SysML::Systems::StateSubactionKind::entry ActionUsage",
 		"SysML::Systems::StateSubactionKind::do AssignmentActionUsage",
-		"SysML::Systems::StateSubactionKind::exit ActionUsage",
+		"SysML::Systems::StateSubactionKind::exit PerformActionUsage",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("subaction memberships = %v, want %v", got, want)

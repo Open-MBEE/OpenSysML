@@ -1012,6 +1012,9 @@ func classifyActionNode(u *ast.Usage) SymbolKind {
 		return SymbolPerformActionUsage
 	case AcceptPayloadOf(u) != nil:
 		return SymbolAcceptActionUsage
+	case u.IsStateAction():
+		// A state's `entry a;`, `do action b;` or `exit { … }` performs its action (SysML.xtext PerformedActionUsage).
+		return SymbolPerformActionUsage
 	}
 	switch statement := ActionNodeStatementOf(u).(type) {
 	case *ast.SendStatement:
