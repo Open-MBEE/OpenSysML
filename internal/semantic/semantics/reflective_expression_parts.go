@@ -1022,9 +1022,10 @@ func (m *Model) chainFeatureMemberships(chain *symbols.Symbol) []*symbols.Symbol
 		if target == nil && path != nil {
 			target = path[i]
 		}
-		if target == nil {
+		if target == nil && !isSatisfySubjectChainValue(owner) {
 			continue
 		}
+		// A subject's `by a.b` chain owns one chaining per link whether or not it resolves (recordSatisfySubjectValue).
 		out = append(out, &symbols.Symbol{
 			Kind:       symbols.SymbolRelationship,
 			DocName:    chain.DocName,

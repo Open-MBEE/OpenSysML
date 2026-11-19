@@ -386,6 +386,12 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 		if rel.Owner == nil || rel.Slot == "" {
 			return "", false
 		}
+		if owner := rel.Owner; owner.Expr != nil && owner.Expr.Slot == "referent" {
+			// A subject's `by a.b` chain owns its chainings at referent.fcN (recordSatisfySubjectValue).
+			if element, _, ok := s.ids.OfExpressionPart(doc, owner.Decl, "referent."+rel.Slot); ok && element != "" {
+				return element, true
+			}
+		}
 		return s.partID(rel.Owner, rel.Slot)
 	case symbols.ImplicitPortConjugation:
 		// A conjugated port definition's PortConjugation is minted off the conjugate (conjugatedPortDefinition).
