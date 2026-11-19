@@ -627,7 +627,9 @@ func TestLibraryCatalogsAreReleasedWithTheirIndex(t *testing.T) {
 	done := make(chan struct{})
 	func() {
 		base, _ := libs.FrozenLibrary()
-		if identity.LibraryCatalogWithOpenSysML(base) != identity.LibraryCatalogWithOpenSysML(base) {
+		first := identity.LibraryCatalogWithOpenSysML(base)
+		second := identity.LibraryCatalogWithOpenSysML(base)
+		if first != second {
 			t.Fatal("a frozen library index should build its catalog once")
 		}
 		runtime.AddCleanup(base, func(ch chan struct{}) { close(ch) }, done)
