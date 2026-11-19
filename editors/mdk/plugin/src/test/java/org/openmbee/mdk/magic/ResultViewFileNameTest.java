@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.openmbee.mdk.magic.results.ResultViews;
 
@@ -25,5 +26,12 @@ class ResultViewFileNameTest {
     assertNotEquals(ResultViews.fileName("m", "A::Q x=1"), ResultViews.fileName("m", "A::Q x_1"));
     assertTrue(quoted.matches("m\\.A\\._B\\.Q_~[0-9a-f]{8}\\.result\\.sysml"), quoted);
     assertEquals(quoted, ResultViews.fileName("m", "A::'B.Q'"), "the same query writes the same file");
+  }
+
+  @Test
+  void aViewNamedByAKeywordIsReadWithItsQuotes() {
+    String text = "package PartResult {\n\tprivate import QVTS::*;\n\n\tview 'part' : QueryResult {\n\t}\n}\n";
+    assertEquals(Optional.of("PartResult::'part'"), ResultViews.named(text));
+    assertEquals(Optional.of("CabinMassResult::cabinMass"), ResultViews.named(text.replace("'part'", "cabinMass").replace("Part", "CabinMass")));
   }
 }
