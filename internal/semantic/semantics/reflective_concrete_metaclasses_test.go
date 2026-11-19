@@ -138,14 +138,6 @@ func synthesizedMembershipNames(model *Model, owner *symbols.Symbol) []string {
 	return out
 }
 
-func ownedRelationshipNames(model *Model, owner *symbols.Symbol) []string {
-	var out []string
-	for _, rel := range model.OwnedRelationships(owner) {
-		out = append(out, relMetaName(model, rel))
-	}
-	return out
-}
-
 func TestElementFilterMembershipReflected(t *testing.T) {
 	fixture := reflectiveFixtures(t, "element-filter.sysml", source.KindSysML, `package P {
     metadata def M;
