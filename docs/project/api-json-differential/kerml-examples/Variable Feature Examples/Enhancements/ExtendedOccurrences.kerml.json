@@ -11,10 +11,10 @@
       "typeMismatch": 22
     },
     "properties": {
-      "presentEqual": 1999,
+      "presentEqual": 2000,
       "presentDifferent": 73,
-      "oursMissing": 292,
-      "pilotMissing": 144,
+      "oursMissing": 291,
+      "pilotMissing": 145,
       "absentBoth": 1755,
       "indeterminate": 55,
       "pilotNondeterministic": 1
@@ -155,7 +155,7 @@
     "Feature.chainingFeature": [0,0,0,0,20,0,0],
     "Feature.declaredName": [10,0,0,0,10,0,0],
     "Feature.declaredShortName": [0,0,0,0,20,0,0],
-    "Feature.definition": [0,0,0,5,0,0,0],
+    "Feature.definition": [0,0,0,6,0,0,0],
     "Feature.differencingType": [0,0,0,0,20,0,0],
     "Feature.directedFeature": [0,0,0,0,20,0,0],
     "Feature.direction": [9,0,0,0,11,0,0],
@@ -266,7 +266,7 @@
     "FeatureChainExpression.member": [0,1,0,0,0,0,0],
     "FeatureChainExpression.membership": [0,1,0,0,0,0,0],
     "FeatureChainExpression.operand": [0,0,0,0,1,0,0],
-    "FeatureChainExpression.operator": [0,0,1,0,0,0,0],
+    "FeatureChainExpression.operator": [1,0,0,0,0,0,0],
     "FeatureChainExpression.output": [1,0,0,0,0,0,0],
     "FeatureChainExpression.ownedAnnotation": [0,0,0,0,1,0,0],
     "FeatureChainExpression.ownedDifferencing": [0,0,0,0,1,0,0],

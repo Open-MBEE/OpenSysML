@@ -131,9 +131,9 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 	ids.recordResultExpression(e, node, parents[node], subject)
 	ids.recordDefaultMultiplicity(e, node, subject)
 	ids.recordConnectorEnds(e, node, subject)
-	ids.recordFlowEnds(e, node, subject)
 	ids.recordFlowEndChains(e, node, subject)
 	ids.recordSuccessionEnds(e, node, subject)
+	ids.recordFlowEnds(e, node, subject)
 	ids.recordTransitionSuccession(e, node, subject)
 	ids.recordTransitionHead(e, node, subject)
 	ids.recordSatisfySubjects(e, node, subject)
@@ -252,28 +252,6 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 				ids.partBySpan[spanPartKey{spanKey{e.file.Name(), end.Span()}, "chain." + position}] = recorded
 			}
 		}
-	}
-}
-
-// recordFlowEnds records the FlowEnds a `flow`'s conversion mints at end0/end1 (connectorEnd, flow:
-// true), each with its EndFeatureMembership, by the feature its from/to clause selects; a `message` owns none.
-func (ids *ElementIDs) recordFlowEnds(e *encoder, node ast.Node, subject rdf.Term) {
-	usage, ok := node.(*ast.Usage)
-	if !ok || usage.FlowEnds == nil || usage.Keyword == "message" || !verbatimUsage(usage) {
-		return
-	}
-	for i, target := range []ast.Node{usage.FlowEnds.From, usage.FlowEnds.To} {
-		if target == nil {
-			continue
-		}
-		end := ast.EndTarget(target)
-		slot := fmt.Sprintf("end%d", i)
-		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
-		ids.byNode[end] = rdf.LocalName(feature.Value)
-		ids.bySpan[spanKey{e.file.Name(), end.Span()}] = ids.byNode[end]
-		membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix).Value)
-		ids.membershipByNode[end] = membership
-		ids.membershipBySpan[spanKey{e.file.Name(), end.Span()}] = membership
 	}
 }
 
@@ -415,6 +393,47 @@ func (ids *ElementIDs) recordSuccessionEnds(e *encoder, node ast.Node, subject r
 	}
 }
 
+// recordFlowEnds records the ids the conversion mints for a flow's two FlowEnds at end0/end1: the end and its
+// EndFeatureMembership, its ReferenceSubsetting (`.rs`), its ReferenceUsage (`.ff`) and that usage's Redefinition (`.ff.rd0`).
+func (ids *ElementIDs) recordFlowEnds(e *encoder, node ast.Node, subject rdf.Term) {
+	usage, ok := node.(*ast.Usage)
+	if !ok || !semantics.FlowMintsEnds(usage) {
+		return
+	}
+	targets := [2]ast.Node{usage.FlowEnds.From, usage.FlowEnds.To}
+	for i, target := range targets {
+		slot := fmt.Sprintf("end%d", i)
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+		ids.recordPart(e, node, slot, partIDs{element: rdf.LocalName(feature.Value), membership: rdf.LocalName(membership.Value)})
+		if len(flowEndSegmentsOf(ast.EndTarget(target))) > 1 {
+			ids.recordPart(e, node, slot+".rs", partIDs{element: e.referenceSubsettingID(feature)})
+		}
+		flowFeature := e.ids.mintedNode(rdf.ExpressionIRI(feature, "ff"), feature, "ff")
+		flowMembership := e.ids.minted(rdf.OwningMembershipIRIOf(flowFeature), flowFeature, rdf.OwningMembershipSuffix)
+		ids.recordPart(e, node, slot+".ff", partIDs{element: rdf.LocalName(flowFeature.Value), membership: rdf.LocalName(flowMembership.Value)})
+		redefinition := rdf.RelationshipIRI(flowFeature, relationshipSuffix(ast.RelRedefines, false, 1, 0))
+		ids.recordPart(e, node, slot+".ff.rd0", partIDs{element: rdf.LocalName(redefinition.Value)})
+	}
+}
+
+// recordPart files the ids of the part at slot of node, by node and by span.
+func (ids *ElementIDs) recordPart(e *encoder, node ast.Node, slot string, recorded partIDs) {
+	ids.partByNode[partKey{node, slot}] = recorded
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = recorded
+}
+
+// flowEndSegmentsOf is the names a flow end's target is written as, outermost first.
+func flowEndSegmentsOf(target ast.Node) []*ast.QualifiedName {
+	switch target := target.(type) {
+	case *ast.QualifiedName:
+		return []*ast.QualifiedName{target}
+	case *ast.FeatureChainExpr:
+		return featureChainSegments(target)
+	}
+	return nil
+}
+
 // successionTargetStated reports whether the target end of a `then` succession reference-subsets a
 // feature: the target it names, the library's done, or a member after it the conversion addresses.
 func (e *encoder) successionTargetStated(edge *ast.SuccessionEdge) bool {
@@ -520,28 +539,7 @@ func (e *encoder) writtenRelationships(node, parent ast.Node, subject rdf.Term, 
 	e.writtenDependencyAnnotation(node, parent, subject, out)
 	e.writtenClauseRelationships(node, parent, subject, parents, out)
 	e.writtenBoundEndReferences(node, subject, out)
-	e.writtenFlowEndReferences(node, subject, out)
 	return out
-}
-
-// writtenFlowEndReferences records, by the feature a `flow`'s from/to clause selects, the
-// ReferenceSubsetting its FlowEnd owns when the clause names a feature of a feature (flowEndReferences).
-func (e *encoder) writtenFlowEndReferences(node ast.Node, subject rdf.Term, out map[ast.Node]string) {
-	usage, ok := node.(*ast.Usage)
-	if !ok || usage.FlowEnds == nil || usage.Keyword == "message" || !verbatimUsage(usage) {
-		return
-	}
-	for i, target := range []ast.Node{usage.FlowEnds.From, usage.FlowEnds.To} {
-		if target == nil {
-			continue
-		}
-		feature := ast.EndTarget(target)
-		if _, chained := feature.(*ast.FeatureChainExpr); !chained && !qualifiedNameChained(feature) {
-			continue
-		}
-		end := e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i)), subject, fmt.Sprintf("end%d", i))
-		out[feature] = e.referenceSubsettingID(end)
-	}
 }
 
 // referenceSubsettingID is the id of the ReferenceSubsetting written under feature (referenceSubsetting).

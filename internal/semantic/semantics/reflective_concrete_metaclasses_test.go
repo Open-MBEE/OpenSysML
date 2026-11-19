@@ -100,6 +100,17 @@ func TestExtendedUsageMetaclass(t *testing.T) {
         in y;
     }
 }`, map[string]string{"x": "Usage", "y": "ReferenceUsage"})
+	for i, fixture := range reflectiveFixtures(t, "extended-usage-composite.sysml", source.KindSysML, `package P {
+    metadata def M;
+    part def PD { #M x; }
+}`) {
+		x := relFixtureSymbol(t, fixture, "x")
+		for feature, want := range map[string]bool{"isReference": false, "isComposite": true} {
+			if got, ok := fixture.model.ReflectiveFeatureValue(x, feature); !ok || got != boolValue(want) {
+				t.Errorf("fixture %d: #M x; %s = %v (%v), want %v: a plain Usage is composite by default", i, feature, got, ok, want)
+			}
+		}
+	}
 }
 
 func TestKerMLSuccessionFlowMetaclass(t *testing.T) {
@@ -236,48 +247,4 @@ func TestResultExpressionMembershipReflected(t *testing.T) {
 		}
 		assertNames(t, name+" result memberships", results, []string{want})
 	}
-}
-
-func TestFlowEndMetaclass(t *testing.T) {
-	fixture := reflectiveFixtures(t, "flow-ends.sysml", source.KindSysML, `package P {
-    part def PX { attribute x; }
-    part p1 : PX;
-    part p2 : PX;
-    flow f from p1.x to p2.x;
-    flow g from p1 to p2;
-}`)[0]
-	f := relFixtureSymbol(t, fixture, "f")
-	assertNames(t, "flow memberships", synthesizedMembershipNames(fixture.model, f), []string{
-		"EndFeatureMembership/FlowEnd",
-		"EndFeatureMembership/FlowEnd",
-	})
-	for i, membership := range fixture.model.OwnedMemberships(f) {
-		end := membership.Implicit.Member
-		if owner := fixture.model.ownerOf(end); owner != f {
-			t.Errorf("end %d owner = %v, want f", i, owner)
-		}
-		if end.Expr.Slot != flowEndSlots[i] {
-			t.Errorf("end %d slot = %q, want %q", i, end.Expr.Slot, flowEndSlots[i])
-		}
-		assertNames(t, "chained end relationships", ownedRelationshipNames(fixture.model, end), []string{"ReferenceSubsetting"})
-	}
-	// A bare name states the flow feature alone: no FlowEndSubsetting (SysML.xtext FlowEnd).
-	for _, membership := range fixture.model.OwnedMemberships(relFixtureSymbol(t, fixture, "g")) {
-		assertNames(t, "bare end relationships", ownedRelationshipNames(fixture.model, membership.Implicit.Member), nil)
-	}
-	message := reflectiveFixtures(t, "message-ends.sysml", source.KindSysML, `package P {
-    occurrence def E;
-    part q { event occurrence e1 : E; event occurrence e2 : E; message m from e1 to e2; }
-}`)[0]
-	// A message relates events through MessageEventMembers (SysML.xtext), owning no FlowEnd.
-	assertNames(t, "message memberships", synthesizedMembershipNames(message.model, relFixtureSymbol(t, message, "m")), nil)
-	kerml := reflectiveFixtures(t, "flow-ends.kerml", source.KindKerML, `package P {
-    feature fa { feature x; }
-    feature fb { feature y; }
-    succession flow f from fa.x to fb.y;
-}`)[0]
-	assertNames(t, "kerml flow memberships", synthesizedMembershipNames(kerml.model, relFixtureSymbol(t, kerml, "f")), []string{
-		"EndFeatureMembership/FlowEnd",
-		"EndFeatureMembership/FlowEnd",
-	})
 }

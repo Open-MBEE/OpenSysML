@@ -8,51 +8,48 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
-// TestFlowEndsHaveTheirOwnElementIDs: a `flow`'s FlowEnds, their EndFeatureMemberships and a
-// chained end's ReferenceSubsetting are identified as the conversion mints them (end0/end1).
-func TestFlowEndsHaveTheirOwnElementIDs(t *testing.T) {
+// A flow's FlowEnds and everything they own read the ids the conversion mints: `<flow>_pend0`, `_pend0_om`,
+// `_pend0_prs`, `_pend0_pff`, `_pend0_pff_om`, `_pend0_pff_rd0`.
+func TestFlowEndsReadTheConversionIDs(t *testing.T) {
 	fixture := loadExecutionSource(t, `package Observatory {
-	part def PX { attribute x; }
-	part p1 : PX;
-	part p2 : PX;
-	flow f from p1.x to p2.x;
-	flow g from p1 to p2;
+    item def Image;
+    part acquire { out item image : Image; }
+    part readout { in item image : Image; }
+    flow capture from acquire.image to readout.image;
 }`)
 	read := export.NewElementIDReader([]export.ElementIDDocument{{File: fixture.file, Root: fixture.root}})
 	elementID := func(sym *symbols.Symbol) string {
 		id, err := ElementIDOf(read, fixture.index, sym)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("%v id: %v", sym.Decl, err)
 		}
 		return id
 	}
-	for _, flow := range []string{"f", "g"} {
-		ends, _ := fixture.model.ReflectiveElements(fixture.symbol(t, flow), "ownedEndFeature")
-		if len(ends) != 2 {
-			t.Fatalf("%s: ownedEndFeature = %d ends, want 2", flow, len(ends))
+	flow := fixture.symbol(t, "capture")
+	owned, _ := fixture.model.ReflectiveElements(flow, "ownedRelationship")
+	if got, want := strings.Join(elementIDs(elementID, owned), " "), "Observatory__capture_pend0_om Observatory__capture_pend1_om"; got != want {
+		t.Fatalf("the flow's ownedRelationship ids = %q, want %q", got, want)
+	}
+	ends, _ := fixture.model.ReflectiveElements(flow, "connectorEnd")
+	if got, want := strings.Join(elementIDs(elementID, ends), " "), "Observatory__capture_pend0 Observatory__capture_pend1"; got != want {
+		t.Fatalf("the flow's connectorEnd ids = %q, want %q", got, want)
+	}
+	for i, end := range ends {
+		prefix := "Observatory__capture_pend" + string(rune('0'+i))
+		owned, _ := fixture.model.ReflectiveElements(end, "ownedRelationship")
+		if got, want := strings.Join(elementIDs(elementID, owned), " "), prefix+"_prs "+prefix+"_pff_om"; got != want {
+			t.Fatalf("end %d's ownedRelationship ids = %q, want %q", i, got, want)
 		}
-		for i, end := range ends {
-			slot := "_pend" + string(rune('0'+i))
-			if id := elementID(end); !strings.HasSuffix(id, "__"+flow+slot) {
-				t.Errorf("%s end %d id = %q, want its flow's at %s", flow, i, id, slot)
-			}
-			memberships, _ := fixture.model.ReflectiveElements(end, "owningMembership")
-			if len(memberships) != 1 || elementID(memberships[0]) != elementID(end)+"_om" {
-				t.Errorf("%s end %d owning membership = %v, want %s_om", flow, i, memberships, elementID(end))
-			}
-			relationships := fixture.model.ImplicitRelationships(end)
-			switch {
-			case flow == "g" && len(relationships) != 0:
-				t.Errorf("g end %d owns %d relationships, want none for a bare name", i, len(relationships))
-			case flow == "f" && (len(relationships) != 1 || elementID(relationships[0]) != elementID(end)+"_prs"):
-				t.Errorf("f end %d relationships = %v, want its ReferenceSubsetting at %s_prs", i, relationships, elementID(end))
-			}
+		features, _ := fixture.model.ReflectiveElements(end, "ownedFeature")
+		if got, want := strings.Join(elementIDs(elementID, features), " "), prefix+"_pff"; got != want {
+			t.Fatalf("end %d's ownedFeature ids = %q, want %q", i, got, want)
+		}
+		redefinitions, _ := fixture.model.ReflectiveElements(features[0], "ownedRelationship")
+		if got, want := strings.Join(elementIDs(elementID, redefinitions), " "), prefix+"_pff_rd0"; got != want {
+			t.Fatalf("end %d's feature's ownedRelationship ids = %q, want %q", i, got, want)
 		}
 	}
 }
-
-// TestFilterConditionHasItsMembersElementID: a `filter` condition is identified under the
-// ElementFilterMembership that owns it, at `filter`, and the membership as that member.
 func TestFilterConditionHasItsMembersElementID(t *testing.T) {
 	fixture := loadExecutionSource(t, `package Observatory {
 	metadata def M;

@@ -121,6 +121,10 @@ func (m *Model) directRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	out = append(out, m.ImplicitParameterRedefinitions(sym)...)
 	out = append(out, m.implicitEndRedefinitions(sym)...)
 	out = append(out, m.ImplicitRoleRedefinitions(sym)...)
+	if target := m.flowEndFeatureRedefinition(sym); target != nil {
+		// The ReferenceUsage a flow's end owns is named by the feature it redefines (FlowFeatureMember).
+		out = append(out, target)
+	}
 	return append(out, m.implicitMetadataBodyRedefinitions(sym)...)
 }
 
@@ -186,6 +190,12 @@ func (m *Model) EffectiveNamed(sym *symbols.Symbol) (string, bool) {
 		return "", false
 	}
 	return from.Name, from.Named()
+}
+
+// NameSourceOf is the element whose declared identifiers sym answers to: sym itself,
+// or the one its naming features lead to (KerML 1.1 §8.3.3.3); nil when none declares any.
+func (m *Model) NameSourceOf(sym *symbols.Symbol) *symbols.Symbol {
+	return identifierSource(sym, m.declaresOwnIdentifier, m.namingFeature)
 }
 
 // EffectiveShortNameOf is Element::shortName: the declared short name, or, for
@@ -254,9 +264,6 @@ func (m *Model) namingFeature(sym *symbols.Symbol) *symbols.Symbol {
 	if m == nil || sym == nil {
 		return nil
 	}
-	if isFlowEndSymbol(sym) {
-		return m.flowEndRedefinedEnd(sym)
-	}
 	if byReference, referenceOnly := ast.DeclNamedByReference(sym.Decl); byReference {
 		if ref := m.ReferencedFeature(sym); ref != nil {
 			return ref
@@ -272,16 +279,6 @@ func (m *Model) namingFeature(sym *symbols.Symbol) *symbols.Symbol {
 		if candidate != nil && candidate != sym {
 			return candidate
 		}
-	}
-	return nil
-}
-
-// flowEndRedefinedEnd is the Transfer end (`source`, `target`) a FlowEnd redefines
-// by position and takes its name from (KerML 8.3.4.8.4 checkFlowEndRedefinition).
-func (m *Model) flowEndRedefinedEnd(end *symbols.Symbol) *symbols.Symbol {
-	ends := m.EndFeatures(end.Expr.Owner)
-	if end.Expr.Index < len(ends) {
-		return ends[end.Expr.Index]
 	}
 	return nil
 }

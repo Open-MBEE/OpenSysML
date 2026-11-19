@@ -21,9 +21,6 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return nil
 	}
 	if sym.Expr != nil {
-		if sym.Expr.Role == symbols.ExpressionFlowEnd {
-			return nil
-		}
 		return m.expressionMemberships(sym)
 	}
 	defer m.own(sym).LeaveDoc()
@@ -31,6 +28,13 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return cached
 	}
 	value := m.ValueExpression(sym)
+	if feature := m.FlowEndFeatureMember(sym); feature != nil {
+		// A flow's end owns the ReferenceUsage redefining the feature it names (SysML.xtext FlowFeatureMember).
+		journal(m, m.memberships, sym, sym.Decl)
+		out := appendOwningMembership(nil, sym, feature)
+		m.memberships[sym] = out
+		return out
+	}
 	synthesized := m.synthesizedMembersOf(sym)
 	if sym.Scope == nil && value == nil && len(synthesized) == 0 {
 		return nil
@@ -81,6 +85,11 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 			},
 		})
 		ordinal++
+	}
+	if !flowDeclaresPayload(sym) {
+		// A flow owns its two FlowEnds ahead of its body (SysML.xtext FlowDeclaration); one declaring
+		// a payload owns them after it, below.
+		out, ordinal = m.withFlowEndMemberships(sym, out, ordinal)
 	}
 	for _, end := range m.SuccessionEndMembers(sym) {
 		// A `then` succession owns its two ends ahead of its body (SysML.xtext TargetSuccession).
@@ -135,6 +144,10 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 			},
 		})
 		ordinal++
+		if m.IsFlowPayload(member) {
+			// A flow declaring its payload owns its two FlowEnds right after it, as the pilot orders them.
+			out, ordinal = m.withFlowEndMemberships(sym, out, ordinal)
+		}
 		return true
 	})
 	if result := m.ConstraintResultMember(sym); result != nil {
@@ -159,11 +172,31 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// flowEndSlots are the slots the conversion mints a `flow from a to b`'s ends at.
-var flowEndSlots = [2]string{"end0", "end1"}
+// withFlowEndMemberships adds the EndFeatureMembership of each FlowEnd sym owns (FlowEndMembers).
+func (m *Model) withFlowEndMemberships(sym *symbols.Symbol, out []*symbols.Symbol, ordinal int) ([]*symbols.Symbol, int) {
+	for _, end := range m.FlowEndMembers(sym) {
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   end.DeclSpan,
+			Visibility: sym.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: end,
+			},
+		})
+		ordinal++
+	}
+	return out, ordinal
+}
+
+// flowDeclaresPayload reports whether sym is a flow declaring its payload (`flow of p : T`, `flow of T`).
+func flowDeclaresPayload(sym *symbols.Symbol) bool {
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.FlowEnds != nil && usage.FlowEnds.PayloadDecl != nil
+}
 
 // synthesizedMembersOf is the members sym owns without a symbol of their own, in
-// source order: its flow's FlowEnds, its `filter` conditions, its body's result.
+// source order: its `filter` conditions, its body's result.
 func (m *Model) synthesizedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil || sym.Recorded() || sym.Expr != nil || sym.Implicit != nil {
 		return nil
@@ -174,16 +207,6 @@ func (m *Model) synthesizedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	journal(m, m.synthesized, sym, sym.Decl)
 	var out []*symbols.Symbol
-	// A `message`'s ends are the events it relates, not FlowEnds (SysML.xtext MessageEventMember).
-	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.FlowEnds != nil && usage.Keyword != "message" {
-		for i, end := range [2]ast.Node{usage.FlowEnds.From, usage.FlowEnds.To} {
-			if end != nil {
-				out = append(out, synthesizedMember(sym, end, &symbols.ExpressionElement{
-					Owner: sym, Role: symbols.ExpressionFlowEnd, Index: i, Slot: flowEndSlots[i],
-				}))
-			}
-		}
-	}
 	for i, filter := range symbols.NamespaceFiltersIn(sym.Scope) {
 		if filter.Expr != nil {
 			out = append(out, synthesizedMember(sym, filter.Expr, &symbols.ExpressionElement{
@@ -203,24 +226,11 @@ func (m *Model) synthesizedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-func isFlowEndSymbol(sym *symbols.Symbol) bool {
-	return sym != nil && sym.Expr != nil && sym.Expr.Role == symbols.ExpressionFlowEnd
-}
-
-// flowEndStatesSubsetting reports whether a flow end names a feature of a feature
-// (`a.b`); only then does the FlowEnd own a ReferenceSubsetting (SysML.xtext FlowEndSubsetting).
-func flowEndStatesSubsetting(end ast.Node) bool {
-	target := ast.EndTarget(end)
-	if name, ok := target.(*ast.QualifiedName); ok {
-		return ast.QualifiedNameHasChain(name)
-	}
-	return chainNode(target) != nil
-}
-
-// withSynthesizedMembers places the members sym owns without a symbol of their
-// own among the members it declares, each at its clause.
+// withSynthesizedMembers places the members sym owns without a declaration of
+// their own — its flow's FlowEnds, its synthesized conditions and results — among
+// the members it declares, each at its clause.
 func (m *Model) withSynthesizedMembers(sym *symbols.Symbol, members []*symbols.Symbol) []*symbols.Symbol {
-	for _, member := range m.synthesizedMembersOf(sym) {
+	for _, member := range slices.Concat(m.FlowEndMembers(sym), m.synthesizedMembersOf(sym)) {
 		members = slices.Insert(members, ownedClausePosition(sym, members, member.DeclSpan.Offset), member)
 	}
 	return members
@@ -436,6 +446,9 @@ func (m *Model) OwningRelationship(sym *symbols.Symbol) *symbols.Symbol {
 		return nil
 	}
 	if sym.Chain != nil {
+		if sym.Chain.Flow != nil {
+			return m.flowEndChainReference(sym)
+		}
 		return sym.Chain.Relationship
 	}
 	if membership := m.OwningMembership(sym); membership != nil {
@@ -553,8 +566,6 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 			return "ResultExpressionMembership"
 		case symbols.ExpressionFilterCondition:
 			return "ElementFilterMembership"
-		case symbols.ExpressionFlowEnd:
-			return "EndFeatureMembership"
 		case symbols.ExpressionChainFeature:
 			return "OwningMembership"
 		case symbols.ExpressionGuard, symbols.ExpressionTriggerAction:
@@ -584,8 +595,9 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 	if !member.IsFeature() || !m.reflectiveMetaclassConforms(owner, "Type") {
 		return "OwningMembership"
 	}
-	if member.Kind == symbols.SymbolConnectorEnd || usageFlag(member, func(u *ast.Usage) bool { return u.IsEnd }) ||
-		containsElement(m.EndFeatures(owner), member) {
+	if _, implied := symbols.ImpliedSuccessionEndIndex(member); member.Kind == symbols.SymbolConnectorEnd || implied {
+		// A connector's clause end (`connect a to b`, a flow's or a `then` succession's) is an EndFeatureMembership;
+		// a declared `end` feature is a FeatureMembership whose member isEnd, as the pilot exports both.
 		return "EndFeatureMembership"
 	}
 	if isAcceptPayload(owner, member) {

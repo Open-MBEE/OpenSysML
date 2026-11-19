@@ -996,6 +996,9 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 	if symbols.IsFirstMarker(sym) {
 		facts.Modifiers |= symbols.ModFirstMarker
 	}
+	if model.IsTypeFeatureMember(sym) {
+		facts.Modifiers |= symbols.ModTypeFeatureMember
+	}
 	if sym.IsPrefixMetadata() {
 		facts.Modifiers |= symbols.ModPrefixMetadata
 	}

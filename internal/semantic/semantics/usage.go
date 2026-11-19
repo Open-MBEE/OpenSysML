@@ -61,9 +61,14 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		(!actionKind && !m.conformsByName(sym, "Actions::Action"))
 }
 
-// synthesizedUsageMayTimeVary derives Usage::mayTimeVary for a referential part the model synthesizes
-// with no scope of its own: a transition's link parameter, or a trigger's payload and receiver parameters.
+// synthesizedUsageMayTimeVary derives Usage::mayTimeVary for a referential part the model synthesizes:
+// a flow end's ReferenceUsage, a transition's link parameter, or a trigger's payload and receiver parameters.
 func (m *Model) synthesizedUsageMayTimeVary(sym *symbols.Symbol) (varies, ok bool) {
+	if _, ok := symbols.ImpliedFlowEndFeatureIndex(sym); ok {
+		// A flow end's ReferenceUsage is owned by the FlowEnd, which redefines Flows::Flow::source
+		// or target, an Occurrence-typed feature (SysML v2.1 §8.3.16.6), as the pilot exports it.
+		return !m.isKerMLDoc(sym) && m.UsageMayTimeVaryUnderLibraryFeature("Flows::Flow::source"), true
+	}
 	if sym.OwnerScope != nil || sym.Expr == nil {
 		return false, false
 	}
@@ -191,7 +196,7 @@ func usageIsReferential(usage *ast.Usage) bool {
 	if usage == nil {
 		return false
 	}
-	if usage.Kind == ast.UsageAttribute {
+	if usage.Kind == ast.UsageAttribute && !usage.IsExtendedUsage() {
 		return true
 	}
 	return !usageIsComposite(usage)
@@ -331,6 +336,9 @@ func (m *Model) usageIsAlwaysReferential(sym *symbols.Symbol) bool {
 		return false
 	}
 	if sym.Recorded() {
+		if sym.Facts.Modifiers.Has(symbols.ModExtendedUsage) {
+			return false // prefix metadata alone declares a plain Usage (SysML.xtext ExtendedUsage)
+		}
 		if sym.Kind == symbols.SymbolBindingUsage || sym.Kind == symbols.SymbolSuccessionUsage ||
 			sym.Kind.IsAttributeLike() || sym.Kind == symbols.SymbolReferenceUsage ||
 			sym.Facts.UsageKind == ast.UsageBinding || sym.Facts.UsageKind == ast.UsageSuccession ||
@@ -339,6 +347,9 @@ func (m *Model) usageIsAlwaysReferential(sym *symbols.Symbol) bool {
 		}
 	}
 	if usage, ok := sym.Decl.(*ast.Usage); ok {
+		if usage.IsExtendedUsage() {
+			return false
+		}
 		if usage.Kind == ast.UsageAttribute || usage.Kind == ast.UsageBinding ||
 			usage.Kind == ast.UsageSuccession ||
 			usage.IsEvent || usage.IsPerformedAction() ||
@@ -435,7 +446,7 @@ func UsageDeclIsComposite(usage *ast.Usage) bool {
 }
 
 func usageIsComposite(usage *ast.Usage) bool {
-	if usage == nil || usage.IsReference || usage.Direction != ast.DirNone || usage.IsBodyParameter ||
+	if usage == nil || usage.IsReference && !usage.IsExtendedUsage() || usage.Direction != ast.DirNone || usage.IsBodyParameter ||
 		usage.IsEnd || usage.IsEvent || usage.Kind == ast.UsageEnumeration || usage.IsVariantReference() {
 		return false
 	}

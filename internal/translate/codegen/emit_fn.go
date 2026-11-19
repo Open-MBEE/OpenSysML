@@ -215,7 +215,7 @@ static inline uint64_t sysml_new_unset(uint64_t tag) { return ++sysml_unsets << 
 		if (o->u & SYSML_FRESH) { o->u &= ~SYSML_FRESH; sysml_step(1); } \
 		return *o; \
 	}
-SYSML_OPT(i, sysml_int)
+SYSML_OPT(i, sysml_integer)
 /* sysml_narrow_opt checks o against the range lo of the feature it is written
    to; an unset value conforms when its own feature's range is within it,
    checked only where strict. */
@@ -236,10 +236,10 @@ SYSML_OPT(e, sysml_enum)
 SYSML_OPT(rec, sysml_rec *)
 SYSML_OPT(s, sysml_str)
 typedef struct sysml_fn sysml_fn;
-/* What a record or a closure holds: a String's bytes, a collection's elements
-   and a function value are kept until the run ends (sysml_keep). */
+/* What a record or a closure holds: a String's bytes, an Integer beyond int64, a
+   collection's elements and a function value are kept until the run ends (sysml_keep). */
 typedef union {
-	sysml_int i; sysml_real r; sysml_bool b; sysml_num n; sysml_enum e; int64_t run; sysml_rec *rec;
+	sysml_integer i; sysml_real r; sysml_bool b; sysml_num n; sysml_enum e; int64_t run; sysml_rec *rec;
 	sysml_str s; sysml_kept q; const sysml_fn *f;
 	sysml_opt_i u_i; sysml_opt_r u_r; sysml_opt_b u_b; sysml_opt_n u_n; sysml_opt_e u_e; sysml_opt_rec u_rec; sysml_opt_s u_s;
 } sysml_cap;
@@ -274,11 +274,17 @@ static inline bool sysml_fn_eq(sysml_fn a, sysml_fn b) { return a.c == b.c && a.
 static inline uint64_t sysml_fn_key(sysml_fn f) { return ((((uint64_t)f.run * 0x100000001B3ULL) ^ (uint64_t)(uintptr_t)f.self) * 0x100000001B3ULL) ^ (uint64_t)f.c; }
 static void sysml_print_fn_value(sysml_fn f) { fputs(sysml_fn_names[f.c], stdout); }
 static void sysml_print_fn(sysml_fn f) { puts(sysml_fn_names[f.c]); }
-static void sysml_format_fn(sysml_fn f, char *out, size_t size) { snprintf(out, size, "%%s", sysml_fn_names[f.c]); }
 static const char *sysml_show_fn(sysml_fn f) { return sysml_fn_names[f.c]; }
 static sysml_fn sysml_parse_fn(const char *s, const char *name) { fprintf(stderr, "argument %%s: %%s is not a function value\n", name, s); exit(2); }
 `, env, strings.Join(names, ", "))
 }
+
+// cKeepNumbers keeps the Integer a record feature or a closure holds.
+const cKeepNumbers = `
+static inline sysml_num sysml_keep_num(sysml_num n) { n.i = sysml_keep_int(n.i); return n; }
+static inline sysml_opt_i sysml_keep_opt_int(sysml_opt_i o) { o.v = sysml_keep_int(o.v); return o; }
+static inline sysml_opt_n sysml_keep_opt_num(sysml_opt_n o) { o.v = sysml_keep_num(o.v); return o; }
+`
 
 // cKeepOptStr keeps the String a record feature that may be unset holds.
 const cKeepOptStr = `
@@ -293,8 +299,7 @@ func cFnSeqRuntime(p *Program) string {
 	if len(p.FnCases) == 0 {
 		return ""
 	}
-	r := strings.NewReplacer("ELEMNAME", "fn", "ELEM", "sysml_fn", "SFX", "fn", "PRINT", "sysml_print_fn_value",
-		"FORMAT", "sysml_format_fn", "KINDOF", "SYSML_KIND_FN", "KEY", "sysml_fn_key", "SKIP", "SYSML_NEVER",
+	r := strings.NewReplacer("ELEMNAME", "fn", "ELEM", "sysml_fn", "SFX", "fn", "PRINT", "sysml_print_fn_value", "KINDOF", "SYSML_KIND_FN", "KEY", "sysml_fn_key", "SKIP", "SYSML_NEVER",
 		"EQ", "sysml_fn_eq", "SHOW", "sysml_show_fn", "SAVEELEMS", "SYSML_NO_ELEMS", "RESTOREELEMS", "SYSML_NO_ELEMS", "KEEPELEMS", "SYSML_NO_ELEMS",
 		"KOPEN", `" ("`, "KCLOSE", `")"`)
 	return "#define SYSML_KIND_FN(v) \"function\"\n" + r.Replace(cSeqTemplate)
@@ -305,8 +310,7 @@ func cRecSeqRuntime(p *Program) string {
 	if len(p.Records) == 0 {
 		return ""
 	}
-	r := strings.NewReplacer("ELEMNAME", "rec", "ELEM", "sysml_rec *", "SFX", "rec", "PRINT", "sysml_print_rec_value",
-		"FORMAT", "sysml_format_rec", "KINDOF", "SYSML_KIND_REC", "KEY", "sysml_rec_key", "SKIP", "SYSML_NEVER",
+	r := strings.NewReplacer("ELEMNAME", "rec", "ELEM", "sysml_rec *", "SFX", "rec", "PRINT", "sysml_print_rec_value", "KINDOF", "SYSML_KIND_REC", "KEY", "sysml_rec_key", "SKIP", "SYSML_NEVER",
 		"EQ", "SYSML_SCALAR_EQ", "SHOW", "sysml_show_rec", "SAVEELEMS", "SYSML_NO_ELEMS", "RESTOREELEMS", "SYSML_NO_ELEMS", "KEEPELEMS", "SYSML_NO_ELEMS",
 		"KOPEN", `""`, "KCLOSE", `""`)
 	return `#define SYSML_KIND_REC(v) ""
@@ -357,10 +361,12 @@ func (e *cEmitter) kept(v Expr) string {
 		return fmt.Sprintf("sysml_keepseq_%s(%s)", cSeqSuffix(t), e.expr(v))
 	case t.IsFn():
 		return "sysml_keep_fn(" + e.expr(v) + ")"
-	case t == TypeString:
-		return "sysml_keep_str(" + e.expr(v) + ")"
-	case t.MayUnset() && t.Concrete() == TypeString:
-		return "sysml_keep_opt_str(" + e.expr(v) + ")"
+	case t.Concrete() == TypeString, t.Concrete() == TypeInt, t.Concrete() == TypeNum:
+		keep := "sysml_keep_"
+		if t.MayUnset() {
+			keep += "opt_"
+		}
+		return keep + cSeqSuffix(t.Concrete()) + "(" + e.expr(v) + ")"
 	}
 	return e.expr(v)
 }

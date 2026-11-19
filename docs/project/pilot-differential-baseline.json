@@ -69,7 +69,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 56,
-        "digest": "sha256:da15eed5f1e8a20351f90ea90d4427a0c959569f7ad12a5515afbb8afdf476c2"
+        "digest": "sha256:b637f67538a277b2e2077d3c838ec5b02809fd5e40041bde44d36bedf90b43e1"
       },
       {
         "name": "probes",
@@ -86,16 +86,16 @@
         "digest": "sha256:f39db343dafb9c99359f5a92e56dcdd5c52992dc50e50b9268d349aa9cdfdf26"
       }
     ],
-    "recorded": "2026-11-15"
+    "recorded": "2026-11-17"
   },
   "totals": {
     "files": 924,
     "filesFullyAgreeing": 528,
-    "agreement": 1105,
-    "severityMismatch": 10,
-    "openSysMLOnly": 121,
+    "agreement": 1107,
+    "severityMismatch": 8,
+    "openSysMLOnly": 120,
     "pilotOnly": 2450,
-    "openSysMLDiagnostics": 1236,
+    "openSysMLDiagnostics": 1235,
     "pilotDiagnostics": 3565
   },
   "roots": [
@@ -575,11 +575,11 @@
       "totals": {
         "files": 511,
         "filesFullyAgreeing": 151,
-        "agreement": 1040,
-        "severityMismatch": 6,
-        "openSysMLOnly": 46,
+        "agreement": 1042,
+        "severityMismatch": 4,
+        "openSysMLOnly": 45,
         "pilotOnly": 2349,
-        "openSysMLDiagnostics": 1092,
+        "openSysMLDiagnostics": 1091,
         "pilotDiagnostics": 3395
       },
       "files": [
@@ -6948,19 +6948,17 @@
             {
               "line": 8,
               "severity": "error",
+              "category": "syntax",
+              "count": 1
+            },
+            {
+              "line": 8,
+              "severity": "error",
               "category": "unresolved-reference",
               "count": 2
             }
           ],
-          "severityMismatch": [
-            {
-              "line": 8,
-              "category": "syntax",
-              "openSysMLSeverity": "warning",
-              "pilotSeverity": "error",
-              "count": 1
-            }
-          ],
+          "severityMismatch": [],
           "openSysMLOnly": [],
           "pilotOnly": [
             {
@@ -14562,12 +14560,6 @@
           "severityMismatch": [],
           "openSysMLOnly": [
             {
-              "line": 6,
-              "severity": "warning",
-              "category": "syntax",
-              "count": 1
-            },
-            {
               "line": 9,
               "severity": "error",
               "category": "syntax",
@@ -16723,6 +16715,12 @@
           "path": "sysml/8.4.9.2/3.sysml",
           "agreement": [
             {
+              "line": 7,
+              "severity": "error",
+              "category": "syntax",
+              "count": 1
+            },
+            {
               "line": 8,
               "severity": "error",
               "category": "syntax",
@@ -16735,15 +16733,7 @@
               "count": 1
             }
           ],
-          "severityMismatch": [
-            {
-              "line": 7,
-              "category": "syntax",
-              "openSysMLSeverity": "warning",
-              "pilotSeverity": "error",
-              "count": 1
-            }
-          ],
+          "severityMismatch": [],
           "openSysMLOnly": [],
           "pilotOnly": [
             {
@@ -24954,11 +24944,11 @@
     "totals": {
       "files": 924,
       "filesFullyAgreeing": 529,
-      "agreement": 1105,
-      "severityMismatch": 10,
-      "openSysMLOnly": 120,
+      "agreement": 1107,
+      "severityMismatch": 8,
+      "openSysMLOnly": 119,
       "pilotOnly": 2450,
-      "openSysMLDiagnostics": 1235,
+      "openSysMLDiagnostics": 1234,
       "pilotDiagnostics": 3565
     },
     "findings": [

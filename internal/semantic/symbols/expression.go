@@ -45,9 +45,6 @@ const (
 	// ExpressionFilterCondition is the condition a namespace's `filter` states,
 	// owned through an ElementFilterMembership (KerML 8.2.4); Owner is the namespace, Index its position.
 	ExpressionFilterCondition
-	// ExpressionFlowEnd is one end of a `flow`, a FlowEnd through an EndFeatureMembership
-	// (KerML 8.3.4.8.4); Owner is the flow, Index its position, Slot its minted id.
-	ExpressionFlowEnd
 	// ExpressionTransitionSuccession is the Succession a transition owns through an OwningMembership,
 	// from its source to its target (SysML.xtext TransitionSuccessionMember); Owner is the transition.
 	ExpressionTransitionSuccession

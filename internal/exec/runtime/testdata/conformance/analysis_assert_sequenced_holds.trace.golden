@@ -1,0 +1,21 @@
+enter analysis test::tank
+  stmt declare level
+    eval literal 0 -> 0
+  stmt action body
+enter action node: analysis test::tank
+    stmt assign level
+      eval literal 3 -> 3
+    stmt assert filled
+        eval feature level -> 3
+        eval literal 3 -> 3
+      eval operator == -> true
+    stmt assert overfull
+        eval feature level -> 3
+        eval literal 3 -> 3
+      eval operator > -> false
+    stmt assign level
+      eval literal 1 -> 1
+leave action node: analysis test::tank
+  stmt return
+    eval feature level -> 1
+exit analysis test::tank -> (1)

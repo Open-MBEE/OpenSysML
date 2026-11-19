@@ -1,0 +1,55 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+title: "«view» SwimLanes::performedView : ActionFlowView"
+---
+%% SwimLanes::performedView — action rendering (view def ActionFlowView)
+flowchart TD
+  subgraph n0 ["`*«perform action»* **part0.action0**`"]
+    direction TD
+    subgraph n7 ["`*«performer»* **part0.part1**
+perform actions`"]
+      direction TD
+      n1("`*«action»*
+**^action1**`")
+      n4("`*«action»*
+**^action4**`")
+    end
+    subgraph n8 ["`*«performer»* **part0.part2**
+perform actions`"]
+      direction TD
+      n2("`*«action»*
+**^action2**`")
+      n3("`*«action»*
+**^action3**`")
+    end
+    n5@{ shape: f-circ, label: "" }
+    n6@{ shape: fr-circ, label: "" }
+  end
+  n1 -.-> n2
+  n2 -.-> n3
+  n3 -.-> n4
+  n4 -.-> n6
+  n5 -.-> n1

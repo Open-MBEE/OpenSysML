@@ -56,7 +56,7 @@ func TestProtectedImportDoesNotReachAnUnrelatedDocument(t *testing.T) {
 func TestExposeReachesASpecializingViewAcrossDocuments(t *testing.T) {
 	docs := map[string]string{
 		"lib.sysml":  `package Lib { part def Pub; }`,
-		"view.sysml": `package App { view def V { expose Lib::**; } view def W :> V { part p : Pub; } }`,
+		"view.sysml": `package App { view v { expose Lib::**; } view w :> v { part p : Pub; } }`,
 	}
 	if found := openAll(t, "view.sysml", docs); len(found) != 0 {
 		t.Fatalf("expected no findings, got %v", found)

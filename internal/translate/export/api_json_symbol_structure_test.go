@@ -494,26 +494,32 @@ func (d *structureDifferential) computeGraphID(sym *symbols.Symbol) (string, boo
 		element, _, ok := d.ids.OfBodyParameter(d.doc, body, sym.Name)
 		return element, ok
 	}
-	// A chained end's target is the chain Feature its ReferenceSubsetting owns, minted
-	// off the end (chainFeature), which the chain's own node is not written as.
-	if sym.Chain != nil && sym.Chain.Relationship != nil && isFlowEnd(sym.Chain.Relationship.Implicit.Owner) {
-		return d.expressionPartID(sym.Chain.Relationship.Implicit.Owner, "chain")
-	}
 	if sym.Kind == symbols.SymbolReferenceUsage && sym.OwnerScope != nil {
 		if end, ok := sym.OwnerScope.Node().(*ast.ConnectorEnd); ok && end.AttachedTarget() == sym.Decl {
 			element, _, ok := d.ids.OfExpressionPart(d.doc, end, "chain")
 			return element, ok
 		}
 	}
-	if i, ok := symbols.ImpliedSuccessionEndIndex(sym); ok {
-		// A `then` succession's end is minted under the edge at end0/end1 (encodeSuccessionEdge); a
-		// transition's succession's under the transition at succession.end0/end1 (recordTransitionSuccession).
+	if sym.Chain != nil && sym.Chain.Flow != nil && sym.Chain.Node != nil {
+		// The chain Feature a flow's end references is minted under the end, filed by the chain as written.
+		element, _, ok := d.ids.OfExpressionPart(d.doc, sym.Chain.Node, "chain")
+		return element, ok
+	}
+	if i, ok := symbols.ImpliedConnectorEndIndex(sym); ok {
+		// A `then` succession's or a flow's end is minted under its edge at end0/end1 (encodeSuccessionEdge,
+		// connectorEnd); a transition's succession's under the transition at succession.end0/end1.
 		implied, _ := symbols.ImpliedDeclOf(sym)
 		slot := fmt.Sprintf("end%d", i)
 		if symbols.ImpliedTransitionSuccessionEnd(sym) {
 			slot = "succession." + slot
 		}
 		element, _, ok := d.ids.OfExpressionPart(d.doc, implied.Of, slot)
+		return element, ok
+	}
+	if i, ok := symbols.ImpliedFlowEndFeatureIndex(sym); ok {
+		// The ReferenceUsage a flow's end owns is minted under the end (flowEndReferences).
+		implied, _ := symbols.ImpliedDeclOf(sym)
+		element, _, ok := d.ids.OfExpressionPart(d.doc, implied.Of, fmt.Sprintf("end%d.ff", i))
 		return element, ok
 	}
 	if implied, ok := symbols.ImpliedDeclOf(sym); ok && implied.Form == symbols.ImpliedDefaultMultiplicity {
@@ -548,10 +554,6 @@ func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationshi
 	case symbols.ImplicitWritten:
 		if rel.Node == nil {
 			return "", false
-		}
-		// A flow end's ReferenceSubsetting is minted off the end (referenceSubsetting).
-		if isFlowEnd(rel.Owner) {
-			return d.expressionPartID(rel.Owner, "rs")
 		}
 		if rel.Node.Span().Len == 0 && rel.Node.Target != nil {
 			return d.ids.RelationshipOf(d.doc, rel.Node.Target)
@@ -591,12 +593,17 @@ func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationshi
 			return "", false
 		}
 		return d.expressionPartID(rel.Owner, "rs")
+	case symbols.ImplicitMetadataBodyRedefinition:
+		if _, ok := symbols.ImpliedFlowEndFeatureIndex(rel.Owner); ok {
+			// The Redefinition the ReferenceUsage a flow's end owns states is minted under it (`rd0`).
+			owner, ok := d.graphID(rel.Owner)
+			if !ok {
+				return "", false
+			}
+			return owner + relationshipSuffix(ast.RelRedefines, false, 1, 0), true
+		}
 	}
 	return "", false
-}
-
-func isFlowEnd(sym *symbols.Symbol) bool {
-	return sym != nil && sym.Expr != nil && sym.Expr.Role == symbols.ExpressionFlowEnd
 }
 
 // expressionGraphID mirrors the conversion's expression ids: a node of the
@@ -622,8 +629,6 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 			return d.ids.OfDeclaration(d.doc, sym.Decl, "")
 		}
 		return d.expressionPartID(owner, "result")
-	case symbols.ExpressionFlowEnd:
-		return d.expressionPartID(owner, sym.Expr.Slot)
 	case symbols.ExpressionChangeWrapper:
 		if owner.Expr == nil || owner.Expr.Owner == nil {
 			return "", false
