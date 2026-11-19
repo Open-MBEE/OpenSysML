@@ -412,6 +412,15 @@ pull request's or merge group's own cache is private to its ref, and one saved b
 holds a single tree's dependencies. A pull request that changes a `pom.xml` restores the newest
 earlier entry.
 
+The cache holds what the builds resolve, which leaves out the CycloneDX plugin `make audit-java`
+runs, so the audit is the one Maven step that asks Maven Central in every job. It runs the plugin
+through `scripts/maven-sbom.sh`, which makes up to four attempts (`MAVEN_SBOM_ATTEMPTS`) when Maven
+reports an artifact it could not fetch: the second and fourth read
+`scripts/maven-central-mirror-settings.xml`, which sends `central` to Google's mirror of it, and
+every attempt after the first passes `-U` so that Maven asks again for what it was just refused.
+Any other Maven failure fails the audit on the first attempt, and osv-scanner scans only an SBOM
+Maven wrote. `scripts/maven-sbom-test.sh` plays the outage on every pull request.
+
 The pinned pilot validator, which `scripts/download-pilot-validator.sh` builds with Maven from a
 clone outside those trees, has a cache of its own: `.github/actions/pilot-validator` restores
 `build/pilot-validator` and `~/.m2/repository` under `pilot-validator-<hash of the script and
