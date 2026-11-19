@@ -88,7 +88,7 @@ describe('PublishWithOpenSysMLDialog', () => {
   });
 
   it('offers the last target again and sends the head it last saw', async () => {
-    rememberPublication('ctx', SERVER, 'p1', '', 'main', 'c1');
+    rememberPublication('ctx', { project: 'p1', branch: '' }, 'main', 'c1');
     renderDialog([answer((input) => input.project === 'p1' && input.lastSeenCommit === 'c1', published)]);
     expect(screen.getByLabelText('Project ID')).toHaveValue('p1');
     publish();
@@ -97,7 +97,7 @@ describe('PublishWithOpenSysMLDialog', () => {
   });
 
   it('publishes over a moved branch only when asked to', async () => {
-    rememberPublication('ctx', SERVER, 'p1', '', 'main', 'c1');
+    rememberPublication('ctx', { project: 'p1', branch: '' }, 'main', 'c1');
     const moved = { ...published, ok: false, branchMoved: true, summary: 'branch main moved', commit: null, head: '' };
     renderDialog([
       answer((input) => input.lastSeenCommit === 'c1', moved),
@@ -115,7 +115,7 @@ describe('PublishWithOpenSysMLDialog', () => {
   });
 
   it('withdraws the offer to publish over a moved branch once the target changes', async () => {
-    rememberPublication('ctx', SERVER, 'p1', '', 'main', 'c1');
+    rememberPublication('ctx', { project: 'p1', branch: '' }, 'main', 'c1');
     const moved = { ...published, ok: false, branchMoved: true, summary: 'branch main moved', commit: null, head: '' };
     renderDialog([answer(() => true, moved)]);
     publish();
@@ -123,6 +123,17 @@ describe('PublishWithOpenSysMLDialog', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Publish over the moved branch' })).toBeEnabled());
     type('Branch ID', 'dev');
     expect(screen.queryByRole('button', { name: 'Publish over the moved branch' })).not.toBeInTheDocument();
+  });
+
+  it('still sends the head of a branch after another branch was published', async () => {
+    rememberPublication('ctx', { project: 'p1', branch: 'main' }, 'main', 'c1');
+    rememberPublication('ctx', { project: 'p1', branch: 'dev' }, 'dev', 'd1');
+    const moved = { ...published, ok: false, branchMoved: true, summary: 'branch main moved', commit: null, head: '' };
+    renderDialog([answer((input) => input.branch === 'main' && input.lastSeenCommit === 'c1', moved)]);
+    type('Branch ID', 'main');
+    publish();
+
+    await waitFor(() => expect(screen.getByTestId('publish-result')).toHaveTextContent('branch main moved'));
   });
 
   it('lists the errors of a model that was refused', async () => {

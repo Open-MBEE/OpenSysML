@@ -26,66 +26,66 @@ const write = (key: string, value: string): void => {
   }
 };
 
-const headKey = (editingContextId: string, server: string, project: string, branch: string): string =>
-  `head.${JSON.stringify([editingContextId, server, project, branch])}`;
-
-interface Remembered extends PublishTarget {
-  server: string;
-  /** The branch as it was asked for: empty when the publication went to the project's default. */
-  asked: string;
+interface Memory {
+  /** The target the last publication asked for, offered again when the dialog opens. */
+  last: PublishTarget;
+  /** Per project, the branch a publication to its default branch resolved to. */
+  defaults: Record<string, string>;
+  /** Per project and resolved branch, the commit a publication left the branch at. */
+  heads: Record<string, string>;
 }
 
-const NOTHING: Remembered = { server: '', project: '', branch: '', asked: '' };
+const headKey = (project: string, branch: string): string => JSON.stringify([project, branch]);
 
-const remembered = (editingContextId: string): Remembered => {
-  const stored = read(`target.${editingContextId}`);
+const isStrings = (value: unknown): value is Record<string, string> =>
+  typeof value === 'object' &&
+  value !== null &&
+  !Array.isArray(value) &&
+  Object.values(value).every((entry) => typeof entry === 'string');
+
+const nothing = (): Memory => ({ last: { project: '', branch: '' }, defaults: {}, heads: {} });
+
+const remembered = (editingContextId: string): Memory => {
+  const stored = read(editingContextId);
   if (!stored) {
-    return NOTHING;
+    return nothing();
   }
   try {
     const parsed: unknown = JSON.parse(stored);
     if (typeof parsed === 'object' && parsed !== null) {
-      const { server, project, branch, asked } = parsed as Record<string, unknown>;
-      if (
-        typeof server === 'string' &&
-        typeof project === 'string' &&
-        typeof branch === 'string' &&
-        typeof asked === 'string'
-      ) {
-        return { server, project, branch, asked };
+      const { last, defaults, heads } = parsed as Record<string, unknown>;
+      if (isStrings(last) && 'project' in last && 'branch' in last && isStrings(defaults) && isStrings(heads)) {
+        return { last: { project: last.project ?? '', branch: last.branch ?? '' }, defaults, heads };
       }
     }
   } catch {
     // A value this module did not write is no memory.
   }
-  return NOTHING;
+  return nothing();
 };
 
 /** The project and branch to offer: what the last publication from this browser asked for. */
-export const rememberedTarget = (editingContextId: string): PublishTarget => {
-  const { project, asked } = remembered(editingContextId);
-  return { project, branch: asked };
-};
+export const rememberedTarget = (editingContextId: string): PublishTarget => remembered(editingContextId).last;
 
 /** The commit the branch was last seen at, or null when it was never published to from here. */
 export const lastSeenHead = (editingContextId: string, target: PublishTarget): string | null => {
-  const { server, project, branch, asked } = remembered(editingContextId);
-  // The head is only known for the branch the last publication resolved.
-  if (project === '' || target.project !== project || (target.branch !== asked && target.branch !== branch)) {
-    return null;
-  }
-  return read(headKey(editingContextId, server, project, branch));
+  const { defaults, heads } = remembered(editingContextId);
+  const branch = target.branch === '' ? defaults[target.project] : target.branch;
+  return branch === undefined ? null : heads[headKey(target.project, branch)] ?? null;
 };
 
-/** Keeps where a publication went: {@code asked} is the target as typed, {@code branch} the branch it resolved to. */
+/** Keeps where a publication went: `asked` is the target as typed, `branch` the branch it resolved to. */
 export const rememberPublication = (
   editingContextId: string,
-  server: string,
-  project: string,
-  asked: string,
+  asked: PublishTarget,
   branch: string,
   head: string
 ): void => {
-  write(`target.${editingContextId}`, JSON.stringify({ server, project, branch, asked }));
-  write(headKey(editingContextId, server, project, branch), head);
+  const memory = remembered(editingContextId);
+  memory.last = asked;
+  if (asked.branch === '') {
+    memory.defaults[asked.project] = branch;
+  }
+  memory.heads[headKey(asked.project, branch)] = head;
+  write(editingContextId, JSON.stringify(memory));
 };

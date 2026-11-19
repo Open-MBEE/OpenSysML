@@ -30,7 +30,12 @@ export const PublishWithOpenSysMLDialog = ({ editingContextId, onClose }: Publis
 
   useEffect(() => {
     if (result?.ok && input) {
-      rememberPublication(editingContextId, result.server, result.project, input.branch, result.branch, result.head);
+      rememberPublication(
+        editingContextId,
+        { project: result.project, branch: input.branch },
+        result.branch,
+        result.head
+      );
       // A created project is published to by its id from now on.
       setProject(result.project);
       setProjectName('');
