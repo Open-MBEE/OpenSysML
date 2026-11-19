@@ -3003,14 +3003,13 @@ func defaultUsageComposite(kind symbols.SymbolKind) bool {
 }
 
 func recordedUsageIsReferential(sym *symbols.Symbol) bool {
-	if sym.Facts.Modifiers.Has(symbols.ModExtendedUsage) {
-		return false // prefix metadata alone declares a plain Usage, composite by default (SysML.xtext ExtendedUsage)
-	}
-	if sym.Kind.IsAttributeLike() || sym.Kind == symbols.SymbolEnumerationUsage ||
-		sym.Kind == symbols.SymbolReferenceUsage || sym.Kind == symbols.SymbolConnectorEnd {
+	mods := sym.Facts.Modifiers
+	// Prefix metadata in place of a kind keyword declares a plain Usage, composite
+	// unless a modifier says otherwise (SysML.xtext ExtendedUsage).
+	if sym.Kind == symbols.SymbolEnumerationUsage || sym.Kind == symbols.SymbolConnectorEnd ||
+		(sym.Kind.IsAttributeLike() || sym.Kind == symbols.SymbolReferenceUsage) && !mods.Has(symbols.ModExtendedUsage) {
 		return true
 	}
-	mods := sym.Facts.Modifiers
 	if mods.Has(symbols.ModReference) || mods.Has(symbols.ModEnd) || mods.Has(symbols.ModEvent) ||
 		sym.Facts.Direction != ast.DirNone ||
 		sym.Facts.UsageKind == ast.UsageEnumeration {
