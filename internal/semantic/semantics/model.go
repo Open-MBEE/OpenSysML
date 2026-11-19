@@ -961,11 +961,15 @@ func (m *Model) conforms(a, b *symbols.Symbol, unioning map[*symbols.Symbol]bool
 	if a == nil || b == nil {
 		return false
 	}
-	if symbols.SameElement(a, b) || m.isTopType(b) {
+	if a == b || m.isTopType(b) {
+		return true
+	}
+	key := symbols.KeyOf(b)
+	if symbols.KeyOf(a) == key {
 		return true
 	}
 	for _, s := range m.AllSupertypes(a) {
-		if symbols.SameElement(s, b) {
+		if s == b || (s != nil && symbols.KeyOf(s) == key) {
 			return true
 		}
 	}
