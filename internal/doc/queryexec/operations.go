@@ -1219,7 +1219,8 @@ func isQueryableProperty(property string) bool {
 		query.PropertyIsIndividual,
 		query.PropertyMultiplicityLower,
 		query.PropertyMultiplicityUpper,
-		query.PropertyElementID:
+		query.PropertyElementID,
+		query.PropertySymbolKind:
 		return true
 	default:
 		return false

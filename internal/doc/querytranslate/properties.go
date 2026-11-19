@@ -14,6 +14,7 @@ import (
 // declares, spelled in the OpenSysML namespace by OSLC query text.
 var derivedProperties = []string{
 	query.PropertyID, query.PropertyType, query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper,
+	query.PropertySymbolKind,
 }
 
 // objectProjection is what a query over held objects reports when it selects
