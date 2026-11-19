@@ -9,7 +9,6 @@ import com.google.gson.JsonObject;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Optional;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -61,7 +60,7 @@ class PublishEndToEndTest {
   }
 
   private static Publisher.Target target(boolean deleteMissing) {
-    return new Publisher.Target("p1", "", "main", Optional.empty(), deleteMissing, "");
+    return new Publisher.Target("p1", "", "main", Publisher.LastSeen.NEVER, deleteMissing, "");
   }
 
   @Test

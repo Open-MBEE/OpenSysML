@@ -47,7 +47,7 @@ class PublisherTest {
   }
 
   private static Publisher.Target target(String project, String branch) {
-    return new Publisher.Target(project, "", branch, Optional.empty(), false, "from the test");
+    return new Publisher.Target(project, "", branch, Publisher.LastSeen.NEVER, false, "from the test");
   }
 
   @Test
@@ -114,7 +114,7 @@ class PublisherTest {
     onlyP = onlyP.substring(0, onlyP.length() - 1) + "]";
 
     Publisher.Result result = publisher.publish(
-        onlyP, new Publisher.Target("p1", "", "main", Optional.empty(), true, ""));
+        onlyP, new Publisher.Target("p1", "", "main", Publisher.LastSeen.NEVER, true, ""));
 
     assertEquals(1, result.deleted());
     assertEquals(0, result.leftInPlace());
@@ -127,7 +127,7 @@ class PublisherTest {
   @Test
   void createsTheProjectWhenNoIdIsGiven() {
     Publisher.Result result = publisher.publish(
-        MODEL, new Publisher.Target("", "Rover", "", Optional.empty(), false, ""));
+        MODEL, new Publisher.Target("", "Rover", "", Publisher.LastSeen.NEVER, false, ""));
 
     assertTrue(result.createdProject());
     assertEquals("Rover", result.projectName());
@@ -135,7 +135,7 @@ class PublisherTest {
     assertEquals(2, api.elements(result.project(), "main").size());
     assertTrue(result.describe().startsWith("Created project Rover"), result.describe());
     assertThrows(IllegalArgumentException.class,
-        () -> new Publisher.Target(" ", "", "", Optional.empty(), false, ""));
+        () -> new Publisher.Target(" ", "", "", Publisher.LastSeen.NEVER, false, ""));
   }
 
   @Test
@@ -145,9 +145,22 @@ class PublisherTest {
 
     Publisher.BranchMovedException moved = assertThrows(Publisher.BranchMovedException.class, () -> publisher.publish(
         MODEL.replace("false", "true"),
-        new Publisher.Target("p1", "", "main", first.commit(), false, "")));
+        new Publisher.Target("p1", "", "main", (project, branch) -> first.commit(), false, "")));
 
     assertTrue(moved.getMessage().contains("nothing was written"), moved.getMessage());
+    assertEquals(1, api.posted.size());
+  }
+
+  @Test
+  void holdsTheDefaultBranchToWhatWasLastSeenOfIt() {
+    Publisher.Result first = publisher.publish(MODEL, target("p1", "main"));
+    api.commit("p1", "main", new JsonArray());
+    // The branch is left empty; it resolves to main, whose last-seen head still guards it.
+    Publisher.LastSeen seen = (project, branch) ->
+        project.equals("p1") && branch.equals("main") ? first.commit() : Optional.empty();
+
+    assertThrows(Publisher.BranchMovedException.class, () -> publisher.publish(
+        MODEL.replace("false", "true"), new Publisher.Target("p1", "", "", seen, false, "")));
     assertEquals(1, api.posted.size());
   }
 
@@ -172,7 +185,7 @@ class PublisherTest {
 
     Optional<Publisher.Result> result = publisher.publish(
         "[" + MODEL.substring(MODEL.indexOf("{\"@type\": \"PartDefinition\"")),
-        new Publisher.Target("p1", "", "main", Optional.empty(), true, ""), () -> cancelled[0]);
+        new Publisher.Target("p1", "", "main", Publisher.LastSeen.NEVER, true, ""), () -> cancelled[0]);
 
     assertTrue(result.isEmpty());
     assertTrue(cancelled[0], "the branch was read before the cancellation");

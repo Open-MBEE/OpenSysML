@@ -34,22 +34,32 @@ public final class Publisher {
    * @param project the project's id; empty creates a project named {@code projectName}
    * @param projectName the name of the project to create when {@code project} is empty
    * @param branch the branch's id; empty is the project's default branch
-   * @param lastSeenCommit the commit the last publication of this model left the branch at
+   * @param lastSeen the commit the last publication of this model left a branch at, asked once
+   *     the project and branch are resolved, so an empty branch is held to its default's
    * @param deleteMissing whether elements the branch holds beyond the model are deleted
    * @param message the commit's description
    */
   public record Target(
-      String project, String projectName, String branch, Optional<String> lastSeenCommit, boolean deleteMissing, String message) {
+      String project, String projectName, String branch, LastSeen lastSeen, boolean deleteMissing, String message) {
     public Target {
       Objects.requireNonNull(project);
       Objects.requireNonNull(projectName);
       Objects.requireNonNull(branch);
-      Objects.requireNonNull(lastSeenCommit);
+      Objects.requireNonNull(lastSeen);
       Objects.requireNonNull(message);
       if (project.isBlank() && projectName.isBlank()) {
         throw new IllegalArgumentException("a publication names a project id, or the name of the project to create");
       }
     }
+  }
+
+  /** Where a model's publications left the branches they wrote. */
+  @FunctionalInterface
+  public interface LastSeen {
+    /** A model published nowhere yet, or one whose branch may be written wherever it is. */
+    LastSeen NEVER = (project, branch) -> Optional.empty();
+
+    Optional<String> commit(String project, String branch);
   }
 
   /** What a publication did; the commit is empty when the branch already agreed with the model. */
@@ -128,8 +138,9 @@ public final class Publisher {
       throw new ApiException("project " + project.id() + " names no default branch; name the branch to publish to");
     }
     String head = client.branch(project.id(), branchId).head();
-    if (target.lastSeenCommit().isPresent() && !target.lastSeenCommit().get().equals(head)) {
-      throw new BranchMovedException(branchId, project.id(), target.lastSeenCommit().get(), head);
+    Optional<String> seen = createdProject ? Optional.empty() : target.lastSeen().commit(project.id(), branchId);
+    if (seen.isPresent() && !seen.get().equals(head)) {
+      throw new BranchMovedException(branchId, project.id(), seen.get(), head);
     }
 
     Map<String, JsonObject> remote = new LinkedHashMap<>();

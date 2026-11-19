@@ -156,13 +156,12 @@ final class PublishAction extends MDAction {
     Publisher publisher = new Publisher(client);
     Optional<Publisher.Result> result;
     try {
-      Optional<String> seen = settings.lastSeen(url, request.project(), request.branch());
+      Publisher.LastSeen seen = (id, branch) -> settings.lastSeen(url, id, branch);
       try {
         result = engine.get().publish(source, publisher, target(request, seen), status::isCancel);
       } catch (Publisher.BranchMovedException moved) {
-        // Only a move since this model's own last publication is the user's to wave through.
-        if (seen.isEmpty() || !confirm(moved.getMessage() + ".\n\nPublish onto the branch as it is now?")) throw moved;
-        result = engine.get().publish(source, publisher, target(request, Optional.empty()), status::isCancel);
+        if (!confirm(moved.getMessage() + ".\n\nPublish onto the branch as it is now?")) throw moved;
+        result = engine.get().publish(source, publisher, target(request, Publisher.LastSeen.NEVER), status::isCancel);
       }
     } catch (RuntimeException failure) {
       closeQuietly(source, failure);
@@ -186,7 +185,7 @@ final class PublishAction extends MDAction {
         Application.getInstance().getMainFrame(), text, TITLE, JOptionPane.INFORMATION_MESSAGE));
   }
 
-  private static Publisher.Target target(Request request, Optional<String> seen) {
+  private static Publisher.Target target(Request request, Publisher.LastSeen seen) {
     return new Publisher.Target(
         request.project(), request.projectName(), request.branch(), seen, request.deleteMissing(), request.message());
   }
