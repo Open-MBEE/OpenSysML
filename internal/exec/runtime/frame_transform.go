@@ -99,6 +99,31 @@ func (ctx *Context) poseOf(name string, t *CoordinateTransformation) (framePose,
 		errUnevaluableLibraryFunction, name, t.Name(), SymbolText(t.Type))
 }
 
+// FramePose is where a transformation's target frame sits in its source frame,
+// as numbers in the source's axis units: a point with target coordinates v lies
+// at Origin + Basis · v in the source, Basis row-major over n axes.
+type FramePose struct {
+	Origin []float64
+	Basis  []float64
+}
+
+// TransformationPose resolves whichever shape t has to the pose it states; false
+// when t names no source or its shape resolves to none.
+func (ctx *Context) TransformationPose(t *CoordinateTransformation) (FramePose, bool) {
+	if t == nil || t.Source == nil {
+		return FramePose{}, false
+	}
+	pose, err := ctx.poseOf("transform", t)
+	if err != nil {
+		return FramePose{}, false
+	}
+	out := FramePose{Origin: pose.origin}
+	for _, row := range pose.basis {
+		out.Basis = append(out.Basis, row...)
+	}
+	return out, true
+}
+
 // placementPose reads origin and basisDirections: the origin as the target's
 // origin in source coordinates, each direction normalized to a basis vector.
 func (ctx *Context) placementPose(name string, t *CoordinateTransformation, n int) (framePose, error) {

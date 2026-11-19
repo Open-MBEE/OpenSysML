@@ -158,8 +158,7 @@ func ValueToProtoWith(rt *runtime.Context, val runtime.Value, idx *symbols.Index
 	case runtime.ValUndetermined:
 		return &pb.Value{Kind: &pb.Value_Undetermined{Undetermined: undeterminedToProto(val.Undetermined())}}
 	case runtime.ValCoordinateFrame, runtime.ValCoordinateTransformation:
-		// No wire arm carries a frame's axes or a transformation's placement.
-		return &pb.Value{Kind: UnsupportedShown(val)}
+		return coordinateValueToProto(rt, val, idx, ids)
 	default:
 		return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported"}}
 	}
@@ -631,6 +630,9 @@ func ValueHoldsBigInt(pv *pb.Value) bool {
 		return slices.ContainsFunc(k.TensorQuantity.GetComponents(), quantityHoldsBigInt)
 	case *pb.Value_EnumLiteral:
 		return k.EnumLiteral.GetValue() != nil && ValueCarriesBigInt(k.EnumLiteral.GetValue())
+	case *pb.Value_CoordinateFrame, *pb.Value_CoordinateTransformation:
+		_, quantities := coordinateParts(pv)
+		return slices.ContainsFunc(quantities, quantityHoldsBigInt)
 	}
 	return false
 }
@@ -682,6 +684,9 @@ func ValueHoldsRational(pv *pb.Value) bool {
 		return slices.ContainsFunc(k.TensorQuantity.GetComponents(), quantityHoldsRational)
 	case *pb.Value_EnumLiteral:
 		return k.EnumLiteral.GetValue() != nil && ValueCarriesRational(k.EnumLiteral.GetValue())
+	case *pb.Value_CoordinateFrame, *pb.Value_CoordinateTransformation:
+		_, quantities := coordinateParts(pv)
+		return slices.ContainsFunc(quantities, quantityHoldsRational)
 	}
 	return false
 }
@@ -721,6 +726,11 @@ func RationalsAsReals(pv *pb.Value) {
 		}
 	case *pb.Value_EnumLiteral:
 		RationalsAsReals(k.EnumLiteral.GetValue())
+	case *pb.Value_CoordinateFrame, *pb.Value_CoordinateTransformation:
+		_, quantities := coordinateParts(pv)
+		for _, q := range quantities {
+			quantityRationalAsReal(q)
+		}
 	}
 	for _, nested := range NestedValues(pv) {
 		RationalsAsReals(nested)
@@ -803,7 +813,8 @@ func valueCarries(pv *pb.Value, is func(*pb.Value) bool) bool {
 }
 
 // NestedValues lists the Values a value holds directly: a sequence's or a set's
-// elements, an array's elements and a vector's components.
+// elements, an array's elements, a vector's components, and the origins,
+// directions and translations of a frame or transformation.
 func NestedValues(pv *pb.Value) []*pb.Value {
 	switch k := pv.GetKind().(type) {
 	case *pb.Value_Sequence:
@@ -814,6 +825,9 @@ func NestedValues(pv *pb.Value) []*pb.Value {
 		return k.Array.GetElements()
 	case *pb.Value_Vector:
 		return k.Vector.GetComponents()
+	case *pb.Value_CoordinateFrame, *pb.Value_CoordinateTransformation:
+		values, _ := coordinateParts(pv)
+		return values
 	}
 	return nil
 }
@@ -845,6 +859,10 @@ func ProtoToRuntimeValueWith(rt *runtime.Context, pv *pb.Value, idx *symbols.Ind
 		return runtime.Value{}, ErrUnsetNotAccepted
 	case *pb.Value_Undetermined:
 		return runtime.Value{}, ErrUndeterminedNotAccepted
+	case *pb.Value_CoordinateFrame:
+		return runtime.Value{}, ErrCoordinateFrameNotAccepted
+	case *pb.Value_CoordinateTransformation:
+		return runtime.Value{}, ErrCoordinateTransformationNotAccepted
 	case *pb.Value_Quantity:
 		return ProtoToQuantity(k.Quantity, idx, sem)
 	case *pb.Value_EnumLiteral:

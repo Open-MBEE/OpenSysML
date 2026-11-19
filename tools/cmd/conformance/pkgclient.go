@@ -1745,6 +1745,10 @@ func valueToProto(value opensysml.Value) *pb.Value {
 		}}}
 	case opensysml.Quantity:
 		return &pb.Value{Kind: &pb.Value_Quantity{Quantity: quantityToProto(v)}}
+	case *opensysml.CoordinateFrame:
+		return &pb.Value{Kind: &pb.Value_CoordinateFrame{CoordinateFrame: frameToProto(v)}}
+	case *opensysml.CoordinateTransformation:
+		return &pb.Value{Kind: &pb.Value_CoordinateTransformation{CoordinateTransformation: transformationToProto(v)}}
 	case opensysml.EnumLiteral:
 		return &pb.Value{Kind: &pb.Value_EnumLiteral{EnumLiteral: &pb.EnumLiteral{
 			LiteralId:     v.LiteralID,

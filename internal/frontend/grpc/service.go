@@ -388,6 +388,12 @@ const CapabilityMetaobjectValues = "metaobject_values"
 // leaves open as Value.undetermined rather than as an unsupported null.
 const CapabilityUndeterminedValue = "undetermined_value"
 
+// CapabilityCoordinateFrameValues names the capability of carrying a coordinate
+// frame or measurement scale as Value.coordinate_frame and a coordinate
+// transformation as Value.coordinate_transformation, rather than as an
+// unsupported null.
+const CapabilityCoordinateFrameValues = "coordinate_frame_values"
+
 // CapabilityElementProperties names the GetElementProperties RPC, which reads
 // the metamodel properties of one element by their specification names.
 const CapabilityElementProperties = "element_properties"
@@ -462,6 +468,7 @@ var capabilities = []string{
 	CapabilitySymbolAnnotatingMetadata,
 	CapabilitySymbolLookupKind,
 	CapabilitySymbolMemberDirection,
+	CapabilityCoordinateFrameValues,
 }
 
 type capabilityAvailability struct {

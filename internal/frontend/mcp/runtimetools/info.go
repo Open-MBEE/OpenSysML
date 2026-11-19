@@ -51,6 +51,7 @@ var CapabilityTools = map[string]string{
 	sysmlgrpc.CapabilityInfinityValue:                  "evaluate",
 	sysmlgrpc.CapabilityMetaobjectValues:               "evaluate",
 	sysmlgrpc.CapabilityUndeterminedValue:              "evaluate",
+	sysmlgrpc.CapabilityCoordinateFrameValues:          "evaluate",
 	sysmlgrpc.CapabilityBigIntValues:                   "evaluate",
 	sysmlgrpc.CapabilityRationalValues:                 "evaluate",
 	sysmlgrpc.CapabilityFeatureValues:                  "instantiate",
