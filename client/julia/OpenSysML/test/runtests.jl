@@ -279,6 +279,41 @@ end
     @test_throws UnsupportedValueError decode_value(JSON.parse("""{"metaobject":{"metaclassId":"X"}}"""))
     u = decode_value(JSON.parse("""{"undetermined":{"reason":"P::Q::d has no value in the model","count":{"lower":"1","upper":"*"}}}"""))
     @test u == Undetermined("P::Q::d has no value in the model", "1", "*")
+
+    mm = """{"unit":"mm","unitId":"SI::millimetre","unitTerm":{"scaleNum":1,"scaleDen":1000,"factors":[{"unitId":"SI::metre","exponent":1}]}}"""
+    len(x) = """{"realMagnitude":$x,"unit":"mm","unitTerm":{"scaleNum":1,"scaleDen":1000,"factors":[{"unitId":"SI::metre","exponent":1}]}}"""
+    vec(x, y, z) = """{"vectorQuantity":{"components":[$(len(x)),$(len(y)),$(len(z))]}}"""
+    datum = """{"name":"datum","frameId":"Frames::datum","typeId":"ISQSpaceTime::CartesianSpatial3dCoordinateFrame","dimensions":["3"],"axes":[$mm,$mm,$mm]}"""
+    posed = decode_value(JSON.parse("""{"coordinateFrame":{"name":"lbcf","frameId":"Frames::lbcf","instanceId":"4","dimensions":["3"],"axes":[$mm,$mm,$mm],
+        "transformation":{"name":"transformation","source":$datum,
+            "sequence":{"steps":[{"translation":$(vec(10.0, 0.0, 0.0)),"instanceId":"7"},
+                {"rotation":{"axisDirection":$(vec(0.0, 0.0, 1.0)),"angle":$(len(180.0)),"isIntrinsic":true}}]},
+            "pose":{"origin":[10,0,0],"basis":[-1,0,0,0,-1,0,0,0,1]}}}}"""))
+    @test posed isa CoordinateFrame
+    @test (posed.name, posed.frame_id, posed.type_id, posed.instance_id) == ("lbcf", "Frames::lbcf", nothing, 4)
+    @test posed.dimensions == [3] && length(posed.axes) == 3 && posed.axes[1].unit_id == "SI::millimetre"
+    @test posed.scale === nothing
+    t = posed.transformation
+    @test t.source.frame_id == "Frames::datum" && t.target === nothing
+    @test t.placement === nothing && t.affine === nothing && length(t.steps) == 2
+    @test t.steps[1].translation isa VectorQuantity && t.steps[1].instance_id == 7
+    @test t.steps[2].translation === nothing && t.steps[2].rotation.intrinsic
+    @test t.steps[2].rotation.angle.magnitude == 180.0 && t.steps[2].instance_id === nothing
+    @test t.pose == FramePose([10.0, 0.0, 0.0], [-1.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 1.0])
+    @test posed != decode_value(JSON.parse("""{"coordinateFrame":$datum}"""))
+    @test_throws ArgumentError encode_value(posed)
+    @test CAPABILITY_COORDINATE_FRAME_VALUES in value_capabilities(posed)
+
+    placed = decode_value(JSON.parse("""{"coordinateTransformation":{"name":"placement","source":$datum,"target":$datum,
+        "placement":{"origin":$(vec(1.0, 2.0, 3.0)),"basisDirections":[$(vec(1.0, 0.0, 0.0))]}}}"""))
+    @test placed isa CoordinateTransformation && placed.target.name == "datum" && placed.pose === nothing
+    @test length(placed.placement.basis_directions) == 1
+    @test_throws ArgumentError encode_value(placed)
+    affine = decode_value(JSON.parse("""{"coordinateTransformation":{"affine":{"rotation":[1,0,0,0,1,0,0,0,1],"translation":[1,2,3]}}}"""))
+    @test affine.affine == AffineTransformation3d([1.0, 0, 0, 0, 1, 0, 0, 0, 1], [1.0, 2, 3])
+    scale = decode_value(JSON.parse("""{"coordinateFrame":{"name":"celsius","scale":{"unit":$mm,"mapping":{"mapped":$(len(0.0)),"reference":$(len(273.15))}}}}"""))
+    @test scale.scale.unit.unit_id == "SI::millimetre" && scale.scale.reference.magnitude == 273.15
+    @test_throws OpenSysML.UnsupportedValueError decode_value(JSON.parse("""{"coordinateTransformation":{"sequence":{"steps":[{}]}}}"""))
     @test_throws UnsupportedValueError decode_value(JSON.parse("""{"fromTheFuture":1}"""))
     @test_throws UnsupportedValueError decode_value(Dict{String,Any}())
 end

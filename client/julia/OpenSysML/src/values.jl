@@ -133,6 +133,82 @@ struct Undetermined
     upper::String
 end
 
+"""The unit a measurement scale is measured in and, when stated, one point on it and on its reference."""
+struct MeasurementScale
+    unit::Any
+    mapped::Union{Nothing,Quantity}
+    reference::Union{Nothing,Quantity}
+end
+
+"""
+A coordinate frame or measurement scale held as a value. `transformation` places it in
+another frame, with no `target` of its own: this frame is that target. Read, never sent.
+"""
+struct CoordinateFrame
+    name::String
+    frame_id::Union{Nothing,String}
+    type_id::Union{Nothing,String}
+    instance_id::Union{Nothing,Int64}
+    dimensions::Vector{Int64}
+    axes::Vector
+    transformation::Any
+    scale::Union{Nothing,MeasurementScale}
+end
+
+"""The target frame's origin in the source and, when stated, its basis directions there."""
+struct FramePlacement
+    origin::Any
+    basis_directions::Vector
+end
+
+"""A turn by `angle` about `axis_direction`: about the turned axes when `intrinsic`."""
+struct FrameRotation
+    axis_direction::Any
+    angle::Quantity
+    intrinsic::Bool
+end
+
+"""One step of a `TranslationRotationSequence`: a `translation`, or else a `rotation`."""
+struct FrameStep
+    translation::Any
+    rotation::Union{Nothing,FrameRotation}
+    instance_id::Union{Nothing,Int64}
+end
+
+"""A 3×3 rotation matrix, row-major, and a translation."""
+struct AffineTransformation3d
+    rotation::Vector{Float64}
+    translation::Vector{Float64}
+end
+
+"""Where a target frame sits in its source: target coordinates `v` lie at `origin + basis · v`, `basis` row-major."""
+struct FramePose
+    origin::Vector{Float64}
+    basis::Vector{Float64}
+end
+
+"""
+A coordinate transformation held as a value: the frames it relates, the shape the model
+states it in (at most one of `placement`, `steps`, `affine`) and the `pose` it resolves to.
+"""
+struct CoordinateTransformation
+    name::String
+    transformation_id::Union{Nothing,String}
+    type_id::Union{Nothing,String}
+    instance_id::Union{Nothing,Int64}
+    source::Union{Nothing,CoordinateFrame}
+    target::Union{Nothing,CoordinateFrame}
+    placement::Union{Nothing,FramePlacement}
+    steps::Union{Nothing,Vector{FrameStep}}
+    affine::Union{Nothing,AffineTransformation3d}
+    pose::Union{Nothing,FramePose}
+end
+
+for T in (:MeasurementScale, :CoordinateFrame, :FramePlacement, :FrameRotation, :FrameStep,
+          :AffineTransformation3d, :FramePose, :CoordinateTransformation)
+    @eval Base.:(==)(a::$T, b::$T) = all(getfield(a, f) == getfield(b, f) for f in fieldnames($T))
+end
+
 """A unit value with its optional model declaration identity."""
 struct MeasurementRef
     unit::String
@@ -352,7 +428,7 @@ const VALUE_ARMS = Set([
     "intValue", "bigIntValue", "rationalValue", "realValue", "boolValue", "stringValue", "instanceId", "sequence",
     "null", "unset", "quantity", "enumLiteral", "complex", "array", "vector",
     "vectorQuantity", "measurementRef", "infinity", "function", "set",
-    "tensorQuantity", "metaobject", "undetermined",
+    "tensorQuantity", "metaobject", "undetermined", "coordinateFrame", "coordinateTransformation",
 ])
 
 function is_value_object(value)
@@ -532,6 +608,9 @@ function decode_value(v)
         isempty(element_id) && _unsupported_value("metaobject carries no elementId")
         return Metaobject(element_id, get(m, "metaclassId", ""))
     end
+    haskey(v, "coordinateFrame") && return decode_coordinate_frame(v["coordinateFrame"])
+    haskey(v, "coordinateTransformation") &&
+        return decode_coordinate_transformation(v["coordinateTransformation"])
     haskey(v, "undetermined") && begin
         u = v["undetermined"]
         count = get(u, "count", Dict{String,Any}())
@@ -539,6 +618,74 @@ function decode_value(v)
     end
     arm = isempty(v) ? "<none>" : first(keys(v))
     _unsupported_value("unknown Value arm: $(arm)")
+end
+
+_frame_id(m, key) = (id = string(get(m, key, "0")); id == "0" ? nothing : parse(Int64, id))
+_frame_name(m, key) = (name = get(m, key, ""); isempty(name) ? nothing : name)
+_frame_ref(m) = decode_value(Dict{String,Any}("measurementRef" => m))
+
+function decode_coordinate_frame(f)
+    scale = nothing
+    if haskey(f, "scale")
+        wire = f["scale"]
+        haskey(wire, "unit") || _unsupported_value("measurement scale carries no unit")
+        mapping = get(wire, "mapping", nothing)
+        scale = MeasurementScale(
+            _frame_ref(wire["unit"]),
+            mapping === nothing ? nothing : decode_quantity(mapping["mapped"]),
+            mapping === nothing ? nothing : decode_quantity(mapping["reference"]),
+        )
+    end
+    CoordinateFrame(
+        get(f, "name", ""), _frame_name(f, "frameId"), _frame_name(f, "typeId"),
+        _frame_id(f, "instanceId"),
+        Int64[parse(Int64, string(d)) for d in get(f, "dimensions", Any[])],
+        MeasurementRef[_frame_ref(axis) for axis in get(f, "axes", Any[])],
+        haskey(f, "transformation") ? decode_coordinate_transformation(f["transformation"]) : nothing,
+        scale,
+    )
+end
+
+function decode_frame_step(step)
+    id = _frame_id(step, "instanceId")
+    haskey(step, "translation") && return FrameStep(decode_value(step["translation"]), nothing, id)
+    haskey(step, "rotation") || _unsupported_value("transformation step is neither a translation nor a rotation")
+    r = step["rotation"]
+    (haskey(r, "axisDirection") && haskey(r, "angle")) ||
+        _unsupported_value("frame rotation lacks its axis or its angle")
+    FrameStep(nothing,
+        FrameRotation(decode_value(r["axisDirection"]), decode_quantity(r["angle"]), get(r, "isIntrinsic", false)),
+        id)
+end
+
+function decode_coordinate_transformation(t)
+    placement = steps = affine = pose = nothing
+    if haskey(t, "placement")
+        p = t["placement"]
+        haskey(p, "origin") || _unsupported_value("frame placement carries no origin")
+        placement = FramePlacement(decode_value(p["origin"]), decode_elements(p, "basisDirections"))
+    elseif haskey(t, "sequence")
+        steps = FrameStep[decode_frame_step(step) for step in get(t["sequence"], "steps", Any[])]
+    elseif haskey(t, "affine")
+        a = t["affine"]
+        affine = AffineTransformation3d(
+            Float64[asreal(x) for x in get(a, "rotation", Any[])],
+            Float64[asreal(x) for x in get(a, "translation", Any[])],
+        )
+    end
+    if haskey(t, "pose")
+        pose = FramePose(
+            Float64[asreal(x) for x in get(t["pose"], "origin", Any[])],
+            Float64[asreal(x) for x in get(t["pose"], "basis", Any[])],
+        )
+    end
+    CoordinateTransformation(
+        get(t, "name", ""), _frame_name(t, "transformationId"), _frame_name(t, "typeId"),
+        _frame_id(t, "instanceId"),
+        haskey(t, "source") ? decode_coordinate_frame(t["source"]) : nothing,
+        haskey(t, "target") ? decode_coordinate_frame(t["target"]) : nothing,
+        placement, steps, affine, pose,
+    )
 end
 
 function _json_real(value::Real)
@@ -615,6 +762,10 @@ function encode_value(f::FunctionRef)
         throw(ArgumentError("a function read off an object cannot be sent: selfId names no instance in another call"))
     Dict{String,Any}("function" => Dict{String,Any}("calcId" => f.calc_id))
 end
+encode_value(f::CoordinateFrame) =
+    throw(ArgumentError("a coordinate frame cannot be sent: $(f.name)"))
+encode_value(t::CoordinateTransformation) =
+    throw(ArgumentError("a coordinate transformation cannot be sent: $(t.name)"))
 encode_value(u::Undetermined) =
     throw(ArgumentError("an undetermined value cannot be sent: $(u.reason)"))
 encode_value(u::Unset) = throw(ArgumentError("an unset value cannot be sent"))
@@ -739,6 +890,8 @@ function value_capabilities(value)
             push!(capabilities, CAPABILITY_INFINITY_VALUE)
         elseif item isa Undetermined
             push!(capabilities, CAPABILITY_UNDETERMINED_VALUE)
+        elseif item isa CoordinateFrame || item isa CoordinateTransformation
+            push!(capabilities, CAPABILITY_COORDINATE_FRAME_VALUES)
         elseif item isa AbstractVector || item isa Tuple
             foreach(visit, item)
         elseif item isa AbstractDict
