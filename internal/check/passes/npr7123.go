@@ -455,14 +455,30 @@ func (a *npr7123Audit) hasCompliance(sym *symbols.Symbol) bool {
 // it reviews: a stand-in for the product at the review, not the product itself.
 func (a *npr7123Audit) reviewedProduct(sym *symbols.Symbol) bool {
 	owner := sym.OwnerScope
-	return owner != nil && a.isA(owner.Owner(), npr7123LifeCycleReview) && a.statesAs(sym, "reviewedProducts")
+	return owner != nil && a.isReview(owner.Owner()) && a.statesAs(sym, "reviewedProducts")
+}
+
+// isReview reports whether sym, a usage or a definition, is a life-cycle review.
+func (a *npr7123Audit) isReview(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	if sym.IsFeature() {
+		return a.isA(sym, npr7123LifeCycleReview)
+	}
+	return a.conformsTo(sym, npr7123LifeCycleReview)
 }
 
 // checkSEMP expects a SEMP to address each of the 17 common technical processes (SE-58).
 func (a *npr7123Audit) checkSEMP(semp *symbols.Symbol) {
 	addressed := map[*symbols.Symbol]bool{}
+	visited := map[*symbols.Symbol]bool{}
 	var walk func(sym *symbols.Symbol)
 	walk = func(sym *symbols.Symbol) {
+		if visited[sym] {
+			return
+		}
+		visited[sym] = true
 		for _, f := range a.features(sym) {
 			for _, t := range a.model.FeatureTypeSet(f) {
 				for _, p := range a.processes {

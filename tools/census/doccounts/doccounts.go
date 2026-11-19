@@ -788,15 +788,6 @@ func RewriteBlock(content string, spec Block, figures Figures) (string, error) {
 	return ReplaceBlock(content, spec, renderedBlock)
 }
 
-// BlockBody returns the text between a named block's markers.
-func BlockBody(content string, spec Block) (string, error) {
-	span, err := locateBlock(content, spec)
-	if err != nil {
-		return "", err
-	}
-	return span.body(spec), nil
-}
-
 // ReplaceBlock puts body between a named block's markers and preserves every
 // other byte; a body of several lines cannot sit within one line.
 func ReplaceBlock(content string, spec Block, body string) (string, error) {

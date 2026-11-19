@@ -142,7 +142,18 @@ func TestNightlyReleasesAreAlwaysPrereleasesNeverLatest(t *testing.T) {
 	if moved < 0 {
 		t.Fatal("the alias job does not create the alias as a prerelease that is not latest")
 	}
-	if !containsAll(publish.runSteps()[night].Command, "dist/*.whl") {
+	// The Releases API refuses the job's token a new tag at a commit that changes a workflow
+	// file, so each release is created at a tag a git push already put there.
+	nightCommand := publish.runSteps()[night].Command
+	pushed := strings.Index(nightCommand, `git push origin "refs/tags/$VERSION"`)
+	if pushed < 0 || pushed > strings.Index(nightCommand, `gh release create "$VERSION"`) || !containsAll(nightCommand, `git tag --force "$VERSION" "$sha"`, "--verify-tag") || strings.Contains(nightCommand, "--target") {
+		t.Error("the per-night release has the Releases API create its tag instead of pushing the tag first and creating the release with --verify-tag")
+	}
+	aliasCommand := alias.runSteps()[moved].Command
+	if pushed := strings.Index(aliasCommand, `git push --force origin "refs/tags/$TAG"`); pushed < 0 || pushed > strings.Index(aliasCommand, `gh release create "$TAG"`) {
+		t.Error("the alias release is created before its tag is pushed, so the Releases API would create the tag")
+	}
+	if !containsAll(nightCommand, "dist/*.whl") {
 		t.Error("the per-night release does not carry the Python wheel beside the binaries")
 	}
 	if !containsAll(alias.runSteps()[moved].Command, `gh release download "$VERSION"`, `"${#assets[@]}" -ne "$expected"`) {
