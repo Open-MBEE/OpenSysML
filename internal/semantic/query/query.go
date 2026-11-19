@@ -82,13 +82,3 @@ func PropertyNames() []string {
 	sort.Strings(out)
 	return out
 }
-
-// IsProperty reports whether name belongs to the closed queryable-property set.
-func IsProperty(name string) bool {
-	for _, candidate := range propertyNames {
-		if candidate == name {
-			return true
-		}
-	}
-	return false
-}

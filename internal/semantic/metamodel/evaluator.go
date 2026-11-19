@@ -95,14 +95,8 @@ func (e *Evaluator) Property(el Element, definingClass, name string) (Value, boo
 	return e.property(el, definingClass, name, true)
 }
 
-// PropertyReadOnly returns a derived value whose sequence is shared with the
-// evaluator cache; callers must not modify Values or any nested sequence.
-func (e *Evaluator) PropertyReadOnly(el Element, definingClass, name string) (Value, bool) {
-	return e.property(el, definingClass, name, false)
-}
-
-// PropertyReadOnlyUncached is PropertyReadOnly for a value asked once: it leaves
-// the result cache alone, while the dependencies it derives are cached as usual.
+// PropertyReadOnlyUncached returns a derived value the caller must not modify and
+// leaves the result cache alone; the dependencies it derives are cached as usual.
 func (e *Evaluator) PropertyReadOnlyUncached(el Element, definingClass, name string) (Value, bool) {
 	return e.propertyWithPolicy(el, definingClass, name, false, false)
 }
