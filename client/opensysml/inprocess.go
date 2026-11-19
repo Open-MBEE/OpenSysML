@@ -10,6 +10,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // defaultCacheSize matches the sysml-grpc default, so the two implementations
@@ -41,7 +42,9 @@ func New(opts ...Option) (Client, error) {
 	for _, opt := range opts {
 		opt(&config)
 	}
-	svc, err := sysmlgrpc.NewService(config.cacheSize, buildVersion())
+	// A record cache that cannot be opened is none: every model is analyzed here.
+	records, _ := libs.OpenRecordCache(false)
+	svc, err := sysmlgrpc.NewService(config.cacheSize, buildVersion(), sysmlgrpc.WithRecordCache(records))
 	if err != nil {
 		return nil, err
 	}
@@ -176,6 +179,10 @@ func (p *inprocess) evaluateCalc(ctx context.Context, req *pb.EvaluateCalcReques
 
 func (p *inprocess) runAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (*pb.RunAnalysisResponse, error) {
 	return answer(ctx, req, p.svc.RunAnalysis)
+}
+
+func (p *inprocess) runSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.RunSweepResponse, error) {
+	return answer(ctx, req, p.svc.RunSweep)
 }
 
 func (p *inprocess) runRuns(ctx context.Context, req *pb.RunRunsRequest) (*pb.RunRunsResponse, error) {

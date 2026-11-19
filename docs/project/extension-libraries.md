@@ -78,7 +78,7 @@ the slugs of the IRI's last two path segments against the manifest's
 `publisher` and `name`, which is why the project is named so that its slug is
 the repository's. An archive's checksums are verified on reading; a changed
 unit refuses the archive with a warning on its path. OpenSysML also bundles the
-same seventeen units, so an import resolves either way — the files a load lists
+same eighteen units, so an import resolves either way — the files a load lists
 (`-validate` on the project, `:load` in the REPL) tell which copy answered.
 `tests/kpar/extensions_test.go` lays this out end to end, in both forms, from
 the vendored copy.

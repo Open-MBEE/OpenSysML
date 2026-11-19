@@ -158,6 +158,9 @@ type Client interface {
 	// repeatedly and table what the runs observed (runs capability).
 	RunAction(ctx context.Context, model *Model, actionID string, count int64, opts ...RunsOption) (*Runs, error)
 	RunMonteCarlo(ctx context.Context, model *Model, caseID string, count int64, opts ...RunsOption) (*Runs, error)
+	// Sweep runs an analysis case or calc once per row of a parameter sweep; a
+	// failed run is a row carrying its error. Requires the verification capability.
+	Sweep(ctx context.Context, model *Model, symbolID string, ranges []SweepRange, opts ...SweepOption) (*Sweep, error)
 	// SelfCheck applies the reflective SysMLValidation constraints to every
 	// element of the model (self_check capability).
 	SelfCheck(ctx context.Context, model *Model, rulePackages ...string) (*SelfCheck, error)
@@ -388,6 +391,7 @@ type caller interface {
 	validateInstance(ctx context.Context, req *pb.ValidateInstanceRequest) (*pb.ValidateInstanceResponse, error)
 	evaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest) (*pb.EvaluateCalcResponse, error)
 	runAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (*pb.RunAnalysisResponse, error)
+	runSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.RunSweepResponse, error)
 	runRuns(ctx context.Context, req *pb.RunRunsRequest) (*pb.RunRunsResponse, error)
 	selfCheck(ctx context.Context, req *pb.SelfCheckRequest) (*pb.SelfCheckResponse, error)
 	recordRun(ctx context.Context, req *pb.RecordRunRequest) (*pb.RecordRunResponse, error)

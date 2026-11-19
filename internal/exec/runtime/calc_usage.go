@@ -643,6 +643,9 @@ func (ctx *Context) finishCalcUsage(start *calcUsageStart) (*calcRun, error) {
 	runs, ok := ctx.run.calcUsageRuns[start.reader.activation]
 	if !ok {
 		runs = make(map[calcUsageKey]*calcRun)
+		if ctx.run.calcUsageRuns == nil {
+			ctx.run.calcUsageRuns = make(map[int64]map[calcUsageKey]*calcRun)
+		}
 		ctx.run.calcUsageRuns[start.reader.activation] = runs
 	}
 	runs[start.key] = run

@@ -335,12 +335,23 @@ func (ids *ElementIDs) recordTransitionSuccession(e *encoder, node ast.Node, sub
 	}
 }
 
-// recordSuccessionEnds records the two ends a `then` succession's conversion mints at end0/end1
-// under the edge (encodeSuccessionEdge), each with the EndFeatureMembership minted beside it.
+// recordSuccessionEnds records the ends minted at end0/end1 under a `then` edge (encodeSuccessionEdge) or a
+// `first a then b;` (initialSuccessionEnds), with their memberships and the ReferenceSubsetting of a stated end.
 func (ids *ElementIDs) recordSuccessionEnds(e *encoder, node ast.Node, subject rdf.Term) {
-	edge, ok := node.(*ast.SuccessionEdge)
-	// A state body's `then x;` after a state is written as a TransitionUsage (encodeTargetTransition): no ends.
-	if !ok || e.names.TargetTransitions[edge] || !semantics.SuccessionMintsEnds(edge) {
+	var stated [2]bool
+	switch n := node.(type) {
+	case *ast.SuccessionEdge:
+		// A state body's `then x;` after a state is written as a TransitionUsage (encodeTargetTransition): no ends.
+		if e.names.TargetTransitions[n] || !semantics.SuccessionMintsEnds(n) {
+			return
+		}
+		stated[1] = e.successionTargetStated(n)
+	case *ast.InitialNode:
+		if _, _, linked := e.linked(e.res.InitialSymbol(n)); !linked || !n.Named() || qualifiedText(n.Successor) == "" {
+			return
+		}
+		stated = [2]bool{true, true}
+	default:
 		return
 	}
 	for i := 0; i < 2; i++ {
@@ -350,8 +361,7 @@ func (ids *ElementIDs) recordSuccessionEnds(e *encoder, node ast.Node, subject r
 		recorded := partIDs{element: rdf.LocalName(feature.Value), membership: rdf.LocalName(membership.Value)}
 		ids.partByNode[partKey{node, slot}] = recorded
 		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = recorded
-		if i == 1 && e.successionTargetStated(edge) {
-			// The target end's ReferenceSubsetting is minted beside it (referenceSubsetting).
+		if stated[i] {
 			reference := partIDs{element: e.referenceSubsettingID(feature)}
 			ids.partByNode[partKey{node, slot + ".rs"}] = reference
 			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot + ".rs"}] = reference
@@ -505,7 +515,18 @@ func (e *encoder) writtenRelationships(node, parent ast.Node, subject rdf.Term, 
 	e.writtenDependencyAnnotation(node, parent, subject, out)
 	e.writtenClauseRelationships(node, parent, subject, parents, out)
 	e.writtenBoundEndReferences(node, subject, out)
+	e.writtenConstraintReference(node, subject, out)
 	return out
+}
+
+// writtenConstraintReference records the ReferenceSubsetting of an assume or require member
+// stated by reference alone (`require r;`, requirementCondition), by the member.
+func (e *encoder) writtenConstraintReference(node ast.Node, subject rdf.Term, out map[ast.Node]string) {
+	if ast.ConstraintReferenceOf(node) == nil {
+		return
+	}
+	suffix := referenceSubsettingSuffix(1, 0)
+	out[node] = rdf.LocalName(e.ids.minted(rdf.RelationshipIRI(subject, suffix), subject, suffix).Value)
 }
 
 // referenceSubsettingID is the id of the ReferenceSubsetting written under feature (referenceSubsetting).

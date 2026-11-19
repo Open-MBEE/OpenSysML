@@ -118,7 +118,7 @@ func TestPRWorkflowChangedAreasHandlesMergeGroups(t *testing.T) {
 		}
 	}
 	tests := prWorkflowStep(t, workflow, "go-tests", "Run Go tests")
-	for tier, target := range map[string]string{"full": "make test-shard", "queue": "make test-queue", "*": "make test-quick"} {
+	for tier, target := range map[string]string{"full": "for shard in $SHARD; do make test-shard", "queue": "make test-queue", "*": "make test-quick"} {
 		if !strings.Contains(tests.Run, tier+") "+target) {
 			t.Errorf("pr.yml Run Go tests = %q does not run %s for the %s tier", tests.Run, target, tier)
 		}

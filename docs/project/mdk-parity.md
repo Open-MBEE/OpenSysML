@@ -30,7 +30,7 @@ operations (JSON export/import, reference tree), and a headless command line.
 | DocGen «JavaExtension» queries | user-written `Query` classes loaded from `extensions/` into a document | one query per OpenSysML operation, rendered as DocBook summary, outcome and diagnostic tables and schedules; stereotypes created on demand | **Bridged** | — |
 | DocGen documents from views and viewpoints | SysML v1 views/viewpoints with the DocGen expression library (sections, paragraphs, tables, images, filters) → DocBook → PDF, and View Editor | SysML v2 views, viewpoints and renderings → Markdown, HTML and PDF in the engine (`internal/doc`, `sysml -render-document`); the queries behind them run from Cameo — *Run query* on a `DocumentQueries::Query` definition of a v2 project, or on the DocGen table, list or «Document» of a v1 project the migration wrote over one, with the bindings asked for and the rows shown as a table, selectable and annotated, and a query's path or model error shown per failure and annotated on the element the path stopped at — and the `RunQuery` DocGen extension renders those rows as a DocBook table, and those failures in its outcome table, inside an MDK document; *Render document…* on a v2 `DocumentQueries::Document`, or on a v1 DocGen «Document» through the definition the migration wrote for it, writes Markdown and HTML and opens the folder; PDF and View Editor are not reachable from Cameo | **Partial** (queries and Markdown/HTML documents **Implemented**, the `RunQuery` extension **Bridged**, PDF not reachable) | 1 |
 | Query answers as model elements | — (a DocGen query's result exists only in the generated document) | every *Run query* answer written as a `QVTS::QueryResult` view in a `.result.sysml` file beside the project or its export — selected elements exposed, query, source, outcome and provenance as attributes, path and model errors included; *Render document…* renders such a view; the `RunQuery` extension's `view` tag adds it to an MDK document as text or as rendered tables | **Implemented** (the extension **Bridged**) | — |
-| Publish the model to MMS/Flexo | *Commit* of the project's elements as MMS JSON, per project and per branch | RDF export of a v2 model that loads into Flexo MMS (`internal/translate/export`; measured by `TestFlexoInterop`); one-way, not reachable from Cameo | **Partial** | 2 |
+| Publish the model to MMS/Flexo | *Commit* of the project's elements as MMS JSON, per project and per branch | *Publish to SysML v2 API…* on the context menu: the project (a v1 project migrated first) is converted to the API's JSON and committed to a project branch of a SysML v2 API server such as Flexo MMS — one commit of what the branch lacks or holds differently, deletions on request, a moved branch refused (`editors/mdk/README.md` § Publish to a SysML v2 API server). One-way. Tested against an in-process API server and run by hand against a local Flexo MMS stack; not yet run in a licensed Cameo | **Partial** | 2 |
 | Validate the model against MMS and fix | element-by-element diff between Cameo and MMS, listed in a validation window with *Commit*/*Update* fixes | nothing: no element-level diff, no update from Flexo into Cameo | **Not yet** | 4 |
 | Branches, tags and project mounts in MMS | create/switch MMS branches and tags, keep mounted modules in sync | nothing | **Not yet** | 4 |
 | Sync-status indicators | stereotype-driven markers for elements pending sync | nothing | **Not yet** | 4 |
@@ -50,11 +50,10 @@ operations (JSON export/import, reference tree), and a headless command line.
    and *Run query* writes each answer as such a view. What is left is PDF, whose converters the
    plugin does not ship, and rendering a v2 view or viewpoint that is not a
    `DocumentQueries::Document`. This is DocGen's purpose for v2 models and needs nothing from MMS.
-2. **Publish to Flexo.** A *Publish to Flexo MMS* action that runs the RDF export and loads it
-   into a configured Flexo repository and branch. The export and its Flexo compatibility are
-   measured already (`docs/project/rdf-corpus-roundtrip.md`, `TestFlexoInterop`); the work is
-   the upload client, the credentials handling and the options pane the next row also needs.
-   One session; a Flexo stack is needed to test it.
+2. **Publish to Flexo.** Built as *Publish to SysML v2 API…*: the plugin converts the model
+   to the API's JSON and commits it to a project branch through the standard SysML v2 API,
+   which Flexo MMS serves. What remains is a run of the action in a licensed Cameo, and the options pane the next row also needs (the server is asked for in the
+   action's dialog until then).
 3. **Validation suite and options.** A *Validate with OpenSysML* action that runs the engine's
    validation tiers over the exported model and lands each diagnostic in Cameo's validation
    window, with the engine's workspace edits offered as fix actions where the edit maps back to a

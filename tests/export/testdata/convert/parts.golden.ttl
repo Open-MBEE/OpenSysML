@@ -301,6 +301,26 @@ elmt:Vehicles__Vehicle__engine_ft0
     sysml:declaredName "MassValue" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:004f44e3-8ba3-5199-af14-2df8674f0a12>
+    a sysml:Feature ;
+    sysml:elementId "004f44e3-8ba3-5199-af14-2df8674f0a12" ;
+    sysml:qualifiedName "VectorValues::NumericalVectorValue::dimension" ;
+    sysml:declaredName "dimension" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:164dee2f-521c-5356-866c-2788e699b1f3>
+    a sysml:AssertConstraintUsage ;
+    sysml:elementId "164dee2f-521c-5356-866c-2788e699b1f3" ;
+    sysml:qualifiedName "Quantities::TensorQuantityValue::boundMatch" ;
+    sysml:declaredName "boundMatch" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:00d84f8d-11de-5fbd-a517-03bd31136fdd>
+    a sysml:FeatureMembership ;
+    sysml:elementId "00d84f8d-11de-5fbd-a517-03bd31136fdd" ;
+    sysml:memberElement <urn:sysmlv2:element:164dee2f-521c-5356-866c-2788e699b1f3> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:f9e920cc-2ec4-56b3-9920-8e5dbbc50a5a
     a sysml:Feature ;
     sysml:elementId "f9e920cc-2ec4-56b3-9920-8e5dbbc50a5a" ;
@@ -502,6 +522,19 @@ elmt:e94c914b-4188-54c7-a6a2-cdaead458c83
     sysml:memberElement <urn:sysmlv2:element:6f8479c0-9be1-5944-a0d9-d0a62d374446> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:95ac9845-00f2-53b6-b339-c82048105bf7>
+    a sysml:AttributeUsage ;
+    sysml:elementId "95ac9845-00f2-53b6-b339-c82048105bf7" ;
+    sysml:qualifiedName "Quantities::TensorQuantityValue::order" ;
+    sysml:declaredName "order" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:1340e943-6dae-59a2-9f44-f41f90c47d1e>
+    a sysml:FeatureMembership ;
+    sysml:elementId "1340e943-6dae-59a2-9f44-f41f90c47d1e" ;
+    sysml:memberElement <urn:sysmlv2:element:95ac9845-00f2-53b6-b339-c82048105bf7> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:b9db8f58-131b-56fb-9a18-01bd8f2870df
     a sysml:Feature ;
     sysml:elementId "b9db8f58-131b-56fb-9a18-01bd8f2870df" ;
@@ -668,6 +701,18 @@ elmt:f6f04e9e-c8f9-5a8e-8e4b-a4504ca2bf85
     sysml:memberElement <urn:sysmlv2:element:2ce6ae13-819f-5639-b06e-6872e8624da8> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+elmt:b76ba759-1aa3-5cfe-a789-6d668b2d10a7
+    a sysml:Documentation ;
+    sysml:elementId "b76ba759-1aa3-5cfe-a789-6d668b2d10a7" ;
+    sysx:libraryPath "VectorValues::VectorValue/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:295cf549-24a2-5d6a-8eef-ff9cb5515be7>
+    a sysml:OwningMembership ;
+    sysml:elementId "295cf549-24a2-5d6a-8eef-ff9cb5515be7" ;
+    sysml:memberElement elmt:b76ba759-1aa3-5cfe-a789-6d668b2d10a7 ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 <urn:sysmlv2:element:2b7f518b-bb5a-57d2-99c6-1d1c7f4f0eee>
     a sysml:Connector ;
     sysml:elementId "2b7f518b-bb5a-57d2-99c6-1d1c7f4f0eee" ;
@@ -729,6 +774,24 @@ elmt:acbd427f-8ecf-59a6-9c9f-bf9854908e42
     a sysml:FeatureMembership ;
     sysml:elementId "2f9985d7-c642-57c9-87ce-20bdf02c65e0" ;
     sysml:memberElement <urn:sysmlv2:element:9eb5c39c-a43c-55c1-b3cd-ed1c7c7918f2> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:9ea7b033-c33b-539f-a2af-ec2145211e98>
+    a sysml:Documentation ;
+    sysml:elementId "9ea7b033-c33b-539f-a2af-ec2145211e98" ;
+    sysx:libraryPath "Collections::Array/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:30c1aad4-d660-5b06-b8b4-f93ea7050a0c>
+    a sysml:OwningMembership ;
+    sysml:elementId "30c1aad4-d660-5b06-b8b4-f93ea7050a0c" ;
+    sysml:memberElement <urn:sysmlv2:element:9ea7b033-c33b-539f-a2af-ec2145211e98> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:334779bf-6357-5adf-a7c5-ffb32c2ffd17>
+    a sysml:AttributeUsage ;
+    sysml:elementId "334779bf-6357-5adf-a7c5-ffb32c2ffd17" ;
+    sysml:qualifiedName "Quantities::TensorQuantityValue::dimensions" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:336bbaa9-89f8-5ff0-bdac-60ca79acc5f6>
@@ -877,6 +940,18 @@ elmt:a4d21db8-87e3-542d-a5de-df08f3486f65
     sysml:memberElement <urn:sysmlv2:element:43f4a2ef-f178-57b6-b967-458a580f1b87> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:7959af88-b79b-5efd-879e-55407d45ee83>
+    a sysml:Documentation ;
+    sysml:elementId "7959af88-b79b-5efd-879e-55407d45ee83" ;
+    sysx:libraryPath "Collections::Collection/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:456eaaaa-d85e-5515-8065-7646ad1e1dee>
+    a sysml:OwningMembership ;
+    sysml:elementId "456eaaaa-d85e-5515-8065-7646ad1e1dee" ;
+    sysml:memberElement <urn:sysmlv2:element:7959af88-b79b-5efd-879e-55407d45ee83> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 <urn:sysmlv2:element:45dcb4c0-e0de-53b8-822a-0a14fcd162f3>
     a sysml:Feature ;
     sysml:elementId "45dcb4c0-e0de-53b8-822a-0a14fcd162f3" ;
@@ -920,6 +995,18 @@ elmt:f7162942-e1e4-543d-abef-68b63eea0e30
     a sysml:FeatureMembership ;
     sysml:elementId "494b6a23-1a41-5d08-bf93-1ce0838c8351" ;
     sysml:memberElement <urn:sysmlv2:element:817763b4-4fcd-5d8e-8934-9591df7f05cb> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:d10767a7-1c4e-54ec-abbd-929eb27d33b1
+    a sysml:Documentation ;
+    sysml:elementId "d10767a7-1c4e-54ec-abbd-929eb27d33b1" ;
+    sysx:libraryPath "ISQBase::MassValue/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:49b7138f-f551-505b-9950-4b4060f4d4e3>
+    a sysml:OwningMembership ;
+    sysml:elementId "49b7138f-f551-505b-9950-4b4060f4d4e3" ;
+    sysml:memberElement elmt:d10767a7-1c4e-54ec-abbd-929eb27d33b1 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:f22b1a27-60ea-5c53-9741-b40f5e5b2798
@@ -991,6 +1078,12 @@ elmt:ee33d7cc-1719-5123-a34a-c40f275f9f1b
     sysml:memberElement <urn:sysmlv2:element:26ad38de-5b79-57cb-b94c-a4f691290f92> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:51b5713c-3834-559f-93f2-0a75dc4adf30>
+    a sysml:Documentation ;
+    sysml:elementId "51b5713c-3834-559f-93f2-0a75dc4adf30" ;
+    sysx:libraryPath "Quantities::TensorQuantityValue/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 <urn:sysmlv2:element:52e0e11b-6245-55e6-9156-00d331f6d5ea>
     a sysml:Feature ;
     sysml:elementId "52e0e11b-6245-55e6-9156-00d331f6d5ea" ;
@@ -1008,6 +1101,19 @@ elmt:ee33d7cc-1719-5123-a34a-c40f275f9f1b
     a sysml:OwningMembership ;
     sysml:elementId "53344e4e-a4c9-5188-8370-7ec470ba0b0b" ;
     sysml:memberElement <urn:sysmlv2:element:89aed288-e14b-5b63-bcfe-a5fb2098c176> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:c21232ea-5621-5120-9959-b783f2d6cb46
+    a sysml:AssertConstraintUsage ;
+    sysml:elementId "c21232ea-5621-5120-9959-b783f2d6cb46" ;
+    sysml:qualifiedName "Quantities::TensorQuantityValue::orderSum" ;
+    sysml:declaredName "orderSum" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:56434bad-d8e0-59f2-a896-3e7c5667ee94>
+    a sysml:FeatureMembership ;
+    sysml:elementId "56434bad-d8e0-59f2-a896-3e7c5667ee94" ;
+    sysml:memberElement elmt:c21232ea-5621-5120-9959-b783f2d6cb46 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:9f15f4ff-e883-5ee3-a73f-15730b50b155>
@@ -1034,6 +1140,12 @@ elmt:ee33d7cc-1719-5123-a34a-c40f275f9f1b
     a sysml:Feature ;
     sysml:elementId "5cf205b9-f527-54fb-90f0-73705c1889a7" ;
     sysml:qualifiedName "Occurrences::Occurrence::suboccurrences::localClock" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:5f637144-6806-57b6-b78c-1b537576a15c>
+    a sysml:FeatureMembership ;
+    sysml:elementId "5f637144-6806-57b6-b78c-1b537576a15c" ;
+    sysml:memberElement <urn:sysmlv2:element:334779bf-6357-5adf-a7c5-ffb32c2ffd17> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:eba60b10-4da7-5503-907b-4bbd67bf477a
@@ -1133,6 +1245,19 @@ elmt:e24b4cdf-0f1e-5b60-a62a-b09e0d1e6956
     sysml:memberElement <urn:sysmlv2:element:0536eca0-9fdc-5208-87c8-2dcc8356081a> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:6924e817-2931-558b-a062-8222e84c2017>
+    a sysml:Documentation ;
+    sysml:elementId "6924e817-2931-558b-a062-8222e84c2017" ;
+    sysx:libraryPath "Collections::OrderedCollection/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:6a1a13e9-fd45-5751-88e8-1dc59993db5b>
+    a sysml:AttributeUsage ;
+    sysml:elementId "6a1a13e9-fd45-5751-88e8-1dc59993db5b" ;
+    sysml:qualifiedName "Quantities::TensorQuantityValue::covariantOrder" ;
+    sysml:declaredName "covariantOrder" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:dd588859-da51-5519-ba83-73e11705eae2
     a sysml:MultiplicityRange ;
     sysml:elementId "dd588859-da51-5519-ba83-73e11705eae2" ;
@@ -1156,6 +1281,12 @@ elmt:dd588859-da51-5519-ba83-73e11705eae2
     a sysml:FeatureMembership ;
     sysml:elementId "6b45d41c-1a99-5d1a-aabb-66e8328f0296" ;
     sysml:memberElement <urn:sysmlv2:element:741ea0aa-b16b-5b44-ac46-564c85d4f05d> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:6bc6deff-3e86-574d-892d-e1c9a5221fd0>
+    a sysml:OwningMembership ;
+    sysml:elementId "6bc6deff-3e86-574d-892d-e1c9a5221fd0" ;
+    sysml:memberElement <urn:sysmlv2:element:51b5713c-3834-559f-93f2-0a75dc4adf30> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:703af01e-7298-57ff-94fa-af6f41e1219a>
@@ -1189,10 +1320,40 @@ elmt:ea462915-971b-556c-82e5-465debcb637d
     sysml:declaredName "self" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:7a13893f-a3b4-5275-8a55-aa2df4bee8ca>
+    a sysml:Invariant ;
+    sysml:elementId "7a13893f-a3b4-5275-8a55-aa2df4bee8ca" ;
+    sysx:libraryPath "Collections::Array/Invariant[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 <urn:sysmlv2:element:7dbaffa7-ca3d-53d5-8e10-729b8893a107>
     a sysml:FeatureMembership ;
     sysml:elementId "7dbaffa7-ca3d-53d5-8e10-729b8893a107" ;
     sysml:memberElement <urn:sysmlv2:element:618024bc-861e-581c-b049-697db6290025> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:7e8b0a83-f866-50ae-91d4-2015444ac840>
+    a sysml:FeatureMembership ;
+    sysml:elementId "7e8b0a83-f866-50ae-91d4-2015444ac840" ;
+    sysml:memberElement <urn:sysmlv2:element:6a1a13e9-fd45-5751-88e8-1dc59993db5b> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:7f0bc384-8729-5f74-94e4-6c5d2bc964a7>
+    a sysml:AttributeUsage ;
+    sysml:elementId "7f0bc384-8729-5f74-94e4-6c5d2bc964a7" ;
+    sysml:qualifiedName "ISQBase::MassValue::num" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:a925509d-6cce-5f3d-9ea8-a302f5951d1d
+    a sysml:AttributeUsage ;
+    sysml:elementId "a925509d-6cce-5f3d-9ea8-a302f5951d1d" ;
+    sysml:qualifiedName "ISQBase::MassValue::mRef" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:841189ff-8364-5738-914a-cd397d3e143d>
+    a sysml:FeatureMembership ;
+    sysml:elementId "841189ff-8364-5738-914a-cd397d3e143d" ;
+    sysml:memberElement elmt:a925509d-6cce-5f3d-9ea8-a302f5951d1d ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:854b38c9-82f9-5909-9cd5-ecf8ac71874b>
@@ -1233,6 +1394,12 @@ elmt:cdbc7853-3c7e-5c48-9817-2dd245e50317
     sysml:declaredName "enactedPerformances" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:8759f0c4-6a7b-5b71-976a-6ec7bae04677>
+    a sysml:MultiplicityRange ;
+    sysml:elementId "8759f0c4-6a7b-5b71-976a-6ec7bae04677" ;
+    sysx:libraryPath "Base::dataValues/MultiplicityRange[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 <urn:sysmlv2:element:875a7dea-6931-5c8e-88b5-e7000b21e1f9>
     a sysml:Invariant ;
     sysml:elementId "875a7dea-6931-5c8e-88b5-e7000b21e1f9" ;
@@ -1262,6 +1429,18 @@ elmt:d637bdd8-4d2e-5e7c-806a-93a6deb70ac4
     a sysml:Documentation ;
     sysml:elementId "8bf40f7c-340f-5e0b-b47f-87c041708888" ;
     sysx:libraryPath "Base::naturals/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:d173ebb1-e15e-529a-b5d2-3289bd12cabc
+    a sysml:Documentation ;
+    sysml:elementId "d173ebb1-e15e-529a-b5d2-3289bd12cabc" ;
+    sysx:libraryPath "VectorValues::NumericalVectorValue/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:8c865a51-646d-5550-ab28-0c104ab9f5cb>
+    a sysml:OwningMembership ;
+    sysml:elementId "8c865a51-646d-5550-ab28-0c104ab9f5cb" ;
+    sysml:memberElement elmt:d173ebb1-e15e-529a-b5d2-3289bd12cabc ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:bfd5fb0e-e87b-51ea-a438-6a93d18b05a1
@@ -1366,6 +1545,12 @@ elmt:e9ae3b91-2c54-544b-bbd3-8b7512a92238
     sysml:memberElement elmt:e9ae3b91-2c54-544b-bbd3-8b7512a92238 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:9bbaf799-4a6a-5b7a-b814-c2a5e47ba1f9>
+    a sysml:FeatureMembership ;
+    sysml:elementId "9bbaf799-4a6a-5b7a-b814-c2a5e47ba1f9" ;
+    sysml:memberElement <urn:sysmlv2:element:7a13893f-a3b4-5275-8a55-aa2df4bee8ca> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 <urn:sysmlv2:element:9c3b0668-961e-550a-a836-3c1d7f6db91d>
     a sysml:FeatureMembership ;
     sysml:elementId "9c3b0668-961e-550a-a836-3c1d7f6db91d" ;
@@ -1390,6 +1575,19 @@ elmt:a173a06d-5e95-5ebb-b5a5-2a2834fba603
     sysml:memberElement <urn:sysmlv2:element:2012913c-a576-5118-9dcb-5b26a927b16a> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+elmt:a39cdcce-f264-52a4-9c36-e060d502466f
+    a sysml:OwningMembership ;
+    sysml:elementId "a39cdcce-f264-52a4-9c36-e060d502466f" ;
+    sysml:memberElement <urn:sysmlv2:element:8759f0c4-6a7b-5b71-976a-6ec7bae04677> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:a4ffe701-1d6e-54ed-af69-5442052d2f5d
+    a sysml:Feature ;
+    sysml:elementId "a4ffe701-1d6e-54ed-af69-5442052d2f5d" ;
+    sysml:qualifiedName "Collections::Array::flattenedSize" ;
+    sysml:declaredName "flattenedSize" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:c38c598e-c640-51ca-be77-4fbd9254c9d1
     a sysml:Feature ;
     sysml:elementId "c38c598e-c640-51ca-be77-4fbd9254c9d1" ;
@@ -1401,6 +1599,12 @@ elmt:a658a61c-85db-58db-9d23-7f343425feac
     a sysml:FeatureMembership ;
     sysml:elementId "a658a61c-85db-58db-9d23-7f343425feac" ;
     sysml:memberElement elmt:c38c598e-c640-51ca-be77-4fbd9254c9d1 ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:a687bb82-3983-5179-aa80-835cc36c730f
+    a sysml:FeatureMembership ;
+    sysml:elementId "a687bb82-3983-5179-aa80-835cc36c730f" ;
+    sysml:memberElement <urn:sysmlv2:element:004f44e3-8ba3-5199-af14-2df8674f0a12> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:a84fcd98-9f6c-51bc-ad76-8e8083866e90
@@ -1479,6 +1683,25 @@ elmt:b2d07ea7-2b17-5ba4-8fb4-8a9e8f206346
     sysml:memberElement elmt:ed80d442-d498-5236-96ae-71a8a52531d2 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+elmt:b3da2b0e-25a6-5b4c-9c37-2c35ab3d9497
+    a sysml:FeatureMembership ;
+    sysml:elementId "b3da2b0e-25a6-5b4c-9c37-2c35ab3d9497" ;
+    sysml:memberElement elmt:a4ffe701-1d6e-54ed-af69-5442052d2f5d ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:b4f1f459-8280-5d2b-9585-b716c6b57470
+    a sysml:AttributeUsage ;
+    sysml:elementId "b4f1f459-8280-5d2b-9585-b716c6b57470" ;
+    sysml:qualifiedName "Quantities::TensorQuantityValue::isBound" ;
+    sysml:declaredName "isBound" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:b4566628-6aaa-56bd-97d9-c9b201262f86
+    a sysml:FeatureMembership ;
+    sysml:elementId "b4566628-6aaa-56bd-97d9-c9b201262f86" ;
+    sysml:memberElement elmt:b4f1f459-8280-5d2b-9585-b716c6b57470 ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:f3918d7e-f24a-547c-a03c-5f9c68883d8b
     a sysml:Documentation ;
     sysml:elementId "f3918d7e-f24a-547c-a03c-5f9c68883d8b" ;
@@ -1527,11 +1750,24 @@ elmt:bd909aa8-dcdb-59fb-a116-8670f6db05b1
     sysml:memberElement <urn:sysmlv2:element:869fa262-b0df-570b-b2ed-3ad85f5460aa> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+elmt:befb3e03-2658-5ee6-9b86-c602fb13d96d
+    a sysml:FeatureMembership ;
+    sysml:elementId "befb3e03-2658-5ee6-9b86-c602fb13d96d" ;
+    sysml:memberElement <urn:sysmlv2:element:7f0bc384-8729-5f74-94e4-6c5d2bc964a7> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:bffacdad-6769-575f-be46-e30433a5af4d
     a sysml:Feature ;
     sysml:elementId "bffacdad-6769-575f-be46-e30433a5af4d" ;
     sysml:qualifiedName "Occurrences::Occurrence::this" ;
     sysml:declaredName "this" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:c036069b-19b9-5134-bd97-2a275b951ba4
+    a sysml:AttributeUsage ;
+    sysml:elementId "c036069b-19b9-5134-bd97-2a275b951ba4" ;
+    sysml:qualifiedName "Quantities::TensorQuantityValue::contravariantOrder" ;
+    sysml:declaredName "contravariantOrder" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:c148bb4d-d975-5fa6-afa5-808b5ae74139
@@ -1614,10 +1850,22 @@ elmt:d10a161b-6679-54ef-af65-b2e6e3b614bf
     sysml:memberElement <urn:sysmlv2:element:85b2c821-569d-5cd3-8a5f-7030c603ad58> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+elmt:d362aaa2-520d-54ee-9204-0ea7e80aa73c
+    a sysml:Feature ;
+    sysml:elementId "d362aaa2-520d-54ee-9204-0ea7e80aa73c" ;
+    sysml:qualifiedName "VectorValues::NumericalVectorValue::elements" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:d555982d-e41e-54b5-9415-87900810f3d2
     a sysml:OwningMembership ;
     sysml:elementId "d555982d-e41e-54b5-9415-87900810f3d2" ;
     sysml:memberElement elmt:a9288242-c5d9-569d-8c4b-c9e0e0e30879 ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:d695fe19-1504-5468-a81c-76bbc583658c
+    a sysml:OwningMembership ;
+    sysml:elementId "d695fe19-1504-5468-a81c-76bbc583658c" ;
+    sysml:memberElement <urn:sysmlv2:element:6924e817-2931-558b-a062-8222e84c2017> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:d764bba7-46da-530b-b2c2-f50e2a430d1e
@@ -1688,6 +1936,12 @@ elmt:eb64dd16-9465-56e7-8a36-8987c6e36bf5
     sysml:memberElement elmt:dbd75b49-0e57-5cf9-ba35-9f8843b1e657 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+elmt:f0919f7b-8e5b-579f-a37d-1beee06ad923
+    a sysml:FeatureMembership ;
+    sysml:elementId "f0919f7b-8e5b-579f-a37d-1beee06ad923" ;
+    sysml:memberElement elmt:c036069b-19b9-5134-bd97-2a275b951ba4 ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:f17824ba-20fb-5167-bc84-7fb3b452f0ec
     a sysml:OwningMembership ;
     sysml:elementId "f17824ba-20fb-5167-bc84-7fb3b452f0ec" ;
@@ -1698,6 +1952,12 @@ elmt:f1b56022-c5a8-58c4-a3e6-012f693bb32e
     a sysml:FeatureMembership ;
     sysml:elementId "f1b56022-c5a8-58c4-a3e6-012f693bb32e" ;
     sysml:memberElement <urn:sysmlv2:element:6788277f-7cdd-500a-8b02-39844f659f4f> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:f5464cb8-89ff-5808-9aa1-a42ff507eb10
+    a sysml:FeatureMembership ;
+    sysml:elementId "f5464cb8-89ff-5808-9aa1-a42ff507eb10" ;
+    sysml:memberElement elmt:d362aaa2-520d-54ee-9204-0ea7e80aa73c ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:f786fe44-8015-5e00-b8c8-f42a92f43129

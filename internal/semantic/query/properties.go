@@ -103,6 +103,11 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 		if r.elementID != nil {
 			return presentValues(r.elementID(sym))
 		}
+	case PropertySymbolKind:
+		return symbolKind(sym)
+	case PropertyText:
+		texts, ok := r.semantics.RequirementTextsOf(sym)
+		return texts, ok && len(texts) > 0
 	}
 	return nil, false
 }
@@ -330,6 +335,14 @@ func (r *PropertyReader) reflectiveBoolean(sym *symbols.Symbol, property string)
 		return nil, false
 	}
 	return []string{strconv.FormatBool(value.Bool)}, true
+}
+
+// symbolKind is the kind name SymbolInfo.kind reports for sym, absent for a symbol of no named kind.
+func symbolKind(sym *symbols.Symbol) ([]string, bool) {
+	if !sym.Kind.Named() {
+		return nil, false
+	}
+	return []string{sym.Kind.String()}, true
 }
 
 // individual reports whether sym's declaration carries the `individual` modifier.

@@ -280,8 +280,8 @@ var metaCommandTable = []metaCommand{
 	{name: "%check", effect: Executes, group: groupBehavioral, args: argName, desc: "ask an SMT solver whether a constraint, requirement or satisfaction can be satisfied (experimental)"},
 	{name: "%explain", effect: Executes, group: groupBehavioral, args: argName, desc: "ask an SMT solver which conditions of an unsatisfiable element conflict (experimental)"},
 	{name: "%solve", effect: Executes, group: groupBehavioral, args: argName, desc: "ask an SMT solver for values satisfying an element, keeping what is already fixed (experimental)"},
-	{name: "%configure", effect: Executes, group: groupBehavioral, args: "<name> [<variation>=<variant>...] [all [<count>]]", desc: "ask an SMT solver which variants an element's conditions permit (experimental)"},
-	{name: "%optimize", effect: Executes, group: groupBehavioral, args: argName, desc: "ask an SMT solver for the best values an analysis case's objectives admit (experimental)"},
+	{name: "%configure", effect: Executes, group: groupBehavioral, args: "<name> [<variation>=<variant>...] [all [<count>]] [-json]", desc: "ask an SMT solver which variants an element's conditions permit; -json writes the answer as one JSON document (experimental)"},
+	{name: "%optimize", effect: Executes, group: groupBehavioral, args: "<name> [-json]", desc: "ask an SMT solver for the best values an analysis case's objectives admit; -json writes the answer as one JSON document (experimental)"},
 
 	{name: "%action", effect: Executes, group: groupAction, args: "<name> [<object>]", desc: "start action executor debugging session, performed by an object"},
 	{name: "%step", effect: Executes, group: groupAction, desc: "advance one token step, or one step of the state machine being debugged"},
@@ -841,15 +841,9 @@ func (s *Session) metaModelCommand(fields []string, line string) (metaResult, bo
 		}
 		return metaOut(s.doSolve(fields[1])), true
 	case "%configure":
-		if len(fields) < 2 {
-			return metaOut([]string{"usage: %configure <name> [<variation>=<variant>...] [all [<count>]]"}, false, nil), true
-		}
-		return metaOut(s.doConfigure(fields[1], fields[2:])), true
+		return metaOut(s.doConfigure(fields[1:])), true
 	case "%optimize":
-		if len(fields) < 2 {
-			return metaOut([]string{"usage: %optimize <name>"}, false, nil), true
-		}
-		return metaOut(s.doOptimize(fields[1])), true
+		return metaOut(s.doOptimize(fields[1:])), true
 		// Action debugging
 	}
 	return metaResult{}, false

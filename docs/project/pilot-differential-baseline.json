@@ -68,8 +68,8 @@
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 67,
-        "digest": "sha256:5fab60584f6b46af676f69995df92003d7a31cd7acc47764b0bebc65bff6b610"
+        "files": 68,
+        "digest": "sha256:b5836857068c83cdb257385a10cf75947beb8e9732840fd4e58a016c94c8336f"
       },
       {
         "name": "probes",
@@ -82,21 +82,21 @@
         "name": "opensysml-libraries",
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
-        "files": 17,
-        "digest": "sha256:903849d31c41320c258b616c32557028426e9824f78e5c47c7bf364769340718"
+        "files": 18,
+        "digest": "sha256:8ef6d80c9983abb0af6edc68d26de9a25be15f16561ca3b9e9387ed2b070a7ec"
       }
     ],
     "recorded": "2026-11-19"
   },
   "totals": {
-    "files": 935,
+    "files": 936,
     "filesFullyAgreeing": 539,
     "agreement": 1107,
     "severityMismatch": 8,
-    "openSysMLOnly": 120,
-    "pilotOnly": 2450,
-    "openSysMLDiagnostics": 1235,
-    "pilotDiagnostics": 3565
+    "openSysMLOnly": 126,
+    "pilotOnly": 2451,
+    "openSysMLDiagnostics": 1241,
+    "pilotDiagnostics": 3566
   },
   "roots": [
     {
@@ -17673,14 +17673,14 @@
       "name": "examples",
       "dir": "examples",
       "totals": {
-        "files": 67,
+        "files": 68,
         "filesFullyAgreeing": 60,
         "agreement": 4,
         "severityMismatch": 0,
-        "openSysMLOnly": 8,
-        "pilotOnly": 65,
-        "openSysMLDiagnostics": 12,
-        "pilotDiagnostics": 69
+        "openSysMLOnly": 14,
+        "pilotOnly": 66,
+        "openSysMLDiagnostics": 18,
+        "pilotDiagnostics": 70
       },
       "files": [
         {
@@ -17780,6 +17780,51 @@
             },
             {
               "line": 362,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "path": "npr7123-demo/npr7123-demo.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [
+            {
+              "line": 75,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 180,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 186,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 2
+            },
+            {
+              "line": 398,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 441,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            }
+          ],
+          "pilotOnly": [
+            {
+              "line": 436,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18311,7 +18356,37 @@
     },
     {
       "side": "opensysml",
+      "message": "This CDR states no DesignSolution: NPR 7123.1D section 5.2.2.2 (SE-46) has the technical team provide it at this review at maturity baseline, so nest a `DesignSolution` item subsetting `reviewedProducts` with its `maturity`.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This SEMP does not address 13 of the 17 common technical processes: ProductImplementation, ProductIntegration, ProductVerification, ProductValidation, ProductTransition, TechnicalPlanning, RequirementsManagement, InterfaceManagement, TechnicalRiskManagement, ConfigurationManagement, TechnicalDataManagement, TechnicalAssessment, DecisionAnalysis. NPR 7123.1D section 6.2.3 (SE-58) has the SEMP define how each process, as tailored, is applied, so nest one usage per process (e.g. `#productImplementation action ...`).",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This VerificationAndValidationPlan is stated at maturity preliminary, below the baseline NPR 7123.1D section 5.2.2.2 (SE-68) asks for at PDR; mature the product or document the tailoring in the SEMP.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This compliance entry is marked tailored with no justification: NPR 7123.1D Table H-1 asks for the justification of every tailored or not-applicable requirement, so give the `@Compliance` annotation a `justification`.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This compliance matrix has no compliance entry for 1 active NPR 7123.1D requirement(s): SE31. Table H-1 covers every active requirement, so add a `@Compliance` usage of each from `NPR7123::SERequirements`.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
       "message": "This element is marked @Proprietary with no rationale: MOSA expects the justification for each proprietary element to be recorded, so give the annotation a `rationale`.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This life-cycle review states no entrance criteria and no success criteria: NPR 7123.1D section 5.2.2.1 (SE-34) has the technical team define both for each review, so nest `EntranceCriterion` and `SuccessCriterion` requirement usages, subsetting `entranceCriteria` and `successCriteria`, from the library's `ReviewCriteria` package.",
       "count": 1
     },
     {
@@ -24942,14 +25017,14 @@
       }
     ],
     "totals": {
-      "files": 935,
+      "files": 936,
       "filesFullyAgreeing": 540,
       "agreement": 1107,
       "severityMismatch": 8,
-      "openSysMLOnly": 119,
-      "pilotOnly": 2450,
-      "openSysMLDiagnostics": 1234,
-      "pilotDiagnostics": 3565
+      "openSysMLOnly": 125,
+      "pilotOnly": 2451,
+      "openSysMLDiagnostics": 1240,
+      "pilotDiagnostics": 3566
     },
     "findings": [
       {

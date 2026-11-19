@@ -509,8 +509,12 @@ func (c runStateCapture) restore() {
 	c.state.performers = slices.Clone(c.performers)
 	c.state.scheduler = c.scheduler
 	c.restoreSchedule()
-	clear(c.state.calcUsageRuns)
-	maps.Copy(c.state.calcUsageRuns, cloneCalcUsageRuns(c.calcUsageRuns))
+	if runs := cloneCalcUsageRuns(c.calcUsageRuns); c.state.calcUsageRuns == nil {
+		c.state.calcUsageRuns = runs
+	} else {
+		clear(c.state.calcUsageRuns)
+		maps.Copy(c.state.calcUsageRuns, runs)
+	}
 	for _, outputs := range c.calcOutputs {
 		outputs.restore()
 	}

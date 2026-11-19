@@ -60,8 +60,8 @@
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 67,
-        "digest": "sha256:5fab60584f6b46af676f69995df92003d7a31cd7acc47764b0bebc65bff6b610"
+        "files": 68,
+        "digest": "sha256:b5836857068c83cdb257385a10cf75947beb8e9732840fd4e58a016c94c8336f"
       },
       {
         "name": "probes",
@@ -81,8 +81,8 @@
         "name": "opensysml-libraries",
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
-        "files": 17,
-        "digest": "sha256:903849d31c41320c258b616c32557028426e9824f78e5c47c7bf364769340718"
+        "files": 18,
+        "digest": "sha256:8ef6d80c9983abb0af6edc68d26de9a25be15f16561ca3b9e9387ed2b070a7ec"
       }
     ],
     "recorded": "2026-11-19"
@@ -101,8 +101,8 @@
       "dir": "examples/sysml-v2-training",
       "files": 100,
       "rejected": 0,
-      "elements": 10257,
-      "implied": 5952,
+      "elements": 10289,
+      "implied": 5973,
       "pilotElements": 11906,
       "pilotImplied": 0,
       "pilotDuplicates": 5797,
@@ -113,8 +113,8 @@
       "dir": "examples/pilot-corpora/sysml-examples",
       "files": 99,
       "rejected": 0,
-      "elements": 36797,
-      "implied": 21565,
+      "elements": 37003,
+      "implied": 21701,
       "pilotElements": 40861,
       "pilotImplied": 0,
       "pilotDuplicates": 10940,
@@ -125,8 +125,8 @@
       "dir": "examples/pilot-corpora/sysml-validation",
       "files": 56,
       "rejected": 0,
-      "elements": 12589,
-      "implied": 7351,
+      "elements": 12758,
+      "implied": 7459,
       "pilotElements": 14222,
       "pilotImplied": 0,
       "pilotDuplicates": 3066,
@@ -149,8 +149,8 @@
       "dir": "examples/spec-examples",
       "files": 511,
       "rejected": 38,
-      "elements": 9308,
-      "implied": 5299,
+      "elements": 9398,
+      "implied": 5354,
       "pilotElements": 15900,
       "pilotImplied": 0,
       "pilotDuplicates": 40,
@@ -161,8 +161,8 @@
       "dir": "tests/testdata",
       "files": 40,
       "rejected": 0,
-      "elements": 1660,
-      "implied": 912,
+      "elements": 1684,
+      "implied": 926,
       "pilotElements": 2448,
       "pilotImplied": 0,
       "pilotDuplicates": 169,
@@ -171,13 +171,13 @@
     {
       "name": "examples",
       "dir": "examples",
-      "files": 67,
+      "files": 68,
       "rejected": 0,
-      "elements": 41260,
-      "implied": 24006,
-      "pilotElements": 53321,
+      "elements": 43129,
+      "implied": 25163,
+      "pilotElements": 55048,
       "pilotImplied": 0,
-      "pilotDuplicates": 86092,
+      "pilotDuplicates": 86152,
       "pilotFailed": 0
     },
     {
@@ -205,5 +205,5 @@
       "pilotFailed": 0
     }
   ],
-  "pilotRecords": "sha256:d0b5b2a91ae9bb5251fbbee40d4c6453c53c9b11d6bde18b9a9e5f6a9702ef98"
+  "pilotRecords": "sha256:365ec57cb3f384ca19e68ada17adafbc9d7f141e56d56a6dbe5ff7f3d39cb454"
 }

@@ -101,6 +101,7 @@ public final class OperationActions implements BrowserContextAMConfigurator, Dia
     }
     if (selection.isPresent()) category.addAction(new RenderAction(project, selection.get()));
     if (selection.isPresent()) category.addAction(new ExportAction(project, selection.get()));
+    if (selection.isPresent()) category.addAction(new PublishAction(CATEGORY_ID, engine, project, selection.get()));
     if (root) category.addAction(new InstallDocGenExtensionsAction(project));
     manager.addCategory(category);
   }
