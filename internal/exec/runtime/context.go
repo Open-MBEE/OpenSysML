@@ -809,7 +809,8 @@ type runState struct {
 	// scheduler is the resolutions the run's choices draw from (scheduler.go).
 	scheduler *scheduler
 	// calcUsageRuns holds, per activation under way, the evaluation of each calc
-	// usage read in it, so its outputs answer from one run of the body (calc_usage.go).
+	// usage read in it, so its outputs answer from one run of the body (calc_usage.go);
+	// nil until the run evaluates one.
 	calcUsageRuns map[int64]map[calcUsageKey]*calcRun
 	// extentCandidates holds, per type an extent was taken of, the namespace usages
 	// that may hold one (extent.go).
@@ -825,10 +826,7 @@ func (r *runState) notePerformer(w clockWaiter) {
 
 // newRunState is the state a run starts with, under the schedule policy set now.
 func (ctx *Context) newRunState() *runState {
-	return &runState{
-		scheduler:     ctx.newScheduler(),
-		calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
-	}
+	return &runState{scheduler: ctx.newScheduler()}
 }
 
 // enterRun brackets one call of the run with this state: a top-level call installs
@@ -850,21 +848,28 @@ func (ctx *Context) leaveRun() {
 // starts on a fresh state, so the budget bounds one run, not a whole session.
 // An enclosing body does not drive this run; its own token bodies may pause on waits.
 func (ctx *Context) beginRun() func() {
-	leave := ctx.nestRun()
-	restore := ctx.syncBoundary()
+	ctx.enterNestedRun()
+	outer := ctx.body
+	ctx.body = nil
 	return func() {
-		restore()
-		leave()
+		ctx.body = outer
+		ctx.runDepth--
 	}
 }
 
 // nestRun is beginRun for a run the body on the stack pauses for: a nested action
 // performed from a body, whose waits pause the body.
 func (ctx *Context) nestRun() func() {
-	if ctx.runDepth > 0 {
-		return ctx.enterRun(ctx.run)
+	ctx.enterNestedRun()
+	return ctx.leaveRun
+}
+
+// enterNestedRun enters the run under way, else a fresh one; leaveRun ends the call.
+func (ctx *Context) enterNestedRun() {
+	if ctx.runDepth == 0 {
+		ctx.run = ctx.newRunState()
 	}
-	return ctx.enterRun(ctx.newRunState())
+	ctx.runDepth++
 }
 
 // executorRun is a run driven call by call: its state, nil until its first call
