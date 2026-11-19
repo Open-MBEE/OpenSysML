@@ -126,7 +126,7 @@ func plantRecord(t *testing.T, srv *Service, request *pb.ParseSourcesRequest, na
 	}
 	rec := &libs.ModelRecord{}
 	for _, name := range names {
-		rec.Documents = append(rec.Documents, libs.ModelDocument{Name: name})
+		rec.Documents = append(rec.Documents, libs.ModelDocument{Name: name, Kind: source.KindOf(name)})
 	}
 	rec.Documents[0].Diagnostics = []diag.Diagnostic{{
 		Severity: diag.SeverityError, Span: source.Span{Offset: 0, Len: 7}, Message: plantedMessage, Source: "planted",
@@ -188,6 +188,30 @@ func TestARecordAnswersOnlyItsOwnModel(t *testing.T) {
 			t.Errorf("%s: answered from the record of another model", label)
 		}
 	}
+}
+
+// The model hash does not tell a file read as KerML from an inline document of its
+// name and content read as SysML, so the record tells them apart.
+func TestARecordIsOfTheLanguageEachDocumentWasReadAs(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "lib.kerml")
+	content := "package Lib {\n\tpart def Engine;\n}\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	inline := &pb.ParseSourcesRequest{Documents: inlineDocuments(path, content)}
+	file := &pb.ParseSourcesRequest{Documents: []*pb.SourceDocument{{Source: &pb.SourceDocument_FilePath{FilePath: path}}}}
+	wantInline := answersOf(t, mustNewService(t, 10), inline)
+	wantFile := answersOf(t, mustNewService(t, 10), file)
+	if wantInline.parse.ModelHash != wantFile.parse.ModelHash {
+		t.Skip("the model hash tells the two apart, so they share no record")
+	}
+	if proto.Equal(wantInline.diagnostics, wantFile.diagnostics) {
+		t.Fatal("the document reports the same in both languages, so the test shows nothing")
+	}
+	cache, _ := recordCacheIn(t)
+	requireSameAnswers(t, "inline", answersOf(t, recordingService(t, cache), inline), wantInline)
+	requireSameAnswers(t, "file after inline", answersOf(t, recordingService(t, cache), file), wantFile)
+	requireSameAnswers(t, "inline after file", answersOf(t, recordingService(t, cache), inline), wantInline)
 }
 
 // A record that is missing, unreadable, or not of the model's documents is a

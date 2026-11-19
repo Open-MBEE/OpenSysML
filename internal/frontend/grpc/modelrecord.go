@@ -33,7 +33,7 @@ func (s *Service) analysisFromRecord(modelHash string, idx *symbols.Index, docum
 		return false
 	}
 	for i, doc := range documents {
-		if rec.Documents[i].Name != doc.Source.Name() {
+		if rec.Documents[i].Name != doc.Source.Name() || rec.Documents[i].Kind != doc.Source.Kind() {
 			return false
 		}
 	}
@@ -52,7 +52,7 @@ func (s *Service) recordAnalysis(modelHash string, idx *symbols.Index, documents
 	}
 	rec := &libs.ModelRecord{Documents: make([]libs.ModelDocument, len(documents))}
 	for i, doc := range documents {
-		rec.Documents[i] = libs.ModelDocument{Name: doc.Source.Name(), Diagnostics: doc.Unfiltered}
+		rec.Documents[i] = libs.ModelDocument{Name: doc.Source.Name(), Kind: doc.Source.Kind(), Diagnostics: doc.Unfiltered}
 	}
 	_ = s.records.StoreModel(key, rec)
 }

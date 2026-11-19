@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // modelFormatVersion is the on-disk format version of a model record. Bump it
@@ -32,6 +33,7 @@ type ModelRecord struct {
 // ModelDocument is one document's part of a ModelRecord.
 type ModelDocument struct {
 	Name        string
+	Kind        source.Kind
 	Diagnostics []diag.Diagnostic
 }
 
