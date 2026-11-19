@@ -836,7 +836,7 @@
               "frame_id": "Frames::datum",
               "type_id": "ISQSpaceTime::CartesianSpatial3dCoordinateFrame",
               "dimensions": [
-                "3"
+                3
               ]
             }
           }
@@ -891,7 +891,7 @@
                   "frame_id": "Frames::datum",
                   "type_id": "ISQSpaceTime::CartesianSpatial3dCoordinateFrame",
                   "dimensions": [
-                    "3"
+                    3
                   ]
                 },
                 "pose": {
@@ -942,7 +942,7 @@
                 "frame_id": "Frames::datum",
                 "type_id": "ISQSpaceTime::CartesianSpatial3dCoordinateFrame",
                 "dimensions": [
-                  "3"
+                  3
                 ]
               },
               "target": {
