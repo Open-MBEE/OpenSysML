@@ -25,8 +25,8 @@ type nameChoices struct {
 	references map[nameKey]string
 	// segments holds the segments that need more than their element's own name.
 	segments map[segmentKey]string
-	// namedDones holds the successions whose `done` target `then done;` does not reach, written by name.
-	namedDones map[string]bool
+	// namedDones holds the `done` features `then done;` does not reach in an owner (member), written by name.
+	namedDones map[nameKey]bool
 }
 
 // segmentKey identifies the chain segments of one name written in one
@@ -53,8 +53,8 @@ type wanted struct {
 	starts map[string]string
 	// variants holds the feature each `variant x;` names, keyed by the variant.
 	variants map[string]string
-	// dones holds the `done` feature each `then done;` reaches, keyed by the succession.
-	dones map[string]string
+	// dones holds the `done` features the `then done;` successions of an owner (member) are to reach.
+	dones map[nameKey]bool
 }
 
 type wantedReference struct {
@@ -72,7 +72,7 @@ func newWanted() *wanted {
 		segments:   map[segmentKey]bool{},
 		starts:     map[string]string{},
 		variants:   map[string]string{},
-		dones:      map[string]string{},
+		dones:      map[nameKey]bool{},
 	}
 }
 
@@ -86,7 +86,7 @@ func (w *wanted) empty() bool {
 // never shorter than what previous chose; none is a refusal. changed reports
 // whether any choice differs from the spelling the rendering wrote.
 func chooseNames(name, library string, text []byte, want *wanted, previous *nameChoices) (names *nameChoices, changed bool, err error) {
-	names = &nameChoices{references: map[nameKey]string{}, segments: map[segmentKey]string{}, namedDones: map[string]bool{}}
+	names = &nameChoices{references: map[nameKey]string{}, segments: map[segmentKey]string{}, namedDones: map[nameKey]bool{}}
 	if previous != nil {
 		maps.Copy(names.namedDones, previous.namedDones)
 	}
@@ -215,10 +215,21 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 	if err := e.checkVariants(want.variants, declared); err != nil {
 		return nil, false, err
 	}
-	for fqn, target := range want.dones {
-		if !e.doneReaches(declared[fqn], target) {
-			names.namedDones[fqn] = true
-			changed = true
+	if len(want.dones) > 0 {
+		owners := make(map[string]ast.Node, len(e.names.FQN))
+		for node, fqn := range e.names.FQN {
+			if _, edge := node.(*ast.SuccessionEdge); edge {
+				continue
+			}
+			if _, members := naming.DeclaredNameAndMembers(node); len(members) > 0 {
+				owners[fqn] = node
+			}
+		}
+		for key := range want.dones {
+			if !e.donesReach(owners[key.member], key.target) {
+				names.namedDones[key] = true
+				changed = true
+			}
 		}
 	}
 	for key := range want.references {
@@ -651,23 +662,36 @@ func (e *encoder) checkStarts(starts map[string]string, declared map[string]ast.
 	return nil
 }
 
-// doneReaches reports whether succession, read back, is a `then done;` reaching the feature target names:
-// the `done` its owner inherits (doneReference), which is not every library feature of that name.
-func (e *encoder) doneReaches(succession ast.Node, target string) bool {
-	edge, ok := succession.(*ast.SuccessionEdge)
-	if !ok {
+// donesReach reports whether every `then done;` among owner's members, read back, reaches the feature
+// target names: the `done` owner inherits, which is not every library feature of that name.
+func (e *encoder) donesReach(owner ast.Node, target string) bool {
+	if owner == nil {
 		return false
 	}
-	sym := e.ids.declSym[edge]
-	if sym == nil {
-		return false
+	_, members := naming.DeclaredNameAndMembers(owner)
+	for _, member := range members {
+		edge, ok := member.(*ast.SuccessionEdge)
+		if !ok || !thenDone(edge) {
+			continue
+		}
+		related := e.ids.model.ConnectorRelatedFeaturesByEnd(e.ids.declSym[edge])
+		if len(related) != 2 {
+			return false
+		}
+		if _, reached, ok := e.linked(related[1], true); !ok || reached != target {
+			return false
+		}
 	}
-	related := e.ids.model.ConnectorRelatedFeaturesByEnd(sym)
-	if len(related) != 2 {
-		return false
+	return true
+}
+
+// thenDone reports whether edge is written `then done;`, with or without multiplicities.
+func thenDone(edge *ast.SuccessionEdge) bool {
+	if _, final := edge.TargetMember.(*ast.FinalNode); final {
+		return true
 	}
-	_, reached, ok := e.linked(related[1], true)
-	return ok && reached == target
+	name := edge.Target
+	return name != nil && len(name.Parts) == 1 && name.Parts[0].Text == "done"
 }
 
 // checkVariants refuses a `variant x;` written for a variant whose x does not

@@ -1642,11 +1642,15 @@ func (d *decoder) successionHead(el *element) (string, error) {
 		// `then done;` names the final node its owner inherits positionally, with no reference to spell:
 		// chooseNames checks it reaches this one, and names a library `done` of another kind instead.
 		if term, ok := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+pTargetFeature); ok && term.IsIRI() {
-			written := d.writtenQName(el)
-			named := d.names != nil && d.names.namedDones[written]
-			if done, err := d.referencedElement(term.Value); err == nil && d.isLibraryDone(done) && !named {
-				delete(d.wanted.references, nameKey{member: written, target: done.qname})
-				d.wanted.dones[written] = done.qname
+			owner := ""
+			if el.owner != nil {
+				owner = d.writtenQName(el.owner)
+			}
+			done, err := d.referencedElement(term.Value)
+			if err == nil && d.isLibraryDone(done) &&
+				!(d.names != nil && d.names.namedDones[nameKey{member: owner, target: done.qname}]) {
+				delete(d.wanted.references, nameKey{member: el.qname, target: done.qname})
+				d.wanted.dones[nameKey{member: owner, target: done.qname}] = true
 				return d.thenSuccessionText("done", el)
 			}
 		}

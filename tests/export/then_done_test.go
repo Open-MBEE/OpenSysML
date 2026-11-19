@@ -15,6 +15,7 @@ func TestThenDoneIsWrittenOnlyForTheInheritedDone(t *testing.T) {
 		"    action def B {\n        action a;\n        first start then a;\n        then done;\n    }\n" +
 		"    use case def UC {\n        first start;\n        then done;\n    }\n" +
 		"    use case def UD {\n        first start;\n        then Actions::Action::done;\n    }\n" +
+		"    action def M {\n        action a;\n        then done;\n        action b;\n        then States::StateAction::done;\n    }\n" +
 		"}\n"
 	graph, err := convert.Convert("done.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
