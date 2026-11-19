@@ -278,7 +278,7 @@ func (m *Model) UsageIsComposite(sym *symbols.Symbol) bool {
 		if m.metaclassConforms(sym, sysmlMetaclassPrefix+"ControlNode") {
 			return true
 		}
-		if sym.Kind.IsAttributeLike() || sym.Kind == symbols.SymbolReferenceUsage ||
+		if (sym.Kind.IsAttributeLike() || sym.Kind == symbols.SymbolReferenceUsage) && !sym.Facts.Modifiers.Has(symbols.ModExtendedUsage) ||
 			sym.Facts.Modifiers.Has(symbols.ModEnd|symbols.ModEvent) ||
 			sym.Facts.Direction != ast.DirNone {
 			return false
@@ -446,7 +446,7 @@ func UsageDeclIsComposite(usage *ast.Usage) bool {
 }
 
 func usageIsComposite(usage *ast.Usage) bool {
-	if usage == nil || usage.IsReference && !usage.IsExtendedUsage() || usage.Direction != ast.DirNone || usage.IsBodyParameter ||
+	if usage == nil || usage.IsReference || usage.Direction != ast.DirNone || usage.IsBodyParameter ||
 		usage.IsEnd || usage.IsEvent || usage.Kind == ast.UsageEnumeration || usage.IsVariantReference() {
 		return false
 	}

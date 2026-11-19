@@ -102,12 +102,17 @@ func TestExtendedUsageMetaclass(t *testing.T) {
 }`, map[string]string{"x": "Usage", "y": "ReferenceUsage"})
 	for i, fixture := range reflectiveFixtures(t, "extended-usage-composite.sysml", source.KindSysML, `package P {
     metadata def M;
-    part def PD { #M x; }
+    part def PD { #M x; ref #M y; }
 }`) {
-		x := relFixtureSymbol(t, fixture, "x")
-		for feature, want := range map[string]bool{"isReference": false, "isComposite": true} {
-			if got, ok := fixture.model.ReflectiveFeatureValue(x, feature); !ok || got != boolValue(want) {
-				t.Errorf("fixture %d: #M x; %s = %v (%v), want %v: a plain Usage is composite by default", i, feature, got, ok, want)
+		for name, composite := range map[string]bool{"x": true, "y": false} {
+			sym := relFixtureSymbol(t, fixture, name)
+			for feature, want := range map[string]bool{"isReference": !composite, "isComposite": composite} {
+				if got, ok := fixture.model.ReflectiveFeatureValue(sym, feature); !ok || got != boolValue(want) {
+					t.Errorf("fixture %d: %s %s = %v (%v), want %v: a plain Usage is composite unless declared ref", i, name, feature, got, ok, want)
+				}
+			}
+			if got := fixture.model.EffectiveIsComposite(sym); got != composite {
+				t.Errorf("fixture %d: EffectiveIsComposite(%s) = %v, want %v", i, name, got, composite)
 			}
 		}
 	}
