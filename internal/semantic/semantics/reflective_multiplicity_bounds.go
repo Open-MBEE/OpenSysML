@@ -53,7 +53,7 @@ func declaredRangeClause(rng *symbols.Symbol) *ast.Multiplicity {
 	if decl, ok := rng.Decl.(*ast.MultiplicityDecl); ok {
 		return decl.Range
 	}
-	if !IsDeclaredMultiplicityRange(rng) || rng.OwnerScope == nil {
+	if decl, ok := symbols.ImpliedDeclOf(rng); !ok || decl.Form != symbols.ImpliedMultiplicityRange || rng.OwnerScope == nil {
 		return nil
 	}
 	return UsageMultiplicityOf(rng.OwnerScope.Owner())
