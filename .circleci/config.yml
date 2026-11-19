@@ -3459,7 +3459,8 @@ jobs:
             for entry in plugins/org.openmbee.mdk.magic/plugin.xml plugins/org.openmbee.mdk.magic/bin/DIGESTS \
                 plugins/org.openmbee.mdk.magic/bin/sysml-grpc-linux-amd64 plugins/org.openmbee.mdk.magic/bin/sysml-grpc-windows-amd64.exe \
                 plugins/org.openmbee.mdk/extensions/ data/resourcemanager/; do
-              if ! unzip -l "$zip" | grep -q " $entry"; then
+              # grep -c reads the whole listing: under pipefail, -q would SIGPIPE unzip on an early match.
+              if ! unzip -l "$zip" | grep -c " $entry" > /dev/null; then
                 echo "Error: $zip lacks $entry"
                 exit 1
               fi
