@@ -86,13 +86,6 @@ func queryErrorf(kind QueryErrorKind, format string, args ...any) *QueryError {
 	return &QueryError{Kind: kind, Message: fmt.Sprintf(format, args...)}
 }
 
-// QueryPropertyNames returns the queryable property names the evaluator derives
-// for every element, sorted: what docs/reference/api.md's table documents. The
-// metamodel's own properties are queryable besides, by their declared names.
-func QueryPropertyNames() []string {
-	return corequery.PropertyNames()
-}
-
 // Query evaluates a SysML v2 API & Services Query, or OSLC Query 3.0 text, over
 // a parsed model: either is translated to a document-query plan and run by the
 // evaluator over the model's elements, or the objects the model's session holds.
