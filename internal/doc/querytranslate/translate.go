@@ -79,10 +79,17 @@ func Translate(q Query, ctx Context, name string) (*Plan, error) {
 	if len(q.SearchTerms) > 0 {
 		expression = t.search(expression, q.SearchTerms)
 	}
-	expression = operate(queryplan.OperationProject,
+	project := []queryplan.Argument{
 		arg("source", expression),
 		arg("properties", stringList(columns)),
-		arg("tolerate", queryplan.BooleanLiteral(true, origin)))
+		arg("tolerate", queryplan.BooleanLiteral(true, origin)),
+	}
+	if len(q.Select) == 0 {
+		// Nothing was asked for by name, so a feature of the model that shares a
+		// property's name and cannot be evaluated leaves its cell empty.
+		project = append(project, arg(queryplan.ArgumentTolerateUnevaluable, queryplan.BooleanLiteral(true, origin)))
+	}
+	expression = operate(queryplan.OperationProject, project...)
 	for i := len(q.OrderBy) - 1; i >= 0; i-- {
 		term := q.OrderBy[i]
 		// A row lacking the key sorts as the smallest value would: first

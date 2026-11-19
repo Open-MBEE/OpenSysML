@@ -616,3 +616,27 @@ func TestObjectQuerySelectingNothingProjectsSymbolKind(t *testing.T) {
 		t.Errorf("columns = %v, want no metaclass property", plan.Columns)
 	}
 }
+
+func TestOnlyAQuerySelectingNothingToleratesUnevaluableFeatures(t *testing.T) {
+	tolerates := func(text string, selected ...Selection) bool {
+		q := mustParse(t, text)
+		q.Select = selected
+		plan, err := Translate(q, Context{}, "Test")
+		if err != nil {
+			t.Fatal(err)
+		}
+		project := plan.Program.Definitions()[0].Expression()
+		if project.Operation() != queryplan.OperationProject {
+			t.Fatalf("root operation = %s, want project", project.Operation())
+		}
+		return slices.ContainsFunc(project.Arguments(), func(a queryplan.Argument) bool {
+			return a.Name == queryplan.ArgumentTolerateUnevaluable
+		})
+	}
+	if !tolerates(`sysml:name="car"`) {
+		t.Error("a query selecting nothing does not tolerate an unevaluable feature")
+	}
+	if tolerates(`sysml:name="car"`, Selection{Property: query.PropertyText}) {
+		t.Error("a query selecting text tolerates an unevaluable feature it asked for")
+	}
+}
