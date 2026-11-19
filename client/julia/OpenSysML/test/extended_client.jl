@@ -808,9 +808,9 @@ end
                 coordinate_instance = instantiate(coordinate_model,
                     "CoordinateFrameExample::Context")
                 coordinate_value = features(coordinate_instance)["accelarationCF"]
-                @test coordinate_value isa FeatureValueError
-                @test coordinate_value.message ==
-                      "unsupported: coordinate frame accelarationCF [m/s**2, m/s**2, m/s**2]"
+                @test coordinate_value isa CoordinateFrame
+                @test coordinate_value.name == "accelarationCF"
+                @test [axis.unit for axis in coordinate_value.axes] == fill("m/s**2", 3)
 
                 sources = parse_sources(conn, [
                     SourceDocument("a.sysml", "package A {}"),
