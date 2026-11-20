@@ -29,6 +29,6 @@ package Test {
 
 		succession first start then running;
 
-		transition first cross if crossed == 0 then rtarget;
+		transition first cross if crossed == 0 then running.right.rtarget;
 	}
 }

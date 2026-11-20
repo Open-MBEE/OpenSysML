@@ -127,9 +127,9 @@ func TestRebaselineRunsEveryRecorderThenChecksTheMovement(t *testing.T) {
 	for _, recorder := range []string{
 		"make stdlib-snapshot",
 		"make proto-buf proto-ts proto-rust python-proto",
-		"grpcio-tools==",
-		"go run -C tools ./cmd/pilot-apijson-diff -update",
-		"go run -C tools ./cmd/derived-census -update",
+		"go run -C tools ./cmd/pilot-apijson-diff -update -pilot-record build/pilot-apijson-record",
+		"go run -C tools ./cmd/derived-census -update -recorded-pilot ||",
+		"go run -C tools ./cmd/derived-census -update\n",
 		"-update-pilot-corpora", "-update-spec-examples", "-update-pssm-migration",
 		"-update-corpus-roundtrip", "-update-api-json-roundtrip",
 		"-update-structure-differential", "-update-library-prefix-sweep",
@@ -143,15 +143,19 @@ func TestRebaselineRunsEveryRecorderThenChecksTheMovement(t *testing.T) {
 			t.Errorf("no step runs %q", recorder)
 		}
 	}
-	corpora := false
+	corpora, stubs := false, false
 	for _, step := range job.Steps {
 		corpora = corpora || step.Uses == "./.github/actions/corpora"
+		stubs = stubs || step.Uses == pipInstallAction && strings.Contains(step.With["packages"], "grpcio-tools==")
 		if (strings.Contains(step.Run, "--remove-label") || strings.Contains(step.Run, "gh pr comment")) && !strings.Contains(step.If, "always()") {
 			t.Errorf("step %q must run whatever the outcome, got if: %q", step.Name, step.If)
 		}
 	}
 	if !corpora {
 		t.Error("the corpora are not provisioned through .github/actions/corpora")
+	}
+	if !stubs {
+		t.Errorf("no step installs a pinned grpcio-tools through %s", pipInstallAction)
 	}
 	for i, step := range job.Steps {
 		if strings.Contains(step.Run, "rebaseline-movement.py") {

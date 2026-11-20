@@ -59,6 +59,19 @@ func (m *Model) ReferencedFeature(sym *symbols.Symbol) *symbols.Symbol {
 	return out
 }
 
+// shorthandReference is the feature sym reference-subsets by being stated as its name alone, with no
+// clause: a referenced constraint (`require r;`) or a bare `variant x;` (SysML.xtext OwnedReference).
+func (m *Model) shorthandReference(sym *symbols.Symbol) *symbols.Symbol {
+	if sym.Recorded() {
+		return nil
+	}
+	usage, isUsage := sym.Decl.(*ast.Usage)
+	if ast.ConstraintReferenceOf(sym.Decl) == nil && !(isUsage && usage.IsVariantReference() && usage.ReferenceSubsetting() == nil) {
+		return nil
+	}
+	return m.ReferencedFeature(sym)
+}
+
 // ReferencedFeatureChain is the features sym's reference subsetting names and the node writing them:
 // the chaining features of a chain (`x.p`, KerML 8.3.3.3.2), outermost first, else the one feature.
 func (m *Model) ReferencedFeatureChain(sym *symbols.Symbol) ([]*symbols.Symbol, ast.Node) {

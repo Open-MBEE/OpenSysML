@@ -36,12 +36,17 @@ const context: TreePaletteContextValue = {
   onClose: vi.fn(),
 };
 
-const renderTool = (value: TreePaletteContextValue, searchedValue: string | null = null, onInvoked = vi.fn()) =>
+const renderTool = (
+  value: TreePaletteContextValue,
+  searchedValue: string | null = null,
+  onInvoked = vi.fn(),
+  rendered = tool
+) =>
   render(
     <MockedProvider>
       <TreePaletteContext.Provider value={value}>
         <RunWithOpenSysMLPaletteContribution
-          tool={tool}
+          tool={rendered}
           representationElementIds={['obj']}
           onInvoked={onInvoked}
           asLastToolUsed={false}
@@ -70,5 +75,11 @@ describe('RunWithOpenSysMLPaletteContribution', () => {
     fireEvent.click(screen.getByTestId('run-with-opensysml-tool'));
     expect(onInvoked).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Run with OpenSysML: Car')).toBeInTheDocument();
+  });
+
+  it('opens the publish dialog for the publish tool', () => {
+    renderTool(context, null, vi.fn(), { ...tool, id: 'publishWithOpenSysML', label: 'Publish to SysML v2 API…' });
+    fireEvent.click(screen.getByTestId('publish-with-opensysml-tool'));
+    expect(screen.getByText('Publish to SysML v2 API')).toBeInTheDocument();
   });
 });

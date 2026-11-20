@@ -148,10 +148,10 @@ func TestExploreCoverageHoldsForkBranchesAndJoinSegments(t *testing.T) {
 			fork split;
 			join sync;
 			transition first ready then split;
-			transition first split then lwork;
-			transition first split then rwork;
-			transition first lwork then sync;
-			transition first rwork then sync;
+			transition first split then working.left.lwork;
+			transition first split then working.right.rwork;
+			transition first working.left.lwork then sync;
+			transition first working.right.rwork then sync;
 			transition first sync then fin;
 		}
 	}`)

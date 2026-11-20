@@ -33,17 +33,9 @@ type Evaluator struct {
 	cache                        map[propertyKey]cachedValue
 	reasons                      map[propertyKey]Reason
 	internedStrings              map[string]string
-	structureQualifiedNames      map[ElementKey]structureQualifiedNameCacheEntry
-	structureInherited           map[ElementKey]structureInheritedCacheEntry
-	structureEffective           map[ElementKey]structureValueCacheEntry
-	structureNamespace           map[ElementKey]structureValueCacheEntry
-	structureValueLists          map[structureValueListKey]structureInheritedCacheEntry
+	memos                        map[ElementKey][]memoEntry
 	structureRedefined           map[ElementKey]structureElementsCacheEntry
-	structureQualifiedNameBases  map[ElementKey]structureQualifiedNameCacheEntry
 	qualifiedNameNamespaceCaches map[ElementKey]structureQualifiedNameNamespaceCache
-	structureOwnedFilters        map[structureOwnedFilterKey]structureMemoEntry
-	structureOwnedMemberLists    map[ElementKey]structureMemoEntry
-	structureNames               map[structureNameKey]structureMemoEntry
 }
 
 // New creates an evaluator over the resolver and semantic model for one model.
@@ -59,17 +51,9 @@ func New(res *resolve.Resolver, model *semantics.Model, options ...Options) *Eva
 		cache:                        make(map[propertyKey]cachedValue),
 		reasons:                      make(map[propertyKey]Reason),
 		internedStrings:              make(map[string]string),
-		structureQualifiedNames:      make(map[ElementKey]structureQualifiedNameCacheEntry),
-		structureInherited:           make(map[ElementKey]structureInheritedCacheEntry),
-		structureEffective:           make(map[ElementKey]structureValueCacheEntry),
-		structureNamespace:           make(map[ElementKey]structureValueCacheEntry),
-		structureValueLists:          make(map[structureValueListKey]structureInheritedCacheEntry),
+		memos:                        make(map[ElementKey][]memoEntry),
 		structureRedefined:           make(map[ElementKey]structureElementsCacheEntry),
-		structureQualifiedNameBases:  make(map[ElementKey]structureQualifiedNameCacheEntry),
 		qualifiedNameNamespaceCaches: make(map[ElementKey]structureQualifiedNameNamespaceCache),
-		structureOwnedFilters:        make(map[structureOwnedFilterKey]structureMemoEntry),
-		structureOwnedMemberLists:    make(map[ElementKey]structureMemoEntry),
-		structureNames:               make(map[structureNameKey]structureMemoEntry),
 	}
 }
 
@@ -99,6 +83,10 @@ func (e *Evaluator) Explain(el Element, definingClass, name string) (Reason, boo
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	reason, ok := e.reasons[key]
+	if _, served := ruleConstraints[keyName(definingClass, name)]; !ok && !served {
+		// No element has a rule for the property, so the cause is not recorded per element.
+		return Reason{Category: ReasonNoRule, Detail: keyName(definingClass, name)}, true
+	}
 	return reason, ok
 }
 
@@ -107,14 +95,8 @@ func (e *Evaluator) Property(el Element, definingClass, name string) (Value, boo
 	return e.property(el, definingClass, name, true)
 }
 
-// PropertyReadOnly returns a derived value whose sequence is shared with the
-// evaluator cache; callers must not modify Values or any nested sequence.
-func (e *Evaluator) PropertyReadOnly(el Element, definingClass, name string) (Value, bool) {
-	return e.property(el, definingClass, name, false)
-}
-
-// PropertyReadOnlyUncached is PropertyReadOnly for a value asked once: it leaves
-// the result cache alone, while the dependencies it derives are cached as usual.
+// PropertyReadOnlyUncached returns a derived value the caller must not modify and
+// leaves the result cache alone; the dependencies it derives are cached as usual.
 func (e *Evaluator) PropertyReadOnlyUncached(el Element, definingClass, name string) (Value, bool) {
 	return e.propertyWithPolicy(el, definingClass, name, false, false)
 }
@@ -139,10 +121,6 @@ func (e *Evaluator) propertyWithPolicy(el Element, definingClass, name string, c
 		}
 	}
 	if _, served := ruleConstraints[keyName(definingClass, name)]; !served {
-		if _, recorded := e.reasons[key]; !recorded {
-			e.reasons[key] = Reason{Category: ReasonNoRule, Detail: keyName(definingClass, name)}
-		}
-		e.cache[key] = cachedValue{}
 		e.mu.Unlock()
 		return Value{}, false
 	}

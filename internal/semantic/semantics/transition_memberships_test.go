@@ -19,7 +19,7 @@ func TestTransitionOwnsItsSourceMembershipAndLinkParameters(t *testing.T) {
         state outer {
             state nested;
         }
-        transition deep first nested then busy;
+        transition deep first outer::nested then busy;
     }
     state def T {
         state idle;

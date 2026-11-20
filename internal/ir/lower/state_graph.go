@@ -1,9 +1,9 @@
 package lower
 
 import (
+	"errors"
 	"fmt"
 	"slices"
-	"strings"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
@@ -294,8 +294,12 @@ type Transition struct {
 	Decl   ast.Node
 	Source ast.Node // *ast.StateNode or *ast.PseudostateNode
 	Target ast.Node // *ast.StateNode, *ast.PseudostateNode or a terminate action *ast.Usage
+	// SourceRef and TargetRef are Source and Target by id.
+	SourceRef, TargetRef program.VertexRef
 	// Owner is the state whose body declares the transition, nil for the machine body.
-	Owner   *ast.StateNode
+	Owner *ast.StateNode
+	// OwnerID is Owner by id, 0 for the machine body.
+	OwnerID program.StateID
 	Trigger ast.Node // TimeEvent, ChangeEvent, SignalEvent, CallEvent, nil = completion
 	// TriggerExprID is the condition of a change trigger or the time of a timer, in
 	// the table of the machine; 0 for a trigger stating neither.
@@ -913,6 +917,16 @@ func (g *StateGraph) targetVertex(scope *symbols.Scope, target ast.Node, owner a
 	return node, err
 }
 
+// succeedingVertex is targetVertex for a succession's target, as endpointVertex
+// is vertex for its source.
+func (g *StateGraph) succeedingVertex(scope *symbols.Scope, target ast.Node, owner ast.Node) (ast.Node, error) {
+	node, err := g.endpointVertex(scope, target)
+	if node == nil && err == nil && isDoneEndpoint(target) {
+		return g.completion(owner, scope, target.Span()), nil
+	}
+	return node, err
+}
+
 // IsInitial reports whether the machine may start in state: some entry transition
 // of its body names it. Whether it starts there unconditionally is UnconditionalStart's.
 func (g *StateGraph) IsInitial(state *ast.StateNode) bool {
@@ -1437,17 +1451,17 @@ func (g *StateGraph) regionScope(scope *symbols.Scope, region *ast.StateRegion) 
 	return childScope(scope, region)
 }
 
-// endpointVertex is the vertex a succession's or a marker's endpoint names, or
-// nil when it names none: the same resolution a transition's endpoints get, so a
-// nested or region-local vertex is reached and a same-named one elsewhere is not.
-// A succession naming no vertex is left out of the graph, which the
-// name-resolution tier reports about (UML 2.5.1 §14.2.3.9 leniency).
-func (g *StateGraph) endpointVertex(scope *symbols.Scope, target ast.Node) ast.Node {
+// endpointVertex is the vertex a succession's or a marker's endpoint names, by
+// the resolution a transition's endpoints get; nil when it names a non-vertex.
+func (g *StateGraph) endpointVertex(scope *symbols.Scope, target ast.Node) (ast.Node, error) {
 	node, err := g.vertex(scope, target)
-	if err != nil {
-		return nil
+	if unresolved := (*UnresolvedEndpointError)(nil); errors.As(err, &unresolved) {
+		return nil, err
 	}
-	return node
+	if err != nil {
+		return nil, nil
+	}
+	return node, nil
 }
 
 // addVertex records the graph node standing for a state, and for the
@@ -1555,16 +1569,17 @@ func (g *StateGraph) DocOf(decl ast.Node) string {
 	return symbols.DocNameOf(scope)
 }
 
-// vertex is the graph node a transition endpoint names: name resolution says
-// which declaration it reaches, and lowering collected a vertex from that. An
-// endpoint naming no vertex yields a nil node and no error — the name-resolution
-// tier reports it, and how strictly the machine then runs is the runtime's call.
+// vertex is the graph node the endpoint resolves to. One naming nothing is an
+// UnresolvedEndpointError (KerML 8.2.3.5); `done` and a non-vertex yield nil.
 func (g *StateGraph) vertex(scope *symbols.Scope, target ast.Node) (ast.Node, error) {
 	if isNilEndpoint(target) {
 		return nil, fmt.Errorf("transition endpoint names nothing")
 	}
 	decl, ok := g.endpoints.Endpoint(scope, target)
 	if !ok {
+		if !isDoneEndpoint(target) && !g.endpoints.EndpointNames(scope, target) {
+			return nil, &UnresolvedEndpointError{Endpoint: target}
+		}
 		return nil, nil
 	}
 	node, ok := g.vertexFor(scope, target, decl)
@@ -1641,6 +1656,16 @@ func (g *StateGraph) vertexFor(scope *symbols.Scope, target ast.Node, decl ast.N
 	return node, ok
 }
 
+// UnresolvedEndpointError marks a transition or succession endpoint that names
+// no element from the namespace it is written in (KerML 8.2.3.5).
+type UnresolvedEndpointError struct {
+	Endpoint ast.Node
+}
+
+func (e *UnresolvedEndpointError) Error() string {
+	return "unresolved transition endpoint " + EndpointText(e.Endpoint)
+}
+
 // NotAVertexFormat reports an endpoint naming an element outside the machine's
 // vertices, shared by the check reporting it and the lowering backstopping it.
 const NotAVertexFormat = "transition endpoint %s names a %s that is not a vertex of this state machine"
@@ -1672,11 +1697,7 @@ func EndpointText(target ast.Node) string {
 	case *ast.FeatureReference:
 		return EndpointText(t.Name)
 	case *ast.QualifiedName:
-		parts := make([]string, 0, len(t.Parts))
-		for _, p := range t.Parts {
-			parts = append(parts, p.Text)
-		}
-		return strings.Join(parts, "::")
+		return ast.QualifiedNameText(t)
 	}
 	return ""
 }
@@ -2117,8 +2138,14 @@ func collectUsageTransitions(graph *StateGraph, n *ast.Usage, body transitionBod
 		if source == nil || target == nil {
 			return nil
 		}
-		sourceVertex := graph.endpointVertex(scope, source)
-		targetVertex, _ := graph.targetVertex(scope, target, owner)
+		sourceVertex, err := graph.endpointVertex(scope, source)
+		if err != nil {
+			return err
+		}
+		targetVertex, err := graph.succeedingVertex(scope, target, owner)
+		if err != nil {
+			return err
+		}
 
 		// `succession first begin then off;` out of a named entry action names the
 		// state the machine starts in, not an edge (SysML 7.19.3).
@@ -2144,8 +2171,14 @@ func collectUsageTransitions(graph *StateGraph, n *ast.Usage, body transitionBod
 // or the body's starting state when the source is its entry action.
 func collectSuccessionEdge(graph *StateGraph, n *ast.SuccessionEdge, body transitionBody) error {
 	scope, owner, entryOwner := body.scope, body.owner, body.entryOwner
-	sourceVertex := graph.endpointVertex(scope, n.Source)
-	targetVertex, _ := graph.targetVertex(scope, n.Target, owner)
+	sourceVertex, err := graph.endpointVertex(scope, n.Source)
+	if err != nil {
+		return err
+	}
+	targetVertex, err := graph.succeedingVertex(scope, n.Target, owner)
+	if err != nil {
+		return err
+	}
 
 	// `entry; then off;` — a succession out of the body's own entry
 	// subaction names the state it starts in (SysML 7.19.3), the same as

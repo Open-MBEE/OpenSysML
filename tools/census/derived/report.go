@@ -49,6 +49,8 @@ type Report struct {
 	// Silent lists the served rules that answer nothing on every carrier while
 	// the pilot answers on at least one, over all roots; the gate's class.
 	Silent []string `json:"silent"`
+	// pilotRecords is the digest a committed baseline states for its pilot column.
+	pilotRecords string
 }
 
 // RootReport is one root's census.
@@ -93,6 +95,7 @@ var policy = []string{
 	"Library elements the pilot writes beside a file's own are not counted; our walk starts at each document root and never reaches them.",
 	"The pilot writes an element in every file whose traversal reaches it; a root's elements are counted once by id.",
 	"A property the pilot's payload leaves out is counted as not derived on its side; one it writes null or empty is counted as empty.",
+	"A property the api-json referee declares pilot-nondeterministic for an element's metaclass (tools/referee/apijson/nondeterminism.go) is counted as nondeterministic on the pilot's side, whatever the export states: the pilot's answer follows its transformation order, which differs from one JVM to the next, so neither a value nor an empty answer is a measurement.",
 }
 
 // finish fills the totals, the summary and the silent list from the roots.
@@ -148,7 +151,12 @@ func provenance(checkout, libraries string) (baseline.Record, error) {
 	if err != nil {
 		return baseline.Record{}, err
 	}
+	java, err := baseline.ReadPilotJava(checkout)
+	if err != nil {
+		return baseline.Record{}, err
+	}
 	record := baseline.Record{
+		PilotJava:     java,
 		PilotTag:      pin.Tag,
 		PilotCommit:   pin.Commit,
 		PilotArtifact: pin.Artifact,

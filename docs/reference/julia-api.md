@@ -86,6 +86,9 @@ diagnostics(model)
 errors(model)
 symbol(model, "Demo::Car")
 get_symbol(model, "Demo::Car")
+get_symbol(model, "Demo::Car"; lookup=:qualified_name)   # only as a qualified name
+get_symbol(model, "Demo::Car::@3"; lookup=:element_id)   # only as an id the service reported
+element_properties(model, "Demo::Car::@3"; lookup=:element_id)
 find(model, "Car")
 get(model, "Demo::Car", nothing)
 ```
@@ -226,7 +229,9 @@ Conversion is available through `convert_file(conn, path, to_format; ...)`,
 (`ID_FORM_QUALIFIED`, the default, or `ID_FORM_UUID`) for the derived ids of a
 graph notation and `include_library_stubs`, which restores in api-json the
 ownerless library stubs releases before 0.11.0 wrote (needs the service's
-`convert_library_stubs` capability); the `Conversion` lists the
+`convert_library_stubs` capability), and `inherited_members`, which also writes in
+api-json the derived lists that repeat each Namespace's and Type's inherited and
+imported members (needs `convert_inherited_members`); the `Conversion` lists the
 `library_references` (`LibraryReference`) an api-json conversion names beside
 its elements. For notation converted to api-json, `compact=true` writes the
 compact document (`api-json-compact/1`, see [the compact form](api-json-compact.md)),

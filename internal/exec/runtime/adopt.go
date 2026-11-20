@@ -668,6 +668,18 @@ func (a *adoption) planValue(owner string, val Value) error {
 				return
 			}
 		}
+		if kind := v.QuantityKind(); kind != nil {
+			found, rebindErr := a.rebind(kind, "a quantity value type it holds a quantity as")
+			if rebindErr != nil {
+				err = rebindErr
+				return
+			}
+			if a.prev.typeDigest(kind) != a.ctx.typeDigest(found) {
+				err = &adoptError{Type: owner, Reason: fmt.Sprintf(
+					"the quantity value type %s it holds a quantity as resolves differently now", a.ctx.fqnOf(found))}
+				return
+			}
+		}
 		for _, unit := range unitsOf(v) {
 			if err = a.planUnit(unit); err != nil {
 				return
@@ -1299,7 +1311,7 @@ func (a *adoption) rewrite(val Value) Value {
 	case ValQuantity:
 		q := *val.Quantity()
 		q.Unit = a.rewriteUnit(q.Unit)
-		return NewQuantityValue(&q)
+		return NewQuantityValue(&q).ofQuantityKind(a.rebound[val.QuantityKind()])
 	case ValMeasurementRef:
 		return NewMeasurementRefValue(a.rewriteUnit(val.MeasurementRef().Unit))
 	case ValVectorQuantity:

@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -260,9 +261,17 @@ func TestElementPropertiesReportsWhyAPropertyHasNoAnswer(t *testing.T) {
 	if none.Unsupported != "" || len(none.Values) != 0 {
 		t.Errorf("EP::Unit.ownedSubclassification = %+v, want declared and empty", none)
 	}
-	perElement := r.property("EP::CmdPort::cmd", "inheritedFeature")
-	if len(perElement.Values) != 0 || !strings.Contains(perElement.Unsupported, "Type::inheritedFeature is not derived for this element") {
+	importing := parseForElementProperties(t, "package Q { private import ScalarValues::*; part def A; }")
+	perElement := importing.property("Q", "membership")
+	if len(perElement.Values) != 0 || !strings.Contains(perElement.Unsupported, "Namespace::membership is not derived for this element") {
 		t.Errorf("a property the evaluator could not derive for one element answers %+v", perElement)
+	}
+	if derived := importing.property("Q::A", "membership"); derived.Unsupported != "" || len(derived.Values) == 0 {
+		t.Errorf("Q::A.membership = %+v, want derived", derived)
+	}
+	if typed := r.property("EP::CmdPort::cmd", "inheritedFeature"); typed.Unsupported != "" ||
+		!containsAll(elementNames(typed.Values), "Base::DataValue::self") {
+		t.Errorf("EP::CmdPort::cmd.inheritedFeature = %+v, want the features of its library type", typed)
 	}
 	if inherited := r.property("EP::Pair", "inheritedFeature"); inherited.Unsupported != "" || len(inherited.Values) == 0 {
 		t.Errorf("EP::Pair.inheritedFeature = %+v, want derived", inherited)
@@ -366,6 +375,53 @@ func TestElementPropertiesReadsBackEveryIdAnAnswerCarries(t *testing.T) {
 		feature := value.GetElement()
 		if read := r.read(feature.Id, "name"); read.Error != "" {
 			t.Errorf("inheritedFeature %s (%s) does not read back: %s", feature.Id, feature.Metaclass, read.Error)
+		}
+	}
+}
+
+// A feature has its own types and those of the features it subsets or redefines
+// (KerML 1.1 §8.3.3.3.4 deriveFeatureType), read directly and as a member of a usage.
+func TestElementPropertiesFeatureTypeJoinsOwnedAndInheritedTypings(t *testing.T) {
+	r := parseForElementProperties(t, `package P {
+	part def T;
+	part def V;
+	part def W :> T;
+	part def Owner {
+		part q : T;
+		part pBoth : V :> q;
+		part pSub :> q;
+		part pSpecific : W :> q;
+		part inner { part leaf : W; }
+		ref part pRef : V ::> q;
+		part pChain : V :> inner.leaf;
+	}
+	part def SubOwner :> Owner {
+		part pRedefining : V :>> q;
+	}
+	part owner : Owner;
+	part subOwner : SubOwner;
+}`)
+	for _, tc := range []struct {
+		element string
+		want    []string
+	}{
+		{"P::Owner::pBoth", []string{"P::V", "P::T"}},
+		{"P::Owner::pSub", []string{"P::T"}},
+		{"P::Owner::pSpecific", []string{"P::W"}},
+		{"P::Owner::pRef", []string{"P::V", "P::T"}},
+		{"P::Owner::pChain", []string{"P::V", "P::W"}},
+		{"P::SubOwner::pRedefining", []string{"P::V", "P::T"}},
+	} {
+		if got := elementNames(r.property(tc.element, "type").Values); !slices.Equal(got, tc.want) {
+			t.Errorf("%s type = %v; want %v", tc.element, got, tc.want)
+		}
+		if got := elementNames(r.property(tc.element, "partDefinition").Values); !slices.Equal(got, tc.want) {
+			t.Errorf("%s partDefinition = %v; want %v", tc.element, got, tc.want)
+		}
+	}
+	for _, through := range []string{"P::owner", "P::subOwner"} {
+		if features := elementNames(r.property(through, "feature").Values); !containsAll(features, "P::Owner::pBoth") {
+			t.Errorf("%s feature = %v; want P::Owner::pBoth among them", through, features)
 		}
 	}
 }

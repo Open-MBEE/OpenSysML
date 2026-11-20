@@ -1,9 +1,5 @@
-// The shape of the OMG `CartSample.sysml`, completed so that it runs and written
-// against StateSpaceRepresentation alone: a pusher and a cart each perform
-// continuous dynamics, and the context carries the pusher's output to the cart's
-// input by a flow. The cart states no input of its own, so its velocity is the
-// integral of the force that flows in over its mass: 6 N on 2 kg for 2 s is 6 m/s.
-// Each dynamics states its own timeStep and stopTime, the library stating neither.
+// The shape of the OMG CartSample.sysml completed to run: a flow in the context carries the pusher's
+// output to the cart's input, so 6 N on 2 kg for 2 s is 6 m/s; each dynamics states its own step and stop.
 package test {
 	private import ScalarValues::*;
 	private import SI::*;

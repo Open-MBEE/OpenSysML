@@ -10,4 +10,4 @@ state running
     do action : Actions::Action
 
 not represented:
-  - 5 member(s) drawn as compartment rows of their owner
+  - 5 member(s) drawn as compartment rows of their owner, and 1 node(s) under them left undrawn

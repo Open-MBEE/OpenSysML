@@ -163,6 +163,16 @@ func (c *client) QueryOSLC(ctx context.Context, model *Model, oslc string) ([]Qu
 }
 
 func (c *client) selectElements(ctx context.Context, req *pb.QueryRequest) ([]QueryElement, error) {
+	needed := []string{CapabilityQuery}
+	if req.OslcQuery != "" {
+		needed = append(needed, CapabilityOSLCQuery)
+	}
+	if len(req.GetQuery().GetOrderBy()) > 0 {
+		needed = append(needed, CapabilityQueryOrderBy)
+	}
+	if err := c.requireCapabilities(ctx, needed...); err != nil {
+		return nil, err
+	}
 	resp, err := c.caller.query(ctx, req)
 	if err != nil {
 		return nil, err

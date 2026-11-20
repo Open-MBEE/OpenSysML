@@ -47,7 +47,13 @@ func (ctx *Context) classifyValueReading(
 	if err != nil && len(declared) == 0 {
 		return semantics.ClassifiesNone, err
 	}
-	known := append(append(make([]*symbols.Symbol, 0, len(declared)+len(types)), declared...), types...)
+	known := append(append(make([]*symbols.Symbol, 0, len(declared)+len(types)+1), declared...), types...)
+	// The quantity value type a quantity is held as is a type of it, though not its own,
+	// as the type a feature declares of a scalar is not.
+	kind := value.QuantityKind()
+	if kind != nil {
+		known = append(known, kind)
+	}
 	verdict := ctx.model.semantics.ClassifiesTypes(known, target)
 	if verdict == semantics.ClassifiesNone && isScalar(value) {
 		// A scalar type beside the value's own (`Cost :> Real` beside Rational) may hold it.
@@ -60,6 +66,12 @@ func (ctx *Context) classifyValueReading(
 	}
 	if verdict != semantics.ClassifiesSome {
 		return verdict, nil
+	}
+	// A quantity held as a quantity value type is of no type unrelated to it, whatever
+	// wider type the feature it is read through declares (SysML v2 §9.8.9.1).
+	if kind != nil &&
+		ctx.model.semantics.ClassifiesTypes([]*symbols.Symbol{kind}, target) == semantics.ClassifiesNone {
+		return semantics.ClassifiesNone, nil
 	}
 	if composed, ok, err := ctx.classifyComposed(scope, value, target, declared, reading); ok {
 		return composed, err

@@ -55,6 +55,7 @@ type Value struct {
 	real     float64
 	boolean  bool
 	quantity *semantics.Quantity
+	heldAs   *symbols.Symbol
 	origin   symbols.Origin
 }
 
@@ -260,6 +261,16 @@ func (v Value) Text(identity func(*symbols.Symbol) string) (string, bool) {
 	}
 }
 
+// QuantityHeldAs is the quantity as a feature of the quantity value type kind holds it; nil is none.
+func QuantityHeldAs(quantity semantics.Quantity, kind *symbols.Symbol) Value {
+	value := QuantityValue(quantity)
+	value.heldAs = kind
+	return value
+}
+
+// QuantityKind is the quantity value type a quantity read off a feature is held as, nil for none.
+func (v Value) QuantityKind() *symbols.Symbol { return v.heldAs }
+
 // Real returns the value's real and whether it is a real value.
 func (v Value) Real() (float64, bool) { return v.real, v.kind == ValueReal }
 
@@ -444,12 +455,18 @@ func StaticRow(cells []string, origin symbols.Origin) Row {
 	return row
 }
 
-// WrittenExpression is the text an expression element the model synthesizes —
-// a send's argument, a feature's value — was written as. Such an element has
-// no name, scope or identity of its own, so a surface that names elements by
-// identity reports it this way; ok is false for any other element.
+// WrittenExpression is the text an element the model synthesizes — a send's
+// argument, a feature's value, the chain Feature a chained end references (`a.p`) —
+// was written as. Such an element has no name, scope or identity of its own, so a
+// surface that names elements by identity reports it this way; ok is false for any other.
 func (c Context) WrittenExpression(sym *symbols.Symbol) (string, bool) {
-	if sym == nil || sym.Expr == nil || sym.Decl == nil {
+	if sym == nil {
+		return "", false
+	}
+	if sym.Chain != nil {
+		return c.writtenChain(sym)
+	}
+	if sym.Expr == nil || sym.Decl == nil {
 		return "", false
 	}
 	if lookup := c.Model.SourceText(); lookup != nil {
@@ -480,4 +497,18 @@ func (e *executor) elementText(sym *symbols.Symbol) string {
 	}
 	text, _ := e.context.WrittenExpression(sym)
 	return text
+}
+
+// writtenChain is the chain a chain Feature denotes as its source writes it; false for one
+// of a recorded owner, which keeps no source.
+func (c Context) writtenChain(sym *symbols.Symbol) (string, bool) {
+	if sym.Chain.Node == nil {
+		return "", false
+	}
+	lookup := c.Model.SourceText()
+	if lookup == nil {
+		return "", false
+	}
+	text := strings.TrimSpace(lookup(sym.DocName, sym.Chain.Node.Span()))
+	return text, text != ""
 }

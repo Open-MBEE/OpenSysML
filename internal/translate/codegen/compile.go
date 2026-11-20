@@ -43,9 +43,8 @@ type Compiler struct {
 	// collections is set once any compiled value is a collection.
 	collections bool
 	// keys is the specialization each function compiles.
-	keys   map[*Func]specKey
-	target Target
-	entry  specKey
+	keys  map[*Func]specKey
+	entry specKey
 	// nums are the Real-typed slots some write gives an Integer, compiled as
 	// numbers of either kind; widened is set when a pass adds one.
 	nums    map[slot]bool
@@ -85,7 +84,7 @@ func New(model *semantics.Model, resolver *resolve.Resolver) *Compiler {
 // A Real-typed feature that may be given an Integer keeps its kind, as the
 // interpreter's does, so compiling repeats until no further such feature is found.
 func (c *Compiler) Compile(entry *symbols.Symbol, target Target) (*Program, error) {
-	c.target, c.entry = target, specKeyOf(entry, nil)
+	c.entry = specKeyOf(entry, nil)
 	c.fns = newFnTables()
 	for {
 		c.funcs, c.order, c.keys, c.collections, c.widened = map[specKey]*Func{}, nil, map[*Func]specKey{}, false, false
@@ -346,8 +345,8 @@ func (c *Compiler) compileFuncWith(fn *Func, key specKey, sym *symbols.Symbol, b
 			return nil, fc.unsupported(fmt.Sprintf("parameter %s takes a %s, a record, which a program cannot take on its command line", name, b.t))
 		}
 		s := slot{key: key, name: name}
-		if key == c.entry && c.target != TargetC && b.t.Elem() == TypeReal {
-			// A Go program reads a Real argument in either notation, as the interpreter does.
+		if key == c.entry && b.t.Elem() == TypeReal {
+			// A program reads a Real argument in either notation, as the interpreter does.
 			c.nums[s] = true
 		}
 		b = c.slotted(b, s)
@@ -776,6 +775,36 @@ func scalarType(fqn string) (Type, Range, bool) {
 	return TypeInvalid, RangeAny, false
 }
 
+// compileSteps compiles a block whose steps run in the order they are declared. A flow
+// of its own (an accept, a performed action, a stated succession) is refused, not dropped.
+func (fc *funcCompiler) compileSteps(block lower.Block) ([]Stmt, error) {
+	graph := block.Graph
+	if graph == nil {
+		return fc.compileBlock(block.Statements)
+	}
+	if len(graph.Accepts) > 0 {
+		return nil, fc.unsupported("an accept, which waits for a message")
+	}
+	if len(graph.Bindings) > 0 || len(graph.ValueBindings) > 0 || len(graph.DataFlows) > 0 {
+		return nil, fc.unsupported("a flow between the pins of action nodes")
+	}
+	for i, node := range graph.Nodes {
+		if len(graph.Bodies[node]) == 0 {
+			return nil, fc.unsupported("a node of a token flow that is no statement: a performed action or a control node")
+		}
+		if graph.Multiplicities[node] != nil {
+			return nil, fc.unsupported("an action node stating how many times it is performed")
+		}
+		for _, edge := range graph.Edges[node] {
+			next := i+1 < len(graph.Nodes) && edge.Target == graph.Nodes[i+1]
+			if !next || edge.Guard != nil || edge.Probability != nil || edge.Else || edge.Carries {
+				return nil, fc.unsupported("a token flow ordering its steps other than as they are declared")
+			}
+		}
+	}
+	return fc.compileBlock(block.Steps())
+}
+
 func (fc *funcCompiler) compileBlock(stmts []lower.Statement) ([]Stmt, error) {
 	var out []Stmt
 	for _, s := range stmts {
@@ -835,7 +864,7 @@ func (fc *funcCompiler) compileStmt(s lower.Statement) (Stmt, error) {
 			return nil, err
 		}
 		fc.env.push()
-		then, err := fc.compileBlock(s.Then.Steps())
+		then, err := fc.compileSteps(s.Then)
 		fc.env.pop()
 		if err != nil {
 			return nil, err
@@ -843,7 +872,7 @@ func (fc *funcCompiler) compileStmt(s lower.Statement) (Stmt, error) {
 		var els []Stmt
 		if s.Else != nil {
 			fc.env.push()
-			els, err = fc.compileBlock(s.Else.Steps())
+			els, err = fc.compileSteps(*s.Else)
 			fc.env.pop()
 			if err != nil {
 				return nil, err
@@ -875,7 +904,7 @@ func (fc *funcCompiler) compileStmt(s lower.Statement) (Stmt, error) {
 		return Return{Value: v}, nil
 	case lower.Block:
 		fc.env.push()
-		body, err := fc.compileBlock(s.Steps())
+		body, err := fc.compileSteps(s)
 		fc.env.pop()
 		if err != nil {
 			return nil, err
@@ -891,6 +920,8 @@ func (fc *funcCompiler) compileStmt(s lower.Statement) (Stmt, error) {
 		return nil, fc.unsupported("a body-local calc usage")
 	case lower.Effect:
 		return nil, fc.unsupported("a statement acting outside the calc")
+	case lower.Send:
+		return nil, fc.unsupported("a send, which posts a message outside the calc")
 	default:
 		return nil, fc.unsupported(fmt.Sprintf("statement %T", s))
 	}
@@ -1042,7 +1073,7 @@ func (fc *funcCompiler) compileLoop(s lower.Loop) (Stmt, error) {
 	// read attributes the body declares.
 	fc.env.push()
 	defer fc.env.pop()
-	body, err := fc.compileBlock(s.Body.Steps())
+	body, err := fc.compileSteps(s.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -1465,6 +1496,12 @@ func (fc *funcCompiler) signOrArithmetic(op ast.OperatorKind, l, r Expr) (Expr, 
 	signed, err := fc.signOf(signOperator(op), l)
 	if err != nil {
 		return nil, err
+	}
+	if signed.Type() == TypeInt && x.Type() == TypeReal {
+		// The sign of an Integer stays one where the arithmetic is a Real's.
+		if x, err = fc.coerce(x, TypeNum, ""); err != nil {
+			return nil, err
+		}
 	}
 	if signed, err = fc.coerce(signed, x.Type(), ""); err != nil {
 		return nil, err

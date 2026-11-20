@@ -1,0 +1,62 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="P" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="T"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+          (Membership visibility="default"
+            (Usage kind="action" name="behavior" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="subsets" target=a
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="part" name="class" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="subsets" target=a
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="item" name="struct" ref=true direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="redefines" target=a
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="feature" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (LiteralInteger value="1")))
+          (Membership visibility="default"
+            (Usage kind="part" name="step" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Multiplicity range=false
+                (LiteralInteger value="2"))))
+          (Membership visibility="default"
+            (Usage kind="item" name="connector" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="redefines" target=a
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="part" name="function" ref=false direction="none" composite=false derived=false ordered=false nonunique=false individual=true
+              (Relationship kind="subsets" target=a
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="action" name="predicate" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="perform"
+              (Relationship kind="subsets" target=a
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="state" name="interaction" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="exhibit state"
+              (Relationship kind="subsets" target=a
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="occurrence" name="datatype" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="subsets" target=a
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="occurrence" name="classifier" ref=false direction="none" composite=false derived=false ordered=false nonunique=false snapshot=true
+              (Relationship kind="subsets" target=a
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="occurrence" name="type" ref=false direction="none" composite=false derived=false ordered=false nonunique=false timeslice=true
+              (Relationship kind="subsets" target=a
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="V"
+          (Membership visibility="default"
+            (Usage kind="part" name="p" ref=false direction="none" composite=false derived=false ordered=false nonunique=false variation=true
+              (Membership visibility="default"
+                (Usage kind="part" name="metaclass" ref=false direction="none" composite=false derived=false ordered=false nonunique=false variant=true
+                  (Relationship kind="subsets" target=p
+                    (*ast.QualifiedName)))))))))))

@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -215,12 +216,58 @@ type enumerated struct {
 	payload any
 }
 
-// payload is the kind-specific payload, unwrapped from an enumerated scalar.
+// measured is the payload of a quantity held by a feature a quantity value type declares,
+// which is of that type; one `[` constructs or an operator computes carries none.
+type measured struct {
+	kind     *symbols.Symbol
+	quantity *Quantity
+}
+
+// payload is the kind-specific payload, unwrapped from an enumerated scalar or a measured quantity.
 func (v Value) payload() any {
-	if e, ok := v.ref.(*enumerated); ok {
-		return e.payload
+	switch ref := v.ref.(type) {
+	case *enumerated:
+		return ref.payload
+	case *measured:
+		return ref.quantity
 	}
 	return v.ref
+}
+
+// ofQuantityKind is the quantity v as a value of the quantity value type kind; v itself
+// for any other value and for no kind.
+func (v Value) ofQuantityKind(kind *symbols.Symbol) Value {
+	if q := v.Quantity(); q != nil && kind != nil {
+		v.ref = &measured{kind: kind, quantity: q}
+	}
+	return v
+}
+
+// ErrNotAQuantityValueType reports a quantity said to be held as a type no quantity is held as.
+var ErrNotAQuantityValueType = errors.New("not a quantity value type")
+
+// QuantityHeldAs is the quantity v held as the quantity value type kind, as a feature typed by
+// kind holds it; refused where kind is no such type or fixes another dimension than v's unit.
+func QuantityHeldAs(sem *semantics.Model, v Value, kind *symbols.Symbol) (Value, error) {
+	q := v.Quantity()
+	if q == nil || !sem.IsQuantityValueType(kind) {
+		return Value{}, fmt.Errorf("%w: %s", ErrNotAQuantityValueType, symbols.FQNOf(kind))
+	}
+	want, fixed := sem.DimensionOfType(kind)
+	if got, ok := sem.DimensionOfUnit(q.Unit.Term); fixed && ok && !want.Term.Commensurable(got.Term) {
+		return Value{}, fmt.Errorf("%w: %s is no %s (%s, not %s)", ErrTypeMismatch,
+			FormatValue(v), symbols.FQNOf(kind), dimensionText(got), dimensionText(want))
+	}
+	return v.ofQuantityKind(kind), nil
+}
+
+// QuantityKind is the quantity value type a quantity was held as; nil for one that was
+// held as none and for every other value.
+func (v Value) QuantityKind() *symbols.Symbol {
+	if m, ok := v.ref.(*measured); ok {
+		return m.kind
+	}
+	return nil
 }
 
 // metaobjectValue is an element viewed as an instance of its reflective
@@ -449,7 +496,7 @@ func (v Value) Quantity() *Quantity {
 	if v.Kind != ValQuantity {
 		return nil
 	}
-	q, _ := v.ref.(*Quantity)
+	q, _ := v.payload().(*Quantity)
 	return q
 }
 

@@ -63,7 +63,7 @@
                 (LiteralInteger value="2"))))))
       (Membership visibility="default"
         (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
-          (Relationship kind="subsets" target=massOfVehicle
+          (Relationship kind="references" target=massOfVehicle
             (*ast.QualifiedName))
           (Relationship kind="by" target=vehicle01
             (*ast.QualifiedName))

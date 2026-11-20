@@ -33,7 +33,7 @@ async function main(): Promise<void> {
     section("A part's own facts");
     const wheels = await model.symbol("Rover::Rover::wheels");
     show("kind", wheels.kind);
-    show("type", `${wheels.type?.declared ?? "?"} -> ${wheels.type?.resolvedId ?? "?"}`);
+    show("type", `${wheels.type?.declared ?? "?"} -> ${wheels.type?.resolvedQualifiedName ?? "?"}`);
     show("multiplicity", `${wheels.multiplicity?.lower ?? "?"}..${wheels.multiplicity?.upper ?? "?"}`);
     show("metadata", JSON.stringify(wheels.metadata));
     assert.equal(wheels.multiplicity?.upper, "6");
@@ -41,7 +41,7 @@ async function main(): Promise<void> {
     section("An attribute's facts");
     const radius = await model.symbol("Rover::Wheel::radius");
     show("declared type", radius.type?.declared);
-    show("resolves to", `${radius.type?.resolvedId ?? "?"} (${radius.type?.resolvedKind ?? "?"})`);
+    show("resolves to", `${radius.type?.resolvedQualifiedName ?? "?"} (${radius.type?.resolvedKind ?? "?"})`);
     show("a quantity", `${String(radius.type?.quantity)} in ${radius.type?.unit ?? ""}`);
     assert.equal(radius.type?.quantity, true);
     // The values are reported on the definition that owns the attributes.
@@ -56,7 +56,7 @@ async function main(): Promise<void> {
     const heavy = await model.symbol("Rover::HeavyRover");
     show(
       "specializes",
-      heavy.specializations.map((one) => `${one.kind} ${one.declared} -> ${one.targetId}`).join(", "),
+      heavy.specializations.map((one) => `${one.kind} ${one.declared} -> ${one.targetQualifiedName}`).join(", "),
     );
     show("attributes", heavy.attributes.map((attribute) => attribute.name).join(", "));
     show("inherited mass", formatValue(await model.eval("mass", { context: "Rover::HeavyRover" })));

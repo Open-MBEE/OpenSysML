@@ -11,15 +11,15 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 616,
-      "presentDifferent": 91,
+      "presentEqual": 619,
+      "presentDifferent": 82,
       "oursMissing": 69,
       "pilotMissing": 26,
       "absentBoth": 911,
-      "indeterminate": 53,
+      "indeterminate": 59,
       "pilotNondeterministic": 0
     },
-    "unkeyedReferences": 123,
+    "unkeyedReferences": 114,
     "extensionProperties": 153,
     "duplicateElements": {
       "ours": 0,
@@ -30,7 +30,7 @@
       "pilot": 0
     },
     "unkeyableElements": {
-      "ours": 26,
+      "ours": 36,
       "pilot": 58
     }
   },
@@ -129,12 +129,12 @@
     "ActionUsage.direction": [0,0,0,0,5,0,0],
     "ActionUsage.documentation": [0,0,0,0,5,0,0],
     "ActionUsage.endFeature": [0,0,0,0,5,0,0],
-    "ActionUsage.feature": [0,5,0,0,0,0,0],
-    "ActionUsage.featureMembership": [0,5,0,0,0,0,0],
+    "ActionUsage.feature": [0,2,0,0,0,3,0],
+    "ActionUsage.featureMembership": [3,2,0,0,0,0,0],
     "ActionUsage.featureTarget": [5,0,0,0,0,0,0],
     "ActionUsage.featuringType": [2,0,0,0,3,0,0],
     "ActionUsage.importedMembership": [0,0,0,0,5,0,0],
-    "ActionUsage.inheritedFeature": [0,5,0,0,0,0,0],
+    "ActionUsage.inheritedFeature": [0,2,0,0,0,3,0],
     "ActionUsage.inheritedMembership": [0,5,0,0,0,0,0],
     "ActionUsage.input": [0,0,0,0,5,0,0],
     "ActionUsage.intersectingType": [0,0,0,0,5,0,0],

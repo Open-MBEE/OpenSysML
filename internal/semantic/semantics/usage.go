@@ -61,9 +61,14 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 		(!actionKind && !m.conformsByName(sym, "Actions::Action"))
 }
 
-// synthesizedUsageMayTimeVary derives Usage::mayTimeVary for a referential part the model synthesizes
-// with no scope of its own: a transition's link parameter, or a trigger's payload and receiver parameters.
+// synthesizedUsageMayTimeVary derives Usage::mayTimeVary for a referential part the model synthesizes:
+// a flow end's ReferenceUsage, a transition's link parameter, or a trigger's payload and receiver parameters.
 func (m *Model) synthesizedUsageMayTimeVary(sym *symbols.Symbol) (varies, ok bool) {
+	if _, ok := symbols.ImpliedFlowEndFeatureIndex(sym); ok {
+		// A flow end's ReferenceUsage is owned by the FlowEnd, which redefines Flows::Flow::source
+		// or target, an Occurrence-typed feature (SysML v2.1 §8.3.16.6), as the pilot exports it.
+		return !m.isKerMLDoc(sym) && m.UsageMayTimeVaryUnderLibraryFeature("Flows::Flow::source"), true
+	}
 	if sym.OwnerScope != nil || sym.Expr == nil {
 		return false, false
 	}
@@ -195,15 +200,6 @@ func usageIsReferential(usage *ast.Usage) bool {
 		return true
 	}
 	return !usageIsComposite(usage)
-}
-
-// UsageIsReferential reports whether a usage is a reference rather than composition.
-func UsageIsReferential(sym *symbols.Symbol) bool {
-	if sym == nil {
-		return false
-	}
-	usage, ok := sym.Decl.(*ast.Usage)
-	return ok && usageIsReferential(usage)
 }
 
 // UsageIsComposite derives SysML Usage::isComposite (SysML v2 §7.6.2) for the usage sym declares:
@@ -371,6 +367,22 @@ func (m *Model) EffectiveIsComposite(sym *symbols.Symbol) bool {
 	if m == nil || sym == nil {
 		return false
 	}
+	defer m.own(sym).LeaveDoc()
+	if cached, ok := m.effectiveComposite[sym]; ok {
+		return cached
+	}
+	m.resolver.Enter()
+	composite := m.effectiveIsComposite(sym)
+	// A derivation a resolution guard cut short is recomputed, not memoized.
+	if !m.resolver.Leave() {
+		return composite
+	}
+	journal(m, m.effectiveComposite, sym, sym.Decl)
+	m.effectiveComposite[sym] = composite
+	return composite
+}
+
+func (m *Model) effectiveIsComposite(sym *symbols.Symbol) bool {
 	if isControlNode(sym) || m.metaclassConforms(sym, sysmlMetaclassPrefix+"ControlNode") {
 		return true
 	}
@@ -438,6 +450,9 @@ func usageIsComposite(usage *ast.Usage) bool {
 	if usage == nil || usage.IsReference || usage.Direction != ast.DirNone || usage.IsBodyParameter ||
 		usage.IsEnd || usage.IsEvent || usage.Kind == ast.UsageEnumeration || usage.IsVariantReference() {
 		return false
+	}
+	if usage.Kind.ReferenceSubsettingSpecializes() {
+		return true
 	}
 	for _, rel := range usage.Relationships {
 		if rel != nil && rel.Kind == ast.RelReferences {

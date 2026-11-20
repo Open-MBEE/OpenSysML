@@ -25,6 +25,9 @@ type compiledCase struct {
 	args []string
 }
 
+// wholeBeyondReal is an Integer no finite binary64 is near.
+var wholeBeyondReal = "1" + strings.Repeat("0", 400)
+
 var compiledCases = []compiledCase{
 	{"Fib", []string{"0"}}, {"Fib", []string{"1"}}, {"Fib", []string{"20"}},
 	{"SumTo", []string{"0"}}, {"SumTo", []string{"1000"}}, {"SumTo", []string{"200000"}},
@@ -33,6 +36,7 @@ var compiledCases = []compiledCase{
 	{"Quot", []string{"7", "2"}}, {"Quot", []string{"1", "3"}}, {"Quot", []string{"-1", "3"}},
 	{"Quot", []string{"1", "0"}}, {"Quot", []string{"9007199254740993", "1"}},
 	{"Quot", []string{"9223372036854775807", "-9223372036854775808"}},
+	{"Quot", []string{"0", "-5"}}, {"Quot", []string{"0", "-9007199254740992"}}, {"Quot", []string{"0", "-18446744073709551616"}},
 	{"Mixed", []string{"1.5", "3"}}, {"Mixed", []string{"0.1", "0"}},
 	{"Pow", []string{"-4"}}, {"Pow", []string{"3037000500"}},
 	{"RealPow", []string{"2.0", "0.5"}}, {"RealPow", []string{"0.0", "-1.0"}}, {"RealPow", []string{"-8.0", "0.5"}},
@@ -230,6 +234,12 @@ var compiledCases = []compiledCase{
 	{"Rec::UnsetNatural", []string{"1.5"}},
 	{"Rec::UnsetDefault", []string{"1.5"}},
 	{"Rec::UnsetString", []string{"1.5"}},
+	{"Rec::UnsetThenSet", []string{`"ab"`, "1"}}, {"Rec::UnsetThenSet", []string{`"ab"`, "40"}},
+	{"Rec::UnsetOrSet", []string{`"ab"`, "false"}}, {"Rec::UnsetOrSet", []string{`"ab"`, "true"}},
+	{"Rec::KeptFeatures", []string{`"ab"`, "1"}}, {"Rec::KeptFeatures", []string{`"ab"`, "40"}},
+	{"Closure::KeptStr", []string{`"abc"`, "1"}}, {"Closure::KeptStr", []string{`"abc"`, "40"}},
+	{"Closure::KeptSeq", []string{"1.5", "1"}}, {"Closure::KeptSeq", []string{"1.5", "40"}},
+	{"Closure::KeptWords", []string{`"a"`, "1"}}, {"Closure::KeptWords", []string{`"a"`, "40"}},
 	{"Rec::UnsetConcat", []string{"1.5"}},
 	{"Rec::UnsetStep", []string{"1.5"}},
 	{"Rec::UnsetIntToNat", []string{"1.5"}},
@@ -343,6 +353,25 @@ var compiledCases = []compiledCase{
 	{"Wide::Nat", []string{"4294967296"}}, {"Wide::Nat", []string{"-18446744073709551616"}},
 	{"Wide::Least", []string{"(18446744073709551616,-18446744073709551616,3)"}},
 	{"Wide::Compare", []string{"-18446744073709551616", "18446744073709551616"}}, {"Wide::Compare", []string{"18446744073709551616", "18446744073709551616"}},
+	{"Wide::Fact", []string{"30"}}, {"Wide::Fact", []string{"0"}}, {"Wide::Fact", []string{"170"}},
+	{"Wide::Climb", []string{"4294967296"}}, {"Wide::Climb", []string{"3"}},
+	{"Wide::Powers", []string{"5"}}, {"Wide::Powers", []string{"40"}}, {"Wide::PowerSum", []string{"6"}}, {"Wide::PowerSum", []string{"33"}},
+	{"Wide::InRecord", []string{"4294967296"}}, {"Wide::InRecord", []string{"-3"}}, {"Wide::InRecord", []string{"-18446744073709551617"}},
+	{"Wide::Captured", []string{"4294967296"}}, {"Wide::Captured", []string{"2"}}, {"Wide::Captured", []string{"-18446744073709551617"}},
+	{"Wide::Text", []string{"4294967296"}}, {"Wide::Text", []string{"-5"}}, {"Wide::Digits", []string{"123456789"}}, {"Wide::Digits", []string{"-18446744073709551617"}},
+	{"Wide::InReal", []string{"4294967296"}}, {"Wide::InReal", []string{"3"}},
+	{"Wide::Floored", []string{"1e30"}}, {"Wide::Floored", []string{"-2.5"}}, {"Wide::Floored", []string{"-9223372036854775809.0"}},
+	{"Wide::Extremes", []string{"(-9223372036854775808,9223372036854775807)"}}, {"Wide::Extremes", []string{"(18446744073709551616,-5)"}},
+	{"Wide::Whole", []string{"18446744073709551617"}}, {"Wide::Whole", []string{"-9007199254740993"}}, {"Wide::Floored", []string{"9007199254740993"}},
+	{"Wide::RealAbs", []string{"-18446744073709551617"}}, {"Wide::RealAbs", []string{wholeBeyondReal}}, {"Wide::RealAbs", []string{"-" + wholeBeyondReal}},
+	{"Wide::RealMost", []string{wholeBeyondReal, "1.0"}}, {"Wide::RealMost", []string{"-" + wholeBeyondReal, "1.0"}}, {"Wide::RealMost", []string{"18446744073709551617", "1.0"}},
+	{"Wide::RealLeast", []string{wholeBeyondReal, "1.0"}}, {"Wide::RealLeast", []string{"-" + wholeBeyondReal, "1.0"}},
+	{"Wide::Span", []string{"18446744073709551616", "18446744073709551616"}}, {"Wide::Span", []string{"9223372036854775806", "9223372036854775809"}},
+	{"Wide::Span", []string{"-18446744073709551617", "-18446744073709551615"}}, {"Wide::Span", []string{"18446744073709551616", "5"}},
+	{"Wide::SpanSize", []string{"-9223372036854775808", "9223372036854775807"}}, {"Wide::SpanSize", []string{"0", "18446744073709551616"}},
+	{"Wide::SpanSize", []string{"18446744073709551616", "18446744073709551715"}},
+	{"Closure::IntClosure", []string{"18446744073709551616"}}, {"Num::Twice", []string{"18446744073709551616"}},
+	{"Neg", []string{"-18446744073709551616"}}, {"Lib::IntAbs", []string{"-18446744073709551616"}}, {"Str::IntStr", []string{"-123456789012345678901234567890"}},
 	{"Loop::Churn", []string{"7.0"}}, {"Loop::ChurnFor", []string{"9"}}, {"Loop::ChurnNest", []string{"5.0"}},
 	{"Num::Keep", []string{"3"}}, {"Num::Keep", []string{"3.0"}}, {"Num::Keep", []string{"-0.0"}},
 	{"Num::Local", []string{"3"}}, {"Num::Twice", []string{"3"}}, {"Num::Twice", []string{"9223372036854775807"}},
@@ -510,40 +539,23 @@ func compiledRun(t *testing.T, exe string, c compiledCase) (value, failure strin
 	return "", failureClass(c.calc, text)
 }
 
-// beyondInt64 reports whether an argument holds an Integer literal outside
-// int64, which a compiled C program refuses as input.
-func beyondInt64(args []string) bool {
-	for _, arg := range args {
-		for _, tok := range strings.FieldsFunc(arg, func(r rune) bool { return r == '(' || r == ')' || r == ',' }) {
-			if !strings.ContainsAny(tok, ".eE") && strings.Trim(tok, "-0123456789") == "" {
-				if _, err := strconv.ParseInt(tok, 10, 64); err != nil {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
-// heldIntegerRefusals is the run-time refusal of a Go program whose Real
+// heldIntegerRefusals is the run-time refusal of a program whose Real
 // parameter, given an Integer, meets an exact Rational binary64 does not hold.
 var heldIntegerRefusals = map[string]string{
 	"ExactHeldInteger": "unsupported: exact Rational arithmetic '*' over a value binary64 does not hold exactly",
 	"ExactHeldCompare": "unsupported: '<' of an exact Rational binary64 does not hold exactly",
 }
 
-// heldIntegerRefused reports whether c is a run its Go program refuses as
-// heldIntegerRefusals records, where the interpreter succeeds or later runs out
-// of steps.
-func heldIntegerRefused(target codegen.Target, p *codegen.Program, c compiledCase, gotFailure, wantFailure string) bool {
+// heldIntegerRefused reports whether c is a run its program refuses as heldIntegerRefusals
+// records, where the interpreter succeeds or later runs out of steps.
+func heldIntegerRefused(p *codegen.Program, c compiledCase, gotFailure, wantFailure string) bool {
 	want, ok := heldIntegerRefusals[c.calc]
-	return ok && target == codegen.TargetGo && integerForReal(p, c.args) && strings.HasPrefix(gotFailure, want) &&
+	return ok && integerForReal(p, c.args) && strings.HasPrefix(gotFailure, want) &&
 		(wantFailure == "" || strings.HasPrefix(wantFailure, "evaluation step limit exceeded"))
 }
 
 // integerForReal reports whether an argument in Integer notation is given for
-// a Real-typed parameter of p, which a compiled C program refuses as input: the
-// interpreter keeps that argument an Integer, and a C Real holds only binary64.
+// a Real-typed parameter of p, which keeps it an Integer as the interpreter does.
 func integerForReal(p *codegen.Program, args []string) bool {
 	for i, param := range p.Entry.Params {
 		if i >= len(args) || (param.Type.Elem() != codegen.TypeReal && param.Type.Elem() != codegen.TypeNum) {
@@ -558,23 +570,15 @@ func integerForReal(p *codegen.Program, args []string) bool {
 	return false
 }
 
-// buildCalc compiles calc for target into exe, reporting false when the C target
-// refuses it for Integer arithmetic that may leave int64: the Go target, which
-// computes it exactly, must accept every calc. It returns the program built, or nil.
+// buildCalc compiles calc for target into exe and returns the program built:
+// both targets must accept every calc of the fixture.
 func buildCalc(t *testing.T, s *repl.Session, calc string, target codegen.Target, exe string) *codegen.Program {
 	t.Helper()
 	program, err := compileCalc(s, "Compiled::"+calc, target)
-	if target == codegen.TargetC && errors.Is(err, codegen.ErrUnsupported) && strings.Contains(err.Error(), "for the C target") {
-		return nil
-	}
 	if err != nil {
 		t.Fatalf("compile %s: %v", calc, err)
 	}
-	err = codegen.Build(program, target, exe)
-	if target == codegen.TargetC && errors.Is(err, codegen.ErrUnsupported) && strings.Contains(err.Error(), "for the C target") {
-		return nil
-	}
-	if err != nil {
+	if err := codegen.Build(program, target, exe); err != nil {
 		t.Fatalf("build %s: %v", calc, err)
 	}
 	return program
@@ -607,42 +611,11 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 				}
 			}
 			s := loadCompileFixture(t)
-			exes := map[string]string{}
-			programs := map[string]*codegen.Program{}
-			refused := map[string]bool{}
-			dir := t.TempDir()
 			for _, c := range compiledCases {
-				if refused[c.calc] {
-					continue
-				}
-				exe, built := exes[c.calc]
-				if !built {
-					exe = filepath.Join(dir, c.calc)
-					if programs[c.calc] = buildCalc(t, s, c.calc, target, exe); programs[c.calc] == nil {
-						refused[c.calc] = true
-						continue
-					}
-					exes[c.calc] = exe
-				}
-				if target == codegen.TargetC && beyondInt64(c.args) {
-					out, err := exec.Command(exe, c.args...).CombinedOutput()
-					var exit *exec.ExitError
-					if !errors.As(err, &exit) || exit.ExitCode() != 2 || !strings.Contains(string(out), "is beyond int64") {
-						t.Errorf("%s(%s): got %v %q, want the argument refused as beyond int64 with exit status 2", c.calc, strings.Join(c.args, ", "), err, out)
-					}
-					continue
-				}
-				if target == codegen.TargetC && integerForReal(programs[c.calc], c.args) {
-					out, err := exec.Command(exe, c.args...).CombinedOutput()
-					var exit *exec.ExitError
-					if !errors.As(err, &exit) || exit.ExitCode() != 2 || !strings.Contains(string(out), "only in Real notation") {
-						t.Errorf("%s(%s): got %v %q, want the Integer argument refused for a Real parameter with exit status 2", c.calc, strings.Join(c.args, ", "), err, out)
-					}
-					continue
-				}
+				exe, program := fixtureCalc(t, s, c.calc, target)
 				wantValue, wantFailure := interpreted(t, s, c)
 				gotValue, gotFailure := compiledRun(t, exe, c)
-				if heldIntegerRefused(target, programs[c.calc], c, gotFailure, wantFailure) {
+				if heldIntegerRefused(program, c, gotFailure, wantFailure) {
 					continue
 				}
 				if gotFailure == wantFailure && gotValue != wantValue && target == codegen.TargetC && transcendental[c.calc] && withinUlps(gotValue, wantValue, 2) {
@@ -653,32 +626,22 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 						c.calc, strings.Join(c.args, ", "), gotValue, gotFailure, wantValue, wantFailure)
 				}
 			}
-			if target == codegen.TargetC && (!refused["Fib"] || !refused["Wide::Pow"] || refused["Hypot"] || refused["Loop::ChurnFor"] ||
-				!refused["Closure::StrClosure"] || !refused["Closure::SeqClosure"] || !refused["Closure::FnClosure"] || refused["Closure::BoolClosure"]) {
-				t.Errorf("C refusals = %v: want the Integer-arithmetic calcs and closures capturing collections, Strings or functions refused and the rest compiled", refused)
-			}
-			// A C record keeps no String or collection, which the arena may reclaim.
-			cOnly := map[string]bool{"Rec::SeqFeature": true, "Rec::SeqEmpty": true, "Rec::UnsetString": true, "Rec::UnsetConcat": true, "Rec::UnsetIntAdd": true}
-			for _, c := range compiledCases {
-				if name := c.calc; strings.HasPrefix(name, "Rec::") && refused[name] != (target == codegen.TargetC && cOnly[name]) {
-					t.Errorf("%s refused = %v for %s", name, refused[name], target)
-				}
-			}
+			hypot, _ := fixtureCalc(t, s, "Hypot", target)
 			for _, repeat := range []string{"0", "-1", "x", "2x", ""} {
-				out, err := exec.Command(exes["Hypot"], "--repeat", repeat, "3.0", "4.0").CombinedOutput()
+				out, err := exec.Command(hypot, "--repeat", repeat, "3.0", "4.0").CombinedOutput()
 				var exit *exec.ExitError
 				if !errors.As(err, &exit) || exit.ExitCode() != 2 {
 					t.Errorf("--repeat %q: got %v %q, want usage and exit status 2", repeat, err, out)
 				}
 			}
 			for _, arg := range []string{"inf", "-inf", "nan", "1x", "", "0x1p-2", "0x1.8p1", "1_000.5", " 1.5", "1.5 ", "+", ".", "1e", "1e+", "Infinity"} {
-				out, err := exec.Command(exes["Hypot"], arg, "4.0").CombinedOutput()
+				out, err := exec.Command(hypot, arg, "4.0").CombinedOutput()
 				var exit *exec.ExitError
 				if !errors.As(err, &exit) || exit.ExitCode() != 2 || !strings.Contains(string(out), "is not a finite Real") {
 					t.Errorf("Hypot(%q, 4.0): got %v %q, want not a Real and exit status 2", arg, err, out)
 				}
 			}
-			if out, err := exec.Command(exes["Hypot"], "--repeat", "3", "3.0", "4.0").Output(); err != nil || strings.TrimSpace(string(out)) != "[5.0]" {
+			if out, err := exec.Command(hypot, "--repeat", "3", "3.0", "4.0").Output(); err != nil || strings.TrimSpace(string(out)) != "[5.0]" {
 				t.Errorf("--repeat 3: got %q, %v", out, err)
 			}
 		})
@@ -794,18 +757,11 @@ func TestCompiledBudgetChargesInputsAndWidening(t *testing.T) {
 			t.Setenv(runtime.MaxElementsEnvVar, strconv.Itoa(limit))
 			dir := t.TempDir()
 			exes := map[string]string{}
-			refused := map[string]bool{}
 			for _, c := range cases {
-				if refused[c.calc] {
-					continue
-				}
 				exe, built := exes[c.calc]
 				if !built {
 					exe = filepath.Join(dir, c.calc)
-					if buildCalc(t, s, c.calc, target, exe) == nil {
-						refused[c.calc] = true
-						continue
-					}
+					buildCalc(t, s, c.calc, target, exe)
 					exes[c.calc] = exe
 				}
 				wantValue, wantFailure := interpreted(t, s, c)
@@ -940,27 +896,9 @@ func TestCompiledStepBudgetMatchesInterpreter(t *testing.T) {
 				}
 			}
 			s := loadCompileFixture(t)
-			dir := t.TempDir()
-			exes := map[string]string{}
-			programs := map[string]*codegen.Program{}
-			refused := map[string]bool{}
 			checked := 0
 			for _, c := range compiledCases {
-				if refused[c.calc] || (target == codegen.TargetC && beyondInt64(c.args)) {
-					continue
-				}
-				exe, built := exes[c.calc]
-				if !built {
-					exe = filepath.Join(dir, c.calc)
-					if programs[c.calc] = buildCalc(t, s, c.calc, target, exe); programs[c.calc] == nil {
-						refused[c.calc] = true
-						continue
-					}
-					exes[c.calc] = exe
-				}
-				if target == codegen.TargetC && integerForReal(programs[c.calc], c.args) {
-					continue
-				}
+				exe, program := fixtureCalc(t, s, c.calc, target)
 				steps, ok := stepsTaken(t, s, c, limit)
 				if !ok {
 					continue
@@ -982,7 +920,7 @@ func TestCompiledStepBudgetMatchesInterpreter(t *testing.T) {
 						continue
 					}
 					gotValue, gotFailure := compiledRun(t, exe, c)
-					if heldIntegerRefused(target, programs[c.calc], c, gotFailure, wantFailure) {
+					if heldIntegerRefused(program, c, gotFailure, wantFailure) {
 						continue
 					}
 					if gotFailure == wantFailure && gotValue != wantValue && target == codegen.TargetC && transcendental[c.calc] && withinUlps(gotValue, wantValue, 2) {
@@ -1160,49 +1098,6 @@ func TestCompileRefusesAParameterBoundTwice(t *testing.T) {
 	_, err := compileCalc(s, "Twice::Dup", codegen.TargetGo)
 	if !errors.Is(err, codegen.ErrUnsupported) || !strings.Contains(err.Error(), "binds parameter a twice") {
 		t.Fatalf("compileCalc(Twice::Dup) = %v, want an ErrUnsupported naming the parameter", err)
-	}
-}
-
-// The C target holds int64, so it refuses, naming the construct, a calc whose
-// Integer result may leave it; the Go target computes the same calc exactly.
-func TestCompileCRefusesIntegersBeyondInt64(t *testing.T) {
-	s := loadCompileFixture(t)
-	for _, tc := range []struct{ calc, construct string }{
-		{"Fib", "Integer `-`"},
-		{"SumTo", "Integer `+`"},
-		{"Arith", "Integer `+`"},
-		{"Pow", "Integer `**`"},
-		{"Neg", "Integer negation"},
-		{"Lib::IntAbs", "the Integer result of abs"},
-		{"Lib::Floor", "the Integer result of floor"},
-		{"Seq::Rng2", "the Integer sum"},
-		{"Wide::Product", "the Integer product"},
-		{"Wide::Lit", "the Integer literal 123456789012345678901234567890, beyond int64,"},
-	} {
-		program, err := compileCalc(s, "Compiled::"+tc.calc, codegen.TargetC)
-		if err != nil {
-			t.Fatalf("compile %s: %v", tc.calc, err)
-		}
-		_, err = codegen.Source(program, codegen.TargetC)
-		if !errors.Is(err, codegen.ErrUnsupported) || !strings.Contains(err.Error(), tc.construct+" for the C target") {
-			t.Errorf("C source of %s = %v, want an ErrUnsupported naming %s", tc.calc, err, tc.construct)
-		}
-		program, err = compileCalc(s, "Compiled::"+tc.calc, codegen.TargetGo)
-		if err != nil {
-			t.Fatalf("compile %s: %v", tc.calc, err)
-		}
-		if _, err := codegen.Source(program, codegen.TargetGo); err != nil {
-			t.Errorf("Go source of %s: %v", tc.calc, err)
-		}
-	}
-	for _, calc := range []string{"Quot", "Compare", "Hypot", "Seq::IxS", "Wide::Idx", "Wide::Gt", "Loop::ChurnFor"} {
-		program, err := compileCalc(s, "Compiled::"+calc, codegen.TargetC)
-		if err != nil {
-			t.Fatalf("compile %s: %v", calc, err)
-		}
-		if _, err := codegen.Source(program, codegen.TargetC); err != nil {
-			t.Errorf("C source of %s: %v, want it compiled: no Integer result leaves int64", calc, err)
-		}
 	}
 }
 

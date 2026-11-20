@@ -57,6 +57,9 @@ pub const CAPABILITY_SYMBOL_MEMBERS: &str = "symbol_members";
 pub const CAPABILITY_SYMBOL_NAME_RESOLUTION: &str = "symbol_name_resolution";
 /// Populated `SymbolInfo.annotating_metadata_ids`: the metadata usages annotating a symbol.
 pub const CAPABILITY_SYMBOL_ANNOTATING_METADATA: &str = "symbol_annotating_metadata";
+/// The `lookup` of `GetSymbolRequest` and `GetElementPropertiesRequest` honoured: a name read
+/// only as a name, an id only as an id.
+pub const CAPABILITY_SYMBOL_LOOKUP_KIND: &str = "symbol_lookup_kind";
 /// The `GetElementProperties` RPC: an element's metamodel properties by their specification names.
 pub const CAPABILITY_ELEMENT_PROPERTIES: &str = "element_properties";
 /// A valueless feature of a value type as `Value.unset`.
@@ -165,6 +168,9 @@ pub const CAPABILITY_CONVERT_LIBRARY_REFERENCES: &str = "convert_library_referen
 /// `ConvertRequest.include_library_stubs`: api-json written with the ownerless library stubs of
 /// releases before 0.11.0 restored.
 pub const CAPABILITY_CONVERT_LIBRARY_STUBS: &str = "convert_library_stubs";
+/// `ConvertRequest.inherited_members`: api-json written with the derived lists that repeat each
+/// Namespace's and Type's inherited and imported members; a service without it always writes them.
+pub const CAPABILITY_CONVERT_INHERITED_MEMBERS: &str = "convert_inherited_members";
 /// `ConvertRequest.include_check_diagnostics`: the semantic check's diagnostics, each with its
 /// own severity, reported alongside the converted output.
 pub const CAPABILITY_CONVERT_CHECK_DIAGNOSTICS: &str = "convert_check_diagnostics";

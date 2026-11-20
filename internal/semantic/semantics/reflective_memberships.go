@@ -9,13 +9,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// OwnedMemberships returns the Membership objects through which the namespace
-// sym owns its members, in declaration order (KerML 8.3.2.5 Namespace::
-// ownedMembership): a synthesized OwningMembership — or the SysML membership
-// kind the member's declaration implies — per owned member, and an alias as
-// itself, since `alias` declares a Membership. A `#M` prefix's metadata feature
-// leads them (PrefixMetadataMember : OwningMembership); a relationship's
-// annotating element has no membership (KerML 8.2.3.3.1 OwnedAnnotation).
+// OwnedMemberships returns the memberships through which the namespace sym owns its members (KerML
+// 8.3.2.5 Namespace::ownedMembership), `#M` prefixes first; an alias is its own Membership.
 func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil {
 		return nil
@@ -28,6 +23,13 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return cached
 	}
 	value := m.ValueExpression(sym)
+	if feature := m.FlowEndFeatureMember(sym); feature != nil {
+		// A flow's end owns the ReferenceUsage redefining the feature it names (SysML.xtext FlowFeatureMember).
+		journal(m, m.memberships, sym, sym.Decl)
+		out := appendOwningMembership(nil, sym, feature)
+		m.memberships[sym] = out
+		return out
+	}
 	if sym.Scope == nil && value == nil {
 		return nil
 	}
@@ -96,6 +98,11 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		})
 		ordinal++
 	}
+	if !flowDeclaresPayload(sym) {
+		// A flow owns its two FlowEnds ahead of its body (SysML.xtext FlowDeclaration); one declaring
+		// a payload owns them after it, below.
+		out, ordinal = m.withFlowEndMemberships(sym, out, ordinal)
+	}
 	for _, end := range m.SuccessionEndMembers(sym) {
 		// A `then` succession owns its two ends ahead of its body (SysML.xtext TargetSuccession).
 		out = append(out, &symbols.Symbol{
@@ -148,14 +155,54 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 			},
 		})
 		ordinal++
+		if m.IsFlowPayload(member) {
+			// A flow declaring its payload owns its two FlowEnds right after it, as the pilot orders them.
+			out, ordinal = m.withFlowEndMemberships(sym, out, ordinal)
+		}
 		return true
 	})
+	if result := m.ConstraintResultMember(sym); result != nil {
+		// A constraint body's closing bare condition is its result, owned last through a
+		// ResultExpressionMembership (SysML.xtext ConstraintBody), as the conversion writes it.
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   result.DeclSpan,
+			Visibility: sym.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: len(out), Form: symbols.ImplicitMembership, Member: result,
+			},
+		})
+	}
 	if parts := m.transitionMembers(sym); len(parts) > 0 {
 		out = m.withTransitionMemberships(sym, out, parts)
 	}
 	out = m.withDefaultMultiplicity(sym, out, len(out))
 	m.memberships[sym] = out
 	return out
+}
+
+// withFlowEndMemberships adds the EndFeatureMembership of each FlowEnd sym owns (FlowEndMembers).
+func (m *Model) withFlowEndMemberships(sym *symbols.Symbol, out []*symbols.Symbol, ordinal int) ([]*symbols.Symbol, int) {
+	for _, end := range m.FlowEndMembers(sym) {
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   end.DeclSpan,
+			Visibility: sym.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: end,
+			},
+		})
+		ordinal++
+	}
+	return out, ordinal
+}
+
+// flowDeclaresPayload reports whether sym is a flow declaring its payload (`flow of p : T`, `flow of T`).
+func flowDeclaresPayload(sym *symbols.Symbol) bool {
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.FlowEnds != nil && usage.FlowEnds.PayloadDecl != nil
 }
 
 // withDefaultMultiplicity adds the OwningMembership of the Multiplicity sym states
@@ -230,10 +277,8 @@ func isSatisfySubjectSymbol(sym *symbols.Symbol) bool {
 	return ok && rel.Kind == ast.RelSubject
 }
 
-// ownedThroughAnnotation reports whether owner owns member through an
-// Annotation rather than a Membership: an annotating element in the body of a
-// relationship or alias (KerML 8.2.3.3.1), or a dependency's `#M` prefix
-// (PrefixMetadataAnnotation); a relationship is no namespace to own a membership.
+// ownedThroughAnnotation reports whether owner owns member through an Annotation, not a Membership:
+// a relationship's or alias's body annotating element or `#M` prefix (KerML 8.2.3.3.1).
 func ownedThroughAnnotation(owner, member *symbols.Symbol) bool {
 	return relationshipBodyOwner(owner) && isAnnotatingSymbol(member) && !annotatesOthers(member)
 }
@@ -254,9 +299,8 @@ func (m *Model) prefixMetadataSymbols(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// leadWithPrefixMetadata moves owner's own `#M` prefixes among members ahead
-// of the rest, both in order: a prefix's membership precedes everything else
-// its declaration owns (PrefixMetadataMember). An inherited prefix stays put.
+// leadWithPrefixMetadata moves owner's own `#M` prefixes ahead of the other members, both in order
+// (PrefixMetadataMember precedes all its declaration owns); an inherited prefix stays put.
 func leadWithPrefixMetadata(owner *symbols.Symbol, members []*symbols.Symbol) []*symbols.Symbol {
 	leads := func(member *symbols.Symbol) bool {
 		return member.IsPrefixMetadata() && member.OwnerScope != nil && member.OwnerScope.Owner() == owner
@@ -273,10 +317,8 @@ func leadWithPrefixMetadata(owner *symbols.Symbol, members []*symbols.Symbol) []
 	return members
 }
 
-// ownedThroughFeatureMembership reports whether owner owns member through a
-// FeatureMembership, which is what makes member one of its features (KerML
-// 8.3.3.1.10 Type::ownedFeature, 8.3.3.3.4 Feature::owningType). Without the
-// metaclass library no membership is classified, so every member counts.
+// ownedThroughFeatureMembership reports whether owner owns member through a FeatureMembership (KerML
+// 8.3.3.1.10 Type::ownedFeature); with no metaclass library nothing is classified and all count.
 func (m *Model) ownedThroughFeatureMembership(owner, member *symbols.Symbol) bool {
 	if owner == nil || member == nil {
 		return false
@@ -329,10 +371,8 @@ func relationshipBodyOwner(sym *symbols.Symbol) bool {
 	return ok
 }
 
-// OwningMembership returns the Membership through which sym's owner owns it, or
-// nil for an element owned through no membership: a root element, an alias or
-// other relationship owned directly, an annotating element a relationship owns
-// through an Annotation, or a reflected relationship object.
+// OwningMembership returns the Membership through which sym's owner owns it; nil for a root, a
+// directly owned relationship, an element owned through an Annotation, or a reflected relationship.
 func (m *Model) OwningMembership(sym *symbols.Symbol) *symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil || sym.Chain != nil || sym.Kind == symbols.SymbolAlias {
 		return nil
@@ -350,16 +390,16 @@ func (m *Model) OwningMembership(sym *symbols.Symbol) *symbols.Symbol {
 	return nil
 }
 
-// OwningRelationship returns the relationship that owns sym (KerML 8.3.2.1
-// Element::owningRelationship): its owning membership, the Annotation that owns
-// a relationship's prefix metadata feature or body annotating element, or
-// the relationship whose chain target it denotes; nil for an element owned
-// directly, such as a membership or alias, and for a root element.
+// OwningRelationship is KerML 8.3.2.1 Element::owningRelationship: sym's owning membership, the
+// Annotation owning a relationship's annotating element, or the relationship whose chain it ends.
 func (m *Model) OwningRelationship(sym *symbols.Symbol) *symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil {
 		return nil
 	}
 	if sym.Chain != nil {
+		if sym.Chain.Flow != nil {
+			return m.flowEndChainReference(sym)
+		}
 		return sym.Chain.Relationship
 	}
 	if membership := m.OwningMembership(sym); membership != nil {
@@ -395,11 +435,8 @@ func (m *Model) OwnedImports(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// OwnedRelationships returns the relationships sym owns (KerML 8.3.2.1
-// Element::ownedRelationship): the memberships of its prefix metadata (the
-// Annotations, on a relationship), the relationship clauses written on it, and
-// its body's imports, memberships and
-// `about` annotations in source order.
+// OwnedRelationships is KerML 8.3.2.1 Element::ownedRelationship in source order: prefix metadata
+// memberships (Annotations on a relationship), written clauses, body imports and memberships.
 func (m *Model) OwnedRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil {
 		return nil
@@ -471,6 +508,10 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 		// A type owns its multiplicity through an OwningMembership (KerML 8.3.3.1.10 Type::multiplicity).
 		return "OwningMembership"
 	}
+	if member != nil && member.Kind == symbols.SymbolCrossFeature {
+		// An end owns its inline cross feature through an OwningMembership (KerML.xtext OwnedCrossFeatureMember).
+		return "OwningMembership"
+	}
 	if member != nil && member.Expr != nil {
 		switch member.Expr.Role {
 		case symbols.ExpressionParameter:
@@ -505,10 +546,8 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 		return "FeatureMembership"
 	}
 	if member.Kind == symbols.SymbolMetadataUsage && !isMetadataBodyMember(member) {
-		// A metadata feature annotates the element that owns it through an
-		// OwningMembership, as a `#M` prefix or in its body (SysML.xtext
-		// PrefixMetadataMember, AnnotatingMember; KerML.xtext
-		// PrefixMetadataMember, NonFeatureMember), never as its feature.
+		// A `#M` prefix or body metadata feature is owned through an OwningMembership, never as a
+		// feature (SysML.xtext PrefixMetadataMember, AnnotatingMember; KerML.xtext NonFeatureMember).
 		return "OwningMembership"
 	}
 	if name := m.sysmlMembershipMetaclassName(owner, member); name != "" {
@@ -517,8 +556,9 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 	if !member.IsFeature() || !m.reflectiveMetaclassConforms(owner, "Type") {
 		return "OwningMembership"
 	}
-	if member.Kind == symbols.SymbolConnectorEnd || usageFlag(member, func(u *ast.Usage) bool { return u.IsEnd }) ||
-		containsElement(m.EndFeatures(owner), member) {
+	if _, implied := symbols.ImpliedSuccessionEndIndex(member); member.Kind == symbols.SymbolConnectorEnd || implied {
+		// A connector's clause end (`connect a to b`, a flow's or a `then` succession's) is an EndFeatureMembership;
+		// a declared `end` feature is a FeatureMembership whose member isEnd, as the pilot exports both.
 		return "EndFeatureMembership"
 	}
 	if isAcceptPayload(owner, member) {

@@ -19,11 +19,11 @@ package Test {
         state away;
 
         transition first start then away;
-        transition first away then resume;
-        transition first first then second;
-        transition first second if departures == 0 do {
+        transition first away then outer.resume;
+        transition first outer.first then outer.second;
+        transition first outer.second if departures == 0 do {
             assign departures := departures + 1;
         } then away;
-        transition first second if departures > 0 then done;
+        transition first outer.second if departures > 0 then done;
     }
 }

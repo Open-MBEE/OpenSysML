@@ -18,10 +18,10 @@ package ForkEntersRegionsWithoutInitial {
         join sync;
 
         transition first idle do { assign log := log + "T1(effect) "; } then split;
-        transition first split do { assign log := log + "T1.1(effect) "; } then a;
-        transition first split do { assign log := log + "T1.2(effect) "; } then b;
-        transition first a then sync;
-        transition first b then sync;
+        transition first split do { assign log := log + "T1.1(effect) "; } then work.left.a;
+        transition first split do { assign log := log + "T1.2(effect) "; } then work.right.b;
+        transition first work.left.a then sync;
+        transition first work.right.b then sync;
         transition first sync do { assign log := log + "T2(effect) "; } then done;
     }
 }

@@ -37,6 +37,9 @@ type stmtEnv struct {
 	// unvalued names, per frame, the features a frame declares but holds no value
 	// for yet (`out v : Integer;`), which an assignment writes into that frame.
 	unvalued []map[string]bool
+	// rootWrite is the write path of the root locals for a run around them — a
+	// calculation declared in the body assigning one; nil where none writes them.
+	rootWrite func(f frame, name string, value Value) error
 }
 
 // enter pushes a frame for a block about to run and returns it.
@@ -280,9 +283,16 @@ func (env *stmtEnv) localFrames() ([]map[string]Value, []*bodyCells, []map[*symb
 
 // localFrame exposes the behavior's root locals as an evaluation frame.
 func (env *stmtEnv) localFrame() frame {
-	local := env.bodyFrame(env.locals, env.localCells, env.unvaluedLocal)
+	local := env.rootFrame()
 	local.held = env.localHeld
 	return local
+}
+
+// rootFrame is the frame of the root locals, written through the run's own path.
+func (env *stmtEnv) rootFrame() frame {
+	root := env.bodyFrame(env.locals, env.localCells, env.unvaluedLocal)
+	root.write = env.rootWrite
+	return root
 }
 
 // bodyFrame marks local values as lexical bindings in the run that owns the data frame.
@@ -487,7 +497,7 @@ func (e *stmtEngine) evalIn(scope *symbols.Scope) *EvalContext {
 	if e.env.perf != nil {
 		frames = append(frames, performanceFrame(e.env.perf))
 	}
-	root := e.env.bodyFrame(e.env.locals, e.env.localCells, e.env.unvaluedLocal)
+	root := e.env.rootFrame()
 	root.held = e.env.localHeld
 	root.ensureCells = func() *bodyCells { return e.ensureRootCells() }
 	frames = append(frames, root)
@@ -524,7 +534,7 @@ func (e *stmtEngine) evalInDepth(scope *symbols.Scope, depth int) *EvalContext {
 	if e.env.perf != nil {
 		frames = append(frames, performanceFrame(e.env.perf))
 	}
-	root := e.env.bodyFrame(e.env.locals, e.env.localCells, e.env.unvaluedLocal)
+	root := e.env.rootFrame()
 	root.held = e.env.localHeld
 	root.ensureCells = func() *bodyCells { return e.ensureRootCells() }
 	frames = append(frames, root)

@@ -295,6 +295,12 @@ disagreement, which `-check` then shows as that row moving out of the column.
 The scorecard headline, rendered from the baseline when the site builds.
 <!-- doc-counts:end apijson-scorecard -->
 
+Re-recorded on the feature-type change (#2198: the element form's `type` is the derived `Feature::type` — a feature's own typings with the types of the features it subsets or redefines, less the ones another already specializes, KerML 1.1 §8.3.3.3.4 `deriveFeatureType` — where it was the written typings alone whenever the feature had one, which stay as the `type` entry of `sysx:mappingValues`; and the evaluator decides whether one type specializes another from the graph's own specializations where it could answer only for two source symbols): no element match moved and no row appeared or disappeared; 183 fragment rows moved in 44 files, every one a `type` or a property derived from it (`definition` and the typed definitions — `partDefinition`, `itemDefinition`, `occurrenceDefinition`, `portDefinition`, `attributeDefinition`, `actionDefinition`, `calculationDefinition`, `constraintDefinition`, `requirementDefinition` — `behavior` and `function`). Present-equal 2093866 → 2094489, ours-missing 301463 → 300846, present-different 147594 → 147588, pilot-missing 84343 → 84419. `type` itself gains 85 present-equal (`Feature` 47, `PartUsage` 17, `RequirementUsage` 12, `ConstraintUsage` 6, `ItemUsage` 2, `OccurrenceUsage` 1), 9 of them from present-different (a typed feature that also subsets or redefines a typed one: `Feature` 7, `PartUsage` 1, `ItemUsage` 1) and 76 from ours-missing (a feature whose candidate types the evaluator could not rank); the derived rows follow, ours-missing → present-equal. Two movements are not towards the pilot, and both carry a cause already recorded: `Feature.definition` grows 76 pilot-missing over 16 KerML files — the KerML features this writer types as usages, whose `definition` now derives with their `type` and which the pilot's `Feature` has no such property for (the rows were pilot-missing already, 615 → 691); and `ItemUsage.definition`/`itemDefinition`/`occurrenceDefinition` move 1 ours-missing → present-different in `Simple Tests/IndividualTest.sysml` (`individual item :>> i : II2` redefining `part i : I`): the pilot lists the implied `Parts::Part` of the redefined part beside `II2`, this writer `II2` alone, as its `ItemUsage.type` row already differs there (`type` is derived from written typings, not from an implied base). Merged with the occurrence-prefix classification change below, the two together move one more row than either alone: the two `in individual :>> testVehicle : TestVehicleN` parameters of `training/34. Verification/Verification Case Usage Example.sysml`, `OccurrenceUsage`s by that change, take their `occurrenceDefinition` from the derived `type` (`OccurrenceUsage.occurrenceDefinition` 2 ours-missing → present-equal, as their `definition` already was); no other row moved.
+
+Re-recorded on the self-model's pipeline, runtime, identity and quality update (`examples/self-model/{behavior,execution,identity,pipeline,quality}.sysml` gain the facts of loop performances, the execution trace, run shots, the shared model's memo tables, workspace project discovery, the solver's pins and derived values, the identity table's languages and the race suite, the CI tiers and the source tree): 577 more elements match (107344 → 107921; ours-only 19142 → 19198, pilot-only 28488 → 28655), every one under the `examples` root (33563 → 34140, 5589 → 5645, 10573 → 10740) and no other root moving; present-equal 2093993 → 2105391, present-different 147578 → 148392, ours-missing 301469 → 303031, pilot-missing 84347 → 84781, absent-both 2282452 → 2296141, indeterminate 35820 → 36020 and pilot-nondeterministic 546 → 547 are the new elements' properties joining the comparison. 2350 rows moved, no row appears or disappears and no row has fewer equal; the 166 that gained present-different do so for the causes the tables already state — the `Multiplicity` inherited family (3491 → 3556, the implied multiplicities of the new attributes, no multiplicity implied base in the side table), the `PartUsage` inherited family (1720 → 1731 on `featureMembership`, `inheritedFeature`, `member` and `membership`; `feature` 1721 → 1732, `inheritedMembership` 1723 → 1734) and `AttributeUsage.ownedMember` (1871/738 → 1885/791 equal/different, the new string attributes' implied multiplicity members). In `document.sysml`, `surfaces.sysml` and `views.sysml`, which the change leaves as they were, only the pilot's own figures move (`document.sysml` pilot-only 2171 → 2201, its duplicate and unkeyable elements 5393 → 5583 and 4229 → 4317): the pilot writes the elements of the imported packages again under each importing file.
+
+Re-recorded on the satisfy reference-subsetting change (the requirement a `satisfy r by v;` or a `verify r;` names is the usage's `ast.RelReferences`, SysML v2 §8.2.2.21.2 `OwnedReferenceSubsetting`; the writer no longer turns every `subsets` of a satisfy, verify or end-form head into a ReferenceSubsetting): 46 fragments move. The collapsed head property of the requirement named is `references` where it was `subsets`, so 114 pilot-missing cells move from the `SatisfyRequirementUsage.subsets`/`RequirementUsage.subsets` rows to the `.references` rows of the same owners, no bucket changing: both are this mapping's own shorthand the pilot does not state. Nine more elements match (107335 → 107344), each a `Subsetting` a specialization written after the head's reference owns (`satisfy r :> other`, an `interface a to b :> c`, a KerML `succession`), which was written as a second ReferenceSubsetting the pilot has none of: `InterfaceUsage.ownedReferenceSubsetting` 4, `SatisfyRequirementUsage.ownedReferenceSubsetting` 2 and `Succession.ownedReferenceSubsetting` 1 pilot-missing go, `InterfaceUsage.ownedRelationship`/`ownedSpecialization` 4 different → equal, `ownedSubsetting` 4 different → equal. The newly matched Subsettings bring their own rows into the comparison in the classes those rows already hold: `Subsetting.owner` 9 pilot-missing (stated on our side for every relationship), and one `Subsetting.general`/`subsettedFeature`/`target`/`relatedElement` ours-missing (a target outside the compared file). Nothing matched before stops matching.
+
 Re-recorded on the transitionLink change (a transition owns its `transitionLink` last, a nameless `ReferenceUsage` through a `FeatureMembership` after its succession, on both legs and however it is written, as the pilot exports `TransitionUsage::transitionLink`): 55 fragments move. 64 of the pilot's transitionLink memberships now match ours by position — `TransitionUsage.ownedFeatureMembership` 64 different → equal, `ownedMembership`/`ownedRelationship` 63 each — and their structural rows land equal (`isImplied`, `visibility`, `owningType`, `source`, `membershipOwningNamespace` 64 each). Their `memberName`/`ownedMemberName` 64 ours-missing and `memberElement`/`ownedMemberElement`/`target`/`relatedElement` 63 different are one gap: the pilot names the member `transitionLink` by the library feature it implicitly redefines and keys it by that name, where ours is minted nameless — the family `ParameterMembership.memberName` 4863 already holds (`transitionLinkSource`). `FeatureMembership.owner` 64 pilot-missing is the pilot's as on every membership. The one transitionLink element matched lands its flags equal and its `name`, `type` and `definition` ours-missing, the same gap. No other row moved.
 
 Re-recorded on the pilot `2026-09.1` re-pin (the supplemental release corrects the reference-link resolution regression of `2026-09`: an implied specialization, type featuring or connector end no longer adopts an unresolved proxy as an owned element, and an unresolved redefined feature is not cached — the library and the corpora are unchanged, so the 935 files are the same files): our side writes what it wrote, and the pilot's export now succeeds on the 59 files it had failed on (`pilotFailed` 59 → 0: `pilot-examples` 3, `spec-examples` 52, `testdata` 4), so those files enter the comparison for the first time — 107270 elements matched (105427 before; `spec-examples` 7630 → 9254, `pilot-examples` 29194 → 29398, `testdata` 1537 → 1552), ours-only 18143 → 19087 and pilot-only 26894 → 28562 for the same reason, present-equal 2058517 → 2093123, present-different 144369 → 147281, ours-missing 295216 → 301333, pilot-missing 82842 → 84281; 62 fragments move, every one in those three roots. Ours refused 36 → 38 and converted alone 45 → 49 count the two refused specification examples and four colliding `testdata` documents that were skipped as pilot failures before, not a change on our side; the other six roots are byte-identical.
@@ -338,6 +344,17 @@ Re-recorded when the self-model's build pipeline moved the library snapshot to b
 The pilot's export fails on no file at `2026-09.1` (`pilotFailed` 0; at `2026-09` it had thrown on an element without a resource in 59 — 52 specification examples, 4 test fixtures and the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings it evaluates into elements — and `2026-09.1` stops its implied relationships from adopting an unresolved proxy as an owned element). Ours refused 38 (all of them specification examples the parser could not read whole; two of them, `sysml/7.18.3/4.sysml` and `sysml/8.4.14.3/2.kerml`, were left out as pilot failures before) and converted 49 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11786 (metaclass, property) rows carry a comparison; 163179 references compared through the unkeyed sentinel, 280441 of our `sysx:` annotations were left out, and 322/385 elements (ours/pilot) were dropped for ambiguous keys, 19397/32846 for having none.
 
 Re-recorded on the positional transition heads change (a state body's `then x;` and a decision's `if g then x;` or `else x;` branch own the Membership naming the member before them and their `transitionLinkSource` link parameter through a ParameterMembership ahead of their guard, as the pilot exports a TargetTransitionUsage): the matched-element and every property-family count hold; only `unkeyableElements.ours` grows, 19987 → 20381, by the new memberships and nameless parameters, which the matcher keys no more than it keys a `transition`'s own (the unnamed-minted-member family above).
+
+
+Re-recorded on the positional succession ends change (a `then x;` succession whose source is reached by position and carries no multiplicity — `entry; then idle;`, an unnamed action followed by `then a2;` — owns its two end features on the native walk and in the conversion, as every `TargetSuccession` does): no row moves; `unkeyableElements.ours` grows by 520 across 43 files (20381 → 20901). The new elements are the minted end `ReferenceUsage`s, their `EndFeatureMembership`s and `ReferenceSubsetting`s, owned by positional successions that are unkeyable on both sides already (an unnamed member is keyed from its owner; `SuccessionAsUsage` is the largest unkeyable family after the end family on either side), so they are counted and left out of matching as the pilot's own are.
+
+Re-recorded on the occurrence-prefix classification change (a usage whose prefix states `individual` or a portion kind is an `OccurrenceUsage` named or not, `SysML.xtext` `IndividualUsage`/`PortionUsage`, SysML v2 §8.3.9.4, and an unnamed enumerated value an `EnumerationUsage`, `EnumeratedValue`, where each had been written a `ReferenceUsage` for lacking a name): two fragments move. `training/34. Verification/Verification Case Usage Example.sysml` loses its two type mismatches (`typeMismatch` 1838 → 1836), the two `in individual :>> testVehicle` parameters the pilot exports as `OccurrenceUsage`, so `PerformActionUsage.nestedOccurrence` is equal where it differed and `nestedReference` no longer lists them. `pilot-examples/Simple Tests/EnumerationTest.sysml` matches the three unnamed values of `SizeChoice` (`= 60.0;`) with their value memberships and literals: 9 more matched elements (107344 → 107353), 9 fewer on each unmatched side, 9 fewer present-different properties (147578 → 147569) and `EnumerationDefinition.ownedMember`, `ownedElement` and `variant` equal. The ours-missing (301469 → 301521) and pilot-missing (84347 → 84354) figures grow only by the properties of those newly compared elements, in the families already listed for every `EnumerationUsage`, `FeatureValue` and literal expression; `EnumerationDefinition.ownedAttribute` gains the one pilot-missing entry the named values of an enumeration already have.
+
+Re-recorded on the feature chain operator change (a `FeatureChainExpression` — `d.a` as a value, an operand or a constraint's result — states `operator "."` in the conversion, as KerML 1.0 § 8.3.4.8.4 defines it and the pilot exports it): one row moves, `FeatureChainExpression.operator`, from `oursMissing` to `presentEqual` in the 122 fragments whose models chain a feature, 547 values in all (`presentEqual` 2105606 → 2106153, `oursMissing` 303083 → 302536). No element matching changes and no other row moves; the native walk had answered the operator already, so the two legs now agree on the cell.
+
+Re-recorded on the flow end feature naming change (the `ReferenceUsage` a flow's end owns, redefining the last feature the end names, is named by that feature — `name` on the usage, `memberName` on its `FeatureMembership`, derived as KerML 1.1 § 8.3.3.3.4 Feature::namingFeature defines them and the pilot exports them): one row moves, `FeatureMembership.memberName`, from `oursMissing` to `presentEqual` in the 11 fragments whose flows name their ends, 92 values in all (`presentEqual` 2106153 → 2106245, `oursMissing` 302536 → 302444) — the interaction-sequencing, Arrowhead and room models with many flows carry most of them, and `kerml-examples/Behavior Examples/TakePicture.kerml` two, a KerML flow's ends being named the same way. No element matching changes and no other row moves; the usage's `isVariable` and `mayTimeVary`, which the conversion already stated true, now agree with the native walk too.
+
+Re-recorded on the usage-collection derivation change (`nestedMetadata` and `ownedMetadata` select from `ownedMember`, every other `nested*`/`owned*` usage collection from `ownedFeature`, SysML v2.1 deriveUsageNestedMetadata, deriveUsageNestedUsage and the `Definition` pair, so a collection lists no usage its owner holds through a membership that is no `FeatureMembership` — a metadata usage, a variant, a transition's succession; before, every one of them selected from `ownedMember`): 100 fragments move, and only in the `nested*` and `owned*` usage rows. `pilotMissing` 86655 → 85240, the collections we stated for an owner whose only usages are such members and the pilot leaves empty, now `absentBoth` (2335399 → 2336699); `presentDifferent` 147737 → 147375, the collections that listed such a member beside the features, of which 351 are now `presentEqual` (2173330 → 2173681) and 11 `indeterminate` (49290 → 49301: the lists now agree in length and differ only at a target neither key table addresses). The 115 comparisons that leave are the `Feature.nested*` rows of the KerML fragments, stated for a KerML feature's members owned through an `OwningMembership` and no longer written; no row moves away from agreement, no element matching changes and no other row moves.
 
 <!-- doc-counts:begin apijson-roots -->
 The per-root table, rendered from the baseline when the site builds.
@@ -482,6 +499,19 @@ still different is the connector end `engineToTransmissionInterface::p2` of the 
 the pilot's `type` lists both, this writer the bound port's conjugate alone, the inherited `ClutchPort` the
 same gap as before. `ConjugatedPortTyping.type`, `.conjugatedPortDefinition` and `.portDefinition` (61 equal
 each) and `PortUsage.portDefinition`/`.definition` did not move. No other row moved.
+
+**A port's `input` and `output` are relative to the port** (re-recorded when the element properties began
+answering a port's directed features by `Type::directionOf`, KerML 1.1 §8.3.3.1.10: a feature the port owns
+keeps the direction it is declared with, and one it inherits is reversed once per conjugation on the way,
+through a port it subsets or redefines as through its own `ConjugatedPortTyping`, SysML v2.1 §8.3.12.3; a
+port typed `~P` had reversed the features it declares itself as well, and a port subsetting a conjugated one
+had reversed none): the `PortUsage.input` and `.output` rows of `ServerSequenceRealization-3` and
+`ServerSequenceOutsideRealization-3` in the pilot's Interaction Sequencing Examples, whose conjugated ports
+redeclare the features of their definition, move toward the pilot in both files alike — `input` 4 → 5 equal
+(1 → 0 different, 2 → 1 pilot-missing, 2 → 3 absent on both sides), `output` 2 → 4 equal (1 → 0 different,
+4 → 3 ours-missing): six rows newly equal, 2058517 → 2058523 present-equal, 144369 → 144365
+present-different overall. No other row moved; the `FlowEnd.input`/`.output` rows of the same files read as
+before.
 
 The scorecard is mostly **ours-missing**: this repository's writer emits a subset of the metamodel's properties, and the referee now measures which, per metaclass. The full ranked scorecard with one concrete example per differing row is `build/pilot-apijson-diff/pilot-apijson-diff.txt` after a run; the baseline keeps every row's seven counts.
 
@@ -796,7 +826,106 @@ ours-missing):
    compact form spells a membership stub without a `libraryPath`.
 
 
-Not completed, and why: `Type::endFeature` (not taken up in this step; it awaits a measurement of its own) and the
+6. A general type the model states that lives in the library (`attribute a : ScalarValues::Integer`,
+   `part g : Parts::Part`) contributes its members to the same family as an implied base does: the evaluator
+   resolves the library reference the graph carries through `LibrarySymbolResolver`, which the graph
+   structure implements over the library catalog, where before only the symbol structure was asked and
+   every such feature was withheld the whole family. `Type::endFeature` (§8.3.3.1.10
+   `deriveTypeEndFeature`) joins the table: the owned ends, then the inherited ones an owned end does not
+   redefine — by an explicit redefinition or by position (§8.3.3.3.4 `checkFeatureEndRedefinition`), the
+   redefinitions of every general applied before any general's ends are inherited, so an end redefined
+   along one general is not inherited along another. Two classifications are corrected with it, each
+   decided by the clause and each also what the pilot exports: a type's multiplicity is owned through an
+   `OwningMembership`, not a `FeatureMembership` (§8.3.3.1.10 `Type::multiplicity`), so an inherited
+   `MultiplicityRange` stays in `inheritedMembership`, `membership` and `member` and leaves `feature`,
+   `featureMembership` and `inheritedFeature`; an enumerated value is held by a `VariantMembership`
+   (SysML 2.1 Beta 2 §8.3.6.5), which is no `FeatureMembership` either. Measured against step 5 as
+   re-recorded above (718 of 935 fragments move): 2123042 present-equal (+29182), 143317 present-different
+   (−4281), 269059 ours-missing (−32406), 84409 pilot-missing (+64), 43325 indeterminate (+7505); no
+   element match moves, and no row of any file loses a present-equal comparison. Per property (change in
+   present-equal / present-different / ours-missing / indeterminate, summed over metaclasses):
+   `featureMembership` +10979 / −6226 / −4923 / +170, `feature` +7832 / −6210 / −4923 / +3301,
+   `inheritedFeature` +7831 / −6253 / −4907 / +3329, `usage` +1813 / −71 / −2115 / +373, `endFeature`
+   +355 / +15 / −410 / +40, `inheritedMembership` +84 / +4811 / −4912 / +17, `membership` +84 / +4768 /
+   −4869 / +17, `member` +28 / +4770 / −4869 / +71, `directedFeature` +43 / +44 / −148 / +61,
+   `directedUsage` +27 / +44 / −132 / +61, `output` +63 / +3 / −127 / +61, `input` +35 / +21 / −60 / +4,
+   `subjectParameter` +8 / +3 / −11 / 0; no property outside these moves. Adjudication:
+   - The feature lists move from different to equal because the multiplicity ranges and enumerated values
+     left them; the unkeyed references fall by 10233 with them, an inherited library `MultiplicityRange`
+     being a member neither key table addresses.
+   - `inheritedMembership`, `membership` and `member` move from ours-missing to present-different rather
+     than to equal: these are the features with a stated library general, and their membership lists
+     differ from the pilot's by the causes already itemised under step 5 (the order of members inherited
+     through several generals, the `MultiplicityRange` of an intermediate feature of a subsetting chain),
+     not by a cause this step adds.
+   - The new indeterminate rows are lists that agree at every keyed position and reference an unnamed
+     library member neither key table addresses, the family step 5 describes.
+   - The 64 new pilot-missing rows are all `usage` (`Feature.usage` 63, `Succession.usage` 1) in the KerML
+     roots: the element is one this writer states as a SysML usage where the pilot states a KerML
+     `Feature` (a `typeMismatch` pair, counted under the pilot's metaclass and unchanged in number), so
+     the pilot has no `usage` to state; the row follows from the existing metaclass difference.
+   - `endFeature` present-different (15, all `FlowUsage`: a `message` with no ends inherits
+     `Flows::flows::source`/`target` where the pilot states those of `Flows::messages`) is an implied-base
+     difference this step does not change.
+   - The residue of `directedFeature`, `input` and `output`, by class (rows over the five roots, the
+     three properties counted separately):
+     - fixed here, the clause and the pilot agreeing: a subject is an `in` parameter (KerML §8.3.4.6.4
+       `parameterDirection`) that redefines the subject of every general of its owner, an implied base
+       feature included (SysML §7.17.2), so `Requirements::RequirementCheck::subj` and its kin are
+       inputs until a stated subject redefines them; an objective redefines the objective of the case
+       its owner specializes and inherits from it (SysML §8.3.21.9
+       `checkRequirementUsageObjectiveRedefinition`); an accept's payload parameter is `in`, where the
+       export stated `out` (SysML.xtext `PayloadParameterMember`, `validateAcceptActionUsageParameters`).
+       `directedFeature` present-different 1093 → 768, `input` ours-missing 1439 → 1102, `output`
+       pilot-missing 146 → 97.
+     - ours-missing, every row assigned to one cause from the omission the writer records for it
+       (`endFeature` 113, `directedFeature` 5268, `input` 579, `output` 5014; none unassigned):
+
+       | Cause | `endFeature` | `directedFeature` | `input` | `output` |
+       |---|---:|---:|---:|---:|
+       | an expression element or a parameter of one: no implied base in the element form, a separate change | 21 | 4959 | 306 | 4872 |
+       | withheld: a general or a redefined feature is not resolved in the graph of a file converted alone | 23 | 96 | 84 | 84 |
+       | withheld: an element the graph does not represent | 0 | 8 | 8 | 0 |
+       | a KerML classifier or feature exported under a SysML usage metaclass, which has no such property (the existing metaclass difference) | 65 | 43 | 37 | 31 |
+       | evaluated empty where the pilot states a value | 4 | 162 | 144 | 27 |
+
+       The last cause is a value difference, not a withheld one, and is not adjudicated per metaclass:
+       `AssignmentActionUsage` (113 `directedFeature`, 113 `input`), `AssertConstraintUsage` (21, 0,
+       21 `output`), `ForLoopActionUsage` and `WhileLoopActionUsage` (8 each, inputs),
+       `AttributeUsage` (6, 6, 2), `FlowDefinition` (2, 2), `FlowEnd` (2, 1, 1), and one to two rows
+       each on `CalculationUsage`, `ConstraintUsage`, `ForkNode`, `Function` and `ReferenceUsage`;
+       `endFeature` one each on a `Connector`, an `InterfaceUsage`, a `ReferenceUsage` and a
+       `TransitionUsage`.
+     - a `FlowFeature` has the direction of the feature it redefines, read from its `FlowEnd`
+       (KerML.xtext `FlowFeature`), so a flow end states its `input` or `output`; a performed feature
+       chain inherits the parameters of the last feature it names (KerML §8.3.3.3.4 `featureTarget`).
+     - the clause over the pilot: a `ConjugatedPortDefinition` and a port typed by one take the
+       original definition's features with the directions reversed (KerML §8.3.3.1.10 `supertypes` of
+       a conjugated type); the pilot states `[]` (`directedFeature` 96, `input` 67, `output` 52
+       pilot-missing: the conjugated definitions, the ports typed by one, and the connector and flow
+       ends that subset such a port). A feature the conjugated port itself declares keeps the
+       direction it states.
+     - not adjudicated: a `TransitionUsage` keeps the inherited `StateTransitionAction::payload` beside
+       its own payload parameter (64 rows per property, 55 `output` pilot-missing). The OCL of
+       `checkFeatureParameterRedefinition` (KerML §8.4.4.7) reads the direct general's owned
+       parameters, which the implied `stateTransitions` feature has none of; its prose and the pilot
+       read the inherited ones.
+     - the same elements under another name: the unnamed parameters of a send, an accept and a
+       transition are referenced by position here and by the name they take from the feature they
+       redefine in the pilot (`SendActionUsage` 20–29, `AcceptActionUsage` 20–45 rows); a flow's ends
+       (`FlowUsage` 56, `FlowEnd`) are the flow-end difference above.
+   - Re-measured on the tree this step is merged into (660 of 935 fragments differ from the record
+     without it, 10938 rows): 2141037 present-equal (+34161), 145631 present-different (−2742), 260894
+     ours-missing (−40929), 85030 pilot-missing (+168), 45530 indeterminate (+9510); no element match
+     moves. Sixteen properties move and no other: the six of the inherited family, `usage`,
+     `directedFeature`, `directedUsage`, `input`, `output`, `endFeature`, `direction`, and
+     `subjectParameter`, `actorParameter` and `stakeholderParameter` (`actorParameter` 4 and
+     `stakeholderParameter` 1, each ours-missing → present-equal). The per-property figures above are the earlier
+     measurement and were not re-derived row by row on this tree.
+
+Not completed, and why: a namespace's `importedMembership`, and with it the `membership` and `member` of a
+namespace that imports, which the evaluator derives from the notation's import declarations and not yet
+from the graph; the family of a type one of whose generals the single-file graph does not resolve; and the
 causes itemised under step 5. `Behavior::step` (0 equal / 257 different),
 `Step::parameter` and `Behavior::parameter` (21 / 530), `InstantiationExpression::instantiatedType`
 (143 / 464), `Usage::nestedTransition`, `Definition::ownedTransition`, `objectiveRequirement`,
@@ -1005,6 +1134,7 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 | `FeatureReferenceExpression` | `inheritedMembership` | not completed — the result-feature family of this record's step 5 | `Type::inheritedMembership = inheritedMemberships(Set{}, Set{}, false)` (KerML 8.3.3.1.10, deriveTypeInheritedMembership) |
 | `FeatureReferenceExpression` | `inheritedFeature` | not completed — the result-feature family of this record's step 5 | `Type::inheritedFeature = inheritedMembership.memberElement->selectByKind(Feature)` (KerML 8.3.3.1.10, deriveTypeInheritedFeature) |
 | `FeatureReferenceExpression` | `behavior` | not completed — the result-feature family of this record's step 5 | `Step::behavior = type->selectByKind(Behavior)` (KerML 8.3.4.6.3, deriveStepBehavior); for an expression the implied `Performances::Evaluation` typing |
+| `FeatureReferenceExpression` | `function` | not completed — the result-feature family of this record's step 5 (as `behavior`) | `Expression::function = behavior->selectByKind(Function)` (KerML 8.3.4.7.3, deriveExpressionFunction); for a feature reference the implied `Performances::Evaluation` typing |
 | `FeatureMembership` | `memberName` | closed for a named member — the conversion states `memberName` as the member's effective name; the 357 left are implied parameters the pilot names by the library feature they implicitly redefine | `Membership::memberName = memberElement.name` (KerML 8.3.2.4.3, deriveMembershipMemberName) |
 | `FeatureMembership` | `ownedMemberName` | PR #1232 (`feature/api-json-derived-properties-layered`) | `OwningMembership::ownedMemberName = ownedMemberElement.name` (KerML 8.3.2.3.6) |
 | `Feature` | `featuringType` | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::featuringType = typeFeaturing.featuringType`, plus the owning type of an owned feature (KerML 8.3.3.3, deriveFeatureFeaturingType; KERML11-3/4 multiplicity featuring) |
@@ -1047,6 +1177,12 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 | `Multiplicity` | `inheritedMembership` | present-different as the rest of the inherited family (the base `Base::naturals` is stated; causes 1–2 of the inherited-member entry: library member ids the key does not reach, implied bases ordered first) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
 | `Multiplicity` | `member` | present-different as the rest of the inherited family (the base `Base::naturals` is stated; causes 1–2 of the inherited-member entry: library member ids the key does not reach, implied bases ordered first) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
 | `Multiplicity` | `membership` | present-different as the rest of the inherited family (the base `Base::naturals` is stated; causes 1–2 of the inherited-member entry: library member ids the key does not reach, implied bases ordered first) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
+| `FeatureReferenceExpression` | `function` | not completed — an expression element has no implied base in the graph (the result-feature family of this record's step 5; PR #2002 `feat/api-json-expression-implied-bases`) | `Expression::function = type->selectByKind(Function)` (KerML 8.3.4.7.3, deriveExpressionFunction); the implied typing by `Performances::Evaluation` |
+| `LiteralInteger` | `function` | not completed — an expression element has no implied base in the graph (the result-feature family of this record's step 5; PR #2002 `feat/api-json-expression-implied-bases`) | `Expression::function = type->selectByKind(Function)` (KerML 8.3.4.7.3, deriveExpressionFunction); the implied typing by `Performances::LiteralEvaluation` |
+| `LiteralInteger` | `behavior` | not completed — an expression element has no implied base in the graph (the result-feature family of this record's step 5; PR #2002 `feat/api-json-expression-implied-bases`) | `Step::behavior = type->selectByKind(Behavior)` (KerML 8.3.4.6.3, deriveStepBehavior); the implied typing by `Performances::LiteralEvaluation` |
+| `LiteralInteger` | `featureMembership` | not completed — an expression element has no implied base in the graph (the result-feature family of this record's step 5; PR #2002 `feat/api-json-expression-implied-bases`) | `Type::featureMembership = ownedFeatureMembership->union(inheritedMembership->selectByKind(FeatureMembership))` (KerML 8.3.3.1.10, deriveTypeFeatureMembership) |
+| `LiteralInteger` | `feature` | not completed — an expression element has no implied base in the graph (the result-feature family of this record's step 5; PR #2002 `feat/api-json-expression-implied-bases`) | `Type::feature = featureMembership.ownedMemberFeature` (KerML 8.3.3.1.10, deriveTypeFeature) |
+| `LiteralInteger` | `directedFeature` | not completed — an expression element has no implied base in the graph (the result-feature family of this record's step 5; PR #2002 `feat/api-json-expression-implied-bases`) | `Type::directedFeature`, the `feature`s whose `directionOf` is not null (KerML 8.3.3.1.10, deriveTypeDirectedFeature) |
 <!-- doc-counts:end apijson-launch-ready-gaps -->
 
 Rows an evaluator rule in PR #1232 (`internal/semantic/metamodel/rules.go`) already names are marked; that PR adds a lazy metamodel evaluator and layers its derived values into the API-JSON writer, so its merge is expected to move those rows from ours-missing to present-equal or present-different, and this referee is how that movement is measured.
