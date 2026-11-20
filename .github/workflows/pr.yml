@@ -1156,7 +1156,7 @@ jobs:
         id: wheels
         uses: ./.github/actions/pip-install
         with:
-          packages: weasyprint==69.0
+          packages: weasyprint==70.0
           install: 'false'
 
       - name: Provision the PDF toolchain
