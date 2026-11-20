@@ -167,6 +167,44 @@ public sealed interface Value {
   }
 
   /**
+   * A coordinate frame or measurement scale. An answer, never an argument.
+   *
+   * <p>Only a service advertising the {@code coordinate_frame_values} capability reports one as
+   * itself rather than as an unsupported {@link NullValue}.
+   *
+   * @param frame the frame
+   */
+  record CoordinateFrameValue(CoordinateFrame frame) implements Value {
+    /**
+     * Creates a coordinate frame value.
+     *
+     * @param frame the frame, never {@code null}
+     */
+    public CoordinateFrameValue {
+      Objects.requireNonNull(frame, "frame");
+    }
+  }
+
+  /**
+   * A coordinate transformation. An answer, never an argument.
+   *
+   * <p>Only a service advertising the {@code coordinate_frame_values} capability reports one as
+   * itself rather than as an unsupported {@link NullValue}.
+   *
+   * @param transformation the transformation
+   */
+  record CoordinateTransformationValue(CoordinateTransformation transformation) implements Value {
+    /**
+     * Creates a coordinate transformation value.
+     *
+     * @param transformation the transformation, never {@code null}
+     */
+    public CoordinateTransformationValue {
+      Objects.requireNonNull(transformation, "transformation");
+    }
+  }
+
+  /**
    * The unbounded value {@code *}: no number, ordered above every finite magnitude.
    *
    * <p>Only a service advertising the {@code infinity_value} capability reports it as itself rather

@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"context"
 	"fmt"
 	"runtime"
 	"sync"
@@ -140,7 +141,7 @@ func TestParseModelSharesOneEntry(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			_, models[i] = srv.parseModel([]sourceInput{{
+			_, models[i], _ = srv.parseModel(context.Background(), []sourceInput{{
 				name: "lot.sysml", language: "sysml", content: "package Lot { part def Cone; part cone : Cone; }", kind: source.KindSysML,
 			}}, diag.ConformanceModeOf(false), false)
 		}(i)
