@@ -87,9 +87,10 @@ type Model struct {
 	implicitBase map[*symbols.Symbol][]*symbols.Symbol
 	// featureBaseTypes memoizes baseFeatureTypes: the types a base feature supplies, read for every usage of its kind.
 	featureBaseTypes map[*symbols.Symbol][]*symbols.Symbol
-	// impliedSupers holds, per symbol, the direct supertypes its kind implies and the implied
-	// Specializations it owns; DirectSupertypes writes it as it appends the former.
-	impliedSupers map[*symbols.Symbol]impliedGenerals
+	// impliedSupers holds the direct supertypes a symbol's kind implies; DirectSupertypes writes it as it appends them.
+	impliedSupers map[*symbols.Symbol][]*symbols.Symbol
+	// impliedSpecializations memoizes ImpliedSpecializations.
+	impliedSpecializations map[*symbols.Symbol][]*symbols.Symbol
 	// valueGenerals memoizes FeatureValueGeneral: the general a feature value implies, nil for none.
 	valueGenerals map[*symbols.Symbol]*symbols.Symbol
 	// allDeclaredSupers memoizes AllDeclaredSupertypes, which every variation-point query at run time reads.
@@ -256,7 +257,8 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		effectiveComposite:     make(map[*symbols.Symbol]bool),
 		implicitBase:           make(map[*symbols.Symbol][]*symbols.Symbol),
 		featureBaseTypes:       make(map[*symbols.Symbol][]*symbols.Symbol),
-		impliedSupers:          make(map[*symbols.Symbol]impliedGenerals),
+		impliedSupers:          make(map[*symbols.Symbol][]*symbols.Symbol),
+		impliedSpecializations: make(map[*symbols.Symbol][]*symbols.Symbol),
 		valueGenerals:          make(map[*symbols.Symbol]*symbols.Symbol),
 		allDeclaredSupers:      make(map[*symbols.Symbol][]*symbols.Symbol),
 		implicitSubsettings:    make(map[*symbols.Symbol][]*symbols.Symbol),
@@ -595,7 +597,7 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	// What the declaration's kind implies comes last: the one derivation that resolution,
 	// inheritance and ImpliedSpecializations read (KerML §8.4.2).
 	implied := m.deriveImpliedGenerals(sym, out, fromMetadata)
-	out = append(out, implied.inherited...)
+	out = append(out, implied...)
 	journal(m, m.impliedSupers, sym, sym.Decl)
 	m.impliedSupers[sym] = implied
 

@@ -1267,9 +1267,8 @@ func (m *Model) AllDeclaredSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// ImplicitGenerals returns the general types sym has by its kind rather than by
-// declaration: the direct supertypes DirectSupertypes ends with. A scope reached
-// through a recursive import does not traverse them (KerML 8.2.3.5).
+// ImplicitGenerals returns the generals sym has by its kind: the direct supertypes DirectSupertypes
+// ends with. A scope reached through a recursive import does not traverse them (KerML 8.2.3.5).
 func (m *Model) ImplicitGenerals(sym *symbols.Symbol) []*symbols.Symbol {
-	return m.impliedGeneralsOf(sym).inherited
+	return m.impliedGeneralsOf(sym)
 }

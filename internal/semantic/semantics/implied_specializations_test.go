@@ -53,10 +53,8 @@ var impliedRowDifferences = map[string]struct {
 	"R::CD3::c": {nil, "KerML Table 9: checkFeatureObjectSpecialization and checkFeatureEndSpecialization are not derived as implied Specializations"},
 }
 
-// Every named declaration of the fixtures owns the implied Specializations the pilot's export
-// with implied relationships included states for it (rows.*.pilot.txt: owner, tab, general),
-// one row of KerML §8.4 Tables 8 and 10 and of SysML v2 §8.4 Tables 31 and 32 at a time and
-// after the redundancy rules of KerML §8.4.2; the differences are the listed ones and no other.
+// Every named declaration of the fixtures owns the implied Specializations the pilot's including
+// export states for it (rows.*.pilot.txt: owner, tab, general), but for the listed differences.
 func TestImpliedSpecializationsAgreeWithThePilotPerRow(t *testing.T) {
 	declared := map[string]bool{}
 	for name, kind := range map[string]source.Kind{"rows.sysml": source.KindSysML, "rows.kerml": source.KindKerML} {
@@ -117,16 +115,18 @@ func TestImpliedSpecializationsAgreeWithThePilotPerRow(t *testing.T) {
 	}
 }
 
-// The redundancy rules of KerML §8.4.2: an implied Specialization is left out when an owned
-// one or another implied one has the same general or a subtype of it, and members of a
-// specialization cycle each keep their base.
+// KerML §8.4.2: an implied Specialization is left out when another one, owned or implied, has
+// the same general or a subtype of it, and members of a specialization cycle each keep their base.
 func TestImpliedSpecializationsRedundancyRules(t *testing.T) {
 	m, root := buildModelWithLibraryNamedKind(t, "redundancy.sysml", source.KindSysML, `package P {
 		part def A; part def B :> A; part def C :> Parts::Part;
 		part def X :> Y; part def Y :> X;
 		part top; part typed : A; part sub :> top;
-		part def O { part nested; part stated :> Items::Item::subparts; }
+		part def O { part nested; part stated :> Items::Item::subparts; part viaSibling :> nested; part viaChain :> viaSibling; }
+		action def Act { action x; action y :> x; }
 		individual part def I; individual occurrence def J;
+		metadata def tagged :> Metaobjects::SemanticMetadata { :>> baseType = A meta SysML::PartDefinition; }
+		#tagged individual part def TI; #tagged part def TN;
 	}`)
 	idx := m.resolver.Index()
 	for _, tc := range []struct {
@@ -143,6 +143,11 @@ func TestImpliedSpecializationsRedundancyRules(t *testing.T) {
 		{"P::sub", nil},
 		{"P::O::nested", []string{"Items::Item::subparts"}},
 		{"P::O::stated", nil},
+		{"P::O::viaSibling", nil},
+		{"P::O::viaChain", nil},
+		{"P::Act::y", nil},
+		{"P::TI", []string{"Occurrences::Life"}},
+		{"P::TN", nil},
 		{"P::I", []string{"Parts::Part", "Occurrences::Life"}},
 		{"P::J", []string{"Occurrences::Life"}},
 	} {
