@@ -66,6 +66,9 @@ type execReport struct {
 // defaultCases is the shipped case corpus, relative to the repository root.
 const defaultCases = "tools/referee/exec/testdata/cases"
 
+// RequireEnv, when set, makes an absent pilot evaluator a failure instead of a no-op.
+const RequireEnv = "OPENSYSML_REQUIRE_PILOT_EVALUATOR"
+
 // toolName is the command's name in its flags, messages and output directory.
 const toolName = "pilot-exec-diff"
 
@@ -97,6 +100,10 @@ func Main(args []string, stderr io.Writer) int {
 		launcher = filepath.Join(root, "build", "pilot-evaluator", "eval-sysml")
 	}
 	if _, err := os.Stat(launcher); os.IsNotExist(err) {
+		if os.Getenv(RequireEnv) != "" {
+			fmt.Fprintf(stderr, toolName+": %s is set but the %s\n", RequireEnv, artifactAbsentMessage(launcher))
+			return 1
+		}
 		fmt.Println(artifactAbsentMessage(launcher))
 		return 0
 	} else if err != nil {

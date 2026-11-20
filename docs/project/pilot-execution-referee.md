@@ -218,7 +218,8 @@ No compliance row's status flag is changed on the strength of this work.
 - **UUID identity is the only thing normalized away** on the pilot side.
 
 Run it with `go run -C tools ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evaluator.sh`; with the
-execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
+execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing (under
+`OPENSYSML_REQUIRE_PILOT_EVALUATOR` it fails instead, so a run that must compare cannot pass empty), so
 `tools/referee/diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run -C tools ./cmd/pilot-exec-diff`
 prints the current ones. State of the 514 committed cases, the original 32, the 62 the

@@ -1,7 +1,10 @@
 package exec
 
 import (
+	"bytes"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -167,5 +170,24 @@ func TestArtifactAbsentMessage(t *testing.T) {
 	want := "pilot execution artifact is absent at /repo/build/pilot-evaluator/eval-sysml; run ./scripts/download-pilot-evaluator.sh to provision it"
 	if got != want {
 		t.Fatalf("artifactAbsentMessage() = %q, want %q", got, want)
+	}
+}
+
+// An absent evaluator is a no-op by default and a failure under the require variable.
+func TestMainAbsentEvaluator(t *testing.T) {
+	launcher := filepath.Join(t.TempDir(), "eval-sysml")
+	for _, tc := range []struct {
+		require string
+		want    int
+	}{{"", 0}, {"1", 1}, {"true", 1}} {
+		t.Setenv(RequireEnv, tc.require)
+		var stderr bytes.Buffer
+		got := Main([]string{"-launcher", launcher, "-out", t.TempDir()}, &stderr)
+		if got != tc.want {
+			t.Errorf("%s=%q: exit %d, want %d (stderr %q)", RequireEnv, tc.require, got, tc.want, stderr.String())
+		}
+		if tc.want != 0 && !strings.Contains(stderr.String(), "download-pilot-evaluator.sh") {
+			t.Errorf("%s=%q: stderr %q does not name the downloader", RequireEnv, tc.require, stderr.String())
+		}
 	}
 }

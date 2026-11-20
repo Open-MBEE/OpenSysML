@@ -295,7 +295,8 @@ man-lint: ## Run the shipped pages through a formatter, without rebuilding the c
 	elif command -v groff >/dev/null 2>&1; then \
 		groff -man -Tutf8 -ww -z $(MAN_PAGES) || exit 1; \
 	else \
-		echo "note: neither mandoc nor groff is installed; the pages were not formatted"; \
+		echo "error: neither mandoc nor groff is installed, so the pages cannot be checked; install one" >&2; \
+		exit 1; \
 	fi
 	@echo "✓ Manual pages are formatter-clean"
 
