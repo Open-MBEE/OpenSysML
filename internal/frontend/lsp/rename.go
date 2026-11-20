@@ -29,7 +29,7 @@ func (s *Server) PrepareRename(ctx context.Context, params *protocol.PrepareRena
 	if err != nil {
 		return nil, err
 	}
-	rng := spanToRange(s.ws.Document(name).Content, span)
+	rng := positionsOf(s.ws.Document(name)).rangeOf(span)
 	return &rng, nil
 }
 
@@ -120,7 +120,7 @@ func (s *Server) renameTargetHeld(name string, pos protocol.Position) (renameTar
 	if doc == nil || doc.Scope == nil {
 		return renameTarget{}, source.Span{}, fmt.Errorf("no document %q", name)
 	}
-	offset := positionToOffset(doc.Content, pos)
+	offset := positionsOf(doc).offset(pos)
 
 	// On a reference: rename the symbol the containing segment denotes, so
 	// renaming from the `A` of `A::B` renames A, not B.
