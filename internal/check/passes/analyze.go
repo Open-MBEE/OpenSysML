@@ -83,6 +83,7 @@ func DefaultRegistry() *Registry {
 	reg.Register(OOSEMMethodPass{})
 	reg.Register(MOSAPass{})
 	reg.Register(NPR7123Pass{})
+	reg.Register(NASASTD7009Pass{})
 	reg.Register(NestedRedefinitionPass{})
 	return reg
 }
