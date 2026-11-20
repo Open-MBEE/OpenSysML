@@ -157,14 +157,13 @@ func transitionDecl(sym *symbols.Symbol) (*ast.TransitionMember, bool) {
 	return trans, ok
 }
 
-// declaresTransition reports whether sym is a TransitionUsage written as a transition member or as a
-// state body's `then x;` after a state (SysML.xtext TargetTransitionUsage), not a `succession … if g then`.
+// declaresTransition reports whether sym is a TransitionUsage written as a transition member, an action body's
+// `first a if g then b;` (SysML.xtext GuardedSuccession) or a state body's `then x;` after a state.
 func declaresTransition(sym *symbols.Symbol) bool {
 	if sym == nil || sym.Implicit != nil || sym.Expr != nil || !sym.DeclaresTransition() {
 		return false
 	}
-	trans, ok := sym.Decl.(*ast.TransitionMember)
-	return !ok || !trans.IsSuccession
+	return true
 }
 
 // transitionTarget is the reference a transition's `then` names, nil where it names none.
@@ -447,7 +446,7 @@ func (m *Model) transitionSourceMember(sym *symbols.Symbol) (*symbols.Symbol, bo
 	}
 	switch d := sym.Decl.(type) {
 	case *ast.TransitionMember:
-		if d.IsSuccession || d.Source == nil || ast.IsFeatureChain(d.Source) {
+		if d.Source == nil || ast.IsFeatureChain(d.Source) {
 			return nil, false
 		}
 		// The endpoint resolution, which reaches a vertex nested in a sibling state as the conversion's does.

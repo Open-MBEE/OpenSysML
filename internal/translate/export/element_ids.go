@@ -362,7 +362,7 @@ func (ids *ElementIDs) recordTransitionHead(e *encoder, node ast.Node, subject r
 	slots := transitionLinkParameterSlots[:1]
 	switch n := node.(type) {
 	case *ast.TransitionMember:
-		if n.IsSuccession || n.Target == nil {
+		if n.Target == nil {
 			return
 		}
 		sourceMember = qualifiedText(n.Source) != "" && !qualifiedNameHasChain(n.Source) ||
@@ -404,7 +404,7 @@ func (ids *ElementIDs) recordTransitionHead(e *encoder, node ast.Node, subject r
 func (ids *ElementIDs) recordTransitionSuccession(e *encoder, node ast.Node, subject rdf.Term) {
 	switch n := node.(type) {
 	case *ast.TransitionMember:
-		if n.IsSuccession || n.Target == nil {
+		if n.Target == nil {
 			return
 		}
 	case *ast.ControlFlowEdge:
