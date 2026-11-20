@@ -8,7 +8,6 @@ import (
 
 // QueryResult is the document a QVTS::QueryResult view is written as: titled by
 // the view, its header as definitions, its exposed elements as the table's rows.
-// A nil rendering is an ErrorMissingRendering.
 func QueryResult(rendering *view.Rendering) (*Document, error) {
 	if rendering == nil {
 		return nil, &Error{Kind: ErrorMissingRendering}
