@@ -10,6 +10,7 @@
 package semantics
 
 import (
+	"iter"
 	"slices"
 	"strings"
 
@@ -886,6 +887,21 @@ func (m *Model) inheritedFeatureNamed(sym *symbols.Symbol, name string) *symbols
 		return nil
 	}
 	return candidates[0]
+}
+
+// eachSelfAndSupertype yields sym and then every type it specializes
+// (AllSupertypes), without building the combined slice.
+func (m *Model) eachSelfAndSupertype(sym *symbols.Symbol) iter.Seq[*symbols.Symbol] {
+	return func(yield func(*symbols.Symbol) bool) {
+		if !yield(sym) {
+			return
+		}
+		for _, super := range m.AllSupertypes(sym) {
+			if !yield(super) {
+				return
+			}
+		}
+	}
 }
 
 // AllSupertypes returns the transitive closure of DirectSupertypes, excluding

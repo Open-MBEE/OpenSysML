@@ -29,7 +29,7 @@ type Evaluator struct {
 	resolver                     *resolve.Resolver
 	model                        *semantics.Model
 	options                      Options
-	mu                           sync.Mutex
+	mu                           sync.RWMutex
 	cache                        map[propertyKey]cachedValue
 	reasons                      map[propertyKey]Reason
 	internedStrings              map[string]string
@@ -80,8 +80,8 @@ func (e *Evaluator) Explain(el Element, definingClass, name string) (Reason, boo
 		return Reason{}, false
 	}
 	key := propertyKey{element: el.Key(), class: definingClass, name: name}
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 	reason, ok := e.reasons[key]
 	if _, served := ruleConstraints[keyName(definingClass, name)]; !ok && !served {
 		// No element has a rule for the property, so the cause is not recorded per element.
