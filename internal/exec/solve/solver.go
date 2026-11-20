@@ -569,24 +569,39 @@ func (s *session) close() {
 	_ = s.cmd.Wait()
 }
 
-// syncBuffer collects the solver's standard error, which exec's own copying
-// goroutine writes while a reply is read here.
+// maxStderr is how much of the solver's standard error is kept: enough for the
+// messages a failure quotes, and a bound on a solver that never stops writing.
+const maxStderr = 64 << 10
+
+// syncBuffer keeps the first maxStderr bytes of the solver's standard error, written by
+// exec's copying goroutine while a reply is read here; later bytes are accepted and dropped.
 type syncBuffer struct {
-	mu  sync.Mutex
-	buf bytes.Buffer
+	mu      sync.Mutex
+	buf     bytes.Buffer
+	dropped bool
 }
 
-// Write appends to the buffer under its lock.
+// Write keeps what still fits under the bound and reports the whole of p written.
 func (b *syncBuffer) Write(p []byte) (int, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.buf.Write(p)
+	room := maxStderr - b.buf.Len()
+	if room < len(p) {
+		b.dropped = true
+	}
+	if room > 0 {
+		b.buf.Write(p[:min(room, len(p))])
+	}
+	return len(p), nil
 }
 
-// String is what the solver has written so far.
+// String is what was kept of the solver's output so far, saying so when more was dropped.
 func (b *syncBuffer) String() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if b.dropped {
+		return b.buf.String() + " ... (truncated)"
+	}
 	return b.buf.String()
 }
 
