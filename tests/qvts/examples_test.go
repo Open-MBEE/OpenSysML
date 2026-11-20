@@ -45,8 +45,10 @@ func TestExampleRecordings(t *testing.T) {
 		return args
 	}
 	const (
-		inlineMass  = `Project(WhereType(Descendants(Named("Lander::lander")), "PartUsage", true), ("qualifiedName", "mass"))`
-		inlineFault = `Project(Named("Lander") ("qualifiedName"))`
+		inlineMass          = `Project(WhereType(Descendants(Named("Lander::lander")), "PartUsage", true), ("qualifiedName", "mass"))`
+		inlineFault         = `Project(Named("Lander") ("qualifiedName"))`
+		oslcCabin           = `oslc.where=sysml:name="cabin"`
+		oslcUnknownProperty = `oslc.where=sysml:nme="cabin"`
 	)
 	runs := []recording{
 		{name: "cabin-mass", args: query("CabinMass", false), status: 0},
@@ -98,6 +100,20 @@ func TestExampleRecordings(t *testing.T) {
 		{name: "model-error-json", args: query("AmbiguousPart", true), status: 2},
 		{name: "ttl-cabin-excerpt", args: []string{"examples/qvts/lander.sysml", "-convert", "ttl"}, status: 0, view: rdfCabinExcerpt},
 		{name: "metamodel-partusage", args: []string{"-metamodel-table"}, status: 0, view: metamodelPartUsage},
+		{name: "view-cabin-mass", args: append(query("CabinMass", false), "-as-view", "-"), status: 0},
+		{name: "view-misspelled-name", args: append(query("MisspelledName", false), "-as-view", "-"), status: 2},
+		{
+			name:    "view-oslc-cabin",
+			args:    []string{"examples/qvts/lander.sysml", "-query", oslcCabin, "-as-view", "-"},
+			command: "bin/sysml examples/qvts/lander.sysml -query '" + oslcCabin + "' -as-view -",
+			status:  0,
+		},
+		{
+			name:    "view-oslc-unknown-property",
+			args:    []string{"examples/qvts/lander.sysml", "-query", oslcUnknownProperty, "-as-view", "-"},
+			command: "bin/sysml examples/qvts/lander.sysml -query '" + oslcUnknownProperty + "' -as-view -",
+			status:  2,
+		},
 	}
 	for i := range runs {
 		if runs[i].command == "" {

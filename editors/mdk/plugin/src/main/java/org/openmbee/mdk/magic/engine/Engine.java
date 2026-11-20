@@ -16,7 +16,9 @@ import org.openmbee.opensysml.Connection;
 import org.openmbee.opensysml.ConnectionOptions;
 import org.openmbee.opensysml.Diagnostic;
 import org.openmbee.opensysml.DocumentValue;
+import org.openmbee.opensysml.DocumentForm;
 import org.openmbee.opensysml.Model;
+import org.openmbee.opensysml.RenderedView;
 import org.openmbee.opensysml.ServiceException;
 import org.openmbee.opensysml.SourceDocument;
 import org.openmbee.opensysml.StatusCode;
@@ -25,6 +27,7 @@ import org.openmbee.mdk.magic.bin.HostBinary;
 import org.openmbee.mdk.magic.export.ModelExport;
 import org.openmbee.opensysml.repository.Publisher;
 import org.openmbee.mdk.magic.results.QueryAnswer;
+import org.openmbee.mdk.magic.results.ResultViews;
 import org.openmbee.mdk.magic.results.ResultsMapper;
 import org.openmbee.mdk.magic.results.RunResult;
 import org.openmbee.mdk.magic.source.ModelSource;
@@ -162,6 +165,69 @@ public final class Engine implements AutoCloseable {
   }
 
   /**
+   * Lays out the views of {@code result} as {@code RenderView} does, over the model of {@code
+   * source} with each view's text beside it; unchanged when it has none or was cancelled.
+   */
+  public RunResult renderViews(ModelSource source, RunResult result, Cancellation cancellation) {
+    Objects.requireNonNull(source);
+    Objects.requireNonNull(result);
+    Objects.requireNonNull(cancellation);
+    if (result.views().isEmpty() || cancellation.requested()) return result;
+    return withModel(cancellation, current -> {
+      List<SourceDocument> documents = new ArrayList<>(source.sources(current));
+      for (RunResult.View view : result.views()) {
+        documents.add(SourceDocument.inline(ResultViews.fileName("view", view.query()), view.text()));
+      }
+      Model model = current.parseSources(documents);
+      List<RunResult.View> rendered = new ArrayList<>();
+      for (RunResult.View view : result.views()) {
+        RenderedView laid = model.renderView(view.name(), DocumentForm.MARKDOWN);
+        rendered.add(new RunResult.View(
+            view.query(), view.name(), view.text(),
+            laid.header().stream().map(field -> new RunResult.Field(field.name(), field.value())).toList(),
+            laid.columns(),
+            laid.rows().stream().map(RenderedView.Row::cells).toList()));
+      }
+      return result.withViews(rendered);
+    }).orElse(result);
+  }
+
+  /**
+   * Renders the documents or the {@code QVTS::QueryResult} view {@code subjectQualifiedName} names
+   * into {@code directory} as Markdown and HTML; empty when cancelled, refused for any other subject.
+   */
+  public Optional<List<Path>> render(
+      ModelSource source, String subjectQualifiedName, Path directory, Cancellation cancellation) {
+    Objects.requireNonNull(source);
+    Objects.requireNonNull(subjectQualifiedName);
+    Objects.requireNonNull(directory);
+    Objects.requireNonNull(cancellation);
+    if (cancellation.requested()) return Optional.empty();
+    return withModel(cancellation, current -> {
+      Model model = current.parseSources(source.sources(current));
+      return DocumentRenderer.render(source, model, subjectQualifiedName, directory);
+    });
+  }
+
+  /** Runs {@code work} on the connection under the cancellation watcher; empty when cancelled. */
+  private <T> Optional<T> withModel(Cancellation cancellation, java.util.function.Function<Connection, T> work) {
+    Thread watcher = null;
+    Connection current = null;
+    try {
+      current = connection();
+      watcher = watcher(cancellation, current);
+      T value = work.apply(current);
+      return cancellation.requested() ? Optional.empty() : Optional.of(value);
+    } catch (RuntimeException exception) {
+      if (cancellation.requested()) return Optional.empty();
+      if (current != null && isUnavailable(exception)) dropConnection(current);
+      throw exception;
+    } finally {
+      stop(watcher);
+    }
+  }
+
+  /**
    * Publishes the model to a project branch of a SysML v2 API server: the service converts it to
    * the API's JSON, and the publisher commits what the branch lacks or holds differently. A model
    * with parse errors is refused, since it would publish a partial model as the whole. Empty when
@@ -286,7 +352,7 @@ public final class Engine implements AutoCloseable {
     List<QueryAnswer> answers = new ArrayList<>();
     for (String query : plan.queries()) {
       try {
-        answers.add(QueryAnswer.rows(query, model.runDocumentQuery(query, bindings.get(query))));
+        answers.add(QueryAnswer.rows(query, model.runDocumentQueryAsView(query, bindings.get(query))));
       } catch (ServiceException failure) {
         if (failure.status() == StatusCode.UNAVAILABLE || failure.status() == StatusCode.CANCELLED) throw failure;
         answers.add(QueryAnswer.failed(query, failure));

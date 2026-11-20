@@ -69,6 +69,7 @@ from the clients and a gap is a stated gap rather than a silent one.
 | `document_query` | bound | bound | bound | bound | bound | bound | bound |
 | `inline_document_query` | bound | bound | bound | bound | bound | bound | bound |
 | `symbol_name_resolution` | bound | bound | bound | bound | bound | bound | bound |
+| `query_result_view` | bound | bound | not bound | bound | not bound | not bound | not bound |
 | `render_document` | bound | bound | bound | bound | bound | bound | bound |
 | `parse_sources` | bound | bound | bound | bound | bound | bound | bound |
 | `complex_values` | bound | bound | bound | bound | bound | bound | bound |
