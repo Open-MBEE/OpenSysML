@@ -164,3 +164,47 @@ func containsSymbol(syms []*symbols.Symbol, want *symbols.Symbol) bool {
 	}
 	return false
 }
+
+// The ReferenceUsage a flow's end owns states the direction of the feature it redefines as the feature the
+// end references inherits it (KerML.xtext FlowFeature, note 1); an end naming a lone feature states none.
+func TestFlowEndFeatureStatesItsRedefinedDirection(t *testing.T) {
+	const src = `package P {
+    item def Photon;
+    port def Lamp { out item photons : Photon; }
+    part def Src { out item photons : Photon; port lamp : ~Lamp; }
+    part def Snk { in item photons : Photon; }
+    part src : Src;
+    part snk : Snk;
+    item loose : Photon;
+    flow f1 from src.photons to snk.photons;
+    flow f2 from src.lamp.photons to loose;
+}`
+	for _, fixture := range reflectiveFixtures(t, "flow-end-directions.sysml", source.KindSysML, src) {
+		model := fixture.model
+		if nestedSym(t, fixture.root, "P::src").Recorded() {
+			continue
+		}
+		directions := func(name string) string {
+			var parts []string
+			for _, end := range model.FlowEndMembers(nestedSym(t, fixture.root, name)) {
+				value, ok := model.ReflectiveFeatureValue(model.FlowEndFeatureMember(end), "direction")
+				switch {
+				case !ok:
+					parts = append(parts, "?")
+				case value.Kind == symbols.FilterValueEmpty:
+					parts = append(parts, "none")
+				default:
+					parts = append(parts, value.RefFQN[strings.LastIndex(value.RefFQN, ":")+1:])
+				}
+			}
+			return strings.Join(parts, " ")
+		}
+		if got, want := directions("P::f1"), "out in"; got != want {
+			t.Errorf("f1's end features state %s, want %s", got, want)
+		}
+		// The conjugated port reverses the direction its definition declares.
+		if got, want := directions("P::f2"), "in none"; got != want {
+			t.Errorf("f2's end features state %s, want %s", got, want)
+		}
+	}
+}

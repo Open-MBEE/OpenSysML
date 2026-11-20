@@ -594,6 +594,12 @@ func (u *Usage) IsExhibitedState() bool {
 	return u.Kind == UsageState && (u.Keyword == "exhibit" || u.Keyword == "exhibit state")
 }
 
+// IsExtendedUsage reports a usage written by prefix metadata in place of a kind
+// keyword (`#M x;`, SysML.xtext ExtendedUsage: a plain Usage, no ReferenceUsage).
+func (u *Usage) IsExtendedUsage() bool {
+	return u.Keyword == "" && len(u.Prefixes) > 0
+}
+
 // IsIncludedUseCase reports whether the usage is an `include use case u : U;` or
 // an `include u;`: a use case the owner includes (SysML v2 IncludeUseCaseUsage).
 func (u *Usage) IsIncludedUseCase() bool {

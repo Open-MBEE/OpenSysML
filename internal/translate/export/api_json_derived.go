@@ -181,7 +181,7 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 // apiJSONInheritedFamilies are the completed properties that repeat a Namespace's or Type's
 // inherited and imported members beside its owned ones; APIJSONOptions.InheritedMembers writes them.
 var apiJSONInheritedFamilies = map[string]bool{
-	"membership": true, "member": true, "inheritedMembership": true,
+	"membership": true, "member": true, "inheritedMembership": true, "importedMembership": true,
 	"featureMembership": true, "feature": true, "inheritedFeature": true,
 }
 
@@ -385,8 +385,8 @@ func (w *apiJSONElementWriter) derivedJSONValue(value metamodel.Value) (any, boo
 	return nil, false
 }
 
-// derivedElementID is the "@id" of an element the evaluator names: a graph
-// subject's id, or a library element's normative id.
+// derivedElementID is the "@id" of an element the evaluator names: a graph subject's id,
+// a library element's normative id, or the one minted for a library alias's membership.
 func (w *apiJSONElementWriter) derivedElementID(element metamodel.Element) (string, bool) {
 	if subject, ok := w.evaluation.structure.subject(element); ok {
 		return rdf.SubjectID(subject)
@@ -397,6 +397,10 @@ func (w *apiJSONElementWriter) derivedElementID(element metamodel.Element) (stri
 	}
 	if symbol == nil {
 		return "", false
+	}
+	if element.IsMembership && symbol.Kind == symbols.SymbolAlias {
+		alias, ok := identity.AliasMembershipOf(w.evaluation.model, w.evaluation.libraryCatalog(), symbol)
+		return alias.ID, ok
 	}
 	library, ok := w.evaluation.libraryCatalog().ElementForSymbol(symbol)
 	if !ok || library == nil {

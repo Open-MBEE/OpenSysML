@@ -127,6 +127,13 @@ func referenceScope(sym *symbols.Symbol) *symbols.Scope {
 	return sym.OwnerScope
 }
 
+// attachesEnd reports whether sym is a connector end, written (`connect a to b`),
+// whose target is what it reference-subsets.
+func attachesEnd(sym *symbols.Symbol) bool {
+	_, ok := sym.Decl.(*ast.ConnectorEnd)
+	return ok
+}
+
 // MemberSources returns the symbols whose scopes contribute members to sym, in
 // deterministic breadth-first order and excluding sym itself: what sym
 // specializes (DirectSupertypes) and what it reference-subsets

@@ -40,6 +40,9 @@ func SynthesizedElementID(sym *symbols.Symbol, ownerID func(*symbols.Symbol) str
 	case symbols.ExpressionBody:
 		return rdf.ExpressionNodeID(owner, "body"), true
 	case symbols.ExpressionBodyResult:
+		if part.Owner.Expr == nil {
+			return "", false // a definition's or usage's result is written as the member stating it
+		}
 		return rdf.ExpressionNodeID(owner, "result"), true
 	case symbols.ExpressionChainFeature:
 		if part.Slot == "" {

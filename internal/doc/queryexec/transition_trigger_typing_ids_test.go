@@ -61,8 +61,39 @@ func TestTransitionTriggerPayloadTypingReadsOnce(t *testing.T) {
 		t.Fatalf("trigger accept id = %q, %v, want Observatory__S__t___40trigger", id, err)
 	}
 	// A named payload, declared in the transition's scope, is owned through the accept's membership.
-	if fixture.model.OwningMembership(fixture.symbol(t, "S::u::x")) == nil {
+	payload := fixture.symbol(t, "S::u::x")
+	membership := fixture.model.OwningMembership(payload)
+	if membership == nil {
 		t.Fatal("named trigger payload reads no owning membership")
+	}
+	if membership.Implicit.Member != payload {
+		t.Fatalf("named trigger payload's owning membership owns %s %q, not the payload", membership.Implicit.Member.Kind, membership.Implicit.Member.Name)
+	}
+	// The accept owns it, and reads it as its payload parameter: one element, named as declared.
+	triggers, _ := fixture.model.ReflectiveElements(fixture.symbol(t, "S::u"), "triggerAction")
+	if len(triggers) != 1 {
+		t.Fatalf("trigger actions of u = %d, want 1", len(triggers))
+	}
+	if owners, _ := fixture.model.ReflectiveElements(payload, "owner"); len(owners) != 1 || owners[0] != triggers[0] {
+		t.Fatalf("named trigger payload's owner = %v, want the trigger's accept", owners)
+	}
+	if parameters, _ := fixture.model.ReflectiveElements(triggers[0], "payloadParameter"); len(parameters) != 1 || parameters[0] != payload {
+		t.Fatalf("accept's payloadParameter = %v, want the named payload", parameters)
+	}
+	if meta := fixture.model.MetaclassOf(payload); meta == nil || meta.Name != "ReferenceUsage" {
+		t.Fatalf("named trigger payload is a %v, want a ReferenceUsage", meta)
+	}
+	if owned := fixture.model.OwnedMemberships(triggers[0]); len(owned) != 2 || owned[0] != membership {
+		t.Fatalf("accept's ownedMembership = %v, want the payload's owning membership first", owned)
+	}
+	transitionMembers, _ := fixture.model.ReflectiveElements(fixture.symbol(t, "S::u"), "ownedMember")
+	for _, member := range transitionMembers {
+		if member == payload {
+			t.Fatal("transition owns the named payload its trigger's accept owns")
+		}
+	}
+	if members, _ := fixture.model.ReflectiveElements(membership, "ownedMemberElement"); len(members) != 1 || members[0] != payload {
+		t.Fatalf("membership's ownedMemberElement = %v, want the named payload", members)
 	}
 	walk(fixture.symbol(t, "S"))
 	walk(fixture.symbol(t, "A"))
@@ -70,5 +101,28 @@ func TestTransitionTriggerPayloadTypingReadsOnce(t *testing.T) {
 	want := "Observatory__A__a___400_ft0 Observatory__S__p_ft0 Observatory__S__t___40trigger___400_ft0 Observatory__S__u___40trigger__x_ft0"
 	if got := strings.Join(typings, " "); got != want {
 		t.Fatalf("FeatureTyping ids = %q, want %q", got, want)
+	}
+}
+
+// A named payload is typed by what it declares alone: it is a ReferenceUsage, which takes no item base.
+func TestNamedTriggerPayloadTakesNoUsageBase(t *testing.T) {
+	fixture := loadExecutionSource(t, `package Observatory {
+	state def S {
+		state idle;
+		state busy;
+		transition u first idle accept x : ScalarValues::Integer then busy;
+	}
+}`)
+	triggers, _ := fixture.model.ReflectiveElements(fixture.symbol(t, "S::u"), "triggerAction")
+	if len(triggers) != 1 {
+		t.Fatalf("trigger actions of u = %d, want 1", len(triggers))
+	}
+	payloads, _ := fixture.model.ReflectiveElements(triggers[0], "payloadParameter")
+	if len(payloads) != 1 {
+		t.Fatalf("payload parameters of u = %d, want 1", len(payloads))
+	}
+	types, _ := fixture.model.ReflectiveElements(payloads[0], "type")
+	if len(types) != 1 || fixture.index.GetFQN(types[0]) != "ScalarValues::Integer" {
+		t.Fatalf("payload types = %v, want ScalarValues::Integer alone", types)
 	}
 }

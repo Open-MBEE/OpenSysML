@@ -100,6 +100,12 @@ func (r *Resolver) resolveTarget(scope *symbols.Scope, target ast.Node, hide *re
 			return nil, false
 		}
 		return r.memberChain(scope, r.chainedFrom(scope, owner), t.Member, t)
+	case *ast.CastExpr:
+		// `(as T).f` reads f as a member of T (KerML 8.2.5.8.1), as getOperandSymbol does.
+		if t.TargetType == nil {
+			return nil, false
+		}
+		return r.resolveQualified(scope, t.TargetType, hide)
 	default:
 		return nil, false
 	}

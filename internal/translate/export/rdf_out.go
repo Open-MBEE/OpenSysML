@@ -931,7 +931,14 @@ func (e *encoder) importedMembership(name *ast.QualifiedName) rdf.Term {
 	if qualifiedText(name) == "" {
 		return rdf.String("")
 	}
-	decl, fqn, ok := e.linked(e.res.PartAlias(name, len(name.Parts)-1))
+	alias, aliased := e.res.PartAlias(name, len(name.Parts)-1)
+	decl, fqn, ok := e.linked(alias, aliased)
+	if !ok && aliased {
+		// A library alias is the Membership imported too (KerML 8.2.3.5), under its minted id.
+		if membership, minted := e.ids.libraryAliasMembership(alias); minted {
+			return membership
+		}
+	}
 	if !ok {
 		decl, fqn, ok = e.referent(name)
 	}
