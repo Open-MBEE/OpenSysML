@@ -7,12 +7,8 @@ import (
 	"slices"
 )
 
-// OwnedAnnotations returns the Annotations sym owns as their annotated element
-// (KerML 8.3.2.1 Element::ownedAnnotation), each owning its annotating element:
-// one per `#M` prefix of a relationship (KerML.xtext PrefixMetadataAnnotation), and one per annotating element in a
-// relationship body (KerML 8.2.3.3.1 OwnedAnnotation). An annotating element
-// in a namespace body is owned through a membership and annotates the
-// namespace through no Annotation (8.3.2.3.2 deriveAnnotatingElementAnnotatedElement).
+// OwnedAnnotations returns the Annotations sym owns as their annotated element (KerML 8.3.2.1): one per
+// `#M` prefix or body annotating element of a relationship; a namespace owns its own through memberships.
 func (m *Model) OwnedAnnotations(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil {
 		return nil
