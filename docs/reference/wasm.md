@@ -335,7 +335,7 @@ The module retains the 16 most recently used models; an evicted hash is evicted 
 `undetermined_value`, `performer`, `big_int_values`, `render_view`, `state_trace`,
 `action_trace`, `render_document`, `render_document_html`, `render_document_asciidoc`,
 `render_document_file_name`, `render_view_form`, `symbol_annotating_metadata`,
-`symbol_lookup_kind`.
+`symbol_lookup_kind`, `symbol_member_direction`, `coordinate_frame_values`.
 
 The `js` build installs one synchronous host surface, `globalThis.sysmlWasm`, with
 `version` and `call(method, paramsJSON)`. The call returns a JSON-RPC envelope string.

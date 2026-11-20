@@ -12,8 +12,8 @@ import (
 // Value is one evaluated SysML value. It is a sealed sum: the concrete types
 // are Int, BigInt, Rational, Real, Complex, Bool, String, InstanceID, Sequence, Null, Unset,
 // Quantity, EnumLiteral, Array, Vector, VectorQuantity, MeasurementRef,
-// Function, Set, TensorQuantity, Metaobject and Undetermined, and a type switch over
-// them is exhaustive.
+// Function, Set, TensorQuantity, Metaobject, Undetermined, *CoordinateFrame and
+// *CoordinateTransformation, and a type switch over them is exhaustive.
 type Value interface {
 	isValue()
 }

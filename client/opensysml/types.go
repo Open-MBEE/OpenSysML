@@ -85,6 +85,7 @@ const (
 	CapabilityElementProperties              = sysmlgrpc.CapabilityElementProperties
 	CapabilityEngines                        = sysmlgrpc.CapabilityEngines
 	CapabilityUndeterminedValue              = sysmlgrpc.CapabilityUndeterminedValue
+	CapabilityCoordinateFrameValues          = sysmlgrpc.CapabilityCoordinateFrameValues
 	CapabilityBigIntValues                   = sysmlgrpc.CapabilityBigIntValues
 	CapabilityRationalValues                 = sysmlgrpc.CapabilityRationalValues
 	CapabilityConvertDocuments               = sysmlgrpc.CapabilityConvertDocuments
