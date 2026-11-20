@@ -514,7 +514,7 @@ func newMemberChain(m Model, details addMemberDetails) *memberChain {
 	if !strings.HasPrefix(tail, details.memberText+"\n") {
 		return nil
 	}
-	closeIndent := ""
+	var closeIndent string
 	chainText := tail
 	if hasBody {
 		closeIndent = tail[len(details.memberText)+1:]

@@ -1290,7 +1290,7 @@ func (m *migration) receptionLoop(r *sysmlv1.Element, route *receptionRoute, fro
 // comment, since nothing could accept it.
 func (m *migration) receptionComment(r, sig *sysmlv1.Element) {
 	text := "reception " + describe(r)
-	note := ""
+	var note string
 	if sig == nil {
 		note = m.dangling(r, "signal")
 		if note == "" || len(m.model.Unresolved(r, "signal")) == 0 {
