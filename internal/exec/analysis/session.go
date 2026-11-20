@@ -322,10 +322,8 @@ type session struct {
 	described enginewire.Description
 }
 
-// startSession spawns the entry's command, never through PATH, and takes the engine's
-// description, checked against the entry field by field. A process that does not start,
-// does not describe itself within the timeout or before ctx is done, or describes itself
-// otherwise is ended.
+// startSession spawns the entry's command, never through PATH, and checks the description it
+// gives against the entry; one not given within the timeout or before ctx is done ends it.
 func startSession(ctx context.Context, entry EngineEntry, limit int, timeout time.Duration) (*session, error) {
 	if err := entry.Present(); err != nil {
 		return nil, err
@@ -363,9 +361,8 @@ func abandoned(ctx context.Context, engine string) error {
 	return fmt.Errorf("engine %q: its start was abandoned: %w", engine, context.Cause(ctx))
 }
 
-// launch starts the process and returns its standard output. The host owns that pipe, so
-// collecting the exit never closes it under the reader: what the engine wrote before it
-// exited is still read.
+// launch starts the process and returns its standard output, a pipe the host owns so that
+// collecting the exit never closes it under the reader.
 func (s *session) launch() (io.Reader, error) {
 	stdin, err := s.cmd.StdinPipe()
 	if err != nil {
@@ -403,8 +400,7 @@ func (s *session) notStarted(err error) error {
 }
 
 // wait collects the process's exit, then closes its standard output once the reader has
-// drained it; a reader still held by a descendant that kept the pipe open is released
-// after the timeout.
+// drained it, or after the timeout when a descendant still holds the pipe open.
 func (s *session) wait(stdout io.Closer) {
 	s.exit = s.cmd.Wait()
 	close(s.waited)
@@ -936,9 +932,8 @@ func newEnginePool(entry EngineEntry, limit int, timeout time.Duration) *engineP
 	return &enginePool{entry: entry, limit: limit, timeout: timeout, start: startSession}
 }
 
-// acquire is a session with no other request open on it when the entry is not concurrent,
-// the shared one otherwise; a new process is started when none serves, and its start is
-// given up when ctx ends. Give it back with put.
+// acquire is a session no other request is open on, or the shared one of a concurrent entry,
+// started when none serves unless ctx ends first. Give it back with put.
 func (p *enginePool) acquire(ctx context.Context) (*session, error) {
 	p.mu.Lock()
 	if err := p.refused(); err != nil {
@@ -992,9 +987,8 @@ func (p *enginePool) started(ctx context.Context, s *session, err error) (*sessi
 	return s, nil
 }
 
-// acquireShared is the plan's one process of a concurrent entry, started by the first request
-// while the others wait for it or for their own context. Called with mu held, which it
-// releases.
+// acquireShared is a concurrent entry's one process, started by the first request while the
+// others wait for it or their own context. Called with mu held, which it releases.
 func (p *enginePool) acquireShared(ctx context.Context) (*session, error) {
 	for p.shared == nil && p.starting != nil {
 		starting := p.starting
