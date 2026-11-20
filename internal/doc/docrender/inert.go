@@ -22,6 +22,13 @@ var locationAttributes = map[string]bool{
 // activeMarkup names the first construct of markup written verbatim into a page
 // that would run there: an active element, an event handler or a script URL.
 func activeMarkup(markup string) (string, bool) {
+	return activeMarkupWithin(markup, 0)
+}
+
+// rawTextDepth bounds the tags-in-text nesting read; no tool nests them, and each level rescans its text.
+const rawTextDepth = 4
+
+func activeMarkupWithin(markup string, depth int) (string, bool) {
 	z := html.NewTokenizer(strings.NewReader(markup))
 	for {
 		switch z.Next() {
@@ -30,7 +37,10 @@ func activeMarkup(markup string) (string, bool) {
 		case html.TextToken:
 			// The tokenizer reads <style> and <title> as text; inside <svg> a browser reads tags there.
 			if raw := string(z.Raw()); len(raw) < len(markup) && strings.Contains(raw, "<") {
-				if found, active := activeMarkup(raw); active {
+				if depth == rawTextDepth {
+					return "tags nested in the text of <style> or <title> elements", true
+				}
+				if found, active := activeMarkupWithin(raw, depth+1); active {
 					return found, true
 				}
 			}

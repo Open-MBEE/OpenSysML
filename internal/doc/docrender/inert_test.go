@@ -27,6 +27,7 @@ func TestActiveMarkup(t *testing.T) {
 		`<object data="x.swf"></object>`,
 		`<svg><style><img src=x onerror=alert(1)></style></svg>`,
 		`<svg><title><script>alert(1)</script></title></svg>`,
+		`<svg>` + strings.Repeat(`<style>`, 20000) + `</svg>`,
 		`<svg><style><style><a href="javascript:alert(1)">x</a></style></style></svg>`,
 	} {
 		if _, found := activeMarkup(active); !found {
