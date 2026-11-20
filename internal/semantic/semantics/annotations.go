@@ -1263,6 +1263,10 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 		}
 		return expressionElementMetaclassName(sym)
 	}
+	if isNamedTriggerPayload(sym) {
+		// A trigger's payload parameter is a ReferenceUsage, named or not (SysML.xtext PayloadParameter).
+		return "ReferenceUsage"
+	}
 	switch sym.Decl.(type) {
 	case *ast.ForkNode:
 		return "ForkNode"
@@ -1807,6 +1811,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return out, true
 	case "owner":
+		if parts := m.namedTriggerPayloadParts(sym); parts != nil {
+			return []*symbols.Symbol{parts.accepter}, true
+		}
 		if owner := ownerSymbol(sym); owner != nil {
 			return []*symbols.Symbol{owner}, true
 		}
