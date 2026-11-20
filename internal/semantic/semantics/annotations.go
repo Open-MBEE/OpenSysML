@@ -1669,7 +1669,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		owner := m.ownerOf(sym)
-		if owner == nil || !m.reflectiveMetaclassConforms(owner, "Type") {
+		if owner == nil || !m.reflectiveMetaclassConforms(owner, "Type") || !m.ownedThroughFeatureMembership(owner, sym) {
 			return nil, true
 		}
 		return []*symbols.Symbol{owner}, true
@@ -1683,7 +1683,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			owning = "Usage"
 		}
 		owner := m.ownerOf(sym)
-		if owner == nil || !m.reflectiveMetaclassConforms(owner, owning) {
+		if owner == nil || !m.reflectiveMetaclassConforms(owner, owning) || !m.ownedThroughFeatureMembership(owner, sym) {
 			return nil, true
 		}
 		return []*symbols.Symbol{owner}, true
@@ -1819,7 +1819,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return nil, true
 	case "ownedMember":
-		return m.withDefaultMultiplicityMember(sym, append(m.nodeParameters(sym), m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym)))))...)), true
+		return m.withDefaultMultiplicityMember(sym, leadWithPrefixMetadata(sym, append(m.nodeParameters(sym), m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym)))))...))), true
 	case "multiplicity":
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
 			return nil, false
@@ -1828,11 +1828,11 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "ownedElement":
 		return m.ownedElementsOf(sym), true
 	case "member":
-		return m.withDefaultMultiplicityMember(sym, append(m.nodeParameters(sym), m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)))))...)), true
+		return m.withDefaultMultiplicityMember(sym, leadWithPrefixMetadata(sym, append(m.nodeParameters(sym), m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)))))...))), true
 	case "feature":
 		features := m.nodeParameters(sym)
 		for _, member := range m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))))) {
-			if member.IsFeature() || isExpressionSymbol(member) {
+			if (member.IsFeature() || isExpressionSymbol(member)) && m.ownedThroughFeatureMembership(m.ownerOf(member), member) {
 				features = append(features, member)
 			}
 		}
@@ -1879,7 +1879,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		features := append([]*symbols.Symbol(nil), m.expressionOwnedParts(sym)...)
 		features = append(features, m.sendParameters(sym)...)
 		for _, member := range m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym))))) {
-			if member.IsFeature() || isExpressionSymbol(member) {
+			if (member.IsFeature() || isExpressionSymbol(member)) && m.ownedThroughFeatureMembership(sym, member) {
 				features = append(features, member)
 			}
 		}
@@ -2219,13 +2219,13 @@ func (m *Model) dependencyEnds(sym *symbols.Symbol, names []*ast.QualifiedName) 
 func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	var members []*symbols.Symbol
 	if value := m.ValueExpression(sym); value != nil {
-		// The value expression comes first, as its FeatureValue leads the
-		// feature's owned memberships.
+		// The value expression leads the body's elements, as its FeatureValue
+		// leads the body's memberships.
 		members = append(members, value)
 	}
 	members = append(members, m.expressionOwnedElements(sym)...)
 	members = append(members, m.nodeParameters(sym)...)
-	members = append(members, m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym)))))...)
+	members = leadWithPrefixMetadata(sym, append(members, m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym)))))...))
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
 		seen[member] = true
@@ -2556,7 +2556,7 @@ func ownedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	var members []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
-	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
+	forEachMemberPrefixFirst(sym.Scope, func(member *symbols.Symbol) bool {
 		if member.Kind != symbols.SymbolAlias && !seen[member] && !ownedThroughAnnotation(sym, member) && !symbols.IsFirstMarker(member) {
 			seen[member] = true
 			members = append(members, member)
@@ -2763,7 +2763,10 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		}
 		return stringOrEmpty(owner.Str + "::" + name), true
 	case "direction":
-		direction, ok := ReflectiveDirection(sym)
+		direction, ok := m.flowEndFeatureDirection(sym)
+		if !ok {
+			direction, ok = ReflectiveDirection(sym)
+		}
 		if !ok {
 			return symbols.FilterValue{}, false
 		}

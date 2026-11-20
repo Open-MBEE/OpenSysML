@@ -20,7 +20,7 @@ func (s *Server) Completion(ctx context.Context, params *protocol.CompletionPara
 	name := uriToName(params.TextDocument.URI)
 	doc := s.ws.Document(name)
 	if doc != nil && doc.Scope != nil {
-		offset := positionToOffset(doc.Content, params.Position)
+		offset := positionsOf(doc).offset(params.Position)
 		scope := enclosingScope(doc.Scope, offset)
 		if path, ok := memberPathBefore(doc.Content, offset); ok {
 			members := s.ws.MembersOnPath(scope, path)

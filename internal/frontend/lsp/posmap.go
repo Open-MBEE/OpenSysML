@@ -86,11 +86,6 @@ func spanToRange(content []byte, sp source.Span) protocol.Range {
 	return positionsFor(content).rangeOf(sp)
 }
 
-// rangeToSpan converts an LSP Range to a core byte Span.
-func rangeToSpan(content []byte, r protocol.Range) source.Span {
-	return positionsFor(content).spanOf(r)
-}
-
 // spanOf converts an LSP Range to a core byte Span.
 func (p positions) spanOf(r protocol.Range) source.Span {
 	start := p.offset(r.Start)
@@ -99,6 +94,11 @@ func (p positions) spanOf(r protocol.Range) source.Span {
 		end = start
 	}
 	return source.Span{Offset: start, Len: end - start}
+}
+
+// rangeToSpan converts an LSP Range to a core byte Span.
+func rangeToSpan(content []byte, r protocol.Range) source.Span {
+	return positionsFor(content).spanOf(r)
 }
 
 // uint32Clamp narrows a line or column number to the protocol's uint32,
