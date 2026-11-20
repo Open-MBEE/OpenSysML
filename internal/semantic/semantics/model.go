@@ -1148,6 +1148,9 @@ func (m *Model) withUsageBases(sym *symbols.Symbol, bases []*symbols.Symbol) []*
 
 // mostSpecificTypes drops every type another one in the list specializes.
 func (m *Model) mostSpecificTypes(types []*symbols.Symbol) []*symbols.Symbol {
+	if len(types) <= 1 {
+		return types
+	}
 	var out []*symbols.Symbol
 	for _, t := range types {
 		redundant := false

@@ -11,8 +11,8 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 639,
-      "presentDifferent": 39,
+      "presentEqual": 638,
+      "presentDifferent": 40,
       "oursMissing": 16,
       "pilotMissing": 20,
       "absentBoth": 717,
@@ -111,7 +111,7 @@
     "InterfaceDefinition.isImpliedIncluded": [1,0,0,0,0,0,0],
     "InterfaceDefinition.isIndividual": [1,0,0,0,0,0,0],
     "InterfaceDefinition.isLibraryElement": [1,0,0,0,0,0,0],
-    "InterfaceDefinition.isSufficient": [1,0,0,0,0,0,0],
+    "InterfaceDefinition.isSufficient": [0,1,0,0,0,0,0],
     "InterfaceDefinition.isVariation": [1,0,0,0,0,0,0],
     "InterfaceDefinition.member": [0,1,0,0,0,0,0],
     "InterfaceDefinition.membership": [0,1,0,0,0,0,0],

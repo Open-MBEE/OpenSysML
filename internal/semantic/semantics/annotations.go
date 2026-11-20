@@ -1149,10 +1149,6 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	}
 	// Annotating elements and dependencies are KerML elements in either language.
 	switch sym.Kind {
-	case symbols.SymbolPackage:
-		if symbols.IsLibraryPackage(sym) {
-			return m.kermlMetaclass("LibraryPackage")
-		}
 	case symbols.SymbolComment:
 		return m.kermlMetaclass("Comment")
 	case symbols.SymbolDocumentation:
@@ -1164,6 +1160,13 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	case symbols.SymbolAlias:
 		// `alias` declares a Membership of the aliased element (KerML 8.2.3.5.2).
 		return m.kermlMetaclass("Membership")
+	case symbols.SymbolPackage:
+		// A `library package` is a KerML LibraryPackage in either language (KerML 1.0 §8.3.4.13.3).
+		if symbols.IsLibraryPackage(sym) {
+			if meta := m.kermlMetaclass("LibraryPackage"); meta != nil {
+				return meta
+			}
+		}
 	}
 	if meta := m.kermlMetaclass(kermlMetaclassName(sym, m.isKerMLDoc(sym))); meta != nil {
 		return meta
@@ -1220,31 +1223,20 @@ func usageAsserts(usage *ast.Usage) bool {
 // UsageFormMetaclassName is the metaclass a usage's written form selects whatever
 // its kind keyword (`event`, `exhibit`, `include`, prefix metadata alone), else "".
 func UsageFormMetaclassName(sym *symbols.Symbol) string {
+	var event, extended bool
 	if sym.Recorded() {
-		switch mods := sym.Facts.Modifiers; {
-		case mods.Has(symbols.ModEvent):
-			return "EventOccurrenceUsage"
-		case mods.Has(symbols.ModExhibitedState):
-			return "ExhibitStateUsage"
-		case mods.Has(symbols.ModIncludedUseCase):
-			return "IncludeUseCaseUsage"
-		case mods.Has(symbols.ModExtendedUsage):
-			return "Usage"
-		}
-		return ""
-	}
-	decl, ok := sym.Decl.(*ast.Usage)
-	if !ok {
-		return ""
+		event, extended = sym.Facts.Modifiers.Has(symbols.ModEvent), sym.Facts.Modifiers.Has(symbols.ModExtendedUsage)
+	} else if decl, ok := sym.Decl.(*ast.Usage); ok {
+		event, extended = decl.IsEvent, decl.IsExtendedUsage()
 	}
 	switch {
-	case decl.IsEvent:
+	case event:
 		return "EventOccurrenceUsage"
-	case decl.IsExhibitedState():
+	case isExhibitedState(sym):
 		return "ExhibitStateUsage"
-	case decl.IsIncludedUseCase():
+	case isIncludedUseCase(sym):
 		return "IncludeUseCaseUsage"
-	case decl.IsExtendedUsage():
+	case extended:
 		return "Usage"
 	}
 	return ""
@@ -1322,6 +1314,27 @@ func extendedDefinition(sym *symbols.Symbol) bool {
 	}
 	d, ok := sym.Decl.(*ast.Definition)
 	return ok && d.Keyword == "" && d.HasDefKeyword
+}
+
+// isExhibitedState reports whether sym is an `exhibit state s : S;` or an
+// `exhibit s;` (SysML.xtext ExhibitStateUsage).
+func isExhibitedState(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.UsageKind == ast.UsageState &&
+			(sym.Facts.Keyword == "exhibit" || sym.Facts.Keyword == "exhibit state")
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.IsExhibitedState()
+}
+
+// isIncludedUseCase reports whether sym is an `include use case u : U;` or an
+// `include u;` (SysML.xtext IncludeUseCaseUsage).
+func isIncludedUseCase(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModInclude)
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.IsIncludedUseCase()
 }
 
 // ConnectorEndMetaclassName is the SysML metaclass of a connector end: a
@@ -1524,6 +1537,7 @@ func kermlMetaclassName(sym *symbols.Symbol, isKerML bool) string {
 		return ""
 	}
 	if sym.Kind == symbols.SymbolSuccessionFlowUsage {
+		// A `succession flow` also orders its ends (KerML.xtext SuccessionFlow).
 		return "SuccessionFlow"
 	}
 	if sym.Recorded() {
@@ -3225,10 +3239,10 @@ func (m *Model) reflectiveNamed(sym *symbols.Symbol) (string, bool) {
 	return m.EffectiveNamed(sym)
 }
 
-// declaredSymbolNamed is the name the declaration states, if any: not one the symbol table gave it for
-// its role (a transition's `effect`), nor the feature a metadata body feature's `mission = …` redefines.
+// declaredSymbolNamed is the name the declaration states, if any: not a role's (a transition's `effect`), the
+// feature a metadata body's `mission = …` redefines, nor an implied conjugate's derived `~P` (SysML 8.3.12.2).
 func (m *Model) declaredSymbolNamed(sym *symbols.Symbol) (string, bool) {
-	if sym == nil || sym.Naming == symbols.NamedByRole {
+	if sym == nil || sym.Naming == symbols.NamedByRole || sym.IsConjugatedPortDefinition() {
 		return "", false
 	}
 	if m.RestatesMetadataBodyFeature(sym) {

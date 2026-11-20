@@ -230,20 +230,17 @@ fn a_value_the_service_cannot_send_is_unsupported_not_null() {
     };
     let model = connection
         .parse_content(
-            "package P { private import SpatialItems::*; private import SI::*; \
-             part def Car :> SpatialItem { attribute datum :>> coordinateFrame { :>> mRefs = (mm, mm, mm); } } }",
+            "package F { calc def Unary { in v : Real[1]; return : Real; } \
+             calc def Outer { in k : Real[1]; calc inner :> Unary { in :>> v; return : Real = v * k; } \
+             return : Unary = inner; } calc outer : Outer; }",
             &Default::default(),
         )
         .unwrap_or_else(|error| panic!("parse failed: {error}"));
-    let options = EvalOptions {
-        context: Some("P::Car".to_owned()),
-        ..EvalOptions::default()
-    };
     let result = model
-        .evaluate("datum", &options)
+        .evaluate("F::outer(3.0)", &EvalOptions::default())
         .map(|evaluation| evaluation.result);
     assert!(
-        matches!(&result, Err(Error::UnsupportedValue(reason)) if reason.contains("coordinate frame")),
+        matches!(&result, Err(Error::UnsupportedValue(reason)) if reason.contains("function F::Outer::inner")),
         "{result:?}"
     );
 }

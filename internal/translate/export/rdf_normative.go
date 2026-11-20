@@ -521,7 +521,7 @@ func (e *encoder) featureChainings(chain rdf.Term, links []rdf.Term) {
 const conjugateSegment = "@conjugated"
 
 // conjugatedPortDefinition emits a port definition's implied conjugate and its
-// PortConjugation; only an original name gives the conjugate a declared name.
+// PortConjugation; it declares no name, `~P` being its derived name (SysML 8.3.12.2 effectiveName).
 func (e *encoder) conjugatedPortDefinition(subject rdf.Term, fqn string, n *ast.Definition) {
 	conjugated := e.ids.minted(rdf.RelationshipIRI(subject, "_conjugated"), subject, "_conjugated")
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(conjugated), conjugated, rdf.OwningMembershipSuffix)
@@ -548,9 +548,6 @@ func (e *encoder) conjugatedPortDefinition(subject rdf.Term, fqn string, n *ast.
 		address = fqn + "::" + identity.EscapeName(name)
 	}
 	stateAddress(e.graph.Add, conjugated, address)
-	if named {
-		e.graph.Add(conjugated, e.sysml(pDeclaredName), rdf.String(name))
-	}
 	e.emitMembershipCore(membership, conjugated, subject, mOwningMembership, true)
 	if named {
 		e.graph.Add(membership, e.sysml(pMemberName), rdf.String(name))

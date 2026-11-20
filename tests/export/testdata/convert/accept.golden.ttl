@@ -100,7 +100,6 @@ elmt:Accepts__Camera_conjugated
     sysml:elementId "Accepts__Camera_conjugated" ;
     sysml:qualifiedName "Accepts::Camera::'~Camera'" ;
     sysx:mappingQualifiedName "Accepts::Camera::'~Camera'" ;
-    sysml:declaredName "~Camera" ;
     sysml:owner elmt:Accepts__Camera ;
     sysml:owningRelationship elmt:Accepts__Camera_conjugated_om ;
     sysml:owningMembership elmt:Accepts__Camera_conjugated_om ;

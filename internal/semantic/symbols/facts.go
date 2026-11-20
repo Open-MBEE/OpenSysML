@@ -521,12 +521,8 @@ const (
 	// ModTypeFeatureMember marks a feature declared `member`, owned through an
 	// OwningMembership rather than a FeatureMembership (KerML.xtext TypeFeatureMember).
 	ModTypeFeatureMember
-	// ModExhibitedState marks an `exhibit state` or `exhibit s;` (SysML v2
-	// ExhibitStateUsage, see ast.Usage.IsExhibitedState).
-	ModExhibitedState
-	// ModIncludedUseCase marks an `include use case` or `include u;` (SysML v2
-	// IncludeUseCaseUsage, see ast.Usage.IsIncludedUseCase).
-	ModIncludedUseCase
+	// ModInclude marks a use case usage written `include use case u` or `include u` (an IncludeUseCaseUsage).
+	ModInclude
 	// ModExtendedUsage marks a usage declared by prefix metadata in place of a kind
 	// keyword (`#M x;`, SysML.xtext ExtendedUsage): a plain Usage, not a ReferenceUsage.
 	ModExtendedUsage
