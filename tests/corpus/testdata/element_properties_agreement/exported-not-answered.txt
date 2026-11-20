@@ -35,7 +35,6 @@ FlowUsage::mayTimeVary	6	symbol-44
 FlowUsage::owningUsage	1	symbol-44
 FlowUsage::portionKind	6	symbol-43
 FlowUsage::usage	6	symbol-43
-LibraryPackage::isStandard	2	symbol-43
 MetadataUsage::isIndividual	10	symbol-43
 MetadataUsage::isReference	10	symbol-44
 MetadataUsage::isVariation	10	symbol-44
@@ -45,14 +44,13 @@ MetadataUsage::nestedReference	2	symbol-43
 MetadataUsage::nestedUsage	3	symbol-43
 MetadataUsage::portionKind	10	symbol-43
 ReferenceUsage::definition	39	symbol-44
-ReferenceUsage::directedUsage	1	symbol-53
 ReferenceUsage::isReference	172	symbol-44
 ReferenceUsage::isVariation	172	symbol-44
 ReferenceUsage::mayTimeVary	172	symbol-44
 ReferenceUsage::nestedAttribute	1	symbol-43
 ReferenceUsage::nestedUsage	1	symbol-43
 ReferenceUsage::owningUsage	54	symbol-44
-ReferenceUsage::usage	16	symbol-43
+ReferenceUsage::usage	15	symbol-43
 Specialization::general	2	export-27
 Specialization::specific	3	export-27
 Subclassification::general	1	export-27

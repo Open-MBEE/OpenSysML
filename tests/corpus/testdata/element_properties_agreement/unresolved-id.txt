@@ -18,7 +18,7 @@ ForkNode::@id	2	export-49
 Membership::@id	26	export-53
 Multiplicity::@id	4	symbol-55
 OwningMembership::@id	6	export-50
-ReferenceSubsetting::@id	111	export-44
+ReferenceSubsetting::@id	105	export-44
 ReferenceUsage::@id	3	export-52
 ReturnParameterMembership::@id	4	export-50
 Subclassification::@id	2	export-47

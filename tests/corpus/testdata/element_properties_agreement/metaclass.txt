@@ -15,9 +15,8 @@ ClassUsage::@type	37	symbol-44
 FeatureMembership::@type	1	symbol-49
 FlowUsage::@type	6	symbol-44
 InteractionUsage::@type	1	symbol-44
-LibraryPackage::@type	2	export-25
 MetadataUsage::@type	10	symbol-44
-OwningMembership::@type	44	symbol-46
+OwningMembership::@type	9	symbol-46
 PredicateUsage::@type	5	symbol-44
 ReferenceUsage::@type	172	symbol-44
 Specialization::@type	17	export-58
