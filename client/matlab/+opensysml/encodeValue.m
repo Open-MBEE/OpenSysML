@@ -43,6 +43,9 @@ end
 function v = encodeStruct(x, conn)
     if isfield(x, 'unset')
         opensysml.internal.raise('opensysml:encode', 'an unset value cannot be sent');
+    elseif isfield(x, 'coordinateFrame') || isfield(x, 'coordinateTransformation')
+        opensysml.internal.raise('opensysml:encode', ...
+            'a coordinate frame or transformation cannot be sent');
     elseif isfield(x, 'reason') && isfield(x, 'lower') && isfield(x, 'upper')
         opensysml.internal.raise('opensysml:encode', ...
             sprintf('an undetermined value cannot be sent: %s', x.reason));

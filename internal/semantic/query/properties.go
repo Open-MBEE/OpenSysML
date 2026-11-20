@@ -159,7 +159,8 @@ func (r *PropertyReader) nameValues(sym *symbols.Symbol, property string) ([]str
 		return valueIfPresent(sym.Name, sym.Named())
 	case PropertyDeclaredName:
 		// A metadata body's `mission = …` declares no name: the Redefinition it implies names it.
-		if sym.EffectiveName() || (r.semantics != nil && r.semantics.RestatesMetadataBodyFeature(sym)) {
+		if sym.EffectiveName() || declaresMemberNames(sym) ||
+			(r.semantics != nil && r.semantics.RestatesMetadataBodyFeature(sym)) {
 			return nil, false
 		}
 		return valueIfPresent(sym.Name, sym.Named())
@@ -169,9 +170,18 @@ func (r *PropertyReader) nameValues(sym *symbols.Symbol, property string) ([]str
 		}
 		return valueIfPresent(sym.ShortName, sym.HasShortName())
 	case PropertyDeclaredShortName:
+		if declaresMemberNames(sym) {
+			return nil, false
+		}
 		return valueIfPresent(sym.ShortName, sym.HasShortName())
 	}
 	return nil, false
+}
+
+// declaresMemberNames reports whether sym is an alias: the names it writes are its
+// Membership's memberName and memberShortName, not names of the Membership (KerML 8.3.2.4.3).
+func declaresMemberNames(sym *symbols.Symbol) bool {
+	return sym.Kind == symbols.SymbolAlias
 }
 
 func (r *PropertyReader) multiplicityValues(sym *symbols.Symbol, property string) ([]string, bool) {

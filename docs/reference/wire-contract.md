@@ -373,10 +373,10 @@ Note that `not_found` is also the status for an unknown *symbol* on some methods
 which (`model not found:`, `symbol not found:`, `file not found:`), and a client that recovers
 by re-parsing must read it.
 
-## `Value`: twenty-three arms, exactly one present
+## `Value`: twenty-five arms, exactly one present
 
 Every value the engine returns — an expression result, a feature of an instance, an action
-output, a state-machine context variable — is a `Value`, which is a proto `oneof` of twenty-three
+output, a state-machine context variable — is a `Value`, which is a proto `oneof` of twenty-five
 arms. In JSON that is **an object with exactly one key**, and the key is the discriminator.
 A decoder therefore does not look for a `kind` field: it looks at which key is present. The
 arms, each captured from `Evaluate` against the model at the end of this section:
@@ -406,13 +406,16 @@ arms, each captured from `Evaluate` against the model at the end of this section
 | `tensorQuantity` | object | `{"result":{"tensorQuantity":{"dimensions":["2","2","2"],"components":[{"realMagnitude":1,"unit":"m","unitTerm":{…}},…]}}}` | Tensor of quantities of any rank; one `quantity` body per component, row-major |
 | `metaobject` | object | `{"result":{"metaobject":{"elementId":"Meta::seatBelt","metaclassId":"SysML::Systems::PartUsage"}}}` | An element of the model held as an instance of its metaclass (`x meta T`, the last member of `x.metadata`): the element it reflects on, by the id a client keeps for any element (qualified name, positional id `Owner::@2`, or the element form's `@id`), and the metaclass that classifies it |
 | `undetermined` | object | `{"result":{"undetermined":{"reason":"P::Q::d has no value in the model","count":{"lower":"1","upper":"1"}}}}` | A model-level result the model leaves open: a read of a feature with no value, or of one whose count is not fixed, or an operation over such a read. `count` bounds the values it would hold |
+| `coordinateFrame` | object | `{"result":{"coordinateFrame":{"name":"datum","frameId":"Frames::datum","typeId":"ISQSpaceTime::CartesianSpatial3dCoordinateFrame","instanceId":"1","dimensions":["3"],"axes":[{"unit":"mm","unitId":"SI::millimetre","unitTerm":{…}},…]}}}` | A coordinate frame or measurement scale held as a value: its identity, dimensions, one measurement reference per axis and, when it is posed in another frame, the transformation that places it |
+| `coordinateTransformation` | object | `{"result":{"coordinateTransformation":{"name":"transformation","source":{…},"target":{…},"sequence":{"steps":[…]},"pose":{"origin":[10,0,0],"basis":[…]}}}}` | A coordinate transformation held as a value: the frames it relates, the shape the model states it in, and the pose that shape resolves to |
 
 The `array`, `vector` and `vectorQuantity` rows were captured against
 `conformance/fixtures/structured.sysml` (`S::grid`, `S::v`, `S::d`), `measurementRef` against
 `conformance/fixtures/measurement_ref.sysml` (`M::u`), `function` against
 `conformance/fixtures/function.sysml` (`F::pick`), `set` and `tensorQuantity` against
 `conformance/fixtures/set_tensor.sysml` (`T::s.elements`, `T::cube`), `metaobject` against
-`conformance/fixtures/metaobject.sysml` (`(Meta::seatBelt meta KerML::Feature)#(1)`); the rest against the model below, with requests of the form
+`conformance/fixtures/metaobject.sysml` (`(Meta::seatBelt meta KerML::Feature)#(1)`), `coordinateFrame` and `coordinateTransformation` against
+`conformance/fixtures/coordinate_frame.sysml` (`Frames::datum`, `Frames::lbcf.transformation`); the rest against the model below, with requests of the form
 `{"modelHash":"5a89…277c","expression":"<expr>","contextSymbolId":"Rover"}` with `rover.count`,
 `RealFunctions::sqrt(2.0)`, `1.0 / 3.0`, `rover.armed`, `"abc"`, `rover.wheel`, `rover.tags`, `null`, `rover.speed`,
 `Mode::idle`, `rover.serial` and `rover.z`, and the model was:
@@ -499,6 +502,18 @@ decode(v):
                  string) and v.undetermined.count (lower and upper as strings, upper "*"
                  when unbounded); distinct from unset, from null and from false. Never
                  send it: a request carrying one is answered with INVALID_ARGUMENT
+  coordinateFrame → a frame record: name, frameId, typeId (empty = none), instanceId under
+                 the instanceId rule ("0" or absent = none), dimensions (int64 each), axes
+                 (the measurementRef rule over each), scale when present (unit by the
+                 measurementRef rule; mapping.mapped and mapping.reference by the quantity
+                 rule), transformation when present (the rule below). Never send it
+  coordinateTransformation → a transformation record: name, transformationId, typeId,
+                 instanceId, source and target when present (the coordinateFrame rule),
+                 at most one of placement (origin and each of basisDirections by decode),
+                 sequence (each step exactly one of translation, by decode, or rotation:
+                 axisDirection by decode, angle by the quantity rule, isIntrinsic), affine
+                 (rotation: 9 doubles row-major; translation: 3 doubles), and pose when
+                 present (origin: n doubles; basis: n×n doubles row-major). Never send it
   anything else → an error: a newer service than this decoder
 ```
 
@@ -915,6 +930,84 @@ $ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"Meta::notADefinitio
   A service without it sends every metaobject, at any depth, as
   `{"null":"unsupported: metaobject Meta::seatBelt : SysML::Systems::PartUsage"}` and refuses a
   request carrying one.
+
+**`coordinateFrame` and `coordinateTransformation`.** A feature typed by a
+`MeasurementReferences::CoordinateFrame` evaluates to the frame, and one typed by a
+`CoordinateTransformation` to the transformation; a part's `coordinateFrame` and a frame's
+`transformation` are the usual reads. Each travels as what the model states rather than as a
+rendering of it:
+
+```json
+{"result":{"coordinateFrame":{"name":"lbcf","frameId":"Frames::lbcf",
+  "typeId":"ISQSpaceTime::CartesianSpatial3dCoordinateFrame","instanceId":"1","dimensions":["3"],
+  "axes":[{"unit":"mm","unitId":"SI::millimetre","unitTerm":{…}},…],
+  "transformation":{"name":"transformation","transformationId":"Frames::lbcf::transformation",
+    "typeId":"MeasurementReferences::TranslationRotationSequence","instanceId":"2",
+    "source":{"name":"datum","frameId":"Frames::datum",…},
+    "sequence":{"steps":[
+      {"translation":{"vectorQuantity":{"components":[…]}},"instanceId":"4"},
+      {"rotation":{"axisDirection":{"vectorQuantity":{…}},"angle":{"intMagnitude":"180","unit":"'°'",…},"isIntrinsic":true},"instanceId":"5"}]},
+    "pose":{"origin":[10,0,0],"basis":[-0.9999999999998971,-4.5358979340358856e-07,0,…]}}}}}
+```
+
+- **Identity.** `name` is how a reader names the frame: its declared name, else the
+  expression that composed it (`datum / s`). `frameId` (`transformationId`) is the qualified
+  name of the usage declaring it and is absent for one an operation composed; `typeId` names
+  its type. `instanceId` is the object it was read from and follows the `instanceId` rule: it
+  is meaningful in this response only.
+- **Axes and scale.** `axes` is the frame's `mRefs`, one `measurementRef` body per axis, and
+  `dimensions` its shape. A measurement scale has no axes and carries `scale` instead: the
+  `unit` it is measured in and, when the model defines it against another reference (a
+  `QuantityValueMapping`, as degrees Celsius against kelvin), `mapping` with one point on the
+  scale (`mapped`) and the same point on the reference (`reference`), both `quantity` bodies.
+- **Endpoints.** A transformation names the frame it is stated in as `source` and the frame it
+  places as `target`. A frame's own `transformation` omits `target`: the frame holding it is
+  that target, and repeating it would nest the frame in itself without end. A `source` or
+  `target` does not carry its own `transformation` when that would re-enter a frame already
+  being written.
+- **Shape.** At most one of three keys says how the model states the transformation:
+  `placement` (a `CoordinateFramePlacement`: the target's `origin` in the source and, when
+  stated, its `basisDirections`, each a `Value`), `sequence` (a `TranslationRotationSequence`:
+  `steps` in the order applied, each either a `translation` vector or a `rotation` by `angle`
+  about `axisDirection`, about the already-rotated axes when `isIntrinsic`), or `affine` (an
+  `AffineTransformationMatrix3d`: a 3×3 `rotation`, row-major, and a `translation`). None is
+  present for a transformation that states none.
+- **Pose.** `pose` is what the shape resolves to, so a consumer placing geometry needs no
+  rotation algebra of its own: a point with coordinates `v` in the target frame lies at
+  `origin + basis · v` in the source frame, in the source's axis units. `v` is read in the
+  target's own axis units, so `basis` carries the conversion between the two as well as the
+  rotation: a metre frame placed unrotated in a millimetre one has 1000 down its diagonal.
+  `origin` has one number per source axis and `basis` is n×n, row-major. It is computed from the units the model
+  names, so the library's degree (0.01745329 rad) puts a 180° turn within 5e-7 of a half turn, as above. It is absent when the transformation states no
+  source or its shape resolves to no pose; it is never a guess.
+- **Equality.** A client compares two frames as the service does. When either carries an
+  `instanceId`, they are equal exactly when `instanceId` and `frameId` both match: one object
+  of one usage, whether or not its `transformation` was sent (a frame cut short at a cycle is
+  still itself) and whatever `name` it was read under. Frames with no `instanceId`, composed
+  by an operation, are equal when `dimensions`, `axes`, `scale` and `transformation` are;
+  `name`, `frameId` and `typeId` do not count. Two transformations are equal when `source`,
+  `target` and the stated shape are, steps compared by what they do and not by their
+  `instanceId`; `name`, `typeId` and `pose` do not count, and a transformation stating no
+  shape equals only one with the same `instanceId` and `transformationId`. Two limits follow
+  from what is sent. An `instanceId` means nothing across responses, so the comparison is
+  sound within one response; `frameId` keeps two different usages apart across responses,
+  but not two objects of one usage. And a frame's own `transformation` carries no `target`,
+  so a client equates it with a transformation read directly only when both carry the same
+  `instanceId` and `transformationId`; an absent `target` otherwise equals only an absent one.
+- **Output only.** Neither arm is an argument: a request carrying one, at any depth, is
+  answered with `INVALID_ARGUMENT`, and the typed clients refuse to encode one.
+- A frame or transformation holding a value that itself has no wire form is withheld whole, as
+  the unsupported null naming it and the value it holds; half a pose is not sent.
+- The arms are gated by the `coordinate_frame_values` capability (see [Capabilities, and what an absent one does](service-transports.md#capabilities-and-what-an-absent-one-does)).
+  A service without it sends each, at any depth, as an unsupported null:
+  `{"null":"unsupported: coordinate frame datum [mm, mm, mm]"}`,
+  `{"null":"unsupported: coordinate transformation transformation (datum → lbcf)"}`.
+
+The typed clients read them as `CoordinateFrame` and `CoordinateTransformation` (Go, Python,
+Java, Rust, Julia), `CoordinateFrameValue` and `CoordinateTransformationValue` (Node), and
+structs marked `coordinateFrame` / `coordinateTransformation` (MATLAB). Go, Python, Node, Java,
+Rust and Julia define equality over them by the rule above; MATLAB returns plain structs and
+defines none.
 
 ### What a client must not do
 

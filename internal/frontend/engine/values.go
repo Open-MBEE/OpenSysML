@@ -151,8 +151,7 @@ func valueToProto(rt *runtime.Context, val runtime.Value, idx *symbols.Index, id
 	case runtime.ValUndetermined:
 		return &JValue{Undetermined: undeterminedToProto(val.Undetermined())}
 	case runtime.ValCoordinateFrame, runtime.ValCoordinateTransformation:
-		// No wire arm carries a frame's axes or a transformation's placement.
-		return &JValue{Null: text(unsupportedShown(val))}
+		return coordinateValueToProto(rt, val, idx, ids)
 	default:
 		return &JValue{Null: text("unsupported")}
 	}
@@ -493,6 +492,10 @@ func protoToRuntimeValue(rt *runtime.Context, pv *JValue, idx *symbols.Index, se
 		return runtime.Value{}, errUnsetNotAccepted
 	case pv.Undetermined != nil:
 		return runtime.Value{}, errUndeterminedNotAccepted
+	case pv.CoordinateFrame != nil:
+		return runtime.Value{}, errCoordinateFrameNotAccepted
+	case pv.CoordinateTransformation != nil:
+		return runtime.Value{}, errCoordinateTransformationNotAccepted
 	case pv.Quantity != nil:
 		return protoToQuantity(pv.Quantity, idx, sem)
 	case pv.EnumLiteral != nil:
