@@ -2,6 +2,7 @@ package queryexec
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"regexp"
 	"slices"
@@ -1011,7 +1012,11 @@ func (e *executor) propertyValues(row Value, property string) ([]Value, bool, er
 	}
 	segments, ok := parseMemberPath(property)
 	if ok && len(segments) > 1 {
-		values, present, _, err = e.memberPathValues(sym, segments)
+		var overflow *memberOverflow
+		values, present, overflow, err = e.memberPathValues(sym, segments)
+		if err == nil && overflow != nil {
+			err = fmt.Errorf("%s holds %d values, more than its multiplicity admits", property, overflow.count)
+		}
 		if present || err != nil {
 			return values, present, err
 		}

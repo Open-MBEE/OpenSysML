@@ -1987,7 +1987,7 @@ A constraint or requirement whose condition reads `in` parameters takes their va
 request: `arguments` is a positional list bound in declaration order, `namedArguments` binds by
 parameter name, and the two may be mixed, as `RunAnalysis` binds a case's inputs; the values are
 `Value` messages in the shapes [`EvaluateCalc`](#evaluatecalc) accepts. A name no parameter has,
-more positional values than parameters, a parameter left without a value, default or same-named value on the checked object, or a value
+more positional values than parameters, a parameter left without a value or default, or a value
 not of the parameter's type is an undecided `verdict` whose `error` names it, not a status error.
 Only the evaluate question takes them: `holds` and `satisfiable` with any argument are
 `INVALID_ARGUMENT`, since the solver chooses the free features' values. The service advertises the
