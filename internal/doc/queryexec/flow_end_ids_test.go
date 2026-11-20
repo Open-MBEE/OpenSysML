@@ -50,3 +50,35 @@ func TestFlowEndsReadTheConversionIDs(t *testing.T) {
 		}
 	}
 }
+func TestFilterConditionHasItsMembersElementID(t *testing.T) {
+	fixture := loadExecutionSource(t, `package Observatory {
+	metadata def M;
+	filter @M;
+}`)
+	read := export.NewElementIDReader([]export.ElementIDDocument{{File: fixture.file, Root: fixture.root}})
+	pkg := symbols.PreferDeclared(fixture.index.LookupQualified("Observatory"))
+	if len(pkg) != 1 {
+		t.Fatalf("lookup Observatory: got %d symbols", len(pkg))
+	}
+	members, _ := fixture.model.ReflectiveElements(pkg[0], "ownedMember")
+	var condition *symbols.Symbol
+	for _, member := range members {
+		if member.Expr != nil && member.Expr.Role == symbols.ExpressionFilterCondition {
+			condition = member
+		}
+	}
+	if condition == nil {
+		t.Fatalf("Observatory owns no filter condition among %d members", len(members))
+	}
+	id, err := ElementIDOf(read, fixture.index, condition)
+	if err != nil || !strings.HasSuffix(id, "_pfilter") {
+		t.Fatalf("condition id = %q, %v; want the member's at _pfilter", id, err)
+	}
+	memberships, _ := fixture.model.ReflectiveElements(condition, "owningMembership")
+	if len(memberships) != 1 {
+		t.Fatalf("condition owning membership = %v, want one", memberships)
+	}
+	if got, _ := ElementIDOf(read, fixture.index, memberships[0]); got != strings.TrimSuffix(id, "_pfilter") {
+		t.Errorf("ElementFilterMembership id = %q, want %q", got, strings.TrimSuffix(id, "_pfilter"))
+	}
+}

@@ -29,6 +29,7 @@ type structureDifferential struct {
 	graph    *apiJSONGraphStructure
 	symbolic *metamodel.SymbolStructure
 	ids      *ElementIDs
+	facts    *identityFacts
 	index    *symbols.Index
 	doc      string
 	symbolID map[*symbols.Symbol]string
@@ -445,6 +446,7 @@ func differentialOf(path string, data []byte) (*structureDifferential, bool) {
 		graph:           graphEvaluation.structure,
 		symbolic:        symbolic,
 		ids:             ids,
+		facts:           encoders[0].ids,
 		index:           res.Index(),
 		doc:             sf.Name(),
 		symbolID:        map[*symbols.Symbol]string{},
@@ -543,14 +545,16 @@ func (d *structureDifferential) computeGraphID(sym *symbols.Symbol) (string, boo
 	case sym.Expr != nil:
 		return d.expressionGraphID(sym)
 	}
+	// A library alias is written under the id its Membership is minted.
+	if membership, ok := d.facts.libraryAliasMembership(sym); ok {
+		return rdf.LocalName(membership.Value), true
+	}
 	// A body's parameter declares no node of its own: its symbol is keyed by the
 	// body, which the conversion writes as the reference the parameter is in<i> of.
 	if body, ok := sym.Decl.(*ast.BodyExpr); ok && sym.Name != "" {
 		element, _, ok := d.ids.OfBodyParameter(d.doc, body, sym.Name)
 		return element, ok
 	}
-	// A chained end's target is the chain Feature its ReferenceSubsetting owns, minted
-	// off the end (chainFeature), which the chain's own node is not written as.
 	if sym.Kind == symbols.SymbolReferenceUsage && sym.OwnerScope != nil {
 		if end, ok := sym.OwnerScope.Node().(*ast.ConnectorEnd); ok && end.AttachedTarget() == sym.Decl {
 			element, _, ok := d.ids.OfExpressionPart(d.doc, end, "chain")

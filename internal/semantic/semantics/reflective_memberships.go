@@ -35,7 +35,8 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		m.memberships[sym] = out
 		return out
 	}
-	if sym.Scope == nil && value == nil {
+	synthesized := m.synthesizedMembersOf(sym)
+	if sym.Scope == nil && value == nil && len(synthesized) == 0 {
 		return nil
 	}
 	journal(m, m.memberships, sym, sym.Decl)
@@ -121,7 +122,8 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		ordinal++
 	}
 	if sym.Scope == nil {
-		out = m.withDefaultMultiplicity(sym, out, ordinal)
+		out = withSynthesizedMemberships(sym, out, synthesized)
+		out = m.withDefaultMultiplicity(sym, out, len(out))
 		m.memberships[sym] = out
 		return out
 	}
@@ -181,6 +183,7 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	if parts := m.transitionMembers(sym); len(parts) > 0 {
 		out = m.withTransitionMemberships(sym, out, parts)
 	}
+	out = withSynthesizedMemberships(sym, out, synthesized)
 	out = m.withDefaultMultiplicity(sym, out, len(out))
 	m.memberships[sym] = out
 	return out
@@ -207,6 +210,99 @@ func (m *Model) withFlowEndMemberships(sym *symbols.Symbol, out []*symbols.Symbo
 func flowDeclaresPayload(sym *symbols.Symbol) bool {
 	usage, ok := sym.Decl.(*ast.Usage)
 	return ok && usage.FlowEnds != nil && usage.FlowEnds.PayloadDecl != nil
+}
+
+// synthesizedMembersOf is the members sym owns without a symbol of their own, in
+// source order: its `filter` conditions, its body's result.
+func (m *Model) synthesizedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil || sym.Recorded() || sym.Expr != nil || sym.Implicit != nil {
+		return nil
+	}
+	defer m.own(sym).LeaveDoc()
+	if cached, ok := m.synthesized[sym]; ok {
+		return cached
+	}
+	journal(m, m.synthesized, sym, sym.Decl)
+	var out []*symbols.Symbol
+	for i, filter := range symbols.NamespaceFiltersIn(sym.Scope) {
+		if filter.Expr != nil {
+			out = append(out, synthesizedMember(sym, filter.Expr, &symbols.ExpressionElement{
+				Owner: sym, Role: symbols.ExpressionFilterCondition, Index: i,
+			}))
+		}
+	}
+	for _, result := range OwnedResultExpressions(sym) {
+		if result.Condition {
+			continue // a constraint's closing bare condition is ConstraintResultMember's
+		}
+		out = append(out, synthesizedMember(sym, result.Node, &symbols.ExpressionElement{
+			Owner: sym, Role: symbols.ExpressionBodyResult,
+		}))
+	}
+	m.synthesized[sym] = out
+	return out
+}
+
+// withSynthesizedMembers places the members sym owns without a declaration of their
+// own (FlowEnds, synthesized conditions and results) among its declared ones, by clause.
+func (m *Model) withSynthesizedMembers(sym *symbols.Symbol, members []*symbols.Symbol) []*symbols.Symbol {
+	for _, member := range slices.Concat(m.FlowEndMembers(sym), m.synthesizedMembersOf(sym)) {
+		members = slices.Insert(members, ownedClausePosition(sym, members, member.DeclSpan.Offset), member)
+	}
+	return members
+}
+
+// ownedClausePosition is where a clause of sym at offset sits among items: before
+// the first member sym declares after it, else after the last member sym declares.
+func ownedClausePosition(sym *symbols.Symbol, items []*symbols.Symbol, offset int) int {
+	at := 0
+	for i, item := range items {
+		if ownerSymbol(item) != sym {
+			continue
+		}
+		if item.DeclSpan.Len > 0 && item.DeclSpan.Offset > offset {
+			return i
+		}
+		at = i + 1
+	}
+	return at
+}
+
+func synthesizedMember(owner *symbols.Symbol, node ast.Node, elem *symbols.ExpressionElement) *symbols.Symbol {
+	return &symbols.Symbol{
+		Kind:       symbols.SymbolExpression,
+		DocName:    owner.DocName,
+		DeclSpan:   node.Span(),
+		Decl:       node,
+		Visibility: owner.Visibility,
+		Expr:       elem,
+	}
+}
+
+// withSynthesizedMemberships owns each synthesized member through a membership
+// at its clause among the written members, then renumbers the ordinals.
+func withSynthesizedMemberships(owner *symbols.Symbol, out, members []*symbols.Symbol) []*symbols.Symbol {
+	if len(members) == 0 {
+		return out
+	}
+	for _, member := range members {
+		membership := &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    owner.DocName,
+			DeclSpan:   member.DeclSpan,
+			Visibility: owner.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Form: symbols.ImplicitMembership, Member: member,
+			},
+		}
+		out = slices.Insert(out, clausePosition(out, member.DeclSpan.Offset), membership)
+	}
+	for i, membership := range out {
+		if membership.Implicit != nil {
+			membership.Implicit.Ordinal = i
+		}
+	}
+	return out
 }
 
 // withDefaultMultiplicity adds the OwningMembership of the Multiplicity sym states
@@ -517,6 +613,8 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 			return "FeatureMembership"
 		case symbols.ExpressionBodyResult:
 			return "ResultExpressionMembership"
+		case symbols.ExpressionFilterCondition:
+			return "ElementFilterMembership"
 		case symbols.ExpressionChainFeature:
 			return "OwningMembership"
 		case symbols.ExpressionGuard, symbols.ExpressionTriggerAction:
@@ -1024,6 +1122,12 @@ func (m *Model) importTarget(owner *symbols.Symbol, imp *ast.Import) *symbols.Sy
 	target, ok := m.resolver.ResolveQualified(owner.Scope, imp.Imported)
 	if !ok || target == nil {
 		return nil
+	}
+	if imp.Kind == ast.ImportMembership {
+		// An alias the namespace only imports is the membership named all the same (KerML 8.2.3.4.2).
+		if alias, ok := m.resolver.PartAlias(imp.Imported, len(imp.Imported.Parts)-1); ok {
+			return alias
+		}
 	}
 	if resolved, ok := m.resolver.ResolveAliasTarget(target); ok && resolved != nil {
 		return resolved

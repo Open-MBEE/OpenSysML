@@ -1030,7 +1030,7 @@ func (d *decoder) isExpressionNode(subject rdf.Term) bool {
 	known := strings.HasPrefix(subject.Value, rdf.Expression) ||
 		d.nodeMemberships[subject.Value].member == subject.Value ||
 		expressionMetaclasses[d.metaclass(subject)] && !hasAddress(d.graph, subject) &&
-			!d.declaredMembership(subject) ||
+			!d.declaredMembership(subject) && !LibraryReference(d.graph, subject) ||
 		d.nodeRelationship(subject)
 	d.expressionNodes[subject.Value] = known
 	return known
