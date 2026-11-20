@@ -360,5 +360,6 @@ func (s *Session) queryResultDocument(sym *symbols.Symbol) (*docir.Document, boo
 	if err != nil {
 		return nil, true, err
 	}
-	return docir.QueryResult(rendering), true, nil
+	document, err := docir.QueryResult(rendering)
+	return document, true, err
 }

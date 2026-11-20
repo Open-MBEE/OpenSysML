@@ -8,7 +8,11 @@ import (
 
 // QueryResult is the document a QVTS::QueryResult view is written as: titled by
 // the view, its header as definitions, its exposed elements as the table's rows.
-func QueryResult(rendering *view.Rendering) *Document {
+// A nil rendering is an ErrorMissingRendering.
+func QueryResult(rendering *view.Rendering) (*Document, error) {
+	if rendering == nil {
+		return nil, &Error{Kind: ErrorMissingRendering}
+	}
 	definitions := make([]Definition, len(rendering.Header))
 	for i, field := range rendering.Header {
 		definitions[i] = Definition{
@@ -32,5 +36,5 @@ func QueryResult(rendering *view.Rendering) *Document {
 	return &Document{name: rendering.View, title: rendering.View, content: []Content{
 		{kind: ContentDefinitions, definitions: definitions},
 		body,
-	}}
+	}}, nil
 }
