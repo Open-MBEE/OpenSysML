@@ -25,6 +25,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // msgModelNotFound formats the not-found status for an unknown model hash.
@@ -162,6 +163,14 @@ const CapabilitySymbolNameResolution = "symbol_name_resolution"
 // SymbolInfo.annotating_metadata_ids, the metadata usages annotating the element.
 const CapabilitySymbolAnnotatingMetadata = "symbol_annotating_metadata"
 
+// CapabilitySymbolLookupKind names the capability of honouring the lookup of GetSymbolRequest and
+// GetElementPropertiesRequest: a qualified name read only as a name, an element id only as an id.
+const CapabilitySymbolLookupKind = "symbol_lookup_kind"
+
+// CapabilitySymbolMemberDirection names the capability of honouring
+// GetSymbolRequest.member_of, reporting a feature's direction relative to that type.
+const CapabilitySymbolMemberDirection = "symbol_member_direction"
+
 // CapabilityUnsetValue names the capability of reporting a valueless feature of
 // a value type as Value.unset, rather than as the empty object it materializes.
 const CapabilityUnsetValue = "unset_value"
@@ -258,6 +267,10 @@ const CapabilityConvertCompact = "convert_compact"
 
 // CapabilityConvertLibraryReferences names ConvertResponse.library_references.
 const CapabilityConvertLibraryReferences = "convert_library_references"
+
+// CapabilityConvertInheritedMembers names ConvertRequest.inherited_members; a service
+// without it writes the inherited member lists on every api-json element.
+const CapabilityConvertInheritedMembers = "convert_inherited_members"
 
 // CapabilityConvertLibraryStubs names ConvertRequest.include_library_stubs.
 const CapabilityConvertLibraryStubs = "convert_library_stubs"
@@ -376,6 +389,10 @@ const CapabilityMetaobjectValues = "metaobject_values"
 // leaves open as Value.undetermined rather than as an unsupported null.
 const CapabilityUndeterminedValue = "undetermined_value"
 
+// CapabilityCoordinateFrameValues names the capability of carrying a coordinate frame
+// and a coordinate transformation on their own Value arms rather than as unsupported nulls.
+const CapabilityCoordinateFrameValues = "coordinate_frame_values"
+
 // CapabilityElementProperties names the GetElementProperties RPC, which reads
 // the metamodel properties of one element by their specification names.
 const CapabilityElementProperties = "element_properties"
@@ -437,6 +454,7 @@ var capabilities = []string{
 	CapabilityConvertCompact,
 	CapabilityConvertLibraryReferences,
 	CapabilityConvertLibraryStubs,
+	CapabilityConvertInheritedMembers,
 	CapabilityConvertCheckDiagnostics,
 	CapabilityParseSourcesAffected,
 	CapabilityRenderDocumentFileName,
@@ -447,6 +465,9 @@ var capabilities = []string{
 	CapabilitySymbolNameResolution,
 	CapabilityRenderViewForm,
 	CapabilitySymbolAnnotatingMetadata,
+	CapabilitySymbolLookupKind,
+	CapabilitySymbolMemberDirection,
+	CapabilityCoordinateFrameValues,
 }
 
 type capabilityAvailability struct {
@@ -521,6 +542,9 @@ type Service struct {
 	// lineages are the incremental workspaces of the document sets parsed more
 	// than once (lineage.go).
 	lineages *lineages
+	// records persists what the analysis of a model reported, for the next process
+	// that parses it (modelrecord.go); nil holds nothing across processes.
+	records *libs.Cache
 }
 
 // Option adjusts how NewService builds a service.
@@ -529,6 +553,13 @@ type Option func(*serviceOptions)
 type serviceOptions struct {
 	unavailable []string
 	serve       []string
+	records     *libs.Cache
+}
+
+// WithRecordCache has the service read a parsed model's analysis from cache when one is
+// recorded there, and record what it analyzes itself; a nil cache is none.
+func WithRecordCache(cache *libs.Cache) Option {
+	return func(o *serviceOptions) { o.records = cache }
 }
 
 // ServeExternalEngines names the manifest engines the service runs, as
@@ -628,6 +659,7 @@ func newService(cacheSize int, version string, opts []Option) (*Service, error) 
 		engines:        engines,
 		version:        version,
 		capabilities:   availability,
+		records:        options.records,
 	}, nil
 }
 
@@ -838,7 +870,10 @@ func (s *Service) ParseFile(ctx context.Context, req *pb.ParseFileRequest) (*pb.
 	}
 
 	mode := diag.ConformanceModeOf(req.StrictConformance)
-	modelHash, model := s.parseModel([]sourceInput{input}, mode, false)
+	modelHash, model, err := s.parseModel(ctx, []sourceInput{input}, mode, false)
+	if err != nil {
+		return nil, err
+	}
 	return s.buildParseResponse(modelHash, model), nil
 }
 
@@ -865,6 +900,9 @@ func (s *Service) ParseSources(ctx context.Context, req *pb.ParseSourcesRequest)
 	inputs := make([]sourceInput, 0, len(req.Documents))
 	named := make(map[string]int, len(req.Documents))
 	for position, doc := range req.Documents {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		input, err := s.documentInput(doc, position)
 		if err != nil {
 			return nil, err
@@ -878,7 +916,10 @@ func (s *Service) ParseSources(ctx context.Context, req *pb.ParseSourcesRequest)
 		inputs = append(inputs, input)
 	}
 
-	modelHash, model := s.parseModel(inputs, diag.ConformanceModeOf(req.StrictConformance), true)
+	modelHash, model, err := s.parseModel(ctx, inputs, diag.ConformanceModeOf(req.StrictConformance), true)
+	if err != nil {
+		return nil, err
+	}
 	roots := make([]*pb.SymbolInfo, 0, len(model.Documents))
 	for _, doc := range model.Documents {
 		roots = append(roots, s.rootSymbol(model, doc))
@@ -973,13 +1014,13 @@ func fileInput(path string) (sourceInput, error) {
 // With incremental, a document set parsed before is answered from its lineage
 // (lineage.go): ParseSources, whose model of many documents is reparsed after
 // each edit. ParseFile's one document is cheap to parse whole.
-func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode, incremental bool) (string, *CachedModel) {
-	return s.parseModelKeeping(inputs, mode, incremental, true)
+func (s *Service) parseModel(ctx context.Context, inputs []sourceInput, mode diag.ConformanceMode, incremental bool) (string, *CachedModel, error) {
+	return s.parseModelKeeping(ctx, inputs, mode, incremental, true)
 }
 
 // parseModelKeeping is parseModel, caching the model only when keep is set: a
 // model staged on the way to another is not kept, so it evicts nothing.
-func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceMode, incremental, keep bool) (string, *CachedModel) {
+func (s *Service) parseModelKeeping(ctx context.Context, inputs []sourceInput, mode diag.ConformanceMode, incremental, keep bool) (string, *CachedModel, error) {
 	store := func(hash string, model *CachedModel) *CachedModel {
 		if !keep {
 			return model
@@ -1008,14 +1049,23 @@ func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceM
 	}
 	modelHash := computeHash(key.String())
 	if cached, ok := s.cache.Get(modelHash); ok {
-		return modelHash, cached
+		return modelHash, cached, nil
+	}
+	// A done ctx stops the parse at its next document or analysis pass, as its
+	// error; what was parsed so far is dropped, never cached.
+	if err := ctx.Err(); err != nil {
+		return "", nil, err
 	}
 
 	// A document set parsed before is answered from its lineage: only what
 	// changed is parsed and analyzed again (lineage.go).
 	if incremental {
-		if model, ok := s.parseFromLineage(inputs, mode); ok {
-			return modelHash, store(modelHash, model)
+		model, ok, err := s.parseFromLineage(ctx, inputs, mode)
+		if err != nil {
+			return "", nil, err
+		}
+		if ok {
+			return modelHash, store(modelHash, model), nil
 		}
 	}
 
@@ -1028,6 +1078,9 @@ func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceM
 	documents := make([]*CachedDocument, 0, len(inputs))
 	parsedClean := true
 	for _, input := range inputs {
+		if err := ctx.Err(); err != nil {
+			return "", nil, err
+		}
 		srcFile := source.NewWithKind(input.name, []byte(input.content), input.kind)
 		p := parser.New(srcFile)
 		root := p.ParseFile()
@@ -1042,6 +1095,9 @@ func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceM
 	// Registers what a wildcard import re-exports, so a qualified name reaches a
 	// symbol another document imported. Only sound once every document is in.
 	idx.ExpandWildcardImports()
+	if err := ctx.Err(); err != nil {
+		return "", nil, err
+	}
 
 	if parsedClean {
 		// One batch over the model, as a workspace analyzes one: the index is
@@ -1053,9 +1109,22 @@ func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceM
 		}
 		batch := &passes.Batch{Documents: names, Gathers: passes.NewGathers()}
 		passes.PrepareBatch(idx, batch)
-		for i, doc := range documents {
-			doc.Unfiltered, _ = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind, doc.Root,
-				doc.Diagnostics, idx, passes.Options{Conformance: mode}, batch)
+		if !s.analysisFromRecord(modelHash, idx, documents) {
+			for i, doc := range documents {
+				if err := ctx.Err(); err != nil {
+					return "", nil, err
+				}
+				doc.Unfiltered, _ = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind, doc.Root,
+					doc.Diagnostics, idx, passes.Options{Conformance: mode, Context: ctx}, batch)
+			}
+			// An analysis its context stopped between passes holds part of a report,
+			// which is neither recorded nor answered.
+			if err := ctx.Err(); err != nil {
+				return "", nil, err
+			}
+			s.recordAnalysis(modelHash, idx, documents)
+		}
+		for _, doc := range documents {
 			doc.Diagnostics = passes.WithoutLints(doc.Unfiltered, nil, nil)
 		}
 	}
@@ -1063,11 +1132,11 @@ func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceM
 	// A parse racing another of the same model keeps the entry already cached,
 	// so the objects held on it stay reachable under the hash.
 	model := &CachedModel{Documents: documents, Index: idx, Library: library, Mode: mode, Findings: checkws.DuplicateLibraries(idx)}
-	return modelHash, store(modelHash, model)
+	return modelHash, store(modelHash, model), nil
 }
 
-// GetSymbol retrieves symbol information by id, or by qualified name resolved
-// from the root namespace when the request asks for that.
+// GetSymbol retrieves symbol information by qualified name or by element id, as the
+// request's lookup states; without one, symbol_id is read name first, then id.
 func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.SymbolResponse, error) {
 	// Lookup cached model
 	cached, ok := s.cache.Get(req.ModelHash)
@@ -1075,23 +1144,27 @@ func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.
 		return nil, statusErrorf(connect.CodeNotFound, msgModelNotFound, req.ModelHash)
 	}
 
-	// An id the service reported denotes that element; a name is resolved.
-	var syms []*symbols.Symbol
-	if req.ResolveName && s.capabilities.has(CapabilitySymbolNameResolution) {
-		syms = cached.ResolveName(req.SymbolId)
-	} else {
-		syms = cached.LookupSymbol(req.SymbolId)
-	}
+	syms := s.lookupSymbol(cached, req)
 	if len(syms) == 0 {
 		return &pb.SymbolResponse{
 			Error: fmt.Sprintf("symbol not found: %s", req.SymbolId),
 		}, nil
 	}
 
+	opts := symbolfacts.Options{IncludeLibraryMembers: req.IncludeLibraryMembers}
+	if req.MemberOf != "" && s.capabilities.has(CapabilitySymbolMemberDirection) {
+		owners := cached.LookupElementID(req.MemberOf)
+		if len(owners) == 0 {
+			return &pb.SymbolResponse{
+				Error: fmt.Sprintf("symbol not found: %s", req.MemberOf),
+			}, nil
+		}
+		opts.MemberOf = owners[0]
+	}
+
 	// Convert first match to proto
 	return &pb.SymbolResponse{
-		Symbol: s.symbolToProtoWith(syms[0], cached.SymbolContext(),
-			symbolfacts.Options{IncludeLibraryMembers: req.IncludeLibraryMembers}),
+		Symbol: s.symbolToProtoWith(syms[0], cached.SymbolContext(), opts),
 	}, nil
 }
 
@@ -1412,7 +1485,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 
 	// An inherited action is named by the subtype too (Sub::inherited).
-	syms := cached.LookupNamedMember(req.ActionSymbolId)
+	syms := cached.LookupDeclaredMember(req.ActionSymbolId)
 	if len(syms) == 0 {
 		return &pb.ExecuteActionResponse{
 			Error: fmt.Sprintf("action not found: %s", req.ActionSymbolId),
@@ -1618,7 +1691,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 
 	// An inherited state machine is named by the subtype too (Sub::inherited).
-	syms := cached.LookupNamedMember(req.StateMachineSymbolId)
+	syms := cached.LookupDeclaredMember(req.StateMachineSymbolId)
 	if len(syms) == 0 {
 		return &pb.ExecuteStateResponse{
 			Error: fmt.Sprintf("state machine not found: %s", req.StateMachineSymbolId),
@@ -1763,4 +1836,20 @@ func resolveEvent(lookup func(string) []*symbols.Symbol, action *symbols.Symbol,
 		}
 	}
 	return nil
+}
+
+// lookupSymbol finds what a GetSymbol request names, as the kind it states or name first.
+func (s *Service) lookupSymbol(cached *CachedModel, req *pb.GetSymbolRequest) []*symbols.Symbol {
+	if s.capabilities.has(CapabilitySymbolLookupKind) {
+		switch req.Lookup {
+		case pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME:
+			return cached.ResolveQualifiedName(req.SymbolId)
+		case pb.LookupKind_LOOKUP_KIND_ELEMENT_ID:
+			return cached.LookupElementID(req.SymbolId)
+		}
+	}
+	if req.ResolveName && s.capabilities.has(CapabilitySymbolNameResolution) {
+		return cached.ResolveName(req.SymbolId)
+	}
+	return cached.LookupSymbol(req.SymbolId)
 }

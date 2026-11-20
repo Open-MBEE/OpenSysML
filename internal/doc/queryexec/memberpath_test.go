@@ -3,6 +3,7 @@ package queryexec
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -615,5 +616,125 @@ calc def Plenty :> Query {
 	got := cellNumbers(t, result, "C")
 	if !slices.EqualFunc(got, [][]float64{nil, {1, 2}}, slices.Equal) {
 		t.Fatalf("C cells = %v, want empty, {1,2}", got)
+	}
+}
+
+// A segment naming no member reads the metaclass feature of that name, so `type.documentation`
+// on a usage reads its definition's documentation; a row whose type has none is an empty cell.
+func TestExecuteMemberPathReadsMetaclassFeatureSegment(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+package Reqs {
+	requirement def Documented {
+		doc /* The statement. */
+	}
+	requirement def Silent;
+	part holder {
+		requirement a : Documented;
+		requirement b : Silent;
+	}
+}
+calc def Statements :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		properties = ("name", "type.documentation"),
+		tolerate = true
+	)
+}`)
+	result, err := fixture.execute(t, "Statements", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "Reqs::holder"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	position := slices.IndexFunc(result.Columns(), func(c Column) bool { return c.Name() == "type.documentation" })
+	if position < 0 {
+		t.Fatalf("no type.documentation column in %v", result.Columns())
+	}
+	var got [][]string
+	for _, row := range result.Rows() {
+		var cell []string
+		for _, v := range row.Cells()[position].Values() {
+			text, _ := v.String()
+			cell = append(cell, text)
+		}
+		got = append(got, cell)
+	}
+	want := [][]string{{"The statement."}, nil}
+	if !slices.EqualFunc(got, want, slices.Equal) {
+		t.Fatalf("type.documentation cells = %q, want %q", got, want)
+	}
+}
+
+// A member path fanning out over several members keeps every scalar it reaches: the
+// bound of one member does not cap the union.
+func TestExecuteComputedMemberPathFanOutKeepsEveryScalar(t *testing.T) {
+	fixture := memberPathFixture(t, `
+calc def Runs :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		properties = ("name"),
+		columns = (Column(name = "r", expression = ownedMember.runs))
+	)
+}`)
+	result := memberPathRows(t, fixture, "Runs")
+	got := cellNumbers(t, result, "r")
+	if !slices.EqualFunc(got, [][]float64{{5, 4}, {7}, nil}, slices.Equal) {
+		t.Fatalf("runs cells = %v", got)
+	}
+}
+
+func TestExecuteComputedMemberPathFanOutRefusesOverfullMember(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+attribute def Bounded { attribute runs : Integer; }
+part def Row;
+package Results {
+	individual part def Over :> Row {
+		attribute one : Bounded { attribute redefines runs = 1; }
+		attribute two : Bounded { attribute redefines runs = (2, 3); }
+	}
+}
+calc def Over :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "N", expression = ownedMember.runs))
+	)
+}
+`)
+	_, err := fixture.execute(t, "Over", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "Results"))},
+	}, Options{})
+	var executionError *Error
+	if !errors.As(err, &executionError) || executionError.Kind != ErrorColumnCardinality {
+		t.Fatalf("error = %v, want %v", err, ErrorColumnCardinality)
+	}
+	if executionError.Expected != "1..1" {
+		t.Fatalf("Expected = %q, want %q", executionError.Expected, "1..1")
+	}
+}
+
+func TestProjectPropertyMemberPathRefusesOverfullMember(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+attribute def Bounded { attribute runs : Integer; }
+part def Row;
+package Results {
+	individual part def Over :> Row {
+		attribute one : Bounded { attribute redefines runs = 1; }
+		attribute two : Bounded { attribute redefines runs = (2, 3); }
+	}
+}
+calc def Over :> Query {
+	in root : Element;
+	Project(source = Descendants(source = root, maxDepth = 1), properties = ("ownedMember.runs"))
+}
+`)
+	_, err := fixture.execute(t, "Over", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "Results"))},
+	}, Options{})
+	var executionError *Error
+	if !errors.As(err, &executionError) || !strings.Contains(err.Error(), "more than its multiplicity admits") {
+		t.Fatalf("error = %v, want the over-full member refused", err)
 	}
 }

@@ -46,19 +46,34 @@ property_value(property::ElementProperty) =
 is_answered(property::ElementProperty) = isempty(property.unsupported)
 
 """
+    ExcludedDocument
+
+A document a read left out of the model: one the parser could not read whole, or one
+declaring an element another document already declares. `error` says why.
+"""
+struct ExcludedDocument
+    document::String
+    error::String
+end
+
+"""
     ElementProperties
 
 What one `GetElementProperties` read answered: the `element` and its `properties`, in
-the order asked for (the element form's order when none was named). Indexes by
-property name: `read["inheritedFeature"]`.
+the order asked for (the element form's order when none was named), and the
+`excluded_documents` the model was read without, empty when the whole model was read.
+Indexes by property name: `read["inheritedFeature"]`.
 """
 struct ElementProperties
     element::ElementIdentity
     properties::Vector{ElementProperty}
     by_name::Dict{String,ElementProperty}
+    excluded_documents::Vector{ExcludedDocument}
 end
-ElementProperties(element::ElementIdentity, properties::Vector{ElementProperty}) =
-    ElementProperties(element, properties, Dict{String,ElementProperty}(p.name => p for p in properties))
+ElementProperties(element::ElementIdentity, properties::Vector{ElementProperty},
+                  excluded_documents::Vector{ExcludedDocument}=ExcludedDocument[]) =
+    ElementProperties(element, properties, Dict{String,ElementProperty}(p.name => p for p in properties),
+                      excluded_documents)
 Base.getindex(read::ElementProperties, name::AbstractString) = read.by_name[String(name)]
 Base.haskey(read::ElementProperties, name::AbstractString) = haskey(read.by_name, String(name))
 Base.get(read::ElementProperties, name::AbstractString, default) = get(read.by_name, String(name), default)
@@ -92,16 +107,23 @@ Read an element's metamodel properties by their KerML/SysML specification names
 (`inheritedFeature`, `connectorEnd`, `isComposite`, …), as the model's api-json export
 spells them. `element` is a qualified name, the positional id of an unnamed member
 (`Owner::@2`) or the id an earlier answer carried; with no `properties` every property
-the element form carries is read. Requires the `element_properties` capability.
+the element form carries is read. `lookup` states what `element` is, as `get_symbol`
+takes it: `:qualified_name`, `:element_id` (an element form id or a symbol's id), or
+`:either`, the legacy form. Requires the `element_properties` capability.
 """
-function element_properties(model::Model, element::AbstractString, properties::AbstractString...)
+function element_properties(model::Model, element::AbstractString, properties::AbstractString...;
+                            lookup::Symbol=:either)
     require_capability(model.connection, CAPABILITY_ELEMENT_PROPERTIES)
     request = Dict{String,Any}("modelHash" => model.hash, "elementId" => String(element))
+    stated = lookup_kind(model, lookup)
+    stated === nothing || (request["lookup"] = stated)
     isempty(properties) || (request["properties"] = String[String(p) for p in properties])
     answer = _translate(; capabilities=(CAPABILITY_ELEMENT_PROPERTIES,), connection=model.connection) do
         call(model.connection, "GetElementProperties", request)
     end
     _check_error(answer, "GetElementProperties")
     return ElementProperties(ElementIdentity(get(answer, "element", Dict{String,Any}())),
-                             ElementProperty[_element_property(p) for p in get(answer, "properties", Any[])])
+                             ElementProperty[_element_property(p) for p in get(answer, "properties", Any[])],
+                             ExcludedDocument[ExcludedDocument(String(get(d, "document", "")), String(get(d, "error", "")))
+                                              for d in get(answer, "excludedDocuments", Any[])])
 end

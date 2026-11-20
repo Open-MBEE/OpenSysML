@@ -14,6 +14,8 @@ import (
 // declares, spelled in the OpenSysML namespace by OSLC query text.
 var derivedProperties = []string{
 	query.PropertyID, query.PropertyType, query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper,
+	query.PropertySymbolKind,
+	query.PropertyVerifyingCase,
 }
 
 // objectProjection is what a query over held objects reports when it selects
@@ -23,7 +25,7 @@ var objectProjection = []string{
 	query.PropertyShortName, query.PropertyDeclaredShortName, query.PropertyDocumentation,
 	query.PropertyTextualRepresentation, query.PropertyQualifiedName, query.PropertyOwner,
 	query.PropertyElementType, query.PropertyGeneral, query.PropertyIsAbstract, query.PropertyIsIndividual,
-	query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper,
+	query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper, query.PropertySymbolKind,
 }
 
 // textProperties are the universal properties whose values are text, which
@@ -70,10 +72,11 @@ func NewTable(index *symbols.Index, model *semantics.Model) *Table {
 	}
 	t.derived[query.PropertyMultiplicityLower] = kindNumber
 	t.derived[query.PropertyMultiplicityUpper] = kindNumber
+	t.derived[query.PropertyVerifyingCase] = kindElement
 	t.metamodel[query.PropertyIsAbstract] = kindBoolean
 	t.metamodel[query.PropertyIsIndividual] = kindBoolean
 	for _, name := range []string{query.PropertyOwner, query.PropertyElementType, query.PropertyGeneral,
-		query.PropertySatisfiedRequirement, query.PropertySatisfyingFeature} {
+		query.PropertySatisfiedRequirement, query.PropertySatisfyingFeature, query.PropertyVerifiedRequirement} {
 		t.metamodel[name] = kindElement
 	}
 	if index == nil || model == nil {

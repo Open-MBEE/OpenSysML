@@ -1,0 +1,62 @@
+enter calc test::summed
+  bind n = 3 [argument]
+  stmt declare i
+    eval feature n -> 3
+  stmt declare acc
+    eval literal 0 -> 0
+  stmt while
+    iteration 1
+        eval feature i -> 3
+        eval literal 0 -> 0
+      eval operator > -> true
+enter action node: loop body of calc test::summed
+      stmt assign acc
+            eval feature acc -> 0
+            eval literal 2 -> 2
+          eval operator * -> 0
+          eval feature i -> 3
+        eval operator + -> 3
+      stmt assign i
+          eval feature i -> 3
+          eval literal 1 -> 1
+        eval operator - -> 2
+leave action node: loop body of calc test::summed
+    iteration 2
+        eval feature i -> 2
+        eval literal 0 -> 0
+      eval operator > -> true
+enter action node: loop body of calc test::summed
+      stmt assign acc
+            eval feature acc -> 3
+            eval literal 2 -> 2
+          eval operator * -> 6
+          eval feature i -> 2
+        eval operator + -> 8
+      stmt assign i
+          eval feature i -> 2
+          eval literal 1 -> 1
+        eval operator - -> 1
+leave action node: loop body of calc test::summed
+    iteration 3
+        eval feature i -> 1
+        eval literal 0 -> 0
+      eval operator > -> true
+enter action node: loop body of calc test::summed
+      stmt assign acc
+            eval feature acc -> 8
+            eval literal 2 -> 2
+          eval operator * -> 16
+          eval feature i -> 1
+        eval operator + -> 17
+      stmt assign i
+          eval feature i -> 1
+          eval literal 1 -> 1
+        eval operator - -> 0
+leave action node: loop body of calc test::summed
+    iteration 4
+        eval feature i -> 0
+        eval literal 0 -> 0
+      eval operator > -> false
+  stmt return
+    eval feature acc -> 17
+exit calc test::summed -> (17)

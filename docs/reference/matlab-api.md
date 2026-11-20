@@ -105,7 +105,7 @@ scenario requests exactly as written.
 
 ## Values
 
-`opensysml.decodeValue` reads all twenty-three Connect-JSON `Value` arms and `opensysml.encodeValue`
+`opensysml.decodeValue` reads all twenty-five Connect-JSON `Value` arms and `opensysml.encodeValue`
 writes supported request values. `intValue` uses decimal JSON strings and exact `int64`
 accumulation, including `-9223372036854775808`; an Integer beyond `int64`
 arrives as `bigIntValue` and decodes to `struct('bigInteger', digits)`, its decimal digits kept as
@@ -198,7 +198,9 @@ saved = model.save('model.ttl');
 `filePath`, `content`, or `modelHash`. Optional fields are `fromFormat`,
 `tolerateSyntaxErrors`, `idForm` (`'qualified'`, the default, or `'uuid'`, how a graph spells
 its derived ids) and `includeLibraryStubs` (restore the pre-0.11.0 library stubs in API JSON;
-needs the `convert_library_stubs` capability). For notation converted to API JSON, `compact`
+needs the `convert_library_stubs` capability) and `inheritedMembers` (also write, in API JSON,
+the derived lists that repeat each Namespace's and Type's inherited and imported members; needs
+`convert_inherited_members`). For notation converted to API JSON, `compact`
 writes the compact document (`api-json-compact/1`, see [the compact form](api-json-compact.md)),
 `omitDerived` leaves out every derived property of the metamodel and `keepDerived` (a cell
 array of names) names the ones still written — all three need the `convert_compact`

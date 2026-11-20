@@ -1,0 +1,1 @@
+- `sysml -convert api-json` derives the types an element specializes and the direction of each of its features once per element instead of once per inherited feature and per `input`, `output` and `directedFeature`, so the conversion of a model with deep inheritance allocates about 40% less memory (#1915).

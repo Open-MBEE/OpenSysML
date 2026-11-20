@@ -1,10 +1,5 @@
-// A redefinition renames one feature (KerML 1.0 §7.3.4.5), so a value written
-// under either name is the value both names read, however many names the chain
-// of redefinitions gives it and whichever declaration wrote it. The redefinition
-// hides the base name from its owner's members, so writing under that name
-// qualifies it and reading under it goes through a base-typed reference. A usage
-// redefining the base feature directly loses the inherited redefinitions of it
-// too (KerML 1.1 §8.3.3.1.10), so their names are read through a typed reference.
+// A value written under either name of a redefined feature is the value both names read (KerML 1.1 §7.3.4.5);
+// a name the redefinition removes (§8.3.3.1.10) is written qualified and read through a typed reference.
 package test {
     private import ScalarValues::Real;
 

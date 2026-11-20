@@ -1,8 +1,10 @@
 package rdf
 
 import (
+	"slices"
 	"strings"
 	"testing"
+	"unsafe"
 )
 
 func TestGraphDeduplicates(t *testing.T) {
@@ -210,11 +212,11 @@ elmt:B a sysml:PartDefinition , sysml:Thing ;
 		t.Errorf("multiline body = %q, %v", got, ok)
 	}
 	label, ok := g.Object(a, "https://example.com/label")
-	if !ok || label.Lang != "en" || label.Value != "hello" {
+	if !ok || label.Lang() != "en" || label.Value != "hello" {
 		t.Errorf("language literal = %+v, %v", label, ok)
 	}
 	count, ok := g.Object(a, SysML+"count")
-	if !ok || count.Datatype != XSD+"integer" || count.Value != "4" {
+	if !ok || count.Datatype() != XSD+"integer" || count.Value != "4" {
 		t.Errorf("typed literal = %+v, %v", count, ok)
 	}
 	if got := len(g.Objects(IRI(Element+"B"), RDFType)); got != 2 {
@@ -320,10 +322,10 @@ func TestTermPredicates(t *testing.T) {
 	if !String("v").IsLiteral() || String("v").IsIRI() {
 		t.Error("a string should be a literal and not an IRI")
 	}
-	if Bool(true).Datatype != XSD+"boolean" {
+	if Bool(true).Datatype() != XSD+"boolean" {
 		t.Error("a boolean should carry the xsd:boolean datatype")
 	}
-	if Int(2).Datatype != XSD+"integer" {
+	if Int(2).Datatype() != XSD+"integer" {
 		t.Error("an integer should carry the xsd:integer datatype")
 	}
 }
@@ -422,5 +424,88 @@ prefixed:Other a sysml:Package .
 	}
 	if got := g.Len(); got != 2 {
 		t.Errorf("want 2 triples, got %d", got)
+	}
+}
+
+// A graph holds three terms per statement and a copy of each object in its subject
+// index, so a term must stay three words whatever a literal carries.
+func TestATermIsThreeWords(t *testing.T) {
+	if got, want := unsafe.Sizeof(Term{}), 3*unsafe.Sizeof(uintptr(0)); got > want {
+		t.Fatalf("a term is %d bytes; want at most %d", got, want)
+	}
+}
+
+func TestLiteralFormsAreDistinctTerms(t *testing.T) {
+	if (Term{}) != IRI("") || !(Term{}).IsIRI() {
+		t.Error("the zero term should be the empty IRI")
+	}
+	plain, typed, tagged := String("x"), TypedLiteral("x", XSD+"integer"), LangString("x", "en")
+	for name, term := range map[string]Term{"plain": plain, "typed": typed, "tagged": tagged} {
+		if term.Kind() != TermLiteral || term == IRI("x") {
+			t.Errorf("the %s literal is not a literal distinct from the IRI of its lexical form", name)
+		}
+	}
+	if plain == typed || plain == tagged || typed == tagged {
+		t.Error("literals of one lexical form and different datatype or language tag compare equal")
+	}
+	if plain.Datatype() != "" || plain.Lang() != "" || IRI("x").Datatype() != "" || IRI("x").Lang() != "" {
+		t.Error("a plain literal and an IRI carry neither datatype nor language tag")
+	}
+	if typed.Datatype() != XSD+"integer" || typed.Lang() != "" || tagged.Lang() != "en" || tagged.Datatype() != "" {
+		t.Errorf("typed = %v, tagged = %v", typed, tagged)
+	}
+	if typed != TypedLiteral("x", XSD+"integer") || tagged != LangString("x", "en") {
+		t.Error("two literals of one form are not the same term")
+	}
+	if TypedLiteral("x", "") != plain || LangString("x", "") != plain {
+		t.Error("a literal with an empty datatype or language tag is the plain literal")
+	}
+	g := NewGraph()
+	for _, object := range []Term{plain, typed, tagged, IRI("x"), plain} {
+		g.Add(IRI("urn:s"), IRI("urn:p"), object)
+	}
+	if got := g.Objects(IRI("urn:s"), "urn:p"); !slices.Equal(got, []Term{plain, typed, tagged, IRI("x")}) {
+		t.Errorf("objects = %v", got)
+	}
+}
+
+// The subject index answers for the graph as it stands after triples are dropped,
+// rewritten and added: predicates in first-statement order, objects in statement order.
+func TestTheSubjectIndexFollowsARewrite(t *testing.T) {
+	s, other := IRI("urn:s"), IRI("urn:other")
+	g := NewGraph()
+	g.Add(s, IRI("urn:a"), String("1"))
+	g.Add(s, IRI("urn:b"), String("2"))
+	g.Add(other, IRI("urn:a"), String("3"))
+	g.Add(s, IRI("urn:a"), String("4"))
+	g.Add(s, IRI("urn:c"), String("5"))
+	if got := g.Predicates(s); !slices.Equal(got, []string{"urn:a", "urn:b", "urn:c"}) {
+		t.Fatalf("predicates = %v", got)
+	}
+	g.RewriteTriples(func(triple *Triple) bool {
+		switch {
+		case triple.Predicate.Value == "urn:b" || triple.Subject == other:
+			return false
+		case triple.Object == String("1"):
+			triple.Predicate = IRI("urn:c")
+		}
+		return true
+	})
+	if got := g.Predicates(s); !slices.Equal(got, []string{"urn:c", "urn:a"}) {
+		t.Errorf("predicates after the rewrite = %v", got)
+	}
+	if got := g.Objects(s, "urn:c"); !slices.Equal(got, []Term{String("1"), String("5")}) {
+		t.Errorf("urn:c after the rewrite = %v", got)
+	}
+	if got := g.Objects(s, "urn:a"); !slices.Equal(got, []Term{String("4")}) {
+		t.Errorf("urn:a after the rewrite = %v", got)
+	}
+	if g.HasProperty(s, "urn:b") || len(g.Predicates(other)) != 0 {
+		t.Error("a dropped statement is still indexed")
+	}
+	g.Add(s, IRI("urn:b"), String("6"))
+	g.Add(s, IRI("urn:a"), String("4"))
+	if got := g.Objects(s, "urn:b"); !slices.Equal(got, []Term{String("6")}) || g.Len() != 4 {
+		t.Errorf("urn:b after restating = %v over %d triples", got, g.Len())
 	}
 }

@@ -201,7 +201,7 @@ var tolerated = map[string][]string{
 // removed is the imports the layering took out, importer → imported; reintroducing
 // one fails even where the layer table would permit it.
 var removed = map[string][]string{
-	"internal/exec/analysis":            {"internal/translate/export"},
+	"internal/exec/analysis":            {"internal/translate/export", "internal/syntax/ast"},
 	"internal/exec/analysis/enginewire": {"internal/translate/export"},
 	"internal/translate/export":         {"internal/translate/migrate", "internal/exec/runtime", "internal/ir/lower"},
 	"internal/workspace/model":          {"internal/exec/runtime", "internal/doc/queryexec", "internal/doc/docir", "internal/doc/docrender", "internal/translate/filename"},
@@ -214,6 +214,10 @@ var removed = map[string][]string{
 	"internal/semantic/query":           {"internal/translate/rdf"},
 	"internal/frontend/repl":            {"internal/frontend/grpc"},
 	"internal/ir/program":               {"internal/syntax/ast"},
+	"internal/exec/smt":                 {"internal/syntax/ast"},
+	"internal/exec/solve":               {"internal/syntax/ast"},
+	"internal/exec/analysis/modelform":  {"internal/syntax/ast"},
+	"internal/exec/sweep":               {"internal/syntax/ast"},
 }
 
 // TestPackageLayering checks the import graph against the layer tables: every

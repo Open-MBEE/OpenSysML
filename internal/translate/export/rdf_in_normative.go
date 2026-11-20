@@ -59,6 +59,10 @@ var impliedRelationshipMetaclasses = map[string]bool{
 	mSpecialization:       true,
 	mRedefinition:         true,
 	mReferenceSubsetting:  true,
+	mCrossSubsetting:      true,
+	mUnioning:             true,
+	mIntersecting:         true,
+	mDifferencing:         true,
 	mAnnotation:           true,
 }
 
@@ -79,6 +83,10 @@ var derivedSatelliteMetaclasses = map[string]bool{
 	mSpecialization:           true,
 	mRedefinition:             true,
 	mReferenceSubsetting:      true,
+	mCrossSubsetting:          true,
+	mUnioning:                 true,
+	mIntersecting:             true,
+	mDifferencing:             true,
 	mPortConjugation:          true,
 	mConjugatedPortDefinition: true,
 	mMultiplicityRange:        true,
@@ -94,12 +102,14 @@ var relationshipSourceEnds = []string{
 	"typedFeature", "subclassifier", pSubsettingFeature, "redefiningFeature",
 	pReferencingFeature, pSpecific, pSource, pOwningFeature, "owningClassifier",
 	pOwningType, pOwningRelatedElement,
+	"crossingFeature", "typeUnioned", "typeIntersected", "typeDifferenced",
 }
 
 // relationshipTargetEnds are the properties naming the relationship's target.
 var relationshipTargetEnds = []string{
 	"type", "superclassifier", pSubsettedFeature, pReferencedFeature,
 	"redefinedFeature", pGeneral, pTarget,
+	"crossedFeature", "unioningType", "intersectingType", "differencingType",
 }
 
 // normativeImplied reports whether el is one of the materialized elements a
@@ -476,6 +486,19 @@ func (d *decoder) statedIRITargets(owner *element) map[ast.RelationshipKind]map[
 	if ontology.IsAncestorOrSelf(owner.metaclass, "AnnotatingElement") {
 		kinds = append(kinds, ast.RelAnnotates)
 	}
+	// A graph from before these elements states the clause collapsed alone; an owner
+	// stating one of a class states one per target of its clause.
+	for _, child := range owner.children {
+		if !child.implied {
+			continue
+		}
+		switch child.metaclass {
+		case mCrossSubsetting, mUnioning, mIntersecting, mDifferencing:
+			if kind := collapsedKindsOf[child.metaclass][0]; !slices.Contains(kinds, kind) {
+				kinds = append(kinds, kind)
+			}
+		}
+	}
 	for _, kind := range kinds {
 		for _, object := range d.graph.Objects(rdf.IRI(owner.iri), rdf.SysML+relationshipProperty[kind]) {
 			if !object.IsIRI() {
@@ -515,7 +538,7 @@ func (d *decoder) parameterMember(el *element) bool {
 	return ok && kind != ast.UsageObjective
 }
 
-// verifyConjugated checks the conjugate's declared names against its original.
+// verifyConjugated checks the conjugate states no declared name (SysML 8.3.12.2), or an older graph's `~` of its original's.
 func (d *decoder) verifyConjugated(el, parent *element) error {
 	expectedName := ""
 	if original, ok := d.nameOf(parent, rdf.SysML+pDeclaredName); ok {
@@ -532,11 +555,11 @@ func (d *decoder) verifyConjugated(el, parent *element) error {
 	for i, value := range statedNames {
 		nameValues[i] = value.Value
 	}
-	if len(statedNames) > 1 || expectedName == "" && len(statedNames) != 0 ||
-		expectedName != "" && (len(statedNames) != 1 || !statedNames[0].IsLiteral() || statedNames[0].Value != expectedName) {
+	if len(statedNames) > 0 && (len(statedNames) != 1 || expectedName == "" ||
+		!statedNames[0].IsLiteral() || statedNames[0].Value != expectedName) {
 		return &UnsupportedError{
 			What: fmt.Sprintf("the conjugated port definition <%s>", el.iri),
-			Note: fmt.Sprintf("its declaredName is %q where the original requires %q", strings.Join(nameValues, ", "), expectedName),
+			Note: fmt.Sprintf("its declaredName is %q where the original permits no value or the legacy value %q", strings.Join(nameValues, ", "), expectedName),
 		}
 	}
 	short, hasShort := d.nameOf(parent, rdf.SysML+pDeclaredShortName)

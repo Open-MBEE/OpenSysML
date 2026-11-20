@@ -86,9 +86,20 @@ class ElementProperty:
         return bool(self.values)
 
 
+@dataclass(frozen=True)
+class ExcludedDocument:
+    """A document the read left out of the model: one the parser could not read
+    whole, or one declaring a top-level name another document already declares."""
+
+    document: str
+    error: str
+
+
 class ElementProperties:
     """What one read answered: the element and its properties, in the order
-    asked for, or the element form's order when none was named.
+    asked for, or the element form's order when none was named, and the
+    documents the model was read without (``excluded_documents``), empty when
+    the whole model was read.
 
     Behaves as a mapping from property name to :class:`ElementProperty`::
 
@@ -97,9 +108,15 @@ class ElementProperties:
         ['Demo::Unit::p', ...]
     """
 
-    def __init__(self, element: ElementIdentity, properties: Sequence[ElementProperty]):
+    def __init__(
+        self,
+        element: ElementIdentity,
+        properties: Sequence[ElementProperty],
+        excluded_documents: Sequence[ExcludedDocument] = (),
+    ):
         self.element = element
         self.properties = list(properties)
+        self.excluded_documents = list(excluded_documents)
         self._by_name = {p.name: p for p in self.properties}
 
     def __getitem__(self, name: str) -> ElementProperty:
@@ -158,4 +175,7 @@ def element_properties_of(response: sysml_pb2.GetElementPropertiesResponse) -> E
         )
         for p in response.properties
     ]
-    return ElementProperties(element_identity_of(response.element), properties)
+    excluded = [
+        ExcludedDocument(document=d.document, error=d.error) for d in response.excluded_documents
+    ]
+    return ElementProperties(element_identity_of(response.element), properties, excluded)

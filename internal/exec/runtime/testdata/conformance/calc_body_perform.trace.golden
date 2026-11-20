@@ -1,0 +1,20 @@
+enter calc test::Scaled
+  eval literal 3 -> 3
+  bind n = 3 [default]
+  stmt declare x
+    eval literal 0 -> 0
+  stmt action body
+enter action node: calc test::Scaled
+    eval feature n -> 3
+      eval feature a -> (3)
+      eval literal 10 -> 10
+    eval operator * -> 30
+    stmt assign x
+        eval chain r -> (30)
+        eval literal 1 -> 1
+      eval operator + -> 31
+choice step 1: tokens 1@i, 2@assign x (unordered; took 1@i first; order-dependent: x)
+leave action node: calc test::Scaled
+  stmt return
+    eval feature x -> 31
+exit calc test::Scaled -> (31)

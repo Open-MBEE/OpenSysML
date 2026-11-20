@@ -1,0 +1,1 @@
+- `sysml -convert` of a single file with `-o` writes its output to the file as it is produced, as a conversion of several files already did; it was built whole in memory first, so `-convert api-json` of one large file did not get the streamed writer's lower peak.

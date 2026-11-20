@@ -659,6 +659,13 @@ Where the code departs from §3–§4, and why.
   runtime doubles used only by its tests, and `npm run install:syson` / `build:syson` for the
   real packages. The mandatory CI job runs the stub path; `syson-artifacts.yml` runs the real one
   on demand with a `read:packages` token.
+- **Publication to a SysML v2 API server goes outward, to a server the backend names.** §4.4
+  planned structural sync against SysON's own REST API; what is built is the Cameo plugin's
+  one-way publication (`org.openmbee.opensysml.repository` in the Java client, shared by both
+  plugins) from a SysON project to an external server. The server's URL comes from
+  `opensysml.publish.*` and never from the browser, which would let any user direct the backend's
+  requests; the commit a branch was last seen at is kept in the browser, as the Cameo plugin keeps
+  it per user.
 - **The palette customizer runs last.** Sirius applies `ITreeItemPaletteCustomizer`s in bean
   order and SysON's own customizer rebuilds the palette instead of extending it, so the
   OpenSysML customizer is ordered `LOWEST_PRECEDENCE` and appends to whatever it receives.

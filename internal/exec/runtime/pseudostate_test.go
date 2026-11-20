@@ -38,10 +38,10 @@ const forkJoinMachine = `package test {
 
         succession first init then idle;
         transition first idle then split;
-        transition first split then working;
-        transition first split then watching;
-        transition first working then sync;
-        transition first watching then sync;
+        transition first split then running.left.working;
+        transition first split then running.right.watching;
+        transition first running.left.working then sync;
+        transition first running.right.watching then sync;
         transition first sync then done;
     }
 }`
@@ -93,8 +93,8 @@ func TestForkBranchesMustBeInDistinctRegions(t *testing.T) {
 
         succession first init then idle;
         transition first idle then split;
-        transition first split then working;
-        transition first split then alsoWorking;
+        transition first split then running.left.working;
+        transition first split then running.left.alsoWorking;
     }
 }`, "Machine")
 
@@ -131,10 +131,10 @@ func TestJoinWaitsForEveryBranch(t *testing.T) {
 
         succession first init then idle;
         transition first idle then split;
-        transition first split then working;
-        transition first split then watching;
-        transition first working then sync;
-        transition first stillWatching then sync;
+        transition first split then running.left.working;
+        transition first split then running.right.watching;
+        transition first running.left.working then sync;
+        transition first running.right.stillWatching then sync;
         transition first sync then done;
     }
 }`, "Machine")
@@ -174,8 +174,8 @@ func TestJoinSegmentFiresOnOwnOccurrence(t *testing.T) {
             }
         }
         join sync;
-        transition first a accept Go then sync;
-        transition first b then sync;
+        transition first running.left.a accept Go then sync;
+        transition first running.right.b then sync;
         transition first sync then done;
     }
 }`, "Machine")
@@ -364,8 +364,8 @@ func TestJoinCompletionSegmentWaitsForItsSourcesDoBehavior(t *testing.T) {
             }
         }
         join sync;
-        transition first a accept Go then sync;
-        transition first b then sync;
+        transition first running.left.a accept Go then sync;
+        transition first running.right.b then sync;
         transition first sync then done;
     }
 }`, "Machine")
@@ -431,8 +431,8 @@ func TestJoinCompletionSegmentWaitsForItsSourcesBody(t *testing.T) {
             }
         }
         join sync;
-        transition first a accept Go then sync;
-        transition first b then sync;
+        transition first running.left.a accept Go then sync;
+        transition first running.right.b then sync;
         transition first sync then done;
     }
 }`, "Machine")
@@ -486,10 +486,16 @@ func entryStart(name string) *ast.SuccessionEdge {
 }
 
 func transitionMember(source, target string) *ast.TransitionMember {
-	return &ast.TransitionMember{
-		Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: source}}},
-		Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: target}}},
+	return &ast.TransitionMember{Source: chainedName(source), Target: chainedName(target)}
+}
+
+// chainedName is the name a feature chain written with '.' parses to.
+func chainedName(path string) *ast.QualifiedName {
+	qn := &ast.QualifiedName{}
+	for i, text := range strings.Split(path, ".") {
+		qn.Parts = append(qn.Parts, ast.NameSegment{Text: text, Chained: i > 0})
 	}
+	return qn
 }
 
 func stateExecutorFor(t *testing.T, machine *ast.Usage) *StateExecutor {

@@ -10,6 +10,7 @@ from opensysml.errors import ModelError, SymbolNotFoundError
 from opensysml.model import Model
 from opensysml.proto import sysml_pb2
 from opensysml.query import QueryElement
+from tests.lookups import answering
 
 
 def _response(diagnostics=(), children=()):
@@ -49,9 +50,9 @@ def _model_with_children(*children, diagnostics=()):
         version="test", capabilities=frozenset({CAPABILITY_QUERY}),
         answered=True, origin="test",
     )
-    client.get_symbol.side_effect = lambda model_hash, symbol_id: next(
+    client.get_symbol.side_effect = answering(lambda model_hash, symbol_id: next(
         (child for child in children if child.id == symbol_id), None
-    )
+    ))
     client.query.side_effect = lambda model_hash, select=None, where=None: [
         QueryElement(id=child.id, type=child.kind, properties={"name": child.name})
         for child in children

@@ -46,6 +46,20 @@ func TestQuantifierThroughAnAliasIsTheLibraryQuantifier(t *testing.T) {
 	}
 }
 
+// TestQuantifierNamedInSegmentsIsTheLibraryQuantifier: a quoted alias holding `::` is one
+// name and a qualified alias several, and each reaches the quantifier it names.
+func TestQuantifierNamedInSegmentsIsTheLibraryQuantifier(t *testing.T) {
+	for _, element := range []string{"quotedAll", "qualifiedAll"} {
+		q, err := quantifiedQuery(t, element)
+		if err != nil {
+			t.Fatalf("%s: %v", element, err)
+		}
+		if vs := q.Variations(); len(vs) != 1 || vs[0].Name != "test::carFamily::wheelChoice" {
+			t.Errorf("%s reads %v, want the wheel choice", element, vs)
+		}
+	}
+}
+
 // TestQuantifierRefusedWithItsReason: a point that may hold no object says
 // nothing about its selection, a body comparing the iterate with another
 // point's variant is not a selection, and any other invocation stays refused.

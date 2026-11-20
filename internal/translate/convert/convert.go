@@ -5,8 +5,10 @@
 package convert
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -208,6 +210,9 @@ type Options struct {
 	IncludeLibraryStubs bool
 	// LibraryReferences receives the API JSON output's standard-library name table.
 	LibraryReferences func([]export.APIJSONLibraryReference)
+	// InheritedMembers has the API JSON output repeat each Namespace's and Type's inherited
+	// members (export.APIJSONOptions.InheritedMembers); off, it holds the owned structure.
+	InheritedMembers bool
 	// KeepLineBreaks keeps the input's line breaks on notation → notation (a
 	// save or echo); otherwise each statement of a body gets its own line.
 	KeepLineBreaks bool
@@ -235,25 +240,35 @@ type Input struct {
 // from one document to an element another declares links it, as within one
 // document. A document that does not parse fails the conversion.
 func ConvertModel(inputs []Input, to Format, opts Options) ([]byte, error) {
+	var out bytes.Buffer
+	if err := ConvertModelTo(&out, inputs, to, opts); err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
+}
+
+// ConvertModelTo is ConvertModel writing to out; the API's JSON element array is
+// written an element at a time rather than built whole.
+func ConvertModelTo(out io.Writer, inputs []Input, to Format, opts Options) error {
 	if to != FormatTurtle && to != FormatAPIJSON {
-		return nil, fmt.Errorf("a model of several documents converts to %s or %s, not %s", FormatTurtle, FormatAPIJSON, to)
+		return fmt.Errorf("a model of several documents converts to %s or %s, not %s", FormatTurtle, FormatAPIJSON, to)
 	}
+	var graph *rdf.Graph
 	if to == FormatTurtle || opts.WritesLibraryStubs() {
-		graph, err := ModelGraph(inputs, opts)
-		if err != nil {
-			return nil, err
+		var err error
+		if graph, err = ModelGraph(inputs, opts); err != nil {
+			return err
 		}
-		return FromGraphWith(graph, to, opts)
+	} else {
+		documents, err := modelDocuments(inputs)
+		if err != nil {
+			return err
+		}
+		if graph, err = export.ModelElementGraphWith(documents, opts.ID); err != nil {
+			return err
+		}
 	}
-	documents, err := modelDocuments(inputs)
-	if err != nil {
-		return nil, err
-	}
-	graph, err := export.ModelElementGraphWith(documents, opts.ID)
-	if err != nil {
-		return nil, err
-	}
-	return FromGraphWith(graph, to, opts)
+	return FromGraphTo(out, graph, to, opts)
 }
 
 // ModelGraph parses several documents as one model and returns its RDF graph,
@@ -347,38 +362,63 @@ func trimTrailingTrivia(text string) string {
 	return strings.TrimSpace(text[:end])
 }
 
+// ConvertTo is ConvertWith writing to out; the API's JSON element array is written
+// an element at a time rather than built whole.
+func ConvertTo(out io.Writer, name string, data []byte, from, to Format, opts Options) error {
+	_, err := convertTo(out, name, data, from, to, false, opts)
+	return err
+}
+
+// ConvertTolerantTo is ConvertTolerantWith writing to out.
+func ConvertTolerantTo(out io.Writer, name string, data []byte, from, to Format, opts Options) (*SyntaxError, error) {
+	return convertTo(out, name, data, from, to, true, opts)
+}
+
 func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors bool, opts Options) ([]byte, *SyntaxError, error) {
+	var out bytes.Buffer
+	syntax, err := convertTo(&out, name, data, from, to, tolerateSyntaxErrors, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return out.Bytes(), syntax, nil
+}
+
+func convertTo(out io.Writer, name string, data []byte, from, to Format, tolerateSyntaxErrors bool, opts Options) (*SyntaxError, error) {
+	written := func(data []byte, err error) (*SyntaxError, error) {
+		if err == nil {
+			_, err = out.Write(data)
+		}
+		return nil, err
+	}
 	switch {
 	case !to.Writable():
-		return nil, nil, &NotWritableError{Format: to}
+		return nil, &NotWritableError{Format: to}
 
 	case from == FormatXMI:
-		out, err := migrateTo(name, data, to)
-		return out, nil, err
+		return written(migrateTo(name, data, to))
 
 	case from == FormatSysML && to == FormatSysML:
 		// Notation to notation: keep every lexeme, fix the indentation and,
 		// unless the caller keeps the input's line breaks, lay the statements out.
 		syntax := checkSyntax(name, data)
 		if syntax != nil && !tolerateSyntaxErrors {
-			return nil, nil, syntax
+			return nil, syntax
 		}
 		layout := format.ConvertOptions
 		if opts.KeepLineBreaks {
 			layout = format.DefaultOptions
 		}
-		out, err := format.Source(name, data, layout)
-		if err != nil {
-			return nil, nil, err
+		if _, err := written(format.Source(name, data, layout)); err != nil {
+			return nil, err
 		}
-		return out, syntax, nil
+		return syntax, nil
 
 	case from == FormatSysML && to == FormatTurtle:
 		graph, err := sysmlToRDFWith(name, data, opts.ID)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		return rdf.WriteTurtle(graph), nil, nil
+		return written(rdf.WriteTurtle(graph), nil)
 
 	case from == FormatSysML && to == FormatAPIJSON:
 		toGraph := export.ElementGraphWith
@@ -387,48 +427,45 @@ func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors boo
 		}
 		graph, err := sysmlToGraph(name, data, opts.ID, toGraph)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		out, err := FromGraphWith(graph, to, opts)
-		return out, nil, err
+		return nil, FromGraphTo(out, graph, to, opts)
 
 	case from == FormatAPIJSON:
 		if to == FormatSysML {
-			out, err := export.APIJSONToSysML(data, opts.Warn)
+			notation, err := export.APIJSONToSysML(data, opts.Warn)
 			var readErr *export.APIJSONReadError
 			if errors.As(err, &readErr) {
-				return nil, nil, &SyntaxError{Name: name, Messages: []string{readErr.Error()}}
+				return nil, &SyntaxError{Name: name, Messages: []string{readErr.Error()}}
 			}
-			return out, nil, err
+			return written(notation, err)
 		}
 		// The input is the API element form; api-json to api-json normalizes it
 		// as Turtle to Turtle does.
 		graph, err := readAPIJSON(name, data)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		out, err := FromGraphWith(graph, to, opts)
-		return out, nil, err
+		return nil, FromGraphTo(out, graph, to, opts)
 
 	case from == FormatFMU:
 		notation, err := fmuToNotation(name, data)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		out, syntax, err := convert(name+sysmlExt, notation, FormatSysML, to, tolerateSyntaxErrors, opts)
+		syntax, err := convertTo(out, name+sysmlExt, notation, FormatSysML, to, tolerateSyntaxErrors, opts)
 		if err != nil {
-			return nil, nil, fmt.Errorf("the imported notation could not be written: %w", err)
+			return nil, fmt.Errorf("the imported notation could not be written: %w", err)
 		}
-		return out, syntax, nil
+		return syntax, nil
 
 	default:
 		// The input is a graph: Turtle parsed, or one read from a repository.
 		graph, err := rdf.ParseTurtle(data)
 		if err != nil {
-			return nil, nil, &SyntaxError{Name: name, Messages: []string{err.Error()}}
+			return nil, &SyntaxError{Name: name, Messages: []string{err.Error()}}
 		}
-		out, err := FromGraphWith(graph, to, opts)
-		return out, nil, err
+		return nil, FromGraphTo(out, graph, to, opts)
 	}
 }
 
@@ -440,32 +477,49 @@ func FromGraph(graph *rdf.Graph, to Format) ([]byte, error) {
 
 // FromGraphWith writes a graph in the to format with conversion options.
 func FromGraphWith(graph *rdf.Graph, to Format, opts Options) ([]byte, error) {
+	var out bytes.Buffer
+	if err := FromGraphTo(&out, graph, to, opts); err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
+}
+
+// FromGraphTo is FromGraphWith writing to out.
+func FromGraphTo(out io.Writer, graph *rdf.Graph, to Format, opts Options) error {
+	var data []byte
+	var err error
 	switch {
 	case to == FormatSysML:
-		return export.ToSysMLWarn(graph, opts.Warn)
+		data, err = export.ToSysMLWarn(graph, opts.Warn)
 	case to == FormatTurtle:
-		return rdf.WriteTurtle(graph), nil
-	case to == FormatAPIJSON:
-		if opts.Compact != nil {
-			compact := *opts.Compact
-			compact.IncludeLibraryStubs = compact.IncludeLibraryStubs || opts.IncludeLibraryStubs
-			if opts.LibraryReferences != nil {
-				inner := compact.LibraryReferences
-				compact.LibraryReferences = func(refs []export.APIJSONLibraryReference) {
-					if inner != nil {
-						inner(refs)
-					}
-					opts.LibraryReferences(refs)
+		data = rdf.WriteTurtle(graph)
+	case to == FormatAPIJSON && opts.Compact != nil:
+		compact := *opts.Compact
+		compact.IncludeLibraryStubs = compact.IncludeLibraryStubs || opts.IncludeLibraryStubs
+		compact.InheritedMembers = compact.InheritedMembers || opts.InheritedMembers
+		if opts.LibraryReferences != nil {
+			inner := compact.LibraryReferences
+			compact.LibraryReferences = func(refs []export.APIJSONLibraryReference) {
+				if inner != nil {
+					inner(refs)
 				}
+				opts.LibraryReferences(refs)
 			}
-			return export.WriteAPIJSONCompact(graph, compact)
 		}
-		return export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{
+		data, err = export.WriteAPIJSONCompact(graph, compact)
+	case to == FormatAPIJSON:
+		return export.WriteAPIJSONTo(out, graph, export.APIJSONOptions{
 			IncludeLibraryStubs: opts.IncludeLibraryStubs, LibraryReferences: opts.LibraryReferences,
+			InheritedMembers: opts.InheritedMembers,
 		})
 	default:
-		return nil, &NotWritableError{Format: to}
+		return &NotWritableError{Format: to}
 	}
+	if err != nil {
+		return err
+	}
+	_, err = out.Write(data)
+	return err
 }
 
 // readAPIJSON parses the API element form, reporting a malformed document as a

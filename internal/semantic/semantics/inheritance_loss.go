@@ -38,6 +38,8 @@ type inheritanceLoss struct {
 	inherited map[*symbols.Symbol]bool
 	// full adds what the type's own features remove; nil until they are read.
 	full map[*symbols.Symbol]bool
+	// settled is set once no guard cut the derivation short for a lookup outside it.
+	settled bool
 }
 
 // redefinitionReach returns what feature's redefinitions remove from a type
@@ -143,7 +145,7 @@ func keepOwnMembers(sym *symbols.Symbol, sets ...map[*symbols.Symbol]bool) {
 }
 
 // inheritanceLoss returns what sym does not inherit, computing its supertypes'
-// answers on the way and memoizing them all once the walk has settled.
+// answers on the way and memoizing each one whose own derivation has settled.
 func (m *Model) inheritanceLoss(sym *symbols.Symbol) *inheritanceLoss {
 	if m == nil || sym == nil {
 		return nil
@@ -155,24 +157,27 @@ func (m *Model) inheritanceLoss(sym *symbols.Symbol) *inheritanceLoss {
 		}
 		return cached
 	}
-	depth := m.resolver.Enter()
+	m.resolver.Enter()
 	walked := make(map[*symbols.Symbol]*inheritanceLoss)
-	loss := m.walkInheritanceLoss(sym, walked, depth)
+	loss := m.walkInheritanceLoss(sym, walked)
 	// A redefinition mid-resolution contributes nothing yet, so the answers are not final.
-	settled := m.resolver.Leave() && m.computingRedefinedFeatures == 0
-	for walkedSym := range walked {
-		delete(m.walkingLoss, walkedSym)
-		if _, stable := m.contributed[walkedSym]; !settled || !stable {
+	final := m.computingRedefinedFeatures == 0
+	settled := m.resolver.Leave() && final
+	for walkedSym, walkedLoss := range walked {
+		// A supertype is kept when the cut that unsettled the walk was not in its own derivation.
+		keep := settled || (final && walkedLoss.settled)
+		if _, stable := m.contributed[walkedSym]; !keep || !stable {
 			delete(m.redefLoss, walkedSym)
 		}
 	}
 	return loss
 }
 
-// walkInheritanceLoss derives sym's loss from those of the types contributing to
-// it; walked holds the answers of this walk, a type met again answering as it stands.
-func (m *Model) walkInheritanceLoss(sym *symbols.Symbol, walked map[*symbols.Symbol]*inheritanceLoss, depth int) *inheritanceLoss {
+// walkInheritanceLoss derives sym's loss from those of the types contributing to it; walked holds
+// the answers of this walk, a type met again answering as it stands and cutting its reader short.
+func (m *Model) walkInheritanceLoss(sym *symbols.Symbol, walked map[*symbols.Symbol]*inheritanceLoss) *inheritanceLoss {
 	if loss, ok := walked[sym]; ok {
+		m.cutShortLoss(sym)
 		return loss
 	}
 	defer m.own(sym).LeaveDoc()
@@ -186,12 +191,16 @@ func (m *Model) walkInheritanceLoss(sym *symbols.Symbol, walked map[*symbols.Sym
 	walked[sym] = loss
 	journal(m, m.redefLoss, sym, sym.Decl)
 	m.redefLoss[sym] = nil // re-entrancy guard: a nested query sees no loss
-	m.walkingLoss[sym] = depth
+	m.walkingLoss[sym] = m.resolver.Enter()
+	defer func() {
+		delete(m.walkingLoss, sym)
+		loss.settled = m.resolver.Leave()
+	}()
 
 	contributors := m.DirectMemberSources(sym)
 	losses := make([]*inheritanceLoss, len(contributors))
 	for i, contributor := range contributors {
-		losses[i] = m.walkInheritanceLoss(contributor, walked, depth)
+		losses[i] = m.walkInheritanceLoss(contributor, walked)
 	}
 	unoffered := make(map[*symbols.Symbol]bool)
 	for i := range contributors {

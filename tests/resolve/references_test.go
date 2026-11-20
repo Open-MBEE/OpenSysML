@@ -945,7 +945,7 @@ func TestAnInitialSuccessorInAMachineIsAnEndpoint(t *testing.T) {
 	const src = `package P {
 	state def M {
 		state idle;
-		first idle then nested;
+		first idle then outer.nested;
 		state outer {
 			state nested;
 		}
@@ -956,7 +956,7 @@ func TestAnInitialSuccessorInAMachineIsAnEndpoint(t *testing.T) {
 		}
 		state b {
 			state b1;
-			first b1 then a1;
+			first b1 then a.a1;
 		}
 	}
 	action def A {
@@ -1012,7 +1012,7 @@ func TestAChainedEndpointRootIsAnEndpoint(t *testing.T) {
 				state deep;
 			}
 		}
-		first src then inner.deep;
+		first src then outer.inner.deep;
 	}
 }`
 	walk, root, rootScope := resolvedDoc(t, src)

@@ -245,7 +245,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-09.1`, 926 files)
+## Results (pilot `2026-09.1`, 925 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -253,11 +253,11 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-examples` | 99 | 92 | 34 | 0 | 0 | 0 | 34 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 55 | 3 | 0 | 0 | 0 | 3 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 12 | 0 | 0 | 0 | 12 | 0 |
-| `examples/spec-examples` | 511 | 151 | 1092 | 3395 | 1040 | 6 | 46 | 2349 |
-| `tests/testdata` | 42 | 27 | 88 | 113 | 72 | 5 | 11 | 36 |
-| `examples` | 56 | 49 | 12 | 69 | 4 | 0 | 8 | 65 |
+| `examples/spec-examples` | 511 | 151 | 1091 | 3395 | 1042 | 4 | 45 | 2349 |
+| `tests/testdata` | 40 | 26 | 76 | 101 | 61 | 4 | 11 | 36 |
+| `examples` | 57 | 49 | 18 | 70 | 4 | 0 | 14 | 66 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **926** | **529** | **1248** | **3577** | **1116** | **11** | **121** | **2450** |
+| **Total** | **925** | **528** | **1241** | **3566** | **1107** | **8** | **126** | **2451** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -304,15 +304,69 @@ errors — the pair sits in severity-only rather than either side changing what 
 Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-examples` 4
 `unmapped`, 26 `unresolved-reference`, 2 `units`, 1 `kind-mismatch`, 1 `multiplicity`; `pilot-validation`
 3 `unresolved-reference`; `kerml-examples` 9 `unmapped`, 3 `unresolved-reference`; `testdata` 8 `unmapped`,
-1 `unresolved-reference`, 2 `multiplicity`; `examples` 4
-`unmapped`, 1 `kind-mismatch`, 2 `multiplicity`, 1 `unresolved-reference`; `probes` 6 `unmapped`; `spec-examples` 7 `syntax`,
+1 `unresolved-reference`, 2 `multiplicity`; `examples` 10
+`unmapped`, 1 `kind-mismatch`, 2 `multiplicity`, 1 `unresolved-reference`; `probes` 6 `unmapped`; `spec-examples` 6 `syntax`,
 38 `unresolved-reference`, 1 `unmapped`. Only-pilot: `testdata` 14 `kind-mismatch`, 17 `unmapped`,
-3 `syntax`, 2 `unresolved-reference`; `examples` 24 `unmapped`, 41 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
+3 `syntax`, 2 `unresolved-reference`; `examples` 24 `unmapped`, 42 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
 586 `kind-mismatch`, 196 `syntax`, 154 `unresolved-reference`, 50 `multiplicity`, 4 `units`.
 
 The `spec-examples` figures are dominated by fragments: the specification's examples leave
 cross-example names undeclared, and the pilot's typing and EMF cascade follows each one; every
 file is adjudicated in [spec-examples.md](spec-examples.md).
+
+### Keyword named by a SysML usage round
+
+`sysml/8.4.13.6/8.sysml:6` reads `action behavior subsets Parts::Part::ownedActions { … }`. SysML v2
+8.2.2.1.2 lists the reserved keywords of SysML and `behavior` is not among them, so it is the name of
+the `action` usage (`UsageDeclaration`, SysML.xtext). The parser took the second word for a kind
+keyword whenever a relationship followed it, and `kerml-notation` then reported a `behavior`
+declaration. A word the file's language does not reserve is now the name of the declaration whose
+kind keyword precedes it, so the finding is gone and the reference, which reports nothing on that
+line, is agreed with there. The other two `kerml-notation` lines of the root,
+`sysml/7.13.4/3.sysml:8` (`feature engine[1] : Engine …`) and `sysml/8.4.9.2/3.sysml:7`
+(`connector b : B`), open their declarations with the KerML keyword and keep the finding.
+
+| Count | Before | Now |
+|---|---:|---:|
+| only ours | 121 | **120** |
+| our diagnostics | 1236 | **1235** |
+| `spec-examples`: only ours / our diagnostics | 46 / 1092 | **45 / 1091** |
+| `spec-examples` only-ours `syntax` | 7 | **6** |
+
+### KerML declaration keyword round
+
+A declaration written with a keyword only the KerML grammar spells was our `kerml-notation`
+warning in a `.sysml` file and is now an error in the default mode too (SysML v2 8.2.2.1.2 gives
+SysML its own reserved keywords). Three `spec-examples` lines carry such a finding. On two the
+reference reports a syntax error on the same line, so each severity-only pair becomes agreed:
+`sysml/7.13.4/3.sysml:8` (`feature engine[1] : Engine …`) and `sysml/8.4.9.2/3.sysml:7`
+(`connector b : B`). On the third, `sysml/8.4.13.6/8.sysml:6` (`action behavior subsets …`), the
+reference reports nothing on that line, so the finding stays only ours and only its severity
+moves, warning to error. There `behavior` is the name of an `action` usage, not a declaration
+keyword, so whether the rule should fire on that line at all is a separate question this round
+records and does not adjudicate. No file becomes fully agreeing and no other count moves.
+
+| Count | Before | Now |
+|---|---:|---:|
+| agreed | 1105 | **1107** |
+| severity-only | 10 | **8** |
+| `spec-examples`: agreed / severity-only | 1040 / 6 | **1042 / 4** |
+
+### Namespace declaration round
+
+`namespace N { … }` in a `.sysml` file was our `kerml-notation` warning on a line the reference
+fails to parse (`no viable alternative at input 'N'`), a severity-only pair. SysML v2 has no
+namespace declaration (8.2.2.5.1 `RootNamespace`, 8.2.2.5.2; `SysML.xtext:38`), so the finding is
+now an error in the default mode too, and `parse/namespaces.sysml:5` moves from severity-only to
+agreed. That was the file's last disagreement, so it becomes fully agreeing. Nothing else moves:
+no other corpus file declares a namespace in a `.sysml` file on a line both sides report.
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing | 527 | **528** |
+| agreed | 1104 | **1105** |
+| severity-only | 11 | **10** |
+| `testdata`: fully agreeing / agreed / severity-only | 25 / 60 / 5 | **26 / 61 / 4** |
 
 ### View concern framing round
 
@@ -1003,7 +1057,8 @@ What remains is adjudicated as extension notation this project supports delibera
 
 The `testdata` fixtures the same notation appears in are unchanged: `passes/import_no_visibility.sysml`
 and `parse/namespaces.sysml` exist to exercise the diagnostics they carry, so their rows stay
-adjudicated where they are rather than rewritten away.
+adjudicated where they are rather than rewritten away. (The `namespace` row of the latter has
+since become an agreed error; see the namespace declaration round.)
 
 ### The team demo
 
@@ -1051,9 +1106,9 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **2450** |
-| pilot diagnostics | 123 | **3577** |
-| severity-only | 9 | **11** |
+| only pilot | 82 | **2451** |
+| pilot diagnostics | 123 | **3566** |
+| severity-only | 9 | **8** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
 those counts as the later rounds leave them.
@@ -1276,14 +1331,14 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **529 / 121 / 1248** |
-| only pilot | **2450** |
-| pilot diagnostics | **3577** |
-| severity-only | **11** |
-| unmapped, our side | **65** |
+| overall: fully agreeing / only ours / our diagnostics | **528 / 126 / 1241** |
+| only pilot | **2451** |
+| pilot diagnostics | **3566** |
+| severity-only | **8** |
+| unmapped, our side | **59** |
 | kerml-examples: only ours | **12** |
 | pilot-examples: only ours | **34** |
-| examples: only pilot | **65** |
+| examples: only pilot | **66** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **9** only-ours against 6
 only-pilot, with 56 of 58 files fully agreeing (439 / 6 and 10 / 58 when the root was added, and
@@ -2521,7 +2576,7 @@ in this pass, which is a comparison of the KerML root.
 
 | File | Verdict |
 |---|---|
-| `passes/import_no_visibility.sysml:8,12`, `parse/namespaces.sysml:5` (3) | A direct consequence of the F2 decision below: we report a bare `import` as a `warning` where the pilot's grammar makes it an `error`. Deliberate, and recorded here rather than re-argued. |
+| `passes/import_no_visibility.sysml:8,12` (2) | A direct consequence of the F2 decision below: we report a bare `import` as a `warning` where the pilot's grammar makes it an `error`. Deliberate, and recorded here rather than re-argued. `parse/namespaces.sysml:5`, once counted here, was the `namespace` declaration, which is an agreed error since the namespace declaration round. |
 | `examples/` non-standard notation (12) | The same shape under F3: notation with no production in the pilot's grammars is now a warning of ours on a line the pilot errors on, so the pair is severity-only instead of pilot-only. |
 | `passes/constraints.sysml:6` | Both flag `part few subsets cap [0..10];` under `cap [0..3]` at the same line and category. We report `error`; the pilot reports `warning` (`Subsetting/redefining feature should not have larger multiplicity upper bound`). A real difference in strictness, kept in its own bucket rather than being counted as two disagreements. |
 
@@ -2967,7 +3022,7 @@ one.
 | ~~F8~~ | **Done.** None of `choice`, `decision`, `deep`, `done`, `final`, `history`, `initial`, `junction`, `region`, `shallow` is a literal in any pinned grammar, so all ten are unreserved and matched contextually where our notation needs them ([conformance-audit.md](../reference/grammar/conformance-audit.md)). `done` now resolves as the library name it is in five files of the normative library; `TestStdlibReservedKeywordNames` no longer pins it. The state-machine notation of [grammar/README.md](../reference/grammar/README.md) that used those words still parses, now under the F3 warning. |
 | ~~F9~~ | **Done** (#382). A second list of contextual words now feeds the VS Code grammars and the LSP keyword completion, so `point`, `chain`, `on` and `var` are highlighted and completed without being reserved by the lexer. Contextual keywords are neither highlighted nor completed: the VS Code grammars and the LSP keyword completion are generated from `lexer.Keywords()`, which `point`, `chain`, `on` and `var` are deliberately absent from. `var` is real KerML notation, so a second list of contextual words for those two surfaces would restore it without reserving it. |
 | ~~F2~~ | **Done.** A bare `import` (no visibility) is non-conforming: the pilot's grammars make the indicator mandatory — `fragment ImportPrefix returns SysML::Import : visibility = VisibilityIndicator 'import' ...` with no `?`, unlike the sibling `MemberPrefix` (`KerML.xtext:169-172`, `SysML.xtext:241-244`) — and all 574 imports across the 254 OMG-authored corpus files carry one. Decision: **warn, not error** (`passes/import_visibility.go`, `LevelSyntax`, code `syntax/import-visibility`, spanned on the `import` keyword). The form is unambiguous to parse, so hard-failing would reject existing models over notation; the warning surfaces the non-conformance without gating the higher tiers. `expose` is exempt — the pilot grammar gives it implicit `protected` visibility (`SysML.xtext:2366-2372`). Our own fixtures now write an explicit visibility, with `testdata/passes/import_no_visibility.sysml` kept to lock the warning in. |
-| ~~F3~~ | **Done.** Audited in [conformance-audit.md](../reference/grammar/conformance-audit.md): `namespace` is a literal in `KerML.xtext` only (`:125`) and a `.sysml` root admits package members only (`SysML.xtext:38`), so **both** body forms are the defect, not the semicolon one — the wording in P2 above was wrong. `region`, `choice`, `junction`, the history forms, `entry`/`exit point`, the since-removed `defer` member, and the `initial`/`final`/`decision` spellings have no production either. Decision: **warn, not error**, as F2 did — `passes/nonstandard_notation.go`, `LevelSyntax`, codes `nonstandard-notation` and `kerml-notation`, spanned on the word. The notation stays parsed, so existing models keep working; `namespace` stays silent in `.kerml`, where it is legal. `TestStdlibHasNoNonstandardNotation` locks in that no OMG-authored library file draws either warning. |
+| ~~F3~~ | **Done.** Audited in [conformance-audit.md](../reference/grammar/conformance-audit.md): `namespace` is a literal in `KerML.xtext` only (`:125`) and a `.sysml` root admits package members only (`SysML.xtext:38`), so **both** body forms are the defect, not the semicolon one — the wording in P2 above was wrong. `region`, `choice`, `junction`, the history forms, `entry`/`exit point`, the since-removed `defer` member, and the `initial`/`final`/`decision` spellings have no production either. Decision: **warn, not error**, as F2 did — `passes/nonstandard_notation.go`, `LevelSyntax`, codes `nonstandard-notation` and `kerml-notation`, spanned on the word. The notation stays parsed, so existing models keep working; `namespace` stays silent in `.kerml`, where it is legal. The `namespace` declaration has since become an error in a `.sysml` file in every mode (the namespace declaration round): SysML has no production for it, where the other findings are notation the grammar spells differently or OpenSysML extends. `TestStdlibHasNoNonstandardNotation` locks in that no OMG-authored library file draws either warning. |
 | ~~F4~~ | **Done.** The pilot has no specialization-cycle check at `2026-05`: `KerMLValidator.checkSpecialization` implements only `validateSpecializationSpecificNotConjugated`, no message constant in either validator concerns cycles, and the pilot accepts self-, two- and three-element cycles with zero diagnostics on otherwise-empty probe files. Our diagnostic stays, and stays `unmapped` — the finding is one-sided and no coarse category describes it. See [Specialization cycles (F4)](#specialization-cycles-f4). |
 | ~~F5~~ | **Done.** The nine P6 diagnostics are adjudicated per diagnostic above: 5 downstream of P2, 2 a real gap (flow ends), 2 downstream of unresolved references both sides report. It spawned F20–F23, one per pilot rule, since all four rules are real whatever their diagnostics in *our* fixtures turned out to be. |
 | ~~F20~~ | **Done**, and the reopening condition was met by finding *where* we were silent rather than by re-attempting the predicate. `canAccess` over featuring types was already implemented (`passes/w8c_feature_reference.go`, `LevelConstraint`), but it only saw a usage's *value* expression, so eight constructs both implementations parse identically had the pilot reporting and us silent: a reference through the owning type's namespace (`P::Q::n`) written in a `constraint def` body, an `assert constraint` body, a `calc` `return` or a `calc` body's implicit (last-expression) result, a transition guard, a `require`/`assume` constraint, and an `assign` value. Confirmed one by one against the pinned validator. The check now walks those bodies, and a body-written reference is accessible when its own declaration features the target — the trap the reverted attempt fell into, since a body reaches its own type's features, inherited and redefined ones included, and a dot path (`s.mass`, `q.n`) reaches a nested one. Training corpus clean, no pilot-corpora row moved, pilot-diff unchanged (the reproducers are not corpus constructs, as the row predicted). Element-filter conditions are covered too — a `filter` member and an import's `[...]` clause — with the candidate element as the featuring context rather than an enclosing declaration: the pilot reports exactly when the referent is a feature of a *user-declared* type and never when it is library-declared, because its rule only runs where the referent has featuring types and a library feature it never transformed has none. So `filter R::M::a` is reported while `filter Element::name == "System" and not Type::isAbstract`, `filter (as Safety).isMandatory` and `filter @Safety` stay clean, which is what keeps `kerml-examples/Simple Tests/Filtering.kerml` valid. Both sides of that boundary were confirmed one by one against the pinned validator: a user `metaclass` feature, one whose metaclass specializes `Element`, a user `struct`, a user type specializing `Occurrence` and a `part def` attribute are all reported; five library referents (metaclass and not) and dot notation on a cast are all clean. A chain written in a filter draws this message rather than the referent one, which is what the pilot does on `filter M::a.b` — though our type tier reports every chain-shaped condition as not model-level evaluable first, so that mapping is unobservable through the CLI today. Where our type tier already errors on the condition — not Boolean, not model-level evaluable — the constraint tier stays suppressed, so those shapes remain only-pilot rows. Training corpus clean, no pilot-corpora row moved, pilot-diff aggregate unchanged. `validateSubsettingFeaturingTypes` (`Must be an accessible feature (use dot notation for nesting)`). Earlier: **attempted and reverted** (#376) for training-corpus false positives. |

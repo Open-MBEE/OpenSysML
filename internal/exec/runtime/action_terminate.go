@@ -21,6 +21,8 @@ type terminated struct {
 	then   []*actionFrame
 	object *Instance
 	ended  map[int64]bool
+	// returns marks a `return` a step of a calculation's body reached, ending its performance.
+	returns bool
 }
 
 func (t *terminated) Error() string {
@@ -433,6 +435,14 @@ func (e *ActionExecutor) leaveTerminated(tokenIdx int, perf *actionFrame) error 
 // dropTokensIn drops every token in perf's flow and the flows nested in it but the one
 // with ID keep, lowest ID first, ending their paused work; the trace records the drops.
 func (e *ActionExecutor) dropTokensIn(perf *actionFrame, keep int64) {
+	dropped := e.discardTokensIn(perf, keep)
+	if tr := e.trace(); tr != nil {
+		tr.recordActionTerminate(perf.describe(), dropped)
+	}
+}
+
+// discardTokensIn drops the tokens dropTokensIn does and returns them, unrecorded.
+func (e *ActionExecutor) discardTokensIn(perf *actionFrame, keep int64) []Token {
 	var dropped []Token
 	for _, idx := range e.tokensIn(perf) {
 		if e.tokens[idx].ID != keep {
@@ -449,7 +459,5 @@ func (e *ActionExecutor) dropTokensIn(perf *actionFrame, keep int64) {
 		}
 		e.removeToken(e.tokenIndex(token.ID))
 	}
-	if tr := e.trace(); tr != nil {
-		tr.recordActionTerminate(perf.describe(), dropped)
-	}
+	return dropped
 }

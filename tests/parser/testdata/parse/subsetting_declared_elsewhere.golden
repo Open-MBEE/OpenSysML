@@ -1,0 +1,114 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Import visibility="private" all=false kind=membership recursive=false imported="ScalarValues::Real" filtered=false)
+      (Import visibility="private" all=false kind=membership recursive=false imported="ScalarValues::Integer" filtered=false)
+      (Import visibility="private" all=false kind=namespace recursive=false imported="RealFunctions" filtered=false)
+      (Import visibility="private" all=false kind=membership recursive=false imported="SequenceFunctions::size" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Sub"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="mass" ref=false direction="none" composite=false derived=false ordered=false nonunique=false default=true
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (LiteralReal value="1.0")))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Tray"
+          (Membership visibility="default"
+            (Usage kind="part" name="items" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Sub
+                (*ast.QualifiedName))
+              (Multiplicity range=true
+                (LiteralInteger value="0")
+                (LiteralInfinity))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="held" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (InvocationExpr type="size"
+                (FeatureReference name="items"))))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Vehicle"
+          (Membership visibility="default"
+            (Usage kind="part" name="subsystem" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Sub
+                (*ast.QualifiedName))
+              (Multiplicity range=true
+                (LiteralInteger value="0")
+                (LiteralInfinity))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="count" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (InvocationExpr type="size"
+                (FeatureReference name="subsystem"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="totalMass" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (InvocationExpr type="sum"
+                (FeatureChainExpr member="mass"
+                  (FeatureReference name="subsystem")))))
+          (Membership visibility="default"
+            (Usage kind="part" name="tray" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Tray
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="onTray" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (FeatureChainExpr member="held"
+                (FeatureReference name="tray"))))
+          (Membership visibility="default"
+            (Usage kind="part" name="direct" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Sub
+                (*ast.QualifiedName))
+              (Relationship kind="subsets" target=subsystem
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="part" name="stowed" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Sub
+                (*ast.QualifiedName))
+              (Relationship kind="subsets" target=(expr)
+                (FeatureChainExpr member="items"
+                  (FeatureReference name="tray")))))
+          (Membership visibility="default"
+            (Usage kind="part" name="frame" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="part" name="beam" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Sub
+                    (*ast.QualifiedName))
+                  (Relationship kind="subsets" target=subsystem
+                    (*ast.QualifiedName))
+                  (Membership visibility="default"
+                    (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                      (Relationship kind="redefines" target=mass
+                        (*ast.QualifiedName))
+                      (LiteralReal value="2.5")))))
+              (Membership visibility="default"
+                (Usage kind="part" name="joint" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Membership visibility="default"
+                    (Usage kind="part" name="pin" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                      (Relationship kind="typing" target=Sub
+                        (*ast.QualifiedName))
+                      (Relationship kind="subsets" target=subsystem
+                        (*ast.QualifiedName))
+                      (Membership visibility="default"
+                        (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                          (Relationship kind="redefines" target=mass
+                            (*ast.QualifiedName))
+                          (LiteralReal value="0.5")))))))))
+          (Membership visibility="default"
+            (Usage kind="part" name="wheels" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Multiplicity range=false
+                (LiteralInteger value="2"))
+              (Membership visibility="default"
+                (Usage kind="part" name="hub" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Sub
+                    (*ast.QualifiedName))
+                  (Relationship kind="subsets" target=subsystem
+                    (*ast.QualifiedName))))))))
+      (Membership visibility="default"
+        (Usage kind="part" name="vehicle" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Vehicle
+            (*ast.QualifiedName)))))))

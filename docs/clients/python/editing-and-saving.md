@@ -28,7 +28,11 @@ name) or `ID_FORM_UUID` (name-based uuids under each root package, the library
 convention). `include_library_stubs=True` restores the ownerless library stubs
 api-json carried before 0.11.0; it needs the service's `convert_library_stubs`
 capability, and a service without it raises `MissingCapabilityError` before
-anything is sent. Both are taken alike by `opensysml.convert`,
+anything is sent. `inherited_members=True` also writes, in api-json, the derived
+lists that repeat each Namespace's and Type's inherited and imported members
+(`membership`, `member`, `inheritedMembership`, `importedMembership`,
+`featureMembership`, `feature`, `inheritedFeature`), where by default an element carries its owned structure; it
+needs `convert_inherited_members`. All three are taken alike by `opensysml.convert`,
 `Connection.convert` and `Model.convert`.
 
 Turtle conversion is experimental and raises `ExperimentalFeatureWarning`.

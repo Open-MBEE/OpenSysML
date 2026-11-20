@@ -1,6 +1,5 @@
-// An exhibited machine typed by the library's StateAction with no body of its
-// own takes nothing from the library definition, whose self-typed `self` state
-// is withheld: the machine lowers and fails only for stating no initial state.
+// A body-less machine typed by the library's StateAction takes no content from it:
+// declaring no substate, it is active in itself (SysML v2 §7.18.1).
 package test {
 	private import States::StateAction;
 

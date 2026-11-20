@@ -36,6 +36,13 @@ function test_encode_value()
     assert_equal(q.quantity.intMagnitude, '3', 'quantity intMagnitude');
     dq = opensysml.decodeValue(q);
     assert_equal(dq.unit, 'kg', 'quantity round trip');
+    assert_equal(isfield(q.quantity, 'valueType') || isfield(dq, 'valueType'), false, ...
+        'a quantity held as no type carries none');
+    held = opensysml.decodeValue(struct('quantity', ...
+        struct('realMagnitude', 5, 'unit', 'J', 'valueType', 'ISQThermodynamics::EnergyValue')));
+    assert_equal(held.valueType, 'ISQThermodynamics::EnergyValue', 'quantity valueType');
+    back = opensysml.encodeValue(held);
+    assert_equal(back.quantity.valueType, 'ISQThermodynamics::EnergyValue', 'quantity valueType round trip');
 
     e = opensysml.encodeValue(struct('literalId', 'A::b', 'enumerationId', 'A', 'name', 'b', 'value', []));
     assert_equal(e.enumLiteral.literalId, 'A::b', 'enumLiteral');
@@ -68,6 +75,7 @@ function test_encode_value()
 
     assert_error(@() opensysml.encodeValue(struct('unset', true)), 'opensysml:encode', 'unset cannot be sent');
     assert_error(@() opensysml.encodeValue(struct('reason', 'r', 'lower', 0, 'upper', 1)), 'opensysml:encode', 'undetermined cannot be sent');
+    assert_error(@() opensysml.encodeValue(struct('coordinateFrame', true, 'name', 'datum')), 'opensysml:encode', 'a frame cannot be sent');
 
     % -2^63 cannot be written as a double literal; check the round trip
     % through the wire spelling

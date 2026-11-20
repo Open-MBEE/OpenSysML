@@ -205,7 +205,7 @@ func (ctx *Context) satisfyAssertionOf(sym *symbols.Symbol) *SatisfyAssertion {
 			continue
 		}
 		switch rel.Kind {
-		case ast.RelSubsets:
+		case ast.RelReferences:
 			a.RequirementRef, a.Requirement = ctx.resolveRelationship(sym, rel)
 		case ast.RelSubject:
 			a.SubjectRef, a.Subject = ctx.resolveRelationship(sym, rel)

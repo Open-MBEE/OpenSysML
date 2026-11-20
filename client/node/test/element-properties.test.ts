@@ -70,3 +70,19 @@ test("a missing element and a missing capability are refused by kind", async () 
   const older = await fakeConnection(["query"]);
   await assert.rejects(older.elementProperties("hash", "EP::Pair"), MissingCapabilityError);
 });
+
+test("an element beside a document with a syntax error is answered, and the document is listed", async () => {
+  await using connection = await connect();
+  const model = await connection.parseSources([
+    ["a.sysml", "package A { part x; }"],
+    ["c.sysml", "package C { part y }"],
+  ]);
+  const read = await model.elementProperties("A::x", "name");
+  assert.deepEqual(read.get("name")?.values, ["x"]);
+  assert.deepEqual(
+    read.excludedDocuments.map((excluded) => excluded.document),
+    ["c.sysml"],
+  );
+  assert.match(read.excludedDocuments[0]?.error ?? "", /syntax error/);
+  await assert.rejects(model.elementProperties("C", "name"), /syntax error/);
+});

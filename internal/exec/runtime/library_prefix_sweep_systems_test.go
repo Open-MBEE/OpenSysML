@@ -71,7 +71,7 @@ const sweepSystemsModel = `package Probe {
 	analysis def An1 { subject s : P1; objective { true } }
 	verification def V1 { subject s : P1; objective { verify r1; } requirement r1 : R1; }
 	use case def U1 { subject s : P1; actor who : P2; }
-	view def Vw1 { expose Probe::P1; }
+	view def Vw1;
 	viewpoint def Vp1 { frame concern con1 : Con1; }
 	concern def Con1 { stakeholder sh : P2; }
 	rendering def Rd1;

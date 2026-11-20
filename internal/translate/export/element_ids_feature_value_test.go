@@ -73,6 +73,9 @@ func TestElementIDReaderSpellsExpressionPartsAsTheConversionWritesThem(t *testin
 	written := map[string]map[string]bool{} // class → elementIds
 	direction := map[string]string{}        // parameter elementId → direction
 	for _, subject := range graph.Subjects() {
+		if LibraryReference(graph, subject) {
+			continue // the library's result memberships the expressions inherit through
+		}
 		for _, class := range graph.Objects(subject, rdf.RDFType) {
 			name := class.Value[len(rdf.SysML):]
 			switch name {

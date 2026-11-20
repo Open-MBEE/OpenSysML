@@ -120,7 +120,8 @@ classdef Model < handle
                         sprintf('%s options must be name-value pairs', label));
                 end
                 if any(strcmp(args{i}, {'tolerateSyntaxErrors', 'idForm', 'includeLibraryStubs', ...
-                        'compact', 'omitDerived', 'keepDerived', 'includeCheckDiagnostics'}))
+                        'compact', 'omitDerived', 'keepDerived', 'includeCheckDiagnostics', ...
+                        'inheritedMembers'}))
                     options(end+1:end+2) = args(i:i+1);
                 else
                     opensysml.internal.raise('opensysml:argument', ...
@@ -190,8 +191,8 @@ classdef Model < handle
             result = opensysml.compareResults(m, results, varargin{:});
         end
 
-        function result = symbol(m, id)
-            result = opensysml.Symbol(opensysml.getSymbol(m, id), m);
+        function result = symbol(m, id, varargin)
+            result = opensysml.Symbol(opensysml.getSymbol(m, id, varargin{:}), m);
         end
 
         function result = get(m, fqn)
@@ -428,8 +429,8 @@ end
 function result = findById(model, id)
     result = [];
     try
-        raw = opensysml.call(model.connection, 'GetSymbol', ...
-            struct('modelHash', model.hash, 'symbolId', id));
+        raw = opensysml.call(model.connection, 'GetSymbol', opensysml.internal.lookupKind( ...
+            model.connection, struct('modelHash', model.hash, 'symbolId', id), 'element_id'));
         if isfield(raw, 'error') && ~isempty(raw.error), return; end
         if isfield(raw, 'symbol'), raw = raw.symbol; end
         if isfield(raw, 'id') && strcmp(raw.id, id)
