@@ -639,11 +639,17 @@ When a change needs documenting:
   differential or derived census that its check reproduces against the recorded pilot side and
   re-records one that does not, re-runs every other recorder on the merged tree, refuses a movement the merge does not explain
   (`scripts/rebaseline-movement.py`: a verdict that moved for a record neither side moved), commits
-  the result with the movement in its message, pushes to the branch, removes the label and
-  comments the movement for adjudication. It never touches
+  the result with the movement in its message, pushes to the branch, removes the label,
+  comments the movement for adjudication and sets the `ci:rebaseline` status on the branch's head
+  (the run itself is listed under Actions and under the head it started from, not the one it
+  pushes). It never touches
   `tests/corpus/testdata/training_examples_expected.txt`, which is asserted clean rather than
-  ratcheted, and it needs the label applied to the branch's current head (a push after the label
-  stops it). Only a branch of this repository can be re-recorded, not a fork's.
+  ratcheted, and it needs the label applied to the branch's current head (a push between the label
+  and the checkout stops it). A branch pushed to while the recorders run is not pushed over, and a
+  `develop` that moved into a new conflict with the result is not left unmerged: the run starts again
+  from the branch's head, merging and re-recording once more, and stops if the branch moves again.
+  The push is the `REBASELINE_TOKEN` secret's when it is set; without it the push is the Actions
+  token's and CI on the pushed head waits for a maintainer's approval, which the comment says. Only a branch of this repository can be re-recorded, not a fork's.
 - **Changelog entries are fragments, not edits to `CHANGELOG.md`.** A change that a user
   should read about adds one file, `changes/unreleased/<slug>.<section>.md`, holding the list
   item(s) for that section (`added`, `changed`, `fixed`, …); see the README there. Two branches
