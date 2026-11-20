@@ -90,6 +90,9 @@ type conformanceCase struct {
 
 	// Convert: the standard-library names carried outside the element array.
 	LibraryReferences []*pb.LibraryReference `json:"library_references,omitempty"`
+	// Convert: the digested form of a table over the fixture size cap (see
+	// libraryReferencesDigest); the case then states no library_references.
+	LibraryReferencesDigest string `json:"library_references_digest,omitempty"`
 
 	// ApplyEdits
 	Operations      []conformanceEditOperation `json:"operations,omitempty"`
@@ -473,7 +476,7 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 
 	switch tc.RPC {
 	case "Convert":
-		runConvertLibraryReferencesCase(t, srv, ctx, parseResp.ModelHash, tc)
+		runConvertLibraryReferencesCase(t, srv, ctx, parseResp.ModelHash, tc, filepath.Join(dir, caseName+".expected.json"))
 	case "GetSymbol":
 		runGetSymbolCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "Evaluate":
