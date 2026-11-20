@@ -2,6 +2,7 @@ package semantics
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"slices"
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -41,6 +42,23 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
 	ordinal := 0
+	for _, prefix := range m.prefixMetadataSymbols(sym) {
+		// A `#M` prefix is owned ahead of everything the declaration states (KerML.xtext PrefixMetadataMember).
+		if ownedThroughAnnotation(sym, prefix) {
+			continue
+		}
+		seen[prefix] = true
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   prefix.DeclSpan,
+			Visibility: prefix.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: prefix,
+			},
+		})
+		ordinal++
+	}
 	if value != nil {
 		// The feature's value part declares a FeatureValue that owns the
 		// expression (KerML 8.3.3.3.5 Feature::valuation subsets ownedMembership),
@@ -263,14 +281,13 @@ func isSatisfySubjectSymbol(sym *symbols.Symbol) bool {
 	return ok && rel.Kind == ast.RelSubject
 }
 
-// ownedThroughAnnotation reports whether owner owns member through an
-// Annotation rather than a Membership: a `#M` prefix metadata feature, or an
-// annotating element in the body of a relationship or alias (KerML 8.2.3.3.1).
+// ownedThroughAnnotation reports whether owner owns member through an Annotation rather
+// than a Membership: a `#M` prefix or body annotating element of a relationship (KerML 8.2.3.3.1).
 func ownedThroughAnnotation(owner, member *symbols.Symbol) bool {
-	if isPrefixMetadataSymbol(member) {
-		return true
+	if !relationshipBodyOwner(owner) {
+		return false
 	}
-	return relationshipBodyOwner(owner) && isAnnotatingSymbol(member) && !symbols.AnnotatesOthers(member.Decl)
+	return isPrefixMetadataSymbol(member) || isAnnotatingSymbol(member) && !symbols.AnnotatesOthers(member.Decl)
 }
 
 // isPrefixMetadataSymbol reports whether sym is the metadata feature a `#M`
@@ -280,13 +297,25 @@ func isPrefixMetadataSymbol(sym *symbols.Symbol) bool {
 }
 
 // prefixMetadataSymbols is the metadata feature of each `#M` prefix written on
-// sym, in prefix order: the members the builder registered for them.
+// sym, in prefix order: the members the builder registered for them, or a record keeps.
 func (m *Model) prefixMetadataSymbols(sym *symbols.Symbol) []*symbols.Symbol {
-	prefixes, _, ok := ast.DeclaredMetadata(sym.Decl)
-	if !ok || sym.Scope == nil {
+	if sym.Scope == nil {
 		return nil
 	}
 	var out []*symbols.Symbol
+	if sym.Recorded() {
+		sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
+			if member != nil && isPrefixMetadataSymbol(member) && !slices.Contains(out, member) {
+				out = append(out, member)
+			}
+			return true
+		})
+		return out
+	}
+	prefixes, _, ok := ast.DeclaredMetadata(sym.Decl)
+	if !ok {
+		return nil
+	}
 	for _, prefix := range prefixes {
 		if member := sym.Scope.MemberDeclaring(prefix); member != nil {
 			out = append(out, member)
@@ -398,13 +427,21 @@ func (m *Model) OwnedRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 		return m.implicitOwnedRelationships(sym)
 	}
 	var out, body []*symbols.Symbol
-	memberships := m.OwnedMemberships(sym)
-	if defaultMultiplicityFirst(sym) && len(memberships) > 0 && isDefaultMultiplicityMembership(memberships[0]) {
-		// `individual` and its empty Multiplicity precede the prefix metadata and the
-		// head's clauses (SysML.xtext OccurrenceDefinitionPrefix, DefinitionExtensionKeyword).
-		out = append(out, memberships[0])
-		memberships = memberships[1:]
+	var first, prefixes, rest []*symbols.Symbol
+	for _, membership := range m.OwnedMemberships(sym) {
+		switch {
+		case defaultMultiplicityFirst(sym) && isDefaultMultiplicityMembership(membership):
+			// `individual` and its empty Multiplicity precede the prefix metadata and the
+			// head's clauses (SysML.xtext OccurrenceDefinitionPrefix, DefinitionExtensionKeyword).
+			first = append(first, membership)
+		case isPrefixMembership(membership):
+			prefixes = append(prefixes, membership)
+		default:
+			rest = append(rest, membership)
+		}
 	}
+	out = append(append(out, first...), prefixes...)
+	memberships := rest
 	for _, ann := range m.OwnedAnnotations(sym) {
 		if isPrefixAnnotation(ann) {
 			out = append(out, ann)
@@ -418,6 +455,12 @@ func (m *Model) OwnedRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 	body = append(body, m.AnnotatingRelationships(sym)...)
 	sort.SliceStable(body, func(i, j int) bool { return body[i].DeclSpan.Offset < body[j].DeclSpan.Offset })
 	return append(out, body...)
+}
+
+// isPrefixMembership reports whether a membership is the OwningMembership of a `#M` prefix.
+func isPrefixMembership(membership *symbols.Symbol) bool {
+	return membership.Implicit != nil && membership.Implicit.Form == symbols.ImplicitMembership &&
+		membership.Implicit.Member != nil && isPrefixMetadataSymbol(membership.Implicit.Member)
 }
 
 // isPrefixAnnotation reports whether an owned Annotation is one a `#M` prefix
@@ -449,6 +492,10 @@ func (m *Model) MembershipMetaclassOf(owner, member *symbols.Symbol) string {
 }
 
 func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
+	if member != nil && isPrefixMetadataSymbol(member) {
+		// A `#M` prefix is owned through an OwningMembership (KerML.xtext PrefixMetadataMember).
+		return "OwningMembership"
+	}
 	if isValueExpressionSymbol(member) {
 		return "FeatureValue"
 	}

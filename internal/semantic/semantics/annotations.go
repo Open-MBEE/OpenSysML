@@ -1653,7 +1653,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		owner := m.ownerOf(sym)
-		if owner == nil || !m.reflectiveMetaclassConforms(owner, "Type") {
+		if owner == nil || isPrefixMetadataSymbol(sym) || !m.reflectiveMetaclassConforms(owner, "Type") {
 			return nil, true
 		}
 		return []*symbols.Symbol{owner}, true
@@ -1863,7 +1863,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		features := append([]*symbols.Symbol(nil), m.expressionOwnedParts(sym)...)
 		features = append(features, m.sendParameters(sym)...)
 		for _, member := range m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym)))) {
-			if member.IsFeature() || isExpressionSymbol(member) {
+			if member.IsFeature() && !isPrefixMetadataSymbol(member) || isExpressionSymbol(member) {
 				features = append(features, member)
 			}
 		}

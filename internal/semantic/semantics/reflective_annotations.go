@@ -9,7 +9,7 @@ import (
 
 // OwnedAnnotations returns the Annotations sym owns as their annotated element
 // (KerML 8.3.2.1 Element::ownedAnnotation), each owning its annotating element:
-// one per `#M` prefix metadata feature, and one per annotating element in a
+// one per `#M` prefix of a relationship (KerML.xtext PrefixMetadataAnnotation), and one per annotating element in a
 // relationship body (KerML 8.2.3.3.1 OwnedAnnotation). An annotating element
 // in a namespace body is owned through a membership and annotates the
 // namespace through no Annotation (8.3.2.3.2 deriveAnnotatingElementAnnotatedElement).
@@ -22,6 +22,11 @@ func (m *Model) OwnedAnnotations(sym *symbols.Symbol) []*symbols.Symbol {
 		return cached
 	}
 	journal(m, m.ownedAnnotations, sym, sym.Decl)
+	if !relationshipBodyOwner(sym) {
+		// Any other element owns its `#M` prefix through an OwningMembership (KerML.xtext PrefixMetadataMember).
+		m.ownedAnnotations[sym] = nil
+		return nil
+	}
 	var out []*symbols.Symbol
 	// A record keeps each prefix annotation as a fact, not as a symbol: the
 	// Annotation is reflected with no annotating element to read through it.
@@ -215,9 +220,6 @@ func (m *Model) annotationsOfAnnotatingElement(sym *symbols.Symbol) []*symbols.S
 func (m *Model) annotatedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	annotations := m.annotationsOfAnnotatingElement(sym)
 	if len(annotations) == 0 {
-		if isPrefixMetadataSymbol(sym) {
-			return []*symbols.Symbol{}
-		}
 		if owner := m.ownerOf(sym); owner != nil && m.reflectiveMetaclassConforms(owner, "Namespace") {
 			return []*symbols.Symbol{owner}
 		}
