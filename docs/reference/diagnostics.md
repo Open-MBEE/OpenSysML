@@ -2015,6 +2015,11 @@ A transition's `accept when <name>` or `when <name>` trigger names something no 
 | [`npr7123-review-missing-entrance-or-success-criteria`](#npr7123-review-missing-entrance-or-success-criteria) | warning | a life-cycle review stating no entrance criteria or no success criteria |
 | [`npr7123-review-missing-minimum-product`](#npr7123-review-missing-minimum-product) | warning | a section 5.2.2.2 minimum product absent from its review or below the required maturity |
 | [`npr7123-semp-missing-process`](#npr7123-semp-missing-process) | warning | a SEMP not addressing all 17 common technical processes |
+| [`npr7150-class-e-safety-critical`](#npr7150-class-e-safety-critical) | warning | a Class E system marked safety-critical |
+| [`npr7150-mapping-matrix-missing-requirement`](#npr7150-mapping-matrix-missing-requirement) | warning | a Requirements Mapping Matrix whose document has no mapping entry for a requirement invoked for its class |
+| [`npr7150-mapping-missing-justification`](#npr7150-mapping-missing-justification) | warning | a mapping entry marked tailored or not applicable with no justification |
+| [`npr7150-safety-critical-requirement-not-applicable`](#npr7150-safety-critical-requirement-not-applicable) | warning | a safety-critical software requirement mapped not applicable beside safety-critical software |
+| [`npr7150-software-missing-classification`](#npr7150-software-missing-classification) | warning | a system containing software, or a Requirements Mapping Matrix, stating no software class |
 | [`oosem-logical-component-not-allocated`](#oosem-logical-component-not-allocated) | warning | a logical component allocated to nothing |
 | [`oosem-requirement-not-derived`](#oosem-requirement-not-derived) | warning | a requirement derived from no higher-level requirement |
 | [`oosem-requirement-not-satisfied`](#oosem-requirement-not-satisfied) | warning | a requirement nothing satisfies |
@@ -2108,6 +2113,46 @@ Specification: NPR7123 extension library (NASA NPR 7123.1D)
 NPR 7123.1D section 6.2.3 (SE-58) has the SEMP define how each of the 17 common technical processes, as tailored, is applied, so a `SEMP` usage expects one nested usage per process definition of the library. Nest the missing processes (`#technicalPlanning action plan;`) with their `tailoring`.
 
 Specification: NPR7123 extension library (NASA NPR 7123.1D)
+
+#### `npr7150-class-e-safety-critical`
+
+**warning** · Method rules · a Class E system marked safety-critical
+
+NPR 7150.2D Appendix D states that Class E software cannot be safety-critical software: software classified as safety-critical has to be classified as Class D or higher. Raise the `softwareClass` of the `SoftwareSystem`, or correct its `safetyCritical` determination.
+
+Specification: NPR7150 extension library (NASA NPR 7150.2D)
+
+#### `npr7150-mapping-matrix-missing-requirement`
+
+**warning** · Method rules · a Requirements Mapping Matrix whose document has no mapping entry for a requirement invoked for its class
+
+Appendix C of NPR 7150.2D has each requirement marked 'X' for the project's software classification addressed in the Requirements Mapping Matrix, so a `RequirementsMappingMatrix` usage expects its document to hold a `@RequirementMapping`-annotated usage of each definition in `NPR7150::SWERequirements` that Table 2 marks for one of the matrix's classes. Add the missing entries, marking each fully compliant, tailored or not applicable.
+
+Specification: NPR7150 extension library (NASA NPR 7150.2D)
+
+#### `npr7150-mapping-missing-justification`
+
+**warning** · Method rules · a mapping entry marked tailored or not applicable with no justification
+
+NPR 7150.2D Appendix C has a requirement that is tailored out of the Requirements Mapping Matrix carry its justification, and section 2.2.5 asks a request for relief for its rationale. Give the `@RequirementMapping` annotation a `justification`.
+
+Specification: NPR7150 extension library (NASA NPR 7150.2D)
+
+#### `npr7150-safety-critical-requirement-not-applicable`
+
+**warning** · Method rules · a safety-critical software requirement mapped not applicable beside safety-critical software
+
+NPR 7150.2D sections 3.7.2 to 3.7.5 (SWE-023, SWE-134, SWE-219, SWE-220) apply to a project that has safety-critical software, so a document stating a `SoftwareSystem` with `safetyCritical = true` is not expected to map one of them `notApplicable`. Map the requirement as complied with, or as tailored with the Technical Authority's approval.
+
+Specification: NPR7150 extension library (NASA NPR 7150.2D)
+
+#### `npr7150-software-missing-classification`
+
+**warning** · Method rules · a system containing software, or a Requirements Mapping Matrix, stating no software class
+
+NPR 7150.2D section 3.5.1 (SWE-020) has the project manager classify each system and subsystem containing software by the Appendix D definitions, and Appendix C invokes each requirement by that class, so a `SoftwareSystem` usage and a `RequirementsMappingMatrix` usage are expected to state a `softwareClass`. State it on the usage or on its definition (`:>> softwareClass = SoftwareClass::C;`).
+
+Specification: NPR7150 extension library (NASA NPR 7150.2D)
 
 #### `oosem-logical-component-not-allocated`
 

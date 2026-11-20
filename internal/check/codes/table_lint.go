@@ -31,6 +31,7 @@ const (
 	specMOSA  = "MOSA extension library"
 	specOOSEM = "OOSEM extension library"
 	specNPR   = "NPR7123 extension library (NASA NPR 7123.1D)"
+	specSWE   = "NPR7150 extension library (NASA NPR 7150.2D)"
 )
 
 // methodCodes are the codes of the method rules: findings of the MOSA and OOSEM
@@ -112,6 +113,41 @@ var methodCodes = []Entry{
 		Meaning: "NPR 7123.1D section 6.2.3 (SE-58) has the SEMP define how each of the 17 common technical processes, as tailored, is applied, so a `SEMP` usage expects one nested usage per process definition of the library. " +
 			"Nest the missing processes (`#technicalPlanning action plan;`) with their `tailoring`.",
 		Spec: specNPR,
+	},
+	{
+		Code: "npr7150-software-missing-classification", Tier: TierMethod, Severity: "warning",
+		Summary: "a system containing software, or a Requirements Mapping Matrix, stating no software class",
+		Meaning: "NPR 7150.2D section 3.5.1 (SWE-020) has the project manager classify each system and subsystem containing software by the Appendix D definitions, and Appendix C invokes each requirement by that class, so a `SoftwareSystem` usage and a `RequirementsMappingMatrix` usage are expected to state a `softwareClass`. " +
+			"State it on the usage or on its definition (`:>> softwareClass = SoftwareClass::C;`).",
+		Spec: specSWE,
+	},
+	{
+		Code: "npr7150-class-e-safety-critical", Tier: TierMethod, Severity: "warning",
+		Summary: "a Class E system marked safety-critical",
+		Meaning: "NPR 7150.2D Appendix D states that Class E software cannot be safety-critical software: software classified as safety-critical has to be classified as Class D or higher. " +
+			"Raise the `softwareClass` of the `SoftwareSystem`, or correct its `safetyCritical` determination.",
+		Spec: specSWE,
+	},
+	{
+		Code: "npr7150-mapping-missing-justification", Tier: TierMethod, Severity: "warning",
+		Summary: "a mapping entry marked tailored or not applicable with no justification",
+		Meaning: "NPR 7150.2D Appendix C has a requirement that is tailored out of the Requirements Mapping Matrix carry its justification, and section 2.2.5 asks a request for relief for its rationale. " +
+			"Give the `@RequirementMapping` annotation a `justification`.",
+		Spec: specSWE,
+	},
+	{
+		Code: "npr7150-mapping-matrix-missing-requirement", Tier: TierMethod, Severity: "warning",
+		Summary: "a Requirements Mapping Matrix whose document has no mapping entry for a requirement invoked for its class",
+		Meaning: "Appendix C of NPR 7150.2D has each requirement marked 'X' for the project's software classification addressed in the Requirements Mapping Matrix, so a `RequirementsMappingMatrix` usage expects its document to hold a `@RequirementMapping`-annotated usage of each definition in `NPR7150::SWERequirements` that Table 2 marks for one of the matrix's classes. " +
+			"Add the missing entries, marking each fully compliant, tailored or not applicable.",
+		Spec: specSWE,
+	},
+	{
+		Code: "npr7150-safety-critical-requirement-not-applicable", Tier: TierMethod, Severity: "warning",
+		Summary: "a safety-critical software requirement mapped not applicable beside safety-critical software",
+		Meaning: "NPR 7150.2D sections 3.7.2 to 3.7.5 (SWE-023, SWE-134, SWE-219, SWE-220) apply to a project that has safety-critical software, so a document stating a `SoftwareSystem` with `safetyCritical = true` is not expected to map one of them `notApplicable`. " +
+			"Map the requirement as complied with, or as tailored with the Technical Authority's approval.",
+		Spec: specSWE,
 	},
 	{
 		Code: "oosem-requirement-not-derived", Tier: TierMethod, Severity: "warning",

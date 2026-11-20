@@ -183,7 +183,7 @@ package OpenSysMLPipeline {
     #SemanticEngine part def PassRegistry :> Stage {
         attribute :>> goPackage = "internal/check/passes";
         attribute tierCount : Integer = 4;
-        attribute passCount : Integer = 66;
+        attribute passCount : Integer = 67;
         attribute sortsByLevel : Boolean = true;
         attribute skipsDocumentScopedAboveFailure : Boolean = true;
 
@@ -312,6 +312,7 @@ package OpenSysMLPipeline {
         part oosemMethod : ConstraintCheck { attribute :>> goType = "OOSEMMethodPass"; }
         part mosa : ConstraintCheck { attribute :>> goType = "MOSAPass"; }
         part npr7123 : ConstraintCheck { attribute :>> goType = "NPR7123Pass"; }
+        part npr7150 : ConstraintCheck { attribute :>> goType = "NPR7150Pass"; }
         part nestedRedefinitions : ConstraintCheck { attribute :>> goType = "NestedRedefinitionPass"; }
 
         in item typed : TypeTable;
@@ -373,7 +374,7 @@ package OpenSysMLPipeline {
     // otherwise — also when the build embedded none, as a module-proxy install does.
     #SemanticEngine part def StandardLibrary :> Stage {
         attribute :>> goPackage = "internal/workspace/libs";
-        attribute bundledFileCount : Integer = 111;
+        attribute bundledFileCount : Integer = 112;
         attribute cached : Boolean = true;
         attribute snapshotFile : String = "internal/workspace/libs/stdlib.snapshot";
         attribute snapshotTracked : Boolean = false;

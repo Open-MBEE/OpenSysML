@@ -118,6 +118,10 @@ within these records and means nothing outside this repository.
   the 17 common technical processes, life-cycle reviews with the Appendix G criteria, work-product
   maturity, TRLs, the active SE requirements, the generated compliance matrix and the warning-only
   checks
+- **[NPR7150 library](npr7150-library.md)** — NASA NPR 7150.2D as a bundled OpenSysML library:
+  the software classes, the SWE requirements, the Requirements Mapping Matrix with per-class
+  applicability, the NASA-STD-8739.8B software assurance tasks, the generated mapping matrix and
+  the warning-only checks
 - **[StateMachines library](statemachines-library.md)** — pseudostates as bundled
   `SemanticMetadata`, so a state machine's `choice`, `junction` and history pseudostates
   spell standard, conforming SysML v2
