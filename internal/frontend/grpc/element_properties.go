@@ -540,14 +540,23 @@ func (r *elementReader) refOf(element metamodel.Element) *pb.ElementRef {
 	return r.ref(sym, element)
 }
 
-// libraryMembershipRef identifies a membership owning a library element by the id the library
+// libraryMembershipRef identifies a library membership, an alias included, by the id the library
 // document's form writes for it (fixed for a catalogued member, minted for an unnamed one).
 func (r *elementReader) libraryMembershipRef(element metamodel.Element) (*pb.ElementRef, bool) {
 	membership := element.Membership
-	if !element.IsMembership || membership.Symbol != nil || membership.Member == nil || !r.model.Index.Library(membership.Member) {
+	if !element.IsMembership || membership.Member == nil || !r.model.Index.Library(membership.Member) {
 		return nil, false
 	}
 	ref := &pb.ElementRef{Metaclass: membership.Metaclass()}
+	if membership.Symbol != nil {
+		// A library alias is the Membership itself.
+		alias, ok := identity.AliasMembershipOf(r.semantics, r.libraryCatalog(), membership.Symbol)
+		if !ok {
+			return nil, false
+		}
+		ref.Id = alias.ID
+		return ref, true
+	}
 	if library, ok := r.libraryCatalog().ElementForSymbol(membership.Member); ok && library != nil {
 		ref.Id = library.OwningMembershipID
 	} else if member, ok := identity.AnonymousMemberOf(r.semantics, r.libraryCatalog(), membership.Member); ok {

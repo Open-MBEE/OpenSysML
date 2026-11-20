@@ -26,3 +26,13 @@ func TestElementPropertiesReadFilteredAndLibraryImports(t *testing.T) {
 		t.Errorf("Library imports %d memberships, want the library's one for Real", len(got))
 	}
 }
+
+// A library alias an import brings in is its Membership, read at the id the library's form writes.
+func TestElementPropertiesIdentifyImportedLibraryAliases(t *testing.T) {
+	r := parseForElementProperties(t, `package P { private import SI::*; }`)
+	for i, value := range r.property("P", "importedMembership").Values {
+		if value.GetElement().GetId() == "" {
+			t.Fatalf("imported membership %d (%s) has no id", i, value.GetElement().GetMetaclass())
+		}
+	}
+}
