@@ -203,6 +203,7 @@ type Model struct {
 	// the Membership, Annotation and Import objects each element implies
 	// (see reflective_memberships.go, reflective_annotations.go).
 	memberships      map[*symbols.Symbol][]*symbols.Symbol
+	synthesized      map[*symbols.Symbol][]*symbols.Symbol
 	valueExpressions map[*symbols.Symbol]*symbols.Symbol
 	expressionParts  map[*symbols.Symbol]*expressionParts
 	transitionParts  map[*symbols.Symbol]*transitionParts
@@ -304,6 +305,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		assumedSupers:         make(map[*symbols.Symbol]assumedSupertypes),
 		implicitRels:          make(map[*symbols.Symbol][]*symbols.Symbol),
 		memberships:           make(map[*symbols.Symbol][]*symbols.Symbol),
+		synthesized:           make(map[*symbols.Symbol][]*symbols.Symbol),
 		ownedAnnotations:      make(map[*symbols.Symbol][]*symbols.Symbol),
 		annotatingRels:        make(map[*symbols.Symbol][]*symbols.Symbol),
 		ownedImports:          make(map[*symbols.Symbol][]*symbols.Symbol),
@@ -1127,6 +1129,10 @@ func (m *Model) FeatureTypeSetWithImplied(sym *symbols.Symbol) []*symbols.Symbol
 func (m *Model) withUsageBases(sym *symbols.Symbol, bases []*symbols.Symbol) []*symbols.Symbol {
 	_, isUsage := sym.Decl.(*ast.Usage)
 	if !(isUsage || sym.Kind == symbols.SymbolPartUsage) || m.isKerMLDoc(sym) || m.resolver == nil || m.resolver.Index() == nil {
+		return bases
+	}
+	if isNamedTriggerPayload(sym) {
+		// A trigger's payload is a ReferenceUsage whatever it is typed by, so it takes no usage kind's base.
 		return bases
 	}
 	fqns := []string{}

@@ -555,8 +555,6 @@ func (d *structureDifferential) computeGraphID(sym *symbols.Symbol) (string, boo
 		element, _, ok := d.ids.OfBodyParameter(d.doc, body, sym.Name)
 		return element, ok
 	}
-	// A chained end's target is the chain Feature its ReferenceSubsetting owns, minted
-	// off the end (chainFeature), which the chain's own node is not written as.
 	if sym.Kind == symbols.SymbolReferenceUsage && sym.OwnerScope != nil {
 		if end, ok := sym.OwnerScope.Node().(*ast.ConnectorEnd); ok && end.AttachedTarget() == sym.Decl {
 			element, _, ok := d.ids.OfExpressionPart(d.doc, end, "chain")

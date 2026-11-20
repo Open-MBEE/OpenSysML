@@ -607,7 +607,9 @@ class D {
 	for _, fixture := range reflectiveFixtures(t, "extended-usage3.sysml", source.KindSysML, svcUsage) {
 		model := fixture.model
 		s := relFixtureSymbol(t, fixture, "s")
-		assertRelMetaclass(t, model, s, "ReferenceUsage")
+		// SysML.xtext ExtendedUsage returns SysML::Usage: prefix metadata in place
+		// of a kind keyword is a plain Usage, not a DefaultReferenceUsage.
+		assertRelMetaclass(t, model, s, "Usage")
 	}
 }
 
