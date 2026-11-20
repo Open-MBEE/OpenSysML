@@ -164,28 +164,45 @@ export class PrivateService {
   }
 }
 
+/** How many children one acquire starts before giving up on a binary whose child keeps dying. */
+export const MAX_START_ATTEMPTS = 3;
+const RESTART_BACKOFF_MS = 200;
+
 /** Takes a hold on the private child for `version`, starting one when there is none. */
-export async function acquirePrivateService(version?: string): Promise<PrivateService> {
+export async function acquirePrivateService(
+  version?: string,
+  start: (version?: string) => Promise<PrivateService> = (v) => PrivateService.start(v),
+): Promise<PrivateService> {
   const key = version ?? "";
-  const existing = shared.get(key);
-  if (existing?.alive) {
-    existing.refs += 1;
-    return existing;
+  for (let attempt = 0; ; attempt += 1) {
+    const existing = shared.get(key);
+    if (existing?.alive) {
+      existing.refs += 1;
+      return existing;
+    }
+    if (attempt === MAX_START_ATTEMPTS) {
+      throw new ServiceStartError(
+        `sysml-grpc (${existing?.binary.path ?? "no binary"}) reported an address and then ` +
+          `exited, ${MAX_START_ATTEMPTS} times in a row`,
+      );
+    }
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, RESTART_BACKOFF_MS * attempt));
+    }
+    let pending = starting.get(key);
+    pending ??= start(version)
+      .then((service) => {
+        service.key = key;
+        shared.set(key, service);
+        return service;
+      })
+      .finally(() => {
+        starting.delete(key);
+      });
+    starting.set(key, pending);
+    // The child just started is taken by the same path as one found alive.
+    await pending;
   }
-  let pending = starting.get(key);
-  pending ??= PrivateService.start(version)
-    .then((service) => {
-      service.key = key;
-      shared.set(key, service);
-      return service;
-    })
-    .finally(() => {
-      starting.delete(key);
-    });
-  starting.set(key, pending);
-  await pending;
-  // The child just started is taken by the same path as one found alive.
-  return acquirePrivateService(version);
 }
 
 /** The private child this thread holds, for tests and diagnostics. */
