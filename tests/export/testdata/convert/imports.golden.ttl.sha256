@@ -1,0 +1,41 @@
+sha256 bedf6356006df709bdbcadf286046e64c7637038c913a1e8845a78a6d7b7b30d bytes 1531715 lines 34313
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:Importer
+    a sysml:Package ;
+    sysml:qualifiedName "Importer" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "Importer" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "Importer" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedRelationship elmt:Importer___400, elmt:Importer___401, elmt:Importer___402, elmt:Importer__Deep_om ;
+    sysml:ownedImport elmt:Importer___400, elmt:Importer___401, elmt:Importer___402 ;
+    sysml:ownedMember elmt:Importer__Deep ;
+    sysml:ownedMembership elmt:Importer__Deep_om ;
+    sysx:sourceText "package Importer {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedRelationship "[{\"@id\":\"Importer___400\"},{\"@id\":\"Importer___401\"},{\"@id\":\"Importer___402\"},{\"@id\":\"Importer__Deep_om\"}]" ;
+    json:ownedImport "[{\"@id\":\"Importer___400\"},{\"@id\":\"Importer___401\"},{\"@id\":\"Importer___402\"}]" .
+
+elmt:Importer___400
+    a sysml:NamespaceImport ;
+    sysml:source elmt:Importer ;
+    sysx:positionalName "Importer::@0" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "27"^^xsd:integer ;
+    sysml:elementId "Importer___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Importer ;
+    sysml:owner elmt:Importer ;

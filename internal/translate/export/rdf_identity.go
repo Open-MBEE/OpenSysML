@@ -266,6 +266,22 @@ func (f *identityFacts) indexMultiplicityRange(sym *symbols.Symbol, info *identi
 	}
 }
 
+// libraryAliasMembership is the subject of the Membership a library alias is, under the id
+// this implementation mints for it; ok is false for an alias the model itself declares.
+func (f *identityFacts) libraryAliasMembership(alias *symbols.Symbol) (rdf.Term, bool) {
+	if _, declared := f.byNode[alias.Decl]; declared || !f.res.Index().Library(alias) {
+		return rdf.Term{}, false
+	}
+	if f.catalog == nil {
+		f.catalog = identity.LibraryCatalogWithOpenSysML(f.res.Index())
+	}
+	membership, ok := identity.AliasMembershipOf(f.model, f.catalog, alias)
+	if !ok {
+		return rdf.Term{}, false
+	}
+	return rdf.ElementIRIForID(membership.ID), true
+}
+
 // multiplicityRange is the IRIs of the MultiplicityRange the element at owner
 // declares and of its owning membership: the library's fixed ones, else derived.
 func (f *identityFacts) multiplicityRange(owner rdf.Term) (rangeNode, membership rdf.Term) {

@@ -2763,7 +2763,10 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		}
 		return stringOrEmpty(owner.Str + "::" + name), true
 	case "direction":
-		direction, ok := ReflectiveDirection(sym)
+		direction, ok := m.flowEndFeatureDirection(sym)
+		if !ok {
+			direction, ok = ReflectiveDirection(sym)
+		}
 		if !ok {
 			return symbols.FilterValue{}, false
 		}
