@@ -77,7 +77,7 @@ library package NASASTD7009 {
 			 * released', ending M&S development.
 			 */
 		}
-		use {
+		useOrOperation {
 			doc /* M&S use (or operation): 'the use of an M&S starts with an assessment of whether or not
 			 * the proposed use of the M&S sufficiently matches the permissible use. If the proposed
 			 * use is acceptable, the M&S is then used to obtain the results of interest.'
@@ -777,13 +777,13 @@ library package NASASTD7009 {
 
 	enum def MSRequirementArea {
 		doc /* The three groups section 4 arranges its requirements and recommendations in. */
-		programmatics {
+		msProgrammatics {
 			doc /* Section 4.1, M&S Programmatics. */
 		}
-		development {
+		msDevelopment {
 			doc /* Section 4.2, M&S Development. */
 		}
-		use {
+		msUse {
 			doc /* Section 4.3, M&S Use. */
 		}
 	}
@@ -833,7 +833,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 40";
 			:>> section = "4.1.1.1";
 			:>> description = "General M&S Programmatics";
-			:>> area = MSRequirementArea::programmatics;
+			:>> area = MSRequirementArea::msProgrammatics;
 			:>> rationale = "The intended use is a general statement of the aspects of an RWS included in the M&S, what the M&S does, the intended domain of validation, and a description of results expected from the M&S, and a description of the decision(s) the M&S results will inform.";
 		}
 
@@ -843,7 +843,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 6";
 			:>> section = "4.1.1.2";
 			:>> description = "General M&S Programmatics";
-			:>> area = MSRequirementArea::programmatics;
+			:>> area = MSRequirementArea::msProgrammatics;
 			:>> rationale = "The criticality assessment ensures communication of the amount of influence an M&S has on the intended use relative to the consequences of that situation.";
 		}
 
@@ -855,7 +855,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 41";
 			:>> section = "4.1.1.3";
 			:>> description = "General M&S Programmatics";
-			:>> area = MSRequirementArea::programmatics;
+			:>> area = MSRequirementArea::msProgrammatics;
 			:>> rationale = "The M&S development and use plans are proactive bases for proceeding through the life cycle of the M&S, including when compliance with the requirements for developing and using the M&S are accomplished.";
 		}
 
@@ -866,7 +866,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 42";
 			:>> section = "4.1.1.4";
 			:>> description = "General M&S Programmatics";
-			:>> area = MSRequirementArea::programmatics;
+			:>> area = MSRequirementArea::msProgrammatics;
 			:>> rationale = "Defined metrics for M&S products inform developers and users as to the required data/information to collect during M&S development and use to support process improvements, assessments, or other purposes.";
 		}
 
@@ -882,7 +882,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 43";
 			:>> section = "4.1.1.5";
 			:>> description = "General M&S Programmatics";
-			:>> area = MSRequirementArea::programmatics;
+			:>> area = MSRequirementArea::msProgrammatics;
 			:>> rationale = "Defined M&S acceptance criteria provide qualitative or quantitative information with which to judge that the M&S or related products satisfy the intended use.";
 		}
 
@@ -893,7 +893,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 44";
 			:>> section = "4.1.1.6";
 			:>> description = "General M&S Programmatics";
-			:>> area = MSRequirementArea::programmatics;
+			:>> area = MSRequirementArea::msProgrammatics;
 			:>> rationale = "This requirement asks for information unique to this M&S be reported in addition to the reporting requirements of section 4.3.8 in this Standard.";
 		}
 
@@ -904,7 +904,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 9";
 			:>> section = "4.1.1.7";
 			:>> description = "General M&S Programmatics";
-			:>> area = MSRequirementArea::programmatics;
+			:>> area = MSRequirementArea::msProgrammatics;
 			:>> rationale = "Technical reviews show how and what aspects of M&S development or use were reviewed and the outcome of the reviews as support for acceptance of the M&S and the results from its use. This Standard does not require technical reviews; if they occur, the results are to be recorded and made available.";
 		}
 
@@ -915,7 +915,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 51";
 			:>> section = "4.1.1.8";
 			:>> description = "General M&S Programmatics";
-			:>> area = MSRequirementArea::programmatics;
+			:>> area = MSRequirementArea::msProgrammatics;
 			:>> rationale = "A record of existing defects of problems with the M&S provides necessary cautions to M&S users and recipients of M&S-based results, as well as areas for future M&S improvement.";
 		}
 
@@ -926,7 +926,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 10";
 			:>> section = "4.2.1.1";
 			:>> description = "General M&S Development";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 			:>> rationale = "Establishing the relevant characteristics of the RWS is part of analyzing and decomposing the RWS and provides the basis for M&S design, conceptual validation, development, and use.";
 		}
 
@@ -937,7 +937,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 45";
 			:>> section = "4.2.1.2";
 			:>> description = "General M&S Development";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 			:>> rationale = "The data sets and supporting software provide bases and support to M&S development, possible technical reviews, and re-creation or reproduction of the M&S, as needed.";
 		}
 
@@ -949,7 +949,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 46";
 			:>> section = "4.2.1.3";
 			:>> description = "General M&S Development";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 			:>> rationale = "M&S units and vector coordinate frames are a required part of correlating the M&S's representation of the RWS (and are required as part of M&S V&V).";
 		}
 
@@ -961,7 +961,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 11";
 			:>> section = "4.2.1.4";
 			:>> description = "General M&S Development";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 			:>> rationale = "Making abstractions and assumptions are part of the modeling process of analyzing, decomposing, and representing an RWS. Recording the abstractions and assumptions clarifies areas where the M&S differs from the RWS or where limits of implementation mechanisms may cause the M&S' response to differ from that of the RWS. This also provides an understanding needed for verification, validation, uncertainty characterization, the specification of permissible uses, and the acceptance of the M&S for a proposed use. Failure to clearly identify, understand, and communicate assumptions and abstractions introduces risks throughout development and use of the M&S.";
 		}
 
@@ -973,7 +973,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 12";
 			:>> section = "4.2.1.5";
 			:>> description = "General M&S Development";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 			:>> rationale = "The act of modeling encompasses making choices as to how best to represent the RWS or elements (components) thereof. These concepts, structures, and mathematics of the M&S provide the basis for the detailed design and specification of the M&S, which provide the basis for verification of the M&S.";
 		}
 
@@ -982,7 +982,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 13";
 			:>> section = "4.2.1.6";
 			:>> description = "General M&S Development";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 			:>> rationale = "The M&S limits provide the broadest bounds for potential M&S Use that produce results, beyond which the M&S does (or will) not function (correctly).";
 		}
 
@@ -991,7 +991,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 14";
 			:>> section = "4.2.1.7";
 			:>> description = "General M&S Development";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 			:>> rationale = "Recording the permissible uses of an M&S at the end of M&S development aggregates the latest available information about the intended uses, limiting assumptions and abstractions, and V&V limits. The permissible uses are the basis for performing the use assessment of [M&S 23].";
 		}
 
@@ -1007,7 +1007,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 48";
 			:>> section = "4.2.1.8";
 			:>> description = "General M&S Development";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 			:>> rationale = "The assessment of each M&S capability factor ensures a discussion of the achievements and shortcomings of the M&S as developed with respect to the intended use and provides rationale for either acceptance or rejection of the M&S for release and use.";
 		}
 
@@ -1027,7 +1027,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 47";
 			:>> section = "4.2.1.9";
 			:>> description = "General M&S Development";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 			:>> rationale = "A user's guide provides information on the appropriate application of an M&S, including M&S functions and limitations, descriptions of appropriate practices for set-up, execution, interfaces with other models when the M&S is used as part of either a linked or coupled model, and analysis of results.";
 		}
 
@@ -1036,7 +1036,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 15";
 			:>> section = "4.2.3.1";
 			:>> description = "M&S Verification";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 			:>> rationale = "Verifying the M&S ensures it is implemented in accordance with its design. The domain of verification for the M&S provides operational criterion for which it is known to produce results within the capabilities for which it was constructed.";
 		}
 
@@ -1046,7 +1046,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 16";
 			:>> section = "4.2.3.2";
 			:>> description = "M&S Verification";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 			:>> rationale = "Verifying the M&S ensures it is implemented in accordance with its design. The domain of verification for the M&S provides operational criterion for which it is known to produce results within the capabilities for which it was constructed.";
 		}
 
@@ -1055,7 +1055,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 17";
 			:>> section = "4.2.5.1";
 			:>> description = "M&S Validation";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 			:>> rationale = "Validating the M&S ensures it produces results acceptably similar to the RWS it represents. The domain of validation for the M&S provides operational criterion for which it is known to produce results acceptably similar to the RWS it represents.";
 		}
 
@@ -1064,7 +1064,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 18";
 			:>> section = "4.2.5.2";
 			:>> description = "M&S Validation";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 			:>> rationale = "Validating the M&S ensures it produces results acceptably similar to the RWS it represents. The domain of validation for the M&S provides operational criterion for which it is known to produce results acceptably similar to the RWS it represents.";
 		}
 
@@ -1075,7 +1075,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 19";
 			:>> section = "4.2.7.1";
 			:>> description = "Uncertainty Characterization in M&S Development";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 			:>> rationale = "Explaining and recording how M&S uncertainty is incorporated in, and propagated through, an M&S ensures rational consideration was given to the effects of uncertainty during M&S development.";
 		}
 
@@ -1086,7 +1086,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 21";
 			:>> section = "4.2.7.2";
 			:>> description = "Uncertainty Characterization in M&S Development";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 			:>> rationale = "Characterizing and recording the uncertainties in an M&S ensure an understanding of the type and magnitude of uncertainties that propagate through an M&S and affect the results.";
 		}
 
@@ -1095,7 +1095,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 22";
 			:>> section = "4.3.1.1";
 			:>> description = "M&S Use";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 			:>> rationale = "A defined and recorded proposed use of an M&S ensures a clear communication of how the M&S is to be used, which is the subject of the use assessment required in [M&S 23].";
 		}
 
@@ -1106,7 +1106,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 23";
 			:>> section = "4.3.1.2";
 			:>> description = "M&S Use";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 			:>> rationale = "The use assessment compares the proposed uses against the permissible uses to determine if the M&S is appropriate and if the use is within or outside the known acceptable uses of the M&S.";
 		}
 
@@ -1117,7 +1117,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 24";
 			:>> section = "4.3.1.3";
 			:>> description = "M&S Use";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 			:>> rationale = "Recorded input data, including their pedigree, ensure an understanding of scenarios or experiments run with an M&S. These, coupled with associated M&S results, provide a basis for conclusions drawn from the M&S use.";
 		}
 
@@ -1128,7 +1128,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 25";
 			:>> section = "4.3.1.4";
 			:>> description = "M&S Use";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 			:>> rationale = "Recorded rationale for M&S setup and execution ensures evidence is available for consideration and adjustment as needed.";
 		}
 
@@ -1144,7 +1144,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 26";
 			:>> section = "4.3.1.5";
 			:>> description = "M&S Use";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 			:>> rationale = "Placarding M&S results if used outside established permissible uses or domains of V&V, provides a warning to the consumers of that information.";
 		}
 
@@ -1155,7 +1155,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 27";
 			:>> section = "4.3.1.6";
 			:>> description = "M&S Use";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 			:>> rationale = "Unexplained warning or error messages are a cause for concern (increase risk) in accepting the results of an M&S use.";
 		}
 
@@ -1169,7 +1169,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 28";
 			:>> section = "4.3.3.1";
 			:>> description = "Uncertainty Characterization in M&S Use";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 			:>> rationale = "Recording how and why M&S uncertainties are input to, and handled in the results of, an M&S ensures a rational basis for inclusion and analysis when an M&S is used (i.e., input and results uncertainty is not simply notional).";
 		}
 
@@ -1186,7 +1186,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 29";
 			:>> section = "4.3.3.2";
 			:>> description = "Uncertainty Characterization in M&S Use";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 			:>> rationale = "Characterizing the uncertainties in the input to and results from an M&S ensures an understanding of the type and magnitude of uncertainties that propagate through an M&S and show in the results.";
 		}
 
@@ -1197,7 +1197,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 30";
 			:>> section = "4.3.5";
 			:>> description = "M&S Sensitivity Analysis";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 			:>> rationale = "Recording the extent of sensitivity analyses ensures an understanding of how well the sensitivities were investigated and match the RWS, and provides an understanding of the stability of M&S results to input (scenario) perturbations.";
 		}
 
@@ -1214,7 +1214,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 31";
 			:>> section = "4.3.6.1";
 			:>> description = "M&S Results Assessment";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 			:>> rationale = "The assessment of the M&S results according to each factor ensures a discussion of the achievements and shortcomings of the M&S use beyond just the results and provides a rational basis for the appropriate interpretation/use of the M&S results with repect to the intended use.";
 		}
 
@@ -1225,7 +1225,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 49";
 			:>> section = "4.3.6.2";
 			:>> description = "M&S Results Assessment";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 			:>> rationale = "The assessment of the risks associated with the M&S-based analysis ensures the open communication of possible issues with the M&S results, or use thereof, and may inform program/project risk management processes.";
 		}
 
@@ -1248,7 +1248,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 32";
 			:>> section = "4.3.8.1";
 			:>> description = "M&S Results Reporting";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 			:>> rationale = "Reporting warnings for negative aspects of M&S development or use helps to ensure the appropriate acceptance of M&S results, if the results are negatively impacted.";
 		}
 
@@ -1264,7 +1264,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 33";
 			:>> section = "4.3.8.2";
 			:>> description = "M&S Results Reporting";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 			:>> rationale = "Reporting an estimate of uncertainty, or lack thereof, for the M&S results ensures an understanding that the results are estimates (not exact) within assessed boundaries. Results without an estimate of uncertainty may differ vastly from those shown.";
 		}
 
@@ -1276,7 +1276,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 34";
 			:>> section = "4.3.8.3";
 			:>> description = "M&S Results Reporting";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 			:>> rationale = "Reporting the processes used to obtain the estimate of uncertainty ensures the communication of how the uncertainties in the results occurred (or accumulated).";
 		}
 
@@ -1287,7 +1287,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 50";
 			:>> section = "4.3.8.4";
 			:>> description = "M&S Results Reporting";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 			:>> rationale = "Reporting the M&S capability assessment ensures communication of those aspects (factors) of M&S development were accomplished, which can affect the acceptance of the M&S results.";
 		}
 
@@ -1298,7 +1298,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 35";
 			:>> section = "4.3.8.5";
 			:>> description = "M&S Results Reporting";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 			:>> rationale = "Reporting the M&S results assessment ensures communication of how well those aspects (factors) of M&S use were accomplished, which can affect the acceptance of the M&S results.";
 		}
 
@@ -1310,7 +1310,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 36";
 			:>> section = "4.3.8.6";
 			:>> description = "M&S Results Reporting";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 			:>> rationale = "Reporting findings from any technical reviews ensures the communication of supportive or unsupportive information related to what aspects of the M&S effort were reviewed.";
 		}
 
@@ -1323,7 +1323,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 37";
 			:>> section = "4.3.8.7";
 			:>> description = "M&S Results Reporting";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 			:>> rationale = "Reporting the qualifications of the developers, users, operators, and/or analysts involved in producing the M&S, or results therefrom, ensures clarity in qualifications. Specific topic areas that constitute qualification depends on the type and application of the M&S; the recommendations of sections 4.1.3 and 4.1.4 may be consulted.";
 		}
 
@@ -1334,7 +1334,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 38";
 			:>> section = "4.3.8.8";
 			:>> description = "M&S Results Reporting";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 			:>> rationale = "Reporting M&S records ensures clear evidence of what was actually accomplished in M&S development and use.";
 		}
 
@@ -1346,7 +1346,7 @@ library package NASASTD7009 {
 			:>> id = "M&S 39";
 			:>> section = "4.3.8.9";
 			:>> description = "M&S Results Reporting";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 			:>> rationale = "Reporting assessment of and rationale for the risks associated with the use of the M&S-based analysis ensures the open communication of possible issues with the M&S, or use thereof, and may inform program/project risk management processes.";
 		}
 	}
@@ -1365,7 +1365,7 @@ library package NASASTD7009 {
 			:>> id = "4.1.2a";
 			:>> section = "4.1.2";
 			:>> description = "General M&S Programmatic Recommendations";
-			:>> area = MSRequirementArea::programmatics;
+			:>> area = MSRequirementArea::msProgrammatics;
 		}
 
 		requirement def <'4.1.2b'> R4_1_2b :> MSRecommendation {
@@ -1377,7 +1377,7 @@ library package NASASTD7009 {
 			:>> id = "4.1.2b";
 			:>> section = "4.1.2";
 			:>> description = "General M&S Programmatic Recommendations";
-			:>> area = MSRequirementArea::programmatics;
+			:>> area = MSRequirementArea::msProgrammatics;
 		}
 
 		requirement def <'4.1.3a'> R4_1_3a :> MSRecommendation {
@@ -1387,7 +1387,7 @@ library package NASASTD7009 {
 			:>> id = "4.1.3a";
 			:>> section = "4.1.3";
 			:>> description = "M&S Best Practices Recommendations";
-			:>> area = MSRequirementArea::programmatics;
+			:>> area = MSRequirementArea::msProgrammatics;
 		}
 
 		requirement def <'4.1.3b'> R4_1_3b :> MSRecommendation {
@@ -1408,7 +1408,7 @@ library package NASASTD7009 {
 			:>> id = "4.1.3b";
 			:>> section = "4.1.3";
 			:>> description = "M&S Best Practices Recommendations";
-			:>> area = MSRequirementArea::programmatics;
+			:>> area = MSRequirementArea::msProgrammatics;
 		}
 
 		requirement def <'4.1.4a'> R4_1_4a :> MSRecommendation {
@@ -1418,7 +1418,7 @@ library package NASASTD7009 {
 			:>> id = "4.1.4a";
 			:>> section = "4.1.4";
 			:>> description = "M&S Training Recommendations";
-			:>> area = MSRequirementArea::programmatics;
+			:>> area = MSRequirementArea::msProgrammatics;
 		}
 
 		requirement def <'4.1.4b'> R4_1_4b :> MSRecommendation {
@@ -1445,7 +1445,7 @@ library package NASASTD7009 {
 			:>> id = "4.1.4b";
 			:>> section = "4.1.4";
 			:>> description = "M&S Training Recommendations";
-			:>> area = MSRequirementArea::programmatics;
+			:>> area = MSRequirementArea::msProgrammatics;
 		}
 
 		requirement def <'4.2.2a'> R4_2_2a :> MSRecommendation {
@@ -1455,7 +1455,7 @@ library package NASASTD7009 {
 			:>> id = "4.2.2a";
 			:>> section = "4.2.2";
 			:>> description = "General M&S Development Recommendations";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 		}
 
 		requirement def <'4.2.2b'> R4_2_2b :> MSRecommendation {
@@ -1467,7 +1467,7 @@ library package NASASTD7009 {
 			:>> id = "4.2.2b";
 			:>> section = "4.2.2";
 			:>> description = "General M&S Development Recommendations";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 		}
 
 		requirement def <'4.2.2c'> R4_2_2c :> MSRecommendation {
@@ -1478,7 +1478,7 @@ library package NASASTD7009 {
 			:>> id = "4.2.2c";
 			:>> section = "4.2.2";
 			:>> description = "General M&S Development Recommendations";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 		}
 
 		requirement def <'4.2.2d'> R4_2_2d :> MSRecommendation {
@@ -1489,7 +1489,7 @@ library package NASASTD7009 {
 			:>> id = "4.2.2d";
 			:>> section = "4.2.2";
 			:>> description = "General M&S Development Recommendations";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 		}
 
 		requirement def <'4.2.2e'> R4_2_2e :> MSRecommendation {
@@ -1500,7 +1500,7 @@ library package NASASTD7009 {
 			:>> id = "4.2.2e";
 			:>> section = "4.2.2";
 			:>> description = "General M&S Development Recommendations";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 		}
 
 		requirement def <'4.2.2f'> R4_2_2f :> MSRecommendation {
@@ -1510,7 +1510,7 @@ library package NASASTD7009 {
 			:>> id = "4.2.2f";
 			:>> section = "4.2.2";
 			:>> description = "General M&S Development Recommendations";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 		}
 
 		requirement def <'4.2.2g'> R4_2_2g :> MSRecommendation {
@@ -1520,7 +1520,7 @@ library package NASASTD7009 {
 			:>> id = "4.2.2g";
 			:>> section = "4.2.2";
 			:>> description = "General M&S Development Recommendations";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 		}
 
 		requirement def <'4.2.2h'> R4_2_2h :> MSRecommendation {
@@ -1530,7 +1530,7 @@ library package NASASTD7009 {
 			:>> id = "4.2.2h";
 			:>> section = "4.2.2";
 			:>> description = "General M&S Development Recommendations";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 		}
 
 		requirement def <'4.2.2i'> R4_2_2i :> MSRecommendation {
@@ -1540,7 +1540,7 @@ library package NASASTD7009 {
 			:>> id = "4.2.2i";
 			:>> section = "4.2.2";
 			:>> description = "General M&S Development Recommendations";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 		}
 
 		requirement def <'4.2.4a'> R4_2_4a :> MSRecommendation {
@@ -1552,7 +1552,7 @@ library package NASASTD7009 {
 			:>> id = "4.2.4a";
 			:>> section = "4.2.4";
 			:>> description = "M&S Verification Recommendations";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 		}
 
 		requirement def <'4.2.4b'> R4_2_4b :> MSRecommendation {
@@ -1563,7 +1563,7 @@ library package NASASTD7009 {
 			:>> id = "4.2.4b";
 			:>> section = "4.2.4";
 			:>> description = "M&S Verification Recommendations";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 		}
 
 		requirement def <'4.2.4c'> R4_2_4c :> MSRecommendation {
@@ -1573,7 +1573,7 @@ library package NASASTD7009 {
 			:>> id = "4.2.4c";
 			:>> section = "4.2.4";
 			:>> description = "M&S Verification Recommendations";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 		}
 
 		requirement def <'4.2.4d'> R4_2_4d :> MSRecommendation {
@@ -1581,7 +1581,7 @@ library package NASASTD7009 {
 			:>> id = "4.2.4d";
 			:>> section = "4.2.4";
 			:>> description = "M&S Verification Recommendations";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 		}
 
 		requirement def <'4.2.6a'> R4_2_6a :> MSRecommendation {
@@ -1592,7 +1592,7 @@ library package NASASTD7009 {
 			:>> id = "4.2.6a";
 			:>> section = "4.2.6";
 			:>> description = "M&S Validation Recommendations";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 		}
 
 		requirement def <'4.2.6b'> R4_2_6b :> MSRecommendation {
@@ -1602,7 +1602,7 @@ library package NASASTD7009 {
 			:>> id = "4.2.6b";
 			:>> section = "4.2.6";
 			:>> description = "M&S Validation Recommendations";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 		}
 
 		requirement def <'4.2.6c'> R4_2_6c :> MSRecommendation {
@@ -1612,7 +1612,7 @@ library package NASASTD7009 {
 			:>> id = "4.2.6c";
 			:>> section = "4.2.6";
 			:>> description = "M&S Validation Recommendations";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 		}
 
 		requirement def <'4.2.6d'> R4_2_6d :> MSRecommendation {
@@ -1620,7 +1620,7 @@ library package NASASTD7009 {
 			:>> id = "4.2.6d";
 			:>> section = "4.2.6";
 			:>> description = "M&S Validation Recommendations";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 		}
 
 		requirement def <'4.2.8'> R4_2_8 :> MSRecommendation {
@@ -1631,7 +1631,7 @@ library package NASASTD7009 {
 			:>> id = "4.2.8";
 			:>> section = "4.2.8";
 			:>> description = "Uncertainty Characterization in M&S Development Recommendation";
-			:>> area = MSRequirementArea::development;
+			:>> area = MSRequirementArea::msDevelopment;
 		}
 
 		requirement def <'4.3.2a'> R4_3_2a :> MSRecommendation {
@@ -1641,7 +1641,7 @@ library package NASASTD7009 {
 			:>> id = "4.3.2a";
 			:>> section = "4.3.2";
 			:>> description = "M&S Use Recommendations";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 		}
 
 		requirement def <'4.3.2b'> R4_3_2b :> MSRecommendation {
@@ -1651,7 +1651,7 @@ library package NASASTD7009 {
 			:>> id = "4.3.2b";
 			:>> section = "4.3.2";
 			:>> description = "M&S Use Recommendations";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 		}
 
 		requirement def <'4.3.2c'> R4_3_2c :> MSRecommendation {
@@ -1659,7 +1659,7 @@ library package NASASTD7009 {
 			:>> id = "4.3.2c";
 			:>> section = "4.3.2";
 			:>> description = "M&S Use Recommendations";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 		}
 
 		requirement def <'4.3.2d'> R4_3_2d :> MSRecommendation {
@@ -1667,7 +1667,7 @@ library package NASASTD7009 {
 			:>> id = "4.3.2d";
 			:>> section = "4.3.2";
 			:>> description = "M&S Use Recommendations";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 		}
 
 		requirement def <'4.3.2e'> R4_3_2e :> MSRecommendation {
@@ -1677,7 +1677,7 @@ library package NASASTD7009 {
 			:>> id = "4.3.2e";
 			:>> section = "4.3.2";
 			:>> description = "M&S Use Recommendations";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 		}
 
 		requirement def <'4.3.2f'> R4_3_2f :> MSRecommendation {
@@ -1685,7 +1685,7 @@ library package NASASTD7009 {
 			:>> id = "4.3.2f";
 			:>> section = "4.3.2";
 			:>> description = "M&S Use Recommendations";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 		}
 
 		requirement def <'4.3.2g'> R4_3_2g :> MSRecommendation {
@@ -1697,7 +1697,7 @@ library package NASASTD7009 {
 			:>> id = "4.3.2g";
 			:>> section = "4.3.2";
 			:>> description = "M&S Use Recommendations";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 		}
 
 		requirement def <'4.3.2h'> R4_3_2h :> MSRecommendation {
@@ -1707,7 +1707,7 @@ library package NASASTD7009 {
 			:>> id = "4.3.2h";
 			:>> section = "4.3.2";
 			:>> description = "M&S Use Recommendations";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 		}
 
 		requirement def <'4.3.4'> R4_3_4 :> MSRecommendation {
@@ -1718,7 +1718,7 @@ library package NASASTD7009 {
 			:>> id = "4.3.4";
 			:>> section = "4.3.4";
 			:>> description = "M&S Uncertainty Characterization in M&S Use Recommendation";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 		}
 
 		requirement def <'4.3.7'> R4_3_7 :> MSRecommendation {
@@ -1728,7 +1728,7 @@ library package NASASTD7009 {
 			:>> id = "4.3.7";
 			:>> section = "4.3.7";
 			:>> description = "M&S Results Assessment Recommendations";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 		}
 
 		requirement def <'4.3.9a'> R4_3_9a :> MSRecommendation {
@@ -1738,7 +1738,7 @@ library package NASASTD7009 {
 			:>> id = "4.3.9a";
 			:>> section = "4.3.9";
 			:>> description = "M&S Results Reporting Recommendations";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 		}
 
 		requirement def <'4.3.9b'> R4_3_9b :> MSRecommendation {
@@ -1748,7 +1748,7 @@ library package NASASTD7009 {
 			:>> id = "4.3.9b";
 			:>> section = "4.3.9";
 			:>> description = "M&S Results Reporting Recommendations";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 		}
 
 		requirement def <'4.3.9c'> R4_3_9c :> MSRecommendation {
@@ -1756,7 +1756,7 @@ library package NASASTD7009 {
 			:>> id = "4.3.9c";
 			:>> section = "4.3.9";
 			:>> description = "M&S Results Reporting Recommendations";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 		}
 
 		requirement def <'4.3.9d'> R4_3_9d :> MSRecommendation {
@@ -1764,7 +1764,7 @@ library package NASASTD7009 {
 			:>> id = "4.3.9d";
 			:>> section = "4.3.9";
 			:>> description = "M&S Results Reporting Recommendations";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 		}
 
 		requirement def <'4.3.9e'> R4_3_9e :> MSRecommendation {
@@ -1774,7 +1774,7 @@ library package NASASTD7009 {
 			:>> id = "4.3.9e";
 			:>> section = "4.3.9";
 			:>> description = "M&S Results Reporting Recommendations";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 		}
 
 		requirement def <'4.3.9f'> R4_3_9f :> MSRecommendation {
@@ -1784,7 +1784,7 @@ library package NASASTD7009 {
 			:>> id = "4.3.9f";
 			:>> section = "4.3.9";
 			:>> description = "M&S Results Reporting Recommendations";
-			:>> area = MSRequirementArea::use;
+			:>> area = MSRequirementArea::msUse;
 		}
 	}
 
