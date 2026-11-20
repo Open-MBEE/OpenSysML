@@ -169,7 +169,9 @@ func (m *Model) ChainTargetPath(sym *symbols.Symbol, kind ast.RelationshipKind, 
 // chainTargetResolver resolves one prefix of the chain target of a relationship of
 // kind owned by sym, in the scope that relationship reads its target in.
 func (m *Model) chainTargetResolver(sym *symbols.Symbol, kind ast.RelationshipKind) func(ast.Node) (*symbols.Symbol, bool) {
+	// A message's end is declared by the node it names, and is written where a connector's is.
 	_, isEnd := sym.Decl.(*ast.ConnectorEnd)
+	isEnd = isEnd || IsMessageEnd(sym)
 	scope := sym.OwnerScope
 	switch {
 	case kind == ast.RelRedefines:
