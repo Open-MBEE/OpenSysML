@@ -233,7 +233,12 @@ func (a *npr7123Audit) isA(sym *symbols.Symbol, fqn string) bool {
 	if sym == nil || !sym.IsFeature() {
 		return false
 	}
-	for _, t := range a.model.FeatureTypeSet(sym) {
+	return a.anyConformsTo(a.model.FeatureTypeSet(sym), fqn)
+}
+
+// anyConformsTo reports whether one of types conforms to the library definition fqn.
+func (a *npr7123Audit) anyConformsTo(types []*symbols.Symbol, fqn string) bool {
+	for _, t := range types {
 		if a.conformsTo(t, fqn) {
 			return true
 		}
@@ -305,14 +310,16 @@ func (a *npr7123Audit) check(root *symbols.Scope) {
 		if _, ok := sym.Decl.(*ast.Usage); !ok {
 			return
 		}
+		// Every usage of every document comes through here, so its types are derived once.
+		types := a.model.FeatureTypeSet(sym)
 		switch {
-		case a.isA(sym, npr7123LifeCycleReview):
+		case a.anyConformsTo(types, npr7123LifeCycleReview):
 			a.checkReview(sym)
-		case a.isA(sym, npr7123SEMP):
+		case a.anyConformsTo(types, npr7123SEMP):
 			if !a.reviewedProduct(sym) {
 				a.checkSEMP(sym)
 			}
-		case a.isA(sym, npr7123ComplianceMatrix):
+		case a.anyConformsTo(types, npr7123ComplianceMatrix):
 			a.checkMatrix(sym, root)
 		}
 	})
