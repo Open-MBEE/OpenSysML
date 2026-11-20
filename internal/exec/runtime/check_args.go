@@ -102,12 +102,9 @@ func unionNames(names, more []string) []string {
 	return names
 }
 
-// bindCheckArgs binds args to the `in` parameters of the checked element into
-// bindings, under every name each parameter is known by. An argument naming no
-// parameter, more positional arguments than open parameters, or a parameter left
-// with no argument, no default and no same-named value on the checked object
-// self to read instead is refused before any value is held.
-func (ctx *Context) bindCheckArgs(sym *symbols.Symbol, kind, element string, members []scopedMember, self *Instance, args CheckArgs, bindings map[string]Value) error {
+// bindCheckArgs binds args to the `in` parameters of the checked element under every name each has,
+// refusing an unknown name, a surplus positional or a parameter with no argument and no default.
+func (ctx *Context) bindCheckArgs(sym *symbols.Symbol, kind, element string, members []scopedMember, args CheckArgs, bindings map[string]Value) error {
 	params := ctx.checkParameters(sym, members)
 	label := kind + " " + element
 	bound := make(map[string]Value, len(args.Named)+len(args.Positional))
@@ -130,7 +127,7 @@ func (ctx *Context) bindCheckArgs(sym *symbols.Symbol, kind, element string, mem
 		bound[open[i].name] = value
 	}
 	for _, param := range params {
-		if _, ok := bound[param.name]; !ok && param.def == nil && !ctx.checkParameterOptional(param) && !ctx.carriesFeature(self, param.name) {
+		if _, ok := bound[param.name]; !ok && param.def == nil && !ctx.checkParameterOptional(param) {
 			return fmt.Errorf("%w: %s parameter %q has no argument and no default", errUnboundParameter, label, param.name)
 		}
 	}
@@ -151,16 +148,6 @@ func (ctx *Context) bindCheckArgs(sym *symbols.Symbol, kind, element string, mem
 	}
 	commit()
 	return nil
-}
-
-// carriesFeature reports whether inst holds a value under name, which an unbound
-// parameter of a check on inst reads in place of an argument.
-func (ctx *Context) carriesFeature(inst *Instance, name string) bool {
-	if inst == nil {
-		return false
-	}
-	fv, err := inst.GetFeatureValue(ctx, name)
-	return err == nil && fv != nil
 }
 
 func hasCheckParameter(params []checkParameter, name string) bool {

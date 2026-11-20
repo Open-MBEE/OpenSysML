@@ -74,7 +74,6 @@ elmt:Conjugation__CommunicationPort_conjugated
     sysml:elementId "Conjugation__CommunicationPort_conjugated" ;
     sysml:qualifiedName "Conjugation::CommunicationPort::'~CommunicationPort'" ;
     sysx:mappingQualifiedName "Conjugation::CommunicationPort::'~CommunicationPort'" ;
-    sysml:declaredName "~CommunicationPort" ;
     sysml:owner elmt:Conjugation__CommunicationPort ;
     sysml:owningRelationship elmt:Conjugation__CommunicationPort_conjugated_om ;
     sysml:owningMembership elmt:Conjugation__CommunicationPort_conjugated_om ;

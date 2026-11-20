@@ -203,6 +203,9 @@ func (l *exprLowering) lower(node ast.Node) program.ExprID {
 		return id
 	}
 	expr.Origin.Span = node.Span()
+	if n := len(operands); n > 0 {
+		expr.Args, entry.Operands = make([]program.ExprID, 0, n), make([]*ExprEntry, 0, n)
+	}
 	for _, operand := range operands {
 		arg := l.lower(operand)
 		expr.Args = append(expr.Args, arg)

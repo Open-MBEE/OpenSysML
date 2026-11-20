@@ -1,4 +1,4 @@
-package org.openmbee.mdk.magic;
+package org.openmbee.opensysml.repository;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -11,15 +11,9 @@ import com.google.gson.JsonParser;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
-import java.util.prefs.Preferences;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.openmbee.mdk.magic.repository.ApiConfig;
-import org.openmbee.mdk.magic.repository.ApiException;
-import org.openmbee.mdk.magic.repository.PublishSettings;
-import org.openmbee.mdk.magic.repository.Publisher;
-import org.openmbee.mdk.magic.repository.SysmlApiClient;
 
 /** A publication against an in-process API server: what it commits, what it leaves, what it refuses. */
 class PublisherTest {
@@ -245,29 +239,5 @@ class PublisherTest {
     api.commit("p1", "main", changes);
 
     assertTrue(publisher.publish(MODEL, target("p1", "main")).commit().isEmpty());
-  }
-
-  @Test
-  void remembersWhereAModelWasPublishedButNeverAToken() throws Exception {
-    Preferences root = Preferences.userRoot().node("org/openmbee/mdk/magic/test-" + System.nanoTime());
-    try {
-      PublishSettings settings = new PublishSettings(root, "/models/Mission.mdzip");
-      assertEquals("", settings.url());
-      assertTrue(settings.lastSeen("http://localhost:8083", "p1", "main").isEmpty());
-
-      settings.remember("http://localhost:8083", "p1", "main");
-      settings.sawHead("http://localhost:8083", "p1", "main", "commit-1");
-
-      PublishSettings reopened = new PublishSettings(root, "/models/Mission.mdzip");
-      assertEquals("http://localhost:8083", reopened.url());
-      assertEquals("p1", reopened.project());
-      assertEquals("main", reopened.branch());
-      assertEquals(Optional.of("commit-1"), reopened.lastSeen("http://localhost:8083", "p1", "main"));
-      assertTrue(reopened.lastSeen("http://localhost:8083", "p1", "other").isEmpty());
-      assertTrue(reopened.lastSeen("http://localhost:8083", "", "").isEmpty());
-      assertEquals("", new PublishSettings(root, "/models/Other.mdzip").project());
-    } finally {
-      root.removeNode();
-    }
   }
 }

@@ -1,4 +1,4 @@
-package org.openmbee.mdk.magic.repository;
+package org.openmbee.opensysml.repository;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
