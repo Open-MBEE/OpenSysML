@@ -286,7 +286,8 @@ let edited = editor.apply()?;
 A request value is checked before it is sent: a quantity's unit must be reduced
 and its scale exact, vectors, arrays and tensors must fill their dimensions, a
 function or metaobject must name its element, and nesting is bounded.
-`Value::Unset` and `Value::Undetermined` are answers the service gives, never
+`Value::Unset`, `Value::Undetermined`, `Value::CoordinateFrame` and
+`Value::CoordinateTransformation` are answers the service gives, never
 arguments, and are refused as `Error::UnsupportedValue`.
 A value the service holds but cannot send arrives as `Error::UnsupportedValue`
 naming it, never as `Value::Null`; on an instance feature the reason is

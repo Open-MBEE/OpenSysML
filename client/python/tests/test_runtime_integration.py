@@ -270,6 +270,46 @@ class TestRuntimeIntegration:
         assert q.d is UNSET
         assert q.k == 2.0
 
+    def test_a_posed_frame_evaluates_to_its_frame_and_transformation(self):
+        """The service says it sends the coordinate arms, and does."""
+        from opensysml.capabilities import CAPABILITY_COORDINATE_FRAME_VALUES
+        from opensysml.values import CoordinateFrame, CoordinateTransformation
+
+        assert self.conn.server_info().has(CAPABILITY_COORDINATE_FRAME_VALUES)
+
+        src = '''
+        package Frames {
+            private import ISQ::*;
+            private import SI::*;
+            private import MeasurementReferences::*;
+            attribute datum : CartesianSpatial3dCoordinateFrame { :>> mRefs = (mm, mm, mm); }
+            attribute lbcf : CartesianSpatial3dCoordinateFrame {
+                :>> mRefs = (mm, mm, mm);
+                :>> transformation : TranslationRotationSequence {
+                    :>> source = datum;
+                    :>> elements = (new Translation((10.0, 0.0, 0.0) [datum]),
+                        new Rotation((0.0, 0.0, 1.0) [datum], 180 ['°']));
+                }
+            }
+        }
+        '''
+        model = self.conn.load_from_content(src)
+        datum = self.conn.eval("Frames::datum", model.hash)
+        assert isinstance(datum, CoordinateFrame)
+        assert datum.frame_id == "Frames::datum"
+        assert [axis.unit_id for axis in datum.axes] == ["SI::millimetre"] * 3
+
+        lbcf = self.conn.eval("Frames::lbcf", model.hash)
+        posed = lbcf.transformation
+        assert posed.source.frame_id == "Frames::datum" and posed.target is None
+        assert len(posed.steps) == 2 and posed.steps[1].rotation.angle.magnitude == 180
+        assert posed.pose.origin == (10.0, 0.0, 0.0)
+        assert posed.pose.basis[0] == pytest.approx(-1.0)
+
+        own = self.conn.eval("Frames::lbcf.transformation", model.hash)
+        assert isinstance(own, CoordinateTransformation)
+        assert own.target.frame_id == "Frames::lbcf" and own.target.transformation is None
+
     def test_an_unbound_feature_evaluates_undetermined_not_as_an_error(self):
         """The service says it sends the undetermined arm, and does."""
         from opensysml.capabilities import CAPABILITY_UNDETERMINED_VALUE

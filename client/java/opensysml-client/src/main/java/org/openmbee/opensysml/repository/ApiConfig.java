@@ -1,4 +1,4 @@
-package org.openmbee.mdk.magic.repository;
+package org.openmbee.opensysml.repository;
 
 import java.net.InetAddress;
 import java.net.URI;
@@ -8,9 +8,9 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * One SysML v2 API server as the plugin addresses it: the API's base URL, the bearer token sent
+ * One SysML v2 API server as a publication addresses it: the API's base URL, the bearer token sent
  * when one is set, and the bound on a single request. The environment variables are the ones
- * {@code sysml -sync-apply} reads, so the command line and the plugin address a server alike.
+ * {@code sysml -sync-apply} reads, so the command line and an editor plugin address a server alike.
  */
 public record ApiConfig(String baseUrl, String token, Duration timeout, boolean allowPlainHttp) {
   public static final String ENV_BASE_URL = "FLEXO_SYSMLV2_URL";

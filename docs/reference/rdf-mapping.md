@@ -872,7 +872,7 @@ sees the same relationships SysML.xtext produces.
 | `:>> mass`, `redefines mass` | a `sysml:Redefinition` (`<S>_rd<i>`) with `redefiningFeature`/`redefinedFeature` |
 | `:> base`, `subsets base` | a `sysml:Subsetting`/`sysml:ReferenceSubsetting` (`<S>_ss<i>`/`<S>_rs<i>`) |
 | `specializes Base`, `:>> Base` on a definition | a `sysml:Subclassification` (`<S>_sc<i>`) |
-| `part p : ~P;` | a `sysml:ConjugatedPortDefinition` (`<S>_conjugated`) typed by `P`, and a `sysml:PortConjugation` (`<S>_pc`) joining it to `P`; a named `P` gives its conjugate `declaredName "~P"` (never `declaredShortName`), while an unnamed `P` is addressed positionally as `<owner>::@conjugated`, so `port p`'s `FeatureTyping` reads `type: ~P` |
+| `part p : ~P;` | a `sysml:ConjugatedPortDefinition` (`<S>_conjugated`) typed by `P`, and a `sysml:PortConjugation` (`<S>_pc`) joining it to `P`; the conjugate states no `declaredName` or `declaredShortName` — `~P` is its derived `name` (SysML v2.1 §8.3.12.2 `effectiveName`), addressing it as `P::'~P'`, while the conjugate of an unnamed `P` is addressed positionally as `<owner>::@conjugated`, so `port p`'s `FeatureTyping` reads `type: ~P` |
 | `subject v : Vehicle;` in a requirement | a `sysml:SubjectMembership` owning `v`, with `sysml:subjectParameter` on the membership's owner |
 | `require constraint { v.mass < 1500 [kg] }` | a `sysml:RequirementConstraintMembership` owning the `sysml:ConstraintUsage`, with `sysml:kind "requirement"`/`"assumption"` by keyword; the constraint carries `sysml:isVariable`/`sysml:mayTimeVary` as the model derives them (a feature of an Occurrence varies) |
 | `objective { verify r; }` | the objective is a composite, undirected `sysml:RequirementUsage` its `sysml:ObjectiveMembership` (a FeatureMembership: `sysml:ownedObjectiveRequirement`, no parameter end) owns; the `verify` a `sysml:RequirementVerificationMembership` owning a `sysml:RequirementUsage` that references `r` (its `sysml:ReferenceSubsetting`), with `sysml:kind "requirement"` |
@@ -2333,6 +2333,8 @@ graph states a flag only when true (`isComposite` and a `LiteralBoolean`'s
 implies — the metaclass default from the ontology table (`isUnique` true, every
 other flag false), or the flag another spelling of the graph carries:
 `isVariable` from `sysx:declaredPrefix "var"`, `isSufficient` from `sysml:isAll`.
+The graph itself states `isSufficient` on a connection, interface or allocation definition,
+which is sufficient without a keyword (SysML v2.1 §8.3.13.3, `validateConnectionDefinitionIsSufficient`).
 Derived booleans (`isReference`, `isLibraryElement`, `mayTimeVary`, …) are not
 completed here; they are written as the graph states them or as their `derive*`
 constraint defines them (below) — nor is a boolean whose
@@ -2506,8 +2508,9 @@ the `Membership` an expression referent is carried by — the table above) and
 writes the same unnamed root `Namespace` with its `OwningMembership` (see
 [The root namespace](#the-root-namespace)), so the toolkit's lifter reads this
 form's output back to the notation it came from. A conjugate has
-`declaredName "~P"` only when its original declares a name and never has a
-`declaredShortName`; otherwise it is addressed as `<owner>::@conjugated`. The
+no `declaredName` and no `declaredShortName`: `~P` is the `name` its
+`effectiveName()` derives from a named original (SysML v2.1 §8.3.12.2), and the
+conjugate of an unnamed one is addressed as `<owner>::@conjugated`. The
 per-`@type` element
 counts of the two still differ where the toolkit's own JSON is sparser than
 the metamodel: it writes no `ReturnParameterMembership` for an expression

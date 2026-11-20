@@ -40,6 +40,11 @@ the plugin against Java 17:
 CAMEO_HOME=/opt/Cameo editors/mdk/scripts/compile-against-cameo.sh
 ```
 
+The helper compiles the Java client itself, so it needs no prior build.
+`scripts/compile-against-cameo-test.sh` runs it in continuous integration from an uncompiled client
+against a stand-in installation holding only the OpenAPI stubs, which checks the helper's class
+path and not the vendor's signatures.
+
 ## Stubs
 
 `openapi-stubs` contains compile-only signatures for the Cameo 2026x OpenAPI, written from the

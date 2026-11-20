@@ -68,7 +68,6 @@ elmt:Chains__IP_conjugated
     sysml:elementId "Chains__IP_conjugated" ;
     sysml:qualifiedName "Chains::IP::'~IP'" ;
     sysx:mappingQualifiedName "Chains::IP::'~IP'" ;
-    sysml:declaredName "~IP" ;
     sysml:owner elmt:Chains__IP ;
     sysml:owningRelationship elmt:Chains__IP_conjugated_om ;
     sysml:owningMembership elmt:Chains__IP_conjugated_om ;
@@ -327,6 +326,7 @@ elmt:Chains__II
     sysml:owningRelationship elmt:Chains__II_om ;
     sysml:owningMembership elmt:Chains__II_om ;
     sysml:declaredName "II" ;
+    sysml:isSufficient "true"^^xsd:boolean ;
     sysml:relatedElement elmt:Chains__IP ;
     sysml:source elmt:Chains__IP ;
     sysml:target elmt:Chains__IP ;
