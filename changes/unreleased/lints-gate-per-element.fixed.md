@@ -1,1 +1,1 @@
-- Validation: the undeclared-signal and deferred-keeper lints and the check of an executable order declared outside a behaviour body are no longer silenced for a whole document by one syntax or resolution error elsewhere in it; each now skips only the subject whose own reference carries the error.
+- Validation: the undeclared-signal and deferred-keeper lints are no longer silenced for a whole document by one syntax error elsewhere in it; each now skips only the subject whose own reference carries the error.

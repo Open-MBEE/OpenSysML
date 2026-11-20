@@ -16,8 +16,6 @@ type BehaviorOrderPass struct{}
 
 func (BehaviorOrderPass) Level() kit.PassLevel { return kit.LevelConstraint }
 
-func (BehaviorOrderPass) ElementScoped() { /* marker: per-element gating */ }
-
 func (BehaviorOrderPass) Run(ctx *kit.Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
@@ -30,7 +28,7 @@ func (BehaviorOrderPass) Run(ctx *kit.Context, name string, root *ast.RootNamesp
 	orders := lower.BehaviorOrders(model, scope)
 	var diags []diag.Diagnostic
 	for _, order := range orders {
-		if order.Refusal == nil || ctx.DownstreamOfFailure(order.Decl) {
+		if order.Refusal == nil {
 			continue
 		}
 		if order.Refusal.Code == "succession-orders-nothing" &&

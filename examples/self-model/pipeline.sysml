@@ -314,10 +314,7 @@ package OpenSysMLPipeline {
             attribute :>> goType = "ActionStepMultiplicityPass";
             attribute :>> elementScoped = true;
         }
-        part behaviorOrders : ConstraintCheck {
-            attribute :>> goType = "BehaviorOrderPass";
-            attribute :>> elementScoped = true;
-        }
+        part behaviorOrders : ConstraintCheck { attribute :>> goType = "BehaviorOrderPass"; }
         part oosemMethod : ConstraintCheck { attribute :>> goType = "OOSEMMethodPass"; }
         part mosa : ConstraintCheck { attribute :>> goType = "MOSAPass"; }
         part npr7123 : ConstraintCheck { attribute :>> goType = "NPR7123Pass"; }
