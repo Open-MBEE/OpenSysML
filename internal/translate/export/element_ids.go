@@ -321,8 +321,8 @@ func (ids *ElementIDs) recordFlowEndChains(e *encoder, node ast.Node, subject rd
 // the one every head owns, then the one ahead of a trigger.
 var transitionLinkParameterSlots = [2]string{"linkparam", "triggerparam"}
 
-// recordTransitionHead files what a transition owns ahead of its trigger (transitionHeadMembers): the
-// Membership of its `first` source at "psourcemember", its link parameter at "linkparam", a trigger's at "triggerparam".
+// recordTransitionHead files what a transition's head owns (transitionHeadMembers): its source's Membership at
+// "psourcemember", its link parameters at "linkparam" and "triggerparam", its trigger's accept at "trigger".
 func (ids *ElementIDs) recordTransitionHead(e *encoder, node ast.Node, subject rdf.Term) {
 	var sourceMember bool
 	slots := transitionLinkParameterSlots[:1]
@@ -357,6 +357,11 @@ func (ids *ElementIDs) recordTransitionHead(e *encoder, node ast.Node, subject r
 	for _, slot := range slots {
 		feature := rdf.IRI(subject.Value + "_" + slot)
 		file(slot, partIDs{element: rdf.LocalName(feature.Value), membership: rdf.LocalName(rdf.OwningMembershipIRIOf(feature).Value)})
+	}
+	if len(slots) > 1 {
+		// The trigger's accept (encodeTrigger) declares no node of its own: its payload's is the trigger.
+		accepter := e.ids.subjectFor(e.names.FQN[node] + "::" + naming.TriggerSegment)
+		file("trigger", partIDs{element: rdf.LocalName(accepter.Value), membership: rdf.LocalName(rdf.OwningMembershipIRIOf(accepter).Value)})
 	}
 }
 
