@@ -395,7 +395,7 @@ FeatureChaining::relatedElement	297	symbol-10
 FeatureInverting::documentation	1	symbol-50
 FeatureInverting::ownedAnnotation	1	symbol-05
 FeatureInverting::ownedElement	1	symbol-50
-FeatureMembership::memberName	115	symbol-06
+FeatureMembership::memberName	116	symbol-06
 FeatureMembership::ownedMemberFeature	172	symbol-16
 FeatureMembership::ownedMemberName	14	export-68
 FeatureReferenceExpression::referent	3	symbol-45
@@ -515,9 +515,9 @@ JoinNode::occurrenceDefinition	9	symbol-41
 JoinNode::type	9	symbol-19
 Membership::memberElement	3	symbol-47
 Membership::memberElementId	36	symbol-47
-Membership::membershipOwningNamespace	2648	symbol-07
-Membership::relatedElement	482	symbol-10
-Membership::source	482	symbol-11
+Membership::membershipOwningNamespace	2658	symbol-07
+Membership::relatedElement	485	symbol-10
+Membership::source	485	symbol-11
 Membership::target	33	symbol-12
 MembershipExpose::importedElement	36	symbol-75
 MembershipExpose::relatedElement	74	symbol-10
@@ -620,7 +620,7 @@ ReferenceSubsetting::relatedElement	3	symbol-10
 ReferenceSubsetting::subsettedFeature	3	symbol-45
 ReferenceSubsetting::target	3	symbol-12
 ReferenceUsage::crossFeature	3	symbol-45
-ReferenceUsage::definition	2947	symbol-37
+ReferenceUsage::definition	2943	symbol-37
 ReferenceUsage::feature	40	symbol-14
 ReferenceUsage::featureMembership	40	symbol-15
 ReferenceUsage::featuringType	3	symbol-17
@@ -629,11 +629,11 @@ ReferenceUsage::inheritedMembership	40	symbol-51
 ReferenceUsage::member	40	symbol-51
 ReferenceUsage::membership	40	symbol-51
 ReferenceUsage::name	2	symbol-47
-ReferenceUsage::owningDefinition	4	symbol-45
+ReferenceUsage::owningDefinition	1	symbol-45
 ReferenceUsage::owningFeatureMembership	3	symbol-45
 ReferenceUsage::owningType	3	symbol-45
 ReferenceUsage::qualifiedName	4	symbol-47
-ReferenceUsage::type	3044	symbol-19
+ReferenceUsage::type	3040	symbol-19
 ReferenceUsage::usage	6	symbol-50
 RenderingDefinition::ownedRendering	1	symbol-45
 RenderingDefinition::ownedView	1	symbol-45
@@ -794,6 +794,9 @@ TransitionUsage::target	3	symbol-12
 TransitionUsage::type	167	symbol-19
 TriggerInvocationExpression::instantiatedType	48	symbol-29
 TriggerInvocationExpression::operand	48	symbol-30
+Usage::definition	4	symbol-37
+Usage::owningDefinition	3	symbol-45
+Usage::type	4	symbol-19
 UseCaseDefinition::expression	12	symbol-28
 UseCaseDefinition::objectiveRequirement	8	symbol-45
 UseCaseDefinition::ownedCase	1	symbol-45
