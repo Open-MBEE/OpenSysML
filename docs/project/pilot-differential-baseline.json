@@ -68,8 +68,8 @@
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 57,
-        "digest": "sha256:b695731eb2b35bd533c2fbac440caee243030b8a73357d0d1e59dd448f86d38a"
+        "files": 58,
+        "digest": "sha256:e04031b04da8ab93f8b0c2bdde61295ce5c0715aadc8ae10b897a926442ddba5"
       },
       {
         "name": "probes",
@@ -82,21 +82,21 @@
         "name": "opensysml-libraries",
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
-        "files": 17,
-        "digest": "sha256:b90165d947c4a27f6affb7637e2f9cf3a87bd92f591108288829002a90159fd9"
+        "files": 18,
+        "digest": "sha256:d098be16b936f9f49e2991cd3890a3937fd93bab729ba31956a20fe0a5e9f772"
       }
     ],
-    "recorded": "2026-11-19"
+    "recorded": "2026-11-20"
   },
   "totals": {
-    "files": 925,
+    "files": 926,
     "filesFullyAgreeing": 528,
     "agreement": 1107,
     "severityMismatch": 8,
-    "openSysMLOnly": 126,
-    "pilotOnly": 2451,
-    "openSysMLDiagnostics": 1241,
-    "pilotDiagnostics": 3566
+    "openSysMLOnly": 133,
+    "pilotOnly": 2455,
+    "openSysMLDiagnostics": 1248,
+    "pilotDiagnostics": 3570
   },
   "roots": [
     {
@@ -17673,14 +17673,14 @@
       "name": "examples",
       "dir": "examples",
       "totals": {
-        "files": 57,
+        "files": 58,
         "filesFullyAgreeing": 49,
         "agreement": 4,
         "severityMismatch": 0,
-        "openSysMLOnly": 14,
-        "pilotOnly": 66,
-        "openSysMLDiagnostics": 18,
-        "pilotDiagnostics": 70
+        "openSysMLOnly": 21,
+        "pilotOnly": 70,
+        "openSysMLDiagnostics": 25,
+        "pilotDiagnostics": 74
       },
       "files": [
         {
@@ -17780,6 +17780,81 @@
             },
             {
               "line": 362,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "path": "nasa-std-7009-demo/nasa-std-7009-demo.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [
+            {
+              "line": 53,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 145,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 195,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 195,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 205,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 227,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 389,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            }
+          ],
+          "pilotOnly": [
+            {
+              "line": 184,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 188,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 384,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 398,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18361,6 +18436,16 @@
     },
     {
       "side": "opensysml",
+      "message": "This M\u0026S results assessment records no assessed level for 4 of its 6 factors: M\u0026S Uncertainty Characterization, M\u0026S Results Robustness, M\u0026S Use/Analysis Technical Review, M\u0026S Use Process/Product Management. NASA-STD-7009B [M\u0026S 31] has the assessment recorded according to each factor, so nest one `ResultsFactorAssessment` per factor with its `factor` and `level`.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This Requirements Identification Matrix has no entry for 1 of the 43 requirements of NASA-STD-7009B: [M\u0026S 51]. Table 1 lists every requirement, so add an `@Applicability` usage of each from `NASASTD7009::MSRequirements`.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
       "message": "This SEMP does not address 13 of the 17 common technical processes: ProductImplementation, ProductIntegration, ProductVerification, ProductValidation, ProductTransition, TechnicalPlanning, RequirementsManagement, InterfaceManagement, TechnicalRiskManagement, ConfigurationManagement, TechnicalDataManagement, TechnicalAssessment, DecisionAnalysis. NPR 7123.1D section 6.2.3 (SE-58) has the SEMP define how each process, as tailored, is applied, so nest one usage per process (e.g. `#productImplementation action ...`).",
       "count": 1
     },
@@ -18381,7 +18466,17 @@
     },
     {
       "side": "opensysml",
+      "message": "This criticality assessment rates decision consequence moderate with M\u0026S influence controlling as yellow where Figure 1 of NASA-STD-7009B Appendix D rates it red, and records no method: section 4.1.1.2 has the method used, Appendix D as is or modified or another method, recorded, so correct the `rating` or state the `method`.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
       "message": "This element is marked @Proprietary with no rationale: MOSA expects the justification for each proprietary element to be recorded, so give the annotation a `rationale`.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This entry is marked applicable with no record location: NASA-STD-7009B section 4.3.8.8 says the location of applicable/required records is also necessary for compliance, so give the `@Applicability` annotation a `recordLocation`.",
       "count": 1
     },
     {
@@ -18402,6 +18497,16 @@
     {
       "side": "opensysml",
       "message": "This modular system interface satisfies no requirement: the model declares interface requirements, so MOSA expects a `satisfy` naming it (or its definition) after `by`.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This report of M\u0026S results does not include the processes used to obtain the estimate of uncertainty (`uncertaintyProcess`) [M\u0026S 34]; the qualifications of the developers, users, operators or analysts (`qualifications`) [M\u0026S 37]; the assessment of, and rationale for, acceptance of the risks (`riskAcceptance`) [M\u0026S 39]. NASA-STD-7009B section 4.3.8 has each included when reporting M\u0026S results to decision makers.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This warning states no impact: NASA-STD-7009B [M\u0026S 32] has each warning reported to decision makers accompanied by at least a qualitative estimate of the impact of the occurrence, so give it an `impact`.",
       "count": 1
     },
     {
@@ -25017,14 +25122,14 @@
       }
     ],
     "totals": {
-      "files": 925,
+      "files": 926,
       "filesFullyAgreeing": 529,
       "agreement": 1107,
       "severityMismatch": 8,
-      "openSysMLOnly": 125,
-      "pilotOnly": 2451,
-      "openSysMLDiagnostics": 1240,
-      "pilotDiagnostics": 3566
+      "openSysMLOnly": 132,
+      "pilotOnly": 2455,
+      "openSysMLDiagnostics": 1247,
+      "pilotDiagnostics": 3570
     },
     "findings": [
       {

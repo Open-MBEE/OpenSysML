@@ -67,9 +67,8 @@ func TestNASASTD7009AssessmentMissingFactor(t *testing.T) {
 	}
 }
 
-// A report of M&S results includes both assessments, the uncertainty estimate with its
-// process, the qualifications and the risk acceptance; a statement that no estimate is
-// available needs no process, and what a report inherits from its definition counts.
+// A report includes both assessments, the uncertainty estimate with its process, the qualifications
+// and the risk acceptance; no estimate available needs no process, and inherited content counts.
 func TestNASASTD7009ReportMissingContent(t *testing.T) {
 	src := nasastd7009Model(`
 		part def Report :> MSResultsReport {
