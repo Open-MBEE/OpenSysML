@@ -63,7 +63,9 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    timeout-minutes: 180
+      statuses: write
+    # A run takes about 20 minutes; a hung one must not hold a runner the merge queue is waiting for.
+    timeout-minutes: 60
     steps:
       - name: Check out the pull request branch
         id: checkout
@@ -93,7 +95,7 @@ jobs:
 
       # The count baselines merge cell by cell (tools/oracle/cellmerge) where git's line merge conflicts. The driver
       # and its paths are develop's, so a branch cut before them merges the same way; the checks below accept the result.
-      - name: Install develop's cell-wise merge driver
+      - name: Install develop's cell-wise merge driver and merge script
         run: |
           set -euo pipefail
           git fetch -q origin develop
@@ -102,57 +104,14 @@ jobs:
           git config merge.opensysml-cells.name "cell-wise merge of the count baselines"
           git config merge.opensysml-cells.driver "$RUNNER_TEMP/baseline-merge %O %A %B %P"
           grep 'merge=opensysml-cells' "$RUNNER_TEMP/develop/.gitattributes" > .git/info/attributes
+          cp "$RUNNER_TEMP/develop/scripts/rebaseline-merge.sh" "$RUNNER_TEMP/rebaseline-merge.sh"
           git worktree remove --force "$RUNNER_TEMP/develop"
 
       - name: Merge origin/develop, taking develop's side of the generated paths only
         id: merge
         env:
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           BRANCH: ${{ github.event.pull_request.head.ref }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if [ "$(git rev-parse HEAD)" != "$HEAD_SHA" ]; then
-            echo "the branch moved since the label was applied ($HEAD_SHA); apply the label again" >&2
-            exit 1
-          fi
-          base=$(git merge-base HEAD origin/develop)
-          theirs=$(git rev-parse origin/develop)
-          echo "base=$base" >> "$GITHUB_OUTPUT"
-          echo "ours=$HEAD_SHA" >> "$GITHUB_OUTPUT"
-          echo "theirs=$theirs" >> "$GITHUB_OUTPUT"
-          if [ "$base" = "$theirs" ]; then
-            echo "develop is already merged; re-recording on the current head"
-          elif ! git merge --no-ff --no-commit origin/develop; then
-            conflicts=$(git diff --name-only --diff-filter=U)
-            generated=$(printf '%s\n' "$GENERATED_PATHS" | sed '/^$/d')
-            other=""
-            while IFS= read -r file; do
-              ok=0
-              while IFS= read -r path; do
-                case "$file" in "$path"|"$path"/*) ok=1 ;; *) ;; esac  # another generated path may still claim the file
-              done <<< "$generated"
-              case "$file" in */testdata/*.golden|*/testdata/*.golden.*|*/testdata/*.sha256) ;; */testdata/*.sysml|*/testdata/*.kerml|*/testdata/*.ttl) ok=0 ;; *) ;; esac  # any other file keeps the generated-paths verdict
-              [ "$ok" = 1 ] || other="$other$file"$'\n'
-            done <<< "$conflicts"
-            if [ -n "$other" ]; then
-              printf 'conflicts outside the generated paths; resolve them by hand:\n%s' "$other" >&2
-              exit 1
-            fi
-            while IFS= read -r file; do
-              if git cat-file -e "origin/develop:$file" 2>/dev/null; then
-                git checkout --theirs -- "$file" && git add -- "$file"
-              else
-                git rm -q -- "$file"
-              fi
-            done <<< "$conflicts"
-            git commit -q -m "Merge origin/develop into $BRANCH" \
-              -m "Generated paths in conflict took develop's side; re-recorded by the ci:rebaseline workflow."
-          else
-            git commit -q -m "Merge origin/develop into $BRANCH"
-          fi
-          echo "merged=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        run: '"$RUNNER_TEMP/rebaseline-merge.sh" "${{ github.event.pull_request.head.sha }}"'
 
       # The pilot JSON exporter the differential and the census run is Java, built against the pin.
       - name: Set up Java
@@ -199,12 +158,6 @@ jobs:
       - name: Download the OMG PSSM test suite
         run: ./scripts/download-pssm-suite.sh
 
-      # Dependency order: the snapshot and stubs first, the figure blocks last.
-      - name: Regenerate the library snapshot and the protobuf stubs
-        run: |
-          make stdlib-snapshot
-          make proto-buf proto-ts proto-rust python-proto BUF=buf
-
       # The pilot's export the nightly recorded for this pin (oracle-reproduction.yml); a root it does not hold is exported here.
       - name: Restore the recorded pilot export
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -214,83 +167,73 @@ jobs:
           restore-keys: |
             pilot-apijson-record-${{ hashFiles('scripts/pilot-pin.sh', 'scripts/pilot-json-exporter/**', 'scripts/download-pilot-json-exporter.sh') }}-
 
-      # Our side alone is re-measured against the recorded pilot side. A merged baseline that reproduces is kept as it
-      # is; one that does not is re-recorded, with the pilot only for a rule the recorded column does not hold.
-      - name: Accept the merged derived-property differential and derived census, or re-record them
+      - name: Re-record the baselines
+        uses: ./.github/actions/rebaseline-record
+        with:
+          base: ${{ steps.merge.outputs.base }}
+          ours: ${{ steps.merge.outputs.ours }}
+          theirs: ${{ steps.merge.outputs.theirs }}
+          merged: ${{ steps.merge.outputs.merged }}
+
+      # The recorders ran for minutes, and the branch or develop may have moved under them. What they recorded is not
+      # pushed over a branch that moved, nor in a conflict with develop it would leave open: the next steps start again.
+      - name: Push the re-recorded baselines
+        id: push
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          go run -C tools ./cmd/pilot-apijson-diff -check -pilot-record build/pilot-apijson-record ||
-            go run -C tools ./cmd/pilot-apijson-diff -update -pilot-record build/pilot-apijson-record
-          go run -C tools ./cmd/derived-census -check -recorded-pilot ||
-            go run -C tools ./cmd/derived-census -update -recorded-pilot ||
-            go run -C tools ./cmd/derived-census -update
-
-      - name: Re-record the per-file ratchets
-        run: |
-          go test -count=1 ./tests/corpus -run 'TestPilotCorporaDiagnostics|TestSpecExamplesDiagnostics|TestPSSMSuiteMigration|TestExamplesSweep' \
-            -update-pilot-corpora -update-spec-examples -update-pssm-migration -update-corpus-roundtrip -update-api-json-roundtrip
-          go test -count=1 ./internal/translate/export -run TestSymbolStructureMatchesGraphStructure -update-structure-differential
-          go test -count=1 ./internal/exec/runtime -run TestLibraryAndPrefixSweep -update-library-prefix-sweep
-          go test -count=1 ./tests/export -update
-          go test -count=1 ./tests/parser -run TestGolden -update
-
-      - name: Restate the generated documentation blocks
-        run: make docs-counts
-
-      # Only the generated paths and the pages carrying a generated block may change;
-      # the training expectation is asserted, never re-recorded.
-      - name: Only generated paths changed
-        run: |
-          set -euo pipefail
-          git add -N .
-          changed=$(git diff --name-only)
-          allowed=$(printf '%s\n%s\n' "$GENERATED_PATHS" "$DOC_COUNT_PATHS" | sed '/^$/d')
-          other=""
-          while IFS= read -r file; do
-            [ -n "$file" ] || continue
-            if [ "$file" = tests/corpus/testdata/training_examples_expected.txt ]; then
-              echo "the recorders changed $file, which is never re-recorded" >&2
+          git fetch -q origin develop
+          if ! git merge-tree --write-tree HEAD origin/develop > /dev/null; then
+            echo "develop moved under the recorders and conflicts with what they recorded; merging it and re-recording"
+          elif git push origin "HEAD:$BRANCH"; then
+            echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            exit 0
+          else
+            git fetch -q origin "$BRANCH"
+            if [ "$(git rev-parse FETCH_HEAD)" = "$HEAD_SHA" ]; then
+              echo "the push was refused though the branch has not moved" >&2
               exit 1
             fi
-            ok=0
-            while IFS= read -r path; do
-              case "$file" in "$path"|"$path"/*) ok=1 ;; *) ;; esac  # another generated path may still claim the file
-            done <<< "$allowed"
-            case "$file" in */testdata/*.golden|*/testdata/*.golden.*|*/testdata/*.sha256) ;; */testdata/*.sysml|*/testdata/*.kerml|*/testdata/*.ttl) ok=0 ;; *) ;; esac  # any other file keeps the generated-paths verdict
-            [ "$ok" = 1 ] || other="$other$file"$'\n'
-          done <<< "$changed"
-          if [ -n "$other" ]; then
-            printf 'the recorders changed files outside the generated paths:\n%s' "$other" >&2
-            exit 1
+            echo "the branch moved under the recorders; merging and re-recording from its new head"
           fi
+          git fetch -q origin "$BRANCH"
+          echo "restart=$(git rev-parse FETCH_HEAD)" >> "$GITHUB_OUTPUT"
 
-      # A record neither side moved that the fresh run moves is not the merge's doing.
-      - name: Every movement is explained by the merge
-        id: movement
+      - name: Merge origin/develop again
+        id: remerge
+        if: steps.push.outputs.restart
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          RESTART: ${{ steps.push.outputs.restart }}
         run: |
-          set -o pipefail
-          printf '%s\n' "$GENERATED_PATHS" | sed '/^$/d' | xargs python3 scripts/rebaseline-movement.py \
-            --base "${{ steps.merge.outputs.base }}" --ours "${{ steps.merge.outputs.ours }}" \
-            --theirs "${{ steps.merge.outputs.theirs }}" --merged "${{ steps.merge.outputs.merged }}" \
-            --summary build/rebaseline-summary.md
+          set -euo pipefail
+          git reset -q --hard "$RESTART"
+          git clean -qfd
+          rm -f build/rebaseline-summary.md
+          "$RUNNER_TEMP/rebaseline-merge.sh" "$RESTART"
 
-      - name: Commit and push the re-recorded baselines
-        id: push
+      - name: Re-record the baselines again
+        if: steps.push.outputs.restart
+        uses: ./.github/actions/rebaseline-record
+        with:
+          base: ${{ steps.remerge.outputs.base }}
+          ours: ${{ steps.remerge.outputs.ours }}
+          theirs: ${{ steps.remerge.outputs.theirs }}
+          merged: ${{ steps.remerge.outputs.merged }}
+
+      - name: Push the baselines re-recorded again
+        id: repush
+        if: steps.push.outputs.restart
         env:
           BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
-          git add -A
-          if git diff --cached --quiet; then
-            echo "nothing re-recorded; pushing the merge alone"
-          else
-            git commit -q -F - <<EOF
-          chore(baselines): re-record after merging develop
-
-          $(cat build/rebaseline-summary.md)
-          EOF
+          if ! git push origin "HEAD:$BRANCH"; then
+            echo "the branch moved again under the recorders; apply the label again once it is still" >&2
+            exit 1
           fi
-          git push origin "HEAD:$BRANCH"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Remove the label
@@ -304,12 +247,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           OUTCOME: ${{ job.status }}
-          PUSHED: ${{ steps.push.outputs.sha }}
+          PUSHED_AS_ACTIONS: ${{ secrets.REBASELINE_TOKEN == '' }}
+          PUSHED: ${{ steps.repush.outputs.sha || steps.push.outputs.sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           {
             if [ -n "$PUSHED" ]; then
-              echo "**ci:rebaseline** merged \`origin/develop\` and re-recorded the baselines as $PUSHED ([run]($RUN_URL)). Movement to adjudicate:"
+              echo "**ci:rebaseline** merged \`origin/develop\` and re-recorded the baselines as $PUSHED ([run]($RUN_URL))."
+              if [ "$PUSHED_AS_ACTIONS" = true ]; then
+                echo "The push is the Actions token's, so CI on $PUSHED waits for a maintainer to approve it (the REBASELINE_TOKEN secret is not set)."
+              fi
+              echo
+              echo "Movement to adjudicate:"
             else
               echo "**ci:rebaseline** stopped without pushing ([run]($RUN_URL), $OUTCOME). Movement seen so far:"
             fi
@@ -317,3 +266,23 @@ jobs:
             cat build/rebaseline-summary.md 2>/dev/null || echo "_(no movement summary was produced; see the run log)_"
           } > /tmp/comment.md
           gh pr comment "${{ github.event.pull_request.number }}" --repo "$GITHUB_REPOSITORY" --body-file /tmp/comment.md
+
+      # A pull_request_target run is listed under the head it started from, which the push replaces: the
+      # status puts the outcome on the head the pull request shows.
+      - name: Report the outcome on the pull request's head
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          PUSHED: ${{ steps.repush.outputs.sha || steps.push.outputs.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [ -n "$PUSHED" ]; then
+            sha=$PUSHED state=success description="merged develop and re-recorded the baselines"
+          else
+            sha=$(git ls-remote origin "refs/heads/$BRANCH" | cut -f1)
+            state=failure description="stopped without pushing; see the run and the comment"
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$sha" -f state="$state" -f context="$REBASELINE_LABEL" \
+            -f description="$description" -f target_url="$RUN_URL"

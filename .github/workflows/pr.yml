@@ -1536,6 +1536,9 @@ jobs:
       - name: Test the rebaseline movement check
         run: python3 scripts/rebaseline-movement-test.py
 
+      - name: Test the rebaseline merge
+        run: scripts/rebaseline-merge-test.sh
+
       # The CI coordination tools (ci/README.md), against a stub gh; nothing reaches GitHub.
       - name: Test the CI throttle tools
         run: python3 ci/tests/test_ci_tools.py
