@@ -68,7 +68,7 @@ func Dial(address string, opts ...DialOption) (Client, error) {
 	if !strings.Contains(address, "://") {
 		address = "http://" + address
 	}
-	var connectOpts []connect.ClientOption
+	connectOpts := []connect.ClientOption{connect.WithInterceptors(knownValues{})}
 	if config.json {
 		connectOpts = append(connectOpts, connect.WithProtoJSON())
 	}
