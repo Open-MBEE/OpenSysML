@@ -181,6 +181,30 @@ func TestNPR7123SEMPNestedInReviewWithoutSubsettingIsAudited(t *testing.T) {
 	w8dWantLines(t, src, CodeNPR7123SEMPMissingProcess, 9)
 }
 
+// The SEMP walk visits each feature once, so a structure that reaches itself
+// through a feature's type (next : Node) ends instead of recursing without bound.
+func TestNPR7123SEMPWalkEndsOnARecursiveStructure(t *testing.T) {
+	src := npr7123Model(`
+		part def Node { ref part next : Node[0..1]; }
+		#semp part plan {
+			part head : Node;
+		}`)
+	w8dWantLines(t, src, CodeNPR7123SEMPMissingProcess, 5)
+}
+
+// A stand-in SEMP a review definition, not only a review usage, lists under
+// reviewedProducts is the product at the review and is not audited.
+func TestNPR7123SEMPStandInInAReviewDefinitionIsNotAudited(t *testing.T) {
+	src := npr7123Model(`
+		#lifeCycleReview action def ReviewTemplate {
+			:>> kind = ReviewKind::SRR;
+			requirement e1 : ReviewCriteria::SRR::Entrance1 :> entranceCriteria;
+			requirement s1 : ReviewCriteria::SRR::Success1 :> successCriteria;
+			#semp part standIn :> reviewedProducts;
+		}`)
+	w8dWantLines(t, src, CodeNPR7123SEMPMissingProcess)
+}
+
 // The library's tables are read only for a document stating a review, a SEMP or a
 // compliance matrix: reading them for every document of a large model dominated its analysis.
 func TestNPR7123ReadsLibraryTablesOnlyWhenUsed(t *testing.T) {

@@ -16,12 +16,14 @@ describe('opensysmlExtensionRegistry', () => {
     expect(menu?.identifier).toBe('existing');
     expect(menu?.data).toHaveLength(2);
     expect(menu?.data[1].canHandle({ id: 'runWithOpenSysML' } as never)).toBe(true);
+    expect(menu?.data[1].canHandle({ id: 'publishWithOpenSysML' } as never)).toBe(true);
     expect(menu?.data[1].canHandle({ id: 'other' } as never)).toBe(false);
 
     const palette = registry.getData(paletteToolOverrideExtensionPoint);
     expect(palette?.identifier).toBe('existingPalette');
     expect(palette?.data).toHaveLength(2);
     expect(palette?.data[1].canHandle('tree', { id: 'runWithOpenSysML' } as never)).toBe(true);
+    expect(palette?.data[1].canHandle('tree', { id: 'publishWithOpenSysML' } as never)).toBe(true);
     expect(palette?.data[1].canHandle('diagram', { id: 'runWithOpenSysML' } as never)).toBe(false);
     expect(palette?.data[1].canHandle('tree', { id: 'other' } as never)).toBe(false);
   });

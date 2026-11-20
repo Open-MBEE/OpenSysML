@@ -126,6 +126,8 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 		ids.conjugateBySpan[spanKey{e.file.Name(), node.Span()}] = conjugate
 	}
 	ids.recordValuePart(e, node, subject)
+	ids.recordSendArguments(e, node)
+	ids.recordGuard(e, node, subject)
 	ids.recordConstraintResult(e, node, subject)
 	ids.recordDefaultMultiplicity(e, node, subject)
 	ids.recordConnectorEnds(e, node, subject)
@@ -149,13 +151,70 @@ func (ids *ElementIDs) recordValuePart(e *encoder, node ast.Node, subject rdf.Te
 	}
 	// The value expression a declaration's value part writes, and the
 	// FeatureValue that owns it (featureValue, expressionOwnership).
-	value := e.ids.mintedNode(rdf.ExpressionIRI(subject, pValue), subject, pValue)
-	ids.byNode[valued] = rdf.LocalName(value.Value)
-	ids.bySpan[spanKey{e.file.Name(), valued.Span()}] = ids.byNode[valued]
+	ids.recordOwnedExpression(e, valued, subject, pValue)
+}
+
+// recordSendArguments files the parameters a send owns for its arguments (encodeSendArguments) under the
+// send at "arg%d", the argument's position, and each value written under its parameter, with its parts.
+func (ids *ElementIDs) recordSendArguments(e *encoder, node ast.Node) {
+	send := symbols.SendStatementOf(node)
+	if send == nil {
+		return
+	}
+	fqn := e.names.FQN[node]
+	arguments := [3]ast.Node{send.Message}
+	written := [3]bool{true}
+	switch {
+	case send.IsVia:
+		arguments[1], written[1] = send.Target, true
+		if send.Receiver != nil {
+			arguments[2], written[2] = send.Receiver, true
+		}
+	case send.Target != nil:
+		written[1] = true
+		arguments[2], written[2] = send.Target, true
+	}
+	index := 0
+	for i, argument := range arguments {
+		if !written[i] {
+			continue
+		}
+		param := e.ids.subjectFor(naming.Positional(fqn, index))
+		index++
+		slot := fmt.Sprintf("arg%d", i)
+		part := partIDs{element: rdf.LocalName(param.Value), membership: rdf.LocalName(rdf.OwningMembershipIRIOf(param).Value)}
+		ids.partByNode[partKey{send, slot}] = part
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), send.Span()}, slot}] = part
+		if argument != nil {
+			ids.recordOwnedExpression(e, argument, param, pValue)
+		}
+	}
+}
+
+// recordGuard records the guard a transition owns through its TransitionFeatureMembership
+// (expressionAs at xGuard), with its parts.
+func (ids *ElementIDs) recordGuard(e *encoder, node ast.Node, subject rdf.Term) {
+	switch n := node.(type) {
+	case *ast.TransitionMember:
+		if n.Guard != nil {
+			ids.recordOwnedExpression(e, n.Guard, subject, xGuard)
+		}
+	case *ast.ControlFlowEdge:
+		if n.Guard != nil {
+			ids.recordOwnedExpression(e, n.Guard, subject, xGuard)
+		}
+	}
+}
+
+// recordOwnedExpression records the expression owner writes at slot, the membership that owns it, and its parts.
+func (ids *ElementIDs) recordOwnedExpression(e *encoder, expression ast.Node, owner rdf.Term, slot string) {
+	value := e.ids.mintedNode(rdf.ExpressionIRI(owner, slot), owner, slot)
+	ids.byNode[expression] = rdf.LocalName(value.Value)
+	ids.bySpan[spanKey{e.file.Name(), expression.Span()}] = ids.byNode[expression]
 	membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(value), value, rdf.OwningMembershipSuffix).Value)
-	ids.membershipByNode[valued] = membership
-	ids.membershipBySpan[spanKey{e.file.Name(), valued.Span()}] = membership
-	e.registerExpressionIDs(ids, value, valued)
+	ids.membershipByNode[expression] = membership
+	ids.membershipBySpan[spanKey{e.file.Name(), expression.Span()}] = membership
+	e.registerExpressionIDs(ids, value, expression)
 }
 
 // recordConstraintResult records a bare condition's expression under the member stating it, with
@@ -175,15 +234,24 @@ func (ids *ElementIDs) recordConstraintResult(e *encoder, node ast.Node, subject
 	e.registerExpressionIDs(ids, subject, c.Expression)
 }
 
-// recordDefaultMultiplicity records the Multiplicity a usage's implicit [1..1] or an
-// individual definition is parsed with, and its OwningMembership (defaultMultiplicity), for the id reader.
+// recordDefaultMultiplicity records the Multiplicity a usage's implicit [1..1] or an individual
+// definition is parsed with, or the range a usage writes, and its OwningMembership, for the id reader.
 func (ids *ElementIDs) recordDefaultMultiplicity(e *encoder, node ast.Node, subject rdf.Term) {
 	sym := e.ids.declSym[node]
-	if sym == nil || !e.ids.model.ImpliesDefaultMultiplicity(sym) {
+	if sym == nil {
 		return
 	}
-	element := e.ids.mintedNode(rdf.ExpressionIRI(subject, pMultiplicity), subject, pMultiplicity)
-	membership := e.ids.minted(rdf.OwningMembershipIRIOf(element), element, rdf.OwningMembershipSuffix)
+	var element, membership rdf.Term
+	switch {
+	case semantics.UsageMultiplicityOf(sym) != nil:
+		// A written range is the MultiplicityRange the head owns in the same place (multiplicity).
+		element, membership = e.ids.multiplicityRange(subject)
+	case e.ids.model.ImpliesDefaultMultiplicity(sym):
+		element = e.ids.mintedNode(rdf.ExpressionIRI(subject, pMultiplicity), subject, pMultiplicity)
+		membership = e.ids.minted(rdf.OwningMembershipIRIOf(element), element, rdf.OwningMembershipSuffix)
+	default:
+		return
+	}
 	part := partIDs{element: rdf.LocalName(element.Value), membership: rdf.LocalName(membership.Value)}
 	ids.partByNode[partKey{node, pMultiplicity}] = part
 	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, pMultiplicity}] = part
