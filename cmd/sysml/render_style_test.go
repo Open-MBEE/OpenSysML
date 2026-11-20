@@ -13,6 +13,7 @@ import (
 // the pinned layout kept; a style there is none of and a style with nothing
 // to render are refused, and a form that draws no style says so.
 func TestRenderStyle(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "placed_report.sysml")
 	const frame = `color="#5B5B59";` // the Cameo frame colour; the default view frame has none

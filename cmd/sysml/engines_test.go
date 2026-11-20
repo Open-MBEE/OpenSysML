@@ -17,22 +17,38 @@ const engineModel = `package Rover {
 
 // TestEnginesListsTheBuild checks that -engines tables every engine of the build
 // with its authority, the questions it answers and its status, and exits without a model.
+// builtEngines names the engines of the build under test, and the lines -engines
+// writes for them: a header, a row each, and a detail line for the FMI tool.
+func builtEngines() (names []string, lines int) {
+	names = []string{"check", "explore", "run", "smt", "solve", "sweep"}
+	if !fmiFeature.linked {
+		return names, len(names) + 1
+	}
+	names = append(names, "tool:fmi")
+	return names, len(names) + 2
+}
+
 func TestEnginesListsTheBuild(t *testing.T) {
 	binary := buildCLI(t)
+	engines, wantLines := builtEngines()
 
 	out := run(t, binary, "-engines")
 	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
-	if len(lines) != 9 || !strings.HasPrefix(lines[0], "engine") || !strings.Contains(lines[0], "authority") ||
+	if len(lines) != wantLines || !strings.HasPrefix(lines[0], "engine") || !strings.Contains(lines[0], "authority") ||
 		!strings.Contains(lines[0], "answers") || !strings.Contains(lines[0], "status") {
 		t.Fatalf("-engines did not table the engines:\n%s", out)
 	}
-	for i, want := range []string{"check", "explore", "run", "smt", "solve", "sweep", "tool:fmi"} {
+	for i, want := range engines {
 		fields := strings.Fields(lines[i+1])
 		if len(fields) < 4 || fields[0] != want {
 			t.Errorf("line %d = %q, want engine %s", i+1, lines[i+1], want)
 		}
 	}
-	for _, want := range []string{"bounded", "proved", "observed", "outcomes, holds", "evaluate", "holds", "satisfiable", "sweep", "compute"} {
+	answers := []string{"bounded", "proved", "observed", "outcomes, holds", "evaluate", "holds", "satisfiable", "sweep"}
+	if fmiFeature.linked {
+		answers = append(answers, "compute")
+	}
+	for _, want := range answers {
 		if !strings.Contains(out, want) {
 			t.Errorf("-engines is missing %q:\n%s", want, out)
 		}
@@ -51,7 +67,8 @@ func TestEngineRefusesAnUnknownName(t *testing.T) {
 	if got.status != 2 {
 		t.Errorf("exit status = %d, want 2\n%s", got.status, got.output())
 	}
-	for _, want := range []string{`no engine named "bogus"`, "check, explore, run, smt, solve, sweep, tool:fmi", "auto", "all"} {
+	engines, _ := builtEngines()
+	for _, want := range []string{`no engine named "bogus"`, strings.Join(engines, ", "), "auto", "all"} {
 		if !strings.Contains(got.stderr, want) {
 			t.Errorf("refusal is missing %q:\n%s", want, got.output())
 		}

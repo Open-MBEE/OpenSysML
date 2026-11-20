@@ -17,6 +17,7 @@ const asciiDocBodiesFixture = "../../internal/doc/docrender/testdata/asciidoc_re
 // bodies through every output form, with the recorded converter standing in
 // for Asciidoctor.js, and reports a missing converter by name.
 func TestRenderDocumentAsciiDocBodies(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	source, err := os.ReadFile(asciiDocBodiesFixture)
 	if err != nil {

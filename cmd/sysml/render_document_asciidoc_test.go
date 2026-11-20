@@ -11,6 +11,7 @@ import (
 // rendering: the document on stdout, the model facts in AsciiDoc blocks, an
 // artifact written to -o, and the HTML and PDF options refused.
 func TestRenderDocumentAsciiDocFlag(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 
 	got := check(t, binary, documentModel, "-render-document", "Reports::MassReport", "-doc-form", "asciidoc")

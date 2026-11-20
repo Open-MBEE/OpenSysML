@@ -26,6 +26,7 @@ const wholeBodiesNotes = `
 // Markdown body: its headings are sections the title page, table of contents
 // and numbering options treat exactly as the part-born section after them.
 func TestRenderDocumentWholeBodies(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	source, err := os.ReadFile(wholeBodiesFixture)
 	if err != nil {

@@ -119,6 +119,7 @@ func TestGraphsRefusals(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			needsArgs(t, test.args...)
 			got := runStreams(t, binary, graphsModel, test.args...)
 			if got.status != test.status {
 				t.Fatalf("exit status = %d, want %d\n%s", got.status, test.status, got.output())

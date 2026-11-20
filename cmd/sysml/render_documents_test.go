@@ -98,6 +98,7 @@ func TestRenderDocumentsFlag(t *testing.T) {
 // TestRenderDocumentsDiagramForm checks -diagram-form applies to every
 // document of a set, in Markdown and in HTML.
 func TestRenderDocumentsDiagramForm(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.sysml")
 	golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.dot.golden.md"))
@@ -652,6 +653,7 @@ func TestRenderDocumentsPartialSet(t *testing.T) {
 		{"html", ".html", []string{"-doc-form", "html"}, []string{`href="Reports-Broken.html"`, `href="Reports-Broken.html#timings"`}, `id="timings"`},
 	} {
 		t.Run(form.name, func(t *testing.T) {
+			needsArgs(t, form.args...)
 			dir := filepath.Join(t.TempDir(), "rendered")
 			got := check(t, binary, partialModel, append([]string{"-render-documents", dir}, form.args...)...)
 			wantReport(t, got, 3,
@@ -800,6 +802,7 @@ func TestRenderDocumentsFlagConflicts(t *testing.T) {
 // pages sharing one stylesheet file, so a reader edits the styling in one
 // place.
 func TestRenderDocumentsHTML(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	dir := filepath.Join(t.TempDir(), "site")
 
@@ -844,6 +847,7 @@ func TestRenderDocumentsHTML(t *testing.T) {
 // a file beside the pages that every page links, rather than bytes repeated
 // in each page, and that a URL stays a link in the order it was given.
 func TestRenderDocumentsHTMLStylesheets(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	work := t.TempDir()
 	dir := filepath.Join(work, "site")
@@ -893,6 +897,7 @@ func TestRenderDocumentsHTMLStylesheets(t *testing.T) {
 // URL delimiters or spaces is written and linked under one escaped name, so
 // the link a page carries names the file beside it.
 func TestRenderDocumentsHTMLStylesheetNames(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	work := t.TempDir()
 	dir := filepath.Join(work, "site")
@@ -923,6 +928,7 @@ func TestRenderDocumentsHTMLStylesheetNames(t *testing.T) {
 // TestRenderDocumentsHTMLFlagConflicts checks the set refuses forms and
 // options it cannot write.
 func TestRenderDocumentsHTMLFlagConflicts(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	dir := filepath.Join(t.TempDir(), "site")
 
