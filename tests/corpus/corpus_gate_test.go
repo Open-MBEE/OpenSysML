@@ -167,6 +167,59 @@ func (g corpusGate) visited(subset corpussubset.Subset, files map[string][]strin
 	return kept, keys
 }
 
+// recordedCoverage splits the recorded paths into those whose file is gone and
+// the number still present that this run did not check.
+func recordedCoverage(recorded []string, present, checked map[string]bool) (gone []string, unchecked int) {
+	for _, path := range recorded {
+		switch {
+		case !present[path]:
+			gone = append(gone, path)
+		case !checked[path]:
+			unchecked++
+		}
+	}
+	return gone, unchecked
+}
+
+// uncheckedBanner is what a ratchet prints when a subset left recorded files unchecked.
+func uncheckedBanner(gate string, subset corpussubset.Subset, unchecked, recorded int) string {
+	return fmt.Sprintf("RATCHET INCOMPLETE: %s left %d of %d recorded files unchecked under %s=%s; "+
+		"unset the variable to check them all", gate, unchecked, recorded, corpussubset.EnvVar, subset.Name())
+}
+
+// announceUnchecked makes a partial ratchet visible on stderr and in the test log;
+// outside a subset an unchecked recorded file is a failure.
+func announceUnchecked(t *testing.T, gate string, subset corpussubset.Subset, unchecked, recorded int) {
+	t.Helper()
+	switch {
+	case unchecked == 0:
+	case subset.Whole():
+		t.Errorf("%s: %d of %d recorded files were not checked although no subset is selected", gate, unchecked, recorded)
+	default:
+		banner := uncheckedBanner(gate, subset, unchecked, recorded)
+		fmt.Fprintf(os.Stderr, "\n!!! %s\n\n", banner)
+		t.Log(banner)
+	}
+}
+
+// checkRecorded fails on a recorded file that is gone from its root and announces
+// the recorded files the subset leaves unchecked.
+func (g corpusGate) checkRecorded(t *testing.T, subset corpussubset.Subset, files map[string][]string, visitedKeys map[string]bool, want map[string]int, regenerate string) {
+	t.Helper()
+	present := map[string]bool{}
+	for _, root := range g.roots {
+		for _, rel := range files[root.name] {
+			present[g.key(root, rel)] = true
+		}
+	}
+	gone, unchecked := recordedCoverage(sortedKeys(want), present, visitedKeys)
+	for _, path := range gone {
+		t.Errorf("%s: recorded %d diagnostic(s) but the file is gone; "+
+			"re-download the pinned corpus or regenerate with %s", path, want[path], regenerate)
+	}
+	announceUnchecked(t, t.Name(), subset, unchecked, len(want))
+}
+
 // corpusGateExamples is the examples/ directory the subset list is relative to.
 const corpusGateExamples = "../../examples"
 

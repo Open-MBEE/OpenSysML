@@ -442,7 +442,7 @@ func (g roundTripGate) check(t *testing.T, subset corpussubset.Subset, corpus, f
 		}
 	}
 
-	// Under a subset the unvisited files keep their recorded verdicts unchecked.
+	unchecked := 0
 	exists := make(map[string]bool, len(corpus))
 	for _, path := range corpus {
 		exists[path] = true
@@ -453,11 +453,13 @@ func (g roundTripGate) check(t *testing.T, subset corpussubset.Subset, corpus, f
 			t.Errorf("%s: recorded %s but the file is gone; regenerate with %s",
 				path, want[path], g.updateFlag)
 		case !ok:
+			unchecked++
 		case verdict != want[path]:
 			t.Errorf("%s: %s, expected %s; adjudicate the change, then regenerate with %s",
 				path, verdict, want[path], g.updateFlag)
 		}
 	}
+	announceUnchecked(t, g.name, subset, unchecked, len(want))
 	for _, path := range files {
 		if _, ok := want[path]; !ok {
 			t.Errorf("%s: %s but the file is not recorded; regenerate with %s",
