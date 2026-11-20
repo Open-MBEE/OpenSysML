@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Merges origin/develop into the checked-out pull request branch for the ci:rebaseline workflow, taking
-# develop's side of a conflict on the generated paths only ($GENERATED_PATHS, one per line).
-#   rebaseline-merge.sh <head-sha>     ($BRANCH names the branch in the merge commit)
+# rebaseline-merge.sh <head-sha>: merges origin/develop into the checked-out branch ($BRANCH) for
+# ci:rebaseline, taking develop's side of a conflict on $GENERATED_PATHS (one per line) only.
 set -euo pipefail
 
 head_sha=${1:?usage: rebaseline-merge.sh <head-sha>}
