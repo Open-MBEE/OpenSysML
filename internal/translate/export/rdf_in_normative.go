@@ -102,12 +102,14 @@ var relationshipSourceEnds = []string{
 	"typedFeature", "subclassifier", pSubsettingFeature, "redefiningFeature",
 	pReferencingFeature, pSpecific, pSource, pOwningFeature, "owningClassifier",
 	pOwningType, pOwningRelatedElement,
+	"crossingFeature", "typeUnioned", "typeIntersected", "typeDifferenced",
 }
 
 // relationshipTargetEnds are the properties naming the relationship's target.
 var relationshipTargetEnds = []string{
 	"type", "superclassifier", pSubsettedFeature, pReferencedFeature,
 	"redefinedFeature", pGeneral, pTarget,
+	"crossedFeature", "unioningType", "intersectingType", "differencingType",
 }
 
 // normativeImplied reports whether el is one of the materialized elements a
@@ -483,6 +485,19 @@ func (d *decoder) statedIRITargets(owner *element) map[ast.RelationshipKind]map[
 	kinds := []ast.RelationshipKind{ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences}
 	if ontology.IsAncestorOrSelf(owner.metaclass, "AnnotatingElement") {
 		kinds = append(kinds, ast.RelAnnotates)
+	}
+	// A graph from before these elements states the clause collapsed alone; an owner
+	// stating one of a class states one per target of its clause.
+	for _, child := range owner.children {
+		if !child.implied {
+			continue
+		}
+		switch child.metaclass {
+		case mCrossSubsetting, mUnioning, mIntersecting, mDifferencing:
+			if kind := collapsedKindsOf[child.metaclass][0]; !slices.Contains(kinds, kind) {
+				kinds = append(kinds, kind)
+			}
+		}
 	}
 	for _, kind := range kinds {
 		for _, object := range d.graph.Objects(rdf.IRI(owner.iri), rdf.SysML+relationshipProperty[kind]) {

@@ -126,6 +126,14 @@ func collapsedOf(metaclass string) (string, bool) {
 		return "redefines", true
 	case mReferenceSubsetting:
 		return "references", true
+	case mCrossSubsetting:
+		return "crosses", true
+	case mUnioning:
+		return "unions", true
+	case mIntersecting:
+		return "intersects", true
+	case mDifferencing:
+		return "differences", true
 	}
 	return "", false
 }

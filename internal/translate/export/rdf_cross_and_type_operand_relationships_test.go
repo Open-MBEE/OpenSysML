@@ -140,3 +140,122 @@ func TestTypeOperandsMaterializeOneRelationshipEach(t *testing.T) {
 		}
 	}
 }
+
+func typeOperandGraph(t *testing.T, src string) *rdf.Graph {
+	t.Helper()
+	file := source.New("k.kerml", []byte(src))
+	p := parser.New(file)
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("fixture does not parse: %v", p.Diagnostics)
+	}
+	graph, err := ToRDF(file, root)
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	return withoutSourceLayout(graph)
+}
+
+// The graph alone writes the operand clauses in the order the head spelled them, not the
+// canonical one, as it does the specialization clauses.
+func TestTypeOperandClausesKeepTheirSpelledOrder(t *testing.T) {
+	graph := typeOperandGraph(t, `package K {
+	feature a; feature b; feature c; feature d;
+	feature h unions c, d differences a, b intersects b, c;
+}
+`)
+	notation, err := ToSysML(graph)
+	if err != nil {
+		t.Fatalf("ToSysML: %v", err)
+	}
+	if want := "h unions c, d differences a, b intersects b, c"; !strings.Contains(string(notation), want) {
+		t.Errorf("the graph alone does not write `%s`:\n%s", want, notation)
+	}
+}
+
+// An operand relationship that disagrees with the collapsed clause beside it, or that is
+// missing while its siblings are stated, is refused rather than decided by the collapsed form.
+func TestTypeOperandDisagreementIsRefused(t *testing.T) {
+	const src = `package K {
+	classifier A; classifier B; classifier C;
+	classifier X unions A, B;
+	feature a : A; feature b : A;
+	feature e crosses a;
+}
+`
+	second, crossing := elmt("K__X_un1"), elmt("K__e_cs")
+	for name, edit := range map[string]func(graph *rdf.Graph) *rdf.Graph{
+		"an edited unioningType": func(graph *rdf.Graph) *rdf.Graph {
+			return replacingObject(graph, second, "unioningType", elmt("K__C"))
+		},
+		"an edited crossedFeature": func(graph *rdf.Graph) *rdf.Graph {
+			return replacingObject(graph, crossing, "crossedFeature", elmt("K__b"))
+		},
+		"an edited typeUnioned": func(graph *rdf.Graph) *rdf.Graph {
+			return replacingObject(graph, second, "typeUnioned", elmt("K__C"))
+		},
+		"a removed Unioning": func(graph *rdf.Graph) *rdf.Graph {
+			out := rdf.NewGraph()
+			for _, triple := range graph.Triples() {
+				if triple.Subject != second && triple.Object != second {
+					out.AddTriple(triple)
+				}
+			}
+			return out
+		},
+	} {
+		if notation, err := ToSysML(edit(typeOperandGraph(t, src))); err == nil {
+			t.Errorf("%s is written back, want it refused:\n%s", name, notation)
+		}
+	}
+}
+
+// replacingObject is graph with subject's one value of the SysML property replaced.
+func replacingObject(graph *rdf.Graph, subject rdf.Term, property string, object rdf.Term) *rdf.Graph {
+	out := rdf.NewGraph()
+	for _, triple := range graph.Triples() {
+		if triple.Subject == subject && triple.Predicate.Value == rdf.SysML+property {
+			triple.Object = object
+		}
+		out.AddTriple(triple)
+	}
+	return out
+}
+
+// An element-form document from another tool states the relationships by their standard ends
+// alone; reading it derives the clause each owner's head writes.
+func TestExternalOperandAndCrossElementsDeriveTheOwnerClause(t *testing.T) {
+	const doc = `[
+		{"@type":"Package","@id":"k","declaredName":"K","isImpliedIncluded":false,
+		 "ownedMembership":[{"@id":"m_a"},{"@id":"m_b"},{"@id":"m_x"},{"@id":"m_f"},{"@id":"m_e"}]},
+		{"@type":"OwningMembership","@id":"m_a","isImpliedIncluded":false,"memberElement":{"@id":"a"},"membershipOwningNamespace":{"@id":"k"}},
+		{"@type":"OwningMembership","@id":"m_b","isImpliedIncluded":false,"memberElement":{"@id":"b"},"membershipOwningNamespace":{"@id":"k"}},
+		{"@type":"OwningMembership","@id":"m_x","isImpliedIncluded":false,"memberElement":{"@id":"x"},"membershipOwningNamespace":{"@id":"k"}},
+		{"@type":"OwningMembership","@id":"m_f","isImpliedIncluded":false,"memberElement":{"@id":"f"},"membershipOwningNamespace":{"@id":"k"}},
+		{"@type":"OwningMembership","@id":"m_e","isImpliedIncluded":false,"memberElement":{"@id":"e"},"membershipOwningNamespace":{"@id":"k"}},
+		{"@type":"Classifier","@id":"a","declaredName":"A","isImpliedIncluded":false},
+		{"@type":"Classifier","@id":"b","declaredName":"B","isImpliedIncluded":false},
+		{"@type":"Feature","@id":"f","declaredName":"f","isImpliedIncluded":false},
+		{"@type":"Classifier","@id":"x","declaredName":"X","isImpliedIncluded":false,
+		 "ownedRelationship":[{"@id":"u"},{"@id":"i"},{"@id":"d"}]},
+		{"@type":"Unioning","@id":"u","isImpliedIncluded":false,
+		 "typeUnioned":{"@id":"x"},"unioningType":{"@id":"a"},"owningRelatedElement":{"@id":"x"}},
+		{"@type":"Intersecting","@id":"i","isImpliedIncluded":false,
+		 "typeIntersected":{"@id":"x"},"intersectingType":{"@id":"b"},"owningRelatedElement":{"@id":"x"}},
+		{"@type":"Differencing","@id":"d","isImpliedIncluded":false,
+		 "typeDifferenced":{"@id":"x"},"differencingType":{"@id":"a"},"owningRelatedElement":{"@id":"x"}},
+		{"@type":"Feature","@id":"e","declaredName":"e","isEnd":true,"isImpliedIncluded":false,
+		 "ownedRelationship":[{"@id":"c"}]},
+		{"@type":"CrossSubsetting","@id":"c","isImpliedIncluded":false,
+		 "crossingFeature":{"@id":"e"},"crossedFeature":{"@id":"f"},"owningRelatedElement":{"@id":"e"}}
+	]`
+	normative := deriveToolkitGraph(t, []byte(doc))
+	for _, want := range []struct{ owner, clause, target string }{
+		{"x", "unions", "a"}, {"x", "intersects", "b"}, {"x", "differences", "a"}, {"e", "crosses", "f"},
+	} {
+		got := objects(normative, elmt(want.owner).Value, want.clause)
+		if len(got) != 1 || got[0] != elmt(want.target) {
+			t.Errorf("%s %s = %v, want %s", want.owner, want.clause, got, want.target)
+		}
+	}
+}
