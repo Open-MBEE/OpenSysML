@@ -1,0 +1,17 @@
+### NASASTD7009 Extension Library (`OpenSysML Libraries/NASASTD7009.sysml`; an OpenSysML extension, non-normative)
+
+NASA-STD-7009B is a standard for models and simulations, not a modeling language; the library
+carries its vocabulary (see `docs/project/nasastd7009-library.md`) and `passes.NASASTD7009Pass`
+audits a model against the facts the Standard states of that vocabulary, as warnings at the
+constraint tier. The rows claim agreement with the Standard's text, not with SysML v2 semantics.
+
+| Semantic Rule | Implementation | Test Case | Status |
+|--------------|----------------|-----------|--------|
+| An `MSCapabilityAssessment` usage nests, at any depth, a `CapabilityFactorAssessment` stating a `level` for each of the five factors of Appendix E.3 ([M&S 48]), and an `MSResultsAssessment` a `ResultsFactorAssessment` for each of the six of Appendix E.4 ([M&S 31]); the finding is one per record, naming the missing factors by their titles | `passes/nasastd7009.go` `checkAssessment` | `passes/nasastd7009_test.go` `TestNASASTD7009AssessmentMissingFactor` | 🧩 Extension (OpenSysML library) |
+| An `MSResultsReport` usage includes both assessments ([M&S 50], [M&S 35]), an `uncertaintyEstimate` ([M&S 33]) with its `uncertaintyProcess` unless the estimate is stated not available ([M&S 34]), the `qualifications` ([M&S 37]) and the `riskAcceptance` ([M&S 39]); what the report inherits from its definition counts | `passes/nasastd7009.go` `checkReport` | `TestNASASTD7009ReportMissingContent` | 🧩 Extension (OpenSysML library) |
+| A report holding a factor assessed below its `threshold` nests a `ResultsWarning` of kind `unachievedAcceptanceCriteria` ([M&S 32] a; the thresholds are acceptance criteria by [M&S 43] e); the Standard sets no threshold, so a factor with none asks for nothing | `passes/nasastd7009.go` `checkReport`, `noteBelowThreshold` | `TestNASASTD7009ReportMissingWarning` | 🧩 Extension (OpenSysML library) |
+| A `ResultsWarning` usage states a non-empty `impact` ([M&S 32]) | `passes/nasastd7009.go` `checkWarning` | `TestNASASTD7009WarningMissingImpact` | 🧩 Extension (OpenSysML library) |
+| A `@CriticalityAssessment` whose `rating` differs from the cell of Figure 1 (Appendix D) for its `consequence` and `influence`, read off the `yellowFrom` and `redFrom` of the library's `MSInfluence` rows, states its `method` (§4.1.1.2) | `passes/nasastd7009.go` `checkCriticality`, `matrixRating` | `TestNASASTD7009CriticalityRating` | 🧩 Extension (OpenSysML library) |
+| An `@Applicability` marked not applicable states its `comments` (Appendix A.1), and one marked applicable on an `[M&S n]` requirement its `recordLocation` (§4.3.8.8); a recommendation needs no record location | `passes/nasastd7009.go` `checkApplicability` | `TestNASASTD7009RequirementEntryIncomplete` | 🧩 Extension (OpenSysML library) |
+| A `RequirementsIdentificationMatrix` usage's document holds an `@Applicability`-annotated usage of every definition of `NASASTD7009::MSRequirements` (Table 1 lists every requirement); the finding is one per matrix, naming the missing ids in the Standard's order | `passes/nasastd7009.go` `checkMatrix` | `TestNASASTD7009MatrixMissingRequirement` | 🧩 Extension (OpenSysML library) |
+| Library documents are not audited, and a model that never uses the library — or a workspace package merely named `NASASTD7009` — gets no finding | `passes/nasastd7009.go` `Run`, `newNASASTD7009Audit` | `TestNASASTD7009SilentWithoutTheLibrary` | 🧩 Extension (OpenSysML library) |
