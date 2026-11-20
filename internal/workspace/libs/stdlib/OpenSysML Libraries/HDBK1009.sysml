@@ -559,9 +559,18 @@ library package HDBK1009 {
 		in root : Element;
 		in depth : Integer default 16;
 		Project(
-			source = WhereType(
-				source = WhereType(source = Descendants(source = root, maxDepth = depth), type = "HDBK1009::VerificationRequirement"),
-				type = ("RequirementUsage", "RequirementDefinition"), exact = true
+			source = Except(
+				source = WhereType(
+					source = WhereType(source = Descendants(source = root, maxDepth = depth), type = "HDBK1009::VerificationRequirement"),
+					type = ("RequirementUsage", "RequirementDefinition"), exact = true
+				),
+				// An objective subsetting the requirement (`objective :> ver1`) is the case's, not another requirement.
+				exclude = Descendants(
+					source = WhereType(
+						source = Descendants(source = root, maxDepth = depth),
+						type = ("VerificationCaseUsage", "VerificationCaseDefinition")
+					)
+				)
 			),
 			columns = (
 				Column(name = "Id", path = "id"),
@@ -585,9 +594,18 @@ library package HDBK1009 {
 		in root : Element;
 		in depth : Integer default 16;
 		Project(
-			source = WhereType(
-				source = WhereType(source = Descendants(source = root, maxDepth = depth), type = "HDBK1009::ValidationRequirement"),
-				type = ("RequirementUsage", "RequirementDefinition"), exact = true
+			source = Except(
+				source = WhereType(
+					source = WhereType(source = Descendants(source = root, maxDepth = depth), type = "HDBK1009::ValidationRequirement"),
+					type = ("RequirementUsage", "RequirementDefinition"), exact = true
+				),
+				// An objective subsetting the requirement (`objective :> ver1`) is the case's, not another requirement.
+				exclude = Descendants(
+					source = WhereType(
+						source = Descendants(source = root, maxDepth = depth),
+						type = ("VerificationCaseUsage", "VerificationCaseDefinition")
+					)
+				)
 			),
 			columns = (
 				RelatedColumn(name = "Validation Product", relationshipKind = "satisfaction", direction = "outgoing", maxDepth = 1),
