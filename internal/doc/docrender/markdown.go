@@ -381,7 +381,7 @@ func diagramSource(name string, rendering *view.Rendering, options view.Options,
 // its element alone.
 func tableCells(row queryexec.Row, indexes []int, names namer) []string {
 	if len(indexes) == 0 {
-		return []string{valueText(names, row.Element())}
+		return []string{queryexec.ValueText(row.Element(), names)}
 	}
 	cells := row.Cells()
 	out := make([]string, len(indexes))
@@ -398,7 +398,7 @@ func cellText(cell queryexec.Cell, names namer) string {
 	values := cell.Values()
 	parts := make([]string, len(values))
 	for i, value := range values {
-		parts[i] = valueText(names, value)
+		parts[i] = queryexec.ValueText(value, names)
 	}
 	return strings.Join(parts, ", ")
 }
@@ -707,53 +707,6 @@ func destination(target string) string {
 
 // namer is the name an element value is displayed by; a document's ElementName.
 type namer func(*symbols.Symbol) string
-
-// valueText renders one typed value as plain, unescaped text: elements by
-// names — their effective name, else qualified name — objects by the label the
-// session reaches them by (`car.wheels[2]`), verdicts, states and events by
-// their summary, strings as their text, integers in base 10, reals in shortest
-// 'g' form, booleans, infinity as "*", and quantities as their magnitude in
-// the unit written: `2290000 [kg]`.
-func valueText(names namer, value queryexec.Value) string {
-	if element, ok := value.Element(); ok {
-		return names(element)
-	}
-	if _, label, ok := value.Object(); ok {
-		return label
-	}
-	if verdict, ok := value.Verdict(); ok {
-		return verdict.Summary()
-	}
-	if state, ok := value.State(); ok {
-		return state.Label()
-	}
-	if event, ok := value.Event(); ok {
-		return event.Summary()
-	}
-	if text, ok := value.String(); ok {
-		return text
-	}
-	if integer, ok := value.IntegerConst(); ok {
-		return integer.FormatInt()
-	}
-	if rational, ok := value.Rational(); ok {
-		return queryexec.RationalText(rational)
-	}
-	if realVal, ok := value.Real(); ok {
-		return strconv.FormatFloat(realVal, 'g', -1, 64)
-	}
-	if boolean, ok := value.Boolean(); ok {
-		return strconv.FormatBool(boolean)
-	}
-	if value.Kind() == queryexec.ValueInfinity {
-		return "*"
-	}
-	if quantity, ok := value.Quantity(); ok {
-		magnitude, _ := value.Magnitude()
-		return quantity.TextWithMagnitude(valueText(names, magnitude))
-	}
-	return ""
-}
 
 // inlineEscaper backslash-escapes the characters that open Markdown or HTML
 // structure anywhere in a line, dollar math included.
