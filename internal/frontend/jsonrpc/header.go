@@ -19,6 +19,15 @@ import (
 // logic is Go's own, trimmed of the size limits, the dot reader and the
 // common-header lookup, none of which changes an answer.
 
+// MaxHeaderBytes bounds the header lines of one frame in place of textproto's limits,
+// so an endless line is refused before it is buffered.
+const MaxHeaderBytes = 64 << 10
+
+// ReadHeader reads one frame's MIME header from r, refusing one over MaxHeaderBytes.
+func ReadHeader(r *bufio.Reader) (map[string][]string, error) {
+	return readMIMEHeader(r)
+}
+
 // mimeHeader is textproto.MIMEHeader: canonical keys to their values in order.
 type mimeHeader map[string][]string
 
@@ -61,10 +70,14 @@ func readMIMEHeader(r *bufio.Reader) (mimeHeader, error) {
 		return m, protocolError(fmt.Sprintf("malformed MIME header initial line: %q", line))
 	}
 
+	budget := int64(MaxHeaderBytes)
 	for {
-		kv, err := hr.readContinuedLineSlice(math.MaxInt64, mustHaveFieldNameColon)
+		kv, err := hr.readContinuedLineSlice(budget, mustHaveFieldNameColon)
 		if len(kv) == 0 {
 			return m, err
+		}
+		if budget -= int64(len(kv)); budget <= 0 {
+			return m, errMessageTooLarge
 		}
 
 		// Key ends at first colon.

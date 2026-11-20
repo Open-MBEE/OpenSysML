@@ -20,9 +20,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
@@ -50,6 +52,22 @@ const jsonrpcVersion = "2.0"
 // maxBodyBytes bounds one frame, so a client that miscounts a header cannot
 // make the server allocate without limit.
 const maxBodyBytes = 128 << 20
+
+// maxInFlight bounds the calls handled at once; a frame past it is answered
+// resource-exhausted rather than queued.
+const maxInFlight = 64
+
+// defaultWriteStall is how long the peer may accept no part of an answer before the
+// session is given up on.
+const defaultWriteStall = time.Minute
+
+// writeChunk is the most handed to the peer in one write, so a large answer that is
+// being read slowly still shows progress.
+const writeChunk = 64 << 10
+
+// ErrPeerStalled is why Serve returns, without waiting for its calls, when the peer
+// stopped reading its answers.
+var ErrPeerStalled = errors.New("stdiorpc: the peer stopped reading answers")
 
 // request is one call: the method names an RPC of SysMLService, and params
 // carries its request message.
@@ -92,9 +110,16 @@ type Server struct {
 	impl    pb.SysMLServiceServer
 
 	// writing serializes frames, since answers are written by the goroutine
-	// that handled the call and several may finish at once.
-	writing sync.Mutex
+	// that handled the call and several may finish at once; it holds one token.
+	writing chan struct{}
 	out     *bufio.Writer
+
+	// slots holds one token per call in flight.
+	slots chan struct{}
+	// writeStall is the bound on one stalled write; stalled closes once it is passed.
+	writeStall time.Duration
+	stalled    chan struct{}
+	stallOnce  *sync.Once
 }
 
 // NewServer builds a server dispatching to impl. The method table is read from
@@ -108,16 +133,68 @@ func NewServer(impl pb.SysMLServiceServer) *Server {
 			return call(impl, ctx, dec, nil)
 		}
 	}
-	return &Server{methods: methods, impl: impl}
+	return &Server{methods: methods, impl: impl, writeStall: defaultWriteStall}
 }
+
+// peerWriter hands answers to the peer in chunks, giving up on the session when the
+// peer accepts none of a chunk within the server's stall bound.
+type peerWriter struct {
+	s *Server
+	w io.Writer
+}
+
+func (p peerWriter) Write(b []byte) (int, error) {
+	written := 0
+	for len(b) > 0 {
+		select {
+		case <-p.s.stalled:
+			return written, ErrPeerStalled
+		default:
+		}
+		chunk := b[:min(len(b), writeChunk)]
+		watch := time.AfterFunc(p.s.writeStall, p.s.giveUp)
+		n, err := p.w.Write(chunk)
+		watch.Stop()
+		written += n
+		if err != nil {
+			return written, err
+		}
+		b = b[n:]
+	}
+	return written, nil
+}
+
+// giveUp marks the peer as no longer reading.
+func (s *Server) giveUp() { s.stallOnce.Do(func() { close(s.stalled) }) }
 
 // Serve reads frames from r and writes answers to w until r reaches its end.
 // Calls are handled concurrently and answered as they finish, so a slow call
 // does not hold up the ones behind it; a client correlates answers by id.
 func (s *Server) Serve(ctx context.Context, r io.Reader, w io.Writer) error {
-	s.out = bufio.NewWriter(w)
-	reader := bufio.NewReader(r)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	s.stalled, s.stallOnce = make(chan struct{}), new(sync.Once)
+	s.writing, s.slots = make(chan struct{}, 1), make(chan struct{}, maxInFlight)
+	s.out = bufio.NewWriter(peerWriter{s: s, w: w})
 
+	done := make(chan error, 1)
+	go func() { done <- s.serve(ctx, bufio.NewReader(r)) }()
+	select {
+	case err := <-done:
+		select {
+		case <-s.stalled:
+			return ErrPeerStalled
+		default:
+			return err
+		}
+	case <-s.stalled:
+		return ErrPeerStalled
+	}
+}
+
+// serve is the read loop: it ends at the end of the input, once every call it
+// started has answered or given up on a stalled peer.
+func (s *Server) serve(ctx context.Context, reader *bufio.Reader) error {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 
@@ -130,9 +207,16 @@ func (s *Server) Serve(ctx context.Context, r io.Reader, w io.Writer) error {
 			return err
 		}
 
+		select {
+		case s.slots <- struct{}{}:
+		default:
+			s.refuse(f)
+			continue
+		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			defer func() { <-s.slots }()
 			if f.contentType == ContentTypeProtobuf {
 				s.handleProtobuf(ctx, f)
 				return
@@ -140,6 +224,26 @@ func (s *Server) Serve(ctx context.Context, r io.Reader, w io.Writer) error {
 			s.handleJSON(ctx, f)
 		}()
 	}
+}
+
+// refuse answers a frame that arrived while maxInFlight calls were running.
+func (s *Server) refuse(f frame) {
+	message := fmt.Sprintf("%d calls are already in flight", maxInFlight)
+	if f.contentType == ContentTypeProtobuf {
+		s.write(nil, ContentTypeProtobuf, textproto.MIMEHeader{
+			HeaderID:      {f.header.Get(HeaderID)},
+			HeaderCode:    {strconv.Itoa(int(connect.CodeResourceExhausted))},
+			HeaderMessage: {message},
+		})
+		return
+	}
+	var req request
+	_ = json.Unmarshal(f.body, &req) // an unreadable frame is refused under a null id
+	s.writeJSON(response{
+		JSONRPC: jsonrpcVersion,
+		ID:      req.ID,
+		Error:   &responseError{Code: uint32(connect.CodeResourceExhausted), Message: message},
+	})
 }
 
 // handleJSON answers one JSON-RPC frame. A frame that is not a call at all is
@@ -286,8 +390,12 @@ func (s *Server) writeJSON(res response) {
 // write frames one answer. Failing to write is the end of the session, so it is
 // not reported to a client that can no longer read it.
 func (s *Server) write(body []byte, contentType string, header textproto.MIMEHeader) {
-	s.writing.Lock()
-	defer s.writing.Unlock()
+	select {
+	case s.writing <- struct{}{}:
+	case <-s.stalled:
+		return
+	}
+	defer func() { <-s.writing }()
 
 	fmt.Fprintf(s.out, "Content-Length: %d\r\nContent-Type: %s\r\n", len(body), contentType)
 	for name, values := range header {
@@ -303,10 +411,11 @@ func (s *Server) write(body []byte, contentType string, header textproto.MIMEHea
 // readFrame reads one Content-Length-delimited frame, defaulting to a JSON body
 // when the frame names no content type.
 func readFrame(r *bufio.Reader) (frame, error) {
-	header, err := textproto.NewReader(r).ReadMIMEHeader()
+	read, err := jsonrpc.ReadHeader(r)
 	if err != nil {
 		return frame{}, err
 	}
+	header := textproto.MIMEHeader(read)
 
 	written := header.Get("Content-Length")
 	if written == "" {
