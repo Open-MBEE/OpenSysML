@@ -168,3 +168,23 @@ func TestEvaluateDiagramCarriesThePortDisplay(t *testing.T) {
 		t.Fatalf("options read again = %+v, want %+v", again.Options(), want)
 	}
 }
+
+func TestDiagramOptionsDoNotExposeTheStatedElements(t *testing.T) {
+	fixture := loadEvaluationFixture(t, diagramDocument(`
+		part imaging : Diagram {
+			attribute redefines show = "edge-labels, typings";
+			ref redefines source = interconnectView;
+		}
+	`))
+	document := fixture.mustEvaluate(t, "Report")
+	shown := document.Content()[0].Options().Show
+	if !shown.Has(view.ElementEdgeLabels) || !shown.Has(view.ElementTypings) {
+		t.Fatalf("shown = %v", shown)
+	}
+	delete(shown, view.ElementEdgeLabels)
+	shown[view.ElementKeywords] = true
+	again := document.Content()[0].Options().Show
+	if !again.Has(view.ElementEdgeLabels) || again.Has(view.ElementKeywords) {
+		t.Fatalf("editing the returned elements changed the document: %v", again)
+	}
+}

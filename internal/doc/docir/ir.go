@@ -3,6 +3,7 @@
 package docir
 
 import (
+	"maps"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
@@ -283,7 +284,7 @@ func (c Content) Ports() view.Ports { return c.ports }
 // Options returns what a diagram's rendering is written with: its stated
 // direction and palette.
 func (c Content) Options() view.Options {
-	return view.Options{Direction: c.direction, Palette: c.palette, Ports: c.ports, Show: c.shown}
+	return view.Options{Direction: c.direction, Palette: c.palette, Ports: c.ports, Show: maps.Clone(c.shown)}
 }
 
 // Children returns the nested content of a section in declaration order. The
