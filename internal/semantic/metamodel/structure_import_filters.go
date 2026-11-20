@@ -391,7 +391,17 @@ func (e *Evaluator) structureConformsTo(element Element, target ElementKey, visi
 		return false, true
 	}
 	visited[key] = true
-	if e.structureLibrarySymbol(element) != nil {
+	if symbol := e.structureLibrarySymbol(element); symbol != nil {
+		// The structure has no rows for a library type's specializations; the semantic
+		// model states them.
+		if e.model == nil || !e.completeSupertypes(symbol) {
+			return false, false
+		}
+		for _, super := range e.model.AllSupertypes(symbol) {
+			if ElementOf(super).Key() == target {
+				return true, true
+			}
+		}
 		return false, true
 	}
 	bases, ok := e.structureOwnedSupertypes(element)
