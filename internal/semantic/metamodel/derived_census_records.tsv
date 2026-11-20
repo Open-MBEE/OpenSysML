@@ -288,6 +288,9 @@ ConstraintUsage::constraintDefinition	pilot-validation	78	25	44	9	77	77	0	0	0
 ConstraintUsage::constraintDefinition	spec-examples	73	2	21	50	67	67	0	0	0
 ConstraintUsage::constraintDefinition	examples	336	176	149	11	336	336	0	0	0
 ConstraintUsage::constraintDefinition	manual-examples	122	25	58	39	122	122	0	0	0
+CrossSubsetting::crossingFeature	pilot-examples	2	2	0	0	2	2	0	0	0
+CrossSubsetting::crossingFeature	kerml-examples	13	13	0	0	13	13	0	0	0
+CrossSubsetting::crossingFeature	spec-examples	11	11	0	0	11	11	0	0	0
 CrossSubsetting::owningFeature	pilot-examples	2	2	0	0	2	2	0	0	0
 CrossSubsetting::owningFeature	kerml-examples	13	13	0	0	13	13	0	0	0
 CrossSubsetting::owningFeature	spec-examples	11	11	0	0	11	11	0	0	0
@@ -539,6 +542,8 @@ Definition::variantMembership	testdata	99	1	98	0	96	1	95	0	0
 Definition::variantMembership	examples	669	4	665	0	669	4	665	0	0
 Definition::variantMembership	probes	7	0	7	0	7	0	7	0	0
 Definition::variantMembership	manual-examples	164	1	163	0	164	1	163	0	0
+Differencing::typeDifferenced	kerml-examples	11	11	0	0	11	11	0	0	0
+Differencing::typeDifferenced	spec-examples	2	2	0	0	2	2	0	0	0
 Disjoining::owningType	kerml-examples	7	6	1	0	7	6	0	1	0
 Disjoining::owningType	spec-examples	10	4	6	0	10	4	0	6	0
 Disjoining::owningType	examples	1	0	1	0	1	0	0	1	0
@@ -1092,6 +1097,8 @@ InterfaceUsage::interfaceDefinition	pilot-examples	35	28	7	0	35	35	0	0	0
 InterfaceUsage::interfaceDefinition	pilot-validation	5	3	2	0	5	5	0	0	0
 InterfaceUsage::interfaceDefinition	spec-examples	5	1	2	2	6	6	0	0	0
 InterfaceUsage::interfaceDefinition	examples	7	7	0	0	7	7	0	0	0
+Intersecting::typeIntersected	kerml-examples	8	8	0	0	8	8	0	0	0
+Intersecting::typeIntersected	spec-examples	2	2	0	0	2	2	0	0	0
 InvocationExpression::operand	training	242	238	4	0	261	0	136	125	0
 InvocationExpression::operand	pilot-examples	1076	1066	10	0	1100	0	351	749	0
 InvocationExpression::operand	pilot-validation	322	311	11	0	334	0	130	204	0
@@ -1925,6 +1932,9 @@ Type::unioningType	probes	15	0	15	0	15	0	15	0	0
 Type::unioningType	manual-examples	3514	0	3514	0	3710	0	3710	0	0
 TypeFeaturing::owningFeatureOfType	kerml-examples	73	72	1	0	73	72	0	1	0
 TypeFeaturing::owningFeatureOfType	spec-examples	9	9	0	0	10	8	0	2	0
+Unioning::typeUnioned	kerml-examples	51	51	0	0	51	51	0	0	0
+Unioning::typeUnioned	spec-examples	5	5	0	0	5	5	0	0	0
+Unioning::typeUnioned	examples	3	3	0	0	3	3	0	0	0
 Usage::definition	training	1738	767	737	234	1821	1821	0	0	0
 Usage::definition	pilot-examples	5131	2214	1725	1192	5283	5273	10	0	0
 Usage::definition	pilot-validation	1972	951	744	277	2012	2012	0	0	0

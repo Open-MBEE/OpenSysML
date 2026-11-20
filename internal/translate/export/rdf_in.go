@@ -4460,6 +4460,10 @@ var headClauseKinds = map[string][]ast.RelationshipKind{
 	mSubsetting:           {ast.RelSubsets, ast.RelSpecializes},
 	mRedefinition:         {ast.RelRedefines},
 	mReferenceSubsetting:  {ast.RelReferences},
+	mCrossSubsetting:      {ast.RelCrosses},
+	mUnioning:             {ast.RelUnions},
+	mIntersecting:         {ast.RelIntersects},
+	mDifferencing:         {ast.RelDifferences},
 }
 
 // headClauseTargets are the properties that state a relationship element's
@@ -4473,6 +4477,10 @@ var headClauseTargets = map[string][]string{
 	mSubsetting:           {pSubsettedFeature, pGeneral, pTarget},
 	mRedefinition:         {"redefinedFeature", pSubsettedFeature, pGeneral, pTarget},
 	mReferenceSubsetting:  {pReferencedFeature, pSubsettedFeature, pGeneral, pTarget},
+	mCrossSubsetting:      {"crossedFeature", pSubsettedFeature, pGeneral, pTarget},
+	mUnioning:             {"unioningType", pTarget},
+	mIntersecting:         {"intersectingType", pTarget},
+	mDifferencing:         {"differencingType", pTarget},
 }
 
 // spelledHead reads the order el's head was spelled from what el owns in
