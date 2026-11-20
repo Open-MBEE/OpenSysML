@@ -416,6 +416,10 @@ func (m *Model) kindBaseFQNs(sym *symbols.Symbol, isKerML bool) []string {
 		if behavior, ok := implicitKerMLBehaviorBases[keywordOf(sym)]; ok {
 			out = append(out, behavior)
 		}
+	} else if def, ok := sym.Decl.(*ast.Definition); ok && def.IsIndividual && fqn != lifeFQN {
+		// An individual definition is a Life beside what its kind makes it
+		// (SysML v2 §8.4 Table 31, checkOccurrenceDefinitionIndividualSpecialization).
+		out = append(out, lifeFQN)
 	}
 	return out
 }
@@ -1177,18 +1181,6 @@ func (m *Model) ImpliedBaseFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// candidateBaseFeatures returns the library features sym's kind could imply,
-// whether or not a declared chain suppresses them.
-func (m *Model) candidateBaseFeatures(sym *symbols.Symbol) []*symbols.Symbol {
-	var out []*symbols.Symbol
-	for _, base := range []*symbols.Symbol{m.implicitUsageBaseFeature(sym), m.implicitKerMLFeatureBase(sym), m.implicitMultiplicityBase(sym), m.implicitBaseUsage(sym)} {
-		if base != nil {
-			out = append(out, base)
-		}
-	}
-	return out
-}
-
 // declaredChainReachesKindBase reports whether a declared specialization chain
 // already reaches the base feature of sym's kind, so sym needs no implied one —
 // not even Base::things, which that chain reaches too.
@@ -1275,46 +1267,8 @@ func (m *Model) AllDeclaredSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// ImplicitGenerals returns the general types sym has by its kind rather than by
-// declaration. A scope reached through a recursive import does not traverse them
-// (KerML 8.2.3.5).
+// ImplicitGenerals returns the generals sym has by its kind: the direct supertypes DirectSupertypes
+// ends with. A scope reached through a recursive import does not traverse them (KerML 8.2.3.5).
 func (m *Model) ImplicitGenerals(sym *symbols.Symbol) []*symbols.Symbol {
-	if sym == nil {
-		return nil
-	}
-	defer m.own(sym).LeaveDoc()
-	if cached, ok := m.implicitGenerals[sym]; ok {
-		return cached
-	}
-	// A record names the generals its kind implied among its supertypes, so a
-	// library symbol answers from its facts in every model instead of deriving them.
-	if sym.Facts != nil && (sym.Facts.Supers != nil || sym.Facts.Recorded) {
-		out := m.recordedElements(sym, sym.Facts.ImpliedSupers)
-		journal(m, m.implicitGenerals, sym, sym.Decl)
-		m.implicitGenerals[sym] = out
-		return out
-	}
-	m.resolver.Enter()
-	out := m.computeImplicitGenerals(sym)
-	if m.resolver.Leave() {
-		journal(m, m.implicitGenerals, sym, sym.Decl)
-		m.implicitGenerals[sym] = out
-	}
-	return out
-}
-
-// computeImplicitGenerals derives ImplicitGenerals for a declared symbol; its other
-// generals are its direct supertypes less the base features DirectSupertypes appends last.
-func (m *Model) computeImplicitGenerals(sym *symbols.Symbol) []*symbols.Symbol {
-	candidates := m.candidateBaseFeatures(sym)
-	declared := slices.DeleteFunc(slices.Clone(m.DirectSupertypes(sym)), func(super *symbols.Symbol) bool {
-		return slices.Contains(candidates, super)
-	})
-	var out []*symbols.Symbol
-	for _, base := range slices.Concat(m.implicitBases(sym), m.implicitBaseFeatures(sym, declared)) {
-		if base != nil && base != sym {
-			out = append(out, base)
-		}
-	}
-	return out
+	return m.impliedGeneralsOf(sym)
 }

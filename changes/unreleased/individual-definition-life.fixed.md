@@ -1,0 +1,1 @@
+- An individual definition (`individual part def P;`) now specializes `Occurrences::Life` beside the base of its kind, as SysML v2 §8.4 Table 31 (`checkOccurrenceDefinitionIndividualSpecialization`) asks, so the members of `Life` are inherited by it; name resolution reads the implied bases of a definition from the semantic model alone.
