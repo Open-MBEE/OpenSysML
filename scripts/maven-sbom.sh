@@ -16,10 +16,10 @@ goal=(-B -q -f "$tree/pom.xml" "org.cyclonedx:cyclonedx-maven-plugin:$version:ma
 log=$(mktemp)
 trap 'rm -f "$log"' EXIT
 for ((attempt = 1; attempt <= attempts; attempt++)); do
-  # Every second attempt asks the mirror; -U asks again for what the attempt before was refused.
+  # Every second attempt asks the mirror, as global settings so that a user's proxy still applies; -U asks again for what was refused.
   extra=()
   ((attempt == 1)) || extra+=(-U)
-  ((attempt % 2 == 1)) || extra+=(-s "$mirror")
+  ((attempt % 2 == 1)) || extra+=(-gs "$mirror")
   status=0
   mvn ${extra[@]+"${extra[@]}"} "${goal[@]}" 2>&1 | tee "$log" || status=$?
   ((status != 0)) || exit 0

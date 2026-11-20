@@ -31,7 +31,7 @@ if [[ -n ${FAKE_MVN_BROKEN:-} ]]; then
   exit 1
 fi
 (($(grep -c . "$FAKE_MVN_LOG") > ${FAKE_MVN_REFUSALS:-0})) || refuse "https://repo.maven.apache.org/maven2"
-if [[ " $* " == *" -s "* ]]; then
+if [[ " $* " == *" -gs "* ]]; then
   [[ ${FAKE_MVN_MIRROR:-up} == up ]] || refuse "the mirror"
 else
   [[ ${FAKE_MVN_CENTRAL:-up} == up ]] || refuse "https://repo.maven.apache.org/maven2"
@@ -85,7 +85,7 @@ fi
 # Maven Central refuses for the whole job: the second attempt asks the mirror and passes.
 if run_case central-down 0 FAKE_MVN_CENTRAL=down; then
   expect_calls central-down 2
-  expect_call central-down 2 "-U -s $mirror $goal"
+  expect_call central-down 2 "-U -gs $mirror $goal"
   mentions central-down "(attempt 1 of 4, exit 1)"
 fi
 

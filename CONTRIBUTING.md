@@ -416,7 +416,8 @@ The cache holds what the builds resolve, which leaves out the CycloneDX plugin `
 runs, so the audit is the one Maven step that asks Maven Central in every job. It runs the plugin
 through `scripts/maven-sbom.sh`, which makes up to four attempts (`MAVEN_SBOM_ATTEMPTS`) when Maven
 reports an artifact it could not fetch: the second and fourth read
-`scripts/maven-central-mirror-settings.xml`, which sends `central` to Google's mirror of it, and
+`scripts/maven-central-mirror-settings.xml` as Maven's global settings (`-gs`, so a user's own
+`settings.xml` and its proxy still apply), which sends `central` to Google's mirror of it, and
 every attempt after the first passes `-U` so that Maven asks again for what it was just refused.
 Any other Maven failure fails the audit on the first attempt, and osv-scanner scans only an SBOM
 Maven wrote. `scripts/maven-sbom-test.sh` plays the outage on every pull request.
