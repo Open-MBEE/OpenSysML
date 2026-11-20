@@ -169,6 +169,7 @@ package 'Regolith Sample Imager' {
 	package 'Requirements Mapping Matrix' {
 		private import 'Mapping Entries'::mappingEntries;
 		private import 'Software Classification'::softwareInventory;
+		private import 'Software Assurance'::assuranceTasks;
 
 		part def 'Imager Flight Software Mapping Matrix' :> RequirementsMappingMatrix {
 			:>> title = "Regolith Sample Imager Flight Software Requirements Mapping Matrix";
@@ -183,6 +184,14 @@ package 'Regolith Sample Imager' {
 				part matrix : Table {
 					:>> caption = "Mapping to the requirements invoked for Class C software";
 					calc rows : RequirementsMappingRegister { in :>> root = mappingEntries; }
+				}
+			}
+
+			part assurance : Section {
+				:>> title = "Software assurance tasks";
+				part tasks : Table {
+					:>> caption = "NASA-STD-8739.8B tasks mapped for SWE-134";
+					calc rows : AssuranceTaskRegister { in :>> root = assuranceTasks; }
 				}
 			}
 

@@ -82,16 +82,25 @@ The first table is the project's Requirements Mapping Matrix, 91 rows for the 92
 Table 2 marks for Class C (SWE-058 is the deliberate gap); the requirement text is abridged here:
 
 ```markdown
-| Section | SWE \# | Requirement Text | Authority | Comply? | Justification | Approved By |
-| --- | --- | --- | --- | --- | --- | --- |
-| 3.1.2 | SWE-033 | The project manager shall assess options for software acquisition versus… | center | fullyCompliant |  |  |
-| 3.1.3 | SWE-013 | The project manager shall develop, maintain, and execute software plans,… | center | fullyCompliant |  |  |
-| … | | | | | | |
-| 3.7.4 | SWE-219 | If a project has safety-critical software, the project manager shall ensure… | center | notApplicable | The flight software reuses a heritage executive tested to statement coverage. |  |
-| 3.7.5 | SWE-220 | If a project has safety-critical software, the project manager shall ensure all… | center | tailored |  |  |
+| Section | SWE \# | Requirement Text | Class A-E Authority | Class F Authority | Comply? | Justification | Approved By |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 3.1.2 | SWE-033 | The project manager shall assess options for software acquisition versus… | center | cio | fullyCompliant |  |  |
+| 3.1.3 | SWE-013 | The project manager shall develop, maintain, and execute software plans,… | center | cio | fullyCompliant |  |  |
+| … | | | | | | | |
+| 3.7.4 | SWE-219 | If a project has safety-critical software, the project manager shall ensure… | center | cio | notApplicable | The flight software reuses a heritage executive tested to statement coverage. |  |
+| 3.7.5 | SWE-220 | If a project has safety-critical software, the project manager shall ensure all… | center | cio | tailored |  |  |
 ```
 
-The second is the software classification record SWE-176 asks for:
+The second lists the NASA-STD-8739.8B tasks mapped for SWE-134:
+
+```markdown
+| SWE \# | Task | Task Text | Comply? | Justification | Approved By |
+| --- | --- | --- | --- | --- | --- |
+| SWE-134 | SWE-134-SA-1 | Analyze the software requirements and the software design and work with the… | fullyCompliant |  |  |
+| … | | | | | |
+```
+
+The third is the software classification record SWE-176 asks for:
 
 ```markdown
 | name | softwareClass | safetyCritical | documentation |

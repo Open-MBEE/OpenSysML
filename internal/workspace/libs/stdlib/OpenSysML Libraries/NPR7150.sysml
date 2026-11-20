@@ -4090,19 +4090,48 @@ library package NPR7150 {
 
 	calc def RequirementsMappingRegister :> Query {
 		doc /* A project's Requirements Mapping Matrix generated from its model: one row per mapping
-		 * entry below root with the Section, SWE #, Requirement Text (the documentation of the
-		 * usage's definition) and Authority columns of Table 2 and the project's mapping,
-		 * justification and approval.
+		 * entry of a SWE requirement below root with the Section, SWE #, Requirement Text (the
+		 * documentation of the usage's definition), Class A-E Authority and Class F Authority
+		 * columns of Table 2 and the project's mapping, justification and approval. The mapping
+		 * entries of software assurance tasks are the rows of AssuranceTaskRegister.
 		 */
 		in root : Element;
 		in depth : Integer default 16;
 		Project(
-			source = RequirementMappingEntries(root = root, depth = depth),
+			source = WhereType(
+				source = RequirementMappingEntries(root = root, depth = depth),
+				type = "NPR7150::SWERequirement"
+			),
 			columns = (
 				Column(name = "Section", path = "section"),
 				Column(name = "SWE #", path = "id"),
 				Column(name = "Requirement Text", path = "type.documentation"),
-				Column(name = "Authority", path = "authority"),
+				Column(name = "Class A-E Authority", path = "authority"),
+				Column(name = "Class F Authority", path = "classFAuthority"),
+				Column(name = "Comply?", path = "NPR7150::RequirementMapping::comply"),
+				Column(name = "Justification", path = "NPR7150::RequirementMapping::justification"),
+				Column(name = "Approved By", path = "NPR7150::RequirementMapping::approvedBy")
+			)
+		)
+	}
+
+	calc def AssuranceTaskRegister :> Query {
+		doc /* The software assurance and software safety tasks a project mapped, generated from its
+		 * model: one row per mapping entry of a NASA-STD-8739.8B Table 1 task below root with the
+		 * SWE # of the task's row, the task identifier, the task statement (the documentation of
+		 * the usage's definition) and the project's mapping, justification and approval.
+		 */
+		in root : Element;
+		in depth : Integer default 16;
+		Project(
+			source = WhereType(
+				source = RequirementMappingEntries(root = root, depth = depth),
+				type = "NPR7150::SATask"
+			),
+			columns = (
+				Column(name = "SWE #", path = "sweId"),
+				Column(name = "Task", path = "id"),
+				Column(name = "Task Text", path = "type.documentation"),
 				Column(name = "Comply?", path = "NPR7150::RequirementMapping::comply"),
 				Column(name = "Justification", path = "NPR7150::RequirementMapping::justification"),
 				Column(name = "Approved By", path = "NPR7150::RequirementMapping::approvedBy")

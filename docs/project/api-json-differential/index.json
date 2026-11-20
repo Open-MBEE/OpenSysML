@@ -60,7 +60,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 58,
-        "digest": "sha256:ef9b5237150b50638832e1865b1d008cfd138fecce0cff426e2444712110f6f1"
+        "digest": "sha256:7d891440bed13b2f89561ac5783ab201dcf27446efd6a19192b95a09652ac9ba"
       },
       {
         "name": "probes",
@@ -81,7 +81,7 @@
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
         "files": 18,
-        "digest": "sha256:9d892c53cf428eb0b3b6870c53e2112fd3103ba6d2e21b605c0a88d41d3aed23"
+        "digest": "sha256:7ea07ffcfa6aad2b879ad6bfbb1ce73ad294affed188a77631e8cdd286eef072"
       }
     ]
   },
@@ -1070,26 +1070,26 @@
       "oursUnconvertible": 0,
       "oursColliding": 51,
       "pilotFailed": 0,
-      "pilotLibraryElements": 68293,
+      "pilotLibraryElements": 68517,
       "elements": {
-        "matched": 111188,
+        "matched": 111220,
         "oursOnly": 19243,
         "pilotOnly": 28712,
         "pilotOnlyImplied": 0,
         "typeMismatch": 1836
       },
       "properties": {
-        "presentEqual": 2204001,
-        "presentDifferent": 150080,
-        "oursMissing": 266938,
-        "pilotMissing": 88085,
-        "absentBoth": 2371781,
-        "indeterminate": 53217,
+        "presentEqual": 2204648,
+        "presentDifferent": 150114,
+        "oursMissing": 266996,
+        "pilotMissing": 88112,
+        "absentBoth": 2372502,
+        "indeterminate": 53279,
         "pilotNondeterministic": 547
       },
       "rows": 11785,
-      "unkeyedReferences": 168387,
-      "extensionProperties": 291922,
+      "unkeyedReferences": 168493,
+      "extensionProperties": 292017,
       "duplicateElements": {
         "ours": 556,
         "pilot": 92456
@@ -1330,21 +1330,21 @@
         "oursRefused": 0,
         "pilotFailed": 0,
         "oursColliding": 21,
-        "pilotLibraryElements": 45588,
+        "pilotLibraryElements": 45812,
         "elements": {
-          "matched": 37398,
+          "matched": 37430,
           "oursOnly": 5699,
           "pilotOnly": 10806,
           "pilotOnlyImplied": 0,
           "typeMismatch": 199
         },
         "properties": {
-          "presentEqual": 752389,
-          "presentDifferent": 49725,
-          "oursMissing": 90481,
-          "pilotMissing": 28900,
-          "absentBoth": 830715,
-          "indeterminate": 25529,
+          "presentEqual": 753036,
+          "presentDifferent": 49759,
+          "oursMissing": 90539,
+          "pilotMissing": 28927,
+          "absentBoth": 831436,
+          "indeterminate": 25591,
           "pilotNondeterministic": 177
         },
         "duplicateElements": {

@@ -46,7 +46,7 @@ requirement swe134 : SWE134 { @RequirementMapping { comply = MappingKind::fullyC
 | "If a project has safety-critical software" (§3.7) | `@SafetyCriticalSoftwareCondition` on SWE-023, SWE-134, SWE-219 and SWE-220 |
 | Bi-directional traceability (SWE-052, Table 1) | `enum def TraceabilityRelation` and `@TraceabilityExpectation` |
 | A project's mapping to a requirement | `@RequirementMapping { comply; justification; approvedBy }` (`#mapsRequirement`) with `MappingKind` fully compliant, tailored or not applicable |
-| The project's Requirements Mapping Matrix (SWE-125) | `part def RequirementsMappingMatrix :> Document` with the classes it is for, and `calc def RequirementsMappingRegister` generating its rows |
+| The project's Requirements Mapping Matrix (SWE-125) | `part def RequirementsMappingMatrix :> Document` with the classes it is for, and `calc def RequirementsMappingRegister` generating its rows; `calc def AssuranceTaskRegister` lists the mapped NASA-STD-8739.8B tasks |
 | The software classification record (SWE-176) | `calc def SoftwareClassificationRegister` |
 | NASA-STD-8739.8B Table 1 | the 203 definitions of `NPR7150::SoftwareAssurance`, `requirement def <'SWE-134-SA-1'> SA134_1 :> SATask`, each with the `sweId` it is keyed to, the lettered item where the standard splits a requirement (SWE-065 a to d) and its task number |
 

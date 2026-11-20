@@ -69,7 +69,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 58,
-        "digest": "sha256:ef9b5237150b50638832e1865b1d008cfd138fecce0cff426e2444712110f6f1"
+        "digest": "sha256:7d891440bed13b2f89561ac5783ab201dcf27446efd6a19192b95a09652ac9ba"
       },
       {
         "name": "probes",
@@ -83,7 +83,7 @@
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
         "files": 18,
-        "digest": "sha256:9d892c53cf428eb0b3b6870c53e2112fd3103ba6d2e21b605c0a88d41d3aed23"
+        "digest": "sha256:7ea07ffcfa6aad2b879ad6bfbb1ce73ad294affed188a77631e8cdd286eef072"
       }
     ],
     "recorded": "2026-11-20"
@@ -94,9 +94,9 @@
     "agreement": 1107,
     "severityMismatch": 8,
     "openSysMLOnly": 131,
-    "pilotOnly": 2453,
+    "pilotOnly": 2454,
     "openSysMLDiagnostics": 1246,
-    "pilotDiagnostics": 3568
+    "pilotDiagnostics": 3569
   },
   "roots": [
     {
@@ -17678,9 +17678,9 @@
         "agreement": 4,
         "severityMismatch": 0,
         "openSysMLOnly": 19,
-        "pilotOnly": 68,
+        "pilotOnly": 69,
         "openSysMLDiagnostics": 23,
-        "pilotDiagnostics": 72
+        "pilotDiagnostics": 73
       },
       "files": [
         {
@@ -17861,7 +17861,7 @@
               "count": 1
             },
             {
-              "line": 198,
+              "line": 207,
               "severity": "warning",
               "category": "unmapped",
               "count": 1
@@ -17869,13 +17869,19 @@
           ],
           "pilotOnly": [
             {
-              "line": 185,
+              "line": 186,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 193,
+              "line": 194,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 202,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -25098,9 +25104,9 @@
       "agreement": 1107,
       "severityMismatch": 8,
       "openSysMLOnly": 130,
-      "pilotOnly": 2453,
+      "pilotOnly": 2454,
       "openSysMLDiagnostics": 1245,
-      "pilotDiagnostics": 3568
+      "pilotDiagnostics": 3569
     },
     "findings": [
       {
