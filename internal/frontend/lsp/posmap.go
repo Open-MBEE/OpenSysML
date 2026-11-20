@@ -88,7 +88,11 @@ func spanToRange(content []byte, sp source.Span) protocol.Range {
 
 // rangeToSpan converts an LSP Range to a core byte Span.
 func rangeToSpan(content []byte, r protocol.Range) source.Span {
-	p := positionsFor(content)
+	return positionsFor(content).spanOf(r)
+}
+
+// spanOf converts an LSP Range to a core byte Span.
+func (p positions) spanOf(r protocol.Range) source.Span {
 	start := p.offset(r.Start)
 	end := p.offset(r.End)
 	if end < start {

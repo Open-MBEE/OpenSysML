@@ -8,6 +8,8 @@ import (
 
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // DidOpen registers a newly opened document with the workspace. The buffer the
@@ -47,38 +49,58 @@ func (s *Server) DidChange(ctx context.Context, params *protocol.DidChangeTextDo
 	if doc != nil {
 		content = append([]byte(nil), doc.Content...)
 	}
-	for _, ch := range params.ContentChanges {
-		content = applyContentChange(content, ch)
-	}
+	content = applyContentChanges(content, params.ContentChanges)
 	s.debugEdit(ctx, "", func() { s.ws.Update(name, content, int(params.TextDocument.Version)) })
 	s.publishDiagnostics(ctx, name)
 	s.queueOpenDiagnostics(ctx, name)
 	return nil
 }
 
-// applyContentChange applies a single change: a whole-document replace, or an
-// incremental splice at its range. RangeLength is intentionally unused for the
-// splice: it is a UTF-16 code-unit count (not a byte count), and the
-// authoritative delete extent is Range.
-func applyContentChange(content []byte, ch protocol.TextDocumentContentChangeEvent) []byte {
+// contentChanges applies the changes of one notification in turn, indexing the
+// text's lines once and bringing the index up to date with each splice.
+type contentChanges struct {
+	content []byte
+	// lines indexes content; nil until a splice needs it and after a replace.
+	lines *source.LineIndex
+}
+
+// apply applies a single change: a whole-document replace, or an incremental
+// splice at its range. RangeLength is intentionally unused for the splice: it
+// is a UTF-16 code-unit count (not a byte count), and the authoritative delete
+// extent is Range.
+func (c *contentChanges) apply(ch protocol.TextDocumentContentChangeEvent) {
 	var rng protocol.Range
 	var text string
 	switch ch := ch.(type) {
 	case *protocol.TextDocumentContentChangeWholeDocument:
-		return []byte(ch.Text)
+		c.content, c.lines = []byte(ch.Text), nil
+		return
 	case *protocol.TextDocumentContentChangePartial:
 		rng, text = ch.Range, ch.Text
 	default:
-		return content
+		return
 	}
-	sp := rangeToSpan(content, rng)
-	start := min(sp.Offset, len(content))
-	end := min(sp.End(), len(content))
-	out := make([]byte, 0, start+len(text)+(len(content)-end))
-	out = append(out, content[:start]...)
+	if c.lines == nil {
+		c.lines = source.NewLineIndex(c.content)
+	}
+	sp := positions{content: c.content, lines: c.lines}.spanOf(rng)
+	start := min(sp.Offset, len(c.content))
+	end := min(sp.End(), len(c.content))
+	out := make([]byte, 0, start+len(text)+(len(c.content)-end))
+	out = append(out, c.content[:start]...)
 	out = append(out, text...)
-	out = append(out, content[end:]...)
-	return out
+	out = append(out, c.content[end:]...)
+	c.lines.Splice(out, start, end, len(text))
+	c.content = out
+}
+
+// applyContentChanges applies the changes of one notification to content.
+func applyContentChanges(content []byte, changes []protocol.TextDocumentContentChangeEvent) []byte {
+	batch := contentChanges{content: content}
+	for _, ch := range changes {
+		batch.apply(ch)
+	}
+	return batch.content
 }
 
 // DidClose marks the document closed, re-reading its on-disk content first so
