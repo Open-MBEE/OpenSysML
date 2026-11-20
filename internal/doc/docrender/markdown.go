@@ -593,7 +593,7 @@ func (w *markdownWriter) runText(run docir.TextRun) string {
 		if run.TargetElement() != "" {
 			return inline(run.Text())
 		}
-		return "[" + inline(refText(run, w.labels)) + "](" + w.refDestination(run) + ")"
+		return "[" + inline(refText(run, w.labels)) + "](" + linkDestination(w.refDestination(run)) + ")"
 	default:
 		return inline(run.Text())
 	}
@@ -703,6 +703,22 @@ var destinationEscaper = strings.NewReplacer(
 // percent-encode since a backslash cannot escape them.
 func destination(target string) string {
 	return strings.ReplaceAll(destinationEscaper.Replace(newlineNormalizer.Replace(target)), "\n", "%0A")
+}
+
+// linkDestination writes a destination built from a file name: bare when every
+// character stands for itself there, else in the pointy-bracket form, since a
+// space, a parenthesis or a backslash would end or reshape a bare one.
+func linkDestination(target string) string {
+	bare := target != "" && !strings.HasPrefix(target, "<")
+	for _, r := range target {
+		if r <= ' ' || r == 0x7f || r == '(' || r == ')' || r == '\\' {
+			bare = false
+		}
+	}
+	if bare {
+		return target
+	}
+	return "<" + destination(target) + ">"
 }
 
 // namer is the name an element value is displayed by; a document's ElementName.
