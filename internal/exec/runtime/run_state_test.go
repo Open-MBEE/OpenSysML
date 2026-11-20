@@ -344,7 +344,7 @@ func TestReleaseInsideAnotherRunEndsThePausedRunsOwn(t *testing.T) {
 	ctx, exec, _ := pausedAtActivation(t)
 	end := ctx.beginRun()
 	outer := ctx.run
-	outer.calcUsageRuns[1] = map[calcUsageKey]*calcRun{}
+	outer.calcUsageRuns = map[int64]map[calcUsageKey]*calcRun{1: {}}
 	exec.Release()
 	if n := len(exec.driven.state.calcUsageRuns); n != 0 {
 		t.Errorf("%d activation(s) still held after the release", n)

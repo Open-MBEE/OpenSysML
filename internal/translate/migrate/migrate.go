@@ -251,6 +251,10 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		layoutJoined:      map[string]bool{},
 		shownEdges:        map[*sysmlv1.Element]bool{},
 		edgeMembers:       map[*sysmlv1.Element]edgeMember{},
+		adjuncts:          map[*sysmlv1.Element]*adjunct{},
+		principalPins:     map[*sysmlv1.Element]bool{},
+		resolvingAdjunct:  map[*sysmlv1.Element]bool{},
+		adjunctExposed:    map[*sysmlv1.Element][]*sysmlv1.Element{},
 		sequenceBindings:  map[*sysmlv1.Element][]lifelineBinding{},
 		sequenceParams:    map[*sysmlv1.Element]string{},
 		objectives:        map[*sysmlv1.Element]string{},
@@ -379,6 +383,15 @@ type migration struct {
 	// activity nodes are written under, fixed by their writer or ahead of it.
 	names     map[*sysmlv1.Element]string
 	nodeNames map[*sysmlv1.Element]string
+	// adjuncts holds what each «AdjunctProperty» stands for, nil for a property that is
+	// none; resolvingAdjunct guards asking whether a principal is written from inside the answer.
+	adjuncts map[*sysmlv1.Element]*adjunct
+	// principalPins holds the pins that are the principal of an «AdjunctProperty», which
+	// alone are named from outside their action.
+	principalPins    map[*sysmlv1.Element]bool
+	resolvingAdjunct map[*sysmlv1.Element]bool
+	// adjunctExposed lists, for a principal, the exposed adjunct properties that stand for it.
+	adjunctExposed map[*sysmlv1.Element][]*sysmlv1.Element
 	// synthesized marks the elements whose written name the migration made up,
 	// their source having left them unnamed; see madeUp.
 	synthesized map[*sysmlv1.Element]bool
@@ -1072,6 +1085,9 @@ func (m *migration) exposeReached(e *sysmlv1.Element) {
 func (m *migration) expose(f *sysmlv1.Element, by string) {
 	if _, ok := m.exposed[f]; !ok && !f.IsProxy() {
 		m.exposed[f] = by
+		if a := m.adjunctOf(f); a != nil && a.apart == "" {
+			m.adjunctExposed[a.principal] = append(m.adjunctExposed[a.principal], f)
+		}
 	}
 }
 
@@ -1098,7 +1114,8 @@ func (m *migration) slotClassifier(e, f *sysmlv1.Element) *sysmlv1.Element {
 func (m *migration) distinguish(e *sysmlv1.Element) {
 	seen := map[string]bool{}
 	for _, c := range namespaceMembers(e) {
-		if c.Name == "" {
+		// A collapsed adjunct property declares no name beside its principal's.
+		if c.Name == "" || m.principalOf(c) != nil {
 			continue
 		}
 		if !seen[c.Name] {
@@ -2507,6 +2524,9 @@ func (m *migration) crossedProperty(e, end *sysmlv1.Element, typ string) (opp *s
 	if end.Type != "Property" || !m.written(end) || toolContent(end) != "" {
 		return nil, label + "the end property is not written as a feature of " + qualifiedName(ot)
 	}
+	if within := m.adjunctNestedIn(end); within != nil {
+		return nil, label + "the end property is the usage of its «AdjunctProperty» principal, which is nested in " + describe(within) + " of " + qualifiedName(ot) + ", and a cross chains through the opposite end alone"
+	}
 	return opp, ""
 }
 
@@ -2694,6 +2714,9 @@ func (m *migration) featureDirection(p *sysmlv1.Element, owner category, kw stri
 func (m *migration) feature(p *sysmlv1.Element) {
 	if reason := toolContent(p); reason != "" {
 		m.add(p, Skipped, "", reason)
+		return
+	}
+	if m.adjunctFeature(p) {
 		return
 	}
 	ownerCat, _ := m.classify(m.scope)
@@ -3013,6 +3036,12 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 	if e == nil || e.IsProxy() {
 		return false
 	}
+	e = m.surviving(e)
+	if e.Type == "InteractionUse" {
+		// An interaction use is the occurrence usage its interaction's sequence declares.
+		p := e.Parent
+		return p != nil && p.Type == "Interaction" && m.written(p) && m.interactionNote(p) == ""
+	}
 	if em, ok := m.edgeMembers[e]; ok {
 		return em.name != "" && m.reaches(em.owner)
 	}
@@ -3076,6 +3105,8 @@ func (m *migration) memberWritten(e *sysmlv1.Element) (written, decided bool) {
 			return act != nil && m.reaches(act), true
 		}
 		return m.written(p), true
+	case "InputPin", "OutputPin", "ValuePin", "ActionInputPin":
+		return m.pinWritten(e), true
 	case "Connector":
 		return m.connectorWritten(e), true
 	}
@@ -3413,7 +3444,9 @@ func (m *migration) connectorForm(c *sysmlv1.Element, segs [][]*sysmlv1.Element)
 	for i, end := range segs {
 		parts := make([]string, len(end))
 		for j, s := range end {
-			parts[j] = writeName(m.nameFor(s))
+			if parts[j] = strings.Join(m.adjunctChain(s), "."); parts[j] == "" {
+				parts[j] = writeName(m.nameFor(s))
+			}
 		}
 		paths[i] = strings.Join(parts, ".")
 	}
@@ -4728,8 +4761,20 @@ func (m *migration) appliedStereotypes(e *sysmlv1.Element, write bool, kind stri
 	if kind != "" && !kindMarked && write && !m.strict {
 		m.appliedStereotype(kind, "", nil)
 	}
-	if len(outside) > 0 {
-		m.note(e, outsideProfilesNote(outside, byNamespace, write, m.strict))
+	// The SysML profile is the standard's, which no document has to define.
+	var standard, foreign []string
+	for _, ns := range outside {
+		if sysmlv1.IsSysMLNamespace(ns) {
+			standard = append(standard, ns)
+		} else {
+			foreign = append(foreign, ns)
+		}
+	}
+	if len(standard) > 0 {
+		m.note(e, outsideProfilesNote(standard, byNamespace, write, m.strict, true))
+	}
+	if len(foreign) > 0 {
+		m.note(e, outsideProfilesNote(foreign, byNamespace, write, m.strict, false))
 	}
 }
 
@@ -4762,14 +4807,17 @@ func (m *migration) classifyingApplication(e *sysmlv1.Element, s *sysmlv1.Stereo
 	return s.Name == kind
 }
 
-// outsideProfilesNote words the applications from profiles the document does
-// not define, grouped by profile, and what became of them.
-func outsideProfilesNote(outside []string, byNamespace map[string][]string, write, strict bool) string {
+// outsideProfilesNote words the applications with no definition to read, grouped by profile, and what
+// became of them: sysml says the profiles are SysML's own, else they are ones the document does not define.
+func outsideProfilesNote(outside []string, byNamespace map[string][]string, write, strict, sysml bool) string {
 	var parts []string
 	for _, ns := range outside {
 		parts = append(parts, strings.Join(byNamespace[ns], " ")+fromKeyword+ns)
 	}
 	one, many := " is applied from a profile the document does not define; the application ", " are applied from profiles the document does not define; the applications "
+	if sysml {
+		one, many = " is a SysML stereotype the migration gives no v2 form; the application ", " are SysML stereotypes the migration gives no v2 form; the applications "
+	}
 	switch {
 	case !write:
 		one, many = one+"is dropped: its element is written as no member of its own", many+"are dropped: their element is written as no member of its own"

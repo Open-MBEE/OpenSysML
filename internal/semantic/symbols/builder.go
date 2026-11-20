@@ -191,6 +191,11 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 		// A start marker is registered by name so transitions can reference it; a
 		// succession's `first a` declares nothing, its body owning a body-local scope.
 		marker := d.Named() && !FirstNamesSource(d)
+		if FirstNamesSource(d) && d.Named() && d.Guard == nil {
+			// `first a then b;` is the SuccessionAsUsage its owner owns (SysML.xtext ActionBodyItem → SuccessionAsUsage).
+			buildAnonymousNode(scope, d, SymbolSuccessionUsage, d.Members, vis, trivia)
+			return true
+		}
 		if !marker && len(d.Members) == 0 {
 			return true
 		}
@@ -214,6 +219,13 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 			return true
 		}
 		buildAnonymousNode(scope, d, SymbolSendActionUsage, d.Members, vis, trivia)
+		return true
+	case *ast.AssignmentActionNode, *ast.TerminateStatement, *ast.PerformActionNode:
+		// A bare `assign x := v;`, `terminate;` or `perform a;` is the action usage its owner owns
+		// (SysML.xtext AssignmentNode, TerminateNode, PerformActionUsage), as a bare `send` is.
+		if kind := statementNodeKind(scope, d); kind != SymbolUnknown {
+			buildAnonymousNode(scope, d, kind, nil, vis, trivia)
+		}
 		return true
 	case *ast.SuccessionEdge:
 		// A `then x` after a state in a state body is a TargetTransitionUsage (SysML.xtext:1866) whose body is
@@ -539,35 +551,54 @@ func defineTransitionEffect(scope *Scope, trans *ast.TransitionMember) {
 	if len(trans.Effect) != 1 {
 		return
 	}
-	if _, exists := scope.LookupLocal(transitionEffectName); exists {
-		return
-	}
 	effect, _ := unwrapMember(trans.Effect[0])
 	if effect == nil {
 		return
 	}
+	_, named := scope.LookupLocal(transitionEffectName)
 	// A declared effect action is already a member of the transition's scope:
 	// name that symbol rather than building a second one for it.
 	if sym, ok := memberDeclaring(scope, effect); ok {
-		scope.Define(transitionEffectName, sym)
+		sym.Kind = effectActionKind(effect, sym.Kind)
+		if !named {
+			scope.Define(transitionEffectName, sym)
+		}
+		return
+	}
+	if named {
 		return
 	}
 	// A statement (`do send x to y`) declares no member of its own, so the
 	// action it performs is named here, its members staying the transition's.
 	statement := NewScope(scope, effect)
-	kind := SymbolActionUsage
-	if SendStatementOf(effect) != nil {
-		kind = SymbolSendActionUsage
-	}
 	sym := newSymbol(
 		ast.Identification{Name: transitionEffectName, NameSpan: effect.Span()},
-		kind, effect, ast.VisibilityDefault, statement, scope, nil,
+		effectActionKind(effect, SymbolActionUsage), effect, ast.VisibilityDefault, statement, scope, nil,
 	)
 	// The statement's action subsets TransitionAction::effect (SysML v2.1 §8.4.11.x
 	// checkTransitionUsageTransitionFeatureSpecialization) and declares no name.
 	sym.Naming = NamedByRole
 	scope.Define(transitionEffectName, sym)
 	scope.AddChild(statement)
+}
+
+// effectActionKind is the kind of a transition's effect action, built as declared: the node it is written as, else the
+// PerformActionUsage of a PerformActionUsageDeclaration (SysML v2.1 §8.2.2.18.3 EffectBehaviorUsage).
+func effectActionKind(effect ast.Node, declared SymbolKind) SymbolKind {
+	switch d := effect.(type) {
+	case *ast.SendStatement:
+		return SymbolSendActionUsage
+	case *ast.AssignmentActionNode:
+		return SymbolAssignmentActionUsage
+	case *ast.PerformActionNode:
+		return SymbolPerformActionUsage
+	case *ast.Usage:
+		// A braced `do { … }` writes no declaration, so it stays the plain action it is read as.
+		if declared == SymbolActionUsage && d.Kind == ast.UsageAction && d.Keyword != "" {
+			return SymbolPerformActionUsage
+		}
+	}
+	return declared
 }
 
 // buildEffect builds a transition's effect. A `do send` statement's parameters
@@ -921,6 +952,23 @@ func classifyUsage(u *ast.Usage) SymbolKind {
 
 	// Default: treat as usage
 	return SymbolAttributeUsage
+}
+
+// statementNodeKind is the kind of the action usage a bare statement declares in scope; SymbolUnknown
+// where it is the statement an action usage is written as (`action a assign …`), which is that usage.
+func statementNodeKind(scope *Scope, statement ast.Node) SymbolKind {
+	if usage, ok := scope.Node().(*ast.Usage); ok && ActionNodeStatementOf(usage) == statement {
+		return SymbolUnknown
+	}
+	switch statement.(type) {
+	case *ast.AssignmentActionNode:
+		return SymbolAssignmentActionUsage
+	case *ast.TerminateStatement:
+		return SymbolTerminateActionUsage
+	case *ast.PerformActionNode:
+		return SymbolPerformActionUsage
+	}
+	return SymbolUnknown
 }
 
 // classifyActionNode is the kind of the node an action usage is written as

@@ -1,0 +1,70 @@
+name: Maven dependency cache
+
+# A cache saved by a pull request or merge group is private to its ref, so the Java jobs start
+# warm only from an entry saved on develop: this resolves every Maven tree and saves one.
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '**/pom.xml'
+      - .github/workflows/maven-cache.yml
+      - .github/actions/maven-cache/**
+  # An entry no run read for a week is evicted: the daily run reads it, or saves it again.
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maven-cache
+  cancel-in-progress: true
+
+jobs:
+  warm:
+    name: Warm the Maven dependency cache
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # No other job saves this entry, so it cannot be one tree's dependencies under the key.
+      - name: Restore the Maven dependency cache, and save it after the job
+        uses: ./.github/actions/maven-cache
+        with:
+          save: 'true'
+
+      # Tests run, since Surefire resolves its provider and the JUnit launcher only then; they need
+      # the service binary, so their result is ignored here: the Java jobs are the gate.
+      - name: Resolve the Java client
+        run: mvn -B -q -f client/java/pom.xml install -Dmaven.test.failure.ignore=true
+
+      - name: Resolve the Magic MDK plugin
+        run: mvn -B -q -f editors/mdk/pom.xml verify -Dmaven.test.failure.ignore=true
+
+      - name: Resolve the SysON backend
+        run: mvn -B -q -f editors/syson/pom.xml install -Dmaven.test.failure.ignore=true
+
+      # The helper calls the dependency plugin by prefix, which no build above binds.
+      - name: Resolve the compile against Cameo
+        run: editors/mdk/scripts/compile-against-cameo-test.sh
+
+      # A marker of a failed download would make a job that restores it refuse to try again.
+      - name: Drop the markers of failed downloads
+        run: find ~/.m2/repository -name '*.lastUpdated' -delete
+
+      # Offline, a missing artifact fails the job, and a failed job saves no entry.
+      - name: Prove the entry is complete by building offline
+        run: |
+          mvn -o -B -q -f client/java/pom.xml install -Dmaven.test.failure.ignore=true
+          mvn -o -B -q -f editors/mdk/pom.xml verify -Dmaven.test.failure.ignore=true
+          mvn -o -B -q -f editors/syson/pom.xml install -Dmaven.test.failure.ignore=true
+          MAVEN_ARGS="${MAVEN_ARGS:-} -o" editors/mdk/scripts/compile-against-cameo-test.sh

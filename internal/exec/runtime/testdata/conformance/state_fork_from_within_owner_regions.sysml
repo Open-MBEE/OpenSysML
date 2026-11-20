@@ -38,9 +38,9 @@ package ForkFromWithinOwnerRegions {
         }
         fork split;
 
-        transition first a accept Go do { assign log := log + "T1(effect) "; } then split;
-        transition first split do { assign log := log + "T1.1(effect) "; } then c;
-        transition first split do { assign log := log + "T1.2(effect) "; } then d;
+        transition first work.left.a accept Go do { assign log := log + "T1(effect) "; } then split;
+        transition first split do { assign log := log + "T1.1(effect) "; } then work.left.c;
+        transition first split do { assign log := log + "T1.2(effect) "; } then work.right.d;
         transition first work do { assign log := log + "T2(effect) "; } then done;
     }
     attribute def Go;

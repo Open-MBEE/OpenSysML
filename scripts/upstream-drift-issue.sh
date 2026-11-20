@@ -52,7 +52,8 @@ body() {
 }
 
 recorded_report() {
-	gh issue view "${repo_args[@]}" "$1" --json body --jq '.body' | awk -v fence="$FENCE" '$0 == fence {if (open) exit; open=1; next} open'
+	local issue=$1
+	gh issue view "${repo_args[@]}" "$issue" --json body --jq '.body' | awk -v fence="$FENCE" '$0 == fence {if (open) exit; open=1; next} open'
 }
 
 title() {

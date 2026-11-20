@@ -62,13 +62,13 @@ func (s *Service) CheckBehavior(ctx context.Context, req *pb.CheckBehaviorReques
 	if !action {
 		id = req.GetStateMachineSymbolId()
 	}
-	syms := cached.LookupNamedMember(id)
+	syms := cached.LookupDeclaredMember(id)
 	if len(syms) == 0 {
 		return &pb.CheckBehaviorResponse{Verdict: analysis.CheckUndecided.String(), Error: fmt.Sprintf("behavior not found: %s", id)}, nil
 	}
 	sym := syms[0]
 	lookup := func(name string) (*symbols.Symbol, error) {
-		found := cached.LookupNamedMember(name)
+		found := cached.LookupDeclaredMember(name)
 		if len(found) == 0 {
 			return nil, fmt.Errorf("symbol not found: %s", name)
 		}
@@ -196,12 +196,12 @@ func (s *Service) CheckBehavior(ctx context.Context, req *pb.CheckBehaviorReques
 	if req.StateMachineSymbolId != "" {
 		label = "State machine " + id
 	}
-	return s.checkResponse(label, plan, witnessDir), nil
+	return s.checkResponse(label, plan), nil
 }
 
 // checkResponse renders what the engines answered: the report as the command
 // prints it and its parts as data.
-func (s *Service) checkResponse(label string, plan analysis.Plan, witnessDir string) *pb.CheckBehaviorResponse {
+func (s *Service) checkResponse(label string, plan analysis.Plan) *pb.CheckBehaviorResponse {
 	result := plan.Result
 	st := s.standingOf(plan)
 	status, lines, _ := analysis.CheckLines(label, result)

@@ -3,6 +3,7 @@ package solve
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -276,17 +277,17 @@ func (t *translator) selectedTerms() ([]*Term, error) {
 			if t.model.IsVariationFeature(step) {
 				continue
 			}
-			if err := t.holdsOne(holder.Decl, step, written, "object", true); err != nil {
+			if err := t.holdsOne(lower.Declared(holder), step, written, "object", true); err != nil {
 				return nil, err
 			}
 		}
-		sort, _, err := t.sortOf(holder.Decl, holder.OwnerScope, holder, written)
+		sort, _, err := t.sortOf(lower.Declared(holder), holder.OwnerScope, holder, written)
 		if err != nil {
 			return nil, err
 		}
 		valueSort, value, ok := t.valueOf(s.variant)
 		if !ok || valueSort.Name != sort.Name {
-			return nil, t.refuse(s.variant.Decl, "variant `"+s.variant.Name+"`", "it is no variant of "+written)
+			return nil, t.refuse(lower.Declared(s.variant), "variant `"+s.variant.Name+"`", "it is no variant of "+written)
 		}
 		v := t.declare(variableName(t, s.holder), sort, holder, "")
 		t.read(v)

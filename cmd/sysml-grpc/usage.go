@@ -18,6 +18,7 @@ type options struct {
 	allowUnauthenticated bool
 	allowInsecureToken   bool
 	cacheSize            int
+	noRecordCache        bool
 	logLevel             string
 	showVersion          bool
 	showMan              bool
@@ -52,6 +53,8 @@ func registerFlags(fs *flag.FlagSet) *options {
 			"-tls-key: the token crosses the network in clear, so anyone observing it can "+
 			"replay it. Only behind a TLS-terminating proxy on a trusted network; never implied")
 	fs.IntVar(&o.cacheSize, "cache-size", 100, "Maximum number of cached parsed files")
+	fs.BoolVar(&o.noRecordCache, "no-record-cache", false,
+		"Analyze every model parsed, reading no model record from the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0")
 	fs.StringVar(&o.logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
 	fs.BoolVar(&o.showVersion, "version", false, "Show version and exit")
 	fs.BoolVar(&o.showMan, "man", false, "Write this command's manual page, in roff, to stdout and exit")

@@ -120,6 +120,9 @@ type JValue struct {
 	Metaobject     *JMetaobject     `json:"metaobject,omitempty"`
 	Undetermined   *JUndetermined   `json:"undetermined,omitempty"`
 	RationalValue  *JRational       `json:"rationalValue,omitempty"`
+
+	CoordinateFrame          *JCoordinateFrame          `json:"coordinateFrame,omitempty"`
+	CoordinateTransformation *JCoordinateTransformation `json:"coordinateTransformation,omitempty"`
 }
 
 // JRational is the Rational message: an exact rational in lowest terms.
@@ -150,7 +153,8 @@ func (v *JValue) UnmarshalJSON(data []byte) error {
 		"measurementRef": v.MeasurementRef != nil, "infinity": v.Infinity != nil,
 		"function": v.Function != nil, "set": v.Set != nil,
 		"tensorQuantity": v.TensorQuantity != nil, "metaobject": v.Metaobject != nil,
-		"undetermined": v.Undetermined != nil,
+		"undetermined":    v.Undetermined != nil,
+		"coordinateFrame": v.CoordinateFrame != nil, "coordinateTransformation": v.CoordinateTransformation != nil,
 	})
 }
 
@@ -187,6 +191,7 @@ type JQuantity struct {
 	BigIntMagnitude *string    `json:"bigIntMagnitude,omitempty"`
 
 	RationalMagnitude *JRational `json:"rationalMagnitude,omitempty"`
+	ValueType         string     `json:"valueType,omitempty"`
 }
 
 // UnmarshalJSON rejects a quantity setting both magnitude arms of its oneof.

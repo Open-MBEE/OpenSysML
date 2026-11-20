@@ -1100,7 +1100,7 @@ func TestWriteAPIJSONRefuses(t *testing.T) {
 		},
 		"language tag": func() *rdf.Graph {
 			g := typed(rdf.SysMLTerm("Package"))
-			g.Add(element, rdf.SysMLTerm("declaredName"), rdf.Term{Kind: rdf.TermLiteral, Value: "x", Lang: "en"})
+			g.Add(element, rdf.SysMLTerm("declaredName"), rdf.LangString("x", "en"))
 			return g
 		},
 		"foreign subject": func() *rdf.Graph {
@@ -1223,7 +1223,7 @@ func TestAPIJSONRoundTripSingleMemberCollections(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SysMLToRDF: %v", err)
 	}
-	document, err := export.WriteAPIJSON(graph)
+	document, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatalf("WriteAPIJSON: %v", err)
 	}

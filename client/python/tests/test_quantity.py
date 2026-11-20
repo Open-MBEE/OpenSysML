@@ -119,6 +119,20 @@ def test_a_quantity_encodes_as_the_message_the_service_decodes():
     assert Quantity.from_pb(sent) == kmh
 
 
+def test_the_value_type_a_quantity_is_held_as_is_read_and_sent_back():
+    """The held type survives a round trip; a quantity built or computed here has none."""
+    held = Quantity.from_pb(pb_quantity("SI::J", real_magnitude=5.0, value_type="ISQThermodynamics::EnergyValue"))
+
+    assert held.value_type == "ISQThermodynamics::EnergyValue"
+    assert held.to_pb().value_type == "ISQThermodynamics::EnergyValue"
+    assert repr(held).endswith("'ISQThermodynamics::EnergyValue')")
+    # The value is the same value whatever type holds it.
+    assert held == Quantity(5.0, held.unit)
+    assert Quantity(5.0, held.unit).to_pb().value_type == ""
+    assert (held + held).value_type == (held * 2).value_type == (-held).value_type == ""
+    assert Quantity.from_pb(pb_quantity("SI::J", real_magnitude=5.0)).value_type == ""
+
+
 def test_an_integer_magnitude_is_sent_as_an_integer():
     """Integer and Real stay apart on the way out, as they do on the way in."""
     sent = Quantity(3, unit("SI::m")).to_pb()
@@ -388,6 +402,7 @@ package Q {
         // A ratio unit: SI declares rad as m/m, so it reduces to dimension one.
         attribute turn : ISQ::AngularMeasureValue = 1.5 [SI::rad];
         attribute length = 3 [SI::m];
+        attribute work : ISQ::EnergyValue = 5.0 [SI::J];
         part engine : Engine;
 
         constraint withinLimit {
@@ -397,6 +412,11 @@ package Q {
 
     calc echo {
         in q;
+        return : Quantities::ScalarQuantityValue[1] = q;
+    }
+
+    calc asTorque {
+        in q : ISQ::TorqueValue[1];
         return : Quantities::ScalarQuantityValue[1] = q;
     }
 
@@ -500,6 +520,17 @@ class TestQuantityAgainstTheService:
         assert back.magnitude == 3
         assert isinstance(back.magnitude, int)
         assert back.unit.text == "SI::m"
+
+    def test_a_quantity_sent_back_is_still_of_the_type_it_was_held_as(self):
+        """An energy read off the model is refused as a torque; the bare value is taken."""
+        work = self.conn.instantiate("Q::Car", self.model.hash).work
+        assert work.value_type == "ISQThermodynamics::EnergyValue"
+
+        with pytest.raises(ExecutionError, match="type mismatch"):
+            self.conn.calc("Q::asTorque", self.model.hash, arguments=[work])
+
+        bare = Quantity(work.magnitude, work.unit)
+        assert self.conn.calc("Q::asTorque", self.model.hash, arguments=[bare]).value == work
 
     def test_a_quantity_in_a_ratio_unit_round_trips(self):
         """An angle read off the wire goes back out: dimension one is a reduction."""

@@ -424,7 +424,7 @@ func d2NodeClass(node *Node, glyphs bool) string {
 			return "choice"
 		case "shallow history", "deep history":
 			return "history"
-		case "region":
+		case "region", swimlaneKind:
 			return "region"
 		}
 	}

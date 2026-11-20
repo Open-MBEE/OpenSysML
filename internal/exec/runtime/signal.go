@@ -1801,6 +1801,7 @@ func (e *EvalContext) evalConstructor(x lowered) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
+	e.ctx.noteConstructed(inst)
 	return e.ctx.objectValue(inst)
 }
 

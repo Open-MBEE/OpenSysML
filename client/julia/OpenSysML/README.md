@@ -84,7 +84,8 @@ or `SourceDocument`s.
 `decode_value` and `encode_value` handle all service `Value` arms, including
 exact `Int64` and `BigInt` Integers, quantities, units, enum literals,
 instances, collections, arrays, vectors, tensors, functions, metaobjects,
-infinity and undetermined values. `Quantity`, `Unit`, `UnitFactor`,
+infinity and undetermined values, and coordinate frames and transformations
+(`CoordinateFrame`, `CoordinateTransformation`, read only). `Quantity`, `Unit`, `UnitFactor`,
 `MeasurementRef`, `VectorQuantity`, and `TensorQuantity` are Julia types. Use
 `in_unit(q, unit)` to inspect a magnitude in a unit and `to_unit(q, unit)` to
 convert it.

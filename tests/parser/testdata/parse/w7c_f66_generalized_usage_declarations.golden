@@ -88,7 +88,7 @@
           (Membership visibility="default"
             (Usage kind="objective" name="vehicleMassVerificationObjective" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
               (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="verify"
-                (Relationship kind="subsets" target=vehicleMassRequirement
+                (Relationship kind="references" target=vehicleMassRequirement
                   (*ast.QualifiedName))
                 (Relationship kind="redefines" target=massRequirement
                   (*ast.QualifiedName)))))))

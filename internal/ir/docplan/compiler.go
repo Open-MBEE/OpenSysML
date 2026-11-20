@@ -261,7 +261,7 @@ func (c *compiler) compileMembers(owner *symbols.Symbol) ([]Content, error) {
 			continue
 		}
 		if !c.index.Library(member) {
-			if err := c.rejectStructural(owner, member); err != nil {
+			if err := c.rejectStructural(member); err != nil {
 				return nil, err
 			}
 		}
@@ -287,7 +287,7 @@ func (c *compiler) registerTarget(member *symbols.Symbol, target refTarget) {
 // rejectStructural rejects declarations that cannot appear in a structural
 // scope, letting attributes, annotations, and other non-content members
 // through.
-func (c *compiler) rejectStructural(owner, member *symbols.Symbol) error {
+func (c *compiler) rejectStructural(member *symbols.Symbol) error {
 	if member.Kind == symbols.SymbolCalcUsage || member.Kind == symbols.SymbolPartUsage {
 		return &Error{
 			Kind:     ErrorInvalidContent,

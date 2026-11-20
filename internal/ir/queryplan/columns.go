@@ -354,7 +354,7 @@ func (c *compiler) compileColumnExpression(
 		if expression.Operand != nil {
 			return c.compileCollection(query, owner, column, expression, row)
 		}
-		return c.compileCellInvocation(query, owner, column, expression, row)
+		return c.compileCellInvocation(query, owner, expression, row)
 	default:
 		return Expression{}, columnType{}, &Error{
 			Kind:   ErrorUnsupportedExpression,

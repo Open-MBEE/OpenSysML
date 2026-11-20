@@ -10,7 +10,7 @@ import {
   TreeItemContextMenuOverrideContribution,
   treeItemContextMenuEntryOverrideExtensionPoint,
 } from '@eclipse-sirius/sirius-components-trees';
-import { RUN_WITH_OPENSYSML_TOOL_ID } from '../constants';
+import { PUBLISH_WITH_OPENSYSML_TOOL_ID, RUN_WITH_OPENSYSML_TOOL_ID } from '../constants';
 import { RunWithOpenSysMLMenuContribution } from '../extension/RunWithOpenSysMLMenuContribution';
 import { RunWithOpenSysMLPaletteContribution } from '../extension/RunWithOpenSysMLPaletteContribution';
 
@@ -19,16 +19,19 @@ interface ExtensionRegistry {
   getData<P>(extensionPoint: { identifier: string; fallback: P }): { identifier: string; data: P } | null;
 }
 
-// The explorer shows the server's tool either in its context menu or, since SysON 2026.9, in its palette.
+const isOpenSysMLTool = (id: string): boolean =>
+  id === RUN_WITH_OPENSYSML_TOOL_ID || id === PUBLISH_WITH_OPENSYSML_TOOL_ID;
+
+// The explorer shows the server's tools either in its context menu or, since SysON 2026.9, in its palette.
 const menuContribution: TreeItemContextMenuOverrideContribution = {
-  canHandle: (entry: GQLTreeItemContextMenuEntry) => entry.id === RUN_WITH_OPENSYSML_TOOL_ID,
+  canHandle: (entry: GQLTreeItemContextMenuEntry) => isOpenSysMLTool(entry.id),
   // The menu uses only four of Sirius' props; the contribution type wants the full set.
   component: RunWithOpenSysMLMenuContribution as unknown as TreeItemContextMenuOverrideContribution['component'],
 };
 
 const paletteContribution: PaletteToolOverriddenContributionProps = {
   canHandle: (representationKind: string, tool: GQLTool) =>
-    representationKind === TREE_REPRESENTATION_KIND && tool.id === RUN_WITH_OPENSYSML_TOOL_ID,
+    representationKind === TREE_REPRESENTATION_KIND && isOpenSysMLTool(tool.id),
   component: RunWithOpenSysMLPaletteContribution,
 };
 

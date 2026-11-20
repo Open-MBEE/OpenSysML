@@ -37,7 +37,7 @@ case_() {
 
   local actual
   actual=$(cd "$work" && CI_TIER="${CI_TIER:-full}" bash scripts/ci-changed-areas.sh "$base" HEAD 2>/dev/null |
-    grep '=true$' | cut -d= -f1 | sort | paste -sd, -)
+    { grep '=true$' || true; } | cut -d= -f1 | sort | paste -sd, -)
   if [[ "$actual" != "$expected" ]]; then
     echo "FAIL $name (${CI_TIER:-full}): expected [$expected], got [$actual]" >&2
     failures=$((failures + 1))
@@ -91,6 +91,7 @@ case_ docs-only docs docs/guide/index.md
 case_ overrides-only docs overrides/home.html
 case_ changelog-only docs CHANGELOG.md
 case_ changelog-fragment docs changes/unreleased/repl-thing.added.md
+case_ ci-tools docs ci/watcher.py ci/tests/test_ci_tools.py
 case_ java-module java,mdk,syson client/java/opensysml-client/pom.xml
 case_ java-source java,mdk,syson client/java/opensysml-client/src/main/java/org/openmbee/opensysml/Exploration.java
 case_ java-manifest java,mdk,python,syson client/java/pom.xml
@@ -129,7 +130,8 @@ case_ shared-keyword-groups docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,
 case_ vscode-syntaxes docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode editors/vscode/syntaxes/sysml.tmLanguage.json
 case_ jupyterlab-syntax docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode editors/jupyterlab/src/syntax.json
 # Any markdown counts as documentation: the site links out to repository files.
-case_ man-page docs packaging/man/man1/sysml.1
+# A shipped manual page is held to its command by a Go test, so it runs the Go area too.
+case_ man-page docs,go packaging/man/man1/sysml.1
 case_ two-client-readmes docs,java,mdk,node,python,syson client/java/README.md client/node/README.md
 case_ two-clients java,mdk,node,python,syson client/java/pom.xml client/node/tsconfig.json
 case_ go-source docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/syntax/parser/parser.go
@@ -154,6 +156,17 @@ case_ conformance docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rus
 case_ workflow docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/workflows/pr.yml
 case_ other-workflow docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/workflows/oracle-reproduction.yml
 case_ dependabot docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/dependabot.yml
+# A composite action is a service path like the workflows; the differential runs for the two actions its job uses.
+case_ action-apt-install docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/apt-install/action.yml
+case_ action-maven-cache docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/maven-cache/action.yml
+case_ action-pip-install docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/pip-install/action.yml
+case_ action-fuml-suite docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/fuml-suite/action.yml
+case_ action-corpora apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/corpora/action.yml
+case_ action-pilot-validator apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/pilot-validator/action.yml
+# Repository metadata builds nothing and no job reads it, so it is claimed with no area.
+case_ codeowners '' .github/CODEOWNERS
+case_ funding '' .github/FUNDING.yml
+case_ issue-template '' .github/ISSUE_TEMPLATE/1-tool-bug.yml
 # The npm runner is tested and its lockfile audited in the Go static job, so its package is a service path.
 case_ mcp-lockfile docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode packaging/npm/sysml-mcp/package-lock.json
 quick_case_ mcp-lockfile go packaging/npm/sysml-mcp/package-lock.json
@@ -176,6 +189,13 @@ quick_case_ apijson-writer apijson,go internal/translate/export/api_json_absence
 quick_case_ proto go api/proto/sysml.proto
 quick_case_ workflow go .github/workflows/pr.yml
 quick_case_ unclaimed go some-new-top-level/thing.txt
+# An action's push runs the Go suite and the other jobs that use the action.
+quick_case_ action-apt-install docs,go,matlab,node,python .github/actions/apt-install/action.yml
+quick_case_ action-maven-cache go,java,mdk,syson .github/actions/maven-cache/action.yml
+quick_case_ action-pip-install docs,go,jupyterlab,python .github/actions/pip-install/action.yml
+quick_case_ action-fuml-suite go .github/actions/fuml-suite/action.yml
+quick_case_ action-corpora apijson,go .github/actions/corpora/action.yml
+quick_case_ action-pilot-validator apijson,go .github/actions/pilot-validator/action.yml
 quick_case_ go-and-node go,node internal/syntax/parser/parser.go client/node/src/node/binary.ts
 quick_case_ go-and-docs docs,go internal/syntax/parser/parser.go docs/guide/index.md
 quick_case_ docs-only docs docs/guide/index.md
@@ -192,6 +212,7 @@ tier_case_ parser quick internal/syntax/parser/parser.go
 tier_case_ node-only quick client/node/src/node/binary.ts
 tier_case_ workflow quick .github/workflows/pr.yml
 tier_case_ race-shards quick scripts/race-shard.sh Makefile
+tier_case_ ci-tools quick ci/drycheck.sh
 tier_case_ runtime quick internal/exec/runtime/executor.go
 tier_case_ runtime-test quick internal/exec/runtime/robustness_test.go
 tier_case_ smt quick internal/exec/smt/referee.go
@@ -204,6 +225,9 @@ tier_case_ workspace quick internal/workspace/model/index.go
 tier_case_ libs quick internal/workspace/libs/bundle.go
 tier_case_ export-writer quick internal/translate/export/writer.go
 tier_case_ symbols quick internal/semantic/symbols/index.go
+tier_case_ action quick .github/actions/apt-install/action.yml
+tier_case_ other-workflow quick .github/workflows/wasm-cache.yml
+tier_case_ repository-metadata quick .github/CODEOWNERS .github/ISSUE_TEMPLATE/config.yml
 tier_case_ unclaimed full some-new-top-level/thing.txt
 tier_case_ parser-and-runtime quick internal/syntax/parser/parser.go internal/exec/runtime/executor.go
 
@@ -212,9 +236,14 @@ tier_case_ parser-and-runtime quick internal/syntax/parser/parser.go internal/ex
 queue_case_() {
   CI_TIER=queue case_ "$@"
 }
-queue_case_ apijson-writer docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/translate/export/api_json_absence.go
+# A merge group runs a client only on that client's own paths: the fan-out from a service change
+# to every client is the full tier's, so a registry timeout cannot fail a group that never touched the client.
+queue_case_ apijson-writer docs,go internal/translate/export/api_json_absence.go
 queue_case_ apijson-baseline docs,go docs/project/api-json-differential/index.json
-queue_case_ unclaimed docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode some-new-top-level/thing.txt
+queue_case_ unclaimed docs,go some-new-top-level/thing.txt
+queue_case_ emacs-own emacs editors/emacs/sysml-mode.el
+queue_case_ java-own java,mdk,python,syson client/java/pom.xml
+queue_case_ action-pip-install docs,go,jupyterlab,python .github/actions/pip-install/action.yml
 area_for_event_() {
   local event=$1 label=$2 area=$3 expected=$4
   local actual

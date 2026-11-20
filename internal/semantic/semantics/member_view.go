@@ -14,16 +14,8 @@ type Member struct {
 	Source    *symbols.Symbol
 }
 
-// Members returns the members of sym, named and anonymous, with their
-// provenance: its own members in declaration order, then the members it
-// inherits in MemberSources order (KerML 8.3.3.1 Type::member, the owned
-// memberships followed by the inherited ones). An inherited member is one its
-// supertypes own and sym does not redefine (Type::inheritedMembership, a
-// redefinition masking what it redefines, masking.go), a closer declaration of
-// the same name hiding a farther one (MembersOf), and a private member of a
-// supertype is not inherited at all (Type::inheritableMemberships). A `#M`
-// prefix leads its element's own members (PrefixMetadataMember); what a
-// relationship owns through an Annotation is no member of it.
+// Members returns sym's members with their provenance (KerML 8.3.3.1 Type::member): its own in
+// membership order, a `#M` prefix leading them, then the inherited ones in MemberSources order.
 func (m *Model) Members(sym *symbols.Symbol) []Member {
 	if sym == nil {
 		return nil

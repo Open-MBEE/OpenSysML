@@ -1,0 +1,9 @@
+enter calc test::Reset
+  stmt assign s.reading
+    eval literal 1.5 -> 1.5
+materialize: s #1
+  stmt return
+      eval chain reading -> 1.5
+      eval literal 2.0 -> 2.0
+    eval operator + -> 3.5
+exit calc test::Reset -> 3.5
