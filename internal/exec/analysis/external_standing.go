@@ -13,9 +13,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
-// shape is the protocol check of an answer's form: a claim and strength the framework
-// pairs, and the witness kind and count the entry and claim take. A break is a
-// ProtocolError, which ends the session.
+// shape checks an answer's form: a claim and strength the framework pairs, and the witness kind
+// and count the entry and claim take. A break is a ProtocolError, which ends the session.
 func (e externalEngine) shape(answer enginewire.Result) (Claim, Strength, error) {
 	broke := func(format string, args ...any) (Claim, Strength, error) {
 		return ClaimNone, NotCovered, &ProtocolError{Engine: e.Name(), Detail: fmt.Sprintf(format, args...)}
