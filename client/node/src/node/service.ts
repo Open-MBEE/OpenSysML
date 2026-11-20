@@ -188,6 +188,12 @@ export async function acquirePrivateService(
     }
     if (attempt > 0) {
       await new Promise((resolve) => setTimeout(resolve, RESTART_BACKOFF_MS * attempt));
+      // Another acquire may have started a child that lived while this one waited.
+      const started = shared.get(key);
+      if (started?.alive) {
+        started.refs += 1;
+        return started;
+      }
     }
     let pending = starting.get(key);
     pending ??= start(version)
