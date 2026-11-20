@@ -2946,6 +2946,11 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		case "language":
 			return stringOrEmpty(source.StringValue(d.Language)), true
 		}
+	case *ast.Package:
+		// `standard library package` states LibraryPackage::isStandard (KerML 8.3.4.13.3).
+		if feature == "isStandard" && d.IsLibrary {
+			return boolValue(d.IsStandard), true
+		}
 	case *symbols.ImpliedDecl:
 		// The implied conjugated port definition (SysML v2 8.3.12.3) is declared by nothing,
 		// so its plain Type attributes read their defaults.
