@@ -294,10 +294,13 @@ man-lint: ## Run the shipped pages through a formatter, without rebuilding the c
 		mandoc -T lint -W warning $(MAN_PAGES) || exit 1; \
 	elif command -v groff >/dev/null 2>&1; then \
 		groff -man -Tutf8 -ww -z $(MAN_PAGES) || exit 1; \
+	elif [ -n "$(MAN_LINT_OPTIONAL)" ]; then \
+		echo "note: neither mandoc nor groff is installed; the pages were not formatted"; exit 0; \
 	else \
-		echo "note: neither mandoc nor groff is installed; the pages were not formatted"; \
-	fi
-	@echo "✓ Manual pages are formatter-clean"
+		echo "error: neither mandoc nor groff is installed, so the pages cannot be checked;" >&2; \
+		echo "       install one, or set MAN_LINT_OPTIONAL=1 to skip the formatter" >&2; exit 1; \
+	fi; \
+	echo "✓ Manual pages are formatter-clean"
 
 pgo-profile: stdlib-snapshot ## Regenerate cmd/*/default.pgo, the CPU profile go build optimizes the binaries against
 	@echo "Collecting the PGO profile..."

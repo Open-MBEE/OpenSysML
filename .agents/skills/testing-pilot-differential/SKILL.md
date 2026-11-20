@@ -619,7 +619,10 @@ Provisioning script (`scripts/download-pilot-validator.sh`):
   present. Overwrite the stamp (`printf x > build/pilot-validator/.pilot-pin`) and the script
   prints `Stale build at ...: built from x, pin is now ...; rebuilding.`; delete it and it prints
   `Unstamped build at ...; rebuilding ...`; `rm -rf` only `sysml.library` and it prints
-  `Incomplete build at ...; rebuilding ...`. All three rebuild for real (~20 s with a warm `~/.m2`,
+  `Incomplete build at ...; rebuilding ...`; append a byte to the shaded jar or edit a library
+  file and it prints the pinned-versus-found SHA-256 and `Build at ... does not hold the pinned
+  pilot release; rebuilding ...` (`PILOT_KERNEL_JAR_SHA256=00` makes a real download fail before
+  `mvn package`, the installed copy untouched). All of them rebuild for real (~20 s with a warm `~/.m2`,
   minutes cold), so `timeout 5` the run if the message is all you need — the build happens in a
   sibling `build/pilot-validator.build.XXXXXX` directory that is swapped in only once complete, so
   an interrupted or failed rebuild leaves the installed validator untouched (`timeout -s TERM 12`

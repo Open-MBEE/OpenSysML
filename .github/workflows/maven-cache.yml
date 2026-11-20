@@ -17,9 +17,10 @@ on:
 permissions:
   contents: read
 
+# A run is never cancelled part-way: a cancelled resolve could leave a partial repository to save.
 concurrency:
   group: maven-cache
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   warm:
