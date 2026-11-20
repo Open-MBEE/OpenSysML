@@ -17,7 +17,7 @@ root examples: models 57, skipped 0, matched 40711, unmatched 10127
   Definition::ownedTransition: equal 657, different 12, symbol-missing 0, symbol-extra 0
   Definition::ownedUsage: equal 525, different 144, symbol-missing 0, symbol-extra 0
   Definition::usage: equal 653, different 16, symbol-missing 0, symbol-extra 0
-  Element::name: equal 40705, different 6, symbol-missing 0, symbol-extra 0
+  Element::name: equal 40708, different 3, symbol-missing 0, symbol-extra 0
   Element::ownedAnnotation: equal 40450, different 261, symbol-missing 0, symbol-extra 0
   Element::ownedElement: equal 40078, different 633, symbol-missing 0, symbol-extra 0
   Element::ownedRelationship: equal 39506, different 1205, symbol-missing 0, symbol-extra 0
@@ -53,8 +53,8 @@ root examples: models 57, skipped 0, matched 40711, unmatched 10127
   InstantiationExpression::argument: equal 881, different 18, symbol-missing 0, symbol-extra 0
   InvocationExpression::operand: equal 2, different 889, symbol-missing 0, symbol-extra 0
   Membership::memberElement: equal 17814, different 31, symbol-missing 0, symbol-extra 0
-  Membership::memberElementId: equal 6094, different 16, symbol-missing 11720, symbol-extra 15
-  Membership::memberName: equal 17829, different 16, symbol-missing 0, symbol-extra 0
+  Membership::memberElementId: equal 6098, different 15, symbol-missing 11717, symbol-extra 15
+  Membership::memberName: equal 17832, different 13, symbol-missing 0, symbol-extra 0
   Membership::memberShortName: equal 17742, different 2, symbol-missing 0, symbol-extra 101
   Membership::membershipOwningNamespace: equal 17812, different 33, symbol-missing 0, symbol-extra 0
   MultiplicityRange::bound: equal 0, different 3, symbol-missing 0, symbol-extra 0
@@ -65,8 +65,8 @@ root examples: models 57, skipped 0, matched 40711, unmatched 10127
   Namespace::ownedMember: equal 16257, different 800, symbol-missing 0, symbol-extra 0
   Namespace::ownedMembership: equal 16052, different 1005, symbol-missing 0, symbol-extra 0
   OwningMembership::ownedMemberElement: equal 16676, different 13, symbol-missing 0, symbol-extra 0
-  OwningMembership::ownedMemberElementId: equal 4954, different 15, symbol-missing 11720, symbol-extra 0
-  OwningMembership::ownedMemberName: equal 16673, different 16, symbol-missing 0, symbol-extra 0
+  OwningMembership::ownedMemberElementId: equal 4957, different 15, symbol-missing 11717, symbol-extra 0
+  OwningMembership::ownedMemberName: equal 16676, different 13, symbol-missing 0, symbol-extra 0
   OwningMembership::ownedMemberShortName: equal 16588, different 0, symbol-missing 0, symbol-extra 101
   Relationship::ownedRelatedElement: equal 23985, different 104, symbol-missing 0, symbol-extra 0
   Relationship::owningRelatedElement: equal 24056, different 33, symbol-missing 0, symbol-extra 0
@@ -190,7 +190,7 @@ root examples/sysml-v2-training: models 100, skipped 0, matched 9835, unmatched 
   Definition::ownedUsage: equal 335, different 10, symbol-missing 0, symbol-extra 0
   Definition::usage: equal 336, different 9, symbol-missing 0, symbol-extra 0
   Element::documentation: equal 9834, different 1, symbol-missing 0, symbol-extra 0
-  Element::name: equal 9831, different 2, symbol-missing 0, symbol-extra 2
+  Element::name: equal 9832, different 1, symbol-missing 0, symbol-extra 2
   Element::ownedAnnotation: equal 9829, different 6, symbol-missing 0, symbol-extra 0
   Element::ownedElement: equal 9665, different 170, symbol-missing 0, symbol-extra 0
   Element::ownedRelationship: equal 9571, different 264, symbol-missing 0, symbol-extra 0
@@ -224,8 +224,8 @@ root examples/sysml-v2-training: models 100, skipped 0, matched 9835, unmatched 
   InstantiationExpression::argument: equal 228, different 5, symbol-missing 0, symbol-extra 0
   InvocationExpression::operand: equal 0, different 225, symbol-missing 0, symbol-extra 0
   Membership::memberElement: equal 4341, different 11, symbol-missing 0, symbol-extra 0
-  Membership::memberElementId: equal 1744, different 2, symbol-missing 2597, symbol-extra 9
-  Membership::memberName: equal 4346, different 4, symbol-missing 0, symbol-extra 2
+  Membership::memberElementId: equal 1745, different 2, symbol-missing 2596, symbol-extra 9
+  Membership::memberName: equal 4347, different 3, symbol-missing 0, symbol-extra 2
   Membership::memberShortName: equal 4280, different 0, symbol-missing 0, symbol-extra 72
   Membership::membershipOwningNamespace: equal 4346, different 6, symbol-missing 0, symbol-extra 0
   Namespace::member: equal 3879, different 226, symbol-missing 3, symbol-extra 18
@@ -235,8 +235,8 @@ root examples/sysml-v2-training: models 100, skipped 0, matched 9835, unmatched 
   OccurrenceUsage::individualDefinition: equal 777, different 0, symbol-missing 0, symbol-extra 2
   OccurrenceUsage::occurrenceDefinition: equal 777, different 0, symbol-missing 0, symbol-extra 2
   OwningMembership::ownedMemberElement: equal 4002, different 2, symbol-missing 0, symbol-extra 0
-  OwningMembership::ownedMemberElementId: equal 1405, different 2, symbol-missing 2597, symbol-extra 0
-  OwningMembership::ownedMemberName: equal 3989, different 13, symbol-missing 0, symbol-extra 2
+  OwningMembership::ownedMemberElementId: equal 1406, different 2, symbol-missing 2596, symbol-extra 0
+  OwningMembership::ownedMemberName: equal 3990, different 12, symbol-missing 0, symbol-extra 2
   OwningMembership::ownedMemberShortName: equal 3932, different 0, symbol-missing 0, symbol-extra 72
   Relationship::ownedRelatedElement: equal 5822, different 23, symbol-missing 0, symbol-extra 0
   Relationship::owningRelatedElement: equal 5839, different 6, symbol-missing 0, symbol-extra 0
@@ -301,7 +301,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 54119, unmatched 748
   Definition::ownedUsage: equal 1097, different 16, symbol-missing 0, symbol-extra 0
   Definition::usage: equal 1106, different 7, symbol-missing 0, symbol-extra 0
   Element::documentation: equal 54118, different 1, symbol-missing 0, symbol-extra 0
-  Element::name: equal 54100, different 18, symbol-missing 0, symbol-extra 1
+  Element::name: equal 54113, different 5, symbol-missing 0, symbol-extra 1
   Element::ownedAnnotation: equal 53954, different 165, symbol-missing 0, symbol-extra 0
   Element::ownedElement: equal 52972, different 1147, symbol-missing 0, symbol-extra 0
   Element::ownedRelationship: equal 52427, different 1692, symbol-missing 0, symbol-extra 0
@@ -341,8 +341,8 @@ root examples/pilot-corpora: models 213, skipped 0, matched 54119, unmatched 748
   InstantiationExpression::argument: equal 1505, different 5, symbol-missing 0, symbol-extra 0
   InvocationExpression::operand: equal 1, different 1427, symbol-missing 0, symbol-extra 0
   Membership::memberElement: equal 23461, different 58, symbol-missing 0, symbol-extra 0
-  Membership::memberElementId: equal 9265, different 50, symbol-missing 14171, symbol-extra 33
-  Membership::memberName: equal 23486, different 32, symbol-missing 0, symbol-extra 1
+  Membership::memberElementId: equal 9291, different 37, symbol-missing 14158, symbol-extra 33
+  Membership::memberName: equal 23499, different 19, symbol-missing 0, symbol-extra 1
   Membership::memberShortName: equal 23309, different 10, symbol-missing 0, symbol-extra 200
   Membership::membershipOwningNamespace: equal 23469, different 50, symbol-missing 0, symbol-extra 0
   Namespace::member: equal 19703, different 2105, symbol-missing 6, symbol-extra 56
@@ -352,8 +352,8 @@ root examples/pilot-corpora: models 213, skipped 0, matched 54119, unmatched 748
   OccurrenceUsage::individualDefinition: equal 3291, different 0, symbol-missing 1, symbol-extra 8
   OccurrenceUsage::occurrenceDefinition: equal 3289, different 2, symbol-missing 1, symbol-extra 8
   OwningMembership::ownedMemberElement: equal 21421, different 17, symbol-missing 0, symbol-extra 0
-  OwningMembership::ownedMemberElementId: equal 7236, different 31, symbol-missing 14171, symbol-extra 0
-  OwningMembership::ownedMemberName: equal 21404, different 33, symbol-missing 0, symbol-extra 1
+  OwningMembership::ownedMemberElementId: equal 7248, different 32, symbol-missing 14158, symbol-extra 0
+  OwningMembership::ownedMemberName: equal 21417, different 20, symbol-missing 0, symbol-extra 1
   OwningMembership::ownedMemberShortName: equal 21238, different 0, symbol-missing 0, symbol-extra 200
   PortUsage::portDefinition: equal 376, different 0, symbol-missing 0, symbol-extra 8
   Relationship::ownedRelatedElement: equal 32462, different 122, symbol-missing 0, symbol-extra 0

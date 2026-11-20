@@ -272,7 +272,8 @@ func (m *Model) ImplicitMultiplicityApplies(sym *symbols.Symbol) bool {
 	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageObjective {
 		return false
 	}
-	if _, ok := implicitMultiplicityMetaclasses[sysmlMetaclassName(sym)]; !ok {
+	if _, ok := implicitMultiplicityMetaclasses[sysmlMetaclassName(sym)]; !ok && !isNamedTriggerPayload(sym) {
+		// A trigger's named payload is a ReferenceUsage that takes the default all the same, as the tree writes it.
 		return false
 	}
 	if sym.Decl == nil {
