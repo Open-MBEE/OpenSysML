@@ -1832,7 +1832,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "feature":
 		features := m.nodeParameters(sym)
 		for _, member := range m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))))) {
-			if member.IsFeature() || isExpressionSymbol(member) {
+			if member.IsFeature() && !isPrefixMetadataSymbol(member) || isExpressionSymbol(member) {
 				features = append(features, member)
 			}
 		}

@@ -186,7 +186,7 @@ func TestOwnedAnnotationsAndAnnotatingElements(t *testing.T) {
 		assertRelFeature(t, model, prefix, "annotation")
 		assertRelFeature(t, model, prefix, "annotatedElement", d)
 		// The prefix is a member of D and, owned through no FeatureMembership, no owned feature.
-		for feature, want := range map[string]bool{"ownedMember": true, "member": true, "ownedFeature": false} {
+		for feature, want := range map[string]bool{"ownedMember": true, "member": true, "ownedFeature": false, "feature": false} {
 			members, _ := model.ReflectiveElements(d, feature)
 			if listed := slices.Contains(members, prefix); listed != want {
 				t.Errorf("D %s lists the #Tag prefix: %t, want %t", feature, listed, want)
@@ -626,6 +626,26 @@ func TestPrefixMetadataTypeResolvesInTheAnnotatedElement(t *testing.T) {
 		types, _ := model.ReflectiveElements(prefix, "type")
 		if len(types) != 1 || types[0].Name != "Tag" || types[0].Owner() != a {
 			t.Errorf("the #Tag prefix of A is typed by %v, want the Tag nested in A, which shadows Shadow::Tag", types)
+		}
+	}
+}
+
+// A `#M` prefix is no feature of its element, so a specialization inherits none from it.
+func TestPrefixMetadataIsNoInheritedFeature(t *testing.T) {
+	const src = `package Inherit {
+    metadata def Tag;
+    #Tag part def A { part a; }
+    part def B :> A;
+}`
+	for _, fixture := range reflectiveFixtures(t, "prefix-inherit.sysml", source.KindSysML, src) {
+		model := fixture.model
+		prefix := model.OwnedMemberships(relFixtureSymbol(t, fixture, "A"))[0].Implicit.Member
+		b := relFixtureSymbol(t, fixture, "B")
+		for _, feature := range []string{"feature"} {
+			features, _ := model.ReflectiveElements(b, feature)
+			if !prefix.IsPrefixMetadata() || slices.Contains(features, prefix) || !slices.Contains(features, relFixtureSymbol(t, fixture, "a")) {
+				t.Errorf("B %s holds A's #Tag prefix: %t, want only the inherited part a", feature, slices.Contains(features, prefix))
+			}
 		}
 	}
 }
