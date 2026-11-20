@@ -58,7 +58,7 @@ func (m *Model) ConformanceViolations(sym *symbols.Symbol) []ConformanceViolatio
 			continue
 		}
 		written[target] = true
-		ref := ast.Node(rel.Target)
+		ref := rel.Target
 		if rel.Kind == ast.RelRedefines {
 			redefined[target] = true
 			out = append(out, m.directionViolations(sym, traits, target, ref)...)
