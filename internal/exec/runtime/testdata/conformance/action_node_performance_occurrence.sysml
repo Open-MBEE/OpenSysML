@@ -1,8 +1,5 @@
-// Each performance of an action node is an occurrence of its own, a value of the
-// node's feature on the performance around it (Performances.kerml `Performance :>
-// Occurrence`; Actions.sysml `subactions :> subperformances`): read through the part
-// performing `run`, `run.one.v` and `run.add.sum` are what the performances of `one`
-// and `add` hold, and `add` holds the parameters of the action it performs.
+// Each performance of an action node is an occurrence of its own under the performance
+// around it (Actions.sysml `subactions :> subperformances`): `run.one.v` reads what it holds.
 package test {
 	private import ScalarValues::*;
 

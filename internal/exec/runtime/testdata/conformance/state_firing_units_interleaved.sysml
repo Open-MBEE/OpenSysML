@@ -25,8 +25,8 @@ package Test {
 		}
 		join sync;
 
-		transition first l2 then sync;
-		transition first r2 then sync;
+		transition first work.left.l2 then sync;
+		transition first work.right.r2 then sync;
 		transition first sync do { assign log := log + "T3(effect) "; } then done;
 	}
 	attribute def Go;

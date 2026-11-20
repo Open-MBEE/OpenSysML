@@ -12,12 +12,12 @@ package NestedForkInactiveRegion {
                     state right { state b; }
                 }
                 fork split;
-                transition first split then a;
-                transition first split then b;
+                transition first split then inner.left.a;
+                transition first split then inner.right.b;
             }
             state o2 { state c { entry { assign log := log + "c(entry) "; } } }
         }
 
-        transition first init then split;
+        transition first init then outer.o1.split;
     }
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -48,6 +49,57 @@ func TestACancelledContextRefusesTheCall(t *testing.T) {
 			t.Errorf("ServerInfo err = %v, want CodeCanceled", err)
 		}
 	})
+}
+
+// doneAfter is done, with err, from its live-th look on.
+type doneAfter struct {
+	context.Context
+	live  int64
+	looks atomic.Int64
+	err   error
+}
+
+func (c *doneAfter) Err() error {
+	if c.looks.Add(1) > c.live {
+		return c.err
+	}
+	return nil
+}
+
+// The boundary looks at the context once before the engine and once after; a
+// parse that takes more looks than those to finish is one the engine can stop.
+func TestAContextDoneMidParseStopsTheEngine(t *testing.T) {
+	client := newClient(t)
+	for i, c := range []struct {
+		cause error
+		code  opensysml.Code
+	}{{context.Canceled, opensysml.CodeCanceled}, {context.DeadlineExceeded, opensysml.CodeDeadlineExceeded}} {
+		cause, code := c.cause, c.code
+		// Each cause parses a model of its own, so neither is answered from the cache.
+		documents := []opensysml.Document{
+			opensysml.Source("a.sysml", fmt.Sprintf("package A { part def Vehicle%d; }", i)),
+			opensysml.Source("b.sysml", fmt.Sprintf("package B { private import A::*; part car : Vehicle%d; }", i)),
+		}
+		for live := int64(0); ; live++ {
+			ctx := &doneAfter{Context: context.Background(), live: live, err: cause}
+			model, err := client.ParseDocuments(ctx, documents)
+			if ctx.looks.Load() <= live {
+				if err != nil {
+					t.Fatalf("a parse whose context stayed live failed: %v", err)
+				}
+				if live <= 2+int64(len(documents)) {
+					t.Errorf("%v: the parse took %d looks at its context, want more than the boundary's two and one per document", cause, live)
+				}
+				break
+			}
+			if !errors.Is(err, code) {
+				t.Fatalf("%v at look %d: err = %v, want %v", cause, live+1, err, code)
+			}
+			if model != nil {
+				t.Fatalf("%v at look %d: a model came back with the error", cause, live+1)
+			}
+		}
+	}
 }
 
 func TestAnExpiredDeadlineIsDeadlineExceeded(t *testing.T) {

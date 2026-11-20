@@ -360,6 +360,18 @@ sysml model.sysml -convert api-json -o model.json -library-references library-na
 It restores the ownerless library stubs written before 0.11.0, with `@id`, `@type`,
 `declaredName`, `elementId`, `isLibraryElement: true` and `qualifiedName`.
 An OMG API reader treats these as roots, so prefer the separate table for new clients.
+
+An element of the array carries its owned structure. The seven derived lists that repeat a
+Namespace's or Type's inherited and imported members — `membership`, `member`,
+`inheritedMembership`, `importedMembership`, `featureMembership`, `feature` and
+`inheritedFeature` — are written
+only with `-inherited-members` (or `ConvertRequest.inherited_members`, advertised as
+`convert_inherited_members`): they follow from `ownedMembership`, the specializations and the
+imports, and repeating them on every element is most of a large model's document. Element ids
+and every other property are the same with or without them. The library members a model only
+inherits are referenced by those lists alone, so without them the library-reference table and
+a graph read back from the document name only the library elements the owned structure
+references, and `-include-library-stubs` writes a stub for those alone.
 Both CLI options require `-convert api-json` (or its `json` alias); the side file must
 not name an input or the output, including through a symlink or hard link.
 For a graph source, the table can name only references whose library metadata the graph carries.
@@ -557,7 +569,7 @@ triples come); a set of classes with no such member is refused, naming the subje
   `MembershipImport` `importedMembership`, which links the imported element's
   **owning membership** (the metamodel's range), a library member's by its
   normative membership id; an import written through an alias imports the
-  alias's owning membership. The same rule links a succession's `sourceFeature` (an implied `first
+  alias Membership itself, the model's or a library's (KerML 8.2.3.4.2). The same rule links a succession's `sourceFeature` (an implied `first
   start then a` names the `start` the owner inherits from `Actions::Action`),
   a feature chain's `targetFeature`, a feature reference's `referent` and an
   invocation's `function`. A dotted name reaches these from the notation in one
@@ -860,8 +872,10 @@ sees the same relationships SysML.xtext produces.
 | `part v : Vehicle;` | the member, its `FeatureTyping` (`<S>_ft0`), its `OwningMembership` |
 | `:>> mass`, `redefines mass` | a `sysml:Redefinition` (`<S>_rd<i>`) with `redefiningFeature`/`redefinedFeature` |
 | `:> base`, `subsets base` | a `sysml:Subsetting`/`sysml:ReferenceSubsetting` (`<S>_ss<i>`/`<S>_rs<i>`) |
+| `crosses a.q`, `=> a.q` on an end | a `sysml:CrossSubsetting` (`<S>_cs`, or `<S>_cs<i>` where a head states several) with `crossingFeature`/`crossedFeature`, owning the chain `Feature` of a chain target |
+| `unions A, B`, `intersects A, B`, `differences A, B` | one `sysml:Unioning`/`sysml:Intersecting`/`sysml:Differencing` per operand, in operand order (`<S>_un<i>`/`<S>_is<i>`/`<S>_df<i>`), with `typeUnioned`/`unioningType` and their counterparts |
 | `specializes Base`, `:>> Base` on a definition | a `sysml:Subclassification` (`<S>_sc<i>`) |
-| `part p : ~P;` | a `sysml:ConjugatedPortDefinition` (`<S>_conjugated`) typed by `P`, and a `sysml:PortConjugation` (`<S>_pc`) joining it to `P`; a named `P` gives its conjugate `declaredName "~P"` (never `declaredShortName`), while an unnamed `P` is addressed positionally as `<owner>::@conjugated`, so `port p`'s `FeatureTyping` reads `type: ~P` |
+| `part p : ~P;` | a `sysml:ConjugatedPortDefinition` (`<S>_conjugated`) typed by `P`, and a `sysml:PortConjugation` (`<S>_pc`) joining it to `P`; the conjugate states no `declaredName` or `declaredShortName` — `~P` is its derived `name` (SysML v2.1 §8.3.12.2 `effectiveName`), addressing it as `P::'~P'`, while the conjugate of an unnamed `P` is addressed positionally as `<owner>::@conjugated`, so `port p`'s `FeatureTyping` reads `type: ~P` |
 | `subject v : Vehicle;` in a requirement | a `sysml:SubjectMembership` owning `v`, with `sysml:subjectParameter` on the membership's owner |
 | `require constraint { v.mass < 1500 [kg] }` | a `sysml:RequirementConstraintMembership` owning the `sysml:ConstraintUsage`, with `sysml:kind "requirement"`/`"assumption"` by keyword; the constraint carries `sysml:isVariable`/`sysml:mayTimeVary` as the model derives them (a feature of an Occurrence varies) |
 | `objective { verify r; }` | the objective is a composite, undirected `sysml:RequirementUsage` its `sysml:ObjectiveMembership` (a FeatureMembership: `sysml:ownedObjectiveRequirement`, no parameter end) owns; the `verify` a `sysml:RequirementVerificationMembership` owning a `sysml:RequirementUsage` that references `r` (its `sysml:ReferenceSubsetting`), with `sysml:kind "requirement"` |
@@ -1886,10 +1900,10 @@ expr:P__Car___402_pend0_prs
 ```
 
 The same chain feature carries a chain target a head relationship states
-(`redefines a.b`, `:>> a.b`, `references a.b`): the chain's `sysml:chainingFeature`
+(`redefines a.b`, `:>> a.b`, `references a.b`, `crosses a.b`, `unions a.b`): the chain's `sysml:chainingFeature`
 property of the head names the chain element, and the materialized
-`Redefinition`, `Subsetting` or `ReferenceSubsetting` owns it the same way
-(KerML `OwnedRedefinition`/`OwnedSubsetting`/`OwnedReferenceSubsetting`). A chain
+`Redefinition`, `Subsetting`, `ReferenceSubsetting`, `CrossSubsetting`, `Unioning`, `Intersecting` or `Differencing` owns it the same way
+(KerML `OwnedRedefinition`/`OwnedSubsetting`/`OwnedReferenceSubsetting`/`OwnedCrossSubsetting`/`Unioning`). A chain
 link that resolves to a graph element is written as its IRI, and one that does
 not as `{"@ref": "<name>"}` in the JSON element form — a `sysx:Expression` typed
 literal in Turtle — never a bare string; in a `FeatureChaining` the link is the
@@ -1959,7 +1973,7 @@ named one writes `from` as its `sysx:endVerb`. The forms and what each writes:
 | `firstThen` | `<end0> then <end1>` | `succession first a then b`, `succession [n] first a then b` |
 | `fromTo` | `[of <payload>] from <end0> to <end1>` | `flow of P from a to b` |
 | `flowTo` | `[of <payload>] <end0> to <end1>` | `flow a to b` |
-| `satisfy` | `<requirement>` (the `sysml:subsets` end, written bare) | `satisfy R by v`, `verify R` |
+| `satisfy` | `<requirement>` (the `sysml:references` end, written bare) | `satisfy R by v`, `verify R` |
 | `then` | the source end is the nearest feature written before it that is not a connector or a transition; a member that is not a feature is read past | `then b;`, `then part b;` |
 
 A head whose own keyword is the noun form writes a verb ahead of its ends, and
@@ -2322,6 +2336,8 @@ graph states a flag only when true (`isComposite` and a `LiteralBoolean`'s
 implies — the metaclass default from the ontology table (`isUnique` true, every
 other flag false), or the flag another spelling of the graph carries:
 `isVariable` from `sysx:declaredPrefix "var"`, `isSufficient` from `sysml:isAll`.
+The graph itself states `isSufficient` on a connection, interface or allocation definition,
+which is sufficient without a keyword (SysML v2.1 §8.3.13.3, `validateConnectionDefinitionIsSufficient`).
 Derived booleans (`isReference`, `isLibraryElement`, `mayTimeVary`, …) are not
 completed here; they are written as the graph states them or as their `derive*`
 constraint defines them (below) — nor is a boolean whose
@@ -2337,7 +2353,9 @@ boolean at the implied value (`sysml:isAbstract false` written by hand) keeps
 it: the element lists such members in `"sysx:explicitDefaults": [...]`, and the
 reader takes them as the statements they are. Both keys are reserved for these
 markers — a `sysx:statedDefaults` or `sysx:explicitDefaults` predicate in the
-graph is never written as a fact.
+graph is never written as a fact. In the graph, `sysx:statedDefaults true` on any
+element is the same provenance marker: it says the graph is this mapping's (see
+the external element form, below).
 
 **Derived properties.** The graph states a derived property only where the
 notation's mapping has a reason to (`owner`, `owningNamespace`, a membership's
@@ -2379,14 +2397,18 @@ produced, or one this list was stripped from — is the statement it looks like.
 properties out with the other derived ones, and the list with them. The key is
 reserved like the two above: a `sysx:completedProperties` predicate in the
 graph is never written as a fact. A graph that is already an external writer's
-element form (one stating `isImpliedIncluded`, which this mapping never does)
+element form (one stating `isImpliedIncluded` and `sysx:statedDefaults` nowhere)
 is written as it is: nothing is completed and no marker is set, so the document
 reads back through the external path exactly as before. A document without the marker
 reads as before: every stated boolean is a triple, and a document that omits its
 false flags (an older export, a compact form) reads as it always did. The marker
 is also what tells this mapping's documents from an external writer's element form,
-which states `Element::isImpliedIncluded` on its elements — a property this
-mapping's graph never states (see the toolkit's own JSON, below).
+which states `Element::isImpliedIncluded` on its elements and carries no marker
+(see the toolkit's own JSON, below). The test does not rest on what this mapping
+leaves unstated: an element of a marked document that states `isImpliedIncluded`
+as a triple (`true`, or a listed explicit default) is read with
+`sysx:statedDefaults true` beside it, so the graph, and the Turtle written from
+it, stay this mapping's.
 
 How each part of the graph is spelled:
 
@@ -2495,8 +2517,9 @@ the `Membership` an expression referent is carried by — the table above) and
 writes the same unnamed root `Namespace` with its `OwningMembership` (see
 [The root namespace](#the-root-namespace)), so the toolkit's lifter reads this
 form's output back to the notation it came from. A conjugate has
-`declaredName "~P"` only when its original declares a name and never has a
-`declaredShortName`; otherwise it is addressed as `<owner>::@conjugated`. The
+no `declaredName` and no `declaredShortName`: `~P` is the `name` its
+`effectiveName()` derives from a named original (SysML v2.1 §8.3.12.2), and the
+conjugate of an unnamed one is addressed as `<owner>::@conjugated`. The
 per-`@type` element
 counts of the two still differ where the toolkit's own JSON is sparser than
 the metamodel: it writes no `ReturnParameterMembership` for an expression
@@ -2532,9 +2555,10 @@ any graph this mapping holds:
   the `FeatureTyping` element, `isImpliedIncluded`, the membership ends), so
   the reader derives the collapsed spelling back. A document is read this
   way when its elements state `isImpliedIncluded` and it carries no
-  `sysx:statedDefaults` marker: this mapping's graph never states
-  `Element::isImpliedIncluded` (the reader drops it from its own, marked
-  documents), so a graph that does is an external writer's element form. Then: a `sysml:FeatureTyping`
+  `sysx:statedDefaults` marker, neither on a root element object of the
+  document nor as a triple of the graph: that is an external writer's element
+  form, and the marker, not the absence of the flag, is what this mapping's
+  own graph is known by. Then: a `sysml:FeatureTyping`
   stating nothing the collapsed `type` edge does not already say contributes
   its ends and is then elementless, an `isImpliedIncluded` element drops the
   stated defaults (`isEnd`, `isReference`, `mayTimeVary`, …) its owner's

@@ -67,7 +67,7 @@ func registerFlags(fs *flag.FlagSet) *options {
 	fs.BoolVar(&o.strict, "strict", false,
 		"Serve strict conformance from the start: notation no pinned SysML v2 production admits is an error")
 	fs.BoolVar(&o.noRecordCache, "no-record-cache", false,
-		"Parse every document and hold it loaded, reading no interface record from the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0")
+		"Parse every document and hold it loaded, and analyze every model the runtime tools parse, reading no interface or model record from the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0")
 	fs.IntVar(&o.cacheSize, "cache-size", 100, "Maximum number of parsed models the runtime tools hold; at least 1")
 	fs.StringVar(&o.logLevel, "log-level", "warn", "Lowest level logged to stderr: debug, info, warn or error")
 	fs.BoolVar(&o.stdio, "stdio", false, "Serve over stdin/stdout (the default transport; accepted for hosts that name it; not with -http)")

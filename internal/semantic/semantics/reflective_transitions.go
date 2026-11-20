@@ -109,7 +109,12 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 		if payload == nil {
 			decl = event
 		}
-		parts.payload = transitionPart(sym, decl, decl.Span(), symbols.SymbolReferenceUsage, parts.accepter, symbols.ExpressionPayload)
+		if declared := sym.Scope.MemberDeclaring(decl); payload != nil && declared != nil {
+			// A named payload is the symbol the transition's scope declares for it, owned by the accept.
+			parts.payload = declared
+		} else {
+			parts.payload = transitionPart(sym, decl, decl.Span(), symbols.SymbolReferenceUsage, parts.accepter, symbols.ExpressionPayload)
+		}
 		if event != nil {
 			parts.payloadValue = transitionPart(sym, event, event.Span(), symbols.SymbolExpression, parts.payload, symbols.ExpressionValue)
 		}
@@ -258,7 +263,14 @@ func (m *Model) withTransitionParts(sym *symbols.Symbol, members []*symbols.Symb
 	if len(parts) == 0 {
 		return members
 	}
-	out := append(append([]*symbols.Symbol{}, members...), parts...)
+	out := make([]*symbols.Symbol, 0, len(members)+len(parts))
+	for _, member := range members {
+		// A named trigger payload is declared in the transition's scope and owned by the trigger's accept.
+		if !m.isTriggerPayload(sym, member) {
+			out = append(out, member)
+		}
+	}
+	out = append(out, parts...)
 	sort.SliceStable(out, func(i, j int) bool { return out[i].DeclSpan.Offset < out[j].DeclSpan.Offset })
 	return out
 }
@@ -277,6 +289,32 @@ func (m *Model) acceptParts(sym *symbols.Symbol) *transitionParts {
 	return nil
 }
 
+// isNamedTriggerPayload reports whether sym is the payload a transition's trigger names (`accept x : T`):
+// the symbol the transition's scope declares, owned by the trigger's accept (SysML.xtext PayloadParameterMember).
+func isNamedTriggerPayload(sym *symbols.Symbol) bool {
+	if sym == nil || sym.Decl == nil || sym.Expr != nil || sym.Implicit != nil || sym.Chain != nil || sym.OwnerScope == nil {
+		return false
+	}
+	trans, ok := transitionDecl(sym.OwnerScope.Owner())
+	if !ok {
+		return false
+	}
+	payload, _ := triggerPayload(trans)
+	return payload != nil && ast.Node(payload) == sym.Decl
+}
+
+// namedTriggerPayloadParts are the parts of the transition whose trigger names sym as its payload;
+// nil for any other symbol.
+func (m *Model) namedTriggerPayloadParts(sym *symbols.Symbol) *transitionParts {
+	if !isNamedTriggerPayload(sym) {
+		return nil
+	}
+	if parts := m.transitionPartsOf(sym.OwnerScope.Owner()); parts != nil && parts.payload == sym {
+		return parts
+	}
+	return nil
+}
+
 // transitionElements is ReflectiveElements for the features of a transition and of its
 // trigger's accept (SysML v2.1 §8.3.18.9 TransitionUsage, §8.3.17.2 AcceptActionUsage).
 func (m *Model) transitionElements(sym *symbols.Symbol, feature string) ([]*symbols.Symbol, bool) {
@@ -290,6 +328,10 @@ func (m *Model) transitionElements(sym *symbols.Symbol, feature string) ([]*symb
 			return optionalElement(m.transitionEffect(sym)), true
 		case "succession":
 			return optionalElement(parts.succession), true
+		case "source":
+			return optionalElement(m.transitionSource(sym, parts)), true
+		case "target":
+			return optionalElement(m.transitionTarget(sym, parts)), true
 		}
 		return nil, false
 	}
@@ -306,6 +348,70 @@ func (m *Model) transitionElements(sym *symbols.Symbol, feature string) ([]*symb
 		return optionalElement(parts.receiverValue), true
 	}
 	return nil, false
+}
+
+// transitionSource is the ActionUsage the transition's source feature targets: the member of its source
+// Membership, or the last feature of a chained source (SysML v2.1 §8.3.18.9 deriveTransitionUsageSource).
+func (m *Model) transitionSource(sym *symbols.Symbol, parts *transitionParts) *symbols.Symbol {
+	source, ok := m.transitionSourceMember(sym)
+	if !ok {
+		// A chained source is the first feature the succession relates, already the chain's featureTarget.
+		source = m.transitionSuccessionEnd(parts, 0)
+	}
+	return m.actionUsageOrNil(source)
+}
+
+// transitionTarget is the ActionUsage the target feature of the transition's succession targets
+// (SysML v2.1 §8.3.18.9 deriveTransitionUsageTarget).
+func (m *Model) transitionTarget(sym *symbols.Symbol, parts *transitionParts) *symbols.Symbol {
+	target := m.transitionSuccessionEnd(parts, 1)
+	if target == nil {
+		target = m.transitionTargetEndpoint(sym)
+	}
+	return m.actionUsageOrNil(target)
+}
+
+// transitionTargetEndpoint is the vertex a written target names by endpoint resolution, which reaches one nested
+// in a sibling state as transitionSourceMember does for the source.
+func (m *Model) transitionTargetEndpoint(sym *symbols.Symbol) *symbols.Symbol {
+	if !declaresTransition(sym) || m.resolver == nil {
+		return nil
+	}
+	var written *ast.QualifiedName
+	switch d := sym.Decl.(type) {
+	case *ast.TransitionMember:
+		written = d.Target
+	case *ast.SuccessionEdge:
+		written = d.Target
+	}
+	if written == nil || ast.IsFeatureChain(written) {
+		return nil
+	}
+	scope := sym.OwnerScope
+	if scope == nil {
+		scope = sym.Scope
+	}
+	target, _ := m.resolver.EndpointSymbol(scope, written)
+	return target
+}
+
+// transitionSuccessionEnd is the featureTarget of the end at position i of the transition's succession, nil when unresolved.
+func (m *Model) transitionSuccessionEnd(parts *transitionParts, i int) *symbols.Symbol {
+	if parts.succession == nil {
+		return nil
+	}
+	if targets, _ := m.successionEndFeatureTargets(parts.succession); len(targets) == 2 {
+		return targets[i]
+	}
+	return nil
+}
+
+// actionUsageOrNil is sym when it is an ActionUsage, which a transition's source and target must be.
+func (m *Model) actionUsageOrNil(sym *symbols.Symbol) *symbols.Symbol {
+	if !m.reflectiveMetaclassConforms(sym, "ActionUsage") {
+		return nil
+	}
+	return sym
 }
 
 func optionalElement(sym *symbols.Symbol) []*symbols.Symbol {
@@ -368,4 +474,11 @@ func boolInt(b bool) int {
 		return 1
 	}
 	return 0
+}
+
+// isTriggerPayload reports whether member is the payload parameter the trigger of the transition sym
+// names (`accept x : T`), which the trigger's accept owns (SysML.xtext TriggerAction, PayloadParameterMember).
+func (m *Model) isTriggerPayload(sym, member *symbols.Symbol) bool {
+	parts := m.transitionPartsOf(sym)
+	return parts != nil && parts.payload == member
 }

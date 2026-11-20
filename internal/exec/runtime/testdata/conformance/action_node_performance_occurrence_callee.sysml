@@ -1,7 +1,5 @@
-// A node typed by an action performs it as one occurrence: the callee runs as the
-// node's own object, so the callee's nodes are that object's subperformances and
-// `run.call.inner.v` reads what the performance of `inner` holds; the node's own
-// `in a = 2` values the callee's parameter on the same object.
+// A node typed by an action performs it as one occurrence: the callee runs as the node's
+// own object, so `run.call.inner.v` reads what the callee's performance of `inner` holds.
 package test {
 	private import ScalarValues::*;
 

@@ -12,8 +12,8 @@ import (
 // Value is one evaluated SysML value. It is a sealed sum: the concrete types
 // are Int, BigInt, Rational, Real, Complex, Bool, String, InstanceID, Sequence, Null, Unset,
 // Quantity, EnumLiteral, Array, Vector, VectorQuantity, MeasurementRef,
-// Function, Set, TensorQuantity, Metaobject and Undetermined, and a type switch over
-// them is exhaustive.
+// Function, Set, TensorQuantity, Metaobject, Undetermined, *CoordinateFrame and
+// *CoordinateTransformation, and a type switch over them is exhaustive.
 type Value interface {
 	isValue()
 }
@@ -127,6 +127,9 @@ type Quantity struct {
 	Unit string
 	// Term is what the unit reduces to, which decides commensurability.
 	Term *UnitTerm
+	// ValueType is the quantity value type the service holds the quantity as
+	// ("ISQThermodynamics::EnergyValue"); empty for none. Sent back, it is kept.
+	ValueType string
 }
 
 // UnitTerm is a unit's reduction to base units, with its scale kept as an

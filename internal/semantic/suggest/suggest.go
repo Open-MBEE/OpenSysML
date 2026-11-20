@@ -334,12 +334,13 @@ func Neighbours(word string, candidates []string) []Neighbour {
 	budget := Budget(len([]rune(word)))
 	lower := strings.ToLower(word)
 	var hits []Neighbour
+	var d distancer
 	for _, c := range candidates {
 		if c == word {
 			continue
 		}
-		if EditDistance(lower, strings.ToLower(c)) <= budget {
-			hits = append(hits, Neighbour{Name: c, Distance: EditDistance(word, c)})
+		if d.distance(lower, strings.ToLower(c)) <= budget {
+			hits = append(hits, Neighbour{Name: c, Distance: d.distance(word, c)})
 		}
 	}
 	return nearestFirst(hits)
@@ -396,10 +397,27 @@ func Budget(n int) int {
 // EditDistance is the Levenshtein distance between a and b, counting a
 // transposition as one edit.
 func EditDistance(a, b string) int {
-	ar, br := []rune(a), []rune(b)
-	prev2 := make([]int, len(br)+1)
-	prev := make([]int, len(br)+1)
-	cur := make([]int, len(br)+1)
+	var d distancer
+	return d.distance(a, b)
+}
+
+// distancer keeps the buffers of an edit-distance computation, so a search
+// over many candidates allocates them once rather than once per candidate.
+type distancer struct {
+	a, b             []rune
+	prev2, prev, cur []int
+}
+
+// distance is EditDistance over the distancer's buffers.
+func (d *distancer) distance(a, b string) int {
+	d.a = appendRunes(d.a[:0], a)
+	d.b = appendRunes(d.b[:0], b)
+	ar, br := d.a, d.b
+	if n := len(br) + 1; cap(d.cur) < n {
+		d.prev2, d.prev, d.cur = make([]int, n), make([]int, n), make([]int, n)
+	}
+	// prev2 is read only from the third row on, after two rows were written to it.
+	prev2, prev, cur := d.prev2[:len(br)+1], d.prev[:len(br)+1], d.cur[:len(br)+1]
 	for j := range prev {
 		prev[j] = j
 	}
@@ -420,6 +438,14 @@ func EditDistance(a, b string) int {
 		prev2, prev, cur = prev, cur, prev2
 	}
 	return prev[len(br)]
+}
+
+// appendRunes appends the runes of s to dst.
+func appendRunes(dst []rune, s string) []rune {
+	for _, r := range s {
+		dst = append(dst, r)
+	}
+	return dst
 }
 
 // OrList joins candidates as "a, b or c", for a message that offers a choice.

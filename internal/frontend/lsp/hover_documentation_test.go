@@ -30,11 +30,13 @@ const ownedDocumentationSrc = `package HoverRepro {
 }
 `
 
-// hoverProse returns what a Markdown hover shows after the signature block.
+// hoverProse returns the prose a Markdown hover shows after the signature
+// block, ahead of the member summary.
 func hoverProse(t *testing.T, res *protocol.Hover) string {
 	t.Helper()
 	value := hoverMarkup(t, res).Value
 	_, prose, _ := strings.Cut(value, "\n```")
+	prose, _, _ = strings.Cut(prose, "Members:\n")
 	return strings.TrimSpace(prose)
 }
 

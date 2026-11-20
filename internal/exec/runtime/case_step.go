@@ -109,6 +109,11 @@ func (e *performances) performCase(perf *actionFrame) error {
 		if perf.result == "" {
 			perf.result = program.ResultOutputName
 		}
+	} else if run.returned {
+		// A result a `return` on a path of the body yields, with no result parameter declared.
+		perf.result = program.ResultOutputName
+		perf.features[perf.result] = ast.DirOut
+		e.ctx.writeBodyValue(perf.cells, perf.data, perf.key(perf.result), run.result)
 	}
 	return nil
 }

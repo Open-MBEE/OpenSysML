@@ -1,5 +1,0 @@
-{
-	"type": "calc",
-	"evaluate": "test::Reset",
-	"error": "assignment outside the calculation body: s.reading writes a feature of another object"
-}

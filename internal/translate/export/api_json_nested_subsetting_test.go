@@ -11,7 +11,9 @@ import (
 // definition is one of Items::Item::subparts, an item one of subitems, a
 // performed action one of Parts::Part::performedActions), and the element form
 // inherits that feature's members. A referential usage beside it subsets
-// nothing by nesting and inherits through its kind base alone.
+// nothing by nesting and inherits through its kind base alone. The feature's
+// multiplicity is owned through an OwningMembership (KerML §8.3.3.1.10
+// Type::multiplicity), so it is a member and no inheritedFeature.
 func TestAPIJSONNestedUsageInheritsThroughItsImpliedSubsetting(t *testing.T) {
 	graph := duplicateGraph(t, `package Probe {
 		part def Vehicle {
@@ -25,7 +27,7 @@ func TestAPIJSONNestedUsageInheritsThroughItsImpliedSubsetting(t *testing.T) {
 		part vehicle : Vehicle { part wheel; }
 	}`, IDQualifiedName)
 	var references []APIJSONLibraryReference
-	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{LibraryReferences: func(refs []APIJSONLibraryReference) {
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true, LibraryReferences: func(refs []APIJSONLibraryReference) {
 		references = refs
 	}})
 	if err != nil {
@@ -42,7 +44,7 @@ func TestAPIJSONNestedUsageInheritsThroughItsImpliedSubsetting(t *testing.T) {
 		{"Probe__Vehicle__cargo", "Probe__Vehicle__loose", "Items::Item::subitems"},
 		{"Probe__Vehicle__drive", "Probe__Vehicle__idle", "Parts::Part::performedActions"},
 	} {
-		for _, property := range []string{"inheritedMembership", "member", "inheritedFeature"} {
+		for _, property := range []string{"inheritedMembership", "member"} {
 			nested := referenceIDs(t, elements[c.nested], property)
 			referential := referenceIDs(t, elements[c.referential], property)
 			if len(nested) <= len(referential) {
@@ -61,6 +63,13 @@ func TestAPIJSONNestedUsageInheritsThroughItsImpliedSubsetting(t *testing.T) {
 				return strings.HasPrefix(name, c.through+"/") || strings.HasPrefix(name, c.through+"::")
 			}) {
 				t.Errorf("%s.%s adds %v over %s's, none owned by %s", c.nested, property, added, c.referential, c.through)
+			}
+		}
+		for _, property := range []string{"inheritedFeature", "feature"} {
+			for _, id := range referenceIDs(t, elements[c.nested], property) {
+				if strings.Contains(named[id], "/Multiplicity") {
+					t.Errorf("%s.%s holds %s, which no FeatureMembership owns", c.nested, property, named[id])
+				}
 			}
 		}
 	}
@@ -87,7 +96,7 @@ func TestAPIJSONRequirementConstraintsInheritThroughTheirCheckCollections(t *tes
 		}
 	}`, IDQualifiedName)
 	var references []APIJSONLibraryReference
-	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{LibraryReferences: func(refs []APIJSONLibraryReference) {
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true, LibraryReferences: func(refs []APIJSONLibraryReference) {
 		references = refs
 	}})
 	if err != nil {

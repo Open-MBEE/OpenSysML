@@ -164,7 +164,7 @@ func ReadManifest(dir, env string, workspaces ...string) (*Manifest, error) {
 	if workspace, under := underWorkspace(dir, workspaces); under {
 		return nil, fault(dir, fmt.Sprintf("is under the workspace %s; a manifest is read from a directory the environment names outside every workspace", workspace), nil)
 	}
-	if err := ownerWritableOnly(dir, info); err != nil {
+	if err := ownerWritableOnly(info); err != nil {
 		return nil, fault(dir, err.Error(), nil)
 	}
 	files, err := os.ReadDir(dir)
@@ -219,7 +219,7 @@ func readEntryFile(path, env string) ([]byte, EntryKind, error) {
 	if err != nil {
 		return nil, "", &ManifestError{Env: env, Path: path, Detail: "cannot read the entry", Err: err}
 	}
-	if err := ownerWritableOnly(path, info); err != nil {
+	if err := ownerWritableOnly(info); err != nil {
 		return nil, "", &ManifestError{Env: env, Path: path, Detail: err.Error()}
 	}
 	data, err := os.ReadFile(path) // #nosec G304 -- an entry of a manifest directory the environment names
@@ -265,7 +265,7 @@ func underWorkspace(dir string, workspaces []string) (string, bool) {
 
 // ownerWritableOnly refuses a manifest file or directory writable by anyone but its owner,
 // the check ssh makes of its configuration; the bits mean nothing on Windows.
-func ownerWritableOnly(path string, info os.FileInfo) error {
+func ownerWritableOnly(info os.FileInfo) error {
 	if runtime.GOOS == "windows" {
 		return nil
 	}

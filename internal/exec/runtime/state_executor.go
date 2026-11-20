@@ -1793,7 +1793,7 @@ func (e *StateExecutor) chooseTransition(candidate dispatchCandidate, event *Eve
 	if err != nil {
 		return nil, nil, err
 	}
-	if choice, ok := e.transitionChoice(e.stateDecl(candidate.source), transitions, candidate.enabled); ok {
+	if choice, ok := e.transitionChoice(transitions, candidate.enabled); ok {
 		whereOf := func(i int) string {
 			return transitionWhere(e.stateDecl(candidate.source), transitions[candidate.enabled[i]])
 		}
@@ -2118,7 +2118,7 @@ func (e *StateExecutor) chooseCompletion(source *ast.StateNode, dispatched *lowe
 	if err != nil {
 		return nil, nil, err
 	}
-	choice, ok := e.transitionChoice(source, transitions, enabled)
+	choice, ok := e.transitionChoice(transitions, enabled)
 	if !ok {
 		drain()
 		return transitions[enabled[0]], notes, nil
@@ -2282,7 +2282,7 @@ func (e *StateExecutor) transitionEnabled(trans *lower.Transition, event *Event)
 // transitionChoice is the transitions out of state enabled for one event, at
 // their declared positions, as a choice point; there is none under two. pick is
 // the position in enabled of the one that fires.
-func (e *StateExecutor) transitionChoice(state *ast.StateNode, transitions []*lower.Transition, enabled []int) (ChoicePoint, bool) {
+func (e *StateExecutor) transitionChoice(transitions []*lower.Transition, enabled []int) (ChoicePoint, bool) {
 	if len(enabled) < 2 {
 		return ChoicePoint{}, false
 	}
@@ -5600,9 +5600,11 @@ func (e *StateExecutor) activeStates() []*ast.StateNode {
 	return nil
 }
 
+// checkStart refuses a machine declaring substates and no entry into them; one
+// declaring no substate has nothing to choose and is simply active.
 func (e *StateExecutor) checkStart() error {
 	if len(e.graph.TopRegions) == 0 {
-		if len(e.graph.StartOf(nil)) == 0 {
+		if len(e.graph.StartOf(nil)) == 0 && !e.declaresNoSubstate() {
 			return fmt.Errorf("%w in state machine %s", errNoInitialState, e.stateMachine.Name)
 		}
 		return nil
@@ -5613,6 +5615,17 @@ func (e *StateExecutor) checkStart() error {
 		}
 	}
 	return nil
+}
+
+// declaresNoSubstate reports a machine with no region and no substate but a
+// synthesized `done`: nothing to enter, so it is active in itself (§7.18.1).
+func (e *StateExecutor) declaresNoSubstate() bool {
+	if len(e.graph.TopRegions) != 0 {
+		return false
+	}
+	return !slices.ContainsFunc(e.graph.States, func(state *ast.StateNode) bool {
+		return !e.graph.Completes(state)
+	})
 }
 
 // initialize sets current state to initial state and enters it.
@@ -5678,7 +5691,8 @@ func (e *StateExecutor) enterMachineStart() error {
 	if err != nil {
 		return err
 	}
-	if e.state == StateTerminated {
+	// A machine declaring no substate stays active in itself: no state to enter.
+	if e.state == StateTerminated || start == nil {
 		return nil
 	}
 	e.setCurrentState(start)

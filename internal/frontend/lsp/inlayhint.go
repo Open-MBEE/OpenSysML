@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"context"
+	"strings"
 
 	"go.lsp.dev/protocol"
 
@@ -11,10 +12,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// InlayHint answers the hints of a range: the inferred type of each feature
-// declared without one, and the constant each non-literal feature value
-// evaluates to from the model alone. Only the declarations in the range are
-// read, so hints cost nothing until an editor asks for them.
+// InlayHint answers a range's hints: the types of each feature written without one and the
+// constant each non-literal value evaluates to, reading only the declarations in the range.
 func (s *Server) InlayHint(ctx context.Context, params *protocol.InlayHintParams) ([]protocol.InlayHint, error) {
 	name := uriToName(params.TextDocument.URI)
 	doc := s.document(name)
@@ -36,13 +35,13 @@ func (s *Server) InlayHint(ctx context.Context, params *protocol.InlayHintParams
 	}
 	for _, hint := range s.ws.FeatureHintsInDoc(name, syms) {
 		usage := hint.Symbol.Decl.(*ast.Usage)
-		if hint.Type != nil {
-			if at, ok := typeHintOffset(hint.Symbol, usage); ok {
+		if len(hint.Types) > 0 {
+			if at, ok := typeHintOffset(usage); ok {
 				add(protocol.InlayHint{
 					Position:    pos.position(at),
-					Label:       protocol.String(": " + typeName(hint.Type)),
+					Label:       protocol.String(": " + typeNames(hint.Types)),
 					Kind:        protocol.InlayHintKindType,
-					Tooltip:     protocol.String("inferred type " + s.ws.FQNOf(hint.Type)),
+					Tooltip:     protocol.String(s.typeHintTooltip(hint.Types, hint.FromValue)),
 					PaddingLeft: new(true),
 				})
 			}
@@ -57,6 +56,29 @@ func (s *Server) InlayHint(ctx context.Context, params *protocol.InlayHintParams
 		}
 	}
 	return out, nil
+}
+
+// typeHintTooltip says where a type hint comes from: the feature's own inherited
+// typing, or only the value it is bound to.
+func (s *Server) typeHintTooltip(types []*symbols.Symbol, fromValue bool) string {
+	names := make([]string, len(types))
+	for i, typ := range types {
+		names[i] = s.ws.FQNOf(typ)
+	}
+	list := strings.Join(names, ", ")
+	if fromValue {
+		return "type of the value: " + list
+	}
+	return "inherited type " + list
+}
+
+// typeNames writes types as a typing lists them.
+func typeNames(types []*symbols.Symbol) string {
+	names := make([]string, len(types))
+	for i, typ := range types {
+		names[i] = typeName(typ)
+	}
+	return strings.Join(names, ", ")
 }
 
 // inRange reports whether p lies in r, which like every LSP range includes its
@@ -97,7 +119,7 @@ func usagesIn(scope *symbols.Scope, want source.Span) []*symbols.Symbol {
 
 // typeHintOffset is where a type hint for the usage goes: after its declared
 // name, else after the redefinition or subsetting it takes its name from.
-func typeHintOffset(sym *symbols.Symbol, usage *ast.Usage) (int, bool) {
+func typeHintOffset(usage *ast.Usage) (int, bool) {
 	if usage.Ident.Name != "" && usage.Ident.NameSpan.Len > 0 {
 		return usage.Ident.NameSpan.End(), true
 	}

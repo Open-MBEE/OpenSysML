@@ -93,7 +93,7 @@ func taken(r *resolve.Resolver, sym *symbols.Symbol, newName string) (string, bo
 		return "", false
 	}
 	other, ok := r.LookupNameExcluding(sym.OwnerScope, newName, sym.Decl)
-	return otherThan(r, sym, other, ok)
+	return otherThan(sym, other, ok)
 }
 
 // capturedAt trial-reads the reference spelled newName: an alias or a qualifier reaching
@@ -117,7 +117,8 @@ func capturedAt(r *resolve.Resolver, sem *semantics.Model, sym *symbols.Symbol, 
 	} else if occ.Ref.Invocation != nil {
 		return calledInstead(r, sem, sym, occ, qn)
 	}
-	means, captured := otherThan(r, sym, other, ok)
+	// An unnamed feature read under sym's other identifier still names sym: no capture.
+	means, captured := otherThan(sym, other, ok && !symbols.SameElement(NameWritten(sem, other), sym))
 	return RenameConflict{Means: means}, captured
 }
 
@@ -134,7 +135,7 @@ func calledInstead(r *resolve.Resolver, sem *semantics.Model, sym *symbols.Symbo
 		runs = sym
 	}
 	called := sel.Called()
-	means, captured := otherThan(r, runs, called, called != nil)
+	means, captured := otherThan(runs, called, called != nil)
 	return RenameConflict{Means: means}, captured
 }
 
@@ -148,7 +149,7 @@ func respelled(qn *ast.QualifiedName, i int, name string) *ast.QualifiedName {
 }
 
 // otherThan names a lookup's result when it is an element other than sym.
-func otherThan(r *resolve.Resolver, sym, other *symbols.Symbol, ok bool) (string, bool) {
+func otherThan(sym, other *symbols.Symbol, ok bool) (string, bool) {
 	if !ok || symbols.SameElement(other, sym) {
 		return "", false
 	}

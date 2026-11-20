@@ -126,6 +126,16 @@ func (e *performances) writeFrameValue(perf *actionFrame, key string, value Valu
 	return e.holdOnOccurrence(perf, key, value)
 }
 
+// adoptOccurrence takes inst as the occurrence the run is, made outside the run's own
+// materialization, and holds the node performances begun before it.
+func (e *performances) adoptOccurrence(inst *Instance) error {
+	if e.occurrence != nil {
+		return nil
+	}
+	e.occurrence = inst
+	return e.holdNodeOccurrences(e.root)
+}
+
 // holdNodeOccurrences gives every performance under frame begun before the run had an
 // object the one it runs as, in the order they began.
 func (e *performances) holdNodeOccurrences(frame *actionFrame) error {

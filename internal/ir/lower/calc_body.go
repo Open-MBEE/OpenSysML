@@ -6,16 +6,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// CalcBody lowers the computation a calculation or case body states, in
-// declaration order and in the scope it was written in. A member stating no
-// computation — an input parameter, documentation, a nested definition — is
-// skipped. A result the body declares names the value answered with, not a
-// step, so it runs after the steps; a `return` inside a branch or loop stops
-// the body there. owner is the declaration whose body members are: a case's
-// body whose members include action nodes performs them as its steps, lowered
-// as one Block over the flow they state (caseSteps); a calc's does not.
-// Without a resolver the flow's `@Probability` annotations go unread, as in
-// ToActionGraph; a caller holding one uses CalcBodyWith.
+// CalcBody lowers the computation a calculation or case body states (CalcBodyWithOrder),
+// its flow's `@Probability` annotations unread for want of a resolver.
 func CalcBody(owner ast.Node, members []ast.Node, scope *symbols.Scope) []Statement {
 	return CalcBodyWith(owner, members, scope, nil)
 }
@@ -27,8 +19,8 @@ func CalcBodyWith(owner ast.Node, members []ast.Node, scope *symbols.Scope, reso
 	return body
 }
 
-// CalcBodyWithOrder lowers the body and its calculation-statement order, its
-// expressions interned in exprs: nil gives the statements no expression ids.
+// CalcBodyWithOrder lowers the body in declaration order with its statement order, results
+// after the steps; one stating a token flow is lowered as a case body is (caseSteps).
 func CalcBodyWithOrder(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable) ([]Statement, *StatementOrder) {
 	body := make([]ast.Node, 0, len(members))
 	for _, member := range members {
@@ -36,7 +28,9 @@ func CalcBodyWithOrder(owner ast.Node, members []ast.Node, scope *symbols.Scope,
 			body = append(body, actual)
 		}
 	}
-	if PerformsSteps(owner) && len(flowNodesAmong(body)) > 0 {
+	// A calculation is an action (SysML v2 §7.19.1), so a body stating successions
+	// or control nodes is the token flow an action body is.
+	if len(flowNodesAmong(body)) > 0 || statesControlFlow(body) {
 		stmts := caseSteps(owner, body, scope, resolver, exprs)
 		return stmts, nil
 	}
@@ -84,6 +78,142 @@ func calcBodyStep(member ast.Node, scope *symbols.Scope, resolver *resolve.Resol
 		}
 	}
 	return calcStep(member, scope, resolver, exprs)
+}
+
+// statesControlFlow reports whether a calculation body states a control node or
+// a succession at an action node: a flow no order of its statements expresses.
+func statesControlFlow(body []ast.Node) bool {
+	nodes := flowNodesAmong(body)
+	sequences := func(name *ast.QualifiedName, member ast.Node) bool {
+		if member != nil {
+			return isFlowNode(member)
+		}
+		return name != nil && len(name.Parts) == 1 && nodeAnswering(nodes, name.Parts[0].Text) != nil
+	}
+	for _, member := range body {
+		switch m := unwrapMembership(member).(type) {
+		case *ast.ControlFlowEdge, *ast.InitialNode, *ast.ForkNode, *ast.JoinNode,
+			*ast.MergeNode, *ast.DecisionNode, *ast.FinalNode:
+			return true
+		case *ast.SuccessionEdge:
+			if sequences(m.Source, m.SourceMember) || sequences(m.Target, m.TargetMember) {
+				return true
+			}
+		case *ast.TransitionMember:
+			if m.IsSuccession && (sequences(m.Source, nil) || sequences(m.Target, nil)) {
+				return true
+			}
+		case *ast.Usage:
+			if m.Kind != ast.UsageSuccession || len(m.ConnectorEnds) != 2 {
+				continue
+			}
+			for _, end := range m.ConnectorEnds {
+				if name, ok := connectorEndReference(end).(*ast.QualifiedName); ok && sequences(name, nil) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// StatesFlow reports whether a block among stmts, or an action node of one, states
+// at any depth a token flow or pin connector only a performance can run.
+func StatesFlow(stmts []Statement) bool {
+	stated := func(block Block) bool {
+		if block.Graph == nil {
+			return StatesFlow(block.Statements)
+		}
+		_, sequential := block.Graph.StatementList()
+		return block.Stated && !sequential || len(block.Graph.Bindings) > 0 || len(block.Graph.DataFlows) > 0 ||
+			nodeStatesFlow(block.Graph)
+	}
+	for _, stmt := range stmts {
+		switch s := stmt.(type) {
+		case If:
+			if stated(s.Then) || s.Else != nil && stated(*s.Else) {
+				return true
+			}
+		case Loop:
+			if stated(s.Body) {
+				return true
+			}
+		case Block:
+			if stated(s) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// flowBody reports whether steps are a body lowered as one Block over its flow.
+func flowBody(steps []Statement) bool {
+	for _, step := range steps {
+		if block, ok := step.(Block); ok && block.Graph != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// nodeStatesFlow reports whether an action node of graph states such a flow, in
+// its own body or in a block of it.
+func nodeStatesFlow(graph *ActionGraph) bool {
+	for _, node := range graph.Nodes {
+		if StatesFlow(graph.Bodies[node]) {
+			return true
+		}
+		sub := graph.Subflows[node]
+		if sub == nil || sub.Graph == nil {
+			continue
+		}
+		if _, sequential := sub.Graph.StatementList(); !sequential || nodeStatesFlow(sub.Graph) {
+			return true
+		}
+	}
+	return false
+}
+
+// PerformsActions reports whether stmts state, at any depth, a step only a performance
+// can take: an action node or `perform`, an accept to wait at, or a terminate to end one.
+func PerformsActions(stmts []Statement) bool {
+	within := func(block Block) bool {
+		if block.Graph == nil {
+			return PerformsActions(block.Statements)
+		}
+		if len(block.Graph.Accepts) > 0 {
+			return true
+		}
+		for _, node := range block.Graph.Nodes {
+			if _, usage := node.(*ast.Usage); usage && !block.Graph.StatementRuns[node] {
+				return true
+			}
+			if PerformsActions(block.Graph.Bodies[node]) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, stmt := range stmts {
+		switch s := stmt.(type) {
+		case Effect:
+			return true
+		case If:
+			if within(s.Then) || s.Else != nil && within(*s.Else) {
+				return true
+			}
+		case Loop:
+			if within(s.Body) {
+				return true
+			}
+		case Block:
+			if within(s) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // CalcSteps returns the statements an invocation performs, excluding bindings

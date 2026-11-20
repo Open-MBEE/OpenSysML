@@ -432,7 +432,7 @@ agent can discover the surface without this page.
 | `run_sweep` | Run an analysis case or calc once per row of a parameter sweep (the RunSweep RPC, the CLI's -sweep): each row an ordinary run with the swept parameters bound to that row's values, stepped through the ranges' cartesian product or drawn with samples and seed. | no |
 | `self_check` | Apply the SysMLValidation constraints, and those of any rule packages named, reflectively to every element of a model (the SelfCheck RPC, the CLI's -self-check and -self-check-package): each element is handed to every constraint whose input its metaclass conforms to. | no |
 | `server_info` | Report the OpenSysML runtime's version and the named capabilities this build supports. | no |
-| `symbol` | Describe one element of a parsed model by qualified name (the GetSymbol RPC): its kind, metadata, children, members (own, then inherited with the type each comes from; standard-library ones withheld unless asked for), attributes with their declared values, static type facts, multiplicity and specializations. | no |
+| `symbol` | Describe one element of a parsed model by qualified name or, with lookup, by a reported id (the GetSymbol RPC): its kind, metadata, children, members (own, then inherited with the type each comes from; standard-library ones withheld unless asked for), attributes with their declared values, static type facts, multiplicity and specializations. | no |
 | `validate_instance` | Validate an object of a part as a whole (the ValidateInstance RPC, the REPL's %validate): every assertion about an object of symbolId and about the objects it holds — asserted constraints of their types, the requirements they carry, the satisfactions they are the subject of — each answered on the concrete object, with a `summary` verdict about the object as a whole. | no |
 | `verify_constraint` | Ask whether a constraint holds (the VerifyConstraint RPC, the REPL's %constraint): against its declared values, or against an object of subjectSymbolId built for the call. | no |
 | `verify_requirement` | Ask whether a requirement is satisfied (the VerifyRequirement RPC, the REPL's %requirement): its require constraints evaluated against declared values or against an object of subjectSymbolId. | no |
@@ -765,7 +765,7 @@ token, and client scopes named after the server's scopes with *Include in token 
 | `-root DIR` | `.` | Workspace folder whose model documents the server indexes and edits |
 | `-tools GROUPS` | `all` | Tool groups to serve, comma-separated: `lsp`, `runtime`, `session` |
 | `-strict` | off | Strict conformance from the start: notation no pinned SysML v2 production admits is an error |
-| `-no-record-cache` | off | Parse every document and hold it loaded, reading and writing no interface record (also `OPENSYSML_RECORD_CACHE=0`) |
+| `-no-record-cache` | off | Parse every document and hold it loaded, reading and writing no interface record, and analyze every model the runtime tools parse, reading and writing no model record (also `OPENSYSML_RECORD_CACHE=0`) |
 | `-cache-size N` | `100` | Parsed models the runtime tools hold, at least 1 |
 | `-log-level LEVEL` | `warn` | Lowest level logged to stderr: `debug`, `info`, `warn` or `error` |
 | `-stdio` | — | Serve over stdin/stdout; the default transport, accepted for hosts that name it; not with `-http` |

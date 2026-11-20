@@ -303,8 +303,8 @@ type Context struct {
 	sharedTaken    int64
 	// verdicts is the span sharing verdicts between objects of one shape; nil outside one.
 	verdicts *verdictMemo
-	// exemplars are the objects `this` denotes in the check about no object under way (exemplar.go).
-	exemplars *exemplars
+	// checkObjects are the objects the innermost check under way made for itself (constructed_objects.go).
+	checkObjects *checkObjects
 	// behaviorsAttached counts the object behaviors attached so far, so a
 	// derivation knows whether one was attached under it.
 	behaviorsAttached int64
@@ -357,6 +357,9 @@ type Context struct {
 	// clockRun the run an advance of it draws its due-order choices from.
 	clock    Clock
 	clockRun executorRun
+	// advance is the advance of the clock under way, nil outside one: where a
+	// behavior that fails while it runs is noted for the advance to report.
+	advance *clockAdvance
 	// futures memoizes what each executor on the clock may still touch, for
 	// telling the turns whose moves interleave.
 	futures *futureFootprints
@@ -364,6 +367,8 @@ type Context struct {
 	// quiescent is the memo a full scan leaves when it finds them all idle.
 	work      uint64
 	quiescent quiescence
+	// holding is the memo a full scan leaves when it finds some holding work.
+	holding heldWork
 	// held counts the behaviors that entered held on a succession; noneHeld is
 	// the memo the cycle check leaves when it finds none held at that count.
 	held     uint64
@@ -806,8 +811,8 @@ type runState struct {
 	performers []*Instance
 	// scheduler is the resolutions the run's choices draw from (scheduler.go).
 	scheduler *scheduler
-	// calcUsageRuns holds, per activation under way, the evaluation of each calc
-	// usage read in it, so its outputs answer from one run of the body (calc_usage.go).
+	// calcUsageRuns holds, per activation under way, each calc usage's one evaluation
+	// its outputs answer from (calc_usage.go); nil until the run evaluates one.
 	calcUsageRuns map[int64]map[calcUsageKey]*calcRun
 	// extentCandidates holds, per type an extent was taken of, the namespace usages
 	// that may hold one (extent.go).
@@ -823,10 +828,7 @@ func (r *runState) notePerformer(w clockWaiter) {
 
 // newRunState is the state a run starts with, under the schedule policy set now.
 func (ctx *Context) newRunState() *runState {
-	return &runState{
-		scheduler:     ctx.newScheduler(),
-		calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
-	}
+	return &runState{scheduler: ctx.newScheduler()}
 }
 
 // enterRun brackets one call of the run with this state: a top-level call installs
@@ -848,21 +850,28 @@ func (ctx *Context) leaveRun() {
 // starts on a fresh state, so the budget bounds one run, not a whole session.
 // An enclosing body does not drive this run; its own token bodies may pause on waits.
 func (ctx *Context) beginRun() func() {
-	leave := ctx.nestRun()
-	restore := ctx.syncBoundary()
+	ctx.enterNestedRun()
+	outer := ctx.body
+	ctx.body = nil
 	return func() {
-		restore()
-		leave()
+		ctx.body = outer
+		ctx.runDepth--
 	}
 }
 
 // nestRun is beginRun for a run the body on the stack pauses for: a nested action
 // performed from a body, whose waits pause the body.
 func (ctx *Context) nestRun() func() {
-	if ctx.runDepth > 0 {
-		return ctx.enterRun(ctx.run)
+	ctx.enterNestedRun()
+	return ctx.leaveRun
+}
+
+// enterNestedRun enters the run under way, else a fresh one; leaveRun ends the call.
+func (ctx *Context) enterNestedRun() {
+	if ctx.runDepth == 0 {
+		ctx.run = ctx.newRunState()
 	}
-	return ctx.enterRun(ctx.newRunState())
+	ctx.runDepth++
 }
 
 // executorRun is a run driven call by call: its state, nil until its first call

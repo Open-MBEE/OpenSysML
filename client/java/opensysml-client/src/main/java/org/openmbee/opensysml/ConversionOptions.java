@@ -29,6 +29,11 @@ import java.util.Optional;
  * @param includeCheckDiagnostics report the semantic check's diagnostics in {@link
  *     Conversion#diagnostics()} beside the output, each with its severity; notation sources only;
  *     needs the {@code convert_check_diagnostics} capability
+ * @param inheritedMembers also write, in {@code "api-json"}, the derived lists that repeat each
+ *     Namespace's and Type's inherited and imported members ({@code membership}, {@code member},
+ *     {@code inheritedMembership}, {@code featureMembership}, {@code feature}, {@code
+ *     inheritedFeature}); by default an element carries its owned structure; needs the {@code
+ *     convert_inherited_members} capability
  */
 public record ConversionOptions(
     Optional<String> fromFormat,
@@ -38,7 +43,8 @@ public record ConversionOptions(
     boolean compact,
     boolean omitDerived,
     List<String> keepDerived,
-    boolean includeCheckDiagnostics) {
+    boolean includeCheckDiagnostics,
+    boolean inheritedMembers) {
 
   /** Qualified-name derived ids, the default. */
   public static final String ID_FORM_QUALIFIED = "qualified";
@@ -57,11 +63,45 @@ public record ConversionOptions(
    * @param omitDerived whether derived properties are left out of the compact document
    * @param keepDerived the derived properties still written when they are left out
    * @param includeCheckDiagnostics whether the check's diagnostics are reported
+   * @param inheritedMembers whether the inherited member lists are written in API JSON
    */
   public ConversionOptions {
     Objects.requireNonNull(fromFormat, "fromFormat");
     Objects.requireNonNull(idForm, "idForm");
     keepDerived = List.copyOf(Objects.requireNonNull(keepDerived, "keepDerived"));
+  }
+
+  /**
+   * Options with owned structure alone written in API JSON.
+   *
+   * @param fromFormat the source format, when named
+   * @param tolerateSyntaxErrors whether unreadable notation is still written back
+   * @param idForm the derived-id form, when named
+   * @param includeLibraryStubs whether library stubs are restored in API JSON
+   * @param compact whether the compact API JSON document is written
+   * @param omitDerived whether derived properties are left out of the compact document
+   * @param keepDerived the derived properties still written when they are left out
+   * @param includeCheckDiagnostics whether the check's diagnostics are reported
+   */
+  public ConversionOptions(
+      Optional<String> fromFormat,
+      boolean tolerateSyntaxErrors,
+      Optional<String> idForm,
+      boolean includeLibraryStubs,
+      boolean compact,
+      boolean omitDerived,
+      List<String> keepDerived,
+      boolean includeCheckDiagnostics) {
+    this(
+        fromFormat,
+        tolerateSyntaxErrors,
+        idForm,
+        includeLibraryStubs,
+        compact,
+        omitDerived,
+        keepDerived,
+        includeCheckDiagnostics,
+        false);
   }
 
   /**
@@ -127,7 +167,8 @@ public record ConversionOptions(
         compact,
         omitDerived,
         keepDerived,
-        includeCheckDiagnostics);
+        includeCheckDiagnostics,
+        inheritedMembers);
   }
 
   /**
@@ -145,7 +186,8 @@ public record ConversionOptions(
         compact,
         omitDerived,
         keepDerived,
-        includeCheckDiagnostics);
+        includeCheckDiagnostics,
+        inheritedMembers);
   }
 
   /**
@@ -163,7 +205,8 @@ public record ConversionOptions(
         compact,
         omitDerived,
         keepDerived,
-        includeCheckDiagnostics);
+        includeCheckDiagnostics,
+        inheritedMembers);
   }
 
   /**
@@ -181,7 +224,8 @@ public record ConversionOptions(
         compact,
         omitDerived,
         keepDerived,
-        includeCheckDiagnostics);
+        includeCheckDiagnostics,
+        inheritedMembers);
   }
 
   /**
@@ -199,7 +243,8 @@ public record ConversionOptions(
         compact,
         omitDerived,
         keepDerived,
-        includeCheckDiagnostics);
+        includeCheckDiagnostics,
+        inheritedMembers);
   }
 
   /**
@@ -217,7 +262,8 @@ public record ConversionOptions(
         compact,
         omitDerived,
         keepDerived,
-        includeCheckDiagnostics);
+        includeCheckDiagnostics,
+        inheritedMembers);
   }
 
   /**
@@ -235,7 +281,8 @@ public record ConversionOptions(
         compact,
         omitDerived,
         keepDerived,
-        includeCheckDiagnostics);
+        includeCheckDiagnostics,
+        inheritedMembers);
   }
 
   /**
@@ -253,6 +300,26 @@ public record ConversionOptions(
         compact,
         omitDerived,
         keepDerived,
-        includeCheckDiagnostics);
+        includeCheckDiagnostics,
+        inheritedMembers);
+  }
+
+  /**
+   * The same options, writing the inherited member lists in API JSON or not.
+   *
+   * @param inheritedMembers whether the inherited member lists are written
+   * @return options with that choice
+   */
+  public ConversionOptions withInheritedMembers(boolean inheritedMembers) {
+    return new ConversionOptions(
+        fromFormat,
+        tolerateSyntaxErrors,
+        idForm,
+        includeLibraryStubs,
+        compact,
+        omitDerived,
+        keepDerived,
+        includeCheckDiagnostics,
+        inheritedMembers);
   }
 }

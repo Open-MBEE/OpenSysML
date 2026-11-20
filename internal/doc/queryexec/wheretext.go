@@ -30,7 +30,8 @@ func (e *executor) evaluateWhereText(expression queryplan.Expression) (sequence,
 	if err != nil {
 		return sequence{}, err
 	}
-	if compareErr := validateTextComparison(operator, expected); compareErr != nil {
+	comparison, compareErr := newTextComparison(operator, expected)
+	if compareErr != nil {
 		if compareErr != errComparison {
 			return sequence{}, e.invalidArgument(expression, "value", expected)
 		}
@@ -47,7 +48,7 @@ func (e *executor) evaluateWhereText(expression queryplan.Expression) (sequence,
 				continue
 			}
 			for _, value := range source.cells[i][column].values {
-				match, compareErr := compareText(e.valueText(value), operator, expected)
+				match, compareErr := comparison.text(e.valueText(value))
 				if compareErr != nil {
 					return sequence{}, e.operatorError(expression, operator)
 				}

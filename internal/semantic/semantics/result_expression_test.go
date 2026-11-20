@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"strings"
 	"testing"
 
@@ -93,6 +94,12 @@ func TestResultExpressionSecondStatedIsAMembership(t *testing.T) {
 	}
 	if conflict := m.ResultExpressionConflict(d); conflict == nil || conflict.Stated != 0 || conflict.Node != d.Decl {
 		t.Fatalf("inheriting two faults the declaration, got %+v", conflict)
+	}
+	if got := m.ResultExpressionConflict(d).Written(); got != d.Decl.Span() {
+		t.Errorf("the conflict is written at %v, want D's declaration %v", got, d.Decl.Span())
+	}
+	if got := (*ResultExpressionConflict)(nil).Written(); got != (source.Span{}) {
+		t.Errorf("no conflict is written at %v", got)
 	}
 }
 

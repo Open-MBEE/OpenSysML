@@ -1,0 +1,7 @@
+{
+	"rpc": "GetSymbol",
+	"model": "symbol_lookup_connector_end.sysml",
+	"symbol_id": "Col__V__c_pend0",
+	"expected_id": "Col_5f_5fV_5f_5fc_5fpend0",
+	"expected_kind": "package"
+}

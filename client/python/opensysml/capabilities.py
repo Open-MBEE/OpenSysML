@@ -128,6 +128,14 @@ CAPABILITY_SYMBOL_NAME_RESOLUTION = "symbol_name_resolution"
 #: annotating a symbol; without it an annotated element reports none.
 CAPABILITY_SYMBOL_ANNOTATING_METADATA = "symbol_annotating_metadata"
 
+#: ``lookup`` on GetSymbol and GetElementProperties is honoured: a name read only as a name, an id
+#: only as an id. Without it one string is read name first, so a name can shadow a generated id.
+CAPABILITY_SYMBOL_LOOKUP_KIND = "symbol_lookup_kind"
+
+#: ``GetSymbolRequest.member_of`` honoured: ``metadata["direction"]`` is relative
+#: to the type the symbol is read through, reversed through a conjugated port.
+CAPABILITY_SYMBOL_MEMBER_DIRECTION = "symbol_member_direction"
+
 #: The ``GetElementProperties`` RPC: the metamodel properties of one element by
 #: their specification names, as the model's API element form spells them.
 #: Without it the service refuses the call with ``UNIMPLEMENTED``.
@@ -314,6 +322,11 @@ CAPABILITY_ENGINES = "engines"
 #: :class:`opensysml.Undetermined`; without it such a result crosses as an unsupported null.
 CAPABILITY_UNDETERMINED_VALUE = "undetermined_value"
 
+#: A coordinate frame as ``Value.coordinate_frame`` and a coordinate transformation as
+#: ``Value.coordinate_transformation``, read as :class:`opensysml.CoordinateFrame` and
+#: :class:`opensysml.CoordinateTransformation`; without it each crosses as an unsupported null.
+CAPABILITY_COORDINATE_FRAME_VALUES = "coordinate_frame_values"
+
 #: An Integer beyond int64 as ``Value.big_int_value``, ``Quantity.big_int_magnitude`` and
 #: ``DocumentValue.big_int_value``; a service without it reads one sent to it as null.
 CAPABILITY_BIG_INT_VALUES = "big_int_values"
@@ -341,6 +354,10 @@ CAPABILITY_CONVERT_LIBRARY_REFERENCES = "convert_library_references"
 #: ``ConvertRequest.include_library_stubs``: api-json written with the ownerless library stubs
 #: of releases before 0.11.0 restored.
 CAPABILITY_CONVERT_LIBRARY_STUBS = "convert_library_stubs"
+
+#: ``ConvertRequest.inherited_members``: api-json written with the derived lists that repeat each
+#: Namespace's and Type's inherited and imported members; a service without it always writes them.
+CAPABILITY_CONVERT_INHERITED_MEMBERS = "convert_inherited_members"
 
 #: ``ParseSourcesRequest.base_model_hash`` and ``ParseSourcesResponse.affected``: the documents
 #: whose results may differ from the base model's, so a client re-reads only those after an edit.

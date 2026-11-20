@@ -19,7 +19,7 @@ func TestCompositeStateHandlesEventItsSubstateDoesNot(t *testing.T) {
 				transition first Step1 accept next then Step2;
 			}
 			state Done;
-			succession first start then Step1;
+			succession first start then Working.Step1;
 			transition first Working accept abort then Done;
 		}
 	}`)
@@ -47,7 +47,7 @@ func TestFalseGuardInsideACompositeStateFallsOutward(t *testing.T) {
 				transition first Step1 accept abort if ready then Step2;
 			}
 			state Done;
-			succession first start then Step1;
+			succession first start then Working.Step1;
 			transition first Working accept abort then Done;
 		}
 	}`)
@@ -78,7 +78,7 @@ func TestTransitionOutOfAnIntermediateCompositeStateKeepsItsOwnerActive(t *testi
 				state Recovered;
 				transition first Middle accept abort then Recovered;
 			}
-			succession first start then Inner;
+			succession first start then Outer.Middle.Inner;
 			transition first Outer accept shutdown then Done;
 			state Done;
 		}
@@ -109,7 +109,7 @@ func TestOuterCompositeStateStillHandlesItsEventAfterASubstateMoved(t *testing.T
 				state Recovered;
 				transition first Middle accept abort then Recovered;
 			}
-			succession first start then Inner;
+			succession first start then Outer.Middle.Inner;
 			transition first Outer accept shutdown then Done;
 			state Done;
 		}
@@ -137,7 +137,7 @@ func TestEventNoLevelAcceptsLeavesTheConfigurationAlone(t *testing.T) {
 				transition first Step1 accept next then Step2;
 			}
 			state Done;
-			succession first start then Step1;
+			succession first start then Working.Step1;
 			transition first Working accept abort then Done;
 		}
 	}`)
@@ -167,7 +167,7 @@ func TestOneEventTakesOneTransitionPerActiveLeaf(t *testing.T) {
 			state Idle;
 			state Done;
 			succession first start then Working::Step1;
-			transition first Step1 accept e then Idle;
+			transition first Working.Step1 accept e then Idle;
 			transition first Idle accept e then Done;
 		}
 	}`
@@ -246,7 +246,7 @@ func TestChangeConditionOnACompositeStateFiresWhileASubstateIsActive(t *testing.
 				accept when ready then Done;
 			}
 			state Done;
-			succession first start then Step1;
+			succession first start then Working.Step1;
 		}
 	}`)
 

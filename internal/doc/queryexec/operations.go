@@ -2,6 +2,7 @@ package queryexec
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"regexp"
 	"slices"
@@ -423,7 +424,8 @@ func (e *executor) evaluateWhereName(expression queryplan.Expression) (sequence,
 	if err != nil {
 		return sequence{}, err
 	}
-	if compareErr := validateTextComparison(operator, expected); compareErr != nil {
+	comparison, compareErr := newTextComparison(operator, expected)
+	if compareErr != nil {
 		if compareErr != errComparison {
 			return sequence{}, e.invalidArgument(expression, "value", expected)
 		}
@@ -439,11 +441,8 @@ func (e *executor) evaluateWhereName(expression queryplan.Expression) (sequence,
 			continue
 		}
 		name, _ := names[0].String()
-		match, compareErr := compareText(name, operator, expected)
+		match, compareErr := comparison.text(name)
 		if compareErr != nil {
-			if compareErr != errComparison {
-				return sequence{}, e.invalidArgument(expression, "value", expected)
-			}
 			return sequence{}, e.operatorError(expression, operator)
 		}
 		if match {
@@ -470,7 +469,8 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 	if err != nil {
 		return sequence{}, err
 	}
-	if compareErr := validateFeatureComparison(operator, expected); compareErr != nil {
+	comparison, compareErr := newFeatureComparison(operator, expected)
+	if compareErr != nil {
 		if compareErr != errComparison {
 			return sequence{}, e.invalidArgument(expression, "value", expected)
 		}
@@ -505,7 +505,7 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 		}
 		known = known || present
 		for _, actual := range values {
-			match, compareErr := e.compareValue(actual, operator, expected)
+			match, compareErr := e.compareValue(actual, comparison)
 			if compareErr != nil {
 				if compareErr != errComparison {
 					return sequence{}, e.invalidArgument(expression, "value", expected)
@@ -859,9 +859,11 @@ type projection struct {
 	properties []string
 	computed   []computedColumn
 	tolerate   bool
-	tracker    *propertyTracker
-	known      []bool
-	missing    [][]*Error
+	// tolerateUnevaluable names the properties whose cell stays empty when a feature cannot be evaluated.
+	tolerateUnevaluable map[string]bool
+	tracker             *propertyTracker
+	known               []bool
+	missing             [][]*Error
 	// wildcard marks the properties a wildcard expanded to, which a row may
 	// lack and no row need carry.
 	wildcard []bool
@@ -892,6 +894,16 @@ func (e *executor) newProjection(expression queryplan.Expression) (*projection, 
 	if p.tolerate, err = e.tolerateArgument(expression); err != nil {
 		return nil, err
 	}
+	if hasArgument(expression, queryplan.ArgumentTolerateUnevaluable) {
+		names, err := e.stringsArgument(expression, queryplan.ArgumentTolerateUnevaluable)
+		if err != nil {
+			return nil, err
+		}
+		p.tolerateUnevaluable = make(map[string]bool, len(names))
+		for _, name := range names {
+			p.tolerateUnevaluable[name] = true
+		}
+	}
 	seen := make(map[string]bool, total)
 	for _, property := range p.properties {
 		seen[property] = true
@@ -918,6 +930,8 @@ func (p *projection) cells(value Value) ([]Cell, error) {
 			if (p.tolerate || (p.wildcard != nil && p.wildcard[column])) && unserved(err) {
 				// A wildcard projects what the evaluator serves; tolerated, an
 				// unserved property is an empty cell.
+				values, present, err = nil, false, nil
+			} else if p.tolerateUnevaluable[property] && unevaluableFeature(err) {
 				values, present, err = nil, false, nil
 			} else {
 				return nil, p.e.unevaluable(p.expression, property, value, err)
@@ -946,6 +960,13 @@ func (p *projection) cells(value Value) ([]Cell, error) {
 func unserved(err error) bool {
 	var failure *Error
 	return errors.As(err, &failure) && failure.Kind == ErrorUnservedProperty
+}
+
+// unevaluableFeature reports the error of a feature the model declares whose
+// value could not be evaluated.
+func unevaluableFeature(err error) bool {
+	var failure *Error
+	return errors.As(err, &failure) && failure.Kind == ErrorUnevaluableFeature
 }
 
 // checkProperties reports, once every row is read, a property no row carried
@@ -990,7 +1011,11 @@ func (e *executor) propertyValues(row Value, property string) ([]Value, bool, er
 	}
 	segments, ok := parseMemberPath(property)
 	if ok && len(segments) > 1 {
-		values, present, _, err = e.memberPathValues(sym, segments)
+		var overflow *memberOverflow
+		values, present, overflow, err = e.memberPathValues(sym, segments)
+		if err == nil && overflow != nil {
+			err = fmt.Errorf("%s holds %d values, more than its multiplicity admits", property, overflow.count)
+		}
 		if present || err != nil {
 			return values, present, err
 		}
@@ -1129,7 +1154,30 @@ func (e *executor) propertyValuesBeforeMemberPath(row Value, property string) ([
 	if values, present, err := e.metadataPathValues(sym, property); present || err != nil {
 		return values, present, err
 	}
+	if values, present := e.verifyEndValues(sym, property); present {
+		return values, true, nil
+	}
 	return e.metaclassPropertyValues(sym, property)
+}
+
+// verifyEndValues reads verifiedRequirement or verifyingCase of a `verify`, whose own metaclass
+// declares neither; present only for such a row with the end resolved.
+func (e *executor) verifyEndValues(sym *symbols.Symbol, property string) ([]Value, bool) {
+	if property != query.PropertyVerifiedRequirement && property != query.PropertyVerifyingCase {
+		return nil, false
+	}
+	ends, ok := e.context.Model.VerifyEndsOf(sym)
+	if !ok {
+		return nil, false
+	}
+	end := ends.Case
+	if property == query.PropertyVerifiedRequirement {
+		end = ends.Requirement
+	}
+	if end == nil {
+		return nil, false
+	}
+	return reflectiveElementValues(sym, []*symbols.Symbol{end}), true
 }
 
 // declaredFeatureValues reads a declared (non-metadata) feature of a row.
@@ -1153,6 +1201,10 @@ func (e *executor) declaredFeatureValues(sym *symbols.Symbol, property string) (
 				return derived, true, err
 			}
 			return nil, true, e.featureError(queryplan.Expression{}, property, ElementValue(sym))
+		}
+		if quantity, ok := converted.Quantity(); ok {
+			held := QuantityHeldAs(quantity, e.context.Model.DeclaredQuantityValueType(sym, property))
+			converted = valueAt(held, converted.Origin())
 		}
 		result = append(result, converted)
 	}
@@ -1215,7 +1267,8 @@ func isQueryableProperty(property string) bool {
 		query.PropertyIsIndividual,
 		query.PropertyMultiplicityLower,
 		query.PropertyMultiplicityUpper,
-		query.PropertyElementID:
+		query.PropertyElementID,
+		query.PropertySymbolKind:
 		return true
 	default:
 		return false
@@ -1289,53 +1342,56 @@ const (
 	opEndsWith   = "ends-with"
 )
 
-func compareText(actual, operator, expected string) (bool, error) {
+// comparison is one written comparison, its `matches` pattern compiled once for every row.
+type comparison struct {
+	operator string
+	expected string
+	pattern  *regexp.Regexp
+}
+
+// newTextComparison reads a comparison of text; errComparison names an operator text does not take.
+func newTextComparison(operator, expected string) (comparison, error) {
+	c := comparison{operator: operator, expected: expected}
 	switch operator {
-	case "=", "==":
-		return actual == expected, nil
-	case "!=", "<>":
-		return actual != expected, nil
-	case "contains":
-		return strings.Contains(actual, expected), nil
-	case "startsWith", opStartsWith:
-		return strings.HasPrefix(actual, expected), nil
-	case "endsWith", opEndsWith:
-		return strings.HasSuffix(actual, expected), nil
+	case "=", "==", "!=", "<>", "contains", "startsWith", opStartsWith, "endsWith", opEndsWith:
+		return c, nil
 	case "matches":
-		expression, err := regexp.Compile(expected)
-		if err != nil {
-			return false, err
-		}
-		return expression.MatchString(actual), nil
+		pattern, err := regexp.Compile(expected)
+		c.pattern = pattern
+		return c, err
 	default:
-		return false, errComparison
+		return c, errComparison
 	}
 }
 
-func validateTextComparison(operator, expected string) error {
+// newFeatureComparison reads a comparison of a feature's values, which also takes the ordering operators.
+func newFeatureComparison(operator, expected string) (comparison, error) {
 	switch operator {
-	case "=", "==", "!=", "<>", "contains", "startsWith", opStartsWith, "endsWith", opEndsWith:
-		return nil
-	case "matches":
-		_, err := regexp.Compile(expected)
-		return err
-	default:
-		return errComparison
-	}
-}
-
-func validateFeatureComparison(operator, expected string) error {
-	switch operator {
-	case "=", "==", "!=", "<>", "contains", "startsWith", opStartsWith, "endsWith", opEndsWith:
-		return nil
-	case "matches":
-		_, err := regexp.Compile(expected)
-		return err
 	case "<", "<=", ">", ">=":
 		_, err := parseNumericValue(expected)
-		return err
+		return comparison{operator: operator, expected: expected}, err
 	default:
-		return errComparison
+		return newTextComparison(operator, expected)
+	}
+}
+
+// text reports whether actual satisfies the comparison; an ordering operator holds of no text.
+func (c comparison) text(actual string) (bool, error) {
+	switch c.operator {
+	case "=", "==":
+		return actual == c.expected, nil
+	case "!=", "<>":
+		return actual != c.expected, nil
+	case "contains":
+		return strings.Contains(actual, c.expected), nil
+	case "startsWith", opStartsWith:
+		return strings.HasPrefix(actual, c.expected), nil
+	case "endsWith", opEndsWith:
+		return strings.HasSuffix(actual, c.expected), nil
+	case "matches":
+		return c.pattern.MatchString(actual), nil
+	default:
+		return false, errComparison
 	}
 }
 
@@ -1347,25 +1403,25 @@ func (*comparisonError) Error() string { return "unsupported comparison" }
 
 // compareValue compares one value as WhereFeature does: an element by its cell name or,
 // when the written value is qualified, its qualified name; an expression by its written text.
-func (e *executor) compareValue(actual Value, operator, expected string) (bool, error) {
-	if sym, ok := actual.Element(); ok && (sym.Expr != nil || !strings.Contains(expected, "::")) {
-		return compareText(e.valueText(actual), operator, expected)
+func (e *executor) compareValue(actual Value, c comparison) (bool, error) {
+	if sym, ok := actual.Element(); ok && (sym.Expr != nil || !strings.Contains(c.expected, "::")) {
+		return c.text(e.valueText(actual))
 	}
-	return compareValue(actual, operator, expected)
+	return compareValue(actual, c)
 }
 
-func compareValue(actual Value, operator, expected string) (bool, error) {
+func compareValue(actual Value, c comparison) (bool, error) {
 	switch actual.Kind() {
 	case ValueString:
 		value, _ := actual.String()
-		return compareText(value, operator, expected)
+		return c.text(value)
 	case ValueBoolean:
 		value, _ := actual.Boolean()
-		want, err := strconv.ParseBool(expected)
+		want, err := strconv.ParseBool(c.expected)
 		if err != nil {
 			return false, err
 		}
-		switch operator {
+		switch c.operator {
 		case "=", "==":
 			return value == want, nil
 		case "!=", "<>":
@@ -1374,22 +1430,22 @@ func compareValue(actual Value, operator, expected string) (bool, error) {
 			return false, errComparison
 		}
 	case ValueInteger, ValueRational, ValueReal, ValueInfinity:
-		want, err := parseNumericValue(expected)
+		want, err := parseNumericValue(c.expected)
 		if err != nil {
 			return false, err
 		}
-		return compareOrdinal(compareNumeric(actual, want), operator)
+		return compareOrdinal(compareNumeric(actual, want), c.operator)
 	case ValueQuantity:
 		// A bare number compares against the magnitude in the quantity's own unit.
 		magnitude, _ := actual.Magnitude()
-		return compareValue(magnitude, operator, expected)
+		return compareValue(magnitude, c)
 	case ValueElement:
 		sym, _ := actual.Element()
-		return compareText(symbols.FQNOf(sym), operator, expected)
+		return c.text(symbols.FQNOf(sym))
 	case ValueObject:
 		// An object compares by the path it is held under.
 		_, label, _ := actual.Object()
-		return compareText(label, operator, expected)
+		return c.text(label)
 	default:
 		return false, errComparison
 	}

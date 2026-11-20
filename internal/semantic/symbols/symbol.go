@@ -226,6 +226,12 @@ func (k SymbolKind) String() string {
 	return "unknown"
 }
 
+// Named reports whether the kind is a known one with a display name of its own.
+func (k SymbolKind) Named() bool {
+	_, ok := symbolKindNames[k]
+	return ok && k != SymbolUnknown
+}
+
 // Family names the kind by its keyword, without the def/usage distinction: SymbolActionDef, SymbolActionUsage
 // and every action-node kind are "action", SymbolUseCaseDef "use case", SymbolSuccessionFlowUsage "flow".
 func (k SymbolKind) Family() string {

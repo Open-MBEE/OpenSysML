@@ -311,7 +311,6 @@ elmt:Documented__Hub_conjugated
     sysml:elementId "Documented__Hub_conjugated" ;
     sysml:qualifiedName "Documented::Hub::'~Hub'" ;
     sysx:mappingQualifiedName "Documented::Hub::'~Hub'" ;
-    sysml:declaredName "~Hub" ;
     sysml:owner elmt:Documented__Hub ;
     sysml:owningRelationship elmt:Documented__Hub_conjugated_om ;
     sysml:owningMembership elmt:Documented__Hub_conjugated_om ;

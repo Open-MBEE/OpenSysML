@@ -9,8 +9,10 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.openmbee.opensysml.Connection;
+import org.openmbee.opensysml.Lookup;
 import org.openmbee.opensysml.Model;
 import org.openmbee.opensysml.Symbol;
+import org.openmbee.opensysml.SymbolOptions;
 
 // A library package is bundled when an empty model already resolves it: the service's libraries
 // are the only names an empty model has. The empty model is parsed afresh for each new name, so
@@ -41,7 +43,7 @@ public final class ServiceLibraries implements BundledLibraries {
         while (!pending.isEmpty()) {
             for (String id : pending.pop().childIds()) {
                 if (!id.startsWith(prefix) || !names.add(id.substring(prefix.length()))) continue;
-                model.findSymbol(id).ifPresent(pending::push);
+                model.findSymbol(id, SymbolOptions.defaults().lookup(Lookup.ELEMENT_ID)).ifPresent(pending::push);
             }
         }
         return names;

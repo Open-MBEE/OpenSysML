@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -100,7 +100,7 @@ type Pin struct {
 // the element: the expression, the scope it is read in, and the error reading
 // it where the evaluator could not materialize it.
 type Derived struct {
-	Expr  ast.Node
+	Expr  *lower.ExprEntry
 	Scope *symbols.Scope
 	Err   error
 }
@@ -388,7 +388,7 @@ func heldBy(ctx *runtime.Context, feat *runtime.EffectiveFeature, inst, held *ru
 	if held != nil {
 		return held, feat.Name
 	}
-	if inst == nil || inst.Type == nil || (feat.DefaultValue != nil && feat.DefaultDecl == feat.Symbol) {
+	if inst == nil || inst.Type == nil || (feat.DefaultValueID != 0 && feat.DefaultDecl == feat.Symbol) {
 		return nil, ""
 	}
 	for _, redefined := range ctx.Semantics().AllRedefinedFeatures(feat.Symbol) {
@@ -453,10 +453,10 @@ func fixedValue(
 			}
 		}
 	}
-	if feat.DefaultValue == nil {
+	if feat.DefaultValueID == 0 {
 		return runtime.Value{}, PinDeclared, 0, nil
 	}
-	value, err := ctx.EvalWithScopeOn(feat.DefaultValue, feat.DefaultScope(), inst)
+	value, err := ctx.EvalEntryOn(ctx.ExprEntry(feat.DefaultValueID), feat.DefaultScope(), inst)
 	if err != nil {
 		return runtime.Value{}, PinDeclared, 0, err
 	}
@@ -473,7 +473,7 @@ func fixedValue(
 // solver, so the value the evaluator derives from them is what the query fixes.
 // A unit (`[m]`) is a measurement reference, not a value read.
 func derivedDeclaration(ctx *runtime.Context, feat *runtime.EffectiveFeature, inst, held *runtime.Instance, features map[string]*symbols.Symbol, all []runtime.EffectiveFeature) *Derived {
-	if feat.DefaultValue == nil || ctx.IsVariationFeature(feat) {
+	if feat.DefaultValueID == 0 || ctx.IsVariationFeature(feat) {
 		return nil
 	}
 	if held, name := heldBy(ctx, feat, inst, held); held != nil {
@@ -482,39 +482,32 @@ func derivedDeclaration(ctx *runtime.Context, feat *runtime.EffectiveFeature, in
 		}
 	}
 	reads, outside := false, false
-	var visit func(n ast.Node) bool
-	visit = func(n ast.Node) bool {
-		switch ref := n.(type) {
-		case *ast.IndexExpr:
-			if ref.Bracket {
-				ast.Inspect(ref.Operand, visit)
-				return false
-			}
-		case *ast.FeatureChainExpr:
+	value := ctx.ExprEntry(feat.DefaultValueID)
+	value.Reads(func(segments []string, chain, ok bool) bool {
+		switch {
+		case chain:
 			// A chain rooted in a feature no object is held for (`s.amount` through the subject, a
 			// parameter by SysML v2 §7.21.2) reads a value the query leaves free: `=` binds feat to it (KerML 1.1 §7.3.4.5).
-			if segments, ok := pathSegments(ref); ok && chainRootFree(ctx, inst, held, feat, features, all, segments) {
+			if ok && chainRootFree(ctx, inst, held, feat, features, all, segments) {
 				reads = true
 			} else {
 				outside = true
 			}
-			return false
-		case *ast.FeatureReference:
-			segments, ok := nameSegments(ref.Name)
-			if sym, own := features[segments[0]]; ok && len(segments) == 1 && own && sym != feat.Symbol {
+		case ok && len(segments) == 1:
+			if sym, own := features[segments[0]]; own && sym != feat.Symbol {
 				reads = true
 			} else {
 				outside = true
 			}
-			return false
+		default:
+			outside = true
 		}
 		return !outside
-	}
-	ast.Inspect(feat.DefaultValue, visit)
+	})
 	if !reads || outside {
 		return nil
 	}
-	return &Derived{Expr: feat.DefaultValue, Scope: feat.DefaultScope()}
+	return &Derived{Expr: value, Scope: feat.DefaultScope()}
 }
 
 // chainRootFree reports whether segments' root is a feature of the element other than feat that
@@ -618,7 +611,7 @@ func (t *translator) derive(p Pin, v *Var) error {
 	if d.Err != nil && !errors.Is(d.Err, runtime.ErrNoValue) {
 		return t.unreadable(v, p.Name, d.Err)
 	}
-	text := t.ctx.ExprText(d.Expr, d.Scope)
+	text := t.ctx.EntryText(d.Expr, d.Scope)
 	name := source.QualifiedNameText(v.Name)
 	t.condLabel = name + " = " + text
 	t.condFile = p.Feature.DocName
@@ -643,7 +636,7 @@ func (t *translator) derive(p Pin, v *Var) error {
 		}
 		return t.unreadable(v, p.Name, d.Err)
 	}
-	span := d.Expr.Span()
+	span := d.Expr.Origin.Span
 	equation := Binary(OpEq, Bool, VarTerm(v), term)
 	if v.Reached != nil {
 		equation = Binary(OpImplies, Bool, v.Reached, equation)
@@ -1017,19 +1010,19 @@ func ratOfFloat(f float64) (*big.Rat, bool) {
 }
 
 // A Reader reads the value ref, written in scope, names, as the query's conditions read it.
-type Reader func(scope *symbols.Scope, ref ast.Node) (runtime.Value, error)
+type Reader func(scope *symbols.Scope, ref *lower.ExprEntry) (runtime.Value, error)
 
 // ObjectReader reads a reference in the scope of an object.
 func ObjectReader(ctx *runtime.Context, self *runtime.Instance) Reader {
-	return func(scope *symbols.Scope, ref ast.Node) (runtime.Value, error) {
-		return runtime.NewEvalContextIn(ctx, scope, self).Eval(ref)
+	return func(scope *symbols.Scope, ref *lower.ExprEntry) (runtime.Value, error) {
+		return runtime.NewEvalContextIn(ctx, scope, self).EvalEntry(ref)
 	}
 }
 
 // SatisfactionReader reads a reference with the requirement bindings of a satisfaction.
 func SatisfactionReader(ctx *runtime.Context, a *runtime.SatisfyAssertion, subject *runtime.Instance) Reader {
-	return func(scope *symbols.Scope, ref ast.Node) (runtime.Value, error) {
-		return ctx.ReadInSatisfaction(a, subject, scope, ref)
+	return func(scope *symbols.Scope, ref *lower.ExprEntry) (runtime.Value, error) {
+		return ctx.ReadEntryInSatisfaction(a, subject, scope, ref)
 	}
 }
 

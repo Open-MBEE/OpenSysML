@@ -623,7 +623,7 @@ func (g *ActionGraph) checkRepeatedPins(node ast.Node, model *semantics.Model) e
 			if !bindingTouchesNode(binding, node) {
 				continue
 			}
-			if !g.supportedRepeatedBinding(node, binding, model) {
+			if !g.supportedRepeatedBinding(node, binding) {
 				return g.stepError(node, model, StepMultiplicityUnsupportedCode,
 					"bindings at pins of a repeated action step are unsupported", binding.Decl)
 			}
@@ -663,7 +663,7 @@ func bindingTouchesNode(binding PinBinding, node ast.Node) bool {
 // supportedRepeatedBinding reports whether the binding at a pin of node is one the
 // executor honors per performance: `pin = e` written at the node itself with the
 // other end an expression rather than another node's pin.
-func (g *ActionGraph) supportedRepeatedBinding(node ast.Node, binding PinBinding, model *semantics.Model) bool {
+func (g *ActionGraph) supportedRepeatedBinding(node ast.Node, binding PinBinding) bool {
 	if binding.Node != node || len(binding.Path) != 0 || binding.OtherNode != nil {
 		return false
 	}

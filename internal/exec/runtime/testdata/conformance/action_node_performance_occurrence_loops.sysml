@@ -1,7 +1,5 @@
-// Loop performances and node performances hold one another: a loop a named node reaches
-// is held under that node's occurrence (`run.stage.loops`), and a named node an iteration
-// performs is held under that iteration's `body`, named body action or not, with the
-// loops it reaches in turn under it (KerML 1.1 `Performances::subperformances`, §7.3.4.6).
+// A loop a named node reaches is held under that node (`run.stage.loops`), and a node an
+// iteration performs under that iteration's `body`, with the loops it reaches under it.
 package test {
 	private import ScalarValues::*;
 	private import SequenceFunctions::*;
