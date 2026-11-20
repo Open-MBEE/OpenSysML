@@ -437,3 +437,10 @@ func boolInt(b bool) int {
 	}
 	return 0
 }
+
+// isTriggerPayload reports whether member is the payload parameter the trigger of the transition sym
+// names (`accept x : T`), which the trigger's accept owns (SysML.xtext TriggerAction, PayloadParameterMember).
+func (m *Model) isTriggerPayload(sym, member *symbols.Symbol) bool {
+	parts := m.transitionPartsOf(sym)
+	return parts != nil && parts.payload != nil && member.Decl == parts.payload.Decl
+}

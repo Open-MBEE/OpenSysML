@@ -352,6 +352,10 @@ func RelationshipsOf(sym *symbols.Symbol) []*ast.Relationship {
 	if sym == nil {
 		return nil
 	}
+	if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionTriggerAction {
+		// A trigger's accept shares its payload's node, whose head states the payload (SysML.xtext TriggerAction).
+		return nil
+	}
 	decl := sym.Decl
 	if oc, ok := ast.OwnedConstraintOf(decl); ok {
 		return oc.Relationships

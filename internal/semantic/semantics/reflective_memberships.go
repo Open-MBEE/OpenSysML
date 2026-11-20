@@ -108,7 +108,7 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return out
 	}
 	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
-		if member == nil || seen[member] || member.Chain != nil || ownedThroughAnnotation(sym, member) {
+		if member == nil || seen[member] || member.Chain != nil || ownedThroughAnnotation(sym, member) || m.isTriggerPayload(sym, member) {
 			return true
 		}
 		seen[member] = true
@@ -328,6 +328,10 @@ func (m *Model) OwningMembership(sym *symbols.Symbol) *symbols.Symbol {
 	owner := m.ownerOf(sym)
 	if owner == nil {
 		return nil
+	}
+	if sym.Expr == nil && m.isTriggerPayload(owner, sym) {
+		// A named trigger payload is declared in the transition's scope and owned by the trigger's accept.
+		return m.OwningMembership(m.transitionPartsOf(owner).payload)
 	}
 	for _, membership := range m.OwnedMemberships(owner) {
 		// A `first x;` marker's Membership refers to x without owning it.
