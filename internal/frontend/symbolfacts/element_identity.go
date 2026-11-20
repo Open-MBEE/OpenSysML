@@ -92,9 +92,8 @@ func (sc *Context) ResolveElement(id string, sem *semantics.Model) []*symbols.Sy
 	return found
 }
 
-// ownedElementNamed collects the elements owned at most depth levels below
-// root, root included, whose ElementIdentity is id, or whose `@id` is where the form
-// files a declaration under another element than its name does (a trigger's named payload).
+// ownedElementNamed collects the elements owned at most depth levels below root, root included, whose
+// ElementIdentity or form `@id` is id: the form files a trigger's named payload under its accept.
 func (sc *Context) ownedElementNamed(sem *semantics.Model, root *symbols.Symbol, id string, depth int,
 	seen map[*symbols.Symbol]bool, found []*symbols.Symbol) []*symbols.Symbol {
 	return sc.ownedElements(sem, root, depth, seen, found, func(sym *symbols.Symbol) bool {

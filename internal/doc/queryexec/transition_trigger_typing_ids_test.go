@@ -103,3 +103,26 @@ func TestTransitionTriggerPayloadTypingReadsOnce(t *testing.T) {
 		t.Fatalf("FeatureTyping ids = %q, want %q", got, want)
 	}
 }
+
+// A named payload is typed by what it declares alone: it is a ReferenceUsage, which takes no item base.
+func TestNamedTriggerPayloadTakesNoUsageBase(t *testing.T) {
+	fixture := loadExecutionSource(t, `package Observatory {
+	state def S {
+		state idle;
+		state busy;
+		transition u first idle accept x : ScalarValues::Integer then busy;
+	}
+}`)
+	triggers, _ := fixture.model.ReflectiveElements(fixture.symbol(t, "S::u"), "triggerAction")
+	if len(triggers) != 1 {
+		t.Fatalf("trigger actions of u = %d, want 1", len(triggers))
+	}
+	payloads, _ := fixture.model.ReflectiveElements(triggers[0], "payloadParameter")
+	if len(payloads) != 1 {
+		t.Fatalf("payload parameters of u = %d, want 1", len(payloads))
+	}
+	types, _ := fixture.model.ReflectiveElements(payloads[0], "type")
+	if len(types) != 1 || fixture.index.GetFQN(types[0]) != "ScalarValues::Integer" {
+		t.Fatalf("payload types = %v, want ScalarValues::Integer alone", types)
+	}
+}
