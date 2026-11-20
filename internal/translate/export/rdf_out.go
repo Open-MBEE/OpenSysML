@@ -66,6 +66,7 @@ const (
 	pImportOwningNamespace       = "importOwningNamespace"
 	pDirection                   = "direction"
 	pIsImplied                   = "isImplied"
+	pIsImpliedIncluded           = "isImpliedIncluded"
 	pLowerBound                  = "lowerBound"
 	pUpperBound                  = "upperBound"
 	pValue                       = "value"

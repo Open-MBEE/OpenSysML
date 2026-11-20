@@ -688,6 +688,11 @@ func (emitter *apiJSONMappingEmitter) member(member apiJSONMember) error {
 	}, member.value, nil, emitter.cache, emitter.annotations); err != nil {
 		return fmt.Errorf("element %q: %w", object.id, err)
 	}
+	if emitter.statedDefaults && member.key == pIsImpliedIncluded {
+		// The document's marker follows the flag into the graph, which is
+		// otherwise taken for an external writer's element form.
+		emitter.builder.Add(emitter.subject, rdf.OpenSysMLTerm(xStatedDefaults), rdf.Bool(true))
+	}
 	return nil
 }
 
@@ -1199,9 +1204,9 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 				if name, ok := value.(string); ok && name != "" {
 					object.mappingQualifiedName = name
 				}
-			case "isImpliedIncluded":
-				// Only an external writer's element form states this flag: the
-				// mapping's graph never does, and its own documents carry the marker.
+			case pIsImpliedIncluded:
+				// An external writer's element form states this flag and carries
+				// no marker; the mapping's own documents carry the marker.
 				object.toolkitForm = true
 			}
 			if id, ok := memberReference(value); ok {
