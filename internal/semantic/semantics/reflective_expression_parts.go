@@ -43,7 +43,7 @@ func isExpressionSymbol(sym *symbols.Symbol) bool {
 	}
 	switch sym.Expr.Role {
 	case symbols.ExpressionValue, symbols.ExpressionArgument, symbols.ExpressionChangeWrapper, symbols.ExpressionChangeCondition,
-		symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionGuard:
+		symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionGuard, symbols.ExpressionFilterCondition:
 		return true
 	}
 	return false
@@ -614,6 +614,10 @@ func (m *Model) expressionScopeOf(expr *symbols.Symbol) *symbols.Scope {
 		}
 		if cur.Expr.Role == symbols.ExpressionBodyResult && cur.Expr.Owner != nil && cur.Expr.Owner.Expr == nil {
 			// A constraint body's closing condition reads its names in the body (ConstraintResultMember).
+			return cur.Expr.Owner.Scope
+		}
+		if cur.Expr.Role == symbols.ExpressionFilterCondition && cur.Expr.Owner != nil {
+			// A `filter` condition reads its names in the namespace stating it (document.go FilterMember).
 			return cur.Expr.Owner.Scope
 		}
 		if cur.Expr.Role == symbols.ExpressionBody {

@@ -402,7 +402,7 @@ func (m *Model) implicitRelationshipEnds(sym *symbols.Symbol) (src, tgt *symbols
 			tgt = m.chainTargetFeature(sym)
 			return src, tgt, tgt != nil
 		}
-		if _, isEnd := rel.Owner.Decl.(*ast.ConnectorEnd); isEnd && rel.Kind.ReferenceSubsets() {
+		if attachesEnd(rel.Owner) && rel.Kind.ReferenceSubsets() {
 			tgt = m.ReferencedFeature(rel.Owner)
 			return src, tgt, tgt != nil
 		}

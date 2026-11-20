@@ -1220,14 +1220,36 @@ func usageAsserts(usage *ast.Usage) bool {
 	return usage.Keyword == "assert" || usage.PrefixKeyword == "assert"
 }
 
+// UsageFormMetaclassName is the metaclass a usage's written form selects whatever
+// its kind keyword (`event`, `exhibit`, `include`, prefix metadata alone), else "".
+func UsageFormMetaclassName(sym *symbols.Symbol) string {
+	var event, extended bool
+	if sym.Recorded() {
+		event, extended = sym.Facts.Modifiers.Has(symbols.ModEvent), sym.Facts.Modifiers.Has(symbols.ModExtendedUsage)
+	} else if decl, ok := sym.Decl.(*ast.Usage); ok {
+		event, extended = decl.IsEvent, decl.IsExtendedUsage()
+	}
+	switch {
+	case event:
+		return "EventOccurrenceUsage"
+	case isExhibitedState(sym):
+		return "ExhibitStateUsage"
+	case isIncludedUseCase(sym):
+		return "IncludeUseCaseUsage"
+	case extended:
+		return "Usage"
+	}
+	return ""
+}
+
 // sysmlMetaclassName is the SysML metaclass of sym's declaration: by its symbol
 // kind, or by the declaration where the kind spans several (SysML.xtext).
 func sysmlMetaclassName(sym *symbols.Symbol) string {
 	if isVariantReferenceSymbol(sym) {
 		return "ReferenceUsage"
 	}
-	if sym.Recorded() && sym.Facts.Modifiers.Has(symbols.ModEvent) {
-		return "EventOccurrenceUsage"
+	if name := UsageFormMetaclassName(sym); name != "" && sym.Recorded() {
+		return name
 	}
 	if isAssertedConstraint(sym) {
 		return "AssertConstraintUsage"
@@ -1235,19 +1257,17 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 	if sym.IsConjugatedPortDefinition() {
 		return "ConjugatedPortDefinition"
 	}
-	switch {
-	case isExhibitedState(sym):
-		return "ExhibitStateUsage"
-	case isIncludedUseCase(sym):
-		return "IncludeUseCaseUsage"
-	}
 	if sym.Expr != nil {
 		if isExpressionParameterSymbol(sym) || sym.Expr.Role == symbols.ExpressionChainFeature {
 			return "Feature"
 		}
 		return expressionElementMetaclassName(sym)
 	}
-	switch decl := sym.Decl.(type) {
+	if isNamedTriggerPayload(sym) {
+		// A trigger's payload parameter is a ReferenceUsage, named or not (SysML.xtext PayloadParameter).
+		return "ReferenceUsage"
+	}
+	switch sym.Decl.(type) {
 	case *ast.ForkNode:
 		return "ForkNode"
 	case *ast.JoinNode:
@@ -1257,8 +1277,8 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 	case *ast.DecisionNode:
 		return "DecisionNode"
 	case *ast.Usage:
-		if decl.IsEvent {
-			return "EventOccurrenceUsage"
+		if name := UsageFormMetaclassName(sym); name != "" {
+			return name
 		}
 	}
 	switch sym.Kind {
@@ -1791,12 +1811,15 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return out, true
 	case "owner":
+		if parts := m.namedTriggerPayloadParts(sym); parts != nil {
+			return []*symbols.Symbol{parts.accepter}, true
+		}
 		if owner := ownerSymbol(sym); owner != nil {
 			return []*symbols.Symbol{owner}, true
 		}
 		return nil, true
 	case "ownedMember":
-		return m.withDefaultMultiplicityMember(sym, leadWithPrefixMetadata(sym, append(m.nodeParameters(sym), m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym))))...))), true
+		return m.withDefaultMultiplicityMember(sym, leadWithPrefixMetadata(sym, append(m.nodeParameters(sym), m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym)))))...))), true
 	case "multiplicity":
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
 			return nil, false
@@ -1805,10 +1828,10 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "ownedElement":
 		return m.ownedElementsOf(sym), true
 	case "member":
-		return m.withDefaultMultiplicityMember(sym, leadWithPrefixMetadata(sym, append(m.nodeParameters(sym), m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))))...))), true
+		return m.withDefaultMultiplicityMember(sym, leadWithPrefixMetadata(sym, append(m.nodeParameters(sym), m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)))))...))), true
 	case "feature":
 		features := m.nodeParameters(sym)
-		for _, member := range m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)))) {
+		for _, member := range m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))))) {
 			if (member.IsFeature() || isExpressionSymbol(member)) && m.ownedThroughFeatureMembership(m.ownerOf(member), member) {
 				features = append(features, member)
 			}
@@ -1855,7 +1878,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "ownedFeature":
 		features := append([]*symbols.Symbol(nil), m.expressionOwnedParts(sym)...)
 		features = append(features, m.sendParameters(sym)...)
-		for _, member := range m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym)))) {
+		for _, member := range m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym))))) {
 			if (member.IsFeature() || isExpressionSymbol(member)) && m.ownedThroughFeatureMembership(sym, member) {
 				features = append(features, member)
 			}
@@ -2202,7 +2225,7 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	members = append(members, m.expressionOwnedElements(sym)...)
 	members = append(members, m.nodeParameters(sym)...)
-	members = leadWithPrefixMetadata(sym, append(members, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym))))...))
+	members = leadWithPrefixMetadata(sym, append(members, m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym)))))...))
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
 		seen[member] = true
@@ -2740,7 +2763,10 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		}
 		return stringOrEmpty(owner.Str + "::" + name), true
 	case "direction":
-		direction, ok := ReflectiveDirection(sym)
+		direction, ok := m.flowEndFeatureDirection(sym)
+		if !ok {
+			direction, ok = ReflectiveDirection(sym)
+		}
 		if !ok {
 			return symbols.FilterValue{}, false
 		}
@@ -3061,11 +3087,13 @@ func defaultUsageComposite(kind symbols.SymbolKind) bool {
 }
 
 func recordedUsageIsReferential(sym *symbols.Symbol) bool {
-	if sym.Kind.IsAttributeLike() || sym.Kind == symbols.SymbolEnumerationUsage ||
-		sym.Kind == symbols.SymbolReferenceUsage || sym.Kind == symbols.SymbolConnectorEnd {
+	mods := sym.Facts.Modifiers
+	// Prefix metadata in place of a kind keyword declares a plain Usage, composite
+	// unless a modifier says otherwise (SysML.xtext ExtendedUsage).
+	if sym.Kind == symbols.SymbolEnumerationUsage || sym.Kind == symbols.SymbolConnectorEnd ||
+		(sym.Kind.IsAttributeLike() || sym.Kind == symbols.SymbolReferenceUsage) && !mods.Has(symbols.ModExtendedUsage) {
 		return true
 	}
-	mods := sym.Facts.Modifiers
 	if mods.Has(symbols.ModReference) || mods.Has(symbols.ModEnd) || mods.Has(symbols.ModEvent) ||
 		sym.Facts.Direction != ast.DirNone ||
 		sym.Facts.UsageKind == ast.UsageEnumeration {
