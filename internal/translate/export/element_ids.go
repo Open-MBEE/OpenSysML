@@ -1402,6 +1402,10 @@ func (e *encoder) registerExpressionIDs(ids *ElementIDs, subject rdf.Term, node 
 	}
 	if slot, _, _ := expressionReferenceSlot(node); slot != "" {
 		membership := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		if slot != "function" && !strings.HasPrefix(subject.Value, rdf.Expression) {
+			// An expression written as an element of its own mints the Membership beside it (referentMembershipNode).
+			membership = e.ids.minted(rdf.RelationshipIRI(subject, "_"+slot), subject, "_"+slot)
+		}
 		recorded := partIDs{membership: rdf.LocalName(membership.Value)}
 		ids.partByNode[partKey{node, slot}] = recorded
 		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = recorded

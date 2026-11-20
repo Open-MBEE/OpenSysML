@@ -279,9 +279,9 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 		if rel.Member == nil {
 			return "", false
 		}
-		if _, ok := rel.Decl.(*ast.FilterMember); ok {
+		if filter := semantics.FilterMemberOf(rel.Member); filter != nil {
 			// A `filter` member is written as the ElementFilterMembership itself.
-			return s.ids.OfDeclaration(doc, rel.Decl, "")
+			return s.ids.OfDeclaration(doc, filter, "")
 		}
 		if semantics.IsFilterPackage(rel.Owner) {
 			base, ok := s.of(rel.Owner)
@@ -373,15 +373,6 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 			return "", false
 		}
 		_, membership, ok := s.ids.OfExpressionPart(doc, rel.Owner.Decl, rel.Slot)
-		if !ok && rel.Owner.Decl != nil && (rel.Slot == "referent" || rel.Slot == "targetFeature") {
-			// An expression written as an element of its own (a body's result) owns its referent Membership
-			// off its element id, not as a part (referentMembershipNode); function and argument memberships stay parts.
-			if base, declared := s.ids.OfDeclaration(doc, rel.Owner.Decl, ""); declared {
-				if own, ok := s.of(rel.Owner); ok && own == base {
-					return base + "_" + rel.Slot, true
-				}
-			}
-		}
 		if !ok && rel.Owner.Expr != nil {
 			return s.partID(rel.Owner, rel.Slot)
 		}

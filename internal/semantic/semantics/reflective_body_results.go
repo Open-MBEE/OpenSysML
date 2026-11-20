@@ -15,6 +15,23 @@ func IsFilterMembership(sym *symbols.Symbol) bool {
 	return sym.Implicit.Form == symbols.ImplicitMembership && IsFilterPackage(sym.Implicit.Owner)
 }
 
+// FilterMemberOf is the `filter <cond>;` member that states condition, the member
+// of an ElementFilterMembership (KerML 8.2.4); nil for another symbol.
+func FilterMemberOf(condition *symbols.Symbol) *ast.FilterMember {
+	if condition == nil || condition.Expr == nil || condition.Expr.Role != symbols.ExpressionFilterCondition || condition.Expr.Owner == nil {
+		return nil
+	}
+	for _, member := range bodyMembers(condition.Expr.Owner) {
+		if wrapper, ok := member.(*ast.Membership); ok {
+			member = wrapper.Member
+		}
+		if filter, ok := member.(*ast.FilterMember); ok && filter.Condition == condition.Decl {
+			return filter
+		}
+	}
+	return nil
+}
+
 // mergeMemberships places extra memberships among out in source order and renumbers
 // the ordinals of every synthesized membership.
 func mergeMemberships(out, extra []*symbols.Symbol) []*symbols.Symbol {
