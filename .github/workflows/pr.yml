@@ -1557,6 +1557,7 @@ jobs:
     needs: [changes, build]
     if: needs.changes.outputs.node == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -1843,6 +1844,7 @@ jobs:
     needs: [changes, build]
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -1946,6 +1948,7 @@ jobs:
     needs: [changes, build]
     if: needs.changes.outputs.julia == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
     strategy:
@@ -2007,6 +2010,7 @@ jobs:
     needs: [changes, build]
     if: needs.changes.outputs.matlab == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -2214,6 +2218,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
