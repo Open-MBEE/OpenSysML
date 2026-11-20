@@ -284,3 +284,30 @@ func TestAPIJSONGraphImportedMembershipFilterReadsARedefinedDefault(t *testing.T
 	wantReferences(t, elements, "Probe__Three", "importedMembership", "Probe__Lib__d_om")
 	wantReferences(t, elements, "Probe__Four", "importedMembership", "Probe__Lib__e_om")
 }
+
+// A filter by a library supertype keeps a member annotated with a library type that
+// specializes it: classification follows the library's own generalizations too.
+func TestAPIJSONGraphImportedMembershipFiltersByLibrarySupertype(t *testing.T) {
+	elements := importProbeElements(t, `package Probe {
+	metadata def Local :> ParametersOfInterestMetadata::MeasureOfEffectiveness;
+	package Lib {
+		attribute direct { @ParametersOfInterestMetadata::MeasureOfEffectiveness; }
+		attribute indirect { @Local; }
+		attribute plain;
+		attribute other { @ModelingMetadata::Rationale; }
+	}
+	package Semantic { import Lib::*; filter @Metaobjects::SemanticMetadata; }
+	package Metaobject { import Lib::*; filter @Metaobjects::Metaobject; }
+	package Unrelated { import Lib::*; filter @ModelingMetadata::Issue; }
+}`)
+	wantReferences(t, elements, "Probe__Semantic", "importedMembership",
+		"Probe__Lib__direct_om", "Probe__Lib__indirect_om")
+	wantReferences(t, elements, "Probe__Metaobject", "importedMembership",
+		"Probe__Lib__direct_om", "Probe__Lib__indirect_om", "Probe__Lib__other_om")
+	if _, stated := elements["Probe__Unrelated"]["importedMembership"]; stated {
+		t.Errorf("Unrelated states importedMembership %v, want none imported", elements["Probe__Unrelated"]["importedMembership"])
+	}
+	if _, stated := elements["Probe__Unrelated"]["member"]; !stated {
+		t.Error("Unrelated states no member, want its derivation decided")
+	}
+}
