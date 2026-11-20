@@ -1470,20 +1470,6 @@ func (r *Resolver) findFeaturedByTargets(sym *symbols.Symbol, rels []*ast.Relati
 	return parents
 }
 
-// ownedEndCount counts the `end` features def declares in its body.
-func ownedEndCount(def *ast.Definition) int {
-	n := 0
-	for _, member := range def.Members {
-		if mb, ok := member.(*ast.Membership); ok {
-			member = mb.Member
-		}
-		if u, ok := member.(*ast.Usage); ok && u.IsEnd {
-			n++
-		}
-	}
-	return n
-}
-
 // resolveExpr walks an expression subtree resolving feature references and
 // classification type references.
 func (r *Resolver) resolveExpr(scope *symbols.Scope, e ast.Node) {
