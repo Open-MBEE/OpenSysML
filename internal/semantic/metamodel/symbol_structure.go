@@ -717,6 +717,39 @@ func (s *SymbolStructure) RelatedElements(element Element, property string) ([]E
 	return s.relatedElementsLocked(element, property)
 }
 
+// Annotations lists the Annotations whose annotatedElement is the element, a library
+// element's included: its own, then those of metadata stated `about` it.
+func (s *SymbolStructure) Annotations(element Element) ([]Element, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	sym, ok := s.symbolOfLocked(element)
+	if !ok {
+		if element.IsMembership || element.Symbol == nil {
+			return nil, false
+		}
+		sym = element.Symbol
+	}
+	return s.relationshipsOf(s.model.MetadataAnnotationsOf(sym)), true
+}
+
+// LibraryMember is the library symbol whose membership a library membership's handle
+// names: the member an owning membership owns, or the alias a Membership is.
+func (s *SymbolStructure) LibraryMember(membership Element) (*symbols.Symbol, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	row, ok := s.row(membership)
+	if !ok || !row.library || !membership.IsMembership {
+		return nil, false
+	}
+	if row.sym.Kind == symbols.SymbolAlias {
+		return row.sym, true
+	}
+	if row.sym.Implicit == nil || row.sym.Implicit.Member == nil {
+		return nil, false
+	}
+	return row.sym.Implicit.Member, true
+}
+
 func (s *SymbolStructure) StatedRelatedElements(element Element, property string) ([]Element, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

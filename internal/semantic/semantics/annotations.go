@@ -2990,6 +2990,9 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		}
 	case *ast.Usage:
 		switch feature {
+		case "isAbstract":
+			// A KerML type that is no feature is declared as a usage node too (a feature answered above).
+			return boolValue(d.IsAbstract), true
 		case "isSufficient":
 			return boolValue(d.IsAll || m.reflectiveMetaclassConforms(sym, "ConnectionDefinition")), true
 		case "isVariant":

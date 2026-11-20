@@ -173,6 +173,24 @@ func (m *Model) AnnotatingMetadataOf(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
+// MetadataAnnotationsOf returns the Annotations whose annotated element is sym: those sym owns,
+// then those the metadata usages stated `about` it own (KerML 8.3.2.3.2), in index order.
+func (m *Model) MetadataAnnotationsOf(sym *symbols.Symbol) []*symbols.Symbol {
+	if m == nil || sym == nil || sym.Implicit != nil {
+		return nil
+	}
+	out := slices.Clone(m.OwnedAnnotations(sym))
+	m.annotationsAbout()
+	for _, usage := range m.aboutUsages.of(sym) {
+		for _, annotation := range m.AnnotatingRelationships(usage) {
+			if annotation.Implicit.Member == sym {
+				out = append(out, annotation)
+			}
+		}
+	}
+	return out
+}
+
 // annotatesOthers reports whether the metadata usage sym has an `about` clause,
 // read from its record when it has no declaration.
 func annotatesOthers(sym *symbols.Symbol) bool {

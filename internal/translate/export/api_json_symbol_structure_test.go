@@ -613,6 +613,10 @@ func (d *structureDifferential) spellElement(element metamodel.Element, fromGrap
 		if sym, ok := d.graph.LibrarySymbol(element); ok && d.fqn(sym) != "" {
 			return "lib " + d.fqn(sym)
 		}
+		// A library alias is the Membership the graph references, which the symbol structure names by its symbol.
+		if alias, ok := d.graph.LibraryMember(element); ok && alias.Kind == symbols.SymbolAlias && d.fqn(alias) != "" {
+			return "lib " + d.fqn(alias)
+		}
 		if id, ok := d.graph.ElementIdentity(element); ok {
 			return "#" + id
 		}
