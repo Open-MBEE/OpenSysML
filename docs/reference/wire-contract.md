@@ -158,9 +158,15 @@ bundled library document declaring it, converted once per process, so a walk fro
 library continues; a library member no name catalogues — the documentation, invariants and
 connectors a part inherits from `Occurrences::Occurrence`, a declared multiplicity range — and its
 owning membership read back under the ids an answer carried them by, so every id an answer returns
-is accepted back. A missing element is an in-band `error`; a model whose document the parser could
-not read whole has no element form and reports that the same way. The `element_properties`
-capability advertises the RPC.
+is accepted back. A missing element is an in-band `error`. The model is read one document at a time:
+a document the parser could not read whole, one the element form cannot write, or one declaring an
+element an earlier document already declares (a top-level name declared again) is left out, and
+every response lists these in `excludedDocuments`, each with its `document` name and the `error`
+that kept it out — empty when the whole model was read. An element of an excluded document answers
+that document's error in-band; every other element is answered, and a value of its properties may
+still name an excluded document's element, whose id answers that document's error when read. A
+validation error alone excludes nothing, and `Convert` keeps refusing a model it cannot write
+whole. The `element_properties` capability advertises the RPC.
 
 ### `GetSymbol` and the `SymbolInfo` metadata keys
 

@@ -485,14 +485,14 @@ func (nw *nameWalk) imports(s *symbols.Scope, prefix string, depth int, inside, 
 		if !symbols.VisibleAs(imp.Visibility, inside, inheriting) {
 			continue
 		}
-		nw.importOne(s, imp, prefix, depth, inheriting)
+		nw.importOne(s, imp, prefix, depth)
 	}
 }
 
 // importOne adds the names one import surfaces into a namespace. A wildcard
 // import reaches into the imported namespace, so it counts as a derivation step
 // through it: a path crosses each namespace's imports once (KerML 8.2.3.5).
-func (nw *nameWalk) importOne(s *symbols.Scope, imp *ast.Import, prefix string, depth int, inheriting bool) {
+func (nw *nameWalk) importOne(s *symbols.Scope, imp *ast.Import, prefix string, depth int) {
 	if imp.Kind != ast.ImportMembership {
 		if target, ok := nw.r.ImportTarget(s, imp); ok && target != nil {
 			chain, ok := nw.enter([]*symbols.Symbol{target})

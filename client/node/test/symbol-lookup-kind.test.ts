@@ -97,7 +97,7 @@ test("the lookup kind is sent only to a service that reports symbol_lookup_kind"
       }
       if (method === "GetElementProperties") {
         asked.push({ elementId: request.elementId, lookup: request.lookup });
-        return { element: { id, qualifiedName: "", metaclass: "ReferenceUsage" }, properties: [], error: "" };
+        return { element: { id, qualifiedName: "", metaclass: "ReferenceUsage" }, properties: [], excludedDocuments: [], error: "" };
       }
       throw new Error(`the client asked ${method}`);
     });

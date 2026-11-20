@@ -346,7 +346,7 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 			f.perf.occurrence = engine.loopBody()
 		}
 		if _, declared := graph.Multiplicities[node]; declared && f.perf.repeatedStep() {
-			e.recordRepetition(parent, node, f.perf)
+			e.recordRepetition(parent, f.perf)
 		}
 	}
 	// A terminate of the node ends its body where it stands, dropping what a flow nested in

@@ -297,6 +297,10 @@ jobs:
       - name: Test the pip-audit wrapper
         run: scripts/pip-audit-retry-test.sh
 
+      # The SBOM's fallback to a mirror of Maven Central, and its refusal to retry a build error, run only here.
+      - name: Test the Maven SBOM wrapper
+        run: scripts/maven-sbom-test.sh
+
       # wasm-cache.yml prunes the build cache it saves on develop pushes only, so its pruning is checked here.
       - name: Test the build cache pruning
         run: scripts/ci-go-build-cache-test.sh

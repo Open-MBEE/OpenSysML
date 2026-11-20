@@ -168,7 +168,7 @@ func (e externalEngine) Run(ctx context.Context, model *Model, q Question, budge
 	var strength Strength
 	shaped := func() error {
 		var err error
-		claim, strength, err = e.shape(q, answer)
+		claim, strength, err = e.shape(answer)
 		return err
 	}
 	sink := newProgressSink(e.Name(), ReporterFrom(ctx))

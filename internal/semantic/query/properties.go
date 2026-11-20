@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -128,7 +129,7 @@ func (r *PropertyReader) identityValues(sym *symbols.Symbol, property string) ([
 			return nil, false
 		}
 		if r.identity != nil {
-			if identity := r.identity(sym); identity != "" && identity != fqn {
+			if identity := r.identity(sym); identity != "" && identity != fqn && naming.Recorded(identity) != fqn {
 				return nil, false
 			}
 		}

@@ -1273,8 +1273,15 @@ class ProtosTest {
                 org.openmbee.opensysml.proto.ElementProperty.newBuilder()
                     .setName("connectorEnd")
                     .setUnsupported("PartDefinition declares no property connectorEnd"))
+            .addExcludedDocuments(
+                org.openmbee.opensysml.proto.ExcludedDocument.newBuilder()
+                    .setDocument("c.sysml")
+                    .setError("c.sysml: 1 syntax error(s)"))
             .build();
     ElementProperties read = Protos.elementProperties(response);
+    assertEquals(
+        List.of(new ElementProperties.ExcludedDocument("c.sysml", "c.sysml: 1 syntax error(s)")),
+        read.excludedDocuments());
     assertEquals(new ElementRef("e1", "Demo::Pair", "PartDefinition"), read.element());
     assertEquals("Demo::Pair", read.element().toString());
     ElementProperties.Property inherited = read.get("inheritedFeature").orElseThrow();

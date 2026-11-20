@@ -242,3 +242,36 @@ func TestMavenCacheIsSavedOnDevelopAlone(t *testing.T) {
 		t.Fatal("no workflow job runs mvn")
 	}
 }
+
+// TestJavaAuditFallsBackToAMirror holds the SBOM plugin, which the Maven cache lacks, behind the
+// script that asks a mirror when Maven Central refuses it.
+func TestJavaAuditFallsBackToAMirror(t *testing.T) {
+	raw, err := os.ReadFile("../../Makefile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `scripts/maven-sbom.sh "$$dir" $(CYCLONEDX_MAVEN_VERSION)`) {
+		t.Error("the Makefile's audit-java does not write the SBOM through scripts/maven-sbom.sh")
+	}
+	for i, line := range strings.Split(string(raw), "\n") {
+		if strings.Contains(line, "mvn ") && strings.Contains(line, "cyclonedx-maven-plugin") {
+			t.Errorf("Makefile:%d runs the CycloneDX plugin itself, so one refusal from Maven Central fails the audit", i+1)
+		}
+	}
+	script, err := os.ReadFile("../../scripts/maven-sbom.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"maven-central-mirror-settings.xml", "MAVEN_SBOM_ATTEMPTS", `-f "$tree/pom.xml"`, "-DincludeTestScope=false"} {
+		if !strings.Contains(string(script), want) {
+			t.Errorf("scripts/maven-sbom.sh lacks %q", want)
+		}
+	}
+	settings, err := os.ReadFile("../../scripts/maven-central-mirror-settings.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(settings), "<mirrorOf>central</mirrorOf>") {
+		t.Error("scripts/maven-central-mirror-settings.xml mirrors something other than central alone")
+	}
+}
