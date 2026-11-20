@@ -1,0 +1,39 @@
+{
+  "libraries": true,
+  "type": "instance",
+  "instantiate": "test::Bench",
+  "slots": {
+    "maskedVerdict": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "maskedLimit": {
+      "type": "Undetermined",
+      "value": "[0..*]"
+    },
+    "directVerdict": {
+      "type": "Boolean",
+      "value": true
+    },
+    "boundVerdict": {
+      "type": "Boolean",
+      "value": true
+    },
+    "typedVerdict": {
+      "type": "Undetermined",
+      "value": "[1]"
+    },
+    "typedMargin": {
+      "type": "Undetermined",
+      "value": "[0..1]"
+    },
+    "typedBoundVerdict": {
+      "type": "Boolean",
+      "value": true
+    },
+    "typedBoundMargin": {
+      "type": "Integer",
+      "value": 4
+    }
+  }
+}

@@ -566,9 +566,6 @@ func (m *Model) appendReferenceMembership(out []*symbols.Symbol, owner *symbols.
 	if target == nil {
 		target = m.subjectValueTarget(owner)
 	}
-	if target != nil {
-		target = m.triggerPayloadElement(target)
-	}
 	return append(out, &symbols.Symbol{
 		Kind:       symbols.SymbolRelationship,
 		DocName:    owner.DocName,

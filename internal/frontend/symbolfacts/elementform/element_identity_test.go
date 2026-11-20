@@ -95,7 +95,7 @@ func TestElementIdentityIsTheTreesIDAndRoundTrips(t *testing.T) {
 		{"D::M::sm::t", []string{"triggerAction", "payloadArgument"}, "D__M__sm__t___40trigger___400_pvalue"},
 		{"D::M::sm::t", []string{"guardExpression"}, "D__M__sm__t_pguard"},
 		{"D::M::sm::t", []string{"guardExpression", "argument"}, "D__M__sm__t_pguard_pa0"},
-		{"D::M::sm::u", []string{"triggerAction", "payloadParameter"}, "D__M__sm__u___40trigger__sig"},
+		{"D::M::sm::u", []string{"triggerAction", "payloadParameter"}, "D::M::sm::u::sig"},
 		{"D::M::sm::u", []string{"triggerAction", "receiverArgument"}, "D__M__sm__u___40trigger___401_pvalue"},
 		{"D::M::z", []string{"valuation", "value"}, "D__M__z_pvalue"},
 		{"D::M::z", []string{"valuation", "value", "parameter"}, "D__M__z_pvalue_pin0"},
@@ -117,7 +117,12 @@ func TestElementIdentityIsTheTreesIDAndRoundTrips(t *testing.T) {
 			t.Errorf("ResolveElement(%s) = %v, want the one symbol it was read from", got, back)
 		}
 	}
-	// The trigger's link parameter is the transition's second owned element.
+	// A named payload is the declared symbol, which the `@id` the tree writes for it names too.
+	payload := reflect(t, sc, "D::M::sm::u", "triggerAction", "payloadParameter")
+	if back := sc.ResolveElement("D__M__sm__u___40trigger__sig", sc.Semantics); payload != reflect(t, sc, "D::M::sm::u::sig") ||
+		len(back) != 1 || back[0] != payload || sc.FormID(payload) != "D__M__sm__u___40trigger__sig" {
+		t.Errorf("ResolveElement(D__M__sm__u___40trigger__sig) = %v, want the declared payload", back)
+	}
 	owned, _ := sc.Semantics.ReflectiveElements(reflect(t, sc, "D::M::sm::t"), "ownedElement")
 	if back := sc.ResolveElement("D__M__sm__t_triggerparam", sc.Semantics); len(owned) < 2 ||
 		len(back) != 1 || back[0] != owned[1] || sc.ElementIdentity(owned[1]) != "D__M__sm__t_triggerparam" {

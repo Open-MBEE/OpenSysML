@@ -346,7 +346,7 @@ func disagreeingTriples(graph, check *rdf.Graph) []rdf.Triple {
 	}
 	out = append(out, disagreeingAddresses(graph, check)...)
 	for _, t := range graph.Triples() {
-		if structural(t) && !check.Has(t) {
+		if structural(t) && !check.Has(t) && !legacyConjugateName(check, t) {
 			out = append(out, t)
 		}
 	}
@@ -539,6 +539,20 @@ func defaultMembershipListOmitted(graph *rdf.Graph, t rdf.Triple) bool {
 // the graph states none for: the name is derived (KerML Element::name), so the graph states no less.
 func derivedNameOmitted(graph *rdf.Graph, t rdf.Triple) bool {
 	return t.Predicate.Value == rdf.SysML+pName && !graph.HasProperty(t.Subject, rdf.SysML+pName)
+}
+
+// legacyConjugateName reports an older graph's declaredName on a ConjugatedPortDefinition that is the
+// name the candidate's membership derives for it: the name is derived (SysML 8.3.12.2), so the candidate states no less.
+func legacyConjugateName(check *rdf.Graph, t rdf.Triple) bool {
+	if t.Predicate.Value != rdf.SysML+pDeclaredName || check.Type(t.Subject) != rdf.SysML+mConjugatedPortDefinition {
+		return false
+	}
+	membership, ok := check.Object(t.Subject, rdf.SysML+pOwningMembership)
+	if !ok {
+		return false
+	}
+	name, named := check.Lexical(membership, rdf.SysML+pMemberName)
+	return named && t.Object.IsLiteral() && t.Object.Value == name
 }
 
 // blame returns the verbatim element a disagreement over iri falls in, or else

@@ -458,9 +458,9 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 	w.attr("parent", parent)
 	w.b.WriteString(">\n")
 	if collapsed(node) {
-		w.geometry(drawioWrappedBodyIndent, drawioBox{X: rel.X, Y: rel.Y, Width: rel.Width, Height: header}, nil, &rel)
+		w.geometry(drawioWrappedBodyIndent, drawioBox{X: rel.X, Y: rel.Y, Width: rel.Width, Height: header}, &rel)
 	} else {
-		w.geometry(drawioWrappedBodyIndent, rel, nil, nil)
+		w.geometry(drawioWrappedBodyIndent, rel, nil)
 	}
 	w.closeObject()
 	w.cells[node.ID] = true
@@ -488,7 +488,7 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 
 // writeCompartment writes one compartment as a text cell stacked in its node.
 func (w *drawioWriter) writeCompartment(id string, node *Node, compartment Compartment, box drawioBox) {
-	w.writeTextCell(id, node, strings.Join(w.compartmentLines(node, compartment), "\n"), box)
+	w.writeTextCell(id, node, strings.Join(w.compartmentLines(compartment), "\n"), box)
 }
 
 // writeTextCell writes a text cell stacked in its node: a compartment, or the
@@ -501,7 +501,7 @@ func (w *drawioWriter) writeTextCell(id string, node *Node, value string, box dr
 	w.b.WriteString(` vertex="1"`)
 	w.attr("parent", node.ID)
 	w.b.WriteString(">\n")
-	w.geometry(drawioCellBodyIndent, box, nil, nil)
+	w.geometry(drawioCellBodyIndent, box, nil)
 	w.closeCell()
 }
 
@@ -547,7 +547,7 @@ func (w *drawioWriter) portGeometry(indent string, port Port, box drawioBox, sid
 		if g.HasSize {
 			size = drawioBox{Width: g.Width, Height: g.Height}
 		}
-		w.geometry(indent, drawioBox{X: g.X - box.X, Y: g.Y - box.Y, Width: size.Width, Height: size.Height}, nil, nil)
+		w.geometry(indent, drawioBox{X: g.X - box.X, Y: g.Y - box.Y, Width: size.Width, Height: size.Height}, nil)
 		return
 	}
 	w.relativeGeometry(indent, side, fraction)
@@ -630,7 +630,7 @@ func (w *drawioWriter) writeMark(node *Node) {
 	w.b.WriteString(` vertex="1"`)
 	w.attr("parent", node.ID)
 	w.b.WriteString(">\n")
-	w.geometry(drawioCellBodyIndent, drawioBox{X: 4, Y: 4, Width: drawioMarkWidth, Height: drawioMarkHeight}, nil, nil)
+	w.geometry(drawioCellBodyIndent, drawioBox{X: 4, Y: 4, Width: drawioMarkWidth, Height: drawioMarkHeight}, nil)
 	w.closeCell()
 }
 
@@ -712,9 +712,9 @@ func (w *drawioWriter) closeGeometry(indent string) {
 	w.b.WriteString(indent + "</mxGeometry>\n")
 }
 
-// geometry writes an mxGeometry: the box, any route points, and the full box a
-// collapsed cell expands to.
-func (w *drawioWriter) geometry(indent string, box drawioBox, points []Point, alternate *drawioBox) {
+// geometry writes an mxGeometry: the box, and the full box a collapsed cell
+// expands to.
+func (w *drawioWriter) geometry(indent string, box drawioBox, alternate *drawioBox) {
 	w.openGeometry(indent)
 	if box.X != 0 {
 		w.attr("x", formatCoord(box.X))
@@ -725,18 +725,15 @@ func (w *drawioWriter) geometry(indent string, box drawioBox, points []Point, al
 	w.attr("width", formatCoord(box.Width))
 	w.attr("height", formatCoord(box.Height))
 	w.b.WriteString(` as="geometry"`)
-	if len(points) == 0 && alternate == nil {
+	if alternate == nil {
 		w.b.WriteString("/>\n")
 		return
 	}
 	w.b.WriteString(">\n")
-	if alternate != nil {
-		w.b.WriteString(indent + "  <mxRectangle")
-		w.attr("width", formatCoord(alternate.Width))
-		w.attr("height", formatCoord(alternate.Height))
-		w.b.WriteString(` as="alternateBounds"/>` + "\n")
-	}
-	w.writePoints(indent+"  ", points)
+	w.b.WriteString(indent + "  <mxRectangle")
+	w.attr("width", formatCoord(alternate.Width))
+	w.attr("height", formatCoord(alternate.Height))
+	w.b.WriteString(` as="alternateBounds"/>` + "\n")
 	w.closeGeometry(indent)
 }
 
@@ -1178,7 +1175,7 @@ func (w *drawioWriter) writeNote(group []int, notes []Note, box drawioBox) {
 	w.attr("value", notes[group[0]].Text)
 	w.attr("style", "shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;")
 	w.b.WriteString(` vertex="1" parent="1">` + "\n")
-	w.geometry(drawioCellBodyIndent, box, nil, nil)
+	w.geometry(drawioCellBodyIndent, box, nil)
 	w.closeCell()
 	anchored := map[string]bool{}
 	for _, i := range group {
@@ -1216,7 +1213,7 @@ func (w *drawioWriter) writePicture(i int, picture Picture) {
 	w.attr("value", picture.Alt)
 	w.attr("style", "shape=image;html=0;imageAspect=0;verticalLabelPosition=bottom;verticalAlign=top;image="+src+";")
 	w.b.WriteString(` vertex="1" parent="1">` + "\n")
-	w.geometry(drawioCellBodyIndent, drawioBox{X: picture.X, Y: picture.Y, Width: picture.Width, Height: picture.Height}, nil, nil)
+	w.geometry(drawioCellBodyIndent, drawioBox{X: picture.X, Y: picture.Y, Width: picture.Width, Height: picture.Height}, nil)
 	w.closeCell()
 }
 
@@ -1270,7 +1267,7 @@ func (w *drawioWriter) writeFrame(r *Rendering, width, height float64) {
 	w.attr("vertex", "1")
 	w.attr("parent", "1")
 	w.b.WriteString(">\n")
-	w.geometry(drawioWrappedBodyIndent, drawioBox{Width: width, Height: height}, nil, nil)
+	w.geometry(drawioWrappedBodyIndent, drawioBox{Width: width, Height: height}, nil)
 	w.b.WriteString("        </mxCell>\n")
 	for _, c := range r.Frame.Compartments() {
 		cw, ch := w.labels.dotTextBox(c.Lines)
@@ -1288,7 +1285,7 @@ func (w *drawioWriter) writeFrame(r *Rendering, width, height float64) {
 		w.attr("vertex", "1")
 		w.attr("parent", "1")
 		w.b.WriteString(">\n")
-		w.geometry(drawioWrappedBodyIndent, box, nil, nil)
+		w.geometry(drawioWrappedBodyIndent, box, nil)
 		w.b.WriteString("        </mxCell>\n")
 	}
 }

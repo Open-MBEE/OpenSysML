@@ -8,6 +8,16 @@ package enginedemo {
 
 	attribute speed : ISQ::SpeedValue = 10.0 [SI::m] / 2.0 [SI::s];
 
+	attribute datum : ISQ::CartesianSpatial3dCoordinateFrame { :>> mRefs = (mm, mm, mm); }
+	attribute posed : ISQ::CartesianSpatial3dCoordinateFrame {
+		:>> mRefs = (mm, mm, mm);
+		:>> transformation : MeasurementReferences::TranslationRotationSequence {
+			:>> source = datum;
+			:>> elements = (new MeasurementReferences::Translation((10.0, 0.0, 0.0) [datum]),
+				new MeasurementReferences::Rotation((0.0, 0.0, 1.0) [datum], 90 ['°']));
+		}
+	}
+
 	action Double {
 		in x : Integer;
 		out y : Integer;

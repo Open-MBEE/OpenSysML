@@ -590,6 +590,7 @@ expr:Payloads__Ctx___402_pend0_pff
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:Payloads__A__i ;
+    sysml:direction "out" ;
     sysml:ownedRedefinition expr:Payloads__Ctx___402_pend0_pff_rd0 ;
     sysml:ownedSubsetting expr:Payloads__Ctx___402_pend0_pff_rd0 ;
     sysml:ownedSpecialization expr:Payloads__Ctx___402_pend0_pff_rd0 ;
@@ -673,6 +674,7 @@ expr:Payloads__Ctx___402_pend1_pff
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:redefines elmt:Payloads__B__j ;
+    sysml:direction "in" ;
     sysml:ownedRedefinition expr:Payloads__Ctx___402_pend1_pff_rd0 ;
     sysml:ownedSubsetting expr:Payloads__Ctx___402_pend1_pff_rd0 ;
     sysml:ownedSpecialization expr:Payloads__Ctx___402_pend1_pff_rd0 ;
@@ -4109,19 +4111,6 @@ elmt:ddb82e63-685a-5912-b9a0-a7ae93882ef3
     a sysml:FeatureMembership ;
     sysml:elementId "ddb82e63-685a-5912-b9a0-a7ae93882ef3" ;
     sysml:memberElement <urn:sysmlv2:element:1e5d1a3b-0bcf-5091-b752-ea77bfb96708> ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-elmt:e926c99e-a7d4-57e2-8d79-f4088a0c00f9
-    a sysml:Feature ;
-    sysml:elementId "e926c99e-a7d4-57e2-8d79-f4088a0c00f9" ;
-    sysml:qualifiedName "Occurrences::Occurrence::self" ;
-    sysml:declaredName "self" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-elmt:df2e06a3-88f9-56b2-bb1c-1d8518386502
-    a sysml:FeatureMembership ;
-    sysml:elementId "df2e06a3-88f9-56b2-bb1c-1d8518386502" ;
-    sysml:memberElement elmt:e926c99e-a7d4-57e2-8d79-f4088a0c00f9 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:df7a21c9-f648-538e-b5f6-a0058c9930e5

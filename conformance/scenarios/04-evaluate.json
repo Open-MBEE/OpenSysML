@@ -813,6 +813,151 @@
       "expect": {
         "status": "NOT_FOUND"
       }
+    },
+    {
+      "id": "evaluate/a_coordinate_frame_arrives_as_itself",
+      "description": "A feature typed by a coordinate frame evaluates to the frame, so the result names its declaration, type and dimensions and lists one measurement reference per axis rather than reading as unsupported.",
+      "rpc": "Evaluate",
+      "requires_capabilities": [
+        "coordinate_frame_values"
+      ],
+      "model": {
+        "fixture": "coordinate_frame.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "expression": "Frames::datum"
+      },
+      "expect": {
+        "response": {
+          "result": {
+            "coordinate_frame": {
+              "name": "datum",
+              "frame_id": "Frames::datum",
+              "type_id": "ISQSpaceTime::CartesianSpatial3dCoordinateFrame",
+              "dimensions": [
+                3
+              ]
+            }
+          }
+        },
+        "counts": {
+          "result.coordinate_frame.axes": 3
+        },
+        "contains_all": {
+          "result.coordinate_frame.axes.*.unit_id": [
+            "SI::millimetre"
+          ]
+        },
+        "absent": [
+          "result.coordinate_frame.transformation",
+          "result.null"
+        ]
+      }
+    },
+    {
+      "id": "evaluate/a_posed_frame_carries_its_transformation_and_resolved_pose",
+      "description": "A frame posed in another carries the transformation that places it: the source frame, the translation and rotation steps in the order applied, and the pose they resolve to in the source's axis units. The frame is itself the target, so the nested transformation names none.",
+      "rpc": "Evaluate",
+      "requires_capabilities": [
+        "coordinate_frame_values"
+      ],
+      "model": {
+        "fixture": "coordinate_frame.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "expression": "Frames::lbcf"
+      },
+      "expect": {
+        "response": {
+          "result": {
+            "coordinate_frame": {
+              "name": "lbcf",
+              "frame_id": "Frames::lbcf",
+              "transformation": {
+                "transformation_id": "Frames::lbcf::transformation",
+                "type_id": "MeasurementReferences::TranslationRotationSequence",
+                "source": {
+                  "name": "datum",
+                  "frame_id": "Frames::datum",
+                  "type_id": "ISQSpaceTime::CartesianSpatial3dCoordinateFrame",
+                  "dimensions": [
+                    3
+                  ]
+                },
+                "pose": {
+                  "origin": [
+                    10.0,
+                    0.0,
+                    0.0
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "counts": {
+          "result.coordinate_frame.transformation.sequence.steps": 2,
+          "result.coordinate_frame.transformation.pose.basis": 9
+        },
+        "non_empty": [
+          "result.coordinate_frame.transformation.sequence.steps.0.translation.vector_quantity",
+          "result.coordinate_frame.transformation.sequence.steps.1.rotation.axis_direction",
+          "result.coordinate_frame.transformation.sequence.steps.1.rotation.angle"
+        ],
+        "absent": [
+          "result.coordinate_frame.transformation.target"
+        ]
+      }
+    },
+    {
+      "id": "evaluate/a_coordinate_transformation_names_both_frames_it_relates",
+      "description": "A transformation read on its own is a value too, and then names both ends: the frame it is stated in and the frame it places.",
+      "rpc": "Evaluate",
+      "requires_capabilities": [
+        "coordinate_frame_values"
+      ],
+      "model": {
+        "fixture": "coordinate_frame.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "expression": "Frames::lbcf.transformation"
+      },
+      "expect": {
+        "response": {
+          "result": {
+            "coordinate_transformation": {
+              "source": {
+                "name": "datum",
+                "frame_id": "Frames::datum",
+                "type_id": "ISQSpaceTime::CartesianSpatial3dCoordinateFrame",
+                "dimensions": [
+                  3
+                ]
+              },
+              "target": {
+                "name": "lbcf",
+                "frame_id": "Frames::lbcf"
+              },
+              "pose": {
+                "origin": [
+                  10.0,
+                  0.0,
+                  0.0
+                ]
+              }
+            }
+          }
+        },
+        "counts": {
+          "result.coordinate_transformation.sequence.steps": 2
+        },
+        "absent": [
+          "result.coordinate_transformation.target.transformation"
+        ]
+      }
     }
   ]
 }

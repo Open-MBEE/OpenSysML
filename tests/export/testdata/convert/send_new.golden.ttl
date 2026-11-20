@@ -201,7 +201,6 @@ elmt:SendNew__Radio_conjugated
     sysml:elementId "SendNew__Radio_conjugated" ;
     sysml:qualifiedName "SendNew::Radio::'~Radio'" ;
     sysx:mappingQualifiedName "SendNew::Radio::'~Radio'" ;
-    sysml:declaredName "~Radio" ;
     sysml:owner elmt:SendNew__Radio ;
     sysml:owningRelationship elmt:SendNew__Radio_conjugated_om ;
     sysml:owningMembership elmt:SendNew__Radio_conjugated_om ;

@@ -166,3 +166,12 @@ func (m *Model) requirementTexts(sym *symbols.Symbol) ([]symbols.FilterValue, bo
 	}
 	return values, true
 }
+
+// RequirementTextsOf is RequirementDefinition::text / RequirementUsage::text as strings,
+// in order; false for an element that is neither.
+func (m *Model) RequirementTextsOf(sym *symbols.Symbol) ([]string, bool) {
+	if m == nil || sym == nil || !m.conformsToAny(sym, "RequirementDefinition", "RequirementUsage") {
+		return nil, false
+	}
+	return m.DocumentationOf(sym), true
+}

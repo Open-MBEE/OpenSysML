@@ -1160,6 +1160,13 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	case symbols.SymbolAlias:
 		// `alias` declares a Membership of the aliased element (KerML 8.2.3.5.2).
 		return m.kermlMetaclass("Membership")
+	case symbols.SymbolPackage:
+		// A `library package` is a KerML LibraryPackage in either language (KerML 1.0 §8.3.4.13.3).
+		if symbols.IsLibraryPackage(sym) {
+			if meta := m.kermlMetaclass("LibraryPackage"); meta != nil {
+				return meta
+			}
+		}
 	}
 	if meta := m.kermlMetaclass(kermlMetaclassName(sym, m.isKerMLDoc(sym))); meta != nil {
 		return meta
@@ -1228,11 +1235,21 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 	if sym.IsConjugatedPortDefinition() {
 		return "ConjugatedPortDefinition"
 	}
+	switch {
+	case isExhibitedState(sym):
+		return "ExhibitStateUsage"
+	case isIncludedUseCase(sym):
+		return "IncludeUseCaseUsage"
+	}
 	if sym.Expr != nil {
 		if isExpressionParameterSymbol(sym) || sym.Expr.Role == symbols.ExpressionChainFeature {
 			return "Feature"
 		}
 		return expressionElementMetaclassName(sym)
+	}
+	if isNamedTriggerPayload(sym) {
+		// A trigger's payload parameter is a ReferenceUsage, named or not (SysML.xtext PayloadParameter).
+		return "ReferenceUsage"
 	}
 	switch decl := sym.Decl.(type) {
 	case *ast.ForkNode:
@@ -1317,6 +1334,27 @@ func extendedDefinition(sym *symbols.Symbol) bool {
 	}
 	d, ok := sym.Decl.(*ast.Definition)
 	return ok && d.Keyword == "" && d.HasDefKeyword
+}
+
+// isExhibitedState reports whether sym is an `exhibit state s : S;` or an
+// `exhibit s;` (SysML.xtext ExhibitStateUsage).
+func isExhibitedState(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.UsageKind == ast.UsageState &&
+			(sym.Facts.Keyword == "exhibit" || sym.Facts.Keyword == "exhibit state")
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.IsExhibitedState()
+}
+
+// isIncludedUseCase reports whether sym is an `include use case u : U;` or an
+// `include u;` (SysML.xtext IncludeUseCaseUsage).
+func isIncludedUseCase(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModInclude)
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.IsIncludedUseCase()
 }
 
 // ConnectorEndMetaclassName is the SysML metaclass of a connector end: a
@@ -1566,6 +1604,10 @@ var kermlMetaclassNames = map[string]string{
 func kermlMetaclassName(sym *symbols.Symbol, isKerML bool) string {
 	if !isKerML {
 		return ""
+	}
+	if sym.Kind == symbols.SymbolSuccessionFlowUsage {
+		// A `succession flow` also orders its ends (KerML.xtext SuccessionFlow).
+		return "SuccessionFlow"
 	}
 	if sym.Recorded() {
 		switch sym.Facts.Node {
@@ -1837,6 +1879,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return out, true
 	case "owner":
+		if parts := m.namedTriggerPayloadParts(sym); parts != nil {
+			return []*symbols.Symbol{parts.accepter}, true
+		}
 		if owner := ownerSymbol(sym); owner != nil {
 			return []*symbols.Symbol{owner}, true
 		}
@@ -2668,12 +2713,19 @@ func ReflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
 		if sym.Facts.Direction == ast.DirNone && hasDefaultInputParameterDirection(sym) {
 			return ast.DirIn, true
 		}
+		if sym.Facts.Modifiers.Has(symbols.ModAcceptPayload) {
+			return ast.DirIn, true
+		}
 		return sym.Facts.Direction, true
 	}
 	if sym == nil || !sym.IsFeature() {
 		return ast.DirNone, false
 	}
 	if _, ok := sym.Decl.(*ast.SubjectMember); ok {
+		return ast.DirIn, true
+	}
+	if usage, isUsage := sym.Decl.(*ast.Usage); isUsage && usage.IsAccept {
+		// An accept's payload is a parameter member, so an input (KerML 8.3.4.6.4 parameterDirection).
 		return ast.DirIn, true
 	}
 	traits, ok := featureTraitsOf(sym)
@@ -3039,7 +3091,8 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 				flags.isComposite = d.IsComposite
 			}
 		case *ast.CrossFeatureMember:
-			flags.isEnd = true
+			// An end owns its cross feature through an OwningMembership, never an
+			// EndFeatureMembership (KerML 8.3.3.3.4 ownedCrossFeature), so it is not an end.
 			flags.isPortion = d.IsPortion
 			flags.isDerived = d.IsDerived
 			flags.isAbstract = d.IsAbstract
@@ -3309,11 +3362,12 @@ func (m *Model) reflectiveNamed(sym *symbols.Symbol) (string, bool) {
 	return "", false
 }
 
-// declaredSymbolNamed is the name the declaration states, if any: not one the symbol table gave it for
-// its role (a transition's `effect`), nor the feature a metadata body feature's `mission = …` redefines.
+// declaredSymbolNamed is the name the declaration states, if any: not a role's (a transition's `effect`), the
+// feature a metadata body's `mission = …` redefines, nor an implied conjugate's derived `~P` (SysML 8.3.12.2).
 func (m *Model) declaredSymbolNamed(sym *symbols.Symbol) (string, bool) {
 	// `:>> x` and a role name are derived, not declared (KerML 8.3.2.1 Element::declaredName).
-	if sym == nil || sym.Naming == symbols.NamedByRole || sym.Naming == symbols.NamedByRedefinition {
+	if sym == nil || sym.Naming == symbols.NamedByRole || sym.Naming == symbols.NamedByRedefinition ||
+		sym.IsConjugatedPortDefinition() {
 		return "", false
 	}
 	if m.RestatesMetadataBodyFeature(sym) {

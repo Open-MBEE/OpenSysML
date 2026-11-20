@@ -2573,13 +2573,6 @@ elmt:ea462915-971b-556c-82e5-465debcb637d
     sysml:declaredName "transitions" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
-<urn:sysmlv2:element:7d7065b6-1bb8-5bb5-b421-cc92f2e84584>
-    a sysml:Feature ;
-    sysml:elementId "7d7065b6-1bb8-5bb5-b421-cc92f2e84584" ;
-    sysml:qualifiedName "Occurrences::happensBeforeLinks::earlierOccurrence" ;
-    sysml:declaredName "earlierOccurrence" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
 <urn:sysmlv2:element:7dbaffa7-ca3d-53d5-8e10-729b8893a107>
     a sysml:FeatureMembership ;
     sysml:elementId "7dbaffa7-ca3d-53d5-8e10-729b8893a107" ;
@@ -2778,13 +2771,6 @@ elmt:c64ab43a-790b-5369-b8e4-3382ae24c736
     sysml:memberElement elmt:c64ab43a-790b-5369-b8e4-3382ae24c736 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
-<urn:sysmlv2:element:99bd4b60-e5a9-55fb-8cea-1dcf517e50ec>
-    a sysml:Feature ;
-    sysml:elementId "99bd4b60-e5a9-55fb-8cea-1dcf517e50ec" ;
-    sysml:qualifiedName "Occurrences::happensBeforeLinks::laterOccurrence" ;
-    sysml:declaredName "laterOccurrence" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
 <urn:sysmlv2:element:9ba6d0df-af96-5b8e-9d92-684351fc9778>
     a sysml:FeatureMembership ;
     sysml:elementId "9ba6d0df-af96-5b8e-9d92-684351fc9778" ;
@@ -2974,12 +2960,6 @@ elmt:ba29c6dc-70bc-55d8-941f-f3834db7107b
     a sysml:FeatureMembership ;
     sysml:elementId "ba29c6dc-70bc-55d8-941f-f3834db7107b" ;
     sysml:memberElement elmt:e5c2b65e-f4b8-5236-a276-af2ffae92354 ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-elmt:bb171c5a-39c5-5803-b8ee-ff7569dfbee1
-    a sysml:FeatureMembership ;
-    sysml:elementId "bb171c5a-39c5-5803-b8ee-ff7569dfbee1" ;
-    sysml:memberElement <urn:sysmlv2:element:7d7065b6-1bb8-5bb5-b421-cc92f2e84584> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:bffacdad-6769-575f-be46-e30433a5af4d
@@ -3248,12 +3228,6 @@ elmt:fa7ae9b8-a423-52af-8914-96842d7b905f
     a sysml:Documentation ;
     sysml:elementId "fa7ae9b8-a423-52af-8914-96842d7b905f" ;
     sysx:libraryPath "Performances::Performance::enclosedPerformances/Documentation[0]" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-elmt:fb648cc7-6cf6-504b-9234-7f31f1b42d6c
-    a sysml:FeatureMembership ;
-    sysml:elementId "fb648cc7-6cf6-504b-9234-7f31f1b42d6c" ;
-    sysml:memberElement <urn:sysmlv2:element:99bd4b60-e5a9-55fb-8cea-1dcf517e50ec> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:fecacfe8-21d5-578b-86c1-20d332d1c9d3

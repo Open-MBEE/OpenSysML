@@ -118,10 +118,11 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 		if payload == nil {
 			decl = event
 		}
-		parts.payload = transitionPart(sym, decl, decl.Span(), symbols.SymbolReferenceUsage, parts.accepter, symbols.ExpressionPayload)
-		if payload != nil {
-			// `accept s : Sig` names the payload parameter (SysML.xtext TriggerActionMember).
-			parts.payload.Name, parts.payload.NameSpan = ast.EffectiveName(payload)
+		if declared := sym.Scope.MemberDeclaring(decl); payload != nil && declared != nil {
+			// A named payload is the symbol the transition's scope declares for it, owned by the accept.
+			parts.payload = declared
+		} else {
+			parts.payload = transitionPart(sym, decl, decl.Span(), symbols.SymbolReferenceUsage, parts.accepter, symbols.ExpressionPayload)
 		}
 		if event != nil {
 			parts.payloadValue = transitionPart(sym, event, event.Span(), symbols.SymbolExpression, parts.payload, symbols.ExpressionValue)
@@ -317,7 +318,14 @@ func (m *Model) withTransitionParts(sym *symbols.Symbol, members []*symbols.Symb
 	if len(parts) == 0 {
 		return members
 	}
-	out := append(append([]*symbols.Symbol{}, members...), parts...)
+	out := make([]*symbols.Symbol, 0, len(members)+len(parts))
+	for _, member := range members {
+		// A named trigger payload is declared in the transition's scope and owned by the trigger's accept.
+		if !m.isTriggerPayload(sym, member) {
+			out = append(out, member)
+		}
+	}
+	out = append(out, parts...)
 	sort.SliceStable(out, func(i, j int) bool { return out[i].DeclSpan.Offset < out[j].DeclSpan.Offset })
 	return out
 }
@@ -376,6 +384,32 @@ func (m *Model) acceptActionParts(sym *symbols.Symbol) *transitionParts {
 	parts.receiverValue = transitionPart(sym, ref, ref.NodeSpan, symbols.SymbolExpression, parts.receiver, symbols.ExpressionValue)
 	m.transitionParts[sym] = parts
 	return parts
+}
+
+// isNamedTriggerPayload reports whether sym is the payload a transition's trigger names (`accept x : T`):
+// the symbol the transition's scope declares, owned by the trigger's accept (SysML.xtext PayloadParameterMember).
+func isNamedTriggerPayload(sym *symbols.Symbol) bool {
+	if sym == nil || sym.Decl == nil || sym.Expr != nil || sym.Implicit != nil || sym.Chain != nil || sym.OwnerScope == nil {
+		return false
+	}
+	trans, ok := transitionDecl(sym.OwnerScope.Owner())
+	if !ok {
+		return false
+	}
+	payload, _ := triggerPayload(trans)
+	return payload != nil && ast.Node(payload) == sym.Decl
+}
+
+// namedTriggerPayloadParts are the parts of the transition whose trigger names sym as its payload;
+// nil for any other symbol.
+func (m *Model) namedTriggerPayloadParts(sym *symbols.Symbol) *transitionParts {
+	if !isNamedTriggerPayload(sym) {
+		return nil
+	}
+	if parts := m.transitionPartsOf(sym.OwnerScope.Owner()); parts != nil && parts.payload == sym {
+		return parts
+	}
+	return nil
 }
 
 // transitionElements is ReflectiveElements for the features of a transition and of its
@@ -498,25 +532,6 @@ func triggerKind(node ast.Node) string {
 	return ""
 }
 
-// triggerPayloadElement is the element sym stands for: a transition's recorded trigger
-// payload is the payload parameter of the synthesized trigger accept; any other symbol is itself.
-func (m *Model) triggerPayloadElement(sym *symbols.Symbol) *symbols.Symbol {
-	if trans := sym.Owner(); trans != nil && m.isRecordedTriggerPayload(trans, sym) {
-		return m.transitionPartsOf(trans).payload
-	}
-	return sym
-}
-
-// isRecordedTriggerPayload reports whether member is the symbol the builder recorded for
-// trans's trigger payload, which the synthesized payload part of the trigger's accept stands for.
-func (m *Model) isRecordedTriggerPayload(trans, member *symbols.Symbol) bool {
-	if member == nil || member.Decl == nil || member.Expr != nil || member.Implicit != nil {
-		return false
-	}
-	parts := m.transitionPartsOf(trans)
-	return parts != nil && parts.accepter != nil && parts.payload != nil && parts.payload.Decl == member.Decl
-}
-
 func nameHasChain(name *ast.QualifiedName) bool {
 	for _, part := range name.Parts {
 		if part.Chained {
@@ -631,4 +646,11 @@ func boolInt(b bool) int {
 		return 1
 	}
 	return 0
+}
+
+// isTriggerPayload reports whether member is the payload parameter the trigger of the transition sym
+// names (`accept x : T`), which the trigger's accept owns (SysML.xtext TriggerAction, PayloadParameterMember).
+func (m *Model) isTriggerPayload(sym, member *symbols.Symbol) bool {
+	parts := m.transitionPartsOf(sym)
+	return parts != nil && parts.payload == member
 }

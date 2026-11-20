@@ -177,12 +177,7 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 			// conversion writes (sysx:loopVariable is a string).
 			return true
 		}
-		if member == nil || seen[member] || member.Chain != nil || ownedThroughAnnotation(sym, member) {
-			return true
-		}
-		if m.isRecordedTriggerPayload(sym, member) {
-			// `accept s : Sig` names the trigger action's payload parameter, which the
-			// accept owns (SysML.xtext TriggerActionMember), though it scopes in the transition.
+		if member == nil || seen[member] || member.Chain != nil || ownedThroughAnnotation(sym, member) || m.isTriggerPayload(sym, member) {
 			return true
 		}
 		seen[member] = true
@@ -578,6 +573,10 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 		// A chain Feature is owned through an OwningMembership (KerML 8.3.3.3.9).
 		return "OwningMembership"
 	}
+	if member != nil && member.Kind == symbols.SymbolCrossFeature {
+		// An end owns its inline cross feature through an OwningMembership (KerML.xtext OwnedCrossFeatureMember).
+		return "OwningMembership"
+	}
 	if member != nil && member.Expr != nil {
 		switch member.Expr.Role {
 		case symbols.ExpressionParameter:
@@ -619,6 +618,9 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 	if _, _, ok := subactionOf(owner.Decl, member.Decl); ok {
 		// `entry assign x := 1;` performs a statement through a StateSubactionMembership.
 		return "StateSubactionMembership"
+	}
+	if isNamedTriggerPayload(member) {
+		return "ParameterMembership"
 	}
 	if _, ok := m.transitionFeatureKind(owner, member); ok {
 		return "TransitionFeatureMembership"

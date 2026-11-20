@@ -165,6 +165,39 @@ func addFootprint(into *lower.Footprint, g lower.Footprint) {
 	into.Flows = append(into.Flows, g.Flows...)
 }
 
+// sumFootprints is the union of parts in their order, each slice of it made
+// once at its full length rather than grown as the parts are added.
+func sumFootprints(parts []lower.Footprint) lower.Footprint {
+	var n lower.Footprint
+	var reads, writes, sends, accepts, control, flows int
+	for i := range parts {
+		reads += len(parts[i].Reads)
+		writes += len(parts[i].Writes)
+		sends += len(parts[i].Sends)
+		accepts += len(parts[i].Accepts)
+		control += len(parts[i].Control)
+		flows += len(parts[i].Flows)
+	}
+	n.Reads = sized[lower.Place](reads)
+	n.Writes = sized[lower.Place](writes)
+	n.Sends = sized[lower.Channel](sends)
+	n.Accepts = sized[lower.Channel](accepts)
+	n.Control = sized[ast.Node](control)
+	n.Flows = sized[lower.Flow](flows)
+	for i := range parts {
+		addFootprint(&n, parts[i])
+	}
+	return n
+}
+
+// sized is an empty slice with room for n, nil when n is none.
+func sized[T any](n int) []T {
+	if n == 0 {
+		return nil
+	}
+	return make([]T, 0, n)
+}
+
 // dependent reports whether the two moves may not commute: the moves of one
 // unit never do, and otherwise their footprints decide.
 func (c *checker) dependent(a, b searchMove) bool {

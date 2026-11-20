@@ -87,8 +87,10 @@ type Model struct {
 	implicitBase map[*symbols.Symbol][]*symbols.Symbol
 	// featureBaseTypes memoizes baseFeatureTypes: the types a base feature supplies, read for every usage of its kind.
 	featureBaseTypes map[*symbols.Symbol][]*symbols.Symbol
-	// implicitGenerals memoizes ImplicitGenerals: the generals a declaration's kind implies, which every type query of a feature reads.
-	implicitGenerals map[*symbols.Symbol][]*symbols.Symbol
+	// impliedSupers holds the direct supertypes a symbol's kind implies; DirectSupertypes writes it as it appends them.
+	impliedSupers map[*symbols.Symbol][]*symbols.Symbol
+	// impliedSpecializations memoizes ImpliedSpecializations.
+	impliedSpecializations map[*symbols.Symbol][]*symbols.Symbol
 	// valueGenerals memoizes FeatureValueGeneral: the general a feature value implies, nil for none.
 	valueGenerals map[*symbols.Symbol]*symbols.Symbol
 	// allDeclaredSupers memoizes AllDeclaredSupertypes, which every variation-point query at run time reads.
@@ -267,7 +269,8 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		effectiveComposite:     make(map[*symbols.Symbol]bool),
 		implicitBase:           make(map[*symbols.Symbol][]*symbols.Symbol),
 		featureBaseTypes:       make(map[*symbols.Symbol][]*symbols.Symbol),
-		implicitGenerals:       make(map[*symbols.Symbol][]*symbols.Symbol),
+		impliedSupers:          make(map[*symbols.Symbol][]*symbols.Symbol),
+		impliedSpecializations: make(map[*symbols.Symbol][]*symbols.Symbol),
 		valueGenerals:          make(map[*symbols.Symbol]*symbols.Symbol),
 		allDeclaredSupers:      make(map[*symbols.Symbol][]*symbols.Symbol),
 		implicitSubsettings:    make(map[*symbols.Symbol][]*symbols.Symbol),
@@ -363,6 +366,10 @@ func Generalizes(sym *symbols.Symbol, k ast.RelationshipKind) bool {
 // declaration, or nil for symbols that are not def/usage.
 func RelationshipsOf(sym *symbols.Symbol) []*ast.Relationship {
 	if sym == nil {
+		return nil
+	}
+	if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionTriggerAction {
+		// A trigger's accept shares its payload's node, whose head states the payload (SysML.xtext TriggerAction).
 		return nil
 	}
 	decl := sym.Decl
@@ -604,27 +611,12 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		out = append(out, redefined)
 	}
 
-	// A declaration keeps its kind's bases whatever else it declares; implicitBases
-	// suppresses one only when a declared chain already reaches it. A metadata
-	// keyword supplies the kind itself, so its baseType stands in.
-	if !fromMetadata {
-		for _, base := range m.implicitBases(sym) {
-			if !seen[base] {
-				seen[base] = true
-				out = append(out, base)
-			}
-		}
-	}
-
-	// A usage also subsets the base usage of its kind, or Base::things when its
-	// kind names none — an implied Subsetting beside the typing (SysML v2 §7.6,
-	// §8.3.11.3 checkPartUsageSpecialization; KerML §8.4.2, §8.3.4.5.3).
-	for _, base := range m.implicitBaseFeatures(sym, out) {
-		if !seen[base] {
-			seen[base] = true
-			out = append(out, base)
-		}
-	}
+	// What the declaration's kind implies comes last: the one derivation that resolution,
+	// inheritance and ImpliedSpecializations read (KerML §8.4.2).
+	implied := m.deriveImpliedGenerals(sym, out, fromMetadata)
+	out = append(out, implied...)
+	journal(m, m.impliedSupers, sym, sym.Decl)
+	m.impliedSupers[sym] = implied
 
 	// An answer derived while a guard cut a query short saw fewer members than
 	// the finished model has, so it is recomputed on the next query, not memoized.
@@ -1138,6 +1130,10 @@ func (m *Model) withUsageBases(sym *symbols.Symbol, bases []*symbols.Symbol) []*
 	if !(isUsage || sym.Kind == symbols.SymbolPartUsage) || m.isKerMLDoc(sym) || m.resolver == nil || m.resolver.Index() == nil {
 		return bases
 	}
+	if isNamedTriggerPayload(sym) {
+		// A trigger's payload is a ReferenceUsage whatever it is typed by, so it takes no usage kind's base.
+		return bases
+	}
 	fqns := []string{}
 	if fqn, ok := m.FeatureBaseFQN(sym); ok {
 		fqns = append(fqns, fqn)
@@ -1159,6 +1155,9 @@ func (m *Model) withUsageBases(sym *symbols.Symbol, bases []*symbols.Symbol) []*
 
 // mostSpecificTypes drops every type another one in the list specializes.
 func (m *Model) mostSpecificTypes(types []*symbols.Symbol) []*symbols.Symbol {
+	if len(types) <= 1 {
+		return types
+	}
 	var out []*symbols.Symbol
 	for _, t := range types {
 		redundant := false

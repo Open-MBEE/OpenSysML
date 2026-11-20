@@ -21,8 +21,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
 
-// GetElementProperties reads one element's metamodel properties by their specification names over
-// the symbols the model resolved to (metamodel.SymbolStructure); a library element reads from its document's form.
+// GetElementProperties reads one element's metamodel properties by their specification names over the symbols the model resolved
+// to (metamodel.SymbolStructure), a library element from its document's form; an excluded document's element answers its error.
 func (s *Service) GetElementProperties(ctx context.Context, req *pb.GetElementPropertiesRequest) (*pb.GetElementPropertiesResponse, error) {
 	if err := s.requireCapability(CapabilityElementProperties); err != nil {
 		return nil, err
@@ -40,16 +40,23 @@ func (s *Service) GetElementProperties(ctx context.Context, req *pb.GetElementPr
 		}
 	}
 	reader := cached.elementReader()
-	if reader.refusal != nil {
-		return &pb.GetElementPropertiesResponse{Error: reader.refusal.Error()}, nil
-	}
+	resp := s.elementProperties(reader, req)
+	resp.ExcludedDocuments = reader.exclusions
+	return resp, nil
+}
+
+// elementProperties answers req over the documents the model is read with.
+func (s *Service) elementProperties(reader *elementReader, req *pb.GetElementPropertiesRequest) *pb.GetElementPropertiesResponse {
 	sym, ok := s.lookupElement(reader, req)
-	if ok && !cached.Index.Library(sym) {
-		return reader.read(sym, req.Properties), nil
+	if ok && !reader.model.Index.Library(sym) {
+		if excluded := reader.excluded[sym.DocName]; excluded != nil {
+			return &pb.GetElementPropertiesResponse{Error: excluded.Error}
+		}
+		return reader.read(sym, req.Properties)
 	}
 	id := req.ElementId
 	if ok && sym.Named() {
-		id = cached.Index.GetFQN(sym)
+		id = reader.model.Index.GetFQN(sym)
 	}
 	return libraryElementProperties(id, req.Properties, s.looksUpByName(req))
 }
@@ -76,25 +83,25 @@ func (s *Service) looksUpByName(req *pb.GetElementPropertiesRequest) bool {
 
 // libraryElementProperties answers a standard-library element from the API
 // element form of its own library document.
-func libraryElementProperties(id string, properties []string, byName bool) (*pb.GetElementPropertiesResponse, error) {
+func libraryElementProperties(id string, properties []string, byName bool) *pb.GetElementPropertiesResponse {
 	element, form, known, err := libraryElementForm(id, byName)
 	if err != nil {
-		return &pb.GetElementPropertiesResponse{Error: err.Error()}, nil
+		return &pb.GetElementPropertiesResponse{Error: err.Error()}
 	}
 	if !known {
-		return &pb.GetElementPropertiesResponse{Error: fmt.Sprintf("element not found: %s", id)}, nil
+		return &pb.GetElementPropertiesResponse{Error: fmt.Sprintf("element not found: %s", id)}
 	}
 	resp := &pb.GetElementPropertiesResponse{Element: libraryElementRefOf(form, element.ID)}
 	if len(properties) == 0 {
 		for _, property := range element.Properties {
 			resp.Properties = append(resp.Properties, libraryElementPropertyOf(form, element, property.Name))
 		}
-		return resp, nil
+		return resp
 	}
 	for _, name := range properties {
 		resp.Properties = append(resp.Properties, libraryElementPropertyOf(form, element, name))
 	}
-	return resp, nil
+	return resp
 }
 
 // libraryElementForm reads a standard-library element by qualified name alone (byName),
@@ -110,11 +117,11 @@ func libraryElementForm(id string, byName bool) (export.APIJSONElement, *export.
 // model and the evaluator memoize without locking, so reads take mu.
 type elementReader struct {
 	model *CachedModel
-	// refusal is why the model is not read at all: a document the parser could
-	// not read whole, whose symbols would silently miss what the parser skipped.
-	refusal   error
-	mu        sync.Mutex
-	semantics *semantics.Model
+	// exclusions are the documents the model is read without, in document order; excluded indexes them by name.
+	exclusions []*pb.ExcludedDocument
+	excluded   map[string]*pb.ExcludedDocument
+	mu         sync.Mutex
+	semantics  *semantics.Model
 	// catalog fixes the ids of the bundled libraries' elements and memberships,
 	// built on first use.
 	catalog   *identity.Catalog
@@ -145,59 +152,63 @@ func (m *CachedModel) elementReader() *elementReader {
 		structure := metamodel.NewSymbolStructure(resolver, sem)
 		reader := &elementReader{
 			model:     m,
-			refusal:   m.syntaxRefusal(),
+			excluded:  map[string]*pb.ExcludedDocument{},
 			semantics: sem,
 			structure: structure,
 			evaluator: metamodel.New(resolver, sem, metamodel.Options{Structure: structure}),
 			addresses: map[*symbols.Symbol]string{},
 			bySymbol:  map[string]*symbols.Symbol{},
 		}
-		if reader.refusal == nil {
-			reader.ids, reader.idsRefusal = m.symbolIDs(resolver, sem)
-			if reader.ids != nil {
-				structure.SetIdentities(reader.ids.Of)
-				// The ownership walk reads the semantic model, which memoizes
-				// without locking: done here, before the evaluator shares it.
-				reader.ids.Reachable()
-			}
+		var excluded []export.ExcludedDocument
+		reader.ids, excluded, reader.idsRefusal = m.symbolIDs(resolver, sem)
+		for _, exclusion := range excluded {
+			left := &pb.ExcludedDocument{Document: exclusion.Document, Error: exclusion.Err.Error()}
+			reader.exclusions = append(reader.exclusions, left)
+			reader.excluded[left.Document] = left
+		}
+		if reader.ids != nil {
+			structure.SetIdentities(reader.ids.Of)
+			// The ownership walk reads the semantic model, which memoizes
+			// without locking: done here, before the evaluator shares it.
+			reader.ids.Reachable()
 		}
 		m.elementReaderValue = reader
 	})
 	return m.elementReaderValue
 }
 
-// symbolIDs spells the model's symbols by the ids Convert writes for its documents' elements;
-// the error is why Convert refuses the model whole (an id declared twice or outside the alphabet).
-func (m *CachedModel) symbolIDs(resolver *resolve.Resolver, sem *semantics.Model) (*export.SymbolIDs, error) {
+// symbolIDs spells the model's symbols by the ids Convert writes for the documents read, and lists those left out: one the
+// parser could not read whole, one whose ids cannot be minted or an earlier document declares; the error refuses the model whole.
+func (m *CachedModel) symbolIDs(resolver *resolve.Resolver, sem *semantics.Model) (*export.SymbolIDs, []export.ExcludedDocument, error) {
+	unreadable := map[string]error{}
 	documents := make([]export.ModelDocument, 0, len(m.Documents))
 	for _, doc := range m.Documents {
 		if doc == nil || doc.Source == nil || doc.Root == nil {
 			continue
 		}
+		if syntax := convert.SyntaxErrorOf(doc.Source.Name(), doc.Source, doc.ParseDiags); syntax != nil {
+			unreadable[doc.Source.Name()] = syntax
+		}
 		documents = append(documents, export.ModelDocument{File: doc.Source, Root: doc.Root})
 	}
 	if len(documents) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
-	ids, err := export.NewElementIDs(documents)
+	ids, excluded, err := export.ReadableElementIDs(documents, unreadable)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return export.NewSymbolIDs(ids, resolver, sem), nil
+	return export.NewSymbolIDs(ids, resolver, sem), excluded, nil
 }
 
-// syntaxRefusal is the first document the parser could not read whole, as
-// Convert refuses it; nil when every document parsed clean.
-func (m *CachedModel) syntaxRefusal() error {
-	for _, doc := range m.Documents {
-		if doc == nil || doc.Source == nil {
-			continue
-		}
-		if syntax := convert.SyntaxErrorOf(doc.Source.Name(), doc.Source, doc.ParseDiags); syntax != nil {
-			return syntax
+// readable is the first of syms a document the model is read with declares, else the first.
+func (r *elementReader) readable(syms []*symbols.Symbol) *symbols.Symbol {
+	for _, sym := range syms {
+		if sym != nil && r.excluded[sym.DocName] == nil {
+			return sym
 		}
 	}
-	return nil
+	return syms[0]
 }
 
 // lookup finds the symbol a request addresses: the form's id, a qualified name from the root
@@ -210,7 +221,7 @@ func (r *elementReader) lookup(id string) (*symbols.Symbol, bool) {
 		return sym, ok
 	}
 	if syms := r.model.LookupSymbol(id); len(syms) > 0 {
-		return syms[0], true
+		return r.readable(syms), true
 	}
 	return r.lookupPath(id)
 }
@@ -219,13 +230,21 @@ func (r *elementReader) lookup(id string) (*symbols.Symbol, bool) {
 // chain names it; named reports the name settled it (declared but not visible from the root: nothing).
 func (r *elementReader) lookupNamed(name string, resolve func(string) []*symbols.Symbol) (sym *symbols.Symbol, ok, named bool) {
 	if syms := resolve(name); len(syms) > 0 {
-		return syms[0], true, true
+		sym := r.readable(syms)
+		if r.excluded[sym.DocName] != nil {
+			// A name a readable document declares too is read from that one.
+			declared := append(symbolfacts.LookupNamed(r.model.Index, name), r.model.LookupNamedMember(name)...)
+			if len(declared) > 0 {
+				sym = r.readable(append(declared, sym))
+			}
+		}
+		return sym, true, true
 	}
 	if len(symbolfacts.LookupNamed(r.model.Index, name)) > 0 {
 		return nil, false, true
 	}
 	if syms := r.model.LookupNamedMember(name); len(syms) > 0 {
-		return syms[0], true, true
+		return r.readable(syms), true, true
 	}
 	return nil, false, false
 }
@@ -237,7 +256,7 @@ func (r *elementReader) lookupID(id string) (*symbols.Symbol, bool) {
 		return sym, true
 	}
 	if syms := r.model.LookupElementID(id); len(syms) > 0 {
-		return syms[0], true
+		return r.readable(syms), true
 	}
 	return r.lookupPath(id)
 }

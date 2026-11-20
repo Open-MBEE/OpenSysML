@@ -68,7 +68,8 @@ func recordedRelationship(rel *symbols.Symbol) (symbols.RelationshipFacts, bool)
 // owned by the element the relationship is written on; nil for a relationship
 // targeting a name or a chain that does not resolve.
 func (m *Model) chainTargetFeature(rel *symbols.Symbol) *symbols.Symbol {
-	if m == nil || rel == nil || !rel.ImplicitWrittenRelationship() && !impliedChainEndReference(rel) {
+	if m == nil || rel == nil ||
+		!rel.ImplicitWrittenRelationship() && !rel.ImplicitShorthandChain() && !impliedChainEndReference(rel) {
 		return nil
 	}
 	var (

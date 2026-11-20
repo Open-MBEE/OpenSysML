@@ -37,14 +37,16 @@ func NewSymbolIDs(ids *ElementIDs, res *resolve.Resolver, model *semantics.Model
 	return s
 }
 
-// Documents are the names of the documents ids was built for, in model order.
+// Documents are the names of the documents ids records the elements of, in model order.
 func (ids *ElementIDs) Documents() []string {
 	if ids == nil {
 		return nil
 	}
 	names := make([]string, 0, len(ids.encoders))
 	for _, e := range ids.encoders {
-		names = append(names, e.file.Name())
+		if !ids.leftOut[e.file.Name()] {
+			names = append(names, e.file.Name())
+		}
 	}
 	return names
 }
@@ -333,6 +335,11 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 			return "", false
 		}
 		return s.partID(rel.Owner, "rs")
+	case symbols.ImplicitShorthandReference:
+		if rel.Owner == nil {
+			return "", false
+		}
+		return s.ids.RelationshipOf(doc, rel.Owner.Decl)
 	case symbols.ImplicitTypeArgumentTyping:
 		// A type argument's typing is minted off its parameter, as the conversion writes it (typeArgument).
 		owner, ok := s.of(rel.Owner)
@@ -475,6 +482,11 @@ func (s *SymbolIDs) expressionID(sym *symbols.Symbol) (string, bool) {
 			return base + encodedSegment(naming.TriggerSegment), true
 		}
 	case symbols.ExpressionPayload:
+		if owner.Kind == symbols.SymbolSendActionUsage {
+			// A send's argument parameter is its unnamed member at the argument's position (encodeSendArguments).
+			base, ok := s.of(owner)
+			return base + encodedSegment(fmt.Sprintf("@%d", sym.Expr.Index)), ok
+		}
 		if id, ok := s.ids.OfDeclaration(doc, sym.Decl, ""); ok {
 			return id, true
 		}
@@ -482,6 +494,12 @@ func (s *SymbolIDs) expressionID(sym *symbols.Symbol) (string, bool) {
 		if base, ok := s.of(owner); ok {
 			return base + encodedSegment(fmt.Sprintf("@%d", sym.Expr.Index)), true
 		}
+	}
+	if sym.Expr.Role == symbols.ExpressionValue && owner.Expr != nil && owner.Expr.Role == symbols.ExpressionPayload &&
+		owner.Expr.Owner != nil && owner.Expr.Owner.Kind == symbols.SymbolSendActionUsage {
+		// The value of a send's argument parameter is the parameter's `value` part.
+		base, ok := s.of(owner)
+		return rdf.ExpressionNodeID(base, "value"), ok
 	}
 	if sym.Decl != nil && sym.Decl != owner.Decl {
 		if id, ok := s.ids.OfDeclaration(doc, sym.Decl, ""); ok {

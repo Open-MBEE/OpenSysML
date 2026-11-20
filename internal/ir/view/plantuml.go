@@ -492,7 +492,7 @@ func (w *plantumlWriter) writeStateNode(node *Node, depth int, starts map[string
 	}
 	for _, child := range node.Children {
 		for _, edge := range starts[child.ID] {
-			w.writeArrow(indent+"  ", "[*]", edge.To, plantumlArrow(w.kind, edge.Kind), edge.Label, Origin{}, false)
+			w.writeArrow(indent+"  ", "[*]", edge.To, plantumlArrow(edge.Kind), edge.Label, Origin{}, false)
 		}
 	}
 	fmt.Fprintf(&w.b, "%s}\n", indent)
@@ -591,7 +591,7 @@ func (w *plantumlWriter) writeArrow(indent, from, to, arrow, label string, origi
 // at its end in quotes, `a "owner" *-- "wheels[4]" b`, the edge's own text
 // after the colon.
 func (w *plantumlWriter) writeArrowEdge(edge Edge, from, to string, sequence bool) {
-	arrow := plantumlArrow(w.kind, edge.Kind)
+	arrow := plantumlArrow(edge.Kind)
 	if sequence {
 		arrow = plantumlSequenceArrow(edge.Kind)
 	}
@@ -628,7 +628,7 @@ func plantumlStyleColor(style *Style) string {
 
 // plantumlArrow is each edge kind's arrow, the §8.2.3 glyph as the Pilot's
 // visualizer writes it; the notation table in the docs lists them.
-func plantumlArrow(kind Kind, edge EdgeKind) string {
+func plantumlArrow(edge EdgeKind) string {
 	switch edge {
 	case EdgeConnection:
 		return "-[thickness=3]-"
