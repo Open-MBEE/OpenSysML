@@ -60,7 +60,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 58,
-        "digest": "sha256:e04031b04da8ab93f8b0c2bdde61295ce5c0715aadc8ae10b897a926442ddba5"
+        "digest": "sha256:d7939190537f39aff54d18933f66e1f951c3e040739edad1f2faa30adf6a0b77"
       },
       {
         "name": "probes",
@@ -1072,27 +1072,27 @@
       "pilotFailed": 0,
       "pilotLibraryElements": 60583,
       "elements": {
-        "matched": 111256,
+        "matched": 111266,
         "oursOnly": 19447,
         "pilotOnly": 28916,
         "pilotOnlyImplied": 0,
         "typeMismatch": 1836
       },
       "properties": {
-        "presentEqual": 2205286,
-        "presentDifferent": 149918,
-        "oursMissing": 267570,
-        "pilotMissing": 88093,
-        "absentBoth": 2372720,
-        "indeterminate": 52356,
+        "presentEqual": 2205510,
+        "presentDifferent": 149927,
+        "oursMissing": 267585,
+        "pilotMissing": 88101,
+        "absentBoth": 2372956,
+        "indeterminate": 52361,
         "pilotNondeterministic": 547
       },
       "rows": 11785,
-      "unkeyedReferences": 167228,
-      "extensionProperties": 292005,
+      "unkeyedReferences": 167245,
+      "extensionProperties": 292029,
       "duplicateElements": {
         "ours": 556,
-        "pilot": 92396
+        "pilot": 92456
       },
       "ambiguousKeys": {
         "ours": 322,
@@ -1332,24 +1332,24 @@
         "oursColliding": 21,
         "pilotLibraryElements": 37878,
         "elements": {
-          "matched": 37466,
+          "matched": 37476,
           "oursOnly": 5903,
           "pilotOnly": 11010,
           "pilotOnlyImplied": 0,
           "typeMismatch": 199
         },
         "properties": {
-          "presentEqual": 753674,
-          "presentDifferent": 49563,
-          "oursMissing": 91113,
-          "pilotMissing": 28908,
-          "absentBoth": 831654,
-          "indeterminate": 24668,
+          "presentEqual": 753898,
+          "presentDifferent": 49572,
+          "oursMissing": 91128,
+          "pilotMissing": 28916,
+          "absentBoth": 831890,
+          "indeterminate": 24673,
           "pilotNondeterministic": 177
         },
         "duplicateElements": {
           "ours": 441,
-          "pilot": 73853
+          "pilot": 73913
         },
         "ambiguousKeys": {
           "ours": 192,

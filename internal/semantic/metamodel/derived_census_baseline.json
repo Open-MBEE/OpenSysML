@@ -61,7 +61,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 58,
-        "digest": "sha256:e04031b04da8ab93f8b0c2bdde61295ce5c0715aadc8ae10b897a926442ddba5"
+        "digest": "sha256:d7939190537f39aff54d18933f66e1f951c3e040739edad1f2faa30adf6a0b77"
       },
       {
         "name": "probes",
@@ -173,11 +173,11 @@
       "dir": "examples",
       "files": 58,
       "rejected": 0,
-      "elements": 44279,
-      "implied": 25880,
-      "pilotElements": 56192,
+      "elements": 44289,
+      "implied": 25886,
+      "pilotElements": 56202,
       "pilotImplied": 0,
-      "pilotDuplicates": 85373,
+      "pilotDuplicates": 85433,
       "pilotFailed": 0
     },
     {
@@ -205,5 +205,5 @@
       "pilotFailed": 0
     }
   ],
-  "pilotRecords": "sha256:80cddffc8eb35dbf45bc45ba3a49ad15a39ac8371240e31e0d560a8cbd9cc050"
+  "pilotRecords": "sha256:268f5c6db64f8f7ac002c363018d41418e5482b24d7747c1c154a9f718c7ca34"
 }
