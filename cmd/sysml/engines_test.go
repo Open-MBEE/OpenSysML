@@ -15,8 +15,6 @@ const engineModel = `package Rover {
 }
 `
 
-// TestEnginesListsTheBuild checks that -engines tables every engine of the build
-// with its authority, the questions it answers and its status, and exits without a model.
 // builtEngines names the engines of the build under test, and the lines -engines
 // writes for them: a header, a row each, and a detail line for the FMI tool.
 func builtEngines() (names []string, lines int) {
@@ -28,6 +26,8 @@ func builtEngines() (names []string, lines int) {
 	return names, len(names) + 2
 }
 
+// TestEnginesListsTheBuild checks that -engines tables every engine of the build
+// with its authority, the questions it answers and its status, and exits without a model.
 func TestEnginesListsTheBuild(t *testing.T) {
 	binary := buildCLI(t)
 	engines, wantLines := builtEngines()
