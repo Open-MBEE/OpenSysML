@@ -332,7 +332,8 @@ func TestParameterAndEndMemberships(t *testing.T) {
 		assertRelUnsupported(t, model, memberships[3], "ownedMemberParameter")
 		cd := relFixtureSymbol(t, fixture, "CD")
 		for _, membership := range model.OwnedMemberships(cd) {
-			assertRelMetaclass(t, model, membership, "EndFeatureMembership")
+			// A definition's declared `end` is a FeatureMembership whose member isEnd, as the pilot exports it.
+			assertRelMetaclass(t, model, membership, "FeatureMembership")
 		}
 		asm := relFixtureSymbol(t, fixture, "Asm")
 		connector := model.OwnedMemberships(asm)[2].Implicit.Member
@@ -540,7 +541,9 @@ feature g : A inverse of D::f;`
 // names (an alias being one itself) and importedElement is its member.
 func TestMembershipImportTargetIsTheMembership(t *testing.T) {
 	const src = `package A { part def X; alias Y for X; }
-package B { private import A::X; private import A::Y; }`
+package B { private import A::X; private import A::Y; }
+package C { public import A::*; }
+package D { private import C::Y; }`
 	for _, fixture := range reflectiveFixtures(t, "membership-import.sysml", source.KindSysML, src) {
 		model := fixture.model
 		a := relFixtureSymbol(t, fixture, "A")
@@ -573,6 +576,13 @@ package B { private import A::X; private import A::Y; }`
 		assertRelFeature(t, model, imports[1], "importedMembership", alias)
 		assertRelFeature(t, model, imports[1], "target", alias)
 		assertRelFeature(t, model, imports[1], "importedElement", x)
+		// An alias named through a namespace that only imports it is the same Membership.
+		through := model.OwnedImports(relFixtureSymbol(t, fixture, "D"))
+		if len(through) != 1 {
+			t.Fatalf("D owns %d imports, want 1", len(through))
+		}
+		assertRelFeature(t, model, through[0], "importedMembership", alias)
+		assertRelFeature(t, model, through[0], "importedElement", x)
 	}
 }
 

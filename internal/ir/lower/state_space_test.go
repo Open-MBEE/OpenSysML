@@ -354,9 +354,8 @@ func TestStateSpaceDynamicsUnsupportedShapes(t *testing.T) {
 	}
 }
 
-// An event occurrence typed by a ZeroCrossingEventDef that declares no guard lowers
-// to a crossing of the derivative, however it reaches the type; one typed by another
-// StateSpaceEventDef, for which the library states no condition, is no crossing.
+// A guardless event occurrence lowers to a crossing of the derivative when a
+// ZeroCrossingEventDef types it, however reached; under another StateSpaceEventDef it is none.
 func TestStateSpaceDerivativeCrossingLowering(t *testing.T) {
 	src := `package test {` + stateSpacePrelude + `
 		action def Apex :> ZeroCrossingEventDef;

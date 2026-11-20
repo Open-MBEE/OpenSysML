@@ -23,8 +23,8 @@ package Test {
 		fork split;
 
 		transition first idle accept Go then split;
-		transition first split then a;
-		transition first split then b;
+		transition first split then work.left.a;
+		transition first split then work.right.b;
 	}
 	attribute def Go;
 }

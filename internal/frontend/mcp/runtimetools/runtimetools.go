@@ -389,6 +389,18 @@ func valueText(v *pb.Value) string {
 		return "<undetermined>"
 	case *pb.Value_Infinity:
 		return "*"
+	case *pb.Value_CoordinateFrame:
+		return coordinateFrameText(k.CoordinateFrame)
+	case *pb.Value_CoordinateTransformation:
+		t := k.CoordinateTransformation
+		source, target := "?", "?"
+		if t.GetSource() != nil {
+			source = t.GetSource().GetName()
+		}
+		if t.GetTarget() != nil {
+			target = t.GetTarget().GetName()
+		}
+		return t.GetName() + " (" + source + " → " + target + ")"
 	case *pb.Value_Quantity:
 		return quantityText(k.Quantity)
 	case *pb.Value_EnumLiteral:
@@ -485,3 +497,15 @@ func errorText(err string) string {
 
 // sortStrings sorts names in place, for maps spelled in name order.
 func sortStrings(names []string) { sort.Strings(names) }
+
+// coordinateFrameText renders a frame as the REPL does: `datum [mm, mm, mm]`.
+func coordinateFrameText(frame *pb.CoordinateFrame) string {
+	units := make([]string, 0, len(frame.GetAxes())+1)
+	if scale := frame.GetScale(); scale != nil {
+		units = append(units, scale.GetUnit().GetUnit())
+	}
+	for _, axis := range frame.GetAxes() {
+		units = append(units, axis.GetUnit())
+	}
+	return frame.GetName() + " [" + strings.Join(units, ", ") + "]"
+}

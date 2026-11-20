@@ -82,7 +82,7 @@ func isValueExpressionSymbol(sym *symbols.Symbol) bool {
 		return false
 	}
 	switch sym.Expr.Role {
-	case symbols.ExpressionChangeCondition, symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionGuard:
+	case symbols.ExpressionChangeCondition, symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionGuard, symbols.ExpressionFilterCondition:
 		// Owned through a FeatureMembership or ResultExpressionMembership,
 		// not bound as a value (changeArgument, bodyExpression).
 		return false
@@ -179,11 +179,7 @@ func expressionValue(sym *symbols.Symbol, feature string) (symbols.FilterValue, 
 		}
 	case *ast.IndexExpr:
 		if feature == "operator" {
-			operator := "#"
-			if n.Bracket {
-				operator = "["
-			}
-			return symbols.FilterValue{Kind: symbols.FilterValueString, Str: operator}, true
+			return symbols.FilterValue{Kind: symbols.FilterValueString, Str: n.OperatorSpelling()}, true
 		}
 	case *ast.SequenceExpr:
 		if feature == "operator" {

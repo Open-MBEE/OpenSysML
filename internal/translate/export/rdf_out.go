@@ -1,6 +1,7 @@
 package export
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
@@ -65,6 +66,7 @@ const (
 	pImportOwningNamespace       = "importOwningNamespace"
 	pDirection                   = "direction"
 	pIsImplied                   = "isImplied"
+	pIsImpliedIncluded           = "isImpliedIncluded"
 	pLowerBound                  = "lowerBound"
 	pUpperBound                  = "upperBound"
 	pValue                       = "value"
@@ -356,16 +358,21 @@ func ModelToRDFWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) 
 // ModelElementGraphWith is ModelToRDFWith for a graph only the element form is written
 // from: it leaves the library members only a completed property references to that writer.
 func ModelElementGraphWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) {
-	res, encoders, err := modelEncodersOf(documents, form)
+	_, encoders, err := modelEncodersOf(documents, form)
 	if err != nil {
 		return nil, err
 	}
-	out, _, _, err := encodeModelDocuments(documents, res, encoders, addLinkedLibraryStubs)
-	return out, err
+	return encodeModelDocuments(context.Background(), documents, encoders, addLinkedLibraryStubs)
 }
 
+// libraryNamer states the library stubs of a written graph; a done ctx is its error.
+type libraryNamer func(ctx context.Context, graph *rdf.Graph) error
+
 // addLinkedLibraryStubs names the library elements the graph's triples link to.
-func addLinkedLibraryStubs(graph *rdf.Graph) { addReferencedLibraryStubs(graph, nil) }
+func addLinkedLibraryStubs(_ context.Context, graph *rdf.Graph) error {
+	addReferencedLibraryStubs(graph, nil)
+	return nil
+}
 
 // modelToRDF is ModelToRDFWith, also returning the resolver the model was
 // analyzed with and each document's encoder, whose identity tables are the
@@ -375,34 +382,85 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return encodeModelDocuments(documents, res, encoders, nameInheritedLibraryMembers)
+	out, err := encodeModelDocuments(context.Background(), documents, encoders, nameInheritedLibraryMembers)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return out, res, encoders, nil
 }
 
 // encodeModelDocuments merges the documents' graphs; nameLibrary states the library stubs of the merged one.
-func encodeModelDocuments(documents []ModelDocument, res *resolve.Resolver, encoders []*encoder, nameLibrary func(*rdf.Graph)) (*rdf.Graph, *resolve.Resolver, []*encoder, error) {
+// It returns the graph alone, so a caller done with the encoders holds no document's graph beside it.
+func encodeModelDocuments(ctx context.Context, documents []ModelDocument, encoders []*encoder, nameLibrary libraryNamer) (*rdf.Graph, error) {
+	out, _, _, err := encodeReadableDocuments(ctx, documents, encoders, nameLibrary, nil, false)
+	return out, err
+}
+
+// ExcludedDocument is a document a model was read without, and why.
+type ExcludedDocument struct {
+	Document string
+	Err      error
+}
+
+// encodeReadableDocuments is encodeModelDocuments without the documents unreadable names and, when tolerant, without one it
+// cannot write or whose ids an earlier document declares: each stays analyzed, declares no id, and is returned in document order.
+func encodeReadableDocuments(ctx context.Context, documents []ModelDocument, encoders []*encoder, nameLibrary libraryNamer, unreadable map[string]error, tolerant bool) (*rdf.Graph, []ExcludedDocument, []bool, error) {
 	// declaredIn is the document and declaration each subject was minted for:
 	// two documents declaring one subject would merge two elements into one.
 	declaredIn := map[string]mintedSubject{}
+	written := slices.Clone(documents)
+	var excluded []ExcludedDocument
+	exclude := func(i int, err error) {
+		written[i].Referenced = true
+		excluded = append(excluded, ExcludedDocument{Document: documents[i].File.Name(), Err: err})
+	}
 	for i, e := range encoders {
+		if err := ctx.Err(); err != nil {
+			return nil, nil, nil, err
+		}
+		if err := unreadable[documents[i].File.Name()]; err != nil {
+			exclude(i, err)
+			continue
+		}
 		var minted []mintedSubject
 		if documents[i].Referenced {
 			minted = e.declaredSubjects()
 		} else {
 			if err := e.encodeDocument(documents[i].Root); err != nil {
-				return nil, nil, nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
+				err = fmt.Errorf("%s: %w", documents[i].File.Name(), err)
+				if !tolerant {
+					return nil, nil, nil, err
+				}
+				exclude(i, err)
+				continue
 			}
+			// The document is written: its graph waits for the merge as its triples
+			// alone, without the lookup tables the writing built over them.
+			e.graph = rdf.NewGraphOf(e.graph.Triples(), e.graph.Prefixes)
 			minted = e.minted
 		}
 		if err := declaredOnce(declaredIn, minted); err != nil {
-			return nil, nil, nil, err
+			if !tolerant {
+				return nil, nil, nil, err
+			}
+			exclude(i, err)
 		}
 	}
-	out := mergeDocumentGraphs(encoders, documents)
-	nameLibrary(out)
+	if err := ctx.Err(); err != nil {
+		return nil, nil, nil, err
+	}
+	out := mergeDocumentGraphs(encoders, written)
+	if err := nameLibrary(ctx, out); err != nil {
+		return nil, nil, nil, err
+	}
 	// Each document's encoder annotated its collections from its own triples,
 	// in their order, and no two documents declare one subject (refused above).
 	out.MarkCollectionsSettled()
-	return out, res, encoders, nil
+	unwritten := make([]bool, len(written))
+	for i, doc := range written {
+		unwritten[i] = doc.Referenced
+	}
+	return out, excluded, unwritten, nil
 }
 
 // modelEncodersOf analyzes the model and makes each document's encoder with
@@ -651,7 +709,6 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		regions:            map[rdf.Term]region{},
 		noteRegions:        map[rdf.Term]region{},
 		noteBodies:         map[rdf.Term]region{},
-		verifiedReferences: map[rdf.Term]bool{},
 		heads:              map[rdf.Term]*declarationHead{},
 		conjugateOriginals: map[string]rdf.Term{},
 		bodies:             map[rdf.Term]region{},
@@ -679,6 +736,8 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 }
 
 type encoder struct {
+	// sysmlTerms are the SysML vocabulary terms the document's triples have used, by name.
+	sysmlTerms map[string]rdf.Term
 	// libraryRefs are the standard library elements the document links to, by
 	// subject IRI, so the graph can name the ones it references.
 	libraryRefs map[string]libraryRef
@@ -736,11 +795,6 @@ type encoder struct {
 	noteBodies  map[rdf.Term]region
 	// offsets holds where in file each element's declaration starts.
 	offsets map[string]int
-	// verifiedReferences holds the `verify` members written as a reference
-	// (`verify r;`, `verify r :>> req;`), whose subsetting is the
-	// OwnedReferenceSubsetting of RequirementVerificationUsage, as against a
-	// declaration (`verify requirement :> r;`), whose `:>` is a Subsetting.
-	verifiedReferences map[rdf.Term]bool
 	// heads records each declaration head's clauses in the order the notation
 	// spelled them, for the order its relationship elements are owned in.
 	heads map[rdf.Term]*declarationHead
@@ -877,7 +931,14 @@ func (e *encoder) importedMembership(name *ast.QualifiedName) rdf.Term {
 	if qualifiedText(name) == "" {
 		return rdf.String("")
 	}
-	decl, fqn, ok := e.linked(e.res.PartAlias(name, len(name.Parts)-1))
+	alias, aliased := e.res.PartAlias(name, len(name.Parts)-1)
+	decl, fqn, ok := e.linked(alias, aliased)
+	if !ok && aliased {
+		// A library alias is the Membership imported too (KerML 8.2.3.5), under its minted id.
+		if membership, minted := e.ids.libraryAliasMembership(alias); minted {
+			return membership
+		}
+	}
 	if !ok {
 		decl, fqn, ok = e.referent(name)
 	}
@@ -990,18 +1051,21 @@ func (e *encoder) inheritedLibraryNames() {
 	if e.ids.model == nil {
 		return
 	}
-	nameInheritedLibraryMembers(e.graph)
+	// A background context is never done, so there is no error to report.
+	_ = nameInheritedLibraryMembers(context.Background(), e.graph)
 }
 
 // nameInheritedLibraryMembers is inheritedLibraryNames for a written graph, of
 // one document or a model's merged ones.
-func nameInheritedLibraryMembers(graph *rdf.Graph) {
+func nameInheritedLibraryMembers(ctx context.Context, graph *rdf.Graph) error {
 	// The completed properties are evaluated, not written: their ids name every stub.
-	ids, err := apiJSONMembershipReferenceIDs(graph)
+	ids, err := apiJSONMembershipReferenceIDs(ctx, graph)
 	if err != nil {
-		return
+		// A graph the evaluator cannot read names no inherited member; a caller gone is an error.
+		return ctx.Err()
 	}
 	addReferencedLibraryStubs(graph, ids)
+	return nil
 }
 
 // owningMembershipClaim, after an element's name, says what a claimed membership IRI stands for.
@@ -1429,6 +1493,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		h.membershipExtra = func(membership rdf.Term) {
 			e.graph.Add(membership, e.sysml(pOwnedMemberParameter), subject)
 			e.graph.Add(accepter, e.sysml(pParameter), subject)
+			e.graph.Add(accepter, e.sysml(pInput), subject)
 			e.graph.Add(accepter, e.sysml(pPayloadParameter), subject)
 		}
 	}
@@ -1500,6 +1565,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			{"isAbstract", n.IsAbstract || n.IsVariation || n.Kind == ast.DefEnumeration},
 			{"isVariation", n.IsVariation || n.Kind == ast.DefEnumeration},
 			{"isAll", n.IsAll},
+			// A ConnectionDefinition is sufficient though no keyword notates it (SysML v2.1 §8.3.13.3).
+			{"isSufficient", ontology.IsAncestorOrSelf(metaclass, "ConnectionDefinition")},
 			{"isConstant", n.IsConstant},
 			{"isEvent", n.IsEvent},
 			{"isIndividual", n.IsIndividual},
@@ -1587,9 +1654,6 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 				e.graph.Add(membership, e.sysml(pKind), rdf.String("requirement"))
 				e.graph.Add(membership, e.sysml(pOwnedRequirement), subject)
 				e.graph.Add(membership, e.sysml(pOwnedConstraint), subject)
-			}
-			if !n.DeclaresRequirement {
-				e.verifiedReferences[subject] = true
 			}
 		}
 		implicitTarget := e.implicitMetadataBodyTarget(inBody, n)
@@ -1685,8 +1749,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if err := e.prefixes(subject, fqn, n.Prefixes, naming.BodyMembers(n)); err != nil {
 			return err
 		}
-		if trigger {
-			// A trigger action's parameters are its inputs (SysML.xtext PayloadParameterMember, NodeParameterMember).
+		if trigger || n.IsAccept {
+			// An accept's parameters are its inputs (SysML.xtext PayloadParameterMember, NodeParameterMember).
 			e.graph.Add(subject, e.sysml(pDirection), rdf.String("in"))
 		} else if keyword := directionKeyword(n.Direction); keyword != "" {
 			e.graph.Add(subject, e.sysml(pDirection), rdf.String(keyword))
@@ -2702,7 +2766,8 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) (rdf.Term
 	if end.target != nil || end.targetTerm.Value != "" {
 		switch {
 		case len(flowSegments) > 0:
-			reference = e.flowEndReferences(feature, flowSegments)
+			reference = e.flowEndReferences(
+				feature, flowSegments, e.flowEndFeatureName(end), e.flowFeatureDirection(end))
 		case end.targetTerm.Value != "":
 			e.referenceSubsetting(feature, end.targetTerm)
 			reference = end.targetTerm
@@ -2752,7 +2817,12 @@ func (e *encoder) flowEndSegments(end connectorEndSpec) []rdf.Term {
 // FlowFeature, a ReferenceUsage the end owns, redefining the last segment.
 // `a.p.fuel` subsets the chain a.p and redefines fuel; a lone `a` only redefines a.
 // It returns the feature the end's ReferenceSubsetting references, none for a lone name.
-func (e *encoder) flowEndReferences(feature rdf.Term, segments []rdf.Term) rdf.Term {
+func (e *encoder) flowEndReferences(
+	feature rdf.Term,
+	segments []rdf.Term,
+	name string,
+	direction ast.FeatureDirection,
+) rdf.Term {
 	prefix, last := segments[:len(segments)-1], segments[len(segments)-1]
 	var reference rdf.Term
 	switch len(prefix) {
@@ -2772,13 +2842,65 @@ func (e *encoder) flowEndReferences(feature rdf.Term, segments []rdf.Term) rdf.T
 	e.graph.Add(feature, e.sysml(pOwnedFeatureMembership), membership)
 	e.graph.Add(feature, e.sysml(pOwnedFeature), flowFeature)
 	e.emitMembershipCore(membership, flowFeature, feature, mFeatureMembership, true)
+	// The nameless usage is named by the feature it redefines (KerML 1.1 §8.3.3.3.4
+	// Feature::namingFeature): derived, so stated by sysml:name alone.
+	if name != "" {
+		e.graph.Add(flowFeature, e.sysml(pName), rdf.String(name))
+		e.graph.Add(membership, e.sysml(pMemberName), rdf.String(name))
+	}
 	// Its owning type is the FlowEnd, which redefines Flows::Flow::source or
 	// target, an Occurrence-typed feature (SysML v2.1 §8.3.16.6).
 	if e.file.Kind() != source.KindKerML && e.ids.model.UsageMayTimeVaryUnderLibraryFeature("Flows::Flow::source") {
 		e.flags(flowFeature, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
 	}
 	e.graph.Add(flowFeature, e.sysml(relationshipProperty[ast.RelRedefines]), last)
+	if keyword := directionKeyword(direction); keyword != "" {
+		e.graph.Add(flowFeature, e.sysml(pDirection), rdf.String(keyword))
+	}
 	return reference
+}
+
+// flowFeatureDirection is the direction of a flow end's FlowFeature: that of the feature it redefines
+// as the end inherits it (KerML.xtext FlowFeature, note 1: owningType.directionOf(redefinedFeature)).
+func (e *encoder) flowFeatureDirection(end connectorEndSpec) ast.FeatureDirection {
+	var owner, redefined *symbols.Symbol
+	switch target := end.target.(type) {
+	case *ast.QualifiedName:
+		last := len(target.Parts) - 1
+		redefined, _ = e.res.PartSymbol(target, last)
+		for i := last; i > 0 && owner == nil; i-- {
+			if target.Parts[i].Chained {
+				owner, _ = e.res.PartSymbol(target, i-1)
+			}
+		}
+	case *ast.FeatureChainExpr:
+		segments := featureChainSegments(target)
+		if len(segments) < 2 {
+			return ast.DirNone
+		}
+		symbolOf := func(name *ast.QualifiedName) *symbols.Symbol {
+			if sym, ok := e.links[name]; ok {
+				return sym
+			}
+			sym, _ := e.res.PartSymbol(name, len(name.Parts)-1)
+			return sym
+		}
+		owner, redefined = symbolOf(segments[len(segments)-2]), symbolOf(segments[len(segments)-1])
+	}
+	if owner == nil || redefined == nil {
+		return ast.DirNone
+	}
+	return e.ids.model.EffectiveDirection(owner, redefined)
+}
+
+// flowEndFeatureName is the effective name of the ReferenceUsage the flow end at end.index owns, the
+// name of the feature it redefines as the semantic model derives it; empty when it resolves to nothing.
+func (e *encoder) flowEndFeatureName(end connectorEndSpec) string {
+	ends := e.ids.model.FlowEndMembers(end.ownerSym)
+	if end.index >= len(ends) {
+		return ""
+	}
+	return e.ids.model.EffectiveNameOf(e.ids.model.FlowEndFeatureMember(ends[end.index]))
 }
 
 // endReferences writes a simple reference, structural chain, or expression target and
@@ -2898,8 +3020,22 @@ func featureChainSegments(node *ast.FeatureChainExpr) []*ast.QualifiedName {
 	return segments
 }
 
-func (e *encoder) sysml(name string) rdf.Term { return rdf.SysMLTerm(name) }
-func (e *encoder) sysx(name string) rdf.Term  { return rdf.OpenSysMLTerm(name) }
+//go:noinline
+func (e *encoder) sysml(name string) rdf.Term {
+	// The term of a name in the SysML vocabulary, made once per name; kept out of
+	// line, as its several hundred call sites would each carry the lookup.
+	term, ok := e.sysmlTerms[name]
+	if !ok {
+		if e.sysmlTerms == nil {
+			e.sysmlTerms = map[string]rdf.Term{}
+		}
+		term = rdf.SysMLTerm(name)
+		e.sysmlTerms[name] = term
+	}
+	return term
+}
+
+func (e *encoder) sysx(name string) rdf.Term { return rdf.OpenSysMLTerm(name) }
 
 // documentation emits what a `doc` states: its identification, locale and body.
 func (e *encoder) documentation(subject rdf.Term, n *ast.Documentation) {
@@ -3232,6 +3368,7 @@ func chainTargets(rels []*ast.Relationship) map[*ast.Relationship]int {
 	chained := map[ast.RelationshipKind]bool{
 		ast.RelSpecializes: true, ast.RelSubsets: true,
 		ast.RelRedefines: true, ast.RelReferences: true,
+		ast.RelCrosses: true, ast.RelUnions: true, ast.RelIntersects: true, ast.RelDifferences: true,
 	}
 	chains := map[*ast.Relationship]int{}
 	for _, rel := range rels {

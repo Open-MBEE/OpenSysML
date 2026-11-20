@@ -105,7 +105,6 @@ func (c *compiler) compileCellOperand(query, owner *symbols.Symbol, node ast.Nod
 // variables, such as RelatedElements(source = row, …).
 func (c *compiler) compileCellInvocation(
 	query, owner *symbols.Symbol,
-	column string,
 	expression *ast.InvocationExpr,
 	row *columnRow,
 ) (Expression, columnType, error) {

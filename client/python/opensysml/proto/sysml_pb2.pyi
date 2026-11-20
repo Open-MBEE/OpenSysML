@@ -15,6 +15,12 @@ class FailureReason(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     FAILURE_REASON_AMBIGUOUS_SUBJECT: _ClassVar[FailureReason]
     FAILURE_REASON_UNDECIDED: _ClassVar[FailureReason]
 
+class LookupKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    LOOKUP_KIND_UNSPECIFIED: _ClassVar[LookupKind]
+    LOOKUP_KIND_QUALIFIED_NAME: _ClassVar[LookupKind]
+    LOOKUP_KIND_ELEMENT_ID: _ClassVar[LookupKind]
+
 class EditFailure(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     EDIT_FAILURE_UNSPECIFIED: _ClassVar[EditFailure]
@@ -58,6 +64,9 @@ FAILURE_REASON_EVALUATION: FailureReason
 FAILURE_REASON_WRONG_KIND: FailureReason
 FAILURE_REASON_AMBIGUOUS_SUBJECT: FailureReason
 FAILURE_REASON_UNDECIDED: FailureReason
+LOOKUP_KIND_UNSPECIFIED: LookupKind
+LOOKUP_KIND_QUALIFIED_NAME: LookupKind
+LOOKUP_KIND_ELEMENT_ID: LookupKind
 EDIT_FAILURE_UNSPECIFIED: EditFailure
 EDIT_FAILURE_NO_OPERATIONS: EditFailure
 EDIT_FAILURE_UNKNOWN_TARGET: EditFailure
@@ -850,16 +859,20 @@ class ParseFileResponse(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., root: _Optional[_Union[SymbolInfo, _Mapping]] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., error: _Optional[str] = ...) -> None: ...
 
 class GetSymbolRequest(_message.Message):
-    __slots__ = ("model_hash", "symbol_id", "include_library_members", "resolve_name")
+    __slots__ = ("model_hash", "symbol_id", "include_library_members", "resolve_name", "lookup", "member_of")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_LIBRARY_MEMBERS_FIELD_NUMBER: _ClassVar[int]
     RESOLVE_NAME_FIELD_NUMBER: _ClassVar[int]
+    LOOKUP_FIELD_NUMBER: _ClassVar[int]
+    MEMBER_OF_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     symbol_id: str
     include_library_members: bool
     resolve_name: bool
-    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., include_library_members: _Optional[bool] = ..., resolve_name: _Optional[bool] = ...) -> None: ...
+    lookup: LookupKind
+    member_of: str
+    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., include_library_members: _Optional[bool] = ..., resolve_name: _Optional[bool] = ..., lookup: _Optional[_Union[LookupKind, str]] = ..., member_of: _Optional[str] = ...) -> None: ...
 
 class SymbolResponse(_message.Message):
     __slots__ = ("symbol", "error")
@@ -870,24 +883,36 @@ class SymbolResponse(_message.Message):
     def __init__(self, symbol: _Optional[_Union[SymbolInfo, _Mapping]] = ..., error: _Optional[str] = ...) -> None: ...
 
 class GetElementPropertiesRequest(_message.Message):
-    __slots__ = ("model_hash", "element_id", "properties")
+    __slots__ = ("model_hash", "element_id", "properties", "lookup")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     ELEMENT_ID_FIELD_NUMBER: _ClassVar[int]
     PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    LOOKUP_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     element_id: str
     properties: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, model_hash: _Optional[str] = ..., element_id: _Optional[str] = ..., properties: _Optional[_Iterable[str]] = ...) -> None: ...
+    lookup: LookupKind
+    def __init__(self, model_hash: _Optional[str] = ..., element_id: _Optional[str] = ..., properties: _Optional[_Iterable[str]] = ..., lookup: _Optional[_Union[LookupKind, str]] = ...) -> None: ...
 
 class GetElementPropertiesResponse(_message.Message):
-    __slots__ = ("element", "properties", "error")
+    __slots__ = ("element", "properties", "error", "excluded_documents")
     ELEMENT_FIELD_NUMBER: _ClassVar[int]
     PROPERTIES_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
+    EXCLUDED_DOCUMENTS_FIELD_NUMBER: _ClassVar[int]
     element: ElementRef
     properties: _containers.RepeatedCompositeFieldContainer[ElementProperty]
     error: str
-    def __init__(self, element: _Optional[_Union[ElementRef, _Mapping]] = ..., properties: _Optional[_Iterable[_Union[ElementProperty, _Mapping]]] = ..., error: _Optional[str] = ...) -> None: ...
+    excluded_documents: _containers.RepeatedCompositeFieldContainer[ExcludedDocument]
+    def __init__(self, element: _Optional[_Union[ElementRef, _Mapping]] = ..., properties: _Optional[_Iterable[_Union[ElementProperty, _Mapping]]] = ..., error: _Optional[str] = ..., excluded_documents: _Optional[_Iterable[_Union[ExcludedDocument, _Mapping]]] = ...) -> None: ...
+
+class ExcludedDocument(_message.Message):
+    __slots__ = ("document", "error")
+    DOCUMENT_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    document: str
+    error: str
+    def __init__(self, document: _Optional[str] = ..., error: _Optional[str] = ...) -> None: ...
 
 class ElementRef(_message.Message):
     __slots__ = ("id", "qualified_name", "metaclass")
@@ -1231,7 +1256,7 @@ class ExecuteStateResponse(_message.Message):
     def __init__(self, states_visited: _Optional[_Iterable[str]] = ..., final_context: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ..., trace: _Optional[_Iterable[_Union[DocumentEvent, _Mapping]]] = ..., trace_dropped: _Optional[int] = ..., order_dependent: _Optional[_Mapping[str, int]] = ...) -> None: ...
 
 class ConvertRequest(_message.Message):
-    __slots__ = ("file_path", "content", "model_hash", "from_format", "to_format", "tolerate_syntax_errors", "id_form", "documents", "compact", "omit_derived", "keep_derived", "include_check_diagnostics", "include_library_stubs")
+    __slots__ = ("file_path", "content", "model_hash", "from_format", "to_format", "tolerate_syntax_errors", "id_form", "documents", "compact", "omit_derived", "keep_derived", "include_check_diagnostics", "include_library_stubs", "inherited_members")
     FILE_PATH_FIELD_NUMBER: _ClassVar[int]
     CONTENT_FIELD_NUMBER: _ClassVar[int]
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
@@ -1245,6 +1270,7 @@ class ConvertRequest(_message.Message):
     KEEP_DERIVED_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_CHECK_DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_LIBRARY_STUBS_FIELD_NUMBER: _ClassVar[int]
+    INHERITED_MEMBERS_FIELD_NUMBER: _ClassVar[int]
     file_path: str
     content: str
     model_hash: str
@@ -1258,7 +1284,8 @@ class ConvertRequest(_message.Message):
     keep_derived: _containers.RepeatedScalarFieldContainer[str]
     include_check_diagnostics: bool
     include_library_stubs: bool
-    def __init__(self, file_path: _Optional[str] = ..., content: _Optional[str] = ..., model_hash: _Optional[str] = ..., from_format: _Optional[str] = ..., to_format: _Optional[str] = ..., tolerate_syntax_errors: _Optional[bool] = ..., id_form: _Optional[str] = ..., documents: _Optional[_Iterable[str]] = ..., compact: _Optional[bool] = ..., omit_derived: _Optional[bool] = ..., keep_derived: _Optional[_Iterable[str]] = ..., include_check_diagnostics: _Optional[bool] = ..., include_library_stubs: _Optional[bool] = ...) -> None: ...
+    inherited_members: bool
+    def __init__(self, file_path: _Optional[str] = ..., content: _Optional[str] = ..., model_hash: _Optional[str] = ..., from_format: _Optional[str] = ..., to_format: _Optional[str] = ..., tolerate_syntax_errors: _Optional[bool] = ..., id_form: _Optional[str] = ..., documents: _Optional[_Iterable[str]] = ..., compact: _Optional[bool] = ..., omit_derived: _Optional[bool] = ..., keep_derived: _Optional[_Iterable[str]] = ..., include_check_diagnostics: _Optional[bool] = ..., include_library_stubs: _Optional[bool] = ..., inherited_members: _Optional[bool] = ...) -> None: ...
 
 class ConvertResponse(_message.Message):
     __slots__ = ("content", "from_format", "to_format", "error", "diagnostics", "experimental", "experimental_notice", "library_references")
@@ -1796,19 +1823,21 @@ class MemberInfo(_message.Message):
     def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., kind: _Optional[str] = ..., inherited: _Optional[bool] = ..., inherited_from: _Optional[str] = ..., library: _Optional[bool] = ...) -> None: ...
 
 class Specialization(_message.Message):
-    __slots__ = ("kind", "declared", "target_id", "target_kind")
+    __slots__ = ("kind", "declared", "target_id", "target_kind", "target_qualified_name")
     KIND_FIELD_NUMBER: _ClassVar[int]
     DECLARED_FIELD_NUMBER: _ClassVar[int]
     TARGET_ID_FIELD_NUMBER: _ClassVar[int]
     TARGET_KIND_FIELD_NUMBER: _ClassVar[int]
+    TARGET_QUALIFIED_NAME_FIELD_NUMBER: _ClassVar[int]
     kind: str
     declared: str
     target_id: str
     target_kind: str
-    def __init__(self, kind: _Optional[str] = ..., declared: _Optional[str] = ..., target_id: _Optional[str] = ..., target_kind: _Optional[str] = ...) -> None: ...
+    target_qualified_name: str
+    def __init__(self, kind: _Optional[str] = ..., declared: _Optional[str] = ..., target_id: _Optional[str] = ..., target_kind: _Optional[str] = ..., target_qualified_name: _Optional[str] = ...) -> None: ...
 
 class TypeInfo(_message.Message):
-    __slots__ = ("declared", "resolved_id", "resolved_kind", "primitive", "primitive_source", "quantity", "unit", "types")
+    __slots__ = ("declared", "resolved_id", "resolved_kind", "primitive", "primitive_source", "quantity", "unit", "types", "resolved_qualified_name")
     DECLARED_FIELD_NUMBER: _ClassVar[int]
     RESOLVED_ID_FIELD_NUMBER: _ClassVar[int]
     RESOLVED_KIND_FIELD_NUMBER: _ClassVar[int]
@@ -1817,6 +1846,7 @@ class TypeInfo(_message.Message):
     QUANTITY_FIELD_NUMBER: _ClassVar[int]
     UNIT_FIELD_NUMBER: _ClassVar[int]
     TYPES_FIELD_NUMBER: _ClassVar[int]
+    RESOLVED_QUALIFIED_NAME_FIELD_NUMBER: _ClassVar[int]
     declared: str
     resolved_id: str
     resolved_kind: str
@@ -1825,7 +1855,8 @@ class TypeInfo(_message.Message):
     quantity: bool
     unit: str
     types: _containers.RepeatedCompositeFieldContainer[TypeRef]
-    def __init__(self, declared: _Optional[str] = ..., resolved_id: _Optional[str] = ..., resolved_kind: _Optional[str] = ..., primitive: _Optional[str] = ..., primitive_source: _Optional[str] = ..., quantity: _Optional[bool] = ..., unit: _Optional[str] = ..., types: _Optional[_Iterable[_Union[TypeRef, _Mapping]]] = ...) -> None: ...
+    resolved_qualified_name: str
+    def __init__(self, declared: _Optional[str] = ..., resolved_id: _Optional[str] = ..., resolved_kind: _Optional[str] = ..., primitive: _Optional[str] = ..., primitive_source: _Optional[str] = ..., quantity: _Optional[bool] = ..., unit: _Optional[str] = ..., types: _Optional[_Iterable[_Union[TypeRef, _Mapping]]] = ..., resolved_qualified_name: _Optional[str] = ...) -> None: ...
 
 class TypeRef(_message.Message):
     __slots__ = ("id", "kind")
@@ -1856,7 +1887,7 @@ class AttributeInfo(_message.Message):
     def __init__(self, name: _Optional[str] = ..., type: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ..., unit: _Optional[str] = ...) -> None: ...
 
 class Value(_message.Message):
-    __slots__ = ("int_value", "real_value", "bool_value", "string_value", "instance_id", "sequence", "null", "quantity", "enum_literal", "unset", "complex", "array", "vector", "vector_quantity", "measurement_ref", "infinity", "function", "set", "tensor_quantity", "metaobject", "undetermined", "big_int_value", "rational_value")
+    __slots__ = ("int_value", "real_value", "bool_value", "string_value", "instance_id", "sequence", "null", "quantity", "enum_literal", "unset", "complex", "array", "vector", "vector_quantity", "measurement_ref", "infinity", "function", "set", "tensor_quantity", "metaobject", "undetermined", "big_int_value", "rational_value", "coordinate_frame", "coordinate_transformation")
     INT_VALUE_FIELD_NUMBER: _ClassVar[int]
     REAL_VALUE_FIELD_NUMBER: _ClassVar[int]
     BOOL_VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -1880,6 +1911,8 @@ class Value(_message.Message):
     UNDETERMINED_FIELD_NUMBER: _ClassVar[int]
     BIG_INT_VALUE_FIELD_NUMBER: _ClassVar[int]
     RATIONAL_VALUE_FIELD_NUMBER: _ClassVar[int]
+    COORDINATE_FRAME_FIELD_NUMBER: _ClassVar[int]
+    COORDINATE_TRANSFORMATION_FIELD_NUMBER: _ClassVar[int]
     int_value: int
     real_value: float
     bool_value: bool
@@ -1903,7 +1936,119 @@ class Value(_message.Message):
     undetermined: Undetermined
     big_int_value: str
     rational_value: Rational
-    def __init__(self, int_value: _Optional[int] = ..., real_value: _Optional[float] = ..., bool_value: _Optional[bool] = ..., string_value: _Optional[str] = ..., instance_id: _Optional[int] = ..., sequence: _Optional[_Union[ValueSequence, _Mapping]] = ..., null: _Optional[str] = ..., quantity: _Optional[_Union[Quantity, _Mapping]] = ..., enum_literal: _Optional[_Union[EnumLiteral, _Mapping]] = ..., unset: _Optional[bool] = ..., complex: _Optional[_Union[Complex, _Mapping]] = ..., array: _Optional[_Union[Array, _Mapping]] = ..., vector: _Optional[_Union[Vector, _Mapping]] = ..., vector_quantity: _Optional[_Union[VectorQuantity, _Mapping]] = ..., measurement_ref: _Optional[_Union[MeasurementRef, _Mapping]] = ..., infinity: _Optional[bool] = ..., function: _Optional[_Union[Function, _Mapping]] = ..., set: _Optional[_Union[ValueSet, _Mapping]] = ..., tensor_quantity: _Optional[_Union[TensorQuantity, _Mapping]] = ..., metaobject: _Optional[_Union[Metaobject, _Mapping]] = ..., undetermined: _Optional[_Union[Undetermined, _Mapping]] = ..., big_int_value: _Optional[str] = ..., rational_value: _Optional[_Union[Rational, _Mapping]] = ...) -> None: ...
+    coordinate_frame: CoordinateFrame
+    coordinate_transformation: CoordinateTransformation
+    def __init__(self, int_value: _Optional[int] = ..., real_value: _Optional[float] = ..., bool_value: _Optional[bool] = ..., string_value: _Optional[str] = ..., instance_id: _Optional[int] = ..., sequence: _Optional[_Union[ValueSequence, _Mapping]] = ..., null: _Optional[str] = ..., quantity: _Optional[_Union[Quantity, _Mapping]] = ..., enum_literal: _Optional[_Union[EnumLiteral, _Mapping]] = ..., unset: _Optional[bool] = ..., complex: _Optional[_Union[Complex, _Mapping]] = ..., array: _Optional[_Union[Array, _Mapping]] = ..., vector: _Optional[_Union[Vector, _Mapping]] = ..., vector_quantity: _Optional[_Union[VectorQuantity, _Mapping]] = ..., measurement_ref: _Optional[_Union[MeasurementRef, _Mapping]] = ..., infinity: _Optional[bool] = ..., function: _Optional[_Union[Function, _Mapping]] = ..., set: _Optional[_Union[ValueSet, _Mapping]] = ..., tensor_quantity: _Optional[_Union[TensorQuantity, _Mapping]] = ..., metaobject: _Optional[_Union[Metaobject, _Mapping]] = ..., undetermined: _Optional[_Union[Undetermined, _Mapping]] = ..., big_int_value: _Optional[str] = ..., rational_value: _Optional[_Union[Rational, _Mapping]] = ..., coordinate_frame: _Optional[_Union[CoordinateFrame, _Mapping]] = ..., coordinate_transformation: _Optional[_Union[CoordinateTransformation, _Mapping]] = ...) -> None: ...
+
+class CoordinateFrame(_message.Message):
+    __slots__ = ("name", "frame_id", "type_id", "instance_id", "dimensions", "axes", "transformation", "scale")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    FRAME_ID_FIELD_NUMBER: _ClassVar[int]
+    TYPE_ID_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_ID_FIELD_NUMBER: _ClassVar[int]
+    DIMENSIONS_FIELD_NUMBER: _ClassVar[int]
+    AXES_FIELD_NUMBER: _ClassVar[int]
+    TRANSFORMATION_FIELD_NUMBER: _ClassVar[int]
+    SCALE_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    frame_id: str
+    type_id: str
+    instance_id: int
+    dimensions: _containers.RepeatedScalarFieldContainer[int]
+    axes: _containers.RepeatedCompositeFieldContainer[MeasurementRef]
+    transformation: CoordinateTransformation
+    scale: MeasurementScale
+    def __init__(self, name: _Optional[str] = ..., frame_id: _Optional[str] = ..., type_id: _Optional[str] = ..., instance_id: _Optional[int] = ..., dimensions: _Optional[_Iterable[int]] = ..., axes: _Optional[_Iterable[_Union[MeasurementRef, _Mapping]]] = ..., transformation: _Optional[_Union[CoordinateTransformation, _Mapping]] = ..., scale: _Optional[_Union[MeasurementScale, _Mapping]] = ...) -> None: ...
+
+class MeasurementScale(_message.Message):
+    __slots__ = ("unit", "mapping")
+    UNIT_FIELD_NUMBER: _ClassVar[int]
+    MAPPING_FIELD_NUMBER: _ClassVar[int]
+    unit: MeasurementRef
+    mapping: QuantityValueMapping
+    def __init__(self, unit: _Optional[_Union[MeasurementRef, _Mapping]] = ..., mapping: _Optional[_Union[QuantityValueMapping, _Mapping]] = ...) -> None: ...
+
+class QuantityValueMapping(_message.Message):
+    __slots__ = ("mapped", "reference")
+    MAPPED_FIELD_NUMBER: _ClassVar[int]
+    REFERENCE_FIELD_NUMBER: _ClassVar[int]
+    mapped: Quantity
+    reference: Quantity
+    def __init__(self, mapped: _Optional[_Union[Quantity, _Mapping]] = ..., reference: _Optional[_Union[Quantity, _Mapping]] = ...) -> None: ...
+
+class CoordinateTransformation(_message.Message):
+    __slots__ = ("name", "transformation_id", "type_id", "instance_id", "source", "target", "placement", "sequence", "affine", "pose")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    TRANSFORMATION_ID_FIELD_NUMBER: _ClassVar[int]
+    TYPE_ID_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_ID_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
+    TARGET_FIELD_NUMBER: _ClassVar[int]
+    PLACEMENT_FIELD_NUMBER: _ClassVar[int]
+    SEQUENCE_FIELD_NUMBER: _ClassVar[int]
+    AFFINE_FIELD_NUMBER: _ClassVar[int]
+    POSE_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    transformation_id: str
+    type_id: str
+    instance_id: int
+    source: CoordinateFrame
+    target: CoordinateFrame
+    placement: FramePlacement
+    sequence: TranslationRotationSequence
+    affine: AffineTransformation3d
+    pose: FramePose
+    def __init__(self, name: _Optional[str] = ..., transformation_id: _Optional[str] = ..., type_id: _Optional[str] = ..., instance_id: _Optional[int] = ..., source: _Optional[_Union[CoordinateFrame, _Mapping]] = ..., target: _Optional[_Union[CoordinateFrame, _Mapping]] = ..., placement: _Optional[_Union[FramePlacement, _Mapping]] = ..., sequence: _Optional[_Union[TranslationRotationSequence, _Mapping]] = ..., affine: _Optional[_Union[AffineTransformation3d, _Mapping]] = ..., pose: _Optional[_Union[FramePose, _Mapping]] = ...) -> None: ...
+
+class FramePose(_message.Message):
+    __slots__ = ("origin", "basis")
+    ORIGIN_FIELD_NUMBER: _ClassVar[int]
+    BASIS_FIELD_NUMBER: _ClassVar[int]
+    origin: _containers.RepeatedScalarFieldContainer[float]
+    basis: _containers.RepeatedScalarFieldContainer[float]
+    def __init__(self, origin: _Optional[_Iterable[float]] = ..., basis: _Optional[_Iterable[float]] = ...) -> None: ...
+
+class FramePlacement(_message.Message):
+    __slots__ = ("origin", "basis_directions")
+    ORIGIN_FIELD_NUMBER: _ClassVar[int]
+    BASIS_DIRECTIONS_FIELD_NUMBER: _ClassVar[int]
+    origin: Value
+    basis_directions: _containers.RepeatedCompositeFieldContainer[Value]
+    def __init__(self, origin: _Optional[_Union[Value, _Mapping]] = ..., basis_directions: _Optional[_Iterable[_Union[Value, _Mapping]]] = ...) -> None: ...
+
+class TranslationRotationSequence(_message.Message):
+    __slots__ = ("steps",)
+    STEPS_FIELD_NUMBER: _ClassVar[int]
+    steps: _containers.RepeatedCompositeFieldContainer[FrameStep]
+    def __init__(self, steps: _Optional[_Iterable[_Union[FrameStep, _Mapping]]] = ...) -> None: ...
+
+class FrameStep(_message.Message):
+    __slots__ = ("translation", "rotation", "instance_id")
+    TRANSLATION_FIELD_NUMBER: _ClassVar[int]
+    ROTATION_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_ID_FIELD_NUMBER: _ClassVar[int]
+    translation: Value
+    rotation: FrameRotation
+    instance_id: int
+    def __init__(self, translation: _Optional[_Union[Value, _Mapping]] = ..., rotation: _Optional[_Union[FrameRotation, _Mapping]] = ..., instance_id: _Optional[int] = ...) -> None: ...
+
+class FrameRotation(_message.Message):
+    __slots__ = ("axis_direction", "angle", "is_intrinsic")
+    AXIS_DIRECTION_FIELD_NUMBER: _ClassVar[int]
+    ANGLE_FIELD_NUMBER: _ClassVar[int]
+    IS_INTRINSIC_FIELD_NUMBER: _ClassVar[int]
+    axis_direction: Value
+    angle: Quantity
+    is_intrinsic: bool
+    def __init__(self, axis_direction: _Optional[_Union[Value, _Mapping]] = ..., angle: _Optional[_Union[Quantity, _Mapping]] = ..., is_intrinsic: _Optional[bool] = ...) -> None: ...
+
+class AffineTransformation3d(_message.Message):
+    __slots__ = ("rotation", "translation")
+    ROTATION_FIELD_NUMBER: _ClassVar[int]
+    TRANSLATION_FIELD_NUMBER: _ClassVar[int]
+    rotation: _containers.RepeatedScalarFieldContainer[float]
+    translation: _containers.RepeatedScalarFieldContainer[float]
+    def __init__(self, rotation: _Optional[_Iterable[float]] = ..., translation: _Optional[_Iterable[float]] = ...) -> None: ...
 
 class Rational(_message.Message):
     __slots__ = ("numerator", "denominator")
@@ -1998,20 +2143,22 @@ class ValueSequence(_message.Message):
     def __init__(self, elements: _Optional[_Iterable[_Union[Value, _Mapping]]] = ...) -> None: ...
 
 class Quantity(_message.Message):
-    __slots__ = ("int_magnitude", "real_magnitude", "big_int_magnitude", "rational_magnitude", "unit", "unit_term")
+    __slots__ = ("int_magnitude", "real_magnitude", "big_int_magnitude", "rational_magnitude", "unit", "unit_term", "value_type")
     INT_MAGNITUDE_FIELD_NUMBER: _ClassVar[int]
     REAL_MAGNITUDE_FIELD_NUMBER: _ClassVar[int]
     BIG_INT_MAGNITUDE_FIELD_NUMBER: _ClassVar[int]
     RATIONAL_MAGNITUDE_FIELD_NUMBER: _ClassVar[int]
     UNIT_FIELD_NUMBER: _ClassVar[int]
     UNIT_TERM_FIELD_NUMBER: _ClassVar[int]
+    VALUE_TYPE_FIELD_NUMBER: _ClassVar[int]
     int_magnitude: int
     real_magnitude: float
     big_int_magnitude: str
     rational_magnitude: Rational
     unit: str
     unit_term: UnitTerm
-    def __init__(self, int_magnitude: _Optional[int] = ..., real_magnitude: _Optional[float] = ..., big_int_magnitude: _Optional[str] = ..., rational_magnitude: _Optional[_Union[Rational, _Mapping]] = ..., unit: _Optional[str] = ..., unit_term: _Optional[_Union[UnitTerm, _Mapping]] = ...) -> None: ...
+    value_type: str
+    def __init__(self, int_magnitude: _Optional[int] = ..., real_magnitude: _Optional[float] = ..., big_int_magnitude: _Optional[str] = ..., rational_magnitude: _Optional[_Union[Rational, _Mapping]] = ..., unit: _Optional[str] = ..., unit_term: _Optional[_Union[UnitTerm, _Mapping]] = ..., value_type: _Optional[str] = ...) -> None: ...
 
 class MeasurementRef(_message.Message):
     __slots__ = ("unit", "unit_term", "unit_id")

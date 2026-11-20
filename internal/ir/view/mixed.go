@@ -205,7 +205,7 @@ func (w *mixedWalk) queueStructure(sym *symbols.Symbol, parent *Node) {
 		}
 	}
 	w.structures = append(w.structures, entry)
-	w.walkStructureMembers(sym, parent)
+	w.walkStructureMembers(sym)
 }
 
 // queued reports whether sym is already queued for the interconnection builder.
@@ -219,7 +219,7 @@ func (w *mixedWalk) queued(sym *symbols.Symbol) bool {
 }
 
 // walkStructureMembers collects structural descendants into the shared node map.
-func (w *mixedWalk) walkStructureMembers(sym *symbols.Symbol, parent *Node) {
+func (w *mixedWalk) walkStructureMembers(sym *symbols.Symbol) {
 	if !w.structureOwners[sym] {
 		w.structureOwners[sym] = true
 		w.structureOrder = append(w.structureOrder, sym)
@@ -233,7 +233,7 @@ func (w *mixedWalk) walkStructureMembers(sym *symbols.Symbol, parent *Node) {
 			w.seen[member] = true
 		case mixedStructural(member):
 			w.seen[member] = true
-			w.walkStructureMembers(member, parent)
+			w.walkStructureMembers(member)
 		default:
 			w.deferredMembers[sym] = append(w.deferredMembers[sym], member)
 		}
@@ -266,7 +266,7 @@ func (w *mixedWalk) discoverDeferredStructureMembers() {
 					w.structures = append(w.structures, &mixedStructure{sym: sym})
 					queued[sym] = true
 				}
-				w.walkStructureMembers(sym, nil)
+				w.walkStructureMembers(sym)
 			}
 			for _, member := range w.deferredMembers[sym] {
 				discover(member)

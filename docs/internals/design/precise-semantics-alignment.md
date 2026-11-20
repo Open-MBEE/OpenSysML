@@ -994,8 +994,8 @@ terminate action usage ends the state-machine performance where it arrives
 (`state_route.go:terminateAt`, `state_executor.go:terminateMachine`): the transition's source
 is exited and its effect run, the states down to the usage's owner are entered, then nothing
 else is exited, running do behaviors are abandoned (`abandonMachine`), and the outcome is
-`Terminated` rather than a final state. Only a calculation still refuses it, as a side effect
-(`robustness_calc_invocation_test.go:calc_terminate_is_rejected`). PSSM's rules for the pseudostate — "does
+`Terminated` rather than a final state. In a calculation body it ends the calculation's steps
+(`robustness_calc_invocation_test.go:calc_terminate_ends_its_steps`). PSSM's rules for the pseudostate — "does
 not exit any States", do activities "automatically aborted" — are these; the source's exit is
 in PSSM's own expected traces (the last step of *Terminate 001*'s admitted trace is the exit of
 the state whose completion transition reaches the pseudostate). **agrees**.

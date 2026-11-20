@@ -2323,7 +2323,7 @@ and refuses a version the registry already holds, like PyPI, npm and Central.
 what proves the manifest carries the metadata crates.io requires and that the
 packaged file list builds on its own, outside this workspace. The manifest
 declares `license`, `description`, `repository`, `homepage`, `documentation`,
-`keywords`, `categories` and `rust-version = "1.83"`, so a published crate
+`keywords`, `categories` and `rust-version = "1.85"`, so a published crate
 documents its own minimum supported Rust version. `opensysml-conformance` is a
 workspace member and a runner, not a library, and is **not** published: it
 reads `conformance/scenarios` from this repository.

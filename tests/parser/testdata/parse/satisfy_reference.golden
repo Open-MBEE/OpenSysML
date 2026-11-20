@@ -13,7 +13,7 @@
         (Usage kind="part" name="context" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
           (Membership visibility="default"
             (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
-              (Relationship kind="subsets" target=vehicleSpecification
+              (Relationship kind="references" target=vehicleSpecification
                 (*ast.QualifiedName))
               (Relationship kind="by" target=vehicle
                 (*ast.QualifiedName))))
@@ -41,5 +41,5 @@
         (Definition kind="view" abstract=false variation=false name="StructureView"
           (Membership visibility="default"
             (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
-              (Relationship kind="subsets" target=perspective
+              (Relationship kind="references" target=perspective
                 (*ast.QualifiedName)))))))))

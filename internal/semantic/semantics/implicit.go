@@ -73,6 +73,32 @@ var implicitUsageBases = map[ast.UsageKind]string{
 	ast.UsageUseCase:          "UseCases::useCases",
 }
 
+// impliedExpressionBases maps each expression metaclass to the evaluations feature it
+// implicitly subsets (KerML 1.1 §8.4.4.7, §8.4.4.8): a literal's, constructor's, null's, …
+var impliedExpressionBases = map[string]string{
+	"Expression":                  evaluationsFQN,
+	"OperatorExpression":          evaluationsFQN,
+	"InvocationExpression":        evaluationsFQN,
+	"FeatureReferenceExpression":  evaluationsFQN,
+	"FeatureChainExpression":      evaluationsFQN,
+	"IndexExpression":             evaluationsFQN,
+	"CollectExpression":           evaluationsFQN,
+	"SelectExpression":            evaluationsFQN,
+	"TriggerInvocationExpression": evaluationsFQN,
+	"InstantiationExpression":     evaluationsFQN,
+	"ConstructorExpression":       "Performances::constructorEvaluations",
+	"BooleanExpression":           "Performances::booleanEvaluations",
+	"Invariant":                   "Performances::trueEvaluations",
+	"LiteralExpression":           "Performances::literalEvaluations",
+	"LiteralInfinity":             "Performances::literalIntegerEvaluations", // `*` is an unbounded integer
+	"LiteralBoolean":              "Performances::literalBooleanEvaluations",
+	"LiteralInteger":              "Performances::literalIntegerEvaluations",
+	"LiteralRational":             "Performances::literalRationalEvaluations",
+	"LiteralString":               "Performances::literalStringEvaluations",
+	"NullExpression":              "Performances::nullEvaluations",
+	"MetadataAccessExpression":    "Performances::metadataAccessEvaluations",
+}
+
 // implicitDefinitionBases maps a definition kind to the qualified name of the
 // standard library definition every definition of that kind implicitly
 // specializes, so the members that base supplies resolve inside the
@@ -241,15 +267,25 @@ func (m *Model) ImpliedBaseFQNs(node ast.Node, kind source.Kind) []string {
 	return slices.Compact(bases)
 }
 
+// ImpliedExpressionBaseFQN returns the evaluations feature an expression of the
+// given metaclass implicitly subsets, if it is an expression metaclass.
+func (m *Model) ImpliedExpressionBaseFQN(metaclass string) (string, bool) {
+	fqn, ok := impliedExpressionBases[metaclass]
+	return fqn, ok
+}
+
 // ImpliedBaseFQNsForMetaclass returns standard-library bases implied by a
 // graph element's metaclass when its semantic symbol is unavailable.
 func (m *Model) ImpliedBaseFQNsForMetaclass(metaclass string, kind source.Kind) []string {
 	if base, ok := impliedMultiplicityBases[metaclass]; ok {
 		return []string{base}
 	}
-	if metaclass == "ReferenceUsage" && kind != source.KindKerML {
+	if (metaclass == "ReferenceUsage" || metaclass == "Usage") && kind != source.KindKerML {
 		// A reference usage has no kind base: it subsets only Base::things (SysML v2 §7.6.2).
 		return []string{baseUsageFQN}
+	}
+	if fqn, ok := impliedExpressionBases[metaclass]; ok {
+		return []string{fqn}
 	}
 	if base, ok := impliedNodeUsageBases[metaclass]; ok && kind != source.KindKerML {
 		return []string{base}
@@ -323,7 +359,6 @@ var impliedUsageKinds = map[string]ast.UsageKind{
 	"ConnectionUsage":         ast.UsageConnection,
 	"ConstraintUsage":         ast.UsageConstraint,
 	"EnumerationUsage":        ast.UsageEnumeration,
-	"Expression":              ast.UsageExpr,
 	"FlowUsage":               ast.UsageFlow,
 	"ForLoopActionUsage":      ast.UsageAction,
 	"IfActionUsage":           ast.UsageAction,
@@ -416,6 +451,10 @@ func (m *Model) kindBaseFQNs(sym *symbols.Symbol, isKerML bool) []string {
 		if behavior, ok := implicitKerMLBehaviorBases[keywordOf(sym)]; ok {
 			out = append(out, behavior)
 		}
+	} else if def, ok := sym.Decl.(*ast.Definition); ok && def.IsIndividual && fqn != lifeFQN {
+		// An individual definition is a Life beside what its kind makes it
+		// (SysML v2 §8.4 Table 31, checkOccurrenceDefinitionIndividualSpecialization).
+		out = append(out, lifeFQN)
 	}
 	return out
 }
@@ -531,6 +570,10 @@ func (m *Model) kindBaseFQN(sym *symbols.Symbol, isKerML bool) (string, bool) {
 		return decisionsFQN, true
 	case *ast.SendStatement:
 		return sendActionsFQN, true
+	}
+	if sym.Expr != nil && sym.Kind == symbols.SymbolExpression {
+		fqn, ok := impliedExpressionBases[expressionMetaclassName(sym.Decl)]
+		return fqn, ok
 	}
 	return "", false
 }
@@ -858,7 +901,7 @@ func (m *Model) declaredGeneralizationReaches(sym *symbols.Symbol, want string, 
 	// generalization would (SysML v2 §7.27.3), so it displaces the base too.
 	var targets []*symbols.Symbol
 	for _, rel := range RelationshipsOf(sym) {
-		if rel != nil && GeneralizationKind(rel.Kind) {
+		if rel != nil && Generalizes(sym, rel.Kind) {
 			targets = append(targets, m.relationshipTarget(sym, rel))
 		}
 	}
@@ -907,7 +950,7 @@ func (m *Model) declaredReachesFrom(from, want *symbols.Symbol, visited *reachSe
 	var few [4]*symbols.Symbol
 	targets := few[:0]
 	for _, rel := range RelationshipsOf(from) {
-		if rel != nil && GeneralizationKind(rel.Kind) {
+		if rel != nil && Generalizes(from, rel.Kind) {
 			targets = append(targets, m.relationshipTarget(from, rel))
 		}
 	}
@@ -1177,18 +1220,6 @@ func (m *Model) ImpliedBaseFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// candidateBaseFeatures returns the library features sym's kind could imply,
-// whether or not a declared chain suppresses them.
-func (m *Model) candidateBaseFeatures(sym *symbols.Symbol) []*symbols.Symbol {
-	var out []*symbols.Symbol
-	for _, base := range []*symbols.Symbol{m.implicitUsageBaseFeature(sym), m.implicitKerMLFeatureBase(sym), m.implicitMultiplicityBase(sym), m.implicitBaseUsage(sym)} {
-		if base != nil {
-			out = append(out, base)
-		}
-	}
-	return out
-}
-
 // declaredChainReachesKindBase reports whether a declared specialization chain
 // already reaches the base feature of sym's kind, so sym needs no implied one —
 // not even Base::things, which that chain reaches too.
@@ -1226,10 +1257,10 @@ func (m *Model) computeDeclaredChainReachesKindBase(sym *symbols.Symbol) bool {
 	return ok && fqn != "" && m.declaredGeneralizationReaches(sym, fqn, nil)
 }
 
-// DeclaredSupertypes returns sym's direct supertypes without the generals its
-// kind implies: what a declaration states, directly or through a chain it names.
+// DeclaredSupertypes returns sym's direct supertypes without the generals its kind or
+// its feature value implies: what a declaration states, directly or through a chain it names.
 func (m *Model) DeclaredSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
-	implicit := m.ImplicitGenerals(sym)
+	implicit := m.generalsOutsideTyping(sym)
 	var out []*symbols.Symbol
 	for _, super := range m.DirectSupertypes(sym) {
 		if !slices.Contains(implicit, super) {
@@ -1240,11 +1271,20 @@ func (m *Model) DeclaredSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 }
 
 // AllDeclaredSupertypes returns the transitive closure of DeclaredSupertypes,
-// nearest first, leaving out every implied kind base along the way.
+// nearest first, leaving out every implied kind base along the way. The result is memoized.
 func (m *Model) AllDeclaredSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil {
+		return nil
+	}
+	defer m.own(sym).LeaveDoc()
+	if cached, ok := m.allDeclaredSupers[sym]; ok {
+		return cached
+	}
 	var out []*symbols.Symbol
 	seen := map[*symbols.Symbol]bool{sym: true}
 	queue := []*symbols.Symbol{sym}
+	provisional := false
+	m.resolver.Enter()
 	for len(queue) > 0 {
 		cur := queue[0]
 		queue = queue[1:]
@@ -1256,50 +1296,18 @@ func (m *Model) AllDeclaredSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 			out = append(out, super)
 			queue = append(queue, super)
 		}
+		provisional = provisional || m.supersUnstable(cur)
+	}
+	// A closure over a provisional or cut-short answer is provisional too.
+	if m.resolver.Leave() && !provisional {
+		journal(m, m.allDeclaredSupers, sym, sym.Decl)
+		m.allDeclaredSupers[sym] = out
 	}
 	return out
 }
 
-// ImplicitGenerals returns the general types sym has by its kind rather than by
-// declaration. A scope reached through a recursive import does not traverse them
-// (KerML 8.2.3.5).
+// ImplicitGenerals returns the generals sym has by its kind: the direct supertypes DirectSupertypes
+// ends with. A scope reached through a recursive import does not traverse them (KerML 8.2.3.5).
 func (m *Model) ImplicitGenerals(sym *symbols.Symbol) []*symbols.Symbol {
-	if sym == nil {
-		return nil
-	}
-	defer m.own(sym).LeaveDoc()
-	if cached, ok := m.implicitGenerals[sym]; ok {
-		return cached
-	}
-	// A record names the generals its kind implied among its supertypes, so a
-	// library symbol answers from its facts in every model instead of deriving them.
-	if sym.Facts != nil && (sym.Facts.Supers != nil || sym.Facts.Recorded) {
-		out := m.recordedElements(sym, sym.Facts.ImpliedSupers)
-		journal(m, m.implicitGenerals, sym, sym.Decl)
-		m.implicitGenerals[sym] = out
-		return out
-	}
-	m.resolver.Enter()
-	out := m.computeImplicitGenerals(sym)
-	if m.resolver.Leave() {
-		journal(m, m.implicitGenerals, sym, sym.Decl)
-		m.implicitGenerals[sym] = out
-	}
-	return out
-}
-
-// computeImplicitGenerals derives ImplicitGenerals for a declared symbol; its other
-// generals are its direct supertypes less the base features DirectSupertypes appends last.
-func (m *Model) computeImplicitGenerals(sym *symbols.Symbol) []*symbols.Symbol {
-	candidates := m.candidateBaseFeatures(sym)
-	declared := slices.DeleteFunc(slices.Clone(m.DirectSupertypes(sym)), func(super *symbols.Symbol) bool {
-		return slices.Contains(candidates, super)
-	})
-	var out []*symbols.Symbol
-	for _, base := range slices.Concat(m.implicitBases(sym), m.implicitBaseFeatures(sym, declared)) {
-		if base != nil && base != sym {
-			out = append(out, base)
-		}
-	}
-	return out
+	return m.impliedGeneralsOf(sym)
 }

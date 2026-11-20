@@ -13,6 +13,16 @@ import (
 type ElementProperties struct {
 	Element    ElementRef
 	Properties []ElementProperty
+	// ExcludedDocuments are the model's documents the answer leaves out, each
+	// with why; empty when the whole model was read.
+	ExcludedDocuments []ExcludedDocument
+}
+
+// ExcludedDocument is a document ElementProperties left out of the model: one the
+// parser could not read whole, or one declaring a top-level name again.
+type ExcludedDocument struct {
+	Document string
+	Error    string
 }
 
 // Property is the entry for the named property, nil when the read did not
@@ -113,14 +123,38 @@ func (v PropertyValue) Text() string {
 }
 
 func (c *client) ElementProperties(ctx context.Context, model *Model, element string, properties ...string) (*ElementProperties, error) {
+	return c.elementProperties(ctx, model, pb.LookupKind_LOOKUP_KIND_UNSPECIFIED, element, properties)
+}
+
+func (c *client) ElementPropertiesByName(ctx context.Context, model *Model, name string, properties ...string) (*ElementProperties, error) {
+	return c.elementProperties(ctx, model, pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME, name, properties)
+}
+
+func (c *client) ElementPropertiesByID(ctx context.Context, model *Model, id string, properties ...string) (*ElementProperties, error) {
+	return c.elementProperties(ctx, model, pb.LookupKind_LOOKUP_KIND_ELEMENT_ID, id, properties)
+}
+
+// elementProperties reads element as the kind lookup states, which a service without the
+// capability is not sent: it reads the string as either kind.
+func (c *client) elementProperties(ctx context.Context, model *Model, lookup pb.LookupKind, element string, properties []string) (*ElementProperties, error) {
 	hash, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	if lookup != pb.LookupKind_LOOKUP_KIND_UNSPECIFIED {
+		info, err := c.serverInfo(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if !info.Has(CapabilitySymbolLookupKind) {
+			lookup = pb.LookupKind_LOOKUP_KIND_UNSPECIFIED
+		}
+	}
+	if err := c.requireCapabilities(ctx, CapabilityElementProperties); err != nil {
+		return nil, err
+	}
 	resp, err := c.caller.getElementProperties(ctx, &pb.GetElementPropertiesRequest{
-		ModelHash:  hash,
-		ElementId:  element,
-		Properties: append([]string(nil), properties...),
+		ModelHash: hash, ElementId: element, Lookup: lookup, Properties: append([]string(nil), properties...),
 	})
 	if err != nil {
 		return nil, err
@@ -129,6 +163,9 @@ func (c *client) ElementProperties(ctx context.Context, model *Model, element st
 		return nil, &FailureError{Op: "ElementProperties", Message: resp.Error}
 	}
 	out := &ElementProperties{Element: elementRefFromProto(resp.Element)}
+	for _, excluded := range resp.ExcludedDocuments {
+		out.ExcludedDocuments = append(out.ExcludedDocuments, ExcludedDocument{Document: excluded.Document, Error: excluded.Error})
+	}
 	for _, property := range resp.Properties {
 		converted := ElementProperty{
 			Name:          property.Name,

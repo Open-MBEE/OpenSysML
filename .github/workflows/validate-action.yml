@@ -26,11 +26,22 @@ jobs:
   changes:
     name: Changed areas
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 25
     outputs:
       installer: ${{ steps.installer.outputs.installer }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Check out repository
+        id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 10
+        continue-on-error: true
+        with:
+          fetch-depth: 0
+      # A stalled fetch hangs rather than fails, so the action's own retries never see it.
+      - name: Check out repository again
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 10
         with:
           fetch-depth: 0
       - name: Decide whether the installed release runs
@@ -46,8 +57,17 @@ jobs:
     name: From the tree
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+      - name: Check out repository
+        id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 3
+        continue-on-error: true
+      # A stalled fetch hangs rather than fails, so the action's own retries never see it.
+      - name: Check out repository again
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 3
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
           cache: true
@@ -131,7 +151,16 @@ jobs:
         os: [ubuntu-24.04, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Check out repository
+        id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 3
+        continue-on-error: true
+      # A stalled fetch hangs rather than fails, so the action's own retries never see it.
+      - name: Check out repository again
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 3
       - name: Validate the showcase with the latest release
         uses: ./
         with:

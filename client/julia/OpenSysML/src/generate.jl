@@ -79,6 +79,7 @@ function _resolved_feature_facts(facts::SymbolFacts, facts_by_id)
         type_facts = TypeFacts(
             type_facts.declared, derived.id, derived.kind, type_facts.primitive,
             type_facts.primitive_source, type_facts.quantity, type_facts.unit, type_facts.types,
+            derived.id,
         )
     elseif !_names_type(type_facts)
         inherited = _inherited_fact(facts, facts_by_id,
@@ -93,6 +94,7 @@ function _resolved_feature_facts(facts::SymbolFacts, facts_by_id)
                 (own !== nothing && own.quantity) || inherited.quantity,
                 own === nothing || isempty(own.unit) ? inherited.unit : own.unit,
                 own === nothing ? inherited.types : own.types,
+                inherited.resolved_qualified_name,
             )
         end
     end

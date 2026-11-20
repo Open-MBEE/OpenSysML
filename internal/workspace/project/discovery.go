@@ -385,7 +385,7 @@ func (l *linker) retry(unmatched []pending) (rest []pending, linked bool) {
 			}
 			continue
 		}
-		pick, candidates := pickUnclaimed(l.installed, l.claimed, p.from, p.u, p.r)
+		pick, candidates := pickUnclaimed(l.installed, l.claimed, p.from, p.r)
 		switch {
 		case pick != nil:
 			l.learnt[p.u.key()] = pick.identity()
@@ -418,7 +418,7 @@ func pickVersion(installed []*Interchange, identity string, r versionRange) (*In
 
 // pickUnclaimed links a usage of from by elimination: the highest unclaimed version in r when the
 // candidates are all one project (never from itself); several are returned unpicked.
-func pickUnclaimed(installed []*Interchange, claimed map[string]bool, from *Interchange, u Usage, r versionRange) (*Interchange, []*Interchange) {
+func pickUnclaimed(installed []*Interchange, claimed map[string]bool, from *Interchange, r versionRange) (*Interchange, []*Interchange) {
 	var candidates []*Interchange
 	var pick *Interchange
 	one := true

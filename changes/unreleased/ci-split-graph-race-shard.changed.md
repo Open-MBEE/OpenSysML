@@ -1,0 +1,1 @@
+- The `graph` race shard (`tests/model`, 20 minutes in the merge queue build) is two, split by test name: `graph-corpora` runs `TestInterfaceRecordDifferentialCorpora`, 13 of the package's 18 minutes under `-race`, and `graph` the rest. CircleCI's race job runs both on the node `graph` had, and its coverage job gains a node.

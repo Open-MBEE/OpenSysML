@@ -56,7 +56,7 @@ func recordedRelationship(rel *symbols.Symbol) (symbols.RelationshipFacts, bool)
 // owned by the element the relationship is written on; nil for a relationship
 // targeting a name or a chain that does not resolve.
 func (m *Model) chainTargetFeature(rel *symbols.Symbol) *symbols.Symbol {
-	if m == nil || rel == nil || !rel.ImplicitWrittenRelationship() {
+	if m == nil || rel == nil || !rel.ImplicitWrittenRelationship() && !rel.ImplicitShorthandChain() {
 		return nil
 	}
 	var (
@@ -157,7 +157,6 @@ func (m *Model) ChainTargetPath(sym *symbols.Symbol, kind ast.RelationshipKind, 
 	if m.resolver == nil {
 		return nil
 	}
-	_, isEnd := sym.Decl.(*ast.ConnectorEnd)
 	switch {
 	case kind == ast.RelRedefines:
 		// A redefinition's chain starts at a feature the owner inherits, not
@@ -165,7 +164,7 @@ func (m *Model) ChainTargetPath(sym *symbols.Symbol, kind ast.RelationshipKind, 
 		return chainPath(chain, func(prefix ast.Node) (*symbols.Symbol, bool) {
 			return m.resolver.ResolveRedefinitionTarget(sym.OwnerScope, sym.Decl, prefix)
 		})
-	case isEnd && kind.ReferenceSubsets():
+	case attachesEnd(sym) && kind.ReferenceSubsets():
 		return m.attachmentPath(referenceScope(sym), chain)
 	}
 	return m.attachmentPath(sym.OwnerScope, chain)
