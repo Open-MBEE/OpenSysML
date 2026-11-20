@@ -54,7 +54,7 @@ func (m Model) moveSplices(i int, op Operation) ([]splice, error) {
 		}
 	}
 	r, _ := m.resolver()
-	del, ok := m.symbolDeletion(r, m.Source.Name(), sym)
+	del, ok := m.symbolDeletion(m.Source.Name(), sym)
 	if !ok {
 		return nil, &Error{
 			Failure:        FailureUnknownTarget,
@@ -623,7 +623,7 @@ func (mv *mover) refuseReference(ref reference, part int, reason string) error {
 	doc := mv.model.Source.Name()
 	site := docLabel(doc)
 	var referrers []Referrer
-	if referrer, ok := mv.model.referrer(mv.r, doc, ref.ref, ref.ref.QN.Parts[part].Span.Offset); ok {
+	if referrer, ok := mv.model.referrer(doc, ref.ref, ref.ref.QN.Parts[part].Span.Offset); ok {
 		site = referrer.name
 		referrers = []Referrer{referrer.referrer()}
 	}

@@ -107,7 +107,7 @@ func (m Model) renameOccurrences(r *resolve.Resolver, sem *semantics.Model, sym 
 					found = append(found, occurrence{RenameOccurrence: RenameOccurrence{Ref: ref, Part: part}, doc: doc})
 					continue
 				}
-				referrer, ok := m.referrer(r, doc, ref, segment.Span.Offset)
+				referrer, ok := m.referrer(doc, ref, segment.Span.Offset)
 				if ok && !seenReferrers[referrer.node] {
 					seenReferrers[referrer.node] = true
 					elsewhere = append(elsewhere, referrer.referrer())
