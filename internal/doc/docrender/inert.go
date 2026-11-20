@@ -27,6 +27,13 @@ func activeMarkup(markup string) (string, bool) {
 		switch z.Next() {
 		case html.ErrorToken:
 			return "", false
+		case html.TextToken:
+			// The tokenizer reads <style> and <title> as text; inside <svg> a browser reads tags there.
+			if raw := string(z.Raw()); len(raw) < len(markup) && strings.Contains(raw, "<") {
+				if found, active := activeMarkup(raw); active {
+					return found, true
+				}
+			}
 		case html.StartTagToken, html.SelfClosingTagToken:
 			token := z.Token()
 			// The tokenizer lowercases names; a prefix (svg:script) is still the element.

@@ -25,6 +25,9 @@ func TestActiveMarkup(t *testing.T) {
 		`<span class="katex"><img src=x onerror=alert(1)></span>`,
 		`<span></span></div><script>alert(1)</script>`,
 		`<object data="x.swf"></object>`,
+		`<svg><style><img src=x onerror=alert(1)></style></svg>`,
+		`<svg><title><script>alert(1)</script></title></svg>`,
+		`<svg><style><style><a href="javascript:alert(1)">x</a></style></style></svg>`,
 	} {
 		if _, found := activeMarkup(active); !found {
 			t.Errorf("not refused: %s", active)
@@ -34,6 +37,8 @@ func TestActiveMarkup(t *testing.T) {
 		`<span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em;"></span><span class="mord mathnormal">E</span></span></span></span>`,
 		`<?xml version="1.0"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><style>.n{fill:#fff}</style><g id="node1" class="node"><title>on&lt;script&gt;</title><a xlink:href="https://example.test/a?b=1#c" xlink:title="onclick"><text>javascript: is a language</text></a></g><image href="data:image/png;base64,AAAA"/><image xlink:href="pictures/logo.svg"/><use href="#node1"/></svg>`,
 		`<svg><foreignObject><div xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel">Engine</span></div></foreignObject></svg>`,
+		`<svg><style>.a > .b { fill: red } /* a < b */</style><text>1 < 2</text></svg>`,
+		`a < b`,
 	} {
 		if found, active := activeMarkup(inert); active {
 			t.Errorf("refused for %s: %s", found, inert)
