@@ -57,13 +57,13 @@ const maxBodyBytes = 128 << 20
 // resource-exhausted rather than queued.
 const maxInFlight = 64
 
-// defaultWriteStall is how long the peer may accept no part of an answer before the
-// session is given up on.
+// defaultWriteStall is how long the peer may take to accept one writeChunk of an
+// answer before the session is given up on.
 const defaultWriteStall = time.Minute
 
-// writeChunk is the most handed to the peer in one write, so a large answer that is
-// being read slowly still shows progress.
-const writeChunk = 64 << 10
+// writeChunk is the most handed to the peer in one write: small enough that a peer
+// reading at all, however slowly, takes each within the stall bound.
+const writeChunk = 4 << 10
 
 // ErrPeerStalled is why Serve returns, without waiting for its calls, when the peer
 // stopped reading its answers.
