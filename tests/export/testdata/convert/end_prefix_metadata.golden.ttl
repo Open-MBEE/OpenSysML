@@ -169,6 +169,7 @@ elmt:EndPrefixMetadata__Derivation
     sysml:owningRelationship elmt:EndPrefixMetadata__Derivation_om ;
     sysml:owningMembership elmt:EndPrefixMetadata__Derivation_om ;
     sysml:declaredName "Derivation" ;
+    sysml:isSufficient "true"^^xsd:boolean ;
     sysml:ownedMember elmt:EndPrefixMetadata__Derivation___405, elmt:EndPrefixMetadata__Derivation__r1, elmt:EndPrefixMetadata__Derivation__r1_5f1, elmt:EndPrefixMetadata__Derivation__r1_5f2, elmt:EndPrefixMetadata__Derivation__cause, elmt:EndPrefixMetadata__Derivation__effect ;
     sysml:ownedMembership elmt:EndPrefixMetadata__Derivation___405_om, elmt:EndPrefixMetadata__Derivation__r1_om, elmt:EndPrefixMetadata__Derivation__r1_5f1_om, elmt:EndPrefixMetadata__Derivation__r1_5f2_om, elmt:EndPrefixMetadata__Derivation__cause_om, elmt:EndPrefixMetadata__Derivation__effect_om ;
     sysml:ownedRelationship elmt:EndPrefixMetadata__Derivation___405_om, elmt:EndPrefixMetadata__Derivation__r1_om, elmt:EndPrefixMetadata__Derivation__r1_5f1_om, elmt:EndPrefixMetadata__Derivation__r1_5f2_om, elmt:EndPrefixMetadata__Derivation__cause_om, elmt:EndPrefixMetadata__Derivation__effect_om ;

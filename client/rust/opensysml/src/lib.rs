@@ -13,6 +13,7 @@ mod edit;
 mod element_properties;
 mod encode;
 mod error;
+mod frame;
 mod graphs;
 mod migration;
 mod model;
@@ -42,6 +43,10 @@ pub use domain::{
     VectorQuantity,
 };
 pub use error::{Error, Status};
+pub use frame::{
+    CoordinateFrame, CoordinateTransformation, FramePose, FrameShape, FrameStep, FrameStepKind,
+    MeasurementScale, QuantityValueMapping,
+};
 pub use graphs::Graphs;
 pub use rational::Rational;
 pub use wire::FailureReason;

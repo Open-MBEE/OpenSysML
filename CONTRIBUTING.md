@@ -403,7 +403,9 @@ trees on every push to `develop` that changes a `pom.xml`, and daily, and saves 
 keyed on the hash of every `pom.xml` and of that workflow. It runs the tests and ignores their
 result, because Surefire resolves its provider and the JUnit launcher only when tests run; deletes
 every `*.lastUpdated` marker of a failed download; and then builds the three trees again with
-`mvn -o`, so an entry that lacks an artifact is not saved. A job that runs Maven restores that entry with
+`mvn -o`, so an entry that lacks an artifact is not saved. It runs
+`editors/mdk/scripts/compile-against-cameo-test.sh` in both passes too, whose helper calls the
+dependency plugin, which no tree's build binds. A job that runs Maven restores that entry with
 `.github/actions/maven-cache` after `actions/setup-java` (`nightly.yml`, which builds a commit that
 may predate the action, by the same key), and does not set `cache: maven` there: a
 pull request's or merge group's own cache is private to its ref, and one saved by a single job
@@ -637,11 +639,17 @@ When a change needs documenting:
   differential or derived census that its check reproduces against the recorded pilot side and
   re-records one that does not, re-runs every other recorder on the merged tree, refuses a movement the merge does not explain
   (`scripts/rebaseline-movement.py`: a verdict that moved for a record neither side moved), commits
-  the result with the movement in its message, pushes to the branch, removes the label and
-  comments the movement for adjudication. It never touches
+  the result with the movement in its message, pushes to the branch, removes the label,
+  comments the movement for adjudication and sets the `ci:rebaseline` status on the branch's head
+  (the run itself is listed under Actions and under the head it started from, not the one it
+  pushes). It never touches
   `tests/corpus/testdata/training_examples_expected.txt`, which is asserted clean rather than
-  ratcheted, and it needs the label applied to the branch's current head (a push after the label
-  stops it). Only a branch of this repository can be re-recorded, not a fork's.
+  ratcheted, and it needs the label applied to the branch's current head (a push between the label
+  and the checkout stops it). A branch pushed to while the recorders run is not pushed over, and a
+  `develop` that moved into a new conflict with the result is not left unmerged: the run starts again
+  from the branch's head, merging and re-recording once more, and stops if the branch moves again.
+  The push is the `REBASELINE_TOKEN` secret's when it is set; without it the push is the Actions
+  token's and CI on the pushed head waits for a maintainer's approval, which the comment says. Only a branch of this repository can be re-recorded, not a fork's.
 - **Changelog entries are fragments, not edits to `CHANGELOG.md`.** A change that a user
   should read about adds one file, `changes/unreleased/<slug>.<section>.md`, holding the list
   item(s) for that section (`added`, `changed`, `fixed`, …); see the README there. Two branches

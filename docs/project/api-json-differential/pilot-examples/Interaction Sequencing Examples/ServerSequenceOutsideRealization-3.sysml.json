@@ -11,11 +11,11 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 15222,
+      "presentEqual": 15220,
       "presentDifferent": 1458,
       "oursMissing": 1280,
-      "pilotMissing": 621,
-      "absentBoth": 16228,
+      "pilotMissing": 619,
+      "absentBoth": 16230,
       "indeterminate": 373,
       "pilotNondeterministic": 5
     },
@@ -268,7 +268,7 @@
     "Comment.owningRelationship": [1,0,0,0,0,0,0],
     "Comment.textualRepresentation": [0,0,0,0,1,0,0],
     "ConjugatedPortDefinition.aliasIds": [0,0,0,0,2,0,0],
-    "ConjugatedPortDefinition.declaredName": [0,0,0,2,0,0,0],
+    "ConjugatedPortDefinition.declaredName": [0,0,0,0,2,0,0],
     "ConjugatedPortDefinition.declaredShortName": [0,0,0,0,2,0,0],
     "ConjugatedPortDefinition.differencingType": [0,0,0,0,2,0,0],
     "ConjugatedPortDefinition.directedFeature": [0,0,0,2,0,0,0],
@@ -1204,7 +1204,7 @@
     "InterfaceDefinition.isImpliedIncluded": [2,0,0,0,0,0,0],
     "InterfaceDefinition.isIndividual": [2,0,0,0,0,0,0],
     "InterfaceDefinition.isLibraryElement": [2,0,0,0,0,0,0],
-    "InterfaceDefinition.isSufficient": [2,0,0,0,0,0,0],
+    "InterfaceDefinition.isSufficient": [0,2,0,0,0,0,0],
     "InterfaceDefinition.isVariation": [2,0,0,0,0,0,0],
     "InterfaceDefinition.member": [0,2,0,0,0,0,0],
     "InterfaceDefinition.membership": [0,2,0,0,0,0,0],

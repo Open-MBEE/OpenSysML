@@ -1,6 +1,7 @@
 package export
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"sync"
@@ -30,19 +31,23 @@ func PrepareModel(documents []ModelDocument) *PreparedModel {
 
 // ToRDF writes selected documents, or all when selection is empty, into a fresh graph.
 // Unselected declarations still resolve references and participate in identity checks.
-func (p *PreparedModel) ToRDF(selection []string, form IDForm) (*rdf.Graph, error) {
-	return p.graph(selection, form, nameInheritedLibraryMembers)
+func (p *PreparedModel) ToRDF(ctx context.Context, selection []string, form IDForm) (*rdf.Graph, error) {
+	return p.graph(ctx, selection, form, nameInheritedLibraryMembers)
 }
 
 // ElementGraph is ToRDF for a graph only the element form is written from, as
 // ModelElementGraphWith is ModelToRDFWith.
-func (p *PreparedModel) ElementGraph(selection []string, form IDForm) (*rdf.Graph, error) {
-	return p.graph(selection, form, addLinkedLibraryStubs)
+func (p *PreparedModel) ElementGraph(ctx context.Context, selection []string, form IDForm) (*rdf.Graph, error) {
+	return p.graph(ctx, selection, form, addLinkedLibraryStubs)
 }
 
-func (p *PreparedModel) graph(selection []string, form IDForm, nameLibrary func(*rdf.Graph)) (*rdf.Graph, error) {
+func (p *PreparedModel) graph(ctx context.Context, selection []string, form IDForm, nameLibrary libraryNamer) (*rdf.Graph, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	// A done ctx is the conversion's error, here and at each document and batch of elements.
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	documents := slices.Clone(p.documents)
 	for _, name := range selection {
 		if !slices.ContainsFunc(documents, func(doc ModelDocument) bool { return doc.File.Name() == name }) {
@@ -54,10 +59,13 @@ func (p *PreparedModel) graph(selection []string, form IDForm, nameLibrary func(
 	}
 	if p.res == nil {
 		p.res, p.model = analyzeModel(p.documents)
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 	}
 	_, encoders, err := modelEncodersOver(documents, form, p.res, p.model)
 	if err != nil {
 		return nil, err
 	}
-	return encodeModelDocuments(documents, encoders, nameLibrary)
+	return encodeModelDocuments(ctx, documents, encoders, nameLibrary)
 }

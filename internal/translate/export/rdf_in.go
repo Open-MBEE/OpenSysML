@@ -618,7 +618,7 @@ func literalDatatypes(metaclass, predicate string) []string {
 	switch {
 	case isIndexProperty(predicate), IsSourceRangeProperty(predicate):
 		return integerLiterals
-	case strings.HasPrefix(name, "is"), name == xHasBody, name == xDeclaredID, name == xHasEffect, name == xBracedEffect, name == xConjugatedTyping, name == xSourceMultiplicityBeforeThen,
+	case strings.HasPrefix(name, "is"), name == xHasBody, name == xStatedDefaults, name == xDeclaredID, name == xHasEffect, name == xBracedEffect, name == xConjugatedTyping, name == xSourceMultiplicityBeforeThen,
 		name == xNoteOwnLine, name == xNoteTail, name == xNoteTrailing:
 		return booleanLiterals
 	case strings.HasPrefix(predicate, rdf.SysML) && (name == pLowerBound || name == pUpperBound):
@@ -4475,6 +4475,10 @@ var headClauseKinds = map[string][]ast.RelationshipKind{
 	mSubsetting:           {ast.RelSubsets, ast.RelSpecializes},
 	mRedefinition:         {ast.RelRedefines},
 	mReferenceSubsetting:  {ast.RelReferences},
+	mCrossSubsetting:      {ast.RelCrosses},
+	mUnioning:             {ast.RelUnions},
+	mIntersecting:         {ast.RelIntersects},
+	mDifferencing:         {ast.RelDifferences},
 }
 
 // headClauseTargets are the properties that state a relationship element's
@@ -4488,6 +4492,10 @@ var headClauseTargets = map[string][]string{
 	mSubsetting:           {pSubsettedFeature, pGeneral, pTarget},
 	mRedefinition:         {"redefinedFeature", pSubsettedFeature, pGeneral, pTarget},
 	mReferenceSubsetting:  {pReferencedFeature, pSubsettedFeature, pGeneral, pTarget},
+	mCrossSubsetting:      {"crossedFeature", pSubsettedFeature, pGeneral, pTarget},
+	mUnioning:             {"unioningType", pTarget},
+	mIntersecting:         {"intersectingType", pTarget},
+	mDifferencing:         {"differencingType", pTarget},
 }
 
 // spelledHead reads the order el's head was spelled from what el owns in

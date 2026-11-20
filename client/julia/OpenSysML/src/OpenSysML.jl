@@ -7,6 +7,8 @@ using SHA
 
 export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        EnumLiteral, Unset, Infinity, FunctionRef, Metaobject, Undetermined,
+       CoordinateFrame, CoordinateTransformation, MeasurementScale, FramePlacement,
+       FrameStep, FrameRotation, AffineTransformation3d, FramePose,
        Unit, UnitFactor, MeasurementRef, ArrayValue, VectorValue, VectorQuantity,
        TensorQuantity, in_unit, to_unit, same_value, value_capabilities,
        OpenSysMLError, ConnectError, ServiceError, TransportError, DiagnosticError,
@@ -140,7 +142,8 @@ for capability in (
     :CAPABILITY_DIAGNOSTIC_CODES, :CAPABILITY_SCHEDULE, :CAPABILITY_CASE_EVALUATIONS,
     :CAPABILITY_SCHEDULE_EXPLORE, :CAPABILITY_PERFORMER, :CAPABILITY_STATE_TRACE, :CAPABILITY_ACTION_TRACE,
     :CAPABILITY_FINAL_TIME,
-    :CAPABILITY_ENGINES, :CAPABILITY_UNDETERMINED_VALUE, :CAPABILITY_BIG_INT_VALUES,
+    :CAPABILITY_ENGINES, :CAPABILITY_UNDETERMINED_VALUE, :CAPABILITY_COORDINATE_FRAME_VALUES,
+    :CAPABILITY_BIG_INT_VALUES,
     :CAPABILITY_RATIONAL_VALUES, :CAPABILITY_CONVERT_DOCUMENTS, :CAPABILITY_CONVERT_COMPACT,
     :CAPABILITY_CONVERT_LIBRARY_REFERENCES, :CAPABILITY_CONVERT_LIBRARY_STUBS,
     :CAPABILITY_CONVERT_INHERITED_MEMBERS,

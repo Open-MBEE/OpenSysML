@@ -1,6 +1,7 @@
 package export
 
 import (
+	"context"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"maps"
 	"slices"
@@ -108,9 +109,13 @@ func addReferencedLibraryStubs(graph *rdf.Graph, completed map[string]bool) {
 	}
 }
 
+// cancellationStride is how many elements a conversion evaluates between two
+// looks at its context: each evaluates every completed property of one element.
+const cancellationStride = 64
+
 // apiJSONMembershipReferenceIDs are the ids the completed properties of the graph's own
 // elements reference, derived from the evaluator alone, without writing the element form.
-func apiJSONMembershipReferenceIDs(graph *rdf.Graph) (map[string]bool, error) {
+func apiJSONMembershipReferenceIDs(ctx context.Context, graph *rdf.Graph) (map[string]bool, error) {
 	wrapped, err := withRootNamespace(graph)
 	if err != nil {
 		return nil, err
@@ -139,7 +144,13 @@ func apiJSONMembershipReferenceIDs(graph *rdf.Graph) (map[string]bool, error) {
 			}
 		}
 	}
-	for _, subject := range wrapped.SubjectsView() {
+	for i, subject := range wrapped.SubjectsView() {
+		// A done ctx stops the evaluation between elements, as its error.
+		if i%cancellationStride == 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+		}
 		if LibraryReference(wrapped, subject) {
 			continue
 		}

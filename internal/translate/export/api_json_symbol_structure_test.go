@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
@@ -714,6 +715,9 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 	case symbols.ExpressionTransitionLinkParameter:
 		// A transition's link parameters are minted at linkparam and triggerparam (transitionHeadMembers).
 		return d.expressionPartID(owner, []string{"linkparam", "triggerparam"}[sym.Expr.Index])
+	case symbols.ExpressionTriggerAction:
+		// A trigger's accept is filed under its transition (recordTransitionHead): its node is the payload's.
+		return d.expressionPartID(owner, "trigger")
 	case symbols.ExpressionPayload:
 		// A send's argument parameter is written as the send's unnamed member at
 		// its argument position (encodeSendArguments: qualify(fqn, "", i)).
@@ -723,6 +727,14 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 				return "", false
 			}
 			return base + rdf.EncodeElementID(fmt.Sprintf("::@%d", sym.Expr.Index)), true
+		}
+		if isTriggerAccept(owner) {
+			// A trigger's parameters are minted off its accept, by name or position (encodeTrigger).
+			base, ok := d.graphID(owner)
+			if !ok {
+				return "", false
+			}
+			return memberElementID(base, naming.Qualify("", naming.ParamName(sym.Decl), sym.Expr.Index)), true
 		}
 	case symbols.ExpressionTransitionSuccession:
 		// A transition's succession is minted off the transition (transitionSuccession).
@@ -739,10 +751,14 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 		}
 		return base + transitionLinkSuffix, true
 	case symbols.ExpressionValue:
-		// The value of a send's argument parameter is the parameter's `value` part.
+		// The value of a send's argument parameter, or of a trigger's, is the parameter's `value` part.
 		if owner.Expr != nil && owner.Expr.Role == symbols.ExpressionPayload && owner.Expr.Owner != nil &&
-			owner.Expr.Owner.Kind == symbols.SymbolSendActionUsage {
-			return d.expressionPartID(owner, pValue)
+			(owner.Expr.Owner.Kind == symbols.SymbolSendActionUsage || isTriggerAccept(owner.Expr.Owner)) {
+			base, ok := d.graphID(owner)
+			if !ok {
+				return "", false
+			}
+			return rdf.ExpressionNodeID(base, pValue), true
 		}
 	}
 	if sym.Decl != nil && sym.Decl != owner.Decl {
@@ -904,4 +920,9 @@ func (d *structureDifferential) elementID(element metamodel.Element, fromGraph b
 		return d.graphID(sym)
 	}
 	return "", false
+}
+
+// isTriggerAccept reports whether sym is the accept a transition's trigger declares.
+func isTriggerAccept(sym *symbols.Symbol) bool {
+	return sym.Expr != nil && sym.Expr.Role == symbols.ExpressionTriggerAction
 }

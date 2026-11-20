@@ -11,11 +11,11 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 68655,
-      "presentDifferent": 3335,
+      "presentEqual": 68652,
+      "presentDifferent": 3338,
       "oursMissing": 4599,
-      "pilotMissing": 2515,
-      "absentBoth": 77511,
+      "pilotMissing": 2512,
+      "absentBoth": 77514,
       "indeterminate": 1552,
       "pilotNondeterministic": 0
     },
@@ -143,7 +143,7 @@
     "AttributeUsage.variant": [0,0,0,0,308,0,0],
     "AttributeUsage.variantMembership": [0,0,0,0,308,0,0],
     "ConjugatedPortDefinition.aliasIds": [0,0,0,0,3,0,0],
-    "ConjugatedPortDefinition.declaredName": [0,0,0,3,0,0,0],
+    "ConjugatedPortDefinition.declaredName": [0,0,0,0,3,0,0],
     "ConjugatedPortDefinition.declaredShortName": [0,0,0,0,3,0,0],
     "ConjugatedPortDefinition.differencingType": [0,0,0,0,3,0,0],
     "ConjugatedPortDefinition.directedFeature": [0,0,0,0,3,0,0],
@@ -246,7 +246,7 @@
     "ConnectionDefinition.isImpliedIncluded": [3,0,0,0,0,0,0],
     "ConnectionDefinition.isIndividual": [3,0,0,0,0,0,0],
     "ConnectionDefinition.isLibraryElement": [3,0,0,0,0,0,0],
-    "ConnectionDefinition.isSufficient": [3,0,0,0,0,0,0],
+    "ConnectionDefinition.isSufficient": [0,3,0,0,0,0,0],
     "ConnectionDefinition.isVariation": [3,0,0,0,0,0,0],
     "ConnectionDefinition.member": [0,3,0,0,0,0,0],
     "ConnectionDefinition.membership": [0,3,0,0,0,0,0],

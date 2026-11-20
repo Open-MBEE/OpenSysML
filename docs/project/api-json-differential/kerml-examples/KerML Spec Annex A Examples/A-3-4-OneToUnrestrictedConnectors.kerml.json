@@ -4,23 +4,23 @@
   "summary": {
     "pilotLibraryElements": 3,
     "elements": {
-      "matched": 122,
+      "matched": 126,
       "oursOnly": 24,
-      "pilotOnly": 36,
+      "pilotOnly": 32,
       "pilotOnlyImplied": 0,
       "typeMismatch": 24
     },
     "properties": {
-      "presentEqual": 2080,
+      "presentEqual": 2120,
       "presentDifferent": 211,
-      "oursMissing": 203,
-      "pilotMissing": 170,
-      "absentBoth": 1797,
+      "oursMissing": 199,
+      "pilotMissing": 174,
+      "absentBoth": 1837,
       "indeterminate": 0,
       "pilotNondeterministic": 0
     },
     "unkeyedReferences": 72,
-    "extensionProperties": 394,
+    "extensionProperties": 398,
     "duplicateElements": {
       "ours": 0,
       "pilot": 221
@@ -125,10 +125,10 @@
     "Classifier.ownedIntersecting": [0,0,0,0,7,0,0],
     "Classifier.ownedMember": [1,3,0,0,3,0,0],
     "Classifier.ownedMembership": [4,0,0,0,3,0,0],
-    "Classifier.ownedRelationship": [4,0,2,0,1,0,0],
+    "Classifier.ownedRelationship": [6,0,0,0,1,0,0],
     "Classifier.ownedSpecialization": [3,0,0,0,4,0,0],
     "Classifier.ownedSubclassification": [3,0,0,0,4,0,0],
-    "Classifier.ownedUnioning": [0,0,2,0,5,0,0],
+    "Classifier.ownedUnioning": [2,0,0,0,5,0,0],
     "Classifier.owner": [7,0,0,0,0,0,0],
     "Classifier.owningMembership": [7,0,0,0,0,0,0],
     "Classifier.owningNamespace": [7,0,0,0,0,0,0],
@@ -780,6 +780,26 @@
     "Subclassification.subclassifier": [3,0,0,0,0,0,0],
     "Subclassification.superclassifier": [3,0,0,0,0,0,0],
     "Subclassification.target": [3,0,0,0,0,0,0],
-    "Subclassification.textualRepresentation": [0,0,0,0,3,0,0]
+    "Subclassification.textualRepresentation": [0,0,0,0,3,0,0],
+    "Unioning.aliasIds": [0,0,0,0,4,0,0],
+    "Unioning.declaredName": [0,0,0,0,4,0,0],
+    "Unioning.declaredShortName": [0,0,0,0,4,0,0],
+    "Unioning.documentation": [0,0,0,0,4,0,0],
+    "Unioning.isImplied": [4,0,0,0,0,0,0],
+    "Unioning.isImpliedIncluded": [4,0,0,0,0,0,0],
+    "Unioning.isLibraryElement": [4,0,0,0,0,0,0],
+    "Unioning.ownedAnnotation": [0,0,0,0,4,0,0],
+    "Unioning.ownedElement": [0,0,0,0,4,0,0],
+    "Unioning.ownedRelatedElement": [0,0,0,0,4,0,0],
+    "Unioning.ownedRelationship": [0,0,0,0,4,0,0],
+    "Unioning.owner": [0,0,0,4,0,0,0],
+    "Unioning.owningRelatedElement": [4,0,0,0,0,0,0],
+    "Unioning.owningRelationship": [0,0,0,0,4,0,0],
+    "Unioning.relatedElement": [4,0,0,0,0,0,0],
+    "Unioning.source": [4,0,0,0,0,0,0],
+    "Unioning.target": [4,0,0,0,0,0,0],
+    "Unioning.textualRepresentation": [0,0,0,0,4,0,0],
+    "Unioning.typeUnioned": [4,0,0,0,0,0,0],
+    "Unioning.unioningType": [4,0,0,0,0,0,0]
   }
 }

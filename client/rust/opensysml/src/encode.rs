@@ -284,6 +284,11 @@ fn encode_scalar(value: &Value, capabilities: &Capabilities) -> Result<wire::Val
                 "undetermined is an answer the model leaves open, not an argument".to_owned(),
             ))
         }
+        Value::CoordinateFrame(_) | Value::CoordinateTransformation(_) => {
+            return Err(Error::UnsupportedValue(
+                "a coordinate frame or transformation is an answer, not an argument".to_owned(),
+            ))
+        }
         Value::Sequence(_) | Value::Array(_) | Value::Set(_) | Value::EnumLiteral(_) => {
             unreachable!("nesting values are encoded by `encode`")
         }

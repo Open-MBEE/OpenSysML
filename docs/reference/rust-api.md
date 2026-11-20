@@ -231,10 +231,12 @@ match value {
     Value::Unset => (),                // a materialized feature with no value
     Value::Undetermined(u) => (),      // left open by the model: u.reason, u.count_lower, u.count_upper
     Value::Infinity => (),             // the unbounded `*`
+    Value::CoordinateFrame(f) => (),   // f.axes, f.scale, f.transformation
+    Value::CoordinateTransformation(t) => (), // t.source, t.target, t.shape, t.pose
 }
 ```
 
-Every variant but `Unset` and `Undetermined` — answers the service gives, never
+Every variant but `Unset`, `Undetermined`, `CoordinateFrame` and `CoordinateTransformation` — answers the service gives, never
 arguments — can be sent, nested to a bounded depth. A request value is checked before it
 is sent: a quantity's unit must be reduced and its scale exact, an array, vector or tensor
 must fill its dimensions, and a function or metaobject must name its element; anything

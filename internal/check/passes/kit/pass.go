@@ -1,6 +1,8 @@
 package kit
 
 import (
+	"context"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -99,6 +101,17 @@ type Batch struct {
 type Options struct {
 	// Conformance is the strictness the notation is judged at.
 	Conformance diag.ConformanceMode
+	// Context, when set, stops the run between passes once it is done; the caller
+	// then discards the partial diagnostics. A workspace's kept options leave it nil.
+	Context context.Context
+}
+
+// Cancelled is the error of a done Context, nil while the run may go on.
+func (o Options) Cancelled() error {
+	if o.Context == nil {
+		return nil
+	}
+	return o.Context.Err()
 }
 
 // NewContext builds a Context; newModel makes the semantic model on first use of Model().
