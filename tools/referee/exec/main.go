@@ -225,9 +225,8 @@ func modelPaths(models []execModel) []string {
 	return paths
 }
 
-// runPilot evaluates cases with the launcher, which gets timeout to finish and
-// maxPilotOutput bytes on each stream; passing either bound is an error, since a
-// partial answer would be scored as the pilot's.
+// runPilot evaluates cases with the launcher. Passing timeout or maxPilotOutput on a
+// stream is an error, since a partial answer would be scored as the pilot's.
 func runPilot(launcher string, models []string, cases []execCase, timeout time.Duration) (map[string]string, error) {
 	tsv, err := os.CreateTemp("", toolName+"-*.tsv")
 	if err != nil {
