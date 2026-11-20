@@ -705,9 +705,8 @@ func destination(target string) string {
 	return strings.ReplaceAll(destinationEscaper.Replace(newlineNormalizer.Replace(target)), "\n", "%0A")
 }
 
-// linkDestination writes a destination built from a file name: bare when every
-// character stands for itself there, else in the pointy-bracket form, since a
-// space, a parenthesis or a backslash would end or reshape a bare one.
+// linkDestination writes a destination built from a file name: bare, or in the
+// pointy-bracket form when a space, parenthesis or backslash would reshape a bare one.
 func linkDestination(target string) string {
 	bare := target != "" && !strings.HasPrefix(target, "<")
 	for _, r := range target {

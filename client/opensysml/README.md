@@ -475,7 +475,12 @@ encoding time on large responses and is a debugging affordance, per
 machines reach requires a bearer token, which `WithToken` sends as
 `Authorization: Bearer` on every call; without it `Dial` reads
 `$OPENSYSML_GRPC_TOKEN` (`TokenEnv`), and a call without the right token fails
-with `CodeUnauthenticated`. This package never spawns a
+with `CodeUnauthenticated`. `Dial` sends the token over `https`, and over
+`http` to this machine only: an `http` address other machines reach is refused
+with `CodeInvalidArgument` while a token is set, unless
+`WithInsecureTokenTransport` accepts it for a proxy or tunnel that encrypts the
+connection, as `sysml-grpc -allow-insecure-token-transport` does on the serving
+side. This package never spawns a
 service: a Go process that wants the engine in-process uses `New`, which is
 strictly better than a private child — the child's entire job would be to serve
 the code `New` already calls.
