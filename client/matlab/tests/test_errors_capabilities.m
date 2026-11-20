@@ -5,6 +5,7 @@ function test_errors_capabilities()
     assert_equal(caps.parseSources, 'parse_sources', 'parseSources capability');
     assert_equal(caps.verificationQuestions, 'verification_questions', 'question capability');
     assert_equal(caps.undeterminedValue, 'undetermined_value', 'undetermined capability');
+    assert_equal(caps.coordinateFrameValues, 'coordinate_frame_values', 'coordinate frame capability');
     assert_equal(caps.convertCompact, 'convert_compact', 'compact convert capability');
     assert_equal(caps.convertCheckDiagnostics, 'convert_check_diagnostics', 'check diagnostics capability');
     assert_equal(caps.parseSourcesAffected, 'parse_sources_affected', 'affected documents capability');

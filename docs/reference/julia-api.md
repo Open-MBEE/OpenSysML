@@ -131,7 +131,10 @@ beyond `Int64`, decodes an exact Rational no `Float64` holds (`rationalValue`, a
 `Float64` holds as that `realValue` while refusing any other (a `Float64` sent is always a Real), decodes sequences and sets recursively, and exposes
 structured values through `Quantity`, `EnumLiteral`, `ArrayValue`,
 `VectorValue`, `VectorQuantity`, `TensorQuantity`, `MeasurementRef`,
-`FunctionRef`, `Metaobject`, `Undetermined`, `Unset`, and `Infinity`.
+`FunctionRef`, `Metaobject`, `Undetermined`, `Unset`, and `Infinity`. A coordinate frame decodes
+to `CoordinateFrame` and a transformation to `CoordinateTransformation` (its `source`, `target`,
+one of `placement`, `steps` or `affine`, and the resolved `pose`); both are answers and
+`encode_value` refuses them.
 
 `Unit` and `UnitFactor` represent units and factors. `in_unit(quantity,
 unit)` reads a magnitude in another compatible unit; `to_unit(quantity,

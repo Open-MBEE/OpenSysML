@@ -454,11 +454,12 @@ func TestRenderDocumentFileNameIsWithheldWithoutItsCapability(t *testing.T) {
 
 // A capability is appended after every one before it: the newest ends the
 // list, directly after the ones that were newest before it.
-func TestSymbolMemberDirectionCapabilityIsTheNewest(t *testing.T) {
+func TestCoordinateFrameValuesCapabilityIsTheNewest(t *testing.T) {
 	all := Capabilities()
 	want := []string{
 		CapabilityInlineDocumentQuery, CapabilitySymbolNameResolution, CapabilityRenderViewForm,
 		CapabilitySymbolAnnotatingMetadata, CapabilitySymbolLookupKind, CapabilitySymbolMemberDirection,
+		CapabilityCoordinateFrameValues,
 	}
 	if len(all) < len(want) || !slices.Equal(all[len(all)-len(want):], want) {
 		t.Errorf("capabilities %v do not end with %q, the newest last", all, want)

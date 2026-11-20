@@ -4,6 +4,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::capabilities::{upgrade_remedy, CAPABILITY_SYMBOL_ANNOTATING_METADATA};
+use crate::frame::{
+    frame_from_wire, transformation_from_wire, CoordinateFrame, CoordinateTransformation,
+};
 use crate::rational::Rational;
 use crate::{error::Error, wire, Connection};
 
@@ -706,6 +709,10 @@ pub enum Value {
     Unset,
     /// A model-level result the model leaves open: a successful answer, not an error.
     Undetermined(Undetermined),
+    /// A coordinate frame or measurement scale held as a value.
+    CoordinateFrame(Box<CoordinateFrame>),
+    /// A coordinate transformation held as a value.
+    CoordinateTransformation(Box<CoordinateTransformation>),
     /// The unbounded value `*`, ordered above every finite magnitude.
     Infinity,
 }
@@ -1064,6 +1071,12 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
                 count_upper,
             }))
         }
+        wire::value::Kind::CoordinateFrame(v) => {
+            Ok(Value::CoordinateFrame(Box::new(frame_from_wire(*v)?)))
+        }
+        wire::value::Kind::CoordinateTransformation(v) => Ok(Value::CoordinateTransformation(
+            Box::new(transformation_from_wire(*v)?),
+        )),
         // Only an asserted arm carries the unbounded value.
         wire::value::Kind::Infinity(asserted) => {
             if !asserted {
@@ -1102,10 +1115,12 @@ fn kind_name(kind: &wire::value::Kind) -> &'static str {
         wire::value::Kind::Set(_) => "set",
         wire::value::Kind::TensorQuantity(_) => "tensor_quantity",
         wire::value::Kind::Metaobject(_) => "metaobject",
+        wire::value::Kind::CoordinateFrame(_) => "coordinate_frame",
+        wire::value::Kind::CoordinateTransformation(_) => "coordinate_transformation",
     }
 }
 
-fn measurement_ref_from_wire(v: wire::MeasurementRef) -> Result<MeasurementRef, Error> {
+pub(crate) fn measurement_ref_from_wire(v: wire::MeasurementRef) -> Result<MeasurementRef, Error> {
     let Some(term) = v.unit_term else {
         if v.unit.is_empty() && v.unit_id.is_empty() {
             return Err(Error::Decode(

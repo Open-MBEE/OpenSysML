@@ -1085,8 +1085,20 @@ message GetElementPropertiesResponse {
   ElementRef element = 1;
   repeated ElementProperty properties = 2;
   // Why there is no answer: the model or the element was not found, or the
-  // model has no element form (a document the parser could not read whole).
+  // element belongs to an excluded document.
   string error = 3;
+  // The documents the model is read without, each with why; empty when the whole model is read.
+  // Any other element is answered and may name one of theirs; asking for theirs answers its document's error.
+  repeated ExcludedDocument excluded_documents = 4;
+}
+
+// ExcludedDocument is a document GetElementProperties leaves out of a model: one the parser could not
+// read whole, one the element form cannot write, or one declaring an element an earlier document declares.
+message ExcludedDocument {
+  // The document's name as the parse request gave it.
+  string document = 1;
+  // Why it is left out, as Convert would refuse the model for it.
+  string error = 2;
 }
 
 // ElementRef identifies an element the element form knows: an element of
@@ -2271,7 +2283,136 @@ message Value {
     // server answers one a double holds exactly as real_value; a client sends
     // any exact Rational here, and an inbound real_value is always a Real.
     Rational rational_value = 23;
+    // A coordinate frame or measurement scale held as a value: its axes and the
+    // placement relating it to another frame. Sent, never accepted.
+    CoordinateFrame coordinate_frame = 24;
+    // A placement of one frame in another, with the frames it relates. Sent,
+    // never accepted.
+    CoordinateTransformation coordinate_transformation = 25;
   }
+}
+
+// CoordinateFrame is a MeasurementReferences::VectorMeasurementReference held
+// as a value: a coordinate frame's axes, or the one axis a measurement scale
+// is. Two frames read from objects are the same exactly when instance_id is; a
+// frame composed by arithmetic (`spatialCF / s`) is its content.
+message CoordinateFrame {
+  // The frame as a reader writes it: "datum", or "spatialCF / s" for one composed.
+  string name = 1;
+  // The id a client keeps for the usage declaring the frame ("Frames::datum");
+  // empty for a frame composed by arithmetic or made of a definition.
+  string frame_id = 2;
+  // FQN of the type the frame is a value of
+  // ("MeasurementReferences::CartesianSpatial3dCoordinateFrame"); empty for none.
+  string type_id = 3;
+  // The object the frame was read from; 0 for a frame composed by arithmetic.
+  int64 instance_id = 4;
+  // `dimensions`: [3] for a three-dimensional frame, empty for a scale.
+  repeated int64 dimensions = 5;
+  // `mRefs` in row-major order under dimensions: one unit per axis.
+  repeated MeasurementRef axes = 6;
+  // `transformation`: the placement of this frame in another; unset when the
+  // model states none. Its target is this frame and is not repeated.
+  CoordinateTransformation transformation = 7;
+  // Set exactly when the frame is a MeasurementReferences::MeasurementScale.
+  MeasurementScale scale = 8;
+}
+
+// MeasurementScale is what a scale states beyond its one axis.
+message MeasurementScale {
+  // The unit a magnitude on the scale is expressed in.
+  MeasurementRef unit = 1;
+  // `quantityValueMapping`: one point given on the scale and on the reference
+  // the scale is defined against; unset when the model states none.
+  QuantityValueMapping mapping = 2;
+}
+
+// QuantityValueMapping is one point on a scale and the same point on the
+// measurement reference the scale is defined against.
+message QuantityValueMapping {
+  Quantity mapped = 1;     // the point on the scale, in the scale's unit
+  Quantity reference = 2;  // the same point on the reference
+}
+
+// CoordinateTransformation is a MeasurementReferences::CoordinateTransformation
+// held as a value: the placement of the target frame in the source frame, in
+// the library shape the model states it in. A transformation of no library
+// shape carries its frames alone.
+message CoordinateTransformation {
+  // The transformation as a reader names it: its declared name, else its type.
+  string name = 1;
+  // The id a client keeps for the usage declaring it; empty for one constructed.
+  string transformation_id = 2;
+  // FQN of the type it is a value of
+  // ("MeasurementReferences::TranslationRotationSequence"); empty for none.
+  string type_id = 3;
+  // The object the transformation was read from; 0 for none.
+  int64 instance_id = 4;
+  // `source`; unset when the model states none.
+  CoordinateFrame source = 5;
+  // `target`; unset inside the CoordinateFrame whose transformation this is.
+  // A target whose own transformation is this one does not repeat it.
+  CoordinateFrame target = 6;
+  oneof shape {
+    FramePlacement placement = 7;           // a CoordinateFramePlacement
+    TranslationRotationSequence sequence = 8;
+    AffineTransformation3d affine = 9;      // an AffineTransformationMatrix3d
+  }
+  // The pose the shape resolves to, as VectorCalculations::transform applies
+  // it. Unset when the model states no source, or the shape resolves to none.
+  FramePose pose = 10;
+}
+
+// FramePose is where a transformation's target frame sits in its source frame,
+// as bare numbers in the source's axis units: the point with target
+// coordinates v lies at `origin + basis · v` in the source.
+message FramePose {
+  repeated double origin = 1;  // one per source axis
+  // n×n over the source's n axes, row-major: column j is the direction of
+  // target axis j in the source.
+  repeated double basis = 2;
+}
+
+// FramePlacement is a MeasurementReferences::CoordinateFramePlacement.
+message FramePlacement {
+  // The target's origin in the source frame: a vector_quantity, or a quantity
+  // for a one-dimensional frame.
+  Value origin = 1;
+  // The target's basis directions in the source frame, one vector_quantity per
+  // target axis; empty for the source's own orientation.
+  repeated Value basis_directions = 2;
+}
+
+// TranslationRotationSequence is the `elements` of a
+// MeasurementReferences::TranslationRotationSequence, in the order applied.
+message TranslationRotationSequence {
+  repeated FrameStep steps = 1;
+}
+
+// FrameStep is one Translation or Rotation of a TranslationRotationSequence.
+message FrameStep {
+  oneof step {
+    Value translation = 1;       // `translationVector`, a vector_quantity
+    FrameRotation rotation = 2;
+  }
+  // The Translation or Rotation object the step was read from.
+  int64 instance_id = 3;
+}
+
+// FrameRotation is a MeasurementReferences::Rotation.
+message FrameRotation {
+  Value axis_direction = 1;  // `axisDirection`, a vector_quantity
+  Quantity angle = 2;        // `angle`, an angular measure in the unit written
+  // `isIntrinsic`: about the axes as already rotated (true, the library's
+  // default) or about the source frame's fixed axes (false).
+  bool is_intrinsic = 3;
+}
+
+// AffineTransformation3d is a MeasurementReferences::AffineTransformationMatrix3d
+// as bare numbers.
+message AffineTransformation3d {
+  repeated double rotation = 1;     // `rotationMatrix`: 9, row-major
+  repeated double translation = 2;  // `translationVector`: 3
 }
 
 // Rational is an exact rational number in lowest terms: numerator over a

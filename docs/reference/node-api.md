@@ -153,6 +153,8 @@ switch (value.kind) {
   case "sequence": value.elements;               // SysMLValue[]
   case "undetermined": value.reason; value.countLower; value.countUpper;  // left open by the model
   case "infinity": break;                        // the unbounded `*`
+  case "coordinateFrame": value.axes; value.transformation?.pose;   // answer only
+  case "coordinateTransformation": value.source; value.target; value.shape; value.pose;
   case "null":     value.reason;                 // evaluated, no value
   case "unset":    break;                        // declared, never given one
   case "absent":   break;                        // the service sent no value at all

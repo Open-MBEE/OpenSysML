@@ -13,6 +13,7 @@ mod edit;
 mod element_properties;
 mod encode;
 mod error;
+mod frame;
 mod graphs;
 mod migration;
 mod model;
@@ -42,6 +43,10 @@ pub use domain::{
     VectorQuantity,
 };
 pub use error::{Error, Status};
+pub use frame::{
+    CoordinateFrame, CoordinateTransformation, FramePose, FrameShape, FrameStep, FrameStepKind,
+    MeasurementScale, QuantityValueMapping,
+};
 pub use graphs::Graphs;
 pub use rational::Rational;
 pub use wire::FailureReason;
@@ -63,7 +68,9 @@ pub use edit::{
     ImportOptions, MemberOptions, MetadataOptions, Referrer, SatisfyOptions, StateActionKind,
     StatementOptions, ThenStep, TransitionOptions,
 };
-pub use element_properties::{ElementIdentity, ElementProperties, ElementProperty, PropertyValue};
+pub use element_properties::{
+    ElementIdentity, ElementProperties, ElementProperty, ExcludedDocument, PropertyValue,
+};
 pub use migration::{
     is_v1, path_is_v1, Layout, MigrateOptions, MigrateSource, Migration, MigrationEntry,
     MigrationReport, MIGRATED_NOT_CONVERTED, MIGRATION_NOTICE, V1_FORMATS, VERDICT_APPROXIMATED,

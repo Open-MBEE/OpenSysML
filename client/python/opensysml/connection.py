@@ -2066,7 +2066,10 @@ class Connection:
         if response.error:
             if response.error.startswith("element not found"):
                 raise SymbolNotFoundError(asked)
-            raise ConversionError(response.error)
+            raise ConversionError(
+                response.error,
+                excluded_documents=[(d.document, d.error) for d in response.excluded_documents],
+            )
         return element_properties_of(response)
 
     def run_document_query(self, model_hash, query_id=None, bindings=None, inline_query=None):
