@@ -52,7 +52,8 @@ jobs:
     name: Documentation site
     # The site is published from Open-MBEE/OpenSysML; a fork would deploy the same
     # pages under its own domain.
-    if: github.repository == 'Open-MBEE/OpenSysML'
+    # develop alone is published: a dispatch from another branch would deploy pages nobody reviewed.
+    if: github.repository == 'Open-MBEE/OpenSysML' && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
