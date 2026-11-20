@@ -237,6 +237,29 @@ else
 fi
 rm "$kernel/sysml.library/Extra.sysml"
 
+name="a link added to the library is refused"
+echo 'package Outside;' >"$work/Outside.sysml"
+ln -s "$work/Outside.sysml" "$kernel/sysml.library/Outside.sysml"
+verify_kernel "$jar_digest" "$library_digest"
+if [[ $status -ne 0 ]] && [[ $output == *"sysml.library has tree SHA-256"* ]]; then
+	pass "$name"
+else
+	fail "$name"
+fi
+rm "$kernel/sysml.library/Outside.sysml"
+
+name="a linked directory added to the library is refused"
+mkdir "$work/outside"
+echo 'package Outside;' >"$work/outside/Outside.sysml"
+ln -s "$work/outside" "$kernel/sysml.library/Linked"
+verify_kernel "$jar_digest" "$library_digest"
+if [[ $status -ne 0 ]] && [[ $output == *"sysml.library has tree SHA-256"* ]]; then
+	pass "$name"
+else
+	fail "$name"
+fi
+rm "$kernel/sysml.library/Linked"
+
 name="a library file that moved is refused"
 mv "$kernel/sysml.library/Base.kerml" "$kernel/sysml.library/Domain Libraries/Base.kerml"
 verify_kernel "$jar_digest" "$library_digest"

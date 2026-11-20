@@ -15,9 +15,8 @@ PILOT_ARTIFACT_VERSION="${PILOT_ARTIFACT_VERSION:-0.63.1}"
 # the workflows install: the pilot's output is not the same under every JVM.
 PILOT_JAVA="${PILOT_JAVA:-21}"
 
-# The release's shaded kernel jar and the standard library beside it, as SHA-256 (the library
-# as pilot_tree_sha256): the reference validators run this jar, and a release asset is mutable.
-# They move with PILOT_ARTIFACT_VERSION; pilot_kernel_digests prints a build's values.
+# SHA-256 of the release's kernel jar and (as pilot_tree_sha256) of the library beside it: a
+# release asset is mutable. They move with PILOT_ARTIFACT_VERSION; pilot_kernel_digests prints them.
 PILOT_KERNEL_JAR_SHA256="${PILOT_KERNEL_JAR_SHA256:-67c914092f4520ba98548b285c5a9a8bc08f92a0aeec7b763e12a574e91f9ff7}"
 PILOT_KERNEL_LIBRARY_SHA256="${PILOT_KERNEL_LIBRARY_SHA256:-a59332f5fcbfccf3634cc786cdd271876f2cd7877536ea042d1fe6334eb26b4e}"
 
@@ -85,14 +84,18 @@ pilot_sha256() {
 	fi
 }
 
-# pilot_tree_sha256 prints one digest of directory $1: the SHA-256 of its files'
-# "<digest>  <relative path>" lines in byte order, so a changed, added or removed file moves it.
+# pilot_tree_sha256 prints one digest of directory $1 over a line per entry in byte order: a
+# file's digest and path, and the path alone for a link or other non-file, which a reader follows.
 pilot_tree_sha256() {
-	local dir="$1" file
+	local dir="$1" entry
 	(
 		cd "$dir" || exit 1
-		find . -type f | LC_ALL=C sort | while IFS= read -r file; do
-			printf '%s  %s\n' "$(pilot_sha256 "$file")" "$file"
+		find . -mindepth 1 ! -type d | LC_ALL=C sort | while IFS= read -r entry; do
+			if [[ -f "$entry" ]] && [[ ! -L "$entry" ]]; then
+				printf '%s  %s\n' "$(pilot_sha256 "$entry")" "$entry"
+			else
+				printf 'not a regular file  %s\n' "$entry"
+			fi
 		done
 	) | pilot_sha256
 }
