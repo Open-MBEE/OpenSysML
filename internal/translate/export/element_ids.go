@@ -71,8 +71,14 @@ func NewElementIDs(documents []ModelDocument) (*ElementIDs, error) {
 	return identityIDsOf(res, encoders, referenced)
 }
 
+// ExcludedDocument is a document a model was read without, and why.
+type ExcludedDocument struct {
+	Document string
+	Err      error
+}
+
 // ReadableElementIDs is NewElementIDs without the documents unreadable names and those whose ids cannot be minted
-// or an earlier document declares, as ReadableModelElementForm leaves them out; they are returned in document order.
+// or an earlier document declares; each stays analyzed, and they are returned in document order.
 func ReadableElementIDs(documents []ModelDocument, unreadable map[string]error) (*ElementIDs, []ExcludedDocument, error) {
 	res, encoders, err := modelEncodersOf(documents, IDQualifiedName)
 	if err != nil {
@@ -285,6 +291,10 @@ func (ids *ElementIDs) recordConstraintResult(e *encoder, node ast.Node, subject
 // recordDefaultMultiplicity records the Multiplicity a usage's implicit [1..1] or an individual
 // definition is parsed with, or the range a usage writes, and its OwningMembership, for the id reader.
 func (ids *ElementIDs) recordDefaultMultiplicity(e *encoder, node ast.Node, subject rdf.Term) {
+	if decl, ok := node.(*ast.MultiplicityDecl); ok {
+		ids.recordMultiplicityBounds(e, node, subject, decl.Range)
+		return
+	}
 	sym := e.ids.declSym[node]
 	if sym == nil {
 		return
@@ -294,6 +304,7 @@ func (ids *ElementIDs) recordDefaultMultiplicity(e *encoder, node ast.Node, subj
 	case semantics.UsageMultiplicityOf(sym) != nil:
 		// A written range is the MultiplicityRange the head owns in the same place (multiplicity).
 		element, membership = e.ids.multiplicityRange(subject)
+		ids.recordMultiplicityBounds(e, node, subject, semantics.UsageMultiplicityOf(sym))
 	case e.ids.model.ImpliesDefaultMultiplicity(sym):
 		element = e.ids.mintedNode(rdf.ExpressionIRI(subject, pMultiplicity), subject, pMultiplicity)
 		membership = e.ids.minted(rdf.OwningMembershipIRIOf(element), element, rdf.OwningMembershipSuffix)
@@ -541,6 +552,29 @@ func (ids *ElementIDs) recordFlowEnds(e *encoder, node ast.Node, subject rdf.Ter
 }
 
 // recordPart files the ids of the part at slot of node, by node and by span.
+// recordMultiplicityBounds records the bounds a written range states and their
+// OwningMemberships, minted off the element declaring the range (multiplicityBound).
+func (ids *ElementIDs) recordMultiplicityBounds(e *encoder, node ast.Node, subject rdf.Term, mult *ast.Multiplicity) {
+	if mult == nil {
+		return
+	}
+	lower, upper := mult.Lower, mult.Upper
+	if !mult.IsRange {
+		lower, upper = nil, mult.Lower
+	}
+	for _, bound := range []struct {
+		property string
+		node     ast.Node
+	}{{pLowerBound, lower}, {pUpperBound, upper}} {
+		if bound.node == nil {
+			continue
+		}
+		element := e.ids.mintedNode(rdf.ExpressionIRI(subject, bound.property), subject, bound.property)
+		membership := e.ids.minted(rdf.OwningMembershipIRIOf(element), element, rdf.OwningMembershipSuffix)
+		ids.recordPart(e, node, bound.property, partIDs{element: rdf.LocalName(element.Value), membership: rdf.LocalName(membership.Value)})
+	}
+}
+
 func (ids *ElementIDs) recordPart(e *encoder, node ast.Node, slot string, recorded partIDs) {
 	ids.partByNode[partKey{node, slot}] = recorded
 	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = recorded
