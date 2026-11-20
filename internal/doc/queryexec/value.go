@@ -218,9 +218,8 @@ func (v Value) Integer() (int64, bool) {
 // integer value.
 func (v Value) IntegerConst() (semantics.Value, bool) { return v.integer, v.kind == ValueInteger }
 
-// ValueText renders one typed value as plain, unescaped text, an element by the name
-// names gives it, its qualified name when names is nil; every consumer of a query
-// result prints a value through it.
+// ValueText renders one typed value as plain, unescaped text: an element by the name
+// names gives it, by its qualified name when names is nil.
 func ValueText(value Value, names func(*symbols.Symbol) string) string {
 	if element, ok := value.Element(); ok {
 		if names == nil {
