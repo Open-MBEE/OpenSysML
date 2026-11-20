@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"slices"
 	"strings"
 
 	"connectrpc.com/connect"
@@ -485,6 +486,9 @@ func newCapabilityAvailability(withheld []string) (capabilityAvailability, error
 		}
 		delete(available, capability)
 	}
+	for _, capability := range unlinkedCapabilities {
+		delete(available, capability)
+	}
 	return capabilityAvailability{available: available}, nil
 }
 
@@ -508,7 +512,9 @@ func (a capabilityAvailability) names() []string {
 
 // Capabilities returns the capability names this build of the service reports.
 func Capabilities() []string {
-	return append([]string(nil), capabilities...)
+	return slices.DeleteFunc(append([]string(nil), capabilities...), func(capability string) bool {
+		return slices.Contains(unlinkedCapabilities, capability)
+	})
 }
 
 // Service implements SysMLServiceServer

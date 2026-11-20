@@ -720,6 +720,27 @@ func TestWasmRuns(t *testing.T) {
 				}
 			})
 
+			t.Run("refuses the servers that only bind addresses", func(t *testing.T) {
+				for _, refusal := range []struct {
+					name string
+					args []string
+					want []string
+				}{
+					{"sysml-mcp", []string{"-http", "127.0.0.1:0"}, []string{"-http 127.0.0.1:0 binds an address", "leave -http out"}},
+					{"sysml-jupyter-kernel", []string{"-connection-file", "connection.json"}, []string{"binds the addresses", "run a native build"}},
+				} {
+					got := r.run(t, link(t, target, refusal.name, ""), refusal.args...)
+					if got.code != 2 {
+						t.Errorf("%s %v exited %d, want 2:\n%s", refusal.name, refusal.args, got.code, got.output)
+					}
+					for _, want := range refusal.want {
+						if !strings.Contains(got.output, want) {
+							t.Errorf("%s %v is missing %q:\n%s", refusal.name, refusal.args, want, got.output)
+						}
+					}
+				}
+			})
+
 			if r.stdin == stdinFile {
 				// A session needs a pipe a client holds open, which Node's WASI cannot
 				// block on; these targets end each server at end of input instead, which
