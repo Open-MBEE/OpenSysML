@@ -360,6 +360,8 @@ Re-recorded on the flow end feature naming change (the `ReferenceUsage` a flow's
 
 Re-recorded on the conjugate declared-name change (a port definition's implied `ConjugatedPortDefinition` states no `declaredName`: the notation writes none for it, and `~P` is the `name` its `effectiveName()` derives from the original's, SysML v2.1 §8.3.12.2 — KerML 1.1 §8.3.2.1.2 `declaredName` being the declared one and `name = effectiveName()` — as the pilot exports it): one row moves, `ConjugatedPortDefinition.declaredName`, from `pilotMissing` to `absentBoth` in the 45 fragments whose port definitions are named, 127 values in all (`pilotMissing` 86655 → 86528, `absentBoth` 2335399 → 2335526). No element matching changes and no other row moves; `ConjugatedPortDefinition.name` and `OwningMembership.memberName` stay equal.
 
+Re-recorded on the usage-collection derivation change (`nestedMetadata` and `ownedMetadata` select from `ownedMember`, every other `nested*`/`owned*` usage collection from `ownedFeature`, SysML v2.1 deriveUsageNestedMetadata, deriveUsageNestedUsage and the `Definition` pair, so a collection lists no usage its owner holds through a membership that is no `FeatureMembership` — a metadata usage, a variant, a transition's succession; before, every one of them selected from `ownedMember`): 100 fragments move, and only in the `nested*` and `owned*` usage rows. `pilotMissing` 86655 → 85240, the collections we stated for an owner whose only usages are such members and the pilot leaves empty, now `absentBoth` (2335399 → 2336699); `presentDifferent` 147737 → 147375, the collections that listed such a member beside the features, of which 351 are now `presentEqual` (2173330 → 2173681) and 11 `indeterminate` (49290 → 49301: the lists now agree in length and differ only at a target neither key table addresses). The 115 comparisons that leave are the `Feature.nested*` rows of the KerML fragments, stated for a KerML feature's members owned through an `OwningMembership` and no longer written; no row moves away from agreement, no element matching changes and no other row moves.
+
 <!-- doc-counts:begin apijson-roots -->
 The per-root table, rendered from the baseline when the site builds.
 <!-- doc-counts:end apijson-roots -->
@@ -634,6 +636,19 @@ parameters of the invoked function that no argument binds (`DocumentQueries::Des
 `Time::DurationOf::clock` in the training corpus's `Time Constraints::healthStates`, different before and after
 this record), where this repository lists only the argument features the invocation owns. A fix of its own
 follows; until it lands, a library parameter gaining a default moves the rows of every caller that omits it.
+
+**The OpenSysML Libraries pin gains `QVTS`, and `examples/qvts` its result views** (re-recorded when the
+vendored libraries took the `QVTS` library — 17 → 18 files — and eleven files joined the `examples` root: nine
+recorded `QVTS::QueryResult` views under `examples/qvts/expected/views/` and the QVTS repository's
+`observatory.sysml` and `result.sysml`): only the `examples` root moves, 57 → 68 files, and by the new files'
+own elements — 622 more matched (109597 → 110219), 6 ours-only, 11 pilot-only, 413 more
+`pilotLibraryElements` (library elements in the pilot's exports of the new files, left out as every library element is),
+and three more colliding keys of ours (50 → 53). No file is newly refused or failed on either side (38 and
+0 as before), no scorecard row is added or removed (11785), and the other roots read as recorded. The new
+files' properties fall in the buckets their metaclasses already had — the view usages, `expose` imports and
+attribute redefinitions of the result views, and the parts, actions and attributes of `observatory.sysml` —
+so the counts of existing rows grow by what the new files add; no existing example imports `QVTS`. The
+self-model's `bundledFileCount` literal moves 111 → 112 with the library, changing the digest and no count.
 
 **An invocation lists the parameters no argument binds** (re-recorded when the writer began listing
 under `InvocationExpression.parameter` the invoked behavior's parameters that no argument binds and no

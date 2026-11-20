@@ -381,6 +381,17 @@ class RenderedView:
     frame: Optional[RenderFrame] = None
     #: The rendering written in the form asked for; empty when none was.
     text: str = ""
+    #: A ``QVTS::QueryResult`` view's query, source, outcome and provenance, in
+    #: that order; empty for any other view.
+    header: tuple = ()
+
+
+@dataclass(frozen=True)
+class RenderHeaderField:
+    """One attribute a ``QVTS::QueryResult`` view binds."""
+
+    name: str
+    value: str
 
 
 def _render_span(span):
@@ -450,6 +461,7 @@ def render_view_result(response):
         response.view, response.kind, response.stated, nodes, edges, tuple(response.columns),
         rows, canvas, notes, tuple(response.notices), tuple(response.shown), frame,
         response.text,
+        tuple(RenderHeaderField(field.name, field.value) for field in response.header),
     )
 #: What a binding value or an answered cell value may be.
 DocumentValue = Union[
@@ -505,6 +517,9 @@ class DocumentQueryResult:
 
     columns: tuple
     rows: tuple
+    #: The answer as a ``QVTS::QueryResult`` view, SysML text exposing the
+    #: selected elements; ``""`` unless the call asked ``as_view``.
+    result_view: str = ""
 
     def __iter__(self):
         return iter(self.rows)
@@ -642,6 +657,7 @@ def result_of(response):
             _row_of(row)
             for row in response.rows
         ),
+        result_view=response.result_view,
     )
 
 

@@ -68,8 +68,8 @@
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 58,
-        "digest": "sha256:19f5e86c170d65771f5bffdb50406c74558bcc669f50b0c02148b2f34c6339e1"
+        "files": 68,
+        "digest": "sha256:b5836857068c83cdb257385a10cf75947beb8e9732840fd4e58a016c94c8336f"
       },
       {
         "name": "probes",
@@ -82,21 +82,21 @@
         "name": "opensysml-libraries",
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
-        "files": 17,
-        "digest": "sha256:b90165d947c4a27f6affb7637e2f9cf3a87bd92f591108288829002a90159fd9"
+        "files": 18,
+        "digest": "sha256:8ef6d80c9983abb0af6edc68d26de9a25be15f16561ca3b9e9387ed2b070a7ec"
       }
     ],
-    "recorded": "2026-11-20"
+    "recorded": "2026-11-19"
   },
   "totals": {
-    "files": 926,
-    "filesFullyAgreeing": 529,
+    "files": 936,
+    "filesFullyAgreeing": 539,
     "agreement": 1107,
     "severityMismatch": 8,
     "openSysMLOnly": 126,
-    "pilotOnly": 2458,
+    "pilotOnly": 2451,
     "openSysMLDiagnostics": 1241,
-    "pilotDiagnostics": 3573
+    "pilotDiagnostics": 3566
   },
   "roots": [
     {
@@ -17673,14 +17673,14 @@
       "name": "examples",
       "dir": "examples",
       "totals": {
-        "files": 58,
-        "filesFullyAgreeing": 50,
+        "files": 68,
+        "filesFullyAgreeing": 60,
         "agreement": 4,
         "severityMismatch": 0,
         "openSysMLOnly": 14,
-        "pilotOnly": 73,
+        "pilotOnly": 66,
         "openSysMLDiagnostics": 18,
-        "pilotDiagnostics": 77
+        "pilotDiagnostics": 70
       },
       "files": [
         {
@@ -17905,235 +17905,193 @@
           "openSysMLOnly": [],
           "pilotOnly": [
             {
-              "line": 255,
+              "line": 197,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 261,
+              "line": 203,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 283,
+              "line": 225,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 303,
+              "line": 245,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 309,
+              "line": 251,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 326,
+              "line": 268,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 333,
+              "line": 275,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 354,
+              "line": 296,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 360,
+              "line": 302,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 365,
+              "line": 307,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 383,
+              "line": 325,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 389,
+              "line": 331,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 410,
+              "line": 352,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 416,
+              "line": 358,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 432,
+              "line": 374,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 448,
+              "line": 390,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 466,
+              "line": 408,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 472,
+              "line": 414,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 478,
+              "line": 420,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 513,
+              "line": 455,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 519,
+              "line": 461,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 544,
+              "line": 486,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 566,
+              "line": 508,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 572,
+              "line": 514,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 578,
+              "line": 520,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 585,
+              "line": 527,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 627,
+              "line": 569,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 633,
+              "line": 575,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 647,
+              "line": 589,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 661,
+              "line": 603,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 661,
+              "line": 603,
               "severity": "warning",
               "category": "unmapped",
               "count": 18
             },
             {
-              "line": 667,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 704,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 709,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 715,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 727,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 739,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 746,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 747,
+              "line": 609,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -25059,14 +25017,14 @@
       }
     ],
     "totals": {
-      "files": 926,
-      "filesFullyAgreeing": 530,
+      "files": 936,
+      "filesFullyAgreeing": 540,
       "agreement": 1107,
       "severityMismatch": 8,
       "openSysMLOnly": 125,
-      "pilotOnly": 2458,
+      "pilotOnly": 2451,
       "openSysMLDiagnostics": 1240,
-      "pilotDiagnostics": 3573
+      "pilotDiagnostics": 3566
     },
     "findings": [
       {

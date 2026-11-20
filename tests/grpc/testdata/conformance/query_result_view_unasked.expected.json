@@ -1,0 +1,9 @@
+{
+  "rpc": "RunDocumentQuery",
+  "model": "query_result_view.sysml",
+  "query_id": "Probe::NoStates",
+  "expected_columns": [
+    "name"
+  ],
+  "expected_rows": []
+}

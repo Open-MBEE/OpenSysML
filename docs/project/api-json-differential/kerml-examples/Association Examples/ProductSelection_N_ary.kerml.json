@@ -14,7 +14,7 @@
       "presentEqual": 9685,
       "presentDifferent": 1101,
       "oursMissing": 754,
-      "pilotMissing": 665,
+      "pilotMissing": 629,
       "absentBoth": 9334,
       "indeterminate": 152,
       "pilotNondeterministic": 0
@@ -310,8 +310,6 @@
     "Feature.membership": [0,75,0,0,0,0,0],
     "Feature.multiplicity": [51,0,0,3,0,0,0],
     "Feature.name": [63,0,0,0,0,0,0],
-    "Feature.nestedAttribute": [0,0,0,18,0,0,0],
-    "Feature.nestedUsage": [0,0,0,18,0,0,0],
     "Feature.output": [0,0,0,0,75,0,0],
     "Feature.ownedAnnotation": [0,0,0,0,75,0,0],
     "Feature.ownedCrossSubsetting": [6,0,0,0,0,0,0],
