@@ -354,6 +354,7 @@ func (s *Solver) start(ctx context.Context) (*session, error) {
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		_ = stdin.Close()
 		return nil, s.processError("start", "its standard output could not be opened", "", err)
 	}
 	stderr := &syncBuffer{}
