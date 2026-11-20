@@ -68,7 +68,7 @@ func (d deletion) referrer() Referrer {
 // symbolDeletion is the deletion of sym, declared in doc, or false for a symbol
 // declared by no node of its own. An anonymous declaration is named by its
 // heading when doc's source is at hand, else by its keyword, each in its namespace.
-func (m Model) symbolDeletion(r *resolve.Resolver, doc string, sym *symbols.Symbol) (deletion, bool) {
+func (m Model) symbolDeletion(doc string, sym *symbols.Symbol) (deletion, bool) {
 	if sym == nil || sym.Decl == nil {
 		return deletion{}, false
 	}
@@ -128,7 +128,7 @@ func (d deletion) coveredBy(set []deletion) bool {
 // instead, and are not followed further.
 func (m Model) cascadeTargets(sym *symbols.Symbol) (targets []deletion, elsewhere []Referrer) {
 	r, _ := m.resolver()
-	first, ok := m.symbolDeletion(r, m.Source.Name(), sym)
+	first, ok := m.symbolDeletion(m.Source.Name(), sym)
 	if !ok {
 		return nil, nil
 	}
@@ -211,7 +211,7 @@ func (m Model) referrersIn(r *resolve.Resolver, doc string, targets, frontier []
 			if !ok || isDeclaration(doc, part.Span, seg) || !coveredByAny(seg, frontier) {
 				continue
 			}
-			referrer, ok := m.referrer(r, doc, ref, part.Span.Offset)
+			referrer, ok := m.referrer(doc, ref, part.Span.Offset)
 			if !ok || seen[referrer.node] || referrer.coveredBy(targets) {
 				continue
 			}
@@ -280,7 +280,7 @@ func coveredByAny(sym *symbols.Symbol, set []deletion) bool {
 // referrer is the declaration of doc that a reference at offset is written in:
 // the import or filter making it, which no symbol stands for, else the innermost
 // symbol whose declaration covers the offset.
-func (m Model) referrer(r *resolve.Resolver, doc string, ref resolve.Reference, offset int) (deletion, bool) {
+func (m Model) referrer(doc string, ref resolve.Reference, offset int) (deletion, bool) {
 	switch member := ref.Member.(type) {
 	case *ast.Import:
 		return deletion{node: member, span: member.Span(), doc: doc,
@@ -289,7 +289,7 @@ func (m Model) referrer(r *resolve.Resolver, doc string, ref resolve.Reference, 
 		return deletion{node: member, span: member.Span(), doc: doc,
 			name: "the filter in " + m.namespaceName(doc, ref.Scope)}, true
 	}
-	return m.symbolDeletion(r, doc, m.symbolContaining(doc, offset))
+	return m.symbolDeletion(doc, m.symbolContaining(doc, offset))
 }
 
 // importName spells an import as its notation does, `import P::Base` or
