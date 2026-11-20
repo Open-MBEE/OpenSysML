@@ -1,0 +1,13 @@
+# MisspelledNameResult::misspelledName
+
+**query** — QVTSDemo::MisspelledName
+
+**source** — examples/qvts/lander.sysml examples/qvts/queries.sysml
+
+**outcome** — pathError
+
+**provenance** — sha256:110e03c52250fab7b72729f2c70e2cf09f2d1777290be6e30270b523b26e12dd; step Named(Lander::lander::cabni)
+
+| Element | Kind | Type | Declared in |
+| --- | --- | --- | --- |
+| Lander::lander | part |  | Lander |

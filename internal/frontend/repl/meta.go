@@ -899,9 +899,19 @@ func (s *Session) metaDebugCommand(fields []string, line string) (metaResult, bo
 		return metaOut(s.doInvoke(object, operation, args)), true
 	case cmdQuery:
 		if len(fields) < 2 {
-			return metaOut([]string{"usage: %query <oslc-query>"}, false, nil), true
+			return metaOut([]string{queryUsage}, false, nil), true
 		}
-		lines, err := s.query(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), cmdQuery)))
+		text, asView := cutAsView(strings.TrimPrefix(strings.TrimSpace(line), cmdQuery))
+		if text == "" {
+			return metaOut([]string{queryUsage}, false, nil), true
+		}
+		if asView {
+			defer s.writingResultViews()()
+		}
+		lines, written, err := s.query(text)
+		if asView && written != "" {
+			return metaOut(viewLines(written), false, nil), true
+		}
 		if err != nil {
 			return metaOut([]string{errPrefix + err.Error()}, false, nil), true
 		}

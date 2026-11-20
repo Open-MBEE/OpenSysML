@@ -2773,7 +2773,7 @@ public final class Protos {
       }
       rows.add(documentRow(row.getElement(), cells));
     }
-    return new DocumentQueryResult(columns, rows);
+    return new DocumentQueryResult(columns, rows, response.getResultView());
   }
 
   private static DocumentRow documentRow(

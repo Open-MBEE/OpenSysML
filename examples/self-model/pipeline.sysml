@@ -379,7 +379,7 @@ package OpenSysMLPipeline {
     // otherwise — also when the build embedded none, as a module-proxy install does.
     #SemanticEngine part def StandardLibrary :> Stage {
         attribute :>> goPackage = "internal/workspace/libs";
-        attribute bundledFileCount : Integer = 111;
+        attribute bundledFileCount : Integer = 112;
         attribute cached : Boolean = true;
         attribute snapshotFile : String = "internal/workspace/libs/stdlib.snapshot";
         attribute snapshotTracked : Boolean = false;
