@@ -134,7 +134,25 @@ func Main(args []string, stderr io.Writer) int {
 		return 1
 	}
 	printSummary(report)
+	if failed := launcherFailures(report); failed != 0 && os.Getenv(RequireEnv) != "" {
+		fmt.Fprintf(stderr, toolName+": %s is set but the pilot evaluator failed to run for %d of %d cases; see rawPilot in the report under %s\n", RequireEnv, failed, len(report.Cases), out)
+		return 1
+	}
 	return 0
+}
+
+// launcherFailure prefixes the pilot's raw answer for a case the launcher exited non-zero on.
+const launcherFailure = "ERROR:launcher: "
+
+// launcherFailures counts the cases the pilot evaluator never answered because it did not run.
+func launcherFailures(report *execReport) int {
+	failed := 0
+	for _, c := range report.Cases {
+		if strings.HasPrefix(c.RawPilot, launcherFailure) {
+			failed++
+		}
+	}
+	return failed
 }
 
 func artifactAbsentMessage(launcher string) string {
@@ -246,7 +264,7 @@ func runPilot(launcher string, models []string, cases []execCase) (map[string]st
 		}
 		result := make(map[string]string, len(cases))
 		for _, testCase := range cases {
-			result[testCase.ID] = "ERROR:launcher: " + message
+			result[testCase.ID] = launcherFailure + message
 		}
 		return result, nil
 	}

@@ -2,6 +2,7 @@ package exec
 
 import (
 	"bytes"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -188,6 +189,25 @@ func TestMainAbsentEvaluator(t *testing.T) {
 		}
 		if tc.want != 0 && !strings.Contains(stderr.String(), "download-pilot-evaluator.sh") {
 			t.Errorf("%s=%q: stderr %q does not name the downloader", RequireEnv, tc.require, stderr.String())
+		}
+	}
+}
+
+// A launcher that exists but cannot run (its jar is gone) answers no case: a no-op by
+// default, a failure under the require variable.
+func TestMainBrokenEvaluator(t *testing.T) {
+	launcher := filepath.Join(t.TempDir(), "eval-sysml")
+	if err := os.WriteFile(launcher, []byte("#!/bin/sh\necho 'jar is missing' >&2\nexit 3\n"), 0o700); err != nil { // #nosec G306 -- a stub the test executes
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		require string
+		want    int
+	}{{"", 0}, {"1", 1}} {
+		t.Setenv(RequireEnv, tc.require)
+		var stderr bytes.Buffer
+		if got := Main([]string{"-launcher", launcher, "-out", t.TempDir()}, &stderr); got != tc.want {
+			t.Errorf("%s=%q: exit %d, want %d (stderr %q)", RequireEnv, tc.require, got, tc.want, stderr.String())
 		}
 	}
 }
