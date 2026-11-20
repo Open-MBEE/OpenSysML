@@ -1,0 +1,6 @@
+{
+	"type": "calc",
+	"evaluate": "test::Host::Heard",
+	"result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 10}]},
+	"trace": true
+}

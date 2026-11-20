@@ -138,6 +138,9 @@ function val = decodeValueInner(v, resolveInstance)
             metaclassId = '';
             if isfield(m, 'metaclassId'), metaclassId = m.metaclassId; end
             val = struct('elementId', elementId, 'metaclassId', metaclassId);
+        case 'coordinateFrame', val = decodeFrame(v.coordinateFrame, resolveInstance);
+        case 'coordinateTransformation'
+            val = decodeTransformation(v.coordinateTransformation, resolveInstance);
         case 'undetermined'
             u = v.undetermined;
             reason = ''; if isfield(u, 'reason'), reason = u.reason; end
@@ -234,6 +237,8 @@ function q = decodeQuantity(b)
     term = [];
     if isfield(b, 'unitTerm'), term = b.unitTerm; end
     q = struct('magnitude', mag, 'unit', unit, 'unitTerm', term);
+    % the quantity value type the service holds it as: sent back, it is kept
+    if isfield(b, 'valueType') && ~isempty(b.valueType), q.valueType = b.valueType; end
 end
 
 function b = bigIntegerOf(s)
@@ -281,4 +286,56 @@ function recordClientError(e)
     latest = opensysml.lastError();
     if strcmp(latest.identifier, e.identifier) && strcmp(latest.message, e.message), return; end
     opensysml.internal.raise(e.identifier, e.message);
+end
+
+function f = decodeFrame(f, resolveInstance)
+% A frame as sent, its axes and scale unit checked and its transformation decoded.
+    axes = fieldList(f, 'axes');
+    for i = 1:numel(axes)
+        axes{i} = opensysml.decodeValue(struct('measurementRef', axes{i}), resolveInstance);
+    end
+    f.axes = axes;
+    if isfield(f, 'scale')
+        if ~isfield(f.scale, 'unit')
+            error('opensysml:decode', 'measurement scale carries no unit');
+        end
+        f.scale.unit = opensysml.decodeValue(struct('measurementRef', f.scale.unit), resolveInstance);
+        if isfield(f.scale, 'mapping')
+            f.scale.mapping.mapped = decodeQuantity(f.scale.mapping.mapped);
+            f.scale.mapping.reference = decodeQuantity(f.scale.mapping.reference);
+        end
+    end
+    if isfield(f, 'transformation')
+        f.transformation = decodeTransformation(f.transformation, resolveInstance);
+    end
+    f.coordinateFrame = true;
+end
+
+function t = decodeTransformation(t, resolveInstance)
+% A transformation as sent, its endpoints and the values of its shape decoded.
+    if isfield(t, 'source'), t.source = decodeFrame(t.source, resolveInstance); end
+    if isfield(t, 'target'), t.target = decodeFrame(t.target, resolveInstance); end
+    if isfield(t, 'placement')
+        if ~isfield(t.placement, 'origin')
+            error('opensysml:decode', 'frame placement carries no origin');
+        end
+        t.placement.origin = opensysml.decodeValue(t.placement.origin, resolveInstance);
+        t.placement.basisDirections = mapValues(t.placement, 'basisDirections', resolveInstance);
+    elseif isfield(t, 'sequence')
+        steps = fieldList(t.sequence, 'steps');
+        for i = 1:numel(steps)
+            step = steps{i};
+            if isfield(step, 'translation')
+                step.translation = opensysml.decodeValue(step.translation, resolveInstance);
+            elseif isfield(step, 'rotation') && isfield(step.rotation, 'axisDirection') && isfield(step.rotation, 'angle')
+                step.rotation.axisDirection = opensysml.decodeValue(step.rotation.axisDirection, resolveInstance);
+                step.rotation.angle = decodeQuantity(step.rotation.angle);
+            else
+                error('opensysml:decode', 'transformation step is neither a translation nor a whole rotation');
+            end
+            steps{i} = step;
+        end
+        t.sequence = struct('steps', {steps});
+    end
+    t.coordinateTransformation = true;
 end

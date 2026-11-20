@@ -55,3 +55,20 @@ func TestFQNsEndingInAcrossDocuments(t *testing.T) {
 		t.Fatalf("FQNsEndingIn(X) over nothing = %v", got)
 	}
 }
+
+// The declared names ending in a segment leave out an import's re-export: the declaring
+// namespace, under the name or short name, and not every package that imports it.
+func TestDeclaredFQNsEndingInLeaveOutReExports(t *testing.T) {
+	idx := NewIndex()
+	addDoc(t, idx, "a.sysml", "package P { view def <gv> General; } package B { private import P::*; }")
+	idx.ExpandWildcardImports()
+	if got := idx.FQNsEndingIn("gv", 10); !equalStrings(got, []string{"B::gv", "P::gv"}) {
+		t.Fatalf("FQNsEndingIn(gv) = %v, want the re-exports too", got)
+	}
+	if got := idx.DeclaredFQNsEndingIn("gv", 10); !equalStrings(got, []string{"P::gv"}) {
+		t.Fatalf("DeclaredFQNsEndingIn(gv) = %v, want [P::gv]", got)
+	}
+	if got := idx.DeclaredFQNsEndingIn("General", 10); !equalStrings(got, []string{"P::General"}) {
+		t.Fatalf("DeclaredFQNsEndingIn(General) = %v, want [P::General]", got)
+	}
+}

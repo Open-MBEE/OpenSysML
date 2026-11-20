@@ -472,7 +472,7 @@ func testStateDoBodyAcceptYieldsToATransitionIntoItsRegion(t *testing.T) {
 		state left {
 			entry; then l1;
 			state l1;
-			transition swap first l1 accept Go then r2;
+			transition swap first l1 accept Go then right.r2;
 		}
 		state right {
 			entry; then r1;
@@ -677,8 +677,8 @@ func testStateDoBodyAcceptSharesTheDispatchWithAForkInARegion(t *testing.T) {
 				state ra { state a { entry assign total := total + 1; } }
 				state rb { state b { entry assign total := total + 2; } }
 			}
-			transition first split then a;
-			transition first split then b;
+			transition first split then rwork.ra.a;
+			transition first split then rwork.rb.b;
 		}
 	}
 	part def Box { exhibit state w : Waiter; }

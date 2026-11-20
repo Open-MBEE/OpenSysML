@@ -108,6 +108,11 @@ pub struct ConvertOptions {
     /// For API JSON, restore the ownerless library stubs releases before 0.11.0 wrote, one
     /// element per referenced library element. Needs the `convert_library_stubs` capability.
     pub include_library_stubs: bool,
+    /// For API JSON, also write on every Namespace and Type the derived lists that repeat its
+    /// inherited and imported members (`membership`, `member`, `inheritedMembership`,
+    /// `featureMembership`, `feature`, `inheritedFeature`); off, an element carries its owned
+    /// structure. Needs the `convert_inherited_members` capability.
+    pub inherited_members: bool,
     /// For notation converted to API JSON, write the compact document (`api-json-compact/1`)
     /// in place of the element array. Needs the `convert_compact` capability.
     pub compact: bool,
@@ -194,6 +199,7 @@ pub(crate) fn request_of(
         keep_derived: options.keep_derived.clone(),
         include_check_diagnostics: options.include_check_diagnostics,
         include_library_stubs: options.include_library_stubs,
+        inherited_members: options.inherited_members,
         source: Some(match source {
             ConvertSource::File(path) => Source::FilePath(path.to_string_lossy().into_owned()),
             ConvertSource::Content(content) => Source::Content(content.clone()),
@@ -272,11 +278,13 @@ mod tests {
             &ConvertOptions {
                 id_form: Some(IdForm::Uuid),
                 include_library_stubs: true,
+                inherited_members: true,
                 ..Default::default()
             },
         );
         assert_eq!(asked.id_form, "uuid");
         assert!(asked.include_library_stubs);
+        assert!(asked.inherited_members);
         let defaulted = request_of(
             FORMAT_API_JSON,
             &ConvertSource::Content("package P;".to_owned()),
@@ -284,6 +292,7 @@ mod tests {
         );
         assert_eq!(defaulted.id_form, "");
         assert!(!defaulted.include_library_stubs);
+        assert!(!defaulted.inherited_members);
     }
 
     #[test]

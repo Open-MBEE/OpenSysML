@@ -1,7 +1,7 @@
 // view: FurnaceViews::runningTree
 // kind: tree
 // stated: view def GeneralView
-// not represented: 5 member(s) drawn as compartment rows of their owner
+// not represented: 5 member(s) drawn as compartment rows of their owner, and 1 node(s) under them left undrawn
 // layout: dot
 digraph "FurnaceViews::runningTree" {
   graph [fontname="Helvetica"];

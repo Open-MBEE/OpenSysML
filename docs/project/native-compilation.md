@@ -45,7 +45,7 @@ A calc compiles when everything it reaches is in this subset:
 
 | Construct | Compiled as |
 |---|---|
-| `in` parameters typed `Integer`, `Natural`, `Positive`, `Real`, `Boolean`, `String` or an `enum def`, with no multiplicity or `[1]` | Integer: `int64_t` in C, an `int64` promoted to `math/big` in Go ([Integers](#integers)); a Real-typed value as a number that holds an Integer or a binary64 ([Numbers](#numbers)); `bool`; a String as UTF-8 text; an enumeration literal as its index ([Strings and enumerations](#strings-and-enumerations)) |
+| `in` parameters typed `Integer`, `Natural`, `Positive`, `Real`, `Boolean`, `String` or an `enum def`, with no multiplicity or `[1]` | Integer: an `int64` promoted to an arbitrary-precision integer beyond it, `math/big` in Go and the program's own in C ([Integers](#integers)); a Real-typed value as a number that holds an Integer or a binary64 ([Numbers](#numbers)); `bool`; a String as UTF-8 text; an enumeration literal as its index ([Strings and enumerations](#strings-and-enumerations)) |
 | The same types with any multiplicity (`[0..*]`, `[2..3]`, `[0..1]`, …), as parameters, results and body-local attributes | a sequence of the element type with its shape (null, one value, many); the bounds are checked where the interpreter checks them, and a sequence bound to a feature not declared `nonunique` is refused where it repeats a value, with the interpreter's `uniqueness violation` reason and positions |
 | Result: the body's trailing expression, or `return : T = <expr>;` | function result |
 | `attribute x : T;` with no value | null, until assigned |
@@ -87,41 +87,44 @@ typed by …`, the interpreter's `type mismatch` at the same binding), a `Sample
 anything but the operand of `Domain` or `Range`, and `Range(Sample(NumericalFunctions::abs, null))`
 where an `Integer[0..*]` is declared (the compiler fixes a null domain's element type from the
 sampled function alone, and a function declared over any `NumericalValue` gives Real; the
-interpreter, which types nothing, computes `[]`). The C target alone also refuses a closure that
-captures a String, a sequence or another function value (`… for the C target: a C closure holds
-its captures inline …`); the Go target computes it. A `meta` cast (`x meta KerML::Feature`), whose
+interpreter, which types nothing, computes `[]`). A `meta` cast (`x meta KerML::Feature`), whose
 result reflects a model element as a metaobject that a native program has no representation of,
 is refused as *a meta cast, whose metaobject reflects a model element and has no native
-representation*; metaobjects stay interpreter-only. The refusal names the calc and the construct
+representation*; metaobjects stay interpreter-only. A calc body that acts beyond its own
+statements is refused rather than compiled without the effect: a `send` (`a send, which posts a
+message outside the calc`), a `terminate` (`a statement acting outside the
+calc`), an assignment to a feature the body does not declare, and a body or a loop or branch
+block that is a token flow of its own — an `accept` (`an accept, which waits for a message`), a
+performed action or control node, a nested action stating a multiplicity (`action a [2] {…}`), a flow between pins, or successions ordering the steps other
+than as they are declared. Nested actions that only run statements in declaration order
+compile. The refusal names the calc and the construct
 (`codegen.UnsupportedError`, `errors.Is(err, codegen.ErrUnsupported)`).
 
 ## Integers
 
 KerML's `ScalarValues::Integer` is the mathematical integers, and the interpreter computes them
 exactly (an `int64` while a value fits, `math/big` beyond it), refusing only a result past the
-Integer size limit (`OPENSYSML_MAX_INTEGER_BITS`, default 2^20 bits). The two targets keep that
-contract differently:
+Integer size limit (`OPENSYSML_MAX_INTEGER_BITS`, default 2^20 bits). Both targets keep that
+contract with the same hybrid:
 
-- **Go** carries the same hybrid: `sysmlInt` is an `int64` until a result leaves it, then a
-  `*big.Int`, demoted again whenever a result fits. Arithmetic, `**`, `sum`, `product`, `abs`,
-  `floor`, `round`, ranges, ordering, `==` and uniqueness are exact, so `9223372036854775807 + 1`
-  prints `9223372036854775808` and `2 ** 70` prints `1180591620717411303424`. The program reads
-  `OPENSYSML_MAX_INTEGER_BITS` and refuses a larger result with the interpreter's
-  `integer size limit exceeded` reason; an index beyond `int64` fails as the interpreter's does
-  (`index … addresses no position`), and a range whose count the element budget cannot hold
-  fails on the budget. Integer arguments of any size are accepted.
-- **C** has no arbitrary-precision integer of its own, so it keeps `int64_t` and refuses, at
-  compile time, any calc with an Integer construct whose result is not provably within `int64`:
-  Integer `+`, `-`, `*` (unless both operands are literals and the result fits), unary `-`, `**`
-  by anything but the literal `0` or `1`, Integer `sum`/`product`, `IntegerFunctions::abs`,
-  `floor` and `round`, and an Integer literal beyond `int64`. The refusal names the first such
-  construct in evaluation order, e.g. ``in calc Compiled::Fib: Integer `-` for the C target: the
-  interpreter's Integers are unbounded and a C program holds int64 (the Go target computes them
-  exactly)``. What remains — comparisons, sizes, indexes, ranges, `/` (a Real), `%`, `min`/`max`,
-  and Real arithmetic over Integers — cannot leave `int64` and compiles as before. An Integer
-  argument beyond `int64` on a C program's command line exits with status 2
-  (`… is beyond int64, the Integers a compiled C program holds`), as any argument the program
-  cannot represent does.
+- **Go**: `sysmlInt` is an `int64` until a result leaves it, then a `*big.Int`, demoted again
+  whenever a result fits.
+- **C**: `sysml_integer` is an `int64_t` until a result leaves it (found by the compiler's
+  overflow builtins), then a sign and base-2^32 magnitude the program's own arithmetic computes
+  (`emit_c_big.go`: schoolbook multiplication, Knuth's algorithm D for division, binary
+  exponentiation), demoted again whenever a result fits. A magnitude lives in the evaluation
+  arena, and is carried past each release with the value that holds it — a local across a loop
+  iteration, a collection's elements, a record's fields, a closure's captures. Lengths, indexes,
+  loop counters and the step and element budgets stay machine integers (`sysml_int`).
+
+Arithmetic, `**`, `%`, `sum`, `product`, `abs`, `floor`, `round`, ranges, ordering, `==`,
+uniqueness and conversion to and from a Real are exact, so `9223372036854775807 + 1` prints
+`9223372036854775808` and `2 ** 70` prints `1180591620717411303424` in either. The program reads
+`OPENSYSML_MAX_INTEGER_BITS` and refuses a larger result with the interpreter's
+`integer size limit exceeded` reason; an index beyond `int64` fails as the interpreter's does
+(`index … addresses no position`), and a range whose count the element budget cannot hold fails
+on the budget. Integer arguments of any size are accepted. `TestCIntegerMatchesBigInt` checks the
+C arithmetic against `math/big` over random operands around the `int64` and limb boundaries.
 
 ## Numbers
 
@@ -140,11 +143,7 @@ numbers prints each element in its own notation. Mixed Integer/Real sequences �
 `Real[0..*]` — follow the same rules element by element; an Integer collection bound to a Real
 slot keeps its Integers.
 
-The Go target reads any Integer for a Real parameter and computes it exactly. The C target holds
-an Integer in `int64` and refuses arithmetic that may leave it ([Integers](#integers)), so a C
-program reads a Real parameter only in Real notation and exits with status 2 on an Integer
-argument (`argument a: 3 is an Integer, which a compiled C program reads for a Real parameter only
-in Real notation (as 3.0)`), as it does for an Integer beyond `int64`.
+A program reads any Integer for a Real parameter and computes it exactly, on either target.
 
 KerML's `Rational` is the exact rationals (§9.3.2.2.8), and the interpreter computes them exactly
 ([exact-rational-evaluation.md](exact-rational-evaluation.md)). The compiler computes exact
@@ -220,10 +219,10 @@ one (`p.x`) leaves the program as any value does. A record type is also refused 
 specializes another definition, declares a feature other than an `attribute` or a calc, holds a
 function value, binds a feature to its value or computes a default when the object is made, or
 holds a unique collection of records (whose uniqueness violation the interpreter reports by object
-number). The C target refuses a record holding a String or a collection, which its arena would
-reclaim at the end of the statement making it (the Go target computes it); a C record and a
-function value carrying one are allocated outside the arena, so neither is reclaimed while held,
-and a run's records are freed when the next run begins, as its arena is.
+number). A C record and a function value carrying one are allocated outside the arena, and the
+bytes of a String and the elements of a collection a record holds are copied out of it as the
+record is made (`sysml_keep`), so none is reclaimed while held; a run's records and what they keep
+are freed when the next run begins, as its arena is.
 
 A construction that binds no argument to a single-valued feature without a default leaves it
 holding one value nothing determines: the feature's multiplicity defaults to `[1..1]`, and KerML
@@ -271,8 +270,8 @@ fail with the interpreter's error one step below it.
 The runtime the generated program carries (`cPrelude` / `goPrelude`) reproduces the interpreter's
 arithmetic rather than the host language's:
 
-- **Integer** is unbounded, as the interpreter's is ([Integers](#integers)): Go computes it
-  exactly, C refuses at compile time a calc whose Integer result may leave `int64`. `/` and `%`
+- **Integer** is unbounded, as the interpreter's is ([Integers](#integers)): both targets
+  compute it exactly. `/` and `%`
   by zero are errors.
 - **Rational** is exact in the interpreter (`exact-rational-evaluation.md`) and binary64 in
   generated code, so a calc compiles only where binary64 gives the interpreter's answer. A
@@ -312,8 +311,7 @@ arithmetic rather than the host language's:
 - **Recursion** is bounded by the same depth as the interpreter's default
   (`runtime.DefaultMaxCalcDepth`), reported as the interpreter reports it.
 - **Library functions** dispatch as the interpreter does: `NumericalFunctions::max(a, b)` keeps
-  Integer operands Integer, `RealFunctions::floor` returns the exact Integer (in Go; C refuses
-  it, as its result may leave `int64`), `IntegerFunctions`/`NaturalFunctions` refuse Real operands at compile time and
+  Integer operands Integer, `RealFunctions::floor` returns the exact Integer, `IntegerFunctions`/`NaturalFunctions` refuse Real operands at compile time and
   report negative Naturals at run time, `ln`/`log`/`sqrt`/`arcsin` report the interpreter's domain
   errors. Named and positional arguments bind and evaluate as for model calcs.
 - **Function values** known at compile time are specialized: `Apply(Sq, a)` calls a specialization
@@ -447,9 +445,10 @@ The compiler keeps two representations (`compile_fn.go`, `compile_fnval.go`):
   them; one calling itself, or a sibling declared in the same body, recompiles with its captures
   bound from the start, so recursion and mutual reference see the run that read them. In Go the
   captures are an environment slice the value points to, kept alive by the collector after the
-  declaring body returns. C keeps captures inline in the value, which suffices for Integer, Real,
-  Boolean and enumeration captures; a String, sequence or function capture would outlive the arena
-  that holds it, so the C target refuses it by name and the Go target computes it.
+  declaring body returns. C keeps Integer, Real, Boolean and enumeration captures inline in the
+  value; a captured String's bytes, a captured sequence's elements and a captured function value
+  are copied out of the arena as the closure is made and kept until the run ends (`sysml_keep`),
+  so the value outlives every arena release.
 
 `TestCompiledCalcsAgreeWithInterpreter` covers each shape in the `Closure` package of
 `compile_calcs.sysml`: a function chosen by `if` and returned (`Pick`, `PickId`), stored and

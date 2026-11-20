@@ -92,6 +92,14 @@ export interface ConvertOptions {
   /** Restore pre-0.11.0 ownerless library stubs in API JSON. Default off. */
   includeLibraryStubs?: boolean;
   /**
+   * For API JSON, also write on every Namespace and Type the derived lists
+   * that repeat its inherited and imported members (`membership`, `member`,
+   * `inheritedMembership`, `importedMembership`, `featureMembership`, `feature`,
+   * `inheritedFeature`).
+   * Default off: an element carries its owned structure.
+   */
+  inheritedMembers?: boolean;
+  /**
    * For notation converted to API JSON, write the compact document
    * (`api-json-compact/1`) in place of the element array. Default off;
    * requires `convert_compact`.

@@ -64,13 +64,13 @@ func (p *nestedRedefinitionChecker) walk(scope *symbols.Scope) {
 // reference, subject or port feature.
 func (p *nestedRedefinitionChecker) check(sym *symbols.Symbol) {
 	for _, nr := range p.model.NestedRedefinitionsOf(sym) {
-		p.checkChainSegments(sym, nr)
+		p.checkChainSegments(nr)
 	}
 }
 
 // checkChainSegments reports each non-final segment of the chain that resolves
 // to a feature owning no object: nothing below it can be redefined at runtime.
-func (p *nestedRedefinitionChecker) checkChainSegments(owner *symbols.Symbol, nr semantics.NestedRedefinition) {
+func (p *nestedRedefinitionChecker) checkChainSegments(nr semantics.NestedRedefinition) {
 	rel := redefinesChain(nr.Feature)
 	if rel == nil {
 		return

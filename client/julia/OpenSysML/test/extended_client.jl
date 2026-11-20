@@ -209,6 +209,34 @@ end
     end
 end
 
+@testset "convert sends the inherited members asked for" begin
+    answer = Dict{String,Any}("content" => "[]", "fromFormat" => "sysml", "toFormat" => "api-json")
+    server, requests, address = recording_service(["convert", "convert_inherited_members"];
+                                                  handler=(method, body) -> answer)
+    conn = external(address)
+    try
+        @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn, "package P;", "api-json";
+            from_format="sysml", inherited_members=true)
+        @test requests[end].body["inheritedMembers"] === true
+        @test_logs (:warn, OpenSysML.EXPERIMENTAL_NOTICE) convert_source(conn, "package P;", "api-json";
+                                                               from_format="sysml")
+        @test !haskey(requests[end].body, "inheritedMembers")
+    finally
+        close(conn)
+        close(server)
+    end
+    server, requests, address = recording_service(["convert"])
+    conn = external(address)
+    try
+        @test_throws MissingCapabilityError convert_source(conn, "package P;", "api-json";
+            from_format="sysml", inherited_members=true)
+        @test all(request -> request.method != "Convert", requests)
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
 @testset "convert sends the compact and check-diagnostics options asked for" begin
     answer = Dict{String,Any}("content" => "{}", "fromFormat" => "sysml", "toFormat" => "api-json",
         "diagnostics" => [Dict("severity" => "warning", "message" => "unused import"),
@@ -750,6 +778,12 @@ end
                 typed_symbol = get_symbol(simple, "Test::SimplePart")
                 @test typed_symbol isa SymbolInfo
                 @test typed_symbol.id == "Test::SimplePart"
+                collision = parse_source(conn, "package Col__V__c_pend0 { part marker; } package Col { port def P; part def V { port q : P; port r : P; connection c connect q to r; } }"; name="collision.sysml")
+                @test get_symbol(collision, "Col__V__c_pend0"; lookup=:qualified_name).kind == "package"
+                by_id = get_symbol(collision, "Col__V__c_pend0"; lookup=:element_id)
+                @test by_id.kind == "connectorEnd"
+                @test by_id.id == "Col__V__c_pend0"
+                @test_throws ArgumentError get_symbol(collision, "Col"; lookup=:name)
                 instance = instantiate(simple, "Test::SimplePart")
                 @test instance.type_symbol_id == "Test::SimplePart"
                 @test instance.graph[instance.id] === instance
@@ -774,9 +808,9 @@ end
                 coordinate_instance = instantiate(coordinate_model,
                     "CoordinateFrameExample::Context")
                 coordinate_value = features(coordinate_instance)["accelarationCF"]
-                @test coordinate_value isa FeatureValueError
-                @test coordinate_value.message ==
-                      "unsupported: coordinate frame accelarationCF [m/s**2, m/s**2, m/s**2]"
+                @test coordinate_value isa CoordinateFrame
+                @test coordinate_value.name == "accelarationCF"
+                @test [axis.unit for axis in coordinate_value.axes] == fill("m/s**2", 3)
 
                 sources = parse_sources(conn, [
                     SourceDocument("a.sysml", "package A {}"),
@@ -1328,7 +1362,8 @@ end
             Dict("name" => "lowerBound", "values" => Any[Dict("intValue" => "3")]),
             Dict("name" => "mass", "values" => Any[Dict("realValue" => 1.5)]),
             Dict("name" => "huge", "values" => Any[Dict("number" => "18446744073709551616")]),
-            Dict("name" => "connectorEnd", "unsupported" => "PartDefinition declares no property connectorEnd")])
+            Dict("name" => "connectorEnd", "unsupported" => "PartDefinition declares no property connectorEnd")],
+        "excludedDocuments" => Any[Dict("document" => "c.sysml", "error" => "c.sysml: 1 syntax error(s)")])
     server, requests, address = recording_service(["element_properties"]; handler=(method, body) -> answer)
     conn = external(address)
     try
@@ -1340,6 +1375,7 @@ end
         @test requests[end].body["properties"] == ["inheritedFeature", "isAbstract"]
         @test read.element == ElementIdentity("Demo__Pair", "Demo::Pair", "PartDefinition")
         @test length(read) == 7 && haskey(read, "isAbstract") && !haskey(read, "owner")
+        @test [(d.document, d.error) for d in read.excluded_documents] == [("c.sysml", "c.sysml: 1 syntax error(s)")]
         inherited = read["inheritedFeature"]
         @test inherited.defining_class == "Type" && inherited.many && inherited.derived && is_answered(inherited)
         @test property_elements(inherited) == [ElementIdentity("Demo__Unit__p", "Demo::Unit::p", "PortUsage"),

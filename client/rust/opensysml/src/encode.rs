@@ -284,6 +284,11 @@ fn encode_scalar(value: &Value, capabilities: &Capabilities) -> Result<wire::Val
                 "undetermined is an answer the model leaves open, not an argument".to_owned(),
             ))
         }
+        Value::CoordinateFrame(_) | Value::CoordinateTransformation(_) => {
+            return Err(Error::UnsupportedValue(
+                "a coordinate frame or transformation is an answer, not an argument".to_owned(),
+            ))
+        }
         Value::Sequence(_) | Value::Array(_) | Value::Set(_) | Value::EnumLiteral(_) => {
             unreachable!("nesting values are encoded by `encode`")
         }
@@ -372,6 +377,7 @@ pub(crate) fn quantity_to_wire(q: &Quantity) -> Result<wire::Quantity, Error> {
     Ok(wire::Quantity {
         unit: q.unit.clone(),
         unit_term,
+        value_type: q.value_type.clone(),
         magnitude: Some(match &q.magnitude {
             Magnitude::Integer(v) => wire::quantity::Magnitude::IntMagnitude(*v),
             Magnitude::BigInteger(v) => {
@@ -433,6 +439,7 @@ mod tests {
 
     fn metres(magnitude: Magnitude) -> Quantity {
         Quantity {
+            value_type: String::new(),
             magnitude,
             unit: "m".to_owned(),
             unit_term: Some(UnitTerm {
@@ -549,8 +556,24 @@ mod tests {
     }
 
     #[test]
+    fn a_quantity_keeps_the_value_type_it_is_held_as() {
+        let mut held = metres(Magnitude::Real(5.0));
+        held.value_type = "ISQSpaceTime::LengthValue".to_owned();
+        let Kind::Quantity(quantity) = sent(&Value::Quantity(held.clone())) else {
+            panic!("not a quantity");
+        };
+        assert_eq!(quantity.value_type, "ISQSpaceTime::LengthValue");
+        assert_eq!(crate::domain::quantity_from_wire(quantity).unwrap(), held);
+        let Kind::Quantity(bare) = sent(&Value::Quantity(metres(Magnitude::Real(5.0)))) else {
+            panic!("not a quantity");
+        };
+        assert_eq!(bare.value_type, "");
+    }
+
+    #[test]
     fn a_dimensionless_quantity_reduces_to_one_and_a_unit_without_reduction_is_refused() {
         let Kind::Quantity(quantity) = sent(&Value::Quantity(Quantity {
+            value_type: String::new(),
             magnitude: Magnitude::Real(2.0),
             unit: String::new(),
             unit_term: None,
@@ -560,6 +583,7 @@ mod tests {
         let term = quantity.unit_term.unwrap();
         assert_eq!((term.scale_num, term.scale_den), (1.0, 1.0));
         assert!(refused(&Value::Quantity(Quantity {
+            value_type: String::new(),
             magnitude: Magnitude::Real(2.0),
             unit: "km".to_owned(),
             unit_term: None,
@@ -743,6 +767,7 @@ mod tests {
         }
         assert!(Value::Rational(third.clone()).same_value(&Value::Real(third.to_f64())));
         let kilometres = Quantity {
+            value_type: String::new(),
             magnitude: Magnitude::Rational(third),
             unit: "km".to_owned(),
             unit_term: Some(UnitTerm {

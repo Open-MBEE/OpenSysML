@@ -9,9 +9,9 @@
     "statements": 620,
     "partialStatements": 97,
     "productions": 523,
-    "drawn": 293,
-    "approximate": 34,
-    "undrawn": 24,
+    "drawn": 294,
+    "approximate": 36,
+    "undrawn": 21,
     "notApplicable": 172
   },
   "categories": {
@@ -188,9 +188,9 @@
       "title": "Actions Graphical Notation",
       "statements": 72,
       "productions": 68,
-      "drawn": 44,
-      "approximate": 3,
-      "undrawn": 3,
+      "drawn": 45,
+      "approximate": 5,
+      "undrawn": 0,
       "notApplicable": 18
     },
     {
@@ -452,7 +452,7 @@
       "category": "edge",
       "verdict": "approximate",
       "package": "F",
-      "reason": "view-rendering-forms.md § Notation table: Circle-plus at the namespace: Graphviz has no such arrow, so a `+` tail label is set on its hollow circle; D2 puts a `+` arrowhead label beside its circle; Mermaid draws a plain line, a tree's nesting showing the ownership. A mixed rendering draws it from an owner to every nested member that is no feature — a nested package or definition — as above."
+      "reason": "view-rendering-forms.md § Notation table: Circle-plus at the namespace: Graphviz has no such arrow, so a `+` tail label is set on its hollow circle under a class, and every drawing this project has Graphviz make draws the plus inside the circle in the label's place ([the drawn glyphs](view-rendering-forms.md#the-definition-glyph)); D2 puts a `+` arrowhead label beside its circle; Mermaid draws a plain line, a tree's nesting showing the ownership. A mixed rendering draws it from an owner to every nested member that is no feature — a nested package or definition — as above."
     },
     {
       "clause": "8.2.3.5",
@@ -596,7 +596,7 @@
       "category": "edge",
       "verdict": "approximate",
       "package": "F",
-      "reason": "view-rendering-forms.md § Notation table: Hollow triangle with four dots behind its base, from a usage to the one it `::>` references, labelled `references` as `subsets` and `redefines` are: Graphviz sets one dot behind the triangle, PlantUML, D2 and draw.io draw the plain triangle, Mermaid has none; the canvas draws the four dots. The Pilot writes `--|>`."
+      "reason": "view-rendering-forms.md § Notation table: Hollow triangle with four dots behind its base, from a usage to the one it `::>` references, labelled `references` as `subsets` and `redefines` are: Graphviz sets one dot behind the triangle under a class, which every drawing this project has Graphviz make redraws as the four ([the drawn glyphs](view-rendering-forms.md#the-definition-glyph)); PlantUML, D2 and draw.io draw the plain triangle, Mermaid has none; the canvas draws the four dots. The Pilot writes `--|>`."
     },
     {
       "clause": "8.2.3.6",
@@ -740,7 +740,7 @@
       "category": "edge",
       "verdict": "approximate",
       "package": "D",
-      "reason": "view-rendering-forms.md § Notation table: Solid line with a filled three-quarter circle at the occurrence, from the occurrence to a `timeslice` or `snapshot` it owns, in the definition graph and the tree: Graphviz and D2 draw a filled circle, PlantUML a filled square, Mermaid a plain line with `◕` leading the text; the canvas draws the three-quarter circle, which no Graphviz, PlantUML, D2 or draw.io arrowhead is. The Pilot writes `*--`."
+      "reason": "view-rendering-forms.md § Notation table: Solid line with a filled three-quarter circle at the occurrence, from the occurrence to a `timeslice` or `snapshot` it owns, in the definition graph and the tree: Graphviz and D2 draw a filled circle, PlantUML a filled square, Mermaid a plain line with `◕` leading the text; the canvas draws the three-quarter circle, which no Graphviz, PlantUML, D2 or draw.io arrowhead is, so the DOT edge is the filled circle under a class and every drawing this project has Graphviz make opens it into the three-quarter circle ([the drawn glyphs](view-rendering-forms.md#the-definition-glyph)). The Pilot writes `*--`."
     },
     {
       "clause": "8.2.3.9",
@@ -1269,17 +1269,9 @@
       "clause": "8.2.3.17",
       "name": "perform-actions-swimlanes",
       "category": "compartment",
-      "verdict": "undrawn",
+      "verdict": "approximate",
       "package": "B",
-      "reason": "swimlanes are not drawn"
-    },
-    {
-      "clause": "8.2.3.17",
-      "name": "performed-by-compartment",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "B",
-      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+      "reason": "a dashed box headed «performer», the performer's feature chain and `perform actions`, holding the action nodes that performer performs, in every form; the lanes are attached on their vertical edges and aligned top and bottom in the grid layout of draw.io only, the layout engines of the other forms placing each lane as a cluster of its own"
     },
     {
       "clause": "8.2.3.17",
@@ -1314,9 +1306,9 @@
       "clause": "8.2.3.17",
       "name": "swimlane",
       "category": "compartment",
-      "verdict": "undrawn",
+      "verdict": "approximate",
       "package": "B",
-      "reason": "swimlanes are not drawn"
+      "reason": "a dashed box headed «performer», the performer's feature chain and `perform actions`, holding the action nodes that performer performs, in every form; the lanes are attached on their vertical edges and aligned top and bottom in the grid layout of draw.io only, the layout engines of the other forms placing each lane as a cluster of its own"
     },
     {
       "clause": "8.2.3.17",

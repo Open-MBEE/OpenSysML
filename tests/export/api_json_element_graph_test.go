@@ -19,6 +19,7 @@ func TestAPIJSONElementGraphNamesInheritedLibraryMembers(t *testing.T) {
 	}
 	var lazy, eager []export.APIJSONLibraryReference
 	got, err := convert.ConvertModel(inputs, convert.FormatAPIJSON, convert.Options{
+		InheritedMembers:  true,
 		LibraryReferences: func(refs []export.APIJSONLibraryReference) { lazy = refs },
 	})
 	if err != nil {
@@ -29,6 +30,7 @@ func TestAPIJSONElementGraphNamesInheritedLibraryMembers(t *testing.T) {
 		t.Fatal(err)
 	}
 	want, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{
+		InheritedMembers:  true,
 		LibraryReferences: func(refs []export.APIJSONLibraryReference) { eager = refs },
 	})
 	if err != nil {

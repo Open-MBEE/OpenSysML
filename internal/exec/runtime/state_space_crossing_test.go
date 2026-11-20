@@ -3,7 +3,9 @@ package runtime
 import (
 	"math"
 	"regexp"
+	"slices"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -301,5 +303,73 @@ func TestCrossingSearch(t *testing.T) {
 	_, at, found, ok = s.first(append([]float64{-0.25}, spans...), append([]float64{late(-0.25)}, sample(late)...), 1, 0)
 	if !ok || !found || math.Abs(at-0.02) > 1e-12 {
 		t.Errorf("turn at the latest sample: at %v (found %v, ok %v), want 0.02", at, found, ok)
+	}
+}
+
+// The input a flow carries changes before the crossing the fed dynamics located under
+// it: the sample there is still the one previewed, the state at the crossing.
+func TestZeroCrossingSampledUnderTheInputItWasLocatedWith(t *testing.T) {
+	src := coupledDynamics("flow source.ramp.output to sink.sum.input;", `
+		event occurrence half : ZeroCrossing {
+			:>> guard = stateSpace.elements#(1) - 0.5;
+		}`)
+	src = strings.Replace(src, "private import StateSpaceRepresentation::*;",
+		"private import StateSpaceRepresentation::*;\n\t\tprivate import StateSpaceIntegration::*;", 1)
+	src = strings.Replace(src, ":>> stateSpace = VectorOf((0.0));", ":>> stateSpace = VectorOf((0.5));", 1)
+	src = strings.Replace(src, "timeStep : DurationValue = 0.5 [s]", "timeStep : DurationValue = 0.25 [s]", 1)
+	src = strings.Replace(src, "timeStep : DurationValue = 0.5 [s]", "timeStep : DurationValue = 1 [s]", 1)
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	tr := NewTraceRecorder()
+	ctx.SetTrace(tr)
+	performerObject(t, ctx, idx, "test::site")
+	if _, err := ctx.Advance(3); err != nil {
+		t.Fatalf("advance: %v", err)
+	}
+	lines := regexp.MustCompile(`(?m)^\s*(?:state: sum t=\S+ x=(\S+)|event: zero crossing half of sum) .*$`).FindAllStringSubmatch(tr.String(), -1)
+	at := slices.IndexFunc(lines, func(m []string) bool { return m[1] == "" })
+	if at < 1 {
+		t.Fatalf("no crossing of half follows a sample of sum: %v", lines)
+	}
+	if got, want := lines[at-1][1], "⟨0.5⟩"; got != want {
+		t.Errorf("the state at the crossing is %s, want %s", got, want)
+	}
+}
+
+// A crossing of fed dynamics is located under the input sampled when the step settled, the feeding
+// dynamics sampling first at an instant whichever is declared first.
+func TestZeroCrossingOfFedDynamicsIsIndependentOfDeclarationOrder(t *testing.T) {
+	src := coupledDynamics("flow source.ramp.output to sink.sum.input;", `
+		event occurrence third : ZeroCrossing {
+			:>> guard = stateSpace.elements#(1) - 0.3;
+		}`)
+	src = strings.Replace(src, "private import StateSpaceRepresentation::*;",
+		"private import StateSpaceRepresentation::*;\n\t\tprivate import StateSpaceIntegration::*;", 1)
+	samples := regexp.MustCompile(`(?m)^\s*((?:state: sum|event: zero crossing third of sum) .*)$`)
+	want := []string{
+		"state: sum t=0.0 x=⟨0.0⟩ y=[⟨0.0⟩]",
+		"state: sum t=0.5 x=⟨0.0⟩ y=[⟨0.0⟩]",
+		"state: sum t=0.8 x=⟨0.3⟩ y=[⟨0.3⟩]",
+		"event: zero crossing third of sum (t=0.8)",
+		"state: sum t=1.0 x=⟨0.5⟩ y=[⟨0.5⟩]",
+		"state: sum t=1.5 x=⟨1.5⟩ y=[⟨1.5⟩]",
+		"state: sum t=2.0 x=⟨3.0⟩ y=[⟨3.0⟩]",
+	}
+	for name, model := range map[string]string{"source first": src, "sink first": sinkBeforeSource(t, src)} {
+		t.Run(name, func(t *testing.T) {
+			idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, model))
+			tr := NewTraceRecorder()
+			ctx.SetTrace(tr)
+			performerObject(t, ctx, idx, "test::site")
+			if _, err := ctx.Advance(3); err != nil {
+				t.Fatalf("advance: %v", err)
+			}
+			var got []string
+			for _, m := range samples.FindAllStringSubmatch(tr.String(), -1) {
+				got = append(got, m[1])
+			}
+			if !slices.Equal(got, want) {
+				t.Errorf("the integrator sampled\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+			}
+		})
 	}
 }

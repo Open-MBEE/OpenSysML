@@ -447,8 +447,13 @@ func elementPropertiesAgree(t *testing.T, ctx context.Context, srv *grpc.Service
 		t.Errorf("%s: ParseFile: %v", m.rel, err)
 		return
 	}
+	complete, err := export.WriteAPIJSONWithOptions(m.graph, export.APIJSONOptions{InheritedMembers: true})
+	if err != nil {
+		t.Errorf("%s: api-json with the inherited members: %v", m.rel, err)
+		return
+	}
 	var objects []map[string]any
-	decoder := json.NewDecoder(bytes.NewReader(m.apiJSON))
+	decoder := json.NewDecoder(bytes.NewReader(complete))
 	decoder.UseNumber()
 	if err := decoder.Decode(&objects); err != nil {
 		t.Errorf("%s: api-json: %v", m.rel, err)

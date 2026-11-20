@@ -100,6 +100,12 @@ func (r *Resolver) resolveTarget(scope *symbols.Scope, target ast.Node, hide *re
 			return nil, false
 		}
 		return r.memberChain(scope, r.chainedFrom(scope, owner), t.Member, t)
+	case *ast.CastExpr:
+		// `(as T).f` reads f as a member of T (KerML 8.2.5.8.1), as getOperandSymbol does.
+		if t.TargetType == nil {
+			return nil, false
+		}
+		return r.resolveQualified(scope, t.TargetType, hide)
 	default:
 		return nil, false
 	}
@@ -411,11 +417,20 @@ type HeadRelationship struct {
 	// Member is the chain member the reference is a segment of; nil when the
 	// reference is the name decided on.
 	Member *ast.QualifiedName
+	// Lead is the name the chain opens with, which decides the scope of every
+	// segment; nil when the target is no chain.
+	Lead *ast.QualifiedName
 }
 
 // Spelled returns ref as it would be collected had qn been written in its
 // place: the same occurrence, read the way the document walk reads that spelling.
 func (ref Reference) Spelled(qn *ast.QualifiedName) Reference {
+	// The name a head chain opens with places the chain as it is spelled.
+	if ref.Head != nil && ref.Head.Lead != nil && ref.Head.Lead == ref.QN {
+		head := *ref.Head
+		head.Lead = qn
+		ref.Head = &head
+	}
 	ref.QN = qn
 	if ref.Subsetting != nil {
 		if namesDecl(qn, ref.Subsetting) {
@@ -548,11 +563,11 @@ func (r *Resolver) resolveConstructedName(ref Reference, hide *refFilter) (*symb
 // headScope is the scope ref, written in a head relationship, resolves in as the
 // document walk reads it; spelled differently, the same occurrence may switch.
 func (r *Resolver) headScope(ref Reference) *symbols.Scope {
-	name, chain := ref.QN, ref.Chain != nil
-	if ref.Head.Member != nil {
-		name, chain = ref.Head.Member, true
+	name := ref.QN
+	if ref.Head.Lead != nil {
+		name = ref.Head.Lead
 	}
-	if r.resolvesInHeader(ref.Head.Scope, name, chain, ref.Head.Kind) {
+	if r.resolvesInHeader(ref.Head.Scope, name, ref.Head.Kind) {
 		return ref.Head.Scope
 	}
 	return ref.Scope

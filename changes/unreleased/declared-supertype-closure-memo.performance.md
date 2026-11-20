@@ -1,0 +1,1 @@
+- Instantiating a model and verifying a constraint no longer walk each feature's declared specializations again on every variation-point check: the closure is kept per feature, which roughly halves the allocations of both.

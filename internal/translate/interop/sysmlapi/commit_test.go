@@ -86,7 +86,7 @@ func TestCommitRequestRefusesWhatTheServiceCannotHold(t *testing.T) {
 		{"untyped", []rdf.Triple{triple(x, rdf.SysML+"declaredName", rdf.String("a"))}, ErrUntyped},
 		{"two types", []rdf.Triple{typed, triple(x, rdf.RDFType, rdf.IRI(rdf.SysML+"Package"))}, ErrUntyped},
 		{"foreign property", []rdf.Triple{typed, triple(x, "urn:opensysml:sysml:memberIndex", rdf.String("0"))}, &UnrepresentableError{}},
-		{"language tag", []rdf.Triple{typed, triple(x, rdf.SysML+"declaredName", rdf.Term{Kind: rdf.TermLiteral, Value: "a", Lang: "en"})}, &UnrepresentableError{}},
+		{"language tag", []rdf.Triple{typed, triple(x, rdf.SysML+"declaredName", rdf.LangString("a", "en"))}, &UnrepresentableError{}},
 		{"foreign IRI", []rdf.Triple{typed, triple(x, rdf.SysML+"owner", rdf.IRI("http://example.org/x"))}, &UnrepresentableError{}},
 		{"odd datatype", []rdf.Triple{typed, triple(x, rdf.SysML+"when", rdf.TypedLiteral("2020-01-01", rdf.XSD+"date"))}, &UnrepresentableError{}},
 		{"non-numeric integer", []rdf.Triple{typed, triple(x, rdf.SysML+"n", rdf.TypedLiteral("+07", rdf.XSD+"integer"))}, &UnrepresentableError{}},

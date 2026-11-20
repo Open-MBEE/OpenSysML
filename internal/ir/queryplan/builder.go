@@ -24,11 +24,6 @@ func BooleanLiteral(value bool, origin symbols.Origin) Expression {
 	return Literal(LiteralBoolean, "false", origin)
 }
 
-// IntegerLiteral is an integer literal written in decimal.
-func IntegerLiteral(value string, origin symbols.Origin) Expression {
-	return Literal(LiteralInteger, value, origin)
-}
-
 // Sequence concatenates the values of its operands, in order.
 func Sequence(origin symbols.Origin, items ...Expression) Expression {
 	arguments := make([]Argument, len(items))

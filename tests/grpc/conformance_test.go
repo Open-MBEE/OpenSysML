@@ -89,6 +89,9 @@ type conformanceCase struct {
 
 	// Convert: the standard-library names carried outside the element array.
 	LibraryReferences []*pb.LibraryReference `json:"library_references,omitempty"`
+	// Convert: the digested form of a table over the fixture size cap (see
+	// libraryReferencesDigest); the case then states no library_references.
+	LibraryReferencesDigest string `json:"library_references_digest,omitempty"`
 
 	// ApplyEdits
 	Operations      []conformanceEditOperation `json:"operations,omitempty"`
@@ -104,6 +107,12 @@ type conformanceCase struct {
 
 	// GetSymbol, Instantiate, ExecuteAction, ExecuteState, EvaluateCalc
 	SymbolID string `json:"symbol_id,omitempty"`
+
+	// GetSymbol, GetElementProperties: the kind symbol_id (element_id) is stated to be,
+	// "qualified_name" or "element_id"; empty sends the legacy single string.
+	Lookup string `json:"lookup,omitempty"`
+	// The id the symbol, or the element read, is answered under.
+	ExpectedID string `json:"expected_id,omitempty"`
 
 	// Tools names stand-ins under internal/exec/analysis/testdata registered
 	// from a manifest written before the service is built.
@@ -458,7 +467,7 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 
 	switch tc.RPC {
 	case "Convert":
-		runConvertLibraryReferencesCase(t, srv, ctx, parseResp.ModelHash, tc)
+		runConvertLibraryReferencesCase(t, srv, ctx, parseResp.ModelHash, tc, filepath.Join(dir, caseName+".expected.json"))
 	case "GetSymbol":
 		runGetSymbolCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "Evaluate":
@@ -908,14 +917,49 @@ func conformanceToolBinary(t *testing.T, name string) string {
 	return path
 }
 
+// lookupKind is the LookupKind a case's lookup names; none is the legacy single string.
+func lookupKind(t *testing.T, lookup string) pb.LookupKind {
+	t.Helper()
+	switch lookup {
+	case "":
+		return pb.LookupKind_LOOKUP_KIND_UNSPECIFIED
+	case "qualified_name":
+		return pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME
+	case "element_id":
+		return pb.LookupKind_LOOKUP_KIND_ELEMENT_ID
+	}
+	t.Fatalf("unknown lookup %q", lookup)
+	return pb.LookupKind_LOOKUP_KIND_UNSPECIFIED
+}
+
+// checkReportedIDsResolve asserts every id a symbol reports — its own, its children's, its
+// members' — names, as an element id, the one element that carries it.
+func checkReportedIDsResolve(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, symbol *pb.SymbolInfo) {
+	t.Helper()
+	ids := append([]string{symbol.GetId()}, symbol.GetChildIds()...)
+	for _, member := range symbol.GetMembers() {
+		ids = append(ids, member.GetId())
+	}
+	for _, id := range ids {
+		resp, err := srv.GetSymbol(ctx, &pb.GetSymbolRequest{
+			ModelHash: modelHash, SymbolId: id, Lookup: pb.LookupKind_LOOKUP_KIND_ELEMENT_ID,
+		})
+		if err != nil {
+			t.Fatalf("GetSymbol(element_id %q): %v", id, err)
+		}
+		if got := resp.GetSymbol().GetId(); got != id {
+			t.Errorf("element_id %q, reported by %q, answers id %q (%s)", id, symbol.GetId(), got, resp.Error)
+		}
+	}
+}
+
 // runGetSymbolCase pins the static facts a symbol is reported with, and is how
 // the attribute set is kept from regressing to empty.
 func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
 
 	resp, err := srv.GetSymbol(ctx, &pb.GetSymbolRequest{
-		ModelHash: modelHash,
-		SymbolId:  tc.SymbolID,
+		ModelHash: modelHash, SymbolId: tc.SymbolID, Lookup: lookupKind(t, tc.Lookup),
 	})
 	if err != nil {
 		t.Fatalf("GetSymbol: %v", err)
@@ -926,6 +970,10 @@ func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, mode
 	if resp.Symbol == nil {
 		t.Fatal("expected a symbol")
 	}
+	if tc.ExpectedID != "" && resp.Symbol.GetId() != tc.ExpectedID {
+		t.Errorf("id = %q, want %q", resp.Symbol.GetId(), tc.ExpectedID)
+	}
+	checkReportedIDsResolve(t, srv, ctx, modelHash, resp.Symbol)
 
 	if tc.ExpectedKind != "" && resp.Symbol.GetKind() != tc.ExpectedKind {
 		t.Errorf("kind = %q, want %q", resp.Symbol.GetKind(), tc.ExpectedKind)
@@ -1385,7 +1433,7 @@ func runQueryCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHas
 func runGetElementPropertiesCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
 	resp, err := srv.GetElementProperties(ctx, &pb.GetElementPropertiesRequest{
-		ModelHash: modelHash, ElementId: tc.ElementID, Properties: tc.Properties,
+		ModelHash: modelHash, ElementId: tc.ElementID, Lookup: lookupKind(t, tc.Lookup), Properties: tc.Properties,
 	})
 	if err != nil {
 		t.Fatalf("GetElementProperties: %v", err)
@@ -1401,6 +1449,9 @@ func runGetElementPropertiesCase(t *testing.T, srv *grpc.Service, ctx context.Co
 	}
 	if resp.Element == nil || resp.Element.Id == "" {
 		t.Fatalf("the answer names no element: %v", resp.Element)
+	}
+	if tc.ExpectedID != "" && resp.Element.Id != tc.ExpectedID {
+		t.Errorf("element = %q, want %q", resp.Element.Id, tc.ExpectedID)
 	}
 	if len(resp.Properties) != len(tc.ExpectedProperties) {
 		names := make([]string, 0, len(resp.Properties))

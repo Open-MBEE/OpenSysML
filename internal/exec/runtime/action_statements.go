@@ -163,7 +163,6 @@ func (h *actionStmtHost) materializeOccurrence() (*Instance, error) {
 	return h.exec.thisOccurrence()
 }
 
-// acceptReturn rejects a `return`: an action node computes no result to return.
 // statementOrder is how stmts may be ordered where the schedule picks it: a body's
 // statements are subactions no succession orders.
 func (h *actionStmtHost) statementOrder(stmts []lower.Statement) *lower.StatementOrder {
@@ -233,8 +232,17 @@ func (h *actionStmtHost) orderStep() int {
 
 func (h *actionStmtHost) yieldsBetweenStatements() bool { return true }
 
-func (h *actionStmtHost) acceptReturn(Value, lower.Return) error {
-	return fmt.Errorf("%w: %s", errReturnOutsideCalc, h.describe())
+// acceptReturn rejects a `return` in an action: its nodes compute no result. A step of
+// a calculation's body returns the calculation's result, ending its performance.
+func (h *actionStmtHost) acceptReturn(value Value, s lower.Return) error {
+	calc, ok := h.exec.owner.(*calcStmtHost)
+	if !ok {
+		return fmt.Errorf("%w: %s", errReturnOutsideCalc, h.describe())
+	}
+	if err := calc.acceptReturn(value, s); err != nil {
+		return err
+	}
+	return &terminated{perf: h.exec.root, returns: true}
 }
 
 // effect performs the action a `perform` in statement form names, where it
@@ -338,7 +346,7 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 			f.perf.occurrence = engine.loopBody()
 		}
 		if _, declared := graph.Multiplicities[node]; declared && f.perf.repeatedStep() {
-			e.recordRepetition(parent, node, f.perf)
+			e.recordRepetition(parent, f.perf)
 		}
 	}
 	// A terminate of the node ends its body where it stands, dropping what a flow nested in

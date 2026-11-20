@@ -4,6 +4,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
+	"slices"
 	"testing"
 )
 
@@ -57,8 +58,9 @@ func TestStructureBackedVariantPropertiesUseVariantMemberships(t *testing.T) {
 		t.Fatalf("VariantMembership namingFeature = %#v, %t; want referencedFeature %q", namingFeature, ok, ordinary.Name)
 	}
 	ownedUsages := valueElements(t, testProperty(t, evaluator, ElementOf(choice), "Definition", "ownedUsage"))
-	if len(ownedUsages) != 2 || !containsElementSymbol(ownedUsages, variant) || !containsElementSymbol(ownedUsages, ordinary) {
-		t.Fatalf("Definition::ownedUsage = %#v; want both owned Usage members", ownedUsages)
+	// deriveDefinitionOwnedUsage selects from ownedFeature, and a VariantMembership is no FeatureMembership.
+	if len(ownedUsages) != 1 || !containsElementSymbol(ownedUsages, ordinary) {
+		t.Fatalf("Definition::ownedUsage = %#v; want ordinary only", ownedUsages)
 	}
 }
 
@@ -69,6 +71,8 @@ func TestStructureBackedNestedFiltersUseActualMetaclass(t *testing.T) {
 	reference := Element{Aspect: "reference"}
 	itemMembership := MembershipElement(Membership{Aspect: "item-membership"})
 	referenceMembership := MembershipElement(Membership{Aspect: "reference-membership"})
+	metadata := Element{Aspect: "metadata"}
+	metadataMembership := MembershipElement(Membership{Aspect: "metadata-membership"})
 	structure := testStructure{
 		metaclasses: map[ElementKey]string{
 			owner.Key():               "Usage",
@@ -76,19 +80,31 @@ func TestStructureBackedNestedFiltersUseActualMetaclass(t *testing.T) {
 			reference.Key():           "ReferenceUsage",
 			itemMembership.Key():      "FeatureMembership",
 			referenceMembership.Key(): "FeatureMembership",
+			metadata.Key():            "MetadataUsage",
+			metadataMembership.Key():  "OwningMembership",
 		},
 		ownedRelationships: map[ElementKey][]Element{
-			owner.Key(): {itemMembership, referenceMembership},
+			owner.Key(): {metadataMembership, itemMembership, referenceMembership},
 		},
 		relatedElements: map[testRelatedKey][]Element{
 			{element: itemMembership.Key(), property: "memberElement"}:      {item},
 			{element: referenceMembership.Key(), property: "memberElement"}: {reference},
+			{element: metadataMembership.Key(), property: "memberElement"}:  {metadata},
 		},
 	}
 	evaluator.options.Structure = structure
 	got := valueElements(t, testProperty(t, evaluator, owner, "Usage", "nestedItem"))
 	if len(got) != 1 || got[0].Key() != item.Key() {
 		t.Fatalf("Usage::nestedItem = %v; want only the ItemUsage member", got)
+	}
+	// nestedMetadata selects from ownedMember, nestedUsage from ownedFeature (deriveUsageNestedMetadata).
+	got = valueElements(t, testProperty(t, evaluator, owner, "Usage", "nestedMetadata"))
+	if len(got) != 1 || got[0].Key() != metadata.Key() {
+		t.Fatalf("Usage::nestedMetadata = %v; want the MetadataUsage its OwningMembership owns", got)
+	}
+	got = valueElements(t, testProperty(t, evaluator, owner, "Usage", "nestedUsage"))
+	if len(got) != 2 || got[0].Key() != item.Key() || got[1].Key() != reference.Key() {
+		t.Fatalf("Usage::nestedUsage = %v; want the two features and not the MetadataUsage", got)
 	}
 }
 
@@ -497,10 +513,68 @@ func TestStructureFeatureTypeIsUnsupportedWhenTypeRedundancyIsUnknown(t *testing
 	structure.ownedRelationships[feature.Key()] = []Element{firstTyping, secondTyping}
 	structure.relatedElements[testRelatedKey{element: firstTyping.Key(), property: "type"}] = []Element{firstType}
 	structure.relatedElements[testRelatedKey{element: secondTyping.Key(), property: "type"}] = []Element{secondType}
+	structure.unknownOwnedRelations = map[ElementKey]bool{firstType.Key(): true}
 	evaluator.options.Structure = structure
 
 	if _, ok := evaluator.Property(feature, "Feature", "type"); ok {
 		t.Fatal("Feature::type is supported despite unknown type redundancy")
+	}
+}
+
+// A feature typed by itself and through the feature it subsets has both types, less
+// the one the Structure's specializations make redundant (KerML 1.1 §8.3.3.3.4).
+func TestStructureFeatureTypesJoinOwnedAndSubsettedTypings(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		specializes bool
+		subsetting  string
+		target      string
+	}{
+		{name: "subsetting of unrelated types", subsetting: "Subsetting", target: "subsettedFeature"},
+		{name: "redefinition of unrelated types", subsetting: "Redefinition", target: "redefinedFeature"},
+		{name: "subsetting of a more general type", specializes: true, subsetting: "Subsetting", target: "subsettedFeature"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			evaluator, _ := newTestEvaluator(t, "feature-type-join.sysml", "package P {}")
+			feature := Element{Aspect: "join-feature"}
+			general := Element{Aspect: "join-general-feature"}
+			ownType := Element{Aspect: "join-own-type"}
+			generalType := Element{Aspect: "join-general-type"}
+			ownTyping := Element{Aspect: "join-own-typing"}
+			generalTyping := Element{Aspect: "join-general-typing"}
+			subsetting := Element{Aspect: "join-subsetting"}
+			subclassification := Element{Aspect: "join-subclassification"}
+			structure := evaluator.options.Structure.(testStructure)
+			structure.metaclasses[feature.Key()] = "PartUsage"
+			structure.metaclasses[general.Key()] = "PartUsage"
+			structure.metaclasses[ownType.Key()] = "PartDefinition"
+			structure.metaclasses[generalType.Key()] = "PartDefinition"
+			structure.metaclasses[ownTyping.Key()] = "FeatureTyping"
+			structure.metaclasses[generalTyping.Key()] = "FeatureTyping"
+			structure.metaclasses[subsetting.Key()] = tc.subsetting
+			structure.metaclasses[subclassification.Key()] = "Subclassification"
+			structure.ownedRelationships[feature.Key()] = []Element{ownTyping, subsetting}
+			structure.ownedRelationships[general.Key()] = []Element{generalTyping}
+			structure.relatedElements[testRelatedKey{element: ownTyping.Key(), property: "type"}] = []Element{ownType}
+			structure.relatedElements[testRelatedKey{element: generalTyping.Key(), property: "type"}] = []Element{generalType}
+			structure.relatedElements[testRelatedKey{element: subsetting.Key(), property: tc.target}] = []Element{general}
+			want := []ElementKey{ownType.Key(), generalType.Key()}
+			if tc.specializes {
+				structure.ownedRelationships[ownType.Key()] = []Element{subclassification}
+				structure.relatedElements[testRelatedKey{element: subclassification.Key(), property: "general"}] = []Element{generalType}
+				want = want[:1]
+			}
+			evaluator.options.Structure = structure
+
+			types := valueElements(t, testProperty(t, evaluator, feature, "Feature", "type"))
+			got := make([]ElementKey, 0, len(types))
+			for _, typ := range types {
+				got = append(got, typ.Key())
+			}
+			if !slices.Equal(got, want) {
+				t.Fatalf("Feature::type = %v; want %v", got, want)
+			}
+		})
 	}
 }
 

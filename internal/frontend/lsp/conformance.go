@@ -63,31 +63,29 @@ func (s *Server) applyConformanceSettings(ctx context.Context, payload any) bool
 
 // applyFormatSettings switches whether formatting keeps the author's line
 // breaks to what a payload asks; a payload without the boolean leaves it alone.
-func (s *Server) applyFormatSettings(payload any) bool {
+func (s *Server) applyFormatSettings(payload any) {
 	value, ok := sysmlSetting(payload, keepLineBreaksKey)
 	if !ok {
-		return false
+		return
 	}
 	keep, ok := boolSetting(value)
 	if !ok {
-		return false
+		return
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	changed := s.keepLineBreaks != keep
 	s.keepLineBreaks = keep
-	return changed
 }
 
-// DidChangeConfiguration applies the settings the client pushed. Only the
-// conformance mode, the lints, the library roots and keepLineBreaks are read;
-// a payload that mentions none of them changes nothing.
+// DidChangeConfiguration applies those of the pushed settings the server reads: the
+// conformance mode, the lints, the library roots, keepLineBreaks and the hover members.
 func (s *Server) DidChangeConfiguration(ctx context.Context, params *protocol.DidChangeConfigurationParams) error {
 	if params == nil {
 		return nil
 	}
 	settings := decodeSettings(params.Settings)
 	s.applyFormatSettings(settings)
+	s.applyHoverSettings(settings)
 	modeChanged := s.applyConformanceSettings(ctx, settings)
 	lintsChanged := s.applyLintSettings(ctx, settings)
 	if s.applyLibraryRootsSetting(settings) {

@@ -442,7 +442,9 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 	if p.atKeyword("individual") {
 		individualKeyword = p.advance().Span
 		isIndividual = true
-	} else if p.atKeyword("snapshot") {
+	}
+	// A portion kind follows `individual` or stands alone (SysML.xtext PortionUsage).
+	if p.atKeyword("snapshot") {
 		p.advance()
 		portion = ast.PortionSnapshot
 	} else if p.atKeyword("timeslice") {
@@ -1004,9 +1006,9 @@ func (p *Parser) parseSuccessionEdgeWithMultiplicity(tok lexer.Token, allowBody 
 		targetMultiplicity = p.parseMultiplicity()
 	}
 
-	// Otherwise, parse as named edge: then [source] target;
-	// If only one name before semicolon, it's the target (source implicit)
-	first := p.parseQualifiedNameRelaxed() // allow keywords like 'fork', 'join'
+	// Otherwise a named edge, `then [source] target;`: a lone name is the target.
+	// Each end is a ConnectorEnd (SysML.xtext), so a feature chain is read too.
+	first := p.parseChainedName() // allow keywords like 'fork', 'join'
 
 	// Check if there's a second name (explicit source + target)
 	var source, target *ast.QualifiedName

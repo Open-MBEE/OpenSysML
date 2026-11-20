@@ -40,8 +40,8 @@ within these records and means nothing outside this repository.
   into SysML v2 notation and run against the runtime as an advisory oracle, its bucket counts
   gated in CI; never evidence of SysML v2 conformance
 - **[Cross-MDK conformance suite](hideo-suite.md)** — hideo67/sysmlv2-tests, a common test suite
-  for SysML v2 MDKs whose expectations are the pilot's, run daily against the Python and Go
-  clients as an advisory per-case ratchet; never evidence of SysML v2 conformance
+  for SysML v2 MDKs whose expectations are the pilot's, run on pull requests and daily against the Python and Go
+  clients as a per-case ratchet; never evidence of SysML v2 conformance
 - **[LLM authoring benchmark](llm-benchmark.md)** — how well language models write SysML v2 with
   `sysml -validate` in the loop, with and without the `sysml-mcp` tools; 50-task corpus, method and per-model results
 - **[fUML referee](fuml-referee.md)** — the fUML reference implementation's activity tests as
@@ -114,6 +114,10 @@ within these records and means nothing outside this repository.
 - **[MOSA library](mosa-library.md)** — the Modular Open Systems Approach as a bundled OpenSysML
   library: the statute's vocabulary, openness as metadata over the standard model, the
   interface control document and the warning-only checks
+- **[NPR7123 library](npr7123-library.md)** — NASA NPR 7123.1D as a bundled OpenSysML library:
+  the 17 common technical processes, life-cycle reviews with the Appendix G criteria, work-product
+  maturity, TRLs, the active SE requirements, the generated compliance matrix and the warning-only
+  checks
 - **[StateMachines library](statemachines-library.md)** — pseudostates as bundled
   `SemanticMetadata`, so a state machine's `choice`, `junction` and history pseudostates
   spell standard, conforming SysML v2

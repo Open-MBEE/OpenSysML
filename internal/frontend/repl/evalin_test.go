@@ -247,16 +247,24 @@ func TestEvalInDeclarationScopeChainOverValuelessOperandStillResolvesItsMembers(
 // it denotes the function itself.
 func TestEvalInDeclarationScopeDoesNotReadTypeDeclarationsAsUndetermined(t *testing.T) {
 	s := NewSession()
-	if errs := errorDiagnostics(s.Submit(`private import ScalarValues::*;
-package K {
+	if errs := errorDiagnostics(s.SubmitFiles([]SourceFile{
+		{Name: "types.kerml", Text: `package T {
+    private import ScalarValues::*;
     class Vehicle;
     struct Frame;
     behavior Drive;
     datatype Mass;
     function Twice { in x : Real; return r : Real = x * 2.0; }
+}
+`},
+		{Name: "car.sysml", Text: `package K {
+    private import ScalarValues::*;
+    private import T::*;
     part def Car { attribute unsetMass : Real; }
     part car : Car;
-}`).Diagnostics); len(errs) > 0 {
+}
+`},
+	}).Diagnostics); len(errs) > 0 {
 		t.Fatalf("model has errors: %v", errs)
 	}
 	for _, name := range []string{"Vehicle", "Frame", "Drive", "Mass", "Car"} {
@@ -265,7 +273,7 @@ package K {
 		rejects(t, got, "✓", "= "+runtime.UndeterminedText, "unresolved reference", "no value")
 	}
 	got := run(t, s, "%eval in K::car : Twice")
-	wants(t, got, "✓ Twice (in K::car)", "= K::Twice")
+	wants(t, got, "✓ Twice (in K::car)", "= T::Twice")
 	rejects(t, got, "error", "= "+runtime.UndeterminedText)
 	wants(t, run(t, s, "%eval in K::car : unsetMass"), "✓ unsetMass (in K::car)", "= "+runtime.UndeterminedText)
 }

@@ -29,7 +29,7 @@ make build            # build bin/sysml and bin/sysml-lsp (with version ldflags)
 make build-sysml      # REPL binary only
 make build-lsp        # LSP binary only
 make test             # full suite: go test -race -coverprofile ... ./...
-make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|codegen|translate|grpc|tools|rest|migrate|cli)
+make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|graph-corpora|codegen|translate|translate-structure|grpc|tools|internal|rest|migrate|cli)
 make test-quick SHARDS="rest grpc"  # the same shards without -race, in turn: what a pull-request push runs
 make test-queue SHARDS="rest export-corpus"  # the merge queue's tier: -race, but the examples/ sweeps (scripts/race-shard.sh --sweeps) race-free over the construct-cover subset
 make test-short       # faster, no race detector
@@ -245,6 +245,13 @@ such a commit, run `go run -C tools ./cmd/pilot-apijson-diff` over the real corp
 (`-check` to confirm the baseline reproduces); if a bucket moved, adjudicate it in
 `docs/project/api-json-differential.md` (prose and the keyed rows of its gap tables; the figures
 render from the baseline when the site builds), re-record with `-update` and run `make docs-counts`.
+The pilot's export moves only with the pin, the bridge, a root or a library, so
+`-pilot-record DIR` keeps it per root under `DIR`, keyed by all of those and the declared Java, and
+a later run with a matching record runs our side alone; CI restores the directory the nightly
+oracle-reproduction workflow records. The count baselines (the api-json fragments and index, the
+derived census, the structure differential) merge cell by cell once
+`./scripts/install-baseline-merge-driver.sh` has run in the clone; a merged file is the measurement
+only once its `-check` reproduces it.
 Never re-record a baseline whose figures did not move: its provenance lines change only on a pin
 bump, an errata change or an edit to a compared input.
 

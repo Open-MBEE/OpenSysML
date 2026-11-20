@@ -14,12 +14,12 @@
       "presentEqual": 363,
       "presentDifferent": 98,
       "oursMissing": 37,
-      "pilotMissing": 18,
-      "absentBoth": 457,
+      "pilotMissing": 16,
+      "absentBoth": 459,
       "indeterminate": 25,
       "pilotNondeterministic": 0
     },
-    "unkeyedReferences": 63,
+    "unkeyedReferences": 59,
     "extensionProperties": 78,
     "duplicateElements": {
       "ours": 0,
@@ -30,7 +30,7 @@
       "pilot": 0
     },
     "unkeyableElements": {
-      "ours": 13,
+      "ours": 18,
       "pilot": 30
     }
   },
@@ -456,7 +456,7 @@
     "TransitionUsage.nestedCalculation": [0,0,0,0,2,0,0],
     "TransitionUsage.nestedCase": [0,0,0,0,2,0,0],
     "TransitionUsage.nestedConcern": [0,0,0,0,2,0,0],
-    "TransitionUsage.nestedConnection": [0,0,0,2,0,0,0],
+    "TransitionUsage.nestedConnection": [0,0,0,0,2,0,0],
     "TransitionUsage.nestedConstraint": [0,0,0,0,2,0,0],
     "TransitionUsage.nestedEnumeration": [0,0,0,0,2,0,0],
     "TransitionUsage.nestedFlow": [0,0,0,0,2,0,0],

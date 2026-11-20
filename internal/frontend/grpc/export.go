@@ -32,7 +32,10 @@ func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conv
 	if err := s.checkConvertDocuments(req); err != nil {
 		return nil, err
 	}
-	if out, done, err := s.convertModelOfDocuments(req); done {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if out, done, err := s.convertModelOfDocuments(ctx, req); done {
 		return out, err
 	}
 	if name, v1 := namesV1(req.FromFormat, req.GetFilePath()); v1 {
@@ -83,7 +86,7 @@ func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conv
 	// leaves the parse's diagnostics as the report, as ParseFile's would be; a
 	// conversion the writer refused still reports what the check found.
 	if req.IncludeCheckDiagnostics && syntax == nil {
-		checked, err := s.convertCheckDiagnostics(req, name, data)
+		checked, err := s.convertCheckDiagnostics(ctx, req, name, data)
 		if err != nil {
 			return nil, err
 		}
@@ -112,7 +115,7 @@ func (s *Service) checkConvertCheckDiagnostics(req *pb.ConvertRequest, from conv
 // notation, as ParseFile reports it: a model_hash's cached analysis, else the
 // very bytes the conversion read, analyzed as a parse analyzes them, without
 // caching a model the client did not ask to hold.
-func (s *Service) convertCheckDiagnostics(req *pb.ConvertRequest, name string, data []byte) ([]*pb.Diagnostic, error) {
+func (s *Service) convertCheckDiagnostics(ctx context.Context, req *pb.ConvertRequest, name string, data []byte) ([]*pb.Diagnostic, error) {
 	if src, ok := req.Source.(*pb.ConvertRequest_ModelHash); ok {
 		if cached, ok := s.cache.Get(src.ModelHash); ok {
 			return s.modelDiagnostics(cached), nil
@@ -130,7 +133,10 @@ func (s *Service) convertCheckDiagnostics(req *pb.ConvertRequest, name string, d
 		}
 	}
 	input := sourceInput{name: name, content: string(data), kind: kind}
-	_, model := s.parseModelKeeping([]sourceInput{input}, diag.ConformanceModeOf(false), false, false)
+	_, model, err := s.parseModelKeeping(ctx, []sourceInput{input}, diag.ConformanceModeOf(false), false, false)
+	if err != nil {
+		return nil, err
+	}
 	return s.modelDiagnostics(model), nil
 }
 
@@ -376,7 +382,15 @@ func (s *Service) convertOptions(req *pb.ConvertRequest, from, to convert.Format
 			return convert.Options{}, statusError(connect.CodeInvalidArgument, "include_library_stubs requires to_format api-json")
 		}
 	}
-	opts := convert.Options{IncludeLibraryStubs: req.IncludeLibraryStubs}
+	if req.InheritedMembers {
+		if err := s.requireCapability(CapabilityConvertInheritedMembers); err != nil {
+			return convert.Options{}, err
+		}
+		if to != convert.FormatAPIJSON {
+			return convert.Options{}, statusError(connect.CodeInvalidArgument, "inherited_members requires to_format api-json")
+		}
+	}
+	opts := convert.Options{IncludeLibraryStubs: req.IncludeLibraryStubs, InheritedMembers: req.InheritedMembers}
 	if req.IdForm != "" {
 		if from != convert.FormatSysML || (to != convert.FormatTurtle && to != convert.FormatAPIJSON) {
 			return opts, statusError(connect.CodeInvalidArgument, "id_form applies to notation converted to ttl or api-json")
@@ -553,7 +567,7 @@ func (s *Service) checkConvertDocuments(req *pb.ConvertRequest) error {
 // linked to it, to Turtle or the API's JSON element form; when the request
 // names documents, the others are referenced, not written. done is false for
 // any other request, which converts one document as before.
-func (s *Service) convertModelOfDocuments(req *pb.ConvertRequest) (*pb.ConvertResponse, bool, error) {
+func (s *Service) convertModelOfDocuments(ctx context.Context, req *pb.ConvertRequest) (*pb.ConvertResponse, bool, error) {
 	hash, ok := req.Source.(*pb.ConvertRequest_ModelHash)
 	if !ok {
 		return nil, false, nil
@@ -618,12 +632,22 @@ func (s *Service) convertModelOfDocuments(req *pb.ConvertRequest) (*pb.ConvertRe
 	if to == convert.FormatAPIJSON && !opts.WritesLibraryStubs() {
 		toGraph = cached.exportModel.ElementGraph
 	}
-	graph, err := toGraph(req.Documents, opts.ID)
+	if err := ctx.Err(); err != nil {
+		return nil, true, err
+	}
+	graph, err := toGraph(ctx, req.Documents, opts.ID)
+	if gone := callerGone(ctx, err); gone != nil {
+		return nil, true, gone
+	}
 	if err != nil {
 		resp.Error = err.Error()
 		return resp, true, nil
 	}
 	out, err := convert.FromGraphWith(graph, to, opts)
+	// A caller gone during the writing gets no answer, and the check is not run for it.
+	if gone := ctx.Err(); gone != nil {
+		return nil, true, gone
+	}
 	if err != nil {
 		resp.Error = err.Error()
 		return resp, true, nil

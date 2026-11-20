@@ -257,12 +257,12 @@ func (d *decoder) notation() ([]byte, []*element, error) {
 func checkExtensionNamespace(graph *rdf.Graph) error {
 	for _, triple := range graph.Triples() {
 		for _, term := range []rdf.Term{triple.Subject, triple.Predicate, triple.Object} {
-			if term.Kind == rdf.TermIRI && strings.HasPrefix(term.Value, rdf.LegacyExtension) {
+			if term.Kind() == rdf.TermIRI && strings.HasPrefix(term.Value, rdf.LegacyExtension) {
 				return legacyNamespaceError(term.Value)
 			}
 		}
-		if strings.HasPrefix(triple.Object.Datatype, rdf.LegacyExtension) {
-			return legacyNamespaceError(triple.Object.Datatype)
+		if strings.HasPrefix(triple.Object.Datatype(), rdf.LegacyExtension) {
+			return legacyNamespaceError(triple.Object.Datatype())
 		}
 	}
 	return nil
@@ -289,7 +289,7 @@ var supersededPredicates = map[string]string{
 func checkSupersededPredicates(graph *rdf.Graph) error {
 	for _, triple := range graph.Triples() {
 		now, superseded := supersededPredicates[triple.Predicate.Value]
-		if !superseded || triple.Predicate.Kind != rdf.TermIRI {
+		if !superseded || triple.Predicate.Kind() != rdf.TermIRI {
 			continue
 		}
 		return &UnsupportedError{
@@ -320,7 +320,7 @@ func checkRemovedNotation(graph *rdf.Graph) error {
 				What: fmt.Sprintf("the element <%s> of type sysx:%s", triple.Subject.Value, mDeferMember),
 				Note: removedDeferNote,
 			}
-		case triple.Predicate.Kind == rdf.TermIRI && triple.Predicate.Value == rdf.OpenSysML+xDeferredEvent:
+		case triple.Predicate.Kind() == rdf.TermIRI && triple.Predicate.Value == rdf.OpenSysML+xDeferredEvent:
 			return &UnsupportedError{
 				What: fmt.Sprintf("the property sysx:%s of <%s>", xDeferredEvent, triple.Subject.Value),
 				Note: removedDeferNote,
@@ -390,17 +390,17 @@ func checkLiterals(graph *rdf.Graph, metaclasses map[rdf.Term]string) error {
 		if !object.IsLiteral() || !mappingPredicate(triple.Predicate.Value) {
 			continue
 		}
-		if object.Lang != "" {
+		if object.Lang() != "" {
 			return literalError(triple, "a language-tagged literal is an rdf:langString, and no property this mapping reads takes one")
 		}
 		allowed := literalDatatypes(rdf.LocalName(metaclasses[triple.Subject]), triple.Predicate.Value)
-		if !slices.Contains(allowed, object.Datatype) {
+		if !slices.Contains(allowed, object.Datatype()) {
 			return literalError(triple, fmt.Sprintf("%s takes %s", curie(triple.Predicate.Value), datatypeList(allowed)))
 		}
-		if !inLexicalSpace(object.Datatype, object.Value) {
-			return literalError(triple, fmt.Sprintf("%q is not in the lexical space of %s", object.Value, curie(object.Datatype)))
+		if !inLexicalSpace(object.Datatype(), object.Value) {
+			return literalError(triple, fmt.Sprintf("%q is not in the lexical space of %s", object.Value, curie(object.Datatype())))
 		}
-		if object.Datatype == rdf.XSD+"int" {
+		if object.Datatype() == rdf.XSD+"int" {
 			if _, err := strconv.ParseInt(object.Value, 10, 32); err != nil {
 				return literalError(triple, fmt.Sprintf("%q is outside the value space of xsd:int, -2147483648 to 2147483647", object.Value))
 			}
@@ -549,10 +549,10 @@ func termText(term rdf.Term) string {
 	}
 	literal := rdf.String(term.Value).String()
 	switch {
-	case term.Lang != "":
-		return literal + "@" + term.Lang
-	case term.Datatype != "":
-		return literal + "^^" + curie(term.Datatype)
+	case term.Lang() != "":
+		return literal + "@" + term.Lang()
+	case term.Datatype() != "":
+		return literal + "^^" + curie(term.Datatype())
 	}
 	return literal
 }
@@ -618,7 +618,7 @@ func literalDatatypes(metaclass, predicate string) []string {
 	switch {
 	case isIndexProperty(predicate), IsSourceRangeProperty(predicate):
 		return integerLiterals
-	case strings.HasPrefix(name, "is"), name == xHasBody, name == xDeclaredID, name == xHasEffect, name == xBracedEffect, name == xConjugatedTyping, name == xSourceMultiplicityBeforeThen,
+	case strings.HasPrefix(name, "is"), name == xHasBody, name == xStatedDefaults, name == xDeclaredID, name == xHasEffect, name == xBracedEffect, name == xConjugatedTyping, name == xSourceMultiplicityBeforeThen,
 		name == xNoteOwnLine, name == xNoteTail, name == xNoteTrailing:
 		return booleanLiterals
 	case strings.HasPrefix(predicate, rdf.SysML) && (name == pLowerBound || name == pUpperBound):
@@ -1382,7 +1382,7 @@ var referenceProperties = func() map[string]bool {
 // from the graph itself, which would otherwise be written back mis-named.
 func (d *decoder) checkReferences() error {
 	for _, triple := range d.graph.Triples() {
-		if triple.Object.Kind != rdf.TermIRI || !referenceProperties[triple.Predicate.Value] {
+		if triple.Object.Kind() != rdf.TermIRI || !referenceProperties[triple.Predicate.Value] {
 			continue
 		}
 		if d.isFilterPackageNode(triple.Object) || d.isFilterPackageNode(triple.Subject) {
@@ -1531,6 +1531,17 @@ func (d *decoder) libraryStubs() (map[string]bool, error) {
 			catalog := d.libraryCatalog
 			owned, ok := catalog.OwningMembership(id)
 			member := members[0]
+			if alias, found := sharedLibraryIndex().anonymous.AliasMembership(id); !ok && found {
+				target, resolved := sharedLibraryIndex().aliasTarget(alias)
+				if !resolved || len(members) != 1 || !member.IsIRI() || rdf.LocalName(member.Value) != target.ID {
+					return nil, &UnsupportedError{
+						What: fmt.Sprintf("the library membership <%s>", subject.Value),
+						Note: fmt.Sprintf("its id is that of the alias membership %s, and its memberElement is not the element the alias names", alias.Path),
+					}
+				}
+				stubs[subject.Value] = true
+				continue
+			}
 			memberName, memberNameKind, hasMemberName := d.librarySubjectName(member)
 			if !ok && len(members) == 1 && member.IsIRI() && hasMemberName {
 				if candidate, found := catalog.ElementNamed(memberName); found && d.libraryMetaclassCompatible(member, candidate) {
@@ -2553,8 +2564,9 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	// modifiers, ahead of them, rather than after them in the keyword's place.
 	isVariant := d.boolOf(el, rdf.SysML+"isVariant") && !d.enumeratedValue(el)
 	variantFirst := keyword == "variant" && isVariant
+	isEnd := d.boolOf(el, rdf.SysML+"isEnd")
 	compositeByDefault := usageCompositeByDefault(d.graph, d.metaclass, d.ownership, rdf.IRI(el.iri),
-		d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+pDirection), d.boolOf(el, rdf.SysML+"isEnd"))
+		d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+pDirection), isEnd)
 	// Usage::isReference is derived as not isComposite, so a usage stated
 	// non-composite where its kind is composite was written `ref`.
 	ref := (d.boolOf(el, rdf.SysML+"isReference") || !kerml && d.statedFalse(el, "isComposite") && compositeByDefault) && !variantReference
@@ -2576,13 +2588,15 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		{"portion", isPortion},
 		{"composite", kerml && compositeWord},
 		{constantKeyword(kerml), d.boolOf(el, rdf.SysML+"isConstant") && !d.derivedConstantEnd(el)},
+		// `ref` closes the basic prefix, ahead of the occurrence words
+		// (SysML.xtext BasicUsagePrefix, OccurrenceUsagePrefix); an end's follows `end`.
+		{"ref", ref && !isEnd},
 		{"individual", d.boolOf(el, rdf.SysML+"isIndividual")},
 		{"snapshot", portion == "snapshot"},
 		{"timeslice", portion == "timeslice"},
 		{"event", event},
-		{"end", d.boolOf(el, rdf.SysML+"isEnd")},
-		// A VariantReference is a reference usage by what it is.
-		{"ref", ref},
+		{"end", isEnd},
+		{"ref", ref && isEnd},
 		// SysML has no `composite` of its own; this grammar reads one closing the prefix, after `ref`.
 		{"composite", !kerml && compositeWord},
 	} {
@@ -2732,16 +2746,14 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		// notation rather than as a `references` clause.
 		skip = append(skip, ast.RelReferences)
 	}
-	// A satisfy head writes the requirement it subsets bare, after the keyword;
-	// without that form it declares a requirement usage of its own. An unnamed
-	// SatisfyRequirementUsage, or the RequirementUsage of a `verify` whose
-	// subsetting is a ReferenceSubsetting, is the reference form whether or not
-	// sysx:endForm records it (`verify r :>> req;` records none, since it
-	// specializes twice); `verify requirement :> r;` declares one instead.
+	// A satisfy or verify stating a `references` writes that requirement bare after the keyword,
+	// whether or not sysx:endForm records it; without one it declares a requirement of its own.
 	var satisfyTargets []string
+	// The `by` subject follows the specializations written after the reference.
+	satisfySubject := ""
 	if endForm == formSatisfy || el.metaclass == mSatisfyRequirementUsage || d.verifiedReference(el) {
 		var err error
-		satisfyTargets, err = d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelSubsets])
+		satisfyTargets, err = d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelReferences])
 		if err != nil {
 			return "", err
 		}
@@ -2749,11 +2761,11 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	switch {
 	case endForm == formSatisfy || len(satisfyTargets) > 0 && len(identWords) == 0:
 		if len(satisfyTargets) == 0 {
-			return "", d.missing(el, sysmlPrefix+relationshipProperty[ast.RelSubsets],
+			return "", d.missing(el, sysmlPrefix+relationshipProperty[ast.RelReferences],
 				"a satisfy head names the requirement it satisfies")
 		}
 		words = append(words, strings.Join(satisfyTargets, ", "))
-		skip = append(skip, ast.RelSubsets)
+		skip = append(skip, ast.RelReferences)
 		subjects, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelSubject])
 		if err != nil {
 			return "", err
@@ -2765,7 +2777,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 			}
 		}
 		if len(subjects) == 1 {
-			words = append(words, "by", subjects[0])
+			satisfySubject = subjects[0]
 			skip = append(skip, ast.RelSubject)
 		}
 	case kind == ast.UsageSatisfy:
@@ -2955,6 +2967,9 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		return "", err
 	}
 	words = append(words, relationships...)
+	if satisfySubject != "" {
+		words = append(words, "by", satisfySubject)
+	}
 	if hasEnds {
 		// A connector's own multiplicity is its declaration, written ahead of
 		// the ends; after them it would read as the last end's.
@@ -3429,6 +3444,10 @@ func (d *decoder) importedName(el *element) (string, error) {
 	if lib, ok := sharedLibraryIndex().catalog.OwningMembership(rdf.LocalName(term.Value)); ok {
 		return d.referenceName(rdf.ElementIRIForID(lib.ID), el)
 	}
+	// A library alias is imported under the name its Membership gives the member.
+	if alias, ok := sharedLibraryIndex().anonymous.AliasMembership(rdf.LocalName(term.Value)); ok {
+		return d.referenceName(rdf.String(alias.Owner.FQN+"::"+alias.Symbol.Name), el)
+	}
 	return d.referenceName(term, el)
 }
 
@@ -3859,6 +3878,15 @@ func constantKeyword(kerml bool) string {
 	return "constant"
 }
 
+// typedByKeyword spells a typing where `:` cannot: KerML.xtext TypedBy `'typed' 'by'`,
+// SysML.xtext DefinedByKeyword `'defined' 'by'`.
+func typedByKeyword(kerml bool) string {
+	if kerml {
+		return "typed by"
+	}
+	return "defined by"
+}
+
 // portionPrefix reports whether isPortion is written as KerML's `portion`; SysML has no
 // such prefix, so there the flag is carried by a portion kind and refused without one.
 func (d *decoder) portionPrefix(el *element, kerml bool, portion string) (bool, error) {
@@ -4141,9 +4169,8 @@ func (d *decoder) ownedCrossFeature(el *element) *element {
 	return nil
 }
 
-// crossFeatureWords writes an end's cross feature after `end`: name, multiplicity
-// and specializations, typing spelled `typed by` since `:` there is the end's own.
-// Its identity goes in the end's body (headFeatureAnnotations); a body of its own has no place.
+// crossFeatureWords writes an end's cross feature after `end`, its typing by keyword since `:` there is
+// the end's own; its identity goes in the end's body (headFeatureAnnotations), and it has no body.
 func (d *decoder) crossFeatureWords(cross *element) ([]string, error) {
 	if len(d.bodyChildren(cross)) > 0 || d.boolOf(cross, rdf.OpenSysML+xHasBody) {
 		return nil, &UnsupportedError{
@@ -4181,7 +4208,7 @@ func (d *decoder) crossFeatureWords(cross *element) ([]string, error) {
 		return nil, err
 	}
 	if len(typed) > 0 {
-		words = append(words, "typed by", strings.Join(typed, ", "))
+		words = append(words, typedByKeyword(d.kerml(cross)), strings.Join(typed, ", "))
 	}
 	relationships, err := d.relationshipWords(cross, "", ast.RelTyping)
 	if err != nil {
@@ -4272,7 +4299,7 @@ func (d *decoder) metadataDefinition(el *element) (rdf.Term, error) {
 	case 1:
 		if types[0].IsLiteral() {
 			why := notAName(types[0])
-			if types[0].Datatype == rdf.OpenSysML+dtExpression {
+			if types[0].Datatype() == rdf.OpenSysML+dtExpression {
 				why = "it is an expression, not a name"
 			}
 			if why != "" {
@@ -4438,10 +4465,8 @@ type headClause struct {
 	multiplicity bool
 }
 
-// headClauseKinds are the collapsed properties a materialized relationship
-// element may state, by the element's metaclass; a Subsetting is a feature's
-// `subsets` or its `specializes`, a ReferenceSubsetting a `references` or an
-// end form's `subsets`, which the target tells apart.
+// headClauseKinds are the collapsed properties a materialized relationship element may state, by
+// its metaclass; a Subsetting is a feature's `subsets` or its `specializes`, told apart by the target.
 var headClauseKinds = map[string][]ast.RelationshipKind{
 	mFeatureTyping:        {ast.RelTyping},
 	mConjugatedPortTyping: {ast.RelTyping},
@@ -4449,7 +4474,11 @@ var headClauseKinds = map[string][]ast.RelationshipKind{
 	mSpecialization:       {ast.RelSpecializes},
 	mSubsetting:           {ast.RelSubsets, ast.RelSpecializes},
 	mRedefinition:         {ast.RelRedefines},
-	mReferenceSubsetting:  {ast.RelReferences, ast.RelSubsets},
+	mReferenceSubsetting:  {ast.RelReferences},
+	mCrossSubsetting:      {ast.RelCrosses},
+	mUnioning:             {ast.RelUnions},
+	mIntersecting:         {ast.RelIntersects},
+	mDifferencing:         {ast.RelDifferences},
 }
 
 // headClauseTargets are the properties that state a relationship element's
@@ -4463,6 +4492,10 @@ var headClauseTargets = map[string][]string{
 	mSubsetting:           {pSubsettedFeature, pGeneral, pTarget},
 	mRedefinition:         {"redefinedFeature", pSubsettedFeature, pGeneral, pTarget},
 	mReferenceSubsetting:  {pReferencedFeature, pSubsettedFeature, pGeneral, pTarget},
+	mCrossSubsetting:      {"crossedFeature", pSubsettedFeature, pGeneral, pTarget},
+	mUnioning:             {"unioningType", pTarget},
+	mIntersecting:         {"intersectingType", pTarget},
+	mDifferencing:         {"differencingType", pTarget},
 }
 
 // spelledHead reads the order el's head was spelled from what el owns in
@@ -4731,7 +4764,7 @@ func (d *decoder) referenceList(el *element, property string) ([]string, error) 
 // resolves to its element there.
 func (d *decoder) referenceName(term rdf.Term, el *element) (string, error) {
 	if term.IsLiteral() {
-		if term.Datatype == rdf.OpenSysML+dtExpression {
+		if term.Datatype() == rdf.OpenSysML+dtExpression {
 			return term.Value, nil
 		}
 		if why := notAName(term); why != "" {
@@ -4977,7 +5010,7 @@ func notAName(term rdf.Term) string {
 // literalTargetName is the name a usage takes from a naming feature the graph
 // keeps as text: the last segment of a name, or of the member a chain reaches.
 func literalTargetName(term rdf.Term) (string, bool) {
-	if term.Datatype != rdf.OpenSysML+dtExpression {
+	if term.Datatype() != rdf.OpenSysML+dtExpression {
 		return lastName(term.Value), true
 	}
 	name, _ := ast.TargetName(literalTarget(term))
@@ -4986,7 +5019,7 @@ func literalTargetName(term rdf.Term) (string, bool) {
 
 // literalTarget parses a relationship target the graph keeps as expression text.
 func literalTarget(term rdf.Term) ast.Node {
-	if !term.IsLiteral() || term.Datatype != rdf.OpenSysML+dtExpression {
+	if !term.IsLiteral() || term.Datatype() != rdf.OpenSysML+dtExpression {
 		return nil
 	}
 	return parser.New(source.New("<naming>", []byte(term.Value))).ParseExpression()

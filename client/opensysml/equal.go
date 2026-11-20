@@ -57,6 +57,8 @@ func Equal(a, b Value) bool {
 	case Metaobject:
 		y, ok := b.(Metaobject)
 		return ok && x.ElementID == y.ElementID
+	case *CoordinateFrame, *CoordinateTransformation:
+		return coordinatesEqual(a, b)
 	default:
 		return a == b
 	}
