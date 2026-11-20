@@ -14,8 +14,8 @@
       "presentEqual": 127274,
       "presentDifferent": 10027,
       "oursMissing": 10971,
-      "pilotMissing": 4591,
-      "absentBoth": 135871,
+      "pilotMissing": 4592,
+      "absentBoth": 135870,
       "indeterminate": 3147,
       "pilotNondeterministic": 37
     },

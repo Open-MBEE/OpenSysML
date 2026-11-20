@@ -11,11 +11,11 @@
       "typeMismatch": 1
     },
     "properties": {
-      "presentEqual": 6432,
-      "presentDifferent": 589,
+      "presentEqual": 6410,
+      "presentDifferent": 611,
       "oursMissing": 268,
-      "pilotMissing": 241,
-      "absentBoth": 7654,
+      "pilotMissing": 243,
+      "absentBoth": 7652,
       "indeterminate": 214,
       "pilotNondeterministic": 1
     },

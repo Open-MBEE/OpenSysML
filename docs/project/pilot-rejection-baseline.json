@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 351,
-        "digest": "sha256:cc6b44460f71dc111fe42083fcb73786a73c5946a0010d170d1b120047999597"
+        "files": 356,
+        "digest": "sha256:4a4a17344756c5384562a1afe2626fd7a331e23a2a188b0d43ca5b6c2ff50b71"
       }
     ],
-    "recorded": "2026-11-17"
+    "recorded": "2026-11-20"
   },
   "totals": {
-    "cases": 351,
-    "bothReject": 341,
+    "cases": 356,
+    "bothReject": 346,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 10,
     "bothAccept": 0
@@ -63,8 +63,8 @@
     },
     {
       "source": "semantic",
-      "cases": 189,
-      "bothReject": 179,
+      "cases": 194,
+      "bothReject": 184,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 10,
       "bothAccept": 0
@@ -3450,8 +3450,8 @@
       }
     ],
     "totals": {
-      "cases": 351,
-      "bothReject": 341,
+      "cases": 356,
+      "bothReject": 346,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 10,
       "bothAccept": 0

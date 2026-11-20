@@ -170,7 +170,7 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-351 case(s): 341 both reject, 0 only the pilot rejects, 10 only we reject, 0 both accept
+356 case(s): 346 both reject, 0 only the pilot rejects, 10 only we reject, 0 both accept
   of which 2 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
@@ -178,7 +178,7 @@ Under the default `-conformance auto`:
 | --- | --- | --- | --- | --- | --- |
 | extensions | 13 | 13 | 0 | 0 | 0 |
 | grammar | 114 | 114 | 0 | 0 | 0 |
-| semantic | 189 | 179 | 0 | 10 | 0 |
+| semantic | 194 | 184 | 0 | 10 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
 Eight of the ten ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
