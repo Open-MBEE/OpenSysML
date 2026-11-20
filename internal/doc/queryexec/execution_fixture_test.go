@@ -21,13 +21,13 @@ type executionFixture struct {
 	root     *ast.RootNamespace
 }
 
-func loadExecutionSource(t *testing.T, content string) executionFixture {
+func loadExecutionSource(t testing.TB, content string) executionFixture {
 	t.Helper()
 	return loadExecutionSources(t, content, nil)
 }
 
 // loadExecutionSources loads the SysML fixture beside other documents, keyed by file name.
-func loadExecutionSources(t *testing.T, content string, others map[string]string) executionFixture {
+func loadExecutionSources(t testing.TB, content string, others map[string]string) executionFixture {
 	t.Helper()
 	index := libs.NewModelIndex()
 	name := "query-execution.sysml"
