@@ -1,4 +1,4 @@
-package org.openmbee.mdk.magic;
+package org.openmbee.opensysml.repository;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -16,9 +16,6 @@ import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.openmbee.mdk.magic.repository.ApiConfig;
-import org.openmbee.mdk.magic.repository.ApiException;
-import org.openmbee.mdk.magic.repository.SysmlApiClient;
 
 /** The SysML v2 API client over real HTTP: the wire it speaks, its paging, and where the token may go. */
 class SysmlApiClientTest {

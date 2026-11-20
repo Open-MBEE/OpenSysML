@@ -23,7 +23,7 @@ import org.openmbee.opensysml.StatusCode;
 import org.openmbee.opensysml.Symbol;
 import org.openmbee.mdk.magic.bin.HostBinary;
 import org.openmbee.mdk.magic.export.ModelExport;
-import org.openmbee.mdk.magic.repository.Publisher;
+import org.openmbee.opensysml.repository.Publisher;
 import org.openmbee.mdk.magic.results.QueryAnswer;
 import org.openmbee.mdk.magic.results.ResultsMapper;
 import org.openmbee.mdk.magic.results.RunResult;

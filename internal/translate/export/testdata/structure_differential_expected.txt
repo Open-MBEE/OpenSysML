@@ -2,7 +2,7 @@
 # served properties the two disagree on. Re-record with
 #   go test ./internal/translate/export -run TestSymbolStructureMatchesGraphStructure -update-structure-differential
 # after adjudicating every movement; the downloaded roots need their corpora present.
-root examples: models 57, skipped 0, matched 39985, unmatched 10850
+root examples: models 57, skipped 0, matched 40708, unmatched 10127
   AcceptActionUsage::receiverArgument: equal 46, different 1, symbol-missing 0, symbol-extra 0
   AnnotatingElement::annotation: equal 290, different 261, symbol-missing 0, symbol-extra 0
   Behavior::step: equal 146, different 59, symbol-missing 0, symbol-extra 0
@@ -17,82 +17,81 @@ root examples: models 57, skipped 0, matched 39985, unmatched 10850
   Definition::ownedTransition: equal 657, different 12, symbol-missing 0, symbol-extra 0
   Definition::ownedUsage: equal 525, different 144, symbol-missing 0, symbol-extra 0
   Definition::usage: equal 653, different 16, symbol-missing 0, symbol-extra 0
-  Element::name: equal 39979, different 6, symbol-missing 0, symbol-extra 0
-  Element::ownedAnnotation: equal 39724, different 261, symbol-missing 0, symbol-extra 0
-  Element::ownedElement: equal 39303, different 682, symbol-missing 0, symbol-extra 0
-  Element::ownedRelationship: equal 38731, different 1254, symbol-missing 0, symbol-extra 0
-  Element::owner: equal 39918, different 67, symbol-missing 0, symbol-extra 0
-  Element::owningMembership: equal 39710, different 275, symbol-missing 0, symbol-extra 0
-  Element::owningNamespace: equal 39693, different 292, symbol-missing 0, symbol-extra 0
-  Element::owningRelationship: equal 39699, different 286, symbol-missing 0, symbol-extra 0
-  Element::qualifiedName: equal 39983, different 2, symbol-missing 0, symbol-extra 0
-  Element::shortName: equal 39882, different 2, symbol-missing 0, symbol-extra 101
-  Expression::result: equal 3839, different 0, symbol-missing 10, symbol-extra 0
-  Feature::direction: equal 15830, different 89, symbol-missing 0, symbol-extra 0
-  Feature::featureTarget: equal 15916, different 3, symbol-missing 0, symbol-extra 0
-  Feature::featuringType: equal 15883, different 36, symbol-missing 0, symbol-extra 0
-  Feature::isComposite: equal 15886, different 33, symbol-missing 0, symbol-extra 0
-  Feature::isConstant: equal 332, different 0, symbol-missing 0, symbol-extra 15587
-  Feature::isVariable: equal 15730, different 0, symbol-missing 0, symbol-extra 189
-  Feature::ownedFeatureInverting: equal 15917, different 2, symbol-missing 0, symbol-extra 0
-  Feature::ownedRedefinition: equal 15764, different 155, symbol-missing 0, symbol-extra 0
-  Feature::ownedReferenceSubsetting: equal 15886, different 33, symbol-missing 0, symbol-extra 0
-  Feature::ownedSubsetting: equal 15726, different 193, symbol-missing 0, symbol-extra 0
-  Feature::ownedTyping: equal 15901, different 18, symbol-missing 0, symbol-extra 0
-  Feature::owningFeatureMembership: equal 15890, different 29, symbol-missing 0, symbol-extra 0
-  Feature::owningType: equal 15883, different 36, symbol-missing 0, symbol-extra 0
-  Feature::type: equal 15913, different 6, symbol-missing 0, symbol-extra 0
-  FeatureChainExpression::targetFeature: equal 177, different 0, symbol-missing 0, symbol-extra 150
-  FeatureMembership::owningType: equal 9254, different 10, symbol-missing 0, symbol-extra 0
-  FeatureReferenceExpression::referent: equal 712, different 29, symbol-missing 0, symbol-extra 66
-  FeatureValue::featureWithValue: equal 3287, different 23, symbol-missing 0, symbol-extra 0
-  FeatureValue::value: equal 3297, different 13, symbol-missing 0, symbol-extra 0
+  Element::name: equal 40702, different 6, symbol-missing 0, symbol-extra 0
+  Element::ownedAnnotation: equal 40447, different 261, symbol-missing 0, symbol-extra 0
+  Element::ownedElement: equal 40075, different 633, symbol-missing 0, symbol-extra 0
+  Element::ownedRelationship: equal 39503, different 1205, symbol-missing 0, symbol-extra 0
+  Element::owner: equal 40641, different 67, symbol-missing 0, symbol-extra 0
+  Element::owningMembership: equal 40433, different 275, symbol-missing 0, symbol-extra 0
+  Element::owningNamespace: equal 40416, different 292, symbol-missing 0, symbol-extra 0
+  Element::owningRelationship: equal 40422, different 286, symbol-missing 0, symbol-extra 0
+  Element::qualifiedName: equal 40706, different 2, symbol-missing 0, symbol-extra 0
+  Element::shortName: equal 40605, different 2, symbol-missing 0, symbol-extra 101
+  Expression::result: equal 3974, different 0, symbol-missing 10, symbol-extra 0
+  Feature::direction: equal 16161, different 89, symbol-missing 0, symbol-extra 0
+  Feature::featureTarget: equal 16247, different 3, symbol-missing 0, symbol-extra 0
+  Feature::featuringType: equal 16214, different 36, symbol-missing 0, symbol-extra 0
+  Feature::isComposite: equal 16217, different 33, symbol-missing 0, symbol-extra 0
+  Feature::isConstant: equal 332, different 0, symbol-missing 0, symbol-extra 15918
+  Feature::isVariable: equal 16061, different 0, symbol-missing 0, symbol-extra 189
+  Feature::ownedFeatureInverting: equal 16248, different 2, symbol-missing 0, symbol-extra 0
+  Feature::ownedRedefinition: equal 16095, different 155, symbol-missing 0, symbol-extra 0
+  Feature::ownedReferenceSubsetting: equal 16217, different 33, symbol-missing 0, symbol-extra 0
+  Feature::ownedSubsetting: equal 16057, different 193, symbol-missing 0, symbol-extra 0
+  Feature::ownedTyping: equal 16232, different 18, symbol-missing 0, symbol-extra 0
+  Feature::owningFeatureMembership: equal 16221, different 29, symbol-missing 0, symbol-extra 0
+  Feature::owningType: equal 16214, different 36, symbol-missing 0, symbol-extra 0
+  Feature::type: equal 16244, different 6, symbol-missing 0, symbol-extra 0
+  FeatureChainExpression::targetFeature: equal 178, different 0, symbol-missing 0, symbol-extra 150
+  FeatureMembership::owningType: equal 9497, different 10, symbol-missing 0, symbol-extra 0
+  FeatureReferenceExpression::referent: equal 772, different 29, symbol-missing 0, symbol-extra 66
+  FeatureValue::featureWithValue: equal 3375, different 23, symbol-missing 0, symbol-extra 0
+  FeatureValue::value: equal 3385, different 13, symbol-missing 0, symbol-extra 0
   Flow::payloadFeature: equal 4, different 53, symbol-missing 0, symbol-extra 0
   Flow::payloadType: equal 4, different 36, symbol-missing 0, symbol-extra 17
   Function::expression: equal 116, different 47, symbol-missing 0, symbol-extra 0
-  InstantiationExpression::argument: equal 830, different 18, symbol-missing 0, symbol-extra 0
-  InvocationExpression::operand: equal 2, different 838, symbol-missing 0, symbol-extra 0
-  Membership::memberElement: equal 17422, different 31, symbol-missing 0, symbol-extra 0
-  Membership::memberElementId: equal 6034, different 15, symbol-missing 11389, symbol-extra 15
-  Membership::memberName: equal 17437, different 16, symbol-missing 0, symbol-extra 0
-  Membership::memberShortName: equal 17350, different 2, symbol-missing 0, symbol-extra 101
-  Membership::membershipOwningNamespace: equal 17420, different 33, symbol-missing 0, symbol-extra 0
+  InstantiationExpression::argument: equal 881, different 18, symbol-missing 0, symbol-extra 0
+  InvocationExpression::operand: equal 2, different 889, symbol-missing 0, symbol-extra 0
+  Membership::memberElement: equal 17814, different 31, symbol-missing 0, symbol-extra 0
+  Membership::memberElementId: equal 6094, different 16, symbol-missing 11720, symbol-extra 15
+  Membership::memberName: equal 17829, different 16, symbol-missing 0, symbol-extra 0
+  Membership::memberShortName: equal 17742, different 2, symbol-missing 0, symbol-extra 101
+  Membership::membershipOwningNamespace: equal 17812, different 33, symbol-missing 0, symbol-extra 0
   MultiplicityRange::bound: equal 0, different 3, symbol-missing 0, symbol-extra 0
   MultiplicityRange::lowerBound: equal 0, different 3, symbol-missing 0, symbol-extra 0
   MultiplicityRange::upperBound: equal 0, different 3, symbol-missing 0, symbol-extra 0
-  Namespace::member: equal 15533, different 1185, symbol-missing 6, symbol-extra 2
-  Namespace::membership: equal 15343, different 1375, symbol-missing 6, symbol-extra 2
-  Namespace::ownedMember: equal 15877, different 849, symbol-missing 0, symbol-extra 0
-  Namespace::ownedMembership: equal 15672, different 1054, symbol-missing 0, symbol-extra 0
-  OwningMembership::ownedMemberElement: equal 16345, different 13, symbol-missing 0, symbol-extra 0
-  OwningMembership::ownedMemberElementId: equal 4954, different 15, symbol-missing 11389, symbol-extra 0
-  OwningMembership::ownedMemberName: equal 16342, different 16, symbol-missing 0, symbol-extra 0
-  OwningMembership::ownedMemberShortName: equal 16257, different 0, symbol-missing 0, symbol-extra 101
-  Relationship::ownedRelatedElement: equal 23590, different 104, symbol-missing 0, symbol-extra 0
-  Relationship::owningRelatedElement: equal 23661, different 33, symbol-missing 0, symbol-extra 0
-  Relationship::relatedElement: equal 23454, different 71, symbol-missing 158, symbol-extra 11
-  Relationship::source: equal 23579, different 34, symbol-missing 79, symbol-extra 2
-  Relationship::target: equal 23474, different 51, symbol-missing 158, symbol-extra 11
+  Namespace::member: equal 15913, different 1136, symbol-missing 6, symbol-extra 2
+  Namespace::membership: equal 15723, different 1326, symbol-missing 6, symbol-extra 2
+  Namespace::ownedMember: equal 16257, different 800, symbol-missing 0, symbol-extra 0
+  Namespace::ownedMembership: equal 16052, different 1005, symbol-missing 0, symbol-extra 0
+  OwningMembership::ownedMemberElement: equal 16676, different 13, symbol-missing 0, symbol-extra 0
+  OwningMembership::ownedMemberElementId: equal 4954, different 15, symbol-missing 11720, symbol-extra 0
+  OwningMembership::ownedMemberName: equal 16673, different 16, symbol-missing 0, symbol-extra 0
+  OwningMembership::ownedMemberShortName: equal 16588, different 0, symbol-missing 0, symbol-extra 101
+  Relationship::ownedRelatedElement: equal 23982, different 104, symbol-missing 0, symbol-extra 0
+  Relationship::owningRelatedElement: equal 24053, different 33, symbol-missing 0, symbol-extra 0
+  Relationship::relatedElement: equal 23846, different 71, symbol-missing 158, symbol-extra 11
+  Relationship::source: equal 23971, different 34, symbol-missing 79, symbol-extra 2
+  Relationship::target: equal 23866, different 51, symbol-missing 158, symbol-extra 11
   RequirementDefinition::text: equal 23, different 0, symbol-missing 37, symbol-extra 0
   RequirementUsage::text: equal 212, different 0, symbol-missing 9, symbol-extra 0
   StateUsage::entryAction: equal 141, different 3, symbol-missing 0, symbol-extra 0
-  Step::parameter: equal 4636, different 30, symbol-missing 0, symbol-extra 0
-  TransitionUsage::guardExpression: equal 68, different 47, symbol-missing 0, symbol-extra 0
-  Type::directedFeature: equal 16546, different 65, symbol-missing 6, symbol-extra 2
-  Type::endFeature: equal 16611, different 0, symbol-missing 6, symbol-extra 2
-  Type::feature: equal 16075, different 536, symbol-missing 6, symbol-extra 2
-  Type::featureMembership: equal 16092, different 519, symbol-missing 6, symbol-extra 2
-  Type::inheritedFeature: equal 16285, different 326, symbol-missing 6, symbol-extra 2
-  Type::inheritedMembership: equal 16026, different 585, symbol-missing 6, symbol-extra 2
-  Type::input: equal 16572, different 39, symbol-missing 6, symbol-extra 2
-  Type::multiplicity: equal 16388, different 231, symbol-missing 0, symbol-extra 0
-  Type::output: equal 16585, different 26, symbol-missing 6, symbol-extra 2
-  Type::ownedConjugator: equal 16599, different 20, symbol-missing 0, symbol-extra 0
-  Type::ownedFeature: equal 16387, different 232, symbol-missing 0, symbol-extra 0
-  Type::ownedFeatureMembership: equal 16385, different 234, symbol-missing 0, symbol-extra 0
-  Type::ownedSpecialization: equal 16408, different 211, symbol-missing 0, symbol-extra 0
-  Type::ownedUnioning: equal 16618, different 1, symbol-missing 0, symbol-extra 0
-  Type::unioningType: equal 16618, different 1, symbol-missing 0, symbol-extra 0
+  Step::parameter: equal 4771, different 30, symbol-missing 0, symbol-extra 0
+  Type::directedFeature: equal 16877, different 65, symbol-missing 6, symbol-extra 2
+  Type::endFeature: equal 16942, different 0, symbol-missing 6, symbol-extra 2
+  Type::feature: equal 16453, different 489, symbol-missing 6, symbol-extra 2
+  Type::featureMembership: equal 16470, different 472, symbol-missing 6, symbol-extra 2
+  Type::inheritedFeature: equal 16616, different 326, symbol-missing 6, symbol-extra 2
+  Type::inheritedMembership: equal 16357, different 585, symbol-missing 6, symbol-extra 2
+  Type::input: equal 16903, different 39, symbol-missing 6, symbol-extra 2
+  Type::multiplicity: equal 16719, different 231, symbol-missing 0, symbol-extra 0
+  Type::output: equal 16916, different 26, symbol-missing 6, symbol-extra 2
+  Type::ownedConjugator: equal 16930, different 20, symbol-missing 0, symbol-extra 0
+  Type::ownedFeature: equal 16765, different 185, symbol-missing 0, symbol-extra 0
+  Type::ownedFeatureMembership: equal 16763, different 187, symbol-missing 0, symbol-extra 0
+  Type::ownedSpecialization: equal 16739, different 211, symbol-missing 0, symbol-extra 0
+  Type::ownedUnioning: equal 16949, different 1, symbol-missing 0, symbol-extra 0
+  Type::unioningType: equal 16949, different 1, symbol-missing 0, symbol-extra 0
   Usage::directedUsage: equal 7050, different 19, symbol-missing 6, symbol-extra 2
   Usage::isReference: equal 7044, different 33, symbol-missing 0, symbol-extra 0
   Usage::mayTimeVary: equal 7074, different 0, symbol-missing 3, symbol-extra 0
@@ -177,7 +176,7 @@ root tests/testdata: models 40, skipped 0, matched 1623, unmatched 476
   Usage::nestedUsage: equal 236, different 14, symbol-missing 0, symbol-extra 0
   Usage::owningUsage: equal 246, different 4, symbol-missing 0, symbol-extra 0
   Usage::usage: equal 229, different 13, symbol-missing 0, symbol-extra 8
-root examples/sysml-v2-training: models 100, skipped 0, matched 9799, unmatched 1468
+root examples/sysml-v2-training: models 100, skipped 0, matched 9835, unmatched 1432
   AcceptActionUsage::receiverArgument: equal 29, different 4, symbol-missing 0, symbol-extra 0
   AnnotatingElement::annotation: equal 45, different 6, symbol-missing 0, symbol-extra 0
   Behavior::step: equal 80, different 5, symbol-missing 0, symbol-extra 0
@@ -192,80 +191,80 @@ root examples/sysml-v2-training: models 100, skipped 0, matched 9799, unmatched 
   Definition::ownedTransition: equal 344, different 1, symbol-missing 0, symbol-extra 0
   Definition::ownedUsage: equal 335, different 10, symbol-missing 0, symbol-extra 0
   Definition::usage: equal 336, different 9, symbol-missing 0, symbol-extra 0
-  Element::documentation: equal 9798, different 1, symbol-missing 0, symbol-extra 0
-  Element::name: equal 9795, different 2, symbol-missing 0, symbol-extra 2
-  Element::ownedAnnotation: equal 9793, different 6, symbol-missing 0, symbol-extra 0
-  Element::ownedElement: equal 9626, different 173, symbol-missing 0, symbol-extra 0
-  Element::ownedRelationship: equal 9533, different 266, symbol-missing 0, symbol-extra 0
-  Element::owner: equal 9787, different 12, symbol-missing 0, symbol-extra 0
-  Element::owningMembership: equal 9789, different 10, symbol-missing 0, symbol-extra 0
-  Element::owningNamespace: equal 9787, different 12, symbol-missing 0, symbol-extra 0
-  Element::owningRelationship: equal 9787, different 12, symbol-missing 0, symbol-extra 0
-  Element::qualifiedName: equal 9794, different 0, symbol-missing 0, symbol-extra 5
-  Element::shortName: equal 9727, different 0, symbol-missing 0, symbol-extra 72
-  Expression::function: equal 638, different 0, symbol-missing 0, symbol-extra 2
-  Expression::result: equal 638, different 0, symbol-missing 2, symbol-extra 0
-  Feature::chainingFeature: equal 3655, different 1, symbol-missing 0, symbol-extra 0
-  Feature::direction: equal 3618, different 38, symbol-missing 0, symbol-extra 0
-  Feature::featuringType: equal 3649, different 7, symbol-missing 0, symbol-extra 0
-  Feature::isComposite: equal 3628, different 28, symbol-missing 0, symbol-extra 0
-  Feature::isConstant: equal 40, different 0, symbol-missing 0, symbol-extra 3616
-  Feature::ownedRedefinition: equal 3640, different 16, symbol-missing 0, symbol-extra 0
-  Feature::ownedReferenceSubsetting: equal 3650, different 6, symbol-missing 0, symbol-extra 0
-  Feature::ownedSubsetting: equal 3633, different 23, symbol-missing 0, symbol-extra 0
-  Feature::ownedTyping: equal 3650, different 6, symbol-missing 0, symbol-extra 0
-  Feature::owningFeatureMembership: equal 3650, different 6, symbol-missing 0, symbol-extra 0
-  Feature::owningType: equal 3650, different 6, symbol-missing 0, symbol-extra 0
-  Feature::type: equal 3649, different 5, symbol-missing 0, symbol-extra 2
-  FeatureChainExpression::targetFeature: equal 66, different 0, symbol-missing 0, symbol-extra 12
-  FeatureMembership::owningType: equal 2494, different 2, symbol-missing 0, symbol-extra 0
-  FeatureReferenceExpression::referent: equal 234, different 6, symbol-missing 0, symbol-extra 38
-  FeatureValue::featureWithValue: equal 552, different 4, symbol-missing 0, symbol-extra 0
-  FeatureValue::value: equal 554, different 2, symbol-missing 0, symbol-extra 0
+  Element::documentation: equal 9834, different 1, symbol-missing 0, symbol-extra 0
+  Element::name: equal 9831, different 2, symbol-missing 0, symbol-extra 2
+  Element::ownedAnnotation: equal 9829, different 6, symbol-missing 0, symbol-extra 0
+  Element::ownedElement: equal 9665, different 170, symbol-missing 0, symbol-extra 0
+  Element::ownedRelationship: equal 9571, different 264, symbol-missing 0, symbol-extra 0
+  Element::owner: equal 9823, different 12, symbol-missing 0, symbol-extra 0
+  Element::owningMembership: equal 9825, different 10, symbol-missing 0, symbol-extra 0
+  Element::owningNamespace: equal 9823, different 12, symbol-missing 0, symbol-extra 0
+  Element::owningRelationship: equal 9823, different 12, symbol-missing 0, symbol-extra 0
+  Element::qualifiedName: equal 9830, different 0, symbol-missing 0, symbol-extra 5
+  Element::shortName: equal 9763, different 0, symbol-missing 0, symbol-extra 72
+  Expression::function: equal 644, different 0, symbol-missing 0, symbol-extra 2
+  Expression::result: equal 644, different 0, symbol-missing 2, symbol-extra 0
+  Feature::chainingFeature: equal 3670, different 1, symbol-missing 0, symbol-extra 0
+  Feature::direction: equal 3633, different 38, symbol-missing 0, symbol-extra 0
+  Feature::featuringType: equal 3664, different 7, symbol-missing 0, symbol-extra 0
+  Feature::isComposite: equal 3643, different 28, symbol-missing 0, symbol-extra 0
+  Feature::isConstant: equal 40, different 0, symbol-missing 0, symbol-extra 3631
+  Feature::ownedRedefinition: equal 3655, different 16, symbol-missing 0, symbol-extra 0
+  Feature::ownedReferenceSubsetting: equal 3665, different 6, symbol-missing 0, symbol-extra 0
+  Feature::ownedSubsetting: equal 3648, different 23, symbol-missing 0, symbol-extra 0
+  Feature::ownedTyping: equal 3665, different 6, symbol-missing 0, symbol-extra 0
+  Feature::owningFeatureMembership: equal 3665, different 6, symbol-missing 0, symbol-extra 0
+  Feature::owningType: equal 3665, different 6, symbol-missing 0, symbol-extra 0
+  Feature::type: equal 3664, different 5, symbol-missing 0, symbol-extra 2
+  FeatureChainExpression::targetFeature: equal 69, different 0, symbol-missing 0, symbol-extra 12
+  FeatureMembership::owningType: equal 2504, different 2, symbol-missing 0, symbol-extra 0
+  FeatureReferenceExpression::referent: equal 237, different 6, symbol-missing 0, symbol-extra 38
+  FeatureValue::featureWithValue: equal 557, different 4, symbol-missing 0, symbol-extra 0
+  FeatureValue::value: equal 559, different 2, symbol-missing 0, symbol-extra 0
   Flow::payloadFeature: equal 25, different 14, symbol-missing 0, symbol-extra 0
   Flow::payloadType: equal 25, different 8, symbol-missing 0, symbol-extra 6
-  InstantiationExpression::argument: equal 225, different 5, symbol-missing 0, symbol-extra 0
-  InvocationExpression::operand: equal 0, different 222, symbol-missing 0, symbol-extra 0
-  Membership::memberElement: equal 4320, different 11, symbol-missing 0, symbol-extra 0
-  Membership::memberElementId: equal 1738, different 2, symbol-missing 2582, symbol-extra 9
-  Membership::memberName: equal 4325, different 4, symbol-missing 0, symbol-extra 2
-  Membership::memberShortName: equal 4259, different 0, symbol-missing 0, symbol-extra 72
-  Membership::membershipOwningNamespace: equal 4325, different 6, symbol-missing 0, symbol-extra 0
-  Namespace::member: equal 3862, different 228, symbol-missing 3, symbol-extra 18
-  Namespace::membership: equal 3814, different 276, symbol-missing 3, symbol-extra 18
-  Namespace::ownedMember: equal 3953, different 158, symbol-missing 0, symbol-extra 0
-  Namespace::ownedMembership: equal 3878, different 233, symbol-missing 0, symbol-extra 0
+  InstantiationExpression::argument: equal 228, different 5, symbol-missing 0, symbol-extra 0
+  InvocationExpression::operand: equal 0, different 225, symbol-missing 0, symbol-extra 0
+  Membership::memberElement: equal 4341, different 11, symbol-missing 0, symbol-extra 0
+  Membership::memberElementId: equal 1744, different 2, symbol-missing 2597, symbol-extra 9
+  Membership::memberName: equal 4346, different 4, symbol-missing 0, symbol-extra 2
+  Membership::memberShortName: equal 4280, different 0, symbol-missing 0, symbol-extra 72
+  Membership::membershipOwningNamespace: equal 4346, different 6, symbol-missing 0, symbol-extra 0
+  Namespace::member: equal 3879, different 226, symbol-missing 3, symbol-extra 18
+  Namespace::membership: equal 3831, different 274, symbol-missing 3, symbol-extra 18
+  Namespace::ownedMember: equal 3971, different 155, symbol-missing 0, symbol-extra 0
+  Namespace::ownedMembership: equal 3895, different 231, symbol-missing 0, symbol-extra 0
   OccurrenceUsage::individualDefinition: equal 777, different 0, symbol-missing 0, symbol-extra 2
   OccurrenceUsage::occurrenceDefinition: equal 777, different 0, symbol-missing 0, symbol-extra 2
-  OwningMembership::ownedMemberElement: equal 3987, different 2, symbol-missing 0, symbol-extra 0
-  OwningMembership::ownedMemberElementId: equal 1405, different 2, symbol-missing 2582, symbol-extra 0
-  OwningMembership::ownedMemberName: equal 3974, different 13, symbol-missing 0, symbol-extra 2
-  OwningMembership::ownedMemberShortName: equal 3917, different 0, symbol-missing 0, symbol-extra 72
-  Relationship::ownedRelatedElement: equal 5801, different 23, symbol-missing 0, symbol-extra 0
-  Relationship::owningRelatedElement: equal 5818, different 6, symbol-missing 0, symbol-extra 0
-  Relationship::relatedElement: equal 5757, different 20, symbol-missing 34, symbol-extra 13
-  Relationship::source: equal 5806, different 6, symbol-missing 12, symbol-extra 0
-  Relationship::target: equal 5761, different 16, symbol-missing 34, symbol-extra 13
+  OwningMembership::ownedMemberElement: equal 4002, different 2, symbol-missing 0, symbol-extra 0
+  OwningMembership::ownedMemberElementId: equal 1405, different 2, symbol-missing 2597, symbol-extra 0
+  OwningMembership::ownedMemberName: equal 3989, different 13, symbol-missing 0, symbol-extra 2
+  OwningMembership::ownedMemberShortName: equal 3932, different 0, symbol-missing 0, symbol-extra 72
+  Relationship::ownedRelatedElement: equal 5822, different 23, symbol-missing 0, symbol-extra 0
+  Relationship::owningRelatedElement: equal 5839, different 6, symbol-missing 0, symbol-extra 0
+  Relationship::relatedElement: equal 5778, different 20, symbol-missing 34, symbol-extra 13
+  Relationship::source: equal 5827, different 6, symbol-missing 12, symbol-extra 0
+  Relationship::target: equal 5782, different 16, symbol-missing 34, symbol-extra 13
   RequirementDefinition::text: equal 0, different 0, symbol-missing 4, symbol-extra 0
   RequirementUsage::text: equal 16, different 0, symbol-missing 6, symbol-extra 0
   StateUsage::entryAction: equal 34, different 2, symbol-missing 0, symbol-extra 0
-  Step::behavior: equal 880, different 0, symbol-missing 0, symbol-extra 2
-  Step::parameter: equal 868, different 14, symbol-missing 0, symbol-extra 0
-  TransitionUsage::guardExpression: equal 27, different 2, symbol-missing 0, symbol-extra 0
+  Step::behavior: equal 886, different 0, symbol-missing 0, symbol-extra 2
+  Step::parameter: equal 874, different 14, symbol-missing 0, symbol-extra 0
+  TransitionUsage::guardExpression: equal 28, different 1, symbol-missing 0, symbol-extra 0
   TransitionUsage::succession: equal 28, different 1, symbol-missing 0, symbol-extra 0
-  Type::directedFeature: equal 3925, different 56, symbol-missing 3, symbol-extra 18
-  Type::endFeature: equal 3981, different 0, symbol-missing 3, symbol-extra 18
-  Type::feature: equal 3884, different 97, symbol-missing 3, symbol-extra 18
-  Type::featureMembership: equal 3884, different 97, symbol-missing 3, symbol-extra 18
-  Type::inheritedFeature: equal 3923, different 58, symbol-missing 3, symbol-extra 18
-  Type::inheritedMembership: equal 3888, different 93, symbol-missing 3, symbol-extra 18
-  Type::input: equal 3945, different 36, symbol-missing 3, symbol-extra 18
-  Type::multiplicity: equal 3915, different 87, symbol-missing 0, symbol-extra 0
-  Type::output: equal 3961, different 20, symbol-missing 3, symbol-extra 18
-  Type::ownedConjugator: equal 3994, different 8, symbol-missing 0, symbol-extra 0
-  Type::ownedFeature: equal 3951, different 51, symbol-missing 0, symbol-extra 0
-  Type::ownedFeatureMembership: equal 3949, different 53, symbol-missing 0, symbol-extra 0
-  Type::ownedSpecialization: equal 3973, different 29, symbol-missing 0, symbol-extra 0
+  Type::directedFeature: equal 3940, different 56, symbol-missing 3, symbol-extra 18
+  Type::endFeature: equal 3996, different 0, symbol-missing 3, symbol-extra 18
+  Type::feature: equal 3900, different 96, symbol-missing 3, symbol-extra 18
+  Type::featureMembership: equal 3900, different 96, symbol-missing 3, symbol-extra 18
+  Type::inheritedFeature: equal 3938, different 58, symbol-missing 3, symbol-extra 18
+  Type::inheritedMembership: equal 3903, different 93, symbol-missing 3, symbol-extra 18
+  Type::input: equal 3960, different 36, symbol-missing 3, symbol-extra 18
+  Type::multiplicity: equal 3930, different 87, symbol-missing 0, symbol-extra 0
+  Type::output: equal 3976, different 20, symbol-missing 3, symbol-extra 18
+  Type::ownedConjugator: equal 4009, different 8, symbol-missing 0, symbol-extra 0
+  Type::ownedFeature: equal 3967, different 50, symbol-missing 0, symbol-extra 0
+  Type::ownedFeatureMembership: equal 3965, different 52, symbol-missing 0, symbol-extra 0
+  Type::ownedSpecialization: equal 3988, different 29, symbol-missing 0, symbol-extra 0
   Usage::definition: equal 1736, different 0, symbol-missing 0, symbol-extra 2
   Usage::directedUsage: equal 1702, different 18, symbol-missing 3, symbol-extra 15
   Usage::isReference: equal 1710, different 28, symbol-missing 0, symbol-extra 0
@@ -279,7 +278,7 @@ root examples/sysml-v2-training: models 100, skipped 0, matched 9799, unmatched 
   Usage::nestedUsage: equal 1708, different 30, symbol-missing 0, symbol-extra 0
   Usage::owningDefinition: equal 1731, different 7, symbol-missing 0, symbol-extra 0
   Usage::usage: equal 1665, different 55, symbol-missing 3, symbol-extra 15
-root examples/pilot-corpora: models 213, skipped 0, matched 53592, unmatched 7869
+root examples/pilot-corpora: models 213, skipped 0, matched 53974, unmatched 7487
   AcceptActionUsage::receiverArgument: equal 72, different 7, symbol-missing 0, symbol-extra 0
   AnnotatingElement::annotatedElement: equal 669, different 0, symbol-missing 0, symbol-extra 1
   AnnotatingElement::annotation: equal 500, different 169, symbol-missing 0, symbol-extra 1
@@ -303,69 +302,69 @@ root examples/pilot-corpora: models 213, skipped 0, matched 53592, unmatched 786
   Definition::ownedTransition: equal 1112, different 1, symbol-missing 0, symbol-extra 0
   Definition::ownedUsage: equal 1097, different 16, symbol-missing 0, symbol-extra 0
   Definition::usage: equal 1106, different 7, symbol-missing 0, symbol-extra 0
-  Element::documentation: equal 53591, different 1, symbol-missing 0, symbol-extra 0
-  Element::name: equal 53573, different 18, symbol-missing 0, symbol-extra 1
-  Element::ownedAnnotation: equal 53427, different 165, symbol-missing 0, symbol-extra 0
-  Element::ownedElement: equal 52403, different 1189, symbol-missing 0, symbol-extra 0
-  Element::ownedRelationship: equal 51846, different 1746, symbol-missing 0, symbol-extra 0
-  Element::owner: equal 53481, different 111, symbol-missing 0, symbol-extra 0
-  Element::owningMembership: equal 53390, different 202, symbol-missing 0, symbol-extra 0
-  Element::owningNamespace: equal 53365, different 227, symbol-missing 0, symbol-extra 0
-  Element::owningRelationship: equal 53363, different 229, symbol-missing 0, symbol-extra 0
-  Element::qualifiedName: equal 53584, different 7, symbol-missing 0, symbol-extra 1
-  Element::shortName: equal 53382, different 10, symbol-missing 0, symbol-extra 200
-  Expression::function: equal 4136, different 0, symbol-missing 1, symbol-extra 0
-  Expression::result: equal 4122, different 1, symbol-missing 14, symbol-extra 0
-  Feature::chainingFeature: equal 19697, different 25, symbol-missing 0, symbol-extra 9
-  Feature::crossFeature: equal 19716, different 15, symbol-missing 0, symbol-extra 0
-  Feature::direction: equal 19592, different 139, symbol-missing 0, symbol-extra 0
-  Feature::featureTarget: equal 19719, different 3, symbol-missing 0, symbol-extra 9
-  Feature::featuringType: equal 19544, different 178, symbol-missing 0, symbol-extra 9
-  Feature::isComposite: equal 19666, different 65, symbol-missing 0, symbol-extra 0
-  Feature::isConstant: equal 374, different 0, symbol-missing 0, symbol-extra 19357
-  Feature::isVariable: equal 18705, different 0, symbol-missing 0, symbol-extra 1026
-  Feature::ownedCrossSubsetting: equal 19716, different 15, symbol-missing 0, symbol-extra 0
-  Feature::ownedFeatureChaining: equal 19730, different 1, symbol-missing 0, symbol-extra 0
-  Feature::ownedFeatureInverting: equal 19729, different 2, symbol-missing 0, symbol-extra 0
-  Feature::ownedRedefinition: equal 19649, different 82, symbol-missing 0, symbol-extra 0
-  Feature::ownedReferenceSubsetting: equal 19649, different 82, symbol-missing 0, symbol-extra 0
-  Feature::ownedSubsetting: equal 19535, different 196, symbol-missing 0, symbol-extra 0
-  Feature::ownedTypeFeaturing: equal 19659, different 72, symbol-missing 0, symbol-extra 0
-  Feature::ownedTyping: equal 19683, different 48, symbol-missing 0, symbol-extra 0
-  Feature::owningFeatureMembership: equal 19603, different 128, symbol-missing 0, symbol-extra 0
-  Feature::owningType: equal 19591, different 140, symbol-missing 0, symbol-extra 0
-  Feature::type: equal 19671, different 40, symbol-missing 1, symbol-extra 19
-  FeatureChainExpression::targetFeature: equal 340, different 0, symbol-missing 0, symbol-extra 53
-  FeatureMembership::owningType: equal 12826, different 19, symbol-missing 0, symbol-extra 0
-  FeatureReferenceExpression::referent: equal 1416, different 33, symbol-missing 0, symbol-extra 104
-  FeatureValue::featureWithValue: equal 3626, different 31, symbol-missing 0, symbol-extra 0
-  FeatureValue::value: equal 3640, different 17, symbol-missing 0, symbol-extra 0
+  Element::documentation: equal 53973, different 1, symbol-missing 0, symbol-extra 0
+  Element::name: equal 53955, different 18, symbol-missing 0, symbol-extra 1
+  Element::ownedAnnotation: equal 53809, different 165, symbol-missing 0, symbol-extra 0
+  Element::ownedElement: equal 52825, different 1149, symbol-missing 0, symbol-extra 0
+  Element::ownedRelationship: equal 52259, different 1715, symbol-missing 0, symbol-extra 0
+  Element::owner: equal 53863, different 111, symbol-missing 0, symbol-extra 0
+  Element::owningMembership: equal 53772, different 202, symbol-missing 0, symbol-extra 0
+  Element::owningNamespace: equal 53747, different 227, symbol-missing 0, symbol-extra 0
+  Element::owningRelationship: equal 53745, different 229, symbol-missing 0, symbol-extra 0
+  Element::qualifiedName: equal 53966, different 7, symbol-missing 0, symbol-extra 1
+  Element::shortName: equal 53764, different 10, symbol-missing 0, symbol-extra 200
+  Expression::function: equal 4206, different 0, symbol-missing 1, symbol-extra 0
+  Expression::result: equal 4192, different 1, symbol-missing 14, symbol-extra 0
+  Feature::chainingFeature: equal 19862, different 25, symbol-missing 0, symbol-extra 9
+  Feature::crossFeature: equal 19881, different 15, symbol-missing 0, symbol-extra 0
+  Feature::direction: equal 19757, different 139, symbol-missing 0, symbol-extra 0
+  Feature::featureTarget: equal 19884, different 3, symbol-missing 0, symbol-extra 9
+  Feature::featuringType: equal 19709, different 178, symbol-missing 0, symbol-extra 9
+  Feature::isComposite: equal 19831, different 65, symbol-missing 0, symbol-extra 0
+  Feature::isConstant: equal 374, different 0, symbol-missing 0, symbol-extra 19522
+  Feature::isVariable: equal 18870, different 0, symbol-missing 0, symbol-extra 1026
+  Feature::ownedCrossSubsetting: equal 19881, different 15, symbol-missing 0, symbol-extra 0
+  Feature::ownedFeatureChaining: equal 19895, different 1, symbol-missing 0, symbol-extra 0
+  Feature::ownedFeatureInverting: equal 19894, different 2, symbol-missing 0, symbol-extra 0
+  Feature::ownedRedefinition: equal 19814, different 82, symbol-missing 0, symbol-extra 0
+  Feature::ownedReferenceSubsetting: equal 19814, different 82, symbol-missing 0, symbol-extra 0
+  Feature::ownedSubsetting: equal 19700, different 196, symbol-missing 0, symbol-extra 0
+  Feature::ownedTypeFeaturing: equal 19824, different 72, symbol-missing 0, symbol-extra 0
+  Feature::ownedTyping: equal 19848, different 48, symbol-missing 0, symbol-extra 0
+  Feature::owningFeatureMembership: equal 19768, different 128, symbol-missing 0, symbol-extra 0
+  Feature::owningType: equal 19756, different 140, symbol-missing 0, symbol-extra 0
+  Feature::type: equal 19836, different 40, symbol-missing 1, symbol-extra 19
+  FeatureChainExpression::targetFeature: equal 350, different 0, symbol-missing 0, symbol-extra 60
+  FeatureMembership::owningType: equal 12929, different 19, symbol-missing 0, symbol-extra 0
+  FeatureReferenceExpression::referent: equal 1458, different 33, symbol-missing 0, symbol-extra 105
+  FeatureValue::featureWithValue: equal 3688, different 31, symbol-missing 0, symbol-extra 0
+  FeatureValue::value: equal 3702, different 17, symbol-missing 0, symbol-extra 0
   Flow::payloadFeature: equal 80, different 33, symbol-missing 0, symbol-extra 0
   Flow::payloadType: equal 80, different 19, symbol-missing 0, symbol-extra 14
   Function::expression: equal 118, different 6, symbol-missing 0, symbol-extra 0
-  InstantiationExpression::argument: equal 1476, different 11, symbol-missing 0, symbol-extra 0
-  InvocationExpression::operand: equal 1, different 1404, symbol-missing 0, symbol-extra 0
-  Membership::memberElement: equal 23244, different 58, symbol-missing 0, symbol-extra 0
-  Membership::memberElementId: equal 9224, different 39, symbol-missing 14006, symbol-extra 33
-  Membership::memberName: equal 23269, different 32, symbol-missing 0, symbol-extra 1
-  Membership::memberShortName: equal 23092, different 10, symbol-missing 0, symbol-extra 200
-  Membership::membershipOwningNamespace: equal 23252, different 50, symbol-missing 0, symbol-extra 0
-  Namespace::member: equal 19463, different 2160, symbol-missing 6, symbol-extra 56
-  Namespace::membership: equal 19363, different 2260, symbol-missing 6, symbol-extra 56
-  Namespace::ownedMember: equal 20424, different 1261, symbol-missing 0, symbol-extra 0
-  Namespace::ownedMembership: equal 20270, different 1415, symbol-missing 0, symbol-extra 0
+  InstantiationExpression::argument: equal 1505, different 5, symbol-missing 0, symbol-extra 0
+  InvocationExpression::operand: equal 1, different 1427, symbol-missing 0, symbol-extra 0
+  Membership::memberElement: equal 23461, different 58, symbol-missing 0, symbol-extra 0
+  Membership::memberElementId: equal 9265, different 50, symbol-missing 14171, symbol-extra 33
+  Membership::memberName: equal 23486, different 32, symbol-missing 0, symbol-extra 1
+  Membership::memberShortName: equal 23309, different 10, symbol-missing 0, symbol-extra 200
+  Membership::membershipOwningNamespace: equal 23469, different 50, symbol-missing 0, symbol-extra 0
+  Namespace::member: equal 19667, different 2121, symbol-missing 6, symbol-extra 56
+  Namespace::membership: equal 19559, different 2229, symbol-missing 6, symbol-extra 56
+  Namespace::ownedMember: equal 20629, different 1221, symbol-missing 0, symbol-extra 0
+  Namespace::ownedMembership: equal 20466, different 1384, symbol-missing 0, symbol-extra 0
   OccurrenceUsage::individualDefinition: equal 3291, different 0, symbol-missing 1, symbol-extra 8
   OccurrenceUsage::occurrenceDefinition: equal 3291, different 0, symbol-missing 1, symbol-extra 8
-  OwningMembership::ownedMemberElement: equal 21256, different 17, symbol-missing 0, symbol-extra 0
-  OwningMembership::ownedMemberElementId: equal 7236, different 31, symbol-missing 14006, symbol-extra 0
-  OwningMembership::ownedMemberName: equal 21239, different 33, symbol-missing 0, symbol-extra 1
-  OwningMembership::ownedMemberShortName: equal 21073, different 0, symbol-missing 0, symbol-extra 200
+  OwningMembership::ownedMemberElement: equal 21421, different 17, symbol-missing 0, symbol-extra 0
+  OwningMembership::ownedMemberElementId: equal 7236, different 31, symbol-missing 14171, symbol-extra 0
+  OwningMembership::ownedMemberName: equal 21404, different 33, symbol-missing 0, symbol-extra 1
+  OwningMembership::ownedMemberShortName: equal 21238, different 0, symbol-missing 0, symbol-extra 200
   PortUsage::portDefinition: equal 376, different 0, symbol-missing 0, symbol-extra 8
-  Relationship::ownedRelatedElement: equal 32120, different 122, symbol-missing 0, symbol-extra 0
-  Relationship::owningRelatedElement: equal 32192, different 50, symbol-missing 0, symbol-extra 0
-  Relationship::relatedElement: equal 31870, different 193, symbol-missing 133, symbol-extra 46
-  Relationship::source: equal 32098, different 103, symbol-missing 40, symbol-extra 1
-  Relationship::target: equal 31902, different 161, symbol-missing 133, symbol-extra 46
+  Relationship::ownedRelatedElement: equal 32337, different 122, symbol-missing 0, symbol-extra 0
+  Relationship::owningRelatedElement: equal 32409, different 50, symbol-missing 0, symbol-extra 0
+  Relationship::relatedElement: equal 32087, different 193, symbol-missing 133, symbol-extra 46
+  Relationship::source: equal 32315, different 103, symbol-missing 40, symbol-extra 1
+  Relationship::target: equal 32119, different 161, symbol-missing 133, symbol-extra 46
   RequirementDefinition::text: equal 20, different 0, symbol-missing 21, symbol-extra 0
   RequirementUsage::actorParameter: equal 184, different 0, symbol-missing 1, symbol-extra 0
   RequirementUsage::requirementDefinition: equal 184, different 0, symbol-missing 1, symbol-extra 0
@@ -375,31 +374,31 @@ root examples/pilot-corpora: models 213, skipped 0, matched 53592, unmatched 786
   StateDefinition::entryAction: equal 10, different 1, symbol-missing 0, symbol-extra 0
   StateUsage::doAction: equal 132, different 3, symbol-missing 0, symbol-extra 0
   StateUsage::entryAction: equal 132, different 3, symbol-missing 0, symbol-extra 0
-  Step::behavior: equal 5043, different 0, symbol-missing 1, symbol-extra 0
-  Step::parameter: equal 4998, different 46, symbol-missing 0, symbol-extra 0
-  TransitionUsage::guardExpression: equal 73, different 9, symbol-missing 0, symbol-extra 0
+  Step::behavior: equal 5113, different 0, symbol-missing 1, symbol-extra 0
+  Step::parameter: equal 5068, different 46, symbol-missing 0, symbol-extra 0
+  TransitionUsage::guardExpression: equal 81, different 1, symbol-missing 0, symbol-extra 0
   TransitionUsage::succession: equal 81, different 1, symbol-missing 0, symbol-extra 0
-  Type::differencingType: equal 21163, different 5, symbol-missing 0, symbol-extra 0
-  Type::directedFeature: equal 20924, different 182, symbol-missing 6, symbol-extra 56
-  Type::endFeature: equal 21105, different 1, symbol-missing 6, symbol-extra 56
-  Type::feature: equal 20008, different 1098, symbol-missing 6, symbol-extra 56
-  Type::featureMembership: equal 20010, different 1096, symbol-missing 6, symbol-extra 56
-  Type::inheritedFeature: equal 20146, different 960, symbol-missing 6, symbol-extra 56
-  Type::inheritedMembership: equal 19716, different 1390, symbol-missing 6, symbol-extra 56
-  Type::input: equal 20998, different 108, symbol-missing 6, symbol-extra 56
-  Type::intersectingType: equal 21164, different 4, symbol-missing 0, symbol-extra 0
-  Type::isConjugated: equal 21162, different 6, symbol-missing 0, symbol-extra 0
-  Type::multiplicity: equal 20299, different 869, symbol-missing 0, symbol-extra 0
-  Type::output: equal 21029, different 77, symbol-missing 6, symbol-extra 56
-  Type::ownedConjugator: equal 21065, different 103, symbol-missing 0, symbol-extra 0
-  Type::ownedDifferencing: equal 21163, different 5, symbol-missing 0, symbol-extra 0
-  Type::ownedDisjoining: equal 21162, different 6, symbol-missing 0, symbol-extra 0
-  Type::ownedFeature: equal 20942, different 226, symbol-missing 0, symbol-extra 0
-  Type::ownedFeatureMembership: equal 20936, different 232, symbol-missing 0, symbol-extra 0
-  Type::ownedIntersecting: equal 21164, different 4, symbol-missing 0, symbol-extra 0
-  Type::ownedSpecialization: equal 20916, different 252, symbol-missing 0, symbol-extra 0
-  Type::ownedUnioning: equal 21147, different 21, symbol-missing 0, symbol-extra 0
-  Type::unioningType: equal 21147, different 19, symbol-missing 2, symbol-extra 0
+  Type::differencingType: equal 21328, different 5, symbol-missing 0, symbol-extra 0
+  Type::directedFeature: equal 21089, different 182, symbol-missing 6, symbol-extra 56
+  Type::endFeature: equal 21270, different 1, symbol-missing 6, symbol-extra 56
+  Type::feature: equal 20181, different 1090, symbol-missing 6, symbol-extra 56
+  Type::featureMembership: equal 20183, different 1088, symbol-missing 6, symbol-extra 56
+  Type::inheritedFeature: equal 20311, different 960, symbol-missing 6, symbol-extra 56
+  Type::inheritedMembership: equal 19881, different 1390, symbol-missing 6, symbol-extra 56
+  Type::input: equal 21163, different 108, symbol-missing 6, symbol-extra 56
+  Type::intersectingType: equal 21329, different 4, symbol-missing 0, symbol-extra 0
+  Type::isConjugated: equal 21327, different 6, symbol-missing 0, symbol-extra 0
+  Type::multiplicity: equal 20464, different 869, symbol-missing 0, symbol-extra 0
+  Type::output: equal 21194, different 77, symbol-missing 6, symbol-extra 56
+  Type::ownedConjugator: equal 21230, different 103, symbol-missing 0, symbol-extra 0
+  Type::ownedDifferencing: equal 21328, different 5, symbol-missing 0, symbol-extra 0
+  Type::ownedDisjoining: equal 21327, different 6, symbol-missing 0, symbol-extra 0
+  Type::ownedFeature: equal 21115, different 218, symbol-missing 0, symbol-extra 0
+  Type::ownedFeatureMembership: equal 21109, different 224, symbol-missing 0, symbol-extra 0
+  Type::ownedIntersecting: equal 21329, different 4, symbol-missing 0, symbol-extra 0
+  Type::ownedSpecialization: equal 21081, different 252, symbol-missing 0, symbol-extra 0
+  Type::ownedUnioning: equal 21312, different 21, symbol-missing 0, symbol-extra 0
+  Type::unioningType: equal 21312, different 19, symbol-missing 2, symbol-extra 0
   Usage::definition: equal 8118, different 1, symbol-missing 1, symbol-extra 10
   Usage::directedUsage: equal 8013, different 67, symbol-missing 6, symbol-extra 44
   Usage::isReference: equal 8065, different 65, symbol-missing 0, symbol-extra 0
@@ -417,7 +416,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 53592, unmatched 786
   Usage::owningDefinition: equal 8127, different 3, symbol-missing 0, symbol-extra 0
   Usage::owningUsage: equal 7899, different 231, symbol-missing 0, symbol-extra 0
   Usage::usage: equal 7608, different 472, symbol-missing 6, symbol-extra 44
-root examples/spec-examples: models 473, skipped 38, matched 8734, unmatched 2932
+root examples/spec-examples: models 473, skipped 38, matched 8836, unmatched 2830
   AcceptActionUsage::receiverArgument: equal 19, different 5, symbol-missing 0, symbol-extra 0
   AnnotatingElement::annotatedElement: equal 50, different 12, symbol-missing 0, symbol-extra 0
   AnnotatingElement::annotation: equal 40, different 22, symbol-missing 0, symbol-extra 0
@@ -441,95 +440,95 @@ root examples/spec-examples: models 473, skipped 38, matched 8734, unmatched 293
   Definition::ownedUsage: equal 211, different 13, symbol-missing 0, symbol-extra 0
   Definition::usage: equal 212, different 12, symbol-missing 0, symbol-extra 0
   Documentation::documentedElement: equal 11, different 9, symbol-missing 0, symbol-extra 0
-  Element::documentation: equal 8723, different 11, symbol-missing 0, symbol-extra 0
-  Element::name: equal 8731, different 1, symbol-missing 0, symbol-extra 2
-  Element::ownedAnnotation: equal 8715, different 19, symbol-missing 0, symbol-extra 0
-  Element::ownedElement: equal 8368, different 366, symbol-missing 0, symbol-extra 0
-  Element::ownedRelationship: equal 8260, different 474, symbol-missing 0, symbol-extra 0
-  Element::owner: equal 8694, different 40, symbol-missing 0, symbol-extra 0
-  Element::owningMembership: equal 8716, different 18, symbol-missing 0, symbol-extra 0
-  Element::owningNamespace: equal 8708, different 26, symbol-missing 0, symbol-extra 0
-  Element::owningRelationship: equal 8704, different 30, symbol-missing 0, symbol-extra 0
-  Element::qualifiedName: equal 8731, different 0, symbol-missing 0, symbol-extra 3
-  Element::shortName: equal 8685, different 0, symbol-missing 4, symbol-extra 45
-  Expression::result: equal 434, different 2, symbol-missing 4, symbol-extra 0
-  Feature::crossFeature: equal 2807, different 9, symbol-missing 2, symbol-extra 0
-  Feature::direction: equal 2804, different 14, symbol-missing 0, symbol-extra 0
-  Feature::featuringType: equal 2789, different 27, symbol-missing 2, symbol-extra 0
-  Feature::isComposite: equal 2806, different 12, symbol-missing 0, symbol-extra 0
-  Feature::isConstant: equal 92, different 0, symbol-missing 0, symbol-extra 2726
-  Feature::isVariable: equal 2461, different 0, symbol-missing 0, symbol-extra 357
-  Feature::ownedCrossSubsetting: equal 2807, different 11, symbol-missing 0, symbol-extra 0
-  Feature::ownedFeatureInverting: equal 2815, different 3, symbol-missing 0, symbol-extra 0
-  Feature::ownedRedefinition: equal 2817, different 1, symbol-missing 0, symbol-extra 0
-  Feature::ownedReferenceSubsetting: equal 2805, different 13, symbol-missing 0, symbol-extra 0
-  Feature::ownedSubsetting: equal 2783, different 35, symbol-missing 0, symbol-extra 0
-  Feature::ownedTypeFeaturing: equal 2810, different 8, symbol-missing 0, symbol-extra 0
-  Feature::ownedTyping: equal 2811, different 7, symbol-missing 0, symbol-extra 0
-  Feature::owningFeatureMembership: equal 2796, different 22, symbol-missing 0, symbol-extra 0
-  Feature::owningType: equal 2792, different 26, symbol-missing 0, symbol-extra 0
-  Feature::type: equal 2809, different 6, symbol-missing 0, symbol-extra 3
-  FeatureChainExpression::targetFeature: equal 12, different 0, symbol-missing 0, symbol-extra 12
-  FeatureMembership::owningType: equal 1947, different 6, symbol-missing 0, symbol-extra 0
-  FeatureReferenceExpression::referent: equal 103, different 8, symbol-missing 0, symbol-extra 53
-  FeatureValue::featureWithValue: equal 302, different 6, symbol-missing 0, symbol-extra 0
-  FeatureValue::value: equal 306, different 2, symbol-missing 0, symbol-extra 0
+  Element::documentation: equal 8825, different 11, symbol-missing 0, symbol-extra 0
+  Element::name: equal 8833, different 1, symbol-missing 0, symbol-extra 2
+  Element::ownedAnnotation: equal 8817, different 19, symbol-missing 0, symbol-extra 0
+  Element::ownedElement: equal 8485, different 351, symbol-missing 0, symbol-extra 0
+  Element::ownedRelationship: equal 8370, different 466, symbol-missing 0, symbol-extra 0
+  Element::owner: equal 8796, different 40, symbol-missing 0, symbol-extra 0
+  Element::owningMembership: equal 8818, different 18, symbol-missing 0, symbol-extra 0
+  Element::owningNamespace: equal 8810, different 26, symbol-missing 0, symbol-extra 0
+  Element::owningRelationship: equal 8806, different 30, symbol-missing 0, symbol-extra 0
+  Element::qualifiedName: equal 8833, different 0, symbol-missing 0, symbol-extra 3
+  Element::shortName: equal 8787, different 0, symbol-missing 4, symbol-extra 45
+  Expression::result: equal 454, different 2, symbol-missing 4, symbol-extra 0
+  Feature::crossFeature: equal 2852, different 9, symbol-missing 2, symbol-extra 0
+  Feature::direction: equal 2849, different 14, symbol-missing 0, symbol-extra 0
+  Feature::featuringType: equal 2834, different 27, symbol-missing 2, symbol-extra 0
+  Feature::isComposite: equal 2851, different 12, symbol-missing 0, symbol-extra 0
+  Feature::isConstant: equal 92, different 0, symbol-missing 0, symbol-extra 2771
+  Feature::isVariable: equal 2506, different 0, symbol-missing 0, symbol-extra 357
+  Feature::ownedCrossSubsetting: equal 2852, different 11, symbol-missing 0, symbol-extra 0
+  Feature::ownedFeatureInverting: equal 2860, different 3, symbol-missing 0, symbol-extra 0
+  Feature::ownedRedefinition: equal 2862, different 1, symbol-missing 0, symbol-extra 0
+  Feature::ownedReferenceSubsetting: equal 2850, different 13, symbol-missing 0, symbol-extra 0
+  Feature::ownedSubsetting: equal 2828, different 35, symbol-missing 0, symbol-extra 0
+  Feature::ownedTypeFeaturing: equal 2855, different 8, symbol-missing 0, symbol-extra 0
+  Feature::ownedTyping: equal 2856, different 7, symbol-missing 0, symbol-extra 0
+  Feature::owningFeatureMembership: equal 2841, different 22, symbol-missing 0, symbol-extra 0
+  Feature::owningType: equal 2837, different 26, symbol-missing 0, symbol-extra 0
+  Feature::type: equal 2854, different 6, symbol-missing 0, symbol-extra 3
+  FeatureChainExpression::targetFeature: equal 14, different 0, symbol-missing 0, symbol-extra 12
+  FeatureMembership::owningType: equal 1982, different 6, symbol-missing 0, symbol-extra 0
+  FeatureReferenceExpression::referent: equal 113, different 8, symbol-missing 0, symbol-extra 58
+  FeatureValue::featureWithValue: equal 312, different 6, symbol-missing 0, symbol-extra 0
+  FeatureValue::value: equal 316, different 2, symbol-missing 0, symbol-extra 0
   Flow::payloadFeature: equal 19, different 7, symbol-missing 0, symbol-extra 0
   Flow::payloadType: equal 19, different 1, symbol-missing 0, symbol-extra 6
   Function::expression: equal 40, different 3, symbol-missing 0, symbol-extra 0
-  InstantiationExpression::argument: equal 102, different 4, symbol-missing 0, symbol-extra 0
-  InvocationExpression::operand: equal 1, different 99, symbol-missing 0, symbol-extra 0
-  Membership::memberElement: equal 3392, different 5, symbol-missing 0, symbol-extra 0
-  Membership::memberElementId: equal 1745, different 2, symbol-missing 1647, symbol-extra 3
-  Membership::memberName: equal 3392, different 3, symbol-missing 0, symbol-extra 2
-  Membership::memberShortName: equal 3348, different 0, symbol-missing 4, symbol-extra 45
-  Membership::membershipOwningNamespace: equal 3385, different 12, symbol-missing 0, symbol-extra 0
+  InstantiationExpression::argument: equal 107, different 4, symbol-missing 0, symbol-extra 0
+  InvocationExpression::operand: equal 1, different 104, symbol-missing 0, symbol-extra 0
+  Membership::memberElement: equal 3449, different 5, symbol-missing 0, symbol-extra 0
+  Membership::memberElementId: equal 1757, different 2, symbol-missing 1692, symbol-extra 3
+  Membership::memberName: equal 3449, different 3, symbol-missing 0, symbol-extra 2
+  Membership::memberShortName: equal 3405, different 0, symbol-missing 4, symbol-extra 45
+  Membership::membershipOwningNamespace: equal 3442, different 12, symbol-missing 0, symbol-extra 0
   MetadataAccessExpression::referencedElement: equal 0, different 0, symbol-missing 0, symbol-extra 1
   MultiplicityRange::bound: equal 0, different 2, symbol-missing 0, symbol-extra 0
   MultiplicityRange::lowerBound: equal 0, different 2, symbol-missing 0, symbol-extra 0
   MultiplicityRange::upperBound: equal 0, different 2, symbol-missing 0, symbol-extra 0
-  Namespace::member: equal 3269, different 400, symbol-missing 1, symbol-extra 19
-  Namespace::membership: equal 3190, different 479, symbol-missing 1, symbol-extra 19
-  Namespace::ownedMember: equal 3364, different 325, symbol-missing 0, symbol-extra 0
-  Namespace::ownedMembership: equal 3279, different 410, symbol-missing 0, symbol-extra 0
-  OwningMembership::ownedMemberElement: equal 3251, different 2, symbol-missing 0, symbol-extra 0
-  OwningMembership::ownedMemberElementId: equal 1604, different 2, symbol-missing 1647, symbol-extra 0
-  OwningMembership::ownedMemberName: equal 3249, different 4, symbol-missing 0, symbol-extra 0
-  OwningMembership::ownedMemberShortName: equal 3204, different 0, symbol-missing 4, symbol-extra 45
-  Relationship::ownedRelatedElement: equal 5151, different 46, symbol-missing 0, symbol-extra 0
-  Relationship::owningRelatedElement: equal 5185, different 12, symbol-missing 0, symbol-extra 0
-  Relationship::relatedElement: equal 5077, different 46, symbol-missing 47, symbol-extra 27
-  Relationship::source: equal 5156, different 24, symbol-missing 16, symbol-extra 1
-  Relationship::target: equal 5088, different 35, symbol-missing 47, symbol-extra 27
+  Namespace::member: equal 3327, different 387, symbol-missing 1, symbol-extra 19
+  Namespace::membership: equal 3243, different 471, symbol-missing 1, symbol-extra 19
+  Namespace::ownedMember: equal 3424, different 310, symbol-missing 0, symbol-extra 0
+  Namespace::ownedMembership: equal 3332, different 402, symbol-missing 0, symbol-extra 0
+  OwningMembership::ownedMemberElement: equal 3296, different 2, symbol-missing 0, symbol-extra 0
+  OwningMembership::ownedMemberElementId: equal 1604, different 2, symbol-missing 1692, symbol-extra 0
+  OwningMembership::ownedMemberName: equal 3294, different 4, symbol-missing 0, symbol-extra 0
+  OwningMembership::ownedMemberShortName: equal 3249, different 0, symbol-missing 4, symbol-extra 45
+  Relationship::ownedRelatedElement: equal 5208, different 46, symbol-missing 0, symbol-extra 0
+  Relationship::owningRelatedElement: equal 5242, different 12, symbol-missing 0, symbol-extra 0
+  Relationship::relatedElement: equal 5134, different 46, symbol-missing 47, symbol-extra 27
+  Relationship::source: equal 5213, different 24, symbol-missing 16, symbol-extra 1
+  Relationship::target: equal 5145, different 35, symbol-missing 47, symbol-extra 27
   RequirementDefinition::text: equal 15, different 0, symbol-missing 1, symbol-extra 0
   RequirementUsage::text: equal 39, different 0, symbol-missing 4, symbol-extra 0
   StateDefinition::doAction: equal 16, different 1, symbol-missing 0, symbol-extra 0
   StateDefinition::entryAction: equal 16, different 1, symbol-missing 0, symbol-extra 0
-  Step::parameter: equal 703, different 24, symbol-missing 0, symbol-extra 0
-  TransitionUsage::guardExpression: equal 7, different 12, symbol-missing 0, symbol-extra 0
+  Step::parameter: equal 723, different 24, symbol-missing 0, symbol-extra 0
+  TransitionUsage::guardExpression: equal 17, different 2, symbol-missing 0, symbol-extra 0
   TransitionUsage::succession: equal 17, different 2, symbol-missing 0, symbol-extra 0
-  Type::differencingType: equal 3195, different 1, symbol-missing 0, symbol-extra 0
-  Type::directedFeature: equal 3139, different 37, symbol-missing 1, symbol-extra 19
-  Type::endFeature: equal 3172, different 4, symbol-missing 1, symbol-extra 19
-  Type::feature: equal 2910, different 266, symbol-missing 1, symbol-extra 19
-  Type::featureMembership: equal 2910, different 266, symbol-missing 1, symbol-extra 19
-  Type::inheritedFeature: equal 2969, different 207, symbol-missing 1, symbol-extra 19
-  Type::inheritedMembership: equal 2929, different 247, symbol-missing 1, symbol-extra 19
-  Type::input: equal 3148, different 28, symbol-missing 1, symbol-extra 19
-  Type::intersectingType: equal 3195, different 1, symbol-missing 0, symbol-extra 0
-  Type::isConjugated: equal 3191, different 5, symbol-missing 0, symbol-extra 0
-  Type::multiplicity: equal 2979, different 217, symbol-missing 0, symbol-extra 0
-  Type::output: equal 3169, different 7, symbol-missing 1, symbol-extra 19
-  Type::ownedConjugator: equal 3188, different 8, symbol-missing 0, symbol-extra 0
-  Type::ownedDifferencing: equal 3195, different 1, symbol-missing 0, symbol-extra 0
-  Type::ownedDisjoining: equal 3193, different 3, symbol-missing 0, symbol-extra 0
-  Type::ownedEndFeature: equal 3192, different 4, symbol-missing 0, symbol-extra 0
-  Type::ownedFeature: equal 3110, different 86, symbol-missing 0, symbol-extra 0
-  Type::ownedFeatureMembership: equal 3109, different 87, symbol-missing 0, symbol-extra 0
-  Type::ownedIntersecting: equal 3195, different 1, symbol-missing 0, symbol-extra 0
-  Type::ownedSpecialization: equal 3148, different 48, symbol-missing 0, symbol-extra 0
-  Type::ownedUnioning: equal 3193, different 3, symbol-missing 0, symbol-extra 0
-  Type::unioningType: equal 3193, different 0, symbol-missing 3, symbol-extra 0
+  Type::differencingType: equal 3240, different 1, symbol-missing 0, symbol-extra 0
+  Type::directedFeature: equal 3184, different 37, symbol-missing 1, symbol-extra 19
+  Type::endFeature: equal 3217, different 4, symbol-missing 1, symbol-extra 19
+  Type::feature: equal 2965, different 256, symbol-missing 1, symbol-extra 19
+  Type::featureMembership: equal 2965, different 256, symbol-missing 1, symbol-extra 19
+  Type::inheritedFeature: equal 3014, different 207, symbol-missing 1, symbol-extra 19
+  Type::inheritedMembership: equal 2974, different 247, symbol-missing 1, symbol-extra 19
+  Type::input: equal 3193, different 28, symbol-missing 1, symbol-extra 19
+  Type::intersectingType: equal 3240, different 1, symbol-missing 0, symbol-extra 0
+  Type::isConjugated: equal 3236, different 5, symbol-missing 0, symbol-extra 0
+  Type::multiplicity: equal 3024, different 217, symbol-missing 0, symbol-extra 0
+  Type::output: equal 3214, different 7, symbol-missing 1, symbol-extra 19
+  Type::ownedConjugator: equal 3233, different 8, symbol-missing 0, symbol-extra 0
+  Type::ownedDifferencing: equal 3240, different 1, symbol-missing 0, symbol-extra 0
+  Type::ownedDisjoining: equal 3238, different 3, symbol-missing 0, symbol-extra 0
+  Type::ownedEndFeature: equal 3237, different 4, symbol-missing 0, symbol-extra 0
+  Type::ownedFeature: equal 3165, different 76, symbol-missing 0, symbol-extra 0
+  Type::ownedFeatureMembership: equal 3164, different 77, symbol-missing 0, symbol-extra 0
+  Type::ownedIntersecting: equal 3240, different 1, symbol-missing 0, symbol-extra 0
+  Type::ownedSpecialization: equal 3193, different 48, symbol-missing 0, symbol-extra 0
+  Type::ownedUnioning: equal 3238, different 3, symbol-missing 0, symbol-extra 0
+  Type::unioningType: equal 3238, different 0, symbol-missing 3, symbol-extra 0
   Usage::definition: equal 1727, different 2, symbol-missing 0, symbol-extra 3
   Usage::directedUsage: equal 1673, different 39, symbol-missing 1, symbol-extra 19
   Usage::isReference: equal 1720, different 12, symbol-missing 0, symbol-extra 0
