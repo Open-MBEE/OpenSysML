@@ -8,14 +8,14 @@
       "oursOnly": 750,
       "pilotOnly": 0,
       "pilotOnlyImplied": 0,
-      "typeMismatch": 2
+      "typeMismatch": 0
     },
     "properties": {
       "presentEqual": 127250,
       "presentDifferent": 9980,
       "oursMissing": 11043,
-      "pilotMissing": 4650,
-      "absentBoth": 135812,
+      "pilotMissing": 4649,
+      "absentBoth": 135813,
       "indeterminate": 3146,
       "pilotNondeterministic": 37
     },
@@ -424,7 +424,7 @@
     "AllocationDefinition.ownedOccurrence": [0,0,0,0,1,0,0],
     "AllocationDefinition.ownedPart": [0,0,0,0,1,0,0],
     "AllocationDefinition.ownedPort": [0,0,0,0,1,0,0],
-    "AllocationDefinition.ownedReference": [0,0,0,1,0,0,0],
+    "AllocationDefinition.ownedReference": [0,0,0,0,1,0,0],
     "AllocationDefinition.ownedRelatedElement": [0,0,0,0,1,0,0],
     "AllocationDefinition.ownedRelationship": [1,0,0,0,0,0,0],
     "AllocationDefinition.ownedRendering": [0,0,0,0,1,0,0],
