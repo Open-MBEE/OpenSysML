@@ -8,11 +8,11 @@
       "oursOnly": 12,
       "pilotOnly": 10,
       "pilotOnlyImplied": 0,
-      "typeMismatch": 4
+      "typeMismatch": 1
     },
     "properties": {
-      "presentEqual": 1652,
-      "presentDifferent": 136,
+      "presentEqual": 1658,
+      "presentDifferent": 130,
       "oursMissing": 134,
       "pilotMissing": 64,
       "absentBoth": 1866,
@@ -1472,7 +1472,7 @@
     "Usage.input": [0,0,0,0,3,0,0],
     "Usage.intersectingType": [0,0,0,0,3,0,0],
     "Usage.isAbstract": [3,0,0,0,0,0,0],
-    "Usage.isComposite": [0,3,0,0,0,0,0],
+    "Usage.isComposite": [3,0,0,0,0,0,0],
     "Usage.isConjugated": [3,0,0,0,0,0,0],
     "Usage.isConstant": [3,0,0,0,0,0,0],
     "Usage.isDerived": [3,0,0,0,0,0,0],
@@ -1481,7 +1481,7 @@
     "Usage.isLibraryElement": [3,0,0,0,0,0,0],
     "Usage.isOrdered": [3,0,0,0,0,0,0],
     "Usage.isPortion": [3,0,0,0,0,0,0],
-    "Usage.isReference": [0,3,0,0,0,0,0],
+    "Usage.isReference": [3,0,0,0,0,0,0],
     "Usage.isSufficient": [3,0,0,0,0,0,0],
     "Usage.isUnique": [3,0,0,0,0,0,0],
     "Usage.isVariable": [3,0,0,0,0,0,0],

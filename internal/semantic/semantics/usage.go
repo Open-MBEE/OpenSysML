@@ -216,7 +216,7 @@ func usageIsReferential(usage *ast.Usage) bool {
 	if usage == nil {
 		return false
 	}
-	if usage.Kind == ast.UsageAttribute {
+	if usage.Kind == ast.UsageAttribute && !usage.IsExtendedUsage() {
 		return true
 	}
 	return !usageIsComposite(usage)
@@ -289,7 +289,7 @@ func (m *Model) UsageIsComposite(sym *symbols.Symbol) bool {
 		if m.metaclassConforms(sym, sysmlMetaclassPrefix+"ControlNode") {
 			return true
 		}
-		if sym.Kind.IsAttributeLike() || sym.Kind == symbols.SymbolReferenceUsage ||
+		if (sym.Kind.IsAttributeLike() || sym.Kind == symbols.SymbolReferenceUsage) && !sym.Facts.Modifiers.Has(symbols.ModExtendedUsage) ||
 			sym.Facts.Modifiers.Has(symbols.ModEnd|symbols.ModEvent) ||
 			sym.Facts.Direction != ast.DirNone {
 			return false
@@ -351,6 +351,9 @@ func (m *Model) usageIsAlwaysReferential(sym *symbols.Symbol) bool {
 		return true
 	}
 	if sym.Recorded() {
+		if sym.Facts.Modifiers.Has(symbols.ModExtendedUsage) {
+			return false // prefix metadata alone declares a plain Usage (SysML.xtext ExtendedUsage)
+		}
 		if sym.Kind == symbols.SymbolBindingUsage || sym.Kind == symbols.SymbolSuccessionUsage ||
 			sym.Kind.IsAttributeLike() || sym.Kind == symbols.SymbolReferenceUsage ||
 			sym.Facts.UsageKind == ast.UsageBinding || sym.Facts.UsageKind == ast.UsageSuccession ||
@@ -359,6 +362,9 @@ func (m *Model) usageIsAlwaysReferential(sym *symbols.Symbol) bool {
 		}
 	}
 	if usage, ok := sym.Decl.(*ast.Usage); ok {
+		if usage.IsExtendedUsage() {
+			return false
+		}
 		if usage.Kind == ast.UsageAttribute || usage.Kind == ast.UsageBinding ||
 			usage.Kind == ast.UsageSuccession ||
 			usage.IsEvent || usage.IsPerformedAction() ||

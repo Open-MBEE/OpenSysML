@@ -65,7 +65,8 @@ var kermlUsageTypeNames = map[ast.UsageKind]string{
 
 // refinedTypeNames are the metamodel type names MetamodelTypeNameOf reports beyond a kind's
 // own name: a symbol kind spanning several metaclasses, or a chain Feature's KerML Feature.
-var refinedTypeNames = []string{"MultiplicityRange", "Feature", "ConjugatedPortDefinition", "TransitionUsage"}
+var refinedTypeNames = []string{"MultiplicityRange", "Feature", "ConjugatedPortDefinition", "TransitionUsage",
+	"LibraryPackage", "ExhibitStateUsage", "IncludeUseCaseUsage", "Usage"}
 
 // MetamodelTypeNameOf returns the metamodel type name an element reports as
 // @type, refining symbol kinds that span several metaclasses.
@@ -85,6 +86,12 @@ func MetamodelTypeNameOf(sym *symbols.Symbol) string {
 	}
 	if sym.DeclaresTransition() {
 		return "TransitionUsage"
+	}
+	if sym.Kind == symbols.SymbolPackage && symbols.IsLibraryPackage(sym) {
+		return "LibraryPackage"
+	}
+	if name := semantics.UsageFormMetaclassName(sym); name != "" {
+		return name
 	}
 	switch sym.Kind {
 	case symbols.SymbolMultiplicity:

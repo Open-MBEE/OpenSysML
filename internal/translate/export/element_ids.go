@@ -180,9 +180,11 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 		ids.conjugateBySpan[spanKey{e.file.Name(), node.Span()}] = conjugate
 	}
 	ids.recordValuePart(e, node, subject)
+	ids.recordFilterCondition(e, node, subject)
 	ids.recordSendArguments(e, node)
 	ids.recordGuard(e, node, subject)
 	ids.recordConstraintResult(e, node, subject)
+	ids.recordResultExpression(e, node, parents[node], subject)
 	ids.recordDefaultMultiplicity(e, node, subject)
 	ids.recordConnectorEnds(e, node, subject)
 	ids.recordFlowEndChains(e, node, subject)
@@ -271,6 +273,21 @@ func (ids *ElementIDs) recordOwnedExpression(e *encoder, expression ast.Node, ow
 	e.registerExpressionIDs(ids, value, expression)
 }
 
+// recordFilterCondition records the condition a `filter` member writes at `filter` under
+// itself, the ElementFilterMembership that owns it (encode, *ast.FilterMember), for the id reader.
+func (ids *ElementIDs) recordFilterCondition(e *encoder, node ast.Node, subject rdf.Term) {
+	filter, ok := node.(*ast.FilterMember)
+	if !ok || filter.Condition == nil {
+		return
+	}
+	condition := e.ids.mintedNode(rdf.ExpressionIRI(subject, xFilter), subject, xFilter)
+	ids.byNode[filter.Condition] = rdf.LocalName(condition.Value)
+	ids.bySpan[spanKey{e.file.Name(), filter.Condition.Span()}] = ids.byNode[filter.Condition]
+	ids.membershipByNode[filter.Condition] = rdf.LocalName(subject.Value)
+	ids.membershipBySpan[spanKey{e.file.Name(), filter.Condition.Span()}] = ids.membershipByNode[filter.Condition]
+	e.registerExpressionIDs(ids, condition, filter.Condition)
+}
+
 // recordConstraintResult records a bare condition's expression under the member stating it, with
 // its parts, for the reflective result expression that declares the expression (ConstraintResultMember).
 func (ids *ElementIDs) recordConstraintResult(e *encoder, node ast.Node, subject rdf.Term) {
@@ -286,6 +303,23 @@ func (ids *ElementIDs) recordConstraintResult(e *encoder, node ast.Node, subject
 		ids.membershipBySpan[spanKey{e.file.Name(), c.Expression.Span()}] = membership
 	}
 	e.registerExpressionIDs(ids, subject, c.Expression)
+}
+
+// recordResultExpression records the parts of a bare expression a definition's or usage's body
+// states (ResultExpressionMembership) under the member it is written as, as recordConstraintResult does.
+func (ids *ElementIDs) recordResultExpression(e *encoder, node, parent ast.Node, subject rdf.Term) {
+	if !ast.IsExpression(node) || ast.DeclMembers(parent) == nil {
+		return
+	}
+	for _, member := range localMembers(parent) {
+		if m, ok := member.(*ast.Membership); ok {
+			member = m.Member
+		}
+		if member == node {
+			e.registerExpressionIDs(ids, subject, node)
+			return
+		}
+	}
 }
 
 // recordDefaultMultiplicity records the Multiplicity a usage's implicit [1..1] or an individual

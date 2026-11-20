@@ -329,7 +329,7 @@ func (ctx *Context) standIn(inst *Instance, usage *symbols.Symbol, fv *FeatureVa
 // postTransfer realizes the sending half of a transfer at its source event: the message,
 // typed by the payload, is posted onto the bus from the source lifeline object.
 func (ctx *Context) postTransfer(sym *symbols.Symbol, inst *Instance, t *lower.Transfer, from, to *Instance) (uint64, error) {
-	msg, err := ctx.transferMessage(sym, inst, t, to)
+	msg, err := ctx.transferMessage(inst, t, to)
 	if err != nil {
 		return 0, err
 	}
@@ -382,7 +382,7 @@ func (ctx *Context) performInputs(perform *symbols.Symbol, inst *Instance) (map[
 // transferMessage builds the message a transfer posts: typed by the payload its
 // `of` clause states (a declared payload's type, else the named type), named as
 // the message is, and carrying the payload's value evaluated on the occurrence.
-func (ctx *Context) transferMessage(sym *symbols.Symbol, inst *Instance, t *lower.Transfer, to *Instance) (Message, error) {
+func (ctx *Context) transferMessage(inst *Instance, t *lower.Transfer, to *Instance) (Message, error) {
 	msg := NamedSignalMessage(t.Name, to)
 	msg.EventName = t.Name
 	if t.Payload == nil || t.Payload.Payload == nil {

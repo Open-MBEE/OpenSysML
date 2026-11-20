@@ -45,6 +45,9 @@ const (
 	// ExpressionOperand is an expression an action node statement writes at a slot of its own
 	// (the `if` condition, an assignment's target and value, `send` payload and receiver, ...).
 	ExpressionOperand
+	// ExpressionFilterCondition is the condition a namespace's `filter` states,
+	// owned through an ElementFilterMembership (KerML 8.2.4); Owner is the namespace, Index its position.
+	ExpressionFilterCondition
 	// ExpressionTransitionSuccession is the succession a transition's `then` clause owns (SysML.xtext
 	// TransitionSuccessionMember); ExpressionConnectorEnd its ends, Index 0 the empty source, 1 the target.
 	ExpressionTransitionSuccession

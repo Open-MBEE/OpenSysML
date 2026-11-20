@@ -437,7 +437,7 @@ func (ctx *Context) EvalDeclaredValue(sym *symbols.Symbol) (Value, error) {
 			return val, err
 		}
 		// Read as a name of it is read: a feature nothing values is undetermined.
-		return newEvalContext(ctx, sym.OwnerScope).withoutValue(sym, ctx.QualifiedName(sym), nil)
+		return newEvalContext(ctx, sym.OwnerScope).withoutValue(sym, ctx.QualifiedName(sym))
 	}
 	defer ctx.beginRun()()
 
