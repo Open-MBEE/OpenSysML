@@ -647,8 +647,3 @@ func (d *structureDifferential) elementID(element metamodel.Element, fromGraph b
 	}
 	return "", false
 }
-
-// isTriggerAccept reports whether sym is the accept a transition's trigger declares.
-func isTriggerAccept(sym *symbols.Symbol) bool {
-	return sym.Expr != nil && sym.Expr.Role == symbols.ExpressionTriggerAction
-}
