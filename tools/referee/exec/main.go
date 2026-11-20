@@ -56,11 +56,13 @@ type caseReport struct {
 }
 
 type execReport struct {
-	PilotArtifact string         `json:"pilotArtifact"`
-	Scope         string         `json:"scope"`
-	Note          string         `json:"note"`
-	Cases         []caseReport   `json:"cases"`
-	Buckets       map[string]int `json:"buckets"`
+	// launcherFailed counts the cases either pilot run did not answer because the launcher failed.
+	launcherFailed int
+	PilotArtifact  string         `json:"pilotArtifact"`
+	Scope          string         `json:"scope"`
+	Note           string         `json:"note"`
+	Cases          []caseReport   `json:"cases"`
+	Buckets        map[string]int `json:"buckets"`
 }
 
 // defaultCases is the shipped case corpus, relative to the repository root.
@@ -134,7 +136,7 @@ func Main(args []string, stderr io.Writer) int {
 		return 1
 	}
 	printSummary(report)
-	if failed := launcherFailures(report); failed != 0 && os.Getenv(RequireEnv) != "" {
+	if failed := report.launcherFailed; failed != 0 && os.Getenv(RequireEnv) != "" {
 		fmt.Fprintf(stderr, toolName+": %s is set but the pilot evaluator failed to run for %d of %d cases; see rawPilot in the report under %s\n", RequireEnv, failed, len(report.Cases), out)
 		return 1
 	}
@@ -143,17 +145,6 @@ func Main(args []string, stderr io.Writer) int {
 
 // launcherFailure prefixes the pilot's raw answer for a case the launcher exited non-zero on.
 const launcherFailure = "ERROR:launcher: "
-
-// launcherFailures counts the cases the pilot evaluator never answered because it did not run.
-func launcherFailures(report *execReport) int {
-	failed := 0
-	for _, c := range report.Cases {
-		if strings.HasPrefix(c.RawPilot, launcherFailure) {
-			failed++
-		}
-	}
-	return failed
-}
 
 func artifactAbsentMessage(launcher string) string {
 	return fmt.Sprintf("pilot execution artifact is absent at %s; run ./scripts/download-pilot-evaluator.sh to provision it", launcher)
@@ -186,6 +177,9 @@ func execute(repo, launcher string, files []execCaseFile) (*execReport, error) {
 		oursTwo := runOurs(models, file.Cases)
 		for _, testCase := range file.Cases {
 			pilotRaw := pilotOne[testCase.ID]
+			if strings.HasPrefix(pilotRaw, launcherFailure) || strings.HasPrefix(pilotTwo[testCase.ID], launcherFailure) {
+				report.launcherFailed++
+			}
 			oursRaw := oursOne[testCase.ID]
 			pilot := normalizePilot(pilotRaw)
 			ours := normalizeOurs(oursRaw.Raw, oursRaw.Error)

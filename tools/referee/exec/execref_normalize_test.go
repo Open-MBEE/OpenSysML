@@ -211,3 +211,21 @@ func TestMainBrokenEvaluator(t *testing.T) {
 		}
 	}
 }
+
+// A launcher that answers the first run and fails the repeat is counted for every case.
+func TestExecuteCountsARepeatRunThatFails(t *testing.T) {
+	dir := t.TempDir()
+	launcher, marker := filepath.Join(dir, "eval-sysml"), filepath.Join(dir, "ran")
+	script := "#!/bin/sh\nif [ -e '" + marker + "' ]; then echo 'jar is missing' >&2; exit 3; fi\n: > '" + marker + "'\nprintf '== case one\\nLiteralInteger 1 (x)\\n== end one\\n== case two\\nLiteralInteger 2 (x)\\n== end two\\n'\n"
+	if err := os.WriteFile(launcher, []byte(script), 0o700); err != nil { // #nosec G306 -- a stub the test executes
+		t.Fatal(err)
+	}
+	cases := []execCase{{ID: "one", Expression: "1"}, {ID: "two", Expression: "2"}}
+	report, err := execute(dir, launcher, []execCaseFile{{Path: "x.cases", Cases: cases}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.launcherFailed != len(cases) {
+		t.Fatalf("launcherFailed = %d, want %d", report.launcherFailed, len(cases))
+	}
+}
