@@ -9,6 +9,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/querytranslate"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
@@ -187,7 +188,7 @@ func (m *replQueryModel) collectQuerySymbol(sym *symbols.Symbol, out *[]*symbols
 
 func (m *replQueryModel) Identity(sym *symbols.Symbol) string {
 	if identity := corequery.QualifiedIdentity(m.index, sym); identity != "" {
-		return identity
+		return naming.Declared(identity)
 	}
 	m.positionalNames()
 	return m.positional[sym]
