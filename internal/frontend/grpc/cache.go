@@ -125,6 +125,8 @@ type CachedModel struct {
 	elementFormOnce sync.Once
 	elementForm     *export.ElementForm
 	elementFormErr  error
+	// elementFormExclusions is the documents the form was read without.
+	elementFormExclusions []*pb.ExcludedDocument
 
 	// idle are the workers requests have given back, warm with what they resolved.
 	idleMu sync.Mutex
