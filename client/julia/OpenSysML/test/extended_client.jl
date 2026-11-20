@@ -808,9 +808,9 @@ end
                 coordinate_instance = instantiate(coordinate_model,
                     "CoordinateFrameExample::Context")
                 coordinate_value = features(coordinate_instance)["accelarationCF"]
-                @test coordinate_value isa FeatureValueError
-                @test coordinate_value.message ==
-                      "unsupported: coordinate frame accelarationCF [m/s**2, m/s**2, m/s**2]"
+                @test coordinate_value isa CoordinateFrame
+                @test coordinate_value.name == "accelarationCF"
+                @test [axis.unit for axis in coordinate_value.axes] == fill("m/s**2", 3)
 
                 sources = parse_sources(conn, [
                     SourceDocument("a.sysml", "package A {}"),
@@ -1362,7 +1362,8 @@ end
             Dict("name" => "lowerBound", "values" => Any[Dict("intValue" => "3")]),
             Dict("name" => "mass", "values" => Any[Dict("realValue" => 1.5)]),
             Dict("name" => "huge", "values" => Any[Dict("number" => "18446744073709551616")]),
-            Dict("name" => "connectorEnd", "unsupported" => "PartDefinition declares no property connectorEnd")])
+            Dict("name" => "connectorEnd", "unsupported" => "PartDefinition declares no property connectorEnd")],
+        "excludedDocuments" => Any[Dict("document" => "c.sysml", "error" => "c.sysml: 1 syntax error(s)")])
     server, requests, address = recording_service(["element_properties"]; handler=(method, body) -> answer)
     conn = external(address)
     try
@@ -1374,6 +1375,7 @@ end
         @test requests[end].body["properties"] == ["inheritedFeature", "isAbstract"]
         @test read.element == ElementIdentity("Demo__Pair", "Demo::Pair", "PartDefinition")
         @test length(read) == 7 && haskey(read, "isAbstract") && !haskey(read, "owner")
+        @test [(d.document, d.error) for d in read.excluded_documents] == [("c.sysml", "c.sysml: 1 syntax error(s)")]
         inherited = read["inheritedFeature"]
         @test inherited.defining_class == "Type" && inherited.many && inherited.derived && is_answered(inherited)
         @test property_elements(inherited) == [ElementIdentity("Demo__Unit__p", "Demo::Unit::p", "PortUsage"),

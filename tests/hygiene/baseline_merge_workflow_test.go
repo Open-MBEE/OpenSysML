@@ -127,18 +127,19 @@ func TestRebaselineMergesCellWiseAndAcceptsOnlyWhatReproduces(t *testing.T) {
 		if strings.Contains(step.Run, "git config merge.opensysml-cells.driver") && strings.Contains(step.Run, "./cmd/baseline-merge") {
 			driver = i
 		}
-		if strings.Contains(step.Run, "git merge --no-ff --no-commit origin/develop") {
+		if merge < 0 && strings.Contains(step.Run, rebaselineMergeRun) {
 			merge = i
 		}
 	}
 	if driver < 0 || merge < 0 || driver > merge {
 		t.Fatalf("the merge driver is configured at step %d and the merge runs at step %d; want the driver first", driver, merge)
 	}
-	runs := rebaselineRuns(job)
+	runs := rebaselineRuns(t, job)
 	for _, want := range []string{
 		censusOursOnly + " ||",
 		apijsonCheck + " ||",
 		"grep 'merge=opensysml-cells'",
+		"git merge --no-ff --no-commit origin/develop",
 	} {
 		if !strings.Contains(runs, want) {
 			t.Errorf("no step runs %q", want)

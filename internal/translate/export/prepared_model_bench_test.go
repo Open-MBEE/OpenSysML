@@ -1,6 +1,7 @@
 package export
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -37,12 +38,12 @@ func BenchmarkRepeatedModelExport(b *testing.B) {
 	})
 	b.Run("prepared", func(b *testing.B) {
 		prepared := PrepareModel(documents)
-		if _, err := prepared.ToRDF(selection, IDQualifiedName); err != nil {
+		if _, err := prepared.ToRDF(context.Background(), selection, IDQualifiedName); err != nil {
 			b.Fatal(err)
 		}
 		b.ReportAllocs()
 		for b.Loop() {
-			if _, err := prepared.ToRDF(selection, IDQualifiedName); err != nil {
+			if _, err := prepared.ToRDF(context.Background(), selection, IDQualifiedName); err != nil {
 				b.Fatal(err)
 			}
 		}

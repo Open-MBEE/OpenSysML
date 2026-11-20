@@ -1,4 +1,4 @@
-package org.openmbee.mdk.magic.repository;
+package org.openmbee.opensysml.repository;
 
 /** A SysML v2 API request that could not be made, or that the server refused. */
 public class ApiException extends RuntimeException {

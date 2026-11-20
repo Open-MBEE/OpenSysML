@@ -601,6 +601,9 @@ else if (value instanceof Value.InstanceReference v)    rendered = "instance " +
 else if (value instanceof Value.Sequence v)             rendered = v.elements().toString();
 else if (value instanceof Value.UndeterminedValue v)    rendered = "<undetermined>: " + v.reason();  // left open by the model
 else if (value instanceof Value.InfinityValue v)        rendered = "*";       // unbounded
+else if (value instanceof Value.CoordinateFrameValue v) rendered = v.frame().name();   // axes, scale, transformation
+else if (value instanceof Value.CoordinateTransformationValue v)
+  rendered = v.transformation().pose().map(Object::toString).orElse("unposed");        // source, target, shape, pose
 else if (value instanceof Value.NullValue v)            rendered = "null";    // evaluated, no value
 else                                                    rendered = "unset";   // declared, never given one
 ```

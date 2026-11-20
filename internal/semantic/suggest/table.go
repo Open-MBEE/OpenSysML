@@ -179,13 +179,14 @@ func (t *Table) Neighbours(word string) []Neighbour {
 	budget := Budget(n)
 	lower := strings.ToLower(word)
 	var hits []Neighbour
+	var d distancer
 	for l := n - budget; l <= n+budget; l++ {
 		for _, c := range t.byLength[l] {
 			if c.name == word {
 				continue
 			}
-			if EditDistance(lower, c.lower) <= budget {
-				hits = append(hits, Neighbour{Name: c.name, Distance: EditDistance(word, c.name)})
+			if d.distance(lower, c.lower) <= budget {
+				hits = append(hits, Neighbour{Name: c.name, Distance: d.distance(word, c.name)})
 			}
 		}
 	}

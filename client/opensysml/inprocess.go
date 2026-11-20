@@ -262,8 +262,8 @@ func answer[Req, Resp any](ctx context.Context, req Req, handler func(context.Co
 		return zero, err
 	}
 	resp, callErr := handler(ctx, req)
-	// The engine runs a call to completion; a done context withholds whatever it
-	// produced, answer or error, as the wire does.
+	// The engine stops a parse or a model conversion once its context ends and runs other
+	// calls to completion; either way a done context withholds answer and error, as the wire does.
 	if err := contextStatus(ctx); err != nil {
 		return zero, err
 	}

@@ -326,6 +326,11 @@ CAPABILITY_ENGINES = "engines"
 #: :class:`opensysml.Undetermined`; without it such a result crosses as an unsupported null.
 CAPABILITY_UNDETERMINED_VALUE = "undetermined_value"
 
+#: A coordinate frame as ``Value.coordinate_frame`` and a coordinate transformation as
+#: ``Value.coordinate_transformation``, read as :class:`opensysml.CoordinateFrame` and
+#: :class:`opensysml.CoordinateTransformation`; without it each crosses as an unsupported null.
+CAPABILITY_COORDINATE_FRAME_VALUES = "coordinate_frame_values"
+
 #: An Integer beyond int64 as ``Value.big_int_value``, ``Quantity.big_int_magnitude`` and
 #: ``DocumentValue.big_int_value``; a service without it reads one sent to it as null.
 CAPABILITY_BIG_INT_VALUES = "big_int_values"

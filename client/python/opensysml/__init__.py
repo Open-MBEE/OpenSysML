@@ -56,6 +56,8 @@ from opensysml.capabilities import (
 from opensysml.values import (
     UNSET, Array, Function, InstanceRef, MeasurementRef, Metaobject, SetValue, TensorQuantity,
     Undetermined, UnsetType,
+    AffineTransformation3d, CoordinateFrame, CoordinateTransformation, FramePlacement, FramePose,
+    FrameRotation, FrameStep, MeasurementScale,
     Vector, VectorQuantity,
 )
 from opensysml.importcompare import (
@@ -138,6 +140,8 @@ __all__ = [
     "AttributeFacts",
     "ServerInfo",
     "UNSET", "UnsetType", "Undetermined",
+    "CoordinateFrame", "CoordinateTransformation", "MeasurementScale", "FramePlacement", "FrameStep",
+    "FrameRotation", "AffineTransformation3d", "FramePose",
     "Array", "Vector", "VectorQuantity", "MeasurementRef", "Function", "Metaobject", "SetValue",
     "TensorQuantity", "InstanceRef",
     "Conversion", "FORMAT_API_JSON", "FORMAT_SYSML", "FORMAT_TURTLE", "LibraryReference",

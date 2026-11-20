@@ -16,9 +16,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openmbee.opensysml.ConnectionOptions;
 import org.openmbee.mdk.magic.engine.Engine;
-import org.openmbee.mdk.magic.repository.ApiConfig;
-import org.openmbee.mdk.magic.repository.Publisher;
-import org.openmbee.mdk.magic.repository.SysmlApiClient;
+import org.openmbee.opensysml.repository.ApiConfig;
+import org.openmbee.opensysml.repository.FakeSysmlApi;
+import org.openmbee.opensysml.repository.Publisher;
+import org.openmbee.opensysml.repository.SysmlApiClient;
 import org.openmbee.mdk.magic.source.V2TextualSource;
 
 /** Drives export text → the real service's api-json conversion → a commit on an API server. */

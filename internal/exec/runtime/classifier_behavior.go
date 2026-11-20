@@ -1075,6 +1075,7 @@ func (ctx *Context) failBehavior(b *ObjectBehavior, err error) {
 	prior := b.Err
 	ctx.noteProbeUndo(func() { b.Err = prior })
 	b.Err = err
+	ctx.noteAdvanceFailure(b)
 }
 
 // endFailedPerformance records a failure recordsFailure admits, ending the life

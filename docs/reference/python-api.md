@@ -439,6 +439,38 @@ Decoded value kinds carried by the service wire format.
     options:
       heading_level: 3
 
+::: opensysml.CoordinateFrame
+    options:
+      heading_level: 3
+
+::: opensysml.CoordinateTransformation
+    options:
+      heading_level: 3
+
+::: opensysml.MeasurementScale
+    options:
+      heading_level: 3
+
+::: opensysml.FramePlacement
+    options:
+      heading_level: 3
+
+::: opensysml.FrameStep
+    options:
+      heading_level: 3
+
+::: opensysml.FrameRotation
+    options:
+      heading_level: 3
+
+::: opensysml.AffineTransformation3d
+    options:
+      heading_level: 3
+
+::: opensysml.FramePose
+    options:
+      heading_level: 3
+
 ::: opensysml.Array
     options:
       heading_level: 3

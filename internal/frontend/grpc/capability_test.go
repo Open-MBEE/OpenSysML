@@ -459,7 +459,7 @@ func TestQueryResultViewCapabilityIsTheNewest(t *testing.T) {
 	want := []string{
 		CapabilityInlineDocumentQuery, CapabilitySymbolNameResolution, CapabilityRenderViewForm,
 		CapabilitySymbolAnnotatingMetadata, CapabilitySymbolLookupKind, CapabilitySymbolMemberDirection,
-		CapabilityQueryResultView,
+		CapabilityCoordinateFrameValues, CapabilityQueryResultView,
 	}
 	if len(all) < len(want) || !slices.Equal(all[len(all)-len(want):], want) {
 		t.Errorf("capabilities %v do not end with %q, the newest last", all, want)

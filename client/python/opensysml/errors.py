@@ -207,12 +207,16 @@ class ConversionError(OpenSysMLError):
         message (str): Error description reported by the service
         diagnostics (list): Diagnostic objects behind the failure, when the
             source was notation the parser could not read
+        excluded_documents (list): ``(document, error)`` pairs for the documents
+            an element read left out of the model, when the requested element's
+            own document is one of them
     """
 
-    def __init__(self, message, diagnostics=None):
+    def __init__(self, message, diagnostics=None, excluded_documents=None):
         super().__init__(message)
         self.message = message
         self.diagnostics = diagnostics or []
+        self.excluded_documents = list(excluded_documents or [])
 
 
 class MigrationError(OpenSysMLError):

@@ -3,6 +3,8 @@ function answer = decodeElementProperties(raw)
 %   Each value is an element record (struct with id, qualifiedName, metaclass), a char,
 %   a logical, an int64, a double, or the decimal text of a number beyond int64 and
 %   double. A field the wire left at its default (false, empty) decodes as that default.
+%   excludedDocuments is a cell of structs (document, error): the documents the model
+%   was read without, empty when the whole model was read.
 
     answer = struct();
     answer.element = elementRecord(fieldOr(raw, 'element', struct()));
@@ -28,6 +30,14 @@ function answer = decodeElementProperties(raw)
         end
         answer.properties{i} = record;
         answer.byName(record.name) = record;
+    end
+    excluded = fieldOr(raw, 'excludedDocuments', {});
+    if isstruct(excluded), excluded = num2cell(excluded(:)'); end
+    if ~iscell(excluded), excluded = {}; end
+    answer.excludedDocuments = cell(1, numel(excluded));
+    for i = 1:numel(excluded)
+        answer.excludedDocuments{i} = struct('document', char(fieldOr(excluded{i}, 'document', '')), ...
+            'error', char(fieldOr(excluded{i}, 'error', '')));
     end
 end
 

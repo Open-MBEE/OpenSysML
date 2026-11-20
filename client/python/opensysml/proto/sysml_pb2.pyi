@@ -895,14 +895,24 @@ class GetElementPropertiesRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., element_id: _Optional[str] = ..., properties: _Optional[_Iterable[str]] = ..., lookup: _Optional[_Union[LookupKind, str]] = ...) -> None: ...
 
 class GetElementPropertiesResponse(_message.Message):
-    __slots__ = ("element", "properties", "error")
+    __slots__ = ("element", "properties", "error", "excluded_documents")
     ELEMENT_FIELD_NUMBER: _ClassVar[int]
     PROPERTIES_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
+    EXCLUDED_DOCUMENTS_FIELD_NUMBER: _ClassVar[int]
     element: ElementRef
     properties: _containers.RepeatedCompositeFieldContainer[ElementProperty]
     error: str
-    def __init__(self, element: _Optional[_Union[ElementRef, _Mapping]] = ..., properties: _Optional[_Iterable[_Union[ElementProperty, _Mapping]]] = ..., error: _Optional[str] = ...) -> None: ...
+    excluded_documents: _containers.RepeatedCompositeFieldContainer[ExcludedDocument]
+    def __init__(self, element: _Optional[_Union[ElementRef, _Mapping]] = ..., properties: _Optional[_Iterable[_Union[ElementProperty, _Mapping]]] = ..., error: _Optional[str] = ..., excluded_documents: _Optional[_Iterable[_Union[ExcludedDocument, _Mapping]]] = ...) -> None: ...
+
+class ExcludedDocument(_message.Message):
+    __slots__ = ("document", "error")
+    DOCUMENT_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    document: str
+    error: str
+    def __init__(self, document: _Optional[str] = ..., error: _Optional[str] = ...) -> None: ...
 
 class ElementRef(_message.Message):
     __slots__ = ("id", "qualified_name", "metaclass")
@@ -1877,7 +1887,7 @@ class AttributeInfo(_message.Message):
     def __init__(self, name: _Optional[str] = ..., type: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ..., unit: _Optional[str] = ...) -> None: ...
 
 class Value(_message.Message):
-    __slots__ = ("int_value", "real_value", "bool_value", "string_value", "instance_id", "sequence", "null", "quantity", "enum_literal", "unset", "complex", "array", "vector", "vector_quantity", "measurement_ref", "infinity", "function", "set", "tensor_quantity", "metaobject", "undetermined", "big_int_value", "rational_value")
+    __slots__ = ("int_value", "real_value", "bool_value", "string_value", "instance_id", "sequence", "null", "quantity", "enum_literal", "unset", "complex", "array", "vector", "vector_quantity", "measurement_ref", "infinity", "function", "set", "tensor_quantity", "metaobject", "undetermined", "big_int_value", "rational_value", "coordinate_frame", "coordinate_transformation")
     INT_VALUE_FIELD_NUMBER: _ClassVar[int]
     REAL_VALUE_FIELD_NUMBER: _ClassVar[int]
     BOOL_VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -1901,6 +1911,8 @@ class Value(_message.Message):
     UNDETERMINED_FIELD_NUMBER: _ClassVar[int]
     BIG_INT_VALUE_FIELD_NUMBER: _ClassVar[int]
     RATIONAL_VALUE_FIELD_NUMBER: _ClassVar[int]
+    COORDINATE_FRAME_FIELD_NUMBER: _ClassVar[int]
+    COORDINATE_TRANSFORMATION_FIELD_NUMBER: _ClassVar[int]
     int_value: int
     real_value: float
     bool_value: bool
@@ -1924,7 +1936,119 @@ class Value(_message.Message):
     undetermined: Undetermined
     big_int_value: str
     rational_value: Rational
-    def __init__(self, int_value: _Optional[int] = ..., real_value: _Optional[float] = ..., bool_value: _Optional[bool] = ..., string_value: _Optional[str] = ..., instance_id: _Optional[int] = ..., sequence: _Optional[_Union[ValueSequence, _Mapping]] = ..., null: _Optional[str] = ..., quantity: _Optional[_Union[Quantity, _Mapping]] = ..., enum_literal: _Optional[_Union[EnumLiteral, _Mapping]] = ..., unset: _Optional[bool] = ..., complex: _Optional[_Union[Complex, _Mapping]] = ..., array: _Optional[_Union[Array, _Mapping]] = ..., vector: _Optional[_Union[Vector, _Mapping]] = ..., vector_quantity: _Optional[_Union[VectorQuantity, _Mapping]] = ..., measurement_ref: _Optional[_Union[MeasurementRef, _Mapping]] = ..., infinity: _Optional[bool] = ..., function: _Optional[_Union[Function, _Mapping]] = ..., set: _Optional[_Union[ValueSet, _Mapping]] = ..., tensor_quantity: _Optional[_Union[TensorQuantity, _Mapping]] = ..., metaobject: _Optional[_Union[Metaobject, _Mapping]] = ..., undetermined: _Optional[_Union[Undetermined, _Mapping]] = ..., big_int_value: _Optional[str] = ..., rational_value: _Optional[_Union[Rational, _Mapping]] = ...) -> None: ...
+    coordinate_frame: CoordinateFrame
+    coordinate_transformation: CoordinateTransformation
+    def __init__(self, int_value: _Optional[int] = ..., real_value: _Optional[float] = ..., bool_value: _Optional[bool] = ..., string_value: _Optional[str] = ..., instance_id: _Optional[int] = ..., sequence: _Optional[_Union[ValueSequence, _Mapping]] = ..., null: _Optional[str] = ..., quantity: _Optional[_Union[Quantity, _Mapping]] = ..., enum_literal: _Optional[_Union[EnumLiteral, _Mapping]] = ..., unset: _Optional[bool] = ..., complex: _Optional[_Union[Complex, _Mapping]] = ..., array: _Optional[_Union[Array, _Mapping]] = ..., vector: _Optional[_Union[Vector, _Mapping]] = ..., vector_quantity: _Optional[_Union[VectorQuantity, _Mapping]] = ..., measurement_ref: _Optional[_Union[MeasurementRef, _Mapping]] = ..., infinity: _Optional[bool] = ..., function: _Optional[_Union[Function, _Mapping]] = ..., set: _Optional[_Union[ValueSet, _Mapping]] = ..., tensor_quantity: _Optional[_Union[TensorQuantity, _Mapping]] = ..., metaobject: _Optional[_Union[Metaobject, _Mapping]] = ..., undetermined: _Optional[_Union[Undetermined, _Mapping]] = ..., big_int_value: _Optional[str] = ..., rational_value: _Optional[_Union[Rational, _Mapping]] = ..., coordinate_frame: _Optional[_Union[CoordinateFrame, _Mapping]] = ..., coordinate_transformation: _Optional[_Union[CoordinateTransformation, _Mapping]] = ...) -> None: ...
+
+class CoordinateFrame(_message.Message):
+    __slots__ = ("name", "frame_id", "type_id", "instance_id", "dimensions", "axes", "transformation", "scale")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    FRAME_ID_FIELD_NUMBER: _ClassVar[int]
+    TYPE_ID_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_ID_FIELD_NUMBER: _ClassVar[int]
+    DIMENSIONS_FIELD_NUMBER: _ClassVar[int]
+    AXES_FIELD_NUMBER: _ClassVar[int]
+    TRANSFORMATION_FIELD_NUMBER: _ClassVar[int]
+    SCALE_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    frame_id: str
+    type_id: str
+    instance_id: int
+    dimensions: _containers.RepeatedScalarFieldContainer[int]
+    axes: _containers.RepeatedCompositeFieldContainer[MeasurementRef]
+    transformation: CoordinateTransformation
+    scale: MeasurementScale
+    def __init__(self, name: _Optional[str] = ..., frame_id: _Optional[str] = ..., type_id: _Optional[str] = ..., instance_id: _Optional[int] = ..., dimensions: _Optional[_Iterable[int]] = ..., axes: _Optional[_Iterable[_Union[MeasurementRef, _Mapping]]] = ..., transformation: _Optional[_Union[CoordinateTransformation, _Mapping]] = ..., scale: _Optional[_Union[MeasurementScale, _Mapping]] = ...) -> None: ...
+
+class MeasurementScale(_message.Message):
+    __slots__ = ("unit", "mapping")
+    UNIT_FIELD_NUMBER: _ClassVar[int]
+    MAPPING_FIELD_NUMBER: _ClassVar[int]
+    unit: MeasurementRef
+    mapping: QuantityValueMapping
+    def __init__(self, unit: _Optional[_Union[MeasurementRef, _Mapping]] = ..., mapping: _Optional[_Union[QuantityValueMapping, _Mapping]] = ...) -> None: ...
+
+class QuantityValueMapping(_message.Message):
+    __slots__ = ("mapped", "reference")
+    MAPPED_FIELD_NUMBER: _ClassVar[int]
+    REFERENCE_FIELD_NUMBER: _ClassVar[int]
+    mapped: Quantity
+    reference: Quantity
+    def __init__(self, mapped: _Optional[_Union[Quantity, _Mapping]] = ..., reference: _Optional[_Union[Quantity, _Mapping]] = ...) -> None: ...
+
+class CoordinateTransformation(_message.Message):
+    __slots__ = ("name", "transformation_id", "type_id", "instance_id", "source", "target", "placement", "sequence", "affine", "pose")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    TRANSFORMATION_ID_FIELD_NUMBER: _ClassVar[int]
+    TYPE_ID_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_ID_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
+    TARGET_FIELD_NUMBER: _ClassVar[int]
+    PLACEMENT_FIELD_NUMBER: _ClassVar[int]
+    SEQUENCE_FIELD_NUMBER: _ClassVar[int]
+    AFFINE_FIELD_NUMBER: _ClassVar[int]
+    POSE_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    transformation_id: str
+    type_id: str
+    instance_id: int
+    source: CoordinateFrame
+    target: CoordinateFrame
+    placement: FramePlacement
+    sequence: TranslationRotationSequence
+    affine: AffineTransformation3d
+    pose: FramePose
+    def __init__(self, name: _Optional[str] = ..., transformation_id: _Optional[str] = ..., type_id: _Optional[str] = ..., instance_id: _Optional[int] = ..., source: _Optional[_Union[CoordinateFrame, _Mapping]] = ..., target: _Optional[_Union[CoordinateFrame, _Mapping]] = ..., placement: _Optional[_Union[FramePlacement, _Mapping]] = ..., sequence: _Optional[_Union[TranslationRotationSequence, _Mapping]] = ..., affine: _Optional[_Union[AffineTransformation3d, _Mapping]] = ..., pose: _Optional[_Union[FramePose, _Mapping]] = ...) -> None: ...
+
+class FramePose(_message.Message):
+    __slots__ = ("origin", "basis")
+    ORIGIN_FIELD_NUMBER: _ClassVar[int]
+    BASIS_FIELD_NUMBER: _ClassVar[int]
+    origin: _containers.RepeatedScalarFieldContainer[float]
+    basis: _containers.RepeatedScalarFieldContainer[float]
+    def __init__(self, origin: _Optional[_Iterable[float]] = ..., basis: _Optional[_Iterable[float]] = ...) -> None: ...
+
+class FramePlacement(_message.Message):
+    __slots__ = ("origin", "basis_directions")
+    ORIGIN_FIELD_NUMBER: _ClassVar[int]
+    BASIS_DIRECTIONS_FIELD_NUMBER: _ClassVar[int]
+    origin: Value
+    basis_directions: _containers.RepeatedCompositeFieldContainer[Value]
+    def __init__(self, origin: _Optional[_Union[Value, _Mapping]] = ..., basis_directions: _Optional[_Iterable[_Union[Value, _Mapping]]] = ...) -> None: ...
+
+class TranslationRotationSequence(_message.Message):
+    __slots__ = ("steps",)
+    STEPS_FIELD_NUMBER: _ClassVar[int]
+    steps: _containers.RepeatedCompositeFieldContainer[FrameStep]
+    def __init__(self, steps: _Optional[_Iterable[_Union[FrameStep, _Mapping]]] = ...) -> None: ...
+
+class FrameStep(_message.Message):
+    __slots__ = ("translation", "rotation", "instance_id")
+    TRANSLATION_FIELD_NUMBER: _ClassVar[int]
+    ROTATION_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_ID_FIELD_NUMBER: _ClassVar[int]
+    translation: Value
+    rotation: FrameRotation
+    instance_id: int
+    def __init__(self, translation: _Optional[_Union[Value, _Mapping]] = ..., rotation: _Optional[_Union[FrameRotation, _Mapping]] = ..., instance_id: _Optional[int] = ...) -> None: ...
+
+class FrameRotation(_message.Message):
+    __slots__ = ("axis_direction", "angle", "is_intrinsic")
+    AXIS_DIRECTION_FIELD_NUMBER: _ClassVar[int]
+    ANGLE_FIELD_NUMBER: _ClassVar[int]
+    IS_INTRINSIC_FIELD_NUMBER: _ClassVar[int]
+    axis_direction: Value
+    angle: Quantity
+    is_intrinsic: bool
+    def __init__(self, axis_direction: _Optional[_Union[Value, _Mapping]] = ..., angle: _Optional[_Union[Quantity, _Mapping]] = ..., is_intrinsic: _Optional[bool] = ...) -> None: ...
+
+class AffineTransformation3d(_message.Message):
+    __slots__ = ("rotation", "translation")
+    ROTATION_FIELD_NUMBER: _ClassVar[int]
+    TRANSLATION_FIELD_NUMBER: _ClassVar[int]
+    rotation: _containers.RepeatedScalarFieldContainer[float]
+    translation: _containers.RepeatedScalarFieldContainer[float]
+    def __init__(self, rotation: _Optional[_Iterable[float]] = ..., translation: _Optional[_Iterable[float]] = ...) -> None: ...
 
 class Rational(_message.Message):
     __slots__ = ("numerator", "denominator")

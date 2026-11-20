@@ -1,6 +1,7 @@
 package export
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
@@ -65,6 +66,7 @@ const (
 	pImportOwningNamespace       = "importOwningNamespace"
 	pDirection                   = "direction"
 	pIsImplied                   = "isImplied"
+	pIsImpliedIncluded           = "isImpliedIncluded"
 	pLowerBound                  = "lowerBound"
 	pUpperBound                  = "upperBound"
 	pValue                       = "value"
@@ -360,11 +362,17 @@ func ModelElementGraphWith(documents []ModelDocument, form IDForm) (*rdf.Graph, 
 	if err != nil {
 		return nil, err
 	}
-	return encodeModelDocuments(documents, encoders, addLinkedLibraryStubs)
+	return encodeModelDocuments(context.Background(), documents, encoders, addLinkedLibraryStubs)
 }
 
+// libraryNamer states the library stubs of a written graph; a done ctx is its error.
+type libraryNamer func(ctx context.Context, graph *rdf.Graph) error
+
 // addLinkedLibraryStubs names the library elements the graph's triples link to.
-func addLinkedLibraryStubs(graph *rdf.Graph) { addReferencedLibraryStubs(graph, nil) }
+func addLinkedLibraryStubs(_ context.Context, graph *rdf.Graph) error {
+	addReferencedLibraryStubs(graph, nil)
+	return nil
+}
 
 // modelToRDF is ModelToRDFWith, also returning the resolver the model was
 // analyzed with and each document's encoder, whose identity tables are the
@@ -374,7 +382,7 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	out, err := encodeModelDocuments(documents, encoders, nameInheritedLibraryMembers)
+	out, err := encodeModelDocuments(context.Background(), documents, encoders, nameInheritedLibraryMembers)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -383,17 +391,48 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 
 // encodeModelDocuments merges the documents' graphs; nameLibrary states the library stubs of the merged one.
 // It returns the graph alone, so a caller done with the encoders holds no document's graph beside it.
-func encodeModelDocuments(documents []ModelDocument, encoders []*encoder, nameLibrary func(*rdf.Graph)) (*rdf.Graph, error) {
+func encodeModelDocuments(ctx context.Context, documents []ModelDocument, encoders []*encoder, nameLibrary libraryNamer) (*rdf.Graph, error) {
+	out, _, _, err := encodeReadableDocuments(ctx, documents, encoders, nameLibrary, nil, false)
+	return out, err
+}
+
+// ExcludedDocument is a document a model was read without, and why.
+type ExcludedDocument struct {
+	Document string
+	Err      error
+}
+
+// encodeReadableDocuments is encodeModelDocuments without the documents unreadable names and, when tolerant, without one it
+// cannot write or whose ids an earlier document declares: each stays analyzed, declares no id, and is returned in document order.
+func encodeReadableDocuments(ctx context.Context, documents []ModelDocument, encoders []*encoder, nameLibrary libraryNamer, unreadable map[string]error, tolerant bool) (*rdf.Graph, []ExcludedDocument, []bool, error) {
 	// declaredIn is the document and declaration each subject was minted for:
 	// two documents declaring one subject would merge two elements into one.
 	declaredIn := map[string]mintedSubject{}
+	written := slices.Clone(documents)
+	var excluded []ExcludedDocument
+	exclude := func(i int, err error) {
+		written[i].Referenced = true
+		excluded = append(excluded, ExcludedDocument{Document: documents[i].File.Name(), Err: err})
+	}
 	for i, e := range encoders {
+		if err := ctx.Err(); err != nil {
+			return nil, nil, nil, err
+		}
+		if err := unreadable[documents[i].File.Name()]; err != nil {
+			exclude(i, err)
+			continue
+		}
 		var minted []mintedSubject
 		if documents[i].Referenced {
 			minted = e.declaredSubjects()
 		} else {
 			if err := e.encodeDocument(documents[i].Root); err != nil {
-				return nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
+				err = fmt.Errorf("%s: %w", documents[i].File.Name(), err)
+				if !tolerant {
+					return nil, nil, nil, err
+				}
+				exclude(i, err)
+				continue
 			}
 			// The document is written: its graph waits for the merge as its triples
 			// alone, without the lookup tables the writing built over them.
@@ -401,15 +440,27 @@ func encodeModelDocuments(documents []ModelDocument, encoders []*encoder, nameLi
 			minted = e.minted
 		}
 		if err := declaredOnce(declaredIn, minted); err != nil {
-			return nil, err
+			if !tolerant {
+				return nil, nil, nil, err
+			}
+			exclude(i, err)
 		}
 	}
-	out := mergeDocumentGraphs(encoders, documents)
-	nameLibrary(out)
+	if err := ctx.Err(); err != nil {
+		return nil, nil, nil, err
+	}
+	out := mergeDocumentGraphs(encoders, written)
+	if err := nameLibrary(ctx, out); err != nil {
+		return nil, nil, nil, err
+	}
 	// Each document's encoder annotated its collections from its own triples,
 	// in their order, and no two documents declare one subject (refused above).
 	out.MarkCollectionsSettled()
-	return out, nil
+	unwritten := make([]bool, len(written))
+	for i, doc := range written {
+		unwritten[i] = doc.Referenced
+	}
+	return out, excluded, unwritten, nil
 }
 
 // modelEncodersOf analyzes the model and makes each document's encoder with
@@ -993,18 +1044,21 @@ func (e *encoder) inheritedLibraryNames() {
 	if e.ids.model == nil {
 		return
 	}
-	nameInheritedLibraryMembers(e.graph)
+	// A background context is never done, so there is no error to report.
+	_ = nameInheritedLibraryMembers(context.Background(), e.graph)
 }
 
 // nameInheritedLibraryMembers is inheritedLibraryNames for a written graph, of
 // one document or a model's merged ones.
-func nameInheritedLibraryMembers(graph *rdf.Graph) {
+func nameInheritedLibraryMembers(ctx context.Context, graph *rdf.Graph) error {
 	// The completed properties are evaluated, not written: their ids name every stub.
-	ids, err := apiJSONMembershipReferenceIDs(graph)
+	ids, err := apiJSONMembershipReferenceIDs(ctx, graph)
 	if err != nil {
-		return
+		// A graph the evaluator cannot read names no inherited member; a caller gone is an error.
+		return ctx.Err()
 	}
 	addReferencedLibraryStubs(graph, ids)
+	return nil
 }
 
 // owningMembershipClaim, after an element's name, says what a claimed membership IRI stands for.
@@ -1504,6 +1558,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			{"isAbstract", n.IsAbstract || n.IsVariation || n.Kind == ast.DefEnumeration},
 			{"isVariation", n.IsVariation || n.Kind == ast.DefEnumeration},
 			{"isAll", n.IsAll},
+			// A ConnectionDefinition is sufficient though no keyword notates it (SysML v2.1 §8.3.13.3).
+			{"isSufficient", ontology.IsAncestorOrSelf(metaclass, "ConnectionDefinition")},
 			{"isConstant", n.IsConstant},
 			{"isEvent", n.IsEvent},
 			{"isIndividual", n.IsIndividual},
@@ -3305,6 +3361,7 @@ func chainTargets(rels []*ast.Relationship) map[*ast.Relationship]int {
 	chained := map[ast.RelationshipKind]bool{
 		ast.RelSpecializes: true, ast.RelSubsets: true,
 		ast.RelRedefines: true, ast.RelReferences: true,
+		ast.RelCrosses: true, ast.RelUnions: true, ast.RelIntersects: true, ast.RelDifferences: true,
 	}
 	chains := map[*ast.Relationship]int{}
 	for _, rel := range rels {

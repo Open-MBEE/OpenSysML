@@ -89,6 +89,7 @@ from the clients and a gap is a stated gap rather than a silent one.
 | `metaobject_values` | bound | bound | bound | bound | bound | bound | bound |
 | `symbol_members` | bound | bound | bound | bound | bound | not bound | not bound |
 | `undetermined_value` | bound | bound | bound | bound | bound | bound | bound |
+| `coordinate_frame_values` | bound | bound | bound | bound | bound | bound | bound |
 | `engines_external` | not bound | not bound | not bound | not bound | bound | not bound | not bound |
 | `edit_documents` | bound | bound | bound | bound | bound | bound | bound |
 | `performer` | bound | bound | bound | bound | bound | bound | bound |

@@ -126,6 +126,14 @@ func collapsedOf(metaclass string) (string, bool) {
 		return "redefines", true
 	case mReferenceSubsetting:
 		return "references", true
+	case mCrossSubsetting:
+		return "crosses", true
+	case mUnioning:
+		return "unions", true
+	case mIntersecting:
+		return "intersects", true
+	case mDifferencing:
+		return "differences", true
 	}
 	return "", false
 }
@@ -140,6 +148,10 @@ var collapsedKindsOf = map[string][]ast.RelationshipKind{
 	mSubsetting:           {ast.RelSubsets, ast.RelSpecializes},
 	mRedefinition:         {ast.RelRedefines},
 	mReferenceSubsetting:  {ast.RelReferences},
+	mCrossSubsetting:      {ast.RelCrosses},
+	mUnioning:             {ast.RelUnions},
+	mIntersecting:         {ast.RelIntersects},
+	mDifferencing:         {ast.RelDifferences},
 	mAnnotation:           {ast.RelAnnotates},
 }
 
@@ -258,17 +270,9 @@ func lastSegmentText(qname string) string {
 func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*rdf.Graph, error) {
 	meta := func(t rdf.Term) string { return rdf.LocalName(metaclasses[t]) }
 	chainIndex := chainOwnerIndex(graph, meta)
-	// This mapping never states Element::isImpliedIncluded in its graph (the
-	// reader drops the flag from its own documents), so a graph that does is an
-	// external writer's element form: its stated defaults are dropped and its
+	// An external writer's element form has its stated defaults dropped and its
 	// collapsed properties derived; a graph minted to this mapping states only what it means.
-	elementForm := false
-	for _, subject := range graph.Subjects() {
-		if graph.HasProperty(subject, rdf.SysML+"isImpliedIncluded") {
-			elementForm = true
-			break
-		}
-	}
+	elementForm := externalElementForm(graph)
 	graph, err := dropStatedDefaults(graph, meta, elementForm, chainIndex)
 	if err != nil {
 		return nil, err
@@ -1526,10 +1530,10 @@ func (d *defaultDropper) ownsDroppedMember(subject rdf.Term) bool {
 	return member.Value != "" && d.unresolvedTR[member.Value]
 }
 
-// impliedIncluded reports whether subject came from an external writer's
-// element form, the only graph that states Element::isImpliedIncluded.
+// impliedIncluded reports whether subject, an element of an external writer's
+// element form, states Element::isImpliedIncluded as that form's elements do.
 func (d *defaultDropper) impliedIncluded(subject rdf.Term) bool {
-	return d.graph.HasProperty(subject, rdf.SysML+"isImpliedIncluded")
+	return d.graph.HasProperty(subject, rdf.SysML+pIsImpliedIncluded)
 }
 
 // iriObject is the object an IRI-valued triple is copied with — a chain

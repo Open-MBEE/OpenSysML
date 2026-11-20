@@ -2103,6 +2103,10 @@ jobs:
           command: mvn -B -f editors/mdk/pom.xml verify -Dopensysml.requireService=true
 
       - run:
+          name: Test the compile against Cameo from an uncompiled client
+          command: editors/mdk/scripts/compile-against-cameo-test.sh
+
+      - run:
           name: Audit the plugin's dependencies
           command: |
             scripts/download-sca-tools.sh osv-scanner

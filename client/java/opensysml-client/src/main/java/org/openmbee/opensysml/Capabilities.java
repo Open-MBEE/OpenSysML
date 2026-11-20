@@ -60,6 +60,12 @@ public final class Capabilities {
   /** A model-level result the model leaves open travels as itself rather than as an unsupported null. */
   public static final String UNDETERMINED_VALUE = "undetermined_value";
 
+  /**
+   * A coordinate frame and a coordinate transformation travel as themselves rather than as
+   * unsupported nulls.
+   */
+  public static final String COORDINATE_FRAME_VALUES = "coordinate_frame_values";
+
   /** An Integer beyond int64 travels as {@code big_int_value} rather than as an unsupported null. */
   public static final String BIG_INT_VALUES = "big_int_values";
 

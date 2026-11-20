@@ -19,7 +19,7 @@ import (
 // interfaceFormatVersion is the on-disk format version of an interface record.
 // Bump it whenever InterfaceRecord, symbols.DocumentRecord or
 // symbols.LibraryFacts changes shape or meaning.
-const interfaceFormatVersion = 23
+const interfaceFormatVersion = 24
 
 // ErrUnrecordable reports a document whose interface cannot be written without
 // its tree: a fact a reader needs has no name to restore it by. The document is
@@ -362,6 +362,7 @@ func declaredTraits(decl ast.Node) (ast.FeatureDirection, symbols.Modifiers) {
 		set(d.Value != nil, symbols.ModValued)
 		set(d.IsNegated, symbols.ModNegated)
 		set(d.Keyword == "assert" || d.PrefixKeyword == "assert", symbols.ModAssert)
+		set(d.IsIncludedUseCase(), symbols.ModInclude)
 		set(d.DeclaresRequirement, symbols.ModDeclaresRequirement)
 		set(d.IsAll, symbols.ModAll)
 		set(d.IsChain, symbols.ModChain)

@@ -137,6 +137,7 @@ func TestClientCapabilityChecklist(t *testing.T) {
 // capabilityDecodes names, for each capability that only populates a response and so has
 // nothing to gate, the read of the generated message that decodes it and thereby binds it.
 var capabilityDecodes = map[string]*regexp.Regexp{
+	"CoordinateFrameValues":    regexp.MustCompile(`\*pb\.Value_CoordinateFrame\b`),
 	"ConvertLibraryReferences": regexp.MustCompile(`\bresp\.LibraryReferences\b`),
 	"DiagnosticCodes":          regexp.MustCompile(`\bdiag\.Code\b`),
 	"EnumValues":               regexp.MustCompile(`\*pb\.Value_EnumLiteral\b`),
