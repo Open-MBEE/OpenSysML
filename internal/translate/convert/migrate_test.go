@@ -13,9 +13,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
-// A conversion from XMI is the migration followed by a notation conversion of
-// what it wrote, so the migrated notation and the converted Turtle agree with
-// the migration package's own output.
+// A conversion from XMI is the migration, then a notation conversion of what it wrote,
+// so the migrated notation and the converted Turtle agree with the migration's own output.
 func TestConvertFromXMIComposesTheMigration(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("..", "..", "..", "tests", "migrate", "testdata", "xmi", "vehicle.xmi"))
 	if err != nil {

@@ -205,7 +205,6 @@ func TestManualCookbookObjectRecipes(t *testing.T) {
 // and the report renders them as table cells and as prose in Markdown and HTML,
 // the Markdown matching its committed output.
 func TestManualRequirementsExample(t *testing.T) {
-	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	examples := filepath.Join("..", "..", "docs", "manual", "examples")
 	source := filepath.Join(examples, "requirements.sysml")
@@ -254,6 +253,7 @@ func TestManualRequirementsExample(t *testing.T) {
 		}
 	}
 
+	needs(t, docpdfFeature) // the rest of the test is the HTML or PDF document
 	page := exec.Command(binary, source, "-render-document", "Requirements::RequirementsReport", "-doc-form", "html")
 	html, err := page.Output()
 	if err != nil {
@@ -278,7 +278,6 @@ func TestManualRequirementsExample(t *testing.T) {
 // end: one matrix query lists every requirement with its satisfiers, verifiers
 // and verification count, and the report's Markdown matches its committed output.
 func TestManualTraceabilityExample(t *testing.T) {
-	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	examples := filepath.Join("..", "..", "docs", "manual", "examples")
 	source := filepath.Join(examples, "traceability.sysml")
@@ -331,6 +330,7 @@ func TestManualTraceabilityExample(t *testing.T) {
 		}
 	}
 
+	needs(t, docpdfFeature) // the rest of the test is the HTML or PDF document
 	page := exec.Command(binary, source, "-render-document", "Traceability::TraceabilityReport", "-doc-form", "html")
 	html, err := page.Output()
 	if err != nil {
@@ -350,7 +350,6 @@ func TestManualTraceabilityExample(t *testing.T) {
 // TestManualTraceabilityLadder renders the four graded traceability examples end to end:
 // Markdown matches the committed output, the tier's distinguishing rows are present, HTML keeps element cells.
 func TestManualTraceabilityLadder(t *testing.T) {
-	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	examples := filepath.Join("..", "..", "docs", "manual", "examples")
 	tiers := []struct {
@@ -447,6 +446,7 @@ func TestManualTraceabilityLadder(t *testing.T) {
 				}
 			}
 
+			needs(t, docpdfFeature) // the rest of the test is the HTML or PDF document
 			page := exec.Command(binary, source, "-render-document", tier.document, "-doc-form", "html")
 			html, err := page.Output()
 			if err != nil {

@@ -269,7 +269,6 @@ const objectDocumentModel = objectQueryModel + `package Reports {
 // render run takes: a table bound to a part renders the object the run holds
 // under that name, by path, and Objects tables fill from what it holds.
 func TestRenderDocumentOverObjects(t *testing.T) {
-	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 
 	wantReport(t, check(t, binary, objectDocumentModel, "-render-document", "Reports::CarReport"),
@@ -292,9 +291,12 @@ func TestRenderDocumentOverObjects(t *testing.T) {
 		t.Errorf("the object created belongs on stderr:\n%s", got.stderr)
 	}
 
-	html := check(t, binary, objectDocumentModel, "-instantiate", "Garage::car", "-render-document", "Reports::CarReport", "-doc-form", "html")
-	wantReport(t, html, 0,
-		`<tr class="sysml-row" data-object="#2" data-element="Garage::Car::wheels" data-element-kind="partUsage">`)
+	t.Run("html", func(t *testing.T) {
+		needs(t, docpdfFeature)
+		html := check(t, binary, objectDocumentModel, "-instantiate", "Garage::car", "-render-document", "Reports::CarReport", "-doc-form", "html")
+		wantReport(t, html, 0,
+			`<tr class="sysml-row" data-object="#2" data-element="Garage::Car::wheels" data-element-kind="partUsage">`)
+	})
 
 	wantReport(t, check(t, binary, objectDocumentModel, "-instantiate", "Garage::car", "-validate", "-render-document", "Reports::CarReport"),
 		2, "decides nothing about the model")

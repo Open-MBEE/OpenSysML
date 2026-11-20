@@ -13,9 +13,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/client/opensysml"
 )
 
-// MigrateFile migrates a v1 file whose extension names its form, and
-// MigrateSource the same bytes with WithV1Format naming it; both account for
-// the migration in the Report, with every element's verdict when asked.
+// MigrateFile migrates a v1 file by its extension and MigrateSource the same bytes under
+// WithV1Format; both account for it in the Report, with every element's verdict when asked.
 func TestMigrateFileAndSourceMigrateSysMLv1(t *testing.T) {
 	client := newClient(t)
 	ctx := context.Background()

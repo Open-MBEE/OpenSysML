@@ -15,10 +15,8 @@ import (
 	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
 )
 
-// TestSelfModelAnalysisFrameworkMatchesImplementation instantiates the modelled
-// analysis framework and compares it with internal/exec/analysis: the engines the
-// build's registry (engines.Default) holds and what each declares, the question kinds, the
-// evidence scale, the selections, the budget and the jobs setting.
+// The modelled analysis framework matches internal/exec/analysis: the full build's engines and
+// what each declares, the question kinds, the evidence scale, selections, budget and jobs setting.
 func TestSelfModelAnalysisFrameworkMatchesImplementation(t *testing.T) {
 	idx, ctx := analyseSelfModel(t)
 	framework := instantiateSelfModel(t, idx, ctx, "pipeline.sysml", "OpenSysMLPipeline", "AnalysisFramework")

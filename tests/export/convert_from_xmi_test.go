@@ -14,9 +14,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
-// TestConvertFromXMI checks the XMI entry into the conversion paths: v1 XMI
-// migrates to notation and to Turtle, the report comes back from Migrate, and
-// nothing writes XMI.
+// TestConvertFromXMI checks the XMI entry into the conversion paths: v1 XMI migrates to
+// notation and to Turtle, the report comes back from Migrate, and nothing writes XMI.
 func TestConvertFromXMI(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("..", "migrate", "testdata", "xmi", "vehicle.xmi"))
 	if err != nil {

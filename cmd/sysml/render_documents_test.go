@@ -98,7 +98,6 @@ func TestRenderDocumentsFlag(t *testing.T) {
 // TestRenderDocumentsDiagramForm checks -diagram-form applies to every
 // document of a set, in Markdown and in HTML.
 func TestRenderDocumentsDiagramForm(t *testing.T) {
-	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.sysml")
 	golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.dot.golden.md"))
@@ -118,41 +117,44 @@ func TestRenderDocumentsDiagramForm(t *testing.T) {
 		t.Errorf("set member differs from the DOT golden:\n%s", report)
 	}
 
-	site := filepath.Join(t.TempDir(), "site")
-	if got := runCommand(t, exec.Command(binary, fixture, "-render-documents", site, "-doc-form", "html", "-diagram-form", "dot")); got.status != 0 {
-		t.Fatalf("exit = %d\n%s", got.status, got.output())
-	}
-	page, err := os.ReadFile(filepath.Join(site, "Observatory-MassReport.html"))
-	if err != nil {
-		t.Fatalf("read page: %v", err)
-	}
-	if !strings.Contains(string(page), `<pre class="dot">`) || strings.Contains(string(page), `class="mermaid"`) {
-		t.Errorf("page does not write its diagrams as DOT:\n%s", page)
-	}
+	t.Run("html", func(t *testing.T) {
+		needs(t, docpdfFeature)
+		site := filepath.Join(t.TempDir(), "site")
+		if got := runCommand(t, exec.Command(binary, fixture, "-render-documents", site, "-doc-form", "html", "-diagram-form", "dot")); got.status != 0 {
+			t.Fatalf("exit = %d\n%s", got.status, got.output())
+		}
+		page, err := os.ReadFile(filepath.Join(site, "Observatory-MassReport.html"))
+		if err != nil {
+			t.Fatalf("read page: %v", err)
+		}
+		if !strings.Contains(string(page), `<pre class="dot">`) || strings.Contains(string(page), `class="mermaid"`) {
+			t.Errorf("page does not write its diagrams as DOT:\n%s", page)
+		}
 
-	puml := filepath.Join(t.TempDir(), "puml")
-	if got := runCommand(t, exec.Command(binary, fixture, "-render-documents", puml, "-doc-form", "html", "-diagram-form", "plantuml")); got.status != 0 {
-		t.Fatalf("exit = %d\n%s", got.status, got.output())
-	}
-	page, err = os.ReadFile(filepath.Join(puml, "Observatory-MassReport.html"))
-	if err != nil {
-		t.Fatalf("read page: %v", err)
-	}
-	if !strings.Contains(string(page), `<pre class="plantuml">@startuml`) || strings.Contains(string(page), `class="mermaid"`) {
-		t.Errorf("page does not write its diagrams as PlantUML:\n%s", page)
-	}
+		puml := filepath.Join(t.TempDir(), "puml")
+		if got := runCommand(t, exec.Command(binary, fixture, "-render-documents", puml, "-doc-form", "html", "-diagram-form", "plantuml")); got.status != 0 {
+			t.Fatalf("exit = %d\n%s", got.status, got.output())
+		}
+		page, err = os.ReadFile(filepath.Join(puml, "Observatory-MassReport.html"))
+		if err != nil {
+			t.Fatalf("read page: %v", err)
+		}
+		if !strings.Contains(string(page), `<pre class="plantuml">@startuml`) || strings.Contains(string(page), `class="mermaid"`) {
+			t.Errorf("page does not write its diagrams as PlantUML:\n%s", page)
+		}
 
-	d2 := filepath.Join(t.TempDir(), "d2")
-	if got := runCommand(t, exec.Command(binary, fixture, "-render-documents", d2, "-doc-form", "html", "-diagram-form", "d2")); got.status != 0 {
-		t.Fatalf("exit = %d\n%s", got.status, got.output())
-	}
-	page, err = os.ReadFile(filepath.Join(d2, "Observatory-MassReport.html"))
-	if err != nil {
-		t.Fatalf("read page: %v", err)
-	}
-	if !strings.Contains(string(page), `<pre class="d2"># Observatory::interconnectView`) || strings.Contains(string(page), `class="mermaid"`) {
-		t.Errorf("page does not write its diagrams as D2:\n%s", page)
-	}
+		d2 := filepath.Join(t.TempDir(), "d2")
+		if got := runCommand(t, exec.Command(binary, fixture, "-render-documents", d2, "-doc-form", "html", "-diagram-form", "d2")); got.status != 0 {
+			t.Fatalf("exit = %d\n%s", got.status, got.output())
+		}
+		page, err = os.ReadFile(filepath.Join(d2, "Observatory-MassReport.html"))
+		if err != nil {
+			t.Fatalf("read page: %v", err)
+		}
+		if !strings.Contains(string(page), `<pre class="d2"># Observatory::interconnectView`) || strings.Contains(string(page), `class="mermaid"`) {
+			t.Errorf("page does not write its diagrams as D2:\n%s", page)
+		}
+	})
 
 	wantReport(t, runCommand(t, exec.Command(binary, fixture, "-render-documents", filepath.Join(t.TempDir(), "x"), "-diagram-form", "svg")),
 		2, `unknown diagram form "svg"`)
