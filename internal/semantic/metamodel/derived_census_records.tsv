@@ -2087,7 +2087,7 @@ Usage::nestedItem	spec-examples	1385	25	1360	0	2002	22	1980	0	0
 Usage::nestedItem	testdata	228	4	224	0	279	4	275	0	0
 Usage::nestedItem	examples	6889	77	6812	0	7923	77	7846	0	0
 Usage::nestedItem	probes	1	0	1	0	1	0	1	0	0
-Usage::nestedItem	manual-examples	785	37	748	0	789	36	753	0	0
+Usage::nestedItem	manual-examples	785	36	749	0	789	36	753	0	0
 Usage::nestedMetadata	training	1738	20	1718	0	1821	27	1794	0	0
 Usage::nestedMetadata	pilot-examples	5131	109	5022	0	5283	142	5141	0	0
 Usage::nestedMetadata	pilot-validation	1972	34	1938	0	2012	52	1960	0	0
