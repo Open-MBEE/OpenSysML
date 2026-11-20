@@ -1,0 +1,1 @@
+- Reporting a type-check or conjugated-specialization diagnostic looks its position and message up in a keyed set instead of scanning every diagnostic already reported: a document with ten thousand such diagnostics is checked for repeats in about a quarter of the time.
