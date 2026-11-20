@@ -196,12 +196,12 @@ func (s *Service) CheckBehavior(ctx context.Context, req *pb.CheckBehaviorReques
 	if req.StateMachineSymbolId != "" {
 		label = "State machine " + id
 	}
-	return s.checkResponse(label, plan, witnessDir), nil
+	return s.checkResponse(label, plan), nil
 }
 
 // checkResponse renders what the engines answered: the report as the command
 // prints it and its parts as data.
-func (s *Service) checkResponse(label string, plan analysis.Plan, witnessDir string) *pb.CheckBehaviorResponse {
+func (s *Service) checkResponse(label string, plan analysis.Plan) *pb.CheckBehaviorResponse {
 	result := plan.Result
 	st := s.standingOf(plan)
 	status, lines, _ := analysis.CheckLines(label, result)
