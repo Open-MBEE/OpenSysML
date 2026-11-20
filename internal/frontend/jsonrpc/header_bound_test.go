@@ -19,6 +19,18 @@ func TestReadHeaderRefusesHeadersOverTheBound(t *testing.T) {
 	}
 }
 
+func TestReadHeaderAcceptsAFoldedHeaderUnderTheBound(t *testing.T) {
+	first, rest := strings.Repeat("a", MaxHeaderBytes/2+1000), strings.Repeat("b", 1000)
+	input := "X-Pad: " + first + "\r\n " + rest + "\r\n\r\n"
+	header, err := ReadHeader(bufio.NewReader(strings.NewReader(input)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := header["X-Pad"]; len(got) != 1 || got[0] != first+" "+rest {
+		t.Errorf("X-Pad holds %d values; the first line or its continuation was lost", len(got))
+	}
+}
+
 func TestReadHeaderAcceptsHeadersUnderTheBound(t *testing.T) {
 	input := "Content-Length: 2\r\nX-Pad: " + strings.Repeat("a", MaxHeaderBytes/2) + "\r\n\r\n{}"
 	header, err := ReadHeader(bufio.NewReader(strings.NewReader(input)))
