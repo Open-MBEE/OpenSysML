@@ -1213,8 +1213,23 @@ pub struct GetElementPropertiesResponse {
     #[prost(message, repeated, tag="2")]
     pub properties: ::prost::alloc::vec::Vec<ElementProperty>,
     /// Why there is no answer: the model or the element was not found, or the
-    /// model has no element form (a document the parser could not read whole).
+    /// element belongs to an excluded document.
     #[prost(string, tag="3")]
+    pub error: ::prost::alloc::string::String,
+    /// The documents the model is read without, each with why; empty when the whole model is read.
+    /// Any other element is answered and may name one of theirs; asking for theirs answers its document's error.
+    #[prost(message, repeated, tag="4")]
+    pub excluded_documents: ::prost::alloc::vec::Vec<ExcludedDocument>,
+}
+/// ExcludedDocument is a document GetElementProperties leaves out of a model: one the parser could not
+/// read whole, one the element form cannot write, or one declaring an element an earlier document declares.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExcludedDocument {
+    /// The document's name as the parse request gave it.
+    #[prost(string, tag="1")]
+    pub document: ::prost::alloc::string::String,
+    /// Why it is left out, as Convert would refuse the model for it.
+    #[prost(string, tag="2")]
     pub error: ::prost::alloc::string::String,
 }
 /// ElementRef identifies an element the element form knows: an element of
@@ -2738,7 +2753,7 @@ pub struct AttributeInfo {
 /// Value represents a runtime-evaluable value
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Value {
-    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23")]
+    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25")]
     pub kind: ::core::option::Option<value::Kind>,
 }
 /// Nested message and enum types in `Value`.
@@ -2815,7 +2830,195 @@ pub mod value {
         /// any exact Rational here, and an inbound real_value is always a Real.
         #[prost(message, tag="23")]
         RationalValue(super::Rational),
+        /// A coordinate frame or measurement scale held as a value: its axes and the
+        /// placement relating it to another frame. Sent, never accepted.
+        #[prost(message, tag="24")]
+        CoordinateFrame(::prost::alloc::boxed::Box<super::CoordinateFrame>),
+        /// A placement of one frame in another, with the frames it relates. Sent,
+        /// never accepted.
+        #[prost(message, tag="25")]
+        CoordinateTransformation(::prost::alloc::boxed::Box<super::CoordinateTransformation>),
     }
+}
+/// CoordinateFrame is a MeasurementReferences::VectorMeasurementReference held
+/// as a value: a coordinate frame's axes, or the one axis a measurement scale
+/// is. Two frames read from objects are the same exactly when instance_id is; a
+/// frame composed by arithmetic (`spatialCF / s`) is its content.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CoordinateFrame {
+    /// The frame as a reader writes it: "datum", or "spatialCF / s" for one composed.
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    /// The id a client keeps for the usage declaring the frame ("Frames::datum");
+    /// empty for a frame composed by arithmetic or made of a definition.
+    #[prost(string, tag="2")]
+    pub frame_id: ::prost::alloc::string::String,
+    /// FQN of the type the frame is a value of
+    /// ("MeasurementReferences::CartesianSpatial3dCoordinateFrame"); empty for none.
+    #[prost(string, tag="3")]
+    pub type_id: ::prost::alloc::string::String,
+    /// The object the frame was read from; 0 for a frame composed by arithmetic.
+    #[prost(int64, tag="4")]
+    pub instance_id: i64,
+    /// `dimensions`: \[3\] for a three-dimensional frame, empty for a scale.
+    #[prost(int64, repeated, tag="5")]
+    pub dimensions: ::prost::alloc::vec::Vec<i64>,
+    /// `mRefs` in row-major order under dimensions: one unit per axis.
+    #[prost(message, repeated, tag="6")]
+    pub axes: ::prost::alloc::vec::Vec<MeasurementRef>,
+    /// `transformation`: the placement of this frame in another; unset when the
+    /// model states none. Its target is this frame and is not repeated.
+    #[prost(message, optional, boxed, tag="7")]
+    pub transformation: ::core::option::Option<::prost::alloc::boxed::Box<CoordinateTransformation>>,
+    /// Set exactly when the frame is a MeasurementReferences::MeasurementScale.
+    #[prost(message, optional, tag="8")]
+    pub scale: ::core::option::Option<MeasurementScale>,
+}
+/// MeasurementScale is what a scale states beyond its one axis.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MeasurementScale {
+    /// The unit a magnitude on the scale is expressed in.
+    #[prost(message, optional, tag="1")]
+    pub unit: ::core::option::Option<MeasurementRef>,
+    /// `quantityValueMapping`: one point given on the scale and on the reference
+    /// the scale is defined against; unset when the model states none.
+    #[prost(message, optional, tag="2")]
+    pub mapping: ::core::option::Option<QuantityValueMapping>,
+}
+/// QuantityValueMapping is one point on a scale and the same point on the
+/// measurement reference the scale is defined against.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QuantityValueMapping {
+    /// the point on the scale, in the scale's unit
+    #[prost(message, optional, tag="1")]
+    pub mapped: ::core::option::Option<Quantity>,
+    /// the same point on the reference
+    #[prost(message, optional, tag="2")]
+    pub reference: ::core::option::Option<Quantity>,
+}
+/// CoordinateTransformation is a MeasurementReferences::CoordinateTransformation
+/// held as a value: the placement of the target frame in the source frame, in
+/// the library shape the model states it in. A transformation of no library
+/// shape carries its frames alone.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CoordinateTransformation {
+    /// The transformation as a reader names it: its declared name, else its type.
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    /// The id a client keeps for the usage declaring it; empty for one constructed.
+    #[prost(string, tag="2")]
+    pub transformation_id: ::prost::alloc::string::String,
+    /// FQN of the type it is a value of
+    /// ("MeasurementReferences::TranslationRotationSequence"); empty for none.
+    #[prost(string, tag="3")]
+    pub type_id: ::prost::alloc::string::String,
+    /// The object the transformation was read from; 0 for none.
+    #[prost(int64, tag="4")]
+    pub instance_id: i64,
+    /// `source`; unset when the model states none.
+    #[prost(message, optional, boxed, tag="5")]
+    pub source: ::core::option::Option<::prost::alloc::boxed::Box<CoordinateFrame>>,
+    /// `target`; unset inside the CoordinateFrame whose transformation this is.
+    /// A target whose own transformation is this one does not repeat it.
+    #[prost(message, optional, boxed, tag="6")]
+    pub target: ::core::option::Option<::prost::alloc::boxed::Box<CoordinateFrame>>,
+    /// The pose the shape resolves to, as VectorCalculations::transform applies
+    /// it. Unset when the model states no source, or the shape resolves to none.
+    #[prost(message, optional, tag="10")]
+    pub pose: ::core::option::Option<FramePose>,
+    #[prost(oneof="coordinate_transformation::Shape", tags="7, 8, 9")]
+    pub shape: ::core::option::Option<coordinate_transformation::Shape>,
+}
+/// Nested message and enum types in `CoordinateTransformation`.
+pub mod coordinate_transformation {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Shape {
+        /// a CoordinateFramePlacement
+        #[prost(message, tag="7")]
+        Placement(::prost::alloc::boxed::Box<super::FramePlacement>),
+        #[prost(message, tag="8")]
+        Sequence(super::TranslationRotationSequence),
+        /// an AffineTransformationMatrix3d
+        #[prost(message, tag="9")]
+        Affine(super::AffineTransformation3d),
+    }
+}
+/// FramePose is where a transformation's target frame sits in its source frame,
+/// as bare numbers in the source's axis units: the point with target
+/// coordinates v lies at `origin + basis · v` in the source.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FramePose {
+    /// one per source axis
+    #[prost(double, repeated, tag="1")]
+    pub origin: ::prost::alloc::vec::Vec<f64>,
+    /// n×n over the source's n axes, row-major: column j is the direction of
+    /// target axis j in the source.
+    #[prost(double, repeated, tag="2")]
+    pub basis: ::prost::alloc::vec::Vec<f64>,
+}
+/// FramePlacement is a MeasurementReferences::CoordinateFramePlacement.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FramePlacement {
+    /// The target's origin in the source frame: a vector_quantity, or a quantity
+    /// for a one-dimensional frame.
+    #[prost(message, optional, boxed, tag="1")]
+    pub origin: ::core::option::Option<::prost::alloc::boxed::Box<Value>>,
+    /// The target's basis directions in the source frame, one vector_quantity per
+    /// target axis; empty for the source's own orientation.
+    #[prost(message, repeated, tag="2")]
+    pub basis_directions: ::prost::alloc::vec::Vec<Value>,
+}
+/// TranslationRotationSequence is the `elements` of a
+/// MeasurementReferences::TranslationRotationSequence, in the order applied.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TranslationRotationSequence {
+    #[prost(message, repeated, tag="1")]
+    pub steps: ::prost::alloc::vec::Vec<FrameStep>,
+}
+/// FrameStep is one Translation or Rotation of a TranslationRotationSequence.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FrameStep {
+    /// The Translation or Rotation object the step was read from.
+    #[prost(int64, tag="3")]
+    pub instance_id: i64,
+    #[prost(oneof="frame_step::Step", tags="1, 2")]
+    pub step: ::core::option::Option<frame_step::Step>,
+}
+/// Nested message and enum types in `FrameStep`.
+pub mod frame_step {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Step {
+        /// `translationVector`, a vector_quantity
+        #[prost(message, tag="1")]
+        Translation(super::Value),
+        #[prost(message, tag="2")]
+        Rotation(super::FrameRotation),
+    }
+}
+/// FrameRotation is a MeasurementReferences::Rotation.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FrameRotation {
+    /// `axisDirection`, a vector_quantity
+    #[prost(message, optional, tag="1")]
+    pub axis_direction: ::core::option::Option<Value>,
+    /// `angle`, an angular measure in the unit written
+    #[prost(message, optional, tag="2")]
+    pub angle: ::core::option::Option<Quantity>,
+    /// `isIntrinsic`: about the axes as already rotated (true, the library's
+    /// default) or about the source frame's fixed axes (false).
+    #[prost(bool, tag="3")]
+    pub is_intrinsic: bool,
+}
+/// AffineTransformation3d is a MeasurementReferences::AffineTransformationMatrix3d
+/// as bare numbers.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AffineTransformation3d {
+    /// `rotationMatrix`: 9, row-major
+    #[prost(double, repeated, tag="1")]
+    pub rotation: ::prost::alloc::vec::Vec<f64>,
+    /// `translationVector`: 3
+    #[prost(double, repeated, tag="2")]
+    pub translation: ::prost::alloc::vec::Vec<f64>,
 }
 /// Rational is an exact rational number in lowest terms: numerator over a
 /// positive denominator, each written as big_int_value is. The server rejects one

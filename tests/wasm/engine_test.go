@@ -382,6 +382,7 @@ func TestEngineWireParity(t *testing.T) {
 		"gatedemo::total", "enginedemo::speed",
 		"9223372036854775807 + 1", "-9223372036854775808 - 1", "2 ** 70",
 		"2 ** 70 - 2 ** 70 + 1", "2 ** 70 [SI::m]",
+		"enginedemo::datum", "enginedemo::posed", "enginedemo::posed.transformation",
 	} {
 		params := fmt.Sprintf(`{"modelHash":%q,"expression":%s}`,
 			hash, mustJSON(t, expression))
@@ -392,6 +393,10 @@ func TestEngineWireParity(t *testing.T) {
 		equal("Evaluate", params, mustMarshal(t, res))
 		if expression == "enginedemo::speed" {
 			wantSpeedAnswer(t, mustMarshal(t, res))
+		}
+		if expression == "enginedemo::posed" && res.GetResult().GetCoordinateFrame().GetTransformation().GetPose() == nil {
+			// Equal answers would also match on two unsupported nulls.
+			t.Errorf("Evaluate %q = %v, want a frame carrying its pose", expression, res.GetResult())
 		}
 		if expression == "(1, 2, 3)" {
 			// Equal answers would also match on a shared parse error: the case

@@ -11,15 +11,15 @@
       "typeMismatch": 4
     },
     "properties": {
-      "presentEqual": 354,
+      "presentEqual": 355,
       "presentDifferent": 6,
-      "oursMissing": 55,
+      "oursMissing": 54,
       "pilotMissing": 25,
       "absentBoth": 298,
       "indeterminate": 0,
       "pilotNondeterministic": 0
     },
-    "unkeyedReferences": 33,
+    "unkeyedReferences": 30,
     "extensionProperties": 74,
     "duplicateElements": {
       "ours": 0,
@@ -403,7 +403,7 @@
     "Succession.directedFeature": [0,0,0,0,1,0,0],
     "Succession.direction": [0,0,0,0,1,0,0],
     "Succession.documentation": [0,0,0,0,1,0,0],
-    "Succession.endFeature": [0,0,1,0,0,0,0],
+    "Succession.endFeature": [1,0,0,0,0,0,0],
     "Succession.feature": [0,1,0,0,0,0,0],
     "Succession.featureMembership": [0,1,0,0,0,0,0],
     "Succession.featureTarget": [1,0,0,0,0,0,0],

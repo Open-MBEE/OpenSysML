@@ -6,12 +6,15 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
@@ -180,8 +183,7 @@ func TestSymbolStructureMatchesGraphStructure(t *testing.T) {
 		defer dump.Close()
 	}
 	subset := corpussubset.Must(t, "../../..")
-	totals := map[string]*structureDifferentialTotals{}
-	samples := map[string][]string{}
+	var paths []string
 	for _, path := range corpusModelPaths(t) {
 		if filter != "" && !strings.Contains(filepath.ToSlash(path), filter) {
 			continue
@@ -189,24 +191,31 @@ func TestSymbolStructureMatchesGraphStructure(t *testing.T) {
 		if !subset.WantsPath("examples", path) {
 			continue
 		}
+		paths = append(paths, path)
+	}
+	// The models are compared concurrently and merged here in path order, so the
+	// totals, the samples and the dump are those of a sequential sweep.
+	results := structureDifferentialsOf(paths)
+	totals := map[string]*structureDifferentialTotals{}
+	samples := map[string][]string{}
+	for i, path := range paths {
 		root := structureDifferentialRoot(path)
 		total := totals[root]
 		if total == nil {
 			total = &structureDifferentialTotals{properties: map[string]*differentialCounts{}}
 			totals[root] = total
 		}
-		data, err := os.ReadFile(filepath.Join("..", "..", "..", path))
-		if err != nil {
+		if err := results[i].err; err != nil {
 			t.Fatal(err)
 		}
-		diff, ok := differentialOf(path, data)
-		if !ok {
+		diff := results[i].diff
+		if diff == nil {
 			total.skipped++
 			continue
 		}
 		total.add(diff)
-		for property, lines := range diff.samples {
-			for _, line := range lines {
+		for _, property := range slices.Sorted(maps.Keys(diff.samples)) {
+			for _, line := range diff.samples[property] {
 				if len(samples[property]) < 8 {
 					samples[property] = append(samples[property], filepath.ToSlash(path)+": "+line)
 				}
@@ -217,8 +226,8 @@ func TestSymbolStructureMatchesGraphStructure(t *testing.T) {
 			for _, id := range diff.unmatched {
 				fmt.Fprintf(dump, "unmatched %s %s\n", filepath.ToSlash(path), id)
 			}
-			for property, lines := range diff.samples {
-				for _, line := range lines {
+			for _, property := range slices.Sorted(maps.Keys(diff.samples)) {
+				for _, line := range diff.samples[property] {
 					fmt.Fprintf(dump, "%s %s: %s\n", property, filepath.ToSlash(path), line)
 				}
 			}
@@ -273,6 +282,52 @@ func TestSymbolStructureMatchesGraphStructure(t *testing.T) {
 		t.Errorf("%s moved against %s (review, then re-record with -update-structure-differential):\n%s",
 			root.name, structureDifferentialExpectation, structureDifferentialDelta(want, got, samples))
 	}
+}
+
+// modelDifferential is one model's outcome: its differential, nil for a model
+// the sweep skips, or the error reading it.
+type modelDifferential struct {
+	diff *structureDifferential
+	err  error
+}
+
+// structureDifferentialsOf compares the models on one worker per processor and
+// returns their outcomes in the order of paths.
+func structureDifferentialsOf(paths []string) []modelDifferential {
+	results := make([]modelDifferential, len(paths))
+	next := make(chan int)
+	var workers sync.WaitGroup
+	for range min(runtime.GOMAXPROCS(0), len(paths)) {
+		workers.Go(func() {
+			for i := range next {
+				results[i] = modelDifferentialOf(paths[i])
+			}
+		})
+	}
+	for i := range paths {
+		next <- i
+	}
+	close(next)
+	workers.Wait()
+	return results
+}
+
+func modelDifferentialOf(path string) modelDifferential {
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", path))
+	if err != nil {
+		return modelDifferential{err: err}
+	}
+	diff, ok := differentialOf(path, data)
+	if !ok {
+		return modelDifferential{}
+	}
+	return modelDifferential{diff: diff.outcome()}
+}
+
+// outcome is the differential without the model it was computed over, which a
+// sweep holding every model's outcome must not keep alive.
+func (d *structureDifferential) outcome() *structureDifferential {
+	return &structureDifferential{counts: d.counts, samples: d.samples, matched: d.matched, unmatched: d.unmatched}
 }
 
 // structureDifferentialExceeds lists the counts of a partial sweep that exceed the
@@ -507,6 +562,14 @@ func (d *structureDifferential) computeGraphID(sym *symbols.Symbol) (string, boo
 		element, _, ok := d.ids.OfExpressionPart(d.doc, sym.Chain.Node, "chain")
 		return element, ok
 	}
+	if sym.Chain != nil && sym.Chain.Relationship != nil && sym.Chain.Relationship.Implicit != nil {
+		// The chain Feature a head clause's chain target denotes is minted under the head (headChain).
+		if node := sym.Chain.Relationship.Implicit.Node; node != nil && node.Target != nil {
+			if element, _, ok := d.ids.OfExpressionPart(d.doc, node.Target, "chain"); ok {
+				return element, true
+			}
+		}
+	}
 	if i, ok := symbols.ImpliedConnectorEndIndex(sym); ok {
 		// A `then` succession's or a flow's end is minted under its edge at end0/end1 (encodeSuccessionEdge,
 		// connectorEnd); a transition's succession's under the transition at succession.end0/end1.
@@ -595,6 +658,11 @@ func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationshi
 			return "", false
 		}
 		return d.expressionPartID(rel.Owner, "rs")
+	case symbols.ImplicitShorthandReference:
+		if rel.Owner == nil {
+			return "", false
+		}
+		return d.ids.RelationshipOf(d.doc, rel.Owner.Decl)
 	case symbols.ImplicitMetadataBodyRedefinition:
 		if _, ok := symbols.ImpliedFlowEndFeatureIndex(rel.Owner); ok {
 			// The Redefinition the ReferenceUsage a flow's end owns states is minted under it (`rd0`).
@@ -641,6 +709,9 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 	case symbols.ExpressionTransitionLinkParameter:
 		// A transition's link parameters are minted at linkparam and triggerparam (transitionHeadMembers).
 		return d.expressionPartID(owner, []string{"linkparam", "triggerparam"}[sym.Expr.Index])
+	case symbols.ExpressionTriggerAction:
+		// A trigger's accept is filed under its transition (recordTransitionHead): its node is the payload's.
+		return d.expressionPartID(owner, "trigger")
 	case symbols.ExpressionPayload:
 		// A send's argument parameter is written as the send's unnamed member at
 		// its argument position (encodeSendArguments: qualify(fqn, "", i)).
@@ -650,6 +721,14 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 				return "", false
 			}
 			return base + rdf.EncodeElementID(fmt.Sprintf("::@%d", sym.Expr.Index)), true
+		}
+		if isTriggerAccept(owner) {
+			// A trigger's parameters are minted off its accept, by name or position (encodeTrigger).
+			base, ok := d.graphID(owner)
+			if !ok {
+				return "", false
+			}
+			return memberElementID(base, naming.Qualify("", naming.ParamName(sym.Decl), sym.Expr.Index)), true
 		}
 	case symbols.ExpressionTransitionSuccession:
 		// A transition's succession is minted off the transition (transitionSuccession).
@@ -666,10 +745,14 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 		}
 		return base + transitionLinkSuffix, true
 	case symbols.ExpressionValue:
-		// The value of a send's argument parameter is the parameter's `value` part.
+		// The value of a send's argument parameter, or of a trigger's, is the parameter's `value` part.
 		if owner.Expr != nil && owner.Expr.Role == symbols.ExpressionPayload && owner.Expr.Owner != nil &&
-			owner.Expr.Owner.Kind == symbols.SymbolSendActionUsage {
-			return d.expressionPartID(owner, pValue)
+			(owner.Expr.Owner.Kind == symbols.SymbolSendActionUsage || isTriggerAccept(owner.Expr.Owner)) {
+			base, ok := d.graphID(owner)
+			if !ok {
+				return "", false
+			}
+			return rdf.ExpressionNodeID(base, pValue), true
 		}
 	}
 	if sym.Decl != nil && sym.Decl != owner.Decl {
@@ -831,4 +914,9 @@ func (d *structureDifferential) elementID(element metamodel.Element, fromGraph b
 		return d.graphID(sym)
 	}
 	return "", false
+}
+
+// isTriggerAccept reports whether sym is the accept a transition's trigger declares.
+func isTriggerAccept(sym *symbols.Symbol) bool {
+	return sym.Expr != nil && sym.Expr.Role == symbols.ExpressionTriggerAction
 }

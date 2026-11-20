@@ -5,6 +5,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 func featureTypeNames(m *Model, sym *symbols.Symbol) []string {
@@ -375,5 +376,34 @@ func TestOwnedCrossFeatureSkipsBindingAndMetadata(t *testing.T) {
 	}
 	if got := m.OwnedCrossFeature(nested(t, p.Scope, "S", "a")); got != nil {
 		t.Errorf("S: OwnedCrossFeature = %v, want nil", got)
+	}
+}
+
+// An end owns its inline cross feature through an OwningMembership (KerML.xtext
+// OwnedCrossFeatureMember; KerML 8.3.3.3.4 ownedCrossFeature), so the cross feature is not an end.
+func TestOwnedCrossFeatureIsNotAnEnd(t *testing.T) {
+	m, root := buildModelWithStdlibNamedKind(t, "cross_end.kerml", source.KindKerML,
+		`package P {
+			class A; class B;
+			assoc Link {
+				end x [0..1] feature a : A;
+				end [0..*] feature b : B;
+			}
+		}`)
+	for _, name := range []string{"a", "b"} {
+		end := nestedSym(t, root, "P::Link::"+name)
+		if got, ok := m.ReflectiveFeatureValue(end, "isEnd"); !ok || !got.Bool {
+			t.Errorf("end %s isEnd = %v (present %t), want true", name, got, ok)
+		}
+		cross := m.OwnedCrossFeature(end)
+		if cross == nil {
+			t.Fatalf("end %s has no owned cross feature", name)
+		}
+		if got, ok := m.ReflectiveFeatureValue(cross, "isEnd"); !ok || got.Bool {
+			t.Errorf("cross feature of %s isEnd = %v (present %t), want false", name, got, ok)
+		}
+		if got := m.MembershipMetaclassOf(end, cross); got != "OwningMembership" {
+			t.Errorf("cross feature of %s is owned through %s, want OwningMembership", name, got)
+		}
 	}
 }

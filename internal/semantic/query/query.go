@@ -52,12 +52,22 @@ const (
 	PropertySatisfiedRequirement = "satisfiedRequirement"
 	// PropertySatisfyingFeature is the feature a satisfy usage is by.
 	PropertySatisfyingFeature = "satisfyingFeature"
+	// PropertyVerifiedRequirement is the requirement an objective's `verify` verifies.
+	PropertyVerifiedRequirement = "verifiedRequirement"
+	// PropertyVerifyingCase is the verification case whose objective holds a `verify`.
+	PropertyVerifyingCase = "verifyingCase"
 	// PropertyPayloadArgument, PropertySenderArgument and PropertyReceiverArgument
 	// are the arguments of a send action as written: what it sends, the `via`
 	// sender and the `to` receiver (SysML v2 §8.3.17.15 SendActionUsage).
 	PropertyPayloadArgument  = "payloadArgument"
 	PropertySenderArgument   = "senderArgument"
 	PropertyReceiverArgument = "receiverArgument"
+	// PropertySymbolKind is the kind of the element's symbol, as SymbolInfo.kind
+	// spells it ("partDef", "stateUsage").
+	PropertySymbolKind = "symbolKind"
+	// PropertyText is RequirementDefinition::text / RequirementUsage::text: the
+	// body of each `doc` the requirement owns, in order.
+	PropertyText = "text"
 	// PropertyElementID is the elementId a conversion of the model writes for
 	// the element, reported only where the reader is given one (WithElementID).
 	PropertyElementID = "elementId"
@@ -72,8 +82,10 @@ var propertyNames = []string{
 	PropertyGeneral,
 	PropertyMultiplicityLower, PropertyMultiplicityUpper,
 	PropertySatisfiedRequirement, PropertySatisfyingFeature,
+	PropertyVerifiedRequirement, PropertyVerifyingCase,
 	PropertyPayloadArgument, PropertySenderArgument, PropertyReceiverArgument,
 	PropertyElementID,
+	PropertySymbolKind, PropertyText,
 }
 
 // PropertyNames returns the supported property names in stable order.

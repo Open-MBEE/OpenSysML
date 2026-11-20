@@ -38,9 +38,13 @@ const (
 	QueryPropMultiplicityUpper     = corequery.PropertyMultiplicityUpper
 	QueryPropSatisfiedRequirement  = corequery.PropertySatisfiedRequirement
 	QueryPropSatisfyingFeature     = corequery.PropertySatisfyingFeature
+	QueryPropVerifiedRequirement   = corequery.PropertyVerifiedRequirement
+	QueryPropVerifyingCase         = corequery.PropertyVerifyingCase
 	QueryPropPayloadArgument       = corequery.PropertyPayloadArgument
 	QueryPropSenderArgument        = corequery.PropertySenderArgument
 	QueryPropReceiverArgument      = corequery.PropertyReceiverArgument
+	QueryPropSymbolKind            = corequery.PropertySymbolKind
+	QueryPropText                  = corequery.PropertyText
 )
 
 // QueryErrorKind classifies why a query could not be evaluated. Every kind fails

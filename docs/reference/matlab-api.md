@@ -105,7 +105,7 @@ scenario requests exactly as written.
 
 ## Values
 
-`opensysml.decodeValue` reads all twenty-three Connect-JSON `Value` arms and `opensysml.encodeValue`
+`opensysml.decodeValue` reads all twenty-five Connect-JSON `Value` arms and `opensysml.encodeValue`
 writes supported request values. `intValue` uses decimal JSON strings and exact `int64`
 accumulation, including `-9223372036854775808`; an Integer beyond `int64`
 arrives as `bigIntValue` and decodes to `struct('bigInteger', digits)`, its decimal digits kept as

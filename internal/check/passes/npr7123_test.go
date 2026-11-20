@@ -1,6 +1,13 @@
 package passes
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+)
 
 // npr7123Model wraps body in a package importing the NPR7123 library.
 func npr7123Model(body string) string {
@@ -198,4 +205,65 @@ func TestNPR7123SEMPStandInInAReviewDefinitionIsNotAudited(t *testing.T) {
 			#semp part standIn :> reviewedProducts;
 		}`)
 	w8dWantLines(t, src, CodeNPR7123SEMPMissingProcess)
+}
+
+// A below-maturity product inherited from a definition in another document is
+// reported at the review, naming the definition, not at the foreign declaration.
+func TestNPR7123InheritedProductIsReportedAtTheReview(t *testing.T) {
+	templates := `package Templates {
+	private import NPR7123::*;
+	#lifeCycleReview action def CDRTemplate {
+		:>> kind = ReviewKind::CDR;
+		requirement e : ReviewCriteria::CDR::Entrance1 :> entranceCriteria;
+		requirement s : ReviewCriteria::CDR::Success1 :> successCriteria;
+		#designSolution item design :> reviewedProducts {
+			:>> maturity = WorkProductMaturity::preliminary;
+		}
+	}
+}`
+	project := `package Project {
+	private import NPR7123::*;
+	private import Templates::*;
+	action cdr : CDRTemplate;
+}`
+	idx := newTestIndex()
+	troot := parser.New(source.New("templates.sysml", []byte(templates))).ParseFile()
+	proot := parser.New(source.New("project.sysml", []byte(project))).ParseFile()
+	idx.AddDocument("templates.sysml", troot)
+	idx.AddDocument("project.sysml", proot)
+	var got []diag.Diagnostic
+	for _, d := range Analyze("project.sysml", proot, nil, idx) {
+		if d.Code == CodeNPR7123ReviewMissingProduct && strings.Contains(d.Message, "DesignSolution") {
+			got = append(got, d)
+		}
+	}
+	if len(got) != 1 || w8dLine(project, got[0].Span) != 4 || !strings.Contains(got[0].Message, "inherited from CDRTemplate") {
+		t.Fatalf("design solution diagnostics = %+v, want one at the review on line 4 naming CDRTemplate", got)
+	}
+}
+
+// The library's tables are read only for a document stating a review, a SEMP or a
+// compliance matrix: reading them for every document of a large model dominated its analysis.
+func TestNPR7123ReadsLibraryTablesOnlyWhenUsed(t *testing.T) {
+	loaded := func(src string) bool {
+		t.Helper()
+		root := parser.New(source.New("<t>", []byte(src))).ParseFile()
+		idx := newTestIndex()
+		idx.AddDocument("<t>", root)
+		a := newNPR7123Audit(NewContext("<t>", idx, nil))
+		if a == nil {
+			t.Fatal("the bundled NPR7123 library is not loaded")
+		}
+		a.check(idx.DocumentRoot("<t>"))
+		return a.tablesLoaded
+	}
+	if loaded("package M { part def D; part p : D; }") {
+		t.Error("a model that never uses the library read its tables")
+	}
+	if loaded(npr7123Model("\n\tpart entries { requirement c : SE09 { @Compliance { comply = ComplyKind::tailored; } } }")) {
+		t.Error("a model with compliance entries alone read the library's tables")
+	}
+	if !loaded(npr7123Model("\n\t#lifeCycleReview action bare { :>> kind = ReviewKind::TRR; }")) {
+		t.Error("a model stating a life-cycle review did not read the library's tables")
+	}
 }

@@ -100,7 +100,6 @@ elmt:Accepts__Camera_conjugated
     sysml:elementId "Accepts__Camera_conjugated" ;
     sysml:qualifiedName "Accepts::Camera::'~Camera'" ;
     sysx:mappingQualifiedName "Accepts::Camera::'~Camera'" ;
-    sysml:declaredName "~Camera" ;
     sysml:owner elmt:Accepts__Camera ;
     sysml:owningRelationship elmt:Accepts__Camera_conjugated_om ;
     sysml:owningMembership elmt:Accepts__Camera_conjugated_om ;
@@ -190,6 +189,7 @@ elmt:Accepts__Observe__trigger
     sysml:declaredName "trigger" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:parameter elmt:Accepts__Observe__trigger__scene ;
+    sysml:input elmt:Accepts__Observe__trigger__scene ;
     sysml:payloadParameter elmt:Accepts__Observe__trigger__scene ;
     sysml:ownedMember elmt:Accepts__Observe__trigger__scene ;
     sysml:ownedMembership elmt:Accepts__Observe__trigger__scene_om ;
@@ -235,7 +235,7 @@ elmt:Accepts__Observe__trigger__scene
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isAccept "true"^^xsd:boolean ;
-    sysml:direction "out" ;
+    sysml:direction "in" ;
     sysml:type elmt:Accepts__Scene ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Accepts__Observe__trigger__scene_ft0 ;
@@ -387,16 +387,17 @@ elmt:Accepts__Watch__framed
     sysml:declaredName "framed" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:parameter elmt:Accepts__Watch__framed__scene, elmt:Accepts__Watch__framed___401 ;
+    sysml:input elmt:Accepts__Watch__framed__scene, elmt:Accepts__Watch__framed___401 ;
     sysml:payloadParameter elmt:Accepts__Watch__framed__scene ;
     sysml:ownedMember elmt:Accepts__Watch__framed__scene, elmt:Accepts__Watch__framed___401 ;
     sysml:ownedMembership elmt:Accepts__Watch__framed__scene_om, elmt:Accepts__Watch__framed___401_om ;
     sysml:ownedRelationship elmt:Accepts__Watch__framed__scene_om, elmt:Accepts__Watch__framed___401_om ;
     sysml:ownedFeature elmt:Accepts__Watch__framed__scene, elmt:Accepts__Watch__framed___401 ;
     sysml:ownedFeatureMembership elmt:Accepts__Watch__framed__scene_om, elmt:Accepts__Watch__framed___401_om ;
-    sysml:input elmt:Accepts__Watch__framed___401 ;
     sysml:receiverArgument expr:Accepts__Watch__framed___401_pvalue ;
     sysx:sourceText "        action framed accept scene : Scene via lens;\n" ;
     json:parameter "[{\"@id\":\"Accepts__Watch__framed__scene\"},{\"@id\":\"Accepts__Watch__framed___401\"}]" ;
+    json:input "[{\"@id\":\"Accepts__Watch__framed__scene\"},{\"@id\":\"Accepts__Watch__framed___401\"}]" ;
     json:ownedMember "[{\"@id\":\"Accepts__Watch__framed__scene\"},{\"@id\":\"Accepts__Watch__framed___401\"}]" ;
     json:ownedMembership "[{\"@id\":\"Accepts__Watch__framed__scene_om\"},{\"@id\":\"Accepts__Watch__framed___401_om\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Accepts__Watch__framed__scene_om\"},{\"@id\":\"Accepts__Watch__framed___401_om\"}]" ;
@@ -440,7 +441,7 @@ elmt:Accepts__Watch__framed__scene
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysml:isAccept "true"^^xsd:boolean ;
-    sysml:direction "out" ;
+    sysml:direction "in" ;
     sysml:type elmt:Accepts__Scene ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Accepts__Watch__framed__scene_ft0 ;

@@ -521,6 +521,8 @@ const (
 	// ModTypeFeatureMember marks a feature declared `member`, owned through an
 	// OwningMembership rather than a FeatureMembership (KerML.xtext TypeFeatureMember).
 	ModTypeFeatureMember
+	// ModInclude marks a use case usage written `include use case u` or `include u` (an IncludeUseCaseUsage).
+	ModInclude
 )
 
 // Has reports whether every modifier of mask is set.

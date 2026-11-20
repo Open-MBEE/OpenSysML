@@ -163,6 +163,18 @@ func valueFromProto(value *pb.Value) Value {
 			CountLower: kind.Undetermined.GetCount().GetLower(),
 			CountUpper: kind.Undetermined.GetCount().GetUpper(),
 		}
+	case *pb.Value_CoordinateFrame:
+		frame, ok := frameFromProto(kind.CoordinateFrame)
+		if !ok {
+			return Null("unsupported: coordinate frame with a part that cannot be read")
+		}
+		return frame
+	case *pb.Value_CoordinateTransformation:
+		transformation, ok := transformationFromProto(kind.CoordinateTransformation)
+		if !ok {
+			return Null("unsupported: coordinate transformation with a part that cannot be read")
+		}
+		return transformation
 	case *pb.Value_Array:
 		if err := protoconv.CheckArrayShape(kind.Array.GetDimensions(), len(kind.Array.GetElements())); err != nil {
 			return Null("unsupported: " + err.Error())
@@ -395,6 +407,16 @@ func valueToProto(value Value) (*pb.Value, error) {
 		return nil, &StatusError{
 			Code:    CodeInvalidArgument,
 			Message: "undetermined is not a value a caller can supply",
+		}
+	case *CoordinateFrame:
+		return nil, &StatusError{
+			Code:    CodeInvalidArgument,
+			Message: "a coordinate frame is not a value a caller can supply",
+		}
+	case *CoordinateTransformation:
+		return nil, &StatusError{
+			Code:    CodeInvalidArgument,
+			Message: "a coordinate transformation is not a value a caller can supply",
 		}
 	default:
 		return nil, &StatusError{Code: CodeInvalidArgument, Message: "unknown value kind"}

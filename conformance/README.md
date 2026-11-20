@@ -181,6 +181,7 @@ What a request asks for is fixed per capability:
 | `feature_values` | Response-population capability: omit instance feature values; no request asks for them. |
 | `enum_values` | Response-population capability: encode enum values as unsupported nulls; no request asks for them. |
 | `unset_value` | Response-population capability: encode unset values as unsupported nulls; no request asks for them. |
+| `coordinate_frame_values` | Encode coordinate frames and coordinate transformations as unsupported nulls; refuse a request carrying one, at any depth, as a service advertising it does too, since neither is an argument. |
 | `undetermined_value` | Response-population capability: encode undetermined results (a model-level read the model leaves open) as unsupported nulls; no request asks for them. |
 | `complex_values` | Response-population capability: encode complex numbers as unsupported nulls; no request asks for them. |
 | `structured_values` | Encode arrays, vectors and vector quantities as unsupported nulls; refuse a request carrying one, at any depth. |

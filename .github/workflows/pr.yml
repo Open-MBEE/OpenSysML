@@ -112,16 +112,16 @@ jobs:
         run: scripts/ci-changed-areas.sh "$DIFF_BASE" "$DIFF_HEAD" | tee -a "$GITHUB_OUTPUT"
 
       # go_shards is the Go test job's matrix: every race shard under the full and queue tiers (make test-shard,
-      # make test-queue), ten race-free groups of them under quick (make test-quick); tests/hygiene keeps both whole.
+      # make test-queue; translate's two share a job), ten race-free groups of them under quick (make test-quick); tests/hygiene keeps both whole.
       - name: Pick the Go shards
         id: shards
         env:
           TIER: ${{ steps.areas.outputs.tier }}
         run: |
           if [ "$TIER" != quick ]; then
-            echo 'go_shards=["runtime","runtime-corpus","runtime-exploration","model","smt","corpus","corpus-sweep","export","export-library","export-examples","export-corpus","graph","graph-corpora","codegen","translate","grpc","internal","rest","migrate","cli"]'
+            echo 'go_shards=["runtime","runtime-corpus","runtime-exploration","model","smt","corpus","corpus-sweep","export","export-library","export-examples","export-corpus","graph","graph-corpora","codegen","translate translate-structure","grpc","internal","rest","migrate","cli"]'
           else
-            echo 'go_shards=["runtime runtime-corpus runtime-exploration model","codegen migrate","cli translate","graph graph-corpora internal","smt","corpus corpus-sweep","export export-examples","export-library export-corpus","rest grpc"]'
+            echo 'go_shards=["runtime runtime-corpus runtime-exploration model","codegen migrate","cli translate translate-structure","graph graph-corpora internal","smt","corpus corpus-sweep","export export-examples","export-library export-corpus","rest grpc"]'
           fi | tee -a "$GITHUB_OUTPUT"
 
       # A cold fUML cache (a new key, and every merge-queue ref) would send each Go job to Maven
@@ -247,7 +247,7 @@ jobs:
           OPENSYSML_REQUIRE_LLM_BENCH_TOOLCHAIN: ${{ contains(matrix.shard, 'rest') && '1' || '' }}
         run: |
           case "$TIER" in
-            full) make test-shard SHARD="$SHARD" ;;
+            full) for shard in $SHARD; do make test-shard SHARD="$shard"; done ;;
             queue) make test-queue SHARDS="$SHARD" ;;
             *) make test-quick SHARDS="$SHARD" ;;
           esac
@@ -1334,6 +1334,10 @@ jobs:
       - name: Build and test the plugin
         run: mvn -B -f editors/mdk/pom.xml verify -Dopensysml.requireService=true
 
+      # A stand-in Cameo of the OpenAPI stubs: the helper itself needs a licensed installation.
+      - name: Test the compile against Cameo from an uncompiled client
+        run: editors/mdk/scripts/compile-against-cameo-test.sh
+
       - name: Audit the plugin's dependencies
         run: |
           scripts/download-sca-tools.sh osv-scanner
@@ -1531,6 +1535,9 @@ jobs:
 
       - name: Test the rebaseline movement check
         run: python3 scripts/rebaseline-movement-test.py
+
+      - name: Test the rebaseline merge
+        run: scripts/rebaseline-merge-test.sh
 
       # The CI coordination tools (ci/README.md), against a stub gh; nothing reaches GitHub.
       - name: Test the CI throttle tools

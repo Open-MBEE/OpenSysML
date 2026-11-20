@@ -979,11 +979,12 @@ func reflectiveFixtures(t *testing.T, name string, kind source.Kind, src string)
 
 func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symbol) symbols.LibraryFacts {
 	facts := symbols.LibraryFacts{
-		Node:     sym.NodeKind(),
-		Keyword:  sym.Keyword(),
-		Notation: sym.Notation(),
-		Abstract: symbols.IsAbstract(sym),
-		Supers:   []symbols.ElementRef{},
+		Node:           sym.NodeKind(),
+		Keyword:        sym.Keyword(),
+		Notation:       sym.Notation(),
+		Abstract:       symbols.IsAbstract(sym),
+		LibraryPackage: symbols.IsLibraryPackage(sym),
+		Supers:         []symbols.ElementRef{},
 	}
 	facts.Annotations = model.DeclaredAnnotationFactsOf(sym)
 	facts.Multiplicity = model.MultiplicityFactsOf(sym)
@@ -1106,6 +1107,7 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 			{d.IsResult, symbols.ModResult},
 			{d.IsNegated, symbols.ModNegated},
 			{d.Keyword == "assert" || d.PrefixKeyword == "assert", symbols.ModAssert},
+			{d.IsIncludedUseCase(), symbols.ModInclude},
 		}
 		for _, modifier := range mods {
 			if modifier.on {

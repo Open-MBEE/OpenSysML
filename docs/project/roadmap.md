@@ -165,7 +165,7 @@ a regression — re-fetch before re-recording anything.
 |---|---|
 | OMG training corpus | **100/100 clean** — asserted, not ratcheted: no file reports a semantic error |
 | OMG pilot corpora (ratchet) | 213 files; 16 report a diagnostic — 3 of 58 KerML examples, 11 of 99 SysML examples, 2 of 56 validation files — each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
-| Stdlib parser conformance | 110/110 clean — 94 vendored OMG files and 16 non-normative OpenSysML extensions |
+| Stdlib parser conformance | 111/111 clean — 94 vendored OMG files and 17 non-normative OpenSysML extensions |
 | Execution conformance cases | 1790, all run and pass, none skipped [1569] |
 | Known execution-conformance failures | **0** — `known_failures.txt` holds no case |
 | Cases admitting several outcomes | 164 `.expected.json` files list `outcomes`, each citing its derivation in the behavior semantic oracle; the harness explores every one of them under `explore` [146] |
@@ -220,10 +220,10 @@ A tag cannot be cut over a corpus regression. Pull requests run one CI, the GitH
 workflow `.github/workflows/pr.yml`. Its `changes` job decides the tier — *quick* for a push to a pull
 request, draft or ready; *full* for a merge-queue commit, a pull request labelled `ci:full`, or a push
 touching a package where `-race` has found bugs (`scripts/ci-changed-areas.sh`) — and which of the
-client, editor and documentation jobs the diff touches; the Go suite runs sharded (twenty race
+client, editor and documentation jobs the diff touches; the Go suite runs sharded (twenty-one race
 shards in the full tier — `runtime`, `runtime-corpus`, `runtime-exploration`, `model`, `smt`, `corpus`,
 `corpus-sweep`, `export`, `export-library`, `export-examples`, `export-corpus`, `graph`, `graph-corpora`, `codegen`,
-`translate`, `grpc`, `internal`, `rest`, `migrate` and `cli`, #1440 — and nine race-free groups of them in the quick tier) with every corpus
+`translate`, `translate-structure`, `grpc`, `internal`, `rest`, `migrate` and `cli`, in twenty jobs, #1440 — and nine race-free groups of them in the quick tier) with every corpus
 required — `OPENSYSML_REQUIRE_TRAINING_CORPUS`, `_PILOT_CORPORA`, `_SPEC_EXAMPLES`, `_PSSM_SUITE`,
 `_SYSML_V1TOV2`, `_FUML_SUITE`, `_PILOT_LIBRARY_XMI`, `_SMT`, `_WASM` and `_REFERENCE_FMUS` set to
 `1`, the LLM-benchmark and PDF toolchains required where their jobs run — beside the
@@ -2922,7 +2922,7 @@ SYSML21-681 (`CHANGELOG.md` **0.11.0**) is the newest entry. Each entry is filed
 
 ## T3 — the extension libraries (landed, #881)
 
-The sixteen non-normative libraries under `OpenSysML Libraries/` — `OOSEM` (#103), `MOSA`
+The seventeen non-normative libraries under `OpenSysML Libraries/` — `OOSEM` (#103), `MOSA`
 (#200, `v0.8.0`), `DiagramLayout`, `IdentityMetadata`, `MigrationMetadata`, `SysMLValidation`
 and the rest — are maintained upstream at Open-MBEE/OpenSysML-Extensions-Library and pinned
 here: [extension-libraries.md](extension-libraries.md) states the pin, the sync and the engine

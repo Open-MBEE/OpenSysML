@@ -115,8 +115,24 @@ func expressionPartSlot(sym *symbols.Symbol) (string, bool) {
 		return []string{"linkparam", "triggerparam"}[sym.Expr.Index], true
 	case symbols.ExpressionTransitionLink:
 		return "transitionlink", true
+	case symbols.ExpressionTriggerAction:
+		// A trigger's accept shares its payload's node, so it is filed under the transition's (recordTransitionHead).
+		return "trigger", true
 	}
 	return "", false
+}
+
+// sendArgumentSlot is the send whose argument parameter sym is and the slot the conversion
+// files it at (`arg%d`, the argument's position: payload, sender, receiver).
+func sendArgumentSlot(sym *symbols.Symbol) (ast.Node, string, bool) {
+	if sym == nil || sym.Expr == nil || sym.Expr.Role != symbols.ExpressionPayload || sym.Expr.Owner == nil || sym.Expr.Owner.Expr != nil {
+		return nil, "", false
+	}
+	send := symbols.SendStatementOf(sym.Expr.Owner.Decl)
+	if send == nil {
+		return nil, "", false
+	}
+	return send, fmt.Sprintf("arg%d", sym.Expr.Index), true
 }
 
 // bodyParameterSlot is the slot the conversion mints a body's parameter at
@@ -151,6 +167,10 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 	}
 	if slot, ok := expressionPartSlot(sym); ok {
 		element, _, err := read.ReadExpressionPart(sym.DocName, sym.Expr.Owner.Decl, slot)
+		return element, err
+	}
+	if send, slot, ok := sendArgumentSlot(sym); ok {
+		element, _, err := read.ReadExpressionPart(sym.DocName, send, slot)
 		return element, err
 	}
 	if owner, ok := defaultMultiplicityOwner(sym); ok {
@@ -255,7 +275,7 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 			return element, true, err
 		}
 		return "", true, nil
-	case symbols.ImplicitPortConjugation, symbols.ImplicitMetadataBodyRedefinition:
+	case symbols.ImplicitPortConjugation, symbols.ImplicitMetadataBodyRedefinition, symbols.ImplicitShorthandReference:
 		if flow, slot, ok := flowEndFeatureSlot(rel.Owner); ok {
 			// The Redefinition the ReferenceUsage a flow's end owns states is minted under it (`rd0`).
 			element, _, err := read.ReadExpressionPart(rel.Owner.DocName, flow, slot+".rd0")
@@ -276,6 +296,10 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 func implicitMembershipID(read ElementIDReader, idx *symbols.Index, member *symbols.Symbol) (id string, ok bool, err error) {
 	if slot, ok := expressionPartSlot(member); ok {
 		_, membership, err := read.ReadExpressionPart(member.DocName, member.Expr.Owner.Decl, slot)
+		return membership, true, err
+	}
+	if send, slot, ok := sendArgumentSlot(member); ok {
+		_, membership, err := read.ReadExpressionPart(member.DocName, send, slot)
 		return membership, true, err
 	}
 	if flow, slot, ok := flowEndFeatureSlot(member); ok {

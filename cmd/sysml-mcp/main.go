@@ -222,6 +222,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		Version:                 info.Version,
 		Workspace:               model.NewWorkspace(model.WithConformanceMode(diag.ConformanceModeOf(opts.strict)), model.WithRecordCache(cache)),
 		CacheSize:               opts.cacheSize,
+		Records:                 cache,
 		UnavailableCapabilities: sysmlgrpc.WithheldCapabilitiesForTesting(),
 		NewSession:              sessionFactory(info, cache, stderr),
 		Logger:                  logger,

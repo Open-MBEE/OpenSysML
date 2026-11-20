@@ -2,6 +2,7 @@ package export
 
 import (
 	"bytes"
+	"context"
 	"sync"
 	"testing"
 
@@ -21,7 +22,7 @@ func TestPreparedModelMatchesFreshExports(t *testing.T) {
 		docs = append(docs, ModelDocument{File: file, Root: root})
 	}
 	prepared := PrepareModel(docs)
-	if _, err := prepared.ToRDF([]string{"missing.sysml"}, IDQualifiedName); err == nil {
+	if _, err := prepared.ToRDF(context.Background(), []string{"missing.sysml"}, IDQualifiedName); err == nil {
 		t.Fatal("missing document accepted")
 	}
 	type sample struct {
@@ -51,7 +52,7 @@ func TestPreparedModelMatchesFreshExports(t *testing.T) {
 	for range 2 {
 		for _, sample := range samples {
 			wg.Go(func() {
-				graph, err := prepared.ToRDF(sample.selection, sample.form)
+				graph, err := prepared.ToRDF(context.Background(), sample.selection, sample.form)
 				if err != nil {
 					t.Error(err)
 					return
@@ -87,10 +88,10 @@ func TestPreparedModelRecoversAfterRefusedExport(t *testing.T) {
 	}
 	prepared := PrepareModel(docs)
 	for range 2 {
-		if _, err := prepared.ToRDF(nil, IDQualifiedName); err == nil {
+		if _, err := prepared.ToRDF(context.Background(), nil, IDQualifiedName); err == nil {
 			t.Fatal("duplicate IDs accepted")
 		}
-		graph, err := prepared.ToRDF([]string{"written.sysml"}, IDQualifiedName)
+		graph, err := prepared.ToRDF(context.Background(), []string{"written.sysml"}, IDQualifiedName)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -108,7 +108,7 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return out
 	}
 	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
-		if member == nil || seen[member] || member.Chain != nil || ownedThroughAnnotation(sym, member) {
+		if member == nil || seen[member] || member.Chain != nil || ownedThroughAnnotation(sym, member) || m.isTriggerPayload(sym, member) {
 			return true
 		}
 		seen[member] = true
@@ -329,6 +329,10 @@ func (m *Model) OwningMembership(sym *symbols.Symbol) *symbols.Symbol {
 	if owner == nil {
 		return nil
 	}
+	if sym.Expr == nil && m.isTriggerPayload(owner, sym) {
+		// A named trigger payload is declared in the transition's scope and owned by the trigger's accept.
+		return m.OwningMembership(m.transitionPartsOf(owner).payload)
+	}
 	for _, membership := range m.OwnedMemberships(owner) {
 		// A `first x;` marker's Membership refers to x without owning it.
 		if membership.Implicit != nil && membership.Implicit.Member == sym && membership.Implicit.Form != symbols.ImplicitReferenceMembership {
@@ -454,6 +458,10 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 	}
 	if IsImpliedMultiplicity(member) {
 		// A type owns its multiplicity through an OwningMembership (KerML 8.3.3.1.10 Type::multiplicity).
+		return "OwningMembership"
+	}
+	if member != nil && member.Kind == symbols.SymbolCrossFeature {
+		// An end owns its inline cross feature through an OwningMembership (KerML.xtext OwnedCrossFeatureMember).
 		return "OwningMembership"
 	}
 	if member != nil && member.Expr != nil {

@@ -77,8 +77,10 @@
 // A Client is safe for concurrent use from any number of goroutines. A call
 // whose context is already done is refused with CodeCanceled or
 // CodeDeadlineExceeded, and a context that ends while a call is running
-// withholds its answer the same way — the engine, like a service, still runs
-// the call it started. After Close every call is refused with CodeUnavailable,
+// withholds its answer the same way. The engine stops the work of a parse, and
+// of a conversion of a model of several documents, at its next document or
+// analysis pass; any other call it started still runs to its end, as a service's
+// does. After Close every call is refused with CodeUnavailable,
 // and closing twice is not an error.
 //
 // # Errors
