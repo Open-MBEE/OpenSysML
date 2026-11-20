@@ -14,13 +14,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// The ci:rebaseline label re-records a pull request's generated baselines after
-// merging develop (.github/workflows/rebaseline.yml). These tests hold the
-// workflow to its guards: the label and the same-repository head, a conflict
-// allowlist of generated paths that never names the asserted training
-// expectation, every recorder the baselines need, and the movement check. The
-// merge is scripts/rebaseline-merge.sh and the recorders the rebaseline-record
-// action, each run a second time when the branch moved under the first.
+// These tests hold the ci:rebaseline workflow to its guards: the label, the same-repository head, the
+// generated-path allowlist, every recorder, the movement check, and a re-record over each merge it pushes.
 
 type rebaselineWorkflow struct {
 	On          yaml.Node             `yaml:"on"`
