@@ -16,8 +16,7 @@ func (s *Server) Definition(ctx context.Context, params *protocol.DefinitionPara
 	if doc == nil || doc.Scope == nil {
 		return nil, nil
 	}
-	content := doc.Content
-	offset := positionToOffset(content, params.Position)
+	offset := positionsOf(doc).offset(params.Position)
 
 	refs := collectRefs(doc.AST, doc.Scope)
 	ref := refAtOffset(refs, offset)
@@ -69,9 +68,9 @@ func (s *Server) symbolLocation(reqName string, sym *symbols.Symbol) protocol.Lo
 	if declName == "" {
 		declName = reqName // fallback: symbol not stamped (shouldn't happen for resolved symbols)
 	}
-	var content []byte
+	pos := positionsFor(nil)
 	if doc := s.document(declName); doc != nil {
-		content = doc.Content
+		pos = positionsOf(doc)
 	}
-	return protocol.Location{URI: s.documentURI(declName), Range: spanToRange(content, sym.DeclSpan)}
+	return protocol.Location{URI: s.documentURI(declName), Range: pos.rangeOf(sym.DeclSpan)}
 }

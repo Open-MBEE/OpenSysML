@@ -21,7 +21,7 @@ func (s *Server) CodeAction(ctx context.Context, params *protocol.CodeActionPara
 	if doc == nil {
 		return nil, nil
 	}
-	want := rangeToSpan(doc.Content, params.Range)
+	want := positionsOf(doc).spanOf(params.Range)
 	var actions []protocol.CodeAction
 	if wantsKind(params.Context.Only, protocol.CodeActionKindQuickFix) {
 		actions = append(actions, s.quickFixes(name, doc, want)...)
