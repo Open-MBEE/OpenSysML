@@ -260,6 +260,8 @@ func (w pendingWrite) unchanged() bool { return bytes.Equal(w.content, w.base) }
 // buffer of a written document, then follow the new text. The count is the
 // files written.
 func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) (int, error) {
+	diskWrites.Lock()
+	defer diskWrites.Unlock()
 	root, err := os.OpenRoot(h.root.Real)
 	if err != nil {
 		return 0, err
@@ -350,6 +352,10 @@ type WorkspaceInfo struct {
 	Documents []string `json:"documents" jsonschema:"paths of the model documents indexed, the standard library excluded"`
 	Open      []string `json:"open,omitempty" jsonschema:"documents whose text is held open with edits not yet on disk"`
 }
+
+// diskWrites serializes writeAll across hosts: each principal's host has its own
+// lock, and the disk they check and then write is one.
+var diskWrites sync.Mutex
 
 // Register adds the workspace tools and resources to s.
 func Register(s *mcp.Server, h *Host) {
