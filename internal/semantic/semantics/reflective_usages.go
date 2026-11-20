@@ -21,10 +21,8 @@ var ownedUsageMetaclasses = map[string]string{
 	"Rendering": "RenderingUsage", "Metadata": "MetadataUsage",
 }
 
-// reflectiveOwnedUsages derives a metaclass's `nested*`/`owned*` property of
-// sym: its owned members that are usages of the metaclass the suffix names,
-// `nested*` on a usage and `owned*` on a definition (SysML v2 §8.3, the
-// Usage/Definition derived properties).
+// reflectiveOwnedUsages derives sym's `nested*`/`owned*` usages of the metaclass the suffix names:
+// from its owned features, `*Metadata` from its owned members (deriveUsageNestedUsage, -Metadata).
 func (m *Model) reflectiveOwnedUsages(sym *symbols.Symbol, feature string) ([]*symbols.Symbol, bool) {
 	var prefix string
 	switch {
@@ -47,6 +45,9 @@ func (m *Model) reflectiveOwnedUsages(sym *symbols.Symbol, feature string) ([]*s
 	var out []*symbols.Symbol
 	for _, member := range ownedMembersOf(sym) {
 		if !member.IsFeature() || IsVariant(member) {
+			continue
+		}
+		if suffix != "Metadata" && !m.ownedThroughFeatureMembership(sym, member) {
 			continue
 		}
 		if m.metaclassConforms(member, sysmlMetaclassPrefix+metaclass) {
