@@ -182,6 +182,9 @@ func TestSelfModelQueryOutcomesMatchImplementation(t *testing.T) {
 		var fields, typed []string
 		for i := 0; i < typ.NumField(); i++ {
 			f := typ.Field(i)
+			if !f.IsExported() {
+				continue
+			}
 			fields = append(fields, strings.ToLower(f.Name[:1])+f.Name[1:])
 			typed = append(typed, attributeTyping(f.Type))
 		}
@@ -240,8 +243,9 @@ func enumMembers(text, name string) []string {
 	return out
 }
 
-// collectRecordTypes gathers a struct type and every struct type its fields
-// reach, by name, as the model's attribute defs mirror them.
+// collectRecordTypes gathers a struct type and every struct type its exported
+// fields reach, by name, as the model's attribute defs mirror them; an unexported
+// field is the executor's own bookkeeping, not part of the record.
 func collectRecordTypes(typ reflect.Type, into map[string]reflect.Type) {
 	for typ.Kind() == reflect.Pointer || typ.Kind() == reflect.Slice {
 		typ = typ.Elem()
@@ -251,7 +255,9 @@ func collectRecordTypes(typ reflect.Type, into map[string]reflect.Type) {
 	}
 	into[typ.Name()] = typ
 	for i := 0; i < typ.NumField(); i++ {
-		collectRecordTypes(typ.Field(i).Type, into)
+		if typ.Field(i).IsExported() {
+			collectRecordTypes(typ.Field(i).Type, into)
+		}
 	}
 }
 
