@@ -2348,7 +2348,9 @@ boolean at the implied value (`sysml:isAbstract false` written by hand) keeps
 it: the element lists such members in `"sysx:explicitDefaults": [...]`, and the
 reader takes them as the statements they are. Both keys are reserved for these
 markers — a `sysx:statedDefaults` or `sysx:explicitDefaults` predicate in the
-graph is never written as a fact.
+graph is never written as a fact. In the graph, `sysx:statedDefaults true` on any
+element is the same provenance marker: it says the graph is this mapping's (see
+the external element form, below).
 
 **Derived properties.** The graph states a derived property only where the
 notation's mapping has a reason to (`owner`, `owningNamespace`, a membership's
@@ -2390,14 +2392,18 @@ produced, or one this list was stripped from — is the statement it looks like.
 properties out with the other derived ones, and the list with them. The key is
 reserved like the two above: a `sysx:completedProperties` predicate in the
 graph is never written as a fact. A graph that is already an external writer's
-element form (one stating `isImpliedIncluded`, which this mapping never does)
+element form (one stating `isImpliedIncluded` and `sysx:statedDefaults` nowhere)
 is written as it is: nothing is completed and no marker is set, so the document
 reads back through the external path exactly as before. A document without the marker
 reads as before: every stated boolean is a triple, and a document that omits its
 false flags (an older export, a compact form) reads as it always did. The marker
 is also what tells this mapping's documents from an external writer's element form,
-which states `Element::isImpliedIncluded` on its elements — a property this
-mapping's graph never states (see the toolkit's own JSON, below).
+which states `Element::isImpliedIncluded` on its elements and carries no marker
+(see the toolkit's own JSON, below). The test does not rest on what this mapping
+leaves unstated: an element of a marked document that states `isImpliedIncluded`
+as a triple (`true`, or a listed explicit default) is read with
+`sysx:statedDefaults true` beside it, so the graph, and the Turtle written from
+it, stay this mapping's.
 
 How each part of the graph is spelled:
 
@@ -2544,9 +2550,10 @@ any graph this mapping holds:
   the `FeatureTyping` element, `isImpliedIncluded`, the membership ends), so
   the reader derives the collapsed spelling back. A document is read this
   way when its elements state `isImpliedIncluded` and it carries no
-  `sysx:statedDefaults` marker: this mapping's graph never states
-  `Element::isImpliedIncluded` (the reader drops it from its own, marked
-  documents), so a graph that does is an external writer's element form. Then: a `sysml:FeatureTyping`
+  `sysx:statedDefaults` marker, neither on a root element object of the
+  document nor as a triple of the graph: that is an external writer's element
+  form, and the marker, not the absence of the flag, is what this mapping's
+  own graph is known by. Then: a `sysml:FeatureTyping`
   stating nothing the collapsed `type` edge does not already say contributes
   its ends and is then elementless, an `isImpliedIncluded` element drops the
   stated defaults (`isEnd`, `isReference`, `mayTimeVary`, …) its owner's
