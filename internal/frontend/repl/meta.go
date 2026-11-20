@@ -42,13 +42,8 @@ const (
 	renderRunUsage = "usage: %render-run <timeline|sequence> [text|mermaid|plantuml|svg|svg-animated|dot] [link=<template>] [limit=<count>]"
 )
 
-// parseArgs splits a command line into arguments, handling quoted strings.
-// A double-quoted string is one argument with its quotes removed, which is how a
-// file path holding spaces is written; a SysML single-quoted name is one
-// argument with its quotes kept, since the quotes are part of the notation the
-// name is then parsed as ('My Pkg'::Car).
-// A backslash escapes a following space or quote and is otherwise kept.
-// Example: `%load "path with spaces/file.sysml"` -> ["%load", "path with spaces/file.sysml"]
+// parseArgs splits a command line into arguments: "…" is one argument without its quotes, a
+// quoted name ('My Pkg'::Car) one with them; a backslash escapes only a following space or quote.
 func parseArgs(line string) []string {
 	var args []string
 	var current strings.Builder
