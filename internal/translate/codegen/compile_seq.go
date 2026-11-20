@@ -712,7 +712,7 @@ func (fc *funcCompiler) compileForEach(s lower.Loop) (Stmt, error) {
 	fc.env.push()
 	defer fc.env.pop()
 	fc.env.bind(s.Variable, binding{t: c.Type().Elem(), m: MultOne})
-	body, err := fc.compileBlock(s.Body.Steps())
+	body, err := fc.compileSteps(s.Body)
 	if err != nil {
 		return nil, err
 	}

@@ -60,6 +60,10 @@ func (r *Registry) Run(ctx *Context, name string, root *ast.RootNamespace) []dia
 		if failed && p.Level() > failedLevel && !elementScoped {
 			continue
 		}
+		// A run whose caller is gone reports what it has: the caller checks its context.
+		if ctx != nil && ctx.Options.Cancelled() != nil {
+			break
+		}
 		if ctx != nil {
 			ctx.SetFailures(spansBelow(byLevel, p.Level()))
 		}

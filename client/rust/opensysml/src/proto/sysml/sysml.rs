@@ -1153,7 +1153,8 @@ pub struct ParseFileResponse {
 pub struct GetSymbolRequest {
     #[prost(string, tag="1")]
     pub model_hash: ::prost::alloc::string::String,
-    /// Fully qualified name
+    /// A qualified name or an element id, as lookup states; with none stated, read as a
+    /// name first, then an id, so a name declared like a generated id shadows that element.
     #[prost(string, tag="2")]
     pub symbol_id: ::prost::alloc::string::String,
     /// List the members inherited from standard-library content in
@@ -1166,6 +1167,14 @@ pub struct GetSymbolRequest {
     /// symbol_name_resolution capability, it is an id the service reported, whatever its visibility.
     #[prost(bool, tag="4")]
     pub resolve_name: bool,
+    /// What symbol_id is, stated rather than guessed; read with the "symbol_lookup_kind"
+    /// capability, and resolve_name is then ignored.
+    #[prost(enumeration="LookupKind", tag="5")]
+    pub lookup: i32,
+    /// Id of the type the symbol is read as a feature of: metadata\["direction"\] is then relative to
+    /// it (KerML Type::directionOf), reversed by a conjugation; capability "symbol_member_direction".
+    #[prost(string, tag="6")]
+    pub member_of: ::prost::alloc::string::String,
 }
 /// SymbolResponse contains symbol information
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1181,14 +1190,18 @@ pub struct SymbolResponse {
 pub struct GetElementPropertiesRequest {
     #[prost(string, tag="1")]
     pub model_hash: ::prost::alloc::string::String,
-    /// The element: its qualified name, the positional id of an unnamed member
-    /// (Owner::@3), or the "@id" of the model's API element form.
+    /// A qualified name or an id, as lookup states; with none stated, the "@id" of the model's
+    /// API element form first, then a qualified name, then a positional id (Owner::@3).
     #[prost(string, tag="2")]
     pub element_id: ::prost::alloc::string::String,
     /// The properties to read, by specification name. Empty reads every property
     /// the element form carries for the element.
     #[prost(string, repeated, tag="3")]
     pub properties: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// What element_id is, stated rather than guessed; read with the "symbol_lookup_kind"
+    /// capability. An alias named by qualified name answers as its membership.
+    #[prost(enumeration="LookupKind", tag="4")]
+    pub lookup: i32,
 }
 /// GetElementPropertiesResponse is one property entry per requested name, in
 /// the request's order, or every property the element carries when none was
@@ -1200,8 +1213,23 @@ pub struct GetElementPropertiesResponse {
     #[prost(message, repeated, tag="2")]
     pub properties: ::prost::alloc::vec::Vec<ElementProperty>,
     /// Why there is no answer: the model or the element was not found, or the
-    /// model has no element form (a document the parser could not read whole).
+    /// element belongs to an excluded document.
     #[prost(string, tag="3")]
+    pub error: ::prost::alloc::string::String,
+    /// The documents the model is read without, each with why; empty when the whole model is read.
+    /// Any other element is answered and may name one of theirs; asking for theirs answers its document's error.
+    #[prost(message, repeated, tag="4")]
+    pub excluded_documents: ::prost::alloc::vec::Vec<ExcludedDocument>,
+}
+/// ExcludedDocument is a document GetElementProperties leaves out of a model: one the parser could not
+/// read whole, one the element form cannot write, or one declaring an element an earlier document declares.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExcludedDocument {
+    /// The document's name as the parse request gave it.
+    #[prost(string, tag="1")]
+    pub document: ::prost::alloc::string::String,
+    /// Why it is left out, as Convert would refuse the model for it.
+    #[prost(string, tag="2")]
     pub error: ::prost::alloc::string::String,
 }
 /// ElementRef identifies an element the element form knows: an element of
@@ -1760,6 +1788,10 @@ pub struct ConvertRequest {
     /// Default false: library elements remain bare references, not roots.
     #[prost(bool, tag="13")]
     pub include_library_stubs: bool,
+    /// For api-json, also write each Namespace's and Type's derived lists of inherited and imported members;
+    /// default false writes owned structure. Capability "convert_inherited_members"; a service without it always writes them.
+    #[prost(bool, tag="14")]
+    pub inherited_members: bool,
     #[prost(oneof="convert_request::Source", tags="1, 2, 6")]
     pub source: ::core::option::Option<convert_request::Source>,
 }
@@ -2541,7 +2573,8 @@ pub struct AppliedEdit {
 /// surface whose answer the specification defines.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SymbolInfo {
-    /// Unique identifier (fully qualified name)
+    /// The element id, this element's alone: its qualified name (`Owner::'@3'`), a positional id
+    /// (`Owner::@3`), or its element-form "@id" where another's generated id is spelled like the name.
     #[prost(string, tag="1")]
     pub id: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
@@ -2558,8 +2591,8 @@ pub struct SymbolInfo {
     /// "variation", "variant" and the like.
     #[prost(map="string, string", tag="4")]
     pub metadata: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
-    /// The owned members' ids, each one GetSymbol takes: a qualified name, a positional id (`Owner::@3`), or an unnamed
-    /// connector end's GetElementProperties element id (`Owner__c_pend0`), which a declaration so named answers instead.
+    /// The owned members' ids, each naming its member under LOOKUP_KIND_ELEMENT_ID: a qualified name, a positional id
+    /// (`Owner::@3`), or an unnamed connector end's GetElementProperties element id (`Owner__c_pend0`).
     #[prost(string, repeated, tag="5")]
     pub child_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="6")]
@@ -2603,8 +2636,7 @@ pub struct SymbolInfo {
 /// MemberInfo is one member of an element, own or inherited.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct MemberInfo {
-    /// The id GetSymbol takes: the member's FQN, or the positional id
-    /// (`Owner::@3`) of one declared without a name, library members included.
+    /// The member's element id, as SymbolInfo.id spells it, library members included.
     #[prost(string, tag="1")]
     pub id: ::prost::alloc::string::String,
     /// Declared name; empty for an unnamed member such as `bind a = b;`.
@@ -2633,13 +2665,16 @@ pub struct Specialization {
     /// The target as written in the source ("Engine", "Demo::Engine").
     #[prost(string, tag="2")]
     pub declared: ::prost::alloc::string::String,
-    /// FQN of the resolved target; empty when the name does not resolve. A "references" feature chain
-    /// (`x.p`) is one entry per chaining feature, in chain order, each with the chain as `declared`.
+    /// Element id of the resolved target, as GetSymbol reports it, for lookup; empty when the name does not resolve.
+    /// A "references" feature chain (`x.p`) is one entry per chaining feature, each with the chain as `declared`.
     #[prost(string, tag="3")]
     pub target_id: ::prost::alloc::string::String,
     /// Symbol kind of the resolved target ("partDef", ...); empty when unresolved.
     #[prost(string, tag="4")]
     pub target_kind: ::prost::alloc::string::String,
+    /// Qualified name of the resolved target, for display; empty when the name does not resolve.
+    #[prost(string, tag="5")]
+    pub target_qualified_name: ::prost::alloc::string::String,
 }
 /// TypeInfo is the static type of a usage, or the classification of a
 /// definition, as far as the service derives it without running the model.
@@ -2653,7 +2688,7 @@ pub struct TypeInfo {
     /// Type name as written; empty when none is declared.
     #[prost(string, tag="1")]
     pub declared: ::prost::alloc::string::String,
-    /// FQN of the resolved written type; empty when unresolved or undeclared.
+    /// Element id of the resolved written type, as GetSymbol reports it, for lookup; empty when unresolved or undeclared.
     #[prost(string, tag="2")]
     pub resolved_id: ::prost::alloc::string::String,
     /// Symbol kind of the resolved written type ("partDef", "attributeDef", ...).
@@ -2678,6 +2713,9 @@ pub struct TypeInfo {
     /// and T. Empty when the element is not a feature or none derives.
     #[prost(message, repeated, tag="8")]
     pub types: ::prost::alloc::vec::Vec<TypeRef>,
+    /// Qualified name of the resolved written type, for display; empty when unresolved or undeclared.
+    #[prost(string, tag="9")]
+    pub resolved_qualified_name: ::prost::alloc::string::String,
 }
 /// TypeRef names one derived type of a feature.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -2715,7 +2753,7 @@ pub struct AttributeInfo {
 /// Value represents a runtime-evaluable value
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Value {
-    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23")]
+    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25")]
     pub kind: ::core::option::Option<value::Kind>,
 }
 /// Nested message and enum types in `Value`.
@@ -2792,7 +2830,195 @@ pub mod value {
         /// any exact Rational here, and an inbound real_value is always a Real.
         #[prost(message, tag="23")]
         RationalValue(super::Rational),
+        /// A coordinate frame or measurement scale held as a value: its axes and the
+        /// placement relating it to another frame. Sent, never accepted.
+        #[prost(message, tag="24")]
+        CoordinateFrame(::prost::alloc::boxed::Box<super::CoordinateFrame>),
+        /// A placement of one frame in another, with the frames it relates. Sent,
+        /// never accepted.
+        #[prost(message, tag="25")]
+        CoordinateTransformation(::prost::alloc::boxed::Box<super::CoordinateTransformation>),
     }
+}
+/// CoordinateFrame is a MeasurementReferences::VectorMeasurementReference held
+/// as a value: a coordinate frame's axes, or the one axis a measurement scale
+/// is. Two frames read from objects are the same exactly when instance_id is; a
+/// frame composed by arithmetic (`spatialCF / s`) is its content.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CoordinateFrame {
+    /// The frame as a reader writes it: "datum", or "spatialCF / s" for one composed.
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    /// The id a client keeps for the usage declaring the frame ("Frames::datum");
+    /// empty for a frame composed by arithmetic or made of a definition.
+    #[prost(string, tag="2")]
+    pub frame_id: ::prost::alloc::string::String,
+    /// FQN of the type the frame is a value of
+    /// ("MeasurementReferences::CartesianSpatial3dCoordinateFrame"); empty for none.
+    #[prost(string, tag="3")]
+    pub type_id: ::prost::alloc::string::String,
+    /// The object the frame was read from; 0 for a frame composed by arithmetic.
+    #[prost(int64, tag="4")]
+    pub instance_id: i64,
+    /// `dimensions`: \[3\] for a three-dimensional frame, empty for a scale.
+    #[prost(int64, repeated, tag="5")]
+    pub dimensions: ::prost::alloc::vec::Vec<i64>,
+    /// `mRefs` in row-major order under dimensions: one unit per axis.
+    #[prost(message, repeated, tag="6")]
+    pub axes: ::prost::alloc::vec::Vec<MeasurementRef>,
+    /// `transformation`: the placement of this frame in another; unset when the
+    /// model states none. Its target is this frame and is not repeated.
+    #[prost(message, optional, boxed, tag="7")]
+    pub transformation: ::core::option::Option<::prost::alloc::boxed::Box<CoordinateTransformation>>,
+    /// Set exactly when the frame is a MeasurementReferences::MeasurementScale.
+    #[prost(message, optional, tag="8")]
+    pub scale: ::core::option::Option<MeasurementScale>,
+}
+/// MeasurementScale is what a scale states beyond its one axis.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MeasurementScale {
+    /// The unit a magnitude on the scale is expressed in.
+    #[prost(message, optional, tag="1")]
+    pub unit: ::core::option::Option<MeasurementRef>,
+    /// `quantityValueMapping`: one point given on the scale and on the reference
+    /// the scale is defined against; unset when the model states none.
+    #[prost(message, optional, tag="2")]
+    pub mapping: ::core::option::Option<QuantityValueMapping>,
+}
+/// QuantityValueMapping is one point on a scale and the same point on the
+/// measurement reference the scale is defined against.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QuantityValueMapping {
+    /// the point on the scale, in the scale's unit
+    #[prost(message, optional, tag="1")]
+    pub mapped: ::core::option::Option<Quantity>,
+    /// the same point on the reference
+    #[prost(message, optional, tag="2")]
+    pub reference: ::core::option::Option<Quantity>,
+}
+/// CoordinateTransformation is a MeasurementReferences::CoordinateTransformation
+/// held as a value: the placement of the target frame in the source frame, in
+/// the library shape the model states it in. A transformation of no library
+/// shape carries its frames alone.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CoordinateTransformation {
+    /// The transformation as a reader names it: its declared name, else its type.
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    /// The id a client keeps for the usage declaring it; empty for one constructed.
+    #[prost(string, tag="2")]
+    pub transformation_id: ::prost::alloc::string::String,
+    /// FQN of the type it is a value of
+    /// ("MeasurementReferences::TranslationRotationSequence"); empty for none.
+    #[prost(string, tag="3")]
+    pub type_id: ::prost::alloc::string::String,
+    /// The object the transformation was read from; 0 for none.
+    #[prost(int64, tag="4")]
+    pub instance_id: i64,
+    /// `source`; unset when the model states none.
+    #[prost(message, optional, boxed, tag="5")]
+    pub source: ::core::option::Option<::prost::alloc::boxed::Box<CoordinateFrame>>,
+    /// `target`; unset inside the CoordinateFrame whose transformation this is.
+    /// A target whose own transformation is this one does not repeat it.
+    #[prost(message, optional, boxed, tag="6")]
+    pub target: ::core::option::Option<::prost::alloc::boxed::Box<CoordinateFrame>>,
+    /// The pose the shape resolves to, as VectorCalculations::transform applies
+    /// it. Unset when the model states no source, or the shape resolves to none.
+    #[prost(message, optional, tag="10")]
+    pub pose: ::core::option::Option<FramePose>,
+    #[prost(oneof="coordinate_transformation::Shape", tags="7, 8, 9")]
+    pub shape: ::core::option::Option<coordinate_transformation::Shape>,
+}
+/// Nested message and enum types in `CoordinateTransformation`.
+pub mod coordinate_transformation {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Shape {
+        /// a CoordinateFramePlacement
+        #[prost(message, tag="7")]
+        Placement(::prost::alloc::boxed::Box<super::FramePlacement>),
+        #[prost(message, tag="8")]
+        Sequence(super::TranslationRotationSequence),
+        /// an AffineTransformationMatrix3d
+        #[prost(message, tag="9")]
+        Affine(super::AffineTransformation3d),
+    }
+}
+/// FramePose is where a transformation's target frame sits in its source frame,
+/// as bare numbers in the source's axis units: the point with target
+/// coordinates v lies at `origin + basis · v` in the source.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FramePose {
+    /// one per source axis
+    #[prost(double, repeated, tag="1")]
+    pub origin: ::prost::alloc::vec::Vec<f64>,
+    /// n×n over the source's n axes, row-major: column j is the direction of
+    /// target axis j in the source.
+    #[prost(double, repeated, tag="2")]
+    pub basis: ::prost::alloc::vec::Vec<f64>,
+}
+/// FramePlacement is a MeasurementReferences::CoordinateFramePlacement.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FramePlacement {
+    /// The target's origin in the source frame: a vector_quantity, or a quantity
+    /// for a one-dimensional frame.
+    #[prost(message, optional, boxed, tag="1")]
+    pub origin: ::core::option::Option<::prost::alloc::boxed::Box<Value>>,
+    /// The target's basis directions in the source frame, one vector_quantity per
+    /// target axis; empty for the source's own orientation.
+    #[prost(message, repeated, tag="2")]
+    pub basis_directions: ::prost::alloc::vec::Vec<Value>,
+}
+/// TranslationRotationSequence is the `elements` of a
+/// MeasurementReferences::TranslationRotationSequence, in the order applied.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TranslationRotationSequence {
+    #[prost(message, repeated, tag="1")]
+    pub steps: ::prost::alloc::vec::Vec<FrameStep>,
+}
+/// FrameStep is one Translation or Rotation of a TranslationRotationSequence.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FrameStep {
+    /// The Translation or Rotation object the step was read from.
+    #[prost(int64, tag="3")]
+    pub instance_id: i64,
+    #[prost(oneof="frame_step::Step", tags="1, 2")]
+    pub step: ::core::option::Option<frame_step::Step>,
+}
+/// Nested message and enum types in `FrameStep`.
+pub mod frame_step {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Step {
+        /// `translationVector`, a vector_quantity
+        #[prost(message, tag="1")]
+        Translation(super::Value),
+        #[prost(message, tag="2")]
+        Rotation(super::FrameRotation),
+    }
+}
+/// FrameRotation is a MeasurementReferences::Rotation.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FrameRotation {
+    /// `axisDirection`, a vector_quantity
+    #[prost(message, optional, tag="1")]
+    pub axis_direction: ::core::option::Option<Value>,
+    /// `angle`, an angular measure in the unit written
+    #[prost(message, optional, tag="2")]
+    pub angle: ::core::option::Option<Quantity>,
+    /// `isIntrinsic`: about the axes as already rotated (true, the library's
+    /// default) or about the source frame's fixed axes (false).
+    #[prost(bool, tag="3")]
+    pub is_intrinsic: bool,
+}
+/// AffineTransformation3d is a MeasurementReferences::AffineTransformationMatrix3d
+/// as bare numbers.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AffineTransformation3d {
+    /// `rotationMatrix`: 9, row-major
+    #[prost(double, repeated, tag="1")]
+    pub rotation: ::prost::alloc::vec::Vec<f64>,
+    /// `translationVector`: 3
+    #[prost(double, repeated, tag="2")]
+    pub translation: ::prost::alloc::vec::Vec<f64>,
 }
 /// Rational is an exact rational number in lowest terms: numerator over a
 /// positive denominator, each written as big_int_value is. The server rejects one
@@ -2963,6 +3189,10 @@ pub struct Quantity {
     /// is rejected rather than read as dimension one.
     #[prost(message, optional, tag="4")]
     pub unit_term: ::core::option::Option<UnitTerm>,
+    /// Qualified name of the quantity value type the quantity is held as, empty for
+    /// none: sent back, it is held as that type still, which a sibling type refuses.
+    #[prost(string, tag="7")]
+    pub value_type: ::prost::alloc::string::String,
     /// Magnitude, keeping Integer and Real apart as the rest of Value does.
     #[prost(oneof="quantity::Magnitude", tags="1, 2, 5, 6")]
     pub magnitude: ::core::option::Option<quantity::Magnitude>,
@@ -4869,6 +5099,42 @@ impl FailureReason {
             "FAILURE_REASON_WRONG_KIND" => Some(Self::WrongKind),
             "FAILURE_REASON_AMBIGUOUS_SUBJECT" => Some(Self::AmbiguousSubject),
             "FAILURE_REASON_UNDECIDED" => Some(Self::Undecided),
+            _ => None,
+        }
+    }
+}
+/// LookupKind states what the one string naming an element is, as the SysML v2 API keeps
+/// an element's "@id" apart from its qualifiedName (KerML 8.3.2.1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum LookupKind {
+    /// Not stated: the string is read as either kind, in the order its field documents.
+    Unspecified = 0,
+    /// A qualified name, resolved from the root namespace (KerML 8.2.3.5) through visible
+    /// memberships; never read as an id.
+    QualifiedName = 1,
+    /// An id the service reported for an element (SymbolInfo.id, child_ids, MemberInfo.id,
+    /// ElementRef.id, a metaobject's element_id), whatever its visibility; never read as a name.
+    ElementId = 2,
+}
+impl LookupKind {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "LOOKUP_KIND_UNSPECIFIED",
+            Self::QualifiedName => "LOOKUP_KIND_QUALIFIED_NAME",
+            Self::ElementId => "LOOKUP_KIND_ELEMENT_ID",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "LOOKUP_KIND_UNSPECIFIED" => Some(Self::Unspecified),
+            "LOOKUP_KIND_QUALIFIED_NAME" => Some(Self::QualifiedName),
+            "LOOKUP_KIND_ELEMENT_ID" => Some(Self::ElementId),
             _ => None,
         }
     }

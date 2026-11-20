@@ -255,7 +255,9 @@ func (g *ActionGraph) Inherited() []Inherited {
 type ActionEdge struct {
 	Source ast.Node
 	Target ast.Node
-	Guard  ast.Node
+	// SourceID and TargetID are Source and Target in the graph's identity table.
+	SourceID, TargetID program.NodeID
+	Guard              ast.Node
 	// GuardID is Guard in the table of the flow the succession was lowered for.
 	GuardID            program.ExprID
 	Decl               ast.Node
@@ -892,7 +894,9 @@ type PinBinding struct {
 	OtherID   program.ExprID
 	OtherNode ast.Node
 	OtherPath []ast.Node
-	OtherPin  string
+	// NodeID and OtherNodeID are Node and OtherNode in the graph's identity table, 0 for none.
+	NodeID, OtherNodeID program.NodeID
+	OtherPin            string
 	// OtherChain is the chain the other end walks to the object whose feature
 	// OtherFeature it names (`holder.inner.mark`); nil for a node's pin or a plain name.
 	OtherChain   *AssignTarget
@@ -942,6 +946,8 @@ type ObjectFlow struct {
 	SourcePin string
 	TargetPin string
 	Target    ast.Node
+	// SourceID and TargetID are the node the flow leaves and Target, in the graph's identity table.
+	SourceID, TargetID program.NodeID
 	// Kind is how the flow carries its values, as its declaration designated.
 	Kind FlowKind
 	// Decl is the declaration the flow was written as, for a consumer that
@@ -2802,7 +2808,7 @@ func findNodeByName(nodes []ast.Node, qname *ast.QualifiedName) ast.Node {
 // name is a name of its own, so `action <s> :>> takePhoto;` is reachable as
 // both `s` and `takePhoto`.
 func nodeAnswersTo(node ast.Node, name string) bool {
-	if nodeHasName(node) && getNodeName(node) == name {
+	if own, named := nodeName(node); named && own == name {
 		return true
 	}
 	u, ok := node.(*ast.Usage)
@@ -2812,48 +2818,44 @@ func nodeAnswersTo(node ast.Node, name string) bool {
 // nodeHasName reports whether a node has a name to answer to, the empty
 // unrestricted name included (KerML §8.2.2.3).
 func nodeHasName(node ast.Node) bool {
-	switch n := node.(type) {
-	case *ast.ForkNode:
-		return n.Name != "" || n.NameSpan.Len > 0
-	case *ast.JoinNode:
-		return n.Name != "" || n.NameSpan.Len > 0
-	case *ast.MergeNode:
-		return n.Name != "" || n.NameSpan.Len > 0
-	case *ast.DecisionNode:
-		return n.Name != "" || n.NameSpan.Len > 0
-	case *ast.Usage:
-		name, span := ast.EffectiveName(n)
-		return name != "" || span.Len > 0
-	}
-	return getNodeName(node) != ""
+	_, named := nodeName(node)
+	return named
 }
 
 // getNodeName extracts the name from a node.
 func getNodeName(node ast.Node) string {
+	name, _ := nodeName(node)
+	return name
+}
+
+// nodeName is a node's name and whether it has one, read in one pass: finding a
+// succession's end asks both of every node of the graph.
+func nodeName(node ast.Node) (string, bool) {
 	switch n := node.(type) {
 	case *ast.InitialNode:
-		return n.Name()
+		name := n.Name()
+		return name, name != ""
 	case *ast.FinalNode:
 		// The node declares no name of its own: a succession reaches it by the
 		// name of the library feature it is, `done`.
-		return "done"
+		return "done", true
 	case *ast.ForkNode:
-		return n.Name
+		return n.Name, n.Name != "" || n.NameSpan.Len > 0
 	case *ast.JoinNode:
-		return n.Name
+		return n.Name, n.Name != "" || n.NameSpan.Len > 0
 	case *ast.MergeNode:
-		return n.Name
+		return n.Name, n.Name != "" || n.NameSpan.Len > 0
 	case *ast.DecisionNode:
-		return n.Name
+		return n.Name, n.Name != "" || n.NameSpan.Len > 0
 	case *ast.ActionExecutionNode:
-		return n.Name
+		return n.Name, n.Name != ""
 	case *ast.Usage:
 		// An unnamed usage is named after the feature it references or redefines
 		// (`perform increment;` is a node named increment).
-		name, _ := ast.EffectiveName(n)
-		return name
+		name, span := ast.EffectiveName(n)
+		return name, name != "" || span.Len > 0
 	}
-	return ""
+	return "", false
 }
 
 // lowerFlow lowers a flow declared among an action's members

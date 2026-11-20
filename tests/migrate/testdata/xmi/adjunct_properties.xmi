@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_pump" name="Pump"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank"/>
+    <packagedElement xmi:type="uml:AssociationClass" xmi:id="_pipe" name="Pipe" memberEnd="_pipeFrom _pipeTo">
+      <ownedEnd xmi:type="uml:Property" xmi:id="_pipeFrom" name="from" type="_pump" association="_pipe"/>
+      <ownedEnd xmi:type="uml:Property" xmi:id="_pipeTo" name="to" type="_tank" association="_pipe"/>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_plant" name="Plant" classifierBehavior="_modes">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pPump" name="pump" type="_pump" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pTank" name="tank" type="_tank" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_adjFeed" name="feed" type="_pipe" aggregation="composite"/>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_feed" name="feed" type="_pipe">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_feedA" role="_pPump"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_feedB" role="_pTank"/>
+      </ownedConnector>
+
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_modes" name="Modes">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_adjCycle" name="Cycling" type="_cycle" aggregation="composite"/>
+        <region xmi:type="uml:Region" xmi:id="_main" name="main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init0"/>
+          <subvertex xmi:type="uml:State" xmi:id="_cycling" name="Cycling" submachine="_cycle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init0" target="_cycling"/>
+        </region>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_cycle" name="Cycle">
+        <region xmi:type="uml:Region" xmi:id="_rc" name="cycle">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_initC"/>
+          <subvertex xmi:type="uml:State" xmi:id="_on" name="On"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tC" source="_initC" target="_on"/>
+        </region>
+      </ownedBehavior>
+
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_prime" name="Prime">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_plPump" name="p" represents="_pPump"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_start" name="Startup">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_adjPriming" name="priming" type="_prime" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_adjStray" name="stray" type="_prime" aggregation="composite"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_slPump" name="p" represents="_pPump"/>
+        <fragment xmi:type="uml:InteractionUse" xmi:id="_priming" name="priming" refersTo="_prime" covered="_slPump"/>
+      </ownedBehavior>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Activity" xmi:id="_fill" name="Fill"/>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_drain" name="Drain"/>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_run" name="Run">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_adjCall" type="_fill" aggregation="composite" association="_runFill"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_adjNamed" name="empty" type="_drain" aggregation="composite">
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_adjNamedLo" value="1"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_adjNamedUp" value="1"/>
+        <ownedComment xmi:type="uml:Comment" xmi:id="_adjNamedDoc" body="Empties the tank."/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_adjParam" name="level">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_adjParamNode" name="level">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_adjVar" name="count">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_adjBuffer" name="queue" type="_tank">
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_adjBufferLo" value="0"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_adjBufferUp" value="*"/>
+      </ownedAttribute>
+      <ownedParameter xmi:type="uml:Parameter" xmi:id="_level" name="level" direction="in">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedParameter>
+      <variable xmi:type="uml:Variable" xmi:id="_count" name="count">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+      </variable>
+      <node xmi:type="uml:ActivityParameterNode" xmi:id="_levelNode" name="level" parameter="_level"/>
+      <node xmi:type="uml:InitialNode" xmi:id="_runInit"/>
+      <node xmi:type="uml:CallBehaviorAction" xmi:id="_callFill" behavior="_fill"/>
+      <node xmi:type="uml:CallBehaviorAction" xmi:id="_callDrain" name="empty" behavior="_drain"/>
+      <node xmi:type="uml:CentralBufferNode" xmi:id="_queue" name="queue" type="_tank"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_e0" source="_runInit" target="_callFill"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_callFill" target="_callDrain"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Association" xmi:id="_runFill" memberEnd="_runFillWhole _adjCall">
+      <ownedEnd xmi:type="uml:Property" xmi:id="_runFillWhole" type="_run" association="_runFill"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Abstraction" xmi:id="_alloc" client="_adjNamed" supplier="_pump"/>
+
+    <packagedElement xmi:type="uml:Activity" xmi:id="_apart" name="Apart">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_adjGone" name="lost" type="_fill" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_adjKind" name="note" type="_fill" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_adjOwner" name="borrowed" type="_drain" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_adjType" name="refill" type="_drain" aggregation="composite"/>
+      <node xmi:type="uml:OpaqueAction" xmi:id="_note" name="note"/>
+      <node xmi:type="uml:CallBehaviorAction" xmi:id="_refill" name="refill" behavior="_fill"/>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_bPump" base_Class="_pump"/>
+  <sysml:Block xmi:id="_bTank" base_Class="_tank"/>
+  <sysml:Block xmi:id="_bPipe" base_Class="_pipe"/>
+  <sysml:Block xmi:id="_bPlant" base_Class="_plant"/>
+  <sysml:Allocate xmi:id="_sAlloc" base_Abstraction="_alloc"/>
+  <sysml:AdjunctProperty xmi:id="_sFeed" base_Property="_adjFeed" principal="_feed"/>
+  <sysml:AdjunctProperty xmi:id="_sCycle" base_Property="_adjCycle" principal="_cycling"/>
+  <sysml:AdjunctProperty xmi:id="_sPriming" base_Property="_adjPriming" principal="_priming"/>
+  <sysml:AdjunctProperty xmi:id="_sCall" base_Property="_adjCall" principal="_callFill"/>
+  <sysml:AdjunctProperty xmi:id="_sNamed" base_Property="_adjNamed" principal="_callDrain"/>
+  <sysml:AdjunctProperty xmi:id="_sParam" base_Property="_adjParam" principal="_level"/>
+  <sysml:AdjunctProperty xmi:id="_sParamNode" base_Property="_adjParamNode" principal="_levelNode"/>
+  <sysml:AdjunctProperty xmi:id="_sVar" base_Property="_adjVar" principal="_count"/>
+  <sysml:AdjunctProperty xmi:id="_sBuffer" base_Property="_adjBuffer" principal="_queue"/>
+  <sysml:AdjunctProperty xmi:id="_sStray" base_Property="_adjStray" principal="_nowhere"/>
+  <sysml:AdjunctProperty xmi:id="_sGone" base_Property="_adjGone" principal="_nowhere"/>
+  <sysml:AdjunctProperty xmi:id="_sKind" base_Property="_adjKind" principal="_note"/>
+  <sysml:AdjunctProperty xmi:id="_sOwner" base_Property="_adjOwner" principal="_callDrain"/>
+  <sysml:AdjunctProperty xmi:id="_sType" base_Property="_adjType" principal="_refill"/>
+</xmi:XMI>

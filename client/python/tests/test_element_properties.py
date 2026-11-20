@@ -107,6 +107,27 @@ def test_the_connection_sends_the_element_and_the_names():
     assert read.element.qualified_name == "EP::Pair"
 
 
+@pytest.mark.parametrize("capabilities, stated", [
+    (("element_properties", "symbol_lookup_kind"), True), (("element_properties",), False),
+])
+def test_the_element_is_named_by_kind_where_advertised(capabilities, stated):
+    stub = Mock()
+    stub.GetElementProperties.return_value = _response()
+    conn = _connection(stub, capabilities=capabilities)
+    for kwargs, kind in (
+        ({"name": "EP::Pair"}, sysml_pb2.LOOKUP_KIND_QUALIFIED_NAME),
+        ({"id": "EP__Pair"}, sysml_pb2.LOOKUP_KIND_ELEMENT_ID),
+    ):
+        conn.get_element_properties("hash1", properties=["isAbstract"], **kwargs)
+        request = stub.GetElementProperties.call_args[0][0]
+        assert request.element_id == next(iter(kwargs.values()))
+        assert request.lookup == (kind if stated else sysml_pb2.LOOKUP_KIND_UNSPECIFIED)
+    conn.get_element_properties("hash1", "EP::Pair")
+    assert stub.GetElementProperties.call_args[0][0].lookup == sysml_pb2.LOOKUP_KIND_UNSPECIFIED
+    with pytest.raises(ValueError, match="exactly one"):
+        conn.get_element_properties("hash1", "EP::Pair", id="EP__Pair")
+
+
 def test_a_service_without_the_capability_is_refused_before_the_call():
     stub = Mock()
     conn = _connection(stub, capabilities=("query",))
@@ -135,14 +156,14 @@ def test_the_model_and_the_symbol_reach_the_connection():
         model_hash="hash1", root=sysml_pb2.SymbolInfo(id="EP", name="EP", kind="Package"))
     model = Model(parsed, client)
     read = model.element_properties("EP::Pair", "inheritedFeature")
-    client.get_element_properties.assert_called_once_with("hash1", "EP::Pair", ("inheritedFeature",))
+    client.get_element_properties.assert_called_once_with("hash1", "EP::Pair", ("inheritedFeature",), name=None, id=None)
     assert read["isAbstract"].value is False
 
     symbol = Symbol(sysml_pb2.SymbolInfo(id="EP::Pair", name="Pair", kind="PartDef"), client, "hash1")
     assert symbol.property("isAbstract").value is False
-    client.get_element_properties.assert_called_with("hash1", "EP::Pair", ("isAbstract",))
+    client.get_element_properties.assert_called_with("hash1", properties=("isAbstract",), id="EP::Pair")
     symbol.properties()
-    client.get_element_properties.assert_called_with("hash1", "EP::Pair", ())
+    client.get_element_properties.assert_called_with("hash1", properties=(), id="EP::Pair")
     unconnected = Symbol(sysml_pb2.SymbolInfo(id="EP::Pair"), None, "hash1")
     with pytest.raises(ValueError):
         unconnected.properties()
@@ -228,6 +249,51 @@ class TestElementPropertiesAgainstTheService:
         with pytest.raises(SymbolNotFoundError):
             self.model.element_properties("EP::Nowhere")
 
+    def test_an_element_beside_an_excluded_document_is_answered(self):
+        """The three-document check of #2029."""
+        first = ("a.sysml", "package A { part x; }")
+        for other, excluded in (
+            (("c.sysml", "package C { part y }"), ["c.sysml"]),
+            (("d.sysml", "package A { part z; }"), ["d.sysml"]),
+            (("v.sysml", "package V { part y : Missing; }"), []),
+        ):
+            model = self.conn.parse_sources([first, other])
+            read = model.element_properties("A::x", "name")
+            assert read["name"].value == "x"
+            assert [d.document for d in read.excluded_documents] == excluded
+
+    def test_an_element_of_an_excluded_document_raises_its_documents_error(self):
+        model = self.conn.parse_sources(
+            [("a.sysml", "package A { part x; }"), ("c.sysml", "package C { part y }")]
+        )
+        with pytest.raises(ConversionError, match="syntax error") as raised:
+            model.element_properties("C", "name")
+        assert [name for name, _ in raised.value.excluded_documents] == ["c.sysml"]
+
+
+def test_excluded_documents_decode_with_the_answer():
+    response = _response()
+    response.excluded_documents.add(document="c.sysml", error="c.sysml: 3 syntax error(s)")
+    read = element_properties_of(response)
+    assert [(d.document, d.error) for d in read.excluded_documents] == [
+        ("c.sysml", "c.sysml: 3 syntax error(s)")
+    ]
+    assert element_properties_of(_response()).excluded_documents == []
+
+
+def test_a_refused_document_raises_a_conversion_error_naming_the_excluded_documents():
+    stub = Mock()
+    stub.GetElementProperties.return_value = sysml_pb2.GetElementPropertiesResponse(
+        error="c.sysml: 3 syntax error(s)",
+        excluded_documents=[
+            sysml_pb2.ExcludedDocument(document="c.sysml", error="c.sysml: 3 syntax error(s)")
+        ],
+    )
+    conn = _connection(stub)
+    with pytest.raises(ConversionError, match="syntax error") as raised:
+        conn.get_element_properties("hash1", "C")
+    assert raised.value.excluded_documents == [("c.sysml", "c.sysml: 3 syntax error(s)")]
+
 
 LIBRARY_MEMBERS_MODEL = """
 package P {
@@ -308,3 +374,4 @@ class TestEveryIdAnAnswerCarriesReadsBack:
         assert features
         for feature in features:
             assert self.model.element_properties(feature.id, "name").element.id == feature.id
+

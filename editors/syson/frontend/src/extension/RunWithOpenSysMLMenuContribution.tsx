@@ -1,13 +1,16 @@
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import PublishIcon from '@mui/icons-material/Publish';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import MenuItem from '@mui/material/MenuItem';
 import type { TreeItemContextMenuComponentProps } from '@eclipse-sirius/sirius-components-trees';
 import { forwardRef, useState } from 'react';
+import { PUBLISH_WITH_OPENSYSML_TOOL_ID } from '../constants';
+import { PublishWithOpenSysMLDialog } from '../dialog/PublishWithOpenSysMLDialog';
 import { RunWithOpenSysMLDialog } from '../dialog/RunWithOpenSysMLDialog';
 
 export const RunWithOpenSysMLMenuContribution = forwardRef<HTMLLIElement, TreeItemContextMenuComponentProps>(
-  ({ editingContextId, treeId, item, onClose }, ref) => {
+  ({ editingContextId, treeId, item, entry, onClose }, ref) => {
     const [open, setOpen] = useState(false);
     if (!treeId.startsWith('explorer://')) {
       return null;
@@ -18,6 +21,20 @@ export const RunWithOpenSysMLMenuContribution = forwardRef<HTMLLIElement, TreeIt
       setOpen(false);
       onClose();
     };
+
+    if (entry?.id === PUBLISH_WITH_OPENSYSML_TOOL_ID) {
+      return (
+        <>
+          <MenuItem ref={ref} data-testid="publish-with-opensysml-menu" onClick={() => setOpen(true)}>
+            <ListItemIcon>
+              <PublishIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText primary="Publish to SysML v2 API…" />
+          </MenuItem>
+          {open && <PublishWithOpenSysMLDialog editingContextId={editingContextId} onClose={close} />}
+        </>
+      );
+    }
 
     return (
       <>

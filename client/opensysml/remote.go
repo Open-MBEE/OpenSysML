@@ -259,6 +259,14 @@ func (r *remote) runAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (*
 	return resp.Msg, nil
 }
 
+func (r *remote) runSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.RunSweepResponse, error) {
+	resp, err := r.rpc.RunSweep(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, connectToError(err)
+	}
+	return resp.Msg, nil
+}
+
 func (r *remote) runRuns(ctx context.Context, req *pb.RunRunsRequest) (*pb.RunRunsResponse, error) {
 	resp, err := r.rpc.RunRuns(ctx, connect.NewRequest(req))
 	if err != nil {

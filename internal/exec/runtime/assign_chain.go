@@ -27,6 +27,11 @@ func writeThroughChain(ec *EvalContext, chain *lower.AssignTarget, feature strin
 	if err != nil {
 		return err
 	}
+	return writeOnReached(ec, target, chain, feature, value)
+}
+
+// writeOnReached writes value to feature of target, the object chain reached.
+func writeOnReached(ec *EvalContext, target *Instance, chain *lower.AssignTarget, feature string, value Value) error {
 	// The target names the feature it resolves to, which the object may hold
 	// under the name of a feature redefining it (KerML 1.0 §7.3.4.5).
 	if slot, ok := ec.ctx.featureSlot(target, ec.chainTargetMember(chain, feature)); ok {

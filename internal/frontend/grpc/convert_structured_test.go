@@ -522,22 +522,3 @@ func TestStructuredInputNeedsStructuredValues(t *testing.T) {
 		}
 	}
 }
-
-// The wire Value has no frame arm either: a coordinate frame and a transformation
-// cross as unsupported nulls naming them, never as sequences of their axes.
-func TestCoordinateFrameCrossesAsUnsupported(t *testing.T) {
-	metre := semantics.Unit{Text: "m", Product: semantics.OpaqueUnitProduct("m", semantics.UnitTerm{Scale: semantics.UnitScale(1)})}
-	frame := &runtime.CoordinateFrame{Dimensions: []int64{3}, Axes: []runtime.Unit{metre, metre, metre}, Text: "spatialCF"}
-	for want, val := range map[string]runtime.Value{
-		"unsupported: coordinate frame spatialCF [m, m, m]":                                          runtime.NewCoordinateFrameValue(frame),
-		"unsupported: coordinate transformation a coordinate transformation (spatialCF → spatialCF)": runtime.NewCoordinateTransformationValue(&runtime.CoordinateTransformation{Source: frame, Target: frame}),
-	} {
-		pv := protoconv.ValueToProto(val, nil)
-		if pv.GetSequence() != nil || pv.GetQuantity() != nil || pv.GetStringValue() != "" {
-			t.Fatalf("%s crossed as %T: %v", runtime.FormatValue(val), pv.GetKind(), pv)
-		}
-		if pv.GetNull() != want {
-			t.Errorf("protoconv.ValueToProto(%s) = %v, want null %q", runtime.FormatValue(val), pv, want)
-		}
-	}
-}

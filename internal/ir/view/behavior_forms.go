@@ -4,9 +4,9 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // The kinds of the action nodes §8.2.3.17 gives a figure of their own: the
@@ -51,27 +51,30 @@ func statementKind(kind string) bool {
 	return false
 }
 
-// sectionKind reports whether a kind is a body compartment of a compound node,
-// a container drawn as a compartment of the node holding it.
-func sectionKind(kind string) bool {
+// bodySectionKind reports whether a kind is a body compartment of a compound node,
+// a container drawn as a compartment of the node holding it; a swimlane is none.
+func bodySectionKind(kind string) bool {
 	switch kind {
-	case loopBodyKind, thenBodyKind, elseBodyKind, swimlaneKind:
+	case loopBodyKind, thenBodyKind, elseBodyKind:
 		return true
 	}
 	return false
 }
 
+// dashedFrameKind reports whether a container of the kind is drawn with a
+// dashed outline: an orthogonal region (§8.2.3.18) or a swimlane (§8.2.3.17).
+func dashedFrameKind(kind string) bool {
+	return kind == "region" || kind == swimlaneKind
+}
+
 // statementNodeKind names an action usage by the one statement its body is —
 // `action a accept x : X;`, `action b send S() to p;`, `action c assign v := 1;`,
 // `action d while c { … }`, `action e if c { … }` — and "" for any other.
-func statementNodeKind(node *ast.Usage, graph *lower.ActionGraph) string {
-	if graph == nil {
-		return ""
-	}
-	if _, ok := graph.Accepts[node]; ok {
+func statementNodeKind(graph *lower.ActionGraph, node program.NodeID) string {
+	if _, ok := graph.AcceptOf(node); ok {
 		return acceptActionKind
 	}
-	body := graph.Bodies[node]
+	body := graph.BodyOf(node)
 	if len(body) != 1 {
 		return ""
 	}
@@ -91,11 +94,11 @@ func statementNodeKind(node *ast.Usage, graph *lower.ActionGraph) string {
 // statementExpression is the expression the figure sets under a statement node's
 // name compartment: the accept's payload (`reading : Reading`), the send's
 // message and addressee (`Alarm() to sensor`), the assignment (`count := count + 1`).
-func (r *Renderer) statementExpression(graph *lower.ActionGraph, node ast.Node, doc string) string {
-	if accept, ok := graph.Accepts[node]; ok {
+func (r *Renderer) statementExpression(graph *lower.ActionGraph, node program.NodeID, doc string) string {
+	if accept, ok := graph.AcceptOf(node); ok {
 		return r.acceptExpression(doc, accept)
 	}
-	body := graph.Bodies[node]
+	body := graph.BodyOf(node)
 	if len(body) != 1 {
 		return ""
 	}
@@ -113,7 +116,7 @@ func (r *Renderer) statementExpression(graph *lower.ActionGraph, node ast.Node, 
 // port it is accepted `via`.
 func (r *Renderer) acceptExpression(doc string, accept lower.Accept) string {
 	expression := r.acceptText(doc, accept)
-	if accept.ParamName != "" && accept.SignalType != nil {
+	if _, typed := accept.Signal(); accept.ParamName != "" && typed {
 		expression = nameText(accept.ParamName) + " : " + expression
 	}
 	if accept.ViaPort != "" {
@@ -126,17 +129,17 @@ func (r *Renderer) acceptExpression(doc string, accept lower.Accept) string {
 // port or `to` the receiver it is addressed to, as written.
 func (r *Renderer) sendExpression(doc string, send lower.Send) string {
 	parts := []string{}
-	if message := r.messageText(doc, send.Message); message != "" {
+	if message := r.messageText(doc, send); message != "" {
 		parts = append(parts, message)
 	}
-	if target := r.sendEnd(doc, send.Target, send.TargetExpr); target != "" {
+	if target := r.sendEnd(doc, send.Target, send.TargetAt()); target != "" {
 		keyword := "to"
 		if send.IsVia {
 			keyword = "via"
 		}
 		parts = append(parts, keyword, target)
 	}
-	if receiver := r.sendEnd(doc, send.Receiver, send.ReceiverExpr); receiver != "" {
+	if receiver := r.sendEnd(doc, send.Receiver, send.ReceiverAt()); receiver != "" {
 		parts = append(parts, "to", receiver)
 	}
 	return strings.Join(parts, " ")
@@ -144,11 +147,11 @@ func (r *Renderer) sendExpression(doc string, send lower.Send) string {
 
 // sendEnd is an addressee of a send: the name it was written as, else the
 // expression as written.
-func (r *Renderer) sendEnd(doc, name string, expr ast.Node) string {
+func (r *Renderer) sendEnd(doc, name string, expr lower.Extent) string {
 	if name != "" {
 		return notationName(name)
 	}
-	return r.nodeText(doc, expr)
+	return r.extentText(doc, expr)
 }
 
 // compoundBody is a body of a loop or conditional that is an action flow of its
@@ -163,24 +166,24 @@ type compoundBody struct {
 // `for iterator`, `loop body`; `if condition`, `then body`, `else body`. A body
 // of statements is listed in its compartment; one that is a flow is a section
 // returned for the caller to draw the flow in.
-func (r *Renderer) compoundCompartments(graph *lower.ActionGraph, node ast.Node, doc string, ids *nodeIDs) ([]Compartment, []compoundBody) {
-	body := graph.Bodies[node]
+func (r *Renderer) compoundCompartments(graph *lower.ActionGraph, node program.NodeID, doc string, ids *nodeIDs) ([]Compartment, []compoundBody) {
+	body := graph.BodyOf(node)
 	if len(body) != 1 {
 		return nil, nil
 	}
 	var compartments []Compartment
 	defer func() { numberRows(ids, compartments) }()
 	var bodies []compoundBody
-	expression := func(name string, expr ast.Node) {
-		if expr != nil {
-			compartments = append(compartments, Compartment{Name: name, Rows: statementRows(r.nodeText(doc, expr))})
+	expression := func(name string, expr lower.Extent) {
+		if expr.Written {
+			compartments = append(compartments, Compartment{Name: name, Rows: statementRows(r.extentText(doc, expr))})
 		}
 	}
 	section := func(kind string, block *lower.Block) {
 		if block == nil {
 			return
 		}
-		if block.Graph != nil && len(block.Graph.Nodes) > 0 {
+		if block.Flows() {
 			bodies = append(bodies, compoundBody{kind: kind, block: *block})
 			return
 		}
@@ -188,22 +191,22 @@ func (r *Renderer) compoundCompartments(graph *lower.ActionGraph, node ast.Node,
 	}
 	switch stmt := body[0].(type) {
 	case lower.Loop:
-		switch stmt.Kind {
-		case ast.LoopFor:
+		switch {
+		case stmt.For():
 			if iteration := r.iterationText(doc, stmt); iteration != "" {
 				compartments = append(compartments, Compartment{Name: "for iterator", Rows: statementRows(iteration)})
 			}
 			section(loopBodyKind, &stmt.Body)
-		case ast.LoopUntil:
+		case stmt.PostTested():
 			section(loopBodyKind, &stmt.Body)
-			expression("until condition", stmt.Condition)
+			expression("until condition", stmt.ConditionAt())
 		default:
-			expression("while condition", stmt.Condition)
+			expression("while condition", stmt.ConditionAt())
 			section(loopBodyKind, &stmt.Body)
-			expression("until condition", stmt.Until)
+			expression("until condition", stmt.UntilAt())
 		}
 	case lower.If:
-		expression("if condition", stmt.Condition)
+		expression("if condition", stmt.ConditionAt())
 		section(thenBodyKind, &stmt.Then)
 		section(elseBodyKind, stmt.Else)
 	}
@@ -212,7 +215,7 @@ func (r *Renderer) compoundCompartments(graph *lower.ActionGraph, node ast.Node,
 
 // iterationText is a for loop's iteration-expression, `i in 1..3`.
 func (r *Renderer) iterationText(doc string, loop lower.Loop) string {
-	collection := r.nodeText(doc, loop.Collection)
+	collection := r.extentText(doc, loop.CollectionAt())
 	if !loop.Bound || collection == "" {
 		return ""
 	}
@@ -281,18 +284,18 @@ func (r *Renderer) indentedStatementRows(doc string, statements []lower.Statemen
 		case lower.Block:
 			rows = append(rows, r.indentedStatementRows(doc, stmt.Steps(), indent)...)
 		case lower.Loop:
-			if stmt.Kind == ast.LoopUntil {
+			if stmt.PostTested() {
 				row("loop")
 				body(&stmt.Body)
-				if stmt.Condition != nil { // a `loop { }` written without `until` has none
-					row(joinNonEmpty("until", r.nodeText(doc, stmt.Condition)))
+				if at := stmt.ConditionAt(); at.Written { // a `loop { }` written without `until` has none
+					row(joinNonEmpty("until", r.extentText(doc, at)))
 				}
 				continue
 			}
 			row(r.statementText(doc, stmt))
 			body(&stmt.Body)
-			if stmt.Until != nil {
-				row(joinNonEmpty("until", r.nodeText(doc, stmt.Until)))
+			if at := stmt.UntilAt(); at.Written {
+				row(joinNonEmpty("until", r.extentText(doc, at)))
 			}
 		case lower.If:
 			row(r.statementText(doc, stmt))
@@ -313,46 +316,42 @@ func (r *Renderer) indentedStatementRows(doc string, statements []lower.Statemen
 func (r *Renderer) statementText(doc string, statement lower.Statement) string {
 	switch stmt := statement.(type) {
 	case lower.Loop:
-		switch stmt.Kind {
-		case ast.LoopFor:
+		switch {
+		case stmt.For():
 			return joinNonEmpty("for", r.iterationText(doc, stmt))
-		case ast.LoopUntil:
-			return joinNonEmpty("loop until", r.nodeText(doc, stmt.Condition))
+		case stmt.PostTested():
+			return joinNonEmpty("loop until", r.extentText(doc, stmt.ConditionAt()))
 		}
-		return joinNonEmpty("while", r.nodeText(doc, stmt.Condition))
+		return joinNonEmpty("while", r.extentText(doc, stmt.ConditionAt()))
 	case lower.If:
-		return joinNonEmpty("if", r.nodeText(doc, stmt.Condition))
+		return joinNonEmpty("if", r.extentText(doc, stmt.ConditionAt()))
 	case lower.Send:
 		return joinNonEmpty("send", r.sendExpression(doc, stmt))
 	case lower.Assign:
 		return joinNonEmpty("assign", r.assignmentText(doc, []lower.Statement{stmt}))
 	case lower.Effect:
-		return joinNonEmpty(stmt.Kind.String(), r.nodeText(doc, stmt.TargetExpr))
+		return joinNonEmpty(stmt.Kind.String(), r.extentText(doc, stmt.TargetAt()))
 	case lower.Return:
-		return joinNonEmpty("return", r.nodeText(doc, stmt.Value))
+		return joinNonEmpty("return", r.extentText(doc, stmt.ValueAt()))
 	}
-	return strings.TrimSuffix(strings.TrimSpace(r.nodeText(doc, statementNode(statement))), ";")
+	return strings.TrimSuffix(strings.TrimSpace(r.extentText(doc, statementAt(statement))), ";")
 }
 
-// statementNode is the declaration a statement was lowered from, nil for one
-// that records none.
-func statementNode(statement lower.Statement) ast.Node {
+// statementAt is where a statement written as a declaration stands, the zero
+// Extent for any other.
+func statementAt(statement lower.Statement) lower.Extent {
 	switch stmt := statement.(type) {
-	case lower.Declare:
-		return stmt.Node
-	case lower.DeclareUsage:
-		return stmt.Node
+	case lower.Declare, lower.DeclareUsage, lower.Unsupported:
+		return lower.StatementAt(stmt)
 	case lower.Assert:
-		return stmt.Node
-	case lower.Unsupported:
-		return stmt.Node
+		return stmt.At()
 	}
-	return nil
+	return lower.Extent{}
 }
 
 // bodySection is the container a compound node's flow body is drawn in: a
 // section of the node's box headed by the body compartment's name.
-func (r *Renderer) bodySection(body compoundBody, doc string, ids *nodeIDs) *Node {
+func (r *Renderer) bodySection(body compoundBody, ids *nodeIDs) *Node {
 	return &Node{ID: ids.take(), Kind: body.kind}
 }
 

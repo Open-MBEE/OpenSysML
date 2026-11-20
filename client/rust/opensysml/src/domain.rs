@@ -4,6 +4,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::capabilities::{upgrade_remedy, CAPABILITY_SYMBOL_ANNOTATING_METADATA};
+use crate::frame::{
+    frame_from_wire, transformation_from_wire, CoordinateFrame, CoordinateTransformation,
+};
 use crate::rational::Rational;
 use crate::{error::Error, wire, Connection};
 
@@ -266,6 +269,9 @@ pub struct Quantity {
     pub unit: String,
     /// Reduced unit term, when supplied by the service.
     pub unit_term: Option<UnitTerm>,
+    /// Qualified name of the quantity value type the service holds it as, empty for none;
+    /// sent back, it is kept, so a sibling type still refuses the quantity.
+    pub value_type: String,
 }
 
 impl fmt::Display for Magnitude {
@@ -703,6 +709,10 @@ pub enum Value {
     Unset,
     /// A model-level result the model leaves open: a successful answer, not an error.
     Undetermined(Undetermined),
+    /// A coordinate frame or measurement scale held as a value.
+    CoordinateFrame(Box<CoordinateFrame>),
+    /// A coordinate transformation held as a value.
+    CoordinateTransformation(Box<CoordinateTransformation>),
     /// The unbounded value `*`, ordered above every finite magnitude.
     Infinity,
 }
@@ -1061,6 +1071,12 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
                 count_upper,
             }))
         }
+        wire::value::Kind::CoordinateFrame(v) => {
+            Ok(Value::CoordinateFrame(Box::new(frame_from_wire(*v)?)))
+        }
+        wire::value::Kind::CoordinateTransformation(v) => Ok(Value::CoordinateTransformation(
+            Box::new(transformation_from_wire(*v)?),
+        )),
         // Only an asserted arm carries the unbounded value.
         wire::value::Kind::Infinity(asserted) => {
             if !asserted {
@@ -1099,10 +1115,12 @@ fn kind_name(kind: &wire::value::Kind) -> &'static str {
         wire::value::Kind::Set(_) => "set",
         wire::value::Kind::TensorQuantity(_) => "tensor_quantity",
         wire::value::Kind::Metaobject(_) => "metaobject",
+        wire::value::Kind::CoordinateFrame(_) => "coordinate_frame",
+        wire::value::Kind::CoordinateTransformation(_) => "coordinate_transformation",
     }
 }
 
-fn measurement_ref_from_wire(v: wire::MeasurementRef) -> Result<MeasurementRef, Error> {
+pub(crate) fn measurement_ref_from_wire(v: wire::MeasurementRef) -> Result<MeasurementRef, Error> {
     let Some(term) = v.unit_term else {
         if v.unit.is_empty() && v.unit_id.is_empty() {
             return Err(Error::Decode(
@@ -1167,6 +1185,7 @@ pub(crate) fn quantity_from_wire(v: wire::Quantity) -> Result<Quantity, Error> {
         magnitude,
         unit: v.unit,
         unit_term: v.unit_term.map(unit_term_from_wire),
+        value_type: v.value_type,
     })
 }
 
@@ -1177,17 +1196,45 @@ pub struct SymbolOptions {
     /// otherwise only counted by [`Symbol::withheld_library_members`]. Needs the
     /// `symbol_members` capability.
     pub include_library_members: bool,
-    /// Take the id as one the service reported (a child's, a member's), whatever its
-    /// visibility, instead of resolving it as a qualified name from the root namespace.
+    /// With [`Lookup::Either`] only: take the string as one the service reported rather than
+    /// resolving it from the root namespace; a declared name still comes first.
     pub by_reported_id: bool,
+    /// What the string names. [`Lookup::Either`], the default, is the legacy form.
+    pub lookup: Lookup,
 }
 
 impl SymbolOptions {
-    /// Options looking a symbol up by an id the service reported.
-    pub(crate) fn reported_id() -> Self {
+    /// Options looking a symbol up by an id the service reported, and by nothing else.
+    pub(crate) fn element_id() -> Self {
         Self {
-            by_reported_id: true,
+            lookup: Lookup::ElementId,
             ..Self::default()
+        }
+    }
+}
+
+/// What the one string of a lookup names: a qualified name and an id can be spelled alike
+/// (a member `'@3'` beside the unnamed member `Owner::@3`), so a lookup states which it is.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum Lookup {
+    /// The legacy form, one string for either kind: a declared name first, then an id, so
+    /// a declaration shadows the element an id of its spelling was reported for.
+    #[default]
+    Either,
+    /// A qualified name, resolved from the root namespace; never read as an id.
+    QualifiedName,
+    /// An id the service reported for an element, whatever its visibility; never read as
+    /// a name.
+    ElementId,
+}
+
+impl Lookup {
+    /// The kind as the request states it.
+    pub(crate) fn wire(self) -> wire::LookupKind {
+        match self {
+            Self::Either => wire::LookupKind::Unspecified,
+            Self::QualifiedName => wire::LookupKind::QualifiedName,
+            Self::ElementId => wire::LookupKind::ElementId,
         }
     }
 }
@@ -1311,7 +1358,7 @@ impl Symbol {
         for id in ids {
             match self
                 .connection()
-                .get_symbol(&self.model_hash, id, &SymbolOptions::reported_id())
+                .get_symbol(&self.model_hash, id, &SymbolOptions::element_id())
             {
                 Ok(child) => children.push(child),
                 Err(Error::Model(_)) => {}
@@ -1647,6 +1694,20 @@ impl Model {
     pub fn symbol_with(&self, fqn: &str, options: &SymbolOptions) -> Result<Symbol, Error> {
         self.connection.get_symbol(self.hash(), fqn, options)
     }
+    /// Look a symbol up by its qualified name and nothing else, resolved from the root
+    /// namespace. A service without `symbol_lookup_kind` falls back to reading an id.
+    pub fn symbol_by_name(&self, name: &str) -> Result<Symbol, Error> {
+        let options = SymbolOptions {
+            lookup: Lookup::QualifiedName,
+            ..SymbolOptions::default()
+        };
+        self.symbol_with(name, &options)
+    }
+    /// Look a symbol up by an id the service reported ([`Symbol::id`], a child's, a member's)
+    /// and nothing else. A service without `symbol_lookup_kind` reads a declared name first.
+    pub fn symbol_by_element_id(&self, id: &str) -> Result<Symbol, Error> {
+        self.symbol_with(id, &SymbolOptions::element_id())
+    }
     /// Instantiate a part or usage.
     pub fn instantiate(&self, fqn: &str) -> Result<Instantiation, Error> {
         self.connection.instantiate(self.hash(), fqn)
@@ -1914,6 +1975,7 @@ mod tests {
 
     fn metres(magnitude: f64) -> wire::Quantity {
         wire::Quantity {
+            value_type: String::new(),
             magnitude: Some(wire::quantity::Magnitude::RealMagnitude(magnitude)),
             unit: "m".to_owned(),
             unit_term: Some(wire::UnitTerm {
@@ -2006,6 +2068,7 @@ mod tests {
         let inner = Array::new(
             vec![1],
             vec![Value::Quantity(Quantity {
+                value_type: String::new(),
                 magnitude: Magnitude::Real(3.0),
                 unit: "m".to_owned(),
                 unit_term: Some(metre_term()),
@@ -2102,11 +2165,13 @@ mod tests {
             position.components(),
             [
                 Quantity {
+                    value_type: String::new(),
                     magnitude: Magnitude::Real(3.0),
                     unit: "m".to_owned(),
                     unit_term: Some(metre_term()),
                 },
                 Quantity {
+                    value_type: String::new(),
                     magnitude: Magnitude::Real(4.0),
                     unit: "m".to_owned(),
                     unit_term: Some(metre_term()),
@@ -2116,6 +2181,7 @@ mod tests {
 
         // Units may differ per component; a composed unit keeps its reduction.
         let speed = wire::Quantity {
+            value_type: String::new(),
             magnitude: Some(wire::quantity::Magnitude::RealMagnitude(5.0)),
             unit: "m/s".to_owned(),
             unit_term: Some(wire::UnitTerm {
@@ -2360,6 +2426,7 @@ mod tests {
         let rational = |n, d| Value::Rational(Rational::parse(n, d).unwrap());
         let metre = |magnitude| {
             Value::Quantity(Quantity {
+                value_type: String::new(),
                 magnitude,
                 unit: "m".to_owned(),
                 unit_term: None,
@@ -2483,6 +2550,7 @@ mod tests {
         };
         let quantity = |magnitude, unit: &str, unit_term| {
             Value::Quantity(Quantity {
+                value_type: String::new(),
                 magnitude,
                 unit: unit.to_owned(),
                 unit_term,
@@ -2792,11 +2860,13 @@ mod tests {
             Value::VectorQuantity(
                 VectorQuantity::new(vec![
                     Quantity {
+                        value_type: String::new(),
                         magnitude: Magnitude::Real(1.0),
                         unit: "m".to_owned(),
                         unit_term: Some(metre_term()),
                     },
                     Quantity {
+                        value_type: String::new(),
                         magnitude: Magnitude::Real(2.0),
                         unit: "m".to_owned(),
                         unit_term: Some(metre_term()),
@@ -2808,6 +2878,7 @@ mod tests {
 
         // Components with differing units report no shared one.
         let speed = wire::Quantity {
+            value_type: String::new(),
             magnitude: Some(wire::quantity::Magnitude::IntMagnitude(5)),
             unit: "m/s".to_owned(),
             unit_term: None,

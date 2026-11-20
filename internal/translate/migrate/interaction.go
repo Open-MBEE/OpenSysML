@@ -1417,11 +1417,15 @@ func (s *scenario) ownMembers() {
 		s.m.unmapped(p, "an occurrence def declares no parameter, and no lifeline stands for its "+p.Attrs["direction"]+" parameter")
 	}
 	for _, p := range s.e.Owned("ownedAttribute") {
+		if s.m.principalOf(p) != nil {
+			s.m.adjunctFeature(p)
+			continue
+		}
 		if ref, ok := represented[p]; ok {
 			s.m.add(p, Mapped, s.m.v2Name(s.e)+"::"+ref.name, "written as the usage "+ref.name+", the lifeline "+describe(ref.line)+" that stands for it")
 			continue
 		}
-		s.m.unmapped(p, "owned by an Interaction, whose v2 body is its lifelines and messages, not a place for a "+kindOf(p)+" no lifeline stands for")
+		s.m.unmapped(p, joinNotes("owned by an Interaction, whose v2 body is its lifelines and messages, not a place for a "+kindOf(p)+" no lifeline stands for", s.m.adjunctApart(p)))
 	}
 }
 

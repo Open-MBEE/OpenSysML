@@ -6,18 +6,27 @@ function answer = elementProperties(model, element, varargin)
 %   qualified name, the positional id of an unnamed member ('Owner::@2') or the id an
 %   earlier answer carried. The answer has 'element' (id, qualifiedName, metaclass),
 %   'properties' (a cell, in the order asked for) and 'byName' (a containers.Map from
-%   property name to its record: name, definingClass, many, derived, values, unsupported).
+%   property name to its record: name, definingClass, many, derived, values, unsupported)
+%   and 'excludedDocuments' (a cell of structs with document and error: the documents
+%   the model was read without, empty when the whole model was read).
 %   Requires the element_properties capability.
 
     if nargin < 2 || isempty(element)
         opensysml.internal.raise('opensysml:argument', 'an element id or qualified name is required');
+    end
+    options = struct('lookup', 'either');
+    if ~isempty(varargin) && isstruct(varargin{end})
+        given = [fieldnames(varargin{end}), struct2cell(varargin{end})]';
+        options = opensysml.internal.nameValueOptions(options, given(:)', 'elementProperties');
+        varargin(end) = [];
     end
     properties = cell(1, numel(varargin));
     for i = 1:numel(varargin)
         properties{i} = char(varargin{i});
     end
     model.connection.require('element_properties');
-    request = struct('modelHash', model.hash, 'elementId', char(element));
+    request = opensysml.internal.lookupKind(model.connection, ...
+        struct('modelHash', model.hash, 'elementId', char(element)), options.lookup);
     if ~isempty(properties)
         request.properties = properties;
     end

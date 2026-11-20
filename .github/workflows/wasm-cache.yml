@@ -10,11 +10,14 @@ on:
       - go.mod
       - go.sum
       - Makefile
+      - scripts/ci-go-build-cache.sh
       - .github/workflows/wasm-cache.yml
   workflow_dispatch:
 
 permissions:
   contents: read
+  # Deleting the entries a new save supersedes.
+  actions: write
 
 concurrency:
   group: wasm-cache
@@ -30,17 +33,17 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Check out repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Go
         id: go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
           cache: false
 
       - name: Restore the WebAssembly build cache
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cache/go-build
@@ -55,7 +58,12 @@ jobs:
         with:
           node-version: '24'
 
+      # After every setup step, so that whatever is marked is marked for a gate that then starts.
+      - name: Mark the restored build cache entries unused
+        run: scripts/ci-go-build-cache.sh age
+
       - name: Run the WebAssembly gate
+        id: gate
         run: |
           set -o pipefail
           node --version
@@ -65,13 +73,42 @@ jobs:
             exit 1
           fi
 
-      # The objects a failed gate compiled are as good as a passing one's, so a red
-      # develop still warms the next pull request.
+      # Go itself keeps an unused entry for five days, and each push adds the objects of
+      # every package it changed: restored and saved whole, the entry grew past 5 GB.
+      - name: Drop the build cache entries this gate did not use
+        id: prune
+        if: steps.gate.outcome == 'success'
+        run: |
+          du -sh ~/.cache/go-build
+          scripts/ci-go-build-cache.sh prune
+          du -sh ~/.cache/go-build
+
+      # A failed gate may have stopped before using what a passing one needs, so its cache is saved
+      # unpruned for the next passing gate to prune; one that never ran or was cancelled saves nothing.
       - name: Save the WebAssembly build cache
-        if: success() || failure()
+        id: save
+        if: always() && (steps.prune.outcome == 'success' || steps.gate.outcome == 'failure')
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
           key: wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+
+      # Only the newest entry is restored, and the others count against the 10 GB the
+      # repository may keep, past which GitHub evicts the other caches saved on develop.
+      - name: Delete the WebAssembly build caches this one supersedes
+        if: always() && steps.save.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SAVED: wasm-gate-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+        run: |
+          set -euo pipefail
+          caches=$(gh cache list --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF" --key wasm-gate- --limit 100 --json id,key)
+          # The save step succeeds over a failed upload, and the older entries are then the only warm ones.
+          if ! jq -e 'any(.[]; .key == env.SAVED)' <<<"$caches" >/dev/null; then
+            echo "::warning::$SAVED was not saved, so the older entries are kept"
+            exit 0
+          fi
+          jq -r '.[] | select(.key != env.SAVED) | .id' <<<"$caches" |
+            xargs -r -n1 gh cache delete --repo "$GITHUB_REPOSITORY"

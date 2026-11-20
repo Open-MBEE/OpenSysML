@@ -204,10 +204,6 @@ func (fc *funcCompiler) capture(name string, b binding) (binding, bool) {
 		return binding{}, false
 	}
 	t := b.t
-	if fc.c.target == TargetC && (t == TypeString || t.Many() || t.IsFn()) {
-		fc.noteCapture(fmt.Sprintf("%s capturing %s, a %s, for the C target: a C closure holds its captures inline and cannot keep one past the statement reading it (the Go target computes it)", fc.fn.Name, name, t))
-		return binding{}, false
-	}
 	captured := binding{t: t, m: MultAny}
 	if b.fn != nil {
 		captured.fn = &funcValue{dyn: t, read: Var{Name: name, T: t}}

@@ -80,6 +80,9 @@ client with `CodeUnimplemented` — and is not part of the `Client` interface; t
 explains why.
 
 `ListEngines` names the analysis engines the service answers with, as `EngineInfo` in name order.
+Each carries its origin beside what it answers: `Kind` (`built-in`, or the manifest entry's `tool`,
+`engine`, `policy` or `sampler`), `Protocol`, the entry's `Source`, `Command` and `Version`, and
+`Served`, false for a manifest engine the service lists without running.
 `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction` and `ValidateInstance` take `WithEngine(name)` and
 `RunAnalysis` and `ExploreAnalysis` take `Engine(name)`, and `Calculate` (`EvaluateCalc` with
 options, its arguments under `CalcArguments`) takes `CalcEngine(name)`, to put the question to one engine,
@@ -248,7 +251,15 @@ and `Experimental` with its `ExperimentalNotice` when either side is RDF or the 
 both experimental mappings. `WithIDForm(IDFormUUID)` spells the derived ids of a graph notation as
 name-based uuids rather than from qualified names; API JSON names the library elements a model
 uses in `LibraryReferences`, and `WithLibraryStubs()` writes them as the pre-0.11.0 ownerless
-stubs instead, under the `convert_library_stubs` capability.
+stubs instead, under the `convert_library_stubs` capability. An API JSON element carries its
+owned structure; `WithInheritedMembers()` also writes the derived lists that repeat each
+Namespace's and Type's inherited and imported members, under `convert_inherited_members`. `WithDocuments(names...)`
+writes only the named documents of a model parsed from several, reading the others for the
+references into them (`convert_documents`); `WithCompact()` writes the compact API JSON document
+and `WithOmitDerived(keep...)` trims its derived properties to the ones kept (`convert_compact`);
+`WithCheckDiagnostics()` adds the semantic check's diagnostics of a notation source to
+`Conversion.Diagnostics`, each with its severity and code (`convert_check_diagnostics`). The client
+refuses each as `CodeUnimplemented` before the call when the service lacks the capability.
 
 A SysML v1 model — UML XMI, an Eclipse UML2 `.uml` file or a `.mdzip` archive, `FormatXMI` with
 the aliases `FormatUML` and `FormatMDZip` — is **migrated, not converted**: a conversion is
@@ -1123,6 +1134,15 @@ derives — a send's `payloadArgument`, `senderArgument`, `receiverArgument` —
 has none, so it reports, compares and orders as written (`new Alarm(3)`), and
 a path continues through it (`senderArgument.@type`, `senderArgument.referent.name`).
 
+A connector — a connection, an interface, a binding — is a row whose
+`sourceFeature` and `targetFeature` are the features its ends relate, so the port graph is
+one scoped query. An end written as a chain (`connect a.p to b.p`) relates a chain feature
+with no `@id`, reported as written (`a.p`); `sourceFeature.featureTarget` and
+`targetFeature.featureTarget` are the ports themselves on either kind of end, and
+`relatedFeature.featureTarget` in a constraint selects the connectors reaching a port. A
+`transition` is a `TransitionUsage` row with its own `@id` (positional when unnamed),
+`owner`, `source` and `target`.
+
 | Property | Reports | Ordered |
 |---|---|---|
 | `@id` | The element's qualified name or export-compatible positional name, which is also how `scope` names it | |
@@ -1143,9 +1163,13 @@ a path continues through it (`senderArgument.@type`, `senderArgument.referent.na
 | `type` | Qualified name of the resolved type of a typed feature; absent when untyped or unresolved | |
 | `satisfiedRequirement` | The requirement a non-verification satisfy usage references, or the satisfy usage itself when it declares the requirement; absent when unresolved or not a satisfy usage | |
 | `satisfyingFeature` | The feature named by a satisfy usage's `by` clause; a feature chain (`by v.heater`) reports the feature the chain ends at; absent when there is no `by` clause or it is unresolved | |
+| `verifiedRequirement` | On a `verify` in an objective, the requirement it references, or the `verify` itself when it declares the requirement; on a verification case, the first requirement its objective verifies; absent when unresolved or on any other element | |
+| `verifyingCase` | The verification case whose objective holds a `verify`; absent for a `verify` no verification case's objective holds and for any other element | |
 | `elementId` | The `elementId` `Convert` writes for the element (qualified id form), read from a conversion of the model made once: a declared id as declared, a bundled library element's fixed id — a standard-library element's normative id, an OpenSysML extension's extension id (a library file's copy included) — any other the encoding of its qualified or positional name. It is the API JSON `@id` too, except in a model of several identity scopes, whose `@id` the scope qualifies. Absent for a library element a model gives an id of its own, which `Convert` references by name. A query reading it of a model `Convert` refuses is `FAILED_PRECONDITION`. Reported only when a query selects or constrains it, never by an empty `select`, since reading it converts the model | |
 | `multiplicityLower` | Declared lower bound | ✅ |
 | `multiplicityUpper` | Declared upper bound, `*` when unbounded | ✅ |
+| `symbolKind` | The symbol kind `GetSymbol` reports as `SymbolInfo.kind` (`partDef`, `stateUsage`, `actionUsage`), present on every row, one with a positional `@id` included. It tells apart rows no `LookupSymbol` reaches; a transition is an `actionUsage` here and a `TransitionUsage` by `@type` | |
+| `text` | `RequirementDefinition::text` / `RequirementUsage::text`: the body of the requirement's `doc`, as `documentation` reads it; absent for a requirement that states none. This single-valued record reports the first body. On any other element `text` names a feature of the model, as every name outside this table does | |
 
 ### `@type` — symbol kind → metamodel type
 

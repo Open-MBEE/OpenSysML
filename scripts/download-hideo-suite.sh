@@ -27,7 +27,8 @@ esac
 
 # count_cases counts the generated case files of the checkout at $1.
 count_cases() {
-	find "$1/test-suite/data/cases" -type f -name '*.json' 2>/dev/null | wc -l | tr -d ' '
+	local checkout=$1
+	find "$checkout/test-suite/data/cases" -type f -name '*.json' 2>/dev/null | wc -l | tr -d ' '
 	return 0
 }
 

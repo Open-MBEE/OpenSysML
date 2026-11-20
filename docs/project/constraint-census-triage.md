@@ -133,7 +133,7 @@ row whose rule cannot be violated in text has a conforming probe only.
 | 54 | `validateAttributeUsageIsReference` | spec | sysml 8.3.7.3 | clean | clean | (d) not-applicable: rename of validateAttributeUsageIsReferential (above) | `validateAttributeUsageIsReference.conforming.sysml` (conforming only) | none |
 | 55 | `validateConjugatedPortDefinitionConjugatedPortDefinitionIsEmpty` | spec | sysml 8.3.12.2 | clean | clean | (d) not-applicable: rename of validateConjugatedPortDefinitionConjugatedPortDefinition (above) | `validateConjugatedPortDefinitionConjugatedPortDefinitionIsEmpty.conforming.sysml` (conforming only) | none |
 | 56 | `validateConjugatedPortDefinitionOriginalPortDefinition` | spec | sysml 8.3.12.2 | clean | clean | (d) not-applicable: derived structure of `port def` | `validateConjugatedPortDefinitionOriginalPortDefinition.conforming.sysml` (conforming only) | none |
-| 57 | `validateConnectionDefinitionIsSufficient` | spec | sysml 8.3.13.3 | related-elements | e: Must have at least two related elements | (d) not-applicable: derived: a connection definition is sufficient; not violable in text (our API JSON omits `isSufficient` — see the derive* table) | `validateConnectionDefinitionIsSufficient.conforming.sysml` (conforming only) | none |
+| 57 | `validateConnectionDefinitionIsSufficient` | spec | sysml 8.3.13.3 | related-elements | e: Must have at least two related elements | (d) not-applicable: derived: a connection definition is sufficient; not violable in text (the RDF export and the API JSON state `isSufficient = true`) | `validateConnectionDefinitionIsSufficient.conforming.sysml` (conforming only) | none |
 | 58 | `validateControlNodeIsComposite` | spec | sysml 8.3.17.6 | syntax | e: no viable alternative at input 'ref' | (d) not-applicable: grammar: `ref fork` and `fork ref` are syntax errors in both parsers; our API JSON emits `isComposite = true` for a fork node | `validateControlNodeIsComposite.violating.sysml` | none |
 | 59 | `validateElementFilterMembershipConditionIsBoolean` | spec | kerml 8.3.4.13.2 | filter-not-boolean | e: Must have a Boolean result | (a) implemented-but-unmapped: rename of validateElementFilterMembershipIsBoolean (faithful, `filter-not-boolean`) | `validateElementFilterMembershipConditionIsBoolean.violating.sysml` | none |
 | 60 | `validateElementFilterMembershipConditionIsModelLevelEvaluable` | spec | kerml 8.3.4.13.2 | clean | e: Couldn't resolve reference to Type 'Boolean'. | (a) implemented-but-unmapped: rename of validateElementFilterMembershipIsModelLevelEvaluable (faithful, `filter-not-evaluable`) | `validateElementFilterMembershipConditionIsModelLevelEvaluable.violating.sysml` | none |
@@ -686,7 +686,7 @@ evaluator-derived properties to the export — both are the in-flight overlap of
 
 Summary: 6 yes, 20 partial, 209 no. The export writes ownership, membership, typing and the
 declared attributes an element states, and omits most derived properties; in particular it
-omits `isAbstract` on a variation definition, `isSufficient` on a connection definition, and
+omits `isAbstract` on a variation definition and
 every implied relationship, and it exports an `objective` as `isComposite = false`. These are
 export observations for the differential, not validation gaps.
 

@@ -1,0 +1,7 @@
+{
+	"type": "action",
+	"libraries": true,
+	"outputs": {
+		"quick": {"type": "Boolean", "value": true}
+	}
+}

@@ -205,7 +205,7 @@ func (ctx *Context) satisfyAssertionOf(sym *symbols.Symbol) *SatisfyAssertion {
 			continue
 		}
 		switch rel.Kind {
-		case ast.RelSubsets:
+		case ast.RelReferences:
 			a.RequirementRef, a.Requirement = ctx.resolveRelationship(sym, rel)
 		case ast.RelSubject:
 			a.SubjectRef, a.Subject = ctx.resolveRelationship(sym, rel)
@@ -432,7 +432,7 @@ func (ctx *Context) overlaySatisfierChains(a *SatisfyAssertion, subject *Instanc
 	mark := ctx.markJournal()
 	ctx.journals++
 	for _, c := range chains {
-		if err := ctx.refineChildBelow(c.object.owner, c.object, c.rest, c.sym); err != nil {
+		if err := ctx.refineChildBelow(c.object, c.rest, c.sym); err != nil {
 			ctx.journals--
 			ctx.rollbackJournal(mark)
 			return nil, fmt.Errorf("%s: %w", a.Text(), err)

@@ -119,6 +119,8 @@ var (
 	parallelMark = Evidence{"internal/ir/view/label.go:parallel", goldenForms, "internal/ir/view/testdata/state-pseudostates.mermaid.golden"}
 	actionForms  = Evidence{"internal/ir/view/behavior_forms.go:statementNodeKind", goldenForms, actionFormsGolden}
 	compoundBody = Evidence{"internal/ir/view/behavior_forms.go:compoundCompartments", goldenForms, actionFormsGolden}
+	swimlanes    = Evidence{"internal/ir/view/behavior_performers.go:laneNodes", goldenForms, "internal/ir/view/behavior_performers_test.go:TestSwimlanesGroupThePerformedFlowByPerformer"}
+	performedBy  = Evidence{"internal/ir/view/behavior_performers.go:performedBy", goldenForms, "internal/ir/view/behavior_performers_test.go:TestPerformedByCompartmentListsSeveralPerformers"}
 	actionFlow   = Evidence{"internal/ir/view/behavior.go:flowNodes", goldenForms, actionGolden}
 	calcResult   = Evidence{"internal/ir/view/behavior_forms.go:resultCompartments", []string{FormDOT, FormPlantUML, FormMermaid, FormD2, FormDrawio, FormText}, "internal/ir/view/calc_pins_test.go:TestCalcShowsItsResultExpressionInEveryForm"}
 	elseBranch   = Evidence{"internal/ir/view/behavior.go:successionLabel", edgeForms, actionFormsGolden}
@@ -359,7 +361,7 @@ func buildTable() map[string]Adjudication {
 	set(drawn(CategoryCompartment, individuals), "individuals-compartment")
 	set(undrawn(CategoryCompartment, "holds a sequence view; no box form nests a diagram, and the canvas lays a sequence out as a diagram of its own"), "sequence-compartment")
 	set(undrawn(CategoryCompartment, reasonNoCompart), "directed-features-compartment", "interconnection-compartment",
-		"performed-by-compartment", "verification-methods-compartment", "exposes-compartment", "filters-compartment")
+		"verification-methods-compartment", "exposes-compartment", "filters-compartment")
 
 	// §8.2.3.9 sequences.
 	set(drawn(CategoryNode, sequence), "sq-head-node", "sq-part", "sq-l-node", "lifeline")
@@ -405,7 +407,8 @@ func buildTable() map[string]Adjudication {
 	set(drawn(CategoryCompartment, compoundBody), "while-condition", "until-condition", "iteration", "loop-body", "if-condition", "then-body", "else-body")
 	set(drawn(CategoryCompartment, actionFlow), "action-flow-compartment")
 	set(drawn(CategoryCompartment, calcResult), "result-compartment")
-	set(undrawn(CategoryCompartment, "swimlanes are not drawn"), "perform-actions-swimlanes", "swimlane")
+	set(approximate(CategoryCompartment, "a dashed box headed «performer», the performer's feature chain and `perform actions`, holding the action nodes that performer performs, in every form; the lanes are attached on their vertical edges and aligned top and bottom in the grid layout of draw.io only, the layout engines of the other forms placing each lane as a cluster of its own", swimlanes), "perform-actions-swimlanes", "swimlane")
+	set(drawn(CategoryCompartment, performedBy), "performed-by-compartment")
 	set(drawn(CategoryEdge, elseBranch), "else-branch")
 	set(drawn(CategoryLabel, transition), "guard-expression", "transition-label", "trigger-expression")
 

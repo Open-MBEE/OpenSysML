@@ -168,8 +168,15 @@ func (ec *EvalContext) operandChainValue(operand Value, base ast.Node, parts []a
 	// At model level a valueless usage reads undetermined, but a member it
 	// binds a value to is determined all the same.
 	if operand.Kind == ValUndetermined {
-		if val, ok, err := ec.declaredChainValue(base, parts); ok {
+		val, held, ok, err := ec.declaredChainCount(base, parts)
+		if ok {
 			return val, err
+		}
+		// Objects the probe took back stay unread, but how many the model fixes is read.
+		if open, err := ec.chainMemberValue(operand, parts, ""); held == nil || err != nil || open.Kind != ValUndetermined {
+			return open, err
+		} else {
+			return open.Undetermined().counting(*held), nil
 		}
 	}
 	return ec.chainMemberValue(operand, parts, "")

@@ -1,6 +1,7 @@
 package metamodel
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -146,6 +147,18 @@ type StatedAttributeStructure interface {
 	StatedAttribute(el Element, property string) (Value, bool)
 }
 
+// LibraryMembershipResolver is the optional part of a Structure that names the library
+// symbol a reference to a library membership stands for: the member that membership owns.
+type LibraryMembershipResolver interface {
+	LibraryMember(membership Element) (*symbols.Symbol, bool)
+}
+
+// AnnotationStructure lists the Annotation relationships whose annotatedElement is the
+// element: the inverse an element filter needs to find metadata stated `about` it.
+type AnnotationStructure interface {
+	Annotations(Element) ([]Element, bool)
+}
+
 // ElementIdentityStructure optionally supplies stable API identities for
 // elements whose derived values contain an ID rather than an element handle.
 type ElementIdentityStructure interface {
@@ -212,23 +225,23 @@ func membershipKind(sym *symbols.Symbol) string {
 	if _, ok := sym.Decl.(*ast.CrossFeatureMember); ok {
 		return "OwningMembership"
 	}
+	if semantics.IsVariant(sym) {
+		return "VariantMembership"
+	}
 	if usage, ok := sym.Decl.(*ast.Usage); ok {
 		switch {
-		case usage.IsVariant:
-			return "VariantMembership"
 		case usage.IsResult:
 			return "ReturnParameterMembership"
 		case usage.IsBodyParameter:
 			return "ParameterMembership"
-		case usage.IsEnd:
-			return "EndFeatureMembership"
 		}
 	}
 	if sym.Kind == symbols.SymbolConnectorEnd {
 		return "EndFeatureMembership"
 	}
 	owner := sym.Owner()
-	if sym.IsFeature() && isType(owner) {
+	// A type owns its multiplicity through an OwningMembership (KerML 8.3.3.1.10 Type::multiplicity).
+	if sym.IsFeature() && isType(owner) && !semantics.IsImpliedMultiplicity(sym) {
 		if ownerUsage, ok := owner.Decl.(*ast.Usage); ok && ownerUsage.IsVariant {
 			return "VariantMembership"
 		}
@@ -238,13 +251,11 @@ func membershipKind(sym *symbols.Symbol) string {
 }
 
 func isFeatureMembership(sym, owner *symbols.Symbol) bool {
-	if sym == nil || !sym.IsFeature() || !isType(owner) {
+	if sym == nil || !sym.IsFeature() || !isType(owner) || semantics.IsImpliedMultiplicity(sym) {
 		return false
 	}
-	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.IsVariant {
-		return false
-	}
-	return true
+	// A variant, an enumerated value included, is held by a VariantMembership (SysML 8.3.6.5).
+	return !semantics.IsVariant(sym)
 }
 
 func hasOwningMembership(sym, owner *symbols.Symbol) bool {

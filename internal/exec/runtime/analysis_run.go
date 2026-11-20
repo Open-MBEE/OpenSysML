@@ -469,24 +469,28 @@ func (ctx *Context) analysisVerdicts(run *calcRun, sym *symbols.Symbol, scope *s
 	}
 	for _, member := range ctx.chainMembers(sym, scope) {
 		judged, reached, ordered := run.positionalAssertions(member.node)
-		required := 0
-		for _, cond := range ctx.caseMemberConditions(member) {
-			if !cond.Required {
-				continue
-			}
-			switch {
-			case reached:
-				verdicts = append(verdicts, judged[required])
-			case ordered:
+		conds := ctx.requiredCaseConditions(member)
+		switch {
+		case reached:
+			verdicts = append(verdicts, judged...)
+		case ordered:
+			for _, cond := range conds {
 				name, named := assertionName(cond)
 				verdicts = append(verdicts, AnalysisVerdict{
 					Kind: "assertion", Name: name, Symbol: named,
 					Status: VerdictUndecided, Detail: unreachedAssertion,
 				})
-			default:
+			}
+			if empty, ok := ctx.emptyAssertion(member, len(conds), unreachedAssertion); ok {
+				verdicts = append(verdicts, empty)
+			}
+		default:
+			for _, cond := range conds {
 				verdicts = append(verdicts, ctx.assertionVerdict(check, cond))
 			}
-			required++
+			if empty, ok := ctx.emptyAssertion(member, len(conds), ""); ok {
+				verdicts = append(verdicts, empty)
+			}
 		}
 	}
 	return verdicts

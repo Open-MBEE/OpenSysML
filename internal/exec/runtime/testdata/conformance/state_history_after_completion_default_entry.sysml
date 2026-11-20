@@ -20,9 +20,9 @@ package Test {
 
         transition first start when Go then outer;
         transition first outer do { assign completions := completions + 1; } then away;
-        transition first away when Back then resume;
-        transition first first when Next then second;
-        transition first second when Leave then away;
-        transition first second when Stop then done;
+        transition first away when Back then outer.resume;
+        transition first outer.first when Next then outer.second;
+        transition first outer.second when Leave then away;
+        transition first outer.second when Stop then done;
     }
 }

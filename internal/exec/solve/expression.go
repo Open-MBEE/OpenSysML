@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // Expression is one translated expression: the term it yields, and the side
@@ -51,7 +51,7 @@ func NewTranslator(ctx *runtime.Context, subject Subject) (*Translator, error) {
 // statement or guard the expression belongs to, which a refusal reports as the
 // condition it appeared in. A construct outside the subset refuses with
 // ErrNotTranslatable; nothing is degraded.
-func (x *Translator) Expression(node ast.Node, scope *symbols.Scope, within string) (*Expression, error) {
+func (x *Translator) Expression(node *lower.ExprEntry, scope *symbols.Scope, within string) (*Expression, error) {
 	t := x.t
 	t.condLabel = within
 	if node == nil {
@@ -77,7 +77,7 @@ func (x *Translator) Expression(node ast.Node, scope *symbols.Scope, within stri
 // Boolean translates an expression that must yield a boolean — a guard, a loop
 // or branch condition — refusing one that yields another sort, as the executor
 // reports a condition that is not Boolean.
-func (x *Translator) Boolean(node ast.Node, scope *symbols.Scope, within string) (*Expression, error) {
+func (x *Translator) Boolean(node *lower.ExprEntry, scope *symbols.Scope, within string) (*Expression, error) {
 	expr, err := x.Expression(node, scope, within)
 	if err != nil {
 		return nil, err

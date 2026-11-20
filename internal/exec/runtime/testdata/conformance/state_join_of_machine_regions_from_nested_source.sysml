@@ -27,7 +27,7 @@ package Test {
 					}
 				}
 			}
-			transition first a accept Go do assign log := log + "a " then sync;
+			transition first inner.l1.a accept Go do assign log := log + "a " then sync;
 		}
 		state right {
 			entry; then b;

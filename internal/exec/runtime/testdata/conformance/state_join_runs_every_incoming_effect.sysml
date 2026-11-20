@@ -29,7 +29,7 @@ package Test {
 			entry { assign log := log + "rest(entry)"; }
 		}
 
-		transition first start when go then Work;
+		transition first start when go then Outer.Work;
 		transition first Rest then done;
 	}
 }

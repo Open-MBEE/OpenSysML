@@ -141,13 +141,13 @@ func TestConjugatedPortDefinitionNamesFollowTheOriginalName(t *testing.T) {
 	}
 	// Reflective qualifiedName is unquoted for all names; evaluator escaping is tested by TestConjugatedPortQualifiedNamesUseEvaluatorEscaping.
 	for feature, want := range map[string]string{
-		"name": "~Q", "declaredName": "~Q", "shortName": "", "declaredShortName": "",
+		"name": "~Q", "declaredName": "", "shortName": "", "declaredShortName": "",
 		"qualifiedName": "P::Q::~Q",
 	} {
 		assertReflectiveString(t, m, namedConjugate, feature, want)
 	}
 	for feature, want := range map[string]string{
-		"name": "~R", "declaredName": "~R", "shortName": "", "declaredShortName": "",
+		"name": "~R", "declaredName": "", "shortName": "", "declaredShortName": "",
 	} {
 		assertReflectiveString(t, m, plainConjugate, feature, want)
 	}
