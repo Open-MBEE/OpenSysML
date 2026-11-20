@@ -126,16 +126,16 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	// The command line's own output flags are answered before the environment
 	// is read, so a bad variable never hides the help or the version.
-	if code, done := printOutput(opts, fs, stdout); done {
-		return code
+	if printOutput(opts, fs, stdout) {
+		return exitServed
 	}
 	if err := usage.ApplyEnvironment(fs, envPrefix, "token", "token-file"); err != nil {
 		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
 		printUsage(stderr, fs)
 		return exitUnservable
 	}
-	if code, done := printOutput(opts, fs, stdout); done {
-		return code
+	if printOutput(opts, fs, stdout) {
+		return exitServed
 	}
 	opts.given = map[string]bool{}
 	fs.Visit(func(f *flag.Flag) { opts.given[f.Name] = true })
@@ -239,7 +239,7 @@ func printUsage(w io.Writer, fs *flag.FlagSet) {
 
 // printOutput answers -help, -man or -version on stdout, reporting whether one
 // was asked for; help asked for is a result, so it exits 0.
-func printOutput(opts *options, fs *flag.FlagSet, stdout io.Writer) (int, bool) {
+func printOutput(opts *options, fs *flag.FlagSet, stdout io.Writer) bool {
 	switch {
 	case opts.showHelp:
 		printUsage(stdout, fs)
@@ -248,9 +248,9 @@ func printOutput(opts *options, fs *flag.FlagSet, stdout io.Writer) (int, bool) 
 	case opts.showVersion:
 		fmt.Fprint(stdout, build().Report(mcpCommand))
 	default:
-		return 0, false
+		return false
 	}
-	return exitServed, true
+	return true
 }
 
 // serve speaks the protocol over stdin/stdout until the client ends it or the process is told

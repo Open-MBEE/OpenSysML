@@ -123,7 +123,7 @@ func (e *ActionExecutor) trackRepeated(tokenID int64, perf *actionFrame) {
 
 // recordRepetition notes perf as the next performance of the repeated node it
 // performs, where performances begin sequentially rather than on sibling tokens.
-func (e *performances) recordRepetition(parent *actionFrame, node ast.Node, perf *actionFrame) {
+func (e *performances) recordRepetition(parent, perf *actionFrame) {
 	if parent.repeatedPerfs == nil {
 		parent.repeatedPerfs = make(map[NodeRef][]*actionFrame)
 	}

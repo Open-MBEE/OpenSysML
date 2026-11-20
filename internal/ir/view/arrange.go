@@ -373,7 +373,7 @@ func (a *arranger) headerHeight(node *Node) float64 {
 
 // compartmentHeight is the height of a compartment's cell: its name and rows.
 func (a *arranger) compartmentHeight(node *Node, compartment Compartment) float64 {
-	_, height := dotTextExtent(a.compartmentLines(node, compartment), a.labels.sizeOf(node))
+	_, height := dotTextExtent(a.compartmentLines(compartment), a.labels.sizeOf(node))
 	return math.Ceil(height + 2*dotMarginHeight)
 }
 
@@ -407,7 +407,7 @@ func (a *arranger) compartments(node *Node) []Compartment {
 }
 
 // compartmentLines are a compartment cell's label lines: its name, then its rows.
-func (a *arranger) compartmentLines(node *Node, compartment Compartment) []string {
+func (a *arranger) compartmentLines(compartment Compartment) []string {
 	lines := []string{compartment.Name}
 	for _, row := range compartment.Rows {
 		lines = append(lines, strings.Split(a.labels.rowText(row), "\n")...)

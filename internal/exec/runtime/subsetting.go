@@ -1088,7 +1088,7 @@ func (inst *Instance) materializeFromSubsetted(ctx *Context, fv *FeatureValue, n
 	if err != nil {
 		return false, err
 	}
-	taken := ctx.siblingSubsetterValues(inst, fv, slots)
+	taken := ctx.siblingSubsetterValues(fv, slots)
 	draw, err := ctx.bindingWitnesses(inst, name, composite, pool, pooled, taken)
 	if err != nil {
 		return false, err
@@ -1255,7 +1255,7 @@ func (ctx *Context) valuesAlsoIn(pool, els []Value) []Value {
 
 // siblingSubsetterValues is the values the other features subsetting what fv subsets already
 // hold: a value drawn for fv is one of them only where the subsetted feature has no other.
-func (ctx *Context) siblingSubsetterValues(inst *Instance, fv *FeatureValue, subsetted []subsetterSlot) map[valueKey]bool {
+func (ctx *Context) siblingSubsetterValues(fv *FeatureValue, subsetted []subsetterSlot) map[valueKey]bool {
 	var taken map[valueKey]bool
 	take := func(sibling *FeatureValue) {
 		if sibling == nil || sibling == fv || !sibling.Materialized {
