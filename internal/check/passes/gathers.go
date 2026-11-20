@@ -27,6 +27,13 @@ func mosaUnionOf(ctx *Context) *mosaUnion {
 	}).(*mosaUnion)
 }
 
+// hdbkUnionOf returns the workspace-wide HDBK-1009A union.
+func hdbkUnionOf(ctx *Context) *hdbkUnion {
+	return ctx.Gathers().UnionOf(ctx, "hdbk1009", func() kit.Regatherer {
+		return newHDBKUnion()
+	}).(*hdbkUnion)
+}
+
 // Contributors names the workspace documents the shared state called name is
 // built from — a table of the model's or an audit union's, built on first use
 // — and false when name is none of theirs (see kit.ContributorNamer).
@@ -39,6 +46,8 @@ func Contributors(ctx *Context, name string) ([]string, bool) {
 		return oosemUnionOf(ctx).Contributors(name)
 	case strings.HasPrefix(name, "\x00mosa/"):
 		return mosaUnionOf(ctx).Contributors(name)
+	case strings.HasPrefix(name, hdbkUnionPrefix):
+		return hdbkUnionOf(ctx).Contributors(name)
 	case strings.HasPrefix(name, signalUnionPrefix):
 		return signalUnionOf(ctx).Contributors(name)
 	}

@@ -532,6 +532,97 @@
       ]
     },
     {
+      "name": "HDBK1009::ComponentRequirement",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/hdbk1009.go"
+      ]
+    },
+    {
+      "name": "HDBK1009::Goal",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/hdbk1009.go"
+      ]
+    },
+    {
+      "name": "HDBK1009::MeasureOfEffectiveness",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/hdbk1009.go"
+      ]
+    },
+    {
+      "name": "HDBK1009::MeasureOfPerformance",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/hdbk1009.go"
+      ]
+    },
+    {
+      "name": "HDBK1009::Need",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/hdbk1009.go"
+      ]
+    },
+    {
+      "name": "HDBK1009::Objective",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/hdbk1009.go"
+      ]
+    },
+    {
+      "name": "HDBK1009::Stakeholder",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/hdbk1009.go"
+      ]
+    },
+    {
+      "name": "HDBK1009::StakeholderExpectationStatement",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/hdbk1009.go"
+      ]
+    },
+    {
+      "name": "HDBK1009::SubsystemRequirement",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/hdbk1009.go"
+      ]
+    },
+    {
+      "name": "HDBK1009::SystemRequirement",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/hdbk1009.go"
+      ]
+    },
+    {
+      "name": "HDBK1009::VVCase",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/hdbk1009.go"
+      ]
+    },
+    {
+      "name": "HDBK1009::ValidationRequirement",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/hdbk1009.go"
+      ]
+    },
+    {
+      "name": "HDBK1009::VerificationRequirement",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/hdbk1009.go"
+      ]
+    },
+    {
       "name": "IdentityMetadata::ElementId",
       "kind": "metadata",
       "attributes": [

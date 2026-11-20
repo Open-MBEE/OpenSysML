@@ -2004,6 +2004,13 @@ A transition's `accept when <name>` or `when <name>` trigger names something no 
 
 | Code | Severity | Summary |
 |------|----------|---------|
+| [`hdbk1009-expectation-not-traced`](#hdbk1009-expectation-not-traced) | warning | a stakeholder expectation statement, need, goal or objective with no trace |
+| [`hdbk1009-measure-not-refining`](#hdbk1009-measure-not-refining) | warning | a measure of effectiveness refining no objective, or a measure of performance refining no requirement |
+| [`hdbk1009-objective-not-validated`](#hdbk1009-objective-not-validated) | warning | an objective no validation requirement satisfies, or a validation requirement satisfying no objective |
+| [`hdbk1009-requirement-not-derived`](#hdbk1009-requirement-not-derived) | warning | a goal, objective, technical requirement or measure of performance deriving from nothing at the level above it |
+| [`hdbk1009-requirement-not-verified`](#hdbk1009-requirement-not-verified) | warning | a technical requirement no verification verifies |
+| [`hdbk1009-vv-requirement-missing-method`](#hdbk1009-vv-requirement-missing-method) | warning | a verification or validation requirement stating no method |
+| [`hdbk1009-vv-requirement-not-refined`](#hdbk1009-vv-requirement-not-refined) | warning | a verification or validation requirement no V&V case refines |
 | [`mosa-boundary-not-designated`](#mosa-boundary-not-designated) | warning | a connection between major components that is no modular system interface |
 | [`mosa-component-no-data-rights`](#mosa-component-no-data-rights) | warning | a major system component recording no data rights |
 | [`mosa-interface-no-control`](#mosa-interface-no-control) | warning | a modular system interface naming no interface control authority |
@@ -2020,6 +2027,62 @@ A transition's `accept when <name>` or `when <name>` trigger names something no 
 | [`oosem-requirement-not-satisfied`](#oosem-requirement-not-satisfied) | warning | a requirement nothing satisfies |
 | [`oosem-use-case-subject`](#oosem-use-case-subject) | warning | a use case whose subject is untyped |
 | [`self-check-rule`](#self-check-rule) | error | a model's own rule failing for one of its elements |
+
+#### `hdbk1009-expectation-not-traced`
+
+**warning** · Method rules · a stakeholder expectation statement, need, goal or objective with no trace
+
+Figure 7-1 of NASA-HDBK-1009A traces each stakeholder expectation statement to its stakeholders and each need, goal and objective to the expectation statements. The rule fires once the model declares stakeholders or expectation statements. Add a `dependency` from the element to the stakeholder or expectation statement.
+
+Specification: HDBK1009 extension library (NASA-HDBK-1009A)
+
+#### `hdbk1009-measure-not-refining`
+
+**warning** · Method rules · a measure of effectiveness refining no objective, or a measure of performance refining no requirement
+
+Figure 7-1 of NASA-HDBK-1009A has measures of effectiveness refine the objectives and measures of performance refine the system/subsystem requirements. The rule fires once the model declares the refined level. Add a `#refinement dependency` from the measure to what it refines.
+
+Specification: HDBK1009 extension library (NASA-HDBK-1009A)
+
+#### `hdbk1009-objective-not-validated`
+
+**warning** · Method rules · an objective no validation requirement satisfies, or a validation requirement satisfying no objective
+
+Figure 7-2 of NASA-HDBK-1009A has the validation requirements satisfy the objectives. The rule fires once the model declares both. State `satisfy <objective> by <validation requirement>;`.
+
+Specification: HDBK1009 extension library (NASA-HDBK-1009A)
+
+#### `hdbk1009-requirement-not-derived`
+
+**warning** · Method rules · a goal, objective, technical requirement or measure of performance deriving from nothing at the level above it
+
+Figure 7-1 of NASA-HDBK-1009A derives goals from needs, objectives from goals, system requirements from objectives, subsystem and component requirements from system or subsystem requirements, and measures of performance from measures of effectiveness. The rule fires once the model declares the level above. Add a `#derivation connection` with the element at a `#derive` end and its origin at an `#original` end.
+
+Specification: HDBK1009 extension library (NASA-HDBK-1009A)
+
+#### `hdbk1009-requirement-not-verified`
+
+**warning** · Method rules · a technical requirement no verification verifies
+
+Figure 7-2 of NASA-HDBK-1009A has the verification requirements verify the requirements; in SysML v2 the `verify` is stated in the objective of a verification case. The rule fires once the model declares verification requirements. Name the requirement in a `verify` in the objective of a V&V case.
+
+Specification: HDBK1009 extension library (NASA-HDBK-1009A)
+
+#### `hdbk1009-vv-requirement-missing-method`
+
+**warning** · Method rules · a verification or validation requirement stating no method
+
+The verification and validation matrices of NASA-HDBK-1009A sections 8.17 and 8.22 show the method of each verification and validation requirement. Give the requirement a `verifyMethod`.
+
+Specification: HDBK1009 extension library (NASA-HDBK-1009A)
+
+#### `hdbk1009-vv-requirement-not-refined`
+
+**warning** · Method rules · a verification or validation requirement no V&V case refines
+
+Figure 7-2 of NASA-HDBK-1009A has each V&V case refine a verification or validation requirement. The rule fires once the model declares V&V cases. Add a `#refinement dependency` from the V&V case to the requirement.
+
+Specification: HDBK1009 extension library (NASA-HDBK-1009A)
 
 #### `mosa-boundary-not-designated`
 

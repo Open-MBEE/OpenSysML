@@ -133,3 +133,17 @@ func TestExecuteRelatedRefinement(t *testing.T) {
 	assertRelated(t, fixture, "systemMass", "refinement", "incoming", 1, nil)
 	assertRelated(t, fixture, "pointingBudget", "derivation", "incoming", 1, nil)
 }
+
+func TestExecuteRelatedDependency(t *testing.T) {
+	fixture := loadExecutionFixtureFile(t, "testdata/tmt_derivation.sysml")
+
+	// A plain dependency, from client to supplier.
+	assertRelated(t, fixture, "thermalDesign", "dependency", "outgoing", 1,
+		[]string{"systemMass"})
+	assertRelated(t, fixture, "systemMass", "dependency", "incoming", 1,
+		[]string{"thermalDesign"})
+
+	// A refinement is a dependency too.
+	assertRelated(t, fixture, "pointingBudget", "dependency", "outgoing", 1,
+		[]string{"pointingAccuracy"})
+}

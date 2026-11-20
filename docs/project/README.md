@@ -118,6 +118,9 @@ within these records and means nothing outside this repository.
   the 17 common technical processes, life-cycle reviews with the Appendix G criteria, work-product
   maturity, TRLs, the active SE requirements, the generated compliance matrix and the warning-only
   checks
+- **[HDBK1009 library](hdbk1009-library.md)** — NASA-HDBK-1009A as a bundled OpenSysML library:
+  the Handbook's metamodel in SysML v2 terms, the verification and validation vocabulary, the
+  generated requirements, verification and validation matrices and the warning-only checks
 - **[StateMachines library](statemachines-library.md)** — pseudostates as bundled
   `SemanticMetadata`, so a state machine's `choice`, `junction` and history pseudostates
   spell standard, conforming SysML v2

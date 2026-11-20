@@ -14,7 +14,11 @@
     },
     "libraries/DocumentQueries.sysml": {
       "algorithm": "SHA256",
-      "value": "a48490f0dfd88c40285ae79fcc38500ba398dcbcf49dc4a208fcfde8a0069662"
+      "value": "09f3b5a547dac57ab479900b9d4d8ad7aa532e810bb9b91e6cd58cdad6935ffe"
+    },
+    "libraries/HDBK1009.sysml": {
+      "algorithm": "SHA256",
+      "value": "381e4fe1bb2305ab67fc8eed78d7afa6b54fea8d28f425474392b82250dd16d3"
     },
     "libraries/IdentityMetadata.sysml": {
       "algorithm": "SHA256",
@@ -73,11 +77,12 @@
       "value": "9e00f049209584092dc8bcb398b736c08e6a39b1db667a8a744de3df72a543bf"
     }
   },
-  "created": "2026-11-04T16:10:55Z",
+  "created": "2026-11-20T05:22:48Z",
   "index": {
     "AnalysisRecords": "libraries/AnalysisRecords.sysml",
     "DiagramLayout": "libraries/DiagramLayout.sysml",
     "DocumentQueries": "libraries/DocumentQueries.sysml",
+    "HDBK1009": "libraries/HDBK1009.sysml",
     "IdentityMetadata": "libraries/IdentityMetadata.sysml",
     "MOSA": "libraries/MOSA.sysml",
     "MigrationMetadata": "libraries/MigrationMetadata.sysml",

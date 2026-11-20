@@ -13538,6 +13538,12 @@
       "note": "Audits the elements a model classifies with the MOSA extension library against that method's openness rules, beyond KerML and SysML."
     },
     {
+      "file": "internal/check/passes/hdbk1009.go",
+      "pass": "HDBK1009Pass",
+      "basis": "extension",
+      "note": "Audits the elements a model classifies with the HDBK1009 extension library against the relationships of the NASA-HDBK-1009A metamodel, beyond KerML and SysML."
+    },
+    {
       "file": "internal/check/passes/npr7123.go",
       "pass": "NPR7123Pass",
       "basis": "extension",

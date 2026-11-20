@@ -4,7 +4,7 @@ import "slices"
 
 // GatheredRelationships are the relationships a document's body states that
 // the workspace-wide audits read across documents — what it derives,
-// allocates, satisfies and conforms — held by reference. A recorded document
+// allocates, satisfies, conforms, depends on, refines and verifies — held by reference. A recorded document
 // carries them in place of the usages stating them; the audits resolve and
 // judge the ends when they gather, as they do a loaded document's.
 type GatheredRelationships struct {
@@ -17,6 +17,13 @@ type GatheredRelationships struct {
 	// `#conformance` connection, Targets those of its `#conformant` ends.
 	Conformances  []GatheredEnds
 	Satisfactions []GatheredSatisfaction
+	// Dependencies: Sources are the clients of a dependency, Targets its
+	// suppliers; Refinements are the `#refinement` dependencies among them.
+	Dependencies []GatheredEnds
+	Refinements  []GatheredEnds
+	// Verifications: Sources are what a `verify` verifies with — the case whose
+	// objective states it, else its owner — Targets the requirements verified.
+	Verifications []GatheredEnds
 	// SentSignals are the signal names the body's `send` actions send, sorted.
 	SentSignals []string
 }
@@ -53,6 +60,9 @@ func (g *GatheredRelationships) Clone() *GatheredRelationships {
 		Allocations:   ends(g.Allocations),
 		Conformances:  ends(g.Conformances),
 		Satisfactions: slices.Clone(g.Satisfactions),
+		Dependencies:  ends(g.Dependencies),
+		Refinements:   ends(g.Refinements),
+		Verifications: ends(g.Verifications),
 		SentSignals:   slices.Clone(g.SentSignals),
 	}
 	for i := range out.Satisfactions {
@@ -64,7 +74,8 @@ func (g *GatheredRelationships) Clone() *GatheredRelationships {
 
 // Empty reports whether g states no relationship.
 func (g *GatheredRelationships) Empty() bool {
-	return g == nil || len(g.Derivations)+len(g.Allocations)+len(g.Conformances)+len(g.Satisfactions)+len(g.SentSignals) == 0
+	return g == nil || len(g.Derivations)+len(g.Allocations)+len(g.Conformances)+len(g.Satisfactions)+len(g.SentSignals)+
+		len(g.Dependencies)+len(g.Refinements)+len(g.Verifications) == 0
 }
 
 // Gathered returns the relationships doc's record carries, nil for a document

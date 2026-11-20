@@ -1035,7 +1035,7 @@ RelatedElements(
 	relationshipKind = "<kind>",   // specialization, subsetting, redefinition,
 	                                // typing, connection, allocation,
 	                                // satisfaction, verification,
-	                                // derivation or refinement
+	                                // derivation, refinement or dependency
 	direction = "<direction>",     // outgoing or incoming
 	maxDepth = <n>                 // omit, or null, for no bound
 )
