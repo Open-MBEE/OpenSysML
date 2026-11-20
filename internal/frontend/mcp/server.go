@@ -69,8 +69,11 @@ type Config struct {
 	Groups []Group
 	// Version is what the server reports as its version.
 	Version string
-	// Workspace is the language server's workspace; nil makes a default one.
+	// Workspace is the language server's workspace; nil makes one with NewWorkspace.
 	Workspace *model.Workspace
+	// NewWorkspace makes the workspace of a further principal, configured as
+	// Workspace is; nil makes a default one.
+	NewWorkspace func() *model.Workspace
 	// CacheSize bounds the runtime service's parsed-model cache; 0 is the
 	// service's default of 100.
 	CacheSize int
@@ -113,6 +116,8 @@ type Server struct {
 type tenant struct {
 	sdk *sdk.Server
 	lsp *lsptools.Host
+	// ready closes once the workspace is indexed or could not be, which leaves sdk nil.
+	ready chan struct{}
 }
 
 // MaxPrincipalWorkspaces bounds the principals holding a workspace of their
@@ -184,7 +189,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	}
 	ws := cfg.Workspace
 	if ws == nil {
-		ws = model.NewWorkspace()
+		ws = s.newWorkspace()
 	}
 	own, err := s.build(ctx, ws)
 	if err != nil {
@@ -227,6 +232,14 @@ func (s *Server) build(ctx context.Context, ws *model.Workspace) (*tenant, error
 	return t, nil
 }
 
+// newWorkspace is a workspace configured as the one the server started over.
+func (s *Server) newWorkspace() *model.Workspace {
+	if s.cfg.NewWorkspace != nil {
+		return s.cfg.NewWorkspace()
+	}
+	return model.NewWorkspace()
+}
+
 func (t *tenant) close(ctx context.Context) {
 	if t.lsp != nil {
 		_ = t.lsp.Close(ctx)
@@ -245,25 +258,48 @@ func (s *Server) serverFor(ctx context.Context, p guard.Principal) *sdk.Server {
 	if s.lsp == nil || operates(p) {
 		return s.sdk
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if t, ok := s.tenants[p.ID()]; ok {
-		return t.sdk
-	}
 	logger := s.logger
 	if logger == nil {
 		logger = slog.Default()
 	}
-	if len(s.tenants) >= MaxPrincipalWorkspaces {
-		logger.Warn("refusing a session: the bound on principals holding a workspace is reached", "principal", p.Subject, "source", p.Source, "bound", MaxPrincipalWorkspaces)
-		return nil
+	s.mu.Lock()
+	t, held := s.tenants[p.ID()]
+	if !held {
+		if len(s.tenants) >= MaxPrincipalWorkspaces {
+			s.mu.Unlock()
+			logger.Warn("refusing a session: the bound on principals holding a workspace is reached", "principal", p.Subject, "source", p.Source, "bound", MaxPrincipalWorkspaces)
+			return nil
+		}
+		t = &tenant{ready: make(chan struct{})}
+		s.tenants[p.ID()] = t
 	}
-	t, err := s.build(context.WithoutCancel(ctx), model.NewWorkspace())
+	s.mu.Unlock()
+	if held {
+		select {
+		case <-t.ready:
+		case <-ctx.Done():
+			return nil
+		}
+		return t.sdk
+	}
+	// Indexing runs outside the lock, under the request: a client gone stops it.
+	built, err := s.build(ctx, s.newWorkspace())
+	if err == nil && ctx.Err() != nil {
+		built.close(context.WithoutCancel(ctx))
+		err = ctx.Err()
+	}
+	s.mu.Lock()
+	if err != nil {
+		delete(s.tenants, p.ID())
+	} else {
+		t.sdk, t.lsp = built.sdk, built.lsp
+	}
+	s.mu.Unlock()
+	close(t.ready)
 	if err != nil {
 		logger.Error("refusing a session: the principal's workspace could not be indexed", "principal", p.Subject, "source", p.Source, "error", err)
 		return nil
 	}
-	s.tenants[p.ID()] = t
 	return t.sdk
 }
 
@@ -274,7 +310,9 @@ func (s *Server) protocolServers() []*sdk.Server {
 	defer s.mu.Unlock()
 	servers := []*sdk.Server{s.sdk}
 	for _, t := range s.tenants {
-		servers = append(servers, t.sdk)
+		if t.sdk != nil {
+			servers = append(servers, t.sdk)
+		}
 	}
 	return servers
 }

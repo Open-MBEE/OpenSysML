@@ -13,6 +13,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 // editors are two principals who read and write the workspace, and one who
@@ -174,7 +176,7 @@ func TestOperatorPrincipalsKeepTheStartupWorkspace(t *testing.T) {
 	}
 	srv.mu.Lock()
 	for len(srv.tenants) < MaxPrincipalWorkspaces {
-		srv.tenants[string(rune('a'+len(srv.tenants)))+":filler"] = &tenant{}
+		srv.tenants[string(rune('a'+len(srv.tenants)))+":filler"] = &tenant{ready: make(chan struct{})}
 	}
 	srv.mu.Unlock()
 	if got := srv.serverFor(ctx, guard.Principal{Subject: "late", Source: "api-key"}); got != nil {
@@ -190,4 +192,42 @@ func TestOperatorPrincipalsKeepTheStartupWorkspace(t *testing.T) {
 		}
 	}
 	srv.mu.Unlock()
+}
+
+// TestPrincipalWorkspacesFollowTheConfiguration checks a further principal's workspace
+// is made by Config.NewWorkspace, and that a session whose client is gone holds none.
+func TestPrincipalWorkspacesFollowTheConfiguration(t *testing.T) {
+	ctx := context.Background()
+	made := 0
+	srv, err := New(ctx, Config{Root: t.TempDir(), Groups: []Group{GroupLSP}, Version: "test", NewWorkspace: func() *model.Workspace {
+		made++
+		return model.NewWorkspace(model.WithConformanceMode(diag.ConformanceStrict))
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { srv.Close(ctx) })
+	if made != 1 {
+		t.Fatalf("the startup workspace: NewWorkspace called %d times, want 1", made)
+	}
+	gone, cancel := context.WithCancel(ctx)
+	cancel()
+	if got := srv.serverFor(gone, guard.Principal{Subject: "gone", Source: "api-key"}); got != nil {
+		t.Error("a session whose request is cancelled is served")
+	}
+	srv.mu.Lock()
+	held := len(srv.tenants)
+	srv.mu.Unlock()
+	if held != 0 {
+		t.Errorf("%d workspaces held after a cancelled session, want 0", held)
+	}
+	if got := srv.serverFor(ctx, guard.Principal{Subject: "alice", Source: "api-key"}); got == nil || made < 2 {
+		t.Errorf("alice's workspace: served %v, NewWorkspace called %d times, want 2", got != nil, made)
+	}
+	srv.mu.Lock()
+	mode := srv.tenants["api-key:alice"].lsp.Workspace.ConformanceMode()
+	srv.mu.Unlock()
+	if mode != diag.ConformanceStrict {
+		t.Errorf("alice's workspace conformance mode = %v, want strict", mode)
+	}
 }
