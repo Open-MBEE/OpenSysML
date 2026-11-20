@@ -115,7 +115,7 @@ func checkNotationRow(t *testing.T, row notationTableRow, kind EdgeKind) {
 	if !strings.Contains(dot, wantDOT) {
 		t.Errorf("%s (%s): DOT lacks %q:\n%s", row.production, kind, wantDOT, dot)
 	}
-	if got, want := plantumlArrow(KindAction, kind), unticked(row.plantuml); got != want {
+	if got, want := plantumlArrow(kind), unticked(row.plantuml); got != want {
 		t.Errorf("%s (%s): PlantUML arrow %q, table says %q", row.production, kind, got, want)
 	}
 	if got, want := mermaidArrow(kind), unticked(row.mermaid); got != want {

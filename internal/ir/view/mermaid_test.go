@@ -121,13 +121,13 @@ func TestMermaidMarkdownLabelsFallBackWhenUnsafe(t *testing.T) {
 	labels := labeller{shown: AllShown()}
 	for _, name := range []string{"wheels : Wheel [0..*]", "my_snake"} {
 		node := &Node{ID: "n", Kind: "part", Name: name}
-		if got := mermaidNodeLabel(node, labels, Options{}); !strings.Contains(got, "**") {
+		if got := mermaidNodeLabel(node, labels); !strings.Contains(got, "**") {
 			t.Errorf("safe label %q has no Markdown:\n%s", name, got)
 		}
 	}
 	for _, name := range []string{"*b*", "_x_", "a`b", "a<b", "a#b", "1. item"} {
 		node := &Node{ID: "n", Kind: "part", Name: name}
-		if got := mermaidNodeLabel(node, labels, Options{}); strings.Contains(got, "**") {
+		if got := mermaidNodeLabel(node, labels); strings.Contains(got, "**") {
 			t.Errorf("unsafe label %q uses Markdown:\n%s", name, got)
 		}
 	}
