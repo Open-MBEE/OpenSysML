@@ -79,7 +79,11 @@ func ReadableModelElementForm(documents []ModelDocument, unreadable map[string]e
 	for i, e := range encoders {
 		if unwritten[i] {
 			for _, declared := range e.declaredSubjects() {
-				id := rdf.LocalName(declared.iri)
+				// The id as the form's references spell it, scope qualifier included.
+				id, ok := rdf.SubjectID(rdf.IRI(declared.iri))
+				if !ok {
+					id = rdf.LocalName(declared.iri)
+				}
 				if _, read := form.byID[id]; !read {
 					form.excludedIn[id] = documents[i].File.Name()
 				}
