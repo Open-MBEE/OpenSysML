@@ -1793,7 +1793,7 @@ func (e *StateExecutor) chooseTransition(candidate dispatchCandidate, event *Eve
 	if err != nil {
 		return nil, nil, err
 	}
-	if choice, ok := e.transitionChoice(e.stateDecl(candidate.source), transitions, candidate.enabled); ok {
+	if choice, ok := e.transitionChoice(transitions, candidate.enabled); ok {
 		whereOf := func(i int) string {
 			return transitionWhere(e.stateDecl(candidate.source), transitions[candidate.enabled[i]])
 		}
@@ -2118,7 +2118,7 @@ func (e *StateExecutor) chooseCompletion(source *ast.StateNode, dispatched *lowe
 	if err != nil {
 		return nil, nil, err
 	}
-	choice, ok := e.transitionChoice(source, transitions, enabled)
+	choice, ok := e.transitionChoice(transitions, enabled)
 	if !ok {
 		drain()
 		return transitions[enabled[0]], notes, nil
@@ -2282,7 +2282,7 @@ func (e *StateExecutor) transitionEnabled(trans *lower.Transition, event *Event)
 // transitionChoice is the transitions out of state enabled for one event, at
 // their declared positions, as a choice point; there is none under two. pick is
 // the position in enabled of the one that fires.
-func (e *StateExecutor) transitionChoice(state *ast.StateNode, transitions []*lower.Transition, enabled []int) (ChoicePoint, bool) {
+func (e *StateExecutor) transitionChoice(transitions []*lower.Transition, enabled []int) (ChoicePoint, bool) {
 	if len(enabled) < 2 {
 		return ChoicePoint{}, false
 	}

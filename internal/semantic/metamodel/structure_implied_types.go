@@ -68,13 +68,18 @@ func (e *Evaluator) structureExpressionFunction(element Element) ([]Value, bool)
 	case *ast.CollectExpr:
 		function = e.librarySymbol("ControlFunctions::collect")
 	case *ast.TimeEvent:
-		if node.Absolute {
-			function = e.librarySymbol("Triggers::TriggerAt")
-		} else {
-			function = e.librarySymbol("Triggers::TriggerAfter")
+		// A trigger's argument wrapper shares the trigger's node; only the invocation is typed by it.
+		if e.structureIsTriggerInvocation(element) {
+			if node.Absolute {
+				function = e.librarySymbol("Triggers::TriggerAt")
+			} else {
+				function = e.librarySymbol("Triggers::TriggerAfter")
+			}
 		}
 	case *ast.ChangeEvent:
-		function = e.librarySymbol("Triggers::TriggerWhen")
+		if e.structureIsTriggerInvocation(element) {
+			function = e.librarySymbol("Triggers::TriggerWhen")
+		}
 	case nil:
 		function = e.statedExpressionFunction(element)
 	}
@@ -97,6 +102,13 @@ func (e *Evaluator) structureExpressionFunction(element Element) ([]Value, bool)
 		return nil, false
 	}
 	return functions, true
+}
+
+// structureIsTriggerInvocation reports whether element reflects as the trigger invocation
+// itself rather than as a part sharing its node (the change wrapper, its parameters).
+func (e *Evaluator) structureIsTriggerInvocation(element Element) bool {
+	isTrigger, known := e.isMetaclass(element, "TriggerInvocationExpression")
+	return known && isTrigger
 }
 
 // statedExpressionFunction resolves the function a graph-only expression invokes by

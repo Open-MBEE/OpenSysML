@@ -43,7 +43,7 @@ type stmtEnv struct {
 }
 
 // enter pushes a frame for a block about to run and returns it.
-func (env *stmtEnv) enter(e *stmtEngine) map[string]Value {
+func (env *stmtEnv) enter() map[string]Value {
 	frame := make(map[string]Value)
 	env.frames = append(env.frames, frame)
 	env.cells = append(env.cells, nil)
@@ -1161,7 +1161,7 @@ func (f *blockFrame) clone() bodyFrame {
 // ones a paused block ran in; leave restores what was around them.
 func (e *stmtEngine) enterBlock(f *blockFrame) (leave func(bool)) {
 	if f.locals == nil {
-		f.locals = e.env.enter(e)
+		f.locals = e.env.enter()
 		f.cells = e.env.cells[len(e.env.cells)-1]
 		f.activation, f.outer = e.ctx.newActivation(), e.activation
 	} else {
@@ -1400,7 +1400,7 @@ func (e *stmtEngine) syncLoopCells(f *loopFrame) {
 // paused loop ran in; leave restores what was around it.
 func (e *stmtEngine) enterLoop(f *loopFrame) (leave func(bool)) {
 	if f.locals == nil {
-		f.locals = e.env.enter(e)
+		f.locals = e.env.enter()
 		f.cells = e.env.cells[len(e.env.cells)-1]
 		f.outer = e.activation
 	} else {
