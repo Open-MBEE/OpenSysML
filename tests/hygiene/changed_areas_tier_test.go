@@ -105,3 +105,39 @@ func TestQueueTierRunsClientsOnTheirOwnPathsOnly(t *testing.T) {
 		}
 	}
 }
+
+// The script lists all of packaging/ as known, so a file there that no area
+// claimed would let its pull request pass with every job skipped.
+func TestEveryPackagingSubtreeRunsTheGoArea(t *testing.T) {
+	entries, err := os.ReadDir("../../packaging")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("packaging/ is empty, so the check would pass over nothing")
+	}
+	for _, entry := range entries {
+		var files []string
+		root := filepath.Join("../../packaging", entry.Name())
+		err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return err
+			}
+			rel, err := filepath.Rel("../..", path)
+			files = append(files, filepath.ToSlash(rel))
+			return err
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, file := range files {
+			areas := changedAreas(t, []string{file}, "CI_EVENT=pull_request")
+			if areas["tier"] != "quick" {
+				t.Errorf("%s: tier = %q, want quick", file, areas["tier"])
+			}
+			if areas["go"] != "true" {
+				t.Errorf("%s: go=%s, want true", file, areas["go"])
+			}
+		}
+	}
+}
