@@ -54,7 +54,7 @@ func Main(args []string, stderr io.Writer) int {
 	kermlValidator := flags.String("kerml-validator", "", "KerML pilot validator executable (default: <repo>/build/pilot-kerml-validator/validate-kerml)")
 	corpus := flags.String("corpus", "", "negative corpus directory (default: <repo>/"+defaultCorpus+")")
 	out := flags.String("out", "", "output directory for the reports (default: <repo>/build/pilot-reject)")
-	timeout := flags.Duration("timeout", 0, "per-batch timeout for the pilot validator (0: no limit)")
+	timeout := flags.Duration("timeout", defaultPilotTimeout, "per-batch timeout for the pilot validator (0: no limit; default 30m)")
 	policy := flags.String("conformance", policyAuto,
 		"conformance mode our verdicts are taken under: auto (extensions/ strictly, the rest by default), default, or strict")
 	update := flags.Bool("update", false, "record this run as "+committedBaseline)
