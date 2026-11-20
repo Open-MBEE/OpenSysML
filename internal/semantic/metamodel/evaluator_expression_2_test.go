@@ -583,6 +583,16 @@ func TestInstantiationExpressionResolvesBracketAndSequenceOperators(t *testing.T
 		Container: pkg,
 		Aspect:    "sequence-operator",
 	}
+	index := Element{
+		Node:      &ast.IndexExpr{Operand: &ast.LiteralInteger{}, Index: &ast.LiteralInteger{}},
+		Container: pkg,
+		Aspect:    "index-operator",
+	}
+	cast := Element{
+		Node:      &ast.CastExpr{},
+		Container: pkg,
+		Aspect:    "cast-operator",
+	}
 
 	for _, test := range []struct {
 		name     string
@@ -591,6 +601,8 @@ func TestInstantiationExpressionResolvesBracketAndSequenceOperators(t *testing.T
 	}{
 		{name: "[", element: bracket, function: evaluator.model.OperatorFunction(ast.OpIndex)},
 		{name: ",", element: sequence, function: evaluator.model.OperatorFunctionNamed(",")},
+		{name: "#", element: index, function: evaluator.model.OperatorFunctionNamed("#")},
+		{name: "as", element: cast, function: evaluator.model.OperatorFunction(ast.OpAs)},
 	} {
 		if test.function == nil {
 			t.Fatalf("BaseFunctions operator %q was not resolved", test.name)
@@ -604,6 +616,8 @@ func TestInstantiationExpressionResolvesBracketAndSequenceOperators(t *testing.T
 			metaclasses: map[ElementKey]string{
 				bracket.Key():  "OperatorExpression",
 				sequence.Key(): "SequenceExpression",
+				index.Key():    "IndexExpression",
+				cast.Key():     "OperatorExpression",
 			},
 		}
 		function := testProperty(t, evaluator, test.element, "Expression", "function")
