@@ -6997,7 +6997,13 @@ func (e *Evaluator) structureFilteredOwnedFeatures(element Element, property, _ 
 	if !ok {
 		return Value{}, true, false
 	}
-	members, handled, ok := e.structureOwnedMembers(element)
+	// ownedMetadata and nestedMetadata select from ownedMember, the other collections from
+	// ownedFeature (deriveUsageNestedMetadata, deriveUsageNestedUsage and the Definition pair).
+	source := e.structureOwnedFeatures
+	if rangeClass == "MetadataUsage" {
+		source = e.structureOwnedMembers
+	}
+	members, handled, ok := source(element)
 	if !handled || !ok {
 		return Value{}, true, false
 	}
