@@ -143,8 +143,8 @@ func TestEvaluateDiagramCarriesThePalette(t *testing.T) {
 	if !reflect.DeepEqual(diagram.Options(), want) {
 		t.Fatalf("options = %+v, want %+v", diagram.Options(), want)
 	}
-	if clone := cloneContent([]Content{diagram})[0]; !reflect.DeepEqual(clone.Options(), want) {
-		t.Fatalf("cloned options = %+v", clone.Options())
+	if again := document.Content()[0]; !reflect.DeepEqual(again.Options(), want) {
+		t.Fatalf("options read again = %+v", again.Options())
 	}
 }
 
@@ -164,7 +164,7 @@ func TestEvaluateDiagramCarriesThePortDisplay(t *testing.T) {
 	if !reflect.DeepEqual(diagram.Options(), want) {
 		t.Fatalf("options = %+v, want %+v", diagram.Options(), want)
 	}
-	if clone := cloneContent([]Content{diagram})[0]; !reflect.DeepEqual(clone.Options(), want) {
-		t.Fatalf("clone options = %+v, want %+v", clone.Options(), want)
+	if again := document.Content()[0]; !reflect.DeepEqual(again.Options(), want) {
+		t.Fatalf("options read again = %+v, want %+v", again.Options(), want)
 	}
 }

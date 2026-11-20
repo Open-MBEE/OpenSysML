@@ -3,6 +3,8 @@
 package docplan
 
 import (
+	"slices"
+
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -469,41 +471,12 @@ func (c Content) Query() *QueryRef { return c.query }
 // Diagram returns the planned view reference of a diagram node, or nil.
 func (c Content) Diagram() *DiagramRef { return c.diagram }
 
-// Children returns the nested content of a section in declaration order.
-func (c Content) Children() []Content { return cloneContent(c.children) }
+// Children returns the nested content of a section in declaration order. The
+// slice is the caller's; its nodes copy what they hand out themselves.
+func (c Content) Children() []Content { return slices.Clone(c.children) }
 
 // Origin returns the source declaration behind the node.
 func (c Content) Origin() symbols.Origin { return c.origin }
-
-func cloneContent(content []Content) []Content {
-	out := make([]Content, len(content))
-	for i, child := range content {
-		out[i] = Content{
-			kind:         child.kind,
-			name:         child.name,
-			title:        child.title,
-			text:         child.text,
-			source:       child.source,
-			caption:      child.caption,
-			alt:          child.alt,
-			style:        child.style,
-			groupBy:      child.groupBy,
-			columnWidths: append([]int(nil), child.columnWidths...),
-			columnLabels: append([]string(nil), child.columnLabels...),
-			term:         child.term,
-			description:  child.description,
-			runs:         cloneRuns(child.runs),
-			items:        child.Items(),
-			rows:         child.Rows(),
-			columnRuns:   append([]ColumnRun(nil), child.columnRuns...),
-			query:        child.query,
-			diagram:      child.diagram,
-			children:     cloneContent(child.children),
-			origin:       child.origin,
-		}
-	}
-	return out
-}
 
 // Plan is an immutable compiled document definition.
 type Plan struct {
@@ -524,7 +497,7 @@ func (p *Plan) Name() string { return p.name }
 func (p *Plan) Title() string { return p.title }
 
 // Content returns the planned top-level content in declaration order.
-func (p *Plan) Content() []Content { return cloneContent(p.content) }
+func (p *Plan) Content() []Content { return slices.Clone(p.content) }
 
 // Origin returns the source declaration behind the document.
 func (p *Plan) Origin() symbols.Origin { return p.origin }
