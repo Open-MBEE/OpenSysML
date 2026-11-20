@@ -141,6 +141,36 @@ func (m *Model) flowEndFeatureRedefinition(feature *symbols.Symbol) *symbols.Sym
 	return path[len(path)-1]
 }
 
+// flowEndFeatureDirection is the direction of the ReferenceUsage a flow's end owns: that of the feature it
+// redefines, as seen through the feature before it in the end's path (SysML v2 7.12.2); false for another symbol.
+func (m *Model) flowEndFeatureDirection(feature *symbols.Symbol) (ast.FeatureDirection, bool) {
+	i, ok := symbols.ImpliedFlowEndFeatureIndex(feature)
+	if !ok || feature.OwnerScope == nil {
+		return ast.DirNone, false
+	}
+	flow, usage, _ := flowEndOwner(feature.OwnerScope.Owner())
+	if flow == nil {
+		return ast.DirNone, false
+	}
+	path := m.flowEndPath(flow, usage, i)
+	if len(path) == 0 {
+		return ast.DirNone, false
+	}
+	var owner *symbols.Symbol
+	if len(path) > 1 {
+		owner = path[len(path)-2]
+	}
+	return m.EffectiveDirection(owner, path[len(path)-1]), true
+}
+
+// reflectiveDirection is ReflectiveDirection with the direction a flow end's feature takes from what it redefines.
+func (m *Model) reflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
+	if direction, ok := m.flowEndFeatureDirection(sym); ok {
+		return direction, true
+	}
+	return ReflectiveDirection(sym)
+}
+
 // withFlowEndFeature adds the ReferenceUsage a flow's end owns to the end's members (ownedMember, member,
 // ownedFeature); an end declares no body of its own.
 func (m *Model) withFlowEndFeature(sym *symbols.Symbol, members []*symbols.Symbol) []*symbols.Symbol {

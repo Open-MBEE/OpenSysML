@@ -2169,7 +2169,7 @@ func (m *Model) directedFeatures(sym *symbols.Symbol, directions ...ast.FeatureD
 	}
 	var out []*symbols.Symbol
 	for _, member := range m.membersIncludingAnonymous(sym) {
-		direction, ok := ReflectiveDirection(member)
+		direction, ok := m.reflectiveDirection(member)
 		if ok && allowed[direction] {
 			out = append(out, member)
 		}
@@ -2864,7 +2864,7 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		}
 		return stringOrEmpty(owner.Str + "::" + name), true
 	case "direction":
-		direction, ok := ReflectiveDirection(sym)
+		direction, ok := m.reflectiveDirection(sym)
 		if !ok {
 			return symbols.FilterValue{}, false
 		}
@@ -3145,7 +3145,7 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 		flags.isComposite = true
 	}
 	if isUsage {
-		direction, _ := ReflectiveDirection(sym)
+		direction, _ := m.reflectiveDirection(sym)
 		if flags.isEnd || direction != ast.DirNone || !m.reflectiveUsageHasFeaturingType(sym) {
 			flags.isComposite = false
 		}
