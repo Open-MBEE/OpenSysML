@@ -353,7 +353,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 54653, unmatched 695
   OccurrenceUsage::individualDefinition: equal 3291, different 0, symbol-missing 1, symbol-extra 8
   OccurrenceUsage::occurrenceDefinition: equal 3289, different 2, symbol-missing 1, symbol-extra 8
   OwningMembership::ownedMemberElement: equal 21664, different 18, symbol-missing 0, symbol-extra 0
-  OwningMembership::ownedMemberElementId: equal 7248, different 32, symbol-missing 14401, symbol-extra 0
+  OwningMembership::ownedMemberElementId: equal 7248, different 33, symbol-missing 14401, symbol-extra 0
   OwningMembership::ownedMemberName: equal 21660, different 21, symbol-missing 0, symbol-extra 1
   OwningMembership::ownedMemberShortName: equal 21482, different 0, symbol-missing 0, symbol-extra 200
   PortUsage::portDefinition: equal 376, different 0, symbol-missing 0, symbol-extra 8
