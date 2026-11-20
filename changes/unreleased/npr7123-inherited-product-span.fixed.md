@@ -1,0 +1,1 @@
+- `NPR7123Pass` reports a below-maturity review product a review inherits from its definition at the review itself, naming the definition it is inherited from, instead of at the product's own declaration, which may lie in another document and underlined unrelated text there.
