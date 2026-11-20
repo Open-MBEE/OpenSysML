@@ -16,6 +16,8 @@ type BehaviorOrderPass struct{}
 
 func (BehaviorOrderPass) Level() kit.PassLevel { return kit.LevelConstraint }
 
+func (BehaviorOrderPass) ElementScoped() { /* marker: per-element gating */ }
+
 func (BehaviorOrderPass) Run(ctx *kit.Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
