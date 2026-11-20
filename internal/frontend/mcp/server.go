@@ -12,14 +12,17 @@ import (
 	"log/slog"
 	"slices"
 	"strings"
+	"sync"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/lsptools"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/runtimetools"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/sessiontools"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
@@ -96,7 +99,25 @@ type Server struct {
 	// prewarmed closes when the runtime's library index is built; closed from
 	// the start when there is no runtime group.
 	prewarmed <-chan struct{}
+
+	cfg    Config
+	groups []Group
+	// mu guards tenants: the protocol server and workspace of each principal other
+	// than the operator's, keyed by guard.Principal.ID and made on its first session.
+	mu      sync.Mutex
+	tenants map[string]*tenant
 }
+
+// tenant is one principal's protocol server over its own language server
+// workspace, so a document it holds open is no other principal's to read.
+type tenant struct {
+	sdk *sdk.Server
+	lsp *lsptools.Host
+}
+
+// MaxPrincipalWorkspaces bounds the principals holding a workspace of their
+// own at once; a further principal's session is refused until the server restarts.
+const MaxPrincipalWorkspaces = 32
 
 // nothingToWait is Prewarmed for a server without the runtime group.
 var nothingToWait = func() <-chan struct{} {
@@ -117,32 +138,15 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		groups = AllGroups
 	}
 	groups = slices.Compact(slices.Sorted(slices.Values(groups)))
-	s := &Server{sdk: sdk.NewServer(&sdk.Implementation{
-		Name:       "sysml-mcp",
-		Title:      "OpenSysML",
-		Version:    cfg.Version,
-		WebsiteURL: "https://github.com/Open-MBEE/OpenSysML",
-	}, &sdk.ServerOptions{Logger: cfg.Logger, Instructions: cfg.Instructions}), logger: cfg.Logger, prewarmed: nothingToWait}
+	s := &Server{logger: cfg.Logger, prewarmed: nothingToWait, cfg: cfg, groups: groups, tenants: map[string]*tenant{}}
 	s.served = map[string]catalog.Entry{}
 	for _, e := range catalog.Entries(groups...) {
 		s.served[e.Name] = e
 	}
-	s.sdk.AddReceivingMiddleware(s.authorize)
 
 	for _, g := range groups {
 		switch g {
 		case GroupLSP:
-			ws := cfg.Workspace
-			if ws == nil {
-				ws = model.NewWorkspace()
-			}
-			host, err := lsptools.NewHost(ctx, cfg.Root, ws, cfg.Version)
-			if err != nil {
-				s.Close(ctx)
-				return nil, err
-			}
-			s.lsp = host
-			lsptools.Register(s.sdk, host)
 		case GroupRuntime:
 			size := cfg.CacheSize
 			if size == 0 {
@@ -162,10 +166,6 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 			}
 			s.prewarmed = svc.Prewarm()
 			s.runtime = svc
-			if err := runtimetools.Register(s.sdk, svc, cfg.Root); err != nil {
-				s.Close(ctx)
-				return nil, err
-			}
 		case GroupSession:
 			if cfg.NewSession == nil {
 				s.Close(ctx)
@@ -177,14 +177,106 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 				return nil, err
 			}
 			s.sessions = sessions
-			sessiontools.Register(s.sdk, s.sessions)
 		default:
 			s.Close(ctx)
 			return nil, fmt.Errorf("unknown tool group %q", g)
 		}
 	}
-	registerCatalog(s.sdk, groups)
+	ws := cfg.Workspace
+	if ws == nil {
+		ws = model.NewWorkspace()
+	}
+	own, err := s.build(ctx, ws)
+	if err != nil {
+		s.Close(ctx)
+		return nil, err
+	}
+	s.sdk, s.lsp = own.sdk, own.lsp
 	return s, nil
+}
+
+// build is a protocol server with the groups' tools registered over the server's
+// runtime service and sessions, and over a language server of its own on ws.
+func (s *Server) build(ctx context.Context, ws *model.Workspace) (*tenant, error) {
+	t := &tenant{sdk: sdk.NewServer(&sdk.Implementation{
+		Name:       "sysml-mcp",
+		Title:      "OpenSysML",
+		Version:    s.cfg.Version,
+		WebsiteURL: "https://github.com/Open-MBEE/OpenSysML",
+	}, &sdk.ServerOptions{Logger: s.cfg.Logger, Instructions: s.cfg.Instructions})}
+	t.sdk.AddReceivingMiddleware(s.authorize)
+	for _, g := range s.groups {
+		switch g {
+		case GroupLSP:
+			host, err := lsptools.NewHost(ctx, s.cfg.Root, ws, s.cfg.Version)
+			if err != nil {
+				return nil, err
+			}
+			t.lsp = host
+			lsptools.Register(t.sdk, host)
+		case GroupRuntime:
+			if err := runtimetools.Register(t.sdk, s.runtime, s.cfg.Root); err != nil {
+				t.close(ctx)
+				return nil, err
+			}
+		case GroupSession:
+			sessiontools.Register(t.sdk, s.sessions)
+		}
+	}
+	registerCatalog(t.sdk, s.groups)
+	return t, nil
+}
+
+func (t *tenant) close(ctx context.Context) {
+	if t.lsp != nil {
+		_ = t.lsp.Close(ctx)
+	}
+}
+
+// operates reports whether p is the operator's own principal, served by the server built
+// at start: the local caller, or the static token's holder; one transport has only one.
+func operates(p guard.Principal) bool {
+	return p.Source == toolkit.LocalSource || p.Source == guard.SourceStaticToken
+}
+
+// serverFor is the protocol server for p's new session: with the workspace group, one per
+// authenticated principal, made on first use; nil when it cannot be indexed or the bound is met.
+func (s *Server) serverFor(ctx context.Context, p guard.Principal) *sdk.Server {
+	if s.lsp == nil || operates(p) {
+		return s.sdk
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if t, ok := s.tenants[p.ID()]; ok {
+		return t.sdk
+	}
+	logger := s.logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+	if len(s.tenants) >= MaxPrincipalWorkspaces {
+		logger.Warn("refusing a session: the bound on principals holding a workspace is reached", "principal", p.Subject, "source", p.Source, "bound", MaxPrincipalWorkspaces)
+		return nil
+	}
+	t, err := s.build(context.WithoutCancel(ctx), model.NewWorkspace())
+	if err != nil {
+		logger.Error("refusing a session: the principal's workspace could not be indexed", "principal", p.Subject, "source", p.Source, "error", err)
+		return nil
+	}
+	s.tenants[p.ID()] = t
+	return t.sdk
+}
+
+// protocolServers are the protocol servers built so far: the operator's, then
+// each other principal's.
+func (s *Server) protocolServers() []*sdk.Server {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	servers := []*sdk.Server{s.sdk}
+	for _, t := range s.tenants {
+		servers = append(servers, t.sdk)
+	}
+	return servers
 }
 
 // Run serves one client over t until the client ends the session or ctx is
@@ -204,5 +296,11 @@ func (s *Server) Close(ctx context.Context) {
 	}
 	if s.lsp != nil {
 		_ = s.lsp.Close(ctx)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for id, t := range s.tenants {
+		t.close(ctx)
+		delete(s.tenants, id)
 	}
 }

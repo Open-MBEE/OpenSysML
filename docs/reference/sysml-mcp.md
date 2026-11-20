@@ -514,7 +514,8 @@ Every tool requires one scope — an OAuth 2.0 scope token (RFC 6749 § 3.3) —
 credential does not grant the tool's scope is refused with a JSON-RPC error (code `-32030`,
 `insufficient_scope`) whose message and `data` name the tool and the scope, so an agent can ask for
 the scope rather than guess; `tools/list` is never narrowed, so the agent still sees what the server
-has. Over stdin and stdout, and over `-http` without a token, the one caller is the local principal
+has. Reading a resource (`resources/read`, and subscribing to one) requires `sysml:read` and is
+refused the same way, naming the request in place of a tool. Over stdin and stdout, and over `-http` without a token, the one caller is the local principal
 and holds every scope, so a host that starts the server itself loses nothing. The bearer token
 named by `-token-file`, `-token` or `OPENSYSML_MCP_TOKEN` holds every scope as well; a credential an
 authorization server issues carries the scopes it was granted.
@@ -551,7 +552,13 @@ With `-http ADDR` the server is started once and speaks the **Streamable HTTP** 
 path `/mcp` of that address to every client that connects — remote agents, or several agents over
 one project — until it is told to stop with SIGINT or SIGTERM. Stopping closes the clients'
 sessions, so their event streams end, and gives the connections up to `-shutdown-timeout` (30 seconds) to drain. The
-clients share one workspace and one runtime cache. REPL sessions belong to the **principal** that
+clients of one principal share one workspace, and all of them one runtime cache: a document
+`open_document` holds open is read — by the `sysml://workspace/` resources and by every tool — only
+by the principal that opened it, and another principal reads the file on disk. The local principal
+and the holder of the bearer token use the workspace indexed at start; each principal an
+authenticator names has the workspace indexed again for it on its first session, up to 32 such
+principals, past which a further principal's session is refused (`400`) until the server restarts.
+REPL sessions belong to the **principal** that
 opened them — the identity of the credential, `source:subject`, or the one local principal when the
 server authenticates nobody — so a `session_*` name one client opens is the session every other
 client *of the same principal* sees under that name, `session_list` lists that principal's sessions
