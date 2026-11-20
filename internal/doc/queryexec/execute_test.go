@@ -16,7 +16,7 @@ private import KerML::Root::Element;
 private import ScalarValues::*;
 `
 
-func loadExecutionFixture(t *testing.T, body string) executionFixture {
+func loadExecutionFixture(t testing.TB, body string) executionFixture {
 	t.Helper()
 	return loadExecutionSource(t, "package Observatory {"+executionImports+body+"}")
 }
@@ -30,7 +30,7 @@ func loadExecutionFixtureFile(t *testing.T, path string) executionFixture {
 	return loadExecutionSource(t, string(content))
 }
 
-func (f executionFixture) symbol(t *testing.T, name string) *symbols.Symbol {
+func (f executionFixture) symbol(t testing.TB, name string) *symbols.Symbol {
 	t.Helper()
 	matches := symbols.PreferDeclared(f.index.LookupQualified("Observatory::" + name))
 	if len(matches) != 1 {
@@ -43,7 +43,7 @@ func (f executionFixture) context() Context {
 	return Context{Index: f.index, Resolver: f.resolver, Model: f.model}
 }
 
-func (f executionFixture) program(t *testing.T, name string) *queryplan.Program {
+func (f executionFixture) program(t testing.TB, name string) *queryplan.Program {
 	t.Helper()
 	program, err := queryplan.Compile(f.index, f.model, f.resolver, f.symbol(t, name))
 	if err != nil {
