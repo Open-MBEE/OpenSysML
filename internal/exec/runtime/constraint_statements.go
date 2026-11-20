@@ -118,7 +118,7 @@ func (h *constraintStmtHost) performNode(engine *stmtEngine, graph *lower.Action
 		}
 		nestedOrder, nestedExprs = graph.StatementOrders[node], sub.Graph.Exprs
 	}
-	engine.env.enter(engine)
+	engine.env.enter()
 	defer engine.env.leave(engine.ctx, true)
 	defer engine.enterActivation()()
 	for _, feature := range graph.Features[node] {
