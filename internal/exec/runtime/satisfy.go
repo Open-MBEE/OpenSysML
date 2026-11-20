@@ -432,7 +432,7 @@ func (ctx *Context) overlaySatisfierChains(a *SatisfyAssertion, subject *Instanc
 	mark := ctx.markJournal()
 	ctx.journals++
 	for _, c := range chains {
-		if err := ctx.refineChildBelow(c.object.owner, c.object, c.rest, c.sym); err != nil {
+		if err := ctx.refineChildBelow(c.object, c.rest, c.sym); err != nil {
 			ctx.journals--
 			ctx.rollbackJournal(mark)
 			return nil, fmt.Errorf("%s: %w", a.Text(), err)
