@@ -81,7 +81,7 @@ func (s *Session) lookupSymbolOfKinds(name string, want ...symbols.SymbolKind) (
 			}
 			return sym, fqn, nil
 		default:
-			return nil, "", ambiguousError(name, matches, idx)
+			return nil, "", ambiguousError(name, matches)
 		}
 	}
 
@@ -107,7 +107,7 @@ func (s *Session) lookupSymbolOfKinds(name string, want ...symbols.SymbolKind) (
 		if roots := s.nameTable().roots[name]; len(roots) == 1 {
 			return roots[0], idx.GetFQN(roots[0]), nil
 		}
-		return nil, "", ambiguousError(name, matches, idx)
+		return nil, "", ambiguousError(name, matches)
 	}
 }
 
@@ -862,7 +862,7 @@ func (e *AmbiguousNameError) Error() string {
 
 // ambiguousError reports a name that matched more than one declaration, listing
 // the candidates' fully-qualified names rather than picking one of them.
-func ambiguousError(name string, matches []*symbols.Symbol, idx *symbols.Index) error {
+func ambiguousError(name string, matches []*symbols.Symbol) error {
 	fqns := make([]string, 0, len(matches))
 	seen := make(map[string]bool, len(matches))
 	for _, sym := range matches {
