@@ -53,6 +53,10 @@ jobs:
       - name: Resolve the SysON backend
         run: mvn -B -q -f editors/syson/pom.xml install -Dmaven.test.failure.ignore=true
 
+      # The helper calls the dependency plugin by prefix, which no build above binds.
+      - name: Resolve the compile against Cameo
+        run: editors/mdk/scripts/compile-against-cameo-test.sh
+
       # A marker of a failed download would make a job that restores it refuse to try again.
       - name: Drop the markers of failed downloads
         run: find ~/.m2/repository -name '*.lastUpdated' -delete
@@ -63,3 +67,4 @@ jobs:
           mvn -o -B -q -f client/java/pom.xml install -Dmaven.test.failure.ignore=true
           mvn -o -B -q -f editors/mdk/pom.xml verify -Dmaven.test.failure.ignore=true
           mvn -o -B -q -f editors/syson/pom.xml install -Dmaven.test.failure.ignore=true
+          MAVEN_ARGS="${MAVEN_ARGS:-} -o" editors/mdk/scripts/compile-against-cameo-test.sh

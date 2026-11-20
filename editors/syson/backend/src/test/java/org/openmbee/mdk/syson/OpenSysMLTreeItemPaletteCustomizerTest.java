@@ -7,7 +7,8 @@ import org.openmbee.mdk.syson.menu.OpenSysMLTreeItemPaletteCustomizer;
 
 class OpenSysMLTreeItemPaletteCustomizerTest {
     @Test
-    void exposesStableToolId() {
+    void exposesStableToolIds() {
         assertThat(OpenSysMLTreeItemPaletteCustomizer.TOOL_ID).isEqualTo("runWithOpenSysML");
+        assertThat(OpenSysMLTreeItemPaletteCustomizer.PUBLISH_TOOL_ID).isEqualTo("publishWithOpenSysML");
     }
 }

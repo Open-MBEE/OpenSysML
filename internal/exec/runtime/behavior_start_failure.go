@@ -102,6 +102,12 @@ func recordsFailure(b *ObjectBehavior, err error) bool {
 	return b != nil && b.typeBound && !exhaustsBudget(err)
 }
 
+// keepsFailure reports whether the failure recorded on b is the performance's
+// alone, which an advance of the clock stands through: a performed action's unbound input.
+func keepsFailure(b *ObjectBehavior) bool {
+	return b.Kind == lower.PerformedAction && errors.Is(b.Err, errUnboundParameter)
+}
+
 // runtimeBounds are the errors of the context's own bounds (Budgets and the
 // object limit): reaching one is the run's failure, never a behavior's.
 var runtimeBounds = []error{
