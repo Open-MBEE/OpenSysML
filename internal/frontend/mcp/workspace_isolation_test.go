@@ -231,3 +231,32 @@ func TestPrincipalWorkspacesFollowTheConfiguration(t *testing.T) {
 		t.Errorf("alice's workspace conformance mode = %v, want strict", mode)
 	}
 }
+
+// TestClosedServerHoldsNoNewWorkspace checks a session opened after Close, or whose
+// workspace finished indexing during it, is refused and leaves no workspace held.
+func TestClosedServerHoldsNoNewWorkspace(t *testing.T) {
+	ctx := context.Background()
+	var srv *Server
+	closeDuringBuild := false
+	srv, err := New(ctx, Config{Root: t.TempDir(), Groups: []Group{GroupLSP}, Version: "test", NewWorkspace: func() *model.Workspace {
+		if closeDuringBuild {
+			srv.Close(ctx)
+		}
+		return model.NewWorkspace()
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeDuringBuild = true
+	if got := srv.serverFor(ctx, guard.Principal{Subject: "alice", Source: "api-key"}); got != nil {
+		t.Error("a workspace indexed while the server closed is served")
+	}
+	if got := srv.serverFor(ctx, guard.Principal{Subject: "bob", Source: "api-key"}); got != nil {
+		t.Error("a session opened after Close is served")
+	}
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	if len(srv.tenants) != 0 {
+		t.Errorf("%d workspaces held after Close, want 0", len(srv.tenants))
+	}
+}

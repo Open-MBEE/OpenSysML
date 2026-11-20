@@ -8,6 +8,7 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -109,6 +110,8 @@ type Server struct {
 	// than the operator's, keyed by guard.Principal.ID and made on its first session.
 	mu      sync.Mutex
 	tenants map[string]*tenant
+	// closed is set by Close: a workspace still indexing then is shut down, not held.
+	closed bool
 }
 
 // tenant is one principal's protocol server over its own language server
@@ -263,6 +266,10 @@ func (s *Server) serverFor(ctx context.Context, p guard.Principal) *sdk.Server {
 		logger = slog.Default()
 	}
 	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return nil
+	}
 	t, held := s.tenants[p.ID()]
 	if !held {
 		if len(s.tenants) >= MaxPrincipalWorkspaces {
@@ -289,8 +296,14 @@ func (s *Server) serverFor(ctx context.Context, p guard.Principal) *sdk.Server {
 		err = ctx.Err()
 	}
 	s.mu.Lock()
+	if err == nil && s.closed {
+		built.close(context.WithoutCancel(ctx))
+		err = errors.New("the server is closed")
+	}
 	if err != nil {
-		delete(s.tenants, p.ID())
+		if s.tenants[p.ID()] == t {
+			delete(s.tenants, p.ID())
+		}
 	} else {
 		t.sdk, t.lsp = built.sdk, built.lsp
 	}
@@ -337,6 +350,7 @@ func (s *Server) Close(ctx context.Context) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.closed = true
 	for id, t := range s.tenants {
 		t.close(ctx)
 		delete(s.tenants, id)
