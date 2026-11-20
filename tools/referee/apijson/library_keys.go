@@ -46,8 +46,8 @@ func anonymousLibraryKeys(pilotKeys idKeys) idKeys {
 	return keys
 }
 
-// keyAnonymousMembers keys the anonymous members of one named library owner
-// and their owning memberships by the positional paths identity derives.
+// keyAnonymousMembers keys the anonymous members of one named library owner, their owning
+// memberships and the owner's alias memberships by the positional paths identity derives.
 func keyAnonymousMembers(owner string, resolver *resolve.Resolver, model *semantics.Model, catalog *identity.Catalog, keys idKeys) {
 	symbolsFound := resolver.Index().LookupQualified(owner)
 	if len(symbolsFound) != 1 || symbolsFound[0].Scope == nil {
@@ -60,4 +60,9 @@ func keyAnonymousMembers(owner string, resolver *resolve.Resolver, model *semant
 		}
 		return true
 	})
+	for _, sym := range symbolsFound[0].Scope.Members() {
+		if alias, ok := identity.AliasMembershipOf(model, catalog, sym); ok {
+			keys[alias.ID] = alias.Path
+		}
+	}
 }

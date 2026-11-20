@@ -1077,6 +1077,12 @@ func (m *Model) importTarget(owner *symbols.Symbol, imp *ast.Import) *symbols.Sy
 	if !ok || target == nil {
 		return nil
 	}
+	if imp.Kind == ast.ImportMembership {
+		// An alias the namespace only imports is the membership named all the same (KerML 8.2.3.4.2).
+		if alias, ok := m.resolver.PartAlias(imp.Imported, len(imp.Imported.Parts)-1); ok {
+			return alias
+		}
+	}
 	if resolved, ok := m.resolver.ResolveAliasTarget(target); ok && resolved != nil {
 		return resolved
 	}

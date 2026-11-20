@@ -276,7 +276,7 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 		}
 		return "", true, nil
 	case symbols.ImplicitPortConjugation, symbols.ImplicitMetadataBodyRedefinition, symbols.ImplicitShorthandReference:
-		if flow, slot, ok := flowEndFeatureSlot(rel.Owner); ok {
+		if flow, slot, ok := flowEndFeatureSlot(rel.Owner); ok && rel.Form != symbols.ImplicitShorthandReference {
 			// The Redefinition the ReferenceUsage a flow's end owns states is minted under it (`rd0`).
 			element, _, err := read.ReadExpressionPart(rel.Owner.DocName, flow, slot+".rd0")
 			return element, true, err
