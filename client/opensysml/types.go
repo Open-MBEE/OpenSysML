@@ -98,6 +98,9 @@ const (
 	CapabilityRenderDocumentFileName         = sysmlgrpc.CapabilityRenderDocumentFileName
 	CapabilityRenderDocumentHTML             = sysmlgrpc.CapabilityRenderDocumentHTML
 	CapabilityRenderDocumentAsciiDoc         = sysmlgrpc.CapabilityRenderDocumentAsciiDoc
+	CapabilityEnginesExternal                = sysmlgrpc.CapabilityEnginesExternal
+	CapabilityInfinityValue                  = sysmlgrpc.CapabilityInfinityValue
+	CapabilityOrderDependence                = sysmlgrpc.CapabilityOrderDependence
 )
 
 // ServerInfo describes the implementation answering a Client's calls.
