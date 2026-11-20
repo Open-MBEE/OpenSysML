@@ -49,9 +49,9 @@ func TestQueryFlagKeepsDeclaredPositionalNameApartFromUnnamedMember(t *testing.T
 	if err := os.WriteFile(model, []byte(queryModel), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	out := run(t, binary, "-query", `oslc.where=rdf:type="PartUsage"&oslc.select=sysml:elementId`, model)
+	out := run(t, binary, "-query", `oslc.where=rdf:type="PartUsage"&oslc.select=sysml:elementId,sysml:qualifiedName`, model)
 	for _, want := range []string{
-		"C::'@2'  PartUsage  sysml:elementId=C___27_402_27\n",
+		"C::'@2'  PartUsage  sysml:elementId=C___27_402_27  sysml:qualifiedName=C::@2\n",
 		"C::@2  PartUsage  sysml:elementId=C___402\n",
 	} {
 		if !strings.Contains(out, want) {
