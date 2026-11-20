@@ -1,0 +1,65 @@
+# SysML v1 to v2 migration report: adjunct_properties.xmi
+# migrated 57 element(s): 45 mapped, 10 approximated, 2 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## unmapped (2)
+«AdjunctProperty» Property	Plant::Startup::stray	_adjStray	(owned by an Interaction, whose v2 body is its lifelines and messages, not a place for a «AdjunctProperty» Property no lifeline stands for; «AdjunctProperty» is not collapsed into its principal: its principal is not in the document; applied stereotypes «AdjunctProperty» (principal = _nowhere))
+Comment	Run::empty::<Comment>	_adjNamedDoc	(owned by an «AdjunctProperty» that is written as the usage of its principal, which has no place for a Comment)
+
+## approximated (10)
+Association	<Association>	_runFill	-> Model::RunToFill	(the anonymous Association is written as connection def RunToFill; its one usage is the connection run to fill joining run and fill)
+«AdjunctProperty» Property	Apart::borrowed	_adjOwner	-> Model::Apart::borrowed	(a property typed by a behavior is written as a reference action usage; «AdjunctProperty» is not collapsed into its principal: its principal 'empty' is owned by Run, neither its owner nor a generalization of it; the property is written as a usage of its own; «AdjunctProperty» from http://www.omg.org/spec/SysML/20181001/SysML is a SysML stereotype the migration gives no v2 form; the application is kept as metadata)
+«AdjunctProperty» Property	Apart::lost	_adjGone	-> Model::Apart::lost	(a property typed by a behavior is written as a reference action usage; «AdjunctProperty» is not collapsed into its principal: its principal is not in the document; the property is written as a usage of its own; «AdjunctProperty» from http://www.omg.org/spec/SysML/20181001/SysML is a SysML stereotype the migration gives no v2 form; the application is kept as metadata)
+«AdjunctProperty» Property	Apart::note	_adjKind	-> Model::Apart::note	(a property typed by a behavior is written as a reference action usage; «AdjunctProperty» is not collapsed into its principal: its principal 'note' is a OpaqueAction, which SysML v1 admits as no principal; the property is written as a usage of its own; «AdjunctProperty» from http://www.omg.org/spec/SysML/20181001/SysML is a SysML stereotype the migration gives no v2 form; the application is kept as metadata)
+OpaqueAction	Apart::note	_note	-> 'note 2'	(no edge leads to the node, so it starts with the activity; written as note 2 since a sibling is also named note; its body is empty, so it is written as an action that does nothing)
+«AdjunctProperty» Property	Apart::refill	_adjType	-> Model::Apart::refill	(a property typed by a behavior is written as a reference action usage; «AdjunctProperty» is not collapsed into its principal: its type is neither that of its principal 'refill' nor a generalization of it; the property is written as a usage of its own; «AdjunctProperty» from http://www.omg.org/spec/SysML/20181001/SysML is a SysML stereotype the migration gives no v2 form; the application is kept as metadata)
+CallBehaviorAction	Apart::refill	_refill	-> 'refill 2'	(no edge leads to the node, so it starts with the activity; written as refill 2 since a sibling is also named refill)
+StateMachine	Plant::Modes	_modes	-> Model::Plant::Modes	(acts on its owner Plant, which it takes as its parameter context, since its this names no feature of the owner; the classifier behavior is run by every object of Plant as its usage modes)
+«AdjunctProperty» Property	Run::queue	_adjBuffer	-> Model::Run::queue	(«AdjunctProperty» is not collapsed into its principal: its principal 'queue' is not written as a v2 usage; the property is written as a usage of its own; «AdjunctProperty» from http://www.omg.org/spec/SysML/20181001/SysML is a SysML stereotype the migration gives no v2 form; the application is kept as metadata)
+CentralBufferNode	Run::queue	_queue	-> 'queue 2'	(no edge leads to the node, so it starts with the activity; written as queue 2 since a sibling is also named queue; writing the flow from its source to its target behaves as the buffer does)
+
+## mapped (45)
+«Allocate» Abstraction	<Abstraction>	_alloc	-> Model::'empty to Pump'
+Property	<Association>::<Property>	_runFillWhole	-> Model::RunToFill::run
+Activity	Apart	_apart	-> Model::Apart
+Activity	Drain	_drain	-> Model::Drain
+Activity	Fill	_fill	-> Model::Fill
+Model	Model	_m	-> Model	(written as package Model)
+«Block» AssociationClass	Pipe	_pipe	-> Model::Pipe	(its one usage is the connection pipe joining pump and tank)
+Property	Pipe::from	_pipeFrom	-> Model::Pipe::'from'
+Property	Pipe::to	_pipeTo	-> Model::Pipe::'to'
+«Block» Class	Plant	_plant	-> Model::Plant
+StateMachine	Plant::Cycle	_cycle	-> Model::Plant::Cycle	(acts on its owner Plant, which it takes as its parameter context, since its this names no feature of the owner)
+Region	Plant::Cycle::cycle	_rc	(the one region is written as the body of its owner)
+Pseudostate	Plant::Cycle::cycle::<Pseudostate>	_initC	(written as the entry of the region)
+Transition	Plant::Cycle::cycle::<Transition>	_tC
+State	Plant::Cycle::cycle::On	_on	-> On
+«AdjunctProperty» Property	Plant::Modes::Cycling	_adjCycle	-> Model::Plant::Modes::Cycling	(«AdjunctProperty» and its principal State 'Cycling' are one v2 usage, written for the principal; what referred to the property refers to that usage)
+Region	Plant::Modes::main	_main	(the one region is written as the body of its owner)
+Pseudostate	Plant::Modes::main::<Pseudostate>	_init0	(written as the entry of the region)
+Transition	Plant::Modes::main::<Transition>	_t0
+State	Plant::Modes::main::Cycling	_cycling	-> Cycling
+Interaction	Plant::Prime	_prime	-> Model::Plant::Prime	(written as an occurrence def of 1 lifeline usage and 0 messages between their event occurrences in occurrence order; its lifelines are bound to the features of Plant they stand for in the occurrence usage prime)
+Lifeline	Plant::Prime::p	_plPump	-> Model::Plant::Prime::p	(written as the ref part usage p holding its 0 event occurrences, bound to pump of Plant where the def occurs)
+Interaction	Plant::Startup	_start	-> Model::Plant::Startup	(written as an occurrence def of 1 lifeline usage and 0 messages between their event occurrences in occurrence order; its lifelines are bound to the features of Plant they stand for in the occurrence usage startup)
+Lifeline	Plant::Startup::p	_slPump	-> Model::Plant::Startup::p	(written as the ref part usage p holding its 0 event occurrences, bound to pump of Plant where the def occurs)
+InteractionUse	Plant::Startup::priming	_priming	-> priming	(written as the occurrence usage priming of 'Prime')
+«AdjunctProperty» Property	Plant::Startup::priming	_adjPriming	-> Model::Plant::Startup::priming	(«AdjunctProperty» and its principal InteractionUse 'priming' are one v2 usage, written for the principal; what referred to the property refers to that usage)
+«AdjunctProperty» Property	Plant::feed	_adjFeed	-> Model::Plant::feed	(«AdjunctProperty» and its principal Connector 'feed' are one v2 usage, written for the principal; what referred to the property refers to that usage)
+Connector	Plant::feed	_feed	-> Model::Plant::feed
+Property	Plant::pump	_pPump	-> Model::Plant::pump
+Property	Plant::tank	_pTank	-> Model::Plant::tank
+«Block» Class	Pump	_pump	-> Model::Pump
+Activity	Run	_run	-> Model::Run
+CallBehaviorAction	Run::<CallBehaviorAction>	_callFill	-> call
+ControlFlow	Run::<ControlFlow>	_e1
+InitialNode	Run::<InitialNode>	_runInit	-> start
+«AdjunctProperty» Property	Run::<Property>	_adjCall	-> Model::Run::call	(«AdjunctProperty» and its principal CallBehaviorAction (_callFill) are one v2 usage, written for the principal; what referred to the property refers to that usage)
+«AdjunctProperty» Property	Run::count	_adjVar	-> Model::Run::count	(«AdjunctProperty» and its principal Variable 'count' are one v2 usage, written for the principal; what referred to the property refers to that usage)
+Variable	Run::count	_count	-> count
+«AdjunctProperty» Property	Run::empty	_adjNamed	-> Model::Run::empty	(«AdjunctProperty» and its principal CallBehaviorAction 'empty' are one v2 usage, written for the principal; what referred to the property refers to that usage)
+CallBehaviorAction	Run::empty	_callDrain	-> empty
+Parameter	Run::level	_level	-> Model::Run::level
+«AdjunctProperty» Property	Run::level	_adjParam	-> Model::Run::level	(«AdjunctProperty» and its principal Parameter 'level' are one v2 usage, written for the principal; what referred to the property refers to that usage)
+«AdjunctProperty» Property	Run::level	_adjParamNode	-> Model::Run::level	(«AdjunctProperty» and its principal Parameter 'level' are one v2 usage, written for the principal; what referred to the property refers to that usage)
+ActivityParameterNode	Run::level	_levelNode	-> Model::Run::level	(the flows to and from the node name the parameter level)
+«Block» Class	Tank	_tank	-> Model::Tank

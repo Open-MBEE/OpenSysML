@@ -63,7 +63,7 @@ func (c *refCollector) push(ref Reference) {
 	ref.Head = c.head
 	// The outermost chain member is the name decided on.
 	if ref.Head != nil && ref.Head.Member == ref.QN {
-		ref.Head = &HeadRelationship{Scope: ref.Head.Scope, Kind: ref.Head.Kind}
+		ref.Head = &HeadRelationship{Scope: ref.Head.Scope, Kind: ref.Head.Kind, Lead: ref.Head.Lead}
 	}
 	c.refs = append(c.refs, ref)
 }
@@ -591,6 +591,9 @@ func (c *refCollector) headerRelationships(scope, header *symbols.Scope, decl as
 			c.head = &HeadRelationship{Scope: header, Kind: rel.Kind}
 		case *ast.FeatureChainExpr:
 			c.head = &HeadRelationship{Scope: header, Kind: rel.Kind, Member: target.Member}
+			if lead, ok := leadingName(target).(*ast.QualifiedName); ok {
+				c.head.Lead = lead
+			}
 		default:
 			c.head = nil
 		}
@@ -607,7 +610,7 @@ func (c *refCollector) relationships(scope *symbols.Scope, decl ast.Node, rels [
 		if rel == nil {
 			continue
 		}
-		if ast.IsReferenceSubsetting(decl, rel) {
+		if rel.Kind.ReferenceSubsets() && rel.Target != nil {
 			c.referenceTarget(scope, decl, rel.Target)
 			continue
 		}

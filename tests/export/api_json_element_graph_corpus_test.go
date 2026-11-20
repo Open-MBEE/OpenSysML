@@ -2,6 +2,7 @@ package export_test
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"sync"
@@ -95,8 +96,8 @@ func TestAPIJSONElementGraphOfExampleModels(t *testing.T) {
 			selections := [][]string{nil, {documents[0].File.Name()}, {documents[len(documents)-1].File.Name()}}
 			for _, form := range []export.IDForm{export.IDQualifiedName, export.IDUUID} {
 				for _, selection := range selections {
-					want := write("prepared Turtle graph", func() (*rdf.Graph, error) { return prepared.ToRDF(selection, form) })
-					got := write("prepared element graph", func() (*rdf.Graph, error) { return prepared.ElementGraph(selection, form) })
+					want := write("prepared Turtle graph", func() (*rdf.Graph, error) { return prepared.ToRDF(context.Background(), selection, form) })
+					got := write("prepared element graph", func() (*rdf.Graph, error) { return prepared.ElementGraph(context.Background(), selection, form) })
 					if !bytes.Equal(got, want) {
 						t.Errorf("prepared model, selection %v, id form %v: the element graph writes another element array", selection, form)
 					}

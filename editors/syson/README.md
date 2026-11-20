@@ -103,6 +103,10 @@ All backend settings use the `opensysml.*` prefix:
 | `opensysml.performer` | Default execution performer. |
 | `opensysml.explore.runs` | Exploration run budget. |
 | `opensysml.explore.depth` | Exploration depth budget. |
+| `opensysml.publish.url` | SysML v2 API server models are published to. Default: `FLEXO_SYSMLV2_URL`, else `http://localhost:8083`. |
+| `opensysml.publish.token` | Bearer token sent to that server. Default: `FLEXO_INTEROP_TOKEN`. |
+| `opensysml.publish.allowPlainHttp` | Permit plaintext HTTP to a host other than this machine. Default: `FLEXO_ALLOW_PLAIN_HTTP=1`. |
+| `opensysml.publish.timeout` | Bound on one request to that server. Default: 60 seconds. |
 
 `explore.runs` and `explore.depth` are encoded as `explore:runs=N,depth=D` and sent as the
 Java client's exploration schedule string. An explicit dialog schedule takes precedence.
@@ -113,6 +117,34 @@ The backend adds the `runWithOpenSysML(input: RunWithOpenSysMLInput!)` mutation.
 instantiation, action and state execution or exploration, constraint and requirement verification,
 satisfaction verification, calculation evaluation, analysis, instance validation, document
 rendering and document queries.
+
+## Publish to a SysML v2 API server
+
+**Publish to SysML v2 API…**, beside **Run with OpenSysML…** in the explorer, commits the whole
+model of the project to one branch of a standard SysML v2 API server such as Flexo MMS, as the
+Cameo plugin's action of the same name does (`editors/mdk/README.md`); both use the publisher in
+the Java client's `org.openmbee.opensysml.repository` package. The exported model is converted to
+the API's JSON and committed as one commit holding what the branch lacks or holds differently. The
+`publishWithOpenSysML(input: PublishWithOpenSysMLInput!)` mutation carries it.
+
+- **Server.** The backend's configuration names the server (`opensysml.publish.*` above); the
+  dialog names only a project and a branch, so a browser cannot point the backend at another host.
+  Plaintext HTTP to anything but the backend's own machine is refused unless configured.
+- **Project and branch.** A project id, or the name of a project to create; a branch id, or empty
+  for the project's default branch.
+- **Token.** The configured token is sent unless the dialog carries one for this publication. A
+  typed token lives in the dialog only: it is not stored in the browser and is left out of the
+  input's logged form.
+- **Deletions.** Elements the branch holds beyond the model stay unless **Delete elements the
+  branch holds beyond the model** is ticked.
+- **A moved branch.** The browser keeps, per project, the commit each publication left the branch
+  at (local storage). When the branch is elsewhere at the next publication nothing is written and
+  the dialog offers **Publish over the moved branch**.
+- **A model with errors is not published**, since it would publish a partial model as the whole;
+  the dialog lists the errors.
+
+Publication is one-way and runs to completion; it cannot be cancelled from the dialog. The backend
+jar needs `gson` on the SysON application classpath beside the Java client.
 
 ## Documents and reports
 

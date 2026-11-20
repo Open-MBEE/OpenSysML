@@ -15,6 +15,8 @@ func TestRuntimeRobustnessCheckInputBinding(t *testing.T) {
 	t.Run("optional input binds empty beside the object's feature", testCheckInputBindingOptional)
 	t.Run("requirement input is not bound by the object's feature", testCheckInputBindingRequirement)
 	t.Run("requirement feature is not read from the satisfying object", testCheckInputBindingRequirementFeature)
+	t.Run("typed check binds only the input its usage states", testCheckInputBindingTypedCheck)
+	t.Run("typed case assertion binds only the input its usage states", testCheckInputBindingTypedAssertion)
 }
 
 const checkInputBindingModel = `package test {
@@ -119,5 +121,74 @@ func testCheckInputBindingRequirementFeature(t *testing.T) {
 		if !errors.Is(err, ErrNoValue) || !strings.Contains(err.Error(), "speed") || satisfied {
 			t.Errorf("%s = %v, %v; want %v for the feature nothing binds", a.Text(), satisfied, err, ErrNoValue)
 		}
+	}
+}
+
+// checkInputBindingTypedModel types checks and case assertions by one definition whose input the
+// owner spells as a feature of its own: stated bindings read it, the unbound usages do not.
+const checkInputBindingTypedModel = `package test {
+	private import ScalarValues::*;
+	constraint def Limit { in x : Integer; x > 4 }
+	part def Rig {
+		attribute x : Integer = 7;
+		constraint unbound : Limit;
+		constraint bound : Limit { in x = Rig::x; }
+		constraint low : Limit { in x = 3; }
+		assert constraint assertedUnbound : Limit;
+		assert constraint assertedBound : Limit { in x = Rig::x; }
+	}
+	analysis seq {
+		attribute x : Integer := 0;
+		action fill { assign x := 7; }
+		then assert constraint unbound : Limit;
+		then assert constraint bound : Limit { in x = x; }
+		then assert constraint low : Limit { in x = 3; }
+		return r : Integer = x;
+	}
+}`
+
+func testCheckInputBindingTypedCheck(t *testing.T) {
+	ctx, pkg := conditionFixture(t, checkInputBindingTypedModel)
+	rig := requirementNamed(t, pkg, "Rig")
+	inst, err := ctx.Instantiate(rig)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	check := func(name string) (CheckResult, error) {
+		t.Helper()
+		feat := featureNamed(ctx, rig, name)
+		if feat == nil {
+			t.Fatalf("constraint %s not found", name)
+		}
+		return ctx.CheckConstraintWith(feat.Symbol, feat.DeclScope(), inst, CheckArgs{})
+	}
+	for _, name := range []string{"unbound", "assertedUnbound"} {
+		if _, err := check(name); !errors.Is(err, errUnboundParameter) || !strings.Contains(err.Error(), `parameter "x"`) {
+			t.Errorf("%s: %v, want %v naming x: the rig's x of 7 does not bind it", name, err, errUnboundParameter)
+		}
+	}
+	for _, name := range []string{"bound", "assertedBound"} {
+		if result, err := check(name); err != nil || !result.Holds {
+			t.Errorf("%s: holds %v, %v; want held over the rig's x its binding states", name, result.Holds, err)
+		}
+	}
+	if result, err := check("low"); !errors.Is(err, ErrViolated) || result.Holds {
+		t.Errorf("low: holds %v, %v; want violated over its binding of 3, not the rig's x", result.Holds, err)
+	}
+}
+
+func testCheckInputBindingTypedAssertion(t *testing.T) {
+	verdicts, err := caseAssertionVerdicts(t, checkInputBindingTypedModel, "test::seq")
+	if err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+	if got, ok := verdicts["unbound"]; !ok || got.Status != VerdictUndecided || got.Detail == "" {
+		t.Errorf("unbound = %v (%q, reported %v), want undecided: the case's x of 7 does not bind it", got.Status, got.Detail, ok)
+	}
+	if got, ok := verdicts["bound"]; !ok || got.Status != VerdictSatisfied {
+		t.Errorf("bound = %v (%q, reported %v), want satisfied: its binding reads the case's x of 7", got.Status, got.Detail, ok)
+	}
+	if got, ok := verdicts["low"]; !ok || got.Status != VerdictNotSatisfied {
+		t.Errorf("low = %v (%q, reported %v), want not satisfied: its binding of 3 masks the case's x", got.Status, got.Detail, ok)
 	}
 }

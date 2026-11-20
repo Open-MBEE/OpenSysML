@@ -57,11 +57,13 @@ func (a *caseAssertions) judge(ctx *Context, ec *EvalContext, occurrence *Instan
 		element: a.shape.Name, self: ec.self, frames: slices.Clone(ec.frames),
 		occurrence: occurrence,
 	}
+	member := scopedMember{node: s.Node, scope: s.Scope}
 	var verdicts []AnalysisVerdict
-	for _, cond := range ctx.caseMemberConditions(scopedMember{node: s.Node, scope: s.Scope}) {
-		if cond.Required {
-			verdicts = append(verdicts, ctx.assertionVerdict(check, cond))
-		}
+	for _, cond := range ctx.requiredCaseConditions(member) {
+		verdicts = append(verdicts, ctx.assertionVerdict(check, cond))
+	}
+	if empty, ok := ctx.emptyAssertion(member, len(verdicts), ""); ok {
+		verdicts = append(verdicts, empty)
 	}
 	earlier, reached := a.judged[s.Node]
 	if !reached {
@@ -73,6 +75,35 @@ func (a *caseAssertions) judge(ctx *Context, ec *EvalContext, occurrence *Instan
 			earlier[i] = verdicts[i]
 		}
 	}
+}
+
+// requiredCaseConditions are the conditions member requires of the case, assumptions left out.
+func (ctx *Context) requiredCaseConditions(member scopedMember) []Condition {
+	var required []Condition
+	for _, cond := range ctx.caseMemberConditions(member) {
+		if cond.Required {
+			required = append(required, cond)
+		}
+	}
+	return required
+}
+
+// emptyAssertion is the undecided verdict of an asserted constraint stating no condition, whose
+// result has no value to hold true (KerML 7.4.9.2); detail replaces that reason when not empty.
+func (ctx *Context) emptyAssertion(member scopedMember, stated int, detail string) (AnalysisVerdict, bool) {
+	sym, required, ok := checkedConstraint(member)
+	if !ok || !required || stated > 0 {
+		return AnalysisVerdict{}, false
+	}
+	verdict := AnalysisVerdict{Kind: "assertion", Name: "constraint", Status: VerdictUndecided, Detail: detail}
+	if sym.Named() {
+		verdict.Name, verdict.Symbol = sym.Name, sym
+	}
+	if detail == "" {
+		check := conditionCheck{sym: sym, kind: "constraint", what: "assertion", element: verdict.Name}
+		verdict.Detail = check.noResultValue("the constraint declares no condition").Error()
+	}
+	return verdict, true
 }
 
 // verdictGravity orders the statuses by what a repeated check reports: a

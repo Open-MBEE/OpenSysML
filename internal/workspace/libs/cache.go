@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -27,6 +29,11 @@ const maxIdleAge = 30 * 24 * time.Hour
 // it keys purely on names and content.
 type Cache struct {
 	dir string
+	// modelBytesStored is the bytes of model records stored since the last
+	// eviction of any (modelrecord.go).
+	modelBytesStored atomic.Int64
+	// modelPruneOnce prunes the directory at the process's first model record.
+	modelPruneOnce sync.Once
 }
 
 // ErrNoCacheRoot is the error NewCache wraps when the process has no cache root
@@ -127,11 +134,8 @@ func (c *Cache) load(key string, rec any) bool {
 	return true
 }
 
-// Prune removes records that no load has hit for maxIdleAge, and the temp files
-// a crashed store left behind. Cache entries are
-// otherwise never invalidated explicitly — a key that no longer matches is
-// simply missed — so without this the directory keeps every record any library
-// version ever produced.
+// Prune removes the records no load has hit for maxIdleAge, the temp files a crashed store
+// left, and the model records past their bound; nothing else ever removes a record.
 func (c *Cache) Prune() {
 	entries, err := os.ReadDir(c.dir)
 	if err != nil {
@@ -149,6 +153,7 @@ func (c *Cache) Prune() {
 		// #nosec G703 -- removal failure leaves a stale record, which is benign.
 		_ = os.Remove(filepath.Join(c.dir, e.Name()))
 	}
+	c.pruneModels(maxModelRecordBytes)
 }
 
 // Store gob-encodes rec and writes it to <dir>/<key>.idx atomically: it writes a

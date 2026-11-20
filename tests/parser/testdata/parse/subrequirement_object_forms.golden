@@ -1,0 +1,80 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Veh"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="mass" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=ScalarValues::Real
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="concern" abstract=false variation=false name="Weight"
+          (SubjectMember name="v" type="Veh")
+          (RequireMember
+            (ConstraintMember assert=true negated=false
+              (OperatorExpr operator="<"
+                (FeatureChainExpr member="mass"
+                  (FeatureReference name="v"))
+                (LiteralReal value="10.0"))))))
+      (Membership visibility="default"
+        (Usage kind="concern" name="weight" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Weight
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Definition kind="requirement" abstract=false variation=false name="LightReq"
+          (SubjectMember name="v" type="Veh")
+          (RequireMember
+            (ConstraintMember assert=true negated=false
+              (OperatorExpr operator="<"
+                (FeatureChainExpr member="mass"
+                  (FeatureReference name="v"))
+                (LiteralReal value="10.0"))))))
+      (Membership visibility="default"
+        (Definition kind="requirement" abstract=false variation=false name="R"
+          (SubjectMember name="v" type="Veh")
+          (Usage kind="requirement" name="light" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=LightReq
+              (*ast.QualifiedName)))
+          (Usage kind="requirement" name="inl" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (RequireMember
+              (ConstraintMember assert=true negated=false
+                (OperatorExpr operator="<"
+                  (FeatureChainExpr member="mass"
+                    (FeatureReference name="v"))
+                  (LiteralReal value="10.0")))))
+          (Usage kind="requirement" name="deep" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (Usage kind="requirement" name="deeper" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (RequireMember
+                (ConstraintMember assert=true negated=false
+                  (OperatorExpr operator="<"
+                    (FeatureChainExpr member="mass"
+                      (FeatureReference name="v"))
+                    (LiteralReal value="10.0"))))))
+          (Usage kind="requirement" name="two" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=LightReq
+              (*ast.QualifiedName))
+            (Multiplicity range=false
+              (LiteralInteger value="2")))
+          (Usage kind="concern" name="worry" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (RequireMember
+              (ConstraintMember assert=true negated=false
+                (OperatorExpr operator="<"
+                  (FeatureChainExpr member="mass"
+                    (FeatureReference name="v"))
+                  (LiteralReal value="10.0")))))
+          (Usage kind="frame" name="w" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Weight
+              (*ast.QualifiedName)))
+          (Usage kind="frame" name="framed" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (RequireMember
+              (ConstraintMember assert=true negated=false
+                (OperatorExpr operator="<"
+                  (FeatureChainExpr member="mass"
+                    (FeatureReference name="v"))
+                  (LiteralReal value="10.0")))))
+          (Usage kind="frame" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="references" target=weight
+              (*ast.QualifiedName)))
+          (Usage kind="requirement" name="refd" ref=true direction="none" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=LightReq
+              (*ast.QualifiedName))))))))

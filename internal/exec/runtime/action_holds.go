@@ -35,6 +35,7 @@ func (e *ActionExecutor) holds(sym *symbols.Symbol, scope *symbols.Scope) (bool,
 	if err != nil {
 		return false, err
 	}
+	defer e.ctx.beginCheckObjects(false)()
 	members := e.ctx.chainMembers(sym, scope)
 	check := conditionCheck{
 		sym:     sym,

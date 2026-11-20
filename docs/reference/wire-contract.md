@@ -103,9 +103,10 @@ The response has three fields a client reads:
 
 - `modelHash` — the handle for every later call. Present even when the model has errors.
 - `roots` — one `SymbolInfo` per document, in request order; `childIds` are the fully
-  qualified names of its top-level members. Every `id` in this API is a fully qualified name
-  (`Demo::Vehicle::mass`), and that is what `symbolId`, `contextSymbolId`, `elementId` and
-  friends take.
+  qualified names of its top-level members. An `id` in this API is a fully qualified name
+  (`Demo::Vehicle::mass`) unless the element has none or shares it with a generated id (see
+  [`GetSymbol`](#getsymbol-and-the-symbolinfo-metadata-keys)), and that is what `symbolId`,
+  `contextSymbolId`, `elementId` and friends take.
 - `diagnostics` — the parse and validation findings, absent when there are none. Their shape is
   in [Diagnostics](#diagnostics-the-shape-of-a-finding).
 
@@ -136,8 +137,13 @@ HTTP/1.1 400 Bad Request
 `GetElementProperties` answers the metamodel properties of one element by their specification
 names (`inheritedFeature`, `connectorEnd`, `directedFeature`, `payloadType`, `isComposite`, …), as
 the model's API element form — `Convert` to `api-json` — spells them, without converting the whole
-model. `elementId` is a qualified name, the positional id of an unnamed member (`Owner::@2`) or the
-form's own `@id`; `properties` names what to read, and empty reads every property the form carries
+model. The element is named by kind, as [`GetSymbol`](#getsymbol-and-the-symbolinfo-metadata-keys)
+names one: under `lookup` `LOOKUP_KIND_QUALIFIED_NAME` `elementId` is a qualified name and never an
+id, under `LOOKUP_KIND_ELEMENT_ID` it is the form's own `@id` or an id `GetSymbol` reports and never
+a name; the `symbol_lookup_kind` capability advertises the field. With no `lookup`, the legacy
+form, `elementId` is one string for either: the form's own `@id` first,
+then a qualified name, then the positional id of an unnamed member (`Owner::@2`), so here an id
+shadows the declaration spelled like it. `properties` names what to read, and empty reads every property the form carries
 for the element. Each `ElementProperty` carries its `definingClass`, `many` and `derived` from the
 metamodel, its `values` — an `element` (`id`, `qualifiedName`, `metaclass`; the id is accepted back as
 `elementId`, so a client walks the graph), a `stringValue` (an enumeration literal included), a
@@ -152,22 +158,68 @@ bundled library document declaring it, converted once per process, so a walk fro
 library continues; a library member no name catalogues — the documentation, invariants and
 connectors a part inherits from `Occurrences::Occurrence`, a declared multiplicity range — and its
 owning membership read back under the ids an answer carried them by, so every id an answer returns
-is accepted back. A missing element is an in-band `error`; a model whose document the parser could
-not read whole has no element form and reports that the same way. The `element_properties`
-capability advertises the RPC.
+is accepted back. A missing element is an in-band `error`. The model is read one document at a time:
+a document the parser could not read whole, one the element form cannot write, or one declaring an
+element an earlier document already declares (a top-level name declared again) is left out, and
+every response lists these in `excludedDocuments`, each with its `document` name and the `error`
+that kept it out — empty when the whole model was read. An element of an excluded document answers
+that document's error in-band; every other element is answered, and a value of its properties may
+still name an excluded document's element, whose id answers that document's error when read. A
+validation error alone excludes nothing, and `Convert` keeps refusing a model it cannot write
+whole. The `element_properties` capability advertises the RPC.
 
 ### `GetSymbol` and the `SymbolInfo` metadata keys
 
-`GetSymbol` answers one `SymbolInfo` for a symbol id: a fully qualified name, or the
+`GetSymbol` answers one `SymbolInfo` for the element `symbolId` names, and `lookup` states what
+kind of string that is, as the SysML v2 API & Services keeps an element's `@id` apart from its
+`qualifiedName` (KerML 1.1 8.3.2.1: `elementId` is an opaque identifier, `qualifiedName` a derived
+name, and no string is either):
+
+| `lookup` | `symbolId` is read as | Never read as |
+| --- | --- | --- |
+| `LOOKUP_KIND_QUALIFIED_NAME` | a qualified name resolved from the root namespace, as `resolveName` below describes; a segment that is not a basic name is written as the notation writes it (`Owner::'@3'`) | an id: `Owner::@3` names no unnamed member, a generated id no element |
+| `LOOKUP_KIND_ELEMENT_ID` | an id the service reported for an element, whatever its visibility: `SymbolInfo.id`, a `childIds` or `members` entry, a specialization target, a metaobject's `elementId`, an `ElementRef.id` | a name: no import is followed, no alias answered by its element |
+
+```sh
+$ … /GetSymbol -d '{"modelHash":"…","symbolId":"Col__V__c_pend0","lookup":"LOOKUP_KIND_QUALIFIED_NAME"}'   # the package declared under that name
+$ … /GetSymbol -d '{"modelHash":"…","symbolId":"Col__V__c_pend0","lookup":"LOOKUP_KIND_ELEMENT_ID"}'       # the connector end that id was generated for
+```
+
+The two share spellings, which is why the kind is stated rather than guessed. A generated id is
+spelled from names — an unnamed connector end's is `<owner>__<connector>_pend<i>`
+(`Col__V__c_pend0`), an unnamed member's `Owner::@3` — and a declaration may take either spelling:
+`package Col__V__c_pend0`, or `part '@3';` beside the fourth member of `Owner`. Every generated id
+keeps its spelling, so `GetSymbol`, `GetElementProperties` and the `api-json` and RDF exports report
+one id for one element. What keeps ids distinct is the declaration's side: a declared `@3` is
+reported under its qualified name as the notation writes it, `Owner::'@3'`, and a root declaration
+named like another element's element-form `@id` is reported under its own element-form `@id`
+(`Col_5f_5fV_5f_5fc_5fpend0`, as the export identifies it). So every id a `childIds` or `members`
+entry reports names, as an element id, the element it was reported for, and every declaration
+answers to its qualified name. The `symbol_lookup_kind` capability advertises the `lookup` of
+`GetSymbol` and of `GetElementProperties`; a service without it ignores the field and reads the
+string in the legacy form, so a client checks the capability before relying on the kind.
+
+Every other request that names a declaration — the `symbolId`, `actionSymbolId`,
+`stateMachineSymbolId`, `analysisSymbolId`, `subjectSymbolId` and `performerSymbolId` of the
+evaluation, execution, verification and session RPCs, a query's `scope`, a document query's
+`queryId`, `documentId` and `elementId` binding, and `RenderView`'s `view` — reads its string as a
+qualified name first and then as the id the service reports the element under, so an id taken from
+`GetSymbol` names its element there too, the escaped one of a colliding declaration included.
+
+The legacy form is `symbolId` with no `lookup` (`LOOKUP_KIND_UNSPECIFIED`), one string for either
+kind, kept as it was: a declared name first, then an id, so a declaration spelled like a generated id shadows the
+element the id was generated for (`symbolId: "Col__V__c_pend0"` answers the package,
+`symbolId: "Owner::@3"` the member declared `'@3'`). An id is a fully qualified name, or the
 positional id an unnamed declaration has in the query API and the export (`Owner::@3` for
-the fourth member of `Owner`, `Owner::@3::wheel` for a named member of it). `childIds` are the
+the fourth member of `Owner`, `Owner::@3::wheel` for a named member of it), or an element-form
+`@id`. `childIds` are the
 members the element itself declares under the same ids, named and unnamed alike (a `bind`, a
 `connect`, a `part : P;`, a `@M { … }` or `#M` annotation), each of which `GetSymbol` resolves;
 a member no id reaches, such as a body-local declaration, is not listed. A connection, interface
 or binding usage lists its two ends, of kind `connectorEnd`: a named end (`connect (a ::> x, b ::> y)`)
 under its qualified name, an unnamed one (`connect x to y`, `bind x = y`) under the element id
-`GetElementProperties` gives it (`Owner__c_pend0`). `GetSymbol` reads an id as a qualified name first, so a
-declaration named exactly like an unnamed end's element id is what that id answers, not the end. An end's `specializations` hold the feature it references as a
+`GetElementProperties` gives it (`Owner__c_pend0`). With no `lookup` stated `GetSymbol` reads the string as a qualified name first, so a
+declaration named exactly like an unnamed end's element id is what the string answers; `LOOKUP_KIND_ELEMENT_ID` reaches the end. An end's `specializations` hold the feature it references as a
 `references` entry, a feature chain (`x.p`) as one entry per chaining feature in chain order. With `resolveName` the
 id is instead resolved as a qualified name from the root namespace, the way the notation resolves
 `A::B` (KerML 8.2.3.5): through the visible memberships of each namespace, so a name a `public
@@ -177,9 +229,10 @@ or one behind a `private import`, is not found; an id no name spells, a position
 element id, still denotes its element. The `symbol_name_resolution` capability advertises the field: a service
 without it ignores `resolveName`, so every client checks the capability and otherwise asks by
 reported id. Without it the id is one the service reported and
-denotes that element whatever its visibility, an alias being itself; the clients' lookups by
-qualified name set it, and their navigation over `childIds`, `members` and specialization targets
-does not. `members` is every
+denotes that element whatever its visibility, an alias being itself. The clients' lookups by
+qualified name state `LOOKUP_KIND_QUALIFIED_NAME`, and their navigation over `childIds`, `members`
+and specialization targets states `LOOKUP_KIND_ELEMENT_ID`; for a service without
+`symbol_lookup_kind` the former sets `resolveName` and the latter does not. `members` is every
 member it has (KerML `Type::member`) — the owned ones first, in declaration order, then the
 inherited ones in inheritance order, each with its `kind`, `inherited` and `inheritedFrom`, a
 redefinition masking what it redefines and a private member of a supertype left out. Members
@@ -196,6 +249,12 @@ namespace it is written in and owns its Annotation (KerML 8.3.2.3), so it is nei
 member of what it annotates: `childIds` and `members` leave it out, and this field is where it is
 found. The `symbol_annotating_metadata` capability advertises the field; a service without it
 answers none.
+`memberOf` names the type the symbol is read as a feature of, by id: `metadata.direction` is then
+the feature's direction relative to that type (KerML 8.3.3.1.10 `Type::directionOf`), which a
+conjugation on the way reverses, so a feature declared `out` reads `in` through a port typed
+`~P` (SysML 8.3.12.3). Without it `direction` is the feature's own. An id that names nothing is
+an error. The `symbol_member_direction` capability advertises the field; a service without it
+ignores it.
 Beside the other typed fields (`typeInfo`, `multiplicity`, `specializations`, `attributes`),
 `metadata` is a string map of facts about the declaration, each present only when it holds:
 
@@ -248,6 +307,17 @@ time-to-live: a model stays until it is one of the least recently *used* when th
 and a new model arrives, or until the process exits. Every call that names a hash counts as a
 use, so a model in active use is not evicted. Re-parsing a model the cache still holds returns
 the same hash and does not re-parse.
+
+What a process restart keeps is the model's analysis, not the model: a parse whose documents all
+parse clean files the diagnostics its validation passes reported in the record cache (the
+`sysml-ls/libs` directory under `XDG_CACHE_HOME` or the user cache directory), under the model
+hash, the standard library's identity and the build. The next process to parse the same documents
+at the same strictness parses and indexes them, reads the diagnostics from the record instead of
+running the passes, and answers exactly what a first parse answers. A record that is missing,
+unreadable or of another model is a miss, and the model is analyzed. The model records of a cache
+directory are held to 64 MiB together, the least recently used going first, and a record no parse
+has read for 30 days is removed. `sysml-grpc -no-record-cache`, or `OPENSYSML_RECORD_CACHE=0`,
+reads and writes none.
 
 The consequence for a client: a hash is a **cache key, not a durable identifier**. Store the
 documents, not the hash; recompute by re-parsing whenever the service says the hash is gone.
@@ -309,10 +379,10 @@ Note that `not_found` is also the status for an unknown *symbol* on some methods
 which (`model not found:`, `symbol not found:`, `file not found:`), and a client that recovers
 by re-parsing must read it.
 
-## `Value`: twenty-three arms, exactly one present
+## `Value`: twenty-five arms, exactly one present
 
 Every value the engine returns — an expression result, a feature of an instance, an action
-output, a state-machine context variable — is a `Value`, which is a proto `oneof` of twenty-three
+output, a state-machine context variable — is a `Value`, which is a proto `oneof` of twenty-five
 arms. In JSON that is **an object with exactly one key**, and the key is the discriminator.
 A decoder therefore does not look for a `kind` field: it looks at which key is present. The
 arms, each captured from `Evaluate` against the model at the end of this section:
@@ -342,13 +412,16 @@ arms, each captured from `Evaluate` against the model at the end of this section
 | `tensorQuantity` | object | `{"result":{"tensorQuantity":{"dimensions":["2","2","2"],"components":[{"realMagnitude":1,"unit":"m","unitTerm":{…}},…]}}}` | Tensor of quantities of any rank; one `quantity` body per component, row-major |
 | `metaobject` | object | `{"result":{"metaobject":{"elementId":"Meta::seatBelt","metaclassId":"SysML::Systems::PartUsage"}}}` | An element of the model held as an instance of its metaclass (`x meta T`, the last member of `x.metadata`): the element it reflects on, by the id a client keeps for any element (qualified name, positional id `Owner::@2`, or the element form's `@id`), and the metaclass that classifies it |
 | `undetermined` | object | `{"result":{"undetermined":{"reason":"P::Q::d has no value in the model","count":{"lower":"1","upper":"1"}}}}` | A model-level result the model leaves open: a read of a feature with no value, or of one whose count is not fixed, or an operation over such a read. `count` bounds the values it would hold |
+| `coordinateFrame` | object | `{"result":{"coordinateFrame":{"name":"datum","frameId":"Frames::datum","typeId":"ISQSpaceTime::CartesianSpatial3dCoordinateFrame","instanceId":"1","dimensions":["3"],"axes":[{"unit":"mm","unitId":"SI::millimetre","unitTerm":{…}},…]}}}` | A coordinate frame or measurement scale held as a value: its identity, dimensions, one measurement reference per axis and, when it is posed in another frame, the transformation that places it |
+| `coordinateTransformation` | object | `{"result":{"coordinateTransformation":{"name":"transformation","source":{…},"target":{…},"sequence":{"steps":[…]},"pose":{"origin":[10,0,0],"basis":[…]}}}}` | A coordinate transformation held as a value: the frames it relates, the shape the model states it in, and the pose that shape resolves to |
 
 The `array`, `vector` and `vectorQuantity` rows were captured against
 `conformance/fixtures/structured.sysml` (`S::grid`, `S::v`, `S::d`), `measurementRef` against
 `conformance/fixtures/measurement_ref.sysml` (`M::u`), `function` against
 `conformance/fixtures/function.sysml` (`F::pick`), `set` and `tensorQuantity` against
 `conformance/fixtures/set_tensor.sysml` (`T::s.elements`, `T::cube`), `metaobject` against
-`conformance/fixtures/metaobject.sysml` (`(Meta::seatBelt meta KerML::Feature)#(1)`); the rest against the model below, with requests of the form
+`conformance/fixtures/metaobject.sysml` (`(Meta::seatBelt meta KerML::Feature)#(1)`), `coordinateFrame` and `coordinateTransformation` against
+`conformance/fixtures/coordinate_frame.sysml` (`Frames::datum`, `Frames::lbcf.transformation`); the rest against the model below, with requests of the form
 `{"modelHash":"5a89…277c","expression":"<expr>","contextSymbolId":"Rover"}` with `rover.count`,
 `RealFunctions::sqrt(2.0)`, `1.0 / 3.0`, `rover.armed`, `"abc"`, `rover.wheel`, `rover.tags`, `null`, `rover.speed`,
 `Mode::idle`, `rover.serial` and `rover.z`, and the model was:
@@ -435,6 +508,18 @@ decode(v):
                  string) and v.undetermined.count (lower and upper as strings, upper "*"
                  when unbounded); distinct from unset, from null and from false. Never
                  send it: a request carrying one is answered with INVALID_ARGUMENT
+  coordinateFrame → a frame record: name, frameId, typeId (empty = none), instanceId under
+                 the instanceId rule ("0" or absent = none), dimensions (int64 each), axes
+                 (the measurementRef rule over each), scale when present (unit by the
+                 measurementRef rule; mapping.mapped and mapping.reference by the quantity
+                 rule), transformation when present (the rule below). Never send it
+  coordinateTransformation → a transformation record: name, transformationId, typeId,
+                 instanceId, source and target when present (the coordinateFrame rule),
+                 at most one of placement (origin and each of basisDirections by decode),
+                 sequence (each step exactly one of translation, by decode, or rotation:
+                 axisDirection by decode, angle by the quantity rule, isIntrinsic), affine
+                 (rotation: 9 doubles row-major; translation: 3 doubles), and pose when
+                 present (origin: n doubles; basis: n×n doubles row-major). Never send it
   anything else → an error: a newer service than this decoder
 ```
 
@@ -601,6 +686,14 @@ input. A service that does not advertise `undetermined_value` sends the arm as a
   km/h is 5/18 m/s). A client converting between units multiplies by this ratio; a client
   comparing two quantities for the same dimension compares `factors`. The scale is a
   *ratio*, not a decimal — do not read `scaleNum` alone as "the scale".
+- `valueType` is the fully qualified name of the quantity value type the quantity is held as
+  (`ISQThermodynamics::EnergyValue` for one read off `e : ISQ::EnergyValue`), absent for a
+  quantity held as none, which every computed one is. A client keeps it and sends it back with
+  the quantity, so the quantity is still of that type: `ISQ::TorqueValue` refuses the energy,
+  where it takes the same magnitude sent without a `valueType`. It is no part of the value, so
+  equality does not read it. The service refuses a `valueType` naming no quantity value type of
+  the model, or one of another dimension than the unit. No capability governs it: a service
+  that predates the field sends none and ignores one sent.
 
 **`enumLiteral`.** Three strings: `literalId`, the fully qualified name of the literal and its
 **identity**; `enumerationId`, the fully qualified name of its enumeration; and `name`, a
@@ -844,6 +937,84 @@ $ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"Meta::notADefinitio
   `{"null":"unsupported: metaobject Meta::seatBelt : SysML::Systems::PartUsage"}` and refuses a
   request carrying one.
 
+**`coordinateFrame` and `coordinateTransformation`.** A feature typed by a
+`MeasurementReferences::CoordinateFrame` evaluates to the frame, and one typed by a
+`CoordinateTransformation` to the transformation; a part's `coordinateFrame` and a frame's
+`transformation` are the usual reads. Each travels as what the model states rather than as a
+rendering of it:
+
+```json
+{"result":{"coordinateFrame":{"name":"lbcf","frameId":"Frames::lbcf",
+  "typeId":"ISQSpaceTime::CartesianSpatial3dCoordinateFrame","instanceId":"1","dimensions":["3"],
+  "axes":[{"unit":"mm","unitId":"SI::millimetre","unitTerm":{…}},…],
+  "transformation":{"name":"transformation","transformationId":"Frames::lbcf::transformation",
+    "typeId":"MeasurementReferences::TranslationRotationSequence","instanceId":"2",
+    "source":{"name":"datum","frameId":"Frames::datum",…},
+    "sequence":{"steps":[
+      {"translation":{"vectorQuantity":{"components":[…]}},"instanceId":"4"},
+      {"rotation":{"axisDirection":{"vectorQuantity":{…}},"angle":{"intMagnitude":"180","unit":"'°'",…},"isIntrinsic":true},"instanceId":"5"}]},
+    "pose":{"origin":[10,0,0],"basis":[-0.9999999999998971,-4.5358979340358856e-07,0,…]}}}}}
+```
+
+- **Identity.** `name` is how a reader names the frame: its declared name, else the
+  expression that composed it (`datum / s`). `frameId` (`transformationId`) is the qualified
+  name of the usage declaring it and is absent for one an operation composed; `typeId` names
+  its type. `instanceId` is the object it was read from and follows the `instanceId` rule: it
+  is meaningful in this response only.
+- **Axes and scale.** `axes` is the frame's `mRefs`, one `measurementRef` body per axis, and
+  `dimensions` its shape. A measurement scale has no axes and carries `scale` instead: the
+  `unit` it is measured in and, when the model defines it against another reference (a
+  `QuantityValueMapping`, as degrees Celsius against kelvin), `mapping` with one point on the
+  scale (`mapped`) and the same point on the reference (`reference`), both `quantity` bodies.
+- **Endpoints.** A transformation names the frame it is stated in as `source` and the frame it
+  places as `target`. A frame's own `transformation` omits `target`: the frame holding it is
+  that target, and repeating it would nest the frame in itself without end. A `source` or
+  `target` does not carry its own `transformation` when that would re-enter a frame already
+  being written.
+- **Shape.** At most one of three keys says how the model states the transformation:
+  `placement` (a `CoordinateFramePlacement`: the target's `origin` in the source and, when
+  stated, its `basisDirections`, each a `Value`), `sequence` (a `TranslationRotationSequence`:
+  `steps` in the order applied, each either a `translation` vector or a `rotation` by `angle`
+  about `axisDirection`, about the already-rotated axes when `isIntrinsic`), or `affine` (an
+  `AffineTransformationMatrix3d`: a 3×3 `rotation`, row-major, and a `translation`). None is
+  present for a transformation that states none.
+- **Pose.** `pose` is what the shape resolves to, so a consumer placing geometry needs no
+  rotation algebra of its own: a point with coordinates `v` in the target frame lies at
+  `origin + basis · v` in the source frame, in the source's axis units. `v` is read in the
+  target's own axis units, so `basis` carries the conversion between the two as well as the
+  rotation: a metre frame placed unrotated in a millimetre one has 1000 down its diagonal.
+  `origin` has one number per source axis and `basis` is n×n, row-major. It is computed from the units the model
+  names, so the library's degree (0.01745329 rad) puts a 180° turn within 5e-7 of a half turn, as above. It is absent when the transformation states no
+  source or its shape resolves to no pose; it is never a guess.
+- **Equality.** A client compares two frames as the service does. When either carries an
+  `instanceId`, they are equal exactly when `instanceId` and `frameId` both match: one object
+  of one usage, whether or not its `transformation` was sent (a frame cut short at a cycle is
+  still itself) and whatever `name` it was read under. Frames with no `instanceId`, composed
+  by an operation, are equal when `dimensions`, `axes`, `scale` and `transformation` are;
+  `name`, `frameId` and `typeId` do not count. Two transformations are equal when `source`,
+  `target` and the stated shape are, steps compared by what they do and not by their
+  `instanceId`; `name`, `typeId` and `pose` do not count, and a transformation stating no
+  shape equals only one with the same `instanceId` and `transformationId`. Two limits follow
+  from what is sent. An `instanceId` means nothing across responses, so the comparison is
+  sound within one response; `frameId` keeps two different usages apart across responses,
+  but not two objects of one usage. And a frame's own `transformation` carries no `target`,
+  so a client equates it with a transformation read directly only when both carry the same
+  `instanceId` and `transformationId`; an absent `target` otherwise equals only an absent one.
+- **Output only.** Neither arm is an argument: a request carrying one, at any depth, is
+  answered with `INVALID_ARGUMENT`, and the typed clients refuse to encode one.
+- A frame or transformation holding a value that itself has no wire form is withheld whole, as
+  the unsupported null naming it and the value it holds; half a pose is not sent.
+- The arms are gated by the `coordinate_frame_values` capability (see [Capabilities, and what an absent one does](service-transports.md#capabilities-and-what-an-absent-one-does)).
+  A service without it sends each, at any depth, as an unsupported null:
+  `{"null":"unsupported: coordinate frame datum [mm, mm, mm]"}`,
+  `{"null":"unsupported: coordinate transformation transformation (datum → lbcf)"}`.
+
+The typed clients read them as `CoordinateFrame` and `CoordinateTransformation` (Go, Python,
+Java, Rust, Julia), `CoordinateFrameValue` and `CoordinateTransformationValue` (Node), and
+structs marked `coordinateFrame` / `coordinateTransformation` (MATLAB). Go, Python, Node, Java,
+Rust and Julia define equality over them by the rule above; MATLAB returns plain structs and
+defines none.
+
 ### What a client must not do
 
 - **Do not compare enum literals by `name`.** Compare `literalId`.
@@ -994,7 +1165,7 @@ HTTP/1.1 400 Bad Request
 
 $ … /Query -d '{"modelHash":"2af5…dea2","query":{"where":{"primitive":{"property":"colour","operator":"PRIMITIVE_OPERATOR_EQUAL","value":["red"]}}}}'
 HTTP/1.1 400 Bad Request
-{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, body, declaredName, declaredShortName, documentation, elementId, general, isAbstract, isIndividual, language, locale, multiplicityLower, multiplicityUpper, name, owner, payloadArgument, qualifiedName, receiverArgument, satisfiedRequirement, satisfyingFeature, senderArgument, shortName, textualRepresentation, type"}
+{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, body, declaredName, declaredShortName, documentation, elementId, general, isAbstract, isIndividual, language, locale, multiplicityLower, multiplicityUpper, name, owner, payloadArgument, qualifiedName, receiverArgument, satisfiedRequirement, satisfyingFeature, senderArgument, shortName, symbolKind, text, textualRepresentation, type, verifiedRequirement, verifyingCase"}
 
 $ … /ApplyEdits -d '{"modelHash":"997e…6134","acceptDocuments":true,"document":"nope.sysml","operations":[{"rename":{"target":"EngineUser::Car","newName":"Automobile"}}]}'
 HTTP/1.1 400 Bad Request
@@ -2206,6 +2377,17 @@ library stubs written before 0.11.0 inside the API JSON element array (or compac
 stubs carry `@id`, `@type`, `declaredName`, `elementId`, `isLibraryElement: true` and
 `qualifiedName`; an OMG API reader treats them as roots. Prefer the separate table
 for new clients. It composes with `documents`, `idForm` and `compact`.
+
+`inheritedMembers`, advertised as `convert_inherited_members`, also writes on every
+Namespace and Type of the API JSON element array the seven derived lists that repeat its
+inherited and imported members: `membership`, `member`, `inheritedMembership`,
+`importedMembership`, `featureMembership`, `feature` and `inheritedFeature`, each named in the element's
+`sysx:completedProperties`. It is default-off and is `invalid_argument` for any other
+target. Without it an element carries its owned structure (`ownedMembership`,
+`ownedMember`, `ownedFeature` and every other property), from which a reader derives
+those lists; element ids and every other property are the same either way. A list the
+graph itself states is written regardless. A service without the capability always
+writes the lists.
 
 The Node client exposes `Conversion.libraryReferences` and the
 `includeLibraryStubs` option on `Connection.convert` and `Model.convert`.

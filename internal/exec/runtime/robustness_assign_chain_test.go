@@ -19,7 +19,7 @@ func TestRuntimeRobustnessAssignChain(t *testing.T) {
 	t.Run("assign_chain_multiplicity_violation", testAssignChainMultiplicityViolation)
 	t.Run("assign_chain_unset_step", testAssignChainUnsetStep)
 	t.Run("assign_chain_unreachable_base", testAssignChainUnreachableBase)
-	t.Run("assign_chain_rejected_in_calc_body", testAssignChainRejectedInCalcBody)
+	t.Run("assign_chain_unreachable_base_in_calc_body", testAssignChainUnreachableBaseInCalcBody)
 }
 
 // chainMarkFixture is a car with a two-place mate and an empty missing part,

@@ -21,7 +21,9 @@ import (
 // parsed model by their specification names, from the model's API element
 // form: the same values Convert writes as api-json, one element at a time. A
 // standard-library element — one a value referenced, or a library qualified
-// name — is read from the form of the library document declaring it.
+// name — is read from the form of the library document declaring it. The model
+// is read without its excluded documents, which every response names; only an
+// element of an excluded document answers that document's error.
 func (s *Service) GetElementProperties(ctx context.Context, req *pb.GetElementPropertiesRequest) (*pb.GetElementPropertiesResponse, error) {
 	if err := s.requireCapability(CapabilityElementProperties); err != nil {
 		return nil, err
@@ -38,21 +40,32 @@ func (s *Service) GetElementProperties(ctx context.Context, req *pb.GetElementPr
 			return nil, statusError(connect.CodeInvalidArgument, "a property name is empty")
 		}
 	}
+	exclusions := cached.documentExclusions()
+	resp := s.elementProperties(cached, req, exclusions)
+	resp.ExcludedDocuments = exclusions
+	return resp, nil
+}
+
+// elementProperties answers req over the documents the model is read with.
+func (s *Service) elementProperties(cached *CachedModel, req *pb.GetElementPropertiesRequest, exclusions []*pb.ExcludedDocument) *pb.GetElementPropertiesResponse {
 	form, err := cached.ElementForm()
 	if err != nil {
-		return &pb.GetElementPropertiesResponse{Error: err.Error()}, nil
+		return &pb.GetElementPropertiesResponse{Error: err.Error()}
 	}
-	element, ok := cached.elementFormElement(form, req.ElementId)
+	element, ok := s.elementLookup(cached, req)(form)
 	if !ok {
+		if excluded := cached.excludedDocumentOf(form, req.ElementId, exclusions); excluded != nil {
+			return &pb.GetElementPropertiesResponse{Error: excluded.Error}
+		}
 		// A standard-library element the model's form references, or names,
 		// is read from its own library document's form.
 		var known bool
-		element, form, known, err = export.LibraryElementForm(req.ElementId)
+		element, form, known, err = s.libraryElementForm(req)
 		if err != nil {
-			return &pb.GetElementPropertiesResponse{Error: err.Error()}, nil
+			return &pb.GetElementPropertiesResponse{Error: err.Error()}
 		}
 		if !known {
-			return &pb.GetElementPropertiesResponse{Error: fmt.Sprintf("element not found: %s", req.ElementId)}, nil
+			return &pb.GetElementPropertiesResponse{Error: fmt.Sprintf("element not found: %s", req.ElementId)}
 		}
 	}
 	resp := &pb.GetElementPropertiesResponse{Element: elementRefOf(form, element.ID)}
@@ -60,60 +73,159 @@ func (s *Service) GetElementProperties(ctx context.Context, req *pb.GetElementPr
 		for _, property := range element.Properties {
 			resp.Properties = append(resp.Properties, elementPropertyOf(form, element, property.Name))
 		}
-		return resp, nil
+		return resp
 	}
 	for _, name := range req.Properties {
 		resp.Properties = append(resp.Properties, elementPropertyOf(form, element, name))
 	}
-	return resp, nil
+	return resp
 }
 
-// ElementForm is the model's API element form, converted once per model. A
-// document the parser could not read whole refuses the conversion, as Convert
-// refuses it: the form would silently miss what the parser skipped.
+// ElementForm is the API element form of the documents the model is read with, converted once per
+// model: an excluded document does not refuse the others' elements, as Convert refuses the model whole.
 func (m *CachedModel) ElementForm() (*export.ElementForm, error) {
+	m.readElementForm()
+	return m.elementForm, m.elementFormErr
+}
+
+// documentExclusions is the documents the model is read without, in document order: one the parser
+// could not read whole, one the form cannot write, one whose ids an earlier document already declares.
+func (m *CachedModel) documentExclusions() []*pb.ExcludedDocument {
+	m.readElementForm()
+	return m.elementFormExclusions
+}
+
+// readElementForm converts the model's readable documents once, keeping the ones left out.
+func (m *CachedModel) readElementForm() {
 	m.elementFormOnce.Do(func() {
+		unreadable := map[string]error{}
 		documents := make([]export.ModelDocument, 0, len(m.Documents))
 		for _, doc := range m.Documents {
 			if doc == nil || doc.Source == nil {
 				continue
 			}
 			if syntax := convert.SyntaxErrorOf(doc.Source.Name(), doc.Source, doc.ParseDiags); syntax != nil {
-				m.elementFormErr = syntax
-				return
+				unreadable[doc.Source.Name()] = syntax
 			}
 			documents = append(documents, export.ModelDocument{File: doc.Source, Root: doc.Root})
 		}
-		m.elementForm, m.elementFormErr = export.ModelElementForm(documents)
+		var excluded []export.ExcludedDocument
+		m.elementForm, excluded, m.elementFormErr = export.ReadableModelElementForm(documents, unreadable)
+		for _, exclusion := range excluded {
+			m.elementFormExclusions = append(m.elementFormExclusions, &pb.ExcludedDocument{Document: exclusion.Document, Error: exclusion.Err.Error()})
+		}
 	})
-	return m.elementForm, m.elementFormErr
 }
 
-// elementFormElement finds the element a request names: by the form's "@id", else by qualified
-// name from the root (CachedModel.ResolveMemberName), else as the form or a member chain names it.
-func (m *CachedModel) elementFormElement(form *export.ElementForm, id string) (export.APIJSONElement, bool) {
+// excludedDocumentOf is the excluded document declaring the element id names or
+// identifies; nil when none does, or a document the model is read with declares it too.
+func (m *CachedModel) excludedDocumentOf(form *export.ElementForm, id string, exclusions []*pb.ExcludedDocument) *pb.ExcludedDocument {
+	if len(exclusions) == 0 {
+		return nil
+	}
+	excluded := make(map[string]*pb.ExcludedDocument, len(exclusions))
+	for _, exclusion := range exclusions {
+		excluded[exclusion.Document] = exclusion
+	}
+	if document, ok := form.ExcludedDocumentOf(id); ok {
+		return excluded[document]
+	}
+	var found *pb.ExcludedDocument
+	for _, syms := range [][]*symbols.Symbol{m.LookupElementID(id), symbolfacts.LookupNamed(m.Index, id), m.LookupNamedMember(id)} {
+		for _, sym := range syms {
+			exclusion, isExcluded := excluded[sym.DocName]
+			if !isExcluded {
+				return nil
+			}
+			if found == nil {
+				found = exclusion
+			}
+		}
+	}
+	return found
+}
+
+// elementLookup is the lookup a request's kind states; without a kind, element_id is read
+// as the form's "@id" first, then as a name.
+func (s *Service) elementLookup(cached *CachedModel, req *pb.GetElementPropertiesRequest) func(*export.ElementForm) (export.APIJSONElement, bool) {
+	if s.capabilities.has(CapabilitySymbolLookupKind) {
+		switch req.Lookup {
+		case pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME:
+			return func(form *export.ElementForm) (export.APIJSONElement, bool) {
+				return cached.elementFormElementNamed(form, req.ElementId, cached.ResolveQualifiedMemberName)
+			}
+		case pb.LookupKind_LOOKUP_KIND_ELEMENT_ID:
+			return func(form *export.ElementForm) (export.APIJSONElement, bool) {
+				return cached.elementFormElementByID(form, req.ElementId)
+			}
+		}
+	}
+	return func(form *export.ElementForm) (export.APIJSONElement, bool) {
+		if element, ok := form.ByID(req.ElementId); ok {
+			return element, true
+		}
+		return cached.elementFormElementNamed(form, req.ElementId, cached.ResolveMemberName)
+	}
+}
+
+// libraryElementForm reads a standard-library element as req's lookup kind states it: by
+// qualified name alone, else by the form's id or the name GetSymbol reports it under.
+func (s *Service) libraryElementForm(req *pb.GetElementPropertiesRequest) (export.APIJSONElement, *export.ElementForm, bool, error) {
+	if s.capabilities.has(CapabilitySymbolLookupKind) && req.Lookup == pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME {
+		return export.LibraryElementFormNamed(req.ElementId)
+	}
+	return export.LibraryElementForm(req.ElementId)
+}
+
+// elementFormElementByID finds the element an id names: the form's "@id", else the id
+// GetSymbol reports the element under.
+func (m *CachedModel) elementFormElementByID(form *export.ElementForm, id string) (export.APIJSONElement, bool) {
 	if element, ok := form.ByID(id); ok {
 		return element, true
 	}
-	var sym *symbols.Symbol
-	if syms := m.ResolveMemberName(id); len(syms) > 0 {
-		sym = syms[0]
-	} else if len(symbolfacts.LookupNamed(m.Index, id)) > 0 {
-		// Declared, and not visible from the root namespace.
-		return export.APIJSONElement{}, false
-	} else if element, ok := form.ByQualifiedName(id); ok {
-		return element, true
-	} else if syms := m.LookupNamedMember(id); len(syms) > 0 {
-		sym = syms[0]
+	return m.elementFormElementOfAny(form, m.LookupElementID(id))
+}
+
+// elementFormElementNamed finds the element a name states: resolved from the root by
+// resolve, else as the form or a member chain names it.
+func (m *CachedModel) elementFormElementNamed(form *export.ElementForm, name string, resolve func(string) []*symbols.Symbol) (export.APIJSONElement, bool) {
+	syms := resolve(name)
+	if len(syms) == 0 {
+		if len(symbolfacts.LookupNamed(m.Index, name)) > 0 {
+			// Declared, and not visible from the root namespace.
+			return export.APIJSONElement{}, false
+		}
+		if element, ok := form.ByQualifiedName(name); ok {
+			return element, true
+		}
+		syms = m.LookupNamedMember(name)
 	}
-	if sym == nil {
-		return export.APIJSONElement{}, false
+	return m.elementFormElementOfAny(form, syms)
+}
+
+// elementFormElementOfAny is the form's element for the first of syms it holds: a name two
+// documents declare is read from the one the model is read with.
+func (m *CachedModel) elementFormElementOfAny(form *export.ElementForm, syms []*symbols.Symbol) (export.APIJSONElement, bool) {
+	for _, sym := range syms {
+		if element, ok := m.elementFormElementOf(form, sym); ok {
+			return element, true
+		}
 	}
-	identity := m.SymbolContext().Identity(sym)
+	return export.APIJSONElement{}, false
+}
+
+// elementFormElementOf is the form's element for a symbol of the model.
+func (m *CachedModel) elementFormElementOf(form *export.ElementForm, sym *symbols.Symbol) (export.APIJSONElement, bool) {
+	identity := m.SymbolContext().OwnIdentity(sym)
 	if fqn := m.Index.GetFQN(sym); fqn != "" {
 		if element, ok := form.ByQualifiedName(fqn); ok {
 			return element, true
 		}
+	}
+	// The form's own ids first: they are those of the documents it reads, where
+	// the whole model's may be refused for a document it leaves out.
+	if elementID, ok := form.IDOfDeclaration(sym.DocName, sym.Decl, identity); ok {
+		return form.ByID(elementID)
 	}
 	elementID, err := m.elementIDReader().Read(sym.DocName, sym.Decl, identity)
 	if err != nil || elementID == "" {

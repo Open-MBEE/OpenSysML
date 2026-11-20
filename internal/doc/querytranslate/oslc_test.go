@@ -229,7 +229,8 @@ func TestOSLCPropertyNamespacesFollowTheMetamodel(t *testing.T) {
 			continue
 		}
 		prefix := "sysml:"
-		if name == query.PropertyMultiplicityLower || name == query.PropertyMultiplicityUpper {
+		switch name {
+		case query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper, query.PropertySymbolKind, query.PropertyVerifyingCase:
 			prefix = "sysx:"
 		}
 		if _, err := ParseOSLC(prefix+name+`="x"`, nil); err != nil {
@@ -445,7 +446,7 @@ func TestParseOSLCPropertyDiagnosticsFollowTheActiveBindings(t *testing.T) {
 		t.Errorf("error = %#v, want ErrMalformed naming the unusable prefix", err)
 	}
 	names, unbound := PrefixedPropertyNames(map[string]string{"rdf": rdf.RDFNS}, NewTable(nil, nil))
-	if len(names) != 1 || names[0] != "rdf:type" || len(unbound[rdf.SysML]) == 0 || len(unbound[rdf.OpenSysML]) != 2 {
+	if len(names) != 1 || names[0] != "rdf:type" || len(unbound[rdf.SysML]) == 0 || len(unbound[rdf.OpenSysML]) != 4 {
 		t.Errorf("names = %#v, unbound = %#v", names, unbound)
 	}
 }
@@ -601,4 +602,64 @@ func TestDefaultProjectionReportsEveryPropertyButElementID(t *testing.T) {
 	if slices.Contains(got, query.PropertyElementID) {
 		t.Errorf("DefaultProjection reads elementId: %v", got)
 	}
+}
+
+func TestObjectQuerySelectingNothingProjectsSymbolKind(t *testing.T) {
+	plan, err := Translate(mustParse(t, `rdf:type=elmt:`+rdf.EncodeElementID("Demo::Vehicle")), Context{}, "Test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !plan.Objects || !slices.Contains(plan.Columns, query.PropertySymbolKind) {
+		t.Errorf("objects = %v, columns = %v, want symbolKind among them", plan.Objects, plan.Columns)
+	}
+	if slices.Contains(plan.Columns, query.PropertyText) {
+		t.Errorf("columns = %v, want no metaclass property", plan.Columns)
+	}
+}
+
+func TestOnlyUnnamedColumnsTolerateUnevaluableFeatures(t *testing.T) {
+	tolerated := func(q Query) []string {
+		plan, err := Translate(q, Context{}, "Test")
+		if err != nil {
+			t.Fatal(err)
+		}
+		project := plan.Program.Definitions()[0].Expression()
+		for project.Operation() == queryplan.OperationOrderBy {
+			project = argumentNamed(t, project, "source")
+		}
+		if project.Operation() != queryplan.OperationProject {
+			t.Fatalf("operation under the ordering = %s, want project", project.Operation())
+		}
+		var names []string
+		for _, a := range project.Arguments() {
+			if a.Name == queryplan.ArgumentTolerateUnevaluable {
+				for _, item := range a.Value.Arguments() {
+					_, name := item.Value.Literal()
+					names = append(names, name)
+				}
+			}
+		}
+		return names
+	}
+	if got := tolerated(Query{}); !slices.Equal(got, DefaultProjection()) {
+		t.Errorf("a query naming nothing tolerates %v, want every default column", got)
+	}
+	got := tolerated(Query{OrderBy: []OrderTerm{{Property: query.PropertyText}}})
+	if slices.Contains(got, query.PropertyText) || !slices.Contains(got, query.PropertyBody) {
+		t.Errorf("ordered by text, tolerated = %v, want every default column but text", got)
+	}
+	if got := tolerated(Query{Select: []Selection{{Property: query.PropertyText}}}); len(got) != 0 {
+		t.Errorf("a query selecting text tolerates %v, want none", got)
+	}
+}
+
+func argumentNamed(t *testing.T, expression queryplan.Expression, name string) queryplan.Expression {
+	t.Helper()
+	for _, a := range expression.Arguments() {
+		if a.Name == name {
+			return a.Value
+		}
+	}
+	t.Fatalf("%s has no argument %s", expression.Operation(), name)
+	return queryplan.Expression{}
 }

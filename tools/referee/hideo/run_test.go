@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -144,6 +145,62 @@ func TestReaderRun(t *testing.T) {
 	absent := reader{suite: "opensysml-py", dir: ".", args: []string{filepath.Join(dir, "no-such-interpreter")}}
 	if err := absent.run(context.Background(), dir, results, os.Environ(), &log); err == nil || !strings.Contains(err.Error(), "opensysml-py") {
 		t.Errorf("a reader that cannot start: %v", err)
+	}
+}
+
+// The Go readers resolve a requirement this module raised past the suite's, through a copy
+// of the suite's module files: the suite's own stay as pinned.
+func TestGoReadersResolveARaisedRequirementInACopy(t *testing.T) {
+	root := t.TempDir()
+	mdk, module, scratch := filepath.Join(root, "mdk"), filepath.Join(root, "reader"), filepath.Join(root, "scratch")
+	files := map[string]string{
+		filepath.Join(root, "dep1", "go.mod"): "module example.test/dep\n\ngo 1.26\n",
+		filepath.Join(root, "dep1", "dep.go"): "package dep\n\nconst Version = 1\n",
+		filepath.Join(root, "dep2", "go.mod"): "module example.test/dep\n\ngo 1.26\n",
+		filepath.Join(root, "dep2", "dep.go"): "package dep\n\nconst Version = 2\n",
+		filepath.Join(mdk, "go.mod"):          "module example.test/mdk\n\ngo 1.26\n\nrequire example.test/dep v1.1.0\n",
+		filepath.Join(mdk, "mdk.go"):          "package mdk\n\nimport \"example.test/dep\"\n\nconst Version = dep.Version\n",
+		filepath.Join(module, "go.mod"): "module example.test/reader\n\ngo 1.26\n\nrequire example.test/mdk v0.0.0\n\n" +
+			"require example.test/dep v1.0.0 // indirect\n\nreplace example.test/mdk => ../mdk\n\n" +
+			"replace example.test/dep v1.0.0 => ../dep1\n\nreplace example.test/dep v1.1.0 => ../dep2\n",
+		filepath.Join(module, "go.sum"): "",
+		filepath.Join(module, "reader_test.go"): "package reader\n\nimport (\n\t\"testing\"\n\n\t\"example.test/mdk\"\n)\n\n" +
+			"func TestVersion(t *testing.T) {\n\tif mdk.Version != 2 {\n\t\tt.Fatal(mdk.Version)\n\t}\n}\n",
+	}
+	for name, text := range files {
+		if err := os.MkdirAll(filepath.Dir(name), 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(name, []byte(text), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Mkdir(scratch, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	modfile, err := scratchModule(module, scratch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := append(os.Environ(), "GOFLAGS=-count=1", "GOWORK=off", "GOPROXY=off")
+	run := func(args []string) (string, error) {
+		cmd := exec.Command(args[0], args[1:]...) // #nosec G204 -- the go command over a module this test wrote
+		cmd.Dir, cmd.Env = module, env
+		out, err := cmd.CombinedOutput()
+		return string(out), err
+	}
+	args := []string{"go", "test", "-v", "./..."}
+	if out, err := run(args); err == nil || !strings.Contains(out, "updates to go.mod needed") {
+		t.Fatalf("the suite's own module file resolves the raised requirement: %v\n%s", err, out)
+	}
+	if out, err := run(withModfile(args, modfile)); err != nil {
+		t.Fatalf("%v: %v\n%s", withModfile(args, modfile), err, out)
+	}
+	if got, err := os.ReadFile(filepath.Join(module, "go.mod")); err != nil || string(got) != files[filepath.Join(module, "go.mod")] {
+		t.Errorf("the suite's go.mod was rewritten (%v):\n%s", err, got)
+	}
+	if got, err := os.ReadFile(modfile); err != nil || !strings.Contains(string(got), "example.test/dep v1.1.0") {
+		t.Errorf("the copy does not carry the raised requirement (%v):\n%s", err, got)
 	}
 }
 

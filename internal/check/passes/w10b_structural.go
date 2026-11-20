@@ -153,6 +153,9 @@ func w10bIsComposite(u *ast.Usage) bool {
 }
 
 func w10bReferences(u *ast.Usage) bool {
+	if u.Kind.ReferenceSubsettingSpecializes() {
+		return false
+	}
 	for _, rel := range u.Relationships {
 		if rel != nil && rel.Kind == ast.RelReferences {
 			return true

@@ -118,6 +118,32 @@ function test_decode_value()
     assert_equal(u.reason, 'r', 'undetermined reason');
     assert_equal(u.lower, '0', 'undetermined lower');
 
+    mm = struct('unit', 'mm', 'unitId', 'SI::millimetre', 'unitTerm', struct('scaleNum', 1, 'scaleDen', 1000));
+    len = struct('realMagnitude', 10, 'unit', 'mm', 'unitTerm', mm.unitTerm);
+    vec = struct('vectorQuantity', struct('components', {{len, len, len}}));
+    datum = struct('name', 'datum', 'frameId', 'Frames::datum', 'axes', {{mm, mm, mm}});
+    steps = {struct('translation', vec, 'instanceId', '7'), ...
+             struct('rotation', struct('axisDirection', vec, 'angle', len, 'isIntrinsic', true))};
+    posing = struct('name', 'transformation', 'source', datum, ...
+                    'sequence', struct('steps', {steps}), ...
+                    'pose', struct('origin', [10 0 0], 'basis', [-1 0 0 0 -1 0 0 0 1]));
+    posed = datum; posed.name = 'lbcf'; posed.transformation = posing;
+    f = opensysml.decodeValue(struct('coordinateFrame', posed));
+    assert_equal(f.coordinateFrame, true, 'frame is marked as one');
+    assert_equal(f.name, 'lbcf', 'frame name');
+    assert_equal(numel(f.axes), 3, 'frame axes');
+    assert_equal(f.transformation.source.frameId, 'Frames::datum', 'transformation source');
+    assert_equal(isfield(f.transformation, 'target'), false, 'own transformation names no target');
+    assert_equal(numel(f.transformation.sequence.steps), 2, 'sequence steps');
+    assert_equal(f.transformation.sequence.steps{2}.rotation.isIntrinsic, true, 'rotation is intrinsic');
+    assert_equal(f.transformation.pose.origin, [10 0 0], 'pose origin');
+    t = opensysml.decodeValue(struct('coordinateTransformation', ...
+        struct('source', datum, 'target', datum, 'placement', struct('origin', vec))));
+    assert_equal(t.coordinateTransformation, true, 'transformation is marked as one');
+    assert_equal(t.target.name, 'datum', 'transformation target');
+    assert_error(@() opensysml.decodeValue(struct('coordinateTransformation', ...
+        struct('sequence', struct('steps', {{struct()}})))), 'opensysml:decode', 'a step with no kind');
+
     assert_error(@() opensysml.decodeValue(struct('mystery', struct())), 'opensysml:unknownArm', 'unknown arm');
     fprintf('decode_value ok\n');
 end

@@ -41,6 +41,26 @@ func TestQueryFlagIdentifiesUnnamedSatisfyAndItsEnds(t *testing.T) {
 	}
 }
 
+// A member declared `'@2'` and the unnamed member at position 2 are reported under identities of their own.
+func TestQueryFlagKeepsDeclaredPositionalNameApartFromUnnamedMember(t *testing.T) {
+	binary := buildCLI(t)
+	model := filepath.Join(t.TempDir(), "model.sysml")
+	const queryModel = `package C { part def A; part '@2' : A; part : A; part 'it\'s' : A; }`
+	if err := os.WriteFile(model, []byte(queryModel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := run(t, binary, "-query", `oslc.where=rdf:type="PartUsage"&oslc.select=sysml:elementId,sysml:qualifiedName`, model)
+	for _, want := range []string{
+		"C::'@2'  PartUsage  sysml:elementId=C___27_402_27  sysml:qualifiedName=C::@2\n",
+		"C::@2  PartUsage  sysml:elementId=C___402\n",
+		"sysml:qualifiedName=C::it's\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("query output = %s, want it to contain %q", out, want)
+		}
+	}
+}
+
 func TestQueryFlagReportsNoMatchOnStderr(t *testing.T) {
 	binary := buildCLI(t)
 	model := filepath.Join(t.TempDir(), "model.sysml")

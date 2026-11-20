@@ -31,7 +31,7 @@
           (Membership visibility="default"
             (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="assert" negated=true
               (PrefixMetadata type="Safety")
-              (Relationship kind="subsets" target=touchdown
+              (Relationship kind="references" target=touchdown
                 (*ast.QualifiedName))
               (Relationship kind="by" target=lander
                 (*ast.QualifiedName))))))

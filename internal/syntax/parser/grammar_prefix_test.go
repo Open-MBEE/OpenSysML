@@ -36,6 +36,23 @@ func TestNegativePrefixAlternatives(t *testing.T) {
 			"'variation' cannot prefix an enumeration definition: an enum def admits no definition prefix and is always a variation"},
 		{"individual_enumeration_definition", "a.sysml", "package P { individual enum def I; }", "individual",
 			"'individual' cannot prefix an enumeration definition: an enum def admits no definition prefix and is always a variation"},
+		// MetadataDefinition admits 'abstract' alone (SysML.xtext:121).
+		{"variation_metadata_definition", "a.sysml", "package P { variation metadata def M; }", "variation",
+			"'variation' cannot prefix a metadata definition: a metadata def admits only 'abstract'"},
+		{"individual_metadata_definition", "a.sysml", "package P { individual metadata def M; }", "individual",
+			"'individual' cannot prefix a metadata definition: a metadata def admits only 'abstract'"},
+		// DefinitionPrefix has no 'individual'; OccurrenceDefinitionPrefix does (SysML.xtext:498, :804).
+		{"individual_attribute_definition", "a.sysml", "package P { individual attribute def A; }", "individual",
+			"'individual' cannot prefix an attribute definition: only an occurrence definition admits 'individual'"},
+		{"individual_port_definition", "a.sysml", "package P { individual port def Q; }", "individual",
+			"'individual' cannot prefix a port definition: only an occurrence definition admits 'individual'"},
+		// MetadataUsage reads extension keywords alone (SysML.xtext:140).
+		{"abstract_metadata_usage", "a.sysml", "package P { metadata def M; abstract metadata m : M; }", "abstract",
+			"'abstract' cannot prefix a metadata usage: a metadata usage admits no 'abstract', 'variation' or 'individual'"},
+		{"variation_metadata_usage", "a.sysml", "package P { metadata def M; variation metadata m : M; }", "variation",
+			"'variation' cannot prefix a metadata usage: a metadata usage admits no 'abstract', 'variation' or 'individual'"},
+		{"individual_metadata_usage", "a.sysml", "package P { metadata def M; individual metadata m : M; }", "individual",
+			"'individual' cannot prefix a metadata usage: a metadata usage admits no 'abstract', 'variation' or 'individual'"},
 		// abstract and variation are alternatives (SysML.xtext:556 RefPrefix).
 		{"abstract_variation_usage", "a.sysml", "package P { part def V; abstract variation part v : V; }", "variation",
 			"'variation' cannot follow 'abstract': a prefix says 'abstract' or 'variation', not both"},

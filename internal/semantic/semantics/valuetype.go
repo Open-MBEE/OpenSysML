@@ -343,7 +343,7 @@ func (m *Model) inheritedResultType(sym *symbols.Symbol, seen map[*symbols.Symbo
 	}
 	seen[sym] = true
 	var features []*symbols.Symbol
-	bases := m.ImplicitGenerals(sym)
+	bases := m.generalsOutsideTyping(sym)
 	for _, super := range m.DirectSupertypes(sym) {
 		if alias, ok := m.resolver.ResolveAliasTarget(super); ok {
 			super = alias
@@ -438,7 +438,7 @@ func (m *Model) typingValue(sym *symbols.Symbol) ast.Node {
 		return nil
 	}
 	for _, rel := range u.Relationships {
-		if rel != nil && GeneralizationKind(rel.Kind) {
+		if rel != nil && UsageGeneralization(u.Kind, rel.Kind) {
 			return nil
 		}
 	}
@@ -463,7 +463,7 @@ func (m *Model) valueConformance(sym *symbols.Symbol, value ast.Node, want *symb
 // states names an element.
 func (m *Model) generalizationsResolve(sym *symbols.Symbol) bool {
 	for _, rel := range RelationshipsOf(sym) {
-		if !GeneralizationKind(rel.Kind) || rel.Target == nil {
+		if !Generalizes(sym, rel.Kind) || rel.Target == nil {
 			continue
 		}
 		if m.relationshipTarget(sym, rel) == nil {
@@ -494,7 +494,7 @@ func (m *Model) declaredTypes(sym *symbols.Symbol, seen map[*symbols.Symbol]bool
 	}
 	seen[sym] = true
 	var defs, features []*symbols.Symbol
-	bases := m.ImplicitGenerals(sym)
+	bases := m.generalsOutsideTyping(sym)
 	baseParam := m.ImplicitBaseParameter(sym)
 	for _, super := range m.DirectSupertypes(sym) {
 		if alias, ok := m.resolver.ResolveAliasTarget(super); ok {
