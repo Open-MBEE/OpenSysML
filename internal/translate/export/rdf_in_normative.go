@@ -538,7 +538,7 @@ func (d *decoder) parameterMember(el *element) bool {
 	return ok && kind != ast.UsageObjective
 }
 
-// verifyConjugated checks the conjugate's declared names against its original.
+// verifyConjugated checks the conjugate states no declared name (SysML 8.3.12.2), or an older graph's `~` of its original's.
 func (d *decoder) verifyConjugated(el, parent *element) error {
 	expectedName := ""
 	if original, ok := d.nameOf(parent, rdf.SysML+pDeclaredName); ok {
@@ -555,11 +555,11 @@ func (d *decoder) verifyConjugated(el, parent *element) error {
 	for i, value := range statedNames {
 		nameValues[i] = value.Value
 	}
-	if len(statedNames) > 1 || expectedName == "" && len(statedNames) != 0 ||
-		expectedName != "" && (len(statedNames) != 1 || !statedNames[0].IsLiteral() || statedNames[0].Value != expectedName) {
+	if len(statedNames) > 0 && (len(statedNames) != 1 || expectedName == "" ||
+		!statedNames[0].IsLiteral() || statedNames[0].Value != expectedName) {
 		return &UnsupportedError{
 			What: fmt.Sprintf("the conjugated port definition <%s>", el.iri),
-			Note: fmt.Sprintf("its declaredName is %q where the original requires %q", strings.Join(nameValues, ", "), expectedName),
+			Note: fmt.Sprintf("its declaredName is %q where the original permits no value or the legacy value %q", strings.Join(nameValues, ", "), expectedName),
 		}
 	}
 	short, hasShort := d.nameOf(parent, rdf.SysML+pDeclaredShortName)
