@@ -368,14 +368,8 @@ func isCompletionEvent(event Event) bool {
 	if event.Type != eventTime {
 		return false
 	}
-	switch payload := event.Payload.(type) {
-	case *lower.Transition:
-		return payload.Trigger == nil
-	case *ast.TransitionEdge:
-		return payload.Trigger == nil
-	default:
-		return false
-	}
+	transition, ok := event.Payload.(*lower.Transition)
+	return ok && transition.Trigger == nil
 }
 
 func (h eventHeap) Swap(i, j int) {
