@@ -45,8 +45,7 @@ func capabilityConstants(t *testing.T, dir string) map[string]ast.Expr {
 }
 
 // TestCapabilityConstantsCoverTheService holds the client's re-stated
-// Capability constants to the service's: every capability a service can report
-// has a client constant of the same name, and none names another capability.
+// Capability constants to the service's: the same names, none missing or extra.
 func TestCapabilityConstantsCoverTheService(t *testing.T) {
 	service := capabilityConstants(t, "../../internal/frontend/grpc")
 	client := capabilityConstants(t, ".")

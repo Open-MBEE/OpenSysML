@@ -11,8 +11,7 @@ import (
 )
 
 // TestCallerCoversEveryRPC ties the transport interface to the proto: every
-// RPC of the service has one caller method answering its response type, so an
-// RPC added to the proto fails here until the client can make it.
+// RPC of the service has exactly one caller method answering its response type.
 func TestCallerCoversEveryRPC(t *testing.T) {
 	answered := map[protoreflect.FullName][]string{}
 	callerType := reflect.TypeOf((*caller)(nil)).Elem()
