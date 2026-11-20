@@ -118,6 +118,12 @@ place \(em and report its rows, as \-run\-inline\-query
 \&'Project(WhereType(Descendants(Named("Vehicles")), "PartUsage"), ("name",
 "mass"))' (repeatable)
 .TP
+.BR \-as\-view " \fIfile\fP"
+Write the answer of each \-run\-query, \-run\-inline\-query or \-query into
+this file as a QVTS::QueryResult view, or with \- print it in place of the
+rows: the selected elements exposed, or a path or model error's frontier and
+finding elements, with the query, source, outcome and provenance
+.TP
 .BR \-instantiate " \fIname\fP"
 Create an object of this definition or usage before the checks, so a verdict
 is about it (repeatable)
@@ -263,8 +269,8 @@ legacy readers (default off)
 .B \-inherited\-members
 With \-convert api\-json, also write on every Namespace and Type the derived
 lists that repeat its inherited and imported members (membership, member,
-inheritedMembership, featureMembership, feature, inheritedFeature); off, an
-element carries its owned structure (default off)
+inheritedMembership, importedMembership, featureMembership, feature,
+inheritedFeature); off, an element carries its owned structure (default off)
 .TP
 .B \-keep\-line\-breaks
 With \-convert sysml or kerml, keep the author's line breaks and fix

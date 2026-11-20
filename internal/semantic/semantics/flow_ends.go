@@ -142,7 +142,7 @@ func (m *Model) flowEndFeatureRedefinition(feature *symbols.Symbol) *symbols.Sym
 }
 
 // flowEndFeatureDirection is the direction of the ReferenceUsage a flow's end owns: that of the feature it
-// redefines, as seen through the feature before it in the end's path (SysML v2 7.12.2); false for another symbol.
+// redefines as the feature the end references inherits it (KerML.xtext FlowFeature, note 1).
 func (m *Model) flowEndFeatureDirection(feature *symbols.Symbol) (ast.FeatureDirection, bool) {
 	i, ok := symbols.ImpliedFlowEndFeatureIndex(feature)
 	if !ok || feature.OwnerScope == nil {
@@ -153,22 +153,10 @@ func (m *Model) flowEndFeatureDirection(feature *symbols.Symbol) (ast.FeatureDir
 		return ast.DirNone, false
 	}
 	path := m.flowEndPath(flow, usage, i)
-	if len(path) == 0 {
-		return ast.DirNone, false
+	if len(path) < 2 {
+		return ast.DirNone, true
 	}
-	var owner *symbols.Symbol
-	if len(path) > 1 {
-		owner = path[len(path)-2]
-	}
-	return m.EffectiveDirection(owner, path[len(path)-1]), true
-}
-
-// reflectiveDirection is ReflectiveDirection with the direction a flow end's feature takes from what it redefines.
-func (m *Model) reflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
-	if direction, ok := m.flowEndFeatureDirection(sym); ok {
-		return direction, true
-	}
-	return ReflectiveDirection(sym)
+	return m.directionThrough(path[len(path)-2], path[len(path)-1]), true
 }
 
 // withFlowEndFeature adds the ReferenceUsage a flow's end owns to the end's members (ownedMember, member,

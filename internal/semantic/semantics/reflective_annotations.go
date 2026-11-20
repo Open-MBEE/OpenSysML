@@ -7,8 +7,8 @@ import (
 	"slices"
 )
 
-// OwnedAnnotations returns the Annotations sym owns as their annotated element (KerML 8.3.2.1), one per
-// prefix metadata feature or body annotating element of a relationship; a namespace owns those through memberships.
+// OwnedAnnotations returns the Annotations sym owns (KerML 8.3.2.1 Element::ownedAnnotation): one
+// per `#M` prefix or body annotating element of a relationship; a namespace owns them as members.
 func (m *Model) OwnedAnnotations(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil {
 		return nil
@@ -36,8 +36,8 @@ func (m *Model) OwnedAnnotations(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	seen := make(map[*symbols.Symbol]bool)
 	for _, prefix := range m.prefixMetadataSymbols(sym) {
-		if !relationshipBodyOwner(sym) {
-			break
+		if !ownedThroughAnnotation(sym, prefix) {
+			continue
 		}
 		seen[prefix] = true
 		out = append(out, &symbols.Symbol{
@@ -72,7 +72,7 @@ func (m *Model) OwnedAnnotations(sym *symbols.Symbol) []*symbols.Symbol {
 // its record states every annotation its declaration made, the metadata usages
 // in its body among them, and those are recorded members located by the same span.
 func (m *Model) recordedPrefixAnnotationSpans(sym *symbols.Symbol) []source.Span {
-	if !sym.Recorded() {
+	if !sym.Recorded() || !relationshipBodyOwner(sym) {
 		return nil
 	}
 	body := make(map[source.Span]bool)

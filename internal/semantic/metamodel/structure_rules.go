@@ -5151,6 +5151,14 @@ func (e *Evaluator) computeStructureTypeMembers(element Element, property string
 			protected = append(protected, membershipValue)
 		}
 	}
+	imported, ok := e.structureNonPrivateImported(element)
+	if !ok {
+		return nil, false
+	}
+	for _, list := range imported {
+		public = append(public, list.public...)
+		protected = append(protected, list.protected...)
+	}
 	inherited := make([]Value, 0)
 	bases, ok := e.structureOwnedSupertypes(element)
 	if !ok {
@@ -5257,10 +5265,21 @@ func (e *Evaluator) computeStructureLibraryTypeMembers(base Element, property st
 }
 
 // structureMembershipMemberElements is structureMembershipMembers for a membership the
-// graph may not state: a semantic membership answers its member symbol directly.
+// graph may not state: a semantic membership answers the element its member symbol names.
 func (e *Evaluator) structureMembershipMemberElements(membership Element) ([]Element, bool) {
-	if membership.Membership.Member != nil && !e.structureKnows(membership) {
-		return []Element{ElementOf(membership.Membership.Member)}, true
+	if member := membership.Membership.Member; member != nil && !e.structureKnows(membership) {
+		if member.Kind == symbols.SymbolAlias {
+			// An alias is a Membership of the element it names (KerML 8.2.3.4.1).
+			if e.resolver == nil {
+				return nil, false
+			}
+			target, ok := e.resolver.ResolveAliasTarget(member)
+			if !ok || target == nil {
+				return nil, false
+			}
+			member = target
+		}
+		return []Element{ElementOf(member)}, true
 	}
 	return e.structureMembershipMembers(membership)
 }
@@ -5374,6 +5393,14 @@ func (e *Evaluator) computeStructureNonPrivateMemberships(
 		} else if visibility.protected {
 			protected = append(protected, membershipValue)
 		}
+	}
+	imported, ok := e.structureNonPrivateImported(element)
+	if !ok {
+		return nil, false
+	}
+	for _, list := range imported {
+		public = append(public, list.public...)
+		protected = append(protected, list.protected...)
 	}
 	inherited := make([]Value, 0)
 	bases, ok := e.structureOwnedSupertypes(element)
@@ -6939,6 +6966,9 @@ func (e *Evaluator) structureImportedMemberships(element Element) (Value, bool, 
 	if len(imports.Values) == 0 {
 		return sequence(), true, true
 	}
+	if element.Symbol == nil && element.Node == nil && !element.IsMembership {
+		return e.structureGraphImportedMemberships(element)
+	}
 	if element.Symbol == nil || element.Symbol.Scope == nil || e.resolver == nil {
 		return Value{}, true, false
 	}
@@ -7042,7 +7072,13 @@ func (e *Evaluator) structureFilteredOwnedFeatures(element Element, property, _ 
 	if !ok {
 		return Value{}, true, false
 	}
-	members, handled, ok := e.structureOwnedMembers(element)
+	// ownedMetadata and nestedMetadata select from ownedMember, the other collections from
+	// ownedFeature (deriveUsageNestedMetadata, deriveUsageNestedUsage and the Definition pair).
+	source := e.structureOwnedFeatures
+	if rangeClass == "MetadataUsage" {
+		source = e.structureOwnedMembers
+	}
+	members, handled, ok := source(element)
 	if !handled || !ok {
 		return Value{}, true, false
 	}

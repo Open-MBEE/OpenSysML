@@ -284,7 +284,7 @@ func TestElementPropertiesReportsWhyAPropertyHasNoAnswer(t *testing.T) {
 	if none.Unsupported != "" || len(none.Values) != 0 {
 		t.Errorf("EP::Unit.ownedSubclassification = %+v, want declared and empty", none)
 	}
-	importing := parseForElementProperties(t, "package Q { private import ScalarValues::*; part def A; }")
+	importing := parseForElementProperties(t, "package Q { private import ScalarValues::*; filter 1 + 1 == 2; part def A; }")
 	perElement := importing.property("Q", "membership")
 	if len(perElement.Values) != 0 || !strings.Contains(perElement.Unsupported, "Namespace::membership is not derived for this element") {
 		t.Errorf("a property the evaluator could not derive for one element answers %+v", perElement)

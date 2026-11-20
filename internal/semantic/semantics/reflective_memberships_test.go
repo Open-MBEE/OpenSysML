@@ -65,47 +65,44 @@ func TestOwnedMembershipsReflectEachOwnedMember(t *testing.T) {
 		a := relFixtureSymbol(t, fixture, "a")
 		b := relFixtureSymbol(t, fixture, "b")
 		y := relFixtureSymbol(t, fixture, "y")
-		owned := model.OwnedMemberships(d)
-		memberships := owned
-		// #Tag, doc, a, b, y, @Tag, rep: a namespace owns its prefix metadata through
-		// an OwningMembership (SysML.xtext PrefixMetadataMember), written first.
+		memberships := model.OwnedMemberships(d)
+		// #Tag, doc, a, b, y, @Tag, rep: the prefix leads, owned as the body `@Tag;` is.
 		if len(memberships) != 7 {
 			t.Fatalf("D owns %d memberships, want 7", len(memberships))
 		}
 		assertRelMetaclass(t, model, memberships[0], "OwningMembership")
-		if prefix := memberships[0].Implicit.Member; prefix == nil || !prefix.IsPrefixMetadata() {
-			t.Fatalf("D's first membership owns %v, want the #Tag prefix", prefix)
+		if prefix := memberships[0].Implicit.Member; !prefix.IsPrefixMetadata() {
+			t.Errorf("D's first membership owns %v, want the #Tag prefix", prefix)
 		}
-		memberships = memberships[1:]
-		assertRelMetaclass(t, model, memberships[0], "OwningMembership")
-		assertRelMetaclass(t, model, memberships[1], "FeatureMembership")
-		assertRelFeature(t, model, memberships[1], "memberElement", a)
-		assertRelFeature(t, model, memberships[1], "ownedMemberFeature", a)
-		assertRelFeature(t, model, memberships[1], "owningType", d)
-		assertRelFeature(t, model, memberships[1], "membershipOwningNamespace", d)
-		assertRelFeature(t, model, memberships[1], "relatedElement", d, a)
-		assertRelFeature(t, model, memberships[1], "ownedRelatedElement", a)
-		assertRelFeature(t, model, memberships[1], "ownedElement")
-		assertRelFeature(t, model, memberships[1], "ownedRelationship")
-		assertRelFeature(t, model, memberships[1], "owningRelationship")
-		assertRelStrings(t, model, memberships[1], "memberName", "a")
-		assertRelRef(t, model, memberships[1], "visibility", "KerML::Root::VisibilityKind::public")
-		assertRelBool(t, model, memberships[1], "isImplied", false)
-		assertRelMetaclass(t, model, memberships[4], "OwningMembership")
+		assertRelMetaclass(t, model, memberships[1], "OwningMembership")
+		assertRelMetaclass(t, model, memberships[2], "FeatureMembership")
+		assertRelFeature(t, model, memberships[2], "memberElement", a)
+		assertRelFeature(t, model, memberships[2], "ownedMemberFeature", a)
+		assertRelFeature(t, model, memberships[2], "owningType", d)
+		assertRelFeature(t, model, memberships[2], "membershipOwningNamespace", d)
+		assertRelFeature(t, model, memberships[2], "relatedElement", d, a)
+		assertRelFeature(t, model, memberships[2], "ownedRelatedElement", a)
+		assertRelFeature(t, model, memberships[2], "ownedElement")
+		assertRelFeature(t, model, memberships[2], "ownedRelationship")
+		assertRelFeature(t, model, memberships[2], "owningRelationship")
+		assertRelStrings(t, model, memberships[2], "memberName", "a")
+		assertRelRef(t, model, memberships[2], "visibility", "KerML::Root::VisibilityKind::public")
+		assertRelBool(t, model, memberships[2], "isImplied", false)
 		assertRelMetaclass(t, model, memberships[5], "OwningMembership")
+		assertRelMetaclass(t, model, memberships[6], "OwningMembership")
 
-		assertRelFeature(t, model, d, "ownedMembership", owned...)
-		assertRelFeature(t, model, d, "ownedFeatureMembership", memberships[1], memberships[2], memberships[3])
-		assertRelFeature(t, model, a, "owningMembership", memberships[1])
-		assertRelFeature(t, model, a, "owningRelationship", memberships[1])
-		if got := model.OwningMembership(b); got != memberships[2] {
-			t.Errorf("OwningMembership(b) = %v, want membership 2", got)
+		assertRelFeature(t, model, d, "ownedMembership", memberships...)
+		assertRelFeature(t, model, d, "ownedFeatureMembership", memberships[2], memberships[3], memberships[4])
+		assertRelFeature(t, model, a, "owningMembership", memberships[2])
+		assertRelFeature(t, model, a, "owningRelationship", memberships[2])
+		if got := model.OwningMembership(b); got != memberships[3] {
+			t.Errorf("OwningMembership(b) = %v, want membership 3", got)
 		}
-		if got, ok := model.ReflectiveElements(y, "owningMembership"); !ok || len(got) != 1 || got[0] != memberships[3] {
-			t.Errorf("owningMembership of y = %v, want membership 3", got)
+		if got, ok := model.ReflectiveElements(y, "owningMembership"); !ok || len(got) != 1 || got[0] != memberships[4] {
+			t.Errorf("owningMembership of y = %v, want membership 4", got)
 		}
 		// Identity is stable across calls and distinct per member.
-		if !symbols.SameElement(memberships[1], model.OwnedMemberships(d)[2]) || symbols.SameElement(memberships[1], memberships[2]) {
+		if !symbols.SameElement(memberships[1], model.OwnedMemberships(d)[1]) || symbols.SameElement(memberships[1], memberships[2]) {
 			t.Error("membership identity is not keyed by owner and ordinal")
 		}
 		// The Empty definition owns no membership; a root package is owned by the
@@ -143,7 +140,6 @@ func TestInheritedAndFeatureMemberships(t *testing.T) {
 		}
 		owned := model.OwnedMemberships(d)
 		features, _ := model.ReflectiveElements(d, "featureMembership")
-		// owned[0] is the #Tag prefix's OwningMembership, owned[1] the doc's.
 		if len(features) < 4 || features[0] != owned[2] || features[1] != owned[3] || features[2] != owned[4] ||
 			!containsElement(features, baseMemberships[0]) || containsElement(features, owned[0]) || containsElement(features, owned[1]) {
 			t.Errorf("featureMembership of D = %d memberships, want its three features first, then the inherited ones", len(features))
@@ -188,32 +184,27 @@ func TestOwnedAnnotationsAndAnnotatingElements(t *testing.T) {
 		base := relFixtureSymbol(t, fixture, "Base")
 		dep := relFixtureSymbol(t, fixture, "Dep")
 		c := relFixtureSymbol(t, fixture, "C")
-		// D owns its #Tag prefix through an OwningMembership, not an Annotation (SysML.xtext
-		// PrefixMetadataMember): the prefix annotates its owning namespace (KerML 8.3.2.3.2).
-		if owned := model.OwnedAnnotations(d); len(owned) != 0 {
-			t.Fatalf("D owns %d annotations, want none", len(owned))
+		// The #Tag prefix is a member D owns through its first OwningMembership
+		// (PrefixMetadataMember), not an Annotation; the record keeps it as one.
+		assertRelFeature(t, model, d, "ownedAnnotation")
+		tag := model.OwnedMemberships(d)[0]
+		assertRelMetaclass(t, model, tag, "OwningMembership")
+		prefix := tag.Implicit.Member
+		if prefix == nil || !prefix.IsPrefixMetadata() || prefix.Owner() != d {
+			t.Fatalf("D's first membership owns %v, want the #Tag metadata feature", prefix)
 		}
-		prefixes := model.prefixMetadataSymbols(d)
-		if len(prefixes) != 1 || !prefixes[0].IsPrefixMetadata() || prefixes[0].Owner() != d {
-			t.Fatalf("D's prefix metadata = %v, want the one #Tag feature D owns", prefixes)
-		}
-		prefix := prefixes[0]
-		owning := model.OwningMembership(prefix)
-		if owning == nil {
-			t.Fatal("the #Tag prefix has no owning membership")
-		}
-		assertRelMetaclass(t, model, owning, "OwningMembership")
-		assertRelFeature(t, model, owning, "memberElement", prefix)
-		assertRelFeature(t, model, owning, "membershipOwningNamespace", d)
-		assertRelFeature(t, model, prefix, "owningMembership", owning)
-		assertRelFeature(t, model, prefix, "owningRelationship", owning)
+		assertRelFeature(t, model, tag, "ownedMemberElement", prefix)
+		assertRelFeature(t, model, tag, "membershipOwningNamespace", d)
+		assertRelFeature(t, model, prefix, "owningMembership", tag)
+		assertRelFeature(t, model, prefix, "owningRelationship", tag)
+		assertRelFeature(t, model, prefix, "owningNamespace", d)
 		assertRelFeature(t, model, prefix, "owningAnnotatingRelationship")
 		assertRelFeature(t, model, prefix, "annotation")
+		// With no Annotation it annotates its owning namespace (KerML 8.3.2.3.2).
 		assertRelFeature(t, model, prefix, "annotatedElement", d)
-		assertRelFeature(t, model, d, "ownedAnnotation")
-		for _, feature := range []string{"ownedMember", "member"} {
-			if members, _ := model.ReflectiveElements(d, feature); !slices.Contains(members, prefix) {
-				t.Errorf("D %s omits the #Tag prefix, want it owned through its membership", feature)
+		for _, feature := range []string{"ownedMember", "member", "ownedElement"} {
+			if members, _ := model.ReflectiveElements(d, feature); len(members) == 0 || members[0] != prefix {
+				t.Errorf("D %s = %v, want the #Tag prefix first", feature, members)
 			}
 		}
 		if features, _ := model.ReflectiveElements(d, "ownedFeature"); slices.Contains(features, prefix) {
@@ -301,14 +292,12 @@ func TestOwnedRelationshipsComposeClausesMembershipsAndImports(t *testing.T) {
 			t.Error("the import does not come first in P's owned relationships")
 		}
 
-		// D: the prefix annotation, the written specialization, then its body.
+		// D: the prefix's membership, the written specialization, then its body.
 		dRels, _ := model.ReflectiveElements(d, "ownedRelationship")
-		owned := model.OwnedAnnotations(d)
 		written := model.ImplicitRelationships(d)
-		if len(dRels) != len(owned)+len(written)+len(model.OwnedMemberships(d)) || dRels[len(owned)] != written[0] ||
-			len(owned) > 0 && dRels[0] != owned[0] {
-			t.Errorf("D's owned relationships = %d, want %d prefix annotations, %d clauses and %d memberships",
-				len(dRels), len(owned), len(written), len(model.OwnedMemberships(d)))
+		want = append(append([]*symbols.Symbol{model.OwnedMemberships(d)[0]}, written...), model.OwnedMemberships(d)[1:]...)
+		if len(written) != 1 || !slices.Equal(dRels, want) {
+			t.Errorf("D's owned relationships = %v, want the prefix membership, %d clause and the body's memberships", dRels, len(written))
 		}
 		// b owns only its subsetting; a relationship object owns nothing.
 		assertRelFeature(t, model, b, "ownedRelationship", model.ImplicitRelationships(b)...)
@@ -568,7 +557,9 @@ feature g : A inverse of D::f;`
 // names (an alias being one itself) and importedElement is its member.
 func TestMembershipImportTargetIsTheMembership(t *testing.T) {
 	const src = `package A { part def X; alias Y for X; }
-package B { private import A::X; private import A::Y; }`
+package B { private import A::X; private import A::Y; }
+package C { public import A::*; }
+package D { private import C::Y; }`
 	for _, fixture := range reflectiveFixtures(t, "membership-import.sysml", source.KindSysML, src) {
 		model := fixture.model
 		a := relFixtureSymbol(t, fixture, "A")
@@ -601,6 +592,13 @@ package B { private import A::X; private import A::Y; }`
 		assertRelFeature(t, model, imports[1], "importedMembership", alias)
 		assertRelFeature(t, model, imports[1], "target", alias)
 		assertRelFeature(t, model, imports[1], "importedElement", x)
+		// An alias named through a namespace that only imports it is the same Membership.
+		through := model.OwnedImports(relFixtureSymbol(t, fixture, "D"))
+		if len(through) != 1 {
+			t.Fatalf("D owns %d imports, want 1", len(through))
+		}
+		assertRelFeature(t, model, through[0], "importedMembership", alias)
+		assertRelFeature(t, model, through[0], "importedElement", x)
 	}
 }
 
@@ -638,8 +636,9 @@ func TestPrefixMetadataTypeResolvesInTheAnnotatedElement(t *testing.T) {
 	for _, fixture := range reflectiveFixtures(t, "prefix-shadow.sysml", source.KindSysML, src) {
 		model := fixture.model
 		a := relFixtureSymbol(t, fixture, "A")
-		if owned := model.OwnedAnnotations(a); len(owned) != 0 {
-			t.Fatalf("A owns %d annotations, want none: a namespace owns its prefix through a membership", len(owned))
+		owned := model.OwnedMemberships(a)
+		if len(owned) != 2 || !owned[0].Implicit.Member.IsPrefixMetadata() {
+			t.Fatalf("A owns %d memberships, want its #Tag prefix and the nested Tag", len(owned))
 		}
 		prefixes := model.prefixMetadataSymbols(a)
 		if len(prefixes) != 1 {

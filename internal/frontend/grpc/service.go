@@ -468,6 +468,7 @@ var capabilities = []string{
 	CapabilitySymbolLookupKind,
 	CapabilitySymbolMemberDirection,
 	CapabilityCoordinateFrameValues,
+	CapabilityQueryResultView,
 }
 
 type capabilityAvailability struct {

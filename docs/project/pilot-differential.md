@@ -245,7 +245,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-09.1`, 926 files)
+## Results (pilot `2026-09.1`, 937 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -255,9 +255,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 12 | 0 | 0 | 0 | 12 | 0 |
 | `examples/spec-examples` | 511 | 151 | 1091 | 3395 | 1042 | 4 | 45 | 2349 |
 | `tests/testdata` | 40 | 26 | 76 | 101 | 61 | 4 | 11 | 36 |
-| `examples` | 58 | 50 | 18 | 77 | 4 | 0 | 14 | 73 |
+| `examples` | 69 | 61 | 18 | 77 | 4 | 0 | 14 | 73 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **926** | **529** | **1241** | **3573** | **1107** | **8** | **126** | **2458** |
+| **Total** | **937** | **540** | **1241** | **3573** | **1107** | **8** | **126** | **2458** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -1191,6 +1191,18 @@ entry action, and a value to the Boolean features its guards and triggers read, 
 sides read a transition out of an entry action and an initialized attribute the same way, so the
 baseline is re-recorded for the `examples` digest alone.
 
+### QVTS library and result-view examples round
+
+Vendoring the `QVTS` library (`OpenSysML Libraries` 17 → 18 files) and adding eleven files under
+`examples/qvts` — nine recorded `QVTS::QueryResult` views under `expected/views/` and the QVTS
+repository's `observatory.sysml` and `result.sysml` — moves **no existing row**: the `examples` root
+goes from 57 files, 49 fully agreeing to 68 and 60, the totals from 925 and 528 to 936 and 539, and
+every diagnostic count stays as recorded (1107 agreed, 126 only ours, 2451 only the pilot's). The
+pilot, given the library through `--extension-library`, reads each view's `expose` and attribute
+redefinitions as this repository does and reports nothing on any of the eleven, so the baseline is
+re-recorded for the `examples` and `opensysml-libraries` digests and those file counts alone. The
+`examples` digest also carries the self-model's `bundledFileCount`, a literal no diagnostic reads.
+
 ### Step 2 resolver round
 
 The control is a fresh-cache run of merge base `bbd3b2ec`; the head is an independent
@@ -1340,7 +1352,7 @@ overall count 2451 → **2458**, with no movement in any other root or column.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **529 / 126 / 1241** |
+| overall: fully agreeing / only ours / our diagnostics | **540 / 126 / 1241** |
 | only pilot | **2458** |
 | pilot diagnostics | **3573** |
 | severity-only | **8** |

@@ -7,5 +7,5 @@
 # The ref names where the pin was taken; the commit is what every fetch
 # verifies, because a ref is mutable. Change them together.
 EXTENSIONS_REPO="${EXTENSIONS_REPO:-https://github.com/Open-MBEE/OpenSysML-Extensions-Library.git}"
-EXTENSIONS_REF="${EXTENSIONS_REF:-main}"
-EXTENSIONS_COMMIT="${EXTENSIONS_COMMIT:-3a6e66f8964b2ad7bc711524603ba28e21c67918}"
+EXTENSIONS_REF="${EXTENSIONS_REF:-feat/qvts-library}"
+EXTENSIONS_COMMIT="${EXTENSIONS_COMMIT:-2bc9394af1da724e4074b90724e9b09e7b7f8999}"

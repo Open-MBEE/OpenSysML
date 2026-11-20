@@ -151,6 +151,12 @@ func (s *SymbolIDs) compute(sym *symbols.Symbol) (string, bool) {
 	case s.model.IsRootNamespace(sym):
 		return s.rootNamespaceID(sym)
 	}
+	// A library alias is written under the id its Membership is minted.
+	if len(s.ids.encoders) > 0 {
+		if membership, ok := s.ids.encoders[0].ids.libraryAliasMembership(sym); ok {
+			return rdf.LocalName(membership.Value), true
+		}
+	}
 	// A `for` variable is keyed by its loop, which the conversion writes as a
 	// string (sysx:loopVariable), not as an element of its own.
 	if _, ok := sym.Decl.(*ast.WhileLoopActionNode); ok && sym.Name != "" {

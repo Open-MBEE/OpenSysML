@@ -254,7 +254,7 @@ package OpenSysMLQueries {
         attribute examples : String = "examples/qvts";
         attribute guide : String = "docs/guide/qvts.md";
         attribute designNote : String = "docs/internals/design/query-outcomes.md";
-        attribute recordingCount : Integer = 27;
+        attribute recordingCount : Integer = 32;
     }
 
     // --- The whole path ----------------------------------------------------
