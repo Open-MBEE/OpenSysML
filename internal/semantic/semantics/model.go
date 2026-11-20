@@ -87,8 +87,9 @@ type Model struct {
 	implicitBase map[*symbols.Symbol][]*symbols.Symbol
 	// featureBaseTypes memoizes baseFeatureTypes: the types a base feature supplies, read for every usage of its kind.
 	featureBaseTypes map[*symbols.Symbol][]*symbols.Symbol
-	// implicitGenerals memoizes ImplicitGenerals: the generals a declaration's kind implies, which every type query of a feature reads.
-	implicitGenerals map[*symbols.Symbol][]*symbols.Symbol
+	// impliedSupers holds, per symbol, the direct supertypes its kind implies and the implied
+	// Specializations it owns; DirectSupertypes writes it as it appends the former.
+	impliedSupers map[*symbols.Symbol]impliedGenerals
 	// valueGenerals memoizes FeatureValueGeneral: the general a feature value implies, nil for none.
 	valueGenerals map[*symbols.Symbol]*symbols.Symbol
 	// allDeclaredSupers memoizes AllDeclaredSupertypes, which every variation-point query at run time reads.
@@ -255,7 +256,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		effectiveComposite:     make(map[*symbols.Symbol]bool),
 		implicitBase:           make(map[*symbols.Symbol][]*symbols.Symbol),
 		featureBaseTypes:       make(map[*symbols.Symbol][]*symbols.Symbol),
-		implicitGenerals:       make(map[*symbols.Symbol][]*symbols.Symbol),
+		impliedSupers:          make(map[*symbols.Symbol]impliedGenerals),
 		valueGenerals:          make(map[*symbols.Symbol]*symbols.Symbol),
 		allDeclaredSupers:      make(map[*symbols.Symbol][]*symbols.Symbol),
 		implicitSubsettings:    make(map[*symbols.Symbol][]*symbols.Symbol),
@@ -591,27 +592,12 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		out = append(out, redefined)
 	}
 
-	// A declaration keeps its kind's bases whatever else it declares; implicitBases
-	// suppresses one only when a declared chain already reaches it. A metadata
-	// keyword supplies the kind itself, so its baseType stands in.
-	if !fromMetadata {
-		for _, base := range m.implicitBases(sym) {
-			if !seen[base] {
-				seen[base] = true
-				out = append(out, base)
-			}
-		}
-	}
-
-	// A usage also subsets the base usage of its kind, or Base::things when its
-	// kind names none — an implied Subsetting beside the typing (SysML v2 §7.6,
-	// §8.3.11.3 checkPartUsageSpecialization; KerML §8.4.2, §8.3.4.5.3).
-	for _, base := range m.implicitBaseFeatures(sym, out) {
-		if !seen[base] {
-			seen[base] = true
-			out = append(out, base)
-		}
-	}
+	// What the declaration's kind implies comes last: the one derivation that resolution,
+	// inheritance and ImpliedSpecializations read (KerML §8.4.2).
+	implied := m.deriveImpliedGenerals(sym, out, fromMetadata)
+	out = append(out, implied.inherited...)
+	journal(m, m.impliedSupers, sym, sym.Decl)
+	m.impliedSupers[sym] = implied
 
 	// An answer derived while a guard cut a query short saw fewer members than
 	// the finished model has, so it is recomputed on the next query, not memoized.
