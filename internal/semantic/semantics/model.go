@@ -1131,6 +1131,10 @@ func (m *Model) withUsageBases(sym *symbols.Symbol, bases []*symbols.Symbol) []*
 	if !(isUsage || sym.Kind == symbols.SymbolPartUsage) || m.isKerMLDoc(sym) || m.resolver == nil || m.resolver.Index() == nil {
 		return bases
 	}
+	if isNamedTriggerPayload(sym) {
+		// A trigger's payload is a ReferenceUsage whatever it is typed by, so it takes no usage kind's base.
+		return bases
+	}
 	fqns := []string{}
 	if fqn, ok := m.FeatureBaseFQN(sym); ok {
 		fqns = append(fqns, fqn)

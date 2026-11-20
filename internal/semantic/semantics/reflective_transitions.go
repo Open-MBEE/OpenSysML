@@ -289,9 +289,8 @@ func (m *Model) acceptParts(sym *symbols.Symbol) *transitionParts {
 	return nil
 }
 
-// isNamedTriggerPayload reports whether sym is the payload parameter a transition's trigger names
-// (`accept x : T`): the symbol the transition's scope declares for it, which the trigger's accept
-// owns (SysML.xtext TriggerAction, PayloadParameterMember).
+// isNamedTriggerPayload reports whether sym is the payload a transition's trigger names (`accept x : T`):
+// the symbol the transition's scope declares, owned by the trigger's accept (SysML.xtext PayloadParameterMember).
 func isNamedTriggerPayload(sym *symbols.Symbol) bool {
 	if sym == nil || sym.Decl == nil || sym.Expr != nil || sym.Implicit != nil || sym.Chain != nil || sym.OwnerScope == nil {
 		return false
