@@ -326,6 +326,7 @@ elmt:Chains__II
     sysml:owningRelationship elmt:Chains__II_om ;
     sysml:owningMembership elmt:Chains__II_om ;
     sysml:declaredName "II" ;
+    sysml:isSufficient "true"^^xsd:boolean ;
     sysml:relatedElement elmt:Chains__IP ;
     sysml:source elmt:Chains__IP ;
     sysml:target elmt:Chains__IP ;

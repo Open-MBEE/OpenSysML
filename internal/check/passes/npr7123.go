@@ -233,7 +233,12 @@ func (a *npr7123Audit) isA(sym *symbols.Symbol, fqn string) bool {
 	if sym == nil || !sym.IsFeature() {
 		return false
 	}
-	for _, t := range a.model.FeatureTypeSet(sym) {
+	return a.anyConformsTo(a.model.FeatureTypeSet(sym), fqn)
+}
+
+// anyConformsTo reports whether one of types conforms to the library definition fqn.
+func (a *npr7123Audit) anyConformsTo(types []*symbols.Symbol, fqn string) bool {
+	for _, t := range types {
 		if a.conformsTo(t, fqn) {
 			return true
 		}
@@ -305,14 +310,16 @@ func (a *npr7123Audit) check(root *symbols.Scope) {
 		if _, ok := sym.Decl.(*ast.Usage); !ok {
 			return
 		}
+		// Every usage of every document comes through here, so its types are derived once.
+		types := a.model.FeatureTypeSet(sym)
 		switch {
-		case a.isA(sym, npr7123LifeCycleReview):
+		case a.anyConformsTo(types, npr7123LifeCycleReview):
 			a.checkReview(sym)
-		case a.isA(sym, npr7123SEMP):
+		case a.anyConformsTo(types, npr7123SEMP):
 			if !a.reviewedProduct(sym) {
 				a.checkSEMP(sym)
 			}
-		case a.isA(sym, npr7123ComplianceMatrix):
+		case a.anyConformsTo(types, npr7123ComplianceMatrix):
 			a.checkMatrix(sym, root)
 		}
 	})
@@ -360,11 +367,23 @@ func (a *npr7123Audit) checkReview(review *symbols.Symbol) {
 			continue
 		}
 		if maturity != "" && npr7123MaturityRank(maturity) < npr7123MaturityRank(minimum.maturity) {
-			a.report(stated, CodeNPR7123ReviewMissingProduct, fmt.Sprintf(
-				"This %s is stated at maturity %s, below the %s NPR 7123.1D section 5.2.2.2 (%s) asks for at %s; mature the product or document the tailoring in the SEMP.",
-				name, maturity, minimum.maturity, minimum.requirementID, kind))
+			target, inherited := stated, ""
+			if stated.OwnerScope == nil || stated.OwnerScope.Owner() != review {
+				target, inherited = review, a.inheritedFrom(stated)
+			}
+			a.report(target, CodeNPR7123ReviewMissingProduct, fmt.Sprintf(
+				"This %s%s is stated at maturity %s, below the %s NPR 7123.1D section 5.2.2.2 (%s) asks for at %s; mature the product or document the tailoring in the SEMP.",
+				name, inherited, maturity, minimum.maturity, minimum.requirementID, kind))
 		}
 	}
+}
+
+// inheritedFrom names the owner a feature is inherited from, as ", inherited from <owner>".
+func (a *npr7123Audit) inheritedFrom(f *symbols.Symbol) string {
+	if f.OwnerScope == nil || f.OwnerScope.Owner() == nil {
+		return ""
+	}
+	return ", inherited from " + a.model.EffectiveNameOf(f.OwnerScope.Owner())
 }
 
 // isAProduct reports whether a feature is typed by the given work product definition or a specialization of it.
