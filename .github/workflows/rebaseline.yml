@@ -207,12 +207,18 @@ jobs:
         env:
           BRANCH: ${{ github.event.pull_request.head.ref }}
           RESTART: ${{ steps.push.outputs.restart }}
+          PROVISIONED: ${{ steps.merge.outputs.merged }}
         run: |
           set -euo pipefail
           git reset -q --hard "$RESTART"
           git clean -qfd
           rm -f build/rebaseline-summary.md
           "$RUNNER_TEMP/rebaseline-merge.sh" "$RESTART"
+          # The toolchain and corpora above were provisioned from the first merge's pins and scripts.
+          if ! git diff --quiet "$PROVISIONED" HEAD -- scripts .github/actions; then
+            echo "the provisioning scripts moved under the recorders; apply the label again" >&2
+            exit 1
+          fi
 
       - name: Re-record the baselines again
         if: steps.push.outputs.restart
@@ -268,12 +274,12 @@ jobs:
           gh pr comment "${{ github.event.pull_request.number }}" --repo "$GITHUB_REPOSITORY" --body-file /tmp/comment.md
 
       # A pull_request_target run is listed under the head it started from, which the push replaces: the
-      # status puts the outcome on the head the pull request shows.
+      # status puts a push on the head the pull request shows, and a failure on the head it last worked from.
       - name: Report the outcome on the pull request's head
         if: ${{ always() }}
         env:
           GH_TOKEN: ${{ github.token }}
-          BRANCH: ${{ github.event.pull_request.head.ref }}
+          WORKED_FROM: ${{ steps.push.outputs.restart || github.event.pull_request.head.sha }}
           PUSHED: ${{ steps.repush.outputs.sha || steps.push.outputs.sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
@@ -281,7 +287,7 @@ jobs:
           if [ -n "$PUSHED" ]; then
             sha=$PUSHED state=success description="merged develop and re-recorded the baselines"
           else
-            sha=$(git ls-remote origin "refs/heads/$BRANCH" | cut -f1)
+            sha=$WORKED_FROM
             state=failure description="stopped without pushing; see the run and the comment"
           fi
           gh api "repos/$GITHUB_REPOSITORY/statuses/$sha" -f state="$state" -f context="$REBASELINE_LABEL" \
