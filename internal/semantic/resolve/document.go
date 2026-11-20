@@ -1173,9 +1173,6 @@ func (r *Resolver) resolveRedefinition(scope *symbols.Scope, qn *ast.QualifiedNa
 	}
 
 	parents := r.generalsOf(scope.Owner())
-	if def, ok := ownerNode.(*ast.Definition); ok {
-		parents = append(parents, r.findImplicitSpecializations(scope, def)...)
-	}
 
 	if len(qn.Parts) == 1 {
 		featureName := qn.Parts[0].Text
@@ -1470,59 +1467,6 @@ func (r *Resolver) findFeaturedByTargets(sym *symbols.Symbol, rels []*ast.Relati
 			}
 		}
 	}
-	return parents
-}
-
-// ownedEndCount counts the `end` features def declares in its body.
-func ownedEndCount(def *ast.Definition) int {
-	n := 0
-	for _, member := range def.Members {
-		if mb, ok := member.(*ast.Membership); ok {
-			member = mb.Member
-		}
-		if u, ok := member.(*ast.Usage); ok && u.IsEnd {
-			n++
-		}
-	}
-	return n
-}
-
-// findImplicitSpecializations returns implicit base types for a definition based on its kind.
-// For example, 'flow def' implicitly specializes 'MessageAction' from the systems library.
-func (r *Resolver) findImplicitSpecializations(scope *symbols.Scope, def *ast.Definition) []*symbols.Symbol {
-	var parents []*symbols.Symbol
-
-	// Map definition kind to base type FQN
-	var baseFQN string
-	switch def.Kind {
-	case ast.DefPart:
-		baseFQN = "Parts::Part"
-	case ast.DefItem:
-		baseFQN = "Items::Item"
-	case ast.DefFlow:
-		baseFQN = "Flows::MessageAction"
-		if ownedEndCount(def) == 2 {
-			baseFQN = "Flows::Message"
-		}
-	case ast.DefConnection:
-		baseFQN = "Connections::Connection"
-	case ast.DefInterface:
-		baseFQN = "Interfaces::Interface"
-	case ast.DefAllocation:
-		baseFQN = "Allocations::Allocation"
-	// Add more as needed
-	default:
-		return nil
-	}
-
-	// Look up base type in index
-	if r.idx != nil {
-		candidates := r.idx.LookupQualified(baseFQN)
-		if len(candidates) == 1 {
-			parents = append(parents, candidates[0])
-		}
-	}
-
 	return parents
 }
 
