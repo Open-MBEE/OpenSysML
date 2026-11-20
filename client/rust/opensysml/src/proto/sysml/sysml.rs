@@ -1213,8 +1213,23 @@ pub struct GetElementPropertiesResponse {
     #[prost(message, repeated, tag="2")]
     pub properties: ::prost::alloc::vec::Vec<ElementProperty>,
     /// Why there is no answer: the model or the element was not found, or the
-    /// model has no element form (a document the parser could not read whole).
+    /// element belongs to an excluded document.
     #[prost(string, tag="3")]
+    pub error: ::prost::alloc::string::String,
+    /// The documents the model is read without, each with why; empty when the whole model is read.
+    /// Any other element is answered and may name one of theirs; asking for theirs answers its document's error.
+    #[prost(message, repeated, tag="4")]
+    pub excluded_documents: ::prost::alloc::vec::Vec<ExcludedDocument>,
+}
+/// ExcludedDocument is a document GetElementProperties leaves out of a model: one the parser could not
+/// read whole, one the element form cannot write, or one declaring an element an earlier document declares.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExcludedDocument {
+    /// The document's name as the parse request gave it.
+    #[prost(string, tag="1")]
+    pub document: ::prost::alloc::string::String,
+    /// Why it is left out, as Convert would refuse the model for it.
+    #[prost(string, tag="2")]
     pub error: ::prost::alloc::string::String,
 }
 /// ElementRef identifies an element the element form knows: an element of

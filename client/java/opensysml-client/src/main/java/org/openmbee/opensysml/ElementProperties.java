@@ -12,17 +12,49 @@ import java.util.Optional;
  *
  * @param element the element read, whose {@link ElementRef#id()} names it again
  * @param properties one entry per property, answered or not
+ * @param excludedDocuments the documents the model was read without; empty when the whole model
+ *     was read
  */
-public record ElementProperties(ElementRef element, List<ElementProperties.Property> properties) {
+public record ElementProperties(
+    ElementRef element,
+    List<ElementProperties.Property> properties,
+    List<ElementProperties.ExcludedDocument> excludedDocuments) {
   /**
-   * Creates a read, copying the properties.
+   * Creates a read, copying the properties and the excluded documents.
    *
    * @param element the element read
    * @param properties the properties answered
+   * @param excludedDocuments the documents the model was read without
    */
   public ElementProperties {
     Objects.requireNonNull(element, "element");
     properties = List.copyOf(properties);
+    excludedDocuments = List.copyOf(excludedDocuments);
+  }
+
+  /**
+   * Creates a read of a whole model, with no excluded document.
+   *
+   * @param element the element read
+   * @param properties the properties answered
+   */
+  public ElementProperties(ElementRef element, List<ElementProperties.Property> properties) {
+    this(element, properties, List.of());
+  }
+
+  /**
+   * A document the read left out of the model: one the parser could not read whole, or one
+   * declaring an element another document already declares.
+   *
+   * @param document the document's name as the parse request gave it
+   * @param error why it was left out
+   */
+  public record ExcludedDocument(String document, String error) {
+    /** Creates an excluded document. */
+    public ExcludedDocument {
+      Objects.requireNonNull(document, "document");
+      Objects.requireNonNull(error, "error");
+    }
   }
 
   /**

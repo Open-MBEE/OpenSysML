@@ -249,6 +249,51 @@ class TestElementPropertiesAgainstTheService:
         with pytest.raises(SymbolNotFoundError):
             self.model.element_properties("EP::Nowhere")
 
+    def test_an_element_beside_an_excluded_document_is_answered(self):
+        """The three-document check of #2029."""
+        first = ("a.sysml", "package A { part x; }")
+        for other, excluded in (
+            (("c.sysml", "package C { part y }"), ["c.sysml"]),
+            (("d.sysml", "package A { part z; }"), ["d.sysml"]),
+            (("v.sysml", "package V { part y : Missing; }"), []),
+        ):
+            model = self.conn.parse_sources([first, other])
+            read = model.element_properties("A::x", "name")
+            assert read["name"].value == "x"
+            assert [d.document for d in read.excluded_documents] == excluded
+
+    def test_an_element_of_an_excluded_document_raises_its_documents_error(self):
+        model = self.conn.parse_sources(
+            [("a.sysml", "package A { part x; }"), ("c.sysml", "package C { part y }")]
+        )
+        with pytest.raises(ConversionError, match="syntax error") as raised:
+            model.element_properties("C", "name")
+        assert [name for name, _ in raised.value.excluded_documents] == ["c.sysml"]
+
+
+def test_excluded_documents_decode_with_the_answer():
+    response = _response()
+    response.excluded_documents.add(document="c.sysml", error="c.sysml: 3 syntax error(s)")
+    read = element_properties_of(response)
+    assert [(d.document, d.error) for d in read.excluded_documents] == [
+        ("c.sysml", "c.sysml: 3 syntax error(s)")
+    ]
+    assert element_properties_of(_response()).excluded_documents == []
+
+
+def test_a_refused_document_raises_a_conversion_error_naming_the_excluded_documents():
+    stub = Mock()
+    stub.GetElementProperties.return_value = sysml_pb2.GetElementPropertiesResponse(
+        error="c.sysml: 3 syntax error(s)",
+        excluded_documents=[
+            sysml_pb2.ExcludedDocument(document="c.sysml", error="c.sysml: 3 syntax error(s)")
+        ],
+    )
+    conn = _connection(stub)
+    with pytest.raises(ConversionError, match="syntax error") as raised:
+        conn.get_element_properties("hash1", "C")
+    assert raised.value.excluded_documents == [("c.sysml", "c.sysml: 3 syntax error(s)")]
+
 
 LIBRARY_MEMBERS_MODEL = """
 package P {
@@ -329,3 +374,4 @@ class TestEveryIdAnAnswerCarriesReadsBack:
         assert features
         for feature in features:
             assert self.model.element_properties(feature.id, "name").element.id == feature.id
+

@@ -1,6 +1,7 @@
 package export
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
@@ -8,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
@@ -21,6 +23,12 @@ type ElementForm struct {
 	// omissions records, per element id and property, why the writer left a
 	// value out of the element object.
 	omissions map[string]map[string]metamodel.Reason
+	// ids is the id each declaration of the documents read is written under,
+	// kept by ReadableModelElementForm.
+	ids *ElementIDs
+	// excludedIn is the document declaring each id only a document the form
+	// leaves out declares.
+	excludedIn map[string]string
 }
 
 // APIJSONElement is one object of the element form: its "@id", its "@type"
@@ -49,6 +57,60 @@ type APIJSONProperty struct {
 // conversion, as WriteAPIJSON does.
 func ModelElementForm(documents []ModelDocument) (*ElementForm, error) {
 	return modelElementFormWith(documents, IDQualifiedName)
+}
+
+// ReadableModelElementForm is ModelElementForm without the documents unreadable names, one the form cannot write and one whose ids an
+// earlier document declares; all stay analyzed, so a value may name their elements. The excluded are returned in document order.
+func ReadableModelElementForm(documents []ModelDocument, unreadable map[string]error) (*ElementForm, []ExcludedDocument, error) {
+	res, encoders, err := modelEncodersOf(documents, IDQualifiedName)
+	if err != nil {
+		return nil, nil, err
+	}
+	graph, excluded, unwritten, err := encodeReadableDocuments(context.Background(), documents, encoders, addLinkedLibraryStubs, unreadable, true)
+	if err != nil {
+		return nil, nil, err
+	}
+	form, err := elementFormOfGraph(graph)
+	if err != nil {
+		return nil, nil, err
+	}
+	form.ids = newElementIDTables(res, encoders)
+	form.excludedIn = map[string]string{}
+	for i, e := range encoders {
+		if unwritten[i] {
+			for _, declared := range e.declaredSubjects() {
+				id := rdf.LocalName(declared.iri)
+				if _, read := form.byID[id]; !read {
+					form.excludedIn[id] = documents[i].File.Name()
+				}
+			}
+			continue
+		}
+		parents := e.parentDeclarations()
+		for _, node := range e.writtenDeclarations() {
+			form.ids.recordDeclaration(e, node, parents)
+		}
+	}
+	return form, excluded, nil
+}
+
+// IDOfDeclaration is the "@id" of the element declared at decl in document doc, named fqn, in a
+// form read by ReadableModelElementForm; false for an element of a document the form leaves out.
+func (f *ElementForm) IDOfDeclaration(doc string, decl ast.Node, fqn string) (string, bool) {
+	if f == nil || f.ids == nil {
+		return "", false
+	}
+	return f.ids.OfDeclaration(doc, decl, fqn)
+}
+
+// ExcludedDocumentOf is the document declaring the element id identifies when only a document the
+// form leaves out declares it: what a value of a readable element may name.
+func (f *ElementForm) ExcludedDocumentOf(id string) (string, bool) {
+	if f == nil {
+		return "", false
+	}
+	document, ok := f.excludedIn[id]
+	return document, ok
 }
 
 func modelElementFormWith(documents []ModelDocument, idForm IDForm) (*ElementForm, error) {
