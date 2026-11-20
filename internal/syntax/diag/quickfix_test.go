@@ -47,3 +47,19 @@ func TestRenderOwnLineFromLineStart(t *testing.T) {
 		t.Errorf("out-of-range insertion rendered %q", text)
 	}
 }
+
+// An own-line edit ends in the line ending the document uses, so a fix applied
+// to a CRLF document leaves no bare LF behind.
+func TestRenderOwnLineKeepsTheDocumentsLineEnding(t *testing.T) {
+	crlf := []byte("package P {\r\n    part a;\r\n}\r\n")
+	if _, text := InsertLine(17, "import A::*;").Render(crlf); text != "import A::*;\r\n    " {
+		t.Errorf("CRLF document: text = %q", text)
+	}
+	lf := []byte("package P {\n    part a;\n}\n")
+	if _, text := InsertLine(16, "import A::*;").Render(lf); text != "import A::*;\n    " {
+		t.Errorf("LF document: text = %q", text)
+	}
+	if _, text := InsertLine(0, "import A::*;").Render(nil); text != "import A::*;\n" {
+		t.Errorf("empty document: text = %q", text)
+	}
+}
