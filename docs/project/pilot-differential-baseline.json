@@ -61,8 +61,8 @@
         "name": "testdata",
         "dir": "tests/testdata",
         "origin": "ours",
-        "files": 40,
-        "digest": "sha256:951761d51e902bbcb3392d4a77da58c7f580c61b2fb97ac6c4ad705e08e0c446"
+        "files": 42,
+        "digest": "sha256:65bf445bc3afa269f61316d16e301a7b5d5f8f143628693b6fa4d71190faa724"
       },
       {
         "name": "examples",
@@ -86,17 +86,17 @@
         "digest": "sha256:b90165d947c4a27f6affb7637e2f9cf3a87bd92f591108288829002a90159fd9"
       }
     ],
-    "recorded": "2026-11-19"
+    "recorded": "2026-11-20"
   },
   "totals": {
-    "files": 925,
-    "filesFullyAgreeing": 528,
-    "agreement": 1107,
+    "files": 927,
+    "filesFullyAgreeing": 530,
+    "agreement": 1119,
     "severityMismatch": 8,
     "openSysMLOnly": 126,
     "pilotOnly": 2451,
-    "openSysMLDiagnostics": 1241,
-    "pilotDiagnostics": 3566
+    "openSysMLDiagnostics": 1253,
+    "pilotDiagnostics": 3578
   },
   "roots": [
     {
@@ -16917,14 +16917,14 @@
       "name": "testdata",
       "dir": "tests/testdata",
       "totals": {
-        "files": 40,
-        "filesFullyAgreeing": 26,
-        "agreement": 61,
+        "files": 42,
+        "filesFullyAgreeing": 28,
+        "agreement": 73,
         "severityMismatch": 4,
         "openSysMLOnly": 11,
         "pilotOnly": 36,
-        "openSysMLDiagnostics": 76,
-        "pilotDiagnostics": 101
+        "openSysMLDiagnostics": 88,
+        "pilotDiagnostics": 113
       },
       "files": [
         {
@@ -17491,6 +17491,86 @@
               "count": 1
             }
           ]
+        },
+        {
+          "path": "passes/inherited_name_case_roles.sysml",
+          "agreement": [
+            {
+              "line": 13,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 14,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 18,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 19,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 25,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 37,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 41,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 44,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 47,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 49,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 51,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 53,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            }
+          ],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
+          "pilotOnly": []
         },
         {
           "path": "passes/inherited_name_library_base.sysml",
@@ -18246,6 +18326,21 @@
     },
     {
       "side": "opensysml",
+      "message": "Duplicate of inherited member name 'extra' from U",
+      "count": 2
+    },
+    {
+      "side": "opensysml",
+      "message": "Duplicate of inherited member name 'helper' from R",
+      "count": 2
+    },
+    {
+      "side": "opensysml",
+      "message": "Duplicate of inherited member name 'limit' from R",
+      "count": 2
+    },
+    {
+      "side": "opensysml",
       "message": "operator '+' is not defined for String and Natural",
       "count": 2
     },
@@ -18257,6 +18352,21 @@
     {
       "side": "pilot",
       "message": "Duplicate of inherited member name 'X' from B1, B2",
+      "count": 2
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'extra' from U",
+      "count": 2
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'helper' from R",
+      "count": 2
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'limit' from R",
       "count": 2
     },
     {
@@ -18336,6 +18446,26 @@
     },
     {
       "side": "opensysml",
+      "message": "Duplicate of inherited member name 'driver' from R",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "Duplicate of inherited member name 'owner' from R",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "Duplicate of inherited member name 'q' from A",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "Duplicate of inherited member name 'q' from V",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
       "message": "Duplicate of inherited member name 'self' from DataValue, Part",
       "count": 1
     },
@@ -18346,7 +18476,17 @@
     },
     {
       "side": "opensysml",
+      "message": "Duplicate of inherited member name 'subj' from RequirementCheck",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
       "message": "Duplicate of inherited member name 'values' from Stats",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "Duplicate of inherited member name 'x' from C",
       "count": 1
     },
     {
@@ -18476,6 +18616,11 @@
     },
     {
       "side": "pilot",
+      "message": "Duplicate of inherited member name 'driver' from R",
+      "count": 1
+    },
+    {
+      "side": "pilot",
       "message": "Duplicate of inherited member name 'evaluator' from Runtime, evaluatorIsReference",
       "count": 1
     },
@@ -18511,7 +18656,22 @@
     },
     {
       "side": "pilot",
+      "message": "Duplicate of inherited member name 'owner' from R",
+      "count": 1
+    },
+    {
+      "side": "pilot",
       "message": "Duplicate of inherited member name 'performanceRequirement' from RelationshipMatrixExample, obj",
+      "count": 1
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'q' from A",
+      "count": 1
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'q' from V",
       "count": 1
     },
     {
@@ -18591,6 +18751,11 @@
     },
     {
       "side": "pilot",
+      "message": "Duplicate of inherited member name 'subj' from RequirementCheck",
+      "count": 1
+    },
+    {
+      "side": "pilot",
       "message": "Duplicate of inherited member name 'target' from , controllerAllocation, plantAllocation, powerLink",
       "count": 1
     },
@@ -18627,6 +18792,11 @@
     {
       "side": "pilot",
       "message": "Duplicate of inherited member name 'values' from Stats",
+      "count": 1
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'x' from C",
       "count": 1
     },
     {
@@ -25017,14 +25187,14 @@
       }
     ],
     "totals": {
-      "files": 925,
-      "filesFullyAgreeing": 529,
-      "agreement": 1107,
+      "files": 927,
+      "filesFullyAgreeing": 531,
+      "agreement": 1119,
       "severityMismatch": 8,
       "openSysMLOnly": 125,
       "pilotOnly": 2451,
-      "openSysMLDiagnostics": 1240,
-      "pilotDiagnostics": 3566
+      "openSysMLDiagnostics": 1252,
+      "pilotDiagnostics": 3578
     },
     "findings": [
       {
