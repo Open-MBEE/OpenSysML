@@ -118,6 +118,44 @@ func isType(metaclass string) bool {
 	return ontology.IsAncestorOrSelf(metaclass, "Type") || kermlTypeUsage[metaclassUsage[metaclass]]
 }
 
+// kermlTypeMetaclass names the KerML metaclass a type declaration recorded under a
+// kermlTypeUsage kind builds, by its keyword (KerML.xtext Type, Class, Structure, …).
+var kermlTypeMetaclass = map[string]string{
+	"type":         "Type",
+	"class":        "Class",
+	"struct":       "Structure",
+	"assoc":        "Association",
+	"assoc struct": "AssociationStructure",
+	"behavior":     "Behavior",
+	"predicate":    "Predicate",
+	"interaction":  "Interaction",
+}
+
+// kermlTypeMetaclassUsage reads kermlTypeMetaclass back to the kind the parser records.
+var kermlTypeMetaclassUsage = map[string]ast.UsageKind{
+	"Type":                 ast.UsageClass,
+	"Class":                ast.UsageClass,
+	"Structure":            ast.UsageStruct,
+	"Association":          ast.UsageAssoc,
+	"AssociationStructure": ast.UsageAssoc,
+	"Behavior":             ast.UsageBehavior,
+	"Predicate":            ast.UsagePredicate,
+	"Interaction":          ast.UsageInteraction,
+}
+
+// mClassifier is what `classifier` builds; the parser records it under DefClass.
+const mClassifier = "Classifier"
+
+// definitionMetaclassOf gives the metaclass a definition builds, reading the
+// keyword where the kind does not decide it.
+func definitionMetaclassOf(n *ast.Definition) (string, bool) {
+	if n.Kind == ast.DefClass && n.Keyword == "classifier" {
+		return mClassifier, true
+	}
+	m, ok := definitionMetaclass[n.Kind]
+	return m, ok
+}
+
 // keywordMetaclass names the metaclass a keyword builds where several spellings
 // share one AST kind (KerML.xtext:788, :924; SysML.xtext:632).
 var keywordMetaclass = map[string]string{
@@ -179,7 +217,8 @@ func declaredMetaclass(decl ast.Node) string {
 		}
 		return mPackage
 	case *ast.Definition:
-		return definitionMetaclass[n.Kind]
+		m, _ := definitionMetaclassOf(n)
+		return m
 	case *ast.Usage:
 		m, _ := usageMetaclassOf(n, false)
 		return m
@@ -192,6 +231,9 @@ func declaredMetaclass(decl ast.Node) string {
 // a kindless `name = value;` in a metadata body (SysML.xtext MetadataBodyUsage).
 func usageMetaclassOf(n *ast.Usage, inMetadataBody bool) (string, bool) {
 	if m, ok := keywordMetaclass[n.Keyword]; ok {
+		return m, true
+	}
+	if m, ok := kermlTypeMetaclass[n.Keyword]; ok && kermlTypeUsage[n.Kind] {
 		return m, true
 	}
 	switch {
@@ -484,6 +526,7 @@ func init() {
 	}
 	// Turtle this conversion wrote before it typed them so.
 	metaclassDefinition["IndividualDefinition"] = ast.DefIndividual
+	metaclassDefinition[mClassifier] = ast.DefClass
 	metaclassUsage["IndividualUsage"] = ast.UsageIndividual
 }
 

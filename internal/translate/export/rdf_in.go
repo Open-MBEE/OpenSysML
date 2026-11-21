@@ -2329,6 +2329,10 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 	if head, handled, err := d.behaviorHead(el); handled {
 		return head, err
 	}
+	// A KerML type declaration has no `def`: it is written in the usage form the parser reads.
+	if kind, ok := kermlTypeMetaclassUsage[el.metaclass]; ok {
+		return d.usageHead(el, kind)
+	}
 	if kind, ok := metaclassDefinition[el.metaclass]; ok {
 		return d.definitionHead(el, kind)
 	}
@@ -2396,6 +2400,9 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 		words = append(words, "variation")
 	}
 	keyword := d.keywordOr(el, definitionKeyword(kind))
+	if el.metaclass == mClassifier {
+		keyword = "classifier"
+	}
 	// `individual def` states isIndividual by its kind keyword; writing the
 	// modifier as well would declare it twice (SysML.xtext OccurrenceDefinitionPrefix).
 	if d.boolOf(el, rdf.SysML+"isIndividual") && keyword != "individual" {
@@ -2420,7 +2427,7 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 	}
 	// Every definition kind but `metaclass` shares its keyword with a usage
 	// form, and is told apart from it by `def`.
-	if kind != ast.DefMetaclass {
+	if kind != ast.DefMetaclass && keyword != "classifier" {
 		words = append(words, "def")
 	}
 	words = append(words, d.identWords(el)...)
