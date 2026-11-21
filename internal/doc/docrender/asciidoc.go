@@ -40,6 +40,9 @@ func AsciiDoc(document *docir.Document, opts AsciiDocOptions) (string, error) {
 	if err := drawAutomatic(document, &diagrams, opts.Drawer, &opts.DiagramSVG); err != nil {
 		return "", err
 	}
+	if err := checkInert(nil, opts.DiagramSVG); err != nil {
+		return "", err
+	}
 	w := &asciiDocWriter{
 		opts: diagrams, files: opts.Files, svg: opts.DiagramSVG, outputDir: opts.OutputDir,
 		numbers: captionNumbering{on: opts.NumberFigures}, tableColumns: opts.TableColumns, tableMeasure: opts.TableMeasure,

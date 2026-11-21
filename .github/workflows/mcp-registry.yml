@@ -33,9 +33,13 @@ jobs:
       TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
       REGISTRY: ${{ github.event_name == 'workflow_dispatch' && inputs.registry || 'production' }}
     steps:
+      # Before the checkout: the scripts of whatever ref is checked out run beside the signing key.
+      - name: Refuse a ref that is not a release tag
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::$TAG is not a release tag (vX.Y.Z[-pre])"; exit 1; }
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ env.TAG }}
+          ref: refs/tags/${{ env.TAG }}
       - name: Publish server.json
         env:
           MCP_REGISTRY_PRIVATE_KEY: ${{ secrets.MCP_REGISTRY_PRIVATE_KEY }}
