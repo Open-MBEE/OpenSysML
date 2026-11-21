@@ -11,9 +11,9 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 315,
+      "presentEqual": 317,
       "presentDifferent": 12,
-      "oursMissing": 60,
+      "oursMissing": 58,
       "pilotMissing": 14,
       "absentBoth": 346,
       "indeterminate": 3,
@@ -139,7 +139,7 @@
     "ConstraintUsage.portionKind": [0,0,0,0,2,0,0],
     "ConstraintUsage.predicate": [0,0,2,0,0,0,0],
     "ConstraintUsage.qualifiedName": [2,0,0,0,0,0,0],
-    "ConstraintUsage.result": [0,0,2,0,0,0,0],
+    "ConstraintUsage.result": [2,0,0,0,0,0,0],
     "ConstraintUsage.subsets": [0,0,0,2,0,0,0],
     "ConstraintUsage.textualRepresentation": [0,0,0,0,2,0,0],
     "ConstraintUsage.type": [0,0,2,0,0,0,0],

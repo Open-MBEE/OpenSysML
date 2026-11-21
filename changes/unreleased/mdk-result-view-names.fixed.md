@@ -1,0 +1,1 @@
+- Magic MDK: *Run query* over a subject whose queries share a last name (`P::Rows`, `Q::Rows`) lays each written view out as its own answer; both were laid out as the first. *Render document…* writes a document to the file its rendering plans (`QVTSDemo-MassReport.md`), so the links the model's other documents make to it resolve; it was written as `QVTSDemo.MassReport.md`.

@@ -40,7 +40,7 @@ func TestExtractedMappingsMatchBaseline(t *testing.T) {
 	}
 	xmi := modelPath(root, pin.File, "")
 	if _, err := os.Stat(xmi); err != nil {
-		if os.Getenv(RequireEnv) == "1" {
+		if os.Getenv(RequireEnv) != "" {
 			t.Fatalf("the pinned model is required (%s=1): run ./scripts/download-sysml-v1tov2.sh", RequireEnv)
 		}
 		t.Skipf("pinned model not provisioned at %s (run ./scripts/download-sysml-v1tov2.sh)", xmi)
