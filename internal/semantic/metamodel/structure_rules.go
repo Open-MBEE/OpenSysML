@@ -640,25 +640,6 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 				}
 				return elementValue(ElementOf(function)), true, true
 			}
-			if constructor, known := e.isMetaclass(element, "ConstructorExpression"); !known {
-				e.recordUnsupportedReason(
-					element, "Expression", name,
-					Reason{
-						Category: ReasonUnrepresentedElement,
-						Detail:   "Expression::function expression metaclass is unavailable",
-					},
-				)
-				return Value{}, true, false
-			} else if constructor {
-				e.recordUnsupportedReason(
-					element, "Expression", name,
-					Reason{
-						Category: ReasonNotApplicable,
-						Detail:   "Expression::function is not defined for a ConstructorExpression",
-					},
-				)
-				return Value{}, true, false
-			}
 			function, handled, ok := e.structureTypedFeatureTypes(element, "Function", true)
 			if !handled || !ok || function.Kind != NullValue {
 				return function, handled, ok
