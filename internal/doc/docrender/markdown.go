@@ -306,8 +306,7 @@ func (w *markdownWriter) diagramFigure(name, caption string, rendering *view.Ren
 		return nil, &Error{Kind: ErrorUnrenderableDiagram, Content: name, Actual: string(rendering.Kind)}
 	}
 	form, fallback := w.opts.formFor(rendering)
-	source, err := diagramSource(name, rendering, options, form)
-	if err != nil {
+	if err := renderableForm(name, rendering, form); err != nil {
 		return nil, err
 	}
 	if fallback != "" {
@@ -316,6 +315,10 @@ func (w *markdownWriter) diagramFigure(name, caption string, rendering *view.Ren
 	if w.diagrams < len(w.svg) && w.svg[w.diagrams] != "" {
 		blocks = append(blocks, "<figure class=\"sysml-diagram\">\n"+svgBlock(w.svg[w.diagrams])+"\n</figure>")
 	} else {
+		source, err := diagramSource(name, rendering, options, form)
+		if err != nil {
+			return nil, err
+		}
 		blocks = append(blocks, "```"+string(form)+"\n"+source+"\n```")
 	}
 	w.diagrams++
@@ -338,13 +341,21 @@ func svgBlock(svg string) string {
 	return strings.Join(lines, "\n")
 }
 
+// renderableForm refuses a diagram form the rendering's kind cannot be written in.
+func renderableForm(name string, rendering *view.Rendering, form view.Form) error {
+	if !rendering.Kind.SupportsForm(form) {
+		return &Error{Kind: ErrorUnrenderableForm, Content: name, Actual: string(rendering.Kind), DiagramForm: form}
+	}
+	return nil
+}
+
 // diagramSource writes a graph-shaped rendering in the resolved diagram form
 // with the diagram's direction, palette and placement of unplaced nodes,
 // without its trailing newline. A Mermaid chart past the size a chart is drawn
 // under is refused, not written.
 func diagramSource(name string, rendering *view.Rendering, options view.Options, form view.Form) (string, error) {
-	if !rendering.Kind.SupportsForm(form) {
-		return "", &Error{Kind: ErrorUnrenderableForm, Content: name, Actual: string(rendering.Kind), DiagramForm: form}
+	if err := renderableForm(name, rendering, form); err != nil {
+		return "", err
 	}
 	switch form {
 	case view.FormMermaid:

@@ -335,8 +335,7 @@ func (w *asciiDocWriter) diagramFigure(name, caption string, rendering *view.Ren
 		return nil, &Error{Kind: ErrorUnrenderableDiagram, Content: name, Actual: string(rendering.Kind), Form: asciiDocForm}
 	}
 	form, fallback := w.opts.formFor(rendering)
-	source, err := diagramSource(name, rendering, options, form)
-	if err != nil {
+	if err := renderableForm(name, rendering, form); err != nil {
 		return nil, err
 	}
 	var blocks []string
@@ -347,6 +346,10 @@ func (w *asciiDocWriter) diagramFigure(name, caption string, rendering *view.Ren
 	if w.diagrams < len(w.svg) && w.svg[w.diagrams] != "" {
 		figure += asciiDocDelimitedBlock('+', svgBlock(w.svg[w.diagrams]))
 	} else {
+		source, err := diagramSource(name, rendering, options, form)
+		if err != nil {
+			return nil, err
+		}
 		figure += "[" + asciiDocDiagramBlock(form, source) + "]\n" + asciiDocDelimitedBlock('.', source)
 	}
 	w.diagrams++

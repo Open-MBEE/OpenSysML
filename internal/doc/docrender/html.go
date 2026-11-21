@@ -1157,10 +1157,16 @@ func (w *htmlWriter) writeFigure(id, name string, caption caption, rendering *vi
 	if !rendering.Kind.Tabular() {
 		var err error
 		form, fallback = w.forms.formFor(rendering)
-		if source, err = diagramSource(name, rendering, options, form); err != nil {
+		drawn := w.diagramSVG() != "" || w.diagramImage() != ""
+		if drawn {
+			err = renderableForm(name, rendering, form)
+		} else {
+			source, err = diagramSource(name, rendering, options, form)
+		}
+		if err != nil {
 			return err
 		}
-		if form == view.FormMermaid && w.diagramSVG() == "" && w.diagramImage() == "" {
+		if form == view.FormMermaid && !drawn {
 			cwd, err := os.Getwd()
 			if err != nil {
 				return err
