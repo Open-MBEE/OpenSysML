@@ -804,6 +804,7 @@ impl Runner {
                 "sysml.QueryResponse",
                 &wire::QueryResponse {
                     elements: elements.into_iter().map(Into::into).collect(),
+                    result_view: String::new(),
                 },
             )),
             Err(error) => classify_error(error),

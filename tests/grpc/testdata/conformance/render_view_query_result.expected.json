@@ -1,0 +1,14 @@
+{
+  "rpc": "RenderView",
+  "model": "query_result_view.sysml",
+  "view": "Probe::heavy",
+  "expected_header": [
+    "query: Probe::Self root=Probe::probe::antenna",
+    "source: probe.sysml",
+    "outcome: established",
+    "provenance: urn:prov:bundle:heavy"
+  ],
+  "expected_view_rows": [
+    "Probe::probe::antenna | part | Payload | Probe::probe"
+  ]
+}

@@ -50,6 +50,12 @@ public final class MagicMdkPlugin extends Plugin {
     return new DocGenBridge(this::engine).run(Project.getProject(element), element, operation, calcArguments);
   }
 
+  /** Runs a query for MDK DocGen with its answer as a view; see {@link DocGenBridge#run(Project, BaseElement, String, String, String)}. */
+  public Map<String, Object> docGen(BaseElement element, String operation, String calcArguments, String view) {
+    return new DocGenBridge(this::engine)
+        .run(Project.getProject(element), element, operation, calcArguments, view);
+  }
+
   private synchronized Engine engine() {
     if (engine == null) engine = new Engine(getDescriptor().getPluginDirectory().toPath());
     return engine;

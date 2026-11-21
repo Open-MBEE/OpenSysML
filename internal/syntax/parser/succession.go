@@ -199,7 +199,7 @@ func (b *bodyBuilder) atSuccession() bool {
 	// `succession first a then b;` and `then a;` name members; the edge parser
 	// reads them. Unreserved node words such as `then done;` are identified by
 	// notation shape (see notation.go).
-	kw := ""
+	var kw string
 	if next.Kind == lexer.Keyword {
 		kw = next.KeywordID
 	} else if w, ok := p.actionNodeWordAt(nextAt); ok {
@@ -383,7 +383,7 @@ func (b *bodyBuilder) illegalTarget() (string, bool) {
 	p := b.p
 	for i := 0; ; i++ {
 		tok := p.peekN(i)
-		kw := ""
+		var kw string
 		if tok.Kind == lexer.Keyword {
 			kw = tok.KeywordID
 		} else if _, ok := p.actionNodeWordAt(i); ok {
