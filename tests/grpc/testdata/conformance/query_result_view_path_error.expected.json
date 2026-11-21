@@ -1,0 +1,8 @@
+{
+  "rpc": "RunDocumentQuery",
+  "model": "query_result_view.sysml",
+  "query_id": "Probe::Misspelled",
+  "as_view": true,
+  "expected_error": "camra",
+  "expected_result_view": "package MisspelledResult {\n\tprivate import QVTS::*;\n\n\tview misspelled : QueryResult {\n\t\texpose Probe::probe;\n\t\tattribute :>> query = \"Probe::Misspelled\";\n\t\tattribute :>> source = \"model:<model>\";\n\t\tattribute :>> outcome = Outcome::pathError;\n\t\tattribute :>> provenance = \"model:<model>; step Named(Probe::probe::camra)\";\n\t}\n}\n"
+}

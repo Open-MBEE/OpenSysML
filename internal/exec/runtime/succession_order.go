@@ -539,7 +539,7 @@ func (ctx *Context) noteBehaviorOrderFindings(behavior *ObjectBehavior) {
 				continue
 			}
 			predecessors := ctx.behaviorOrderEndPerformances(order, order.Earlier, featuring)
-			reason := ""
+			var reason string
 			switch len(predecessors) {
 			case 0:
 				reason = "no earlier-end performance is present; whether one is required is open under KERML-29"
