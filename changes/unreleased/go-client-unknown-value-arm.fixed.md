@@ -1,0 +1,1 @@
+- Go client: a remote service's answer holding a value of a kind the client does not know is refused with `CodeUnimplemented` instead of reading as a null the service never sent, in both the protobuf and the JSON body encoding; `NewInteger(nil)` and `NewRational(nil)` are zero instead of a panic.

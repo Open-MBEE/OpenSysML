@@ -102,3 +102,19 @@ func TestTextOfShadowsTheFallbackByName(t *testing.T) {
 		t.Errorf("text without a fallback = %q, want none", got)
 	}
 }
+
+func TestDominantNewline(t *testing.T) {
+	for content, want := range map[string]string{
+		"":              "\n",
+		"a":             "\n",
+		"a\nb\n":        "\n",
+		"a\r\nb\r\n":    "\r\n",
+		"a\r\nb\nc\n":   "\n",
+		"a\r\nb\r\nc\n": "\r\n",
+		"a\r\nb\n":      "\n",
+	} {
+		if got := DominantNewline([]byte(content)); got != want {
+			t.Errorf("DominantNewline(%q) = %q, want %q", content, got, want)
+		}
+	}
+}
