@@ -1,6 +1,5 @@
-// A succession end chaining through a part to an action whose body loops
-// (SysML v2 §7.17.4, §7.17.6) performs that action once where the successions
-// put it: the loop runs to its `until`, on the part, before `read`.
+// A chained succession end to a looping action (§7.17.4, §7.17.6) performs it once where the
+// successions put it: the loop runs to its `until`, on the part, before `read`.
 package P {
 	private import ScalarValues::*;
 
