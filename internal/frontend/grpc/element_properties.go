@@ -47,6 +47,9 @@ func (s *Service) GetElementProperties(ctx context.Context, req *pb.GetElementPr
 
 // elementProperties answers req over the documents the model is read with.
 func (s *Service) elementProperties(reader *elementReader, req *pb.GetElementPropertiesRequest) *pb.GetElementPropertiesResponse {
+	if reader.idsRefusal != nil {
+		return &pb.GetElementPropertiesResponse{Error: reader.idsRefusal.Error()}
+	}
 	sym, ok := s.lookupElement(reader, req)
 	if ok && !reader.model.Index.Library(sym) {
 		if excluded := reader.excluded[sym.DocName]; excluded != nil {
@@ -128,7 +131,7 @@ type elementReader struct {
 	structure *metamodel.SymbolStructure
 	evaluator *metamodel.Evaluator
 	// ids spells every element by the id the API element form (Convert) writes and resolves it
-	// back; nil when the form refuses the model (idsRefusal) and the symbols' own ids serve.
+	// back; nil when the form refuses the model whole, which every read then answers (idsRefusal).
 	ids        *export.SymbolIDs
 	idsRefusal error
 	addresses  map[*symbols.Symbol]string
