@@ -527,7 +527,7 @@ func (f *actionFrame) key(name string) string {
 // then its own declared defaults.
 func (e *performances) beginPerformance(
 	parent *actionFrame, flow *lower.ActionGraph, node ast.Node,
-	locals []map[string]Value, localCells []*bodyCells, localHeld []map[*symbols.Symbol]string,
+	locals []map[string]Value, localCells []*bodyCells, localHeld []map[*symbols.Symbol]string, within *Instance,
 ) (*actionFrame, error) {
 	perf := &actionFrame{
 		node:        node,
@@ -598,6 +598,9 @@ func (e *performances) beginPerformance(
 		} else {
 			delete(parent.subactions, at)
 		}
+		return nil, err
+	}
+	if err := e.holdNodeOccurrence(perf, within); err != nil {
 		return nil, err
 	}
 	e.markPerformance(flow, node, false)
@@ -798,6 +801,7 @@ func (e *performances) endPerformance(perf *actionFrame) error {
 	if perf.node != nil {
 		e.markPerformance(perf.flow, perf.node, true)
 	}
+	e.endNodeOccurrence(perf)
 	return nil
 }
 
@@ -1341,7 +1345,9 @@ func (e *performances) setFrameFeature(f *actionFrame, name string, value Value)
 	if err := e.ctx.checkNamedWriteAs(scope, f.describe, declared, &value); err != nil {
 		return err
 	}
-	e.ctx.writeBodyValue(f.cells, f.data, f.key(name), value)
+	if err := e.writeFrameValue(f, f.key(name), value); err != nil {
+		return err
+	}
 	e.noteFrameWrite(f, name, value)
 	return e.streamFrom(f, f.key(name), value)
 }
@@ -2182,7 +2188,9 @@ func (e *performances) performInvocation(perf *actionFrame, inv actionInvocation
 		// A joined performance outlives the node, which is done listening to it.
 		callee.exec.unlisten(perf)
 	}
-	perf.adopt(callee.exec)
+	if err := e.adopt(perf, callee.exec); err != nil {
+		return err
+	}
 	perf.outputs = callee.out
 	return nil
 }
@@ -2238,7 +2246,11 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 
 	sort.Strings(out)
 	listener := &outputListener{perf: perf, take: e.streamCalleeOutput(perf, out)}
-	callee, err := e.ctx.beginOrJoinCallee(inv, sym, performer, inputs, listener)
+	var occurrence *Instance
+	if inv.chain == nil {
+		occurrence = e.calleeOccurrence(perf, sym)
+	}
+	callee, err := e.ctx.beginOrJoinCallee(inv, sym, performer, occurrence, inputs, listener)
 	if err != nil {
 		return nil, fmt.Errorf("invoke action %s: %w", inv.name(), err)
 	}
@@ -2300,16 +2312,20 @@ func (e *performances) streamCalleeOutput(perf *actionFrame, out []string) func(
 		if !outputs[key] {
 			return nil
 		}
-		e.ctx.writeBodyValue(perf.cells, perf.data, key, value)
+		if err := e.writeFrameValue(perf, key, value); err != nil {
+			return err
+		}
 		return e.streamFrom(perf, key, value)
 	}
 }
 
 // adopt makes the completed performance of the action a node performed the node's
 // own: its features' values, and its subactions, read as `call.inner.v`.
-func (f *actionFrame) adopt(callee *ActionExecutor) {
-	for name, value := range callee.root.data {
-		callee.ctx.writeBodyValue(f.cells, f.data, f.key(name), value)
+func (e *performances) adopt(f *actionFrame, callee *ActionExecutor) error {
+	for _, name := range slices.Sorted(maps.Keys(callee.root.data)) {
+		if err := e.writeFrameValue(f, f.key(name), callee.root.data[name]); err != nil {
+			return err
+		}
 	}
 	f.performs = callee.graph
 	if len(callee.root.subactions) > 0 && f.subactions == nil {
@@ -2319,6 +2335,7 @@ func (f *actionFrame) adopt(callee *ActionExecutor) {
 		sub.parent = f
 		f.subactions[node] = sub
 	}
+	return nil
 }
 
 // checkInputsBound reports an input parameter that no argument, pin value or

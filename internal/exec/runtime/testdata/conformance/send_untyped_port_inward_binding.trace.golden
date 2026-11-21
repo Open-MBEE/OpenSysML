@@ -10,11 +10,12 @@ materialize: life #6
 enter: idle
 run: performed action fire of #2
 step 1: token 1@go
+materialize: go #7
 stmt send
-materialize: Go #7
-materialize: cmd #8
-materialize: tx #9
-materialize: Transfer #10
+materialize: Go #8
+materialize: cmd #9
+materialize: tx #10
+materialize: Transfer #11
 step 2: token 1@done
 step 3: no active tokens
 run: exhibited state machine life of #5
