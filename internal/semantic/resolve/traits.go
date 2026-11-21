@@ -16,7 +16,6 @@ func (r *Resolver) DeclarationTraits(sym *symbols.Symbol) symbols.Modifiers {
 	set(ImplicitlyRedefined(sym), symbols.ModImplicitlyRedefined)
 	set(contributesName(sym), symbols.ModContributesName)
 	set(r.hasUnresolvedRedefinition(sym), symbols.ModUnresolvedRedefinition)
-	set(ParameterizedByName(sym), symbols.ModParameterizedByName)
 	set(sym.Naming != symbols.NamedByDeclaration && !r.BindsName(sym), symbols.ModNamesNothing)
 	return mods
 }

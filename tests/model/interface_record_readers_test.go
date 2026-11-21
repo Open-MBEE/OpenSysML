@@ -899,3 +899,46 @@ func TestInterfaceRecordAnnotationSpans(t *testing.T) {
 		t.Fatalf("declarations of Goods::A with tags.sysml recorded: %+v; loaded: %+v", got, want)
 	}
 }
+
+// A case role held in a record redefines by position as it does loaded, and an
+// ordinary member of a requirement body conflicts with a recorded general's name.
+func TestInterfaceRecordCaseRoleNames(t *testing.T) {
+	t.Parallel()
+	docs := map[string][]byte{
+		"base.sysml": []byte(`package Base {
+	part def Vehicle; part def Person;
+	requirement def R { subject v : Vehicle; actor driver : Person; stakeholder owner : Person; part helper : Person; }
+	requirement def Mid :> R { subject w : Vehicle; actor pilot : Person; }
+	use case def U { subject s : Vehicle; actor lead : Person; actor aide : Person; }
+	use case def V :> U { subject s : Vehicle; actor renamed :>> aide; }
+}`),
+		"use.sysml": []byte(`package Use {
+	private import Base::*;
+	requirement def Same :> R { subject v : Vehicle; actor driver : Person; stakeholder owner : Person; }
+	requirement def Free :> Mid { subject x : Vehicle; actor y : Person; ref v : Vehicle; part driver : Person; }
+	requirement def Taken :> Mid { part helper : Person; part pilot : Person; part owner : Person; }
+	use case def Kept :> V { subject s : Vehicle; part lead : Person; part aide : Person; }
+}`),
+	}
+	if recorded := recordDifferential(t, docs); recorded != 2 {
+		t.Fatalf("%d of 2 documents recorded", recorded)
+	}
+	ws := model.NewWorkspace()
+	ws.OpenAll([]model.Input{
+		{Name: "base.sysml", Content: docs["base.sysml"], Version: 1},
+		{Name: "use.sysml", Content: docs["use.sysml"], Version: 1},
+	})
+	var got []string
+	for _, d := range ws.Diagnostics("use.sysml") {
+		got = append(got, d.Message)
+	}
+	want := []string{
+		"Duplicate of inherited member name 'helper' from R",
+		"Duplicate of inherited member name 'pilot' from Mid",
+		"Duplicate of inherited member name 'owner' from R",
+		"Duplicate of inherited member name 'lead' from U",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("diagnostics = %v, want %v", got, want)
+	}
+}
