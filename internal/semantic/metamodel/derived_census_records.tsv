@@ -59,7 +59,7 @@ AnnotatingElement::annotation	pilot-validation	210	0	210	0	219	0	219	0	0
 AnnotatingElement::annotation	kerml-examples	153	3	150	0	154	3	151	0	0
 AnnotatingElement::annotation	spec-examples	62	16	39	7	84	11	73	0	0
 AnnotatingElement::annotation	testdata	17	1	16	0	17	1	16	0	0
-AnnotatingElement::annotation	examples	557	-254	811	0	571	3	568	0	0
+AnnotatingElement::annotation	examples	557	5	552	0	571	3	568	0	0
 AnnotatingElement::annotation	manual-examples	71	6	65	0	71	0	71	0	0
 AnnotatingElement::ownedAnnotatingRelationship	training	51	3	48	0	56	3	53	0	0
 AnnotatingElement::ownedAnnotatingRelationship	pilot-examples	308	13	295	0	281	13	268	0	0
@@ -75,7 +75,7 @@ Annotation::annotatedElement	pilot-validation	0	0	0	0	6	6	0	0	0
 Annotation::annotatedElement	kerml-examples	3	3	0	0	3	3	0	0	0
 Annotation::annotatedElement	spec-examples	27	18	9	0	32	32	0	0	0
 Annotation::annotatedElement	testdata	1	1	0	0	1	1	0	0	0
-Annotation::annotatedElement	examples	-254	-254	0	0	5	5	0	0	0
+Annotation::annotatedElement	examples	5	5	0	0	5	5	0	0	0
 Annotation::annotatedElement	manual-examples	6	6	0	0	6	6	0	0	0
 Annotation::annotatingElement	training	6	6	0	0	8	8	0	0	0
 Annotation::annotatingElement	pilot-examples	14	14	0	0	14	14	0	0	0
@@ -83,7 +83,7 @@ Annotation::annotatingElement	pilot-validation	0	0	0	0	6	6	0	0	0
 Annotation::annotatingElement	kerml-examples	3	3	0	0	3	3	0	0	0
 Annotation::annotatingElement	spec-examples	27	27	0	0	32	32	0	0	0
 Annotation::annotatingElement	testdata	1	1	0	0	1	1	0	0	0
-Annotation::annotatingElement	examples	-254	-254	0	0	5	5	0	0	0
+Annotation::annotatingElement	examples	5	5	0	0	5	5	0	0	0
 Annotation::annotatingElement	manual-examples	6	6	0	0	6	6	0	0	0
 Annotation::ownedAnnotatingElement	training	6	0	6	0	8	2	0	6	0
 Annotation::ownedAnnotatingElement	pilot-examples	14	1	13	0	14	1	0	13	0
@@ -91,7 +91,7 @@ Annotation::ownedAnnotatingElement	pilot-validation	0	0	0	0	6	6	0	0	0
 Annotation::ownedAnnotatingElement	kerml-examples	3	0	3	0	3	0	0	3	0
 Annotation::ownedAnnotatingElement	spec-examples	27	12	15	0	32	17	0	15	0
 Annotation::ownedAnnotatingElement	testdata	1	0	1	0	1	0	0	1	0
-Annotation::ownedAnnotatingElement	examples	-254	2	3	0	5	2	0	3	0
+Annotation::ownedAnnotatingElement	examples	5	2	3	0	5	2	0	3	0
 Annotation::ownedAnnotatingElement	manual-examples	6	6	0	0	6	6	0	0	0
 Annotation::owningAnnotatedElement	training	6	6	0	0	8	2	0	6	0
 Annotation::owningAnnotatedElement	pilot-examples	14	14	0	0	14	1	0	13	0
@@ -99,7 +99,7 @@ Annotation::owningAnnotatedElement	pilot-validation	0	0	0	0	6	6	0	0	0
 Annotation::owningAnnotatedElement	kerml-examples	3	3	0	0	3	0	0	3	0
 Annotation::owningAnnotatedElement	spec-examples	27	18	9	0	32	17	0	15	0
 Annotation::owningAnnotatedElement	testdata	1	1	0	0	1	0	0	1	0
-Annotation::owningAnnotatedElement	examples	-254	-254	0	0	5	2	0	3	0
+Annotation::owningAnnotatedElement	examples	5	5	0	0	5	2	0	3	0
 Annotation::owningAnnotatedElement	manual-examples	6	6	0	0	6	6	0	0	0
 Annotation::owningAnnotatingElement	training	6	6	0	0	8	6	0	2	0
 Annotation::owningAnnotatingElement	pilot-examples	14	13	1	0	14	13	0	1	0
@@ -107,7 +107,7 @@ Annotation::owningAnnotatingElement	pilot-validation	0	0	0	0	6	0	0	6	0
 Annotation::owningAnnotatingElement	kerml-examples	3	3	0	0	3	3	0	0	0
 Annotation::owningAnnotatingElement	spec-examples	27	15	12	0	32	15	0	17	0
 Annotation::owningAnnotatingElement	testdata	1	1	0	0	1	1	0	0	0
-Annotation::owningAnnotatingElement	examples	-254	3	2	0	5	3	0	2	0
+Annotation::owningAnnotatingElement	examples	5	3	2	0	5	3	0	2	0
 Annotation::owningAnnotatingElement	manual-examples	6	0	6	0	6	0	0	6	0
 AttributeUsage::attributeDefinition	training	120	81	17	22	118	118	0	0	0
 AttributeUsage::attributeDefinition	pilot-examples	662	258	100	304	650	650	0	0	0
@@ -341,7 +341,7 @@ Definition::ownedAttribute	pilot-examples	728	147	581	0	697	143	554	0	0
 Definition::ownedAttribute	pilot-validation	386	65	321	0	360	60	300	0	0
 Definition::ownedAttribute	spec-examples	226	28	198	0	264	30	234	0	0
 Definition::ownedAttribute	testdata	129	6	123	0	126	6	120	0	0
-Definition::ownedAttribute	examples	725	344	381	0	725	348	377	0	0
+Definition::ownedAttribute	examples	725	348	377	0	725	348	377	0	0
 Definition::ownedAttribute	probes	7	0	7	0	7	0	7	0	0
 Definition::ownedAttribute	manual-examples	164	27	137	0	164	27	137	0	0
 Definition::ownedCalculation	training	346	1	345	0	336	1	335	0	0
@@ -389,7 +389,7 @@ Definition::ownedEnumeration	pilot-examples	728	0	728	0	697	0	697	0	0
 Definition::ownedEnumeration	pilot-validation	386	0	386	0	360	0	360	0	0
 Definition::ownedEnumeration	spec-examples	226	0	226	0	264	0	264	0	0
 Definition::ownedEnumeration	testdata	129	0	129	0	126	0	126	0	0
-Definition::ownedEnumeration	examples	725	0	729	0	725	0	725	0	0
+Definition::ownedEnumeration	examples	725	0	725	0	725	0	725	0	0
 Definition::ownedEnumeration	probes	7	0	7	0	7	0	7	0	0
 Definition::ownedEnumeration	manual-examples	164	0	164	0	164	0	164	0	0
 Definition::ownedFlow	training	346	9	337	0	336	9	327	0	0
@@ -413,7 +413,7 @@ Definition::ownedItem	pilot-examples	728	101	627	0	697	97	600	0	0
 Definition::ownedItem	pilot-validation	386	17	369	0	360	17	343	0	0
 Definition::ownedItem	spec-examples	226	56	170	0	264	58	206	0	0
 Definition::ownedItem	testdata	129	29	100	0	126	29	97	0	0
-Definition::ownedItem	examples	725	146	579	0	725	147	578	0	0
+Definition::ownedItem	examples	725	147	578	0	725	147	578	0	0
 Definition::ownedItem	probes	7	0	7	0	7	0	7	0	0
 Definition::ownedItem	manual-examples	164	12	152	0	164	12	152	0	0
 Definition::ownedMetadata	training	346	1	345	0	336	1	335	0	0
@@ -421,7 +421,7 @@ Definition::ownedMetadata	pilot-examples	728	10	718	0	697	6	691	0	0
 Definition::ownedMetadata	pilot-validation	386	1	385	0	360	1	359	0	0
 Definition::ownedMetadata	spec-examples	226	6	220	0	264	7	257	0	0
 Definition::ownedMetadata	testdata	129	0	129	0	126	0	126	0	0
-Definition::ownedMetadata	examples	725	261	464	0	725	134	591	0	0
+Definition::ownedMetadata	examples	725	132	593	0	725	134	591	0	0
 Definition::ownedMetadata	probes	7	0	7	0	7	0	7	0	0
 Definition::ownedMetadata	manual-examples	164	0	164	0	164	0	164	0	0
 Definition::ownedOccurrence	training	346	72	274	0	336	72	264	0	0
@@ -429,7 +429,7 @@ Definition::ownedOccurrence	pilot-examples	728	199	529	0	697	192	505	0	0
 Definition::ownedOccurrence	pilot-validation	386	58	328	0	360	58	302	0	0
 Definition::ownedOccurrence	spec-examples	226	137	89	0	264	161	103	0	0
 Definition::ownedOccurrence	testdata	129	38	91	0	126	38	88	0	0
-Definition::ownedOccurrence	examples	725	293	432	0	725	294	431	0	0
+Definition::ownedOccurrence	examples	725	294	431	0	725	294	431	0	0
 Definition::ownedOccurrence	probes	7	0	7	0	7	0	7	0	0
 Definition::ownedOccurrence	manual-examples	164	29	135	0	164	29	135	0	0
 Definition::ownedPart	training	346	31	315	0	336	31	305	0	0
@@ -493,7 +493,7 @@ Definition::ownedUsage	pilot-examples	728	408	320	0	697	389	308	0	0
 Definition::ownedUsage	pilot-validation	386	163	223	0	360	143	217	0	0
 Definition::ownedUsage	spec-examples	226	178	48	0	264	203	61	0	0
 Definition::ownedUsage	testdata	129	48	81	0	126	48	78	0	0
-Definition::ownedUsage	examples	725	520	205	0	725	524	201	0	0
+Definition::ownedUsage	examples	725	524	201	0	725	524	201	0	0
 Definition::ownedUsage	probes	7	1	6	0	7	1	6	0	0
 Definition::ownedUsage	manual-examples	164	120	44	0	164	120	44	0	0
 Definition::ownedUseCase	training	346	0	346	0	336	0	336	0	0
@@ -607,7 +607,7 @@ Element::ownedAnnotation	pilot-validation	12861	0	12861	0	14222	6	14216	0	0
 Element::ownedAnnotation	kerml-examples	7199	3	7196	0	8762	0	8762	0	0
 Element::ownedAnnotation	spec-examples	9661	22	9639	0	15900	16	15884	0	0
 Element::ownedAnnotation	testdata	2281	1	2280	0	2863	0	2863	0	0
-Element::ownedAnnotation	examples	48471	-254	48725	0	57526	2	57524	0	0
+Element::ownedAnnotation	examples	48471	5	48466	0	57526	2	57524	0	0
 Element::ownedAnnotation	probes	45	0	45	0	53	0	53	0	0
 Element::ownedAnnotation	manual-examples	8387	6	8381	0	9379	6	9373	0	0
 Element::ownedElement	training	10304	2327	7977	0	11906	2863	9043	0	0
@@ -643,7 +643,7 @@ Element::owningMembership	pilot-validation	12861	5227	7634	0	14222	5872	0	8350	0
 Element::owningMembership	kerml-examples	7199	2587	4612	0	8762	3318	0	5444	0
 Element::owningMembership	spec-examples	9661	3655	6006	0	15900	5934	0	9966	0
 Element::owningMembership	testdata	2281	918	1363	0	2863	1188	0	1675	0
-Element::owningMembership	examples	48471	20191	28280	0	57526	23954	0	33572	0
+Element::owningMembership	examples	48471	19932	28539	0	57526	23954	0	33572	0
 Element::owningMembership	probes	45	15	30	0	53	19	0	34	0
 Element::owningMembership	manual-examples	8387	3528	4859	0	9379	3711	0	5668	0
 Element::owningNamespace	training	10304	4169	6135	0	11906	4909	0	6997	0
@@ -652,7 +652,7 @@ Element::owningNamespace	pilot-validation	12861	5227	7634	0	14222	5872	0	8350	0
 Element::owningNamespace	kerml-examples	7199	2586	4613	0	8762	3318	0	5444	0
 Element::owningNamespace	spec-examples	9661	3655	6006	0	15900	5934	0	9966	0
 Element::owningNamespace	testdata	2281	918	1363	0	2863	1188	0	1675	0
-Element::owningNamespace	examples	48471	20191	28280	0	57526	23954	0	33572	0
+Element::owningNamespace	examples	48471	19932	28539	0	57526	23954	0	33572	0
 Element::owningNamespace	probes	45	15	30	0	53	19	0	34	0
 Element::owningNamespace	manual-examples	8387	3528	4859	0	9379	3711	0	5668	0
 Element::owningRelationship	training	10304	4228	6076	0	11906	4988	0	6918	0
@@ -1131,7 +1131,7 @@ Membership::memberElement	pilot-validation	5746	5745	1	0	6394	6394	0	0	0
 Membership::memberElement	kerml-examples	2730	2730	0	0	3463	3462	0	1	0
 Membership::memberElement	spec-examples	3826	3824	2	0	6352	6326	0	26	0
 Membership::memberElement	testdata	947	944	3	0	1248	1247	0	1	0
-Membership::memberElement	examples	21885	21885	0	0	25876	25876	0	0	0
+Membership::memberElement	examples	21626	21626	0	0	25876	25876	0	0	0
 Membership::memberElement	probes	16	16	0	0	20	20	0	0	0
 Membership::memberElement	manual-examples	3981	3981	0	0	4155	4155	0	0	0
 Membership::memberElementId	training	4587	1826	0	2761	5387	5387	0	0	0
@@ -1140,7 +1140,7 @@ Membership::memberElementId	pilot-validation	5746	2303	0	3443	6394	6394	0	0	0
 Membership::memberElementId	kerml-examples	2730	1341	0	1389	3463	3462	0	1	0
 Membership::memberElementId	spec-examples	3826	1773	0	2053	6352	6326	0	26	0
 Membership::memberElementId	testdata	947	441	0	506	1248	1247	0	1	0
-Membership::memberElementId	examples	21885	7075	0	14810	25876	25876	0	0	0
+Membership::memberElementId	examples	21626	7075	0	14551	25876	25876	0	0	0
 Membership::memberElementId	probes	16	9	0	7	20	20	0	0	0
 Membership::memberElementId	manual-examples	3981	1225	0	2756	4155	4155	0	0	0
 Membership::memberName	training	4587	1753	2834	0	5387	3219	0	2168	0
@@ -1149,7 +1149,7 @@ Membership::memberName	pilot-validation	5746	2077	3669	0	6394	3741	0	2653	0
 Membership::memberName	kerml-examples	2730	1384	1346	0	3463	1906	0	1557	0
 Membership::memberName	spec-examples	3826	1903	1907	16	6352	3823	0	2529	0
 Membership::memberName	testdata	947	458	489	0	1248	818	0	430	0
-Membership::memberName	examples	21885	6785	15100	0	25876	13687	0	12189	0
+Membership::memberName	examples	21626	6785	14841	0	25876	13687	0	12189	0
 Membership::memberName	probes	16	8	8	0	20	16	0	4	0
 Membership::memberName	manual-examples	3981	871	3110	0	4155	2288	0	1867	0
 Membership::memberShortName	training	4587	5	4582	0	5387	7	0	5380	0
@@ -1158,7 +1158,7 @@ Membership::memberShortName	pilot-validation	5746	21	5725	0	6394	16	0	6378	0
 Membership::memberShortName	kerml-examples	2730	4	2726	0	3463	4	0	3459	0
 Membership::memberShortName	spec-examples	3826	11	3795	20	6352	13	0	6339	0
 Membership::memberShortName	testdata	947	2	945	0	1248	2	0	1246	0
-Membership::memberShortName	examples	21885	6	21879	0	25876	8	0	25868	0
+Membership::memberShortName	examples	21626	6	21620	0	25876	8	0	25868	0
 Membership::memberShortName	probes	16	0	16	0	20	0	0	20	0
 Membership::memberShortName	manual-examples	3981	47	3934	0	4155	63	0	4092	0
 Membership::membershipOwningNamespace	training	4587	4587	0	0	5387	5387	0	0	0
@@ -1167,7 +1167,7 @@ Membership::membershipOwningNamespace	pilot-validation	5746	5746	0	0	6394	6394	0
 Membership::membershipOwningNamespace	kerml-examples	2730	2729	1	0	3463	3462	0	1	0
 Membership::membershipOwningNamespace	spec-examples	3826	3826	0	0	6352	6336	0	16	0
 Membership::membershipOwningNamespace	testdata	947	947	0	0	1248	1247	0	1	0
-Membership::membershipOwningNamespace	examples	21885	21885	0	0	25876	25876	0	0	0
+Membership::membershipOwningNamespace	examples	21626	21626	0	0	25876	25876	0	0	0
 Membership::membershipOwningNamespace	probes	16	16	0	0	20	20	0	0	0
 Membership::membershipOwningNamespace	manual-examples	3981	3981	0	0	4155	4155	0	0	0
 MetadataAccessExpression::referencedElement	pilot-examples	0	0	0	0	4	4	0	0	0
@@ -1247,7 +1247,7 @@ Namespace::ownedMember	pilot-validation	5178	2837	2341	0	5832	3299	2533	0	0
 Namespace::ownedMember	kerml-examples	2627	1260	1367	0	3357	1851	1506	0	0
 Namespace::ownedMember	spec-examples	4092	2283	1809	0	7502	3895	3607	0	0
 Namespace::ownedMember	testdata	991	505	486	0	1259	683	576	0	0
-Namespace::ownedMember	examples	20132	10688	9444	0	24156	13115	11041	0	0
+Namespace::ownedMember	examples	20132	10649	9483	0	24156	13115	11041	0	0
 Namespace::ownedMember	probes	19	10	9	0	23	14	9	0	0
 Namespace::ownedMember	manual-examples	3531	2027	1504	0	3738	2125	1613	0	0
 Namespace::ownedMembership	training	4298	2312	1986	0	5053	2834	2219	0	0
@@ -1256,7 +1256,7 @@ Namespace::ownedMembership	pilot-validation	5178	2838	2340	0	5832	3300	2532	0	0
 Namespace::ownedMembership	kerml-examples	2627	1260	1367	0	3357	1855	1502	0	0
 Namespace::ownedMembership	spec-examples	4092	2283	1809	0	7502	3900	3602	0	0
 Namespace::ownedMembership	testdata	991	507	484	0	1259	685	574	0	0
-Namespace::ownedMembership	examples	20132	10693	9439	0	24156	13120	11036	0	0
+Namespace::ownedMembership	examples	20132	10654	9478	0	24156	13120	11036	0	0
 Namespace::ownedMembership	probes	19	10	9	0	23	14	9	0	0
 Namespace::ownedMembership	manual-examples	3531	2027	1504	0	3738	2125	1613	0	0
 ObjectiveMembership::ownedObjectiveRequirement	training	4	4	0	0	4	4	0	0	0
@@ -1286,7 +1286,7 @@ OwningMembership::ownedMemberElement	pilot-validation	5227	5227	0	0	5874	5874	0	
 OwningMembership::ownedMemberElement	kerml-examples	2587	2587	0	0	3319	3319	0	0	0
 OwningMembership::ownedMemberElement	spec-examples	3659	3659	0	0	5943	5934	0	9	0
 OwningMembership::ownedMemberElement	testdata	918	918	0	0	1190	1190	0	0	0
-OwningMembership::ownedMemberElement	examples	20191	20191	0	0	23954	23954	0	0	0
+OwningMembership::ownedMemberElement	examples	19932	19932	0	0	23954	23954	0	0	0
 OwningMembership::ownedMemberElement	probes	15	15	0	0	19	19	0	0	0
 OwningMembership::ownedMemberElement	manual-examples	3528	3528	0	0	3711	3711	0	0	0
 OwningMembership::ownedMemberElementId	training	4169	1408	0	2761	4911	4911	0	0	0
@@ -1295,7 +1295,7 @@ OwningMembership::ownedMemberElementId	pilot-validation	5227	1785	0	3442	5874	58
 OwningMembership::ownedMemberElementId	kerml-examples	2587	1198	0	1389	3319	3319	0	0	0
 OwningMembership::ownedMemberElementId	spec-examples	3659	1608	0	2051	5943	5934	0	9	0
 OwningMembership::ownedMemberElementId	testdata	918	415	0	503	1190	1190	0	0	0
-OwningMembership::ownedMemberElementId	examples	20191	5384	0	14807	23954	23954	0	0	0
+OwningMembership::ownedMemberElementId	examples	19932	5384	0	14548	23954	23954	0	0	0
 OwningMembership::ownedMemberElementId	probes	15	8	0	7	19	19	0	0	0
 OwningMembership::ownedMemberElementId	manual-examples	3528	772	0	2756	3711	3711	0	0	0
 OwningMembership::ownedMemberName	training	4169	1747	2422	0	4911	3213	0	1698	0
@@ -1304,7 +1304,7 @@ OwningMembership::ownedMemberName	pilot-validation	5227	2073	3154	0	5874	3737	0	
 OwningMembership::ownedMemberName	kerml-examples	2587	1379	1208	0	3319	1901	0	1418	0
 OwningMembership::ownedMemberName	spec-examples	3659	1898	1745	16	5943	3817	0	2126	0
 OwningMembership::ownedMemberName	testdata	918	450	468	0	1190	810	0	380	0
-OwningMembership::ownedMemberName	examples	20191	6784	13407	0	23954	13686	0	10268	0
+OwningMembership::ownedMemberName	examples	19932	6784	13148	0	23954	13686	0	10268	0
 OwningMembership::ownedMemberName	probes	15	8	7	0	19	16	0	3	0
 OwningMembership::ownedMemberName	manual-examples	3528	871	2657	0	3711	2288	0	1423	0
 OwningMembership::ownedMemberShortName	training	4169	7	4162	0	4911	7	0	4904	0
@@ -1313,7 +1313,7 @@ OwningMembership::ownedMemberShortName	pilot-validation	5227	26	5201	0	5874	16	0
 OwningMembership::ownedMemberShortName	kerml-examples	2587	4	2583	0	3319	4	0	3315	0
 OwningMembership::ownedMemberShortName	spec-examples	3659	9	3630	20	5943	11	0	5932	0
 OwningMembership::ownedMemberShortName	testdata	918	2	916	0	1190	2	0	1188	0
-OwningMembership::ownedMemberShortName	examples	20191	8	20183	0	23954	8	0	23946	0
+OwningMembership::ownedMemberShortName	examples	19932	8	19924	0	23954	8	0	23946	0
 OwningMembership::ownedMemberShortName	probes	15	0	15	0	19	0	0	19	0
 OwningMembership::ownedMemberShortName	manual-examples	3528	63	3465	0	3711	63	0	3648	0
 ParameterMembership::ownedMemberParameter	training	1120	1120	0	0	1250	1250	0	0	0
@@ -2032,7 +2032,7 @@ Usage::nestedAttribute	pilot-validation	1972	29	1943	0	2012	29	1983	0	0
 Usage::nestedAttribute	kerml-examples	4	0	4	0	0	0	0	0	0
 Usage::nestedAttribute	spec-examples	1385	13	1372	0	2002	13	1989	0	0
 Usage::nestedAttribute	testdata	314	2	312	0	365	2	363	0	0
-Usage::nestedAttribute	examples	7361	298	7063	0	8395	303	8092	0	0
+Usage::nestedAttribute	examples	7361	303	7058	0	8395	303	8092	0	0
 Usage::nestedAttribute	probes	1	0	1	0	1	0	1	0	0
 Usage::nestedAttribute	manual-examples	785	84	701	0	789	84	705	0	0
 Usage::nestedCalculation	training	1738	6	1732	0	1821	6	1815	0	0
@@ -2068,7 +2068,7 @@ Usage::nestedConnection	pilot-validation	1972	34	1938	0	2012	37	1975	0	0
 Usage::nestedConnection	kerml-examples	4	0	4	0	0	0	0	0	0
 Usage::nestedConnection	spec-examples	1385	13	1372	0	2002	14	1988	0	0
 Usage::nestedConnection	testdata	314	4	310	0	365	4	361	0	0
-Usage::nestedConnection	examples	7361	-66	7427	0	8395	51	8344	0	0
+Usage::nestedConnection	examples	7361	49	7312	0	8395	51	8344	0	0
 Usage::nestedConnection	probes	1	0	1	0	1	0	1	0	0
 Usage::nestedConnection	manual-examples	785	4	781	0	789	4	785	0	0
 Usage::nestedConstraint	training	1738	17	1721	0	1821	17	1804	0	0
@@ -2113,7 +2113,7 @@ Usage::nestedItem	pilot-validation	1972	130	1842	0	2012	130	1882	0	0
 Usage::nestedItem	kerml-examples	4	0	4	0	0	0	0	0	0
 Usage::nestedItem	spec-examples	1385	25	1360	0	2002	22	1980	0	0
 Usage::nestedItem	testdata	314	7	307	0	365	7	358	0	0
-Usage::nestedItem	examples	7361	3	7358	0	8395	81	8314	0	0
+Usage::nestedItem	examples	7361	81	7280	0	8395	81	8314	0	0
 Usage::nestedItem	probes	1	0	1	0	1	0	1	0	0
 Usage::nestedItem	manual-examples	785	36	749	0	789	36	753	0	0
 Usage::nestedMetadata	training	1738	20	1718	0	1821	27	1794	0	0
@@ -2122,7 +2122,7 @@ Usage::nestedMetadata	pilot-validation	1972	34	1938	0	2012	52	1960	0	0
 Usage::nestedMetadata	kerml-examples	4	0	4	0	0	0	0	0	0
 Usage::nestedMetadata	spec-examples	1385	3	1382	0	2002	4	1998	0	0
 Usage::nestedMetadata	testdata	314	8	306	0	365	22	343	0	0
-Usage::nestedMetadata	examples	7361	207	7033	0	8395	484	7911	0	0
+Usage::nestedMetadata	examples	7361	207	7154	0	8395	484	7911	0	0
 Usage::nestedMetadata	probes	1	0	1	0	1	0	1	0	0
 Usage::nestedMetadata	manual-examples	785	15	770	0	789	15	774	0	0
 Usage::nestedOccurrence	training	1738	232	1506	0	1821	245	1576	0	0
@@ -2131,7 +2131,7 @@ Usage::nestedOccurrence	pilot-validation	1972	270	1702	0	2012	279	1733	0	0
 Usage::nestedOccurrence	kerml-examples	4	0	4	0	0	0	0	0	0
 Usage::nestedOccurrence	spec-examples	1385	105	1280	0	2002	134	1868	0	0
 Usage::nestedOccurrence	testdata	314	22	292	0	365	26	339	0	0
-Usage::nestedOccurrence	examples	7361	280	7081	0	8395	379	8016	0	0
+Usage::nestedOccurrence	examples	7361	354	7007	0	8395	379	8016	0	0
 Usage::nestedOccurrence	probes	1	0	1	0	1	0	1	0	0
 Usage::nestedOccurrence	manual-examples	785	133	652	0	789	133	656	0	0
 Usage::nestedPart	training	1738	82	1656	0	1821	82	1739	0	0
@@ -2203,7 +2203,7 @@ Usage::nestedUsage	pilot-validation	1972	554	1418	0	2012	595	1417	0	0
 Usage::nestedUsage	kerml-examples	4	0	4	0	0	0	0	0	0
 Usage::nestedUsage	spec-examples	1385	331	1054	0	2002	443	1559	0	0
 Usage::nestedUsage	testdata	314	51	263	0	365	69	296	0	0
-Usage::nestedUsage	examples	7361	1461	5900	0	8395	2065	6330	0	0
+Usage::nestedUsage	examples	7361	1538	5823	0	8395	2065	6330	0	0
 Usage::nestedUsage	probes	1	0	1	0	1	0	1	0	0
 Usage::nestedUsage	manual-examples	785	261	524	0	789	264	525	0	0
 Usage::nestedUseCase	training	1738	2	1736	0	1821	2	1819	0	0
