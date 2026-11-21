@@ -8,8 +8,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.junit.jupiter.api.AfterAll;
@@ -140,14 +143,81 @@ class ResultViewEndToEndTest {
     assertEquals(Map.of("name", "outcome", "value", "established"), ((List<?>) flatView.get("header")).get(2));
   }
 
-  /** "Render document…" on a v2 Document and on a QueryResult view writes Markdown and HTML named by what was rendered. */
+  /** Queries of one final name in two packages answer as views of one name; each is laid out as its own answer. */
+  @Test
+  void viewsOfOneNameAreRenderedAsTheirOwnAnswers() {
+    V2TextualSource source = new V2TextualSource("""
+        package Fleet {
+            part telescope;
+            part camera;
+        }
+        package P {
+            private import DocumentQueries::*;
+            calc def Rows :> Query {
+                Project(source = Named(qualifiedName = "Fleet::telescope"), properties = ("qualifiedName"))
+            }
+        }
+        package Q {
+            private import DocumentQueries::*;
+            calc def Rows :> Query {
+                Project(source = Named(qualifiedName = "Fleet::camera"), properties = ("qualifiedName"))
+            }
+        }
+        package Board {
+            part def Both {
+                calc p : P::Rows;
+                calc q : Q::Rows;
+            }
+        }
+        """);
+    RunResult both = run(source, "Board::Both");
+    assertEquals(Status.PASSED, both.status(), both.toString());
+    assertEquals(List.of("P::Rows", "Q::Rows"), both.views().stream().map(RunResult.View::query).toList());
+    assertEquals(both.views().get(0).name(), both.views().get(1).name(), "the two answers are named alike");
+
+    RunResult rendered = engine.renderViews(source, both, () -> false);
+    for (int i = 0; i < 2; i++) {
+      RunResult.View view = rendered.views().get(i);
+      assertEquals(view.query(), view.header().get(0).value(), "the header states the view's own query");
+      assertEquals(
+          both.tables().get(i).rows().stream().map(RunResult.Row::elementId).toList(),
+          view.rows().stream().map(row -> row.get(0)).toList(),
+          "the rows of " + view.query());
+    }
+  }
+
+  /** Documents rendered into one folder are written to the files their links to each other name. */
+  @Test
+  void documentsLinkingEachOtherAreWrittenWhereTheirLinksPoint() throws Exception {
+    V2TextualSource source = new V2TextualSource(Files.readString(
+        ServiceBinary.repository().resolve("internal/doc/docrender/testdata/linked_reports.sysml")));
+    Path directory = Files.createTempDirectory("magic-mdk-linked");
+    List<Path> written = new ArrayList<>();
+    written.addAll(engine.render(source, "Observatory::SystemReport", directory, () -> false).orElseThrow());
+    written.addAll(engine.render(source, "Observatory::'Mass Appendix'", directory, () -> false).orElseThrow());
+    assertEquals(4, written.size(), written.toString());
+
+    int links = 0;
+    for (Path file : written) {
+      if (!file.getFileName().toString().endsWith(".html")) continue;
+      Matcher href = Pattern.compile("href=\"([^\"#:]+)(#[^\"]*)?\"").matcher(Files.readString(file));
+      while (href.find()) {
+        links++;
+        assertTrue(Files.isRegularFile(directory.resolve(href.group(1))),
+            file.getFileName() + " links " + href.group(1) + ", which was not written: " + written);
+      }
+    }
+    assertTrue(links >= 2, "each document links the other: " + links);
+  }
+
+  /** "Render document…" on a v2 Document and on a QueryResult view writes Markdown and HTML: a document under its planned name, a view by its name. */
   @Test
   void rendersADocumentAndAResultViewToFiles() throws Exception {
     V2TextualSource source = lander();
     Path directory = Files.createTempDirectory("magic-mdk-render");
 
     List<Path> report = engine.render(source, "QVTSDemo::MassReport", directory, () -> false).orElseThrow();
-    assertEquals(List.of(directory.resolve("QVTSDemo.MassReport.md"), directory.resolve("QVTSDemo.MassReport.html")), report);
+    assertEquals(List.of(directory.resolve("QVTSDemo-MassReport.md"), directory.resolve("QVTSDemo-MassReport.html")), report);
     assertTrue(Files.readString(report.get(0)).contains("# Lander Mass Report"), Files.readString(report.get(0)));
     assertTrue(Files.readString(report.get(1)).contains("<h1"), "the HTML form is a page");
 

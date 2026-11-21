@@ -296,7 +296,7 @@ func (m *Model) specializesByReference(t, f *symbols.Symbol, seen map[*symbols.S
 		return false
 	}
 	seen[t] = true
-	for _, general := range append([]*symbols.Symbol{t}, m.AllSupertypes(t)...) {
+	for general := range m.eachSelfAndSupertype(t) {
 		if referenced := m.ReferencedFeature(general); referenced != nil && m.specializesByReference(referenced, f, seen) {
 			return true
 		}

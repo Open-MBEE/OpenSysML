@@ -19,6 +19,18 @@ type dialOptions struct {
 	httpClient *http.Client
 	json       bool
 	token      string
+	// maxResponse is the response bound WithMaxResponseBytes named; 0 is the default.
+	maxResponse int
+}
+
+// DefaultMaxResponseBytes bounds one response message unless WithMaxResponseBytes
+// names another bound.
+const DefaultMaxResponseBytes = 128 << 20
+
+// WithMaxResponseBytes bounds one response message; a larger one fails the call with
+// CodeResourceExhausted instead of being buffered. A bound of zero or less is ignored.
+func WithMaxResponseBytes(n int) DialOption {
+	return func(o *dialOptions) { o.maxResponse = n }
 }
 
 // TokenEnv is the environment variable Dial reads a bearer token from when
@@ -68,7 +80,13 @@ func Dial(address string, opts ...DialOption) (Client, error) {
 	if !strings.Contains(address, "://") {
 		address = "http://" + address
 	}
-	connectOpts := []connect.ClientOption{connect.WithInterceptors(knownValues{})}
+	if config.maxResponse <= 0 {
+		config.maxResponse = DefaultMaxResponseBytes
+	}
+	connectOpts := []connect.ClientOption{
+		connect.WithReadMaxBytes(config.maxResponse),
+		connect.WithInterceptors(knownValues{}),
+	}
 	if config.json {
 		connectOpts = append(connectOpts, connect.WithProtoJSON())
 	}

@@ -224,7 +224,9 @@ func (m *Model) declaresOwnIdentifier(sym *symbols.Symbol) bool {
 // declaresIdentifier reports whether sym's declaration states a name or a short
 // name of its own; a symbol named by its naming feature (KerML 7.3.4.5) declares neither.
 func declaresIdentifier(sym *symbols.Symbol) bool {
-	return sym.Naming == symbols.NamedByDeclaration && (sym.Named() || sym.HasShortName())
+	// A short name is always written by the declaration (`<R1> :>> x`); a name
+	// is declared only when the naming feature does not supply it.
+	return sym.HasShortName() || (sym.Naming == symbols.NamedByDeclaration && sym.Named())
 }
 
 // identifierSource is the first of sym and the features from leads to that
@@ -274,6 +276,11 @@ func (m *Model) namingFeature(sym *symbols.Symbol) *symbols.Symbol {
 	}
 	if redefinesChainFirst(sym) {
 		return nil
+	}
+	// A constructor's argument feature is named after the feature of the
+	// instantiated type it values (KerML 8.3.4.8.3).
+	if formal, _ := m.constructorArgumentFormal(sym); formal != nil {
+		return formal
 	}
 	for _, candidate := range m.directRedefinedFeatures(sym) {
 		if candidate != nil && candidate != sym {
