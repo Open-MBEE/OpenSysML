@@ -543,7 +543,7 @@ func (h *Host) diagnosticsWithin(ref docRef, content []byte, r protocol.Range) [
 	_, raw, _ := h.Workspace.AnalyzedContent(ref.name)
 	for _, d := range raw {
 		start, end := offsetPosition(content, d.Span.Offset), offsetPosition(content, d.Span.End())
-		pr := protocol.Range{Start: toolkit.Position(start).ToProtocol(lineAt(content, uint32(start.Line-1))), End: toolkit.Position(end).ToProtocol(lineAt(content, uint32(end.Line-1)))} // #nosec G115 -- lines are 1-based counts
+		pr := protocol.Range{Start: start.ToProtocol(lineAt(content, uint32(start.Line-1))), End: end.ToProtocol(lineAt(content, uint32(end.Line-1)))} // #nosec G115 -- lines are 1-based counts
 		if pr.End.Line < r.Start.Line || pr.Start.Line > r.End.Line {
 			continue
 		}

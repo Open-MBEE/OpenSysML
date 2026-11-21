@@ -1333,6 +1333,7 @@ mod tests {
                     }],
                 }],
             }],
+            result_view: String::new(),
         };
         let result = result_of(response).unwrap();
         assert_eq!(result.columns, ["status"]);

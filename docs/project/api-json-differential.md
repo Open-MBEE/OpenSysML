@@ -289,11 +289,13 @@ baseline's list is the comparison's, every declared row has evidence and sits wh
 column, and no undeclared row is in it). An entry is removed when a pin stops reproducing the
 disagreement, which `-check` then shows as that row moving out of the column.
 
-## Results (pilot `2026-09.1`, 935 files)
+## Results (pilot `2026-09.1`, 937 files)
 
 <!-- doc-counts:begin apijson-scorecard -->
 The scorecard headline, rendered from the baseline when the site builds.
 <!-- doc-counts:end apijson-scorecard -->
+
+Re-recorded on the self-model's query-path update (`examples/self-model/queries.sysml` is a new file — the `DocumentQueries` library, the plan compiler, the executor, the step outcomes and the query surfaces as parts, attributes, enumerations and a state definition — and `document.sysml`, `surfaces.sysml` and `views.sysml` carry its section's tables, prose, pipeline parts and views): 948 files (947 before), 1981 more elements match (110420 → 112401; ours-only 19237 → 19328, pilot-only 28510 → 28797), every one under the `examples` root (36432 → 38413, 5693 → 5784, 10802 → 11089; its pilot library elements 30920 → 30925) and no other root moving; present-equal 2234290 → 2276244, present-different 162796 → 165367, ours-missing 187345 → 190133, pilot-missing 85769 → 87266, absent-both 2353402 → 2397905, indeterminate 67074 → 68511 and pilot-nondeterministic 548 → 551 are the new elements' properties joining the buckets their metaclasses already hold. Nine fragments move, all under `examples/self-model/`: the four files above carry the section, and `asciidoc/markup`, `execution`, `identity`, `pipeline` and `quality` move only in the pilot's duplicate (+72) and unkeyable (+16) element counts, which the pilot's export of the self-model folder as one model repeats on every sibling file once `queries.sysml` is in it.
 
 Re-recorded on the connection-definition sufficiency change (the RDF writer and the element form state `isSufficient = true` on a connection, interface and allocation definition, as SysML v2.1 §8.3.13.3 redefines the attribute — `isSufficient : Boolean = true {redefines isSufficient}`, "A ConnectionDefinition always has isSufficient = true", `validateConnectionDefinitionIsSufficient` — and as the reflective read already answered, where they stated nothing and the element form completed the default `false`): no element match moved and no row appeared or disappeared; 82 cells in 51 fragments moved present-equal → present-different, every one an `isSufficient` row (`ConnectionDefinition` 43, `InterfaceDefinition` 31, `AllocationDefinition` 8), 2173330 → 2173248 present-equal and 147737 → 147819 present-different overall. The pilot exports `false` there, the `Type::isSufficient` default of its metamodel, which the clause above rules out; the difference is the pilot's, and it is left standing rather than matched.
 
@@ -634,6 +636,19 @@ parameters of the invoked function that no argument binds (`DocumentQueries::Des
 `Time::DurationOf::clock` in the training corpus's `Time Constraints::healthStates`, different before and after
 this record), where this repository lists only the argument features the invocation owns. A fix of its own
 follows; until it lands, a library parameter gaining a default moves the rows of every caller that omits it.
+
+**The OpenSysML Libraries pin gains `QVTS`, and `examples/qvts` its result views** (re-recorded when the
+vendored libraries took the `QVTS` library — 17 → 18 files — and eleven files joined the `examples` root: nine
+recorded `QVTS::QueryResult` views under `examples/qvts/expected/views/` and the QVTS repository's
+`observatory.sysml` and `result.sysml`): only the `examples` root moves, 57 → 68 files, and by the new files'
+own elements — 622 more matched (109597 → 110219), 6 ours-only, 11 pilot-only, 413 more
+`pilotLibraryElements` (library elements in the pilot's exports of the new files, left out as every library element is),
+and three more colliding keys of ours (50 → 53). No file is newly refused or failed on either side (38 and
+0 as before), no scorecard row is added or removed (11785), and the other roots read as recorded. The new
+files' properties fall in the buckets their metaclasses already had — the view usages, `expose` imports and
+attribute redefinitions of the result views, and the parts, actions and attributes of `observatory.sysml` —
+so the counts of existing rows grow by what the new files add; no existing example imports `QVTS`. The
+self-model's `bundledFileCount` literal moves 111 → 112 with the library, changing the digest and no count.
 
 **An invocation lists the parameters no argument binds** (re-recorded when the writer began listing
 under `InvocationExpression.parameter` the invoked behavior's parameters that no argument binds and no
@@ -1319,6 +1334,7 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 | `OperatorExpression` | `isModelLevelEvaluable` | not completed — no evaluator rule (`docs/project/constraint-manifest.json`) | `Expression::isModelLevelEvaluable = modelLevelEvaluable(Set{})` (KerML 8.3.4.7.3, deriveExpressionIsModelLevelEvaluable) |
 | `LiteralString` | `isModelLevelEvaluable` | not completed — no evaluator rule (`docs/project/constraint-manifest.json`) | `Expression::isModelLevelEvaluable = modelLevelEvaluable(Set{})` (KerML 8.3.4.7.3, deriveExpressionIsModelLevelEvaluable) |
 | `LiteralString` | `parameter` | not completed — a literal owns no result parameter, so the pilot's `parameter` is the `Evaluation::result` it inherits through the implied base (this record's step 6), which this repository states as `directedFeature` and `output` but derives `Step::parameter` from the owned feature memberships alone | `Step::parameter` redefines `Type::directedFeature` (KerML 8.3.5.1.4) |
+| `LiteralString` | `result` | not completed — as `parameter`: the inherited `Evaluation::result` is the pilot's result parameter, and the rule reads the owned `ReturnParameterMembership` alone | `Expression::result = featureMemberships->selectByKind(ReturnParameterMembership).ownedMemberParameter->first()` (KerML 8.3.4.7.3, deriveExpressionResult) |
 <!-- doc-counts:end apijson-launch-ready-gaps -->
 
 Rows an evaluator rule in PR #1232 (`internal/semantic/metamodel/rules.go`) already names are marked; that PR adds a lazy metamodel evaluator and layers its derived values into the API-JSON writer, so its merge is expected to move those rows from ours-missing to present-equal or present-different, and this referee is how that movement is measured.

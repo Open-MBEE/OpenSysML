@@ -1,0 +1,10 @@
+{
+  "rpc": "Query",
+  "model": "query_result_view.sysml",
+  "oslc_query": "oslc.where=sysml:name=\"camera\"",
+  "as_view": true,
+  "expected_element_ids": [
+    "Probe::probe::camera"
+  ],
+  "expected_result_view": "package AnswerResult {\n\tprivate import QVTS::*;\n\n\tview answer : QueryResult {\n\t\texpose Probe::probe::camera;\n\t\tattribute :>> query = \"oslc.where=sysml:name=\\\"camera\\\"\";\n\t\tattribute :>> source = \"model:<model>\";\n\t\tattribute :>> outcome = Outcome::established;\n\t\tattribute :>> provenance = \"model:<model>\";\n\t}\n}\n"
+}

@@ -356,7 +356,7 @@ func (ctx *Context) singlyWithin(inst, root *Instance) bool {
 // determine it differently on another occurrence.
 func (ctx *Context) sharedPaths(root *Instance, reads []sharedRead) (paths [][]string, inputs []sharedInput) {
 	paths = make([][]string, 0, min(len(reads), 8))
-	ok := true
+	var ok bool
 	for _, read := range reads {
 		if read.shared == nil {
 			paths, inputs, ok = ctx.sharedPath(root, read.inst, read.path, read.value, read.valued, paths, inputs)
