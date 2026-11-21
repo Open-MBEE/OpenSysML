@@ -10,9 +10,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// Each performance of a named action node is an occurrence of its own (Performances.kerml
-// `Performance :> Occurrence`; Actions.sysml `subactions :> subperformances`), a value of
-// the node's feature on the performance around it, holding what the performance's features hold.
+// Each performance of a named action node is an occurrence of its own (Actions.sysml `subactions
+// :> subperformances`): a value of the node's feature on the performance around it.
 
 // errNodePerformanceOccurrence types a failure to hold a node's performance as an object.
 var errNodePerformanceOccurrence = fmt.Errorf("action node performance occurrence")
@@ -39,9 +38,8 @@ func (e *performances) nodeFeature(owner *Instance, perf *actionFrame) *FeatureV
 	return fv
 }
 
-// holdNodeOccurrence gives perf the object it runs as, where the performance around it
-// runs as one: the first of the node's declared objects no performance has taken, else
-// a new one after them, so the node's feature lists every performance in the order begun.
+// holdNodeOccurrence gives perf the object it runs as where the performance around it runs as one:
+// the first declared object no performance has taken, else a new one after them, in begin order.
 func (e *performances) holdNodeOccurrence(perf *actionFrame, within *Instance) error {
 	if perf.occurrence != nil || perf.parent == nil || e.occurrence == nil {
 		return nil
