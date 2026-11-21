@@ -1,0 +1,112 @@
+name: Install pinned Python packages
+description: >-
+  Install pinned packages through scripts/ci-pip-install.sh from a directory of their wheels kept
+  in the Actions cache, keyed on the request and the interpreter. A run that restores the
+  directory never asks PyPI; one that does not downloads it with retries that also cover a
+  truncated index page or wheel, and fails with nothing installed when PyPI serves neither.
+
+inputs:
+  packages:
+    description: The pinned requirements to install, separated by whitespace (`fmpy==0.3.32`).
+    required: false
+    default: ''
+  requirements:
+    description: Pinned requirements files to install, separated by whitespace.
+    required: false
+    default: ''
+  projects:
+    description: >-
+      Project directories whose build requirements and dependencies join the wheels without being
+      installed, so a later pip under PIP_NO_INDEX and PIP_FIND_LINKS installs the project offline.
+    required: false
+    default: ''
+  python:
+    description: The interpreter the packages are installed for.
+    required: false
+    default: python3
+  install:
+    description: Whether to install the packages and requirements files, or only provide their wheels.
+    required: false
+    default: 'true'
+  save:
+    description: Save the wheels this run downloaded; only .github/workflows/pip-cache.yml does, on develop.
+    required: false
+    default: 'false'
+
+outputs:
+  wheels:
+    description: The directory of wheels, for PIP_FIND_LINKS.
+    value: ${{ steps.set.outputs.path }}
+  cache-hit:
+    description: Whether the wheels were restored from the cache.
+    value: ${{ steps.restore.outputs.cache-hit }}
+
+runs:
+  using: composite
+  steps:
+    # The first name and a digest of the whole request, the files' contents included, name the
+    # set; wheels are per interpreter version and platform, so the key carries both.
+    - name: Name the wheel set
+      id: set
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+        REQUIREMENTS: ${{ inputs.requirements }}
+        PROJECTS: ${{ inputs.projects }}
+        PYTHON: ${{ inputs.python }}
+      run: |
+        set -euo pipefail
+        read -r -d '' -a packages <<<"$PACKAGES" || true
+        read -r -d '' -a files <<<"$REQUIREMENTS" || true
+        read -r -d '' -a projects <<<"$PROJECTS" || true
+        sources=("${files[@]}")
+        for project in "${projects[@]}"; do
+          sources+=("$project/pyproject.toml")
+        done
+        name=${packages[0]:-${files[0]:-${projects[0]:-}}}
+        [[ -n $name ]] || { echo "error: no packages, requirements or projects to install" >&2; exit 2; }
+        name=$(sed -E 's/[^A-Za-z0-9._-]+/-/g' <<<"${name%%[=\[]*}")
+        digest=$({ printf '%s\n' "${packages[@]}" -- "${sources[@]}"; ((${#sources[@]} == 0)) || sha256sum "${sources[@]}"; } | sha256sum | cut -c1-16)
+        interpreter=$("$PYTHON" -c 'import sys, sysconfig; print("py%d.%d-%s" % (*sys.version_info[:2], sysconfig.get_platform()))')
+        echo "key=pip-wheels-$interpreter-$name-$digest" >> "$GITHUB_OUTPUT"
+        echo "path=$RUNNER_TEMP/pip-wheels/$name-$digest" >> "$GITHUB_OUTPUT"
+
+    # No restore-keys: a set saved for another request lacks this one's wheels.
+    - name: Restore the wheels
+      id: restore
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.set.outputs.path }}
+        key: ${{ steps.set.outputs.key }}
+
+    - name: Install from the wheels
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+        REQUIREMENTS: ${{ inputs.requirements }}
+        PROJECTS: ${{ inputs.projects }}
+        PYTHON: ${{ inputs.python }}
+        INSTALL: ${{ inputs.install }}
+        CI_PIP_WHEELS: ${{ steps.set.outputs.path }}
+      run: |
+        set -euo pipefail
+        read -r -d '' -a packages <<<"$PACKAGES" || true
+        read -r -d '' -a files <<<"$REQUIREMENTS" || true
+        read -r -d '' -a projects <<<"$PROJECTS" || true
+        options=(--python "$PYTHON")
+        [[ $INSTALL == true ]] || options+=(--no-install)
+        for file in "${files[@]}"; do
+          options+=(--requirements "$file")
+        done
+        for project in "${projects[@]}"; do
+          options+=(--project "$project")
+        done
+        scripts/ci-pip-install.sh "${options[@]}" "${packages[@]}"
+
+    # Saved once the install succeeded, so an entry always holds a set that installs.
+    - name: Keep the wheels for the next run
+      if: steps.restore.outputs.cache-hit != 'true' && inputs.save == 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.set.outputs.path }}
+        key: ${{ steps.set.outputs.key }}

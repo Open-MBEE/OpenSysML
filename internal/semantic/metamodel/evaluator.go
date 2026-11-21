@@ -29,21 +29,14 @@ type Evaluator struct {
 	resolver                     *resolve.Resolver
 	model                        *semantics.Model
 	options                      Options
-	mu                           sync.Mutex
+	mu                           sync.RWMutex
 	cache                        map[propertyKey]cachedValue
 	reasons                      map[propertyKey]Reason
 	internedStrings              map[string]string
-	structureQualifiedNames      map[ElementKey]structureQualifiedNameCacheEntry
-	structureInherited           map[ElementKey]structureInheritedCacheEntry
-	structureEffective           map[ElementKey]structureValueCacheEntry
-	structureNamespace           map[ElementKey]structureValueCacheEntry
-	structureValueLists          map[structureValueListKey]structureInheritedCacheEntry
+	memos                        map[ElementKey][]memoEntry
+	structureImported            map[ElementKey]structureImportedEntry
 	structureRedefined           map[ElementKey]structureElementsCacheEntry
-	structureQualifiedNameBases  map[ElementKey]structureQualifiedNameCacheEntry
 	qualifiedNameNamespaceCaches map[ElementKey]structureQualifiedNameNamespaceCache
-	structureOwnedFilters        map[structureOwnedFilterKey]structureMemoEntry
-	structureOwnedMemberLists    map[ElementKey]structureMemoEntry
-	structureNames               map[structureNameKey]structureMemoEntry
 }
 
 // New creates an evaluator over the resolver and semantic model for one model.
@@ -59,17 +52,10 @@ func New(res *resolve.Resolver, model *semantics.Model, options ...Options) *Eva
 		cache:                        make(map[propertyKey]cachedValue),
 		reasons:                      make(map[propertyKey]Reason),
 		internedStrings:              make(map[string]string),
-		structureQualifiedNames:      make(map[ElementKey]structureQualifiedNameCacheEntry),
-		structureInherited:           make(map[ElementKey]structureInheritedCacheEntry),
-		structureEffective:           make(map[ElementKey]structureValueCacheEntry),
-		structureNamespace:           make(map[ElementKey]structureValueCacheEntry),
-		structureValueLists:          make(map[structureValueListKey]structureInheritedCacheEntry),
+		memos:                        make(map[ElementKey][]memoEntry),
+		structureImported:            make(map[ElementKey]structureImportedEntry),
 		structureRedefined:           make(map[ElementKey]structureElementsCacheEntry),
-		structureQualifiedNameBases:  make(map[ElementKey]structureQualifiedNameCacheEntry),
 		qualifiedNameNamespaceCaches: make(map[ElementKey]structureQualifiedNameNamespaceCache),
-		structureOwnedFilters:        make(map[structureOwnedFilterKey]structureMemoEntry),
-		structureOwnedMemberLists:    make(map[ElementKey]structureMemoEntry),
-		structureNames:               make(map[structureNameKey]structureMemoEntry),
 	}
 }
 
@@ -96,9 +82,13 @@ func (e *Evaluator) Explain(el Element, definingClass, name string) (Reason, boo
 		return Reason{}, false
 	}
 	key := propertyKey{element: el.Key(), class: definingClass, name: name}
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 	reason, ok := e.reasons[key]
+	if _, served := ruleConstraints[keyName(definingClass, name)]; !ok && !served {
+		// No element has a rule for the property, so the cause is not recorded per element.
+		return Reason{Category: ReasonNoRule, Detail: keyName(definingClass, name)}, true
+	}
 	return reason, ok
 }
 
@@ -113,8 +103,8 @@ func (e *Evaluator) PropertyReadOnly(el Element, definingClass, name string) (Va
 	return e.property(el, definingClass, name, false)
 }
 
-// PropertyReadOnlyUncached is PropertyReadOnly for a value asked once: it leaves
-// the result cache alone, while the dependencies it derives are cached as usual.
+// PropertyReadOnlyUncached returns a derived value the caller must not modify and
+// leaves the result cache alone; the dependencies it derives are cached as usual.
 func (e *Evaluator) PropertyReadOnlyUncached(el Element, definingClass, name string) (Value, bool) {
 	return e.propertyWithPolicy(el, definingClass, name, false, false)
 }
@@ -139,10 +129,6 @@ func (e *Evaluator) propertyWithPolicy(el Element, definingClass, name string, c
 		}
 	}
 	if _, served := ruleConstraints[keyName(definingClass, name)]; !served {
-		if _, recorded := e.reasons[key]; !recorded {
-			e.reasons[key] = Reason{Category: ReasonNoRule, Detail: keyName(definingClass, name)}
-		}
-		e.cache[key] = cachedValue{}
 		e.mu.Unlock()
 		return Value{}, false
 	}
@@ -255,6 +241,19 @@ func (e *Evaluator) derive(el Element, class, name string) (Value, bool) {
 		}
 	case "Feature":
 		switch name {
+		case "isEnd":
+			if sym == nil {
+				return e.unsupported(el, class, name, Reason{
+					Category: ReasonUnrepresentedElement,
+					Detail:   "Feature has no semantic symbol",
+				})
+			}
+			if meta := e.model.MetaclassOf(sym); meta != nil && e.options.Structure != nil &&
+				e.options.Structure.Specializes(meta.Name, "Multiplicity") {
+				return booleanValue(false), true
+			}
+			value, ok := e.model.ReflectiveFeatureValue(sym, "isEnd")
+			return booleanValue(ok && value.Kind == symbols.FilterValueBool && value.Bool), true
 		case "direction":
 			if sym == nil {
 				return e.unsupported(el, class, name, Reason{
@@ -344,7 +343,7 @@ func (e *Evaluator) modelProperty(element Element, class, name string) (Value, b
 			if element.IsMembership {
 				return nullValue(), true, true
 			}
-			if value := e.model.EffectiveNameOf(sym); value != "" {
+			if value, named := e.model.EffectiveNamed(sym); named {
 				return stringValue(value), true, true
 			}
 			return nullValue(), true, true
@@ -552,8 +551,8 @@ func (e *Evaluator) modelQualifiedName(sym *symbols.Symbol, seen map[*symbols.Sy
 		return Value{}, false
 	}
 	seen[sym] = true
-	name := e.model.EffectiveNameOf(sym)
-	if name == "" {
+	name, named := e.model.EffectiveNamed(sym)
+	if !named {
 		return nullValue(), true
 	}
 	if sym.OwnerScope != nil {
@@ -561,7 +560,7 @@ func (e *Evaluator) modelQualifiedName(sym *symbols.Symbol, seen map[*symbols.Sy
 			if member == sym {
 				break
 			}
-			if e.model.EffectiveNameOf(member) == name {
+			if earlier, named := e.model.EffectiveNamed(member); named && earlier == name {
 				return nullValue(), true
 			}
 		}
@@ -572,7 +571,7 @@ func (e *Evaluator) modelQualifiedName(sym *symbols.Symbol, seen map[*symbols.Sy
 			return Value{}, false
 		}
 		seen[namespace] = true
-		if namespaceName := e.model.EffectiveNameOf(namespace); namespaceName != "" {
+		if namespaceName, named := e.model.EffectiveNamed(namespace); named {
 			parts = append(parts, identity.EscapeName(namespaceName))
 		}
 	}
@@ -670,13 +669,26 @@ func (e *Evaluator) importProperty(el Element, name string) (Value, bool) {
 		})
 	}
 	imp, ok := el.Node.(*ast.Import)
+	var scope *symbols.Scope
+	if el.Container != nil {
+		scope = el.Container.Scope
+	}
+	if !ok {
+		// A structure's handle carries no node: the import is the symbol it projects.
+		if sym, found := e.structureSymbolOf(el); found && sym.Implicit != nil && sym.Implicit.Form == symbols.ImplicitImport {
+			imp, ok = sym.Implicit.Decl.(*ast.Import)
+			if owner := sym.Implicit.Owner; owner != nil {
+				scope = owner.Scope
+			}
+		}
+	}
 	if !ok || imp == nil {
 		return e.unsupported(el, "Import", name, Reason{
 			Category: ReasonUnrepresentedElement,
 			Detail:   "Import::importedElement has no syntax-backed import",
 		})
 	}
-	if el.Container == nil || el.Container.Scope == nil {
+	if scope == nil {
 		return e.unsupported(el, "Import", name, Reason{
 			Category: ReasonMissingStructure,
 			Detail:   "Import::importedElement has no containing namespace",
@@ -688,7 +700,7 @@ func (e *Evaluator) importProperty(el Element, name string) (Value, bool) {
 			Detail:   "Import::importedElement requires a resolver",
 		})
 	}
-	imported, ok := e.resolver.ImportTarget(el.Container.Scope, imp)
+	imported, ok := e.resolver.ImportTarget(scope, imp)
 	if !ok || imported == nil ||
 		!e.importTreeComplete(imported, imp, make(map[*symbols.Scope]bool)) {
 		return e.unsupported(el, "Import", name, Reason{
@@ -1054,16 +1066,16 @@ func (e *Evaluator) instantiationExpressionProperty(element Element, name string
 		}
 		return elementValue(ElementOf(function)), true
 	}
-	if index, ok := expressionNode.(*ast.IndexExpr); ok && index.Bracket {
+	if index, ok := expressionNode.(*ast.IndexExpr); ok {
 		if e.model == nil {
 			return unsupported(Reason{
 				Category: ReasonMissingSemanticModel,
 				Detail:   "operator function lookup requires a semantic model",
 			})
 		}
-		function := e.model.OperatorFunction(ast.OpIndex)
+		function := e.model.IndexFunction(index)
 		if function == nil || !semantics.IsType(function) {
-			return e.unresolvedInstantiationOperator(element, "[")
+			return e.unresolvedInstantiationOperator(element, index.OperatorSpelling())
 		}
 		return elementValue(ElementOf(function)), true
 	}

@@ -44,6 +44,10 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.CAPABILITY_QUERY_RESULT_VIEW
+    options:
+      heading_level: 3
+
 ::: opensysml.CAPABILITY_CONSTRAINT_BODY_AUTHORING
     options:
       heading_level: 3
@@ -220,6 +224,8 @@ to bound how deep nested elements are drawn. `form="dot"` (or `"text"`, `"mermai
 that form into the result's `text`, as `sysml -render-form` does, under the writer options
 `palette`, `style`, `lines`, `direction`, `link` and `unplaced`; it needs the
 `render_view_form` capability.
+A `QVTS::QueryResult` view is written in `"markdown"`, `"html"` or `"asciidoc"` instead, a document of its
+header and rows; `"html"` and `"asciidoc"` need `query_result_view` as well.
 `Model.diagnostics` is what the parse answered under the default lint selection;
 `Model.refresh_diagnostics(disable_lint=(), enable_lint=())` asks the service again,
 leaving out the lints `disable_lint` names and keeping the opt-in ones `enable_lint`
@@ -289,6 +295,21 @@ did before the service enumerated members. A member declared without a name
 (`bind a = b;`, `part : P;`) is listed under its positional id (`Owner::@3`), which a
 lookup resolves; one inherited from the standard library carries the positional id of
 the library type declaring it (`Occurrences::Occurrence::@47`).
+
+`annotating_metadata()` lists the metadata usages annotating the symbol (the inverse of
+KerML `AnnotatingElement::annotatedElement`): the ones it owns, written as a `#M` prefix
+or as `@M` / `metadata m : M` in its body, then the ones naming it in an `about` clause
+elsewhere (`metadata m : M about Pump;`). An `about` usage is a member of the namespace
+it is written in, not of what it annotates, so `children()` and `members()` do not list
+it. Each result is a `Symbol` of kind `metadataUsage`: `type_facts` names the metadata
+definition and `attribute_facts()` reads the values the annotation binds. It needs the
+service's `symbol_annotating_metadata` capability.
+
+A member is fetched as a feature of the symbol that lists it, so its
+`metadata["direction"]` is the direction relative to that symbol: `cmd`, declared `out` in
+`port def CmdPort`, reads `in` among the members of `port pIn : ~CmdPort`, and `out` when
+looked up on its own with `model.symbol("Demo::CmdPort::cmd")`. This needs the service's
+`symbol_member_direction` capability; an older service reports the declared direction.
 
 ::: opensysml.Symbol
     options:
@@ -415,6 +436,38 @@ Decoded value kinds carried by the service wire format.
       heading_level: 3
 
 ::: opensysml.Undetermined
+    options:
+      heading_level: 3
+
+::: opensysml.CoordinateFrame
+    options:
+      heading_level: 3
+
+::: opensysml.CoordinateTransformation
+    options:
+      heading_level: 3
+
+::: opensysml.MeasurementScale
+    options:
+      heading_level: 3
+
+::: opensysml.FramePlacement
+    options:
+      heading_level: 3
+
+::: opensysml.FrameStep
+    options:
+      heading_level: 3
+
+::: opensysml.FrameRotation
+    options:
+      heading_level: 3
+
+::: opensysml.AffineTransformation3d
+    options:
+      heading_level: 3
+
+::: opensysml.FramePose
     options:
       heading_level: 3
 
@@ -858,6 +911,10 @@ Results and errors from the standard query model.
     options:
       heading_level: 3
 
+::: opensysml.QueryElements
+    options:
+      heading_level: 3
+
 ::: opensysml.QueryError
     options:
       heading_level: 3
@@ -924,6 +981,10 @@ Typed query rows, document values, and document and view render results.
       heading_level: 3
 
 ::: opensysml.RenderFrame
+    options:
+      heading_level: 3
+
+::: opensysml.RenderHeaderField
     options:
       heading_level: 3
 

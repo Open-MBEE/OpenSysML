@@ -175,7 +175,7 @@ func TestAPIJSONRootNamespaceOwnsEveryRoot(t *testing.T) {
 func TestAPIJSONRootNamespaceTransparent(t *testing.T) {
 	for _, model := range []string{rootNamespaceModel, rootNamespaceTwoRoots} {
 		for _, id := range []export.IDForm{export.IDQualifiedName, export.IDUUID} {
-			document, err := convert.ConvertWith("m.sysml", []byte(model), convert.FormatSysML, convert.FormatAPIJSON, convert.Options{ID: id})
+			document, err := convert.ConvertWith("m.sysml", []byte(model), convert.FormatSysML, convert.FormatAPIJSON, convert.Options{ID: id, InheritedMembers: true})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -204,7 +204,7 @@ func TestAPIJSONRootNamespaceTransparent(t *testing.T) {
 			if !sameTriples(tripleSet(fromTurtle), tripleSet(fromJSON)) {
 				t.Errorf("id form %v: the element form read differs from Turtle:\n%v", id, diffTriples(tripleSet(fromJSON), tripleSet(fromTurtle)))
 			}
-			again, err := export.WriteAPIJSON(fromJSON)
+			again, err := export.WriteAPIJSONWithOptions(fromJSON, export.APIJSONOptions{InheritedMembers: true})
 			if err != nil {
 				t.Fatal(err)
 			}

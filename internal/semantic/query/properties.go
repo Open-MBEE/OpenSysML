@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -103,6 +104,11 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 		if r.elementID != nil {
 			return presentValues(r.elementID(sym))
 		}
+	case PropertySymbolKind:
+		return symbolKind(sym)
+	case PropertyText:
+		texts, ok := r.semantics.RequirementTextsOf(sym)
+		return texts, ok && len(texts) > 0
 	}
 	return nil, false
 }
@@ -123,7 +129,7 @@ func (r *PropertyReader) identityValues(sym *symbols.Symbol, property string) ([
 			return nil, false
 		}
 		if r.identity != nil {
-			if identity := r.identity(sym); identity != "" && identity != fqn {
+			if identity := r.identity(sym); identity != "" && identity != fqn && naming.Recorded(identity) != fqn {
 				return nil, false
 			}
 		}
@@ -149,24 +155,34 @@ func (r *PropertyReader) nameValues(sym *symbols.Symbol, property string) ([]str
 	switch property {
 	case PropertyName:
 		if r.semantics != nil {
-			return presentValues(r.semantics.EffectiveNameOf(sym))
+			return valueIfPresent(r.semantics.EffectiveNamed(sym))
 		}
-		return presentValues(sym.Name)
+		return valueIfPresent(sym.Name, sym.Named())
 	case PropertyDeclaredName:
 		// A metadata body's `mission = …` declares no name: the Redefinition it implies names it.
-		if sym.EffectiveName() || (r.semantics != nil && r.semantics.RestatesMetadataBodyFeature(sym)) {
+		if sym.EffectiveName() || declaresMemberNames(sym) ||
+			(r.semantics != nil && r.semantics.RestatesMetadataBodyFeature(sym)) {
 			return nil, false
 		}
-		return presentValues(sym.Name)
+		return valueIfPresent(sym.Name, sym.Named())
 	case PropertyShortName:
 		if r.semantics != nil {
-			return presentValues(r.semantics.EffectiveShortNameOf(sym))
+			return valueIfPresent(r.semantics.EffectiveShortNamed(sym))
 		}
-		return presentValues(sym.ShortName)
+		return valueIfPresent(sym.ShortName, sym.HasShortName())
 	case PropertyDeclaredShortName:
-		return presentValues(sym.ShortName)
+		if declaresMemberNames(sym) {
+			return nil, false
+		}
+		return valueIfPresent(sym.ShortName, sym.HasShortName())
 	}
 	return nil, false
+}
+
+// declaresMemberNames reports whether sym is an alias: the names it writes are its
+// Membership's memberName and memberShortName, not names of the Membership (KerML 8.3.2.4.3).
+func declaresMemberNames(sym *symbols.Symbol) bool {
+	return sym.Kind == symbols.SymbolAlias
 }
 
 func (r *PropertyReader) multiplicityValues(sym *symbols.Symbol, property string) ([]string, bool) {
@@ -332,6 +348,14 @@ func (r *PropertyReader) reflectiveBoolean(sym *symbols.Symbol, property string)
 	return []string{strconv.FormatBool(value.Bool)}, true
 }
 
+// symbolKind is the kind name SymbolInfo.kind reports for sym, absent for a symbol of no named kind.
+func symbolKind(sym *symbols.Symbol) ([]string, bool) {
+	if !sym.Kind.Named() {
+		return nil, false
+	}
+	return []string{sym.Kind.String()}, true
+}
+
 // individual reports whether sym's declaration carries the `individual` modifier.
 func individual(sym *symbols.Symbol) bool {
 	if sym.Recorded() {
@@ -356,6 +380,15 @@ func generalizes(sym *symbols.Symbol, kind ast.RelationshipKind) bool {
 		return kind == ast.RelTyping
 	}
 	return false
+}
+
+// valueIfPresent is the one value of a property that has it, the empty
+// unrestricted name included (KerML §8.2.2.3).
+func valueIfPresent(value string, present bool) ([]string, bool) {
+	if !present {
+		return nil, false
+	}
+	return []string{value}, true
 }
 
 func presentValues(value string) ([]string, bool) {

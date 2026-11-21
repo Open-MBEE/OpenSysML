@@ -18,6 +18,7 @@ import org.openmbee.opensysml.proto.DocumentObject;
 import org.openmbee.opensysml.proto.GetElementPropertiesRequest;
 import org.openmbee.opensysml.proto.GetElementPropertiesResponse;
 import org.openmbee.opensysml.proto.GetSymbolRequest;
+import org.openmbee.opensysml.proto.LookupKind;
 import org.openmbee.opensysml.proto.InstancePathsRequest;
 import org.openmbee.opensysml.proto.InstancePathsResponse;
 import org.openmbee.opensysml.proto.InstantiateRequest;
@@ -437,6 +438,24 @@ public final class Model {
    * @throws ServiceException if the service does not hold this model
    */
   public ElementProperties elementProperties(String element, String... properties) {
+    return elementProperties(Lookup.EITHER, element, properties);
+  }
+
+  /**
+   * Reads the metamodel properties of the element a string names as the stated kind.
+   *
+   * @param lookup a qualified name, an element form id or symbol id, or either (the legacy form:
+   *     an element form id first, then a name)
+   * @param element the name or id
+   * @param properties the specification names, none for every property
+   * @return the element and one entry per property, answered or saying why not
+   * @throws SymbolNotFoundException if the model has no such element
+   * @throws ModelException if the service refused the read
+   * @throws CapabilityException if the service does not advertise {@code element_properties}
+   * @throws ServiceException if the service does not hold this model
+   */
+  public ElementProperties elementProperties(Lookup lookup, String element, String... properties) {
+    Objects.requireNonNull(lookup, "lookup");
     Objects.requireNonNull(element, "element");
     connection.capabilities().require(Capabilities.ELEMENT_PROPERTIES);
     GetElementPropertiesResponse response =
@@ -445,6 +464,7 @@ public final class Model {
             GetElementPropertiesRequest.newBuilder()
                 .setModelHash(hash)
                 .setElementId(element)
+                .setLookup(lookupKind(lookup))
                 .addAllProperties(List.of(properties))
                 .build(),
             GetElementPropertiesResponse.getDefaultInstance());
@@ -611,7 +631,7 @@ public final class Model {
   }
 
   private Optional<Symbol> symbolWithId(String id) {
-    return findSymbol(id, SymbolOptions.defaults().byReportedId(true))
+    return findSymbol(id, SymbolOptions.defaults().lookup(Lookup.ELEMENT_ID))
         .filter(symbol -> symbol.id().equals(id));
   }
 
@@ -1451,10 +1471,53 @@ public final class Model {
     return selected(QueryRequest.newBuilder().setModelHash(hash).setOslcQuery(oslcQuery));
   }
 
+  /**
+   * Selects elements as {@link #query(Query)} does, answering the selection with its {@code
+   * QVTS::QueryResult} view. A query that ends in a path error throws a {@link
+   * QueryOutcomeException} whose {@link QueryOutcomeException#resultView()} is the view of it.
+   *
+   * @param query the elements considered, the properties reported and the filter applied
+   * @return the elements selected and the view exposing them
+   * @throws ServiceException as {@link #query(Query)} throws
+   * @throws CapabilityException if the service does not advertise {@code query_result_view}
+   */
+  public QuerySelection queryAsView(Query query) {
+    Objects.requireNonNull(query, "query");
+    connection.capabilities().require(Capabilities.QUERY);
+    if (!query.orderBy().isEmpty()) {
+      connection.capabilities().require(Capabilities.QUERY_ORDER_BY);
+    }
+    connection.capabilities().require(Capabilities.QUERY_RESULT_VIEW);
+    return selection(
+        QueryRequest.newBuilder().setModelHash(hash).setQuery(Protos.proto(query)).setAsView(true));
+  }
+
+  /**
+   * Selects elements as {@link #queryOslc(String)} does, answering as {@link #queryAsView(Query)}
+   * does; a property the metamodel does not define is a path error, thrown with its view.
+   *
+   * @param oslcQuery the query, as OSLC Query Syntax spells it
+   * @return the elements selected and the view exposing them
+   * @throws ServiceException as {@link #queryOslc(String)} throws
+   * @throws CapabilityException if the service does not advertise {@code query_result_view}
+   */
+  public QuerySelection queryOslcAsView(String oslcQuery) {
+    Objects.requireNonNull(oslcQuery, "oslcQuery");
+    connection.capabilities().require(Capabilities.OSLC_QUERY);
+    connection.capabilities().require(Capabilities.QUERY_RESULT_VIEW);
+    return selection(
+        QueryRequest.newBuilder().setModelHash(hash).setOslcQuery(oslcQuery).setAsView(true));
+  }
+
   private List<QueryElement> selected(QueryRequest.Builder request) {
+    return selection(request).elements();
+  }
+
+  private QuerySelection selection(QueryRequest.Builder request) {
     QueryResponse response =
         connection.call("Query", request.build(), QueryResponse.getDefaultInstance());
-    return Protos.queryElements(response.getElementsList());
+    return new QuerySelection(
+        Protos.queryElements(response.getElementsList()), response.getResultView());
   }
 
   /**
@@ -1947,6 +2010,50 @@ public final class Model {
         bindings);
   }
 
+  /**
+   * Runs a document query as {@link #runDocumentQuery(String, Map)} does, the result also carrying
+   * the answer as a {@code QVTS::QueryResult} view. A query that ends in a path or model error
+   * throws a {@link QueryOutcomeException} whose {@link QueryOutcomeException#resultView()} is the
+   * view of that outcome.
+   *
+   * @param queryId qualified name of the document query
+   * @param bindings the entry parameters' values, by parameter name
+   * @return the projected columns and rows, and the view exposing the selected elements
+   * @throws ServiceException as {@link #runDocumentQuery(String, Map)} throws
+   * @throws CapabilityException if the service does not advertise {@code query_result_view}
+   */
+  public DocumentQueryResult runDocumentQueryAsView(
+      String queryId, Map<String, List<DocumentValue>> bindings) {
+    Objects.requireNonNull(queryId, "queryId");
+    connection.capabilities().require(Capabilities.QUERY_RESULT_VIEW);
+    return runDocumentQuery(
+        RunDocumentQueryRequest.newBuilder().setModelHash(hash).setQueryId(queryId).setAsView(true),
+        bindings);
+  }
+
+  /**
+   * Runs a query expression as {@link #runInlineDocumentQuery(String, Map)} does, with the view as
+   * {@link #runDocumentQueryAsView(String, Map)} carries it.
+   *
+   * @param expression the query expression
+   * @param bindings the entry parameters' values, by parameter name
+   * @return the projected columns and rows, and the view exposing the selected elements
+   * @throws ServiceException as {@link #runInlineDocumentQuery(String, Map)} throws
+   * @throws CapabilityException if the service does not advertise {@code query_result_view}
+   */
+  public DocumentQueryResult runInlineDocumentQueryAsView(
+      String expression, Map<String, List<DocumentValue>> bindings) {
+    Objects.requireNonNull(expression, "expression");
+    connection.capabilities().require(Capabilities.INLINE_DOCUMENT_QUERY);
+    connection.capabilities().require(Capabilities.QUERY_RESULT_VIEW);
+    return runDocumentQuery(
+        RunDocumentQueryRequest.newBuilder()
+            .setModelHash(hash)
+            .setInlineQuery(expression)
+            .setAsView(true),
+        bindings);
+  }
+
   private DocumentQueryResult runDocumentQuery(
       RunDocumentQueryRequest.Builder request, Map<String, List<DocumentValue>> bindings) {
     Objects.requireNonNull(bindings, "bindings");
@@ -2079,6 +2186,35 @@ public final class Model {
    */
   public RenderedView renderView(
       String viewName, RenderViewPorts ports, List<String> show, int depth, String compartments) {
+    return renderView(viewName, ports, show, depth, compartments, "");
+  }
+
+  /**
+   * Renders a {@code QVTS::QueryResult} view as a document too: its {@link RenderedView#header()}
+   * is the view's query, source, outcome and provenance, its rows the exposed elements, and its
+   * {@link RenderedView#text()} the same written as a document in {@code form}.
+   *
+   * @param viewName qualified name of the view
+   * @param form the document form
+   * @return the rendering, with the document
+   * @throws ServiceException if the view is not a {@code QVTS::QueryResult} view
+   * @throws CapabilityException if the service does not advertise {@code render_view_form} and
+   *     {@code query_result_view}
+   */
+  public RenderedView renderView(String viewName, DocumentForm form) {
+    Objects.requireNonNull(form, "form");
+    connection.capabilities().require(Capabilities.RENDER_VIEW_FORM);
+    connection.capabilities().require(Capabilities.QUERY_RESULT_VIEW);
+    return renderView(viewName, RenderViewPorts.MINIMAL, List.of(), 0, "", form.wireName());
+  }
+
+  private RenderedView renderView(
+      String viewName,
+      RenderViewPorts ports,
+      List<String> show,
+      int depth,
+      String compartments,
+      String form) {
     Objects.requireNonNull(viewName, "viewName");
     Objects.requireNonNull(compartments, "compartments");
     Objects.requireNonNull(ports, "ports");
@@ -2097,6 +2233,7 @@ public final class Model {
                 .addAllShow(show)
                 .setDepth(depth)
                 .setCompartments(compartments)
+                .setForm(form)
                 .build(),
             RenderViewResponse.getDefaultInstance());
     return RenderedView.from(response);
@@ -2348,10 +2485,27 @@ public final class Model {
             .setSymbolId(symbolId)
             .setIncludeLibraryMembers(options.includeLibraryMembers())
             .setResolveName(
-                !options.byReportedId()
+                resolvesName(options)
                     && connection.capabilities().has(Capabilities.SYMBOL_NAME_RESOLUTION))
+            .setLookup(lookupKind(options.lookup()))
             .build(),
         SymbolResponse.getDefaultInstance());
+  }
+
+  // The legacy form of a stated kind, which is all a service without symbol_lookup_kind reads.
+  private static boolean resolvesName(SymbolOptions options) {
+    return switch (options.lookup()) {
+      case EITHER -> !options.byReportedId();
+      case QUALIFIED_NAME -> true;
+      case ELEMENT_ID -> false;
+    };
+  }
+
+  // No kind is stated to a service that would ignore it: it reads the string as either.
+  private LookupKind lookupKind(Lookup lookup) {
+    return connection.capabilities().has(Capabilities.SYMBOL_LOOKUP_KIND)
+        ? lookup.kind()
+        : LookupKind.LOOKUP_KIND_UNSPECIFIED;
   }
 
   private EvaluateRequest.Builder request(String expression) {

@@ -20,13 +20,10 @@
 # binary finds the pinned copies.
 set -euo pipefail
 
-# HTTPS_ONLY pins curl to TLS URLs so no fetch can fall back to plain http.
-HTTPS_ONLY="=https"
-
 PANDOC_VERSION="3.10.2"
 PANDOC_SHA256_AMD64="c7edd535941c48be6a362081a748272837de81ae11777202d9c341d3d8261c9a"
 PANDOC_SHA256_ARM64="1c4d69f2a092bd47cb180e58a4aab7b9637101ced928252458c7d41a7f7fa71d"
-WEASYPRINT_VERSION="69.0"
+WEASYPRINT_VERSION="70.0"
 MERMAID_CLI_VERSION="11.16.0"
 KATEX_VERSION="0.16.47"
 # Asciidoctor.js is pinned by scripts/asciidoc/package.json and its lockfile,
@@ -67,8 +64,8 @@ if [[ -x "$pandoc_dir/bin/pandoc" ]]; then
 else
 	tarball="$dest/pandoc-$PANDOC_VERSION-linux-$pandoc_arch.tar.gz"
 	echo "Fetching pandoc $PANDOC_VERSION ($pandoc_arch) ..."
-	curl -fsSL --proto "$HTTPS_ONLY" --proto-redir "$HTTPS_ONLY" --retry 3 --retry-all-errors -o "$tarball" \
-		"https://github.com/jgm/pandoc/releases/download/$PANDOC_VERSION/pandoc-$PANDOC_VERSION-linux-$pandoc_arch.tar.gz"
+	"$repo_root/scripts/fetch-https.sh" \
+		"https://github.com/jgm/pandoc/releases/download/$PANDOC_VERSION/pandoc-$PANDOC_VERSION-linux-$pandoc_arch.tar.gz" "$tarball"
 	echo "$pandoc_sha256  $tarball" | sha256sum -c -
 	tar -xzf "$tarball" -C "$dest"
 	rm -f "$tarball"
@@ -165,8 +162,8 @@ else
 	else
 		echo "Fetching Graphviz $GRAPHVIZ_VERSION (Ubuntu $ubuntu_version) ..."
 		tarball="$dest/graphviz-$GRAPHVIZ_VERSION-debs.tar.xz"
-		curl -fsSL --proto "$HTTPS_ONLY" --proto-redir "$HTTPS_ONLY" --retry 3 --retry-all-errors -o "$tarball" \
-			"https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/$GRAPHVIZ_VERSION/ubuntu_${ubuntu_version}_graphviz-$GRAPHVIZ_VERSION-debs.tar.xz"
+		"$repo_root/scripts/fetch-https.sh" \
+			"https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/$GRAPHVIZ_VERSION/ubuntu_${ubuntu_version}_graphviz-$GRAPHVIZ_VERSION-debs.tar.xz" "$tarball"
 		echo "$graphviz_sha256  $tarball" | sha256sum -c -
 		debs="$dest/graphviz-debs"
 		rm -rf "$debs" "$graphviz"
@@ -221,8 +218,8 @@ if [[ -s "$plantuml" ]]; then
 else
 	echo "Fetching PlantUML $PLANTUML_VERSION ..."
 	mkdir -p "$(dirname "$plantuml")"
-	curl -fsSL --proto "$HTTPS_ONLY" --proto-redir "$HTTPS_ONLY" --retry 3 --retry-all-errors -o "$plantuml.part" \
-		"https://github.com/plantuml/plantuml/releases/download/v$PLANTUML_VERSION/plantuml-$PLANTUML_VERSION.jar"
+	"$repo_root/scripts/fetch-https.sh" \
+		"https://github.com/plantuml/plantuml/releases/download/v$PLANTUML_VERSION/plantuml-$PLANTUML_VERSION.jar" "$plantuml.part"
 	echo "$PLANTUML_SHA256  $plantuml.part" | sha256sum -c -
 	mv "$plantuml.part" "$plantuml"
 fi
@@ -234,8 +231,8 @@ else
 	echo "Fetching D2 $D2_VERSION ..."
 	mkdir -p "$dest/d2"
 	tarball="$dest/d2-v$D2_VERSION-linux-$pandoc_arch.tar.gz"
-	curl -fsSL --proto "$HTTPS_ONLY" --proto-redir "$HTTPS_ONLY" --retry 3 --retry-all-errors -o "$tarball" \
-		"https://github.com/terrastruct/d2/releases/download/v$D2_VERSION/d2-v$D2_VERSION-linux-$pandoc_arch.tar.gz"
+	"$repo_root/scripts/fetch-https.sh" \
+		"https://github.com/terrastruct/d2/releases/download/v$D2_VERSION/d2-v$D2_VERSION-linux-$pandoc_arch.tar.gz" "$tarball"
 	echo "$d2_sha256  $tarball" | sha256sum -c -
 	rm -rf "$dest/d2/d2-v$D2_VERSION"
 	tar -xzf "$tarball" -C "$dest/d2" "d2-v$D2_VERSION/bin/d2"

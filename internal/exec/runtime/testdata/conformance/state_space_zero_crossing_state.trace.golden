@@ -402,93 +402,93 @@ enter calc test::Lander::fall::getDerivative
 exit calc test::Lander::fall::getDerivative -> (⟨-15.0, -10.0⟩ [1/s])
 enter calc test::Lander::fall::getDerivative
   bind input = ⟨10.0⟩ [argument]
-  bind stateSpace = ⟨4.0, -17.5⟩ [argument]
+  bind stateSpace = ⟨4.379808482786554, -17.246794344808965⟩ [argument]
   stmt return
-              eval feature stateSpace -> ⟨4.0, -17.5⟩
-            eval chain elements -> (4.0, -17.5)
+              eval feature stateSpace -> ⟨4.379808482786554, -17.246794344808965⟩
+            eval chain elements -> (4.379808482786554, -17.246794344808965)
             eval literal 2 -> 2
-          eval index -> -17.5
+          eval index -> -17.246794344808965
             eval literal 0.0 -> 0.0
                 eval feature input -> ⟨10.0⟩
               eval chain elements -> (10.0)
               eval literal 1 -> 1
             eval index -> 10.0
           eval operator - -> -10.0
-        eval sequence of 2 -> (-17.5, -10.0)
+        eval sequence of 2 -> (-17.246794344808965, -10.0)
         enter calc VectorFunctions::VectorOf
-          bind components = (-17.5, -10.0) [argument]
-        exit calc VectorFunctions::VectorOf -> ⟨-17.5, -10.0⟩
-      eval invoke VectorOf -> ⟨-17.5, -10.0⟩
+          bind components = (-17.246794344808965, -10.0) [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨-17.246794344808965, -10.0⟩
+      eval invoke VectorOf -> ⟨-17.246794344808965, -10.0⟩
         eval literal 1 -> 1
       eval index -> 1 [s]
-    eval operator / -> ⟨-17.5, -10.0⟩ [1/s]
-exit calc test::Lander::fall::getDerivative -> (⟨-17.5, -10.0⟩ [1/s])
+    eval operator / -> ⟨-17.246794344808965, -10.0⟩ [1/s]
+exit calc test::Lander::fall::getDerivative -> (⟨-17.246794344808965, -10.0⟩ [1/s])
 enter calc test::Lander::fall::getDerivative
   bind input = ⟨10.0⟩ [argument]
-  bind stateSpace = ⟨3.375, -17.5⟩ [argument]
+  bind stateSpace = ⟨3.875, -17.246794344808965⟩ [argument]
   stmt return
-              eval feature stateSpace -> ⟨3.375, -17.5⟩
-            eval chain elements -> (3.375, -17.5)
+              eval feature stateSpace -> ⟨3.875, -17.246794344808965⟩
+            eval chain elements -> (3.875, -17.246794344808965)
             eval literal 2 -> 2
-          eval index -> -17.5
+          eval index -> -17.246794344808965
             eval literal 0.0 -> 0.0
                 eval feature input -> ⟨10.0⟩
               eval chain elements -> (10.0)
               eval literal 1 -> 1
             eval index -> 10.0
           eval operator - -> -10.0
-        eval sequence of 2 -> (-17.5, -10.0)
+        eval sequence of 2 -> (-17.246794344808965, -10.0)
         enter calc VectorFunctions::VectorOf
-          bind components = (-17.5, -10.0) [argument]
-        exit calc VectorFunctions::VectorOf -> ⟨-17.5, -10.0⟩
-      eval invoke VectorOf -> ⟨-17.5, -10.0⟩
+          bind components = (-17.246794344808965, -10.0) [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨-17.246794344808965, -10.0⟩
+      eval invoke VectorOf -> ⟨-17.246794344808965, -10.0⟩
         eval literal 1 -> 1
       eval index -> 1 [s]
-    eval operator / -> ⟨-17.5, -10.0⟩ [1/s]
-exit calc test::Lander::fall::getDerivative -> (⟨-17.5, -10.0⟩ [1/s])
+    eval operator / -> ⟨-17.246794344808965, -10.0⟩ [1/s]
+exit calc test::Lander::fall::getDerivative -> (⟨-17.246794344808965, -10.0⟩ [1/s])
 enter calc test::Lander::fall::getDerivative
   bind input = ⟨10.0⟩ [argument]
-  bind stateSpace = ⟨-1.0, -20.0⟩ [argument]
+  bind stateSpace = ⟨0.0, -19.49358868961793⟩ [argument]
   stmt return
-              eval feature stateSpace -> ⟨-1.0, -20.0⟩
-            eval chain elements -> (-1.0, -20.0)
+              eval feature stateSpace -> ⟨0.0, -19.49358868961793⟩
+            eval chain elements -> (0.0, -19.49358868961793)
             eval literal 2 -> 2
-          eval index -> -20.0
+          eval index -> -19.49358868961793
             eval literal 0.0 -> 0.0
                 eval feature input -> ⟨10.0⟩
               eval chain elements -> (10.0)
               eval literal 1 -> 1
             eval index -> 10.0
           eval operator - -> -10.0
-        eval sequence of 2 -> (-20.0, -10.0)
+        eval sequence of 2 -> (-19.49358868961793, -10.0)
         enter calc VectorFunctions::VectorOf
-          bind components = (-20.0, -10.0) [argument]
-        exit calc VectorFunctions::VectorOf -> ⟨-20.0, -10.0⟩
-      eval invoke VectorOf -> ⟨-20.0, -10.0⟩
+          bind components = (-19.49358868961793, -10.0) [argument]
+        exit calc VectorFunctions::VectorOf -> ⟨-19.49358868961793, -10.0⟩
+      eval invoke VectorOf -> ⟨-19.49358868961793, -10.0⟩
         eval literal 1 -> 1
       eval index -> 1 [s]
-    eval operator / -> ⟨-20.0, -10.0⟩ [1/s]
-exit calc test::Lander::fall::getDerivative -> (⟨-20.0, -10.0⟩ [1/s])
+    eval operator / -> ⟨-19.49358868961793, -10.0⟩ [1/s]
+exit calc test::Lander::fall::getDerivative -> (⟨-19.49358868961793, -10.0⟩ [1/s])
 enter calc test::Lander::fall::getOutput
   bind input = ⟨10.0⟩ [argument]
-  bind stateSpace = ⟨-1.0, -20.0⟩ [argument]
+  bind stateSpace = ⟨-8.881784197001252e-16, -19.49358868961793⟩ [argument]
   stmt return
-          eval feature stateSpace -> ⟨-1.0, -20.0⟩
-        eval chain elements -> (-1.0, -20.0)
+          eval feature stateSpace -> ⟨-8.881784197001252e-16, -19.49358868961793⟩
+        eval chain elements -> (-8.881784197001252e-16, -19.49358868961793)
         eval literal 1 -> 1
-      eval index -> -1.0
+      eval index -> -8.881784197001252e-16
       enter calc VectorFunctions::VectorOf
-        bind components = -1.0 [argument]
-      exit calc VectorFunctions::VectorOf -> ⟨-1.0⟩
-    eval invoke VectorOf -> ⟨-1.0⟩
-exit calc test::Lander::fall::getOutput -> (⟨-1.0⟩)
-state: fall t=2.0 x=⟨-1.0, -20.0⟩ y=[⟨-1.0⟩]
-    eval feature stateSpace -> ⟨-1.0, -20.0⟩
-  eval chain elements -> (-1.0, -20.0)
+        bind components = -8.881784197001252e-16 [argument]
+      exit calc VectorFunctions::VectorOf -> ⟨-8.881784197001252e-16⟩
+    eval invoke VectorOf -> ⟨-8.881784197001252e-16⟩
+exit calc test::Lander::fall::getOutput -> (⟨-8.881784197001252e-16⟩)
+state: fall t=1.949358868961793 x=⟨-8.881784197001252e-16, -19.49358868961793⟩ y=[⟨-8.881784197001252e-16⟩]
+    eval feature stateSpace -> ⟨-8.881784197001252e-16, -19.49358868961793⟩
+  eval chain elements -> (-8.881784197001252e-16, -19.49358868961793)
   eval literal 1 -> 1
-eval index -> -1.0
+eval index -> -8.881784197001252e-16
 eval literal true -> true
-event: zero crossing touchdown of fall (t=2.0)
+event: zero crossing touchdown of fall (t=1.949358868961793)
 step 5: no active tokens
 exit: falling
 enter: landed (entry action)
@@ -499,7 +499,7 @@ stmt action body
     eval operator + -> 1
   stmt assign height
         eval feature fall -> instance#2
-      eval chain elements -> (-1.0)
+      eval chain elements -> (-8.881784197001252e-16)
       eval literal 1 -> 1
-    eval index -> -1.0
+    eval index -> -8.881784197001252e-16
 transition: falling -> landed (event: accept Touchdown)

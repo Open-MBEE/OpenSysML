@@ -44,6 +44,13 @@ re-measures our side and takes the pilot column from the committed baseline, roo
 so; `-require-exporter` makes the absence a failure instead. A root the baseline does not record
 then has an empty pilot column, which no rule can be silent against.
 
+**When the exporter does not run.** The launcher exits 78 when it cannot start the bridge (no Java 21,
+pinned jar or library) and the bridge exits 1 when it failed on some files, as in the
+[API-JSON differential](api-json-differential.md). The census refuses a run in which the bridge did
+not run (status 78, or status 1 with an `Error:` line or no document written), and `-check` and
+`-update` refuse a run in which the pilot failed on every file of a root, naming
+`./scripts/download-pilot-json-exporter.sh`.
+
 **Re-recording.** The baseline moves whenever a rule, a fixture under a root, the standard library,
 the pin or the bridge does. Its `provenance` block records the inputs the pilot's column depends on
 by digest — the pin, the bridge, each root, the libraries — and `-check` names the one that moved
@@ -59,6 +66,36 @@ the baseline without moving a count), so a rule change is caught where it moves 
    request: a rule leaving `silent` is the fix the change made, one joining it is a regression the
    gate exists to refuse;
 4. `go run -C tools ./cmd/derived-census -check` reproduces the recorded baseline.
+
+### Our side alone: `-recorded-pilot`
+
+The pilot's column moves only with the pin, the bridge, a root or a library, never with this
+repository's rules, and re-exporting it is what makes a run take a quarter of an hour. With
+`-recorded-pilot` a run measures our side and takes the pilot's column from the committed records,
+though the exporter is present:
+
+```bash
+go run -C tools ./cmd/derived-census -check -recorded-pilot    # what a pull request's CI runs: no Java, under a minute
+go run -C tools ./cmd/derived-census -update -recorded-pilot   # re-records our columns; the pilot's stay as recorded
+```
+
+Every cell stays pinned. Our four columns are compared record by record; the pilot's five are held
+with each root's pilot totals by the baseline's `pilotRecords` digest, so one moved by anything but
+a re-export (an edit, a bad merge) no longer reproduces; the provenance still names a moved pin, bridge, root or library, which
+`-recorded-pilot` cannot answer and refuses, as it refuses a rule the recorded column does not
+hold. The nightly oracle-reproduction workflow runs `-check -require-exporter`, which re-exports
+the pilot's column and holds the committed records to it.
+
+The records and the baseline merge cell by cell rather than line by line (`.gitattributes`,
+`tools/oracle/cellmerge`; run `./scripts/install-baseline-merge-driver.sh` once per clone): a count
+one branch moved takes that branch's value and one both moved takes the sum of the two movements.
+A merged file is the measurement only once `-check -recorded-pilot` reproduces it; when it does
+not, `-update -recorded-pilot` re-records it without the pilot. Such a re-record keeps the
+baseline's `recorded` date, which is the date of the pilot's export, so two branches that each
+re-record our side do not meet on it; a date or digest two branches did rewrite differently is a
+conflict, not a merge. It re-records our columns only: where the pilot's column no longer matches
+`pilotRecords`, because a merge summed a pilot cell or took one side's digest, it refuses, and the
+column is re-recorded by `-update` with the exporter.
 
 `TestDerivedCensusBaselineKeysServedRules` (`internal/semantic/metamodel`) holds the committed
 baseline to `rules.go` without corpora or Java: every rule it counts is served and its served total
@@ -89,6 +126,20 @@ element the same conformance test applies, from the standard library's metaclass
 a property **absent** from the payload is *not derived*, one written `null` or `[]` is *empty*,
 anything else is *a value*.
 
+**Pilot-nondeterministic cells.** Where the API-JSON referee declares a (metaclass, property) pair
+pilot-nondeterministic (`tools/referee/apijson/nondeterminism.go`, the one list both tools read),
+the pilot's side counts the carrier as *nondeterministic* instead, whatever the export states. The
+declared pair is `FeatureChainExpression::featuringType`: the pilot fills it in transformation
+order, so three expressions of the pilot corpora had a value under one JVM and none under another,
+and a count of values there recorded the Java that ran the export rather than the model. Scored
+apart, the records are the same under either. Our side is counted as everywhere else.
+
+**The declared JVM.** `scripts/pilot-pin.sh` declares the Java feature release the pilot's column
+is recorded under (`PILOT_JAVA`, the one the workflows install) and the baseline states it as
+`provenance.pilotJava`. `-update` refuses to record under any other, `-check` fails on a baseline
+whose `pilotJava` is not the declared one, and a run that only compares under another JVM says so
+before it exports, so an undeclared JVM dependence is named where it appears.
+
 **Implied relationships — a deliberate difference, not a failure.** The pilot materializes the
 relationships it implies (the implicit specializations, typings and subsettings
 `isImpliedIncluded` controls) as elements only when asked to; the bridge runs its transformation
@@ -118,39 +169,27 @@ different rules merge without a conflict; the totals are derived on read) is, an
 
 | Root | Files | Elements (implied) | Pilot elements (copies dropped, files failed) |
 |---|---:|---:|---:|
-| `training` | 100 | 7926 (4622) | 11906 (5797, 0) |
-| `pilot-examples` | 99 | 31138 (18262) | 40642 (10940, 3) |
-| `pilot-validation` | 56 | 10692 (6273) | 14222 (3066, 0) |
-| `kerml-examples` | 58 | 6906 (4269) | 8762 (1105, 0) |
-| `spec-examples` | 511 | 8329 (4729) | 12233 (37, 52) |
-| `testdata` | 40 | 1528 (832) | 2284 (52, 4) |
-| `examples` | 56 | 31524 (18354) | 50715 (76235, 0) |
+| `training` | 100 | 11093 (6419) | 11906 (5797, 0) |
+| `pilot-examples` | 99 | 39101 (22833) | 40642 (10940, 3) |
+| `pilot-validation` | 56 | 13618 (7933) | 14222 (3066, 0) |
+| `kerml-examples` | 58 | 8331 (5037) | 8762 (1105, 0) |
+| `spec-examples` | 511 | 11636 (6630) | 12233 (37, 52) |
+| `testdata` | 40 | 2079 (1143) | 2284 (52, 4) |
+| `examples` | 56 | 46437 (26750) | 50715 (76235, 0) |
 | `probes` | 4 | 45 (26) | 53 (0, 0) |
-| `manual-examples` | 11 | 3963 (2393) | 9379 (0, 0) |
+| `manual-examples` | 11 | 8390 (4803) | 9379 (0, 0) |
 
-Of the 297 served rules, **277 answer a value** on at least one element, **10 are empty
-everywhere** they apply, **9 are never derived** and 1 applies to no element of any root; the pilot
-answers a value for 288. **17 rules are silent** — ours never a value, the pilot a value somewhere:
+Of the 293 served rules, **287 answer a value** on at least one element, **5 are empty
+everywhere** they apply and **1 is never derived**; every rule applies to some element, and the pilot
+answers a value for 289. **5 rules are silent** — ours never a value, the pilot a value somewhere:
 
 | Silent rule | Ours: empty / not derived / carriers | Pilot: values / carriers |
 |---|---:|---:|
-| `Documentation::documentedElement` | 0 / 407 / 407 | 420 / 420 |
-| `Flow::flowEnd` | 234 / 0 / 234 | 158 / 236 |
-| `Flow::sourceOutputFeature` | 0 / 234 / 234 | 161 / 236 |
-| `Flow::targetInputFeature` | 0 / 234 / 234 | 161 / 236 |
-| `Import::importedElement` | 0 / 1221 / 1221 | 1193 / 1202 |
-| `MultiplicityRange::bound` | 1186 / 0 / 1186 | 1426 / 1426 |
-| `MultiplicityRange::lowerBound` | 1186 / 0 / 1186 | 368 / 1426 |
-| `MultiplicityRange::upperBound` | 1186 / 0 / 1186 | 1426 / 1426 |
-| `Namespace::importedMembership` | 40806 / 637 / 41443 | 634 / 63157 |
+| `Namespace::importedMembership` | 57636 / 672 / 58308 | 634 / 63157 |
 | `PortConjugation::originalPortDefinition` | 0 / 134 / 134 | 127 / 127 |
 | `RequirementDefinition::text` | 71 / 66 / 137 | 66 / 134 |
 | `RequirementUsage::text` | 402 / 104 / 506 | 103 / 492 |
-| `TransitionUsage::source` | 0 / 243 / 243 | 343 / 343 |
-| `TransitionUsage::succession` | 243 / 0 / 243 | 343 / 343 |
-| `TransitionUsage::target` | 0 / 243 / 243 | 343 / 343 |
-| `Usage::nestedViewpoint` | 14425 / 0 / 14425 | 1 / 18777 |
-| `UseCaseDefinition::includedUseCase` | 0 / 19 / 19 | 3 / 19 |
+| `Usage::nestedViewpoint` | 17706 / 0 / 17706 | 1 / 18777 |
 
 `ConjugatedPortTyping::conjugatedPortDefinition` left the list when the Structure began deriving it
 as the typing's target rather than as the owner a `PortConjugation` has: it answers 61 of its 64
@@ -170,18 +209,18 @@ our side: the symbol-backed structure classifies the `send` actions of these cor
 
 | Rule | Ours: value / empty / not derived / carriers | Pilot: value / empty / not derived / carriers |
 |---|---:|---:|
-| `Function::result` | 92 / 0 / 331 / 423 | 419 / 0 / 0 / 419 |
-| `Expression::result` | 3968 / 0 / 3331 / 7299 | 12942 / 0 / 0 / 12942 |
-| `Behavior::step` | 497 / 28 / 124 / 649 | 645 / 0 / 0 / 645 |
-| `Import::importedElement` | 0 / 0 / 1105 / 1105 | 1116 / 0 / 1 / 1117 |
-| `Connector::association` | 165 / 704 / 17 / 886 | 1579 / 0 / 0 / 1579 |
-| `InstantiationExpression::instantiatedType` | 772 / 0 / 1069 / 1841 | 3662 / 0 / 0 / 3662 |
-| `Feature::ownedTypeFeaturing` | 72 / 33807 / 0 / 33879 | 72 / 53379 / 0 / 53451 |
-| `Usage::isReference` | 13192 / 0 / 15 / 13207 | 17358 / 0 / 0 / 17358 |
-| `Step::behavior` | 688 / 8216 / 237 / 9141 | 15115 / 0 / 0 / 15115 |
-| `Expression::function` | 578 / 6542 / 179 / 7299 | 12942 / 0 / 0 / 12942 |
-| `SendActionUsage::payloadArgument` | 0 / 0 / 0 / 0 | 53 / 0 / 1 / 54 |
-| `Type::endFeature` | 143 / 15455 / 21029 / 36627 | 2223 / 53902 / 0 / 56125 |
+| `Function::result` | 458 / 0 / 8 / 466 | 466 / 0 / 0 / 466 |
+| `Expression::result` | 8582 / 0 / 5317 / 13899 | 13654 / 0 / 0 / 13654 |
+| `Behavior::step` | 739 / 43 / 10 / 792 | 790 / 0 / 0 / 790 |
+| `Import::importedElement` | 1191 / 0 / 65 / 1256 | 1193 / 0 / 9 / 1202 |
+| `Connector::association` | 953 / 773 / 22 / 1748 | 1741 / 0 / 0 / 1741 |
+| `InstantiationExpression::instantiatedType` | 1684 / 0 / 2212 / 3896 | 3764 / 0 / 0 / 3764 |
+| `Feature::ownedTypeFeaturing` | 80 / 53736 / 0 / 53816 | 78 / 57326 / 0 / 57404 |
+| `Usage::isReference` | 17706 / 0 / 0 / 17706 | 18777 / 0 / 0 / 18777 |
+| `Step::behavior` | 3082 / 13128 / 121 / 16331 | 16083 / 66 / 0 / 16149 |
+| `Expression::function` | 1628 / 12108 / 163 / 13899 | 13654 / 0 / 0 / 13654 |
+| `SendActionUsage::payloadArgument` | 64 / 3 / 0 / 67 | 55 / 0 / 1 / 56 |
+| `Type::endFeature` | 1992 / 54187 / 763 / 56942 | 2440 / 58506 / 0 / 60946 |
 
 The pilot's `Feature::ownedTypeFeaturing` is empty on all but 72 of its carriers as well: the
 property holds the `TypeFeaturing` relationships a feature *owns*, which only a `featured by`

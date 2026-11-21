@@ -3,6 +3,7 @@ package semantics
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"slices"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
@@ -256,9 +257,8 @@ func (m *Model) LookupContributedMembers(sym *symbols.Symbol, name string) []*sy
 	return out
 }
 
-// eachContributedMember calls yield with the member each of sym's member
-// sources holds under name and passes on to sym, in name-lookup order, until
-// yield returns false. A member a type on the way redefines stops there.
+// eachContributedMember yields, in name-lookup order, the member each of sym's
+// member sources holds under name and a supertype passes on, until yield returns false.
 func (m *Model) eachContributedMember(sym *symbols.Symbol, name string, yield func(*symbols.Symbol) bool) {
 	if sym == nil || name == "" {
 		return
@@ -266,21 +266,20 @@ func (m *Model) eachContributedMember(sym *symbols.Symbol, name string, yield fu
 	if target, ok := m.resolver.ResolveAliasTarget(sym); ok {
 		sym = target
 	}
-	for _, src := range m.lookupSources(sym) {
-		sup := src.sym
+	for _, sup := range m.lookupSources(sym) {
 		if sup.Scope != nil {
 			for _, s := range m.resolver.LocalBindings(sup.Scope, name) {
 				// An expanded import an owned or inherited name of sup hides is no member of sup.
 				if s.OwnerScope != sup.Scope && m.resolver.HidesImportedName(sup.Scope, name) {
 					continue
 				}
-				if m.inheritedAlong(s, src.via) && !yield(s) {
+				if m.passedOnTo(sym, s) && !yield(s) {
 					return
 				}
 			}
 			stop := false
 			m.eachPositionallyNamedMember(sup, name, func(s *symbols.Symbol) bool {
-				stop = m.inheritedAlong(s, src.via) && !yield(s)
+				stop = m.passedOnTo(sym, s) && !yield(s)
 				return !stop
 			})
 			if stop {
@@ -290,7 +289,7 @@ func (m *Model) eachContributedMember(sym *symbols.Symbol, name string, yield fu
 		}
 		// A cached source with no scope is read from the index.
 		for _, child := range m.resolver.Index().LookupDirectChildrenNamed(sup.Name, name) {
-			if symbols.LastSegment(child.Name) == name && m.inheritedAlong(child, src.via) && !yield(child) {
+			if symbols.LastSegment(child.Name) == name && m.passedOnTo(sym, child) && !yield(child) {
 				return
 			}
 		}
@@ -338,7 +337,11 @@ func (m *Model) PositionallyNamed(sym *symbols.Symbol) bool {
 }
 
 func (m *Model) positionallyNamed(sym *symbols.Symbol) bool {
-	return sym.Naming == symbols.NamedByDeclaration && !declaresIdentifier(sym) && m.EffectiveNameOf(sym) != ""
+	if sym.Naming != symbols.NamedByDeclaration || declaresIdentifier(sym) {
+		return false
+	}
+	_, named := m.EffectiveNamed(sym)
+	return named
 }
 
 // roleNamed reports a usage declared without a name that takes one from the feature its role
@@ -360,26 +363,33 @@ func (m *Model) roleNamed(sym *symbols.Symbol) bool {
 // declared name is, and so is a member under either (`T::obj::massRequirement`);
 // "" where sym has no name, an owner naming nothing is skipped as FQNOf skips it.
 func (m *Model) QualifiedNameOf(sym *symbols.Symbol) string {
+	names, _ := m.QualifiedNamesOf(sym)
+	return strings.Join(names, "::")
+}
+
+// QualifiedNamesOf is the names QualifiedNameOf joins, outermost first, and
+// whether sym has one: kept apart they tell the empty name from none.
+func (m *Model) QualifiedNamesOf(sym *symbols.Symbol) ([]string, bool) {
 	if m == nil || sym == nil {
-		return ""
+		return nil, false
 	}
 	name := sym.Name
-	if name == "" {
+	if !sym.Named() {
 		if !m.PositionallyNamed(sym) && !m.roleNamed(sym) {
-			return ""
+			return nil, false
 		}
 		name = m.EffectiveNameOf(sym)
 	}
 	owner := sym.Owner()
 	if owner == nil {
-		return name
+		return []string{name}, true
 	}
-	ownerName := m.QualifiedNameOf(owner)
-	if ownerName == "" {
-		if sym.Name == "" {
-			return ""
+	ownerNames, ok := m.QualifiedNamesOf(owner)
+	if !ok {
+		if !sym.Named() {
+			return nil, false
 		}
-		return symbols.FQNOf(sym)
+		return symbols.NameChain(sym), true
 	}
-	return ownerName + "::" + name
+	return append(ownerNames, name), true
 }

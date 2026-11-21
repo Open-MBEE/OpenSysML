@@ -2,6 +2,7 @@ package lower
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"strconv"
 	"strings"
 
@@ -130,6 +131,8 @@ type runToCompletionDecl struct {
 type RunToCompletion struct {
 	// Value is the isRunToCompletion expression, nil for the default true.
 	Value ast.Node
+	// ValueID is Value in the table of the machine.
+	ValueID program.ExprID
 	// ValueScope resolves names in Value.
 	ValueScope *symbols.Scope
 	// ValueOwner owns Value's state data; nil denotes the machine.
@@ -229,7 +232,7 @@ func (g *StateGraph) declaredScope(state *ast.StateNode, decl runToCompletionDec
 	if FeaturePath(decl.usage.Value) == "self" {
 		return state, nil
 	}
-	scope, err := g.scopeState(state, decl)
+	scope, err := g.scopeState(decl)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +252,7 @@ func (g *StateGraph) declaredScope(state *ast.StateNode, decl runToCompletionDec
 }
 
 // scopeState resolves a scope declaration to the machine or a state vertex.
-func (g *StateGraph) scopeState(state *ast.StateNode, decl runToCompletionDecl) (*ast.StateNode, error) {
+func (g *StateGraph) scopeState(decl runToCompletionDecl) (*ast.StateNode, error) {
 	if named, ok := g.endpoints.Endpoint(decl.scope, decl.usage.Value); ok && named == g.machineDecl {
 		return nil, nil
 	}

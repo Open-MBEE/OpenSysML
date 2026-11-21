@@ -95,6 +95,47 @@ func AnonymousMemberOf(model *semantics.Model, catalog *Catalog, sym *symbols.Sy
 	return out, true
 }
 
+// AliasMembership is the Membership a named library element owns for an alias: the id this
+// implementation mints for it and the positional path the pilot's exporter keys it by.
+type AliasMembership struct {
+	Symbol *symbols.Symbol
+	Owner  *LibraryElement
+	ID     string
+	Path   string
+}
+
+// AliasMembershipOf describes the membership of sym, an alias a named library element declares,
+// placed among the owner's memberships of the same metaclass; ok is false for anything else.
+func AliasMembershipOf(model *semantics.Model, catalog *Catalog, sym *symbols.Symbol) (AliasMembership, bool) {
+	if model == nil || catalog == nil || sym == nil || sym.Kind != symbols.SymbolAlias {
+		return AliasMembership{}, false
+	}
+	owner := sym.Owner()
+	if owner == nil {
+		return AliasMembership{}, false
+	}
+	ownerElement, ok := catalog.ElementForSymbol(owner)
+	if !ok || ownerElement == nil || ownerElement.ID == "" {
+		return AliasMembership{}, false
+	}
+	metaclass := metaclassName(model, sym)
+	if metaclass == "" {
+		return AliasMembership{}, false
+	}
+	index := 0
+	for _, membership := range model.OwnedMemberships(owner) {
+		if membership == sym {
+			id := AliasMembershipID(ownerElement.ID, metaclass, index)
+			path := ownerElement.FQN + "/" + metaclass + "[" + strconv.Itoa(index) + "]"
+			return AliasMembership{Symbol: sym, Owner: ownerElement, ID: id, Path: path}, id != ""
+		}
+		if metaclassName(model, membership) == metaclass {
+			index++
+		}
+	}
+	return AliasMembership{}, false
+}
+
 func metaclassName(model *semantics.Model, sym *symbols.Symbol) string {
 	if metaclass := model.MetaclassOf(sym); metaclass != nil {
 		return metaclass.Name
@@ -107,14 +148,15 @@ func metaclassName(model *semantics.Model, sym *symbols.Symbol) string {
 type AnonymousIndex struct {
 	byID, byMembershipID map[string]AnonymousMember
 	bySymbol             map[*symbols.Symbol]AnonymousMember
+	aliasByID            map[string]AliasMembership
 }
 
-// AnonymousMemberIndex indexes every unnamed member a named element of catalog
-// owns, declared or implied, by element id and by owning-membership id.
+// AnonymousMemberIndex indexes every unnamed member a named element of catalog owns, declared
+// or implied, by element id and by owning-membership id, and every alias membership by its id.
 func AnonymousMemberIndex(model *semantics.Model, catalog *Catalog) *AnonymousIndex {
 	index := &AnonymousIndex{
 		byID: map[string]AnonymousMember{}, byMembershipID: map[string]AnonymousMember{},
-		bySymbol: map[*symbols.Symbol]AnonymousMember{},
+		bySymbol: map[*symbols.Symbol]AnonymousMember{}, aliasByID: map[string]AliasMembership{},
 	}
 	if model == nil || catalog == nil {
 		return index
@@ -123,12 +165,17 @@ func AnonymousMemberIndex(model *semantics.Model, catalog *Catalog) *AnonymousIn
 		if owner.Symbol == nil {
 			continue
 		}
+		for _, membership := range model.OwnedMemberships(owner.Symbol) {
+			if alias, ok := AliasMembershipOf(model, catalog, membership); ok {
+				index.aliasByID[alias.ID] = alias
+			}
+		}
 		members, ok := model.ReflectiveElements(owner.Symbol, "ownedMember")
 		if !ok {
 			continue
 		}
 		for _, sym := range members {
-			if sym == nil || sym.Name != "" {
+			if sym == nil || sym.Named() {
 				continue
 			}
 			if member, ok := AnonymousMemberOf(model, catalog, sym); ok {
@@ -157,6 +204,15 @@ func (i *AnonymousIndex) Element(id string) (AnonymousMember, bool) {
 	}
 	member, ok := i.byID[id]
 	return member, ok
+}
+
+// AliasMembership is the membership of a library alias with the given minted id.
+func (i *AnonymousIndex) AliasMembership(id string) (AliasMembership, bool) {
+	if i == nil {
+		return AliasMembership{}, false
+	}
+	alias, ok := i.aliasByID[id]
+	return alias, ok
 }
 
 // OwningMembership is the unnamed member whose owning membership has the given id.

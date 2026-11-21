@@ -28,6 +28,10 @@ const (
 	mSubsetting                        = "Subsetting"
 	mSpecialization                    = "Specialization"
 	mRedefinition                      = "Redefinition"
+	mCrossSubsetting                   = "CrossSubsetting"
+	mUnioning                          = "Unioning"
+	mIntersecting                      = "Intersecting"
+	mDifferencing                      = "Differencing"
 	mFlow                              = "Flow"
 	mFlowUsage                         = "FlowUsage"
 	mSuccessionFlow                    = "SuccessionFlow"
@@ -50,6 +54,7 @@ const (
 	mRequirementVerificationMembership = "RequirementVerificationMembership"
 	mConstraintUsage                   = "ConstraintUsage"
 	mReferenceUsage                    = "ReferenceUsage"
+	mUsage                             = "Usage"
 	pMultiplicity                      = "multiplicity"
 	pCondition                         = "condition"
 	pConjugatedPortDefinition          = "conjugatedPortDefinition"
@@ -136,7 +141,8 @@ type headItem struct {
 // emits relationship elements for, in the order a head no notation spelled
 // states them.
 var materializedKinds = []ast.RelationshipKind{
-	ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences, ast.RelAnnotates,
+	ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences, ast.RelCrosses,
+	ast.RelUnions, ast.RelIntersects, ast.RelDifferences, ast.RelAnnotates,
 }
 
 // materializeRelationships emits one relationship element per target of each
@@ -325,14 +331,12 @@ func (e *encoder) seatHead(subject rdf.Term, anchor int, block []rdf.Term) {
 	}
 }
 
-// relationshipSpec picks the materialization of one collapsed property on
-// subject: the relationship class a target takes depends on what the element
-// is, and a `subsets` a satisfy or other end-binding head states is written
-// as an OwnedReferenceSubsetting (SysML.xtext).
+// relationshipSpec picks the materialization of one collapsed property on subject: the
+// relationship class a target takes depends on what the element is.
 func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, count, i int) (normativeRelationship, bool) {
 	metaclass := e.metaclassOf(subject)
 	classifier := ontology.IsAncestorOrSelf(metaclass, "Classifier")
-	suffix := relationshipSuffix(kind, classifier, e.referenceSubsettingForm(subject), count, i)
+	suffix := relationshipSuffix(kind, classifier, count, i)
 	switch kind {
 	case ast.RelTyping:
 		return normativeRelationship{mFeatureTyping, suffix,
@@ -360,9 +364,6 @@ func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, 
 				[]string{pOwnedSpecialization, pOwnedRelationship}}, true
 		}
 	case ast.RelSubsets:
-		if e.referenceSubsettingForm(subject) {
-			return referenceSubsettingSpec(suffix), true
-		}
 		return normativeRelationship{mSubsetting, suffix,
 			[]string{pSubsettingFeature, pOwningFeature, pSpecific, pSource, pOwningRelatedElement},
 			[]string{pSubsettedFeature, pGeneral, pTarget},
@@ -374,6 +375,19 @@ func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, 
 			[]string{"ownedRedefinition", pOwnedSubsetting, pOwnedSpecialization, pOwnedRelationship}}, true
 	case ast.RelReferences:
 		return referenceSubsettingSpec(suffix), true
+	case ast.RelCrosses:
+		// `crosses` names the feature an end's cross feature subsets through the
+		// CrossSubsetting the end owns (KerML 8.3.3.3.2, 8.2.4.3.1 Crosses).
+		return normativeRelationship{mCrossSubsetting, suffix,
+			[]string{"crossingFeature", pSubsettingFeature, pOwningFeature, pSpecific, pSource, pOwningRelatedElement},
+			[]string{"crossedFeature", pSubsettedFeature, pGeneral, pTarget},
+			[]string{"ownedCrossSubsetting", pOwnedSubsetting, pOwnedSpecialization, pOwnedRelationship}}, true
+	case ast.RelUnions:
+		return typeOperandSpec(mUnioning, suffix, "typeUnioned", "unioningType", "ownedUnioning"), true
+	case ast.RelIntersects:
+		return typeOperandSpec(mIntersecting, suffix, "typeIntersected", "intersectingType", "ownedIntersecting"), true
+	case ast.RelDifferences:
+		return typeOperandSpec(mDifferencing, suffix, "typeDifferenced", "differencingType", "ownedDifferencing"), true
 	case ast.RelAnnotates:
 		// An `about` names an element the annotating element annotates through an
 		// Annotation it owns (KerML 8.3.2.3.2 AnnotatingElement::ownedAnnotatingRelationship).
@@ -388,7 +402,7 @@ func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, 
 // relationshipSuffix names the relationship element materialized for the i-th of count
 // targets of a head clause of kind, after its owner's id: the one rule the writer and the
 // identity reader (writtenRelationships) share. Empty for a kind no element is made for.
-func relationshipSuffix(kind ast.RelationshipKind, classifier, referenceForm bool, count, i int) string {
+func relationshipSuffix(kind ast.RelationshipKind, classifier bool, count, i int) string {
 	index := fmt.Sprintf("%d", i)
 	switch kind {
 	case ast.RelTyping:
@@ -401,14 +415,19 @@ func relationshipSuffix(kind ast.RelationshipKind, classifier, referenceForm boo
 		}
 		return "_sp" + index
 	case ast.RelSubsets:
-		if referenceForm {
-			return referenceSubsettingSuffix(count, i)
-		}
 		return "_ss" + index
 	case ast.RelRedefines:
 		return "_rd" + index
 	case ast.RelReferences:
 		return referenceSubsettingSuffix(count, i)
+	case ast.RelCrosses:
+		return crossSubsettingSuffix(count, i)
+	case ast.RelUnions:
+		return "_un" + index
+	case ast.RelIntersects:
+		return "_is" + index
+	case ast.RelDifferences:
+		return "_df" + index
 	}
 	return ""
 }
@@ -422,17 +441,26 @@ func referenceSubsettingSuffix(count, i int) string {
 	return "_rs"
 }
 
-// referenceSubsettingForm reports whether a `subsets` subject states is an
-// OwnedReferenceSubsetting: the satisfy head writes the requirement it subsets
-// bare, and the other end-binding forms (`perform`, `exhibit`, `include`,
-// `assert`, `satisfy`) state their targets through `references`.
-func (e *encoder) referenceSubsettingForm(subject rdf.Term) bool {
-	return e.metaclassOf(subject) == "SatisfyRequirementUsage" || e.verifiedReferences[subject] ||
-		e.graph.HasProperty(subject, rdf.OpenSysML+xEndForm)
+// crossSubsettingSuffix is `_cs` for the one CrossSubsetting a feature owns
+// (KerML 8.3.3.3.4 validateFeatureOwnedCrossSubsetting) and `_cs<i>` when a head states several.
+func crossSubsettingSuffix(count, i int) string {
+	if count > 1 {
+		return fmt.Sprintf("_cs%d", i)
+	}
+	return "_cs"
 }
 
-// referenceSubsettingSpec is the materialization of a `references` target or
-// an end-form `subsets` one: a ReferenceSubsetting per target, under suffix.
+// typeOperandSpec is the materialization of one operand of a type's `unions`,
+// `intersects` or `differences`: the relationship the type owns per operand (KerML 8.2.4.1.1 UnioningPart).
+func typeOperandSpec(metaclass, suffix, source, target, owned string) normativeRelationship {
+	return normativeRelationship{metaclass, suffix,
+		[]string{source, pSource, pOwningRelatedElement},
+		[]string{target, pTarget},
+		[]string{owned, pOwnedRelationship}}
+}
+
+// referenceSubsettingSpec is the materialization of a `references` target: a
+// ReferenceSubsetting per target, under suffix.
 func referenceSubsettingSpec(suffix string) normativeRelationship {
 	return normativeRelationship{mReferenceSubsetting, suffix,
 		[]string{pReferencingFeature, pSubsettingFeature, pOwningFeature, pSpecific, pSource, pOwningRelatedElement},
@@ -537,7 +565,7 @@ func (e *encoder) featureChainings(chain rdf.Term, links []rdf.Term) {
 const conjugateSegment = "@conjugated"
 
 // conjugatedPortDefinition emits a port definition's implied conjugate and its
-// PortConjugation; only an original name gives the conjugate a declared name.
+// PortConjugation; it declares no name, `~P` being its derived name (SysML 8.3.12.2 effectiveName).
 func (e *encoder) conjugatedPortDefinition(subject rdf.Term, fqn string, n *ast.Definition) {
 	conjugated := e.ids.minted(rdf.RelationshipIRI(subject, "_conjugated"), subject, "_conjugated")
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(conjugated), conjugated, rdf.OwningMembershipSuffix)
@@ -557,16 +585,13 @@ func (e *encoder) conjugatedPortDefinition(subject rdf.Term, fqn string, n *ast.
 	e.typed(conjugated, mConjugatedPortDefinition)
 	e.graph.Add(conjugated, e.sysml(pElementID), rdf.String(rdf.LocalName(conjugated.Value)))
 	address := fqn + "::" + conjugateSegment
-	named := n.Ident.Name != ""
+	named := n.Ident.HasName()
 	name := ""
 	if named {
 		name = "~" + n.Ident.Name
 		address = fqn + "::" + identity.EscapeName(name)
 	}
-	e.graph.Add(conjugated, addressTerm(address), rdf.String(address))
-	if named {
-		e.graph.Add(conjugated, e.sysml(pDeclaredName), rdf.String(name))
-	}
+	stateAddress(e.graph.Add, conjugated, address)
 	e.emitMembershipCore(membership, conjugated, subject, mOwningMembership, true)
 	if named {
 		e.graph.Add(membership, e.sysml(pMemberName), rdf.String(name))
@@ -613,7 +638,7 @@ func (e *encoder) subjectParameter(subject rdf.Term, owner string, ownerSym *sym
 	}
 	e.typed(usage, mReferenceUsage)
 	e.graph.Add(usage, e.sysml(pElementID), rdf.String(rdf.LocalName(usage.Value)))
-	e.graph.Add(usage, addressTerm(owner), rdf.String(owner+"::_subject"))
+	stateAddress(e.graph.Add, usage, owner+"::_subject")
 	// The subject is a referential usage owned by the satisfy usage, an Occurrence.
 	if e.ids.model.UsageMayTimeVaryUnder(ownerSym) {
 		e.flags(usage, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})

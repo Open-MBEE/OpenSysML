@@ -348,6 +348,11 @@ func mappingMembershipMemberIsElementUncached(
 		return false
 	}
 	if owner.IsIRI() && !ownerIsElement && !resultExpression {
+		// A nameless feature its FeatureMembership names — a flow end's ReferenceUsage, named by
+		// the feature it redefines — is positional under a positional owner, as the end is.
+		if context.conforms(graph, membership, "FeatureMembership") && !mappingHasElementName(graph, member) {
+			return false
+		}
 		return mappingHasElementName(graph, member) || mappingHasMemberName(graph, membership)
 	}
 	if context.conforms(graph, membership, "TransitionFeatureMembership") {
@@ -365,6 +370,9 @@ func mappingMembershipMemberIsElementUncached(
 	if !parameter && context.conforms(graph, membership, "FeatureMembership") {
 		if mappingHasElementName(graph, member) || mappingHasMemberName(graph, membership) {
 			return true
+		}
+		if mappingTransitionLink(graph, membership, member, owner, context) {
+			return false
 		}
 		for _, typ := range graph.ObjectsView(member, rdf.RDFType) {
 			if ontology.IsAncestorOrSelf(ontology.LocalName(typ.Value), "Feature") {
@@ -390,6 +398,15 @@ func mappingMembershipMemberIsElementUncached(
 		return false
 	}
 	return true
+}
+
+// mappingTransitionLink reports the transitionLink a transition owns last (transitionLinkMember): a nameless
+// ReferenceUsage through a plain FeatureMembership with no position of its own, minted off the transition.
+func mappingTransitionLink(graph *rdf.Graph, membership, member, owner rdf.Term, context *mappingQualifiedNameContext) bool {
+	return owner.IsIRI() && context.conforms(graph, owner, mTransition) &&
+		mappingHasExactType(graph, membership, mFeatureMembership) &&
+		mappingHasExactType(graph, member, mReferenceUsage) &&
+		!graph.HasProperty(member, rdf.OpenSysML+"memberIndex")
 }
 
 func mappingHasExactType(graph *rdf.Graph, subject rdf.Term, expected string) bool {

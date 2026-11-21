@@ -52,6 +52,11 @@ capability, `elementProperties` needs `element_properties` and `instancePaths` n
 that lacks it, and a symbol from a service without `symbol_members` enumerates no members
 (its `childIds` still name the owned ones).
 
+`annotatingMetadataIds` names the metadata usages annotating a symbol: its own `#M` prefixes and
+body `@M` usages, then the ones naming it in an `about` clause elsewhere, which `childIds` and
+`members` leave out. `annotatingMetadata()` fetches them as symbols, each with its `type` and
+`attributes`, and needs the `symbol_annotating_metadata` capability.
+
 `loads`/`load` open a connection of their own and close it with the model.
 `connect()` is the longer-lived form, and parses more than one source over one
 service and one parse cache:
@@ -93,6 +98,8 @@ switch (value.kind) {
   case "sequence": value.elements;                    // SysMLValue[]
   case "undetermined": value.reason; value.countLower; value.countUpper;  // the model leaves it open
   case "infinity": break;                              // the unbounded `*`
+  case "coordinateFrame": value.axes; value.transformation?.pose;   // answer only
+  case "coordinateTransformation": value.source; value.target; value.shape; value.pose;
   case "null":     value.reason;                       // evaluated, no value
   case "unset":    break;                              // declared, never given one
   case "absent":   break;                              // the service sent no value at all

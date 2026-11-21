@@ -40,6 +40,11 @@ the plugin against Java 17:
 CAMEO_HOME=/opt/Cameo editors/mdk/scripts/compile-against-cameo.sh
 ```
 
+The helper compiles the Java client itself, so it needs no prior build.
+`scripts/compile-against-cameo-test.sh` runs it in continuous integration from an uncompiled client
+against a stand-in installation holding only the OpenAPI stubs, which checks the helper's class
+path and not the vendor's signatures.
+
 ## Stubs
 
 `openapi-stubs` contains compile-only signatures for the Cameo 2026x OpenAPI, written from the
@@ -97,6 +102,42 @@ vendor keeps outside the text (`docs/internals/design/mdk-mtip.md` §6). The com
 counts the service's diagnostics on the written text: a v1 model that migrates but does not parse
 clean is a migration finding, and the report says what was approximated.
 
+## Publish to a SysML v2 API server
+
+*OpenSysML ▸ Publish to SysML v2 API…* on a selected element commits the whole project to one
+project branch of a server speaking the standard SysML v2 API, such as Flexo MMS. The model
+takes the path the export takes — a v1 project is migrated, a v2 project is read as the tool
+exports it — and the service converts it to the API's JSON (`Convert` to `api-json`); a model
+with errors is refused rather than published in part. The dialog asks for:
+
+| Field | Meaning |
+|---|---|
+| Server URL | The API's base URL. Defaults to `FLEXO_SYSMLV2_URL`, else `http://localhost:8083`, as `sysml -sync-apply` does. |
+| Bearer token | Sent as `Authorization: Bearer …`. Empty uses `FLEXO_INTEROP_TOKEN`, or no token. It is held for the one publication and never stored. |
+| Project id | The project to publish to. Empty creates a project with the name given. |
+| Branch id | Empty is the project's default branch. |
+| Commit message | The commit's description. |
+| Delete elements… | Off by default: elements the branch holds that the model does not are left in place and counted. On, they are deleted in the same commit. |
+
+The plugin reads the branch's elements at its head and posts one commit holding the elements the
+branch lacks or holds differently, so publishing an unchanged model commits nothing. The server,
+project and branch are remembered per Cameo project (in the user's Java preferences), with the
+commit each publication left the branch at: when the branch has moved since, the plugin says so
+and asks before publishing onto it, and a branch that moves between the read and the write is
+refused with nothing written.
+
+The token is only sent to the configured server: a plain `http://` URL to another machine is
+refused unless `FLEXO_ALLOW_PLAIN_HTTP=1`, and a redirect or a linked next page that leaves the
+server, or leaves `https`, is not followed.
+
+Publication is one-way. Nothing on the server is read back into the Cameo project, and there is
+no element-level diff view, branch management or merge: see `docs/project/mdk-parity.md`. The
+`sysx:` extension properties of the conversion have no place in the API and are not sent. The
+standard API has no conditional write, so the head check narrows the window for a concurrent
+commit but cannot close it. The test suite runs the publication against an in-process API
+server, and it has been run by hand against a local Flexo MMS stack (the published compose
+images); the action itself has not yet been run in a licensed Cameo.
+
 ## Run query
 
 *OpenSysML ▸ Run query* runs the QVTS document queries a selected element stands for through the
@@ -153,9 +194,47 @@ left out. The queries beside a failed one still answer and keep their tables. A 
 carries no outcome — a parameter left unbound, say — stays one `ERROR` outcome carrying the
 service's message, and outranks `FAILED` for the run's status.
 
-Not in scope here: rendering a whole `Document` from Cameo (`RenderDocument`), writing an answer
-back as a `QVTS::QueryResult` view, and transformations or proposals, which OpenSysML has no
-evaluator for yet.
+### The answer as a view
+
+Every query that ran also comes back as a `QVTS::QueryResult` view
+([the QVTS guide](../../docs/guide/qvts.md#write-the-answer-as-a-view)): the selected elements
+exposed, and the query, the source, the outcome and the provenance as its four attributes. A
+query that reported a path or model error has a view too, of that outcome, exposing the
+elements the failure is about. After *Run query* the plugin writes each view to a file named by
+the query, `<model>.<Query.Qualified.Name>.result.sysml`, replacing the one an earlier run of
+that query wrote (a query whose name or text holds more than plain names also carries a short
+digest of it, `…~1a2b3c4d.result.sysml`, so two queries never share a file):
+
+- **v2 project** — next to the project file, so `lander.mdzip` gets
+  `lander.QVTSDemo.CabinMass.result.sysml`.
+- **v1 project** — beside the `.sysml` the project was last written to by *Export as SysML
+  v2…* in this Cameo session, which is where the migration report is, so the view parses with
+  the migrated model it names; before any export, next to the project file.
+
+The results window lists each file as an informational diagnostic. A project that was never
+saved has nowhere to write, which is a warning, as is a file that cannot be written; neither
+changes the run's status.
+
+## Render document
+
+*OpenSysML ▸ Render document…* renders what the selected element stands for as Markdown and
+HTML into a folder you choose, then opens the folder:
+
+- a `part def` specializing `DocumentQueries::Document` (v2), through the service's
+  `RenderDocument`;
+- a v1 DocGen `«Document»`, through the `Document` definition the migration wrote for it,
+  found by the migration report as *Run query* finds a query;
+- a view typed by `QVTS::QueryResult`, through `RenderView`: its four attributes as the header
+  and the elements it exposes as the rows. Add a written `.result.sysml` to the project's
+  model to render it.
+
+A document is written to the file the service plans for it (`QVTSDemo-MassReport.md`,
+`.html`), the name its sibling documents link, so documents rendered into one folder link each
+other; a result view is named by its qualified name (`CabinMassResult.cabinMass.md`). An
+element that is none of these is reported as such, and nothing is written.
+
+Not in scope here: PDF from Cameo (the converters are the CLI's, `sysml -render-document
+-doc-form pdf`), and transformations or proposals, which OpenSysML has no evaluator for yet.
 
 ## Results window and annotations
 

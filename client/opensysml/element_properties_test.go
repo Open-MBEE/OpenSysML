@@ -3,6 +3,7 @@ package opensysml_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/client/opensysml"
@@ -86,6 +87,31 @@ func TestElementPropertiesReadsSpecPropertiesOverBothTransports(t *testing.T) {
 			var failure *opensysml.FailureError
 			if !errors.As(err, &failure) || failure.Op != "ElementProperties" {
 				t.Errorf("a missing element: %v", err)
+			}
+		})
+	}
+}
+
+func TestElementPropertiesAnswerBesideAnExcludedDocument(t *testing.T) {
+	for name, client := range elementPropertiesClients(t) {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			model, err := client.ParseDocuments(ctx, []opensysml.Document{
+				{Name: "a.sysml", Content: "package A { part x; }"},
+				{Name: "c.sysml", Content: "package C { part y }"},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			read, err := client.ElementProperties(ctx, model, "A::x", "name")
+			if err != nil {
+				t.Fatalf("an element beside a document with a syntax error: %v", err)
+			}
+			if len(read.ExcludedDocuments) != 1 || read.ExcludedDocuments[0].Document != "c.sysml" || !strings.Contains(read.ExcludedDocuments[0].Error, "syntax error") {
+				t.Errorf("excluded documents = %+v, want c.sysml with its syntax error", read.ExcludedDocuments)
+			}
+			if _, err := client.ElementProperties(ctx, model, "C", "name"); !errors.Is(err, opensysml.ErrFailure) || !strings.Contains(err.Error(), "syntax error") {
+				t.Errorf("an element of the excluded document: %v, want its document's syntax error", err)
 			}
 		})
 	}

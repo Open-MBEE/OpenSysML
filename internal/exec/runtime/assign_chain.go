@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
@@ -26,6 +27,11 @@ func writeThroughChain(ec *EvalContext, chain *lower.AssignTarget, feature strin
 	if err != nil {
 		return err
 	}
+	return writeOnReached(ec, target, chain, feature, value)
+}
+
+// writeOnReached writes value to feature of target, the object chain reached.
+func writeOnReached(ec *EvalContext, target *Instance, chain *lower.AssignTarget, feature string, value Value) error {
 	// The target names the feature it resolves to, which the object may hold
 	// under the name of a feature redefining it (KerML 1.0 §7.3.4.5).
 	if slot, ok := ec.ctx.featureSlot(target, ec.chainTargetMember(chain, feature)); ok {
@@ -52,7 +58,7 @@ func writeThroughChain(ec *EvalContext, chain *lower.AssignTarget, feature strin
 // read of one path reach one object. A step holding no object, or holding more
 // than one, names no object to write on and is reported.
 func (ec *EvalContext) chainCarrier(target *lower.AssignTarget) (*Instance, error) {
-	value, err := ec.chainRoot(target.Base)
+	value, err := ec.chainRoot(target.Base, target.BaseID)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +78,7 @@ func (ec *EvalContext) chainCarrier(target *lower.AssignTarget) (*Instance, erro
 // chainRoot evaluates the node a chained target starts from, as the object it
 // names: a part names an occurrence rather than a value, and a calc usage names
 // an evaluation, which holds no object a write could reach.
-func (ec *EvalContext) chainRoot(base ast.Node) (Value, error) {
+func (ec *EvalContext) chainRoot(base ast.Node, id program.ExprID) (Value, error) {
 	if sym, ok, err := ec.calcUsageOperand(base); err != nil {
 		return Value{}, err
 	} else if ok {
@@ -96,7 +102,7 @@ func (ec *EvalContext) chainRoot(base ast.Node) (Value, error) {
 		}
 		return Value{Kind: ValInstance, Instance: inst.ID}, nil
 	}
-	return ec.Eval(base)
+	return ec.evalPayload(id)
 }
 
 // chainObject is the one object a step of a chained target reaches, which the

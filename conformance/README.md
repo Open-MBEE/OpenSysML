@@ -175,9 +175,13 @@ What a request asks for is fixed per capability:
 | `symbol_attributes` | Response-population capability: omit symbol attributes; no request asks for them. |
 | `symbol_members` | Response-population capability: omit `SymbolInfo.members`, the members own and inherited with their provenance, and the `withheld_library_members` count; `GetSymbolRequest.include_library_members` is ignored without it. |
 | `symbol_name_resolution` | Honour `GetSymbolRequest.resolve_name`: resolve `symbol_id` as a qualified name from the root namespace. Without it the field is ignored and `symbol_id` is read as an id the service reported, as a service predating the field reads it; a client checks the capability instead of sending the field. |
+| `symbol_annotating_metadata` | Response-population capability: omit `SymbolInfo.annotating_metadata_ids`, the metadata usages annotating the element; no request asks for them. |
+| `symbol_lookup_kind` | Honour the `lookup` of `GetSymbolRequest` and `GetElementPropertiesRequest`: `symbol_id` (`element_id`) read only as a qualified name under `LOOKUP_KIND_QUALIFIED_NAME` and only as an element id under `LOOKUP_KIND_ELEMENT_ID`. Without it the field is ignored and the string is read as either kind, name first for `GetSymbol`; a client checks the capability instead of relying on the field. |
+| `symbol_member_direction` | Request-interpretation capability: ignore `GetSymbolRequest.member_of`, so `SymbolInfo.metadata["direction"]` stays the feature's own direction. |
 | `feature_values` | Response-population capability: omit instance feature values; no request asks for them. |
 | `enum_values` | Response-population capability: encode enum values as unsupported nulls; no request asks for them. |
 | `unset_value` | Response-population capability: encode unset values as unsupported nulls; no request asks for them. |
+| `coordinate_frame_values` | Encode coordinate frames and coordinate transformations as unsupported nulls; refuse a request carrying one, at any depth, as a service advertising it does too, since neither is an argument. |
 | `undetermined_value` | Response-population capability: encode undetermined results (a model-level read the model leaves open) as unsupported nulls; no request asks for them. |
 | `complex_values` | Response-population capability: encode complex numbers as unsupported nulls; no request asks for them. |
 | `structured_values` | Encode arrays, vectors and vector quantities as unsupported nulls; refuse a request carrying one, at any depth. |

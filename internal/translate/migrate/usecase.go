@@ -258,7 +258,7 @@ func (m *migration) connectActor(link *actorLink) {
 		if end.Parent != link.assoc {
 			continue
 		}
-		note := ""
+		var note string
 		switch {
 		case end == link.end:
 			_, note = m.multiplicity(end)
@@ -359,7 +359,7 @@ func (m *migration) pairConn(d, client, supplier *sysmlv1.Element) *defConn {
 func (m *migration) planConnections(rels []*sysmlv1.Element) {
 	for _, r := range rels {
 		var from, to *sysmlv1.Element
-		verb := ""
+		var verb string
 		switch r.Type {
 		case "Include":
 			from, to, verb = r.Parent, m.model.Ref(r, "addition"), "includes"

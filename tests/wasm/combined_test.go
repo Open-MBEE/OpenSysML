@@ -232,6 +232,9 @@ func TestCombinedWireParity(t *testing.T) {
 			t.Fatalf("grpc Evaluate %q: %v", expression, err)
 		}
 		equal("Evaluate", params, mustMarshal(t, response), call("Evaluate", params))
+		if expression == "enginedemo::speed" {
+			wantSpeedAnswer(t, mustMarshal(t, response))
+		}
 	}
 
 	for _, test := range []struct {
@@ -331,6 +334,7 @@ func TestCombinedWireParity(t *testing.T) {
 				t.Fatalf("grpc Evaluate using ParseFile hash: %v", err)
 			}
 			equal(method+" after ParseFile", params, mustMarshal(t, response), call(method, params))
+			wantSpeedAnswer(t, mustMarshal(t, response))
 		case "GetSymbol":
 			response, err := svc.GetSymbol(ctx, mustUnmarshal[pb.GetSymbolRequest](t, params))
 			if err != nil {
@@ -388,6 +392,10 @@ func TestCombinedWireParity(t *testing.T) {
 		"symbol_name_resolution",
 		"render_document", "render_document_html", "render_document_asciidoc", "render_document_file_name",
 		"render_view_form",
+		"symbol_annotating_metadata",
+		"symbol_lookup_kind",
+		"symbol_member_direction",
+		"coordinate_frame_values",
 	}
 	if info.Version != "combined-wire-test" {
 		t.Errorf("GetServerInfo version = %q", info.Version)

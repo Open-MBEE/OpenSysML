@@ -25,6 +25,8 @@ const (
 	ErrorValueEvaluation ErrorKind = "value-evaluation"
 	// ErrorEmptyValue: a value run's feature has no value to render.
 	ErrorEmptyValue ErrorKind = "empty-value"
+	// ErrorMissingRendering: a query-result document was asked of no rendering.
+	ErrorMissingRendering ErrorKind = "missing-rendering"
 )
 
 // Error is a typed document-evaluation failure with its source location.
@@ -77,6 +79,8 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("document %s content %s value run reads %s, which has no value", e.Document, e.Content, e.Actual)
 	case ErrorUnknownDefinitionColumn:
 		return fmt.Sprintf("document %s definitions %s names column %q, which query %s did not project", e.Document, e.Content, e.Column, e.Query)
+	case ErrorMissingRendering:
+		return "a query-result document requires a view rendering"
 	default:
 		return fmt.Sprintf("document evaluation failed for %s", e.Document)
 	}

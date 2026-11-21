@@ -239,3 +239,35 @@ func nodeDescription(node ast.Node) string {
 	}
 	return "an unnamed node"
 }
+
+// A node with the empty name answers to it whether or not it also declares a
+// short name, and to the short name too: a `first` naming it starts the flow there.
+func TestToActionGraph_FirstNamesAnEmptyNamedNode(t *testing.T) {
+	for _, declaration := range []string{`action '';`, `action <s> '';`} {
+		graph := actionGraphFor(t, `
+			action seq {
+				`+declaration+`
+				action s2;
+				first '';
+				succession first '' then s2;
+			}
+		`)
+		empty := nodeNamed(t, graph, "")
+		s2 := nodeNamed(t, graph, "s2")
+		if graph.Initial != empty {
+			t.Errorf("%s: initial node = %s, want the empty-named action", declaration, nodeDescription(graph.Initial))
+		}
+		if edges := graph.Edges[empty]; len(edges) != 1 || edges[0].Target != s2 {
+			t.Errorf("%s: edges of the empty-named action = %v, want [s2]", declaration, edges)
+		}
+	}
+	graph := actionGraphFor(t, `
+		action seq {
+			action <s> '';
+			first s;
+		}
+	`)
+	if graph.Initial != nodeNamed(t, graph, "") {
+		t.Errorf("initial node = %s, want the action its short name s names", nodeDescription(graph.Initial))
+	}
+}

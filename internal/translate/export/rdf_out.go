@@ -1,6 +1,7 @@
 package export
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
@@ -65,6 +66,7 @@ const (
 	pImportOwningNamespace       = "importOwningNamespace"
 	pDirection                   = "direction"
 	pIsImplied                   = "isImplied"
+	pIsImpliedIncluded           = "isImpliedIncluded"
 	pLowerBound                  = "lowerBound"
 	pUpperBound                  = "upperBound"
 	pValue                       = "value"
@@ -325,7 +327,7 @@ func (e *encoder) siblingElement(sym *symbols.Symbol) (string, bool) {
 		return "", false
 	}
 	fqn := owner.names.FQN[sym.Decl]
-	if name, _ := naming.DeclaredNameAndMembers(sym.Decl); name == "" && !sym.EffectiveName() {
+	if name, _ := naming.DeclaredNameAndMembers(sym.Decl); !name.Named && !sym.EffectiveName() {
 		return "", false
 	}
 	if el, ok := owner.ids.byNode[sym.Decl]; ok {
@@ -356,16 +358,21 @@ func ModelToRDFWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) 
 // ModelElementGraphWith is ModelToRDFWith for a graph only the element form is written
 // from: it leaves the library members only a completed property references to that writer.
 func ModelElementGraphWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) {
-	res, encoders, err := modelEncodersOf(documents, form)
+	_, encoders, err := modelEncodersOf(documents, form)
 	if err != nil {
 		return nil, err
 	}
-	out, _, _, err := encodeModelDocuments(documents, res, encoders, addLinkedLibraryStubs)
-	return out, err
+	return encodeModelDocuments(context.Background(), documents, encoders, addLinkedLibraryStubs)
 }
 
+// libraryNamer states the library stubs of a written graph; a done ctx is its error.
+type libraryNamer func(ctx context.Context, graph *rdf.Graph) error
+
 // addLinkedLibraryStubs names the library elements the graph's triples link to.
-func addLinkedLibraryStubs(graph *rdf.Graph) { addReferencedLibraryStubs(graph, nil) }
+func addLinkedLibraryStubs(_ context.Context, graph *rdf.Graph) error {
+	addReferencedLibraryStubs(graph, nil)
+	return nil
+}
 
 // modelToRDF is ModelToRDFWith, also returning the resolver the model was
 // analyzed with and each document's encoder, whose identity tables are the
@@ -375,34 +382,50 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return encodeModelDocuments(documents, res, encoders, nameInheritedLibraryMembers)
+	out, err := encodeModelDocuments(context.Background(), documents, encoders, nameInheritedLibraryMembers)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return out, res, encoders, nil
 }
 
 // encodeModelDocuments merges the documents' graphs; nameLibrary states the library stubs of the merged one.
-func encodeModelDocuments(documents []ModelDocument, res *resolve.Resolver, encoders []*encoder, nameLibrary func(*rdf.Graph)) (*rdf.Graph, *resolve.Resolver, []*encoder, error) {
+// It returns the graph alone, so a caller done with the encoders holds no document's graph beside it.
+func encodeModelDocuments(ctx context.Context, documents []ModelDocument, encoders []*encoder, nameLibrary libraryNamer) (*rdf.Graph, error) {
 	// declaredIn is the document and declaration each subject was minted for:
 	// two documents declaring one subject would merge two elements into one.
 	declaredIn := map[string]mintedSubject{}
 	for i, e := range encoders {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		var minted []mintedSubject
 		if documents[i].Referenced {
 			minted = e.declaredSubjects()
 		} else {
 			if err := e.encodeDocument(documents[i].Root); err != nil {
-				return nil, nil, nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
+				return nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
 			}
+			// The document is written: its graph waits for the merge as its triples
+			// alone, without the lookup tables the writing built over them.
+			e.graph = rdf.NewGraphOf(e.graph.Triples(), e.graph.Prefixes)
 			minted = e.minted
 		}
 		if err := declaredOnce(declaredIn, minted); err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	out := mergeDocumentGraphs(encoders, documents)
-	nameLibrary(out)
+	if err := nameLibrary(ctx, out); err != nil {
+		return nil, err
+	}
 	// Each document's encoder annotated its collections from its own triples,
 	// in their order, and no two documents declare one subject (refused above).
 	out.MarkCollectionsSettled()
-	return out, res, encoders, nil
+	return out, nil
 }
 
 // modelEncodersOf analyzes the model and makes each document's encoder with
@@ -516,7 +539,7 @@ func (e *encoder) declaredSubjects() []mintedSubject {
 	nodes := make([]ast.Node, 0, len(e.names.FQN))
 	for node := range e.names.FQN {
 		el, identified := e.ids.byNode[node]
-		if e.names.EffectiveName(node) != "" || identified && el.source != identity.SourceDerived {
+		if e.names.EffectiveName(node).Named || identified && el.source != identity.SourceDerived {
 			nodes = append(nodes, node)
 		}
 	}
@@ -646,14 +669,11 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		acceptPayloads:     map[ast.Node]rdf.Term{},
 		triggerMembers:     map[ast.Node]string{},
 		links:              map[*ast.QualifiedName]*symbols.Symbol{},
-		preceding:          map[ast.Node]ast.Node{},
-		introduced:         map[ast.Node]ast.Node{},
 		ids:                ids,
 		subjects:           map[string]string{},
 		regions:            map[rdf.Term]region{},
 		noteRegions:        map[rdf.Term]region{},
 		noteBodies:         map[rdf.Term]region{},
-		verifiedReferences: map[rdf.Term]bool{},
 		heads:              map[rdf.Term]*declarationHead{},
 		conjugateOriginals: map[string]rdf.Term{},
 		bodies:             map[rdf.Term]region{},
@@ -681,6 +701,8 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 }
 
 type encoder struct {
+	// sysmlTerms are the SysML vocabulary terms the document's triples have used, by name.
+	sysmlTerms map[string]rdf.Term
 	// libraryRefs are the standard library elements the document links to, by
 	// subject IRI, so the graph can name the ones it references.
 	libraryRefs map[string]libraryRef
@@ -721,12 +743,6 @@ type encoder struct {
 	// links is what each written reference resolves to, read with the rule of
 	// its position (a redefinition among the generals, an edge end as a vertex).
 	links map[*ast.QualifiedName]*symbols.Symbol
-	// preceding is the member a `then` after each member sequences from: the last
-	// member before it that is not itself an edge, as the parser reads it.
-	preceding map[ast.Node]ast.Node
-	// introduced is the member a member-attached `then` sequences to: the one
-	// written right after the keyword, whose edge follows it in the body.
-	introduced map[ast.Node]ast.Node
 	// ids is the document's identity side table: effective ids, declaredness,
 	// scopes, and the annotation nodes consumed into it.
 	ids *identityFacts
@@ -744,11 +760,6 @@ type encoder struct {
 	noteBodies  map[rdf.Term]region
 	// offsets holds where in file each element's declaration starts.
 	offsets map[string]int
-	// verifiedReferences holds the `verify` members written as a reference
-	// (`verify r;`, `verify r :>> req;`), whose subsetting is the
-	// OwnedReferenceSubsetting of RequirementVerificationUsage, as against a
-	// declaration (`verify requirement :> r;`), whose `:>` is a Subsetting.
-	verifiedReferences map[rdf.Term]bool
 	// heads records each declaration head's clauses in the order the notation
 	// spelled them, for the order its relationship elements are owned in.
 	heads map[rdf.Term]*declarationHead
@@ -885,7 +896,14 @@ func (e *encoder) importedMembership(name *ast.QualifiedName) rdf.Term {
 	if qualifiedText(name) == "" {
 		return rdf.String("")
 	}
-	decl, fqn, ok := e.linked(e.res.PartAlias(name, len(name.Parts)-1))
+	alias, aliased := e.res.PartAlias(name, len(name.Parts)-1)
+	decl, fqn, ok := e.linked(alias, aliased)
+	if !ok && aliased {
+		// A library alias is the Membership imported too (KerML 8.2.3.5), under its minted id.
+		if membership, minted := e.ids.libraryAliasMembership(alias); minted {
+			return membership
+		}
+	}
 	if !ok {
 		decl, fqn, ok = e.referent(name)
 	}
@@ -972,9 +990,9 @@ func (e *encoder) nameLibraryRef(ref libraryRef, named map[string]bool) bool {
 	named[ref.subject.Value] = true
 	e.graph.Add(ref.subject, rdf.IRI(rdf.RDFType), e.sysml(metaclass))
 	e.graph.Add(ref.subject, e.sysml(pElementID), rdf.String(rdf.LocalName(ref.subject.Value)))
-	e.graph.Add(ref.subject, addressTerm(ref.fqn), rdf.String(ref.fqn))
-	if declared, _ := naming.DeclaredNameAndMembers(ref.node); declared != "" {
-		e.graph.Add(ref.subject, e.sysml(pDeclaredName), rdf.String(declared))
+	stateAddress(e.graph.Add, ref.subject, ref.fqn)
+	if declared, _ := naming.DeclaredNameAndMembers(ref.node); declared.Named {
+		e.graph.Add(ref.subject, e.sysml(pDeclaredName), rdf.String(declared.Text))
 	}
 	e.graph.Add(ref.subject, e.sysml(pIsLibraryElement), rdf.Bool(true))
 	return true
@@ -998,18 +1016,21 @@ func (e *encoder) inheritedLibraryNames() {
 	if e.ids.model == nil {
 		return
 	}
-	nameInheritedLibraryMembers(e.graph)
+	// A background context is never done, so there is no error to report.
+	_ = nameInheritedLibraryMembers(context.Background(), e.graph)
 }
 
 // nameInheritedLibraryMembers is inheritedLibraryNames for a written graph, of
 // one document or a model's merged ones.
-func nameInheritedLibraryMembers(graph *rdf.Graph) {
+func nameInheritedLibraryMembers(ctx context.Context, graph *rdf.Graph) error {
 	// The completed properties are evaluated, not written: their ids name every stub.
-	ids, err := apiJSONMembershipReferenceIDs(graph)
+	ids, err := apiJSONMembershipReferenceIDs(ctx, graph)
 	if err != nil {
-		return
+		// A graph the evaluator cannot read names no inherited member; a caller gone is an error.
+		return ctx.Err()
 	}
 	addReferencedLibraryStubs(graph, ids)
+	return nil
 }
 
 // owningMembershipClaim, after an element's name, says what a claimed membership IRI stands for.
@@ -1152,24 +1173,10 @@ func (e *encoder) encodeInlineAt(members []ast.Node, indexOffset int, owner stri
 }
 
 func (e *encoder) encodeMembers(kept []ast.Node, regions, noteRegions []region, inline bool, owner string, ownerTerm rdf.Term, indexOffset int) error {
-	// last and beforeLast are the latest members a `then` sequences from; a
-	// member-attached `then` follows its target prev, so its source is the
-	// latest of them before prev.
-	var last, beforeLast, prev ast.Node
 	for i, member := range kept {
 		node, visibility := naming.UnwrapMember(member)
 		if node == nil {
 			continue
-		}
-		preceding := last
-		if edge, ok := node.(*ast.SuccessionEdge); ok && edge.TargetImplied && prev != nil {
-			e.introduced[node] = prev
-			if prev == last {
-				preceding = beforeLast
-			}
-		}
-		if preceding != nil {
-			e.preceding[node] = preceding
 		}
 		// The FinalNode a member-attached `then` introduces is its edge's
 		// target end, not a member of its own: `then done;` is one
@@ -1187,10 +1194,6 @@ func (e *encoder) encodeMembers(kept []ast.Node, regions, noteRegions []region, 
 				return err
 			}
 		}
-		if ast.IsSuccessionSource(node) {
-			last, beforeLast = node, last
-		}
-		prev = node
 	}
 	return nil
 }
@@ -1358,7 +1361,7 @@ func (e *encoder) head(subject rdf.Term, h memberHead) {
 		h.node, h.visibility, h.fqn, h.owner, h.index, h.metaclass, h.lines, h.inline
 	e.graph.Add(subject, rdf.IRI(rdf.RDFType), metaclass)
 	if h.local.Value == "" {
-		e.graph.Add(subject, addressTerm(fqn), rdf.String(fqn))
+		stateAddress(e.graph.Add, subject, fqn)
 		e.offsets[subject.Value] = node.Span().Offset
 		e.sourceRange(subject, node.Span())
 	}
@@ -1455,6 +1458,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		h.membershipExtra = func(membership rdf.Term) {
 			e.graph.Add(membership, e.sysml(pOwnedMemberParameter), subject)
 			e.graph.Add(accepter, e.sysml(pParameter), subject)
+			e.graph.Add(accepter, e.sysml(pInput), subject)
 			e.graph.Add(accepter, e.sysml(pPayloadParameter), subject)
 		}
 	}
@@ -1526,6 +1530,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			{"isAbstract", n.IsAbstract || n.IsVariation || n.Kind == ast.DefEnumeration},
 			{"isVariation", n.IsVariation || n.Kind == ast.DefEnumeration},
 			{"isAll", n.IsAll},
+			// A ConnectionDefinition is sufficient though no keyword notates it (SysML v2.1 §8.3.13.3).
+			{"isSufficient", ontology.IsAncestorOrSelf(metaclass, "ConnectionDefinition")},
 			{"isConstant", n.IsConstant},
 			{"isEvent", n.IsEvent},
 			{"isIndividual", n.IsIndividual},
@@ -1614,9 +1620,6 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 				e.graph.Add(membership, e.sysml(pOwnedRequirement), subject)
 				e.graph.Add(membership, e.sysml(pOwnedConstraint), subject)
 			}
-			if !n.DeclaresRequirement {
-				e.verifiedReferences[subject] = true
-			}
 		}
 		implicitTarget := e.implicitMetadataBodyTarget(inBody, n)
 		variantTarget := e.variantReferenceTarget(n)
@@ -1643,7 +1646,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 				// A metadata body's `name = …` redefines the metadata
 				// definition's feature of that name, and a `variant x;`
 				// references x; neither declares a name.
-				if n.Ident.ShortName != "" {
+				if n.Ident.HasShortName() {
 					e.graph.Add(subject, e.sysml(pDeclaredShortName), rdf.String(n.Ident.ShortName))
 				}
 			} else {
@@ -1711,8 +1714,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if err := e.prefixes(subject, fqn, n.Prefixes, naming.BodyMembers(n)); err != nil {
 			return err
 		}
-		if trigger {
-			// A trigger action's parameters are its inputs (SysML.xtext PayloadParameterMember, NodeParameterMember).
+		if trigger || n.IsAccept {
+			// An accept's parameters are its inputs (SysML.xtext PayloadParameterMember, NodeParameterMember).
 			e.graph.Add(subject, e.sysml(pDirection), rdf.String("in"))
 		} else if keyword := directionKeyword(n.Direction); keyword != "" {
 			e.graph.Add(subject, e.sysml(pDirection), rdf.String(keyword))
@@ -1762,17 +1765,18 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		// A declaration head that binds ends (connect/bind/flow/succession),
 		// a transition, an accept action or a satisfy usage states its ends
 		// and form structurally, since the properties above do not.
-		if verbatimUsage(n) {
-			if err := e.bindingEnds(subject, within, n); err != nil {
-				return err
-			}
-			e.endForm(subject, n)
-		}
+		// A flow owns its payload ahead of its ends, as the pilot orders them (SysML.xtext FlowDeclaration).
 		if payload := e.names.PayloadOf(n); payload != nil {
 			h := memberHead{node: payload, owner: subject, index: e.names.CrossFeatureIndex(n), inline: true}
 			if err := e.encodeMember(h, fqn); err != nil {
 				return err
 			}
+		}
+		if verbatimUsage(n) {
+			if err := e.bindingEnds(subject, within, n); err != nil {
+				return err
+			}
+			e.endForm(subject, n)
 		}
 		if statement := naming.NodeStatement(n); statement != nil {
 			// The node is the statement it is written as: its parts are the
@@ -1823,10 +1827,10 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		// An alias is a Membership naming its member (KerML 1.0 § 8.3.2.4.3, KerML.xtext AliasMember).
 		head(rdf.SysMLTerm(mMembership))
 		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String("alias"))
-		if n.Ident.Name != "" {
+		if n.Ident.HasName() {
 			e.graph.Add(subject, e.sysml(pMemberName), rdf.String(n.Ident.Name))
 		}
-		if n.Ident.ShortName != "" {
+		if n.Ident.HasShortName() {
 			e.graph.Add(subject, e.sysml(pMemberShortName), rdf.String(n.Ident.ShortName))
 		}
 		target := e.reference(n.For)
@@ -2264,21 +2268,20 @@ func (e *encoder) emitMembershipCore(membership, member, owner rdf.Term, metacla
 // memberNames states Membership::memberName — the declared name, else the written naming feature's as
 // sysml:name spells it, else the effective name the model derives — and memberShortName (KerML 8.3.2.4.3, 8.3.3.3.4).
 func (e *encoder) memberNames(membership rdf.Term, node ast.Node) {
-	name, short := e.names.EffectiveName(node), ""
+	name := e.names.EffectiveName(node)
+	sym := e.ids.declSym[node]
 	// The membership names its member by the model's effective name whatever the
 	// member's identity: `require q.k;` is `k` here, positional in its id.
-	if name == "" {
-		if sym := e.ids.declSym[node]; sym != nil {
-			name = e.ids.model.EffectiveNameOf(sym)
-		}
+	if !name.Named && sym != nil {
+		name.Text, name.Named = e.ids.model.EffectiveNamed(sym)
 	}
-	if sym := e.ids.declSym[node]; sym != nil {
-		short = e.ids.model.EffectiveShortNameOf(sym)
+	if name.Named {
+		e.graph.Add(membership, e.sysml(pMemberName), rdf.String(name.Text))
 	}
-	if name != "" {
-		e.graph.Add(membership, e.sysml(pMemberName), rdf.String(name))
+	if sym == nil {
+		return
 	}
-	if short != "" {
+	if short, has := e.ids.model.EffectiveShortNamed(sym); has {
 		e.graph.Add(membership, e.sysml(pMemberShortName), rdf.String(short))
 	}
 }
@@ -2489,11 +2492,13 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 		slot := fmt.Sprintf("end%d", i)
 		name := ""
 		keyword := ""
-		if declared, named := end.DeclaredName(); named {
+		declared, named := end.DeclaredName()
+		if named {
 			name = declared.Name
 			keyword = e.referencesKeyword(end)
 		}
-		if _, err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: slot, index: i, decl: end, memberName: e.endMemberName(e.ids.declSym[n], i), ends: endCount, target: end.AttachedTarget(), element: end.AttachedIndex(), mult: end.Multiplicity, name: name, keyword: keyword, port: n.Kind == ast.UsageInterface}); err != nil {
+		memberName, memberNamed := e.endMemberName(e.ids.declSym[n], i)
+		if _, err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: slot, index: i, decl: end, memberName: memberName, memberNamed: memberNamed, named: named, ends: endCount, target: end.AttachedTarget(), element: end.AttachedIndex(), mult: end.Multiplicity, name: name, keyword: keyword, port: n.Kind == ast.UsageInterface}); err != nil {
 			return err
 		}
 	}
@@ -2515,7 +2520,8 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			continue
 		}
 		feature, element := ast.EndSelection(target)
-		if _, err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: fmt.Sprintf("end%d", i), index: i, memberName: e.endMemberName(e.ids.declSym[n], i), ends: 2, target: feature, element: element, flow: true}); err != nil {
+		memberName, memberNamed := e.endMemberName(e.ids.declSym[n], i)
+		if _, err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: fmt.Sprintf("end%d", i), index: i, memberName: memberName, memberNamed: memberNamed, ends: 2, target: feature, element: element, flow: true}); err != nil {
 			return err
 		}
 	}
@@ -2639,23 +2645,29 @@ type connectorEndSpec struct {
 	flow bool
 	// memberName is the end's effective name, which its EndFeatureMembership states.
 	memberName string
+	// named and memberNamed tell the empty unrestricted name from no name.
+	named, memberNamed bool
 }
+
+func (end connectorEndSpec) hasName() bool       { return end.name != "" || end.named }
+func (end connectorEndSpec) hasMemberName() bool { return end.memberName != "" || end.memberNamed }
 
 // endMemberName is the effective name of the end at position i of a connector object usage
 // (ConnectorEndAttachment.Name): declared, redefined, or the binary library's source/target.
-func (e *encoder) endMemberName(sym *symbols.Symbol, i int) string {
+func (e *encoder) endMemberName(sym *symbols.Symbol, i int) (string, bool) {
 	if sym == nil {
-		return ""
+		return "", false
 	}
 	ends := e.ids.model.ConnectorObjectEnds(sym)
-	if i < len(ends) && ends[i].Name != "" {
-		return ends[i].Name
+	if i < len(ends) && ends[i].Named {
+		return ends[i].Name, true
 	}
 	// A declared succession is no connector object: its ends are named by its type's or its kind's base's.
 	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageSuccession {
-		return e.ids.model.DeclaredSuccessionEndName(sym, i)
+		name := e.ids.model.DeclaredSuccessionEndName(sym, i)
+		return name, name != ""
 	}
-	return ""
+	return "", false
 }
 
 // connectorEnd emits a standard ConnectorEnd feature and its EndFeatureMembership, and answers the
@@ -2692,7 +2704,7 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) (rdf.Term
 	e.graph.Add(subject, e.sysml(pOwnedFeature), feature)
 	e.graph.Add(subject, e.sysml(pOwnedEndFeature), feature)
 	e.emitMembershipCore(membership, feature, subject, mEndFeatureMembership, true)
-	if end.memberName != "" {
+	if end.hasMemberName() {
 		e.graph.Add(membership, e.sysml(pMemberName), rdf.String(end.memberName))
 	}
 	if end.target != nil {
@@ -2707,20 +2719,21 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) (rdf.Term
 	}
 	// An end is named as its EndFeatureMembership names it: the name it declares, else the one of
 	// the end it implicitly redefines (KerML 1.1 §8.3.3.3) — derived, so stated by sysml:name alone.
-	if end.name != "" {
+	if end.hasName() {
 		e.graph.Add(feature, e.sysml(pDeclaredName), rdf.String(end.name))
 		if end.keyword != "" && end.keyword != referencesSymbol {
 			e.graph.Add(feature, e.sysx(xEndReferencesKeyword), rdf.String(end.keyword))
 		}
 		e.graph.Add(feature, e.sysml(pName), rdf.String(end.name))
-	} else if end.memberName != "" {
+	} else if end.hasMemberName() {
 		// Its name alone: an end is positional in this mapping, the name no address of its own.
 		e.graph.Add(feature, e.sysml(pName), rdf.String(end.memberName))
 	}
 	if end.target != nil || end.targetTerm.Value != "" {
 		switch {
 		case len(flowSegments) > 0:
-			reference = e.flowEndReferences(feature, flowSegments)
+			reference = e.flowEndReferences(
+				feature, flowSegments, e.flowEndFeatureName(end), e.flowFeatureDirection(end))
 		case end.targetTerm.Value != "":
 			e.referenceSubsetting(feature, end.targetTerm)
 			reference = end.targetTerm
@@ -2770,7 +2783,12 @@ func (e *encoder) flowEndSegments(end connectorEndSpec) []rdf.Term {
 // FlowFeature, a ReferenceUsage the end owns, redefining the last segment.
 // `a.p.fuel` subsets the chain a.p and redefines fuel; a lone `a` only redefines a.
 // It returns the feature the end's ReferenceSubsetting references, none for a lone name.
-func (e *encoder) flowEndReferences(feature rdf.Term, segments []rdf.Term) rdf.Term {
+func (e *encoder) flowEndReferences(
+	feature rdf.Term,
+	segments []rdf.Term,
+	name string,
+	direction ast.FeatureDirection,
+) rdf.Term {
 	prefix, last := segments[:len(segments)-1], segments[len(segments)-1]
 	var reference rdf.Term
 	switch len(prefix) {
@@ -2790,13 +2808,65 @@ func (e *encoder) flowEndReferences(feature rdf.Term, segments []rdf.Term) rdf.T
 	e.graph.Add(feature, e.sysml(pOwnedFeatureMembership), membership)
 	e.graph.Add(feature, e.sysml(pOwnedFeature), flowFeature)
 	e.emitMembershipCore(membership, flowFeature, feature, mFeatureMembership, true)
+	// The nameless usage is named by the feature it redefines (KerML 1.1 §8.3.3.3.4
+	// Feature::namingFeature): derived, so stated by sysml:name alone.
+	if name != "" {
+		e.graph.Add(flowFeature, e.sysml(pName), rdf.String(name))
+		e.graph.Add(membership, e.sysml(pMemberName), rdf.String(name))
+	}
 	// Its owning type is the FlowEnd, which redefines Flows::Flow::source or
 	// target, an Occurrence-typed feature (SysML v2.1 §8.3.16.6).
 	if e.file.Kind() != source.KindKerML && e.ids.model.UsageMayTimeVaryUnderLibraryFeature("Flows::Flow::source") {
 		e.flags(flowFeature, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
 	}
 	e.graph.Add(flowFeature, e.sysml(relationshipProperty[ast.RelRedefines]), last)
+	if keyword := directionKeyword(direction); keyword != "" {
+		e.graph.Add(flowFeature, e.sysml(pDirection), rdf.String(keyword))
+	}
 	return reference
+}
+
+// flowFeatureDirection is the direction of a flow end's FlowFeature: that of the feature it redefines
+// as the end inherits it (KerML.xtext FlowFeature, note 1: owningType.directionOf(redefinedFeature)).
+func (e *encoder) flowFeatureDirection(end connectorEndSpec) ast.FeatureDirection {
+	var owner, redefined *symbols.Symbol
+	switch target := end.target.(type) {
+	case *ast.QualifiedName:
+		last := len(target.Parts) - 1
+		redefined, _ = e.res.PartSymbol(target, last)
+		for i := last; i > 0 && owner == nil; i-- {
+			if target.Parts[i].Chained {
+				owner, _ = e.res.PartSymbol(target, i-1)
+			}
+		}
+	case *ast.FeatureChainExpr:
+		segments := featureChainSegments(target)
+		if len(segments) < 2 {
+			return ast.DirNone
+		}
+		symbolOf := func(name *ast.QualifiedName) *symbols.Symbol {
+			if sym, ok := e.links[name]; ok {
+				return sym
+			}
+			sym, _ := e.res.PartSymbol(name, len(name.Parts)-1)
+			return sym
+		}
+		owner, redefined = symbolOf(segments[len(segments)-2]), symbolOf(segments[len(segments)-1])
+	}
+	if owner == nil || redefined == nil {
+		return ast.DirNone
+	}
+	return e.ids.model.EffectiveDirection(owner, redefined)
+}
+
+// flowEndFeatureName is the effective name of the ReferenceUsage the flow end at end.index owns, the
+// name of the feature it redefines as the semantic model derives it; empty when it resolves to nothing.
+func (e *encoder) flowEndFeatureName(end connectorEndSpec) string {
+	ends := e.ids.model.FlowEndMembers(end.ownerSym)
+	if end.index >= len(ends) {
+		return ""
+	}
+	return e.ids.model.EffectiveNameOf(e.ids.model.FlowEndFeatureMember(ends[end.index]))
 }
 
 // endReferences writes a simple reference, structural chain, or expression target and
@@ -2916,8 +2986,22 @@ func featureChainSegments(node *ast.FeatureChainExpr) []*ast.QualifiedName {
 	return segments
 }
 
-func (e *encoder) sysml(name string) rdf.Term { return rdf.SysMLTerm(name) }
-func (e *encoder) sysx(name string) rdf.Term  { return rdf.OpenSysMLTerm(name) }
+//go:noinline
+func (e *encoder) sysml(name string) rdf.Term {
+	// The term of a name in the SysML vocabulary, made once per name; kept out of
+	// line, as its several hundred call sites would each carry the lookup.
+	term, ok := e.sysmlTerms[name]
+	if !ok {
+		if e.sysmlTerms == nil {
+			e.sysmlTerms = map[string]rdf.Term{}
+		}
+		term = rdf.SysMLTerm(name)
+		e.sysmlTerms[name] = term
+	}
+	return term
+}
+
+func (e *encoder) sysx(name string) rdf.Term { return rdf.OpenSysMLTerm(name) }
 
 // documentation emits what a `doc` states: its identification, locale and body.
 func (e *encoder) documentation(subject rdf.Term, n *ast.Documentation) {
@@ -3000,10 +3084,10 @@ func (e *encoder) normativeFQN(sym *symbols.Symbol) string {
 }
 
 func (e *encoder) ident(subject rdf.Term, ident ast.Identification) {
-	if ident.Name != "" {
+	if ident.HasName() {
 		e.graph.Add(subject, e.sysml(pDeclaredName), rdf.String(ident.Name))
 	}
-	if ident.ShortName != "" {
+	if ident.HasShortName() {
 		e.graph.Add(subject, e.sysml(pDeclaredShortName), rdf.String(ident.ShortName))
 	}
 }
@@ -3250,6 +3334,7 @@ func chainTargets(rels []*ast.Relationship) map[*ast.Relationship]int {
 	chained := map[ast.RelationshipKind]bool{
 		ast.RelSpecializes: true, ast.RelSubsets: true,
 		ast.RelRedefines: true, ast.RelReferences: true,
+		ast.RelCrosses: true, ast.RelUnions: true, ast.RelIntersects: true, ast.RelDifferences: true,
 	}
 	chains := map[*ast.Relationship]int{}
 	for _, rel := range rels {
@@ -3536,7 +3621,7 @@ func (e *encoder) linked(sym *symbols.Symbol, ok bool) (ast.Node, string, bool) 
 		e.claimLibrary(sym.Decl, fqn)
 		return sym.Decl, fqn, true
 	}
-	if name, _ := naming.DeclaredNameAndMembers(sym.Decl); name == "" && !sym.EffectiveName() {
+	if name, _ := naming.DeclaredNameAndMembers(sym.Decl); !name.Named && !sym.EffectiveName() {
 		return nil, "", false
 	}
 	return sym.Decl, fqn, true
@@ -3740,7 +3825,7 @@ func (e *encoder) acceptReceiver(n *ast.Usage, subject rdf.Term, fqn string) err
 	if err := e.encodeInlineAt([]ast.Node{receiver}, index, fqn, subject); err != nil {
 		return err
 	}
-	param := e.ids.subjectFor(naming.Qualify(fqn, "", index))
+	param := e.ids.subjectFor(naming.Positional(fqn, index))
 	if value, ok := e.graph.Object(param, rdf.SysML+pValue); ok {
 		e.graph.Add(subject, e.sysml(pReceiverArgument), value)
 	}
@@ -3779,11 +3864,11 @@ func inclusionRelationships(n *ast.Usage) []*ast.Relationship {
 // derivedName states sysml:name where the effective name is not the declared
 // one, so a reader need not re-derive it from the naming feature.
 func (e *encoder) derivedName(subject rdf.Term, node ast.Node) {
-	if declared, _ := naming.DeclaredNameAndMembers(node); declared != "" {
+	if declared, _ := naming.DeclaredNameAndMembers(node); declared.Named {
 		return
 	}
-	if name := e.names.EffectiveName(node); name != "" {
-		e.graph.Add(subject, e.sysml(pName), rdf.String(name))
+	if name := e.names.EffectiveName(node); name.Named {
+		e.graph.Add(subject, e.sysml(pName), rdf.String(name.Text))
 	}
 }
 

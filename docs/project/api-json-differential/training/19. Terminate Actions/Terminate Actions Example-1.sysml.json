@@ -11,15 +11,15 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 616,
-      "presentDifferent": 91,
-      "oursMissing": 69,
+      "presentEqual": 620,
+      "presentDifferent": 84,
+      "oursMissing": 66,
       "pilotMissing": 26,
       "absentBoth": 911,
-      "indeterminate": 53,
+      "indeterminate": 59,
       "pilotNondeterministic": 0
     },
-    "unkeyedReferences": 123,
+    "unkeyedReferences": 114,
     "extensionProperties": 153,
     "duplicateElements": {
       "ours": 0,
@@ -30,7 +30,7 @@
       "pilot": 0
     },
     "unkeyableElements": {
-      "ours": 26,
+      "ours": 36,
       "pilot": 58
     }
   },
@@ -129,12 +129,12 @@
     "ActionUsage.direction": [0,0,0,0,5,0,0],
     "ActionUsage.documentation": [0,0,0,0,5,0,0],
     "ActionUsage.endFeature": [0,0,0,0,5,0,0],
-    "ActionUsage.feature": [0,5,0,0,0,0,0],
-    "ActionUsage.featureMembership": [0,5,0,0,0,0,0],
+    "ActionUsage.feature": [0,2,0,0,0,3,0],
+    "ActionUsage.featureMembership": [3,2,0,0,0,0,0],
     "ActionUsage.featureTarget": [5,0,0,0,0,0,0],
     "ActionUsage.featuringType": [2,0,0,0,3,0,0],
     "ActionUsage.importedMembership": [0,0,0,0,5,0,0],
-    "ActionUsage.inheritedFeature": [0,5,0,0,0,0,0],
+    "ActionUsage.inheritedFeature": [0,2,0,0,0,3,0],
     "ActionUsage.inheritedMembership": [0,5,0,0,0,0,0],
     "ActionUsage.input": [0,0,0,0,5,0,0],
     "ActionUsage.intersectingType": [0,0,0,0,5,0,0],
@@ -454,11 +454,11 @@
     "Package.declaredShortName": [0,0,0,0,1,0,0],
     "Package.documentation": [0,0,0,0,1,0,0],
     "Package.filterCondition": [0,0,0,0,1,0,0],
-    "Package.importedMembership": [0,0,1,0,0,0,0],
+    "Package.importedMembership": [1,0,0,0,0,0,0],
     "Package.isImpliedIncluded": [1,0,0,0,0,0,0],
     "Package.isLibraryElement": [1,0,0,0,0,0,0],
-    "Package.member": [0,0,1,0,0,0,0],
-    "Package.membership": [0,0,1,0,0,0,0],
+    "Package.member": [0,1,0,0,0,0,0],
+    "Package.membership": [0,1,0,0,0,0,0],
     "Package.name": [1,0,0,0,0,0,0],
     "Package.ownedAnnotation": [0,0,0,0,1,0,0],
     "Package.ownedElement": [1,0,0,0,0,0,0],

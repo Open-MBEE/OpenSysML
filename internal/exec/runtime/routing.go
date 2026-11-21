@@ -179,7 +179,7 @@ func (ctx *Context) ownerDeliveries(
 				if slices.Contains(sendingPaths, end) {
 					continue
 				}
-				accepts := true
+				var accepts bool
 				if typed {
 					var refused bool
 					accepts, refused = ctx.endReceivesMessage(conn.Scope, end, msg)

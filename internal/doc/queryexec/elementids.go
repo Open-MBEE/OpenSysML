@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
@@ -52,10 +53,10 @@ func defaultMultiplicityOwner(sym *symbols.Symbol) (ast.Node, bool) {
 	return spanNode{sym.DeclSpan}, true
 }
 
-// successionEndSlot is the `then` succession edge and the slot (end0, end1) the conversion mints
-// the end feature sym under (encodeSuccessionEdge).
+// successionEndSlot is the `then` succession edge, or the flow, and the slot (end0, end1) the conversion
+// mints the end feature sym under (encodeSuccessionEdge, connectorEnd).
 func successionEndSlot(sym *symbols.Symbol) (ast.Node, string, bool) {
-	i, ok := symbols.ImpliedSuccessionEndIndex(sym)
+	i, ok := symbols.ImpliedConnectorEndIndex(sym)
 	if !ok {
 		return nil, "", false
 	}
@@ -65,6 +66,17 @@ func successionEndSlot(sym *symbols.Symbol) (ast.Node, string, bool) {
 		return decl.Of, fmt.Sprintf("succession.end%d", i), true
 	}
 	return decl.Of, fmt.Sprintf("end%d", i), true
+}
+
+// flowEndFeatureSlot is the flow and the slot (end0.ff, end1.ff) the conversion mints the ReferenceUsage
+// a flow's end owns under (flowEndReferences).
+func flowEndFeatureSlot(sym *symbols.Symbol) (ast.Node, string, bool) {
+	i, ok := symbols.ImpliedFlowEndFeatureIndex(sym)
+	if !ok {
+		return nil, "", false
+	}
+	decl, _ := symbols.ImpliedDeclOf(sym)
+	return decl.Of, fmt.Sprintf("end%d.ff", i), true
 }
 
 // expressionPartSlot is the slot the conversion names a synthesized
@@ -90,6 +102,10 @@ func expressionPartSlot(sym *symbols.Symbol) (string, bool) {
 	case symbols.ExpressionBody:
 		return "body", true
 	case symbols.ExpressionBodyResult:
+		if sym.Expr.Owner.Expr == nil {
+			// A constraint body's closing condition is minted as the member stating it (constraintResultMember).
+			return "", false
+		}
 		return "result", true
 	case symbols.ExpressionChainFeature:
 		return sym.Expr.Slot, true
@@ -97,8 +113,42 @@ func expressionPartSlot(sym *symbols.Symbol) (string, bool) {
 		return "succession", true
 	case symbols.ExpressionTransitionLinkParameter:
 		return []string{"linkparam", "triggerparam"}[sym.Expr.Index], true
+	case symbols.ExpressionTransitionLink:
+		return "transitionlink", true
+	case symbols.ExpressionTriggerAction:
+		// A trigger's accept shares its payload's node, so it is filed under the transition's (recordTransitionHead).
+		return "trigger", true
 	}
 	return "", false
+}
+
+// rangeBoundSlot is the node and slot a multiplicity range's bound is minted under: the feature
+// declaring the range, or a multiplicity declaration itself (multiplicityBound).
+func rangeBoundSlot(sym *symbols.Symbol) (ast.Node, string, bool) {
+	if sym == nil || sym.Expr == nil || sym.Expr.Role != symbols.ExpressionBound || sym.Expr.Owner == nil {
+		return nil, "", false
+	}
+	owner := sym.Expr.Owner
+	if _, declared := owner.Decl.(*ast.MultiplicityDecl); declared {
+		return owner.Decl, sym.Expr.Slot, true
+	}
+	if owner.OwnerScope == nil || owner.OwnerScope.Owner() == nil {
+		return nil, "", false
+	}
+	return owner.OwnerScope.Owner().Decl, sym.Expr.Slot, true
+}
+
+// sendArgumentSlot is the send whose argument parameter sym is and the slot the conversion
+// files it at (`arg%d`, the argument's position: payload, sender, receiver).
+func sendArgumentSlot(sym *symbols.Symbol) (ast.Node, string, bool) {
+	if sym == nil || sym.Expr == nil || sym.Expr.Role != symbols.ExpressionPayload || sym.Expr.Owner == nil || sym.Expr.Owner.Expr != nil {
+		return nil, "", false
+	}
+	send := symbols.SendStatementOf(sym.Expr.Owner.Decl)
+	if send == nil {
+		return nil, "", false
+	}
+	return send, fmt.Sprintf("arg%d", sym.Expr.Index), true
 }
 
 // bodyParameterSlot is the slot the conversion mints a body's parameter at
@@ -135,6 +185,14 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 		element, _, err := read.ReadExpressionPart(sym.DocName, sym.Expr.Owner.Decl, slot)
 		return element, err
 	}
+	if send, slot, ok := sendArgumentSlot(sym); ok {
+		element, _, err := read.ReadExpressionPart(sym.DocName, send, slot)
+		return element, err
+	}
+	if declaring, slot, ok := rangeBoundSlot(sym); ok {
+		element, _, err := read.ReadExpressionPart(sym.DocName, declaring, slot)
+		return element, err
+	}
 	if owner, ok := defaultMultiplicityOwner(sym); ok {
 		// The Multiplicity stating a usage's implicit [1..1] is minted under the usage (defaultMultiplicity).
 		element, _, err := read.ReadExpressionPart(sym.DocName, owner, defaultMultiplicitySlot)
@@ -145,9 +203,18 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 		element, _, err := read.ReadExpressionPart(sym.DocName, edge, slot)
 		return element, err
 	}
+	if flow, slot, ok := flowEndFeatureSlot(sym); ok {
+		element, _, err := read.ReadExpressionPart(sym.DocName, flow, slot)
+		return element, err
+	}
 	if end, ok := connectorEndChain(sym); ok {
 		// The chain Feature a connector end's ReferenceSubsetting owns is minted under the end.
 		element, _, err := read.ReadExpressionPart(sym.DocName, end, "chain")
+		return element, err
+	}
+	if prefix, ok := flowEndChain(sym); ok {
+		// The chain Feature a flow's end references ahead of its payload is minted under the end (flowEndReferences).
+		element, _, err := read.ReadExpressionPart(sym.DocName, prefix, "chain")
 		return element, err
 	}
 	if target, ok := headClauseChain(sym); ok {
@@ -159,7 +226,23 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 		element, _, err := read.ReadExpressionPart(sym.DocName, spanNode{span}, slot)
 		return element, err
 	}
+	if member := constraintResultMember(sym); member != nil {
+		// A constraint body's closing bare condition is written as that member (encodeMember).
+		return read.Read(sym.DocName, member, "")
+	}
 	return read.Read(sym.DocName, sym.Decl, query.QualifiedIdentity(idx, sym))
+}
+
+// constraintResultMember is the ConstraintMember stating the closing bare condition
+// sym reflects as a constraint's result expression (semantics.ConstraintResultMember), or nil.
+func constraintResultMember(sym *symbols.Symbol) ast.Node {
+	if sym == nil || sym.Expr == nil || sym.Expr.Role != symbols.ExpressionBodyResult || sym.Expr.Owner == nil || sym.Expr.Owner.Expr != nil {
+		return nil
+	}
+	if c := semantics.ConstraintResultCondition(sym.Expr.Owner); c != nil && c.Expression == sym.Decl {
+		return c
+	}
+	return nil
 }
 
 // implicitRelationshipID reads the elementId of the relationship sym records implicitly,
@@ -212,7 +295,13 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 			return element, true, err
 		}
 		return "", true, nil
-	case symbols.ImplicitPortConjugation, symbols.ImplicitMetadataBodyRedefinition:
+	case symbols.ImplicitPortConjugation, symbols.ImplicitMetadataBodyRedefinition, symbols.ImplicitTypeArgumentTyping,
+		symbols.ImplicitShorthandReference:
+		if flow, slot, ok := flowEndFeatureSlot(rel.Owner); ok && rel.Form != symbols.ImplicitShorthandReference {
+			// The Redefinition the ReferenceUsage a flow's end owns states is minted under it (`rd0`).
+			element, _, err := read.ReadExpressionPart(rel.Owner.DocName, flow, slot+".rd0")
+			return element, true, err
+		}
 		// The conversion keys a relationship the declaration states without a clause by the declaration.
 		if rel.Owner != nil && rel.Owner.Decl != nil {
 			id, err = read.ReadRelationship(rel.Owner.DocName, rel.Owner.Decl)
@@ -230,8 +319,21 @@ func implicitMembershipID(read ElementIDReader, idx *symbols.Index, member *symb
 		_, membership, err := read.ReadExpressionPart(member.DocName, member.Expr.Owner.Decl, slot)
 		return membership, true, err
 	}
+	if send, slot, ok := sendArgumentSlot(member); ok {
+		_, membership, err := read.ReadExpressionPart(member.DocName, send, slot)
+		return membership, true, err
+	}
+	if flow, slot, ok := flowEndFeatureSlot(member); ok {
+		// The ReferenceUsage a flow's end owns is minted under the end with its FeatureMembership (`_pff_om`).
+		_, membership, err := read.ReadExpressionPart(member.DocName, flow, slot)
+		return membership, true, err
+	}
 	if span, slot, ok := bodyParameterSlot(member); ok {
 		_, membership, err := read.ReadExpressionPart(member.DocName, spanNode{span}, slot)
+		return membership, true, err
+	}
+	if declaring, slot, ok := rangeBoundSlot(member); ok {
+		_, membership, err := read.ReadExpressionPart(member.DocName, declaring, slot)
 		return membership, true, err
 	}
 	if owner, ok := defaultMultiplicityOwner(member); ok {
@@ -241,6 +343,10 @@ func implicitMembershipID(read ElementIDReader, idx *symbols.Index, member *symb
 	if edge, slot, ok := successionEndSlot(member); ok {
 		_, membership, err := read.ReadExpressionPart(member.DocName, edge, slot)
 		return membership, true, err
+	}
+	if node := constraintResultMember(member); node != nil {
+		id, err = read.ReadOwningMembership(member.DocName, node, "")
+		return id, true, err
 	}
 	if member != nil {
 		id, err = read.ReadOwningMembership(member.DocName, member.Decl, query.QualifiedIdentity(idx, member))
@@ -258,6 +364,10 @@ func featureChainingID(read ElementIDReader, rel *symbols.ImplicitRelationship) 
 	}
 	if end, ok := connectorEndChain(rel.Owner); ok {
 		element, _, err := read.ReadExpressionPart(rel.Owner.DocName, end, "chain."+rel.Slot)
+		return element, err
+	}
+	if prefix, ok := flowEndChain(rel.Owner); ok {
+		element, _, err := read.ReadExpressionPart(rel.Owner.DocName, prefix, "chain."+rel.Slot)
 		return element, err
 	}
 	if target, ok := headClauseChain(rel.Owner); ok {
@@ -282,6 +392,15 @@ func connectorEndChain(sym *symbols.Symbol) (*ast.ConnectorEnd, bool) {
 		return nil, false
 	}
 	return end, true
+}
+
+// flowEndChain is the chain as written that sym, the chain Feature a flow's end
+// references ahead of its payload (`a.b` of `flow a.b.x to c.y`), denotes.
+func flowEndChain(sym *symbols.Symbol) (ast.Node, bool) {
+	if sym == nil || sym.Chain == nil || sym.Chain.Flow == nil || sym.Chain.Node == nil {
+		return nil, false
+	}
+	return sym.Chain.Node, true
 }
 
 // headClauseChain is the chain target of the head clause (`part b :> a.x`) whose chain Feature

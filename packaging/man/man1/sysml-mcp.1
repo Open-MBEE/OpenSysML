@@ -73,8 +73,9 @@ to stdout, append its record to the \-api\-keys file (created when absent) and
 exit
 .TP
 .B \-no\-record\-cache
-Parse every document and hold it loaded, reading no interface record from the
-record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0
+Parse every document and hold it loaded, and analyze every model the runtime
+tools parse, reading no interface or model record from the record cache and
+writing none; default off, or OPENSYSML_RECORD_CACHE=0
 .TP
 .BI \-oidc\-audience " string"
 Audience (aud) a token must name to be accepted; default the URL the service
@@ -474,7 +475,7 @@ and table the tool's distributions beside the runs' (rpc CompareResults, sysml
 .B convert
 runtime, sysml:read: Convert a model between the textual notation, JSON, RDF
 and XMI (rpc Convert, sysml \-convert, sysml \-from, sysml \-id, sysml
-\-include\-library\-stubs).
+\-include\-library\-stubs, sysml \-inherited\-members).
 .TP
 .B diagnostics
 runtime, sysml:read: Report every diagnostic of a parsed model, as sysml
@@ -536,7 +537,7 @@ diagnostics and a model hash (rpc ParseFile, rpc ParseSources, sysml
 .TP
 .B query
 runtime, sysml:read: Run an OSLC query against a parsed model (rpc Query,
-sysml \-query).
+sysml \-query, sysml \-as\-view).
 .TP
 .B render_model_document
 runtime, sysml:read: Render a document definition as Markdown or HTML (rpc
@@ -552,8 +553,8 @@ runtime, sysml:read: Render a view as its nodes, edges and compartments, and
 in a written form when one is named (rpc RenderView, sysml \-render, sysml
 \-render\-ports, sysml \-render\-show, sysml \-render\-depth, sysml
 \-render\-compartments, sysml \-render\-form, sysml \-render\-palette, sysml
-\-render\-style, sysml \-render\-lines, sysml \-render\-link, sysml
-\-render\-unplaced).
+\-render\-style, sysml \-render\-lines, sysml \-render\-direction, sysml
+\-render\-link, sysml \-render\-unplaced).
 .TP
 .B check_behavior
 runtime, sysml:execute: Search every schedule of an action or state machine

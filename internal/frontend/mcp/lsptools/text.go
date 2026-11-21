@@ -1,6 +1,7 @@
 package lsptools
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"sort"
@@ -36,11 +37,17 @@ func lines(content []byte) []string {
 
 // lineAt returns the text of the 0-based line, or "" past the end.
 func lineAt(content []byte, line uint32) string {
-	ls := lines(content)
-	if int(line) >= len(ls) {
-		return ""
+	for ; line > 0; line-- {
+		next := bytes.IndexByte(content, '\n')
+		if next < 0 {
+			return ""
+		}
+		content = content[next+1:]
 	}
-	return ls[line]
+	if next := bytes.IndexByte(content, '\n'); next >= 0 {
+		content = content[:next]
+	}
+	return string(bytes.TrimSuffix(content, []byte("\r")))
 }
 
 // toProtocol converts a 1-based position into the protocol's, using the line
@@ -104,8 +111,8 @@ func offsetPosition(content []byte, offset int) toolkit.Position {
 		offset = len(content)
 	}
 	before := content[:offset]
-	line := strings.Count(string(before), "\n") + 1
-	lineStart := strings.LastIndexByte(string(before), '\n') + 1
+	line := bytes.Count(before, []byte("\n")) + 1
+	lineStart := bytes.LastIndexByte(before, '\n') + 1
 	return toolkit.Position{Line: line, Column: utf8.RuneCount(before[lineStart:]) + 1}
 }
 
@@ -115,14 +122,14 @@ func offsetPosition(content []byte, offset int) toolkit.Position {
 func byteOffset(content []byte, pos protocol.Position) int {
 	offset := 0
 	for line := uint32(0); line < pos.Line; line++ {
-		next := strings.IndexByte(string(content[offset:]), '\n')
+		next := bytes.IndexByte(content[offset:], '\n')
 		if next < 0 {
 			return len(content)
 		}
 		offset += next + 1
 	}
 	end := len(content)
-	if next := strings.IndexByte(string(content[offset:]), '\n'); next >= 0 {
+	if next := bytes.IndexByte(content[offset:], '\n'); next >= 0 {
 		end = offset + next
 	}
 	units := uint32(0)

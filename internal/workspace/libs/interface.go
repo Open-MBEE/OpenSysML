@@ -19,7 +19,7 @@ import (
 // interfaceFormatVersion is the on-disk format version of an interface record.
 // Bump it whenever InterfaceRecord, symbols.DocumentRecord or
 // symbols.LibraryFacts changes shape or meaning.
-const interfaceFormatVersion = 21
+const interfaceFormatVersion = 25
 
 // ErrUnrecordable reports a document whose interface cannot be written without
 // its tree: a fact a reader needs has no name to restore it by. The document is
@@ -189,6 +189,9 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	if ref := m.ReferencedFeature(sym); ref != nil {
 		facts.References = w.ref(sym, ref, "referenced feature")
 	}
+	if general := m.FeatureValueGeneral(sym); general != nil {
+		facts.ValueGeneral = w.ref(sym, general, "feature value general")
+	}
 	if sym.Kind == symbols.SymbolAlias {
 		if target, ok := w.r.AliasTarget(sym); ok {
 			facts.Alias = w.ref(sym, target, "alias target")
@@ -212,7 +215,7 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 		facts.Ends = make([]symbols.ElementRef, len(ends))
 		for i, end := range ends {
 			// An end with no name of its own has no reference a record can carry.
-			if end != nil && end.Name != "" {
+			if end != nil && end.Named() {
 				facts.Ends[i] = w.ref(sym, end, "connector end")
 			}
 		}
@@ -307,6 +310,9 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	if symbols.IsFirstMarker(sym) {
 		facts.Modifiers |= symbols.ModFirstMarker
 	}
+	if m.IsTypeFeatureMember(sym) {
+		facts.Modifiers |= symbols.ModTypeFeatureMember
+	}
 	if base, bound, unconditional := m.BaseTypeFacts(sym); bound {
 		if !unconditional {
 			w.fail(sym, "conditional baseType binding")
@@ -356,10 +362,12 @@ func declaredTraits(decl ast.Node) (ast.FeatureDirection, symbols.Modifiers) {
 		set(d.Value != nil, symbols.ModValued)
 		set(d.IsNegated, symbols.ModNegated)
 		set(d.Keyword == "assert" || d.PrefixKeyword == "assert", symbols.ModAssert)
+		set(d.IsIncludedUseCase(), symbols.ModInclude)
 		set(d.DeclaresRequirement, symbols.ModDeclaresRequirement)
 		set(d.IsAll, symbols.ModAll)
 		set(d.IsChain, symbols.ModChain)
 		set(d.IsEvent, symbols.ModEvent)
+		set(d.IsExtendedUsage(), symbols.ModExtendedUsage)
 		return d.Direction, mods
 	case *ast.CrossFeatureMember:
 		set(d.IsDerived, symbols.ModDerived)

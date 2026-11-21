@@ -114,7 +114,7 @@ func (index portDefinitionIndex) original(graph *rdf.Graph, meta func(rdf.Term) 
 
 // collapsedOf is the collapsed head property a minted relationship element
 // restates, for the owners this mapping collapses them on.
-func collapsedOf(metaclass string, ownerHasEndForm, ownerIsSatisfy bool) (string, bool) {
+func collapsedOf(metaclass string) (string, bool) {
 	switch metaclass {
 	case mFeatureTyping, mConjugatedPortTyping:
 		return "type", true
@@ -125,18 +125,21 @@ func collapsedOf(metaclass string, ownerHasEndForm, ownerIsSatisfy bool) (string
 	case mRedefinition:
 		return "redefines", true
 	case mReferenceSubsetting:
-		if ownerIsSatisfy || ownerHasEndForm {
-			return "subsets", true
-		}
 		return "references", true
+	case mCrossSubsetting:
+		return "crosses", true
+	case mUnioning:
+		return "unions", true
+	case mIntersecting:
+		return "intersects", true
+	case mDifferencing:
+		return "differences", true
 	}
 	return "", false
 }
 
-// collapsedKindsOf are the collapsed properties a materialized element of the
-// metaclass may restate targets of — the encoder's relationshipSpec, read the
-// other way. A feature's `:>` is stored as specializes but materialized as a
-// Subsetting, and a satisfy's or end-form's subsets as a ReferenceSubsetting.
+// collapsedKindsOf are the collapsed properties a materialized element of the metaclass may restate
+// (relationshipSpec read the other way); a feature's `:>` is stored as specializes, materialized a Subsetting.
 var collapsedKindsOf = map[string][]ast.RelationshipKind{
 	mFeatureTyping:        {ast.RelTyping},
 	mConjugatedPortTyping: {ast.RelTyping},
@@ -144,7 +147,11 @@ var collapsedKindsOf = map[string][]ast.RelationshipKind{
 	mSpecialization:       {ast.RelSpecializes},
 	mSubsetting:           {ast.RelSubsets, ast.RelSpecializes},
 	mRedefinition:         {ast.RelRedefines},
-	mReferenceSubsetting:  {ast.RelReferences, ast.RelSubsets},
+	mReferenceSubsetting:  {ast.RelReferences},
+	mCrossSubsetting:      {ast.RelCrosses},
+	mUnioning:             {ast.RelUnions},
+	mIntersecting:         {ast.RelIntersects},
+	mDifferencing:         {ast.RelDifferences},
 	mAnnotation:           {ast.RelAnnotates},
 }
 
@@ -263,17 +270,9 @@ func lastSegmentText(qname string) string {
 func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*rdf.Graph, error) {
 	meta := func(t rdf.Term) string { return rdf.LocalName(metaclasses[t]) }
 	chainIndex := chainOwnerIndex(graph, meta)
-	// This mapping never states Element::isImpliedIncluded in its graph (the
-	// reader drops the flag from its own documents), so a graph that does is an
-	// external writer's element form: its stated defaults are dropped and its
+	// An external writer's element form has its stated defaults dropped and its
 	// collapsed properties derived; a graph minted to this mapping states only what it means.
-	elementForm := false
-	for _, subject := range graph.Subjects() {
-		if graph.HasProperty(subject, rdf.SysML+"isImpliedIncluded") {
-			elementForm = true
-			break
-		}
-	}
+	elementForm := externalElementForm(graph)
 	graph, err := dropStatedDefaults(graph, meta, elementForm, chainIndex)
 	if err != nil {
 		return nil, err
@@ -527,12 +526,7 @@ func (n *normalizer) collapseRelationships() {
 		if owner.Value == "" {
 			continue
 		}
-		// A verification's reference is the satisfy form's: the RequirementUsage a
-		// RequirementVerificationMembership owns subsets the requirement it names.
-		verifies := meta(firstIRI(graph, owner, pOwningRelationship, pOwningMembership)) == mRequirementVerificationMembership
-		property, ok := collapsedOf(m,
-			graph.HasProperty(owner, rdf.OpenSysML+xEndForm),
-			meta(owner) == "SatisfyRequirementUsage" || verifies)
+		property, ok := collapsedOf(m)
 		if !ok {
 			continue
 		}
@@ -566,9 +560,7 @@ func (n *normalizer) collapseLiteralRelationships() {
 		if owner.Value == "" {
 			continue
 		}
-		property, ok := collapsedOf(m,
-			graph.HasProperty(owner, rdf.OpenSysML+xEndForm),
-			meta(owner) == "SatisfyRequirementUsage")
+		property, ok := collapsedOf(m)
 		if !ok {
 			continue
 		}
@@ -962,13 +954,14 @@ func (n *normalizer) bodiedOwners() map[string]bool {
 			meta(memberMembership[member]) == mFeatureMembership {
 			continue
 		}
-		// A transition's `then` succession is its head's target, and the chain
-		// of `first a.b` and its EmptyParameterMembers belong to its head too:
-		// none is a body.
+		// A transition's `then` succession is its head's target; the chain of `first a.b`, its
+		// EmptyParameterMembers and its transitionLink belong to its head too: none is a body.
 		if meta(owner) == mTransition {
 			m, ms := rdf.IRI(member), meta(memberMembership[member])
+			unnamed := !graph.HasProperty(m, rdf.SysML+pDeclaredName)
 			if meta(m) == mSuccession || (meta(m) == mFeature && ms == mOwningMembership) ||
-				(ms == mParameterMembership && !graph.HasProperty(m, rdf.SysML+pDeclaredName)) {
+				(ms == mParameterMembership && unnamed) ||
+				(ms == mFeatureMembership && meta(m) == mReferenceUsage && unnamed) {
 				continue
 			}
 		}
@@ -1074,6 +1067,15 @@ func (n *normalizer) collectRoots() []rdf.Term {
 	return roots
 }
 
+// statedName is the name subject declares, else its short name; a stated
+// empty one is the empty unrestricted name, not the lack of a name.
+func statedName(graph *rdf.Graph, subject rdf.Term) (string, bool) {
+	if name, ok := graph.Lexical(subject, rdf.SysML+pDeclaredName); ok {
+		return name, true
+	}
+	return graph.Lexical(subject, rdf.SysML+pDeclaredShortName)
+}
+
 // nameOf is the qualified name derived for subject, or empty for an element
 // that contributes none.
 func (n *normalizer) nameOf(subject rdf.Term) string {
@@ -1096,15 +1098,12 @@ func (n *normalizer) nameOf(subject rdf.Term) string {
 	if owned {
 		base = n.nameOf(owner)
 	}
-	name, _ := graph.Lexical(subject, rdf.SysML+pDeclaredName)
-	if name == "" {
-		name, _ = graph.Lexical(subject, rdf.SysML+pDeclaredShortName)
-	}
+	name, named := statedName(graph, subject)
 	siblings := roots
 	if owned {
 		siblings = ownerMembers[owner.Value]
 	}
-	if name == "" {
+	if !named {
 		if !owned {
 			// An unnamed element no membership owns — the root namespace
 			// is the one — contributes no name.
@@ -1118,11 +1117,11 @@ func (n *normalizer) nameOf(subject rdf.Term) string {
 				break
 			}
 		}
-		q := naming.Qualify(base, "", index)
+		q := naming.Positional(base, index)
 		qname[subject.Value] = q
 		return q
 	}
-	q := naming.Qualify(base, name, 0)
+	q := naming.Qualify(base, naming.Name{Text: name, Named: true}, 0)
 	// A name an earlier sibling already took is not an identity: the
 	// later element is addressed by its position.
 	for i, sibling := range siblings {
@@ -1131,7 +1130,7 @@ func (n *normalizer) nameOf(subject rdf.Term) string {
 		}
 		for _, earlier := range siblings[:i] {
 			if prior := n.nameOf(earlier); prior != "" && prior == q {
-				q = naming.Qualify(base, "", i)
+				q = naming.Positional(base, i)
 				break
 			}
 		}
@@ -1161,15 +1160,11 @@ func (n *normalizer) stateQualifiedNames() {
 			continue
 		}
 		if !owned {
-			name, _ := graph.Lexical(subject, rdf.SysML+pDeclaredName)
-			if name == "" {
-				name, _ = graph.Lexical(subject, rdf.SysML+pDeclaredShortName)
-			}
-			if name == "" {
+			if _, named := statedName(graph, subject); !named {
 				continue
 			}
 		}
-		graph.Add(subject, addressTerm(n.nameOf(subject)), rdf.String(n.nameOf(subject)))
+		stateAddress(graph.Add, subject, n.nameOf(subject))
 	}
 }
 
@@ -1535,10 +1530,10 @@ func (d *defaultDropper) ownsDroppedMember(subject rdf.Term) bool {
 	return member.Value != "" && d.unresolvedTR[member.Value]
 }
 
-// impliedIncluded reports whether subject came from an external writer's
-// element form, the only graph that states Element::isImpliedIncluded.
+// impliedIncluded reports whether subject, an element of an external writer's
+// element form, states Element::isImpliedIncluded as that form's elements do.
 func (d *defaultDropper) impliedIncluded(subject rdf.Term) bool {
-	return d.graph.HasProperty(subject, rdf.SysML+"isImpliedIncluded")
+	return d.graph.HasProperty(subject, rdf.SysML+pIsImpliedIncluded)
 }
 
 // iriObject is the object an IRI-valued triple is copied with — a chain
@@ -1629,11 +1624,16 @@ func (d *defaultDropper) literalObject(triple rdf.Triple, object rdf.Term) (rdf.
 		// only while none is dropped; the derived list is dropped whole instead.
 		return object, false
 	}
-	if referenceNameProps[local] && object.Datatype != rdf.OpenSysML+dtExpression && !json {
+	if referenceNameProps[local] && object.Datatype() != rdf.OpenSysML+dtExpression && !json {
 		object = rdf.String(canonicalName(object.Value))
 	}
-	if (local == pQualifiedName || local == xPositionalName) && !json {
-		object = rdf.String(plainQualifiedName(object.Value))
+	if !json {
+		switch local {
+		case pQualifiedName:
+			object = rdf.String(naming.Escaped(mappingQualifiedNameFromSpec(object.Value)))
+		case xMappingQualifiedName, xPositionalName:
+			object = rdf.String(plainQualifiedName(object.Value))
+		}
 	}
 	return object, !d.dropsLiteral(triple.Subject, local, object)
 }
@@ -1641,14 +1641,15 @@ func (d *defaultDropper) literalObject(triple rdf.Triple, object rdf.Term) (rdf.
 // dropsLiteral reports a literal that states a default or a derivable value.
 func (d *defaultDropper) dropsLiteral(subject rdf.Term, local string, object rdf.Term) bool {
 	graph, meta := d.graph, d.meta
+	addressed := local == pQualifiedName || local == xMappingQualifiedName
 	switch {
-	case local == pQualifiedName && d.impliedIncluded(subject) &&
+	case addressed && d.impliedIncluded(subject) &&
 		!graph.HasProperty(subject, rdf.SysML+pDeclaredName) &&
 		!graph.HasProperty(subject, rdf.SysML+pDeclaredShortName):
 		// The full form derives a qualified name for the unnamed too;
 		// the compact form leaves the name to be derived.
 		return true
-	case local == pQualifiedName && underSubaction(graph, meta, subject):
+	case addressed && underSubaction(graph, meta, subject):
 		// This mapping positions a subaction's action under its
 		// membership (`S::@0::ops`); the full form's name skips it.
 		return true
@@ -1904,7 +1905,7 @@ func plainQualifiedName(name string) string {
 }
 
 // canonicalName returns a written qualified name in its canonical spelling:
-// segments split on `::` outside quotes, each requoted with its escapes kept.
+// segments split on `::` outside quotes, each requoted and escaped again.
 func canonicalName(name string) string {
 	segments, ok := source.QualifiedNameSegments(name)
 	if !ok {

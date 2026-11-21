@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -89,6 +90,9 @@ type conformanceCase struct {
 
 	// Convert: the standard-library names carried outside the element array.
 	LibraryReferences []*pb.LibraryReference `json:"library_references,omitempty"`
+	// Convert: the digested form of a table over the fixture size cap (see
+	// libraryReferencesDigest); the case then states no library_references.
+	LibraryReferencesDigest string `json:"library_references_digest,omitempty"`
 
 	// ApplyEdits
 	Operations      []conformanceEditOperation `json:"operations,omitempty"`
@@ -104,6 +108,12 @@ type conformanceCase struct {
 
 	// GetSymbol, Instantiate, ExecuteAction, ExecuteState, EvaluateCalc
 	SymbolID string `json:"symbol_id,omitempty"`
+
+	// GetSymbol, GetElementProperties: the kind symbol_id (element_id) is stated to be,
+	// "qualified_name" or "element_id"; empty sends the legacy single string.
+	Lookup string `json:"lookup,omitempty"`
+	// The id the symbol, or the element read, is answered under.
+	ExpectedID string `json:"expected_id,omitempty"`
 
 	// Tools names stand-ins under internal/exec/analysis/testdata registered
 	// from a manifest written before the service is built.
@@ -211,6 +221,9 @@ type conformanceCase struct {
 	ExpectedKind       string                       `json:"expected_kind,omitempty"`
 	ExpectedChildIDs   []string                     `json:"expected_child_ids,omitempty"`
 	ExpectedAttributes map[string]expectedAttribute `json:"expected_attributes,omitempty"`
+	// ExpectedAnnotatingMetadataIDs is the full ordered list of the metadata
+	// usages annotating the symbol; an empty list requires none.
+	ExpectedAnnotatingMetadataIDs []string `json:"expected_annotating_metadata_ids,omitempty"`
 	// MinWithheldLibraryAttributes requires the response to state at least this
 	// many library-inherited attributes withheld from the list.
 	MinWithheldLibraryAttributes int32 `json:"min_withheld_library_attributes,omitempty"`
@@ -248,6 +261,14 @@ type conformanceCase struct {
 	Query              map[string]any `json:"query,omitempty"`
 	ExpectedElementIDs []string       `json:"expected_element_ids,omitempty"`
 	ExpectedQueryError string         `json:"expected_query_error,omitempty"`
+	// OslcQuery is OSLC Query text asked in place of Query. AsView asks the query RPCs for the answer as a QVTS::QueryResult
+	// view too: ExpectedResultView is its text, a failed query's read off the QueryResultView detail, the model hash written <model>.
+	OslcQuery          string `json:"oslc_query,omitempty"`
+	AsView             bool   `json:"as_view,omitempty"`
+	ExpectedResultView string `json:"expected_result_view,omitempty"`
+	// RenderView: ExpectedHeader is a QVTS::QueryResult view's header as "name: value" lines, ExpectedViewRows its rows joined by " | ".
+	ExpectedHeader   []string `json:"expected_header,omitempty"`
+	ExpectedViewRows []string `json:"expected_view_rows,omitempty"`
 
 	// Model names the fixture parsed instead of <case>.sysml, so cases reading
 	// different elements of one model share it.
@@ -455,7 +476,7 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 
 	switch tc.RPC {
 	case "Convert":
-		runConvertLibraryReferencesCase(t, srv, ctx, parseResp.ModelHash, tc)
+		runConvertLibraryReferencesCase(t, srv, ctx, parseResp.ModelHash, tc, filepath.Join(dir, caseName+".expected.json"))
 	case "GetSymbol":
 		runGetSymbolCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "Evaluate":
@@ -905,14 +926,49 @@ func conformanceToolBinary(t *testing.T, name string) string {
 	return path
 }
 
+// lookupKind is the LookupKind a case's lookup names; none is the legacy single string.
+func lookupKind(t *testing.T, lookup string) pb.LookupKind {
+	t.Helper()
+	switch lookup {
+	case "":
+		return pb.LookupKind_LOOKUP_KIND_UNSPECIFIED
+	case "qualified_name":
+		return pb.LookupKind_LOOKUP_KIND_QUALIFIED_NAME
+	case "element_id":
+		return pb.LookupKind_LOOKUP_KIND_ELEMENT_ID
+	}
+	t.Fatalf("unknown lookup %q", lookup)
+	return pb.LookupKind_LOOKUP_KIND_UNSPECIFIED
+}
+
+// checkReportedIDsResolve asserts every id a symbol reports — its own, its children's, its
+// members' — names, as an element id, the one element that carries it.
+func checkReportedIDsResolve(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, symbol *pb.SymbolInfo) {
+	t.Helper()
+	ids := append([]string{symbol.GetId()}, symbol.GetChildIds()...)
+	for _, member := range symbol.GetMembers() {
+		ids = append(ids, member.GetId())
+	}
+	for _, id := range ids {
+		resp, err := srv.GetSymbol(ctx, &pb.GetSymbolRequest{
+			ModelHash: modelHash, SymbolId: id, Lookup: pb.LookupKind_LOOKUP_KIND_ELEMENT_ID,
+		})
+		if err != nil {
+			t.Fatalf("GetSymbol(element_id %q): %v", id, err)
+		}
+		if got := resp.GetSymbol().GetId(); got != id {
+			t.Errorf("element_id %q, reported by %q, answers id %q (%s)", id, symbol.GetId(), got, resp.Error)
+		}
+	}
+}
+
 // runGetSymbolCase pins the static facts a symbol is reported with, and is how
 // the attribute set is kept from regressing to empty.
 func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
 
 	resp, err := srv.GetSymbol(ctx, &pb.GetSymbolRequest{
-		ModelHash: modelHash,
-		SymbolId:  tc.SymbolID,
+		ModelHash: modelHash, SymbolId: tc.SymbolID, Lookup: lookupKind(t, tc.Lookup),
 	})
 	if err != nil {
 		t.Fatalf("GetSymbol: %v", err)
@@ -923,12 +979,19 @@ func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, mode
 	if resp.Symbol == nil {
 		t.Fatal("expected a symbol")
 	}
+	if tc.ExpectedID != "" && resp.Symbol.GetId() != tc.ExpectedID {
+		t.Errorf("id = %q, want %q", resp.Symbol.GetId(), tc.ExpectedID)
+	}
+	checkReportedIDsResolve(t, srv, ctx, modelHash, resp.Symbol)
 
 	if tc.ExpectedKind != "" && resp.Symbol.GetKind() != tc.ExpectedKind {
 		t.Errorf("kind = %q, want %q", resp.Symbol.GetKind(), tc.ExpectedKind)
 	}
 	if tc.ExpectedChildIDs != nil && !slices.Equal(resp.Symbol.GetChildIds(), tc.ExpectedChildIDs) {
 		t.Errorf("child_ids = %v, want %v", resp.Symbol.GetChildIds(), tc.ExpectedChildIDs)
+	}
+	if want := tc.ExpectedAnnotatingMetadataIDs; want != nil && !slices.Equal(resp.Symbol.GetAnnotatingMetadataIds(), want) {
+		t.Errorf("annotating_metadata_ids = %v, want %v", resp.Symbol.GetAnnotatingMetadataIds(), want)
 	}
 	attrs := resp.Symbol.GetAttributes()
 	if tc.ExpectedAttributeNames != nil {
@@ -1170,6 +1233,21 @@ func runRenderViewCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 	if !slices.Equal(labels, tc.ExpectedEdgeLabels) {
 		t.Errorf("edge labels = %v, want %v", labels, tc.ExpectedEdgeLabels)
 	}
+	var header, rows []string
+	for _, field := range resp.Header {
+		header = append(header, field.GetName()+": "+field.GetValue())
+	}
+	if !slices.Equal(header, tc.ExpectedHeader) {
+		t.Errorf("header = %q, want %q", header, tc.ExpectedHeader)
+	}
+	if tc.ExpectedViewRows != nil {
+		for _, row := range resp.Rows {
+			rows = append(rows, strings.Join(row.GetCells(), " | "))
+		}
+		if !slices.Equal(rows, tc.ExpectedViewRows) {
+			t.Errorf("rows = %q, want %q", rows, tc.ExpectedViewRows)
+		}
+	}
 }
 
 // checkRenderViewText checks the text a RenderView case wrote: none without a
@@ -1349,19 +1427,23 @@ func runRunRunsCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelH
 
 func runQueryCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
-	encoded, err := json.Marshal(tc.Query)
-	if err != nil {
-		t.Fatalf("query: %v", err)
+	req := &pb.QueryRequest{ModelHash: modelHash, OslcQuery: tc.OslcQuery, AsView: tc.AsView}
+	if tc.OslcQuery == "" {
+		encoded, err := json.Marshal(tc.Query)
+		if err != nil {
+			t.Fatalf("query: %v", err)
+		}
+		req.Query = &pb.Query{}
+		if err := protojson.Unmarshal(encoded, req.Query); err != nil {
+			t.Fatalf("query is not a protojson Query: %v", err)
+		}
 	}
-	query := &pb.Query{}
-	if err := protojson.Unmarshal(encoded, query); err != nil {
-		t.Fatalf("query is not a protojson Query: %v", err)
-	}
-	resp, err := srv.Query(ctx, &pb.QueryRequest{ModelHash: modelHash, Query: query})
+	resp, err := srv.Query(ctx, req)
 	if tc.ExpectedQueryError != "" {
 		if err == nil || !strings.Contains(err.Error(), tc.ExpectedQueryError) {
 			t.Fatalf("Query err = %v, want one containing %q", err, tc.ExpectedQueryError)
 		}
+		checkResultView(t, modelHash, tc, failedResultView(err))
 		return
 	}
 	if err != nil {
@@ -1374,12 +1456,38 @@ func runQueryCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHas
 	if !slices.Equal(ids, tc.ExpectedElementIDs) {
 		t.Errorf("elements = %v, want %v", ids, tc.ExpectedElementIDs)
 	}
+	checkResultView(t, modelHash, tc, resp.ResultView)
+}
+
+// failedResultView is the view a failed query carries as a QueryResultView detail.
+func failedResultView(err error) string {
+	var connErr *connect.Error
+	if !errors.As(err, &connErr) {
+		return ""
+	}
+	for _, detail := range connErr.Details() {
+		if msg, derr := detail.Value(); derr == nil {
+			if view, ok := msg.(*pb.QueryResultView); ok {
+				return view.Text
+			}
+		}
+	}
+	return ""
+}
+
+// checkResultView compares a query's view with the case's, the model hash written <model>.
+func checkResultView(t *testing.T, modelHash string, tc conformanceCase, got string) {
+	t.Helper()
+	got = strings.ReplaceAll(got, modelHash, "<model>")
+	if got != tc.ExpectedResultView {
+		t.Errorf("result view:\n%s\nwant:\n%s", got, tc.ExpectedResultView)
+	}
 }
 
 func runGetElementPropertiesCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
 	resp, err := srv.GetElementProperties(ctx, &pb.GetElementPropertiesRequest{
-		ModelHash: modelHash, ElementId: tc.ElementID, Properties: tc.Properties,
+		ModelHash: modelHash, ElementId: tc.ElementID, Lookup: lookupKind(t, tc.Lookup), Properties: tc.Properties,
 	})
 	if err != nil {
 		t.Fatalf("GetElementProperties: %v", err)
@@ -1395,6 +1503,9 @@ func runGetElementPropertiesCase(t *testing.T, srv *grpc.Service, ctx context.Co
 	}
 	if resp.Element == nil || resp.Element.Id == "" {
 		t.Fatalf("the answer names no element: %v", resp.Element)
+	}
+	if tc.ExpectedID != "" && resp.Element.Id != tc.ExpectedID {
+		t.Errorf("element = %q, want %q", resp.Element.Id, tc.ExpectedID)
 	}
 	if len(resp.Properties) != len(tc.ExpectedProperties) {
 		names := make([]string, 0, len(resp.Properties))

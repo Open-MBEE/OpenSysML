@@ -74,14 +74,46 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 		})
 		ordinal++
 	}
+	// The type argument of `x @ T`, `x istype T` or `x as T` is an in parameter typed
+	// by T with no value (SysML.xtext TypeReferenceMember), as the conversion writes it.
+	if target := m.typeArgumentType(owner); target != nil {
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  owner.DocName,
+			DeclSpan: owner.DeclSpan,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Ordinal: ordinal, Kind: ast.RelTyping,
+				Form: symbols.ImplicitTypeArgumentTyping, Member: target,
+			},
+		})
+		ordinal++
+	}
+	// A constructor's named argument feature redefines the feature of the
+	// instantiated type it names (KerML 8.3.4.8.3 ConstructorExpression).
+	if formal, named := m.constructorArgumentFormal(owner); named && formal != nil {
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  owner.DocName,
+			DeclSpan: owner.DeclSpan,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Ordinal: ordinal, Kind: ast.RelRedefines,
+				Form: symbols.ImplicitParameterRedefinition, Member: formal,
+			},
+		})
+		ordinal++
+	}
 	// A connector end reference-subsets the feature it attaches to whether or
 	// not a clause of its own says so (SysML v2 8.2.2.13.1).
 	if end, ok := owner.Decl.(*ast.ConnectorEnd); ok {
 		if target := ImpliedEndReference(end); target != nil {
 			out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelReferences, false, connectorEndAttachment(target)))
 		}
+	} else if target := MessageEndReference(owner); target != nil {
+		// A message's end is declared by the node naming the event it relates.
+		out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelReferences, false, impliedRelationship(ast.RelReferences, target)))
 	}
-	if target, stated := m.successionEndReference(owner); stated {
+	if target, stated := m.flowEndReference(owner); stated {
+		// A flow's end reference-subsets the feature before the last it names (SysML.xtext FlowEndMember).
 		out = append(out, &symbols.Symbol{
 			Kind:     symbols.SymbolRelationship,
 			DocName:  owner.DocName,
@@ -89,6 +121,53 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 			Implicit: &symbols.ImplicitRelationship{
 				Owner: owner, Ordinal: ordinal, Kind: ast.RelReferences,
 				Form: symbols.ImplicitSuccessionEndReference, Member: target,
+			},
+		})
+		ordinal++
+	}
+	if _, ok := symbols.ImpliedFlowEndFeatureIndex(owner); ok {
+		// The ReferenceUsage a flow's end owns redefines the last feature the end names (FlowFeatureMember).
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  owner.DocName,
+			DeclSpan: owner.DeclSpan,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Ordinal: ordinal, Kind: ast.RelRedefines,
+				Form: symbols.ImplicitMetadataBodyRedefinition, Member: m.flowEndFeatureRedefinition(owner),
+			},
+		})
+		ordinal++
+	}
+	if target, stated := m.successionEndReference(owner); stated {
+		// A chained target (`then a.b`) is the chain Feature the end's ReferenceSubsetting owns (chainTargetFeature).
+		var node *ast.Relationship
+		if chain := chainNode(dottedTargetChain(successionEndTarget(owner))); chain != nil {
+			node = impliedRelationship(ast.RelReferences, chain)
+		}
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  owner.DocName,
+			DeclSpan: owner.DeclSpan,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Ordinal: ordinal, Kind: ast.RelReferences, Node: node,
+				Form: symbols.ImplicitSuccessionEndReference, Member: target,
+			},
+		})
+		ordinal++
+	}
+	if target := m.shorthandReference(owner); target != nil {
+		// A shorthand written as a chain (`require h.r1;`) carries it, to reference the chain as a whole.
+		var written *ast.Relationship
+		if chain := chainNode(referenceSubsettingTarget(owner)); chain != nil {
+			written = connectorEndAttachment(chain)
+		}
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  owner.DocName,
+			DeclSpan: owner.DeclSpan,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Ordinal: ordinal, Kind: ast.RelReferences,
+				Form: symbols.ImplicitShorthandReference, Member: target, Node: written,
 			},
 		})
 		ordinal++
@@ -188,6 +267,9 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 	rel := sym.Implicit
 	switch rel.Form {
 	case symbols.ImplicitMembership:
+		if IsFilterMembership(sym) {
+			return "ElementFilterMembership"
+		}
 		return m.membershipMetaclassName(rel.Owner, rel.Member)
 	case symbols.ImplicitOwnedAnnotation, symbols.ImplicitAnnotatingRelationship:
 		return "Annotation"
@@ -197,7 +279,11 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		return "PortConjugation"
 	case symbols.ImplicitMetadataBodyRedefinition:
 		return "Redefinition"
-	case symbols.ImplicitSuccessionEndReference:
+	case symbols.ImplicitTypeArgumentTyping:
+		return "FeatureTyping"
+	case symbols.ImplicitParameterRedefinition:
+		return "Redefinition"
+	case symbols.ImplicitSuccessionEndReference, symbols.ImplicitShorthandReference:
 		return "ReferenceSubsetting"
 	case symbols.ImplicitReferenceMembership:
 		return "Membership"
@@ -222,9 +308,6 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		}
 		return "FeatureTyping"
 	case ast.RelSubsets:
-		if isReferenceSubsetting(rel) {
-			return "ReferenceSubsetting"
-		}
 		return "Subsetting"
 	case ast.RelRedefines:
 		return "Redefinition"
@@ -345,7 +428,19 @@ func relationshipEndFeature(meta, feature string) (sourceSide, targetSide bool) 
 func (m *Model) implicitRelationshipEnds(sym *symbols.Symbol) (src, tgt *symbols.Symbol, tgtOK bool) {
 	rel := sym.Implicit
 	src = rel.Owner
-	if rel.Form == symbols.ImplicitMetadataBodyRedefinition || rel.Form == symbols.ImplicitSuccessionEndReference {
+	switch rel.Form {
+	case symbols.ImplicitShorthandReference:
+		if rel.Node != nil {
+			tgt = m.chainTargetFeature(sym)
+			return src, tgt, tgt != nil
+		}
+		return src, rel.Member, rel.Member != nil
+	case symbols.ImplicitSuccessionEndReference:
+		if rel.Node != nil {
+			break
+		}
+		return src, rel.Member, rel.Member != nil
+	case symbols.ImplicitMetadataBodyRedefinition, symbols.ImplicitTypeArgumentTyping, symbols.ImplicitParameterRedefinition:
 		return src, rel.Member, rel.Member != nil
 	}
 	if rel.Node != nil {
@@ -355,7 +450,7 @@ func (m *Model) implicitRelationshipEnds(sym *symbols.Symbol) (src, tgt *symbols
 			tgt = m.chainTargetFeature(sym)
 			return src, tgt, tgt != nil
 		}
-		if _, isEnd := rel.Owner.Decl.(*ast.ConnectorEnd); isEnd && rel.Kind.ReferenceSubsets() {
+		if attachesEnd(rel.Owner) && rel.Kind.ReferenceSubsets() {
 			tgt = m.ReferencedFeature(rel.Owner)
 			return src, tgt, tgt != nil
 		}
@@ -467,6 +562,10 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 		// relationship that targets it (KerML 8.3.3.3.9).
 		if chain := m.chainTargetFeature(sym); chain != nil {
 			return []*symbols.Symbol{chain}, true
+		}
+		if sym.Implicit.Form == symbols.ImplicitSuccessionEndReference && tgt != nil && tgt.Chain != nil && tgt.Chain.Flow != nil {
+			// A flow's end owns the chain Feature it references through its ReferenceSubsetting.
+			return []*symbols.Symbol{tgt}, true
 		}
 		return empty, true
 	case "ownedElement", "ownedRelationship", "ownedAnnotation", "owningRelationship", "owningMembership",
@@ -742,10 +841,16 @@ func (m *Model) implicitOwnerElements(sym *symbols.Symbol, feature string) ([]*s
 }
 
 // chainTargetChainings are the FeatureChainings the feature a relationship's chain target
-// denotes owns, one per feature the chain is written as (KerML 8.3.3.3.9), as the conversion writes them.
+// denotes owns, one per segment the chain is written as (KerML 8.3.3.3.9); an unresolved one chains nothing.
 func (m *Model) chainTargetChainings(chain *symbols.Symbol) []*symbols.Symbol {
 	out := []*symbols.Symbol{}
-	for _, target := range m.chainingFeaturesOf(chain) {
+	resolved := m.chainingFeaturesOf(chain)
+	written := writtenChainLength(chain)
+	for i := 0; i < written; i++ {
+		var target *symbols.Symbol
+		if i < len(resolved) {
+			target = resolved[i]
+		}
 		out = append(out, &symbols.Symbol{
 			Kind:       symbols.SymbolRelationship,
 			DocName:    chain.DocName,
@@ -760,29 +865,50 @@ func (m *Model) chainTargetChainings(chain *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// isReferenceSubsetting reports whether rel is its owner's OwnedReferenceSubsetting — the
-// `satisfy r;` / `verify r;` form (SysML.xtext) — by the written clause or, for a record, its facts.
-func isReferenceSubsetting(rel *symbols.ImplicitRelationship) bool {
-	if rel.Owner == nil {
-		return false
+// writtenChainLength is the number of segments a chain Feature's chain is written as.
+func writtenChainLength(chain *symbols.Symbol) int {
+	if chain.Chain == nil {
+		return 0
 	}
-	if !rel.Owner.Recorded() {
-		return ast.IsReferenceSubsetting(rel.Owner.Decl, rel.Node)
-	}
-	facts := rel.Owner.Facts
-	if rel.Ordinal < 0 || rel.Ordinal >= len(facts.Relationships) {
-		return false
-	}
-	if facts.Relationships[rel.Ordinal].Kind.ReferenceSubsets() {
-		return true
-	}
-	// As ast.Usage.ReferenceSubsetting: a satisfy's first subsetting, unless it declares its requirement.
-	kind, isUsage := rel.Owner.UsageKind()
-	satisfies := isUsage && kind == ast.UsageSatisfy && facts.Modifiers&symbols.ModDeclaresRequirement == 0
-	for ordinal, rf := range facts.Relationships {
-		if rf.Kind.ReferenceSubsets() || (rf.Kind == ast.RelSubsets && satisfies) {
-			return ordinal == rel.Ordinal
+	if chain.Chain.Node == nil {
+		facts, ok := recordedRelationship(chain.Chain.Relationship)
+		if !ok {
+			return 0
 		}
+		return len(facts.Path)
 	}
-	return false
+	n := 1
+	for node := chain.Chain.Node; node != nil; {
+		n++
+		next, ok := node.Operand.(*ast.FeatureChainExpr)
+		if !ok {
+			break
+		}
+		node = next
+	}
+	return n
+}
+
+// typeArgumentType is the type the type-argument parameter sym of a classification or
+// cast expression names (`x @ T`, `x as T`); nil for any other symbol or an unresolved name.
+func (m *Model) typeArgumentType(sym *symbols.Symbol) *symbols.Symbol {
+	if sym == nil || sym.Expr == nil || sym.Expr.Role != symbols.ExpressionParameter || sym.Expr.Owner == nil {
+		return nil
+	}
+	expr := sym.Expr.Owner
+	_, typeArgument := ast.ExpressionOperands(expr.Decl)
+	if typeArgument < 0 || sym.Expr.Index != typeArgument {
+		return nil
+	}
+	var name *ast.QualifiedName
+	switch n := expr.Decl.(type) {
+	case *ast.OperatorExpr:
+		name = n.TypeRef
+	case *ast.CastExpr:
+		name = n.TargetType
+	}
+	if name == nil {
+		return nil
+	}
+	return m.referencedSymbol(expr, name)
 }

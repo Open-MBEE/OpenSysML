@@ -11,7 +11,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docset"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
-	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
@@ -48,6 +47,11 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 			return nil, err
 		}
 	}
+	if req.AsView {
+		if err := s.requireCapability(CapabilityQueryResultView); err != nil {
+			return nil, err
+		}
+	}
 	// The query runs over the model's runtime and the objects it holds, as
 	// %run-query runs over the session's; Objects answers no rows while none are held.
 	held := s.objects(cached)
@@ -59,6 +63,7 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 		err     error
 	)
 	queryName := req.QueryId
+	spec := resultViewSpec(cached, req.ModelHash, queryexec.DefaultResultViewName, req.InlineQuery)
 	if req.InlineQuery != "" {
 		queryName = "the inline query"
 		inline, program, qctx, err = cached.inlineQuery(qctx, req.InlineQuery)
@@ -66,10 +71,12 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 			return nil, documentStatus(err)
 		}
 	} else {
-		program, err = namedQuery(qctx, req.QueryId)
+		var fqn string
+		program, fqn, err = namedQuery(cached, qctx, req.QueryId)
 		if err != nil {
 			return nil, err
 		}
+		spec = resultViewSpec(cached, req.ModelHash, queryexec.ResultViewName(fqn), bindingsText(fqn, req.Bindings))
 	}
 	if slices.ContainsFunc(req.Bindings, bindingHoldsBigInt) {
 		if err := s.requireCapability(CapabilityBigIntValues); err != nil {
@@ -81,15 +88,22 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 			return nil, err
 		}
 	}
-	bindings, err := documentBindings(qctx.Index, qctx.Model, held, req.Bindings)
+	bindings, err := documentBindings(cached, qctx.Model, held, req.Bindings)
 	if err != nil {
 		return nil, err
 	}
 	result, err := queryexec.Execute(program, qctx, bindings, queryexec.Options{})
 	if err != nil {
-		return nil, held.documentStatus(queryexec.LocateInline(inline, err))
+		status := held.documentStatus(queryexec.LocateInline(inline, err))
+		if req.AsView {
+			status = withResultView(status, failedResultView(spec, qctx, err))
+		}
+		return nil, status
 	}
 	response := rowSetResponse(qctx.Index, result)
+	if req.AsView {
+		response.ResultView, _ = spec.Write(qctx, result, nil)
+	}
 	if !s.capabilities.has(CapabilityBigIntValues) && slices.ContainsFunc(response.Rows, rowHoldsBigInt) {
 		// DocumentValue has no unsupported arm to stand in for a wide Integer.
 		return nil, statusErrorf(connect.CodeUnimplemented,
@@ -102,21 +116,21 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 	return response, nil
 }
 
-// namedQuery plans the document query the model declares under id.
-func namedQuery(qctx queryexec.Context, id string) (*queryplan.Program, error) {
-	sym, err := documentSymbol(qctx.Index, id)
+// namedQuery plans the document query the model declares under id, and answers its qualified name.
+func namedQuery(cached *CachedModel, qctx queryexec.Context, id string) (*queryplan.Program, string, error) {
+	sym, err := documentSymbol(cached, id)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if !queryplan.IsQueryDefinition(qctx.Index, qctx.Model, sym) {
-		return nil, statusErrorf(connect.CodeInvalidArgument,
+		return nil, "", statusErrorf(connect.CodeInvalidArgument,
 			"%s is not a document query: one is a calc def specializing DocumentQueries::Query", id)
 	}
 	program, err := queryplan.Compile(qctx.Index, qctx.Model, qctx.Resolver, sym)
 	if err != nil {
-		return nil, documentStatus(err)
+		return nil, "", documentStatus(err)
 	}
-	return program, nil
+	return program, symbols.FQNOf(sym), nil
 }
 
 // inlineQuery plans text as a query definition of its own over the model, in an
@@ -194,7 +208,7 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 	held := s.objects(cached)
 	defer held.lock(ctx)()
 	qctx := held.queryContext()
-	sym, err := documentSymbol(qctx.Index, req.DocumentId)
+	sym, err := documentSymbol(cached, req.DocumentId)
 	if err != nil {
 		return nil, err
 	}
@@ -221,8 +235,8 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 
 // documentSymbol resolves the query or document a request names, failing with
 // NOT_FOUND when the model does not declare it.
-func documentSymbol(idx *symbols.Index, id string) (*symbols.Symbol, error) {
-	syms := symbolfacts.LookupNamed(idx, id)
+func documentSymbol(cached *CachedModel, id string) (*symbols.Symbol, error) {
+	syms := cached.LookupDeclared(id)
 	if len(syms) == 0 {
 		return nil, statusErrorf(connect.CodeNotFound, "symbol not found: %s", id)
 	}
@@ -231,7 +245,7 @@ func documentSymbol(idx *symbols.Index, id string) (*symbols.Symbol, error) {
 
 // documentBindings converts a request's typed bindings into the engine's, an object
 // one against the objects held. Repeated parameters append, as %run-query's do.
-func documentBindings(idx *symbols.Index, sem *semantics.Model, held *heldObjects, bindings []*pb.DocumentQueryBinding) (queryexec.Bindings, error) {
+func documentBindings(cached *CachedModel, sem *semantics.Model, held *heldObjects, bindings []*pb.DocumentQueryBinding) (queryexec.Bindings, error) {
 	if len(bindings) == 0 {
 		return nil, nil
 	}
@@ -241,7 +255,7 @@ func documentBindings(idx *symbols.Index, sem *semantics.Model, held *heldObject
 			return nil, statusError(connect.CodeInvalidArgument, "a binding must name the parameter it binds")
 		}
 		for _, value := range binding.GetValues() {
-			bound, err := boundValue(idx, sem, held, binding.GetParameter(), value)
+			bound, err := boundValue(cached, sem, held, binding.GetParameter(), value)
 			if err != nil {
 				return nil, err
 			}
@@ -254,7 +268,7 @@ func documentBindings(idx *symbols.Index, sem *semantics.Model, held *heldObject
 // boundValue converts one request value. An element is bound by qualified name
 // and an object by id or path among those held; infinity and verdicts are only
 // ever answered, so binding them is refused.
-func boundValue(idx *symbols.Index, sem *semantics.Model, held *heldObjects, parameter string, value *pb.DocumentValue) (queryexec.Value, error) {
+func boundValue(cached *CachedModel, sem *semantics.Model, held *heldObjects, parameter string, value *pb.DocumentValue) (queryexec.Value, error) {
 	switch kind := value.GetKind().(type) {
 	case *pb.DocumentValue_Object:
 		inst, label, err := held.resolve(parameter, kind.Object)
@@ -263,7 +277,7 @@ func boundValue(idx *symbols.Index, sem *semantics.Model, held *heldObjects, par
 		}
 		return queryexec.ObjectValue(inst, label), nil
 	case *pb.DocumentValue_ElementId:
-		syms := symbolfacts.LookupNamed(idx, kind.ElementId)
+		syms := cached.LookupDeclared(kind.ElementId)
 		if len(syms) == 0 {
 			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument,
 				"binding %s names an element the model does not have: %q", parameter, kind.ElementId)
@@ -302,7 +316,7 @@ func boundValue(idx *symbols.Index, sem *semantics.Model, held *heldObjects, par
 		return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument,
 			"binding %s: an event row is answered by queries, not bound to them", parameter)
 	case *pb.DocumentValue_Quantity:
-		bound, err := protoconv.ProtoToQuantity(kind.Quantity, idx, sem)
+		bound, err := protoconv.ProtoToQuantity(kind.Quantity, cached.Index, sem)
 		if err != nil {
 			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument, bindingFormat, parameter, err)
 		}
@@ -310,7 +324,7 @@ func boundValue(idx *symbols.Index, sem *semantics.Model, held *heldObjects, par
 		if quantity == nil {
 			return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument, "binding %s carries no quantity", parameter)
 		}
-		return queryexec.QuantityValue(*quantity), nil
+		return queryexec.QuantityHeldAs(*quantity, bound.QuantityKind()), nil
 	default:
 		return queryexec.Value{}, statusErrorf(connect.CodeInvalidArgument,
 			"binding %s carries no value", parameter)
@@ -394,7 +408,11 @@ func documentValue(idx *symbols.Index, value queryexec.Value) *pb.DocumentValue 
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_Infinity{Infinity: true}}
 	case queryexec.ValueQuantity:
 		quantity, _ := value.Quantity()
-		return &pb.DocumentValue{Kind: &pb.DocumentValue_Quantity{Quantity: protoconv.QuantityToProto(&quantity)}}
+		wire := protoconv.QuantityToProto(&quantity)
+		if wire != nil {
+			wire.ValueType = protoconv.QuantityValueTypeName(value.QuantityKind(), idx)
+		}
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_Quantity{Quantity: wire}}
 	default:
 		return &pb.DocumentValue{}
 	}

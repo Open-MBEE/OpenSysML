@@ -2,6 +2,7 @@ package resolve
 
 import (
 	"math"
+	"reflect"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -125,6 +126,9 @@ type Resolver struct {
 	// resolving holds the depth (see enter) of each lookup on the stack, so a
 	// re-entrant query of the same name fails instead of recursing.
 	resolving map[ast.Node]int
+	// generalizing is the generalization relationships whose targets are being
+	// resolved, so a chain through the specializing feature itself does not recurse.
+	generalizing map[*ast.Relationship]struct{}
 	// featuring holds the depth of each featured-member lookup (featuredMember)
 	// on the stack, whose scope walk may resolve the very chain that began it.
 	featuring map[featuredKey]int
@@ -302,13 +306,26 @@ type Resolver struct {
 	dependents map[string]map[string]bool
 }
 
-// MemoSize is the number of resolutions this resolver retains.
+// memoSizeExempt are the Resolver's map fields MemoSize leaves out: the guards
+// held only while a walk is in progress, and the document frame bookkeeping.
+var memoSizeExempt = map[string]bool{
+	"resolving": true, "featuring": true, "redefining": true, "importStack": true,
+	"resolvingImports": true, "importVisits": true, "viewFiltersInProgress": true,
+	"colliding": true, "naming": true, "resolvingAlias": true, "suggesting": true,
+	"probing": true, "valuesInProgress": true, "owners": true, "dependents": true,
+}
+
+// MemoSize is the number of entries this resolver retains across walks: every
+// map it holds but the exempt ones, so a table added later is counted too.
 func (r *Resolver) MemoSize() int {
-	return len(r.memo) + len(r.modeMemo) + len(r.filtered) + len(r.featureChains) +
-		len(r.parts) + len(r.aliasNames) + len(r.endpoints) + len(r.readings) +
-		len(r.invocationNames) + len(r.invocationScopes) + len(r.ambiguities) + len(r.reportedQualified) +
-		len(r.initials) + len(r.imports) + len(r.suggestions) + len(r.importTargets) +
-		len(r.collisions) + len(r.enumKept) + len(r.enumResults) + len(r.shortNames)
+	size := 0
+	fields := reflect.ValueOf(r).Elem()
+	for i := range fields.NumField() {
+		if field := fields.Field(i); field.Kind() == reflect.Map && !memoSizeExempt[fields.Type().Field(i).Name] {
+			size += field.Len()
+		}
+	}
+	return size
 }
 
 // New creates a resolver over the given index.
@@ -319,6 +336,7 @@ func New(idx *symbols.Index) *Resolver {
 		modeMemo:              map[modeMemoKey]resolution{},
 		filtered:              map[filteredMemoKey]resolution{},
 		resolving:             map[ast.Node]int{},
+		generalizing:          map[*ast.Relationship]struct{}{},
 		redefining:            map[*ast.QualifiedName]int{},
 		featureChains:         map[featureChainKey]resolution{},
 		parts:                 map[*ast.QualifiedName][]*symbols.Symbol{},
@@ -425,12 +443,12 @@ func (r *Resolver) EndSymbol(qn *ast.QualifiedName) (*symbols.Symbol, bool) {
 // declared member bears reaches an inherited one, so `first start` links the
 // start the owner inherits; a member of an enclosing body is not a start.
 func (r *Resolver) resolveInitial(scope *symbols.Scope, n *ast.InitialNode) {
-	if n.Name() == "" {
+	if !n.Named() {
 		return
 	}
 	sym, ok := memberPastLabels(scope, n.Name())
 	if !ok {
-		sym, ok = r.lookupContributedMember(scope.Owner(), n.Name(), nil)
+		sym, ok = r.inheritedMember(scope.Owner(), n.Name())
 	}
 	if ok {
 		journalNew(r, r.initials, n, n)
@@ -491,7 +509,7 @@ func (r *Resolver) ResolveInitialMember(scope *symbols.Scope, name string) (*sym
 		return sym, true
 	}
 	// An inherited start marker bearing the name is a label too, not the start.
-	if sym, ok := r.lookupContributedMember(scope.Owner(), name, nil); ok && !symbols.IsFirstMarker(sym) {
+	if sym, ok := r.inheritedMember(scope.Owner(), name); ok && !symbols.IsFirstMarker(sym) {
 		return sym, true
 	}
 	return nil, false
@@ -556,6 +574,16 @@ func (r *Resolver) lookupMemberThrough(sym *symbols.Symbol, name string, hide *r
 		}
 	}
 	return nil, false
+}
+
+// inheritedMember resolves name as a member sym inherits, or the feature of sym
+// named by redefining that member (KerML 8.3.3.1.10).
+func (r *Resolver) inheritedMember(sym *symbols.Symbol, name string) (*symbols.Symbol, bool) {
+	found, ok := r.lookupContributedMember(sym, name, nil)
+	if !ok || !visibleAsInheritedMember(sym, found) {
+		return nil, false
+	}
+	return r.inheritedAs(sym, found)
 }
 
 // lookupContributedMember resolves name as a member sym inherits or
@@ -747,7 +775,8 @@ func (r *Resolver) ResolveName(scope *symbols.Scope, name string, at ast.Node) (
 	if (res.ok || r.quiet == 0) && r.allVisible == 0 && settled {
 		r.memoize(at, res)
 	}
-	if !res.ok {
+	// A quiet lookup reports nothing, so the hint and the fixes are not worked out for it.
+	if !res.ok && r.quiet == 0 {
 		r.report(Diagnostic{
 			Span:    spanOf(at),
 			Message: r.unresolvedMessage(scope, name, at),
@@ -952,4 +981,9 @@ func qnText(qn *ast.QualifiedName) string {
 		s = "$::" + s
 	}
 	return s
+}
+
+// ResolveSegments is ResolveQualified of the qualified name segments spell.
+func (r *Resolver) ResolveSegments(scope *symbols.Scope, segments ...string) (*symbols.Symbol, bool) {
+	return r.ResolveQualified(scope, ast.QualifiedNameOf(segments...))
 }

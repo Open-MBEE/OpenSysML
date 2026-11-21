@@ -226,6 +226,12 @@ func (k SymbolKind) String() string {
 	return "unknown"
 }
 
+// Named reports whether the kind is a known one with a display name of its own.
+func (k SymbolKind) Named() bool {
+	_, ok := symbolKindNames[k]
+	return ok && k != SymbolUnknown
+}
+
 // Family names the kind by its keyword, without the def/usage distinction: SymbolActionDef, SymbolActionUsage
 // and every action-node kind are "action", SymbolUseCaseDef "use case", SymbolSuccessionFlowUsage "flow".
 func (k SymbolKind) Family() string {
@@ -425,6 +431,10 @@ type Symbol struct {
 	// Empty if the declaration states none.
 	ShortName string
 
+	// EmptyNames tells which of Name and ShortName is the empty name `''`
+	// rather than no name at all (KerML §8.2.2.3).
+	EmptyNames EmptyNames
+
 	// Naming records how the symbol came by its Name: declared, or derived
 	// from its naming feature (KerML 7.3.4.5 Feature::effectiveName).
 	Naming Naming
@@ -442,6 +452,26 @@ type Symbol struct {
 	// Chain is the chain target this symbol denotes as a feature, or nil for
 	// every ordinary symbol (see ChainingFeature).
 	Chain *ChainingFeature
+}
+
+// EmptyNames is the set of a symbol's identifiers that are the empty name.
+type EmptyNames uint8
+
+const (
+	// EmptyName: Name is the empty name, by which the symbol is a named member.
+	EmptyName EmptyNames = 1 << iota
+	// EmptyShortName: ShortName is the empty name.
+	EmptyShortName
+)
+
+// Named reports whether the symbol has a name, the empty unrestricted name included.
+func (s *Symbol) Named() bool {
+	return s.Name != "" || s.EmptyNames&EmptyName != 0
+}
+
+// HasShortName reports whether the symbol has a short name, the empty one included.
+func (s *Symbol) HasShortName() bool {
+	return s.ShortName != "" || s.EmptyNames&EmptyShortName != 0
 }
 
 // Naming tells where a symbol's Name comes from.

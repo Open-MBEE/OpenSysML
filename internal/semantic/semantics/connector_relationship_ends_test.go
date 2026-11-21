@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -91,6 +92,68 @@ func TestKerMLFlowRelationshipEndsAreTheFeaturesBeforeItsPayloads(t *testing.T) 
 				if got := strings.Join(names, " "); !ok || got != w {
 					t.Errorf("%s %s = %q (%v), want %q", name, property, got, ok, w)
 				}
+			}
+		}
+	}
+}
+
+// A flow end with more than one feature before its payload references their chain: `flow a.p.q to b.p.q` relates the
+// chain Features a.p and b.p (KerML 8.3.3.3.9), so it has two related features; a record names the feature each chain reaches.
+func TestChainedFlowEndReferencesTheChainBeforeItsPayload(t *testing.T) {
+	const src = `package P {
+		part def S { port p { out item q; } part n { port p { in item q; } } }
+		part def T {
+			part a : S;
+			part b : S;
+			flow chained from a.p.q to b.p.q;
+			flow deep from a.p.q to b.n.p.q;
+			flow mixed from a.p.q to b;
+		}
+	}`
+	for i, fixture := range reflectiveFixtures(t, "chained-flow-ends.sysml", source.KindSysML, src) {
+		model, recorded := fixture.model, i == 1
+		for name, want := range map[string]struct{ related, source, target []string }{
+			"chained": {[]string{"a.p", "b.p"}, []string{"a.p"}, []string{"b.p"}},
+			"deep":    {[]string{"a.p", "b.n.p"}, []string{"a.p"}, []string{"b.n.p"}},
+			"mixed":   {[]string{"a.p"}, []string{"a.p"}, nil},
+		} {
+			flow := nestedSym(t, fixture.root, "P::T::"+name)
+			for property, chains := range map[string][]string{
+				"relatedFeature": want.related, "sourceFeature": want.source, "targetFeature": want.target,
+				"relatedElement": want.related, "source": want.source, "target": want.target,
+			} {
+				var w []string
+				for _, chain := range chains {
+					if recorded {
+						chain = chain[strings.LastIndex(chain, ".")+1:]
+					}
+					w = append(w, chain)
+				}
+				elements, ok := model.ReflectiveElements(flow, property)
+				var got []string
+				for _, e := range elements {
+					if recorded {
+						got = append(got, e.Name)
+						continue
+					}
+					var chain []string
+					for _, f := range model.chainingFeaturesOf(e) {
+						chain = append(chain, f.Name)
+					}
+					if metaclass := model.MetaclassOf(e); metaclass == nil || metaclass.Name != "Feature" {
+						t.Errorf("%s %s: metaclass %v, want the KerML Feature", name, property, metaclass)
+					}
+					got = append(got, strings.Join(chain, "."))
+				}
+				if !ok || !slices.Equal(got, w) {
+					t.Errorf("%s %s = %q (%v), want %q (recorded %v)", name, property, got, ok, w, recorded)
+				}
+			}
+			first, _ := model.ReflectiveElements(flow, "relatedFeature")
+			again, _ := model.ReflectiveElements(flow, "relatedFeature")
+			distinct := recorded || len(first) < 2 || symbols.KeyOf(first[0]) != symbols.KeyOf(first[1])
+			if len(first) == 0 || first[0] != again[0] || !distinct {
+				t.Errorf("%s: each end's chain Feature is one element with its own identity, got %v then %v", name, first, again)
 			}
 		}
 	}

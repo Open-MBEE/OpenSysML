@@ -29,7 +29,7 @@ func (e *performances) executeBody(perf *actionFrame, graph *lower.ActionGraph, 
 		host := &actionStmtHost{exec: e, node: node, perf: perf, graph: graph}
 		lexical := perf.lexicalFrames()
 		return newStmtEngineIn(e.ctx, host, lexical[len(lexical)-1], lexical[:len(lexical)-1])
-	}, graph.Bodies[node])
+	}, graph.Exprs, graph.Bodies[node])
 	return err
 }
 
@@ -41,7 +41,7 @@ func (e *performances) executeStatementBody(step *actionFrame, graph *lower.Acti
 		host := &actionStmtHost{exec: e, node: step.node, perf: perf, graph: graph, step: step}
 		lexical := perf.lexicalFrames()
 		return newStmtEngineIn(e.ctx, host, lexical[len(lexical)-1], lexical[:len(lexical)-1])
-	}, graph.Bodies[step.node])
+	}, graph.Exprs, graph.Bodies[step.node])
 	return err
 }
 
@@ -146,6 +146,14 @@ func (h *actionStmtHost) occurrence() *Instance {
 	return h.exec.occurrence
 }
 
+// caseAssertions is the case's when the body is a step of a case's own flow.
+func (h *actionStmtHost) caseAssertions() *caseAssertions {
+	if h.perf != h.exec.root {
+		return nil
+	}
+	return h.perf.assertions
+}
+
 // materializeOccurrence defers to the performance's lazy hook, set on the
 // executor that runs it.
 func (h *actionStmtHost) materializeOccurrence() (*Instance, error) {
@@ -155,7 +163,6 @@ func (h *actionStmtHost) materializeOccurrence() (*Instance, error) {
 	return h.exec.thisOccurrence()
 }
 
-// acceptReturn rejects a `return`: an action node computes no result to return.
 // statementOrder is how stmts may be ordered where the schedule picks it: a body's
 // statements are subactions no succession orders.
 func (h *actionStmtHost) statementOrder(stmts []lower.Statement) *lower.StatementOrder {
@@ -225,8 +232,17 @@ func (h *actionStmtHost) orderStep() int {
 
 func (h *actionStmtHost) yieldsBetweenStatements() bool { return true }
 
-func (h *actionStmtHost) acceptReturn(Value, lower.Return) error {
-	return fmt.Errorf("%w: %s", errReturnOutsideCalc, h.describe())
+// acceptReturn rejects a `return` in an action: its nodes compute no result. A step of
+// a calculation's body returns the calculation's result, ending its performance.
+func (h *actionStmtHost) acceptReturn(value Value, s lower.Return) error {
+	calc, ok := h.exec.owner.(*calcStmtHost)
+	if !ok {
+		return fmt.Errorf("%w: %s", errReturnOutsideCalc, h.describe())
+	}
+	if err := calc.acceptReturn(value, s); err != nil {
+		return err
+	}
+	return &terminated{perf: h.exec.root, returns: true}
 }
 
 // effect performs the action a `perform` in statement form names, where it
@@ -330,7 +346,7 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 			f.perf.occurrence = engine.loopBody()
 		}
 		if _, declared := graph.Multiplicities[node]; declared && f.perf.repeatedStep() {
-			e.recordRepetition(parent, node, f.perf)
+			e.recordRepetition(parent, f.perf)
 		}
 	}
 	// A terminate of the node ends its body where it stands, dropping what a flow nested in
@@ -475,14 +491,14 @@ func (e *performances) performBlockFlow(parent *actionFrame, engine *stmtEngine,
 			f.perf.features[attr.Name] = attr.Direction
 			features = append(features, lower.Feature{
 				Name: attr.Name, Direction: attr.Direction, IsResult: attr.IsResult, Binding: attr.Binding,
-				Value: attr.Value, Node: attr.Node, Scope: block.Scope,
+				Value: attr.Value, ValueID: attr.ValueID, Node: attr.Node, Scope: block.Scope,
 			})
 		}
 		activation, endStep := e.ctx.beginStep()
 		f.perf.began = activation
 		// A block of a loop's body runs as the iteration's body occurrence, when the loop holds one.
 		f.perf.occurrence = engine.loopBody()
-		if err := e.seedDeclaredValues(f.perf, features, activation); err != nil {
+		if err := e.seedDeclaredValues(f.perf, block.Graph.Exprs, features, activation); err != nil {
 			endStep()
 			return flowNext, err
 		}

@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"container/list"
+	"context"
 	"slices"
 	"sort"
 	"strings"
@@ -122,11 +123,15 @@ func (ls *lineages) drop(key string) {
 // parse of a document set only notes the set, so a one-off parse never pays
 // for a workspace it will not reuse, and a document that does not parse clean
 // leaves the model to the fresh path, which does not analyze it.
-func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMode) (*CachedModel, bool) {
+func (s *Service) parseFromLineage(ctx context.Context, inputs []sourceInput, mode diag.ConformanceMode) (*CachedModel, bool, error) {
 	key := lineageKey(inputs, mode)
 	l, _ := s.lineages.get(key, func() *lineage { return &lineage{held: map[string]string{}} })
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	// The wait for the lineage may have outlasted the caller.
+	if err := ctx.Err(); err != nil {
+		return nil, false, err
+	}
 
 	switch {
 	case l.fresh:
@@ -141,13 +146,13 @@ func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMo
 				break
 			}
 		}
-		return nil, false
+		return nil, false, nil
 	case l.ws == nil && len(l.held) == 0:
 		// First seen: noted, answered fresh.
 		for _, input := range inputs {
 			l.held[input.name] = input.content
 		}
-		return nil, false
+		return nil, false, nil
 	case l.ws == nil:
 		// Seen again: the workspace is built over every document now.
 		idx, library := s.libIndexes.get()
@@ -183,13 +188,13 @@ func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMo
 	}
 	if len(standIns) > 0 {
 		l.fresh, l.standIns, l.ws, l.held, l.answered = true, standIns, nil, nil, nil
-		return nil, false
+		return nil, false, nil
 	}
 	names := make([]string, len(inputs))
 	for i, input := range inputs {
 		names[i] = input.name
 		if doc := l.ws.Document(input.name); doc == nil || len(doc.ParseDiagnostics) > 0 {
-			return nil, false
+			return nil, false, nil
 		}
 	}
 	// One document at a time, in the workspace's shared context, which records
@@ -199,14 +204,21 @@ func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMo
 	diagnostics := make([][]diag.Diagnostic, len(names))
 	unfiltered := make([][]diag.Diagnostic, len(names))
 	for i, name := range names {
+		// A caller gone stops here; the workspace keeps what it analyzed for the next call.
+		if err := ctx.Err(); err != nil {
+			return nil, false, err
+		}
 		diagnostics[i] = l.ws.Diagnostics(name)
 		unfiltered[i] = l.ws.UnfilteredDiagnostics(name)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, false, err
 	}
 	detached, err := l.ws.Detach()
 	if err != nil {
 		// A workspace that cannot be detached is not trusted for the next call.
 		s.lineages.drop(key)
-		return nil, false
+		return nil, false, nil
 	}
 
 	documents := make([]*CachedDocument, len(inputs))
@@ -224,7 +236,7 @@ func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMo
 	return &CachedModel{
 		Documents: documents, Index: detached.Index(), Library: l.library, Mode: mode, Findings: l.ws.WorkspaceFindings(),
 		analysis: &analysisSnapshot{workspace: l.ws, stamps: stamps, scoped: declaresIdentityScope(inputs)},
-	}, true
+	}, true, nil
 }
 
 // shareConvertedDiagnostics hands a document the converted diagnostics answered under

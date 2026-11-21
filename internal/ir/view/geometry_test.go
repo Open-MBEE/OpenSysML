@@ -171,11 +171,11 @@ func TestBodySymbolResolvesSynthesizedRegionDeclaration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("lower %s: %v", machine.Name, err)
 	}
-	if len(graph.TopRegions) == 0 {
+	regions := graph.TopRegionIDs()
+	if len(regions) == 0 {
 		t.Fatal("parallel state machine has no top regions")
 	}
-	region := graph.TopRegions[0]
-	got := r.bodySymbol(machine, graph, region)
+	got := r.bodySymbol(machine, graph, stateBodyRef{region: regions[0]})
 	if got == nil || got.Name != "a" {
 		t.Errorf("bodySymbol(region) = %v, want source substate symbol a", got)
 	}

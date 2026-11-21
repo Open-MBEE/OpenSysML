@@ -3,9 +3,9 @@ package solve
 import (
 	"sort"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -98,7 +98,7 @@ type Var struct {
 
 	// Ref and Scope are the reference node and the scope it was written in, so
 	// the variable's value can be read the way the evaluator reads it.
-	Ref   ast.Node
+	Ref   *lower.ExprEntry
 	Scope *symbols.Scope
 
 	// Reached is the condition under which the evaluator reads the variable:

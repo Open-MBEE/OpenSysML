@@ -29,18 +29,33 @@ public final class PluginLocator implements BridgeRunner {
 
   @Override
   public Map<String, Object> run(BaseElement element, String operation, String calcArguments) {
+    return invoke(
+        new Class<?>[] {BaseElement.class, String.class, String.class}, element, operation, calcArguments);
+  }
+
+  /** A blank {@code view} goes through the three-argument entry point, so an older plugin still answers. */
+  @Override
+  public Map<String, Object> run(BaseElement element, String operation, String calcArguments, String view) {
+    if (view == null || view.isBlank()) return run(element, operation, calcArguments);
+    return invoke(
+        new Class<?>[] {BaseElement.class, String.class, String.class, String.class},
+        element, operation, calcArguments, view);
+  }
+
+  private Map<String, Object> invoke(Class<?>[] signature, Object... arguments) {
     Plugin plugin = plugin();
     Method method;
     try {
-      method = plugin.getClass().getMethod(METHOD, BaseElement.class, String.class, String.class);
+      method = plugin.getClass().getMethod(METHOD, signature);
     } catch (NoSuchMethodException missing) {
       throw new IllegalStateException(
-          "the installed Magic MDK plugin has no " + METHOD + " entry point; update it to match this extension",
+          "the installed Magic MDK plugin has no " + METHOD + " entry point taking " + signature.length
+              + " arguments; update it to match this extension",
           missing);
     }
     Object result;
     try {
-      result = method.invoke(plugin, element, operation, calcArguments);
+      result = method.invoke(plugin, arguments);
     } catch (IllegalAccessException inaccessible) {
       throw new IllegalStateException(METHOD + " is not accessible on the Magic MDK plugin", inaccessible);
     } catch (InvocationTargetException failed) {

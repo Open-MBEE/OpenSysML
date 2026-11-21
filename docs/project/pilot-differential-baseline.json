@@ -68,8 +68,8 @@
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 56,
-        "digest": "sha256:cf60c702750d56f2651c4627a002167eb4ed353ba56df16f13b34e42be717555"
+        "files": 69,
+        "digest": "sha256:d27242f88a3b5e0aab60f014a4fcdac0f371dbfaf6cb32bd43c05b1f7b61e3d8"
       },
       {
         "name": "probes",
@@ -82,21 +82,21 @@
         "name": "opensysml-libraries",
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
-        "files": 16,
-        "digest": "sha256:f39db343dafb9c99359f5a92e56dcdd5c52992dc50e50b9268d349aa9cdfdf26"
+        "files": 18,
+        "digest": "sha256:8ef6d80c9983abb0af6edc68d26de9a25be15f16561ca3b9e9387ed2b070a7ec"
       }
     ],
-    "recorded": "2026-11-14"
+    "recorded": "2026-11-20"
   },
   "totals": {
-    "files": 924,
-    "filesFullyAgreeing": 527,
-    "agreement": 1104,
-    "severityMismatch": 11,
-    "openSysMLOnly": 121,
-    "pilotOnly": 2450,
-    "openSysMLDiagnostics": 1236,
-    "pilotDiagnostics": 3565
+    "files": 937,
+    "filesFullyAgreeing": 540,
+    "agreement": 1107,
+    "severityMismatch": 8,
+    "openSysMLOnly": 126,
+    "pilotOnly": 2458,
+    "openSysMLDiagnostics": 1241,
+    "pilotDiagnostics": 3573
   },
   "roots": [
     {
@@ -575,11 +575,11 @@
       "totals": {
         "files": 511,
         "filesFullyAgreeing": 151,
-        "agreement": 1040,
-        "severityMismatch": 6,
-        "openSysMLOnly": 46,
+        "agreement": 1042,
+        "severityMismatch": 4,
+        "openSysMLOnly": 45,
         "pilotOnly": 2349,
-        "openSysMLDiagnostics": 1092,
+        "openSysMLDiagnostics": 1091,
         "pilotDiagnostics": 3395
       },
       "files": [
@@ -6948,19 +6948,17 @@
             {
               "line": 8,
               "severity": "error",
+              "category": "syntax",
+              "count": 1
+            },
+            {
+              "line": 8,
+              "severity": "error",
               "category": "unresolved-reference",
               "count": 2
             }
           ],
-          "severityMismatch": [
-            {
-              "line": 8,
-              "category": "syntax",
-              "openSysMLSeverity": "warning",
-              "pilotSeverity": "error",
-              "count": 1
-            }
-          ],
+          "severityMismatch": [],
           "openSysMLOnly": [],
           "pilotOnly": [
             {
@@ -14562,12 +14560,6 @@
           "severityMismatch": [],
           "openSysMLOnly": [
             {
-              "line": 6,
-              "severity": "warning",
-              "category": "syntax",
-              "count": 1
-            },
-            {
               "line": 9,
               "severity": "error",
               "category": "syntax",
@@ -16723,6 +16715,12 @@
           "path": "sysml/8.4.9.2/3.sysml",
           "agreement": [
             {
+              "line": 7,
+              "severity": "error",
+              "category": "syntax",
+              "count": 1
+            },
+            {
               "line": 8,
               "severity": "error",
               "category": "syntax",
@@ -16735,15 +16733,7 @@
               "count": 1
             }
           ],
-          "severityMismatch": [
-            {
-              "line": 7,
-              "category": "syntax",
-              "openSysMLSeverity": "warning",
-              "pilotSeverity": "error",
-              "count": 1
-            }
-          ],
+          "severityMismatch": [],
           "openSysMLOnly": [],
           "pilotOnly": [
             {
@@ -16928,9 +16918,9 @@
       "dir": "tests/testdata",
       "totals": {
         "files": 40,
-        "filesFullyAgreeing": 25,
-        "agreement": 60,
-        "severityMismatch": 5,
+        "filesFullyAgreeing": 26,
+        "agreement": 61,
+        "severityMismatch": 4,
         "openSysMLOnly": 11,
         "pilotOnly": 36,
         "openSysMLDiagnostics": 76,
@@ -17166,6 +17156,12 @@
               "count": 1
             },
             {
+              "line": 5,
+              "severity": "error",
+              "category": "syntax",
+              "count": 1
+            },
+            {
               "line": 6,
               "severity": "error",
               "category": "unresolved-reference",
@@ -17178,15 +17174,7 @@
               "count": 1
             }
           ],
-          "severityMismatch": [
-            {
-              "line": 5,
-              "category": "syntax",
-              "openSysMLSeverity": "warning",
-              "pilotSeverity": "error",
-              "count": 1
-            }
-          ],
+          "severityMismatch": [],
           "openSysMLOnly": [],
           "pilotOnly": []
         },
@@ -17685,14 +17673,14 @@
       "name": "examples",
       "dir": "examples",
       "totals": {
-        "files": 56,
-        "filesFullyAgreeing": 49,
+        "files": 69,
+        "filesFullyAgreeing": 61,
         "agreement": 4,
         "severityMismatch": 0,
-        "openSysMLOnly": 8,
-        "pilotOnly": 65,
-        "openSysMLDiagnostics": 12,
-        "pilotDiagnostics": 69
+        "openSysMLOnly": 14,
+        "pilotOnly": 73,
+        "openSysMLDiagnostics": 18,
+        "pilotDiagnostics": 77
       },
       "files": [
         {
@@ -17799,6 +17787,51 @@
           ]
         },
         {
+          "path": "npr7123-demo/npr7123-demo.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [
+            {
+              "line": 75,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 180,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 186,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 2
+            },
+            {
+              "line": 398,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 441,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            }
+          ],
+          "pilotOnly": [
+            {
+              "line": 436,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            }
+          ]
+        },
+        {
           "path": "qvts/duplicates.sysml",
           "agreement": [
             {
@@ -17872,193 +17905,235 @@
           "openSysMLOnly": [],
           "pilotOnly": [
             {
-              "line": 197,
+              "line": 255,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 203,
+              "line": 261,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 225,
+              "line": 283,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 245,
+              "line": 303,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 251,
+              "line": 309,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 268,
+              "line": 326,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 275,
+              "line": 333,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 296,
+              "line": 354,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 302,
+              "line": 360,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 307,
+              "line": 365,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 325,
+              "line": 383,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 331,
+              "line": 389,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 352,
+              "line": 410,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 358,
+              "line": 416,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 374,
+              "line": 432,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 390,
+              "line": 448,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 408,
+              "line": 466,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 414,
+              "line": 472,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 420,
+              "line": 478,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 455,
+              "line": 513,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 461,
+              "line": 519,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 486,
+              "line": 544,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 508,
+              "line": 566,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 514,
+              "line": 572,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 520,
+              "line": 578,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 527,
+              "line": 585,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 569,
+              "line": 627,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 575,
+              "line": 633,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 589,
+              "line": 647,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 603,
+              "line": 661,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 603,
+              "line": 661,
               "severity": "warning",
               "category": "unmapped",
               "count": 18
             },
             {
-              "line": 609,
+              "line": 667,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 704,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 709,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 715,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 727,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 739,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 746,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 747,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18323,7 +18398,37 @@
     },
     {
       "side": "opensysml",
+      "message": "This CDR states no DesignSolution: NPR 7123.1D section 5.2.2.2 (SE-46) has the technical team provide it at this review at maturity baseline, so nest a `DesignSolution` item subsetting `reviewedProducts` with its `maturity`.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This SEMP does not address 13 of the 17 common technical processes: ProductImplementation, ProductIntegration, ProductVerification, ProductValidation, ProductTransition, TechnicalPlanning, RequirementsManagement, InterfaceManagement, TechnicalRiskManagement, ConfigurationManagement, TechnicalDataManagement, TechnicalAssessment, DecisionAnalysis. NPR 7123.1D section 6.2.3 (SE-58) has the SEMP define how each process, as tailored, is applied, so nest one usage per process (e.g. `#productImplementation action ...`).",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This VerificationAndValidationPlan is stated at maturity preliminary, below the baseline NPR 7123.1D section 5.2.2.2 (SE-68) asks for at PDR; mature the product or document the tailoring in the SEMP.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This compliance entry is marked tailored with no justification: NPR 7123.1D Table H-1 asks for the justification of every tailored or not-applicable requirement, so give the `@Compliance` annotation a `justification`.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This compliance matrix has no compliance entry for 1 active NPR 7123.1D requirement(s): SE31. Table H-1 covers every active requirement, so add a `@Compliance` usage of each from `NPR7123::SERequirements`.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
       "message": "This element is marked @Proprietary with no rationale: MOSA expects the justification for each proprietary element to be recorded, so give the annotation a `rationale`.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This life-cycle review states no entrance criteria and no success criteria: NPR 7123.1D section 5.2.2.1 (SE-34) has the technical team define both for each review, so nest `EntranceCriterion` and `SuccessCriterion` requirement usages, subsetting `entranceCriteria` and `successCriteria`, from the library's `ReviewCriteria` package.",
       "count": 1
     },
     {
@@ -24954,14 +25059,14 @@
       }
     ],
     "totals": {
-      "files": 924,
-      "filesFullyAgreeing": 528,
-      "agreement": 1104,
-      "severityMismatch": 11,
-      "openSysMLOnly": 120,
-      "pilotOnly": 2450,
-      "openSysMLDiagnostics": 1235,
-      "pilotDiagnostics": 3565
+      "files": 937,
+      "filesFullyAgreeing": 541,
+      "agreement": 1107,
+      "severityMismatch": 8,
+      "openSysMLOnly": 125,
+      "pilotOnly": 2458,
+      "openSysMLDiagnostics": 1240,
+      "pilotDiagnostics": 3573
     },
     "findings": [
       {

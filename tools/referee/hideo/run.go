@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -21,6 +22,7 @@ const (
 	suiteDir   = "test-suite"
 	ResultsDir = suiteDir + "/results"
 	pythonDir  = suiteDir + "/test-opensysml-py"
+	goDir      = suiteDir + "/test-opensysml-go"
 	mdkLink    = "OpenSysML"
 )
 
@@ -55,9 +57,69 @@ func Locate(dir, repo string) error {
 	return nil
 }
 
-// Execute builds the service the Python suites drive, provisions their
-// environment and runs the four suites, leaving their results under ResultsDir.
+// reader is how the suite's own runner, run-all.sh, runs one of the Suites.
+type reader struct {
+	suite, dir string
+	env, args  []string
+}
+
+var readers = []reader{
+	{"opensysml-py-props", pythonDir, []string{"OPENSYSML_PY_SUITE=opensysml-py-props"}, []string{".venv/bin/python", "-m", "pytest", "-q", "test_props.py"}},
+	{"opensysml-go-props", goDir, []string{"OPENSYSML_GO_SUITE=opensysml-go-props"}, []string{"go", "test", "-v", "./..."}},
+	{"opensysml-py", pythonDir, nil, []string{".venv/bin/python", "-m", "pytest", "-q", "test_matrices.py"}},
+	{"opensysml-go", goDir, nil, []string{"go", "test", "-v", "./..."}},
+}
+
+// line is the reader's command as an arm of run-all.sh's run_suite spells it, less its layout.
+func (r reader) line() string {
+	words := append([]string{"cd", path.Base(r.dir), "&&"}, r.env...)
+	return strings.Join(append(words, r.args...), " ")
+}
+
+// runnerArm is the command of suite's arm in run-all.sh's case statement, its layout
+// folded to single spaces, or "" when the script has no such arm.
+func runnerArm(script, suite string) string {
+	var arm []string
+	found := false
+	for _, text := range strings.Split(script, "\n") {
+		text = strings.TrimSpace(text)
+		if !found {
+			rest, ok := strings.CutPrefix(text, suite+")")
+			if !ok {
+				continue
+			}
+			found, text = true, rest
+		}
+		command, closed := strings.CutSuffix(strings.TrimSpace(text), ";;")
+		arm = append(arm, strings.Fields(command)...)
+		if closed {
+			return strings.Join(arm, " ")
+		}
+	}
+	return ""
+}
+
+// checkRunner refuses a pinned runner that no longer runs a reader the way this package does.
+func checkRunner(dir string) error {
+	file := filepath.Join(dir, suiteDir, "run-all.sh")
+	script, err := os.ReadFile(file) // #nosec G304 -- the runner of the suite checkout the caller named
+	if err != nil {
+		return err
+	}
+	for _, r := range readers {
+		if arm := runnerArm(string(script), r.suite); arm != r.line() {
+			return fmt.Errorf("%s runs %s as `%s`, not as `%s`: bring tools/referee/hideo/run.go in line with the pin", file, r.suite, arm, r.line())
+		}
+	}
+	return nil
+}
+
+// Execute builds the service the Python suites drive, provisions their environment and
+// runs the four readers, leaving their results under ResultsDir and their output under logs/.
 func Execute(ctx context.Context, dir, repo string, log io.Writer) error {
+	if err := checkRunner(dir); err != nil {
+		return err
+	}
 	steps := []struct {
 		dir  string
 		args []string
@@ -70,18 +132,81 @@ func Execute(ctx context.Context, dir, repo string, log io.Writer) error {
 			return fmt.Errorf("%v in %s: %w", step.args, step.dir, err)
 		}
 	}
-	for _, suite := range Suites {
-		if err := os.Remove(resultsPath(dir, suite)); err != nil && !errors.Is(err, fs.ErrNotExist) {
+	results, err := filepath.Abs(filepath.Join(dir, filepath.FromSlash(ResultsDir)))
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Join(results, "logs"), 0o750); err != nil {
+		return err
+	}
+	scratch, err := os.MkdirTemp("", "hideo-suite-go-")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = os.RemoveAll(scratch) }()
+	modfile, err := scratchModule(filepath.Join(dir, filepath.FromSlash(goDir)), scratch)
+	if err != nil {
+		return err
+	}
+	env := append(suiteEnv(os.Environ(), repo), "RESULTS_DIR="+results)
+	for _, r := range readers {
+		if r.dir == goDir {
+			r.args = withModfile(r.args, modfile)
+		}
+		if err := r.run(ctx, dir, results, env, log); err != nil {
 			return err
 		}
 	}
-	run := command(ctx, filepath.Join(dir, suiteDir), log, append([]string{"./run-all.sh"}, Suites...)...)
-	run.Env = suiteEnv(os.Environ(), repo)
-	// Its status reports failing cases and its own cross-MDK report, neither of which
-	// is this ratchet's verdict: only a runner that could not start is an error.
+	return nil
+}
+
+// scratchModule copies the Go readers' go.mod and go.sum from module to scratch and names the
+// copy, so the requirements of the tree under test are resolved without editing the pinned suite.
+func scratchModule(module, scratch string) (string, error) {
+	for _, name := range []string{"go.mod", "go.sum"} {
+		data, err := os.ReadFile(filepath.Join(module, name)) // #nosec G304 -- a module file of the suite checkout the caller named
+		if err != nil {
+			return "", err
+		}
+		if err := os.WriteFile(filepath.Join(scratch, name), data, 0o600); err != nil {
+			return "", err
+		}
+	}
+	return filepath.Join(scratch, "go.mod"), nil
+}
+
+// withModfile is a go command resolving its module through modfile, which it may update: the
+// suite pins the versions this module required at the pin, and this module's move on.
+func withModfile(args []string, modfile string) []string {
+	out := append([]string{}, args[:2]...)
+	return append(append(out, "-mod=mod", "-modfile="+modfile), args[2:]...)
+}
+
+// run runs one reader in place of run-all.sh, whose version and report stages are the
+// suite's cross-MDK report and need the pilot beside it. Failing cases are not an error.
+func (r reader) run(ctx context.Context, dir, results string, env []string, log io.Writer) error {
+	if err := os.Remove(filepath.Join(results, r.suite+".csv")); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	path := filepath.Join(results, "logs", r.suite+".log")
+	out, err := os.Create(path) // #nosec G304 -- a log of the suite checkout the caller named
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(log, "== %s\n", r.suite)
+	cmd := command(ctx, filepath.Join(dir, filepath.FromSlash(r.dir)), out, r.args...)
+	cmd.Env = append(append([]string{}, env...), r.env...)
+	err = cmd.Run()
+	if closeErr := out.Close(); closeErr != nil {
+		return closeErr
+	}
 	var exit *exec.ExitError
-	if err := run.Run(); err != nil && !errors.As(err, &exit) {
-		return fmt.Errorf("run-all.sh: %w", err)
+	if errors.As(err, &exit) {
+		fmt.Fprintf(log, "   %v, as when a case fails; its output is in %s\n", err, path)
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("%s: %v in %s: %w", r.suite, r.args, cmd.Dir, err)
 	}
 	return nil
 }

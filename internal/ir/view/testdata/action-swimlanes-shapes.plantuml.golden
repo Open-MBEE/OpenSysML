@@ -1,0 +1,66 @@
+@startuml
+' LaneShapes::assembleView — action rendering (view def ActionFlowView)
+mainframe <size:10>//«view»//</size> **LaneShapes::assembleView** : ActionFlowView\n<size:10>expose assemble</size>
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide empty description
+state "<size:10>//«action»//</size>\n**assemble**" as n0 <<action>> <<usage>> {
+  state "<size:10>//«action»//</size>\n**fetch**\nperformed by\nloader\nbench" as n1 <<action>> <<usage>>
+  state "<size:10>//«action»//</size>\n**build**\naction flow" as n2 <<action>> <<usage>> {
+    state "<size:10>//«performer»//</size>\n**Robot**\nperform actions" as n5 <<swimlane>> <<region>> {
+      state "<size:10>//«action»//</size>\n**cut**" as n3 <<action>> <<usage>>
+      state "<size:10>//«action»//</size>\n**weld**" as n4 <<action>> <<usage>>
+    }
+  }
+  state "<size:10>//«performer»//</size>\n**supervise**\nperform actions" as n11 <<swimlane>> <<region>> {
+    state "<size:10>//«action»//</size>\n**inspect**" as n6 <<action>> <<usage>>
+  }
+  state "<size:10>//«performer»//</size>\n**: Robot**\nperform actions" as n12 <<swimlane>> <<region>> {
+    state "<size:10>//«action»//</size>\n**pack**" as n7 <<action>> <<usage>>
+  }
+  state "**initial**" as n8 <<start>>
+}
+n3 -[dashed]-> n4
+n1 -[dashed]-> n2
+n2 -[dashed]-> n6
+n6 -[dashed]-> n7
+n8 -[dashed]-> n1
+@enduml

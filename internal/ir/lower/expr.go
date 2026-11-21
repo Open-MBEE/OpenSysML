@@ -12,6 +12,38 @@ import (
 // ExprTable is a table of lowered expressions by id, index zero "none".
 type ExprTable struct {
 	entries []*ExprEntry
+	// resolver resolves the names of the expressions interned; nil leaves them to the run.
+	resolver *resolve.Resolver
+	// interned is the id of each expression interned, by its node and scope: one
+	// record however many payloads state the same expression.
+	interned map[internedExpr]program.ExprID
+}
+
+type internedExpr struct {
+	node  ast.Node
+	scope *symbols.Scope
+}
+
+// NewExprTable is an empty table whose interned expressions resolve with resolver.
+func NewExprTable(resolver *resolve.Resolver) *ExprTable {
+	return &ExprTable{resolver: resolver}
+}
+
+// Intern lowers node, written in scope, and gives it an id; 0 for no node or no table.
+func (t *ExprTable) Intern(node ast.Node, scope *symbols.Scope) program.ExprID {
+	if t == nil || node == nil {
+		return 0
+	}
+	key := internedExpr{node: node, scope: scope}
+	if id, ok := t.interned[key]; ok {
+		return id
+	}
+	id := t.Lower(node, scope, t.resolver)
+	if t.interned == nil {
+		t.interned = make(map[internedExpr]program.ExprID)
+	}
+	t.interned[key] = id
+	return id
 }
 
 // ExprEntry is one lowered expression with where it came from beside it.
@@ -23,6 +55,8 @@ type ExprEntry struct {
 	Scope *symbols.Scope
 	// Operands are the entries behind Args, in order.
 	Operands []*ExprEntry
+	// Answer is the entry behind Result, nil for none.
+	Answer *ExprEntry
 }
 
 // Entry is the expression behind an id with its tree and scope, nil for none.
@@ -160,8 +194,8 @@ func (l *exprLowering) lower(node ast.Node) program.ExprID {
 		written(&expr.Ref, n.Type)
 		operands = l.arguments(expr, n.Args, n.NamedArgs)
 	case *ast.BodyExpr:
-		// A body's result is written in the scope of its parameters, and lowered there when applied.
 		expr.Kind = program.ExprBody
+		l.body(entry, n)
 	case *ast.MetadataAccessExpr:
 		expr.Kind = program.ExprMetadata
 		written(&expr.Ref, n.Ref)
@@ -169,6 +203,9 @@ func (l *exprLowering) lower(node ast.Node) program.ExprID {
 		return id
 	}
 	expr.Origin.Span = node.Span()
+	if n := len(operands); n > 0 {
+		expr.Args, entry.Operands = make([]program.ExprID, 0, n), make([]*ExprEntry, 0, n)
+	}
 	for _, operand := range operands {
 		arg := l.lower(operand)
 		expr.Args = append(expr.Args, arg)
@@ -177,10 +214,32 @@ func (l *exprLowering) lower(node ast.Node) program.ExprID {
 	return id
 }
 
+// body records the shape of a body expression: its parameters by name, and its
+// result lowered in the scope they are declared in, beside the body rather than under it.
+func (l *exprLowering) body(entry *ExprEntry, n *ast.BodyExpr) {
+	entry.Params = make([]program.SymbolRef, len(n.Params))
+	for i := range n.Params {
+		entry.Params[i].Name, entry.Params[i].Span = n.Params[i].Name, n.Params[i].Span
+	}
+	entry.Locals = len(n.Members)
+	if n.Result == nil {
+		return
+	}
+	scope := l.scope
+	if inner := symbols.BodyExprScope(scope, n); inner != nil {
+		scope = inner
+	}
+	entry.Result = l.table.Lower(n.Result, scope, l.resolver)
+	entry.Answer = l.table.entries[entry.Result]
+}
+
 // invocation records what a call applies and returns its operands: the receiver of
 // `x->F(a)` first, or for `x.f(a)` the chain applied and what its last member is read from.
 func (l *exprLowering) invocation(expr *program.Expr, n *ast.InvocationExpr) []ast.Node {
 	written(&expr.Ref, n.Type)
+	if n.Type != nil && len(n.Type.Parts) > 1 {
+		expr.Path = spelled(n.Type.Parts)
+	}
 	var operands []ast.Node
 	if chain := semantics.ChainCallee(n); chain != nil {
 		expr.Applied = true

@@ -90,6 +90,9 @@ type Model struct {
 	// constraintSteps memoizes the step each member of a constraint body lowers
 	// to, one lowering per member node however often a check reads the body.
 	constraintSteps map[ast.Node]lower.Statement
+	// exprs is the table of what the runtime lowers apart from a flow: the ids of those
+	// steps, of conditions, bindings, objectives, feature defaults and satisfy subjects.
+	exprs *lower.ExprTable
 	// activityOperands memoizes, per read of a state's activity (`fill.sub.isActive`),
 	// the node naming the state the read is of (`fill.sub`), so a chain spelled in
 	// one qualified name is resolved as an endpoint once rather than per evaluation.
@@ -148,6 +151,11 @@ type Model struct {
 	// subsetters memoizes, per type, the features subsetting each named feature of it
 	// under any of its redefinition names; callers read the shared slice.
 	subsetters map[*symbols.Symbol]map[string][]EffectiveFeature
+	// reaching memoizes reachingSubsetters per type; callers read the shared slice.
+	reaching map[*symbols.Symbol][]reachingSubsetter
+	// declaredReaching memoizes declaredReachingSubsetters per declaring symbol, so the
+	// types inheriting one walk its nested usages once between them.
+	declaredReaching map[*symbols.Symbol][]reachingSubsetter
 	// subsetted memoizes subsettedNames per feature of a type, declaredSubsetted
 	// declaredSubsettedNames; callers read the shared slices.
 	subsetted         map[featureOfType][]string
@@ -171,6 +179,8 @@ type Model struct {
 	// bindingIR memoizes binding connectors declared by each materialized
 	// object type, including bindings inherited from its supertypes.
 	bindingIR map[*symbols.Symbol][]lower.Binding
+	// flowIR memoizes the streaming flows between features each type declares.
+	flowIR map[*symbols.Symbol][]lower.FeatureFlow
 	// hoistingBindings marks the declarations whose connectors' bindings are being
 	// collected, so a connector typed by its own holder's definition ends the descent.
 	hoistingBindings map[*symbols.Symbol]bool
@@ -280,6 +290,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		calcShapes:          make(map[*symbols.Symbol]*loadedCalc),
 		predicateShapes:     make(map[*symbols.Symbol]*loadedCalc),
 		constraintSteps:     make(map[ast.Node]lower.Statement),
+		exprs:               lower.NewExprTable(resolver),
 		activityOperands:    make(map[*ast.FeatureChainExpr]ast.Node),
 		activitySplits:      make(map[activitySplitKey]activitySplit),
 		librarySymbols:      make(map[string]*symbols.Symbol),
@@ -292,6 +303,8 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		redefGroups:         make(map[*symbols.Symbol][][]string),
 		slots:               make(map[featureOfType]string),
 		subsetters:          make(map[*symbols.Symbol]map[string][]EffectiveFeature),
+		reaching:            make(map[*symbols.Symbol][]reachingSubsetter),
+		declaredReaching:    make(map[*symbols.Symbol][]reachingSubsetter),
 		subsetted:           make(map[featureOfType][]string),
 		declaredSubsetted:   make(map[featureOfType][]string),
 		relationships:       make(map[relationshipsKey][]*ast.Relationship),
@@ -301,6 +314,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		toolUnits:           make(map[toolUnitKey]semantics.Unit),
 		objectConns:         make(map[*symbols.Symbol][]lower.Connection),
 		bindingIR:           make(map[*symbols.Symbol][]lower.Binding),
+		flowIR:              make(map[*symbols.Symbol][]lower.FeatureFlow),
 		hoistingBindings:    make(map[*symbols.Symbol]bool),
 		bindingRoots:        make(map[*symbols.Symbol]map[string]bool),
 		bindingFeatures:     make(map[*symbols.Symbol]map[string][]lower.Binding),

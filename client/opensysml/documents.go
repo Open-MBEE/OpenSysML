@@ -208,6 +208,9 @@ type Rows struct {
 	Columns []string
 	// Rows are the selected elements and their cells.
 	Rows []Row
+	// ResultView is the answer as a QVTS::QueryResult view, SysML text exposing
+	// the selected elements; empty unless the call asked for it.
+	ResultView string
 }
 
 // Row is one selected element and its projected cells, one per column.
@@ -285,6 +288,30 @@ func (c *client) RunInlineDocumentQuery(
 	return c.runDocumentQuery(ctx, model, &pb.RunDocumentQueryRequest{InlineQuery: expression}, bindings)
 }
 
+func (c *client) RunDocumentQueryAsView(
+	ctx context.Context,
+	model *Model,
+	queryID string,
+	bindings ...Binding,
+) (*Rows, error) {
+	if err := c.requireCapabilities(ctx, CapabilityQueryResultView); err != nil {
+		return nil, err
+	}
+	return c.runDocumentQuery(ctx, model, &pb.RunDocumentQueryRequest{QueryId: queryID, AsView: true}, bindings)
+}
+
+func (c *client) RunInlineDocumentQueryAsView(
+	ctx context.Context,
+	model *Model,
+	expression string,
+	bindings ...Binding,
+) (*Rows, error) {
+	if err := c.requireCapabilities(ctx, CapabilityInlineDocumentQuery, CapabilityQueryResultView); err != nil {
+		return nil, err
+	}
+	return c.runDocumentQuery(ctx, model, &pb.RunDocumentQueryRequest{InlineQuery: expression, AsView: true}, bindings)
+}
+
 // runDocumentQuery sends req, naming or spelling the query, with bindings bound.
 func (c *client) runDocumentQuery(ctx context.Context, model *Model, req *pb.RunDocumentQueryRequest, bindings []Binding) (*Rows, error) {
 	hash, err := c.call(model)
@@ -313,11 +340,16 @@ func (c *client) runDocumentQuery(ctx context.Context, model *Model, req *pb.Run
 			return nil, err
 		}
 	}
+	if err := c.requireCapabilities(ctx, CapabilityDocumentQuery); err != nil {
+		return nil, err
+	}
 	resp, err := c.caller.runDocumentQuery(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	rows := &Rows{Columns: make([]string, 0, len(resp.Columns)), Rows: make([]Row, 0, len(resp.Rows))}
+	rows := &Rows{
+		Columns: make([]string, 0, len(resp.Columns)), Rows: make([]Row, 0, len(resp.Rows)), ResultView: resp.ResultView,
+	}
 	for _, column := range resp.Columns {
 		rows.Columns = append(rows.Columns, column.Name)
 	}
@@ -397,6 +429,9 @@ func (c *client) RenderDocument(ctx context.Context, model *Model, documentID st
 		}
 	}
 	if err != nil {
+		return "", err
+	}
+	if err := c.requireCapabilities(ctx, CapabilityRenderDocument); err != nil {
 		return "", err
 	}
 	resp, err := c.caller.renderDocument(ctx, &pb.RenderDocumentRequest{ModelHash: hash, DocumentId: documentID, Form: options.form})

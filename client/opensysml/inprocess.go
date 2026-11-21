@@ -10,6 +10,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // defaultCacheSize matches the sysml-grpc default, so the two implementations
@@ -41,7 +42,9 @@ func New(opts ...Option) (Client, error) {
 	for _, opt := range opts {
 		opt(&config)
 	}
-	svc, err := sysmlgrpc.NewService(config.cacheSize, buildVersion())
+	// A record cache that cannot be opened is none: every model is analyzed here.
+	records, _ := libs.OpenRecordCache(false)
+	svc, err := sysmlgrpc.NewService(config.cacheSize, buildVersion(), sysmlgrpc.WithRecordCache(records))
 	if err != nil {
 		return nil, err
 	}
@@ -178,6 +181,10 @@ func (p *inprocess) runAnalysis(ctx context.Context, req *pb.RunAnalysisRequest)
 	return answer(ctx, req, p.svc.RunAnalysis)
 }
 
+func (p *inprocess) runSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.RunSweepResponse, error) {
+	return answer(ctx, req, p.svc.RunSweep)
+}
+
 func (p *inprocess) runRuns(ctx context.Context, req *pb.RunRunsRequest) (*pb.RunRunsResponse, error) {
 	return answer(ctx, req, p.svc.RunRuns)
 }
@@ -255,8 +262,8 @@ func answer[Req, Resp any](ctx context.Context, req Req, handler func(context.Co
 		return zero, err
 	}
 	resp, callErr := handler(ctx, req)
-	// The engine runs a call to completion; a done context withholds whatever it
-	// produced, answer or error, as the wire does.
+	// The engine stops a parse or a model conversion once its context ends and runs other
+	// calls to completion; either way a done context withholds answer and error, as the wire does.
 	if err := contextStatus(ctx); err != nil {
 		return zero, err
 	}
@@ -293,7 +300,7 @@ func statusToError(err error) error {
 	}
 	var ce *connect.Error
 	if errors.As(err, &ce) {
-		return &StatusError{Code: Code(ce.Code()), Message: ce.Message()}
+		return &StatusError{Code: Code(ce.Code()), Message: ce.Message(), ResultView: resultViewOf(ce)}
 	}
 	return &StatusError{Code: CodeUnknown, Message: err.Error()}
 }

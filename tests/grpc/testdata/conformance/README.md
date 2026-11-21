@@ -13,7 +13,11 @@ in this directory, so adding a case is a data-only change.
 ## Expectation schema
 
 `Convert` cases declare `library_references` entries with `id`, `qualified_name` and
-`type`. They verify both array and compact output, with and without legacy stubs.
+`type`. They verify both array and compact output, with and without legacy stubs. A table
+over 150 KiB is committed as `library_references_digest` instead (`sha256 <hex> rows <n>`
+over its rows, one a line), and every other form is held to the table the digest pins.
+`go test ./tests/grpc -run TestGRPCConformance -update-library-references` rewrites both
+forms from the service's response.
 
 | Field | Applies to | Meaning |
 |---|---|---|
@@ -41,6 +45,7 @@ empty else blocks are not authorable.
 | `context_symbol_id` | Evaluate | optional FQN whose scope the expression is evaluated in |
 | `subject_symbol_id` | Evaluate | optional FQN of a part/usage instantiated and evaluated against, so features read its feature values |
 | `symbol_id` | GetSymbol, Instantiate, ExecuteAction, ExecuteState, EvaluateCalc, CheckBehavior | FQN of the subject |
+| `lookup`, `expected_id` | GetSymbol, GetElementProperties | the kind `symbol_id` (`element_id`) is stated to be, `qualified_name` or `element_id` (none sends the legacy single string), and the id the symbol or element is answered under. Every id a GetSymbol answer reports — its own, its `child_ids`, its `members` — is also fetched back as an element id and must answer that id |
 | `arguments` | EvaluateCalc | positional arguments bound to the calc's parameters |
 | `tools` | EvaluateCalc | stand-ins under `internal/exec/analysis/testdata` built and registered from a manifest before the service is built |
 | `inputs` | ExecuteAction | parameter name → value, bound before execution |
@@ -83,6 +88,7 @@ empty else blocks are not authorable.
 | `expected_result` | Evaluate, EvaluateCalc | expected `Value`; a `metaobject` is `"<elementId> : <metaclassId>"`, the element by the id a client keeps for it (qualified name, positional id or the element form's `@id`) |
 | `expected_attribute_names` | GetSymbol | full ordered attribute name list, own then inherited |
 | `expected_kind`, `expected_child_ids` | GetSymbol | the symbol's kind, and the full ordered list of its members' ids: a named member's qualified name, an unnamed one's positional identity (`Owner::@3`), an unnamed connector end's element id (`Owner__c_pend0`), each of which `symbol_id` may name too |
+| `expected_annotating_metadata_ids` | GetSymbol | full ordered list of the ids of the metadata usages annotating the symbol: its own prefix and body ones, then the `about` ones written elsewhere; `[]` requires none |
 | `expected_attributes` | GetSymbol | attribute name → `{type, value_kind, value, unit}`; no `value_kind` requires no value |
 | `expected_members` | GetSymbol | full ordered member list, own then inherited, each `{id, kind, inherited, inherited_from}`; library-inherited members are withheld from it |
 | `min_withheld_library_members` | GetSymbol | the response must count at least this many library-inherited members withheld from `members` |

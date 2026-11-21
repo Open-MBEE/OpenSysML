@@ -210,7 +210,7 @@ func (ctx *Context) refineNestedBelow(inst *Instance, chain []string, sym *symbo
 		valuedChain(pendingRedefinition{rest: chain, sym: sym}) && ctx.chainGovernsValue(sym, bindingDecl(fv.Feature)) {
 		feat := *fv.Feature
 		feat.GovernedByChain = true
-		feat.DefaultValue = nil
+		feat.DefaultValue, feat.DefaultValueID = nil, 0
 		if err := ctx.installFeatureValue(inst, fv, &feat); err != nil {
 			return err
 		}
@@ -233,7 +233,7 @@ func (ctx *Context) refineNestedBelow(inst *Instance, chain []string, sym *symbo
 		if !ok || child.owner != inst || inst.FeatureValues[child.ownerFeature] != fv {
 			continue
 		}
-		if err := ctx.refineChildBelow(inst, child, chain[1:], sym); err != nil {
+		if err := ctx.refineChildBelow(child, chain[1:], sym); err != nil {
 			return err
 		}
 	}
@@ -243,7 +243,7 @@ func (ctx *Context) refineNestedBelow(inst *Instance, chain []string, sym *symbo
 // refineChildBelow applies the rest of a chain reaching below inst's child
 // object: a one-segment rest refines that feature of it, a longer one is
 // carried on the child and reaches the grandchildren it already materialized.
-func (ctx *Context) refineChildBelow(inst, child *Instance, rest []string, sym *symbols.Symbol) error {
+func (ctx *Context) refineChildBelow(child *Instance, rest []string, sym *symbols.Symbol) error {
 	if len(rest) == 1 {
 		cfv := child.FeatureValues[rest[0]]
 		if cfv == nil || cfv.Feature == nil {
@@ -299,7 +299,7 @@ func (ctx *Context) applyPendingToHeld(inst *Instance, fv *FeatureValue, val Val
 			if !ok || child.owner != inst || inst.FeatureValues[child.ownerFeature] != fv {
 				continue
 			}
-			if err := ctx.refineChildBelow(inst, child, p.rest, p.sym); err != nil {
+			if err := ctx.refineChildBelow(child, p.rest, p.sym); err != nil {
 				return err
 			}
 		}

@@ -404,7 +404,7 @@ func isViolation(eval ConcernEvaluator, err error) bool {
 // which exposed elements it is about. It is nil for an absent or untyped
 // subject, and the concern is then evaluated against every exposed element.
 func (m *Model) concernSubjectType(concern *symbols.Symbol) *symbols.Symbol {
-	for _, owner := range append([]*symbols.Symbol{concern}, m.AllSupertypes(concern)...) {
+	for owner := range m.eachSelfAndSupertype(concern) {
 		if owner.Scope == nil {
 			continue
 		}
@@ -437,7 +437,7 @@ func (m *Model) declaredSubjectType(subject *symbols.Symbol) *symbols.Symbol {
 // than passed over, since its concern is about somebody.
 func (m *Model) partyBindings(sym *symbols.Symbol) []PartyBinding {
 	var out []PartyBinding
-	for _, owner := range append([]*symbols.Symbol{sym}, m.AllSupertypes(sym)...) {
+	for owner := range m.eachSelfAndSupertype(sym) {
 		for _, party := range usageMembersOfKind(owner, ast.UsageStakeholder, ast.UsageActor) {
 			out = append(out, m.partyBinding(party, owner))
 		}
@@ -515,7 +515,7 @@ func IsViewpointSatisfy(sat *symbols.Symbol) bool {
 		switch rel.Kind {
 		case ast.RelSubject:
 			return false
-		case ast.RelSubsets, ast.RelTyping:
+		case ast.RelReferences, ast.RelSubsets, ast.RelTyping:
 			names = names || rel.Target != nil
 		}
 	}

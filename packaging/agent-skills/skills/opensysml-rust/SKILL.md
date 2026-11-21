@@ -6,7 +6,7 @@ description: Parse, query, instantiate, execute and verify SysML v2 models from 
 # Using OpenSysML from Rust
 
 `opensysml` is a blocking client for the `sysml-grpc` service; it starts a private one for you and
-pulls in no async runtime, so it is safe to call from inside one. MSRV is Rust 1.83. Reference:
+pulls in no async runtime, so it is safe to call from inside one. MSRV is Rust 1.85. Reference:
 `docs/guide/09-clients.md` (From Rust), `client/rust/README.md` and `docs/reference/rust-api.md` in
 the OpenSysML repository.
 
@@ -109,6 +109,9 @@ verdict. `v.require_evaluated()?` turns an undecided verdict into an `Err`.
   standard-library members are only counted by `withheld_library_members()` unless you look the
   symbol up with `model.symbol_with(fqn, &SymbolOptions { include_library_members: true })`, which
   needs the `symbol_members` capability (`MissingCapability` otherwise).
+- `symbol.annotating_metadata()` returns the metadata usages annotating a symbol (`#M`, `@M` in its
+  body, and `metadata m : M about X;` written elsewhere, which `children()` leaves out), each a
+  `Symbol`; it needs `symbol_annotating_metadata`. `annotating_metadata_ids()` is the id list.
 - Every domain type has `wire()` for a protobuf field the typed surface does not expose yet.
 - Write models with the `sysml-v2-modeling` skill; `sysml -validate` reports the same diagnostics as
   `model.diagnostics()`.

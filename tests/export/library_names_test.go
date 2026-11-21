@@ -24,7 +24,7 @@ const libraryNamesModel = `package L {
 // as the OMG API JSON shape has it, since an ownerless element there is a root
 // a reader would declare anew. The graph (Turtle) still names each one (#731).
 func TestAPIJSONCarriesNoLibraryElements(t *testing.T) {
-	out, err := convert.Convert("l.sysml", []byte(libraryNamesModel), convert.FormatSysML, convert.FormatAPIJSON)
+	out, err := convert.ConvertWith("l.sysml", []byte(libraryNamesModel), convert.FormatSysML, convert.FormatAPIJSON, convert.Options{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -2,6 +2,7 @@ package export
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"strings"
 	"testing"
@@ -21,6 +22,7 @@ const elementFormModel = `package M {
         connect u1.p to u2.p;
         attribute x : ScalarValues::Real = 2.0 + 1.0;
     }
+    part def Lone { attribute broken : Missing; }
 }
 `
 
@@ -179,18 +181,22 @@ func TestElementFormValueKeepsLargeIntegersExact(t *testing.T) {
 // reason, so a reader can tell it from a property that is legitimately empty.
 func TestElementFormRecordsPerElementOmissions(t *testing.T) {
 	form := parseElementForm(t, elementFormModel)
-	a, ok := form.ByQualifiedName("M::P::a")
+	a, ok := form.ByQualifiedName("M::Lone::broken")
 	if !ok {
-		t.Fatal("M::P::a is not in the form")
+		t.Fatal("M::Lone::broken is not in the form")
 	}
 	reason, omitted := form.Omission(a.ID, "inheritedFeature")
 	if !omitted || reason.Category != metamodel.ReasonUnresolvedReference {
-		t.Fatalf("M::P::a.inheritedFeature omission = %v, %v; want an unresolved-reference reason", reason, omitted)
+		t.Fatalf("M::Lone::broken.inheritedFeature omission = %v, %v; want an unresolved-reference reason", reason, omitted)
 	}
 	for _, property := range a.Properties {
 		if property.Name == "inheritedFeature" {
-			t.Fatalf("M::P::a carries inheritedFeature %v and records its omission", property.Value)
+			t.Fatalf("M::Lone::broken carries inheritedFeature %v and records its omission", property.Value)
 		}
+	}
+	typed, _ := form.ByQualifiedName("M::P::a")
+	if _, omitted := form.Omission(typed.ID, "inheritedFeature"); omitted {
+		t.Error("M::P::a.inheritedFeature is carried through its library type, yet an omission is recorded")
 	}
 	pair, _ := form.ByQualifiedName("M::Pair")
 	if _, omitted := form.Omission(pair.ID, "inheritedFeature"); omitted {
@@ -387,5 +393,63 @@ func TestLibraryElementFormWritesAnonymousMembersUnderTheirMintedIDs(t *testing.
 		if element.ID != c.id || element.Metaclass != c.metaclass || element.QualifiedName != "" {
 			t.Errorf("%s reads back as %+v", c.path, element)
 		}
+	}
+}
+
+// A feature chain expression is the `.` operator applied (KerML 1.0 § 8.3.4.8.4), as the pilot
+// exports FeatureChainExpression::operator.
+func TestElementFormFeatureChainExpressionStatesItsOperator(t *testing.T) {
+	form := parseElementForm(t, "package M { part def D { attribute a; } part d : D; attribute x = d.a; }")
+	x, ok := form.ByQualifiedName("M::x")
+	if !ok {
+		t.Fatal("no M::x in the form")
+	}
+	valueID := formReferenceIDs(t, formPropertyOf(t, x, "value"))[0]
+	expression, ok := form.ByID(valueID)
+	if !ok || expression.Metaclass != "FeatureChainExpression" {
+		t.Fatalf("M::x.value %q is %v (%v)", valueID, expression.Metaclass, ok)
+	}
+	if operator := formPropertyOf(t, expression, "operator"); operator != "." {
+		t.Fatalf("operator = %v", operator)
+	}
+}
+
+// The ReferenceUsage a flow's end owns is named by the feature it redefines (KerML 1.1 §8.3.3.3.4
+// Feature::namingFeature) and varies in time, owned by an Occurrence-typed end, as the pilot exports it.
+func TestElementFormFlowEndFeatureIsNamedByItsRedefinedFeatureAndVaries(t *testing.T) {
+	form := parseElementForm(t, "package M { item def Photon; part def A { out x : Photon; } part def B { in y : Photon; } part a : A; part b : B; flow f from a.x to b.y; }")
+	f, ok := form.ByQualifiedName("M::f")
+	if !ok {
+		t.Fatal("no M::f in the form")
+	}
+	var names []string
+	for _, endID := range formReferenceIDs(t, formPropertyOf(t, f, "connectorEnd")) {
+		end, ok := form.ByID(endID)
+		if !ok || end.Metaclass != "FlowEnd" {
+			t.Fatalf("M::f connectorEnd %q is %v (%v)", endID, end.Metaclass, ok)
+		}
+		for _, membershipID := range formReferenceIDs(t, formPropertyOf(t, end, "ownedFeatureMembership")) {
+			membership, ok := form.ByID(membershipID)
+			if !ok {
+				t.Fatalf("no %q in the form", membershipID)
+			}
+			feature, ok := form.ByID(formReferenceIDs(t, formPropertyOf(t, membership, "memberElement"))[0])
+			if !ok || feature.Metaclass != "ReferenceUsage" {
+				t.Fatalf("%s's member is %v (%v)", membershipID, feature.Metaclass, ok)
+			}
+			if name := formPropertyOf(t, feature, "name"); name != formPropertyOf(t, membership, "memberName") {
+				t.Errorf("name %v, memberName %v", name, formPropertyOf(t, membership, "memberName"))
+			}
+			if declared := formPropertyOf(t, feature, "declaredName"); declared != nil {
+				t.Errorf("%s declares the name %v", feature.ID, declared)
+			}
+			if formPropertyOf(t, feature, "isVariable") != true || formPropertyOf(t, feature, "mayTimeVary") != true {
+				t.Errorf("isVariable %v, mayTimeVary %v", formPropertyOf(t, feature, "isVariable"), formPropertyOf(t, feature, "mayTimeVary"))
+			}
+			names = append(names, fmt.Sprint(formPropertyOf(t, membership, "memberName")))
+		}
+	}
+	if got := strings.Join(names, " "); got != "x y" {
+		t.Fatalf("flow end features = %q, want \"x y\"", got)
 	}
 }

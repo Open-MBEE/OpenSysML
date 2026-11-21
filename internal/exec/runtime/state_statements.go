@@ -240,7 +240,7 @@ func (h *stateStmtHost) run() error {
 		engine := newStmtEngineOver(h.exec.ctx, h, h.dataFrame(), h.attrs)
 		engine.env.perf = h.perfs.root
 		return engine
-	}, h.behavior.Body)
+	}, h.exec.graph.Exprs, h.behavior.Body)
 	return h.ended(err)
 }
 
@@ -510,6 +510,9 @@ func (h *stateStmtHost) performer() *Instance {
 func (h *stateStmtHost) occurrence() *Instance {
 	return h.exec.occurrence
 }
+
+// caseAssertions is nil: a state behavior is no step of a case's own flow.
+func (h *stateStmtHost) caseAssertions() *caseAssertions { return nil }
 
 // materializeOccurrence defers to the executor's.
 func (h *stateStmtHost) materializeOccurrence() (*Instance, error) {

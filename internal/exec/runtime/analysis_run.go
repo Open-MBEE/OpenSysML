@@ -231,7 +231,7 @@ func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbo
 	var run *calcRun
 	if asUsage {
 		// A run is requested, not a read: an input the usage leaves open refuses it.
-		if run, err = ctx.calcUsageRun(reader, sym); err == nil && run.open != "" {
+		if run, err = ctx.caseUsageRun(reader, sym); err == nil && run.open != "" {
 			run, err = nil, shape.unboundParameter(run.open)
 		}
 	} else {
@@ -344,6 +344,7 @@ func (ctx *Context) analysisRun(shape *loadedCalc, reader *EvalContext, calcArgs
 		return nil, err
 	}
 	start.deferResults = deferResults
+	start.judgeAssertions()
 	return ctx.runCalcUsage(start)
 }
 
@@ -427,8 +428,8 @@ func (run *calcRun) outputValues(ctx *Context) ([]CalcOutputValue, error) {
 	return values, nil
 }
 
-// analysisVerdicts checks the case's objectives and assertions against the
-// values its run bound: its parameters, its locals and its outputs.
+// analysisVerdicts checks the case's objectives and unordered assertions against
+// the values its run bound; an assertion the flow orders is reported as judged there.
 func (ctx *Context) analysisVerdicts(run *calcRun, sym *symbols.Symbol, scope *symbols.Scope) []AnalysisVerdict {
 	bindings := run.bindingsFrame(ctx)
 	var verdicts []AnalysisVerdict
@@ -451,18 +452,43 @@ func (ctx *Context) analysisVerdicts(run *calcRun, sym *symbols.Symbol, scope *s
 		verdict.Symbol = obj.Symbol
 		verdicts = append(verdicts, verdict)
 	}
-	for _, cond := range ctx.CaseConditionsOf(sym, scope) {
-		if !cond.Required {
-			continue
+	check := conditionCheck{
+		sym: sym, kind: run.shape.Kind, what: "assertion",
+		element: run.shape.Name, self: run.self, bindings: bindings,
+	}
+	for _, cond := range ctx.appendResultConflict(nil, sym, true) {
+		if cond.Required {
+			verdicts = append(verdicts, ctx.assertionVerdict(check, cond))
 		}
-		check := conditionCheck{
-			sym: sym, kind: run.shape.Kind, what: "assertion",
-			element: run.shape.Name, self: run.self, bindings: bindings,
+	}
+	if scope == nil {
+		scope = sym.OwnerScope
+	}
+	for _, member := range ctx.chainMembers(sym, scope) {
+		judged, reached, ordered := run.positionalAssertions(member.node)
+		conds := ctx.requiredCaseConditions(member)
+		switch {
+		case reached:
+			verdicts = append(verdicts, judged...)
+		case ordered:
+			for _, cond := range conds {
+				name, named := assertionName(cond)
+				verdicts = append(verdicts, AnalysisVerdict{
+					Kind: "assertion", Name: name, Symbol: named,
+					Status: VerdictUndecided, Detail: unreachedAssertion,
+				})
+			}
+			if empty, ok := ctx.emptyAssertion(member, len(conds), unreachedAssertion); ok {
+				verdicts = append(verdicts, empty)
+			}
+		default:
+			for _, cond := range conds {
+				verdicts = append(verdicts, ctx.assertionVerdict(check, cond))
+			}
+			if empty, ok := ctx.emptyAssertion(member, len(conds), ""); ok {
+				verdicts = append(verdicts, empty)
+			}
 		}
-		name, named := assertionName(cond)
-		verdict := ctx.analysisVerdict("assertion", name, check, []Condition{cond})
-		verdict.Symbol = named
-		verdicts = append(verdicts, verdict)
 	}
 	return verdicts
 }
@@ -636,7 +662,7 @@ func (ctx *Context) analysisChecks(sym *symbols.Symbol) bool {
 // names it. The symbol is the named constraint, nil when there is none.
 func assertionName(cond Condition) (string, *symbols.Symbol) {
 	for i := len(cond.Constraints) - 1; i >= 0; i-- {
-		if c := cond.Constraints[i]; c.Name != "" {
+		if c := cond.Constraints[i]; c.Named() {
 			return c.Name, c
 		}
 	}

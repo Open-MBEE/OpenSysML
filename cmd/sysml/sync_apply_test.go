@@ -235,11 +235,11 @@ func sparqlResultsOf(g *rdf.Graph) map[string]any {
 			return map[string]string{"type": "uri", "value": t.Value}
 		}
 		out := map[string]string{"type": "literal", "value": t.Value}
-		if t.Datatype != "" {
-			out["datatype"] = t.Datatype
+		if t.Datatype() != "" {
+			out["datatype"] = t.Datatype()
 		}
-		if t.Lang != "" {
-			out["xml:lang"] = t.Lang
+		if t.Lang() != "" {
+			out["xml:lang"] = t.Lang()
 		}
 		return out
 	}

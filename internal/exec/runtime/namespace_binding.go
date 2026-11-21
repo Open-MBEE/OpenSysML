@@ -24,7 +24,10 @@ import (
 // binding joins (its equivalence class) and which usages subset a namespace
 // usage, both in document-name then declaration order.
 type namespaceModelIndex struct {
-	subsetters  map[*symbols.Symbol][]*symbols.Symbol
+	subsetters map[*symbols.Symbol][]*symbols.Symbol
+	// reaching is, per namespace usage, the subsetters of a feature reached through a
+	// chain starting at it (subsetting_reaching.go).
+	reaching    map[*symbols.Symbol][]reachingSubsetter
 	classes     map[*symbols.Symbol]*namespaceClass
 	memberDecls map[ast.Node]*symbols.Symbol
 }
@@ -54,6 +57,7 @@ func (ctx *Context) namespaceModelIndex() *namespaceModelIndex {
 	}
 	out := &namespaceModelIndex{
 		subsetters:  make(map[*symbols.Symbol][]*symbols.Symbol),
+		reaching:    make(map[*symbols.Symbol][]reachingSubsetter),
 		classes:     make(map[*symbols.Symbol]*namespaceClass),
 		memberDecls: make(map[ast.Node]*symbols.Symbol),
 	}
@@ -95,9 +99,11 @@ func (ctx *Context) namespaceModelIndex() *namespaceModelIndex {
 					out.subsetters[target] = append(out.subsetters[target], member)
 				}
 			}
+			ctx.indexNamespaceReaching(out, member, nil)
 			return true
 		})
 		for _, binding := range lower.NamespaceBindings(scope) {
+			binding.Intern(ctx.model.exprs)
 			var class *namespaceClass
 			for end := range binding.Ends {
 				if u, ok := ctx.namespaceEndUsage(binding, end); ok {
@@ -285,7 +291,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 			continue
 		}
 		ctx.namespaceChainReads[class] = true
-		val, err := newEvalContext(ctx, src.binding.Scope).Eval(src.binding.Ends[src.end].Expr)
+		val, err := newEvalContext(ctx, src.binding.Scope).reading(ctx.model.exprs).evalPayload(src.binding.Ends[src.end].ExprID)
 		delete(ctx.namespaceChainReads, class)
 		if err != nil {
 			return nil, true, err

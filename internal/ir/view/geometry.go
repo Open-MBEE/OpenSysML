@@ -247,9 +247,9 @@ func (r *Renderer) memberGeometryOf(view, owner *symbols.Symbol, name string, ou
 // memberDress gives node the Style of, and adds the Notes anchored to, the
 // member owner has under name in view, resolved as memberGeometryOf resolves
 // its Layout.
-func (r *Renderer) memberDress(view, owner *symbols.Symbol, name string, node *Node, out *Rendering) *Node {
+func (r *Renderer) memberDress(view, owner *symbols.Symbol, name string, node *Node, out *Rendering) {
 	if owner == nil {
-		return node
+		return
 	}
 	if site, ok := r.model.MemberStyleOf(view, owner, name); ok {
 		r.noteLayoutProblems(site, owner, out)
@@ -258,7 +258,6 @@ func (r *Renderer) memberDress(view, owner *symbols.Symbol, name string, node *N
 		}
 	}
 	r.memberNotesOf(view, owner, name, node.ID, out)
-	return node
 }
 
 // memberNotesOf adds to out the Notes about the member owner has under name in
@@ -350,11 +349,11 @@ func annotatable(sym *symbols.Symbol) bool {
 
 // qualifiedName reports whether sym and every owner up to its document declare a name.
 func qualifiedName(sym *symbols.Symbol) bool {
-	if sym.Name == "" {
+	if !sym.Named() {
 		return false
 	}
 	for scope := sym.OwnerScope; scope != nil && scope.Owner() != nil; scope = scope.Owner().OwnerScope {
-		if scope.Owner().Name == "" {
+		if !scope.Owner().Named() {
 			return false
 		}
 	}

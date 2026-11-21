@@ -23,6 +23,10 @@ const CodeNonstandardNotation = "nonstandard-notation"
 // SysML grammar admits it nowhere.
 const CodeKerMLNotation = "kerml-notation"
 
+// CodeTypingKeyword marks a typing a SysML file spells `typed by`, which
+// SysML spells `:` or `defined by`; analysis rejects it in every mode.
+const CodeTypingKeyword = "typing-keyword"
+
 // CodeSysMLNotation marks SysML notation used in a KerML file, which the pinned
 // KerML grammar admits nowhere.
 const CodeSysMLNotation = "sysml-notation"
@@ -98,9 +102,6 @@ type notationWalker struct {
 	// one-name `then <target>;` is a target transition rather than a target
 	// succession (SysML.xtext TargetTransitionUsage).
 	inStateBody bool
-	// inViewDefBody records that the body being walked is a ViewDefinitionBody
-	// (SysML.xtext ViewDefinitionBodyItem), which admits no Expose.
-	inViewDefBody bool
 	// inKerMLDeclaration counts the enclosing declarations already reported as
 	// KerML notation; their members move with them, so are not reported again.
 	inKerMLDeclaration int
@@ -194,7 +195,6 @@ func (w *notationWalker) walk(members []ast.Node) {
 			w.walkDeclaration(n.Members, n)
 			w.leaveKerMLDeclaration(reported)
 		case *ast.Import:
-			w.expose(n)
 			w.stateActivityImport(n)
 			w.walk(n.Body)
 		// An alias and a named multiplicity are the remaining members that parse
@@ -262,25 +262,24 @@ func (w *notationWalker) walk(members []ast.Node) {
 // walkDeclaration walks the body of a declaration under the body kind that
 // declaration opens.
 func (w *notationWalker) walkDeclaration(members []ast.Node, declaration ast.Node) {
-	action, viewDef, state := w.inActionBody, w.inViewDefBody, w.inStateBody
+	action, state := w.inActionBody, w.inStateBody
 	w.inActionBody = admitsActionBodyItems(declaration)
-	w.inViewDefBody = isViewDefinition(declaration)
 	w.inStateBody = isStateDeclaration(declaration)
 	w.bodies = append(w.bodies, bodyFrame{members: members})
 	w.walk(members)
 	w.bodies = w.bodies[:len(w.bodies)-1]
-	w.inActionBody, w.inViewDefBody, w.inStateBody = action, viewDef, state
+	w.inActionBody, w.inStateBody = action, state
 }
 
 // walkPackageMembers walks a namespace or package body, the member lists a fix
 // may add an import to; such a body admits no action or state items.
 func (w *notationWalker) walkPackageMembers(members []ast.Node) {
-	action, viewDef, state := w.inActionBody, w.inViewDefBody, w.inStateBody
-	w.inActionBody, w.inViewDefBody, w.inStateBody = false, false, false
+	action, state := w.inActionBody, w.inStateBody
+	w.inActionBody, w.inStateBody = false, false
 	w.bodies = append(w.bodies, bodyFrame{members: members, namespaceish: true})
 	w.walk(members)
 	w.bodies = w.bodies[:len(w.bodies)-1]
-	w.inActionBody, w.inViewDefBody, w.inStateBody = action, viewDef, state
+	w.inActionBody, w.inStateBody = action, state
 }
 
 // walkActionBody walks the body of an action node, which is an ActionBody
@@ -289,15 +288,10 @@ func (w *notationWalker) walkActionBody(members []ast.Node) {
 	if len(members) == 0 {
 		return
 	}
-	action, viewDef := w.inActionBody, w.inViewDefBody
-	w.inActionBody, w.inViewDefBody = true, false
+	action := w.inActionBody
+	w.inActionBody = true
 	w.walk(members)
-	w.inActionBody, w.inViewDefBody = action, viewDef
-}
-
-func isViewDefinition(node ast.Node) bool {
-	def, ok := node.(*ast.Definition)
-	return ok && def.Kind == ast.DefView
+	w.inActionBody = action
 }
 
 // walkStateBody walks a state body's members, where a one-name `then
@@ -306,10 +300,10 @@ func (w *notationWalker) walkStateBody(members []ast.Node) {
 	if len(members) == 0 {
 		return
 	}
-	action, viewDef, state := w.inActionBody, w.inViewDefBody, w.inStateBody
-	w.inActionBody, w.inViewDefBody, w.inStateBody = false, false, true
+	action, state := w.inActionBody, w.inStateBody
+	w.inActionBody, w.inStateBody = false, true
 	w.walk(members)
-	w.inActionBody, w.inViewDefBody, w.inStateBody = action, viewDef, state
+	w.inActionBody, w.inStateBody = action, state
 }
 
 // isStateDeclaration reports whether the declaration opens a state body.
@@ -445,16 +439,6 @@ func isBehaviorUsage(kind ast.UsageKind) bool {
 		return true
 	}
 	return false
-}
-
-// expose reports an `expose` in a view def body: Expose is a ViewBodyItem alone
-// (SysML.xtext), and every other body rejects it in the parser.
-func (w *notationWalker) expose(n *ast.Import) {
-	if !w.inViewDefBody || !n.IsExpose {
-		return
-	}
-	w.extension(keywordSpan(n, "expose"), "`expose` in a view def body",
-		"only a view usage body admits Expose; a view def body states what it renders and filters")
 }
 
 // stateActivityImport reports an import of the StateActivity extension library:
@@ -672,15 +656,15 @@ func (w *notationWalker) stateMachinesImport(metadata string) (diag.Edit, bool) 
 	return diag.Edit{}, false
 }
 
-// kermlNamespace reports a `namespace` declaration in a SysML file, whose root
-// production admits package members only.
+// kermlNamespace rejects a `namespace` declaration in a SysML file in every mode:
+// no SysML production declares one (SysML 8.2.2.5.1 RootNamespace, 8.2.2.5.2).
 func (w *notationWalker) kermlNamespace(n *ast.Namespace) {
-	if !w.sysml || w.inKerMLDeclaration > 0 {
+	if !w.sysml {
 		return
 	}
 	w.diags = append(w.diags, diag.Diagnostic{
-		Severity: w.severity,
-		Span:     keywordSpan(n, "namespace"),
+		Severity: diag.SeverityError,
+		Span:     w.declarationKeywordSpan(n, "namespace"),
 		Message: "`namespace` is KerML notation: the SysML v2 grammar has no namespace declaration, " +
 			"so write `package` here or move the declaration to a .kerml file",
 		Code:   CodeKerMLNotation,
@@ -768,16 +752,16 @@ func (w *notationWalker) typedByRelationships(rels []*ast.Relationship) {
 	}
 }
 
-// typedBy reports a typing spelled `typed by` in a SysML file (SysML.xtext:395 admits
-// `:` and `defined by`; KerML.xtext:600 `typed by`); the fix rewrites the keyword alone.
+// typedBy rejects a typing spelled `typed by` in a SysML file (SysML v2 8.2.2.1.2 DEFINED_BY,
+// 8.2.2.6.5 TypedBy; KerML 8.2.2.7 TYPED_BY); the fix rewrites the keyword alone.
 func (w *notationWalker) typedBy(span source.Span) {
 	w.typedByReported++
 	w.diags = append(w.diags, diag.Diagnostic{
-		Severity: w.severity,
+		Severity: diag.SeverityError,
 		Span:     span,
 		Message: "`typed by` is KerML notation: the SysML v2 grammar spells a typing `:` or `defined by`, " +
 			"so write `defined by`",
-		Code:   CodeKerMLNotation,
+		Code:   CodeTypingKeyword,
 		Source: "syntax",
 		Fixes: []diag.Fix{{
 			Title:     "Write `defined by`",
@@ -834,11 +818,8 @@ func isKerMLOnlyDeclarationKeyword(keyword string) bool {
 	return source.IsKeywordIn(word, source.KindKerML) && !source.IsKeywordIn(word, source.KindSysML)
 }
 
-// kermlDeclaration reports a declaration whose keyword is KerML notation in a
-// SysML file — `connector`, `class`, `feature`, `inv`, … — and reports whether
-// it did, so the walk can withhold the findings its members would repeat. The
-// declaration stays parsed for editor and analysis consumers; no fix rewrites
-// it, since a keyword swap changes the declared kind.
+// kermlDeclaration reports a KerML-only declaration keyword in a SysML file as an error in either
+// mode (SysML v2 §8.2.2.1.2), and whether it did, so the walk withholds what its members would repeat.
 func (w *notationWalker) kermlDeclaration(n ast.Node, keyword string) bool {
 	if !w.sysml || w.inKerMLDeclaration > 0 || keyword == "" || !isKerMLOnlyDeclarationKeyword(keyword) {
 		return false
@@ -848,7 +829,7 @@ func (w *notationWalker) kermlDeclaration(n ast.Node, keyword string) bool {
 		remedy = "write " + alternative + " here or " + remedy
 	}
 	w.diags = append(w.diags, diag.Diagnostic{
-		Severity: w.severity,
+		Severity: diag.SeverityError,
 		Span:     w.declarationKeywordSpan(n, keyword),
 		Message: fmt.Sprintf("`%s` is KerML notation: the SysML v2 grammar has no %s declaration, so %s",
 			keyword, keyword, remedy),

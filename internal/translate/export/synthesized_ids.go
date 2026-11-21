@@ -40,6 +40,9 @@ func SynthesizedElementID(sym *symbols.Symbol, ownerID func(*symbols.Symbol) str
 	case symbols.ExpressionBody:
 		return rdf.ExpressionNodeID(owner, "body"), true
 	case symbols.ExpressionBodyResult:
+		if part.Owner.Expr == nil {
+			return "", false // a definition's or usage's result is written as the member stating it
+		}
 		return rdf.ExpressionNodeID(owner, "result"), true
 	case symbols.ExpressionChainFeature:
 		if part.Slot == "" {
@@ -56,6 +59,8 @@ func SynthesizedElementID(sym *symbols.Symbol, ownerID func(*symbols.Symbol) str
 		return owner + transitionSuccessionSuffix, true
 	case symbols.ExpressionTransitionLinkParameter:
 		return owner + "_" + transitionLinkParameterSlots[part.Index], true
+	case symbols.ExpressionTransitionLink:
+		return owner + transitionLinkSuffix, true
 	}
 	return "", false
 }
@@ -67,12 +72,13 @@ func memberElementID(owner, segment string) string {
 }
 
 // SynthesizedElementOwner decodes the id of an element the conversion mints off its owner's with a suffix
-// of its own — a transition's succession and link parameters — into the owner's qualified name.
+// of its own — a transition's succession, link parameters and transitionLink — into the owner's qualified name.
 func SynthesizedElementOwner(id string) (string, bool) {
 	for _, suffix := range []string{
 		transitionSuccessionSuffix,
 		"_" + transitionLinkParameterSlots[0],
 		"_" + transitionLinkParameterSlots[1],
+		transitionLinkSuffix,
 	} {
 		if prefix, found := strings.CutSuffix(id, suffix); found {
 			return rdf.DecodeElementID(prefix)

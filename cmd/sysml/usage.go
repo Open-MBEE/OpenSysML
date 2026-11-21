@@ -479,6 +479,8 @@ func doc() usage.Doc {
 					"routing. Under ortho the DOT form lays the drawing out itself, with " +
 					"Graphviz's dot (OPENSYSML_DOT, else PATH) or on a grid, and routes every " +
 					"edge to its port, writing a positioned graph for neato -n2 to draw. " +
+					"-render-direction names the direction a graph-shaped form flows in: TB, LR, " +
+					"RL or BT. " +
 					"A DiagramLayout Style on a member colours it over " +
 					"either look, and a Note is drawn beside the member it is about. " +
 					"A view whose members carry DiagramLayout positions draws the placed " +
@@ -614,7 +616,9 @@ func doc() usage.Doc {
 				usage.Entry("3", "Part of what was asked was carried out: a -render-documents set "+
 					"in which some document could not be rendered. The others were "+
 					"written, a page stating the error stands in for each that was not, "+
-					"and each failure is reported with the document's qualified name."),
+					"and each failure is reported with the document's qualified name. "+
+					"Or a -migrate that wrote the output and report but nothing of the "+
+					"model, none of its elements being mapped or approximated."),
 			},
 		}, {
 			Title: "Output streams",
@@ -689,6 +693,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&modelChecks.recordInto, "record-into", "", "Record -record-run runs into this package instead of a Records package beside the case's")
 	fs.Var(queryFlag{queries: &modelChecks.queries}, "run-query", "Execute this document query and report its rows, as -run-query \"Heavy root=telescope\" (repeatable)")
 	fs.Var(queryFlag{queries: &modelChecks.queries, inline: true}, "run-inline-query", "Execute this query expression — the body of a document query, written in place — and report its rows, as -run-inline-query 'Project(WhereType(Descendants(Named(\"Vehicles\")), \"PartUsage\"), (\"name\", \"mass\"))' (repeatable)")
+	fs.StringVar(&asViewPath, "as-view", "", "Write the answer of each -run-query, -run-inline-query or -query into this file as a QVTS::QueryResult view, or with - print it in place of the rows: the selected elements exposed, or a path or model error's frontier and finding elements, with the query, source, outcome and provenance")
 	fs.Var(&modelChecks.instantiate, "instantiate", "Create an object of this definition or usage before the checks, so a verdict is about it (repeatable)")
 	fs.BoolVar(&modelChecks.jsonOut, "json", false, "Report checks as one JSON document rather than as lines")
 	fs.StringVar(&modelChecks.format, "format", "", "Report checks as text, json, sarif or junit; json is -json, and sarif (SARIF 2.1.0) and junit (JUnit XML) carry -validate's diagnostics to a CI service")
@@ -730,6 +735,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&convertFormat, "convert", "", convertUsage())
 	fs.StringVar(&libraryReferencesPath, "library-references", "", "With -convert api-json, write the referenced standard-library name table to this JSON side file; the element array stays unchanged")
 	fs.BoolVar(&includeLibraryStubs, "include-library-stubs", false, "With -convert api-json, restore pre-0.11.0 ownerless library stubs for legacy readers (default off)")
+	fs.BoolVar(&inheritedMembers, "inherited-members", false, "With -convert api-json, also write on every Namespace and Type the derived lists that repeat its inherited and imported members (membership, member, inheritedMembership, importedMembership, featureMembership, feature, inheritedFeature); off, an element carries its owned structure (default off)")
 	fs.BoolVar(&keepLineBreaks, "keep-line-breaks", false, "With -convert sysml or kerml, keep the author's line breaks and fix indentation and spacing only, instead of laying statements out one per line (default off)")
 	fs.StringVar(&fromFormat, "from", "", fromUsage())
 	fs.Var(&dataImports, "import", "Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row per element, before -convert writes the model; an element column names the element and each other column a feature, as `mass [kg]` (repeatable)")
@@ -754,6 +760,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderLink, "render-link", "", "Source link template for -render, -render-all, -render-document, -render-documents and -render-run. Placeholders: {file}, {line}, {col}, {qname}, {id}; {file} is the path as loaded (use absolute paths for vscode:// or file:// links)")
 	fs.StringVar(&renderStyle, "render-style", "", "Drawing style of the dot or mermaid form: pilot (default), the Pilot visualizer's black and white, or cameo, the look of Cameo Systems Modeler; applies to -render, -render-all and document diagrams")
 	fs.StringVar(&renderLines, "render-lines", "", "How the dot or plantuml form of -render or -render-all routes its edges: splines (default), each engine's curved routing, ortho, axis-parallel segments (the dot form laid out with Graphviz's dot, OPENSYSML_DOT else PATH, or on a grid, and routed to its ports for neato -n2 to draw), or polyline, straight segments; the Pilot visualizer's ORTHOLINE and POLYLINE styles. Mermaid and D2 note the routing as not represented")
+	fs.StringVar(&renderDirection, "render-direction", "", "Direction a graph-shaped form of -render or -render-all flows in: TB, top to bottom, LR, left to right, RL or BT; unset leaves each kind's default. Mermaid, DOT and D2 draw all four, PlantUML notes RL and BT as not represented, draw.io keeps its positions, text and the tables ignore it")
 	fs.StringVar(&renderPorts, "render-ports", "", "How much of a part's ports -render or -render-all draws on an interconnection or mixed rendering: minimal (default), the ports its interconnection edges end at, each a small square on the part's border named beside it, or full, every port, labelled name : Type")
 	fs.StringVar(&renderShow, "render-show", "", "Optional notation elements -render, -render-all and document diagrams draw besides the default (port symbols, compartments and keywords), comma-separated: parameter-symbols, port-symbols, compartments, edge-labels, keywords, multiplicities, typings, qualifiers, or all; a view's own rendering adds its elements too")
 	fs.IntVar(&renderDepth, "render-depth", 0, "How many levels of nested elements -render and -render-all draw below each exposed element of a tree or interconnection rendering, overriding the depth the view states; 0 (default) draws every level the view's own depth allows")
@@ -818,6 +825,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("record-into", "<package>"),
 			usage.Opt("run-query", "<query>"),
 			usage.Opt("run-inline-query", "<expression>"),
+			usage.Opt("as-view", fileArg),
 			usage.Opt("instantiate", nameArg),
 			usage.Opt("json", ""),
 			usage.Opt("format", "<format>"),
@@ -866,6 +874,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("convert", formatArg),
 			usage.Opt("library-references", fileArg),
 			usage.Opt("include-library-stubs", ""),
+			usage.Opt("inherited-members", ""),
 			usage.Opt("keep-line-breaks", ""),
 			usage.Opt("stdlib", ""),
 			usage.Opt("metaclass-graph", ""),
@@ -912,6 +921,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("render-style", "<style>"),
 			usage.Opt("render-ports", "<display>"),
 			usage.Opt("render-lines", "<routing>"),
+			usage.Opt("render-direction", "<direction>"),
 			usage.Opt("render-show", "<elements>"),
 			usage.Opt("render-depth", "<levels>"),
 			usage.Opt("render-overlay", "<overlay>"),

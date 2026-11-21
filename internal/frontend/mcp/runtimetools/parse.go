@@ -1,6 +1,7 @@
 package runtimetools
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"maps"
@@ -28,6 +29,8 @@ type SymbolInput struct {
 	SymbolID              string `json:"symbolId" jsonschema:"the element's qualified name, as Demo::Vehicle::mass"`
 	IncludeLibraryMembers bool   `json:"includeLibraryMembers,omitempty" jsonschema:"list the members inherited from standard-library content too, which are otherwise withheld and counted"`
 	ResolveName           bool   `json:"resolveName,omitempty" jsonschema:"resolve symbolId as a qualified name from the root namespace as the notation does: through imports, an alias answered by the element it names, a member not visible from outside its namespace not found; otherwise symbolId is an id the service reported"`
+	Lookup                string `json:"lookup,omitempty" jsonschema:"what symbolId is, stated rather than guessed: LOOKUP_KIND_QUALIFIED_NAME reads it only as a qualified name, LOOKUP_KIND_ELEMENT_ID only as an id an answer reported (a childIds or members entry, a positional id as Owner::@3, an unnamed connector end's id); empty reads a name first, then an id; resolveName is ignored once it is stated"`
+	MemberOf              string `json:"memberOf,omitempty" jsonschema:"the type the element is read as a feature of, as Demo::Vehicle::fuelPort: the direction reported is then the one relative to that type, which a conjugated port typing reverses"`
 }
 
 // ElementPropertiesInput names an element and the metamodel properties to read.
@@ -35,6 +38,19 @@ type ElementPropertiesInput struct {
 	ModelInput
 	ElementID  string   `json:"elementId" jsonschema:"the element: a qualified name (Demo::Vehicle::mass), the positional id of an unnamed member (Demo::Vehicle::@2), or the id an earlier answer's element value carried, a standard-library element's included"`
 	Properties []string `json:"properties,omitempty" jsonschema:"the properties to read by their KerML/SysML specification names, as inheritedFeature, connectorEnd, isComposite; empty reads every property the element carries"`
+	Lookup     string   `json:"lookup,omitempty" jsonschema:"what elementId is, stated rather than guessed: LOOKUP_KIND_QUALIFIED_NAME reads it only as a qualified name, LOOKUP_KIND_ELEMENT_ID only as an id an answer reported (a childIds or members entry, a positional id as Owner::@3, an unnamed connector end's id); empty reads a name first, then an id"`
+}
+
+// lookupKind reads a tool's lookup argument, spelled as protojson spells LookupKind.
+func lookupKind(lookup string) (pb.LookupKind, error) {
+	if lookup == "" {
+		return pb.LookupKind_LOOKUP_KIND_UNSPECIFIED, nil
+	}
+	kind, ok := pb.LookupKind_value[lookup]
+	if !ok {
+		return 0, argumentError("unknown lookup %q: give LOOKUP_KIND_QUALIFIED_NAME or LOOKUP_KIND_ELEMENT_ID", lookup)
+	}
+	return pb.LookupKind(kind), nil
 }
 
 func (g *group) registerParse(s *mcp.Server) {
@@ -75,7 +91,7 @@ func (g *group) registerParse(s *mcp.Server) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "symbol",
-		Description: "Describe one element of a parsed model by qualified name (the GetSymbol RPC): its kind, metadata, children, " +
+		Description: "Describe one element of a parsed model by qualified name or, with lookup, by a reported id (the GetSymbol RPC): its kind, metadata, children, " +
 			"members (own, then inherited with the type each comes from; standard-library ones withheld unless asked for), " +
 			"attributes with their declared values, static type facts, multiplicity and specializations. An unknown name answers with " +
 			"`error` set rather than failing. The result is the SymbolResponse as protojson writes it.",
@@ -85,9 +101,13 @@ func (g *group) registerParse(s *mcp.Server) {
 		if err != nil {
 			return nil, nil, err
 		}
+		lookup, err := lookupKind(in.Lookup)
+		if err != nil {
+			return nil, nil, err
+		}
 		resp, err := g.svc.GetSymbol(ctx, &pb.GetSymbolRequest{
 			ModelHash: m.hash, SymbolId: in.SymbolID, IncludeLibraryMembers: in.IncludeLibraryMembers,
-			ResolveName: in.ResolveName,
+			ResolveName: in.ResolveName, Lookup: lookup, MemberOf: in.MemberOf,
 		})
 		if err != nil {
 			return nil, nil, toolError(err)
@@ -103,15 +123,20 @@ func (g *group) registerParse(s *mcp.Server) {
 			"the positional id of an unnamed member (Owner::@2) or by the id an earlier answer's element value carried, which walks the " +
 			"model and into the standard library; empty properties reads every property the element carries. A property the metaclass " +
 			"does not declare, or OpenSysML does not derive for the element, answers `unsupported` with the reason. An unknown element " +
-			"answers with `error` set rather than failing. The result is the GetElementPropertiesResponse as protojson writes it.",
+			"answers with `error` set rather than failing. A document with a syntax error, or one declaring a name an earlier document declares, " +
+			"is left out and listed in `excludedDocuments`; only its own elements answer its error. The result is the GetElementPropertiesResponse as protojson writes it.",
 		Annotations: toolkit.ReadOnly("Read element properties"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in ElementPropertiesInput) (*mcp.CallToolResult, Result, error) {
 		m, err := g.resolve(ctx, in.ModelInput)
 		if err != nil {
 			return nil, nil, err
 		}
+		lookup, err := lookupKind(in.Lookup)
+		if err != nil {
+			return nil, nil, err
+		}
 		resp, err := g.svc.GetElementProperties(ctx, &pb.GetElementPropertiesRequest{
-			ModelHash: m.hash, ElementId: in.ElementID, Properties: in.Properties,
+			ModelHash: m.hash, ElementId: in.ElementID, Properties: in.Properties, Lookup: lookup,
 		})
 		if err != nil {
 			return nil, nil, toolError(err)
@@ -178,13 +203,13 @@ func symbolText(resp *pb.SymbolResponse) string {
 	}
 	if ti := sym.GetTypeInfo(); ti != nil && ti.GetDeclared() != "" {
 		fmt.Fprintf(&b, "type: %s", ti.GetDeclared())
-		if ti.GetResolvedId() != "" && ti.GetResolvedId() != ti.GetDeclared() {
-			fmt.Fprintf(&b, " (%s)", ti.GetResolvedId())
+		if resolved := cmp.Or(ti.GetResolvedQualifiedName(), ti.GetResolvedId()); resolved != "" && resolved != ti.GetDeclared() {
+			fmt.Fprintf(&b, " (%s)", resolved)
 		}
 		b.WriteByte('\n')
 	}
 	for _, sp := range sym.GetSpecializations() {
-		fmt.Fprintf(&b, "%s %s\n", sp.GetKind(), sp.GetTargetId())
+		fmt.Fprintf(&b, "%s %s\n", sp.GetKind(), cmp.Or(sp.GetTargetQualifiedName(), sp.GetTargetId()))
 	}
 	for _, a := range sym.GetAttributes() {
 		if a.GetValue() != nil {

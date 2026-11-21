@@ -165,7 +165,7 @@ a regression — re-fetch before re-recording anything.
 |---|---|
 | OMG training corpus | **100/100 clean** — asserted, not ratcheted: no file reports a semantic error |
 | OMG pilot corpora (ratchet) | 213 files; 16 report a diagnostic — 3 of 58 KerML examples, 11 of 99 SysML examples, 2 of 56 validation files — each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
-| Stdlib parser conformance | 110/110 clean — 94 vendored OMG files and 16 non-normative OpenSysML extensions |
+| Stdlib parser conformance | 112/112 clean — 94 vendored OMG files and 18 non-normative OpenSysML extensions |
 | Execution conformance cases | 1790, all run and pass, none skipped [1569] |
 | Known execution-conformance failures | **0** — `known_failures.txt` holds no case |
 | Cases admitting several outcomes | 164 `.expected.json` files list `outcomes`, each citing its derivation in the behavior semantic oracle; the harness explores every one of them under `explore` [146] |
@@ -220,10 +220,10 @@ A tag cannot be cut over a corpus regression. Pull requests run one CI, the GitH
 workflow `.github/workflows/pr.yml`. Its `changes` job decides the tier — *quick* for a push to a pull
 request, draft or ready; *full* for a merge-queue commit, a pull request labelled `ci:full`, or a push
 touching a package where `-race` has found bugs (`scripts/ci-changed-areas.sh`) — and which of the
-client, editor and documentation jobs the diff touches; the Go suite runs sharded (eighteen race
+client, editor and documentation jobs the diff touches; the Go suite runs sharded (twenty-one race
 shards in the full tier — `runtime`, `runtime-corpus`, `runtime-exploration`, `model`, `smt`, `corpus`,
-`corpus-sweep`, `export`, `export-library`, `export-examples`, `export-corpus`, `graph`, `codegen`,
-`translate`, `grpc`, `rest`, `migrate` and `cli`, #1440 — and nine race-free groups of them in the quick tier) with every corpus
+`corpus-sweep`, `export`, `export-library`, `export-examples`, `export-corpus`, `graph`, `graph-corpora`, `codegen`,
+`translate`, `translate-structure`, `grpc`, `internal`, `rest`, `migrate` and `cli`, in twenty jobs, #1440 — and nine race-free groups of them in the quick tier) with every corpus
 required — `OPENSYSML_REQUIRE_TRAINING_CORPUS`, `_PILOT_CORPORA`, `_SPEC_EXAMPLES`, `_PSSM_SUITE`,
 `_SYSML_V1TOV2`, `_FUML_SUITE`, `_PILOT_LIBRARY_XMI`, `_SMT`, `_WASM` and `_REFERENCE_FMUS` set to
 `1`, the LLM-benchmark and PDF toolchains required where their jobs run — beside the
@@ -1448,8 +1448,8 @@ The outcome is `Outcome.Terminated` with an empty `FinalState`, the executor's s
 `Execution state: Terminated`, the LSP debug snapshot's `terminated`. A `terminate` naming a
 performance that ended, a value that is no occurrence, or an occurrence `destroy` emptied is a
 typed error (`errPerformanceEnded`, `errTerminateOccurrence`, `errTerminateTarget`,
-`robustness_terminate_test.go`); a calculation still refuses it as `errCalcSideEffect`
-(`robustness_calc_invocation_test.go:calc_terminate_is_rejected`). The PSSM referee translates the suite's
+`robustness_terminate_test.go`); in a calculation body it ends the calculation's steps
+(`robustness_calc_invocation_test.go:calc_terminate_ends_its_steps`). The PSSM referee translates the suite's
 terminate pseudostate to the same spelling, which retired its `terminate-gap` bucket
 (`docs/project/pssm-referee.md`).
 
@@ -2200,10 +2200,11 @@ step, which a machine's `accept` takes, and ends the dynamics when `terminal`. T
 `output` and `time` as the action's outputs. What the runner refuses, typed and naming the action
 and the member at fault: a state, input, derivative or output that is not a vector, a protocol
 calc left abstract, an integrator the runtime does not provide, a step absent, zero or negative,
-a state a step leaves non-finite. Its stated limitations: a crossing is located to the step
-boundary and not bisected within the step, so a guard that crosses and re-crosses inside one step
-is not seen; `StateSpaceItem` and a `StateSpaceEventDef` that is not a zero crossing are not
-executed. The OMG example `State Space Representation Examples/EVSample1.sysml` runs through the
+a state a step leaves non-finite. Its stated limitations: a crossing was located to the step
+boundary and not bisected within the step (since closed: crossings are bracketed and bisected
+inside the step). Since then an event occurrence typed by `ZeroCrossingEventDef` itself occurs where
+the derivative crosses zero, and a `flow` between the output and input of two dynamics that
+objects perform is carried; one between two dynamics that are steps of one action body is not. The OMG example `State Space Representation Examples/EVSample1.sysml` runs through the
 runner once a model of its shape also states a `timeStep`, the library itself stating none. L7's
 census reads `StateSpaceRepresentation` at 6 of 17 with the runner in, the rest the abstract
 protocol probed directly. The lunar-descent case stands as it was.
@@ -2921,7 +2922,7 @@ SYSML21-681 (`CHANGELOG.md` **0.11.0**) is the newest entry. Each entry is filed
 
 ## T3 — the extension libraries (landed, #881)
 
-The sixteen non-normative libraries under `OpenSysML Libraries/` — `OOSEM` (#103), `MOSA`
+The eighteen non-normative libraries under `OpenSysML Libraries/` — `OOSEM` (#103), `MOSA`
 (#200, `v0.8.0`), `DiagramLayout`, `IdentityMetadata`, `MigrationMetadata`, `SysMLValidation`
 and the rest — are maintained upstream at Open-MBEE/OpenSysML-Extensions-Library and pinned
 here: [extension-libraries.md](extension-libraries.md) states the pin, the sync and the engine

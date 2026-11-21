@@ -30,6 +30,9 @@ func (s *Service) filterSymbolInfo(info *pb.SymbolInfo) *pb.SymbolInfo {
 		info.Members = nil
 		info.WithheldLibraryMembers = 0
 	}
+	if !s.capabilities.has(CapabilitySymbolAnnotatingMetadata) {
+		info.AnnotatingMetadataIds = nil
+	}
 	if !s.capabilities.has(CapabilitySymbolAttributes) {
 		info.Attributes = nil
 		info.WithheldLibraryAttributes = 0
@@ -122,6 +125,8 @@ func (s *Service) filterValueCapabilities(value *pb.Value) {
 		}
 	case *pb.Value_Set:
 		s.filterSetCapabilities(value)
+	case *pb.Value_CoordinateFrame, *pb.Value_CoordinateTransformation:
+		s.filterCoordinateCapabilities(value)
 	default:
 		s.filterLeafCapabilities(value)
 	}
@@ -139,6 +144,23 @@ func (s *Service) filterSetCapabilities(value *pb.Value) {
 		s.filterValueCapabilities(nested)
 		if reason, ok := protoconv.UnsupportedReason(nested); ok {
 			value.Kind = protoconv.UnsupportedSet(shown, reason).Kind
+			return
+		}
+	}
+}
+
+// filterCoordinateCapabilities replaces a frame or transformation the client
+// cannot take, or one holding a vector it cannot, with the rendering it can.
+func (s *Service) filterCoordinateCapabilities(value *pb.Value) {
+	shown := protoconv.UnsupportedShown(displayValue(value))
+	if !s.capabilities.has(CapabilityCoordinateFrameValues) {
+		value.Kind = shown
+		return
+	}
+	for _, nested := range protoconv.NestedValues(value) {
+		s.filterValueCapabilities(nested)
+		if reason, ok := protoconv.UnsupportedReason(nested); ok {
+			value.Kind = &pb.Value_Null{Null: shown.Null + " holding " + reason}
 			return
 		}
 	}
@@ -224,11 +246,7 @@ func displayValue(pv *pb.Value) runtime.Value {
 		}
 		return runtime.NewVectorQuantityValue(num, units)
 	case *pb.Value_MeasurementRef:
-		text := k.MeasurementRef.GetUnit()
-		if text == "" {
-			text = describeUnitTerm(k.MeasurementRef.GetUnitTerm())
-		}
-		return runtime.NewMeasurementRefValue(runtime.Unit{Text: text, Product: semantics.NamedUnitProduct(nil, text, false)})
+		return runtime.NewMeasurementRefValue(displayUnit(k.MeasurementRef))
 	case *pb.Value_Set:
 		set := runtime.NewSet()
 		for _, elem := range k.Set.GetElements() {
@@ -246,9 +264,42 @@ func displayValue(pv *pb.Value) runtime.Value {
 		return runtime.NewTensorQuantityValue(k.TensorQuantity.GetDimensions(), num, units)
 	case *pb.Value_Metaobject:
 		return runtime.NewMetaobject(&symbols.Symbol{Name: k.Metaobject.GetElementId()}, &symbols.Symbol{Name: k.Metaobject.GetMetaclassId()})
+	case *pb.Value_CoordinateFrame:
+		return runtime.NewCoordinateFrameValue(displayFrame(k.CoordinateFrame))
+	case *pb.Value_CoordinateTransformation:
+		t := k.CoordinateTransformation
+		return runtime.NewCoordinateTransformationValue(&runtime.CoordinateTransformation{
+			Decl:   &symbols.Symbol{Name: t.GetName()},
+			Source: displayFrame(t.GetSource()),
+			Target: displayFrame(t.GetTarget()),
+		})
 	default:
 		return protoconv.ProtoToScalar(pv)
 	}
+}
+
+// displayFrame is a frame for rendering only: its name over the units sent.
+func displayFrame(pf *pb.CoordinateFrame) *runtime.CoordinateFrame {
+	if pf == nil {
+		return nil
+	}
+	frame := &runtime.CoordinateFrame{Text: pf.GetName(), Dimensions: pf.GetDimensions()}
+	for _, axis := range pf.GetAxes() {
+		frame.Axes = append(frame.Axes, displayUnit(axis))
+	}
+	if scale := pf.GetScale(); scale != nil {
+		frame.Scale = &runtime.MeasurementScale{Unit: displayUnit(scale.GetUnit())}
+	}
+	return frame
+}
+
+// displayUnit is a unit for rendering only, under the text it was sent with.
+func displayUnit(ref *pb.MeasurementRef) runtime.Unit {
+	text := ref.GetUnit()
+	if text == "" {
+		text = describeUnitTerm(ref.GetUnitTerm())
+	}
+	return runtime.Unit{Text: text, Product: semantics.NamedUnitProduct(nil, text, false)}
 }
 
 // displayQuantity is a quantity for rendering only, its unit the text sent or,

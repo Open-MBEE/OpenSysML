@@ -85,6 +85,24 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void readsAStringAsTheKindOfLookupStated() {
+    Model model =
+        connection.parse(
+            "package Col__V__c_pend0 { part marker; } package Col { port def P; part def V { port q : P; port r : P; connection c connect q to r; } }");
+    String spelling = "Col__V__c_pend0";
+    assertEquals(
+        "package", model.symbol(spelling, SymbolOptions.defaults().lookup(Lookup.QUALIFIED_NAME)).kind());
+    Symbol end = model.symbol(spelling, SymbolOptions.defaults().lookup(Lookup.ELEMENT_ID));
+    assertEquals("connectorEnd", end.kind());
+    assertEquals(spelling, end.id());
+    assertEquals(
+        List.of("connectorEnd", "connectorEnd"),
+        model.symbol("Col::V::c").childIds().stream()
+            .map(id -> model.symbol(id, SymbolOptions.defaults().lookup(Lookup.ELEMENT_ID)).kind())
+            .toList());
+  }
+
+  @Test
   void parsesAFileTheServiceReads() throws Exception {
     Path file = Files.createTempFile("opensysml", ".sysml");
     try {
@@ -1504,6 +1522,64 @@ class ApiIntegrationTest {
     assertTrue(failed.getMessage().contains("inline query 1:"), failed.getMessage());
   }
 
+  private static Path resultViewFixture() {
+    return Path.of(System.getProperty("user.dir"))
+        .resolve("../../../tests/grpc/testdata/conformance/query_result_view.sysml")
+        .normalize();
+  }
+
+  @Test
+  void queriesAnswerAsResultViews() {
+    Model model = connection.load(resultViewFixture());
+    DocumentQueryResult named =
+        model.runDocumentQueryAsView(
+            "Probe::Self",
+            Map.of("root", List.of(new DocumentValue.ElementRef("Probe::probe::antenna", ""))));
+    assertTrue(named.resultView().contains("view self : QueryResult"), named.resultView());
+    assertTrue(named.resultView().contains("expose Probe::probe::antenna;"), named.resultView());
+    assertEquals("", model.runDocumentQuery("Probe::NoStates").resultView());
+
+    QuerySelection selected = model.queryOslcAsView("oslc.where=sysml:name=\"camera\"");
+    assertEquals(1, selected.elements().size());
+    assertTrue(selected.resultView().contains("expose Probe::probe::camera;"), selected.resultView());
+
+    QueryOutcomeException unknown =
+        assertThrows(
+            QueryOutcomeException.class,
+            () -> model.queryOslcAsView("oslc.where=sysml:nme=\"camera\""));
+    assertTrue(unknown.resultView().contains("Outcome::pathError"), unknown.resultView());
+    QueryOutcomeException twin =
+        assertThrows(
+            QueryOutcomeException.class,
+            () -> model.runDocumentQueryAsView("Probe::Twin", Map.of()));
+    assertTrue(twin.resultView().contains("Outcome::modelError"), twin.resultView());
+    QueryOutcomeException unasked =
+        assertThrows(QueryOutcomeException.class, () -> model.runDocumentQuery("Probe::Twin"));
+    assertEquals("", unasked.resultView());
+  }
+
+  @Test
+  void renderViewRendersAResultViewAsADocument() {
+    Model model = connection.load(resultViewFixture());
+    RenderedView rendered = model.renderView("Probe::heavy", DocumentForm.MARKDOWN);
+    assertEquals(
+        List.of(
+            new RenderedView.HeaderField("query", "Probe::Self root=Probe::probe::antenna"),
+            new RenderedView.HeaderField("source", "probe.sysml"),
+            new RenderedView.HeaderField("outcome", "established"),
+            new RenderedView.HeaderField("provenance", "urn:prov:bundle:heavy")),
+        rendered.header());
+    assertEquals("Probe::probe::antenna", rendered.rows().get(0).cells().get(0));
+    assertTrue(
+        rendered.text().contains("| Probe::probe::antenna | part | Payload | Probe::probe |"),
+        rendered.text());
+    assertEquals("", model.renderView("Probe::heavy").text());
+    ServiceException refused =
+        assertThrows(
+            ServiceException.class, () -> model.renderView("Probe::plain", DocumentForm.HTML));
+    assertTrue(refused.getMessage().contains("unknown rendering form \"html\""));
+  }
+
   @Test
   void renderDocumentRendersTheNamedDocument() {
     Model model = connection.load(fixture("document.sysml"));
@@ -2290,6 +2366,37 @@ class ApiIntegrationTest {
     List<String> listed = connection.listEngines().stream().map(EngineInfo::name).toList();
     assertEquals(listed, probed);
     assertTrue(probed.containsAll(List.of("run", "explore", "solve", "sweep")), probed.toString());
+  }
+
+  private static final String ANNOTATED =
+      """
+      package D10 {
+        metadata def FailureMode { attribute severity : ScalarValues::Integer; }
+        #FailureMode part def PumpP;
+        part def PumpB { @FailureMode { severity = 3; } }
+        part def PumpA;
+        metadata pumpA_fm : FailureMode about PumpA { severity = 2; }
+      }
+      """;
+
+  @Test
+  void aSymbolNamesTheMetadataUsagesAnnotatingIt() {
+    assertTrue(connection.capabilities().has(Capabilities.SYMBOL_ANNOTATING_METADATA));
+    Model model = connection.parse(ANNOTATED);
+    assertEquals(List.of("D10::PumpP::@0"), model.symbol("D10::PumpP").annotatingMetadataIds());
+    assertEquals(List.of("D10::PumpB::@0"), model.symbol("D10::PumpB").annotatingMetadataIds());
+    assertEquals(List.of(), model.symbol("D10::pumpA_fm").annotatingMetadataIds());
+
+    Symbol pump = model.symbol("D10::PumpA");
+    assertEquals(List.of(), pump.childIds());
+    assertEquals(List.of("D10::pumpA_fm"), pump.annotatingMetadataIds());
+
+    Symbol usage = model.symbol(pump.annotatingMetadataIds().get(0));
+    assertEquals("metadataUsage", usage.kind());
+    assertEquals(Optional.of("D10::FailureMode"), usage.typeFacts().orElseThrow().resolvedId());
+    Symbol.Attribute severity = usage.attributes().get(0);
+    assertEquals("severity", severity.name());
+    assertEquals(Optional.of(new Value.IntegerValue(2)), severity.value());
   }
 
   private static final String MEMBERS =

@@ -208,7 +208,8 @@ class Model:
 
     def convert(self, to_format, tolerate_syntax_errors=False, id_form='',
                 include_library_stubs=False, compact=False, omit_derived=False,
-                keep_derived=(), include_check_diagnostics=False):
+                keep_derived=(), include_check_diagnostics=False,
+                inherited_members=False):
         """Write this model out in one of the formats OpenSysML writes.
 
         Converts the source this model was parsed from, not the file as it
@@ -230,6 +231,10 @@ class Model:
                 or :data:`~opensysml.conversion.ID_FORM_UUID`
             include_library_stubs (bool): For api-json, restore the ownerless
                 library stubs written before 0.11.0
+            inherited_members (bool): For api-json, also write the derived
+                lists that repeat each Namespace's and Type's inherited and
+                imported members; by default an element carries its owned
+                structure. Needs the ``convert_inherited_members`` capability.
             compact (bool): For api-json, write the compact document
                 (``api-json-compact/1``) in place of the element array. Needs
                 the ``convert_compact`` capability.
@@ -270,6 +275,7 @@ class Model:
             tolerate_syntax_errors=tolerate_syntax_errors,
             id_form=id_form,
             include_library_stubs=include_library_stubs,
+            inherited_members=inherited_members,
             compact=compact,
             omit_derived=omit_derived,
             keep_derived=keep_derived,
@@ -398,7 +404,7 @@ class Model:
         """
         return Editor(self._hash, self.connection)
 
-    def element_properties(self, element, *properties):
+    def element_properties(self, element=None, *properties, name=None, id=None):
         """Read the metamodel properties of one element by their specification names.
 
         The KerML 1.1 / SysML 2.1 abstract syntax of the element —
@@ -409,8 +415,12 @@ class Model:
         :mod:`opensysml.element_properties`.
 
         Args:
-            element (str): The element: its qualified name, the positional id of
-                an unnamed member (``Owner::@2``), or an element form id
+            element (str, optional): Legacy form, one string for either kind:
+                an element form id first, then a qualified name, then the
+                positional id of an unnamed member (``Owner::@2``); pass None
+                to give ``name`` or ``id`` with properties
+            name (str, optional): The element's qualified name, never read as an id
+            id (str, optional): An element form id or a symbol's id, never read as a name
             *properties (str): Specification names to read; none reads every
                 property the element form carries for the element
 
@@ -430,10 +440,10 @@ class Model:
             >>> str(inherited[0])
             'Demo::Unit::p'
         """
-        return self._client.get_element_properties(self._hash, element, properties)
+        return self._client.get_element_properties(self._hash, element, properties, name=name, id=id)
 
     def query(self, payload=None, scope=None, select=None, where=None, order_by=None,
-              oslc=None):
+              oslc=None, as_view=False):
         """Run a SysML v2 API & Services Query over this model.
 
         Takes the standard's ``Query`` JSON, so a payload written for the
@@ -453,9 +463,13 @@ class Model:
                 ``sysml:name="vehicle"``, evaluated in place of the standard's
                 Query; not combined with the others. An empty string is no
                 OSLC at all, so the structured query is sent instead
+            as_view (bool): Also answer the selection as a ``QVTS::QueryResult``
+                view, the answer's ``result_view``; a path error then raises
+                with the view as the error's ``result_view``. Needs the
+                ``query_result_view`` capability
 
         Returns:
-            list[QueryElement]: The elements selected, in ``order_by`` order,
+            QueryElements: The elements selected, a list in ``order_by`` order,
             or declaration order without one
 
         Raises:
@@ -474,10 +488,10 @@ class Model:
         """
         return self.connection.query(
             self._hash, payload, scope=scope, select=select, where=where, order_by=order_by,
-            oslc=oslc,
+            oslc=oslc, as_view=as_view,
         )
 
-    def run_document_query(self, query_id=None, bindings=None, inline_query=None):
+    def run_document_query(self, query_id=None, bindings=None, inline_query=None, as_view=False):
         """Run one of this model's named document queries, or a query expression.
 
         The query is the model's own — a calc def specializing
@@ -496,6 +510,10 @@ class Model:
                 Named("Vehicles")), "PartUsage"), ("name", "mass"))`` — with
                 the ``DocumentQueries`` library in scope; needs the
                 ``inline_document_query`` capability
+            as_view (bool): Also answer as a ``QVTS::QueryResult`` view, the
+                result's ``result_view``; a path or model error then raises
+                with the view as the error's ``result_view``. Needs the
+                ``query_result_view`` capability
 
         Returns:
             DocumentQueryResult: Projected columns and typed rows, in the
@@ -520,7 +538,7 @@ class Model:
             ('name',)
         """
         return self.connection.run_document_query(
-            self._hash, query_id, bindings=bindings, inline_query=inline_query,
+            self._hash, query_id, bindings=bindings, inline_query=inline_query, as_view=as_view,
         )
 
     def render_document(self, document_id, form="markdown"):
@@ -586,7 +604,10 @@ class Model:
                 ``sysml -render <view> -render-form <form>`` writes: ``"text"``,
                 ``"mermaid"``, ``"markdown"``, ``"dot"``, ``"plantuml"``,
                 ``"d2"``, ``"drawio"``, ``"csv"`` or ``"tsv"``; ``None`` (the
-                default) writes none
+                default) writes none. A ``QVTS::QueryResult`` view is written
+                as a document of its header and rows in ``"markdown"``,
+                ``"html"`` or ``"asciidoc"``, which needs the
+                ``query_result_view`` capability too
             palette (str | None): Palette a graph form fills nodes from, as
                 ``-render-palette`` names them; ``None`` draws in black and white
             style (str | None): Drawing style of the DOT or Mermaid form, as
@@ -748,25 +769,42 @@ class Model:
             return self._symbol_by_id(name) or self._symbol_named(name)
         return self._symbol_named(name) or self._symbol_by_id(name)
 
-    def get(self, fqn):
-        """Get the symbol a fully-qualified name resolves to (e.g., "Demo::Vehicle").
+    def get(self, fqn=None, *, name=None, id=None):
+        """Get a symbol by qualified name or by id: ``get(name=...)`` or ``get(id=...)``.
 
-        The name is resolved from the root namespace the way the notation
+        A qualified name and an id can be spelled alike — a package may be
+        declared ``Col__V__c_pend0``, the id generated for an unnamed connector
+        end, and a member ``'@3'`` beside the unnamed member ``Owner::@3`` — so
+        say which the string is.
+
+        A ``name`` is resolved from the root namespace the way the notation
         resolves one: through imports, so a name a package re-exports answers
         with the symbol it imports, an alias with the symbol it names, and a
         member that is not visible from outside its namespace (``private``,
         ``protected``) with None. The symbol returned may so carry another id.
+        An ``id`` is one the service reported (``Symbol.id``) and names that
+        symbol whatever its visibility.
 
         Args:
-            fqn (str): Fully-qualified name to look up
+            fqn (str, optional): Legacy form, one string for either kind: read
+                as a qualified name first, then as an id, so a declaration
+                shadows the element an id of its spelling was reported for
+            name (str, optional): Qualified name to resolve, never read as an id
+            id (str, optional): Reported id to fetch, never read as a name
 
         Returns:
             Symbol or None: Matching symbol, or None if not found
+
+        Raises:
+            ValueError: Unless exactly one of ``fqn``, ``name`` and ``id`` is given
         """
-        for root in self.roots:
-            if root.id == fqn:
-                return root
-        info = self._client.get_symbol(self._hash, fqn, resolve_name=True)
+        if fqn is not None and name is None and id is None:
+            for root in self.roots:
+                if root.id == fqn:
+                    return root
+            info = self._client.get_symbol(self._hash, fqn, resolve_name=True)
+        else:
+            info = self._client.get_symbol(self._hash, fqn, name=name, id=id)
         if info is None:
             return None
         return Symbol(info, self._client, self._hash)
@@ -774,11 +812,11 @@ class Model:
     def _symbol_by_id(self, fqn):
         """The symbol whose id is ``fqn``, fetched in one call, or None.
 
-        An id no symbol was reported under is resolved by the service as a
-        qualified name, so it may answer with a symbol of another id. Only the
-        symbol that carries this id is what an id lookup names.
+        A service without ``symbol_lookup_kind`` resolves an id no symbol was
+        reported under as a qualified name, so it may answer with a symbol of
+        another id. Only the symbol that carries this id is what an id lookup names.
         """
-        info = self._client.get_symbol(self._hash, fqn)
+        info = self._client.get_symbol(self._hash, id=fqn)
         if info is None or info.id != fqn:
             return None
         return Symbol(info, self._client, self._hash)

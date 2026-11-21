@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -20,6 +21,7 @@ type EffectiveFeature struct {
 	// usual default 0..* governs it: Multiplicity is representativeRange and judges no count.
 	MultiplicityDefaulted bool
 	DefaultValue          ast.Node        // value-binding expression (nil if none)
+	DefaultValueID        program.ExprID  // DefaultValue in the model's table, lowered in DefaultScope
 	DefaultDecl           *symbols.Symbol // feature the DefaultValue was written on (nil if none)
 	HoldsSet              bool            // values form a set: a Collection's unordered unique elements
 	Unique                bool            // holds no two equal values (KerML isUnique, the default)
@@ -27,6 +29,9 @@ type EffectiveFeature struct {
 	// body reaches below, so its bound value does not govern, as with a
 	// redefining body.
 	GovernedByChain bool
+	// YieldsToBinding marks a value written on a parameter of a usage the type subsets:
+	// the slot holds it unless a holder of the object binds the parameter.
+	YieldsToBinding bool
 }
 
 // Scalar reports whether the feature holds at most one value.
@@ -127,8 +132,10 @@ func (ctx *Context) effectiveFeature(name string, memberSym, typeSym *symbols.Sy
 	// A satisfy usage's `by` is its subject's most specific value (SysML v2 §7.21.4),
 	// over a value or default the subject it binds declares or inherits.
 	defaultVal, defaultDecl := ctx.satisfiedByValue(memberSym, typeSym)
-	if defaultVal == nil && !ctx.subsettedParameterValue(typeSym, memberSym) {
+	yields := false
+	if defaultVal == nil {
 		defaultVal, defaultDecl = ctx.extractDefaultValue(memberSym), memberSym
+		yields = defaultVal != nil && ctx.subsettedParameterValue(typeSym, memberSym)
 	}
 	if defaultVal == nil {
 		defaultVal, defaultDecl = ctx.redefinedDefault(memberSym, typeSym)
@@ -137,7 +144,7 @@ func (ctx *Context) effectiveFeature(name string, memberSym, typeSym *symbols.Sy
 		defaultVal, defaultDecl = ctx.roleRedefiningDefault(memberSym, typeSym)
 	}
 	mult, _, defaulted := ctx.featureRange(memberSym, typeSym)
-	return EffectiveFeature{
+	feat := EffectiveFeature{
 		Name:                  name,
 		Symbol:                memberSym,
 		OwnerType:             ctx.findOwnerType(memberSym),
@@ -148,11 +155,14 @@ func (ctx *Context) effectiveFeature(name string, memberSym, typeSym *symbols.Sy
 		DefaultDecl:           defaultDecl,
 		HoldsSet:              ctx.holdsSet(memberSym, typeSym, mult),
 		Unique:                ctx.model.semantics.IsUnique(memberSym),
+		YieldsToBinding:       yields,
 	}
+	feat.DefaultValueID = ctx.model.exprs.Intern(defaultVal, feat.DefaultScope())
+	return feat
 }
 
-// subsettedParameterValue reports a parameter of a usage typeSym subsets or redefines: its
-// value is what a performance starts from unless the holder binds it, not the slot's own.
+// subsettedParameterValue reports a valued parameter of a usage typeSym subsets or
+// references: its value is what the slot holds unless a holder binds the parameter.
 func (ctx *Context) subsettedParameterValue(typeSym, member *symbols.Symbol) bool {
 	if typeSym == nil || member == nil {
 		return false
@@ -205,7 +215,7 @@ func (ctx *Context) parameterFeatures(typeSym *symbols.Symbol) []EffectiveFeatur
 	var order []string
 	byName := make(map[string]*symbols.Symbol)
 	for _, member := range ctx.model.semantics.MembersOfIncludingRedefined(typeSym) {
-		if member.Name == "" || !isInputParameter(member) || semantics.IsShapeFeature(member) && !ctx.model.semantics.FrameFeature(member) {
+		if !member.Named() || !isInputParameter(member) || semantics.IsShapeFeature(member) && !ctx.model.semantics.FrameFeature(member) {
 			continue
 		}
 		if _, seen := byName[member.Name]; !seen {
@@ -555,6 +565,19 @@ func (ctx *Context) inheritedMultiplicity(sym, owner *symbols.Symbol, path map[*
 	return mult, found, stated
 }
 
+// loweredDefault is the value member states on owner, its own or the one it takes from what
+// it redefines, lowered in the scope of the declaration that wrote it; false for none.
+func (ctx *Context) loweredDefault(member, owner *symbols.Symbol) (lowered, bool) {
+	value, decl := ctx.extractDefaultValue(member), member
+	if value == nil {
+		value, decl = ctx.redefinedDefault(member, owner)
+	}
+	if value == nil {
+		return lowered{}, false
+	}
+	return ctx.model.loweredExpr(decl.OwnerScope, value), true
+}
+
 // redefinedDefault returns the value a feature takes from the feature it
 // redefines, by clause or by parameter position, and the declaration that wrote
 // it: a redefining feature is the redefined feature declared again (KerML 1.0 §7.3.4.5).
@@ -600,7 +623,7 @@ func (ctx *Context) roleRedefiningDefault(sym, typeSym *symbols.Symbol) (ast.Nod
 	scope := bodyScope(typeSym, typeSym.OwnerScope)
 	for node := range lower.EachUnwrappedDeclMember(typeSym.Decl) {
 		member := memberSymbol(scope, node)
-		if member == nil || member == sym || member.Name != "" {
+		if member == nil || member == sym || member.Named() {
 			continue
 		}
 		val := ctx.extractDefaultValue(member)

@@ -54,7 +54,7 @@ func ViewForms() []string {
 }
 
 // WithForm also writes the rendering in form into RenderedView.Text, as `sysml -render-form` writes it.
-// An unknown form, or one the view's kind is not written in, is refused; requires CapabilityRenderViewForm.
+// A wrong-kind form is refused; a QVTS::QueryResult view takes the DocumentForm names. Requires CapabilityRenderViewForm.
 func WithForm(form string) RenderViewOption {
 	return func(options *renderViewOptions) { options.form = form }
 }
@@ -147,6 +147,15 @@ type RenderedView struct {
 	Frame *RenderFrame
 	// Text is the rendering written in the form WithForm named; empty without one.
 	Text string
+	// Header is a QVTS::QueryResult view's query, source, outcome and provenance,
+	// in that order; empty for any other view.
+	Header []RenderHeaderField
+}
+
+// RenderHeaderField is one attribute a QVTS::QueryResult view binds.
+type RenderHeaderField struct {
+	Name  string
+	Value string
 }
 
 // RenderFrame is the view frame of SysML v2 §8.2.3.26: the name compartment's
@@ -280,6 +289,12 @@ func (c *client) RenderView(ctx context.Context, model *Model, viewName string, 
 			return nil, err
 		}
 	}
+	// Only a QVTS::QueryResult view is written in these two, so a service that cannot is not asked.
+	if options.form == DocumentFormHTML || options.form == DocumentFormAsciiDoc {
+		if err := c.requireCapabilities(ctx, CapabilityQueryResultView); err != nil {
+			return nil, err
+		}
+	}
 	if options.depth < 0 || options.depth > math.MaxInt32 {
 		return nil, &StatusError{Code: CodeInvalidArgument, Message: fmt.Sprintf("depth must be between 0 and %d, got %d", math.MaxInt32, options.depth)}
 	}
@@ -309,6 +324,9 @@ func renderedViewFromProto(response *pb.RenderViewResponse) *RenderedView {
 		View: response.View, Kind: response.Kind, Stated: response.Stated,
 		Columns: append([]string(nil), response.Columns...), Notices: append([]string(nil), response.Notices...),
 		Shown: append([]string(nil), response.Shown...), Text: response.Text,
+	}
+	for _, field := range response.Header {
+		result.Header = append(result.Header, RenderHeaderField{Name: field.Name, Value: field.Value})
 	}
 	for _, node := range response.Nodes {
 		converted := RenderNode{

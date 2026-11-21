@@ -59,10 +59,11 @@ type ScopeRecord struct {
 	Filters  []uint64 // node ids of the `filter` conditions
 }
 
-// MemberRecord is one registration in a scope: Name "" registers the symbol
-// anonymously.
+// MemberRecord is one registration in a scope: under Name when Named, the empty
+// unrestricted name included, else anonymously.
 type MemberRecord struct {
 	Name   string
+	Named  bool
 	Symbol int32
 }
 
@@ -75,6 +76,7 @@ type SymbolRecord struct {
 	NameSpan   source.Span
 	Scope      int32 // index into Scopes, -1 for a leaf
 	ShortName  string
+	EmptyNames EmptyNames
 	Naming     Naming
 	Facts      LibraryFacts
 }
@@ -158,15 +160,15 @@ func (w *recordWriter) scope(s *Scope, owner int32) int32 {
 	var members []MemberRecord
 	named := 0
 	for _, sym := range s.members {
-		name := ""
+		name, isNamed := "", false
 		if named < len(s.syms) && s.syms[named] == sym {
-			name = s.names[named]
+			name, isNamed = s.names[named], true
 			named++
 		}
 		if !w.keep(sym) {
 			continue
 		}
-		members = append(members, MemberRecord{Name: name, Symbol: w.symbol(sym)})
+		members = append(members, MemberRecord{Name: name, Named: isNamed, Symbol: w.symbol(sym)})
 	}
 	var children []int32
 	for _, child := range s.children {
@@ -209,6 +211,7 @@ func (w *recordWriter) symbol(sym *Symbol) int32 {
 		NameSpan:   sym.NameSpan,
 		Scope:      -1,
 		ShortName:  sym.ShortName,
+		EmptyNames: sym.EmptyNames,
 		Naming:     sym.Naming,
 		Facts:      facts,
 	})
@@ -294,6 +297,7 @@ func (b *recordedBuilder) buildSymbols(records []SymbolRecord, name string) erro
 			DeclSpan:   sr.DeclSpan,
 			NameSpan:   sr.NameSpan,
 			ShortName:  b.in.str(sr.ShortName),
+			EmptyNames: sr.EmptyNames,
 			Naming:     sr.Naming,
 			DocName:    name,
 			Facts:      &facts,
@@ -319,10 +323,10 @@ func (b *recordedBuilder) linkScope(s *Scope, sr ScopeRecord) error {
 		}
 		sym := b.syms[m.Symbol]
 		sym.OwnerScope = s
-		if m.Name == "" {
-			s.DefineAnonymous(sym)
+		if m.Named {
+			s.define(b.in.str(m.Name), sym)
 		} else {
-			s.Define(b.in.str(m.Name), sym)
+			s.DefineAnonymous(sym)
 		}
 	}
 	for _, c := range sr.Children {
@@ -396,6 +400,7 @@ func (in interner) facts(f *LibraryFacts) {
 	}
 	in.ref(&f.Alias)
 	in.ref(&f.References)
+	in.ref(&f.ValueGeneral)
 	in.ref(&f.BaseType)
 	in.ref(&f.MetadataType)
 	for i := range f.Relationships {

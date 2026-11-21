@@ -1,0 +1,44 @@
+# SysML v1 to v2 migration report: adjunct_pins.xmi
+# exported by Example UML Tool
+# migrated 35 element(s): 24 mapped, 9 approximated, 2 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## unmapped (2)
+ControlFlow	Mix::<ControlFlow>	_e3	(the edge leads to 'note', which never fires: no value reaches its input pin 'noted')
+OutputPin	Mix::fill::spare	_pinSpare	(the called Fill has no out parameter for the pin, its out parameters being into; the call is written with the parameters it declares, so a flow from it carries no value)
+
+## approximated (9)
+Diagram	Mix BDD	_diag	-> Dose::'Mix BDD'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 1 of 3 shown elements are not written and not exposed)
+ObjectFlow	Mix::<ObjectFlow>	_e2	(the flow is kept as a comment: nothing in the called Fill gives its parameter into a value, so none reaches 'settled')
+OpaqueAction	Mix::note	_note	-> note	(its body is empty, so it is written as an action that does nothing; the action never fires: its input pin 'noted' must hold a value, but no object flow feeds it and it holds no value; no succession leads to it or leaves it, where v1 would wait on it forever, and it is written as a reference action usage, which the activity does not perform)
+«AdjunctProperty» Property	Mix::noted	_adjNoted	-> Dose::Mix::noted	(«AdjunctProperty» is not collapsed into its principal: its principal 'noted' is a pin of the OpaqueAction 'note', and only a pin of a call behavior action is written as one usage with its property; the property is written as a usage of its own; «AdjunctProperty» from http://www.omg.org/spec/SysML/20181001/SysML is a SysML stereotype the migration gives no v2 form; the application is kept as metadata)
+CallBehaviorAction	Mix::settle	_callSettle	-> settle	(a step with no behavior and no duration, which passes the token on; its pins are declared as its parameters, but the action computes nothing)
+InputPin	Mix::settle::settled	_pinSettled	-> Dose::Mix::settle.settled	(it is declared admitting no value: 'fill', which feeds it, produces no value)
+«AdjunctProperty» Property	Mix::spare	_adjSpare	-> Dose::Mix::spare	(«AdjunctProperty» is not collapsed into its principal: its principal 'spare' is not written as a v2 usage; the property is written as a usage of its own; «AdjunctProperty» from http://www.omg.org/spec/SysML/20181001/SysML is a SysML stereotype the migration gives no v2 form; the application is kept as metadata)
+Association	MixFeed	_mixFeed	-> Dose::MixFeed	(its one usage is the connection mixFeed joining mix and tank; end 'from' crosses no property: the end property is the usage of its «AdjunctProperty» principal, which is nested in 'fill' of Mix, and a cross chains through the opposite end alone)
+Property	Plant::mixing	_mixing	-> Dose::Plant::mixing	(a property typed by a behavior is written as a reference action usage)
+
+## mapped (24)
+«Allocate» Abstraction	<Abstraction>	_alloc	-> Dose::'into to gauge'
+Model	Dose	_m	-> Dose	(written as package Dose)
+Activity	Fill	_fill	-> Dose::Fill
+Parameter	Fill::from	_fillFrom	-> Dose::Fill::'from'
+Parameter	Fill::into	_fillInto	-> Dose::Fill::into
+«Block» Class	Gauge	_gauge	-> Dose::Gauge
+Activity	Mix	_mix	-> Dose::Mix
+InitialNode	Mix::<InitialNode>	_init	-> start
+ObjectFlow	Mix::<ObjectFlow>	_e1
+«AdjunctProperty» Property	Mix::feed	_adjFeed	-> Dose::Mix::fill.from	(«AdjunctProperty» and its principal InputPin 'feed' are one v2 usage, written for the principal; what referred to the property refers to that usage)
+CallBehaviorAction	Mix::fill	_callFill	-> fill
+InputPin	Mix::fill::feed	_pinFeed	-> Dose::Mix::fill.from	(the pin stands for the parameter from of the definition, which the flows name)
+OutputPin	Mix::fill::filled	_pinFilled	-> Dose::Mix::fill.into	(the pin stands for the parameter into of the definition, which the flows name)
+«AdjunctProperty» Property	Mix::filled	_adjFilled	-> Dose::Mix::fill.into	(«AdjunctProperty» and its principal OutputPin 'filled' are one v2 usage, written for the principal; what referred to the property refers to that usage)
+InputPin	Mix::note::noted	_pinNoted	-> Dose::Mix::note.noted
+«AdjunctProperty» Property	Mix::settled	_adjSettled	-> Dose::Mix::settle.settled	(«AdjunctProperty» and its principal InputPin 'settled' are one v2 usage, written for the principal; what referred to the property refers to that usage)
+Parameter	Mix::source	_source	-> Dose::Mix::source
+ActivityParameterNode	Mix::source	_sourceNode	-> Dose::Mix::source	(the flows to and from the node name the parameter source)
+Property	MixFeed::mix	_mixFeedWhole	-> Dose::MixFeed::mix
+«Block» Class	Plant	_plant	-> Dose::Plant
+Connector	Plant::check	_check	-> Dose::Plant::check
+Property	Plant::gauge	_gaugePart	-> Dose::Plant::gauge
+Connector	Plant::watch	_watch	-> Dose::Plant::watch
+«Block» Class	Tank	_tank	-> Dose::Tank

@@ -88,6 +88,9 @@ model.roots();                                  // one Symbol per document; empt
 
 Symbol vehicle = model.symbol("Demo::Vehicle"); // throws if the model has no such symbol
 model.findSymbol("Demo::Vehicle");              // Optional, for a name that may be absent
+model.symbol("Demo::Vehicle", SymbolOptions.defaults().lookup(Lookup.QUALIFIED_NAME)); // only as a name
+model.symbol("Demo::Vehicle::@3", SymbolOptions.defaults().lookup(Lookup.ELEMENT_ID)); // only as a reported id
+model.elementProperties(Lookup.ELEMENT_ID, "Demo::Vehicle::@3");
 model.find("Vehicle");                          // Optional, by short name or qualified id
 model.get("Demo::Vehicle");                     // Optional, by qualified id only
 model.lookup("Vehicle");                        // throws SymbolNotFoundException with suggestions
@@ -134,7 +137,11 @@ paths.paths().get(0).steps();    // InstancePaths.Step records; paths.truncated(
 `members()` is populated by a service advertising `symbol_members` and empty from one that
 does not; asking for library members, `elementProperties` and `instancePaths` are each refused
 with a `CapabilityException` before anything is sent when the service lacks `symbol_members`,
-`element_properties` or `instance_paths`.
+`element_properties` or `instance_paths`. `annotatingMetadataIds()` names the metadata usages
+annotating the symbol: its own `#M` prefixes and body `@M` usages, then the ones naming it in an
+`about` clause elsewhere, which `childIds()` and `members()` leave out; look each up with
+`model.symbol(id)` for its type and attributes. It is empty from a service without
+`symbol_annotating_metadata`.
 
 `ParseOptions` is a record of `Language` (`SYSML` or `KERML`) and
 `strictConformance`, with `defaults()` and `withLanguage`/`withStrictConformance`.
@@ -286,6 +293,10 @@ in turn, ascending. `queryOslc` needs the `oslc_query` capability; a scope namin
 no element is refused as `INVALID_ARGUMENT`, and an unknown property as a
 `QueryOutcomeException` (see [Document queries](#document-queries-and-rendering)).
 
+`queryAsView(query)` and `queryOslcAsView(text)` return a `QuerySelection`: the same
+`elements()` and, in `resultView()`, the answer written as a `QVTS::QueryResult` view (see
+[The answer as a view](#the-answer-as-a-view)).
+
 ### Several documents, and conversion
 
 `Connection.parseSources` reads a list of `SourceDocument`s — `file(Path)` for
@@ -310,7 +321,9 @@ sniffs it), `tolerateSyntaxErrors` — without it, a syntax error throws a
 `idForm` (`ID_FORM_QUALIFIED`, the default, or `ID_FORM_UUID`) for the derived
 element ids of a graph notation (`ttl`, `api-json`), and `includeLibraryStubs`,
 which restores in `api-json` the ownerless library stubs releases before 0.11.0
-wrote (needs the service's `convert_library_stubs` capability). `Conversion.write(Path)`
+wrote (needs the service's `convert_library_stubs` capability), and `inheritedMembers`,
+which also writes in `api-json` the derived lists that repeat each Namespace's and Type's
+inherited and imported members (needs `convert_inherited_members`). `Conversion.write(Path)`
 saves the content as UTF-8, `Conversion.formatOf(Path)` names a notation by its
 extension, and `EditResult.save(Path)` writes a one-document edit and refuses one whose
 `severalDocuments()` is set, whose text is in `documents()` alone; a model
@@ -472,6 +485,28 @@ besides the ones the view's rendering shows (`"all"` for every one); the
 (`"positioned"`, the default, `"most"` or `"ports"`), each folded node naming
 its `compartment`. This call requires the `render_view` capability.
 
+#### The answer as a view
+
+```java
+DocumentQueryResult cabin = model.runDocumentQueryAsView("QVTSDemo::CabinMass", Map.of());
+cabin.resultView();          // "package CabinMassResult { … view cabinMass : QueryResult { … } }"
+QuerySelection found = model.queryOslcAsView("oslc.where=sysml:name=\"cabin\"");
+found.elements(); found.resultView();
+```
+
+`runDocumentQueryAsView`, `runInlineDocumentQueryAsView`, `queryAsView` and `queryOslcAsView`
+ask the service to write the answer as one view typed by `QVTS::QueryResult`
+([QVTS guide](../guide/qvts.md#write-the-answer-as-a-view)); `resultView()` is its SysML text,
+and `""` from the calls that did not ask. A query the model has no answer for still has a
+view, of its path or model error: `QueryOutcomeException.resultView()`. These calls need the
+`query_result_view` capability (`Capabilities.QUERY_RESULT_VIEW`).
+
+`model.renderView(name, DocumentForm.MARKDOWN)` (or `HTML`, `ASCIIDOC`) renders a result view
+that is part of the model as a document: `RenderedView.header()` holds its four attributes as
+`HeaderField`s, `rows()` the exposed elements, and `text()` the rendered document. It needs
+the `render_view_form` capability too, and `HTML` or `ASCIIDOC` for a view that is not a
+`QVTS::QueryResult` is refused as `INVALID_ARGUMENT`.
+
 `DocumentValue` is sealed over `ElementRef`, `ObjectRef` (an object the service
 holds, by id or by path, with the `ElementRef` it is held under), `DocumentVerdict`,
 `DocumentState`, `DocumentEvent`, the literal kinds `StringValue`, `IntegerValue`,
@@ -566,6 +601,9 @@ else if (value instanceof Value.InstanceReference v)    rendered = "instance " +
 else if (value instanceof Value.Sequence v)             rendered = v.elements().toString();
 else if (value instanceof Value.UndeterminedValue v)    rendered = "<undetermined>: " + v.reason();  // left open by the model
 else if (value instanceof Value.InfinityValue v)        rendered = "*";       // unbounded
+else if (value instanceof Value.CoordinateFrameValue v) rendered = v.frame().name();   // axes, scale, transformation
+else if (value instanceof Value.CoordinateTransformationValue v)
+  rendered = v.transformation().pose().map(Object::toString).orElse("unposed");        // source, target, shape, pose
 else if (value instanceof Value.NullValue v)            rendered = "null";    // evaluated, no value
 else                                                    rendered = "unset";   // declared, never given one
 ```

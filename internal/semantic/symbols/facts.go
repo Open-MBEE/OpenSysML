@@ -56,6 +56,10 @@ type LibraryFacts struct {
 	// reference-subsets (`references f`, `perform a`), or "".
 	References ElementRef
 
+	// ValueGeneral is the entry of Supers the declaration's feature value implies:
+	// the result of the value expression (KerML 8.3.3.3.4), or zero.
+	ValueGeneral ElementRef
+
 	// Direction is the declared feature direction of a usage.
 	Direction ast.FeatureDirection
 
@@ -222,6 +226,7 @@ func (f LibraryFacts) Clone() LibraryFacts {
 	f.EndPaths = clonePaths(f.EndPaths)
 	f.Alias = f.Alias.Clone()
 	f.References = f.References.Clone()
+	f.ValueGeneral = f.ValueGeneral.Clone()
 	f.BaseType = f.BaseType.Clone()
 	f.MetadataType = f.MetadataType.Clone()
 	f.Relationships = slices.Clone(f.Relationships)
@@ -513,6 +518,14 @@ const (
 	// ModPrefixMetadata marks the metadata usage a `#M` prefix declares on the
 	// element owning it (see Symbol.IsPrefixMetadata).
 	ModPrefixMetadata
+	// ModTypeFeatureMember marks a feature declared `member`, owned through an
+	// OwningMembership rather than a FeatureMembership (KerML.xtext TypeFeatureMember).
+	ModTypeFeatureMember
+	// ModInclude marks a use case usage written `include use case u` or `include u` (an IncludeUseCaseUsage).
+	ModInclude
+	// ModExtendedUsage marks a usage declared by prefix metadata in place of a kind
+	// keyword (`#M x;`, SysML.xtext ExtendedUsage): a plain Usage, not a ReferenceUsage.
+	ModExtendedUsage
 )
 
 // Has reports whether every modifier of mask is set.

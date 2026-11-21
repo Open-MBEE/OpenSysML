@@ -137,7 +137,7 @@ func MeasureLibrary(ctx context.Context, c *Stack, userFixture string, userModel
 	}
 	turtle := rdf.WriteTurtle(graph)
 	report.Graph = graphStats(graph, turtle)
-	elements, err := export.WriteAPIJSON(graph)
+	elements, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		return nil, fmt.Errorf("write the library's api element form: %w", err)
 	}

@@ -65,7 +65,7 @@ systematically from four sources, one subdirectory each:
 2. **`extensions/` — the notation we invented** (13 cases). Every state-machine construct our
    `examples/` tree uses that no pinned production admits: `initial`, `choice`, `junction`,
    `history`, `region`, the since-removed `defer` member, and the `transition <src> to <tgt>` shorthand, plus `require`
-   outside a requirement body (`x08`, since made a parse error), `expose` in a view def body (`x09`), which our grammar admits as an extension, KerML's `connector` declared in a `.sysml` file (`x10`) and a typing spelled `typed by` in one (`x13`), which the default mode keeps parsed as a `kerml-notation` warning and strict mode refuses, and a one-name `then <target>;` in a view body (`x12`), a succession member no non-action body admits. The pinned grammar
+   outside a requirement body (`x08`, since made a parse error), `expose` in a view def body (`x09`, since made a parse error too), KerML's `connector` declared in a `.sysml` file (`x10`), a `kerml-notation` error in either mode, a typing spelled `typed by` in one (`x13`), a `typing-keyword` error in either mode, and a one-name `then <target>;` in a view body (`x12`), a succession member no non-action body admits. The pinned grammar
    spells entry as `entry; then <state>`, concurrency as `state ... parallel`, and transitions as
    `first <src> then <tgt>`, and has no pseudostates or deferral at all. Adjudication: these are
    **intended OpenSysML extensions**, not accidents — each has dedicated parser tests
@@ -118,7 +118,7 @@ systematically from four sources, one subdirectory each:
    pilot's grammar rejects before its validator would), and a constructed payload whose `new`
    names a package rather than a type (`send-constructor-non-type`).
 
-What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 349
+What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 350
 cases ourselves**, so the denominator measures our coverage of the rejection surface, not our
 conformance: it is a **sample, not a proof** — a clean bucket here does not mean OpenSysML rejects
 everything the reference rejects, and no official conformance suite exists to make that claim
@@ -166,15 +166,15 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-349 case(s): 339 both reject, 0 only the pilot rejects, 10 only we reject, 0 both accept
-  of which 5 agree only because we were asked strictly (the default mode accepts them, by design)
+351 case(s): 341 both reject, 0 only the pilot rejects, 10 only we reject, 0 both accept
+  of which 2 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
 | Source | Cases | Both reject | Pilot only | Ours only | Both accept |
 | --- | --- | --- | --- | --- | --- |
 | extensions | 13 | 13 | 0 | 0 | 0 |
 | grammar | 114 | 114 | 0 | 0 | 0 |
-| semantic | 187 | 177 | 0 | 10 | 0 |
+| semantic | 189 | 179 | 0 | 10 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
 Eight of the ten ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
@@ -228,8 +228,8 @@ cross-references fail to link, `Couldn't resolve reference to Type|Classifier|Fe
 type tier now judges both ends of the member by the kinds the declaration clauses already require), and to 301 with the prefix and body-context cases (`g71`–`g79`, `k22`–`k27`, `x09`:
 the exclusive prefix alternatives written together or repeated, a repeated direction (on an ordinary and a cross feature), `ref`, `constant` or `const` on a definition, `variation` in KerML, an invalid string
 escape, a signed multiplicity bound, `transition` in a part def body, the SysML `constant` spelling
-in KerML — each a syntax error in both tools — `expose` in a view def body, a notation extension
-the default mode reports as a `nonstandard-notation` warning and strict mode as an error; a
+in KerML — each a syntax error in both tools — `expose` in a view def body, then a notation extension
+the default mode reported as a `nonstandard-notation` warning and since a syntax error in either mode; a
 `variant` outside a variation, which the grammar admits, stays `p08`, rejected by both as
 `validateVariationMembershipOwningNamespace`), and to 306 with the redefinition name-resolution
 cases (`s94`–`s98`: a `:>>` target that is a sibling member, a same-scope import, a same-scope
@@ -245,7 +245,7 @@ The action-body parameter prefix-order cases `g80`–`g81` then raised the corpu
 (a package-level allocation whose ends name a definition's owned features by qualified name,
 `allocate ToastBread::applyHeat to Toaster::heating`; a connector with no featuring type reaches
 only features that have none, so both validators reject each end under
-`validateConnectorTypeFeaturing`) to 311, and `x10` (KerML's `connector` declared in a `.sysml` file, which the pinned SysML grammar has no production for — `no viable alternative at input 'c'` — and which we warn as `kerml-notation` by default and reject under strict) to 312, and `x11` (an indexed connector end, `connect s.y#(1) to k.u`, which the pinned grammar has no production for — `mismatched input '#' expecting 'to'` — and which we report as `nonstandard-notation` by default and reject under strict) to 313, and `s102`/`s103` (a part subsetting an attribute definition and a part redefining a part definition: KerML's `Subsetting::subsettedFeature` and `Redefinition::redefinedFeature` are typed Feature, a rule SysML usages inherit, so the pilot fails to link either — `Couldn't resolve reference to Feature` — and we report `subsets`/`redefines target must be a feature` at the same span, in `.sysml` sources as in `.kerml` ones) to 315, and `s104`–`s107` (a second objective in an analysis case definition and in an analysis case usage, `Only one objective is allowed.`, and a declared `exhibit state e references p;` / `perform action f references p;` naming a part, `Must reference a state.` / `Must reference an action.` at the `p` — each reported where the pilot reports it) to 319; `s20b` (an `include` whose target is a use case definition — `useCaseIncluded` is a reference subsetting, so a definition is no feature it can name; both validators report `Must reference a use case.` under `validateIncludeUseCaseUsageReference`) joined later, and the corpus stands at 323. The owning-body members `g82`–`g85`
+`validateConnectorTypeFeaturing`) to 311, and `x10` (KerML's `connector` declared in a `.sysml` file, which the pinned SysML grammar has no production for — `no viable alternative at input 'c'` — and which we report as `kerml-notation`, since made an error in either mode) to 312, and `x11` (an indexed connector end, `connect s.y#(1) to k.u`, which the pinned grammar has no production for — `mismatched input '#' expecting 'to'` — and which we report as `nonstandard-notation` by default and reject under strict) to 313, and `s102`/`s103` (a part subsetting an attribute definition and a part redefining a part definition: KerML's `Subsetting::subsettedFeature` and `Redefinition::redefinedFeature` are typed Feature, a rule SysML usages inherit, so the pilot fails to link either — `Couldn't resolve reference to Feature` — and we report `subsets`/`redefines target must be a feature` at the same span, in `.sysml` sources as in `.kerml` ones) to 315, and `s104`–`s107` (a second objective in an analysis case definition and in an analysis case usage, `Only one objective is allowed.`, and a declared `exhibit state e references p;` / `perform action f references p;` naming a part, `Must reference a state.` / `Must reference an action.` at the `p` — each reported where the pilot reports it) to 319; `s20b` (an `include` whose target is a use case definition — `useCaseIncluded` is a reference subsetting, so a definition is no feature it can name; both validators report `Must reference a use case.` under `validateIncludeUseCaseUsageReference`) joined later, and the corpus stands at 323. The owning-body members `g82`–`g85`
 (`frame` in a view and a view def body, `filter` in a rendering def body, `accept` in a view body —
 each a syntax error under the pinned grammar, as our parser now reports them) and `x12` (`then
 <target>;` in a view body, a succession member no non-action body admits) brought it to 328; `s108`
@@ -278,24 +278,27 @@ rules closed eleven `xpect/` gaps (`p08`, `p17`, `p20`,
 `p21`, `p22`, `p25`, `p26`, `p27`, `p28`, `p32`, `p33`). No case in the corpus is
 accepted by both implementations.
 
-The five strict-only agreements are `x06`, `x09`, `x10`, `x11` and `x13`: OpenSysML notation
+The two strict-only agreements are `x06` and `x11`: OpenSysML notation
 extensions that the default mode reports as `nonstandard-notation` or `kerml-notation` warnings on purpose and strict
 mode reports as errors. `x01` (the
 initial state marker), `x04` (`region r { … }`), `x05` (the `defer <event>;` state member),
-`x07` (`transition <src> to <tgt>`) and `x08` (`require` outside a requirement body) left that
+`x07` (`transition <src> to <tgt>`), `x08` (`require` outside a requirement body) and `x09` (`expose` in a view def body, which `ViewDefinitionBodyItem` does not offer) left that
 list when that notation was removed: each is now a parse error in either mode, so both
-implementations reject it by default. Judged in
-the default mode the same corpus gives 330 agreements and 5 gaps, which is what `-conformance
-default` prints. `-conformance strict` gives 335 and 0. Reserved keywords recovered as declared
+implementations reject it by default. `x10` (KerML's `connector` declared in a `.sysml` file) left it
+when a declaration keyword only KerML spells became a `kerml-notation` error in either mode. `x13` (a typing spelled `typed by`) left it when that spelling
+became an error in either mode: SysML names the spelling of a typing itself (§8.2.2.1.2
+`DEFINED_BY`), so no second one is owed a warning. Judged in
+the default mode the same corpus gives 339 agreements and 2 gaps, which is what `-conformance
+default` prints. `-conformance strict` gives 341 and 0. Reserved keywords recovered as declared
 names and SysML declaration keywords recovered in KerML are now errors in either mode; the parser
 still preserves their trees for editors and later analysis. Of the 14 gaps this document carried
 when it was first written, six were closed by the validation work itself — `p01`, `p02`, `p03`,
-`p04`, `p05` and `p06` — and only the five `extensions/` cases belong to strict mode.
+`p04`, `p05` and `p06` — and only the two `extensions/` cases belong to strict mode.
 
-Read those five as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
+Read those two as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
 not that the pipeline a user gets by default rejects the notation — by design it does not. And
-because we authored all 349 cases ourselves, a small gap count means we ran out of questions we
+because we authored all 350 cases ourselves, a small gap count means we ran out of questions we
 thought to ask, not that we stopped being permissive: the denominator measures our coverage of the
 rejection surface, not our conformance.
 
@@ -545,13 +548,13 @@ the rule.
 Per the specification, **yes**. `region` and `history` appear in no production of the
 pinned grammars — `StateBodyItem` has no history member and concurrency is spelled
 `state ... parallel`. The same held for `initial`, `transition <src> to <tgt>`, the `defer
-<event>;` member and `require` outside a requirement body, which is why they were removed; all
-four are now errors in either mode (the `defer` member with its own `defer-notation-removed`
+<event>;` member, `require` outside a requirement body and `expose` in a view def body, which is why they were removed; all
+five are now errors in either mode (the `defer` member with its own `defer-notation-removed`
 diagnostic, since it was a documented extension with a standard encoding to point at). The SysML v2 textual notation is defined by that grammar, so a model using them
 is not a conforming SysML v2 model, and a tool asked whether it conforms must say no. Accepting
 them by default is therefore not "conformance we argued" but a **superset we chose**: OpenSysML's
 default mode implements a dialect, and the honest statement of `-conformance auto` agreement on
-`x06` and `x09` is that the strict question has an answer we agree on while the
+`x06` is that the strict question has an answer we agree on while the
 default pipeline a user gets accepts notation the reference rejects as a syntax error. What makes
 the choice defensible is not the extensions' usefulness but that the conforming question remains
 askable: [strict mode](../guide/03-command-line.md#strict-conformance) reports every one of them as

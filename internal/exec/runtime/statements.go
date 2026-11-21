@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -36,10 +37,13 @@ type stmtEnv struct {
 	// unvalued names, per frame, the features a frame declares but holds no value
 	// for yet (`out v : Integer;`), which an assignment writes into that frame.
 	unvalued []map[string]bool
+	// rootWrite is the write path of the root locals for a run around them — a
+	// calculation declared in the body assigning one; nil where none writes them.
+	rootWrite func(f frame, name string, value Value) error
 }
 
 // enter pushes a frame for a block about to run and returns it.
-func (env *stmtEnv) enter(e *stmtEngine) map[string]Value {
+func (env *stmtEnv) enter() map[string]Value {
 	frame := make(map[string]Value)
 	env.frames = append(env.frames, frame)
 	env.cells = append(env.cells, nil)
@@ -279,9 +283,16 @@ func (env *stmtEnv) localFrames() ([]map[string]Value, []*bodyCells, []map[*symb
 
 // localFrame exposes the behavior's root locals as an evaluation frame.
 func (env *stmtEnv) localFrame() frame {
-	local := env.bodyFrame(env.locals, env.localCells, env.unvaluedLocal)
+	local := env.rootFrame()
 	local.held = env.localHeld
 	return local
+}
+
+// rootFrame is the frame of the root locals, written through the run's own path.
+func (env *stmtEnv) rootFrame() frame {
+	root := env.bodyFrame(env.locals, env.localCells, env.unvaluedLocal)
+	root.write = env.rootWrite
+	return root
 }
 
 // bodyFrame marks local values as lexical bindings in the run that owns the data frame.
@@ -386,6 +397,9 @@ type stmtHost interface {
 	// denotes the first time a directly run definition denotes it; nil where
 	// none can be.
 	materializeOccurrence() (*Instance, error)
+	// caseAssertions holds the verdicts of the case whose own flow the body is a
+	// step of; nil for a body that is no step of a case's own flow.
+	caseAssertions() *caseAssertions
 }
 
 // stmtEngine runs lowered body statements for a host: declarations,
@@ -412,6 +426,9 @@ type stmtEngine struct {
 	// loops are the loops the engine is running, outermost first, each with the
 	// performance object held for it (loop_performances.go).
 	loops []*loopFrame
+	// exprs is the table the ids of the statements now running index: that of the
+	// flow or body they were lowered for.
+	exprs *lower.ExprTable
 }
 
 // newStmtEngineOver returns an engine running statements against data, which also
@@ -452,6 +469,24 @@ func (e *stmtEngine) complete() error {
 	return err
 }
 
+// runOf runs statements whose ids index exprs, then goes on with the table it ran under.
+func (e *stmtEngine) runOf(exprs *lower.ExprTable, stmts []lower.Statement) (stmtFlow, error) {
+	defer e.under(exprs)()
+	return e.run(stmts)
+}
+
+// under makes exprs the table of the statements run until the function it returns is called.
+func (e *stmtEngine) under(exprs *lower.ExprTable) func() {
+	outer := e.exprs
+	e.exprs = exprs
+	return func() { e.exprs = outer }
+}
+
+// eval evaluates the expression of a statement running, behind id, in scope.
+func (e *stmtEngine) eval(id program.ExprID, scope *symbols.Scope) (Value, error) {
+	return e.evalIn(scope).evalPayload(id)
+}
+
 // evalIn returns an evaluation context resolving names in the scope the
 // statement was written in, reading the behavior's data and the frames entered,
 // innermost last so a block-local name shadows an outer one.
@@ -462,7 +497,7 @@ func (e *stmtEngine) evalIn(scope *symbols.Scope) *EvalContext {
 	if e.env.perf != nil {
 		frames = append(frames, performanceFrame(e.env.perf))
 	}
-	root := e.env.bodyFrame(e.env.locals, e.env.localCells, e.env.unvaluedLocal)
+	root := e.env.rootFrame()
 	root.held = e.env.localHeld
 	root.ensureCells = func() *bodyCells { return e.ensureRootCells() }
 	frames = append(frames, root)
@@ -475,6 +510,7 @@ func (e *stmtEngine) evalIn(scope *symbols.Scope) *EvalContext {
 	e.frameBuf = frames
 	ec := &e.scratch
 	*ec = EvalContext{
+		exprs:          e.exprs,
 		ctx:            e.ctx,
 		scope:          scope,
 		self:           e.host.performer(),
@@ -498,7 +534,7 @@ func (e *stmtEngine) evalInDepth(scope *symbols.Scope, depth int) *EvalContext {
 	if e.env.perf != nil {
 		frames = append(frames, performanceFrame(e.env.perf))
 	}
-	root := e.env.bodyFrame(e.env.locals, e.env.localCells, e.env.unvaluedLocal)
+	root := e.env.rootFrame()
 	root.held = e.env.localHeld
 	root.ensureCells = func() *bodyCells { return e.ensureRootCells() }
 	frames = append(frames, root)
@@ -512,7 +548,7 @@ func (e *stmtEngine) evalInDepth(scope *symbols.Scope, depth int) *EvalContext {
 		frames[len(frames)-1].ensureCells = func() *bodyCells { return e.ensureLocalCells(index) }
 	}
 	return &EvalContext{
-		ctx: e.ctx, scope: scope, self: e.host.performer(),
+		ctx: e.ctx, scope: scope, self: e.host.performer(), exprs: e.exprs,
 		occurrence: e.host.occurrence(), thisOccurrence: e.thisOccurrence,
 		frames: frames, trace: e.ctx.trace, inBehaviorBody: true, activation: e.activation,
 	}
@@ -536,7 +572,7 @@ func (f *engineFrame) clone() bodyFrame {
 // runStatements runs stmts on the engine build makes, or on the one a paused run
 // of them kept; the engine's activation ends with the run, so a body stepped many
 // times does not hold what every run computed.
-func (ctx *Context) runStatements(build func() *stmtEngine, stmts []lower.Statement) (stmtFlow, error) {
+func (ctx *Context) runStatements(build func() *stmtEngine, exprs *lower.ExprTable, stmts []lower.Statement) (stmtFlow, error) {
 	f, resumed, err := popFrame[*engineFrame](ctx)
 	if err != nil {
 		return flowNext, err
@@ -544,6 +580,7 @@ func (ctx *Context) runStatements(build func() *stmtEngine, stmts []lower.Statem
 	if !resumed {
 		f = &engineFrame{engine: build()}
 	}
+	f.engine.exprs = exprs
 	flow, err := f.engine.run(stmts)
 	if paused(err) {
 		ctx.pushPaused(f)
@@ -931,7 +968,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 		if s.BodyData {
 			value := Value{Kind: ValNull}
 			if s.Value != nil {
-				evaluated, err := e.evalIn(s.Scope).Eval(s.Value)
+				evaluated, err := e.eval(s.ValueID, s.Scope)
 				if err != nil {
 					return flowNext, fmt.Errorf("eval declaration %s: %w", s.Name, err)
 				}
@@ -946,7 +983,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 		if e.host.declaredOutput(s.Name) {
 			value := Value{Kind: ValNull}
 			if s.Value != nil {
-				evaluated, err := e.evalIn(s.Scope).Eval(s.Value)
+				evaluated, err := e.eval(s.ValueID, s.Scope)
 				if err != nil {
 					return flowNext, fmt.Errorf("eval declaration %s: %w", s.Name, err)
 				}
@@ -959,7 +996,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 			return flowNext, nil
 		}
 		if s.Value != nil {
-			evaluated, err := e.evalIn(s.Scope).Eval(s.Value)
+			evaluated, err := e.eval(s.ValueID, s.Scope)
 			if err != nil {
 				return flowNext, fmt.Errorf("eval declaration %s: %w", s.Name, err)
 			}
@@ -985,7 +1022,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 	case lower.Return:
 		value := Value{Kind: ValNull}
 		if s.Value != nil {
-			evaluated, err := e.evalIn(s.Scope).Eval(s.Value)
+			evaluated, err := e.eval(s.ValueID, s.Scope)
 			if err != nil {
 				return flowNext, fmt.Errorf("evaluating the returned expression: %w", err)
 			}
@@ -1015,13 +1052,17 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 	}
 }
 
-// assert checks an assertion the flow has reached against the values in reach
-// here, a failing condition ending the run as a ViolationError.
+// assert checks an assertion the flow has reached against the values in reach: a
+// failure ends the run as a ViolationError, or is a case's verdict and the flow moves on.
 func (e *stmtEngine) assert(s lower.Assert) error {
 	if s.Sym == nil {
 		return fmt.Errorf("%w: %s: the assertion is not declared where it was written", ErrNotAConstraint, e.host.describe())
 	}
 	ec := e.evalIn(s.Scope)
+	if judged := e.host.caseAssertions(); judged != nil {
+		judged.judge(e.ctx, ec, s)
+		return nil
+	}
 	check := conditionCheck{
 		sym:     s.Sym,
 		kind:    "constraint",
@@ -1070,7 +1111,7 @@ func (e *stmtEngine) ifStatement(stmt lower.If) (stmtFlow, error) {
 	if !resumed {
 		// The condition is evaluated outside both branches, so neither branch's
 		// declarations are visible to it.
-		holds, err := e.condition(stmt.Condition, stmt.Scope, "condition of 'if'")
+		holds, err := e.condition(stmt.ConditionID, stmt.Scope, "condition of 'if'")
 		if err != nil {
 			return flowNext, err
 		}
@@ -1120,7 +1161,7 @@ func (f *blockFrame) clone() bodyFrame {
 // ones a paused block ran in; leave restores what was around them.
 func (e *stmtEngine) enterBlock(f *blockFrame) (leave func(bool)) {
 	if f.locals == nil {
-		f.locals = e.env.enter(e)
+		f.locals = e.env.enter()
 		f.cells = e.env.cells[len(e.env.cells)-1]
 		f.activation, f.outer = e.ctx.newActivation(), e.activation
 	} else {
@@ -1270,7 +1311,7 @@ func (e *stmtEngine) bodyPerformed() {
 // A node resumed keeps the trace level it opened.
 func (e *stmtEngine) blockNode(graph *lower.ActionGraph, node ast.Node, resumed bool) (stmtFlow, error) {
 	if graph.StatementRuns[node] {
-		return e.run(graph.Bodies[node])
+		return e.runOf(graph.Exprs, graph.Bodies[node])
 	}
 	traced := false
 	if tr := e.ctx.trace; tr != nil {
@@ -1286,7 +1327,7 @@ func (e *stmtEngine) blockNode(graph *lower.ActionGraph, node ast.Node, resumed 
 	if usage, ok := node.(*ast.Usage); ok {
 		flow, err = e.host.performNode(e, graph, usage)
 	} else {
-		flow, err = e.run(graph.Bodies[node])
+		flow, err = e.runOf(graph.Exprs, graph.Bodies[node])
 	}
 	if traced && !paused(err) {
 		e.ctx.trace.endStatement()
@@ -1359,7 +1400,7 @@ func (e *stmtEngine) syncLoopCells(f *loopFrame) {
 // paused loop ran in; leave restores what was around it.
 func (e *stmtEngine) enterLoop(f *loopFrame) (leave func(bool)) {
 	if f.locals == nil {
-		f.locals = e.env.enter(e)
+		f.locals = e.env.enter()
 		f.cells = e.env.cells[len(e.env.cells)-1]
 		f.outer = e.activation
 	} else {
@@ -1474,7 +1515,7 @@ func (e *stmtEngine) iteration(stmt lower.Loop, f *loopFrame, resumed bool) (flo
 
 	if !resumed {
 		if stmt.Kind == ast.LoopWhile {
-			holds, err := e.condition(stmt.Condition, stmt.Body.Scope, "condition of 'while'")
+			holds, err := e.condition(stmt.ConditionID, stmt.Body.Scope, "condition of 'while'")
 			if err != nil {
 				return flowNext, true, err
 			}
@@ -1500,12 +1541,12 @@ func (e *stmtEngine) iteration(stmt lower.Loop, f *loopFrame, resumed bool) (flo
 
 	// An `until` condition is tested after the iteration: the `loop` form keeps
 	// it in Condition, a `while` loop carrying one keeps it in Until.
-	until := stmt.Until
+	until, untilID := stmt.Until, stmt.UntilID
 	if stmt.Kind == ast.LoopUntil {
-		until = stmt.Condition
+		until, untilID = stmt.Condition, stmt.ConditionID
 	}
-	if until != nil {
-		holds, err := e.condition(until, stmt.Body.Scope, "condition of 'until'")
+	if untilID != 0 {
+		holds, err := e.condition(untilID, stmt.Body.Scope, "condition of 'until'")
 		if err != nil {
 			return flowNext, true, err
 		}
@@ -1518,7 +1559,7 @@ func (e *stmtEngine) iteration(stmt lower.Loop, f *loopFrame, resumed bool) (flo
 // forLoop runs the body once per element of the loop's collection, with the
 // element bound to the loop's variable in the body's own frame.
 func (e *stmtEngine) forLoop(stmt lower.Loop) (stmtFlow, error) {
-	if stmt.Variable == "" {
+	if !stmt.Bound {
 		return flowNext, fmt.Errorf("%s: 'for' loop declares no iteration variable", e.host.describe())
 	}
 	f, resumed, err := popFrame[*loopFrame](e.ctx)
@@ -1528,7 +1569,7 @@ func (e *stmtEngine) forLoop(stmt lower.Loop) (stmtFlow, error) {
 	if !resumed {
 		// The collection is evaluated once, before the loop is entered, so the
 		// iteration is over the value the loop started with.
-		value, err := e.evalIn(stmt.Scope).Eval(stmt.Collection)
+		value, err := e.eval(stmt.CollectionID, stmt.Scope)
 		if err != nil {
 			return flowNext, fmt.Errorf("eval 'for' collection: %w", err)
 		}
@@ -1660,11 +1701,11 @@ func forElements(value Value) ([]Value, error) {
 // Boolean is a type error the typecheck pass reports (passes/typecheck.go
 // checkBehaviorMember); an execution that reaches one was never checked, so it
 // is reported here rather than coerced.
-func (e *stmtEngine) condition(expr ast.Node, scope *symbols.Scope, what string) (bool, error) {
-	if expr == nil {
+func (e *stmtEngine) condition(id program.ExprID, scope *symbols.Scope, what string) (bool, error) {
+	if id == 0 {
 		return false, fmt.Errorf("%s: %s is missing", e.host.describe(), what)
 	}
-	value, err := e.evalIn(scope).Eval(expr)
+	value, err := e.eval(id, scope)
 	if err != nil {
 		return false, fmt.Errorf("eval %s: %w", what, err)
 	}
@@ -1692,7 +1733,7 @@ func (e *stmtEngine) assign(s lower.Assign) (value Value, err error) {
 	if err := e.ctx.checkAssignable(e.host.describe, s); err != nil {
 		return value, err
 	}
-	value, err = e.evalIn(s.Scope).Eval(s.Value)
+	value, err = e.eval(s.ValueID, s.Scope)
 	if err != nil {
 		return value, fmt.Errorf("eval assignment RHS: %w", err)
 	}

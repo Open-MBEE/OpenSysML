@@ -46,4 +46,14 @@ describe('RunWithOpenSysMLMenuContribution', () => {
     fireEvent.click(screen.getByTestId('run-with-opensysml-menu'));
     expect(screen.getByText('Run with OpenSysML: Car')).toBeInTheDocument();
   });
+
+  it('opens the publish dialog for the publish entry', () => {
+    render(
+      <MockedProvider>
+        <RunWithOpenSysMLMenuContribution {...props} entry={{ id: 'publishWithOpenSysML' } as never} />
+      </MockedProvider>
+    );
+    fireEvent.click(screen.getByTestId('publish-with-opensysml-menu'));
+    expect(screen.getByText('Publish to SysML v2 API')).toBeInTheDocument();
+  });
 });

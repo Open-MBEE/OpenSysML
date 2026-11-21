@@ -114,7 +114,7 @@ func (m *Model) superEdges(sym *symbols.Symbol) []superEdge {
 	out := m.declaredSuperEdges(sym, seen)
 	if sym.Recorded() {
 		for _, rel := range sym.Facts.Relationships {
-			if !GeneralizationKind(rel.Kind) {
+			if !Generalizes(sym, rel.Kind) {
 				continue
 			}
 			resolved := m.recordedElement(rel.Target)
@@ -151,7 +151,7 @@ func (m *Model) superEdges(sym *symbols.Symbol) []superEdge {
 func (m *Model) declaredSuperEdges(sym *symbols.Symbol, seen map[*symbols.Symbol]bool) []superEdge {
 	var out []superEdge
 	for _, rel := range RelationshipsOf(sym) {
-		if rel == nil || rel.Target == nil || !GeneralizationKind(rel.Kind) {
+		if rel == nil || rel.Target == nil || !Generalizes(sym, rel.Kind) {
 			continue
 		}
 		target := rel.Target
@@ -409,7 +409,7 @@ func (m *Model) interfaceFlows(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 		return true
 	}
-	for _, owner := range append([]*symbols.Symbol{sym}, m.AllSupertypes(sym)...) {
+	for owner := range m.eachSelfAndSupertype(sym) {
 		if owner.Scope == nil {
 			continue
 		}

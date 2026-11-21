@@ -42,6 +42,7 @@ export const ALL_CAPABILITIES = [
   "enum_values",
   "unset_value",
   "undetermined_value",
+  "coordinate_frame_values",
   "big_int_values",
   "apply_edits",
   "edit_documents",

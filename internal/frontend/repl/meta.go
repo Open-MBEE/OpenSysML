@@ -280,8 +280,8 @@ var metaCommandTable = []metaCommand{
 	{name: "%check", effect: Executes, group: groupBehavioral, args: argName, desc: "ask an SMT solver whether a constraint, requirement or satisfaction can be satisfied (experimental)"},
 	{name: "%explain", effect: Executes, group: groupBehavioral, args: argName, desc: "ask an SMT solver which conditions of an unsatisfiable element conflict (experimental)"},
 	{name: "%solve", effect: Executes, group: groupBehavioral, args: argName, desc: "ask an SMT solver for values satisfying an element, keeping what is already fixed (experimental)"},
-	{name: "%configure", effect: Executes, group: groupBehavioral, args: "<name> [<variation>=<variant>...] [all [<count>]]", desc: "ask an SMT solver which variants an element's conditions permit (experimental)"},
-	{name: "%optimize", effect: Executes, group: groupBehavioral, args: argName, desc: "ask an SMT solver for the best values an analysis case's objectives admit (experimental)"},
+	{name: "%configure", effect: Executes, group: groupBehavioral, args: "<name> [<variation>=<variant>...] [all [<count>]] [-json]", desc: "ask an SMT solver which variants an element's conditions permit; -json writes the answer as one JSON document (experimental)"},
+	{name: "%optimize", effect: Executes, group: groupBehavioral, args: "<name> [-json]", desc: "ask an SMT solver for the best values an analysis case's objectives admit; -json writes the answer as one JSON document (experimental)"},
 
 	{name: "%action", effect: Executes, group: groupAction, args: "<name> [<object>]", desc: "start action executor debugging session, performed by an object"},
 	{name: "%step", effect: Executes, group: groupAction, desc: "advance one token step, or one step of the state machine being debugged"},
@@ -841,15 +841,9 @@ func (s *Session) metaModelCommand(fields []string, line string) (metaResult, bo
 		}
 		return metaOut(s.doSolve(fields[1])), true
 	case "%configure":
-		if len(fields) < 2 {
-			return metaOut([]string{"usage: %configure <name> [<variation>=<variant>...] [all [<count>]]"}, false, nil), true
-		}
-		return metaOut(s.doConfigure(fields[1], fields[2:])), true
+		return metaOut(s.doConfigure(fields[1:])), true
 	case "%optimize":
-		if len(fields) < 2 {
-			return metaOut([]string{"usage: %optimize <name>"}, false, nil), true
-		}
-		return metaOut(s.doOptimize(fields[1])), true
+		return metaOut(s.doOptimize(fields[1:])), true
 		// Action debugging
 	}
 	return metaResult{}, false
@@ -896,9 +890,19 @@ func (s *Session) metaDebugCommand(fields []string, line string) (metaResult, bo
 		return metaOut(s.doInvoke(object, operation, args)), true
 	case cmdQuery:
 		if len(fields) < 2 {
-			return metaOut([]string{"usage: %query <oslc-query>"}, false, nil), true
+			return metaOut([]string{queryUsage}, false, nil), true
 		}
-		lines, err := s.query(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), cmdQuery)))
+		text, asView := cutAsView(strings.TrimPrefix(strings.TrimSpace(line), cmdQuery))
+		if text == "" {
+			return metaOut([]string{queryUsage}, false, nil), true
+		}
+		if asView {
+			defer s.writingResultViews()()
+		}
+		lines, written, err := s.query(text)
+		if asView && written != "" {
+			return metaOut(viewLines(written), false, nil), true
+		}
 		if err != nil {
 			return metaOut([]string{errPrefix + err.Error()}, false, nil), true
 		}
@@ -2907,7 +2911,7 @@ func ambiguousAction(action string, inst *runtime.Instance, label string, perfor
 	e := &AmbiguousActionError{Object: objectMention(inst, label), Action: action}
 	for _, b := range performed {
 		usage := ""
-		if member := b.Member(); member != nil && member.Name != "" {
+		if member := b.Member(); member != nil && member.Named() {
 			usage = declarationNotation(member)
 		}
 		e.Usages = append(e.Usages, usage)
@@ -3564,7 +3568,7 @@ func collectExhibits(scopes []*symbols.Scope) []exhibitEntry {
 		}
 		if owner := scope.Owner(); owner != nil {
 			scope.ForEachMember(func(member *symbols.Symbol) bool {
-				if member.Name != "" && member.Decl != nil {
+				if member.Named() && member.Decl != nil {
 					if b, ok := lower.ClassifierBehaviorOf(member.Decl); ok && b.Kind == lower.ExhibitedState {
 						entries = append(entries, exhibitEntry{owner: owner, member: member})
 					}
@@ -3627,7 +3631,7 @@ func ambiguousMachine(machine string, inst *runtime.Instance, label string, exhi
 	e := &AmbiguousMachineError{Object: objectMention(inst, label), Machine: machine}
 	for _, b := range exhibited {
 		usage := ""
-		if member := b.Member(); member != nil && member.Name != "" {
+		if member := b.Member(); member != nil && member.Named() {
 			usage = declarationNotation(member)
 		}
 		e.Usages = append(e.Usages, usage)

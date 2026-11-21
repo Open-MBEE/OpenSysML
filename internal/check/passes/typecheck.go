@@ -59,6 +59,8 @@ type typeChecker struct {
 	// buffer — reads as SysML, the notation its prompt takes.
 	lang  source.Kind
 	diags []diag.Diagnostic
+	// reported keys diags for appendUnique.
+	reported reportedSet
 	// sendPayloads are the payload bindings of send bodies, which the send-action
 	// pass types so they are checked even when this pass is gated.
 	sendPayloads map[*ast.Usage]bool
@@ -716,12 +718,39 @@ func hasTypingRelationship(rels []*ast.Relationship) bool {
 // appendUnique records d unless the same message was already reported there: a
 // declaration with two wrong types states its one rule once.
 func (tc *typeChecker) appendUnique(d diag.Diagnostic) {
-	for _, have := range tc.diags {
-		if have.Span.Offset == d.Span.Offset && have.Message == d.Message {
-			return
-		}
+	if !tc.reported.add(tc.diags, d.Span.Offset, d.Message) {
+		return
 	}
 	tc.diags = append(tc.diags, d)
+}
+
+// reportedSet is the (offset, message) pairs of a diagnostic list, kept in step
+// with a list that is also appended to directly by indexing its new tail on use.
+type reportedSet struct {
+	seen    map[reportedKey]struct{}
+	indexed int
+}
+
+type reportedKey struct {
+	offset  int
+	message string
+}
+
+// add records the pair and reports whether diags did not already hold it.
+func (r *reportedSet) add(diags []diag.Diagnostic, offset int, message string) bool {
+	if r.seen == nil {
+		r.seen = make(map[reportedKey]struct{})
+	}
+	for _, have := range diags[min(r.indexed, len(diags)):] {
+		r.seen[reportedKey{have.Span.Offset, have.Message}] = struct{}{}
+	}
+	r.indexed = len(diags)
+	key := reportedKey{offset, message}
+	if _, ok := r.seen[key]; ok {
+		return false
+	}
+	r.seen[key] = struct{}{}
+	return true
 }
 
 // checkConjugatedTyping checks a `~T` typing: a ConjugatedPortTyping names the
@@ -907,7 +936,7 @@ func referentKindMessage(decl declKind, rel ast.RelationshipKind, target symbols
 	switch {
 	// `satisfy`/`verify <name>` is a reference subsetting of an existing
 	// requirement usage; viewpoint and concern usages are requirement usages.
-	case decl.useKind == ast.UsageSatisfy && rel == ast.RelSubsets:
+	case decl.useKind == ast.UsageSatisfy && rel == ast.RelReferences:
 		if !isRequirementUsageKind(target) {
 			return fmt.Sprintf("satisfy target must be a requirement usage, found %s", found)
 		}

@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -594,6 +595,331 @@ func TestDeclaredReadHoldsTheFeaturesShape(t *testing.T) {
 		}
 		if got := FormatTraceValue(val); got != tc.want {
 			t.Errorf("%s = %s, want %s", tc.expr, got, tc.want)
+		}
+	}
+}
+
+// A quantity is held where `istype` affirms the declared type of it: by the supertypes of
+// ScalarQuantityValue and the quantity kinds of its dimension, and by no unrelated type.
+func TestQuantityIsHeldByTheTypesItIsOf(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import ISQ::*;
+			private import SI::*;
+			attribute def Count;
+			attribute def Ratio :> ScalarValues::Real;
+			attribute def Lap :> DurationValue;
+			part def P {
+				attribute held = 5 [s];
+				attribute duration : DurationValue = held;
+				attribute lap : Lap = held;
+				attribute scalarQuantity : Quantities::ScalarQuantityValue = held;
+				attribute vectorQuantity : Quantities::VectorQuantityValue = held;
+				attribute numerical : ScalarValues::NumericalValue = held;
+				attribute scalar : ScalarValues::ScalarValue = held;
+				attribute anything : Base::Anything = held;
+				attribute mass : MassValue = held;
+				attribute dimensionless : MeasurementReferences::DimensionOneValue = held;
+				attribute real : ScalarValues::Real = held;
+				attribute number : ScalarValues::Number = held;
+				attribute text : ScalarValues::String = held;
+				attribute truth : ScalarValues::Boolean = held;
+				attribute count : Count = held;
+				attribute ratio : Ratio = held;
+			}
+			part p : P;
+		}
+	`))
+	inst := instantiateNamed(t, ctx, idx, "test::p")
+	for _, feature := range []string{"duration", "lap", "scalarQuantity", "vectorQuantity", "numerical", "scalar", "anything"} {
+		fv, err := inst.GetFeatureValue(ctx, feature)
+		if err != nil {
+			t.Errorf("%s: %v", feature, err)
+			continue
+		}
+		if got := FormatTraceValue(fv.HeldValue()); got != "5 [s]" {
+			t.Errorf("%s = %s, want 5 [s]", feature, got)
+		}
+	}
+	for _, feature := range []string{"mass", "dimensionless", "real", "number", "text", "truth", "count", "ratio"} {
+		if _, err := inst.GetFeatureValue(ctx, feature); !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("%s: error = %v, want ErrTypeMismatch", feature, err)
+		}
+	}
+}
+
+// A feature typed by a measurement reference (a unit, scale or frame) holds a quantity unjudged, as
+// the OMG individuals example binds one (`hp : PowerUnit = 745.7 [SI::W]`); other types refuse it.
+func TestQuantityIsHeldUnjudgedByAUnitTypedFeature(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import ISQ::*;
+			private import SI::*;
+			private import MeasurementReferences::*;
+			attribute def Count;
+			attribute def Brake :> PowerUnit;
+			part def P {
+				attribute hp : PowerUnit = 745.7 [SI::W];
+				attribute brake : Brake = 745.7 [SI::W];
+				attribute unit : MeasurementUnit = 745.7 [SI::W];
+				attribute scalarRef : ScalarMeasurementReference = 745.7 [SI::W];
+				attribute written : PowerUnit;
+				attribute plain : ScalarValues::Real;
+				attribute real : ScalarValues::Real = 745.7 [SI::W];
+				attribute count : Count = 745.7 [SI::W];
+				attribute vectorRef : VectorMeasurementReference = 745.7 [SI::W];
+				attribute tensorRef : TensorMeasurementReference = 745.7 [SI::W];
+				attribute frame : CoordinateFrame = 745.7 [SI::W];
+				attribute writtenFrame : VectorMeasurementReference;
+				attribute conversion : UnitConversion = 745.7 [SI::W];
+				attribute mass : MassValue = 745.7 [SI::W];
+			}
+			part p : P;
+		}
+	`))
+	inst := instantiateNamed(t, ctx, idx, "test::p")
+	for _, feature := range []string{"hp", "brake", "unit", "scalarRef", "vectorRef", "tensorRef", "frame"} {
+		fv, err := inst.GetFeatureValue(ctx, feature)
+		if err != nil {
+			t.Errorf("%s: %v", feature, err)
+			continue
+		}
+		if got := FormatTraceValue(fv.HeldValue()); got != "745.7 [SI::W]" {
+			t.Errorf("%s = %s, want 745.7 [SI::W]", feature, got)
+		}
+	}
+	for _, feature := range []string{"real", "count", "conversion", "mass"} {
+		if _, err := inst.GetFeatureValue(ctx, feature); !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("%s: error = %v, want ErrTypeMismatch", feature, err)
+		}
+	}
+	hp, err := inst.GetFeatureValue(ctx, "hp")
+	if err != nil {
+		t.Fatalf("hp: %v", err)
+	}
+	if err := inst.SetFeatureValue(ctx, "written", hp.HeldValue()); err != nil {
+		t.Errorf("write to written : PowerUnit: %v", err)
+	}
+	if err := inst.SetFeatureValue(ctx, "writtenFrame", hp.HeldValue()); err != nil {
+		t.Errorf("write to writtenFrame : VectorMeasurementReference: %v", err)
+	}
+	if err := inst.SetFeatureValue(ctx, "plain", hp.HeldValue()); !errors.Is(err, ErrTypeMismatch) {
+		t.Errorf("write to plain : Real: error = %v, want ErrTypeMismatch", err)
+	}
+}
+
+// A quantity a feature declared by a quantity value type holds is of that type: its
+// supertypes and subtypes hold it, a sibling type of the same dimension, disjoint from
+// it (SysML v2 9.8.9.1), does not, and what an operator computes of it is of no kind.
+func TestQuantityHeldAsAKindIsRefusedByASiblingKind(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import ISQ::*;
+			private import SI::*;
+			attribute def Work :> EnergyValue;
+			attribute def Heat :> EnergyValue;
+			calc def Passed { in x; x }
+			part def P {
+				attribute energy : EnergyValue = 5 [J];
+				attribute work : Work = Passed(energy);
+				attribute widened : EnergyValue = Passed(work);
+				attribute general : Quantities::ScalarQuantityValue = Passed(work);
+				attribute computed : TorqueValue = Passed(energy + energy);
+				attribute constructed : TorqueValue = 5 [J];
+				attribute torque : TorqueValue = Passed(energy);
+				attribute heat : Heat = Passed(work);
+				attribute heatOfWidened : Heat = Passed(widened);
+				attribute many : EnergyValue[2] = (1 [J], 2 [J]);
+				attribute torques : TorqueValue[2] = Passed(many);
+				attribute isEnergy = energy istype EnergyValue;
+				attribute isTorque = energy istype TorqueValue;
+				attribute hasEnergy = energy hastype EnergyValue;
+				attribute workIsEnergy = work istype EnergyValue;
+				attribute workHasEnergy = work hastype EnergyValue;
+				attribute same = energy == 5 [J];
+			}
+			part p : P;
+		}
+	`))
+	inst := instantiateNamed(t, ctx, idx, "test::p")
+	for feature, want := range map[string]string{
+		"work": "5 [J]", "widened": "5 [J]", "general": "5 [J]", "computed": "10 [SI::'N⋅m']", "constructed": "5 [SI::'N⋅m']",
+		"isEnergy": "true", "isTorque": "false", "hasEnergy": "false", "workIsEnergy": "true",
+		"workHasEnergy": "false", "same": "true",
+	} {
+		fv, err := inst.GetFeatureValue(ctx, feature)
+		if err != nil {
+			t.Errorf("%s: %v", feature, err)
+			continue
+		}
+		if got := FormatTraceValue(fv.HeldValue()); got != want {
+			t.Errorf("%s = %s, want %s", feature, got, want)
+		}
+	}
+	for _, feature := range []string{"torque", "heat", "heatOfWidened", "torques"} {
+		if _, err := inst.GetFeatureValue(ctx, feature); !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("%s: error = %v, want ErrTypeMismatch", feature, err)
+		}
+	}
+}
+
+const heldKindSrc = `package Demo {
+	private import ISQ::*;
+	private import SI::*;
+	attribute def Work :> EnergyValue;
+	attribute def Heat :> EnergyValue;
+	part def Engine {
+		attribute work : Work = 5 [J];
+		attribute heat : Heat = 5 [J];
+		attribute general : Quantities::ScalarQuantityValue = work;
+		attribute generalIsTorque = general istype TorqueValue;
+		attribute generalIsHeat = general istype Heat;
+		attribute generalIsWork = general istype Work;
+		attribute any;
+		attribute anyIsWork = any istype Work;
+	}
+	part engine : Engine;
+}`
+
+// The quantity value type a quantity is held as stays with it through a feature of a
+// wider type, which no sibling type then classifies, and is part of what a derivation
+// reads: an equal quantity of another type derives the classification again.
+func TestQuantityKindIsReadThroughAWiderFeatureAndByDerivations(t *testing.T) {
+	ctx := libraryContextOver(t, heldKindSrc)
+	engine, err := ctx.Instantiate(lookupOne(t, ctx.Resolver().Index(), "Demo::engine"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	held := func(feature string) Value {
+		t.Helper()
+		fv, err := engine.GetFeatureValue(ctx, feature)
+		if err != nil {
+			t.Fatalf("GetFeatureValue(%s): %v", feature, err)
+		}
+		return fv.HeldValue()
+	}
+	for feature, want := range map[string]string{"generalIsTorque": "false", "generalIsHeat": "false", "generalIsWork": "true"} {
+		if got := FormatValue(held(feature)); got != want {
+			t.Errorf("%s = %s, want %s", feature, got, want)
+		}
+	}
+	for _, step := range []struct{ from, want string }{{"work", "true"}, {"heat", "false"}, {"work", "true"}} {
+		if err := engine.SetFeatureValue(ctx, "any", held(step.from)); err != nil {
+			t.Fatalf("write any := %s: %v", step.from, err)
+		}
+		if got := FormatValue(held("anyIsWork")); got != step.want {
+			t.Errorf("anyIsWork after any := %s is %s, want %s", step.from, got, step.want)
+		}
+	}
+}
+
+// A carried quantity is still of the quantity value type it was held as, rebound to that
+// type's declaration in the re-analysis.
+func TestAdoptCarriesTheQuantityKindAWrittenQuantityIsHeldAs(t *testing.T) {
+	prev := libraryContextOver(t, heldKindSrc)
+	engine, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::engine"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	work, err := engine.GetFeatureValue(prev, "work")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(work): %v", err)
+	}
+	if err := engine.SetFeatureValue(prev, "any", work.HeldValue()); err != nil {
+		t.Fatalf("write any: %v", err)
+	}
+	shapes := prev.ShapesOf(engine)
+
+	ctx := libraryContextOver(t, heldKindSrc+"\npart def Widget;")
+	if _, err := ctx.Adopt(prev, shapes, engine); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	carried, err := engine.GetFeatureValue(ctx, "any")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(any): %v", err)
+	}
+	if kind, want := carried.HeldValue().QuantityKind(), lookupOne(t, ctx.Resolver().Index(), "Demo::Work"); kind != want {
+		t.Errorf("any is held as %v, want the Work declared by the re-analysis", kind)
+	}
+	scope := lookupOne(t, ctx.Resolver().Index(), "Demo").Scope
+	for expr, want := range map[string]string{"engine.any istype Work": "true", "engine.any istype Heat": "false", "engine.any hastype Work": "false"} {
+		got, err := evalIn(t, ctx, scope, expr)
+		if err != nil || FormatValue(got) != want {
+			t.Errorf("%s after the carry-over = %s, %v; want %s", expr, FormatValue(got), err, want)
+		}
+	}
+}
+
+// A carried quantity is refused where the quantity value type it is held as resolves
+// differently in the re-analysis, since it was never judged against that declaration.
+func TestAdoptRefusesAQuantityHeldAsAChangedQuantityKind(t *testing.T) {
+	const src = `package Demo {
+	private import ISQ::*;
+	private import SI::*;
+	attribute def Heat :> EnergyValue;
+	part def Source { attribute heat : Heat = 5 [J]; }
+	part def Box { attribute any; }
+	part source : Source;
+	part box : Box;
+}`
+	prev := libraryContextOver(t, src)
+	source, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::source"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	box, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::box"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	heat, err := source.GetFeatureValue(prev, "heat")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(heat): %v", err)
+	}
+	if err := box.SetFeatureValue(prev, "any", heat.HeldValue()); err != nil {
+		t.Fatalf("write any: %v", err)
+	}
+	shapes := prev.ShapesOf(box)
+
+	changed := strings.Replace(src, "Heat :> EnergyValue", "Heat :> DurationValue", 1)
+	ctx := libraryContextOver(t, strings.Replace(changed, "5 [J]", "5 [s]", 1))
+	_, err = ctx.Adopt(prev, shapes, box)
+	var refused *adoptError
+	if !errors.As(err, &refused) || !strings.Contains(err.Error(), "the quantity value type Demo::Heat it holds a quantity as resolves differently now") {
+		t.Fatalf("Adopt into a re-analysis redeclaring Heat: %v, want the changed quantity value type named", err)
+	}
+}
+
+// Overload selection types a quantity argument by the quantity value type it is held as,
+// and one held as none by `ScalarQuantityValue`.
+func TestCalcCallSelectsByTheQuantityKindAnArgumentIsHeldAs(t *testing.T) {
+	ctx := libraryContextOver(t, `package Demo {
+	private import ISQ::*;
+	private import SI::*;
+	private import ScalarValues::*;
+	attribute def Work :> EnergyValue;
+	part def A { calc def pick { in x : Quantities::ScalarQuantityValue; return : Integer = 1; } }
+	part def B { calc def pick { in x : EnergyValue; return : Integer = 2; } }
+	part def C { calc def pick { in x : TorqueValue; return : Integer = 3; } }
+	part def Engine :> A, B, C {
+		attribute work : Work = 5 [J];
+		calc choose { in v; pick(v) }
+		attribute held = choose(work);
+		attribute constructed = choose(5 [J]);
+	}
+	part engine : Engine;
+}`)
+	engine, err := ctx.Instantiate(lookupOne(t, ctx.Resolver().Index(), "Demo::engine"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	for feature, want := range map[string]string{"held": "2", "constructed": "1"} {
+		fv, err := engine.GetFeatureValue(ctx, feature)
+		if err != nil {
+			t.Errorf("%s: %v", feature, err)
+			continue
+		}
+		if got := FormatValue(fv.HeldValue()); got != want {
+			t.Errorf("%s = %s, want %s", feature, got, want)
 		}
 	}
 }

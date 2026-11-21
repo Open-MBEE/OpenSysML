@@ -11,7 +11,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/doc/querytranslate"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
@@ -38,9 +37,13 @@ const (
 	QueryPropMultiplicityUpper     = corequery.PropertyMultiplicityUpper
 	QueryPropSatisfiedRequirement  = corequery.PropertySatisfiedRequirement
 	QueryPropSatisfyingFeature     = corequery.PropertySatisfyingFeature
+	QueryPropVerifiedRequirement   = corequery.PropertyVerifiedRequirement
+	QueryPropVerifyingCase         = corequery.PropertyVerifyingCase
 	QueryPropPayloadArgument       = corequery.PropertyPayloadArgument
 	QueryPropSenderArgument        = corequery.PropertySenderArgument
 	QueryPropReceiverArgument      = corequery.PropertyReceiverArgument
+	QueryPropSymbolKind            = corequery.PropertySymbolKind
+	QueryPropText                  = corequery.PropertyText
 )
 
 // QueryErrorKind classifies why a query could not be evaluated. Every kind fails
@@ -86,13 +89,6 @@ func queryErrorf(kind QueryErrorKind, format string, args ...any) *QueryError {
 	return &QueryError{Kind: kind, Message: fmt.Sprintf(format, args...)}
 }
 
-// QueryPropertyNames returns the queryable property names the evaluator derives
-// for every element, sorted: what docs/reference/api.md's table documents. The
-// metamodel's own properties are queryable besides, by their declared names.
-func QueryPropertyNames() []string {
-	return corequery.PropertyNames()
-}
-
 // Query evaluates a SysML v2 API & Services Query, or OSLC Query 3.0 text, over
 // a parsed model: either is translated to a document-query plan and run by the
 // evaluator over the model's elements, or the objects the model's session holds.
@@ -120,16 +116,35 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 	if req.Query == nil && req.OslcQuery == "" {
 		return nil, queryStatus(queryErrorf(QueryErrMalformedConstraint, "query is unset"))
 	}
+	if req.AsView {
+		if err := s.requireCapability(CapabilityQueryResultView); err != nil {
+			return nil, err
+		}
+	}
 
-	sc := cached.SymbolContext()
-	defer sc.Lock()()
+	// The held objects are locked first, as every request that looks a symbol up under them does.
 	held := s.objects(cached)
 	defer held.lock(ctx)()
+	sc := cached.SymbolContext()
+	defer sc.Lock()()
 	qctx := held.queryContext()
 	eval := &queryEval{sc: sc, cached: cached}
 	qctx.Identity = eval.identity
 	table := cached.queryTable(qctx)
 
+	text := req.OslcQuery
+	if text == "" {
+		text = apiQueryText(req.Query)
+	}
+	spec := resultViewSpec(cached, req.ModelHash, queryexec.DefaultResultViewName, text)
+	// refused is a translator refusal as its status, with the view of the path error it is.
+	refused := func(err error) error {
+		status := queryStatus(err)
+		if outcome := querytranslate.OutcomeOf(err); req.AsView && outcome != nil {
+			status = withResultView(status, spec.WriteOutcome(qctx, *outcome))
+		}
+		return status
+	}
 	var parsed querytranslate.Query
 	var err error
 	if req.OslcQuery != "" {
@@ -138,11 +153,11 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 		parsed, err = apiQuery(req.Query)
 	}
 	if err != nil {
-		return nil, queryStatus(err)
+		return nil, refused(err)
 	}
 	plan, err := querytranslate.Translate(parsed, querytranslate.Context{Index: qctx.Index, Model: qctx.Model, Table: table}, "Query")
 	if err != nil {
-		return nil, queryStatus(err)
+		return nil, refused(err)
 	}
 	bindings := queryexec.Bindings{}
 	if !plan.Objects {
@@ -158,9 +173,17 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 	}
 	result, err := queryexec.Execute(plan.Program, qctx, bindings, queryexec.Options{})
 	if err != nil {
-		return nil, held.queryExecStatus(err)
+		status := held.queryExecStatus(err)
+		if req.AsView {
+			status = withResultView(status, failedResultView(spec, qctx, err))
+		}
+		return nil, status
 	}
-	return &pb.QueryResponse{Elements: eval.resultElements(qctx, result)}, nil
+	response := &pb.QueryResponse{Elements: eval.resultElements(qctx, result)}
+	if req.AsView {
+		response.ResultView, _ = spec.Write(qctx, result, nil)
+	}
+	return response, nil
 }
 
 // resultElements renders the plan's rows: an element by the identity this
@@ -320,32 +343,10 @@ func queryStatus(err error) error {
 		qerr = &QueryError{Kind: translatorKind(err), Message: err.Error(), Err: err}
 	}
 	status := connect.NewError(connect.CodeInvalidArgument, qerr)
-	if outcome := translatorOutcome(err); outcome != nil {
+	if outcome := querytranslate.OutcomeOf(err); outcome != nil {
 		return withQueryOutcome(status, outcome)
 	}
 	return status
-}
-
-// translatorOutcome is the QVTS record of a translator refusal that has one:
-// an unknown property is a path error whose frontier lists the properties the
-// query could have named, with the nearest spelling.
-func translatorOutcome(err error) *queryexec.Outcome {
-	var terr *querytranslate.Error
-	if !errors.As(err, &terr) || terr.Kind != querytranslate.ErrUnknownProperty {
-		return nil
-	}
-	frontier := queryexec.Frontier{Features: make([]queryexec.FeatureRef, 0, len(terr.Candidates))}
-	for _, candidate := range terr.Candidates {
-		frontier.Features = append(frontier.Features, queryexec.FeatureRef{Name: candidate})
-	}
-	if nearest := suggest.Nearest(terr.Property, terr.Candidates); len(nearest) > 0 {
-		frontier.Nearest = nearest[0]
-	}
-	return &queryexec.Outcome{Path: &queryexec.PathError{Failures: []queryexec.Failure{{
-		Step:     queryexec.Step{Kind: queryexec.StepFeature, Argument: terr.Property},
-		Expected: "a property of the metamodel",
-		Frontier: frontier,
-	}}}}
 }
 
 // translatorKind is the service's kind for a translator refusal.
@@ -439,6 +440,9 @@ func (e *queryEval) candidates(cached *CachedModel, scope []string) ([]*symbols.
 			if sym := e.sc.Positional.Symbol(fqn); sym != nil {
 				roots = []*symbols.Symbol{sym}
 			}
+		}
+		if len(roots) == 0 {
+			roots = e.sc.LookupID(fqn)
 		}
 		if len(roots) == 0 {
 			return nil, queryErrorf(QueryErrUnknownScope,

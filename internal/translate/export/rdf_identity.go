@@ -208,12 +208,12 @@ func identityRoot(table *identity.Table, sym *symbols.Symbol, info *identity.Inf
 		if !ok {
 			return ""
 		}
-		if root.Name != "" {
+		if root.Named() {
 			return naming.Segment(root.Name)
 		}
 		return ri.FQN
 	}
-	if sym.Name != "" {
+	if sym.Named() {
 		return naming.Segment(sym.Name)
 	}
 	return info.FQN
@@ -236,7 +236,7 @@ func (f *identityFacts) index(sym *symbols.Symbol, info *identity.Info, root str
 	if sym.Decl != nil {
 		f.declSym[sym.Decl] = sym
 	}
-	if body, ok := sym.Decl.(*ast.BodyExpr); ok && sym.Name != "" {
+	if body, ok := sym.Decl.(*ast.BodyExpr); ok && sym.Named() {
 		if f.bodyParamSym[body] == nil {
 			f.bodyParamSym[body] = map[string]*symbols.Symbol{}
 		}
@@ -247,7 +247,7 @@ func (f *identityFacts) index(sym *symbols.Symbol, info *identity.Info, root str
 // indexMultiplicityRange files the ids this implementation mints for the
 // MultiplicityRange a library feature declares (an unnamed member under its fixed id).
 func (f *identityFacts) indexMultiplicityRange(sym *symbols.Symbol, info *identity.Info) {
-	if !info.Fixed() || sym.Name == "" {
+	if !info.Fixed() || !sym.Named() {
 		return
 	}
 	member := f.model.DeclaredMultiplicityMember(sym)
@@ -264,6 +264,22 @@ func (f *identityFacts) indexMultiplicityRange(sym *symbols.Symbol, info *identi
 	f.multiplicities[rdf.ElementIRIForID(info.EffectiveID).Value] = elementIdentity{
 		id: anonymous.ID, source: info.Source, membership: anonymous.OwningMembershipID,
 	}
+}
+
+// libraryAliasMembership is the subject of the Membership a library alias is, under the id
+// this implementation mints for it; ok is false for an alias the model itself declares.
+func (f *identityFacts) libraryAliasMembership(alias *symbols.Symbol) (rdf.Term, bool) {
+	if _, declared := f.byNode[alias.Decl]; declared || !f.res.Index().Library(alias) {
+		return rdf.Term{}, false
+	}
+	if f.catalog == nil {
+		f.catalog = identity.LibraryCatalogWithOpenSysML(f.res.Index())
+	}
+	membership, ok := identity.AliasMembershipOf(f.model, f.catalog, alias)
+	if !ok {
+		return rdf.Term{}, false
+	}
+	return rdf.ElementIRIForID(membership.ID), true
 }
 
 // multiplicityRange is the IRIs of the MultiplicityRange the element at owner
@@ -331,7 +347,7 @@ func (f *identityFacts) libraryElement(sym *symbols.Symbol) (string, bool) {
 		return "", false
 	}
 	info, ok := identity.Of(f.model, f.res, sym)
-	if !ok || !info.Fixed() || sym.Name == "" {
+	if !ok || !info.Fixed() || !sym.Named() {
 		return "", false
 	}
 	if _, taken := f.byFQN[info.FQN]; taken {

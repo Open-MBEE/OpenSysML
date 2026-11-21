@@ -34,25 +34,27 @@ func TestStateBodyThenAfterStateIsATransitionUsage(t *testing.T) {
 			// as for a transition's trigger and guard.
 			continue
 		}
-		if got, want := ownedMemberKinds(model, transition), "OwningMembership:SuccessionAsUsage"; got != want {
+		// The Membership naming the state before it, the link parameter, the succession, the transitionLink: the pilot's order.
+		if got, want := ownedMemberKinds(model, transition), "Membership:StateUsage ParameterMembership:ReferenceUsage OwningMembership:SuccessionAsUsage FeatureMembership:ReferenceUsage"; got != want {
 			t.Errorf("the transition's ownedRelationship = %s, want %s", got, want)
 		}
-		succession := ownedMembers(model, transition)[0]
+		succession := ownedMembers(model, transition)[2]
 		if got, ok := relatedNames(model, succession); !ok || got != "idle running" {
 			t.Errorf("the transition's succession relatedFeature = %q, %v; want \"idle running\", true", got, ok)
 		}
 		if owned, _ := model.ReflectiveElements(transition, "succession"); len(owned) != 1 || owned[0] != succession {
 			t.Errorf("transition.succession = %v, want the owned succession", owned)
 		}
-		if got, want := ownedMemberKinds(model, ownedMembers(model, mach)[1]), ""; got != want {
-			t.Errorf("the entry transition's succession owns %s, want nothing", got)
+		// `entry; then idle;` is a succession owning its two ends, as the pilot exports a TargetSuccession.
+		if got, want := ownedMemberKinds(model, ownedMembers(model, mach)[1]), "EndFeatureMembership:ReferenceUsage EndFeatureMembership:ReferenceUsage"; got != want {
+			t.Errorf("the entry succession owns %s, want %s", got, want)
 		}
 		running := ownedMembers(model, mach)[4]
 		if got, want := ownedMemberKinds(model, running), "StateSubactionMembership:ActionUsage FeatureMembership:SuccessionAsUsage FeatureMembership:StateUsage FeatureMembership:TransitionUsage FeatureMembership:StateUsage"; got != want {
 			t.Errorf("running ownedRelationship = %s\nwant %s", got, want)
 		}
 		inner := ownedMembers(model, running)[3]
-		if got, ok := relatedNames(model, ownedMembers(model, inner)[0]); !ok || got != "inner fin" {
+		if got, ok := relatedNames(model, ownedMembers(model, inner)[2]); !ok || got != "inner fin" {
 			t.Errorf("inner's transition succession relatedFeature = %q, %v; want \"inner fin\", true", got, ok)
 		}
 	}
@@ -127,10 +129,10 @@ func TestStateBodyTransitionMintsNoSuccessionEnds(t *testing.T) {
 		if transition.Recorded() {
 			continue
 		}
-		if got, want := ownedMemberKinds(model, transition), "OwningMembership:SuccessionAsUsage"; got != want {
+		if got, want := ownedMemberKinds(model, transition), "Membership:StateUsage ParameterMembership:ReferenceUsage OwningMembership:SuccessionAsUsage FeatureMembership:ReferenceUsage"; got != want {
 			t.Errorf("the transition's ownedRelationship = %q, want %q", got, want)
 		}
-		if got := ownedMemberKinds(model, ownedMembers(model, transition)[0]); got != wantEnds {
+		if got := ownedMemberKinds(model, ownedMembers(model, transition)[2]); got != wantEnds {
 			t.Errorf("the transition's succession owns %q, want %q", got, wantEnds)
 		}
 	}

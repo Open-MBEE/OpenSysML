@@ -42,7 +42,7 @@ func (m *Model) ReferencedFeature(sym *symbols.Symbol) *symbols.Symbol {
 		if target, ok := m.resolver.ResolveReferenceTarget(referenceScope(sym), sym.Decl, node); ok && target != sym {
 			out = target
 		}
-	} else if u, isUsage := sym.Decl.(*ast.Usage); isUsage && u.IsVariantReference() && sym.Name != "" {
+	} else if u, isUsage := sym.Decl.(*ast.Usage); isUsage && u.IsVariantReference() && sym.Named() {
 		// A bare `variant X` is a VariantReference (SysML.xtext:642): a
 		// reference usage subsetting the like-named feature visible outside.
 		if named, ok := m.resolver.LookupNameExcluding(sym.OwnerScope, sym.Name, sym.Decl); ok && named != sym {
@@ -57,6 +57,19 @@ func (m *Model) ReferencedFeature(sym *symbols.Symbol) *symbols.Symbol {
 		m.referenced[sym] = out
 	}
 	return out
+}
+
+// shorthandReference is the feature sym reference-subsets by being stated as its name alone, with no
+// clause: a referenced constraint (`require r;`) or a bare `variant x;` (SysML.xtext OwnedReference).
+func (m *Model) shorthandReference(sym *symbols.Symbol) *symbols.Symbol {
+	if sym.Recorded() {
+		return nil
+	}
+	usage, isUsage := sym.Decl.(*ast.Usage)
+	if ast.ConstraintReferenceOf(sym.Decl) == nil && !(isUsage && usage.IsVariantReference() && usage.ReferenceSubsetting() == nil) {
+		return nil
+	}
+	return m.ReferencedFeature(sym)
 }
 
 // ReferencedFeatureChain is the features sym's reference subsetting names and the node writing them:
@@ -83,6 +96,9 @@ func (m *Model) ReferencedFeatureChain(sym *symbols.Symbol) ([]*symbols.Symbol, 
 // that clause outside its relationship list when it is written with the
 // `references` keyword, so it is asked for its own.
 func referenceSubsettingTarget(sym *symbols.Symbol) ast.Node {
+	if target := MessageEndReference(sym); target != nil {
+		return target
+	}
 	switch decl := sym.Decl.(type) {
 	case *ast.ConnectorEnd:
 		return decl.AttachedTarget()
@@ -108,10 +124,22 @@ func referenceSubsettingTarget(sym *symbols.Symbol) ast.Node {
 // feature of the connector's owner, so it resolves one scope out — the same
 // scope the document walk uses (resolve/document.go).
 func referenceScope(sym *symbols.Symbol) *symbols.Scope {
-	if _, ok := sym.Decl.(*ast.ConnectorEnd); ok && sym.OwnerScope != nil {
+	if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionConnectorEnd {
+		// A transition succession's end is synthesized with the scope its target
+		// is written in: the transition's owner's (SysML.xtext TransitionSuccession).
+		return sym.OwnerScope
+	}
+	if sym.Kind == symbols.SymbolConnectorEnd && sym.OwnerScope != nil {
 		return sym.OwnerScope.Parent()
 	}
 	return sym.OwnerScope
+}
+
+// attachesEnd reports whether sym is a connector end, written (`connect a to b`),
+// whose target is what it reference-subsets.
+func attachesEnd(sym *symbols.Symbol) bool {
+	_, ok := sym.Decl.(*ast.ConnectorEnd)
+	return ok
 }
 
 // MemberSources returns the symbols whose scopes contribute members to sym, in
@@ -160,19 +188,11 @@ func (m *Model) MemberSources(sym *symbols.Symbol) []*symbols.Symbol {
 	return order
 }
 
-// lookupSource is one member source in name-lookup order together with the
-// types the search passed through to reach it, whose own redefinitions decide
-// which of its members are inherited along that path.
-type lookupSource struct {
-	sym *symbols.Symbol
-	via []*symbols.Symbol
-}
-
 // lookupSources is MemberSources in name-lookup order: each contributor and
 // everything it inherits before the next contributor, as a name search through
 // generals visits them (KerML 8.2.3.5.2). A source reached by several paths is
 // listed once, under the first.
-func (m *Model) lookupSources(sym *symbols.Symbol) []lookupSource {
+func (m *Model) lookupSources(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
@@ -181,38 +201,27 @@ func (m *Model) lookupSources(sym *symbols.Symbol) []lookupSource {
 		return cached
 	}
 
-	var order []lookupSource
+	var order []*symbols.Symbol
 	visited := map[*symbols.Symbol]bool{sym: true}
 	provisional := m.supersUnstable(sym)
-	var walk func(cur *symbols.Symbol, via []*symbols.Symbol)
-	walk = func(cur *symbols.Symbol, via []*symbols.Symbol) {
+	var walk func(cur *symbols.Symbol)
+	walk = func(cur *symbols.Symbol) {
 		for _, next := range m.contributors(cur) {
 			if next == nil || visited[next] {
 				continue
 			}
 			visited[next] = true
-			order = append(order, lookupSource{sym: next, via: via})
+			order = append(order, next)
 			provisional = provisional || m.supersUnstable(next)
-			walk(next, append(via[:len(via):len(via)], next))
+			walk(next)
 		}
 	}
-	walk(sym, nil)
+	walk(sym)
 	if len(m.resolvingRef) == 0 && !provisional {
 		journal(m, m.lookupOrder, sym, sym.Decl)
 		m.lookupOrder[sym] = order
 	}
 	return order
-}
-
-// inheritedAlong reports whether member, declared by the last of via, reaches
-// the type the search started from: no type on the way redefines it.
-func (m *Model) inheritedAlong(member *symbols.Symbol, via []*symbols.Symbol) bool {
-	for _, t := range via {
-		if m.OwnRedefinitionMasked(t, member) {
-			return false
-		}
-	}
-	return true
 }
 
 // MemberSourcesStable reports whether the last MemberSources answer for sym was

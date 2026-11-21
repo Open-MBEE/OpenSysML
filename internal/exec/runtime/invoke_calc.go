@@ -800,7 +800,7 @@ func (ctx *Context) runCalcBody(shape *loadedCalc, frame *invocationFrame, calle
 	if thisOccurrence == nil {
 		thisOccurrence = frame.host.materializeOccurrence
 	}
-	frame.engine = stmtEngine{ctx: ctx, host: &frame.host, env: &frame.env, activation: activation, frameBuf: frame.engine.frameBuf, thisOccurrence: thisOccurrence}
+	frame.engine = stmtEngine{ctx: ctx, host: &frame.host, env: &frame.env, activation: activation, frameBuf: frame.engine.frameBuf, thisOccurrence: thisOccurrence, exprs: &shape.Exprs}
 	frame.host.attachPerformances(&frame.engine)
 	result, returned, err := runCalcSteps(&frame.engine, &frame.host, shape.Steps)
 	if err != nil {
@@ -904,6 +904,18 @@ func runCalcSteps(engine *stmtEngine, host *calcStmtHost, steps []lower.Statemen
 	engine.ctx.deriving = nil
 	defer func() { engine.ctx.deriving = deriving }()
 	flow, err := engine.run(steps)
+	// A terminate of the body's own performance ends its steps, and its result, a binding
+	// rather than a step, is still evaluated; a `return` a step reached settles the result.
+	if ended, returned, endErr := host.endedOwn(err); ended {
+		switch {
+		case endErr != nil:
+			return Value{}, false, endErr
+		case returned:
+			flow, err = flowReturn, nil
+		default:
+			flow, err = engine.run(statedResults(steps))
+		}
+	}
 	if err != nil {
 		return Value{}, false, err
 	}
@@ -913,11 +925,29 @@ func runCalcSteps(engine *stmtEngine, host *calcStmtHost, steps []lower.Statemen
 // observationSteps splits Steps at the results ending them (lower.IsResult): the
 // steps a run of a Monte Carlo case performs, then the results run over its sample.
 func (shape *loadedCalc) observationSteps() (steps, results []lower.Statement) {
-	end := len(shape.Steps)
-	for end > 0 && lower.IsResult(shape.Steps[end-1]) {
+	results = trailingResults(shape.Steps)
+	return shape.Steps[:len(shape.Steps)-len(results)], results
+}
+
+// statedResults are the results ending steps that are bindings of the result and
+// no step: a conditional returning on a path is a step, which an ended body skips.
+func statedResults(steps []lower.Statement) []lower.Statement {
+	var stated []lower.Statement
+	for _, step := range trailingResults(steps) {
+		if _, ok := step.(lower.Return); ok {
+			stated = append(stated, step)
+		}
+	}
+	return stated
+}
+
+// trailingResults are the results ending steps (lower.IsResult).
+func trailingResults(steps []lower.Statement) []lower.Statement {
+	end := len(steps)
+	for end > 0 && lower.IsResult(steps[end-1]) {
 		end--
 	}
-	return shape.Steps[:end], shape.Steps[end:]
+	return steps[end:]
 }
 
 // checkArgs rejects an argument list that cannot bind to the parameters at all:
@@ -1016,6 +1046,19 @@ func (ctx *Context) calcExpr(shape *loadedCalc, id program.ExprID, scope *symbol
 		return lowered{entry: entry}
 	}
 	return ctx.model.loweredExpr(scope, shape.Expr(id))
+}
+
+// tableExpr is the expression behind id in table for evaluation in scope: the
+// table's own record where it was lowered there, else its tree lowered for scope.
+func (ctx *Context) tableExpr(table *lower.ExprTable, id program.ExprID, scope *symbols.Scope) (lowered, error) {
+	entry := table.Entry(id)
+	if id == 0 || entry == nil {
+		return lowered{}, fmt.Errorf("expression %d is not in the table of its flow", id)
+	}
+	if entry.Scope != scope {
+		return ctx.model.loweredExpr(scope, entry.Tree), nil
+	}
+	return lowered{entry: entry}, nil
 }
 
 // calcScope returns the scope an inherited or own calc body member is written

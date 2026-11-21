@@ -5,6 +5,8 @@ from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Protocol, Tup
 from opensysml.errors import UnresolvedChildError
 from opensysml.capabilities import (
     CAPABILITY_SYMBOL_ATTRIBUTES,
+    CAPABILITY_SYMBOL_ANNOTATING_METADATA,
+    CAPABILITY_SYMBOL_MEMBER_DIRECTION,
     CAPABILITY_SYMBOL_MEMBERS,
     require,
     upgrade_remedy,
@@ -52,9 +54,12 @@ class SymbolSource(Protocol):
     """What a symbol needs of the connection it navigates through."""
 
     def get_symbol(
-        self, model_hash: str, symbol_id: str, include_library_members: bool = False, resolve_name: bool = False,
+        self, model_hash: str, symbol_id: Optional[str] = None, include_library_members: bool = False,
+        resolve_name: bool = False, *, name: Optional[str] = None, id: Optional[str] = None,
+        member_of: str = "",
     ) -> Any:
-        """The ``SymbolInfo`` for an id, or None when the model has no such symbol."""
+        """The ``SymbolInfo`` for a qualified ``name`` or a reported ``id``, or None
+        when the model has no such symbol."""
 
     def server_info(self) -> Any:
         """What the service reports about itself, for a capability check."""
@@ -65,7 +70,7 @@ def _type_text(symbol, attribute_facts) -> Optional[str]:
     for it as an attribute."""
     facts = symbol.type_facts
     if facts is not None:
-        text = facts.resolved_id or facts.declared or facts.primitive
+        text = facts.resolved_qualified_name or facts.resolved_id or facts.declared or facts.primitive
         if text:
             return text
     if attribute_facts is not None and attribute_facts.type:
@@ -111,6 +116,7 @@ class Symbol:
         self._members_cache: Dict[bool, Members] = {}
         self._own_cache: Optional[Members] = None
         self._walked_cache: Optional[Members] = None
+        self._annotating_cache: Optional[List["Symbol"]] = None
 
     @property
     def inherited(self) -> bool:
@@ -326,7 +332,7 @@ class Symbol:
         """
         if self._client is None:
             raise ValueError("this symbol has no client to read its properties from")
-        return self._client.get_element_properties(self._model_hash, self.id, names)
+        return self._client.get_element_properties(self._model_hash, properties=names, id=self.id)
 
     def property(self, name):
         """Read one metamodel property of this element by its specification name.
@@ -360,7 +366,7 @@ class Symbol:
             return cached
         pb = self._pb
         if library and pb.withheld_library_members:
-            refetched = self._client.get_symbol(self._model_hash, self.id, include_library_members=True)
+            refetched = self._client.get_symbol(self._model_hash, id=self.id, include_library_members=True)
             if refetched is not None:
                 pb = refetched
         symbols = self._fetch_all(
@@ -376,8 +382,13 @@ class Symbol:
         rather than dropping them."""
         symbols: List["Symbol"] = []
         unresolved: List[str] = []
+        # Read as this symbol's member, a feature states its direction relative to
+        # this symbol: reversed where a conjugated port typing lies between.
+        relative = {}
+        if self._client.server_info().has(CAPABILITY_SYMBOL_MEMBER_DIRECTION):
+            relative = {"member_of": self.id}
         for symbol_id, inherited_from in ids:
-            info = self._client.get_symbol(self._model_hash, symbol_id)
+            info = self._client.get_symbol(self._model_hash, id=symbol_id, **relative)
             if info is None:
                 unresolved.append(symbol_id)
                 continue
@@ -411,6 +422,44 @@ class Symbol:
                 resolve, so the members cannot be read completely
         """
         return self.members(None, inherited, library)
+
+    def annotating_metadata(self) -> List["Symbol"]:
+        """Return the metadata usages annotating this symbol.
+
+        The inverse of KerML ``AnnotatingElement::annotatedElement``: the usages
+        this symbol owns, written as a ``#M`` prefix or as ``@M`` /
+        ``metadata m : M`` in its body, then the ones naming it in an ``about``
+        clause anywhere in the workspace (``metadata m : M about Pump;``), each
+        in declaration order. An ``about`` usage is a member of the namespace it
+        is written in, not of what it annotates, so :meth:`children` and
+        :meth:`members` do not list it; this does.
+
+        Each result is an ordinary :class:`Symbol`: its :attr:`type_facts` name
+        the metadata definition and its :meth:`attribute_facts` read the values
+        the annotation binds.
+
+        Returns:
+            list of Symbol objects of kind ``metadataUsage``; empty if no client
+            is set
+
+        Raises:
+            MissingCapabilityError: the service lacks
+                ``symbol_annotating_metadata`` and reports no annotating metadata
+            UnresolvedChildError: the service listed a usage it then could not
+                resolve
+        """
+        if self._client is None:
+            return []
+        require(
+            self._client.server_info(),
+            CAPABILITY_SYMBOL_ANNOTATING_METADATA,
+            upgrade_remedy(CAPABILITY_SYMBOL_ANNOTATING_METADATA),
+        )
+        if self._annotating_cache is None:
+            self._annotating_cache = self._fetch_all(
+                (usage_id, None) for usage_id in self._pb.annotating_metadata_ids
+            )
+        return list(self._annotating_cache)
 
     def attributes(self, inherited: bool = True, library: bool = False) -> Members:
         """Return attribute members: ``attributeDef``, ``attributeUsage`` and
@@ -474,7 +523,7 @@ class Symbol:
         for spec in self.specializations:
             if not spec.target_id or spec.target_id in visited:
                 continue
-            info = self._client.get_symbol(self._model_hash, spec.target_id)
+            info = self._client.get_symbol(self._model_hash, id=spec.target_id)
             if info is None:
                 continue
             supertype = Symbol(info, self._client, self._model_hash)

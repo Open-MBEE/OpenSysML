@@ -20,7 +20,7 @@ func (s *Server) Completion(ctx context.Context, params *protocol.CompletionPara
 	name := uriToName(params.TextDocument.URI)
 	doc := s.ws.Document(name)
 	if doc != nil && doc.Scope != nil {
-		offset := positionToOffset(doc.Content, params.Position)
+		offset := positionsOf(doc).offset(params.Position)
 		scope := enclosingScope(doc.Scope, offset)
 		if path, ok := memberPathBefore(doc.Content, offset); ok {
 			members := s.ws.MembersOnPath(scope, path)
@@ -129,7 +129,7 @@ func (c *completionItems) addSymbol(s *Server, sym *symbols.Symbol) {
 	item := protocol.CompletionItem{
 		Label:  symbols.LastSegment(sym.Name),
 		Kind:   completionKind(sym.Kind),
-		Detail: protocol.NewOptional(completionDetail(sym)),
+		Detail: protocol.NewOptional(s.completionDetail(sym)),
 	}
 	if doc := s.symbolDocumentation(sym); doc != nil {
 		item.Documentation = doc
@@ -150,7 +150,7 @@ func (c *completionItems) addNamedSymbol(s *Server, label string, sym *symbols.S
 	item := protocol.CompletionItem{
 		Label:  label,
 		Kind:   completionKind(sym.Kind),
-		Detail: protocol.NewOptional(completionDetail(sym)),
+		Detail: protocol.NewOptional(s.completionDetail(sym)),
 	}
 	if doc := s.symbolDocumentation(sym); doc != nil {
 		item.Documentation = doc
@@ -184,20 +184,36 @@ func (s *Server) symbolDocumentation(sym *symbols.Symbol) *protocol.MarkupConten
 	return &protocol.MarkupContent{Kind: protocol.MarkupKindPlainText, Value: text}
 }
 
-// completionDetail describes an element the way hover does: its kind, plus the
-// type it declares when it declares one.
-func completionDetail(sym *symbols.Symbol) string {
+// completionDetail describes an element the way hover does: its kind, plus its typing.
+func (s *Server) completionDetail(sym *symbols.Symbol) string {
 	detail := sym.Notation()
-	if t := declaredTypeText(sym); t != "" {
+	if t := s.typingText(sym); t != "" {
 		detail += " : " + t
 	}
 	return detail
+}
+
+// typingText is the typing a usage writes, else the types it inherits from the
+// features it redefines, subsets or references; "" when it has neither.
+func (s *Server) typingText(sym *symbols.Symbol) string {
+	if t := declaredTypeText(sym); t != "" {
+		return t
+	}
+	return typeNames(s.ws.InheritedTypesOf(sym))
 }
 
 // declaredTypeText returns the qualified name a usage declares as its type,
 // with the `~` of a conjugated typing (SysML v2 8.3.12.3), or
 // "" for anything else — a definition, or an untyped usage.
 func declaredTypeText(sym *symbols.Symbol) string {
+	if texts := declaredTypeTexts(sym); len(texts) > 0 {
+		return texts[0]
+	}
+	return ""
+}
+
+// declaredTypeTexts is every typing a declaration writes, in order.
+func declaredTypeTexts(sym *symbols.Symbol) []string {
 	var rels []*ast.Relationship
 	switch decl := sym.Decl.(type) {
 	case *ast.Usage:
@@ -205,8 +221,9 @@ func declaredTypeText(sym *symbols.Symbol) string {
 	case *ast.CrossFeatureMember:
 		rels = decl.Relationships
 	default:
-		return ""
+		return nil
 	}
+	var texts []string
 	for _, rel := range rels {
 		if rel == nil || rel.Kind != ast.RelTyping || rel.Target == nil {
 			continue
@@ -217,12 +234,13 @@ func declaredTypeText(sym *symbols.Symbol) string {
 		}
 		if qn, ok := target.(*ast.QualifiedName); ok {
 			if rel.Conjugated {
-				return "~" + qn.Text()
+				texts = append(texts, "~"+qn.Text())
+			} else {
+				texts = append(texts, qn.Text())
 			}
-			return qn.Text()
 		}
 	}
-	return ""
+	return texts
 }
 
 // completionKind maps a symbol kind to the LSP completion kind, so client icons

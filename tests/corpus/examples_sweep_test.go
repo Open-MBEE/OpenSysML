@@ -147,6 +147,7 @@ func TestExamplesSweep(t *testing.T) {
 	apiJSON := make([]string, len(models))
 	failures := make([]error, len(models))
 	var counts sweepCounts
+	var agreement agreementCounts
 	ctx := context.Background()
 
 	// A directory is checked as soon as its last document is loaded, in one of the slots the
@@ -195,7 +196,7 @@ func TestExamplesSweep(t *testing.T) {
 							apiJSON[i], failures[i] = apiJSONRoundTripVerdict(m.rel, m.apiJSON, m.apiJSONHop1Err())
 						}
 					}
-					counts.add(sweepProperties(t, ctx, srv, m))
+					counts.add(sweepProperties(t, ctx, srv, m, &agreement))
 				}
 				slots <- struct{}{}
 				if !strings.HasSuffix(m.path, ".sysml") {
@@ -245,6 +246,7 @@ func TestExamplesSweep(t *testing.T) {
 	if total.dropped == 0 {
 		t.Error("no example has a derived property to leave out")
 	}
+	checkAgreementRatchet(t, subset, subset.Whole() && ratchet, &agreement)
 
 	if !ratchet {
 		t.Log("round-trip ratchets not checked: a corpus is absent")
@@ -274,13 +276,13 @@ func sweepSubsetModels(models []*sweepModel) []*sweepModel {
 
 // sweepProperties runs the per-model properties on one loaded model (failures go to t, safe from a
 // worker); settled collections come last, over their own export, once the hop-1 graph is released.
-func sweepProperties(t *testing.T, ctx context.Context, srv *grpc.Service, m *sweepModel) (tally sweepTally) {
+func sweepProperties(t *testing.T, ctx context.Context, srv *grpc.Service, m *sweepModel, agreement *agreementCounts) (tally sweepTally) {
 	if !m.fixture {
 		// The downloaded pilot corpora have gates of their own.
 		if !strings.HasPrefix(m.rel, "pilot-corpora/") {
 			tally.agreementExamples = 1
 			if m.apiJSONHop1Err() == nil {
-				tally.elements, tally.pairs = elementPropertiesAgree(t, ctx, srv, m)
+				tally.elements, tally.pairs = elementPropertiesAgree(t, ctx, srv, m, agreement)
 				tally.converted = 1
 			}
 		}
@@ -434,9 +436,9 @@ func settledCollectionsHold(graph *rdf.Graph) error {
 	return nil
 }
 
-// elementPropertiesAgree checks GetElementProperties answers what the api-json export writes for
-// every (element, metamodel property) pair of the model (`sysx:` keys aside); returns the counts.
-func elementPropertiesAgree(t *testing.T, ctx context.Context, srv *grpc.Service, m *sweepModel) (elements, pairs int) {
+// elementPropertiesAgree compares GetElementProperties with what the api-json export writes for every
+// (element, metamodel property) pair of the model, noting each disagreement by class; returns the counts.
+func elementPropertiesAgree(t *testing.T, ctx context.Context, srv *grpc.Service, m *sweepModel, agreement *agreementCounts) (elements, pairs int) {
 	absolute, err := filepath.Abs(m.path)
 	if err != nil {
 		t.Errorf("%s: %v", m.rel, err)
@@ -447,8 +449,13 @@ func elementPropertiesAgree(t *testing.T, ctx context.Context, srv *grpc.Service
 		t.Errorf("%s: ParseFile: %v", m.rel, err)
 		return
 	}
+	complete, err := export.WriteAPIJSONWithOptions(m.graph, export.APIJSONOptions{InheritedMembers: true})
+	if err != nil {
+		t.Errorf("%s: api-json with the inherited members: %v", m.rel, err)
+		return
+	}
 	var objects []map[string]any
-	decoder := json.NewDecoder(bytes.NewReader(m.apiJSON))
+	decoder := json.NewDecoder(bytes.NewReader(complete))
 	decoder.UseNumber()
 	if err := decoder.Decode(&objects); err != nil {
 		t.Errorf("%s: api-json: %v", m.rel, err)
@@ -456,40 +463,56 @@ func elementPropertiesAgree(t *testing.T, ctx context.Context, srv *grpc.Service
 	}
 	for _, object := range objects {
 		id, _ := object["@id"].(string)
+		metaclass, _ := object["@type"].(string)
+		if strings.HasPrefix(metaclass, "sysx:") {
+			// An export-only node (a sysx:Note holding a bare comment) reflects no metamodel element.
+			continue
+		}
 		resp, err := srv.GetElementProperties(ctx, &pb.GetElementPropertiesRequest{ModelHash: parsed.ModelHash, ElementId: id})
 		if err != nil {
 			t.Errorf("%s: GetElementProperties(%s): %v", m.rel, id, err)
 			return
 		}
 		if resp.Error != "" {
-			t.Errorf("%s: GetElementProperties(%s): %s", m.rel, id, resp.Error)
+			agreement.note(agreementRow{metaclass + "::@id", "unresolved-id"}, fmt.Sprintf("%s %s: %s", m.rel, id, resp.Error))
 			continue
 		}
-		if metaclass, _ := object["@type"].(string); resp.Element.Metaclass != metaclass {
-			t.Errorf("%s: %s is a %s in the export and a %s in the answer", m.rel, id, metaclass, resp.Element.Metaclass)
-		}
 		elements++
+		if resp.Element.Metaclass != metaclass {
+			agreement.note(agreementRow{metaclass + "::@type", "metaclass"}, fmt.Sprintf("%s %s is a %s in the export and a %s in the answer", m.rel, id, metaclass, resp.Element.Metaclass))
+		}
 		answered := map[string]*pb.ElementProperty{}
 		for _, property := range resp.Properties {
+			if !metamodelProperty(resp.Element.Metaclass, property.Name) {
+				t.Errorf("%s: %s answers %s, which the metamodel declares on no ancestor of %s", m.rel, id, property.Name, resp.Element.Metaclass)
+			}
 			answered[property.Name] = property
 		}
 		for name, value := range object {
-			if name == "@id" || name == "@type" || strings.HasPrefix(name, "sysx:") {
+			if name == "@id" || name == "@type" || strings.HasPrefix(name, "sysx:") || !metamodelProperty(metaclass, name) {
 				continue
 			}
 			pairs++
+			row := agreementRow{class: metaclass + "::" + name}
 			property, ok := answered[name]
 			if !ok {
-				t.Errorf("%s: %s.%s is exported but not answered", m.rel, id, name)
+				row.kind = "exported-not-answered"
+				agreement.note(row, fmt.Sprintf("%s %s.%s", m.rel, id, name))
 				continue
 			}
 			delete(answered, name)
 			if want, got := apiJSONSpelling(value), propertySpelling(property); want != got {
-				t.Errorf("%s: %s.%s exported as %s, answered as %s", m.rel, id, name, want, got)
+				row.kind = "value"
+				agreement.note(row, fmt.Sprintf("%s %s.%s exported as %s, answered as %s", m.rel, id, name, want, got))
+				continue
 			}
+			agreement.agree()
 		}
-		for name := range answered {
-			t.Errorf("%s: %s.%s is answered but not exported", m.rel, id, name)
+		for name, property := range answered {
+			if property.Unsupported != "" || len(property.Values) == 0 {
+				continue
+			}
+			agreement.note(agreementRow{metaclass + "::" + name, "answered-not-exported"}, fmt.Sprintf("%s %s.%s answered as %s", m.rel, id, name, propertySpelling(property)))
 		}
 	}
 	return elements, pairs

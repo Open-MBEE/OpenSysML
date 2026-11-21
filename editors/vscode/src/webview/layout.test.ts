@@ -1020,6 +1020,8 @@ test("simpleNames keeps the qualifier that tells nodes of one name apart", () =>
   assert.deepEqual(labelLines({ ...doc, kind: "comment" }, undefined, names), ["Moves fluid", "to the loop."]);
   assert.deepEqual(labelLines({ ...doc, kind: "comment", detail: "locale \"en\"" }, undefined, names), ["«comment»", "locale \"en\"", "Moves fluid", "to the loop."]);
   assert.deepEqual(labelLines({ ...doc, kind: "rep", detail: "language \"plantuml\"" }, undefined, names), ["«rep»", "language \"plantuml\"", "Moves fluid", "to the loop."]);
+  const lane: RenderNode = { ...nodes[0], id: "h", kind: "swimlane", name: "part0.part1", detail: "perform actions" };
+  assert.deepEqual(labelLines(lane, undefined, names), ["«performer»", "part0.part1", "perform actions"]);
   const named: RenderNode = { ...doc, id: "h", kind: "comment", name: "Safety", detail: "locale \"en\"" };
   assert.deepEqual(labelLines(named, undefined, names), ["«comment»", "Safety", "locale \"en\"", "Moves fluid", "to the loop."]);
   assert.deepEqual(

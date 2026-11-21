@@ -528,7 +528,7 @@ func TestNormativeRelationshipElementsAreMaterialized(t *testing.T) {
 	if len(conjs) != 1 || meta(graph, conjs[0]) != "ConjugatedPortDefinition" {
 		t.Fatalf("P conjugatedPortDefinition %v", conjs)
 	}
-	if name := objects(graph, conjs[0].Value, "declaredName"); len(name) != 1 || name[0].Value != "~P" {
+	if name := objects(graph, conjs[0].Value, "declaredName"); len(name) != 0 {
 		t.Fatalf("conjugated declaredName %v", name)
 	}
 	pcs := objects(graph, conjs[0].Value, "ownedPortConjugator")

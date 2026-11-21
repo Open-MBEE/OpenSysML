@@ -633,9 +633,14 @@ func (m *Model) annotationsAbout() map[*symbols.Symbol][]annotation {
 		m.aboutShared.once.Do(func() {
 			m.buildAbout()
 			m.aboutShared.annots, m.aboutShared.byDecl, m.aboutShared.order = m.aboutAnnots, m.aboutByDecl, m.aboutOrder
+			m.aboutShared.usages = m.aboutUsages
 		})
 		m.aboutAnnots, m.aboutByDecl, m.aboutOrder = m.aboutShared.annots, m.aboutShared.byDecl, m.aboutShared.order
-	}, func() { m.aboutAnnots, m.aboutByDecl, m.aboutOrder, m.aboutShared = nil, nil, nil, nil })
+		m.aboutUsages = m.aboutShared.usages
+	}, func() {
+		m.aboutAnnots, m.aboutByDecl, m.aboutOrder, m.aboutShared = nil, nil, nil, nil
+		m.aboutUsages = aboutUsages{}
+	})
 	return m.aboutAnnots
 }
 
@@ -649,6 +654,7 @@ func (m *Model) buildAbout() {
 	defer func() { m.aboutBuilding = false }()
 	m.aboutAnnots = make(map[*symbols.Symbol][]annotation)
 	m.aboutByDecl = make(map[ast.Node][]annotation)
+	m.aboutUsages = aboutUsages{bySym: make(map[*symbols.Symbol][]*symbols.Symbol), byDecl: make(map[ast.Node][]*symbols.Symbol)}
 	gathers := m.gathers()
 	for _, doc := range m.gatheredDocs() {
 		for _, sym := range gathers[doc].about {
@@ -664,6 +670,7 @@ type AboutIndex struct {
 	annots map[*symbols.Symbol][]annotation
 	byDecl map[ast.Node][]annotation
 	order  []*symbols.Symbol
+	usages aboutUsages
 }
 
 // NewAboutIndex is an about index no model has built yet.
@@ -679,11 +686,17 @@ func (m *Model) ShareAbout(shared *AboutIndex) {
 	}
 	m.aboutShared = shared
 	m.aboutAnnots, m.aboutByDecl, m.aboutOrder = nil, nil, nil
+	m.aboutUsages = aboutUsages{}
 }
 
 // indexAboutUsage records one `about` metadata usage against every element it
 // annotates.
 func (m *Model) indexAboutUsage(sym *symbols.Symbol) {
+	if sym.Kind == symbols.SymbolMetadataUsage {
+		for _, target := range m.aboutTargets(sym) {
+			m.aboutUsages.add(target, sym)
+		}
+	}
 	if sym.Recorded() {
 		m.indexRecordedAboutUsage(sym)
 		return
@@ -730,6 +743,32 @@ func (m *Model) indexAbout(a annotation, targets []aboutTarget) {
 			m.aboutByDecl[target.sym.Decl] = append(m.aboutByDecl[target.sym.Decl], a)
 		}
 	}
+}
+
+// aboutUsages keys the `about` metadata usages by the element each annotates
+// and by its declaration, whether or not the usage's type resolves.
+type aboutUsages struct {
+	bySym  map[*symbols.Symbol][]*symbols.Symbol
+	byDecl map[ast.Node][]*symbols.Symbol
+}
+
+// add files usage as annotating target, once; an unresolved target is nil.
+func (u aboutUsages) add(target, usage *symbols.Symbol) {
+	if target == nil || slices.Contains(u.bySym[target], usage) {
+		return
+	}
+	u.bySym[target] = append(u.bySym[target], usage)
+	if target.Decl != nil && !slices.Contains(u.byDecl[target.Decl], usage) {
+		u.byDecl[target.Decl] = append(u.byDecl[target.Decl], usage)
+	}
+}
+
+// of is the usages annotating sym, gathered per declaration as aboutAnnotations is.
+func (u aboutUsages) of(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym.Decl != nil {
+		return u.byDecl[sym.Decl]
+	}
+	return u.bySym[sym]
 }
 
 // aboutTarget is one element an `about` clause names, with the namespace the
@@ -932,6 +971,23 @@ func (m *Model) DeclaredFeatureValues(sym *symbols.Symbol, feature string) ([]sy
 	return m.constantFeatureValues(member, make(map[*symbols.Symbol]bool))
 }
 
+// DeclaredQuantityValueType is the quantity value type a declared member feature holds
+// a quantity as, as evaluation holds it; nil when it declares none.
+func (m *Model) DeclaredQuantityValueType(sym *symbols.Symbol, feature string) *symbols.Symbol {
+	if m == nil || sym == nil || feature == "" {
+		return nil
+	}
+	member, ok := m.LookupMember(sym, feature)
+	if !ok || member == nil {
+		return nil
+	}
+	types := m.FeatureTypes(member)
+	if at := slices.IndexFunc(types, m.IsQuantityValueType); at >= 0 {
+		return types[at]
+	}
+	return nil
+}
+
 // OwnFeatureValues returns the ordered constant values a feature's own
 // valuation binds (KerML Feature::valuation): what its declaration writes, or
 // what the features it redefines write when it writes none. Not a feature: ok
@@ -1104,6 +1160,13 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	case symbols.SymbolAlias:
 		// `alias` declares a Membership of the aliased element (KerML 8.2.3.5.2).
 		return m.kermlMetaclass("Membership")
+	case symbols.SymbolPackage:
+		// A `library package` is a KerML LibraryPackage in either language (KerML 1.0 §8.3.4.13.3).
+		if symbols.IsLibraryPackage(sym) {
+			if meta := m.kermlMetaclass("LibraryPackage"); meta != nil {
+				return meta
+			}
+		}
 	}
 	if meta := m.kermlMetaclass(kermlMetaclassName(sym, m.isKerMLDoc(sym))); meta != nil {
 		return meta
@@ -1157,14 +1220,36 @@ func usageAsserts(usage *ast.Usage) bool {
 	return usage.Keyword == "assert" || usage.PrefixKeyword == "assert"
 }
 
+// UsageFormMetaclassName is the metaclass a usage's written form selects whatever
+// its kind keyword (`event`, `exhibit`, `include`, prefix metadata alone), else "".
+func UsageFormMetaclassName(sym *symbols.Symbol) string {
+	var event, extended bool
+	if sym.Recorded() {
+		event, extended = sym.Facts.Modifiers.Has(symbols.ModEvent), sym.Facts.Modifiers.Has(symbols.ModExtendedUsage)
+	} else if decl, ok := sym.Decl.(*ast.Usage); ok {
+		event, extended = decl.IsEvent, decl.IsExtendedUsage()
+	}
+	switch {
+	case event:
+		return "EventOccurrenceUsage"
+	case isExhibitedState(sym):
+		return "ExhibitStateUsage"
+	case isIncludedUseCase(sym):
+		return "IncludeUseCaseUsage"
+	case extended:
+		return "Usage"
+	}
+	return ""
+}
+
 // sysmlMetaclassName is the SysML metaclass of sym's declaration: by its symbol
 // kind, or by the declaration where the kind spans several (SysML.xtext).
 func sysmlMetaclassName(sym *symbols.Symbol) string {
 	if isVariantReferenceSymbol(sym) {
 		return "ReferenceUsage"
 	}
-	if sym.Recorded() && sym.Facts.Modifiers.Has(symbols.ModEvent) {
-		return "EventOccurrenceUsage"
+	if name := UsageFormMetaclassName(sym); name != "" && sym.Recorded() {
+		return name
 	}
 	if isAssertedConstraint(sym) {
 		return "AssertConstraintUsage"
@@ -1178,6 +1263,10 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 		}
 		return expressionElementMetaclassName(sym)
 	}
+	if isNamedTriggerPayload(sym) {
+		// A trigger's payload parameter is a ReferenceUsage, named or not (SysML.xtext PayloadParameter).
+		return "ReferenceUsage"
+	}
 	switch decl := sym.Decl.(type) {
 	case *ast.ForkNode:
 		return "ForkNode"
@@ -1187,9 +1276,41 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 		return "MergeNode"
 	case *ast.DecisionNode:
 		return "DecisionNode"
+	case *ast.IfActionNode:
+		return "IfActionUsage"
+	case *ast.IfBranchNode:
+		return "ActionUsage"
+	case *ast.WhileLoopActionNode:
+		if sym.Kind == symbols.SymbolReferenceUsage {
+			// The loop variable shares the loop's node (SysML 8.3.16.7 loopVariable).
+			return "ReferenceUsage"
+		}
+		if decl.Kind == ast.LoopFor {
+			return "ForLoopActionUsage"
+		}
+		return "WhileLoopActionUsage"
+	case *ast.AssignmentActionNode:
+		return "AssignmentActionUsage"
+	case *ast.TerminateStatement:
+		return "TerminateActionUsage"
+	case *ast.PerformActionNode, *ast.ActionExecutionNode:
+		return "PerformActionUsage"
+	case *ast.SendStatement:
+		return "SendActionUsage"
+	case *ast.ControlFlowEdge:
+		return "TransitionUsage"
 	case *ast.Usage:
-		if decl.IsEvent {
-			return "EventOccurrenceUsage"
+		if IsFlowPayload(sym) {
+			return "PayloadFeature"
+		}
+		if name := UsageFormMetaclassName(sym); name != "" {
+			return name
+		}
+		if decl.IsExhibitedState() {
+			return "ExhibitStateUsage"
+		}
+		if decl.IsIncludedUseCase() {
+			return "IncludeUseCaseUsage"
 		}
 	}
 	switch sym.Kind {
@@ -1231,15 +1352,88 @@ func extendedDefinition(sym *symbols.Symbol) bool {
 	return ok && d.Keyword == "" && d.HasDefKeyword
 }
 
+// isExhibitedState reports whether sym is an `exhibit state s : S;` or an
+// `exhibit s;` (SysML.xtext ExhibitStateUsage).
+func isExhibitedState(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.UsageKind == ast.UsageState &&
+			(sym.Facts.Keyword == "exhibit" || sym.Facts.Keyword == "exhibit state")
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.IsExhibitedState()
+}
+
+// isIncludedUseCase reports whether sym is an `include use case u : U;` or an
+// `include u;` (SysML.xtext IncludeUseCaseUsage).
+func isIncludedUseCase(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModInclude)
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.IsIncludedUseCase()
+}
+
 // ConnectorEndMetaclassName is the SysML metaclass of a connector end: a
 // PortUsage as an interface's end, a ReferenceUsage otherwise (SysML.xtext).
 func ConnectorEndMetaclassName(sym *symbols.Symbol) string {
+	if _, ok := symbols.ImpliedFlowEndIndex(sym); ok {
+		return "FlowEnd"
+	}
 	if sym.OwnerScope != nil {
 		if kind, ok := connectorKind(sym.OwnerScope); ok && kind == ast.UsageInterface {
 			return metaclassName(symbols.SymbolPortUsage)
 		}
+		if IsMessageEnd(sym) {
+			// A message's ends are the event occurrences it relates (SysML.xtext MessageEventMember).
+			return "EventOccurrenceUsage"
+		}
+		if _, ok := symbols.ImpliedFlowEndIndex(sym); ok {
+			return "FlowEnd"
+		}
 	}
 	return referenceUsageMetaclassName
+}
+
+// IsFlowPayload reports whether sym is the payload feature a flow's `of` clause
+// gives it: declared there (`of p : T`), or implied by a payload type (`of T`).
+func IsFlowPayload(sym *symbols.Symbol) bool {
+	if sym == nil || sym.OwnerScope == nil {
+		return false
+	}
+	decl, ok := sym.Decl.(*ast.Usage)
+	if !ok {
+		return false
+	}
+	flow, ok := sym.OwnerScope.Node().(*ast.Usage)
+	if !ok || flow.Kind != ast.UsageFlow || flow.FlowEnds == nil {
+		return false
+	}
+	if flow.FlowEnds.PayloadDecl == decl {
+		return true
+	}
+	return flow.FlowEnds.PayloadDecl == nil && len(decl.Relationships) == 1 &&
+		decl.Relationships[0].Kind == ast.RelTyping && decl.Relationships[0].Target == flow.FlowEnds.Payload
+}
+
+// MessageEndReference is the node a message's `from`/`to` end names: the event occurrence it relates.
+func MessageEndReference(end *symbols.Symbol) ast.Node {
+	if !IsMessageEnd(end) {
+		return nil
+	}
+	return ast.EndTarget(end.Decl)
+}
+
+// IsMessageEnd reports whether sym is a `from`/`to` end of a message, declared by
+// the node naming the event it relates (SysML.xtext MessageEventMember).
+func IsMessageEnd(sym *symbols.Symbol) bool {
+	if sym == nil || sym.Kind != symbols.SymbolConnectorEnd || sym.OwnerScope == nil {
+		return false
+	}
+	if _, clause := sym.Decl.(*ast.ConnectorEnd); clause {
+		return false
+	}
+	usage, ok := sym.OwnerScope.Node().(*ast.Usage)
+	return ok && usage.Kind == ast.UsageFlow && usage.Keyword == "message" && usage.FlowEnds != nil
 }
 
 // usageMetaclassNames maps the usage kinds the symbol taxonomy keeps no kind
@@ -1294,10 +1488,21 @@ func (m *Model) sysmlMetaclass(name string) *symbols.Symbol {
 	if name == "" {
 		return nil
 	}
-	if meta := m.typeByFQN(sysmlMetaclassPrefix + name); meta != nil {
+	if meta := m.typeByFQN(m.metaclassFQN(sysmlMetaclassPrefix, name)); meta != nil {
 		return meta
 	}
 	return m.typeByFQN(name)
+}
+
+// metaclassFQN is prefix+name, kept per model so that classifying an element builds no name.
+func (m *Model) metaclassFQN(prefix, name string) string {
+	key := [2]string{prefix, name}
+	if fqn, ok := m.metaclassFQNs[key]; ok {
+		return fqn
+	}
+	fqn := prefix + name
+	m.metaclassFQNs[key] = fqn
+	return fqn
 }
 
 // kermlMetaclass is the library element declaring the named KerML metaclass,
@@ -1307,7 +1512,7 @@ func (m *Model) kermlMetaclass(name string) *symbols.Symbol {
 		return nil
 	}
 	for _, prefix := range kermlMetaclassPrefixes {
-		if meta := m.typeByFQN(prefix + name); meta != nil {
+		if meta := m.typeByFQN(m.metaclassFQN(prefix, name)); meta != nil {
 			return meta
 		}
 	}
@@ -1416,6 +1621,10 @@ func kermlMetaclassName(sym *symbols.Symbol, isKerML bool) string {
 	if !isKerML {
 		return ""
 	}
+	if sym.Kind == symbols.SymbolSuccessionFlowUsage {
+		// A `succession flow` also orders its ends (KerML.xtext SuccessionFlow).
+		return "SuccessionFlow"
+	}
 	if sym.Recorded() {
 		switch sym.Facts.Node {
 		case symbols.NodeDefinition, symbols.NodeUsage:
@@ -1460,7 +1669,7 @@ func (m *Model) Metaclass(name string) *symbols.Symbol {
 	if m == nil || name == "" {
 		return nil
 	}
-	if meta := m.typeByFQN(sysmlMetaclassPrefix + name); meta != nil {
+	if meta := m.typeByFQN(m.metaclassFQN(sysmlMetaclassPrefix, name)); meta != nil {
 		return meta
 	}
 	return m.kermlMetaclass(name)
@@ -1532,6 +1741,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		owner := m.ownerOf(sym)
+		if owner == nil {
+			owner = m.rootNamespaceOwner(sym)
+		}
 		if owner == nil || !m.reflectiveMetaclassConforms(owner, "Namespace") {
 			return nil, true
 		}
@@ -1541,7 +1753,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		owner := m.ownerOf(sym)
-		if owner == nil || !m.reflectiveMetaclassConforms(owner, "Type") {
+		if owner == nil || !m.reflectiveMetaclassConforms(owner, "Type") || !m.ownedThroughFeatureMembership(owner, sym) {
 			return nil, true
 		}
 		return []*symbols.Symbol{owner}, true
@@ -1555,7 +1767,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			owning = "Usage"
 		}
 		owner := m.ownerOf(sym)
-		if owner == nil || !m.reflectiveMetaclassConforms(owner, owning) {
+		if owner == nil || !m.reflectiveMetaclassConforms(owner, owning) || !m.ownedThroughFeatureMembership(owner, sym) {
 			return nil, true
 		}
 		return []*symbols.Symbol{owner}, true
@@ -1683,12 +1895,18 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return out, true
 	case "owner":
+		if parts := m.namedTriggerPayloadParts(sym); parts != nil {
+			return []*symbols.Symbol{parts.accepter}, true
+		}
 		if owner := ownerSymbol(sym); owner != nil {
 			return []*symbols.Symbol{owner}, true
 		}
+		if root := m.rootNamespaceOwner(sym); root != nil {
+			return []*symbols.Symbol{root}, true
+		}
 		return nil, true
 	case "ownedMember":
-		return m.withDefaultMultiplicityMember(sym, append(m.nodeParameters(sym), m.withTransitionParts(sym, ownedMembersOf(sym))...)), true
+		return m.owningMembershipMembers(sym), true
 	case "multiplicity":
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
 			return nil, false
@@ -1697,11 +1915,11 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "ownedElement":
 		return m.ownedElementsOf(sym), true
 	case "member":
-		return m.withDefaultMultiplicityMember(sym, append(m.nodeParameters(sym), m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))...)), true
+		return m.withDefaultMultiplicityMember(sym, leadWithPrefixMetadata(sym, append(m.nodeParameters(sym), m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)))))...))), true
 	case "feature":
 		features := m.nodeParameters(sym)
-		for _, member := range m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)) {
-			if member.IsFeature() || isExpressionSymbol(member) {
+		for _, member := range m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))))) {
+			if (member.IsFeature() || isExpressionSymbol(member)) && m.ownedThroughFeatureMembership(m.ownerOf(member), member) {
 				features = append(features, member)
 			}
 		}
@@ -1747,8 +1965,8 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "ownedFeature":
 		features := append([]*symbols.Symbol(nil), m.expressionOwnedParts(sym)...)
 		features = append(features, m.sendParameters(sym)...)
-		for _, member := range m.withTransitionParts(sym, ownedMembersOf(sym)) {
-			if member.IsFeature() || isExpressionSymbol(member) {
+		for _, member := range m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym))))) {
+			if (member.IsFeature() || isExpressionSymbol(member)) && m.ownedThroughFeatureMembership(sym, member) {
 				features = append(features, member)
 			}
 		}
@@ -2088,13 +2306,13 @@ func (m *Model) dependencyEnds(sym *symbols.Symbol, names []*ast.QualifiedName) 
 func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	var members []*symbols.Symbol
 	if value := m.ValueExpression(sym); value != nil {
-		// The value expression comes first, as its FeatureValue leads the
-		// feature's owned memberships.
+		// The value expression leads the body's elements, as its FeatureValue
+		// leads the body's memberships.
 		members = append(members, value)
 	}
 	members = append(members, m.expressionOwnedElements(sym)...)
 	members = append(members, m.nodeParameters(sym)...)
-	members = append(members, m.withTransitionParts(sym, ownedMembersOf(sym))...)
+	members = leadWithPrefixMetadata(sym, append(members, m.withSynthesizedMembers(sym, m.withFlowEndFeature(sym, m.withConstraintResult(sym, m.withTransitionParts(sym, ownedMembersOf(sym)))))...))
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
 		seen[member] = true
@@ -2201,7 +2419,10 @@ func (m *Model) ConnectorRelatedFeaturesByEnd(sym *symbols.Symbol) []*symbols.Sy
 		recorded = m.recordedPositions(sym.Facts.RelatedFeatures)
 	} else {
 		paths = m.reflectiveConnectorEndPaths(sym)
-		successionEnds, _ = m.connectorSuccessionRelatedFeatures(sym)
+		if len(ends) == 0 {
+			// A succession owning no end feature (a succession flow's inherited ends) is read from what it sequences.
+			successionEnds, _ = m.connectorSuccessionRelatedFeatures(sym)
+		}
 	}
 	count := max(len(ends), len(paths), len(successionEnds), len(recorded))
 	if count == 0 {
@@ -2219,7 +2440,7 @@ func (m *Model) ConnectorRelatedFeaturesByEnd(sym *symbols.Symbol) []*symbols.Sy
 		// A message's ends own no end feature of their own: the feature its
 		// `from`/`to` path reaches stands in for the end's reference.
 		if target == nil && i < len(paths) && len(paths[i].Features) > 0 {
-			target = flowEndReferencedFeature(sym, paths[i].Features)
+			target = m.flowEndReferencedFeature(sym, i, paths[i].Features)
 		}
 		if target == nil && i < len(successionEnds) {
 			target = successionEnds[i]
@@ -2229,12 +2450,15 @@ func (m *Model) ConnectorRelatedFeaturesByEnd(sym *symbols.Symbol) []*symbols.Sy
 	return related
 }
 
-// flowEndReferencedFeature is the feature an end path references: before the payload for a flow end (`flow a.x to b.y`
-// relates a and b, SysML v2.1 §8.3.16.6; none for a bare `a` or a chained prefix), the one reached for a message's or connector's.
-func flowEndReferencedFeature(sym *symbols.Symbol, path []*symbols.Symbol) *symbols.Symbol {
+// flowEndReferencedFeature is the feature the end at position references: before the payload for a flow end (`flow a.x to b.y` relates
+// a and b, SysML v2.1 §8.3.16.6; the chain a.b for `a.b.x`; none for a bare `a`), the one reached for a message's or connector's.
+func (m *Model) flowEndReferencedFeature(sym *symbols.Symbol, position int, path []*symbols.Symbol) *symbols.Symbol {
 	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageFlow && usage.Keyword != "message" {
-		if len(path) == 2 {
+		switch {
+		case len(path) == 2:
 			return path[0]
+		case len(path) > 2:
+			return m.flowEndChainFeature(sym, position)
 		}
 		return nil
 	}
@@ -2252,6 +2476,11 @@ func (m *Model) EndReferencedFeature(end *symbols.Symbol) *symbols.Symbol {
 			return target
 		}
 	}
+	if _, minted := symbols.ImpliedSuccessionEndIndex(end); minted {
+		// A `then` succession's source end references the occurrence before it without owning the subsetting.
+		target, _ := m.successionEndReference(end)
+		return target
+	}
 	return m.ReferencedFeature(end)
 }
 
@@ -2267,6 +2496,22 @@ func (m *Model) reflectiveConnectorEndPaths(sym *symbols.Symbol) []ConnectorEndP
 }
 
 func (m *Model) connectorSuccessionRelatedFeatures(sym *symbols.Symbol) (related []*symbols.Symbol, unrepresented bool) {
+	related, unrepresented = m.successionEndFeatureTargets(sym)
+	if len(related) == 0 {
+		return related, unrepresented
+	}
+	for i, chained := range successionChainedEnds(sym.Decl) {
+		if chained && i < len(related) {
+			// A chained end references the chain Feature it owns, which no element stands for yet.
+			related[i], unrepresented = nil, true
+		}
+	}
+	return related, unrepresented
+}
+
+// successionEndFeatureTargets is the featureTarget of what each end of the succession sym references: the feature
+// written, or the last step of a chain (KerML 1.1 §8.3.3.3.4 deriveFeatureFeatureTarget).
+func (m *Model) successionEndFeatureTargets(sym *symbols.Symbol) (targets []*symbols.Symbol, unrepresented bool) {
 	if sym == nil || sym.Recorded() || sym.Decl == nil || sym.OwnerScope == nil {
 		return nil, false
 	}
@@ -2307,6 +2552,16 @@ func (m *Model) connectorSuccessionRelatedFeatures(sym *symbols.Symbol) (related
 			target = memberSymbol(sym.OwnerScope, end.Node)
 		}
 		if target == nil && end.Node != nil {
+			// `then assign x := 1;` sequences the statement itself, which the structure
+			// reflects as a node of the owner's body (statementNodes).
+			for _, statement := range m.statementNodes(owner) {
+				if statement.Decl == end.Node {
+					target = statement
+					break
+				}
+			}
+		}
+		if target == nil && end.Node != nil {
 			// `then done;` and `first start;` reach the library's done and start the
 			// action inherits; a member no element stands for yet leaves its position nil.
 			switch node := end.Node.(type) {
@@ -2317,9 +2572,26 @@ func (m *Model) connectorSuccessionRelatedFeatures(sym *symbols.Symbol) (related
 			}
 			unrepresented = unrepresented || target == nil
 		}
-		related = append(related, target)
+		targets = append(targets, target)
 	}
-	return related, unrepresented
+	return targets, unrepresented
+}
+
+// successionChainedEnds reports which end of the succession decl is written as a feature chain (`first a.b then c.d;`).
+func successionChainedEnds(decl ast.Node) (chained [2]bool) {
+	var names [2]*ast.QualifiedName
+	switch d := decl.(type) {
+	case *ast.InitialNode:
+		names = [2]*ast.QualifiedName{d.First, d.Successor}
+	case *ast.TransitionMember:
+		names = [2]*ast.QualifiedName{d.Source, d.Target}
+	case *ast.SuccessionEdge:
+		names[1] = d.Target
+	}
+	for i, name := range names {
+		chained[i] = name != nil && slices.ContainsFunc(name.Parts, func(part ast.NameSegment) bool { return part.Chained })
+	}
+	return chained
 }
 
 // successionEndUnrepresented reports whether an end of the succession sym names a member the symbol
@@ -2375,13 +2647,31 @@ func (m *Model) multiplicityMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
+// owningMembershipMembers is Namespace::ownedMember, the members of sym's owned
+// OwningMemberships (KerML 8.3.2.4.5 deriveNamespaceOwnedMember) but its FeatureValue's.
+func (m *Model) owningMembershipMembers(sym *symbols.Symbol) []*symbols.Symbol {
+	var members []*symbols.Symbol
+	value := m.ValueExpression(sym)
+	seen := map[*symbols.Symbol]bool{value: true}
+	for _, membership := range m.OwnedMemberships(sym) {
+		if membership.Implicit == nil || membership.Implicit.Form != symbols.ImplicitMembership {
+			continue
+		}
+		if member := membership.Implicit.Member; member != nil && !seen[member] {
+			seen[member] = true
+			members = append(members, member)
+		}
+	}
+	return members
+}
+
 func ownedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym.Scope == nil {
 		return nil
 	}
 	var members []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
-	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
+	forEachMemberPrefixFirst(sym.Scope, func(member *symbols.Symbol) bool {
 		if member.Kind != symbols.SymbolAlias && !seen[member] && !ownedThroughAnnotation(sym, member) && !symbols.IsFirstMarker(member) {
 			seen[member] = true
 			members = append(members, member)
@@ -2437,12 +2727,19 @@ func ReflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
 		if sym.Facts.Direction == ast.DirNone && hasDefaultInputParameterDirection(sym) {
 			return ast.DirIn, true
 		}
+		if sym.Facts.Modifiers.Has(symbols.ModAcceptPayload) {
+			return ast.DirIn, true
+		}
 		return sym.Facts.Direction, true
 	}
 	if sym == nil || !sym.IsFeature() {
 		return ast.DirNone, false
 	}
 	if _, ok := sym.Decl.(*ast.SubjectMember); ok {
+		return ast.DirIn, true
+	}
+	if usage, isUsage := sym.Decl.(*ast.Usage); isUsage && usage.IsAccept {
+		// An accept's payload is a parameter member, so an input (KerML 8.3.4.6.4 parameterDirection).
 		return ast.DirIn, true
 	}
 	traits, ok := featureTraitsOf(sym)
@@ -2546,7 +2843,7 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		// RequirementDefinition/Usage::reqId redefines declaredShortName (SysML.sysml).
 		if m.reflectiveMetaclassConforms(sym, "RequirementDefinition") ||
 			m.reflectiveMetaclassConforms(sym, "RequirementUsage") {
-			return stringOrEmpty(sym.ShortName), true
+			return stringIfPresent(sym.ShortName, sym.HasShortName()), true
 		}
 	case "isNegated":
 		if m.reflectiveMetaclassConforms(sym, "Invariant") {
@@ -2558,21 +2855,21 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		}
 		return boolValue(len(m.ownedImplicitRelationships(sym, conjugationMetaclass)) > 0), true
 	case "declaredName":
-		return stringOrEmpty(m.declaredSymbolName(sym)), true
+		return stringIfPresent(m.declaredSymbolNamed(sym)), true
 	case "name":
-		return stringOrEmpty(m.reflectiveName(sym)), true
+		return stringIfPresent(m.reflectiveNamed(sym)), true
 	case "shortName":
-		return stringOrEmpty(m.EffectiveShortNameOf(sym)), true
+		return stringIfPresent(m.EffectiveShortNamed(sym)), true
 	case "declaredShortName":
-		return stringOrEmpty(sym.ShortName), true
+		return stringIfPresent(sym.ShortName, sym.HasShortName()), true
 	case "qualifiedName":
 		// Element::qualifiedName is null for an unnamed element (KerML 1.1 §8.3.2.1).
-		name := m.reflectiveName(sym)
-		if name == "" {
+		name, named := m.reflectiveNamed(sym)
+		if !named {
 			return emptyValue(), true
 		}
-		if SimpleSymbolName(sym) != "" {
-			return stringOrEmpty(m.fqnOf(sym)), true
+		if sym.Named() {
+			return stringIfPresent(m.fqnOf(sym), true), true
 		}
 		// A derived name qualifies under the owner's qualified name, which the index does not spell.
 		owner, ok := m.reflectiveFeatureValue(ownerSymbol(sym), "qualifiedName")
@@ -2581,7 +2878,10 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		}
 		return stringOrEmpty(owner.Str + "::" + name), true
 	case "direction":
-		direction, ok := ReflectiveDirection(sym)
+		direction, ok := m.flowEndFeatureDirection(sym)
+		if !ok {
+			direction, ok = ReflectiveDirection(sym)
+		}
 		if !ok {
 			return symbols.FilterValue{}, false
 		}
@@ -2663,6 +2963,11 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		case "language":
 			return stringOrEmpty(source.StringValue(d.Language)), true
 		}
+	case *ast.Package:
+		// `standard library package` states LibraryPackage::isStandard (KerML 8.3.4.13.3).
+		if feature == "isStandard" && d.IsLibrary {
+			return boolValue(d.IsStandard), true
+		}
 	case *symbols.ImpliedDecl:
 		// The implied conjugated port definition (SysML v2 8.3.12.3) is declared by nothing,
 		// so its plain Type attributes read their defaults.
@@ -2685,6 +2990,9 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		}
 	case *ast.Usage:
 		switch feature {
+		case "isAbstract":
+			// A KerML type that is no feature is declared as a usage node too (a feature answered above).
+			return boolValue(d.IsAbstract), true
 		case "isSufficient":
 			return boolValue(d.IsAll || m.reflectiveMetaclassConforms(sym, "ConnectionDefinition")), true
 		case "isVariant":
@@ -2744,7 +3052,7 @@ func (m *Model) reflectiveFeatureBoolean(sym *symbols.Symbol, feature string) (s
 	flags, isUsage := m.reflectiveFeatureFlags(sym)
 	switch feature {
 	case "isEnd":
-		_, impliedEnd := symbols.ImpliedSuccessionEndIndex(sym)
+		_, impliedEnd := symbols.ImpliedConnectorEndIndex(sym)
 		return boolValue(flags.isEnd || impliedEnd), true
 	case "isPortion":
 		return boolValue(flags.isPortion), true
@@ -2808,7 +3116,8 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 				flags.isComposite = d.IsComposite
 			}
 		case *ast.CrossFeatureMember:
-			flags.isEnd = true
+			// An end owns its cross feature through an OwningMembership, never an
+			// EndFeatureMembership (KerML 8.3.3.3.4 ownedCrossFeature), so it is not an end.
 			flags.isPortion = d.IsPortion
 			flags.isDerived = d.IsDerived
 			flags.isAbstract = d.IsAbstract
@@ -2818,6 +3127,9 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 		case *ast.ConnectorEnd:
 			flags.isEnd = true
 		default:
+			// A flow's end is declared by the node naming what it attaches to; a
+			// message's ends are the events it relates, parameters rather than ends.
+			flags.isEnd = sym.Kind == symbols.SymbolConnectorEnd && !IsMessageEnd(sym)
 			if isUsage {
 				flags.isComposite = defaultUsageComposite(sym.Kind)
 			}
@@ -2858,6 +3170,11 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 			flags.isComposite = false
 		}
 	}
+	// A framed concern, objective, assumed or required constraint is composite by its
+	// membership however it is written (SysML.xtext FramedConcernMember), as EffectiveIsComposite answers.
+	if isUsage && usageRequiredCompositeByMembership(sym) {
+		flags.isComposite = true
+	}
 	flags.isReference = isUsage && !flags.isComposite
 	return flags, isUsage
 }
@@ -2893,7 +3210,9 @@ func (m *Model) reflectiveUsageHasFeaturingType(sym *symbols.Symbol) bool {
 func defaultUsageComposite(kind symbols.SymbolKind) bool {
 	switch kind {
 	case symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage,
-		symbols.SymbolEnumerationUsage, symbols.SymbolConnectorEnd:
+		symbols.SymbolEnumerationUsage, symbols.SymbolConnectorEnd,
+		symbols.SymbolSuccessionUsage, symbols.SymbolBindingUsage:
+		// A succession or binding is referential (usageIsAlwaysReferential).
 		return false
 	default:
 		return true
@@ -2901,11 +3220,13 @@ func defaultUsageComposite(kind symbols.SymbolKind) bool {
 }
 
 func recordedUsageIsReferential(sym *symbols.Symbol) bool {
-	if sym.Kind.IsAttributeLike() || sym.Kind == symbols.SymbolEnumerationUsage ||
-		sym.Kind == symbols.SymbolReferenceUsage || sym.Kind == symbols.SymbolConnectorEnd {
+	mods := sym.Facts.Modifiers
+	// Prefix metadata in place of a kind keyword declares a plain Usage, composite
+	// unless a modifier says otherwise (SysML.xtext ExtendedUsage).
+	if sym.Kind == symbols.SymbolEnumerationUsage || sym.Kind == symbols.SymbolConnectorEnd ||
+		(sym.Kind.IsAttributeLike() || sym.Kind == symbols.SymbolReferenceUsage) && !mods.Has(symbols.ModExtendedUsage) {
 		return true
 	}
-	mods := sym.Facts.Modifiers
 	if mods.Has(symbols.ModReference) || mods.Has(symbols.ModEnd) || mods.Has(symbols.ModEvent) ||
 		sym.Facts.Direction != ast.DirNone ||
 		sym.Facts.UsageKind == ast.UsageEnumeration {
@@ -2913,6 +3234,9 @@ func recordedUsageIsReferential(sym *symbols.Symbol) bool {
 	}
 	if isVariantReferenceSymbol(sym) {
 		return true
+	}
+	if sym.Facts.UsageKind.ReferenceSubsettingSpecializes() {
+		return false
 	}
 	for _, rel := range sym.Facts.Relationships {
 		if rel.Kind == ast.RelReferences {
@@ -2953,6 +3277,14 @@ func (m *Model) reflectiveCommentBody(sym *symbols.Symbol, span source.Span) (sy
 		return symbols.FilterValue{}, false
 	}
 	return symbols.FilterValue{Kind: symbols.FilterValueString, Str: m.commentBody(sym, span)}, true
+}
+
+// stringIfPresent is the string s where there is one, the empty string included.
+func stringIfPresent(s string, present bool) symbols.FilterValue {
+	if !present {
+		return emptyValue()
+	}
+	return symbols.FilterValue{Kind: symbols.FilterValueString, Str: s}
 }
 
 // stringOrEmpty is a string value, or the empty sequence for a name the
@@ -3041,25 +3373,32 @@ func metaclassName(kind symbols.SymbolKind) string {
 	return metaclassNames[kind]
 }
 
-// reflectiveName is Element::name: the declared name, else the effective name a
-// nameless feature takes from the feature it redefines (KerML 1.1 §8.3.3.3) — a
-// positional parameter from its behavior's, a connector end from the end it occupies.
-func (m *Model) reflectiveName(sym *symbols.Symbol) string {
-	if name := m.declaredSymbolName(sym); name != "" {
-		return name
+// reflectiveNamed is Element::name and whether there is one: the declared name, else the effective
+// name a nameless feature takes from the feature it redefines (KerML 1.1 §8.3.3.3).
+func (m *Model) reflectiveNamed(sym *symbols.Symbol) (string, bool) {
+	if name, named := m.declaredSymbolNamed(sym); named {
+		return name, true
 	}
-	return m.EffectiveNameOf(sym)
+	if name, named := m.EffectiveNamed(sym); named {
+		return name, true
+	}
+	if sym != nil && sym.Naming == symbols.NamedByRedefinition && sym.Named() {
+		// The written `:>> x` names the feature even while x does not resolve.
+		return sym.Name, true
+	}
+	return "", false
 }
 
-// declaredSymbolName is the symbol's name as its declaration states it; a name the
-// symbol table gave it for the role it takes (a transition's `effect`) is none, and
-// a metadata body feature's `mission = …` names the feature it redefines, not itself.
-func (m *Model) declaredSymbolName(sym *symbols.Symbol) string {
-	if sym == nil || sym.Naming == symbols.NamedByRole {
-		return ""
+// declaredSymbolNamed is the name the declaration states, if any: not a role's (a transition's `effect`), the
+// feature a metadata body's `mission = …` redefines, nor an implied conjugate's derived `~P` (SysML 8.3.12.2).
+func (m *Model) declaredSymbolNamed(sym *symbols.Symbol) (string, bool) {
+	// `:>> x` and a role name are derived, not declared (KerML 8.3.2.1 Element::declaredName).
+	if sym == nil || sym.Naming == symbols.NamedByRole || sym.Naming == symbols.NamedByRedefinition ||
+		sym.IsConjugatedPortDefinition() {
+		return "", false
 	}
 	if m.RestatesMetadataBodyFeature(sym) {
-		return ""
+		return "", false
 	}
-	return SimpleSymbolName(sym)
+	return SimpleSymbolName(sym), sym.Named()
 }

@@ -16,11 +16,14 @@ const (
 	CapabilityMigrate                        = sysmlgrpc.CapabilityMigrate
 	CapabilityVerification                   = sysmlgrpc.CapabilityVerification
 	CapabilityVerificationQuestions          = sysmlgrpc.CapabilityVerificationQuestions
+	CapabilityVerdictNotes                   = sysmlgrpc.CapabilityVerdictNotes
 	CapabilityVerificationArguments          = sysmlgrpc.CapabilityVerificationArguments
 	CapabilityQuery                          = sysmlgrpc.CapabilityQuery
 	CapabilityOSLCQuery                      = sysmlgrpc.CapabilityOSLCQuery
+	CapabilityQueryOrderBy                   = sysmlgrpc.CapabilityQueryOrderBy
 	CapabilityDocumentQuery                  = sysmlgrpc.CapabilityDocumentQuery
 	CapabilityInlineDocumentQuery            = sysmlgrpc.CapabilityInlineDocumentQuery
+	CapabilityQueryResultView                = sysmlgrpc.CapabilityQueryResultView
 	CapabilityRenderDocument                 = sysmlgrpc.CapabilityRenderDocument
 	CapabilityRenderView                     = sysmlgrpc.CapabilityRenderView
 	CapabilityRenderViewForm                 = sysmlgrpc.CapabilityRenderViewForm
@@ -28,6 +31,9 @@ const (
 	CapabilityInstancePaths                  = sysmlgrpc.CapabilityInstancePaths
 	CapabilitySymbolMembers                  = sysmlgrpc.CapabilitySymbolMembers
 	CapabilitySymbolNameResolution           = sysmlgrpc.CapabilitySymbolNameResolution
+	CapabilitySymbolAnnotatingMetadata       = sysmlgrpc.CapabilitySymbolAnnotatingMetadata
+	CapabilitySymbolLookupKind               = sysmlgrpc.CapabilitySymbolLookupKind
+	CapabilitySymbolMemberDirection          = sysmlgrpc.CapabilitySymbolMemberDirection
 	CapabilityImportData                     = sysmlgrpc.CapabilityImportData
 	CapabilityCompareResults                 = sysmlgrpc.CapabilityCompareResults
 	CapabilityCheck                          = sysmlgrpc.CapabilityCheck
@@ -80,6 +86,7 @@ const (
 	CapabilityElementProperties              = sysmlgrpc.CapabilityElementProperties
 	CapabilityEngines                        = sysmlgrpc.CapabilityEngines
 	CapabilityUndeterminedValue              = sysmlgrpc.CapabilityUndeterminedValue
+	CapabilityCoordinateFrameValues          = sysmlgrpc.CapabilityCoordinateFrameValues
 	CapabilityBigIntValues                   = sysmlgrpc.CapabilityBigIntValues
 	CapabilityRationalValues                 = sysmlgrpc.CapabilityRationalValues
 	CapabilityConvertDocuments               = sysmlgrpc.CapabilityConvertDocuments
@@ -87,6 +94,7 @@ const (
 	CapabilityConvertCheckDiagnostics        = sysmlgrpc.CapabilityConvertCheckDiagnostics
 	CapabilityConvertLibraryReferences       = sysmlgrpc.CapabilityConvertLibraryReferences
 	CapabilityConvertLibraryStubs            = sysmlgrpc.CapabilityConvertLibraryStubs
+	CapabilityConvertInheritedMembers        = sysmlgrpc.CapabilityConvertInheritedMembers
 	CapabilityParseSourcesAffected           = sysmlgrpc.CapabilityParseSourcesAffected
 	CapabilityRenderDocumentFileName         = sysmlgrpc.CapabilityRenderDocumentFileName
 	CapabilityRenderDocumentHTML             = sysmlgrpc.CapabilityRenderDocumentHTML
@@ -186,6 +194,9 @@ type Symbol struct {
 	// WithheldLibraryMembers counts members inherited from standard-library
 	// content, which Members leaves out.
 	WithheldLibraryMembers int
+	// AnnotatingMetadataIDs name the metadata usages annotating the element: its
+	// own prefix and body ones, then those naming it with `about` elsewhere.
+	AnnotatingMetadataIDs []string
 }
 
 // SymbolMember is one member of a symbol, own or inherited.
@@ -221,8 +232,10 @@ type Attribute struct {
 type TypeInfo struct {
 	// Declared is the type name as written; empty when none is declared.
 	Declared string
-	// ResolvedID is the FQN of the resolved written type; empty when unresolved.
+	// ResolvedID is the element id of the resolved written type; empty when unresolved.
 	ResolvedID string
+	// ResolvedQualifiedName is the qualified name of the resolved written type, for display.
+	ResolvedQualifiedName string
 	// ResolvedKind is the symbol kind of the resolved written type ("partDef", …).
 	ResolvedKind string
 	// Primitive is the library scalar the type reduces to ("Boolean",
@@ -262,8 +275,10 @@ type Specialization struct {
 	Kind string
 	// Declared is the target as written ("Engine", "Demo::Engine").
 	Declared string
-	// TargetID is the FQN of the resolved target; empty when unresolved.
+	// TargetID is the element id of the resolved target; empty when unresolved.
 	TargetID string
+	// TargetQualifiedName is the qualified name of the resolved target, for display.
+	TargetQualifiedName string
 	// TargetKind is the symbol kind of the resolved target; empty when
 	// unresolved.
 	TargetKind string

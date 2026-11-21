@@ -19,12 +19,18 @@ type transitionParts struct {
 	receiver      *symbols.Symbol
 	receiverValue *symbols.Symbol
 	guard         *symbols.Symbol
-	// succession is the Succession the transition owns through an OwningMembership, from its source
-	// to its target (SysML.xtext TransitionSuccessionMember, TargetTransitionUsage).
+	// succession is the SuccessionAsUsage the `then` clause owns (SysML.xtext TransitionSuccessionMember).
 	succession *symbols.Symbol
+	// sourceChain is the chain Feature a dotted `first a.b` denotes, owned through sourceChainMembership
+	// as the conversion writes it (transitionSourceMember); nil for a plain name.
+	sourceChain           *symbols.Symbol
+	sourceChainMembership *symbols.Symbol
 	// linkParameters are the `in` ReferenceUsages a `transition` owns through a ParameterMembership
 	// each, ahead of its trigger: one, and a second when it declares a trigger (EmptyParameterMember).
 	linkParameters []*symbols.Symbol
+	// transitionLink is the ReferenceUsage every transition with a target owns last, through a
+	// FeatureMembership after its succession, as the pilot exports it.
+	transitionLink *symbols.Symbol
 }
 
 // acceptParameters are the payload and receiver parameters of the trigger accept sym, in that
@@ -54,7 +60,9 @@ func (p *transitionParts) parameterValue(param *symbols.Symbol) *symbols.Symbol 
 // transitionPartsOf are the parts of the transition sym, synthesized once per model so every
 // read answers the same identities; nil for any other symbol.
 func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
-	if m == nil || !declaresTransition(sym) {
+	trans, ok := transitionDecl(sym)
+	branch, isBranch := transitionBranchDecl(sym)
+	if m == nil || !ok && !isBranch && !declaresTransition(sym) {
 		return nil
 	}
 	defer m.own(sym).LeaveDoc()
@@ -67,37 +75,55 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 	journal(m, m.transitionParts, sym, sym.Decl)
 	parts := &transitionParts{}
 	if target := transitionTarget(sym); target != nil {
-		// The succession is the transition's element, yet its ends name members of the
-		// transition's owner, so it reads them in the scope the transition is declared in.
-		parts.succession = transitionPart(sym, sym.Decl, target.Span(), symbols.SymbolSuccessionUsage, sym, symbols.ExpressionTransitionSuccession)
-		parts.succession.OwnerScope = sym.OwnerScope
-		// Its two ends (SuccessionEndMembers) are members of a scope of its own, owned by it.
-		parts.succession.Scope = symbols.NewScope(sym.OwnerScope, sym.Decl)
-		parts.succession.Scope.SetOwner(parts.succession)
+		parts.withSuccession(sym, target)
 	}
-	trans, ok := transitionDecl(sym)
-	if !ok {
-		m.transitionParts[sym] = parts
-		return parts
+	var payload *ast.Usage
+	var event ast.Node
+	if ok {
+		payload, event = triggerPayload(trans)
 	}
-	payload, event := triggerPayload(trans)
+	// Every form owns one link parameter, a state body's `then x;` and a guarded branch too
+	// (SysML.xtext TargetTransitionUsage, targetTransitionHeadMembers).
 	for i := 0; i < 1+boolInt(payload != nil || event != nil); i++ {
-		link := &ast.Usage{IsReference: true, Direction: ast.DirIn}
-		link.NodeSpan = trans.Span()
+		// A kind-less `in` reference, typed by Anything as a usage with no kind keyword is (SysML v2 §7.6.2).
+		link := &ast.Usage{Kind: ast.UsageAttribute, IsReference: true, Direction: ast.DirIn}
+		link.NodeSpan = sym.DeclSpan
 		parameter := transitionPart(sym, link, link.NodeSpan, symbols.SymbolReferenceUsage, sym, symbols.ExpressionTransitionLinkParameter)
 		parameter.Expr.Index = i
 		parts.linkParameters = append(parts.linkParameters, parameter)
+	}
+	if !ok {
+		if isBranch {
+			if branch.Guard != nil {
+				parts.guard = transitionPart(sym, branch.Guard, branch.Guard.Span(), symbols.SymbolExpression, sym, symbols.ExpressionGuard)
+			}
+			parts.withSuccession(sym, branch.Target)
+		}
+		m.transitionParts[sym] = parts
+		return parts
+	}
+	if trans.Source != nil && nameHasChain(trans.Source) {
+		parts.withSourceChain(sym, trans.Source)
 	}
 	if payload != nil || event != nil {
 		if payload != nil && payload.Value != nil {
 			event = payload.Value
 		}
-		parts.accepter = transitionPart(sym, trans.Trigger, trans.TriggerSpan, symbols.SymbolActionUsage, sym, symbols.ExpressionTriggerAction)
+		// The trigger's accept is an unnamed composite action of its own (SysML.xtext
+		// TriggerActionMember); the trigger node itself is its payload or event.
+		accept := &ast.Usage{Kind: ast.UsageAction}
+		accept.NodeSpan = trans.TriggerSpan
+		parts.accepter = transitionPart(sym, accept, trans.TriggerSpan, symbols.SymbolActionUsage, sym, symbols.ExpressionTriggerAction)
 		var decl ast.Node = payload
 		if payload == nil {
 			decl = event
 		}
-		parts.payload = transitionPart(sym, decl, decl.Span(), symbols.SymbolReferenceUsage, parts.accepter, symbols.ExpressionPayload)
+		if declared := sym.Scope.MemberDeclaring(decl); payload != nil && declared != nil {
+			// A named payload is the symbol the transition's scope declares for it, owned by the accept.
+			parts.payload = declared
+		} else {
+			parts.payload = transitionPart(sym, decl, decl.Span(), symbols.SymbolReferenceUsage, parts.accepter, symbols.ExpressionPayload)
+		}
 		if event != nil {
 			parts.payloadValue = transitionPart(sym, event, event.Span(), symbols.SymbolExpression, parts.payload, symbols.ExpressionValue)
 		}
@@ -120,6 +146,40 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 	return parts
 }
 
+// withSuccession synthesizes the succession trans owns for `then target` (SysML.xtext TransitionSuccession), read
+// in the transition's declaring scope and owning a scope for its two ends (SuccessionEndMembers); the transitionLink follows.
+func (p *transitionParts) withSuccession(trans *symbols.Symbol, target *ast.QualifiedName) {
+	if target == nil || p.succession != nil {
+		return
+	}
+	p.succession = transitionPart(trans, trans.Decl, target.Span(), symbols.SymbolSuccessionUsage, trans, symbols.ExpressionTransitionSuccession)
+	p.succession.OwnerScope = trans.OwnerScope
+	p.succession.Scope = symbols.NewScope(trans.OwnerScope, trans.Decl)
+	p.succession.Scope.SetOwner(p.succession)
+	link := &ast.Usage{Kind: ast.UsageAttribute, IsReference: true}
+	// It spans the transition's end, so it sorts after every member the transition owns.
+	link.NodeSpan = source.Span{Offset: trans.Decl.Span().End()}
+	p.transitionLink = transitionPart(trans, link, link.NodeSpan, symbols.SymbolReferenceUsage, trans, symbols.ExpressionTransitionLink)
+}
+
+// synthesizedSuccessionEnds are the ends of the succession sym owns though its scope declares none: a
+// `then` succession's, a body's `first a then b;` and a transition's (SuccessionEndMembers).
+func (m *Model) synthesizedSuccessionEnds(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil {
+		return nil
+	}
+	if _, ok := sym.Decl.(*ast.SuccessionEdge); ok && (sym.Expr == nil || sym.Expr.Role != symbols.ExpressionConnectorEnd) {
+		return m.SuccessionEndMembers(sym)
+	}
+	if _, ok := sym.Decl.(*ast.InitialNode); ok && sym.Expr == nil && sym.Implicit == nil {
+		return m.SuccessionEndMembers(sym)
+	}
+	if transitionSuccessionPart(sym) {
+		return m.SuccessionEndMembers(sym)
+	}
+	return nil
+}
+
 func transitionPart(trans *symbols.Symbol, decl ast.Node, span source.Span, kind symbols.SymbolKind,
 	owner *symbols.Symbol, role symbols.ExpressionRole) *symbols.Symbol {
 	return &symbols.Symbol{
@@ -132,8 +192,20 @@ func transitionPart(trans *symbols.Symbol, decl ast.Node, span source.Span, kind
 	}
 }
 
+// transitionBranchDecl is the decision branch sym is synthesized for (`if g then b;`,
+// `else b;`), a transition usage that owns a guard and a succession but no trigger.
+func transitionBranchDecl(sym *symbols.Symbol) (*ast.ControlFlowEdge, bool) {
+	if sym == nil || sym.Implicit != nil || sym.Expr != nil {
+		return nil, false
+	}
+	branch, ok := sym.Decl.(*ast.ControlFlowEdge)
+	return branch, ok
+}
+
+// transitionDecl is the transition member sym declares, a `succession first a if g then b;` included
+// (SysML.xtext TransitionUsage owns the same parts, transitionHeadMembers).
 func transitionDecl(sym *symbols.Symbol) (*ast.TransitionMember, bool) {
-	if !declaresTransition(sym) {
+	if sym == nil || sym.Implicit != nil || sym.Expr != nil || !sym.DeclaresTransition() {
 		return nil, false
 	}
 	trans, ok := sym.Decl.(*ast.TransitionMember)
@@ -231,7 +303,7 @@ func (m *Model) transitionMembers(sym *symbols.Symbol) []*symbols.Symbol {
 		return nil
 	}
 	var out []*symbols.Symbol
-	for _, part := range append(append([]*symbols.Symbol{}, parts.linkParameters...), parts.accepter, parts.guard, parts.succession) {
+	for _, part := range append(append([]*symbols.Symbol{}, parts.linkParameters...), parts.accepter, parts.guard, parts.succession, parts.transitionLink) {
 		if part != nil {
 			out = append(out, part)
 		}
@@ -246,7 +318,14 @@ func (m *Model) withTransitionParts(sym *symbols.Symbol, members []*symbols.Symb
 	if len(parts) == 0 {
 		return members
 	}
-	out := append(append([]*symbols.Symbol{}, members...), parts...)
+	out := make([]*symbols.Symbol, 0, len(members)+len(parts))
+	for _, member := range members {
+		// A named trigger payload is declared in the transition's scope and owned by the trigger's accept.
+		if !m.isTriggerPayload(sym, member) {
+			out = append(out, member)
+		}
+	}
+	out = append(out, parts...)
 	sort.SliceStable(out, func(i, j int) bool { return out[i].DeclSpan.Offset < out[j].DeclSpan.Offset })
 	return out
 }
@@ -260,7 +339,75 @@ func (m *Model) acceptParts(sym *symbols.Symbol) *transitionParts {
 	case symbols.ExpressionTriggerAction:
 		return m.transitionPartsOf(sym.Expr.Owner)
 	case symbols.ExpressionPayload:
+		if owner := sym.Expr.Owner; owner != nil && owner.Expr == nil {
+			return m.acceptActionParts(owner)
+		}
 		return m.acceptParts(sym.Expr.Owner)
+	}
+	return nil
+}
+
+// acceptActionParts are the parts of an accept action written with `via p`: its receiver parameter,
+// valued by the FeatureReferenceExpression to p, as the conversion writes them (acceptReceiver); nil otherwise.
+func (m *Model) acceptActionParts(sym *symbols.Symbol) *transitionParts {
+	if m == nil || sym == nil || sym.Expr != nil || sym.Implicit != nil || sym.Recorded() {
+		return nil
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok || usage.Kind != ast.UsageAction {
+		return nil
+	}
+	var via *ast.QualifiedName
+	for _, rel := range usage.Relationships {
+		if rel != nil && rel.Kind == ast.RelVia {
+			via, _ = rel.Target.(*ast.QualifiedName)
+		}
+	}
+	if via == nil {
+		return nil
+	}
+	defer m.own(sym).LeaveDoc()
+	if parts, ok := m.transitionParts[sym]; ok {
+		return parts
+	}
+	if m.transitionParts == nil {
+		m.transitionParts = make(map[*symbols.Symbol]*transitionParts)
+	}
+	journal(m, m.transitionParts, sym, sym.Decl)
+	parts := &transitionParts{accepter: sym}
+	ref := &ast.FeatureReference{Name: via}
+	ref.NodeSpan = via.Span()
+	receiver := &ast.Usage{Kind: ast.UsageAttribute, IsReference: true, Direction: ast.DirIn, Value: ref}
+	receiver.NodeSpan = via.Span()
+	parts.receiver = transitionPart(sym, receiver, receiver.NodeSpan, symbols.SymbolReferenceUsage, sym, symbols.ExpressionPayload)
+	parts.receiver.OwnerScope = sym.OwnerScope
+	parts.receiverValue = transitionPart(sym, ref, ref.NodeSpan, symbols.SymbolExpression, parts.receiver, symbols.ExpressionValue)
+	m.transitionParts[sym] = parts
+	return parts
+}
+
+// isNamedTriggerPayload reports whether sym is the payload a transition's trigger names (`accept x : T`):
+// the symbol the transition's scope declares, owned by the trigger's accept (SysML.xtext PayloadParameterMember).
+func isNamedTriggerPayload(sym *symbols.Symbol) bool {
+	if sym == nil || sym.Decl == nil || sym.Expr != nil || sym.Implicit != nil || sym.Chain != nil || sym.OwnerScope == nil {
+		return false
+	}
+	trans, ok := transitionDecl(sym.OwnerScope.Owner())
+	if !ok {
+		return false
+	}
+	payload, _ := triggerPayload(trans)
+	return payload != nil && ast.Node(payload) == sym.Decl
+}
+
+// namedTriggerPayloadParts are the parts of the transition whose trigger names sym as its payload;
+// nil for any other symbol.
+func (m *Model) namedTriggerPayloadParts(sym *symbols.Symbol) *transitionParts {
+	if !isNamedTriggerPayload(sym) {
+		return nil
+	}
+	if parts := m.transitionPartsOf(sym.OwnerScope.Owner()); parts != nil && parts.payload == sym {
+		return parts
 	}
 	return nil
 }
@@ -278,6 +425,10 @@ func (m *Model) transitionElements(sym *symbols.Symbol, feature string) ([]*symb
 			return optionalElement(m.transitionEffect(sym)), true
 		case "succession":
 			return optionalElement(parts.succession), true
+		case "source":
+			return optionalElement(m.transitionSource(sym, parts)), true
+		case "target":
+			return optionalElement(m.transitionTarget(sym, parts)), true
 		}
 		return nil, false
 	}
@@ -294,6 +445,70 @@ func (m *Model) transitionElements(sym *symbols.Symbol, feature string) ([]*symb
 		return optionalElement(parts.receiverValue), true
 	}
 	return nil, false
+}
+
+// transitionSource is the ActionUsage the transition's source feature targets: the member of its source
+// Membership, or the last feature of a chained source (SysML v2.1 §8.3.18.9 deriveTransitionUsageSource).
+func (m *Model) transitionSource(sym *symbols.Symbol, parts *transitionParts) *symbols.Symbol {
+	source, ok := m.transitionSourceMember(sym)
+	if !ok {
+		// A chained source is the first feature the succession relates, already the chain's featureTarget.
+		source = m.transitionSuccessionEnd(parts, 0)
+	}
+	return m.actionUsageOrNil(source)
+}
+
+// transitionTarget is the ActionUsage the target feature of the transition's succession targets
+// (SysML v2.1 §8.3.18.9 deriveTransitionUsageTarget).
+func (m *Model) transitionTarget(sym *symbols.Symbol, parts *transitionParts) *symbols.Symbol {
+	target := m.transitionSuccessionEnd(parts, 1)
+	if target == nil {
+		target = m.transitionTargetEndpoint(sym)
+	}
+	return m.actionUsageOrNil(target)
+}
+
+// transitionTargetEndpoint is the vertex a written target names by endpoint resolution, which reaches one nested
+// in a sibling state as transitionSourceMember does for the source.
+func (m *Model) transitionTargetEndpoint(sym *symbols.Symbol) *symbols.Symbol {
+	if !declaresTransition(sym) || m.resolver == nil {
+		return nil
+	}
+	var written *ast.QualifiedName
+	switch d := sym.Decl.(type) {
+	case *ast.TransitionMember:
+		written = d.Target
+	case *ast.SuccessionEdge:
+		written = d.Target
+	}
+	if written == nil || ast.IsFeatureChain(written) {
+		return nil
+	}
+	scope := sym.OwnerScope
+	if scope == nil {
+		scope = sym.Scope
+	}
+	target, _ := m.resolver.EndpointSymbol(scope, written)
+	return target
+}
+
+// transitionSuccessionEnd is the featureTarget of the end at position i of the transition's succession, nil when unresolved.
+func (m *Model) transitionSuccessionEnd(parts *transitionParts, i int) *symbols.Symbol {
+	if parts.succession == nil {
+		return nil
+	}
+	if targets, _ := m.successionEndFeatureTargets(parts.succession); len(targets) == 2 {
+		return targets[i]
+	}
+	return nil
+}
+
+// actionUsageOrNil is sym when it is an ActionUsage, which a transition's source and target must be.
+func (m *Model) actionUsageOrNil(sym *symbols.Symbol) *symbols.Symbol {
+	if !m.reflectiveMetaclassConforms(sym, "ActionUsage") {
+		return nil
+	}
+	return sym
 }
 
 func optionalElement(sym *symbols.Symbol) []*symbols.Symbol {
@@ -317,20 +532,113 @@ func triggerKind(node ast.Node) string {
 	return ""
 }
 
-// transitionSourceMember is the state a `transition first x` names as its source, when the name
-// resolves and is no chain: the member of the Membership the transition owns ahead of its parameters.
+func nameHasChain(name *ast.QualifiedName) bool {
+	for _, part := range name.Parts {
+		if part.Chained {
+			return true
+		}
+	}
+	return false
+}
+
+// withSourceChain gives trans the chain Feature its dotted `first a.b` denotes (SysML.xtext
+// TransitionSourceMember) and the OwningMembership it owns the chain through (KerML 8.3.3.3.9).
+func (p *transitionParts) withSourceChain(trans *symbols.Symbol, source *ast.QualifiedName) {
+	node := chainNode(dottedTargetChain(source))
+	if node == nil {
+		return
+	}
+	membership := &symbols.Symbol{
+		Kind:       symbols.SymbolRelationship,
+		DocName:    trans.DocName,
+		DeclSpan:   source.Span(),
+		Visibility: trans.Visibility,
+		Implicit:   &symbols.ImplicitRelationship{Owner: trans, Form: symbols.ImplicitMembership, Slot: "sourcemember"},
+	}
+	scope := trans.Scope
+	if scope == nil {
+		scope = symbols.NewScope(trans.OwnerScope, nil)
+		scope.SetOwner(trans)
+	}
+	chain := &symbols.Symbol{
+		Kind:       symbols.SymbolReferenceUsage,
+		DocName:    trans.DocName,
+		Decl:       node,
+		DeclSpan:   node.Span(),
+		Visibility: ast.VisibilityDefault,
+		OwnerScope: scope,
+		Chain:      &symbols.ChainingFeature{Relationship: membership, Node: node},
+	}
+	membership.Implicit.Member = chain
+	p.sourceChain, p.sourceChainMembership = chain, membership
+}
+
+// dottedTargetChain is the feature chain a dotted transition target (`then a.b`) is
+// written as (SysML.xtext TransitionSuccession), nested as the parser shapes one.
+func dottedTargetChain(target *ast.QualifiedName) ast.Node {
+	if target == nil || len(target.Parts) < 2 {
+		return target
+	}
+	segment := func(i int) *ast.QualifiedName {
+		name := &ast.QualifiedName{}
+		name.SetSingleton(target.Parts[i])
+		name.NodeSpan = target.Parts[i].Span
+		return name
+	}
+	var node ast.Node = segment(0)
+	for i := 1; i < len(target.Parts); i++ {
+		chain := &ast.FeatureChainExpr{Operand: node, Member: segment(i)}
+		chain.NodeSpan = source.Span{Offset: target.Span().Offset, Len: target.Parts[i].Span.Offset + target.Parts[i].Span.Len - target.Span().Offset}
+		node = chain
+	}
+	return node
+}
+
+// transitionSourceMember is the resolved, unchained source a transition, a guarded `succession first a if g then b`
+// or a decision's branch names: the member of the Membership it owns ahead of its parameters (transitionHeadMembers).
 func (m *Model) transitionSourceMember(sym *symbols.Symbol) (*symbols.Symbol, bool) {
-	trans, ok := transitionDecl(sym)
-	if !ok || trans.IsSuccession || trans.Source == nil || ast.IsFeatureChain(trans.Source) || m.resolver == nil {
+	_, isTransition := transitionDecl(sym)
+	_, isBranch := transitionBranchDecl(sym)
+	if m.resolver == nil || !isTransition && !isBranch && !declaresTransition(sym) {
 		return nil, false
 	}
 	scope := sym.OwnerScope
 	if scope == nil {
 		scope = sym.Scope
 	}
+	var source, sourceMember ast.Node
+	switch d := sym.Decl.(type) {
+	case *ast.TransitionMember:
+		if d.Source == nil {
+			// A sourceless transition leaves the state before it (SysML v2 §7.18.3), which the conversion
+			// names through a Membership where that state is a substate member (transitionSourceTerm).
+			if before, ok := ast.ImplicitTransitionSource(bodyMembers(m.ownerOf(sym)), d).(*ast.SubstateMember); ok {
+				sourceMember = before
+				break
+			}
+			return nil, false
+		}
+		source = d.Source
+	case *ast.SuccessionEdge:
+		// A state body's `then x;` leaves the member before it (SysML.xtext TargetTransitionUsage): the
+		// state it names, or the nameless member it reaches by position.
+		source, sourceMember = d.Source, d.SourceMember
+	case *ast.ControlFlowEdge:
+		source, sourceMember = d.Source, d.SourceMember
+	default:
+		return nil, false
+	}
+	if sourceMember != nil {
+		member, ok := m.SymbolDeclaring(scope, sourceMember)
+		return member, ok && member != nil
+	}
+	name, ok := source.(*ast.QualifiedName)
+	if !ok || name == nil || ast.IsFeatureChain(name) {
+		return nil, false
+	}
 	// The endpoint resolution, which reaches a vertex nested in a sibling state as the conversion's does.
-	source, ok := m.resolver.EndpointSymbol(scope, trans.Source)
-	return source, ok && source != nil
+	member, ok := m.resolver.EndpointSymbol(scope, name)
+	return member, ok && member != nil
 }
 
 func boolInt(b bool) int {
@@ -338,4 +646,11 @@ func boolInt(b bool) int {
 		return 1
 	}
 	return 0
+}
+
+// isTriggerPayload reports whether member is the payload parameter the trigger of the transition sym
+// names (`accept x : T`), which the trigger's accept owns (SysML.xtext TriggerAction, PayloadParameterMember).
+func (m *Model) isTriggerPayload(sym, member *symbols.Symbol) bool {
+	parts := m.transitionPartsOf(sym)
+	return parts != nil && parts.payload == member
 }
