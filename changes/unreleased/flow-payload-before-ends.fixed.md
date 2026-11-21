@@ -1,0 +1,1 @@
+- The RDF and API JSON exports of a flow that declares its payload (`flow of p : T from a.x to b.y`) now list the payload's `FeatureMembership` ahead of the flow's two `EndFeatureMembership`s in `ownedRelationship` and the lists derived from it, as the pilot implementation orders them; the ends were written first.

@@ -31,7 +31,7 @@ func (m *Model) filterPackageOf(imp *symbols.Symbol) *symbols.Symbol {
 		Decl:       decl,
 		DeclSpan:   imp.DeclSpan,
 		Visibility: ast.VisibilityPrivate,
-		Expr:       &symbols.ExpressionElement{Owner: namespace, Role: symbols.ExpressionFilterPackage},
+		Expr:       &symbols.ExpressionElement{Owner: namespace, Role: symbols.ExpressionFilterPackage, Index: imp.Implicit.Ordinal},
 	}
 	if m.filterPackages == nil {
 		m.filterPackages = make(map[*symbols.Symbol]*symbols.Symbol)
