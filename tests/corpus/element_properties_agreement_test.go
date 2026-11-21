@@ -170,9 +170,8 @@ func writeAgreementRatchet(t *testing.T, recorded map[agreementRow]agreementRatc
 	}
 }
 
-// checkAgreementRatchet holds the sweep's disagreements to the recorded classes: none new, none above its
-// count, every one adjudicated by a clause; complete (the whole sweep, every corpus) fails a vanished class too,
-// and a subset announces the recorded classes it did not produce, which it cannot tell from vanished ones.
+// checkAgreementRatchet holds the sweep to the recorded classes: none new, none above its count, each with
+// a clause. A complete sweep fails a vanished class; a subset announces the classes it did not produce.
 func checkAgreementRatchet(t *testing.T, subset corpussubset.Subset, complete bool, agreement *agreementCounts) {
 	t.Helper()
 	recorded := agreementRatchetRows(t)
