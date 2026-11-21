@@ -325,3 +325,39 @@ func TestChainEndsThroughPrivateRootsStayApart(t *testing.T) {
 	}
 }
 
+func TestDecisionReachesEachChainPerformerThroughFork(t *testing.T) {
+	graph := scopedActionGraph(t, `
+		part def Vehicle { action close; }
+		action def A {
+			part v : Vehicle;
+			perform action c1 ::> v.close;
+			perform action c2 ::> v.close;
+			action skip;
+			first start;
+			then decide;
+				if true then v.close;
+				else skip;
+		}
+	`, "A")
+	var decision ast.Node
+	for _, node := range graph.Nodes {
+		if _, ok := node.(*ast.DecisionNode); ok {
+			decision = node
+		}
+	}
+	branches := graph.Edges[decision]
+	if len(branches) != 2 {
+		t.Fatalf("decision branches = %d, want the two it states", len(branches))
+	}
+	fork, ok := branches[0].Target.(*ast.ForkNode)
+	if !ok || branches[0].Guard == nil {
+		t.Fatalf("guarded branch leads to %T, want a fork", branches[0].Target)
+	}
+	targets := map[ast.Node]bool{}
+	for _, edge := range graph.Edges[fork] {
+		targets[edge.Target] = true
+	}
+	if len(targets) != 2 || !targets[nodeNamed(t, graph, "c1")] || !targets[nodeNamed(t, graph, "c2")] {
+		t.Fatalf("fork targets = %v, want c1 and c2", targets)
+	}
+}

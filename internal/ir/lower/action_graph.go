@@ -1403,9 +1403,22 @@ func (l *actionEdgeLowerer) ends(ref ast.Node, member ast.Node, source bool) ([]
 	return nil, nil
 }
 
-// addEdges states edge from every source to every target.
+// addEdges states edge from every source to every target. A decision takes one
+// succession, so one reaching several steps reaches them through a fork.
 func (l *actionEdgeLowerer) addEdges(sources, targets []ast.Node, edge ActionEdge) {
 	for _, source := range sources {
+		if _, decides := source.(*ast.DecisionNode); decides && len(targets) > 1 {
+			fork := &ast.ForkNode{}
+			fork.NodeSpan = edge.Decl.Span()
+			l.graph.Nodes = append(l.graph.Nodes, fork)
+			l.graph.recordDeclaredIn(fork, l.scope)
+			edge.Source, edge.Target = source, fork
+			l.addEdge(edge)
+			for _, target := range targets {
+				l.addEdge(ActionEdge{Source: fork, Target: target, Decl: edge.Decl})
+			}
+			continue
+		}
 		for _, target := range targets {
 			edge.Source, edge.Target = source, target
 			l.addEdge(edge)
