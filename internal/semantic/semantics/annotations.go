@@ -2539,7 +2539,14 @@ func (m *Model) successionEndFeatureTargets(sym *symbols.Symbol) (targets []*sym
 		break
 	}
 	if !found {
-		for _, succession := range m.DeclaredSuccessions(sym.OwnerScope, owner, []ast.Node{sym.Decl}) {
+		members := []ast.Node{sym.Decl}
+		if trans, ok := sym.Decl.(*ast.TransitionMember); ok && trans.Source == nil && owner.Decl == sym.Decl {
+			// A sourceless transition's succession leaves a member of the body declaring the transition.
+			if body := m.ownerOf(owner); body != nil {
+				members = bodyMembers(body)
+			}
+		}
+		for _, succession := range m.DeclaredSuccessions(sym.OwnerScope, owner, members) {
 			if succession.Decl == sym.Decl {
 				ends = []ActionSuccessionEnd{succession.Source, succession.Target}
 				break

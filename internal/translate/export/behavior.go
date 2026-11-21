@@ -811,7 +811,7 @@ func (e *encoder) transitionSourceTerm(edge ast.Node, source *ast.QualifiedName,
 	case qualifiedText(source) == "":
 		if sourceMember == nil {
 			// A guarded target after a state leaves that state (SysML.xtext TargetTransitionUsage).
-			if _, ok := stands.(*ast.SubstateMember); ok {
+			if ast.LeavableByTransition(stands) {
 				sourceMember = stands
 			}
 		}
