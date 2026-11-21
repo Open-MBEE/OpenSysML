@@ -6,9 +6,8 @@ import (
 	"testing"
 )
 
-// TestConnectorEndCellsRenderTheirLabels checks that a table cell holding
-// connector ends prints each end by the attachment it names, in Markdown and
-// in HTML, rather than an empty cell.
+// TestConnectorEndCellsRenderTheirLabels checks that a cell holding connector
+// ends prints each end's label in Markdown and in HTML, not an empty cell.
 func TestConnectorEndCellsRenderTheirLabels(t *testing.T) {
 	fixture := filepath.Join("testdata", "connector_end_report.sysml")
 	markdown := renderFixtureDocument(t, fixture, "Bench::ConnectionReport")
