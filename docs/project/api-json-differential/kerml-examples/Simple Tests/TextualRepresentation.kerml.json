@@ -11,9 +11,9 @@
       "typeMismatch": 6
     },
     "properties": {
-      "presentEqual": 395,
+      "presentEqual": 396,
       "presentDifferent": 20,
-      "oursMissing": 36,
+      "oursMissing": 35,
       "pilotMissing": 32,
       "absentBoth": 315,
       "indeterminate": 0,
@@ -323,7 +323,7 @@
     "Invariant.portionKind": [0,0,0,0,1,0,0],
     "Invariant.predicate": [0,0,1,0,0,0,0],
     "Invariant.qualifiedName": [1,0,0,0,0,0,0],
-    "Invariant.result": [0,0,1,0,0,0,0],
+    "Invariant.result": [1,0,0,0,0,0,0],
     "Invariant.textualRepresentation": [1,0,0,0,0,0,0],
     "Invariant.type": [0,0,1,0,0,0,0],
     "Invariant.unioningType": [0,0,0,0,1,0,0],

@@ -122,6 +122,22 @@ func expressionPartSlot(sym *symbols.Symbol) (string, bool) {
 	return "", false
 }
 
+// rangeBoundSlot is the node and slot a multiplicity range's bound is minted under: the feature
+// declaring the range, or a multiplicity declaration itself (multiplicityBound).
+func rangeBoundSlot(sym *symbols.Symbol) (ast.Node, string, bool) {
+	if sym == nil || sym.Expr == nil || sym.Expr.Role != symbols.ExpressionBound || sym.Expr.Owner == nil {
+		return nil, "", false
+	}
+	owner := sym.Expr.Owner
+	if _, declared := owner.Decl.(*ast.MultiplicityDecl); declared {
+		return owner.Decl, sym.Expr.Slot, true
+	}
+	if owner.OwnerScope == nil || owner.OwnerScope.Owner() == nil {
+		return nil, "", false
+	}
+	return owner.OwnerScope.Owner().Decl, sym.Expr.Slot, true
+}
+
 // sendArgumentSlot is the send whose argument parameter sym is and the slot the conversion
 // files it at (`arg%d`, the argument's position: payload, sender, receiver).
 func sendArgumentSlot(sym *symbols.Symbol) (ast.Node, string, bool) {
@@ -171,6 +187,10 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 	}
 	if send, slot, ok := sendArgumentSlot(sym); ok {
 		element, _, err := read.ReadExpressionPart(sym.DocName, send, slot)
+		return element, err
+	}
+	if declaring, slot, ok := rangeBoundSlot(sym); ok {
+		element, _, err := read.ReadExpressionPart(sym.DocName, declaring, slot)
 		return element, err
 	}
 	if owner, ok := defaultMultiplicityOwner(sym); ok {
@@ -275,7 +295,8 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 			return element, true, err
 		}
 		return "", true, nil
-	case symbols.ImplicitPortConjugation, symbols.ImplicitMetadataBodyRedefinition, symbols.ImplicitShorthandReference:
+	case symbols.ImplicitPortConjugation, symbols.ImplicitMetadataBodyRedefinition, symbols.ImplicitTypeArgumentTyping,
+		symbols.ImplicitShorthandReference:
 		if flow, slot, ok := flowEndFeatureSlot(rel.Owner); ok && rel.Form != symbols.ImplicitShorthandReference {
 			// The Redefinition the ReferenceUsage a flow's end owns states is minted under it (`rd0`).
 			element, _, err := read.ReadExpressionPart(rel.Owner.DocName, flow, slot+".rd0")
@@ -309,6 +330,10 @@ func implicitMembershipID(read ElementIDReader, idx *symbols.Index, member *symb
 	}
 	if span, slot, ok := bodyParameterSlot(member); ok {
 		_, membership, err := read.ReadExpressionPart(member.DocName, spanNode{span}, slot)
+		return membership, true, err
+	}
+	if declaring, slot, ok := rangeBoundSlot(member); ok {
+		_, membership, err := read.ReadExpressionPart(member.DocName, declaring, slot)
 		return membership, true, err
 	}
 	if owner, ok := defaultMultiplicityOwner(member); ok {
