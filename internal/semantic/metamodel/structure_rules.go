@@ -1789,33 +1789,48 @@ func (e *Evaluator) structureFlowProperty(element Element, property string) (Val
 		}
 		return sequence(uniqueValueSequence(types).Values...), true, true
 	case "sourceOutputFeature":
-		return e.structureFlowAttachment(element, 0)
+		return e.structureFlowEndFeature(element, 0)
 	case "targetInputFeature":
-		return e.structureFlowAttachment(element, 1)
+		return e.structureFlowEndFeature(element, 1)
 	case "interaction":
 		return e.structureTypedFeatureTypes(element, "Interaction", false)
 	}
 	return Value{}, false, false
 }
 
-func (e *Evaluator) structureFlowAttachment(element Element, index int) (Value, bool, bool) {
-	sym, ok := e.structureSymbolOf(element)
-	if !ok || sym.Scope == nil || e.model == nil || e.resolver == nil {
+// structureFlowEndFeature is the first ownedFeature of the flow's connectorEnd at index
+// (KerML 8.3.4.9.2 deriveFlowSourceOutputFeature, deriveFlowTargetInputFeature).
+func (e *Evaluator) structureFlowEndFeature(element Element, index int) (Value, bool, bool) {
+	ends, handled, ok := e.structureEffectiveEndFeatures(element, "Connector", "connectorEnd")
+	if !handled || !ok {
 		return Value{}, true, false
 	}
-	attachments := e.model.FlowEndAttachments(sym)
-	if index >= len(attachments) {
+	if index >= len(ends.Values) {
 		return nullValue(), true, true
 	}
-	ends, handled, ok := e.structureFlowProperty(element, "flowEnd")
-	if !handled || !ok || len(ends.Values) != len(attachments) {
+	if ends.Values[index].Kind != ElementValue {
 		return Value{}, true, false
 	}
-	target, ok := e.resolver.ResolveTarget(sym.Scope, attachments[index].Attachment)
-	if !ok || target == nil {
+	end := ends.Values[index].Element
+	// An inherited library end is described by the semantic model, not the structure.
+	if symbol := e.structureLibrarySymbol(end); symbol != nil && e.model != nil {
+		owned, ok := e.model.ReflectiveElements(symbol, "ownedFeature")
+		if !ok {
+			return Value{}, true, false
+		}
+		if len(owned) == 0 {
+			return nullValue(), true, true
+		}
+		return elementValue(ElementOf(owned[0])), true, true
+	}
+	features, handled, ok := e.structureOwnedFeatures(end)
+	if !handled || !ok {
 		return Value{}, true, false
 	}
-	return elementValue(ElementOf(target)), true, true
+	if len(features.Values) == 0 {
+		return nullValue(), true, true
+	}
+	return features.Values[0], true, true
 }
 
 func (e *Evaluator) structureFilterValuesAsSequence(values []Value, expected string) (Value, bool, bool) {
