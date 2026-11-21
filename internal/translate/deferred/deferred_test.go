@@ -128,3 +128,29 @@ func TestUnwrittenOwnBehaviorAddsNoFork(t *testing.T) {
 		t.Errorf("encoding:\n%s", got)
 	}
 }
+
+// An encoding with no accept loop writes no do action, and one whose first
+// signal has no loop still starts at the loop a later signal has.
+func TestEncodingWithoutLoopsWritesNoDoAction(t *testing.T) {
+	w := &textWriter{}
+	var zero Encoding
+	zero.Do(w, nil)
+	var none *Encoding
+	none.Do(w, nil)
+	if got := w.sb.String(); got != "" || len(w.madeUp) != 0 {
+		t.Fatalf("zero-value Do wrote %q, made up %v; want nothing", got, w.madeUp)
+	}
+
+	zero.Do(w, func() Own { return Own{} })
+	if got := w.sb.String(); strings.Contains(got, "first start") {
+		t.Fatalf("Do with no loop and no own behavior wrote a start:\n%s", got)
+	}
+
+	w = &textWriter{}
+	e := oneSignal()
+	e.Signals = append([]Signal{{Ref: "Idle", Buffer: "deferredIdle"}}, e.Signals...)
+	e.Do(w, nil)
+	if got := w.sb.String(); !strings.Contains(got, "first start then receiveDoor;") {
+		t.Fatalf("Do did not start at the only loop:\n%s", got)
+	}
+}

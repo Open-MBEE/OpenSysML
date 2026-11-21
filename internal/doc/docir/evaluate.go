@@ -36,6 +36,9 @@ func EvaluateLinked(
 	options queryexec.Options,
 	text view.SourceText,
 ) (*Document, error) {
+	if !plan.Compiled() {
+		return nil, &Error{Kind: ErrorInvalidPlan}
+	}
 	return evaluate(plan, context, options, text, crossAnchors(siblings)[plan.Name()])
 }
 
@@ -81,13 +84,11 @@ func Unrendered(name, title string, err error, siblings []*docplan.Plan) *Docume
 	if title == "" {
 		title = name
 	}
-	content := []Content{{
-		kind: ContentParagraph,
-		runs: []TextRun{
-			{kind: RunStrong, text: "This document could not be rendered."},
-			{kind: RunPlain, text: err.Error()},
-		},
-	}}
+	runs := []TextRun{{kind: RunStrong, text: "This document could not be rendered."}}
+	if err != nil {
+		runs = append(runs, TextRun{kind: RunPlain, text: err.Error()})
+	}
+	content := []Content{{kind: ContentParagraph, runs: runs}}
 	for _, anchor := range linkedAnchors(name, siblings) {
 		content = append(content, Content{
 			kind:   ContentParagraph,

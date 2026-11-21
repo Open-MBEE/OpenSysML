@@ -46,7 +46,7 @@ func (NonstandardNotationPass) Level() PassLevel { return LevelSyntax }
 // under strict conformance escalates the parser's nonstandard-notation
 // warnings — a /* */ comment where no member may start — to errors.
 func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
-	if root == nil {
+	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
 	// A document of no known kind — the REPL and CLI buffer — reads as SysML,
