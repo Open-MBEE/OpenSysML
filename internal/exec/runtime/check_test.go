@@ -1461,46 +1461,46 @@ func TestCheckReplaysRacingSends(t *testing.T) {
 	m := parseLibraryModel(t, `package test {
     private import ScalarValues::*;
 
-    attribute def LockDetected;
-    attribute def ChargeRequested;
+    attribute def Permit;
+    attribute def Request;
 
-    part def StationController {
-        attribute linkLocked : Boolean = false;
-        attribute energized : Boolean = false;
+    part def Receiver {
+        attribute permitted : Boolean = false;
+        attribute accepted : Boolean = false;
 
-        exhibit state Interlock {
-            entry; then awaitingLock;
-            state awaitingLock;
-            state armed { entry action { assign linkLocked := true; } }
+        exhibit state Gate {
+            entry; then waiting;
+            state waiting;
+            state ready { entry action { assign permitted := true; } }
 
-            transition first awaitingLock accept ChargeRequested do assign energized := true then awaitingLock;
-            transition first awaitingLock accept LockDetected then armed;
+            transition first waiting accept Request do assign accepted := true then waiting;
+            transition first waiting accept Permit then ready;
         }
     }
 
-    constraint powerGate { not rig.energized or rig.linkLocked }
+    constraint onlyWithPermit { not endpoint.accepted or endpoint.permitted }
 
-    part rig : StationController;
+    part endpoint : Receiver;
 
-    action designEnvironment {
+    action sendBoth {
         first start;
-        then fork arrivalRace;
-        action request send new ChargeRequested() to rig;
-        action acquire send new LockDetected() to rig;
-        join reported;
-        succession arrivalRace then request;
-        succession arrivalRace then acquire;
-        succession request then reported;
-        succession acquire then reported;
-        succession reported then done;
+        then fork race;
+        action request send new Request() to endpoint;
+        action grant send new Permit() to endpoint;
+        join sent;
+        succession race then request;
+        succession race then grant;
+        succession request then sent;
+        succession grant then sent;
+        succession sent then done;
     }
 }`)
-	rig := m.idx.LookupQualified("test::rig")[0]
-	machine := m.idx.LookupQualified("test::StationController::Interlock")[0]
-	safe := m.idx.LookupQualified("test::powerGate")[0]
-	environment := m.action(t, "designEnvironment")
+	endpoint := m.idx.LookupQualified("test::endpoint")[0]
+	machine := m.idx.LookupQualified("test::Receiver::Gate")[0]
+	safe := m.idx.LookupQualified("test::onlyWithPermit")[0]
+	environment := m.action(t, "sendBoth")
 	start := func(ctx *Context) (*Invocation, error) {
-		self, err := ctx.Instantiate(rig)
+		self, err := ctx.Instantiate(endpoint)
 		if err != nil {
 			return nil, err
 		}
@@ -1514,7 +1514,7 @@ func TestCheckReplaysRacingSends(t *testing.T) {
 		}
 		return &Invocation{Actions: []*ActionExecutor{action}, States: []*StateExecutor{state}}, nil
 	}
-	prop := CheckProperty{Name: "powerGate", Holds: func(ctx *Context, _ *Invocation) (bool, error) {
+	prop := CheckProperty{Name: "onlyWithPermit", Holds: func(ctx *Context, _ *Invocation) (bool, error) {
 		result, err := ctx.CheckConstraintOn(safe, safe.Scope, nil)
 		if err != nil && !errors.Is(err, ErrViolated) {
 			return false, err
@@ -1524,9 +1524,9 @@ func TestCheckReplaysRacingSends(t *testing.T) {
 	report := checkStart(t, m, start, reduced(), prop)
 	if report.Verdict != CheckViolation || len(report.Violations) != 1 ||
 		report.Violations[0].Kind != ViolationProperty || report.Violations[0].Name != prop.Name {
-		t.Fatalf("%s, violations %v; want only powerGate false", report.Status(), report.Violations)
+		t.Fatalf("%s, violations %v; want one onlyWithPermit violation", report.Status(), report.Violations)
 	}
-	replayWitness(t, m, start, report.Violations[0].Witness, "powerGate false", prop)
+	replayWitness(t, m, start, report.Violations[0].Witness, "onlyWithPermit false", prop)
 }
 
 // A property failing to evaluate is a failure whose witness names the property
