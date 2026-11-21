@@ -41,7 +41,7 @@ func runRunDocumentQueryCase(t *testing.T, srv *grpc.Service, ctx context.Contex
 		bindings = append(bindings, &pb.DocumentQueryBinding{Parameter: b.Parameter, Values: values})
 	}
 	resp, err := srv.RunDocumentQuery(ctx, &pb.RunDocumentQueryRequest{
-		ModelHash: modelHash, QueryId: tc.QueryID, InlineQuery: tc.InlineQuery, Bindings: bindings,
+		ModelHash: modelHash, QueryId: tc.QueryID, InlineQuery: tc.InlineQuery, Bindings: bindings, AsView: tc.AsView,
 	})
 	if tc.ExpectedError != "" {
 		if err == nil {
@@ -50,11 +50,13 @@ func runRunDocumentQueryCase(t *testing.T, srv *grpc.Service, ctx context.Contex
 		if !strings.Contains(err.Error(), tc.ExpectedError) {
 			t.Fatalf("error = %q, want it to contain %q", err.Error(), tc.ExpectedError)
 		}
+		checkResultView(t, modelHash, tc, failedResultView(err))
 		return
 	}
 	if err != nil {
 		t.Fatalf("RunDocumentQuery: %v", err)
 	}
+	checkResultView(t, modelHash, tc, resp.ResultView)
 	columns := make([]string, 0, len(resp.Columns))
 	for _, column := range resp.Columns {
 		columns = append(columns, column.Name)

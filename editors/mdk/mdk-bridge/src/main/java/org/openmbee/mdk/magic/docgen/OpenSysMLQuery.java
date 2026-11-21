@@ -21,6 +21,7 @@ import org.openmbee.mdk.model.Query;
  */
 public abstract class OpenSysMLQuery extends Query {
   static final String ARGUMENTS_TAG = "arguments";
+  static final String VIEW_TAG = "view";
 
   private static final Logger LOG = Logger.getLogger(OpenSysMLQuery.class.getName());
 
@@ -51,6 +52,7 @@ public abstract class OpenSysMLQuery extends Query {
       return elements;
     }
     String arguments = arguments();
+    String view = tagValue(VIEW_TAG);
     for (Object target : targets) {
       if (!(target instanceof BaseElement element)) {
         elements.add(new DBParagraph(
@@ -59,7 +61,7 @@ public abstract class OpenSysMLQuery extends Query {
       }
       try {
         elements.addAll(DocBookRenderer.render(
-            BridgeResult.from(runner.run(element, operation, arguments))));
+            BridgeResult.from(runner.run(element, operation, arguments, view))));
       } catch (RuntimeException failure) {
         log("[ERROR] OpenSysML " + operationLabel + " of " + element.getHumanName() + ": " + failure.getMessage());
         elements.add(DocBookRenderer.failure(operationLabel, element.getHumanName(), failure));
@@ -68,18 +70,23 @@ public abstract class OpenSysMLQuery extends Query {
     return elements;
   }
 
-  /** The {@code arguments} tag of this query's stereotype, read from the action or the behavior it calls. */
+  /** The {@code arguments} tag of this query's stereotype. */
   String arguments() {
+    return tagValue(ARGUMENTS_TAG);
+  }
+
+  /** A tag of this query's stereotype, read from the action or the behavior it calls; empty when unset. */
+  String tagValue(String name) {
     if (dgElement == null) return "";
-    String value = tag(dgElement);
+    String value = tag(dgElement, name);
     if (value == null && dgElement instanceof CallBehaviorAction call && call.getBehavior() != null) {
-      value = tag(call.getBehavior());
+      value = tag(call.getBehavior(), name);
     }
     return value == null ? "" : value;
   }
 
-  private String tag(Element element) {
-    Object value = StereotypesHelper.getStereotypePropertyFirst(element, getClass().getName(), ARGUMENTS_TAG);
+  private String tag(Element element, String name) {
+    Object value = StereotypesHelper.getStereotypePropertyFirst(element, getClass().getName(), name);
     return value == null ? null : String.valueOf(value);
   }
 

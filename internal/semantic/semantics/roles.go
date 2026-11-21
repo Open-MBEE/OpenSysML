@@ -234,6 +234,9 @@ func (m *Model) effectiveActors(sym *symbols.Symbol, walk *roleWalk) ([]*symbols
 
 // redefinesExplicitly reports whether sym's declaration carries a `:>>` clause.
 func redefinesExplicitly(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return len(sym.Facts.Redefines) > 0
+	}
 	for _, rel := range RelationshipsOf(sym) {
 		if rel != nil && rel.Kind == ast.RelRedefines {
 			return true
@@ -625,6 +628,12 @@ func roleOfNode(node ast.Node) caseRole {
 // explicitRedefinitions returns the features sym's own `:>>` clauses resolve to.
 func (m *Model) explicitRedefinitions(sym *symbols.Symbol) map[*symbols.Symbol]bool {
 	out := map[*symbols.Symbol]bool{}
+	if sym.Recorded() {
+		for _, target := range m.recordedElements(sym, sym.Facts.Redefines) {
+			out[target] = true
+		}
+		return out
+	}
 	for _, rel := range RelationshipsOf(sym) {
 		if rel == nil || rel.Kind != ast.RelRedefines || rel.Target == nil {
 			continue

@@ -53,15 +53,15 @@
         "name": "testdata",
         "dir": "tests/testdata",
         "origin": "ours",
-        "files": 42,
-        "digest": "sha256:65bf445bc3afa269f61316d16e301a7b5d5f8f143628693b6fa4d71190faa724"
+        "files": 40,
+        "digest": "sha256:951761d51e902bbcb3392d4a77da58c7f580c61b2fb97ac6c4ad705e08e0c446"
       },
       {
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 57,
-        "digest": "sha256:b695731eb2b35bd533c2fbac440caee243030b8a73357d0d1e59dd448f86d38a"
+        "files": 68,
+        "digest": "sha256:b5836857068c83cdb257385a10cf75947beb8e9732840fd4e58a016c94c8336f"
       },
       {
         "name": "probes",
@@ -81,8 +81,8 @@
         "name": "opensysml-libraries",
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
-        "files": 17,
-        "digest": "sha256:b90165d947c4a27f6affb7637e2f9cf3a87bd92f591108288829002a90159fd9"
+        "files": 18,
+        "digest": "sha256:8ef6d80c9983abb0af6edc68d26de9a25be15f16561ca3b9e9387ed2b070a7ec"
       }
     ],
     "recorded": "2026-11-20"
@@ -159,11 +159,11 @@
     {
       "name": "testdata",
       "dir": "tests/testdata",
-      "files": 42,
+      "files": 40,
       "rejected": 0,
-      "elements": 2281,
-      "implied": 1270,
-      "pilotElements": 2863,
+      "elements": 1870,
+      "implied": 1020,
+      "pilotElements": 2448,
       "pilotImplied": 0,
       "pilotDuplicates": 169,
       "pilotFailed": 0
@@ -171,13 +171,13 @@
     {
       "name": "examples",
       "dir": "examples",
-      "files": 57,
+      "files": 68,
       "rejected": 0,
-      "elements": 45471,
-      "implied": 26365,
-      "pilotElements": 54281,
+      "elements": 46192,
+      "implied": 26799,
+      "pilotElements": 55048,
       "pilotImplied": 0,
-      "pilotDuplicates": 85373,
+      "pilotDuplicates": 86152,
       "pilotFailed": 0
     },
     {
@@ -205,5 +205,5 @@
       "pilotFailed": 0
     }
   ],
-  "pilotRecords": "sha256:92baf096806b0190e74dce0a93370b047878b380c662c33d17472045605838c0"
+  "pilotRecords": "sha256:bfb3df112f2ee8d4c9831fa489844058dba752cc25d5864faace3a95badd0645"
 }

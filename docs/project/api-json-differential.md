@@ -635,6 +635,19 @@ parameters of the invoked function that no argument binds (`DocumentQueries::Des
 this record), where this repository lists only the argument features the invocation owns. A fix of its own
 follows; until it lands, a library parameter gaining a default moves the rows of every caller that omits it.
 
+**The OpenSysML Libraries pin gains `QVTS`, and `examples/qvts` its result views** (re-recorded when the
+vendored libraries took the `QVTS` library — 17 → 18 files — and eleven files joined the `examples` root: nine
+recorded `QVTS::QueryResult` views under `examples/qvts/expected/views/` and the QVTS repository's
+`observatory.sysml` and `result.sysml`): only the `examples` root moves, 57 → 68 files, and by the new files'
+own elements — 622 more matched (109597 → 110219), 6 ours-only, 11 pilot-only, 413 more
+`pilotLibraryElements` (library elements in the pilot's exports of the new files, left out as every library element is),
+and three more colliding keys of ours (50 → 53). No file is newly refused or failed on either side (38 and
+0 as before), no scorecard row is added or removed (11785), and the other roots read as recorded. The new
+files' properties fall in the buckets their metaclasses already had — the view usages, `expose` imports and
+attribute redefinitions of the result views, and the parts, actions and attributes of `observatory.sysml` —
+so the counts of existing rows grow by what the new files add; no existing example imports `QVTS`. The
+self-model's `bundledFileCount` literal moves 111 → 112 with the library, changing the digest and no count.
+
 **An invocation lists the parameters no argument binds** (re-recorded when the writer began listing
 under `InvocationExpression.parameter` the invoked behavior's parameters that no argument binds and no
 owned feature redefines — `Time::DurationOf::clock` for `DurationOf(o)`, a defaulted parameter the call
@@ -1319,6 +1332,7 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 | `OperatorExpression` | `isModelLevelEvaluable` | not completed — no evaluator rule (`docs/project/constraint-manifest.json`) | `Expression::isModelLevelEvaluable = modelLevelEvaluable(Set{})` (KerML 8.3.4.7.3, deriveExpressionIsModelLevelEvaluable) |
 | `LiteralString` | `isModelLevelEvaluable` | not completed — no evaluator rule (`docs/project/constraint-manifest.json`) | `Expression::isModelLevelEvaluable = modelLevelEvaluable(Set{})` (KerML 8.3.4.7.3, deriveExpressionIsModelLevelEvaluable) |
 | `LiteralString` | `parameter` | not completed — a literal owns no result parameter, so the pilot's `parameter` is the `Evaluation::result` it inherits through the implied base (this record's step 6), which this repository states as `directedFeature` and `output` but derives `Step::parameter` from the owned feature memberships alone | `Step::parameter` redefines `Type::directedFeature` (KerML 8.3.5.1.4) |
+| `LiteralString` | `result` | not completed — as `parameter`: the inherited `Evaluation::result` is the pilot's result parameter, and the rule reads the owned `ReturnParameterMembership` alone | `Expression::result = featureMemberships->selectByKind(ReturnParameterMembership).ownedMemberParameter->first()` (KerML 8.3.4.7.3, deriveExpressionResult) |
 <!-- doc-counts:end apijson-launch-ready-gaps -->
 
 Rows an evaluator rule in PR #1232 (`internal/semantic/metamodel/rules.go`) already names are marked; that PR adds a lazy metamodel evaluator and layers its derived values into the API-JSON writer, so its merge is expected to move those rows from ours-missing to present-equal or present-different, and this referee is how that movement is measured.

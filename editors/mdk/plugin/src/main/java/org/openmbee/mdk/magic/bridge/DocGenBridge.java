@@ -29,6 +29,8 @@ import org.openmbee.mdk.magic.source.ModelSource;
  */
 public final class DocGenBridge {
   public static final String METHOD = "docGen";
+  public static final String VIEW_TEXT = "text";
+  public static final String VIEW_RENDERED = "rendered";
 
   private static final String ELEMENT_ID = "elementId";
 
@@ -52,6 +54,20 @@ public final class DocGenBridge {
    *     element OpenSysML can run, or the calc arguments or query bindings do not parse
    */
   public Map<String, Object> run(Project project, BaseElement element, String operation, String calcArguments) {
+    return run(project, element, operation, calcArguments, "");
+  }
+
+  /**
+   * Runs as the four-argument {@code run} does; {@code view} also asks "Run query" for each answer
+   * as a view: {@link #VIEW_TEXT}, {@link #VIEW_RENDERED} or blank, anything else is refused.
+   */
+  public Map<String, Object> run(
+      Project project, BaseElement element, String operation, String calcArguments, String view) {
+    String views = view == null ? "" : view.strip();
+    if (!views.isEmpty() && !views.equals(VIEW_TEXT) && !views.equals(VIEW_RENDERED)) {
+      throw new IllegalArgumentException(
+          "the view tag is \"" + VIEW_TEXT + "\" or \"" + VIEW_RENDERED + "\", not \"" + views + "\"");
+    }
     Operation parsed = operation(operation);
     List<Value> args = parsed == Operation.EVALUATE_CALC ? CalcArguments.parse(calcArguments) : List.of();
     Selection selection = resolver.resolve(project, element).orElseThrow(() -> new IllegalArgumentException(
@@ -65,6 +81,8 @@ public final class DocGenBridge {
         request = request.withQueryBindings(QueryArguments.parse(calcArguments, plan));
       }
       result = engine.get().run(request, () -> false);
+      if (views.equals(VIEW_RENDERED)) result = engine.get().renderViews(source, result, () -> false);
+      else if (views.isEmpty()) result = result.withViews(List.of());
     } catch (RuntimeException failure) {
       try {
         source.close();
@@ -147,6 +165,25 @@ public final class DocGenBridge {
       tables.add(flatTable);
     }
     flat.put("tables", tables);
+    List<Map<String, Object>> views = new ArrayList<>();
+    for (RunResult.View view : result.views()) {
+      Map<String, Object> flatView = new LinkedHashMap<>();
+      flatView.put("query", view.query());
+      flatView.put("name", view.name());
+      flatView.put("text", view.text());
+      List<Map<String, String>> header = new ArrayList<>();
+      for (RunResult.Field field : view.header()) {
+        Map<String, String> flatField = new LinkedHashMap<>();
+        flatField.put("name", field.name());
+        flatField.put("value", field.value());
+        header.add(flatField);
+      }
+      flatView.put("header", header);
+      flatView.put("columns", List.copyOf(view.columns()));
+      flatView.put("rows", view.rows().stream().map(List::copyOf).toList());
+      views.add(flatView);
+    }
+    flat.put("views", views);
     return flat;
   }
 }
