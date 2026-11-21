@@ -30,7 +30,7 @@ func (m *Model) ViewDepth(view *symbols.Symbol) int {
 	if view == nil || !IsView(view) {
 		return 0
 	}
-	for _, owner := range append([]*symbols.Symbol{view}, m.AllSupertypes(view)...) {
+	for owner := range m.eachSelfAndSupertype(view) {
 		if !IsView(owner) {
 			continue
 		}

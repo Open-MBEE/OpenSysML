@@ -16,7 +16,7 @@ func TestAPEReferenceModelMigration(t *testing.T) {
 	const root = "testdata/ape-reference-model"
 	const archive = "APE-ReferenceModel.mdzip"
 	data, err := os.ReadFile(filepath.Join(root, archive))
-	if os.IsNotExist(err) && os.Getenv("OPENSYSML_REQUIRE_APE_REFERENCE_MODEL") != "1" {
+	if os.IsNotExist(err) && os.Getenv("OPENSYSML_REQUIRE_APE_REFERENCE_MODEL") == "" {
 		t.Skip("supply the APE archive described in testdata/ape-reference-model/README.md; set OPENSYSML_REQUIRE_APE_REFERENCE_MODEL=1 to require it")
 	}
 	if err != nil {

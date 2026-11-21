@@ -11,9 +11,9 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 2327,
+      "presentEqual": 2328,
       "presentDifferent": 120,
-      "oursMissing": 256,
+      "oursMissing": 255,
       "pilotMissing": 88,
       "absentBoth": 2247,
       "indeterminate": 45,
@@ -289,7 +289,7 @@
     "Expression.owningRelationship": [1,0,0,0,0,0,0],
     "Expression.owningType": [1,0,0,0,0,0,0],
     "Expression.parameter": [0,0,1,0,0,0,0],
-    "Expression.result": [0,0,1,0,0,0,0],
+    "Expression.result": [1,0,0,0,0,0,0],
     "Expression.textualRepresentation": [0,0,0,0,1,0,0],
     "Expression.type": [1,0,0,0,0,0,0],
     "Expression.unioningType": [0,0,0,0,1,0,0],

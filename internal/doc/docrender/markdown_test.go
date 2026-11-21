@@ -41,7 +41,7 @@ func fixtureDocument(t *testing.T, path, name string) *docir.Document {
 
 // fixtureDocumentAt is fixtureDocument with the source read as if it were the
 // file sourceName, so a document's origin has that file's directory.
-func fixtureDocumentAt(t *testing.T, path, sourceName, name string) *docir.Document {
+func fixtureDocumentAt(t testing.TB, path, sourceName, name string) *docir.Document {
 	t.Helper()
 	content, err := os.ReadFile(path)
 	if err != nil {
