@@ -11,9 +11,9 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 387,
+      "presentEqual": 388,
       "presentDifferent": 16,
-      "oursMissing": 36,
+      "oursMissing": 35,
       "pilotMissing": 18,
       "absentBoth": 413,
       "indeterminate": 13,
@@ -621,7 +621,7 @@
     "RequirementUsage.reqId": [0,0,0,0,1,0,0],
     "RequirementUsage.requiredConstraint": [0,0,0,0,1,0,0],
     "RequirementUsage.requirementDefinition": [0,0,1,0,0,0,0],
-    "RequirementUsage.result": [0,0,1,0,0,0,0],
+    "RequirementUsage.result": [1,0,0,0,0,0,0],
     "RequirementUsage.stakeholderParameter": [0,0,0,0,1,0,0],
     "RequirementUsage.subjectParameter": [0,0,1,0,0,0,0],
     "RequirementUsage.text": [0,0,0,0,1,0,0],

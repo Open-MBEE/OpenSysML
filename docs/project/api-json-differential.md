@@ -289,7 +289,7 @@ baseline's list is the comparison's, every declared row has evidence and sits wh
 column, and no undeclared row is in it). An entry is removed when a pin stops reproducing the
 disagreement, which `-check` then shows as that row moving out of the column.
 
-## Results (pilot `2026-09.1`, 937 files)
+## Results (pilot `2026-09.1`, 935 files)
 
 <!-- doc-counts:begin apijson-scorecard -->
 The scorecard headline, rendered from the baseline when the site builds.
@@ -1334,7 +1334,7 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 | `OperatorExpression` | `isModelLevelEvaluable` | not completed — no evaluator rule (`docs/project/constraint-manifest.json`) | `Expression::isModelLevelEvaluable = modelLevelEvaluable(Set{})` (KerML 8.3.4.7.3, deriveExpressionIsModelLevelEvaluable) |
 | `LiteralString` | `isModelLevelEvaluable` | not completed — no evaluator rule (`docs/project/constraint-manifest.json`) | `Expression::isModelLevelEvaluable = modelLevelEvaluable(Set{})` (KerML 8.3.4.7.3, deriveExpressionIsModelLevelEvaluable) |
 | `LiteralString` | `parameter` | not completed — a literal owns no result parameter, so the pilot's `parameter` is the `Evaluation::result` it inherits through the implied base (this record's step 6), which this repository states as `directedFeature` and `output` but derives `Step::parameter` from the owned feature memberships alone | `Step::parameter` redefines `Type::directedFeature` (KerML 8.3.5.1.4) |
-| `LiteralString` | `result` | not completed — as `parameter`: the inherited `Evaluation::result` is the pilot's result parameter, and the rule reads the owned `ReturnParameterMembership` alone | `Expression::result = featureMemberships->selectByKind(ReturnParameterMembership).ownedMemberParameter->first()` (KerML 8.3.4.7.3, deriveExpressionResult) |
+| `ReferenceUsage` | `type` | open: as `ReferenceUsage.definition` — the writer states `type` for a written typing only, and a usage declared without one (`out image;` in `action focus : Focus`, a positional or implied parameter) takes its type through the feature it redefines or its implied library base | `Feature::type = typing.type` with the types inherited through chaining and redefinition (KerML 8.3.3.3, deriveFeatureType) |
 <!-- doc-counts:end apijson-launch-ready-gaps -->
 
 Rows an evaluator rule in PR #1232 (`internal/semantic/metamodel/rules.go`) already names are marked; that PR adds a lazy metamodel evaluator and layers its derived values into the API-JSON writer, so its merge is expected to move those rows from ours-missing to present-equal or present-different, and this referee is how that movement is measured.

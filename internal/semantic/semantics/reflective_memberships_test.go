@@ -105,11 +105,24 @@ func TestOwnedMembershipsReflectEachOwnedMember(t *testing.T) {
 		if !symbols.SameElement(memberships[1], model.OwnedMemberships(d)[1]) || symbols.SameElement(memberships[1], memberships[2]) {
 			t.Error("membership identity is not keyed by owner and ordinal")
 		}
-		// The Empty definition owns no membership, and a root package none owning it.
+		// The Empty definition owns no membership; a root package is owned by the
+		// document's RootNamespace through its OwningMembership (KerML 8.2.3.2).
 		empty := relFixtureSymbol(t, fixture, "Empty")
 		assertRelFeature(t, model, empty, "ownedMembership")
 		p := relFixtureSymbol(t, fixture, "P")
-		assertRelFeature(t, model, p, "owningMembership")
+		root := model.RootNamespace(p.DocName)
+		if root == nil || !model.IsRootNamespace(root) || model.OwningRelationship(root) != nil {
+			t.Fatalf("RootNamespace(%s) = %v, want an unowned root", p.DocName, root)
+		}
+		assertRelMetaclass(t, model, root, "Namespace")
+		rootMemberships := model.OwnedMemberships(root)
+		if len(rootMemberships) == 0 || rootMemberships[0].Implicit == nil || rootMemberships[0].Implicit.Member != p {
+			t.Fatalf("the root's memberships = %v, want P's first", rootMemberships)
+		}
+		assertRelMetaclass(t, model, rootMemberships[0], "OwningMembership")
+		assertRelFeature(t, model, p, "owningMembership", rootMemberships[0])
+		assertRelFeature(t, model, p, "owner", root)
+		assertRelFeature(t, model, p, "owningNamespace", root)
 	}
 }
 
@@ -193,6 +206,9 @@ func TestOwnedAnnotationsAndAnnotatingElements(t *testing.T) {
 			if members, _ := model.ReflectiveElements(d, feature); len(members) == 0 || members[0] != prefix {
 				t.Errorf("D %s = %v, want the #Tag prefix first", feature, members)
 			}
+		}
+		if features, _ := model.ReflectiveElements(d, "ownedFeature"); slices.Contains(features, prefix) {
+			t.Errorf("D ownedFeature lists the #Tag prefix, want it owned through an OwningMembership, not a FeatureMembership")
 		}
 
 		// A doc in a namespace body annotates its namespace through no Annotation.
@@ -586,9 +602,8 @@ package D { private import C::Y; }`
 	}
 }
 
-// TestRootLevelMembershipImport pins `import X;` of a root-level package: the
-// imported element is X, while the membership through which the document root
-// owns X is not derived, a root being reflected as no element.
+// TestRootLevelMembershipImport pins `import X;` of a root-level package: the imported element is
+// X and the imported membership the one its document's RootNamespace owns X through.
 func TestRootLevelMembershipImport(t *testing.T) {
 	const src = `package X; package P { private import X; }`
 	for _, fixture := range reflectiveFixtures(t, "root-import.sysml", source.KindSysML, src) {
@@ -601,9 +616,13 @@ func TestRootLevelMembershipImport(t *testing.T) {
 		}
 		assertRelMetaclass(t, model, imports[0], "MembershipImport")
 		assertRelFeature(t, model, imports[0], "importedElement", x)
-		assertRelUnsupported(t, model, imports[0], "importedMembership")
-		assertRelUnsupported(t, model, imports[0], "target")
-		assertRelFeature(t, model, x, "owningMembership")
+		owning := model.OwningMembership(x)
+		if owning == nil || owning.Implicit == nil || !model.IsRootNamespace(owning.Implicit.Owner) {
+			t.Fatalf("OwningMembership(X) = %v, want the RootNamespace's", owning)
+		}
+		assertRelFeature(t, model, imports[0], "importedMembership", owning)
+		assertRelFeature(t, model, imports[0], "target", owning)
+		assertRelFeature(t, model, x, "owningMembership", owning)
 	}
 }
 
@@ -621,7 +640,11 @@ func TestPrefixMetadataTypeResolvesInTheAnnotatedElement(t *testing.T) {
 		if len(owned) != 2 || !owned[0].Implicit.Member.IsPrefixMetadata() {
 			t.Fatalf("A owns %d memberships, want its #Tag prefix and the nested Tag", len(owned))
 		}
-		prefix := owned[0].Implicit.Member
+		prefixes := model.prefixMetadataSymbols(a)
+		if len(prefixes) != 1 {
+			t.Fatalf("A has %d prefix metadata features, want 1", len(prefixes))
+		}
+		prefix := prefixes[0]
 		types, _ := model.ReflectiveElements(prefix, "type")
 		if len(types) != 1 || types[0].Name != "Tag" || types[0].Owner() != a {
 			t.Errorf("the #Tag prefix of A is typed by %v, want the Tag nested in A, which shadows Shadow::Tag", types)

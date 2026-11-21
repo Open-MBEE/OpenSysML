@@ -170,6 +170,12 @@ type QualifiedNameStructure interface {
 	QualifiedName(Element) (string, bool)
 }
 
+// ImpliedRedefinitionStructure optionally states the features an element redefines by its
+// role (subject, objective, actor, stakeholder, rendering; SysML v2 §8.3.21-§8.3.26) unwritten.
+type ImpliedRedefinitionStructure interface {
+	ImpliedRedefinedFeatures(Element) ([]Element, bool)
+}
+
 // LibrarySymbolResolver optionally resolves a structure element that merely
 // references a library element to that element's semantic symbol.
 type LibrarySymbolResolver interface {
@@ -225,6 +231,9 @@ func membershipKind(sym *symbols.Symbol) string {
 	if _, ok := sym.Decl.(*ast.CrossFeatureMember); ok {
 		return "OwningMembership"
 	}
+	if _, ok := sym.Decl.(*ast.IfBranchNode); ok {
+		return "ParameterMembership"
+	}
 	if semantics.IsVariant(sym) {
 		return "VariantMembership"
 	}
@@ -237,6 +246,9 @@ func membershipKind(sym *symbols.Symbol) string {
 		}
 	}
 	if sym.Kind == symbols.SymbolConnectorEnd {
+		if semantics.IsMessageEnd(sym) {
+			return "ParameterMembership"
+		}
 		return "EndFeatureMembership"
 	}
 	owner := sym.Owner()

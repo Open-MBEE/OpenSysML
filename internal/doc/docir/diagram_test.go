@@ -143,8 +143,8 @@ func TestEvaluateDiagramCarriesThePalette(t *testing.T) {
 	if !reflect.DeepEqual(diagram.Options(), want) {
 		t.Fatalf("options = %+v, want %+v", diagram.Options(), want)
 	}
-	if clone := cloneContent([]Content{diagram})[0]; !reflect.DeepEqual(clone.Options(), want) {
-		t.Fatalf("cloned options = %+v", clone.Options())
+	if again := document.Content()[0]; !reflect.DeepEqual(again.Options(), want) {
+		t.Fatalf("options read again = %+v", again.Options())
 	}
 }
 
@@ -164,7 +164,27 @@ func TestEvaluateDiagramCarriesThePortDisplay(t *testing.T) {
 	if !reflect.DeepEqual(diagram.Options(), want) {
 		t.Fatalf("options = %+v, want %+v", diagram.Options(), want)
 	}
-	if clone := cloneContent([]Content{diagram})[0]; !reflect.DeepEqual(clone.Options(), want) {
-		t.Fatalf("clone options = %+v, want %+v", clone.Options(), want)
+	if again := document.Content()[0]; !reflect.DeepEqual(again.Options(), want) {
+		t.Fatalf("options read again = %+v, want %+v", again.Options(), want)
+	}
+}
+
+func TestDiagramOptionsDoNotExposeTheStatedElements(t *testing.T) {
+	fixture := loadEvaluationFixture(t, diagramDocument(`
+		part imaging : Diagram {
+			attribute redefines show = "edge-labels, typings";
+			ref redefines source = interconnectView;
+		}
+	`))
+	document := fixture.mustEvaluate(t, "Report")
+	shown := document.Content()[0].Options().Show
+	if !shown.Has(view.ElementEdgeLabels) || !shown.Has(view.ElementTypings) {
+		t.Fatalf("shown = %v", shown)
+	}
+	delete(shown, view.ElementEdgeLabels)
+	shown[view.ElementKeywords] = true
+	again := document.Content()[0].Options().Show
+	if !again.Has(view.ElementEdgeLabels) || again.Has(view.ElementKeywords) {
+		t.Fatalf("editing the returned elements changed the document: %v", again)
 	}
 }

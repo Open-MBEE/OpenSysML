@@ -16,9 +16,10 @@ import java.util.Set;
 import org.openmbee.mdk.magic.source.ModelSource;
 import org.openmbee.opensysml.DocumentForm;
 import org.openmbee.opensysml.Model;
+import org.openmbee.opensysml.RenderedDocument;
 import org.openmbee.opensysml.Symbol;
 
-/** Renders the documents and result views a subject stands for, as Markdown and HTML files named by what was rendered. */
+/** Renders the documents and result views a subject stands for, as Markdown and HTML files: a document under the name its siblings link, a view by its name. */
 final class DocumentRenderer {
   static final String DOCUMENT = "DocumentQueries::Document";
   static final String RESULT_VIEW = "QVTS::QueryResult";
@@ -38,10 +39,12 @@ final class DocumentRenderer {
       boolean document = specializes(model, symbol.get(), DOCUMENT, new HashSet<>());
       if (!document && !specializes(model, symbol.get(), RESULT_VIEW, new HashSet<>())) continue;
       for (DocumentForm form : FORMS) {
-        String content = document
-            ? content(form, model.renderDocument(symbol.get().id(), form))
-            : model.renderView(symbol.get().id(), form).text();
-        rendered.put(fileName(symbol.get().id(), form), content);
+        if (document) {
+          RenderedDocument planned = model.renderDocument(symbol.get().id(), form);
+          rendered.put(plannedFileName(symbol.get().id(), planned), planned.content());
+        } else {
+          rendered.put(fileName(symbol.get().id(), form), model.renderView(symbol.get().id(), form).text());
+        }
       }
     }
     if (rendered.isEmpty()) {
@@ -63,10 +66,17 @@ final class DocumentRenderer {
     return List.copyOf(written);
   }
 
-  private static String content(DocumentForm form, org.openmbee.opensysml.RenderedDocument document) {
-    return form == DocumentForm.HTML ? document.html() : document.markdown();
+  /** The file the service planned for a document, which its siblings link; one that is no plain file name is refused. */
+  private static String plannedFileName(String qualifiedName, RenderedDocument planned) {
+    String name = planned.fileName();
+    if (name.isEmpty() || name.equals(".") || name.equals("..") || name.contains("/") || name.contains("\\")) {
+      throw new IllegalStateException(
+          "the service planned no usable file name for " + qualifiedName + ": \"" + name + "\"");
+    }
+    return name;
   }
 
+  /** The file a result view is written to: its qualified name, {@code ::} flattened. */
   static String fileName(String qualifiedName, DocumentForm form) {
     String stem = qualifiedName.replace("::", ".").replaceAll("[^A-Za-z0-9._-]", "_");
     return stem + (form == DocumentForm.HTML ? ".html" : ".md");
