@@ -34,9 +34,17 @@ func (li *LineIndex) PosAt(offset int) Pos {
 	return Pos{Line: lo + 1, Col: offset - li.lineStarts[lo] + 1}
 }
 
-// OffsetAt returns the byte offset for a 1-based line/col.
+// OffsetAt returns the byte offset for a 1-based line/col, -1 for a line the
+// content does not have or a column outside that line.
 func (li *LineIndex) OffsetAt(p Pos) int {
-	if p.Line < 1 || p.Line > len(li.lineStarts) {
+	if li == nil || p.Line < 1 || p.Line > len(li.lineStarts) || p.Col < 1 {
+		return -1
+	}
+	end := len(li.content)
+	if p.Line < len(li.lineStarts) {
+		end = li.lineStarts[p.Line] - 1
+	}
+	if p.Col-1 > end-li.lineStarts[p.Line-1] {
 		return -1
 	}
 	return li.lineStarts[p.Line-1] + (p.Col - 1)
