@@ -44,6 +44,8 @@ package ChargingInterlock {
             transition first armed accept ChargeRequested then supplying;
             transition first armed accept LockLost then inhibited;
             transition first supplying accept LockLost then inhibited;
+            transition first inhibited accept ChargeRequested then inhibited;
+            transition first inhibited accept LockDetected then armed;
         }
     }
 
@@ -87,5 +89,38 @@ package ChargingInterlock {
         succession waitForRetry then retry;
         action retry send new ChargeRequested() to rig.controller;
         succession retry then done;
+    }
+
+    // Separate finite scenario: allow each signal to settle before observing
+    // the controller, including the interval while it is unlocked.
+    action recoveryEnvironment {
+        attribute beforeLossPower : Boolean = false;
+        attribute afterLossPower : Boolean = true;
+        attribute afterLossLocked : Boolean = true;
+        attribute afterUnlockedRequestPower : Boolean = true;
+        attribute afterReacquirePower : Boolean = true;
+        attribute afterReacquireLocked : Boolean = false;
+
+        first start;
+        then action connectVehicle send new VehicleConnected() to rig.controller;
+        then action settleConnection accept after 1 [s];
+        then action acquire send new LockDetected() to rig.controller;
+        then action settleLock accept after 1 [s];
+        then action request send new ChargeRequested() to rig.controller;
+        then action settlePower accept after 1 [s];
+        then action observeSupply assign beforeLossPower := rig.controller.energized;
+        then action loseLock send new LockLost() to rig.controller;
+        then action settleLoss accept after 1 [s];
+        then action observeLoss assign afterLossPower := rig.controller.energized;
+        then action observeLostLock assign afterLossLocked := rig.controller.linkLocked;
+        then action requestWhileUnlocked send new ChargeRequested() to rig.controller;
+        then action settleUnlockedRequest accept after 1 [s];
+        then action observeUnlockedRequest assign afterUnlockedRequestPower := rig.controller.energized;
+        then action reacquire send new LockDetected() to rig.controller;
+        then action settleReacquire accept after 1 [s];
+        then action observeReacquire assign afterReacquirePower := rig.controller.energized;
+        then action observeNewLock assign afterReacquireLocked := rig.controller.linkLocked;
+        then action restart send new ChargeRequested() to rig.controller;
+        then done;
     }
 }

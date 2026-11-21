@@ -25,6 +25,8 @@ run without `-advance` would not exercise the stimuli. The script requires:
 | Safe design | Exit 0 and no violation or search bound hit through 3 simulated seconds: 28 states, 29 moves, depth 14 in the reference run |
 | Non-vacuity | Both request-first and lock-first have their own concrete scheduler witness and observed state sequence; both end with power on and lock recognized |
 | Design mutation | A disposable copy energizes on connection before lock. The native checker finds the named INT-01 violation after 3 moves and confirms its witness. The script replays that same file. Both final outcomes are identical to the safe design's |
+| Loss and restart | Through 7 simulated seconds, drive to powered, lose lock, request while unlocked, then reacquire and restart. Samples after each settled dispatch confirm power stays off until the fresh request |
+| Shutdown mutation | Remove only the power-off assignment. The checker witnesses INT-01 failing after 13 moves. Replay shows energized output with the lock lost, although the scenario still ends powered and locked |
 | Tight control | Depth 1 returns exit 2 with the depth bound hit; this does not establish safety |
 
 The script uses the upstream native check and replay commands, without a
@@ -35,5 +37,5 @@ electrical transient nor a value overwritten inside one dispatch is modeled
 unless it is represented at an observable checkpoint.
 
 This result covers only the modeled, finite environment through the chosen
-horizon, not arbitrary external commands, retries, time/fairness, electrical
-behavior, or lock loss (the design contains lock-loss transitions, but this driver does not send that signal).
+horizon, not arbitrary external commands, repetitions of the recovery cycle,
+real electrical behavior, or eventual recovery under all environments.

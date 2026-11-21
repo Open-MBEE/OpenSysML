@@ -12,6 +12,10 @@ def expect(condition, message):
         raise SystemExit(message)
 
 
+def final_fields(outcome):
+    return dict(field.split(" = ", 1) for field in outcome.split("; "))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("sysml", help="OpenSysML CLI (path or command)")
@@ -23,12 +27,13 @@ def main():
     common = [
         "-no-record-cache", "-instantiate", "ChargingInterlock::rig",
         "-state", "ChargingInterlock::StationController::Interlock ChargingInterlock::rig.controller",
-        "-action", "ChargingInterlock::designEnvironment", "-advance", "3",
     ]
     prop = "ChargingInterlock::powerGate"
 
-    def run(name, flags, status, path=model, json_out=True):
-        command = [args.sysml, *common, *flags, *(["-json"] if json_out else []), str(path)]
+    def run(name, flags, status, path=model, json_out=True, recovery=False):
+        scenario, advance = ("recoveryEnvironment", "7") if recovery else ("designEnvironment", "3")
+        command = [args.sysml, *common, "-action", f"ChargingInterlock::{scenario}",
+                   "-advance", advance, *flags, *(["-json"] if json_out else []), str(path)]
         result = subprocess.run(command, capture_output=True, text=True, timeout=60, check=False)
         report = out / (name + (".json" if json_out else ".txt"))
         report.write_text(result.stdout)
@@ -37,11 +42,11 @@ def main():
                f"{name}: exit {result.returncode}, expected {status}; see {report}")
         return json.loads(result.stdout)["checks"][0] if json_out else result.stdout
 
-    def check(name, depth, status, path=model, extra=()):
+    def check(name, depth, status, path=model, extra=(), recovery=False):
         run_result = run(name, [
             "-engine", "check", "-check-property", prop, "-check-depth", str(depth),
             "-check-states", "20000", "-check-timeout", "30s", *extra,
-        ], status, path)
+        ], status, path, recovery=recovery)
         return next(result for result in run_result["results"] if result["engine"] == "check")
 
     safe = check("safe", 100, 0)
@@ -92,9 +97,54 @@ def main():
     tight = check("tight", 1, 2)["check"]
     expect(tight["verdict"] == "no violation within bounds" and tight["boundsHit"] == ["depth"]
            and not tight["outcomes"], "the lower bound must cause an incomplete search")
+    recovery = check("recovery-safe", 100, 0, recovery=True)["check"]
+    expect(recovery["verdict"] == "no violation, exhaustive" and
+           not recovery["boundsHit"] and not recovery["violations"], "recovery search incomplete")
+    expect(len(recovery["outcomes"]) == 1, "expected one complete recovery outcome")
+    samples = final_fields(recovery["outcomes"][0])
+    expected_samples = {
+        "beforeLossPower": "true", "afterLossPower": "false", "afterLossLocked": "false",
+        "afterUnlockedRequestPower": "false", "afterReacquirePower": "false", "afterReacquireLocked": "true",
+    }
+    for name, value in expected_samples.items():
+        expect(samples.get(f"ChargingInterlock::recoveryEnvironment.{name}") == value,
+               f"incorrect settled recovery observation: {name}")
+    expect(samples.get("this.energized") == samples.get("this.linkLocked") == "true",
+           "restart did not return to authorized power")
+
+    shutdown = "                    assign energized := false;\n"
+    expect(original.count(shutdown) == 1, "shutdown assignment not uniquely identified")
+    stalled = out / "missing-shutdown.sysml"
+    stalled.write_text(original.replace(shutdown, ""))
+    failed = check("recovery-mutant", 100, 1, stalled,
+                   ("-check-witness", str(out / "recovery-witnesses")), recovery=True)
+    failed_search = failed["check"]
+    failures = failed_search["violations"]
+    expect(failed["strength"] == "witnessed" and failed_search["verdict"] == "violation" and
+           not failed_search["boundsHit"] and len(failures) == 1 and
+           failures[0]["kind"] == "property" and failures[0]["name"] == prop,
+           "expected a witnessed INT-01 shutdown violation")
+    expect(len(failed_search["outcomes"]) == 1, "expected one complete shutdown-mutant outcome")
+    failed_samples = final_fields(failed_search["outcomes"][0])
+    expect(failed_samples.get("this.energized") == failed_samples.get("this.linkLocked") == "true",
+           "shutdown mutation should still end with authorized power")
+    replay = run("recovery-replay", ["-schedule", f"replay:{failures[0]['path']}", "-trace"],
+                 0, stalled, json_out=False, recovery=True)
+    loss = replay.find("transition: supplying -> inhibited (event: accept LockLost)")
+    unlocked = replay.find("transition: inhibited -> inhibited (event: accept ChargeRequested)")
+    reacquired = replay.find("transition: inhibited -> armed (event: accept LockDetected)")
+    expect(0 <= loss < unlocked < reacquired,
+           "replayed loss, blocked request and reacquire sequence did not complete")
+    loss_sample = replay[loss:unlocked]
+    expect("eval chain energized -> true" in loss_sample and
+           "eval chain linkLocked -> false" in loss_sample,
+           "replay did not reproduce energized power with lock lost")
+
     print(f"Safe: {safe_search['states']} states, {safe_search['moves']} moves, depth {safe_search['depth']}")
     print(f"Both orders reach energized + locked; INT-01 mutation replayed at move {violations[0]['depth']}")
     print("Depth 1: incomplete, not safe")
+    print(f"Recovery: {recovery['states']} states, {recovery['moves']} moves; "
+          f"missing shutdown violated INT-01 at move {failures[0]['depth']}")
 
 
 if __name__ == "__main__":
