@@ -87,17 +87,23 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 			}
 		}
 	}
-	if class == "Type" && oneOf(name, "feature", "input") && element.Symbol != nil &&
-		e.resolver != nil && e.resolver.Index() != nil {
-		if _, library := identity.LibraryCatalog(e.resolver.Index()).ElementForSymbol(element.Symbol); library {
-			if e.model == nil || !e.completeMembers(element.Symbol) {
-				return Value{}, true, false
+	if class == "Type" && oneOf(name, "feature", "input") && e.resolver != nil && e.resolver.Index() != nil {
+		symbol := element.Symbol
+		if symbol == nil && name == "feature" {
+			// A structure names a library type by identity; its features are the catalogued symbol's.
+			symbol = e.structureElementSymbol(element)
+		}
+		if symbol != nil {
+			if _, library := identity.LibraryCatalog(e.resolver.Index()).ElementForSymbol(symbol); library {
+				if e.model == nil || !e.completeMembers(symbol) {
+					return Value{}, true, false
+				}
+				features, ok := e.model.ReflectiveElements(symbol, "feature")
+				if !ok {
+					return Value{}, true, false
+				}
+				return symbolSequence(features), true, true
 			}
-			features, ok := e.model.ReflectiveElements(element.Symbol, "feature")
-			if !ok {
-				return Value{}, true, false
-			}
-			return symbolSequence(features), true, true
 		}
 	}
 	if _, ok := structure.Metaclass(element); !ok {
@@ -8377,7 +8383,7 @@ func (e *Evaluator) structureInvocationArguments(element Element) (Value, bool, 
 				if input.Kind != ElementValue {
 					return Value{}, true, false
 				}
-				if sameStructureElement(explicit[index][0], input.Element, e.options.Structure) {
+				if e.sameDeclaredElement(explicit[index][0], input.Element) {
 					formalIndex = candidate
 					break
 				}
@@ -8834,6 +8840,16 @@ func sameStructureElement(left, right Element, structure Structure) bool {
 		}
 	}
 	return left.Key() == right.Key()
+}
+
+// sameDeclaredElement also matches a library element the structure names by identity
+// against the catalogued symbol declaring it.
+func (e *Evaluator) sameDeclaredElement(left, right Element) bool {
+	if sameStructureElement(left, right, e.options.Structure) {
+		return true
+	}
+	leftSymbol := e.structureElementSymbol(left)
+	return leftSymbol != nil && leftSymbol == e.structureElementSymbol(right)
 }
 
 func slicesClone(values []Value) []Value {

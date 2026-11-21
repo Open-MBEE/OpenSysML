@@ -103,6 +103,9 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	// The graph's sysml:function of a constructor is the type it instantiates, which the mapping reads back.
 	{class: "ConstructorExpression", declaring: "Expression", name: "function", clause: "8.3.4.7.3 deriveExpressionFunction", overStated: true},
 	{class: "Expression", name: "function", clause: "8.3.4.7.3 deriveExpressionFunction"},
+	{class: "ConstructorExpression", declaring: "InstantiationExpression", name: "instantiatedType", clause: "8.3.4.8.7 deriveInstantiationExpressionInstantiatedType"},
+	// The graph's sysml:argument of a constructor follows the written order.
+	{class: "ConstructorExpression", declaring: "InstantiationExpression", name: "argument", clause: "8.3.4.8.3 deriveConstructorExpressionArgument", overStated: true},
 	{class: "Expression", name: "result", clause: "8.3.4.7.3 deriveExpressionResult"},
 	{class: "MultiplicityRange", name: "bound", clause: "8.3.4.11.2 deriveMultiplicityRangeBound"},
 	{class: "Usage", name: "owningDefinition", clause: "SysML 8.3.6.4 deriveUsageOwningDefinition"},

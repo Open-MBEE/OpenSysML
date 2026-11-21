@@ -306,6 +306,16 @@ func (m *Model) ExpressionResult(expr *symbols.Symbol) *symbols.Symbol {
 	return nil
 }
 
+// ConstructorNamedFeature is the feature of the instantiated type typ a constructor's
+// named argument names, which the argument's result feature redefines (KerML 8.3.4.8.3); nil when none.
+func (m *Model) ConstructorNamedFeature(typ *symbols.Symbol, name *ast.QualifiedName) *symbols.Symbol {
+	if m == nil || typ == nil || name == nil {
+		return nil
+	}
+	formal, _ := m.LookupMember(typ, symbols.LastSegment(name.Text()))
+	return formal
+}
+
 // constructorArgumentFormal is the instantiated type's feature a constructor argument param stands for:
 // by name (`new T(x = 1)`, named true) or by position (KerML 8.3.4.8.3); nil when none resolves.
 func (m *Model) constructorArgumentFormal(param *symbols.Symbol) (formal *symbols.Symbol, named bool) {
@@ -329,11 +339,7 @@ func (m *Model) constructorArgumentFormal(param *symbols.Symbol) (formal *symbol
 	}
 	typ := m.referencedSymbol(expr, ctor.Type)
 	if name := operands[index].Name; name != nil {
-		if typ == nil {
-			return nil, true
-		}
-		formal, _ = m.LookupMember(typ, symbols.LastSegment(name.Text()))
-		return formal, true
+		return m.ConstructorNamedFeature(typ, name), true
 	}
 	if typ == nil {
 		return nil, false

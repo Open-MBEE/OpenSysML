@@ -548,6 +548,12 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		out = append(out, redefined)
 	}
 
+	// A constructor's named argument feature redefines the instantiated type's feature it names (KerML 8.3.4.8.3).
+	if formal, named := m.constructorArgumentFormal(sym); named && formal != nil && !seen[formal] {
+		seen[formal] = true
+		out = append(out, formal)
+	}
+
 	// An untyped parameter of a body a collection function applies is bound to each
 	// element of the collection, so it takes the elements' types (see bodyparam.go).
 	for _, typ := range m.BodyParameterElementTypes(sym) {
