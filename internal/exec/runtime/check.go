@@ -252,7 +252,12 @@ func (e *CheckStopped) Unwrap() error { return e.Cause }
 // The start draws choice points itself (region entry order), so it is begun once per way of
 // resolving them and the search runs from every state a start reaches.
 func Check(stop context.Context, fresh func() (*Context, error), start Starter, budget CheckBudget, opts CheckOptions, props []CheckProperty) (*CheckReport, error) {
+	return check(stop, fresh, start, budget, opts, props, nil)
+}
+
+func check(stop context.Context, fresh func() (*Context, error), start Starter, budget CheckBudget, opts CheckOptions, props []CheckProperty, progress *progressGraph) (*CheckReport, error) {
 	c := &checker{
+		progress:         progress,
 		budget:           budget,
 		opts:             opts,
 		props:            props,
@@ -328,6 +333,12 @@ func (c *checker) searchFrom(stop context.Context, fresh func() (*Context, error
 		return nil, err
 	}
 	c.inv, c.run = run.inv, run
+	if c.progress != nil {
+		if run.inv.Horizon != (Horizon{}) {
+			return nil, ErrProgressTimed
+		}
+		c.progress.startClock = ctx.clock.now
+	}
 	if err := c.resolveDiverge(); err != nil {
 		return nil, err
 	}
@@ -340,12 +351,13 @@ func (c *checker) searchFrom(stop context.Context, fresh func() (*Context, error
 
 // checker is one search in progress.
 type checker struct {
-	ctx    *Context
-	inv    *Invocation
-	run    *invocationRun
-	budget CheckBudget
-	opts   CheckOptions
-	props  []CheckProperty
+	ctx      *Context
+	inv      *Invocation
+	run      *invocationRun
+	budget   CheckBudget
+	opts     CheckOptions
+	props    []CheckProperty
+	progress *progressGraph
 
 	visited map[stateKey]*visitedState
 	// onStack counts the frames on the stack at each state.
@@ -687,6 +699,10 @@ func (c *checker) take(f *checkFrame, m searchMove) error {
 	if err := c.run.stabilize(); err != nil {
 		return c.failed(err, depth, mass)
 	}
+	if c.progress != nil {
+		c.progress.incoming = ProgressStep{From: string(f.key), Move: m.name}
+		defer func() { c.progress.incoming = ProgressStep{} }()
+	}
 	if c.run.terminal() {
 		return c.complete(depth, mass, f.violated)
 	}
@@ -733,12 +749,15 @@ func (c *checker) failed(err error, depth int, mass float64) error {
 // complete visits the terminal state the invocation reached: a state like any
 // other, its properties evaluated when new, whose outcome is a final.
 func (c *checker) complete(depth int, mass float64, violated []string) error {
-	_, _, seen, visited, err := c.visit(depth, mass, violated)
+	_, key, seen, visited, err := c.visit(depth, mass, violated)
 	if err != nil || seen == nil {
 		return err
 	}
 	if !visited {
 		seen.exact = true
+	}
+	if c.progress != nil {
+		c.progress.nodes[key].terminal = true
 	}
 	c.final()
 	return nil
@@ -749,6 +768,9 @@ func (c *checker) complete(depth int, mass float64, violated []string) error {
 func (c *checker) visit(depth int, mass float64, violated []string) (form canonicalForm, key stateKey, seen *visitedState, visited bool, err error) {
 	form = c.run.canonicalState()
 	key = form.key()
+	if c.progress != nil && c.ctx.clock.now != c.progress.startClock {
+		return form, key, nil, false, ErrProgressTimed
+	}
 	if seen, visited = c.visited[key]; !visited {
 		if c.budget.States > 0 && len(c.visited) >= c.budget.States {
 			c.hit("states")
@@ -777,6 +799,11 @@ func (c *checker) visit(depth int, mass float64, violated []string) (form canoni
 				seen.cut = false
 			}
 			seen.depth = depth
+		}
+	}
+	if c.progress != nil {
+		if err := c.progress.observe(c, key, visited); err != nil {
+			return form, key, seen, visited, err
 		}
 	}
 	return form, key, seen, visited, nil
