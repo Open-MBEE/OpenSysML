@@ -68,6 +68,8 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	{class: "Type", name: "feature", clause: "8.3.3.1.10 deriveTypeFeature"},
 	{class: "Type", name: "inheritedFeature", clause: "8.3.3.1.10 deriveTypeInheritedFeature"},
 	{class: "Type", name: "directedFeature", clause: "8.3.3.1.10 deriveTypeDirectedFeature"},
+	// The graph's sysml:input of a send action is its owned parameters alone.
+	{class: "SendActionUsage", declaring: "Type", name: "input", clause: "8.3.3.1.10 deriveTypeInput", overStated: true},
 	{class: "Type", name: "input", clause: "8.3.3.1.10 deriveTypeInput"},
 	{class: "Type", name: "output", clause: "8.3.3.1.10 deriveTypeOutput"},
 	{class: "Type", name: "endFeature", clause: "8.3.3.1.10 deriveTypeEndFeature"},

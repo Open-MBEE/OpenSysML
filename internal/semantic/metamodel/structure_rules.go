@@ -4073,38 +4073,6 @@ func (e *Evaluator) structureDirectedFeatures(element Element, property string) 
 		e.recordUnsupportedReason(element, "Type", property, reason)
 		return Value{}, true, false
 	}
-	if property == "input" {
-		send, known := e.isMetaclass(element, "SendActionUsage")
-		if known && send {
-			members, handled, ok := e.structureOwnedMembers(element)
-			if !handled || !ok {
-				return unsupported(Reason{
-					Category: ReasonUnrepresentedEndpoint,
-					Detail:   "SendActionUsage::input owned arguments are unavailable",
-				})
-			}
-			var inputs []Value
-			for _, member := range members.Values {
-				if member.Kind != ElementValue {
-					return unsupported(Reason{
-						Category: ReasonUnrepresentedEndpoint,
-						Detail:   "SendActionUsage::input owned argument is not an element",
-					})
-				}
-				expression, known := e.isMetaclass(member.Element, "Expression")
-				if !known {
-					return unsupported(Reason{
-						Category: ReasonUnrepresentedEndpoint,
-						Detail:   "SendActionUsage::input owned argument has no represented metaclass",
-					})
-				}
-				if expression {
-					inputs = append(inputs, member)
-				}
-			}
-			return sequence(inputs...), true, true
-		}
-	}
 	ownedFeatures, ownedHandled, ownedOK := e.structureOwnedFeatures(element)
 	if !ownedHandled || !ownedOK {
 		return unsupported(Reason{
