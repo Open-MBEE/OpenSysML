@@ -34,6 +34,11 @@ func (a *adoption) planFrame(f *CoordinateFrame) error {
 			}
 		}
 	}
+	if l := f.Scale.Log; l != nil && l.Reference != nil {
+		if err := a.planUnit(l.Reference.Unit); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -100,6 +105,13 @@ func (a *adoption) rewriteFrame(f *CoordinateFrame, seen map[*CoordinateFrame]*C
 			mapping.Mapped.Unit = a.rewriteUnit(mapping.Mapped.Unit)
 			mapping.Reference.Unit = a.rewriteUnit(mapping.Reference.Unit)
 			scale.Mapping = &mapping
+		}
+		if l := f.Scale.Log; l != nil {
+			log := *l
+			if l.Reference != nil {
+				log.Reference = &Quantity{Num: l.Reference.Num, Unit: a.rewriteUnit(l.Reference.Unit)}
+			}
+			scale.Log = &log
 		}
 		out.Scale = &scale
 	}

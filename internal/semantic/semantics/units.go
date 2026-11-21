@@ -375,6 +375,23 @@ func (m *Model) IsMeasurementScale(sym *symbols.Symbol) bool {
 	return scale != nil && m.Conforms(sym, scale)
 }
 
+// IsCyclicRatioScale reports a scale whose values are ratio magnitudes in its
+// unit, equivalent over its modulus, rather than points.
+func (m *Model) IsCyclicRatioScale(sym *symbols.Symbol) bool {
+	return m != nil && sym != nil && m.conformsToLibrary(sym, fqnCyclicRatioScale)
+}
+
+// IsLogarithmicScale reports a scale whose values are logarithms of a quantity
+// relative to its referenceQuantity.
+func (m *Model) IsLogarithmicScale(sym *symbols.Symbol) bool {
+	return m != nil && sym != nil && m.conformsToLibrary(sym, fqnLogarithmicScale)
+}
+
+// IsIntervalScale reports a scale whose points differ by magnitudes in its unit.
+func (m *Model) IsIntervalScale(sym *symbols.Symbol) bool {
+	return m != nil && sym != nil && m.conformsToLibrary(sym, fqnIntervalScale)
+}
+
 // MeasurementScaleOf is the scale a unit term is a point on (`26.85 ['°C_abs']`):
 // its one unscaled factor at power one, when that is a scale; false for a unit.
 func (m *Model) MeasurementScaleOf(term UnitTerm) (*symbols.Symbol, bool) {
