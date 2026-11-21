@@ -1,7 +1,5 @@
-// A succession end is a connector end (SysML.xtext ConnectorEnd →
-// OwnedReferenceSubsetting → OwnedFeatureChain), so every notation stating one in
-// an action body takes a feature chain: SuccessionAsUsage, TargetSuccession,
-// GuardedTargetSuccession and DefaultTargetSuccession.
+// A succession end is a connector end (SysML.xtext ConnectorEnd → OwnedFeatureChain), so every
+// notation stating one in an action body takes a feature chain: `first`, `then`, `if`, `else`.
 package ChainEnds {
 	part def Vehicle {
 		action close;

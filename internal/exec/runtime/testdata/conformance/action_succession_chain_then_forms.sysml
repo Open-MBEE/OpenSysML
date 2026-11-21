@@ -1,6 +1,5 @@
-// The target of a positional `then`, of a guarded `if … then` and of an `else`
-// is a connector end (SysML.xtext TargetSuccession, TransitionSuccession), so it
-// may be a feature chain as the end of a `first … then …` may.
+// The target of a positional `then`, a guarded `if … then` and an `else` is a connector end
+// (SysML.xtext TargetSuccession, TransitionSuccession), so it may be a feature chain too.
 package P {
 	private import ScalarValues::*;
 
