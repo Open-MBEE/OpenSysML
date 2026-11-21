@@ -2079,7 +2079,7 @@ func (m *migration) instanceSlot(e, slot, f *sysmlv1.Element, kw, prefix string)
 	if conflict := m.slotConflict(f, refs); conflict != "" {
 		return nil, conflict + valuesNote(refs), false
 	}
-	value := ""
+	var value string
 	switch len(refs) {
 	case 0:
 		return nil, "the slot holds no value", false

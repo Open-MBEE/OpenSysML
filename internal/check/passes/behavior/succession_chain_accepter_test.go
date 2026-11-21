@@ -2,9 +2,8 @@ package behavior_test
 
 import "testing"
 
-// A succession end chaining through a part (SysML v2 §7.17.4) and the accepter
-// rule (§8.3.18.9 validateTransitionUsageTriggerActions) judge the same chain
-// independently: the end is a legal occurrence, the accepter needs a state.
+// A succession end chaining through a part (§7.17.4) and the accepter rule (§8.3.18.9) judge
+// the same chain independently: the end is a legal occurrence, the accepter needs a state.
 func TestChainedSuccessionEndBesideAccepterRule(t *testing.T) {
 	const vehicle = `
 	item def Sig;
