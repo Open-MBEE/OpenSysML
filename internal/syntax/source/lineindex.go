@@ -47,10 +47,8 @@ func (li *LineIndex) OffsetAt(p Pos) int {
 	return li.lineStarts[p.Line-1] + (p.Col - 1)
 }
 
-// Splice brings the index up to date with an edit that replaced the bytes
-// [start, end) of its text by inserted bytes, content being the text after the
-// edit. It rewrites the index in place, so the caller must own it: an index a
-// document shares is rebuilt with NewLineIndex instead.
+// Splice updates the index in place for an edit that replaced bytes [start, end) by
+// inserted bytes; content is the text after it. Rebuild a shared index instead.
 func (li *LineIndex) Splice(content []byte, start, end, inserted int) {
 	// A line start s follows the newline at s-1, so the edit removes those in (start, end].
 	first := sort.SearchInts(li.lineStarts, start+1)

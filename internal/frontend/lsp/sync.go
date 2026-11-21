@@ -64,10 +64,8 @@ type contentChanges struct {
 	lines *source.LineIndex
 }
 
-// apply applies a single change: a whole-document replace, or an incremental
-// splice at its range. RangeLength is intentionally unused for the splice: it
-// is a UTF-16 code-unit count (not a byte count), and the authoritative delete
-// extent is Range.
+// apply applies a single change: a whole-document replace, or a splice at its Range.
+// RangeLength is unused: it counts UTF-16 code units, and Range is authoritative.
 func (c *contentChanges) apply(ch protocol.TextDocumentContentChangeEvent) {
 	var rng protocol.Range
 	var text string
