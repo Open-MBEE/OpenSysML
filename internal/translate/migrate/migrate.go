@@ -981,7 +981,7 @@ func (m *migration) libraryNameNotes() {
 	}
 	for _, r := range list {
 		if m.strict {
-			m.w.line("// " + writeName(r.fresh) + " is written for " + source.StandardStringText(r.src) + ", a name of the standard library")
+			m.w.line(lineComment(writeName(r.fresh) + " is written for " + source.StandardStringText(r.src) + ", a name of the standard library"))
 			continue
 		}
 		m.w.line("metadata " + prefix + "MigrationMetadata::LibraryNameAvoided about " + writeName(r.fresh) +

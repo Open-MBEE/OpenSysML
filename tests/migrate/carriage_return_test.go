@@ -41,3 +41,21 @@ func TestCarriageReturnIsWrittenWithoutANonstandardEscape(t *testing.T) {
 		})
 	}
 }
+
+// A line comment ends at a carriage return, so a strict migration's comment naming
+// a made-up name holding one spells it `\r` there, where no escape is read.
+func TestCarriageReturnDoesNotEndAStrictMigrationComment(t *testing.T) {
+	v1 := strings.ReplaceAll(actorUseCaseModel, `name="Operator"`, `name="Oper&#13;ator"`)
+	if v1 == actorUseCaseModel {
+		t.Fatal("the model names no Operator")
+	}
+	r := migrateDocumentOptions(t, v1, "", migrate.Options{Strict: true})
+	wantLine(t, r.Notation, "actor 'oper\rator' :> 'Oper\rator';\n        // names the migration made up: 'oper\\rator'\n")
+	wantLine(t, r.Notation, "// names the migration made up: 'Oper\\rator to Control Instrument'\n")
+	ws := model.NewWorkspace()
+	ws.SetConformanceMode(diag.ConformanceStrict)
+	ws.Open("t.sysml", r.Notation, 1)
+	for _, d := range ws.Diagnostics("t.sysml") {
+		t.Errorf("%v", d)
+	}
+}

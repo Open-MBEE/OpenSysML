@@ -134,12 +134,18 @@ var strictMarkerText = map[string]string{
 	standInFQN:         "members standing for no source element",
 }
 
+// lineComment is text as one line comment: a carriage return, which would end
+// the comment, is spelled `\r`, written notation holding no other line terminator.
+func lineComment(text string) string {
+	return "// " + strings.ReplaceAll(text, "\r", `\r`)
+}
+
 // migrationMarker is the metadata usage of the MigrationMetadata definition
 // fqn about the written names, qualified past a member shadowing the library;
 // a strict migration writes a comment instead.
 func (m *migration) migrationMarker(fqn string, written []string) string {
 	if m.strict {
-		return "// " + strictMarkerText[fqn] + ": " + strings.Join(written, ", ")
+		return lineComment(strictMarkerText[fqn] + ": " + strings.Join(written, ", "))
 	}
 	prefix := ""
 	if m.shadowsLibrary("MigrationMetadata", m.scope) {
