@@ -1,14 +1,18 @@
 package org.openmbee.mdk.magic.docgen;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.openmbee.mdk.docgen.docbook.DBParagraph;
 import org.openmbee.mdk.docgen.docbook.DBTable;
+import org.openmbee.mdk.docgen.docbook.DBText;
 import org.openmbee.mdk.docgen.docbook.DocumentElement;
 
 class OpenSysMLQueryTest {
@@ -62,6 +66,41 @@ class OpenSysMLQueryTest {
     assertEquals("[ERROR] OpenSysML Verify of Part A failed: service unavailable",
         ((DBParagraph) elements.get(0)).getText());
     assertEquals("OpenSysML Verify of Part B: PASSED (42 ms)", ((DBParagraph) elements.get(1)).getText());
+  }
+
+  @Test
+  void aViewIsLaidOutAsItsAttributesAndItsExposedElements() {
+    BridgeResult rendered = BridgeResult.from(Flat.view(true));
+    List<DocumentElement> tables = DocBookRenderer.view(rendered.views().get(0));
+    DBTable header = (DBTable) tables.get(0);
+    assertEquals("Query result view QResult::q", header.getTitle());
+    assertEquals(4, header.getBody().size());
+    assertEquals("outcome", ((DBText) header.getBody().get(2).get(0)).getText());
+    assertEquals("established", ((DBText) header.getBody().get(2).get(1)).getText());
+    DBTable exposed = (DBTable) tables.get(1);
+    assertEquals("QResult::q: 1 row", exposed.getTitle());
+    assertEquals("A::a", ((DBText) exposed.getBody().get(0).get(0)).getText());
+    assertEquals(4, exposed.getHeaders().get(0).size());
+
+    BridgeResult text = BridgeResult.from(Flat.view(false));
+    assertFalse(text.views().get(0).rendered());
+    List<DocumentElement> paragraphs = DocBookRenderer.view(text.views().get(0));
+    assertEquals("Query result view QResult::q:", ((DBParagraph) paragraphs.get(0)).getText());
+    assertTrue(String.valueOf(((DBParagraph) paragraphs.get(1)).getText()).contains("expose A::a;"));
+    assertEquals(DocBookRenderer.render(BridgeResult.from(Flat.verify("x", "PASSED"))).size() + 2,
+        DocBookRenderer.render(text).size(), "the view follows the run's tables");
+
+    Map<String, Object> nameless = Flat.view(false);
+    ((Map<?, ?>) ((List<?>) nameless.get("views")).get(0)).remove("name");
+    assertEquals("bridge result view lacks name",
+        assertThrows(IllegalArgumentException.class, () -> BridgeResult.from(nameless)).getMessage());
+  }
+
+  @Test
+  void aRunnerWithoutViewsRefusesOneAndIgnoresABlank() {
+    BridgeRunner runner = (element, operation, args) -> Flat.verify("x", "PASSED");
+    assertEquals("PASSED", runner.run(new FakeElement("A"), "RUN_QUERY", "", "").get("status"));
+    assertThrows(IllegalStateException.class, () -> runner.run(new FakeElement("A"), "RUN_QUERY", "", "text"));
   }
 
   @Test

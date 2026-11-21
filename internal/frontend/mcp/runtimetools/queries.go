@@ -16,6 +16,7 @@ type QueryInput struct {
 	ModelInput
 	Query     map[string]any `json:"query,omitempty" jsonschema:"the standard's Query as protojson writes it: {\"scope\":[qualified names],\"select\":[properties],\"where\":{\"primitive\":{\"property\":\"@type\",\"operator\":\"PRIMITIVE_OPERATOR_EQUAL\",\"value\":[\"PartUsage\"]}},\"orderBy\":[properties]} or a composite {\"composite\":{\"operator\":\"COMPOSITE_OPERATOR_AND\",\"constraint\":[at least two]}}; operators are PRIMITIVE_OPERATOR_EQUAL, _LESS, _LESS_EQUAL, _GREATER, _GREATER_EQUAL, _IN (value is a list) and _INSTANCE_OF (on @type, value names metaclasses); orderBy sorts ascending by each property in turn; empty considers the whole model"`
 	OSLCQuery string         `json:"oslcQuery,omitempty" jsonschema:"OSLC Query 3.0 parameter text, instead of query"`
+	AsView    bool           `json:"asView,omitempty" jsonschema:"also write the answer as a QVTS::QueryResult view, in resultView; needs the query_result_view capability"`
 }
 
 // RunDocumentQueryInput runs a named document query, or a query expression.
@@ -24,6 +25,7 @@ type RunDocumentQueryInput struct {
 	QueryID     string           `json:"queryId,omitempty" jsonschema:"qualified name of the document query, a calc def specializing DocumentQueries::Query; one of queryId and inlineQuery"`
 	InlineQuery string           `json:"inlineQuery,omitempty" jsonschema:"a query expression run in place of a named query — the body of such a calc def, e.g. Project(WhereType(Descendants(Named(\"Vehicles\")), \"PartUsage\"), (\"name\", \"mass\")) — with the DocumentQueries library in scope and the model's names reachable; a fault in it is reported at its line and column; needs the inline_document_query capability"`
 	Bindings    []map[string]any `json:"bindings,omitempty" jsonschema:"entry-parameter bindings, each a protojson DocumentQueryBinding {\"parameter\":name,\"values\":[DocumentValue]} where a DocumentValue is {\"elementId\":qualified name}, {\"stringValue\":..}, {\"intValue\":\"..\"}, {\"realValue\":..}, {\"boolValue\":..} or {\"object\":{\"path\":\"Garage::car\"}}"`
+	AsView      bool             `json:"asView,omitempty" jsonschema:"also write the answer as a QVTS::QueryResult view, in resultView; needs the query_result_view capability"`
 }
 
 // RenderDocumentInput renders a named document.
@@ -41,7 +43,7 @@ type RenderViewInput struct {
 	Show         []string `json:"show,omitempty" jsonschema:"optional notation elements to draw besides those the view's rendering shows, as sysml -render-show takes them: parameter-symbols, port-symbols, compartments, edge-labels, keywords, multiplicities, typings, qualifiers, or all"`
 	Compartments string   `json:"compartments,omitempty" jsonschema:"how a tree rendering folds a node's owned members into compartment rows of its parent: positioned (the default), most or ports, as sysml -render-compartments takes them"`
 	Depth        int32    `json:"depth,omitempty" jsonschema:"how many levels of nested elements to draw below each exposed element, overriding the view's own depth; 0 or absent draws every level"`
-	Form         string   `json:"form,omitempty" jsonschema:"form to write the rendering in besides its data, as sysml -render-form takes them: text, mermaid, markdown, dot, plantuml, d2, drawio, csv or tsv; absent writes none"`
+	Form         string   `json:"form,omitempty" jsonschema:"form to write the rendering in besides its data, as sysml -render-form takes them: text, mermaid, markdown, dot, plantuml, d2, drawio, csv or tsv, and for a QVTS::QueryResult view markdown, html or asciidoc write it as a document (needs the query_result_view capability); absent writes none"`
 	Palette      string   `json:"palette,omitempty" jsonschema:"palette the written form fills nodes from, as sysml -render-palette takes them; absent draws in black and white"`
 	Style        string   `json:"style,omitempty" jsonschema:"drawing style of the dot or mermaid form, as sysml -render-style takes them: pilot (the default) or cameo"`
 	Lines        string   `json:"lines,omitempty" jsonschema:"edge routing of the dot or plantuml form, as sysml -render-lines takes them: splines (the default), ortho or polyline"`
@@ -63,7 +65,7 @@ func (g *group) registerQueries(s *mcp.Server) {
 			"text (the Query RPC), run as a document-query plan over the model's elements, or over the objects instantiate created " +
 			"when @type names an element (rdf:type=elmt:<id>). Each matched element answers its qualified name, metamodel type and " +
 			"the properties select asked for; an object answers its path too. A query the service cannot evaluate fails with " +
-			"INVALID_ARGUMENT and a QueryOutcome detail rather than answering empty. The result is the QueryResponse as protojson writes it.",
+			"INVALID_ARGUMENT and a QueryOutcome detail rather than answering empty. asView also writes the answer as a QVTS::QueryResult view, in resultView, and a failed query's error carries its view after resultView:. The result is the QueryResponse as protojson writes it.",
 		Annotations: toolkit.ReadOnly("Query model"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in QueryInput) (*mcp.CallToolResult, Result, error) {
 		m, err := g.resolve(ctx, in.ModelInput)
@@ -87,7 +89,7 @@ func (g *group) registerQueries(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "run_document_query",
 		Description: "Run a named document query, or a query expression written in inlineQuery in place of a name, with parameter " +
-			"bindings and answer its typed rows (the RunDocumentQuery RPC, the REPL's %run-query). The query runs over the model and " +
+			"bindings and answer its typed rows (the RunDocumentQuery RPC, the REPL's %run-query); asView also writes the answer as a QVTS::QueryResult view, in resultView, and a failed query's error carries its view after resultView:. The query runs over the model and " +
 			"over the objects instantiate created for the same modelHash, which a binding may name. The result is the " +
 			"RunDocumentQueryResponse as protojson writes it; the text is the table.",
 		Annotations: toolkit.ReadOnly("Run document query"),
@@ -137,7 +139,7 @@ func (g *group) registerQueries(s *mcp.Server) {
 		Description: "Render a declared view or a targeted pseudo-view of a model given by modelHash, paths or sources as diagram data (the RenderView RPC; the workspace group's render_view renders by name over the root): nodes flattened " +
 			"parents first, edges with their ports, table columns and rows, canvas, notes and notices. With `form` the rendering is " +
 			"also written as text, Mermaid, Markdown, Graphviz dot, PlantUML, D2, draw.io, CSV or TSV, exactly as `sysml -render` " +
-			"writes it. The result is the RenderViewResponse as protojson writes it; the text is the written form, or lists the " +
+			"writes it; a QVTS::QueryResult view is written as a document of its header and rows in Markdown, HTML or AsciiDoc. The result is the RenderViewResponse as protojson writes it; the text is the written form, or lists the " +
 			"nodes and edges when none is asked for.",
 		Annotations: toolkit.ReadOnly("Render view"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in RenderViewInput) (*mcp.CallToolResult, Result, error) {
