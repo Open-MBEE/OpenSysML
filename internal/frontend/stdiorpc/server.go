@@ -57,12 +57,16 @@ const maxBodyBytes = 128 << 20
 // resource-exhausted rather than queued.
 const maxInFlight = 64
 
+// maxRefusalsWaiting bounds the refusals held for a peer that is not reading yet;
+// past it the read loop waits for the peer rather than hold more.
+const maxRefusalsWaiting = maxInFlight
+
 // defaultWriteStall is how long the peer may take to accept one writeChunk of an
 // answer before the session is given up on.
 const defaultWriteStall = time.Minute
 
-// writeChunk is the most handed to the peer in one write: small enough that a peer
-// reading at all, however slowly, takes each within the stall bound.
+// writeChunk is the most handed to the peer in one write. A pipe wakes a blocked
+// writer once per page read, so a smaller write would show no finer progress.
 const writeChunk = 4 << 10
 
 // ErrPeerStalled is why Serve returns, without waiting for its calls, when the peer
@@ -100,6 +104,13 @@ type frame struct {
 	contentType string
 }
 
+// answer is one frame waiting to be written.
+type answer struct {
+	body        []byte
+	contentType string
+	header      textproto.MIMEHeader
+}
+
 // handler runs one RPC of SysMLService: it decodes the request with dec and
 // answers with the response message.
 type handler func(ctx context.Context, dec func(any) error) (any, error)
@@ -116,6 +127,8 @@ type Server struct {
 
 	// slots holds one token per call in flight.
 	slots chan struct{}
+	// refusals carries the answers of refused frames off the read loop.
+	refusals chan answer
 	// writeStall is the bound on one stalled write; stalled closes once it is passed.
 	writeStall time.Duration
 	stalled    chan struct{}
@@ -175,6 +188,7 @@ func (s *Server) Serve(ctx context.Context, r io.Reader, w io.Writer) error {
 	defer cancel()
 	s.stalled, s.stallOnce = make(chan struct{}), new(sync.Once)
 	s.writing, s.slots = make(chan struct{}, 1), make(chan struct{}, maxInFlight)
+	s.refusals = make(chan answer, maxRefusalsWaiting)
 	s.out = bufio.NewWriter(peerWriter{s: s, w: w})
 
 	done := make(chan error, 1)
@@ -197,6 +211,12 @@ func (s *Server) Serve(ctx context.Context, r io.Reader, w io.Writer) error {
 func (s *Server) serve(ctx context.Context, reader *bufio.Reader) error {
 	var wg sync.WaitGroup
 	defer wg.Wait()
+	defer close(s.refusals)
+	wg.Go(func() {
+		for a := range s.refusals {
+			s.write(a.body, a.contentType, a.header)
+		}
+	})
 
 	for {
 		f, err := readFrame(reader)
@@ -226,24 +246,32 @@ func (s *Server) serve(ctx context.Context, reader *bufio.Reader) error {
 	}
 }
 
-// refuse answers a frame that arrived while maxInFlight calls were running.
+// refuse answers a frame that arrived while maxInFlight calls were running. The
+// answer is written off the read loop, which waits only once maxRefusalsWaiting are held.
 func (s *Server) refuse(f frame) {
+	select {
+	case s.refusals <- refusal(f):
+	case <-s.stalled:
+	}
+}
+
+// refusal is the resource-exhausted answer to f, under the id f was sent with.
+func refusal(f frame) answer {
 	message := fmt.Sprintf("%d calls are already in flight", maxInFlight)
 	if f.contentType == ContentTypeProtobuf {
-		s.write(nil, ContentTypeProtobuf, textproto.MIMEHeader{
+		return answer{contentType: ContentTypeProtobuf, header: textproto.MIMEHeader{
 			HeaderID:      {f.header.Get(HeaderID)},
 			HeaderCode:    {strconv.Itoa(int(connect.CodeResourceExhausted))},
 			HeaderMessage: {message},
-		})
-		return
+		}}
 	}
 	var req request
 	_ = json.Unmarshal(f.body, &req) // an unreadable frame is refused under a null id
-	s.writeJSON(response{
+	return answer{contentType: ContentTypeJSON, body: encodeJSON(response{
 		JSONRPC: jsonrpcVersion,
 		ID:      req.ID,
 		Error:   &responseError{Code: uint32(connect.CodeResourceExhausted), Message: message},
-	})
+	})}
 }
 
 // handleJSON answers one JSON-RPC frame. A frame that is not a call at all is
@@ -380,11 +408,16 @@ func errorParts(err error) (uint32, string) {
 
 // writeJSON frames one JSON-RPC answer.
 func (s *Server) writeJSON(res response) {
+	s.write(encodeJSON(res), ContentTypeJSON, nil)
+}
+
+// encodeJSON is the body of one JSON-RPC answer.
+func encodeJSON(res response) []byte {
 	body, err := json.Marshal(res)
 	if err != nil {
-		body = []byte(`{"jsonrpc":"2.0","error":{"code":13,"message":"response could not be encoded"}}`)
+		return []byte(`{"jsonrpc":"2.0","error":{"code":13,"message":"response could not be encoded"}}`)
 	}
-	s.write(body, ContentTypeJSON, nil)
+	return body
 }
 
 // write frames one answer. Failing to write is the end of the session, so it is
