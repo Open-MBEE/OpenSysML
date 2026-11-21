@@ -10,7 +10,7 @@ import (
 
 func checkTraceCLI(t *testing.T, binary, machine, trace, model string, depth string, exit int, status string, row int) {
 	t.Helper()
-	flags := []string{"-no-record-cache", "-json", "-state", machine, "-conform-trace", trace}
+	flags := []string{"-no-record-cache", "-json", "-state", machine, "-check-trace", trace}
 	if depth != "" {
 		flags = append(flags, "-check-depth", depth)
 	}
@@ -65,6 +65,11 @@ func TestTraceConformanceRejectsNonmatchingAndUnsupportedPaths(t *testing.T) {
 			`{"signal":"TraceReview::Unknown","observe":{"screen":"blank","confirmedVisible":false}}`, "invalid", 2, 2},
 		{"wrong payload type", initial + "\n" +
 			`{"signal":"TraceReview::Timed","args":{"attempt":"1"},"observe":{"screen":"blank","confirmedVisible":false}}`, "invalid", 2, 2},
+		{"typed payload yields observed value", `{"observe":{"score":0}}` + "\n" +
+			`{"signal":"TraceReview::Scored","args":{"score":17},"observe":{"score":17}}`, "matched", 0, 2},
+		{"first order-dependent observation is inconclusive", `{"observe":{"derivedScore":12}}`, "inconclusive", 2, 0},
+		{"alternate order-dependent observation is inconclusive", `{"observe":{"derivedScore":30}}`, "inconclusive", 2, 0},
+		{"real observation is unsupported", `{"observe":{"fraction":0}}`, "inconclusive", 2, 0},
 		{"pending timed work", initial + "\n" +
 			`{"signal":"TraceReview::Timed","args":{"attempt":1},"observe":{"screen":"blank","confirmedVisible":false}}`, "inconclusive", 2, 1},
 	} {
@@ -76,5 +81,38 @@ func TestTraceConformanceRejectsNonmatchingAndUnsupportedPaths(t *testing.T) {
 			checkTraceCLI(t, binary, "TraceReview::ReviewSession::Review TraceReview::profile",
 				trace, filepath.Join(dir, "review.sysml"), "", tc.exit, tc.status, tc.row)
 		})
+	}
+}
+
+func TestCheckTraceUsesCommonReportFormats(t *testing.T) {
+	binary := buildCLI(t)
+	dir := filepath.Join("..", "..", "examples", "charging-interlock-design")
+	args := []string{"-no-record-cache", "-state", "ChargingInterlock::StationController::Interlock ChargingInterlock::rig.controller",
+		"-check-trace", filepath.Join(dir, "observed-normal.jsonl"), filepath.Join(dir, "station.sysml")}
+	jsonFlag := checkPaths(t, binary, append(append([]string{}, args...), "-json")...)
+	jsonFormat := checkPaths(t, binary, append(append([]string{}, args...), "-format", "json")...)
+	if jsonFlag.status != 0 || jsonFormat.status != 0 || jsonFlag.stdout != jsonFormat.stdout {
+		t.Fatalf("expected equivalent JSON reports: %s; %s", jsonFlag.output(), jsonFormat.output())
+	}
+	plain := checkPaths(t, binary, args...)
+	if plain.status != 0 || strings.TrimSpace(plain.stdout) != "Trace matches through row 6" {
+		t.Fatalf("unexpected text report: %s", plain.output())
+	}
+	witness := filepath.Join(t.TempDir(), "schedule.witness")
+	if err := os.WriteFile(witness, []byte("no choice points\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		flags       []string
+		explanation string
+	}{
+		{[]string{"-schedule", "replay:" + witness}, "-check-trace cannot be combined with -schedule"},
+		{[]string{"-schedule", "reverse"}, "-check-trace cannot be combined with -schedule"},
+		{[]string{"-format", "junit"}, "-check-trace supports -format text or json"},
+	} {
+		got := checkPaths(t, binary, append(append([]string{}, args...), tc.flags...)...)
+		if got.status != 2 || !strings.Contains(got.stdout+got.stderr, tc.explanation) {
+			t.Errorf("wanted error containing %q: %s", tc.explanation, got.output())
+		}
 	}
 }

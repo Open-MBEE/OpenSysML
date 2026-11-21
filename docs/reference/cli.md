@@ -338,7 +338,7 @@ written in, so the verdicts are about that object:
 | `-as-view <file\|->` | With `-run-query`, `-run-inline-query` or `-query`: writes each answer as a `QVTS::QueryResult` view — the selected elements exposed, and the query, source, outcome and provenance as its attributes — into the file beside the usual report, or with `-` prints it in place of the rows. Several queries write one view each, a name already written numbered from 2 (`AnswerResult::answer`, `Answer2Result::answer2`). A query that fails with a path or model error writes the view of that outcome and still exits 2 ([Write the answer as a view](../guide/qvts.md#write-the-answer-as-a-view)). |
 | `-action "<name> [object]"` | Runs an action to completion and reports its outputs, on the object named as `-state` names its performer when one is; under `-schedule explore` each run performs it on an object of its own ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
 | `-state "<name> [object]"` | Runs a state machine and reports where it settled. The object is one `-instantiate` created, named as `%state` names it: a usage's name, a feature path to a part it holds (`Fleet::driver.r`), or the id the report prints (`#2`). Naming the machine the object exhibits attaches to its running machine rather than performing it again (a definition exhibited as several usages is refused with the usages to name instead); naming a usage whose definition alone was instantiated says which usage to `-instantiate`. Under `-schedule explore` the object is one each run creates of its own: a definition or usage to instantiate, a path from one into a part it holds (`Mission::mission.vehicle`, `Fleet::fleet.rovers[2]`) or, named alone, the run's one `-instantiate` object exhibiting the machine ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
-| `-conform-trace <file>` | With exactly one `-state`, compare an external JSON Lines trace against a single untimed state machine. Use `-json` for a machine-readable verdict. See [Checking an external trace](#checking-an-external-trace) |
+| `-check-trace <file>` | With exactly one `-state`, compare an external JSON Lines trace against a single untimed state machine. Use `-json` (equivalently, `-format json`) for a machine-readable verdict. See [Checking an external trace](#checking-an-external-trace) |
 | `-advance <time>` | Simulated time (seconds, `SI::s`) the invocation's `-action` and `-state` behaviors run for, on the one clock they share: every state event, action `accept after`/`accept at` and do behavior due within it runs, in due order — a state's do behavior parked at an `accept after` of its own action body among them — and two behaviors due at the same instant run in the order `-schedule` picks (the one started last first by default), reported as a choice point. A state machine takes only its initial transition without it, under every `-schedule` and `-engine` — `explore` and `-engine check` search that point, and their standing says `after the initial transition only` when a do behavior, an event, a timer or a change condition is left pending; an action runs to completion on its own without it and, with it, only as far as that much time takes it, so one still waiting on the clock is reported as undecided with the instant it waits for. Refused without an `-action` or `-state` to run |
 | `-sweep <param>=<from>..<to>[:<step>]` | Runs the `-analysis` case or `-calc` once per value of the range, rather than once, and reports the runs as a table. `<from>`, `<to>` and `<step>` are written as an argument is, units included (`0.0 [SI::m]..10.0 [SI::m]:2.0 [SI::m]`); the parameter is one the case or calc declares and the arguments do not bind, and the values are produced in its declared type (`1..4:1` over a `Real` binds `1.0`, `2.0`, …). Repeatable: several ranges run their cartesian product, the first flag given varying slowest. See [Sweeping a parameter](#sweeping-a-parameter) |
 | `-samples <n>` | Draws `n` values for each `-sweep` range instead of running every value of it, uniformly over the range from the seed `-seed` names — Integers inclusively for a parameter taking Integers, reals in `[<from>, <to>)` for one taking reals |
@@ -414,7 +414,7 @@ sysml: unresolved reference: T::SA — did you mean T::'SA-506'? Names containin
 ```bash
 example=examples/charging-interlock-design
 sysml -state 'ChargingInterlock::StationController::Interlock ChargingInterlock::rig.controller' \
-  -conform-trace "$example/observed-normal.jsonl" -json "$example/station.sysml"
+  -check-trace "$example/observed-normal.jsonl" "$example/station.sysml"
 ```
 
 Record one JSON object per line. The initial row has only `observe`. Each later
@@ -428,12 +428,14 @@ are Boolean, string, or signed 64-bit integer JSON literals.
 {"signal":"ChargingInterlock::VehicleConnected","observe":{"energized":false}}
 ```
 
-The checker searches for one model execution that can reproduce the observations,
-in order, after initialization and after each signal settles. A match certifies
-this finite observed prefix, not every possible execution, and cannot detect a
-difference outside the supplied projection. This is not `-schedule replay`,
-which follows internal scheduler choices from an OpenSysML witness. This mode
-does not replay timed behavior or call external tools.
+The checker searches for a model execution that reproduces the recording in
+order, after initialization and after each signal settles. A match shows that
+at least one execution explains the supplied inputs and observations; it
+says nothing about unobserved features or other executions. This is not `-schedule replay`,
+which follows internal scheduler choices from an OpenSysML witness. The two
+flags cannot be combined. This mode does not replay timed behavior or call
+external tools. If evaluating an observable itself requires choosing among
+statement orders, that branch is inconclusive. It supports the text and JSON report formats.
 
 The search defaults to a depth of 512 moves per path, 10,000 visits, and a
 30-second timeout. Override them with `-check-depth`, `-check-states` and

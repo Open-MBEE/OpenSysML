@@ -7,10 +7,22 @@ package TraceReview {
     attribute def Verify;
     attribute def Reload;
     attribute def Timed { attribute attempt : Integer; }
+    attribute def Scored { attribute score : Integer; }
+
+    calc def Ord {
+        return : Integer;
+        attribute y : Integer := 1;
+        assign y := y * 10;
+        assign y := y + 2;
+        y
+    }
 
     part def ReviewSession {
         attribute screen : String = "blank";
         attribute confirmedVisible : Boolean = false;
+        attribute score : Integer = 0;
+        attribute fraction : Real = 0.5;
+        derived attribute derivedScore : Integer = Ord();
         attribute deliveryPath : Integer = 0;
 
         exhibit state Review {
@@ -47,6 +59,7 @@ package TraceReview {
 
             transition first blank accept Open then form;
             transition first blank accept Timed then waiting;
+            transition first blank accept progress : Scored do assign score := progress.score then blank;
             transition first waiting accept after 1 [s] then waiting;
             transition first form accept Submit then pending;
             transition first pending accept Verify if deliveryPath == 1 then confirmed;

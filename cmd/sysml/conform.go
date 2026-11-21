@@ -19,7 +19,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
-const conformTraceFlag = "conform-trace"
+const checkTraceFlag = "check-trace"
 
 type conformResult struct {
 	Status  string   `json:"status"`
@@ -36,15 +36,14 @@ func (r conformResult) write(out, errOut io.Writer, jsonOut bool) int {
 			return exitUnevaluable
 		}
 	} else {
-		if r.Row > 0 {
-			fmt.Fprintf(out, "trace conformance: %s at row %d", r.Status, r.Row)
-		} else {
-			fmt.Fprintf(out, "trace conformance: %s", r.Status)
-		}
+		message := r.text()
 		if r.Message != "" {
-			fmt.Fprintf(out, ": %s", r.Message)
+			message += ": " + r.Message
 		}
-		fmt.Fprintln(out)
+		if _, err := fmt.Fprintln(out, message); err != nil {
+			fmt.Fprintln(errOut, errPrefix, err)
+			return exitUnevaluable
+		}
 	}
 	switch r.Status {
 	case string(runtime.TraceMatched):
@@ -53,6 +52,25 @@ func (r conformResult) write(out, errOut io.Writer, jsonOut bool) int {
 		return exitFailed
 	default:
 		return exitUnevaluable
+	}
+}
+
+func (r conformResult) text() string {
+	switch r.Status {
+	case string(runtime.TraceMatched):
+		return fmt.Sprintf("Trace matches through row %d", r.Row)
+	case string(runtime.TraceNoMatch):
+		return fmt.Sprintf("Trace does not match at row %d", r.Row)
+	case string(runtime.TraceInconclusive):
+		if r.Row > 0 {
+			return fmt.Sprintf("Trace check inconclusive after matching through row %d", r.Row)
+		}
+		return "Trace check inconclusive"
+	default:
+		if r.Row > 0 {
+			return fmt.Sprintf("Invalid trace input at row %d", r.Row)
+		}
+		return "Cannot check trace"
 	}
 }
 
@@ -70,10 +88,19 @@ func invalidTrace(err error) conformResult {
 }
 
 func conformCLI(fs *flag.FlagSet, c checks) int {
+	format, misuse := reportFormat(c.format, c.jsonOut)
+	if misuse != "" {
+		return invalidTrace(errors.New(misuse)).write(os.Stdout, os.Stderr, c.jsonOut)
+	}
+	if format != formatText && format != formatJSON {
+		err := fmt.Errorf("-%s supports -format text or json, not %s", checkTraceFlag, format)
+		return invalidTrace(err).write(os.Stdout, os.Stderr, false)
+	}
+	jsonOut := format == formatJSON
 	var incompatible string
 	fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
-		case conformTraceFlag, "state", "json", "check-depth", "check-states", "check-timeout",
+		case checkTraceFlag, "state", "json", "format", checkDepthFlag, checkStatesFlag, "check-timeout",
 			"quiet", "debug", "strict", "disable-lint", "enable-lint", "library-root", "no-record-cache", "jobs":
 		default:
 			if incompatible == "" {
@@ -82,30 +109,33 @@ func conformCLI(fs *flag.FlagSet, c checks) int {
 		}
 	})
 	if incompatible != "" {
-		result := invalidTrace(fmt.Errorf("-%s cannot be combined with -%s", conformTraceFlag, incompatible))
-		return result.write(os.Stdout, os.Stderr, c.jsonOut)
+		result := invalidTrace(fmt.Errorf("-%s cannot be combined with -%s", checkTraceFlag, incompatible))
+		return result.write(os.Stdout, os.Stderr, jsonOut)
 	}
 	if status := resolveRunBounds(); status != 0 {
 		return status
 	}
-	return runConform(fs.Args(), c).write(os.Stdout, os.Stderr, c.jsonOut)
+	return runConform(fs.Args(), c).write(os.Stdout, os.Stderr, jsonOut)
 }
 
 func runConform(files []string, c checks) conformResult {
 	if len(c.states) != 1 {
-		return invalidTrace(fmt.Errorf("-%s requires exactly one -state", conformTraceFlag))
+		return invalidTrace(fmt.Errorf("-%s requires one -state; for example, -state \"Machine rig.controller\"", checkTraceFlag))
 	}
-	if c.conformTrace == "" || len(files) == 0 {
-		return invalidTrace(fmt.Errorf("name an observation file with -%s and at least one model file", conformTraceFlag))
+	if c.checkTrace == "" {
+		return invalidTrace(fmt.Errorf("-%s requires a JSON Lines file", checkTraceFlag))
 	}
-	f, err := os.Open(c.conformTrace)
+	if len(files) == 0 {
+		return invalidTrace(fmt.Errorf("no model to check; name a model file containing the state machine"))
+	}
+	f, err := os.Open(c.checkTrace) // #nosec G304 -- the operator names the trace file on the command line
 	if err != nil {
 		return invalidTrace(err)
 	}
 	defer f.Close()
 	rows, err := readConformTrace(f)
 	if err != nil {
-		return invalidTrace(fmt.Errorf("%s: %w", c.conformTrace, err))
+		return invalidTrace(fmt.Errorf("%s: %w", c.checkTrace, err))
 	}
 	sess := newSession()
 	paths, err := sess.ExpandPaths(files)

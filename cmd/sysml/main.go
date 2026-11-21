@@ -375,7 +375,7 @@ func runCLI() int {
 
 	// Conformance is a standalone check: do not let an unrelated mode
 	// take precedence and leave the observations unchecked.
-	if flagGiven(conformTraceFlag) {
+	if flagGiven(checkTraceFlag) {
 		return conformCLI(flag.CommandLine, modelChecks)
 	}
 

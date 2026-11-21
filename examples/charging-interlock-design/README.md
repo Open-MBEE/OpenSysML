@@ -51,11 +51,11 @@ any runtime scheduler choices.
 ```sh
 example=examples/charging-interlock-design
 machine='ChargingInterlock::StationController::Interlock ChargingInterlock::rig.controller'
-sysml -json -state "$machine" -conform-trace "$example/observed-normal.jsonl" "$example/station.sysml"
-sysml -json -state "$machine" -conform-trace "$example/observed-early-output.jsonl" "$example/station.sysml"
+sysml -state "$machine" -check-trace "$example/observed-normal.jsonl" "$example/station.sysml"
+sysml -json -state "$machine" -check-trace "$example/observed-early-output.jsonl" "$example/station.sysml"
 ```
 
-The first recording matches through row 6 (exit 0). The second reports
+The first command prints `Trace matches through row 6` (exit 0). The second reports
 `no_match` at row 3 (exit 1): the request's readback shows power before the
 lock report. Both finish deenergized. `-check-depth 1` on the first recording
 returns `inconclusive` (exit 2); it does not declare a mismatch.

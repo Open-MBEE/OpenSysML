@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -139,8 +138,6 @@ func traceScalar(v Value) bool {
 	switch v.Const.Kind {
 	case semantics.ValInt, semantics.ValBool:
 		return true
-	case semantics.ValReal:
-		return !math.IsInf(v.Const.Real, 0) && !math.IsNaN(v.Const.Real)
 	default:
 		return false
 	}
@@ -159,8 +156,6 @@ func traceEqual(a, b Value) bool {
 	switch a.Const.Kind {
 	case semantics.ValInt:
 		return semantics.CompareInt(a.Const, b.Const) == 0
-	case semantics.ValReal:
-		return a.Const.Real == b.Const.Real
 	case semantics.ValBool:
 		return a.Const.Bool == b.Const.Bool
 	default:
@@ -173,9 +168,9 @@ func (s *traceSearch) allow(depth int) bool {
 	case s.stop.Err() != nil:
 		s.note(s.stop.Err().Error())
 	case depth > s.budget.Depth:
-		s.note("depth bound")
+		s.note("reached the move limit (-check-depth)")
 	case s.visits >= s.budget.States:
-		s.note("state visit bound")
+		s.note("reached the state visit limit (-check-states)")
 	default:
 		return true
 	}
@@ -212,7 +207,7 @@ func (s *traceSearch) from(fresh func() (*Context, error), start Starter, picks 
 		return nil, err
 	}
 	if len(run.inv.Actions) != 0 || len(run.inv.States) != 1 || run.inv.States[0].self == nil || run.inv.Horizon != (Horizon{}) {
-		return nil, fmt.Errorf("trace matching requires one untimed state machine on a performer")
+		return nil, fmt.Errorf(`trace checking needs one untimed machine on a performing object; name it as -state "Machine object"`)
 	}
 	s.run = run
 	s.signals = make([]Message, len(s.rows))
@@ -324,16 +319,31 @@ func (s *traceSearch) walk(row, depth int, path []string) error {
 	return nil
 }
 
+var errTraceObservationOrder = errors.New("reading this observation can follow more than one calculation order")
+
 func (s *traceSearch) observes(row int) (bool, error) {
 	r := s.run
-	snap, err := r.inv.snapshot()
-	if err != nil {
-		return false, err
+	defer r.enter()()
+	// Use the native checker probe to roll back reads and identify order-dependent values.
+	// Only one evaluation is needed: v1 refuses a read that itself needs scheduler choices.
+	var matches bool
+	err := r.ctx.sweepStatementOrderVariants(func(sweep *statementOrderSweep) error {
+		var err error
+		matches, err = s.readObservation(row)
+		if len(sweep.choices) > 0 {
+			return errTraceObservationOrder
+		}
+		return err
+	})
+	if errors.Is(err, errTraceObservationOrder) {
+		s.note(fmt.Sprintf("trace row %d: %v", row+1, err))
+		return false, nil
 	}
-	// Feature reads can materialize model defaults; never let observing change
-	// the successor state used by the rest of the trace.
-	defer snap.Release()
-	defer snap.Restore()
+	return matches, err
+}
+
+func (s *traceSearch) readObservation(row int) (bool, error) {
+	r := s.run
 	matches := true
 	for _, key := range s.keys {
 		fv, err := r.inv.States[0].self.GetFeatureValue(r.ctx, key)
@@ -346,7 +356,7 @@ func (s *traceSearch) observes(row int) (bool, error) {
 			return false, nil
 		}
 		if fv.Values.Kind != ValInvalid || !traceScalar(fv.Value) {
-			s.note(fmt.Sprintf("trace row %d: %q is not a resolved scalar feature", row+1, key))
+			s.note(fmt.Sprintf("trace row %d: %q did not resolve to a supported observation (Boolean, string, or integer)", row+1, key))
 			return false, nil
 		}
 		matches = matches && traceEqual(fv.Value, s.rows[row].Observe[key])

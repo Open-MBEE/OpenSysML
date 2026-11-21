@@ -85,6 +85,10 @@ takes arguments and a subject as \-constraint does (repeatable)
 Evaluate every satisfaction assertion, or with \-satisfy=<name> those the
 named element states, and exit (repeatable)
 .TP
+.BR \-check\-trace " \fIfile\fP"
+Check a recorded JSON Lines trace against one untimed machine named with
+\-state; compare observations after each signal settles
+.TP
 .BR \-calc " \fIcall\fP"
 Invoke this calculation and report its result, as \-calc "Fall(3, 4)"
 (repeatable)
@@ -151,10 +155,6 @@ object (repeatable)
 .BR \-state " \fIname\fP"
 Run this state machine, as \-state "Mission rover1" to run it on an object
 (repeatable)
-.TP
-.BR \-conform\-trace " \fIfile\fP"
-Check JSON Lines observations against the single state machine named with
-\-state, and exit on the verdict
 .TP
 .BR \-advance " \fItime\fP"
 Simulated time units to run the \-action and \-state behaviors for, on one
@@ -241,18 +241,20 @@ directory, for \-schedule replay:<file> and %replay to follow
 .TP
 .BR \-check\-depth " \fIn\fP"
 The most moves one schedule may make before the search backtracks, or the
-moves smt unrolls the action to (default 10000 for check, 40 for smt)
+moves smt unrolls the action to (default 10000 for check, 40 for smt, 512 for
+\-check\-trace)
 .TP
 .BR \-check\-states " \fIn\fP"
-Under check, the most distinct states the search may visit (default 1000000)
+Under check, the most distinct states the search may visit (default 1000000);
+with \-check\-trace, the most state visits (default 10000)
 .TP
 .BR \-check\-unroll " \fIn\fP"
 Under smt, the most iterations of one loop the solver unrolls before it stops
 (default 4)
 .TP
 .BR \-check\-timeout " \fIduration\fP"
-The time the check's plan may run for, as 30s or 2m, and the time each smt
-solver query may take in place of OPENSYSML_SMT_TIMEOUT
+The time the check plan may run for, as 30s or 2m, and each smt query may take
+in place of OPENSYSML_SMT_TIMEOUT; \-check\-trace search defaults to 30s
 .SS Converting and migrating
 .TP
 .BR \-convert " \fIformat\fP"
@@ -686,8 +688,8 @@ sysml \-run\-inline\-query 'Project(Descendants(Named("Lander")), \e
 sysml \-action Drive model.sysml
 # Run a state machine for 10 time units
 sysml \-state Mission \-advance 10 model.sysml
-# Check the recorded observations against the machine
-sysml \-state Mission \-conform\-trace observed.jsonl \-json model.sysml
+# Check recorded observations against a state machine on an object
+sysml \-state "Mission rover1" \-check\-trace observed.jsonl model.sysml
 # \&...an action and a machine on one clock
 sysml \-action Ping \-state Sm \-advance 5 m.sysml
 # Run every linearization; table the outcomes
@@ -720,7 +722,7 @@ shared clock that \-advance runs for the given simulated time units; without
 definition or usage, or one followed by the object to perform it on, as
 \-action "Drive rover1".
 .PP
-\-conform\-trace compares an external JSON Lines trace to one untimed state
+\-check\-trace compares an external JSON Lines trace to one untimed state
 machine: an initial observation and then signals with observations after each
 settles. Exit 0 if a model execution matches, 1 if none can match, 2 if the
 input is invalid or the search is inconclusive. \-check\-depth,
@@ -1328,7 +1330,7 @@ The model answered false for a check.
 .B 2
 What was asked could not be carried out at all \(em an unreadable file, a
 model that did not analyse cleanly, an unresolved name, a failed conversion,
-or an inconclusive \-conform\-trace search.
+or an inconclusive \-check\-trace search.
 .TP
 .B 3
 Part of what was asked was carried out: a \-render\-documents set in which
