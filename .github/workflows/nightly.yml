@@ -1069,7 +1069,7 @@ jobs:
     name: Publish the Python client to PyPI through the release workflow
     needs: publish
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 240
     permissions:
       actions: write
       contents: read
