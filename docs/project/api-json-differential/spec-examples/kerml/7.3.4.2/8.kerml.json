@@ -11,9 +11,9 @@
       "typeMismatch": 3
     },
     "properties": {
-      "presentEqual": 623,
+      "presentEqual": 624,
       "presentDifferent": 36,
-      "oursMissing": 92,
+      "oursMissing": 91,
       "pilotMissing": 27,
       "absentBoth": 573,
       "indeterminate": 6,
@@ -500,7 +500,7 @@
     "LiteralInfinity.owningNamespace": [1,0,0,0,0,0,0],
     "LiteralInfinity.owningRelationship": [1,0,0,0,0,0,0],
     "LiteralInfinity.parameter": [0,0,1,0,0,0,0],
-    "LiteralInfinity.result": [0,0,1,0,0,0,0],
+    "LiteralInfinity.result": [1,0,0,0,0,0,0],
     "LiteralInfinity.textualRepresentation": [0,0,0,0,1,0,0],
     "LiteralInfinity.type": [1,0,0,0,0,0,0],
     "LiteralInfinity.unioningType": [0,0,0,0,1,0,0],

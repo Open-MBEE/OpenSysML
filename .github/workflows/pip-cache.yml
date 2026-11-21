@@ -73,7 +73,7 @@ jobs:
             packages: pip-audit==2.10.1
           - name: WeasyPrint (3.12)
             python-version: '3.12'
-            packages: weasyprint==69.0
+            packages: weasyprint==70.0
           - name: the documentation toolchain (3.12)
             python-version: '3.12'
             requirements: docs-requirements.txt

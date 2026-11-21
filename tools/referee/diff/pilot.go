@@ -5,42 +5,13 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/pilot"
 )
-
-// pilotLine matches the GNU-format diagnostics the validators print on stderr.
-var pilotLine = regexp.MustCompile(`^(.+\.(?:sysml|kerml)):(\d+):(\d+): (error|warning|info|ignore): (.*)$`)
-
-// pilotVersion reports which pilot release the validator was built against,
-// read from the pin its provisioning script wrote beside it.
-func pilotVersion(validator string) (string, error) {
-	pin, err := os.ReadFile(filepath.Join(filepath.Dir(validator), "pilot-pin.txt"))
-	if err != nil {
-		return "", fmt.Errorf("read the validator's pilot-pin.txt: %w", err)
-	}
-	tag := pinnedValue(string(pin), "sysml.release.tag")
-	version := pinnedValue(string(pin), "sysml.artifact.version")
-	if tag == "" || version == "" {
-		return "", fmt.Errorf("%s does not pin sysml.release.tag/sysml.artifact.version", validator)
-	}
-	return fmt.Sprintf("%s (jupyter-sysml-kernel %s)", tag, version), nil
-}
-
-func pinnedValue(pin, name string) string {
-	for _, line := range strings.Split(pin, "\n") {
-		key, value, ok := strings.Cut(line, "=")
-		if ok && strings.TrimSpace(key) == name {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
-}
 
 // pilotDiagnostics runs a reference validator over one corpus root as a single
 // batch and returns its diagnostics per file. libraries, when not empty, is a
@@ -100,28 +71,24 @@ func runPilot(validator string, args []string, byPath map[string]string, out map
 	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
 	for scanner.Scan() {
 		line := scanner.Text()
-		match := pilotLine.FindStringSubmatch(line)
-		if match == nil {
-			if strings.TrimSpace(line) != "" && !strings.HasPrefix(line, "log4j:") {
+		found, ok := pilot.ParseDiagnostic(line)
+		if !ok {
+			if !pilot.Noise(line) {
 				unattributed = append(unattributed, line)
 			}
 			continue
 		}
-		rel, ok := byPath[match[1]]
+		rel, ok := byPath[found.Path]
 		if !ok {
 			unattributed = append(unattributed, line)
 			continue
 		}
-		lineNo, err := strconv.Atoi(match[2])
-		if err != nil {
-			return fmt.Errorf("pilot reported a non-numeric line in %q", line)
-		}
 		out[rel] = append(out[rel], diagnostic{
 			File:     rel,
-			Line:     lineNo,
-			Severity: match[4],
-			Category: categorize(match[5]),
-			Message:  match[5],
+			Line:     found.Line,
+			Severity: found.Severity,
+			Category: categorize(found.Message),
+			Message:  found.Message,
 		})
 	}
 	if err := scanner.Err(); err != nil {

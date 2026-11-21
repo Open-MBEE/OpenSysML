@@ -1,6 +1,5 @@
-// A step stated to perform the chained action (`perform action dr ::> driver.ready`)
-// is an occurrence of it, so a succession end naming `driver.ready` orders that
-// step and implies no second performance: `m` is written once, with the step's `d`.
+// A step stated to perform the chained action (`dr ::> driver.ready`) is an occurrence of it, so
+// an end naming `driver.ready` orders that step, no second performance: `m` is written once.
 package P {
 	private import ScalarValues::*;
 

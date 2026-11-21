@@ -1558,6 +1558,9 @@ func (m *Model) ownerOf(sym *symbols.Symbol) *symbols.Symbol {
 		// A named trigger payload is declared in the transition's scope and owned by the trigger's accept.
 		return parts.accepter
 	}
+	if owner := m.statementOwner(sym); owner != nil {
+		return owner
+	}
 	if owner := ownerSymbol(sym); owner != nil {
 		if usage := m.metadataBodyOwner(sym, owner); usage != nil {
 			return usage
