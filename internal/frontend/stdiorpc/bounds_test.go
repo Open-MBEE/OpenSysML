@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -175,33 +176,36 @@ func TestServeReadsOnWhileRefusalsWaitForThePeer(t *testing.T) {
 
 // A peer that takes longer than the stall bound over a whole answer, but not over
 // any one write of it, is still reading and keeps its session.
-func TestServeKeepsAPeerThatDrainsSlowly(t *testing.T) {
-	svc := &heldService{release: make(chan struct{})}
-	close(svc.release)
-	server := NewServer(svc)
-	server.writeStall = 200 * time.Millisecond
-
-	inR, inW := io.Pipe()
+// A peer that keeps draining is kept however long the whole answer takes: only a
+// single writeChunk outlasting the stall bound ends the session.
+func TestPeerWriterKeepsAPeerThatDrainsSlowly(t *testing.T) {
+	server := &Server{writeStall: 800 * time.Millisecond, stalled: make(chan struct{}), stallOnce: new(sync.Once)}
 	outR, outW := io.Pipe()
-	done := make(chan error, 1)
-	go func() { done <- server.Serve(context.Background(), inR, outW) }()
-
-	const calls = 12
+	const chunks = 8
 	go func() {
-		for id := 1; id <= calls; id++ {
-			_, _ = io.WriteString(inW, infoFrame(id))
+		// An eighth of a chunk each sixteenth of the bound: half the bound per chunk.
+		part := make([]byte, writeChunk/8)
+		for {
+			time.Sleep(server.writeStall / 16)
+			if _, err := io.ReadFull(outR, part); err != nil {
+				return
+			}
 		}
-		_ = inW.Close()
 	}()
-	answers := bufio.NewReaderSize(outR, 16)
-	for range calls {
-		time.Sleep(server.writeStall / 4) // 12 answers take three stall bounds in all
-		if _, err := readFrame(answers); err != nil {
-			t.Fatalf("read an answer: %v", err)
-		}
+
+	start := time.Now()
+	n, err := peerWriter{s: server, w: outW}.Write(make([]byte, chunks*writeChunk))
+	_ = outW.Close()
+	if err != nil || n != chunks*writeChunk {
+		t.Fatalf("Write = %d, %v, want the whole answer taken", n, err)
 	}
-	if err := served(t, done); err != nil {
-		t.Errorf("Serve = %v, want the slow reader served to the end", err)
+	if took := time.Since(start); took < 2*server.writeStall {
+		t.Fatalf("the answer took %v, want it to outlast the %v bound", took, server.writeStall)
+	}
+	select {
+	case <-server.stalled:
+		t.Error("the draining peer was given up on")
+	default:
 	}
 }
 
