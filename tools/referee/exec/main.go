@@ -247,9 +247,9 @@ func runPilot(launcher string, models []string, cases []execCase, timeout time.D
 	for _, model := range models {
 		args = append(args, "--model", model)
 	}
-	// #nosec G204 -- launcher is an explicit CLI override or repo-local artifact.
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+	// #nosec G204 -- launcher is an explicit CLI override or repo-local artifact.
 	command := exec.CommandContext(ctx, launcher, args...)
 	command.WaitDelay = pilotWaitDelay
 	stdout := analysis.NewBoundedBuffer(maxPilotOutput, cancel)
