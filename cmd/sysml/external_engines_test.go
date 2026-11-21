@@ -79,6 +79,16 @@ func spawned(t *testing.T, record string) []string {
 	return strings.Fields(string(data))
 }
 
+// engineRow is the start of an -engines row; the name column is as wide as the
+// longest engine name of the build, which the FMI tool's is when it is linked.
+func engineRow(name, kind, protocol, authority, answers string) string {
+	width := len("explore")
+	if fmiFeature.linked {
+		width = len("tool:fmi")
+	}
+	return fmt.Sprintf("%-*s  %-8s  %-8s  %-9s  %s", width, name, kind, protocol, authority, answers)
+}
+
 // TestEnginesSpawnsNothingAndProbeSpawnsEachEntryOnce checks that -engines lists a manifest
 // engine with its kind, protocol, authority and resolved command without starting it, and that
 // -engines -probe starts each entry exactly once and reports the handshake.
@@ -91,7 +101,7 @@ func TestEnginesSpawnsNothingAndProbeSpawnsEachEntryOnce(t *testing.T) {
 		t.Fatalf("-engines spawned %v", got)
 	}
 	for _, want := range []string{
-		"alpha     engine    stdio/1   bounded    holds", "beta      engine    stdio/1   bounded    holds",
+		engineRow("alpha", "engine", "stdio/1", "bounded", "holds"), engineRow("beta", "engine", "stdio/1", "bounded", "holds"),
 		"ready (alpha 1.0.0 at " + filepath.Join(dir, "alpha.sh") + ")",
 		"alpha 1.0.0: engine from " + filepath.Join(dir, "alpha.json") + ", runs " + filepath.Join(dir, "alpha.sh") + ", not admitted",
 	} {

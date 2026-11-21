@@ -292,6 +292,7 @@ func liveGraph(t *testing.T, src string) *rdf.Graph {
 }
 
 func TestSyncApplyWritesAndRecordsTheCommit(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
@@ -338,6 +339,7 @@ func TestSyncApplyWritesAndRecordsTheCommit(t *testing.T) {
 }
 
 func TestSyncApplyRefusesUnconfirmedDeletes(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, renamedModel))
 	model := writeModel(t, t.TempDir(), "model.sysml", syncedModel)
@@ -364,6 +366,7 @@ func TestSyncApplyRefusesUnconfirmedDeletes(t *testing.T) {
 }
 
 func TestSyncApplyRefusesConflicts(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, `package P {
 	@IdentityMetadata::ProjectRef { projectId = "proj-1"; branch = "main"; }
@@ -382,6 +385,7 @@ func TestSyncApplyRefusesConflicts(t *testing.T) {
 }
 
 func TestSyncApplyReportsARefusedCommit(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	stack.set(func(s *fakeStack) { s.refuse = true })
@@ -400,6 +404,7 @@ func TestSyncApplyReportsARefusedCommit(t *testing.T) {
 }
 
 func TestSyncApplyWritesTheAnnotationOnlyOnceTheCommitLands(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	stack.set(func(s *fakeStack) { s.refuse = true })
@@ -441,6 +446,7 @@ func TestSyncApplyWritesTheAnnotationOnlyOnceTheCommitLands(t *testing.T) {
 }
 
 func TestSyncApplyRefusesMintedIDsItCannotWriteBack(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
@@ -476,6 +482,7 @@ func TestSyncApplyRefusesMintedIDsItCannotWriteBack(t *testing.T) {
 }
 
 func TestSyncApplyUsesTheLastSeenCommitAsBaseline(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
@@ -492,6 +499,7 @@ func TestSyncApplyUsesTheLastSeenCommitAsBaseline(t *testing.T) {
 }
 
 func TestSyncApplyRecordsTheHeadWhenNothingChanges(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	model := writeModel(t, t.TempDir(), "model.sysml", syncedModel)
@@ -521,6 +529,7 @@ func TestSyncApplyRecordsTheHeadWhenNothingChanges(t *testing.T) {
 }
 
 func TestSyncApplyRefusesAHeadThatMoved(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	stack.set(func(s *fakeStack) { s.drift = true })
@@ -539,6 +548,7 @@ func TestSyncApplyRefusesAHeadThatMoved(t *testing.T) {
 }
 
 func TestSyncReportsAnUnreadableRepositoryAsFailed(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
@@ -566,6 +576,7 @@ func TestSyncReportsAnUnreadableRepositoryAsFailed(t *testing.T) {
 }
 
 func TestSyncApplyNeedsALiveEndpoint(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
@@ -611,6 +622,7 @@ const pseudostateModel = `package P {
 `
 
 func TestSyncRefusesAnElementTheRepositoryHasNoMetaclassFor(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	model := writeModel(t, t.TempDir(), "model.sysml", pseudostateModel)
