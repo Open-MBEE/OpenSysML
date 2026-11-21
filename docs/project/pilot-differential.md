@@ -3173,8 +3173,10 @@ describe this repository:
 - **A Java-backed reproduction.** `.github/workflows/oracle-reproduction.yml` installs Java,
   provisions the pinned validators and corpora and runs every oracle with `-check` daily and on
   demand; the pull-request workflow runs the Xpect oracle's `-check` (Java-free) on every change
-  that can move it and the api-json differential's on every change under its writer, referee,
-  bridge, pin or baseline. Its failure distinguishes a moved provenance — the pinned reference or an
+  that can move it, the api-json differential's on every change under its writer, referee,
+  bridge, pin or baseline, and this differential's on every push that touches a layer its referee
+  imports, the referee, the validators, the pin, a compared root or the baseline (not in the merge
+  queue). Its failure distinguishes a moved provenance — the pinned reference or an
   input changed underneath the baseline, so investigate the provisioning — from moved counts with
   matching provenance, which is an implementation movement to adjudicate and then re-record —
   unless two exports of the pinned reference itself disagree on the moved row, as the pilot's
