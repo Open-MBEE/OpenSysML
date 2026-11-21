@@ -2,8 +2,10 @@ package opensysml
 
 import (
 	"go/ast"
+	"go/build"
 	"go/parser"
 	"go/token"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -11,31 +13,31 @@ import (
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 )
 
-// capabilityConstants reads the Capability constants a package directory
-// declares: each name and the expression it is given.
+// capabilityConstants reads the Capability constants the package in dir
+// declares in the files this build compiles: each name and its expression.
 func capabilityConstants(t *testing.T, dir string) map[string]ast.Expr {
 	t.Helper()
-	pkgs, err := parser.ParseDir(token.NewFileSet(), dir, nil, parser.SkipObjectResolution)
+	pkg, err := build.ImportDir(dir, 0)
 	if err != nil {
-		t.Fatalf("parsing %s: %v", dir, err)
+		t.Fatalf("listing %s: %v", dir, err)
 	}
+	fset := token.NewFileSet()
 	consts := map[string]ast.Expr{}
-	for _, pkg := range pkgs {
-		for name, file := range pkg.Files {
-			if strings.HasSuffix(name, "_test.go") {
+	for _, name := range pkg.GoFiles {
+		file, err := parser.ParseFile(fset, filepath.Join(dir, name), nil, parser.SkipObjectResolution)
+		if err != nil {
+			t.Fatalf("parsing %s: %v", name, err)
+		}
+		for _, decl := range file.Decls {
+			gen, ok := decl.(*ast.GenDecl)
+			if !ok || gen.Tok != token.CONST {
 				continue
 			}
-			for _, decl := range file.Decls {
-				gen, ok := decl.(*ast.GenDecl)
-				if !ok || gen.Tok != token.CONST {
-					continue
-				}
-				for _, spec := range gen.Specs {
-					vs := spec.(*ast.ValueSpec)
-					for i, ident := range vs.Names {
-						if strings.HasPrefix(ident.Name, "Capability") && i < len(vs.Values) {
-							consts[ident.Name] = vs.Values[i]
-						}
+			for _, spec := range gen.Specs {
+				vs := spec.(*ast.ValueSpec)
+				for i, ident := range vs.Names {
+					if strings.HasPrefix(ident.Name, "Capability") && i < len(vs.Values) {
+						consts[ident.Name] = vs.Values[i]
 					}
 				}
 			}
