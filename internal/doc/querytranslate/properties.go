@@ -96,10 +96,7 @@ func (t *Table) classify(name string) valueKind {
 	delete(t.features, name)
 	kind, seen := kindUnknown, false
 	for _, member := range members {
-		declared := kindUnknown
-		for _, typ := range t.model.FeatureTypes(member) {
-			declared = t.kindOf(typ)
-		}
+		declared := t.declaredKind(member)
 		switch {
 		case !seen:
 			kind, seen = declared, true
@@ -110,6 +107,20 @@ func (t *Table) classify(name string) valueKind {
 	}
 	t.metamodel[name] = kind
 	return kind
+}
+
+// declaredKind is the kind every type of one declaration agrees on; a feature
+// whose types disagree is compared as the row's value is.
+func (t *Table) declaredKind(member *symbols.Symbol) valueKind {
+	declared := kindUnknown
+	for i, typ := range t.model.FeatureTypes(member) {
+		kind := t.kindOf(typ)
+		if i > 0 && kind != declared {
+			return kindUnknown
+		}
+		declared = kind
+	}
+	return declared
 }
 
 // kindOf is what values of a declared type are: numbers, booleans, text for
