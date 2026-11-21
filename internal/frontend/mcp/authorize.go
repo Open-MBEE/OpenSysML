@@ -10,6 +10,7 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
 )
 
@@ -17,8 +18,16 @@ import (
 // a scope the principal lacks.
 const CodeInsufficientScope = toolkit.CodeInsufficientScope
 
-// methodCallTool is the request the scopes gate.
+// methodCallTool is the request the tools' scopes gate.
 const methodCallTool = "tools/call"
+
+// resourceScopes are the requests that hand out or watch a resource's text,
+// each with the scope its caller needs, as the tools reading a document have.
+var resourceScopes = map[string]catalog.Scope{
+	"resources/read":        catalog.ScopeRead,
+	"resources/subscribe":   catalog.ScopeRead,
+	"resources/unsubscribe": catalog.ScopeRead,
+}
 
 // principalKey is the TokenInfo.Extra entry the transport stores the verified
 // guard.Principal under, so a request's handlers read the whole principal.
@@ -71,11 +80,14 @@ func stampRemoteAddr(next http.Handler) http.Handler {
 }
 
 // authorize is the receiving middleware: handlers see the caller's principal in
-// ctx, a tools/call without the tool's scope is refused, and every tools/call is logged.
+// ctx, a tools/call or resource request without its scope is refused, and every tools/call logged.
 func (s *Server) authorize(next sdk.MethodHandler) sdk.MethodHandler {
 	return func(ctx context.Context, method string, req sdk.Request) (sdk.Result, error) {
 		p := principalOf(req)
 		ctx = guard.WithPrincipal(ctx, p)
+		if scope, gated := resourceScopes[method]; gated && !toolkit.HasScope(p, scope) {
+			return nil, toolkit.InsufficientScope(method, scope)
+		}
 		if method != methodCallTool {
 			return next(ctx, method, req)
 		}

@@ -216,11 +216,15 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "%srecord cache unavailable, holding every document loaded: %v\n", commandPrefix, err)
 	}
 	info := build()
+	newWorkspace := func() *model.Workspace {
+		return model.NewWorkspace(model.WithConformanceMode(diag.ConformanceModeOf(opts.strict)), model.WithRecordCache(cache))
+	}
 	cfg := mcp.Config{
 		Root:                    root,
 		Groups:                  groups,
 		Version:                 info.Version,
-		Workspace:               model.NewWorkspace(model.WithConformanceMode(diag.ConformanceModeOf(opts.strict)), model.WithRecordCache(cache)),
+		Workspace:               newWorkspace(),
+		NewWorkspace:            newWorkspace,
 		CacheSize:               opts.cacheSize,
 		Records:                 cache,
 		UnavailableCapabilities: sysmlgrpc.WithheldCapabilitiesForTesting(),
