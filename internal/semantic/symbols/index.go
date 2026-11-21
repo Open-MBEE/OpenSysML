@@ -332,7 +332,10 @@ func (idx *Index) Derived(key any, build func() any) any {
 	if !idx.frozen || idx.derived == nil {
 		return build()
 	}
-	value, _ := idx.derived.values.LoadOrStore(key, &derivedValue{})
+	value, ok := idx.derived.values.Load(key)
+	if !ok {
+		value, _ = idx.derived.values.LoadOrStore(key, &derivedValue{})
+	}
 	cached := value.(*derivedValue)
 	cached.once.Do(func() { cached.value = build() })
 	return cached.value

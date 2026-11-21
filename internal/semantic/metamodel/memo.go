@@ -54,8 +54,8 @@ func (m memoEntry) value() Value {
 
 // memoized returns the derivation of kind and name memoized for the element, if any.
 func (e *Evaluator) memoized(key ElementKey, kind memoKind, name string) (Value, bool, bool, bool) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 	for _, entry := range e.memos[key] {
 		if entry.kind == kind && entry.name == name {
 			return entry.value(), entry.handled, entry.ok, true
