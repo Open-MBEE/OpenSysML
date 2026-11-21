@@ -2,6 +2,7 @@
 package queryexec
 
 import (
+	"math"
 	"strconv"
 	"strings"
 
@@ -131,6 +132,10 @@ func constantValue(constant semantics.Value) (Value, bool) {
 	case semantics.ValBool:
 		return BooleanValue(constant.Bool), true
 	case semantics.ValInfinity:
+		// ValueInfinity is the unbounded `*`; `-*` is the Real below every other.
+		if constant.IsNegativeInfinity() {
+			return RealValue(math.Inf(-1)), true
+		}
 		return Value{kind: ValueInfinity}, true
 	default:
 		return Value{}, false
@@ -246,6 +251,9 @@ func (v Value) Text(identity func(*symbols.Symbol) string) (string, bool) {
 	case ValueRational:
 		return RationalText(v.integer), true
 	case ValueReal:
+		if math.IsInf(v.real, 0) {
+			return semantics.FormatConst(semantics.ExtendedReal(v.real)), true
+		}
 		return strconv.FormatFloat(v.real, 'g', -1, 64), true
 	case ValueBoolean:
 		return strconv.FormatBool(v.boolean), true

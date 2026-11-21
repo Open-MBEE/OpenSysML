@@ -385,6 +385,10 @@ func bigSweepScalar(what string) error {
 func sweepScalarOf(v runtime.Value, what string) (sweepScalar, error) {
 	switch v.Kind {
 	case runtime.ValConst:
+		if v.Const.IsInfinite() {
+			// An infinity is a number no sequence of values runs to.
+			return sweepScalar{}, fmt.Errorf("%w: %s is not a finite number", ErrSweepRange, what)
+		}
 		if !v.Const.IsNumeric() {
 			return sweepScalar{}, fmt.Errorf("%w: %s is %s, not a number",
 				ErrSweepRange, what, semantics.FormatConst(v.Const))

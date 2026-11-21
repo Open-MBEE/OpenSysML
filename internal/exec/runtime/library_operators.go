@@ -200,6 +200,14 @@ func naturalDivision(name string, ctx *Context, args []Value) (Value, error) {
 		return undeterminedResult(args...), nil
 	}
 	x, y := args[0].Const, args[1].Const
+	if x.IsInfinite() || y.IsInfinite() {
+		// `* / n` is `*` and `n / *` is 0, both Naturals; `* / *` is undefined.
+		q, err := semantics.InfinityArith(ast.OpDiv, x, y)
+		if err == nil && !q.IsInfinite() {
+			q = semantics.IntValue(0)
+		}
+		return operatorResult(name, Value{Kind: ValConst, Const: q}, err)
+	}
 	rem, ok := semantics.IntRem(x, y)
 	if !ok {
 		return Value{}, fmt.Errorf("%w: function %s: %s / 0", ErrDivisionByZero, name, x.FormatInt())
@@ -309,8 +317,8 @@ func genericExtremum(larger bool) libraryApply {
 		case x.Kind == ValConst && x.Const.IsNumeric() && y.Kind == ValConst && y.Const.IsNumeric():
 			return extremum(name, ctx, args)
 		case x.Kind == ValString && y.Kind == ValString, x.Kind == ValQuantity && y.Kind == ValQuantity,
-			isNumberOrUnbounded(x) && isNumberOrUnbounded(y):
-			// Strings, quantities, and a number beside the unbounded `*` are
+			isExtendedNumber(x) && isExtendedNumber(y):
+			// Strings, quantities, and a number beside an infinity are
 			// picked by the ordering alone.
 			less, err := ctx.comparisonValues(program.OpLt, x, y, source.Span{})
 			if err != nil {
@@ -389,7 +397,7 @@ func (ctx *Context) isDataValue(val Value) bool {
 
 // numericalOperand admits the NumericalValues: Integers, Reals and Complexes.
 func numericalOperand(_ *Context, name, param string, val Value) (Value, error) {
-	if val.Kind == ValComplex || isNumberOrUnbounded(val) {
+	if val.Kind == ValComplex || isExtendedNumber(val) {
 		return val, nil
 	}
 	return Value{}, operandMismatch(name, param, "a numeric", val)
@@ -398,7 +406,7 @@ func numericalOperand(_ *Context, name, param string, val Value) (Value, error) 
 // realOperand binds an Integer or a Real to a Real parameter, which holds the
 // Real the argument equals: RealFunctions compute over Reals and answer one.
 func realOperand(_ *Context, name, param string, val Value) (Value, error) {
-	if isUnbounded(val) {
+	if isInfinity(val) {
 		return val, nil
 	}
 	if val.Kind == ValConst && val.Const.IsNumeric() {
@@ -411,7 +419,7 @@ func realOperand(_ *Context, name, param string, val Value) (Value, error) {
 // parameter as the Rational it equals, so the operator answers the exact
 // Rational RationalFunctions declares.
 func rationalOperand(_ *Context, name, param string, val Value) (Value, error) {
-	if isUnbounded(val) {
+	if isInfinity(val) {
 		return val, nil
 	}
 	if val.Kind == ValConst && val.Const.IsExact() {
@@ -426,10 +434,10 @@ func rationalOperand(_ *Context, name, param string, val Value) (Value, error) {
 }
 
 // integerOperand admits an Integer only: a Real does not conform to Integer.
-// The unbounded `*` is a Positive (KerML 1.0 §8.3.4.8.11), so it conforms to
-// every numeric parameter; the operation itself decides what it answers for it.
+// The unbounded `*` is a Positive (KerML 1.0 §8.3.4.8.11) and `-*` an Integer
+// (§9.3.2.2.3), so an infinity conforms to every parameter Integer conforms to.
 func integerOperand(_ *Context, name, param string, val Value) (Value, error) {
-	if (val.Kind == ValConst && val.Const.Kind == semantics.ValInt) || isUnbounded(val) {
+	if (val.Kind == ValConst && val.Const.Kind == semantics.ValInt) || isInfinity(val) {
 		return val, nil
 	}
 	return Value{}, operandMismatch(name, param, "an Integer", val)
@@ -440,8 +448,8 @@ func naturalOperand(ctx *Context, name, param string, val Value) (Value, error) 
 	if _, err := integerOperand(ctx, name, param, val); err != nil {
 		return Value{}, err
 	}
-	if !isUnbounded(val) && val.Const.IntSign() < 0 {
-		return Value{}, fmt.Errorf("%w: function %s parameter %q requires a Natural value, got %s", ErrTypeMismatch, name, param, val.Const.FormatInt())
+	if val.Const.Sign() < 0 {
+		return Value{}, fmt.Errorf("%w: function %s parameter %q requires a Natural value, got %s", ErrTypeMismatch, name, param, semantics.FormatConst(val.Const))
 	}
 	return val, nil
 }
@@ -468,10 +476,15 @@ func isUnbounded(val Value) bool {
 	return val.Kind == ValConst && val.Const.IsUnbounded()
 }
 
-// isNumberOrUnbounded reports whether val is a finite number or the unbounded `*`:
-// what the ordering of KerML 1.0 §8.2.5.8.4 ("greater than all the integers") ranks.
-func isNumberOrUnbounded(val Value) bool {
-	return val.Kind == ValConst && (val.Const.IsNumeric() || val.Const.IsUnbounded())
+// isInfinity reports whether val is `*` or `-*`.
+func isInfinity(val Value) bool {
+	return val.Kind == ValConst && val.Const.IsInfinite()
+}
+
+// isExtendedNumber reports whether val is a finite number or an infinity: what
+// the ordering of the extended Real (KerML 1.1 §9.3.2.2.9) ranks.
+func isExtendedNumber(val Value) bool {
+	return val.Kind == ValConst && val.Const.IsExtendedNumeric()
 }
 
 func operandMismatch(name, param, want string, val Value) error {

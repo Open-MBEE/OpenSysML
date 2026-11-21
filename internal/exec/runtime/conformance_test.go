@@ -2268,7 +2268,9 @@ func expectedToRuntimeValue(t *testing.T, ev ExpectedValue) Value {
 	case "Null":
 		return Value{Kind: ValNull}
 	case "Infinity":
-		return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInfinity}}
+		return Value{Kind: ValConst, Const: semantics.PositiveInfinity()}
+	case "NegativeInfinity":
+		return Value{Kind: ValConst, Const: semantics.NegativeInfinity()}
 	case "Variant":
 		t.Fatalf("a variant is named by the model, so it cannot be built from a case value")
 	case "EnumLiteral":
@@ -2448,6 +2450,10 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 	case "Infinity":
 		if actual.Kind != ValConst || !actual.Const.IsUnbounded() {
 			t.Errorf("%s: type = %v (Const.Kind=%v), want the unbounded `*`", name, actual.Kind, actual.Const.Kind)
+		}
+	case "NegativeInfinity":
+		if actual.Kind != ValConst || !actual.Const.IsNegativeInfinity() {
+			t.Errorf("%s: type = %v (Const.Kind=%v), want the negative infinity `-*`", name, actual.Kind, actual.Const.Kind)
 		}
 	case "Variant":
 		if actual.Kind != ValVariant || actual.Variant() == nil {
