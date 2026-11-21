@@ -11,15 +11,15 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 2235,
-      "presentDifferent": 198,
-      "oursMissing": 101,
+      "presentEqual": 2231,
+      "presentDifferent": 191,
+      "oursMissing": 112,
       "pilotMissing": 74,
       "absentBoth": 2624,
       "indeterminate": 84,
       "pilotNondeterministic": 1
     },
-    "unkeyedReferences": 232,
+    "unkeyedReferences": 229,
     "extensionProperties": 323,
     "duplicateElements": {
       "ours": 0,

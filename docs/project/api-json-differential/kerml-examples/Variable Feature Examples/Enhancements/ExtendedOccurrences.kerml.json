@@ -12,14 +12,14 @@
     },
     "properties": {
       "presentEqual": 2051,
-      "presentDifferent": 220,
-      "oursMissing": 79,
+      "presentDifferent": 148,
+      "oursMissing": 151,
       "pilotMissing": 154,
       "absentBoth": 1755,
       "indeterminate": 69,
       "pilotNondeterministic": 1
     },
-    "unkeyedReferences": 250,
+    "unkeyedReferences": 214,
     "extensionProperties": 318,
     "duplicateElements": {
       "ours": 0,

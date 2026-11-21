@@ -12,8 +12,8 @@
     },
     "properties": {
       "presentEqual": 1784,
-      "presentDifferent": 153,
-      "oursMissing": 250,
+      "presentDifferent": 147,
+      "oursMissing": 256,
       "pilotMissing": 64,
       "absentBoth": 1599,
       "indeterminate": 20,

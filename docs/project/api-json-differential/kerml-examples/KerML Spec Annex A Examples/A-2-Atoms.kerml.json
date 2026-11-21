@@ -12,11 +12,11 @@
     },
     "properties": {
       "presentEqual": 338,
-      "presentDifferent": 62,
+      "presentDifferent": 56,
       "oursMissing": 23,
       "pilotMissing": 18,
       "absentBoth": 298,
-      "indeterminate": 7,
+      "indeterminate": 4,
       "pilotNondeterministic": 0
     },
     "unkeyedReferences": 19,
