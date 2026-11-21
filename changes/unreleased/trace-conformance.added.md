@@ -1,0 +1,1 @@
+- Add `sysml -state <name> -conform-trace <file>` to check external JSON Lines observations against an untimed state machine and distinguish a matching execution, a mismatch, and an inconclusive search.

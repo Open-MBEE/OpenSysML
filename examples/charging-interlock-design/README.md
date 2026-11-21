@@ -39,3 +39,28 @@ unless it is represented at an observable checkpoint.
 This result covers only the modeled, finite environment through the chosen
 horizon, not arbitrary external commands, repetitions of the recovery cycle,
 real electrical behavior, or eventual recovery under all environments.
+
+## Check a recorded implementation trace
+
+The design checks above ask what can happen before implementation. The same
+station model can also check what was independently observed after
+implementation. These two synthetic recordings use only external stimulus
+names and power-stage readback. They do not supply controller lock state or
+any runtime scheduler choices.
+
+```sh
+example=examples/charging-interlock-design
+machine='ChargingInterlock::StationController::Interlock ChargingInterlock::rig.controller'
+sysml -json -state "$machine" -conform-trace "$example/observed-normal.jsonl" "$example/station.sysml"
+sysml -json -state "$machine" -conform-trace "$example/observed-early-output.jsonl" "$example/station.sysml"
+```
+
+The first recording matches through row 6 (exit 0). The second reports
+`no_match` at row 3 (exit 1): the request's readback shows power before the
+lock report. Both finish deenergized. `-check-depth 1` on the first recording
+returns `inconclusive` (exit 2); it does not declare a mismatch.
+
+The recorded signal is delivered directly to one controller's untimed state
+machine, and observations are checked after it settles. This does not
+verify ports, event timing, actual hardware, or unrecorded signals.
+See [the CLI reference](../../docs/reference/cli.md#checking-an-external-trace).

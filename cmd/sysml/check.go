@@ -43,6 +43,7 @@ type checks struct {
 	queries           []queryInvocation
 	actions           stringSlice
 	states            stringSlice
+	conformTrace      string
 	advance           advanceTime
 	jsonOut           bool
 	// format is the report format -format named, output the file -o writes the

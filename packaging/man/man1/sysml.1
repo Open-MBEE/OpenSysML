@@ -152,6 +152,10 @@ object (repeatable)
 Run this state machine, as \-state "Mission rover1" to run it on an object
 (repeatable)
 .TP
+.BR \-conform\-trace " \fIfile\fP"
+Check JSON Lines observations against the single state machine named with
+\-state, and exit on the verdict
+.TP
 .BR \-advance " \fItime\fP"
 Simulated time units to run the \-action and \-state behaviors for, on one
 shared clock; without it a state machine takes only its initial transition
@@ -682,6 +686,8 @@ sysml \-run\-inline\-query 'Project(Descendants(Named("Lander")), \e
 sysml \-action Drive model.sysml
 # Run a state machine for 10 time units
 sysml \-state Mission \-advance 10 model.sysml
+# Check the recorded observations against the machine
+sysml \-state Mission \-conform\-trace observed.jsonl \-json model.sysml
 # \&...an action and a machine on one clock
 sysml \-action Ping \-state Sm \-advance 5 m.sysml
 # Run every linearization; table the outcomes
@@ -713,6 +719,12 @@ shared clock that \-advance runs for the given simulated time units; without
 \-advance a state machine takes only its initial transition. Either names a
 definition or usage, or one followed by the object to perform it on, as
 \-action "Drive rover1".
+.PP
+\-conform\-trace compares an external JSON Lines trace to one untimed state
+machine: an initial observation and then signals with observations after each
+settles. Exit 0 if a model execution matches, 1 if none can match, 2 if the
+input is invalid or the search is inconclusive. \-check\-depth,
+\-check\-states and \-check\-timeout bound the search.
 .PP
 \-schedule is the policy every run resolves its choice points under \(em
 concurrent tokens, overlapping guards, competing transitions: declared,
@@ -1315,7 +1327,8 @@ The model answered false for a check.
 .TP
 .B 2
 What was asked could not be carried out at all \(em an unreadable file, a
-model that did not analyse cleanly, an unresolved name, a failed conversion.
+model that did not analyse cleanly, an unresolved name, a failed conversion,
+or an inconclusive \-conform\-trace search.
 .TP
 .B 3
 Part of what was asked was carried out: a \-render\-documents set in which

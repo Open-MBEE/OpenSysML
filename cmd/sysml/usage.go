@@ -69,6 +69,7 @@ func doc() usage.Doc {
 				usage.Ex(`sysml -run-inline-query 'Project(Descendants(Named("Lander")), ("name"))' m.sysml`, "...or a query expression written in place"),
 				usage.Ex("sysml -action Drive model.sysml", "Run an action to completion"),
 				usage.Ex("sysml -state Mission -advance 10 model.sysml", "Run a state machine for 10 time units"),
+				usage.Ex("sysml -state Mission -conform-trace observed.jsonl -json model.sysml", "Check the recorded observations against the machine"),
 				usage.Ex("sysml -action Ping -state Sm -advance 5 m.sysml", "...an action and a machine on one clock"),
 				usage.Ex("sysml -schedule explore -action Drive m.sysml", "Run every linearization; table the outcomes"),
 				usage.Ex("sysml -satisfy -json model.sysml", "Report the verdicts as JSON"),
@@ -101,6 +102,11 @@ func doc() usage.Doc {
 					"units; without -advance a state machine takes only its initial " +
 					"transition. Either names a definition or usage, or one followed by " +
 					"the object to perform it on, as -action \"Drive rover1\".",
+				"-conform-trace compares an external JSON Lines trace to one untimed " +
+					"state machine: an initial observation and then signals with observations " +
+					"after each settles. Exit 0 if a model execution matches, 1 if none can " +
+					"match, 2 if the input is invalid or the search is inconclusive. " +
+					"-check-depth, -check-states and -check-timeout bound the search.",
 				"-schedule is the policy every run resolves its choice points under — " +
 					"concurrent tokens, overlapping guards, competing transitions: " +
 					"declared, reverse (the default), seed:<n> for a reproducible " +
@@ -612,7 +618,7 @@ func doc() usage.Doc {
 				usage.Entry("1", "The model answered false for a check."),
 				usage.Entry("2", "What was asked could not be carried out at all — an unreadable "+
 					"file, a model that did not analyse cleanly, an unresolved name, a "+
-					"failed conversion."),
+					"failed conversion, or an inconclusive -conform-trace search."),
 				usage.Entry("3", "Part of what was asked was carried out: a -render-documents set "+
 					"in which some document could not be rendered. The others were "+
 					"written, a page stating the error stands in for each that was not, "+
@@ -702,6 +708,7 @@ func registerFlags(fs *flag.FlagSet) {
 
 	fs.Var(&modelChecks.actions, "action", "Run this action to completion, as -action \"Drive rover1\" to run it on an object (repeatable)")
 	fs.Var(&modelChecks.states, "state", "Run this state machine, as -state \"Mission rover1\" to run it on an object (repeatable)")
+	fs.StringVar(&modelChecks.conformTrace, conformTraceFlag, "", "Check JSON Lines observations against the single state machine named with -state, and exit on the verdict")
 	fs.Var(&modelChecks.advance, "advance", "Simulated time units to run the -action and -state behaviors for, on one shared clock; without it a state machine takes only its initial transition under every schedule and engine")
 	fs.Var(&schedule, "schedule", "Policy every run resolves its choice points under: declared, reverse (default), seed:<n>, explore[:runs=N,depth=D] or replay:<file>")
 	fs.Var(&modelChecks.seed, "seed", "Seed the model's own draws — weighted decisions, random functions — and those of -samples and -runs; the same seed draws the same run or table")
@@ -837,6 +844,7 @@ func optionGroups() []usage.OptionGroup {
 		Options: []usage.Option{
 			usage.Opt("action", nameArg),
 			usage.Opt("state", nameArg),
+			usage.Opt(conformTraceFlag, fileArg),
 			usage.Opt("advance", "<time>"),
 			usage.Opt("schedule", "<policy>"),
 			usage.Opt("seed", "<n>"),
