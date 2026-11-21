@@ -4,9 +4,8 @@ package main
 
 import "errors"
 
-// serveRefusal refuses to serve: Go's net on js/wasm and wasip1 hands back
-// listeners that accept only from inside the same process, so the kernel's
-// sockets would wait forever on addresses no front end could dial.
+// serveRefusal refuses to serve: a wasm build's listeners accept only from inside
+// its own process, so the kernel would wait on addresses no front end could dial.
 func serveRefusal() error {
 	return errors.New("a kernel binds the addresses its connection file names, and a WebAssembly " +
 		"build's network reaches only the process it runs in, so no Jupyter front end could " +
