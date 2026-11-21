@@ -574,22 +574,29 @@ func (p *transitionParts) withSourceChain(trans *symbols.Symbol, source *ast.Qua
 }
 
 // dottedTargetChain is the feature chain a dotted transition target (`then a.b`) is
-// written as (SysML.xtext TransitionSuccession), nested as the parser shapes one.
+// written as (SysML.xtext TransitionSuccession), nested as the parser shapes one; a
+// `::` qualifies the segment it follows (`then p::a.b` chains b from p::a).
 func dottedTargetChain(target *ast.QualifiedName) ast.Node {
-	if target == nil || len(target.Parts) < 2 {
+	if target == nil || !nameHasChain(target) {
 		return target
 	}
-	segment := func(i int) *ast.QualifiedName {
-		name := &ast.QualifiedName{}
-		name.SetSingleton(target.Parts[i])
-		name.NodeSpan = target.Parts[i].Span
-		return name
-	}
-	var node ast.Node = segment(0)
-	for i := 1; i < len(target.Parts); i++ {
-		chain := &ast.FeatureChainExpr{Operand: node, Member: segment(i)}
-		chain.NodeSpan = source.Span{Offset: target.Span().Offset, Len: target.Parts[i].Span.Offset + target.Parts[i].Span.Len - target.Span().Offset}
-		node = chain
+	var node ast.Node
+	for start := 0; start < len(target.Parts); {
+		end := start + 1
+		for end < len(target.Parts) && !target.Parts[end].Chained {
+			end++
+		}
+		last := target.Parts[end-1].Span
+		segment := &ast.QualifiedName{Global: target.Global && start == 0, Parts: target.Parts[start:end:end]}
+		segment.NodeSpan = source.Span{Offset: target.Parts[start].Span.Offset, Len: last.Offset + last.Len - target.Parts[start].Span.Offset}
+		if node == nil {
+			node = segment
+		} else {
+			chain := &ast.FeatureChainExpr{Operand: node, Member: segment}
+			chain.NodeSpan = source.Span{Offset: target.Span().Offset, Len: last.Offset + last.Len - target.Span().Offset}
+			node = chain
+		}
+		start = end
 	}
 	return node
 }
