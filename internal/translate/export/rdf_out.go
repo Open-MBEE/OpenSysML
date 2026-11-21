@@ -1765,17 +1765,18 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		// A declaration head that binds ends (connect/bind/flow/succession),
 		// a transition, an accept action or a satisfy usage states its ends
 		// and form structurally, since the properties above do not.
-		if verbatimUsage(n) {
-			if err := e.bindingEnds(subject, within, n); err != nil {
-				return err
-			}
-			e.endForm(subject, n)
-		}
+		// A flow owns its payload ahead of its ends, as the pilot orders them (SysML.xtext FlowDeclaration).
 		if payload := e.names.PayloadOf(n); payload != nil {
 			h := memberHead{node: payload, owner: subject, index: e.names.CrossFeatureIndex(n), inline: true}
 			if err := e.encodeMember(h, fqn); err != nil {
 				return err
 			}
+		}
+		if verbatimUsage(n) {
+			if err := e.bindingEnds(subject, within, n); err != nil {
+				return err
+			}
+			e.endForm(subject, n)
 		}
 		if statement := naming.NodeStatement(n); statement != nil {
 			// The node is the statement it is written as: its parts are the
