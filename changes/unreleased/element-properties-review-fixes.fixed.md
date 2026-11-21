@@ -1,0 +1,1 @@
+- `GetElementProperties` now reads each of two filtered imports in one namespace (`import P::*[@A]; import P::*[@B];`) through its own filter package, a transition target qualified with `::` (`then S::b`) as the state it names rather than a feature chain, and a decision branch's (`if g then b;`) succession target end with the `ReferenceSubsetting` that refers to `b`.

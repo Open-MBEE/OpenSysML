@@ -88,8 +88,11 @@ func TestFlowOwnsItsEnds(t *testing.T) {
 			}
 			t.Errorf("g1's end %s implies a default multiplicity; a FlowEnd states none", model.EffectiveNameOf(end))
 		}
-		if got := ownedMemberKinds(model, nestedSym(t, fixture.root, "P::m1")); got != "" {
-			t.Errorf("the message's ownedRelationship = %s, want none: a message owns no FlowEnd", got)
+		// A message owns no FlowEnd: its ends are the event occurrences it relates, held as
+		// parameters (SysML.xtext MessageEventMember), as the conversion writes them.
+		want = "ParameterMembership:EventOccurrenceUsage ParameterMembership:EventOccurrenceUsage"
+		if got := ownedMemberKinds(model, nestedSym(t, fixture.root, "P::m1")); got != want {
+			t.Errorf("the message's ownedRelationship = %s, want %s", got, want)
 		}
 	}
 }

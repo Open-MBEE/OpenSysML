@@ -5,11 +5,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.openmbee.opensysml.Connection;
@@ -174,22 +176,44 @@ public final class Engine implements AutoCloseable {
     Objects.requireNonNull(cancellation);
     if (result.views().isEmpty() || cancellation.requested()) return result;
     return withModel(cancellation, current -> {
-      List<SourceDocument> documents = new ArrayList<>(source.sources(current));
-      for (RunResult.View view : result.views()) {
-        documents.add(SourceDocument.inline(ResultViews.fileName("view", view.query()), view.text()));
-      }
-      Model model = current.parseSources(documents);
-      List<RunResult.View> rendered = new ArrayList<>();
-      for (RunResult.View view : result.views()) {
-        RenderedView laid = model.renderView(view.name(), DocumentForm.MARKDOWN);
-        rendered.add(new RunResult.View(
-            view.query(), view.name(), view.text(),
-            laid.header().stream().map(field -> new RunResult.Field(field.name(), field.value())).toList(),
-            laid.columns(),
-            laid.rows().stream().map(RenderedView.Row::cells).toList()));
+      List<SourceDocument> sources = source.sources(current);
+      List<RunResult.View> rendered = new ArrayList<>(result.views());
+      for (List<Integer> group : distinctlyNamed(result.views())) {
+        List<SourceDocument> documents = new ArrayList<>(sources);
+        for (int index : group) {
+          RunResult.View view = result.views().get(index);
+          documents.add(SourceDocument.inline(ResultViews.fileName("view", view.query()), view.text()));
+        }
+        Model model = current.parseSources(documents);
+        for (int index : group) {
+          RunResult.View view = result.views().get(index);
+          RenderedView laid = model.renderView(view.name(), DocumentForm.MARKDOWN);
+          rendered.set(index, new RunResult.View(
+              view.query(), view.name(), view.text(),
+              laid.header().stream().map(field -> new RunResult.Field(field.name(), field.value())).toList(),
+              laid.columns(),
+              laid.rows().stream().map(RenderedView.Row::cells).toList()));
+        }
       }
       return result.withViews(rendered);
     }).orElse(result);
+  }
+
+  /** The indexes of {@code views} in the fewest groups holding no two views of one name, each loadable into one model. */
+  private static List<List<Integer>> distinctlyNamed(List<RunResult.View> views) {
+    List<List<Integer>> groups = new ArrayList<>();
+    List<Set<String>> names = new ArrayList<>();
+    for (int index = 0; index < views.size(); index++) {
+      int group = 0;
+      while (group < groups.size() && names.get(group).contains(views.get(index).name())) group++;
+      if (group == groups.size()) {
+        groups.add(new ArrayList<>());
+        names.add(new HashSet<>());
+      }
+      groups.get(group).add(index);
+      names.get(group).add(views.get(index).name());
+    }
+    return groups;
   }
 
   /**

@@ -171,3 +171,18 @@ func TestElementPropertiesNameAnExcludedDocumentsElement(t *testing.T) {
 		t.Errorf("following %s answers %+v, want c.sysml's syntax error", named.Id, followed)
 	}
 }
+
+// An id the element form cannot mint refuses the model whole, as Convert does: no
+// element answers, one of a document the parser could not read whole included.
+func TestElementPropertiesRefuseAModelWhoseIdsCannotBeMinted(t *testing.T) {
+	r := parseDocumentsForElementProperties(t,
+		&pb.SourceDocument{Name: "c.sysml", Source: &pb.SourceDocument_Content{Content: "package C { part def Broken; part def X { ; }"}},
+		&pb.SourceDocument{Name: "d.sysml", Source: &pb.SourceDocument_Content{Content: "package D {\n\tprivate import IdentityMetadata::*;\n\tpart def A { @ElementId { id = \"bad id\"; } }\n}"}},
+	)
+	for _, id := range []string{"C::Broken", "D::A", "D"} {
+		answered := r.read(id, "name")
+		if !strings.Contains(answered.Error, `its id "bad id"`) || len(answered.Properties) != 0 {
+			t.Errorf("%s answers %+v, want the model's refusal", id, answered)
+		}
+	}
+}

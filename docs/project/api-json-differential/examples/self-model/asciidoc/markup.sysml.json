@@ -11,15 +11,15 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 1027,
+      "presentEqual": 1030,
       "presentDifferent": 44,
-      "oursMissing": 42,
+      "oursMissing": 38,
       "pilotMissing": 43,
       "absentBoth": 1076,
-      "indeterminate": 77,
+      "indeterminate": 78,
       "pilotNondeterministic": 0
     },
-    "unkeyedReferences": 128,
+    "unkeyedReferences": 129,
     "extensionProperties": 175,
     "duplicateElements": {
       "ours": 0,
@@ -244,7 +244,7 @@
     "CalculationUsage.parameter": [0,0,1,0,0,0,0],
     "CalculationUsage.portionKind": [0,0,0,0,1,0,0],
     "CalculationUsage.qualifiedName": [1,0,0,0,0,0,0],
-    "CalculationUsage.result": [0,0,1,0,0,0,0],
+    "CalculationUsage.result": [0,0,0,0,0,1,0],
     "CalculationUsage.textualRepresentation": [0,0,0,0,1,0,0],
     "CalculationUsage.type": [1,0,0,0,0,0,0],
     "CalculationUsage.unioningType": [0,0,0,0,1,0,0],
@@ -524,7 +524,7 @@
     "LiteralString.owningNamespace": [3,0,0,0,0,0,0],
     "LiteralString.owningRelationship": [3,0,0,0,0,0,0],
     "LiteralString.parameter": [0,0,3,0,0,0,0],
-    "LiteralString.result": [0,0,3,0,0,0,0],
+    "LiteralString.result": [3,0,0,0,0,0,0],
     "LiteralString.textualRepresentation": [0,0,0,0,3,0,0],
     "LiteralString.type": [3,0,0,0,0,0,0],
     "LiteralString.unioningType": [0,0,0,0,3,0,0],
