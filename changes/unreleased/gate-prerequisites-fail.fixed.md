@@ -1,0 +1,1 @@
+- Three checks no longer pass when what they need is missing: the diagnostic-code census fails rather than skips when `git ls-files` cannot run, `make man-lint` fails when neither `mandoc` nor `groff` is installed, and `pilot-exec-diff` fails over an absent pilot evaluator when `OPENSYSML_REQUIRE_PILOT_EVALUATOR` is set.
