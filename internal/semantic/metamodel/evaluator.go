@@ -29,11 +29,12 @@ type Evaluator struct {
 	resolver                     *resolve.Resolver
 	model                        *semantics.Model
 	options                      Options
-	mu                           sync.Mutex
+	mu                           sync.RWMutex
 	cache                        map[propertyKey]cachedValue
 	reasons                      map[propertyKey]Reason
 	internedStrings              map[string]string
 	memos                        map[ElementKey][]memoEntry
+	structureImported            map[ElementKey]structureImportedEntry
 	structureRedefined           map[ElementKey]structureElementsCacheEntry
 	qualifiedNameNamespaceCaches map[ElementKey]structureQualifiedNameNamespaceCache
 }
@@ -52,6 +53,7 @@ func New(res *resolve.Resolver, model *semantics.Model, options ...Options) *Eva
 		reasons:                      make(map[propertyKey]Reason),
 		internedStrings:              make(map[string]string),
 		memos:                        make(map[ElementKey][]memoEntry),
+		structureImported:            make(map[ElementKey]structureImportedEntry),
 		structureRedefined:           make(map[ElementKey]structureElementsCacheEntry),
 		qualifiedNameNamespaceCaches: make(map[ElementKey]structureQualifiedNameNamespaceCache),
 	}
@@ -80,8 +82,8 @@ func (e *Evaluator) Explain(el Element, definingClass, name string) (Reason, boo
 		return Reason{}, false
 	}
 	key := propertyKey{element: el.Key(), class: definingClass, name: name}
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 	reason, ok := e.reasons[key]
 	if _, served := ruleConstraints[keyName(definingClass, name)]; !ok && !served {
 		// No element has a rule for the property, so the cause is not recorded per element.
@@ -93,6 +95,12 @@ func (e *Evaluator) Explain(el Element, definingClass, name string) (Reason, boo
 // Property returns a faithfully derived property value when the evaluator serves it.
 func (e *Evaluator) Property(el Element, definingClass, name string) (Value, bool) {
 	return e.property(el, definingClass, name, true)
+}
+
+// PropertyReadOnly returns a derived value whose sequence is shared with the
+// evaluator cache; callers must not modify Values or any nested sequence.
+func (e *Evaluator) PropertyReadOnly(el Element, definingClass, name string) (Value, bool) {
+	return e.property(el, definingClass, name, false)
 }
 
 // PropertyReadOnlyUncached returns a derived value the caller must not modify and
@@ -233,6 +241,19 @@ func (e *Evaluator) derive(el Element, class, name string) (Value, bool) {
 		}
 	case "Feature":
 		switch name {
+		case "isEnd":
+			if sym == nil {
+				return e.unsupported(el, class, name, Reason{
+					Category: ReasonUnrepresentedElement,
+					Detail:   "Feature has no semantic symbol",
+				})
+			}
+			if meta := e.model.MetaclassOf(sym); meta != nil && e.options.Structure != nil &&
+				e.options.Structure.Specializes(meta.Name, "Multiplicity") {
+				return booleanValue(false), true
+			}
+			value, ok := e.model.ReflectiveFeatureValue(sym, "isEnd")
+			return booleanValue(ok && value.Kind == symbols.FilterValueBool && value.Bool), true
 		case "direction":
 			if sym == nil {
 				return e.unsupported(el, class, name, Reason{
@@ -648,13 +669,26 @@ func (e *Evaluator) importProperty(el Element, name string) (Value, bool) {
 		})
 	}
 	imp, ok := el.Node.(*ast.Import)
+	var scope *symbols.Scope
+	if el.Container != nil {
+		scope = el.Container.Scope
+	}
+	if !ok {
+		// A structure's handle carries no node: the import is the symbol it projects.
+		if sym, found := e.structureSymbolOf(el); found && sym.Implicit != nil && sym.Implicit.Form == symbols.ImplicitImport {
+			imp, ok = sym.Implicit.Decl.(*ast.Import)
+			if owner := sym.Implicit.Owner; owner != nil {
+				scope = owner.Scope
+			}
+		}
+	}
 	if !ok || imp == nil {
 		return e.unsupported(el, "Import", name, Reason{
 			Category: ReasonUnrepresentedElement,
 			Detail:   "Import::importedElement has no syntax-backed import",
 		})
 	}
-	if el.Container == nil || el.Container.Scope == nil {
+	if scope == nil {
 		return e.unsupported(el, "Import", name, Reason{
 			Category: ReasonMissingStructure,
 			Detail:   "Import::importedElement has no containing namespace",
@@ -666,7 +700,7 @@ func (e *Evaluator) importProperty(el Element, name string) (Value, bool) {
 			Detail:   "Import::importedElement requires a resolver",
 		})
 	}
-	imported, ok := e.resolver.ImportTarget(el.Container.Scope, imp)
+	imported, ok := e.resolver.ImportTarget(scope, imp)
 	if !ok || imported == nil ||
 		!e.importTreeComplete(imported, imp, make(map[*symbols.Scope]bool)) {
 		return e.unsupported(el, "Import", name, Reason{

@@ -1,0 +1,8 @@
+{
+  "rpc": "Query",
+  "model": "query_result_view.sysml",
+  "oslc_query": "oslc.where=sysml:nme=\"camera\"",
+  "as_view": true,
+  "expected_query_error": "sysml:nme",
+  "expected_result_view": "package AnswerResult {\n\tprivate import QVTS::*;\n\n\tview answer : QueryResult {\n\t\tattribute :>> query = \"oslc.where=sysml:nme=\\\"camera\\\"\";\n\t\tattribute :>> source = \"model:<model>\";\n\t\tattribute :>> outcome = Outcome::pathError;\n\t\tattribute :>> provenance = \"model:<model>; step Feature(sysml:nme)\";\n\t}\n}\n"
+}

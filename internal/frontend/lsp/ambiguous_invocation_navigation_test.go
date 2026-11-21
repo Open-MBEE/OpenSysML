@@ -219,7 +219,7 @@ func TestAmbiguousHoverSurvivesDocumentRemoval(t *testing.T) {
 	if s.document(name) != nil {
 		t.Fatal("document still present after removal")
 	}
-	hov := s.ambiguousCallHover(name, content, *ref, off)
+	hov := s.ambiguousCallHover(name, positionsFor(content), *ref, off)
 	if hov == nil {
 		t.Fatal("ambiguousCallHover = nil, want the tied overloads")
 	}

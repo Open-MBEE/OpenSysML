@@ -25,6 +25,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/errata"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/pilot"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 )
 
@@ -268,7 +269,7 @@ func run(opts options) error {
 		Libraries: relativeTo(opts.repo, opts.libraries),
 		Errata:    newErrataReport(overlay),
 	}
-	if report.Pilot, err = pilotVersion(opts.validator); err != nil {
+	if report.Pilot, err = pilot.Version(opts.validator); err != nil {
 		return err
 	}
 	if report.Provenance, err = provenance(opts.repo, report.Pilot, report.Libraries); err != nil {

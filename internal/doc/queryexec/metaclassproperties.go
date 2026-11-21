@@ -33,16 +33,23 @@ type metaclassProperty struct {
 	DefiningClass string
 }
 
+// reflectionMemo is what one execution has read of the metamodel: each
+// metaclass's properties, and every property some metaclass declares.
+type reflectionMemo struct {
+	features map[*symbols.Symbol]map[string]metaclassProperty
+	declared map[string]bool
+}
+
 // metaclassProperties are the metaclass's features by name, inherited and
 // redefined ones included (partDefinition and definition), memoized. A feature
 // a metaclass inherits from the library's occurrences and objects (dispatchScope,
 // portionOf) is no property of the metamodel's and is left out.
 func (e *executor) metaclassProperties(metaclass *symbols.Symbol) map[string]metaclassProperty {
-	if properties, ok := e.metaclassFeatures[metaclass]; ok {
+	if properties, ok := e.reflection.features[metaclass]; ok {
 		return properties
 	}
-	if e.metaclassFeatures == nil {
-		e.metaclassFeatures = map[*symbols.Symbol]map[string]metaclassProperty{}
+	if e.reflection.features == nil {
+		e.reflection.features = map[*symbols.Symbol]map[string]metaclassProperty{}
 	}
 	properties := map[string]metaclassProperty{}
 	for _, member := range e.context.Model.MembersOfIncludingRedefined(metaclass) {
@@ -66,7 +73,7 @@ func (e *executor) metaclassProperties(metaclass *symbols.Symbol) map[string]met
 		}
 		properties[name] = metaclassProperty{Name: name, DefiningClass: definingClass}
 	}
-	e.metaclassFeatures[metaclass] = properties
+	e.reflection.features[metaclass] = properties
 	return properties
 }
 
@@ -119,17 +126,17 @@ func DeclaredMetaclassFeatures(index *symbols.Index) map[string][]*symbols.Symbo
 // metamodelDeclares reports a property some metaclass of the loaded library declares,
 // or one of the evaluator's own (each segment of a dotted path): known even when no row has it.
 func (e *executor) metamodelDeclares(property string) bool {
-	if e.metamodelProperties == nil {
-		e.metamodelProperties = map[string]bool{}
+	if e.reflection.declared == nil {
+		e.reflection.declared = map[string]bool{}
 		for _, name := range ownProperties {
-			e.metamodelProperties[name] = true
+			e.reflection.declared[name] = true
 		}
 		for name := range DeclaredMetaclassFeatures(e.context.Index) {
-			e.metamodelProperties[name] = true
+			e.reflection.declared[name] = true
 		}
 	}
 	for _, segment := range strings.Split(property, ".") {
-		if !e.metamodelProperties[segment] {
+		if !e.reflection.declared[segment] {
 			return false
 		}
 	}
@@ -263,7 +270,7 @@ func (e *executor) unservedProperty(declared metaclassProperty, sym *symbols.Sym
 		Outcome: &Outcome{Path: &PathError{Failures: []Failure{{
 			Step:     Step{Kind: StepFeature, Argument: declared.Name},
 			Expected: key + " derived by OpenSysML",
-			Frontier: Frontier{At: symbols.FQNOf(sym)},
+			Frontier: Frontier{At: symbols.FQNOf(sym), element: sym},
 		}}}},
 	}
 }

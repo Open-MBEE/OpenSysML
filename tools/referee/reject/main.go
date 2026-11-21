@@ -25,6 +25,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/errata"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/pilot"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 )
 
@@ -181,7 +182,7 @@ func run(opts options) error {
 		Conformance: policy,
 		Errata:      newErrataReport(overlay),
 	}
-	if report.Pilot, err = pilotVersion(validator); err != nil {
+	if report.Pilot, err = pilot.Version(validator); err != nil {
 		return err
 	}
 	if report.Provenance, err = provenance(root, report.Pilot, corpusDir, overlay, files); err != nil {

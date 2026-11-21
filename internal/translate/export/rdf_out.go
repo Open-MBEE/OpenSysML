@@ -392,47 +392,19 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 // encodeModelDocuments merges the documents' graphs; nameLibrary states the library stubs of the merged one.
 // It returns the graph alone, so a caller done with the encoders holds no document's graph beside it.
 func encodeModelDocuments(ctx context.Context, documents []ModelDocument, encoders []*encoder, nameLibrary libraryNamer) (*rdf.Graph, error) {
-	out, _, _, err := encodeReadableDocuments(ctx, documents, encoders, nameLibrary, nil, false)
-	return out, err
-}
-
-// ExcludedDocument is a document a model was read without, and why.
-type ExcludedDocument struct {
-	Document string
-	Err      error
-}
-
-// encodeReadableDocuments is encodeModelDocuments without the documents unreadable names and, when tolerant, without one it
-// cannot write or whose ids an earlier document declares: each stays analyzed, declares no id, and is returned in document order.
-func encodeReadableDocuments(ctx context.Context, documents []ModelDocument, encoders []*encoder, nameLibrary libraryNamer, unreadable map[string]error, tolerant bool) (*rdf.Graph, []ExcludedDocument, []bool, error) {
 	// declaredIn is the document and declaration each subject was minted for:
 	// two documents declaring one subject would merge two elements into one.
 	declaredIn := map[string]mintedSubject{}
-	written := slices.Clone(documents)
-	var excluded []ExcludedDocument
-	exclude := func(i int, err error) {
-		written[i].Referenced = true
-		excluded = append(excluded, ExcludedDocument{Document: documents[i].File.Name(), Err: err})
-	}
 	for i, e := range encoders {
 		if err := ctx.Err(); err != nil {
-			return nil, nil, nil, err
-		}
-		if err := unreadable[documents[i].File.Name()]; err != nil {
-			exclude(i, err)
-			continue
+			return nil, err
 		}
 		var minted []mintedSubject
 		if documents[i].Referenced {
 			minted = e.declaredSubjects()
 		} else {
 			if err := e.encodeDocument(documents[i].Root); err != nil {
-				err = fmt.Errorf("%s: %w", documents[i].File.Name(), err)
-				if !tolerant {
-					return nil, nil, nil, err
-				}
-				exclude(i, err)
-				continue
+				return nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
 			}
 			// The document is written: its graph waits for the merge as its triples
 			// alone, without the lookup tables the writing built over them.
@@ -440,27 +412,20 @@ func encodeReadableDocuments(ctx context.Context, documents []ModelDocument, enc
 			minted = e.minted
 		}
 		if err := declaredOnce(declaredIn, minted); err != nil {
-			if !tolerant {
-				return nil, nil, nil, err
-			}
-			exclude(i, err)
+			return nil, err
 		}
 	}
 	if err := ctx.Err(); err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
-	out := mergeDocumentGraphs(encoders, written)
+	out := mergeDocumentGraphs(encoders, documents)
 	if err := nameLibrary(ctx, out); err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	// Each document's encoder annotated its collections from its own triples,
 	// in their order, and no two documents declare one subject (refused above).
 	out.MarkCollectionsSettled()
-	unwritten := make([]bool, len(written))
-	for i, doc := range written {
-		unwritten[i] = doc.Referenced
-	}
-	return out, excluded, unwritten, nil
+	return out, nil
 }
 
 // modelEncodersOf analyzes the model and makes each document's encoder with
@@ -931,7 +896,14 @@ func (e *encoder) importedMembership(name *ast.QualifiedName) rdf.Term {
 	if qualifiedText(name) == "" {
 		return rdf.String("")
 	}
-	decl, fqn, ok := e.linked(e.res.PartAlias(name, len(name.Parts)-1))
+	alias, aliased := e.res.PartAlias(name, len(name.Parts)-1)
+	decl, fqn, ok := e.linked(alias, aliased)
+	if !ok && aliased {
+		// A library alias is the Membership imported too (KerML 8.2.3.5), under its minted id.
+		if membership, minted := e.ids.libraryAliasMembership(alias); minted {
+			return membership
+		}
+	}
 	if !ok {
 		decl, fqn, ok = e.referent(name)
 	}

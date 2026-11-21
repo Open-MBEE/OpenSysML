@@ -64,7 +64,7 @@ func (s *Server) References(ctx context.Context, params *protocol.ReferenceParam
 // under the cursor, or the declaration the cursor sits in. A call tied between
 // overloads names no one declaration, so it has no references to list.
 func (s *Server) referenceTarget(name string, doc *model.Document, pos protocol.Position) *symbols.Symbol {
-	offset := positionToOffset(doc.Content, pos)
+	offset := positionsOf(doc).offset(pos)
 	if ref := refAtOffset(collectRefs(doc.AST, doc.Scope), offset); ref != nil {
 		if sym, _, ok := s.referencedSegment(name, *ref, offset); ok && sym != nil {
 			return sym

@@ -220,7 +220,7 @@ func measure(root string, b *Baseline, out io.Writer) error {
 func checkMeasurement(root string, b *Baseline, out io.Writer) error {
 	suite := filepath.Join(root, filepath.FromSlash(pssmSuiteRel))
 	if _, err := os.Stat(suite); err != nil {
-		if os.Getenv(pssmRequireEnv) == "1" {
+		if os.Getenv(pssmRequireEnv) != "" {
 			return fmt.Errorf("the PSSM suite is required (%s=1): run ./scripts/download-pssm-suite.sh", pssmRequireEnv)
 		}
 		fmt.Fprintf(out, "transformation-census: PSSM suite not provisioned at %s; skipping the measurement comparison\n", suite)

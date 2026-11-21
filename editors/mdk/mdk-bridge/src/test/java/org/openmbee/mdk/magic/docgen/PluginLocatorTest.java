@@ -38,6 +38,18 @@ class PluginLocatorTest {
   }
 
   @Test
+  void aViewGoesThroughTheFourArgumentEntryPointAndABlankOneDoesNot() {
+    PluginLocator locator = new PluginLocator(() -> List.of(new OpenSysML()));
+    FakeElement element = new FakeElement("A");
+    assertEquals("Part A rendered", locator.run(element, "RUN_QUERY", "", "rendered").get("subject"));
+    assertEquals("Part A", locator.run(element, "RUN_QUERY", "", " ").get("subject"));
+    PluginLocator older = new PluginLocator(() -> List.of(new Failing()));
+    IllegalStateException failure = assertThrows(IllegalStateException.class,
+        () -> older.run(element, "RUN_QUERY", "", "text"));
+    assertTrue(failure.getMessage().contains("no docGen entry point taking 4 arguments"), failure.getMessage());
+  }
+
+  @Test
   void unwrapsRuntimeFailuresOfThePlugin() {
     PluginLocator locator = new PluginLocator(() -> List.of(new Failing()));
     FakeElement element = new FakeElement("A");
@@ -86,6 +98,10 @@ class PluginLocatorTest {
 
     public Map<String, Object> docGen(BaseElement element, String operation, String calcArguments) {
       return Flat.verify(element.getHumanName(), "PASSED");
+    }
+
+    public Map<String, Object> docGen(BaseElement element, String operation, String calcArguments, String view) {
+      return Flat.verify(element.getHumanName() + " " + view, "PASSED");
     }
   }
 

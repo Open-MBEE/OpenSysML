@@ -116,3 +116,20 @@ func successionEndMultiplicity(sym *symbols.Symbol) *ast.Multiplicity {
 	}
 	return nil
 }
+
+// successionEndTarget is the reference a `then` succession's target end names, nil for its source end.
+func successionEndTarget(end *symbols.Symbol) *ast.QualifiedName {
+	if i, ok := symbols.ImpliedSuccessionEndIndex(end); !ok || i != 1 {
+		return nil
+	}
+	decl, _ := symbols.ImpliedDeclOf(end)
+	switch edge := decl.Of.(type) {
+	case *ast.SuccessionEdge:
+		return edge.Target
+	case *ast.TransitionMember:
+		return edge.Target
+	case *ast.ControlFlowEdge:
+		return edge.Target
+	}
+	return nil
+}

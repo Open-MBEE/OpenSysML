@@ -11,11 +11,11 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 1976,
-      "presentDifferent": 348,
+      "presentEqual": 1977,
+      "presentDifferent": 347,
       "oursMissing": 247,
-      "pilotMissing": 76,
-      "absentBoth": 2706,
+      "pilotMissing": 73,
+      "absentBoth": 2709,
       "indeterminate": 48,
       "pilotNondeterministic": 0
     },
@@ -1259,7 +1259,7 @@
     "TransitionUsage.nestedCalculation": [0,0,0,0,3,0,0],
     "TransitionUsage.nestedCase": [0,0,0,0,3,0,0],
     "TransitionUsage.nestedConcern": [0,0,0,0,3,0,0],
-    "TransitionUsage.nestedConnection": [0,0,0,3,0,0,0],
+    "TransitionUsage.nestedConnection": [0,0,0,0,3,0,0],
     "TransitionUsage.nestedConstraint": [0,0,0,0,3,0,0],
     "TransitionUsage.nestedEnumeration": [0,0,0,0,3,0,0],
     "TransitionUsage.nestedFlow": [0,0,0,0,3,0,0],
@@ -1274,7 +1274,7 @@
     "TransitionUsage.nestedRequirement": [0,0,0,0,3,0,0],
     "TransitionUsage.nestedState": [0,0,0,0,3,0,0],
     "TransitionUsage.nestedTransition": [0,0,0,0,3,0,0],
-    "TransitionUsage.nestedUsage": [0,3,0,0,0,0,0],
+    "TransitionUsage.nestedUsage": [1,2,0,0,0,0,0],
     "TransitionUsage.nestedUseCase": [0,0,0,0,3,0,0],
     "TransitionUsage.nestedVerificationCase": [0,0,0,0,3,0,0],
     "TransitionUsage.nestedView": [0,0,0,0,3,0,0],

@@ -110,10 +110,9 @@ type executor struct {
 	// metadataTypes memoizes the metadata def each property-string spelling
 	// names, shared by every executor of one execution.
 	metadataTypes map[string]*symbols.Symbol
-	// metaclassFeatures memoizes each metaclass's properties (metaclassProperties).
-	metaclassFeatures map[*symbols.Symbol]map[string]metaclassProperty
-	// metamodelProperties memoizes every property some metaclass declares (metamodelDeclares).
-	metamodelProperties map[string]bool
+	// reflection memoizes what the metamodel declares, shared by every
+	// executor of one execution.
+	reflection *reflectionMemo
 	// elementIDErr is why the model has no elementIds, once a read asked for
 	// one: the conversion that writes them refused the model.
 	elementIDErr error
@@ -161,19 +160,19 @@ func Execute(program *queryplan.Program, context Context, bindings Bindings, opt
 		related = NewRelationshipTables()
 	}
 	execution := &executor{
-		definition:        definition,
-		context:           context,
-		reader:            query.NewPropertyReader(context.Index, context.Resolver, context.Model),
-		bindings:          make(map[string]sequence),
-		program:           compiled,
-		budget:            &visitBudget{remaining: budget},
-		calls:             &visitBudget{remaining: calls},
-		related:           related,
-		derived:           &derivedValues{},
-		metadataTypes:     make(map[string]*symbols.Symbol),
-		metaclassFeatures: make(map[*symbols.Symbol]map[string]metaclassProperty),
-		depthLeft:         depth,
-		stack:             []string{definition.Name()},
+		definition:    definition,
+		context:       context,
+		reader:        query.NewPropertyReader(context.Index, context.Resolver, context.Model),
+		bindings:      make(map[string]sequence),
+		program:       compiled,
+		budget:        &visitBudget{remaining: budget},
+		calls:         &visitBudget{remaining: calls},
+		related:       related,
+		derived:       &derivedValues{},
+		metadataTypes: make(map[string]*symbols.Symbol),
+		reflection:    &reflectionMemo{},
+		depthLeft:     depth,
+		stack:         []string{definition.Name()},
 	}
 	execution.reader.WithElementID(execution.elementID)
 	if context.Identity != nil {
@@ -543,6 +542,7 @@ func (e *executor) evaluateInvoke(expression queryplan.Expression) (sequence, er
 		related:       e.related,
 		derived:       e.derived,
 		metadataTypes: e.metadataTypes,
+		reflection:    e.reflection,
 		depthLeft:     e.depthLeft - 1,
 		stack:         append(append([]string(nil), e.stack...), target),
 	}
