@@ -415,6 +415,7 @@ const scaleKindsModel = `package test {
 	attribute dBm : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = 10; :>> exponent = 1; :>> referenceQuantity = 0.001 [W]; }
 	attribute field : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = 10; :>> exponent = 2; :>> referenceQuantity = 1.0 [V]; }
 	attribute acidity : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = -1; :>> exponent = 1; :>> referenceQuantity = 1.0 [mol/L]; }
+	attribute turnLevel : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = 1; :>> exponent = 1; :>> referenceQuantity = 1.0 ['°']; }
 	attribute dayClock : CyclicRatioScale { :>> unit = s; :>> modulus = 6.283185307179586; }
 	attribute halfTurn : CyclicRatioScale { :>> unit = '°'; :>> modulus = 180; }
 	attribute bearings [2] = (10 [bearing], 20 [bearing]);
@@ -446,13 +447,22 @@ func TestCyclicRatioScaleValues(t *testing.T) {
 		}
 	}
 	for src, want := range map[string]bool{
-		"450 [bearing] == 90 [bearing]":                        true,
-		"-60 [bearing] == 300 [bearing]":                       true,
-		"450 [bearing] != 90 [bearing]":                        false,
-		"450 [bearing] > 90 [bearing]":                         false,
-		"450 [bearing] >= 90 [bearing]":                        true,
-		"451 [bearing] > 90 [bearing]":                         true,
-		"-60 [bearing] < 10 [bearing]":                         true,
+		"450 [bearing] == 90 [bearing]":  true,
+		"-60 [bearing] == 300 [bearing]": true,
+		"450 [bearing] != 90 [bearing]":  false,
+		"450 [bearing] > 90 [bearing]":   false,
+		"450 [bearing] >= 90 [bearing]":  true,
+		"451 [bearing] > 90 [bearing]":   true,
+		// The order is of places in the cycle from zero, so it agrees with the equivalence.
+		"-60 [bearing] < 10 [bearing]":  false,
+		"450 [bearing] < 180 [bearing]": true,
+		"180 [bearing] < 450 [bearing]": false,
+		"90 [bearing] < 180 [bearing]":  true,
+		// An equality of a logarithmic value with a cyclic one is the same either way round.
+		"1.0 [turnLevel] == 370.0 [bearing]":                   true,
+		"370.0 [bearing] == 1.0 [turnLevel]":                   true,
+		"1.0 [turnLevel] != 370.0 [bearing]":                   false,
+		"2.0 [turnLevel] == 370.0 [bearing]":                   false,
 		"450 [bearing] == 90 ['°']":                            true,
 		"90 ['°'] == 450 [bearing]":                            true,
 		"360.1 [bearing] == 0.1 [bearing]":                     true,
@@ -511,6 +521,10 @@ func TestLogarithmicScaleValues(t *testing.T) {
 		"ConvertQuantity(10.0 [V], field)": "20.0 [field]",
 		"ConvertQuantity(40.0 [field], V)": "100.0 [V]",
 		"max(20.0 [dBm], 2.0 [W])":         "2.0 [W]",
+		// An extremum is judged on its first operand's reference, as `x < y` is.
+		"max(3.0 [acidity], ConvertQuantity(7.0 [acidity], mol/L))": "1e-07 [mol/L]",
+		"min(3.0 [acidity], ConvertQuantity(7.0 [acidity], mol/L))": "3.0 [acidity]",
+		"max(ConvertQuantity(7.0 [acidity], mol/L), 3.0 [acidity])": "3.0 [acidity]",
 	} {
 		if got, err := evalIn(t, ctx, scope, src); err != nil || FormatValue(got) != want {
 			t.Errorf("%s = %s, %v; want %s", src, FormatValue(got), err, want)

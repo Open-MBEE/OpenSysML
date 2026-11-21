@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"math"
@@ -393,8 +394,8 @@ func isBareZero(q Quantity) bool {
 	return q.Unit.None() && q.Num.IsNumeric() && q.Num.AsReal() == 0
 }
 
-// compareMagnitudes orders two quantities on the left one's reference; values a
-// cyclic ratio scale makes equivalent are equal, neither less nor greater.
+// compareMagnitudes orders two quantities on the left one's reference; values on a cyclic
+// ratio scale are ordered by their place in the cycle from zero, so equivalent ones are equal.
 func (ctx *Context) compareMagnitudes(left, right *Quantity) (int, error) {
 	l, r, cycle, err := ctx.alignForComparison(*left, *right)
 	if err != nil {
@@ -403,8 +404,8 @@ func (ctx *Context) compareMagnitudes(left, right *Quantity) (int, error) {
 	if cycle != 0 && l.Num.IsNumeric() && r.Num.IsNumeric() {
 		lclass, lok := cycleClass(l.Num.AsReal(), cycle)
 		rclass, rok := cycleClass(r.Num.AsReal(), cycle)
-		if lok && rok && lclass == rclass {
-			return 0, nil
+		if lok && rok {
+			return cmp.Compare(lclass, rclass), nil
 		}
 	}
 	return semantics.CompareMagnitudes(l, r)
@@ -433,6 +434,9 @@ func (ctx *Context) compareQuantities(op ast.OperatorKind, left, right *Quantity
 // equalQuantities is `==` or `!=` over quantities on the left one's reference;
 // incommensurable units are an error, not an inequality.
 func (ctx *Context) equalQuantities(op ast.OperatorKind, left, right *Quantity) (Value, error) {
+	if ctx.cyclicLeads(left, right) {
+		left, right = right, left
+	}
 	c, err := ctx.compareMagnitudes(left, right)
 	if err != nil {
 		// A quantity with no value on a logarithmic scale equals none of its values, either way round.
@@ -442,6 +446,17 @@ func (ctx *Context) equalQuantities(op ast.OperatorKind, left, right *Quantity) 
 		return Value{}, err
 	}
 	return boolValue((c == 0) != (op == ast.OpNeq)), nil
+}
+
+// cyclicLeads reports an equality of a logarithmic value with a cyclic one, which is made on
+// the cyclic scale whichever is written first: a cycle has no period on a logarithmic scale.
+func (ctx *Context) cyclicLeads(left, right *Quantity) bool {
+	lscale, lpoint, err := ctx.pointOf(left)
+	if err != nil || !lpoint || ctx.scaleKindOf(lscale.Type) != logarithmicScale {
+		return false
+	}
+	rscale, err := ctx.cyclicScaleOf(right)
+	return err == nil && rscale != nil
 }
 
 // negateQuantity negates a quantity's magnitude, keeping its unit and the magnitude's
