@@ -203,7 +203,7 @@ func (h *Host) refOf(u uri.URI) docRef {
 	if parsed, err := url.Parse(string(u)); err == nil && strings.EqualFold(parsed.Scheme, lsp.LibraryScheme) {
 		return docRef{name: strings.TrimPrefix(parsed.Path, "/"), library: true}
 	}
-	return docRef{name: uri.URI(u).FsPath()}
+	return docRef{name: u.FsPath()}
 }
 
 // display is how results name a document: the path relative to the root when

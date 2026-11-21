@@ -53,15 +53,15 @@
         "name": "testdata",
         "dir": "tests/testdata",
         "origin": "ours",
-        "files": 40,
-        "digest": "sha256:951761d51e902bbcb3392d4a77da58c7f580c61b2fb97ac6c4ad705e08e0c446"
+        "files": 42,
+        "digest": "sha256:65bf445bc3afa269f61316d16e301a7b5d5f8f143628693b6fa4d71190faa724"
       },
       {
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 68,
-        "digest": "sha256:b5836857068c83cdb257385a10cf75947beb8e9732840fd4e58a016c94c8336f"
+        "files": 69,
+        "digest": "sha256:d27242f88a3b5e0aab60f014a4fcdac0f371dbfaf6cb32bd43c05b1f7b61e3d8"
       },
       {
         "name": "probes",
@@ -85,7 +85,7 @@
         "digest": "sha256:8ef6d80c9983abb0af6edc68d26de9a25be15f16561ca3b9e9387ed2b070a7ec"
       }
     ],
-    "recorded": "2026-11-20"
+    "recorded": "2026-11-21"
   },
   "structure": "metamodel.SymbolStructure (symbol-backed; metamodel.New over metamodel.NewSymbolStructure)",
   "policy": [
@@ -159,11 +159,11 @@
     {
       "name": "testdata",
       "dir": "tests/testdata",
-      "files": 40,
+      "files": 42,
       "rejected": 0,
-      "elements": 1870,
-      "implied": 1020,
-      "pilotElements": 2448,
+      "elements": 2281,
+      "implied": 1270,
+      "pilotElements": 2863,
       "pilotImplied": 0,
       "pilotDuplicates": 169,
       "pilotFailed": 0
@@ -171,13 +171,13 @@
     {
       "name": "examples",
       "dir": "examples",
-      "files": 68,
+      "files": 69,
       "rejected": 0,
-      "elements": 46192,
-      "implied": 26799,
-      "pilotElements": 55048,
+      "elements": 48471,
+      "implied": 28144,
+      "pilotElements": 57526,
       "pilotImplied": 0,
-      "pilotDuplicates": 86152,
+      "pilotDuplicates": 101957,
       "pilotFailed": 0
     },
     {
@@ -205,5 +205,5 @@
       "pilotFailed": 0
     }
   ],
-  "pilotRecords": "sha256:bfb3df112f2ee8d4c9831fa489844058dba752cc25d5864faace3a95badd0645"
+  "pilotRecords": "sha256:d6c1622f7f89f884bd9ef8dc97319471144a7cfe949ca7d9fe82ebfd53117ec9"
 }
