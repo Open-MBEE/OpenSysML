@@ -3091,7 +3091,7 @@ jobs:
             - run:
                 name: Sign the checksum manifest with cosign keyless
                 command: |
-                  go install github.com/sigstore/cosign/v3/cmd/cosign@v3.0.3
+                  go install github.com/sigstore/cosign/v3/cmd/cosign@v3.1.4
                   export PATH="$(go env GOPATH)/bin:$PATH"
 
                   # Fulcio requires the 'sigstore' audience, which the ambient

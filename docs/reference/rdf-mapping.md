@@ -361,9 +361,10 @@ It restores the ownerless library stubs written before 0.11.0, with `@id`, `@typ
 `declaredName`, `elementId`, `isLibraryElement: true` and `qualifiedName`.
 An OMG API reader treats these as roots, so prefer the separate table for new clients.
 
-An element of the array carries its owned structure. The six derived lists that repeat a
+An element of the array carries its owned structure. The seven derived lists that repeat a
 Namespace's or Type's inherited and imported members — `membership`, `member`,
-`inheritedMembership`, `featureMembership`, `feature` and `inheritedFeature` — are written
+`inheritedMembership`, `importedMembership`, `featureMembership`, `feature` and
+`inheritedFeature` — are written
 only with `-inherited-members` (or `ConvertRequest.inherited_members`, advertised as
 `convert_inherited_members`): they follow from `ownedMembership`, the specializations and the
 imports, and repeating them on every element is most of a large model's document. Element ids
@@ -568,7 +569,7 @@ triples come); a set of classes with no such member is refused, naming the subje
   `MembershipImport` `importedMembership`, which links the imported element's
   **owning membership** (the metamodel's range), a library member's by its
   normative membership id; an import written through an alias imports the
-  alias's owning membership. The same rule links a succession's `sourceFeature` (an implied `first
+  alias Membership itself, the model's or a library's (KerML 8.2.3.4.2). The same rule links a succession's `sourceFeature` (an implied `first
   start then a` names the `start` the owner inherits from `Actions::Action`),
   a feature chain's `targetFeature`, a feature reference's `referent` and an
   invocation's `function`. A dotted name reaches these from the notation in one

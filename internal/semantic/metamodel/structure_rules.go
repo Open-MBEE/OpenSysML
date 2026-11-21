@@ -525,6 +525,10 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 		if name == "referent" {
 			return e.structureFeatureReferenceReferent(element)
 		}
+	case "UseCaseDefinition":
+		if name == "includedUseCase" {
+			return e.structureIncludedUseCases(element, class)
+		}
 	case "MetadataAccessExpression":
 		if name == "referencedElement" {
 			return e.structureMetadataAccessReferencedElement(element)
@@ -1333,7 +1337,7 @@ func (e *Evaluator) structureTransitionEndpoint(element Element, endpoint string
 		}
 		return structurePropertyCardinality(filtered, true)
 	}
-	node := structureElementNode(element)
+	node := e.structureNodeOf(element)
 	owner, known := e.structureSemanticOwnerSymbol(element)
 	if !known {
 		e.recordUnsupportedReason(element, "TransitionUsage", endpoint, Reason{
@@ -1633,13 +1637,33 @@ func (e *Evaluator) structureActionSuccessionOwner(node ast.Node) (*symbols.Symb
 	return nil, false
 }
 
+// symbolBackedStructure is a Structure whose elements project symbols of the semantic
+// model (SymbolStructure), so a rule can read the model's own derivation for them.
+type symbolBackedStructure interface {
+	SymbolOf(Element) (*symbols.Symbol, bool)
+	ElementFor(*symbols.Symbol) Element
+}
+
+// structureSymbolOf is the symbol element projects, where the Structure is symbol-backed.
+func (e *Evaluator) structureSymbolOf(element Element) (*symbols.Symbol, bool) {
+	if element.Symbol != nil {
+		return element.Symbol, true
+	}
+	if resolver, ok := e.options.Structure.(symbolBackedStructure); ok {
+		if sym, found := resolver.SymbolOf(element); found && sym != nil {
+			return sym, true
+		}
+	}
+	return nil, false
+}
+
 func (e *Evaluator) structureSemanticOwnerSymbol(element Element) (*symbols.Symbol, bool) {
 	owner, present, known := e.structureOwnerElement(element)
 	if !known || !present || e.model == nil {
 		return e.structureActionSuccessionOwner(structureElementNode(element))
 	}
-	if owner.Symbol != nil {
-		return owner.Symbol, true
+	if sym, ok := e.structureSymbolOf(owner); ok {
+		return sym, true
 	}
 	if owner.Node == nil {
 		return e.structureActionSuccessionOwner(structureElementNode(element))
@@ -1653,6 +1677,18 @@ func (e *Evaluator) structureSemanticOwnerSymbol(element Element) (*symbols.Symb
 		return symbol, true
 	}
 	return e.structureActionSuccessionOwner(structureElementNode(element))
+}
+
+// structureNodeOf is the notation node element stands for: its own, or its
+// symbol's declaration where the Structure is symbol-backed.
+func (e *Evaluator) structureNodeOf(element Element) ast.Node {
+	if node := structureElementNode(element); node != nil {
+		return node
+	}
+	if sym, ok := e.structureSymbolOf(element); ok {
+		return sym.Decl
+	}
+	return nil
 }
 
 func structureElementNode(element Element) ast.Node {
@@ -1763,10 +1799,11 @@ func (e *Evaluator) structureFlowProperty(element Element, property string) (Val
 }
 
 func (e *Evaluator) structureFlowAttachment(element Element, index int) (Value, bool, bool) {
-	if element.Symbol == nil || element.Symbol.Scope == nil || e.model == nil || e.resolver == nil {
+	sym, ok := e.structureSymbolOf(element)
+	if !ok || sym.Scope == nil || e.model == nil || e.resolver == nil {
 		return Value{}, true, false
 	}
-	attachments := e.model.FlowEndAttachments(element.Symbol)
+	attachments := e.model.FlowEndAttachments(sym)
 	if index >= len(attachments) {
 		return nullValue(), true, true
 	}
@@ -1774,7 +1811,7 @@ func (e *Evaluator) structureFlowAttachment(element Element, index int) (Value, 
 	if !handled || !ok || len(ends.Values) != len(attachments) {
 		return Value{}, true, false
 	}
-	target, ok := e.resolver.ResolveTarget(element.Symbol.Scope, attachments[index].Attachment)
+	target, ok := e.resolver.ResolveTarget(sym.Scope, attachments[index].Attachment)
 	if !ok || target == nil {
 		return Value{}, true, false
 	}
@@ -1827,6 +1864,7 @@ func (e *Evaluator) structureAttribute(element Element, property string) (Value,
 }
 
 func (e *Evaluator) semanticBooleanAttribute(element Element, property string) (Value, bool, bool) {
+	sym := e.structureUsageSymbol(element)
 	var value bool
 	switch property {
 	case "isComposite", "isReference":
@@ -1838,7 +1876,7 @@ func (e *Evaluator) semanticBooleanAttribute(element Element, property string) (
 						Category: ReasonIncompleteStructure,
 						Detail:   "Usage::isReference owning Type classification is unavailable",
 					}
-					if element.Symbol == nil || e.model == nil {
+					if sym == nil || e.model == nil {
 						reason = Reason{
 							Category: ReasonMissingSemanticModel,
 							Detail:   "Usage::isReference has no semantic Usage symbol to determine referentiality",
@@ -1850,19 +1888,19 @@ func (e *Evaluator) semanticBooleanAttribute(element Element, property string) (
 			}
 			value = composite
 		} else {
-			if element.Symbol == nil || e.model == nil {
+			if sym == nil || e.model == nil {
 				return Value{}, true, false
 			}
-			value = e.model.EffectiveIsComposite(element.Symbol)
+			value = e.model.EffectiveIsComposite(sym)
 		}
 		if property == "isReference" {
 			value = !value
 		}
 	case "isVariable":
-		if element.Symbol == nil || e.model == nil {
+		if sym == nil || e.model == nil {
 			return Value{}, true, false
 		}
-		value = e.model.FeatureIsVariable(element.Symbol)
+		value = e.model.FeatureIsVariable(sym)
 	case "mayTimeVary":
 		owningType, handled, ok := e.structureOwningType(element)
 		if !handled || !ok {
@@ -1878,7 +1916,7 @@ func (e *Evaluator) semanticBooleanAttribute(element Element, property string) (
 		if owningType.Kind != ElementValue {
 			return booleanValue(false), true, true
 		}
-		if element.Symbol == nil || owningType.Element.Symbol == nil || e.model == nil {
+		if sym == nil || e.structureUsageSymbol(owningType.Element) == nil || e.model == nil {
 			e.recordUnsupportedReason(
 				element, "Usage", "mayTimeVary",
 				Reason{
@@ -1888,9 +1926,9 @@ func (e *Evaluator) semanticBooleanAttribute(element Element, property string) (
 			)
 			return Value{}, true, false
 		}
-		value = e.model.UsageMayTimeVaryForOwningType(element.Symbol, owningType.Element.Symbol)
+		value = e.model.UsageMayTimeVaryForOwningType(sym, e.structureUsageSymbol(owningType.Element))
 	default:
-		reflective, ok := e.model.ReflectiveFeatureValue(element.Symbol, property)
+		reflective, ok := e.model.ReflectiveFeatureValue(sym, property)
 		if !ok || reflective.Kind != symbols.FilterValueBool {
 			return Value{}, true, false
 		}
@@ -1906,6 +1944,10 @@ func (e *Evaluator) structureUsageComposite(element Element) (bool, bool, bool) 
 		if composite, ok := stated.StatedAttribute(element, "isComposite"); ok && composite.Kind == BooleanValue {
 			return composite.Boolean, true, true
 		}
+	}
+	// A declared symbol's is the semantic model's, as the export states it.
+	if element.Symbol != nil && e.model != nil {
+		return e.model.EffectiveIsComposite(element.Symbol), true, true
 	}
 	controlNode, known := e.isMetaclass(element, "ControlNode")
 	if !known {
@@ -1936,9 +1978,6 @@ func (e *Evaluator) structureUsageComposite(element Element) (bool, bool, bool) 
 		if matches {
 			return false, true, true
 		}
-	}
-	if element.Symbol != nil && e.model != nil {
-		return e.model.EffectiveIsComposite(element.Symbol), true, true
 	}
 	if e.options.Structure == nil {
 		return false, true, false
@@ -4333,6 +4372,16 @@ func (e *Evaluator) structureDirectionThrough(
 	return ast.DirNone, true
 }
 
+// structureUsageSymbol is the symbol behind an element on either structure: a
+// graph element's declaration, or the symbol a symbol-backed structure projects.
+func (e *Evaluator) structureUsageSymbol(element Element) *symbols.Symbol {
+	if sym := e.structureElementSymbol(element); sym != nil {
+		return sym
+	}
+	sym, _ := e.structureSymbolOf(element)
+	return sym
+}
+
 // structureGeneralWithFeature is the general type a graph owner inherits feature from, whose view
 // Type::directionOf takes (KerML 8.3.3.1.10); none when owner owns it or only visited types reach it.
 func (e *Evaluator) structureGeneralWithFeature(
@@ -5102,6 +5151,14 @@ func (e *Evaluator) computeStructureTypeMembers(element Element, property string
 			protected = append(protected, membershipValue)
 		}
 	}
+	imported, ok := e.structureNonPrivateImported(element)
+	if !ok {
+		return nil, false
+	}
+	for _, list := range imported {
+		public = append(public, list.public...)
+		protected = append(protected, list.protected...)
+	}
 	inherited := make([]Value, 0)
 	bases, ok := e.structureOwnedSupertypes(element)
 	if !ok {
@@ -5124,23 +5181,20 @@ func (e *Evaluator) computeStructureTypeMembers(element Element, property string
 	return e.structureMembershipsProperty(memberships, property)
 }
 
-// structureLibraryBase is the one decision both member walks make: a library type the structure only
-// references — implied, or stated as `: Boolean` — has no rows there, so its members are read by this symbol.
+// structureLibraryBase is the one decision both member walks make: a type the structure only
+// references and a feature it leaves to the semantic model read their members through the recovered symbol.
 func (e *Evaluator) structureLibraryBase(element Element) (Element, bool) {
-	if element.Symbol != nil {
-		return element, !e.structureKnows(element)
+	if element.Symbol != nil && !e.structureKnows(element) {
+		return element, true
 	}
-	if element.Node != nil || element.IsMembership {
+	if element.IsMembership || e.model == nil {
 		return Element{}, false
 	}
-	// A structure refers to a stated library type by a row of its own — the symbol structure's
-	// reference element, a graph's library reference — which only the library symbol describes.
-	if structure, ok := e.options.Structure.(LibrarySymbolResolver); ok {
-		if symbol, found := structure.LibrarySymbol(element); found && symbol != nil {
-			return ElementOf(symbol), true
-		}
+	symbol := e.structureElementSymbol(element)
+	if symbol == nil || (e.structureKnows(element) && !e.structureDefersToModel(element)) {
+		return Element{}, false
 	}
-	return Element{}, false
+	return ElementOf(symbol), true
 }
 
 // structureLibrarySymbol is the symbol of an element the structure has no rows for, or only
@@ -5211,10 +5265,21 @@ func (e *Evaluator) computeStructureLibraryTypeMembers(base Element, property st
 }
 
 // structureMembershipMemberElements is structureMembershipMembers for a membership the
-// graph may not state: a semantic membership answers its member symbol directly.
+// graph may not state: a semantic membership answers the element its member symbol names.
 func (e *Evaluator) structureMembershipMemberElements(membership Element) ([]Element, bool) {
-	if membership.Membership.Member != nil && !e.structureKnows(membership) {
-		return []Element{ElementOf(membership.Membership.Member)}, true
+	if member := membership.Membership.Member; member != nil && !e.structureKnows(membership) {
+		if member.Kind == symbols.SymbolAlias {
+			// An alias is a Membership of the element it names (KerML 8.2.3.4.1).
+			if e.resolver == nil {
+				return nil, false
+			}
+			target, ok := e.resolver.ResolveAliasTarget(member)
+			if !ok || target == nil {
+				return nil, false
+			}
+			member = target
+		}
+		return []Element{ElementOf(member)}, true
 	}
 	return e.structureMembershipMembers(membership)
 }
@@ -5224,6 +5289,16 @@ func (e *Evaluator) structureMembershipMemberElements(membership Element) ([]Ele
 func (e *Evaluator) structureKnows(element Element) bool {
 	_, known := e.options.Structure.Metaclass(element)
 	return known
+}
+
+// structureDefersToModel reports an element whose relationships the semantic model serves
+// rather than the structure: one the structure does not represent, or a library element it only names.
+func (e *Evaluator) structureDefersToModel(element Element) bool {
+	if !e.structureKnows(element) {
+		return true
+	}
+	_, served := e.options.Structure.OwnedRelationships(element)
+	return !served
 }
 
 // structureFeatureKey identifies a feature the same way whether the graph states it,
@@ -5318,6 +5393,14 @@ func (e *Evaluator) computeStructureNonPrivateMemberships(
 		} else if visibility.protected {
 			protected = append(protected, membershipValue)
 		}
+	}
+	imported, ok := e.structureNonPrivateImported(element)
+	if !ok {
+		return nil, false
+	}
+	for _, list := range imported {
+		public = append(public, list.public...)
+		protected = append(protected, list.protected...)
 	}
 	inherited := make([]Value, 0)
 	bases, ok := e.structureOwnedSupertypes(element)
@@ -5497,6 +5580,15 @@ func (e *Evaluator) computeStructureAllRedefinedFeatures(feature Element) ([]Ele
 	for len(queue) > 0 {
 		current := queue[0]
 		queue = queue[1:]
+		if symbol := e.structureElementSymbol(current); symbol != nil && e.model != nil && e.structureDefersToModel(current) {
+			for _, redefined := range e.model.AllRedefinedFeatures(symbol) {
+				if target := ElementOf(redefined); !seen[target.Key()] {
+					seen[target.Key()] = true
+					result = append(result, target)
+				}
+			}
+			continue
+		}
 		targets, ok := e.structureRedefinitionTargets(current)
 		if !ok {
 			return nil, false
@@ -5635,6 +5727,11 @@ func (e *Evaluator) structureEffectiveEndFeatures(
 			Reason{Category: ReasonUnrepresentedEndpoint, Detail: "Type::endFeature owned end-feature memberships are unresolved"},
 		)
 	}
+	if e.hasUnresolvedRelatedElement(element, "connectorEnd") {
+		return unsupported(
+			Reason{Category: ReasonUnrepresentedEndpoint, Detail: "Type::endFeature declared ends are not represented"},
+		)
+	}
 	if element.Node != nil {
 		isSuccession, known := e.isMetaclass(element, "SuccessionAsUsage")
 		if !known {
@@ -5667,31 +5764,12 @@ func (e *Evaluator) structureEffectiveEndFeatures(
 			return sequence(owned.Values...), true, true
 		}
 		values := make([]Value, 0, len(features))
-		hasFlowEnds := false
-		if usage, ok := element.Symbol.Decl.(*ast.Usage); ok && usage.FlowEnds != nil {
-			hasFlowEnds = usage.FlowEnds.From != nil || usage.FlowEnds.To != nil
-		}
 		for index, feature := range features {
 			if index < len(owned.Values) {
 				values = append(values, owned.Values[index])
 				continue
 			}
 			if feature != nil {
-				if hasFlowEnds && e.resolver != nil && e.resolver.Index() != nil &&
-					e.resolver.Index().Library(feature) {
-					if _, represented := e.options.Structure.Metaclass(ElementOf(feature)); !represented {
-						if _, identified := identity.LibraryCatalog(e.resolver.Index()).ElementForSymbol(feature); identified {
-							return unsupported(Reason{
-								Category: ReasonMissingStructure,
-								Detail:   "Type::endFeature implied flow end is absent from Structure",
-							})
-						}
-						return unsupported(Reason{
-							Category: ReasonLibraryTargetWithoutCatalogIdentity,
-							Detail:   symbols.FQNOf(feature),
-						})
-					}
-				}
 				values = append(values, elementValue(ElementOf(feature)))
 				continue
 			}
@@ -5908,6 +5986,21 @@ func (e *Evaluator) structureFeatureTypes(element Element) (Value, bool, bool) {
 	unsupported := func(reason Reason) (Value, bool, bool) {
 		e.recordUnsupportedReason(element, "Feature", "type", reason)
 		return Value{}, true, false
+	}
+	if resolver, ok := e.options.Structure.(symbolBackedStructure); ok && e.model != nil {
+		// One derivation for every surface: the Symbol facts answer Feature::type
+		// from the semantic model, so the structure reads the same answer.
+		if sym, found := resolver.SymbolOf(element); found && sym != nil {
+			// An expression declaring no type is typed by the function it invokes or the evaluations
+			// feature its metaclass implies, which only the structural derivation reads (structureImpliedFeatureTypes).
+			if types, supported := e.featureTypes(sym); supported && len(types) > 0 {
+				values := make([]Value, 0, len(types))
+				for _, typ := range types {
+					values = append(values, Value{Kind: ElementValue, Element: resolver.ElementFor(typ), Success: true})
+				}
+				return Value{Kind: SequenceValue, Values: values, Success: true}, true, true
+			}
+		}
 	}
 	value, handled, ok := e.structureFeatureTypesFrom(element, make(map[ElementKey]bool))
 	if !handled || !ok {
@@ -6516,6 +6609,15 @@ func (e *Evaluator) structureUnmaterializedEndName(element Element, property str
 	if len(redefinitions.Values) > 0 {
 		return Value{}, false, false
 	}
+	// A succession's implied end is named by the HappensBefore end it redefines
+	// (SysML v2 §8.3.16.5 SuccessionAsUsage), as the conversion writes it.
+	if property == "name" && e.model != nil {
+		if sym, ok := e.structureSymbolOf(element); ok && sym.Expr != nil && sym.Expr.Role == symbols.ExpressionConnectorEnd {
+			if name := e.model.ImpliedEndName(ast.UsageSuccession, sym.Expr.Index); name != "" {
+				return stringValue(name), true, true
+			}
+		}
+	}
 	return nullValue(), true, true
 }
 
@@ -6864,6 +6966,9 @@ func (e *Evaluator) structureImportedMemberships(element Element) (Value, bool, 
 	if len(imports.Values) == 0 {
 		return sequence(), true, true
 	}
+	if element.Symbol == nil && element.Node == nil && !element.IsMembership {
+		return e.structureGraphImportedMemberships(element)
+	}
 	if element.Symbol == nil || element.Symbol.Scope == nil || e.resolver == nil {
 		return Value{}, true, false
 	}
@@ -6967,7 +7072,13 @@ func (e *Evaluator) structureFilteredOwnedFeatures(element Element, property, _ 
 	if !ok {
 		return Value{}, true, false
 	}
-	members, handled, ok := e.structureOwnedMembers(element)
+	// ownedMetadata and nestedMetadata select from ownedMember, the other collections from
+	// ownedFeature (deriveUsageNestedMetadata, deriveUsageNestedUsage and the Definition pair).
+	source := e.structureOwnedFeatures
+	if rangeClass == "MetadataUsage" {
+		source = e.structureOwnedMembers
+	}
+	members, handled, ok := source(element)
 	if !handled || !ok {
 		return Value{}, true, false
 	}
@@ -7071,6 +7182,45 @@ func (e *Evaluator) structureReferencedFeature(element Element) (Element, bool, 
 		return Element{}, true, false
 	}
 	return targets[0].Element, true, true
+}
+
+// structureIncludedUseCases derives UseCaseDefinition::includedUseCase (SysML 8.3.25.3): the
+// useCaseIncluded of each owned IncludeUseCaseUsage — the use case it references, else itself.
+func (e *Evaluator) structureIncludedUseCases(element Element, class string) (Value, bool, bool) {
+	unsupported := func(category ReasonCategory, detail string) (Value, bool, bool) {
+		e.recordUnsupportedReason(element, class, "includedUseCase", Reason{Category: category, Detail: class + "::includedUseCase " + detail})
+		return Value{}, true, false
+	}
+	features, handled, ok := e.structureOwnedFeatures(element)
+	if !handled || !ok {
+		return unsupported(ReasonUnrepresentedEndpoint, "owned features are unavailable")
+	}
+	includes, ok := e.structureFilterValues(features.Values, "IncludeUseCaseUsage")
+	if !ok {
+		return unsupported(ReasonUnrepresentedElement, "an owned feature has no represented metaclass")
+	}
+	included := make([]Value, 0, len(includes))
+	for _, include := range includes {
+		if include.Kind != ElementValue {
+			return unsupported(ReasonUnrepresentedElement, "owned include is not an element")
+		}
+		referenced, handled, ok := e.structureReferencedFeature(include.Element)
+		if !handled || !ok {
+			return unsupported(ReasonUnresolvedReference, "an include's referenced use case is unresolved")
+		}
+		useCase := include.Element
+		if referenced != (Element{}) {
+			isUseCase, known := e.isMetaclass(referenced, "UseCaseUsage")
+			if !known {
+				return unsupported(ReasonUnrepresentedElement, "an include's referenced feature has no represented metaclass")
+			}
+			if isUseCase {
+				useCase = referenced
+			}
+		}
+		included = append(included, elementValue(useCase))
+	}
+	return sequence(included...), true, true
 }
 
 func (e *Evaluator) structureActionArgument(element Element, property string, oneBasedIndex int) (Value, bool, bool) {
@@ -7437,6 +7587,12 @@ func (e *Evaluator) structureConnectorRelatedFeatures(element Element) (Value, b
 				Detail:   "Connector::relatedFeature end ReferenceSubsetting relationships are unavailable",
 			})
 		}
+		if len(references.Values) == 0 {
+			if implied, found := e.structureImpliedEndReference(end.Element); found {
+				features = append(features, implied)
+			}
+			continue
+		}
 		for _, reference := range references.Values {
 			if reference.Kind != ElementValue {
 				return unsupported(Reason{
@@ -7468,6 +7624,27 @@ func (e *Evaluator) structureConnectorRelatedFeatures(element Element) (Value, b
 		}
 	}
 	return sequence(features...), true, true
+}
+
+// structureImpliedEndReference is the feature a succession's minted end references without owning the
+// subsetting: the occurrence before a `then x;` or a transition's source (EndReferencedFeature), as written.
+func (e *Evaluator) structureImpliedEndReference(end Element) (Value, bool) {
+	sym, ok := e.structureSymbolOf(end)
+	if !ok || e.model == nil {
+		return Value{}, false
+	}
+	if _, minted := symbols.ImpliedConnectorEndIndex(sym); !minted {
+		return Value{}, false
+	}
+	structure, ok := e.options.Structure.(symbolBackedStructure)
+	if !ok {
+		return Value{}, false
+	}
+	target := e.model.EndReferencedFeature(sym)
+	if target == nil {
+		return Value{}, false
+	}
+	return Value{Kind: ElementValue, Element: structure.ElementFor(target), Success: true}, true
 }
 
 func (e *Evaluator) structureConnectorEndpoint(element Element, endpoint string) (Value, bool, bool) {
@@ -7648,6 +7825,10 @@ func (e *Evaluator) relationshipEndpoints(element Element, property string) ([]V
 		}
 		if property == "source" || property == "sourceFeature" {
 			value, handled, ok := e.structureConnectorEndpoint(element, "source")
+			if value.Kind == ElementValue {
+				// The source end is one feature; the target ends are a sequence.
+				return []Value{value}, handled && ok
+			}
 			return value.Values, handled && ok
 		}
 		value, handled, ok := e.structureConnectorRelatedFeatures(element)
@@ -8041,7 +8222,7 @@ func (e *Evaluator) structureResultFeatures(element Element, class, property str
 		}
 		features = append(features, filtered...)
 	}
-	if len(features) == 0 && element.Symbol != nil {
+	if len(features) == 0 {
 		outputs, handled, ok := e.structureDirectedFeatures(element, "output")
 		if !handled || !ok {
 			e.recordUnsupportedReason(
@@ -8118,13 +8299,27 @@ func (e *Evaluator) structureMultiplicityBounds(element Element, property string
 }
 
 func (e *Evaluator) structureInvocationArguments(element Element) (Value, bool, bool) {
-	instantiatedType, ok := e.Property(element, "InstantiationExpression", "instantiatedType")
-	if !ok || instantiatedType.Kind != ElementValue {
-		return Value{}, true, false
-	}
 	constructor, known := e.isMetaclass(element, "ConstructorExpression")
 	if !known {
 		return Value{}, true, false
+	}
+	// A feature chain instantiates the feature it chains to, not a function: its one argument is
+	// the source its owned input parameter values (KerML 8.3.4.8.5 FeatureChainExpression).
+	chain, known := e.isMetaclass(element, "FeatureChainExpression")
+	if !known {
+		return Value{}, true, false
+	}
+	if chain {
+		return e.structureInputValues(element)
+	}
+	instantiatedType, ok := e.Property(element, "InstantiationExpression", "instantiatedType")
+	if !ok || instantiatedType.Kind != ElementValue {
+		if constructor {
+			return Value{}, true, false
+		}
+		// With no type to bind formals against, the arguments are the values of
+		// the owned input parameters in order (KerML 8.3.4.8.4 InvocationExpression::argument).
+		return e.structureInputValues(element)
 	}
 	var inputs Value
 	if constructor {
@@ -8249,30 +8444,11 @@ func (e *Evaluator) structureInvocationArguments(element Element) (Value, bool, 
 		if bound[formalIndex] > 1 {
 			return Value{}, true, false
 		}
-		valuations, handled, ok := e.structureOwnedFilter(feature.Element, "FeatureValue", false)
-		if !handled || !ok {
+		values, ok := e.structureFeatureValueExpressions(feature.Element)
+		if !ok {
 			return Value{}, true, false
 		}
-		for _, valuation := range valuations.Values {
-			var valuationElement Element
-			switch valuation.Kind {
-			case ElementValue:
-				valuationElement = valuation.Element
-			case MembershipValue:
-				valuationElement = MembershipElement(valuation.Membership)
-			default:
-				return Value{}, true, false
-			}
-			values, ok := e.relationshipEndpoints(valuationElement, "value")
-			if !ok {
-				return Value{}, true, false
-			}
-			filtered, ok := e.structureFilterValues(values, "Expression")
-			if !ok {
-				return Value{}, true, false
-			}
-			featureValues[formalIndex] = append(featureValues[formalIndex], filtered...)
-		}
+		featureValues[formalIndex] = append(featureValues[formalIndex], values...)
 	}
 	var arguments []Value
 	for _, values := range featureValues {
@@ -8281,13 +8457,91 @@ func (e *Evaluator) structureInvocationArguments(element Element) (Value, bool, 
 	return sequence(arguments...), true, true
 }
 
+// structureInputValues are the value Expressions of element's owned input
+// features, in feature order.
+func (e *Evaluator) structureInputValues(element Element) (Value, bool, bool) {
+	ownedFeatures, handled, ok := e.structureOwnedFeatures(element)
+	if !handled || !ok {
+		return Value{}, true, false
+	}
+	inputs, ok := e.structureOperatorInputs(element, ownedFeatures.Values)
+	if !ok {
+		return Value{}, true, false
+	}
+	var arguments []Value
+	for _, feature := range inputs {
+		values, ok := e.structureFeatureValueExpressions(feature.Element)
+		if !ok {
+			return Value{}, true, false
+		}
+		arguments = append(arguments, values...)
+	}
+	return sequence(arguments...), true, true
+}
+
+// structureFeatureValueExpressions are the Expressions the FeatureValues of
+// feature bind as its value.
+func (e *Evaluator) structureFeatureValueExpressions(feature Element) ([]Value, bool) {
+	valuations, handled, ok := e.structureOwnedFilter(feature, "FeatureValue", false)
+	if !handled || !ok {
+		return nil, false
+	}
+	var out []Value
+	for _, valuation := range valuations.Values {
+		var valuationElement Element
+		switch valuation.Kind {
+		case ElementValue:
+			valuationElement = valuation.Element
+		case MembershipValue:
+			valuationElement = MembershipElement(valuation.Membership)
+		default:
+			return nil, false
+		}
+		values, ok := e.relationshipEndpoints(valuationElement, "value")
+		if !ok {
+			return nil, false
+		}
+		filtered, ok := e.structureFilterValues(values, "Expression")
+		if !ok {
+			return nil, false
+		}
+		out = append(out, filtered...)
+	}
+	return out, true
+}
+
 func (e *Evaluator) structurePublicFeatures(features []Value) ([]Value, bool) {
 	public := make([]Value, 0, len(features))
 	for _, feature := range features {
-		if feature.Kind != ElementValue || feature.Element.Symbol == nil {
+		if feature.Kind != ElementValue {
 			return nil, false
 		}
-		if symbols.VisibleOutside(feature.Element.Symbol.Visibility) {
+		if feature.Element.Symbol != nil {
+			if symbols.VisibleOutside(feature.Element.Symbol.Visibility) {
+				public = append(public, feature)
+			}
+			continue
+		}
+		// A library feature the structure holds without a symbol is read
+		// through its owning membership's visibility.
+		membership, ok := e.Property(feature.Element, "Element", "owningMembership")
+		if !ok {
+			return nil, false
+		}
+		var owning Element
+		switch membership.Kind {
+		case ElementValue:
+			owning = membership.Element
+		case MembershipValue:
+			owning = MembershipElement(membership.Membership)
+		default:
+			return nil, false
+		}
+		visibility, ok := e.structureMembershipVisibility(owning)
+		if !ok {
+			return nil, false
+		}
+		if visibility.public {
 			public = append(public, feature)
 		}
 	}
@@ -8371,6 +8625,11 @@ func (e *Evaluator) structureRelatedElements(element Element, properties ...stri
 }
 
 func (e *Evaluator) structureMembershipMembers(membership Element) ([]Element, bool) {
+	// A library member's membership stays the model's to answer, as the member itself does.
+	if member := membership.Membership.Member; membership.IsMembership && member != nil &&
+		e.resolver != nil && e.resolver.Index() != nil && e.resolver.Index().Library(member) {
+		return []Element{ElementOf(member)}, true
+	}
 	if e.hasUnresolvedRelatedElement(membership, "memberElement") ||
 		e.hasUnresolvedRelatedElement(membership, "ownedRelatedElement") {
 		return nil, false

@@ -32,6 +32,10 @@ func (s *Service) RenderView(ctx context.Context, req *pb.RenderViewRequest) (*p
 	if req.Depth < 0 {
 		return nil, statusError(connect.CodeInvalidArgument, (&view.DepthError{Value: fmt.Sprint(req.Depth)}).Error())
 	}
+	document, documentAsked := queryResultDocumentForm(req.Form)
+	if documentAsked {
+		stated.Form = ""
+	}
 	form, options, err := stated.Options()
 	if err != nil {
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
@@ -50,6 +54,24 @@ func (s *Service) RenderView(ctx context.Context, req *pb.RenderViewRequest) (*p
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}
 	response := renderViewData(cached, rendering.DataWith(options))
+	if !s.capabilities.has(CapabilityQueryResultView) {
+		response.Header = nil
+	}
+	if documentAsked && len(rendering.Header) > 0 {
+		if err := s.requireCapability(CapabilityQueryResultView); err != nil {
+			return nil, err
+		}
+		if response.Text, err = queryResultDocument(rendering, document); err != nil {
+			return nil, documentStatus(err)
+		}
+		return response, nil
+	}
+	if documentAsked {
+		// Another view takes the name as a view form, which html and asciidoc are not.
+		if form, err = view.ParseViewForm(req.Form); err != nil {
+			return nil, statusError(connect.CodeInvalidArgument, err.Error())
+		}
+	}
 	if form == "" {
 		return response, nil
 	}
@@ -123,6 +145,9 @@ func renderViewData(model *CachedModel, data view.Data) *pb.RenderViewResponse {
 		Edges:   make([]*pb.RenderEdge, 0, len(data.Edges)),
 		Rows:    make([]*pb.RenderRow, 0, len(data.Rows)),
 		Notes:   make([]*pb.RenderNote, 0, len(data.Notes)),
+	}
+	for _, field := range data.Header {
+		response.Header = append(response.Header, &pb.RenderHeaderField{Name: field.Name, Value: field.Value})
 	}
 	if data.Canvas != nil {
 		response.Canvas = &pb.RenderCanvas{

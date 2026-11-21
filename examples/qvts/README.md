@@ -802,3 +802,121 @@ SysML v2 REPL — %help for commands, Ctrl-D to exit
 ```
 
 Exit status: 0
+
+
+## 11. The answer as a `QVTS::QueryResult` view
+
+`-as-view -` prints a query's answer as a view in place of its rows; `-as-view
+<file>` writes it to a file beside them. The view exposes the selected elements
+by reference and states the query, the files it ran over, the outcome and the
+digest of the model.
+
+```console
+$ bin/sysml examples/qvts/lander.sysml examples/qvts/queries.sysml -run-query QVTSDemo::CabinMass -as-view -
+```
+
+```text
+✓ package Lander
+✓ package QVTSDemo
+package CabinMassResult {
+	private import QVTS::*;
+
+	view cabinMass : QueryResult {
+		expose Lander::lander::cabin;
+		attribute :>> query = "QVTSDemo::CabinMass";
+		attribute :>> source = "examples/qvts/lander.sysml examples/qvts/queries.sysml";
+		attribute :>> outcome = Outcome::established;
+		attribute :>> provenance = "sha256:110e03c52250fab7b72729f2c70e2cf09f2d1777290be6e30270b523b26e12dd";
+	}
+}
+```
+
+Exit status: 0
+
+A path or model error is an outcome too. Its view exposes the frontier's
+elements, and its provenance names the failing step.
+
+```console
+$ bin/sysml examples/qvts/lander.sysml examples/qvts/queries.sysml -run-query QVTSDemo::MisspelledName -as-view -
+```
+
+```text
+✓ package Lander
+✓ package QVTSDemo
+package MisspelledNameResult {
+	private import QVTS::*;
+
+	view misspelledName : QueryResult {
+		expose Lander::lander;
+		attribute :>> query = "QVTSDemo::MisspelledName";
+		attribute :>> source = "examples/qvts/lander.sysml examples/qvts/queries.sysml";
+		attribute :>> outcome = Outcome::pathError;
+		attribute :>> provenance = "sha256:110e03c52250fab7b72729f2c70e2cf09f2d1777290be6e30270b523b26e12dd; step Named(Lander::lander::cabni)";
+	}
+}
+sysml: query QVTSDemo::MisspelledName names no element Lander::lander::cabni: Lander::lander has no member cabni — did you mean cabin?
+  path error at Named(Lander::lander::cabni): expected exactly one element with that qualified name
+    at Lander::lander; members: [cabin (PartUsage), cabinEngine (ConnectionUsage), engine (PartUsage), engineBay (ConnectionUsage), scienceBay (PartUsage)]; nearest: cabin
+```
+
+Exit status: 2
+
+OSLC Query text answers through the same engine, so `-query` writes the same
+view. A property the metamodel does not define is a path error whose frontier is
+the property names, none of them an element to expose.
+
+```console
+$ bin/sysml examples/qvts/lander.sysml -query 'oslc.where=sysml:name="cabin"' -as-view -
+```
+
+```text
+✓ package Lander
+package AnswerResult {
+	private import QVTS::*;
+
+	view answer : QueryResult {
+		expose Lander::lander::cabin;
+		attribute :>> query = "oslc.where=sysml:name=\"cabin\"";
+		attribute :>> source = "examples/qvts/lander.sysml";
+		attribute :>> outcome = Outcome::established;
+		attribute :>> provenance = "sha256:8afb8c8cac1d730f946612f6face4667b32a0e0ef1feeb0c44d44ed6d924e206";
+	}
+}
+```
+
+Exit status: 0
+
+```console
+$ bin/sysml examples/qvts/lander.sysml -query 'oslc.where=sysml:nme="cabin"' -as-view -
+```
+
+```text
+✓ package Lander
+package AnswerResult {
+	private import QVTS::*;
+
+	view answer : QueryResult {
+		attribute :>> query = "oslc.where=sysml:nme=\"cabin\"";
+		attribute :>> source = "examples/qvts/lander.sysml";
+		attribute :>> outcome = Outcome::pathError;
+		attribute :>> provenance = "sha256:8afb8c8cac1d730f946612f6face4667b32a0e0ef1feeb0c44d44ed6d924e206; step Feature(sysml:nme)";
+	}
+}
+sysml: unknown OSLC query property "sysml:nme" — did you mean sysml:name?
+```
+
+Exit status: 2
+
+`expected/views/` records each of these views, an empty selection, a fan-out,
+the duplicate-name model error and an inline query, with the view rendered by
+`-render` (`.txt`, `.view.md`) and by `-render-document` in Markdown, HTML and
+AsciiDoc. A view loads beside the model it was written over:
+
+```console
+$ bin/sysml examples/qvts/lander.sysml examples/qvts/queries.sysml examples/qvts/expected/views/cabin-mass.sysml -render-document CabinMassResult::cabinMass
+```
+
+`observatory/` holds `observatory.sysml` and `result.sysml` from
+[Open-MBEE/qvts](https://github.com/Open-MBEE/qvts) `examples/` at commit
+`302893676c3dfa77693404e31243e31dc266c3b7`, unchanged: the view that repository
+writes by hand, rendered here as `expected/views/heavy-parts.*`.

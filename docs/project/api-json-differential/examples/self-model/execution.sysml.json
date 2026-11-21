@@ -11,9 +11,9 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 19050,
-      "presentDifferent": 2080,
-      "oursMissing": 774,
+      "presentEqual": 19182,
+      "presentDifferent": 2032,
+      "oursMissing": 690,
       "pilotMissing": 742,
       "absentBoth": 22415,
       "indeterminate": 860,
@@ -23,7 +23,7 @@
     "extensionProperties": 2542,
     "duplicateElements": {
       "ours": 0,
-      "pilot": 9094
+      "pilot": 9166
     },
     "ambiguousKeys": {
       "ours": 0,
@@ -31,7 +31,7 @@
     },
     "unkeyableElements": {
       "ours": 247,
-      "pilot": 811
+      "pilot": 827
     }
   },
   "rows": {
@@ -411,14 +411,14 @@
     "FlowUsage.ownedFeature": [0,17,0,0,0,0,0],
     "FlowUsage.ownedFeatureChaining": [0,0,0,0,17,0,0],
     "FlowUsage.ownedFeatureInverting": [0,0,0,0,17,0,0],
-    "FlowUsage.ownedFeatureMembership": [0,17,0,0,0,0,0],
+    "FlowUsage.ownedFeatureMembership": [17,0,0,0,0,0,0],
     "FlowUsage.ownedImport": [0,0,0,0,17,0,0],
     "FlowUsage.ownedIntersecting": [0,0,0,0,17,0,0],
     "FlowUsage.ownedMember": [0,17,0,0,0,0,0],
-    "FlowUsage.ownedMembership": [0,17,0,0,0,0,0],
+    "FlowUsage.ownedMembership": [17,0,0,0,0,0,0],
     "FlowUsage.ownedRedefinition": [0,0,0,0,17,0,0],
     "FlowUsage.ownedRelatedElement": [0,0,0,0,17,0,0],
-    "FlowUsage.ownedRelationship": [0,17,0,0,0,0,0],
+    "FlowUsage.ownedRelationship": [17,0,0,0,0,0,0],
     "FlowUsage.ownedSpecialization": [0,0,0,0,17,0,0],
     "FlowUsage.ownedSubsetting": [0,0,0,0,17,0,0],
     "FlowUsage.ownedTypeFeaturing": [0,0,0,0,17,0,0],
@@ -696,7 +696,7 @@
     "LiteralBoolean.owningNamespace": [47,0,0,0,0,0,0],
     "LiteralBoolean.owningRelationship": [47,0,0,0,0,0,0],
     "LiteralBoolean.parameter": [0,0,47,0,0,0,0],
-    "LiteralBoolean.result": [0,0,47,0,0,0,0],
+    "LiteralBoolean.result": [47,0,0,0,0,0,0],
     "LiteralBoolean.textualRepresentation": [0,0,0,0,47,0,0],
     "LiteralBoolean.type": [47,0,0,0,0,0,0],
     "LiteralBoolean.unioningType": [0,0,0,0,47,0,0],
@@ -763,7 +763,7 @@
     "LiteralInfinity.owningNamespace": [2,0,0,0,0,0,0],
     "LiteralInfinity.owningRelationship": [2,0,0,0,0,0,0],
     "LiteralInfinity.parameter": [0,0,2,0,0,0,0],
-    "LiteralInfinity.result": [0,0,2,0,0,0,0],
+    "LiteralInfinity.result": [2,0,0,0,0,0,0],
     "LiteralInfinity.textualRepresentation": [0,0,0,0,2,0,0],
     "LiteralInfinity.type": [2,0,0,0,0,0,0],
     "LiteralInfinity.unioningType": [0,0,0,0,2,0,0],
@@ -829,7 +829,7 @@
     "LiteralInteger.owningNamespace": [2,0,0,0,0,0,0],
     "LiteralInteger.owningRelationship": [2,0,0,0,0,0,0],
     "LiteralInteger.parameter": [0,0,2,0,0,0,0],
-    "LiteralInteger.result": [0,0,2,0,0,0,0],
+    "LiteralInteger.result": [2,0,0,0,0,0,0],
     "LiteralInteger.textualRepresentation": [0,0,0,0,2,0,0],
     "LiteralInteger.type": [2,0,0,0,0,0,0],
     "LiteralInteger.unioningType": [0,0,0,0,2,0,0],
@@ -896,7 +896,7 @@
     "LiteralString.owningNamespace": [30,0,0,0,0,0,0],
     "LiteralString.owningRelationship": [30,0,0,0,0,0,0],
     "LiteralString.parameter": [0,0,30,0,0,0,0],
-    "LiteralString.result": [0,0,30,0,0,0,0],
+    "LiteralString.result": [30,0,0,0,0,0,0],
     "LiteralString.textualRepresentation": [0,0,0,0,30,0,0],
     "LiteralString.type": [30,0,0,0,0,0,0],
     "LiteralString.unioningType": [0,0,0,0,30,0,0],
@@ -1176,11 +1176,11 @@
     "Package.declaredShortName": [0,0,0,0,1,0,0],
     "Package.documentation": [0,0,0,0,1,0,0],
     "Package.filterCondition": [0,0,0,0,1,0,0],
-    "Package.importedMembership": [0,0,1,0,0,0,0],
+    "Package.importedMembership": [0,1,0,0,0,0,0],
     "Package.isImpliedIncluded": [1,0,0,0,0,0,0],
     "Package.isLibraryElement": [1,0,0,0,0,0,0],
-    "Package.member": [0,0,1,0,0,0,0],
-    "Package.membership": [0,0,1,0,0,0,0],
+    "Package.member": [0,1,0,0,0,0,0],
+    "Package.membership": [0,1,0,0,0,0,0],
     "Package.name": [1,0,0,0,0,0,0],
     "Package.ownedAnnotation": [0,0,0,0,1,0,0],
     "Package.ownedElement": [1,0,0,0,0,0,0],

@@ -278,7 +278,7 @@ func (s *session) deny(values []Assignment) error {
 	if err != nil {
 		return err
 	}
-	return s.send("; " + Role(RoleExcluded).String() + ": a configuration already reported\n" +
+	return s.send("; " + RoleExcluded.String() + ": a configuration already reported\n" +
 		"(assert (not " + clause + "))\n(check-sat)\n")
 }
 

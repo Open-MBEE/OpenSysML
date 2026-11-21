@@ -1,0 +1,13 @@
+= HeavyPartsResult:&#58;heavyParts
+
+query:: QVTSExamples:&#58;HeavyParts threshold=10.0
+source:: examples/observatory.sysml
+outcome:: established
+provenance:: urn:prov:bundle:heavyParts
+
+[options="header"]
+|===
+| Element | Kind | Type | Declared in
+| Observatory:&#58;telescope:&#58;mountControl | part | Subsystem | Observatory:&#58;telescope
+| Observatory:&#58;telescope:&#58;primaryMirror | part | MirrorAssembly | Observatory:&#58;telescope
+|===

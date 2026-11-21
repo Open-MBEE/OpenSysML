@@ -324,7 +324,7 @@ func (q *EventQueue) Len() int {
 
 // Events lists the pending events in dispatch order.
 func (q *EventQueue) Events() []Event {
-	events := eventHeap(slices.Clone(q.events))
+	events := slices.Clone(q.events)
 	sort.Sort(events)
 	return events
 }

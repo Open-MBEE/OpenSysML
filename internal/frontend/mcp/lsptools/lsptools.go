@@ -203,7 +203,7 @@ func (h *Host) refOf(u uri.URI) docRef {
 	if parsed, err := url.Parse(string(u)); err == nil && strings.EqualFold(parsed.Scheme, lsp.LibraryScheme) {
 		return docRef{name: strings.TrimPrefix(parsed.Path, "/"), library: true}
 	}
-	return docRef{name: uri.URI(u).FsPath()}
+	return docRef{name: u.FsPath()}
 }
 
 // display is how results name a document: the path relative to the root when
@@ -260,6 +260,8 @@ func (w pendingWrite) unchanged() bool { return bytes.Equal(w.content, w.base) }
 // buffer of a written document, then follow the new text. The count is the
 // files written.
 func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) (int, error) {
+	diskWrites.Lock()
+	defer diskWrites.Unlock()
 	root, err := os.OpenRoot(h.root.Real)
 	if err != nil {
 		return 0, err
@@ -350,6 +352,10 @@ type WorkspaceInfo struct {
 	Documents []string `json:"documents" jsonschema:"paths of the model documents indexed, the standard library excluded"`
 	Open      []string `json:"open,omitempty" jsonschema:"documents whose text is held open with edits not yet on disk"`
 }
+
+// diskWrites serializes writeAll across hosts: each principal's host has its own
+// lock, and the disk they check and then write is one.
+var diskWrites sync.Mutex
 
 // Register adds the workspace tools and resources to s.
 func Register(s *mcp.Server, h *Host) {

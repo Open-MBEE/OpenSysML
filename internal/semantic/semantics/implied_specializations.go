@@ -113,7 +113,7 @@ func (m *Model) withoutRedundant(sym *symbols.Symbol, candidates, declared []*sy
 // subsetsByPosition reports whether sym or a supertype of it subsets general, or a subtype
 // of it, by its position: the implied Specializations inheritance does not traverse.
 func (m *Model) subsetsByPosition(sym, general *symbols.Symbol) bool {
-	for _, super := range append([]*symbols.Symbol{sym}, m.AllSupertypes(sym)...) {
+	for super := range m.eachSelfAndSupertype(sym) {
 		if slices.ContainsFunc(m.ImplicitSubsettings(super), func(feature *symbols.Symbol) bool {
 			return symbols.SameElement(feature, general) || m.Conforms(feature, general)
 		}) {

@@ -13,7 +13,11 @@ in this directory, so adding a case is a data-only change.
 ## Expectation schema
 
 `Convert` cases declare `library_references` entries with `id`, `qualified_name` and
-`type`. They verify both array and compact output, with and without legacy stubs.
+`type`. They verify both array and compact output, with and without legacy stubs. A table
+over 150 KiB is committed as `library_references_digest` instead (`sha256 <hex> rows <n>`
+over its rows, one a line), and every other form is held to the table the digest pins.
+`go test ./tests/grpc -run TestGRPCConformance -update-library-references` rewrites both
+forms from the service's response.
 
 | Field | Applies to | Meaning |
 |---|---|---|

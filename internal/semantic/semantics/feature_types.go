@@ -8,6 +8,12 @@ import (
 // ReflectiveFeatureTypes reports Feature::type (KerML 8.3.3.3.4 deriveFeatureType) as
 // the reflective layer answers it: false when an input relationship is unresolved.
 func (m *Model) ReflectiveFeatureTypes(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
+	if types, isAnnotation := m.prefixMetadataTypes(sym); isAnnotation {
+		if len(types) == 0 {
+			return nil, false
+		}
+		return types, true
+	}
 	if !m.FeatureTypeInputsComplete(sym) {
 		return nil, false
 	}

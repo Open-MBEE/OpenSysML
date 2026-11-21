@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -39,12 +40,29 @@ type HTTPConfig struct {
 	// MaxBodyBytes bounds a request body on the protocol path, answered 413
 	// past it; 0 is the SDK's DefaultMaxBodyBytes, and a negative value no bound.
 	MaxBodyBytes int64
+	// SessionTimeout closes a session no request has used for that long; 0 is
+	// DefaultSessionTimeout, and a negative value never closes an idle session.
+	SessionTimeout time.Duration
 	// Logger, if set, receives the transport's log; nil logs to the default.
 	Logger *slog.Logger
 }
 
 // DefaultMaxBodyBytes is the request body bound when none is configured.
 const DefaultMaxBodyBytes = sdk.DefaultMaxRequestBodyBytes
+
+// DefaultSessionTimeout is how long a session may sit idle when none is configured.
+const DefaultSessionTimeout = 30 * time.Minute
+
+// sessionTimeout is the idle bound handed to the SDK, where zero means none.
+func (c HTTPConfig) sessionTimeout() time.Duration {
+	switch {
+	case c.SessionTimeout == 0:
+		return DefaultSessionTimeout
+	case c.SessionTimeout < 0:
+		return 0
+	}
+	return c.SessionTimeout
+}
 
 // OriginPolicy admits a request with no Origin, a loopback origin or one allowed
 // by name, and refuses any other, so a rebound DNS name is not a way in.
@@ -169,11 +187,18 @@ func normalizeOrigin(s string) (string, bool) {
 // machine only; an address on every interface cannot.
 func IsLoopbackAddr(addr net.Addr) bool { return guard.IsLoopbackAddr(addr) }
 
-// protocolHandler is the Streamable HTTP transport of this server behind the
-// token, with the request body bounded as over asks.
+// protocolHandler is the Streamable HTTP transport behind the token, the request body
+// bounded as over asks; a session is served by its principal's protocol server (serverFor).
 func (s *Server) protocolHandler(over HTTPConfig) http.Handler {
-	streamable := sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server { return s.sdk },
-		&sdk.StreamableHTTPOptions{Logger: s.logger, MaxRequestBodyBytes: over.MaxBodyBytes})
+	streamable := sdk.NewStreamableHTTPHandler(func(r *http.Request) *sdk.Server {
+		p, ok := guard.PrincipalFrom(r.Context())
+		if !ok {
+			p = toolkit.LocalPrincipal()
+		}
+		return s.serverFor(r.Context(), p)
+	},
+		&sdk.StreamableHTTPOptions{Logger: s.logger, MaxRequestBodyBytes: over.MaxBodyBytes,
+			SessionTimeout: over.sessionTimeout()})
 	return over.Token.Handler(stampRemoteAddr(streamable))
 }
 
