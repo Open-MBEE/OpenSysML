@@ -219,9 +219,9 @@ func TestSuccessionRelatedFeaturesAreItsEndsReferences(t *testing.T) {
 	}
 }
 
-// A bare `if`, `while` or `for` statement has no element standing for it yet, so a succession reaching
-// one leaves relatedFeature unanswered rather than one feature short.
-func TestSuccessionAtAControlStatementIsUnanswered(t *testing.T) {
+// A bare `if`, `while` or `for` statement is the nameless action node the structure reflects for it
+// (statementNodes), as the conversion writes it, so a succession reaching one relates that node.
+func TestSuccessionAtAControlStatementRelatesItsNode(t *testing.T) {
 	const src = `package P {
 		action def L {
 			attribute x : ScalarValues::Integer;
@@ -238,9 +238,10 @@ func TestSuccessionAtAControlStatementIsUnanswered(t *testing.T) {
 	if len(successions) != 4 {
 		t.Fatalf("%d successions, want 4", len(successions))
 	}
+	want := []string{"a <WhileLoopActionUsage>", "<WhileLoopActionUsage> <IfActionUsage>", "<IfActionUsage> <ForLoopActionUsage>", "<ForLoopActionUsage> c"}
 	for i, succession := range successions {
-		if got := reflectedFeatures(fixture.model, succession, "relatedFeature"); got != "unanswered" {
-			t.Errorf("succession %d relatedFeature = %q, want it unanswered", i, got)
+		if got := reflectedFeatures(fixture.model, succession, "relatedFeature"); got != want[i] {
+			t.Errorf("succession %d relatedFeature = %q, want %q", i, got, want[i])
 		}
 	}
 }

@@ -23,6 +23,18 @@ type dialOptions struct {
 	json       bool
 	token      string
 	clearToken bool
+	// maxResponse is the response bound WithMaxResponseBytes named; 0 is the default.
+	maxResponse int
+}
+
+// DefaultMaxResponseBytes bounds one response message unless WithMaxResponseBytes
+// names another bound.
+const DefaultMaxResponseBytes = 128 << 20
+
+// WithMaxResponseBytes bounds one response message; a larger one fails the call with
+// CodeResourceExhausted instead of being buffered. A bound of zero or less is ignored.
+func WithMaxResponseBytes(n int) DialOption {
+	return func(o *dialOptions) { o.maxResponse = n }
 }
 
 // TokenEnv is the environment variable Dial reads a bearer token from when
@@ -81,7 +93,10 @@ func Dial(address string, opts ...DialOption) (Client, error) {
 	if !strings.Contains(address, "://") {
 		address = "http://" + address
 	}
-	var connectOpts []connect.ClientOption
+	if config.maxResponse <= 0 {
+		config.maxResponse = DefaultMaxResponseBytes
+	}
+	connectOpts := []connect.ClientOption{connect.WithReadMaxBytes(config.maxResponse)}
 	if config.json {
 		connectOpts = append(connectOpts, connect.WithProtoJSON())
 	}
@@ -423,7 +438,7 @@ func (r *remote) close() error {
 func connectToError(err error) error {
 	var connectErr *connect.Error
 	if errors.As(err, &connectErr) {
-		return &StatusError{Code: Code(connectErr.Code()), Message: connectErr.Message()}
+		return &StatusError{Code: Code(connectErr.Code()), Message: connectErr.Message(), ResultView: resultViewOf(connectErr)}
 	}
 	return &StatusError{Code: CodeUnavailable, Message: err.Error()}
 }

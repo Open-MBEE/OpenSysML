@@ -208,3 +208,14 @@ func TestTheTokenNeverLeavesForARefusedAddress(t *testing.T) {
 		t.Error("with the opt-in no request reached the server")
 	}
 }
+
+func TestAResponsePastTheBoundIsResourceExhausted(t *testing.T) {
+	address := startService(t)
+	if _, err := dialClient(t, address).ParseSource(context.Background(), vehicleSource); err != nil {
+		t.Fatalf("ParseSource under the default bound: %v", err)
+	}
+	_, err := dialClient(t, address, opensysml.WithMaxResponseBytes(8)).ParseSource(context.Background(), vehicleSource)
+	if !errors.Is(err, opensysml.CodeResourceExhausted) {
+		t.Errorf("err = %v, want CodeResourceExhausted", err)
+	}
+}

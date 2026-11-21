@@ -3401,6 +3401,8 @@ pub struct ServerInfoResponse {
     ///                   and the response carries the document in `asciidoc`.
     ///    "render_view" - the RenderView RPC renders a declared view or targeted
     ///                   pseudo-view as machine-readable diagram data.
+    ///    "query_result_view" - as_view writes a query's answer as a QVTS::QueryResult view: result_view on success, a
+    ///                   QueryResultView detail on failure; RenderView answers such a view's header and, for form, a document.
     ///    "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
     ///                   action or state machine as canonical graphs:1 JSON.
     ///    "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
@@ -3452,6 +3454,10 @@ pub struct QueryRequest {
     /// OSLC Query 3.0 parameter text, mutually exclusive with query.
     #[prost(string, tag="3")]
     pub oslc_query: ::prost::alloc::string::String,
+    /// Also write the answer as a QVTS::QueryResult view, in result_view or a failure's
+    /// QueryResultView detail. Under the "query_result_view" capability.
+    #[prost(bool, tag="4")]
+    pub as_view: bool,
 }
 /// QueryResponse contains the elements the query selected, in the order they are
 /// declared in the model. A query that matches nothing answers with no elements;
@@ -3461,6 +3467,10 @@ pub struct QueryRequest {
 pub struct QueryResponse {
     #[prost(message, repeated, tag="1")]
     pub elements: ::prost::alloc::vec::Vec<QueryResultElement>,
+    /// The answer as SysML text when the request set as_view, as RunDocumentQueryResponse.result_view;
+    /// its query is the OSLC text, or the API query written as `scope=…; select=…; where=…; orderBy=…`.
+    #[prost(string, tag="2")]
+    pub result_view: ::prost::alloc::string::String,
 }
 /// Query is the standard's Query resource (SysML v2 API & Services). Its `@type`
 /// is fixed and carries no information on the wire, and its identity fields
@@ -4041,6 +4051,10 @@ pub struct RunDocumentQueryRequest {
     /// named query's does. Reported as the "inline_document_query" capability.
     #[prost(string, tag="4")]
     pub inline_query: ::prost::alloc::string::String,
+    /// Also write the answer as a QVTS::QueryResult view, in result_view or a failure's
+    /// QueryResultView detail. Under the "query_result_view" capability.
+    #[prost(bool, tag="5")]
+    pub as_view: bool,
 }
 /// DocumentQueryBinding binds one entry parameter of a document query.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -4294,6 +4308,17 @@ pub struct RunDocumentQueryResponse {
     pub columns: ::prost::alloc::vec::Vec<DocumentQueryColumn>,
     #[prost(message, repeated, tag="2")]
     pub rows: ::prost::alloc::vec::Vec<DocumentQueryRow>,
+    /// The answer as SysML text when the request set as_view: a package holding one `view : QVTS::QueryResult`
+    /// that exposes each selected element and states the query, its bindings, the source, the outcome and the provenance.
+    #[prost(string, tag="3")]
+    pub result_view: ::prost::alloc::string::String,
+}
+/// QueryResultView is a failed query written as a QVTS::QueryResult view, an error
+/// detail beside QueryOutcome when the request set as_view: it exposes the frontier and finding elements.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct QueryResultView {
+    #[prost(string, tag="1")]
+    pub text: ::prost::alloc::string::String,
 }
 /// QueryOutcome is the record behind a document query that could not be run, an error
 /// detail of the failed call: a pathError or modelError at its step, as -json's checks\[\].outcome.
@@ -4457,8 +4482,8 @@ pub struct RenderViewRequest {
     /// "ports" (the port usages with the ports nested under them).
     #[prost(string, tag="6")]
     pub compartments: ::prost::alloc::string::String,
-    /// Form to also write into RenderViewResponse.text: "text", "mermaid", "markdown", "dot", "plantuml", "d2",
-    /// "drawio", "csv" or "tsv"; an unknown or wrong-kind form is INVALID_ARGUMENT. Needs render_view_form.
+    /// Form to also write into RenderViewResponse.text: "text", "mermaid", "markdown", "dot", "plantuml", "d2", "drawio", "csv" or "tsv", and for a
+    /// QVTS::QueryResult view "markdown", "html" or "asciidoc", a document of its header and rows; a wrong-kind form is INVALID_ARGUMENT. Needs render_view_form.
     #[prost(string, tag="7")]
     pub form: ::prost::alloc::string::String,
     /// Palette the dot, mermaid, plantuml, d2 or drawio form fills nodes from,
@@ -4522,6 +4547,18 @@ pub struct RenderViewResponse {
     /// -render writes at no particular width; empty when the request names no form.
     #[prost(string, tag="13")]
     pub text: ::prost::alloc::string::String,
+    /// A QVTS::QueryResult view's query, source, outcome and provenance, in that
+    /// order, above its rows; empty for any other view.
+    #[prost(message, repeated, tag="14")]
+    pub header: ::prost::alloc::vec::Vec<RenderHeaderField>,
+}
+/// RenderHeaderField is one stated attribute of a QVTS::QueryResult view.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RenderHeaderField {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub value: ::prost::alloc::string::String,
 }
 /// RenderFrame is the view frame of SysML v2 §8.2.3.26: the name compartment's
 /// name and view definition, and the lines of the three information

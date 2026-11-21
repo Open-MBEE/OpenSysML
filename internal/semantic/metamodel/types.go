@@ -147,6 +147,18 @@ type StatedAttributeStructure interface {
 	StatedAttribute(el Element, property string) (Value, bool)
 }
 
+// LibraryMembershipResolver is the optional part of a Structure that names the library
+// symbol a reference to a library membership stands for: the member that membership owns.
+type LibraryMembershipResolver interface {
+	LibraryMember(membership Element) (*symbols.Symbol, bool)
+}
+
+// AnnotationStructure lists the Annotation relationships whose annotatedElement is the
+// element: the inverse an element filter needs to find metadata stated `about` it.
+type AnnotationStructure interface {
+	Annotations(Element) ([]Element, bool)
+}
+
 // ElementIdentityStructure optionally supplies stable API identities for
 // elements whose derived values contain an ID rather than an element handle.
 type ElementIdentityStructure interface {
@@ -156,6 +168,12 @@ type ElementIdentityStructure interface {
 // QualifiedNameStructure supplies canonical names when graph containment is unavailable.
 type QualifiedNameStructure interface {
 	QualifiedName(Element) (string, bool)
+}
+
+// ImpliedRedefinitionStructure optionally states the features an element redefines by its
+// role (subject, objective, actor, stakeholder, rendering; SysML v2 §8.3.21-§8.3.26) unwritten.
+type ImpliedRedefinitionStructure interface {
+	ImpliedRedefinedFeatures(Element) ([]Element, bool)
 }
 
 // LibrarySymbolResolver optionally resolves a structure element that merely
@@ -213,6 +231,9 @@ func membershipKind(sym *symbols.Symbol) string {
 	if _, ok := sym.Decl.(*ast.CrossFeatureMember); ok {
 		return "OwningMembership"
 	}
+	if _, ok := sym.Decl.(*ast.IfBranchNode); ok {
+		return "ParameterMembership"
+	}
 	if semantics.IsVariant(sym) {
 		return "VariantMembership"
 	}
@@ -225,6 +246,9 @@ func membershipKind(sym *symbols.Symbol) string {
 		}
 	}
 	if sym.Kind == symbols.SymbolConnectorEnd {
+		if semantics.IsMessageEnd(sym) {
+			return "ParameterMembership"
+		}
 		return "EndFeatureMembership"
 	}
 	owner := sym.Owner()

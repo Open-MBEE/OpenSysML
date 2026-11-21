@@ -589,7 +589,7 @@ func (c *compiler) compileColumnOperator(
 		Actual: expression.Operator.String(),
 		Origin: symbols.NodeOrigin(owner.DocName, expression),
 	}
-	arity := 0
+	var arity int
 	switch expression.Operator {
 	case ast.OpAdd, ast.OpSub, ast.OpMul, ast.OpDiv, ast.OpNullCoalesce:
 		arity = 2

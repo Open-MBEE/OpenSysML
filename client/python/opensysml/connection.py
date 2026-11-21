@@ -18,6 +18,7 @@ from opensysml.binary import ensure_binary, resolve_latest_version
 from opensysml.capabilities import (
     CAPABILITY_ELEMENT_PROPERTIES,
     CAPABILITY_INLINE_DOCUMENT_QUERY,
+    CAPABILITY_QUERY_RESULT_VIEW,
     CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
     CAPABILITY_CONVERT_COMPACT,
     CAPABILITY_CONVERT_INHERITED_MEMBERS,
@@ -1620,8 +1621,9 @@ class Connection:
             inherited_members (bool): For api-json, also write on every
                 Namespace and Type the derived lists that repeat its inherited
                 and imported members (``membership``, ``member``,
-                ``inheritedMembership``, ``featureMembership``, ``feature``,
-                ``inheritedFeature``); by default an element carries its owned
+                ``inheritedMembership``, ``importedMembership``,
+                ``featureMembership``, ``feature``, ``inheritedFeature``); by
+                default an element carries its owned
                 structure. Needs the ``convert_inherited_members`` capability.
             compact (bool): For notation converted to api-json, write the
                 compact document (``api-json-compact/1``) in place of the
@@ -1952,7 +1954,7 @@ class Connection:
         return result_of(response)
 
     def query(self, model_hash, payload=None, scope=None, select=None, where=None,
-              order_by=None, oslc=None):
+              order_by=None, oslc=None, as_view=False):
         """Run a SysML v2 API & Services Query over a loaded model.
 
         The query is the standard's JSON object, so a cookbook payload works
@@ -1973,9 +1975,13 @@ class Connection:
                 place of the standard's Query; not combined with the others.
                 An empty string is no OSLC at all, so the structured query
                 (empty, answering every element) is sent instead
+            as_view (bool): Also answer the selection as a ``QVTS::QueryResult``
+                view, the answer's ``result_view``; a query that ends in a
+                path error then raises with the view as the error's
+                ``result_view``. Needs the ``query_result_view`` capability
 
         Returns:
-            list[QueryElement]: The elements selected, in ``order_by`` order,
+            QueryElements: The elements selected, a list in ``order_by`` order,
             or declaration order without one
 
         Raises:
@@ -1994,9 +2000,11 @@ class Connection:
                     "Provide either oslc or the standard's Query (payload or keywords), not both"
                 )
             needed = (CAPABILITY_QUERY, CAPABILITY_OSLC_QUERY)
+            if as_view:
+                needed += (CAPABILITY_QUERY_RESULT_VIEW,)
             for capability in needed:
                 require(self.server_info(), capability, upgrade_remedy(capability))
-            request = sysml_pb2.QueryRequest(model_hash=model_hash, oslc_query=oslc)
+            request = sysml_pb2.QueryRequest(model_hash=model_hash, oslc_query=oslc, as_view=as_view)
             with translate_rpc_errors(
                 unimplemented=self._capability_refusal(needed)
             ):
@@ -2006,9 +2014,11 @@ class Connection:
                             order_by=order_by)
         needed = (CAPABILITY_QUERY, CAPABILITY_QUERY_ORDER_BY) if query.order_by \
             else (CAPABILITY_QUERY,)
+        if as_view:
+            needed += (CAPABILITY_QUERY_RESULT_VIEW,)
         for capability in needed:
             require(self.server_info(), capability, upgrade_remedy(capability))
-        request = sysml_pb2.QueryRequest(model_hash=model_hash, query=query)
+        request = sysml_pb2.QueryRequest(model_hash=model_hash, query=query, as_view=as_view)
         with translate_rpc_errors(
             unimplemented=self._capability_refusal(needed)
         ):
@@ -2072,7 +2082,8 @@ class Connection:
             )
         return element_properties_of(response)
 
-    def run_document_query(self, model_hash, query_id=None, bindings=None, inline_query=None):
+    def run_document_query(self, model_hash, query_id=None, bindings=None, inline_query=None,
+                           as_view=False):
         """Run a document query, named or written in place, and answer its typed rows.
 
         The query is the model's own — a calc def specializing
@@ -2093,6 +2104,10 @@ class Connection:
                 "PartUsage"), ("name", "mass"))`` — with the
                 ``DocumentQueries`` library in scope and the model's own names
                 reachable; needs the ``inline_document_query`` capability
+            as_view (bool): Also answer as a ``QVTS::QueryResult`` view, the
+                result's ``result_view``; a query that ends in a path or model
+                error then raises with the view as the error's
+                ``result_view``. Needs the ``query_result_view`` capability
 
         Returns:
             DocumentQueryResult: Projected columns and typed rows, in the
@@ -2123,11 +2138,18 @@ class Connection:
                 CAPABILITY_INLINE_DOCUMENT_QUERY,
                 upgrade_remedy(CAPABILITY_INLINE_DOCUMENT_QUERY),
             )
+        if as_view:
+            require(
+                self.server_info(),
+                CAPABILITY_QUERY_RESULT_VIEW,
+                upgrade_remedy(CAPABILITY_QUERY_RESULT_VIEW),
+            )
         request = sysml_pb2.RunDocumentQueryRequest(
             model_hash=model_hash,
             query_id=query_id or "",
             inline_query=inline_query or "",
             bindings=build_bindings(bindings),
+            as_view=as_view,
         )
         if any(binding_holds_big_int(binding) for binding in request.bindings):
             require(
@@ -2253,6 +2275,8 @@ class Connection:
         capabilities = [CAPABILITY_RENDER_VIEW]
         if written:
             capabilities.append(CAPABILITY_RENDER_VIEW_FORM)
+        if form in ("html", "asciidoc"):
+            capabilities.append(CAPABILITY_QUERY_RESULT_VIEW)
         for capability in capabilities:
             require(self.server_info(), capability, upgrade_remedy(capability))
         request = sysml_pb2.RenderViewRequest(

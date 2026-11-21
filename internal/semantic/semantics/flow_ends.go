@@ -112,17 +112,11 @@ func (m *Model) flowEndReference(end *symbols.Symbol) (target *symbols.Symbol, s
 	if chain := m.flowEndChainFeature(flow, i); chain != nil {
 		return chain, true
 	}
-	path := m.flowEndPath(flow, usage, i)
-	switch {
-	case ast.FlowEndChainPrefix(usage, i) != nil:
-		// A chain whose prefix resolves to nothing: the subsetting is stated, its target underived.
-		return nil, true
-	case len(path) == 2:
-		return path[0], true
-	case len(path) > 2:
-		return nil, true
-	}
-	if _, chained := ast.EndTarget(flowEndNode(usage, i)).(*ast.FeatureChainExpr); chained {
+	if chained, ok := ast.EndTarget(flowEndNode(usage, i)).(*ast.FeatureChainExpr); ok {
+		// `a.x` references a whether or not x resolves, as the conversion writes it (flowEndReferences).
+		if prefix := m.attachmentPath(flow.OwnerScope, chained.Operand); len(prefix) == 1 {
+			return prefix[0], true
+		}
 		return nil, true
 	}
 	return nil, false
@@ -145,6 +139,24 @@ func (m *Model) flowEndFeatureRedefinition(feature *symbols.Symbol) *symbols.Sym
 		return nil
 	}
 	return path[len(path)-1]
+}
+
+// flowEndFeatureDirection is the direction of the ReferenceUsage a flow's end owns: that of the feature it
+// redefines as the feature the end references inherits it (KerML.xtext FlowFeature, note 1).
+func (m *Model) flowEndFeatureDirection(feature *symbols.Symbol) (ast.FeatureDirection, bool) {
+	i, ok := symbols.ImpliedFlowEndFeatureIndex(feature)
+	if !ok || feature.OwnerScope == nil {
+		return ast.DirNone, false
+	}
+	flow, usage, _ := flowEndOwner(feature.OwnerScope.Owner())
+	if flow == nil {
+		return ast.DirNone, false
+	}
+	path := m.flowEndPath(flow, usage, i)
+	if len(path) < 2 {
+		return ast.DirNone, true
+	}
+	return m.directionThrough(path[len(path)-2], path[len(path)-1]), true
 }
 
 // withFlowEndFeature adds the ReferenceUsage a flow's end owns to the end's members (ownedMember, member,

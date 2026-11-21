@@ -11,11 +11,11 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 558,
+      "presentEqual": 559,
       "presentDifferent": 142,
-      "oursMissing": 62,
-      "pilotMissing": 28,
-      "absentBoth": 784,
+      "oursMissing": 61,
+      "pilotMissing": 27,
+      "absentBoth": 785,
       "indeterminate": 22,
       "pilotNondeterministic": 0
     },
@@ -552,7 +552,7 @@
     "LiteralInteger.owningNamespace": [1,0,0,0,0,0,0],
     "LiteralInteger.owningRelationship": [1,0,0,0,0,0,0],
     "LiteralInteger.parameter": [0,0,1,0,0,0,0],
-    "LiteralInteger.result": [0,0,1,0,0,0,0],
+    "LiteralInteger.result": [1,0,0,0,0,0,0],
     "LiteralInteger.textualRepresentation": [0,0,0,0,1,0,0],
     "LiteralInteger.type": [1,0,0,0,0,0,0],
     "LiteralInteger.unioningType": [0,0,0,0,1,0,0],
@@ -796,7 +796,7 @@
     "TransitionUsage.nestedCalculation": [0,0,0,0,1,0,0],
     "TransitionUsage.nestedCase": [0,0,0,0,1,0,0],
     "TransitionUsage.nestedConcern": [0,0,0,0,1,0,0],
-    "TransitionUsage.nestedConnection": [0,0,0,1,0,0,0],
+    "TransitionUsage.nestedConnection": [0,0,0,0,1,0,0],
     "TransitionUsage.nestedConstraint": [0,0,0,0,1,0,0],
     "TransitionUsage.nestedEnumeration": [0,0,0,0,1,0,0],
     "TransitionUsage.nestedFlow": [0,0,0,0,1,0,0],
