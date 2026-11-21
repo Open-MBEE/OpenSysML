@@ -143,9 +143,8 @@ func TestAGuardedServiceAdmitsTheRightTokenAndRefusesTheRest(t *testing.T) {
 	}
 }
 
-// TestDialRefusesATokenInClear checks a bearer token is not sent over plain http
-// to an address other machines reach: Dial refuses it, from the option and from
-// the environment alike, and accepts https, this machine, and the explicit opt-in.
+// TestDialRefusesATokenInClear checks Dial refuses a token, set by option or environment,
+// for a remote plain-http address, and accepts https, this machine and the opt-in.
 func TestDialRefusesATokenInClear(t *testing.T) {
 	for _, address := range []string{"sysml.example.com:50051", "http://sysml.example.com", "http://10.0.0.7:50051", "HTTP://[2001:db8::1]:50051"} {
 		_, err := opensysml.Dial(address, opensysml.WithToken("s3cret"))

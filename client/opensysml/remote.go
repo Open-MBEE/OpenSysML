@@ -76,7 +76,6 @@ func WithJSONBody() DialOption {
 // scheme is dialed as http. Requests cross as Connect protobuf unless
 // WithJSONBody says otherwise. Closing leaves the service running: it was not
 // this package's to stop.
-//
 // With a token set, an http address other machines reach is refused with
 // CodeInvalidArgument unless WithInsecureTokenTransport accepts it.
 func Dial(address string, opts ...DialOption) (Client, error) {

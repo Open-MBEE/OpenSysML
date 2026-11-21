@@ -173,9 +173,8 @@ func TestDocumentFileNameEncoding(t *testing.T) {
 	}
 }
 
-// TestMarkdownReferenceDestinationsAreGuarded checks a cross-document link whose
-// file name holds a space, a parenthesis, a bracket or a backslash is written
-// in the pointy-bracket form, so the name cannot end or reshape the link.
+// TestMarkdownReferenceDestinationsAreGuarded checks a file name holding a space, parenthesis,
+// bracket or backslash is linked in the pointy-bracket form, so it cannot reshape the link.
 func TestMarkdownReferenceDestinationsAreGuarded(t *testing.T) {
 	for file, want := range map[string]string{
 		"out/Mass Appendix.md":     "](<out/Mass Appendix.md#tables-masses>)",
