@@ -170,9 +170,9 @@ type ActionGraph struct {
 
 	replacedByIncompatible map[ast.Node]ast.Node
 
-	// impliedSteps: feature path → the step a succession end chaining to an action
+	// impliedSteps: chained action → the step a succession end chaining to it
 	// through an object implies, where the body states no step performing it.
-	impliedSteps map[string]ast.Node
+	impliedSteps map[chainKey]ast.Node
 	// generals are the bodies of the actions the action specializes, nearest first.
 	generals []*symbols.Scope
 
@@ -1394,7 +1394,7 @@ func (l *actionEdgeLowerer) ends(ref ast.Node, member ast.Node, source bool) ([]
 	if member != nil {
 		return nil, nil
 	}
-	switch kind, _ := ClassifyChainEnd(l.graph.Nodes, l.scope, ref); kind {
+	switch kind, _ := ClassifyChainEnd(l.graph.Nodes, l.scope, l.graph.resolver, ref); kind {
 	case ChainEndAction:
 		return l.graph.chainSteps(ref, l.scope), nil
 	case ChainEndOccurrence:

@@ -107,3 +107,34 @@ func TestActionEndpointPassChainedMarkerNameIsNoMarker(t *testing.T) {
 		t.Fatalf("got %+v, want the chained end reported", diags)
 	}
 }
+
+// A chained end reads its object's type through the imports in scope, so validation
+// and lowering judge an imported type's action and attribute as a local one's.
+func TestActionEndpointPassChainEndThroughImportedType(t *testing.T) {
+	for end, reported := range map[string]bool{"v.close": false, "v.n": true} {
+		t.Run(end, func(t *testing.T) {
+			src := `package Lib { part def Vehicle { action close; attribute n = 0; } }
+			package P {
+				private import Lib::*;
+				action def A {
+					part v : Vehicle;
+					action a;
+					first a then ` + end + `;
+				}
+			}`
+			ctx, root := nameresCtx(t, "a.sysml", src)
+			diags := behavior.ActionEndpointPass{}.Run(ctx, "a.sysml", root)
+			if reported != (len(diags) == 1 && diags[0].Code == behavior.CodeEndpointNotANode) {
+				t.Fatalf("diagnostics %+v, want reported = %v", diags, reported)
+			}
+			pkg, _ := ctx.Index.DocumentRoot("a.sysml").LookupLocal("P")
+			def, ok := pkg.Scope.LookupLocal("A")
+			if !ok {
+				t.Fatal("action def A not found")
+			}
+			if _, err := lower.ToActionGraphWith(def.Decl, def.Scope, ctx.Resolver()); reported == (err == nil) {
+				t.Fatalf("lowering error %v, want an error only for the reported end", err)
+			}
+		})
+	}
+}

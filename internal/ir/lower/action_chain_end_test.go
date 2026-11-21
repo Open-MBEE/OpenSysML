@@ -1,6 +1,7 @@
 package lower
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
@@ -165,7 +166,7 @@ func TestClassifyChainEnd(t *testing.T) {
 		"expression to none": {chainTarget(chain("v", "missing")), ChainEndNone},
 	} {
 		t.Run(name, func(t *testing.T) {
-			got, sym := ClassifyChainEnd(graph.Nodes, graph.Scope, c.ref)
+			got, sym := ClassifyChainEnd(graph.Nodes, graph.Scope, graph.Resolver(), c.ref)
 			if got != c.want || (sym != nil) != (c.want != ChainEndNone) {
 				t.Fatalf("ClassifyChainEnd = %d (symbol %v), want %d", got, sym != nil, c.want)
 			}
@@ -283,3 +284,44 @@ func TestActionChainEndJoinsRedefinedInheritedPerformer(t *testing.T) {
 		t.Fatalf("c2 performs through %v, want the reference of the step it redefines", referrer)
 	}
 }
+
+// performsPath reports whether node is stated to perform the chain segments spell.
+func performsPath(node ast.Node, segments []string) bool {
+	usage, ok := node.(*ast.Usage)
+	if !ok {
+		return false
+	}
+	for _, rel := range usage.Relationships {
+		if rel != nil && rel.Kind.ReferenceSubsets() && slices.Equal(endSegments(rel.Target), segments) {
+			return true
+		}
+	}
+	return false
+}
+
+func TestChainEndsThroughPrivateRootsStayApart(t *testing.T) {
+	graph := scopedActionGraph(t, `
+		part def Vehicle { action close; }
+		action def Base {
+			private part v : Vehicle;
+			action a;
+			first v.close then a;
+		}
+		action def Derived :> Base {
+			private part v : Vehicle;
+			action b;
+			first a then v.close;
+			first v.close then b;
+		}
+	`, "Derived")
+	implied := impliedChainSteps(graph)
+	if len(implied) != 2 {
+		t.Fatalf("implied steps = %d, want one for each private v", len(implied))
+	}
+	for _, edge := range graph.Edges[nodeNamed(t, graph, "a")] {
+		if next := graph.Edges[edge.Target]; len(next) != 1 || next[0].Target != nodeNamed(t, graph, "b") {
+			t.Fatalf("a's chained step leads to %v, want [b]", next)
+		}
+	}
+}
+
