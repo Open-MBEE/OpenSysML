@@ -346,7 +346,7 @@ func (r *Resolver) resolveBehaviorDecl(scope *symbols.Scope, decl ast.Node) bool
 		// than at lowering, which consumes what this resolved.
 		// The guard, effect and body resolve against the parameters the
 		// transition's call trigger declares, which live in a scope of their own.
-		r.ResolveEndpoint(scope, d.Source)
+		r.ResolveTransitionSource(scope, d)
 		r.ResolveEndpoint(scope, d.Target)
 		r.resolveTrigger(scope, d.Trigger)
 		if d.Via != nil {
