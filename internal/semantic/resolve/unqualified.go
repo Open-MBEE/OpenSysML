@@ -554,10 +554,12 @@ func (r *Resolver) lookupImports(scope *symbols.Scope, name string) (*symbols.Sy
 // traversed, including a public membership import.
 func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, from *symbols.Scope, name string, all bool) (*symbols.Symbol, bool) {
 	visit := importVisit{target: targetScope, from: from, name: name, all: all}
-	if r.importVisits[visit] {
-		return nil, false
+	for _, cut := range r.importVisits[visit] {
+		if deps := (routeDeps{cut: cut}); r.routeHolds(deps, false) {
+			r.replayRoute(deps)
+			return nil, false
+		}
 	}
-	r.importVisits[visit] = true
 	r.importDepth++
 	defer func() {
 		r.importDepth--
@@ -565,29 +567,39 @@ func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, fro
 			clear(r.importVisits)
 		}
 	}()
-	for _, imp := range r.scopeImports(targetScope) {
-		if r.importStack[imp] {
-			continue
-		}
-		if !r.importPrefixAvailable(targetScope, imp, name) {
-			continue
-		}
-		if !all && !r.importVisibleFrom(target, from, imp) {
-			continue
-		}
-		// An expose inherited by specialization is judged by the inheriting view too.
-		into := targetScope
-		if imp.IsExpose && from != nil && r.specializes(from.Owner(), target) {
-			into = from
-		}
-		r.importStack[imp] = true
-		if sym, ok := r.matchImportInto(into, targetScope, imp, name); ok {
+	mark := r.markRoute()
+	var found *symbols.Symbol
+	r.reading(targetScope, func() {
+		for _, imp := range r.scopeImports(targetScope) {
+			if r.importStack[imp] {
+				continue
+			}
+			if !r.importPrefixAvailable(targetScope, imp, name) {
+				continue
+			}
+			if !all && !r.importVisibleFrom(target, from, imp) {
+				continue
+			}
+			// An expose inherited by specialization is judged by the inheriting view too.
+			into := targetScope
+			if imp.IsExpose && from != nil && r.specializes(from.Owner(), target) {
+				into = from
+			}
+			r.importStack[imp] = true
+			sym, ok := r.matchImportInto(into, targetScope, imp, name)
 			delete(r.importStack, imp)
-			return sym, true
+			if ok {
+				found = sym
+				return
+			}
 		}
-		delete(r.importStack, imp)
+	})
+	deps := r.routeDepsSince(mark, nil)
+	if found == nil {
+		r.importVisits[visit] = append(r.importVisits[visit], deps.cut)
+		return nil, false
 	}
-	return nil, false
+	return found, true
 }
 
 func (r *Resolver) importVisibleFrom(target *symbols.Symbol, from *symbols.Scope, imp *ast.Import) bool {
@@ -707,6 +719,11 @@ func (r *Resolver) importMatchesAllInto(into, scope *symbols.Scope, imp *ast.Imp
 // eachImportMatch calls yield with each element imp surfaces under name until
 // yield returns false.
 func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, name string, yield func(*symbols.Symbol) bool) {
+	r.reading(scope, func() { r.eachMatchOfImport(into, scope, imp, name, yield) })
+}
+
+// eachMatchOfImport is eachImportMatch with the importing namespace excluded.
+func (r *Resolver) eachMatchOfImport(into, scope *symbols.Scope, imp *ast.Import, name string, yield func(*symbols.Symbol) bool) {
 	if imp.Imported == nil || len(imp.Imported.Parts) == 0 {
 		return
 	}
@@ -740,9 +757,14 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 				return
 			}
 		}
-		if imp.IsRecursive {
+		// A recursive import of an excluded namespace is of the membership alone (KerML 8.3.2.4.6).
+		if imp.IsRecursive && r.entersNamespace(target.Scope) {
 			r.eachSubtreeMatch(target, name, imp, admit, yield)
 		}
+		return
+	}
+	// An import of an excluded namespace brings nothing (KerML 8.3.2.4.6).
+	if !r.entersNamespace(target.Scope) {
 		return
 	}
 	// Namespace import: visible members of the target's scope are surfaced.
