@@ -1039,7 +1039,7 @@ func (w *htmlWriter) writeValue(value queryexec.Value) {
 		classes += " sysml-event"
 	}
 	w.b.WriteString("<span class=\"" + classes + "\"" + attr("data-value-kind", string(value.Kind())) +
-		elementAttrs(value) + quantityAttrs(w.names, value) + ">" + htmlText(valueText(w.names, value)) + spanClose)
+		elementAttrs(value) + quantityAttrs(w.names, value) + ">" + htmlText(queryexec.ValueText(value, w.names)) + spanClose)
 }
 
 // quantityAttrs carries a quantity's magnitude and unit apart, so a theme or a
@@ -1050,7 +1050,7 @@ func quantityAttrs(names namer, value queryexec.Value) string {
 		return ""
 	}
 	magnitude, _ := value.Magnitude()
-	return attr("data-magnitude", valueText(names, magnitude)) + attr("data-unit", quantity.Unit.String())
+	return attr("data-magnitude", queryexec.ValueText(magnitude, names)) + attr("data-unit", quantity.Unit.String())
 }
 
 // writeList writes one bullet or numbered list, one item per query row, each

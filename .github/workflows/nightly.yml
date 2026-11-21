@@ -996,7 +996,7 @@ jobs:
   # behind; the alias tag is moved by hand.
   alias:
     name: Move the alias and prune old nights
-    needs: [select, publish]
+    needs: [select, publish, pypi, npm]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:

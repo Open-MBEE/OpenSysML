@@ -1017,45 +1017,7 @@ func (e *evaluator) rowRuns(row queryexec.Row) []TextRun {
 // object reads as the label the session reaches it by, a verdict, state or
 // event as its summary.
 func (e *evaluator) valueText(value queryexec.Value) string {
-	if element, ok := value.Element(); ok {
+	return queryexec.ValueText(value, func(element *symbols.Symbol) string {
 		return elementName(e.context.Model, element)
-	}
-	if _, label, ok := value.Object(); ok {
-		return label
-	}
-	if _, _, ok := value.ConnectorEnd(); ok {
-		return value.Label()
-	}
-	if verdict, ok := value.Verdict(); ok {
-		return verdict.Summary()
-	}
-	if state, ok := value.State(); ok {
-		return state.Label()
-	}
-	if event, ok := value.Event(); ok {
-		return event.Summary()
-	}
-	if text, ok := value.String(); ok {
-		return text
-	}
-	if integer, ok := value.IntegerConst(); ok {
-		return integer.FormatInt()
-	}
-	if rational, ok := value.Rational(); ok {
-		return queryexec.RationalText(rational)
-	}
-	if realVal, ok := value.Real(); ok {
-		return strconv.FormatFloat(realVal, 'g', -1, 64)
-	}
-	if boolean, ok := value.Boolean(); ok {
-		return strconv.FormatBool(boolean)
-	}
-	if value.Kind() == queryexec.ValueInfinity {
-		return "*"
-	}
-	if quantity, ok := value.Quantity(); ok {
-		magnitude, _ := value.Magnitude()
-		return quantity.TextWithMagnitude(e.valueText(magnitude))
-	}
-	return ""
+	})
 }
