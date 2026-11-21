@@ -23,9 +23,70 @@ func TestRuntimeRobustnessQuantities(t *testing.T) {
 	t.Run("quantity_cyclic_unit_definition", testQuantityCyclicUnitDefinition)
 	t.Run("quantity_calculation_that_has_no_value", testQuantityCalculationThatHasNoValue)
 	t.Run("quantity_write_of_another_dimension", testQuantityWriteOfAnotherDimension)
+	t.Run("quantity_write_to_a_type_no_quantity_is_of", testQuantityWriteToATypeNoQuantityIsOf)
 	t.Run("measurement_reference_failure_modes", testMeasurementReferenceFailureModes)
 	t.Run("tensor_quantity_failure_modes", testTensorQuantityFailureModes)
 	t.Run("coordinate_frame_failure_modes", testCoordinateFrameFailureModes)
+}
+
+// testQuantityWriteToATypeNoQuantityIsOf: a quantity is a ScalarQuantityValue, so a
+// feature typed by a type that neither generalizes nor specializes it refuses the write.
+func testQuantityWriteToATypeNoQuantityIsOf(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		declared string
+		initial  string
+		want     error
+	}{
+		{"a Real", "ScalarValues::Real", "0.0", ErrTypeMismatch},
+		{"a Number", "ScalarValues::Number", "0.0", ErrTypeMismatch},
+		{"a String", "ScalarValues::String", `""`, ErrTypeMismatch},
+		{"an unrelated attribute definition", "Count", "", ErrTypeMismatch},
+		{"a subtype of a scalar", "Ratio", "0.0", ErrTypeMismatch},
+		{"a dimensionless quantity type", "MeasurementReferences::DimensionOneValue", "0.0", ErrTypeMismatch},
+		{"a supertype of every quantity", "ScalarValues::NumericalValue", "0.0", nil},
+		{"the tensor quantity type", "Quantities::TensorQuantityValue", "0.0 [SI::m]", nil},
+		{"a model's own kind of its dimension", "Stretch", "0.0 [SI::m]", nil},
+		{"no declared type", "Base::Anything", "0.0", nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			initial := ""
+			if tc.initial != "" {
+				initial = " = " + tc.initial
+			}
+			src := fmt.Sprintf(`
+				package test {
+					attribute def Count;
+					attribute def Ratio :> ScalarValues::Real;
+					attribute def Stretch :> ISQ::LengthValue;
+					action w {
+						attribute held;
+						attribute t : %s%s;
+						first start;
+						action step { assign held := 5.0 [SI::m]; then assign t := held; }
+						done;
+						succession first start then step;
+						succession first step then done;
+					}
+				}
+			`, tc.declared, initial)
+			idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+			sym := findSymbolByName(idx.DocumentRoot("<test>"), "w", ast.DefAction)
+			if sym == nil {
+				t.Fatal("action w not found")
+			}
+			_, err := ctx.ExecuteAction(sym)
+			if tc.want == nil {
+				if err != nil {
+					t.Fatalf("ExecuteAction err = %v, want the write to conform", err)
+				}
+				return
+			}
+			if !errors.Is(err, tc.want) {
+				t.Fatalf("ExecuteAction err = %v, want %v", err, tc.want)
+			}
+		})
+	}
 }
 
 // testQuantityWriteOfAnotherDimension: a write whose quantity measures in a
@@ -397,7 +458,7 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 				:>> quantityValueMapping = mapping;
 			}
 			attribute muddled : Muddled;`,
-			"ThermodynamicTemperatureValue", "ConvertQuantity(300.0 [K], muddled)", ErrTypeMismatch, "measurement scale muddled: quantityValueMapping.mappedQuantityValue is a quantity in SI::'°C', want a DefinitionalQuantityValue"},
+			"ThermodynamicTemperatureValue", "ConvertQuantity(300.0 [K], muddled)", ErrTypeMismatch, "mapping.mappedQuantityValue: type mismatch: cannot write 0.01 [SI::'°C'] (a quantity in SI::'°C') to a feature typed by DefinitionalQuantityValue"},
 		{"scale placed on a reference of another dimension", `
 			attribute def Muddled :> IntervalScale { :>> unit = SI::'°C'; :>> transformation : CoordinateFramePlacement { :>> source = m; :>> origin = 1.0 [m]; } }
 			attribute muddled : Muddled;`,

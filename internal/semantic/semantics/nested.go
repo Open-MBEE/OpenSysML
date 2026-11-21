@@ -328,7 +328,7 @@ func familyRoleNestedFQN(u NestedUsage, owner NestedOwner) string {
 		}
 	case ast.UsageFramedConcern:
 		if ownerInRequirementFamily(owner) {
-			return "Requirements::RequirementCheck::concerns"
+			return framedConcernsFQN
 		}
 	case ast.UsageSatisfy:
 		if u.Verified && !owner.IsDef && owner.Usage == ast.UsageObjective {
@@ -503,10 +503,14 @@ func requirementNestedFQN(owner NestedOwner, composite bool, portion ast.Portion
 // `:> requirementChecks, constraints` makes a required constraint of its container.
 const subrequirementsFQN = "Requirements::RequirementCheck::subrequirements"
 
+// framedConcernsFQN is the feature a framed concern implicitly subsets, itself `:> subrequirements`.
+const framedConcernsFQN = "Requirements::RequirementCheck::concerns"
+
 // IsSubrequirement reports whether sym is a subrequirement (SysML v2 §7.21.2): a composite requirement
-// usage nested in a requirement definition or usage, a required constraint of its container.
+// usage nested in a requirement definition or usage, a framed concern among them (§7.21.3).
 func (m *Model) IsSubrequirement(sym *symbols.Symbol) bool {
-	return m.nestedSubsettingFQN(sym) == subrequirementsFQN
+	fqn := m.nestedSubsettingFQN(sym)
+	return fqn == subrequirementsFQN || fqn == framedConcernsFQN
 }
 
 // occurrenceNestedFQN is the occurrence fallback every chain ends in: an

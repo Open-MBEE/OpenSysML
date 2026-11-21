@@ -124,6 +124,7 @@ func ValueToProtoWith(rt *runtime.Context, val runtime.Value, idx *symbols.Index
 		if pq == nil {
 			return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: quantity with a non-numeric magnitude"}}
 		}
+		pq.ValueType = QuantityValueTypeName(val.QuantityKind(), idx)
 		return &pb.Value{Kind: &pb.Value_Quantity{Quantity: pq}}
 	case runtime.ValEnumLiteral:
 		return enumLiteralValueToProto(val, idx)
@@ -161,8 +162,7 @@ func ValueToProtoWith(rt *runtime.Context, val runtime.Value, idx *symbols.Index
 	case runtime.ValUndetermined:
 		return &pb.Value{Kind: &pb.Value_Undetermined{Undetermined: undeterminedToProto(val.Undetermined())}}
 	case runtime.ValCoordinateFrame, runtime.ValCoordinateTransformation:
-		// No wire arm carries a frame's axes or a transformation's placement.
-		return &pb.Value{Kind: UnsupportedShown(val)}
+		return coordinateValueToProto(rt, val, idx, ids)
 	default:
 		return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported"}}
 	}
@@ -369,6 +369,15 @@ func MeasurementRefToProto(ref *runtime.MeasurementRef) *pb.MeasurementRef {
 		pm.UnitId = symbols.FQNOf(decl)
 	}
 	return pm
+}
+
+// QuantityValueTypeName names the quantity value type a quantity is held as, by the
+// qualified name a client sends back; empty for one held as none or as an unnamed type.
+func QuantityValueTypeName(kind *symbols.Symbol, idx *symbols.Index) string {
+	if kind == nil || idx == nil || !kind.Named() {
+		return ""
+	}
+	return idx.GetFQN(kind)
 }
 
 // QuantityToProto marshals a quantity: the magnitude in the unit written, plus
@@ -625,6 +634,9 @@ func ValueHoldsBigInt(pv *pb.Value) bool {
 		return slices.ContainsFunc(k.TensorQuantity.GetComponents(), quantityHoldsBigInt)
 	case *pb.Value_EnumLiteral:
 		return k.EnumLiteral.GetValue() != nil && ValueCarriesBigInt(k.EnumLiteral.GetValue())
+	case *pb.Value_CoordinateFrame, *pb.Value_CoordinateTransformation:
+		_, quantities := coordinateParts(pv)
+		return slices.ContainsFunc(quantities, quantityHoldsBigInt)
 	}
 	return false
 }
@@ -676,6 +688,9 @@ func ValueHoldsRational(pv *pb.Value) bool {
 		return slices.ContainsFunc(k.TensorQuantity.GetComponents(), quantityHoldsRational)
 	case *pb.Value_EnumLiteral:
 		return k.EnumLiteral.GetValue() != nil && ValueCarriesRational(k.EnumLiteral.GetValue())
+	case *pb.Value_CoordinateFrame, *pb.Value_CoordinateTransformation:
+		_, quantities := coordinateParts(pv)
+		return slices.ContainsFunc(quantities, quantityHoldsRational)
 	}
 	return false
 }
@@ -715,6 +730,11 @@ func RationalsAsReals(pv *pb.Value) {
 		}
 	case *pb.Value_EnumLiteral:
 		RationalsAsReals(k.EnumLiteral.GetValue())
+	case *pb.Value_CoordinateFrame, *pb.Value_CoordinateTransformation:
+		_, quantities := coordinateParts(pv)
+		for _, q := range quantities {
+			quantityRationalAsReal(q)
+		}
 	}
 	for _, nested := range NestedValues(pv) {
 		RationalsAsReals(nested)
@@ -796,8 +816,8 @@ func valueCarries(pv *pb.Value, is func(*pb.Value) bool) bool {
 	return false
 }
 
-// NestedValues lists the Values a value holds directly: a sequence's or a set's
-// elements, an array's elements and a vector's components.
+// NestedValues lists the Values a value holds directly: the members of a sequence, set,
+// array or vector, and the origins, directions and translations of a frame or transformation.
 func NestedValues(pv *pb.Value) []*pb.Value {
 	switch k := pv.GetKind().(type) {
 	case *pb.Value_Sequence:
@@ -808,6 +828,9 @@ func NestedValues(pv *pb.Value) []*pb.Value {
 		return k.Array.GetElements()
 	case *pb.Value_Vector:
 		return k.Vector.GetComponents()
+	case *pb.Value_CoordinateFrame, *pb.Value_CoordinateTransformation:
+		values, _ := coordinateParts(pv)
+		return values
 	}
 	return nil
 }
@@ -839,6 +862,10 @@ func ProtoToRuntimeValueWith(rt *runtime.Context, pv *pb.Value, idx *symbols.Ind
 		return runtime.Value{}, ErrUnsetNotAccepted
 	case *pb.Value_Undetermined:
 		return runtime.Value{}, ErrUndeterminedNotAccepted
+	case *pb.Value_CoordinateFrame:
+		return runtime.Value{}, ErrCoordinateFrameNotAccepted
+	case *pb.Value_CoordinateTransformation:
+		return runtime.Value{}, ErrCoordinateTransformationNotAccepted
 	case *pb.Value_Quantity:
 		return ProtoToQuantity(k.Quantity, idx, sem)
 	case *pb.Value_EnumLiteral:
@@ -1152,7 +1179,18 @@ func ProtoToQuantity(pq *pb.Quantity, idx *symbols.Index, sem *semantics.Model) 
 		text = product.String()
 	}
 	unit := runtime.Unit{Text: text, Product: product, Term: term}
-	return runtime.NewQuantityValue(&runtime.Quantity{Num: num, Unit: unit}), nil
+	val := runtime.NewQuantityValue(&runtime.Quantity{Num: num, Unit: unit})
+	if pq.GetValueType() == "" {
+		return val, nil
+	}
+	if idx == nil || sem == nil {
+		return runtime.Value{}, fmt.Errorf("%w: %s", ErrQuantityNeedsIndex, pq.GetValueType())
+	}
+	matches := idx.LookupQualified(pq.GetValueType())
+	if len(matches) != 1 {
+		return runtime.Value{}, fmt.Errorf("%w: %s", runtime.ErrNotAQuantityValueType, pq.GetValueType())
+	}
+	return runtime.QuantityHeldAs(sem, val, matches[0])
 }
 
 // ProtoToMeasurementRef rebuilds a bare reference from the wire: by the

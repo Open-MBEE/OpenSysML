@@ -20,6 +20,8 @@ const (
 	raceRuntimeDir = "../../internal/exec/runtime"
 	raceExportDir  = "../../tests/export"
 	raceCorpusDir  = "../../tests/corpus"
+	raceModelDir   = "../../tests/model"
+	raceTranslate  = "../../internal/translate/export"
 )
 
 var (
@@ -34,6 +36,10 @@ var (
 	circleExamples     = regexp.MustCompile(`(?m)^\s*exportexamples='([^']+)'$`)
 	makefileSweep      = regexp.MustCompile(`(?m)^RACE_CORPUS_SWEEP := (.+)$`)
 	circleSweep        = regexp.MustCompile(`(?m)^\s*corpussweep='([^']+)'$`)
+	makefileGraph      = regexp.MustCompile(`(?m)^RACE_GRAPH_CORPORA := (.+)$`)
+	circleGraph        = regexp.MustCompile(`(?m)^\s*graphcorpora='([^']+)'$`)
+	makefileStructure  = regexp.MustCompile(`(?m)^RACE_TRANSLATE_STRUCTURE := (.+)$`)
+	circleStructure    = regexp.MustCompile(`(?m)^\s*translatestructure='([^']+)'$`)
 	makefileCoverage   = regexp.MustCompile(`(?m)^COVERAGE_SHARDS := (.+)$`)
 	circleShardArrays  = regexp.MustCompile(`(?m)^\s*shards=\(([^)]+)\)$`)
 	circleSweepJob     = regexp.MustCompile(`(?m)^\s*sweep_shard=(\S+)$`)
@@ -160,7 +166,11 @@ func TestPRWorkflowMatricesCoverTheRaceShards(t *testing.T) {
 		}
 		return out
 	}
-	full := quoted(matrices[0][1])
+	// A full-tier job may run several shards in turn, as translate and translate-structure do.
+	var full []string
+	for _, group := range quoted(matrices[0][1]) {
+		full = append(full, workflowQuickGroup.Split(strings.TrimSpace(group), -1)...)
+	}
 	wantFull := slices.DeleteFunc(slices.Clone(shards), func(s string) bool { return s == "tools" })
 	if !slices.Equal(full, wantFull) {
 		t.Errorf("full tier go_shards %v, want the race shards but tools %v", full, wantFull)
@@ -224,6 +234,18 @@ func TestExportCorpusPatternsPartitionTheExportTests(t *testing.T) {
 // tests/corpus split the same way by RACE_CORPUS_SWEEP.
 func TestCorpusPatternsPartitionTheCorpusTests(t *testing.T) {
 	corpusPatternPartitions(t, "RACE_CORPUS_SWEEP", makefileSweep, circleSweep, "corpussweep=", raceCorpusDir, 10)
+}
+
+// TestGraphPatternPartitionsTheModelTests: the graph and graph-corpora shards are
+// tests/model split the same way by RACE_GRAPH_CORPORA.
+func TestGraphPatternPartitionsTheModelTests(t *testing.T) {
+	corpusPatternPartitions(t, "RACE_GRAPH_CORPORA", makefileGraph, circleGraph, "graphcorpora=", raceModelDir, 20)
+}
+
+// TestStructurePatternPartitionsTheTranslateTests: the translate and translate-structure shards
+// are internal/translate/export split the same way by RACE_TRANSLATE_STRUCTURE.
+func TestStructurePatternPartitionsTheTranslateTests(t *testing.T) {
+	corpusPatternPartitions(t, "RACE_TRANSLATE_STRUCTURE", makefileStructure, circleStructure, "translatestructure=", raceTranslate, 20)
 }
 
 // corpusPatternPartitions checks one by-test-name split: the Makefile variable and the

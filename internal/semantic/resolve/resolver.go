@@ -758,7 +758,8 @@ func (r *Resolver) ResolveName(scope *symbols.Scope, name string, at ast.Node) (
 	if (res.ok || r.quiet == 0) && r.allVisible == 0 && settled {
 		r.memoize(at, res)
 	}
-	if !res.ok {
+	// A quiet lookup reports nothing, so the hint and the fixes are not worked out for it.
+	if !res.ok && r.quiet == 0 {
 		r.report(Diagnostic{
 			Span:    spanOf(at),
 			Message: r.unresolvedMessage(scope, name, at),
@@ -968,4 +969,9 @@ func qnText(qn *ast.QualifiedName) string {
 		s = "$::" + s
 	}
 	return s
+}
+
+// ResolveSegments is ResolveQualified of the qualified name segments spell.
+func (r *Resolver) ResolveSegments(scope *symbols.Scope, segments ...string) (*symbols.Symbol, bool) {
+	return r.ResolveQualified(scope, ast.QualifiedNameOf(segments...))
 }

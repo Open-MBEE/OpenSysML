@@ -115,12 +115,22 @@ func TestStickyError(t *testing.T) {
 	}
 }
 
+// body is the stream lengths and streams of a body holding the given bytes.
+func body(streams map[int][]byte) []byte {
+	var out, all []byte
+	for i := range numStreams {
+		out = append(out, byte(len(streams[i])))
+		all = append(all, streams[i]...)
+	}
+	return append(out, all...)
+}
+
 func TestMalformedTable(t *testing.T) {
 	// A one-string table, then a body of that string and the number one.
-	good := []byte{1, 3, 'a', 'b', 'c', 0, 1}
-	for i := 1; i < len(good)-2; i++ {
+	good := append([]byte{1, 3, 'a', 'b', 'c'}, body(map[int][]byte{streamString: {0}, streamUint: {1}})...)
+	for i := 1; i < len(good); i++ {
 		if _, err := NewReader(good[:i]); !errors.Is(err, ErrCorrupt) {
-			t.Errorf("table truncated to %d bytes: err = %v", i, err)
+			t.Errorf("stream truncated to %d bytes: err = %v", i, err)
 		}
 	}
 	if r, err := NewReader(good); err != nil || r.String() != "abc" || r.Uint() != 1 || !r.Done() {
@@ -135,22 +145,76 @@ func TestMalformedTable(t *testing.T) {
 		"lengths sum past":    {2, 2, 2, 'a', 'b', 'c'},
 		"lengths pile up":     tooLong,
 		"unterminated varint": {0x80},
+		"no stream lengths":   {0},
+		"stream past data":    append([]byte{0}, body(map[int][]byte{streamUint: {1}})[:numStreams]...),
 	}
 	for name, data := range cases {
 		if _, err := NewReader(data); !errors.Is(err, ErrCorrupt) {
 			t.Errorf("%s: err = %v", name, err)
 		}
 	}
-	r, err := NewReader([]byte{0, 0x80})
+	if r, err := NewReader(append(append([]byte{0}, body(nil)...), 0)); err != nil || r.Done() {
+		t.Errorf("a byte after the streams: err = %v, done %v", err, err == nil && r.Done())
+	}
+	corrupt := func(name string, streams map[int][]byte, read func(*Reader)) {
+		t.Helper()
+		r, err := NewReader(append([]byte{0}, body(streams)...))
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if read(r); !errors.Is(r.Err(), ErrCorrupt) {
+			t.Errorf("%s: err = %v", name, r.Err())
+		}
+	}
+	corrupt("multi-byte varint without its tail", map[int][]byte{streamUint: {0x80}}, func(r *Reader) { r.Uint() })
+	corrupt("unterminated varint tail", map[int][]byte{streamInt: {0x80}, streamIntTail: {0x80}}, func(r *Reader) { r.Int() })
+	overflow := []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x02} // 2^57, one bit past a uint64's tail
+	corrupt("varint past 64 bits", map[int][]byte{streamUint: {0x80}, streamUintTail: overflow}, func(r *Reader) { r.Uint() })
+	corrupt("unterminated length", map[int][]byte{streamLen: {0x80}}, func(r *Reader) { r.Len() })
+	corrupt("length past the bytes left", map[int][]byte{streamLen: {3}, streamBool: {1, 1}}, func(r *Reader) { r.Len() })
+	corrupt("string index into an empty table", map[int][]byte{streamString: {0}}, func(r *Reader) { _ = r.String() })
+	corrupt("bool past its stream", map[int][]byte{streamUint: {1}}, func(r *Reader) { r.Bool() })
+	corrupt("float past its stream", map[int][]byte{streamFloat: {1, 2, 3, 4, 5, 6, 7}}, func(r *Reader) { r.Float() })
+	// A section claiming two bools where the stream holds one, though three bytes are left overall.
+	short := map[int][]byte{streamLen: {0, 2, 0, 0, 0, 0, 0, 0, 0}, streamBool: {1}, streamUint: {1, 1}}
+	corrupt("section past its stream", short, func(r *Reader) {
+		if sub := r.Section(); !errors.Is(sub.Err(), ErrCorrupt) {
+			t.Errorf("section past its stream: the section's err = %v", sub.Err())
+		}
+	})
+}
+
+func TestStreamsKeepKindsApart(t *testing.T) {
+	w := NewWriter()
+	for i := range 4 {
+		w.Uint(uint64(300 + i))
+		w.Bool(i%2 == 0)
+		w.Int(int64(-i))
+		w.Len(i)
+		w.Float(float64(i))
+		w.String("s")
+	}
+	want := map[int]int{
+		streamLen: 4, streamBool: 4, streamFloat: 32, streamUint: 4, streamUintTail: 4,
+		streamInt: 4, streamIntTail: 0, streamString: 4, streamStringTail: 0,
+	}
+	for i, s := range w.streams {
+		if len(s) != want[i] {
+			t.Errorf("stream %d holds %d bytes, want %d", i, len(s), want[i])
+		}
+	}
+	r, err := NewReader(w.Bytes())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _ = r.Uint(); !errors.Is(r.Err(), ErrCorrupt) {
-		t.Errorf("unterminated body varint: err = %v", r.Err())
+	for i := range 4 {
+		if r.Uint() != uint64(300+i) || r.Bool() != (i%2 == 0) || r.Int() != int64(-i) ||
+			r.Len() != i || r.Float() != float64(i) || r.String() != "s" {
+			t.Fatalf("round %d did not decode", i)
+		}
 	}
-	r, _ = NewReader([]byte{0, 0})
-	if _ = r.String(); !errors.Is(r.Err(), ErrCorrupt) {
-		t.Errorf("string index into an empty table: err = %v", r.Err())
+	if !r.Done() {
+		t.Errorf("not done: err %v", r.Err())
 	}
 }
 

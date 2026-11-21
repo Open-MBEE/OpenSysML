@@ -38,7 +38,7 @@ The current Git dependency form is:
 opensysml = { git = "https://github.com/Open-MBEE/OpenSysML.git", branch = "main" }
 ```
 
-The minimum supported Rust version is **Rust 1.83**.
+The minimum supported Rust version is **Rust 1.85**.
 
 ## Why blocking
 
@@ -231,7 +231,7 @@ model:
 | Call | RPC | Answer |
 |---|---|---|
 | `parse_file`, `parse_content`, `parse_sources(&[SourceDocument], &SourcesOptions)` | `ParseFile`, `ParseSources` | `Model`; `documents()` names each document parsed together |
-| `convert(to_format, &ConvertSource, &ConvertOptions)`, `Model::{convert, convert_with, to_sysml, to_turtle, to_api_json, save, save_with}` | `Convert` | `Conversion`, with `experimental_notice` and the `library_references` API JSON names beside its elements; `IdForm` spells derived ids and `include_library_stubs` restores the pre-0.11.0 library stubs, on a held model through `convert_with`/`save_with(.., &ConvertOptions)`; a SysML v1 model is refused — it is migrated, not converted |
+| `convert(to_format, &ConvertSource, &ConvertOptions)`, `Model::{convert, convert_with, to_sysml, to_turtle, to_api_json, save, save_with}` | `Convert` | `Conversion`, with `experimental_notice` and the `library_references` API JSON names beside its elements; `IdForm` spells derived ids and `include_library_stubs` restores the pre-0.11.0 library stubs and `inherited_members` the derived lists of inherited and imported members, on a held model through `convert_with`/`save_with(.., &ConvertOptions)`; a SysML v1 model is refused — it is migrated, not converted |
 | `migrate(to_format, &MigrateSource, &MigrateOptions)` | `Migrate` | `Migration`: the notation or Turtle a `.mdzip`, `.xmi` or `.uml` model became, its `MigrationReport` (every element mapped, approximated, unmapped or skipped), the image files `write(path)` puts beside the model, and the `experimental_notice` |
 | `query(&Query)`, `query_oslc(text)` | `Query` | `Vec<QueryElement>`; `Query` is built with `scope`, `select`, `filter` and `Constraint` |
 | `run_document_query(id, bindings)`, `render_document(id, DocumentForm)`, `render_view(name)` | `RunDocumentQuery`, `RenderDocument`, `RenderView` | typed query rows, Markdown, HTML or AsciiDoc, or `RenderedView` with optional layout data |
@@ -286,7 +286,8 @@ let edited = editor.apply()?;
 A request value is checked before it is sent: a quantity's unit must be reduced
 and its scale exact, vectors, arrays and tensors must fill their dimensions, a
 function or metaobject must name its element, and nesting is bounded.
-`Value::Unset` and `Value::Undetermined` are answers the service gives, never
+`Value::Unset`, `Value::Undetermined`, `Value::CoordinateFrame` and
+`Value::CoordinateTransformation` are answers the service gives, never
 arguments, and are refused as `Error::UnsupportedValue`.
 A value the service holds but cannot send arrives as `Error::UnsupportedValue`
 naming it, never as `Value::Null`; on an instance feature the reason is

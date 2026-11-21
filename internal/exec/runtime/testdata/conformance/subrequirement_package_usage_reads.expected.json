@@ -1,0 +1,23 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::probe",
+  "outputs": {
+    "one": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]}
+  },
+  "reads": {
+    "test::topLight": {"type": "Boolean", "value": false},
+    "test::topInl": {"type": "Boolean", "value": false},
+    "test::topTwo": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}, {"type": "Boolean", "value": false}]},
+    "test::topLightMass": {"type": "Real", "value": 20.0},
+    "test::topOwn": {"type": "Undetermined"},
+    "test::topSubrequirements": {"type": "Integer", "value": 5},
+    "test::topConstraints": {"type": "Integer", "value": 6},
+    "test::topCollection": {"type": "Undetermined", "value": "[5]"},
+    "test::okLight": {"type": "Boolean", "value": true},
+    "test::okInl": {"type": "Boolean", "value": true},
+    "test::okLightMass": {"type": "Real", "value": 5.0},
+    "test::unboundLight": {"type": "Undetermined"},
+    "test::unboundSubrequirements": {"type": "Integer", "value": 5}
+  }
+}

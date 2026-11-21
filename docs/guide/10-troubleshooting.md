@@ -9,7 +9,7 @@ in [reference/environment.md](../reference/environment.md).
 
 **Import errors after building:**
 - Run `go mod tidy`
-- Verify the Go version with `go version` (1.25 or later is required)
+- Verify the Go version with `go version` (1.26 or later is required)
 
 **Execution stops with "limit exceeded" or "exceeded max":**
 - The run used up one of its budgets; the message names the environment variable that raises it (see [reference/environment.md](../reference/environment.md))

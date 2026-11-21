@@ -1,0 +1,5 @@
+{
+	"type": "calc",
+	"evaluate": "test::Waits",
+	"error": "accept deadlock"
+}

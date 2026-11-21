@@ -38,6 +38,14 @@ class PublicTypesTest {
   }
 
   @Test
+  void typeAndSpecializationFactsStillConstructWithoutAQualifiedName() {
+    Optional<String> none = Optional.empty();
+    Symbol.TypeFacts type = new Symbol.TypeFacts(none, Optional.of("P::'@2'"), none, none, none, false, none, List.of());
+    assertEquals(none, type.resolvedQualifiedName());
+    assertEquals(none, new Symbol.Specialization("typing", "T", Optional.of("P::T"), none).targetQualifiedName());
+  }
+
+  @Test
   void valuesCompareByValue() {
     assertEquals(new Value.RealValue(1.5), new Value.RealValue(1.5));
     assertEquals(

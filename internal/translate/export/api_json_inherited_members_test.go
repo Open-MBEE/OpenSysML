@@ -17,7 +17,7 @@ const inheritedMembersModel = `package Probe {
 func inheritedMembersElements(t *testing.T) (*rdf.Graph, map[string]map[string]any) {
 	t.Helper()
 	graph := duplicateGraph(t, inheritedMembersModel, IDQualifiedName)
-	document, err := WriteAPIJSON(graph)
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func TestAPIJSONUsageInheritsThroughTypingAndImpliedBase(t *testing.T) {
 	if len(car) <= len(definition) {
 		t.Errorf("car inherits %d features, want more than Car's %d through Parts::parts", len(car), len(definition))
 	}
-	document, err := WriteAPIJSON(graph)
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestAPIJSONRedefinedFeaturesLeaveTheInheritedLists(t *testing.T) {
 		part def Derived :> Base { part y :>> x; }
 		part def Timed { part begin :>> start; }
 	}`, IDQualifiedName)
-	document, err := WriteAPIJSON(graph)
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +143,7 @@ func TestAPIJSONDiamondInheritanceReachesTheSharedBaseFromEverySubtype(t *testin
 		part def X :> A, B;
 		part def Y :> B;
 	}`, IDQualifiedName)
-	document, err := WriteAPIJSON(graph)
+	document, err := WriteAPIJSONWithOptions(graph, APIJSONOptions{InheritedMembers: true})
 	if err != nil {
 		t.Fatal(err)
 	}

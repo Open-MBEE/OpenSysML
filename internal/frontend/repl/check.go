@@ -53,17 +53,39 @@ func (s SolveStatus) String() string {
 	}
 }
 
+// MarshalText writes the status as String names it, which is how JSON spells it.
+func (s SolveStatus) MarshalText() ([]byte, error) { return []byte(s.String()), nil }
+
+// UnmarshalText reads a status back from the name String gives it.
+func (s *SolveStatus) UnmarshalText(text []byte) error {
+	for status := SolveSat; status <= SolveUnavailable; status++ {
+		if status.String() == string(text) {
+			*s = status
+			return nil
+		}
+	}
+	return fmt.Errorf("unknown solve status %q", text)
+}
+
 // SolveReport is what a solver answered about one element, with the lines the
-// REPL prints for it.
+// REPL prints for it. Its JSON form is the report `-json` writes.
 type SolveReport struct {
 	// Subject is what was checked, spelled as the caller named it.
-	Subject string
-	Status  SolveStatus
-	Lines   []string
+	Subject string      `json:"subject"`
+	Status  SolveStatus `json:"status"`
 	// Solver names the solver that answered, empty when none did.
-	Solver string
+	Solver string `json:"solver"`
+	// Values is the assignment the solver answered with; nil when it gave none.
+	Values []SolveValue `json:"values"`
+	// Optima are the answers about an analysis case's objectives, in their order.
+	Optima []SolveOptimum `json:"optima,omitempty"`
+	// Selections are the consistent variant selections a configuration found, and
+	// Truncated whether the enumeration stopped before showing there is no other.
+	Selections [][]SolveValue `json:"selections,omitempty"`
+	Truncated  bool           `json:"truncated,omitempty"`
+	Lines      []string       `json:"lines"`
 	// Plan is how the engines answered; nil for a report made before any was asked.
-	Plan *analysis.Plan
+	Plan *analysis.Plan `json:"-"`
 }
 
 // Satisfiable reports whether the solver found the conditions satisfiable.
@@ -97,7 +119,7 @@ func solveQueryReport(name string, q *solve.Query, solved analysis.Evaluation) S
 		lines := []string{fmt.Sprintf("✓ %s is satisfiable (%s)", subject, solveDetail(result))}
 		lines = append(lines, assignmentLines(result.Model)...)
 		return SolveReport{Subject: name, Status: SolveSat, Solver: result.Solver,
-			Lines: append(lines, derivedLines(q)...)}
+			Values: solveValues(result.Model), Lines: append(lines, derivedLines(q)...)}
 	case solve.StatusUnsat:
 		if report, rounded := roundedUnsatReport(name, subject, result, q); rounded {
 			return report

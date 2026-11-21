@@ -38,9 +38,13 @@ const (
 	QueryPropMultiplicityUpper     = corequery.PropertyMultiplicityUpper
 	QueryPropSatisfiedRequirement  = corequery.PropertySatisfiedRequirement
 	QueryPropSatisfyingFeature     = corequery.PropertySatisfyingFeature
+	QueryPropVerifiedRequirement   = corequery.PropertyVerifiedRequirement
+	QueryPropVerifyingCase         = corequery.PropertyVerifyingCase
 	QueryPropPayloadArgument       = corequery.PropertyPayloadArgument
 	QueryPropSenderArgument        = corequery.PropertySenderArgument
 	QueryPropReceiverArgument      = corequery.PropertyReceiverArgument
+	QueryPropSymbolKind            = corequery.PropertySymbolKind
+	QueryPropText                  = corequery.PropertyText
 )
 
 // QueryErrorKind classifies why a query could not be evaluated. Every kind fails
@@ -86,13 +90,6 @@ func queryErrorf(kind QueryErrorKind, format string, args ...any) *QueryError {
 	return &QueryError{Kind: kind, Message: fmt.Sprintf(format, args...)}
 }
 
-// QueryPropertyNames returns the queryable property names the evaluator derives
-// for every element, sorted: what docs/reference/api.md's table documents. The
-// metamodel's own properties are queryable besides, by their declared names.
-func QueryPropertyNames() []string {
-	return corequery.PropertyNames()
-}
-
 // Query evaluates a SysML v2 API & Services Query, or OSLC Query 3.0 text, over
 // a parsed model: either is translated to a document-query plan and run by the
 // evaluator over the model's elements, or the objects the model's session holds.
@@ -121,10 +118,11 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 		return nil, queryStatus(queryErrorf(QueryErrMalformedConstraint, "query is unset"))
 	}
 
-	sc := cached.SymbolContext()
-	defer sc.Lock()()
+	// The held objects are locked first, as every request that looks a symbol up under them does.
 	held := s.objects(cached)
 	defer held.lock(ctx)()
+	sc := cached.SymbolContext()
+	defer sc.Lock()()
 	qctx := held.queryContext()
 	eval := &queryEval{sc: sc, cached: cached}
 	qctx.Identity = eval.identity
@@ -439,6 +437,9 @@ func (e *queryEval) candidates(cached *CachedModel, scope []string) ([]*symbols.
 			if sym := e.sc.Positional.Symbol(fqn); sym != nil {
 				roots = []*symbols.Symbol{sym}
 			}
+		}
+		if len(roots) == 0 {
+			roots = e.sc.LookupID(fqn)
 		}
 		if len(roots) == 0 {
 			return nil, queryErrorf(QueryErrUnknownScope,

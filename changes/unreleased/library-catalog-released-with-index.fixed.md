@@ -1,0 +1,1 @@
+- The identifier catalogs of a standard library index are now released with that index. They were kept in process-wide tables keyed by the index, so a process that loaded the library more than once (a `sysml-grpc` service per library version, a test binary creating many services) kept every copy, about 45 MiB each, for its whole life.

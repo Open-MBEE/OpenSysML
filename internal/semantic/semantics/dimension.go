@@ -359,6 +359,16 @@ func (m *Model) quantityValueTypeOf(sym *symbols.Symbol) *symbols.Symbol {
 	return m.quantityValueTypeIn(m.AllSupertypes(sym))
 }
 
+// IsQuantityValueType reports a type properly specializing ScalarQuantityValue: the types a
+// quantity is held as, ScalarQuantityValue itself being what every quantity already is.
+func (m *Model) IsQuantityValueType(sym *symbols.Symbol) bool {
+	if m == nil || sym == nil || sym.IsFeature() {
+		return false
+	}
+	quantity := m.libSymbol(fqnScalarQuantityValue)
+	return quantity != nil && sym != quantity && m.Conforms(sym, quantity)
+}
+
 // quantityValueTypeIn returns the first candidate that is a ScalarQuantityValue
 // definition, or nil. ScalarQuantityValue itself does not count: its measurement
 // reference is any unit, so it fixes no dimension.

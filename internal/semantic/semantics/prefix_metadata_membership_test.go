@@ -34,9 +34,8 @@ func prefixMembers(members []*symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// A `#M` prefix is a MetadataUsage its element owns through an OwningMembership
-// that leads the element's relationships (SysML.xtext PrefixMetadataMember), on a
-// package, definition, usage and parameter alike, parsed and recorded.
+// A `#M` prefix is a MetadataUsage its element owns through an OwningMembership that leads the
+// element's relationships (SysML.xtext PrefixMetadataMember), parsed and recorded alike.
 func TestPrefixMetadataIsOwnedThroughAnOwningMembership(t *testing.T) {
 	for _, fixture := range reflectiveFixtures(t, "prefix-memberships.sysml", source.KindSysML, prefixMembershipFixtureSrc) {
 		model := fixture.model
@@ -162,9 +161,8 @@ func TestPrefixMetadataMembershipIsInherited(t *testing.T) {
 	}
 }
 
-// A metadata feature is owned through an OwningMembership, never a
-// FeatureMembership, so it is no feature of its owner and has no owningType
-// (KerML 8.3.3.1.10 Type::ownedFeature, 8.3.3.3.4 Feature::owningType).
+// A metadata feature is owned through no FeatureMembership, so it is no feature of its owner and
+// has no owningType (KerML 8.3.3.1.10 Type::ownedFeature, 8.3.3.3.4 Feature::owningType).
 func TestPrefixMetadataIsNoFeatureOfItsOwner(t *testing.T) {
 	for _, fixture := range reflectiveFixtures(t, "prefix-no-feature.sysml", source.KindSysML, prefixMembershipFixtureSrc) {
 		model := fixture.model
@@ -202,6 +200,40 @@ func TestPrefixMetadataIsNoFeatureOfItsOwner(t *testing.T) {
 		}
 		q := relFixtureSymbol(t, fixture, "q")
 		assertRelFeature(t, model, q, "ownedFeature", relFixtureSymbol(t, fixture, "inner"))
+	}
+}
+
+// nestedMetadata and ownedMetadata select from ownedMember, every other nested*/owned* usage
+// view from ownedFeature (deriveUsageNestedMetadata against deriveUsageNestedUsage).
+func TestPrefixMetadataIsNestedMetadataAndNoNestedUsage(t *testing.T) {
+	for _, fixture := range reflectiveFixtures(t, "prefix-nested-metadata.sysml", source.KindSysML, prefixMembershipFixtureSrc) {
+		model := fixture.model
+		for name, prefix := range map[string]string{"q": "nested", "D": "owned"} {
+			owner := relFixtureSymbol(t, fixture, name)
+			var metadata []*symbols.Symbol
+			for _, membership := range model.OwnedMemberships(owner) {
+				if member := membership.Implicit.Member; member.Kind == symbols.SymbolMetadataUsage {
+					metadata = append(metadata, member)
+				}
+			}
+			if len(metadata) == 0 {
+				t.Fatalf("%s owns no metadata usage", name)
+			}
+			assertRelFeature(t, model, owner, prefix+"Metadata", metadata...)
+			for _, suffix := range []string{"Usage", "Item", "Occurrence"} {
+				got, ok := model.ReflectiveElements(owner, prefix+suffix)
+				if !ok {
+					t.Fatalf("%s %s%s is not derived", name, prefix, suffix)
+				}
+				for _, usage := range metadata {
+					if slices.Contains(got, usage) {
+						t.Errorf("%s %s%s holds its metadata usage %v", name, prefix, suffix, usage)
+					}
+				}
+			}
+		}
+		q := relFixtureSymbol(t, fixture, "q")
+		assertRelFeature(t, model, q, "nestedUsage", relFixtureSymbol(t, fixture, "inner"))
 	}
 }
 

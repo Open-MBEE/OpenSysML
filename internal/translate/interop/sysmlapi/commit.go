@@ -108,7 +108,7 @@ func jsonValue(term rdf.Term) (json.RawMessage, error) {
 		}
 		return json.Marshal(map[string]string{"@id": rdf.LocalName(carried.Value)})
 	}
-	switch carried.Datatype {
+	switch carried.Datatype() {
 	case rdf.XSD + "boolean", rdf.XSD + "integer", rdf.XSD + "decimal":
 		return json.RawMessage(carried.Value), nil
 	}

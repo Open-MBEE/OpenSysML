@@ -209,8 +209,9 @@ the flat sequence of its elements:
   (`t : Time::TimeScale = Time::UTC`) and refuses it elsewhere (`SI::'°C_abs'`
   to `ThermodynamicTemperatureUnit`), as the runtime does.
   A quantity written to a unit-typed feature
-  (`hp : PowerUnit = 745.7 [W]` in the OMG individuals example) is not judged,
-  as the pilot implementation accepts it; the feature then holds the quantity,
+  (`hp : PowerUnit = 745.7 [W]` in the OMG individuals example) is not judged
+  (the pilot validator reports nothing on it and the pilot evaluator leaves the
+  expression unreduced); the feature then holds the quantity,
   and `200 [hp]` is `errNotAQuantity`, `hp` naming no unit. A quantity's `num` and `mRef`
   read (`q.mRef == SI::m`), and the quantity functions the library declares over
   a reference compute: `QuantityCalculations::'['(3.0, m)` is `3.0 [m]`,

@@ -1,6 +1,5 @@
-// A definition run by no object is its own occurrence once `this` denotes it, and
-// the performances of its nodes begun before that are its subperformances from then
-// on: `this.one.v` reads what the performance of `one` holds.
+// A definition run by no object is its own occurrence once `this` denotes it: `this.one.v`
+// reads what the performance of `one`, begun before that, holds.
 package test {
 	private import ScalarValues::*;
 

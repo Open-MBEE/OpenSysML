@@ -258,3 +258,27 @@ func TestLostRedefinitionTargetStaysUnresolvedBesideASiblingRedefinition(t *test
 		}
 	}
 }
+
+// A redefinition target resolved in a type asks for that type's loss while the type's own
+// redefinitions are unsettled: its supertype's loss is settled all the same, and stays memoized.
+func TestSupertypeLossStaysMemoizedWhenTheSubtypeWalkIsCutShort(t *testing.T) {
+	m, root, r, _ := buildUnresolvedModel(t, "t.sysml", source.KindSysML,
+		"package P { part def Base { part a; } part def Derived :> Base { part b :>> a; } }")
+	pkg := sym(t, root, "P")
+	base, derived := sym(t, pkg.Scope, "Base"), sym(t, pkg.Scope, "Derived")
+	b := nested(t, pkg.Scope, "Derived", "b")
+	a := nested(t, pkg.Scope, "Base", "a")
+	target := RelationshipsOf(b)[0].Target
+	if got, ok := r.ResolveRedefinitionTarget(b.OwnerScope, b.Decl, target); !ok || got != a {
+		t.Fatalf("ResolveRedefinitionTarget(b :>> a) = %v, %v, want Base::a", got, ok)
+	}
+	if _, ok := m.redefLoss[base]; !ok {
+		t.Errorf("the settled loss of Base was not memoized")
+	}
+	if _, ok := m.redefLoss[derived]; ok {
+		t.Errorf("the loss of Derived, cut short by its own redefinition, was memoized")
+	}
+	if !m.InheritanceMasked(derived, a) {
+		t.Errorf("Derived must not inherit a")
+	}
+}

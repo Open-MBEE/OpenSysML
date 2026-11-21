@@ -9,8 +9,8 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // ErrNoWitness is the typed error of a decode over a result that carries no model.
@@ -146,7 +146,7 @@ func (e *Encoding) decodeMove(m model, i, t int) ([]runtime.ChoiceTaken, error) 
 	prev := e.States[i-1]
 	type able struct {
 		id   int64
-		node ast.Node
+		node Node
 	}
 	var enabled []able
 	var actor able
@@ -178,12 +178,12 @@ func (e *Encoding) decodeMove(m model, i, t int) ([]runtime.ChoiceTaken, error) 
 			enabled = append(enabled, here)
 		}
 	}
-	if actor.node == nil {
+	if actor.node.Graph == nil {
 		return nil, &WitnessError{Var: prev.Slots[t].At.Name, Reason: "the acting slot is empty"}
 	}
 	var out []runtime.ChoiceTaken
-	if decision, ok := actor.node.(*ast.DecisionNode); ok {
-		branch, err := e.decodeBranch(m, i, decision)
+	if actor.node.form() == lower.FormDecision {
+		branch, err := e.decodeBranch(m, i, actor.node)
 		if err != nil {
 			return nil, err
 		}
@@ -196,7 +196,7 @@ func (e *Encoding) decodeMove(m model, i, t int) ([]runtime.ChoiceTaken, error) 
 		among := make([]string, len(enabled))
 		taken := -1
 		for j, a := range enabled {
-			among[j] = runtime.TokenLabel(a.id, a.node)
+			among[j] = runtime.TokenLabelOf(a.id, a.node.Graph, a.node.ID)
 			if a.id == actor.id {
 				taken = j
 			}
@@ -215,7 +215,7 @@ func (e *Encoding) decodeMove(m model, i, t int) ([]runtime.ChoiceTaken, error) 
 // decodeBranch is the branch choice the interpreter notes at step i when the
 // token at decision picks among the guarded successions that held, nil when
 // fewer than two did.
-func (e *Encoding) decodeBranch(m model, i int, decision *ast.DecisionNode) (*runtime.ChoiceTaken, error) {
+func (e *Encoding) decodeBranch(m model, i int, decision Node) (*runtime.ChoiceTaken, error) {
 	move := e.Choices[i-1]
 	travel, err := m.datatype(move.Travel.Name)
 	if err != nil {
@@ -238,7 +238,7 @@ func (e *Encoding) decodeBranch(m model, i int, decision *ast.DecisionNode) (*ru
 		if edgeLabel(e.Flow, edge) == travel {
 			taken = len(among)
 		}
-		among = append(among, runtime.BranchLabel(p, e.Flow.Edges[edge].Target))
+		among = append(among, runtime.BranchLabelOf(p, decision.Graph, e.Flow.Edges[edge].TargetID))
 	}
 	if len(among) < 2 {
 		return nil, nil
@@ -247,7 +247,7 @@ func (e *Encoding) decodeBranch(m model, i int, decision *ast.DecisionNode) (*ru
 		return nil, &WitnessError{Var: move.Travel.Name, Reason: travel + " is not a branch that held"}
 	}
 	return &runtime.ChoiceTaken{
-		Kind: runtime.ChoiceDecisionBranch, Step: i, Where: runtime.DecisionPlace(decision),
+		Kind: runtime.ChoiceDecisionBranch, Step: i, Where: runtime.DecisionPlaceOf(decision.Graph, decision.ID),
 		Alternatives: len(among), Taken: taken, Among: among, Took: among[taken],
 	}, nil
 }

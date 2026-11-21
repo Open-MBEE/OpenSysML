@@ -2,7 +2,6 @@ package pssm
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 )
 
@@ -27,19 +26,6 @@ func (s *Suite) Problems() []string {
 	for _, t := range s.Tests {
 		for _, d := range t.Diagnostics {
 			out = append(out, t.Name+": "+d.String())
-		}
-	}
-	return out
-}
-
-// Areas lists the suite's test areas in first-registration order.
-func (s *Suite) Areas() []string {
-	var out []string
-	seen := map[string]bool{}
-	for _, t := range s.Tests {
-		if !seen[t.Area] {
-			seen[t.Area] = true
-			out = append(out, t.Area)
 		}
 	}
 	return out
@@ -715,13 +701,3 @@ func (l *Literal) Bool() bool {
 // Constructs are the UML constructs a state machine uses, by the names the
 // classifier and the baseline record report.
 type Constructs map[string]bool
-
-// Sorted lists the constructs in order.
-func (c Constructs) Sorted() []string {
-	out := make([]string, 0, len(c))
-	for k := range c {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
-}

@@ -13,13 +13,13 @@
             (*ast.QualifiedName))))
       (Membership visibility="default"
         (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false negated=true
-          (Relationship kind="subsets" target=r1
+          (Relationship kind="references" target=r1
             (*ast.QualifiedName))
           (Relationship kind="by" target=prototype
             (*ast.QualifiedName))))
       (Membership visibility="default"
         (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="assert" negated=true
-          (Relationship kind="subsets" target=r1
+          (Relationship kind="references" target=r1
             (*ast.QualifiedName))
           (Relationship kind="by" target=vehicle
             (*ast.QualifiedName))))
@@ -27,7 +27,7 @@
         (Usage kind="part" name="context" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
           (Membership visibility="default"
             (Usage kind="satisfy" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false negated=true
-              (Relationship kind="subsets" target=r1
+              (Relationship kind="references" target=r1
                 (*ast.QualifiedName))
               (Relationship kind="by" target=prototype
                 (*ast.QualifiedName))))

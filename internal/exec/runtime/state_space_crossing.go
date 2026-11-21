@@ -27,7 +27,7 @@ type guardPreview struct {
 // step's end, zero where the preview finds none or fails: the step then runs whole.
 func (e *ActionExecutor) locateCrossing(run *stateSpaceRun) {
 	before, lead := run.before, run.lead
-	run.cut, run.before, run.lead = 0, nil, 0
+	run.cut, run.before, run.lead, run.held = 0, nil, 0, nil
 	if len(run.dyn.Crossings) == 0 || !run.settled() {
 		return
 	}
@@ -111,7 +111,7 @@ func (e *ActionExecutor) locateCrossing(run *stateSpaceRun) {
 				run.hold(seen(guards))
 			}
 		}
-		run.cut = cut
+		run.cut, run.held = cut, input
 		return
 	}
 	// The last preview inside the step stands as the sample before the step's end,

@@ -109,7 +109,7 @@ func TestQualifiedNameIsEscapedBesideTheAddress(t *testing.T) {
 			}
 
 			// api-json states the same qualifiedName and gives the same graph back.
-			document, err := export.WriteAPIJSON(graph)
+			document, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{InheritedMembers: true})
 			if err != nil {
 				t.Fatalf("WriteAPIJSON: %v", err)
 			}
