@@ -52,6 +52,10 @@ func (s *Session) LoadPathsReport(paths []string) (LoadReport, error) {
 }
 
 func (s *Session) loadPathsReport(paths []string, opts loadOptions) (LoadReport, error) {
+	if s.loadScan == nil {
+		s.loadScan = project.NewScan()
+		defer func() { s.loadScan = nil }()
+	}
 	files, err := s.expandPaths(paths)
 	if err != nil {
 		return LoadReport{}, err
@@ -192,7 +196,7 @@ func (s *Session) LibraryRoots() []string {
 
 // discovery is the search for installed projects under the session's library roots.
 func (s *Session) discovery() project.Discovery {
-	d := project.Discovery{Roots: s.libraryRoots}
+	d := project.Discovery{Roots: s.libraryRoots, Scan: s.loadScan}
 	if s.fileGuard != nil {
 		d.Guard = func(path string) error { return s.guardFile(path, true) }
 	}

@@ -34,7 +34,7 @@ func NewEncoder(w *pack.Writer) *Encoder {
 // each type, then a section holding the nodes' fields.
 func (e *Encoder) Encode(roots []ast.Node) error {
 	body := e.w
-	e.w, e.collecting = pack.NewWriter(), true
+	e.w, e.collecting = pack.NewDiscard(), true
 	for _, root := range roots {
 		e.node(root)
 	}
@@ -464,7 +464,7 @@ func (d *Decoder) params() []ast.BodyParam {
 // Reachable is the set of nodes reachable from roots, roots included: what
 // Encode would write for them.
 func Reachable(roots ...ast.Node) map[ast.Node]bool {
-	e := &Encoder{w: pack.NewWriter(), ids: make(map[ast.Node]uint64), collecting: true}
+	e := &Encoder{w: pack.NewDiscard(), ids: make(map[ast.Node]uint64), collecting: true}
 	for _, root := range roots {
 		e.node(root)
 	}
