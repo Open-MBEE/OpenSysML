@@ -126,7 +126,7 @@ func (m *migration) unplacedTables() {
 // columns at widths and headed by labels where one is stated.
 func (m *migration) tablePart(host *sysmlv1.Element, name, caption, rows string, widths []int, labels []string) {
 	m.blockPart(host, name, "Table", nil, func() {
-		m.w.line("attribute redefines caption = " + source.StringText(caption) + ";")
+		m.w.line("attribute redefines caption = " + source.StandardStringText(caption) + ";")
 		if slices.ContainsFunc(widths, func(w int) bool { return w > 0 }) {
 			m.w.line("attribute redefines columnWidths = (" + joinInts(widths) + ");")
 		}
@@ -150,7 +150,7 @@ func statedLabels(labels []string) []string {
 func joinStrings(ss []string) string {
 	parts := make([]string, len(ss))
 	for i, s := range ss {
-		parts[i] = source.StringText(s)
+		parts[i] = source.StandardStringText(s)
 	}
 	return strings.Join(parts, ", ")
 }
@@ -179,7 +179,7 @@ func (m *migration) writeTable(td *tableDoc) {
 	m.writeQueryDef(td.query, prefix, host, l.rows)
 	m.inside(blockNames("Document", columnNames{"rows": true}), func() {
 		m.w.block("part def "+writeName(td.doc)+" :> "+m.queryPrefix(host)+"Document", func() {
-			m.w.line("attribute redefines title = " + source.StringText(td.title) + ";")
+			m.w.line("attribute redefines title = " + source.StandardStringText(td.title) + ";")
 			m.tablePart(host, "rows", td.title, m.siblingRef(host, td.query), l.widths, l.labels)
 		})
 	})

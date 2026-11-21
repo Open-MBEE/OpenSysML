@@ -58,3 +58,27 @@ func TestEveryAdmittedEscapeDecodesAndIsWrittenBack(t *testing.T) {
 		t.Errorf("StringText of a double quote = %s, want %s", got, want)
 	}
 }
+
+// The standard writers spell Table 4's escapes alone, whatever else the lexer
+// admits: a character only an extension names stands as it is and reads back.
+func TestStandardWritersSpellOnlyTable4Escapes(t *testing.T) {
+	for c := 0; c < 256; c++ {
+		value := string([]byte{'a', byte(c), 'b'})
+		for _, w := range []struct{ standard, admitted string }{
+			{StandardStringText(value), StringText(value)},
+			{StandardUnrestrictedNameText(value), UnrestrictedNameText(value)},
+		} {
+			letter, escaped := EscapeLetter(byte(c))
+			if escaped && !IsStandardEscapeChar(letter) {
+				if want := w.admitted[:1] + value + w.admitted[:1]; w.standard != want {
+					t.Errorf("the standard writer writes %q as %q, want %q", value, w.standard, want)
+				}
+			} else if w.standard != w.admitted {
+				t.Errorf("the standard writer writes %q as %q, the admitting one as %q", value, w.standard, w.admitted)
+			}
+			if got := Unescape(w.standard[1 : len(w.standard)-1]); got != value {
+				t.Errorf("Unescape of %q = %q, want %q", w.standard, got, value)
+			}
+		}
+	}
+}

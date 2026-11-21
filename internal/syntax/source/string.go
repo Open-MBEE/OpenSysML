@@ -111,21 +111,29 @@ func Unescape(raw string) string {
 // StringText writes a value as the double-quoted STRING_VALUE token that
 // StringValue reads back to it, escaping the quote, the backslash and the
 // control characters KerML §8.2.2 names; everything else stands as it is.
-func StringText(value string) string { return quotedText(value, '"') }
+func StringText(value string) string { return quotedText(value, '"', false) }
 
 // UnrestrictedNameText writes raw text as the quoted unrestricted name whose
 // value is that text, escaping the quote, the backslash and the control characters.
-func UnrestrictedNameText(value string) string { return quotedText(value, '\'') }
+func UnrestrictedNameText(value string) string { return quotedText(value, '\'', false) }
 
-// quotedText writes value between quote characters, escaping so it lexes as one token.
-func quotedText(value string, quote byte) string {
+// StandardStringText is StringText writing Table 4's escapes alone: U+000D, which only
+// the extension `\r` names, stands as it is, so the literal passes a strict check.
+func StandardStringText(value string) string { return quotedText(value, '"', true) }
+
+// StandardUnrestrictedNameText is UnrestrictedNameText writing Table 4's escapes alone.
+func StandardUnrestrictedNameText(value string) string { return quotedText(value, '\'', true) }
+
+// quotedText writes value between quote characters, escaping so it lexes as one token;
+// standardOnly leaves a character only an extension escape names as it is.
+func quotedText(value string, quote byte, standardOnly bool) string {
 	var text strings.Builder
 	text.Grow(len(value) + 2)
 	text.WriteByte(quote)
 	for i := 0; i < len(value); i++ {
 		c := value[i]
 		// The other quote is a character of the text, written as it is.
-		if e := escapeByValue[c]; e.letter != 0 && (c == quote || (c != '"' && c != '\'')) {
+		if e := escapeByValue[c]; e.letter != 0 && (e.standard || !standardOnly) && (c == quote || (c != '"' && c != '\'')) {
 			text.WriteByte('\\')
 			text.WriteByte(e.letter)
 		} else {
