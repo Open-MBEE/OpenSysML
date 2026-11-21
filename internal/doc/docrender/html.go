@@ -224,8 +224,8 @@ type HTMLOptions struct {
 	// choice on the Mermaid fallback. Nil leaves the choice to WithoutGraphviz.
 	Drawer DiagramDrawer
 
-	// Math is typeset HTML for formulas, keyed as Formulas lists them, written
-	// in place of the delimited LaTeX; a formula with none keeps its LaTeX.
+	// Math is typeset HTML for formulas, keyed as Formulas lists them, written as it stands
+	// in place of the delimited LaTeX, so it must be inert; a formula with none keeps its LaTeX.
 	Math map[Formula]string
 
 	// OutputDir is the directory the page is written into, when known, so an
@@ -288,6 +288,9 @@ func HTML(document *docir.Document, opts HTMLOptions) (string, error) {
 		return "", err
 	}
 	if err := drawAutomatic(document, &diagrams, opts.Drawer, &opts.DiagramSVG); err != nil {
+		return "", err
+	}
+	if err := checkInert(opts.Math, opts.DiagramSVG); err != nil {
 		return "", err
 	}
 	var base string
