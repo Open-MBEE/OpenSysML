@@ -228,8 +228,10 @@ HTML into a folder you choose, then opens the folder:
   and the elements it exposes as the rows. Add a written `.result.sysml` to the project's
   model to render it.
 
-The files are named by what was rendered (`QVTSDemo.MassReport.md`, `.html`). An element that
-is none of these is reported as such, and nothing is written.
+A document is written to the file the service plans for it (`QVTSDemo-MassReport.md`,
+`.html`), the name its sibling documents link, so documents rendered into one folder link each
+other; a result view is named by its qualified name (`CabinMassResult.cabinMass.md`). An
+element that is none of these is reported as such, and nothing is written.
 
 Not in scope here: PDF from Cameo (the converters are the CLI's, `sysml -render-document
 -doc-form pdf`), and transformations or proposals, which OpenSysML has no evaluator for yet.

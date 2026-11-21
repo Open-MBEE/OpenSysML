@@ -925,7 +925,8 @@ any operation does, and calls `Engine.render` under the progress runner. `Docume
 takes the subject and the declarations the migration report maps it to (`mappedTargets`, as
 `QueryResolver` does), keeps those that specialize `DocumentQueries::Document` or
 `QVTS::QueryResult`, and writes Markdown and HTML for each: `Model.renderDocument` for a
-document, `Model.renderView(name, form)` for a result view. Nothing is written when no
+document, written under the `RenderedDocument.fileName` the service planned so that sibling
+documents link it, `Model.renderView(name, form)` for a result view. Nothing is written when no
 candidate is either. The folder is opened with `java.awt.Desktop`, which is JDK, not OpenAPI,
 so the compatibility floor is unchanged.
 
