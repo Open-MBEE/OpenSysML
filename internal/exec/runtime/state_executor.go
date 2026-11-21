@@ -732,7 +732,7 @@ func (e *StateExecutor) materializeOccurrence() (*Instance, error) {
 	if e.occurrence != nil {
 		return e.occurrence, nil
 	}
-	if !isBehaviorDefKind(e.stateMachine.Kind) {
+	if !e.stateMachine.Kind.IsBehaviorDef() {
 		return nil, nil
 	}
 	inst, err := e.ctx.materialize(e.stateMachine, 0, nil, "")
