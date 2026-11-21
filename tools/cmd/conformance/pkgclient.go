@@ -60,12 +60,20 @@ type pkgCall func(ctx context.Context, request protoreflect.Message) (proto.Mess
 // response from what the API returned, so the comparison sees exactly what a
 // Go caller was given.
 func (c *pkgClient) dispatch(ctx context.Context, method string, request protoreflect.Message) (proto.Message, error) {
-	for _, family := range []func(string) (pkgCall, bool){c.modelCall, c.runtimeCall, c.verificationCall, c.documentCall} {
-		if call, ok := family(method); ok {
-			return call(ctx, request)
-		}
+	if call, ok := c.lookup(method); ok {
+		return call(ctx, request)
 	}
 	return nil, &uncoveredError{reason: fmt.Sprintf("the public Go API does not cover %s", method)}
+}
+
+// lookup finds the call the public API makes for an RPC, if it covers it.
+func (c *pkgClient) lookup(method string) (pkgCall, bool) {
+	for _, family := range []func(string) (pkgCall, bool){c.modelCall, c.runtimeCall, c.verificationCall, c.documentCall} {
+		if call, ok := family(method); ok {
+			return call, true
+		}
+	}
+	return nil, false
 }
 
 // modelCall is the RPC reading or editing a model: the handshake, parsing,
