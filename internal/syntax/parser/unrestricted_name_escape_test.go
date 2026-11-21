@@ -8,9 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// An unrestricted name is the characters its escape sequences denote (KerML
-// §8.2.2.3), in a declaration and in every reference to it alike; `\r`, the
-// pilot's escape beyond Table 4, decodes too and is warned of at each spelling.
+// An unrestricted name is the characters its escapes denote (KerML §8.2.2.3), declared or
+// referenced; `\r`, the pilot's escape beyond Table 4, decodes too and is warned of each time.
 func TestParseUnrestrictedNameDecodesItsEscapes(t *testing.T) {
 	for _, tc := range []struct{ written, want string }{
 		{`'it\'s'`, `it's`},

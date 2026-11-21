@@ -10,9 +10,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
-// writeName writes a v1 name as a v2 name: bare when it is a basic identifier
-// no keyword reserves, quoted as an unrestricted name otherwise. Like every string
-// the migrator writes, it spells no escape outside KerML §8.2.2.3 Table 4.
+// writeName writes a v1 name as a v2 name: bare when no keyword reserves the identifier,
+// else quoted and, like every string the migrator writes, with KerML Table 4's escapes alone.
 func writeName(name string) string {
 	if source.IsIdentifier(name) && !source.IsKeyword(name) {
 		return name

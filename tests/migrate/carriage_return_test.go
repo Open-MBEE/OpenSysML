@@ -9,9 +9,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
-// KerML §8.2.2.3 Table 4 has no escape for U+000D, so a v1 string or name
-// holding one is written with the character itself: `\r` is a pilot extension
-// a strict check rejects, and strict notation must pass that check.
+// KerML §8.2.2.3 Table 4 has no escape for U+000D, so a v1 string or name holding one is
+// written with the character itself: `\r` is a pilot extension a strict check rejects.
 func TestCarriageReturnIsWrittenWithoutANonstandardEscape(t *testing.T) {
 	const members = `
     <packagedElement xmi:type="uml:Class" xmi:id="_b" name="Motor">
