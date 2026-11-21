@@ -1248,7 +1248,7 @@ func mermaidNodeShape(kind Kind, node *Node, labels labeller, options Options) s
 		}
 		return `@{ shape: fork, label: "` + name + `" }`
 	case "decision", "merge", "choice":
-		name := ""
+		var name string
 		if !node.NameSynthesized && node.Name != "" {
 			name = mermaidNodeLabel(node, labels)
 		} else {
@@ -1263,7 +1263,7 @@ func mermaidNodeShape(kind Kind, node *Node, labels labeller, options Options) s
 	if itemBox(node) {
 		return `@{ shape: text, label: ` + mermaidNodeLabel(node, labels) + ` }`
 	}
-	rounded := true
+	var rounded bool
 	if options.Style == StyleCameo {
 		rounded = cameoRounded(node.Kind)
 	} else {

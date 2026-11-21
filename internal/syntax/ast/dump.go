@@ -480,7 +480,7 @@ func dumpDeclaration(b *strings.Builder, n Node, depth int) bool {
 		writeChildren(b, depth, kids)
 		return true
 	case *ConnectorEnd:
-		targetStr := ""
+		var targetStr string
 		if qn, ok := v.Target.(*QualifiedName); ok {
 			targetStr = qnString(qn)
 		} else {

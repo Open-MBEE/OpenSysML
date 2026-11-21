@@ -150,7 +150,7 @@ func checkFeatureReference(i int, what, ref string) (string, error) {
 			if tok.Unterminated {
 				return "", refuse("is an unterminated quoted name")
 			}
-			last = string(ref[tok.Span.Offset : tok.Span.Offset+tok.Span.Len])
+			last = ref[tok.Span.Offset : tok.Span.Offset+tok.Span.Len]
 		case !wantName && (tok.Kind == lexer.Dot || tok.Kind == lexer.ColonColon):
 		default:
 			return "", refuse(notFeatureReference)

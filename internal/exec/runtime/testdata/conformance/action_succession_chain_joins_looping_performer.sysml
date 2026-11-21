@@ -1,7 +1,5 @@
-// A succession end chaining through a part to an action whose body loops
-// (SysML v2 §7.17.4, §7.17.6) orders the step the body states to perform it
-// (`perform action s ::> v.spin`): the loop runs to its `until` once, on the part,
-// before `read`, and no second performance is implied.
+// A chained succession end to a looping action (§7.17.4, §7.17.6) orders the stated performer
+// `s ::> v.spin`: the loop runs to its `until` once, before `read`; no second performance.
 package P {
 	private import ScalarValues::*;
 

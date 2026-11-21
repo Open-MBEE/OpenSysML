@@ -443,7 +443,7 @@ class Model:
         return self._client.get_element_properties(self._hash, element, properties, name=name, id=id)
 
     def query(self, payload=None, scope=None, select=None, where=None, order_by=None,
-              oslc=None):
+              oslc=None, as_view=False):
         """Run a SysML v2 API & Services Query over this model.
 
         Takes the standard's ``Query`` JSON, so a payload written for the
@@ -463,9 +463,13 @@ class Model:
                 ``sysml:name="vehicle"``, evaluated in place of the standard's
                 Query; not combined with the others. An empty string is no
                 OSLC at all, so the structured query is sent instead
+            as_view (bool): Also answer the selection as a ``QVTS::QueryResult``
+                view, the answer's ``result_view``; a path error then raises
+                with the view as the error's ``result_view``. Needs the
+                ``query_result_view`` capability
 
         Returns:
-            list[QueryElement]: The elements selected, in ``order_by`` order,
+            QueryElements: The elements selected, a list in ``order_by`` order,
             or declaration order without one
 
         Raises:
@@ -484,10 +488,10 @@ class Model:
         """
         return self.connection.query(
             self._hash, payload, scope=scope, select=select, where=where, order_by=order_by,
-            oslc=oslc,
+            oslc=oslc, as_view=as_view,
         )
 
-    def run_document_query(self, query_id=None, bindings=None, inline_query=None):
+    def run_document_query(self, query_id=None, bindings=None, inline_query=None, as_view=False):
         """Run one of this model's named document queries, or a query expression.
 
         The query is the model's own — a calc def specializing
@@ -506,6 +510,10 @@ class Model:
                 Named("Vehicles")), "PartUsage"), ("name", "mass"))`` — with
                 the ``DocumentQueries`` library in scope; needs the
                 ``inline_document_query`` capability
+            as_view (bool): Also answer as a ``QVTS::QueryResult`` view, the
+                result's ``result_view``; a path or model error then raises
+                with the view as the error's ``result_view``. Needs the
+                ``query_result_view`` capability
 
         Returns:
             DocumentQueryResult: Projected columns and typed rows, in the
@@ -530,7 +538,7 @@ class Model:
             ('name',)
         """
         return self.connection.run_document_query(
-            self._hash, query_id, bindings=bindings, inline_query=inline_query,
+            self._hash, query_id, bindings=bindings, inline_query=inline_query, as_view=as_view,
         )
 
     def render_document(self, document_id, form="markdown"):
@@ -596,7 +604,10 @@ class Model:
                 ``sysml -render <view> -render-form <form>`` writes: ``"text"``,
                 ``"mermaid"``, ``"markdown"``, ``"dot"``, ``"plantuml"``,
                 ``"d2"``, ``"drawio"``, ``"csv"`` or ``"tsv"``; ``None`` (the
-                default) writes none
+                default) writes none. A ``QVTS::QueryResult`` view is written
+                as a document of its header and rows in ``"markdown"``,
+                ``"html"`` or ``"asciidoc"``, which needs the
+                ``query_result_view`` capability too
             palette (str | None): Palette a graph form fills nodes from, as
                 ``-render-palette`` names them; ``None`` draws in black and white
             style (str | None): Drawing style of the DOT or Mermaid form, as

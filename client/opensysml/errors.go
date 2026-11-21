@@ -4,6 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"connectrpc.com/connect"
+	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
 
 // Code is a canonical gRPC status code, the spelling in which the service
@@ -76,6 +79,21 @@ type StatusError struct {
 	Code Code
 	// Message is the service's own wording.
 	Message string
+	// ResultView is a failed query as a QVTS::QueryResult view, its outcome the
+	// path or model error; empty unless the call asked for the view.
+	ResultView string
+}
+
+// resultViewOf reads the QueryResultView detail a refused query carries.
+func resultViewOf(refused *connect.Error) string {
+	for _, detail := range refused.Details() {
+		if message, err := detail.Value(); err == nil {
+			if view, ok := message.(*pb.QueryResultView); ok {
+				return view.GetText()
+			}
+		}
+	}
+	return ""
 }
 
 // Error renders the refusal with its canonical code name. Code.String is
