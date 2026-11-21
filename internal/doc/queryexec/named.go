@@ -124,8 +124,9 @@ func (e *executor) unknownElement(expression queryplan.Expression, name string, 
 		Origin:    expression.Origin(),
 		Outcome:   &Outcome{Path: &PathError{Failures: []Failure{failure}}},
 	}
+	var reached *symbols.Symbol
 	record := func() {
-		failure.Frontier = Frontier{At: err.Target, Members: e.members(err.Target), Nearest: first(err.Candidates)}
+		failure.Frontier = Frontier{At: err.Target, element: reached, Members: e.members(err.Target), Nearest: first(err.Candidates)}
 		err.Outcome.Path.Failures[0] = failure
 	}
 	if alias {
@@ -152,7 +153,8 @@ func (e *executor) unknownElement(expression queryplan.Expression, name string, 
 			}
 			continue
 		case 1:
-			err.Target = symbols.FQNOf(owners[0])
+			reached = owners[0]
+			err.Target = symbols.FQNOf(reached)
 			err.Expected = segments[i]
 			err.Candidates = suggest.Nearest(segments[i], e.memberNames(err.Target))
 			record()

@@ -100,6 +100,9 @@ func (m *Model) requirementConstraints(sym *symbols.Symbol, kind string) []*symb
 			continue
 		}
 		member := membership.Implicit.Member
+		if member == nil {
+			continue
+		}
 		if k, ok := requirementConstraintKind(member); ok && k == kind {
 			out = append(out, member)
 		}

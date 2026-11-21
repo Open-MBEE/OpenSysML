@@ -37,35 +37,42 @@ func (s *Session) RunDocumentQuery(invocation string) Verdict {
 		return s.withTrace(unresolvedVerdict(invocation, "a document query to run must be named"))
 	}
 	name := fields[0]
-	lines, values, table, err := s.runDocumentQuery(name, fields[1:])
+	answer, err := s.runDocumentQuery(name, fields[1:])
 	if err != nil {
 		verdict := unresolvedVerdict(name, err.Error())
 		verdict.Lines = append(verdict.Lines, queryexec.OutcomeLines(err)...)
 		verdict.Outcome = queryOutcome(err)
+		verdict.ResultView = answer.view
 		return s.withTrace(verdict)
 	}
-	return s.withTrace(Verdict{Subject: name, Status: VerdictHolds, Lines: lines, Values: values, Table: table})
+	return s.withTrace(Verdict{Subject: name, Status: VerdictHolds, Lines: answer.lines, Values: answer.values, Table: answer.table, ResultView: answer.view})
 }
 
 // doRunQuery carries out %run-query, reporting a query that could not be run
 // the way the prompt reports any command it cannot carry out.
 func (s *Session) doRunQuery(invocation string) ([]string, bool, error) {
-	if text, ok := inlineInvocation(strings.TrimSpace(invocation)); ok {
-		lines, _, _, err := s.runInlineQuery(text)
-		if err != nil {
-			return append([]string{errPrefix + err.Error()}, queryexec.OutcomeLines(err)...), false, nil
+	invocation, asView := cutAsView(invocation)
+	if asView {
+		defer s.writingResultViews()()
+	}
+	var answer queryAnswer
+	var err error
+	if text, ok := inlineInvocation(invocation); ok {
+		answer, err = s.runInlineQuery(text)
+	} else {
+		fields := splitQueryArgs(invocation)
+		if len(fields) == 0 {
+			return []string{runQueryUsage}, false, nil
 		}
-		return lines, false, nil
+		answer, err = s.runDocumentQuery(fields[0], fields[1:])
 	}
-	fields := splitQueryArgs(strings.TrimSpace(invocation))
-	if len(fields) == 0 {
-		return []string{runQueryUsage}, false, nil
+	if asView && answer.view != "" {
+		return viewLines(answer.view), false, nil
 	}
-	lines, _, _, err := s.runDocumentQuery(fields[0], fields[1:])
 	if err != nil {
 		return append([]string{errPrefix + err.Error()}, queryexec.OutcomeLines(err)...), false, nil
 	}
-	return lines, false, nil
+	return answer.lines, false, nil
 }
 
 // queryOutcome is the QVTS record behind a failed query, nil when it carries none.
@@ -176,35 +183,37 @@ func bracketDelta(token string) int {
 
 // runDocumentQuery resolves the named query definition, compiles it to a plan,
 // binds the arguments and executes the plan against the session's model.
-func (s *Session) runDocumentQuery(name string, args []string) ([]string, []NamedValue, *VerdictTable, error) {
+func (s *Session) runDocumentQuery(name string, args []string) (queryAnswer, error) {
 	sym, fqn, err := s.lookupSymbol(name)
 	if err != nil {
-		return nil, nil, nil, err
+		return queryAnswer{}, err
 	}
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("runtime init: %w", err)
+		return queryAnswer{}, fmt.Errorf("runtime init: %w", err)
 	}
 	idx := s.browseIndex()
 	model, resolver := ctx.Semantics(), ctx.Resolver()
 	if !queryplan.IsQueryDefinition(idx, model, sym) {
-		return nil, nil, nil, fmt.Errorf("%s is not a document query: one is a calc def specializing DocumentQueries::Query", notationName(fqn))
+		return queryAnswer{}, fmt.Errorf("%s is not a document query: one is a calc def specializing DocumentQueries::Query", notationName(fqn))
 	}
 	program, err := queryplan.Compile(idx, model, resolver, sym)
 	if err != nil {
-		return nil, nil, nil, err
+		return queryAnswer{}, err
 	}
 	bindings, err := s.queryBindings(ctx, regroupBindings(args))
 	if err != nil {
-		return nil, nil, nil, err
+		return queryAnswer{}, err
 	}
 	context := s.queryContext(ctx)
 	result, err := queryexec.Execute(program, context, bindings, queryexec.Options{})
+	written := strings.Join(append([]string{fqn}, regroupBindings(args)...), " ")
+	view := s.resultView(queryexec.ResultViewName(fqn), written, context, result, err)
 	if err != nil {
-		return nil, nil, nil, err
+		return queryAnswer{view: view}, err
 	}
 	lines, values, table := renderRowSet(notationName(fqn), result, context)
-	return lines, values, table, nil
+	return queryAnswer{lines: lines, values: values, table: table, view: view}, nil
 }
 
 // queryContext is the context the session's queries execute in: its model, and

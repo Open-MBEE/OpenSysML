@@ -40,12 +40,29 @@ type HTTPConfig struct {
 	// MaxBodyBytes bounds a request body on the protocol path, answered 413
 	// past it; 0 is the SDK's DefaultMaxBodyBytes, and a negative value no bound.
 	MaxBodyBytes int64
+	// SessionTimeout closes a session no request has used for that long; 0 is
+	// DefaultSessionTimeout, and a negative value never closes an idle session.
+	SessionTimeout time.Duration
 	// Logger, if set, receives the transport's log; nil logs to the default.
 	Logger *slog.Logger
 }
 
 // DefaultMaxBodyBytes is the request body bound when none is configured.
 const DefaultMaxBodyBytes = sdk.DefaultMaxRequestBodyBytes
+
+// DefaultSessionTimeout is how long a session may sit idle when none is configured.
+const DefaultSessionTimeout = 30 * time.Minute
+
+// sessionTimeout is the idle bound handed to the SDK, where zero means none.
+func (c HTTPConfig) sessionTimeout() time.Duration {
+	switch {
+	case c.SessionTimeout == 0:
+		return DefaultSessionTimeout
+	case c.SessionTimeout < 0:
+		return 0
+	}
+	return c.SessionTimeout
+}
 
 // OriginPolicy admits a request with no Origin, a loopback origin or one allowed
 // by name, and refuses any other, so a rebound DNS name is not a way in.
@@ -180,7 +197,8 @@ func (s *Server) protocolHandler(over HTTPConfig) http.Handler {
 		}
 		return s.serverFor(r.Context(), p)
 	},
-		&sdk.StreamableHTTPOptions{Logger: s.logger, MaxRequestBodyBytes: over.MaxBodyBytes})
+		&sdk.StreamableHTTPOptions{Logger: s.logger, MaxRequestBodyBytes: over.MaxBodyBytes,
+			SessionTimeout: over.sessionTimeout()})
 	return over.Token.Handler(stampRemoteAddr(streamable))
 }
 

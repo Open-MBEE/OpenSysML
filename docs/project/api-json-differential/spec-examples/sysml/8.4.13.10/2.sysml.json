@@ -11,9 +11,9 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 575,
+      "presentEqual": 577,
       "presentDifferent": 37,
-      "oursMissing": 68,
+      "oursMissing": 66,
       "pilotMissing": 22,
       "absentBoth": 570,
       "indeterminate": 6,
@@ -332,7 +332,7 @@
     "CalculationUsage.portionKind": [0,0,0,0,2,0,0],
     "CalculationUsage.qualifiedName": [2,0,0,0,0,0,0],
     "CalculationUsage.redefines": [0,0,0,2,0,0,0],
-    "CalculationUsage.result": [0,0,2,0,0,0,0],
+    "CalculationUsage.result": [2,0,0,0,0,0,0],
     "CalculationUsage.textualRepresentation": [0,0,0,0,2,0,0],
     "CalculationUsage.type": [0,0,2,0,0,0,0],
     "CalculationUsage.unioningType": [0,0,0,0,2,0,0],

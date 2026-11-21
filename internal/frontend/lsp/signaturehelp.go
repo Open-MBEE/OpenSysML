@@ -22,7 +22,7 @@ func (s *Server) SignatureHelp(ctx context.Context, params *protocol.SignatureHe
 	if doc == nil || doc.AST == nil || doc.Scope == nil {
 		return nil, nil
 	}
-	offset := positionToOffset(doc.Content, params.Position)
+	offset := positionsOf(doc).offset(params.Position)
 	call, open := enclosingCall(doc.AST, doc.Content, offset)
 	if call == nil {
 		return nil, nil

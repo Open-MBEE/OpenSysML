@@ -1,0 +1,11 @@
+{
+  "rpc": "RunDocumentQuery",
+  "model": "query_result_view.sysml",
+  "query_id": "Probe::NoStates",
+  "as_view": true,
+  "expected_columns": [
+    "name"
+  ],
+  "expected_rows": [],
+  "expected_result_view": "package NoStatesResult {\n\tprivate import QVTS::*;\n\n\tview noStates : QueryResult {\n\t\tattribute :>> query = \"Probe::NoStates\";\n\t\tattribute :>> source = \"model:<model>\";\n\t\tattribute :>> outcome = Outcome::established;\n\t\tattribute :>> provenance = \"model:<model>\";\n\t}\n}\n"
+}
