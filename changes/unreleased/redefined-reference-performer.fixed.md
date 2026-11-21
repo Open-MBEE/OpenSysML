@@ -1,0 +1,1 @@
+- An action step that redefines an inherited `perform` of a referenced action (`action c2 :>> c;` where `c ::> v.close`) without restating the reference now performs that action; before, the redefining step ran nothing.
