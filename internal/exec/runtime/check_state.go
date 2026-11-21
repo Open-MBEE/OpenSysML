@@ -53,21 +53,30 @@ func (f canonicalForm) key() stateKey {
 // canonicalState renders the state of the invocation's run in canonical form, the
 // turn settled first.
 func (r *invocationRun) canonicalState() canonicalForm {
+	return r.canonicalStateFor(false)
+}
+
+func (r *invocationRun) canonicalStateFor(omitVisits bool) canonicalForm {
 	r.enabledMoves()
-	return r.inv.canonicalState(r.turn)
+	return r.inv.canonicalStateFor(r.turn, omitVisits)
 }
 
 // canonicalState renders the invocation's state with turn holding the turn, nil for none.
 func (inv *Invocation) canonicalState(turn checkedExecutor) canonicalForm {
+	return inv.canonicalStateFor(turn, false)
+}
+
+func (inv *Invocation) canonicalStateFor(turn checkedExecutor, omitVisits bool) canonicalForm {
 	execs := inv.executors()
 	ctx := inv.Context()
 	// Reading a feature may derive its default; a probe gives that back.
 	defer ctx.beginProbe()()
 	s := &stateSpeller{
-		ctx:    ctx,
-		paths:  make(map[int64]string),
-		names:  make(map[checkedExecutor]string, len(execs)),
-		tokens: make(map[tokenKey]string),
+		ctx:        ctx,
+		omitVisits: omitVisits,
+		paths:      make(map[int64]string),
+		names:      make(map[checkedExecutor]string, len(execs)),
+		tokens:     make(map[tokenKey]string),
 	}
 	text := s.spell(execs, turn)
 	return canonicalForm{text: text, names: s.names, tokens: s.tokens}
@@ -76,7 +85,8 @@ func (inv *Invocation) canonicalState(turn checkedExecutor) canonicalForm {
 // stateSpeller writes the canonical form, naming objects by materialization
 // path and performances by their path in the action.
 type stateSpeller struct {
-	ctx *Context
+	ctx        *Context
+	omitVisits bool
 	// exec is the action being spelled.
 	exec *ActionExecutor
 	// paths are the objects mentioned so far by path; mentioned lists them in order.
@@ -295,7 +305,9 @@ func (s *stateSpeller) machine(e *StateExecutor) {
 	for _, state := range sortedStates(e, e.stateAttrs) {
 		fmt.Fprintf(&s.out, " attrs{%s: %s}", e.statePath(state), s.values(e.stateAttrs[e.stateID(state)]))
 	}
-	fmt.Fprintf(&s.out, " visits{%s}", strings.Join(e.stateVisits, ", "))
+	if !s.omitVisits {
+		fmt.Fprintf(&s.out, " visits{%s}", strings.Join(e.stateVisits, ", "))
+	}
 	if e.eventQueue != nil {
 		events := slices.Clone(e.eventQueue.events)
 		sort.SliceStable(events, func(i, j int) bool { return events.Less(i, j) })
@@ -367,7 +379,9 @@ func (s *stateSpeller) joinsArrived(e *StateExecutor) {
 	for _, state := range sortedStates(e, e.stateAttrs) {
 		fmt.Fprintf(&s.out, " attrs{%s: %s}", e.statePath(state), s.bodyValues(e.stateAttrs[e.stateID(state)], e.stateAttrCells[e.stateID(state)]))
 	}
-	fmt.Fprintf(&s.out, " visits{%s}", strings.Join(e.stateVisits, ", "))
+	if !s.omitVisits {
+		fmt.Fprintf(&s.out, " visits{%s}", strings.Join(e.stateVisits, ", "))
+	}
 	if e.eventQueue != nil {
 		events := slices.Clone(e.eventQueue.events)
 		sort.SliceStable(events, func(i, j int) bool { return events.Less(i, j) })

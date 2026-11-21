@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 func readPending(_ *Context, inv *Invocation) (bool, error) {
@@ -86,7 +87,7 @@ func TestCheckProgressRequestResponse(t *testing.T) {
 			if len(r.Prefix) == 0 || len(r.Cycle) == 0 {
 				t.Fatal("expected nonempty acceptance prefix and retry cycle")
 			}
-			reexecuteProgressWalk(t, model, start, r)
+			reexecuteProgressWalk(t, model, start, r, pendingRequest)
 			t.Logf("accepted prefix: %v; twice reexecuted native cycle: %v", r.Prefix, r.Cycle)
 		}
 	}
@@ -94,29 +95,24 @@ func TestCheckProgressRequestResponse(t *testing.T) {
 
 // Reexecute the selected moves on a fresh runtime, without graph collection
 // or cycle search, and verify stable-state equality across two cycle traversals.
-func reexecuteProgressWalk(t *testing.T, model *exploreModel, start Starter, report *ProgressReport) {
+func reexecuteProgressWalk(t *testing.T, model *exploreModel, start Starter, report *ProgressReport, monitor CheckProperty) (deadlocked bool) {
 	t.Helper()
-	ctx, err := model.fresh()
-	if err != nil {
-		t.Fatal(err)
+	run := startProgressWalk(t, model, start, report.StartupPicks)
+	ctx := run.ctx
+	settle := func() {
+		var err error
+		deadlocked, err = run.settle()
+		if err != nil && !deadlocked {
+			t.Fatal(err)
+		}
 	}
-	if err := ctx.SetSchedule(checkPolicy(&checkScript{due: -1})); err != nil {
-		t.Fatal(err)
-	}
-	run, err := beginInvocation(ctx, start)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer run.inv.Release()
-	if err := run.inv.started(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if err := run.stabilize(); err != nil {
-		t.Fatal(err)
+	settle()
+	if got := string(run.canonicalStateFor(true).key()); got != report.Root {
+		t.Fatalf("startup digest = %s, want %s", got, report.Root)
 	}
 	c := &checker{run: run}
 	move := func(edge ProgressStep) {
-		form := run.canonicalState()
+		form := run.canonicalStateFor(true)
 		if string(form.key()) != edge.From {
 			t.Fatalf("start digest differs for %s: %s", edge.Move, form.key())
 		}
@@ -142,28 +138,54 @@ func reexecuteProgressWalk(t *testing.T, model *exploreModel, start Starter, rep
 		if _, err := run.makeMove(selected.enabledMove); err != nil {
 			t.Fatal(err)
 		}
-		if err := run.stabilize(); err != nil {
-			t.Fatal(err)
-		}
-		if key := run.canonicalState().key(); string(key) != edge.To {
+		settle()
+		if key := run.canonicalStateFor(true).key(); string(key) != edge.To {
 			t.Fatalf("end digest differs for %s: %s", edge.Move, key)
 		}
 	}
 	for _, edge := range report.Prefix {
 		move(edge)
 	}
-	cycleStart := run.canonicalState().key()
+	cycleStart := run.canonicalStateFor(true).key()
 	for range 2 {
 		for _, edge := range report.Cycle {
-			if pending, err := readPending(ctx, run.inv); err != nil || !pending {
+			if pending, err := monitor.Holds(ctx, run.inv); err != nil || !pending {
 				t.Fatalf("obligation not pending before cycle edge %v: %v", edge, err)
 			}
 			move(edge)
 		}
-		if end := run.canonicalState().key(); end != cycleStart {
+		if end := run.canonicalStateFor(true).key(); end != cycleStart {
 			t.Fatalf("path is not a cycle: %s -> %s", cycleStart, end)
 		}
 	}
+	if len(report.Cycle) == 0 && !deadlocked && !run.terminal() {
+		t.Fatal("replayed stall did not end in a settled terminal")
+	}
+	pending, err := monitor.Holds(ctx, run.inv)
+	if err != nil || !pending {
+		t.Fatalf("obligation not pending at end of witness: %v", err)
+	}
+	return deadlocked
+}
+
+func startProgressWalk(t *testing.T, model *exploreModel, start Starter, picks []int) *invocationRun {
+	t.Helper()
+	ctx, err := model.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ctx.SetSchedule(checkPolicy(&checkScript{due: -1, picks: picks})); err != nil {
+		t.Fatal(err)
+	}
+	run, err := beginInvocation(ctx, start)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(run.inv.Release)
+	if err := run.inv.started(ctx); err != nil {
+		t.Fatal(err)
+	}
+	return run
 }
 
 func TestCheckProgressBoundAndTerminal(t *testing.T) {
@@ -214,5 +236,142 @@ func TestRuntimeRobustnessProgress(t *testing.T) {
 	}
 	if _, err := CheckProgress(context.Background(), model.fresh, start, CheckBudget{}, CheckProperty{}); !errors.Is(err, ErrProgressMonitor) {
 		t.Fatalf("invalid monitor error = %v", err)
+	}
+}
+
+func pendingMachine() CheckProperty {
+	return CheckProperty{Name: "accepted request awaiting response", Holds: func(_ *Context, inv *Invocation) (bool, error) {
+		return inv.States[0].StateData()["pending"].Const.Bool, nil
+	}}
+}
+
+func TestCheckProgressStateRetry(t *testing.T) {
+	model := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		state handle {
+			attribute pending : Boolean = false;
+			entry; then ready;
+			state ready { entry action { assign pending := true; } }
+			state retry;
+			transition first ready then retry;
+			transition first retry then ready;
+		}
+	}`)
+	start := invocationOf(nil, []*symbols.Symbol{model.state(t, "handle")})
+	budget := CheckBudget{Depth: 12, States: 20}
+	r, err := CheckProgress(context.Background(), model.fresh, start, budget, pendingMachine())
+	if err != nil || r.Status != ProgressStalled || len(r.Cycle) != 2 {
+		t.Fatalf("want a two-transition stall, got %+v, %v", r, err)
+	}
+	reexecuteProgressWalk(t, model, start, r, pendingMachine())
+	stock, err := Check(context.Background(), model.fresh, start, budget, CheckOptions{}, nil)
+	if err != nil || !slices.Contains(stock.BoundsHit, "depth") {
+		t.Fatalf("stock check must keep visit history, report %+v, err %v", stock, err)
+	}
+}
+
+func TestCheckProgressPendingDeadlock(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		body   string
+		prefix bool
+		want   ProgressStatus
+	}{
+		{"after move", "attribute pending : Boolean = false; first start; then action request { assign pending := true; } then action response accept n : Integer; then done;", true, ProgressStalled},
+		{"initial", "attribute pending : Boolean = true; first start; then action response accept n : Integer; then done;", false, ProgressStalled},
+		{"initial no pending", "attribute pending : Boolean = false; first start; then action response accept n : Integer; then done;", false, ProgressInconclusive},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			model := parseLibraryModel(t, "package test { private import ScalarValues::*; action handle { "+tc.body+" } }")
+			start := starterOf(model.action(t, "handle"))
+			if !tc.prefix {
+				start = startProgressAtAccept(start)
+			}
+			r, err := CheckProgress(context.Background(), model.fresh, start, CheckBudget{}, pendingRequest)
+			if err != nil || r.Status != tc.want || len(r.Cycle) != 0 || (len(r.Prefix) > 0) != tc.prefix {
+				t.Fatalf("want %s (prefix %t), got %+v, %v", tc.want, tc.prefix, r, err)
+			}
+			if len(r.Search.Finals) != 0 || len(r.Search.Violations) != 1 || !errors.Is(r.Search.Violations[0].Err, ErrAcceptDeadlock) {
+				t.Fatalf("stock diagnostics should retain the deadlock, not produce a final: %+v", r.Search)
+			}
+			if tc.want == ProgressStalled && !reexecuteProgressWalk(t, model, start, r, pendingRequest) {
+				t.Fatal("expected witness to replay to a settled deadlock")
+			}
+		})
+	}
+}
+
+// Start at a waiting accept instead of exposing the fixture's initial start-node move.
+func startProgressAtAccept(start Starter) Starter {
+	return func(ctx *Context) (*Invocation, error) {
+		inv, err := start(ctx)
+		if err != nil {
+			return nil, err
+		}
+		run := &invocationRun{ctx: ctx, inv: inv, state: ctx.run}
+		if _, err := run.makeMove(run.enabledMoves()[0]); err != nil {
+			inv.Release()
+			return nil, err
+		}
+		return inv, nil
+	}
+}
+
+func TestCheckProgressStartupWitness(t *testing.T) {
+	model := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		state handle {
+			attribute armed : Boolean = false;
+			attribute pending : Boolean = false;
+			entry; then parallelWork;
+			state parallelWork parallel {
+				state arm {
+					entry; then armedState;
+					state armedState { entry action { assign armed := true; } }
+				}
+				state acceptRequest {
+					entry; then ready;
+					state ready { entry action { assign pending := not armed; } }
+				}
+			}
+		}
+	}`)
+	start := invocationOf(nil, []*symbols.Symbol{model.state(t, "handle")})
+	monitor := pendingMachine()
+	r, err := CheckProgress(context.Background(), model.fresh, start, CheckBudget{}, monitor)
+	if err != nil || r.Status != ProgressStalled || !slices.Equal(r.StartupPicks, []int{1}) || len(r.Prefix)+len(r.Cycle) != 0 {
+		t.Fatalf("want a stall only after the alternate startup, got %+v, %v", r, err)
+	}
+	reexecuteProgressWalk(t, model, start, r, monitor)
+	for _, picks := range [][]int{nil, r.StartupPicks} {
+		run := startProgressWalk(t, model, start, picks)
+		if err := run.stabilize(); err != nil {
+			t.Fatal(err)
+		}
+		pending, err := monitor.Holds(run.ctx, run.inv)
+		if !run.terminal() || err != nil || pending != (picks != nil) {
+			t.Fatalf("startup %v: want terminal and pending=%t; got pending=%t, %v", picks, picks != nil, pending, err)
+		}
+	}
+}
+
+func TestCheckProgressPendingExecutionFailure(t *testing.T) {
+	model := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		action handle {
+			attribute pending : Boolean = true;
+			attribute denominator : Integer = 0;
+			attribute outcome : Integer = 0;
+			first start;
+			then action attempt { assign outcome := 1 / denominator; }
+			then done;
+		}
+	}`)
+	r, err := CheckProgress(context.Background(), model.fresh, starterOf(model.action(t, "handle")), CheckBudget{}, pendingRequest)
+	if err != nil || r.Status != ProgressInconclusive || !r.Activated || r.Root != "" {
+		t.Fatalf("want an inconclusive execution failure, not a stalled witness, got %+v, %v", r, err)
+	}
+	if len(r.Search.Violations) != 1 || !errors.Is(r.Search.Violations[0].Err, ErrDivisionByZero) {
+		t.Fatalf("wanted original division failure, got %+v", r.Search)
 	}
 }

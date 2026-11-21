@@ -32,15 +32,19 @@ type ProgressStep struct {
 // ProgressReport reports one request-to-response obligation. A stalled report
 // has a prefix to a pending terminal (empty Cycle) or a repeatable pending walk.
 type ProgressReport struct {
-	Status             ProgressStatus
+	Status ProgressStatus
+	// Search summarizes the progress search, deduplicated without reporting-only visit history.
 	Search             *CheckReport
 	Activated, Cleared bool
-	Prefix, Cycle      []ProgressStep
+	// Root and StartupPicks identify the starting state of a stalled witness.
+	// Picks are zero-based, with unstated choices taking the first alternative.
+	Root          string
+	StartupPicks  []int
+	Prefix, Cycle []ProgressStep
 }
 
-// CheckProgress asks whether every model schedule leaves the pending region.
-// The caller supplies a deterministic Boolean function of the canonical state alone,
-// false before acceptance and true until an authorized response. No fairness is assumed.
+// CheckProgress asks whether every schedule leaves the pending region without assuming fairness.
+// Pending becomes true on acceptance, false on response, and may read execution state but not visit history.
 func CheckProgress(stop context.Context, fresh func() (*Context, error), start Starter, budget CheckBudget, pending CheckProperty) (*ProgressReport, error) {
 	if pending.Name == "" || pending.Holds == nil {
 		return nil, ErrProgressMonitor
@@ -54,17 +58,19 @@ func CheckProgress(stop context.Context, fresh func() (*Context, error), start S
 }
 
 type progressGraph struct {
-	pending    CheckProperty
-	startClock float64
-	incoming   ProgressStep
-	nodes      map[stateKey]*progressNode
-	order      []stateKey
-	cleared    bool
+	pending      CheckProperty
+	startClock   float64
+	startupPicks []int
+	incoming     ProgressStep
+	nodes        map[stateKey]*progressNode
+	order        []stateKey
+	cleared      bool
 }
 
 type progressNode struct {
 	pending, terminal bool
 	parent            ProgressStep
+	startupPicks      []int
 	edges             []ProgressStep
 }
 
@@ -78,7 +84,11 @@ func (g *progressGraph) observe(c *checker, key stateKey, visited bool) error {
 		if err != nil {
 			return fmt.Errorf("progress monitor %q: %w", g.pending.Name, err)
 		}
-		g.nodes[key] = &progressNode{pending: pending, parent: edge}
+		n := &progressNode{pending: pending, parent: edge}
+		if edge.From == "" {
+			n.startupPicks = slices.Clone(g.startupPicks)
+		}
+		g.nodes[key] = n
 		g.order = append(g.order, key)
 	}
 	if previous := g.nodes[stateKey(edge.From)]; previous != nil {
@@ -90,13 +100,14 @@ func (g *progressGraph) observe(c *checker, key stateKey, visited bool) error {
 	return nil
 }
 
-func (g *progressGraph) prefix(key stateKey) []ProgressStep {
-	var path []ProgressStep
-	for edge := g.nodes[key].parent; edge.From != ""; edge = g.nodes[stateKey(edge.From)].parent {
-		path = append(path, edge)
+func (g *progressGraph) witness(r *ProgressReport, key stateKey) {
+	for edge := g.nodes[key].parent; edge.From != ""; edge = g.nodes[key].parent {
+		r.Prefix = append(r.Prefix, edge)
+		key = stateKey(edge.From)
 	}
-	slices.Reverse(path)
-	return path
+	slices.Reverse(r.Prefix)
+	r.Root = string(key)
+	r.StartupPicks = slices.Clone(g.nodes[key].startupPicks)
 }
 
 func (g *progressGraph) report(stop context.Context, search *CheckReport) (*ProgressReport, error) {
@@ -106,7 +117,8 @@ func (g *progressGraph) report(stop context.Context, search *CheckReport) (*Prog
 		if n.pending {
 			r.Activated = true
 			if n.terminal {
-				r.Status, r.Prefix = ProgressStalled, g.prefix(key)
+				r.Status = ProgressStalled
+				g.witness(r, key)
 				return r, nil
 			}
 		}
@@ -117,7 +129,8 @@ func (g *progressGraph) report(stop context.Context, search *CheckReport) (*Prog
 	}
 	switch {
 	case len(cycle) != 0:
-		r.Status, r.Prefix, r.Cycle = ProgressStalled, g.prefix(stateKey(cycle[0].From)), cycle
+		r.Status, r.Cycle = ProgressStalled, cycle
+		g.witness(r, stateKey(cycle[0].From))
 	case len(search.BoundsHit)+len(search.Unenumerated)+len(search.Violations) != 0:
 		r.Status = ProgressInconclusive
 	case !r.Activated:

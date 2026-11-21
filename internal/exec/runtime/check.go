@@ -338,6 +338,7 @@ func (c *checker) searchFrom(stop context.Context, fresh func() (*Context, error
 			return nil, ErrProgressTimed
 		}
 		c.progress.startClock = ctx.clock.now
+		c.progress.startupPicks = picks
 	}
 	if err := c.resolveDiverge(); err != nil {
 		return nil, err
@@ -579,9 +580,9 @@ func (c *checker) failing(err error) Witness {
 // search runs the depth-first search from the started invocation's state,
 // stopping early once stop ends; mass is the probability of the start's picks.
 func (c *checker) search(stop context.Context, mass float64) error {
-	if err := c.run.stabilize(); err != nil {
+	if deadlocked, err := c.run.settle(); err != nil {
 		c.foldCoverage()
-		return c.failed(err, 0, mass)
+		return c.settleFailed(err, deadlocked, 0, mass, nil)
 	}
 	if c.run.terminal() {
 		c.foldCoverage()
@@ -696,12 +697,12 @@ func (c *checker) take(f *checkFrame, m searchMove) error {
 	if err != nil {
 		return c.failed(err, depth, mass)
 	}
-	if err := c.run.stabilize(); err != nil {
-		return c.failed(err, depth, mass)
-	}
 	if c.progress != nil {
 		c.progress.incoming = ProgressStep{From: string(f.key), Move: m.name}
 		defer func() { c.progress.incoming = ProgressStep{} }()
+	}
+	if deadlocked, err := c.run.settle(); err != nil {
+		return c.settleFailed(err, deadlocked, depth, mass, f.violated)
 	}
 	if c.run.terminal() {
 		return c.complete(depth, mass, f.violated)
@@ -725,6 +726,20 @@ func (c *checker) take(f *checkFrame, m searchMove) error {
 		c.stack = append(c.stack, child)
 	}
 	return nil
+}
+
+// settleFailed retains a settled deadlock both as a progress terminal and as a search violation.
+func (c *checker) settleFailed(err error, deadlocked bool, depth int, mass float64, violated []string) error {
+	if deadlocked && c.progress != nil {
+		_, key, seen, _, visitErr := c.visit(depth, mass, violated)
+		if visitErr != nil {
+			return visitErr
+		}
+		if seen != nil {
+			c.progress.nodes[key].terminal = true
+		}
+	}
+	return c.failed(err, depth, mass)
 }
 
 // failed classifies the error a move raised: a budget is a bound the search
@@ -766,7 +781,7 @@ func (c *checker) complete(depth int, mass float64, violated []string) error {
 // visit records the stable state the invocation stands in, evaluating the
 // properties at a new one; seen is nil when the states bound keeps the search out.
 func (c *checker) visit(depth int, mass float64, violated []string) (form canonicalForm, key stateKey, seen *visitedState, visited bool, err error) {
-	form = c.run.canonicalState()
+	form = c.run.canonicalStateFor(c.progress != nil)
 	key = form.key()
 	if c.progress != nil && c.ctx.clock.now != c.progress.startClock {
 		return form, key, nil, false, ErrProgressTimed
