@@ -1,8 +1,5 @@
-// A loop a case body reaches is a performance of the case, held from the moment
-// the flow reaches it, so an assertion a succession orders around it (SysML v2
-// §7.20.3) reads the loops held at its own position: none before the loop, one
-// with its three body iterations after it. A check's `in` parameter is bound
-// only by a stated binding (KerML §8.2.3.5), judged where the flow reaches it.
+// A loop a case body reaches is a performance held from then on, so an assertion ordered around
+// it (§7.20.3) reads the loops held at its position; `in` binds only as stated (KerML §8.2.3.5).
 package test {
 	private import ScalarValues::*;
 	private import SequenceFunctions::*;
