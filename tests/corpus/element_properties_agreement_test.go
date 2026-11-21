@@ -24,6 +24,9 @@ var updateAgreementRatchet = flag.Bool("update-agreement-ratchet", false, "re-re
 // <kind>.txt per kind of disagreement (class, count, clause key).
 const agreementRatchetDir = "testdata/element_properties_agreement"
 
+// agreementGate names the ratchet in the banner a subset prints.
+const agreementGate = "element-properties agreement ratchet"
+
 var agreementKinds = []string{"unresolved-id", "metaclass", "value", "exported-not-answered", "answered-not-exported"}
 
 // agreementRow is one class of disagreement between the api-json export and GetElementProperties:
@@ -168,7 +171,8 @@ func writeAgreementRatchet(t *testing.T, recorded map[agreementRow]agreementRatc
 }
 
 // checkAgreementRatchet holds the sweep's disagreements to the recorded classes: none new, none above its
-// count, every one adjudicated by a clause; complete (the whole sweep, every corpus) fails a vanished class too.
+// count, every one adjudicated by a clause; complete (the whole sweep, every corpus) fails a vanished class too,
+// and a subset announces the recorded classes it did not produce, which it cannot tell from vanished ones.
 func checkAgreementRatchet(t *testing.T, subset corpussubset.Subset, complete bool, agreement *agreementCounts) {
 	t.Helper()
 	recorded := agreementRatchetRows(t)
@@ -178,7 +182,7 @@ func checkAgreementRatchet(t *testing.T, subset corpussubset.Subset, complete bo
 		}
 		writeAgreementRatchet(t, recorded, agreement.counts)
 	}
-	fell := 0
+	fell, unchecked := 0, 0
 	for row, count := range agreement.counts {
 		prior, ok := recorded[row]
 		switch {
@@ -194,10 +198,17 @@ func checkAgreementRatchet(t *testing.T, subset corpussubset.Subset, complete bo
 		if prior.side == "?" || prior.clause == "?" {
 			t.Errorf("%s/%s.txt: %s carries no clause key", agreementRatchetDir, row.kind, row.class)
 		}
-		if _, ok := agreement.counts[row]; !ok && complete {
+		if _, ok := agreement.counts[row]; ok {
+			continue
+		}
+		switch {
+		case complete:
 			t.Errorf("%s/%s.txt: %s no longer differs; remove the row", agreementRatchetDir, row.kind, row.class)
+		case !subset.Whole():
+			unchecked++
 		}
 	}
+	announceUnchecked(t, agreementGate, subset, unchecked, len(recorded), "classes")
 	if fell > 0 && complete && !*updateAgreementRatchet {
 		t.Logf("%d classes fell below their recorded count; re-record with -update-agreement-ratchet", fell)
 	}

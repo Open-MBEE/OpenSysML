@@ -459,7 +459,7 @@ func (g roundTripGate) check(t *testing.T, subset corpussubset.Subset, corpus, f
 				path, verdict, want[path], g.updateFlag)
 		}
 	}
-	announceUnchecked(t, g.name, subset, unchecked, len(want))
+	announceUnchecked(t, g.name, subset, unchecked, len(want), "files")
 	for _, path := range files {
 		if _, ok := want[path]; !ok {
 			t.Errorf("%s: %s but the file is not recorded; regenerate with %s",

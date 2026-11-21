@@ -181,22 +181,22 @@ func recordedCoverage(recorded []string, present, checked map[string]bool) (gone
 	return gone, unchecked
 }
 
-// uncheckedBanner is what a ratchet prints when a subset left recorded files unchecked.
-func uncheckedBanner(gate string, subset corpussubset.Subset, unchecked, recorded int) string {
-	return fmt.Sprintf("RATCHET INCOMPLETE: %s left %d of %d recorded files unchecked under %s=%s; "+
-		"unset the variable to check them all", gate, unchecked, recorded, corpussubset.EnvVar, subset.Name())
+// uncheckedBanner is what a ratchet prints when a subset left recorded entries (unit: files, classes) unchecked.
+func uncheckedBanner(gate string, subset corpussubset.Subset, unchecked, recorded int, unit string) string {
+	return fmt.Sprintf("RATCHET INCOMPLETE: %s left %d of %d recorded %s unchecked under %s=%s; "+
+		"unset the variable to check them all", gate, unchecked, recorded, unit, corpussubset.EnvVar, subset.Name())
 }
 
 // announceUnchecked makes a partial ratchet visible on stderr and in the test log;
-// outside a subset an unchecked recorded file is a failure.
-func announceUnchecked(t *testing.T, gate string, subset corpussubset.Subset, unchecked, recorded int) {
+// outside a subset an unchecked recorded entry is a failure.
+func announceUnchecked(t *testing.T, gate string, subset corpussubset.Subset, unchecked, recorded int, unit string) {
 	t.Helper()
 	switch {
 	case unchecked == 0:
 	case subset.Whole():
-		t.Errorf("%s: %d of %d recorded files were not checked although no subset is selected", gate, unchecked, recorded)
+		t.Errorf("%s: %d of %d recorded %s were not checked although no subset is selected", gate, unchecked, recorded, unit)
 	default:
-		banner := uncheckedBanner(gate, subset, unchecked, recorded)
+		banner := uncheckedBanner(gate, subset, unchecked, recorded, unit)
 		fmt.Fprintf(os.Stderr, "\n!!! %s\n\n", banner)
 		t.Log(banner)
 	}
@@ -217,7 +217,7 @@ func (g corpusGate) checkRecorded(t *testing.T, subset corpussubset.Subset, file
 		t.Errorf("%s: recorded %d diagnostic(s) but the file is gone; "+
 			"re-download the pinned corpus or regenerate with %s", path, want[path], regenerate)
 	}
-	announceUnchecked(t, t.Name(), subset, unchecked, len(want))
+	announceUnchecked(t, t.Name(), subset, unchecked, len(want), "files")
 }
 
 // corpusGateExamples is the examples/ directory the subset list is relative to.

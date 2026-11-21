@@ -34,7 +34,7 @@ func TestRecordedCoverage(t *testing.T) {
 func TestUncheckedBanner(t *testing.T) {
 	t.Setenv(corpussubset.EnvVar, corpussubset.ConstructCover)
 	subset := corpussubset.Must(t, "../..")
-	got := uncheckedBanner("some gate", subset, 7, 9)
+	got := uncheckedBanner("some gate", subset, 7, 9, "files")
 	for _, want := range []string{"RATCHET INCOMPLETE", "some gate", "7 of 9 recorded files unchecked", corpussubset.EnvVar + "=" + corpussubset.ConstructCover} {
 		if !strings.Contains(got, want) {
 			t.Errorf("banner %q lacks %q", got, want)
@@ -45,11 +45,12 @@ func TestUncheckedBanner(t *testing.T) {
 // subsetScoped names every test file here that reads the subset and how it accounts for
 // what the subset leaves out, so a new subset-scoped gate cannot be added silently.
 var subsetScoped = map[string]string{
-	"construct_cover_test.go": "corpussubset.ReadList(", // checks the list itself against the whole corpus
-	"examples_sweep_test.go":  "check(t, subset,",       // the round-trip ratchets announce in roundTripGate.check
-	"pilot_corpora_test.go":   "checkRecorded(t, subset,",
-	"roundtrip_test.go":       "announceUnchecked(t, g.name, subset,",
-	"spec_examples_test.go":   "checkRecorded(t, subset,",
+	"construct_cover_test.go":              "corpussubset.ReadList(", // checks the list itself against the whole corpus
+	"element_properties_agreement_test.go": "announceUnchecked(t, agreementGate, subset,",
+	"examples_sweep_test.go":               "check(t, subset,", // the round-trip ratchets announce in roundTripGate.check
+	"pilot_corpora_test.go":                "checkRecorded(t, subset,",
+	"roundtrip_test.go":                    "announceUnchecked(t, g.name, subset,",
+	"spec_examples_test.go":                "checkRecorded(t, subset,",
 }
 
 func TestSubsetScopedGatesAnnounce(t *testing.T) {
