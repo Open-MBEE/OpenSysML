@@ -190,7 +190,10 @@ func queryResultDocumentForm(name string) (docset.Form, bool) {
 
 // queryResultDocument writes a QVTS::QueryResult view's rendering as a document of its header and rows in form.
 func queryResultDocument(rendering *view.Rendering, form docset.Form) (string, error) {
-	document := docir.QueryResult(rendering)
+	document, err := docir.QueryResult(rendering)
+	if err != nil {
+		return "", err
+	}
 	switch form {
 	case docset.FormHTML:
 		return docrender.HTML(document, docrender.HTMLOptions{})

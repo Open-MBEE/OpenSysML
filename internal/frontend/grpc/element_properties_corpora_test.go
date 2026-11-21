@@ -50,7 +50,7 @@ func TestElementPropertiesAnswersEveryElementOfTheCorpora(t *testing.T) {
 		t.Fatal("the parsed model is not cached")
 	}
 	excluded := map[string]*pb.ExcludedDocument{}
-	for _, exclusion := range cached.documentExclusions() {
+	for _, exclusion := range cached.elementReader().exclusions {
 		excluded[exclusion.Document] = exclusion
 	}
 	t.Logf("%d documents, %d excluded", len(documents), len(excluded))

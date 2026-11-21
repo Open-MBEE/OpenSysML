@@ -1,6 +1,5 @@
-// A succession end may be a feature chain (SysML v2 §7.17.4): `vehicle.doorClosed`
-// is the action the part `vehicle` owns, performed on that part where the
-// successions put it — once, after `start` and before `driver.driverReady`.
+// A succession end may be a feature chain (§7.17.4): `vehicle.doorClosed` is performed on the
+// part `vehicle` where the successions put it, once, after `start` and before `driverReady`.
 package P {
 	private import ScalarValues::*;
 

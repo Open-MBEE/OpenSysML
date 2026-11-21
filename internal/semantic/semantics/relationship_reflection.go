@@ -24,9 +24,21 @@ func ImpliedEndReference(end *ast.ConnectorEnd) ast.Node {
 // connectorEndAttachment is the reference subsetting an end's attachment
 // states, as the written edge the relationship object it reflects spans.
 func connectorEndAttachment(target ast.Node) *ast.Relationship {
-	rel := &ast.Relationship{Kind: ast.RelReferences, Target: target}
+	return impliedRelationship(ast.RelReferences, target)
+}
+
+// impliedRelationship is a relationship of kind a declaration implies toward
+// target without writing a clause, spanning the node that implies it.
+func impliedRelationship(kind ast.RelationshipKind, target ast.Node) *ast.Relationship {
+	rel := &ast.Relationship{Kind: kind, Target: target}
 	rel.NodeSpan = target.Span()
 	return rel
+}
+
+// impliedChainEndReference reports whether rel is the ReferenceSubsetting of a `then a.b` succession's
+// target end, which owns the chain Feature its target denotes (encodeSuccessionEdge, transitionSuccession).
+func impliedChainEndReference(rel *symbols.Symbol) bool {
+	return rel != nil && rel.Implicit != nil && rel.Implicit.Form == symbols.ImplicitSuccessionEndReference && rel.Implicit.Node != nil
 }
 
 // chainNode is the feature chain a relationship target is written as (`a.b`),
@@ -56,7 +68,8 @@ func recordedRelationship(rel *symbols.Symbol) (symbols.RelationshipFacts, bool)
 // owned by the element the relationship is written on; nil for a relationship
 // targeting a name or a chain that does not resolve.
 func (m *Model) chainTargetFeature(rel *symbols.Symbol) *symbols.Symbol {
-	if m == nil || rel == nil || !rel.ImplicitWrittenRelationship() && !rel.ImplicitShorthandChain() {
+	if m == nil || rel == nil ||
+		!rel.ImplicitWrittenRelationship() && !rel.ImplicitShorthandChain() && !impliedChainEndReference(rel) {
 		return nil
 	}
 	var (
@@ -77,11 +90,8 @@ func (m *Model) chainTargetFeature(rel *symbols.Symbol) *symbols.Symbol {
 	if cached, ok := m.chainTargets[rel]; ok {
 		return cached
 	}
-	// A chain that resolves to nothing denotes no feature: the relationship's
-	// target side stays underived, as it does for an unresolved name.
-	if len(m.chainPath(owner, rel.Implicit.Kind, node, facts)) == 0 {
-		return nil
-	}
+	// The chain feature is written whether or not its segments resolve (KerML
+	// 8.3.3.3.9); one that resolves to nothing chains no feature.
 	scope := owner.Scope
 	if scope == nil {
 		// A leaf declares no scope of its own; its chain feature still needs
@@ -122,9 +132,8 @@ func (m *Model) flowEndChainFeature(flow *symbols.Symbol, position int) *symbols
 	if cached, ok := m.flowEndChains[key]; ok {
 		return cached
 	}
-	if len(m.attachmentPath(flow.OwnerScope, node)) == 0 {
-		return nil
-	}
+	// The chain Feature is written whether or not its segments resolve (KerML 8.3.3.3.9), as the
+	// conversion mints it; one that resolves to nothing chains no feature (chainTargetChainings).
 	feature := &symbols.Symbol{
 		Kind:       symbols.SymbolReferenceUsage,
 		DocName:    flow.DocName,
@@ -151,23 +160,31 @@ type flowEndKey struct {
 // sym is. Nil when target is a name or a feature of the chain resolves to nothing.
 func (m *Model) ChainTargetPath(sym *symbols.Symbol, kind ast.RelationshipKind, target ast.Node) []*symbols.Symbol {
 	chain := chainNode(target)
-	if chain == nil {
+	if chain == nil || m.resolver == nil {
 		return nil
 	}
-	if m.resolver == nil {
-		return nil
-	}
+	return chainPath(chain, m.chainTargetResolver(sym, kind))
+}
+
+// chainTargetResolver resolves one prefix of the chain target of a relationship of
+// kind owned by sym, in the scope that relationship reads its target in.
+func (m *Model) chainTargetResolver(sym *symbols.Symbol, kind ast.RelationshipKind) func(ast.Node) (*symbols.Symbol, bool) {
+	// A message's end is declared by the node it names, and is written where a connector's is.
+	isEnd := attachesEnd(sym) || IsMessageEnd(sym)
+	scope := sym.OwnerScope
 	switch {
 	case kind == ast.RelRedefines:
 		// A redefinition's chain starts at a feature the owner inherits, not
 		// at a member of its own that shadows the name (KerML 8.3.3.3.6).
-		return chainPath(chain, func(prefix ast.Node) (*symbols.Symbol, bool) {
+		return func(prefix ast.Node) (*symbols.Symbol, bool) {
 			return m.resolver.ResolveRedefinitionTarget(sym.OwnerScope, sym.Decl, prefix)
-		})
-	case attachesEnd(sym) && kind.ReferenceSubsets():
-		return m.attachmentPath(referenceScope(sym), chain)
+		}
+	case isEnd && kind.ReferenceSubsets():
+		scope = referenceScope(sym)
 	}
-	return m.attachmentPath(sym.OwnerScope, chain)
+	return func(prefix ast.Node) (*symbols.Symbol, bool) {
+		return m.resolver.ResolveTarget(scope, prefix)
+	}
 }
 
 // chainPath is the resolved path of a relationship's chain target, from the
@@ -183,23 +200,28 @@ func (m *Model) chainPath(owner *symbols.Symbol, kind ast.RelationshipKind, node
 	return resolved
 }
 
-// chainingFeaturesOf is Feature::chainingFeature of sym: for the feature a
-// relationship's chain target (`s.y`) denotes as a whole, the features the
-// chain is written as, in order; empty for any other feature.
+// chainingFeaturesOf is Feature::chainingFeature of the feature a relationship's chain target (`s.y`)
+// denotes: the chain's features in order up to the first unresolved (KerML 8.3.3.3.4); empty otherwise.
 func (m *Model) chainingFeaturesOf(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym.Chain == nil {
 		return nil
 	}
 	if flow := sym.Chain.Flow; flow != nil {
-		return m.attachmentPath(flow.OwnerScope, sym.Chain.Node)
+		// Resolved as far as it goes, as the conversion chains a flow end's prefix (recordFlowEndChains).
+		return chainPrefix(sym.Chain.Node, func(prefix ast.Node) (*symbols.Symbol, bool) {
+			return m.resolver.ResolveTarget(flow.OwnerScope, prefix)
+		})
 	}
 	rel := sym.Chain.Relationship
-	var facts symbols.RelationshipFacts
-	if sym.Chain.Node == nil {
-		var ok bool
-		if facts, ok = recordedRelationship(rel); !ok {
+	if sym.Chain.Node != nil {
+		if m.resolver == nil {
 			return nil
 		}
+		return chainPrefix(sym.Chain.Node, m.chainTargetResolver(rel.Implicit.Owner, rel.Implicit.Kind))
 	}
-	return m.chainPath(rel.Implicit.Owner, rel.Implicit.Kind, sym.Chain.Node, facts)
+	facts, ok := recordedRelationship(rel)
+	if !ok {
+		return nil
+	}
+	return m.chainPath(rel.Implicit.Owner, rel.Implicit.Kind, nil, facts)
 }

@@ -1,6 +1,5 @@
-// Two steps performing the chained action are two occurrences of it: a succession
-// end naming `driver.ready` relates each, so both follow `start` and `read`
-// waits for both.
+// Two steps performing the chained action are two occurrences of it: a succession end naming
+// `driver.ready` relates each, so both follow `start` and `read` waits for both.
 package P {
 	private import ScalarValues::*;
 
