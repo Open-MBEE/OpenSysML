@@ -36,3 +36,30 @@ func TestElementPropertiesIdentifyImportedLibraryAliases(t *testing.T) {
 		}
 	}
 }
+
+// Two filtered imports of one namespace each import their own filter package, so the
+// namespace imports what either filter keeps.
+func TestElementPropertiesReadEachFilteredImportOfANamespace(t *testing.T) {
+	r := parseForElementProperties(t, `package P {
+    metadata def Safety;
+    metadata def Security;
+    part def A { @Safety; }
+    part def B { @Security; }
+    package Both { private import P::*[@Safety]; private import P::*[@Security]; }
+}`)
+	if got := propertyElementIDs(r.property("P__Both", "importedMembership").Values); !slices.Equal(got, []string{"P__A_om", "P__B_om"}) {
+		t.Errorf("Both imports %v, want P__A_om and P__B_om", got)
+	}
+	var packages []string
+	for _, imp := range propertyElementIDs(r.property("P__Both", "ownedImport").Values) {
+		packages = append(packages, propertyElementIDs(r.property(imp, "importedNamespace").Values)...)
+	}
+	if len(packages) != 2 || packages[0] == packages[1] {
+		t.Fatalf("the two imports import %v, want a filter package each", packages)
+	}
+	for i, want := range []string{"P__A_om", "P__B_om"} {
+		if got := propertyElementIDs(r.property(packages[i], "importedMembership").Values); !slices.Equal(got, []string{want}) {
+			t.Errorf("filter package %s imports %v, want %s", packages[i], got, want)
+		}
+	}
+}
