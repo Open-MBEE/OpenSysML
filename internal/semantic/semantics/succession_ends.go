@@ -85,6 +85,8 @@ func (m *Model) successionEndReference(end *symbols.Symbol) (target *symbols.Sym
 		stated = i == 1 && (edge.Target != nil || edge.TargetMember != nil)
 	case *ast.TransitionMember:
 		stated = i == 1 && edge.Target != nil
+	case *ast.ControlFlowEdge:
+		stated = i == 1 && (edge.Target != nil || edge.TargetMember != nil)
 	case *ast.InitialNode:
 		stated = true
 	}
