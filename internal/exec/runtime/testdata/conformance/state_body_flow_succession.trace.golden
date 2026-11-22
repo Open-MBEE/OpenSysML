@@ -7,6 +7,7 @@ stmt action body
       eval literal 1 -> 1
       eval literal 2 -> 2
     eval operator .. -> (1, 2)
+materialize: S #1
     iteration 1
 enter action node: loop body of state behavior work
       stmt assign total

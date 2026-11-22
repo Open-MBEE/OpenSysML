@@ -582,8 +582,8 @@ func (h *stateStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stm
 }
 
 // beginLoop begins a loop a body statement reaches as a performance of the behavior's.
-func (h *stateStmtHost) beginLoop(stmt lower.Loop) (*Instance, error) {
-	return h.perfs.beginLoopPerformance(h.perfs.root, stmt)
+func (h *stateStmtHost) beginLoop(stmt lower.Loop, within *Instance) (*Instance, error) {
+	return h.perfs.beginLoopPerformance(h.perfs.root, stmt, within)
 }
 
 // runFlow runs the token flow an inline body states with its successions and

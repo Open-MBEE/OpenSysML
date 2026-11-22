@@ -1,9 +1,13 @@
 step 1: token 1@worker
 stmt while
+materialize: LoopRep #1
+materialize: worker #2
+materialize: WhileLoopAction #3
   iteration 1
       eval feature passes -> 0
       eval literal 2 -> 2
     eval operator < -> true
+materialize: body #4
 enter action node: loop body of action node worker
 choice step 2: tokens 2@start, 3@skip (unordered; took 2@start first; independent)
     stmt assign c
@@ -29,6 +33,7 @@ leave action node: loop body of action node worker
       eval feature passes -> 1
       eval literal 2 -> 2
     eval operator < -> true
+materialize: body #5
 enter action node: loop body of action node worker
 choice step 2: tokens 6@start, 7@skip (unordered; took 6@start first; independent)
     stmt assign c
