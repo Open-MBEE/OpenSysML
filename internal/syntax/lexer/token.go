@@ -140,6 +140,9 @@ type Token struct {
 	// BadEscape marks a string or unrestricted name spelling a backslash escape
 	// outside the set its terminal admits; InvalidEscapes locates them.
 	BadEscape bool
+	// NonstandardEscape marks one spelling an escape the lexer admits beyond
+	// KerML §8.2.2.3 Table 4; NonstandardEscapes locates them.
+	NonstandardEscape bool
 }
 
 // IsTrivia reports whether the token is hidden trivia (skipped by the parser).

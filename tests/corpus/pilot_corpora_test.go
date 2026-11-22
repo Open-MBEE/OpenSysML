@@ -50,11 +50,12 @@ func TestPilotCorporaDiagnostics(t *testing.T) {
 
 	totals, want := pilotCorporaGate.readExpected(t)
 	pilotCorporaGate.checkRootSizes(t, files, totals, "-update-pilot-corpora")
+	pilotCorporaGate.checkRecorded(t, subset, files, visitedKeys, want, "-update-pilot-corpora")
 
 	for _, path := range sortedKeys(want) {
 		switch gotCount, ok := got[path]; {
 		case !visitedKeys[path]:
-			// Not iterated under the subset; its recorded count stands unchecked.
+			// Gone or outside the subset: checkRecorded failed or announced it.
 		case !ok:
 			t.Errorf("%s: expected %d diagnostic(s) but the file is now clean; "+
 				"regenerate with -update-pilot-corpora", path, want[path])
