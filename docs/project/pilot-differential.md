@@ -144,6 +144,16 @@ nothing — but they are part of what a run measured, so the baseline's provenan
 the `opensysml-libraries` input, and a changed library is a movement to adjudicate like a changed
 corpus.
 
+The release's shaded kernel jar and the `sysml.library` beside it come from a GitHub release
+asset rather than a git checkout, so no commit covers them: `scripts/pilot-pin.sh` pins the jar's
+SHA-256 (`PILOT_KERNEL_JAR_SHA256`) and a digest of the library tree
+(`PILOT_KERNEL_LIBRARY_SHA256`). `download-pilot-validator.sh` checks both after the download
+and before the jar is shaded into the validator, and again on every run that finds a finished
+build, so a copy restored from a CI cache is rebuilt unless it still holds the pinned bytes; the
+scripts that compile against the jar check them before they do. A re-pin of
+`PILOT_ARTIFACT_VERSION` moves both digests: `pilot_kernel_digests <jar> <library>` prints them
+for a release that was downloaded and inspected by hand.
+
 The OMG corpora are not vendored, for the same licensing reason as the training corpus, and the
 pilot release they are fetched at is pinned once in `scripts/pilot-pin.sh` — the same pin the
 validator build reads, so corpus and reference can never come from different releases. The pin
@@ -3173,8 +3183,10 @@ describe this repository:
 - **A Java-backed reproduction.** `.github/workflows/oracle-reproduction.yml` installs Java,
   provisions the pinned validators and corpora and runs every oracle with `-check` daily and on
   demand; the pull-request workflow runs the Xpect oracle's `-check` (Java-free) on every change
-  that can move it and the api-json differential's on every change under its writer, referee,
-  bridge, pin or baseline. Its failure distinguishes a moved provenance — the pinned reference or an
+  that can move it, the api-json differential's on every change under its writer, referee,
+  bridge, pin or baseline, and this differential's on every push that touches a layer its referee
+  imports, the referee, the validators, the pin, a compared root or the baseline (not in the merge
+  queue). Its failure distinguishes a moved provenance — the pinned reference or an
   input changed underneath the baseline, so investigate the provisioning — from moved counts with
   matching provenance, which is an implementation movement to adjudicate and then re-record —
   unless two exports of the pinned reference itself disagree on the moved row, as the pilot's

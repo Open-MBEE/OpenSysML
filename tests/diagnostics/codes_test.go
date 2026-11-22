@@ -38,7 +38,7 @@ func trackedModels(t *testing.T) []string {
 	cmd.Dir = repoRoot
 	out, err := cmd.Output()
 	if err != nil {
-		t.Skipf("git ls-files: %v", err)
+		t.Fatalf("git ls-files: %v; the census reads the tracked models, so it cannot run without git", err)
 	}
 	var files []string
 	for _, f := range strings.Split(string(out), "\x00") {

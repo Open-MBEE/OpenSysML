@@ -133,7 +133,7 @@ func (m *migration) directValue(v, scope *sysmlv1.Element, want wanted) (expr st
 		}
 		return "", false, "boolean literal " + strconv.Quote(v.Attrs["value"]) + " is not a boolean"
 	case "LiteralString":
-		return source.StringText(v.Attrs["value"]), true, ""
+		return source.StandardStringText(v.Attrs["value"]), true, ""
 	case "LiteralNull":
 		return "null", true, ""
 	case "InstanceValue":

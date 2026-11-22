@@ -123,6 +123,9 @@ type Session struct {
 	// libraryRoots are the directories installed projects are looked for
 	// under, besides the well-known ones beneath a loaded file's project.
 	libraryRoots []string
+	// loadScan is what the library roots hold, for the load in progress: its
+	// discoveries share one walk of each root. Nil between loads.
+	loadScan *project.Scan
 	// workspaceRoot is the directory the root namespaces a typed submission
 	// leaves unresolved are looked for under, empty to look nowhere; workspace
 	// indexes its model files, built on first use.

@@ -45,6 +45,7 @@ func syncFixtures(t *testing.T, binary string) (string, string) {
 }
 
 func TestSyncDiffDryRunThroughCLI(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	model, repo := syncFixtures(t, binary)
 
@@ -66,6 +67,7 @@ func TestSyncDiffDryRunThroughCLI(t *testing.T) {
 // The sync reads the API's element form too: a repository or model committed
 // as api-json diffs exactly as the Turtle of the same graph does.
 func TestSyncDiffReadsAPIJSONRepositoryThroughCLI(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	original := filepath.Join(dir, "original.sysml")
@@ -109,6 +111,7 @@ func TestSyncDiffReadsAPIJSONRepositoryThroughCLI(t *testing.T) {
 }
 
 func TestSyncDiffReportsUnconfirmedDeletes(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	model, repo := syncFixtures(t, binary)
 
@@ -132,6 +135,7 @@ func TestSyncDiffReportsUnconfirmedDeletes(t *testing.T) {
 }
 
 func TestSyncDiffConflictExitsNonzero(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	model := filepath.Join(dir, "model.sysml")
@@ -161,6 +165,7 @@ func TestSyncDiffConflictExitsNonzero(t *testing.T) {
 }
 
 func TestSyncAnnotateWritesMintedIDs(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	model, repo := syncFixtures(t, binary)
 	annotated := filepath.Join(t.TempDir(), "annotated.sysml")
@@ -183,6 +188,7 @@ func TestSyncAnnotateWritesMintedIDs(t *testing.T) {
 }
 
 func TestSyncAnnotateQuotesUnrestrictedNames(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	model := filepath.Join(dir, "model.sysml")
@@ -213,6 +219,7 @@ func TestSyncAnnotateQuotesUnrestrictedNames(t *testing.T) {
 }
 
 func TestSyncAnnotateSkipsUnnamedElements(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	model := filepath.Join(dir, "model.sysml")
@@ -247,6 +254,7 @@ func TestSyncAnnotateSkipsUnnamedElements(t *testing.T) {
 }
 
 func TestSyncAnnotateAddressesByShortName(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	model := filepath.Join(dir, "model.sysml")
@@ -285,6 +293,7 @@ func TestSyncAnnotateAddressesByShortName(t *testing.T) {
 // An import has no declaration an annotation can address, so a minted import
 // must surface in the unnamed report rather than being dropped silently.
 func TestSyncAnnotateReportsMintedImport(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	model := filepath.Join(dir, "model.sysml")
@@ -308,6 +317,7 @@ func TestSyncAnnotateReportsMintedImport(t *testing.T) {
 }
 
 func TestSyncAnnotateNeedsMinting(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	model, repo := syncFixtures(t, binary)
 
@@ -323,6 +333,7 @@ func TestSyncAnnotateNeedsMinting(t *testing.T) {
 }
 
 func TestSyncStatePinsTheBranch(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	model, repo := syncFixtures(t, binary)
 	state := filepath.Join(t.TempDir(), "state.sync.json")
@@ -365,6 +376,7 @@ func TestSyncDiffRefusesOtherModes(t *testing.T) {
 }
 
 func TestSyncDiffRefusesAnEmptyValue(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	cmd := exec.Command(binary, "-sync-diff", "")
 	out, err := cmd.CombinedOutput()
@@ -378,6 +390,7 @@ func TestSyncDiffRefusesAnEmptyValue(t *testing.T) {
 }
 
 func TestSyncFlagsNeedSyncDiff(t *testing.T) {
+	needs(t, syncFeature)
 	binary := buildCLI(t)
 	cmd := exec.Command(binary, "-sync-mint-ids")
 	out, err := cmd.CombinedOutput()

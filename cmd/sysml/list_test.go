@@ -234,6 +234,9 @@ func TestListRefusals(t *testing.T) {
 		wantReport(t, check(t, binary, listedModel, append([]string{"-list", "views"}, args...)...), 2, "ask for one per run")
 	}
 	for _, args := range [][]string{{"-convert", "ttl"}, {"-migrate", "sysml"}} {
+		if leftOut(args...) {
+			continue
+		}
 		wantReport(t, check(t, binary, listedModel, append([]string{"-list", "views"}, args...)...), 2, "ask for one per run")
 	}
 	wantReport(t, check(t, binary, listedModel, "-list", "views", "-query", "parts"), 2, "cannot be combined with -query")
@@ -249,6 +252,9 @@ func TestListRefusals(t *testing.T) {
 		wantReport(t, check(t, binary, listedModel, append([]string{"-list", "views"}, args...)...), 2, "imports nothing")
 	}
 	for _, args := range [][]string{{"-list", "pseudo-views"}, {"-list", "views", "-list-form", "json"}, {"-list-kind", "tree"}} {
+		if leftOut("-html-default-css") {
+			break
+		}
 		wantReport(t, listRun(t, binary, append([]string{"-html-default-css"}, args...)...), 2, "-html-default-css writes the default stylesheet and nothing else")
 	}
 }

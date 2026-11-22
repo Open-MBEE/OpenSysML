@@ -163,6 +163,9 @@ func (r registration) same(other registration) bool {
 			if !ok || claim.public != them.public || len(claim.routes) != len(them.routes) {
 				return false
 			}
+			if !slices.EqualFunc(claim.hops, them.hops, importHop.same) {
+				return false
+			}
 			for k, route := range claim.routes {
 				theirs := them.routes[k]
 				if route.private != theirs.private || len(route.filters) != len(theirs.filters) || !slices.Equal(route.via, theirs.via) {

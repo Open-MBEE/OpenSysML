@@ -306,6 +306,36 @@ func TestEvaluateRequiresPlanAndContext(t *testing.T) {
 	}
 }
 
+// The exported entry points refuse a nil plan with a typed error, and a
+// placeholder document for no stated error still renders.
+func TestEvaluateEntryPointsTolerateNil(t *testing.T) {
+	var evaluation *Error
+	_, err := EvaluateLinked(nil, nil, queryexec.Context{}, queryexec.Options{}, nil)
+	if !errors.As(err, &evaluation) || evaluation.Kind != ErrorInvalidPlan {
+		t.Fatalf("EvaluateLinked(nil) error = %v", err)
+	}
+	_, err = EvaluateLinked(&docplan.Plan{}, []*docplan.Plan{nil}, queryexec.Context{}, queryexec.Options{}, nil)
+	if !errors.As(err, &evaluation) || evaluation.Kind != ErrorInvalidPlan {
+		t.Fatalf("EvaluateLinked(uncompiled) error = %v", err)
+	}
+	_, err = EvaluateSet([]*docplan.Plan{nil}, queryexec.Context{}, queryexec.Options{}, nil)
+	if !errors.As(err, &evaluation) || evaluation.Kind != ErrorInvalidPlan {
+		t.Fatalf("EvaluateSet([nil]) error = %v", err)
+	}
+	document := Unrendered("P::Report", "", nil, []*docplan.Plan{nil})
+	if document.Name() != "P::Report" || document.Title() != "P::Report" {
+		t.Fatalf("name, title = %q, %q", document.Name(), document.Title())
+	}
+	content := document.Content()
+	if len(content) != 1 || len(content[0].Runs()) != 1 || content[0].Runs()[0].Text() != "This document could not be rendered." {
+		t.Fatalf("content = %+v", content)
+	}
+	stated := Unrendered("P::Report", "Report", errors.New("no such plan"), nil).Content()
+	if runs := stated[0].Runs(); len(runs) != 2 || runs[1].Text() != "no such plan" {
+		t.Fatalf("runs = %+v", runs)
+	}
+}
+
 func TestEvaluateWrapsQueryExecutionFailure(t *testing.T) {
 	fixture := loadEvaluationFixture(t, `
 		calc def Related :> Query {

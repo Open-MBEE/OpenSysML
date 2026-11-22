@@ -166,7 +166,9 @@ go test -count=1 ./tests/corpus -run TestPilotCorpora
 Under `OPENSYSML_CORPUS_SUBSET=construct-cover` the gate still opens each root whole (its files
 import across each other) but diagnoses only the files listed in
 `tests/corpus/testdata/construct_cover.txt` and checks their counts against the expectation,
-leaving the other recorded lines unchecked; `-update-pilot-corpora` refuses to run under it. See
+leaving the other recorded lines unchecked and printing `RATCHET INCOMPLETE: … left N of M recorded
+files unchecked` to say so; `-update-pilot-corpora` refuses to run under it. A recorded file that is
+no longer in its root fails the gate, with or without the subset. See
 [construct-cover-subset.md](construct-cover-subset.md).
 
 The pilot's XMI serialization of the standard library is fetched the same way, from the release
