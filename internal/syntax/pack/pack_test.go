@@ -1,6 +1,7 @@
 package pack
 
 import (
+	"bytes"
 	"errors"
 	"math"
 	"testing"
@@ -233,5 +234,26 @@ func TestArena(t *testing.T) {
 	big := a.Take(arenaChunk)
 	if len(big) != arenaChunk || cap(big) != arenaChunk {
 		t.Error("a large request is not its own allocation")
+	}
+}
+
+func TestDiscardKeepsNothing(t *testing.T) {
+	w := NewDiscard()
+	w.Uint(300)
+	w.Int(-7)
+	w.Len(3)
+	w.Bool(true)
+	w.Float(1.5)
+	w.String("kept nowhere")
+	ran := false
+	w.Section(func(sub *Writer) {
+		ran = true
+		sub.String("nor here")
+	})
+	if !ran {
+		t.Fatal("Section did not run its writer")
+	}
+	if got, empty := w.Bytes(), NewWriter().Bytes(); !bytes.Equal(got, empty) {
+		t.Fatalf("a discarding writer produced %v, want the empty stream %v", got, empty)
 	}
 }

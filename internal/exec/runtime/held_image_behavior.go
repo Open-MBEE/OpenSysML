@@ -532,7 +532,7 @@ func (t *imaging) firing(f *firing) error {
 // event checks that an event's payload carries, reaching what it names.
 func (t *imaging) event(event Event) error {
 	switch payload := event.Payload.(type) {
-	case nil, *lower.Transition, *ast.TransitionEdge:
+	case nil, *lower.Transition:
 		return nil
 	case Message:
 		return t.message(payload)

@@ -81,6 +81,12 @@ func run() int {
 		fmt.Fprintf(os.Stderr, "%s -connection-file names the file Jupyter wrote; see -help\n", errPrefix)
 		return 2
 	}
+	// Refused before the connection file is read and before anything listens, so a
+	// build that cannot offer a reachable address says so instead of waiting on one.
+	if err := serveRefusal(); err != nil {
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		return 2
+	}
 	return serve(opts, info)
 }
 
