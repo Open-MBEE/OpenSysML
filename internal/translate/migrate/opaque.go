@@ -688,8 +688,8 @@ func hexRun(s string, limit int) string {
 	return s[:i]
 }
 
-// spelledInNotation reports whether a string value may hold r: KerML escapes
-// only \b \t \n \f \r, so other control characters have no spelling.
+// spelledInNotation reports whether a string value may hold r: KerML escapes only
+// \b \t \n \f and the writer leaves \r as it is, so other control characters have no spelling.
 func spelledInNotation(r rune) (string, bool) {
 	switch {
 	case r == 0:
@@ -1605,7 +1605,7 @@ func (p *opaqueParser) primary() (translated, *refusal) {
 	case tokNumber:
 		return numberLiteral(tok.text, p.d)
 	case tokString:
-		lit := translated{expr: source.StringText(tok.text), scalar: "String", atomic: true, lit: "string"}
+		lit := translated{expr: source.StandardStringText(tok.text), scalar: "String", atomic: true, lit: "string"}
 		if p.d == dialectJava && p.peek(false).isPunct(".") {
 			return p.literalMethod(lit)
 		}

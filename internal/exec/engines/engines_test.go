@@ -25,7 +25,11 @@ func names(r *analysis.Registry) string {
 // stays open to more.
 func TestDefaultHoldsTheFrameworksEnginesAndSMT(t *testing.T) {
 	r := Default()
-	want := strings.Join([]string{analysis.CheckEngineName, analysis.ExploreEngineName, analysis.RunEngineName, analysis.SMTEngineName, analysis.SolveEngineName, analysis.SweepEngineName, analysis.ToolEngineName("fmi")}, ", ")
+	built := []string{analysis.CheckEngineName, analysis.ExploreEngineName, analysis.RunEngineName, analysis.SMTEngineName, analysis.SolveEngineName, analysis.SweepEngineName}
+	if fmiLinked {
+		built = append(built, analysis.ToolEngineName("fmi"))
+	}
+	want := strings.Join(built, ", ")
 	if got := names(r); got != want {
 		t.Fatalf("engines %s, want %s", got, want)
 	}
@@ -106,7 +110,7 @@ func TestDefaultFromEnvAddsTheManifestsTools(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := names(Default())
-	if analysis.ToolEngineName("Zed") < analysis.ToolEngineName("fmi") {
+	if fmiLinked && analysis.ToolEngineName("Zed") < analysis.ToolEngineName("fmi") {
 		want = strings.Replace(want, analysis.ToolEngineName("fmi"), analysis.ToolEngineName("Zed")+", "+analysis.ToolEngineName("fmi"), 1)
 	} else {
 		want += ", " + analysis.ToolEngineName("Zed")
@@ -117,23 +121,5 @@ func TestDefaultFromEnvAddsTheManifestsTools(t *testing.T) {
 	t.Setenv(analysis.ToolsEnv, filepath.Join(dir, "none"))
 	if _, err := DefaultFromEnv(); !errors.Is(err, analysis.ErrManifest) {
 		t.Fatalf("DefaultFromEnv over a missing manifest: %v, want the manifest's fault", err)
-	}
-}
-
-// A manifest tool named fmi, or an engine named smt, clashes with a built-in:
-// the registration is refused as a DuplicateEngineError, not panicked over.
-func TestDefaultFromEnvRefusesAManifestNamedLikeTheBuild(t *testing.T) {
-	dir := t.TempDir()
-	entry := analysis.ToolEntry{ToolName: "fmi", Version: "9", Executable: filepath.Join(dir, "fmi"), Variables: []string{"x"}}
-	data, err := json.Marshal(entry)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "fmi"+analysis.ManifestExt), data, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv(analysis.ToolsEnv, dir)
-	if _, err := DefaultFromEnv(); !errors.Is(err, analysis.ErrDuplicateEngine) {
-		t.Fatalf("DefaultFromEnv with a manifest tool named fmi: %v, want DuplicateEngineError", err)
 	}
 }

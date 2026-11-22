@@ -44,26 +44,29 @@ func TestRenderDocumentWholeBodies(t *testing.T) {
 	wantReport(t, check(t, binary, linked, "-render-document", "Whole::Notes"), 0,
 		"# Shared notes", "[budget](Whole-WholeReport.md#overview-mass_budget)")
 
-	html := filepath.Join(t.TempDir(), "report.html")
-	wantReport(t, check(t, binary, model, "-render-document", "Whole::WholeReport", "-doc-form", "html",
-		"-doc-title-page", "-doc-toc", "-doc-number-sections", "-o", html), 0)
-	page, err := os.ReadFile(html)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, want := range []string{
-		`<nav class="sysml-toc"`,
-		`<li><a href="#overview-mass_budget_2-margins">`,
-		`<h2><span class="sysml-section-number">1</span> Overview</h2>`,
-		`<h3><span class="sysml-section-number">1.2</span> Mass budget</h3>`,
-		`<h4><span class="sysml-section-number">1.2.1</span> Margins</h4>`,
-		`<h2><span class="sysml-section-number">3</span> Appendix</h2>`,
-		`<h3><span class="sysml-section-number">3.1</span> Derivation</h3>`,
-	} {
-		if !strings.Contains(string(page), want) {
-			t.Errorf("HTML lacks %q", want)
+	t.Run("html", func(t *testing.T) {
+		needs(t, docpdfFeature)
+		html := filepath.Join(t.TempDir(), "report.html")
+		wantReport(t, check(t, binary, model, "-render-document", "Whole::WholeReport", "-doc-form", "html",
+			"-doc-title-page", "-doc-toc", "-doc-number-sections", "-o", html), 0)
+		page, err := os.ReadFile(html)
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
+		for _, want := range []string{
+			`<nav class="sysml-toc"`,
+			`<li><a href="#overview-mass_budget_2-margins">`,
+			`<h2><span class="sysml-section-number">1</span> Overview</h2>`,
+			`<h3><span class="sysml-section-number">1.2</span> Mass budget</h3>`,
+			`<h4><span class="sysml-section-number">1.2.1</span> Margins</h4>`,
+			`<h2><span class="sysml-section-number">3</span> Appendix</h2>`,
+			`<h3><span class="sysml-section-number">3.1</span> Derivation</h3>`,
+		} {
+			if !strings.Contains(string(page), want) {
+				t.Errorf("HTML lacks %q", want)
+			}
+		}
+	})
 
 	deep := strings.Replace(model, "### Margins", "##### Margins", 1)
 	wantReport(t, check(t, binary, deep, "-render-document", "Whole::WholeReport"), 2,

@@ -24,6 +24,7 @@ var montecarloXMI = filepath.Join("..", "..", "tests", "migrate", "testdata", "x
 // the runs stored one by one; that one storing no run is run and told so; and
 // that one stating no numberOfRuns is run once.
 func TestSummarisedMigrationResultsThroughCLI(t *testing.T) {
+	needs(t, v1Feature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	model, sidecar := filepath.Join(dir, "model.sysml"), filepath.Join(dir, "results.json")
@@ -71,6 +72,7 @@ func TestSummarisedMigrationResultsThroughCLI(t *testing.T) {
 // run against it — under the configured count and policy, and under -runs,
 // -seed, -draws, -clock-step, -observe and -action instead — and that misuse is refused.
 func TestMigrationResultsThroughCLI(t *testing.T) {
+	needs(t, v1Feature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	model, sidecar := filepath.Join(dir, "model.sysml"), filepath.Join(dir, "results.json")

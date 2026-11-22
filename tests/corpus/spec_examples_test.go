@@ -51,11 +51,12 @@ func TestSpecExamplesDiagnostics(t *testing.T) {
 
 	totals, want := specExamplesGate.readExpected(t)
 	specExamplesGate.checkRootSizes(t, files, totals, "-update-spec-examples")
+	specExamplesGate.checkRecorded(t, subset, files, visitedKeys, want, "-update-spec-examples")
 
 	for _, path := range sortedKeys(want) {
 		switch gotCount, ok := got[path]; {
 		case !visitedKeys[path]:
-			// Not iterated under the subset; its recorded count stands unchecked.
+			// Gone or outside the subset: checkRecorded failed or announced it.
 		case !ok:
 			t.Errorf("%s: expected %d diagnostic(s) but the file is now clean; "+
 				"regenerate with -update-spec-examples", path, want[path])
