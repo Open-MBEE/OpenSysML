@@ -130,23 +130,43 @@ func importComponents(graph map[string][]string) [][]string {
 // noteImportCycles records the import cycles of graph and where each namespace
 // stands in it, and returns the namespaces whose cycle is not the one they had:
 // a route keeps the namespaces on a cycle with the one holding it.
-func (idx *Index) noteImportCycles(graph map[string][]string) []string {
+//
+// Unless settled, a cycle only gains namespaces: while re-exports dropped are
+// still being derived again, an import naming a namespace by one of them does
+// not resolve, which is not the cycle through it having broken.
+func (idx *Index) noteImportCycles(graph map[string][]string, settled bool) []string {
 	components := importComponents(graph)
 	order := make(map[string]int, len(graph))
 	cycles := make(map[string][]string)
 	for i, component := range components {
 		for _, ns := range component {
 			order[ns] = i
-			if len(component) > 1 {
-				cycles[ns] = component
+		}
+		if len(component) < 2 {
+			continue
+		}
+		cycle := component
+		if !settled {
+			for _, ns := range component {
+				for _, other := range idx.cyclic.at(ns) {
+					if _, found := slices.BinarySearch(cycle, other); !found {
+						cycle = append(slices.Clone(cycle), other)
+						sort.Strings(cycle)
+					}
+				}
 			}
+		}
+		for _, ns := range cycle {
+			cycles[ns] = cycle
 		}
 	}
 	var changed []string
-	for _, ns := range idx.cyclic.keys() {
-		if _, still := cycles[ns]; !still {
-			idx.cyclic.del(ns)
-			changed = append(changed, ns)
+	if settled {
+		for _, ns := range idx.cyclic.keys() {
+			if _, still := cycles[ns]; !still {
+				idx.cyclic.del(ns)
+				changed = append(changed, ns)
+			}
 		}
 	}
 	for _, ns := range slices.Sorted(maps.Keys(cycles)) {
@@ -168,13 +188,14 @@ func (idx *Index) onCycleWith(a, b string) bool {
 
 // settleImportCycles brings the recorded cycles up to date with the imports as
 // they resolve, and reports whether it dropped re-exports to be derived again.
+// With settled set, no re-export is left to derive, so the imports resolve as
+// they will and a cycle they no longer make is forgotten.
 //
 // A route names the namespaces it came through that were on a cycle with its
 // holder when it was read, so where a cycle formed, grew or broke, the routes
 // of its namespaces and of every namespace reading through them go.
-func (idx *Index) settleImportCycles() bool {
-	graph := idx.importGraph(false)
-	changed := idx.noteImportCycles(graph)
+func (idx *Index) settleImportCycles(graph map[string][]string, settled bool) bool {
+	changed := idx.noteImportCycles(graph, settled)
 	if len(changed) == 0 {
 		return false
 	}

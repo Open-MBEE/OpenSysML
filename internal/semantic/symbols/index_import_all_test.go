@@ -2,8 +2,10 @@ package symbols
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 func wantNamed(t *testing.T, idx *Index, fqn string, want int) {
@@ -228,4 +230,46 @@ func TestExpandWildcardImportsForgetsAnImportAnEditRemoved(t *testing.T) {
 	addDoc(t, idx, "s.sysml", "package S { part def P; }")
 	idx.ExpandWildcardImports()
 	oneRoute("with the cycle broken")
+}
+
+// An import can name a namespace by a name another import supplies. Dropping
+// the routes of a cycle through it drops that name until it is derived again,
+// which is not the cycle having broken: expansion settles, with the cycle.
+func TestExpandWildcardImportsSettlesACycleThroughAnImportedName(t *testing.T) {
+	idx := NewIndex()
+	addDoc(t, idx, "l.sysml", "package L { package N { part def P; public import A::*; } }")
+	addDoc(t, idx, "m.sysml", "package M { public import L::*; public import A::*; }")
+	addDoc(t, idx, "a.sysml", "package A { public import M::*; public import N::*; }")
+
+	settled := make(chan struct{})
+	go func() {
+		defer close(settled)
+		idx.ExpandWildcardImports()
+	}()
+	select {
+	case <-settled:
+	case <-time.After(30 * time.Second):
+		t.Fatal("expansion does not settle")
+	}
+
+	want := []string{"A", "L::N", "M"}
+	for _, ns := range want {
+		if cycle := idx.cyclic.at(ns); !slices.Equal(cycle, want) {
+			t.Errorf("%s is on an import cycle with %v, want %v", ns, cycle, want)
+		}
+	}
+	p := lookupOne(t, idx, "L::N::P")
+	if routes := idx.ReexportGates("", "A::P", p, ""); len(routes) == 0 {
+		t.Error("A::P is not re-exported, want it read through N")
+	}
+
+	// The cycle through N goes with the import that named it.
+	addDoc(t, idx, "a.sysml", "package A { public import M::*; }")
+	idx.ExpandWildcardImports()
+	if cycle := idx.cyclic.at("L::N"); len(cycle) != 0 {
+		t.Errorf("L::N is on an import cycle with %v, want none", cycle)
+	}
+	if cycle, want := idx.cyclic.at("A"), []string{"A", "M"}; !slices.Equal(cycle, want) {
+		t.Errorf("A is on an import cycle with %v, want %v", cycle, want)
+	}
 }

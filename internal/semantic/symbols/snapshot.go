@@ -1101,7 +1101,7 @@ func (d *sectionReader) readTables() *Index {
 			}
 		}
 	}
-	idx.noteImportCycles(idx.importGraph(true))
+	idx.noteImportCycles(idx.importGraph(true), true)
 	idx.takeLibraryIdentity()
 	idx.derived = &derivedMemo{}
 	idx.frozen = true

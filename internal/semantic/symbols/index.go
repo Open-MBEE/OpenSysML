@@ -531,8 +531,7 @@ func (idx *Index) ExpandWildcardImports() {
 	idx.mustBeWritable("ExpandWildcardImports")
 	defer idx.settleSegments()
 	for round := 0; round < expansionRounds; round++ {
-		rerouted := idx.settleImportCycles()
-		if !idx.expandRound(false) && !rerouted {
+		if !idx.expandOnce(false) {
 			return
 		}
 	}
@@ -540,12 +539,20 @@ func (idx *Index) ExpandWildcardImports() {
 	// Deriving every importer from an empty re-export state is the computation a
 	// fresh build performs: it only ever adds, so it settles.
 	idx.purgeAllReexports()
-	for {
-		rerouted := idx.settleImportCycles()
-		if !idx.expandRound(true) && !rerouted {
-			return
-		}
+	for idx.expandOnce(true) {
 	}
+}
+
+// expandOnce runs one round of expansion and reports whether another is due.
+// The round that changes nothing is the one that may forget an import cycle:
+// until then a cycle only grows (see noteImportCycles).
+func (idx *Index) expandOnce(deriveOnly bool) bool {
+	graph := idx.importGraph(false)
+	rerouted := idx.settleImportCycles(graph, false)
+	if idx.expandRound(deriveOnly) || rerouted {
+		return true
+	}
+	return idx.settleImportCycles(graph, true)
 }
 
 // expansionRounds bounds the incremental purge-and-derive rounds before
