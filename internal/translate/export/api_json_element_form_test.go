@@ -453,3 +453,24 @@ func TestElementFormFlowEndFeatureIsNamedByItsRedefinedFeatureAndVaries(t *testi
 		t.Fatalf("flow end features = %q, want \"x y\"", got)
 	}
 }
+
+// A flow end naming a feature that does not resolve leaves its ReferenceUsage nameless: the implied
+// redefinition of the transfer's feature comes after the written one and names nothing.
+func TestElementFormFlowEndFeatureOfAnUnresolvedEndHasNoName(t *testing.T) {
+	form := parseElementForm(t, "package M { flow f from src.out_ to tgt.in_; }")
+	count := 0
+	for _, element := range form.Elements() {
+		if element.Metaclass != "ReferenceUsage" {
+			continue
+		}
+		count++
+		for _, property := range element.Properties {
+			if property.Name == "name" && property.Value != nil {
+				t.Errorf("%s is named %v", element.ID, property.Value)
+			}
+		}
+	}
+	if count != 2 {
+		t.Fatalf("%d ReferenceUsages, want the two the ends own", count)
+	}
+}

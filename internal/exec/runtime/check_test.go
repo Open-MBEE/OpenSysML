@@ -1455,6 +1455,80 @@ func TestCheckSearchesEveryOrderUnderAProperty(t *testing.T) {
 	}
 }
 
+// A sender and its receiver can contend before the other signal is sent.
+// The check and the re-run must classify that due order from the same state.
+func TestCheckReplaysRacingSends(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+    private import ScalarValues::*;
+
+    attribute def Permit;
+    attribute def Request;
+
+    part def Receiver {
+        attribute permitted : Boolean = false;
+        attribute accepted : Boolean = false;
+
+        exhibit state Gate {
+            entry; then waiting;
+            state waiting;
+            state ready { entry action { assign permitted := true; } }
+
+            transition first waiting accept Request do assign accepted := true then waiting;
+            transition first waiting accept Permit then ready;
+        }
+    }
+
+    constraint onlyWithPermit { not endpoint.accepted or endpoint.permitted }
+
+    part endpoint : Receiver;
+
+    action sendBoth {
+        first start;
+        then fork race;
+        action request send new Request() to endpoint;
+        action grant send new Permit() to endpoint;
+        join sent;
+        succession race then request;
+        succession race then grant;
+        succession request then sent;
+        succession grant then sent;
+        succession sent then done;
+    }
+}`)
+	endpoint := m.idx.LookupQualified("test::endpoint")[0]
+	machine := m.idx.LookupQualified("test::Receiver::Gate")[0]
+	safe := m.idx.LookupQualified("test::onlyWithPermit")[0]
+	environment := m.action(t, "sendBoth")
+	start := func(ctx *Context) (*Invocation, error) {
+		self, err := ctx.Instantiate(endpoint)
+		if err != nil {
+			return nil, err
+		}
+		state, _, err := ctx.StartStatePerformedBy(machine, self)
+		if err != nil {
+			return nil, err
+		}
+		action, err := ctx.CreateActionExecutor(environment)
+		if err != nil {
+			return nil, err
+		}
+		return &Invocation{Actions: []*ActionExecutor{action}, States: []*StateExecutor{state}}, nil
+	}
+	prop := CheckProperty{Name: "onlyWithPermit", Holds: func(ctx *Context, _ *Invocation) (bool, error) {
+		result, err := ctx.CheckConstraintOn(safe, safe.Scope, nil)
+		if err != nil && !errors.Is(err, ErrViolated) {
+			return false, err
+		}
+		return result.Holds, nil
+	}}
+	report := checkStart(t, m, start, reduced(), prop)
+	if report.Verdict != CheckViolation || len(report.Violations) != 1 ||
+		report.Violations[0].Kind != ViolationProperty || report.Violations[0].Name != prop.Name {
+		t.Fatalf("%s, violations %v; want one onlyWithPermit violation", report.Status(), report.Violations)
+	}
+	replayWitness(t, m, start, report.Violations[0].Witness, "onlyWithPermit false", prop)
+}
+
 // A property failing to evaluate is a failure whose witness names the property
 // and what it raised; its replay evaluates the property again and holds the
 // witness to it, so a replay given another property, or none, disagrees.
