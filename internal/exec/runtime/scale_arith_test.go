@@ -416,6 +416,7 @@ const scaleKindsModel = `package test {
 	attribute field : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = 10; :>> exponent = 2; :>> referenceQuantity = 1.0 [V]; }
 	attribute acidity : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = -1; :>> exponent = 1; :>> referenceQuantity = 1.0 [mol/L]; }
 	attribute turnLevel : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = 1; :>> exponent = 1; :>> referenceQuantity = 1.0 ['°']; }
+	attribute faint : LogarithmicScale { :>> unit = one; :>> logarithmBase = 10; :>> factor = -10; :>> exponent = 1; :>> referenceQuantity = 1.0e300 [W]; }
 	attribute dayClock : CyclicRatioScale { :>> unit = s; :>> modulus = 6.283185307179586; }
 	attribute halfTurn : CyclicRatioScale { :>> unit = '°'; :>> modulus = 180; }
 	attribute bearings [2] = (10 [bearing], 20 [bearing]);
@@ -653,5 +654,41 @@ func TestScaleKindsBeyondFinite(t *testing.T) {
 	}
 	if got, err := evalIn(t, ctx, scope, "ConvertQuantity("+huge+", '°')"); err != nil || FormatValue(got) != "1e+309 ['°']" {
 		t.Errorf("a cyclic value past binary64 converts as written: got %s, %v", FormatValue(got), err)
+	}
+}
+
+// TestLogarithmicScaleRange: a conversion whose result is a real is not refused for a
+// ratio binary64 does not hold on the way, and one within range is unchanged to the last digit.
+func TestLogarithmicScaleRange(t *testing.T) {
+	ctx, idx := libraryModelContext(t, scaleKindsModel)
+	pkg, _ := idx.DocumentRoot("<test>").LookupLocal("test")
+	scope := pkg.Scope
+	for src, want := range map[string]string{
+		"ConvertQuantity(3100.0 [dBm], W)":         "1.0000000000000005e+307 [W]",
+		"ConvertQuantity(1.0e308 [W], dBm)":        "3110.0 [dBm]",
+		"ConvertQuantity(3300.0 [faint], W)":       "9.999999999999999e-31 [W]",
+		"ConvertQuantity(1.0e-30 [W], faint)":      "3300.0 [faint]",
+		"ConvertQuantity(1.0e-320 [W], dBm)":       "-3170.0000483494805 [dBm]",
+		"ConvertQuantity(33.3 [dBm], W)":           "2.137962089502231 [W]",
+		"ConvertQuantity(0.37 [W], dBm)":           "25.68201724066995 [dBm]",
+		"ConvertQuantity(12.5 [field], V)":         "4.216965034285822 [V]",
+		"ConvertQuantity(3.3 [V], field)":          "10.37027879755775 [field]",
+		"ConvertQuantity(7.3 [acidity], mol/L)":    "5.011872336272724e-08 [mol/L]",
+		"ConvertQuantity(2.5e-5 [mol/L], acidity)": "4.602059991327962 [acidity]",
+	} {
+		if got, err := evalIn(t, ctx, scope, src); err != nil || FormatValue(got) != want {
+			t.Errorf("%s = %s, %v; want %s", src, FormatValue(got), err, want)
+		}
+	}
+	if got, err := evalIn(t, ctx, scope, "ConvertQuantity((-306.0) [acidity], 'mol⋅m⁻³')"); !errors.Is(err, semantics.ErrArithmeticOverflow) {
+		t.Errorf("an acidity of -306 in mol/m³ = %s, %v; want an overflow, not an infinite quantity", FormatValue(got), err)
+	}
+	for src, want := range map[string]bool{
+		"3100.0 [dBm] < 1.0e308 [W]": true,
+		"1.0e308 [W] > 3100.0 [dBm]": true,
+	} {
+		if got, err := evalIn(t, ctx, scope, src); err != nil || got.Const.Bool != want {
+			t.Errorf("%s = %v, %v; want %v", src, got, err, want)
+		}
 	}
 }

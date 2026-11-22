@@ -183,7 +183,12 @@ func gcd(a, b float64) float64 {
 // ConvertMagnitude expresses a magnitude given over the scale factor from over
 // the scale factor to, as one ratio so that no intermediate rounding enters.
 func ConvertMagnitude(magnitude float64, from, to Scale) float64 {
-	return magnitude * (from.Num * to.Den) / (from.Den * to.Num)
+	converted := magnitude * (from.Num * to.Den) / (from.Den * to.Num)
+	if math.IsInf(converted, 0) && !math.IsInf(magnitude, 0) {
+		// The product overflowed on the way; the ratio taken first may still hold the result.
+		return magnitude * ((from.Num * to.Den) / (from.Den * to.Num))
+	}
+	return converted
 }
 
 // UnitFactor is one base unit raised to an exponent.

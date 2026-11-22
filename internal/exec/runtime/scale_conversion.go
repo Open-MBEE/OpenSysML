@@ -360,16 +360,41 @@ func (ctx *Context) fromLogarithm(q Quantity, scale *CoordinateFrame) (Quantity,
 		return Quantity{}, err
 	}
 	log := scale.Scale.Log
-	ratio := math.Pow(log.Base, q.Num.AsReal()/log.Factor/log.Exponent)
-	num, err := semantics.RealResult(ref.Num.AsReal() * ratio)
+	num, err := semantics.RealResult(scaledPower(ref.Num.AsReal(), log.Base, q.Num.AsReal()/log.Factor/log.Exponent))
 	if err != nil {
 		return Quantity{}, noScaleValueError{fmt.Errorf("%s as a quantity in %s: %w", q.String(), ref.Unit, err)}
 	}
 	return Quantity{Num: num, Unit: ref.Unit}, nil
 }
 
+// minNormal is the least positive binary64 with full precision.
+const minNormal = 0x1p-1022
+
+// inRange reports a positive ratio binary64 holds with full precision.
+func inRange(ratio float64) bool { return ratio >= minNormal && !math.IsInf(ratio, 1) }
+
+// scaledPower is ref * base**e; a power binary64 does not hold is taken with ref in the exponent.
+func scaledPower(ref, base, e float64) float64 {
+	if power := math.Pow(base, e); inRange(power) {
+		return ref * power
+	}
+	return math.Copysign(math.Pow(base, e+logarithm(math.Abs(ref), base)), ref)
+}
+
+// logRatio is log_base(x / ref) for a positive ratio, as a difference where binary64 does not hold it.
+func logRatio(x, ref, base float64) float64 {
+	if ratio := x / ref; inRange(ratio) {
+		return logarithm(ratio, base)
+	}
+	return logarithm(math.Abs(x), base) - logarithm(math.Abs(ref), base)
+}
+
 // logarithm is log_base(x), by the exact functions where the base has one.
 func logarithm(x, base float64) float64 {
+	if x > 0 && x < minNormal {
+		// A subnormal is scaled into range first: math.Log is not accurate below it.
+		return logarithm(math.Ldexp(x, 64), base) - 64*logarithm(2, base)
+	}
 	switch base {
 	case 10:
 		return math.Log10(x)
@@ -392,12 +417,12 @@ func (ctx *Context) toLogarithm(q Quantity, scale *CoordinateFrame) (Quantity, e
 	}
 	log := scale.Scale.Log
 	ratio := x.Num.AsReal() / ref.Num.AsReal()
-	if !(ratio > 0) {
+	if x.Num.AsReal() == 0 || math.Signbit(x.Num.AsReal()) != math.Signbit(ref.Num.AsReal()) {
 		// A ratio that is not positive has no one value the mapping returns it from.
 		return Quantity{}, noScaleValueError{fmt.Errorf("%w: %s has no value on %s: its ratio to %s is %g, and a logarithm is of a positive ratio",
 			semantics.ErrArithmeticDomain, q.String(), ctx.describeScale(scale), ref.String(), ratio)}
 	}
-	num, err := semantics.RealResult(log.Factor * log.Exponent * logarithm(ratio, log.Base))
+	num, err := semantics.RealResult(log.Factor * log.Exponent * logRatio(x.Num.AsReal(), ref.Num.AsReal(), log.Base))
 	if err != nil {
 		return Quantity{}, noScaleValueError{err}
 	}
@@ -417,7 +442,13 @@ func (ctx *Context) convertToReference(q Quantity, target *CoordinateFrame) (Qua
 	if err != nil {
 		return Quantity{}, err
 	}
-	return semantics.ConvertQuantity(ratio, target.Axes[0])
+	converted, err := semantics.ConvertQuantity(ratio, target.Axes[0])
+	if err != nil || converted.Num.Kind != semantics.ValReal {
+		return converted, err
+	}
+	// A magnitude the target unit puts past binary64 is an overflow, not an infinite quantity.
+	num, err := semantics.RealResult(converted.Num.Real)
+	return Quantity{Num: num, Unit: converted.Unit}, err
 }
 
 // conversionTarget reads ConvertQuantity's targetMRef: a unit or a scale, as the
