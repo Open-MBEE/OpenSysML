@@ -506,7 +506,7 @@ type Loop struct {
 	CollectionID program.ExprID
 	Body         Block
 	// BodyAction is the action usage the loop declares as its body (`loop action
-	// body { … }`), nil for a body of statements alone.
+	// body { … }`, `loop action { … }`), nil for a body of statements alone.
 	BodyAction *symbols.Symbol
 	Node       ast.Node // the loop itself, for diagnostics
 	// Scope is the scope the loop was declared in, which its collection resolves
@@ -517,21 +517,36 @@ type Loop struct {
 func (Loop) statement() { /* marker: closed Statement set */ }
 
 // loopBodyAction is the action usage a loop declares as its body (`loop action body
-// { … }`), resolved in the body's scope; nil for a body of statements alone.
+// { … }`, named or not), a member of the body's scope; nil for a body of statements alone.
 func loopBodyAction(m *ast.WhileLoopActionNode, bodyScope *symbols.Scope) *symbols.Symbol {
 	if bodyScope == nil {
 		return nil
 	}
 	for _, member := range m.Body {
 		usage, ok := unwrapMembership(member).(*ast.Usage)
-		if !ok || !usage.IsBodyParameter || usage.Ident.Name == "" {
+		if !ok || !usage.IsBodyParameter {
 			continue
+		}
+		if usage.Ident.Name == "" {
+			return anonymousMemberOf(bodyScope, usage)
 		}
 		if sym, found := bodyScope.LookupLocal(usage.Ident.Name); found && sym != nil && sym.Decl == usage {
 			return sym
 		}
 	}
 	return nil
+}
+
+// anonymousMemberOf is the member of scope the unnamed declaration decl declares, nil if none.
+func anonymousMemberOf(scope *symbols.Scope, decl ast.Node) *symbols.Symbol {
+	var member *symbols.Symbol
+	scope.ForEachAnonymousMember(func(sym *symbols.Symbol) bool {
+		if sym.Decl == decl {
+			member = sym
+		}
+		return member == nil
+	})
+	return member
 }
 
 // If is a lowered conditional. The condition is evaluated in the enclosing
@@ -1082,6 +1097,10 @@ type actionEdgeLowerer struct {
 	// gates are the successions leading to a name no node answers to, resolved
 	// against the succession flows once every flow is lowered.
 	gates []pendingGate
+	// unconditional indexes, per source node, the edges addEdge compares against.
+	unconditional map[ast.Node]*unconditionalEdges
+	// model evaluates the multiplicities addEdge compares, built on first need.
+	model *semantics.Model
 }
 
 // pendingGate is a succession whose target names no node: the edge it states,
@@ -1221,9 +1240,10 @@ func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
 }
 
 func (l *actionEdgeLowerer) addEdge(edge ActionEdge) {
-	if l.nodes != nil {
-		for _, existing := range l.graph.Edges[edge.Source] {
-			if sameUnconditionalActionEdge(l.graph, existing, edge) && l.graph.declaredIn[existing.Decl] == nil {
+	if l.nodes != nil && unconditionalActionEdge(edge) {
+		edges := l.graph.Edges[edge.Source]
+		for _, i := range l.edgesTo(edge.Source, edge.Target) {
+			if existing := edges[i]; l.sameMultiplicities(existing, edge) && l.graph.declaredIn[existing.Decl] == nil {
 				return
 			}
 		}
@@ -1231,23 +1251,54 @@ func (l *actionEdgeLowerer) addEdge(edge ActionEdge) {
 	l.graph.Edges[edge.Source] = append(l.graph.Edges[edge.Source], edge)
 }
 
-func sameUnconditionalActionEdge(graph *ActionGraph, existing, edge ActionEdge) bool {
-	return existing.Source == edge.Source &&
-		existing.Target == edge.Target &&
-		existing.Guard == nil && edge.Guard == nil &&
-		existing.Probability == nil && edge.Probability == nil &&
-		existing.Name == "" && edge.Name == "" &&
-		existing.Gate == nil && edge.Gate == nil &&
-		!existing.Carries && !edge.Carries &&
-		sameActionEdgeMultiplicities(graph, existing, edge)
+// unconditionalActionEdge reports whether edge states nothing but its ends, so
+// that a second edge between the same ends repeats it.
+func unconditionalActionEdge(edge ActionEdge) bool {
+	return edge.Guard == nil && edge.Probability == nil && edge.Name == "" && edge.Gate == nil && !edge.Carries
 }
 
-func sameActionEdgeMultiplicities(graph *ActionGraph, existing, edge ActionEdge) bool {
-	model := semantics.NewModel(graph.resolver)
+// unconditionalEdges indexes the unconditional out-edges of one node by target.
+type unconditionalEdges struct {
+	byTarget map[ast.Node][]int
+	// indexed is how many of the node's out-edges byTarget covers.
+	indexed int
+}
+
+// edgesTo is the positions among source's out-edges of the unconditional ones
+// leading to target, indexing the edges appended since it was last asked.
+func (l *actionEdgeLowerer) edgesTo(source, target ast.Node) []int {
+	index := l.unconditional[source]
+	if index == nil {
+		if l.unconditional == nil {
+			l.unconditional = make(map[ast.Node]*unconditionalEdges)
+		}
+		index = &unconditionalEdges{byTarget: make(map[ast.Node][]int)}
+		l.unconditional[source] = index
+	}
+	edges := l.graph.Edges[source]
+	for i := index.indexed; i < len(edges); i++ {
+		if unconditionalActionEdge(edges[i]) {
+			index.byTarget[edges[i].Target] = append(index.byTarget[edges[i].Target], i)
+		}
+	}
+	index.indexed = len(edges)
+	return index.byTarget[target]
+}
+
+// sameMultiplicities reports whether two edges state the same crossing ranges
+// at both ends, evaluating them only when an end states one.
+func (l *actionEdgeLowerer) sameMultiplicities(existing, edge ActionEdge) bool {
+	if existing.SourceMultiplicity == nil && edge.SourceMultiplicity == nil &&
+		existing.TargetMultiplicity == nil && edge.TargetMultiplicity == nil {
+		return true
+	}
+	if l.model == nil {
+		l.model = semantics.NewModel(l.graph.resolver)
+	}
 	source := func(e ActionEdge) *ast.Multiplicity { return e.SourceMultiplicity }
 	target := func(e ActionEdge) *ast.Multiplicity { return e.TargetMultiplicity }
-	return sameActionEdgeEndMultiplicity(graph, model, existing, edge, source) &&
-		sameActionEdgeEndMultiplicity(graph, model, existing, edge, target)
+	return sameActionEdgeEndMultiplicity(l.graph, l.model, existing, edge, source) &&
+		sameActionEdgeEndMultiplicity(l.graph, l.model, existing, edge, target)
 }
 
 // sameActionEdgeEndMultiplicity compares the end multiplicity that end selects on both edges.

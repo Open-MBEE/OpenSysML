@@ -26,7 +26,7 @@ type qarg struct {
 }
 
 func qlit(s string) qx { return qx{lit: s} }
-func qstr(s string) qx { return qlit(source.StringText(s)) }
+func qstr(s string) qx { return qlit(source.StandardStringText(s)) }
 func qint(n int) qx    { return qlit(strconv.Itoa(n)) }
 func qcall(op string, args ...qarg) qx {
 	return qx{op: op, args: args}

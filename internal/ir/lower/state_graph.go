@@ -44,6 +44,8 @@ type StateGraph struct {
 	// Features: a state's entry, do or exit action usage → the directed parameters
 	// it declares (`in target : Target;`), the pins a view draws on its node.
 	Features map[ast.Node][]Feature
+	// featureOwners are the keys of Features in the order lowering recorded them.
+	featureOwners []ast.Node
 
 	// HiddenStates are graph-only composite owners synthesized for parallel
 	// regions. They execute behaviors but are not user-visible state visits.
@@ -2307,6 +2309,9 @@ func (g *StateGraph) lowerBehaviorFeatures(node ast.Node, scope *symbols.Scope) 
 	}
 	if g.Features == nil {
 		g.Features = make(map[ast.Node][]Feature)
+	}
+	if _, recorded := g.Features[usage]; !recorded {
+		g.featureOwners = append(g.featureOwners, usage)
 	}
 	g.Features[usage] = features
 }

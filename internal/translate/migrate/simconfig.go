@@ -122,7 +122,7 @@ func booleanSetting(v string) (string, string) {
 }
 
 func stringSetting(v string) (string, string) {
-	return source.StringText(v), ""
+	return source.StandardStringText(v), ""
 }
 
 // drawPolicySetting writes a duration simulation mode as the draw policy the

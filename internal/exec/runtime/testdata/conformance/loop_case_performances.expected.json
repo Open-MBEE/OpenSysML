@@ -1,0 +1,9 @@
+{
+  "type": "instance",
+  "instantiate": "test::K",
+  "libraries": true,
+  "slots": {
+    "countedShape": {"type": "Integer", "value": 133},
+    "nestedShape": {"type": "Integer", "value": 124}
+  }
+}

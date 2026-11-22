@@ -494,7 +494,6 @@ const (
 	ModImplicitlyRedefined
 	ModContributesName
 	ModUnresolvedRedefinition
-	ModParameterizedByName
 	ModBindsBaseType
 	ModAcceptPayload
 	// ModNamesNothing marks a derived name its target did not supply: the

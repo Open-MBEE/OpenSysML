@@ -1,0 +1,1 @@
+- Lowering a state machine now numbers its expressions in declaration order: state attributes, run-to-completion settings, behavior parameters, transitions and entry transitions are interned from ordered tables rather than in map order, so the same machine gets the same expression ids every time it is lowered.

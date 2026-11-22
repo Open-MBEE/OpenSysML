@@ -52,8 +52,10 @@ jobs:
     name: Documentation site
     # The site is published from Open-MBEE/OpenSysML; a fork would deploy the same
     # pages under its own domain.
-    if: github.repository == 'Open-MBEE/OpenSysML'
+    # develop alone is published: a dispatch from another branch would deploy pages nobody reviewed.
+    if: github.repository == 'Open-MBEE/OpenSysML' && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -115,6 +117,7 @@ jobs:
     name: Deploy to Pages
     needs: build
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     # Deploying is the only step that writes; the build job only reads the tree.
     permissions:
       pages: write

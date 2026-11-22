@@ -359,6 +359,15 @@ func (h *calcStmtHost) materializeOccurrence() (*Instance, error) {
 	return h.occ.materializeOccurrence()
 }
 
+// beginLoop begins a loop a case body reaches as a performance of the case's; the
+// body of a calculation that is no case performs nothing, and its loops run unheld.
+func (h *calcStmtHost) beginLoop(stmt lower.Loop, within *Instance) (*Instance, error) {
+	if h.perfs == nil {
+		return nil, nil
+	}
+	return h.perfs.beginLoopPerformance(h.perfs.root, stmt, within)
+}
+
 // effect performs what the body states as an action does (SysML v2 §7.19.1): a
 // `perform` returns its outputs to the body's values, a `terminate` ends what it names.
 func (h *calcStmtHost) effect(engine *stmtEngine, s lower.Effect) error {

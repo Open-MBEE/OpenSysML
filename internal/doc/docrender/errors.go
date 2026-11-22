@@ -22,7 +22,10 @@ const (
 	ErrorEmptyStylesheet     ErrorKind = "empty-stylesheet"
 	ErrorAmbiguousStylesheet ErrorKind = "ambiguous-stylesheet"
 	ErrorUnsafeStylesheet    ErrorKind = "unsafe-stylesheet"
-	ErrorUnknownTheme        ErrorKind = "unknown-theme"
+	// ErrorUnsafeMath and ErrorUnsafeDiagram are typeset or drawn markup that would run in the page.
+	ErrorUnsafeMath    ErrorKind = "unsafe-math"
+	ErrorUnsafeDiagram ErrorKind = "unsafe-diagram"
+	ErrorUnknownTheme  ErrorKind = "unknown-theme"
 	// ErrorSurplusDiagramImages is more diagram images than the document has
 	// graph-shaped diagrams to write them for.
 	ErrorSurplusDiagramImages ErrorKind = "surplus-diagram-images"
@@ -78,6 +81,10 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("stylesheet %s carries both content to inline and a URL to link; it can be one or the other", e.Actual)
 	case ErrorUnsafeStylesheet:
 		return "stylesheet content closes the style element it would be inlined in; link it by URL instead"
+	case ErrorUnsafeMath:
+		return fmt.Sprintf("the typeset HTML of formula %s holds %s, which would run in the page; typeset formulas are written as they stand and must be inert", e.Content, e.Actual)
+	case ErrorUnsafeDiagram:
+		return fmt.Sprintf("the SVG drawn for diagram %d holds %s, which would run in the page; drawn diagrams are written as they stand and must be inert", e.Count, e.Actual)
 	case ErrorUnknownTheme:
 		return fmt.Sprintf("no bundled theme is named %q; the themes are %s", e.Actual, strings.Join(Themes(), ", "))
 	case ErrorTableColumns:
