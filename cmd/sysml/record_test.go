@@ -346,6 +346,7 @@ func TestRecordRunConvertRefusesIrrelevantFlags(t *testing.T) {
 		"sync-state":    {source, "-record-run", "Demo::timed", "-convert", "ttl", "-sync-state", filepath.Join(t.TempDir(), "s.ttl")},
 	} {
 		t.Run(name, func(t *testing.T) {
+			needsArgs(t, args...)
 			out, code := exitCode(t, exec.Command(binary, args...))
 			if code != 2 || !strings.Contains(out, "-record-run converts the recorded session model") {
 				t.Errorf("%v: code %d:\n%s", args, code, out)
@@ -418,6 +419,7 @@ func TestRecordRunMonteCarloWithTriggerParameterNamedAfterItsType(t *testing.T) 
 // conversion, which accompany -migrate, and -migrate itself with -record-run:
 // a migration decides nothing about the model it writes.
 func TestRecordRunRefusesMigration(t *testing.T) {
+	needs(t, v1Feature)
 	binary := buildCLI(t)
 	source := writeRecordModel(t)
 	for name, tc := range map[string]struct {

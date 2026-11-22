@@ -19,10 +19,8 @@ import (
 // unlinkedCapabilities is empty: this build links the SysML v1 migration.
 var unlinkedCapabilities []string
 
-// Migrate writes a SysML v1 model as a v2 one, with the account of what became
-// of every v1 element that makes the migration a migration rather than a
-// conversion. Argument faults fail the call; a model the migrator refuses is
-// reported in the response's error, as Convert reports one.
+// Migrate writes a SysML v1 model as a v2 one, with the account of every v1 element.
+// Argument faults fail the call; a refused model is reported in the response's error.
 func (s *Service) Migrate(ctx context.Context, req *pb.MigrateRequest) (*pb.MigrateResponse, error) {
 	if err := s.requireCapability(CapabilityMigrate); err != nil {
 		return nil, err
@@ -127,10 +125,8 @@ func migrateSource(req *pb.MigrateRequest) (string, []byte, error) {
 	}
 }
 
-// migrateFrom resolves the v1 form, inferring it from the file name when the
-// request does not say, and refuses a v2 format: that is converted, not
-// migrated. It is answered before the file is read, so a v2 file that does not
-// exist is refused for being v2, as the command refuses it.
+// migrateFrom resolves the v1 form, inferring it from the file name when unstated, and
+// refuses a v2 format before the file is read, so a missing v2 file is refused as v2.
 func migrateFrom(req *pb.MigrateRequest) (convert.Format, error) {
 	name := req.GetFilePath()
 	if name == "" {

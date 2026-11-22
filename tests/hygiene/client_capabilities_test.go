@@ -104,7 +104,8 @@ func TestClientCapabilityChecklist(t *testing.T) {
 		isAnnounced[name] = true
 	}
 	for _, name := range sortedKeys(rows) {
-		if !isAnnounced[name] {
+		// The table is the full build's: a build without the migration still holds its row to the clients.
+		if !isAnnounced[name] && (migrationLinked || name != sysmlgrpc.CapabilityMigrate) {
 			t.Errorf("%s: the table lists %q, which the service does not announce", capabilityChecklistDoc, name)
 			continue
 		}

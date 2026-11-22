@@ -117,41 +117,44 @@ func TestRenderDocumentsDiagramForm(t *testing.T) {
 		t.Errorf("set member differs from the DOT golden:\n%s", report)
 	}
 
-	site := filepath.Join(t.TempDir(), "site")
-	if got := runCommand(t, exec.Command(binary, fixture, "-render-documents", site, "-doc-form", "html", "-diagram-form", "dot")); got.status != 0 {
-		t.Fatalf("exit = %d\n%s", got.status, got.output())
-	}
-	page, err := os.ReadFile(filepath.Join(site, "Observatory-MassReport.html"))
-	if err != nil {
-		t.Fatalf("read page: %v", err)
-	}
-	if !strings.Contains(string(page), `<pre class="dot">`) || strings.Contains(string(page), `class="mermaid"`) {
-		t.Errorf("page does not write its diagrams as DOT:\n%s", page)
-	}
+	t.Run("html", func(t *testing.T) {
+		needs(t, docpdfFeature)
+		site := filepath.Join(t.TempDir(), "site")
+		if got := runCommand(t, exec.Command(binary, fixture, "-render-documents", site, "-doc-form", "html", "-diagram-form", "dot")); got.status != 0 {
+			t.Fatalf("exit = %d\n%s", got.status, got.output())
+		}
+		page, err := os.ReadFile(filepath.Join(site, "Observatory-MassReport.html"))
+		if err != nil {
+			t.Fatalf("read page: %v", err)
+		}
+		if !strings.Contains(string(page), `<pre class="dot">`) || strings.Contains(string(page), `class="mermaid"`) {
+			t.Errorf("page does not write its diagrams as DOT:\n%s", page)
+		}
 
-	puml := filepath.Join(t.TempDir(), "puml")
-	if got := runCommand(t, exec.Command(binary, fixture, "-render-documents", puml, "-doc-form", "html", "-diagram-form", "plantuml")); got.status != 0 {
-		t.Fatalf("exit = %d\n%s", got.status, got.output())
-	}
-	page, err = os.ReadFile(filepath.Join(puml, "Observatory-MassReport.html"))
-	if err != nil {
-		t.Fatalf("read page: %v", err)
-	}
-	if !strings.Contains(string(page), `<pre class="plantuml">@startuml`) || strings.Contains(string(page), `class="mermaid"`) {
-		t.Errorf("page does not write its diagrams as PlantUML:\n%s", page)
-	}
+		puml := filepath.Join(t.TempDir(), "puml")
+		if got := runCommand(t, exec.Command(binary, fixture, "-render-documents", puml, "-doc-form", "html", "-diagram-form", "plantuml")); got.status != 0 {
+			t.Fatalf("exit = %d\n%s", got.status, got.output())
+		}
+		page, err = os.ReadFile(filepath.Join(puml, "Observatory-MassReport.html"))
+		if err != nil {
+			t.Fatalf("read page: %v", err)
+		}
+		if !strings.Contains(string(page), `<pre class="plantuml">@startuml`) || strings.Contains(string(page), `class="mermaid"`) {
+			t.Errorf("page does not write its diagrams as PlantUML:\n%s", page)
+		}
 
-	d2 := filepath.Join(t.TempDir(), "d2")
-	if got := runCommand(t, exec.Command(binary, fixture, "-render-documents", d2, "-doc-form", "html", "-diagram-form", "d2")); got.status != 0 {
-		t.Fatalf("exit = %d\n%s", got.status, got.output())
-	}
-	page, err = os.ReadFile(filepath.Join(d2, "Observatory-MassReport.html"))
-	if err != nil {
-		t.Fatalf("read page: %v", err)
-	}
-	if !strings.Contains(string(page), `<pre class="d2"># Observatory::interconnectView`) || strings.Contains(string(page), `class="mermaid"`) {
-		t.Errorf("page does not write its diagrams as D2:\n%s", page)
-	}
+		d2 := filepath.Join(t.TempDir(), "d2")
+		if got := runCommand(t, exec.Command(binary, fixture, "-render-documents", d2, "-doc-form", "html", "-diagram-form", "d2")); got.status != 0 {
+			t.Fatalf("exit = %d\n%s", got.status, got.output())
+		}
+		page, err = os.ReadFile(filepath.Join(d2, "Observatory-MassReport.html"))
+		if err != nil {
+			t.Fatalf("read page: %v", err)
+		}
+		if !strings.Contains(string(page), `<pre class="d2"># Observatory::interconnectView`) || strings.Contains(string(page), `class="mermaid"`) {
+			t.Errorf("page does not write its diagrams as D2:\n%s", page)
+		}
+	})
 
 	wantReport(t, runCommand(t, exec.Command(binary, fixture, "-render-documents", filepath.Join(t.TempDir(), "x"), "-diagram-form", "svg")),
 		2, `unknown diagram form "svg"`)
@@ -652,6 +655,7 @@ func TestRenderDocumentsPartialSet(t *testing.T) {
 		{"html", ".html", []string{"-doc-form", "html"}, []string{`href="Reports-Broken.html"`, `href="Reports-Broken.html#timings"`}, `id="timings"`},
 	} {
 		t.Run(form.name, func(t *testing.T) {
+			needsArgs(t, form.args...)
 			dir := filepath.Join(t.TempDir(), "rendered")
 			got := check(t, binary, partialModel, append([]string{"-render-documents", dir}, form.args...)...)
 			wantReport(t, got, 3,
@@ -800,6 +804,7 @@ func TestRenderDocumentsFlagConflicts(t *testing.T) {
 // pages sharing one stylesheet file, so a reader edits the styling in one
 // place.
 func TestRenderDocumentsHTML(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	dir := filepath.Join(t.TempDir(), "site")
 
@@ -844,6 +849,7 @@ func TestRenderDocumentsHTML(t *testing.T) {
 // a file beside the pages that every page links, rather than bytes repeated
 // in each page, and that a URL stays a link in the order it was given.
 func TestRenderDocumentsHTMLStylesheets(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	work := t.TempDir()
 	dir := filepath.Join(work, "site")
@@ -893,6 +899,7 @@ func TestRenderDocumentsHTMLStylesheets(t *testing.T) {
 // URL delimiters or spaces is written and linked under one escaped name, so
 // the link a page carries names the file beside it.
 func TestRenderDocumentsHTMLStylesheetNames(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	work := t.TempDir()
 	dir := filepath.Join(work, "site")
@@ -923,6 +930,7 @@ func TestRenderDocumentsHTMLStylesheetNames(t *testing.T) {
 // TestRenderDocumentsHTMLFlagConflicts checks the set refuses forms and
 // options it cannot write.
 func TestRenderDocumentsHTMLFlagConflicts(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	dir := filepath.Join(t.TempDir(), "site")
 
