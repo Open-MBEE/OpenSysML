@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/internal/progress"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -255,7 +256,98 @@ func Check(stop context.Context, fresh func() (*Context, error), start Starter, 
 	return check(stop, fresh, start, budget, opts, props, nil)
 }
 
-func check(stop context.Context, fresh func() (*Context, error), start Starter, budget CheckBudget, opts CheckOptions, props []CheckProperty, progress *progressGraph) (*CheckReport, error) {
+// ProgressStatus distinguishes a clean finite search, a counterexample, lack of activation, and an incomplete search.
+type ProgressStatus string
+
+const (
+	ProgressHolds        ProgressStatus = "holds"
+	ProgressStalled      ProgressStatus = "stalled"
+	ProgressVacuous      ProgressStatus = "vacuous"
+	ProgressInconclusive ProgressStatus = "inconclusive"
+)
+
+// ErrProgressTimed means a started invocation declared a horizon or advanced its clock during search.
+var ErrProgressTimed = errors.New("progress checking requires untimed execution without a clock horizon")
+
+// ErrProgressMonitor means that no named pending-obligation predicate was provided.
+var ErrProgressMonitor = errors.New("progress checking requires a named pending predicate")
+
+// ProgressStep identifies a native explored edge by canonical stable-state digests and move identity.
+type ProgressStep = progress.Step
+
+// ProgressReport reports one request-to-response obligation. A stalled report
+// has a prefix to a pending terminal (empty Cycle) or a repeatable pending walk.
+type ProgressReport struct {
+	Status ProgressStatus
+	// Search summarizes the progress search, deduplicated without reporting-only visit history.
+	Search             *CheckReport
+	Activated, Cleared bool
+	// Root and StartupPicks identify the starting state of a stalled witness.
+	// Picks are zero-based, with unstated choices taking the first alternative.
+	Root          string
+	StartupPicks  []int
+	Prefix, Cycle []ProgressStep
+}
+
+// CheckProgress asks whether every schedule leaves the pending region without assuming fairness.
+// Pending becomes true on acceptance, false on response, and may read execution state but not visit history.
+func CheckProgress(stop context.Context, fresh func() (*Context, error), start Starter, budget CheckBudget, pending CheckProperty) (*ProgressReport, error) {
+	if pending.Name == "" || pending.Holds == nil {
+		return nil, ErrProgressMonitor
+	}
+	g := &progressWalk{pending: pending, graph: progress.New()}
+	search, err := check(stop, fresh, start, budget, CheckOptions{}, nil, g)
+	if err != nil {
+		return nil, err
+	}
+	result, err := g.graph.Analyze(stop)
+	if err != nil {
+		return nil, err
+	}
+	r := &ProgressReport{
+		Search: search, Activated: result.Activated, Cleared: result.Cleared,
+		Root: result.Root, StartupPicks: result.StartupPicks, Prefix: result.Prefix, Cycle: result.Cycle,
+	}
+	switch {
+	case result.Root != "":
+		r.Status = ProgressStalled
+	case len(search.BoundsHit)+len(search.Unenumerated)+len(search.Violations) != 0:
+		r.Status = ProgressInconclusive
+	case !r.Activated:
+		r.Status = ProgressVacuous
+	default:
+		r.Status = ProgressHolds
+	}
+	return r, nil
+}
+
+// progressWalk adapts the private checker state to a graph of pending obligations.
+type progressWalk struct {
+	pending      CheckProperty
+	graph        *progress.Graph
+	startClock   float64
+	startupPicks []int
+	incoming     progress.Step
+}
+
+func (g *progressWalk) observe(c *checker, key stateKey, visited bool) error {
+	edge := g.incoming
+	edge.To = string(key)
+	pending := false
+	if !visited {
+		var err error
+		pending, err = c.ctx.everyStatementOrder(func() (bool, error) {
+			return g.pending.Holds(c.ctx, c.inv)
+		})
+		if err != nil {
+			return fmt.Errorf("progress monitor %q: %w", g.pending.Name, err)
+		}
+	}
+	g.graph.Observe(edge, !visited, pending, g.startupPicks)
+	return nil
+}
+
+func check(stop context.Context, fresh func() (*Context, error), start Starter, budget CheckBudget, opts CheckOptions, props []CheckProperty, progress *progressWalk) (*CheckReport, error) {
 	c := &checker{
 		progress:         progress,
 		budget:           budget,
@@ -358,7 +450,7 @@ type checker struct {
 	budget   CheckBudget
 	opts     CheckOptions
 	props    []CheckProperty
-	progress *progressGraph
+	progress *progressWalk
 
 	visited map[stateKey]*visitedState
 	// onStack counts the frames on the stack at each state.
@@ -736,7 +828,7 @@ func (c *checker) settleFailed(err error, deadlocked bool, depth int, mass float
 			return visitErr
 		}
 		if seen != nil {
-			c.progress.nodes[key].terminal = true
+			c.progress.graph.MarkTerminal(string(key))
 		}
 	}
 	return c.failed(err, depth, mass)
@@ -772,7 +864,7 @@ func (c *checker) complete(depth int, mass float64, violated []string) error {
 		seen.exact = true
 	}
 	if c.progress != nil {
-		c.progress.nodes[key].terminal = true
+		c.progress.graph.MarkTerminal(string(key))
 	}
 	c.final()
 	return nil

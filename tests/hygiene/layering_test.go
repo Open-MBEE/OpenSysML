@@ -83,6 +83,7 @@ var packageLayer = map[string]string{
 	"internal/check/workspace":       "check",
 
 	"internal/exec/runtime":             "exec",
+	"internal/exec/internal/progress":   "exec",
 	"internal/exec/sweep":               "exec",
 	"internal/exec/runtrace":            "exec",
 	"internal/exec/solve":               "exec",

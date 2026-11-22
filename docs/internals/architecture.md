@@ -483,7 +483,11 @@ Parse + model all behavioral bodies with unified fallback grammar:
   the runtime's test files (110 tests of replay, the checker, the conformance corpus and the
   robustness suites) drive explorations as their harness, and a package's tests cannot import
   a package that imports it. Replay and the checker sit on that same hook, the held images and
-  adoption copy frames, so each stays with the runtime
+  adoption copy frames, so each stays with the runtime. Eventual-response checking uses
+  the same checker traversal and runtime-owned state observations. Its pending graph and
+  witness search live in `internal/exec/internal/progress`, which has no runtime dependency.
+  It receives only state identifiers, moves, and pending or terminal flags; the runtime
+  combines the result with its search limits and errors.
 
 ---
 
