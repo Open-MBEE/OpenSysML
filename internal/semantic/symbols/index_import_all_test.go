@@ -82,8 +82,8 @@ func TestSnapshotKeepsImportAll(t *testing.T) {
 		t.Fatalf("restored WildcardImportsOf(App) = %+v, want one `import all`", got)
 	}
 	wantNamed(t, restored, "App::P", 1)
-	if purge, derive := restored.importersToRefresh(restored.resolveAllImports(), nil, false); len(purge) != 0 || len(derive) != 0 {
-		t.Errorf("restored index re-derives %v and purges %v, want its settled re-exports kept", derive, purge)
+	if stale := restored.importersToRefresh(restored.resolveAllImports(), nil); len(stale) != 0 {
+		t.Errorf("restored index re-derives %v, want its settled re-exports kept", stale)
 	}
 }
 
@@ -400,8 +400,8 @@ func TestExpandWildcardImportsSettlesWhenALaterImportShadowsATarget(t *testing.T
 	addDoc(t, idx, "p.sysml", "package P { public import N::*; public import Q::*; }")
 	idx.ExpandWildcardImports()
 	lookupOne(t, idx, "P::K") // the member of the namespace the import read
-	if purge, derive := idx.importersToRefresh(idx.resolveAllImports(), nil, false); len(purge)+len(derive) != 0 {
-		t.Errorf("importers still to refresh once settled: purge %v, derive %v", purge, derive)
+	if stale := idx.importersToRefresh(idx.resolveAllImports(), nil); len(stale) != 0 {
+		t.Errorf("importers still to refresh once settled: %v", stale)
 	}
 	if after := claim(); before == nil || before != after {
 		t.Errorf("an unrelated import was derived again: claim %p, then %p", before, after)
@@ -495,4 +495,14 @@ func TestRouteWalkWithoutAPathFindsTheRoutesOfEachPath(t *testing.T) {
 			}
 		}
 	}
+}
+
+// An import naming its own namespace reads nothing; once a later import brings
+// in a namespace of that name, it names that one and its members are read.
+func TestExpandWildcardImportsReadsAnImportThatNamedItsOwnNamespace(t *testing.T) {
+	idx := NewIndex()
+	addDoc(t, idx, "a.sysml", "package A { package N { part def KA; } }")
+	addDoc(t, idx, "n.sysml", "package N { public import N::*; public import A::*; }")
+	idx.ExpandWildcardImports()
+	lookupOne(t, idx, "N::KA")
 }

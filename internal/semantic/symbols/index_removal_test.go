@@ -334,12 +334,14 @@ func TestExpandWildcardImportsRederivesEverythingFromScratch(t *testing.T) {
 		t.Fatal("Aaa::Deep should be surfaced through Mid's re-export of Thing")
 	}
 
-	idx.purgeAllReexports()
+	for _, importer := range idx.wildcardMeta.keys() {
+		idx.purgeReexportsUnder(importer)
+		idx.forgetExpansion(importer)
+	}
 	if got := len(idx.LookupQualified("Top::Widget")); got != 0 {
 		t.Fatalf("Top::Widget = %d symbols after purging re-exports, want 0", got)
 	}
-	for idx.expandRound(idx.resolveAllImports(), true) {
-	}
+	idx.ExpandWildcardImports()
 	if got := indexState(idx); got != want {
 		t.Errorf("re-deriving from scratch did not rebuild the index:\n%s", diffLines(want, got))
 	}

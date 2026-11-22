@@ -121,20 +121,12 @@ type Index struct {
 	// cyclic maps a namespace to the ones it is on a cycle of wildcard imports
 	// with, itself included, in name order.
 	cyclic *layer[string, []string]
-	// nsOrder levels the namespaces so that none reads one above it, and imported
-	// holds those read from. ownsOrder is unset while both are an overlay's base's.
-	nsOrder   map[string]int
-	imported  map[string]bool
-	ownsOrder bool
-	// noted is the import graph the cycles were last recorded from, and notedExact
-	// whether they are that graph's alone: recording it again then changes nothing.
-	noted      map[string][]string
-	notedExact bool
-	// movedImporters lists the importers whose part of noted may no longer hold.
-	movedImporters []string
-	// readFrom names, by importer and stating document, the namespaces its
-	// re-exports were read from, which an import shadowed since no longer names.
-	readFrom *layer[string, map[string][]string]
+	// nsOrder levels the namespaces so that none reads one above it. Like noted
+	// it is replaced, never written, so an overlay shares its base's.
+	nsOrder map[string]int
+	// noted is the import graph the cycles were last recorded from: each importer
+	// with the namespaces its imports read.
+	noted map[string][]string
 
 	// libraryDocs names the documents that hold bundled library content rather
 	// than the workspace's own, with the tier and text digest of each, and
@@ -256,7 +248,6 @@ func NewIndex() *Index {
 		dirtyNS:       make(map[string]nsChange),
 		lastTargets:   newLayer[string, []resolvedImport](gen),
 		cyclic:        newLayer[string, []string](gen),
-		readFrom:      newLayer[string, map[string][]string](gen),
 		libraryDocs:   newLayer[string, LibraryDocument](gen),
 		librarySyms:   newLayer[*Symbol, LibraryTier](gen),
 		nsFilters:     newLayer[string, map[string][]ElementFilter](gen),
@@ -419,11 +410,8 @@ func NewOverlay(base *Index) *Index {
 		dirtyNS:       make(map[string]nsChange),
 		lastTargets:   overLayer(base.lastTargets, gen),
 		cyclic:        overLayer(base.cyclic, gen),
-		readFrom:      overLayer(base.readFrom, gen),
 		nsOrder:       base.nsOrder,
-		imported:      base.imported,
 		noted:         base.noted,
-		notedExact:    base.notedExact,
 		libraryDocs:   overLayer(base.libraryDocs, gen),
 		librarySyms:   overLayer(base.librarySyms, gen),
 		nsFilters:     overLayer(base.nsFilters, gen),
@@ -524,119 +512,131 @@ func (idx *Index) setWildcardImports(pkgFQN, doc string, imports []WildcardImpor
 // in name order, which makes the outcome independent of both map iteration
 // order and of whether a document was parsed or restored from cache.
 //
-// A pass touches only the importers a change since the last expansion can
-// reach: one whose imports changed, one whose import now resolves to a different
-// namespace, and one importing a namespace whose members changed. Calling it
-// when nothing changed costs one resolution of each import and registers
-// nothing, so a caller that expands after every edit pays for the edit rather
-// than for the workspace.
-//
-// An importer whose imports no longer support what it re-exported has those
-// re-exports dropped before the pass derives again, since a re-export can be
-// reached by more than one route and a cycle of imports would otherwise let one
-// support itself. Dropping propagates: it takes members from a namespace, which
-// is a change the importers of *that* namespace see on the next pass.
+// Only the importers a change since the last expansion can reach are derived
+// again, each from nothing: one whose imports changed or now resolve to another
+// namespace, one importing a namespace whose members changed, and every importer
+// reading from one of those. Calling it when nothing changed costs one resolution
+// of each import and registers nothing.
 func (idx *Index) ExpandWildcardImports() {
 	idx.mustBeWritable("ExpandWildcardImports")
 	defer idx.settleSegments()
-	for round := 0; round < expansionRounds; round++ {
-		if !idx.expandOnce(false) {
+	for {
+		stale := idx.importersToRefresh(idx.resolveAllImports(), idx.dirtyNS)
+		if len(stale) == 0 {
+			idx.dirtyNS = make(map[string]nsChange)
+			return
+		}
+		idx.deriveAgain(stale)
+	}
+}
+
+// importersToRefresh lists, in name order, the importers whose re-exports no
+// longer follow from their imports, and those reading from one of them.
+func (idx *Index) importersToRefresh(resolved []importerImports, changed map[string]nsChange) []string {
+	stale := make(map[string]bool)
+	for _, stated := range resolved {
+		last, expanded := idx.lastTargets.get(stated.importer)
+		if !expanded || !slices.Equal(last, stated.imports) || membersChanged(changed, last) {
+			stale[stated.importer] = true
+		}
+	}
+	for importer := range idx.noted {
+		if _, expanded := idx.lastTargets.get(importer); !expanded {
+			stale[importer] = true // its imports changed, or it states none any more
+		}
+	}
+	return idx.withReaders(stale)
+}
+
+// withReaders adds to stale every importer reading, directly or through others,
+// from one in it, and returns them all in name order.
+func (idx *Index) withReaders(stale map[string]bool) []string {
+	if len(stale) == 0 {
+		return nil
+	}
+	readers := make(map[string][]string)
+	for importer, targets := range idx.noted {
+		for _, target := range targets {
+			readers[target] = append(readers[target], importer)
+		}
+	}
+	work := slices.Collect(maps.Keys(stale))
+	for len(work) > 0 {
+		ns := work[len(work)-1]
+		work = work[:len(work)-1]
+		for _, reader := range readers[ns] {
+			if !stale[reader] {
+				stale[reader] = true
+				work = append(work, reader)
+			}
+		}
+	}
+	return slices.Sorted(maps.Keys(stale))
+}
+
+// deriveAgain drops what the stale importers re-export and derives it from
+// nothing, again whenever the import cycles found on the way differ from the
+// ones recorded. The namespaces read only accumulate, so the cycles settle.
+func (idx *Index) deriveAgain(stale []string) {
+	reads := make(map[string][]string)
+	for _, importer := range stale {
+		idx.cyclic.del(importer)
+	}
+	for {
+		for _, importer := range stale {
+			idx.purgeReexportsUnder(importer)
+			idx.lastTargets.del(importer)
+		}
+		idx.dirtyNS = make(map[string]nsChange)
+		idx.deriveToFixpoint(stale, reads)
+		graph := make(map[string][]string, len(idx.noted)+len(reads))
+		for importer, targets := range idx.noted {
+			if _, again := slices.BinarySearch(stale, importer); !again {
+				graph[importer] = targets
+			}
+		}
+		for importer, targets := range reads {
+			graph[importer] = targets
+		}
+		moved := idx.noteImportCycles(graph)
+		if len(moved) == 0 {
+			return
+		}
+		// A namespace whose cycle moved holds routes recorded for the old one.
+		again := make(map[string]bool, len(stale)+len(moved))
+		for _, importer := range stale {
+			again[importer] = true
+		}
+		for _, ns := range moved {
+			again[ns] = true
+		}
+		stale = idx.withReaders(again)
+	}
+}
+
+// deriveToFixpoint expands the stale importers, in name order, until a round
+// re-exports nothing new, recording in reads the namespaces each one read.
+func (idx *Index) deriveToFixpoint(stale []string, reads map[string][]string) {
+	for {
+		// What a round re-exports is what the next one reads.
+		changed := idx.dirtyNS
+		idx.dirtyNS = make(map[string]nsChange)
+		derived := false
+		for _, importer := range stale {
+			if len(idx.wildcardMeta.at(importer)) == 0 {
+				continue
+			}
+			last, expanded := idx.lastTargets.get(importer)
+			if expanded && slices.Equal(last, idx.resolveImports(importer)) && !membersChanged(changed, last) {
+				continue
+			}
+			idx.expandImporter(importer, reads)
+			derived = true
+		}
+		if !derived {
 			return
 		}
 	}
-	// A change whose re-derivation keeps invalidating itself would not settle.
-	// Deriving every importer from an empty re-export state is the computation a
-	// fresh build performs: it only ever adds, so it settles.
-	idx.purgeAllReexports()
-	for idx.expandOnce(true) {
-	}
-}
-
-// expandOnce runs one round of expansion and reports whether another is due. Only
-// a round that changes nothing forgets a cycle: a name being re-derived breaks none.
-func (idx *Index) expandOnce(deriveOnly bool) bool {
-	now := idx.resolveAllImports()
-	graph, recorded := idx.recordedGraph(now)
-	rerouted := false
-	if !recorded {
-		graph = idx.importGraph(now)
-		if rerouted = idx.settleImportCycles(graph, false); rerouted {
-			now = idx.resolveAllImports() // the names dropped can be what an import named
-		}
-	}
-	if idx.expandRound(now, deriveOnly) || rerouted {
-		return true
-	}
-	if recorded && idx.notedExact {
-		return false
-	}
-	return idx.settleImportCycles(graph, true)
-}
-
-// expansionRounds bounds the incremental purge-and-derive rounds before
-// expansion falls back to deriving every importer from scratch. Reaching it
-// costs a full re-derivation and changes nothing about the result.
-const expansionRounds = 16
-
-// expandRound brings the importers a change can have reached up to date and
-// reports whether it changed anything. With deriveOnly set it never drops a
-// re-export, which is what a build from an empty re-export state needs.
-func (idx *Index) expandRound(now []importerImports, deriveOnly bool) bool {
-	changed := idx.dirtyNS
-	idx.dirtyNS = make(map[string]nsChange)
-	purge, derive := idx.importersToRefresh(now, changed, deriveOnly)
-	if len(purge) == 0 && len(derive) == 0 {
-		return false
-	}
-	// Every purge lands before any derivation, so that an importer deriving from
-	// another cannot copy re-exports that are about to be dropped.
-	for _, pkgFQN := range purge {
-		idx.purgeReexportsUnder(pkgFQN)
-		idx.forgetExpansion(pkgFQN)
-	}
-	for _, pkgFQN := range derive {
-		idx.expandImporter(pkgFQN)
-	}
-	return true
-}
-
-// importersToRefresh splits the importers a change can have reached into the
-// ones whose re-exports no longer follow from their imports, and the ones to
-// derive — the former plus those importing a namespace that gained members. Both
-// are in name order, so the outcome does not depend on map iteration order.
-func (idx *Index) importersToRefresh(resolved []importerImports, changed map[string]nsChange, deriveOnly bool) (purge, derive []string) {
-	for _, stated := range resolved {
-		pkgFQN, now := stated.importer, stated.imports
-		last, expanded := idx.lastTargets.get(pkgFQN)
-		if !expanded {
-			derive = append(derive, pkgFQN)
-			continue
-		}
-		// It is stale when an import names another namespace than it did, or when a
-		// namespace it read members from — then or now — lost some.
-		same, resolved := sameImports(last, now)
-		stale := !(same || resolved) ||
-			lostMembers(changed, last) || lostMembers(changed, now)
-		if stale {
-			if !deriveOnly {
-				purge = append(purge, pkgFQN)
-			}
-			derive = append(derive, pkgFQN)
-			continue
-		}
-		if !same {
-			// An import that named no namespace read nothing to drop.
-			derive = append(derive, pkgFQN)
-			continue
-		}
-		for _, imp := range now {
-			if imp.fqn != "" && changed[imp.fqn].gained {
-				derive = append(derive, pkgFQN)
-				break
-			}
-		}
-	}
-	return purge, derive
 }
 
 // statedImport is one wildcard import as declared: the document stating it, its
@@ -674,8 +674,6 @@ type resolvedImport struct {
 	fqn     string
 	private bool
 	all     bool
-	// unread marks an import of lastTargets that named no namespace when read.
-	unread bool
 }
 
 // imports returns every wildcard import stated through pkgFQN, over the
@@ -713,38 +711,15 @@ func (idx *Index) resolveImports(pkgFQN string) []resolvedImport {
 	return out
 }
 
-// lostMembers reports whether any namespace these imports name lost a member,
-// or had one hidden again, since the last expansion. An unresolved import names
-// none: "" is the document root, which no import reads from.
-func lostMembers(changed map[string]nsChange, imports []resolvedImport) bool {
+// membersChanged reports whether any namespace these imports name gained or lost
+// a member since the last expansion. An unresolved import names none.
+func membersChanged(changed map[string]nsChange, imports []resolvedImport) bool {
 	for _, imp := range imports {
-		if imp.fqn != "" && changed[imp.fqn].lost {
+		if change, ok := changed[imp.fqn]; ok && imp.fqn != "" && (change.gained || change.lost) {
 			return true
 		}
 	}
 	return false
-}
-
-// sameImports reports whether two resolutions of a namespace's imports agree, or
-// else whether they differ only in imports of last that were not read.
-func sameImports(last, now []resolvedImport) (same, resolved bool) {
-	if len(last) != len(now) {
-		return false, false
-	}
-	same = true
-	for i := range last {
-		read := last[i]
-		read.unread = false
-		if read == now[i] {
-			continue // an import not read names no namespace still
-		}
-		read.fqn = now[i].fqn
-		if !last[i].unread || read != now[i] {
-			return false, false
-		}
-		same = false
-	}
-	return same, !same
 }
 
 // expandImporter re-exports the visible members of every namespace pkgFQN's
@@ -753,14 +728,15 @@ func sameImports(last, now []resolvedImport) (same, resolved bool) {
 // Each target is resolved as its import is reached, not up front: an import can
 // name what an earlier one in the same namespace brought in, as P's
 // `import Shared::*` names the P::Shared that its `import Outer::*` re-exported.
-func (idx *Index) expandImporter(pkgFQN string) {
+func (idx *Index) expandImporter(pkgFQN string, reads map[string][]string) {
 	stated := idx.imports(pkgFQN)
 	cycle := idx.cyclic.at(pkgFQN)
-	unread := make([]bool, len(stated))
+	// The imports as read: one naming another namespace later is read again.
+	read := make([]resolvedImport, len(stated))
 	for i, imp := range stated {
 		targetFQN := idx.resolveWildcardTarget(pkgFQN, imp.target)
+		read[i] = resolvedImport{doc: imp.doc, fqn: targetFQN, private: imp.private, all: imp.all}
 		if targetFQN == "" {
-			unread[i] = true
 			continue // target not found or ambiguous
 		}
 		if targetFQN == pkgFQN {
@@ -772,7 +748,9 @@ func (idx *Index) expandImporter(pkgFQN string) {
 		// suppressing it, because whether a candidate satisfies them is a question
 		// only the semantic model can answer.
 		gate := nonZeroFilters(append([]ElementFilter{imp.filter}, idx.namespaceFiltersGating(pkgFQN, imp.doc)...))
-		idx.noteReadFrom(pkgFQN, imp.doc, targetFQN)
+		if at, found := slices.BinarySearch(reads[pkgFQN], targetFQN); !found {
+			reads[pkgFQN] = slices.Insert(reads[pkgFQN], at, targetFQN)
+		}
 		// One slice serves every claim this import makes: a claim never writes it.
 		hop := []importHop{{from: targetFQN, private: imp.private, all: imp.all, filters: gate}}
 		direct := []gateRoute{{filters: gate, via: viaOnCycle(cycle, nil, targetFQN, true)}}
@@ -789,22 +767,12 @@ func (idx *Index) expandImporter(pkgFQN string) {
 			}
 		}
 	}
-	// An import naming a namespace only a later import brought in read nothing:
-	// recorded as naming none, it is read once the name resolves.
-	targets := idx.resolveImports(pkgFQN)
-	for i := range targets {
-		if unread[i] {
-			targets[i].fqn, targets[i].unread = "", true
-		}
-	}
-	idx.lastTargets.set(pkgFQN, targets)
-	idx.importsMoved(pkgFQN)
+	idx.lastTargets.set(pkgFQN, read)
 }
 
 // forgetExpansion marks the importer as not expanded, to be expanded again.
 func (idx *Index) forgetExpansion(importer string) {
 	idx.lastTargets.del(importer)
-	idx.importsMoved(importer)
 }
 
 // resolveWildcardTarget resolves a wildcard import target name to the
@@ -1085,7 +1053,6 @@ func (idx *Index) removeDocument(name string, expand bool) {
 			idx.wildcardMeta.del(pkgFQN)
 		}
 		idx.forgetExpansion(pkgFQN) // its import set changed: expand it again
-		idx.forgetReadFrom(pkgFQN, name)
 		idx.changedNamespace(pkgFQN)
 	}
 
@@ -1242,23 +1209,10 @@ func (idx *Index) knows(name string) bool {
 	return false
 }
 
-// purgeAllReexports drops every re-export in the index, leaving the names the
-// documents declare.
-func (idx *Index) purgeAllReexports() {
-	for _, key := range idx.reexportDocs.keys() {
-		idx.purgeReexport(key)
-	}
-	idx.lastTargets.clear()
-	idx.readFrom.clear()
-	idx.noted = nil
-}
-
 // purgeReexportsUnder drops every re-export registered directly under pkgFQN,
 // whichever documents claim it. What the surviving documents' imports still
 // support is re-derived by the following expansion.
 func (idx *Index) purgeReexportsUnder(pkgFQN string) {
-	idx.readFrom.del(pkgFQN)
-	idx.importsMoved(pkgFQN)
 	for _, fqn := range idx.childKeys(pkgFQN) {
 		for _, sym := range idx.reexportedAt(fqn) {
 			idx.purgeReexport(reexportKey{fqn: fqn, sym: sym})
