@@ -143,6 +143,15 @@ var kermlTypeMetaclassUsage = map[string]ast.UsageKind{
 	"Interaction":          ast.UsageInteraction,
 }
 
+// kermlTypeKeyword reads kermlTypeMetaclass back to the keyword, for a graph that states none.
+var kermlTypeKeyword = func() map[string]string {
+	out := map[string]string{}
+	for keyword, metaclass := range kermlTypeMetaclass {
+		out[metaclass] = keyword
+	}
+	return out
+}()
+
 // mClassifier is what `classifier` builds; the parser records it under DefClass.
 const mClassifier = "Classifier"
 

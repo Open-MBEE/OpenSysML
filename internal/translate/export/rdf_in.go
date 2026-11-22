@@ -2485,6 +2485,9 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		words = append(words, direction)
 	}
 	canonicalKeyword := usageKeyword(kind)
+	if written, ok := kermlTypeKeyword[el.metaclass]; ok {
+		canonicalKeyword = written
+	}
 	keyword := d.keywordOr(el, canonicalKeyword)
 	// A `message` is the flow whose ends are event occurrences it owns as
 	// parameters; their metaclass says `message` where the graph states none.

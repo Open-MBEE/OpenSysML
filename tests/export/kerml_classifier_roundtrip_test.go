@@ -39,3 +39,26 @@ func TestKerMLClassifierKeywordsComeBackFromTheGraphAlone(t *testing.T) {
 		})
 	}
 }
+
+// A graph that states no keyword, as one another tool wrote, still comes back under the
+// keyword of its metaclass, so converting it again keeps the metaclass.
+func TestKerMLClassifierKeywordsComeBackFromTheMetaclassAlone(t *testing.T) {
+	for _, keyword := range []string{"classifier", "class", "struct", "assoc", "assoc struct", "behavior",
+		"predicate", "interaction", "metaclass"} {
+		t.Run(keyword, func(t *testing.T) {
+			src := "package P {\n    " + keyword + " A;\n    " + keyword + " X specializes A;\n}\n"
+			turtle, err := convert.Convert("k.kerml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+			if err != nil {
+				t.Fatalf("to turtle: %v", err)
+			}
+			stripped := withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:declaredKeyword")
+			back, err := convert.Convert("k.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
+			if err != nil {
+				t.Fatalf("back to notation: %v\n%s", err, stripped)
+			}
+			if string(back) != src {
+				t.Errorf("round trip changed the notation:\n--- want ---\n%s--- got ---\n%s", src, back)
+			}
+		})
+	}
+}
