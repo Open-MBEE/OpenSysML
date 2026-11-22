@@ -283,7 +283,11 @@ func (p *Parser) parseNodeDeclaration() (string, source.Span) {
 // the notation reaches a nested state or a port of a part (`S2.S3`,
 // `tellu.APIS_HTTP`).
 func (p *Parser) parseChainedName() *ast.QualifiedName {
-	qn := p.parseQualifiedNameRelaxed()
+	return p.parseChainSteps(p.parseQualifiedNameRelaxed())
+}
+
+// parseChainSteps appends to qn the segments chained to it with '.'.
+func (p *Parser) parseChainSteps(qn *ast.QualifiedName) *ast.QualifiedName {
 	if qn == nil {
 		return nil
 	}
@@ -1494,7 +1498,8 @@ func (p *Parser) parseForAction(tok lexer.Token) ast.Node {
 func (p *Parser) parseDefaultTargetSuccession(tok lexer.Token) ast.Node {
 	start := tok.Span.Offset
 
-	target := p.parseQualifiedName()
+	// The target is a ConnectorEnd (SysML.xtext:1925), so it may be a feature chain.
+	target := p.parseChainSteps(p.parseQualifiedName())
 	p.expectSemicolon("else branch")
 
 	node := &ast.ControlFlowEdge{
@@ -1516,7 +1521,7 @@ func (p *Parser) parseIfAction(tok lexer.Token) ast.Node {
 	// Check for shorthand guard succession: if <expr> then <target>;
 	if p.atKeyword("then") {
 		p.advance() // consume 'then'
-		target := p.parseQualifiedName()
+		target := p.parseChainSteps(p.parseQualifiedName())
 		p.expectSemicolon("guard succession")
 
 		// Return ControlFlowEdge with implicit source (decision node) and guard
