@@ -44,23 +44,20 @@ func (r *Resolver) redefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	journalNew(r, r.redefined, sym, sym.Decl)
 	r.redefined[sym] = nil
+	var out []*symbols.Symbol
 	if sym.Recorded() {
-		out := r.recordedElements(sym.Facts.Redefines)
+		// A record carries the clauses' targets; a case role's positional ones are derived.
+		out = r.recordedElements(sym.Facts.Redefines)
+		if model, ok := r.model.(endRedefinitionLookup); ok && IsCaseRole(sym) {
+			out = appendOthers(out, sym, model.ImplicitRoleRedefinitions(sym))
+		}
 		r.redefined[sym] = out
 		return out
 	}
-	out := r.explicitRedefinitions(sym)
+	out = r.explicitRedefinitions(sym)
 	if model, ok := r.model.(endRedefinitionLookup); ok {
-		for _, end := range model.ImplicitEndRedefinitions(sym) {
-			if end != nil && end != sym {
-				out = append(out, end)
-			}
-		}
-		for _, role := range model.ImplicitRoleRedefinitions(sym) {
-			if role != nil && role != sym {
-				out = append(out, role)
-			}
-		}
+		out = appendOthers(out, sym, model.ImplicitEndRedefinitions(sym))
+		out = appendOthers(out, sym, model.ImplicitRoleRedefinitions(sym))
 	}
 	if usage, ok := sym.Decl.(*ast.Usage); ok {
 		if owner := r.MetadataBodyOwner(sym.OwnerScope); owner != nil {
@@ -71,6 +68,16 @@ func (r *Resolver) redefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 	}
 	r.redefined[sym] = out
+	return out
+}
+
+// appendOthers appends the features of more that are not sym itself.
+func appendOthers(out []*symbols.Symbol, sym *symbols.Symbol, more []*symbols.Symbol) []*symbols.Symbol {
+	for _, f := range more {
+		if f != nil && f != sym {
+			out = append(out, f)
+		}
+	}
 	return out
 }
 

@@ -217,7 +217,7 @@ func shortNamed(sym *symbols.Symbol) (string, bool) {
 // already contributes (KerML 8.4.3.2): the two are indistinguishable unless the
 // declaration redefines or subsets the inherited feature.
 func (c *w9cConflictChecker) checkOwnedNames(sym *symbols.Symbol, contribs []w9cContributor) {
-	if sym.Scope == nil || resolve.ParameterizedByName(sym) {
+	if sym.Scope == nil {
 		return
 	}
 	owned, aliases := c.resolver.DistinguishableMembers(sym.Scope)
@@ -227,7 +227,7 @@ func (c *w9cConflictChecker) checkOwnedNames(sym *symbols.Symbol, contribs []w9c
 				continue
 			}
 			for _, key := range ownedKeysOf(mem) {
-				cands := contributionsOf(contribs, key.name)
+				cands := c.stillInherited(sym, contributionsOf(contribs, key.name))
 				if len(cands) == 0 {
 					continue
 				}
@@ -237,6 +237,18 @@ func (c *w9cConflictChecker) checkOwnedNames(sym *symbols.Symbol, contribs []w9c
 			}
 		}
 	}
+}
+
+// stillInherited drops the candidates sym does not inherit because a feature of
+// its own, or one it inherits, redefines them (KerML 8.3.3.1.10): their name is free.
+func (c *w9cConflictChecker) stillInherited(sym *symbols.Symbol, cands []w9cCandidate) []w9cCandidate {
+	out := make([]w9cCandidate, 0, len(cands))
+	for _, cand := range cands {
+		if !c.model.InheritanceMasked(sym, cand.member) {
+			out = append(out, cand)
+		}
+	}
+	return out
 }
 
 // ownedKeysOf is each identifier a member or alias binds, short name included,
