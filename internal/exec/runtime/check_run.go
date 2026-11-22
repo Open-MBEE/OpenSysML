@@ -105,6 +105,9 @@ func (r *invocationRun) drawOwner(execs []checkedExecutor) (int, error) {
 		Alternatives: executorLabels(execs),
 	}
 	futures := r.ctx.futureFootprints()
+	// Classify this choice from its current state, not the senders left by
+	// a previous contention probe or a restored search branch.
+	futures.gate()
 	fps := make([]lower.Footprint, len(execs))
 	for i, exec := range execs {
 		fps[i] = futures.executorFuture(exec)
