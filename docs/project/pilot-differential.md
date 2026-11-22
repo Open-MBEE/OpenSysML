@@ -144,6 +144,16 @@ nothing — but they are part of what a run measured, so the baseline's provenan
 the `opensysml-libraries` input, and a changed library is a movement to adjudicate like a changed
 corpus.
 
+The release's shaded kernel jar and the `sysml.library` beside it come from a GitHub release
+asset rather than a git checkout, so no commit covers them: `scripts/pilot-pin.sh` pins the jar's
+SHA-256 (`PILOT_KERNEL_JAR_SHA256`) and a digest of the library tree
+(`PILOT_KERNEL_LIBRARY_SHA256`). `download-pilot-validator.sh` checks both after the download
+and before the jar is shaded into the validator, and again on every run that finds a finished
+build, so a copy restored from a CI cache is rebuilt unless it still holds the pinned bytes; the
+scripts that compile against the jar check them before they do. A re-pin of
+`PILOT_ARTIFACT_VERSION` moves both digests: `pilot_kernel_digests <jar> <library>` prints them
+for a release that was downloaded and inspected by hand.
+
 The OMG corpora are not vendored, for the same licensing reason as the training corpus, and the
 pilot release they are fetched at is pinned once in `scripts/pilot-pin.sh` — the same pin the
 validator build reads, so corpus and reference can never come from different releases. The pin

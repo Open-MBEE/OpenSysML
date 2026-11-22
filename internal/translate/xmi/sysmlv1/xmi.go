@@ -407,6 +407,24 @@ func (m *Model) finish() (*Model, error) {
 // archive cannot expand without limit while being read.
 const maxEntrySize = 512 << 20
 
+// maxModelSize bounds the uncompressed entries one archive's model is read from
+// together, since every one of them is held until the model is built.
+const maxModelSize = 2 << 30
+
+// checkModelSize refuses entries whose declared sizes pass maxModelSize together; the
+// zip reader fails an entry that holds more than it declares.
+func checkModelSize(groups ...[]*zip.File) error {
+	var total uint64
+	for _, group := range groups {
+		for _, f := range group {
+			if total += f.UncompressedSize64; total > maxModelSize {
+				return fmt.Errorf("archive model entries exceed the %d byte limit together, at %s", maxModelSize, f.Name)
+			}
+		}
+	}
+	return nil
+}
+
 // projectEntry reports whether an archive entry is a MagicDraw project model
 // entry, which is read unconditionally.
 func projectEntry(name string) bool {
@@ -443,6 +461,9 @@ func parseArchive(zr *zip.Reader) (*Model, error) {
 	m := newModel()
 	read := 0
 	if len(project) > 0 {
+		if err := checkModelSize(project, modules); err != nil {
+			return nil, err
+		}
 		for _, f := range project {
 			if err := m.parseEntry(f); err != nil {
 				return nil, err
@@ -457,6 +478,9 @@ func parseArchive(zr *zip.Reader) (*Model, error) {
 			m.indexModule(content)
 		}
 	} else {
+		if err := checkModelSize(documents); err != nil {
+			return nil, err
+		}
 		for _, f := range documents {
 			err := m.parseEntry(f)
 			if errors.Is(err, errNotXMI) {

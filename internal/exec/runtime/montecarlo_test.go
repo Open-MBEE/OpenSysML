@@ -226,6 +226,40 @@ func TestMonteCarloSampleTakesQuantitiesInTheFirstRunsUnit(t *testing.T) {
 	}
 }
 
+// A NaN observation refuses the sample by its run, and Distribute bins any Reals
+// without indexing outside the histogram.
+func TestMonteCarloSampleRejectsNaNObservation(t *testing.T) {
+	nan := math.NaN()
+	runs := []*MonteCarloRun{
+		{Case: "Mc", Number: 1, Observed: realOf(1)},
+		{Case: "Mc", Number: 2, Observed: realOf(nan)},
+		{Case: "Mc", Number: 3, Observed: realOf(3)},
+	}
+	_, err := MonteCarloSample(runs)
+	if !errors.Is(err, errMonteCarloObserved) || !strings.Contains(err.Error(), "run 2 of Mc") || !strings.Contains(err.Error(), "not a number") {
+		t.Fatalf("MonteCarloSample = %v; want run 2 refused as not a number", err)
+	}
+	if _, err := MonteCarloSample([]*MonteCarloRun{{Case: "Mc", Number: 1, Observed: realOf(nan)}}); !errors.Is(err, errMonteCarloObserved) {
+		t.Fatalf("MonteCarloSample of one NaN = %v; want an errMonteCarloObserved", err)
+	}
+	if stats, err := MonteCarloSample([]*MonteCarloRun{{Case: "Mc", Number: 1, Observed: realOf(math.Inf(1))}}); err != nil || !math.IsInf(stats.Mean, 1) {
+		t.Fatalf("stats, err = %+v, %v; want an infinite observation carried into the mean", stats, err)
+	}
+	for _, sample := range [][]float64{{nan}, {nan, 1}, {1, nan, 2}, {nan, nan}, {math.Inf(-1), nan, math.Inf(1)}, {math.Inf(-1), math.Inf(1)}} {
+		d := Distribute(reals(sample...))
+		if d == nil || d.Count != len(sample) {
+			t.Fatalf("Distribute(%v) = %+v; want %d counted", sample, d, len(sample))
+		}
+		binned := 0
+		for _, bin := range d.Histogram {
+			binned += bin.Count
+		}
+		if binned != len(sample) {
+			t.Errorf("Distribute(%v) binned %d of %d: %v", sample, binned, len(sample), d.Histogram)
+		}
+	}
+}
+
 // reals and ints are values for Distribute.
 func reals(xs ...float64) []semantics.Value {
 	vs := make([]semantics.Value, len(xs))

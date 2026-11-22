@@ -103,9 +103,12 @@ func (sf *SourceFile) Len() int { return len(sf.content) }
 // Bytes returns the raw content (do not mutate).
 func (sf *SourceFile) Bytes() []byte { return sf.content }
 
-// Text returns the substring covered by the span. Spans are taken from one
-// cached copy of the content, so a span costs no allocation of its own.
+// Text returns the substring covered by the span from one cached copy of the
+// content, "" for a span that does not lie within it.
 func (sf *SourceFile) Text(sp Span) string {
+	if sf == nil || sp.Offset < 0 || sp.Len < 0 || sp.Offset > len(sf.content) || sp.Len > len(sf.content)-sp.Offset {
+		return ""
+	}
 	sf.text.Do(func() {
 		sf.whole = string(sf.content)
 	})
