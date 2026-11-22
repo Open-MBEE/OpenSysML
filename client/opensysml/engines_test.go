@@ -126,7 +126,11 @@ func TestListEnginesReportsEachEnginesOrigin(t *testing.T) {
 					t.Errorf("%s origin = %+v, want %+v", engine.Name, origin, want)
 				}
 			}
-			for _, want := range []string{"run", "tool:fmi", "tool:Solver", "standin"} {
+			wanted := []string{"run", "tool:Solver", "standin"}
+			if fmiLinked {
+				wanted = append(wanted, "tool:fmi")
+			}
+			for _, want := range wanted {
 				if !seen[want] {
 					t.Errorf("engines = %v, want %s among them", engineNames(engines), want)
 				}

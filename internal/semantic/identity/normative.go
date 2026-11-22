@@ -12,6 +12,8 @@ import (
 	"encoding/hex"
 	"strconv"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // Language is the half of the standard library an element belongs to, which
@@ -166,10 +168,11 @@ func EscapeName(name string) string {
 	var b strings.Builder
 	b.Grow(len(name) + 2)
 	b.WriteByte('\'')
-	for _, r := range name {
-		if i := strings.IndexRune("\b\t\n\f\r\"'\\", r); i >= 0 {
+	for i, r := range name {
+		// name[i] is r itself for the one-byte runes an escape can name.
+		if letter, ok := source.EscapeLetter(name[i]); ok {
 			b.WriteByte('\\')
-			b.WriteByte("btnfr\"'\\"[i])
+			b.WriteByte(letter)
 			continue
 		}
 		b.WriteRune(r)
