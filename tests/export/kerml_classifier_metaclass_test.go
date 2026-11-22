@@ -155,6 +155,7 @@ func TestLegacyKerMLTypeNamesStillRead(t *testing.T) {
 				"a sysml:"+metaclass+" ;", "a sysml:"+legacyNames[metaclass]+" ;",
 				"a sysml:Subclassification ;", "a sysml:Specialization ;",
 				"P__X_sc0", "P__X_sp0",
+				"    sysx:declaredKeyword \""+keyword+"\" ;\n", "",
 			).Replace(string(legacy)))
 			back, err := convert.Convert("k.ttl", legacy, convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
@@ -174,6 +175,13 @@ func TestLegacyKerMLTypeNamesStillRead(t *testing.T) {
 			}
 			if got := apiJSONTypesByID(t, apiJSON)["P__X"]; got != metaclass {
 				t.Errorf("a legacy-typed %s is the API JSON type %q, want %s", keyword, got, metaclass)
+			}
+			fromJSON, err := convert.Convert("k.json", apiJSON, convert.FormatAPIJSON, convert.FormatSysML)
+			if err != nil {
+				t.Fatalf("api-json back to notation: %v", err)
+			}
+			if want := keyword + " X specializes A"; !strings.Contains(string(fromJSON), want) {
+				t.Errorf("a legacy-typed %s should read as %q through API JSON too\n%s", keyword, want, fromJSON)
 			}
 		})
 	}

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
@@ -393,8 +394,10 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 	// A legacy KerML type name is none of the metamodel's: the element is its metaclass.
 	absenceType := types[0]
 	keyword, _ := w.graph.Lexical(subject, rdf.OpenSysML+xDeclaredKeyword)
+	legacyKerMLType := false
 	if declared, legacy := legacyKerMLTypeMetaclass(metaclass, keyword); legacy {
 		metaclass, typeName, absenceType = declared, declared, rdf.SysMLTerm(declared)
+		legacyKerMLType = keyword == ""
 	}
 	predicates := w.graph.PredicatesView(subject)
 	element := make(apiJSONObject, 0, len(predicates)+5)
@@ -513,6 +516,10 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 	}
 	if legacyIndividual {
 		element = apiJSONWithMember(element, apiJSONMember{key: "isIndividual", value: true})
+	}
+	if legacyKerMLType {
+		// The legacy name said the def-less form, which the metaclass alone does not.
+		element = apiJSONWithMember(element, apiJSONMember{key: "sysx:" + xDeclaredKeyword, value: ast.KerMLTypeKeyword(metaclass)})
 	}
 	element = w.completeDerived(subject, metaclass, element)
 	if len(mappingValues) > 0 {
