@@ -53,7 +53,7 @@ func (m *Model) flowFeatureRedefinitions(sym *symbols.Symbol) []*symbols.Symbol 
 	fqn := ""
 	if i, ok := symbols.ImpliedFlowEndFeatureIndex(sym); ok {
 		fqn = [...]string{transferSourceOutputFQN, transferTargetInputFQN}[i]
-	} else if IsFlowPayload(sym) {
+	} else if IsFlowPayload(sym) || m.IsFlowPayload(sym) {
 		fqn = transferPayloadFQN
 	}
 	if fqn == "" {

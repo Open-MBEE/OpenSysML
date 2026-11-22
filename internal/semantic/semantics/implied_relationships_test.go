@@ -261,3 +261,18 @@ func TestImpliedSpecializationsOfAReferenceTypedTwice(t *testing.T) {
 		t.Errorf("P::Owner::r: implied specializations %v, want %v", got, want)
 	}
 }
+
+// KerML checkPayloadFeatureRedefinition holds for the payload a recorded flow declares as for one read from source.
+func TestImpliedRedefinitionsOfARecordedFlowPayload(t *testing.T) {
+	src := `package P { part def T; part a { out o : T; } part b { in i : T; } flow f of p : T from a.o to b.i; }`
+	for i, fixture := range reflectiveFixtures(t, "payload.sysml", source.KindSysML, src) {
+		payload := auditLibraryBases(t, fixture.root, "P::f::p")
+		var got []string
+		for _, redefined := range fixture.model.ImpliedRedefinitions(payload) {
+			got = append(got, fixture.model.resolver.Index().GetFQN(redefined))
+		}
+		if want := []string{transferPayloadFQN}; !slices.Equal(got, want) {
+			t.Errorf("fixture %d: implied redefinitions %v, want %v", i, got, want)
+		}
+	}
+}
