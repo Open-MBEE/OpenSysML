@@ -79,14 +79,27 @@ func (g *ActionGraph) chainKeyIn(scope *symbols.Scope, ref ast.Node) chainKey {
 	if !ok || own == nil || own == key.root || key.root == nil {
 		return key
 	}
+	if g.redefinesRoot(own, key.root) {
+		key.root = own
+	}
+	return key
+}
+
+// redefinesRoot reports whether own redefines root: by clause, or through the
+// features the one it names redefines in turn.
+func (g *ActionGraph) redefinesRoot(own, root *symbols.Symbol) bool {
+	usage, ok := own.Decl.(*ast.Usage)
+	if !ok {
+		return false
+	}
 	var r redefinitionResolver
 	if g.resolver != nil {
 		r = g.resolver
 	}
-	if usage, isUsage := own.Decl.(*ast.Usage); isUsage && redefinesByClause(r, g.DeclScope(usage), usage, key.root) {
-		key.root = own
+	if redefinesByClause(r, g.DeclScope(usage), usage, root) {
+		return true
 	}
-	return key
+	return slices.Contains(g.Semantics().AllRedefinedFeatures(own), root)
 }
 
 // chainNames spells a chain by the name each feature on it declares, so a short

@@ -5,7 +5,11 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 const chainEndParts = `
@@ -425,5 +429,48 @@ func TestChainEndByShortNameJoinsStatedPerformer(t *testing.T) {
 	}
 	if edges := graph.Edges[c]; len(edges) != 1 {
 		t.Fatalf("c edges = %v, want the one to done", edges)
+	}
+}
+
+// A part redefined general by general is one feature: a chain through the nearest
+// redefinition is the chain the farthest general's performer names.
+func TestChainEndThroughRedefinedRootJoinsInheritedPerformer(t *testing.T) {
+	for name, redefinitions := range map[string][2]string{
+		"none":    {"", ""},
+		"nearest": {"", "part :>> v;"},
+		"middle":  {"part :>> v;", ""},
+		"each":    {"part :>> v;", "part :>> v;"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			src := chainEndParts + `
+				action def Base {
+					part v : Vehicle;
+					perform action c ::> v.close;
+				}
+				action def Mid :> Base { ` + redefinitions[0] + ` }
+				action def Derived :> Mid {
+					` + redefinitions[1] + `
+					action a;
+					first v.close then a;
+				}
+			`
+			p := parser.New(source.New("test.sysml", []byte(src)))
+			root := p.ParseFile()
+			if len(p.Diagnostics) != 0 {
+				t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+			}
+			idx := symbols.NewIndexFromDoc("test.sysml", root)
+			decl := actionDefinition(t, root, "Derived")
+			graph, err := ToActionGraphWith(decl, idx.DocumentRoot("test.sysml").ChildFor(decl), resolve.New(idx))
+			if err != nil {
+				t.Fatalf("ToActionGraphWith: %v", err)
+			}
+			if implied := impliedChainSteps(graph); len(implied) != 0 {
+				t.Fatalf("implied steps = %d, want the inherited performer to be the end", len(implied))
+			}
+			if edges := graph.Edges[nodeNamed(t, graph, "c")]; len(edges) != 1 || edges[0].Target != nodeNamed(t, graph, "a") {
+				t.Fatalf("c edges = %v, want [a]", edges)
+			}
+		})
 	}
 }
