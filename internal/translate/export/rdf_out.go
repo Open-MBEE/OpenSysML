@@ -1514,7 +1514,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		return members(n.Members)
 
 	case *ast.Definition:
-		metaclass, ok := definitionMetaclass[n.Kind]
+		metaclass, ok := definitionMetaclassOf(n)
 		if !ok {
 			return &UnsupportedError{What: fmt.Sprintf("definition kind %q at %s", n.Kind, e.where(n))}
 		}

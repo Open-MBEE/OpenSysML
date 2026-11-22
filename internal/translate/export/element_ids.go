@@ -777,7 +777,7 @@ func (e *encoder) writtenDependencyAnnotation(node, parent ast.Node, subject rdf
 // writtenClauseRelationships records the relationship written for each distinct target of the
 // head's clauses (materializeRelationships), by the clause or by the target of an implicit one.
 func (e *encoder) writtenClauseRelationships(node, parent ast.Node, subject rdf.Term, parents map[ast.Node]ast.Node, out map[ast.Node]string) {
-	_, classifier := node.(*ast.Definition)
+	classifier := isClassifier(declaredMetaclass(node))
 	clauses := e.writtenHeadClauses(node, parent, parents)
 	chains := chainTargets(clauses)
 	for _, kind := range materializedKinds {
