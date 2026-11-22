@@ -128,7 +128,6 @@ symbol-72	symbol	KerML 8.3.4.8.3 ConstructorExpression: the expression owns only
 symbol-73	symbol	KerML 8.3.5.1.2 Behavior::parameter redefines Type::directedFeature: the behavior's owned and inherited directed features, a parameter membership's member and a library type's `result` included; the export writes none for it
 symbol-74	symbol	KerML 8.3.4.7.4 Function::result subsets output: the owned return parameter, else the one output the function inherits from its library base (Performances::Evaluation::result); the export writes none for it
 symbol-75	symbol	KerML 8.3.2.4.6 NamespaceImport::importedElement is the importedNamespace and 8.3.2.4.4 MembershipImport::importedElement the importedMembership's memberElement (an expose alike, SysML 8.3.26.4); the export writes none for it
-symbol-76	symbol	KerML 8.3.4.9.2 Flow::sourceOutputFeature and targetInputFeature are the features the flow's two ends attach to (the last segment of each end's chain); the export writes none for them
 symbol-77	symbol	KerML 8.3.4.8.4 FeatureChainExpression::operator is "." (redefines OperatorExpression::operator); the export writes none for it
 symbol-78	symbol	KerML 8.3.2.3.5 Documentation::documentedElement subsets annotatedElement and is the element owning the documentation (7.2.4.2); the export writes none for a documentation written with a name
 symbol-79	symbol	KerML 8.3.4.8.7 SelectExpression::operator is "select" (redefines OperatorExpression::operator); the export writes none for it

@@ -176,6 +176,8 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	{class: "Flow", name: "flowEnd", clause: "8.3.4.9.2 deriveFlowFlowEnd"},
 	{class: "Flow", name: "payloadFeature", clause: "8.3.4.9.2 deriveFlowPayloadFeature"},
 	{class: "Flow", name: "payloadType", clause: "8.3.4.9.2 deriveFlowPayloadType"},
+	{class: "Flow", name: "sourceOutputFeature", clause: "8.3.4.9.2 deriveFlowSourceOutputFeature"},
+	{class: "Flow", name: "targetInputFeature", clause: "8.3.4.9.2 deriveFlowTargetInputFeature"},
 }
 
 // apiJSONInheritedFamilies are the completed properties that repeat a Namespace's or Type's
