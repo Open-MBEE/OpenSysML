@@ -8,42 +8,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/pilot"
 )
-
-// pilotLine matches the GNU-format diagnostics the validators print on stderr.
-var pilotLine = regexp.MustCompile(`^(.+\.(?:sysml|kerml)):(\d+):(\d+): (error|warning|info|ignore): (.*)$`)
-
-// pilotVersion reports which pilot release the validator was built against,
-// read from the pin its provisioning script wrote beside it.
-func pilotVersion(validator string) (string, error) {
-	pin, err := os.ReadFile(filepath.Join(filepath.Dir(validator), "pilot-pin.txt"))
-	if err != nil {
-		return "", fmt.Errorf("read the validator's pilot-pin.txt: %w", err)
-	}
-	tag := pinnedValue(string(pin), "sysml.release.tag")
-	version := pinnedValue(string(pin), "sysml.artifact.version")
-	if tag == "" || version == "" {
-		return "", fmt.Errorf("%s does not pin sysml.release.tag/sysml.artifact.version", validator)
-	}
-	return fmt.Sprintf("%s (jupyter-sysml-kernel %s)", tag, version), nil
-}
-
-func pinnedValue(pin, name string) string {
-	for _, line := range strings.Split(pin, "\n") {
-		key, value, ok := strings.Cut(line, "=")
-		if ok && strings.TrimSpace(key) == name {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
-}
 
 // openSysMLErrors validates each case in its own workspace — the cases are
 // independent single files — under the conformance mode modes names for it, and
@@ -110,21 +82,21 @@ func pilotErrors(validator, repo, dir string, files []string, timeout time.Durat
 	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
 	for scanner.Scan() {
 		line := scanner.Text()
-		match := pilotLine.FindStringSubmatch(line)
-		if match == nil {
-			if strings.TrimSpace(line) != "" && !strings.HasPrefix(line, "log4j:") {
+		found, ok := pilot.ParseDiagnostic(line)
+		if !ok {
+			if !pilot.Noise(line) {
 				unattributed = append(unattributed, line)
 			}
 			continue
 		}
-		if !byPath[match[1]] {
+		if !byPath[found.Path] {
 			unattributed = append(unattributed, line)
 			continue
 		}
-		if match[4] != "error" {
+		if found.Severity != "error" {
 			continue
 		}
-		out[match[1]] = append(out[match[1]], fmt.Sprintf("line %s: %s", match[2], match[5]))
+		out[found.Path] = append(out[found.Path], fmt.Sprintf("line %d: %s", found.Line, found.Message))
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("read the validator's output: %w", err)

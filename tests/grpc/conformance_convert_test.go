@@ -2,16 +2,90 @@ package grpc_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"flag"
+	"fmt"
+	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 )
 
-func runConvertLibraryReferencesCase(t *testing.T, srv *grpc.Service, ctx context.Context, hash string, tc conformanceCase) {
+var updateLibraryReferences = flag.Bool("update-library-references", false,
+	"rewrite the library_references tables of the Convert conformance cases from the service's response")
+
+// maxLibraryReferenceBytes is the size up to which a case states its table row by row;
+// a larger one is committed as its digest, under the fixture cap tests/hygiene enforces.
+const maxLibraryReferenceBytes = 150 * 1024
+
+// libraryReferenceRows writes a table one JSON row a line, the form a case commits.
+func libraryReferenceRows(table []*pb.LibraryReference) []string {
+	rows := make([]string, len(table))
+	for i, ref := range table {
+		var row strings.Builder
+		fmt.Fprintf(&row, `{"id":%q`, ref.Id)
+		if ref.QualifiedName != "" {
+			fmt.Fprintf(&row, `,"qualified_name":%q`, ref.QualifiedName)
+		}
+		fmt.Fprintf(&row, `,"type":%q`, ref.Type)
+		if ref.LibraryPath != "" {
+			fmt.Fprintf(&row, `,"library_path":%q`, ref.LibraryPath)
+		}
+		row.WriteString("}")
+		rows[i] = row.String()
+	}
+	return rows
+}
+
+// libraryReferencesDigest is the digested form of a table: the sha256 of its rows, one a
+// line, and their count.
+func libraryReferencesDigest(rows []string) string {
+	sum := sha256.Sum256([]byte(strings.Join(rows, "\n") + "\n"))
+	return fmt.Sprintf("sha256 %s rows %d", hex.EncodeToString(sum[:]), len(rows))
+}
+
+// convertLibraryReferences is the table the service answers for the element form with the
+// derived members a namespace imports and inherits.
+func convertLibraryReferences(t *testing.T, srv *grpc.Service, ctx context.Context, hash string) []*pb.LibraryReference {
 	t.Helper()
+	response, err := srv.Convert(ctx, &pb.ConvertRequest{
+		Source: &pb.ConvertRequest_ModelHash{ModelHash: hash}, ToFormat: "api-json", InheritedMembers: true,
+	})
+	if err != nil || response.Error != "" {
+		t.Fatalf("convert: %v %v", response.GetError(), err)
+	}
+	return response.LibraryReferences
+}
+
+func runConvertLibraryReferencesCase(t *testing.T, srv *grpc.Service, ctx context.Context, hash string, tc conformanceCase, path string) {
+	t.Helper()
+	if *updateLibraryReferences {
+		rows := libraryReferenceRows(convertLibraryReferences(t, srv, ctx, hash))
+		body := "  \"library_references\": [\n    " + strings.Join(rows, ",\n    ") + "\n  ]"
+		if len(body) > maxLibraryReferenceBytes {
+			body = fmt.Sprintf("  \"library_references_digest\": %q", libraryReferencesDigest(rows))
+		}
+		if err := os.WriteFile(path, []byte("{\n  \"rpc\": \"Convert\",\n"+body+"\n}\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	if tc.LibraryReferencesDigest != "" {
+		if len(tc.LibraryReferences) > 0 {
+			t.Fatal("a case states library_references or library_references_digest, not both")
+		}
+		table := convertLibraryReferences(t, srv, ctx, hash)
+		if got := libraryReferencesDigest(libraryReferenceRows(table)); got != tc.LibraryReferencesDigest {
+			t.Fatalf("table digest = %q, want %q (regenerate with -update-library-references)", got, tc.LibraryReferencesDigest)
+		}
+		// The digest pins the table; the checks below hold every other form to it.
+		tc.LibraryReferences = table
+	}
 	for _, compact := range []bool{false, true} {
 		for _, legacy := range []bool{false, true} {
 			runConvertOwnedLibraryReferences(t, srv, ctx, hash, tc, compact, legacy)

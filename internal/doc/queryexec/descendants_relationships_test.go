@@ -76,8 +76,8 @@ package Probe {
 	port def Optical;
 	state def Machine {
 		state idle;
+		then busy;
 		state busy;
-		transition idle_to_busy first idle then busy;
 	}
 	part telescope {
 		part a : A;

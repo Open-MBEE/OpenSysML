@@ -196,43 +196,6 @@ func TestBatchByLanguage(t *testing.T) {
 	}
 }
 
-func TestPilotLineParsing(t *testing.T) {
-	tests := []struct {
-		name, line, path, lineNo, severity, message string
-	}{
-		{
-			name:     "SysML",
-			line:     "Part Definition Example.sysml:12:3: warning: Bound features should have conforming types",
-			path:     "Part Definition Example.sysml",
-			lineNo:   "12",
-			severity: "warning",
-			message:  "Bound features should have conforming types",
-		},
-		{
-			name:     "KerML nested path",
-			line:     "Nested Folder/Example.kerml:7:4: error: unresolved reference",
-			path:     "Nested Folder/Example.kerml",
-			lineNo:   "7",
-			severity: "error",
-			message:  "unresolved reference",
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			match := pilotLine.FindStringSubmatch(test.line)
-			if match == nil {
-				t.Fatalf("no match for %q", test.line)
-			}
-			if match[1] != test.path || match[2] != test.lineNo || match[4] != test.severity {
-				t.Errorf("match = %q", match[1:])
-			}
-			if match[5] != test.message {
-				t.Errorf("message = %q", match[5])
-			}
-		})
-	}
-}
-
 // F6: both validators are single-batch and report paths relative to --root.
 func TestPilotDiagnosticsAttribution(t *testing.T) {
 	repo := t.TempDir()

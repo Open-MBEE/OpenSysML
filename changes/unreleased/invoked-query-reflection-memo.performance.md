@@ -1,0 +1,1 @@
+- A query invoked from another query reuses what the calling query already read of the metamodel instead of reading it again per invocation.

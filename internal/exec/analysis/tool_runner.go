@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"sort"
 	"strconv"
@@ -23,8 +24,9 @@ type toolRunner struct {
 	selection Selection
 
 	mu sync.Mutex
-	// answered is the outputs each request, by its bytes, was first answered with.
-	answered map[string]string
+	// answered is the digest of the outputs each request, by its own digest, was first
+	// answered with: a plan of many runs keeps a fixed size per distinct request.
+	answered map[[sha256.Size]byte][sha256.Size]byte
 	// uses is every tool call the plan's runs made; seq orders them.
 	uses []ToolUse
 	next uint64
@@ -76,7 +78,7 @@ func (u ToolUse) String() string {
 // newToolRunner is the runner of one plan over the held model, putting each computation to
 // the registry under the plan's selection.
 func (r *Registry) newToolRunner(ctx context.Context, model *Model, budget Budget, selection Selection) *toolRunner {
-	return &toolRunner{registry: r, ctx: ctx, model: model, budget: budget, selection: selection, answered: make(map[string]string)}
+	return &toolRunner{registry: r, ctx: ctx, model: model, budget: budget, selection: selection, answered: make(map[[sha256.Size]byte][sha256.Size]byte)}
 }
 
 // ToolRunner is the runner a surface attaches to a context it drives outside any plan — the
@@ -144,12 +146,13 @@ func (t *toolRunner) remember(call *runtime.ToolCall, answer string) (bool, erro
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	earlier, seen := t.answered[string(request)]
+	key, reply := sha256.Sum256(request), sha256.Sum256([]byte(answer))
+	earlier, seen := t.answered[key]
 	if !seen {
-		t.answered[string(request)] = answer
+		t.answered[key] = reply
 		return false, nil
 	}
-	return earlier != answer, nil
+	return earlier != reply, nil
 }
 
 // note keeps a use an engine reported for the call, attributed to the context the call

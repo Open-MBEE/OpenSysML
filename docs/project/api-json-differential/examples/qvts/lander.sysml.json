@@ -7,14 +7,14 @@
     "elements": {
       "matched": 122,
       "oursOnly": 0,
-      "pilotOnly": 3,
+      "pilotOnly": 0,
       "pilotOnlyImplied": 0,
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 2595,
+      "presentEqual": 2602,
       "presentDifferent": 181,
-      "oursMissing": 154,
+      "oursMissing": 147,
       "pilotMissing": 80,
       "absentBoth": 2895,
       "indeterminate": 65,
@@ -24,7 +24,7 @@
     "extensionProperties": 280,
     "duplicateElements": {
       "ours": 0,
-      "pilot": 0
+      "pilot": 123
     },
     "ambiguousKeys": {
       "ours": 8,
@@ -445,7 +445,7 @@
     "ConstraintUsage.parameter": [0,0,1,0,0,0,0],
     "ConstraintUsage.portionKind": [0,0,0,0,1,0,0],
     "ConstraintUsage.predicate": [0,0,1,0,0,0,0],
-    "ConstraintUsage.result": [0,0,1,0,0,0,0],
+    "ConstraintUsage.result": [1,0,0,0,0,0,0],
     "ConstraintUsage.textualRepresentation": [0,0,0,0,1,0,0],
     "ConstraintUsage.type": [0,0,1,0,0,0,0],
     "ConstraintUsage.unioningType": [0,0,0,0,1,0,0],
@@ -844,7 +844,7 @@
     "LiteralInteger.owningNamespace": [1,0,0,0,0,0,0],
     "LiteralInteger.owningRelationship": [1,0,0,0,0,0,0],
     "LiteralInteger.parameter": [0,0,1,0,0,0,0],
-    "LiteralInteger.result": [0,0,1,0,0,0,0],
+    "LiteralInteger.result": [1,0,0,0,0,0,0],
     "LiteralInteger.textualRepresentation": [0,0,0,0,1,0,0],
     "LiteralInteger.type": [1,0,0,0,0,0,0],
     "LiteralInteger.unioningType": [0,0,0,0,1,0,0],
@@ -911,7 +911,7 @@
     "LiteralRational.owningNamespace": [3,0,0,0,0,0,0],
     "LiteralRational.owningRelationship": [3,0,0,0,0,0,0],
     "LiteralRational.parameter": [0,0,3,0,0,0,0],
-    "LiteralRational.result": [0,0,3,0,0,0,0],
+    "LiteralRational.result": [3,0,0,0,0,0,0],
     "LiteralRational.textualRepresentation": [0,0,0,0,3,0,0],
     "LiteralRational.type": [3,0,0,0,0,0,0],
     "LiteralRational.unioningType": [0,0,0,0,3,0,0],
@@ -2008,7 +2008,7 @@
     "RequirementUsage.reqId": [0,0,0,0,1,0,0],
     "RequirementUsage.requiredConstraint": [0,0,0,0,1,0,0],
     "RequirementUsage.requirementDefinition": [1,0,0,0,0,0,0],
-    "RequirementUsage.result": [0,0,1,0,0,0,0],
+    "RequirementUsage.result": [1,0,0,0,0,0,0],
     "RequirementUsage.stakeholderParameter": [0,0,0,0,1,0,0],
     "RequirementUsage.subjectParameter": [1,0,0,0,0,0,0],
     "RequirementUsage.text": [0,0,0,0,1,0,0],
@@ -2186,7 +2186,7 @@
     "SatisfyRequirementUsage.reqId": [0,0,0,0,1,0,0],
     "SatisfyRequirementUsage.requiredConstraint": [0,0,0,0,1,0,0],
     "SatisfyRequirementUsage.requirementDefinition": [1,0,0,0,0,0,0],
-    "SatisfyRequirementUsage.result": [0,0,1,0,0,0,0],
+    "SatisfyRequirementUsage.result": [1,0,0,0,0,0,0],
     "SatisfyRequirementUsage.satisfiedRequirement": [0,0,1,0,0,0,0],
     "SatisfyRequirementUsage.satisfyingFeature": [0,0,1,0,0,0,0],
     "SatisfyRequirementUsage.stakeholderParameter": [0,0,0,0,1,0,0],

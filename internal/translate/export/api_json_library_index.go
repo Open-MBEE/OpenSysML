@@ -23,6 +23,7 @@ type libraryIndex struct {
 	// mu serializes the model's queries, which memoize: the catalog and the anonymous index are frozen.
 	mu        sync.Mutex
 	model     *semantics.Model
+	resolver  *resolve.Resolver
 	catalog   *identity.Catalog
 	anonymous *identity.AnonymousIndex
 	// source serves exactly the text the index was built from, and forms holds
@@ -45,6 +46,18 @@ func (index *libraryIndex) owningMembershipMetaclass(sym *symbols.Symbol) string
 	return identity.OwningMembershipMetaclass(index.model, sym)
 }
 
+// aliasTarget is the catalogued library element the alias of a membership names, under the index's lock.
+func (index *libraryIndex) aliasTarget(alias identity.AliasMembership) (*identity.LibraryElement, bool) {
+	index.mu.Lock()
+	defer index.mu.Unlock()
+	target, ok := index.resolver.ResolveAliasTarget(alias.Symbol)
+	if !ok || target == nil {
+		return nil, false
+	}
+	library, ok := index.catalog.ElementForSymbol(target)
+	return library, ok && library != nil && library.Symbol != nil
+}
+
 var (
 	sharedLibraryIndexOnce sync.Once
 	sharedLibraryIndexV    *libraryIndex
@@ -53,9 +66,10 @@ var (
 func sharedLibraryIndex() *libraryIndex {
 	sharedLibraryIndexOnce.Do(func() {
 		base, source := libs.SharedLibrary()
-		model := semantics.NewModel(resolve.New(base))
+		resolver := resolve.New(base)
+		model := semantics.NewModel(resolver)
 		catalog := identity.LibraryCatalogWithOpenSysML(base)
-		sharedLibraryIndexV = &libraryIndex{model: model, catalog: catalog, anonymous: identity.AnonymousMemberIndex(model, catalog), source: source}
+		sharedLibraryIndexV = &libraryIndex{model: model, resolver: resolver, catalog: catalog, anonymous: identity.AnonymousMemberIndex(model, catalog), source: source}
 	})
 	return sharedLibraryIndexV
 }
@@ -172,6 +186,17 @@ func addLibraryStub(graph *rdf.Graph, index *libraryIndex, subject rdf.Term, id 
 		member := rdf.ElementIRIForID(library.ID)
 		addNamedLibraryStub(graph, member, library, index.stubMetaclass(library.Symbol))
 		addLibraryMembershipStub(graph, subject, id, member, index.owningMembershipMetaclass(library.Symbol))
+		return true
+	}
+	if alias, ok := index.anonymous.AliasMembership(id); ok {
+		target, ok := index.aliasTarget(alias)
+		if !ok {
+			return false
+		}
+		member := rdf.ElementIRIForID(target.ID)
+		addNamedLibraryStub(graph, member, target, index.stubMetaclass(target.Symbol))
+		addLibraryMembershipStub(graph, subject, id, member, "Membership")
+		graph.Add(subject, rdf.OpenSysMLTerm(xLibraryPath), rdf.String(alias.Path))
 		return true
 	}
 	if member, ok := index.anonymous.Element(id); ok {

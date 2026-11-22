@@ -20,9 +20,9 @@ sudo apt-get install -y man-db mandoc      # passwordless sudo works on this box
   prints a notice and exits 0. Without `man-db`, `man sysml` looks like a page that renders to
   nothing and `man -w sysml` prints no path — a false negative, not a bug in the pages.
 - `make man-check` lints with `mandoc -T lint -W warning` if present, else falls back to
-  `groff -man -Tutf8 -ww -z`, else prints a *note and passes*. So on a box with neither, the
-  lint arm is silently vacuous — always confirm `mandoc` is installed before claiming lint
-  coverage (CI installs it explicitly).
+  `groff -man -Tutf8 -ww -z`, else *fails* naming both. `MAN_LINT_OPTIONAL=1` turns that into a
+  note and a pass, so a run with it set proves nothing about the pages — confirm `mandoc` is
+  installed before claiming lint coverage (CI installs it explicitly).
 
 ## Prove the drift gate is load-bearing (two independent mutations)
 

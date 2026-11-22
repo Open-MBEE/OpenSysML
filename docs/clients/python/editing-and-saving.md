@@ -30,8 +30,8 @@ api-json carried before 0.11.0; it needs the service's `convert_library_stubs`
 capability, and a service without it raises `MissingCapabilityError` before
 anything is sent. `inherited_members=True` also writes, in api-json, the derived
 lists that repeat each Namespace's and Type's inherited and imported members
-(`membership`, `member`, `inheritedMembership`, `featureMembership`, `feature`,
-`inheritedFeature`), where by default an element carries its owned structure; it
+(`membership`, `member`, `inheritedMembership`, `importedMembership`,
+`featureMembership`, `feature`, `inheritedFeature`), where by default an element carries its owned structure; it
 needs `convert_inherited_members`. All three are taken alike by `opensysml.convert`,
 `Connection.convert` and `Model.convert`.
 
