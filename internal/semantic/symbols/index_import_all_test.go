@@ -1,6 +1,10 @@
 package symbols
 
-import "testing"
+import (
+	"fmt"
+	"strings"
+	"testing"
+)
 
 func wantNamed(t *testing.T, idx *Index, fqn string, want int) {
 	t.Helper()
@@ -122,4 +126,34 @@ func TestExpandWildcardImportsStopsARouteAtANamespaceItCameThrough(t *testing.T)
 
 func TestSnapshotKeepsTheNamespacesARouteCameThrough(t *testing.T) {
 	wantCycleRoutes(t, roundTrip(t, frozenBase(t, importCycleDocs)))
+}
+
+// Layers of namespaces each importing both of the layer below reach a name by
+// a number of paths doubling per layer, which no import cycle tells apart.
+func TestExpandWildcardImportsKeepsOneRouteThroughLayeredImports(t *testing.T) {
+	var src strings.Builder
+	src.WriteString("package S { part def P; }\n")
+	below := [2]string{"S", "S"}
+	const layers = 40
+	for i := 1; i <= layers; i++ {
+		layer := [2]string{fmt.Sprintf("A%d", i), fmt.Sprintf("B%d", i)}
+		for _, name := range layer {
+			fmt.Fprintf(&src, "package %s { public import %s::*; public import %s::*; }\n", name, below[0], below[1])
+		}
+		below = layer
+	}
+	idx := NewIndex()
+	addDoc(t, idx, "layers.sysml", src.String())
+	idx.ExpandWildcardImports()
+
+	p := lookupOne(t, idx, "S::P")
+	for _, top := range below {
+		if routes := idx.ReexportGates("", top+"::P", p, ""); len(routes) != 1 {
+			t.Errorf("%s::P has %d routes, want the one every path amounts to", top, len(routes))
+		}
+		routed, accepted := idx.EachReexportGate("", top+"::P", p, "", []string{"A1"}, func([]ElementFilter) bool { return true })
+		if !routed || !accepted {
+			t.Errorf("%s::P is routed %v and accepted %v with A1 excluded, want both: B1 reaches it", top, routed, accepted)
+		}
+	}
 }
