@@ -459,6 +459,14 @@ job sets up, and it installs each a second time with the index unreachable. A ne
 therefore changes the call site and the matrix together; `tests/hygiene/pip_install_test.go` fails
 on a direct `pip install`, and on a request the matrix does not warm.
 
+cvc5, which has no apt package, is installed from its release zip by `.github/actions/cvc5`: the zip
+is restored under `cvc5-<os>-<arch>-<version>-<sha256>` from `scripts/cvc5-pin.sh`, and
+`scripts/ci-cvc5-install.sh` verifies it against that digest before installing, so a run with the
+entry never asks GitHub. Without it the script downloads through `scripts/fetch-https.sh`, verifies,
+and the action saves the zip; a zip that is not the pinned one fails the step, unretried and unkept.
+A pull request and a merge group restore only an entry saved on `develop`, which the nightly full
+scan and the extension-libraries run save. `tests/hygiene/cvc5_install_test.go` covers both paths.
+
 The dependency audit is the one step that cannot run from the wheels: `pip-audit` asks PyPI which
 versions an install would resolve today and which of them are vulnerable, and it gives up on the
 first read that takes 15 seconds. `make audit-python` therefore runs it through
