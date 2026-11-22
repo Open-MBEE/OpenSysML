@@ -261,7 +261,7 @@ func (ctx *Context) loopBodyFeatures(typ *symbols.Symbol, stmt lower.Loop) []Eff
 			return true
 		}
 		seen[sym] = true
-		if sym.Decl != stmt.Node && isPerformanceKind(sym.Kind) && !ctx.model.semantics.FrameFeature(sym) {
+		if sym.Decl != stmt.Node && sym.Kind.IsPerformance() && !ctx.model.semantics.FrameFeature(sym) {
 			if sym.Name != "" {
 				name = sym.Name
 			}
