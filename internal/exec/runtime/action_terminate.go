@@ -228,7 +228,7 @@ func (e *ActionExecutor) beginPending(parent *actionFrame, node ast.Node) ([]*ac
 	slices.Sort(parked)
 	var begun []*actionFrame
 	for _, id := range parked {
-		perf, err := e.beginPerformance(parent, e.graphOf(parent), node, nil, nil, nil)
+		perf, err := e.beginPerformance(parent, e.graphOf(parent), node, nil, nil, nil, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -444,6 +444,7 @@ func (e *ActionExecutor) dropTokensIn(perf *actionFrame, keep int64) {
 // discardTokensIn drops the tokens dropTokensIn does and returns them, unrecorded.
 func (e *ActionExecutor) discardTokensIn(perf *actionFrame, keep int64) []Token {
 	var dropped []Token
+	var ended []*actionFrame
 	for _, idx := range e.tokensIn(perf) {
 		if e.tokens[idx].ID != keep {
 			dropped = append(dropped, e.tokens[idx])
@@ -456,8 +457,16 @@ func (e *ActionExecutor) discardTokensIn(perf *actionFrame, keep int64) []Token 
 		}
 		for f := token.frame; f != nil && f != perf; f = f.parent {
 			f.ended, f.live = true, 0
+			if !slices.Contains(ended, f) {
+				ended = append(ended, f)
+			}
 		}
 		e.removeToken(e.tokenIndex(token.ID))
+	}
+	// The innermost performances end first, so none outlives the one around it.
+	slices.SortStableFunc(ended, func(a, b *actionFrame) int { return cmp.Compare(len(b.within()), len(a.within())) })
+	for _, f := range ended {
+		e.endNodeOccurrence(f)
 	}
 	return dropped
 }

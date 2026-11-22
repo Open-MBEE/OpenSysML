@@ -1,0 +1,10 @@
+{
+  "type": "action",
+  "libraries": true,
+  "evaluate": "test::Pipeline",
+  "outputs": {
+    "seen": {"type": "Integer", "value": 3},
+    "one.v": {"type": "Integer", "value": 1},
+    "two.v": {"type": "Integer", "value": 2}
+  }
+}
