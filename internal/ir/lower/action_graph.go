@@ -1439,11 +1439,21 @@ func (l *actionEdgeLowerer) ends(ref ast.Node, member ast.Node, source bool) ([]
 	return nil, nil
 }
 
-// addEdges states edge from every source to every target. A decision takes one
-// succession, so one reaching several steps reaches them through a fork.
+// takesOneSuccession reports whether a succession out of node is one branch of it:
+// a decision chooses one, and a merge or join passes its token along one.
+func takesOneSuccession(node ast.Node) bool {
+	switch node.(type) {
+	case *ast.DecisionNode, *ast.MergeNode, *ast.JoinNode:
+		return true
+	}
+	return false
+}
+
+// addEdges states edge from every source to every target. A decision, merge or join
+// has one succession per branch, so one reaching several steps does so through a fork.
 func (l *actionEdgeLowerer) addEdges(sources, targets []ast.Node, edge ActionEdge) {
 	for _, source := range sources {
-		if _, decides := source.(*ast.DecisionNode); decides && len(targets) > 1 {
+		if len(targets) > 1 && takesOneSuccession(source) {
 			fork := &ast.ForkNode{}
 			fork.NodeSpan = edge.Decl.Span()
 			l.graph.Nodes = append(l.graph.Nodes, fork)

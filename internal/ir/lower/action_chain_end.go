@@ -70,10 +70,10 @@ type chainKey struct {
 // the action's own feature where the action redefines it.
 func (g *ActionGraph) chainKeyIn(scope *symbols.Scope, ref ast.Node) chainKey {
 	segments := endSegments(ref)
-	key := chainKey{path: strings.Join(segments, "\x00")}
 	if len(segments) == 0 {
-		return key
+		return chainKey{}
 	}
+	key := chainKey{path: strings.Join(g.chainNames(scope, ref, segments), "\x00")}
 	key.root = chainFeature(scope, g.resolver, ast.QualifiedNameOf(segments[0]))
 	own, ok := resolve.FeatureSymbolInScope(g.Scope, segments[:1])
 	if !ok || own == nil || own == key.root || key.root == nil {
@@ -87,6 +87,39 @@ func (g *ActionGraph) chainKeyIn(scope *symbols.Scope, ref ast.Node) chainKey {
 		key.root = own
 	}
 	return key
+}
+
+// chainNames spells a chain by the name each feature on it declares, so a short
+// name and the name beside it spell one path; an unresolved segment stays as written.
+func (g *ActionGraph) chainNames(scope *symbols.Scope, ref ast.Node, segments []string) []string {
+	names := slices.Clone(segments)
+	for i := range names {
+		if sym := chainFeature(scope, g.resolver, chainPrefix(ref, i+1)); sym != nil && sym.Name != "" {
+			names[i] = sym.Name
+		}
+	}
+	return names
+}
+
+// chainPrefix is the chain ref spells cut to its first n segments.
+func chainPrefix(ref ast.Node, n int) ast.Node {
+	switch e := ref.(type) {
+	case *ast.QualifiedName:
+		if n >= len(e.Parts) {
+			return e
+		}
+		prefix := &ast.QualifiedName{Parts: e.Parts[:n:n], Global: e.Global}
+		prefix.NodeSpan = e.Span()
+		return prefix
+	case *ast.FeatureChainExpr:
+		if n >= len(endSegments(e)) {
+			return e
+		}
+		return chainPrefix(e.Operand, n)
+	case *ast.FeatureReference:
+		return chainPrefix(e.Name, n)
+	}
+	return ref
 }
 
 // isChainEnd reports whether an end is written with the feature chain dot.

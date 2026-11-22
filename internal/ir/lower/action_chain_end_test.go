@@ -361,3 +361,69 @@ func TestDecisionReachesEachChainPerformerThroughFork(t *testing.T) {
 		t.Fatalf("fork targets = %v, want c1 and c2", targets)
 	}
 }
+
+func TestMergeAndJoinReachEachChainPerformerThroughFork(t *testing.T) {
+	for kind, isKind := range map[string]func(ast.Node) bool{
+		"merge": func(n ast.Node) bool { _, ok := n.(*ast.MergeNode); return ok },
+		"join":  func(n ast.Node) bool { _, ok := n.(*ast.JoinNode); return ok },
+	} {
+		t.Run(kind, func(t *testing.T) {
+			graph := scopedActionGraph(t, `
+				part def Vehicle { action close; }
+				action def A {
+					part v : Vehicle;
+					perform action c1 ::> v.close;
+					perform action c2 ::> v.close;
+					`+kind+` m;
+					first start then m;
+					first m then v.close;
+				}
+			`, "A")
+			var control ast.Node
+			for _, node := range graph.Nodes {
+				if isKind(node) {
+					control = node
+				}
+			}
+			out := graph.Edges[control]
+			if len(out) != 1 {
+				t.Fatalf("%s successions = %d, want the one it states", kind, len(out))
+			}
+			fork, ok := out[0].Target.(*ast.ForkNode)
+			if !ok {
+				t.Fatalf("%s leads to %T, want a fork", kind, out[0].Target)
+			}
+			targets := map[ast.Node]bool{}
+			for _, edge := range graph.Edges[fork] {
+				targets[edge.Target] = true
+			}
+			if len(targets) != 2 || !targets[nodeNamed(t, graph, "c1")] || !targets[nodeNamed(t, graph, "c2")] {
+				t.Fatalf("fork targets = %v, want c1 and c2", targets)
+			}
+		})
+	}
+}
+
+// A chain spelt with a short name is the chain spelt with the name beside it.
+func TestChainEndByShortNameJoinsStatedPerformer(t *testing.T) {
+	graph := scopedActionGraph(t, `
+		part def Vehicle { action <cl> close; }
+		action def A {
+			part <v> vehicle : Vehicle;
+			perform action c ::> vehicle.close;
+			action a;
+			first a then v.cl;
+			first vehicle.cl then done;
+		}
+	`, "A")
+	if implied := impliedChainSteps(graph); len(implied) != 0 {
+		t.Fatalf("implied steps = %d, want none beside the stated performer", len(implied))
+	}
+	c := nodeNamed(t, graph, "c")
+	if edges := graph.Edges[nodeNamed(t, graph, "a")]; len(edges) != 1 || edges[0].Target != c {
+		t.Fatalf("a edges = %v, want [c]", edges)
+	}
+	if edges := graph.Edges[c]; len(edges) != 1 {
+		t.Fatalf("c edges = %v, want the one to done", edges)
+	}
+}
