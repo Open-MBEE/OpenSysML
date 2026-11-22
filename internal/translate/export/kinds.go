@@ -143,14 +143,54 @@ var kermlTypeMetaclassUsage = map[string]ast.UsageKind{
 	"Interaction":          ast.UsageInteraction,
 }
 
-// kermlTypeKeyword reads kermlTypeMetaclass back to the keyword, for a graph that states none.
+// kermlTypeKeyword reads kermlTypeMetaclass back to the keyword, for a graph that states none;
+// `datatype` and `function` are read the same way from the metaclass only they build.
 var kermlTypeKeyword = func() map[string]string {
 	out := map[string]string{}
 	for keyword, metaclass := range kermlTypeMetaclass {
 		out[metaclass] = keyword
 	}
+	for _, keyword := range []string{"datatype", "function"} {
+		out[keywordMetaclass[keyword]] = keyword
+	}
 	return out
 }()
+
+// legacyKerMLTypeMetaclasses maps the names earlier releases typed a KerML type
+// declaration with, which the metamodel does not declare, to the metaclass each meant.
+var legacyKerMLTypeMetaclasses = map[string]string{
+	"AssociationUsage": "Association",
+	"BehaviorUsage":    "Behavior",
+	"ClassUsage":       "Class",
+	"InteractionUsage": "Interaction",
+	"PredicateUsage":   "Predicate",
+	"StructureUsage":   "Structure",
+}
+
+// legacyKerMLTypeMetaclass gives the metaclass a legacy-typed declaration builds: the one
+// its recorded keyword states (`type`, `assoc struct`), else the one its legacy name meant.
+func legacyKerMLTypeMetaclass(legacy, keyword string) string {
+	if declared, ok := kermlTypeMetaclass[keyword]; ok {
+		return declared
+	}
+	return legacyKerMLTypeMetaclasses[legacy]
+}
+
+// defFormSuffix ends the sysx:declaredKeyword of a `class def`: its metaclass is the one
+// the def-less `class` builds, which a graph stating no keyword reads back as.
+const defFormSuffix = " def"
+
+// defFormKeyword gives the keyword a definition sharing its metaclass with a def-less KerML
+// type declaration records, or "" for a definition its metaclass alone tells from one.
+func defFormKeyword(n *ast.Definition, metaclass string) string {
+	if !n.HasDefKeyword || n.Keyword == "" {
+		return ""
+	}
+	if _, shared := kermlTypeMetaclassUsage[metaclass]; !shared && metaclass != mClassifier {
+		return ""
+	}
+	return n.Keyword + defFormSuffix
+}
 
 // mClassifier is what `classifier` builds; the parser records it under DefClass.
 const mClassifier = "Classifier"

@@ -732,6 +732,22 @@ The `sysx:` properties:
 | `sysx:headClause` | On a Subsetting or ReferenceSubsetting of a target the head also relates under the other clause kind that materializes as the same class (`feature f subsets x specializes x;` owns two Subsettings of `x`): the keyword this element stands for, `specializes`, `subsets` or `references`, so the reader keeps the clauses apart — and in their written order — where the collapsed properties alone cannot tell them apart. Absent elsewhere. |
 | the behavioral properties | `sysx:guard`, `sysx:expression`, `sysx:payload`, … — the parts of a behavioral node the vocabulary has no predicate for, listed under [Behavior](#behavior). |
 
+A KerML type declaration is typed by the metaclass its keyword builds (KerML.xtext
+`Type`, `Classifier`, `DataType`, `Class`, `Structure`, `Association`,
+`AssociationStructure`, `Behavior`, `Function`, `Predicate`, `Interaction`,
+`Metaclass`), and reads back by the keyword that metaclass states where the graph
+records no `sysx:declaredKeyword`: a `sysml:DataType` as `datatype`, a
+`sysml:Function` as `function`, a `sysml:Class` as `class`. `classifier`, `class`,
+`struct`, `assoc`, `behavior` and `predicate` share their metaclass with the `def`
+form the notation also accepts (`class def X`), so that form records its keyword with
+the `def` (`sysx:declaredKeyword "class def"`) and reads back with it, while the
+def-less declaration records no `def` and reads back without one. A graph typed `sysml:ClassUsage`,
+`sysml:StructureUsage`, `sysml:AssociationUsage`, `sysml:BehaviorUsage`,
+`sysml:PredicateUsage` or `sysml:InteractionUsage` — names earlier releases wrote,
+which the metamodel does not declare — still reads back as the declaration, and its
+API JSON `@type` is the metaclass: the `Type` or `AssociationStructure` its recorded
+keyword states for a `type` or an `assoc struct`, else the one the name meant.
+
 A `return` parameter written without a kind keyword is a `ReferenceUsage`
 owned through a `ReturnParameterMembership`. OpenSysML-authored graphs retain
 `sysx:isKindImplicit` for this form. The API-JSON reader supplies that marker

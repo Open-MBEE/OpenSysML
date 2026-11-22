@@ -1523,7 +1523,9 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		// An individual definition owns its empty Multiplicity first, before its prefix
 		// metadata and its head's clauses (SysML.xtext OccurrenceDefinitionPrefix).
 		e.defaultMultiplicity(subject, n, nil)
-		if err := e.declaredKeyword(subject, n, n.Keyword, metaclassDefinitionKeyword(n.Kind), n.Ident.Name, false); err != nil {
+		if written := defFormKeyword(n, metaclass); written != "" {
+			e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(written))
+		} else if err := e.declaredKeyword(subject, n, n.Keyword, metaclassDefinitionKeyword(n.Kind), n.Ident.Name, false); err != nil {
 			return err
 		}
 		e.flags(subject, []boolProperty{
