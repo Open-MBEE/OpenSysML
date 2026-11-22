@@ -6,10 +6,22 @@ import (
 	"sort"
 )
 
+// noteReadFrom records that the importer's re-exports read the namespace target.
+func (idx *Index) noteReadFrom(importer, target string) {
+	have := idx.readFrom.at(importer)
+	if at, found := slices.BinarySearch(have, target); !found {
+		idx.readFrom.set(importer, slices.Insert(slices.Clone(have), at, target))
+	}
+}
+
 // importGraph maps each importing namespace to the namespaces its wildcard
-// imports name: as last expanded when settled, else as they resolve now.
+// imports name, as last expanded when settled and else as they resolve now,
+// and to the ones its re-exports were read from.
 func (idx *Index) importGraph(settled bool) map[string][]string {
 	graph := make(map[string][]string)
+	for _, importer := range idx.readFrom.keys() {
+		graph[importer] = slices.Clone(idx.readFrom.at(importer))
+	}
 	edges := func(importer string, imports []resolvedImport) {
 		for _, imp := range imports {
 			if imp.fqn != "" && imp.fqn != importer && !slices.Contains(graph[importer], imp.fqn) {

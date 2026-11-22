@@ -122,8 +122,11 @@ type Index struct {
 	// with, itself included, in name order; nsOrder numbers the namespaces so
 	// that none reads one numbered after it (see noteImportCycles). nsOrder is
 	// replaced, never written, so the views of an index share it.
-	cyclic  *layer[string, []string]
-	nsOrder map[string]int
+	cyclic *layer[string, []string]
+	// readFrom names the namespaces an importer's re-exports were read from: an
+	// import a later one shadows keeps what it read under the name it had.
+	readFrom *layer[string, []string]
+	nsOrder  map[string]int
 
 	// libraryDocs names the documents that hold bundled library content rather
 	// than the workspace's own, with the tier and text digest of each, and
@@ -246,6 +249,7 @@ func NewIndex() *Index {
 		dirtyNS:       make(map[string]nsChange),
 		lastTargets:   newLayer[string, []resolvedImport](gen),
 		cyclic:        newLayer[string, []string](gen),
+		readFrom:      newLayer[string, []string](gen),
 		libraryDocs:   newLayer[string, LibraryDocument](gen),
 		librarySyms:   newLayer[*Symbol, LibraryTier](gen),
 		nsFilters:     newLayer[string, map[string][]ElementFilter](gen),
@@ -408,6 +412,7 @@ func NewOverlay(base *Index) *Index {
 		dirtyNS:       make(map[string]nsChange),
 		lastTargets:   overLayer(base.lastTargets, gen),
 		cyclic:        overLayer(base.cyclic, gen),
+		readFrom:      overLayer(base.readFrom, gen),
 		nsOrder:       base.nsOrder,
 		libraryDocs:   overLayer(base.libraryDocs, gen),
 		librarySyms:   overLayer(base.librarySyms, gen),
@@ -706,6 +711,7 @@ func (idx *Index) expandImporter(pkgFQN string) {
 		// suppressing it, because whether a candidate satisfies them is a question
 		// only the semantic model can answer.
 		gate := nonZeroFilters(append([]ElementFilter{imp.filter}, idx.namespaceFiltersGating(pkgFQN, imp.doc)...))
+		idx.noteReadFrom(pkgFQN, targetFQN)
 		for _, child := range idx.importedChildren(targetFQN, imp.all) {
 			// Extract child's primary name
 			childName := LastSegment(child.Name)
@@ -1164,12 +1170,14 @@ func (idx *Index) purgeAllReexports() {
 		idx.purgeReexport(key)
 	}
 	idx.lastTargets.clear()
+	idx.readFrom.clear()
 }
 
 // purgeReexportsUnder drops every re-export registered directly under pkgFQN,
 // whichever documents claim it. What the surviving documents' imports still
 // support is re-derived by the following expansion.
 func (idx *Index) purgeReexportsUnder(pkgFQN string) {
+	idx.readFrom.del(pkgFQN)
 	for _, fqn := range idx.childKeys(pkgFQN) {
 		for _, sym := range idx.reexportedAt(fqn) {
 			idx.purgeReexport(reexportKey{fqn: fqn, sym: sym})

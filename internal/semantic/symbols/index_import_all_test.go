@@ -157,3 +157,28 @@ func TestExpandWildcardImportsKeepsOneRouteThroughLayeredImports(t *testing.T) {
 		}
 	}
 }
+
+// An import whose name a later import shadows keeps what it read from the
+// namespace it named first, so that namespace stays one the routes came through.
+func TestExpandWildcardImportsKeepsACycleThroughAShadowedTarget(t *testing.T) {
+	idx := NewIndex()
+	addDoc(t, idx, "a.sysml", "package A { package X { part def Other; } }")
+	addDoc(t, idx, "x.sysml", "package X { private part def Hidden; public import Z::*; }")
+	addDoc(t, idx, "z.sysml", "package Z { }")
+	addDoc(t, idx, "p.sysml", "package P { public import all X::*; public import A::*; }")
+	idx.ExpandWildcardImports()
+	hidden := lookupOne(t, idx, "X::Hidden")
+	if routes := idx.ReexportGates("", "P::Hidden", hidden, ""); len(routes) != 1 {
+		t.Fatalf("P::Hidden has %d routes, want the one its import of X took", len(routes))
+	}
+
+	addDoc(t, idx, "z.sysml", "package Z { public import P::*; }")
+	idx.ExpandWildcardImports()
+	if routes := idx.ReexportGates("", "X::Hidden", hidden, ""); len(routes) != 0 {
+		t.Errorf("X::Hidden has %d routes from outside X, want none: P read it from X, which is excluded", len(routes))
+	}
+	taken := func([]ElementFilter) bool { return true }
+	if _, accepted := idx.EachReexportGate("", "Z::Hidden", hidden, "", []string{"X"}, taken); accepted {
+		t.Error("Z::Hidden is accepted with X excluded, want not: its only route reads X")
+	}
+}
