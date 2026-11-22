@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/envvar"
 )
@@ -52,6 +53,40 @@ type Discovery struct {
 	// Guard, when set, is asked before a file found by the dependency search is
 	// read; a file it refuses is left out as if it declared nothing.
 	Guard func(path string) error
+	// Scan, when set, keeps what each library root was found to hold, so the
+	// discoveries of one load walk a root once. Nil walks afresh every time.
+	Scan *Scan
+}
+
+// Scan remembers the projects and archives found under library roots. It
+// reflects the disk as of each root's first walk, so it serves one operation.
+type Scan struct {
+	mu    sync.Mutex
+	found map[string][]string
+}
+
+// NewScan returns an empty Scan.
+func NewScan() *Scan { return &Scan{found: map[string][]string{}} }
+
+// under lists the project directories and archives below root, in walk order.
+func (d Discovery) under(root string) []string {
+	walk := func() (paths []string) {
+		budget := maxLibraryDirs
+		walkInstalled(root, map[string]bool{}, &budget, func(path string) { paths = append(paths, path) })
+		return paths
+	}
+	if d.Scan == nil {
+		return walk()
+	}
+	d.Scan.mu.Lock()
+	defer d.Scan.mu.Unlock()
+	key := absKey(root)
+	paths, ok := d.Scan.found[key]
+	if !ok {
+		paths = walk()
+		d.Scan.found[key] = paths
+	}
+	return paths
 }
 
 // EnvLibraryRoots returns the library roots LibraryRootsEnvVar names, none when
@@ -155,7 +190,7 @@ func (d Discovery) Around(paths []string) Projects {
 			out.Enclosing = append(out.Enclosing, project)
 		}
 	}
-	installed, malformed := installedProjects(d.libraryRoots(ancestors))
+	installed, malformed := d.installedProjects(d.libraryRoots(ancestors))
 	out.Malformed = malformed
 	out.installed = make(map[string]bool, len(installed))
 	for _, project := range installed {
@@ -202,7 +237,7 @@ func (d Discovery) libraryRoots(projectDirs []string) []string {
 // lead to it, sorted by path. The walk stops at a project, passes over hidden
 // directories and whatever cannot be read, and is bounded. An archive that is
 // not a project interchange file is returned apart, under its path.
-func installedProjects(roots []string) ([]*Interchange, []*ArchiveError) {
+func (d Discovery) installedProjects(roots []string) ([]*Interchange, []*ArchiveError) {
 	var out []*Interchange
 	var malformed []*ArchiveError
 	seen := map[string]bool{}
@@ -233,8 +268,9 @@ func installedProjects(roots []string) ([]*Interchange, []*ArchiveError) {
 			found(root)
 			continue
 		}
-		budget := maxLibraryDirs
-		walkInstalled(root, map[string]bool{}, &budget, found)
+		for _, path := range d.under(root) {
+			found(path)
+		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Dir < out[j].Dir })
 	sort.Slice(malformed, func(i, j int) bool { return malformed[i].Path < malformed[j].Path })

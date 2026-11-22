@@ -294,6 +294,14 @@ queue tier skips it: the merge group's diff is the one the pull request's push a
 over, and the nightly catches a baseline that `develop` moved under it, which is then
 re-recorded through the `ci:rebaseline` workflow (`.github/workflows/rebaseline.yml`).
 
+The reference differential (`Reference differential reproduces its baseline`,
+`go run -C tools ./cmd/pilot-diff -check`: Java and the pinned pilot validators, about three
+minutes beside the Go shards) runs on a pull-request push whose diff can move its baseline — the
+layers its referee imports (`internal/syntax`, `semantic`, `check`, `ir`, `workspace`), the
+referee, the validators and pin, a compared root (`examples/`, `tests/testdata/`), the baseline —
+and under the full tier. The queue tier skips it, adding nothing to a merge group, and the
+nightly oracle-reproduction workflow reproduces it over `develop`.
+
 The derived census (`Derived census reproduces its baseline`,
 `go run -C tools ./cmd/derived-census -check -recorded-pilot`) runs on every Go change: it
 re-measures our columns against the pilot column the records hold, without Java. The nightly

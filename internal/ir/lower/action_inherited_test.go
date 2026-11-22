@@ -276,7 +276,7 @@ func TestToActionGraphInheritedActionNodeCycleTerminates(t *testing.T) {
 	}
 }
 
-func inheritedActionDecl(t *testing.T, src, name string) (ast.Node, *symbols.Scope, *ast.RootNamespace) {
+func inheritedActionDecl(t testing.TB, src, name string) (ast.Node, *symbols.Scope, *ast.RootNamespace) {
 	t.Helper()
 	p := parser.New(source.New("test.sysml", []byte(src)))
 	root := p.ParseFile()
@@ -293,7 +293,7 @@ func inheritedActionDecl(t *testing.T, src, name string) (ast.Node, *symbols.Sco
 	return decl, scope, root
 }
 
-func actionDefinition(t *testing.T, root *ast.RootNamespace, name string) *ast.Definition {
+func actionDefinition(t testing.TB, root *ast.RootNamespace, name string) *ast.Definition {
 	t.Helper()
 	var find func([]ast.Node) *ast.Definition
 	find = func(members []ast.Node) *ast.Definition {

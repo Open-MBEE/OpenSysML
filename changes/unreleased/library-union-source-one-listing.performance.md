@@ -1,0 +1,1 @@
+- A library path holding both archives and loose files is listed once per load: reading a file or asking its tier answers from that listing instead of listing every source again, so loading 400 such files takes about a fortieth of the time. A file that arrives or leaves after the listing is still found.
