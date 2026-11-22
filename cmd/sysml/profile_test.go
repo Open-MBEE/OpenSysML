@@ -48,6 +48,7 @@ func TestStartProfilingWithoutFlags(t *testing.T) {
 }
 
 func TestStartProfilingWritesProfiles(t *testing.T) {
+	needs(t, profileFeature)
 	defer resetProfileFlags()
 	dir := t.TempDir()
 	cpuProfilePath = filepath.Join(dir, "cpu.out")
@@ -73,6 +74,7 @@ func TestStartProfilingWritesProfiles(t *testing.T) {
 // A profile that cannot be created is reported rather than silently skipped, and
 // leaves no profile running to trip up the next run.
 func TestStartProfilingReportsUnwritableFile(t *testing.T) {
+	needs(t, profileFeature)
 	defer resetProfileFlags()
 	unwritable := filepath.Join(t.TempDir(), "missing", "cpu.out")
 

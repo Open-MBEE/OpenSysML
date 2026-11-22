@@ -19,10 +19,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
-// TestMigrateMigratesXMI verifies Migrate reads a v1 model as inline bytes
-// with from_format xmi, and as a .xmi file whose form is inferred, and
-// accounts for the migration: the summary and counts always, every element's
-// verdict and the report text only when asked for.
+// TestMigrateMigratesXMI verifies Migrate reads inline xmi bytes and a .xmi file of inferred
+// form, reporting summary and counts always, element verdicts and text only when asked.
 func TestMigrateMigratesXMI(t *testing.T) {
 	srv := mustNewService(t, 10)
 	path := filepath.Join("..", "..", "..", "tests", "migrate", "testdata", "xmi", "vehicle.xmi")
@@ -145,9 +143,8 @@ func TestMigrateLaysOutFromMTIP(t *testing.T) {
 	}
 }
 
-// TestMigrateAttachesImageFilesAndResults verifies the image files an archive
-// carries come back beside the notation, and the result index comes back when
-// asked for, as `sysml -migrate` writes them.
+// TestMigrateAttachesImageFilesAndResults verifies an archive's image files come back beside
+// the notation, and the result index when asked for, as `sysml -migrate` writes them.
 func TestMigrateAttachesImageFilesAndResults(t *testing.T) {
 	srv := mustNewService(t, 10)
 	xmi, err := os.ReadFile(filepath.Join("..", "..", "..", "tests", "migrate", "testdata", "xmi", "documents.xmi"))
