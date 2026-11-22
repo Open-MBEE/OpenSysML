@@ -454,6 +454,10 @@ test("worker calls remove aborted pending entries and ignore late answers", asyn
   );
   const pending = (host as unknown as { pending: Map<number, unknown> }).pending;
   assert.equal(pending.size, 0);
+  assert.deepEqual(
+    posted.filter((message) => message.type === "cancel").map((message) => message.id),
+    requests.map((request) => request.id),
+  );
 
   const alreadyAborted = new AbortController();
   alreadyAborted.abort(new ConnectError("cancelled", Code.Canceled));
@@ -480,6 +484,54 @@ test("worker calls remove aborted pending entries and ignore late answers", asyn
   assert.equal(pending.size, 0);
 
   await host.close();
+});
+
+test("a worker port never starts a call cancelled while it waited", async () => {
+  const pair = fakePortPair();
+  const received: WasmWorkerResponse[] = [];
+  pair.client.addEventListener("message", (event) => received.push(event.data));
+  serveWasmPort(pair.service, {
+    loadWasm: () => Promise.resolve(emptyWasm),
+    loadGo: () => Promise.resolve(FakeGo),
+  });
+  pair.client.postMessage({ type: "init", wasm: emptyWasm });
+  await waitFor(received, (message) => message.type === "ready");
+
+  pair.client.postMessage({ type: "call", id: 1, method: "First", params: "{}" });
+  pair.client.postMessage({ type: "call", id: 2, method: "Abandoned", params: "{}" });
+  pair.client.postMessage({ type: "cancel", id: 2 });
+  pair.client.postMessage({ type: "call", id: 3, method: "Last", params: "{}" });
+  await waitFor(received, (message) => message.type === "answer" && message.id === 3);
+  assert.deepEqual(
+    received.flatMap((message) => (message.type === "answer" ? [message.id] : [])),
+    [1, 3],
+  );
+});
+
+test("closing a connection cancels the call under way", async () => {
+  let handshaken = false;
+  const signals: Array<AbortSignal | undefined> = [];
+  const host: WasmHost = {
+    version: "fake",
+    call: (_method, _params, signal) => {
+      if (!handshaken) {
+        handshaken = true;
+        return Promise.resolve(
+          JSON.stringify({ jsonrpc: "2.0", id: null, result: { version: "fake", capabilities: [] } }),
+        );
+      }
+      signals.push(signal);
+      return new Promise<string>(() => {});
+    },
+    close: () => Promise.resolve(),
+  };
+  const connection = await connectWasmHost(host);
+  const underWay = connection.serverInfo();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.deepEqual(signals.map((signal) => signal?.aborted), [false]);
+  await connection.close();
+  await assert.rejects(underWay, ClosedConnectionError);
+  assert.deepEqual(signals.map((signal) => signal?.aborted), [true]);
 });
 
 test("browser WASM workers connect through the shared request protocol", async () => {

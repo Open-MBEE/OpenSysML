@@ -28,6 +28,9 @@ func (MetadataTypePass) Level() PassLevel { return LevelType }
 func (MetadataTypePass) ElementScoped() { /* marker: per-element gating */ }
 
 func (MetadataTypePass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
+	if ctx == nil || ctx.Index == nil || root == nil {
+		return nil
+	}
 	rootScope := ctx.Index.DocumentRoot(name)
 	if rootScope == nil {
 		return nil

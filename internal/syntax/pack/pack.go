@@ -33,6 +33,8 @@ const (
 type Writer struct {
 	streams [numStreams][]byte
 	strs    *stringTable
+	// discard drops every write: see NewDiscard.
+	discard bool
 }
 
 // stringTable is the interned strings of a stream, shared by the writers of
@@ -48,9 +50,19 @@ func NewWriter() *Writer {
 	return &Writer{strs: &stringTable{ids: make(map[string]uint64)}}
 }
 
+// NewDiscard returns a Writer that keeps nothing it is given, for a caller that
+// runs an encoder only to learn what it visits.
+func NewDiscard() *Writer {
+	return &Writer{strs: &stringTable{}, discard: true}
+}
+
 // Section writes what write produces as a section, which a Reader can decode apart from the
 // rest; it shares the string table and is led by the lengths of its streams.
 func (w *Writer) Section(write func(*Writer)) {
+	if w.discard {
+		write(w)
+		return
+	}
 	sub := &Writer{strs: w.strs}
 	write(sub)
 	for i := range sub.streams {
@@ -63,6 +75,9 @@ func (w *Writer) Section(write func(*Writer)) {
 
 // split writes v to a first and a tail stream.
 func (w *Writer) split(first int, v uint64) {
+	if w.discard {
+		return
+	}
 	if v < 0x80 {
 		w.streams[first] = append(w.streams[first], byte(v))
 		return
@@ -86,11 +101,17 @@ func (w *Writer) Len(n int) {
 	if n < 0 {
 		panic("pack: negative length")
 	}
+	if w.discard {
+		return
+	}
 	w.streams[streamLen] = binary.AppendUvarint(w.streams[streamLen], uint64(n))
 }
 
 // Bool writes one byte.
 func (w *Writer) Bool(b bool) {
+	if w.discard {
+		return
+	}
 	var v byte
 	if b {
 		v = 1
@@ -100,11 +121,17 @@ func (w *Writer) Bool(b bool) {
 
 // Float writes the IEEE-754 bits of f, little-endian.
 func (w *Writer) Float(f float64) {
+	if w.discard {
+		return
+	}
 	w.streams[streamFloat] = binary.LittleEndian.AppendUint64(w.streams[streamFloat], math.Float64bits(f))
 }
 
 // String writes s as its string-table index, interning it on first use.
 func (w *Writer) String(s string) {
+	if w.discard {
+		return
+	}
 	t := w.strs
 	id, ok := t.ids[s]
 	if !ok {

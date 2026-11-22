@@ -239,7 +239,7 @@ func nearestRank[T any](sorted []T, p float64) T {
 // narrow to divide into Real widths bins each distinct value on its own.
 func histogram(sorted []float64) []HistogramBin {
 	lo, hi := sorted[0], sorted[len(sorted)-1]
-	if lo == hi || math.IsInf(hi-lo, 0) {
+	if lo == hi || math.IsInf(hi-lo, 0) || math.IsNaN(hi-lo) {
 		return []HistogramBin{{Lo: drawnReal(lo), Hi: drawnReal(hi), Count: len(sorted)}}
 	}
 	width := (hi - lo) / histogramBins
@@ -253,7 +253,7 @@ func histogram(sorted []float64) []HistogramBin {
 	}
 	bins[len(bins)-1].Hi = drawnReal(hi)
 	for _, v := range sorted {
-		bins[min(int((v-lo)/width), histogramBins-1)].Count++
+		bins[max(0, min(int((v-lo)/width), histogramBins-1))].Count++
 	}
 	return bins
 }

@@ -3,8 +3,10 @@ package opensysml_test
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -138,6 +140,71 @@ func TestAGuardedServiceAdmitsTheRightTokenAndRefusesTheRest(t *testing.T) {
 	}
 	if _, err := dialClient(t, address, opensysml.WithToken("nope")).ServerInfo(context.Background()); !errors.Is(err, opensysml.CodeUnauthenticated) {
 		t.Errorf("WithToken did not win over $%s: %v", opensysml.TokenEnv, err)
+	}
+}
+
+// TestDialRefusesATokenInClear checks Dial refuses a token, set by option or environment,
+// for a remote plain-http address, and accepts https, this machine and the opt-in.
+func TestDialRefusesATokenInClear(t *testing.T) {
+	for _, address := range []string{"sysml.example.com:50051", "http://sysml.example.com", "http://10.0.0.7:50051", "HTTP://[2001:db8::1]:50051"} {
+		_, err := opensysml.Dial(address, opensysml.WithToken("s3cret"))
+		if !errors.Is(err, opensysml.CodeInvalidArgument) {
+			t.Errorf("Dial(%q) with a token: err = %v, want CodeInvalidArgument", address, err)
+		} else if strings.Contains(err.Error(), "s3cret") {
+			t.Errorf("Dial(%q): the refusal quotes the token: %v", address, err)
+		}
+		if client, err := opensysml.Dial(address, opensysml.WithToken("s3cret"), opensysml.WithInsecureTokenTransport()); err != nil {
+			t.Errorf("Dial(%q) with the opt-in: %v", address, err)
+		} else {
+			_ = client.Close()
+		}
+		if client, err := opensysml.Dial(address); err != nil {
+			t.Errorf("Dial(%q) without a token: %v", address, err)
+		} else {
+			_ = client.Close()
+		}
+	}
+	for _, address := range []string{"https://sysml.example.com", "HTTPS://sysml.example.com", "localhost:50051", "http://127.0.0.1:50051", "http://[::1]:50051"} {
+		if client, err := opensysml.Dial(address, opensysml.WithToken("s3cret")); err != nil {
+			t.Errorf("Dial(%q) with a token: %v", address, err)
+		} else {
+			_ = client.Close()
+		}
+	}
+	t.Setenv(opensysml.TokenEnv, "s3cret")
+	if _, err := opensysml.Dial("http://sysml.example.com"); !errors.Is(err, opensysml.CodeInvalidArgument) {
+		t.Errorf("Dial with $%s set: err = %v, want CodeInvalidArgument", opensysml.TokenEnv, err)
+	}
+}
+
+// TestTheTokenNeverLeavesForARefusedAddress checks the refusal is made before any
+// request: a plain-http server other machines reach sees no Authorization header.
+func TestTheTokenNeverLeavesForARefusedAddress(t *testing.T) {
+	seen := make(chan string, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case seen <- r.Header.Get("Authorization"):
+		default:
+		}
+	}))
+	t.Cleanup(server.Close)
+	// The server listens on loopback; a client that resolves a foreign name to it
+	// stands for a remote plain-http service.
+	via := &http.Client{Transport: &http.Transport{DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+		return (&net.Dialer{}).DialContext(ctx, network, server.Listener.Addr().String())
+	}}}
+	if _, err := opensysml.Dial("http://sysml.example.com", opensysml.WithToken("s3cret"), opensysml.WithHTTPClient(via)); err == nil {
+		t.Fatal("Dial accepted a token over plain http")
+	}
+	client := dialClient(t, "http://sysml.example.com", opensysml.WithToken("s3cret"), opensysml.WithHTTPClient(via), opensysml.WithInsecureTokenTransport())
+	_, _ = client.ServerInfo(context.Background())
+	select {
+	case got := <-seen:
+		if got != "Bearer s3cret" {
+			t.Errorf("with the opt-in the server saw Authorization %q", got)
+		}
+	default:
+		t.Error("with the opt-in no request reached the server")
 	}
 }
 

@@ -172,3 +172,26 @@ func TestDocumentFileNameEncoding(t *testing.T) {
 		}
 	}
 }
+
+// TestMarkdownReferenceDestinationsAreGuarded checks a file name holding a space, parenthesis,
+// bracket or backslash is linked in the pointy-bracket form, so it cannot reshape the link.
+func TestMarkdownReferenceDestinationsAreGuarded(t *testing.T) {
+	for file, want := range map[string]string{
+		"out/Mass Appendix.md":     "](<out/Mass Appendix.md#tables-masses>)",
+		"a) [x](https://evil.test": "](<a) [x](https://evil.test#tables-masses>)",
+		`back\slash.md`:            `](<back\\slash.md#tables-masses>)`,
+		"<angle>.md":               `](<\<angle\>.md#tables-masses>)`,
+		"line\nbreak.md":           "](<line%0Abreak.md#tables-masses>)",
+		"plain.md":                 "](plain.md#tables-masses)",
+	} {
+		documents := fixtureDocumentSet(t, filepath.Join("testdata", "linked_reports.sysml"),
+			[]string{"Observatory::SystemReport", "Observatory::Mass Appendix"})
+		report, err := Markdown(documents[0], MarkdownOptions{Files: map[string]string{"Observatory::Mass Appendix": file}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(report, want) {
+			t.Errorf("file %q: the report lacks %s:\n%s", file, want, report)
+		}
+	}
+}

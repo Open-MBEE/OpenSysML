@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
@@ -312,6 +313,10 @@ func MonteCarloSample(runs []*MonteCarloRun) (MonteCarloStatistics, error) {
 				return MonteCarloStatistics{}, fmt.Errorf("%w: run %d of %s: %w", errMonteCarloObserved, run.Number, run.Case, err)
 			}
 			number = drawnReal(magnitude)
+		}
+		if number.Kind != semantics.ValInt && math.IsNaN(number.AsReal()) {
+			return MonteCarloStatistics{}, fmt.Errorf("%w: run %d of %s observed %s, not a number",
+				errMonteCarloObserved, run.Number, run.Case, describeObserved(observed))
 		}
 		numbers = append(numbers, number)
 	}
