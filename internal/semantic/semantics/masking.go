@@ -281,6 +281,10 @@ func (m *Model) namingFeature(sym *symbols.Symbol) *symbols.Symbol {
 	if formal, _ := m.constructorArgumentFormal(sym); formal != nil {
 		return formal
 	}
+	// A flow end's feature is named by the feature the end names, its first redefinition, or not at all.
+	if _, ok := symbols.ImpliedFlowEndFeatureIndex(sym); ok && m.flowEndFeatureRedefinition(sym) == nil {
+		return nil
+	}
 	for _, candidate := range m.directRedefinedFeatures(sym) {
 		if candidate != nil && candidate != sym {
 			return candidate
