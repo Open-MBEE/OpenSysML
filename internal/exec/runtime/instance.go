@@ -1981,7 +1981,7 @@ func (ctx *Context) evalFeatureValueDefault(inst *Instance, fv *FeatureValue, na
 	}
 	scope := ctx.defaultScope(inst, fv)
 	ec := NewEvalContextIn(ctx, scope, ctx.bindingContext(inst, fv.Feature))
-	if isBehaviorDefKind(inst.Type.Kind) {
+	if inst.Type.Kind.IsBehaviorDef() {
 		// A feature default of a behavior def is evaluated on the def's
 		// occurrence, which the instance being evaluated is.
 		ec.occurrence = inst

@@ -54,53 +54,15 @@ func thisContext(scope *symbols.Scope, throughDefs bool) *symbols.Symbol {
 			continue
 		}
 		switch {
-		case isObjectKind(owner.Kind):
+		case owner.Kind.IsObject():
 			return owner
-		case isBehaviorUsageKind(owner.Kind):
+		case owner.Kind.IsBehaviorUsage():
 			continue
-		case isBehaviorDefKind(owner.Kind) && throughDefs:
+		case owner.Kind.IsBehaviorDef() && throughDefs:
 			continue
 		default:
 			return nil
 		}
 	}
 	return nil
-}
-
-// isObjectKind reports whether a symbol declares an object: the `this` of the
-// performances it owns.
-func isObjectKind(kind symbols.SymbolKind) bool {
-	switch kind {
-	case symbols.SymbolPartDef, symbols.SymbolPartUsage,
-		symbols.SymbolItemDef, symbols.SymbolItemUsage,
-		symbols.SymbolOccurrenceDef, symbols.SymbolOccurrenceUsage,
-		symbols.SymbolIndividualDef, symbols.SymbolIndividualUsage:
-		return true
-	}
-	return false
-}
-
-// isBehaviorDefKind reports whether a symbol is a behavior definition: the
-// occurrence its `this` denotes.
-func isBehaviorDefKind(kind symbols.SymbolKind) bool {
-	switch kind {
-	case symbols.SymbolActionDef, symbols.SymbolStateDef, symbols.SymbolCalcDef,
-		symbols.SymbolCaseDef, symbols.SymbolAnalysisCaseDef,
-		symbols.SymbolVerificationCaseDef, symbols.SymbolUseCaseDef:
-		return true
-	}
-	return false
-}
-
-// isBehaviorUsageKind reports whether a symbol is a behavior usage: a performance
-// that takes its `this` from what owns it.
-func isBehaviorUsageKind(kind symbols.SymbolKind) bool {
-	switch kind {
-	case symbols.SymbolStateUsage, symbols.SymbolCalcUsage,
-		symbols.SymbolCaseUsage, symbols.SymbolAnalysisCaseUsage,
-		symbols.SymbolVerificationCaseUsage, symbols.SymbolUseCaseUsage,
-		symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage:
-		return true
-	}
-	return kind.IsActionUsage()
 }

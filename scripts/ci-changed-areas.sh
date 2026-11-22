@@ -49,6 +49,9 @@ packaging_pattern='^packaging/'
 # The derived-property differential (Java, the pinned pilot jar, 18-25 minutes) runs on what can move its baseline
 # (writer, referee, bridge, pin, baseline, corpora), not on the workflow; the queue tier skips it (the push ran it).
 apijson_pattern='^(internal/translate/export/|tools/referee/apijson/|tools/referee/baseline/|tools/referee/diff/|tools/oracle/baseline/|scripts/pilot-json-exporter/|scripts/pilot-pin\.sh$|scripts/download-pilot-validator\.sh$|scripts/download-pilot-json-exporter\.sh$|docs/project/api-json-differential/|\.github/actions/corpora/|\.github/actions/pilot-validator/)'
+# The reference differential (Java, the pinned pilot validators, about 3 minutes) runs on what can move its baseline: the
+# layers its referee imports, the referee, the validators and pin, its roots, the baseline; the queue tier skips it.
+pilotdiff_pattern='^(internal/syntax/|internal/semantic/|internal/check/|internal/ir/|internal/workspace/|internal/translate/rdf/|internal/frontend/report/|tools/referee/diff/|tools/oracle/|scripts/pilot-pin\.sh$|scripts/pilot-sysml-validator/|scripts/pilot-kerml-validator/|scripts/download-pilot-validator\.sh$|scripts/download-pilot-sysml-validator\.sh$|scripts/download-pilot-kerml-validator\.sh$|scripts/download-training-examples\.sh$|scripts/download-pilot-corpora\.sh$|scripts/download-spec-examples\.sh$|examples/|tests/testdata/|docs/project/pilot-differential-baseline\.json$|\.github/actions/corpora/|\.github/actions/pilot-validator/)'
 # A composite action is a service path (Go tests read it); these three also run the other jobs that use them, even under quick.
 apt_install_action_pattern='^\.github/actions/apt-install/'
 maven_cache_action_pattern='^\.github/actions/maven-cache/'
@@ -100,6 +103,7 @@ client_fanout=$fanout
 
 emit go "$( { [[ "$service" = true ]] || matches "$hygiene_pattern" || matches "$project_inputs_pattern" || matches "$packaging_pattern"; } && echo true || echo false)"
 emit apijson "$( [[ "$tier" != queue ]] && { [[ "$everything" = true && "$fanout" = true ]] || matches "$apijson_pattern"; } && echo true || echo false)"
+emit pilotdiff "$( [[ "$tier" != queue ]] && { [[ "$everything" = true && "$fanout" = true ]] || matches "$pilotdiff_pattern"; } && echo true || echo false)"
 emit docs "$( { [[ "$fanout" = true ]] || matches "$docs_pattern" || matches "$apt_install_action_pattern" || matches "$pip_install_action_pattern"; } && echo true || echo false)"
 emit node "$( { [[ "$client_fanout" = true ]] || matches "$node_pattern" || matches "$apt_install_action_pattern"; } && echo true || echo false)"
 # The client-manifest/Python version lockstep tests live in the Python suite,

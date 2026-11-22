@@ -34,8 +34,11 @@ type Int int64
 type BigInt struct{ n *big.Int }
 
 // NewInteger is n as the integer value it is: an Int within int64, otherwise a
-// BigInt holding a copy of n.
+// BigInt holding a copy of n. A nil n is zero.
 func NewInteger(n *big.Int) Number {
+	if n == nil {
+		return Int(0)
+	}
 	if n.IsInt64() {
 		return Int(n.Int64())
 	}
@@ -58,8 +61,13 @@ func (b BigInt) String() string { return b.Int().String() }
 // holds exactly, such as 0.5, crosses the wire as that Real.
 type Rational struct{ r *big.Rat }
 
-// NewRational is a Rational holding a copy of r.
-func NewRational(r *big.Rat) Rational { return Rational{r: new(big.Rat).Set(r)} }
+// NewRational is a Rational holding a copy of r. A nil r is zero.
+func NewRational(r *big.Rat) Rational {
+	if r == nil {
+		return Rational{}
+	}
+	return Rational{r: new(big.Rat).Set(r)}
+}
 
 // Rat returns a copy of the rational.
 func (q Rational) Rat() *big.Rat {

@@ -25,6 +25,9 @@ type FeatureReferencePass struct{}
 func (FeatureReferencePass) Level() PassLevel { return LevelConstraint }
 
 func (FeatureReferencePass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
+	if ctx == nil || ctx.Index == nil || root == nil {
+		return nil
+	}
 	rootScope := ctx.Index.DocumentRoot(name)
 	if rootScope == nil {
 		return nil

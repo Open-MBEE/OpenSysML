@@ -895,27 +895,29 @@ func TestConvertMigrateAndApplyEditsAnswerText(t *testing.T) {
 		t.Errorf("convert without a target format: %s", msg)
 	}
 
-	xmi, err := os.ReadFile(migrateFixture)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(h.root, "v1.xmi"), xmi, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	var migrate pb.MigrateResponse
-	_, out = h.ok("migrate", map[string]any{"filePath": "v1.xmi", "toFormat": "sysml", "report": true}, &migrate)
-	if migrate.GetError() != "" || !strings.Contains(migrate.GetContent(), "occurrence def A") || migrate.GetReport().GetMapped() == 0 {
-		t.Errorf("migrate: error %q, mapped %d\n%s", migrate.GetError(), migrate.GetReport().GetMapped(), migrate.GetContent())
-	}
-	if !strings.Contains(out, migrate.GetReport().GetSummary()) || !strings.Contains(out, strings.TrimRight(migrate.GetContent(), "\n")) {
-		t.Errorf("text:\n%s", out)
-	}
-	h.ok("migrate", map[string]any{"content": base64.StdEncoding.EncodeToString(xmi), "fromFormat": "xmi", "toFormat": "sysml"}, &migrate)
-	if migrate.GetError() != "" || !strings.Contains(migrate.GetContent(), "occurrence def B") {
-		t.Errorf("migrate inline: error %q\n%s", migrate.GetError(), migrate.GetContent())
-	}
-	if msg := h.fails("migrate", map[string]any{"toFormat": "sysml"}); !strings.Contains(msg, "exactly one source") {
-		t.Errorf("migrate of nothing: %s", msg)
+	if migrationLinked {
+		xmi, err := os.ReadFile(migrateFixture)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(h.root, "v1.xmi"), xmi, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		var migrate pb.MigrateResponse
+		_, out = h.ok("migrate", map[string]any{"filePath": "v1.xmi", "toFormat": "sysml", "report": true}, &migrate)
+		if migrate.GetError() != "" || !strings.Contains(migrate.GetContent(), "occurrence def A") || migrate.GetReport().GetMapped() == 0 {
+			t.Errorf("migrate: error %q, mapped %d\n%s", migrate.GetError(), migrate.GetReport().GetMapped(), migrate.GetContent())
+		}
+		if !strings.Contains(out, migrate.GetReport().GetSummary()) || !strings.Contains(out, strings.TrimRight(migrate.GetContent(), "\n")) {
+			t.Errorf("text:\n%s", out)
+		}
+		h.ok("migrate", map[string]any{"content": base64.StdEncoding.EncodeToString(xmi), "fromFormat": "xmi", "toFormat": "sysml"}, &migrate)
+		if migrate.GetError() != "" || !strings.Contains(migrate.GetContent(), "occurrence def B") {
+			t.Errorf("migrate inline: error %q\n%s", migrate.GetError(), migrate.GetContent())
+		}
+		if msg := h.fails("migrate", map[string]any{"toFormat": "sysml"}); !strings.Contains(msg, "exactly one source") {
+			t.Errorf("migrate of nothing: %s", msg)
+		}
 	}
 
 	var edits pb.ApplyEditsResponse
@@ -1114,7 +1116,8 @@ func TestEveryCapabilityIsServedByATool(t *testing.T) {
 		}
 	}
 	for capability := range CapabilityTools {
-		if !slices.Contains(sysmlgrpc.Capabilities(), capability) {
+		leftOut := capability == sysmlgrpc.CapabilityMigrate && !migrationLinked
+		if !leftOut && !slices.Contains(sysmlgrpc.Capabilities(), capability) {
 			t.Errorf("CapabilityTools names %q, which the service does not report", capability)
 		}
 	}

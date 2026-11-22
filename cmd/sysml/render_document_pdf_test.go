@@ -29,6 +29,7 @@ func fakePDFTool(t *testing.T, dir, name, script string) string {
 // pre-rendering, the HTML backend's page under the print stylesheet,
 // converter invocation, and the artifact.
 func TestRenderDocumentPDF(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	seen := filepath.Join(dir, "input-seen.html")
@@ -94,6 +95,7 @@ printf '<svg xmlns="http://www.w3.org/2000/svg"/>' > "$out"
 // layer, a theme layers over the default sheet, and -html-no-default-css
 // leaves both layered sheets out, so the reader's sheet styles the page alone.
 func TestRenderDocumentPDFStylesheets(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	seen := filepath.Join(dir, "input-seen.html")
@@ -154,6 +156,7 @@ printf '<svg xmlns="http://www.w3.org/2000/svg"/>' > "$out"
 // writes its own HTML, takes -html-css sheets and refuses the options that
 // shape the HTML backend's page.
 func TestRenderDocumentPDFPandocStylesheets(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	seen := filepath.Join(dir, "args-seen.txt")
@@ -229,6 +232,7 @@ if [ -n "$out" ]; then printf '%s' "$svg" > "$out"; else printf '%s' "$svg"; fi
 // never runs mmdc: without Graphviz every diagram is kept as DOT source behind
 // a notice naming OPENSYSML_DOT, and with it every diagram is drawn by dot.
 func TestRenderDocumentPDFDiagramFormDot(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	seen := filepath.Join(dir, "input-seen.html")
@@ -291,6 +295,7 @@ printf '%%PDF-1.7 fake' > "$2"
 // kept as PlantUML source behind a notice naming OPENSYSML_PLANTUML_JAR, and
 // with the jar and java every diagram is drawn through the jar in pipe mode.
 func TestRenderDocumentPDFDiagramFormPlantUML(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	seen := filepath.Join(dir, "input-seen.html")
@@ -357,6 +362,7 @@ printf '%%PDF-1.7 fake' > "$2"
 // TestRenderDocumentPDFEngineMissing checks the typed degradation: with no
 // converter installed, PDF output fails precisely and Markdown still works.
 func TestRenderDocumentPDFEngineMissing(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.sysml")
@@ -387,6 +393,7 @@ func TestRenderDocumentPDFEngineMissing(t *testing.T) {
 // TestRenderDocumentPDFFlagConflicts checks the PDF flag combinations the run
 // refuses.
 func TestRenderDocumentPDFFlagConflicts(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 
 	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport", "-doc-form", "pdf"),
@@ -414,6 +421,7 @@ func TestRenderDocumentPDFFlagConflicts(t *testing.T) {
 // notice naming OPENSYSML_D2, and with it every diagram is drawn by d2 from a
 // .d2 file beside the SVG.
 func TestRenderDocumentPDFDiagramFormD2(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	seen := filepath.Join(dir, "input-seen.html")

@@ -67,13 +67,14 @@ jobs:
     # A run takes about 20 minutes; a hung one must not hold a runner the merge queue is waiting for.
     timeout-minutes: 60
     steps:
+      # The head the label was applied to, by commit: a branch name is whatever was pushed to it since.
       - name: Check out the pull request branch
         id: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         timeout-minutes: 10
         continue-on-error: true
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
           token: ${{ secrets.REBASELINE_TOKEN || github.token }}
 
@@ -83,7 +84,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         timeout-minutes: 10
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
           token: ${{ secrets.REBASELINE_TOKEN || github.token }}
 

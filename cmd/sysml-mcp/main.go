@@ -211,6 +211,15 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return exitUnservable
 	}
 
+	// Refused before the service is built and before anything listens, so a build
+	// that cannot offer a reachable address says so instead of waiting on one.
+	if httpOpts != nil {
+		if err := httpRefusal(httpOpts.addr); err != nil {
+			fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
+			return exitUnservable
+		}
+	}
+
 	cache, err := libs.OpenRecordCache(opts.noRecordCache)
 	if err != nil {
 		fmt.Fprintf(stderr, "%srecord cache unavailable, holding every document loaded: %v\n", commandPrefix, err)
