@@ -21,6 +21,9 @@ func (r *Resolver) ResolveEndpoint(scope *symbols.Scope, qn *ast.QualifiedName) 
 // ResolveTransitionSource resolves the source a transition names. What the source of
 // one with an accepter may be is the accepter rule's to judge, which the checks report.
 func (r *Resolver) ResolveTransitionSource(scope *symbols.Scope, t *ast.TransitionMember) (*symbols.Symbol, bool) {
+	if t == nil {
+		return nil, false
+	}
 	return r.resolveEndpoint(scope, t.Source, t.Trigger != nil)
 }
 
@@ -76,8 +79,12 @@ func (r *Resolver) EndpointNotAVertex(scope *symbols.Scope, qn *ast.QualifiedNam
 	return stateMachineEndpoint(scope) && !r.endpointIsVertex(scope, qn, sym)
 }
 
-// NotAVertexDiagnostic is what an endpoint naming no vertex reports.
+// NotAVertexDiagnostic is what an endpoint naming no vertex reports. A nil name is the
+// sourceless form, which names no endpoint: the zero diagnostic.
 func NotAVertexDiagnostic(qn *ast.QualifiedName) Diagnostic {
+	if qn == nil {
+		return Diagnostic{}
+	}
 	return Diagnostic{
 		Span:    qn.Span(),
 		Message: "transition endpoint " + qnText(qn) + " is not a state or pseudostate",

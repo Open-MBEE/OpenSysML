@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -194,6 +195,24 @@ func TestCompareIgnoresInputsThisCheckoutDoesNotHave(t *testing.T) {
 	current := Record{Inputs: []Input{recorded.Inputs[0]}}
 	if got := Compare(recorded, current); len(got) != 0 {
 		t.Fatalf("want no mismatch for an absent input, got %+v", got)
+	}
+}
+
+// A tool or an input of ours that the baseline records but this run no longer has is a
+// mismatch: dropping a bridge must not drop its provenance check with it.
+func TestCompareReportsRemovedToolsAndOwnInputs(t *testing.T) {
+	recorded := Record{
+		Tools:  []Tool{{Name: "kept", Source: "a"}, {Name: "dropped", Source: "b"}},
+		Inputs: []Input{{Name: "ours", Dir: "tools/x", Origin: OriginOurs, Files: 1, Digest: "sha256:aa"}},
+	}
+	current := Record{Tools: []Tool{recorded.Tools[0]}}
+	got := Compare(recorded, current)
+	want := []Mismatch{
+		{Field: toolField("dropped", ""), Recorded: "present", Current: "not recorded", Cause: CauseOurs},
+		{Field: inputField("ours", ""), Recorded: "tools/x", Current: "not recorded", Cause: CauseOurs},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Compare = %+v, want %+v", got, want)
 	}
 }
 

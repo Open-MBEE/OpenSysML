@@ -2,6 +2,7 @@ package resolve
 
 import (
 	"math"
+	"reflect"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -125,6 +126,9 @@ type Resolver struct {
 	// resolving holds the depth (see enter) of each lookup on the stack, so a
 	// re-entrant query of the same name fails instead of recursing.
 	resolving map[ast.Node]int
+	// generalizing is the generalization relationships whose targets are being
+	// resolved, so a chain through the specializing feature itself does not recurse.
+	generalizing map[*ast.Relationship]struct{}
 	// featuring holds the depth of each featured-member lookup (featuredMember)
 	// on the stack, whose scope walk may resolve the very chain that began it.
 	featuring map[featuredKey]int
@@ -159,7 +163,9 @@ type Resolver struct {
 	importDepth  int
 	// importPath is the excluded set of KerML 8.3.2.4.5, the namespaces being
 	// read; importHits and importSeen record cuts and entries (routeDepsSince).
-	importPath  []*symbols.Scope
+	importPath []*symbols.Scope
+	// importNames names the leading scopes of importPath as the index does.
+	importNames []string
 	importHits  []*symbols.Scope
 	importSeen  []*symbols.Scope
 	importMarks int
@@ -303,13 +309,26 @@ type Resolver struct {
 	dependents map[string]map[string]bool
 }
 
-// MemoSize is the number of resolutions this resolver retains.
+// memoSizeExempt are the Resolver's map fields MemoSize leaves out: the guards
+// held only while a walk is in progress, and the document frame bookkeeping.
+var memoSizeExempt = map[string]bool{
+	"resolving": true, "featuring": true, "redefining": true, "importStack": true,
+	"resolvingImports": true, "importVisits": true, "viewFiltersInProgress": true,
+	"colliding": true, "naming": true, "resolvingAlias": true, "suggesting": true,
+	"probing": true, "valuesInProgress": true, "owners": true, "dependents": true,
+}
+
+// MemoSize is the number of entries this resolver retains across walks: every
+// map it holds but the exempt ones, so a table added later is counted too.
 func (r *Resolver) MemoSize() int {
-	return len(r.memo) + len(r.modeMemo) + len(r.filtered) + len(r.featureChains) +
-		len(r.parts) + len(r.aliasNames) + len(r.endpoints) + len(r.readings) +
-		len(r.invocationNames) + len(r.invocationScopes) + len(r.ambiguities) + len(r.reportedQualified) +
-		len(r.initials) + len(r.imports) + len(r.suggestions) + len(r.importTargets) +
-		len(r.collisions) + len(r.enumKept) + len(r.enumResults) + len(r.shortNames)
+	size := 0
+	fields := reflect.ValueOf(r).Elem()
+	for i := range fields.NumField() {
+		if field := fields.Field(i); field.Kind() == reflect.Map && !memoSizeExempt[fields.Type().Field(i).Name] {
+			size += field.Len()
+		}
+	}
+	return size
 }
 
 // New creates a resolver over the given index.
@@ -320,6 +339,7 @@ func New(idx *symbols.Index) *Resolver {
 		modeMemo:              map[modeMemoKey]resolution{},
 		filtered:              map[filteredMemoKey]resolution{},
 		resolving:             map[ast.Node]int{},
+		generalizing:          map[*ast.Relationship]struct{}{},
 		redefining:            map[*ast.QualifiedName]int{},
 		featureChains:         map[featureChainKey]resolution{},
 		parts:                 map[*ast.QualifiedName][]*symbols.Symbol{},
@@ -822,11 +842,14 @@ func (r *Resolver) freshImportVisits(f func()) {
 	}
 	visits, depth := r.importVisits, r.importDepth
 	path, hits, seen, marks := r.importPath, r.importHits, r.importSeen, r.importMarks
+	names := r.importNames
+	r.importNames = nil
 	r.importVisits, r.importDepth = map[importVisit][][]*symbols.Scope{}, 0
 	r.importPath, r.importHits, r.importSeen, r.importMarks = nil, nil, nil, 0
 	defer func() {
 		r.importVisits, r.importDepth = visits, depth
 		r.importPath, r.importHits, r.importSeen, r.importMarks = path, hits, seen, marks
+		r.importNames = names
 	}()
 	f()
 }

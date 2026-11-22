@@ -112,17 +112,11 @@ func (m *Model) flowEndReference(end *symbols.Symbol) (target *symbols.Symbol, s
 	if chain := m.flowEndChainFeature(flow, i); chain != nil {
 		return chain, true
 	}
-	path := m.flowEndPath(flow, usage, i)
-	switch {
-	case ast.FlowEndChainPrefix(usage, i) != nil:
-		// A chain whose prefix resolves to nothing: the subsetting is stated, its target underived.
-		return nil, true
-	case len(path) == 2:
-		return path[0], true
-	case len(path) > 2:
-		return nil, true
-	}
-	if _, chained := ast.EndTarget(flowEndNode(usage, i)).(*ast.FeatureChainExpr); chained {
+	if chained, ok := ast.EndTarget(flowEndNode(usage, i)).(*ast.FeatureChainExpr); ok {
+		// `a.x` references a whether or not x resolves, as the conversion writes it (flowEndReferences).
+		if prefix := m.attachmentPath(flow.OwnerScope, chained.Operand); len(prefix) == 1 {
+			return prefix[0], true
+		}
 		return nil, true
 	}
 	return nil, false

@@ -1,6 +1,7 @@
 package rdf
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 )
@@ -96,7 +97,24 @@ func (g *Graph) term(t Term) string {
 	if bestLabel != "" {
 		return bestLabel + ":" + strings.TrimPrefix(t.Value, bestNS)
 	}
-	return "<" + t.Value + ">"
+	return "<" + escapeIRI(t.Value) + ">"
+}
+
+// escapeIRI writes the characters an IRIREF cannot hold as its \u escapes, so an
+// IRI built from unchecked text cannot close the reference and start a statement.
+func escapeIRI(iri string) string {
+	if _, forbidden := IRIForbidden(iri); !forbidden {
+		return iri
+	}
+	var b strings.Builder
+	for _, r := range iri {
+		if _, forbidden := IRIForbidden(string(r)); forbidden {
+			fmt.Fprintf(&b, "\\u%04X", r)
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }
 
 // isPrefixedLocalName reports whether local can follow a prefix label without

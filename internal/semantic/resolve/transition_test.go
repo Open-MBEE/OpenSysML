@@ -659,3 +659,40 @@ func TestResolveEndpointNestedVertexNeedsItsOwners(t *testing.T) {
 		})
 	}
 }
+
+// A nil or empty transition names no source, and a nil endpoint is the sourceless form:
+// the exported lookups answer an unsuccessful lookup and report nothing.
+func TestTransitionSourceLookupsTolerateNilAndZeroInputs(t *testing.T) {
+	root := parser.New(source.New("d.sysml", []byte(`state def M { state idle; }`))).ParseFile()
+	idx := symbols.NewIndexFromDoc("d.sysml", root)
+	scope := idx.DocumentRoot("d.sysml")
+	lookups := map[string]func(*Resolver, *symbols.Scope, *ast.TransitionMember) (*symbols.Symbol, bool){
+		"ResolveTransitionSource": (*Resolver).ResolveTransitionSource,
+		"TransitionSourceSymbol":  (*Resolver).TransitionSourceSymbol,
+	}
+	transitions := map[string]*ast.TransitionMember{
+		"nil transition":  nil,
+		"zero transition": {},
+		"empty source":    {Source: &ast.QualifiedName{}},
+	}
+	for name, lookup := range lookups {
+		for form, transition := range transitions {
+			for _, at := range []*symbols.Scope{scope, nil} {
+				r := New(idx)
+				if sym, ok := lookup(r, at, transition); ok || sym != nil {
+					t.Errorf("%s of a %s = %v, %v; want an unsuccessful lookup", name, form, sym, ok)
+				}
+				if len(r.Diagnostics) != 0 {
+					t.Errorf("%s of a %s reported %v", name, form, r.Diagnostics)
+				}
+			}
+		}
+	}
+
+	if d := NotAVertexDiagnostic(nil); d.Code != "" || d.Message != "" || d.Span != (source.Span{}) || d.Fixes != nil {
+		t.Errorf("NotAVertexDiagnostic(nil) = %+v; want the zero diagnostic", d)
+	}
+	if d := NotAVertexDiagnostic(&ast.QualifiedName{}); d.Code != CodeNotAVertex {
+		t.Errorf("NotAVertexDiagnostic of an empty name has code %q, want %q", d.Code, CodeNotAVertex)
+	}
+}

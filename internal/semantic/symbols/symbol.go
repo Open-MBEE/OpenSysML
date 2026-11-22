@@ -290,6 +290,50 @@ func (k SymbolKind) IsActionUsage() bool {
 	return false
 }
 
+// IsObject reports whether k declares an object: a part, item, occurrence or
+// individual definition or usage, which performs the behaviors it owns.
+func (k SymbolKind) IsObject() bool {
+	switch k {
+	case SymbolPartDef, SymbolPartUsage,
+		SymbolItemDef, SymbolItemUsage,
+		SymbolOccurrenceDef, SymbolOccurrenceUsage,
+		SymbolIndividualDef, SymbolIndividualUsage:
+		return true
+	}
+	return false
+}
+
+// IsBehaviorDef reports whether k is a behavior definition: an action, state,
+// calc or case def, a run of which has an occurrence of its own.
+func (k SymbolKind) IsBehaviorDef() bool {
+	switch k {
+	case SymbolActionDef, SymbolStateDef, SymbolCalcDef,
+		SymbolCaseDef, SymbolAnalysisCaseDef,
+		SymbolVerificationCaseDef, SymbolUseCaseDef:
+		return true
+	}
+	return false
+}
+
+// IsBehaviorUsage reports whether k is a behavior usage: a performance that
+// takes its `this` from what owns it.
+func (k SymbolKind) IsBehaviorUsage() bool {
+	switch k {
+	case SymbolStateUsage, SymbolCalcUsage,
+		SymbolCaseUsage, SymbolAnalysisCaseUsage,
+		SymbolVerificationCaseUsage, SymbolUseCaseUsage,
+		SymbolConstraintUsage, SymbolRequirementUsage:
+		return true
+	}
+	return k.IsActionUsage()
+}
+
+// IsPerformance reports whether k declares a performance: a behavior
+// definition or a behavior usage, whose instances are performances.
+func (k SymbolKind) IsPerformance() bool {
+	return k.IsBehaviorDef() || k.IsBehaviorUsage()
+}
+
 // IsFlowUsage reports whether k classifies a flow usage, a succession flow included.
 func (k SymbolKind) IsFlowUsage() bool {
 	return k == SymbolFlowUsage || k == SymbolSuccessionFlowUsage

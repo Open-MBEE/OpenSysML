@@ -106,6 +106,8 @@ func Loopback(host string) bool {
 type Client struct {
 	cfg  Config
 	http *http.Client
+	// maxBody bounds one response body.
+	maxBody int64
 }
 
 // New returns a client for cfg.
@@ -115,7 +117,7 @@ func New(cfg Config) *Client {
 		timeout = DefaultTimeout
 	}
 	cfg.BaseURL = strings.TrimRight(cfg.BaseURL, "/")
-	c := &Client{cfg: cfg}
+	c := &Client{cfg: cfg, maxBody: maxResponseBytes}
 	c.http = &http.Client{Timeout: timeout, CheckRedirect: c.checkRedirect}
 	return c
 }
@@ -175,6 +177,21 @@ func (c *Client) Config() Config { return c.cfg }
 
 // BaseURL is the server's base path.
 func (c *Client) BaseURL() string { return c.cfg.BaseURL }
+
+// maxResponseBytes bounds one response body, so a server cannot make the client
+// buffer without limit.
+const maxResponseBytes = 512 << 20
+
+// ResponseTooLargeError is a response whose body passed the client's bound.
+type ResponseTooLargeError struct {
+	Method string
+	URL    string
+	Limit  int64
+}
+
+func (e *ResponseTooLargeError) Error() string {
+	return fmt.Sprintf("%s %s: the response exceeds the %d byte limit", e.Method, e.URL, e.Limit)
+}
 
 // StatusError is a response outside 2xx. It carries the body, because servers
 // answer with their diagnostic there.
@@ -258,9 +275,12 @@ func (c *Client) Do(ctx context.Context, method, target string, body []byte, con
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	content, err := io.ReadAll(resp.Body)
+	content, err := io.ReadAll(io.LimitReader(resp.Body, c.maxBody+1))
 	if err != nil {
 		return nil, resp.Header, err
+	}
+	if int64(len(content)) > c.maxBody {
+		return nil, resp.Header, &ResponseTooLargeError{Method: method, URL: target, Limit: c.maxBody}
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return content, resp.Header, &StatusError{Method: method, URL: target, Status: resp.StatusCode, Body: string(content)}

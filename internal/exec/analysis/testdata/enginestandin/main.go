@@ -71,6 +71,9 @@ const (
 	ModeStderrFlood         = "stderr-flood"
 	ModeStderrFloodAndExit  = "stderr-flood-exit"
 	ModeSlowRun             = "slow-run"
+	ModeDescribeAndExit     = "describe-and-exit"
+	ModeAnswerAndExit       = "answer-and-exit"
+	ModeDuplicateAnswer     = "duplicate-answer"
 )
 
 func main() {
@@ -211,7 +214,12 @@ func (e *engine) describe(msg enginewire.Message) error {
 	if text == "" {
 		text = `{"name":"standin","version":"1.0.0","protocol":1,"answers":["holds"]}`
 	}
-	return e.write(enginewire.Message{JSONRPC: enginewire.JSONRPC, ID: msg.ID, Result: json.RawMessage(text)})
+	err := e.write(enginewire.Message{JSONRPC: enginewire.JSONRPC, ID: msg.ID, Result: json.RawMessage(text)})
+	if e.mode == ModeDescribeAndExit {
+		e.must(err)
+		os.Exit(0)
+	}
+	return err
 }
 
 // covers answers with the covers result the environment gives, or true.
@@ -306,6 +314,13 @@ func (e *engine) run(id json.RawMessage, p enginewire.RunParams) {
 		raw(`{"jsonrpc":"2.0","id":` + string(id) + `,"result":{"claim":"none","strength":"not covered","reason":"` + strings.Repeat("x", 1<<20) + `"}}`)
 	case ModeSlowRun:
 		time.Sleep(time.Hour)
+	case ModeAnswerAndExit:
+		reply(json.RawMessage(`{"claim":"none","strength":"not covered","reason":"`+strings.Repeat("x", 32<<10)+`"}`), nil)
+		os.Exit(0)
+	case ModeDuplicateAnswer:
+		for range 2 {
+			reply(json.RawMessage(`{"claim":"none","strength":"not covered","reason":"twice"}`), nil)
+		}
 	default:
 		text := os.Getenv(ResultEnv)
 		if text == "" {

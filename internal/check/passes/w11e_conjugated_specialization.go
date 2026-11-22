@@ -38,6 +38,7 @@ func (W11EConjugatedSpecializationPass) Run(ctx *Context, name string, root *ast
 type w11eConjugatedChecker struct {
 	resolver *resolve.Resolver
 	diags    []diag.Diagnostic
+	reported reportedSet
 }
 
 func (c *w11eConjugatedChecker) check(sym *symbols.Symbol) {
@@ -111,10 +112,8 @@ func w11eNameSpan(sym *symbols.Symbol) source.Span {
 }
 
 func (c *w11eConjugatedChecker) report(span source.Span, msg string) {
-	for _, have := range c.diags {
-		if have.Span.Offset == span.Offset && have.Message == msg {
-			return
-		}
+	if !c.reported.add(c.diags, span.Offset, msg) {
+		return
 	}
 	c.diags = append(c.diags, diag.Diagnostic{
 		Severity: diag.SeverityError,

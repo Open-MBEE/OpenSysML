@@ -335,7 +335,7 @@ func (e *encoder) seatHead(subject rdf.Term, anchor int, block []rdf.Term) {
 // relationship class a target takes depends on what the element is.
 func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, count, i int) (normativeRelationship, bool) {
 	metaclass := e.metaclassOf(subject)
-	classifier := ontology.IsAncestorOrSelf(metaclass, "Classifier")
+	classifier := isClassifier(metaclass)
 	suffix := relationshipSuffix(kind, classifier, count, i)
 	switch kind {
 	case ast.RelTyping:
@@ -397,6 +397,12 @@ func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, 
 			[]string{pOwnedAnnotatingRelationship, pOwnedRelationship}}, true
 	}
 	return normativeRelationship{}, false
+}
+
+// isClassifier reports whether a metaclass is a Classifier, whose `specializes` is a
+// Subclassification: the one test the writer and the identity reader share.
+func isClassifier(metaclass string) bool {
+	return ontology.IsAncestorOrSelf(metaclass, mClassifier)
 }
 
 // relationshipSuffix names the relationship element materialized for the i-th of count

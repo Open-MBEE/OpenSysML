@@ -2832,7 +2832,7 @@ func (m *migration) writeDocument(dp *docPlan) {
 	dp.target = target
 	m.inside(blockNames("Document", dp.root.names), func() {
 		m.w.block("part def "+writeName(dp.root.name)+" :> "+m.queryPrefix(dp.host)+"Document", func() {
-			m.w.line(titleRedefines + source.StringText(dp.root.title) + ";")
+			m.w.line(titleRedefines + source.StandardStringText(dp.root.title) + ";")
 			for _, a := range dp.anchors {
 				m.w.line("ref " + writeName(a.name) + " : " + m.memberRef(a.def, dp.host) + ";")
 			}
@@ -2941,7 +2941,7 @@ func (m *migration) writeSectionBody(dp *docPlan, sec *sectionPlan, path string)
 	}
 	for _, child := range sec.children {
 		m.blockPart(dp.host, child.name, "Section", child.names, func() {
-			m.w.line(titleRedefines + source.StringText(child.title) + ";")
+			m.w.line(titleRedefines + source.StandardStringText(child.title) + ";")
 			notes = append(notes, m.writeSectionBody(dp, child, path+"::"+writeName(child.name))...)
 		})
 	}
@@ -2959,7 +2959,7 @@ func (m *migration) writeBlock(dp *docPlan, cp *contentPlan, path string) []stri
 	case "Section":
 		var notes []string
 		m.blockPart(dp.host, cp.name, "Section", cp.section.names, func() {
-			m.w.line(titleRedefines + source.StringText(cp.section.title) + ";")
+			m.w.line(titleRedefines + source.StandardStringText(cp.section.title) + ";")
 			notes = m.writeSectionBody(dp, cp.section, cp.target)
 		})
 		return append(notes, cp.notes...)
@@ -2971,7 +2971,7 @@ func (m *migration) writeBlock(dp *docPlan, cp *contentPlan, path string) []stri
 			case len(cp.runs) > 0:
 				m.writeRuns(dp, cp)
 			default:
-				m.w.line("attribute redefines text = " + source.StringText(cp.text) + ";")
+				m.w.line("attribute redefines text = " + source.StandardStringText(cp.text) + ";")
 			}
 		})
 	case "Table":
@@ -2982,22 +2982,22 @@ func (m *migration) writeBlock(dp *docPlan, cp *contentPlan, path string) []stri
 		m.tablePart(dp.host, cp.name, cp.caption, rows, cp.widths, cp.labels)
 	case "List":
 		m.blockPart(dp.host, cp.name, "List", nil, func() {
-			m.w.line("attribute redefines style = " + source.StringText(cp.style) + ";")
+			m.w.line("attribute redefines style = " + source.StandardStringText(cp.style) + ";")
 			m.w.line("calc items : " + m.siblingRef(dp.host, cp.query) + ";")
 		})
 	case "Diagram":
 		m.blockPart(dp.host, cp.name, "Diagram", nil, func() {
-			m.w.line("attribute redefines caption = " + source.StringText(cp.caption) + ";")
+			m.w.line("attribute redefines caption = " + source.StandardStringText(cp.caption) + ";")
 			m.w.line("ref redefines source = " + m.diagramSource(dp, cp) + ";")
 		})
 	case "Image":
 		m.blockPart(dp.host, cp.name, "Image", nil, func() {
-			m.w.line("attribute redefines location = " + source.StringText(cp.location) + ";")
+			m.w.line("attribute redefines location = " + source.StandardStringText(cp.location) + ";")
 			if cp.caption != "" {
-				m.w.line("attribute redefines caption = " + source.StringText(cp.caption) + ";")
+				m.w.line("attribute redefines caption = " + source.StandardStringText(cp.caption) + ";")
 			}
 			if cp.alt != "" {
-				m.w.line("attribute redefines alt = " + source.StringText(cp.alt) + ";")
+				m.w.line("attribute redefines alt = " + source.StandardStringText(cp.alt) + ";")
 			}
 		})
 	}

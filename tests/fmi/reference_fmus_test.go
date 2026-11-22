@@ -66,7 +66,7 @@ func fmuPresent(t *testing.T) {
 			return
 		}
 	}
-	if os.Getenv(requireEnv) == "1" {
+	if os.Getenv(requireEnv) != "" {
 		t.Fatalf("the Reference-FMUs are required but absent; fetch them with ./scripts/download-reference-fmus.sh")
 	}
 	t.Skip("Reference-FMUs not downloaded (run ./scripts/download-reference-fmus.sh)")
@@ -79,7 +79,7 @@ func fmpyPresent(t *testing.T) {
 	if exec.Command("python3", "-c", "import fmpy").Run() == nil {
 		return
 	}
-	if os.Getenv(requireEnv) == "1" {
+	if os.Getenv(requireEnv) != "" {
 		t.Fatalf("fmpy is required but python3 cannot import it; pip install opensysml[fmi]")
 	}
 	t.Skip("fmpy not installed (pip install opensysml[fmi])")

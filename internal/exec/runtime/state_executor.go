@@ -732,7 +732,7 @@ func (e *StateExecutor) materializeOccurrence() (*Instance, error) {
 	if e.occurrence != nil {
 		return e.occurrence, nil
 	}
-	if !isBehaviorDefKind(e.stateMachine.Kind) {
+	if !e.stateMachine.Kind.IsBehaviorDef() {
 		return nil, nil
 	}
 	inst, err := e.ctx.materialize(e.stateMachine, 0, nil, "")
@@ -1406,7 +1406,7 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 	dispatch := Dispatch{Event: event}
 	switch event.Type {
 	case eventTime:
-		// Fire transition - handle both old (TransitionEdge) and new (lower.Transition) for backward compatibility
+		// A time event carries the lowered transition its timer or completion fires.
 		if lowerTrans, ok := event.Payload.(*lower.Transition); ok {
 			// The timer has expired, so it is no longer running: a transition that
 			// does not leave its source state re-arms it for the next round.
@@ -1458,41 +1458,7 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 			return dispatch, err
 		}
 
-		// Fallback for tests that use TransitionEdge directly
-		if edge, ok := event.Payload.(*ast.TransitionEdge); ok {
-			// Convert TransitionEdge to lower.Transition
-			// Need to find source/target states by name
-			var sourceState, targetState *ast.StateNode
-			for _, state := range e.graph.States {
-				if edge.Source != nil && len(edge.Source.Parts) > 0 {
-					if state.Name == edge.Source.Parts[len(edge.Source.Parts)-1].Text {
-						sourceState = state
-					}
-				}
-				if edge.Target != nil && len(edge.Target.Parts) > 0 {
-					if state.Name == edge.Target.Parts[len(edge.Target.Parts)-1].Text {
-						targetState = state
-					}
-				}
-			}
-			if sourceState == nil || targetState == nil {
-				return dispatch, fmt.Errorf("could not find source/target states for transition")
-			}
-
-			lowerTrans := &lower.Transition{
-				Source:  sourceState,
-				Target:  targetState,
-				Trigger: edge.Trigger,
-				Guard:   edge.Guard,
-				Effect:  lower.LowerBehaviors(edge.Effect, nil, e.stateMachine.Scope, e.ctx.Resolver(), e.graph.Exprs),
-			}
-			lowerTrans.GuardID = e.graph.Exprs.Intern(lowerTrans.Guard, lowerTrans.BodyScope)
-			var err error
-			dispatch.Fired, err = e.fireTransition(lowerTrans, route{segments: []*lower.Transition{lowerTrans}, target: e.stateID(targetState)})
-			return dispatch, err
-		}
-
-		return dispatch, fmt.Errorf("invalid TimeEvent payload: expected *lower.Transition or *ast.TransitionEdge")
+		return dispatch, fmt.Errorf("invalid TimeEvent payload: expected *lower.Transition, got %T", event.Payload)
 	default:
 		// For general events, broadcast to all active regions
 		consumed, resumed, err := e.broadcastEvent(&event)

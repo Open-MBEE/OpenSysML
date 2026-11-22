@@ -82,7 +82,8 @@ func TestTranslateExpr(t *testing.T) {
 		{"JavaScript", "-t", "", "-this.t", "Real"},
 		{"JavaScript", "1.5e3", "", "1500.0", "Real"},
 		{"JavaScript", "'a\"b'", "", `"a\"b"`, "String"},
-		{"JavaScript", `"a\nb\tc\rd\be\ff"`, "", `"a\nb\tc\rd\be\ff"`, "String"},
+		// Table 4 has no escape for U+000D, so the carriage return is written as itself.
+		{"JavaScript", `"a\nb\tc\rd\be\ff"`, "", "\"a\\nb\\tc\rd\\be\\ff\"", "String"},
 		{"JavaScript", `"\x41\u0042\u{1F600}\\\'\d"`, "", "\"AB\U0001F600\\\\'d\"", "String"},
 		{"JavaScript", "\"a\\\nb\"", "", `"ab"`, "String"},
 		{"JavaScript", "Math.round(t)", "", "RealFunctions::floor(this.t + 0.5)", "Integer"},

@@ -157,6 +157,17 @@ func TestImportAllCycleTerminates(t *testing.T) {
 	`, "C1::InC1", "C2::InC2", "InC1", "InC2")
 }
 
+// A recursive import reads an owned namespace with its owner excluded, so the
+// owner's private member does not come back by an `import all` of the owner.
+func TestRecursiveImportExcludesTheOwnerOfANamespaceItDescends(t *testing.T) {
+	const model = `
+		package N { private part def Hidden; package K { public import X::*; } }
+		package X { public import all N::*; }
+	`
+	wantUnresolved(t, model+`package Use { private import N::**; part x : Hidden; }`, "Hidden")
+	wantUnresolved(t, model+`package Use { private import X::*; part x : Hidden; }`)
+}
+
 // What a public `import all` took is a public membership of its namespace, so an
 // enumeration offers it as a qualified name reaches it; a private own member is neither.
 func TestEnumerationOffersWhatAnImportAllTook(t *testing.T) {

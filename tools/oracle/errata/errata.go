@@ -114,10 +114,16 @@ func materializeInto(repo, dir, dst string, entries map[string][]Entry) ([]Entry
 	if err := os.CopyFS(dst, os.DirFS(filepath.Join(repo, filepath.FromSlash(dir)))); err != nil {
 		return nil, fmt.Errorf("copy %s: %w", dir, err)
 	}
+	// The copy keeps the corpus's links: an os.Root refuses one that leaves dst.
+	root, err := os.OpenRoot(dst)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = root.Close() }()
 	var out []Entry
 	for _, rel := range overlay.SortedPaths(entries) {
-		path := filepath.Join(dst, filepath.FromSlash(rel))
-		content, err := os.ReadFile(path) // #nosec G304 -- the path is inside the copy this function just made
+		path := filepath.FromSlash(rel)
+		content, err := root.ReadFile(path)
 		if err != nil {
 			var pathErr *fs.PathError
 			if errors.As(err, &pathErr) {
@@ -129,7 +135,7 @@ func materializeInto(repo, dir, dst string, entries map[string][]Entry) ([]Entry
 		if err != nil {
 			return nil, err
 		}
-		if err := os.WriteFile(path, corrected, 0o600); err != nil {
+		if err := root.WriteFile(path, corrected, 0o600); err != nil {
 			return nil, err
 		}
 		for _, entry := range entries[rel] {

@@ -28,6 +28,7 @@ func (r *Resolver) reading(scope *symbols.Scope, f func()) {
 	r.importPath = append(r.importPath, scope)
 	defer func() {
 		r.importPath = r.importPath[:len(r.importPath)-1]
+		r.importNames = r.importNames[:min(len(r.importNames), len(r.importPath))]
 		r.forgetRoute()
 	}()
 	f()
@@ -56,15 +57,21 @@ func (r *Resolver) freshImportRoute(f func()) {
 	r.freshImportVisits(f)
 }
 
+// noNamespace stands in the excluded namespaces for a scope the index does
+// not name: no namespace has it for a name, so it excludes none.
+const noNamespace = "\x00"
+
 // excludedNamespaces names the namespaces being read, as the index names them.
+// The result is valid until the read that asked for it returns.
 func (r *Resolver) excludedNamespaces() []string {
-	var out []string
-	for _, scope := range r.importPath {
-		if fqn := r.namespaceFQNOf(scope); fqn != "" {
-			out = append(out, fqn)
+	for _, scope := range r.importPath[len(r.importNames):] {
+		fqn := r.namespaceFQNOf(scope)
+		if fqn == "" {
+			fqn = noNamespace
 		}
+		r.importNames = append(r.importNames, fqn)
 	}
-	return out
+	return r.importNames
 }
 
 // markRoute starts recording what the reads that follow depend on; each mark
@@ -125,8 +132,16 @@ func distinctScopes(scopes []*symbols.Scope) []*symbols.Scope {
 	if len(scopes) == 0 {
 		return nil
 	}
-	seen := make(map[*symbols.Scope]struct{}, len(scopes))
 	out := make([]*symbols.Scope, 0, len(scopes))
+	if len(scopes) <= 8 {
+		for _, scope := range scopes {
+			if !slices.Contains(out, scope) {
+				out = append(out, scope)
+			}
+		}
+		return out
+	}
+	seen := make(map[*symbols.Scope]struct{}, len(scopes))
 	for _, scope := range scopes {
 		if _, dup := seen[scope]; !dup {
 			seen[scope] = struct{}{}

@@ -147,6 +147,9 @@ func (idx *Index) collectFromTables(e *snapshotEncoder) {
 			for _, route := range claim.routes {
 				e.collectFilters(route.filters)
 			}
+			for _, hop := range claim.hops {
+				e.collectFilters(hop.filters)
+			}
 		}
 	}
 	for _, m := range idx.docReexports.own {
@@ -489,6 +492,13 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 				for _, ns := range route.via {
 					e.w.String(ns)
 				}
+			}
+			e.w.Len(len(claim.hops))
+			for _, hop := range claim.hops {
+				e.w.String(hop.from)
+				e.w.Bool(hop.private)
+				e.w.Bool(hop.all)
+				e.filters(hop.filters)
 			}
 		}
 	}
@@ -1007,6 +1017,12 @@ func (d *sectionReader) readTables() *Index {
 					}
 				}
 			}
+			if n := d.r.Len(); n > 0 {
+				claim.hops = make([]importHop, n)
+				for h := range claim.hops {
+					claim.hops[h] = importHop{from: d.r.String(), private: d.r.Bool(), all: d.r.Bool(), filters: d.filters()}
+				}
+			}
 			if len(claims) == cap(claims) {
 				claims = make([]reexportClaim, 0, n)
 			}
@@ -1075,6 +1091,8 @@ func (d *sectionReader) readTables() *Index {
 		doc := d.r.String()
 		idx.aboutUsages[doc] = d.symbols()
 	}
+	idx.cyclic = newLayer[string, []string](gen)
+	idx.noteImportCycles(idx.readGraph())
 	idx.takeLibraryIdentity()
 	idx.derived = &derivedMemo{}
 	idx.frozen = true

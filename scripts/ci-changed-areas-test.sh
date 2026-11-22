@@ -97,7 +97,7 @@ case_ java-source java,mdk,syson client/java/opensysml-client/src/main/java/org/
 case_ java-manifest java,mdk,python,syson client/java/pom.xml
 case_ java-readme docs,java,mdk,python,syson client/java/README.md
 case_ java-reference docs,python docs/reference/java-api.md
-case_ java-skill docs,python packaging/agent-skills/skills/opensysml-java/SKILL.md
+case_ java-skill docs,go,python packaging/agent-skills/skills/opensysml-java/SKILL.md
 case_ node-only node client/node/src/node/binary.ts
 case_ node-manifest node,python client/node/package.json
 case_ python-only python client/python/opensysml/connection.py
@@ -134,16 +134,24 @@ case_ jupyterlab-syntax docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,pyth
 case_ man-page docs,go packaging/man/man1/sysml.1
 case_ two-client-readmes docs,java,mdk,node,python,syson client/java/README.md client/node/README.md
 case_ two-clients java,mdk,node,python,syson client/java/pom.xml client/node/tsconfig.json
-case_ go-source docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/syntax/parser/parser.go
+case_ go-source docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,pilotdiff,python,rust,syson,vscode internal/syntax/parser/parser.go
 # The derived-property differential runs on what can move its baseline (the writer, the referee,
 # the bridge, the pin, the baseline itself) and on unclaimed paths, like every area; not on a parser change.
 case_ apijson-writer apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/translate/export/api_json_absence.go
 case_ apijson-referee apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode tools/referee/apijson/provenance.go
 case_ apijson-store apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode tools/referee/baseline/store.go
 case_ apijson-bridge apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode scripts/pilot-json-exporter/ExportJSON.java
-case_ apijson-pin apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode scripts/pilot-pin.sh
+case_ apijson-pin apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,pilotdiff,python,rust,syson,vscode scripts/pilot-pin.sh
 case_ apijson-baseline apijson,docs,go docs/project/api-json-differential/index.json
 case_ apijson-fragment apijson,docs,go docs/project/api-json-differential/probes/probe.sysml.json
+# The reference differential runs on what can move its baseline: the layers its referee imports, the referee,
+# the validators, a root, the baseline itself; not on the runtime, the writer or the workflow.
+case_ pilotdiff-check docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,pilotdiff,python,rust,syson,vscode internal/check/passes/typing.go
+case_ pilotdiff-referee apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,pilotdiff,python,rust,syson,vscode tools/referee/diff/pilot.go
+case_ pilotdiff-errata docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,pilotdiff,python,rust,syson,vscode tools/oracle/errata/registry.go
+case_ pilotdiff-validator docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,pilotdiff,python,rust,syson,vscode scripts/pilot-kerml-validator/ValidateKerML.java
+case_ pilotdiff-root docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,pilotdiff,python,rust,syson,vscode examples/demo/model.sysml
+case_ pilotdiff-runtime docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/exec/runtime/executor.go
 case_ go-client docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode client/opensysml/client.go
 case_ release-digests docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode client/release-digests.json
 case_ go-tools docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode tools/gen/snapshot/main.go
@@ -161,8 +169,8 @@ case_ action-apt-install docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,pyt
 case_ action-maven-cache docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/maven-cache/action.yml
 case_ action-pip-install docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/pip-install/action.yml
 case_ action-fuml-suite docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/fuml-suite/action.yml
-case_ action-corpora apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/corpora/action.yml
-case_ action-pilot-validator apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/actions/pilot-validator/action.yml
+case_ action-corpora apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,pilotdiff,python,rust,syson,vscode .github/actions/corpora/action.yml
+case_ action-pilot-validator apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,pilotdiff,python,rust,syson,vscode .github/actions/pilot-validator/action.yml
 # Repository metadata builds nothing and no job reads it, so it is claimed with no area.
 case_ codeowners '' .github/CODEOWNERS
 case_ funding '' .github/FUNDING.yml
@@ -171,20 +179,35 @@ case_ issue-template '' .github/ISSUE_TEMPLATE/1-tool-bug.yml
 case_ mcp-lockfile docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode packaging/npm/sysml-mcp/package-lock.json
 quick_case_ mcp-lockfile go packaging/npm/sysml-mcp/package-lock.json
 # The pysysml stub is audited in the Python job.
-case_ pysysml python packaging/pypi-pysysml/pyproject.toml
+case_ pysysml go,python packaging/pypi-pysysml/pyproject.toml
+# Every packaging subtree runs the Go area, whose hygiene suite reads the manifests and pins there:
+# a subtree claimed with no area would let its pull request pass with every job skipped.
+case_ packaging-msi-pin go packaging/msi/z3.pin
+case_ packaging-msi-source go packaging/msi/opensysml.wxs
+case_ packaging-windows go packaging/windows/sysml.winres.json
+case_ packaging-homebrew go packaging/homebrew/Formula/opensysml.rb
+case_ packaging-mcp go packaging/mcp/server.json
+case_ packaging-conda go packaging/conda/recipe/meta.yaml
+case_ packaging-scoop go packaging/scoop/opensysml.json
+case_ packaging-winget go packaging/winget/OpenMBEE.OpenSysML/OpenMBEE.OpenSysML.installer.yaml
+case_ packaging-msys2 go packaging/msys2/PKGBUILD
+case_ packaging-agent-skill docs,go packaging/agent-skills/skills/opensysml-cli/SKILL.md
+case_ packaging-new-subtree go packaging/some-new-channel/manifest.json
+quick_case_ packaging-msi-pin go packaging/msi/z3.pin
+quick_case_ packaging-mcp go packaging/mcp/server.json
 # The Go hygiene suite caps every tracked fixture and test file, so these run it too.
 case_ client-fixture go,python client/python/tests/testdata/large.json
 case_ client-golden go,node client/node/test/render.golden.json
 # The committed baselines and figure pages under docs/project are Go test inputs.
-case_ project-baseline docs,go docs/project/pilot-differential-baseline.json
+case_ project-baseline docs,go,pilotdiff docs/project/pilot-differential-baseline.json
 case_ project-figures docs,go docs/project/api-json-differential.md
 case_ project-archive docs,go docs/project/archive/CHANGELOG-0.0-0.8.md
 case_ project-compliance-source docs,go docs/project/spec-compliance/02-detailed-semantic-compliance-map/13-action.md
-case_ unclaimed apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode some-new-top-level/thing.txt
+case_ unclaimed apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,pilotdiff,python,rust,syson,vscode some-new-top-level/thing.txt
 
 # The quick tier runs the Go suite for a service change but not every client; a
 # client's or the docs' own paths still run it, and an unclaimed path is only Go.
-quick_case_ go-source go internal/syntax/parser/parser.go
+quick_case_ go-source go,pilotdiff internal/syntax/parser/parser.go
 quick_case_ apijson-writer apijson,go internal/translate/export/api_json_absence.go
 quick_case_ proto go api/proto/sysml.proto
 quick_case_ workflow go .github/workflows/pr.yml
@@ -194,12 +217,15 @@ quick_case_ action-apt-install docs,go,matlab,node,python .github/actions/apt-in
 quick_case_ action-maven-cache go,java,mdk,syson .github/actions/maven-cache/action.yml
 quick_case_ action-pip-install docs,go,jupyterlab,python .github/actions/pip-install/action.yml
 quick_case_ action-fuml-suite go .github/actions/fuml-suite/action.yml
-quick_case_ action-corpora apijson,go .github/actions/corpora/action.yml
-quick_case_ action-pilot-validator apijson,go .github/actions/pilot-validator/action.yml
-quick_case_ go-and-node go,node internal/syntax/parser/parser.go client/node/src/node/binary.ts
-quick_case_ go-and-docs docs,go internal/syntax/parser/parser.go docs/guide/index.md
+quick_case_ action-corpora apijson,go,pilotdiff .github/actions/corpora/action.yml
+quick_case_ action-pilot-validator apijson,go,pilotdiff .github/actions/pilot-validator/action.yml
+quick_case_ pilotdiff-check go,pilotdiff internal/check/passes/typing.go
+quick_case_ pilotdiff-root go,pilotdiff examples/demo/model.sysml
+quick_case_ pilotdiff-runtime go internal/exec/runtime/executor.go
+quick_case_ go-and-node go,node,pilotdiff internal/syntax/parser/parser.go client/node/src/node/binary.ts
+quick_case_ go-and-docs docs,go,pilotdiff internal/syntax/parser/parser.go docs/guide/index.md
 quick_case_ docs-only docs docs/guide/index.md
-quick_case_ project-baseline docs,go docs/project/pilot-differential-baseline.json
+quick_case_ project-baseline docs,go,pilotdiff docs/project/pilot-differential-baseline.json
 quick_case_ java-manifest java,mdk,python,syson client/java/pom.xml
 quick_case_ node-only node client/node/src/node/binary.ts
 quick_case_ vscode-grammar go,vscode editors/vscode/tools/gengrammar/grammar.go
@@ -240,7 +266,10 @@ queue_case_() {
 # to every client is the full tier's, so a registry timeout cannot fail a group that never touched the client.
 queue_case_ apijson-writer docs,go internal/translate/export/api_json_absence.go
 queue_case_ apijson-baseline docs,go docs/project/api-json-differential/index.json
+queue_case_ pilotdiff-check docs,go internal/check/passes/typing.go
+queue_case_ pilotdiff-baseline docs,go docs/project/pilot-differential-baseline.json
 queue_case_ unclaimed docs,go some-new-top-level/thing.txt
+queue_case_ packaging-msi-pin go packaging/msi/z3.pin
 queue_case_ emacs-own emacs editors/emacs/sysml-mode.el
 queue_case_ java-own java,mdk,python,syson client/java/pom.xml
 queue_case_ action-pip-install docs,go,jupyterlab,python .github/actions/pip-install/action.yml
@@ -264,6 +293,14 @@ area_for_event_ workflow_dispatch false apijson true
 tier_case_ workflow-only quick .github/workflows/pr.yml
 area_for_event_ pull_request false apijson false
 area_for_event_ merge_group false apijson false
+area_for_event_ pull_request false pilotdiff false
+# The reference differential keeps the same tiers on its own paths: a push and the full tier, never the queue.
+tier_case_ pilotdiff-parser quick internal/syntax/parser/parser.go
+area_for_event_ pull_request false pilotdiff true
+area_for_event_ merge_group false pilotdiff false
+area_for_event_ pull_request true pilotdiff true
+area_for_event_ schedule false pilotdiff true
+area_for_event_ workflow_dispatch false pilotdiff true
 
 # The event decides above the paths: a merge-group commit runs the queue tier, a schedule or a
 # dispatch the full tier, a pull request labelled ci:full the full tier, whatever they touch.

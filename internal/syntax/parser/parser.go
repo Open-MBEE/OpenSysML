@@ -263,14 +263,29 @@ func (p *Parser) reportUnterminated(tok lexer.Token) {
 // reportBadEscapes reports each escape a quoted token's terminal does not admit
 // (KerMLExpressions.xtext STRING_VALUE, UNRESTRICTED_NAME); it runs on consumption, not buffering.
 func (p *Parser) reportBadEscapes(tok lexer.Token) {
-	terminal := "a string"
-	if tok.Kind == lexer.UnrestrictedName {
-		terminal = "an unrestricted name"
-	}
 	raw := p.src.Text(tok.Span)
 	for _, sp := range lexer.InvalidEscapes(tok.Span, raw) {
-		p.error(sp, fmt.Sprintf("invalid escape '%s' in %s: only \\b \\t \\n \\f \\r \\\" \\' \\\\ are admitted", p.src.Text(sp), terminal))
+		p.error(sp, fmt.Sprintf("invalid escape '%s' in %s: only %s are admitted", p.src.Text(sp), quotedTerminal(tok), source.AdmittedEscapes()))
 	}
+}
+
+// reportNonstandardEscapes warns of each escape a quoted token spells that the
+// lexer admits beyond KerML §8.2.2.3 Table 4; it runs on consumption, as reportBadEscapes does.
+func (p *Parser) reportNonstandardEscapes(tok lexer.Token) {
+	raw := p.src.Text(tok.Span)
+	for _, sp := range lexer.NonstandardEscapes(tok.Span, raw) {
+		p.warn(sp, fmt.Sprintf("the escape sequence `%s` in %s is an extension with no KerML production: "+
+			"§8.2.2.3 Table 4 (Escape Sequences) lists only %s, so another tool may reject it",
+			p.src.Text(sp), quotedTerminal(tok), source.StandardEscapes()), codeNonstandardNotation)
+	}
+}
+
+// quotedTerminal names the terminal a quoted token is, as a message reads it.
+func quotedTerminal(tok lexer.Token) string {
+	if tok.Kind == lexer.UnrestrictedName {
+		return "an unrestricted name"
+	}
+	return "a string"
 }
 
 // compact drops the consumed tokens no checkpoint can rewind to, keeping the
@@ -336,6 +351,9 @@ func (p *Parser) advance() lexer.Token {
 		}
 		if tok.BadEscape {
 			p.reportBadEscapes(tok)
+		}
+		if tok.NonstandardEscape {
+			p.reportNonstandardEscapes(tok)
 		}
 	}
 	return tok
