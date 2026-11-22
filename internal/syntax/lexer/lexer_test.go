@@ -604,3 +604,29 @@ func TestMinusNotArrow(t *testing.T) {
 		t.Errorf("expected Minus, got %v", tok.Kind)
 	}
 }
+
+// NonstandardEscape marks a quoted token spelling an escape admitted beyond
+// KerML §8.2.2.3 Table 4, and only one on the opening line of a token cut there.
+func TestNonstandardEscapeFlag(t *testing.T) {
+	for _, tt := range []struct {
+		in   string
+		want bool
+	}{
+		{`"a\rb"`, true},
+		{`'a\rb'`, true},
+		{`"a\'\"\b\f\t\n\\b"`, false},
+		{`'a\'\"\b\f\t\n\\b'`, false},
+		{`"a\\r"`, false},
+		{"\"a\rb\"", false},
+		{"\"a \\r\n\\z", true},
+		{"\"a\n\\r", false},
+	} {
+		toks := lex(t, tt.in)
+		if toks[0].NonstandardEscape != tt.want || toks[0].BadEscape {
+			t.Errorf("input %q token = %+v, want NonstandardEscape %v and no BadEscape", tt.in, toks[0], tt.want)
+		}
+		if got := len(NonstandardEscapes(toks[0].Span, tt.in[:toks[0].Span.Len])) > 0; got != tt.want {
+			t.Errorf("input %q: NonstandardEscapes found one = %v, want %v", tt.in, got, tt.want)
+		}
+	}
+}

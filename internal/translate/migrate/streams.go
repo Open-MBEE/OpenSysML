@@ -328,14 +328,14 @@ func (p *pictures) underlaid() (sandwiched, under, covered int) {
 func (m *migration) pictureLine(host *sysmlv1.Element, prefix string, p picture, x exposures) string {
 	b := p.sym.Bounds
 	attrs := []string{
-		m.diagramLayoutAttributeForHost(prefix, "Picture", "location", source.StringText(p.location), host, x),
+		m.diagramLayoutAttributeForHost(prefix, "Picture", "location", source.StandardStringText(p.location), host, x),
 		m.diagramLayoutAttributeForHost(prefix, "Picture", "x", layoutNumber(b.X), host, x),
 		m.diagramLayoutAttributeForHost(prefix, "Picture", "y", layoutNumber(b.Y), host, x),
 		m.diagramLayoutAttributeForHost(prefix, "Picture", "width", layoutNumber(b.Width), host, x),
 		m.diagramLayoutAttributeForHost(prefix, "Picture", "height", layoutNumber(b.Height), host, x),
 	}
 	if alt := pastedAlt(p.sym.Attachment); alt != "" {
-		attrs = append(attrs, m.diagramLayoutAttributeForHost(prefix, "Picture", "alt", source.StringText(alt), host, x))
+		attrs = append(attrs, m.diagramLayoutAttributeForHost(prefix, "Picture", "alt", source.StandardStringText(alt), host, x))
 	}
 	if p.above {
 		attrs = append(attrs, m.diagramLayoutAttributeForHost(prefix, "Picture", "above", "true", host, x))
@@ -622,7 +622,7 @@ func noteText(sym *sysmlv1.Symbol, m *migration) string {
 // noteBody writes the attribute block of a Note annotation.
 func (m *migration) noteBody(host *sysmlv1.Element, prefix string, x exposures, text string, b *sysmlv1.Bounds) string {
 	attrs := []string{
-		m.diagramLayoutAttributeForHost(prefix, "Note", "text", source.StringText(text), host, x),
+		m.diagramLayoutAttributeForHost(prefix, "Note", "text", source.StandardStringText(text), host, x),
 		m.diagramLayoutAttributeForHost(prefix, "Note", "x", layoutNumber(b.X), host, x),
 		m.diagramLayoutAttributeForHost(prefix, "Note", "y", layoutNumber(b.Y), host, x),
 		m.diagramLayoutAttributeForHost(prefix, "Note", "width", layoutNumber(b.Width), host, x),
@@ -642,17 +642,17 @@ func styledSymbol(sym *sysmlv1.Symbol) bool {
 func (m *migration) styleLine(host *sysmlv1.Element, prefix, ref string, st sysmlv1.Style, x exposures) string {
 	var attrs []string
 	if st.Fill != "" {
-		attrs = append(attrs, m.diagramLayoutAttributeForHost(prefix, "Style", "fill", source.StringText(st.Fill), host, x)+";")
+		attrs = append(attrs, m.diagramLayoutAttributeForHost(prefix, "Style", "fill", source.StandardStringText(st.Fill), host, x)+";")
 	}
 	if st.Pen != "" {
-		attrs = append(attrs, m.diagramLayoutAttributeForHost(prefix, "Style", "line", source.StringText(st.Pen), host, x)+";")
+		attrs = append(attrs, m.diagramLayoutAttributeForHost(prefix, "Style", "line", source.StandardStringText(st.Pen), host, x)+";")
 	}
 	if st.Text != "" {
-		attrs = append(attrs, m.diagramLayoutAttributeForHost(prefix, "Style", "text", source.StringText(st.Text), host, x)+";")
+		attrs = append(attrs, m.diagramLayoutAttributeForHost(prefix, "Style", "text", source.StandardStringText(st.Text), host, x)+";")
 	}
 	if f := st.Font; f != nil {
 		if f.Name != "" {
-			attrs = append(attrs, m.diagramLayoutAttributeForHost(prefix, "Style", "font", source.StringText(f.Name), host, x)+";")
+			attrs = append(attrs, m.diagramLayoutAttributeForHost(prefix, "Style", "font", source.StandardStringText(f.Name), host, x)+";")
 		}
 		if f.Size > 0 {
 			attrs = append(attrs, m.diagramLayoutAttributeForHost(prefix, "Style", "fontSize", layoutNumber(f.Size), host, x)+";")
