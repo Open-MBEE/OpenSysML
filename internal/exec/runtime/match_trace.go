@@ -191,17 +191,39 @@ func (s *traceSearch) from(fresh func() (*Context, error), start Starter, picks 
 	if err = ctx.SetSchedule(checkPolicy(&checkScript{due: -1, picks: picks})); err != nil {
 		return nil, err
 	}
+	previous := ctx.traceStop
+	ctx.traceStop = s.stop
+	defer func() { ctx.traceStop = previous }()
 	run, err := beginInvocation(ctx, start)
-	if err != nil {
+	var setup *SetupError
+	if errors.As(err, &setup) {
 		return nil, err
 	}
-	if run == nil || run.inv == nil {
-		return nil, fmt.Errorf("trace starter returned no invocation")
+	if run.inv != nil {
+		defer run.inv.Release()
 	}
-	defer run.inv.Release()
+	if s.stop.Err() != nil {
+		return nil, nil
+	}
 	check := run.checking()
 	if check.refused != nil {
 		return nil, check.refused
+	}
+	var more [][]int
+	for i, c := range check.drawn {
+		for alt := 1; alt < len(c.Alternatives); alt++ {
+			more = append(more, slices.Concat(picks, make([]int, i), []int{alt}))
+		}
+	}
+	if err != nil {
+		// A failed startup is a spent visit, not evidence that another order
+		// could not match. Successful startups are charged by walk instead.
+		s.visits++
+		s.note(fmt.Sprintf("starting model: %v", err))
+		return more, nil
+	}
+	if run.inv == nil {
+		return nil, fmt.Errorf("trace starter returned no invocation")
 	}
 	if err = run.inv.started(ctx); err != nil {
 		return nil, err
@@ -225,12 +247,6 @@ func (s *traceSearch) from(fresh func() (*Context, error), start Starter, picks 
 			return nil, &TraceInputError{Row: i + 2, Err: err}
 		}
 		s.signals[i+1] = msg
-	}
-	var more [][]int
-	for i, c := range check.drawn {
-		for alt := 1; alt < len(c.Alternatives); alt++ {
-			more = append(more, slices.Concat(picks, make([]int, i), []int{alt}))
-		}
 	}
 	var path []string
 	if len(picks) > 0 {

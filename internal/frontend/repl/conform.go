@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
@@ -17,9 +18,9 @@ func (s *Session) ConformTrace(machine Behavior, rows []runtime.TraceRow, budget
 	inv, unresolved := s.resolveInvocation(nil, []Behavior{machine}, nil)
 	if inv == nil {
 		if len(unresolved) > 0 {
-			return runtime.TraceReport{}, errors.New(strings.Join(unresolved[0].Lines, "\n"))
+			return runtime.TraceReport{}, &runtime.SetupError{Err: errors.New(strings.Join(unresolved[0].Lines, "\n"))}
 		}
-		return runtime.TraceReport{}, errors.New("no state machine resolved")
+		return runtime.TraceReport{}, &runtime.SetupError{Err: errors.New("no state machine resolved")}
 	}
 	model := s.freshModel()
 	ctx := s.planContext()
@@ -35,6 +36,15 @@ func (s *Session) ConformTrace(machine Behavior, rows []runtime.TraceRow, budget
 	}, func(ctx *runtime.Context) (*runtime.Invocation, error) {
 		run, err := inv.start(ctx)
 		if err != nil {
+			// A bad performer selection is invalid input, unlike a model
+			// evaluation that happens to fail while resolving that performer.
+			var path *objref.PathError
+			var exhibitors *ExhibitorsError
+			var ambiguous *AmbiguousMachineError
+			if (errors.As(err, &path) && path.Err == nil) ||
+				errors.As(err, &exhibitors) || errors.As(err, &ambiguous) {
+				return nil, &runtime.SetupError{Err: err}
+			}
 			return nil, err
 		}
 		// There is no simulated-time input in v1. The matcher advances only

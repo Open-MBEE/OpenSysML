@@ -234,6 +234,9 @@ func decodeTraceRow(input []byte, initial bool) (runtime.TraceRow, error) {
 	if len(bytes.TrimSpace(input)) == 0 {
 		return runtime.TraceRow{}, fmt.Errorf("blank lines are not observations")
 	}
+	if !pairedTraceSurrogates(input) {
+		return runtime.TraceRow{}, fmt.Errorf("JSON string contains an unpaired UTF-16 surrogate")
+	}
 	dec := json.NewDecoder(bytes.NewReader(input))
 	object, err := uniqueTraceObject(dec)
 	if err != nil {
@@ -275,6 +278,48 @@ func decodeTraceRow(input []byte, initial bool) (runtime.TraceRow, error) {
 		return row, fmt.Errorf("observe must name at least one feature")
 	}
 	return row, nil
+}
+
+const traceUnicodeEscapeLen = len(`\u0000`)
+
+// pairedTraceSurrogates checks raw strings before encoding/json can replace
+// a lone surrogate with U+FFFD. The decoder still checks JSON syntax.
+func pairedTraceSurrogates(input []byte) bool {
+	inString := false
+	for i := 0; i < len(input); i++ {
+		switch input[i] {
+		case '"':
+			inString = !inString
+		case '\\':
+			if !inString || i+1 == len(input) {
+				continue
+			}
+			switch unit := traceUnicodeEscape(input[i:]); {
+			case unit >= 0xDC00 && unit <= 0xDFFF:
+				return false
+			case unit >= 0xD800 && unit <= 0xDBFF:
+				low := traceUnicodeEscape(input[i+traceUnicodeEscapeLen:])
+				if low < 0xDC00 || low > 0xDFFF {
+					return false
+				}
+				i += 2*traceUnicodeEscapeLen - 1
+			default:
+				i++ // Skip the escaped byte, including literal backslashes and quotes.
+			}
+		}
+	}
+	return true
+}
+
+func traceUnicodeEscape(input []byte) uint64 {
+	if len(input) < traceUnicodeEscapeLen || input[0] != '\\' || input[1] != 'u' {
+		return 0
+	}
+	unit, err := strconv.ParseUint(string(input[2:traceUnicodeEscapeLen]), 16, 16)
+	if err != nil {
+		return 0
+	}
+	return unit
 }
 
 func traceValues(raw json.RawMessage) (map[string]runtime.Value, error) {

@@ -24,9 +24,8 @@ type invocationRun struct {
 	turn checkedExecutor
 }
 
-// beginInvocation starts the invocation within one run of its own, so the
-// executors started, their initialization included, drive that run rather
-// than one each. A starter that fails returns its error and a nil run.
+// beginInvocation starts all executors in one shared run, keeping its startup
+// draws even if the starter fails without returning an invocation.
 func beginInvocation(ctx *Context, start Starter) (*invocationRun, error) {
 	r := &invocationRun{ctx: ctx}
 	defer r.enter()()

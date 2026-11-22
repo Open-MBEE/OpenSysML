@@ -31,6 +31,24 @@ func TestConformTracePreservesTypedEvidence(t *testing.T) {
 	}
 }
 
+func TestConformTracePreservesUnicodeEvidence(t *testing.T) {
+	const initial = `{"observe":{"\ud83d\ude00":"�","text":"\\ud800"}}` + "\n"
+	const observed = `{"signal":"Example::\ud83d\ude00","args":{"raw":"\\udfff","symbol":"\uD83D\uDE00"},"observe":{"😀":"\ufffd","text":"\"\\\ud83d\ude00"}}`
+	rows, err := readConformTrace(strings.NewReader(initial + observed))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows[0].Observe["😀"].Str() != "�" || rows[1].Observe["😀"].Str() != "�" {
+		t.Fatalf("replacement character changed: %+v", rows)
+	}
+	if rows[0].Observe["text"].Str() != `\ud800` || rows[1].Args["raw"].Str() != `\udfff` {
+		t.Fatalf("literal escapes changed: %+v", rows)
+	}
+	if rows[1].Signal != "Example::😀" || rows[1].Args["symbol"].Str() != "😀" || rows[1].Observe["text"].Str() != `"\😀` {
+		t.Fatalf("paired surrogate or escaped quote changed: %+v", rows[1])
+	}
+}
+
 func TestConformTraceRejectsMalformedEvidence(t *testing.T) {
 	const initial = `{"observe":{"shown":false}}` + "\n"
 	for _, tc := range []struct {
@@ -50,6 +68,15 @@ func TestConformTraceRejectsMalformedEvidence(t *testing.T) {
 		{"null", `{"observe":{"shown":null}}`, "signed 64-bit integer", 1},
 		{"float", `{"observe":{"shown":3.0}}`, "signed 64-bit integer", 1},
 		{"overflow", `{"observe":{"shown":9223372036854775808}}`, "signed 64-bit integer", 1},
+		{"lone high in observation", `{"observe":{"shown":"\ud800"}}`, "unpaired UTF-16 surrogate", 1},
+		{"lone low in argument", initial + `{"signal":"Open","args":{"text":"\udfff"},"observe":{"shown":true}}`, "unpaired UTF-16 surrogate", 2},
+		{"unpaired signal", initial + `{"signal":"\ud83d","observe":{"shown":true}}`, "unpaired UTF-16 surrogate", 2},
+		{"unpaired field name", `{"observe":{"\ude00":false}}`, "unpaired UTF-16 surrogate", 1},
+		{"lows before highs", `{"observe":{"shown":"\udc00\udbff"}}`, "unpaired UTF-16 surrogate", 1},
+		{"nonadjacent pair", `{"observe":{"shown":"\udbffx\udc00"}}`, "unpaired UTF-16 surrogate", 1},
+		{"escaped low after high", `{"observe":{"shown":"\ud800\\udc00"}}`, "unpaired UTF-16 surrogate", 1},
+		{"high followed by nonsurrogate", `{"observe":{"shown":"\ud800\ufffd"}}`, "unpaired UTF-16 surrogate", 1},
+		{"high followed by high", `{"observe":{"shown":"\ud800\ud801"}}`, "unpaired UTF-16 surrogate", 1},
 		{"extra JSON", initial + `{"signal":"Example::Open","observe":{"shown":true}}{}`, "one JSON object per line", 2},
 		{"blank line", initial + "\n", "blank lines", 2},
 	} {

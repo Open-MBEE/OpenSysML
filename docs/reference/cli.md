@@ -421,7 +421,8 @@ Record one JSON object per line. The initial row has only `observe`. Each later
 row supplies one fully qualified model `signal`, optional named `args`, and
 `observe` with exactly the same feature names as the initial row. Feature names
 refer to scalar attributes of the machine's performing object. Values
-are Boolean, string, or signed 64-bit integer JSON literals.
+are Boolean, string, or signed 64-bit integer JSON literals. Encode the file
+as UTF-8. An unpaired surrogate escape in a JSON string is invalid evidence.
 
 ```jsonl
 {"observe":{"energized":false}}
@@ -434,8 +435,10 @@ at least one execution explains the supplied inputs and observations; it
 says nothing about unobserved features or other executions. This is not `-schedule replay`,
 which follows internal scheduler choices from an OpenSysML witness. The two
 flags cannot be combined. This mode does not replay timed behavior or call
-external tools. If evaluating an observable itself requires choosing among
-statement orders, that branch is inconclusive. It supports the text and JSON report formats.
+external tools. A runtime failure in one startup order does not rule out a
+match in another order. If no order matches and a branch failed to start or
+needed a scheduling choice to read an observable, the search is inconclusive.
+Both text and JSON report formats are supported.
 
 The search defaults to a depth of 512 moves per path, 10,000 visits, and a
 30-second timeout. Override them with `-check-depth`, `-check-states` and
