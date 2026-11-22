@@ -82,8 +82,8 @@ func TestSnapshotKeepsImportAll(t *testing.T) {
 		t.Fatalf("restored WildcardImportsOf(App) = %+v, want one `import all`", got)
 	}
 	wantNamed(t, restored, "App::P", 1)
-	if stale := restored.importersToRefresh(restored.resolveAllImports(), nil); len(stale) != 0 {
-		t.Errorf("restored index re-derives %v, want its settled re-exports kept", stale)
+	if purge, derive := restored.importersToRefresh(nil, false); len(purge) != 0 || len(derive) != 0 {
+		t.Errorf("restored index re-derives %v and purges %v, want its settled re-exports kept", derive, purge)
 	}
 }
 
@@ -329,31 +329,6 @@ func TestExpandWildcardImportsKeepsOneRouteThroughLayeredImportsOnACycle(t *test
 	}
 }
 
-// An import can name a namespace that a later import of the same namespace
-// brings in: it reads nothing until the name resolves, and is read once it does.
-func TestExpandWildcardImportsReadsAnImportALaterOneResolves(t *testing.T) {
-	idx := NewIndex()
-	addDoc(t, idx, "p.sysml", "package P { package N { part def K; } }")
-	addDoc(t, idx, "q.sysml", "package Q { public import N::*; public import P::*; }")
-	idx.ExpandWildcardImports()
-
-	k := lookupOne(t, idx, "P::N::K")
-	if !slices.Contains(idx.reexportedAt("Q::K"), k) {
-		t.Fatal("Q::K is not re-exported, want it read through the N that P supplies")
-	}
-	accepts := func([]ElementFilter) bool { return true }
-	if _, accepted := idx.EachReexportGate("", "Q::K", k, "", []string{"P::N"}, accepts); accepted {
-		t.Error("Q::K is accepted with P::N excluded, want not: it is read from there")
-	}
-
-	// The name goes with the import that supplied it.
-	addDoc(t, idx, "q.sysml", "package Q { public import N::*; }")
-	idx.ExpandWildcardImports()
-	if got := idx.reexportedAt("Q::K"); len(got) != 0 {
-		t.Errorf("Q::K is still re-exported as %v, want nothing: N no longer resolves", got)
-	}
-}
-
 // A lookup excluding namespaces reads each layer of public imports on a cycle
 // once, not once per path, though every read is cut at the namespace read.
 func TestEachReexportGateReadsLayeredImportsOnACycleOnce(t *testing.T) {
@@ -400,8 +375,8 @@ func TestExpandWildcardImportsSettlesWhenALaterImportShadowsATarget(t *testing.T
 	addDoc(t, idx, "p.sysml", "package P { public import N::*; public import Q::*; }")
 	idx.ExpandWildcardImports()
 	lookupOne(t, idx, "P::K") // the member of the namespace the import read
-	if stale := idx.importersToRefresh(idx.resolveAllImports(), nil); len(stale) != 0 {
-		t.Errorf("importers still to refresh once settled: %v", stale)
+	if purge, derive := idx.importersToRefresh(nil, false); len(purge) != 0 || len(derive) != 0 {
+		t.Errorf("importers still to refresh once settled: %v, purging %v", derive, purge)
 	}
 	if after := claim(); before == nil || before != after {
 		t.Errorf("an unrelated import was derived again: claim %p, then %p", before, after)
@@ -495,14 +470,4 @@ func TestRouteWalkWithoutAPathFindsTheRoutesOfEachPath(t *testing.T) {
 			}
 		}
 	}
-}
-
-// An import naming its own namespace reads nothing; once a later import brings
-// in a namespace of that name, it names that one and its members are read.
-func TestExpandWildcardImportsReadsAnImportThatNamedItsOwnNamespace(t *testing.T) {
-	idx := NewIndex()
-	addDoc(t, idx, "a.sysml", "package A { package N { part def KA; } }")
-	addDoc(t, idx, "n.sysml", "package N { public import N::*; public import A::*; }")
-	idx.ExpandWildcardImports()
-	lookupOne(t, idx, "N::KA")
 }

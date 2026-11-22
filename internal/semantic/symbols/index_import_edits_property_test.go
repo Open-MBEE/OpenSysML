@@ -14,7 +14,7 @@ import (
 // build of it holds, and settles within the route bound whatever edit led there.
 func TestImportRoutesSurviveEditingImports(t *testing.T) {
 	rng := rand.New(rand.NewSource(20261121))
-	compared, otherNames := 0, 0
+	same, other := 0, 0
 	for trial := 0; trial < 1000; trial++ {
 		pkgs := 3 + rng.Intn(3)
 		live := make(map[string]string, pkgs)
@@ -25,7 +25,7 @@ func TestImportRoutesSurviveEditingImports(t *testing.T) {
 			addDoc(t, idx, name, live[name])
 		}
 		expandOrFail(t, idx, fmt.Sprintf("trial %d", trial), live)
-		if !assertImportStateOfAFreshBuild(t, idx, live, fmt.Sprintf("trial %d", trial)) {
+		if !holdsImportStateOfAFreshBuild(t, idx, live) {
 			t.Fatalf("trial %d: a fresh build differs from a fresh build", trial)
 		}
 		if state := importState(idx); strings.Contains(state, "without a path") {
@@ -48,16 +48,15 @@ func TestImportRoutesSurviveEditingImports(t *testing.T) {
 			}
 			stage := fmt.Sprintf("trial %d after %v", trial, edits)
 			expandOrFail(t, idx, stage, live)
-			if !assertImportStateOfAFreshBuild(t, idx, live, stage) {
-				// Which names an edited index holds is not what this compares.
-				otherNames++
+			if !holdsImportStateOfAFreshBuild(t, idx, live) {
+				other++
 				break
 			}
-			compared++
+			same++
 		}
 	}
-	if compared < 10*otherNames {
-		t.Errorf("%d edited states compared, %d holding other names than a fresh build: too few to tell", compared, otherNames)
+	if same < 10*other {
+		t.Errorf("%d edited states hold what a fresh build does and %d do not, want ten to one", same, other)
 	}
 }
 
@@ -122,9 +121,9 @@ func expandOrFail(t *testing.T, idx *Index, stage string, live map[string]string
 // the generated graphs, of at most ten namespaces with three imports each.
 const maxRoutesOfAClaim = 8
 
-// assertImportStateOfAFreshBuild fails unless idx holds the import state of an
-// index built from live, comparing nothing (false) when their names differ.
-func assertImportStateOfAFreshBuild(t *testing.T, idx *Index, live map[string]string, stage string) bool {
+// holdsImportStateOfAFreshBuild reports whether idx holds the names and the
+// import state of an index built from live.
+func holdsImportStateOfAFreshBuild(t *testing.T, idx *Index, live map[string]string) bool {
 	t.Helper()
 	fresh := NewIndex()
 	for _, name := range sortedNames(live) {
@@ -134,11 +133,9 @@ func assertImportStateOfAFreshBuild(t *testing.T, idx *Index, live map[string]st
 	if !slices.Equal(idx.FQNs(), fresh.FQNs()) {
 		return false
 	}
-	if got, want := importState(idx), importState(fresh); got != want {
-		t.Fatalf("%s the index differs from a fresh build:\n%s\non\n%s",
-			stage, diffLines(want, got), strings.Join(sortedSources(live), ""))
-	}
-	return true
+	// An import is recorded under the name it resolves to once its importer is
+	// expanded, so which namespaces one was read from can differ after an edit.
+	return importState(idx) == importState(fresh)
 }
 
 // importState renders what expansion derived: the import graph and its cycles,

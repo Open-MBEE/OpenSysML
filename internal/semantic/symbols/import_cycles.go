@@ -217,3 +217,94 @@ func (idx *Index) mayReach(from string, namespaces []string) bool {
 	}
 	return false
 }
+
+// readBy lists, in order, the namespaces importer's re-exports were read from
+// and the ones its imports last named.
+func (idx *Index) readBy(importer string) []string {
+	var targets []string
+	add := func(target string) {
+		if target == "" || target == importer {
+			return
+		}
+		if at, found := slices.BinarySearch(targets, target); !found {
+			targets = slices.Insert(targets, at, target)
+		}
+	}
+	for _, fqn := range idx.childKeys(importer) {
+		for _, sym := range idx.reexportedAt(fqn) {
+			for _, claim := range idx.reexportDocs.at(reexportKey{fqn: fqn, sym: sym}) {
+				for _, hop := range claim.hops {
+					add(hop.from)
+				}
+			}
+		}
+	}
+	for _, imp := range idx.lastTargets.at(importer) {
+		add(imp.fqn)
+	}
+	return targets
+}
+
+// settleImportCycles records what the importers expanded since it last ran read,
+// and reports whether it dropped re-exports whose cycle moved, to derive again.
+func (idx *Index) settleImportCycles() bool {
+	expanded := idx.expanded
+	idx.expanded = nil
+	reads := make(map[string][]string)
+	var moved []string
+	for importer := range expanded {
+		if targets := idx.readBy(importer); !slices.Equal(targets, idx.noted[importer]) {
+			reads[importer] = targets
+			moved = append(moved, importer)
+		}
+	}
+	for importer := range idx.noted {
+		// An importer whose imports are all gone is not expanded again.
+		if !expanded[importer] && len(idx.wildcardMeta.at(importer)) == 0 {
+			moved = append(moved, importer)
+		}
+	}
+	if len(moved) == 0 {
+		return false
+	}
+	sort.Strings(moved)
+	if idx.noteLeafReads(moved, reads) {
+		return false
+	}
+	graph := make(map[string][]string, len(idx.noted)+len(reads))
+	for importer, targets := range idx.noted {
+		if _, again := slices.BinarySearch(moved, importer); !again {
+			graph[importer] = targets
+		}
+	}
+	for importer, targets := range reads {
+		if len(targets) > 0 {
+			graph[importer] = targets
+		}
+	}
+	rerouted := idx.noteImportCycles(graph)
+	if len(rerouted) == 0 {
+		return false
+	}
+	// A route continues from the ones it was read from, so their readers go too.
+	stale := make(map[string]bool, len(rerouted))
+	work := slices.Clone(rerouted)
+	for _, ns := range rerouted {
+		stale[ns] = true
+	}
+	for len(work) > 0 {
+		ns := work[len(work)-1]
+		work = work[:len(work)-1]
+		for _, reader := range idx.readers[ns] {
+			if !stale[reader] {
+				stale[reader] = true
+				work = append(work, reader)
+			}
+		}
+	}
+	for _, importer := range slices.Sorted(maps.Keys(stale)) {
+		idx.purgeReexportsUnder(importer)
+		idx.lastTargets.del(importer)
+	}
+	return true
+}

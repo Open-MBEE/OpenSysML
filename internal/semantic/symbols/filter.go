@@ -247,7 +247,7 @@ func (idx *Index) forgetNamespaceFilters(fqn, doc string) {
 // meanwhile mark the namespaces importing it onward for expansion too.
 func (idx *Index) refilter(fqn string) {
 	idx.changedNamespace(fqn)
-	idx.forgetExpansion(fqn)
+	idx.lastTargets.del(fqn)
 	idx.purgeReexportsUnder(fqn)
 }
 

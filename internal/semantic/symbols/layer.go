@@ -113,6 +113,18 @@ func (l *layer[K, V]) keys() []K {
 	return out
 }
 
+// clear forgets every entry, hiding the ones the layer below holds.
+func (l *layer[K, V]) clear() {
+	l.gen.bump()
+	l.own = make(map[K]V)
+	for k := range l.base {
+		if l.dead == nil {
+			l.dead = make(map[K]bool)
+		}
+		l.dead[k] = true
+	}
+}
+
 // writableMap returns the map under k that this layer may write to, copying a
 // map the layer below owns first: one index's document must not appear in
 // another's through a table they share.
