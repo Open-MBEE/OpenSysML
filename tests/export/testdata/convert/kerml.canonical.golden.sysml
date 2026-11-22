@@ -1,6 +1,6 @@
 package Structural {
-    struct Frame;
-    behavior Move;
-    class Thing;
-    assoc Link;
+    struct def Frame;
+    behavior def Move;
+    class def Thing;
+    assoc def Link;
 }

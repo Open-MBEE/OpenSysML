@@ -2329,8 +2329,9 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 	if head, handled, err := d.behaviorHead(el); handled {
 		return head, err
 	}
-	// A KerML type declaration has no `def`: it is written in the usage form the parser reads.
-	if kind, ok := kermlTypeMetaclassUsage[el.metaclass]; ok {
+	// A KerML type declaration has no `def`: it is written in the usage form the parser
+	// reads, unless the graph records the `def` of the definition sharing its metaclass.
+	if kind, ok := kermlTypeMetaclassUsage[el.metaclass]; ok && !d.defForm(el) {
 		return d.usageHead(el, kind)
 	}
 	if kind, ok := metaclassDefinition[el.metaclass]; ok {
@@ -2399,7 +2400,7 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 	if d.boolOf(el, rdf.SysML+"isVariation") && kind != ast.DefEnumeration {
 		words = append(words, "variation")
 	}
-	keyword := d.keywordOr(el, definitionKeyword(kind))
+	keyword := strings.TrimSuffix(d.keywordOr(el, definitionKeyword(kind)), defFormSuffix)
 	if el.metaclass == mClassifier {
 		keyword = "classifier"
 	}
@@ -2427,7 +2428,7 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 	}
 	// Every definition kind but `metaclass` shares its keyword with a usage
 	// form, and is told apart from it by `def`.
-	if kind != ast.DefMetaclass && keyword != "classifier" {
+	if kind != ast.DefMetaclass && (keyword != "classifier" || d.defForm(el)) {
 		words = append(words, "def")
 	}
 	words = append(words, d.identWords(el)...)
@@ -2437,6 +2438,14 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 	}
 	words = append(words, relationships...)
 	return strings.Join(words, " "), nil
+}
+
+// defForm reports whether the graph records el as written with `def`, which the metaclass
+// a `class def` shares with the def-less `class` does not say.
+func (d *decoder) defForm(el *element) bool {
+	written, _ := d.stringOf(el, rdf.OpenSysML+xDeclaredKeyword)
+	_, definition := metaclassDefinition[el.metaclass]
+	return definition && strings.HasSuffix(written, defFormSuffix)
 }
 
 // enumeratedValue reports whether el is an enumerated value: an enumeration
