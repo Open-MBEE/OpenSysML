@@ -448,7 +448,10 @@ func (ctx *Context) convertToReference(q Quantity, target *CoordinateFrame) (Qua
 	}
 	// A magnitude the target unit puts past binary64 is an overflow, not an infinite quantity.
 	num, err := semantics.RealResult(converted.Num.Real)
-	return Quantity{Num: num, Unit: converted.Unit}, err
+	if err != nil {
+		return Quantity{}, noScaleValueError{fmt.Errorf("%s in %s: %w", q.String(), converted.Unit, err)}
+	}
+	return Quantity{Num: num, Unit: converted.Unit}, nil
 }
 
 // conversionTarget reads ConvertQuantity's targetMRef: a unit or a scale, as the

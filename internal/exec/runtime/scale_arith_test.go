@@ -684,11 +684,24 @@ func TestLogarithmicScaleRange(t *testing.T) {
 		t.Errorf("an acidity of -306 in mol/m³ = %s, %v; want an overflow, not an infinite quantity", FormatValue(got), err)
 	}
 	for src, want := range map[string]bool{
-		"3100.0 [dBm] < 1.0e308 [W]": true,
-		"1.0e308 [W] > 3100.0 [dBm]": true,
+		"3100.0 [dBm] < 1.0e308 [W]":            true,
+		"1.0e308 [W] > 3100.0 [dBm]":            true,
+		"1.0 ['mol⋅m⁻³'] == (-306.0) [acidity]": false,
+		"(-306.0) [acidity] == 1.0 ['mol⋅m⁻³']": false,
+		"1.0 ['mol⋅m⁻³'] != (-306.0) [acidity]": true,
+		"(-306.0) [acidity] != 1.0 ['mol⋅m⁻³']": true,
 	} {
 		if got, err := evalIn(t, ctx, scope, src); err != nil || got.Const.Bool != want {
 			t.Errorf("%s = %v, %v; want %v", src, got, err, want)
+		}
+	}
+	for _, src := range []string{
+		"1.0 ['mol⋅m⁻³'] < (-306.0) [acidity]",
+		"1.0 ['mol⋅m⁻³'] >= (-306.0) [acidity]",
+		"max(1.0 ['mol⋅m⁻³'], (-306.0) [acidity])",
+	} {
+		if got, err := evalIn(t, ctx, scope, src); !errors.Is(err, semantics.ErrArithmeticOverflow) {
+			t.Errorf("%s = %s, %v; want an overflow", src, FormatValue(got), err)
 		}
 	}
 }
