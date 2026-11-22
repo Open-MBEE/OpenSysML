@@ -1092,9 +1092,9 @@
         "typeMismatch": 1806
       },
       "properties": {
-        "presentEqual": 2328687,
-        "presentDifferent": 167903,
-        "oursMissing": 189787,
+        "presentEqual": 2328777,
+        "presentDifferent": 167905,
+        "oursMissing": 189695,
         "pilotMissing": 88520,
         "absentBoth": 2441891,
         "indeterminate": 69418,
@@ -1133,9 +1133,9 @@
           "typeMismatch": 1
         },
         "properties": {
-          "presentEqual": 171541,
+          "presentEqual": 171547,
           "presentDifferent": 12099,
-          "oursMissing": 12799,
+          "oursMissing": 12793,
           "pilotMissing": 5768,
           "absentBoth": 184989,
           "indeterminate": 4804,
@@ -1169,9 +1169,9 @@
           "typeMismatch": 1
         },
         "properties": {
-          "presentEqual": 642553,
+          "presentEqual": 642633,
           "presentDifferent": 48010,
-          "oursMissing": 54232,
+          "oursMissing": 54152,
           "pilotMissing": 22452,
           "absentBoth": 671100,
           "indeterminate": 15250,
@@ -1242,9 +1242,9 @@
           "typeMismatch": 1136
         },
         "properties": {
-          "presentEqual": 129069,
+          "presentEqual": 129071,
           "presentDifferent": 11149,
-          "oursMissing": 10073,
+          "oursMissing": 10071,
           "pilotMissing": 9302,
           "absentBoth": 114119,
           "indeterminate": 1765,
@@ -1278,9 +1278,9 @@
           "typeMismatch": 440
         },
         "properties": {
-          "presentEqual": 172830,
-          "presentDifferent": 10220,
-          "oursMissing": 19977,
+          "presentEqual": 172832,
+          "presentDifferent": 10222,
+          "oursMissing": 19973,
           "pilotMissing": 7943,
           "absentBoth": 180729,
           "indeterminate": 4229,

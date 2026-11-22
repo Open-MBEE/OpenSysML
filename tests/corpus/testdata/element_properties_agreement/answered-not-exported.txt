@@ -427,9 +427,7 @@ FlowUsage::interaction	118	symbol-31
 FlowUsage::occurrenceDefinition	109	symbol-41
 FlowUsage::parameter	1	symbol-27
 FlowUsage::source	26	symbol-11
-FlowUsage::sourceOutputFeature	70	symbol-76
 FlowUsage::target	24	symbol-12
-FlowUsage::targetInputFeature	71	symbol-76
 FlowUsage::type	115	symbol-19
 ForLoopActionUsage::actionDefinition	2	symbol-35
 ForLoopActionUsage::behavior	2	symbol-26
@@ -781,8 +779,6 @@ SuccessionFlowUsage::definition	4	symbol-37
 SuccessionFlowUsage::flowDefinition	4	symbol-45
 SuccessionFlowUsage::interaction	4	symbol-31
 SuccessionFlowUsage::occurrenceDefinition	4	symbol-41
-SuccessionFlowUsage::sourceOutputFeature	2	symbol-76
-SuccessionFlowUsage::targetInputFeature	2	symbol-76
 SuccessionFlowUsage::type	4	symbol-19
 TerminateActionUsage::actionDefinition	6	symbol-35
 TerminateActionUsage::behavior	6	symbol-26
