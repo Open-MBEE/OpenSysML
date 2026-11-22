@@ -41,6 +41,7 @@ elmt:CompositeMultiplicity__Wheel
     sysml:owningRelationship elmt:CompositeMultiplicity__Wheel_om ;
     sysml:owningMembership elmt:CompositeMultiplicity__Wheel_om ;
     sysml:declaredName "Wheel" ;
+    sysx:declaredKeyword "class" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    class Wheel;\n" .
 
@@ -73,6 +74,7 @@ elmt:CompositeMultiplicity__Lugbolt
     sysml:owningRelationship elmt:CompositeMultiplicity__Lugbolt_om ;
     sysml:owningMembership elmt:CompositeMultiplicity__Lugbolt_om ;
     sysml:declaredName "Lugbolt" ;
+    sysx:declaredKeyword "class" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    class Lugbolt;\n" .
 
@@ -105,6 +107,7 @@ elmt:CompositeMultiplicity__Vehicle
     sysml:owningRelationship elmt:CompositeMultiplicity__Vehicle_om ;
     sysml:owningMembership elmt:CompositeMultiplicity__Vehicle_om ;
     sysml:declaredName "Vehicle" ;
+    sysx:declaredKeyword "class" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:CompositeMultiplicity__Vehicle__w ;
     sysml:ownedMembership elmt:CompositeMultiplicity__Vehicle__w_om ;
@@ -364,6 +367,7 @@ elmt:CompositeMultiplicity__Car
     sysml:owningRelationship elmt:CompositeMultiplicity__Car_om ;
     sysml:owningMembership elmt:CompositeMultiplicity__Car_om ;
     sysml:declaredName "Car" ;
+    sysx:declaredKeyword "class" ;
     sysml:specializes elmt:CompositeMultiplicity__Vehicle ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:CompositeMultiplicity__Car__frontWheel, elmt:CompositeMultiplicity__Car__rearWheel ;

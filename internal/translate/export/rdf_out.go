@@ -1524,7 +1524,9 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		// An individual definition owns its empty Multiplicity first, before its prefix
 		// metadata and its head's clauses (SysML.xtext OccurrenceDefinitionPrefix).
 		e.defaultMultiplicity(subject, n, nil)
-		if err := e.declaredKeyword(subject, n, definitionKeywordWritten(n, metaclass), metaclassDefinitionKeyword(n.Kind), n.Ident.Name, false); err != nil {
+		if keyword, kermlType := kermlTypeKeywordRecorded(metaclass, n.Keyword, n.HasDefKeyword); kermlType {
+			e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(keyword))
+		} else if err := e.declaredKeyword(subject, n, n.Keyword, metaclassDefinitionKeyword(n.Kind), n.Ident.Name, false); err != nil {
 			return err
 		}
 		e.flags(subject, []boolProperty{
@@ -1654,7 +1656,10 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 				e.ident(subject, n.Ident)
 			}
 		}
+		kermlKeyword, kermlType := kermlTypeKeywordRecorded(metaclass, n.Keyword, false)
 		switch {
+		case kermlType:
+			e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(kermlKeyword))
 		case payload:
 			// A payload is written after `of` with no kind keyword of its own.
 		case verbatimUsage(n):

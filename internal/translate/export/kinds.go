@@ -112,6 +112,19 @@ var kermlTypeUsageMetaclass = map[ast.UsageKind]string{
 // with to the metaclass it builds; a graph typed so is read, and none is written.
 var legacyKerMLTypeMetaclasses = metamodel.LegacyKerMLTypeMetaclasses()
 
+// legacyKerMLTypeMetaclass is the metaclass of an element typed with a legacy KerML type
+// name: the one its recorded keyword builds (`type`, `assoc struct`), else the name's own.
+func legacyKerMLTypeMetaclass(metaclass, keyword string) (string, bool) {
+	standard, legacy := legacyKerMLTypeMetaclasses[metaclass]
+	if !legacy {
+		return "", false
+	}
+	if declared := ast.KerMLTypeMetaclass(keyword); declared != "" {
+		return declared, true
+	}
+	return standard, true
+}
+
 // isType reports whether a metaclass is a Type, a legacy KerML type name included.
 func isType(metaclass string) bool {
 	if standard, legacy := legacyKerMLTypeMetaclasses[metaclass]; legacy {
@@ -198,19 +211,16 @@ func definitionMetaclassOf(n *ast.Definition) (string, bool) {
 	return m, ok
 }
 
-// defKeywordSuffix ends the sysx:declaredKeyword of a KerML type written with SysML's `def`.
-const defKeywordSuffix = " def"
-
-// definitionKeywordWritten is the keyword recorded for a definition: a KerML type's metaclass
-// reads back def-less, so one written `class def X` records its `def` beside the keyword.
-func definitionKeywordWritten(n *ast.Definition, metaclass string) string {
-	if _, kermlType := kermlTypeUsageKind[metaclass]; !kermlType || !n.HasDefKeyword {
-		return n.Keyword
+// kermlTypeKeywordRecorded is the keyword a def-less KerML type declaration always records:
+// it shares its metaclass with the `def` form (`class def X`), which records none.
+func kermlTypeKeywordRecorded(metaclass, keyword string, hasDef bool) (string, bool) {
+	if _, kermlType := kermlTypeUsageKind[metaclass]; !kermlType || hasDef {
+		return "", false
 	}
-	if n.Keyword == "" {
-		return definitionKeyword(n.Kind) + defKeywordSuffix
+	if ast.KerMLTypeMetaclass(keyword) == "" {
+		keyword = ast.KerMLTypeKeyword(metaclass)
 	}
-	return n.Keyword + defKeywordSuffix
+	return keyword, true
 }
 
 // classifierDeclaration reports whether node declares a Classifier, whose `specializes` is a

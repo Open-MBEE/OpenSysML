@@ -2329,8 +2329,8 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 	if head, handled, err := d.behaviorHead(el); handled {
 		return head, err
 	}
-	// A KerML type declaration is written by its keyword alone unless the graph states a `def`.
-	if kind, ok := kermlTypeUsageKind[el.metaclass]; ok && !d.declaredWithDef(el) {
+	// A KerML type declaration is written by its keyword alone; the `def` form records none.
+	if kind, ok := kermlTypeUsageKind[el.metaclass]; ok && d.declaredWithoutDef(el) {
 		return d.usageHead(el, kind)
 	}
 	if kind, ok := metaclassDefinition[el.metaclass]; ok {
@@ -2386,10 +2386,15 @@ func (d *decoder) namespaceHead(el *element) (string, error) {
 	return strings.Join(words, " "), nil
 }
 
-// declaredWithDef reports a KerML type the graph records as written with `def` (`class def X`).
-func (d *decoder) declaredWithDef(el *element) bool {
+// declaredWithoutDef reports a KerML type written by its keyword alone: one recording that
+// keyword, or one whose metaclass no `def` form builds (`type`, `assoc struct`).
+func (d *decoder) declaredWithoutDef(el *element) bool {
 	written, _ := d.stringOf(el, rdf.OpenSysML+xDeclaredKeyword)
-	return strings.HasSuffix(written, defKeywordSuffix)
+	if ast.KerMLTypeMetaclass(written) == el.metaclass {
+		return true
+	}
+	_, hasDefForm := metaclassDefinition[el.metaclass]
+	return !hasDefForm
 }
 
 func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, error) {
@@ -2409,7 +2414,7 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 	if el.metaclass == mClassifier {
 		canonical = "classifier"
 	}
-	keyword := strings.TrimSuffix(d.keywordOr(el, canonical), defKeywordSuffix)
+	keyword := d.keywordOr(el, canonical)
 	// `individual def` states isIndividual by its kind keyword; writing the
 	// modifier as well would declare it twice (SysML.xtext OccurrenceDefinitionPrefix).
 	if d.boolOf(el, rdf.SysML+"isIndividual") && keyword != "individual" {
@@ -2492,6 +2497,10 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		words = append(words, direction)
 	}
 	canonicalKeyword := usageKeyword(kind)
+	// A KerML type's metaclass states its keyword where the graph records none.
+	if kermlKeyword := ast.KerMLTypeKeyword(el.metaclass); kermlKeyword != "" {
+		canonicalKeyword = kermlKeyword
+	}
 	keyword := d.keywordOr(el, canonicalKeyword)
 	// A `message` is the flow whose ends are event occurrences it owns as
 	// parameters; their metaclass says `message` where the graph states none.

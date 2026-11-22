@@ -29,6 +29,16 @@ func KerMLTypeMetaclass(keyword string) string {
 }
 
 // KerMLTypeKeywords lists the kind keywords KerMLTypeMetaclass answers, sorted.
+// KerMLTypeKeyword is the keyword that builds a KerML type metaclass, or "" for any other.
+func KerMLTypeKeyword(metaclass string) string {
+	for keyword, name := range kermlTypeMetaclasses {
+		if name == metaclass {
+			return keyword
+		}
+	}
+	return ""
+}
+
 func KerMLTypeKeywords() []string {
 	return slices.Sorted(maps.Keys(kermlTypeMetaclasses))
 }

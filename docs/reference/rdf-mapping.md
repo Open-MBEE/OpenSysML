@@ -824,13 +824,19 @@ A KerML type declaration is typed by the metaclass its keyword builds (KerML.xte
 `sysml:AssociationStructure`, `classifier X` a `sysml:Classifier`, `type X` a
 `sysml:Type`. Every one but `type` declares a Classifier, so its `specializes` is a
 `sysml:Subclassification` at `<S>_sc<i>`, as a SysML definition's is; a `type` owns
-a plain `sysml:Specialization` at `<S>_sp<i>`. Each reads back by its keyword alone;
-one written with SysML's `def` (`class def X`) records it in `sysx:declaredKeyword`
-(`"class def"`) and reads back with it. A graph typed `sysml:ClassUsage`,
+a plain `sysml:Specialization` at `<S>_sp<i>`. `class`, `struct`, `assoc`, `behavior`,
+`predicate` and `interaction` share their metaclass with SysML's `def` form
+(`class def X`), so the def-less declaration always records its keyword in
+`sysx:declaredKeyword` (`"class"`) and reads back by it alone, while `class def X`
+records none, as earlier releases wrote it, and reads back with its `def`. A `type`
+or an `assoc struct` has no `def` form and reads back by the keyword its metaclass
+states, whether or not the graph records it. A graph typed `sysml:ClassUsage`,
 `sysml:StructureUsage`, `sysml:AssociationUsage`, `sysml:BehaviorUsage`,
 `sysml:PredicateUsage` or `sysml:InteractionUsage` — names earlier releases wrote,
 which the metamodel does not declare — still reads back as the declaration, its
-API JSON `@type` is the metaclass, and it is written standardly on its next hop.
+API JSON `@type` is the metaclass (the `Type` or `AssociationStructure` its recorded
+keyword states for a `type` or an `assoc struct`), and it is written standardly on
+its next hop.
 
 The qualified usages spell their qualifier from the metaclass alone, so a graph
 that carries no `sysx:declaredKeyword`/`sysx:declaredPrefix` still writes the

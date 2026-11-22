@@ -60,6 +60,7 @@ elmt:InvariantReferences__Tank
     sysml:owningRelationship elmt:InvariantReferences__Tank_om ;
     sysml:owningMembership elmt:InvariantReferences__Tank_om ;
     sysml:declaredName "Tank" ;
+    sysx:declaredKeyword "class" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:InvariantReferences__Tank__ready, elmt:InvariantReferences__Tank__sealed, elmt:InvariantReferences__Tank__level, elmt:InvariantReferences__Tank___403, elmt:InvariantReferences__Tank__holds, elmt:InvariantReferences__Tank___405, elmt:InvariantReferences__Tank__bounded ;
     sysml:ownedMembership elmt:InvariantReferences__Tank__ready_om, elmt:InvariantReferences__Tank__sealed_om, elmt:InvariantReferences__Tank__level_om, elmt:InvariantReferences__Tank___403_om, elmt:InvariantReferences__Tank__holds_om, elmt:InvariantReferences__Tank___405_om, elmt:InvariantReferences__Tank__bounded_om ;

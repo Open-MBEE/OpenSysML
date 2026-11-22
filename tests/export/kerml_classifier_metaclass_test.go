@@ -179,8 +179,8 @@ func TestLegacyKerMLTypeNamesStillRead(t *testing.T) {
 	}
 }
 
-// A Class is written def-less, as the KerML grammar has it; one written `class def X`
-// records its `def`, so both forms come back as written from the graph alone.
+// A def-less KerML type records its keyword and `class def X` records none, as earlier
+// releases wrote it, so both forms come back as written from the graph alone.
 func TestKerMLTypeDeclarationFormSurvivesTheGraph(t *testing.T) {
 	for _, tc := range []struct{ name, declaration string }{
 		{"k.kerml", "class X specializes A;"},
@@ -206,5 +206,87 @@ func TestKerMLTypeDeclarationFormSurvivesTheGraph(t *testing.T) {
 				t.Errorf("%q should come back as written from the graph alone\n%s", tc.declaration, back)
 			}
 		})
+	}
+}
+
+// A graph stating no sysx:declaredKeyword still reads a Type and an AssociationStructure
+// as the keywords that build them, so converting it again writes the same metaclasses.
+func TestKerMLTypeKeywordIsReadFromTheMetaclass(t *testing.T) {
+	src := "package P {\n\tclass C;\n\ttype T specializes C;\n\tassoc struct S {\n\t\tend feature a : C;\n\t\tend feature b : C;\n\t}\n\tdatatype D;\n\tfunction F;\n}\n"
+	first, err := convert.Convert("k.kerml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	bare := first
+	for _, property := range []string{"sysx:sourceText", "sysx:sourceTail", "sysx:declaredKeyword"} {
+		bare = withoutTriples(t, bare, property)
+	}
+	back, err := convert.Convert("k.ttl", bare, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	for _, want := range []string{"type T specializes C", "assoc struct S", "datatype D", "function F"} {
+		if !strings.Contains(string(back), want) {
+			t.Errorf("the graph without its keywords should read %q\n%s", want, back)
+		}
+	}
+	second, err := convert.Convert("k.kerml", back, convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle again: %v", err)
+	}
+	for _, want := range []string{"elmt:P__T\n    a sysml:Type ;", "elmt:P__S\n    a sysml:AssociationStructure ;", "elmt:P__T_sp0\n    a sysml:Specialization ;"} {
+		if !strings.Contains(string(second), want) {
+			t.Errorf("converting the notation read back should write %q\n%s", want, second)
+		}
+	}
+}
+
+// An earlier release typed `type` a ClassUsage and `assoc struct` an AssociationUsage,
+// told apart by the keyword it recorded; the API JSON form of such a graph types them so.
+func TestLegacyKerMLTypeKeywordDecidesTheAPIJSONType(t *testing.T) {
+	src := "package P {\n\tclass C;\n\ttype T specializes C;\n\tassoc struct S {\n\t\tend feature a : C;\n\t\tend feature b : C;\n\t}\n}\n"
+	turtle, err := convert.Convert("k.kerml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	legacy := []byte(strings.NewReplacer(
+		"a sysml:Type ;", "a sysml:ClassUsage ;",
+		"a sysml:AssociationStructure ;", "a sysml:AssociationUsage ;",
+	).Replace(string(turtle)))
+	apiJSON, err := convert.Convert("k.ttl", legacy, convert.FormatTurtle, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatalf("legacy turtle to api-json: %v", err)
+	}
+	types := apiJSONTypesByID(t, apiJSON)
+	if types["P__T"] != "Type" || types["P__S"] != "AssociationStructure" {
+		t.Errorf("a legacy `type` and `assoc struct` are the API JSON types %q and %q, want Type and AssociationStructure", types["P__T"], types["P__S"])
+	}
+}
+
+// `class def X` is written as earlier releases wrote it, a Class recording no keyword, so
+// a graph of theirs keeps its `def` and its source text; the def-less form records `class`.
+func TestKerMLDefFormIsWrittenAsBefore(t *testing.T) {
+	src := "package P {\n\t// kept\n\tclass def   A;\n\tclass B;\n}\n"
+	turtle, err := convert.Convert("k.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	element := func(id string) string {
+		_, rest, _ := strings.Cut(string(turtle), "\nelmt:"+id+"\n")
+		block, _, _ := strings.Cut(rest, " .\n")
+		return block
+	}
+	if a := element("P__A"); !strings.Contains(a, "a sysml:Class ;") || strings.Contains(a, "sysx:declaredKeyword") {
+		t.Errorf("`class def A` should be a Class recording no keyword\n%s", a)
+	}
+	if b := element("P__B"); !strings.Contains(b, `sysx:declaredKeyword "class"`) {
+		t.Errorf("`class B` should record its keyword\n%s", b)
+	}
+	back, err := convert.Convert("k.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	if string(back) != src {
+		t.Errorf("the source text should come back as written\n%s", back)
 	}
 }

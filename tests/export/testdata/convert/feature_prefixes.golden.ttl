@@ -41,6 +41,7 @@ elmt:FeaturePrefixes__A
     sysml:owningRelationship elmt:FeaturePrefixes__A_om ;
     sysml:owningMembership elmt:FeaturePrefixes__A_om ;
     sysml:declaredName "A" ;
+    sysx:declaredKeyword "class" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    class A;\n" .
 
@@ -73,6 +74,7 @@ elmt:FeaturePrefixes__B
     sysml:owningRelationship elmt:FeaturePrefixes__B_om ;
     sysml:owningMembership elmt:FeaturePrefixes__B_om ;
     sysml:declaredName "B" ;
+    sysx:declaredKeyword "class" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:FeaturePrefixes__B__k, elmt:FeaturePrefixes__B__vk, elmt:FeaturePrefixes__B__p, elmt:FeaturePrefixes__B__pv, elmt:FeaturePrefixes__B__slices ;
     sysml:ownedMembership elmt:FeaturePrefixes__B__k_om, elmt:FeaturePrefixes__B__vk_om, elmt:FeaturePrefixes__B__p_om, elmt:FeaturePrefixes__B__pv_om, elmt:FeaturePrefixes__B__slices_om ;
@@ -411,6 +413,7 @@ elmt:FeaturePrefixes__C
     sysml:owningRelationship elmt:FeaturePrefixes__C_om ;
     sysml:owningMembership elmt:FeaturePrefixes__C_om ;
     sysml:declaredName "C" ;
+    sysx:declaredKeyword "class" ;
     sysml:specializes elmt:FeaturePrefixes__B ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:FeaturePrefixes__C__p, elmt:FeaturePrefixes__C__pv, elmt:FeaturePrefixes__C__dk ;

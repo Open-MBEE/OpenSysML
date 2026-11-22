@@ -391,8 +391,10 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 		metaclass, typeName = standard, standard
 	}
 	// A legacy KerML type name is none of the metamodel's: the element is its metaclass.
-	if declared, legacy := legacyKerMLTypeMetaclasses[metaclass]; legacy {
-		metaclass, typeName = declared, declared
+	absenceType := types[0]
+	keyword, _ := w.graph.Lexical(subject, rdf.OpenSysML+xDeclaredKeyword)
+	if declared, legacy := legacyKerMLTypeMetaclass(metaclass, keyword); legacy {
+		metaclass, typeName, absenceType = declared, declared, rdf.SysMLTerm(declared)
 	}
 	predicates := w.graph.PredicatesView(subject)
 	element := make(apiJSONObject, 0, len(predicates)+5)
@@ -523,7 +525,7 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 			element[mappingValuesPosition] = member
 		}
 	}
-	element = appendAPIJSONOwnedAbsencesWithScratch(w.graph, subject, element, types[0], w.scratch)
+	element = appendAPIJSONOwnedAbsencesWithScratch(w.graph, subject, element, absenceType, w.scratch)
 	if apiJSONRootSubject(w.graph, subject) && !apiJSONExternalForm(w.graph, w.scratch) {
 		element = append(element, apiJSONMember{key: apiJSONStatedDefaultsKey, value: true})
 	}
