@@ -303,7 +303,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 61928, unmatched 84
   Definition::ownedUsage: equal 1107, different 6, symbol-missing 0, symbol-extra 0
   Definition::usage: equal 1100, different 13, symbol-missing 0, symbol-extra 0
   Element::documentation: equal 61927, different 1, symbol-missing 0, symbol-extra 0
-  Element::name: equal 61845, different 82, symbol-missing 0, symbol-extra 1
+  Element::name: equal 61847, different 80, symbol-missing 0, symbol-extra 1
   Element::ownedAnnotation: equal 61927, different 1, symbol-missing 0, symbol-extra 0
   Element::ownedElement: equal 61773, different 155, symbol-missing 0, symbol-extra 0
   Element::ownedRelationship: equal 61555, different 373, symbol-missing 0, symbol-extra 0
@@ -311,7 +311,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 61928, unmatched 84
   Element::owningMembership: equal 61903, different 25, symbol-missing 0, symbol-extra 0
   Element::owningNamespace: equal 61903, different 25, symbol-missing 0, symbol-extra 0
   Element::owningRelationship: equal 61902, different 26, symbol-missing 0, symbol-extra 0
-  Element::qualifiedName: equal 61919, different 8, symbol-missing 0, symbol-extra 1
+  Element::qualifiedName: equal 61921, different 6, symbol-missing 0, symbol-extra 1
   Element::shortName: equal 61913, different 9, symbol-missing 0, symbol-extra 6
   EnumerationUsage::enumerationDefinition: equal 6, different 42, symbol-missing 0, symbol-extra 0
   Expression::function: equal 5389, different 159, symbol-missing 0, symbol-extra 30
@@ -348,7 +348,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 61928, unmatched 84
   ItemUsage::itemDefinition: equal 1004, different 348, symbol-missing 0, symbol-extra 98
   Membership::memberElement: equal 27194, different 43, symbol-missing 0, symbol-extra 0
   Membership::memberElementId: equal 27194, different 0, symbol-missing 0, symbol-extra 43
-  Membership::memberName: equal 27154, different 82, symbol-missing 0, symbol-extra 1
+  Membership::memberName: equal 27156, different 80, symbol-missing 0, symbol-extra 1
   Membership::memberShortName: equal 27222, different 9, symbol-missing 0, symbol-extra 6
   Membership::membershipOwningNamespace: equal 27236, different 1, symbol-missing 0, symbol-extra 0
   Namespace::importedMembership: equal 25180, different 8, symbol-missing 1, symbol-extra 0
@@ -359,7 +359,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 61928, unmatched 84
   Namespace::ownedMembership: equal 25053, different 136, symbol-missing 0, symbol-extra 0
   OccurrenceUsage::individualDefinition: equal 3132, different 0, symbol-missing 0, symbol-extra 258
   OccurrenceUsage::occurrenceDefinition: equal 1919, different 1213, symbol-missing 0, symbol-extra 258
-  OwningMembership::ownedMemberName: equal 24729, different 84, symbol-missing 0, symbol-extra 1
+  OwningMembership::ownedMemberName: equal 24731, different 82, symbol-missing 0, symbol-extra 1
   OwningMembership::ownedMemberShortName: equal 24808, different 0, symbol-missing 0, symbol-extra 6
   PartUsage::partDefinition: equal 683, different 338, symbol-missing 0, symbol-extra 71
   PortUsage::portDefinition: equal 322, different 30, symbol-missing 0, symbol-extra 32
