@@ -269,6 +269,14 @@ func (p *parser) readIRIRef() (string, error) {
 		if c == '\n' {
 			return "", p.errf("unterminated IRI")
 		}
+		if c == '\\' && !p.eof() && (p.peek() == 'u' || p.peek() == 'U') {
+			r, err := p.readUnicodeEscape(p.next())
+			if err != nil {
+				return "", err
+			}
+			b.WriteRune(r)
+			continue
+		}
 		b.WriteByte(c)
 	}
 	iri := b.String()
@@ -352,20 +360,9 @@ func (p *parser) readLiteral() (Term, error) {
 			case '\\', '"', '\'':
 				b.WriteByte(esc)
 			case 'u', 'U':
-				width := 4
-				if esc == 'U' {
-					width = 8
-				}
-				if len(p.src)-p.pos < width {
-					return Term{}, p.errf("truncated unicode escape")
-				}
-				var value rune
-				for i := 0; i < width; i++ {
-					digit, ok := hexDigit(p.next())
-					if !ok {
-						return Term{}, p.errf("invalid unicode escape")
-					}
-					value = value<<4 | rune(digit)
+				value, err := p.readUnicodeEscape(esc)
+				if err != nil {
+					return Term{}, err
 				}
 				b.WriteRune(value)
 			default:
@@ -410,6 +407,27 @@ func (p *parser) readLiteral() (Term, error) {
 		return TypedLiteral(b.String(), datatype.Value), nil
 	}
 	return String(b.String()), nil
+}
+
+// readUnicodeEscape reads the hex digits of a \u (four) or \U (eight) escape
+// whose letter esc was just consumed.
+func (p *parser) readUnicodeEscape(esc byte) (rune, error) {
+	width := 4
+	if esc == 'U' {
+		width = 8
+	}
+	if len(p.src)-p.pos < width {
+		return 0, p.errf("truncated unicode escape")
+	}
+	var value rune
+	for i := 0; i < width; i++ {
+		digit, ok := hexDigit(p.next())
+		if !ok {
+			return 0, p.errf("invalid unicode escape")
+		}
+		value = value<<4 | rune(digit)
+	}
+	return value, nil
 }
 
 func hexDigit(c byte) (byte, bool) {

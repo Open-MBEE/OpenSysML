@@ -88,7 +88,7 @@ func Main(args []string, stderr io.Writer) int {
 	kermlValidator := flags.String("kerml-validator", "", "KerML pilot validator executable (default: <repo>/build/pilot-kerml-validator/validate-kerml)")
 	syside := flags.String("syside", "", "optional Sensmetry SysIDE launcher for a third column (default: <repo>/build/syside/validate-syside if present)")
 	out := flags.String("out", "", "output directory for the reports (default: <repo>/build/pilot-diff)")
-	timeout := flags.Duration("timeout", 0, "per-batch timeout for the pilot validator (0: no limit)")
+	timeout := flags.Duration("timeout", defaultPilotTimeout, "per-batch timeout for the pilot validator (0: no limit; default 30m)")
 	update := flags.Bool("update", false, "record this run as "+committedBaseline)
 	check := flags.Bool("check", false, "fail unless this run reproduces "+committedBaseline)
 	if err := flags.Parse(args); err != nil {

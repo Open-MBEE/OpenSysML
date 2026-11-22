@@ -4,7 +4,8 @@
 package exec
 
 import (
-	"bytes"
+	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -12,7 +13,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 	reports "github.com/Open-MBEE/OpenSysML/tools/oracle/report"
@@ -69,6 +72,15 @@ const defaultCases = "tools/referee/exec/testdata/cases"
 // toolName is the command's name in its flags, messages and output directory.
 const toolName = "pilot-exec-diff"
 
+// defaultTimeout bounds one launcher run unless -timeout says otherwise.
+const defaultTimeout = 30 * time.Minute
+
+// maxPilotOutput bounds what one launcher run may write to each of its streams.
+const maxPilotOutput = 64 << 20
+
+// pilotWaitDelay is how long a killed launcher's descendants may hold its pipes open.
+const pilotWaitDelay = 10 * time.Second
+
 // errFormat is the diagnostic format every fatal error is reported with.
 const errFormat = ": %v\n"
 
@@ -80,10 +92,15 @@ func Main(args []string, stderr io.Writer) int {
 	casesFlag := flags.String("cases", "", "directory containing .cases files")
 	outFlag := flags.String("out", "", "output directory (default: <repo>/build/pilot-exec-diff)")
 	launcherFlag := flags.String("launcher", "", "pilot evaluator launcher (default: <repo>/build/pilot-evaluator/eval-sysml)")
+	timeoutFlag := flags.Duration("timeout", defaultTimeout, "time allowed for one run of the pilot evaluator")
 	if err := flags.Parse(args); err != nil {
 		if err == flag.ErrHelp {
 			return 0
 		}
+		return 2
+	}
+	if *timeoutFlag <= 0 {
+		fmt.Fprintf(stderr, toolName+": -timeout must be positive, got %s\n", *timeoutFlag)
 		return 2
 	}
 
@@ -117,7 +134,7 @@ func Main(args []string, stderr io.Writer) int {
 	if out == "" {
 		out = filepath.Join(root, "build", toolName)
 	}
-	report, err := execute(root, launcher, caseFiles)
+	report, err := execute(root, launcher, caseFiles, *timeoutFlag)
 	if err != nil {
 		fmt.Fprintf(stderr, toolName+errFormat, err)
 		return 1
@@ -134,7 +151,7 @@ func artifactAbsentMessage(launcher string) string {
 	return fmt.Sprintf("pilot execution artifact is absent at %s; run ./scripts/download-pilot-evaluator.sh to provision it", launcher)
 }
 
-func execute(repo, launcher string, files []execCaseFile) (*execReport, error) {
+func execute(repo, launcher string, files []execCaseFile, timeout time.Duration) (*execReport, error) {
 	report := &execReport{
 		PilotArtifact: filepath.ToSlash(relativeTo(repo, launcher)),
 		Scope:         "expressions only",
@@ -149,11 +166,11 @@ func execute(repo, launcher string, files []execCaseFile) (*execReport, error) {
 		if err != nil {
 			return nil, err
 		}
-		pilotOne, err := runPilot(launcher, models, file.Cases)
+		pilotOne, err := runPilot(launcher, models, file.Cases, timeout)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", file.Path, err)
 		}
-		pilotTwo, err := runPilot(launcher, models, file.Cases)
+		pilotTwo, err := runPilot(launcher, models, file.Cases, timeout)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", file.Path, err)
 		}
@@ -208,7 +225,9 @@ func modelPaths(models []execModel) []string {
 	return paths
 }
 
-func runPilot(launcher string, models []string, cases []execCase) (map[string]string, error) {
+// runPilot evaluates cases with the launcher. Passing timeout or maxPilotOutput on a
+// stream is an error, since a partial answer would be scored as the pilot's.
+func runPilot(launcher string, models []string, cases []execCase, timeout time.Duration) (map[string]string, error) {
 	tsv, err := os.CreateTemp("", toolName+"-*.tsv")
 	if err != nil {
 		return nil, fmt.Errorf("create pilot cases: %w", err)
@@ -228,12 +247,24 @@ func runPilot(launcher string, models []string, cases []execCase) (map[string]st
 	for _, model := range models {
 		args = append(args, "--model", model)
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 	// #nosec G204 -- launcher is an explicit CLI override or repo-local artifact.
-	command := exec.Command(launcher, args...)
-	var stdout, stderr bytes.Buffer
-	command.Stdout, command.Stderr = &stdout, &stderr
-	if err := command.Run(); err != nil {
-		message := strings.TrimSpace(stderr.String())
+	command := exec.CommandContext(ctx, launcher, args...)
+	command.WaitDelay = pilotWaitDelay
+	stdout := analysis.NewBoundedBuffer(maxPilotOutput, cancel)
+	stderr := analysis.NewBoundedBuffer(maxPilotOutput, cancel)
+	command.Stdout, command.Stderr = stdout, stderr
+	runErr := command.Run()
+	if stdout.Over() || stderr.Over() {
+		return nil, fmt.Errorf("pilot evaluator %s wrote more than %d bytes to one stream", launcher, maxPilotOutput)
+	}
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return nil, fmt.Errorf("pilot evaluator %s exceeded %s", launcher, timeout)
+	}
+	if runErr != nil {
+		err := runErr
+		message := strings.TrimSpace(string(stderr.Bytes()))
 		if message == "" {
 			message = err.Error()
 		}
@@ -243,7 +274,7 @@ func runPilot(launcher string, models []string, cases []execCase) (map[string]st
 		}
 		return result, nil
 	}
-	result, err := parsePilotCases(stdout.String(), cases)
+	result, err := parsePilotCases(string(stdout.Bytes()), cases)
 	if err != nil {
 		return nil, err
 	}

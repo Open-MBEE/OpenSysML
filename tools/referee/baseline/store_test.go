@@ -417,3 +417,43 @@ func TestRewriteIgnoresIndexDisagreementInsideTheReplacedRoots(t *testing.T) {
 		t.Errorf("re-recording a overlooked b's missing fragment: %v", err)
 	}
 }
+
+// An index that lists a file outside the baseline directory is refused by every reader
+// before the path is opened: the fragment it points at holds valid JSON and is never read.
+func TestReadersRefuseAnIndexThatListsAPathOutsideTheBaseline(t *testing.T) {
+	for name, entry := range map[string]struct{ root, file string }{
+		"parent file":   {"a", "../../outside"},
+		"absolute file": {"a", "/outside"},
+		"parent root":   {"..", "outside"},
+		"nested root":   {"a/b", "outside"},
+		"empty file":    {"a", ""},
+	} {
+		dir := record(t, fixture())
+		outside, err := json.Marshal(fragment{Root: entry.root, File: entry.file})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(filepath.Dir(dir), "outside.json"), outside, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		editIndex(t, dir, func(index map[string]any) {
+			index["files"].(map[string]any)[entry.root] = []any{entry.file}
+		})
+		readers := map[string]func() error{
+			"Read":   func() error { _, err := Read[summary, row, aggregate](dir); return err },
+			"Verify": func() error { return Verify(dir, fold) },
+			"Check":  func() error { return Check(dir, fixture(), commands) },
+			"CheckRoots": func() error {
+				return CheckRoots(dir, fixture().Fragments[:1], provenance(), []string{"b"}, fold, commands)
+			},
+			"Rewrite": func() error {
+				return Rewrite(dir, []string{"b"}, fixture().Fragments[:1], provenance(), fold, commands, io.Discard)
+			},
+		}
+		for reader, read := range readers {
+			if err := read(); err == nil || !strings.Contains(err.Error(), "fragment ") {
+				t.Errorf("%s: %s accepted the index: %v", name, reader, err)
+			}
+		}
+	}
+}

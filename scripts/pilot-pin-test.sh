@@ -179,6 +179,108 @@ else
 	fail "$name"
 fi
 
+# verify_kernel <jar digest pinned> <library digest pinned>: runs pilot_verify_kernel over
+# $kernel the way the validator scripts do, leaving its output and exit status in $output and $status.
+verify_kernel() {
+	status=0
+	output=$(
+		PILOT_KERNEL_JAR_SHA256="$1" PILOT_KERNEL_LIBRARY_SHA256="$2" \
+			bash -euo pipefail -c '. "$1"; pilot_verify_kernel "$2/kernel.jar" "$2/sysml.library"' \
+			bash "$pin_script" "$kernel" 2>&1
+	) || status=$?
+}
+
+kernel="$work/kernel"
+mkdir -p "$kernel/sysml.library/Domain Libraries"
+echo jar >"$kernel/kernel.jar"
+echo 'package Base;' >"$kernel/sysml.library/Base.kerml"
+echo 'package ISQ;' >"$kernel/sysml.library/Domain Libraries/ISQ.sysml"
+digests=$(bash -euo pipefail -c '. "$1"; pilot_kernel_digests "$2/kernel.jar" "$2/sysml.library"' bash "$pin_script" "$kernel")
+jar_digest=$(sed -n 's/^PILOT_KERNEL_JAR_SHA256=//p' <<<"$digests")
+library_digest=$(sed -n 's/^PILOT_KERNEL_LIBRARY_SHA256=//p' <<<"$digests")
+
+name="a kernel jar and library at the pinned digests are accepted"
+verify_kernel "$jar_digest" "$library_digest"
+if [[ $status -eq 0 ]] && [[ ${#jar_digest} -eq 64 ]] && [[ ${#library_digest} -eq 64 ]]; then
+	pass "$name"
+else
+	fail "$name"
+fi
+
+name="a kernel jar whose content changed is refused"
+echo more >>"$kernel/kernel.jar"
+verify_kernel "$jar_digest" "$library_digest"
+if [[ $status -ne 0 ]] && [[ $output == *"kernel.jar has SHA-256"* ]]; then
+	pass "$name"
+else
+	fail "$name"
+fi
+echo jar >"$kernel/kernel.jar"
+
+name="a library file whose content changed is refused"
+echo 'package Changed;' >"$kernel/sysml.library/Domain Libraries/ISQ.sysml"
+verify_kernel "$jar_digest" "$library_digest"
+if [[ $status -ne 0 ]] && [[ $output == *"sysml.library has tree SHA-256"* ]]; then
+	pass "$name"
+else
+	fail "$name"
+fi
+echo 'package ISQ;' >"$kernel/sysml.library/Domain Libraries/ISQ.sysml"
+
+name="a file added to the library is refused"
+echo 'package Extra;' >"$kernel/sysml.library/Extra.sysml"
+verify_kernel "$jar_digest" "$library_digest"
+if [[ $status -ne 0 ]] && [[ $output == *"sysml.library has tree SHA-256"* ]]; then
+	pass "$name"
+else
+	fail "$name"
+fi
+rm "$kernel/sysml.library/Extra.sysml"
+
+name="a link added to the library is refused"
+echo 'package Outside;' >"$work/Outside.sysml"
+ln -s "$work/Outside.sysml" "$kernel/sysml.library/Outside.sysml"
+verify_kernel "$jar_digest" "$library_digest"
+if [[ $status -ne 0 ]] && [[ $output == *"sysml.library has tree SHA-256"* ]]; then
+	pass "$name"
+else
+	fail "$name"
+fi
+rm "$kernel/sysml.library/Outside.sysml"
+
+name="a linked directory added to the library is refused"
+mkdir "$work/outside"
+echo 'package Outside;' >"$work/outside/Outside.sysml"
+ln -s "$work/outside" "$kernel/sysml.library/Linked"
+verify_kernel "$jar_digest" "$library_digest"
+if [[ $status -ne 0 ]] && [[ $output == *"sysml.library has tree SHA-256"* ]]; then
+	pass "$name"
+else
+	fail "$name"
+fi
+rm "$kernel/sysml.library/Linked"
+
+name="a library file that moved is refused"
+mv "$kernel/sysml.library/Base.kerml" "$kernel/sysml.library/Domain Libraries/Base.kerml"
+verify_kernel "$jar_digest" "$library_digest"
+if [[ $status -ne 0 ]] && [[ $output == *"sysml.library has tree SHA-256"* ]]; then
+	pass "$name"
+else
+	fail "$name"
+fi
+mv "$kernel/sysml.library/Domain Libraries/Base.kerml" "$kernel/sysml.library/Base.kerml"
+
+name="the restored kernel is accepted again, and a missing jar is refused"
+verify_kernel "$jar_digest" "$library_digest"
+restored=$status
+rm "$kernel/kernel.jar"
+verify_kernel "$jar_digest" "$library_digest"
+if [[ $restored -eq 0 ]] && [[ $status -ne 0 ]] && [[ $output == *"is missing"* ]]; then
+	pass "$name"
+else
+	fail "$name"
+fi
+
 if [[ $failures -gt 0 ]]; then
 	echo "$failures pilot-pin case(s) failed" >&2
 	exit 1

@@ -1066,3 +1066,93 @@ func w9cPositions(src string, diags []diag.Diagnostic) []string {
 	})
 	return out
 }
+
+// A requirement or case body is under the rule like any other: the fixtures
+// the pinned validate-sysml is compared against, which reports the same
+// warnings at the same positions on the first and is silent on the second.
+func TestW9CInheritedNameCaseRoleFixtures(t *testing.T) {
+	var got []string
+	for _, d := range libraryFixtureDiags(t, "inherited_name_case_roles.sysml") {
+		if d.Severity != diag.SeverityWarning || !strings.HasPrefix(d.Message, msgW9CDuplicateInherited) {
+			t.Errorf("unexpected diagnostic: %s", d.Message)
+			continue
+		}
+		got = append(got, strings.TrimPrefix(d.Message, msgW9CDuplicateInherited+" "))
+	}
+	want := []string{
+		"'limit' from R", "'helper' from R", "'driver' from R", "'owner' from R", "'helper' from R",
+		"'extra' from U", "'extra' from U", "'limit' from R", "'x' from C", "'q' from A", "'q' from V",
+		"'subj' from RequirementCheck",
+	}
+	sort.Strings(got)
+	sort.Strings(want)
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	if diags := libraryFixtureDiags(t, "inherited_name_case_roles_clean.sysml"); len(diags) != 0 {
+		t.Errorf("clean fixture: got %v, want none", diags)
+	}
+}
+
+// A library feature a member redefines is not inherited (KerML 8.3.3.1.10
+// inheritedMemberships), so another member may take its name: a subject
+// redefines the library's `subj` by position, a `:>>` clause its target. Two
+// members whose metaclasses conform in neither direction never conflict.
+func TestW9CNameOfARedefinedLibraryFeatureIsFree(t *testing.T) {
+	srcs := []string{
+		`package Test {
+	part def Vehicle;
+	use case def U { subject s : Vehicle; ref subj : Vehicle; }
+	requirement def R { subject s : Vehicle; ref subj : Vehicle; }
+	verification def V { subject s : Vehicle; objective o {} ref subj; }
+	requirement r { subject s : Vehicle; ref subj : Vehicle; }
+}`,
+		`package Test {
+	action def A { action mine :>> subactions; ref action subactions; }
+	state def S { action e :>> entryAction; ref action entryAction; }
+}`,
+		`package Test {
+	part def Vehicle; part def Person;
+	requirement def R { subject s : Vehicle; part subj : Vehicle; }
+	use case def U { subject s : Vehicle; part obj : Person; actor result : Person; }
+}`,
+		// A supertype's redefinition stops the feature being inherited further down.
+		`package Test {
+	part def Vehicle;
+	requirement def R { subject s : Vehicle; }
+	requirement def R1 :> R { ref subj : Vehicle; }
+	requirement r : R { ref subj : Vehicle; }
+	action def A { action mine :>> subactions; }
+	action def B :> A { ref action subactions; }
+}`,
+	}
+	for _, src := range srcs {
+		for _, warm := range []bool{false, true} {
+			if got := w9cMessages(w9cLibraryDiags(t, src, warm), msgW9CDuplicateInherited); len(got) != 0 {
+				t.Errorf("warm=%v: %s got %v, want none", warm, src, got)
+			}
+		}
+	}
+}
+
+// Without a role of its own to redefine it, the library's role keeps its name.
+func TestW9CCaseBodyMemberAgainstLibraryRoleWarns(t *testing.T) {
+	src := `package Test {
+	part def Vehicle; part def Person;
+	requirement def R { ref subj : Vehicle; }
+	requirement def Q { subject s : Vehicle; actor actors : Person; stakeholder stakeholders : Person; }
+	use case def U { ref subj : Vehicle; }
+}`
+	for _, warm := range []bool{false, true} {
+		got := w9cMessages(w9cLibraryDiags(t, src, warm), msgW9CDuplicateInherited)
+		want := []string{
+			msgW9CDuplicateInherited + " 'subj' from RequirementCheck",
+			msgW9CDuplicateInherited + " 'actors' from RequirementCheck",
+			msgW9CDuplicateInherited + " 'stakeholders' from RequirementCheck",
+			msgW9CDuplicateInherited + " 'subj' from UseCase",
+		}
+		if strings.Join(got, "\n") != strings.Join(want, "\n") {
+			t.Errorf("warm=%v: got %v, want %v", warm, got, want)
+		}
+	}
+}
