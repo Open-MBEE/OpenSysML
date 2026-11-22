@@ -50,12 +50,8 @@ func (f canonicalForm) key() stateKey {
 	return stateKey(hex.EncodeToString(sum[:]))
 }
 
-// canonicalState renders the state of the invocation's run in canonical form, the
-// turn settled first.
-func (r *invocationRun) canonicalState() canonicalForm {
-	return r.canonicalStateFor(false)
-}
-
+// canonicalStateFor renders the state of the invocation's run in canonical form,
+// the turn settled first.
 func (r *invocationRun) canonicalStateFor(omitVisits bool) canonicalForm {
 	r.enabledMoves()
 	return r.inv.canonicalStateFor(r.turn, omitVisits)
