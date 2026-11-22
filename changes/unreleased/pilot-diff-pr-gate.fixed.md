@@ -1,0 +1,1 @@
+- CI: a pull-request push that can move the reference differential's baseline now runs `pilot-diff -check`, so a moved baseline fails the pull request instead of surfacing in the nightly; the merge queue is unchanged (#2229).
