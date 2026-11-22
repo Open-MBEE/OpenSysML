@@ -563,6 +563,7 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 			e.w.String(t.fqn)
 			e.w.Bool(t.private)
 			e.w.Bool(t.all)
+			e.w.Bool(t.unread)
 		}
 	}
 
@@ -1069,6 +1070,7 @@ func (d *sectionReader) readTables() *Index {
 			out[i].fqn = d.r.String()
 			out[i].private = d.r.Bool()
 			out[i].all = d.r.Bool()
+			out[i].unread = d.r.Bool()
 		}
 		return out
 	})
@@ -1101,7 +1103,8 @@ func (d *sectionReader) readTables() *Index {
 			}
 		}
 	}
-	idx.noteImportCycles(idx.importGraph(true), true)
+	idx.noteImportCycles(idx.importGraph(nil), true)
+	idx.movedImporters = nil
 	idx.takeLibraryIdentity()
 	idx.derived = &derivedMemo{}
 	idx.frozen = true

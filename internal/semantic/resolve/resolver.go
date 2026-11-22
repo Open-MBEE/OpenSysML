@@ -163,7 +163,9 @@ type Resolver struct {
 	importDepth  int
 	// importPath is the excluded set of KerML 8.3.2.4.5, the namespaces being
 	// read; importHits and importSeen record cuts and entries (routeDepsSince).
-	importPath  []*symbols.Scope
+	importPath []*symbols.Scope
+	// importNames names the leading scopes of importPath as the index does.
+	importNames []string
 	importHits  []*symbols.Scope
 	importSeen  []*symbols.Scope
 	importMarks int
@@ -840,11 +842,14 @@ func (r *Resolver) freshImportVisits(f func()) {
 	}
 	visits, depth := r.importVisits, r.importDepth
 	path, hits, seen, marks := r.importPath, r.importHits, r.importSeen, r.importMarks
+	names := r.importNames
+	r.importNames = nil
 	r.importVisits, r.importDepth = map[importVisit][][]*symbols.Scope{}, 0
 	r.importPath, r.importHits, r.importSeen, r.importMarks = nil, nil, nil, 0
 	defer func() {
 		r.importVisits, r.importDepth = visits, depth
 		r.importPath, r.importHits, r.importSeen, r.importMarks = path, hits, seen, marks
+		r.importNames = names
 	}()
 	f()
 }

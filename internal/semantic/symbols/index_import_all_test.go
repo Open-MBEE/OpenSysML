@@ -2,6 +2,8 @@ package symbols
 
 import (
 	"fmt"
+	"maps"
+	"math/rand"
 	"slices"
 	"strings"
 	"testing"
@@ -80,7 +82,7 @@ func TestSnapshotKeepsImportAll(t *testing.T) {
 		t.Fatalf("restored WildcardImportsOf(App) = %+v, want one `import all`", got)
 	}
 	wantNamed(t, restored, "App::P", 1)
-	if purge, derive := restored.importersToRefresh(nil, false); len(purge) != 0 || len(derive) != 0 {
+	if purge, derive := restored.importersToRefresh(restored.resolveAllImports(), nil, false); len(purge) != 0 || len(derive) != 0 {
 		t.Errorf("restored index re-derives %v and purges %v, want its settled re-exports kept", derive, purge)
 	}
 }
@@ -398,10 +400,99 @@ func TestExpandWildcardImportsSettlesWhenALaterImportShadowsATarget(t *testing.T
 	addDoc(t, idx, "p.sysml", "package P { public import N::*; public import Q::*; }")
 	idx.ExpandWildcardImports()
 	lookupOne(t, idx, "P::K") // the member of the namespace the import read
-	if purge, derive := idx.importersToRefresh(nil, false); len(purge)+len(derive) != 0 {
+	if purge, derive := idx.importersToRefresh(idx.resolveAllImports(), nil, false); len(purge)+len(derive) != 0 {
 		t.Errorf("importers still to refresh once settled: purge %v, derive %v", purge, derive)
 	}
 	if after := claim(); before == nil || before != after {
 		t.Errorf("an unrelated import was derived again: claim %p, then %p", before, after)
+	}
+}
+
+// An import read from one namespace and naming none since, another import having
+// made its name ambiguous, is stale once the name resolves elsewhere.
+func TestExpandWildcardImportsDropsWhatAnImportReadWhenItsNameMoves(t *testing.T) {
+	docs := map[string]string{
+		"a.sysml": "package A { package N { part def KA; } }",
+		"b.sysml": "package B { package N { part def KB; } }",
+		"p.sysml": "package P { public import A::*; public import N::*; public import B::*; }",
+	}
+	build := func() *Index {
+		idx := NewIndex()
+		for _, name := range slices.Sorted(maps.Keys(docs)) {
+			addDoc(t, idx, name, docs[name])
+		}
+		idx.ExpandWildcardImports()
+		return idx
+	}
+	idx := build()
+	lookupOne(t, idx, "P::KA")
+	docs["n.sysml"] = "package N { part def KG; }"
+	addDoc(t, idx, "n.sysml", docs["n.sysml"])
+	idx.ExpandWildcardImports()
+	if got, want := idx.FQNs(), build().FQNs(); !slices.Equal(got, want) {
+		t.Errorf("after the edit the index names\n%v\na fresh build names\n%v", got, want)
+	}
+}
+
+// With conditions on the imports, the walk without a path finds the routes the
+// walk along each path finds, whichever namespaces a lookup excludes.
+func TestRouteWalkWithoutAPathFindsTheRoutesOfEachPath(t *testing.T) {
+	rng := rand.New(rand.NewSource(7))
+	filters := []string{"", "", "[@F]", "[@G]"}
+	for trial := 0; trial < 300; trial++ {
+		pkgs := 3 + rng.Intn(4)
+		var b strings.Builder
+		b.WriteString("metadata def F; metadata def G;\n")
+		for pkg := 0; pkg < pkgs; pkg++ {
+			fmt.Fprintf(&b, "package P%d {\n\tpart def M%d;\n", pkg, pkg)
+			for k := rng.Intn(4); k > 0; k-- {
+				visibility := "public"
+				if rng.Intn(4) == 0 {
+					visibility = "private"
+				}
+				fmt.Fprintf(&b, "\t%s import P%d::*%s;\n", visibility, rng.Intn(pkgs), filters[rng.Intn(len(filters))])
+			}
+			b.WriteString("}\n")
+		}
+		idx := NewIndex()
+		addDoc(t, idx, "m.sysml", b.String())
+		idx.ExpandWildcardImports()
+		namespaces := idx.wildcardMeta.keys()
+		for _, key := range idx.reexportDocs.keys() {
+			claims := idx.reexportDocs.at(key)
+			parent, name := splitFQN(key.fqn)
+			for _, inside := range []bool{false, true} {
+				for range 4 {
+					var excluded []string
+					for _, ns := range namespaces {
+						if rng.Intn(3) == 0 {
+							excluded = append(excluded, ns)
+						}
+					}
+					walk := func() *routeWalk {
+						return &routeWalk{idx: idx, name: name, sym: key.sym, excluded: excluded, path: []string{parent}}
+					}
+					spread, ok := walk().spread(claims, inside)
+					if !ok {
+						t.Fatalf("trial %d: %s is not walked without a path, though no import is `import all`", trial, key.fqn)
+					}
+					paths := walk().through(claims, inside)
+					within := func(routes, of [][]ElementFilter) bool {
+						for _, route := range routes {
+							if !slices.ContainsFunc(of, func(have []ElementFilter) bool {
+								return filtersSubsume(have, route) && filtersSubsume(route, have)
+							}) {
+								return false
+							}
+						}
+						return true
+					}
+					if len(spread) != len(paths) || !within(spread, paths) || !within(paths, spread) {
+						t.Fatalf("trial %d: %s excluding %v (inside=%t): %d routes without a path, %d along paths\n%s",
+							trial, key.fqn, excluded, inside, len(spread), len(paths), b.String())
+					}
+				}
+			}
+		}
 	}
 }

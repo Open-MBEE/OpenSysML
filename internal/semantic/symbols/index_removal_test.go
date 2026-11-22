@@ -338,7 +338,7 @@ func TestExpandWildcardImportsRederivesEverythingFromScratch(t *testing.T) {
 	if got := len(idx.LookupQualified("Top::Widget")); got != 0 {
 		t.Fatalf("Top::Widget = %d symbols after purging re-exports, want 0", got)
 	}
-	for idx.expandRound(true) {
+	for idx.expandRound(idx.resolveAllImports(), true) {
 	}
 	if got := indexState(idx); got != want {
 		t.Errorf("re-deriving from scratch did not rebuild the index:\n%s", diffLines(want, got))
