@@ -1092,12 +1092,12 @@ func (d *sectionReader) readTables() *Index {
 		idx.aboutUsages[doc] = d.symbols()
 	}
 	idx.cyclic = newLayer[string, []string](gen)
-	idx.readFrom = newLayer[string, []string](gen)
+	idx.readFrom = newLayer[string, map[string][]string](gen)
 	for key, byDoc := range idx.reexportDocs.own {
 		importer, _ := splitFQN(key.fqn)
-		for _, claim := range byDoc {
+		for doc, claim := range byDoc {
 			for _, hop := range claim.hops {
-				idx.noteReadFrom(importer, hop.from)
+				idx.noteReadFrom(importer, doc, hop.from)
 			}
 		}
 	}

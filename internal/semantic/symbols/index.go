@@ -123,9 +123,10 @@ type Index struct {
 	// that none reads one numbered after it (see noteImportCycles). nsOrder is
 	// replaced, never written, so the views of an index share it.
 	cyclic *layer[string, []string]
-	// readFrom names the namespaces an importer's re-exports were read from: an
-	// import a later one shadows keeps what it read under the name it had.
-	readFrom *layer[string, []string]
+	// readFrom names, by importer and stating document, the namespaces its
+	// re-exports were read from: an import a later one shadows keeps what it
+	// read under the name it had.
+	readFrom *layer[string, map[string][]string]
 	nsOrder  map[string]int
 
 	// libraryDocs names the documents that hold bundled library content rather
@@ -249,7 +250,7 @@ func NewIndex() *Index {
 		dirtyNS:       make(map[string]nsChange),
 		lastTargets:   newLayer[string, []resolvedImport](gen),
 		cyclic:        newLayer[string, []string](gen),
-		readFrom:      newLayer[string, []string](gen),
+		readFrom:      newLayer[string, map[string][]string](gen),
 		libraryDocs:   newLayer[string, LibraryDocument](gen),
 		librarySyms:   newLayer[*Symbol, LibraryTier](gen),
 		nsFilters:     newLayer[string, map[string][]ElementFilter](gen),
@@ -711,7 +712,7 @@ func (idx *Index) expandImporter(pkgFQN string) {
 		// suppressing it, because whether a candidate satisfies them is a question
 		// only the semantic model can answer.
 		gate := nonZeroFilters(append([]ElementFilter{imp.filter}, idx.namespaceFiltersGating(pkgFQN, imp.doc)...))
-		idx.noteReadFrom(pkgFQN, targetFQN)
+		idx.noteReadFrom(pkgFQN, imp.doc, targetFQN)
 		for _, child := range idx.importedChildren(targetFQN, imp.all) {
 			// Extract child's primary name
 			childName := LastSegment(child.Name)
@@ -1007,6 +1008,7 @@ func (idx *Index) removeDocument(name string, expand bool) {
 			idx.wildcardMeta.del(pkgFQN)
 		}
 		idx.lastTargets.del(pkgFQN) // its import set changed: expand it again
+		idx.forgetReadFrom(pkgFQN, name)
 		idx.changedNamespace(pkgFQN)
 	}
 

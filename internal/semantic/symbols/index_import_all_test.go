@@ -131,19 +131,10 @@ func TestSnapshotKeepsTheNamespacesARouteCameThrough(t *testing.T) {
 // Layers of namespaces each importing both of the layer below reach a name by
 // a number of paths doubling per layer, which no import cycle tells apart.
 func TestExpandWildcardImportsKeepsOneRouteThroughLayeredImports(t *testing.T) {
-	var src strings.Builder
-	src.WriteString("package S { part def P; }\n")
-	below := [2]string{"S", "S"}
-	const layers = 40
-	for i := 1; i <= layers; i++ {
-		layer := [2]string{fmt.Sprintf("A%d", i), fmt.Sprintf("B%d", i)}
-		for _, name := range layer {
-			fmt.Fprintf(&src, "package %s { public import %s::*; public import %s::*; }\n", name, below[0], below[1])
-		}
-		below = layer
-	}
+	layers, below := layeredImports(40)
+	src := "package S { part def P; }\n" + layers
 	idx := NewIndex()
-	addDoc(t, idx, "layers.sysml", src.String())
+	addDoc(t, idx, "layers.sysml", src)
 	idx.ExpandWildcardImports()
 
 	p := lookupOne(t, idx, "S::P")
@@ -181,4 +172,60 @@ func TestExpandWildcardImportsKeepsACycleThroughAShadowedTarget(t *testing.T) {
 	if _, accepted := idx.EachReexportGate("", "Z::Hidden", hidden, "", []string{"X"}, taken); accepted {
 		t.Error("Z::Hidden is accepted with X excluded, want not: its only route reads X")
 	}
+}
+
+// layeredImports is `layers` layers of two namespaces, each importing both of
+// the layer below, the lowest importing S; it names the top layer.
+func layeredImports(layers int) (src string, top [2]string) {
+	var b strings.Builder
+	top = [2]string{"S", "S"}
+	for i := 1; i <= layers; i++ {
+		layer := [2]string{fmt.Sprintf("A%d", i), fmt.Sprintf("B%d", i)}
+		for _, name := range layer {
+			fmt.Fprintf(&b, "package %s { public import %s::*; public import %s::*; }\n", name, top[0], top[1])
+		}
+		top = layer
+	}
+	return b.String(), top
+}
+
+// An import an edit removed, or a cycle an edit broke, is no longer one a
+// route can come back by: the layers above hold one route per name again.
+func TestExpandWildcardImportsForgetsAnImportAnEditRemoved(t *testing.T) {
+	src, top := layeredImports(12)
+	idx := NewIndex()
+	addDoc(t, idx, "layers.sysml", src)
+	addDoc(t, idx, "s.sysml", "package S { part def P; public import T::*; }")
+	addDoc(t, idx, "t.sysml", "package T { part def Q; }")
+	idx.ExpandWildcardImports()
+
+	oneRoute := func(when string) {
+		t.Helper()
+		p := lookupOne(t, idx, "S::P")
+		for _, ns := range top {
+			if routes := idx.ReexportGates("", ns+"::P", p, ""); len(routes) != 1 {
+				t.Errorf("%s: %s::P has %d routes, want one", when, ns, len(routes))
+			}
+		}
+		if cycle := idx.cyclic.at("S"); len(cycle) != 0 {
+			t.Errorf("%s: S is on an import cycle with %v, want none", when, cycle)
+		}
+	}
+	oneRoute("at first")
+
+	// The dependency turns round: S no longer imports T, which imports the top.
+	addDoc(t, idx, "s.sysml", "package S { part def P; }")
+	addDoc(t, idx, "t.sysml", fmt.Sprintf("package T { part def Q; public import %s::*; }", top[0]))
+	idx.ExpandWildcardImports()
+	oneRoute("with the import reversed")
+
+	// A cycle through every layer, and then none again.
+	addDoc(t, idx, "s.sysml", "package S { part def P; public import T::*; }")
+	idx.ExpandWildcardImports()
+	if cycle := idx.cyclic.at("S"); len(cycle) != 25 {
+		t.Errorf("S is on an import cycle of %d namespaces, want S, T and the 23 between them", len(cycle))
+	}
+	addDoc(t, idx, "s.sysml", "package S { part def P; }")
+	idx.ExpandWildcardImports()
+	oneRoute("with the cycle broken")
 }

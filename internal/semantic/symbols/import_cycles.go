@@ -6,11 +6,25 @@ import (
 	"sort"
 )
 
-// noteReadFrom records that the importer's re-exports read the namespace target.
-func (idx *Index) noteReadFrom(importer, target string) {
-	have := idx.readFrom.at(importer)
+// noteReadFrom records that the importer's re-exports, by an import doc
+// states, read the namespace target.
+func (idx *Index) noteReadFrom(importer, doc, target string) {
+	have := idx.readFrom.at(importer)[doc]
 	if at, found := slices.BinarySearch(have, target); !found {
-		idx.readFrom.set(importer, slices.Insert(slices.Clone(have), at, target))
+		writableMap(idx.readFrom, importer)[doc] = slices.Insert(slices.Clone(have), at, target)
+	}
+}
+
+// forgetReadFrom drops what the importer read by the imports doc stated, which
+// goes with the re-exports doc claimed.
+func (idx *Index) forgetReadFrom(importer, doc string) {
+	if _, ok := idx.readFrom.at(importer)[doc]; !ok {
+		return
+	}
+	byDoc := writableMap(idx.readFrom, importer)
+	delete(byDoc, doc)
+	if len(byDoc) == 0 {
+		idx.readFrom.del(importer)
 	}
 }
 
@@ -20,7 +34,14 @@ func (idx *Index) noteReadFrom(importer, target string) {
 func (idx *Index) importGraph(settled bool) map[string][]string {
 	graph := make(map[string][]string)
 	for _, importer := range idx.readFrom.keys() {
-		graph[importer] = slices.Clone(idx.readFrom.at(importer))
+		byDoc := idx.readFrom.at(importer)
+		for _, doc := range slices.Sorted(maps.Keys(byDoc)) {
+			for _, target := range byDoc[doc] {
+				if target != importer && !slices.Contains(graph[importer], target) {
+					graph[importer] = append(graph[importer], target)
+				}
+			}
+		}
 	}
 	edges := func(importer string, imports []resolvedImport) {
 		for _, imp := range imports {
@@ -107,43 +128,39 @@ func importComponents(graph map[string][]string) [][]string {
 }
 
 // noteImportCycles records the import cycles of graph and where each namespace
-// stands in it, and returns the namespaces that joined a cycle they were not on.
-//
-// The cycles only accumulate: a route keeps the namespaces on a cycle with the
-// one holding it, so forgetting a cycle could only lose what a route needs.
+// stands in it, and returns the namespaces whose cycle is not the one they had:
+// a route keeps the namespaces on a cycle with the one holding it.
 func (idx *Index) noteImportCycles(graph map[string][]string) []string {
 	components := importComponents(graph)
 	order := make(map[string]int, len(graph))
-	var joined []string
+	cycles := make(map[string][]string)
 	for i, component := range components {
 		for _, ns := range component {
 			order[ns] = i
-		}
-		if len(component) < 2 {
-			continue
-		}
-		cycle := component
-		for _, ns := range component {
-			for _, other := range idx.cyclic.at(ns) {
-				if _, found := slices.BinarySearch(cycle, other); !found {
-					cycle = append(slices.Clone(cycle), other)
-					sort.Strings(cycle)
-				}
-			}
-		}
-		for _, ns := range cycle {
-			if len(idx.cyclic.at(ns)) != len(cycle) {
-				idx.cyclic.set(ns, cycle)
-				joined = append(joined, ns)
+			if len(component) > 1 {
+				cycles[ns] = component
 			}
 		}
 	}
+	var changed []string
+	for _, ns := range idx.cyclic.keys() {
+		if _, still := cycles[ns]; !still {
+			idx.cyclic.del(ns)
+			changed = append(changed, ns)
+		}
+	}
+	for _, ns := range slices.Sorted(maps.Keys(cycles)) {
+		if !slices.Equal(idx.cyclic.at(ns), cycles[ns]) {
+			idx.cyclic.set(ns, cycles[ns])
+			changed = append(changed, ns)
+		}
+	}
 	idx.nsOrder = order
-	return joined
+	return changed
 }
 
-// onCycleWith reports whether a and b are, or ever were, on one cycle of
-// wildcard imports, so that reading either can come back to the other.
+// onCycleWith reports whether a and b are on one cycle of wildcard imports, so
+// that reading either can come back to the other.
 func (idx *Index) onCycleWith(a, b string) bool {
 	_, found := slices.BinarySearch(idx.cyclic.at(a), b)
 	return found
@@ -152,12 +169,13 @@ func (idx *Index) onCycleWith(a, b string) bool {
 // settleImportCycles brings the recorded cycles up to date with the imports as
 // they resolve, and reports whether it dropped re-exports to be derived again.
 //
-// A route read before two namespaces met on a cycle does not name the one it
-// came through, so the routes of every namespace reading through them go.
+// A route names the namespaces it came through that were on a cycle with its
+// holder when it was read, so where a cycle formed, grew or broke, the routes
+// of its namespaces and of every namespace reading through them go.
 func (idx *Index) settleImportCycles() bool {
 	graph := idx.importGraph(false)
-	joined := idx.noteImportCycles(graph)
-	if len(joined) == 0 {
+	changed := idx.noteImportCycles(graph)
+	if len(changed) == 0 {
 		return false
 	}
 	importers := make(map[string][]string)
@@ -167,7 +185,7 @@ func (idx *Index) settleImportCycles() bool {
 		}
 	}
 	stale := make(map[string]bool)
-	for work := joined; len(work) > 0; {
+	for work := changed; len(work) > 0; {
 		ns := work[len(work)-1]
 		work = work[:len(work)-1]
 		if stale[ns] {
