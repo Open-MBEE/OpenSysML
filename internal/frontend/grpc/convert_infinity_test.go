@@ -170,9 +170,8 @@ func TestProtoToValueRefusesAFalseInfinityArm(t *testing.T) {
 	}
 }
 
-// TestNegativeInfinityRoundTrip: `-*` is the Real below every number, so it
-// crosses as the double that holds it, leaving the infinity arm to `*` alone,
-// and either infinity sent as a double reads back as the value it denotes.
+// TestNegativeInfinityRoundTrip: `-*`, the Real below every number, crosses as the double that holds it,
+// leaving the infinity arm to `*` alone; either infinity sent as a double reads back as what it denotes.
 func TestNegativeInfinityRoundTrip(t *testing.T) {
 	idx := symbols.NewIndex()
 	negative := runtime.Value{Kind: runtime.ValConst, Const: semantics.NegativeInfinity()}

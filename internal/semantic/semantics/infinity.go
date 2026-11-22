@@ -72,9 +72,8 @@ func ExtendedReal(f float64) Value {
 	return Value{Kind: ValReal, Real: f}
 }
 
-// InfinityOrder compares l and r where at least one is an infinity: `*`
-// exceeds every finite number, `-*` is below them all, and each equals itself.
-// ok is false when an operand is neither a number nor an infinity.
+// InfinityOrder compares l and r where one is an infinity: `*` exceeds every finite number, `-*` is
+// below them all, each equals itself. ok is false when an operand is neither a number nor an infinity.
 func InfinityOrder(l, r Value) (order int, ok bool) {
 	if !l.IsExtendedNumeric() || !r.IsExtendedNumeric() {
 		return 0, false
@@ -110,11 +109,8 @@ func undefinedOverInfinity(op ast.OperatorKind, l, r Value) error {
 		ErrArithmeticDomain, FormatConst(l), op, FormatConst(r))
 }
 
-// InfinityArith is op over extended numbers of which at least one is an
-// infinity, in the affinely extended reals: a sum or product the limit
-// determines is that limit, and an indeterminate form (`* - *`, `0 * *`,
-// `* / *`, `* ** 0`, `1 ** *`, any `%`) is ErrArithmeticDomain. A zero divisor
-// is ErrDivisionByZero as it is for a finite dividend.
+// InfinityArith is op where l or r is an infinity, in the affinely extended reals: the limit, or
+// ErrArithmeticDomain for an indeterminate form (`* - *`, `0 * *`, `* / *`, `* ** 0`, `1 ** *`, any `%`).
 func InfinityArith(op ast.OperatorKind, l, r Value) (Value, error) {
 	if !l.IsExtendedNumeric() || !r.IsExtendedNumeric() {
 		return Value{}, fmt.Errorf("%w: %s requires numeric operands", ErrArithmeticDomain, op)
@@ -144,6 +140,7 @@ func InfinityArith(op ast.OperatorKind, l, r Value) (Value, error) {
 		case r.IsInfinite():
 			return vanishingQuotient(l, r), nil
 		case rs == 0:
+			// A zero divisor is ErrDivisionByZero, as it is for a finite dividend.
 			return Value{}, ErrDivisionByZero
 		}
 		return signedInfinity(ls * rs), nil

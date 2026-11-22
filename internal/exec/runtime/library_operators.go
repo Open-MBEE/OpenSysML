@@ -433,9 +433,8 @@ func rationalOperand(_ *Context, name, param string, val Value) (Value, error) {
 	return Value{}, operandMismatch(name, param, "a Rational", val)
 }
 
-// integerOperand admits an Integer only: a Real does not conform to Integer.
-// The unbounded `*` is a Positive (KerML 1.0 §8.3.4.8.11) and `-*` an Integer
-// (§9.3.2.2.3), so an infinity conforms to every parameter Integer conforms to.
+// integerOperand admits an Integer only, never a Real. `*` is a Positive (KerML 1.0 §8.3.4.8.11) and
+// `-*` an Integer (§9.3.2.2.3), so an infinity conforms to every parameter Integer conforms to.
 func integerOperand(_ *Context, name, param string, val Value) (Value, error) {
 	if (val.Kind == ValConst && val.Const.Kind == semantics.ValInt) || isInfinity(val) {
 		return val, nil

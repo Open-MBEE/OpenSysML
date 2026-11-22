@@ -239,11 +239,8 @@ func registerOrderedFunction(name string, params []string, apply func([]semantic
 	undeterminedAware[name] = true
 }
 
-// orderedOverUnbounded extends finite, an `abs`, `max` or `min` over numbers, to
-// the infinities, `*` above every number and `-*` below: the absolute value of
-// either is `*`, and of an infinity and a number the extremum is the infinity
-// or the number, held as the function holds that operand alone.
-// A call without an infinity is finite's, as is the check of the other operand's domain.
+// orderedOverUnbounded extends finite (an `abs`, `max` or `min`) to `*` above and `-*` below every number:
+// either's absolute value is `*`, an extremum the infinity or the number as finite alone holds it.
 func orderedOverUnbounded(finite libraryApply, least bool) libraryApply {
 	infinite := func(arg Value) bool { return isInfinity(soleElement(arg)) }
 	return func(name string, ctx *Context, args []Value) (Value, error) {
@@ -279,9 +276,8 @@ func orderedOverUnbounded(finite libraryApply, least bool) libraryApply {
 	}
 }
 
-// infinityLimits is what a scalar function answers for an infinite argument:
-// its limit there, computed over the IEEE infinities, which are exact for these.
-// A function absent here has no value at an infinity (a sine, a gcd).
+// infinityLimits is a scalar function's limit at an infinite argument, computed over the IEEE infinities,
+// which are exact for these; a function absent here has no value at an infinity (a sine, a gcd).
 var infinityLimits = map[string]func(args []float64) float64{
 	"RealFunctions::sqrt":             func(a []float64) float64 { return math.Sqrt(a[0]) },
 	"RealFunctions::floor":            func(a []float64) float64 { return a[0] },
@@ -304,9 +300,8 @@ var infinityLimits = map[string]func(args []float64) float64{
 	"TrigFunctions::rad":    func(a []float64) float64 { return a[0] },
 }
 
-// limitAtInfinity answers the scalar function name over values of which at least
-// one is an infinity: an infinite limit is that infinity, a finite one a Real,
-// and no limit ErrArithmeticDomain. No infinity is zero or one.
+// limitAtInfinity answers scalar function name where a value is an infinity: an infinite limit is that
+// infinity, a finite one a Real, and no limit ErrArithmeticDomain. No infinity is zero or one.
 func limitAtInfinity(name string, values []semantics.Value) (semantics.Value, error) {
 	switch name {
 	case "NumericalFunctions::isZero", "NumericalFunctions::isUnit":
