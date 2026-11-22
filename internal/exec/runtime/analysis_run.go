@@ -456,6 +456,9 @@ func (ctx *Context) analysisVerdicts(run *calcRun, sym *symbols.Symbol, scope *s
 		sym: sym, kind: run.shape.Kind, what: "assertion",
 		element: run.shape.Name, self: run.self, bindings: bindings,
 	}
+	if run.occurrence != nil {
+		check.occurrence = run.occurrence.inst
+	}
 	for _, cond := range ctx.appendResultConflict(nil, sym, true) {
 		if cond.Required {
 			verdicts = append(verdicts, ctx.assertionVerdict(check, cond))
