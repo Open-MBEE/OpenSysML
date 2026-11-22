@@ -68,7 +68,20 @@ func (m *mermaidRasterizer) draw(dir, source, output string) error {
 	}
 	args := []string{"--input", input, "--output", output, "--quiet", "--configFile", config}
 	if puppeteer := strings.TrimSpace(os.Getenv(MermaidPuppeteerEnv)); puppeteer != "" {
-		args = append(args, "--puppeteerConfigFile", puppeteer)
+		config, err := puppeteerConfig(puppeteer)
+		if err != nil {
+			return err
+		}
+		args = append(args, "--puppeteerConfigFile="+config)
 	}
 	return runTool(dir, m.mmdc, args...)
+}
+
+// puppeteerConfig is the file MermaidPuppeteerEnv names, absolute and joined to its
+// flag, so a value opening with a dash is a path and never a flag of mmdc's.
+func puppeteerConfig(path string) (string, error) {
+	if info, err := os.Stat(path); err != nil || info.IsDir() {
+		return "", &Error{Kind: ErrorToolMissing, Tool: path, EnvVar: MermaidPuppeteerEnv}
+	}
+	return absolute(path)
 }

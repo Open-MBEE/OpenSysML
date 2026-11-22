@@ -288,6 +288,21 @@ test("a body that does not match the checksum served with it is refused", async 
   await assert.rejects(readFile(`${cached}.tmp`));
 });
 
+test("a binary over the size bound is refused before it is installed", async (t) => {
+  const release = await serveRelease(served());
+  t.after(() => release.close());
+  const options = pinned(release);
+
+  const error = await rejection(downloadBinary({ ...options, maxBinaryBytes: BODY.length - 1 }));
+  assert.ok(error instanceof DownloadError && !(error instanceof ChecksumMismatchError));
+  assert.match(error.message, /exceeds the \d+ byte limit/);
+  await assert.rejects(readFile(`${cachedBinaryPath(options)}.tmp`));
+  await assert.rejects(readFile(cachedBinaryPath(options)));
+
+  const path = await downloadBinary({ ...options, maxBinaryBytes: BODY.length });
+  assert.deepEqual(await readFile(path), BODY);
+});
+
 test("a release nothing pins a digest for is refused", async (t) => {
   const release = await serveRelease(served());
   t.after(() => release.close());
