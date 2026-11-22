@@ -69,7 +69,7 @@ func TestEachReexportGateWalksReexportGates(t *testing.T) {
 			t.Errorf("F::A has routes %v, want a filtered one", want)
 		}
 		var got [][]ElementFilter
-		routed, accepted := idx.EachReexportGate("d.sysml", c.fqn, a, c.from, func(f []ElementFilter) bool {
+		routed, accepted := idx.EachReexportGate("d.sysml", c.fqn, a, c.from, nil, func(f []ElementFilter) bool {
 			got = append(got, f)
 			return false
 		})
@@ -78,13 +78,13 @@ func TestEachReexportGateWalksReexportGates(t *testing.T) {
 		}
 		if len(want) > 0 {
 			visits := 0
-			_, accepted := idx.EachReexportGate("d.sysml", c.fqn, a, c.from, func([]ElementFilter) bool { visits++; return true })
+			_, accepted := idx.EachReexportGate("d.sysml", c.fqn, a, c.from, nil, func([]ElementFilter) bool { visits++; return true })
 			if !accepted || visits != 1 {
 				t.Errorf("%s from %q: an accepting visit was called %d times (accepted %v), want once", c.fqn, c.from, visits, accepted)
 			}
 		}
 		if allocs := testing.AllocsPerRun(20, func() {
-			idx.EachReexportGate("d.sysml", c.fqn, a, c.from, func([]ElementFilter) bool { return false })
+			idx.EachReexportGate("d.sysml", c.fqn, a, c.from, nil, func([]ElementFilter) bool { return false })
 		}); allocs != 0 {
 			t.Errorf("%s from %q: EachReexportGate allocates %.0f objects, want 0", c.fqn, c.from, allocs)
 		}
