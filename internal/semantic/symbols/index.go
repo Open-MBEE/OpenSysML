@@ -129,8 +129,9 @@ type Index struct {
 	noted map[string][]string
 	// readers is noted reversed: each namespace with the importers reading it.
 	readers map[string][]string
-	// expanded holds the importers expanded since the cycles were last recorded.
-	expanded map[string]bool
+	// expanded holds the importers expanded, or left without imports, since the
+	// cycles were last recorded.
+	expanded map[string]*expansionReads
 
 	// libraryDocs names the documents that hold bundled library content rather
 	// than the workspace's own, with the tier and text digest of each, and
@@ -700,6 +701,28 @@ func sameImports(a, b []resolvedImport) bool {
 	return true
 }
 
+// expansionReads is what an importer read since the import cycles were recorded.
+type expansionReads struct {
+	read []string
+	// dropped is set once its re-exports were dropped, and anew when a re-export
+	// may have gone by itself: what it reads is then listed from its re-exports.
+	dropped, anew bool
+}
+
+// noteExpanded returns the record of what importer read since the cycles were
+// recorded, which marks it to be recorded again.
+func (idx *Index) noteExpanded(importer string) *expansionReads {
+	if idx.expanded == nil {
+		idx.expanded = make(map[string]*expansionReads)
+	}
+	reads := idx.expanded[importer]
+	if reads == nil {
+		reads = &expansionReads{}
+		idx.expanded[importer] = reads
+	}
+	return reads
+}
+
 // expandImporter re-exports the visible members of every namespace pkgFQN's
 // imports name, attributing each to the document whose import surfaced it.
 //
@@ -709,10 +732,7 @@ func sameImports(a, b []resolvedImport) bool {
 func (idx *Index) expandImporter(pkgFQN string) {
 	stated := idx.imports(pkgFQN)
 	cycle := idx.cyclic.at(pkgFQN)
-	if idx.expanded == nil {
-		idx.expanded = make(map[string]bool)
-	}
-	idx.expanded[pkgFQN] = true
+	reads := idx.noteExpanded(pkgFQN)
 	for _, imp := range stated {
 		targetFQN := idx.resolveWildcardTarget(pkgFQN, imp.target)
 		if targetFQN == "" {
@@ -729,6 +749,7 @@ func (idx *Index) expandImporter(pkgFQN string) {
 		gate := nonZeroFilters(append([]ElementFilter{imp.filter}, idx.namespaceFiltersGating(pkgFQN, imp.doc)...))
 		// One slice serves every claim this import makes: a claim never writes it.
 		hop := []importHop{{from: targetFQN, private: imp.private, all: imp.all, filters: gate}}
+		reads.read = append(reads.read, targetFQN)
 		direct := []gateRoute{{filters: gate, via: viaOnCycle(cycle, nil, targetFQN, true)}}
 		for _, child := range idx.importedChildren(targetFQN, imp.all) {
 			// Extract child's primary name
@@ -1024,6 +1045,7 @@ func (idx *Index) removeDocument(name string, expand bool) {
 			idx.wildcardMeta.del(pkgFQN)
 		}
 		idx.lastTargets.del(pkgFQN) // its import set changed: expand it again
+		idx.noteExpanded(pkgFQN).anew = true
 		idx.changedNamespace(pkgFQN)
 	}
 
@@ -1186,6 +1208,9 @@ func (idx *Index) purgeAllReexports() {
 	for _, key := range idx.reexportDocs.keys() {
 		idx.purgeReexport(key)
 	}
+	for _, importer := range idx.lastTargets.keys() {
+		idx.noteExpanded(importer).anew = true
+	}
 	idx.lastTargets.clear()
 }
 
@@ -1193,6 +1218,8 @@ func (idx *Index) purgeAllReexports() {
 // whichever documents claim it. What the surviving documents' imports still
 // support is re-derived by the following expansion.
 func (idx *Index) purgeReexportsUnder(pkgFQN string) {
+	reads := idx.noteExpanded(pkgFQN)
+	reads.read, reads.dropped = nil, true
 	for _, fqn := range idx.childKeys(pkgFQN) {
 		for _, sym := range idx.reexportedAt(fqn) {
 			idx.purgeReexport(reexportKey{fqn: fqn, sym: sym})

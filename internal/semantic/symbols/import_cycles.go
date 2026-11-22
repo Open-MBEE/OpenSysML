@@ -245,6 +245,25 @@ func (idx *Index) readBy(importer string) []string {
 	return targets
 }
 
+// readSince lists what importer reads, from what it read since the cycles were
+// recorded: with what it read before unless that was dropped, or all of it anew.
+func (idx *Index) readSince(importer string, reads *expansionReads) []string {
+	if reads.anew {
+		return idx.readBy(importer)
+	}
+	targets := reads.read
+	if !reads.dropped {
+		targets = append(targets, idx.noted[importer]...)
+	}
+	for _, imp := range idx.lastTargets.at(importer) {
+		if imp.fqn != "" && imp.fqn != importer {
+			targets = append(targets, imp.fqn)
+		}
+	}
+	slices.Sort(targets)
+	return slices.Compact(targets)
+}
+
 // settleImportCycles records what the importers expanded since it last ran read,
 // and reports whether it dropped re-exports whose cycle moved, to derive again.
 func (idx *Index) settleImportCycles() bool {
@@ -252,15 +271,9 @@ func (idx *Index) settleImportCycles() bool {
 	idx.expanded = nil
 	reads := make(map[string][]string)
 	var moved []string
-	for importer := range expanded {
-		if targets := idx.readBy(importer); !slices.Equal(targets, idx.noted[importer]) {
+	for importer, since := range expanded {
+		if targets := idx.readSince(importer, since); !slices.Equal(targets, idx.noted[importer]) {
 			reads[importer] = targets
-			moved = append(moved, importer)
-		}
-	}
-	for importer := range idx.noted {
-		// An importer whose imports are all gone is not expanded again.
-		if !expanded[importer] && len(idx.wildcardMeta.at(importer)) == 0 {
 			moved = append(moved, importer)
 		}
 	}
