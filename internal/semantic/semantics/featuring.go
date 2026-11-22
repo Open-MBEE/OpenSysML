@@ -31,7 +31,13 @@ func (m *Model) DerivedFeaturingTypes(feature *symbols.Symbol) []FeaturingType {
 	if cached, ok := m.derivedFeaturing[feature]; ok {
 		return cached
 	}
-	m.resolver.Enter()
+	// A connector's default reads its related features' featuring types, which may lead back here.
+	if depth := m.computingDerivedFeaturing[feature]; depth != 0 {
+		m.resolver.CutShort(depth)
+		return nil
+	}
+	m.computingDerivedFeaturing[feature] = m.resolver.Enter()
+	defer delete(m.computingDerivedFeaturing, feature)
 	out := m.derivedFeaturingTypes(feature, map[*symbols.Symbol]bool{})
 	// A derivation a resolution guard cut short is recomputed, not memoized.
 	if !m.resolver.Leave() {
@@ -78,14 +84,15 @@ func (m *Model) impliedTypeFeaturings(feature *symbols.Symbol, deriving map[*sym
 		owner = feature.Expr.Owner
 	}
 	if owner == nil {
-		return nil
+		// The root namespace owns no feature through a FeatureMembership; a connector there has its default.
+		return m.impliedConnectorFeaturing(feature)
 	}
 	switch {
 	case m.owningEndOf(feature) != nil:
 		// KerML checkFeatureOwnedCrossFeatureTypeFeaturing: the types of the one other end; the
 		// Cartesian product of several other ends' types is not a type the model holds.
 		var out []FeaturingType
-		if others := m.otherOwnedEnds(owner); len(others) == 1 {
+		if others := m.otherEnds(owner); len(others) == 1 {
 			for _, t := range m.FeatureTypes(others[0]) {
 				if featuring := m.plainFeaturingType(t); featuring.Type != nil {
 					out = append(out, featuring)
@@ -116,14 +123,23 @@ func (m *Model) impliedTypeFeaturings(feature *symbols.Symbol, deriving map[*sym
 			return nil
 		}
 		return m.derivedFeaturingTypes(owner, deriving)
-	case m.OwningType(feature) == nil && len(m.FeaturingTypes(feature)) == 0 && m.reflectiveMetaclassConforms(feature, "Connector"):
-		// KerML checkConnectorTypeFeaturing: a connector no type owns and no clause features.
-		if featuring := m.connectorDefaultFeaturingType(feature); featuring.Type != nil {
-			return []FeaturingType{featuring}
-		}
+	case m.OwningType(feature) == nil && m.reflectiveMetaclassConforms(feature, "Connector"):
+		return m.impliedConnectorFeaturing(feature)
 	case m.ownedByFeatureMembership(owner, feature):
 		// KerML checkFeatureFeatureMembershipTypeFeaturing.
 		return []FeaturingType{m.impliedFeaturingType(owner, m.FeatureIsVariable(feature))}
+	}
+	return nil
+}
+
+// impliedConnectorFeaturing returns the default featuring type of a connector no type owns and
+// no clause features (KerML checkConnectorTypeFeaturing).
+func (m *Model) impliedConnectorFeaturing(feature *symbols.Symbol) []FeaturingType {
+	if m.OwningType(feature) != nil || len(m.FeaturingTypes(feature)) != 0 || !m.reflectiveMetaclassConforms(feature, "Connector") {
+		return nil
+	}
+	if featuring := m.connectorDefaultFeaturingType(feature); featuring.Type != nil {
+		return []FeaturingType{featuring}
 	}
 	return nil
 }
@@ -431,9 +447,9 @@ func withAnything(types []FeaturingType) []FeaturingType {
 	return append(types[:len(types):len(types)], FeaturingType{})
 }
 
-// otherOwnedEnds returns the ends of end's owning type other than end itself.
-func (m *Model) otherOwnedEnds(end *symbols.Symbol) []*symbols.Symbol {
-	return slices.DeleteFunc(slices.Clone(m.ownedEnds(m.ownerOf(end))), func(other *symbols.Symbol) bool {
+// otherEnds returns the ends of end's owning type, inherited ones included, other than end itself.
+func (m *Model) otherEnds(end *symbols.Symbol) []*symbols.Symbol {
+	return slices.DeleteFunc(slices.Clone(m.endsOf(m.ownerOf(end))), func(other *symbols.Symbol) bool {
 		return other == end
 	})
 }
