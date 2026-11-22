@@ -46,7 +46,7 @@ func (m *Model) metadataFeatureMetaclass(scope *symbols.Scope) *symbols.Symbol {
 		return nil
 	}
 	if m.resolver.Index().DocumentKind(scope.DocName()) == source.KindKerML {
-		return m.kermlMetaclass(kermlMetaclassNames["metadata"])
+		return m.kermlMetaclass(kermlFeatureMetaclassNames["metadata"])
 	}
 	return m.sysmlMetaclass(metaclassName(symbols.SymbolMetadataUsage))
 }

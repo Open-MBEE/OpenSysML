@@ -1,6 +1,7 @@
 package metamodel
 
 import (
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -747,7 +748,7 @@ func (e *Evaluator) isMetaclass(element Element, expected string) (bool, bool) {
 		actual = strings.TrimPrefix(actual, ExtensionMetaclassPrefix)
 		return actual == expected, actual != ""
 	}
-	if declared, ok := kermlTypeUsageMetaclasses[actual]; ok {
+	if declared, ok := legacyKerMLTypeMetaclasses[actual]; ok {
 		actual = declared
 	}
 	if actual == expected {
@@ -789,15 +790,20 @@ func membershipMetaclassConforms(membership Membership, expected string) bool {
 	return false
 }
 
-// kermlTypeUsageMetaclasses maps the metaclass names a graph records KerML type
-// declarations under to the KerML metaclass each declaration builds.
-var kermlTypeUsageMetaclasses = map[string]string{
+// legacyKerMLTypeMetaclasses maps the names graphs of earlier releases typed a KerML type
+// declaration with to the KerML metaclass the declaration builds.
+var legacyKerMLTypeMetaclasses = map[string]string{
 	"AssociationUsage": "Association",
 	"BehaviorUsage":    "Behavior",
 	"ClassUsage":       "Class",
 	"InteractionUsage": "Interaction",
 	"PredicateUsage":   "Predicate",
 	"StructureUsage":   "Structure",
+}
+
+// LegacyKerMLTypeMetaclasses is a copy of the legacy KerML type names and their metaclasses.
+func LegacyKerMLTypeMetaclasses() map[string]string {
+	return maps.Clone(legacyKerMLTypeMetaclasses)
 }
 
 func (e *Evaluator) ownedUsageMetaclass(property string) (string, bool) {

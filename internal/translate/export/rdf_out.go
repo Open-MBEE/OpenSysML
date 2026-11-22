@@ -198,6 +198,7 @@ const (
 	mParameterMembership       = "ParameterMembership"
 	mReturnParameterMembership = "ReturnParameterMembership"
 	mFeature                   = "Feature"
+	mClassifier                = "Classifier"
 	mEndFeatureMembership      = "EndFeatureMembership"
 	// The membership a body owns its result expression through, which states
 	// the expression as sysml:ownedResultExpression.
@@ -1514,7 +1515,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		return members(n.Members)
 
 	case *ast.Definition:
-		metaclass, ok := definitionMetaclass[n.Kind]
+		metaclass, ok := definitionMetaclassOf(n)
 		if !ok {
 			return &UnsupportedError{What: fmt.Sprintf("definition kind %q at %s", n.Kind, e.where(n))}
 		}
@@ -1523,7 +1524,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		// An individual definition owns its empty Multiplicity first, before its prefix
 		// metadata and its head's clauses (SysML.xtext OccurrenceDefinitionPrefix).
 		e.defaultMultiplicity(subject, n, nil)
-		if err := e.declaredKeyword(subject, n, n.Keyword, metaclassDefinitionKeyword(n.Kind), n.Ident.Name, false); err != nil {
+		if err := e.declaredKeyword(subject, n, definitionKeywordWritten(n, metaclass), metaclassDefinitionKeyword(n.Kind), n.Ident.Name, false); err != nil {
 			return err
 		}
 		e.flags(subject, []boolProperty{

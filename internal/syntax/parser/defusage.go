@@ -2114,13 +2114,7 @@ func (p *Parser) parseBodyOrSemicolon(parseBody func() []ast.Node) ([]ast.Node, 
 // isKerMLClassifierDefinitionKeyword identifies keyword forms using KerML's
 // ClassifierDeclaration (and the shared TypeDeclaration) multiplicity slot.
 func isKerMLClassifierDefinitionKeyword(keyword string) bool {
-	switch keyword {
-	case "type", "classifier", "class", "datatype", "struct", "assoc", "behavior",
-		"function", "predicate", "interaction", "metaclass":
-		return true
-	default:
-		return false
-	}
+	return ast.KerMLTypeMetaclass(keyword) != ""
 }
 
 // defBodyContext returns the body notation a definition of the given kind
@@ -4174,10 +4168,7 @@ const (
 // though the parser reads them through the usage path; in a SysML file the
 // same words keep their usage (feature) shape.
 func (p *Parser) usageDeclShape(keyword string) declShape {
-	// "assoc struct" is the compound keyword an association structure is
-	// spelled with; isKerMLClassifierDefinitionKeyword sees the first word.
-	if p.src.Kind() == source.KindKerML &&
-		(isKerMLClassifierDefinitionKeyword(keyword) || keyword == "assoc struct") {
+	if p.src.Kind() == source.KindKerML && isKerMLClassifierDefinitionKeyword(keyword) {
 		return declClassifierUsage
 	}
 	return declFeature

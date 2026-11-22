@@ -25,7 +25,6 @@ export-24	export	`include use case` is an IncludeUseCaseUsage (SysML 8.3.26.2); 
 export-25	export	`library package` is a LibraryPackage (KerML 8.3.2.6.3); the structure answers Package
 export-26	export	`perform action` is a PerformActionUsage (SysML 8.3.16.12); the structure answers ActionUsage
 export-27	export	a stated property of the metaclass the form writes (KerML/SysML abstract syntax); the structure answers none for it (symbol-side gap)
-export-28	export	a subclassification naming `~T` is a Subclassification (KerML 8.3.3.1.4); the structure answers Conjugation
 export-29	export	an action node whose body is `accept` is an AcceptActionUsage (SysML 8.3.16.2); the structure answers ActionUsage
 export-30	export	an action node whose body is `assign` is an AssignmentActionUsage (SysML 8.3.16.5); the structure answers ActionUsage
 export-31	export	an action node whose body is `send` is a SendActionUsage (SysML 8.3.16.13); the structure answers ActionUsage
@@ -37,7 +36,6 @@ export-42	export	the form writes an element of this metaclass the structure has 
 export-43	export	the form writes an element of this metaclass the structure has no symbol for (_pguard); the structure does not resolve its id
 export-44	export	the form writes an element of this metaclass the structure has no symbol for (_prs); the structure does not resolve its id
 export-45	export	the form writes an element of this metaclass the structure has no symbol for (_ptarget); the structure does not resolve its id
-export-47	export	the form writes an element of this metaclass the structure has no symbol for (_sc0); the structure does not resolve its id
 export-48	export	the form writes an element of this metaclass the structure has no symbol for (_ss0); the structure does not resolve its id
 export-49	export	the form writes an element of this metaclass the structure has no symbol for (id); the structure does not resolve its id
 export-50	export	the form writes the OwningMembership of an element the structure has no symbol for (_om); the structure does not resolve its id
@@ -47,7 +45,6 @@ export-54	export	the form writes the result parameter of a filter condition (Sys
 export-55	export	the form writes the typing of a filter condition's parameter (KerML 8.3.3.3.4 FeatureTyping) (_ft0); the structure does not resolve its id
 export-56	export	the property as the form writes it (KerML/SysML abstract syntax); the structure answers a different value and needs a symbol-side check
 export-57	export	the property as the form writes it (KerML/SysML abstract syntax); the structure answers none, unsupported or a positional id (symbol-side gap)
-export-58	export	the specialization naming a conjugated type `~T` is a Specialization of that type (KerML 8.3.3.1.4 Conjugation is the type's own relationship); the structure answers Conjugation
 symbol-01	symbol	KerML 8.3.2.1 Element::declaredName is the name as declared, a quoted name included; the export writes it empty
 symbol-02	symbol	KerML 8.3.2.1 Element::ownedElement over ownedRelationship, implied relationships included
 symbol-03	symbol	KerML 8.3.2.1 Element::ownedRelationship includes the implied relationships (typing, subsetting, memberships) the export omits
@@ -142,3 +139,6 @@ symbol-81	symbol	KerML 8.3.4.1 Connector::target is relatedFeature[1..] (8.3.2.1
 symbol-82	symbol	KerML 8.3.2.4.2 Namespace::ownedImport are the Imports a namespace owns, among its ownedRelationship, its membership including what they import; the export writes a document's root Namespace without the imports written at top level
 symbol-83	symbol	KerML 8.3.3.1.10 Type::inheritedMembership leaves out a feature an owned feature redefines: a view's `render` member redefines Views::View::viewRendering (SysML 8.3.26.4 ViewRenderingMembership), and the pilot inherits one membership fewer into such a view; the export's membership keeps the redefined feature
 symbol-84	symbol	KerML 8.3.2.4.5 Namespace::importedMembership of a recursive import follows each namespace's ownedMembership order, and `then action b;` owns its succession's FeatureMembership ahead of the action's (SysML.xtext ActionBodyItem: SourceSuccessionMember, then ActionBehaviorMember, as the pilot orders them); the export writes the action first
+export-69	export	KerML.xtext TypeBodyElement: `member feature f` is owned through an OwningMembership, not a FeatureMembership, so it is not among the type's (owned or inherited) features or feature memberships (KerML 8.3.3.1.10 Type::ownedFeature); the structure lists it (symbol-side follow-up)
+symbol-85	symbol	KerML.xtext ConjugationPart: `conjugates T` owns a Conjugation (KerML 8.3.3.1.3), so the type is conjugated, the relationship is its ownedConjugator and no ownedSpecialization; the export writes a Specialization or Subclassification for it (exporter follow-up)
+symbol-86	symbol	KerML.xtext DisjoiningPart: `disjoint from T` owns a Disjoining (KerML 8.3.3.1.10 Type::ownedDisjoining), among the type's ownedRelationship; the export writes none for it (exporter follow-up). In one Type::ownedRelationship pair (`type Singleton[1] specializes …`) the two differ only in order, where the export follows KerML.xtext TypeDeclaration (the multiplicity before the specialization part)

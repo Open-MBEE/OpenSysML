@@ -817,6 +817,21 @@ above — `sysx:Alias`, `sysx:FilterMember`, `sysx:MultiplicityDeclaration`,
 `sysx:InitialNode`, `sysx:FinalNode`, `sysx:IfBranch` — are still accepted and
 written back as the standard element on the next hop.
 
+A KerML type declaration is typed by the metaclass its keyword builds (KerML.xtext
+`Type`, `Classifier`, `DataType`, `Class`, `Structure`, `Association`,
+`AssociationStructure`, `Behavior`, `Function`, `Predicate`, `Interaction`,
+`Metaclass`): `class X` is a `sysml:Class`, `assoc struct X` a
+`sysml:AssociationStructure`, `classifier X` a `sysml:Classifier`, `type X` a
+`sysml:Type`. Every one but `type` declares a Classifier, so its `specializes` is a
+`sysml:Subclassification` at `<S>_sc<i>`, as a SysML definition's is; a `type` owns
+a plain `sysml:Specialization` at `<S>_sp<i>`. Each reads back by its keyword alone;
+one written with SysML's `def` (`class def X`) records it in `sysx:declaredKeyword`
+(`"class def"`) and reads back with it. A graph typed `sysml:ClassUsage`,
+`sysml:StructureUsage`, `sysml:AssociationUsage`, `sysml:BehaviorUsage`,
+`sysml:PredicateUsage` or `sysml:InteractionUsage` — names earlier releases wrote,
+which the metamodel does not declare — still reads back as the declaration, its
+API JSON `@type` is the metaclass, and it is written standardly on its next hop.
+
 The qualified usages spell their qualifier from the metaclass alone, so a graph
 that carries no `sysx:declaredKeyword`/`sysx:declaredPrefix` still writes the
 keyword the grammar qualified it with (SysML.xtext `PerformActionUsage`,
@@ -874,7 +889,7 @@ sees the same relationships SysML.xtext produces.
 | `:> base`, `subsets base` | a `sysml:Subsetting`/`sysml:ReferenceSubsetting` (`<S>_ss<i>`/`<S>_rs<i>`) |
 | `crosses a.q`, `=> a.q` on an end | a `sysml:CrossSubsetting` (`<S>_cs`, or `<S>_cs<i>` where a head states several) with `crossingFeature`/`crossedFeature`, owning the chain `Feature` of a chain target |
 | `unions A, B`, `intersects A, B`, `differences A, B` | one `sysml:Unioning`/`sysml:Intersecting`/`sysml:Differencing` per operand, in operand order (`<S>_un<i>`/`<S>_is<i>`/`<S>_df<i>`), with `typeUnioned`/`unioningType` and their counterparts |
-| `specializes Base`, `:>> Base` on a definition | a `sysml:Subclassification` (`<S>_sc<i>`) |
+| `specializes Base`, `:>> Base` on a definition or a KerML classifier declaration (`class X specializes A;`) | a `sysml:Subclassification` (`<S>_sc<i>`) |
 | `part p : ~P;` | a `sysml:ConjugatedPortDefinition` (`<S>_conjugated`) typed by `P`, and a `sysml:PortConjugation` (`<S>_pc`) joining it to `P`; the conjugate states no `declaredName` or `declaredShortName` — `~P` is its derived `name` (SysML v2.1 §8.3.12.2 `effectiveName`), addressing it as `P::'~P'`, while the conjugate of an unnamed `P` is addressed positionally as `<owner>::@conjugated`, so `port p`'s `FeatureTyping` reads `type: ~P` |
 | `subject v : Vehicle;` in a requirement | a `sysml:SubjectMembership` owning `v`, with `sysml:subjectParameter` on the membership's owner |
 | `require constraint { v.mass < 1500 [kg] }` | a `sysml:RequirementConstraintMembership` owning the `sysml:ConstraintUsage`, with `sysml:kind "requirement"`/`"assumption"` by keyword; the constraint carries `sysml:isVariable`/`sysml:mayTimeVary` as the model derives them (a feature of an Occurrence varies) |

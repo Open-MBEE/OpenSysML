@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -74,7 +76,11 @@ func TestW7AImplicitBaseTablesNameLibraryElements(t *testing.T) {
 // F93 reads a filter condition's metaclass from (KerML §8.2.4).
 func TestW7AMetaclassNamesAreDeclared(t *testing.T) {
 	m := stdlibModel(t)
-	for keyword, name := range kermlMetaclassNames {
+	names := maps.Clone(kermlFeatureMetaclassNames)
+	for _, keyword := range ast.KerMLTypeKeywords() {
+		names[keyword] = ast.KerMLTypeMetaclass(keyword)
+	}
+	for keyword, name := range names {
 		found := false
 		for _, prefix := range kermlMetaclassPrefixes {
 			if m.symbolByFQN(prefix+name) != nil {

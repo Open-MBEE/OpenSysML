@@ -2329,6 +2329,10 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 	if head, handled, err := d.behaviorHead(el); handled {
 		return head, err
 	}
+	// A KerML type declaration is written by its keyword alone unless the graph states a `def`.
+	if kind, ok := kermlTypeUsageKind[el.metaclass]; ok && !d.declaredWithDef(el) {
+		return d.usageHead(el, kind)
+	}
 	if kind, ok := metaclassDefinition[el.metaclass]; ok {
 		return d.definitionHead(el, kind)
 	}
@@ -2382,6 +2386,12 @@ func (d *decoder) namespaceHead(el *element) (string, error) {
 	return strings.Join(words, " "), nil
 }
 
+// declaredWithDef reports a KerML type the graph records as written with `def` (`class def X`).
+func (d *decoder) declaredWithDef(el *element) bool {
+	written, _ := d.stringOf(el, rdf.OpenSysML+xDeclaredKeyword)
+	return strings.HasSuffix(written, defKeywordSuffix)
+}
+
 func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, error) {
 	var words []string
 	if keyword := d.visibility(el); keyword != "" {
@@ -2395,7 +2405,11 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 	if d.boolOf(el, rdf.SysML+"isVariation") && kind != ast.DefEnumeration {
 		words = append(words, "variation")
 	}
-	keyword := d.keywordOr(el, definitionKeyword(kind))
+	canonical := definitionKeyword(kind)
+	if el.metaclass == mClassifier {
+		canonical = "classifier"
+	}
+	keyword := strings.TrimSuffix(d.keywordOr(el, canonical), defKeywordSuffix)
 	// `individual def` states isIndividual by its kind keyword; writing the
 	// modifier as well would declare it twice (SysML.xtext OccurrenceDefinitionPrefix).
 	if d.boolOf(el, rdf.SysML+"isIndividual") && keyword != "individual" {
@@ -2418,9 +2432,9 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 	if d.boolOf(el, rdf.SysML+"isAll") {
 		words = append(words, "all")
 	}
-	// Every definition kind but `metaclass` shares its keyword with a usage
-	// form, and is told apart from it by `def`.
-	if kind != ast.DefMetaclass {
+	// Every definition kind but `metaclass` shares its keyword with a usage form, and is
+	// told apart from it by `def`; a Classifier is the def-less `classifier` alone.
+	if kind != ast.DefMetaclass && el.metaclass != mClassifier {
 		words = append(words, "def")
 	}
 	words = append(words, d.identWords(el)...)

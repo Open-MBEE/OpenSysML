@@ -5,22 +5,16 @@
 # TestExamplesSweep fails on a row not here, on a count above the one here, on a row
 # here the run no longer produces, and on a ? key; a count that fell is re-recorded
 # with -update-agreement-ratchet.
-AssociationUsage::@type	12	symbol-44
 AttributeUsage::@type	333	symbol-44
-BehaviorUsage::@type	24	symbol-44
 BindingConnectorAsUsage::@type	16	symbol-44
 BooleanUsage::@type	4	symbol-44
-Class::@type	55	symbol-44
-ClassUsage::@type	37	symbol-44
+Class::@type	3	symbol-44
 FeatureMembership::@type	1	symbol-49
 FlowUsage::@type	6	symbol-44
-InteractionUsage::@type	1	symbol-44
 MetadataUsage::@type	10	symbol-44
 OwningMembership::@type	9	symbol-46
-PredicateUsage::@type	5	symbol-44
 ReferenceUsage::@type	172	symbol-44
-Specialization::@type	17	export-58
-StructureUsage::@type	31	symbol-44
-Subclassification::@type	1	export-28
+Specialization::@type	3	symbol-85
+Subclassification::@type	1	symbol-85
 Subsetting::@type	1	export-20
 SuccessionAsUsage::@type	9	symbol-44

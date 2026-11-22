@@ -390,6 +390,10 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 	if legacyIndividual {
 		metaclass, typeName = standard, standard
 	}
+	// A legacy KerML type name is none of the metamodel's: the element is its metaclass.
+	if declared, legacy := legacyKerMLTypeMetaclasses[metaclass]; legacy {
+		metaclass, typeName = declared, declared
+	}
 	predicates := w.graph.PredicatesView(subject)
 	element := make(apiJSONObject, 0, len(predicates)+5)
 	element = append(element,
