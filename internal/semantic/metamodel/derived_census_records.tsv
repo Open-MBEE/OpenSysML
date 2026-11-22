@@ -595,7 +595,7 @@ Element::isLibraryElement	manual-examples	8416	8416	0	0	9379	9379	0	0	0
 Element::name	training	11255	1893	9362	0	11906	3211	0	8695	0
 Element::name	pilot-examples	39455	5512	33943	0	40861	10406	0	30455	0
 Element::name	pilot-validation	13803	2179	11624	0	14222	3735	0	10487	0
-Element::name	kerml-examples	8331	1450	6881	0	8762	1901	0	6861	0
+Element::name	kerml-examples	8331	1452	6879	0	8762	1901	0	6861	0
 Element::name	spec-examples	11769	2423	9330	16	15900	3818	0	12082	0
 Element::name	testdata	2524	529	1995	0	2863	808	0	2055	0
 Element::name	examples	53867	7148	46719	0	57526	13686	0	43840	0
@@ -667,7 +667,7 @@ Element::owningRelationship	manual-examples	8416	3600	4816	0	9379	3783	0	5596	0
 Element::qualifiedName	training	11255	1516	9739	0	11906	1543	0	10363	0
 Element::qualifiedName	pilot-examples	39455	4542	34913	0	40861	4728	0	36133	0
 Element::qualifiedName	pilot-validation	13803	1830	11973	0	14222	1879	0	12343	0
-Element::qualifiedName	kerml-examples	8331	1346	6985	0	8762	1339	0	7423	0
+Element::qualifiedName	kerml-examples	8331	1348	6983	0	8762	1339	0	7423	0
 Element::qualifiedName	spec-examples	11769	2101	9652	16	15900	2464	0	13436	0
 Element::qualifiedName	testdata	2524	491	2033	0	2863	486	0	2377	0
 Element::qualifiedName	examples	53867	5555	48312	0	57526	5731	0	51795	0
@@ -1146,7 +1146,7 @@ Membership::memberElementId	manual-examples	3997	1228	0	2769	4155	4155	0	0	0
 Membership::memberName	training	5043	1799	3244	0	5387	3219	0	2168	0
 Membership::memberName	pilot-examples	17544	5419	12125	0	18213	10419	0	7794	0
 Membership::memberName	pilot-validation	6185	2127	4058	0	6394	3741	0	2653	0
-Membership::memberName	kerml-examples	3289	1385	1904	0	3463	1906	0	1557	0
+Membership::memberName	kerml-examples	3289	1387	1902	0	3463	1906	0	1557	0
 Membership::memberName	spec-examples	4898	1954	2928	16	6352	3823	0	2529	0
 Membership::memberName	testdata	1072	458	614	0	1248	818	0	430	0
 Membership::memberName	examples	24342	7041	17301	0	25876	13687	0	12189	0
@@ -1301,7 +1301,7 @@ OwningMembership::ownedMemberElementId	manual-examples	3541	772	0	2769	3711	3711
 OwningMembership::ownedMemberName	training	4549	1793	2756	0	4911	3213	0	1698	0
 OwningMembership::ownedMemberName	pilot-examples	15833	5410	10423	0	16612	10410	0	6202	0
 OwningMembership::ownedMemberName	pilot-validation	5619	2123	3496	0	5874	3737	0	2137	0
-OwningMembership::ownedMemberName	kerml-examples	3143	1380	1763	0	3319	1901	0	1418	0
+OwningMembership::ownedMemberName	kerml-examples	3143	1382	1761	0	3319	1901	0	1418	0
 OwningMembership::ownedMemberName	spec-examples	4504	1949	2539	16	5943	3817	0	2126	0
 OwningMembership::ownedMemberName	testdata	1013	450	563	0	1190	810	0	380	0
 OwningMembership::ownedMemberName	examples	22254	7040	15214	0	23954	13686	0	10268	0
