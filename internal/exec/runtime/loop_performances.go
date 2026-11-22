@@ -238,8 +238,18 @@ func (ctx *Context) loopBodyFeatures(typ *symbols.Symbol, stmt lower.Loop) []Eff
 		return cached
 	}
 	var features []EffectiveFeature
+	seen := make(map[*symbols.Symbol]bool)
 	scope.ForEachNamedMember(func(name string, sym *symbols.Symbol) bool {
+		// A step registered under a short and a primary name is one feature, as in a type's
+		// shape, held under the primary name where it declares one.
+		if seen[sym] {
+			return true
+		}
+		seen[sym] = true
 		if sym.Decl != stmt.Node && sym.Kind.IsPerformance() && !ctx.model.semantics.FrameFeature(sym) {
+			if sym.Name != "" {
+				name = sym.Name
+			}
 			features = append(features, ctx.effectiveFeature(name, sym, typ))
 		}
 		return true

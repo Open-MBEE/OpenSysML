@@ -1258,6 +1258,9 @@ func ImplicitlyRedefined(sym *symbols.Symbol) bool {
 // IsCaseRole reports whether sym is the subject, an actor, a stakeholder or the
 // objective of a requirement or case, whose redefinitions redefinedFeatures knows exactly.
 func IsCaseRole(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
 	if sym.Recorded() {
 		if sym.Facts.Node == symbols.NodeSubject {
 			return true

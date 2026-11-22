@@ -28,7 +28,7 @@ elmt:FeaturePrefixes
     json:ownedRelationship "[{\"@id\":\"FeaturePrefixes__A_om\"},{\"@id\":\"FeaturePrefixes__B_om\"},{\"@id\":\"FeaturePrefixes__C_om\"}]" .
 
 elmt:FeaturePrefixes__A
-    a sysml:ClassUsage ;
+    a sysml:Class ;
     sysml:qualifiedName "FeaturePrefixes::A" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -60,7 +60,7 @@ elmt:FeaturePrefixes__A_om
     json:relatedElement "[{\"@id\":\"FeaturePrefixes\"},{\"@id\":\"FeaturePrefixes__A\"}]" .
 
 elmt:FeaturePrefixes__B
-    a sysml:ClassUsage ;
+    a sysml:Class ;
     sysml:qualifiedName "FeaturePrefixes::B" ;
     sysx:sourceLine "3"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -398,7 +398,7 @@ expr:FeaturePrefixes__B__slices_pupperBound_om
     json:relatedElement "[{\"@id\":\"FeaturePrefixes__B__slices_pmultiplicity\"},{\"@id\":\"FeaturePrefixes__B__slices_pupperBound\"}]" .
 
 elmt:FeaturePrefixes__C
-    a sysml:ClassUsage ;
+    a sysml:Class ;
     sysml:qualifiedName "FeaturePrefixes::C" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -415,15 +415,16 @@ elmt:FeaturePrefixes__C
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:FeaturePrefixes__C__p, elmt:FeaturePrefixes__C__pv, elmt:FeaturePrefixes__C__dk ;
     sysml:ownedMembership elmt:FeaturePrefixes__C__p_om, elmt:FeaturePrefixes__C__pv_om, elmt:FeaturePrefixes__C__dk_om ;
-    sysml:ownedRelationship elmt:FeaturePrefixes__C_sp0, elmt:FeaturePrefixes__C__p_om, elmt:FeaturePrefixes__C__pv_om, elmt:FeaturePrefixes__C__dk_om ;
+    sysml:ownedRelationship elmt:FeaturePrefixes__C_sc0, elmt:FeaturePrefixes__C__p_om, elmt:FeaturePrefixes__C__pv_om, elmt:FeaturePrefixes__C__dk_om ;
     sysml:ownedFeature elmt:FeaturePrefixes__C__p, elmt:FeaturePrefixes__C__pv, elmt:FeaturePrefixes__C__dk ;
     sysml:ownedFeatureMembership elmt:FeaturePrefixes__C__p_om, elmt:FeaturePrefixes__C__pv_om, elmt:FeaturePrefixes__C__dk_om ;
-    sysml:ownedSpecialization elmt:FeaturePrefixes__C_sp0 ;
+    sysml:ownedSubclassification elmt:FeaturePrefixes__C_sc0 ;
+    sysml:ownedSpecialization elmt:FeaturePrefixes__C_sc0 ;
     sysx:sourceText "    class C specializes B {\n" ;
     sysx:sourceTail "    }\n" ;
     json:ownedMember "[{\"@id\":\"FeaturePrefixes__C__p\"},{\"@id\":\"FeaturePrefixes__C__pv\"},{\"@id\":\"FeaturePrefixes__C__dk\"}]" ;
     json:ownedMembership "[{\"@id\":\"FeaturePrefixes__C__p_om\"},{\"@id\":\"FeaturePrefixes__C__pv_om\"},{\"@id\":\"FeaturePrefixes__C__dk_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"FeaturePrefixes__C_sp0\"},{\"@id\":\"FeaturePrefixes__C__p_om\"},{\"@id\":\"FeaturePrefixes__C__pv_om\"},{\"@id\":\"FeaturePrefixes__C__dk_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"FeaturePrefixes__C_sc0\"},{\"@id\":\"FeaturePrefixes__C__p_om\"},{\"@id\":\"FeaturePrefixes__C__pv_om\"},{\"@id\":\"FeaturePrefixes__C__dk_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"FeaturePrefixes__C__p\"},{\"@id\":\"FeaturePrefixes__C__pv\"},{\"@id\":\"FeaturePrefixes__C__dk\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"FeaturePrefixes__C__p_om\"},{\"@id\":\"FeaturePrefixes__C__pv_om\"},{\"@id\":\"FeaturePrefixes__C__dk_om\"}]" .
 
@@ -786,13 +787,15 @@ elmt:FeaturePrefixes__B__slices_ss0
     sysml:relatedElement elmt:FeaturePrefixes__B__slices, elmt:FeaturePrefixes__B__p ;
     json:relatedElement "[{\"@id\":\"FeaturePrefixes__B__slices\"},{\"@id\":\"FeaturePrefixes__B__p\"}]" .
 
-elmt:FeaturePrefixes__C_sp0
-    a sysml:Specialization ;
-    sysml:elementId "FeaturePrefixes__C_sp0" ;
+elmt:FeaturePrefixes__C_sc0
+    a sysml:Subclassification ;
+    sysml:elementId "FeaturePrefixes__C_sc0" ;
+    sysml:subclassifier elmt:FeaturePrefixes__C ;
+    sysml:owningClassifier elmt:FeaturePrefixes__C ;
     sysml:specific elmt:FeaturePrefixes__C ;
-    sysml:owningType elmt:FeaturePrefixes__C ;
     sysml:source elmt:FeaturePrefixes__C ;
     sysml:owningRelatedElement elmt:FeaturePrefixes__C ;
+    sysml:superclassifier elmt:FeaturePrefixes__B ;
     sysml:general elmt:FeaturePrefixes__B ;
     sysml:target elmt:FeaturePrefixes__B ;
     sysml:owner elmt:FeaturePrefixes__C ;
