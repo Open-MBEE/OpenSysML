@@ -674,9 +674,8 @@ func TestQuantifiersDecideFromConstantTests(t *testing.T) {
 	}
 }
 
-// A determined operand that alone makes arithmetic fail — a zero divisor, an
-// infinity under `%` — fails it whatever the open operand holds, in the operator
-// notation and in the library's function forms alike; other arithmetic stays open.
+// A determined operand that alone fails arithmetic (a zero divisor, an infinity under `%`) fails it
+// whatever the open operand holds, in operator and library function forms alike; the rest stays open.
 func TestDefiniteArithmeticErrorsSurviveOpenOperands(t *testing.T) {
 	ctx, scope := undeterminedContext(t)
 	for _, src := range []string{

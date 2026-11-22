@@ -94,9 +94,8 @@ func TestInfinityComparison(t *testing.T) {
 	}
 }
 
-// TestInfinityArithmetic answers arithmetic over `*` and `-*` in the affinely
-// extended reals KerML 9.3.2.2.9 makes Real: the limit where one exists, in the
-// operator notation, the function forms and the aggregations alike.
+// TestInfinityArithmetic answers arithmetic over `*` and `-*` in the affinely extended reals KerML
+// 9.3.2.2.9 makes Real: the limit where one exists, in operator, function and aggregation forms alike.
 func TestInfinityArithmetic(t *testing.T) {
 	cases := []struct{ expr, want string }{
 		{"-*", "-*"}, {"-(-*)", "*"}, {"+(-*)", "-*"},
@@ -134,9 +133,8 @@ func TestInfinityArithmetic(t *testing.T) {
 	}
 }
 
-// TestInfinityArithmeticUndefined reports an indeterminate form of the extended
-// reals as a typed domain error, a zero divisor as a division by zero, and an
-// operand outside the operation's declared type as a type mismatch.
+// TestInfinityArithmeticUndefined: an indeterminate form of the extended reals is a typed domain error,
+// a zero divisor a division by zero, an operand outside the operation's declared type a type mismatch.
 func TestInfinityArithmeticUndefined(t *testing.T) {
 	cases := []struct {
 		expr string
@@ -397,9 +395,8 @@ func TestUnboundedAgainstDeclaredSubtype(t *testing.T) {
 	}
 }
 
-// TestInfinityOrderingOverOpenOperands orders `*` beside a feature the model
-// leaves open: the maximum is `*` whatever the feature holds, the minimum and the
-// comparisons stay open in both notations, as does a sum, and a remainder is undefined.
+// TestInfinityOrderingOverOpenOperands: beside a feature the model leaves open the maximum with `*` is
+// `*`; the minimum, the comparisons and a sum stay open in both notations; a remainder is undefined.
 func TestInfinityOrderingOverOpenOperands(t *testing.T) {
 	const src = "package test {\n\tprivate import ScalarValues::*;\n\tattribute u : Integer;\n}"
 	for _, expr := range []string{"IntegerFunctions::max(*, test::u)", "IntegerFunctions::max(test::u, *)"} {
