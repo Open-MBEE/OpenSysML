@@ -119,15 +119,14 @@ type Index struct {
 	lastTargets *layer[string, []resolvedImport]
 
 	// cyclic maps a namespace to the ones it is on a cycle of wildcard imports
-	// with, itself included, in name order; nsOrder numbers the namespaces so
-	// that none reads one numbered after it (see noteImportCycles). nsOrder is
-	// replaced, never written, so the views of an index share it.
+	// with, itself included, in name order.
 	cyclic *layer[string, []string]
+	// nsOrder numbers the namespaces so that none reads one numbered after it.
+	// It is replaced, never written, so the views of an index share it.
+	nsOrder map[string]int
 	// readFrom names, by importer and stating document, the namespaces its
-	// re-exports were read from: an import a later one shadows keeps what it
-	// read under the name it had.
+	// re-exports were read from, which an import shadowed since no longer names.
 	readFrom *layer[string, map[string][]string]
-	nsOrder  map[string]int
 
 	// libraryDocs names the documents that hold bundled library content rather
 	// than the workspace's own, with the tier and text digest of each, and
@@ -199,9 +198,8 @@ type importHop struct {
 type gateRoute struct {
 	private bool
 	filters []ElementFilter
-	// via names the namespaces the route read the name through that are on an
-	// import cycle with the one holding it: the route does not continue into
-	// one of them, which is excluded while it is read (KerML 8.3.2.4.5).
+	// via names the namespaces the route does not continue into (KerML 8.3.2.4.5):
+	// those on a cycle with its holder that declare the name or held it privately.
 	via []string
 }
 
@@ -543,9 +541,8 @@ func (idx *Index) ExpandWildcardImports() {
 	}
 }
 
-// expandOnce runs one round of expansion and reports whether another is due.
-// The round that changes nothing is the one that may forget an import cycle:
-// until then a cycle only grows (see noteImportCycles).
+// expandOnce runs one round of expansion and reports whether another is due. Only
+// a round that changes nothing forgets a cycle: a name being re-derived breaks none.
 func (idx *Index) expandOnce(deriveOnly bool) bool {
 	graph := idx.importGraph(false)
 	rerouted := idx.settleImportCycles(graph, false)
@@ -599,12 +596,18 @@ func (idx *Index) importersToRefresh(changed map[string]nsChange, deriveOnly boo
 		}
 		// It is stale when an import names another namespace than it did, or when a
 		// namespace it read members from — then or now — lost some.
-		stale := !sameImports(last, now) ||
+		same, resolved := sameImports(last, now)
+		stale := !(same || resolved) ||
 			lostMembers(changed, last) || lostMembers(changed, now)
 		if stale {
 			if !deriveOnly {
 				purge = append(purge, pkgFQN)
 			}
+			derive = append(derive, pkgFQN)
+			continue
+		}
+		if !same {
+			// An import that named no namespace read nothing to drop.
 			derive = append(derive, pkgFQN)
 			continue
 		}
@@ -684,18 +687,25 @@ func lostMembers(changed map[string]nsChange, imports []resolvedImport) bool {
 	return false
 }
 
-// sameImports reports whether two resolutions of a namespace's imports agree, so
-// an expansion can tell that an import now names a different namespace, or none.
-func sameImports(a, b []resolvedImport) bool {
-	if len(a) != len(b) {
-		return false
+// sameImports reports whether two resolutions of a namespace's imports agree, or
+// else whether they differ only in imports that named no namespace in last.
+func sameImports(last, now []resolvedImport) (same, resolved bool) {
+	if len(last) != len(now) {
+		return false, false
 	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
+	same = true
+	for i := range last {
+		if last[i] == now[i] {
+			continue
 		}
+		unresolved := last[i]
+		unresolved.fqn = now[i].fqn
+		if last[i].fqn != "" || unresolved != now[i] {
+			return false, false
+		}
+		same = false
 	}
-	return true
+	return same, !same
 }
 
 // expandImporter re-exports the visible members of every namespace pkgFQN's
@@ -705,8 +715,13 @@ func sameImports(a, b []resolvedImport) bool {
 // name what an earlier one in the same namespace brought in, as P's
 // `import Shared::*` names the P::Shared that its `import Outer::*` re-exported.
 func (idx *Index) expandImporter(pkgFQN string) {
-	for _, imp := range idx.imports(pkgFQN) {
+	// read is what each import named as it was read: one naming a namespace only
+	// a later import brings in read nothing, and is read once the name resolves.
+	stated := idx.imports(pkgFQN)
+	read := make([]resolvedImport, len(stated))
+	for i, imp := range stated {
 		targetFQN := idx.resolveWildcardTarget(pkgFQN, imp.target)
+		read[i] = resolvedImport{doc: imp.doc, fqn: targetFQN, private: imp.private, all: imp.all}
 		if targetFQN == "" {
 			continue // target not found or ambiguous
 		}
@@ -734,7 +749,7 @@ func (idx *Index) expandImporter(pkgFQN string) {
 			}
 		}
 	}
-	idx.lastTargets.set(pkgFQN, idx.resolveImports(pkgFQN))
+	idx.lastTargets.set(pkgFQN, read)
 }
 
 // resolveWildcardTarget resolves a wildcard import target name to the
@@ -1203,17 +1218,21 @@ func (idx *Index) reexportedAt(fqn string) []*Symbol {
 // routesOnward returns the routes by which an import into importer, gated by
 // gate, takes sourceFQN::name: its own, or each route that surfaced it continued.
 func (idx *Index) routesOnward(importer, sourceFQN, name string, sym *Symbol, gate []ElementFilter, all bool) []gateRoute {
-	// Only a namespace on a cycle with importer can be read again from it.
-	through := func(via []string) []string {
+	// Only a namespace on a cycle with importer can be read again from it, and
+	// only one that held the name privately can gain by it: see gateRoute.via.
+	through := func(via []string, held bool) []string {
 		var kept []string
-		for _, ns := range append(via[:len(via):len(via)], sourceFQN) {
+		for _, ns := range via {
 			if idx.onCycleWith(importer, ns) {
 				kept = append(kept, ns)
 			}
 		}
+		if held && idx.onCycleWith(importer, sourceFQN) {
+			kept = append(kept, sourceFQN)
+		}
 		return kept
 	}
-	direct := []gateRoute{{filters: gate, via: through(nil)}}
+	direct := []gateRoute{{filters: gate, via: through(nil, true)}}
 	fqn := joinFQN(sourceFQN, name)
 	if idx.declaredExactly(sym, sourceFQN, name) || !idx.reexported.at(fqn).has(sym) {
 		return direct // declared there, never borrowed into it
@@ -1233,7 +1252,7 @@ func (idx *Index) routesOnward(importer, sourceFQN, name string, sym *Symbol, ga
 			if len(gate) > 0 {
 				filters = addFilters(filters, gate)
 			}
-			out = append(out, gateRoute{filters: filters, via: through(route.via)})
+			out = append(out, gateRoute{filters: filters, via: through(route.via, route.private)})
 		}
 	}
 	return out
@@ -1379,9 +1398,8 @@ func (idx *Index) ReexportGates(doc, fqn string, sym *Symbol, from string) [][]E
 	return out
 }
 
-// EachReexportGate visits the routes ReexportGates would return, in order, until
-// visit accepts one, reporting whether any was visited and whether one was
-// accepted. A route through a namespace in excluded is not one (KerML 8.3.2.4.5).
+// EachReexportGate visits the routes of ReexportGates through no namespace in
+// excluded (KerML 8.3.2.4.5) until visit accepts one, reporting both outcomes.
 func (idx *Index) EachReexportGate(doc, fqn string, sym *Symbol, from string, excluded []string, visit func(filters []ElementFilter) bool) (routed, accepted bool) {
 	idx.readName(fqn)
 	claims := idx.reexportDocs.at(reexportKey{fqn: fqn, sym: sym})
@@ -1500,18 +1518,16 @@ func (h importHop) same(other importHop) bool {
 		filtersSubsume(h.filters, other.filters) && filtersSubsume(other.filters, h.filters)
 }
 
-// routeWalk reads a name through the imports that surfaced it as the
-// visibleMemberships operations do (KerML 8.3.2.4.5): no route enters a
-// namespace in excluded, nor one it is already reading, which path holds.
+// routeWalk reads a name through the imports that surfaced it as KerML 8.3.2.4.5
+// does: no route enters a namespace in excluded or on path, the ones being read.
 type routeWalk struct {
 	idx      *Index
 	name     string
 	sym      *Symbol
 	excluded []string
 	path     []string
-	// settled holds the reads no namespace on the path cut, with the namespaces
-	// each entered, listed in entered as they are: an answer holds on a path
-	// through none of them.
+	// settled holds the reads no namespace on the path cut and the namespaces
+	// each entered (collected in entered): it holds on a path through none.
 	settled map[walkStep]walkAnswer
 	entered []string
 }

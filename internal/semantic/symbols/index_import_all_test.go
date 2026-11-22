@@ -232,9 +232,8 @@ func TestExpandWildcardImportsForgetsAnImportAnEditRemoved(t *testing.T) {
 	oneRoute("with the cycle broken")
 }
 
-// An import can name a namespace by a name another import supplies. Dropping
-// the routes of a cycle through it drops that name until it is derived again,
-// which is not the cycle having broken: expansion settles, with the cycle.
+// Dropping the routes of a cycle through a namespace an import names by an
+// imported name drops that name for a while, which breaks no cycle: it settles.
 func TestExpandWildcardImportsSettlesACycleThroughAnImportedName(t *testing.T) {
 	idx := NewIndex()
 	addDoc(t, idx, "l.sysml", "package L { package N { part def P; public import A::*; } }")
@@ -271,5 +270,84 @@ func TestExpandWildcardImportsSettlesACycleThroughAnImportedName(t *testing.T) {
 	}
 	if cycle, want := idx.cyclic.at("A"), []string{"A", "M"}; !slices.Equal(cycle, want) {
 		t.Errorf("A is on an import cycle with %v, want %v", cycle, want)
+	}
+}
+
+// Layers of public imports on one cycle keep one route per name, not one per
+// path, and so does a member added below them as an edit breaks the cycle.
+func TestExpandWildcardImportsKeepsOneRouteThroughLayeredImportsOnACycle(t *testing.T) {
+	src, top := layeredImports(40)
+	idx := NewIndex()
+	addDoc(t, idx, "layers.sysml", src)
+	addDoc(t, idx, "s.sysml", fmt.Sprintf("package S { part def P; public import %s::*; }", top[0]))
+
+	expand := func() {
+		t.Helper()
+		settled := make(chan struct{})
+		go func() {
+			defer close(settled)
+			idx.ExpandWildcardImports()
+		}()
+		select {
+		case <-settled:
+		case <-time.After(30 * time.Second):
+			t.Fatal("expansion does not settle")
+		}
+		for _, key := range idx.reexportDocs.keys() {
+			for doc, claim := range idx.reexportDocs.at(key) {
+				if len(claim.routes) > 1 {
+					t.Fatalf("%s in %s holds %d routes, want one", key.fqn, doc, len(claim.routes))
+				}
+			}
+		}
+	}
+	expand()
+	if cycle := idx.cyclic.at("S"); len(cycle) != 80 {
+		t.Errorf("S is on an import cycle of %d namespaces, want S and the 79 it reads through", len(cycle))
+	}
+	p := lookupOne(t, idx, "S::P")
+	accepts := func([]ElementFilter) bool { return true }
+	if _, accepted := idx.EachReexportGate("", top[1]+"::P", p, "", []string{"A1"}, accepts); !accepted {
+		t.Errorf("%s::P is not accepted with A1 excluded, want it read through B1", top[1])
+	}
+	if _, accepted := idx.EachReexportGate("", top[1]+"::P", p, "", []string{"S"}, accepts); accepted {
+		t.Errorf("%s::P is accepted with S excluded, want not: S declares it", top[1])
+	}
+
+	addDoc(t, idx, "s.sysml", "package S { part def P; part def Q; }")
+	expand()
+	if cycle := idx.cyclic.at("S"); len(cycle) != 0 {
+		t.Errorf("S is on an import cycle with %v, want none", cycle)
+	}
+	q := lookupOne(t, idx, "S::Q")
+	for _, ns := range top {
+		if routes := idx.ReexportGates("", ns+"::Q", q, ""); len(routes) != 1 {
+			t.Errorf("%s::Q has %d routes, want one", ns, len(routes))
+		}
+	}
+}
+
+// An import can name a namespace that a later import of the same namespace
+// brings in: it reads nothing until the name resolves, and is read once it does.
+func TestExpandWildcardImportsReadsAnImportALaterOneResolves(t *testing.T) {
+	idx := NewIndex()
+	addDoc(t, idx, "p.sysml", "package P { package N { part def K; } }")
+	addDoc(t, idx, "q.sysml", "package Q { public import N::*; public import P::*; }")
+	idx.ExpandWildcardImports()
+
+	k := lookupOne(t, idx, "P::N::K")
+	if !slices.Contains(idx.reexportedAt("Q::K"), k) {
+		t.Fatal("Q::K is not re-exported, want it read through the N that P supplies")
+	}
+	accepts := func([]ElementFilter) bool { return true }
+	if _, accepted := idx.EachReexportGate("", "Q::K", k, "", []string{"P::N"}, accepts); accepted {
+		t.Error("Q::K is accepted with P::N excluded, want not: it is read from there")
+	}
+
+	// The name goes with the import that supplied it.
+	addDoc(t, idx, "q.sysml", "package Q { public import N::*; }")
+	idx.ExpandWildcardImports()
+	if got := idx.reexportedAt("Q::K"); len(got) != 0 {
+		t.Errorf("Q::K is still re-exported as %v, want nothing: N no longer resolves", got)
 	}
 }

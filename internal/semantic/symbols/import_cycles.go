@@ -28,9 +28,8 @@ func (idx *Index) forgetReadFrom(importer, doc string) {
 	}
 }
 
-// importGraph maps each importing namespace to the namespaces its wildcard
-// imports name, as last expanded when settled and else as they resolve now,
-// and to the ones its re-exports were read from.
+// importGraph maps each importer to the namespaces its wildcard imports name (as
+// last expanded when settled, else as they resolve now) or its re-exports read.
 func (idx *Index) importGraph(settled bool) map[string][]string {
 	graph := make(map[string][]string)
 	for _, importer := range idx.readFrom.keys() {
@@ -127,13 +126,8 @@ func importComponents(graph map[string][]string) [][]string {
 	return out
 }
 
-// noteImportCycles records the import cycles of graph and where each namespace
-// stands in it, and returns the namespaces whose cycle is not the one they had:
-// a route keeps the namespaces on a cycle with the one holding it.
-//
-// Unless settled, a cycle only gains namespaces: while re-exports dropped are
-// still being derived again, an import naming a namespace by one of them does
-// not resolve, which is not the cycle through it having broken.
+// noteImportCycles records graph's import cycles and returns the namespaces whose
+// cycle changed. Unless settled a cycle only grows: see expandOnce.
 func (idx *Index) noteImportCycles(graph map[string][]string, settled bool) []string {
 	components := importComponents(graph)
 	order := make(map[string]int, len(graph))
@@ -186,14 +180,8 @@ func (idx *Index) onCycleWith(a, b string) bool {
 	return found
 }
 
-// settleImportCycles brings the recorded cycles up to date with the imports as
-// they resolve, and reports whether it dropped re-exports to be derived again.
-// With settled set, no re-export is left to derive, so the imports resolve as
-// they will and a cycle they no longer make is forgotten.
-//
-// A route names the namespaces it came through that were on a cycle with its
-// holder when it was read, so where a cycle formed, grew or broke, the routes
-// of its namespaces and of every namespace reading through them go.
+// settleImportCycles records the cycles of graph and drops the re-exports of the
+// namespaces whose cycle changed and of those reading through them, reporting any.
 func (idx *Index) settleImportCycles(graph map[string][]string, settled bool) bool {
 	changed := idx.noteImportCycles(graph, settled)
 	if len(changed) == 0 {
