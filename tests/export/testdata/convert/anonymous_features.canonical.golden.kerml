@@ -1,5 +1,5 @@
 package AnonymousFeatures {
-    classifier def Part {
+    classifier Part {
         feature m;
         feature accessedFeature;
         feature engine;
