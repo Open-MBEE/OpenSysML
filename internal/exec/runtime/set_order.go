@@ -41,9 +41,25 @@ func (ctx *Context) canonicalCompare(a, b Value) int {
 	case classString:
 		return strings.Compare(a.Str(), b.Str())
 	case classQuantity:
+		// A cyclic value is no member a magnitude in a unit is: it follows them, by cycle then class.
+		ma, cyclicA := ctx.cyclicMember(a.Quantity())
+		mb, cyclicB := ctx.cyclicMember(b.Quantity())
 		qa, qb := ctx.canonicalQuantity(*a.Quantity()), ctx.canonicalQuantity(*b.Quantity())
+		if cyclicA {
+			qa.Unit = ma.unit
+		}
+		if cyclicB {
+			qb.Unit = mb.unit
+		}
 		if c := strings.Compare(qa.Unit.Term.DimensionKey(), qb.Unit.Term.DimensionKey()); c != 0 {
 			return c
+		}
+		if cyclicA != cyclicB {
+			return compareBool(cyclicA, cyclicB)
+		} else if cyclicA {
+			if c := cmp.Or(cmp.Compare(ma.cycle, mb.cycle), compareBool(ma.classed, mb.classed), cmp.Compare(ma.class, mb.class)); c != 0 || ma.classed {
+				return c
+			}
 		}
 		if c, err := semantics.CompareMagnitudes(qa, qb); err == nil {
 			return c
@@ -70,24 +86,60 @@ func canonicalCompare(a, b Value) int {
 	return (*Context)(nil).canonicalCompare(a, b)
 }
 
-// canonicalQuantity is the quantity as its reference measures it: a point on an interval
-// scale carried through its anchor as `==` does; a point on any other scale stays as written.
+// canonicalQuantity is the quantity as `==` measures it: an interval or logarithmic point on
+// its ratio reference; any other point, or one that converts to nothing, stays as written.
 func (ctx *Context) canonicalQuantity(q Quantity) Quantity {
 	if ctx == nil || ctx.model == nil {
 		return q
 	}
-	if scale, ok, err := ctx.pointOf(&q); err != nil || (ok && !ctx.isIntervalScale(scale)) {
+	scale, ok, err := ctx.pointOf(&q)
+	if err != nil || !ok {
 		return q
 	}
-	if ratio, err := ctx.toRatioReference(q); err == nil {
-		return ratio
+	switch ctx.scaleKindOf(scale.Type) {
+	case intervalScale, logarithmicScale:
+		if ratio, err := ctx.toRatioReference(q); err == nil {
+			return ratio
+		}
 	}
 	return q
 }
 
-// canonicalMagnitudes compares two quantities as their references measure them.
-func (ctx *Context) canonicalMagnitudes(a, b Quantity) (int, error) {
-	return semantics.CompareMagnitudes(ctx.canonicalQuantity(a), ctx.canonicalQuantity(b))
+// cyclicMembership is what tells a value on a cyclic ratio scale apart as a member: the
+// unit its scale measures in, its cycle in base units, and its class over that cycle.
+type cyclicMembership struct {
+	unit         Unit
+	cycle, class float64
+	classed      bool // false for a magnitude binary64 does not hold, which is a member as written
+}
+
+// cyclicMember is the membership of a value on a cyclic ratio scale; false for any other quantity.
+func (ctx *Context) cyclicMember(q *Quantity) (cyclicMembership, bool) {
+	scale, err := ctx.cyclicScaleOf(q)
+	if err != nil || scale == nil || !q.Num.IsNumeric() {
+		return cyclicMembership{}, false
+	}
+	period := Quantity{Num: semantics.Value{Kind: semantics.ValReal, Real: scale.Scale.Modulus}, Unit: scale.Scale.Unit}
+	class, classed := cycleClass(q.Num.AsReal(), scale.Scale.Modulus)
+	return cyclicMembership{unit: scale.Scale.Unit, cycle: period.BaseMagnitude(), class: class, classed: classed}, true
+}
+
+// sameMember is the equality that has to hold or fail (a set member, a sequence element):
+// by reference, and for cyclic values by dimension, cycle and class; never across the two.
+func (ctx *Context) sameMember(a, b *Quantity) bool {
+	ma, cyclicA := ctx.cyclicMember(a)
+	mb, cyclicB := ctx.cyclicMember(b)
+	if cyclicA || cyclicB {
+		if !(cyclicA && cyclicB && ma.cycle == mb.cycle && ma.classed == mb.classed &&
+			ma.unit.Term.DimensionKey() == mb.unit.Term.DimensionKey()) {
+			return false
+		}
+		if ma.classed {
+			return ma.class == mb.class
+		}
+	}
+	c, err := semantics.CompareMagnitudes(ctx.canonicalQuantity(*a), ctx.canonicalQuantity(*b))
+	return err == nil && c == 0
 }
 
 // canonicalRepresentative is the value valueEqual reads v as, so equal values

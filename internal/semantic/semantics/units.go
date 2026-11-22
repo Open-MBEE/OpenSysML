@@ -183,7 +183,12 @@ func gcd(a, b float64) float64 {
 // ConvertMagnitude expresses a magnitude given over the scale factor from over
 // the scale factor to, as one ratio so that no intermediate rounding enters.
 func ConvertMagnitude(magnitude float64, from, to Scale) float64 {
-	return magnitude * (from.Num * to.Den) / (from.Den * to.Num)
+	converted := magnitude * (from.Num * to.Den) / (from.Den * to.Num)
+	if math.IsInf(converted, 0) && !math.IsInf(magnitude, 0) {
+		// The product overflowed on the way; the ratio taken first may still hold the result.
+		return magnitude * ((from.Num * to.Den) / (from.Den * to.Num))
+	}
+	return converted
 }
 
 // UnitFactor is one base unit raised to an exponent.
@@ -373,6 +378,23 @@ func (m *Model) IsMeasurementScale(sym *symbols.Symbol) bool {
 	}
 	scale := m.libSymbol(fqnMeasurementScale)
 	return scale != nil && m.Conforms(sym, scale)
+}
+
+// IsCyclicRatioScale reports a scale whose values are ratio magnitudes in its
+// unit, equivalent over its modulus, rather than points.
+func (m *Model) IsCyclicRatioScale(sym *symbols.Symbol) bool {
+	return m != nil && sym != nil && m.conformsToLibrary(sym, fqnCyclicRatioScale)
+}
+
+// IsLogarithmicScale reports a scale whose values are logarithms of a quantity
+// relative to its referenceQuantity.
+func (m *Model) IsLogarithmicScale(sym *symbols.Symbol) bool {
+	return m != nil && sym != nil && m.conformsToLibrary(sym, fqnLogarithmicScale)
+}
+
+// IsIntervalScale reports a scale whose points differ by magnitudes in its unit.
+func (m *Model) IsIntervalScale(sym *symbols.Symbol) bool {
+	return m != nil && sym != nil && m.conformsToLibrary(sym, fqnIntervalScale)
 }
 
 // MeasurementScaleOf is the scale a unit term is a point on (`26.85 ['°C_abs']`):

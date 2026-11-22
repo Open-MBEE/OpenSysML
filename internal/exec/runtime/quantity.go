@@ -170,14 +170,23 @@ func quantityOperands(left, right Value) (*Quantity, *Quantity, bool) {
 	return lq, rq, true
 }
 
-// scaleQuantities evaluates a product or quotient of quantities, whose unit is
-// the product or quotient of theirs — `10 [m] / 2 [s]` is `5 ['m/s']`. A point
-// on a scale has no multiple and is no unit factor, so it is refused.
+// scaleQuantities is a product or quotient in the composed unit (`10 [m] / 2 [s]` is `5 ['m/s']`):
+// a point is refused, a cyclic value is its magnitude, and its multiple by a number stays on its scale.
 func (ctx *Context) scaleQuantities(op ast.OperatorKind, left, right *Quantity) (Value, error) {
-	if err := ctx.refusePoints(operatorText(op), scaleNotAFactor, left, right); err != nil {
+	operands, cyclic, err := ctx.ratioOperands(operatorText(op), scaleNotAFactor, left, right)
+	if err != nil {
 		return Value{}, err
 	}
-	return ctx.coherentResult(semantics.ScaleQuantities(op, *left, *right, ctx.maxIntegerBits))
+	val, err := ctx.coherentResult(semantics.ScaleQuantities(op, *operands[0], *operands[1], ctx.maxIntegerBits))
+	switch {
+	case err != nil:
+		return Value{}, err
+	case cyclic[0] != nil && right.Unit.None():
+		return ctx.onCyclicScale(val, cyclic[0])
+	case cyclic[1] != nil && left.Unit.None() && op == ast.OpMul:
+		return ctx.onCyclicScale(val, cyclic[1])
+	}
+	return val, nil
 }
 
 // scaleNotAFactor is why a point enters no product, quotient, power or root.
@@ -188,10 +197,11 @@ func (ctx *Context) powQuantity(base *Quantity, exponent semantics.Value) (Value
 	if !exponent.IsNumeric() {
 		return Value{}, fmt.Errorf("%w: exponent of a quantity is not a number", ErrTypeMismatch)
 	}
-	if err := ctx.refusePoints(operatorText(ast.OpPow), scaleNotAFactor, base); err != nil {
+	operands, _, err := ctx.ratioOperands(operatorText(ast.OpPow), scaleNotAFactor, base)
+	if err != nil {
 		return Value{}, err
 	}
-	return ctx.coherentResult(semantics.PowQuantity(*base, exponent, ctx.maxIntegerBits))
+	return ctx.coherentResult(semantics.PowQuantity(*operands[0], exponent, ctx.maxIntegerBits))
 }
 
 // sqrtQuantity is the square root of a quantity, `9 [m**2]` giving `3.0 [m]`;
@@ -199,9 +209,11 @@ func (ctx *Context) powQuantity(base *Quantity, exponent semantics.Value) (Value
 // A root the named units cannot spell at whole powers (`km*m`) is taken over the
 // base units instead, unless a dimension-one unit (`rad`, `°`) would be lost there.
 func (ctx *Context) sqrtQuantity(q *Quantity) (Value, error) {
-	if err := ctx.refusePoints("sqrt", scaleNotAFactor, q); err != nil {
+	operands, _, err := ctx.ratioOperands("sqrt", scaleNotAFactor, q)
+	if err != nil {
 		return Value{}, err
 	}
+	q = operands[0]
 	for _, f := range q.Unit.Term.Factors {
 		if math.Mod(f.Exponent, 2) != 0 {
 			return Value{}, fmt.Errorf("%w: %s (%s) raises %s to the odd power %g",
