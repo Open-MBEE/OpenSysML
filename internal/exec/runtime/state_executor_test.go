@@ -474,7 +474,7 @@ func TestStateExecutor_GuardCondition(t *testing.T) {
 		ID:        2,
 		Type:      eventTime,
 		Timestamp: exec.CurrentTime() + 1.0,
-		Payload:   transition,
+		Payload:   exec.graph.Transitions[stateA][0],
 	})
 
 	// Process second event (guard should pass)

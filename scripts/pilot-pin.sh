@@ -15,6 +15,11 @@ PILOT_ARTIFACT_VERSION="${PILOT_ARTIFACT_VERSION:-0.63.1}"
 # the workflows install: the pilot's output is not the same under every JVM.
 PILOT_JAVA="${PILOT_JAVA:-21}"
 
+# SHA-256 of the release's kernel jar and (as pilot_tree_sha256) of the library beside it: a
+# release asset is mutable. They move with PILOT_ARTIFACT_VERSION; pilot_kernel_digests prints them.
+PILOT_KERNEL_JAR_SHA256="${PILOT_KERNEL_JAR_SHA256:-67c914092f4520ba98548b285c5a9a8bc08f92a0aeec7b763e12a574e91f9ff7}"
+PILOT_KERNEL_LIBRARY_SHA256="${PILOT_KERNEL_LIBRARY_SHA256:-a59332f5fcbfccf3634cc786cdd271876f2cd7877536ea042d1fe6334eb26b4e}"
+
 # The pilot publishes each release's standard library, in notation and as XMI,
 # in a second repository under the same tag. The bundled library under
 # internal/workspace/libs/stdlib is its sysml.library tree; sysml.library.xmi carries
@@ -68,6 +73,59 @@ pilot_clone() {
 		patterns+=("/${path#/}")
 	done
 	git -C "$dir" -c core.sparseCheckoutCone=false sparse-checkout set "${patterns[@]}"
+}
+
+# pilot_sha256 prints the SHA-256 of file $1, or of standard input when none is given.
+pilot_sha256() {
+	if command -v sha256sum >/dev/null 2>&1; then
+		sha256sum "$@" | cut -d' ' -f1
+	else
+		shasum -a 256 "$@" | cut -d' ' -f1
+	fi
+}
+
+# pilot_tree_sha256 prints one digest of directory $1 over a line per entry in byte order: a
+# file's digest and path, and the path alone for a link or other non-file, which a reader follows.
+pilot_tree_sha256() {
+	local dir="$1" entry
+	(
+		cd "$dir" || exit 1
+		find . -mindepth 1 ! -type d | LC_ALL=C sort | while IFS= read -r entry; do
+			if [[ -f "$entry" ]] && [[ ! -L "$entry" ]]; then
+				printf '%s  %s\n' "$(pilot_sha256 "$entry")" "$entry"
+			else
+				printf 'not a regular file  %s\n' "$entry"
+			fi
+		done
+	) | pilot_sha256
+}
+
+# pilot_kernel_digests prints the two digests of the kernel jar $1 and library directory $2.
+pilot_kernel_digests() {
+	printf 'PILOT_KERNEL_JAR_SHA256=%s\nPILOT_KERNEL_LIBRARY_SHA256=%s\n' "$(pilot_sha256 "$1")" "$(pilot_tree_sha256 "$2")"
+}
+
+# pilot_verify_kernel fails unless the kernel jar $1 and the library directory $2 are the
+# pinned ones; every script that runs or compiles against the jar calls it first.
+pilot_verify_kernel() {
+	local jar="$1" library="$2" got
+	if [[ ! -f "$jar" ]] || [[ ! -d "$library" ]]; then
+		echo "error: the pilot kernel jar $jar or its library $library is missing" >&2
+		return 1
+	fi
+	got="$(pilot_sha256 "$jar")"
+	if [[ "$got" != "$PILOT_KERNEL_JAR_SHA256" ]]; then
+		echo "error: $jar has SHA-256 $got, scripts/pilot-pin.sh pins $PILOT_KERNEL_JAR_SHA256" >&2
+		echo "       the release asset or the cached build has changed: investigate before re-pinning" >&2
+		return 1
+	fi
+	got="$(pilot_tree_sha256 "$library")"
+	if [[ "$got" != "$PILOT_KERNEL_LIBRARY_SHA256" ]]; then
+		echo "error: $library has tree SHA-256 $got, scripts/pilot-pin.sh pins $PILOT_KERNEL_LIBRARY_SHA256" >&2
+		echo "       the release asset or the cached build has changed: investigate before re-pinning" >&2
+		return 1
+	fi
+	return 0
 }
 
 # pilot_count_files counts the files under $1 that match PILOT_FETCH_GLOBS.

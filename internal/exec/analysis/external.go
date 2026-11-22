@@ -55,7 +55,7 @@ func (e externalEngine) Probe() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	s, err := startSession(e.entry, e.limit(), e.timeout())
+	s, err := startSession(context.Background(), e.entry, e.limit(), e.timeout())
 	if err != nil {
 		return "", err
 	}
@@ -203,7 +203,7 @@ func (e externalEngine) request(ctx context.Context, model *Model, method string
 	if err != nil {
 		return err
 	}
-	s, err := pool.acquire()
+	s, err := pool.acquire(ctx)
 	if err != nil {
 		return err
 	}
