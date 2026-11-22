@@ -540,6 +540,63 @@ func TestResolveEndpointDoneShadowedByANonVertexIsReported(t *testing.T) {
 	}
 }
 
+// The source of a transition with an accepter is the accepter rule's to judge: both
+// walks resolve it to whatever it names and report nothing; its target stays a vertex.
+func TestResolveTransitionSourceWithAccepterIsLeftToTheAccepterRule(t *testing.T) {
+	const src = `
+		item def Sig;
+		state def M {
+			action work { }
+			entry; then idle;
+			state idle;
+			transition first work accept Sig then idle;
+			transition first idle accept Sig then work;
+		}
+	`
+	r := resolveDoc(t, "d.sysml", src)
+	if len(r.Diagnostics) != 1 || r.Diagnostics[0].Code != CodeNotAVertex {
+		t.Fatalf("expected the target alone reported as no vertex, got %v", r.Diagnostics)
+	}
+	if at := r.Diagnostics[0].Span; src[at.Offset:at.Offset+at.Len] != "work" || at.Offset < strings.Index(src, "then work") {
+		t.Errorf("expected the diagnostic at the target, got %v", at)
+	}
+
+	p := parser.New(source.New("d.sysml", []byte(src)))
+	root := p.ParseFile()
+	idx := symbols.NewIndexFromDoc("d.sysml", root)
+	fresh := New(idx)
+	var sources int
+	for _, ref := range References(root, idx.DocumentRoot("d.sysml")) {
+		if !ref.AccepterSource {
+			continue
+		}
+		sources++
+		sym, ok := fresh.ResolveReference(ref)
+		if !ok || sym == nil || sym.Name != ref.QN.Parts[0].Text {
+			t.Errorf("transition source %s did not resolve to its declaration: %v %v", ref.QN.Parts[0].Text, sym, ok)
+		}
+	}
+	// A trial spelling of the reference is read as spelled, as a rename check reads it.
+	var work, idle Reference
+	for _, ref := range References(root, idx.DocumentRoot("d.sysml")) {
+		switch {
+		case ref.AccepterSource && ref.QN.Parts[0].Text == "work":
+			work = ref
+		case ref.AccepterSource:
+			idle = ref
+		}
+	}
+	if sym, ok := New(idx).ResolveReference(work.Spelled(idle.QN)); !ok || sym == nil || sym.Name != "idle" {
+		t.Errorf("the source respelled idle resolved to %v %v", sym, ok)
+	}
+	if sources != 2 {
+		t.Errorf("expected both transition sources among the references, got %d", sources)
+	}
+	if len(fresh.Diagnostics) != 0 {
+		t.Errorf("expected the reference walk to report nothing for the sources, got %v", fresh.Diagnostics)
+	}
+}
+
 // A guarded succession in a calculation, constraint or case body sequences action
 // nodes as one in an action body does (SysML.xtext CalculationBodyItem).
 func TestResolveGuardedSuccessionEndsOutsideAnActionBodyAreActions(t *testing.T) {

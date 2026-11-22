@@ -28,7 +28,7 @@ elmt:AnonymousFeatures
     json:ownedRelationship "[{\"@id\":\"AnonymousFeatures__Part_om\"},{\"@id\":\"AnonymousFeatures__v_om\"},{\"@id\":\"AnonymousFeatures__e_om\"}]" .
 
 elmt:AnonymousFeatures__Part
-    a sysml:Class ;
+    a sysml:Classifier ;
     sysml:qualifiedName "AnonymousFeatures::Part" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "2"^^xsd:integer ;

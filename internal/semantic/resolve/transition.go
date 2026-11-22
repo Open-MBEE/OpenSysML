@@ -15,6 +15,25 @@ const CodeNotAVertex = "not-a-vertex"
 // ResolveEndpoint resolves the vertex a transition endpoint names, reporting one
 // that names nothing or no vertex. A nil name is the sourceless form: legal.
 func (r *Resolver) ResolveEndpoint(scope *symbols.Scope, qn *ast.QualifiedName) (*symbols.Symbol, bool) {
+	return r.resolveEndpoint(scope, qn, false)
+}
+
+// ResolveTransitionSource resolves the source a transition names. What the source of
+// one with an accepter may be is the accepter rule's to judge, which the checks report.
+func (r *Resolver) ResolveTransitionSource(scope *symbols.Scope, t *ast.TransitionMember) (*symbols.Symbol, bool) {
+	return r.resolveEndpoint(scope, t.Source, t.Trigger != nil)
+}
+
+// TransitionSourceSymbol is ResolveTransitionSource reporting nothing.
+func (r *Resolver) TransitionSourceSymbol(scope *symbols.Scope, t *ast.TransitionMember) (*symbols.Symbol, bool) {
+	var sym *symbols.Symbol
+	var ok bool
+	r.aside(func() { sym, ok = r.ResolveTransitionSource(scope, t) })
+	return sym, ok
+}
+
+// resolveEndpoint is ResolveEndpoint; anyKind keeps an endpoint naming no vertex unreported.
+func (r *Resolver) resolveEndpoint(scope *symbols.Scope, qn *ast.QualifiedName, anyKind bool) (*symbols.Symbol, bool) {
 	if qn == nil || len(qn.Parts) == 0 {
 		return nil, false
 	}
@@ -40,12 +59,8 @@ func (r *Resolver) ResolveEndpoint(scope *symbols.Scope, qn *ast.QualifiedName) 
 			// leaving the qualifiers saying which state or region it lives in.
 			Fixes: endpointFixes(last.Text, last.Span, r.vertexSuggestions(scope, qn)),
 		})
-	case stateMachineEndpoint(scope) && !r.endpointIsVertex(scope, qn, sym):
-		r.report(Diagnostic{
-			Span:    qn.Span(),
-			Message: "transition endpoint " + qnText(qn) + " is not a state or pseudostate",
-			Code:    CodeNotAVertex,
-		})
+	case !anyKind && r.EndpointNotAVertex(scope, qn, sym):
+		r.report(NotAVertexDiagnostic(qn))
 		res = resolution{}
 	}
 	if res.ok || r.quiet == 0 {
@@ -53,6 +68,21 @@ func (r *Resolver) ResolveEndpoint(scope *symbols.Scope, qn *ast.QualifiedName) 
 		r.endpoints[qn] = res
 	}
 	return res.sym, res.ok
+}
+
+// EndpointNotAVertex reports whether sym, which an endpoint written in scope resolved
+// to, is no vertex where the machine around scope needs one.
+func (r *Resolver) EndpointNotAVertex(scope *symbols.Scope, qn *ast.QualifiedName, sym *symbols.Symbol) bool {
+	return stateMachineEndpoint(scope) && !r.endpointIsVertex(scope, qn, sym)
+}
+
+// NotAVertexDiagnostic is what an endpoint naming no vertex reports.
+func NotAVertexDiagnostic(qn *ast.QualifiedName) Diagnostic {
+	return Diagnostic{
+		Span:    qn.Span(),
+		Message: "transition endpoint " + qnText(qn) + " is not a state or pseudostate",
+		Code:    CodeNotAVertex,
+	}
 }
 
 // ResolveEndpointRef resolves an endpoint however a connector end writes it: a

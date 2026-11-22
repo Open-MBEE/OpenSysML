@@ -18,6 +18,7 @@ const compileModel = `package Compiled {
 // -source writes the generated program for each target where -o names and stops
 // there, so the calc is compiled without a C or Go toolchain being driven.
 func TestCompileWritesTheSourceForEachTarget(t *testing.T) {
+	needs(t, codegenFeature)
 	binary := buildCLI(t)
 	for _, target := range codegen.Targets() {
 		out := filepath.Join(t.TempDir(), "fib"+codegen.SourceExtension(target))
@@ -37,6 +38,7 @@ func TestCompileWritesTheSourceForEachTarget(t *testing.T) {
 
 // What stops a compilation is reported and the run decides nothing.
 func TestCompileRefusals(t *testing.T) {
+	needs(t, codegenFeature)
 	binary := buildCLI(t)
 	out := filepath.Join(t.TempDir(), "fib")
 	cases := []struct {
@@ -65,6 +67,7 @@ func TestCompileRefusals(t *testing.T) {
 // A compilation request combined with another mode is refused, never silently
 // dropped in favour of the other mode — whichever mode dispatches first.
 func TestCompileMutualExclusions(t *testing.T) {
+	needs(t, codegenFeature)
 	binary := buildCLI(t)
 	cases := []struct {
 		name string

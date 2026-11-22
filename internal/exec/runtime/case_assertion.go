@@ -49,12 +49,13 @@ func (a *caseAssertions) clone() *caseAssertions {
 // unreachedAssertion is why an ordered assertion the flow never reached is undecided.
 const unreachedAssertion = "the flow did not reach the assertion"
 
-// judge checks the assertion against the values in reach where the flow stands;
-// a later reach keeps the graver verdict of each condition, so a loop reports its first failure.
-func (a *caseAssertions) judge(ctx *Context, ec *EvalContext, s lower.Assert) {
+// judge checks the assertion against the values in reach where the flow stands, occurrence
+// the performance the case is by then; a later reach keeps each condition's graver verdict.
+func (a *caseAssertions) judge(ctx *Context, ec *EvalContext, occurrence *Instance, s lower.Assert) {
 	check := conditionCheck{
 		sym: a.shape.Sym, kind: a.shape.Kind, what: "assertion",
 		element: a.shape.Name, self: ec.self, frames: slices.Clone(ec.frames),
+		occurrence: occurrence,
 	}
 	member := scopedMember{node: s.Node, scope: s.Scope}
 	var verdicts []AnalysisVerdict

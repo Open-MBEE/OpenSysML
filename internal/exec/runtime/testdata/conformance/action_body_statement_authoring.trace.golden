@@ -7,6 +7,7 @@ stmt if
     eval literal 1 -> 1
 step 2: token 1@while
 stmt while
+materialize: Statements #1
   iteration 1
       eval feature count -> (1)
       eval literal 3 -> 3

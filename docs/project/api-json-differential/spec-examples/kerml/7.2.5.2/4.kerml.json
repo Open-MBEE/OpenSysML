@@ -8,19 +8,19 @@
       "oursOnly": 2,
       "pilotOnly": 0,
       "pilotOnlyImplied": 0,
-      "typeMismatch": 1
+      "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 213,
+      "presentEqual": 216,
       "presentDifferent": 0,
-      "oursMissing": 9,
+      "oursMissing": 6,
       "pilotMissing": 8,
       "absentBoth": 161,
       "indeterminate": 0,
       "pilotNondeterministic": 0
     },
     "unkeyedReferences": 3,
-    "extensionProperties": 73,
+    "extensionProperties": 74,
     "duplicateElements": {
       "ours": 0,
       "pilot": 0
@@ -71,13 +71,13 @@
     "Class.input": [0,0,0,0,1,0,0],
     "Class.intersectingType": [0,0,0,0,1,0,0],
     "Class.isAbstract": [1,0,0,0,0,0,0],
-    "Class.isConjugated": [0,0,1,0,0,0,0],
+    "Class.isConjugated": [1,0,0,0,0,0,0],
     "Class.isImpliedIncluded": [1,0,0,0,0,0,0],
-    "Class.isLibraryElement": [0,0,1,0,0,0,0],
+    "Class.isLibraryElement": [1,0,0,0,0,0,0],
     "Class.isSufficient": [1,0,0,0,0,0,0],
     "Class.member": [0,0,1,0,0,0,0],
     "Class.membership": [0,0,1,0,0,0,0],
-    "Class.name": [0,0,1,0,0,0,0],
+    "Class.name": [1,0,0,0,0,0,0],
     "Class.output": [0,0,0,0,1,0,0],
     "Class.ownedAnnotation": [0,0,0,0,1,0,0],
     "Class.ownedDifferencing": [0,0,0,0,1,0,0],

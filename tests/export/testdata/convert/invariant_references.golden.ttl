@@ -47,7 +47,7 @@ elmt:InvariantReferences___400
     sysx:sourceText "    private import ScalarValues::*;\n" .
 
 elmt:InvariantReferences__Tank
-    a sysml:ClassUsage ;
+    a sysml:Class ;
     sysml:qualifiedName "InvariantReferences::Tank" ;
     sysx:sourceLine "3"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
