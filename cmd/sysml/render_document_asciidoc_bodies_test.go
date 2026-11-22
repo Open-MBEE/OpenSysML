@@ -39,6 +39,7 @@ func TestRenderDocumentAsciiDocBodies(t *testing.T) {
 		"![The optics](https://example.test/figures/optics.png)", "[the summary](#summary)", "- two *soft*", "1. first")
 
 	dir := t.TempDir()
+	needs(t, docpdfFeature) // the rest of the test is the HTML or PDF document
 	html := filepath.Join(dir, "report.html")
 	wantReport(t, check(t, binary, model, "-render-document", "Prose::AsciiDocReport", "-doc-form", "html", "-o", html), 0)
 	page, err := os.ReadFile(html)

@@ -253,6 +253,7 @@ func TestManualRequirementsExample(t *testing.T) {
 		}
 	}
 
+	needs(t, docpdfFeature) // the rest of the test is the HTML or PDF document
 	page := exec.Command(binary, source, "-render-document", "Requirements::RequirementsReport", "-doc-form", "html")
 	html, err := page.Output()
 	if err != nil {
@@ -329,6 +330,7 @@ func TestManualTraceabilityExample(t *testing.T) {
 		}
 	}
 
+	needs(t, docpdfFeature) // the rest of the test is the HTML or PDF document
 	page := exec.Command(binary, source, "-render-document", "Traceability::TraceabilityReport", "-doc-form", "html")
 	html, err := page.Output()
 	if err != nil {
@@ -444,6 +446,7 @@ func TestManualTraceabilityLadder(t *testing.T) {
 				}
 			}
 
+			needs(t, docpdfFeature) // the rest of the test is the HTML or PDF document
 			page := exec.Command(binary, source, "-render-document", tier.document, "-doc-form", "html")
 			html, err := page.Output()
 			if err != nil {

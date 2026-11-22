@@ -12,6 +12,7 @@ import (
 // a whole page on stdout, the model facts on the markup, and an artifact
 // written to -o.
 func TestRenderDocumentHTMLFlag(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 
 	got := check(t, binary, documentModel, "-render-document", "Reports::MassReport", "-doc-form", "html")
@@ -46,6 +47,7 @@ func TestRenderDocumentHTMLFlag(t *testing.T) {
 // left out, a fragment carries neither, and the default sheet is writable on
 // its own.
 func TestRenderDocumentHTMLStylesheets(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	css := filepath.Join(t.TempDir(), "theme.css")
 	if err := os.WriteFile(css, []byte(".sysml-document { color: rebeccapurple; }\n"), 0o644); err != nil {
@@ -131,6 +133,7 @@ func TestRenderDocumentHTMLStylesheets(t *testing.T) {
 // TestRenderDocumentHTMLDocumentOptions checks the title page, contents and
 // numbering options shape HTML output too, under their -doc- names.
 func TestRenderDocumentHTMLDocumentOptions(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport",
 		"-doc-form", "html", "-doc-title-page", "-doc-toc", "-doc-number-sections"),
@@ -143,6 +146,7 @@ func TestRenderDocumentHTMLDocumentOptions(t *testing.T) {
 // TestRenderDocumentHTMLMermaid checks -html-mermaid loads the pinned CDN
 // release or the URL named, on a single page and on every page of a set.
 func TestRenderDocumentHTMLMermaid(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	pinned := `<script src="https://cdn.jsdelivr.net/npm/mermaid@11.16.1/dist/mermaid.min.js"></script>`
 
@@ -226,6 +230,7 @@ const mathModel = queryModel + `package Reports {
 // math rather than prose, and that -html-math loads the pinned MathJax
 // release or the URL named, under the same rules as -html-mermaid.
 func TestRenderDocumentHTMLMath(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	pinned := `<script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>`
 	inline := `<span class="sysml-math">\(A \propto D^2\)</span>`
@@ -288,6 +293,7 @@ func TestRenderDocumentHTMLMath(t *testing.T) {
 // backend: DOT or PlantUML on request, Mermaid otherwise, the table a table
 // either way.
 func TestRenderDocumentHTMLDiagramForm(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.sysml")
 	dot := runCommand(t, exec.Command(binary, fixture, "-render-document", "Observatory::MassReport",
@@ -319,6 +325,7 @@ func TestRenderDocumentHTMLDiagramForm(t *testing.T) {
 // the default sheet on a page, in a set's shared sheet and in the sheet
 // -html-default-css writes, and refuses what it cannot style.
 func TestRenderDocumentHTMLTheme(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 
 	themed := check(t, binary, documentModel, "-render-document", "Reports::MassReport",
@@ -382,6 +389,7 @@ func TestRenderDocumentHTMLTheme(t *testing.T) {
 // TestRenderDocumentHTMLFlagConflicts checks the HTML flag combinations the
 // run refuses.
 func TestRenderDocumentHTMLFlagConflicts(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 
 	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport", "-html-css", "theme.css"),
@@ -405,6 +413,7 @@ func TestRenderDocumentHTMLFlagConflicts(t *testing.T) {
 // TestRenderDocumentHTMLStylesheetURLScheme checks a stylesheet URL is linked
 // whatever case its scheme is written in, rather than read as a file.
 func TestRenderDocumentHTMLStylesheetURLScheme(t *testing.T) {
+	needs(t, docpdfFeature)
 	binary := buildCLI(t)
 	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport",
 		"-doc-form", "html", "-html-css", "HTTPS://Example.test/Site.css"),
