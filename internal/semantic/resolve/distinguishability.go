@@ -124,7 +124,10 @@ func (r *Resolver) importedCollisions(scope *symbols.Scope) *importCollisions {
 	r.collisionCut = false
 	var c *importCollisions
 	var complete bool
-	reads := r.capturing(func() { c, complete = r.collectImported(scope, imports) })
+	// The collisions are the namespace's own, whatever route asks for them.
+	reads := r.capturing(func() {
+		r.freshImportRoute(func() { c, complete = r.collectImported(scope, imports) })
+	})
 	delete(r.colliding, scope)
 	// A cut met while this computation was the outermost is a cycle back to
 	// scope, which excluding it settles; a cut within another's is not.

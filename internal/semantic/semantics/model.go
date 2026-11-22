@@ -162,6 +162,8 @@ type Model struct {
 	// computingRedefined holds the resolver depth of each RedefinedFeatures call on
 	// the stack, so a re-entrant query is cut short rather than memoized empty.
 	computingRedefined map[*symbols.Symbol]int
+	// computingDerivedFeaturing holds the resolver depth of each DerivedFeaturingTypes call on the stack.
+	computingDerivedFeaturing map[*symbols.Symbol]int
 	// redefLoss memoizes what each type does not inherit, redefOwn what its own
 	// features redefine (inheritance_loss.go).
 	redefLoss map[*symbols.Symbol]*inheritanceLoss
@@ -299,31 +301,32 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		layoutSites:      make(map[*symbols.Symbol][]*LayoutSite),
 		declSymbols:      make(map[*symbols.Scope]map[ast.Node]*symbols.Symbol),
 
-		redefined:             make(map[*symbols.Symbol][]*symbols.Symbol),
-		computingRedefined:    make(map[*symbols.Symbol]int),
-		redefLoss:             make(map[*symbols.Symbol]*inheritanceLoss),
-		redefOwn:              make(map[*symbols.Symbol]*ownRedefinitions),
-		walkingLoss:           make(map[*symbols.Symbol]int),
-		redefClosure:          make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
-		restatesFrameRoot:     make(map[*symbols.Symbol]bool),
-		restatesReferenceRoot: make(map[*symbols.Symbol]bool),
-		computingRedefClosure: make(map[*symbols.Symbol]bool),
-		unique:                make(map[*symbols.Symbol]bool),
-		readOnly:              make(map[*symbols.Symbol]ReadOnly),
-		paramRanges:           make(map[*symbols.Symbol]Range),
-		ctorSlots:             make(map[*symbols.Symbol]constructorSlots),
-		members:               make(map[memberKey][]*symbols.Symbol),
-		shapes:                make(map[*symbols.Symbol][]ShapeFeature),
-		bodyApplications:      make(map[*ast.BodyExpr]bodyApplication),
-		bodyIndexed:           make(map[*symbols.Scope]bool),
-		assumedSupers:         make(map[*symbols.Symbol]assumedSupertypes),
-		implicitRels:          make(map[*symbols.Symbol][]*symbols.Symbol),
-		memberships:           make(map[*symbols.Symbol][]*symbols.Symbol),
-		synthesized:           make(map[*symbols.Symbol][]*symbols.Symbol),
-		ownedAnnotations:      make(map[*symbols.Symbol][]*symbols.Symbol),
-		annotatingRels:        make(map[*symbols.Symbol][]*symbols.Symbol),
-		ownedImports:          make(map[*symbols.Symbol][]*symbols.Symbol),
-		rootNamespaces:        make(map[string]*symbols.Symbol),
+		redefined:                 make(map[*symbols.Symbol][]*symbols.Symbol),
+		computingRedefined:        make(map[*symbols.Symbol]int),
+		computingDerivedFeaturing: make(map[*symbols.Symbol]int),
+		redefLoss:                 make(map[*symbols.Symbol]*inheritanceLoss),
+		redefOwn:                  make(map[*symbols.Symbol]*ownRedefinitions),
+		walkingLoss:               make(map[*symbols.Symbol]int),
+		redefClosure:              make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
+		restatesFrameRoot:         make(map[*symbols.Symbol]bool),
+		restatesReferenceRoot:     make(map[*symbols.Symbol]bool),
+		computingRedefClosure:     make(map[*symbols.Symbol]bool),
+		unique:                    make(map[*symbols.Symbol]bool),
+		readOnly:                  make(map[*symbols.Symbol]ReadOnly),
+		paramRanges:               make(map[*symbols.Symbol]Range),
+		ctorSlots:                 make(map[*symbols.Symbol]constructorSlots),
+		members:                   make(map[memberKey][]*symbols.Symbol),
+		shapes:                    make(map[*symbols.Symbol][]ShapeFeature),
+		bodyApplications:          make(map[*ast.BodyExpr]bodyApplication),
+		bodyIndexed:               make(map[*symbols.Scope]bool),
+		assumedSupers:             make(map[*symbols.Symbol]assumedSupertypes),
+		implicitRels:              make(map[*symbols.Symbol][]*symbols.Symbol),
+		memberships:               make(map[*symbols.Symbol][]*symbols.Symbol),
+		synthesized:               make(map[*symbols.Symbol][]*symbols.Symbol),
+		ownedAnnotations:          make(map[*symbols.Symbol][]*symbols.Symbol),
+		annotatingRels:            make(map[*symbols.Symbol][]*symbols.Symbol),
+		ownedImports:              make(map[*symbols.Symbol][]*symbols.Symbol),
+		rootNamespaces:            make(map[string]*symbols.Symbol),
 	}
 	if resolver != nil {
 		resolver.SetModel(m)

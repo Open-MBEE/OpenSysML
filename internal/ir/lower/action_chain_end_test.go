@@ -1,10 +1,15 @@
 package lower
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 const chainEndParts = `
@@ -165,7 +170,7 @@ func TestClassifyChainEnd(t *testing.T) {
 		"expression to none": {chainTarget(chain("v", "missing")), ChainEndNone},
 	} {
 		t.Run(name, func(t *testing.T) {
-			got, sym := ClassifyChainEnd(graph.Nodes, graph.Scope, c.ref)
+			got, sym := ClassifyChainEnd(graph.Nodes, graph.Scope, graph.Resolver(), c.ref)
 			if got != c.want || (sym != nil) != (c.want != ChainEndNone) {
 				t.Fatalf("ClassifyChainEnd = %d (symbol %v), want %d", got, sym != nil, c.want)
 			}
@@ -281,5 +286,191 @@ func TestActionChainEndJoinsRedefinedInheritedPerformer(t *testing.T) {
 	referrer := graph.Performs[nodeNamed(t, graph, "c2")].Referrer
 	if referrer == nil || !performsPath(referrer, []string{"v", "close"}) {
 		t.Fatalf("c2 performs through %v, want the reference of the step it redefines", referrer)
+	}
+}
+
+// performsPath reports whether node is stated to perform the chain segments spell.
+func performsPath(node ast.Node, segments []string) bool {
+	usage, ok := node.(*ast.Usage)
+	if !ok {
+		return false
+	}
+	for _, rel := range usage.Relationships {
+		if rel != nil && rel.Kind.ReferenceSubsets() && slices.Equal(endSegments(rel.Target), segments) {
+			return true
+		}
+	}
+	return false
+}
+
+func TestChainEndsThroughPrivateRootsStayApart(t *testing.T) {
+	graph := scopedActionGraph(t, `
+		part def Vehicle { action close; }
+		action def Base {
+			private part v : Vehicle;
+			action a;
+			first v.close then a;
+		}
+		action def Derived :> Base {
+			private part v : Vehicle;
+			action b;
+			first a then v.close;
+			first v.close then b;
+		}
+	`, "Derived")
+	implied := impliedChainSteps(graph)
+	if len(implied) != 2 {
+		t.Fatalf("implied steps = %d, want one for each private v", len(implied))
+	}
+	for _, edge := range graph.Edges[nodeNamed(t, graph, "a")] {
+		if next := graph.Edges[edge.Target]; len(next) != 1 || next[0].Target != nodeNamed(t, graph, "b") {
+			t.Fatalf("a's chained step leads to %v, want [b]", next)
+		}
+	}
+}
+
+func TestDecisionReachesEachChainPerformerThroughFork(t *testing.T) {
+	graph := scopedActionGraph(t, `
+		part def Vehicle { action close; }
+		action def A {
+			part v : Vehicle;
+			perform action c1 ::> v.close;
+			perform action c2 ::> v.close;
+			action skip;
+			first start;
+			then decide;
+				if true then v.close;
+				else skip;
+		}
+	`, "A")
+	var decision ast.Node
+	for _, node := range graph.Nodes {
+		if _, ok := node.(*ast.DecisionNode); ok {
+			decision = node
+		}
+	}
+	branches := graph.Edges[decision]
+	if len(branches) != 2 {
+		t.Fatalf("decision branches = %d, want the two it states", len(branches))
+	}
+	fork, ok := branches[0].Target.(*ast.ForkNode)
+	if !ok || branches[0].Guard == nil {
+		t.Fatalf("guarded branch leads to %T, want a fork", branches[0].Target)
+	}
+	targets := map[ast.Node]bool{}
+	for _, edge := range graph.Edges[fork] {
+		targets[edge.Target] = true
+	}
+	if len(targets) != 2 || !targets[nodeNamed(t, graph, "c1")] || !targets[nodeNamed(t, graph, "c2")] {
+		t.Fatalf("fork targets = %v, want c1 and c2", targets)
+	}
+}
+
+func TestMergeAndJoinReachEachChainPerformerThroughFork(t *testing.T) {
+	for kind, isKind := range map[string]func(ast.Node) bool{
+		"merge": func(n ast.Node) bool { _, ok := n.(*ast.MergeNode); return ok },
+		"join":  func(n ast.Node) bool { _, ok := n.(*ast.JoinNode); return ok },
+	} {
+		t.Run(kind, func(t *testing.T) {
+			graph := scopedActionGraph(t, `
+				part def Vehicle { action close; }
+				action def A {
+					part v : Vehicle;
+					perform action c1 ::> v.close;
+					perform action c2 ::> v.close;
+					`+kind+` m;
+					first start then m;
+					first m then v.close;
+				}
+			`, "A")
+			var control ast.Node
+			for _, node := range graph.Nodes {
+				if isKind(node) {
+					control = node
+				}
+			}
+			out := graph.Edges[control]
+			if len(out) != 1 {
+				t.Fatalf("%s successions = %d, want the one it states", kind, len(out))
+			}
+			fork, ok := out[0].Target.(*ast.ForkNode)
+			if !ok {
+				t.Fatalf("%s leads to %T, want a fork", kind, out[0].Target)
+			}
+			targets := map[ast.Node]bool{}
+			for _, edge := range graph.Edges[fork] {
+				targets[edge.Target] = true
+			}
+			if len(targets) != 2 || !targets[nodeNamed(t, graph, "c1")] || !targets[nodeNamed(t, graph, "c2")] {
+				t.Fatalf("fork targets = %v, want c1 and c2", targets)
+			}
+		})
+	}
+}
+
+// A chain spelt with a short name is the chain spelt with the name beside it.
+func TestChainEndByShortNameJoinsStatedPerformer(t *testing.T) {
+	graph := scopedActionGraph(t, `
+		part def Vehicle { action <cl> close; }
+		action def A {
+			part <v> vehicle : Vehicle;
+			perform action c ::> vehicle.close;
+			action a;
+			first a then v.cl;
+			first vehicle.cl then done;
+		}
+	`, "A")
+	if implied := impliedChainSteps(graph); len(implied) != 0 {
+		t.Fatalf("implied steps = %d, want none beside the stated performer", len(implied))
+	}
+	c := nodeNamed(t, graph, "c")
+	if edges := graph.Edges[nodeNamed(t, graph, "a")]; len(edges) != 1 || edges[0].Target != c {
+		t.Fatalf("a edges = %v, want [c]", edges)
+	}
+	if edges := graph.Edges[c]; len(edges) != 1 {
+		t.Fatalf("c edges = %v, want the one to done", edges)
+	}
+}
+
+// A part redefined general by general is one feature: a chain through the nearest
+// redefinition is the chain the farthest general's performer names.
+func TestChainEndThroughRedefinedRootJoinsInheritedPerformer(t *testing.T) {
+	for name, redefinitions := range map[string][2]string{
+		"none":    {"", ""},
+		"nearest": {"", "part :>> v;"},
+		"middle":  {"part :>> v;", ""},
+		"each":    {"part :>> v;", "part :>> v;"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			src := chainEndParts + `
+				action def Base {
+					part v : Vehicle;
+					perform action c ::> v.close;
+				}
+				action def Mid :> Base { ` + redefinitions[0] + ` }
+				action def Derived :> Mid {
+					` + redefinitions[1] + `
+					action a;
+					first v.close then a;
+				}
+			`
+			p := parser.New(source.New("test.sysml", []byte(src)))
+			root := p.ParseFile()
+			if len(p.Diagnostics) != 0 {
+				t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+			}
+			idx := symbols.NewIndexFromDoc("test.sysml", root)
+			decl := actionDefinition(t, root, "Derived")
+			graph, err := ToActionGraphWith(decl, idx.DocumentRoot("test.sysml").ChildFor(decl), resolve.New(idx))
+			if err != nil {
+				t.Fatalf("ToActionGraphWith: %v", err)
+			}
+			if implied := impliedChainSteps(graph); len(implied) != 0 {
+				t.Fatalf("implied steps = %d, want the inherited performer to be the end", len(implied))
+			}
+			if edges := graph.Edges[nodeNamed(t, graph, "c")]; len(edges) != 1 || edges[0].Target != nodeNamed(t, graph, "a") {
+				t.Fatalf("c edges = %v, want [a]", edges)
+			}
+		})
 	}
 }
