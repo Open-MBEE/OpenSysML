@@ -249,6 +249,7 @@ func orderedOverUnbounded(finite libraryApply, least bool) libraryApply {
 			return Value{Kind: ValConst, Const: semantics.PositiveInfinity()}, nil
 		case len(args) == 2 && (infinite(args[0]) || infinite(args[1])):
 		default:
+			// A call without an infinity is finite's, as is the check of the other operand's domain.
 			return finite(name, ctx, args)
 		}
 		x, y := soleElement(args[0]), soleElement(args[1])
