@@ -41,9 +41,8 @@ var kermlClassifierKeywords = []struct{ keyword, metaclass string }{
 	{"metaclass", "Metaclass"},
 }
 
-// TestKerMLClassifierSpecializesIsOneSubclassification: each classifier keyword is written
-// with its KerML metaclass, and its `specializes` is a Subclassification under `_sc0` that
-// the identity reader mints and reads under the same id.
+// TestKerMLClassifierSpecializesIsOneSubclassification: each classifier keyword is written with its
+// KerML metaclass, its `specializes` a Subclassification the identity reader mints and reads as `_sc0`.
 func TestKerMLClassifierSpecializesIsOneSubclassification(t *testing.T) {
 	for _, tc := range kermlClassifierKeywords {
 		t.Run(tc.keyword, func(t *testing.T) {
