@@ -1,0 +1,1 @@
+- Magic MDK: *Run query* reads a parameter's bound value from the `FeatureValue` the parameter owns, which is where `GetElementProperties` now answers it. It asked the parameter itself for `value`, which a feature does not declare, so every defaulted parameter was planned as unbound and prompted for.

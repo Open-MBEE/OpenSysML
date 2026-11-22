@@ -861,35 +861,10 @@ func (ec *EvalContext) thisValue() (Value, error) {
 // contextOccurrence is what `this` denotes on inst: through owned performances to the first holder
 // that is not one (Objects.kerml ownedPerformances::this, Performances.kerml subperformances::this).
 func (ctx *Context) contextOccurrence(inst *Instance) *Instance {
-	for inst.owner != nil && isPerformanceKind(inst.Type.Kind) {
+	for inst.owner != nil && inst.Type.Kind.IsPerformance() {
 		inst = inst.owner
 	}
 	return inst
-}
-
-// isPerformanceKind reports whether kind declares a performance: a behavior
-// definition or a behavior usage, whose instances are performances.
-func isPerformanceKind(kind symbols.SymbolKind) bool {
-	switch kind {
-	case symbols.SymbolStateUsage, symbols.SymbolCalcUsage,
-		symbols.SymbolCaseUsage, symbols.SymbolAnalysisCaseUsage,
-		symbols.SymbolVerificationCaseUsage, symbols.SymbolUseCaseUsage,
-		symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage:
-		return true
-	}
-	return kind.IsActionUsage() || isBehaviorDefKind(kind)
-}
-
-// isBehaviorDefKind reports whether kind is a behavior definition — an action,
-// state, calc or case def — a run of which has an occurrence of its own.
-func isBehaviorDefKind(kind symbols.SymbolKind) bool {
-	switch kind {
-	case symbols.SymbolActionDef, symbols.SymbolStateDef, symbols.SymbolCalcDef,
-		symbols.SymbolCaseDef, symbols.SymbolAnalysisCaseDef,
-		symbols.SymbolVerificationCaseDef, symbols.SymbolUseCaseDef:
-		return true
-	}
-	return false
 }
 
 // selfFeatureInScope reports whether the bound instance's feature of that name

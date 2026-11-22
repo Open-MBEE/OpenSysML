@@ -1666,7 +1666,7 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 	if e.occurrence != nil {
 		return e.occurrence, nil
 	}
-	if !isBehaviorDefKind(e.action.Kind) {
+	if !e.action.Kind.IsBehaviorDef() {
 		return nil, nil
 	}
 	inst, err := e.ctx.materialize(e.action, 0, nil, "")

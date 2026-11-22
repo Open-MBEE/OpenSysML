@@ -226,8 +226,10 @@ func shutdown(ctx context.Context, over HTTPConfig, httpSrv *http.Server, srv *S
 	go func() { done <- httpSrv.Shutdown(shutdownCtx) }()
 	// A client's event stream stays open until its session ends, so the
 	// sessions are closed for the shutdown to see the connections idle.
-	for sess := range srv.sdk.Sessions() {
-		_ = sess.Close()
+	for _, protocol := range srv.protocolServers() {
+		for sess := range protocol.Sessions() {
+			_ = sess.Close()
+		}
 	}
 	if err := <-done; err != nil {
 		_ = httpSrv.Close()

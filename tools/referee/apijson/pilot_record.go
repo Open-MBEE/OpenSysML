@@ -20,7 +20,46 @@ const recordFile = "pilot-record.json"
 // pilotRecord is one root's recorded export: the run beside the key of its inputs.
 type pilotRecord struct {
 	Key string `json:"key"`
+	// Documents digests each document the run wrote, by file; nil in a record written before it existed.
+	Documents map[string]string `json:"documents,omitempty"`
 	pilotRun
+}
+
+// documentDigests digests the documents under out for files; a file the pilot wrote nothing for has none.
+func documentDigests(out string, files []string) (map[string]string, error) {
+	digests := make(map[string]string, len(files))
+	for _, rel := range files {
+		content, err := os.ReadFile(filepath.Join(out, filepath.FromSlash(rel)+".json")) // #nosec G304 -- under the record directory
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		sum := sha256.Sum256(content)
+		digests[rel] = hex.EncodeToString(sum[:])
+	}
+	return digests, nil
+}
+
+// intact reports why the documents under out are not the ones the record digested, or "".
+func (r pilotRecord) intact(out string, files []string) (string, error) {
+	if r.Documents == nil {
+		return "", nil
+	}
+	now, err := documentDigests(out, files)
+	if err != nil {
+		return "", err
+	}
+	for _, rel := range files {
+		switch was, recorded := r.Documents[rel]; {
+		case recorded && now[rel] == "":
+			return "the recorded document of " + rel + " is missing", nil
+		case was != now[rel]:
+			return "the document of " + rel + " is not the one recorded", nil
+		}
+	}
+	return "", nil
 }
 
 // recordKey digests everything the pilot's export of root depends on: the pin, the JVM, the
@@ -65,9 +104,19 @@ func recordedPilot(store, launcher, java string, record baseline.Record, root, d
 	case !os.IsNotExist(err):
 		return nil, err
 	}
+	damage := ""
 	if held.Key == key {
-		fmt.Fprintf(log, "%s: the pilot's export is the one recorded under %s\n", root, out)
-		return readPilot(dir, out, files, held.pilotRun)
+		if damage, err = held.intact(out, files); err != nil {
+			return nil, err
+		}
+		if damage == "" {
+			fmt.Fprintf(log, "%s: the pilot's export is the one recorded under %s\n", root, out)
+			return readPilot(dir, out, files, held.pilotRun)
+		}
+		fmt.Fprintf(log, "%s: the export recorded under %s is damaged (%s)\n", root, out, damage)
+	}
+	if launcher == "" && damage != "" {
+		return nil, fmt.Errorf("the export of %s recorded under %s is damaged (%s), and the pilot JSON exporter is absent: provision it and re-run to record one", root, store, damage)
 	}
 	if launcher == "" {
 		return nil, fmt.Errorf("%s holds no export of %s for this pin, bridge and corpus, and the pilot JSON exporter is absent: provision it and re-run to record one", store, root)
@@ -86,7 +135,11 @@ func recordedPilot(store, launcher, java string, record baseline.Record, root, d
 	if err != nil {
 		return nil, err
 	}
-	encoded, err := json.Marshal(pilotRecord{Key: key, pilotRun: run})
+	documents, err := documentDigests(out, files)
+	if err != nil {
+		return nil, err
+	}
+	encoded, err := json.Marshal(pilotRecord{Key: key, Documents: documents, pilotRun: run})
 	if err != nil {
 		return nil, err
 	}

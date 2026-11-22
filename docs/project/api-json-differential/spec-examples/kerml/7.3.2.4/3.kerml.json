@@ -8,19 +8,19 @@
       "oursOnly": 4,
       "pilotOnly": 2,
       "pilotOnlyImplied": 0,
-      "typeMismatch": 2
+      "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 89,
-      "presentDifferent": 2,
-      "oursMissing": 8,
+      "presentEqual": 93,
+      "presentDifferent": 4,
+      "oursMissing": 2,
       "pilotMissing": 7,
       "absentBoth": 104,
       "indeterminate": 0,
       "pilotNondeterministic": 0
     },
     "unkeyedReferences": 0,
-    "extensionProperties": 36,
+    "extensionProperties": 38,
     "duplicateElements": {
       "ours": 0,
       "pilot": 0
@@ -116,13 +116,13 @@
     "Type.input": [0,0,0,0,2,0,0],
     "Type.intersectingType": [0,0,0,0,2,0,0],
     "Type.isAbstract": [2,0,0,0,0,0,0],
-    "Type.isConjugated": [0,0,2,0,0,0,0],
+    "Type.isConjugated": [0,2,0,0,0,0,0],
     "Type.isImpliedIncluded": [2,0,0,0,0,0,0],
-    "Type.isLibraryElement": [0,0,2,0,0,0,0],
+    "Type.isLibraryElement": [2,0,0,0,0,0,0],
     "Type.isSufficient": [2,0,0,0,0,0,0],
     "Type.member": [0,0,0,0,2,0,0],
     "Type.membership": [0,0,0,0,2,0,0],
-    "Type.name": [0,0,2,0,0,0,0],
+    "Type.name": [2,0,0,0,0,0,0],
     "Type.output": [0,0,0,0,2,0,0],
     "Type.ownedAnnotation": [0,0,0,0,2,0,0],
     "Type.ownedConjugator": [0,0,2,0,0,0,0],

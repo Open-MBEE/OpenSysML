@@ -32,7 +32,10 @@ build_is_complete() {
 }
 
 pilot_recover_dir "$target"
-if build_is_complete "$target" && [[ -f "$target/$stamp_rel" ]] && [[ "$(cat "$target/$stamp_rel")" == "$pin" ]]; then
+# The stamp says what the build was made from, the digests that it still holds it: a
+# build restored from a cache is rebuilt unless the jar and library are the pinned ones.
+if build_is_complete "$target" && [[ -f "$target/$stamp_rel" ]] && [[ "$(cat "$target/$stamp_rel")" == "$pin" ]] &&
+	pilot_verify_kernel "$target/$pilot_jar_rel" "$target/$library_rel"; then
 	echo "Pilot validator already built at $target (pilot $PILOT_TAG, $PILOT_ARTIFACT_VERSION)"
 	echo "Remove that directory to re-provision."
 	exit 0
@@ -40,6 +43,8 @@ fi
 if [[ -e "$target" ]]; then
 	if [[ -f "$target/$stamp_rel" ]] && [[ "$(cat "$target/$stamp_rel")" != "$pin" ]]; then
 		echo "Stale build at $target: built from $(cat "$target/$stamp_rel"), pin is now $pin; rebuilding."
+	elif [[ -f "$target/$stamp_rel" ]] && build_is_complete "$target"; then
+		echo "Build at $target does not hold the pinned pilot release; rebuilding at pilot $PILOT_TAG ($PILOT_ARTIFACT_VERSION)."
 	elif [[ -f "$target/$stamp_rel" ]]; then
 		echo "Incomplete build at $target; rebuilding at pilot $PILOT_TAG ($PILOT_ARTIFACT_VERSION)."
 	else
@@ -92,18 +97,11 @@ backoff=(-Daether.transport.http.retryHandler.count=8 -Daether.connector.http.re
 # The version in the log says which of the two names this build read.
 mvn --version
 echo "Downloading the pilot $PILOT_TAG ($PILOT_ARTIFACT_VERSION) release and building the validator ..."
-(cd "$work" &&
-	mvn -B -q "${backoff[@]}" "${pin_properties[@]}" -Psetup-dependency initialize &&
-	mvn -B -q "${backoff[@]}" "${pin_properties[@]}" package)
+(cd "$work" && mvn -B -q "${backoff[@]}" "${pin_properties[@]}" -Psetup-dependency initialize)
+# Checked before the jar is shaded into the validator, so an altered release builds nothing.
+pilot_verify_kernel "$work/$pilot_jar_rel" "$work/$library_rel"
+(cd "$work" && mvn -B -q "${backoff[@]}" "${pin_properties[@]}" package)
 
-if [[ ! -d "$work/$library_rel" ]]; then
-	echo "error: the pilot standard library is missing from $work/$library_rel" >&2
-	exit 1
-fi
-if [[ ! -f "$work/$pilot_jar_rel" ]]; then
-	echo "error: the pilot shaded jar is missing from $work/$pilot_jar_rel" >&2
-	exit 1
-fi
 if ! build_is_complete "$work"; then
 	echo "error: the wrapper build under $work is incomplete" >&2
 	exit 1

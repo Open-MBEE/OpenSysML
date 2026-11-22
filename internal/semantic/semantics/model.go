@@ -10,6 +10,7 @@
 package semantics
 
 import (
+	"iter"
 	"slices"
 	"strings"
 
@@ -205,15 +206,25 @@ type Model struct {
 	// memberships, ownedAnnotations, annotatingRels and ownedImports memoize
 	// the Membership, Annotation and Import objects each element implies
 	// (see reflective_memberships.go, reflective_annotations.go).
-	memberships      map[*symbols.Symbol][]*symbols.Symbol
-	synthesized      map[*symbols.Symbol][]*symbols.Symbol
-	valueExpressions map[*symbols.Symbol]*symbols.Symbol
-	expressionParts  map[*symbols.Symbol]*expressionParts
-	transitionParts  map[*symbols.Symbol]*transitionParts
-	sendParts        map[*symbols.Symbol]*sendParts
-	ownedAnnotations map[*symbols.Symbol][]*symbols.Symbol
-	annotatingRels   map[*symbols.Symbol][]*symbols.Symbol
-	ownedImports     map[*symbols.Symbol][]*symbols.Symbol
+	memberships             map[*symbols.Symbol][]*symbols.Symbol
+	synthesized             map[*symbols.Symbol][]*symbols.Symbol
+	valueExpressions        map[*symbols.Symbol]*symbols.Symbol
+	multiplicityBounds      map[*symbols.Symbol][]*symbols.Symbol
+	statementSymbols        map[*symbols.Symbol][]*symbols.Symbol
+	filterPackages          map[*symbols.Symbol]*symbols.Symbol
+	filterPackageImports    map[*symbols.Symbol]*symbols.Symbol
+	filterPackageMembers    map[*symbols.Symbol]filterPackageParts
+	statementOwners         map[*symbols.Symbol]*symbols.Symbol
+	statementScopes         map[*symbols.Scope]*symbols.Symbol
+	statementOperandSymbols map[*symbols.Symbol][]*symbols.Symbol
+	expressionParts         map[*symbols.Symbol]*expressionParts
+	transitionParts         map[*symbols.Symbol]*transitionParts
+	sendParts               map[*symbols.Symbol]*sendParts
+	ownedAnnotations        map[*symbols.Symbol][]*symbols.Symbol
+	annotatingRels          map[*symbols.Symbol][]*symbols.Symbol
+	ownedImports            map[*symbols.Symbol][]*symbols.Symbol
+	// rootNamespaces memoizes each document's reflected RootNamespace (see reflective_root.go).
+	rootNamespaces map[string]*symbols.Symbol
 }
 
 // NewModel creates a semantic model backed by the given name resolver. The
@@ -314,6 +325,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		ownedAnnotations:      make(map[*symbols.Symbol][]*symbols.Symbol),
 		annotatingRels:        make(map[*symbols.Symbol][]*symbols.Symbol),
 		ownedImports:          make(map[*symbols.Symbol][]*symbols.Symbol),
+		rootNamespaces:        make(map[string]*symbols.Symbol),
 	}
 	if resolver != nil {
 		resolver.SetModel(m)
@@ -888,6 +900,21 @@ func (m *Model) inheritedFeatureNamed(sym *symbols.Symbol, name string) *symbols
 		return nil
 	}
 	return candidates[0]
+}
+
+// eachSelfAndSupertype yields sym and then every type it specializes
+// (AllSupertypes), without building the combined slice.
+func (m *Model) eachSelfAndSupertype(sym *symbols.Symbol) iter.Seq[*symbols.Symbol] {
+	return func(yield func(*symbols.Symbol) bool) {
+		if !yield(sym) {
+			return
+		}
+		for _, super := range m.AllSupertypes(sym) {
+			if !yield(super) {
+				return
+			}
+		}
+	}
 }
 
 // AllSupertypes returns the transitive closure of DirectSupertypes, excluding

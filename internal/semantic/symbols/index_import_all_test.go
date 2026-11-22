@@ -1,6 +1,14 @@
 package symbols
 
-import "testing"
+import (
+	"fmt"
+	"maps"
+	"math/rand"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+)
 
 func wantNamed(t *testing.T, idx *Index, fqn string, want int) {
 	t.Helper()
@@ -122,4 +130,344 @@ func TestExpandWildcardImportsStopsARouteAtANamespaceItCameThrough(t *testing.T)
 
 func TestSnapshotKeepsTheNamespacesARouteCameThrough(t *testing.T) {
 	wantCycleRoutes(t, roundTrip(t, frozenBase(t, importCycleDocs)))
+}
+
+// Layers of namespaces each importing both of the layer below reach a name by
+// a number of paths doubling per layer, which no import cycle tells apart.
+func TestExpandWildcardImportsKeepsOneRouteThroughLayeredImports(t *testing.T) {
+	layers, below := layeredImports(40)
+	src := "package S { part def P; }\n" + layers
+	idx := NewIndex()
+	addDoc(t, idx, "layers.sysml", src)
+	idx.ExpandWildcardImports()
+
+	p := lookupOne(t, idx, "S::P")
+	for _, top := range below {
+		if routes := idx.ReexportGates("", top+"::P", p, ""); len(routes) != 1 {
+			t.Errorf("%s::P has %d routes, want the one every path amounts to", top, len(routes))
+		}
+		routed, accepted := idx.EachReexportGate("", top+"::P", p, "", []string{"A1"}, func([]ElementFilter) bool { return true })
+		if !routed || !accepted {
+			t.Errorf("%s::P is routed %v and accepted %v with A1 excluded, want both: B1 reaches it", top, routed, accepted)
+		}
+	}
+}
+
+// An import whose name a later import shadows keeps what it read from the
+// namespace it named first, so that namespace stays one the routes came through.
+func TestExpandWildcardImportsKeepsACycleThroughAShadowedTarget(t *testing.T) {
+	idx := NewIndex()
+	addDoc(t, idx, "a.sysml", "package A { package X { part def Other; } }")
+	addDoc(t, idx, "x.sysml", "package X { private part def Hidden; public import Z::*; }")
+	addDoc(t, idx, "z.sysml", "package Z { }")
+	addDoc(t, idx, "p.sysml", "package P { public import all X::*; public import A::*; }")
+	idx.ExpandWildcardImports()
+	hidden := lookupOne(t, idx, "X::Hidden")
+	if routes := idx.ReexportGates("", "P::Hidden", hidden, ""); len(routes) != 1 {
+		t.Fatalf("P::Hidden has %d routes, want the one its import of X took", len(routes))
+	}
+
+	addDoc(t, idx, "z.sysml", "package Z { public import P::*; }")
+	idx.ExpandWildcardImports()
+	if routes := idx.ReexportGates("", "X::Hidden", hidden, ""); len(routes) != 0 {
+		t.Errorf("X::Hidden has %d routes from outside X, want none: P read it from X, which is excluded", len(routes))
+	}
+	taken := func([]ElementFilter) bool { return true }
+	if _, accepted := idx.EachReexportGate("", "Z::Hidden", hidden, "", []string{"X"}, taken); accepted {
+		t.Error("Z::Hidden is accepted with X excluded, want not: its only route reads X")
+	}
+}
+
+// layeredImports is `layers` layers of two namespaces, each importing both of
+// the layer below, the lowest importing S; it names the top layer.
+func layeredImports(layers int) (src string, top [2]string) {
+	var b strings.Builder
+	top = [2]string{"S", "S"}
+	for i := 1; i <= layers; i++ {
+		layer := [2]string{fmt.Sprintf("A%d", i), fmt.Sprintf("B%d", i)}
+		for _, name := range layer {
+			fmt.Fprintf(&b, "package %s { public import %s::*; public import %s::*; }\n", name, top[0], top[1])
+		}
+		top = layer
+	}
+	return b.String(), top
+}
+
+// An import an edit removed, or a cycle an edit broke, is no longer one a
+// route can come back by: the layers above hold one route per name again.
+func TestExpandWildcardImportsForgetsAnImportAnEditRemoved(t *testing.T) {
+	src, top := layeredImports(12)
+	idx := NewIndex()
+	addDoc(t, idx, "layers.sysml", src)
+	addDoc(t, idx, "s.sysml", "package S { part def P; public import T::*; }")
+	addDoc(t, idx, "t.sysml", "package T { part def Q; }")
+	idx.ExpandWildcardImports()
+
+	oneRoute := func(when string) {
+		t.Helper()
+		p := lookupOne(t, idx, "S::P")
+		for _, ns := range top {
+			if routes := idx.ReexportGates("", ns+"::P", p, ""); len(routes) != 1 {
+				t.Errorf("%s: %s::P has %d routes, want one", when, ns, len(routes))
+			}
+		}
+		if cycle := idx.cyclic.at("S"); len(cycle) != 0 {
+			t.Errorf("%s: S is on an import cycle with %v, want none", when, cycle)
+		}
+	}
+	oneRoute("at first")
+
+	// The dependency turns round: S no longer imports T, which imports the top.
+	addDoc(t, idx, "s.sysml", "package S { part def P; }")
+	addDoc(t, idx, "t.sysml", fmt.Sprintf("package T { part def Q; public import %s::*; }", top[0]))
+	idx.ExpandWildcardImports()
+	oneRoute("with the import reversed")
+
+	// A cycle through every layer, and then none again.
+	addDoc(t, idx, "s.sysml", "package S { part def P; public import T::*; }")
+	idx.ExpandWildcardImports()
+	if cycle := idx.cyclic.at("S"); len(cycle) != 25 {
+		t.Errorf("S is on an import cycle of %d namespaces, want S, T and the 23 between them", len(cycle))
+	}
+	addDoc(t, idx, "s.sysml", "package S { part def P; }")
+	idx.ExpandWildcardImports()
+	oneRoute("with the cycle broken")
+}
+
+// Dropping the routes of a cycle through a namespace an import names by an
+// imported name drops that name for a while, which breaks no cycle: it settles.
+func TestExpandWildcardImportsSettlesACycleThroughAnImportedName(t *testing.T) {
+	idx := NewIndex()
+	addDoc(t, idx, "l.sysml", "package L { package N { part def P; public import A::*; } }")
+	addDoc(t, idx, "m.sysml", "package M { public import L::*; public import A::*; }")
+	addDoc(t, idx, "a.sysml", "package A { public import M::*; public import N::*; }")
+
+	settled := make(chan struct{})
+	go func() {
+		defer close(settled)
+		idx.ExpandWildcardImports()
+	}()
+	select {
+	case <-settled:
+	case <-time.After(30 * time.Second):
+		t.Fatal("expansion does not settle")
+	}
+
+	want := []string{"A", "L::N", "M"}
+	for _, ns := range want {
+		if cycle := idx.cyclic.at(ns); !slices.Equal(cycle, want) {
+			t.Errorf("%s is on an import cycle with %v, want %v", ns, cycle, want)
+		}
+	}
+	p := lookupOne(t, idx, "L::N::P")
+	if routes := idx.ReexportGates("", "A::P", p, ""); len(routes) == 0 {
+		t.Error("A::P is not re-exported, want it read through N")
+	}
+
+	// The cycle through N goes with the import that named it.
+	addDoc(t, idx, "a.sysml", "package A { public import M::*; }")
+	idx.ExpandWildcardImports()
+	if cycle := idx.cyclic.at("L::N"); len(cycle) != 0 {
+		t.Errorf("L::N is on an import cycle with %v, want none", cycle)
+	}
+	if cycle, want := idx.cyclic.at("A"), []string{"A", "M"}; !slices.Equal(cycle, want) {
+		t.Errorf("A is on an import cycle with %v, want %v", cycle, want)
+	}
+}
+
+// Layers of public imports on one cycle keep one route per name, not one per
+// path, and so does a member added below them as an edit breaks the cycle.
+func TestExpandWildcardImportsKeepsOneRouteThroughLayeredImportsOnACycle(t *testing.T) {
+	src, top := layeredImports(40)
+	idx := NewIndex()
+	addDoc(t, idx, "layers.sysml", src)
+	addDoc(t, idx, "s.sysml", fmt.Sprintf("package S { part def P; public import %s::*; }", top[0]))
+
+	expand := func() {
+		t.Helper()
+		settled := make(chan struct{})
+		go func() {
+			defer close(settled)
+			idx.ExpandWildcardImports()
+		}()
+		select {
+		case <-settled:
+		case <-time.After(30 * time.Second):
+			t.Fatal("expansion does not settle")
+		}
+		for _, key := range idx.reexportDocs.keys() {
+			for doc, claim := range idx.reexportDocs.at(key) {
+				if len(claim.routes) > 1 {
+					t.Fatalf("%s in %s holds %d routes, want one", key.fqn, doc, len(claim.routes))
+				}
+			}
+		}
+	}
+	expand()
+	if cycle := idx.cyclic.at("S"); len(cycle) != 80 {
+		t.Errorf("S is on an import cycle of %d namespaces, want S and the 79 it reads through", len(cycle))
+	}
+	p := lookupOne(t, idx, "S::P")
+	accepts := func([]ElementFilter) bool { return true }
+	if _, accepted := idx.EachReexportGate("", top[1]+"::P", p, "", []string{"A1"}, accepts); !accepted {
+		t.Errorf("%s::P is not accepted with A1 excluded, want it read through B1", top[1])
+	}
+	if _, accepted := idx.EachReexportGate("", top[1]+"::P", p, "", []string{"S"}, accepts); accepted {
+		t.Errorf("%s::P is accepted with S excluded, want not: S declares it", top[1])
+	}
+
+	addDoc(t, idx, "s.sysml", "package S { part def P; part def Q; }")
+	expand()
+	if cycle := idx.cyclic.at("S"); len(cycle) != 0 {
+		t.Errorf("S is on an import cycle with %v, want none", cycle)
+	}
+	q := lookupOne(t, idx, "S::Q")
+	for _, ns := range top {
+		if routes := idx.ReexportGates("", ns+"::Q", q, ""); len(routes) != 1 {
+			t.Errorf("%s::Q has %d routes, want one", ns, len(routes))
+		}
+	}
+}
+
+// A lookup excluding namespaces reads each layer of public imports on a cycle
+// once, not once per path, though every read is cut at the namespace read.
+func TestEachReexportGateReadsLayeredImportsOnACycleOnce(t *testing.T) {
+	src, top := layeredImports(40)
+	idx := NewIndex()
+	addDoc(t, idx, "layers.sysml", src)
+	addDoc(t, idx, "s.sysml", fmt.Sprintf("package S { public import D::*; public import %s::*; }", top[0]))
+	addDoc(t, idx, "d.sysml", "package D { part def P; }")
+	idx.ExpandWildcardImports()
+	p := lookupOne(t, idx, "D::P")
+	taken := func([]ElementFilter) bool { return true }
+	for _, c := range []struct {
+		excluded []string
+		accepted bool
+	}{{[]string{"D"}, false}, {[]string{"S"}, false}, {[]string{"A1"}, true}, {[]string{"A1", "B1"}, false}, {[]string{"B7"}, true}} {
+		done := make(chan bool, 1)
+		go func() {
+			_, accepted := idx.EachReexportGate("", top[0]+"::P", p, "", c.excluded, taken)
+			done <- accepted
+		}()
+		select {
+		case accepted := <-done:
+			if accepted != c.accepted {
+				t.Errorf("%s::P excluding %v: accepted=%t, want %t", top[0], c.excluded, accepted, c.accepted)
+			}
+		case <-time.After(30 * time.Second):
+			t.Fatalf("%s::P excluding %v: the lookup did not finish", top[0], c.excluded)
+		}
+	}
+}
+
+// A later import bringing in a namespace of the name an earlier import read by
+// leaves the earlier import as read: expansion settles without deriving anew.
+func TestExpandWildcardImportsSettlesWhenALaterImportShadowsATarget(t *testing.T) {
+	idx := NewIndex()
+	addDoc(t, idx, "u.sysml", "package U { part def M; } package V { public import U::*; }")
+	idx.ExpandWildcardImports()
+	claim := func() *reexportClaim {
+		return idx.reexportDocs.at(reexportKey{fqn: "V::M", sym: lookupOne(t, idx, "U::M")})["u.sysml"]
+	}
+	before := claim()
+	addDoc(t, idx, "n.sysml", "package N { part def K; }")
+	addDoc(t, idx, "q.sysml", "package Q { package N { part def L; } }")
+	addDoc(t, idx, "p.sysml", "package P { public import N::*; public import Q::*; }")
+	idx.ExpandWildcardImports()
+	lookupOne(t, idx, "P::K") // the member of the namespace the import read
+	if purge, derive := idx.importersToRefresh(nil, false); len(purge) != 0 || len(derive) != 0 {
+		t.Errorf("importers still to refresh once settled: %v, purging %v", derive, purge)
+	}
+	if after := claim(); before == nil || before != after {
+		t.Errorf("an unrelated import was derived again: claim %p, then %p", before, after)
+	}
+}
+
+// An import read from one namespace and naming none since, another import having
+// made its name ambiguous, is stale once the name resolves elsewhere.
+func TestExpandWildcardImportsDropsWhatAnImportReadWhenItsNameMoves(t *testing.T) {
+	docs := map[string]string{
+		"a.sysml": "package A { package N { part def KA; } }",
+		"b.sysml": "package B { package N { part def KB; } }",
+		"p.sysml": "package P { public import A::*; public import N::*; public import B::*; }",
+	}
+	build := func() *Index {
+		idx := NewIndex()
+		for _, name := range slices.Sorted(maps.Keys(docs)) {
+			addDoc(t, idx, name, docs[name])
+		}
+		idx.ExpandWildcardImports()
+		return idx
+	}
+	idx := build()
+	lookupOne(t, idx, "P::KA")
+	docs["n.sysml"] = "package N { part def KG; }"
+	addDoc(t, idx, "n.sysml", docs["n.sysml"])
+	idx.ExpandWildcardImports()
+	if got, want := idx.FQNs(), build().FQNs(); !slices.Equal(got, want) {
+		t.Errorf("after the edit the index names\n%v\na fresh build names\n%v", got, want)
+	}
+}
+
+// With conditions on the imports, the walk without a path finds the routes the
+// walk along each path finds, whichever namespaces a lookup excludes.
+func TestRouteWalkWithoutAPathFindsTheRoutesOfEachPath(t *testing.T) {
+	rng := rand.New(rand.NewSource(7))
+	filters := []string{"", "", "[@F]", "[@G]"}
+	for trial := 0; trial < 300; trial++ {
+		pkgs := 3 + rng.Intn(4)
+		var b strings.Builder
+		b.WriteString("metadata def F; metadata def G;\n")
+		for pkg := 0; pkg < pkgs; pkg++ {
+			fmt.Fprintf(&b, "package P%d {\n\tpart def M%d;\n", pkg, pkg)
+			for k := rng.Intn(4); k > 0; k-- {
+				visibility := "public"
+				if rng.Intn(4) == 0 {
+					visibility = "private"
+				}
+				fmt.Fprintf(&b, "\t%s import P%d::*%s;\n", visibility, rng.Intn(pkgs), filters[rng.Intn(len(filters))])
+			}
+			b.WriteString("}\n")
+		}
+		idx := NewIndex()
+		addDoc(t, idx, "m.sysml", b.String())
+		idx.ExpandWildcardImports()
+		namespaces := idx.wildcardMeta.keys()
+		for _, key := range idx.reexportDocs.keys() {
+			claims := idx.reexportDocs.at(key)
+			parent, name := splitFQN(key.fqn)
+			for _, inside := range []bool{false, true} {
+				for range 4 {
+					var excluded []string
+					for _, ns := range namespaces {
+						if rng.Intn(3) == 0 {
+							excluded = append(excluded, ns)
+						}
+					}
+					walk := func() *routeWalk {
+						return &routeWalk{idx: idx, name: name, sym: key.sym, excluded: excluded, path: []string{parent}}
+					}
+					spread, ok := walk().spread(claims, inside)
+					if !ok {
+						t.Fatalf("trial %d: %s is not walked without a path, though no import is `import all`", trial, key.fqn)
+					}
+					paths := walk().through(claims, inside)
+					within := func(routes, of [][]ElementFilter) bool {
+						for _, route := range routes {
+							if !slices.ContainsFunc(of, func(have []ElementFilter) bool {
+								return filtersSubsume(have, route) && filtersSubsume(route, have)
+							}) {
+								return false
+							}
+						}
+						return true
+					}
+					if len(spread) != len(paths) || !within(spread, paths) || !within(paths, spread) {
+						t.Fatalf("trial %d: %s excluding %v (inside=%t): %d routes without a path, %d along paths\n%s",
+							trial, key.fqn, excluded, inside, len(spread), len(paths), b.String())
+					}
+				}
+			}
+		}
+	}
 }

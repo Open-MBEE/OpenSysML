@@ -392,47 +392,19 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 // encodeModelDocuments merges the documents' graphs; nameLibrary states the library stubs of the merged one.
 // It returns the graph alone, so a caller done with the encoders holds no document's graph beside it.
 func encodeModelDocuments(ctx context.Context, documents []ModelDocument, encoders []*encoder, nameLibrary libraryNamer) (*rdf.Graph, error) {
-	out, _, _, err := encodeReadableDocuments(ctx, documents, encoders, nameLibrary, nil, false)
-	return out, err
-}
-
-// ExcludedDocument is a document a model was read without, and why.
-type ExcludedDocument struct {
-	Document string
-	Err      error
-}
-
-// encodeReadableDocuments is encodeModelDocuments without the documents unreadable names and, when tolerant, without one it
-// cannot write or whose ids an earlier document declares: each stays analyzed, declares no id, and is returned in document order.
-func encodeReadableDocuments(ctx context.Context, documents []ModelDocument, encoders []*encoder, nameLibrary libraryNamer, unreadable map[string]error, tolerant bool) (*rdf.Graph, []ExcludedDocument, []bool, error) {
 	// declaredIn is the document and declaration each subject was minted for:
 	// two documents declaring one subject would merge two elements into one.
 	declaredIn := map[string]mintedSubject{}
-	written := slices.Clone(documents)
-	var excluded []ExcludedDocument
-	exclude := func(i int, err error) {
-		written[i].Referenced = true
-		excluded = append(excluded, ExcludedDocument{Document: documents[i].File.Name(), Err: err})
-	}
 	for i, e := range encoders {
 		if err := ctx.Err(); err != nil {
-			return nil, nil, nil, err
-		}
-		if err := unreadable[documents[i].File.Name()]; err != nil {
-			exclude(i, err)
-			continue
+			return nil, err
 		}
 		var minted []mintedSubject
 		if documents[i].Referenced {
 			minted = e.declaredSubjects()
 		} else {
 			if err := e.encodeDocument(documents[i].Root); err != nil {
-				err = fmt.Errorf("%s: %w", documents[i].File.Name(), err)
-				if !tolerant {
-					return nil, nil, nil, err
-				}
-				exclude(i, err)
-				continue
+				return nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
 			}
 			// The document is written: its graph waits for the merge as its triples
 			// alone, without the lookup tables the writing built over them.
@@ -440,27 +412,20 @@ func encodeReadableDocuments(ctx context.Context, documents []ModelDocument, enc
 			minted = e.minted
 		}
 		if err := declaredOnce(declaredIn, minted); err != nil {
-			if !tolerant {
-				return nil, nil, nil, err
-			}
-			exclude(i, err)
+			return nil, err
 		}
 	}
 	if err := ctx.Err(); err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
-	out := mergeDocumentGraphs(encoders, written)
+	out := mergeDocumentGraphs(encoders, documents)
 	if err := nameLibrary(ctx, out); err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	// Each document's encoder annotated its collections from its own triples,
 	// in their order, and no two documents declare one subject (refused above).
 	out.MarkCollectionsSettled()
-	unwritten := make([]bool, len(written))
-	for i, doc := range written {
-		unwritten[i] = doc.Referenced
-	}
-	return out, excluded, unwritten, nil
+	return out, nil
 }
 
 // modelEncodersOf analyzes the model and makes each document's encoder with
@@ -1549,7 +1514,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		return members(n.Members)
 
 	case *ast.Definition:
-		metaclass, ok := definitionMetaclass[n.Kind]
+		metaclass, ok := definitionMetaclassOf(n)
 		if !ok {
 			return &UnsupportedError{What: fmt.Sprintf("definition kind %q at %s", n.Kind, e.where(n))}
 		}
@@ -1800,17 +1765,18 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		// A declaration head that binds ends (connect/bind/flow/succession),
 		// a transition, an accept action or a satisfy usage states its ends
 		// and form structurally, since the properties above do not.
-		if verbatimUsage(n) {
-			if err := e.bindingEnds(subject, within, n); err != nil {
-				return err
-			}
-			e.endForm(subject, n)
-		}
+		// A flow owns its payload ahead of its ends, as the pilot orders them (SysML.xtext FlowDeclaration).
 		if payload := e.names.PayloadOf(n); payload != nil {
 			h := memberHead{node: payload, owner: subject, index: e.names.CrossFeatureIndex(n), inline: true}
 			if err := e.encodeMember(h, fqn); err != nil {
 				return err
 			}
+		}
+		if verbatimUsage(n) {
+			if err := e.bindingEnds(subject, within, n); err != nil {
+				return err
+			}
+			e.endForm(subject, n)
 		}
 		if statement := naming.NodeStatement(n); statement != nil {
 			// The node is the statement it is written as: its parts are the

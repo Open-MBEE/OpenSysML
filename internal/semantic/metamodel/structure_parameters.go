@@ -36,6 +36,11 @@ func (e *Evaluator) structureRedefinitionTargets(feature Element) ([]Element, bo
 			out = append(out, target.Element)
 		}
 	}
+	if implied, ok := e.options.Structure.(ImpliedRedefinitionStructure); ok {
+		if targets, stated := implied.ImpliedRedefinedFeatures(feature); stated {
+			out = append(out, targets...)
+		}
+	}
 	return out, true
 }
 
@@ -149,7 +154,7 @@ func (e *Evaluator) structureParameterTable(owner Element, visiting map[ElementK
 	if !ok {
 		return nil, nil, false
 	}
-	declared := positional
+	declared, declaredResult := positional, result
 	for _, general := range generals {
 		inherited, inheritedResult, ok := e.structureParameterTable(general, visiting)
 		if !ok {
@@ -159,23 +164,54 @@ func (e *Evaluator) structureParameterTable(owner Element, visiting map[ElementK
 		if !ok {
 			return nil, nil, false
 		}
-		for _, p := range inherited {
-			if claimed[p.element.Key()] {
-				continue
-			}
-			listed, ok := e.structureListsParameter(positional[len(declared):], p.element)
+		if positional, ok = e.structureInheritParameters(positional, len(declared), inherited, claimed); !ok {
+			return nil, nil, false
+		}
+		if inheritedResult == nil || claimed[inheritedResult.element.Key()] {
+			continue
+		}
+		if result == nil {
+			result = inheritedResult
+			continue
+		}
+		if declaredResult == nil {
+			supersedes, ok := e.structureParameterRedefines(inheritedResult.element, result.element)
 			if !ok {
 				return nil, nil, false
 			}
-			if !listed {
-				positional = append(positional, p)
+			if supersedes {
+				result = inheritedResult
 			}
-		}
-		if result == nil && inheritedResult != nil && !claimed[inheritedResult.element.Key()] {
-			result = inheritedResult
 		}
 	}
 	return positional, result, true
+}
+
+// structureInheritParameters adds a general's unclaimed parameters after the declared ones; one
+// redefining a parameter an earlier general lent takes its place.
+func (e *Evaluator) structureInheritParameters(positional []structureParameter, declared int, inherited []structureParameter, claimed map[ElementKey]bool) ([]structureParameter, bool) {
+	for _, p := range inherited {
+		if claimed[p.element.Key()] {
+			continue
+		}
+		listed, ok := e.structureListsParameter(positional[declared:], p.element)
+		if !ok {
+			return nil, false
+		}
+		if listed {
+			continue
+		}
+		i, ok := e.structureRedefinedParameterIndex(positional[declared:], p.element)
+		if !ok {
+			return nil, false
+		}
+		if i >= 0 {
+			positional[declared+i] = p
+			continue
+		}
+		positional = append(positional, p)
+	}
+	return positional, true
 }
 
 // structureSymbolParameters is the semantic model's parameter table of a symbol-backed owner:
@@ -268,6 +304,52 @@ func (e *Evaluator) structureClaimedParameters(declared []structureParameter, re
 		}
 	}
 	return claimed, true
+}
+
+// structureRedefinedParameterIndex is the index of the inherited parameter that feature
+// redefines, directly or transitively, or -1 when it redefines none of them.
+func (e *Evaluator) structureRedefinedParameterIndex(inherited []structureParameter, feature Element) (int, bool) {
+	for i, p := range inherited {
+		found, ok := e.structureParameterRedefines(feature, p.element)
+		if !ok {
+			return -1, false
+		}
+		if found {
+			return i, true
+		}
+	}
+	return -1, true
+}
+
+// structureParameterRedefines reports whether feature redefines target, directly or
+// transitively, by clause or by position with an agreeing direction (KerML 8.4.4.6).
+func (e *Evaluator) structureParameterRedefines(feature, target Element) (bool, bool) {
+	visited := make(map[ElementKey]bool)
+	var redefines func(Element) (bool, bool)
+	redefines = func(p Element) (bool, bool) {
+		if visited[p.Key()] {
+			return false, true
+		}
+		visited[p.Key()] = true
+		targets, ok := e.structureRedefinitionTargets(p)
+		if !ok {
+			return false, false
+		}
+		implicit, ok := e.structureImplicitParameterRedefinitions(p, true)
+		if !ok {
+			return false, false
+		}
+		for _, t := range append(targets, implicit...) {
+			if t.Key() == target.Key() {
+				return true, true
+			}
+			if found, ok := redefines(t); !ok || found {
+				return found, ok
+			}
+		}
+		return false, true
+	}
+	return redefines(feature)
 }
 
 // structureListsParameter reports whether the parameters inherited so far carry feature, as

@@ -32,7 +32,8 @@ downloaded root fails instead of skipping. Both configurations also run the gate
 its summary line is legible in the log and a skip cannot pass.
 **Subset:** under `OPENSYSML_CORPUS_SUBSET=construct-cover` both gates visit only the files of
 `tests/corpus/testdata/construct_cover.txt` and check their verdicts against the expectation,
-leaving the unvisited lines unchecked; the recorders refuse to run under it. See
+leaving the unvisited lines unchecked and printing `RATCHET INCOMPLETE: … left N of M recorded
+files unchecked` to say so; the recorders refuse to run under it. See
 [construct-cover-subset.md](construct-cover-subset.md).
 
 ## Why
