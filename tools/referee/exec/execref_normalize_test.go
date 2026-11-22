@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNormalizePilotSamples(t *testing.T) {
@@ -221,7 +222,7 @@ func TestExecuteCountsARepeatRunThatFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	cases := []execCase{{ID: "one", Expression: "1"}, {ID: "two", Expression: "2"}}
-	report, err := execute(dir, launcher, []execCaseFile{{Path: "x.cases", Cases: cases}})
+	report, err := execute(dir, launcher, []execCaseFile{{Path: "x.cases", Cases: cases}}, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
