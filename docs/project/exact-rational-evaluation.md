@@ -50,8 +50,9 @@ KerML 1.0 (formal/2025-02-01) and the Kernel libraries vendored under `internal/
   `RealFunctions::'**'` the declaration specializes.
 - **Infinity.** §9.3.2.2.8 extends Rational with the two infinities. KerML's only notation for an
   infinite value is `LiteralInfinity` (`*`, §8.4.4.6, typed `Positive`); its existing rules apply
-  unchanged to Rationals — `*` exceeds every finite Rational (`1 / 3 < *`), equals itself, and any
-  arithmetic over it is a typed error. No finite Rational operation produces an infinity: a zero
+  unchanged to Rationals — `*` exceeds every finite Rational (`1 / 3 < *`), equals itself, and its
+  negation `-*` is the negative infinity. Arithmetic over either is the extended reals' (`1 / *`
+  is the Rational `0.0`, `* - *` a domain error). No finite Rational operation produces an infinity: a zero
   divisor is a division-by-zero error.
 
 **What the specification is silent on**, and so is decided here rather than derived: the internal

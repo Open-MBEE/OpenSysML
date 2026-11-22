@@ -20,9 +20,13 @@ stmt action body
 enter action node: state behavior flush
   stmt for kept
     eval feature deferred -> (instance#1)
+materialize: NestedSiblingTransitionWins #2
+materialize: ForLoopAction #3
     iteration 1
+materialize: body #4
       stmt send
         eval feature kept -> instance#1
+materialize: Transfer #5
   stmt assign deferred
     eval null -> null
 leave action node: state behavior flush

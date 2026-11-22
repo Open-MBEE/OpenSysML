@@ -35,6 +35,8 @@ type calcOccurrence struct {
 	params frame
 	// this is materializeOccurrence bound once, which every binding env reads.
 	this func() (*Instance, error)
+	// made tells the case's performances the occurrence now exists, to hold their nodes.
+	made func(*Instance) error
 }
 
 // thisOccurrence is materializeOccurrence as the hook an EvalContext holds.
@@ -53,7 +55,12 @@ func (o *calcOccurrence) materializeOccurrence() (*Instance, error) {
 	if o == nil || o.materialize == nil {
 		return nil, nil
 	}
-	return o.materialize()
+	first := o.inst == nil
+	inst, err := o.materialize()
+	if err != nil || inst == nil || !first || o.made == nil {
+		return inst, err
+	}
+	return inst, o.made(inst)
 }
 
 // attachPerformances makes the host perform the steps of a case body as
@@ -85,6 +92,11 @@ func (h *calcStmtHost) attachPerformances(engine *stmtEngine) {
 	h.flow.flow = h.flow
 	root.perfs = &h.flow.performances
 	h.perfs = &h.flow.performances
+	if h.occ != nil {
+		// The steps are held under the case's occurrence once a read of `this` makes it.
+		h.perfs.occurrence = h.occ.inst
+		h.occ.made = h.perfs.adoptOccurrence
+	}
 	engine.env.perf = root
 }
 
@@ -357,6 +369,15 @@ func (h *calcStmtHost) occurrence() *Instance {
 // materializeOccurrence makes the occurrence the invocation's `this` denotes.
 func (h *calcStmtHost) materializeOccurrence() (*Instance, error) {
 	return h.occ.materializeOccurrence()
+}
+
+// beginLoop begins a loop a case body reaches as a performance of the case's; the
+// body of a calculation that is no case performs nothing, and its loops run unheld.
+func (h *calcStmtHost) beginLoop(stmt lower.Loop, within *Instance) (*Instance, error) {
+	if h.perfs == nil {
+		return nil, nil
+	}
+	return h.perfs.beginLoopPerformance(h.perfs.root, stmt, within)
 }
 
 // effect performs what the body states as an action does (SysML v2 §7.19.1): a

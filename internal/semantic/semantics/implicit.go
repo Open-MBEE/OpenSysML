@@ -1194,7 +1194,8 @@ func (m *Model) implicitBaseFeatures(sym *symbols.Symbol, declared []*symbols.Sy
 		return nil
 	}
 	var out []*symbols.Symbol
-	for _, base := range []*symbols.Symbol{m.implicitUsageBaseFeature(sym), m.implicitKerMLFeatureBase(sym), m.implicitMultiplicityBase(sym)} {
+	bases := append([]*symbols.Symbol{m.implicitUsageBaseFeature(sym), m.implicitKerMLFeatureBase(sym), m.implicitMultiplicityBase(sym), m.implicitExpressionBase(sym)}, m.implicitTypedReferenceBases(sym)...)
+	for _, base := range bases {
 		if base != nil && base != sym && !slices.Contains(declared, base) {
 			out = append(out, base)
 		}
@@ -1206,6 +1207,19 @@ func (m *Model) implicitBaseFeatures(sym *symbols.Symbol, declared []*symbols.Sy
 		out = append(out, base)
 	}
 	return out
+}
+
+// implicitExpressionBase returns the evaluations feature an expression element subsets
+// (KerML checkExpressionSpecialization and the rows of its subclasses), or nil.
+func (m *Model) implicitExpressionBase(sym *symbols.Symbol) *symbols.Symbol {
+	if !isExpressionSymbol(sym) || sym.Kind != symbols.SymbolExpression {
+		return nil
+	}
+	fqn, ok := impliedExpressionBases[expressionMetaclassName(sym.Decl)]
+	if !ok {
+		return nil
+	}
+	return m.typeByFQN(fqn)
 }
 
 // ImpliedBaseFeatures returns the implied generals of sym that are features:
@@ -1310,4 +1324,39 @@ func (m *Model) AllDeclaredSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 // ends with. A scope reached through a recursive import does not traverse them (KerML 8.2.3.5).
 func (m *Model) ImplicitGenerals(sym *symbols.Symbol) []*symbols.Symbol {
 	return m.impliedGeneralsOf(sym)
+}
+
+// implicitTypedReferenceBases returns the base features a SysML reference usage or an owned cross
+// feature subsets for the kind of each type it has (KerML Table 9 checkFeature{DataValue,Object,Occurrence}Specialization).
+func (m *Model) implicitTypedReferenceBases(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil || sym.Expr != nil {
+		return nil
+	}
+	var types []*symbols.Symbol
+	switch {
+	case m.owningEndOf(sym) != nil:
+		types = m.DeclaredFeatureTypes(m.owningEndOf(sym))
+	case sym.Kind == symbols.SymbolReferenceUsage && !m.isKerMLDoc(sym):
+		for _, rel := range RelationshipsOf(sym) {
+			if rel != nil && rel.Kind == ast.RelTyping {
+				types = append(types, m.relationshipTarget(sym, rel))
+			}
+		}
+	}
+	var out []*symbols.Symbol
+	for _, target := range types {
+		for _, base := range [...]struct{ metaclass, fqn string }{
+			{"DataType", "Base::dataValues"},
+			{"Structure", "Objects::objects"},
+			{"Class", "Occurrences::occurrences"},
+		} {
+			if m.reflectiveMetaclassConforms(target, base.metaclass) {
+				if feature := m.typeByFQN(base.fqn); feature != nil && !slices.Contains(out, feature) {
+					out = append(out, feature)
+				}
+				break
+			}
+		}
+	}
+	return out
 }

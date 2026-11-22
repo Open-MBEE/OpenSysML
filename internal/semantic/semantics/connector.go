@@ -299,21 +299,23 @@ func (m *Model) ImplicitEndRedefinitions(sym *symbols.Symbol) []*symbols.Symbol 
 	return m.implicitEndRedefinitions(sym)
 }
 
-// implicitEndRedefinitions returns the features sym implicitly redefines as an
-// end of its owning type: the end at the same position of each direct general
-// type, a step's behavior included (KerML 1.1 §8.3.3.3.4 checkFeatureEndRedefinition).
-// An explicit `:>>` adds to these. It returns nothing for a feature that is not an end.
+// implicitEndRedefinitions returns the end at sym's position of each general its owner states or keeps
+// after the redundancy rules (KerML 1.1 §8.3.3.3.4 checkFeatureEndRedefinition; §8.4.2), or nothing.
 func (m *Model) implicitEndRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
-	if !declaresEnd(sym) {
-		return nil
-	}
-	if sym.OwnerScope == nil {
+	if !declaresEnd(sym) || sym.OwnerScope == nil || sym.OwnerScope.Owner() == nil {
 		return nil
 	}
 	owner := sym.OwnerScope.Owner()
-	if owner == nil {
-		return nil
-	}
+	kept := m.ImpliedSpecializations(owner)
+	generals := slices.DeleteFunc(slices.Clone(m.DirectSupertypes(owner)), func(general *symbols.Symbol) bool {
+		return !slices.Contains(kept, general) && slices.Contains(m.ImplicitGenerals(owner), general)
+	})
+	return m.endRedefinitionsOver(sym, generals)
+}
+
+// endRedefinitionsOver returns the ends at sym's position in the given generals of its owner.
+func (m *Model) endRedefinitionsOver(sym *symbols.Symbol, generals []*symbols.Symbol) []*symbols.Symbol {
+	owner := sym.OwnerScope.Owner()
 	position := -1
 	for i, end := range m.ownedEnds(owner) {
 		if end == sym {
@@ -326,7 +328,7 @@ func (m *Model) implicitEndRedefinitions(sym *symbols.Symbol) []*symbols.Symbol 
 	}
 
 	var out []*symbols.Symbol
-	for _, sup := range m.DirectSupertypes(owner) {
+	for _, sup := range generals {
 		supEnds := m.endsOf(sup)
 		if position >= len(supEnds) {
 			continue

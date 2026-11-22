@@ -1,6 +1,8 @@
 package xpect
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -103,4 +105,31 @@ func errorsOf(t *testing.T, set resourceSet, doc string) string {
 		msgs = append(msgs, d.Message)
 	}
 	return strings.Join(msgs, "; ")
+}
+
+// A fixture declaring a file outside the suite, by `..` from the suite or from beside
+// itself, or through a link the suite holds, does not load it: it is missing.
+func TestW8FResourceSetStaysInsideTheSuite(t *testing.T) {
+	for name, from := range map[string]string{
+		"parent of the suite": "/../Secret.kerml",
+		"beside the fixture":  "../../Secret.kerml",
+		"through a link":      "/src/Linked.kerml",
+	} {
+		fixture := setupOf("\t\tFile {from =\""+from+"\"}\n", "package test {\n\tclassifier A specializes Secret::S;\n}\n")
+		dir := writeSuite(t, map[string]string{
+			"a/main.kerml.xt": fixture,
+			"src/Other.kerml": "package Other {\n\tclassifier B;\n}\n",
+		})
+		outside := filepath.Join(filepath.Dir(dir), "Secret.kerml")
+		if err := os.WriteFile(outside, []byte("package Secret {\n\tclassifier S;\n}\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(outside, filepath.Join(dir, "src", "Linked.kerml")); err != nil {
+			t.Skipf("symbolic links are not available: %v", err)
+		}
+		set := loadResourceSet(dir, parseXT("a/main.kerml.xt", "kerml", []byte(fixture)), newLibraryCache())
+		if len(set.missing) != 1 || set.missing[0] != from {
+			t.Errorf("%s: missing = %v, want %q refused", name, set.missing, from)
+		}
+	}
 }

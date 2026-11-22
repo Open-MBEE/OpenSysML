@@ -30,8 +30,10 @@ func TestMetaclassGraphIsItsOwnRun(t *testing.T) {
 		2, "ask for it in its own run")
 	wantReport(t, runCommand(t, exec.Command(binary, "-metaclass-graph", "-query", "P")),
 		2, "ask for it in its own run")
-	wantReport(t, runCommand(t, exec.Command(binary, "-metaclass-graph", "-html-default-css")),
-		2, "ask for it in its own run")
+	if !leftOut("-html-default-css") {
+		wantReport(t, runCommand(t, exec.Command(binary, "-metaclass-graph", "-html-default-css")),
+			2, "ask for it in its own run")
+	}
 	wantReport(t, runCommand(t, exec.Command(binary, "-metaclass-graph", "-from", "kerml")),
 		2, "the input, repository and document options do not apply")
 	if got, err := os.ReadFile(model); err != nil || string(got) != source {

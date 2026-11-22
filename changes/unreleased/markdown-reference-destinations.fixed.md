@@ -1,0 +1,1 @@
+- A cross-document reference in a rendered Markdown document now writes its destination in the pointy-bracket form when the target's file name holds a space, a parenthesis, a backslash or a control character, as an ordinary link already did; before, such a name given through `-doc-output` ended the link early or was read as further Markdown.

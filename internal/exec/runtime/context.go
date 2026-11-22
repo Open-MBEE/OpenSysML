@@ -2002,7 +2002,7 @@ func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *I
 	top := ctx.runDepth == 0
 	defer ctx.beginRun()()
 
-	exec, err := ctx.beginPerformed(performed, action, self, inputs, top, nil, start)
+	exec, err := ctx.beginPerformed(performed, action, self, nil, inputs, top, nil, start)
 	if err != nil {
 		return nil, err
 	}
@@ -2012,12 +2012,10 @@ func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *I
 	return exec, nil
 }
 
-// beginPerformed creates the executor for a performance of performed running
-// action, seeds its inputs and starts it with start, on the clock until it is run;
-// top marks the performance a top-level run begins on; listener, if any, is
-// installed before the start so the outputs' declared values stream too.
-func (ctx *Context) beginPerformed(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value, top bool, listener *outputListener, start func(*ActionExecutor) error) (*ActionExecutor, error) {
-	exec, err := newActionExecutorOf(ctx, performed, action, self, nil)
+// beginPerformed begins a performance of performed running action with start, on the
+// clock until it is run; top marks a top-level run, and listener is installed first.
+func (ctx *Context) beginPerformed(performed, action *symbols.Symbol, self, occurrence *Instance, inputs map[string]Value, top bool, listener *outputListener, start func(*ActionExecutor) error) (*ActionExecutor, error) {
+	exec, err := newActionExecutorOf(ctx, performed, action, self, occurrence)
 	if err != nil {
 		err = fmt.Errorf("create action executor: %w", err)
 		return nil, rootActionError(nil, err, top)

@@ -206,7 +206,7 @@ func TestPerformedOutputDefaultStreamsAtOnce(t *testing.T) {
 		heard = append(heard, name+"="+FormatValue(value))
 		return nil
 	}}
-	if _, err := ctx.beginCallee(producer, producer, nil, nil, listener); err != nil {
+	if _, err := ctx.beginCallee(producer, producer, nil, nil, nil, listener); err != nil {
 		t.Fatalf("beginCallee: %v", err)
 	}
 	if want := []string{"value=[5]"}; !slices.Equal(heard, want) {

@@ -72,6 +72,17 @@ func (e *Encoding) LoopCount() int {
 	return n
 }
 
+// soleReceive names the first accept loop the encoding writes, "" when it
+// writes none.
+func (e *Encoding) soleReceive() string {
+	for _, k := range e.Signals {
+		for _, l := range k.Loops {
+			return l.Receive
+		}
+	}
+	return ""
+}
+
 // Items writes the ordered buffer item of each kept signal.
 func (e *Encoding) Items(w Writer) {
 	for _, k := range e.Signals {
@@ -89,6 +100,9 @@ func (e *Encoding) Items(w Writer) {
 // behavior when own renders one. own is called inside the action's body, so
 // its text is rendered at that indentation.
 func (e *Encoding) Do(w Writer, own func() Own) {
+	if e == nil || (own == nil && e.LoopCount() == 0) {
+		return
+	}
 	w.Block("do action "+e.Buffer, func() {
 		var run Own
 		if own != nil {
@@ -106,8 +120,8 @@ func (e *Encoding) Do(w Writer, own func() Own) {
 					w.Line("then " + l.Receive + ";")
 				}
 			}
-		} else {
-			w.Line("first start then " + e.Signals[0].Loops[0].Receive + ";")
+		} else if receive := e.soleReceive(); receive != "" {
+			w.Line("first start then " + receive + ";")
 		}
 		w.Raw(run.Text)
 		if run.MadeUp != "" {

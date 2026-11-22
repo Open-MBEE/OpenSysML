@@ -28,7 +28,7 @@ func ActionEndpointAccepted(nodes []ast.Node, hasInitial bool, ref ast.Node, sou
 	if findNodeByReference(nodes, ref) != nil {
 		return true
 	}
-	return impliedMarker(ast.SimpleName(ref), source, !hasInitial)
+	return !isChainEnd(ref) && impliedMarker(ast.SimpleName(ref), source, !hasInitial)
 }
 
 // GatedFlowAccepted reports whether a succession from sourceRef may lead to flow: a
@@ -263,7 +263,7 @@ func ensureDeclaredActionNode(graph *ActionGraph, decl ast.Node, declaringScope 
 
 func actionEndpointQualifiedName(ref ast.Node) *ast.QualifiedName {
 	if qn := ast.AsQualifiedName(ref); qn != nil {
-		return qn
+		return chainRoot(qn)
 	}
 	chain, ok := ref.(*ast.FeatureChainExpr)
 	if !ok {

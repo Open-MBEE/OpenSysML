@@ -92,7 +92,7 @@ const (
 	ValInt
 	ValReal
 	ValBool
-	ValInfinity // the `*` bound / unbounded value
+	ValInfinity // an infinity: the unbounded `*`, or `-*` when Int is negative
 	ValRational // an exact Rational, held in lowest terms
 )
 
@@ -235,38 +235,6 @@ func (v Value) WholeNumber() (int64, bool) {
 		return int64(v.Real), true
 	}
 	return 0, false
-}
-
-// IsUnbounded reports whether the value is the unbounded `*`.
-func (v Value) IsUnbounded() bool { return v.Kind == ValInfinity }
-
-// UnboundedOrder compares l and r where at least one is the unbounded `*`: `*`
-// exceeds every finite number and equals itself. ok is false when the other
-// operand is neither a number nor `*`, since nothing orders it against one.
-func UnboundedOrder(l, r Value) (order int, ok bool) {
-	ordinal := func(v Value) (int, bool) {
-		switch {
-		case v.IsUnbounded():
-			return 1, true
-		case v.IsNumeric():
-			return 0, true
-		default:
-			return 0, false
-		}
-	}
-	lo, lok := ordinal(l)
-	ro, rok := ordinal(r)
-	if !lok || !rok {
-		return 0, false
-	}
-	switch {
-	case lo == ro:
-		return 0, true
-	case lo > ro:
-		return 1, true
-	default:
-		return -1, true
-	}
 }
 
 // AsReal returns the number as a float64. An Integer or a Rational rounds to
@@ -472,7 +440,7 @@ func evalConst(n ast.Node, maxBits int64) (Value, bool) {
 	case *ast.LiteralBool:
 		return Value{Kind: ValBool, Bool: e.Value}, true
 	case *ast.LiteralInfinity:
-		return Value{Kind: ValInfinity}, true
+		return PositiveInfinity(), true
 	case *ast.OperatorExpr:
 		return evalOperator(e, maxBits)
 	default:
@@ -521,10 +489,13 @@ func EvalUnary(op ast.OperatorKind, v Value) (Value, bool) {
 		if v.Kind == ValReal {
 			return Value{Kind: ValReal, Real: -v.Real}, true
 		}
+		if v.IsInfinite() {
+			return signedInfinity(-v.Sign()), true
+		}
 	case ast.OpPos:
 		// Unary `+` is NumericalFunctions::'+' with no second operand: the
-		// identity, which the unbounded `*` is as much under as any number.
-		if v.IsNumeric() || v.IsUnbounded() {
+		// identity, which an infinity is as much under as any number.
+		if v.IsExtendedNumeric() {
 			return v, true
 		}
 	case ast.OpNot:
@@ -598,8 +569,8 @@ func evalEquality(op ast.OperatorKind, l, r Value) (Value, bool) {
 	switch {
 	case l.Kind == ValBool && r.Kind == ValBool:
 		eq = l.Bool == r.Bool
-	case l.IsUnbounded() || r.IsUnbounded():
-		order, ok := UnboundedOrder(l, r)
+	case l.IsInfinite() || r.IsInfinite():
+		order, ok := InfinityOrder(l, r)
 		if !ok {
 			return Value{}, false
 		}
@@ -624,8 +595,8 @@ func evalEquality(op ast.OperatorKind, l, r Value) (Value, bool) {
 }
 
 func evalComparison(op ast.OperatorKind, l, r Value) (Value, bool) {
-	if l.IsUnbounded() || r.IsUnbounded() {
-		order, ok := UnboundedOrder(l, r)
+	if l.IsInfinite() || r.IsInfinite() {
+		order, ok := InfinityOrder(l, r)
 		if !ok {
 			return Value{}, false
 		}
@@ -687,6 +658,10 @@ func OrderSatisfies(op ast.OperatorKind, order int) (res, ok bool) {
 }
 
 func evalArithmetic(op ast.OperatorKind, l, r Value, maxBits int64) (Value, bool) {
+	if (l.IsInfinite() || r.IsInfinite()) && l.IsExtendedNumeric() && r.IsExtendedNumeric() {
+		v, err := InfinityArith(op, l, r)
+		return v, err == nil
+	}
 	if !l.IsNumeric() || !r.IsNumeric() {
 		return Value{}, false
 	}
@@ -769,8 +744,11 @@ func RealArith(op ast.OperatorKind, a, b float64) (float64, bool) {
 // error rather than a NaN or an infinity: the folder declines on it, the
 // runtime reports it.
 func Pow(l, r Value, maxBits int64) (Value, error) {
-	if !l.IsNumeric() || !r.IsNumeric() {
+	if !l.IsExtendedNumeric() || !r.IsExtendedNumeric() {
 		return Value{}, fmt.Errorf("%w: ** requires numeric operands", ErrArithmeticDomain)
+	}
+	if l.IsInfinite() || r.IsInfinite() {
+		return InfinityArith(ast.OpPow, l, r)
 	}
 
 	if l.Kind == ValInt && r.Kind == ValInt && r.IntSign() >= 0 {

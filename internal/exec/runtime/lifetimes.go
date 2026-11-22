@@ -178,6 +178,10 @@ func (ctx *Context) unbegunPerformance(inst *Instance) bool {
 	if !sym.Kind.IsActionUsage() && sym.Kind != symbols.SymbolStateUsage {
 		return false
 	}
+	// A node of an action's flow begins when the performance reaches it, if it does.
+	if owner.performed && declaresFlowNode(sym) {
+		return true
+	}
 	for _, b := range owner.behaviors {
 		if b.member == nil {
 			continue

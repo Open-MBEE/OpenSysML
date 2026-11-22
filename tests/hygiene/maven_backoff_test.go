@@ -134,6 +134,10 @@ func TestMavenCacheIsSavedOnDevelopAlone(t *testing.T) {
 			t.Errorf("maven-cache.yml does not trigger on %s", want)
 		}
 	}
+	// A cancelled resolve leaves a partial repository, which the entry must never hold.
+	if !regexp.MustCompile(`(?m)^concurrency:\n  group: maven-cache\n  cancel-in-progress: false$`).MatchString(raw) {
+		t.Error("maven-cache.yml must queue behind a running warm rather than cancel it part-way")
+	}
 	saves, checkedOut := false, false
 	resolved := map[string]bool{}
 	for _, step := range workflow.Jobs["warm"].Steps {

@@ -124,6 +124,11 @@ func angleScalars(params []string, apply func([]semantics.Value) (semantics.Valu
 		values := make([]semantics.Value, len(args))
 		for i, arg := range args {
 			arg = soleElement(arg)
+			if isInfinity(arg) {
+				// No circular function has a limit at an infinite angle.
+				return Value{}, fmt.Errorf("%w: function %s is undefined at %s",
+					semantics.ErrArithmeticDomain, name, semantics.FormatConst(arg.Const))
+			}
 			num, ok := angleArgument(ctx, arg)
 			if !ok {
 				return Value{}, fmt.Errorf(

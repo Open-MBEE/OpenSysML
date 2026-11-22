@@ -50,8 +50,10 @@ var syntaxCodes = []Entry{
 		Code: "nonstandard-notation", Tier: TierSyntax, Severity: "warning",
 		Summary: "notation OpenSysML reads that no production of the SysML v2 grammar admits",
 		Meaning: "The text is an OpenSysML extension: the parser reads it and the model is analyzed, but the pinned SysML v2 and KerML grammars have no production for it, so another tool will reject the file. " +
-			"The message states the standard form to write instead. `-strict` promotes this finding to an error.",
-		Spec: "the pinned SysML v2 and KerML Xtext grammars",
+			"The message states the standard form to write instead. `-strict` promotes this finding to an error. " +
+			"An escape sequence in a string or an unrestricted name that KerML §8.2.2.3 Table 4 does not list is reported the same way: `\\r`, which the pilot grammar alone adds, " +
+			"is read as a carriage return, but a tool built from the specification's table has no such escape.",
+		Spec: "the pinned SysML v2 and KerML Xtext grammars; KerML §8.2.2.3 Table 4 (Escape Sequences)",
 	},
 	{
 		Code: "kerml-notation", Tier: TierSyntax, Severity: "error",

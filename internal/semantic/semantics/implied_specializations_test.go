@@ -17,8 +17,6 @@ var impliedRowDifferences = map[string]struct {
 	generals []string
 	reason   string
 }{
-	"R::ED::e1": {[]string{"Base::dataValues"},
-		"the FeatureTyping of an enumerated value by its enumeration is not derived as an implied Specialization"},
 	"R::OOwner::sn": {[]string{"Occurrences::Occurrence::snapshots"},
 		"one feature of the owner is derived per usage: checkOccurrenceUsageSuboccurrenceSpecialization is not added beside the portion's"},
 	"R::OOwner::ts": {[]string{"Occurrences::Occurrence::timeSlices"},
@@ -31,9 +29,6 @@ var impliedRowDifferences = map[string]struct {
 		"a perform action usage is derived as a composite subaction, where it is referential and an enclosed performance"},
 	"R::Owner::npo": {[]string{"Occurrences::Occurrence::suboccurrences", "Ports::ports"},
 		"checkOccurrenceUsageSuboccurrenceSpecialization holds of a composite port usage of an item definition; the pilot implies nothing for it"},
-	"K::A3::a": {[]string{"Occurrences::occurrences"}, "KerML Table 9: checkFeatureEndSpecialization is not derived as an implied Specialization"},
-	"K::A3::b": {[]string{"Occurrences::occurrences"}, "KerML Table 9: checkFeatureEndSpecialization is not derived as an implied Specialization"},
-	"K::A3::c": {[]string{"Occurrences::occurrences"}, "KerML Table 9: checkFeatureEndSpecialization is not derived as an implied Specialization"},
 	"K::bd": {[]string{"Links::selfLinks"},
 		"checkBindingConnectorSpecialization names Links::selfLinks; the pilot implies Links::links for a binding connector with no ends"},
 	"K::su": {[]string{"Occurrences::happensBeforeLinks"},
@@ -46,11 +41,6 @@ var impliedRowDifferences = map[string]struct {
 		"a step of a class is derived as an enclosed performance, where checkStepEnclosedPerformanceSpecialization asks for a behavior or step as owner"},
 	"K::BOwner::bex": {[]string{"Performances::evaluations"},
 		"one feature of the owner is derived per usage: checkStepEnclosedPerformanceSpecialization is not added beside the expression's base"},
-	"R::CD2::a": {nil, "KerML Table 9: checkFeatureObjectSpecialization is not derived"},
-	"R::CD2::b": {nil, "KerML Table 9: checkFeatureObjectSpecialization is not derived"},
-	"R::CD3::a": {nil, "KerML Table 9: checkFeatureObjectSpecialization and checkFeatureEndSpecialization are not derived as implied Specializations"},
-	"R::CD3::b": {nil, "KerML Table 9: checkFeatureObjectSpecialization and checkFeatureEndSpecialization are not derived as implied Specializations"},
-	"R::CD3::c": {nil, "KerML Table 9: checkFeatureObjectSpecialization and checkFeatureEndSpecialization are not derived as implied Specializations"},
 }
 
 // Every named declaration of the fixtures owns the implied Specializations the pilot's including

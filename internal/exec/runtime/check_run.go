@@ -105,6 +105,9 @@ func (r *invocationRun) drawOwner(execs []checkedExecutor) (int, error) {
 		Alternatives: executorLabels(execs),
 	}
 	futures := r.ctx.futureFootprints()
+	// Classify this choice from its current state, not the senders left by
+	// a previous contention probe or a restored search branch.
+	futures.gate()
 	fps := make([]lower.Footprint, len(execs))
 	for i, exec := range execs {
 		fps[i] = futures.executorFuture(exec)
@@ -127,18 +130,25 @@ func (r *invocationRun) drawOwner(execs []checkedExecutor) (int, error) {
 // the instant moves the clock to the earliest wait within the horizon; nothing
 // left at all is terminal, or a deadlock when an action stands incomplete.
 func (r *invocationRun) stabilize() error {
+	_, err := r.settle()
+	return err
+}
+
+// settle distinguishes a deadlocked stable state from errors raised while parking work.
+func (r *invocationRun) settle() (deadlocked bool, err error) {
 	for {
 		if len(r.enabledMoves()) > 0 {
-			return nil
+			return false, nil
 		}
 		if err := r.park(); err != nil {
-			return err
+			return false, err
 		}
 		if len(r.enabledMoves()) > 0 {
-			return nil
+			return false, nil
 		}
 		if !r.advanceClock() {
-			return r.deadlock()
+			err := r.deadlock()
+			return err != nil, err
 		}
 	}
 }

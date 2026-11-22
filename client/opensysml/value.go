@@ -64,7 +64,7 @@ type Rational struct{ r *big.Rat }
 // NewRational is a Rational holding a copy of r. A nil r is zero.
 func NewRational(r *big.Rat) Rational {
 	if r == nil {
-		return Rational{r: new(big.Rat)}
+		return Rational{}
 	}
 	return Rational{r: new(big.Rat).Set(r)}
 }

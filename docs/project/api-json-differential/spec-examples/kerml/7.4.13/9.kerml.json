@@ -8,19 +8,19 @@
       "oursOnly": 2,
       "pilotOnly": 0,
       "pilotOnlyImplied": 0,
-      "typeMismatch": 1
+      "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 204,
+      "presentEqual": 207,
       "presentDifferent": 9,
-      "oursMissing": 13,
+      "oursMissing": 10,
       "pilotMissing": 7,
       "absentBoth": 196,
       "indeterminate": 4,
       "pilotNondeterministic": 0
     },
     "unkeyedReferences": 16,
-    "extensionProperties": 41,
+    "extensionProperties": 42,
     "duplicateElements": {
       "ours": 0,
       "pilot": 0
@@ -50,13 +50,13 @@
     "Behavior.input": [0,0,0,0,1,0,0],
     "Behavior.intersectingType": [0,0,0,0,1,0,0],
     "Behavior.isAbstract": [1,0,0,0,0,0,0],
-    "Behavior.isConjugated": [0,0,1,0,0,0,0],
+    "Behavior.isConjugated": [1,0,0,0,0,0,0],
     "Behavior.isImpliedIncluded": [1,0,0,0,0,0,0],
-    "Behavior.isLibraryElement": [0,0,1,0,0,0,0],
+    "Behavior.isLibraryElement": [1,0,0,0,0,0,0],
     "Behavior.isSufficient": [1,0,0,0,0,0,0],
     "Behavior.member": [0,0,1,0,0,0,0],
     "Behavior.membership": [0,0,1,0,0,0,0],
-    "Behavior.name": [0,0,1,0,0,0,0],
+    "Behavior.name": [1,0,0,0,0,0,0],
     "Behavior.output": [0,0,0,0,1,0,0],
     "Behavior.ownedAnnotation": [0,0,0,0,1,0,0],
     "Behavior.ownedDifferencing": [0,0,0,0,1,0,0],

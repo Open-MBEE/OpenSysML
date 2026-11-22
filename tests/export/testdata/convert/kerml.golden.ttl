@@ -40,6 +40,7 @@ elmt:Structural__Frame
     sysml:owningRelationship elmt:Structural__Frame_om ;
     sysml:owningMembership elmt:Structural__Frame_om ;
     sysml:declaredName "Frame" ;
+    sysx:declaredKeyword "struct def" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    struct def Frame;\n" .
 
@@ -72,6 +73,7 @@ elmt:Structural__Move
     sysml:owningRelationship elmt:Structural__Move_om ;
     sysml:owningMembership elmt:Structural__Move_om ;
     sysml:declaredName "Move" ;
+    sysx:declaredKeyword "behavior def" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    behavior def Move;\n" .
 
@@ -104,6 +106,7 @@ elmt:Structural__Thing
     sysml:owningRelationship elmt:Structural__Thing_om ;
     sysml:owningMembership elmt:Structural__Thing_om ;
     sysml:declaredName "Thing" ;
+    sysx:declaredKeyword "class def" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    class def Thing;\n" .
 
@@ -136,6 +139,7 @@ elmt:Structural__Link
     sysml:owningRelationship elmt:Structural__Link_om ;
     sysml:owningMembership elmt:Structural__Link_om ;
     sysml:declaredName "Link" ;
+    sysx:declaredKeyword "assoc def" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    assoc def Link;\n" .
 

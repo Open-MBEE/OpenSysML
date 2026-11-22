@@ -546,7 +546,7 @@ func (ctx *Context) startCalcUsage(shape *loadedCalc, key calcUsageKey, reader *
 	// seeded with the parameters bound so far, ending with it — not the object
 	// occurrenceOf caches under the symbol, which every run would share.
 	start.occurrence = &calcOccurrence{}
-	if isBehaviorDefKind(shape.Sym.Kind) {
+	if shape.Sym.Kind.IsBehaviorDef() {
 		start.occurrence.materialize = func() (*Instance, error) {
 			if start.occurrence.inst != nil {
 				return start.occurrence.inst, nil
@@ -595,7 +595,7 @@ func (ctx *Context) startCalcUsage(shape *loadedCalc, key calcUsageKey, reader *
 		// A definition run that fails to bind never runs, so its occurrence —
 		// materialized already if an earlier parameter read `this` — ends with
 		// it; a usage's symbol-cached object is no run's to end.
-		if isBehaviorDefKind(shape.Sym.Kind) && start.occurrence.inst != nil {
+		if shape.Sym.Kind.IsBehaviorDef() && start.occurrence.inst != nil {
 			start.occurrence.ended = true
 			ctx.endPerformanceLife(start.occurrence.inst)
 		}
@@ -943,7 +943,7 @@ func (ctx *Context) runCalcUsage(start *calcUsageStart) (*calcRun, error) {
 // for `this`, once the run's outputs and verdicts have all been read; a usage
 // run's occurrence is the object the symbol caches, which outlives the run.
 func (run *calcRun) endOccurrence(ctx *Context) {
-	if run == nil || run.occurrence == nil || !isBehaviorDefKind(run.shape.Sym.Kind) || run.occurrence.ended {
+	if run == nil || run.occurrence == nil || !run.shape.Sym.Kind.IsBehaviorDef() || run.occurrence.ended {
 		return
 	}
 	run.occurrence.ended = true
@@ -1276,7 +1276,7 @@ func (shape *loadedCalc) readsOpen(nested *EvalContext, args calcArgs) bool {
 		return false
 	}
 	owner := sym.Owner()
-	return owner == nil || !(isBehaviorDefKind(owner.Kind) || lower.IsCalcUsageSymbol(owner))
+	return owner == nil || !(owner.Kind.IsBehaviorDef() || lower.IsCalcUsageSymbol(owner))
 }
 
 // openValue is the undetermined value an output or body local of an open run reads:

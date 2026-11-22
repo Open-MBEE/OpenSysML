@@ -1,6 +1,10 @@
 package source
 
-import "bytes"
+import (
+	"bytes"
+	"slices"
+	"sort"
+)
 
 // DominantNewline reports the line ending text written into content should use:
 // CRLF only when content already uses it more than bare LF.
@@ -46,10 +50,39 @@ func (li *LineIndex) PosAt(offset int) Pos {
 	return Pos{Line: lo + 1, Col: offset - li.lineStarts[lo] + 1}
 }
 
-// OffsetAt returns the byte offset for a 1-based line/col.
+// OffsetAt returns the byte offset for a 1-based line/col, -1 for a line the
+// content does not have or a column outside that line.
 func (li *LineIndex) OffsetAt(p Pos) int {
-	if p.Line < 1 || p.Line > len(li.lineStarts) {
+	if li == nil || p.Line < 1 || p.Line > len(li.lineStarts) || p.Col < 1 {
+		return -1
+	}
+	end := len(li.content)
+	if p.Line < len(li.lineStarts) {
+		end = li.lineStarts[p.Line] - 1
+	}
+	if p.Col-1 > end-li.lineStarts[p.Line-1] {
 		return -1
 	}
 	return li.lineStarts[p.Line-1] + (p.Col - 1)
+}
+
+// Splice updates the index in place for an edit that replaced bytes [start, end) by
+// inserted bytes; content is the text after it. Rebuild a shared index instead.
+func (li *LineIndex) Splice(content []byte, start, end, inserted int) {
+	// A line start s follows the newline at s-1, so the edit removes those in (start, end].
+	first := sort.SearchInts(li.lineStarts, start+1)
+	last := sort.SearchInts(li.lineStarts, end+1)
+	var added []int
+	for i, b := range content[start : start+inserted] {
+		if b == '\n' {
+			added = append(added, start+i+1)
+		}
+	}
+	delta := inserted - (end - start)
+	tail := li.lineStarts[last:]
+	for i := range tail {
+		tail[i] += delta
+	}
+	li.lineStarts = slices.Replace(li.lineStarts, first, last, added...)
+	li.content = content
 }

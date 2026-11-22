@@ -861,35 +861,10 @@ func (ec *EvalContext) thisValue() (Value, error) {
 // contextOccurrence is what `this` denotes on inst: through owned performances to the first holder
 // that is not one (Objects.kerml ownedPerformances::this, Performances.kerml subperformances::this).
 func (ctx *Context) contextOccurrence(inst *Instance) *Instance {
-	for inst.owner != nil && isPerformanceKind(inst.Type.Kind) {
+	for inst.owner != nil && inst.Type.Kind.IsPerformance() {
 		inst = inst.owner
 	}
 	return inst
-}
-
-// isPerformanceKind reports whether kind declares a performance: a behavior
-// definition or a behavior usage, whose instances are performances.
-func isPerformanceKind(kind symbols.SymbolKind) bool {
-	switch kind {
-	case symbols.SymbolStateUsage, symbols.SymbolCalcUsage,
-		symbols.SymbolCaseUsage, symbols.SymbolAnalysisCaseUsage,
-		symbols.SymbolVerificationCaseUsage, symbols.SymbolUseCaseUsage,
-		symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage:
-		return true
-	}
-	return kind.IsActionUsage() || isBehaviorDefKind(kind)
-}
-
-// isBehaviorDefKind reports whether kind is a behavior definition — an action,
-// state, calc or case def — a run of which has an occurrence of its own.
-func isBehaviorDefKind(kind symbols.SymbolKind) bool {
-	switch kind {
-	case symbols.SymbolActionDef, symbols.SymbolStateDef, symbols.SymbolCalcDef,
-		symbols.SymbolCaseDef, symbols.SymbolAnalysisCaseDef,
-		symbols.SymbolVerificationCaseDef, symbols.SymbolUseCaseDef:
-		return true
-	}
-	return false
 }
 
 // selfFeatureInScope reports whether the bound instance's feature of that name
@@ -1289,11 +1264,16 @@ func (ctx *Context) directValueType(scope *symbols.Scope, value Value) (*symbols
 		case semantics.ValInt, semantics.ValRational, semantics.ValReal, semantics.ValBool:
 			return ctx.scalarValueType(scope, value)
 		case semantics.ValInfinity:
-			// `*` is the natural number exceeding every other (KerML 8.4.4.6).
-			if positive := ctx.librarySymbol(positiveTypeFQN); positive != nil {
-				return positive, nil
+			// `*` is the natural number exceeding every other (KerML 8.4.4.6);
+			// `-*` is no Natural, so Integer is the narrowest type holding it.
+			fqn := positiveTypeFQN
+			if value.Const.IsNegativeInfinity() {
+				fqn = integerTypeFQN
 			}
-			return nil, fmt.Errorf("%w: direct type %q", errUndeterminedValueType, positiveTypeFQN)
+			if direct := ctx.librarySymbol(fqn); direct != nil {
+				return direct, nil
+			}
+			return nil, fmt.Errorf("%w: direct type %q", errUndeterminedValueType, fqn)
 		default:
 			return nil, fmt.Errorf("%w: %s", errUndeterminedValueType, value.Kind)
 		}
@@ -1687,15 +1667,16 @@ func (ctx *Context) arithmeticValues(op program.Operator, left, right Value, spa
 }
 
 // definiteArithmeticError is why op over an open operand fails whatever that
-// operand holds: the other is a zero divisor or the unbounded `*`.
+// operand holds: the other is a zero divisor, or an infinity under `%`.
 func definiteArithmeticError(op program.Operator, left, right Value) error {
-	for _, operand := range []Value{left, right} {
-		if operand.Kind == ValConst && operand.Const.IsUnbounded() {
-			return fmt.Errorf("%w: operator '%s' is not defined for the unbounded value '*'", ErrTypeMismatch, op)
-		}
-	}
 	if op != program.OpDiv && op != program.OpMod {
 		return nil
+	}
+	for _, operand := range []Value{left, right} {
+		if op == program.OpMod && operand.Kind == ValConst && operand.Const.IsInfinite() {
+			return fmt.Errorf("%w: operator '%s' is undefined over the infinity '%s'",
+				semantics.ErrArithmeticDomain, op, semantics.FormatConst(operand.Const))
+		}
 	}
 	if q, ok := asQuantity(right); ok && q.Num.IsNumeric() && q.Num.AsReal() == 0 {
 		return ErrDivisionByZero
@@ -1708,11 +1689,14 @@ func definiteArithmeticError(op program.Operator, left, right Value) error {
 // and the same errors. An Integer result is exact, refused only when it would
 // need more than maxBits.
 func constArithmetic(op program.Operator, left, right semantics.Value, maxBits int64) (semantics.Value, error) {
-	// The unbounded `*` is no number: arithmetic over it is refused rather than
-	// answered with a finite result or an infinity.
-	if left.IsUnbounded() || right.IsUnbounded() {
-		return semantics.Value{}, fmt.Errorf("%w: operator '%s' is not defined for the unbounded value '*': %s %s %s",
-			ErrTypeMismatch, op, semantics.FormatConst(left), op, semantics.FormatConst(right))
+	// An infinity is a Real (KerML 9.3.2.2.9): the extended reals answer what
+	// the limit determines and report an indeterminate form.
+	if left.IsInfinite() || right.IsInfinite() {
+		if !left.IsExtendedNumeric() || !right.IsExtendedNumeric() {
+			return semantics.Value{}, fmt.Errorf("%w: operator '%s' requires numeric operands, got %s and %s",
+				ErrTypeMismatch, op, semantics.FormatConst(left), semantics.FormatConst(right))
+		}
+		return semantics.InfinityArith(lower.OperatorKindOf(op), left, right)
 	}
 
 	// Exponentiation shares the folder's implementation, so a folded and an
@@ -1946,9 +1930,9 @@ func constComparison(op program.Operator, left, right semantics.Value) (bool, er
 			Library: booleanOrderingGap(op),
 		}
 	}
-	// The unbounded `*` orders above every finite number and equals itself.
-	if left.IsUnbounded() || right.IsUnbounded() {
-		order, ok := semantics.UnboundedOrder(left, right)
+	// `*` orders above every finite number, `-*` below, and each equals itself.
+	if left.IsInfinite() || right.IsInfinite() {
+		order, ok := semantics.InfinityOrder(left, right)
 		if !ok {
 			return false, fmt.Errorf("%w: '%s' is not defined between %s and %s",
 				ErrTypeMismatch, op, semantics.FormatConst(left), semantics.FormatConst(right))
