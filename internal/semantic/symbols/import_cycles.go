@@ -147,6 +147,62 @@ func (idx *Index) noteImportCycles(graph map[string][]string) []string {
 	return changed
 }
 
+// noteLeafReads records what the stale importers read when none of them is read
+// from or on a cycle: no cycle can pass through them, so the others stand.
+func (idx *Index) noteLeafReads(stale []string, reads map[string][]string) bool {
+	for _, importer := range stale {
+		if len(idx.readers[importer]) > 0 || len(idx.cyclic.at(importer)) > 0 {
+			return false
+		}
+	}
+	for _, targets := range reads {
+		for _, target := range targets {
+			if _, leaf := slices.BinarySearch(stale, target); leaf {
+				return false
+			}
+		}
+	}
+	graph, readers, order := maps.Clone(idx.noted), maps.Clone(idx.readers), maps.Clone(idx.nsOrder)
+	if graph == nil {
+		graph, readers, order = make(map[string][]string), make(map[string][]string), make(map[string]int)
+	}
+	for _, importer := range stale {
+		for _, target := range graph[importer] {
+			kept := slices.DeleteFunc(slices.Clone(readers[target]), func(r string) bool { return r == importer })
+			if len(kept) == 0 {
+				delete(readers, target)
+				// A namespace neither reading nor read from is not in the graph.
+				if len(graph[target]) == 0 {
+					delete(order, target)
+				}
+			} else {
+				readers[target] = kept
+			}
+		}
+		delete(graph, importer)
+		delete(order, importer)
+	}
+	for _, importer := range stale {
+		targets := reads[importer]
+		if len(targets) == 0 {
+			continue
+		}
+		graph[importer] = targets
+		level := 0
+		for _, target := range targets {
+			if _, known := order[target]; !known {
+				order[target] = 0 // a namespace read from is in the graph
+			}
+			level = max(level, order[target])
+			at, _ := slices.BinarySearch(readers[target], importer)
+			readers[target] = slices.Insert(slices.Clone(readers[target]), at, importer)
+		}
+		order[importer] = level + 1
+	}
+	idx.nsOrder, idx.noted, idx.readers = order, graph, readers
+	return true
+}
+
 // mayReach reports whether reading the namespace from can come to one of the
 // namespaces named: none it can reach stands above it in the import order.
 func (idx *Index) mayReach(from string, namespaces []string) bool {

@@ -588,6 +588,9 @@ func (idx *Index) deriveAgain(stale []string) {
 		}) {
 			return // they read what they did: the cycles recorded still hold
 		}
+		if idx.noteLeafReads(stale, reads) {
+			return
+		}
 		graph := make(map[string][]string, len(idx.noted)+len(reads))
 		for importer, targets := range idx.noted {
 			if _, again := slices.BinarySearch(stale, importer); !again {

@@ -141,13 +141,22 @@ func assertImportStateOfAFreshBuild(t *testing.T, idx *Index, live map[string]st
 	return true
 }
 
-// importState renders what expansion derived: each namespace's import cycle,
+// importState renders what expansion derived: the import graph and its cycles,
 // and each re-export's routes, hops and answers with one namespace excluded.
 func importState(idx *Index) string {
 	var lines []string
 	namespaces := idx.wildcardMeta.keys()
 	for _, ns := range idx.cyclic.keys() {
 		lines = append(lines, fmt.Sprintf("cycle %s: %v", ns, idx.cyclic.at(ns)))
+	}
+	for _, ns := range slices.Sorted(maps.Keys(idx.noted)) {
+		lines = append(lines, fmt.Sprintf("reads %s: %v", ns, idx.noted[ns]))
+	}
+	for _, ns := range slices.Sorted(maps.Keys(idx.readers)) {
+		lines = append(lines, fmt.Sprintf("readers %s: %v", ns, idx.readers[ns]))
+	}
+	for _, ns := range slices.Sorted(maps.Keys(idx.nsOrder)) {
+		lines = append(lines, fmt.Sprintf("order %s: %d", ns, idx.nsOrder[ns]))
 	}
 	for _, key := range idx.reexportDocs.keys() {
 		declared, _ := idx.declaredAt.get(key.sym)
