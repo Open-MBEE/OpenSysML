@@ -417,7 +417,10 @@ sysml -state 'ChargingInterlock::StationController::Interlock ChargingInterlock:
   -check-trace "$example/observed-normal.jsonl" "$example/station.sysml"
 ```
 
-Record one JSON object per line. The initial row has only `observe`. Each later
+The caller records observations from the system under test. This JSON Lines
+interchange format is for the CLI; it is not SysML notation or output generated
+by the model. Record one JSON object per line. The initial row has only
+`observe`. Each later
 row supplies one fully qualified model `signal`, optional named `args`, and
 `observe` with exactly the same feature names as the initial row. Feature names
 refer to scalar attributes of the machine's performing object. Values

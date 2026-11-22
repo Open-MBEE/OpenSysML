@@ -58,26 +58,34 @@ func TestConformTraceRejectsMalformedEvidence(t *testing.T) {
 		{"empty", "", "initial observation", 0},
 		{"initial signal", `{"signal":"","observe":{"shown":false}}`, "initial observation must omit signal", 1},
 		{"initial args", `{"args":{},"observe":{"shown":false}}`, "initial observation must omit args", 1},
-		{"duplicate member", `{"observe":{"shown":false},"observe":{"shown":true}}`, "duplicate field", 1},
-		{"duplicate observable", `{"observe":{"shown":false,"shown":true}}`, "duplicate field", 1},
-		{"escaped duplicate", `{"observe":{"shown":false,"sh\u006fwn":true}}`, "duplicate field", 1},
+		{"duplicate member", `{"observe":{"shown":false},"observe":{"shown":true}}`, "duplicate", 1},
+		{"duplicate observable", `{"observe":{"shown":false,"shown":true}}`, "duplicate", 1},
+		{"escaped duplicate", `{"observe":{"shown":false,"sh\u006fwn":true}}`, "duplicate", 1},
 		{"unknown field", `{"extra":true,"observe":{"shown":false}}`, "unknown field", 1},
+		{"exact field names", `{"Observe":{"shown":false}}`, "unknown field", 1},
+		{"empty field name", `{"observe":{"":false}}`, "nonempty field name", 1},
+		{"null row", "null", "not null", 1},
+		{"null observation", `{"observe":null}`, "not null", 1},
+		{"null initial args", `{"args":null,"observe":{"shown":false}}`, "initial observation must omit args", 1},
+		{"null args", initial + `{"signal":"Open","args":null,"observe":{"shown":true}}`, "not null", 2},
+		{"null signal", initial + `{"signal":null,"observe":{"shown":true}}`, "nonempty string", 2},
+		{"exponent", `{"observe":{"shown":3e0}}`, "signed 64-bit integer", 1},
 		{"missing signal", initial + `{"observe":{"shown":true}}`, "signal is required", 2},
 		{"missing observation", initial + `{"signal":"Example::Open"}`, "at least one feature", 2},
 		{"changed projection", initial + `{"signal":"Example::Open","observe":{"other":false}}`, "same feature names", 2},
 		{"null", `{"observe":{"shown":null}}`, "signed 64-bit integer", 1},
 		{"float", `{"observe":{"shown":3.0}}`, "signed 64-bit integer", 1},
 		{"overflow", `{"observe":{"shown":9223372036854775808}}`, "signed 64-bit integer", 1},
-		{"lone high in observation", `{"observe":{"shown":"\ud800"}}`, "unpaired UTF-16 surrogate", 1},
-		{"lone low in argument", initial + `{"signal":"Open","args":{"text":"\udfff"},"observe":{"shown":true}}`, "unpaired UTF-16 surrogate", 2},
-		{"unpaired signal", initial + `{"signal":"\ud83d","observe":{"shown":true}}`, "unpaired UTF-16 surrogate", 2},
-		{"unpaired field name", `{"observe":{"\ude00":false}}`, "unpaired UTF-16 surrogate", 1},
-		{"lows before highs", `{"observe":{"shown":"\udc00\udbff"}}`, "unpaired UTF-16 surrogate", 1},
-		{"nonadjacent pair", `{"observe":{"shown":"\udbffx\udc00"}}`, "unpaired UTF-16 surrogate", 1},
-		{"escaped low after high", `{"observe":{"shown":"\ud800\\udc00"}}`, "unpaired UTF-16 surrogate", 1},
-		{"high followed by nonsurrogate", `{"observe":{"shown":"\ud800\ufffd"}}`, "unpaired UTF-16 surrogate", 1},
-		{"high followed by high", `{"observe":{"shown":"\ud800\ud801"}}`, "unpaired UTF-16 surrogate", 1},
-		{"extra JSON", initial + `{"signal":"Example::Open","observe":{"shown":true}}{}`, "one JSON object per line", 2},
+		{"lone high in observation", `{"observe":{"shown":"\ud800"}}`, "surrogate pair", 1},
+		{"lone low in argument", initial + `{"signal":"Open","args":{"text":"\udfff"},"observe":{"shown":true}}`, "surrogate pair", 2},
+		{"unpaired signal", initial + `{"signal":"\ud83d","observe":{"shown":true}}`, "surrogate pair", 2},
+		{"unpaired field name", `{"observe":{"\ude00":false}}`, "surrogate pair", 1},
+		{"lows before highs", `{"observe":{"shown":"\udc00\udbff"}}`, "surrogate pair", 1},
+		{"nonadjacent pair", `{"observe":{"shown":"\udbffx\udc00"}}`, "surrogate pair", 1},
+		{"escaped low after high", `{"observe":{"shown":"\ud800\\udc00"}}`, "surrogate pair", 1},
+		{"high followed by nonsurrogate", `{"observe":{"shown":"\ud800\ufffd"}}`, "surrogate pair", 1},
+		{"high followed by high", `{"observe":{"shown":"\ud800\ud801"}}`, "surrogate pair", 1},
+		{"extra JSON", initial + `{"signal":"Example::Open","observe":{"shown":true}}{}`, "expected one JSON object", 2},
 		{"blank line", initial + "\n", "blank lines", 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -88,6 +96,41 @@ func TestConformTraceRejectsMalformedEvidence(t *testing.T) {
 			report := invalidTrace(err)
 			if report.Row != tc.row || !strings.Contains(report.Message, tc.message) {
 				t.Fatalf("expected row %d and %q, got %+v", tc.row, tc.message, report)
+			}
+		})
+	}
+}
+
+func TestConformTracePreservesArgumentPresence(t *testing.T) {
+	const data = `{"observe":{"x":0}}
+{"signal":"Next","observe":{"x":1}}
+{"signal":"Next","args":{},"observe":{"x":2}}`
+	rows, err := readConformTrace(strings.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows[1].Args != nil || rows[2].Args == nil || len(rows[2].Args) != 0 {
+		t.Fatalf("want absent arguments to stay nil and an explicit empty object to stay present")
+	}
+}
+
+func TestConformTraceRejectsOversizedEvidence(t *testing.T) {
+	for _, tc := range []struct {
+		name, message string
+		size          int
+		row           int
+	}{
+		{"row", "token too long", 1 << 20, 1},
+		{"file", "trace exceeds", (8 << 20) + 1, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := readConformTrace(strings.NewReader(strings.Repeat(" ", tc.size)))
+			if err == nil {
+				t.Fatal("oversized trace accepted")
+			}
+			report := invalidTrace(err)
+			if report.Row != tc.row || !strings.Contains(report.Message, tc.message) {
+				t.Fatalf("expected size error at row %d, got %+v", tc.row, report)
 			}
 		})
 	}

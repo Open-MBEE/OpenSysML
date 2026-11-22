@@ -15,6 +15,9 @@ import (
 	"time"
 	"unicode/utf8"
 
+	jsonv2 "github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json/jsontext"
+
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
@@ -234,19 +237,12 @@ func decodeTraceRow(input []byte, initial bool) (runtime.TraceRow, error) {
 	if len(bytes.TrimSpace(input)) == 0 {
 		return runtime.TraceRow{}, fmt.Errorf("blank lines are not observations")
 	}
-	if !pairedTraceSurrogates(input) {
-		return runtime.TraceRow{}, fmt.Errorf("JSON string contains an unpaired UTF-16 surrogate")
-	}
-	dec := json.NewDecoder(bytes.NewReader(input))
-	object, err := uniqueTraceObject(dec)
+	object, err := decodeTraceObject(input)
 	if err != nil {
 		return runtime.TraceRow{}, err
 	}
-	if _, err := dec.Token(); err != io.EOF {
-		return runtime.TraceRow{}, fmt.Errorf("expected one JSON object per line")
-	}
 	var row runtime.TraceRow
-	for _, key := range sortedTraceKeys(object) {
+	for _, key := range slices.Sorted(maps.Keys(object)) {
 		raw := object[key]
 		var err error
 		switch key {
@@ -254,7 +250,7 @@ func decodeTraceRow(input []byte, initial bool) (runtime.TraceRow, error) {
 			if initial {
 				return row, fmt.Errorf("initial observation must omit signal")
 			}
-			if err = json.Unmarshal(raw, &row.Signal); err != nil || row.Signal == "" {
+			if err = jsonv2.Unmarshal(raw, &row.Signal); err != nil || row.Signal == "" {
 				return row, fmt.Errorf("signal must be a nonempty string")
 			}
 		case "args":
@@ -280,60 +276,18 @@ func decodeTraceRow(input []byte, initial bool) (runtime.TraceRow, error) {
 	return row, nil
 }
 
-const traceUnicodeEscapeLen = len(`\u0000`)
-
-// pairedTraceSurrogates checks raw strings before encoding/json can replace
-// a lone surrogate with U+FFFD. The decoder still checks JSON syntax.
-func pairedTraceSurrogates(input []byte) bool {
-	inString := false
-	for i := 0; i < len(input); i++ {
-		switch input[i] {
-		case '"':
-			inString = !inString
-		case '\\':
-			if !inString || i+1 == len(input) {
-				continue
-			}
-			switch unit := traceUnicodeEscape(input[i:]); {
-			case unit >= 0xDC00 && unit <= 0xDFFF:
-				return false
-			case unit >= 0xD800 && unit <= 0xDBFF:
-				low := traceUnicodeEscape(input[i+traceUnicodeEscapeLen:])
-				if low < 0xDC00 || low > 0xDFFF {
-					return false
-				}
-				i += 2*traceUnicodeEscapeLen - 1
-			default:
-				i++ // Skip the escaped byte, including literal backslashes and quotes.
-			}
-		}
-	}
-	return true
-}
-
-func traceUnicodeEscape(input []byte) uint64 {
-	if len(input) < traceUnicodeEscapeLen || input[0] != '\\' || input[1] != 'u' {
-		return 0
-	}
-	unit, err := strconv.ParseUint(string(input[2:traceUnicodeEscapeLen]), 16, 16)
-	if err != nil {
-		return 0
-	}
-	return unit
-}
-
-func traceValues(raw json.RawMessage) (map[string]runtime.Value, error) {
-	object, err := uniqueTraceObject(json.NewDecoder(bytes.NewReader(raw)))
+func traceValues(raw jsontext.Value) (map[string]runtime.Value, error) {
+	object, err := decodeTraceObject(raw)
 	if err != nil {
 		return nil, err
 	}
 	values := make(map[string]runtime.Value, len(object))
-	for _, key := range sortedTraceKeys(object) {
+	for _, key := range slices.Sorted(maps.Keys(object)) {
 		raw := object[key]
-		switch raw[0] {
+		switch raw.Kind() {
 		case '"':
 			var value string
-			if err := json.Unmarshal(raw, &value); err != nil {
+			if err := jsonv2.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			values[key] = runtime.NewStringValue(value)
@@ -350,41 +304,17 @@ func traceValues(raw json.RawMessage) (map[string]runtime.Value, error) {
 	return values, nil
 }
 
-func sortedTraceKeys(values map[string]json.RawMessage) []string {
-	return slices.Sorted(maps.Keys(values))
-}
-
-// uniqueTraceObject rejects duplicate keys, which encoding/json would
-// otherwise silently overwrite, potentially replacing contrary evidence.
-func uniqueTraceObject(dec *json.Decoder) (map[string]json.RawMessage, error) {
-	token, err := dec.Token()
-	if err != nil {
-		return nil, err
+func decodeTraceObject(input []byte) (map[string]jsontext.Value, error) {
+	// Use the strict decoder for JSON syntax; keep values as raw tokens to preserve integer precision.
+	var object map[string]jsontext.Value
+	if err := jsonv2.Unmarshal(input, &object); err != nil {
+		return nil, fmt.Errorf("expected one JSON object: %w", err)
 	}
-	if token != json.Delim('{') {
-		return nil, fmt.Errorf("expected a JSON object")
+	if object == nil {
+		return nil, fmt.Errorf("expected a JSON object, not null")
 	}
-	object := map[string]json.RawMessage{}
-	for dec.More() {
-		token, err := dec.Token()
-		if err != nil {
-			return nil, err
-		}
-		key, ok := token.(string)
-		if !ok || key == "" {
-			return nil, fmt.Errorf("expected a nonempty field name")
-		}
-		if _, exists := object[key]; exists {
-			return nil, fmt.Errorf("duplicate field %q", key)
-		}
-		var value json.RawMessage
-		if err := dec.Decode(&value); err != nil {
-			return nil, err
-		}
-		object[key] = value
-	}
-	if _, err := dec.Token(); err != nil {
-		return nil, err
+	if _, empty := object[""]; empty {
+		return nil, fmt.Errorf("expected a nonempty field name")
 	}
 	return object, nil
 }
