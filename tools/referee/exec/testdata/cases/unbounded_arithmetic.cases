@@ -2,12 +2,12 @@ model: tools/referee/exec/testdata/models/unbounded_arithmetic.sysml
 
 # `*` as an operand. KerML 1.0 §8.3.4.8.11 types the literal as a Positive and §8.2.5.8.4
 # makes it "a number from the DataType ScalarValues::Positive that is greater than all the
-# integers"; §9.3.2 extends Natural with it. The Kernel Function Library (§9.4) defines no
-# arithmetic result over it, and the pinned pilot leaves every arithmetic operator over `*`
-# unevaluated (the operator expression itself comes back); ours reports a typed error. The
-# ordering the specification states is answered: comparisons, equality, max, min and abs.
+# integers"; §9.3.2 extends Natural with it, and Integer, Rational and Real with its negative
+# too. The pinned pilot leaves every arithmetic operator over `*` unevaluated (the operator
+# expression itself comes back); ours answers the extended reals' value and reports an
+# indeterminate form. Comparisons, equality, max, min and abs are answered.
 
-# Arithmetic: undefined by the specification, unevaluated by the pilot, refused here.
+# Arithmetic: unevaluated by the pilot, the extended reals' here.
 add-right ::  :: Unbounded::add1
 add-left ::  :: Unbounded::add2
 add-real ::  :: Unbounded::addReal
