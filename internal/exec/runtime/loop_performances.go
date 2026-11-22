@@ -254,7 +254,7 @@ func (ctx *Context) loopBodyFeatures(typ *symbols.Symbol, stmt lower.Loop) []Eff
 	}
 	var features []EffectiveFeature
 	scope.ForEachNamedMember(func(name string, sym *symbols.Symbol) bool {
-		if sym.Decl != stmt.Node && isPerformanceKind(sym.Kind) && !ctx.model.semantics.FrameFeature(sym) {
+		if sym.Decl != stmt.Node && sym.Kind.IsPerformance() && !ctx.model.semantics.FrameFeature(sym) {
 			features = append(features, ctx.effectiveFeature(name, sym, typ))
 		}
 		return true

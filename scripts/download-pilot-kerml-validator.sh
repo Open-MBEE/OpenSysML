@@ -41,6 +41,8 @@ if [[ ! -d "$library" ]]; then
 	echo "error: pilot standard library not found at $library" >&2
 	exit 1
 fi
+# The delegated build checks the digests too; this holds for a caller that outlives it.
+pilot_verify_kernel "$pilot_jar" "$library"
 if [[ ! -f "$source" ]]; then
 	echo "error: KerML validator source not found at $source" >&2
 	exit 1

@@ -67,6 +67,7 @@ jobs:
       go_shards: ${{ steps.shards.outputs.go_shards }}
       go: ${{ steps.areas.outputs.go }}
       apijson: ${{ steps.areas.outputs.apijson }}
+      pilotdiff: ${{ steps.areas.outputs.pilotdiff }}
       docs: ${{ steps.areas.outputs.docs }}
       node: ${{ steps.areas.outputs.node }}
       python: ${{ steps.areas.outputs.python }}
@@ -831,6 +832,70 @@ jobs:
           path: build/hideo-suite/test-suite/results/
           if-no-files-found: warn
 
+  # No pull request reproduced the reference differential's baseline, so a change that moved it reached develop unnoticed
+  # until the nightly; the queue tier skips it (the push ran the same diff) and the nightly still reproduces it.
+  pilot-differential:
+    name: Reference differential reproduces its baseline
+    needs: changes
+    if: needs.changes.outputs.pilotdiff == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 3
+        continue-on-error: true
+
+      # A stalled fetch hangs rather than fails, so the action's own retries never see it.
+      - name: Check out repository again
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 3
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # The pinned pilot implementation is a Java artifact; the two validators are compiled against it.
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # A pull request that moves the pin saves its own build; any other restores develop's.
+      - name: Provision the pinned pilot validator
+        uses: ./.github/actions/pilot-validator
+        with:
+          save: 'true'
+
+      - name: Build the pinned pilot SysML and KerML validators
+        run: |
+          ./scripts/download-pilot-sysml-validator.sh
+          ./scripts/download-pilot-kerml-validator.sh
+
+      - name: Provision the pinned corpora
+        uses: ./.github/actions/corpora
+
+      # A failure names whether the provenance moved (an input changed underneath the baseline) or
+      # only the counts did: adjudicate, then re-record with pilot-diff -update.
+      - name: Reference differential reproduces its baseline
+        run: go run -C tools ./cmd/pilot-diff -check
+
+      # The fresh report, so a failing run can be read without reproducing the environment.
+      - name: Upload the fresh report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pilot-diff
+          path: build/pilot-diff/
+          if-no-files-found: warn
+
   # The api-json baseline records no writer digest, so re-running the differential (Java, pilot jar, corpora; 18-25 min) on
   # what can move it proves it current; the queue tier skips it (the push proved the diff) and the nightly reproduces it.
   apijson-differential:
@@ -1011,6 +1076,7 @@ jobs:
       - derived-census
       - hideo-suite
       - apijson-differential
+      - pilot-differential
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -1039,6 +1105,7 @@ jobs:
           WASM_GATE_RESULT: ${{ needs.wasm-gate.result }}
           XPECT_ORACLE_RESULT: ${{ needs.xpect-oracle.result }}
           APIJSON_DIFFERENTIAL_RESULT: ${{ needs.apijson-differential.result }}
+          PILOT_DIFFERENTIAL_RESULT: ${{ needs.pilot-differential.result }}
           DERIVED_CENSUS_RESULT: ${{ needs.derived-census.result }}
           HIDEO_SUITE_RESULT: ${{ needs.hideo-suite.result }}
         run: |
@@ -1064,6 +1131,7 @@ jobs:
              ! ok "$WASM_GATE_RESULT" ||
              ! ok "$XPECT_ORACLE_RESULT" ||
              ! ok "$APIJSON_DIFFERENTIAL_RESULT" ||
+             ! ok "$PILOT_DIFFERENTIAL_RESULT" ||
              ! ok "$DERIVED_CENSUS_RESULT" ||
              ! ok "$HIDEO_SUITE_RESULT"; then
             echo "changes=$CHANGES_RESULT"
@@ -1087,6 +1155,7 @@ jobs:
             echo "wasm-gate=$WASM_GATE_RESULT"
             echo "xpect-oracle=$XPECT_ORACLE_RESULT"
             echo "apijson-differential=$APIJSON_DIFFERENTIAL_RESULT"
+            echo "pilot-differential=$PILOT_DIFFERENTIAL_RESULT"
             echo "derived-census=$DERIVED_CENSUS_RESULT"
             echo "hideo-suite=$HIDEO_SUITE_RESULT"
             exit 1
@@ -1569,6 +1638,7 @@ jobs:
     needs: [changes, build]
     if: needs.changes.outputs.node == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -1855,6 +1925,7 @@ jobs:
     needs: [changes, build]
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -1958,6 +2029,7 @@ jobs:
     needs: [changes, build]
     if: needs.changes.outputs.julia == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
     strategy:
@@ -2019,6 +2091,7 @@ jobs:
     needs: [changes, build]
     if: needs.changes.outputs.matlab == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -2226,6 +2299,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:

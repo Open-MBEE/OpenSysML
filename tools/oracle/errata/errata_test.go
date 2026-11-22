@@ -252,3 +252,40 @@ func TestRegistryEndsWithTheLibraryEntries(t *testing.T) {
 		t.Fatalf("the registry's tail differs from the library entries:\n%v\n%v", got, library)
 	}
 }
+
+// TestMaterializeRefusesALinkOutOfTheCopy: a corpus whose corrected file is a link to
+// a file outside it is not materialized, and the file the link names is left as it was.
+func TestMaterializeRefusesALinkOutOfTheCopy(t *testing.T) {
+	const dir = "examples/pilot-corpora/x"
+	overlay, err := liberrata.New(Roots, []Entry{{
+		ID: "T1", Heading: "a test entry", Path: dir + "/Sample.sysml", Line: 1,
+		AsPublished: "a", Corrected: "A", Citation: "SysML v2 §9.8.9.1", Derivation: "test entry.",
+	}})
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	for _, target := range []string{"absolute", "relative"} {
+		repo := t.TempDir()
+		root := filepath.Join(repo, filepath.FromSlash(dir))
+		if err := os.MkdirAll(root, 0o750); err != nil {
+			t.Fatal(err)
+		}
+		victim := filepath.Join(repo, "victim.sysml")
+		if err := os.WriteFile(victim, []byte("a\nb\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		link := victim
+		if target == "relative" {
+			link = "../../../victim.sysml"
+		}
+		if err := os.Symlink(link, filepath.Join(root, "Sample.sysml")); err != nil {
+			t.Skipf("symbolic links are not available: %v", err)
+		}
+		if _, err := Materialize(overlay, repo, dir, filepath.Join(repo, "examples", "pilot-corpora", "out")); err == nil {
+			t.Errorf("%s link: a corpus whose corrected file links outside it was materialized", target)
+		}
+		if got, err := os.ReadFile(victim); err != nil || string(got) != "a\nb\n" {
+			t.Errorf("%s link: the file outside the copy reads %q (%v), want it untouched", target, got, err)
+		}
+	}
+}

@@ -590,7 +590,7 @@ func (ctx *Context) invokeCalcShapeDirect(shape *loadedCalc, args calcArgs, call
 		activation: activation,
 	}
 
-	if isBehaviorDefKind(shape.Sym.Kind) {
+	if shape.Sym.Kind.IsBehaviorDef() {
 		occurrence.materialize = ctx.calcOccurrenceMaterializer(shape, locals, activation, occurrence)
 		defer func() {
 			if occurrence.inst != nil {

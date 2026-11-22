@@ -1,0 +1,2 @@
+- The Maven dependency cache workflow no longer cancels a running warm when a newer one starts, so an interrupted resolve cannot save a partial `~/.m2/repository` for the Java jobs to restore.
+- `make man-lint` fails when neither `mandoc` nor `groff` is installed instead of reporting the manual pages formatter-clean without reading them. Set `MAN_LINT_OPTIONAL=1` to skip the formatter on a machine that has neither.
