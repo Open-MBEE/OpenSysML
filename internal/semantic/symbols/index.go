@@ -715,14 +715,12 @@ func sameImports(last, now []resolvedImport) (same, resolved bool) {
 // name what an earlier one in the same namespace brought in, as P's
 // `import Shared::*` names the P::Shared that its `import Outer::*` re-exported.
 func (idx *Index) expandImporter(pkgFQN string) {
-	// read is what each import named as it was read: one naming a namespace only
-	// a later import brings in read nothing, and is read once the name resolves.
 	stated := idx.imports(pkgFQN)
-	read := make([]resolvedImport, len(stated))
+	unread := make([]bool, len(stated))
 	for i, imp := range stated {
 		targetFQN := idx.resolveWildcardTarget(pkgFQN, imp.target)
-		read[i] = resolvedImport{doc: imp.doc, fqn: targetFQN, private: imp.private, all: imp.all}
 		if targetFQN == "" {
+			unread[i] = true
 			continue // target not found or ambiguous
 		}
 		if targetFQN == pkgFQN {
@@ -749,7 +747,15 @@ func (idx *Index) expandImporter(pkgFQN string) {
 			}
 		}
 	}
-	idx.lastTargets.set(pkgFQN, read)
+	// An import naming a namespace only a later import brought in read nothing:
+	// recorded as naming none, it is read once the name resolves.
+	targets := idx.resolveImports(pkgFQN)
+	for i := range targets {
+		if unread[i] {
+			targets[i].fqn = ""
+		}
+	}
+	idx.lastTargets.set(pkgFQN, targets)
 }
 
 // resolveWildcardTarget resolves a wildcard import target name to the
@@ -1417,7 +1423,11 @@ func (idx *Index) EachReexportGate(doc, fqn string, sym *Symbol, from string, ex
 			return false, false
 		}
 		walk := routeWalk{idx: idx, name: name, sym: sym, excluded: excluded, path: []string{parent}}
-		for _, filters := range walk.through(claims, inside) {
+		routes, spread := walk.spread(claims, inside)
+		if !spread {
+			routes = walk.through(claims, inside)
+		}
+		for _, filters := range routes {
 			if visit(filters) {
 				return true, true
 			}
@@ -1548,6 +1558,79 @@ type walkStep struct {
 func (w *routeWalk) through(claims map[string]*reexportClaim, private bool) [][]ElementFilter {
 	routes, _ := w.hops(claims, private)
 	return routes
+}
+
+// spread is through without a path, for when no namespace reached is read with
+// its private memberships: a route coming back to one then admits no more.
+func (w *routeWalk) spread(claims map[string]*reexportClaim, private bool) (routes [][]ElementFilter, ok bool) {
+	// open lists the hops a read of the claims follows, false at an `import all`.
+	open := func(claims map[string]*reexportClaim, private bool) (hops []importHop, ok bool) {
+		for _, doc := range slices.Sorted(maps.Keys(claims)) {
+			if claims[doc] == nil {
+				continue
+			}
+			for _, hop := range claims[doc].hops {
+				if (hop.private && !private) || slices.Contains(w.excluded, hop.from) || w.reading(hop.from) {
+					continue
+				}
+				if hop.all {
+					return nil, false
+				}
+				hops = append(hops, hop)
+			}
+		}
+		return hops, true
+	}
+	first, ok := open(claims, private)
+	if !ok {
+		return nil, false
+	}
+	held := make(map[string][][]ElementFilter)
+	from := make(map[string][]importHop)
+	var order []string
+	for work := first; len(work) > 0; {
+		ns := work[len(work)-1].from
+		work = work[:len(work)-1]
+		if _, seen := from[ns]; seen {
+			continue
+		}
+		fqn := joinFQN(ns, w.name)
+		w.idx.readName(fqn)
+		order = append(order, ns)
+		if w.idx.declaredExactly(w.sym, ns, w.name) || !w.idx.reexported.at(fqn).has(w.sym) {
+			from[ns], held[ns] = nil, [][]ElementFilter{nil}
+			continue
+		}
+		hops, ok := open(w.idx.reexportDocs.at(reexportKey{fqn: fqn, sym: w.sym}), false)
+		if !ok {
+			return nil, false
+		}
+		from[ns] = hops
+		work = append(work, hops...)
+	}
+	// take adds to routes what the hops bring, reporting whether it admits more.
+	take := func(routes [][]ElementFilter, hops []importHop) ([][]ElementFilter, bool) {
+		gained := false
+		for _, hop := range hops {
+			for _, filters := range held[hop.from] {
+				filters = addFilters(filters, hop.filters)
+				if !slices.ContainsFunc(routes, func(have []ElementFilter) bool { return filtersSubsume(have, filters) }) {
+					routes, gained = addRoute(routes, filters), true
+				}
+			}
+		}
+		return routes, gained
+	}
+	for changed := true; changed; {
+		changed = false
+		for _, ns := range order {
+			var gained bool
+			held[ns], gained = take(held[ns], from[ns])
+			changed = changed || gained
+		}
+	}
+	routes, _ = take(nil, first)
+	return routes, true
 }
 
 // hops is through, also reporting where on the path the outermost namespace

@@ -351,3 +351,57 @@ func TestExpandWildcardImportsReadsAnImportALaterOneResolves(t *testing.T) {
 		t.Errorf("Q::K is still re-exported as %v, want nothing: N no longer resolves", got)
 	}
 }
+
+// A lookup excluding namespaces reads each layer of public imports on a cycle
+// once, not once per path, though every read is cut at the namespace read.
+func TestEachReexportGateReadsLayeredImportsOnACycleOnce(t *testing.T) {
+	src, top := layeredImports(40)
+	idx := NewIndex()
+	addDoc(t, idx, "layers.sysml", src)
+	addDoc(t, idx, "s.sysml", fmt.Sprintf("package S { public import D::*; public import %s::*; }", top[0]))
+	addDoc(t, idx, "d.sysml", "package D { part def P; }")
+	idx.ExpandWildcardImports()
+	p := lookupOne(t, idx, "D::P")
+	taken := func([]ElementFilter) bool { return true }
+	for _, c := range []struct {
+		excluded []string
+		accepted bool
+	}{{[]string{"D"}, false}, {[]string{"S"}, false}, {[]string{"A1"}, true}, {[]string{"A1", "B1"}, false}, {[]string{"B7"}, true}} {
+		done := make(chan bool, 1)
+		go func() {
+			_, accepted := idx.EachReexportGate("", top[0]+"::P", p, "", c.excluded, taken)
+			done <- accepted
+		}()
+		select {
+		case accepted := <-done:
+			if accepted != c.accepted {
+				t.Errorf("%s::P excluding %v: accepted=%t, want %t", top[0], c.excluded, accepted, c.accepted)
+			}
+		case <-time.After(30 * time.Second):
+			t.Fatalf("%s::P excluding %v: the lookup did not finish", top[0], c.excluded)
+		}
+	}
+}
+
+// A later import bringing in a namespace of the name an earlier import read by
+// leaves the earlier import as read: expansion settles without deriving anew.
+func TestExpandWildcardImportsSettlesWhenALaterImportShadowsATarget(t *testing.T) {
+	idx := NewIndex()
+	addDoc(t, idx, "u.sysml", "package U { part def M; } package V { public import U::*; }")
+	idx.ExpandWildcardImports()
+	claim := func() *reexportClaim {
+		return idx.reexportDocs.at(reexportKey{fqn: "V::M", sym: lookupOne(t, idx, "U::M")})["u.sysml"]
+	}
+	before := claim()
+	addDoc(t, idx, "n.sysml", "package N { part def K; }")
+	addDoc(t, idx, "q.sysml", "package Q { package N { part def L; } }")
+	addDoc(t, idx, "p.sysml", "package P { public import N::*; public import Q::*; }")
+	idx.ExpandWildcardImports()
+	lookupOne(t, idx, "P::K") // the member of the namespace the import read
+	if purge, derive := idx.importersToRefresh(nil, false); len(purge)+len(derive) != 0 {
+		t.Errorf("importers still to refresh once settled: purge %v, derive %v", purge, derive)
+	}
+	if after := claim(); before == nil || before != after {
+		t.Errorf("an unrelated import was derived again: claim %p, then %p", before, after)
+	}
+}

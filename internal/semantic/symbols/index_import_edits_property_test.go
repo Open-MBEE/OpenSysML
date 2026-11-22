@@ -28,6 +28,9 @@ func TestImportRoutesSurviveEditingImports(t *testing.T) {
 		if !assertImportStateOfAFreshBuild(t, idx, live, fmt.Sprintf("trial %d", trial)) {
 			t.Fatalf("trial %d: a fresh build differs from a fresh build", trial)
 		}
+		if state := importState(idx); strings.Contains(state, "without a path") {
+			t.Fatalf("trial %d: the walks disagree:\n%s", trial, state)
+		}
 
 		// Imports name nested namespaces bare, so an edit re-routes other imports.
 		var edits []string
@@ -163,9 +166,20 @@ func importState(idx *Index) string {
 			lines = append(lines, fmt.Sprintf("%s = %s in %s public=%t routes=%v hops=%v",
 				key.fqn, declared, doc, claim.public, routes, hops))
 		}
-		parent, _ := splitFQN(key.fqn)
+		parent, name := splitFQN(key.fqn)
 		for _, excluded := range namespaces {
 			for _, from := range []string{"", parent} {
+				// Without a path the walk finds the routes it finds along each path.
+				inside := withinNamespace(from, parent)
+				walk := func() *routeWalk {
+					return &routeWalk{idx: idx, name: name, sym: key.sym, excluded: []string{excluded}, path: []string{parent}}
+				}
+				if spread, ok := walk().spread(claims, inside); ok {
+					if paths := walk().through(claims, inside); len(spread) != len(paths) {
+						lines = append(lines, fmt.Sprintf("%s from %q excluding %s: %d routes without a path, %d along paths",
+							key.fqn, from, excluded, len(spread), len(paths)))
+					}
+				}
 				routed, accepted := idx.EachReexportGate("", key.fqn, key.sym, from, []string{excluded},
 					func([]ElementFilter) bool { return true })
 				lines = append(lines, fmt.Sprintf("%s = %s from %q excluding %s: routed=%t accepted=%t",
