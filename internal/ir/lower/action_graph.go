@@ -170,9 +170,9 @@ type ActionGraph struct {
 
 	replacedByIncompatible map[ast.Node]ast.Node
 
-	// impliedSteps: feature path → the step a succession end chaining to an action
+	// impliedSteps: chained action → the step a succession end chaining to it
 	// through an object implies, where the body states no step performing it.
-	impliedSteps map[string]ast.Node
+	impliedSteps map[chainKey]ast.Node
 	// generals are the bodies of the actions the action specializes, nearest first.
 	generals []*symbols.Scope
 
@@ -1430,7 +1430,7 @@ func (l *actionEdgeLowerer) ends(ref ast.Node, member ast.Node, source bool) ([]
 	if member != nil {
 		return nil, nil
 	}
-	switch kind, _ := ClassifyChainEnd(l.graph.Nodes, l.scope, ref); kind {
+	switch kind, _ := ClassifyChainEnd(l.graph.Nodes, l.scope, l.graph.resolver, ref); kind {
 	case ChainEndAction:
 		return l.graph.chainSteps(ref, l.scope), nil
 	case ChainEndOccurrence:
@@ -1439,9 +1439,32 @@ func (l *actionEdgeLowerer) ends(ref ast.Node, member ast.Node, source bool) ([]
 	return nil, nil
 }
 
-// addEdges states edge from every source to every target.
+// takesOneSuccession reports whether a succession out of node is one branch of it:
+// a decision chooses one, and a merge or join passes its token along one.
+func takesOneSuccession(node ast.Node) bool {
+	switch node.(type) {
+	case *ast.DecisionNode, *ast.MergeNode, *ast.JoinNode:
+		return true
+	}
+	return false
+}
+
+// addEdges states edge from every source to every target. A decision, merge or join
+// has one succession per branch, so one reaching several steps does so through a fork.
 func (l *actionEdgeLowerer) addEdges(sources, targets []ast.Node, edge ActionEdge) {
 	for _, source := range sources {
+		if len(targets) > 1 && takesOneSuccession(source) {
+			fork := &ast.ForkNode{}
+			fork.NodeSpan = edge.Decl.Span()
+			l.graph.Nodes = append(l.graph.Nodes, fork)
+			l.graph.recordDeclaredIn(fork, l.scope)
+			edge.Source, edge.Target = source, fork
+			l.addEdge(edge)
+			for _, target := range targets {
+				l.addEdge(ActionEdge{Source: fork, Target: target, Decl: edge.Decl})
+			}
+			continue
+		}
 		for _, target := range targets {
 			edge.Source, edge.Target = source, target
 			l.addEdge(edge)

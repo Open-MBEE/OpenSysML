@@ -180,7 +180,7 @@ func (c *actionEndpointChecker) check(
 	}
 	// A chain through an object to an occurrence is legal notation (SysML v2
 	// §7.13.5, §7.17.4); one to a value is not, and one unfollowed is another pass's.
-	switch kind, reached := lower.ClassifyChainEnd(nodes, scope, ref); kind {
+	switch kind, reached := lower.ClassifyChainEnd(nodes, scope, c.ctx.Resolver(), ref); kind {
 	case lower.ChainEndAction, lower.ChainEndOccurrence:
 		return
 	case lower.ChainEndValue:
