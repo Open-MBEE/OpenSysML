@@ -127,6 +127,8 @@ type Index struct {
 	// noted is the import graph the cycles were last recorded from: each importer
 	// with the namespaces its imports read.
 	noted map[string][]string
+	// readers is noted reversed: each namespace with the importers reading it.
+	readers map[string][]string
 
 	// libraryDocs names the documents that hold bundled library content rather
 	// than the workspace's own, with the tier and text digest of each, and
@@ -412,6 +414,7 @@ func NewOverlay(base *Index) *Index {
 		cyclic:        overLayer(base.cyclic, gen),
 		nsOrder:       base.nsOrder,
 		noted:         base.noted,
+		readers:       base.readers,
 		libraryDocs:   overLayer(base.libraryDocs, gen),
 		librarySyms:   overLayer(base.librarySyms, gen),
 		nsFilters:     overLayer(base.nsFilters, gen),
@@ -554,17 +557,11 @@ func (idx *Index) withReaders(stale map[string]bool) []string {
 	if len(stale) == 0 {
 		return nil
 	}
-	readers := make(map[string][]string)
-	for importer, targets := range idx.noted {
-		for _, target := range targets {
-			readers[target] = append(readers[target], importer)
-		}
-	}
 	work := slices.Collect(maps.Keys(stale))
 	for len(work) > 0 {
 		ns := work[len(work)-1]
 		work = work[:len(work)-1]
-		for _, reader := range readers[ns] {
+		for _, reader := range idx.readers[ns] {
 			if !stale[reader] {
 				stale[reader] = true
 				work = append(work, reader)
@@ -579,9 +576,6 @@ func (idx *Index) withReaders(stale map[string]bool) []string {
 // ones recorded. The namespaces read only accumulate, so the cycles settle.
 func (idx *Index) deriveAgain(stale []string) {
 	reads := make(map[string][]string)
-	for _, importer := range stale {
-		idx.cyclic.del(importer)
-	}
 	for {
 		for _, importer := range stale {
 			idx.purgeReexportsUnder(importer)
@@ -589,6 +583,11 @@ func (idx *Index) deriveAgain(stale []string) {
 		}
 		idx.dirtyNS = make(map[string]nsChange)
 		idx.deriveToFixpoint(stale, reads)
+		if !slices.ContainsFunc(stale, func(importer string) bool {
+			return !slices.Equal(reads[importer], idx.noted[importer])
+		}) {
+			return // they read what they did: the cycles recorded still hold
+		}
 		graph := make(map[string][]string, len(idx.noted)+len(reads))
 		for importer, targets := range idx.noted {
 			if _, again := slices.BinarySearch(stale, importer); !again {

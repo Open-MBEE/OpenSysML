@@ -1,6 +1,7 @@
 package symbols
 
 import (
+	"maps"
 	"slices"
 	"sort"
 )
@@ -136,7 +137,13 @@ func (idx *Index) noteImportCycles(graph map[string][]string) []string {
 		}
 	}
 	sort.Strings(changed)
-	idx.nsOrder, idx.noted = order, graph
+	readers := make(map[string][]string)
+	for _, importer := range slices.Sorted(maps.Keys(graph)) {
+		for _, target := range graph[importer] {
+			readers[target] = append(readers[target], importer)
+		}
+	}
+	idx.nsOrder, idx.noted, idx.readers = order, graph, readers
 	return changed
 }
 
