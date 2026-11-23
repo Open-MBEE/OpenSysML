@@ -23,6 +23,19 @@ type importCycleShape struct {
 // with names declared twice, each with the answer KerML 8.3.2.4.5 and 8.3.2.4.6 give it.
 var importCycleShapes = []importCycleShape{
 	{
+		// A's `filter` member keeps X out of what A imports; B brings X all the same, on a route of its own.
+		name: "package reached under a filter member and without one",
+		packages: []string{
+			"package M { metadata def Safety; }",
+			"package C { part def X; }",
+			"package A { public import C::*; filter @M::Safety; }",
+			"package B { public import C::*; }",
+			"package U { public import A::*; public import B::*; part u : X; }",
+			"package V { private import U::*; part v : X; }",
+		},
+		anyOrder: true,
+	},
+	{
 		// A membership import names its target in its own right: N2::B is N4::B, a member of N2 by its
 		// import of N4, whatever route through the cycle is reading N1 when the import is enumerated.
 		name: "membership import of a member the cycle brings back",

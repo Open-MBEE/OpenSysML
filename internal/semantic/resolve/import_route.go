@@ -161,8 +161,8 @@ func distinctScopes(scopes []*symbols.Scope) []*symbols.Scope {
 
 // plainRegion reports whether reading the imports of scope route by route (KerML 8.3.2.4.5)
 // finds what one visit of each namespace does. Every namespace reachable is a package whose
-// imports are plain namespace imports, each naming a package by owned members alone, and
-// no two members share a name: nothing can hide a name or read a namespace in two ways.
+// imports are plain namespace imports, each naming a package by owned members alone, none
+// declares a filter, and no two members share a name: nothing can hide a name or read a namespace in two ways.
 func (r *Resolver) plainRegion(scope *symbols.Scope) bool {
 	if r.inCondition != 0 || !plainNamespace(scope) {
 		return false
@@ -180,6 +180,10 @@ func (r *Resolver) plainRegion(scope *symbols.Scope) bool {
 	for pending := []*symbols.Scope{scope}; len(pending) > 0; {
 		ns := pending[len(pending)-1]
 		pending = pending[:len(pending)-1]
+		// A `filter` member restricts what its namespace imports, as a filtered import does.
+		if len(ns.Imports()) != 0 && len(r.namespaceFilters(ns)) != 0 {
+			return false
+		}
 		if ns != scope {
 			unique := plainNamespace(ns)
 			ns.ForEachNamedMember(func(name string, sym *symbols.Symbol) bool {
