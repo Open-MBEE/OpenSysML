@@ -173,42 +173,58 @@ export async function acquirePrivateService(
   version?: string,
   start: (version?: string) => Promise<PrivateService> = (v) => PrivateService.start(v),
 ): Promise<PrivateService> {
-  const key = version ?? "";
-  for (let attempt = 0; ; attempt += 1) {
-    const existing = shared.get(key);
-    if (existing?.alive) {
-      existing.refs += 1;
-      return existing;
-    }
-    if (attempt === MAX_START_ATTEMPTS) {
-      throw new ServiceStartError(
-        `sysml-grpc (${existing?.binary.path ?? "no binary"}) reported an address and then ` +
-          `exited, ${MAX_START_ATTEMPTS} times in a row`,
-      );
-    }
-    if (attempt > 0) {
-      await new Promise((resolve) => setTimeout(resolve, RESTART_BACKOFF_MS * attempt));
-      // Another acquire may have started a child that lived while this one waited.
-      const started = shared.get(key);
-      if (started?.alive) {
-        started.refs += 1;
-        return started;
-      }
-    }
-    let pending = starting.get(key);
-    pending ??= start(version)
-      .then((service) => {
-        service.key = key;
-        shared.set(key, service);
-        return service;
-      })
-      .finally(() => {
-        starting.delete(key);
-      });
-    starting.set(key, pending);
-    // The child just started is taken by the same path as one found alive.
-    await pending;
+  return acquireAttempt(version, start, 0);
+}
+
+/** The hold on `key`'s child when it is alive. */
+function held(key: string): PrivateService | undefined {
+  const existing = shared.get(key);
+  if (!existing?.alive) {
+    return undefined;
   }
+  existing.refs += 1;
+  return existing;
+}
+
+/** One attempt of an acquire: the child alive now, else one started and taken by the next attempt. */
+async function acquireAttempt(
+  version: string | undefined,
+  start: (version?: string) => Promise<PrivateService>,
+  attempt: number,
+): Promise<PrivateService> {
+  const key = version ?? "";
+  const existing = held(key);
+  if (existing) {
+    return existing;
+  }
+  if (attempt === MAX_START_ATTEMPTS) {
+    throw new ServiceStartError(
+      `sysml-grpc (${shared.get(key)?.binary.path ?? "no binary"}) reported an address and then ` +
+        `exited, ${MAX_START_ATTEMPTS} times in a row`,
+    );
+  }
+  if (attempt > 0) {
+    await new Promise((resolve) => setTimeout(resolve, RESTART_BACKOFF_MS * attempt));
+    // Another acquire may have started a child that lived while this one waited.
+    const started = held(key);
+    if (started) {
+      return started;
+    }
+  }
+  let pending = starting.get(key);
+  pending ??= start(version)
+    .then((service) => {
+      service.key = key;
+      shared.set(key, service);
+      return service;
+    })
+    .finally(() => {
+      starting.delete(key);
+    });
+  starting.set(key, pending);
+  // The child just started is taken by the same path as one found alive.
+  await pending;
+  return acquireAttempt(version, start, attempt + 1);
 }
 
 /** The private child this thread holds, for tests and diagnostics. */
