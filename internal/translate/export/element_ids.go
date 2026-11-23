@@ -183,6 +183,8 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 	ids.recordFilterCondition(e, node, subject)
 	ids.recordSendArguments(e, node)
 	ids.recordGuard(e, node, subject)
+	ids.recordLoopExpressions(e, node, subject)
+	ids.recordAssignment(e, node, subject)
 	ids.recordConstraintResult(e, node, subject)
 	ids.recordResultExpression(e, node, parents[node], subject)
 	ids.recordDefaultMultiplicity(e, node, subject)
@@ -260,6 +262,57 @@ func (ids *ElementIDs) recordGuard(e *encoder, node ast.Node, subject rdf.Term) 
 			ids.recordOwnedExpression(e, n.Guard, subject, xGuard)
 		}
 	}
+}
+
+// recordLoopExpressions records the collection a `for` loop iterates and the conditions a
+// `while` or `loop` tests, each under the loop at the slot encodeLoop writes it, with its parts.
+func (ids *ElementIDs) recordLoopExpressions(e *encoder, node ast.Node, subject rdf.Term) {
+	loop, ok := statementOf(node).(*ast.WhileLoopActionNode)
+	if !ok {
+		return
+	}
+	if loop.Kind == ast.LoopFor {
+		if loop.Variable.HasName() && loop.Collection != nil {
+			ids.recordOwnedExpression(e, loop.Collection, subject, xCollection)
+		}
+		return
+	}
+	while, until := ast.Node(nil), loop.Condition
+	if loop.Kind == ast.LoopWhile {
+		while, until = loop.Condition, loop.Until
+	}
+	if while != nil {
+		ids.recordOwnedExpression(e, while, subject, xWhileCondition)
+	}
+	if until != nil {
+		ids.recordOwnedExpression(e, until, subject, xUntilCondition)
+	}
+}
+
+// recordAssignment records the target and the value an assignment owns (encodeMember at
+// xTarget and pValue), with their parts.
+func (ids *ElementIDs) recordAssignment(e *encoder, node ast.Node, subject rdf.Term) {
+	assign, ok := statementOf(node).(*ast.AssignmentActionNode)
+	if !ok {
+		return
+	}
+	if assign.Target != nil {
+		ids.recordOwnedExpression(e, assign.Target, subject, xTarget)
+	}
+	if assign.Value != nil {
+		ids.recordOwnedExpression(e, assign.Value, subject, pValue)
+	}
+}
+
+// statementOf is the statement node is written as when it is an action node that is its
+// statement (`action a assign x := y;`, naming.NodeStatement), else node.
+func statementOf(node ast.Node) ast.Node {
+	if usage, ok := node.(*ast.Usage); ok {
+		if statement := naming.NodeStatement(usage); statement != nil {
+			return statement
+		}
+	}
+	return node
 }
 
 // recordOwnedExpression records the expression owner writes at slot, the membership that owns it, and its parts.
