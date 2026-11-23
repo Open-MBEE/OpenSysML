@@ -276,6 +276,76 @@
             (should (looking-at-p "Engine")))
         (kill-buffer buffer)))))
 
+(defun sysml-diagram-test--render (buffer view)
+  "Render VIEW in the view BUFFER and return its text once it is drawn."
+  (with-current-buffer buffer
+    (setq sysml-diagram--view view
+          sysml-diagram--result nil)
+    (sysml-diagram-refresh)
+    (sysml-lsp-test--wait (lambda () (or sysml-diagram--result sysml-diagram--error)))
+    (should-not sysml-diagram--error)
+    (buffer-substring-no-properties (point-min) (point-max))))
+
+(ert-deftest sysml-diagram-live-renders-an-action-flow ()
+  (sysml-lsp-test--with-session
+      (sysml-lsp-test--fixture
+       (concat "action def Drive {\n"
+               "    first start;\n"
+               "    then action unlock;\n"
+               "    then decide d;\n"
+               "    if true then go;\n"
+               "    else stay;\n"
+               "    action go;\n"
+               "    action stay;\n"
+               "    first go then done;\n"
+               "    first stay then done;\n"
+               "}\n"))
+    (let ((buffer (sysml-diagram-test--shown (current-buffer))))
+      (unwind-protect
+          (let ((text (sysml-diagram-test--render buffer "#action")))
+            (should (string-match-p "^action def Drive$" text))
+            (should (string-match-p "^  decision d$" text))
+            (should (string-match-p "^  succession start → unlock$" text))
+            (should (string-match-p "^  succession d → go \\[\\[true\\]\\]$" text))
+            (should (string-match-p "^  succession d → stay \\[else\\]$" text))
+            (should (string-match-p "^  succession stay → done$" text)))
+        (kill-buffer buffer)))))
+
+(ert-deftest sysml-diagram-live-renders-a-declared-sequence-view ()
+  (sysml-lsp-test--with-session
+      (sysml-lsp-test--fixture
+       (concat "package Talk {\n"
+               "    item def Ping;\n"
+               "    occurrence def Exchange {\n"
+               "        part caller {\n"
+               "            event occurrence sent;\n"
+               "        }\n"
+               "        part callee {\n"
+               "            event occurrence received;\n"
+               "        }\n"
+               "        message ping of Ping from caller.sent to callee.received;\n"
+               "    }\n"
+               "}\n"
+               "package Views {\n"
+               "    private import StandardViewDefinitions::*;\n"
+               "    view exchange : SequenceView {\n"
+               "        expose Talk::Exchange;\n"
+               "    }\n"
+               "}\n"))
+    (let ((source (current-buffer))
+          (buffer (sysml-diagram-test--shown (current-buffer))))
+      (unwind-protect
+          (progn
+            ;; The declared view is drawable, and so is the document as a sequence.
+            (let ((views (sysml-diagram--views source)))
+              (should (equal (nth 2 (assoc "Views::exchange" views)) t))
+              (should (assoc "#sequence" views)))
+            (let ((text (sysml-diagram-test--render buffer "Views::exchange")))
+              (should (string-match-p "^part caller$" text))
+              (should (string-match-p "^part callee$" text))
+              (should (string-match-p "^  message sent → received \\[ping of Ping\\]$" text))))
+        (kill-buffer buffer)))))
+
 (ert-deftest sysml-diagram-live-redraws-on-change ()
   (sysml-lsp-test--with-session (sysml-lsp-test--fixture "package P {\n    part def A;\n}\n")
     (let ((source (current-buffer))
