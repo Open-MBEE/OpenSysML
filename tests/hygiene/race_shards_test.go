@@ -239,9 +239,8 @@ func TestExportCorpusPatternsPartitionTheExportTests(t *testing.T) {
 	}
 }
 
-// TestCorpusPatternsPartitionTheCorpusTests: the corpus shard and the two corpus-sweep shards are
-// tests/corpus split by RACE_CORPUS_SWEEP, whose tests the two part patterns divide one each. Which
-// models a part sweeps is tests/corpus's own TestSweepPartsPartitionTheExamples.
+// TestCorpusPatternsPartitionTheCorpusTests: RACE_CORPUS_SWEEP splits tests/corpus into the corpus shard and the sweep
+// tests, which the two part patterns divide one each; TestSweepPartsPartitionTheExamples there holds the models.
 func TestCorpusPatternsPartitionTheCorpusTests(t *testing.T) {
 	sweep, tests := corpusPatternPartitions(t, "RACE_CORPUS_SWEEP", makefileSweep, circleSweep, "corpussweep=", raceCorpusDir, 10)
 	committed, _ := corpusPatternPartitions(t, "RACE_CORPUS_SWEEP_COMMITTED", makefileCommitted, circleCommitted, "sweepcommitted=", raceCorpusDir, 10)

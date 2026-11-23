@@ -373,9 +373,8 @@ RACE_EXPORT_CORPUS := ^TestAPIJSONWritersNeverEmitNameReferences$$
 # tests/export's two parallel per-file sweeps: 60 and 27 of the remainder's 103 CPU-minutes under -race (37 minutes wall), so a shard each.
 RACE_EXPORT_LIBRARY := ^TestLibraryFilesComeBackFromTheGraphAlone$$
 RACE_EXPORT_EXAMPLES := ^TestExamplesCorpusInvariants$$
-# The corpus-sweep shards: tests/corpus's one load of every example model, on which it checks the two round
-# trips, settled collections and the gRPC agreement. Whole it passed 55 minutes under -race, so the committed
-# models and the downloaded corpora are a shard each; corpus is the rest of the package.
+# The corpus-sweep shards: tests/corpus's load of every example model (round trips, settled collections, gRPC agreement).
+# Whole it passed 55 minutes under -race, so the committed models and the downloaded corpora are a shard each; corpus is the rest.
 RACE_CORPUS_SWEEP_COMMITTED := ^TestExamplesSweepCommitted$$
 RACE_CORPUS_SWEEP_CORPORA := ^TestExamplesSweepCorpora$$
 RACE_CORPUS_SWEEP := ^Test(ExamplesSweepCommitted|ExamplesSweepCorpora)$$
