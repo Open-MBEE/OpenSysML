@@ -1735,13 +1735,14 @@ func (w *featureValueWalk) expandNested(lines []string, fv *runtime.FeatureValue
 		if w.listing[nested.ID] {
 			continue
 		}
-		if w.budget <= reserved {
+		// A collection's members are listed one after another, so each is headed
+		// by the object it is; a single value's row already names its object.
+		heading := held.heading()
+		if w.budget <= reserved+held.headingLines() {
 			return w.truncate(lines, memberIndent)
 		}
 		w.budget -= reserved
-		// A collection's members are listed one after another, so each is headed
-		// by the object it is; a single value's row already names its object.
-		if heading := held.heading(); heading != "" {
+		if heading != "" {
 			lines = w.emit(lines, memberIndent+heading)
 			memberIndent += "  "
 		}
@@ -1797,12 +1798,16 @@ func (w *featureValueWalk) behaviorLines(inst *runtime.Instance, behaviors []run
 			continue
 		}
 		for _, held := range heldInstances(w.ctx, fv) {
-			occurrence := held.inst
-			if w.budget <= 0 {
-				return w.truncate(lines, rowIndent+"  ")
+			occurrence, occurrenceIndent := held.inst, rowIndent+"  "
+			if w.budget <= held.headingLines() {
+				return w.truncate(lines, occurrenceIndent)
+			}
+			if heading := held.heading(); heading != "" {
+				lines = w.emit(lines, occurrenceIndent+heading)
+				occurrenceIndent += "  "
 			}
 			w.onPath[occurrence.Type] = true
-			lines = append(lines, w.rows(occurrence, rowIndent+"  ", depth+1, false)...)
+			lines = append(lines, w.rows(occurrence, occurrenceIndent, depth+1, false)...)
 			delete(w.onPath, occurrence.Type)
 		}
 	}
@@ -1991,6 +1996,15 @@ func (h heldInstance) heading() string {
 		return ""
 	}
 	return fmt.Sprintf("[%d] %s", h.position, formatValue(nil, runtime.Value{Kind: runtime.ValInstance, Instance: h.inst.ID}))
+}
+
+// headingLines is the lines the heading takes: a member is not headed unless a
+// line of its own is left to list beneath the heading.
+func (h heldInstance) headingLines() int {
+	if h.position == 0 {
+		return 0
+	}
+	return 1
 }
 
 // heldInstances returns the instances a feature value holds, one or a collection.

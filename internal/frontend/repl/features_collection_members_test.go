@@ -1,6 +1,7 @@
 package repl
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -48,4 +49,49 @@ func TestFeaturesMemberHeadingsSpendTheLineBudget(t *testing.T) {
 	if headings != 40 {
 		t.Errorf("whole listing heads %d members, want 40", headings)
 	}
+}
+
+// A behavior performed several times runs once per occurrence; each occurrence's
+// values are headed as a collection member's are, and a single run's are not.
+func TestFeaturesHeadsRepeatedBehaviorOccurrences(t *testing.T) {
+	s := loadSource(t, `package Repeated {
+		action def Run { attribute n : ScalarValues::Integer = 1; }
+		part def Machine { perform action run : Run [2]; perform action once : Run; }
+	}`)
+	run(t, s, "%instantiate Repeated::Machine")
+	got := run(t, s, "%features Repeated::Machine all")
+	wantsInOrder(t, got,
+		"\n  run: performed action, completed\n    [1] Instance(ID: ",
+		"\n      n = 1\n",
+		"\n    [2] Instance(ID: ",
+		"\n      n = 1\n",
+		"\n  once: performed action, completed\n    n = 1\n",
+	)
+}
+
+// A heading is emitted only where a line beneath it is left, whichever row of
+// a member the bound falls on; the leading attributes move where it falls.
+func TestFeaturesMemberHeadingLeavesALineBeneath(t *testing.T) {
+	for lead := range 6 {
+		s := loadSource(t, fmt.Sprintf(`package Rack {
+			part def Slot { attribute number : ScalarValues::Integer = 1; }
+			part def Shelf { %s part slots : Slot [150]; attribute label : ScalarValues::Integer = 9; }
+		}`, leadingAttributes(lead)))
+		run(t, s, "%instantiate Rack::Shelf")
+		lines := strings.Split(run(t, s, "%features Rack::Shelf"), "\n")
+		for i, line := range lines {
+			if strings.Contains(line, "] Instance(ID: ") && (i+1 == len(lines) || !strings.Contains(lines[i+1], "number = 1")) {
+				t.Errorf("%d leading: heading %q is not followed by its member's features", lead, line)
+			}
+		}
+		wants(t, strings.Join(lines, "\n"), "\n  label = 9")
+	}
+}
+
+func leadingAttributes(n int) string {
+	var b strings.Builder
+	for i := range n {
+		fmt.Fprintf(&b, "attribute a%d : ScalarValues::Integer = 8; ", i)
+	}
+	return b.String()
 }
