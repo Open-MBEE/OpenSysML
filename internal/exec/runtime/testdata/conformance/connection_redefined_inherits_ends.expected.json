@@ -1,0 +1,19 @@
+{
+  "type": "instance",
+  "instantiate": "test::System",
+  "libraries": true,
+  "slots": {
+    "slot1.installation": {"type": "Instance"},
+    "slot2.fitted": {"type": "Instance"}
+  },
+  "identical": [
+    ["slot1.installation.slot", "slot1"],
+    ["slot1.installation.module", "module1"],
+    ["slot2.fitted.slot", "slot2"],
+    ["slot2.fitted.module", "module2"]
+  ],
+  "distinct": [
+    ["slot1.installation", "slot2.fitted"],
+    ["slot1.installation.module", "slot2.fitted.module"]
+  ]
+}

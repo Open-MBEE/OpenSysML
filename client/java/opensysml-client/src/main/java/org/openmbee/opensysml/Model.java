@@ -110,6 +110,7 @@ public final class Model {
   public static final String IMPORT_AS_VALUES = "values";
 
   private static final String EXPLORE = "explore";
+  private static final String NAME_EXPRESSION = "expression";
   private static final String NAME_SUBJECT_SYMBOL_ID = "subjectSymbolId";
   private static final String NAME_SYMBOL_ID = "symbolId";
   private static final String NAME_OPTIONS = "options";
@@ -2003,7 +2004,7 @@ public final class Model {
    */
   public DocumentQueryResult runInlineDocumentQuery(
       String expression, Map<String, List<DocumentValue>> bindings) {
-    Objects.requireNonNull(expression, "expression");
+    Objects.requireNonNull(expression, NAME_EXPRESSION);
     connection.capabilities().require(Capabilities.INLINE_DOCUMENT_QUERY);
     return runDocumentQuery(
         RunDocumentQueryRequest.newBuilder().setModelHash(hash).setInlineQuery(expression),
@@ -2043,7 +2044,7 @@ public final class Model {
    */
   public DocumentQueryResult runInlineDocumentQueryAsView(
       String expression, Map<String, List<DocumentValue>> bindings) {
-    Objects.requireNonNull(expression, "expression");
+    Objects.requireNonNull(expression, NAME_EXPRESSION);
     connection.capabilities().require(Capabilities.INLINE_DOCUMENT_QUERY);
     connection.capabilities().require(Capabilities.QUERY_RESULT_VIEW);
     return runDocumentQuery(
@@ -2509,7 +2510,7 @@ public final class Model {
   }
 
   private EvaluateRequest.Builder request(String expression) {
-    Objects.requireNonNull(expression, "expression");
+    Objects.requireNonNull(expression, NAME_EXPRESSION);
     return EvaluateRequest.newBuilder().setModelHash(hash).setExpression(expression);
   }
 

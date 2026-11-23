@@ -148,6 +148,17 @@ final class PublishAction extends MDAction {
     return row + 1;
   }
 
+  /** Publishes against the head last seen and, once the user confirms a moved branch, onto it as it is. */
+  private Optional<Publisher.Result> publishOnto(
+      ModelSource source, Publisher publisher, Request request, Publisher.LastSeen seen, ProgressStatus status) {
+    try {
+      return engine.get().publish(source, publisher, target(request, seen), status::isCancel);
+    } catch (Publisher.BranchMovedException moved) {
+      if (!confirm(moved.getMessage() + ".\n\nPublish onto the branch as it is now?")) throw moved;
+      return engine.get().publish(source, publisher, target(request, Publisher.LastSeen.NEVER), status::isCancel);
+    }
+  }
+
   /** Runs off the EDT under the progress dialog; only the dialogs hop back onto it. */
   private void publish(
       ModelSource source, SysmlApiClient client, Request request, PublishSettings settings, ProgressStatus status) {
@@ -156,13 +167,7 @@ final class PublishAction extends MDAction {
     Publisher publisher = new Publisher(client);
     Optional<Publisher.Result> result;
     try {
-      Publisher.LastSeen seen = (id, branch) -> settings.lastSeen(url, id, branch);
-      try {
-        result = engine.get().publish(source, publisher, target(request, seen), status::isCancel);
-      } catch (Publisher.BranchMovedException moved) {
-        if (!confirm(moved.getMessage() + ".\n\nPublish onto the branch as it is now?")) throw moved;
-        result = engine.get().publish(source, publisher, target(request, Publisher.LastSeen.NEVER), status::isCancel);
-      }
+      result = publishOnto(source, publisher, request, (id, branch) -> settings.lastSeen(url, id, branch), status);
     } catch (RuntimeException failure) {
       closeQuietly(source, failure);
       String text = message(failure);

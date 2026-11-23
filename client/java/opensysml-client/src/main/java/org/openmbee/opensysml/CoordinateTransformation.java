@@ -27,6 +27,8 @@ public record CoordinateTransformation(
     Optional<CoordinateFrame> target,
     Optional<Shape> shape,
     Optional<Pose> pose) {
+  private static final String NAME_INSTANCE_ID = "instanceId";
+
   /**
    * Creates a coordinate transformation.
    *
@@ -43,7 +45,7 @@ public record CoordinateTransformation(
     Objects.requireNonNull(name, "name");
     Objects.requireNonNull(transformationId, "transformationId");
     Objects.requireNonNull(typeId, "typeId");
-    Objects.requireNonNull(instanceId, "instanceId");
+    Objects.requireNonNull(instanceId, NAME_INSTANCE_ID);
     Objects.requireNonNull(source, "source");
     Objects.requireNonNull(target, "target");
     Objects.requireNonNull(shape, "shape");
@@ -157,7 +159,7 @@ public record CoordinateTransformation(
      */
     public Translation {
       Objects.requireNonNull(translation, "translation");
-      Objects.requireNonNull(instanceId, "instanceId");
+      Objects.requireNonNull(instanceId, NAME_INSTANCE_ID);
     }
 
     // Whatever object the step was read from.
@@ -194,7 +196,7 @@ public record CoordinateTransformation(
     public Rotation {
       Objects.requireNonNull(axisDirection, "axisDirection");
       Objects.requireNonNull(angle, "angle");
-      Objects.requireNonNull(instanceId, "instanceId");
+      Objects.requireNonNull(instanceId, NAME_INSTANCE_ID);
     }
 
     // Whatever object the step was read from.
