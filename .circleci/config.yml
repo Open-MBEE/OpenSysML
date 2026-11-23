@@ -339,6 +339,20 @@ commands:
           paths:
             - build/pilot-library-xmi
 
+      # The normative SysML.json, measured against by tests/export.
+      - restore_cache:
+          keys:
+            - omg-json-schema-v1-{{ checksum "scripts/download-omg-json-schema.sh" }}
+
+      - run:
+          name: Download the OMG JSON schema
+          command: ./scripts/download-omg-json-schema.sh
+
+      - save_cache:
+          key: omg-json-schema-v1-{{ checksum "scripts/download-omg-json-schema.sh" }}
+          paths:
+            - build/omg-json-schema
+
       # The Modelica Reference-FMUs, gated by tests/fmi and the Python runner's
       # real test; pinned by tag and checksum like the corpora above.
       - restore_cache:
@@ -791,6 +805,7 @@ jobs:
             OPENSYSML_REQUIRE_SYSML_V1TOV2: "1"
             OPENSYSML_REQUIRE_FUML_SUITE: "1"
             OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
+            OPENSYSML_REQUIRE_OMG_JSON_SCHEMA: "1"
             # Same for the solver installed above: absent means failure, not skip.
             OPENSYSML_REQUIRE_SMT: "1"
             # Same for Node, which the executor carries: the WebAssembly gate runs
@@ -893,6 +908,7 @@ jobs:
             OPENSYSML_REQUIRE_SYSML_V1TOV2: "1"
             OPENSYSML_REQUIRE_FUML_SUITE: "1"
             OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
+            OPENSYSML_REQUIRE_OMG_JSON_SCHEMA: "1"
             OPENSYSML_REQUIRE_SMT: "1"
             # Node is on the executor, so the WebAssembly gate runs rather than
             # skips without a runtime (tests/wasm).

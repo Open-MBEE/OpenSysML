@@ -77,6 +77,12 @@ migrator is gated over: fetch it with `./scripts/download-pssm-suite.sh` and run
 variable must run the matching download script first; the scripts are idempotent, and none
 reports success over an empty corpus.
 
+The normative OMG `SysML.json` gates the `api-json` element form the same way: fetch it with
+`./scripts/download-omg-json-schema.sh` and run
+`go test -count=1 ./tests/export -run TestAPIJSONNormativeSchema`. CI sets
+`OPENSYSML_REQUIRE_OMG_JSON_SCHEMA=1`. Its baseline may only shrink over the same elements; re-record a
+movement toward the schema with `-update-normative-schema`.
+
 The Modelica Reference-FMUs gate the FMI integration the same way: fetch them with
 `./scripts/download-reference-fmus.sh` (into `examples/reference-fmus/`, gitignored), install
 the runner's simulator with `pip install fmpy`, and run
