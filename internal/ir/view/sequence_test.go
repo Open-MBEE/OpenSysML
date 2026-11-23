@@ -471,3 +471,36 @@ func TestSequenceRenderingReportsExposedBehavior(t *testing.T) {
 		t.Errorf("notices = %v, want the exposed action reported", rendering.Notices)
 	}
 }
+
+// An exposed action a message reaches stays a lifeline carrying that message,
+// without its control flow drawn on it.
+func TestSequenceRenderingKeepsBehaviorAMessageReaches(t *testing.T) {
+	const text = `package Demo {
+	item def Ping;
+	action def Run {
+		event occurrence sent;
+		first start;
+		then action step;
+	}
+	part server {
+		event occurrence got;
+	}
+	message ping of Ping from Run.sent to server.got;
+}
+`
+	r, idx := loadSources(t, []string{"inline.sysml"}, [][]byte{[]byte(text)})
+	exposed := []*symbols.Symbol{lookup(t, idx, "Demo::Run"), lookup(t, idx, "Demo::server"), lookup(t, idx, "Demo::ping")}
+	rendering, err := r.RenderExposed(exposed, KindSequence, "#sequence")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if len(rendering.Roots) != 2 || rendering.Roots[0].Kind != "action def" {
+		t.Fatalf("lifelines = %v, want the action a message reaches and the part's event", lifelineNames(rendering))
+	}
+	if len(rendering.Edges) != 1 || rendering.Edges[0].Label != "ping of Ping" {
+		t.Errorf("edges = %v, want the one message and no control flow", rendering.Edges)
+	}
+	if len(rendering.Notices) != 0 {
+		t.Errorf("notices = %v, want none", rendering.Notices)
+	}
+}
