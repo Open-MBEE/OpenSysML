@@ -107,6 +107,11 @@ end
             """)
             for input in (NaN, Inf, -Inf, -0.0)
                 output = execute_action(model, "Wire::Echo"; inputs=Dict("data" => input))["result"]
+                # The service reads a positive infinity as `*`, so it answers on the infinity arm.
+                if input == Inf
+                    @test output === Infinity()
+                    continue
+                end
                 @test output isa Float64
                 if isnan(input)
                     @test isnan(output)
