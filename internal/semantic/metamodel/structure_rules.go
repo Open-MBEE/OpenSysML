@@ -4238,48 +4238,8 @@ func (e *Evaluator) structureDirectionThrough(
 		return ast.DirNone, false
 	}
 	visited[owner.Key()] = true
-	if isConjugatedPortDefinition, known := e.isMetaclass(owner, "ConjugatedPortDefinition"); known &&
-		isConjugatedPortDefinition {
-		original, ok := e.Property(owner, "ConjugatedPortDefinition", "originalPortDefinition")
-		if !ok || original.Kind != ElementValue {
-			return ast.DirNone, false
-		}
-		direction, ok := e.structureDirectionThrough(original.Element, feature, visited)
-		if !ok {
-			return ast.DirNone, false
-		}
-		return semantics.ConjugateDirection(direction), true
-	}
-	// A feature the port owns keeps its own direction; a typing reverses only what it inherits.
-	if isPortUsage, known := e.isMetaclass(owner, "PortUsage"); known && isPortUsage && !e.structureKnownToOwnFeature(owner, feature) {
-		relationships, known := e.options.Structure.OwnedRelationships(owner)
-		if !known {
-			return ast.DirNone, false
-		}
-		for _, relationship := range relationships {
-			isConjugatedTyping, known := e.isMetaclass(relationship, "ConjugatedPortTyping")
-			if !known {
-				return ast.DirNone, false
-			}
-			if !isConjugatedTyping {
-				continue
-			}
-			conjugated, known := e.relationshipEndpoints(relationship, "conjugatedPortDefinition")
-			if !known || len(conjugated) != 1 || conjugated[0].Kind != ElementValue {
-				return ast.DirNone, false
-			}
-			original, ok := e.Property(
-				conjugated[0].Element, "ConjugatedPortDefinition", "originalPortDefinition",
-			)
-			if !ok || original.Kind != ElementValue {
-				return ast.DirNone, false
-			}
-			direction, ok := e.structureDirectionThrough(original.Element, feature, visited)
-			if !ok {
-				return ast.DirNone, false
-			}
-			return semantics.ConjugateDirection(direction), true
-		}
+	if direction, ok, settled := e.structureConjugatedDirection(owner, feature, visited); settled {
+		return direction, ok
 	}
 
 	featureSymbol := e.structureElementSymbol(feature)
@@ -4290,23 +4250,97 @@ func (e *Evaluator) structureDirectionThrough(
 			return e.structureDirectionThrough(general, feature, visited)
 		}
 	}
-	if ownerSymbol != nil {
-		if featureSymbol != nil {
-			portUsage, portUsageKnown := e.isMetaclass(owner, "PortUsage")
-			portDefinition, portDefinitionKnown := e.isMetaclass(owner, "PortDefinition")
-			if e.model != nil && (portUsageKnown && portUsage || portDefinitionKnown && portDefinition) {
-				for _, portFeature := range e.model.PortFeatures(ownerSymbol) {
-					if portFeature.Symbol == featureSymbol {
-						return portFeature.Direction, true
-					}
-				}
+	if ownerSymbol != nil && featureSymbol != nil {
+		if direction, settled := e.structureModelDirection(owner, ownerSymbol, featureSymbol); settled {
+			return direction, true
+		}
+	}
+	if direction, ok, settled := e.structureStatedDirection(feature); settled {
+		return direction, ok
+	}
+	if featureSymbol != nil && e.model != nil {
+		if direction, settled := e.structureDeclaredDirection(ownerSymbol, featureSymbol); settled {
+			return direction, true
+		}
+	}
+	return e.structureMembershipDirection(feature)
+}
+
+// structureConjugatedDirection is the direction of feature read through a conjugation of owner: a
+// conjugated port definition, or a port usage's conjugated typing of a feature it does not own,
+// reverses the direction the original definition gives. settled is false when owner conjugates nothing.
+func (e *Evaluator) structureConjugatedDirection(
+	owner, feature Element, visited map[ElementKey]bool,
+) (direction ast.FeatureDirection, ok, settled bool) {
+	if isConjugatedPortDefinition, known := e.isMetaclass(owner, "ConjugatedPortDefinition"); known &&
+		isConjugatedPortDefinition {
+		original, ok := e.Property(owner, "ConjugatedPortDefinition", "originalPortDefinition")
+		if !ok || original.Kind != ElementValue {
+			return ast.DirNone, false, true
+		}
+		direction, ok := e.structureDirectionThrough(original.Element, feature, visited)
+		if !ok {
+			return ast.DirNone, false, true
+		}
+		return semantics.ConjugateDirection(direction), true, true
+	}
+	// A feature the port owns keeps its own direction; a typing reverses only what it inherits.
+	if isPortUsage, known := e.isMetaclass(owner, "PortUsage"); known && isPortUsage && !e.structureKnownToOwnFeature(owner, feature) {
+		relationships, known := e.options.Structure.OwnedRelationships(owner)
+		if !known {
+			return ast.DirNone, false, true
+		}
+		for _, relationship := range relationships {
+			isConjugatedTyping, known := e.isMetaclass(relationship, "ConjugatedPortTyping")
+			if !known {
+				return ast.DirNone, false, true
 			}
-			direction := e.model.EffectiveDirection(ownerSymbol, featureSymbol)
-			if direction != ast.DirNone {
-				return direction, true
+			if !isConjugatedTyping {
+				continue
+			}
+			conjugated, known := e.relationshipEndpoints(relationship, "conjugatedPortDefinition")
+			if !known || len(conjugated) != 1 || conjugated[0].Kind != ElementValue {
+				return ast.DirNone, false, true
+			}
+			original, ok := e.Property(
+				conjugated[0].Element, "ConjugatedPortDefinition", "originalPortDefinition",
+			)
+			if !ok || original.Kind != ElementValue {
+				return ast.DirNone, false, true
+			}
+			direction, ok := e.structureDirectionThrough(original.Element, feature, visited)
+			if !ok {
+				return ast.DirNone, false, true
+			}
+			return semantics.ConjugateDirection(direction), true, true
+		}
+	}
+	return ast.DirNone, false, false
+}
+
+// structureModelDirection is the direction the model gives featureSymbol within ownerSymbol: a
+// port's own feature direction, else the effective one. settled is false when the model gives none.
+func (e *Evaluator) structureModelDirection(
+	owner Element, ownerSymbol, featureSymbol *symbols.Symbol,
+) (ast.FeatureDirection, bool) {
+	portUsage, portUsageKnown := e.isMetaclass(owner, "PortUsage")
+	portDefinition, portDefinitionKnown := e.isMetaclass(owner, "PortDefinition")
+	if e.model != nil && (portUsageKnown && portUsage || portDefinitionKnown && portDefinition) {
+		for _, portFeature := range e.model.PortFeatures(ownerSymbol) {
+			if portFeature.Symbol == featureSymbol {
+				return portFeature.Direction, true
 			}
 		}
 	}
+	direction := e.model.EffectiveDirection(ownerSymbol, featureSymbol)
+	if direction != ast.DirNone {
+		return direction, true
+	}
+	return ast.DirNone, false
+}
+
+// structureStatedDirection is the direction the graph states on feature. settled is false when it states none.
+func (e *Evaluator) structureStatedDirection(feature Element) (parsed ast.FeatureDirection, ok, settled bool) {
 	value, ok := e.options.Structure.Attribute(feature, "direction")
 	var direction string
 	if ok {
@@ -4317,44 +4351,51 @@ func (e *Evaluator) structureDirectionThrough(
 			direction = value.String
 		case NullValue:
 		default:
-			return ast.DirNone, false
+			return ast.DirNone, false, true
 		}
 	}
 	switch direction {
 	case ast.DirIn.String():
-		return ast.DirIn, true
+		return ast.DirIn, true, true
 	case ast.DirOut.String():
-		return ast.DirOut, true
+		return ast.DirOut, true, true
 	case ast.DirInOut.String():
-		return ast.DirInOut, true
+		return ast.DirInOut, true, true
 	case ast.DirNone.String():
-		return ast.DirNone, true
+		return ast.DirNone, true, true
 	}
+	return ast.DirNone, false, false
+}
 
-	if featureSymbol != nil && e.model != nil {
-		if ownerSymbol == nil {
-			if declaringOwner := featureSymbol.Owner(); declaringOwner != nil {
-				if direction := e.model.EffectiveDirection(declaringOwner, featureSymbol); direction != ast.DirNone {
-					return direction, true
-				}
+// structureDeclaredDirection is the direction featureSymbol's declaration gives it. settled is false when it gives none.
+func (e *Evaluator) structureDeclaredDirection(ownerSymbol, featureSymbol *symbols.Symbol) (ast.FeatureDirection, bool) {
+	if ownerSymbol == nil {
+		if declaringOwner := featureSymbol.Owner(); declaringOwner != nil {
+			if direction := e.model.EffectiveDirection(declaringOwner, featureSymbol); direction != ast.DirNone {
+				return direction, true
 			}
 		}
-		if direction := e.model.DeclaredDirection(featureSymbol); direction != ast.DirNone {
-			return direction, true
-		}
-		// A parameter takes its membership's parameterDirection(): out for a return, else in (KerML 8.3.4.6.4).
-		kind := e.model.MembershipMetaclassOf(featureSymbol.Owner(), featureSymbol)
-		switch {
-		case kind == "ReturnParameterMembership" || e.options.Structure.Specializes(kind, "ReturnParameterMembership"):
-			return ast.DirOut, true
-		case kind == "ParameterMembership" || e.options.Structure.Specializes(kind, "ParameterMembership"):
-			return ast.DirIn, true
-		}
-		if ownerSymbol == nil && featureSymbol.Owner() != nil {
-			return ast.DirNone, true
-		}
 	}
+	if direction := e.model.DeclaredDirection(featureSymbol); direction != ast.DirNone {
+		return direction, true
+	}
+	// A parameter takes its membership's parameterDirection(): out for a return, else in (KerML 8.3.4.6.4).
+	kind := e.model.MembershipMetaclassOf(featureSymbol.Owner(), featureSymbol)
+	switch {
+	case kind == "ReturnParameterMembership" || e.options.Structure.Specializes(kind, "ReturnParameterMembership"):
+		return ast.DirOut, true
+	case kind == "ParameterMembership" || e.options.Structure.Specializes(kind, "ParameterMembership"):
+		return ast.DirIn, true
+	}
+	if ownerSymbol == nil && featureSymbol.Owner() != nil {
+		return ast.DirNone, true
+	}
+	return ast.DirNone, false
+}
 
+// structureMembershipDirection is the parameterDirection() of feature's owning membership: out for a
+// return parameter, in for a parameter, none otherwise.
+func (e *Evaluator) structureMembershipDirection(feature Element) (ast.FeatureDirection, bool) {
 	membership, handled, known := e.structureOwningMembership(feature)
 	if !handled || !known {
 		return ast.DirNone, false
