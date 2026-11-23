@@ -4498,6 +4498,9 @@ var headClauseKinds = map[string][]ast.RelationshipKind{
 	mUnioning:             {ast.RelUnions},
 	mIntersecting:         {ast.RelIntersects},
 	mDifferencing:         {ast.RelDifferences},
+	mDisjoining:           {ast.RelDisjoint},
+	mFeatureInverting:     {ast.RelInverseOf},
+	mTypeFeaturing:        {ast.RelFeaturedBy},
 }
 
 // headClauseTargets are the properties that state a relationship element's
@@ -4515,6 +4518,9 @@ var headClauseTargets = map[string][]string{
 	mUnioning:             {"unioningType", pTarget},
 	mIntersecting:         {"intersectingType", pTarget},
 	mDifferencing:         {"differencingType", pTarget},
+	mDisjoining:           {"disjoiningType", pTarget},
+	mFeatureInverting:     {"invertingFeature", pTarget},
+	mTypeFeaturing:        {"featuringType", pTarget},
 }
 
 // spelledHead reads the order el's head was spelled from what el owns in

@@ -77,8 +77,6 @@ AttributeUsage::definition	368	symbol-37
 AttributeUsage::differencingType	1	symbol-45
 AttributeUsage::intersectingType	1	symbol-45
 AttributeUsage::ownedConjugator	1	symbol-45
-AttributeUsage::ownedFeatureInverting	5	symbol-45
-AttributeUsage::ownedTypeFeaturing	5	symbol-45
 AttributeUsage::owningDefinition	1	symbol-45
 AttributeUsage::owningFeatureMembership	2	symbol-45
 AttributeUsage::owningType	2	symbol-45
@@ -89,7 +87,6 @@ Behavior::step	9	symbol-24
 BindingConnectorAsUsage::association	36	symbol-20
 BindingConnectorAsUsage::defaultFeaturingType	35	symbol-39
 BindingConnectorAsUsage::definition	20	symbol-37
-BindingConnectorAsUsage::ownedTypeFeaturing	2	symbol-45
 BindingConnectorAsUsage::owningFeatureMembership	2	symbol-45
 BindingConnectorAsUsage::owningType	2	symbol-45
 BindingConnectorAsUsage::type	36	symbol-19
@@ -584,7 +581,6 @@ SuccessionAsUsage::ownedFeature	4	symbol-58
 SuccessionAsUsage::ownedFeatureMembership	4	symbol-58
 SuccessionAsUsage::ownedMember	4	symbol-58
 SuccessionAsUsage::ownedMembership	4	symbol-58
-SuccessionAsUsage::ownedTypeFeaturing	1	symbol-45
 SuccessionAsUsage::owningFeatureMembership	1	symbol-45
 SuccessionAsUsage::owningType	1	symbol-45
 SuccessionAsUsage::relatedElement	196	symbol-10
@@ -622,7 +618,6 @@ TransitionUsage::type	169	symbol-19
 TriggerInvocationExpression::instantiatedType	48	symbol-29
 TriggerInvocationExpression::operand	48	symbol-30
 Type::ownedConjugator	3	symbol-45
-Type::ownedDisjoining	3	symbol-45
 Usage::definition	4	symbol-37
 Usage::owningDefinition	3	symbol-45
 Usage::type	4	symbol-19
