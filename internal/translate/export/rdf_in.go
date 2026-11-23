@@ -4555,15 +4555,24 @@ func (d *decoder) spelledHead(el *element) []headClause {
 		if len(targets) == 0 {
 			continue
 		}
-		var candidates []headClause
+		var candidates, repeated []headClause
 		for _, kind := range headClauseKinds[metaclass] {
 			for index, object := range objects[kind] {
 				clause := headClause{kind: kind, index: index}
-				if slices.Contains(targets, object) && !taken[clause] {
-					candidates = append(candidates, clause)
-					break
+				if !slices.Contains(targets, object) {
+					continue
 				}
+				if taken[clause] {
+					repeated = append(repeated, clause)
+					continue
+				}
+				candidates = append(candidates, clause)
+				break
 			}
+		}
+		// A relationship whose every clause is taken repeats one (`: T, T`).
+		if len(candidates) == 0 {
+			candidates = repeated
 		}
 		if clause, ok := d.headClauseOf(owned, candidates); ok {
 			taken[clause] = true
