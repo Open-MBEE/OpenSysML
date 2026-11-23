@@ -49,6 +49,27 @@ func TestNPR7150MappingMissingJustification(t *testing.T) {
 	w8dWantLines(t, src, CodeNPR7150MappingNoJustification, 5, 6)
 }
 
+// Each annotation of a usage is its own entry: a justified one does not excuse another.
+func TestNPR7150MappingAnnotationsAreSeparate(t *testing.T) {
+	src := npr7150Model(`
+		requirement a : SWE141 {
+			@RequirementMapping { comply = MappingKind::notApplicable; }
+			@RequirementMapping { comply = MappingKind::fullyCompliant; justification = "Covered by the parent project."; }
+		}`)
+	w8dWantLines(t, src, CodeNPR7150MappingNoJustification, 4)
+}
+
+// An entry that states no disposition does not address its requirement in the matrix.
+func TestNPR7150MatrixBlankDisposition(t *testing.T) {
+	matrix := "\n\t\tpart def Matrix :> RequirementsMappingMatrix { :>> softwareClass = SoftwareClass::E; }\n\t\tpart matrix : Matrix;"
+	src := npr7150Model(matrix + npr7150Entries(npr7150ClassE[1:]...) +
+		"\n\t\trequirement swe033 : SWE033 { @RequirementMapping { justification = \"Pending.\"; } }")
+	diags := only(w8dDiags(t, src), CodeNPR7150MatrixMissingRequirement)
+	if len(diags) != 1 || !strings.Contains(diags[0].Message, "1 NPR 7150.2D requirement(s)") || !strings.Contains(diags[0].Message, "SWE033") {
+		t.Fatalf("got %v, want one finding naming SWE033", diags)
+	}
+}
+
 // npr7150Entries states a fully compliant mapping entry for each SWE number.
 func npr7150Entries(numbers ...string) string {
 	var b strings.Builder

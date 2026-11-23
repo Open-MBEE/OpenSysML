@@ -72,8 +72,9 @@ type npr7150Requirement struct {
 
 // npr7150Mapping is one @RequirementMapping entry of the document.
 type npr7150Mapping struct {
-	usage  *symbols.Symbol
-	comply string
+	usage     *symbols.Symbol
+	comply    string
+	justified bool
 }
 
 type npr7150Audit struct {
@@ -197,42 +198,43 @@ func (a *npr7150Audit) safetyCritical(sym *symbols.Symbol) bool {
 	return false
 }
 
-// mapping reads the @RequirementMapping annotation of sym; ok is false when it carries none.
-func (a *npr7150Audit) mapping(sym *symbols.Symbol) (comply string, justified, ok bool) {
+// mappingEntries reads the @RequirementMapping annotations of sym, one entry per annotation,
+// so one annotation's disposition or justification never stands in for another's.
+func (a *npr7150Audit) mappingEntries(sym *symbols.Symbol) []npr7150Mapping {
+	var entries []npr7150Mapping
 	for _, facts := range a.model.AnnotationFactsOf(sym) {
 		if !a.annotationIs(facts, npr7150RequirementMapping) {
 			continue
 		}
-		ok = true
+		entry := npr7150Mapping{usage: sym}
 		for _, v := range facts.Values {
 			switch v.Feature {
 			case "comply":
-				comply = npr7123Literal(v.Value, npr7150MappingKind)
+				entry.comply = npr7123Literal(v.Value, npr7150MappingKind)
 			case "justification":
-				justified = v.Value.Kind == symbols.FilterValueString && v.Value.Str != ""
+				entry.justified = v.Value.Kind == symbols.FilterValueString && v.Value.Str != ""
 			}
 		}
+		entries = append(entries, entry)
 	}
-	return comply, justified, ok
+	return entries
 }
 
 func (a *npr7150Audit) check(root *symbols.Scope) {
 	var matrices, safetyCriticalSystems []*symbols.Symbol
 	var mappings []npr7150Mapping
 	kit.WalkSymbols(a.ctx, root, func(sym *symbols.Symbol) {
-		comply, justified, mapped := a.mapping(sym)
-		if mapped {
-			if (comply == npr7150MappingTailored || comply == npr7150MappingNotApplicable) && !justified {
+		entries := a.mappingEntries(sym)
+		for _, entry := range entries {
+			if (entry.comply == npr7150MappingTailored || entry.comply == npr7150MappingNotApplicable) && !entry.justified {
 				a.report(sym, CodeNPR7150MappingNoJustification, fmt.Sprintf(
-					"This mapping entry is marked %s with no justification: NPR 7150.2D Appendix C has a requirement tailored out of the Requirements Mapping Matrix carry its justification, and section 2.2.5 asks a request for relief for its rationale, so give the `@RequirementMapping` annotation a `justification`.", comply))
+					"This mapping entry is marked %s with no justification: NPR 7150.2D Appendix C has a requirement tailored out of the Requirements Mapping Matrix carry its justification, and section 2.2.5 asks a request for relief for its rationale, so give the `@RequirementMapping` annotation a `justification`.", entry.comply))
 			}
 		}
 		if _, ok := sym.Decl.(*ast.Usage); !ok {
 			return
 		}
-		if mapped {
-			mappings = append(mappings, npr7150Mapping{usage: sym, comply: comply})
-		}
+		mappings = append(mappings, entries...)
 		types := a.model.FeatureTypeSet(sym)
 		switch {
 		case a.anyConformsTo(types, npr7150SoftwareSystem):
@@ -301,7 +303,8 @@ func (a *npr7150Audit) checkMatrix(matrix *symbols.Symbol, mappings []npr7150Map
 		}
 		covered := false
 		for _, m := range mappings {
-			if a.covers(m, req.def) {
+			// An entry that states no disposition leaves the row's Comply? cell empty.
+			if m.comply != "" && a.covers(m, req.def) {
 				covered = true
 				break
 			}
