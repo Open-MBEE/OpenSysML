@@ -390,7 +390,7 @@ func (ctx *Context) appendSubrequirementConditions(out []Condition, sub *symbols
 // appendRequirementConditions appends what a require/assume member states: the
 // conditions of the constraint it references (`require q;`, `require P::q;`),
 // or else its own condition expression, then those its body owns.
-func (ctx *Context) appendRequirementConditions(out []Condition, member ast.Node, expr ast.Node, body []ast.Node,
+func (ctx *Context) appendRequirementConditions(out []Condition, member, expr ast.Node, body []ast.Node,
 	scope *symbols.Scope, required bool, seen map[*symbols.Symbol]bool) []Condition {
 	if ref := ast.ConstraintReferenceOf(member); ref != nil {
 		return ctx.appendReferencedConditions(out, member, ref, body, scope, required, seen)
@@ -571,7 +571,7 @@ func statementKeyword(node ast.Node) (string, bool) {
 // usage so the arguments its body binds (`require r { in w = unit; }`) are seen.
 // A reference naming anything else, or one that does not resolve, states the
 // condition its name evaluates to, followed by what its body owns.
-func (ctx *Context) appendReferencedConditions(out []Condition, decl ast.Node, ref ast.Node, body []ast.Node,
+func (ctx *Context) appendReferencedConditions(out []Condition, decl, ref ast.Node, body []ast.Node,
 	scope *symbols.Scope, required bool, seen map[*symbols.Symbol]bool) []Condition {
 	sym := ctx.referencedRequirement(scope, decl, ref)
 	if sym == nil {
@@ -623,7 +623,7 @@ func setAssumed(conds []Condition, assumed bool) {
 // referencedRequirement resolves the requirement or constraint the require/assume
 // member decl reference-subsets, and returns nil when the reference names
 // anything else or does not resolve.
-func (ctx *Context) referencedRequirement(scope *symbols.Scope, decl ast.Node, ref ast.Node) *symbols.Symbol {
+func (ctx *Context) referencedRequirement(scope *symbols.Scope, decl, ref ast.Node) *symbols.Symbol {
 	if ctx.model.resolver == nil {
 		return nil
 	}

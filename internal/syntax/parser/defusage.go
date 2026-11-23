@@ -1974,7 +1974,7 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 // from the token stream, kept so a synonym spelling can be told from the
 // canonical one. defKeywordConsumed distinguishes SysML <kind> def from
 // KerML classifier declarations, which share DefinitionKind values.
-func (p *Parser) parseDefinition(start int, kind ast.DefinitionKind, keyword string, mods featureMods, isAll bool, defKeywordConsumed bool) *ast.Definition {
+func (p *Parser) parseDefinition(start int, kind ast.DefinitionKind, keyword string, mods featureMods, isAll, defKeywordConsumed bool) *ast.Definition {
 	p.checkDefinitionPrefix(mods)
 	if kind == ast.DefEnumeration && defKeywordConsumed && mods.defPrefix.Span.Len > 0 {
 		p.error(mods.defPrefix.Span, fmt.Sprintf("'%s' cannot prefix an enumeration definition: an enum def admits no definition prefix and is always a variation",

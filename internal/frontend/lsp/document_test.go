@@ -69,7 +69,7 @@ func openDocumentModel(t *testing.T) (*model.Workspace, *Server, string) {
 	return ws, s, name
 }
 
-func documentPosParams(name string, src, anchor string, t *testing.T) protocol.TextDocumentPositionParams {
+func documentPosParams(name, src, anchor string, t *testing.T) protocol.TextDocumentPositionParams {
 	t.Helper()
 	off := strings.Index(src, anchor)
 	if off < 0 {
