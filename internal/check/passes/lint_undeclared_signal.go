@@ -24,6 +24,8 @@ type UndeclaredSignalPass struct{}
 // all it reads.
 func (UndeclaredSignalPass) Level() PassLevel { return LevelNameResolution }
 
+func (UndeclaredSignalPass) ElementScoped() { /* marker: per-element gating */ }
+
 // Run checks the signal triggers of one workspace document.
 func (UndeclaredSignalPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil || ctx.Index.IsLibraryDocument(name) {

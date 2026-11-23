@@ -1,0 +1,1 @@
+- Expression text (view edges, member summaries, runtime binding and condition labels) now spells collect (`xs.{…}`) and select (`xs.?{…}`) expressions, constructors (`new T(…)`), body expressions, parenthesised sequences, `ref.metadata` and casts (`(as T)`) as the notation writes them, where an expression containing one used to print as nothing or as `?`.
