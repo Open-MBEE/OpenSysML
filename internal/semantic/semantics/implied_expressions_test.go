@@ -26,6 +26,9 @@ const impliedExpressionModel = `package P {
 		feature sequence = (d1, d2);
 		feature unresolved : D = Missing(d1);
 		feature unresolvedNamed : D = Missing(G::b = d1);
+		feature g : G;
+		feature viaFeature : D = g(d1, d2);
+		feature viaFeatureNamed : D = g(b = d1, a = d2);
 		feature foreign : D = O(G::b = d1);
 		feature built : S = new S(py = d1);
 		feature selected = d1.?{in v : D; true};
@@ -77,6 +80,9 @@ func TestExpressionParametersRedefineTheFunctionParameters(t *testing.T) {
 		{"P::E::unresolved", false, [][]string{nil}, []string{"Performances::Evaluation::result"}},
 		// A name that is no parameter of what is invoked binds nothing, however it resolves.
 		{"P::E::unresolvedNamed", true, [][]string{nil}, []string{"Performances::Evaluation::result"}},
+		// A feature typed by a function is invoked through the parameters it inherits.
+		{"P::E::viaFeature", false, [][]string{{"P::G::a"}, {"P::G::b"}}, nil},
+		{"P::E::viaFeatureNamed", true, [][]string{{"P::G::b"}, {"P::G::a"}}, nil},
 		{"P::E::foreign", true, [][]string{nil}, []string{"Performances::Evaluation::result", "P::O::r"}},
 	}
 	for _, tc := range cases {

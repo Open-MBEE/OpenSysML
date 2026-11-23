@@ -87,9 +87,6 @@ func (m *Model) argumentParameter(general *symbols.Symbol, position int, isResul
 		result, _ := m.PositionalParameter(general, 0, true)
 		return result
 	}
-	if !behaviorLike(general) {
-		return nil
-	}
 	if params := m.signatureOf(general).params; position >= 0 && position < len(params) {
 		return params[position].sym
 	}
@@ -116,9 +113,6 @@ func (m *Model) namedArgumentRedefinitions(sym *symbols.Symbol) []*symbols.Symbo
 	var out []*symbols.Symbol
 	scope := m.expressionScopeOf(owner)
 	for _, general := range m.ImpliedSpecializations(owner) {
-		if !behaviorLike(general) {
-			continue
-		}
 		// The name binds as a call binds it: to an input parameter of what is invoked, or to nothing.
 		sig := m.signatureOf(general)
 		if i := m.parameterIndex(scope, sig, name); i >= 0 && sig.params[i].sym != sym && !slices.Contains(out, sig.params[i].sym) {
