@@ -20,9 +20,9 @@ pin in `scripts/pilot-pin.sh`, and the textual examples of the two specification
 | `spec-examples/sysml` | 341 |
 | **total** | **876** |
 
-**Gate:** `TestExamplesSweep` in `tests/corpus/examples_sweep_test.go` loads each file once (the
-verdicts and expectation files are `tests/corpus/roundtrip_test.go`'s) and converts it
-notation → Turtle (hop 1) → notation → Turtle (hop 2) and records one verdict per file in
+**Gate:** `TestExamplesSweepCommitted` and `TestExamplesSweepCorpora` in `tests/corpus/examples_sweep_test.go` between them load each file once (the
+verdicts and expectation files are `tests/corpus/roundtrip_test.go`'s) and convert it
+notation → Turtle (hop 1) → notation → Turtle (hop 2) and record one verdict per file in
 `tests/corpus/testdata/corpus_roundtrip_expected.txt`, so a file whose verdict moves in
 either direction, or that appears or disappears, fails the test
 **Regenerate:** `go test ./tests/corpus -run TestExamplesSweep -update-corpus-roundtrip`

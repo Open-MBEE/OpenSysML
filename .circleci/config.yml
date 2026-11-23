@@ -743,7 +743,7 @@ jobs:
             # The Makefile's RACE_TRANSLATE_STRUCTURE; tests/hygiene keeps the two the same.
             translatestructure='^TestSymbolStructureMatchesGraphStructure$'
             # The Makefile's RACE_CORPUS_SWEEP; tests/hygiene keeps the two the same.
-            corpussweep='^TestExamplesSweep$'
+            corpussweep='^Test(ExamplesSweepCommitted|ExamplesSweepCorpora)$'
             case "$shard" in
               # Its own shard and process: alone it nears 5 GB, the five suites together 9 GB under -race,
               # over this class's 8 GB. The Makefile's RACE_RUNTIME_EXPLORATION; tests/hygiene keeps the two the same.
@@ -793,11 +793,12 @@ jobs:
             # the FMI gate runs rather than skips (tests/fmi).
             OPENSYSML_REQUIRE_REFERENCE_FMUS: "1"
 
-  # tests/corpus's sweep alone: -parallel models in hand at once, a whole corpus directory as one model among them.
+  # tests/corpus's two sweeps alone, a node each: -parallel models in hand at once, a whole corpus directory as one model among them.
   # Under -race on four CPUs four peaked at 7.6 GiB; three with GOGC=50 peak at 5.4 GiB in 29 minutes, inside large's 8 GB.
   go-race-sweep:
     executor: go-executor
     resource_class: large
+    parallelism: 2
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -812,14 +813,23 @@ jobs:
           name: Run the Go race sweep
           command: |
             set -o pipefail
-            # The shard scripts/race-shard.sh --sweeps names first; tests/hygiene keeps it out of the array above.
-            sweep_shard=corpus-sweep
+            # The two shards scripts/race-shard.sh --sweeps names first, one a node; tests/hygiene keeps them out of the array above.
+            sweep_shards=(corpus-sweep-committed corpus-sweep-corpora)
+            if [ "$CIRCLE_NODE_TOTAL" != "${#sweep_shards[@]}" ]; then
+              echo "error: parallelism is $CIRCLE_NODE_TOTAL, but there are ${#sweep_shards[@]} sweep shards" >&2
+              exit 1
+            fi
+            sweep_shard="${sweep_shards[$CIRCLE_NODE_INDEX]}"
             pkgs=$(scripts/race-shard.sh "$sweep_shard")
             echo "shard $sweep_shard:"; echo "$pkgs"
             stream() { python3 scripts/go-test-stream.py; }
-            # The Makefile's RACE_CORPUS_SWEEP; tests/hygiene keeps the two the same.
-            corpussweep='^TestExamplesSweep$'
-            go test -json -race -pgo=off -timeout 55m -parallel 3 -run "$corpussweep" $pkgs | stream
+            # The Makefile's RACE_CORPUS_SWEEP_COMMITTED and RACE_CORPUS_SWEEP_CORPORA; tests/hygiene keeps them the same.
+            sweepcommitted='^TestExamplesSweepCommitted$'
+            sweepcorpora='^TestExamplesSweepCorpora$'
+            case "$sweep_shard" in
+              corpus-sweep-committed) go test -json -race -pgo=off -timeout 55m -parallel 3 -run "$sweepcommitted" $pkgs | stream ;;
+              corpus-sweep-corpora) go test -json -race -pgo=off -timeout 55m -parallel 3 -run "$sweepcorpora" $pkgs | stream ;;
+            esac
           no_output_timeout: 30m
           environment:
             GOGC: "50"
@@ -839,7 +849,7 @@ jobs:
     executor: go-executor
     resource_class: large
     # The race test's shards but the runtime's corpus ones: without -race the runtime runs whole in about 19 minutes.
-    parallelism: 20
+    parallelism: 21
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -862,7 +872,7 @@ jobs:
           command: |
             # tests/export and tests/corpus whole overran 30 minutes, so make coverage-shard splits them by test name.
             # cmd/sysml has its own node: its exploration budgets took 23-30 minutes on the rest node.
-            shards=(runtime model smt corpus corpus-sweep export export-library export-examples export-corpus graph graph-corpora codegen translate translate-structure grpc tools internal rest migrate cli)
+            shards=(runtime model smt corpus corpus-sweep-committed corpus-sweep-corpora export export-library export-examples export-corpus graph graph-corpora codegen translate translate-structure grpc tools internal rest migrate cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but the Makefile's COVERAGE_SHARDS has ${#shards[@]} shards" >&2
               exit 1
