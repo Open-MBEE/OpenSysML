@@ -1,9 +1,20 @@
 package source
 
 import (
+	"bytes"
 	"slices"
 	"sort"
 )
+
+// DominantNewline reports the line ending text written into content should use:
+// CRLF only when content already uses it more than bare LF.
+func DominantNewline(content []byte) string {
+	crlf := bytes.Count(content, []byte("\r\n"))
+	if crlf > bytes.Count(content, []byte("\n"))-crlf {
+		return "\r\n"
+	}
+	return "\n"
+}
 
 // LineIndex maps byte offsets to 1-based line/column positions.
 // lineStarts[i] is the byte offset where line (i+1) begins.
