@@ -1412,6 +1412,7 @@ jobs:
         run: editors/mdk/scripts/compile-against-cameo-test.sh
 
       - name: Audit the plugin's dependencies
+        timeout-minutes: 10
         run: |
           scripts/download-sca-tools.sh osv-scanner
           make audit-java JAVA_PROJECT_DIRS=editors/mdk
@@ -2187,11 +2188,6 @@ jobs:
       - name: Make the service binary executable
         run: chmod +x bin/sysml-grpc
 
-      - name: Audit the Java client's dependencies
-        run: |
-          scripts/download-sca-tools.sh osv-scanner
-          make audit-java JAVA_PROJECT_DIRS=client/java
-
       # opensysml.requireService turns "no binary, so skip" into a failure, and
       # `install` builds the sources and javadoc jars a release needs on every commit.
       - name: Test and install the client
@@ -2205,6 +2201,13 @@ jobs:
             org.openmbee.opensysml.conformance.Main \
             -binary bin/sysml-grpc -protocols connect,connect-json -allow-skips \
             -report conformance-report-java.json
+
+      # Last, and under its own bound: the audit is the one step that asks Maven Central in every job.
+      - name: Audit the Java client's dependencies
+        timeout-minutes: 10
+        run: |
+          scripts/download-sca-tools.sh osv-scanner
+          make audit-java JAVA_PROJECT_DIRS=client/java
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
@@ -2259,6 +2262,7 @@ jobs:
         run: mvn -B -f editors/syson/pom.xml install -Dopensysml.requireService=true
 
       - name: Audit the backend's dependencies
+        timeout-minutes: 10
         run: |
           scripts/download-sca-tools.sh osv-scanner
           make audit-java JAVA_PROJECT_DIRS=editors/syson
