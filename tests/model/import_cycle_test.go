@@ -2,6 +2,7 @@ package model_test
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -63,6 +64,53 @@ func TestPackagesImportingEachOtherInACycleAnalysePromptly(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// A package with a `filter` member that one of the cycle imports privately is read on no route but that
+// package's own, where every route into what it imports runs through it: the cycle stays polynomial.
+func TestImportCycleWithAPrivatelyImportedFilterAnalysesPromptly(t *testing.T) {
+	for _, n := range []int{15, 30} {
+		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
+			var src strings.Builder
+			src.WriteString("package Marked {\n\tmetadata def Safety;\n\t#Safety part def Kept;\n\tpart def Dropped;\n}\n")
+			src.WriteString("package Filtered {\n\tpublic import Marked::*;\n\tfilter @Marked::Safety;\n}\n")
+			for i := 1; i <= n; i++ {
+				fmt.Fprintf(&src, "package P%d {\n", i)
+				for k := 1; k <= n; k++ {
+					if k != i {
+						fmt.Fprintf(&src, "\tpublic import P%d::*;\n", k)
+					}
+				}
+				if i == 1 {
+					src.WriteString("\tprivate import Filtered::*;\n\tpart kept : Kept;\n\tpart dropped : Dropped;\n")
+				}
+				fmt.Fprintf(&src, "\tpart def D%d;\n}\n", i)
+			}
+			fmt.Fprintf(&src, "package Use {\n\tpublic import P1::*;\n\tpart x : D%d;\n\tpart y : Kept;\n}\n", n)
+
+			done := make(chan []diag.Diagnostic, 1)
+			go func() {
+				ws := model.NewWorkspace()
+				ws.Open("cycle.sysml", []byte(src.String()), 1)
+				done <- ws.Diagnostics("cycle.sysml")
+			}()
+			select {
+			case diags := <-done:
+				// The filter keeps Dropped out of P1, and the private import keeps Kept out of Use.
+				var unresolved []string
+				for _, d := range diags {
+					name, _ := strings.CutPrefix(d.Message, "unresolved reference: ")
+					name, _, _ = strings.Cut(name, " ")
+					unresolved = append(unresolved, name)
+				}
+				if want := []string{"Dropped", "Kept"}; !slices.Equal(unresolved, want) {
+					t.Fatalf("unresolved names %q, want %q: %v", unresolved, want, diags)
+				}
+			case <-time.After(importCycleLimit):
+				t.Fatalf("analysing %d packages in a cycle, one privately importing a filtered package, did not finish in %v", n, importCycleLimit)
+			}
+		})
 	}
 }
 

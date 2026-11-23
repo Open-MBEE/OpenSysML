@@ -168,8 +168,8 @@ func distinctScopes(scopes []*symbols.Scope) []*symbols.Scope {
 
 // plainRegion reports whether reading the imports of scope route by route (KerML 8.3.2.4.5)
 // finds what one visit of each namespace does. Every namespace reachable is a package whose
-// imports are plain namespace imports, each naming a package by owned members alone, none
-// declares a filter, and no two members share a name: nothing can hide a name or read a namespace in two ways.
+// imports are plain namespace imports, each naming a package by owned members alone, none a
+// route reads declares a filter, and no two members share a name: nothing can hide a name or read a namespace in two ways.
 func (r *Resolver) plainRegion(scope *symbols.Scope) bool {
 	if r.inCondition != 0 || !plainNamespace(scope) {
 		return false
@@ -181,15 +181,14 @@ func (r *Resolver) plainRegion(scope *symbols.Scope) bool {
 		target *symbols.Symbol
 	}
 	var imports []plainImport
-	var outer []*symbols.Scope
+	var outer, filtered []*symbols.Scope
 	named := map[string]*symbols.Symbol{}
 	seen := map[*symbols.Scope]bool{scope: true}
 	for pending := []*symbols.Scope{scope}; len(pending) > 0; {
 		ns := pending[len(pending)-1]
 		pending = pending[:len(pending)-1]
-		// A `filter` member restricts what its namespace imports, as a filtered import does.
 		if len(ns.Imports()) != 0 && len(r.namespaceFilters(ns)) != 0 {
-			return false
+			filtered = append(filtered, ns)
 		}
 		if ns != scope {
 			unique := plainNamespace(ns)
@@ -229,6 +228,21 @@ func (r *Resolver) plainRegion(scope *symbols.Scope) bool {
 	if len(seen) == 1 {
 		return false
 	}
+	if len(filtered) != 0 {
+		// Past scope a route takes public imports alone (KerML 8.3.2.4.5 visibleMemberships).
+		routes := map[*symbols.Scope][]*symbols.Scope{}
+		for _, read := range imports {
+			if read.from == scope || read.imp.Visibility != ast.VisibilityPrivate {
+				routes[read.from] = append(routes[read.from], read.target.Scope)
+			}
+		}
+		routed := reachedFrom(routes, scope, nil)
+		for _, ns := range filtered {
+			if routed[ns] && !filtersEveryRoute(routes, scope, ns) {
+				return false
+			}
+		}
+	}
 	// A namespace around an import may bring names of its own only as one of these.
 	for _, ns := range outer {
 		if !seen[ns] && len(ns.Imports()) != 0 {
@@ -241,6 +255,38 @@ func (r *Resolver) plainRegion(scope *symbols.Scope) bool {
 			return false
 		}
 		if target, ok := r.importTargetOf(read.from, read.imp); !ok || target != read.target {
+			return false
+		}
+	}
+	return true
+}
+
+// reachedFrom is start and the namespaces the routes from it reach, none of them through stop.
+func reachedFrom(routes map[*symbols.Scope][]*symbols.Scope, start, stop *symbols.Scope) map[*symbols.Scope]bool {
+	reached := map[*symbols.Scope]bool{start: true}
+	for pending := []*symbols.Scope{start}; len(pending) > 0; {
+		ns := pending[len(pending)-1]
+		pending = pending[:len(pending)-1]
+		for _, target := range routes[ns] {
+			if target != stop && !reached[target] {
+				reached[target] = true
+				pending = append(pending, target)
+			}
+		}
+	}
+	return reached
+}
+
+// filtersEveryRoute reports whether every route from scope into what the imports of ns reach runs through
+// ns: its `filter` member then restricts each of those namespaces on every route, as on one visit.
+func filtersEveryRoute(routes map[*symbols.Scope][]*symbols.Scope, scope, ns *symbols.Scope) bool {
+	if ns == scope {
+		return true
+	}
+	// What scope reaches with ns left out is reached unfiltered.
+	unfiltered := reachedFrom(routes, scope, ns)
+	for target := range reachedFrom(routes, ns, nil) {
+		if target != ns && unfiltered[target] {
 			return false
 		}
 	}

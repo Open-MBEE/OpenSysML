@@ -36,6 +36,26 @@ var importCycleShapes = []importCycleShape{
 		anyOrder: true,
 	},
 	{
+		// F's `filter` member keeps Dropped out of what F imports, and so out of A; A's private import
+		// brings B and V nothing of F, and C::Dropped reaches V through the cycle all the same.
+		name: "filter member behind a private import of a cycle member",
+		packages: []string{
+			"package M { metadata def Safety; }",
+			"package C { #M::Safety part def Kept; part def Dropped; }",
+			"package D { part def Other; }",
+			"package F { public import D::*; filter @M::Safety; #M::Safety part def Own; }",
+			"package A { public import B::*; private import F::*; part a : Own; part a2 : Other; }",
+			"package B { public import A::*; public import C::*; part b : Own; }",
+			"package V { private import A::*; part v : Dropped; part v2 : Kept; part v3 : Own; }",
+		},
+		anyOrder: true,
+		unresolved: []string{
+			"part a2 : Other; -> Other",
+			"part b : Own; -> Own",
+			"part v3 : Own; -> Own",
+		},
+	},
+	{
 		// A membership import names its target in its own right: N2::B is N4::B, a member of N2 by its
 		// import of N4, whatever route through the cycle is reading N1 when the import is enumerated.
 		name: "membership import of a member the cycle brings back",
