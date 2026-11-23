@@ -68,8 +68,8 @@
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 69,
-        "digest": "sha256:d27242f88a3b5e0aab60f014a4fcdac0f371dbfaf6cb32bd43c05b1f7b61e3d8"
+        "files": 70,
+        "digest": "sha256:3de11177188c36c669323618677171aac21bdcc5706007e7e741be242490b2ba"
       },
       {
         "name": "probes",
@@ -82,21 +82,21 @@
         "name": "opensysml-libraries",
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
-        "files": 18,
-        "digest": "sha256:8ef6d80c9983abb0af6edc68d26de9a25be15f16561ca3b9e9387ed2b070a7ec"
+        "files": 19,
+        "digest": "sha256:8b95c8cf9269086a83943b84227af41614f721e7e9ff2a667090f4718d27ed8d"
       }
     ],
-    "recorded": "2026-11-21"
+    "recorded": "2026-11-23"
   },
   "totals": {
-    "files": 939,
+    "files": 940,
     "filesFullyAgreeing": 542,
     "agreement": 1119,
     "severityMismatch": 8,
-    "openSysMLOnly": 126,
-    "pilotOnly": 2458,
-    "openSysMLDiagnostics": 1253,
-    "pilotDiagnostics": 3585
+    "openSysMLOnly": 131,
+    "pilotOnly": 2461,
+    "openSysMLDiagnostics": 1258,
+    "pilotDiagnostics": 3588
   },
   "roots": [
     {
@@ -17753,14 +17753,14 @@
       "name": "examples",
       "dir": "examples",
       "totals": {
-        "files": 69,
+        "files": 70,
         "filesFullyAgreeing": 61,
         "agreement": 4,
         "severityMismatch": 0,
-        "openSysMLOnly": 14,
-        "pilotOnly": 73,
-        "openSysMLDiagnostics": 18,
-        "pilotDiagnostics": 77
+        "openSysMLOnly": 19,
+        "pilotOnly": 76,
+        "openSysMLDiagnostics": 23,
+        "pilotDiagnostics": 80
       },
       "files": [
         {
@@ -17905,6 +17905,63 @@
           "pilotOnly": [
             {
               "line": 436,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "path": "npr7150-demo/npr7150-demo.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [
+            {
+              "line": 39,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 43,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 85,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 87,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 207,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            }
+          ],
+          "pilotOnly": [
+            {
+              "line": 186,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 194,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 202,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18543,6 +18600,11 @@
     },
     {
       "side": "opensysml",
+      "message": "This Requirements Mapping Matrix has no mapping entry for 1 NPR 7150.2D requirement(s) Table 2 marks for Class C: SWE058. Appendix C has each requirement marked 'X' for the project's software classification addressed in the matrix, so add a `@RequirementMapping` usage of each from `NPR7150::SWERequirements`.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
       "message": "This SEMP does not address 13 of the 17 common technical processes: ProductImplementation, ProductIntegration, ProductVerification, ProductValidation, ProductTransition, TechnicalPlanning, RequirementsManagement, InterfaceManagement, TechnicalRiskManagement, ConfigurationManagement, TechnicalDataManagement, TechnicalAssessment, DecisionAnalysis. NPR 7123.1D section 6.2.3 (SE-58) has the SEMP define how each process, as tailored, is applied, so nest one usage per process (e.g. `#productImplementation action ...`).",
       "count": 1
     },
@@ -18578,12 +18640,32 @@
     },
     {
       "side": "opensysml",
+      "message": "This mapping entry is marked tailored with no justification: NPR 7150.2D Appendix C has a requirement tailored out of the Requirements Mapping Matrix carry its justification, and section 2.2.5 asks a request for relief for its rationale, so give the `@RequirementMapping` annotation a `justification`.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This mapping entry marks SWE219 not applicable, but `imagerFlightSoftware` is safety-critical software: NPR 7150.2D section 3.7 applies the requirement to a project that has safety-critical software, so map it as complied with or tailored, with the Technical Authority's approval.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
       "message": "This modular system interface names no interface control authority: the model names one for other interfaces, so MOSA expects an @InterfaceControl annotation on it or its definition.",
       "count": 1
     },
     {
       "side": "opensysml",
       "message": "This modular system interface satisfies no requirement: the model declares interface requirements, so MOSA expects a `satisfy` naming it (or its definition) after `by`.",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This system containing software states no software class: NPR 7150.2D section 3.5.1 (SWE-020) has the project manager classify each system and subsystem containing software by the Appendix D definitions, so state it (`:\u003e\u003e softwareClass = SoftwareClass::C;`).",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "This system is Class E and safety-critical: NPR 7150.2D Appendix D states that Class E software cannot be safety-critical software and that safety-critical software has to be classified as Class D or higher, so raise the `softwareClass`.",
       "count": 1
     },
     {
@@ -25229,14 +25311,14 @@
       }
     ],
     "totals": {
-      "files": 939,
+      "files": 940,
       "filesFullyAgreeing": 543,
       "agreement": 1119,
       "severityMismatch": 8,
-      "openSysMLOnly": 125,
-      "pilotOnly": 2458,
-      "openSysMLDiagnostics": 1252,
-      "pilotDiagnostics": 3585
+      "openSysMLOnly": 130,
+      "pilotOnly": 2461,
+      "openSysMLDiagnostics": 1257,
+      "pilotDiagnostics": 3588
     },
     "findings": [
       {
