@@ -122,7 +122,7 @@ func TestPayloadIsReadInTheScopeOfTheRun(t *testing.T) {
 	if again := table.Intern(node, a); again != id || id == 0 {
 		t.Fatalf("interned twice as %d then %d", id, again)
 	}
-	if other := table.Intern(node, b); other == id {
+	if table.Intern(node, b) == id {
 		t.Fatalf("one id %d for two scopes", id)
 	}
 	if val, err := newEvalContext(ctx, a).reading(table).evalPayload(id); err != nil || val.Const.Int != 2 {

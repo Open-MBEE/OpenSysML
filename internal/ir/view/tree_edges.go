@@ -412,7 +412,7 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 // nested under node: a dashed line from the annotation to the node of each
 // drawn element it annotates (§8.2.3.4 annotation-link), its owner's node
 // when it names none.
-func (g *treeGraph) annotationLinks(node, child *Node, member *symbols.Symbol, view *symbols.Symbol) {
+func (g *treeGraph) annotationLinks(node, child *Node, member, view *symbols.Symbol) {
 	for _, target := range g.r.annotatedElements(member) {
 		to := g.node(target)
 		if target == member.Owner() && to == nil {

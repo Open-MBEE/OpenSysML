@@ -538,7 +538,7 @@ func (ctx *Context) viaRoutes(ec *EvalContext, conns []lower.Connection, path vi
 // sendReceiver resolves a `via` send's receiver: the node name deliveries target,
 // or the objects a `to` expression evaluated to, deliveries then held to those
 // objects rather than to a node's name.
-func (ctx *Context) sendReceiver(ec *EvalContext, send lower.Send, routed lower.Send, holder *Instance, receivers []*Instance) (string, map[int64]bool, error) {
+func (ctx *Context) sendReceiver(ec *EvalContext, send, routed lower.Send, holder *Instance, receivers []*Instance) (string, map[int64]bool, error) {
 	receiver := send.Receiver
 	if receiver == "" {
 		if receivers != nil {

@@ -159,7 +159,7 @@ func TestOperatorPrincipalsKeepTheStartupWorkspace(t *testing.T) {
 	}
 	t.Cleanup(func() { srv.Close(ctx) })
 	for _, p := range []guard.Principal{toolkit.LocalPrincipal(), {Subject: "operator", Source: guard.SourceStaticToken}} {
-		if got := srv.serverFor(ctx, p); got != srv.sdk {
+		if srv.serverFor(ctx, p) != srv.sdk {
 			t.Errorf("%s is not served by the startup server", p.ID())
 		}
 	}
@@ -168,7 +168,7 @@ func TestOperatorPrincipalsKeepTheStartupWorkspace(t *testing.T) {
 	if first == nil || first == srv.sdk {
 		t.Fatalf("alice is served by %p, want a server of her own (startup %p)", first, srv.sdk)
 	}
-	if again := srv.serverFor(ctx, alice); again != first {
+	if srv.serverFor(ctx, alice) != first {
 		t.Error("alice's second session is served by another server than her first")
 	}
 	if other := srv.serverFor(ctx, guard.Principal{Subject: "alice", Source: "oidc"}); other == nil || other == first || other == srv.sdk {
@@ -179,10 +179,10 @@ func TestOperatorPrincipalsKeepTheStartupWorkspace(t *testing.T) {
 		srv.tenants[string(rune('a'+len(srv.tenants)))+":filler"] = &tenant{ready: make(chan struct{})}
 	}
 	srv.mu.Unlock()
-	if got := srv.serverFor(ctx, guard.Principal{Subject: "late", Source: "api-key"}); got != nil {
+	if srv.serverFor(ctx, guard.Principal{Subject: "late", Source: "api-key"}) != nil {
 		t.Error("a principal past the bound is served")
 	}
-	if again := srv.serverFor(ctx, alice); again != first {
+	if srv.serverFor(ctx, alice) != first {
 		t.Error("alice is refused at the bound, though she holds a workspace")
 	}
 	srv.mu.Lock()
@@ -212,7 +212,7 @@ func TestPrincipalWorkspacesFollowTheConfiguration(t *testing.T) {
 	}
 	gone, cancel := context.WithCancel(ctx)
 	cancel()
-	if got := srv.serverFor(gone, guard.Principal{Subject: "gone", Source: "api-key"}); got != nil {
+	if srv.serverFor(gone, guard.Principal{Subject: "gone", Source: "api-key"}) != nil {
 		t.Error("a session whose request is cancelled is served")
 	}
 	srv.mu.Lock()
@@ -248,10 +248,10 @@ func TestClosedServerHoldsNoNewWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 	closeDuringBuild = true
-	if got := srv.serverFor(ctx, guard.Principal{Subject: "alice", Source: "api-key"}); got != nil {
+	if srv.serverFor(ctx, guard.Principal{Subject: "alice", Source: "api-key"}) != nil {
 		t.Error("a workspace indexed while the server closed is served")
 	}
-	if got := srv.serverFor(ctx, guard.Principal{Subject: "bob", Source: "api-key"}); got != nil {
+	if srv.serverFor(ctx, guard.Principal{Subject: "bob", Source: "api-key"}) != nil {
 		t.Error("a session opened after Close is served")
 	}
 	srv.mu.Lock()

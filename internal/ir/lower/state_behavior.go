@@ -73,7 +73,7 @@ func LowerBehaviors(actions []ast.Node, block ast.Node, scope *symbols.Scope, re
 
 // lowerStateBehavior lowers one behavior into the statements it states: the
 // statements of an inline action body, or the one statement every other form is.
-func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable) StateBehavior {
+func lowerStateBehavior(action, block ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, exprs *ExprTable) StateBehavior {
 	behavior := StateBehavior{Node: action, Scope: scope, Block: block}
 	switch node := action.(type) {
 	case *ast.Usage:

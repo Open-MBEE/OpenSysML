@@ -32,7 +32,7 @@ func TestReflectiveAcceptActionOwnsItsReceiverParameter(t *testing.T) {
 	if receiver == nil {
 		t.Fatalf("receive owns no receiver parameter among %d memberships", len(memberships))
 	}
-	if last := memberships[len(memberships)-1].Implicit.Member; last != receiver {
+	if memberships[len(memberships)-1].Implicit.Member != receiver {
 		t.Errorf("receiver is not the last owned member")
 	}
 	values, ok := m.ReflectiveElements(receiver, "ownedMembership")

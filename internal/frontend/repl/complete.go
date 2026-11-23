@@ -807,17 +807,20 @@ func prefixed(option string, values []string) []string {
 	return out
 }
 
+// limitOption is the spelling of %render-run's limit option before its value.
+const limitOption = "limit="
+
 // runRenderOptions is what %render-run still takes after the arguments given
 // following its kind: a form, link= and limit= each once.
 func runRenderOptions(given []string) []string {
-	options := []string{"link=", "limit="}
+	options := []string{"link=", limitOption}
 	form := true
 	for _, arg := range given {
 		switch {
 		case strings.HasPrefix(arg, "link="):
 			options = slices.DeleteFunc(options, func(o string) bool { return o == "link=" })
-		case strings.HasPrefix(arg, "limit="):
-			options = slices.DeleteFunc(options, func(o string) bool { return o == "limit=" })
+		case strings.HasPrefix(arg, limitOption):
+			options = slices.DeleteFunc(options, func(o string) bool { return o == limitOption })
 		default:
 			form = false
 		}

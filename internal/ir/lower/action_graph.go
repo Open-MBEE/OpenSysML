@@ -1315,7 +1315,7 @@ func sameActionEdgeEndMultiplicity(graph *ActionGraph, model *semantics.Model, e
 	return err == nil && existingBounds == edgeBounds
 }
 
-func (l *actionEdgeLowerer) endpoint(ref ast.Node, member ast.Node, source bool) (ast.Node, error) {
+func (l *actionEdgeLowerer) endpoint(ref, member ast.Node, source bool) (ast.Node, error) {
 	if l.nodes == nil {
 		if member != nil {
 			return resolveActionEndpointForEdge(l.graph, ref, member, source), nil
@@ -1419,7 +1419,7 @@ func (l *actionEdgeLowerer) succession(sourceRef, targetRef ast.Node, edge Actio
 
 // ends resolves an edge end to the nodes it names: its one node, or the steps
 // performing the action a feature chain reaches through an object.
-func (l *actionEdgeLowerer) ends(ref ast.Node, member ast.Node, source bool) ([]ast.Node, error) {
+func (l *actionEdgeLowerer) ends(ref, member ast.Node, source bool) ([]ast.Node, error) {
 	node, err := l.endpoint(ref, member, source)
 	if err != nil {
 		return nil, err
@@ -2030,7 +2030,7 @@ func redefinesFeature(resolver *resolve.Resolver, features []Feature, name strin
 
 // redefinitionResolver resolves what a redefinition clause names.
 type redefinitionResolver interface {
-	RedefinitionTarget(scope *symbols.Scope, decl ast.Node, target ast.Node) (*symbols.Symbol, bool)
+	RedefinitionTarget(scope *symbols.Scope, decl, target ast.Node) (*symbols.Symbol, bool)
 }
 
 // redefinesByClause reports whether usage, declared in scope, redefines target by
@@ -2741,7 +2741,7 @@ func resolveEnd(nodes []ast.Node, qname *ast.QualifiedName, member ast.Node) ast
 
 // resolveActionEndpointForEdge resolves an edge end, which the notation may have
 // bound to a member by position rather than named.
-func resolveActionEndpointForEdge(graph *ActionGraph, ref ast.Node, member ast.Node, source bool) ast.Node {
+func resolveActionEndpointForEdge(graph *ActionGraph, ref, member ast.Node, source bool) ast.Node {
 	if member != nil {
 		return resolveEnd(graph.Nodes, nil, member)
 	}

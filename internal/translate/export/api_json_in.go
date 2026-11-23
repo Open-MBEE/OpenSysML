@@ -985,8 +985,7 @@ func (index *apiJSONIndex) classifyExpressions(
 	objects []apiJSONElementData,
 	graph *rdf.Graph,
 	mappingElements map[string]bool,
-	reconstructedNames, mappingNames map[string]string,
-	specNames map[string]string,
+	reconstructedNames, mappingNames, specNames map[string]string,
 ) {
 	mappingElement := make([]bool, len(objects))
 	dependents := make(map[string][]int, len(objects))
@@ -1645,7 +1644,7 @@ func apiJSONPropertyScalar(
 // apiJSONScalarOf turns one JSON value into the term a triple holds: a
 // reference object an IRI, a bool or number its typed literal, a string a plain
 // literal — or the expression text a reference-valued property carries.
-func apiJSONScalarOf(subject rdf.Term, predicate rdf.Term, sysmlKey string, value any, expressionIDs map[string]bool, cache *apiJSONTermCache) (rdf.Term, error) {
+func apiJSONScalarOf(subject, predicate rdf.Term, sysmlKey string, value any, expressionIDs map[string]bool, cache *apiJSONTermCache) (rdf.Term, error) {
 	switch v := value.(type) {
 	case bool:
 		return rdf.Bool(v), nil

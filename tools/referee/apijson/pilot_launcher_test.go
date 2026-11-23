@@ -116,11 +116,11 @@ func TestTheLauncherExitsWithTheSetupStatusWithoutItsJar(t *testing.T) {
 // stubRepo is a checkout holding one root, testdata, whose files a run exports.
 func stubRepo(t *testing.T) options {
 	t.Helper()
-	real, err := repo.Choose("")
+	checkout, err := repo.Choose("")
 	if err != nil {
 		t.Fatal(err)
 	}
-	pin, err := os.ReadFile(filepath.Join(real, "scripts", "pilot-pin.sh"))
+	pin, err := os.ReadFile(filepath.Join(checkout, "scripts", "pilot-pin.sh"))
 	if err != nil {
 		t.Fatal(err)
 	}

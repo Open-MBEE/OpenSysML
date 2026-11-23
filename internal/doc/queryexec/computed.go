@@ -797,8 +797,7 @@ func (e *executor) columnError(
 	column string,
 	row Value,
 	origin symbols.Origin,
-	operator string,
-	actual string,
+	operator, actual string,
 ) *Error {
 	return &Error{
 		Kind:      kind,
