@@ -61,7 +61,7 @@ func (e *executor) ownedRelationshipRows(expression queryplan.Expression, row Va
 	for _, rel := range e.context.Model.OwnedRelationships(sym) {
 		out = append(out, ElementValue(rel))
 	}
-	if related, ok := e.context.Model.ReflectiveElements(sym, "ownedRelatedElement"); ok {
+	if related, ok := e.context.Model.StatedReflectiveElements(sym, "ownedRelatedElement"); ok {
 		for _, elem := range related {
 			out = append(out, ElementValue(elem))
 		}
