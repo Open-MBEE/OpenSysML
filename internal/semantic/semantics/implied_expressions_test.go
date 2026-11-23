@@ -81,8 +81,8 @@ func TestExpressionParametersRedefineTheFunctionParameters(t *testing.T) {
 		// A name that is no parameter of what is invoked binds nothing, however it resolves.
 		{"P::E::unresolvedNamed", true, [][]string{nil}, []string{"Performances::Evaluation::result"}},
 		// A feature typed by a function is invoked through the parameters it inherits.
-		{"P::E::viaFeature", false, [][]string{{"P::G::a"}, {"P::G::b"}}, nil},
-		{"P::E::viaFeatureNamed", true, [][]string{{"P::G::b"}, {"P::G::a"}}, nil},
+		{"P::E::viaFeature", false, [][]string{{"P::G::a"}, {"P::G::b"}}, []string{"P::G::r"}},
+		{"P::E::viaFeatureNamed", true, [][]string{{"P::G::b"}, {"P::G::a"}}, []string{"P::G::r"}},
 		{"P::E::foreign", true, [][]string{nil}, []string{"Performances::Evaluation::result", "P::O::r"}},
 	}
 	for _, tc := range cases {
@@ -191,6 +191,40 @@ func TestIndexResultSpecializesTheSequenceUnlessACollection(t *testing.T) {
 		}
 		if got := slices.Contains(m.DirectSupertypes(result), sequence); got != want {
 			t.Errorf("%s: the sequence is a direct supertype of the result: %t, want %t", feature, got, want)
+		}
+	}
+}
+
+// TestNamedArgumentRedefinitionIsReflected covers the written redefinition of a named argument:
+// reflection states it for an invocation, and for no positional or unbound argument.
+func TestNamedArgumentRedefinitionIsReflected(t *testing.T) {
+	m, root := buildModelWithLibraryNamedKind(t, "a.kerml", source.KindKerML, impliedExpressionModel)
+	cases := []struct {
+		feature string
+		want    []string
+	}{
+		{"P::E::named", []string{"P::G::b", "P::G::a"}},
+		{"P::E::qualified", []string{"P::G::b", "P::G::a"}},
+		{"P::E::viaFeatureNamed", []string{"P::G::b", "P::G::a"}},
+		{"P::E::positional", []string{"", ""}},
+		{"P::E::foreign", []string{""}},
+	}
+	for _, tc := range cases {
+		params := m.ExpressionParameters(expressionOf(t, m, root, tc.feature))
+		if len(params) < len(tc.want) {
+			t.Errorf("%s: %d parameters, want at least %d", tc.feature, len(params), len(tc.want))
+			continue
+		}
+		for i, want := range tc.want {
+			var got []string
+			for _, rel := range m.ImplicitRelationships(params[i]) {
+				if rel.Implicit.Form == symbols.ImplicitParameterRedefinition {
+					got = append(got, m.resolver.Index().GetFQN(rel.Implicit.Member))
+				}
+			}
+			if want == "" && len(got) > 0 || want != "" && !slices.Equal(got, []string{want}) {
+				t.Errorf("%s parameter %d reflects the redefinitions %v, want %q", tc.feature, i, got, want)
+			}
 		}
 	}
 }

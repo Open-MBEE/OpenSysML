@@ -84,10 +84,9 @@ func (m *Model) expressionParameterRedefinitions(sym *symbols.Symbol) []*symbols
 // there, as a call binds it (KerML 7.4.9.4, 8.3.4.8.5), or the result when isResult.
 func (m *Model) argumentParameter(general *symbols.Symbol, position int, isResult bool) *symbols.Symbol {
 	if isResult {
-		result, _ := m.PositionalParameter(general, 0, true)
-		return result
+		return m.ResultParameterOf(general)
 	}
-	if params := m.signatureOf(general).params; position >= 0 && position < len(params) {
+	if params := m.signatureInputsOf(general).params; position >= 0 && position < len(params) {
 		return params[position].sym
 	}
 	return nil
@@ -114,7 +113,7 @@ func (m *Model) namedArgumentRedefinitions(sym *symbols.Symbol) []*symbols.Symbo
 	scope := m.expressionScopeOf(owner)
 	for _, general := range m.ImpliedSpecializations(owner) {
 		// The name binds as a call binds it: to an input parameter of what is invoked, or to nothing.
-		sig := m.signatureOf(general)
+		sig := m.signatureInputsOf(general)
 		if i := m.parameterIndex(scope, sig, name); i >= 0 && sig.params[i].sym != sym && !slices.Contains(out, sig.params[i].sym) {
 			out = append(out, sig.params[i].sym)
 		}

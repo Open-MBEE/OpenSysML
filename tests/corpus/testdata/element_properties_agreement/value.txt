@@ -127,9 +127,9 @@ Feature::featureMembership	17	export-57
 Feature::featuringType	2	export-56
 Feature::inheritedFeature	17	export-57
 Feature::inheritedMembership	17	export-57
-Feature::member	24	symbol-72
-Feature::membership	24	symbol-72
-Feature::ownedRelationship	7	symbol-72
+Feature::member	364	symbol-72
+Feature::membership	364	symbol-72
+Feature::ownedRelationship	347	symbol-72
 Feature::owner	2	export-56
 Feature::owningNamespace	2	export-03
 Feature::owningType	2	export-56
@@ -207,7 +207,7 @@ IfActionUsage::ownedFeature	7	symbol-53
 IfActionUsage::ownedMember	7	symbol-08
 IncludeUseCaseUsage::declaredName	4	symbol-01
 InterfaceDefinition::relatedElement	10	export-64
-InvocationExpression::argument	1	export-11
+InvocationExpression::argument	7	symbol-72
 InvocationExpression::function	42	export-57
 InvocationExpression::input	104	symbol-53
 InvocationExpression::operand	15	symbol-52
