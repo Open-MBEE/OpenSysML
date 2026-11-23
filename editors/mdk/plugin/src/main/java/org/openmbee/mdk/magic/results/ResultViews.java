@@ -11,8 +11,8 @@ import java.util.regex.Pattern;
 /** Reads what the engine's result-view text declares: one package holding one view. */
 public final class ResultViews {
   private static final Pattern PACKAGE = Pattern.compile("^package (\\w+) \\{", Pattern.MULTILINE);
-  // A view named by a keyword (query `Part`, view `'part'`) is written quoted, and named so.
-  private static final Pattern VIEW = Pattern.compile("^\\s*view (\\w+|'(?:[^'\\\\]|\\\\.)*') : QueryResult \\{", Pattern.MULTILINE);
+  // A view named by a keyword (query `Part`, view `'part'`) is written quoted, and named so; *+ keeps a long name off the call stack.
+  private static final Pattern VIEW = Pattern.compile("^\\s*view (\\w+|'(?:[^'\\\\]|\\\\.)*+') : QueryResult \\{", Pattern.MULTILINE);
   private static final Pattern PLAIN = Pattern.compile("\\w+(::\\w+)*");
 
   private ResultViews() {}

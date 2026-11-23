@@ -34,4 +34,14 @@ class ResultViewFileNameTest {
     assertEquals(Optional.of("PartResult::'part'"), ResultViews.named(text));
     assertEquals(Optional.of("CabinMassResult::cabinMass"), ResultViews.named(text.replace("'part'", "cabinMass").replace("Part", "CabinMass")));
   }
+
+  @Test
+  void aQuotedNameIsReadWhateverItsLengthOrEscapes() {
+    String text = "package R {\n\tview %s : QueryResult {\n\t}\n}\n";
+    String longName = "'" + "x".repeat(200_000) + "'";
+    assertEquals(Optional.of("R::" + longName), ResultViews.named(text.formatted(longName)));
+    assertEquals(Optional.of("R::'it\\'s \\\\'"), ResultViews.named(text.formatted("'it\\'s \\\\'")));
+    assertEquals(Optional.empty(), ResultViews.named(text.formatted("'open")));
+    assertEquals(Optional.empty(), ResultViews.named(text.formatted("'a' 'b'")));
+  }
 }
