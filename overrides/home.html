@@ -28,13 +28,18 @@
   }
   </script>
   <style>
-    :root {
-      --osml-hero-from: #1a237e;
-      --osml-hero-to:   #303f9f;
+    .osml-hero {
+      --osml-hero-bg: var(--opensysml-dark-blue);
+      /* The hero is dark in both schemes, so it takes the accent for dark backgrounds. */
+      --md-accent-fg-color: var(--opensysml-light-blue);
     }
-    [data-md-color-scheme="slate"] {
-      --osml-hero-from: #0d1030;
-      --osml-hero-to:   #1a237e;
+    /* The node card sits on the page's own background; the figure and its table are always white. */
+    .osml-nodecard {
+      --md-accent-fg-color: var(--osml-accent);
+    }
+    .osml-table,
+    .osml-diagram {
+      --md-accent-fg-color: var(--opensysml-accent);
     }
 
     .osml-hero {
@@ -44,7 +49,7 @@
         linear-gradient(90deg, rgba(255, 255, 255, .09) 1px, transparent 1px) 0 0 / 100px 100px,
         linear-gradient(rgba(255, 255, 255, .04) 1px, transparent 1px) 0 0 / 20px 20px,
         linear-gradient(90deg, rgba(255, 255, 255, .04) 1px, transparent 1px) 0 0 / 20px 20px,
-        linear-gradient(120deg, var(--osml-hero-from), var(--osml-hero-to));
+        var(--osml-hero-bg);
       color: #fff;
       padding: 2rem 0 4rem;
       position: relative;
@@ -112,13 +117,13 @@
     .osml-btn[hidden] { display: none; }
     .osml-btn--primary {
       background: #fff;
-      color: var(--osml-hero-from);
+      color: var(--osml-hero-bg);
     }
     .osml-btn:focus,
     .osml-btn:hover {
       background: var(--md-accent-fg-color);
       border-color: var(--md-accent-fg-color);
-      color: #fff;
+      color: var(--osml-hero-bg);
     }
     .osml-hero__meta {
       font-size: .66rem;
@@ -457,13 +462,13 @@
     .osml-schematic__tabs [role="tab"][aria-selected="true"] {
       background: #fff;
       border-color: #fff;
-      color: var(--osml-hero-from);
+      color: var(--osml-hero-bg);
     }
     .osml-schematic__tabs [role="tab"]:hover,
     .osml-schematic__tabs [role="tab"]:focus-visible {
       background: var(--md-accent-fg-color);
       border-color: var(--md-accent-fg-color);
-      color: #fff;
+      color: var(--osml-hero-bg);
       outline: none;
     }
     .osml-schematic__variants { display: contents; }
@@ -519,7 +524,7 @@
     .osml-debug button:hover:not(:disabled),
     .osml-debug button:focus-visible {
       background-color: var(--md-accent-fg-color);
-      color: var(--osml-hero-from);
+      color: var(--osml-hero-bg);
     }
     .osml-debug button:disabled { opacity: .45; cursor: default; }
     .osml-debug button[aria-pressed="true"] { background: rgba(255, 213, 79, .25); }
@@ -944,7 +949,7 @@
 <section class="osml-hero">
   <div class="osml-hero__inner">
     <div class="osml-hero__copy">
-      <img class="osml-hero__logo" src="{{ 'assets/opensysml-logo-white.png' | url }}" alt="OpenSysML" width="112" height="112">
+      <a href="https://opensysml.org"><img class="osml-hero__logo" src="{{ 'assets/opensysml-badge-dark.svg' | url }}" alt="OpenSysML" width="140" height="140"></a>
       <p class="osml-hero__eyebrow">SysML v2 &middot; KerML 1.1 &middot; written in Go</p>
       <h1>A SysML v2 toolchain that runs the model, not just reads it.</h1>
       <p class="osml-hero__lede">

@@ -1,0 +1,35 @@
+/* The OpenSysML brand colours (https://www.openmbee.org/opensysml-brand.html). */
+:root {
+  --opensysml-dark-blue: #10052f;
+  --opensysml-light-blue: #64ddfa;
+  --opensysml-grey: #d6d6d6;
+  --opensysml-accent: #3e8db5; /* light backgrounds only */
+  --osml-accent: var(--opensysml-accent);
+}
+
+[data-md-color-scheme="slate"] {
+  --md-hue: 256;
+  --osml-accent: var(--opensysml-light-blue);
+}
+
+[data-md-color-primary="custom"] {
+  --md-primary-fg-color: var(--opensysml-dark-blue);
+  --md-primary-fg-color--light: var(--opensysml-accent);
+  --md-primary-fg-color--dark: var(--opensysml-dark-blue);
+  --md-primary-bg-color: #fff;
+  --md-primary-bg-color--light: var(--opensysml-grey);
+}
+
+[data-md-color-accent="custom"] {
+  --md-accent-fg-color: var(--opensysml-accent);
+  --md-accent-fg-color--transparent: rgba(62, 141, 181, .1);
+  --md-accent-bg-color: #fff;
+  --md-typeset-a-color: var(--opensysml-accent);
+}
+
+[data-md-color-scheme="slate"][data-md-color-accent="custom"] {
+  --md-accent-fg-color: var(--opensysml-light-blue);
+  --md-accent-fg-color--transparent: rgba(100, 221, 250, .1);
+  --md-accent-bg-color: var(--opensysml-dark-blue);
+  --md-typeset-a-color: var(--opensysml-light-blue);
+}
