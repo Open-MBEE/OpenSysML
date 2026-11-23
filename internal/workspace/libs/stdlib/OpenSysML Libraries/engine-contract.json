@@ -981,6 +981,77 @@
       ]
     },
     {
+      "name": "NPR7150::ClassApplicability",
+      "kind": "metadata",
+      "attributes": [
+        "softwareClass"
+      ],
+      "consumers": [
+        "internal/check/passes/npr7150.go"
+      ]
+    },
+    {
+      "name": "NPR7150::MappingKind",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/npr7150.go"
+      ]
+    },
+    {
+      "name": "NPR7150::RequirementMapping",
+      "kind": "metadata",
+      "attributes": [
+        "comply",
+        "justification"
+      ],
+      "consumers": [
+        "internal/check/passes/npr7150.go"
+      ]
+    },
+    {
+      "name": "NPR7150::RequirementsMappingMatrix",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/npr7150.go"
+      ]
+    },
+    {
+      "name": "NPR7150::SWERequirement",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/npr7150.go"
+      ]
+    },
+    {
+      "name": "NPR7150::SWERequirements",
+      "kind": "package",
+      "consumers": [
+        "internal/check/passes/npr7150.go"
+      ]
+    },
+    {
+      "name": "NPR7150::SafetyCriticalSoftwareCondition",
+      "kind": "metadata",
+      "attributes": [],
+      "consumers": [
+        "internal/check/passes/npr7150.go"
+      ]
+    },
+    {
+      "name": "NPR7150::SoftwareClass",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/npr7150.go"
+      ]
+    },
+    {
+      "name": "NPR7150::SoftwareSystem",
+      "kind": "element",
+      "consumers": [
+        "internal/check/passes/npr7150.go"
+      ]
+    },
+    {
       "name": "OOSEM::ComponentRequirement",
       "kind": "element",
       "consumers": [

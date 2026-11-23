@@ -145,13 +145,13 @@ func loadedFromInstall(t *testing.T, report repl.LoadReport, install string, uni
 	}
 }
 
-// The install answering the repository IRI's usage loads its eighteen packages, linked by publisher
+// The install answering the repository IRI's usage loads its twenty packages, linked by publisher
 // and name (elimination or ambiguity would warn), as a directory and as the archive of the same tree.
 func TestExtensionsLibraryInstallIsLinkedByNameAndLoadsItsPackages(t *testing.T) {
 	tree := extensionsProject(t, "")
 	units := unitsOf(tree)
-	if len(units) != 18 {
-		t.Fatalf("the vendored copy holds %d units, want the 18 extension libraries", len(units))
+	if len(units) != 20 {
+		t.Fatalf("the vendored copy holds %d units, want the 20 extension libraries", len(units))
 	}
 	for _, form := range []struct {
 		name    string
@@ -171,8 +171,8 @@ func TestExtensionsLibraryInstallIsLinkedByNameAndLoadsItsPackages(t *testing.T)
 			if report.Errors || len(report.Found) != 0 {
 				t.Fatalf("found:\n%s", strings.Join(report.Found, "\n"))
 			}
-			if !containsSubstring(report.Loaded, "loaded 19 files:") {
-				t.Errorf("loaded %q, want Consumer and the 18 units", report.Loaded)
+			if !containsSubstring(report.Loaded, "loaded 21 files:") {
+				t.Errorf("loaded %q, want Consumer and the 20 units", report.Loaded)
 			}
 			loadedFromInstall(t, report, install, units)
 			out, err := run(t, sysmlBinary(t), "-warnings-as-errors", "-validate", proj)
