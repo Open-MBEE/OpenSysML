@@ -424,7 +424,11 @@ func (ctx *Context) attachConnectorEnd(owner *Instance, connSym *symbols.Symbol,
 	if end.Attachment == nil {
 		return Value{}, ctx.connectorEndError(connSym, end, errors.New("names no feature"))
 	}
+	// An inherited end names features where the redefined usage declares it.
 	scope := connSym.OwnerScope
+	if origin := ctx.model.semantics.ConnectorEndsOrigin(connSym); origin != nil {
+		scope = origin.OwnerScope
+	}
 	if owner == nil && (scope == nil || !namespaceScope(scope)) {
 		return Value{}, ctx.connectorEndError(connSym, end, errors.New("no object owns the connector"))
 	}
