@@ -745,3 +745,53 @@ func TestImplicitEndRedefinitionThroughInheritedBehaviorEnds(t *testing.T) {
 		t.Fatal("the step's source end does not inherit output from Base::source")
 	}
 }
+
+func TestRedefiningConnectorInheritsEnds(t *testing.T) {
+	m, root := buildModel(t, `package P {
+		part def M;
+		connection def Link { end src : S; end dst : M; }
+		part def S {
+			ref m : M [0..1];
+			ref other : M [0..1];
+			connection link : Link [0..1] connect self to m;
+			connection plain : Link [0..1];
+		}
+		part def T :> S { connection :>> link [0..1]; }
+		part w {
+			part s : T {
+				connection narrowed :>> link [1];
+				connection own :>> plain [1] connect self to other;
+				connection bare :>> plain [1];
+				connection sub :> link [1];
+			}
+		}
+	}`)
+	p := sym(t, root, "P")
+	link := nested(t, nested(t, p.Scope, "S").Scope, "link")
+	s := nested(t, nested(t, p.Scope, "w").Scope, "s")
+
+	narrowed := nested(t, s.Scope, "narrowed")
+	if got := m.ConnectorEndsOrigin(narrowed); got != link {
+		t.Fatalf("ConnectorEndsOrigin(narrowed) = %v, want S::link", got)
+	}
+	ends := m.ConnectorObjectEnds(narrowed)
+	if len(ends) != 2 || ast.QualifiedText(ends[0].Attachment) != "self" || ast.QualifiedText(ends[1].Attachment) != "m" {
+		t.Fatalf("narrowed ends = %+v, want the inherited self/m", ends)
+	}
+	if ends[0].Name != "src" || ends[1].Name != "dst" {
+		t.Errorf("narrowed end names = %q/%q, want src/dst", ends[0].Name, ends[1].Name)
+	}
+
+	own := nested(t, s.Scope, "own")
+	if got := m.ConnectorEndsOrigin(own); got != own {
+		t.Errorf("ConnectorEndsOrigin(own) = %v, want the usage itself", got)
+	}
+	if ends := m.ConnectorObjectEnds(own); len(ends) != 2 || ast.QualifiedText(ends[1].Attachment) != "other" {
+		t.Errorf("own ends = %+v, want its own self/other", ends)
+	}
+	for _, name := range []string{"bare", "sub"} {
+		if usage := nested(t, s.Scope, name); m.IsConnectorObjectUsage(usage) || m.ConnectorEndsOrigin(usage) != nil {
+			t.Errorf("%s inherits no ends by redefinition and should not be a connector object", name)
+		}
+	}
+}
