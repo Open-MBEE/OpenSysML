@@ -513,7 +513,7 @@ func cloneStateNode(g *StateGraph, node *ast.StateNode, scope *symbols.Scope) *a
 // It returns the inherited substate each own substate replaces, so an inherited
 // transition naming that substate reaches the replacement rather than a dropped
 // vertex.
-func redeclare(state *ast.StateNode, inherited, own *ast.StateNode) map[ast.Node]ast.Node {
+func redeclare(state, inherited, own *ast.StateNode) map[ast.Node]ast.Node {
 	state.Entry = pickBehaviors(inherited.Entry, own.Entry)
 	state.Do = pickBehaviors(inherited.Do, own.Do)
 	state.Exit = pickBehaviors(inherited.Exit, own.Exit)

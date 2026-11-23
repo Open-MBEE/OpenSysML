@@ -367,7 +367,7 @@ func (r *Resolver) BindsName(sym *symbols.Symbol) bool {
 
 // referencesFeature reports whether the reference subsetting target owned by
 // decl names a feature: a definition or nothing at all names no feature.
-func (r *Resolver) referencesFeature(scope *symbols.Scope, decl ast.Node, target ast.Node) bool {
+func (r *Resolver) referencesFeature(scope *symbols.Scope, decl, target ast.Node) bool {
 	if target == nil {
 		return true
 	}
@@ -383,7 +383,7 @@ func (r *Resolver) referencesFeature(scope *symbols.Scope, decl ast.Node, target
 
 // namesVisibleFeature reports whether a redefinition target owned by decl names
 // a feature the redefinition can see, chain segments included (KerML 8.2.3.5).
-func (r *Resolver) namesVisibleFeature(scope *symbols.Scope, decl ast.Node, target ast.Node) bool {
+func (r *Resolver) namesVisibleFeature(scope *symbols.Scope, decl, target ast.Node) bool {
 	if _, chain := target.(*ast.FeatureChainExpr); !chain && ast.AsQualifiedName(target) == nil {
 		return true
 	}
@@ -877,7 +877,7 @@ func (r *Resolver) importPrefixAvailable(scope *symbols.Scope, imp *ast.Import, 
 
 // eachSubtreeMatch yields each element named name in the target namespace and its visible
 // descendants, nested re-exports included, until yield returns false.
-func (r *Resolver) eachSubtreeMatch(target *symbols.Symbol, name string, imp *ast.Import, admit func(*symbols.Symbol) bool, yield func(*symbols.Symbol) bool) {
+func (r *Resolver) eachSubtreeMatch(target *symbols.Symbol, name string, imp *ast.Import, admit, yield func(*symbols.Symbol) bool) {
 	out := newElementList()
 	r.appendSubtree(out, target, imp, admit, map[symbols.ElementKey]bool{}, false)
 	for _, sym := range out.elems {

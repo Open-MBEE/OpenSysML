@@ -246,7 +246,7 @@ func hoistShared(body qx, prefix string) (qx, []queryParameter) {
 }
 
 // writeQueryDef writes a query definition returning the expression.
-func (m *migration) writeQueryDef(name string, prefix string, host *sysmlv1.Element, body qx) {
+func (m *migration) writeQueryDef(name, prefix string, host *sysmlv1.Element, body qx) {
 	body, parameters := hoistShared(body, prefix)
 	m.w.block("calc def "+writeName(name)+" :> "+prefix+"Query", func() {
 		for _, parameter := range parameters {
