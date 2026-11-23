@@ -430,6 +430,7 @@ every attempt after the first passes `-U` so that Maven asks again for what it w
 Any other Maven failure fails the audit on the first attempt, and osv-scanner scans only an SBOM
 Maven wrote. Each attempt runs under GNU `timeout` for 90 seconds (`MAVEN_SBOM_TIMEOUT_SECONDS`),
 because the resolver's own backoff from a 429 can last minutes and a stalled transfer has no end;
+a `timeout` that knows no `-k`, as BusyBox 1.30's, bounds it without the kill;
 an attempt cut there is retried as a refusal is, so a tree's SBOM takes under eight minutes or
 fails. In `pr.yml` the audit step has `timeout-minutes: 10` and follows the job's Maven tests and
 conformance run, so its wait for Maven Central is never taken from them.

@@ -127,8 +127,8 @@ fi
 # An attempt runs under GNU timeout at the bound asked for, and, where there is none, unbounded.
 bare=$work/bare
 mkdir -p "$bare"
-for command in bash env grep tee mktemp rm dirname; do
-  ln -s "$(command -v "$command")" "$bare/$command"
+for command in bash env grep tee mktemp rm dirname true; do
+  ln -s "$(type -P "$command")" "$bare/$command"
 done
 cp "$stubs/sleep" "$stubs/mvn" "$bare/"
 mkdir -p "$work/no-timeout"
@@ -142,9 +142,10 @@ else
   fail "no-timeout: exit $actual, expected 0"
   sed 's/^/  /' "$work/no-timeout/out" >&2
 fi
+# The stand-in records the bound of every call but the script's probe of what it accepts.
 cat >"$bare/gtimeout" <<'STUB'
 #!/usr/bin/env bash
-echo "$1 $2 $3" >>"$FAKE_TIMEOUT_LOG"
+[[ ${*: -1} == true ]] || echo "$1 $2 $3" >>"$FAKE_TIMEOUT_LOG"
 shift 3
 exec "$@"
 STUB
@@ -162,6 +163,33 @@ for case in "gtimeout 90" "gtimeout-asked 45 MAVEN_SBOM_TIMEOUT_SECONDS=45"; do
     fail "$name: exit $actual, bounded by [$(cat "$work/$name/bound" 2>/dev/null)], expected exit 0 under [-k 10 $seconds]"
   fi
 done
+
+# A timeout that refuses -k, as BusyBox 1.30's, bounds the attempt without it and reports
+# the 143 of what it ended.
+rm "$bare/gtimeout"
+cat >"$bare/timeout" <<'STUB'
+#!/usr/bin/env bash
+[[ $1 != -* ]] || { echo "timeout: invalid option -- '${1#-}'" >&2; exit 1; }
+[[ ${*: -1} != true ]] || exit 0
+echo "$1" >>"$FAKE_TIMEOUT_LOG"
+shift
+(($(grep -c . "$FAKE_TIMEOUT_LOG") > ${FAKE_TIMEOUT_CUTS:-0})) || exit 143
+exec "$@"
+STUB
+chmod +x "$bare/timeout"
+mkdir -p "$work/no-kill"
+actual=0
+env -i PATH="$bare" FAKE_MVN_LOG="$work/no-kill/log" FAKE_TIMEOUT_LOG="$work/no-kill/bound" FAKE_TIMEOUT_CUTS=1 \
+  bash "$script" editors/mdk 2.9.1 >"$work/no-kill/out" 2>&1 || actual=$?
+if [[ $actual == 0 && $(tr '\n' ' ' <"$work/no-kill/bound" 2>/dev/null) == "90 90 " ]]; then
+  echo "ok   no-kill: exit 0"
+  expect_calls no-kill 1
+  expect_call no-kill 1 "-U -gs $mirror $goal"
+  mentions no-kill "in 90 seconds (attempt 1 of 4, exit 143)"
+else
+  fail "no-kill: exit $actual, bounded by [$(tr '\n' ' ' <"$work/no-kill/bound" 2>/dev/null)], expected exit 0 under [90 90 ]"
+  sed 's/^/  /' "$work/no-kill/out" >&2
+fi
 
 actual=0
 bash "$script" editors/mdk >/dev/null 2>&1 || actual=$?
