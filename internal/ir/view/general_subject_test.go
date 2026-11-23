@@ -81,3 +81,29 @@ func TestGeneralViewDrawnSubjectMultiplicity(t *testing.T) {
 		t.Errorf("the subject's and the actor's membership edges carry %q, want %q", got, want)
 	}
 }
+
+// A feature declared without a name is still the edge to its drawn type,
+// unlabelled: `subject : Ship;` and `actor : User;`.
+func TestGeneralViewUnnamedSubjectEdge(t *testing.T) {
+	text := textWithQualifiers(t, renderSource(t, "Model::definitions", `package Model {
+	private import StandardViewDefinitions::*;
+	part def Ship;
+	part def User;
+	requirement def Seaworthy {
+		subject : Ship;
+		actor : User;
+	}
+	view definitions : GeneralView {
+		filter @SysML::Definition;
+		expose Model::**;
+	}
+}`))
+	for _, want := range []string{
+		"Model::Seaworthy o-- Model::Ship\n",
+		"Model::Seaworthy o-- Model::User\n",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("rendering lacks %q:\n%s", want, text)
+		}
+	}
+}

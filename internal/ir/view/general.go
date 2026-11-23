@@ -589,7 +589,7 @@ func (g *generalGraph) featureEdges(sym *symbols.Symbol, from *Node) {
 	if sym.Scope == nil {
 		return
 	}
-	for _, member := range sym.Scope.Members() {
+	for _, member := range append(slices.Clone(sym.Scope.Members()), sym.Scope.AnonymousMembers()...) {
 		if !featureDecl(member) || g.drawn(member) != nil || !generalNodeKind(g.r, member) {
 			continue
 		}
