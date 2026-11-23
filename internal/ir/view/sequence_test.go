@@ -559,3 +559,29 @@ func TestSequenceRenderingDropsNotesOfBehaviorNotShown(t *testing.T) {
 		t.Errorf("notes = %+v, want the one on the part's lifeline", rendering.Notes)
 	}
 }
+
+// A control-flow succession a view exposes by name is drawn whether the view
+// exposes it before or after the action that owns it.
+func TestSequenceRenderingOfAnExposedSuccessionIgnoresExposeOrder(t *testing.T) {
+	const text = `package Demo {
+	action def Run {
+		event occurrence ready;
+		action step;
+		succession toStep first ready then step;
+	}
+}
+`
+	r, idx := loadSources(t, []string{"inline.sysml"}, [][]byte{[]byte(text)})
+	run, flow := lookup(t, idx, "Demo::Run"), lookup(t, idx, "Demo::Run::toStep")
+	var counts []int
+	for _, exposed := range [][]*symbols.Symbol{{run, flow}, {flow, run}} {
+		rendering, err := r.RenderExposed(exposed, KindSequence, "#sequence")
+		if err != nil {
+			t.Fatalf("render: %v", err)
+		}
+		counts = append(counts, len(rendering.Edges))
+	}
+	if counts[0] != 1 || counts[1] != 1 {
+		t.Errorf("edges = %v, want the exposed succession drawn in either order", counts)
+	}
+}

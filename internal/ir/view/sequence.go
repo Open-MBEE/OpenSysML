@@ -108,6 +108,9 @@ func (r *Renderer) addEventOrders(behavior *symbols.Symbol, into *interactions) 
 	for _, o := range into.orders[stated:] {
 		if o.from != behavior && o.to != behavior && !behaviorLike(o.from) && !behaviorLike(o.to) {
 			kept = append(kept, o)
+		} else if o.succession != nil {
+			// Left for a view that exposes the succession itself.
+			delete(into.seen, o.succession)
 		}
 	}
 	into.orders = kept
