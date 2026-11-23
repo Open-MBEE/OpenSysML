@@ -690,26 +690,38 @@ func (e *Evaluator) libraryVisibleMemberships(namespace *symbols.Symbol, recursi
 		visible = append(visible, memberships...)
 	}
 	if isType(namespace) {
-		var inherited []Value
-		if recursive {
-			inherited, ok = e.libraryStatedInherited(namespace)
-		} else {
-			inherited, ok = e.libraryInherited(namespace)
-		}
+		inherited, ok := e.libraryVisibleInherited(namespace, recursive, all)
 		if !ok {
 			return nil, false
 		}
-		for _, value := range inherited {
-			public, ok := e.structureMembershipIsPublic(value)
-			if !ok {
-				return nil, false
-			}
-			if all || public {
-				visible = append(visible, value)
-			}
-		}
+		visible = append(visible, inherited...)
 	}
 	return uniqueOwnedStructureValues(visible, e.options.Structure), true
+}
+
+// libraryVisibleInherited is the memberships a library type inherits that are visible: the public ones unless all.
+func (e *Evaluator) libraryVisibleInherited(namespace *symbols.Symbol, recursive, all bool) ([]Value, bool) {
+	var inherited []Value
+	var ok bool
+	if recursive {
+		inherited, ok = e.libraryStatedInherited(namespace)
+	} else {
+		inherited, ok = e.libraryInherited(namespace)
+	}
+	if !ok {
+		return nil, false
+	}
+	var visible []Value
+	for _, value := range inherited {
+		public, ok := e.structureMembershipIsPublic(value)
+		if !ok {
+			return nil, false
+		}
+		if all || public {
+			visible = append(visible, value)
+		}
+	}
+	return visible, true
 }
 
 // libraryInherited lists the memberships a library type inherits (KerML 8.3.3.1.10).
