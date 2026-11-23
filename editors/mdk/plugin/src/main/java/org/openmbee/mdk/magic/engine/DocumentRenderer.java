@@ -35,9 +35,9 @@ final class DocumentRenderer {
     Map<String, String> rendered = new LinkedHashMap<>();
     for (String candidate : candidates) {
       Optional<Symbol> symbol = model.findSymbol(candidate);
-      if (symbol.isEmpty()) continue;
-      boolean document = specializes(model, symbol.get(), DOCUMENT, new HashSet<>());
-      if (!document && !specializes(model, symbol.get(), RESULT_VIEW, new HashSet<>())) continue;
+      boolean document = symbol.isPresent() && specializes(model, symbol.get(), DOCUMENT, new HashSet<>());
+      boolean view = symbol.isPresent() && !document && specializes(model, symbol.get(), RESULT_VIEW, new HashSet<>());
+      if (!document && !view) continue;
       for (DocumentForm form : FORMS) {
         if (document) {
           RenderedDocument planned = model.renderDocument(symbol.get().id(), form);

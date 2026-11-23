@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -90,5 +91,26 @@ func TestSubsettingWalksAreAnsweredOncePerModel(t *testing.T) {
 	}
 	if s2 > s1 {
 		t.Errorf("100 SubsettingFeatures reads allocate %.0f objects, 50 allocate %.0f: the held subsetters are re-filtered per read", s2, s1)
+	}
+}
+
+// A symbol declaring no relationship of a kind takes no memo entry, and every
+// answer is still what the declaration states.
+func TestRelationshipsOfKindMemoizesOnlyDeclarers(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, relationshipsMemoModel)
+	kinds := []ast.RelationshipKind{ast.RelSubsets, ast.RelRedefines, ast.RelSpecializes}
+	for _, name := range []string{"front", "solar", "panels"} {
+		sym := lookupOne(t, idx, "test::Rig::"+name)
+		for _, kind := range kinds {
+			want := declaredRelationshipsOfKind(sym, kind)
+			for read := 0; read < 2; read++ {
+				if got := ctx.relationshipsOfKind(sym, kind); !slices.Equal(got, want) {
+					t.Errorf("%s, kind %v, read %d: %d relationships, want %d", name, kind, read, len(got), len(want))
+				}
+			}
+			if _, memoized := ctx.model.relationships[relationshipsKey{sym, kind}]; memoized != (len(want) > 0) {
+				t.Errorf("%s, kind %v: memoized = %v with %d relationships declared", name, kind, memoized, len(want))
+			}
+		}
 	}
 }

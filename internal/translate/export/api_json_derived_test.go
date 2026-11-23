@@ -97,6 +97,27 @@ func TestAPIJSONCompactOmitsCompletedProperties(t *testing.T) {
 	}
 }
 
+// A name completed from a derived redefining property leaves with it under OmitDerived.
+func TestAPIJSONCompactOmitsRedefinedMemberNames(t *testing.T) {
+	graph := booleansGraph(t)
+	for _, test := range []struct {
+		opts    CompactAPIJSONOptions
+		written bool
+	}{
+		{CompactAPIJSONOptions{}, true},
+		{CompactAPIJSONOptions{OmitDerived: true}, false},
+		{CompactAPIJSONOptions{OmitDerived: true, KeepDerived: []string{"ownedMemberName"}}, true},
+	} {
+		compact, err := WriteAPIJSONCompact(graph, test.opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if written := strings.Contains(string(compact), `"memberName"`); written != test.written {
+			t.Errorf("%+v: memberName written %v, want %v", test.opts, written, test.written)
+		}
+	}
+}
+
 // A sysx:completedProperties list is honoured only for a property the writer
 // completes on that metaclass and the element states; anything else is refused
 // rather than read as the writer's completion.

@@ -126,7 +126,20 @@
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="e6" label="require" fqn="NotationGlyphs::LevelReq::bounded" kind="require" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:36">
+        <object id="e6" label="" kind="reference" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:32">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.75;entryY=1;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n6" target="n0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="409" y="112"/>
+                <mxPoint x="107" y="112"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="e6:to" value="plant" style="edgeLabel;html=0;align=center;verticalAlign=middle;resizable=0;" vertex="1" connectable="0" parent="e6">
+          <mxGeometry x="0.8" relative="1" as="geometry"/>
+        </mxCell>
+        <object id="e7" label="require" fqn="NotationGlyphs::LevelReq::bounded" kind="require" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:36">
           <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135;exitPerimeter=0;entryX=1;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n9">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
@@ -136,7 +149,7 @@
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="e7" label="assume" fqn="NotationGlyphs::LevelReq::tight" kind="assume" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:37">
+        <object id="e8" label="assume" fqn="NotationGlyphs::LevelReq::tight" kind="assume" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:37">
           <mxCell style="edgeStyle=none;exitX=0.7542;exitY=1;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n10">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
@@ -146,12 +159,12 @@
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="e8" label="require" kind="require" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:33">
+        <object id="e9" label="require" kind="require" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:33">
           <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=0.5135;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n7">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
-        <object id="e9" label="assume" kind="assume" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:34">
+        <object id="e10" label="assume" kind="assume" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:34">
           <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n8">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
@@ -162,7 +175,7 @@
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="e10" label="assert" kind="assert" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:42">
+        <object id="e11" label="assert" kind="assert" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:42">
           <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n11" target="n12">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">

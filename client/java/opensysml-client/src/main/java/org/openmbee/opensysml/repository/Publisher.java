@@ -21,6 +21,7 @@ import java.util.function.BooleanSupplier;
  */
 public final class Publisher {
   private static final String EXTENSION_PREFIX = "sysx:";
+  private static final String PROPERTY_TYPE = "@type";
 
   private final SysmlApiClient client;
 
@@ -129,17 +130,8 @@ public final class Publisher {
     if (local.isEmpty()) throw new ApiException("the model holds no element to publish");
     if (cancelled.getAsBoolean()) return Optional.empty();
 
-    boolean createdProject = false;
-    SysmlApiClient.ProjectInfo project;
-    if (target.project().isBlank()) {
-      project = client.createProject(target.projectName().strip(), target.branch().strip());
-      // The server fills in what the create left to it: the default branch.
-      if (project.defaultBranch().isEmpty()) project = named(client.project(project.id()), project);
-      createdProject = true;
-    } else {
-      project = client.project(target.project().strip());
-      if (project.id().isEmpty()) project = new SysmlApiClient.ProjectInfo(target.project().strip(), project.name(), project.defaultBranch());
-    }
+    boolean createdProject = target.project().isBlank();
+    SysmlApiClient.ProjectInfo project = createdProject ? createProject(target) : existingProject(target);
     String branchId = target.branch().isBlank() ? project.defaultBranch() : target.branch().strip();
     if (branchId.isEmpty()) {
       throw new ApiException("project " + project.id() + " names no default branch; name the branch to publish to");
@@ -150,42 +142,11 @@ public final class Publisher {
       throw new BranchMovedException(branchId, project.id(), seen.get(), head);
     }
 
-    Map<String, JsonObject> remote = new LinkedHashMap<>();
-    if (!head.isEmpty()) {
-      for (JsonObject element : client.elements(project.id(), head)) {
-        String id = SysmlApiClient.text(element, "@id");
-        if (!id.isEmpty()) remote.put(id, element);
-      }
-    }
-
-    JsonArray changes = new JsonArray();
-    int created = 0;
-    int updated = 0;
-    int deleted = 0;
-    int leftInPlace = 0;
-    for (Map.Entry<String, JsonObject> entry : local.entrySet()) {
-      JsonObject held = remote.get(entry.getKey());
-      if (held == null) {
-        created++;
-      } else if (differs(entry.getValue(), held)) {
-        updated++;
-      } else {
-        continue;
-      }
-      changes.add(version(entry.getKey(), entry.getValue()));
-    }
-    for (String id : remote.keySet()) {
-      if (local.containsKey(id)) continue;
-      if (target.deleteMissing()) {
-        changes.add(version(id, JsonNull.INSTANCE));
-        deleted++;
-      } else {
-        leftInPlace++;
-      }
-    }
+    Changes changes = Changes.between(local, held(project.id(), head), target.deleteMissing());
     if (cancelled.getAsBoolean()) return stopped(project, createdProject, branchId, head);
-    if (changes.isEmpty()) {
-      return Optional.of(new Result(project.id(), project.name(), createdProject, branchId, Optional.empty(), head, 0, 0, 0, leftInPlace, false));
+    if (changes.versions.isEmpty()) {
+      return Optional.of(new Result(
+          project.id(), project.name(), createdProject, branchId, Optional.empty(), head, 0, 0, 0, changes.leftInPlace, false));
     }
 
     // The API takes no precondition, so the head is read again just before the write.
@@ -193,8 +154,8 @@ public final class Publisher {
     if (!now.equals(head)) throw new BranchMovedException(branchId, project.id(), head, now);
     if (cancelled.getAsBoolean()) return stopped(project, createdProject, branchId, head);
     JsonObject commit = new JsonObject();
-    commit.addProperty("@type", "Commit");
-    commit.add("change", changes);
+    commit.addProperty(PROPERTY_TYPE, "Commit");
+    commit.add("change", changes.versions);
     if (!target.message().isBlank()) commit.addProperty("description", target.message());
     String made = client.postChanges(project.id(), branchId, commit);
     if (made.isEmpty()) {
@@ -202,7 +163,63 @@ public final class Publisher {
           + " but named no commit; read the branch before publishing again");
     }
     return Optional.of(new Result(
-        project.id(), project.name(), createdProject, branchId, Optional.of(made), made, created, updated, deleted, leftInPlace, false));
+        project.id(), project.name(), createdProject, branchId, Optional.of(made), made, changes.created, changes.updated, changes.deleted, changes.leftInPlace, false));
+  }
+
+  private SysmlApiClient.ProjectInfo createProject(Target target) {
+    SysmlApiClient.ProjectInfo project = client.createProject(target.projectName().strip(), target.branch().strip());
+    // The server fills in what the create left to it: the default branch.
+    return project.defaultBranch().isEmpty() ? named(client.project(project.id()), project) : project;
+  }
+
+  private SysmlApiClient.ProjectInfo existingProject(Target target) {
+    SysmlApiClient.ProjectInfo project = client.project(target.project().strip());
+    if (!project.id().isEmpty()) return project;
+    return new SysmlApiClient.ProjectInfo(target.project().strip(), project.name(), project.defaultBranch());
+  }
+
+  /** The elements the branch holds at {@code head} by id; none for a branch with no commit. */
+  private Map<String, JsonObject> held(String project, String head) {
+    Map<String, JsonObject> remote = new LinkedHashMap<>();
+    if (head.isEmpty()) return remote;
+    for (JsonObject element : client.elements(project, head)) {
+      String id = SysmlApiClient.text(element, "@id");
+      if (!id.isEmpty()) remote.put(id, element);
+    }
+    return remote;
+  }
+
+  /** The versions one commit carries to bring a branch to the model, and what each of them does. */
+  private static final class Changes {
+    final JsonArray versions = new JsonArray();
+    int created;
+    int updated;
+    int deleted;
+    int leftInPlace;
+
+    static Changes between(Map<String, JsonObject> local, Map<String, JsonObject> remote, boolean deleteMissing) {
+      Changes changes = new Changes();
+      for (Map.Entry<String, JsonObject> entry : local.entrySet()) {
+        JsonObject held = remote.get(entry.getKey());
+        if (held != null && !differs(entry.getValue(), held)) continue;
+        if (held == null) {
+          changes.created++;
+        } else {
+          changes.updated++;
+        }
+        changes.versions.add(version(entry.getKey(), entry.getValue()));
+      }
+      for (String id : remote.keySet()) {
+        if (local.containsKey(id)) continue;
+        if (deleteMissing) {
+          changes.versions.add(version(id, JsonNull.INSTANCE));
+          changes.deleted++;
+        } else {
+          changes.leftInPlace++;
+        }
+      }
+      return changes;
+    }
   }
 
   /** A cancellation before the commit: nothing to report, unless a project was created on the way. */
@@ -236,7 +253,7 @@ public final class Publisher {
       if (!item.isJsonObject()) throw new ApiException("the converted model holds a value that is no element");
       JsonObject element = item.getAsJsonObject();
       String id = SysmlApiClient.text(element, "@id");
-      String type = SysmlApiClient.text(element, "@type");
+      String type = SysmlApiClient.text(element, PROPERTY_TYPE);
       if (id.isEmpty() || type.isEmpty()) throw new ApiException("the converted model holds an element without an @id or an @type");
       if (type.contains(":")) {
         unheld.add(id + " (" + type + ")");
@@ -278,7 +295,7 @@ public final class Publisher {
     JsonObject identity = new JsonObject();
     identity.addProperty("@id", id);
     JsonObject version = new JsonObject();
-    version.addProperty("@type", "DataVersion");
+    version.addProperty(PROPERTY_TYPE, "DataVersion");
     version.add("identity", identity);
     version.add("payload", payload);
     return version;

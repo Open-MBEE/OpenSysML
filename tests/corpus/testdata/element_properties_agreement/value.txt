@@ -137,7 +137,7 @@ FeatureChaining::relatedElement	2	symbol-59
 FeatureChaining::target	2	symbol-59
 FeatureInverting::ownedRelatedElement	1	export-06
 FeatureInverting::ownedRelationship	1	symbol-03
-FeatureMembership::memberName	13	export-56
+FeatureMembership::memberName	27	export-69
 FeatureMembership::ownedMemberName	13	export-56
 FeatureReferenceExpression::directedFeature	2	symbol-53
 FeatureReferenceExpression::feature	13	symbol-51
@@ -390,6 +390,7 @@ RenderingUsage::isComposite	28	symbol-67
 RenderingUsage::isReference	28	symbol-67
 RenderingUsage::member	26	symbol-51
 RenderingUsage::membership	26	symbol-51
+RequirementConstraintMembership::memberName	2	export-69
 RequirementUsage::declaredName	24	symbol-01
 RequirementUsage::directedFeature	6	symbol-53
 RequirementUsage::directedUsage	6	symbol-53

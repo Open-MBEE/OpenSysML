@@ -48,6 +48,15 @@ const (
 	ExprMetadata
 )
 
+// Site is where an expression was written: an expression is named by its text,
+// so it carries none of what an Origin says of a declaration.
+type Site struct {
+	// Doc is the name of the document the expression was written in, "" outside any.
+	Doc string
+	// Span is the expression's extent in Doc.
+	Span source.Span
+}
+
 // Expr is one lowered expression: its kind and, by kind, its operands, the names
 // it reads as lowering resolved them, or the constant it spells.
 type Expr struct {
@@ -64,7 +73,7 @@ type Expr struct {
 	// chain applied and then the operand its last member is read from.
 	Applied bool
 	// Origin is where the expression was written.
-	Origin Origin
+	Origin Site
 	// Args are an operator's operands, a sequence's elements, an index's operand then index, a chain's
 	// first operand, a collect's or select's operand then body, a call's or construction's arguments.
 	Args []ExprID

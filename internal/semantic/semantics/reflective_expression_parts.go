@@ -1051,6 +1051,10 @@ func (m *Model) chainFeatureMemberships(chain *symbols.Symbol) []*symbols.Symbol
 // ChainingFeatures are the features a chain Feature chains, in order.
 func (m *Model) ChainingFeatures(chain *symbols.Symbol) []*symbols.Symbol {
 	links := []*symbols.Symbol{}
+	if chain == nil || (chain.Chain == nil && chain.Expr == nil) {
+		// Only a chain a relationship targets or an expression writes owns FeatureChainings.
+		return links
+	}
 	for _, chaining := range m.OwnedRelationships(chain) {
 		if chaining.Implicit != nil && chaining.Implicit.Form == symbols.ImplicitFeatureChaining && chaining.Implicit.Member != nil {
 			links = append(links, chaining.Implicit.Member)

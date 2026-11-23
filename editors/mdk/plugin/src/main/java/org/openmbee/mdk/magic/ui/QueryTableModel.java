@@ -10,10 +10,10 @@ import org.openmbee.mdk.magic.results.RunResult.Table;
 /** Read-only rows of every table a run answered as one grid: a Query column, then the union of the projected properties. */
 public final class QueryTableModel extends AbstractTableModel {
   static final String QUERY_COLUMN = "Query";
-  private List<Table> tables = List.of();
+  private transient List<Table> tables = List.of();
   private List<String> columns = List.of(QUERY_COLUMN);
-  private List<Row> rows = List.of();
-  private List<Table> rowTables = List.of();
+  private transient List<Row> rows = List.of();
+  private transient List<Table> rowTables = List.of();
 
   public void set(List<Table> answered) {
     tables = List.copyOf(answered);

@@ -11,11 +11,11 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 295,
+      "presentEqual": 298,
       "presentDifferent": 27,
-      "oursMissing": 42,
+      "oursMissing": 39,
       "pilotMissing": 16,
-      "absentBoth": 344,
+      "absentBoth": 349,
       "indeterminate": 3,
       "pilotNondeterministic": 0
     },
@@ -62,6 +62,7 @@
     "OwningMembership.memberElement": [2,0,0,0,0,0,0],
     "OwningMembership.memberElementId": [2,0,0,0,0,0,0],
     "OwningMembership.memberName": [2,0,0,0,0,0,0],
+    "OwningMembership.memberShortName": [0,0,0,0,2,0,0],
     "OwningMembership.membershipOwningNamespace": [2,0,0,0,0,0,0],
     "OwningMembership.ownedAnnotation": [0,0,0,0,2,0,0],
     "OwningMembership.ownedElement": [0,0,0,0,2,0,0],
@@ -248,7 +249,8 @@
     "StateSubactionMembership.kind": [3,0,0,0,0,0,0],
     "StateSubactionMembership.memberElement": [3,0,0,0,0,0,0],
     "StateSubactionMembership.memberElementId": [3,0,0,0,0,0,0],
-    "StateSubactionMembership.memberName": [0,0,3,0,0,0,0],
+    "StateSubactionMembership.memberName": [3,0,0,0,0,0,0],
+    "StateSubactionMembership.memberShortName": [0,0,0,0,3,0,0],
     "StateSubactionMembership.membershipOwningNamespace": [3,0,0,0,0,0,0],
     "StateSubactionMembership.ownedAnnotation": [0,0,0,0,3,0,0],
     "StateSubactionMembership.ownedElement": [0,0,0,0,3,0,0],

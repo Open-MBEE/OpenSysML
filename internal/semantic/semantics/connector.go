@@ -702,7 +702,63 @@ func (m *Model) IsConnectorObjectUsage(sym *symbols.Symbol) bool {
 		return usage.Keyword != "message" && usage.FlowEnds != nil &&
 			usage.FlowEnds.From != nil && usage.FlowEnds.To != nil
 	}
-	return false
+	return m.inheritedConnectorUsage(sym) != nil
+}
+
+// ConnectorEndsOrigin is the usage declaring the ends a connector object of sym attaches: sym, or
+// the connector usage it redefines when it declares no end of its own; nil for any other usage.
+func (m *Model) ConnectorEndsOrigin(sym *symbols.Symbol) *symbols.Symbol {
+	if origin := m.inheritedConnectorUsage(sym); origin != nil {
+		return origin
+	}
+	if m.IsConnectorObjectUsage(sym) {
+		return sym
+	}
+	return nil
+}
+
+// inheritedConnectorUsage is the nearest connector usage an end-less connector usage redefines,
+// whose ends it inherits (KerML 1.0 §7.3.2.4, §7.4.6); nil when sym declares ends or redefines none.
+func (m *Model) inheritedConnectorUsage(sym *symbols.Symbol) *symbols.Symbol {
+	if sym == nil || !declaresNoConnectorEnd(sym) {
+		return nil
+	}
+	seen := map[*symbols.Symbol]bool{sym: true}
+	for queue := []*symbols.Symbol{sym}; len(queue) > 0; queue = queue[1:] {
+		for _, redefined := range m.RedefinedFeatures(queue[0]) {
+			if redefined == nil || seen[redefined] {
+				continue
+			}
+			seen[redefined] = true
+			if m.IsConnectorUsage(redefined) {
+				return redefined
+			}
+			if declaresNoConnectorEnd(redefined) {
+				queue = append(queue, redefined)
+			}
+		}
+	}
+	return nil
+}
+
+// declaresNoConnectorEnd reports whether sym is a connector usage with neither a `connect`
+// clause nor an `end` in its body, so the ends it has are the ones it inherits.
+func declaresNoConnectorEnd(sym *symbols.Symbol) bool {
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok || len(usage.ConnectorEnds) > 0 {
+		return false
+	}
+	switch usage.Kind {
+	case ast.UsageConnection, ast.UsageInterface, ast.UsageAllocation, ast.UsageConnector:
+	default:
+		return false
+	}
+	for _, member := range usage.Members {
+		if end, ok := unwrapUsage(member); ok && end.IsEnd {
+			return false
+		}
+	}
+	return true
 }
 
 // ConnectorEndAttachment is one end of a connector usage as an object of that
@@ -773,7 +829,8 @@ func (m *Model) ConnectorEndAttachments(sym *symbols.Symbol) []ConnectorEndAttac
 // ConnectorObjectEnds returns the ends of any connector object usage in
 // declaration order: a connect clause, a binding, or a flow's from/to ends.
 func (m *Model) ConnectorObjectEnds(sym *symbols.Symbol) []ConnectorEndAttachment {
-	if !m.IsConnectorObjectUsage(sym) {
+	sym = m.ConnectorEndsOrigin(sym)
+	if sym == nil {
 		return nil
 	}
 	usage := sym.Decl.(*ast.Usage)
@@ -806,6 +863,9 @@ type ConnectorEndPath struct {
 func (m *Model) ConnectorEndPaths(sym *symbols.Symbol) []ConnectorEndPath {
 	ends := m.ConnectorObjectEnds(sym)
 	paths := make([]ConnectorEndPath, len(ends))
+	if origin := m.ConnectorEndsOrigin(sym); origin != nil {
+		sym = origin
+	}
 	for i, end := range ends {
 		paths[i] = ConnectorEndPath{Name: end.Name, Features: m.attachmentPath(sym.OwnerScope, end.Attachment)}
 	}

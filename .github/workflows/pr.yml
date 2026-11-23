@@ -42,6 +42,9 @@ env:
   # Same for the pilot's XMI of the standard library, downloaded below and
   # compared against by tests/identity (TestPilotLibraryXMI).
   OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
+  # Same for the normative SysML.json, downloaded below and measured against
+  # by tests/export (TestAPIJSONNormativeSchema).
+  OPENSYSML_REQUIRE_OMG_JSON_SCHEMA: "1"
   # z3 is installed below, so "no solver, therefore skip" would exercise nothing:
   # this turns an absent solver into a failure (see internal/exec/solve).
   OPENSYSML_REQUIRE_SMT: "1"

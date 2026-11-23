@@ -27,6 +27,7 @@ n0 <- n2: { class: reference }
 n0 <- n3: { class: portion }
 n0 <- n4: { class: portion }
 n0 -> n5: "event" { class: open }
+n6 <- n0: { class: reference; target-arrowhead: { label: "plant" } }
 n6 -> n9: "require" { class: open }
 n6 -> n10: "assume" { class: open }
 n6 -> n7: "require" { class: open }

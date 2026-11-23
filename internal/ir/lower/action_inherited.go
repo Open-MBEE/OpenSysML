@@ -209,6 +209,13 @@ func lowerableActionNode(decl ast.Node) bool {
 }
 
 func orderedAssertionsForGraph(graph *ActionGraph, bodies []*symbols.Scope) map[*ast.Usage]bool {
+	asserts := func(body *symbols.Scope) bool {
+		return body != nil && body.Node() != nil && declaresAssertion(ast.DeclMembers(body.Node()))
+	}
+	// Only an assertion is ever answered for, so bodies declaring none need no listing.
+	if !asserts(graph.Scope) && !slices.ContainsFunc(bodies, asserts) {
+		return nil
+	}
 	members := make([]ast.Node, 0)
 	seen := make(map[ast.Node]bool)
 	appendBody := func(body *symbols.Scope) {

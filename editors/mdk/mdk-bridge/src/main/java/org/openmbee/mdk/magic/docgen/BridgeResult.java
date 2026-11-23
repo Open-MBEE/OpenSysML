@@ -115,6 +115,7 @@ public record BridgeResult(
   }
 
   private static final String ELEMENT_ID = "elementId";
+  private static final String QUERY = "query";
 
   public static BridgeResult from(Map<String, Object> flat) {
     List<Outcome> outcomes = rows(flat, "outcomes").stream()
@@ -145,7 +146,7 @@ public record BridgeResult(
     if (!(value instanceof List<?> list)) return views;
     for (Object item : list) {
       if (!(item instanceof Map<?, ?> view)) continue;
-      for (String key : List.of("query", "name", "text")) {
+      for (String key : List.of(QUERY, "name", "text")) {
         if (view.get(key) == null) throw new IllegalArgumentException("bridge result view lacks " + key);
       }
       List<Field> header = new ArrayList<>();
@@ -161,7 +162,7 @@ public record BridgeResult(
         for (Object row : flatRows) rows.add(strings(row));
       }
       views.add(new View(
-          String.valueOf(view.get("query")), String.valueOf(view.get("name")), String.valueOf(view.get("text")),
+          String.valueOf(view.get(QUERY)), String.valueOf(view.get("name")), String.valueOf(view.get("text")),
           header, strings(view.get("columns")), rows));
     }
     return views;
@@ -187,7 +188,7 @@ public record BridgeResult(
           rows.add(new Row(optionalText(row.get(ELEMENT_ID)), cells));
         }
       }
-      Object query = table.get("query");
+      Object query = table.get(QUERY);
       if (query == null) throw new IllegalArgumentException("bridge result table lacks query");
       tables.add(new Table(String.valueOf(query), strings(table.get("columns")), rows));
     }

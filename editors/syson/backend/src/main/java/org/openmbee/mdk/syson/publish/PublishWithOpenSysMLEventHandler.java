@@ -39,8 +39,10 @@ public class PublishWithOpenSysMLEventHandler implements IEditingContextEventHan
                 return;
             }
             PublishResult result = service.publish(emfContext, publishInput);
-            MessageLevel level = result.ok() ? MessageLevel.SUCCESS
-                    : result.branchMoved() ? MessageLevel.WARNING : MessageLevel.ERROR;
+            MessageLevel level = MessageLevel.SUCCESS;
+            if (!result.ok()) {
+                level = result.branchMoved() ? MessageLevel.WARNING : MessageLevel.ERROR;
+            }
             payloadSink.tryEmitValue(new PublishWithOpenSysMLSuccessPayload(publishInput.id(),
                     List.of(new Message(result.summary(), level)), result));
         } catch (RuntimeException exception) {
