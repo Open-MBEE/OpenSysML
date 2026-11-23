@@ -351,10 +351,16 @@ func (g *generalGraph) drawn(sym *symbols.Symbol) *Node {
 
 // add records an edge once: an import edge once per import declaration.
 func (g *generalGraph) add(edge Edge) {
+	g.addKeyed(edge, edge.Kind == EdgeImport || g.exposed != nil)
+}
+
+// addKeyed records an edge once, or once per declaration when distinct: what
+// tells apart two edges that read the same.
+func (g *generalGraph) addKeyed(edge Edge, distinct bool) {
 	key := generalEdgeKey{from: edge.From, to: edge.To, label: edge.text(), kind: edge.Kind}
 	// Distinct declarations draw distinct import edges, and distinct exposed
 	// relationships distinct edges, each with its own route.
-	if edge.Kind == EdgeImport || g.exposed != nil {
+	if distinct {
 		key.origin = edge.Origin
 	}
 	if g.edges[key] {
@@ -540,8 +546,7 @@ func (g *generalGraph) statedEdges(sym *symbols.Symbol, from *Node) {
 	if sym.Scope == nil {
 		return
 	}
-	// AllMembers keeps declaration order across named and unnamed features.
-	for _, member := range sym.Scope.AllMembers() {
+	for _, member := range append(slices.Clone(sym.Scope.Members()), sym.Scope.AnonymousMembers()...) {
 		kind, ref, ok := statedReference(member)
 		if !ok {
 			continue
@@ -598,7 +603,9 @@ func (g *generalGraph) featureEdges(sym *symbols.Symbol, from *Node) {
 		kind := g.r.membershipKind(member)
 		for _, typ := range g.r.drawnTypes(member) {
 			if to := g.drawn(typ); to != nil {
-				g.add(Edge{From: from.ID, To: to.ID, Kind: kind, ToLabel: symbols.LastSegment(g.r.fqn(member)), Origin: symbolOrigin(member)})
+				edge := Edge{From: from.ID, To: to.ID, Kind: kind, ToLabel: symbols.LastSegment(g.r.fqn(member)), Origin: symbolOrigin(member)}
+				// Unnamed features of one type read the same and are still one edge each.
+				g.addKeyed(edge, member.Name == "" || edge.Kind == EdgeImport || g.exposed != nil)
 			}
 		}
 	}
@@ -917,8 +924,7 @@ func ownObjectives(sym *symbols.Symbol) []*symbols.Symbol {
 		return nil
 	}
 	var out []*symbols.Symbol
-	// AllMembers keeps declaration order across named and unnamed features.
-	for _, member := range sym.Scope.AllMembers() {
+	for _, member := range append(slices.Clone(sym.Scope.Members()), sym.Scope.AnonymousMembers()...) {
 		if usage, ok := member.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageObjective && member.Scope != nil {
 			out = append(out, member)
 		}

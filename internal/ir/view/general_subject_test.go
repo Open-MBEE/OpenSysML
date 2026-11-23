@@ -107,3 +107,26 @@ func TestGeneralViewUnnamedSubjectEdge(t *testing.T) {
 		}
 	}
 }
+
+// Unnamed features sharing a type are an edge each, and features keep their
+// declaration order whether named or not.
+func TestGeneralViewUnnamedFeatureEdgesDistinctAndOrdered(t *testing.T) {
+	text := textWithQualifiers(t, renderSource(t, "Model::definitions", `package Model {
+	private import StandardViewDefinitions::*;
+	part def Ship;
+	part def User;
+	requirement def Seaworthy {
+		subject : Ship;
+		actor : Ship;
+		actor pilot : User;
+	}
+	view definitions : GeneralView {
+		filter @SysML::Definition;
+		expose Model::**;
+	}
+}`))
+	want := "Model::Seaworthy o-- Model::Ship\n  Model::Seaworthy o-- Model::Ship\n  Model::Seaworthy o-- Model::User: pilot\n"
+	if !strings.Contains(text, want) {
+		t.Errorf("rendering lacks %q:\n%s", want, text)
+	}
+}
