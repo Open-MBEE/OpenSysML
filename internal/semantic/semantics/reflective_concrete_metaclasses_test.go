@@ -245,3 +245,32 @@ func TestResultExpressionMembershipReflected(t *testing.T) {
 		assertNames(t, name+" result memberships", results, []string{want})
 	}
 }
+
+// An ElementFilterMembership's visibility is the one its MemberPrefix states, public by
+// default (KerML 8.2.3.4.1, 8.2.5.13, 8.3.2.4.3), not its owning namespace's.
+func TestElementFilterMembershipVisibilityIsTheOneWritten(t *testing.T) {
+	fixture := reflectiveFixtures(t, "element-filter-visibility.sysml", source.KindSysML, `package P {
+    metadata def M;
+    private filter @M;
+    protected filter @M;
+    filter @M;
+    private package Q { filter @M; }
+}`)[0]
+	visibilities := func(owner string) []string {
+		var out []string
+		for _, membership := range fixture.model.OwnedMemberships(relFixtureSymbol(t, fixture, owner)) {
+			if relMetaName(fixture.model, membership) != "ElementFilterMembership" {
+				continue
+			}
+			value, ok := fixture.model.ReflectiveFeatureValue(membership, "visibility")
+			if !ok {
+				t.Fatalf("visibility on an ElementFilterMembership of %s is unsupported", owner)
+			}
+			out = append(out, value.RefFQN)
+		}
+		return out
+	}
+	const kind = "KerML::Root::VisibilityKind::"
+	assertNames(t, "P filter visibilities", visibilities("P"), []string{kind + "private", kind + "protected", kind + "public"})
+	assertNames(t, "Q filter visibilities", visibilities("Q"), []string{kind + "public"})
+}

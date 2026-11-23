@@ -296,9 +296,12 @@ func (m *Model) synthesizedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	for i, filter := range symbols.NamespaceFiltersIn(sym.Scope) {
 		if filter.Expr != nil {
-			out = append(out, synthesizedMember(sym, filter.Expr, &symbols.ExpressionElement{
+			condition := synthesizedMember(sym, filter.Expr, &symbols.ExpressionElement{
 				Owner: sym, Role: symbols.ExpressionFilterCondition, Index: i,
-			}))
+			})
+			// The ElementFilterMembership's visibility is the one its MemberPrefix states (KerML 8.2.3.4.1).
+			_, condition.Visibility = filterMemberStating(sym, filter.Expr)
+			out = append(out, condition)
 		}
 	}
 	for _, result := range OwnedResultExpressions(sym) {
