@@ -755,12 +755,12 @@ func (idx *Index) expandImporter(pkgFQN string) {
 			// Extract child's primary name
 			childName := LastSegment(child.Name)
 			idx.reexportGated(joinFQN(pkgFQN, childName), child, imp.doc, hop,
-				idx.routesOnward(pkgFQN, cycle, direct, targetFQN, childName, child, gate, imp.all))
+				idx.routesOnward(pkgFQN, cycle, direct, takenName{targetFQN, childName, child}, gate, imp.all))
 
 			// Also re-export under short name if different from primary name
 			if child.HasShortName() && child.ShortName != childName {
 				idx.reexportGated(joinFQN(pkgFQN, child.ShortName), child, imp.doc, hop,
-					idx.routesOnward(pkgFQN, cycle, direct, targetFQN, child.ShortName, child, gate, imp.all))
+					idx.routesOnward(pkgFQN, cycle, direct, takenName{targetFQN, child.ShortName, child}, gate, imp.all))
 			}
 		}
 	}
@@ -1251,9 +1251,16 @@ func viaOnCycle(cycle, via []string, source string, held bool) []string {
 	return kept
 }
 
+// takenName is a symbol an import takes: the namespace it is taken from and the name it has there.
+type takenName struct {
+	source, name string
+	sym          *Symbol
+}
+
 // routesOnward returns the routes by which an import into importer, gated by
 // gate, takes sourceFQN::name: its own, or each route that surfaced it continued.
-func (idx *Index) routesOnward(importer string, cycle []string, direct []gateRoute, sourceFQN, name string, sym *Symbol, gate []ElementFilter, all bool) []gateRoute {
+func (idx *Index) routesOnward(importer string, cycle []string, direct []gateRoute, taken takenName, gate []ElementFilter, all bool) []gateRoute {
+	sourceFQN, name, sym := taken.source, taken.name, taken.sym
 	if idx.declaredExactly(sym, sourceFQN, name) {
 		return direct // declared there, never borrowed into it
 	}

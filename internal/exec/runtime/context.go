@@ -2002,7 +2002,7 @@ func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *I
 	top := ctx.runDepth == 0
 	defer ctx.beginRun()()
 
-	exec, err := ctx.beginPerformed(performed, action, self, nil, inputs, top, nil, start)
+	exec, err := ctx.beginPerformed(performed, action, self, nil, inputs, performanceStart{top: top, start: start})
 	if err != nil {
 		return nil, err
 	}
@@ -2012,9 +2012,18 @@ func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *I
 	return exec, nil
 }
 
+// performanceStart is how a performance begins: as a top-level run or a nested one, the listener
+// installed first, and the step that starts it.
+type performanceStart struct {
+	top      bool
+	listener *outputListener
+	start    func(*ActionExecutor) error
+}
+
 // beginPerformed begins a performance of performed running action with start, on the
 // clock until it is run; top marks a top-level run, and listener is installed first.
-func (ctx *Context) beginPerformed(performed, action *symbols.Symbol, self, occurrence *Instance, inputs map[string]Value, top bool, listener *outputListener, start func(*ActionExecutor) error) (*ActionExecutor, error) {
+func (ctx *Context) beginPerformed(performed, action *symbols.Symbol, self, occurrence *Instance, inputs map[string]Value, begin performanceStart) (*ActionExecutor, error) {
+	top, listener, start := begin.top, begin.listener, begin.start
 	exec, err := newActionExecutorOf(ctx, performed, action, self, occurrence)
 	if err != nil {
 		err = fmt.Errorf("create action executor: %w", err)

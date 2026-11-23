@@ -441,7 +441,7 @@ func (ctx *Context) beginCallee(performed, action *symbols.Symbol, self, occurre
 	ctx.actionDepth++
 	defer func() { ctx.actionDepth-- }()
 	defer ctx.nestRun()()
-	exec, err := ctx.beginPerformed(performed, action, self, occurrence, inputs, false, listener, startActionStep)
+	exec, err := ctx.beginPerformed(performed, action, self, occurrence, inputs, performanceStart{listener: listener, start: startActionStep})
 	if err != nil {
 		return nil, err
 	}

@@ -85,9 +85,24 @@ func recordKey(record baseline.Record, java, root string) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
+// pilotLaunch is how the pilot is run: its launcher, the JVM it runs under, its time limit and its log.
+type pilotLaunch struct {
+	launcher, java string
+	timeout        time.Duration
+	log            io.Writer
+}
+
+// pilotRoot is one corpus root the pilot exports: its name, directory, libraries and files.
+type pilotRoot struct {
+	root, dir        string
+	libraries, files []string
+}
+
 // recordedPilot is root's export from the record under store when its key is the run's, else a
 // fresh export recorded there; without a launcher only the record can answer.
-func recordedPilot(store, launcher, java string, record baseline.Record, root, dir string, libraries, files []string, timeout time.Duration, log io.Writer) (*pilotExport, error) {
+func recordedPilot(store string, pilot pilotLaunch, record baseline.Record, corpus pilotRoot) (*pilotExport, error) {
+	launcher, java, timeout, log := pilot.launcher, pilot.java, pilot.timeout, pilot.log
+	root, dir, libraries, files := corpus.root, corpus.dir, corpus.libraries, corpus.files
 	key, err := recordKey(record, java, root)
 	if err != nil {
 		return nil, err

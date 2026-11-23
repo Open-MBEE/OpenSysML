@@ -443,7 +443,7 @@ func calcParameters(chain []*symbols.Symbol, env CalcEnv, trees *CalcTrees, alia
 	for _, link := range chain {
 		for _, member := range UnwrappedDeclMembers(link.Decl) {
 			if subject, ok := SubjectDeclaration(member); ok {
-				params = subjectParameter(params, index, aliases, link, member, subject, env, trees)
+				params = subjectParameter(params, index, aliases, linkSubject{link, member, subject}, env, trees)
 				continue
 			}
 			usage, ok := member.(*ast.Usage)
@@ -514,12 +514,20 @@ func redeclaredIndex(index map[string]int, sym *symbols.Symbol, name string, env
 	return 0, false
 }
 
+// linkSubject is the subject a link of a specialization chain declares, with the member declaring it.
+type linkSubject struct {
+	link    *symbols.Symbol
+	member  ast.Node
+	subject SubjectDecl
+}
+
 // subjectParameter records link's subject among params: refining the subject an
 // earlier link declared, else inserting it first, the position a subject binds by.
 func subjectParameter(
 	params []program.CalcParam, index map[string]int, aliases *map[string]string,
-	link *symbols.Symbol, member ast.Node, subject SubjectDecl, env CalcEnv, trees *CalcTrees,
+	declared linkSubject, env CalcEnv, trees *CalcTrees,
 ) []program.CalcParam {
+	link, member, subject := declared.link, declared.member, declared.subject
 	sym := memberSymbol(declScope(link), member)
 	param := program.CalcParam{
 		Name: subject.Name, Default: trees.intern(subject.Value, link), Owner: link, IsSubject: true,
