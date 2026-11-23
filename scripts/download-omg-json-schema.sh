@@ -28,7 +28,7 @@ work="$(mktemp "$target_dir/SysML.json.XXXXXX")"
 trap 'rm -f "$work"' EXIT
 
 echo "Fetching $OMG_SYSML_JSON_SCHEMA_URL ..."
-curl --fail --silent --show-error --location --retry 3 --output "$work" "$OMG_SYSML_JSON_SCHEMA_URL"
+curl --fail --silent --show-error --location --retry 3 --max-filesize 16777216 --output "$work" "$OMG_SYSML_JSON_SCHEMA_URL"
 
 actual="$(sha256_of "$work")"
 if [[ "$actual" != "$OMG_SYSML_JSON_SCHEMA_SHA256" ]]; then
