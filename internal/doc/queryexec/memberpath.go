@@ -19,7 +19,7 @@ func (e *executor) memberPathStep(current *symbols.Symbol, segment string) (elem
 	if member, ok := e.context.Model.LookupMember(current, segment); ok && member != nil {
 		return []*symbols.Symbol{member}, true
 	}
-	return e.context.Model.ReflectiveElements(current, segment)
+	return e.context.Model.StatedReflectiveElements(current, segment)
 }
 
 // pathReach is how far a row carries a property path: not at all, to a step it has that holds no element, or to its end.

@@ -117,11 +117,13 @@ const (
 // mavenWorkflow reads the steps of any workflow, whatever the shape of its other keys.
 type mavenWorkflow struct {
 	Jobs map[string]struct {
-		Steps []struct {
-			Name string         `yaml:"name"`
-			Uses string         `yaml:"uses"`
-			Run  string         `yaml:"run"`
-			With map[string]any `yaml:"with"`
+		TimeoutMinutes int `yaml:"timeout-minutes"`
+		Steps          []struct {
+			Name           string         `yaml:"name"`
+			Uses           string         `yaml:"uses"`
+			Run            string         `yaml:"run"`
+			With           map[string]any `yaml:"with"`
+			TimeoutMinutes int            `yaml:"timeout-minutes"`
 		} `yaml:"steps"`
 	} `yaml:"jobs"`
 }
@@ -266,7 +268,7 @@ func TestJavaAuditFallsBackToAMirror(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"maven-central-mirror-settings.xml", "MAVEN_SBOM_ATTEMPTS", `-f "$tree/pom.xml"`, "-DincludeTestScope=false"} {
+	for _, want := range []string{"maven-central-mirror-settings.xml", "MAVEN_SBOM_ATTEMPTS", "MAVEN_SBOM_TIMEOUT_SECONDS", `-f "$tree/pom.xml"`, "-DincludeTestScope=false"} {
 		if !strings.Contains(string(script), want) {
 			t.Errorf("scripts/maven-sbom.sh lacks %q", want)
 		}
@@ -277,5 +279,38 @@ func TestJavaAuditFallsBackToAMirror(t *testing.T) {
 	}
 	if !strings.Contains(string(settings), "<mirrorOf>central</mirrorOf>") {
 		t.Error("scripts/maven-central-mirror-settings.xml mirrors something other than central alone")
+	}
+}
+
+// TestJavaAuditKeepsToItsOwnBudget holds a pull request's audit of one Maven tree under a step bound
+// shorter than its job's, and after the tests it would otherwise starve of the job's time.
+func TestJavaAuditKeepsToItsOwnBudget(t *testing.T) {
+	raw, err := os.ReadFile("../../.github/workflows/pr.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var file mavenWorkflow
+	if err := yaml.Unmarshal(raw, &file); err != nil {
+		t.Fatal(err)
+	}
+	audits := 0
+	for id, job := range file.Jobs {
+		audited := false
+		for _, step := range job.Steps {
+			if strings.Contains(step.Run, "make audit-java") {
+				audits++
+				audited = true
+				if step.TimeoutMinutes <= 0 || step.TimeoutMinutes >= job.TimeoutMinutes {
+					t.Errorf("pr.yml job %s step %q has timeout-minutes %d; want one under the job's %d", id, step.Name, step.TimeoutMinutes, job.TimeoutMinutes)
+				}
+				continue
+			}
+			if audited && (strings.Contains(step.Run, "mvn ") || strings.Contains(step.Run, "conformance")) {
+				t.Errorf("pr.yml job %s runs %q after the audit, whose wait for Maven Central spends that step's time", id, step.Name)
+			}
+		}
+	}
+	if audits == 0 {
+		t.Fatal("no pr.yml job runs make audit-java")
 	}
 }

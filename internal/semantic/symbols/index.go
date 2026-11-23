@@ -2336,6 +2336,68 @@ func (idx *Index) WildcardImportsOf(fqn string) []WildcardImport {
 	return out
 }
 
+// OutsideImport is an import another document states through a namespace, with the declaration
+// stating it and the name of the namespace it reads: "" when it names none, or more than one.
+type OutsideImport struct {
+	Import *ast.Import
+	From   *Scope
+	Target string
+}
+
+// ImportsStatedOutside returns the imports that the declarations of the namespace registered under fqn
+// state in documents other than doc, which a scope of doc does not hold.
+func (idx *Index) ImportsStatedOutside(fqn, doc string) []OutsideImport {
+	idx.readName(fqn)
+	idx.readNamespace(fqn)
+	reexported := idx.reexported.at(fqn)
+	var out []OutsideImport
+	for _, sym := range idx.fqn.at(fqn) {
+		if sym.Scope == nil || reexported.has(sym) || DocNameOf(sym.Scope) == doc {
+			continue
+		}
+		for _, imp := range sym.Scope.Imports() {
+			stated := OutsideImport{Import: imp, From: sym.Scope}
+			if imp.Kind == ast.ImportNamespace && imp.Imported != nil {
+				target := imp.Imported.Text()
+				idx.readWildcardTarget(fqn, target)
+				stated.Target = idx.resolveWildcardTarget(fqn, target)
+			}
+			out = append(out, stated)
+		}
+	}
+	return out
+}
+
+// NamespaceAt is the scope of the one declaration registered under fqn, or nil.
+func (idx *Index) NamespaceAt(fqn string) *Scope {
+	idx.readName(fqn)
+	reexported := idx.reexported.at(fqn)
+	var only *Scope
+	for _, sym := range idx.fqn.at(fqn) {
+		if reexported.has(sym) {
+			continue
+		}
+		if only != nil || sym.Scope == nil {
+			return nil
+		}
+		only = sym.Scope
+	}
+	return only
+}
+
+// readWildcardTarget records the names resolveWildcardTarget looks under.
+func (idx *Index) readWildcardTarget(pkgFQN, targetText string) {
+	for prefix := pkgFQN; prefix != ""; {
+		idx.readName(prefix + "::" + targetText)
+		i := lastSeparator(prefix)
+		if i < 0 {
+			break
+		}
+		prefix = prefix[:i]
+	}
+	idx.readName(targetText)
+}
+
 // importedChildren returns the memberships of prefix a wildcard import of it takes (KerML 8.3.2.4.5
 // visibleMemberships): all under `import all`, else its public ones and those its public imports brought.
 func (idx *Index) importedChildren(prefix string, all bool) []*Symbol {

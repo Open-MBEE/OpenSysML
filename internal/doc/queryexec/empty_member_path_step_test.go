@@ -153,3 +153,26 @@ calc def Modes :> Query {
 		t.Fatalf("valuation.name = %q, want %q", got, want)
 	}
 }
+
+// A root-level element reads no owning namespace, so a string path through it is an empty cell.
+func TestExecuteMemberPathThroughRootOwnershipIsAnEmptyCell(t *testing.T) {
+	fixture := loadExecutionSource(t, `
+part def RootDef;
+package Observatory {`+executionImports+`
+	calc def Path :> Query {
+		in root : Element;
+		Project(source = root, properties = ("name", "owningNamespace.ownedMembership"))
+	}
+}`)
+	matches := fixture.index.LookupQualified("RootDef")
+	if len(matches) != 1 {
+		t.Fatalf("lookup RootDef: got %d symbols", len(matches))
+	}
+	result, err := fixture.execute(t, "Path", Bindings{"root": {ElementValue(matches[0])}}, Options{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if cells := result.Rows()[0].Cells(); len(cells[1].Values()) != 0 {
+		t.Fatalf("owningNamespace.ownedMembership = %+v, want an empty cell", cells[1].Values())
+	}
+}
