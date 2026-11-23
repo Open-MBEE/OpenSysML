@@ -177,7 +177,7 @@ func TestNegativeInfinityRoundTrip(t *testing.T) {
 	negative := runtime.Value{Kind: runtime.ValConst, Const: semantics.NegativeInfinity()}
 
 	pv := protoconv.ValueToProto(negative, idx)
-	if real, ok := pv.GetKind().(*pb.Value_RealValue); !ok || !math.IsInf(real.RealValue, -1) {
+	if realValue, ok := pv.GetKind().(*pb.Value_RealValue); !ok || !math.IsInf(realValue.RealValue, -1) {
 		t.Fatalf("-* crossed as %v, want the real -Inf", pv)
 	}
 	back, err := protoconv.ProtoToValueIn(pv, idx, nil)
