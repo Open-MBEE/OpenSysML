@@ -170,48 +170,104 @@ func writeAgreementRatchet(t *testing.T, recorded map[agreementRow]agreementRatc
 	}
 }
 
-// checkAgreementRatchet holds the sweep to the recorded classes: none new, none above its count, each with
-// a clause. A complete sweep fails a vanished class; a subset announces the classes it did not produce.
-func checkAgreementRatchet(t *testing.T, subset corpussubset.Subset, complete bool, agreement *agreementCounts) {
+// sweptAgreement holds each sweep part's disagreements until every part has run: the recorded
+// counts are over the whole sweep, so only the parts together can be held to them exactly.
+var sweptAgreement struct {
+	mu       sync.Mutex
+	parts    map[string]*agreementCounts
+	partial  bool
+	recorded bool
+}
+
+// TestMain fails a re-recording the run did not complete, which would otherwise pass having written nothing.
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if code == 0 && *updateAgreementRatchet && !sweptAgreement.recorded {
+		fmt.Fprintf(os.Stderr, "FAIL: -update-agreement-ratchet wrote nothing: re-recording %s needs every sweep part in one run (-run TestExamplesSweep)\n", agreementRatchetDir)
+		code = 1
+	}
+	os.Exit(code)
+}
+
+// checkAgreementRatchet holds a sweep part to the recorded classes: none new, none above its count, each
+// with a clause. The part that completes the whole sweep holds the summed counts to the record exactly.
+func checkAgreementRatchet(t *testing.T, subset corpussubset.Subset, part sweepPart, complete bool, agreement *agreementCounts) {
 	t.Helper()
 	recorded := agreementRatchetRows(t)
-	if *updateAgreementRatchet {
-		if !complete {
-			t.Fatalf("re-recording %s needs the whole sweep with every corpus downloaded (%s=%q)", agreementRatchetDir, corpussubset.EnvVar, subset.Name())
-		}
-		writeAgreementRatchet(t, recorded, agreement.counts)
+	if *updateAgreementRatchet && !complete {
+		t.Fatalf("re-recording %s needs the whole sweep with every corpus downloaded (%s=%q)", agreementRatchetDir, corpussubset.EnvVar, subset.Name())
 	}
-	fell, unchecked := 0, 0
+	whole := sweptAgreementWith(part, complete, agreement)
+	if whole != nil && *updateAgreementRatchet {
+		writeAgreementRatchet(t, recorded, whole.counts)
+		sweptAgreement.recorded = true
+		recorded = agreementRatchetRows(t)
+	}
+	unchecked := 0
 	for row, count := range agreement.counts {
 		prior, ok := recorded[row]
 		switch {
-		case !ok:
+		case !ok && !*updateAgreementRatchet:
 			t.Errorf("%s %s: %d new disagreements, e.g. %s", row.class, row.kind, count, agreement.examples[row])
-		case count > prior.count:
+		case ok && count > prior.count:
 			t.Errorf("%s %s: %d disagreements, %d recorded (%s is correct: %s); e.g. %s", row.class, row.kind, count, prior.count, prior.side, prior.clause, agreement.examples[row])
-		case count < prior.count:
-			fell++
 		}
 	}
 	for row, prior := range recorded {
 		if prior.side == "?" || prior.clause == "?" {
 			t.Errorf("%s/%s.txt: %s carries no clause key", agreementRatchetDir, row.kind, row.class)
 		}
-		if _, ok := agreement.counts[row]; ok {
-			continue
-		}
-		switch {
-		case complete:
-			t.Errorf("%s/%s.txt: %s no longer differs; remove the row", agreementRatchetDir, row.kind, row.class)
-		case !subset.Whole():
+		if _, ok := agreement.counts[row]; !ok && !subset.Whole() {
 			unchecked++
 		}
 	}
 	announceUnchecked(t, agreementGate, subset, unchecked, len(recorded), "classes")
-	if fell > 0 && complete && !*updateAgreementRatchet {
+	t.Logf("%s: %d (element, property) pairs agree, %d classes of disagreement", part.name, agreement.agreed, len(agreement.counts))
+	if whole == nil {
+		return
+	}
+	fell := 0
+	for row, prior := range recorded {
+		switch count, ok := whole.counts[row]; {
+		case !ok:
+			t.Errorf("%s/%s.txt: %s no longer differs; remove the row", agreementRatchetDir, row.kind, row.class)
+		case count > prior.count:
+			t.Errorf("%s %s: %d disagreements over the whole sweep, %d recorded (%s is correct: %s); e.g. %s", row.class, row.kind, count, prior.count, prior.side, prior.clause, whole.examples[row])
+		case count < prior.count:
+			fell++
+		}
+	}
+	if fell > 0 {
 		t.Logf("%d classes fell below their recorded count; re-record with -update-agreement-ratchet", fell)
 	}
-	t.Logf("%d (element, property) pairs agree, %d classes of disagreement", agreement.agreed, len(agreement.counts))
+	t.Logf("whole sweep: %d (element, property) pairs agree, %d classes of disagreement", whole.agreed, len(whole.counts))
+}
+
+// sweptAgreementWith adds a part's disagreements and returns the whole sweep's once every part has
+// run complete in this process, nil until then.
+func sweptAgreementWith(part sweepPart, complete bool, agreement *agreementCounts) *agreementCounts {
+	sweptAgreement.mu.Lock()
+	defer sweptAgreement.mu.Unlock()
+	if sweptAgreement.parts == nil {
+		sweptAgreement.parts = map[string]*agreementCounts{}
+	}
+	sweptAgreement.parts[part.name] = agreement
+	sweptAgreement.partial = sweptAgreement.partial || !complete
+	if sweptAgreement.partial || len(sweptAgreement.parts) != len(sweepParts) {
+		return nil
+	}
+	whole := &agreementCounts{counts: map[agreementRow]int{}, examples: map[agreementRow]string{}}
+	for _, p := range sweepParts {
+		swept := sweptAgreement.parts[p.name]
+		whole.agreed += swept.agreed
+		for row, count := range swept.counts {
+			whole.counts[row] += count
+			if _, ok := whole.examples[row]; !ok {
+				whole.examples[row] = swept.examples[row]
+			}
+		}
+	}
+	return whole
 }
 
 // metamodelProperty reports whether name is a property the metamodel declares on class or an ancestor,
