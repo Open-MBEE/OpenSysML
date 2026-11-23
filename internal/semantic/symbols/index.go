@@ -1613,25 +1613,7 @@ func (w *routeWalk) through(claims map[string]*reexportClaim, private bool) [][]
 // spread is through without a path, for when no namespace reached is read with
 // its private memberships: a route coming back to one then admits no more.
 func (w *routeWalk) spread(claims map[string]*reexportClaim, private bool) (routes [][]ElementFilter, ok bool) {
-	// open lists the hops a read of the claims follows, false at an `import all`.
-	open := func(claims map[string]*reexportClaim, private bool) (hops []importHop, ok bool) {
-		for _, doc := range sortedKeys(claims) {
-			if claims[doc] == nil {
-				continue
-			}
-			for _, hop := range claims[doc].hops {
-				if (hop.private && !private) || slices.Contains(w.excluded, hop.from) || w.reading(hop.from) {
-					continue
-				}
-				if hop.all {
-					return nil, false
-				}
-				hops = append(hops, hop)
-			}
-		}
-		return hops, true
-	}
-	first, ok := open(claims, private)
+	first, ok := w.open(claims, private)
 	if !ok {
 		return nil, false
 	}
@@ -1651,36 +1633,56 @@ func (w *routeWalk) spread(claims map[string]*reexportClaim, private bool) (rout
 			from[ns], held[ns] = nil, [][]ElementFilter{nil}
 			continue
 		}
-		hops, ok := open(w.idx.reexportDocs.at(reexportKey{fqn: fqn, sym: w.sym}), false)
+		hops, ok := w.open(w.idx.reexportDocs.at(reexportKey{fqn: fqn, sym: w.sym}), false)
 		if !ok {
 			return nil, false
 		}
 		from[ns] = hops
 		work = append(work, hops...)
 	}
-	// take adds to routes what the hops bring, reporting whether it admits more.
-	take := func(routes [][]ElementFilter, hops []importHop) ([][]ElementFilter, bool) {
-		gained := false
-		for _, hop := range hops {
-			for _, filters := range held[hop.from] {
-				filters = addFilters(filters, hop.filters)
-				if !slices.ContainsFunc(routes, func(have []ElementFilter) bool { return filtersSubsume(have, filters) }) {
-					routes, gained = addRoute(routes, filters), true
-				}
-			}
-		}
-		return routes, gained
-	}
 	for changed := true; changed; {
 		changed = false
 		for _, ns := range slices.Backward(order) { // the namespaces read from come later
 			var gained bool
-			held[ns], gained = take(held[ns], from[ns])
+			held[ns], gained = takeRoutes(held, held[ns], from[ns])
 			changed = changed || gained
 		}
 	}
-	routes, _ = take(nil, first)
+	routes, _ = takeRoutes(held, nil, first)
 	return routes, true
+}
+
+// open lists the hops a read of the claims follows, false at an `import all`.
+func (w *routeWalk) open(claims map[string]*reexportClaim, private bool) (hops []importHop, ok bool) {
+	for _, doc := range sortedKeys(claims) {
+		if claims[doc] == nil {
+			continue
+		}
+		for _, hop := range claims[doc].hops {
+			if (hop.private && !private) || slices.Contains(w.excluded, hop.from) || w.reading(hop.from) {
+				continue
+			}
+			if hop.all {
+				return nil, false
+			}
+			hops = append(hops, hop)
+		}
+	}
+	return hops, true
+}
+
+// takeRoutes adds to routes what the hops bring from the routes held per namespace, reporting whether it admits more.
+func takeRoutes(held map[string][][]ElementFilter, routes [][]ElementFilter, hops []importHop) ([][]ElementFilter, bool) {
+	gained := false
+	for _, hop := range hops {
+		for _, filters := range held[hop.from] {
+			filters = addFilters(filters, hop.filters)
+			if !slices.ContainsFunc(routes, func(have []ElementFilter) bool { return filtersSubsume(have, filters) }) {
+				routes, gained = addRoute(routes, filters), true
+			}
+		}
+	}
+	return routes, gained
 }
 
 // hops is through, also reporting where on the path the outermost namespace
