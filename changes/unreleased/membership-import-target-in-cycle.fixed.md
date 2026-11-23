@@ -1,1 +1,0 @@
-- A membership import (`import P::x`) met while the members of an import cycle are enumerated names its target in its own right, as it does in a lookup: `P::x` was reported unresolved when `x` reaches `P` through a namespace the enumeration was already reading, and whether it was depended on the order the packages were written in.

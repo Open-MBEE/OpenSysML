@@ -56,19 +56,6 @@ var importCycleShapes = []importCycleShape{
 		},
 	},
 	{
-		// A membership import names its target in its own right: N2::B is N4::B, a member of N2 by its
-		// import of N4, whatever route through the cycle is reading N1 when the import is enumerated.
-		name: "membership import of a member the cycle brings back",
-		packages: []string{
-			"package N0 { public import N4::**; }",
-			"package O0 { private import N0::*; part s_B : B; }",
-			"package N1 { public import N2::B; }",
-			"package N2 { public import N4::*; }",
-			"package N4 { public attribute def B; public import N1::*; }",
-		},
-		anyOrder: true,
-	},
-	{
 		// N3::A and N4::A both resolve: N3 reads N0, whose `import all` reads N2, whose `import all` takes N4's
 		// private A (8.3.2.4.5 visibleMemberships with includeAll), and N4 takes A back through N1.
 		name: "private member taken by import all through the cycle",

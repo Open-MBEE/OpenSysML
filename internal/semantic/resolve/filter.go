@@ -389,12 +389,7 @@ func (r *Resolver) importedMembersAdmitting(into, scope *symbols.Scope, imp *ast
 
 // enumerateImported lists what imp of scope brings, scope's namespace excluded.
 func (r *Resolver) enumerateImported(scope *symbols.Scope, imp *ast.Import, includeUnnamed bool, admission func() func(*symbols.Symbol) bool) []*symbols.Symbol {
-	// A membership import names its target apart from the route reading it, as a lookup does.
-	resolve := r.resolveImportTarget
-	if imp.Kind == ast.ImportMembership {
-		resolve = r.importTargetOf
-	}
-	target, ok := resolve(scope, imp)
+	target, ok := r.resolveImportTarget(scope, imp)
 	if !ok || target == nil {
 		return nil
 	}
