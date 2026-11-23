@@ -92,16 +92,23 @@ func (r *Resolver) markRoute() routeMark {
 // routeDepsSince closes mark: the namespaces excluded when it was set that the
 // reads since were cut at, self apart, and the namespaces they entered.
 func (r *Resolver) routeDepsSince(mark routeMark, self *symbols.Scope) routeDeps {
-	var deps routeDeps
+	entered := distinctScopes(r.importSeen[mark.seen:])
+	return routeDeps{cut: r.routeCutsSince(mark, self), entered: entered}
+}
+
+// routeCutsSince closes mark for a read that depends on its cuts alone: the
+// excluded namespaces still being read that the reads since were cut at, self
+// apart.
+func (r *Resolver) routeCutsSince(mark routeMark, self *symbols.Scope) []*symbols.Scope {
+	var cut []*symbols.Scope
 	for _, scope := range r.importHits[mark.hits:] {
-		if scope != self && slices.Contains(r.importPath[:min(mark.path, len(r.importPath))], scope) && !slices.Contains(deps.cut, scope) {
-			deps.cut = append(deps.cut, scope)
+		if scope != self && slices.Contains(r.importPath[:min(mark.path, len(r.importPath))], scope) && !slices.Contains(cut, scope) {
+			cut = append(cut, scope)
 		}
 	}
-	deps.entered = distinctScopes(r.importSeen[mark.seen:])
 	r.importMarks--
 	r.forgetRoute()
-	return deps
+	return cut
 }
 
 // forgetRoute drops the record once no read is in progress to depend on it.
