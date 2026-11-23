@@ -602,12 +602,7 @@ func calcOutputs(chain []*symbols.Symbol, env CalcEnv, trees *CalcTrees, aliases
 				at, seen = indexOfAnonymousResult(outs)
 			}
 			if seen {
-				if out.Value == 0 {
-					out.Value = outs[at].Value
-					out.Owner = outs[at].Owner
-					out.IsInitial = outs[at].IsInitial
-				}
-				out.Declarations = declarationsOf(outs[at].Declarations, link, sym, name)
+				out = redeclaredOutput(out, outs[at], link, sym, name)
 				if name != "" {
 					*aliases = program.AliasRedefined(*aliases, outs[at].Name, name)
 					index[name] = at
@@ -622,6 +617,17 @@ func calcOutputs(chain []*symbols.Symbol, env CalcEnv, trees *CalcTrees, aliases
 		}
 	}
 	return outs
+}
+
+// redeclaredOutput is out as the redeclaration of prior: a value it does not state stays prior's.
+func redeclaredOutput(out, prior program.CalcOutput, link, sym *symbols.Symbol, name string) program.CalcOutput {
+	if out.Value == 0 {
+		out.Value = prior.Value
+		out.Owner = prior.Owner
+		out.IsInitial = prior.IsInitial
+	}
+	out.Declarations = declarationsOf(prior.Declarations, link, sym, name)
+	return out
 }
 
 // indexOfAnonymousResult finds the unnamed result parameter among outs, which is
