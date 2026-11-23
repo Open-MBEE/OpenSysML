@@ -483,12 +483,19 @@ func (r *Renderer) successions(view *symbols.Symbol, orders []order, ends *lifel
 }
 
 // inheritedOn is the lifeline an occurrence is on by inheritance: the one of the
-// feature it is named through, when that feature is shown and does not declare it.
+// feature it is named through or stated within, when that is shown and inherits it.
 func (e *lifelineEnds) inheritedOn(occurrence, through *symbols.Symbol) *Node {
-	if through == nil || owns(through, occurrence) {
+	if through == nil || occurrence == nil || !e.r.specializes(through, occurrence.Owner()) {
 		return nil
 	}
 	return e.lifelines[through]
+}
+
+// specializes reports whether general is among what sym specializes or is typed by.
+func (r *Renderer) specializes(sym, general *symbols.Symbol) bool {
+	return general != nil && slices.ContainsFunc(r.model.AllSupertypes(sym), func(super *symbols.Symbol) bool {
+		return symbols.SameElement(super, general)
+	})
 }
 
 // orderEnd is an end of an order on the lifeline it is read on: the one it is
@@ -504,10 +511,10 @@ func (e *lifelineEnds) orderEnd(o order, occurrence, through *symbols.Symbol) li
 }
 
 // inheritedOrders are, per order, its readings on the lifelines that inherit it,
-// in the order drawn: an order a definition states between two of its own events
-// holds on every lifeline holding one of them by inheritance, the events it redefines
-// standing in for the ones redefined. A chain of orders carries a lifeline's
-// events along it, so the readings are taken until none adds an event.
+// in the order drawn: an order a type states between two events of its own or
+// inherited holds on every lifeline specializing it that holds one of them, the
+// events it redefines standing in for the ones redefined. A chain of orders carries
+// a lifeline's events along it, so the readings are taken until none adds an event.
 func (r *Renderer) inheritedOrders(orders []order, ends *lifelineEnds, lifelines []*Node) [][]timing {
 	shown := make(map[*Node]*symbols.Symbol, len(ends.lifelines))
 	for sym, lifeline := range ends.lifelines {
@@ -526,11 +533,11 @@ func (r *Renderer) inheritedOrders(orders []order, ends *lifelineEnds, lifelines
 	for grew := true; grew; {
 		grew = false
 		for i, o := range orders {
-			if o.from == nil || o.to == nil || o.fromThrough != nil || o.toThrough != nil || o.from.Owner() != o.within || o.to.Owner() != o.within {
+			if o.from == nil || o.to == nil || o.fromThrough != nil || o.toThrough != nil || !r.featureOf(o.within, o.from) || !r.featureOf(o.within, o.to) {
 				continue
 			}
 			for at, lifeline := range lifelines {
-				if read[[2]int{i, at}] || lifeline == ends.lifelineOf(o.from) || lifeline == ends.lifelineOf(o.to) {
+				if read[[2]int{i, at}] || !r.specializes(shown[lifeline], o.within) {
 					continue
 				}
 				from := lifelineEnd{lifeline, r.redefinedBy(shown[lifeline], o.from)}
@@ -553,6 +560,11 @@ func (r *Renderer) inheritedOrders(orders []order, ends *lifelineEnds, lifelines
 	return inherited
 }
 
+// featureOf reports whether a type declares a feature or inherits it.
+func (r *Renderer) featureOf(typ, feature *symbols.Symbol) bool {
+	return typ != nil && (feature.Owner() == typ || r.specializes(typ, feature.Owner()))
+}
+
 // redefinedBy is the member of owner that redefines an inherited feature, else
 // the feature itself.
 func (r *Renderer) redefinedBy(owner, feature *symbols.Symbol) *symbols.Symbol {
@@ -565,16 +577,6 @@ func (r *Renderer) redefinedBy(owner, feature *symbols.Symbol) *symbols.Symbol {
 		}
 	}
 	return feature
-}
-
-// owns reports whether owner is sym or one of its owners.
-func owns(owner, sym *symbols.Symbol) bool {
-	for ; sym != nil; sym = sym.Owner() {
-		if sym == owner {
-			return true
-		}
-	}
-	return false
 }
 
 // timing is an order between two events, each on the lifeline it is read on (none

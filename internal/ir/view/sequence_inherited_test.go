@@ -293,3 +293,59 @@ func TestSequenceRenderingKeepsAUsagesOwnOrderOffItsSiblings(t *testing.T) {
 		t.Errorf("got %q\nwant %q", got, want)
 	}
 }
+
+// An order a part states between occurrences it neither declares nor inherits
+// stays on their own lifelines.
+func TestSequenceRenderingKeepsAnOrderOfForeignEventsOnTheirLifelines(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	occurrence opened;
+	occurrence closed;
+	part door {
+		succession first opened then closed;
+	}
+}`, "opened", "closed", "door")
+	if got := sequenceEnds(rendering); !slices.Equal(got, []string{": P::opened -> P::closed"}) {
+		t.Errorf("got %q, want the order between the two occurrences' own lifelines", got)
+	}
+}
+
+// An order a subtype states over events it inherits holds on a lifeline typed by
+// the subtype, and not on one typed by the base alone.
+func TestSequenceRenderingReadsASubtypesOrderOnItsLifelines(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part def Client {
+		event occurrence sent;
+		event occurrence got;
+	}
+	part def Careful :> Client {
+		succession first got then sent;
+	}
+	part def Scene {
+		part server {
+			event occurrence a;
+			event occurrence b;
+			event occurrence c;
+			event occurrence d;
+		}
+		part careful : Careful;
+		part plain : Client;
+		message ask of Ping from careful.sent to server.a;
+		message reply of Ping from server.b to careful.got;
+		message plainAsk of Ping from plain.sent to server.c;
+		message plainReply of Ping from server.d to plain.got;
+	}
+}`, "Careful", "Scene")
+	want := []string{
+		"reply of Ping: server.b -> careful.got",
+		": careful.got -> careful.sent",
+		"ask of Ping: careful.sent -> server.a",
+		"plainAsk of Ping: plain.sent -> server.c",
+		"plainReply of Ping: server.d -> plain.got",
+		// The subtype shown is a lifeline of its own, holding the order it states.
+		": P::Careful.got -> P::Careful.sent",
+	}
+	if got := sequenceEnds(rendering); !slices.Equal(got, want) {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
