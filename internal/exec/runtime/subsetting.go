@@ -129,6 +129,9 @@ type relationshipsKey struct {
 // relationshipsOfKind returns sym's relationships of the given kind that name a target,
 // memoized per symbol and kind; callers read the shared slice and never append to it.
 func (ctx *Context) relationshipsOfKind(sym *symbols.Symbol, kind ast.RelationshipKind) []*ast.Relationship {
+	if !declaresRelationshipOfKind(sym, kind) {
+		return nil
+	}
 	key := relationshipsKey{sym, kind}
 	if rels, ok := ctx.model.relationships[key]; ok {
 		return rels
@@ -136,6 +139,17 @@ func (ctx *Context) relationshipsOfKind(sym *symbols.Symbol, kind ast.Relationsh
 	rels := declaredRelationshipsOfKind(sym, kind)
 	ctx.model.relationships[key] = rels
 	return rels
+}
+
+// declaresRelationshipOfKind reports whether sym declares a relationship of the given kind
+// at all; most symbols declare none, and those take no memo entry.
+func declaresRelationshipOfKind(sym *symbols.Symbol, kind ast.RelationshipKind) bool {
+	for _, rel := range semantics.RelationshipsOf(sym) {
+		if rel != nil && rel.Kind == kind {
+			return true
+		}
+	}
+	return false
 }
 
 // declaredRelationshipsOfKind collects sym's relationships of the given kind that name a target.
