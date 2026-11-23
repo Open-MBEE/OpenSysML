@@ -305,7 +305,6 @@ FeatureChaining::relatedElement	297	symbol-10
 FeatureInverting::documentation	1	symbol-50
 FeatureInverting::ownedAnnotation	1	symbol-05
 FeatureInverting::ownedElement	1	symbol-50
-FeatureMembership::memberName	116	symbol-06
 FeatureMembership::ownedMemberFeature	174	symbol-16
 FeatureMembership::ownedMemberName	14	export-68
 FeatureReferenceExpression::referent	3	symbol-45
@@ -502,7 +501,6 @@ RenderingUsage::occurrenceDefinition	27	symbol-41
 RenderingUsage::partDefinition	27	symbol-34
 RenderingUsage::renderingDefinition	27	symbol-45
 RenderingUsage::type	27	symbol-19
-RequirementConstraintMembership::memberName	2	symbol-06
 RequirementConstraintMembership::ownedMemberName	2	symbol-47
 RequirementDefinition::expression	69	symbol-28
 RequirementDefinition::ownedConcern	1	symbol-45
@@ -551,7 +549,6 @@ StateDefinition::parameter	3	symbol-73
 StateDefinition::state	38	symbol-45
 StateDefinition::step	38	symbol-24
 StateSubactionMembership::action	82	symbol-45
-StateSubactionMembership::memberName	39	symbol-06
 StateSubactionMembership::relatedElement	46	symbol-10
 StateSubactionMembership::source	46	symbol-11
 StateSubactionMembership::target	46	symbol-12

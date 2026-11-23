@@ -366,6 +366,8 @@ Re-recorded on the conjugate declared-name change (a port definition's implied `
 
 Re-recorded on the usage-collection derivation change (`nestedMetadata` and `ownedMetadata` select from `ownedMember`, every other `nested*`/`owned*` usage collection from `ownedFeature`, SysML v2.1 deriveUsageNestedMetadata, deriveUsageNestedUsage and the `Definition` pair, so a collection lists no usage its owner holds through a membership that is no `FeatureMembership` — a metadata usage, a variant, a transition's succession; before, every one of them selected from `ownedMember`): 100 fragments move, and only in the `nested*` and `owned*` usage rows. `pilotMissing` 86655 → 85240, the collections we stated for an owner whose only usages are such members and the pilot leaves empty, now `absentBoth` (2335399 → 2336699); `presentDifferent` 147737 → 147375, the collections that listed such a member beside the features, of which 351 are now `presentEqual` (2173330 → 2173681) and 11 `indeterminate` (49290 → 49301: the lists now agree in length and differ only at a target neither key table addresses). The 115 comparisons that leave are the `Feature.nested*` rows of the KerML fragments, stated for a KerML feature's members owned through an `OwningMembership` and no longer written; no row moves away from agreement, no element matching changes and no other row moves.
 
+Re-recorded on the redefined member-name change (an owning membership states `memberName` and `memberShortName` beside `ownedMemberName` and `ownedMemberShortName`, with their values, null where the member has no such name: KerML 1.0 § 10.4.5 serializes a redefined property whose redefining property has a different name, and § 8.3.2.4.8 has the owned pair redefine them): 912 fragments move, only in `memberName` and `memberShortName` rows. 175 `memberName` rows move from ours-missing to present-equal (`FeatureMembership` 95, `StateSubactionMembership` 80), the memberships whose name the element form completed as `ownedMemberName` alone; 18941 `memberName` and 48097 `memberShortName` rows are new both-absent ones, the null the pilot writes too. No row moved to present-different or pilot-missing.
+
 <!-- doc-counts:begin apijson-roots -->
 The per-root table, rendered from the baseline when the site builds.
 <!-- doc-counts:end apijson-roots -->
@@ -424,8 +426,8 @@ began stating one `Disjoining`, `FeatureInverting` or `TypeFeaturing` per target
 `disjointFrom`, `inverseOf` and `featuringType` alone stood): 23 fragments moved. 96 more elements
 match, every one a pilot-only element before (matched 114698 → 114794, pilot-only 26925 → 26829;
 ours-only and type mismatches unchanged): 79 `TypeFeaturing`, 10 `Disjoining` and 7
-`FeatureInverting`. Present-equal grows 2333106 → 2334257, present-different falls 168600 → 168515
-and ours-missing falls 186528 → 186422: `ownedTypeFeaturing`, `ownedDisjoining` and
+`FeatureInverting`. Present-equal grows 2333281 → 2334432, present-different falls 168600 → 168515
+and ours-missing falls 186353 → 186247: `ownedTypeFeaturing`, `ownedDisjoining` and
 `ownedFeatureInverting` go from ours-missing to equal on every owner (78, 9 and 7 values),
 `ownedRelationship` gains 89 equal values on the owners, and `featuringType` goes from ours-missing
 to equal on 6 `Feature`s and 26 `MultiplicityRange`s. No row loses an equal value. What the new
