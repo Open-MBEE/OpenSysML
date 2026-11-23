@@ -65,7 +65,7 @@ func (s *Service) RecordRun(ctx context.Context, req *pb.RecordRunRequest) (*pb.
 		}
 	case req.Runs > 0:
 		kind = record.KindRuns
-		resp.Sample, runs, resp.Skipped, resp.Reasons, err = s.recordSample(ctx, v, sym, req)
+		resp.Sample, runs, resp.Skipped, resp.Reasons, err = s.recordSample(ctx, v, req)
 		if resp.Sample != nil {
 			resp.Error, resp.FailureReason = resp.Sample.Error, resp.Sample.FailureReason
 		}
@@ -202,7 +202,7 @@ func (s *Service) recordSweep(ctx context.Context, v *verifyContext, sym *symbol
 
 // recordSample runs the Monte Carlo case the request's number of times and
 // makes a record of each completed run and one of the sample's conclusion.
-func (s *Service) recordSample(ctx context.Context, v *verifyContext, sym *symbols.Symbol, req *pb.RecordRunRequest) (*pb.RunRunsResponse, []record.Run, int64, []string, error) {
+func (s *Service) recordSample(ctx context.Context, v *verifyContext, req *pb.RecordRunRequest) (*pb.RunRunsResponse, []record.Run, int64, []string, error) {
 	runsReq := &pb.RunRunsRequest{
 		ModelHash: req.ModelHash, AnalysisSymbolId: req.AnalysisSymbolId, SubjectSymbolId: req.SubjectSymbolId,
 		Arguments: req.Arguments, NamedArguments: req.NamedArguments, Runs: req.Runs, Seed: req.Seed, Engine: req.Engine,

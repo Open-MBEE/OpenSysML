@@ -4,8 +4,10 @@ materialize: marking #2
 run: performed action marking of #1
 step 1: token 1@split
 step 2: token 2@left, token 3@right
+materialize: right #3
 stmt assign mark
   eval literal 1 -> 1
+materialize: left #4
 stmt assign mark
   eval literal 1 -> 1
 choice step 3: writes mark of object #1 := 1 by token 2, mark of object #1 := 1 by token 3 (unordered; mark of object #1 := 1 by token 2 stood; order-dependent: mark)

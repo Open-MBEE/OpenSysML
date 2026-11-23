@@ -314,8 +314,8 @@ func (h *actionStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (st
 }
 
 // beginLoop begins a loop a body statement reaches as a performance of the one around it.
-func (h *actionStmtHost) beginLoop(stmt lower.Loop) (*Instance, error) {
-	return h.exec.beginLoopPerformance(h.around(), stmt)
+func (h *actionStmtHost) beginLoop(stmt lower.Loop, within *Instance) (*Instance, error) {
+	return h.exec.beginLoopPerformance(h.around(), stmt, within)
 }
 
 // performNode performs node, which a block of parent's body declares, as a subperformance
@@ -338,7 +338,7 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 	if f.perf == nil {
 		locals, localCells, localHeld := engine.env.localFrames()
 		if f.perf, err = e.beginPerformance(
-			parent, graph, node, locals, localCells, localHeld,
+			parent, graph, node, locals, localCells, localHeld, engine.loopBody(),
 		); err != nil {
 			return flowNext, err
 		}
@@ -346,7 +346,7 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 			f.perf.occurrence = engine.loopBody()
 		}
 		if _, declared := graph.Multiplicities[node]; declared && f.perf.repeatedStep() {
-			e.recordRepetition(parent, node, f.perf)
+			e.recordRepetition(parent, f.perf)
 		}
 	}
 	// A terminate of the node ends its body where it stands, dropping what a flow nested in

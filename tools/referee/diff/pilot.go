@@ -3,43 +3,51 @@ package diff
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/pilot"
 )
 
-// pilotLine matches the GNU-format diagnostics the validators print on stderr.
-var pilotLine = regexp.MustCompile(`^(.+\.(?:sysml|kerml)):(\d+):(\d+): (error|warning|info|ignore): (.*)$`)
+// defaultPilotTimeout bounds one validator batch unless -timeout says otherwise.
+const defaultPilotTimeout = 30 * time.Minute
 
-// pilotVersion reports which pilot release the validator was built against,
-// read from the pin its provisioning script wrote beside it.
-func pilotVersion(validator string) (string, error) {
-	pin, err := os.ReadFile(filepath.Join(filepath.Dir(validator), "pilot-pin.txt"))
-	if err != nil {
-		return "", fmt.Errorf("read the validator's pilot-pin.txt: %w", err)
-	}
-	tag := pinnedValue(string(pin), "sysml.release.tag")
-	version := pinnedValue(string(pin), "sysml.artifact.version")
-	if tag == "" || version == "" {
-		return "", fmt.Errorf("%s does not pin sysml.release.tag/sysml.artifact.version", validator)
-	}
-	return fmt.Sprintf("%s (jupyter-sysml-kernel %s)", tag, version), nil
+// pilotWaitDelay is how long a killed validator's descendants may hold its pipes open.
+const pilotWaitDelay = 10 * time.Second
+
+// maxUnattributed is how many lines naming no corpus file one batch keeps; the rest are counted.
+const maxUnattributed = 1000
+
+// maxPilotDiagnostics bounds the diagnostics one batch may report. Passing it fails the
+// batch, since a truncated list would read as agreement.
+const maxPilotDiagnostics = 1_000_000
+
+// unattributedLines keeps the first maxUnattributed lines given to it and counts the rest.
+type unattributedLines struct {
+	kept    []string
+	dropped int
 }
 
-func pinnedValue(pin, name string) string {
-	for _, line := range strings.Split(pin, "\n") {
-		key, value, ok := strings.Cut(line, "=")
-		if ok && strings.TrimSpace(key) == name {
-			return strings.TrimSpace(value)
-		}
+func (u *unattributedLines) add(line string) {
+	if len(u.kept) < maxUnattributed {
+		u.kept = append(u.kept, line)
+		return
 	}
-	return ""
+	u.dropped++
+}
+
+// text is the kept lines, followed by how many were dropped.
+func (u *unattributedLines) text() string {
+	text := strings.Join(u.kept, "\n")
+	if u.dropped > 0 {
+		text += fmt.Sprintf("\n... and %d more lines", u.dropped)
+	}
+	return text
 }
 
 // pilotDiagnostics runs a reference validator over one corpus root as a single
@@ -86,7 +94,8 @@ func runPilot(validator string, args []string, byPath map[string]string, out map
 	}
 
 	cmd := exec.CommandContext(ctx, validator, args...) // #nosec G204 -- the pinned pilot validator
-	cmd.Stdout = nil                                    // "Reading <library file>..." progress noise
+	cmd.WaitDelay = pilotWaitDelay
+	cmd.Stdout = nil // "Reading <library file>..." progress noise
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return err
@@ -95,52 +104,65 @@ func runPilot(validator string, args []string, byPath map[string]string, out map
 		return fmt.Errorf("start %s: %w", validator, err)
 	}
 
-	var unattributed []string
+	// fail stops the validator and reaps it before a mid-stream error is returned.
+	fail := func(err error) error {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		return err
+	}
+
+	var unattributed unattributedLines
+	reported := 0
 	scanner := bufio.NewScanner(stderr)
 	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
 	for scanner.Scan() {
 		line := scanner.Text()
-		match := pilotLine.FindStringSubmatch(line)
-		if match == nil {
-			if strings.TrimSpace(line) != "" && !strings.HasPrefix(line, "log4j:") {
-				unattributed = append(unattributed, line)
+		found, ok := pilot.ParseDiagnostic(line)
+		if !ok {
+			if !pilot.Noise(line) {
+				unattributed.add(line)
 			}
 			continue
 		}
-		rel, ok := byPath[match[1]]
+		rel, ok := byPath[found.Path]
 		if !ok {
-			unattributed = append(unattributed, line)
+			unattributed.add(line)
 			continue
 		}
-		lineNo, err := strconv.Atoi(match[2])
-		if err != nil {
-			return fmt.Errorf("pilot reported a non-numeric line in %q", line)
+		if reported++; reported > maxPilotDiagnostics {
+			return fail(fmt.Errorf("%s reported more than %d diagnostics in one batch", validator, maxPilotDiagnostics))
 		}
 		out[rel] = append(out[rel], diagnostic{
 			File:     rel,
-			Line:     lineNo,
-			Severity: match[4],
-			Category: categorize(match[5]),
-			Message:  match[5],
+			Line:     found.Line,
+			Severity: found.Severity,
+			Category: categorize(found.Message),
+			Message:  found.Message,
 		})
 	}
 	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("read the validator's output: %w", err)
+		return fail(fmt.Errorf("read the validator's output: %w", err))
 	}
 
 	// Exit 1 only means the batch had errors; anything else is the validator
 	// itself failing, and its diagnostics cannot be trusted.
 	err = cmd.Wait()
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return fmt.Errorf("%s exceeded %s", validator, timeout)
+	}
 	if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
 		err = nil
 	}
 	if err != nil {
-		return fmt.Errorf("%s failed (%w); stderr:\n%s", validator, err, strings.Join(unattributed, "\n"))
+		return fmt.Errorf("%s failed (%w); stderr:\n%s", validator, err, unattributed.text())
 	}
-	for _, line := range unattributed {
+	for _, line := range unattributed.kept {
 		// Never dropped silently: an unattributable diagnostic would otherwise
 		// look like agreement.
 		fmt.Fprintf(log, "pilot output not attributable to a corpus file: %s\n", line)
+	}
+	if unattributed.dropped > 0 {
+		fmt.Fprintf(log, "pilot output not attributable to a corpus file: %d more lines not shown\n", unattributed.dropped)
 	}
 	return nil
 }

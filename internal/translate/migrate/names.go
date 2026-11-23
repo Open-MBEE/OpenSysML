@@ -10,13 +10,13 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
-// writeName writes a v1 name as a v2 name: bare when it is a basic identifier
-// no keyword reserves, quoted as an unrestricted name otherwise.
+// writeName writes a v1 name as a v2 name: bare when no keyword reserves the identifier,
+// else quoted and, like every string the migrator writes, with KerML Table 4's escapes alone.
 func writeName(name string) string {
 	if source.IsIdentifier(name) && !source.IsKeyword(name) {
 		return name
 	}
-	return source.UnrestrictedNameText(name)
+	return source.StandardUnrestrictedNameText(name)
 }
 
 // pathSegment spells a query name as one segment of a metadata path: quoted
@@ -134,12 +134,18 @@ var strictMarkerText = map[string]string{
 	standInFQN:         "members standing for no source element",
 }
 
+// lineComment is text as one line comment: a carriage return, which would end
+// the comment, is spelled `\r`, written notation holding no other line terminator.
+func lineComment(text string) string {
+	return "// " + strings.ReplaceAll(text, "\r", `\r`)
+}
+
 // migrationMarker is the metadata usage of the MigrationMetadata definition
 // fqn about the written names, qualified past a member shadowing the library;
 // a strict migration writes a comment instead.
 func (m *migration) migrationMarker(fqn string, written []string) string {
 	if m.strict {
-		return "// " + strictMarkerText[fqn] + ": " + strings.Join(written, ", ")
+		return lineComment(strictMarkerText[fqn] + ": " + strings.Join(written, ", "))
 	}
 	prefix := ""
 	if m.shadowsLibrary("MigrationMetadata", m.scope) {

@@ -52,8 +52,8 @@ func TestObjectsWrittenToAnImpliedCollectionAreEnumerated(t *testing.T) {
 		labels = append(labels, label)
 	}
 	slices.Sort(labels)
-	if !slices.Equal(labels, []string{"A::vehicle.build", "A::vehicle.subparts[2]", "A::vehicle.wheels"}) {
-		t.Errorf("held paths = %v, want the wheel under its declared feature and the written one under subparts", labels)
+	if !slices.Equal(labels, []string{"A::vehicle.build", "A::vehicle.build.make", "A::vehicle.subparts[2]", "A::vehicle.wheels"}) {
+		t.Errorf("held paths = %v, want the build and its performed node, the wheel under its declared feature and the written one under subparts", labels)
 	}
 
 	got := s.Complete("%features A::vehicle.", len("%features A::vehicle.")).Candidates

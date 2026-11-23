@@ -29,6 +29,11 @@ type apiJSONGraphStructure struct {
 	owningRelatedByRelationship [][]rdf.Term
 	metaclassByPosition         []apiJSONMetaclass
 	ownedRelationshipsCache     []*apiJSONOwnedRelationships
+	annotationsOnce             sync.Once
+	annotationsByAnnotated      map[int][]metamodel.Element
+	annotationsByLibrary        map[*symbols.Symbol][]metamodel.Element
+	annotationsOutside          bool
+	annotationsComplete         bool
 	catalogOnce                 sync.Once
 	catalog                     *identity.Catalog
 }
@@ -46,6 +51,84 @@ func (s *apiJSONGraphStructure) libraryCatalog() *identity.Catalog {
 		s.catalog = identity.LibraryCatalogWithOpenSysML(libs.SharedBase())
 	})
 	return s.catalog
+}
+
+// Annotations lists the Annotation relationships whose annotatedElement is element, in
+// graph order; nothing is answered when an annotation's annotated element is not placed.
+func (s *apiJSONGraphStructure) Annotations(element metamodel.Element) ([]metamodel.Element, bool) {
+	position, placed := s.position(element)
+	if !placed && element.Symbol == nil {
+		return nil, false
+	}
+	s.annotationsOnce.Do(s.indexAnnotations)
+	if !s.annotationsComplete {
+		return nil, false
+	}
+	if !placed {
+		// A library element the evaluator reached through the library, not the graph.
+		return s.annotationsByLibrary[element.Symbol], !s.annotationsOutside
+	}
+	if s.annotationsOutside && LibraryReference(s.graph, s.index.subjects[position]) {
+		return nil, false
+	}
+	return s.annotationsByAnnotated[position], true
+}
+
+func (s *apiJSONGraphStructure) indexAnnotations() {
+	s.annotationsByAnnotated = make(map[int][]metamodel.Element)
+	s.annotationsByLibrary = make(map[*symbols.Symbol][]metamodel.Element)
+	for _, subject := range s.index.subjects {
+		class, ok := s.metaclass(subject)
+		if !ok || !s.Specializes(class, "Annotation") {
+			continue
+		}
+		annotation, ok := s.element(subject)
+		if !ok {
+			return
+		}
+		for _, object := range s.graph.ObjectsView(subject, apiJSONSysMLPredicate("annotatedElement")) {
+			if object.IsLiteral() {
+				// A name the graph does not resolve is no element of the graph, so the
+				// annotation is about an element outside it.
+				s.annotationsOutside = true
+				continue
+			}
+			target, ok := s.element(object)
+			if !ok {
+				return
+			}
+			position, ok := s.position(target)
+			if !ok {
+				return
+			}
+			s.annotationsByAnnotated[position] = append(s.annotationsByAnnotated[position], annotation)
+			if symbol, ok := s.LibrarySymbol(target); ok {
+				s.annotationsByLibrary[symbol] = append(s.annotationsByLibrary[symbol], annotation)
+			}
+		}
+	}
+	s.annotationsComplete = true
+}
+
+// LibraryMember is the library symbol whose membership a library reference names: the member
+// an owning membership owns, or the alias a Membership is.
+func (s *apiJSONGraphStructure) LibraryMember(membership metamodel.Element) (*symbols.Symbol, bool) {
+	subject, ok := s.subject(membership)
+	if !ok || !LibraryReference(s.graph, subject) {
+		return nil, false
+	}
+	id, ok := rdf.SubjectID(subject)
+	if !ok {
+		return nil, false
+	}
+	if library, ok := s.libraryCatalog().OwningMembership(id); ok && library != nil && library.Symbol != nil {
+		return library.Symbol, true
+	}
+	// An alias is the Membership itself, which an import of it imports (KerML 8.2.3.5).
+	if alias, ok := sharedLibraryIndex().anonymous.AliasMembership(id); ok {
+		return alias.Symbol, true
+	}
+	return nil, false
 }
 
 // LibrarySymbol resolves a library reference the graph states by id to the library symbol.

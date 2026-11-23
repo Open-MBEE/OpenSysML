@@ -963,7 +963,7 @@ func (r *Renderer) flowNodes(subject actionSubject, graph *lower.ActionGraph, fr
 			if depth >= maxBehaviorDepth {
 				break
 			}
-			section := r.bodySection(body, nodeDoc, ids)
+			section := r.bodySection(body, ids)
 			child.Children = append(child.Children, section)
 			bodySubject := actionSubject{decl: body.block.Declared(), kind: section.Kind, name: child.Name, scope: body.block.Scope,
 				doc: nodeDoc, view: subject.view, elem: subject.elem, frame: section, context: subject.context}

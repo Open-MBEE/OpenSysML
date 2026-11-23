@@ -294,6 +294,14 @@ queue tier skips it: the merge group's diff is the one the pull request's push a
 over, and the nightly catches a baseline that `develop` moved under it, which is then
 re-recorded through the `ci:rebaseline` workflow (`.github/workflows/rebaseline.yml`).
 
+The reference differential (`Reference differential reproduces its baseline`,
+`go run -C tools ./cmd/pilot-diff -check`: Java and the pinned pilot validators, about three
+minutes beside the Go shards) runs on a pull-request push whose diff can move its baseline — the
+layers its referee imports (`internal/syntax`, `semantic`, `check`, `ir`, `workspace`), the
+referee, the validators and pin, a compared root (`examples/`, `tests/testdata/`), the baseline —
+and under the full tier. The queue tier skips it, adding nothing to a merge group, and the
+nightly oracle-reproduction workflow reproduces it over `develop`.
+
 The derived census (`Derived census reproduces its baseline`,
 `go run -C tools ./cmd/derived-census -check -recorded-pilot`) runs on every Go change: it
 re-measures our columns against the pilot column the records hold, without Java. The nightly
@@ -412,6 +420,16 @@ pull request's or merge group's own cache is private to its ref, and one saved b
 holds a single tree's dependencies. A pull request that changes a `pom.xml` restores the newest
 earlier entry.
 
+The cache holds what the builds resolve, which leaves out the CycloneDX plugin `make audit-java`
+runs, so the audit is the one Maven step that asks Maven Central in every job. It runs the plugin
+through `scripts/maven-sbom.sh`, which makes up to four attempts (`MAVEN_SBOM_ATTEMPTS`) when Maven
+reports an artifact it could not fetch: the second and fourth read
+`scripts/maven-central-mirror-settings.xml` as Maven's global settings (`-gs`, so a user's own
+`settings.xml` and its proxy still apply), which sends `central` to Google's mirror of it, and
+every attempt after the first passes `-U` so that Maven asks again for what it was just refused.
+Any other Maven failure fails the audit on the first attempt, and osv-scanner scans only an SBOM
+Maven wrote. `scripts/maven-sbom-test.sh` plays the outage on every pull request.
+
 The pinned pilot validator, which `scripts/download-pilot-validator.sh` builds with Maven from a
 clone outside those trees, has a cache of its own: `.github/actions/pilot-validator` restores
 `build/pilot-validator` and `~/.m2/repository` under `pilot-validator-<hash of the script and
@@ -440,6 +458,14 @@ workflow, an action or a pinned file, and daily; its matrix lists every request 
 job sets up, and it installs each a second time with the index unreachable. A new or changed pin
 therefore changes the call site and the matrix together; `tests/hygiene/pip_install_test.go` fails
 on a direct `pip install`, and on a request the matrix does not warm.
+
+cvc5, which has no apt package, is installed from its release zip by `.github/actions/cvc5`: the zip
+is restored under `cvc5-<os>-<arch>-<version>-<sha256>` from `scripts/cvc5-pin.sh`, and
+`scripts/ci-cvc5-install.sh` verifies it against that digest before installing, so a run with the
+entry never asks GitHub. Without it the script downloads through `scripts/fetch-https.sh`, verifies,
+and the action saves the zip; a zip that is not the pinned one fails the step, unretried and unkept.
+A pull request and a merge group restore only an entry saved on `develop`, which the nightly full
+scan and the extension-libraries run save. `tests/hygiene/cvc5_install_test.go` covers both paths.
 
 The dependency audit is the one step that cannot run from the wheels: `pip-audit` asks PyPI which
 versions an install would resolve today and which of them are vulnerable, and it gives up on the
@@ -639,11 +665,17 @@ When a change needs documenting:
   differential or derived census that its check reproduces against the recorded pilot side and
   re-records one that does not, re-runs every other recorder on the merged tree, refuses a movement the merge does not explain
   (`scripts/rebaseline-movement.py`: a verdict that moved for a record neither side moved), commits
-  the result with the movement in its message, pushes to the branch, removes the label and
-  comments the movement for adjudication. It never touches
+  the result with the movement in its message, pushes to the branch, removes the label,
+  comments the movement for adjudication and sets the `ci:rebaseline` status on the branch's head
+  (the run itself is listed under Actions and under the head it started from, not the one it
+  pushes). It never touches
   `tests/corpus/testdata/training_examples_expected.txt`, which is asserted clean rather than
-  ratcheted, and it needs the label applied to the branch's current head (a push after the label
-  stops it). Only a branch of this repository can be re-recorded, not a fork's.
+  ratcheted, and it needs the label applied to the branch's current head (a push between the label
+  and the checkout stops it). A branch pushed to while the recorders run is not pushed over, and a
+  `develop` that moved into a new conflict with the result is not left unmerged: the run starts again
+  from the branch's head, merging and re-recording once more, and stops if the branch moves again.
+  The push is the `REBASELINE_TOKEN` secret's when it is set; without it the push is the Actions
+  token's and CI on the pushed head waits for a maintainer's approval, which the comment says. Only a branch of this repository can be re-recorded, not a fork's.
 - **Changelog entries are fragments, not edits to `CHANGELOG.md`.** A change that a user
   should read about adds one file, `changes/unreleased/<slug>.<section>.md`, holding the list
   item(s) for that section (`added`, `changed`, `fixed`, …); see the README there. Two branches

@@ -1,0 +1,26 @@
+{
+  "rpc": "RunDocumentQuery",
+  "model": "query_result_view.sysml",
+  "inline_query": "Project(Named(\"Probe::probe::antenna\"), (\"name\"))",
+  "as_view": true,
+  "expected_columns": [
+    "name"
+  ],
+  "expected_rows": [
+    {
+      "element": {
+        "kind": "element_id",
+        "value": "Probe::probe::antenna (PartUsage)"
+      },
+      "cells": [
+        [
+          {
+            "kind": "string_value",
+            "value": "antenna"
+          }
+        ]
+      ]
+    }
+  ],
+  "expected_result_view": "package AnswerResult {\n\tprivate import QVTS::*;\n\n\tview answer : QueryResult {\n\t\texpose Probe::probe::antenna;\n\t\tattribute :>> query = \"Project(Named(\\\"Probe::probe::antenna\\\"), (\\\"name\\\"))\";\n\t\tattribute :>> source = \"model:<model>\";\n\t\tattribute :>> outcome = Outcome::established;\n\t\tattribute :>> provenance = \"model:<model>\";\n\t}\n}\n"
+}

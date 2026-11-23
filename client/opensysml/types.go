@@ -23,6 +23,7 @@ const (
 	CapabilityQueryOrderBy                   = sysmlgrpc.CapabilityQueryOrderBy
 	CapabilityDocumentQuery                  = sysmlgrpc.CapabilityDocumentQuery
 	CapabilityInlineDocumentQuery            = sysmlgrpc.CapabilityInlineDocumentQuery
+	CapabilityQueryResultView                = sysmlgrpc.CapabilityQueryResultView
 	CapabilityRenderDocument                 = sysmlgrpc.CapabilityRenderDocument
 	CapabilityRenderView                     = sysmlgrpc.CapabilityRenderView
 	CapabilityRenderViewForm                 = sysmlgrpc.CapabilityRenderViewForm
@@ -98,6 +99,9 @@ const (
 	CapabilityRenderDocumentFileName         = sysmlgrpc.CapabilityRenderDocumentFileName
 	CapabilityRenderDocumentHTML             = sysmlgrpc.CapabilityRenderDocumentHTML
 	CapabilityRenderDocumentAsciiDoc         = sysmlgrpc.CapabilityRenderDocumentAsciiDoc
+	CapabilityEnginesExternal                = sysmlgrpc.CapabilityEnginesExternal
+	CapabilityInfinityValue                  = sysmlgrpc.CapabilityInfinityValue
+	CapabilityOrderDependence                = sysmlgrpc.CapabilityOrderDependence
 )
 
 // ServerInfo describes the implementation answering a Client's calls.

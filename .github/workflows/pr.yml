@@ -67,6 +67,7 @@ jobs:
       go_shards: ${{ steps.shards.outputs.go_shards }}
       go: ${{ steps.areas.outputs.go }}
       apijson: ${{ steps.areas.outputs.apijson }}
+      pilotdiff: ${{ steps.areas.outputs.pilotdiff }}
       docs: ${{ steps.areas.outputs.docs }}
       node: ${{ steps.areas.outputs.node }}
       python: ${{ steps.areas.outputs.python }}
@@ -215,14 +216,8 @@ jobs:
       # apt package, so the official static release is what CI runs, pinned by
       # digest so a substituted asset is not run.
       - name: Install cvc5
-        run: |
-          curl -fsSL --proto '=https' --proto-redir '=https' -o /tmp/cvc5.zip \
-            https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.4/cvc5-Linux-x86_64-static.zip
-          echo "dcdbfada0ce493ee98259c0816e0daafc561c223aadb3af298c2968e73ea39c6  /tmp/cvc5.zip" | sha256sum --check --strict
-          unzip -p /tmp/cvc5.zip '*/bin/cvc5' > /tmp/cvc5-bin
-          sudo install -m 0755 /tmp/cvc5-bin /usr/local/bin/cvc5
-          cvc5_version="$(cvc5 --version)"
-          echo "${cvc5_version%%$'\n'*}"
+        timeout-minutes: 20
+        uses: ./.github/actions/cvc5
 
       # Every corpus the suite's gates are required over, with the FMI gate's simulator
       # and FMUs; see .github/actions/corpora.
@@ -297,6 +292,10 @@ jobs:
       - name: Test the pip-audit wrapper
         run: scripts/pip-audit-retry-test.sh
 
+      # The SBOM's fallback to a mirror of Maven Central, and its refusal to retry a build error, run only here.
+      - name: Test the Maven SBOM wrapper
+        run: scripts/maven-sbom-test.sh
+
       # wasm-cache.yml prunes the build cache it saves on develop pushes only, so its pruning is checked here.
       - name: Test the build cache pruning
         run: scripts/ci-go-build-cache-test.sh
@@ -311,14 +310,8 @@ jobs:
 
       - name: Install cvc5
         if: needs.changes.outputs.tier != 'quick'
-        run: |
-          curl -fsSL --proto '=https' --proto-redir '=https' -o /tmp/cvc5.zip \
-            https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.4/cvc5-Linux-x86_64-static.zip
-          echo "dcdbfada0ce493ee98259c0816e0daafc561c223aadb3af298c2968e73ea39c6  /tmp/cvc5.zip" | sha256sum --check --strict
-          unzip -p /tmp/cvc5.zip '*/bin/cvc5' > /tmp/cvc5-bin
-          sudo install -m 0755 /tmp/cvc5-bin /usr/local/bin/cvc5
-          cvc5_version="$(cvc5 --version)"
-          echo "${cvc5_version%%$'\n'*}"
+        timeout-minutes: 20
+        uses: ./.github/actions/cvc5
 
       # Every corpus below comes through this downloader, so it is checked first.
       - name: Test the pilot downloader
@@ -535,6 +528,18 @@ jobs:
           grep -E 'api-json corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
           if grep -qE '^\s*--- SKIP' corpus-roundtrip-gate.log; then
             echo "error: the corpus round-trip gates skipped" >&2
+            exit 1
+          fi
+
+      # The two element-form differentials walk every corpus against the pilot's export; they run
+      # here race-free (the race rest shard skips them, see RACE_SHARD_SKIP) so the shard keeps to its hour.
+      - name: Run element-form differential gates
+        if: needs.changes.outputs.tier == 'full'
+        run: |
+          set -o pipefail
+          go test -count=1 -v ./internal/translate/export -run 'TestSymbolStructureMatchesGraphStructure$' | tee structure-differential-gate.log
+          if grep -qE '^\s*--- SKIP' structure-differential-gate.log; then
+            echo "error: an element-form differential gate skipped" >&2
             exit 1
           fi
 
@@ -815,6 +820,70 @@ jobs:
           path: build/hideo-suite/test-suite/results/
           if-no-files-found: warn
 
+  # No pull request reproduced the reference differential's baseline, so a change that moved it reached develop unnoticed
+  # until the nightly; the queue tier skips it (the push ran the same diff) and the nightly still reproduces it.
+  pilot-differential:
+    name: Reference differential reproduces its baseline
+    needs: changes
+    if: needs.changes.outputs.pilotdiff == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 3
+        continue-on-error: true
+
+      # A stalled fetch hangs rather than fails, so the action's own retries never see it.
+      - name: Check out repository again
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 3
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # The pinned pilot implementation is a Java artifact; the two validators are compiled against it.
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # A pull request that moves the pin saves its own build; any other restores develop's.
+      - name: Provision the pinned pilot validator
+        uses: ./.github/actions/pilot-validator
+        with:
+          save: 'true'
+
+      - name: Build the pinned pilot SysML and KerML validators
+        run: |
+          ./scripts/download-pilot-sysml-validator.sh
+          ./scripts/download-pilot-kerml-validator.sh
+
+      - name: Provision the pinned corpora
+        uses: ./.github/actions/corpora
+
+      # A failure names whether the provenance moved (an input changed underneath the baseline) or
+      # only the counts did: adjudicate, then re-record with pilot-diff -update.
+      - name: Reference differential reproduces its baseline
+        run: go run -C tools ./cmd/pilot-diff -check
+
+      # The fresh report, so a failing run can be read without reproducing the environment.
+      - name: Upload the fresh report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pilot-diff
+          path: build/pilot-diff/
+          if-no-files-found: warn
+
   # The api-json baseline records no writer digest, so re-running the differential (Java, pilot jar, corpora; 18-25 min) on
   # what can move it proves it current; the queue tier skips it (the push proved the diff) and the nightly reproduces it.
   apijson-differential:
@@ -995,6 +1064,7 @@ jobs:
       - derived-census
       - hideo-suite
       - apijson-differential
+      - pilot-differential
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -1023,6 +1093,7 @@ jobs:
           WASM_GATE_RESULT: ${{ needs.wasm-gate.result }}
           XPECT_ORACLE_RESULT: ${{ needs.xpect-oracle.result }}
           APIJSON_DIFFERENTIAL_RESULT: ${{ needs.apijson-differential.result }}
+          PILOT_DIFFERENTIAL_RESULT: ${{ needs.pilot-differential.result }}
           DERIVED_CENSUS_RESULT: ${{ needs.derived-census.result }}
           HIDEO_SUITE_RESULT: ${{ needs.hideo-suite.result }}
         run: |
@@ -1048,6 +1119,7 @@ jobs:
              ! ok "$WASM_GATE_RESULT" ||
              ! ok "$XPECT_ORACLE_RESULT" ||
              ! ok "$APIJSON_DIFFERENTIAL_RESULT" ||
+             ! ok "$PILOT_DIFFERENTIAL_RESULT" ||
              ! ok "$DERIVED_CENSUS_RESULT" ||
              ! ok "$HIDEO_SUITE_RESULT"; then
             echo "changes=$CHANGES_RESULT"
@@ -1071,6 +1143,7 @@ jobs:
             echo "wasm-gate=$WASM_GATE_RESULT"
             echo "xpect-oracle=$XPECT_ORACLE_RESULT"
             echo "apijson-differential=$APIJSON_DIFFERENTIAL_RESULT"
+            echo "pilot-differential=$PILOT_DIFFERENTIAL_RESULT"
             echo "derived-census=$DERIVED_CENSUS_RESULT"
             echo "hideo-suite=$HIDEO_SUITE_RESULT"
             exit 1
@@ -1152,7 +1225,7 @@ jobs:
         id: wheels
         uses: ./.github/actions/pip-install
         with:
-          packages: weasyprint==69.0
+          packages: weasyprint==70.0
           install: 'false'
 
       - name: Provision the PDF toolchain
@@ -1536,6 +1609,9 @@ jobs:
       - name: Test the rebaseline movement check
         run: python3 scripts/rebaseline-movement-test.py
 
+      - name: Test the rebaseline merge
+        run: scripts/rebaseline-merge-test.sh
+
       # The CI coordination tools (ci/README.md), against a stub gh; nothing reaches GitHub.
       - name: Test the CI throttle tools
         run: python3 ci/tests/test_ci_tools.py
@@ -1550,6 +1626,7 @@ jobs:
     needs: [changes, build]
     if: needs.changes.outputs.node == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -1836,6 +1913,7 @@ jobs:
     needs: [changes, build]
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -1939,6 +2017,7 @@ jobs:
     needs: [changes, build]
     if: needs.changes.outputs.julia == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
     strategy:
@@ -2000,6 +2079,7 @@ jobs:
     needs: [changes, build]
     if: needs.changes.outputs.matlab == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -2207,6 +2287,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:

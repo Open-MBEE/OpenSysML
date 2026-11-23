@@ -100,6 +100,12 @@ func (r *Resolver) resolveTarget(scope *symbols.Scope, target ast.Node, hide *re
 			return nil, false
 		}
 		return r.memberChain(scope, r.chainedFrom(scope, owner), t.Member, t)
+	case *ast.CastExpr:
+		// `(as T).f` reads f as a member of T (KerML 8.2.5.8.1), as getOperandSymbol does.
+		if t.TargetType == nil {
+			return nil, false
+		}
+		return r.resolveQualified(scope, t.TargetType, hide)
 	default:
 		return nil, false
 	}
@@ -383,6 +389,9 @@ type Reference struct {
 	// Endpoint is set when QN is a transition end, which names a vertex of the
 	// enclosing machine ahead of anything else it reaches (see ResolveEndpoint).
 	Endpoint bool
+	// AccepterSource is set when QN is the source of a transition with an accepter,
+	// whose kind name resolution does not judge (see ResolveTransitionSource).
+	AccepterSource bool
 	// Import is the import QN is the target of, if any; an `import all` reaches
 	// private members the visibility rule would otherwise hide.
 	Import *ast.Import
@@ -495,7 +504,7 @@ func (r *Resolver) ResolveReference(ref Reference) (*symbols.Symbol, bool) {
 		return r.PartSymbol(ref.QN, len(ref.QN.Parts)-1)
 	}
 	if ref.Endpoint {
-		return r.ResolveEndpoint(ref.Scope, ref.QN)
+		return r.resolveEndpoint(ref.Scope, ref.QN, ref.AccepterSource)
 	}
 	if ref.Import != nil {
 		return r.resolveImportName(ref.Scope, ref.QN, ref.Import)

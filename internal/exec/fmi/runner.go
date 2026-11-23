@@ -46,7 +46,7 @@ type runnerReply struct {
 // call's reserved inputs over the DefaultExperiment, the start values typed by
 // each variable's kind and the outputs to read at stopTime.
 func requestOf(call *runtime.ToolCall, d *Description, fmu string) ([]byte, error) {
-	iface := "modelExchange"
+	var iface string
 	switch {
 	case d.CoSimulation != nil:
 		iface = "coSimulation"

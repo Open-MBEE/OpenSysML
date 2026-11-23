@@ -288,6 +288,7 @@ func newActionExecutorOn(ctx *Context, performed *symbols.Symbol, body actionBod
 	exec.owner = exec
 	exec.flow = exec
 	if occurrence != nil {
+		occurrence.performed = true
 		ctx.registerActionExecutor(exec)
 	}
 	exec.driven.exec = exec
@@ -1665,7 +1666,7 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 	if e.occurrence != nil {
 		return e.occurrence, nil
 	}
-	if !isBehaviorDefKind(e.action.Kind) {
+	if !e.action.Kind.IsBehaviorDef() {
 		return nil, nil
 	}
 	inst, err := e.ctx.materialize(e.action, 0, nil, "")
@@ -1674,6 +1675,7 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 	}
 	// The run's own object: what it holds is the run's, not the model's alone.
 	inst.explicit = true
+	inst.performed = true
 	e.occurrence = inst
 	e.performances.occurrence = inst
 	e.ctx.registerActionExecutor(e)
@@ -1696,7 +1698,7 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 		}
 	}
 	e.ctx.beginPerformanceLife(inst, e.ctx.newActivation())
-	return inst, nil
+	return inst, e.holdNodeOccurrences(e.root)
 }
 
 // returnAround holds nothing either.
@@ -2123,10 +2125,9 @@ func (e *ActionExecutor) stepTokenAt(tokenIdx int) error {
 		}
 		return fmt.Errorf("unsupported usage kind in action: %v", node.Kind)
 	case *ast.PerformActionNode:
-		if e.tokenGraph(tokenIdx).UnstatedCaseFlow {
-			return e.stepStatementNode(tokenIdx)
-		}
-		return fmt.Errorf("unsupported node type: %T", node)
+		// A step a succession end implies by chaining to an action through an
+		// object, or a `perform` of an unstated case flow: its one statement.
+		return e.stepStatementNode(tokenIdx)
 	case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
 		*ast.SendStatement, *ast.TerminateStatement:
 		// An action node member written as a statement (`then send x via p;`,
@@ -3030,7 +3031,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 		}
 	}
 
-	perf, err := e.beginPerformance(token.frame, graph, usage, nil, nil, nil)
+	perf, err := e.beginPerformance(token.frame, graph, usage, nil, nil, nil, nil)
 	if err != nil {
 		return err
 	}

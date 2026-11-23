@@ -339,6 +339,14 @@ func readIndex[A any](dir string) (Index[A], error) {
 	if err := json.Unmarshal(content, &index); err != nil {
 		return index, fmt.Errorf("parse %s: %w", path, err)
 	}
+	// The listed coordinates become paths every reader opens: hold them under dir first.
+	for _, root := range sortedRoots(index.Files) {
+		for _, file := range index.Files[root] {
+			if err := locate(root, file); err != nil {
+				return index, fmt.Errorf("%s: %w", path, err)
+			}
+		}
+	}
 	return index, nil
 }
 

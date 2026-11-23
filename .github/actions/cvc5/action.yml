@@ -1,0 +1,36 @@
+name: Install the pinned cvc5
+description: >-
+  Install cvc5 through scripts/ci-cvc5-install.sh from its release zip kept in the Actions
+  cache, keyed on the pinned version and digest. A run that restores the zip verifies it and
+  never asks GitHub; one that does not downloads it with the retries of scripts/fetch-https.sh,
+  and fails with nothing installed when GitHub serves no zip or one that is not the pinned one.
+
+runs:
+  using: composite
+  steps:
+    - name: Read the cvc5 pin
+      id: pin
+      shell: bash
+      run: scripts/ci-cvc5-install.sh --pin >> "$GITHUB_OUTPUT"
+
+    # No restore-keys: a zip saved for another pin is not this one's.
+    - name: Restore the cvc5 release
+      id: restore
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/cvc5
+        key: cvc5-${{ runner.os }}-${{ runner.arch }}-${{ steps.pin.outputs.version }}-${{ steps.pin.outputs.sha256 }}
+
+    - name: Install cvc5
+      shell: bash
+      env:
+        CI_CVC5_CACHE: ${{ runner.temp }}/cvc5
+      run: scripts/ci-cvc5-install.sh
+
+    # Saved once the install succeeded, so an entry always holds the zip the digest names.
+    - name: Keep the cvc5 release for the next run
+      if: steps.restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/cvc5
+        key: cvc5-${{ runner.os }}-${{ runner.arch }}-${{ steps.pin.outputs.version }}-${{ steps.pin.outputs.sha256 }}

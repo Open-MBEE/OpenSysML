@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
@@ -17,8 +18,9 @@ func TestRuntimeRobustnessExpressionReads(t *testing.T) {
 	t.Run("operation_of_a_destroyed_object", testOperationOfADestroyedObject)
 	t.Run("structured_attribute_chain_of_an_unknown_feature", testStructuredAttributeChainOfAnUnknownFeature)
 	t.Run("elements_chain_of_a_non_numeric_collection", testElementsChainOfANonNumericCollection)
-	t.Run("arithmetic_over_the_unbounded_value", testArithmeticOverTheUnboundedValue)
+	t.Run("indeterminate_form_over_an_infinity", testIndeterminateFormOverAnInfinity)
 	t.Run("unbounded_value_compared_with_a_string", testUnboundedValueComparedWithAString)
+	t.Run("negative_infinity_read_as_a_natural", testNegativeInfinityReadAsANatural)
 	t.Run("metadata_of_a_value", testMetadataOfAValue)
 	t.Run("metadata_of_an_unresolved_name", testMetadataOfAnUnresolvedName)
 	t.Run("metadata_without_the_reflective_library", testMetadataWithoutTheReflectiveLibrary)
@@ -218,14 +220,51 @@ func testElementsChainOfANonNumericCollection(t *testing.T) {
 	}
 }
 
-// testArithmeticOverTheUnboundedValue: `*` is no number, so arithmetic over it
-// fails with a typed error naming the operation.
-func testArithmeticOverTheUnboundedValue(t *testing.T) {
-	for _, expr := range []string{"* + 1", "1 - *", "2 * *", "* / 2", "* % 2", "* ** 2", "-*", "1..*"} {
+// testIndeterminateFormOverAnInfinity: an operation the extended reals leave
+// undefined over `*` or `-*` fails with a typed domain error, never a NaN.
+func testIndeterminateFormOverAnInfinity(t *testing.T) {
+	for _, expr := range []string{"* - *", "-* + *", "0 * *", "* / *", "* % 2", "* ** 0", "1 ** -*", "TrigFunctions::cos(-*)"} {
 		_, _, err := evalDeclaredExpr(t, "package test {}", expr)
-		if !errors.Is(err, ErrTypeMismatch) {
-			t.Errorf("%s: error = %v, want ErrTypeMismatch", expr, err)
+		if !errors.Is(err, semantics.ErrArithmeticDomain) {
+			t.Errorf("%s: error = %v, want ErrArithmeticDomain", expr, err)
 		}
+	}
+	if _, _, err := evalDeclaredExpr(t, "package test {}", "-* / 0"); !errors.Is(err, ErrDivisionByZero) {
+		t.Errorf("-* / 0: error = %v, want ErrDivisionByZero", err)
+	}
+	if _, _, err := evalDeclaredExpr(t, "package test {}", "1..*"); !errors.Is(err, semantics.ErrArithmeticDomain) {
+		t.Errorf("1..*: error = %v, want ErrArithmeticDomain", err)
+	}
+}
+
+// testNegativeInfinityReadAsANatural: a feature whose value passes `-*` to a
+// Natural operation fails its read with a typed mismatch, as `*` there does not.
+func testNegativeInfinityReadAsANatural(t *testing.T) {
+	src := `
+		package test {
+			part def Holder {
+				attribute lower = -*;
+				attribute grown = NaturalFunctions::'+'(*, 1);
+				attribute noNatural = NaturalFunctions::'+'(lower, 1);
+			}
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Holder", ast.DefPart)
+	if sym == nil {
+		t.Fatal("Holder part def not found")
+	}
+	inst, err := ctx.Instantiate(sym)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	grown, err := inst.GetFeatureValue(ctx, "grown")
+	if err != nil || !grown.HeldValue().Const.IsUnbounded() {
+		t.Fatalf("feature value grown = %v, %v; want *", grown.HeldValue(), err)
+	}
+	_, err = inst.GetFeatureValue(ctx, "noNatural")
+	if !errors.Is(err, ErrTypeMismatch) || !strings.Contains(err.Error(), "requires a Natural value, got -*") {
+		t.Fatalf("feature value noNatural err = %v, want ErrTypeMismatch naming -*", err)
 	}
 }
 

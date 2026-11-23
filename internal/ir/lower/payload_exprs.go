@@ -40,8 +40,8 @@ func (g *ActionGraph) internFeatures(features []Feature) {
 	}
 }
 
-// internExprs interns the expressions the machine's attributes, features, transitions
-// and entry transitions state in its table, each in the scope it is evaluated in.
+// internExprs interns the expressions the machine states in its table, each in the scope
+// it is evaluated in. It walks ordered tables only, so every lowering assigns the same ExprIDs.
 func (g *StateGraph) internExprs() {
 	if g.Exprs == nil {
 		return
@@ -51,32 +51,45 @@ func (g *StateGraph) internExprs() {
 			attrs[i].ValueID = g.Exprs.Intern(attrs[i].Value, scopeOr(attrs[i].Scope, g.Scope))
 		}
 	}
+	completion := func(state *ast.StateNode) {
+		if config, ok := g.RunToCompletion[state]; ok {
+			config.ValueID = g.Exprs.Intern(config.Value, config.ValueScope)
+			g.RunToCompletion[state] = config
+		}
+	}
+	entries := func(owner ast.Node) {
+		for _, entry := range g.EntryTransitions[owner] {
+			entry.GuardID = g.Exprs.Intern(entry.Guard, entry.Scope)
+		}
+	}
 	attributes(g.Attributes)
-	// The owners are every body that states them: the machine and the owners of
-	// regions among them, which are not among the states.
-	for _, attrs := range g.StateAttributes {
-		attributes(attrs)
+	// The owners are every body that states them: the machine (the nil key) and
+	// the owners of regions among them, which are not among the states.
+	states := g.statesInOrder()
+	for _, state := range states {
+		attributes(g.StateAttributes[state])
 	}
-	for state, config := range g.RunToCompletion {
-		config.ValueID = g.Exprs.Intern(config.Value, config.ValueScope)
-		g.RunToCompletion[state] = config
+	completion(nil)
+	for _, state := range states {
+		completion(state)
 	}
-	for _, features := range g.Features {
+	for _, owner := range g.featureOwners {
+		features := g.Features[owner]
 		for i := range features {
 			features[i].ValueID = g.Exprs.Intern(features[i].Value, scopeOr(features[i].Scope, g.Scope))
 		}
 	}
-	for _, transitions := range g.Transitions {
-		for _, trans := range transitions {
-			trans.GuardID = g.Exprs.Intern(trans.Guard, trans.BodyScope)
-			trans.Probability.intern(g.Exprs, trans.BodyScope)
-			trans.TriggerExprID = g.Exprs.Intern(triggerExpr(trans.Trigger), trans.Scope)
-		}
+	for _, trans := range g.transitionsInOrder() {
+		trans.GuardID = g.Exprs.Intern(trans.Guard, trans.BodyScope)
+		trans.Probability.intern(g.Exprs, trans.BodyScope)
+		trans.TriggerExprID = g.Exprs.Intern(triggerExpr(trans.Trigger), trans.Scope)
 	}
-	for _, entries := range g.EntryTransitions {
-		for _, entry := range entries {
-			entry.GuardID = g.Exprs.Intern(entry.Guard, entry.Scope)
-		}
+	entries(nil)
+	for _, state := range states {
+		entries(state)
+	}
+	for _, region := range g.regionsInOrder() {
+		entries(region)
 	}
 }
 

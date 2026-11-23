@@ -36,12 +36,12 @@ func InsertLine(offset int, text string) Edit {
 }
 
 // Render resolves an edit against its document, returning the span to replace and
-// the replacement. An own-line edit keeps the line it precedes on its own line.
+// the replacement. An own-line edit ends in the document's own line ending.
 func (e Edit) Render(content []byte) (source.Span, string) {
 	if !e.OwnLine {
 		return e.Span, e.NewText
 	}
-	return e.Span, e.NewText + "\n" + indentAt(content, e.Span.Offset)
+	return e.Span, e.NewText + source.DominantNewline(content) + indentAt(content, e.Span.Offset)
 }
 
 // indentAt returns the leading whitespace of the line offset sits on.

@@ -252,9 +252,5 @@ func TestElementPropertiesServeEveryRuleAndExplainEveryOmission(t *testing.T) {
 // elementFormAbsentMetaclasses are the relationships the API element form states as owner text,
 // not elements; the absent-forms fixture writes each, and the census fails once one is an element.
 var elementFormAbsentMetaclasses = map[string]string{
-	"Unioning":        "a type's `unions` is a text property of the type in the element form",
-	"Intersecting":    "a type's `intersects` is a text property of the type in the element form",
-	"Differencing":    "a type's `differences` is a text property of the type in the element form",
-	"CrossSubsetting": "an end feature's `crosses` is a text property of the feature in the element form",
-	"TypeFeaturing":   "a feature's `featured by` is a text property of the feature in the element form",
+	"TypeFeaturing": "a feature's `featured by` is a text property of the feature in the element form",
 }

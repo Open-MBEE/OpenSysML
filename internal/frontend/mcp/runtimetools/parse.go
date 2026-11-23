@@ -123,7 +123,8 @@ func (g *group) registerParse(s *mcp.Server) {
 			"the positional id of an unnamed member (Owner::@2) or by the id an earlier answer's element value carried, which walks the " +
 			"model and into the standard library; empty properties reads every property the element carries. A property the metaclass " +
 			"does not declare, or OpenSysML does not derive for the element, answers `unsupported` with the reason. An unknown element " +
-			"answers with `error` set rather than failing. The result is the GetElementPropertiesResponse as protojson writes it.",
+			"answers with `error` set rather than failing. A document with a syntax error, or one declaring a name an earlier document declares, " +
+			"is left out and listed in `excludedDocuments`; only its own elements answer its error. The result is the GetElementPropertiesResponse as protojson writes it.",
 		Annotations: toolkit.ReadOnly("Read element properties"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in ElementPropertiesInput) (*mcp.CallToolResult, Result, error) {
 		m, err := g.resolve(ctx, in.ModelInput)

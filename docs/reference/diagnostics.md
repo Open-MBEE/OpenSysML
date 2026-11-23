@@ -330,9 +330,9 @@ Specification: the pinned SysML v2 Xtext grammar
 
 **warning** · Syntax · notation OpenSysML reads that no production of the SysML v2 grammar admits
 
-The text is an OpenSysML extension: the parser reads it and the model is analyzed, but the pinned SysML v2 and KerML grammars have no production for it, so another tool will reject the file. The message states the standard form to write instead. `-strict` promotes this finding to an error.
+The text is an OpenSysML extension: the parser reads it and the model is analyzed, but the pinned SysML v2 and KerML grammars have no production for it, so another tool will reject the file. The message states the standard form to write instead. `-strict` promotes this finding to an error. An escape sequence in a string or an unrestricted name that KerML §8.2.2.3 Table 4 does not list is reported the same way: `\r`, which the pilot grammar alone adds, is read as a carriage return, but a tool built from the specification's table has no such escape.
 
-Specification: the pinned SysML v2 and KerML Xtext grammars
+Specification: the pinned SysML v2 and KerML Xtext grammars; KerML §8.2.2.3 Table 4 (Escape Sequences)
 
 #### `objective-membership-owning-type`
 
@@ -949,7 +949,7 @@ Specification: SysML v2 validatePortUsageIsReference
 
 | Code | Severity | Summary |
 |------|----------|---------|
-| [`accepter-source-not-state`](#accepter-source-not-state) | error | a transition with a trigger whose source is not a state |
+| [`accepter-source-not-state`](#accepter-source-not-state) | error | a transition with an accepter whose source is an action but no state |
 | [`annotation-annotated-element-ownership`](#annotation-annotated-element-ownership) | error | an annotating element whose `about` names its own owner |
 | [`assignment-chain-step-not-one-object`](#assignment-chain-step-not-one-object) | error | an assignment target stepping through a feature that may hold several objects |
 | [`assignment-referent`](#assignment-referent) | error | an assignment whose target is no feature |
@@ -1066,9 +1066,9 @@ Specification: SysML v2 validatePortUsageIsReference
 
 #### `accepter-source-not-state`
 
-**error** · Constraints · a transition with a trigger whose source is not a state
+**error** · Constraints · a transition with an accepter whose source is an action but no state
 
-A transition's accepter waits in its source for the trigger, which a state can do and a pseudostate cannot. Move the trigger to a transition out of a state, or drop it from the pseudostate's transition.
+A transition's accepter waits in its source for the trigger, which a state usage does and any other action usage does not: an entry, do or exit action, a performed, accept, send, assignment or terminate action, a calculation or a case, written as the source or declared just before a transition written without one. Move the accepter to a transition out of a state, or drop it and keep the guard.
 
 Specification: SysML v2 validateTransitionUsageTriggerActions
 

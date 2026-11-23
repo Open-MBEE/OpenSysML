@@ -39,7 +39,14 @@ func TestListEnginesNamesEveryEngine(t *testing.T) {
 		{"smt", "proved", []string{"holds", "sensitive"}},
 		{"solve", "proved", []string{"satisfiable", "holds"}},
 		{"sweep", "observed", []string{"sweep"}},
-		{"tool:fmi", "observed", []string{"compute"}},
+	}
+	external := []int{3, 4}
+	if fmiLinked {
+		want = append(want, struct {
+			name, authority string
+			answers         []string
+		}{"tool:fmi", "observed", []string{"compute"}})
+		external = append(external, 6)
 	}
 	if len(resp.Engines) != len(want) {
 		t.Fatalf("engines = %v, want %d", resp.Engines, len(want))
@@ -53,7 +60,8 @@ func TestListEnginesNamesEveryEngine(t *testing.T) {
 			t.Errorf("in-process engine %s = %v, want ready with no process", got.Name, got)
 		}
 	}
-	for _, external := range []*pb.EngineInfo{resp.Engines[3], resp.Engines[4], resp.Engines[6]} {
+	for _, i := range external {
+		external := resp.Engines[i]
 		if external.Process == "" || external.Ready == (external.Unavailable != "") {
 			t.Errorf("%s = %v, want a process and ready or a reason", external.Name, external)
 		}

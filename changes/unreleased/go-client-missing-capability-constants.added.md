@@ -1,0 +1,1 @@
+- `client/opensysml`: the `CapabilityEnginesExternal`, `CapabilityInfinityValue` and `CapabilityOrderDependence` constants, which the service reported but the Go client did not name.

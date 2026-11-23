@@ -12,6 +12,8 @@ import (
 	"encoding/hex"
 	"strconv"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // Language is the half of the standard library an element belongs to, which
@@ -101,11 +103,23 @@ func AnonymousMemberOwningMembershipID(ownerID, metaclass string, ordinal int) s
 	return uuid5(mustParse(ownerID), "/"+metaclass+"["+strconv.Itoa(ordinal)+"]"+owningMembershipPath).String()
 }
 
+// AliasMembershipID is this implementation's id for the Membership of a library alias: uuid5 under
+// its owner's id of metaclass and index among such memberships; the pilot publishes no rule for these.
+func AliasMembershipID(ownerID, metaclass string, index int) string {
+	if ownerID == "" || metaclass == "" || index < 0 {
+		return ""
+	}
+	return uuid5(mustParse(ownerID), "/"+metaclass+"["+strconv.Itoa(index)+"]"+aliasMembershipPath).String()
+}
+
 // Separator joins the segments of a qualified name.
 const Separator = "::"
 
 // owningMembershipPath is the path suffix an owning membership's id hashes.
 const owningMembershipPath = "/owningMembership"
+
+// aliasMembershipPath is the path suffix an alias membership's id hashes, apart from an unnamed member's.
+const aliasMembershipPath = "/aliasMembership"
 
 // ElementID is the fixed id of the library element with the given qualified
 // name (segments as declared, the first its library package); "" for none.
@@ -154,10 +168,11 @@ func EscapeName(name string) string {
 	var b strings.Builder
 	b.Grow(len(name) + 2)
 	b.WriteByte('\'')
-	for _, r := range name {
-		if i := strings.IndexRune("\b\t\n\f\r\"'\\", r); i >= 0 {
+	for i, r := range name {
+		// name[i] is r itself for the one-byte runes an escape can name.
+		if letter, ok := source.EscapeLetter(name[i]); ok {
 			b.WriteByte('\\')
-			b.WriteByte("btnfr\"'\\"[i])
+			b.WriteByte(letter)
 			continue
 		}
 		b.WriteRune(r)

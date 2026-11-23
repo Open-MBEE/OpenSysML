@@ -15,7 +15,7 @@ executors:
       # The -node variant of the same image: the WebAssembly gate runs the wasm
       # binaries under Node, and an absent runtime would make it skip.
       # It carries Node LTS, 24 or later, which the gate needs.
-      - image: cimg/go:1.27-node
+      - image: cimg/go:1.27.4-node
     resource_class: medium
 
   python-executor:
@@ -203,14 +203,7 @@ commands:
       # digest so a substituted asset is not run.
       - run:
           name: Install cvc5
-          command: |
-            curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o /tmp/cvc5.zip \
-              https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.4/cvc5-Linux-x86_64-static.zip
-            echo "dcdbfada0ce493ee98259c0816e0daafc561c223aadb3af298c2968e73ea39c6  /tmp/cvc5.zip" | sha256sum --check --strict
-            unzip -p /tmp/cvc5.zip '*/bin/cvc5' > /tmp/cvc5-bin
-            sudo install -m 0755 /tmp/cvc5-bin /usr/local/bin/cvc5
-            cvc5_version="$(cvc5 --version)"
-            echo "${cvc5_version%%$'\n'*}"
+          command: scripts/ci-cvc5-install.sh
 
   # The FMI gate runs `python3` over FMPy; the executor's python3 has no pip and is
   # externally managed, so FMPy goes in a venv that later steps put first on PATH.
@@ -1277,7 +1270,7 @@ jobs:
   # SonarCloud analysis. The `SonarCloud` context supplies SONAR_TOKEN.
   scan:
     docker:
-      - image: cimg/go:1.27
+      - image: cimg/go:1.27.4
     # The Go sensor holds a whole directory's parse in memory; internal/exec/runtime
     # (168 files) overflows the default heap. The 8 GB container, the largest
     # class in the plan, carries: 4.8 GB analysis heap + Node capped at 1 GB
@@ -3091,7 +3084,7 @@ jobs:
             - run:
                 name: Sign the checksum manifest with cosign keyless
                 command: |
-                  go install github.com/sigstore/cosign/v3/cmd/cosign@v3.0.3
+                  go install github.com/sigstore/cosign/v3/cmd/cosign@v3.1.4
                   export PATH="$(go env GOPATH)/bin:$PATH"
 
                   # Fulcio requires the 'sigstore' audience, which the ambient
