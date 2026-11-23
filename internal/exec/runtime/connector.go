@@ -292,6 +292,24 @@ func (ctx *Context) materializeConnectorAs(owner *Instance, connSym, base *symbo
 	return ctx.materializeConnectorStarting(owner, connSym, base, id, true, keep)
 }
 
+// connectorFeatureName returns the name owner holds the connector usage connSym
+// under, so the nested redefinitions written on owner reach the connector's object.
+func connectorFeatureName(owner *Instance, connSym *symbols.Symbol) string {
+	if owner == nil {
+		return ""
+	}
+	if fv := owner.FeatureValues[connSym.Name]; fv != nil && fv.Feature != nil && fv.Feature.Symbol == connSym {
+		return connSym.Name
+	}
+	name := ""
+	for held, fv := range owner.FeatureValues {
+		if fv.Feature != nil && fv.Feature.Symbol == connSym && (name == "" || held < name) {
+			name = held
+		}
+	}
+	return name
+}
+
 // materializeConnectorStarting is materializeConnectorAs, its classifier behaviors started only
 // when start is set: a namespace path records what the usage denotes first, then starts them.
 func (ctx *Context) materializeConnectorStarting(owner *Instance, connSym, base *symbols.Symbol, id int64, start bool, keep func(*Instance)) error {
@@ -320,7 +338,7 @@ func (ctx *Context) materializeConnectorStarting(owner *Instance, connSym, base 
 		endBoundary()
 		rollback()
 	}
-	inst, err := ctx.materialize(base, id, nil, "")
+	inst, err := ctx.materialize(base, id, owner, connectorFeatureName(owner, connSym))
 	if err != nil {
 		abandon()
 		return err
