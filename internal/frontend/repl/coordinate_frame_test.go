@@ -155,7 +155,8 @@ func TestFeaturesListFrameTransformation(t *testing.T) {
 	run(t, s, "%instantiate Frames")
 	got := run(t, s, "%features Frames::lbcf")
 	wants(t, got, "\n  mRefs = [mm, mm, mm]", "\n  transformation = Instance(ID: ", "\n    source = datum [mm, mm, mm]",
-		"\n      translationVector = ⟨10.0, 0.0, 0.0⟩ [datum]", "\n      angle = 180 ['°']", "\n  dimensions = 3")
+		"\n      [1] Instance(ID: ", "\n        translationVector = ⟨10.0, 0.0, 0.0⟩ [datum]",
+		"\n      [2] Instance(ID: ", "\n        angle = 180 ['°']", "\n  dimensions = 3")
 	for _, absent := range []string{"target", "that"} {
 		if strings.Contains(got, absent) {
 			t.Errorf("%%features Frames::lbcf lists %q:\n%s", absent, got)
