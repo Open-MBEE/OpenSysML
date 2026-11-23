@@ -1,0 +1,1 @@
+- Opening a split workspace from its record cache and hydrating one of its files allocate less (`BenchmarkOpenSplit` warm, `BenchmarkHydratePlane`): an element's qualified name and derived identity are built without an intermediate list per owner, and an effective name is found without a map per query. Diagnostics do not change.
