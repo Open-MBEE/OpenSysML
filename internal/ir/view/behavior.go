@@ -1094,8 +1094,8 @@ func (r *Renderer) bindingEdges(subject actionSubject, graph *lower.ActionGraph,
 			continue
 		}
 		seen[decl] = true
-		at, atPin := bindingPin(nodes, drawn, binding.AtNode(), binding.NodeID, binding.PathDecls(), binding.Pin, root, "")
-		other, otherPin := bindingPin(nodes, drawn, binding.OtherAtNode(), binding.OtherNodeID, binding.OtherPathDecls(), binding.OtherPin, root, binding.OtherParameter)
+		at, atPin := bindingPin(nodes, drawn, bindingEnd{named: binding.AtNode(), at: binding.NodeID, path: binding.PathDecls(), pin: binding.Pin}, root)
+		other, otherPin := bindingPin(nodes, drawn, bindingEnd{named: binding.OtherAtNode(), at: binding.OtherNodeID, path: binding.OtherPathDecls(), pin: binding.OtherPin, parameter: binding.OtherParameter}, root)
 		if at == nil || other == nil {
 			continue
 		}
@@ -1116,11 +1116,21 @@ func (r *Renderer) bindingEdges(subject actionSubject, graph *lower.ActionGraph,
 	}
 }
 
+// bindingEnd is one end of a binding: whether it names a node, that node, the path into a nested
+// flow, its pin, and the frame parameter it is at otherwise.
+type bindingEnd struct {
+	named          bool
+	at             program.NodeID
+	path           []ast.Node
+	pin, parameter string
+}
+
 // bindingPin is the drawn node and pin a binding end is at: the node the end
 // names, reached through path where it reaches into a nested flow, else the
 // frame's pin named parameter; nil for an end at no drawn pin, which no edge
 // can attach to.
-func bindingPin(nodes map[program.NodeID]*Node, drawn map[ast.Node]*Node, named bool, at program.NodeID, path []ast.Node, pin string, root *Node, parameter string) (*Node, string) {
+func bindingPin(nodes map[program.NodeID]*Node, drawn map[ast.Node]*Node, end bindingEnd, root *Node) (*Node, string) {
+	named, at, path, pin, parameter := end.named, end.at, end.path, end.pin, end.parameter
 	node := root
 	if named {
 		var ok bool

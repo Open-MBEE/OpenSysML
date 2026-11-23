@@ -443,7 +443,7 @@ func calcParameters(chain []*symbols.Symbol, env CalcEnv, trees *CalcTrees, alia
 	for _, link := range chain {
 		for _, member := range UnwrappedDeclMembers(link.Decl) {
 			if subject, ok := SubjectDeclaration(member); ok {
-				params = subjectParameter(params, index, aliases, link, member, subject, env, trees)
+				params = subjectParameter(params, index, aliases, linkSubject{link, member, subject}, env, trees)
 				continue
 			}
 			usage, ok := member.(*ast.Usage)
@@ -514,12 +514,20 @@ func redeclaredIndex(index map[string]int, sym *symbols.Symbol, name string, env
 	return 0, false
 }
 
+// linkSubject is the subject a link of a specialization chain declares, with the member declaring it.
+type linkSubject struct {
+	link    *symbols.Symbol
+	member  ast.Node
+	subject SubjectDecl
+}
+
 // subjectParameter records link's subject among params: refining the subject an
 // earlier link declared, else inserting it first, the position a subject binds by.
 func subjectParameter(
 	params []program.CalcParam, index map[string]int, aliases *map[string]string,
-	link *symbols.Symbol, member ast.Node, subject SubjectDecl, env CalcEnv, trees *CalcTrees,
+	declared linkSubject, env CalcEnv, trees *CalcTrees,
 ) []program.CalcParam {
+	link, member, subject := declared.link, declared.member, declared.subject
 	sym := memberSymbol(declScope(link), member)
 	param := program.CalcParam{
 		Name: subject.Name, Default: trees.intern(subject.Value, link), Owner: link, IsSubject: true,
@@ -602,12 +610,7 @@ func calcOutputs(chain []*symbols.Symbol, env CalcEnv, trees *CalcTrees, aliases
 				at, seen = indexOfAnonymousResult(outs)
 			}
 			if seen {
-				if out.Value == 0 {
-					out.Value = outs[at].Value
-					out.Owner = outs[at].Owner
-					out.IsInitial = outs[at].IsInitial
-				}
-				out.Declarations = declarationsOf(outs[at].Declarations, link, sym, name)
+				out = redeclaredOutput(out, outs[at], link, sym, name)
 				if name != "" {
 					*aliases = program.AliasRedefined(*aliases, outs[at].Name, name)
 					index[name] = at
@@ -622,6 +625,17 @@ func calcOutputs(chain []*symbols.Symbol, env CalcEnv, trees *CalcTrees, aliases
 		}
 	}
 	return outs
+}
+
+// redeclaredOutput is out as the redeclaration of prior: a value it does not state stays prior's.
+func redeclaredOutput(out, prior program.CalcOutput, link, sym *symbols.Symbol, name string) program.CalcOutput {
+	if out.Value == 0 {
+		out.Value = prior.Value
+		out.Owner = prior.Owner
+		out.IsInitial = prior.IsInitial
+	}
+	out.Declarations = declarationsOf(prior.Declarations, link, sym, name)
+	return out
 }
 
 // indexOfAnonymousResult finds the unnamed result parameter among outs, which is

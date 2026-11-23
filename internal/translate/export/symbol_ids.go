@@ -168,62 +168,11 @@ func (s *SymbolIDs) compute(sym *symbols.Symbol) (string, bool) {
 		element, _, ok := s.ids.OfBodyParameter(doc, body, sym.Name)
 		return element, ok
 	}
-	// A chained end's target is the chain Feature its ReferenceSubsetting owns, minted
-	// off the end (chainFeature), which the chain's own node is not written as.
-	if sym.Kind == symbols.SymbolReferenceUsage && sym.OwnerScope != nil {
-		if end, ok := sym.OwnerScope.Node().(*ast.ConnectorEnd); ok && end.AttachedTarget() == sym.Decl {
-			if element, _, ok := s.ids.OfExpressionPart(doc, end, "chain"); ok {
-				return element, true
-			}
-		}
+	if id, ok, settled := s.chainFeatureID(sym); settled {
+		return id, ok
 	}
-	if sym.Chain != nil && sym.Chain.Flow != nil && sym.Chain.Node != nil {
-		// The chain Feature a flow's end references is minted under the end, filed by the chain as written.
-		element, _, ok := s.ids.OfExpressionPart(doc, sym.Chain.Node, "chain")
-		return element, ok
-	}
-	// The chain Feature a relationship's chain target denotes is minted off the element
-	// the relationship is written on: an end's `_pend0_pchain`, a transition's `_psourcechain`.
-	if sym.Chain != nil && sym.Chain.Relationship != nil && sym.Chain.Relationship.Implicit != nil && sym.Chain.Relationship.Implicit.Owner != nil {
-		if element, _, ok := s.ids.OfExpressionPart(doc, sym.Decl, "chain"); ok {
-			// A head clause's chain (`subsets a.b`) is minted off the feature at its position among the head's chains (headChain).
-			return element, true
-		}
-		if base, ok := s.of(sym.Chain.Relationship.Implicit.Owner); ok {
-			slot := "chain"
-			if sym.Chain.Relationship.Implicit.Slot == "sourcemember" {
-				slot = "sourcechain"
-			}
-			return rdf.ExpressionNodeID(base, slot), true
-		}
-	}
-	if i, ok := symbols.ImpliedConnectorEndIndex(sym); ok {
-		// A `then` succession's or a flow's end is minted under its edge at end0/end1 (recordSuccessionEnds,
-		// recordFlowEnds); a transition's succession's under the transition at succession.end0/end1.
-		implied, _ := symbols.ImpliedDeclOf(sym)
-		slot := fmt.Sprintf("end%d", i)
-		if symbols.ImpliedTransitionSuccessionEnd(sym) {
-			slot = "succession." + slot
-		}
-		element, _, ok := s.ids.OfExpressionPart(doc, implied.Of, slot)
-		return element, ok
-	}
-	if i, ok := symbols.ImpliedFlowEndFeatureIndex(sym); ok {
-		// The ReferenceUsage a flow's end owns is minted under the end (recordFlowEnds).
-		implied, _ := symbols.ImpliedDeclOf(sym)
-		element, _, ok := s.ids.OfExpressionPart(doc, implied.Of, fmt.Sprintf("end%d.ff", i))
-		return element, ok
-	}
-	if implied, ok := symbols.ImpliedDeclOf(sym); ok &&
-		(implied.Form == symbols.ImpliedDefaultMultiplicity || implied.Form == symbols.ImpliedMultiplicityRange) {
-		if element, _, ok := s.ids.OfExpressionPart(doc, implied.Of, "multiplicity"); ok {
-			return element, true
-		}
-		owner, ok := s.ids.OfDeclaration(doc, implied.Of, "")
-		if !ok {
-			return "", false
-		}
-		return rdf.ExpressionNodeID(owner, "multiplicity"), true
+	if id, ok, settled := s.impliedPartID(sym); settled {
+		return id, ok
 	}
 	fqn := s.fqn(sym)
 	id, ok := s.ids.OfDeclaration(doc, sym.Decl, fqn)
@@ -233,6 +182,77 @@ func (s *SymbolIDs) compute(sym *symbols.Symbol) (string, bool) {
 		return "", false
 	}
 	return id, ok
+}
+
+// chainFeatureID is the id of the chain Feature sym is, minted off the end, flow or relationship
+// the chain is written on. settled is false when sym is no such chain Feature.
+func (s *SymbolIDs) chainFeatureID(sym *symbols.Symbol) (id string, ok, settled bool) {
+	doc := sym.DocName
+	// A chained end's target is the chain Feature its ReferenceSubsetting owns, minted
+	// off the end (chainFeature), which the chain's own node is not written as.
+	if sym.Kind == symbols.SymbolReferenceUsage && sym.OwnerScope != nil {
+		if end, ok := sym.OwnerScope.Node().(*ast.ConnectorEnd); ok && end.AttachedTarget() == sym.Decl {
+			if element, _, ok := s.ids.OfExpressionPart(doc, end, "chain"); ok {
+				return element, true, true
+			}
+		}
+	}
+	if sym.Chain != nil && sym.Chain.Flow != nil && sym.Chain.Node != nil {
+		// The chain Feature a flow's end references is minted under the end, filed by the chain as written.
+		element, _, ok := s.ids.OfExpressionPart(doc, sym.Chain.Node, "chain")
+		return element, ok, true
+	}
+	// The chain Feature a relationship's chain target denotes is minted off the element
+	// the relationship is written on: an end's `_pend0_pchain`, a transition's `_psourcechain`.
+	if sym.Chain != nil && sym.Chain.Relationship != nil && sym.Chain.Relationship.Implicit != nil && sym.Chain.Relationship.Implicit.Owner != nil {
+		if element, _, ok := s.ids.OfExpressionPart(doc, sym.Decl, "chain"); ok {
+			// A head clause's chain (`subsets a.b`) is minted off the feature at its position among the head's chains (headChain).
+			return element, true, true
+		}
+		if base, ok := s.of(sym.Chain.Relationship.Implicit.Owner); ok {
+			slot := "chain"
+			if sym.Chain.Relationship.Implicit.Slot == "sourcemember" {
+				slot = "sourcechain"
+			}
+			return rdf.ExpressionNodeID(base, slot), true, true
+		}
+	}
+	return "", false, false
+}
+
+// impliedPartID is the id of an element its owner's declaration implies — a succession's or flow's
+// end, a flow end's feature, a multiplicity — minted under that declaration. settled is false for any other symbol.
+func (s *SymbolIDs) impliedPartID(sym *symbols.Symbol) (id string, ok, settled bool) {
+	doc := sym.DocName
+	if i, ok := symbols.ImpliedConnectorEndIndex(sym); ok {
+		// A `then` succession's or a flow's end is minted under its edge at end0/end1 (recordSuccessionEnds,
+		// recordFlowEnds); a transition's succession's under the transition at succession.end0/end1.
+		implied, _ := symbols.ImpliedDeclOf(sym)
+		slot := fmt.Sprintf("end%d", i)
+		if symbols.ImpliedTransitionSuccessionEnd(sym) {
+			slot = "succession." + slot
+		}
+		element, _, ok := s.ids.OfExpressionPart(doc, implied.Of, slot)
+		return element, ok, true
+	}
+	if i, ok := symbols.ImpliedFlowEndFeatureIndex(sym); ok {
+		// The ReferenceUsage a flow's end owns is minted under the end (recordFlowEnds).
+		implied, _ := symbols.ImpliedDeclOf(sym)
+		element, _, ok := s.ids.OfExpressionPart(doc, implied.Of, fmt.Sprintf("end%d.ff", i))
+		return element, ok, true
+	}
+	if implied, ok := symbols.ImpliedDeclOf(sym); ok &&
+		(implied.Form == symbols.ImpliedDefaultMultiplicity || implied.Form == symbols.ImpliedMultiplicityRange) {
+		if element, _, ok := s.ids.OfExpressionPart(doc, implied.Of, "multiplicity"); ok {
+			return element, true, true
+		}
+		owner, ok := s.ids.OfDeclaration(doc, implied.Of, "")
+		if !ok {
+			return "", false, true
+		}
+		return rdf.ExpressionNodeID(owner, "multiplicity"), true, true
+	}
+	return "", false, false
 }
 
 // rootNamespaceID mirrors rootNamespaceIDs: the root Namespace is named off the document's first
@@ -282,60 +302,9 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 	}
 	switch rel.Form {
 	case symbols.ImplicitMembership:
-		if rel.Member == nil {
-			return "", false
-		}
-		if filter := semantics.FilterMemberOf(rel.Member); filter != nil {
-			// A `filter` member is written as the ElementFilterMembership itself.
-			return s.ids.OfDeclaration(doc, filter, "")
-		}
-		if semantics.IsFilterPackage(rel.Owner) {
-			base, ok := s.of(rel.Owner)
-			return base + filterMembershipSuffix, ok
-		}
-		if node, ok := semantics.SubactionMemberOf(rel.Owner, rel.Member); ok {
-			// An action a subaction performs is owned through the member written as the membership.
-			return s.ids.OfDeclaration(doc, node, "")
-		}
-		if body, ok := rel.Member.Decl.(*ast.BodyExpr); ok && rel.Member.Name != "" {
-			// A body's parameter is keyed by its body; its FeatureMembership is minted
-			// off the parameter (bodyParameter), not off the body's own membership.
-			_, membership, ok := s.ids.OfBodyParameter(doc, body, rel.Member.Name)
-			return membership, ok
-		}
-		if id, ok := s.ids.OwningMembershipOfDeclaration(doc, rel.Member.Decl, s.fqn(rel.Member)); ok && rel.Member.Expr == nil {
-			return id, true
-		}
-		member, ok := s.of(rel.Member)
-		if !ok {
-			return "", false
-		}
-		id := member + rdf.OwningMembershipSuffix
-		if rel.Owner != nil && s.model.IsRootNamespace(rel.Owner) {
-			// A root's membership is minted at wrap time, past any id the conversion writes (rootNamespaceIDs).
-			for s.ids.writes(id) {
-				id += rdf.OwningMembershipSuffix
-			}
-		}
-		return id, true
+		return s.implicitMembershipID(rel, doc)
 	case symbols.ImplicitWritten:
-		if rel.Node == nil {
-			return "", false
-		}
-		if _, ok := rel.Owner.Decl.(*ast.BodyExpr); ok && rel.Owner.Name != "" {
-			// A body parameter's head clauses are materialized off the parameter, in
-			// the order written per kind (bodyParameter, materializeRelationships).
-			return s.bodyParameterRelationshipID(rel)
-		}
-		if rel.Owner != nil && isConnectorEnd(rel.Owner) && rel.Kind.ReferenceSubsets() {
-			// An end's reference subsetting is minted off the end (connectorEnd).
-			end, ok := s.of(rel.Owner)
-			return rdf.ExpressionNodeID(end, "rs"), ok
-		}
-		if rel.Node.Span().Len == 0 && rel.Node.Target != nil {
-			return s.ids.RelationshipOf(doc, rel.Node.Target)
-		}
-		return s.ids.RelationshipOf(doc, rel.Node)
+		return s.implicitWrittenID(rel, doc)
 	case symbols.ImplicitSuccessionEndReference:
 		if rel.Owner == nil {
 			return "", false
@@ -371,34 +340,9 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 		}
 		return s.ids.RelationshipOf(doc, node)
 	case symbols.ImplicitReferenceMembership:
-		if rel.Decl != nil {
-			// A `first x;` marker's Membership is minted from the marker itself.
-			return s.ids.OfDeclaration(doc, rel.Decl, "")
-		}
-		if rel.Owner == nil || rel.Slot == "" {
-			return "", false
-		}
-		_, membership, ok := s.ids.OfExpressionPart(doc, rel.Owner.Decl, rel.Slot)
-		if !ok && rel.Owner.Expr != nil {
-			return s.partID(rel.Owner, rel.Slot)
-		}
-		if !ok {
-			// A transition's source Membership is minted off the transition (transitionSourceMember).
-			base, ok := s.of(rel.Owner)
-			return rdf.ExpressionNodeID(base, rel.Slot), ok
-		}
-		return membership, ok
+		return s.implicitReferenceMembershipID(rel, doc)
 	case symbols.ImplicitFeatureChaining:
-		if rel.Owner == nil || rel.Slot == "" {
-			return "", false
-		}
-		if owner := rel.Owner; owner.Expr != nil && owner.Expr.Slot == "referent" {
-			// A subject's `by a.b` chain owns its chainings at referent.fcN (recordSatisfySubjectValue).
-			if element, _, ok := s.ids.OfExpressionPart(doc, owner.Decl, "referent."+rel.Slot); ok && element != "" {
-				return element, true
-			}
-		}
-		return s.partID(rel.Owner, rel.Slot)
+		return s.implicitFeatureChainingID(rel, doc)
 	case symbols.ImplicitPortConjugation:
 		// A conjugated port definition's PortConjugation is minted off the conjugate (conjugatedPortDefinition).
 		implied, ok := symbols.ImpliedDeclOf(rel.Owner)
@@ -409,6 +353,102 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 		return conjugate.conjugation, ok
 	}
 	return "", false
+}
+
+// implicitMembershipID is the id of the membership through which rel's owner owns its member.
+func (s *SymbolIDs) implicitMembershipID(rel *symbols.ImplicitRelationship, doc string) (string, bool) {
+	if rel.Member == nil {
+		return "", false
+	}
+	if filter := semantics.FilterMemberOf(rel.Member); filter != nil {
+		// A `filter` member is written as the ElementFilterMembership itself.
+		return s.ids.OfDeclaration(doc, filter, "")
+	}
+	if semantics.IsFilterPackage(rel.Owner) {
+		base, ok := s.of(rel.Owner)
+		return base + filterMembershipSuffix, ok
+	}
+	if node, ok := semantics.SubactionMemberOf(rel.Owner, rel.Member); ok {
+		// An action a subaction performs is owned through the member written as the membership.
+		return s.ids.OfDeclaration(doc, node, "")
+	}
+	if body, ok := rel.Member.Decl.(*ast.BodyExpr); ok && rel.Member.Name != "" {
+		// A body's parameter is keyed by its body; its FeatureMembership is minted
+		// off the parameter (bodyParameter), not off the body's own membership.
+		_, membership, ok := s.ids.OfBodyParameter(doc, body, rel.Member.Name)
+		return membership, ok
+	}
+	if id, ok := s.ids.OwningMembershipOfDeclaration(doc, rel.Member.Decl, s.fqn(rel.Member)); ok && rel.Member.Expr == nil {
+		return id, true
+	}
+	member, ok := s.of(rel.Member)
+	if !ok {
+		return "", false
+	}
+	id := member + rdf.OwningMembershipSuffix
+	if rel.Owner != nil && s.model.IsRootNamespace(rel.Owner) {
+		// A root's membership is minted at wrap time, past any id the conversion writes (rootNamespaceIDs).
+		for s.ids.writes(id) {
+			id += rdf.OwningMembershipSuffix
+		}
+	}
+	return id, true
+}
+
+// implicitWrittenID is the id of a relationship written as a clause of its owner's declaration.
+func (s *SymbolIDs) implicitWrittenID(rel *symbols.ImplicitRelationship, doc string) (string, bool) {
+	if rel.Node == nil {
+		return "", false
+	}
+	if _, ok := rel.Owner.Decl.(*ast.BodyExpr); ok && rel.Owner.Name != "" {
+		// A body parameter's head clauses are materialized off the parameter, in
+		// the order written per kind (bodyParameter, materializeRelationships).
+		return s.bodyParameterRelationshipID(rel)
+	}
+	if rel.Owner != nil && isConnectorEnd(rel.Owner) && rel.Kind.ReferenceSubsets() {
+		// An end's reference subsetting is minted off the end (connectorEnd).
+		end, ok := s.of(rel.Owner)
+		return rdf.ExpressionNodeID(end, "rs"), ok
+	}
+	if rel.Node.Span().Len == 0 && rel.Node.Target != nil {
+		return s.ids.RelationshipOf(doc, rel.Node.Target)
+	}
+	return s.ids.RelationshipOf(doc, rel.Node)
+}
+
+// implicitReferenceMembershipID is the id of a Membership naming a member its owner does not own.
+func (s *SymbolIDs) implicitReferenceMembershipID(rel *symbols.ImplicitRelationship, doc string) (string, bool) {
+	if rel.Decl != nil {
+		// A `first x;` marker's Membership is minted from the marker itself.
+		return s.ids.OfDeclaration(doc, rel.Decl, "")
+	}
+	if rel.Owner == nil || rel.Slot == "" {
+		return "", false
+	}
+	_, membership, ok := s.ids.OfExpressionPart(doc, rel.Owner.Decl, rel.Slot)
+	if !ok && rel.Owner.Expr != nil {
+		return s.partID(rel.Owner, rel.Slot)
+	}
+	if !ok {
+		// A transition's source Membership is minted off the transition (transitionSourceMember).
+		base, ok := s.of(rel.Owner)
+		return rdf.ExpressionNodeID(base, rel.Slot), ok
+	}
+	return membership, ok
+}
+
+// implicitFeatureChainingID is the id of a FeatureChaining of the chain Feature that owns it.
+func (s *SymbolIDs) implicitFeatureChainingID(rel *symbols.ImplicitRelationship, doc string) (string, bool) {
+	if rel.Owner == nil || rel.Slot == "" {
+		return "", false
+	}
+	if owner := rel.Owner; owner.Expr != nil && owner.Expr.Slot == "referent" {
+		// A subject's `by a.b` chain owns its chainings at referent.fcN (recordSatisfySubjectValue).
+		if element, _, ok := s.ids.OfExpressionPart(doc, owner.Decl, "referent."+rel.Slot); ok && element != "" {
+			return element, true
+		}
+	}
+	return s.partID(rel.Owner, rel.Slot)
 }
 
 // expressionID mirrors the conversion's expression ids: a node of the notation
@@ -492,6 +532,13 @@ func (s *SymbolIDs) expressionID(sym *symbols.Symbol) (string, bool) {
 			return base + encodedSegment(fmt.Sprintf("@%d", sym.Expr.Index)), true
 		}
 	}
+	return s.declaredExpressionID(sym, owner)
+}
+
+// declaredExpressionID is the id of an expression element no role above mints: a value, the
+// declaration it is written as, or an argument at its position under its expression.
+func (s *SymbolIDs) declaredExpressionID(sym, owner *symbols.Symbol) (string, bool) {
+	doc := sym.DocName
 	if sym.Expr.Role == symbols.ExpressionValue && owner.Expr != nil && owner.Expr.Role == symbols.ExpressionPayload &&
 		owner.Expr.Owner != nil && owner.Expr.Owner.Kind == symbols.SymbolSendActionUsage {
 		// The value of a send's argument parameter is the parameter's `value` part.

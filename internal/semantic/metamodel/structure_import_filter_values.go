@@ -444,14 +444,38 @@ func (e *Evaluator) structureAnnotationValue(typ, feature Element, metadata []El
 // structureInheritedBinding is the feature the types of a metadata annotation bind feature
 // through: the redefinition of it they inherit that no other one redefines, else feature itself.
 func (e *Evaluator) structureInheritedBinding(annotation, feature Element, target ElementKey) (Element, bool) {
+	candidates, ok := e.structureRedefiningFeatures(annotation, target)
+	if !ok {
+		return Element{}, false
+	}
+	bound, found := feature, false
+	for at, candidate := range candidates {
+		redefined, ok := e.structureRedefinedByAnother(candidates, at)
+		if !ok {
+			return Element{}, false
+		}
+		if redefined {
+			continue
+		}
+		if found {
+			// Two unrelated redefinitions reach the annotation: the model does not say which binds.
+			return Element{}, false
+		}
+		bound, found = candidate, true
+	}
+	return bound, true
+}
+
+// structureRedefiningFeatures is the features redefining target that annotation's types own or inherit.
+func (e *Evaluator) structureRedefiningFeatures(annotation Element, target ElementKey) ([]Element, bool) {
 	types, handled, ok := e.structureFeatureTypes(annotation)
 	if !handled || !ok {
-		return Element{}, false
+		return nil, false
 	}
 	var pending []Element
 	for _, value := range types.Values {
 		if value.Kind != ElementValue {
-			return Element{}, false
+			return nil, false
 		}
 		pending = append(pending, value.Element)
 	}
@@ -467,15 +491,15 @@ func (e *Evaluator) structureInheritedBinding(annotation, feature Element, targe
 		visited[key] = true
 		owned, handled, ok := e.structureOwnedFeatures(current)
 		if !handled || !ok {
-			return Element{}, false
+			return nil, false
 		}
 		for _, candidate := range owned.Values {
 			if candidate.Kind != ElementValue {
-				return Element{}, false
+				return nil, false
 			}
 			redefines, ok := e.structureRedefines(candidate.Element, target, map[ElementKey]bool{})
 			if !ok {
-				return Element{}, false
+				return nil, false
 			}
 			if redefines {
 				candidates = append(candidates, candidate.Element)
@@ -483,36 +507,28 @@ func (e *Evaluator) structureInheritedBinding(annotation, feature Element, targe
 		}
 		bases, ok := e.structureOwnedSupertypes(current)
 		if !ok {
-			return Element{}, false
+			return nil, false
 		}
 		pending = append(pending, bases...)
 	}
-	bound, found := feature, false
-	for at, candidate := range candidates {
-		key := e.structureFeatureKey(candidate)
-		redefined := false
-		for other, overriding := range candidates {
-			if other == at {
-				continue
-			}
-			var ok bool
-			if redefined, ok = e.structureRedefines(overriding, key, map[ElementKey]bool{}); !ok {
-				return Element{}, false
-			}
-			if redefined {
-				break
-			}
-		}
-		if redefined {
+	return candidates, true
+}
+
+// structureRedefinedByAnother reports whether another of candidates redefines the one at index at.
+func (e *Evaluator) structureRedefinedByAnother(candidates []Element, at int) (redefined, ok bool) {
+	key := e.structureFeatureKey(candidates[at])
+	for other, overriding := range candidates {
+		if other == at {
 			continue
 		}
-		if found {
-			// Two unrelated redefinitions reach the annotation: the model does not say which binds.
-			return Element{}, false
+		if redefined, ok = e.structureRedefines(overriding, key, map[ElementKey]bool{}); !ok {
+			return false, false
 		}
-		bound, found = candidate, true
+		if redefined {
+			return true, true
+		}
 	}
-	return bound, true
+	return false, true
 }
 
 // structureRedefines reports whether feature redefines target, directly or through the

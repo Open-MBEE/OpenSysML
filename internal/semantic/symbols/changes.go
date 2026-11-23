@@ -160,23 +160,39 @@ func (r registration) same(other registration) bool {
 		}
 		for doc, claim := range a.claims {
 			them, ok := b.claims[doc]
-			if !ok || claim.public != them.public || len(claim.routes) != len(them.routes) {
+			if !ok || !claim.same(them) {
 				return false
 			}
-			if !slices.EqualFunc(claim.hops, them.hops, importHop.same) {
-				return false
-			}
-			for k, route := range claim.routes {
-				theirs := them.routes[k]
-				if route.private != theirs.private || len(route.filters) != len(theirs.filters) || !slices.Equal(route.via, theirs.via) {
-					return false
-				}
-				for f, filter := range route.filters {
-					if filter.Expr != theirs.filters[f].Expr || filter.Scope != theirs.filters[f].Scope {
-						return false
-					}
-				}
-			}
+		}
+	}
+	return true
+}
+
+// same reports whether two claims surface a name the same way: equal visibility, hops and routes.
+func (c *reexportClaim) same(them *reexportClaim) bool {
+	if c.public != them.public || len(c.routes) != len(them.routes) {
+		return false
+	}
+	if !slices.EqualFunc(c.hops, them.hops, importHop.same) {
+		return false
+	}
+	for k, route := range c.routes {
+		if !route.same(them.routes[k]) {
+			return false
+		}
+	}
+	return true
+}
+
+// same reports whether two routes pass the same imports under the same filters, a filter compared
+// by its expression and scope.
+func (route gateRoute) same(theirs gateRoute) bool {
+	if route.private != theirs.private || len(route.filters) != len(theirs.filters) || !slices.Equal(route.via, theirs.via) {
+		return false
+	}
+	for f, filter := range route.filters {
+		if filter.Expr != theirs.filters[f].Expr || filter.Scope != theirs.filters[f].Scope {
+			return false
 		}
 	}
 	return true
