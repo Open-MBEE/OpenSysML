@@ -349,3 +349,37 @@ func TestSequenceRenderingReadsASubtypesOrderOnItsLifelines(t *testing.T) {
 		t.Errorf("got %q\nwant %q", got, want)
 	}
 }
+
+// An inherited order reaches the event an intermediate type redefines, where the
+// messages of a lifeline typed by it attach.
+func TestSequenceRenderingReadsAnInheritedOrderOverAnEventATypeRedefines(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part def Client {
+		event occurrence sent;
+		event occurrence got;
+		succession first sent then got;
+	}
+	part def Careful :> Client {
+		event occurrence answered :>> got;
+	}
+	part def Scene {
+		part server {
+			event occurrence a;
+			event occurrence b;
+		}
+		part careful : Careful;
+		message reply of Ping from server.a to careful.answered;
+		message ask of Ping from careful.sent to server.b;
+	}
+}`, "Client", "Scene")
+	want := []string{
+		"ask of Ping: careful.sent -> server.b",
+		": careful.sent -> careful.answered",
+		"reply of Ping: server.a -> careful.answered",
+		": sent -> got",
+	}
+	if got := sequenceEnds(rendering); !slices.Equal(got, want) {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
