@@ -560,15 +560,6 @@ func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, fro
 			return nil, false
 		}
 	}
-	if r.holdProbe != nil {
-		r.probeImports(target, targetScope, from, visit)
-		return nil, false
-	}
-	// Most names are held nowhere among the imports: one walk over them says so
-	// (issue #633), and only a name some namespace holds is searched route by route.
-	if r.importDepth == 0 && !r.importsHold(target, targetScope, from, visit) {
-		return nil, false
-	}
 	r.importDepth++
 	defer func() {
 		r.importDepth--
@@ -728,10 +719,6 @@ func (r *Resolver) importMatchesAllInto(into, scope *symbols.Scope, imp *ast.Imp
 // eachImportMatch calls yield with each element imp surfaces under name until
 // yield returns false.
 func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, name string, yield func(*symbols.Symbol) bool) {
-	if r.holdProbe != nil {
-		r.probeImport(scope, imp, name)
-		return
-	}
 	r.reading(scope, func() { r.eachMatchOfImport(into, scope, imp, name, yield) })
 }
 
@@ -771,13 +758,13 @@ func (r *Resolver) eachMatchOfImport(into, scope *symbols.Scope, imp *ast.Import
 			}
 		}
 		// A recursive import of an excluded namespace is of the membership alone (KerML 8.3.2.4.6).
-		if imp.IsRecursive && r.entersNamespace(target.Scope, imp) {
+		if imp.IsRecursive && r.entersNamespace(target.Scope) {
 			r.eachSubtreeMatch(target, name, imp, admit, yield)
 		}
 		return
 	}
 	// An import of an excluded namespace brings nothing (KerML 8.3.2.4.6).
-	if !r.entersNamespace(target.Scope, imp) {
+	if !r.entersNamespace(target.Scope) {
 		return
 	}
 	// Namespace import: visible members of the target's scope are surfaced.

@@ -1473,12 +1473,9 @@ func (idx *Index) EachReexportGate(doc, fqn string, sym *Symbol, from string, ex
 			return false, false
 		}
 		walk := routeWalk{idx: idx, name: name, sym: sym, excluded: excluded, path: []string{parent}}
-		routes := [][]ElementFilter{nil}
-		if !walk.unconditional(claims, inside) {
-			var spread bool
-			if routes, spread = walk.spread(claims, inside); !spread {
-				routes = walk.through(claims, inside)
-			}
+		routes, spread := walk.spread(claims, inside)
+		if !spread {
+			routes = walk.through(claims, inside)
 		}
 		for _, filters := range routes {
 			if visit(filters) {
@@ -1611,46 +1608,6 @@ type walkStep struct {
 func (w *routeWalk) through(claims map[string]*reexportClaim, private bool) [][]ElementFilter {
 	routes, _ := w.hops(claims, private)
 	return routes
-}
-
-// unconditional reports whether through holds a route with no condition, which subsumes the rest: plain
-// hops to a namespace holding the name. Each namespace is asked once, whatever the routes (issue #633).
-func (w *routeWalk) unconditional(claims map[string]*reexportClaim, private bool) bool {
-	seen := map[string]bool{}
-	var work []string
-	// open queues the namespaces the claims' plain hops read, true at one holding the name.
-	open := func(claims map[string]*reexportClaim, private bool) bool {
-		for _, doc := range sortedKeys(claims) {
-			if claims[doc] == nil {
-				continue
-			}
-			for _, hop := range claims[doc].hops {
-				if (hop.private && !private) || hop.all || len(hop.filters) != 0 || seen[hop.from] ||
-					slices.Contains(w.excluded, hop.from) || w.reading(hop.from) {
-					continue
-				}
-				seen[hop.from] = true
-				fqn := joinFQN(hop.from, w.name)
-				w.idx.readName(fqn)
-				if w.idx.declaredExactly(w.sym, hop.from, w.name) || !w.idx.reexported.at(fqn).has(w.sym) {
-					return true
-				}
-				work = append(work, hop.from)
-			}
-		}
-		return false
-	}
-	if open(claims, private) {
-		return true
-	}
-	for len(work) > 0 {
-		ns := work[len(work)-1]
-		work = work[:len(work)-1]
-		if open(w.idx.reexportDocs.at(reexportKey{fqn: joinFQN(ns, w.name), sym: w.sym}), false) {
-			return true
-		}
-	}
-	return false
 }
 
 // spread is through without a path, for when no namespace reached is read with
