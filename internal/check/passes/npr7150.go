@@ -72,10 +72,8 @@ type npr7150Requirement struct {
 
 // npr7150Mapping is one @RequirementMapping entry of the document.
 type npr7150Mapping struct {
-	usage  *symbols.Symbol
-	comply string
-	// disposed is set when the annotation binds comply at all, literal or not.
-	disposed  bool
+	usage     *symbols.Symbol
+	comply    string
 	justified bool
 }
 
@@ -200,6 +198,26 @@ func (a *npr7150Audit) safetyCritical(sym *symbols.Symbol) bool {
 	return false
 }
 
+// disposition is the MappingKind literal a comply value names: the literal itself, or the one a
+// referenced feature is bound to. It is empty when the value states none, as `null` does.
+func (a *npr7150Audit) disposition(v symbols.FilterValue) string {
+	if literal := npr7123Literal(v, npr7150MappingKind); literal != "" || v.Kind != symbols.FilterValueRef {
+		return literal
+	}
+	for _, sym := range a.ctx.Index.LookupQualified(v.RefFQN) {
+		values, ok, err := a.model.OwnFeatureValues(sym)
+		if !ok || err != nil {
+			continue
+		}
+		for _, bound := range values {
+			if literal := npr7123Literal(bound, npr7150MappingKind); literal != "" {
+				return literal
+			}
+		}
+	}
+	return ""
+}
+
 // mappingEntries reads the @RequirementMapping annotations of sym, one entry per annotation,
 // so one annotation's disposition or justification never stands in for another's.
 func (a *npr7150Audit) mappingEntries(sym *symbols.Symbol) []npr7150Mapping {
@@ -212,8 +230,7 @@ func (a *npr7150Audit) mappingEntries(sym *symbols.Symbol) []npr7150Mapping {
 		for _, v := range facts.Values {
 			switch v.Feature {
 			case "comply":
-				entry.disposed = true
-				entry.comply = npr7123Literal(v.Value, npr7150MappingKind)
+				entry.comply = a.disposition(v.Value)
 			case "justification":
 				entry.justified = v.Value.Kind == symbols.FilterValueString && v.Value.Str != ""
 			}
@@ -307,7 +324,7 @@ func (a *npr7150Audit) checkMatrix(matrix *symbols.Symbol, mappings []npr7150Map
 		covered := false
 		for _, m := range mappings {
 			// An entry that states no disposition leaves the row's Comply? cell empty.
-			if m.disposed && a.covers(m, req.def) {
+			if m.comply != "" && a.covers(m, req.def) {
 				covered = true
 				break
 			}

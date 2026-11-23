@@ -63,11 +63,20 @@ func TestNPR7150MappingAnnotationsAreSeparate(t *testing.T) {
 func TestNPR7150MatrixBlankDisposition(t *testing.T) {
 	matrix := "\n\t\tpart def Matrix :> RequirementsMappingMatrix { :>> softwareClass = SoftwareClass::E; }\n\t\tpart matrix : Matrix;"
 	src := npr7150Model(matrix + npr7150Entries(npr7150ClassE[1:]...) +
-		"\n\t\trequirement swe033 : SWE033 { @RequirementMapping { justification = \"Pending.\"; } }")
+		"\n\t\trequirement swe033 : SWE033 { @RequirementMapping { justification = \"Pending.\"; } }" +
+		"\n\t\trequirement again : SWE033 { @RequirementMapping { comply = null; } }")
 	diags := only(w8dDiags(t, src), CodeNPR7150MatrixMissingRequirement)
 	if len(diags) != 1 || !strings.Contains(diags[0].Message, "1 NPR 7150.2D requirement(s)") || !strings.Contains(diags[0].Message, "SWE033") {
 		t.Fatalf("got %v, want one finding naming SWE033", diags)
 	}
+}
+
+// A disposition bound through an attribute is read as the literal the attribute is bound to.
+func TestNPR7150MappingBoundDispositionNeedsJustification(t *testing.T) {
+	src := npr7150Model(`
+		attribute relief : MappingKind = MappingKind::notApplicable;
+		requirement a : SWE141 { @RequirementMapping { comply = relief; } }`)
+	w8dWantLines(t, src, CodeNPR7150MappingNoJustification, 5)
 }
 
 // A disposition bound through an attribute still addresses its requirement in the matrix.
