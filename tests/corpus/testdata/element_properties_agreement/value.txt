@@ -133,7 +133,7 @@ Feature::ownedRelationship	7	symbol-72
 Feature::owner	2	export-56
 Feature::owningNamespace	2	export-03
 Feature::owningType	2	export-56
-Feature::type	12	export-01
+Feature::type	6	export-01
 FeatureChainExpression::targetFeature	28	export-10
 FeatureChaining::chainingFeature	2	symbol-59
 FeatureChaining::relatedElement	2	symbol-59
@@ -285,10 +285,7 @@ OperatorExpression::ownedFeatureMembership	16	symbol-53
 OperatorExpression::ownedMember	16	symbol-08
 OperatorExpression::ownedMembership	16	symbol-09
 OperatorExpression::ownedRelationship	16	symbol-03
-OperatorExpression::owner	32	export-57
-OperatorExpression::owningMembership	21	export-02
-OperatorExpression::owningNamespace	21	export-03
-OperatorExpression::owningRelationship	21	export-04
+OperatorExpression::owner	11	export-57
 OperatorExpression::parameter	16	symbol-54
 OwningMembership::visibility	2	export-05
 Package::documentation	2	export-57
@@ -534,11 +531,11 @@ ViewDefinition::usage	1	symbol-51
 ViewRenderingMembership::ownedMemberName	2	export-56
 ViewUsage::feature	27	symbol-51
 ViewUsage::featureMembership	27	symbol-51
-ViewUsage::importedMembership	2	symbol-84
+ViewUsage::importedMembership	9	symbol-84
 ViewUsage::inheritedFeature	27	symbol-51
 ViewUsage::inheritedMembership	27	symbol-51
-ViewUsage::member	11	symbol-51
-ViewUsage::membership	11	symbol-51
+ViewUsage::member	18	symbol-51
+ViewUsage::membership	18	symbol-51
 ViewUsage::ownedMember	1	symbol-08
 ViewUsage::usage	27	symbol-51
 WhileLoopActionUsage::feature	3	symbol-51

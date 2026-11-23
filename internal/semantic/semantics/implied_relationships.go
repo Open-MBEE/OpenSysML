@@ -27,6 +27,7 @@ func (m *Model) ImpliedRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 	}
 	add(m.ImplicitParameterRedefinitions(sym))
+	add(m.expressionParameterRedefinitions(sym))
 	add(m.implicitEndRedefinitions(sym))
 	add(m.ImplicitRoleRedefinitions(sym))
 	add(m.flowFeatureRedefinitions(sym))
