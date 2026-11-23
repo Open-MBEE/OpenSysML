@@ -154,19 +154,11 @@ func (t *Table) collect(members []ast.Node, owner, position string) error {
 			last, beforeLast = node, last
 		}
 		prev = node
-		if _, done := node.(*ast.FinalNode); done && i+1 < len(kept) {
-			if next, _ := UnwrapMember(kept[i+1]); next != nil {
-				if edge, ok := next.(*ast.SuccessionEdge); ok && edge.TargetMember == node {
-					t.Absorbed[node] = true
-				}
-			}
+		if i+1 < len(kept) {
+			t.absorbFinal(node, kept[i+1])
 		}
 		declared, children := DeclaredNameAndMembers(node)
-		for _, child := range children {
-			if edge, ok := child.(*ast.SuccessionEdge); ok && ast.IsStateTargetTransition(node, edge) {
-				t.TargetTransitions[edge] = true
-			}
-		}
+		t.markTargetTransitions(node, children)
 		name := t.EffectiveName(node)
 		fqn := Qualify(owner, name, i)
 		if fqn == "" {
@@ -185,12 +177,7 @@ func (t *Table) collect(members []ast.Node, owner, position string) error {
 		if positional != fqn {
 			t.Positional[node] = positional
 		}
-		// A trigger's payload is a parameter of the transition's trigger action.
-		if transition, ok := node.(*ast.TransitionMember); ok {
-			if payload := TriggerPayload(t.file, transition); payload != nil && payload == transition.Trigger {
-				t.FQN[payload] = Qualify(fqn+"::"+TriggerSegment, ParamName(payload), 0)
-			}
-		}
+		t.nameTriggerPayload(node, fqn)
 		t.Declared[fqn] = true
 		if err := t.collect(children, fqn, positional); err != nil {
 			return err
@@ -204,6 +191,37 @@ func (t *Table) collect(members []ast.Node, owner, position string) error {
 		}
 	}
 	return nil
+}
+
+// absorbFinal records a final node the member after it, a succession targeting it, absorbs.
+func (t *Table) absorbFinal(node, following ast.Node) {
+	if _, done := node.(*ast.FinalNode); !done {
+		return
+	}
+	next, _ := UnwrapMember(following)
+	if edge, ok := next.(*ast.SuccessionEdge); ok && edge.TargetMember == node {
+		t.Absorbed[node] = true
+	}
+}
+
+// markTargetTransitions records the successions among node's children that are transitions targeting a state.
+func (t *Table) markTargetTransitions(node ast.Node, children []ast.Node) {
+	for _, child := range children {
+		if edge, ok := child.(*ast.SuccessionEdge); ok && ast.IsStateTargetTransition(node, edge) {
+			t.TargetTransitions[edge] = true
+		}
+	}
+}
+
+// nameTriggerPayload names a transition's trigger payload: a parameter of the transition's trigger action.
+func (t *Table) nameTriggerPayload(node ast.Node, fqn string) {
+	transition, ok := node.(*ast.TransitionMember)
+	if !ok {
+		return
+	}
+	if payload := TriggerPayload(t.file, transition); payload != nil && payload == transition.Trigger {
+		t.FQN[payload] = Qualify(fqn+"::"+TriggerSegment, ParamName(payload), 0)
+	}
 }
 
 // sequence records what a `then` at node sequences from (Preceding) and, for a
