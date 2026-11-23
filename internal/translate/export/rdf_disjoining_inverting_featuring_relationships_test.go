@@ -149,3 +149,31 @@ func TestDisjoiningInvertingAndFeaturingClausesKeepTheirSpelledOrder(t *testing.
 		}
 	}
 }
+
+// An element-form document states a nested feature's derived featuringType, its owning type
+// included; only the TypeFeaturing the feature owns is its `featured by` clause.
+func TestExternalDerivedFeaturingTypeIsNotAFeaturedByClause(t *testing.T) {
+	const doc = `[
+		{"@type":"Package","@id":"k","declaredName":"K","isImpliedIncluded":false,
+		 "ownedMembership":[{"@id":"m_a"},{"@id":"m_b"}]},
+		{"@type":"OwningMembership","@id":"m_a","isImpliedIncluded":false,"memberElement":{"@id":"a"},"membershipOwningNamespace":{"@id":"k"}},
+		{"@type":"OwningMembership","@id":"m_b","isImpliedIncluded":false,"memberElement":{"@id":"b"},"membershipOwningNamespace":{"@id":"k"}},
+		{"@type":"Classifier","@id":"a","declaredName":"A","isImpliedIncluded":false,
+		 "ownedMembership":[{"@id":"m_h"},{"@id":"m_n"}]},
+		{"@type":"Classifier","@id":"b","declaredName":"B","isImpliedIncluded":false},
+		{"@type":"FeatureMembership","@id":"m_h","isImpliedIncluded":false,"memberElement":{"@id":"h"},"membershipOwningNamespace":{"@id":"a"}},
+		{"@type":"FeatureMembership","@id":"m_n","isImpliedIncluded":false,"memberElement":{"@id":"n"},"membershipOwningNamespace":{"@id":"a"}},
+		{"@type":"Feature","@id":"n","declaredName":"n","isImpliedIncluded":false,"featuringType":[{"@id":"a"}]},
+		{"@type":"Feature","@id":"h","declaredName":"h","isImpliedIncluded":false,
+		 "featuringType":[{"@id":"a"},{"@id":"b"}],"ownedRelationship":[{"@id":"t"}]},
+		{"@type":"TypeFeaturing","@id":"t","isImpliedIncluded":false,
+		 "featureOfType":{"@id":"h"},"featuringType":{"@id":"b"},"owningRelatedElement":{"@id":"h"}}
+	]`
+	normative := deriveToolkitGraph(t, []byte(doc))
+	if got := objects(normative, elmt("h").Value, "featuringType"); len(got) != 1 || got[0] != elmt("b") {
+		t.Errorf("h featuringType = %v, want b alone", got)
+	}
+	if got := objects(normative, elmt("n").Value, "featuringType"); len(got) != 0 {
+		t.Errorf("n featuringType = %v, want none", got)
+	}
+}

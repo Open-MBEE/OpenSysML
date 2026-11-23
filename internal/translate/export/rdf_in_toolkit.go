@@ -1611,7 +1611,7 @@ func (d *defaultDropper) dropsRestatedEnd(subject rdf.Term, local string, object
 // declared relationship backs.
 func (d *defaultDropper) dropsDerivedEdge(subject rdf.Term, local string, object rdf.Term) bool {
 	switch local {
-	case "type", "specializes", "subsets", "redefines", "references":
+	case "type", "specializes", "subsets", "redefines", "references", "featuringType":
 		return !relationshipLike(d.meta(subject)) && !d.backed[subject.Value][object.Value] && d.impliedIncluded(subject)
 	case pArgument:
 		// The argument list is derived from the parameters the expression
