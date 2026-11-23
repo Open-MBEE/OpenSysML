@@ -4,12 +4,16 @@
   --opensysml-light-blue: #64ddfa;
   --opensysml-grey: #d6d6d6;
   --opensysml-accent: #3e8db5; /* light backgrounds only */
+  /* Text on a light background: the accent is 3.7:1 on white, under the 4.5:1 of WCAG AA; this is 5.7:1. */
+  --opensysml-link: #0a6f8c;
   --osml-accent: var(--opensysml-accent);
+  --osml-link: var(--opensysml-link);
 }
 
 [data-md-color-scheme="slate"] {
   --md-hue: 256;
   --osml-accent: var(--opensysml-light-blue);
+  --osml-link: var(--opensysml-light-blue);
 }
 
 [data-md-color-primary="custom"] {
@@ -24,7 +28,7 @@
   --md-accent-fg-color: var(--opensysml-accent);
   --md-accent-fg-color--transparent: rgba(62, 141, 181, .1);
   --md-accent-bg-color: #fff;
-  --md-typeset-a-color: var(--opensysml-accent);
+  --md-typeset-a-color: var(--opensysml-link);
 }
 
 [data-md-color-scheme="slate"][data-md-color-accent="custom"] {
