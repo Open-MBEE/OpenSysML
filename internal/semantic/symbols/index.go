@@ -2327,6 +2327,18 @@ func (idx *Index) WildcardImportsOf(fqn string) []WildcardImport {
 	return out
 }
 
+// ImportsStatedOutside reports whether a document other than doc states a wildcard import through the
+// namespace registered under fqn: another declaration of it, whose imports a scope of doc does not hold.
+func (idx *Index) ImportsStatedOutside(fqn, doc string) bool {
+	idx.readNamespace(fqn)
+	for other, imports := range idx.wildcardMeta.at(fqn) {
+		if other != doc && len(imports) != 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // importedChildren returns the memberships of prefix a wildcard import of it takes (KerML 8.3.2.4.5
 // visibleMemberships): all under `import all`, else its public ones and those its public imports brought.
 func (idx *Index) importedChildren(prefix string, all bool) []*Symbol {

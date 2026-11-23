@@ -114,6 +114,43 @@ func TestImportCycleWithAPrivatelyImportedFilterAnalysesPromptly(t *testing.T) {
 	}
 }
 
+// A package of the cycle that another document declares too imports there what its filtered route
+// keeps out: that second route is one of the routes into the namespace (KerML 8.3.2.4.5).
+func TestImportCycleReadsTheUnfilteredRouteAnotherDocumentStates(t *testing.T) {
+	const cycle = `package M { metadata def Safe; }
+package S { #M::Safe part def Kept; part def Extra; }
+package F { public import S::*; filter @M::Safe; }
+package P { public import F::*; public import Q::*; part def PD; }
+package Q { public import P::*; part def QD; }
+package U { private import %s::*; part k : Kept; part e : Extra; part p : PD; part q : QD; }
+package V { part e : P::Extra; part e2 : Q::Extra; part k : Q::Kept; }
+`
+	for _, reopened := range []string{"P", "Q"} {
+		for _, read := range []string{"P", "Q"} {
+			for _, first := range []string{"cycle.sysml", "reopened.sysml"} {
+				t.Run(fmt.Sprintf("%s reopened, %s read, %s first", reopened, read, first), func(t *testing.T) {
+					docs := map[string]string{
+						"cycle.sysml":    fmt.Sprintf(cycle, read),
+						"reopened.sysml": fmt.Sprintf("package %s { public import S::*; }\n", reopened),
+					}
+					ws := model.NewWorkspace()
+					ws.Open(first, []byte(docs[first]), 1)
+					for name := range docs {
+						if name != first {
+							ws.Open(name, []byte(docs[name]), 1)
+						}
+					}
+					for name := range docs {
+						if diags := ws.Diagnostics(name); len(diags) != 0 {
+							t.Errorf("%s: %v", name, diags)
+						}
+					}
+				})
+			}
+		}
+	}
+}
+
 // A filter clause's own names resolve while the import carrying it is being
 // searched: a nested lookup of the same name over the same import edge must
 // not be cut short by the visit set of the enclosing search (KerML 8.2.4).

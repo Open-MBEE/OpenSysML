@@ -237,6 +237,14 @@ func (r *Resolver) plainRegion(scope *symbols.Scope) bool {
 			}
 		}
 		routed := reachedFrom(routes, scope, nil)
+		// Another document declaring a namespace gives it imports, and so routes, these do not hold.
+		if r.idx != nil {
+			for ns := range routed {
+				if fqn := r.namespaceFQNOf(ns); fqn != "" && r.idx.ImportsStatedOutside(fqn, r.documentOf(ns)) {
+					return false
+				}
+			}
+		}
 		for _, ns := range filtered {
 			if routed[ns] && !filtersEveryRoute(routes, scope, ns) {
 				return false
