@@ -22,6 +22,37 @@ func (e *executor) memberPathStep(current *symbols.Symbol, segment string) (elem
 	return e.context.Model.ReflectiveElements(current, segment)
 }
 
+// pathReach is how far a row carries a property path: not at all, to a step it has that holds no element, or to its end.
+type pathReach int
+
+const (
+	pathAbsent pathReach = iota
+	pathVacant
+	pathPresent
+)
+
+// reachOf is the reach of a property read that is either present or absent.
+func reachOf(present bool) pathReach {
+	if present {
+		return pathPresent
+	}
+	return pathAbsent
+}
+
+// pathEvidence is what the rows of one read say of a property: carried, cut short at an empty step, lacked.
+type pathEvidence struct{ present, vacant, absent bool }
+
+func (p *pathEvidence) note(reach pathReach) {
+	p.present = p.present || reach == pathPresent
+	p.vacant = p.vacant || reach == pathVacant
+	p.absent = p.absent || reach == pathAbsent
+}
+
+// unknown reports a property no row carried, unless empty steps alone kept every row from its end.
+func (p pathEvidence) unknown() bool {
+	return !p.present && (p.absent || !p.vacant)
+}
+
 // memberOverflow names a declared member a path reached holding more values than its multiplicity admits.
 type memberOverflow struct {
 	member *symbols.Symbol
@@ -29,8 +60,8 @@ type memberOverflow struct {
 }
 
 // memberPathValues walks a member path from the row element. A segment naming neither a member nor a metaclass
-// feature makes the path absent, one holding no element an empty cell. The first overfull member is reported.
-func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]Value, bool, *memberOverflow, error) {
+// feature makes the path absent, one holding no element leaves it vacant. The first overfull member is reported.
+func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]Value, pathReach, *memberOverflow, error) {
 	reached := []*symbols.Symbol{sym}
 	for _, segment := range segments[:len(segments)-1] {
 		var next []*symbols.Symbol
@@ -41,7 +72,10 @@ func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]V
 			next = append(next, elements...)
 		}
 		if len(next) == 0 {
-			return nil, known, nil, nil
+			if known {
+				return nil, pathVacant, nil, nil
+			}
+			return nil, pathAbsent, nil, nil
 		}
 		reached = next
 	}
@@ -52,7 +86,7 @@ func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]V
 	for _, current := range reached {
 		found, ok, err := e.declaredFeatureValues(current, last)
 		if err != nil {
-			return nil, false, nil, err
+			return nil, pathAbsent, nil, err
 		}
 		if ok {
 			if m, _ := e.context.Model.LookupMember(current, last); m != nil && overflow == nil && e.exceedsMultiplicity(m, len(found)) {
@@ -61,7 +95,7 @@ func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]V
 		} else {
 			found, ok, err = e.metaclassSegmentValues(current, last)
 			if err != nil {
-				return nil, false, nil, err
+				return nil, pathAbsent, nil, err
 			}
 		}
 		if ok {
@@ -70,9 +104,9 @@ func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]V
 		}
 	}
 	if !present {
-		return nil, false, nil, nil
+		return nil, pathAbsent, nil, nil
 	}
-	return values, true, overflow, nil
+	return values, pathPresent, overflow, nil
 }
 
 // exceedsMultiplicity reports whether count values are more than member's governing multiplicity admits.

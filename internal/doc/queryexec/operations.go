@@ -484,26 +484,26 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 		return source, nil
 	}
 	result := filtered(source)
-	known := false
+	var known pathEvidence
 	var missing []*Error
 	seen := newCandidates()
 	columnIndex := projectedColumn(source, property)
 	for i := range source.values {
 		e.note(seen, source.values[i])
-		values, present, valueErr := e.featureValues(expression, source, i, property, columnIndex)
+		values, reach, valueErr := e.featureValues(expression, source, i, property, columnIndex)
 		if valueErr != nil {
 			if !tolerate || !unserved(valueErr) {
 				return sequence{}, valueErr
 			}
 			// A property the evaluator does not derive is absent, as tolerated.
-			values, present = nil, false
+			values, reach = nil, pathAbsent
 		}
-		if !present && !tolerate {
+		if reach == pathAbsent && !tolerate {
 			if m := e.missingFeature(expression, property, source.values[i]); m != nil {
 				missing = append(missing, m)
 			}
 		}
-		known = known || present
+		known.note(reach)
 		for _, actual := range values {
 			match, compareErr := e.compareValue(actual, comparison)
 			if compareErr != nil {
@@ -518,7 +518,7 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 			}
 		}
 	}
-	if !known {
+	if known.unknown() {
 		if err := e.unknownUnlessDeclared(expression, property, seen); err != nil {
 			return sequence{}, err
 		}
@@ -571,20 +571,20 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 	}
 	columnIndex := projectedColumn(source, property)
 	items := make([]sortable, len(source.values))
-	known := false
+	var known pathEvidence
 	seen := newCandidates()
 	var firstKey Value
 	for i, value := range source.values {
 		e.note(seen, value)
-		values, present, valueErr := e.featureValues(expression, source, i, property, columnIndex)
+		values, reach, valueErr := e.featureValues(expression, source, i, property, columnIndex)
 		if valueErr != nil {
 			if missing == "error" || !unserved(valueErr) {
 				return sequence{}, valueErr
 			}
 			// A property the evaluator does not derive is a missing key.
-			values, present = nil, false
+			values, reach = nil, pathAbsent
 		}
-		known = known || present
+		known.note(reach)
 		items[i].value = value
 		items[i].depth = source.depthAt(i)
 		if i < len(source.cells) {
@@ -617,7 +617,7 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 			}
 		}
 	}
-	if !known {
+	if known.unknown() {
 		if err := e.unknownUnlessDeclared(expression, property, seen); err != nil {
 			return sequence{}, err
 		}
@@ -683,16 +683,16 @@ func (e *executor) featureValues(
 	row int,
 	property string,
 	columnIndex int,
-) ([]Value, bool, error) {
+) ([]Value, pathReach, error) {
 	if columnIndex >= 0 && row < len(source.cells) {
-		return source.cells[row][columnIndex].Values(), true, nil
+		return source.cells[row][columnIndex].Values(), pathPresent, nil
 	}
 	value := source.values[row]
-	values, present, err := e.propertyValues(value, property)
+	values, reach, err := e.propertyReach(value, property)
 	if err != nil {
-		return nil, false, e.unevaluable(expression, property, value, err)
+		return nil, pathAbsent, e.unevaluable(expression, property, value, err)
 	}
-	return values, present, nil
+	return values, reach, nil
 }
 
 // WildcardProperty among a Project's properties stands for every property the
@@ -806,7 +806,7 @@ func (p *projection) expandWildcards(source sequence) error {
 		}
 	}
 	p.properties, p.wildcard = properties, wildcard
-	p.known = make([]bool, len(properties))
+	p.known = make([]pathEvidence, len(properties))
 	p.missing = make([][]*Error, len(properties))
 	return nil
 }
@@ -820,10 +820,10 @@ func (p *projection) pruneWildcards(result *sequence) {
 	total := len(result.columns)
 	kept := make([]bool, total)
 	var properties []string
-	var known []bool
+	var known []pathEvidence
 	var missing [][]*Error
 	for i := range total {
-		kept[i] = i >= len(p.properties) || !p.wildcard[i] || p.known[i]
+		kept[i] = i >= len(p.properties) || !p.wildcard[i] || p.known[i].present
 		if kept[i] && i < len(p.properties) {
 			properties = append(properties, p.properties[i])
 			known = append(known, p.known[i])
@@ -862,7 +862,7 @@ type projection struct {
 	// tolerateUnevaluable names the properties whose cell stays empty when a feature cannot be evaluated.
 	tolerateUnevaluable map[string]bool
 	tracker             *propertyTracker
-	known               []bool
+	known               []pathEvidence
 	missing             [][]*Error
 	// wildcard marks the properties a wildcard expanded to, which a row may
 	// lack and no row need carry.
@@ -915,7 +915,7 @@ func (e *executor) newProjection(expression queryplan.Expression) (*projection, 
 		seen[column.name] = true
 	}
 	p.tracker = newPropertyTracker()
-	p.known = make([]bool, len(p.properties))
+	p.known = make([]pathEvidence, len(p.properties))
 	p.missing = make([][]*Error, len(p.properties))
 	return p, nil
 }
@@ -925,24 +925,24 @@ func (p *projection) cells(value Value) ([]Cell, error) {
 	p.e.note(p.seen, value)
 	cells := make([]Cell, len(p.properties)+len(p.computed))
 	for column, property := range p.properties {
-		values, present, err := p.e.propertyValues(value, property)
+		values, reach, err := p.e.propertyReach(value, property)
 		if err != nil {
 			if (p.tolerate || (p.wildcard != nil && p.wildcard[column])) && unserved(err) {
 				// A wildcard projects what the evaluator serves; tolerated, an
 				// unserved property is an empty cell.
-				values, present, err = nil, false, nil
+				values, reach, err = nil, pathAbsent, nil
 			} else if p.tolerateUnevaluable[property] && unevaluableFeature(err) {
-				values, present, err = nil, false, nil
+				values, reach, err = nil, pathAbsent, nil
 			} else {
 				return nil, p.e.unevaluable(p.expression, property, value, err)
 			}
 		}
-		if !present && !p.tolerate && !(p.wildcard != nil && p.wildcard[column]) {
+		if reach == pathAbsent && !p.tolerate && !(p.wildcard != nil && p.wildcard[column]) {
 			if m := p.e.missingFeature(p.expression, property, value); m != nil {
 				p.missing[column] = append(p.missing[column], m)
 			}
 		}
-		p.known[column] = p.known[column] || present
+		p.known[column].note(reach)
 		cells[column] = Cell{values: values, origin: value.Origin()}
 	}
 	for i, column := range p.computed {
@@ -973,7 +973,7 @@ func unevaluableFeature(err error) bool {
 // and no metaclass declares as unknown, then the rows that lacked one.
 func (p *projection) checkProperties() error {
 	for i, property := range p.properties {
-		if !p.known[i] {
+		if p.known[i].unknown() {
 			if err := p.e.unknownUnlessDeclared(p.expression, property, p.seen); err != nil {
 				return err
 			}
@@ -997,30 +997,43 @@ func (p *projection) checkProperties() error {
 // the model for an element row. A dotted name reads a declared feature of that
 // own name first, falling back to the member path.
 func (e *executor) propertyValues(row Value, property string) ([]Value, bool, error) {
+	values, reach, err := e.propertyReach(row, property)
+	return values, reach != pathAbsent, err
+}
+
+// propertyReach is propertyValues telling a path the row lacks from one an empty step of it cut short,
+// which reads as an empty cell where no property path reaches further.
+func (e *executor) propertyReach(row Value, property string) ([]Value, pathReach, error) {
 	values, present, err := e.propertyValuesBeforeMemberPath(row, property)
 	if present || err != nil {
-		return values, present, err
+		return values, reachOf(present), err
 	}
 	sym, isElement := row.Element()
 	if !isElement {
 		if _, _, isObject := row.Object(); isObject {
 			// An object's member path reads the objects its features hold.
-			return e.propertyPathValues(row, property)
+			values, present, err = e.propertyPathValues(row, property)
+			return values, reachOf(present), err
 		}
-		return nil, false, nil
+		return nil, pathAbsent, nil
 	}
+	reach := pathAbsent
 	segments, ok := parseMemberPath(property)
 	if ok && len(segments) > 1 {
 		var overflow *memberOverflow
-		values, present, overflow, err = e.memberPathValues(sym, segments)
+		values, reach, overflow, err = e.memberPathValues(sym, segments)
 		if err == nil && overflow != nil {
 			err = fmt.Errorf("%s holds %d values, more than its multiplicity admits", property, overflow.count)
 		}
-		if present || err != nil {
-			return values, present, err
+		if reach == pathPresent || err != nil {
+			return values, reach, err
 		}
 	}
-	return e.propertyPathValues(row, property)
+	values, present, err = e.propertyPathValues(row, property)
+	if present || err != nil {
+		return values, reachOf(present), err
+	}
+	return nil, reach, nil
 }
 
 // propertyPathValues reads a dotted path of properties from an element row:

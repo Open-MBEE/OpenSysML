@@ -107,23 +107,49 @@ calc def Piloted :> Query {
 	}
 }
 
-// A step naming neither a member nor a metaclass feature still fails the query, an empty step before it or not.
-func TestExecuteMemberPathUnknownInnerStepIsStillMissing(t *testing.T) {
-	for path, want := range map[string]ErrorKind{
-		"zzz.name":             ErrorUnknownProperty,
-		"ownedMember.zzz.name": ErrorMissingFeature,
-	} {
-		fixture := loadExecutionFixture(t, emptyStepBody+`
+// A step naming neither a member nor a metaclass feature still fails the query; an empty step on
+// another row is no evidence that the rest of the path names anything.
+func TestExecuteMemberPathUnknownStepIsStillUnknown(t *testing.T) {
+	for _, path := range []string{"zzz.name", "ownedMember.zzz.name", "ownedMember.nmae"} {
+		for name, operation := range map[string]string{
+			"property": `Project(source = Descendants(source = root, maxDepth = 1), properties = ("name", "` + path + `"))`,
+			"column": `Project(source = Descendants(source = root, maxDepth = 1), properties = ("name"),
+				columns = (Column(name = "c", expression = ` + path + `)))`,
+			"filter": `WhereFeature(source = Descendants(source = root, maxDepth = 1), 'feature' = "` + path + `", operator = "=", value = "pilot")`,
+		} {
+			fixture := loadExecutionFixture(t, emptyStepBody+`
 calc def Bad :> Query {
 	in root : Element;
-	Project(source = Descendants(source = root, maxDepth = 1), properties = ("name", "`+path+`"))
+	`+operation+`
 }`)
-		_, err := fixture.execute(t, "Bad", Bindings{
-			"root": {ElementValue(fixture.symbol(t, "Fleet"))},
-		}, Options{})
-		var executionError *Error
-		if !errors.As(err, &executionError) || executionError.Kind != want {
-			t.Fatalf("%s: error = %v, want %v", path, err, want)
+			_, err := fixture.execute(t, "Bad", Bindings{
+				"root": {ElementValue(fixture.symbol(t, "Fleet"))},
+			}, Options{})
+			var executionError *Error
+			if !errors.As(err, &executionError) || executionError.Kind != ErrorUnknownProperty {
+				t.Errorf("%s %s: error = %v, want %v", name, path, err, ErrorUnknownProperty)
+			}
 		}
+	}
+}
+
+// An empty step yields to a property path that reads further: a redefinition binding no value
+// has no valuation of its own, yet the value it inherits is still read by name.
+func TestExecuteMemberPathEmptyStepYieldsToPropertyPath(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+enum def Mode { on; off; }
+part def Tank { attribute mode : Mode = Mode::on; }
+part def Spare :> Tank { attribute :>> mode; }
+calc def Modes :> Query {
+	Project(
+		source = OwnedElements(source = Named(qualifiedName = "Observatory::Spare")),
+		properties = ("name", "valuation.name"))
+}`)
+	result, err := fixture.execute(t, "Modes", nil, Options{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if got, want := stringCells(t, result, "valuation.name"), [][]string{{"on"}}; !slices.EqualFunc(got, want, slices.Equal) {
+		t.Fatalf("valuation.name = %q, want %q", got, want)
 	}
 }
