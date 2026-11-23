@@ -217,10 +217,13 @@ else
 fi
 echo jar >"$kernel/kernel.jar"
 
+# What pilot_verify_kernel reports of a library tree that is not the pinned one.
+library_mismatch="sysml.library has tree SHA-256"
+
 name="a library file whose content changed is refused"
 echo 'package Changed;' >"$kernel/sysml.library/Domain Libraries/ISQ.sysml"
 verify_kernel "$jar_digest" "$library_digest"
-if [[ $status -ne 0 ]] && [[ $output == *"sysml.library has tree SHA-256"* ]]; then
+if [[ $status -ne 0 ]] && [[ $output == *"$library_mismatch"* ]]; then
 	pass "$name"
 else
 	fail "$name"
@@ -230,7 +233,7 @@ echo 'package ISQ;' >"$kernel/sysml.library/Domain Libraries/ISQ.sysml"
 name="a file added to the library is refused"
 echo 'package Extra;' >"$kernel/sysml.library/Extra.sysml"
 verify_kernel "$jar_digest" "$library_digest"
-if [[ $status -ne 0 ]] && [[ $output == *"sysml.library has tree SHA-256"* ]]; then
+if [[ $status -ne 0 ]] && [[ $output == *"$library_mismatch"* ]]; then
 	pass "$name"
 else
 	fail "$name"
@@ -241,7 +244,7 @@ name="a link added to the library is refused"
 echo 'package Outside;' >"$work/Outside.sysml"
 ln -s "$work/Outside.sysml" "$kernel/sysml.library/Outside.sysml"
 verify_kernel "$jar_digest" "$library_digest"
-if [[ $status -ne 0 ]] && [[ $output == *"sysml.library has tree SHA-256"* ]]; then
+if [[ $status -ne 0 ]] && [[ $output == *"$library_mismatch"* ]]; then
 	pass "$name"
 else
 	fail "$name"
@@ -253,7 +256,7 @@ mkdir "$work/outside"
 echo 'package Outside;' >"$work/outside/Outside.sysml"
 ln -s "$work/outside" "$kernel/sysml.library/Linked"
 verify_kernel "$jar_digest" "$library_digest"
-if [[ $status -ne 0 ]] && [[ $output == *"sysml.library has tree SHA-256"* ]]; then
+if [[ $status -ne 0 ]] && [[ $output == *"$library_mismatch"* ]]; then
 	pass "$name"
 else
 	fail "$name"
@@ -263,7 +266,7 @@ rm "$kernel/sysml.library/Linked"
 name="a library file that moved is refused"
 mv "$kernel/sysml.library/Base.kerml" "$kernel/sysml.library/Domain Libraries/Base.kerml"
 verify_kernel "$jar_digest" "$library_digest"
-if [[ $status -ne 0 ]] && [[ $output == *"sysml.library has tree SHA-256"* ]]; then
+if [[ $status -ne 0 ]] && [[ $output == *"$library_mismatch"* ]]; then
 	pass "$name"
 else
 	fail "$name"

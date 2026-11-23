@@ -100,7 +100,8 @@ class OpenSysMLQueryTest {
   void aRunnerWithoutViewsRefusesOneAndIgnoresABlank() {
     BridgeRunner runner = (element, operation, args) -> Flat.verify("x", "PASSED");
     assertEquals("PASSED", runner.run(new FakeElement("A"), "RUN_QUERY", "", "").get("status"));
-    assertThrows(IllegalStateException.class, () -> runner.run(new FakeElement("A"), "RUN_QUERY", "", "text"));
+    FakeElement element = new FakeElement("A");
+    assertThrows(IllegalStateException.class, () -> runner.run(element, "RUN_QUERY", "", "text"));
   }
 
   @Test

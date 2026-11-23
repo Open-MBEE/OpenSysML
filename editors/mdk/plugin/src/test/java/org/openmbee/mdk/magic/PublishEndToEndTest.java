@@ -91,8 +91,10 @@ class PublishEndToEndTest {
 
   @Test
   void refusesAModelWithErrors() {
+    V2TextualSource broken = new V2TextualSource("package Broken { part def");
+    Publisher.Target unchanged = target(false);
     IllegalStateException refused = assertThrows(IllegalStateException.class,
-        () -> engine.publish(new V2TextualSource("package Broken { part def"), publisher, target(false), () -> false));
+        () -> engine.publish(broken, publisher, unchanged, () -> false));
 
     assertTrue(refused.getMessage().contains("was not published"), refused.getMessage());
     assertEquals(0, api.posted.size());

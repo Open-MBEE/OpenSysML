@@ -59,8 +59,8 @@ check() {
 # develop's source, and reported the four commits.
 merged_as() {
 	local repo="$work/$1" path=$2 content=$3
-	[ "$status" = 0 ] && [ -z "$(git -C "$repo" status --porcelain)" ] &&
-		[ "$(cat "$repo/$path")" = "$content" ] && [ "$(cat "$repo/source.go")" = theirs ] &&
+	[[ "$status" = 0 ]] && [[ -z "$(git -C "$repo" status --porcelain)" ]] &&
+		[[ "$(cat "$repo/$path")" = "$content" ]] && [[ "$(cat "$repo/source.go")" = theirs ]] &&
 		grep -qx "merged=$(git -C "$repo" rev-parse HEAD)" "$repo.outputs" &&
 		grep -qx "ours=$(git -C "$repo" rev-parse HEAD^1)" "$repo.outputs" &&
 		grep -qx "theirs=$(git -C "$repo" rev-parse origin/develop)" "$repo.outputs" &&
@@ -70,7 +70,7 @@ merged_as() {
 # refused <name> <message>: the script failed with <message> and committed nothing.
 refused() {
 	local repo="$work/$1" message=$2
-	[ "$status" != 0 ] && [[ "$output" == *"$message"* ]] && ! grep -q '^merged=' "$repo.outputs" 2>/dev/null
+	[[ "$status" != 0 ]] && [[ "$output" == *"$message"* ]] && ! grep -q '^merged=' "$repo.outputs" 2>/dev/null
 }
 
 repository expectation tests/corpus/testdata/spec_examples_expected.txt
@@ -101,12 +101,12 @@ repository current tests/corpus/testdata/spec_examples_expected.txt
 merge current
 merge current
 already_merged() {
-	[ "$status" = 0 ] && [[ "$output" == *"develop is already merged"* ]] &&
-		[ "$(tail -n 1 "$work/current.outputs")" = "merged=$(git -C "$work/current" rev-parse HEAD)" ]
+	[[ "$status" = 0 ]] && [[ "$output" == *"develop is already merged"* ]] &&
+		[[ "$(tail -n 1 "$work/current.outputs")" = "merged=$(git -C "$work/current" rev-parse HEAD)" ]]
 }
 check "a branch that holds develop is left as it is" already_merged
 
-if [ "$failures" -gt 0 ]; then
+if [[ "$failures" -gt 0 ]]; then
 	echo "$failures check(s) failed"
 	exit 1
 fi

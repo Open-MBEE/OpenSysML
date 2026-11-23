@@ -622,8 +622,10 @@ def test_render_view_writes_every_form_the_service_has(real_service):
         for form, (view, want) in forms.items():
             rendered = model.render_view(view, form=form)
             assert want in rendered.text, form
-            assert rendered.text.endswith("\n") and not rendered.text.endswith("\n\n"), form
-            assert rendered.view == view and (rendered.nodes or rendered.rows), form
+            assert rendered.text.endswith("\n"), form
+            assert not rendered.text.endswith("\n\n"), form
+            assert rendered.view == view, form
+            assert rendered.nodes or rendered.rows, form
         assert model.render_view("FormDemo::structure").text == ""
         styled = model.render_view(
             "FormDemo::structure", form="dot", palette="okabe-ito", lines="ortho", direction="LR",

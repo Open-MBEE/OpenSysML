@@ -25,13 +25,16 @@ public final class ResourceDescriptorWriter {
   public static final String MINIMUM_RELEASE = "2024x";
   static final String PLUGIN_DIR = "plugins/org.openmbee.mdk.magic";
   static final String BRIDGE_DIR = "plugins/org.openmbee.mdk/extensions";
-  private static final Pattern VERSION =
-      Pattern.compile("^v?(\\d+)\\.(\\d+)\\.(\\d+)(?:-nightly-(\\d{8})-[0-9a-f]+|-(alpha|beta|rc)\\.(\\d+))?$");
+  private static final Pattern VERSION = Pattern.compile("^v?(\\d+)\\.(\\d+)\\.(\\d+)(-.+)?$");
+  private static final Pattern NIGHTLY = Pattern.compile("^-nightly-(\\d{8})-[0-9a-f]+$");
+  private static final Pattern CANDIDATE = Pattern.compile("^-(alpha|beta|rc)\\.(\\d+)$");
   /** Nights are counted from here; the count fills the pre-release digits below {@link #RELEASE}. */
   static final LocalDate NIGHTLY_EPOCH = LocalDate.of(2026, 1, 1);
   static final long RELEASE = 9_999;
   /** A release's candidates rank above every night that leads to it and below the release, in this order. */
-  static final long ALPHA = 9_100, BETA = 9_200, RC = 9_300;
+  static final long ALPHA = 9_100;
+  static final long BETA = 9_200;
+  static final long RC = 9_300;
 
   private ResourceDescriptorWriter() {}
 
@@ -66,7 +69,10 @@ public final class ResourceDescriptorWriter {
    *  {@link #NIGHTLY_EPOCH} for a nightly (a day's nights tie), 91nn/92nn/93nn for alpha.n/beta.n/rc.n, 9999 for a release. */
   static long internalVersion(String version) {
     Matcher m = VERSION.matcher(version);
-    if (!m.matches()) {
+    String suffix = m.matches() && m.group(4) != null ? m.group(4) : "";
+    Matcher nightly = NIGHTLY.matcher(suffix);
+    Matcher candidateOf = CANDIDATE.matcher(suffix);
+    if (!m.matches() || !(suffix.isEmpty() || nightly.matches() || candidateOf.matches())) {
       throw new IllegalArgumentException(
           "version is not major.minor.patch[-nightly-yyyymmdd-commit|-alpha.n|-beta.n|-rc.n]: " + version);
     }
@@ -75,13 +81,13 @@ public final class ResourceDescriptorWriter {
     long patch = Long.parseLong(m.group(3));
     if (minor > 99 || patch > 99) throw new IllegalArgumentException("minor and patch must be below 100: " + version);
     long preRelease = RELEASE;
-    if (m.group(4) != null) {
-      LocalDate built = LocalDate.parse(m.group(4), DateTimeFormatter.BASIC_ISO_DATE);
+    if (nightly.matches()) {
+      LocalDate built = LocalDate.parse(nightly.group(1), DateTimeFormatter.BASIC_ISO_DATE);
       preRelease = Math.min(Math.max(ChronoUnit.DAYS.between(NIGHTLY_EPOCH, built), 0), ALPHA - 1);
-    } else if (m.group(5) != null) {
-      long candidate = Long.parseLong(m.group(6));
+    } else if (candidateOf.matches()) {
+      long candidate = Long.parseLong(candidateOf.group(2));
       if (candidate > 99) throw new IllegalArgumentException("pre-release number must be below 100: " + version);
-      preRelease = switch (m.group(5)) {
+      preRelease = switch (candidateOf.group(1)) {
         case "alpha" -> ALPHA;
         case "beta" -> BETA;
         default -> RC;

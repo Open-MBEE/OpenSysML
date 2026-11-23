@@ -193,7 +193,7 @@ public final class FakeSysmlApi implements AutoCloseable {
     int size = paging == Paging.IGNORED
         ? all.size() : Math.min(pageLimit, Integer.parseInt(query.getOrDefault("pageSize", "100")));
     int start = 0;
-    String after = paging == Paging.LINKED ? query.get("cursor") : query.get("pageAfter");
+    String after = query.get(paging == Paging.LINKED ? "cursor" : "pageAfter");
     if (paging != Paging.IGNORED && after != null) {
       for (int i = 0; i < all.size(); i++) {
         if (all.get(i).get("@id").getAsString().equals(after)) start = i + 1;
