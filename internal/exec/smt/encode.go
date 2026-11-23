@@ -1660,7 +1660,7 @@ func (e *Encoding) stream(x *nodeEffect, cond *solve.Term, node Node, pin *solve
 			}
 			continue
 		}
-		e.carry(x, cond, node, flow, pin, target, value, where)
+		e.carry(x, cond, node, flow, carried{pin, target, value}, where)
 	}
 	return nil
 }
@@ -1687,11 +1687,18 @@ func performedName(label string) string { return "performed(" + label + ")" }
 // after its target's last performance, which fails the action if none takes it.
 func unreceivedName(pin string) string { return "unreceived(" + pin + ")" }
 
+// carried is what a flow moves: the pin it leaves, the pin it reaches and the value it carries.
+type carried struct {
+	source, target *solve.Var
+	value          *solve.Term
+}
+
 // carry puts a flow's payload where its target reads it, where cond holds: the pin
 // queue of a node in a frame of its own, else the action's feature. A queue holding a
 // value from another performance, source pin or flow is an overflow; a streaming flow's
 // own earlier value it replaces, and a value queued after its target performed is unreceived.
-func (e *Encoding) carry(x *nodeEffect, cond *solve.Term, node Node, flow lower.ObjectFlow, source, target *solve.Var, value *solve.Term, where string) {
+func (e *Encoding) carry(x *nodeEffect, cond *solve.Term, node Node, flow lower.ObjectFlow, moved carried, where string) {
+	source, target, value := moved.source, moved.target, moved.value
 	if domain := e.domain(target.Name, value); domain != nil {
 		x.fail(cond, domain)
 	}
@@ -1750,7 +1757,7 @@ func (e *Encoding) flows(x *nodeEffect, node Node, where string) error {
 				cond = not(streamed)
 			}
 		}
-		e.carry(x, cond, node, flow, source, target, x.env.values[source.Name], where)
+		e.carry(x, cond, node, flow, carried{source, target, x.env.values[source.Name]}, where)
 	}
 	return nil
 }

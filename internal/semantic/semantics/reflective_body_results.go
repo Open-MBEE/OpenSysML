@@ -21,15 +21,23 @@ func FilterMemberOf(condition *symbols.Symbol) *ast.FilterMember {
 	if condition == nil || condition.Expr == nil || condition.Expr.Role != symbols.ExpressionFilterCondition || condition.Expr.Owner == nil {
 		return nil
 	}
-	for _, member := range bodyMembers(condition.Expr.Owner) {
+	filter, _ := filterMemberStating(condition.Expr.Owner, condition.Decl)
+	return filter
+}
+
+// filterMemberStating is the `filter <cond>;` member of owner whose condition is the
+// node, with the visibility written ahead of it (MemberPrefix); nil when owner states none.
+func filterMemberStating(owner *symbols.Symbol, condition ast.Node) (*ast.FilterMember, ast.Visibility) {
+	for _, member := range bodyMembers(owner) {
+		visibility := ast.VisibilityDefault
 		if wrapper, ok := member.(*ast.Membership); ok {
-			member = wrapper.Member
+			member, visibility = wrapper.Member, wrapper.Visibility
 		}
-		if filter, ok := member.(*ast.FilterMember); ok && filter.Condition == condition.Decl {
-			return filter
+		if filter, ok := member.(*ast.FilterMember); ok && filter.Condition == condition {
+			return filter, visibility
 		}
 	}
-	return nil
+	return nil, ast.VisibilityDefault
 }
 
 // mergeMemberships places extra memberships among out in source order and renumbers
