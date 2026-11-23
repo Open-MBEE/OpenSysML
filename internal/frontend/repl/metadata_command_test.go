@@ -184,3 +184,36 @@ package L {
 		t.Errorf("a library metadata type's own features are listed, an item's are not:\n%s", strings.Join(got, "\n"))
 	}
 }
+
+func TestMetadataOfAnAliasListsTheElementItNames(t *testing.T) {
+	s := NewSession()
+	submitModel(t, s, `
+package A {
+    private import ScalarValues::*;
+    metadata def Tag { attribute who : String default = "nobody"; }
+    part def Car { @Tag { who = "def"; } }
+    part car : Car { @Tag { who = "usage"; } }
+    alias C for Car;
+    alias c for car;
+}
+`)
+	wantLines(t, metadataLines(t, s, "A::C"), []string{
+		"Element: A::Car (partDef), which A::C is an alias for",
+		"  @A::Tag",
+		`    who = "def"`,
+	})
+	mustMeta(t, s, "%instantiate A::c")
+	got := metadataLines(t, s, "c")
+	if len(got) < 4 || got[1] != "Annotations of usage A::car, which the object is an instance of:" ||
+		got[2] != "  @A::Tag" || got[3] != `    who = "usage"` {
+		t.Errorf("an object made through an alias lists the usage the alias names:\n%s", strings.Join(got, "\n"))
+	}
+}
+
+// Listing annotations evaluates their values and makes their objects, which is
+// more than a read.
+func TestMetadataEvaluatesTheModel(t *testing.T) {
+	if got, ok := CommandEffect("%metadata"); !ok || got != Executes {
+		t.Errorf("CommandEffect(%%metadata) = %d, %v", got, ok)
+	}
+}
