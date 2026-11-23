@@ -180,3 +180,20 @@ func TestTransitionGuardChainTargetFeatureIsReadOnDemand(t *testing.T) {
 		})
 	}
 }
+
+// A feature that is no chain is asked for its chaining features without its owned relationships being derived.
+func TestChainingFeaturesOfAPlainFeatureDerivesNoOwnedRelationships(t *testing.T) {
+	m, root := buildModel(t, `package P {
+		part def A { part a { part inner; } }
+	}`)
+	a := nested(t, sym(t, root, "P").Scope, "A", "a")
+	if links := m.ChainingFeatures(a); links == nil || len(links) != 0 {
+		t.Fatalf("ChainingFeatures(a) = %v, want an empty list", links)
+	}
+	if _, derived := m.memberships[a]; derived {
+		t.Errorf("asking a plain feature for its chaining features derived its owned memberships")
+	}
+	if len(m.OwnedRelationships(a)) == 0 {
+		t.Errorf("a owns no relationship, want the membership of its nested part")
+	}
+}

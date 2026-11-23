@@ -12,7 +12,7 @@ import (
 // ownRedefinitions is what the features a type declares redefine.
 type ownRedefinitions struct {
 	owner *symbols.Symbol
-	// direct holds the features redefined by clause, position or role.
+	// direct holds the features redefined by clause, position or role; nil while empty, as is closure.
 	direct map[*symbols.Symbol]bool
 	// closure adds what those features redefine in turn.
 	closure map[*symbols.Symbol]bool
@@ -38,6 +38,8 @@ type inheritanceLoss struct {
 	inherited map[*symbols.Symbol]bool
 	// full adds what the type's own features remove; nil until they are read.
 	full map[*symbols.Symbol]bool
+	// passed memoizes passedOn once full is known.
+	passed []*symbols.Symbol
 	// settled is set once no guard cut the derivation short for a lookup outside it.
 	settled bool
 }
@@ -99,17 +101,23 @@ func (m *Model) ownRedefinitions(sym, exclude *symbols.Symbol) *ownRedefinitions
 		m.redefOwn[sym] = nil // re-entrancy guard: a nested query sees no redefinition
 	}
 	m.resolver.Enter()
-	own := &ownRedefinitions{owner: sym, direct: make(map[*symbols.Symbol]bool), closure: make(map[*symbols.Symbol]bool)}
+	own := &ownRedefinitions{owner: sym}
 	sym.Scope.ForEachMember(func(feature *symbols.Symbol) bool {
 		if feature == exclude {
 			return true
 		}
 		for _, target := range m.maskingRedefinedFeatures(feature) {
 			if target != nil && !redefinesSibling(feature, target) {
+				if own.direct == nil {
+					own.direct = make(map[*symbols.Symbol]bool)
+				}
 				own.direct[target] = true
 			}
 		}
 		for target := range m.redefinitionReach(feature) {
+			if own.closure == nil {
+				own.closure = make(map[*symbols.Symbol]bool)
+			}
 			own.closure[target] = true
 		}
 		return true
@@ -202,20 +210,10 @@ func (m *Model) walkInheritanceLoss(sym *symbols.Symbol, walked map[*symbols.Sym
 	for i, contributor := range contributors {
 		losses[i] = m.walkInheritanceLoss(contributor, walked)
 	}
-	unoffered := make(map[*symbols.Symbol]bool)
-	for i := range contributors {
-		for lost := range losses[i].lost() {
-			if !unoffered[lost] && !m.offeredByAnother(contributors, losses, i, lost) {
-				unoffered[lost] = true
-			}
-		}
-	}
+	unoffered := lossSet{from: m.unofferedBy(contributors, losses)}
 	// Condition 1: a feature another inheritable membership redefines is removed.
-	inherited := make(map[*symbols.Symbol]bool, len(unoffered))
-	for lost := range unoffered {
-		inherited[lost] = true
-	}
 	offered := make(map[*symbols.Symbol]bool)
+	var reached []map[*symbols.Symbol]bool
 	offer := func(feature *symbols.Symbol) {
 		if offered[feature] {
 			return
@@ -226,9 +224,7 @@ func (m *Model) walkInheritanceLoss(sym *symbols.Symbol, walked map[*symbols.Sym
 			return
 		}
 		loss.redefiners = append(loss.redefiners, feature)
-		for target := range reach {
-			inherited[target] = true
-		}
+		reached = append(reached, reach)
 	}
 	for i, contributor := range contributors {
 		if contributor.Scope != nil {
@@ -243,8 +239,15 @@ func (m *Model) walkInheritanceLoss(sym *symbols.Symbol, walked map[*symbols.Sym
 			offer(feature)
 		}
 	}
-	keepOwnMembers(sym, unoffered, inherited)
-	loss.unoffered, loss.inherited = unoffered, inherited
+	unoffered.dropOwnMembers(sym)
+	inherited := lossSet{from: unoffered.set()}
+	for _, reach := range reached {
+		for target := range reach {
+			inherited.add(target)
+		}
+	}
+	inherited.dropOwnMembers(sym)
+	loss.unoffered, loss.inherited = unoffered.set(), inherited.set()
 	// What sym inherits is known before its own features are read: resolving
 	// the features they redefine asks for it.
 	m.redefLoss[sym] = loss
@@ -262,22 +265,105 @@ func (m *Model) cutShortLoss(sym *symbols.Symbol) {
 // lossWithOwn adds to loss's inherited part what own removes (condition 2): what
 // sym's features redefine, and the passed-on features redefining what they directly redefine.
 func (m *Model) lossWithOwn(sym *symbols.Symbol, loss *inheritanceLoss, own *ownRedefinitions) map[*symbols.Symbol]bool {
-	full := make(map[*symbols.Symbol]bool, len(loss.inherited))
-	for lost := range loss.inherited {
-		full[lost] = true
-	}
+	full := lossSet{from: loss.inherited}
 	if own != nil {
 		for target := range own.closure {
-			full[target] = true
+			full.add(target)
 		}
 		for _, feature := range loss.redefiners {
 			if m.redefinesAny(feature, own.direct) {
-				full[feature] = true
+				full.add(feature)
 			}
 		}
 	}
-	keepOwnMembers(sym, full)
-	return full
+	full.dropOwnMembers(sym)
+	return full.set()
+}
+
+// unofferedBy returns what no contributor passes on: a member a contributor has lost and
+// no other still offers. One contributor's whole loss is answered as the set it already holds.
+func (m *Model) unofferedBy(contributors []*symbols.Symbol, losses []*inheritanceLoss) map[*symbols.Symbol]bool {
+	var unoffered lossSet
+	for i := range contributors {
+		lost := losses[i].lost()
+		if len(lost) == 0 {
+			continue
+		}
+		whole := unoffered.from == nil && unoffered.own == nil
+		for member := range lost {
+			if m.offeredByAnother(contributors, losses, i, member) {
+				whole = false
+				break
+			}
+		}
+		if whole {
+			unoffered.from = lost
+			continue
+		}
+		for member := range lost {
+			if !m.offeredByAnother(contributors, losses, i, member) {
+				unoffered.add(member)
+			}
+		}
+	}
+	return unoffered.set()
+}
+
+// lossSet is a set of lost members that starts as from, a set another loss holds and
+// so never written to, and is copied on the first change.
+type lossSet struct {
+	from map[*symbols.Symbol]bool
+	own  map[*symbols.Symbol]bool
+}
+
+func (s *lossSet) add(member *symbols.Symbol) {
+	if s.own == nil {
+		if s.from[member] {
+			return
+		}
+		s.own = make(map[*symbols.Symbol]bool, len(s.from)+1)
+		for held := range s.from {
+			s.own[held] = true
+		}
+	}
+	s.own[member] = true
+}
+
+func (s *lossSet) remove(member *symbols.Symbol) {
+	if s.own == nil {
+		if !s.from[member] {
+			return
+		}
+		s.own = make(map[*symbols.Symbol]bool, len(s.from))
+		for held := range s.from {
+			s.own[held] = true
+		}
+	}
+	delete(s.own, member)
+}
+
+// dropOwnMembers removes sym and the members it declares: a local declaration is
+// present whatever redefines it.
+func (s *lossSet) dropOwnMembers(sym *symbols.Symbol) {
+	s.remove(sym)
+	if sym.Scope == nil {
+		return
+	}
+	sym.Scope.ForEachMember(func(local *symbols.Symbol) bool {
+		s.remove(local)
+		return true
+	})
+}
+
+// set is the set as it stands, never nil.
+func (s *lossSet) set() map[*symbols.Symbol]bool {
+	switch {
+	case s.own != nil:
+		return s.own
+	case s.from != nil:
+		return s.from
+	}
+	return map[*symbols.Symbol]bool{}
 }
 
 // lost is everything the type does not inherit; nil for a type still being walked.
@@ -293,11 +379,17 @@ func (l *inheritanceLoss) passedOn() []*symbols.Symbol {
 	if l == nil {
 		return nil
 	}
+	if l.passed != nil {
+		return l.passed
+	}
 	var out []*symbols.Symbol
 	for _, feature := range l.redefiners {
 		if !l.full[feature] {
 			out = append(out, feature)
 		}
+	}
+	if l.full != nil {
+		l.passed = out
 	}
 	return out
 }
