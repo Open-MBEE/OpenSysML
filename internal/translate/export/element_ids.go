@@ -1398,7 +1398,11 @@ func (e *encoder) registerExpressionIDs(ids *ElementIDs, subject rdf.Term, node 
 		e.registerExpressionIDs(ids, child, operand.Node)
 	}
 	if typeArgument >= 0 {
-		e.registerExpressionPart(ids, subject, node, fmt.Sprintf("in%d", typeArgument))
+		slot := fmt.Sprintf("in%d", typeArgument)
+		e.registerExpressionPart(ids, subject, node, slot)
+		// The parameter's FeatureTyping by the type argument is minted off the parameter (typeArgument).
+		typing := ids.partByNode[partKey{node, slot}].element + relationshipSuffix(ast.RelTyping, false, 1, 0)
+		ids.recordPart(e, node, slot+".ft0", partIDs{element: typing})
 	}
 	if slot, _, _ := expressionReferenceSlot(node); slot != "" {
 		membership := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
