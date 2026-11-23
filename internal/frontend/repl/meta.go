@@ -1739,17 +1739,25 @@ func (w *featureValueWalk) impliedCollectionLine(inst *runtime.Instance, of runt
 // object's reserved remaining features keep a line each; a nested expansion
 // spends only what is left beyond them.
 func (w *featureValueWalk) expandNested(lines []string, fv *runtime.FeatureValue, indent string, depth, reserved int) []string {
-	for _, nested := range nestedInstances(w.ctx, fv) {
+	for _, held := range heldInstances(w.ctx, fv) {
+		nested, memberIndent := held.inst, indent+"  "
 		if w.listing[nested.ID] {
 			continue
 		}
-		if w.budget <= reserved {
-			return w.truncate(lines, indent+"  ")
+		// A collection's members are listed one after another, so each is headed
+		// by the object it is; a single value's row already names its object.
+		heading := held.heading()
+		if w.budget <= reserved+held.headingLines() {
+			return w.truncate(lines, memberIndent)
 		}
 		w.budget -= reserved
+		if heading != "" {
+			lines = w.emit(lines, memberIndent+heading)
+			memberIndent += "  "
+		}
 		w.onPath[nested.Type] = true
 		w.listing[nested.ID] = true
-		lines = append(lines, w.lines(nested, indent+"  ", depth+1)...)
+		lines = append(lines, w.lines(nested, memberIndent, depth+1)...)
 		delete(w.listing, nested.ID)
 		delete(w.onPath, nested.Type)
 		w.budget += reserved
@@ -1798,12 +1806,17 @@ func (w *featureValueWalk) behaviorLines(inst *runtime.Instance, behaviors []run
 			lines = w.emit(lines, fmt.Sprintf("%s  <error: %v>", rowIndent, err))
 			continue
 		}
-		for _, occurrence := range nestedInstances(w.ctx, fv) {
-			if w.budget <= 0 {
-				return w.truncate(lines, rowIndent+"  ")
+		for _, held := range heldInstances(w.ctx, fv) {
+			occurrence, occurrenceIndent := held.inst, rowIndent+"  "
+			if w.budget <= held.headingLines() {
+				return w.truncate(lines, occurrenceIndent)
+			}
+			if heading := held.heading(); heading != "" {
+				lines = w.emit(lines, occurrenceIndent+heading)
+				occurrenceIndent += "  "
 			}
 			w.onPath[occurrence.Type] = true
-			lines = append(lines, w.rows(occurrence, rowIndent+"  ", depth+1, false)...)
+			lines = append(lines, w.rows(occurrence, occurrenceIndent, depth+1, false)...)
 			delete(w.onPath, occurrence.Type)
 		}
 	}
@@ -1978,27 +1991,56 @@ func (w *featureValueWalk) elisionReason(depth int) string {
 	return "contains its own kind"
 }
 
-// nestedInstances returns the instances a feature value holds, whether it carries one
-// value or a collection of them. An object that holds no value has nothing to
-// expand: it reads as unset, not as an object with no features.
-func nestedInstances(ctx *runtime.Context, fv *runtime.FeatureValue) []*runtime.Instance {
-	values := []runtime.Value{fv.Value}
+// heldInstance is an object a feature value holds. position is its 1-based place
+// in a collection, the index an object path reaches it by, and 0 for a single value.
+type heldInstance struct {
+	inst     *runtime.Instance
+	position int
+}
+
+// heading names a collection's member above its features: its place in the
+// collection and the object it is. A single value has none.
+func (h heldInstance) heading() string {
+	if h.position == 0 {
+		return ""
+	}
+	return fmt.Sprintf("[%d] %s", h.position, formatValue(nil, runtime.Value{Kind: runtime.ValInstance, Instance: h.inst.ID}))
+}
+
+// headingLines is the lines the heading takes: a member is not headed unless a
+// line of its own is left to list beneath the heading.
+func (h heldInstance) headingLines() int {
+	if h.position == 0 {
+		return 0
+	}
+	return 1
+}
+
+// heldInstances returns the instances a feature value holds, one or a collection.
+// An object that holds no value reads as unset and has nothing to expand.
+func heldInstances(ctx *runtime.Context, fv *runtime.FeatureValue) []heldInstance {
+	values, collection := []runtime.Value{fv.Value}, false
 	switch fv.Values.Kind {
 	case runtime.ValSequence, runtime.ValSet:
 		var err error
 		if values, err = objref.CollectionElements(ctx, fv.Values); err != nil {
 			return nil
 		}
+		collection = true
 	}
 
-	var out []*runtime.Instance
-	for _, val := range values {
+	var out []heldInstance
+	for i, val := range values {
 		id, ok := val.Object()
 		if !ok || ctx.HoldsNoValue(val) {
 			continue
 		}
 		if nested, ok := ctx.Instance(id); ok {
-			out = append(out, nested)
+			held := heldInstance{inst: nested}
+			if collection {
+				held.position = i + 1
+			}
+			out = append(out, held)
 		}
 	}
 	return out
