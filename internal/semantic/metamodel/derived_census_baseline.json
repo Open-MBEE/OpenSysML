@@ -60,8 +60,8 @@
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 69,
-        "digest": "sha256:9462ded1fdc328aa07ac526c8e8051136d8dc5dcb19005cab4877478607700f6"
+        "files": 70,
+        "digest": "sha256:b68ca89dc9b3312b5f458a514ea7ca2300eda5a3d1549f8184648d6542847370"
       },
       {
         "name": "probes",
@@ -81,8 +81,8 @@
         "name": "opensysml-libraries",
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
-        "files": 18,
-        "digest": "sha256:8ef6d80c9983abb0af6edc68d26de9a25be15f16561ca3b9e9387ed2b070a7ec"
+        "files": 19,
+        "digest": "sha256:8b95c8cf9269086a83943b84227af41614f721e7e9ff2a667090f4718d27ed8d"
       }
     ],
     "recorded": "2026-11-23"
@@ -171,13 +171,13 @@
     {
       "name": "examples",
       "dir": "examples",
-      "files": 69,
+      "files": 70,
       "rejected": 0,
-      "elements": 53877,
-      "implied": 31177,
-      "pilotElements": 57536,
+      "elements": 55508,
+      "implied": 32215,
+      "pilotElements": 59174,
       "pilotImplied": 0,
-      "pilotDuplicates": 102027,
+      "pilotDuplicates": 102097,
       "pilotFailed": 0
     },
     {
@@ -205,5 +205,5 @@
       "pilotFailed": 0
     }
   ],
-  "pilotRecords": "sha256:8d284883920b54daba9ae1e187c91a445aaa557110ea4af3d150d53fe32dbb9e"
+  "pilotRecords": "sha256:8063f7511f590829935da69395d712282a00f4a9861f6eaf955720d8f3c34d19"
 }
