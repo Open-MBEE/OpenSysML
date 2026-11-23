@@ -1,6 +1,7 @@
 package view
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -52,5 +53,31 @@ func TestGeneralViewDrawnSubject(t *testing.T) {
 	}
 	if unwanted := "Model::MassRequirement o-- Model::SystemDefinition: sys"; strings.Contains(text, unwanted) {
 		t.Errorf("a drawn subject is also drawn as %q:\n%s", unwanted, text)
+	}
+}
+
+// A drawn subject's membership edge carries the multiplicity the subject
+// declares, as a drawn actor's does.
+func TestGeneralViewDrawnSubjectMultiplicity(t *testing.T) {
+	rendering := renderSource(t, "Model::usages", `package Model {
+	private import StandardViewDefinitions::*;
+	part def Ship;
+	requirement def Convoy {
+		subject ships[2] : Ship;
+		actor escorts[3] : Ship;
+	}
+	view usages : GeneralView {
+		filter @SysML::Definition or @SysML::Usage;
+		expose Model::**;
+	}
+}`)
+	var got []string
+	for _, edge := range rendering.Edges {
+		if edge.Kind == EdgeReference {
+			got = append(got, edge.ToLabel)
+		}
+	}
+	if want := []string{"[2]", "[3]"}; !slices.Equal(got, want) {
+		t.Errorf("the subject's and the actor's membership edges carry %q, want %q", got, want)
 	}
 }
