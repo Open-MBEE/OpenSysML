@@ -225,6 +225,18 @@ func (ctx *Context) AnnotationObjectsOf(sym *symbols.Symbol) []AnnotationObject 
 	return out
 }
 
+// AnnotatedElement answers the element `sym.metadata` reads the metadata of:
+// the one an alias names, and any other symbol itself.
+func (ctx *Context) AnnotatedElement(sym *symbols.Symbol) *symbols.Symbol {
+	if sym == nil || ctx.model.resolver == nil {
+		return sym
+	}
+	if target, aliased := ctx.resolveAliasTarget(sym); aliased && target != nil {
+		return target
+	}
+	return sym
+}
+
 // TypesOfObject answers the model elements an object is of: the usage or
 // definition it was made from, then each feature that classified it since.
 func (ctx *Context) TypesOfObject(inst *Instance) []*symbols.Symbol {

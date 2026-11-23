@@ -47,7 +47,13 @@ func (s *Session) doMetadata(target string) ([]string, bool, error) {
 		return nil, false, fmt.Errorf("runtime init: %w", err)
 	}
 	w := &annotationListing{s: s, ctx: ctx}
-	lines := []string{fmt.Sprintf("Element: %s (%s)", s.declaredName(fqn), sym.Kind)}
+	head := fmt.Sprintf("Element: %s (%s)", s.declaredName(fqn), sym.Kind)
+	// An alias is another name of an element, whose annotations are that element's.
+	if named := ctx.AnnotatedElement(sym); named != sym {
+		sym = named
+		head = fmt.Sprintf("Element: %s (%s), which %s is an alias for", s.objectLabelOf(sym), sym.Kind, s.declaredName(fqn))
+	}
+	lines := []string{head}
 	lines = append(lines, w.of(sym, "  ")...)
 	s.noteMaterializationFailure(w.errs...)
 	return lines, false, nil
@@ -61,6 +67,7 @@ func (s *Session) objectMetadata(ctx *runtime.Context, inst *runtime.Instance, l
 	seen := map[ast.Node]bool{}
 	var direct []*symbols.Symbol
 	for _, typ := range append(heldAs(ctx, inst), ctx.TypesOfObject(inst)...) {
+		typ = ctx.AnnotatedElement(typ)
 		if typ == nil || typ.Decl == nil || seen[typ.Decl] {
 			continue
 		}
