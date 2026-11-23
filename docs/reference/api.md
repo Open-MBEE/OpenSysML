@@ -1149,7 +1149,7 @@ with no `@id`, reported as written (`a.p`); `sourceFeature.featureTarget` and
 | `qualifiedName` | The element's qualified name; absent for an element with a positional `@id` | |
 | `@type` | The element's metamodel type (table below) | |
 | `name` | The element's own name, the last segment of its qualified name | |
-| `declaredName` | `name`, absent when the name is an effective name borrowed from a referenced feature | |
+| `declaredName` | `name`, absent when the name is an effective name: one borrowed from a referenced feature, or the `~P` of the `ConjugatedPortDefinition` a `port def P` implies | |
 | `shortName` | The element's effective short name (`<'HLR-R001'>` declares `HLR-R001`); absent when it has none | |
 | `declaredShortName` | `shortName`, absent when the short name is borrowed from a redefined or subsetted feature | |
 | `documentation` | The body text of the element's `doc` comment, delimiters and indentation removed; absent when undocumented. This single-valued record reports the first body of an element declaring several — a document query's `Project` carries every body | |
