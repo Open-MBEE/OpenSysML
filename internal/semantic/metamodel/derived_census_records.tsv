@@ -593,7 +593,7 @@ Element::isLibraryElement	examples	53877	53877	0	0	57536	57536	0	0	0
 Element::isLibraryElement	probes	45	45	0	0	53	53	0	0	0
 Element::isLibraryElement	manual-examples	8416	8416	0	0	9379	9379	0	0	0
 Element::name	training	11255	2918	8337	0	11906	3211	0	8695	0
-Element::name	pilot-examples	39455	9733	29722	0	40861	10406	0	30455	0
+Element::name	pilot-examples	39455	9735	29720	0	40861	10406	0	30455	0
 Element::name	pilot-validation	13803	3468	10335	0	14222	3735	0	10487	0
 Element::name	kerml-examples	8331	1872	6459	0	8762	1901	0	6861	0
 Element::name	spec-examples	11769	3171	8582	16	15900	3818	0	12082	0
@@ -904,7 +904,7 @@ Feature::owningType	examples	21617	12564	9053	0	23203	13433	0	9770	0
 Feature::owningType	probes	8	5	3	0	8	5	0	3	0
 Feature::owningType	manual-examples	3363	2062	1301	0	3546	2166	0	1380	0
 Feature::type	training	4237	4072	108	57	4506	4506	0	0	0
-Feature::type	pilot-examples	15216	14611	297	308	15943	15933	10	0	0
+Feature::type	pilot-examples	15216	14613	295	308	15943	15933	10	0	0
 Feature::type	pilot-validation	5037	4893	109	35	5259	5259	0	0	0
 Feature::type	kerml-examples	2765	2760	2	3	2884	2883	1	0	0
 Feature::type	spec-examples	4105	3352	148	605	5510	4965	545	0	0
@@ -1144,7 +1144,7 @@ Membership::memberElementId	examples	24346	7468	0	16878	25880	25880	0	0	0
 Membership::memberElementId	probes	16	9	0	7	20	20	0	0	0
 Membership::memberElementId	manual-examples	3997	1228	0	2769	4155	4155	0	0	0
 Membership::memberName	training	5043	2824	2219	0	5387	3219	0	2168	0
-Membership::memberName	pilot-examples	17544	9640	7904	0	18213	10419	0	7794	0
+Membership::memberName	pilot-examples	17544	9642	7902	0	18213	10419	0	7794	0
 Membership::memberName	pilot-validation	6185	3416	2769	0	6394	3741	0	2653	0
 Membership::memberName	kerml-examples	3289	1807	1482	0	3463	1906	0	1557	0
 Membership::memberName	spec-examples	4898	2702	2180	16	6352	3823	0	2529	0
@@ -1299,7 +1299,7 @@ OwningMembership::ownedMemberElementId	examples	22258	5386	0	16872	23958	23958	0
 OwningMembership::ownedMemberElementId	probes	15	8	0	7	19	19	0	0	0
 OwningMembership::ownedMemberElementId	manual-examples	3541	772	0	2769	3711	3711	0	0	0
 OwningMembership::ownedMemberName	training	4549	2818	1731	0	4911	3213	0	1698	0
-OwningMembership::ownedMemberName	pilot-examples	15833	9631	6202	0	16612	10410	0	6202	0
+OwningMembership::ownedMemberName	pilot-examples	15833	9633	6200	0	16612	10410	0	6202	0
 OwningMembership::ownedMemberName	pilot-validation	5619	3412	2207	0	5874	3737	0	2137	0
 OwningMembership::ownedMemberName	kerml-examples	3143	1802	1341	0	3319	1901	0	1418	0
 OwningMembership::ownedMemberName	spec-examples	4504	2697	1791	16	5943	3817	0	2126	0

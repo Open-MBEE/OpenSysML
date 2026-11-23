@@ -60,24 +60,63 @@ func (m *Model) expressionParameterRedefinitions(sym *symbols.Symbol) []*symbols
 	owner := sym.Expr.Owner
 	if owner.Expr != nil && owner.Expr.Role == symbols.ExpressionResult {
 		// KerML checkConstructorExpressionResultFeatureRedefinition: the instantiated type's feature.
-		if formal, _ := m.constructorArgumentFormal(sym); formal != nil {
+		if formal, named := m.constructorArgumentFormal(sym); formal != nil && !named {
 			return []*symbols.Symbol{formal}
 		}
+		return nil
+	}
+	if expressionArgumentName(sym) != nil {
 		return nil
 	}
 	isResult := sym.Expr.Role == symbols.ExpressionResult
 	var out []*symbols.Symbol
 	// An expression writes no specialization: its generals are the implied ones left after pruning.
-	name := expressionArgumentName(sym)
 	for _, general := range m.ImpliedSpecializations(owner) {
-		var target *symbols.Symbol
-		if name != nil {
-			// A named argument's parameter redefines the one it names, whatever its position.
-			target, _ = m.LookupBinding(owner.OwnerScope, general, name)
-		} else {
-			target, _ = m.PositionalParameter(general, expressionParameterPosition(sym), isResult)
-		}
+		target := m.argumentParameter(general, expressionParameterPosition(sym), isResult)
 		if target != nil && target != sym && !slices.Contains(out, target) {
+			out = append(out, target)
+		}
+	}
+	return out
+}
+
+// argumentParameter is the parameter of general an argument at position binds: the input parameter
+// there, as a call binds it (KerML 7.4.9.4, 8.3.4.8.5), or the result when isResult.
+func (m *Model) argumentParameter(general *symbols.Symbol, position int, isResult bool) *symbols.Symbol {
+	if isResult {
+		result, _ := m.PositionalParameter(general, 0, true)
+		return result
+	}
+	if !behaviorLike(general) {
+		return nil
+	}
+	if params := m.signatureOf(general).params; position >= 0 && position < len(params) {
+		return params[position].sym
+	}
+	return nil
+}
+
+// namedArgumentRedefinitions returns the features a named argument's parameter redefines by the
+// name written (`f(x = 1)`, `new T(x = 1)`): a ParameterRedefinition the notation states.
+func (m *Model) namedArgumentRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
+	if !isExpressionParameterSymbol(sym) || sym.Expr.Owner == nil {
+		return nil
+	}
+	owner := sym.Expr.Owner
+	if owner.Expr != nil && owner.Expr.Role == symbols.ExpressionResult {
+		if formal, named := m.constructorArgumentFormal(sym); formal != nil && named {
+			return []*symbols.Symbol{formal}
+		}
+		return nil
+	}
+	name := expressionArgumentName(sym)
+	if name == nil {
+		return nil
+	}
+	var out []*symbols.Symbol
+	scope := m.expressionScopeOf(owner)
+	for _, general := range m.ImpliedSpecializations(owner) {
+		if target, _ := m.LookupBinding(scope, general, name); target != nil && target != sym && !slices.Contains(out, target) {
 			out = append(out, target)
 		}
 	}
@@ -117,9 +156,16 @@ func (m *Model) expressionElementGenerals(sym *symbols.Symbol) []*symbols.Symbol
 		return out
 	case "SelectExpression", "IndexExpression":
 		// checkSelectExpressionResultSpecialization, checkIndexExpressionResultSpecialization.
-		if arguments := m.ExpressionArguments(expr); len(arguments) > 0 {
-			return []*symbols.Symbol{m.ExpressionResult(arguments[0])}
+		arguments := m.ExpressionArguments(expr)
+		if len(arguments) == 0 {
+			return nil
 		}
+		first := m.ExpressionResult(arguments[0])
+		if _, index := expr.Decl.(*ast.IndexExpr); index && m.Conforms(first, m.libSymbol(fqnCollection)) {
+			// Indexing a Collection selects one of its elements, which is no Collection.
+			return nil
+		}
+		return []*symbols.Symbol{first}
 	}
 	return nil
 }

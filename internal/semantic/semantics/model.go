@@ -619,7 +619,8 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 
 	// A type argument's parameter is typed by the type written. An expression is typed by its function,
 	// its parameters redefine that function's, and its result specializes what it evaluates to.
-	for _, general := range slices.Concat([]*symbols.Symbol{m.typeArgumentType(sym)}, m.expressionElementGenerals(sym), m.expressionParameterRedefinitions(sym)) {
+	for _, general := range slices.Concat([]*symbols.Symbol{m.typeArgumentType(sym)}, m.expressionElementGenerals(sym),
+		m.namedArgumentRedefinitions(sym), m.expressionParameterRedefinitions(sym)) {
 		if general == nil || general == sym || seen[general] {
 			continue
 		}

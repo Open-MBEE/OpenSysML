@@ -11,12 +11,15 @@ import (
 const impliedExpressionModel = `package P {
 	datatype D;
 	function G { in a : D; in b : D; return r : D; }
+	function O { out o : D; in i : D; return r : D; }
 	struct S { feature px : D; feature py : D; }
 	class E {
 		feature d1 : D;
 		feature d2 : D;
 		feature named : D = G(b = d1, a = d2);
+		feature qualified : D = G(G::b = d1, G::a = d2);
 		feature positional : D = G(d1, d2);
+		feature outFirst : D = O(d1);
 		feature cast : D = d1 as D;
 		feature tested = d1 istype D;
 		feature selfTested = @D;
@@ -24,6 +27,9 @@ const impliedExpressionModel = `package P {
 		feature unresolved : D = Missing(d1);
 		feature built : S = new S(py = d1);
 		feature selected = d1.?{in v : D; true};
+		feature list : Collections::OrderedCollection;
+		feature indexed = d1#(1);
+		feature element = list#(1);
 	}
 }`
 
@@ -52,17 +58,21 @@ func TestExpressionParametersRedefineTheFunctionParameters(t *testing.T) {
 	m, root := buildModelWithLibraryNamedKind(t, "a.kerml", source.KindKerML, impliedExpressionModel)
 	cases := []struct {
 		feature string
+		written bool // the notation states the redefinitions: none is implied
 		params  [][]string
 		result  []string
 	}{
-		{"P::E::positional", [][]string{{"P::G::a"}, {"P::G::b"}}, []string{"Performances::Evaluation::result", "P::G::r"}},
+		{"P::E::positional", false, [][]string{{"P::G::a"}, {"P::G::b"}}, []string{"Performances::Evaluation::result", "P::G::r"}},
 		// A named argument's parameter redefines the parameter it names, not the one at its position.
-		{"P::E::named", [][]string{{"P::G::b"}, {"P::G::a"}}, []string{"Performances::Evaluation::result", "P::G::r"}},
-		{"P::E::cast", [][]string{{"BaseFunctions::as::seq"}}, []string{"Performances::Evaluation::result", "BaseFunctions::as::"}},
-		{"P::E::sequence", [][]string{{"BaseFunctions::,::seq1"}, {"BaseFunctions::,::seq2"}}, []string{"Performances::Evaluation::result", "BaseFunctions::,::"}},
-		// A result redefines the result of each general of its expression, as the pilot states both.
+		{"P::E::named", true, [][]string{{"P::G::b"}, {"P::G::a"}}, []string{"Performances::Evaluation::result", "P::G::r"}},
+		// A qualified name is resolved from where the call stands.
+		{"P::E::qualified", true, [][]string{{"P::G::b"}, {"P::G::a"}}, []string{"Performances::Evaluation::result", "P::G::r"}},
+		// A positional argument binds the input parameters in order, past an output before them.
+		{"P::E::outFirst", false, [][]string{{"P::O::i"}}, []string{"Performances::Evaluation::result", "P::O::r"}},
+		{"P::E::cast", false, [][]string{{"BaseFunctions::as::seq"}}, []string{"Performances::Evaluation::result", "BaseFunctions::as::"}},
+		{"P::E::sequence", false, [][]string{{"BaseFunctions::,::seq1"}, {"BaseFunctions::,::seq2"}}, []string{"Performances::Evaluation::result", "BaseFunctions::,::"}},
 		// What names no function that resolves redefines the parameters of no function.
-		{"P::E::unresolved", [][]string{nil}, []string{"Performances::Evaluation::result"}},
+		{"P::E::unresolved", false, [][]string{nil}, []string{"Performances::Evaluation::result"}},
 	}
 	for _, tc := range cases {
 		expr := expressionOf(t, m, root, tc.feature)
@@ -72,15 +82,19 @@ func TestExpressionParametersRedefineTheFunctionParameters(t *testing.T) {
 			continue
 		}
 		for i, want := range tc.params {
-			got := fqnList(m, m.ImpliedRedefinitions(params[i]))
+			got := fqnList(m, m.DirectRedefinedFeatures(params[i]))
 			if !slices.Equal(got, want) && (len(got) > 0 || len(want) > 0) {
 				t.Errorf("%s parameter %d redefines %v, want %v", tc.feature, i, got, want)
 			}
-			// Inheritance and resolution read the same redefinitions.
-			if redefined := fqnList(m, m.DirectRedefinedFeatures(params[i])); !slices.Equal(redefined, got) {
-				t.Errorf("%s parameter %d: DirectRedefinedFeatures %v, ImpliedRedefinitions %v", tc.feature, i, redefined, got)
+			// What is implied is what inheritance and resolution read, less what is written.
+			implied := fqnList(m, m.ImpliedRedefinitions(params[i]))
+			if tc.written && len(implied) > 0 {
+				t.Errorf("%s parameter %d: the written redefinition is implied too: %v", tc.feature, i, implied)
 			}
-			for _, target := range m.ImpliedRedefinitions(params[i]) {
+			if !tc.written && !slices.Equal(implied, got) {
+				t.Errorf("%s parameter %d: DirectRedefinedFeatures %v, ImpliedRedefinitions %v", tc.feature, i, got, implied)
+			}
+			for _, target := range m.DirectRedefinedFeatures(params[i]) {
 				if !slices.Contains(m.DirectSupertypes(params[i]), target) {
 					t.Errorf("%s parameter %d: %s is no direct supertype", tc.feature, i, m.resolver.Index().GetFQN(target))
 				}
@@ -123,8 +137,11 @@ func TestConstructorResultFeatureRedefinesTheInstantiatedTypeFeature(t *testing.
 	if len(features) != 1 {
 		t.Fatalf("the constructor result owns %d features, want 1", len(features))
 	}
-	if got := fqnList(m, m.ImpliedRedefinitions(features[0])); !slices.Equal(got, []string{"P::S::py"}) {
+	if got := fqnList(m, m.DirectRedefinedFeatures(features[0])); !slices.Equal(got, []string{"P::S::py"}) {
 		t.Errorf("the named argument feature redefines %v, want [P::S::py]", got)
+	}
+	if got := fqnList(m, m.ImpliedRedefinitions(features[0])); len(got) > 0 {
+		t.Errorf("the redefinition a named argument writes is implied too: %v", got)
 	}
 	if got := m.DerivedFeaturingTypes(features[0]); !slices.Equal(got, []FeaturingType{{Type: result}}) {
 		t.Errorf("the argument feature is featured by %v, want the result alone", got)
@@ -144,6 +161,25 @@ func TestTypeArgumentRedefinesTheTypeParameter(t *testing.T) {
 		}
 		if got := fqnList(m, m.DirectSupertypes(argument)); len(got) == 0 || got[0] != "P::D" {
 			t.Errorf("%s: the type argument specializes %v, want P::D first", feature, got)
+		}
+	}
+}
+
+func TestIndexResultSpecializesTheSequenceUnlessACollection(t *testing.T) {
+	m, root := buildModelWithLibraryNamedKind(t, "a.kerml", source.KindKerML, impliedExpressionModel)
+	for feature, want := range map[string]bool{"P::E::indexed": true, "P::E::element": false} {
+		expr := expressionOf(t, m, root, feature)
+		arguments := m.ExpressionArguments(expr)
+		if len(arguments) == 0 {
+			t.Fatalf("%s: the index expression has no argument", feature)
+		}
+		sequence := m.ExpressionResult(arguments[0])
+		result := m.ExpressionResult(expr)
+		if got := slices.Contains(m.ImpliedSpecializations(result), sequence); got != want {
+			t.Errorf("%s: the result specializes its sequence: %t, want %t", feature, got, want)
+		}
+		if got := slices.Contains(m.DirectSupertypes(result), sequence); got != want {
+			t.Errorf("%s: the sequence is a direct supertype of the result: %t, want %t", feature, got, want)
 		}
 	}
 }
