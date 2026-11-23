@@ -2843,9 +2843,22 @@ func sequencedMembers(members []ast.Node) map[ast.Node]bool {
 	return sequenced
 }
 
+// declaresAssertion reports whether any of members is an `assert constraint`.
+func declaresAssertion(members []ast.Node) bool {
+	for _, member := range members {
+		if u, ok := unwrapMembership(member).(*ast.Usage); ok && resolve.IsAssertion(u) {
+			return true
+		}
+	}
+	return false
+}
+
 // orderedAssertions collects the `assert constraint` members of a body that one
 // of its successions names or binds by position, each a step of the flow.
 func orderedAssertions(members []ast.Node) map[*ast.Usage]bool {
+	if !declaresAssertion(members) {
+		return nil
+	}
 	named := make(map[string]bool)
 	name := func(ends ...*ast.QualifiedName) {
 		for _, end := range ends {
