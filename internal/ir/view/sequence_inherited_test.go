@@ -259,3 +259,37 @@ func TestSequenceRenderingReadsAnInheritedOrderBetweenEventsOnlySuccessionsName(
 		t.Errorf("edges = %q, want the inherited order drawn on client", got)
 	}
 }
+
+// An order one usage states over the events it inherits is that usage's alone:
+// it is drawn on its lifeline and does not hold on another typed alike.
+func TestSequenceRenderingKeepsAUsagesOwnOrderOffItsSiblings(t *testing.T) {
+	rendering := renderSequenceOf(t, `package P {
+	item def Ping;
+	part def Client {
+		event occurrence sent;
+		event occurrence got;
+	}
+	part def Scene {
+		part server {
+			event occurrence a;
+			event occurrence b;
+		}
+		part client : Client;
+		part other : Client {
+			succession first got then sent;
+		}
+		message reply of Ping from server.a to client.got;
+		message ask of Ping from client.sent to server.b;
+		succession first client.sent then other.got;
+	}
+}`, "Scene")
+	want := []string{
+		"reply of Ping: server.a -> client.got",
+		"ask of Ping: client.sent -> server.b",
+		": client.sent -> other.got",
+		": other.got -> other.sent",
+	}
+	if got := sequenceEnds(rendering); !slices.Equal(got, want) {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}

@@ -218,7 +218,9 @@ type order struct {
 	// The features a succession usage names its ends through (`client` of
 	// `client.sent`), nil for an end named on its own.
 	fromThrough, toThrough *symbols.Symbol
-	name                   string
+	// within is the element whose body states the order.
+	within *symbols.Symbol
+	name   string
 	// succession is the usage stating the order, nil for a member-attached `then`,
 	// which has no declaration of its own.
 	succession *symbols.Symbol
@@ -323,7 +325,7 @@ func (r *Renderer) addSuccessionUsage(succession *symbols.Symbol, into *interact
 	}
 	fromThrough, _ := r.resolver.ResolveTarget(succession.OwnerScope, chainOperand(usage.ConnectorEnds[0].AttachedTarget()))
 	toThrough, _ := r.resolver.ResolveTarget(succession.OwnerScope, chainOperand(usage.ConnectorEnds[1].AttachedTarget()))
-	into.orders = append(into.orders, order{from: from, to: to, fromThrough: fromThrough, toThrough: toThrough,
+	into.orders = append(into.orders, order{from: from, to: to, fromThrough: fromThrough, toThrough: toThrough, within: succession.Owner(),
 		name: name, succession: succession, origin: symbolOrigin(succession)})
 }
 
@@ -340,7 +342,7 @@ func (r *Renderer) addSuccessionEdges(sym *symbols.Symbol, into *interactions) {
 		if from == nil || to == nil {
 			continue
 		}
-		into.orders = append(into.orders, order{from: from, to: to, origin: nodeOrigin(symbols.DocNameOf(sym.OwnerScope), edge)})
+		into.orders = append(into.orders, order{from: from, to: to, within: sym, origin: nodeOrigin(symbols.DocNameOf(sym.OwnerScope), edge)})
 	}
 }
 
@@ -461,7 +463,7 @@ func (r *Renderer) successions(view *symbols.Symbol, orders []order, ends *lifel
 	var timings []timing
 	inherited := r.inheritedOrders(orders, ends, out.Roots)
 	for i, o := range orders {
-		placed := []timing{{from: ends.orderEnd(o.from, o.fromThrough), to: ends.orderEnd(o.to, o.toThrough), name: o.name}}
+		placed := []timing{{from: ends.orderEnd(o, o.from, o.fromThrough), to: ends.orderEnd(o, o.to, o.toThrough), name: o.name}}
 		for _, t := range append(placed, inherited[i]...) {
 			timings = append(timings, t)
 			if t.from.lifeline == nil || t.to.lifeline == nil {
@@ -490,8 +492,11 @@ func (e *lifelineEnds) inheritedOn(occurrence, through *symbols.Symbol) *Node {
 }
 
 // orderEnd is an end of an order on the lifeline it is read on: the one it is
-// named through when that inherits it, else the nearest owner shown.
-func (e *lifelineEnds) orderEnd(occurrence, through *symbols.Symbol) lifelineEnd {
+// named through, or stated within, when that inherits it, else the nearest owner shown.
+func (e *lifelineEnds) orderEnd(o order, occurrence, through *symbols.Symbol) lifelineEnd {
+	if through == nil {
+		through = o.within
+	}
 	if lifeline := e.inheritedOn(occurrence, through); lifeline != nil {
 		return lifelineEnd{lifeline, occurrence}
 	}
@@ -499,8 +504,8 @@ func (e *lifelineEnds) orderEnd(occurrence, through *symbols.Symbol) lifelineEnd
 }
 
 // inheritedOrders are, per order, its readings on the lifelines that inherit it,
-// in the order drawn: an order a definition states between two of its events holds
-// on every lifeline holding one of them by inheritance, the events it redefines
+// in the order drawn: an order a definition states between two of its own events
+// holds on every lifeline holding one of them by inheritance, the events it redefines
 // standing in for the ones redefined. A chain of orders carries a lifeline's
 // events along it, so the readings are taken until none adds an event.
 func (r *Renderer) inheritedOrders(orders []order, ends *lifelineEnds, lifelines []*Node) [][]timing {
@@ -514,14 +519,14 @@ func (r *Renderer) inheritedOrders(orders []order, ends *lifelineEnds, lifelines
 	}
 	// An order named through a lifeline puts its event there as a message does.
 	for _, o := range orders {
-		held[ends.orderEnd(o.from, o.fromThrough)], held[ends.orderEnd(o.to, o.toThrough)] = true, true
+		held[ends.orderEnd(o, o.from, o.fromThrough)], held[ends.orderEnd(o, o.to, o.toThrough)] = true, true
 	}
 	inherited := make([][]timing, len(orders))
 	read := map[[2]int]bool{}
 	for grew := true; grew; {
 		grew = false
 		for i, o := range orders {
-			if o.from == nil || o.to == nil || o.fromThrough != nil || o.toThrough != nil || o.from.Owner() != o.to.Owner() {
+			if o.from == nil || o.to == nil || o.fromThrough != nil || o.toThrough != nil || o.from.Owner() != o.within || o.to.Owner() != o.within {
 				continue
 			}
 			for at, lifeline := range lifelines {
