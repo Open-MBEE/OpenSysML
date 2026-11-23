@@ -102,16 +102,25 @@ func (a *libraryAudit) anyConformsTo(types []*symbols.Symbol, fqn string) bool {
 	return false
 }
 
-// features returns the features sym states: those of its own body and those it
-// inherits from the types and generals the model, not the library, declares.
+// features returns the features sym states: those of its own body, named or not, and those
+// it inherits from the types and generals the model, not the library, declares.
 func (a *libraryAudit) features(sym *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	seen := map[*symbols.Symbol]bool{}
-	for _, member := range a.model.MembersOf(sym) {
+	add := func(member *symbols.Symbol) {
 		if member.Kind != symbols.SymbolAlias && member.IsFeature() && !seen[member] && !a.ctx.Index.Library(member) {
 			seen[member] = true
 			out = append(out, member)
 		}
+	}
+	for _, member := range a.model.MembersOf(sym) {
+		add(member)
+	}
+	if sym.Scope != nil {
+		sym.Scope.ForEachAnonymousMember(func(member *symbols.Symbol) bool {
+			add(member)
+			return true
+		})
 	}
 	return out
 }

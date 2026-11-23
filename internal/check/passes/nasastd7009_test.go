@@ -67,6 +67,29 @@ func TestNASASTD7009AssessmentMissingFactor(t *testing.T) {
 	}
 }
 
+// A factor stated by an unnamed usage, under an unnamed group, counts as stated.
+func TestNASASTD7009AssessmentCountsUnnamedFactors(t *testing.T) {
+	src := nasastd7009Model(`
+		#resultsAssessment item results {
+			part {
+				#resultsFactor item { :>> factor = ResultsFactor::msUseAssessment; :>> level = FactorLevel::level4; }
+			}
+		}`)
+	var found bool
+	for _, d := range w8dDiags(t, src) {
+		if d.Code != CodeNASASTD7009AssessmentMissingFactor {
+			continue
+		}
+		found = true
+		if !strings.Contains(d.Message, "5 of its 6 factors: M&S Input Pedigree") {
+			t.Errorf("the unnamed M&S Use Assessment factor was not counted: %s", d.Message)
+		}
+	}
+	if !found {
+		t.Error("no missing-factor finding over an assessment stating one of six factors")
+	}
+}
+
 // A report includes both assessments, the uncertainty estimate with its process, the qualifications
 // and the risk acceptance; no estimate available needs no process, and inherited content counts.
 func TestNASASTD7009ReportMissingContent(t *testing.T) {
