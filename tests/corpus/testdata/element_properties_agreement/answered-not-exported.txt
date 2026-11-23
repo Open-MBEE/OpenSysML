@@ -342,7 +342,6 @@ FlowUsage::type	115	symbol-19
 ForLoopActionUsage::actionDefinition	2	symbol-35
 ForLoopActionUsage::behavior	2	symbol-26
 ForLoopActionUsage::definition	2	symbol-37
-ForLoopActionUsage::nestedReference	2	symbol-65
 ForLoopActionUsage::occurrenceDefinition	2	symbol-41
 ForLoopActionUsage::type	2	symbol-19
 ForkNode::actionDefinition	8	symbol-35
