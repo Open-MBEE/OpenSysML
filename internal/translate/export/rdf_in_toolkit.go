@@ -134,6 +134,12 @@ func collapsedOf(metaclass string) (string, bool) {
 		return "intersects", true
 	case mDifferencing:
 		return "differences", true
+	case mDisjoining:
+		return "disjointFrom", true
+	case mFeatureInverting:
+		return "inverseOf", true
+	case mTypeFeaturing:
+		return "featuringType", true
 	}
 	return "", false
 }
@@ -152,6 +158,9 @@ var collapsedKindsOf = map[string][]ast.RelationshipKind{
 	mUnioning:             {ast.RelUnions},
 	mIntersecting:         {ast.RelIntersects},
 	mDifferencing:         {ast.RelDifferences},
+	mDisjoining:           {ast.RelDisjoint},
+	mFeatureInverting:     {ast.RelInverseOf},
+	mTypeFeaturing:        {ast.RelFeaturedBy},
 	mAnnotation:           {ast.RelAnnotates},
 }
 

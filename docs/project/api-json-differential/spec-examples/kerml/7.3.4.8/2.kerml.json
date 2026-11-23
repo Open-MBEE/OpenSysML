@@ -4,23 +4,23 @@
   "summary": {
     "pilotLibraryElements": 0,
     "elements": {
-      "matched": 10,
+      "matched": 12,
       "oursOnly": 2,
-      "pilotOnly": 2,
+      "pilotOnly": 0,
       "pilotOnlyImplied": 0,
       "typeMismatch": 1
     },
     "properties": {
-      "presentEqual": 144,
-      "presentDifferent": 1,
-      "oursMissing": 24,
-      "pilotMissing": 8,
-      "absentBoth": 147,
+      "presentEqual": 166,
+      "presentDifferent": 0,
+      "oursMissing": 23,
+      "pilotMissing": 10,
+      "absentBoth": 167,
       "indeterminate": 0,
       "pilotNondeterministic": 0
     },
     "unkeyedReferences": 5,
-    "extensionProperties": 53,
+    "extensionProperties": 55,
     "duplicateElements": {
       "ours": 0,
       "pilot": 0
@@ -132,10 +132,10 @@
     "Feature.ownedMember": [0,0,0,0,1,0,0],
     "Feature.ownedMembership": [0,0,0,0,1,0,0],
     "Feature.ownedRedefinition": [0,0,0,0,1,0,0],
-    "Feature.ownedRelationship": [0,1,0,0,0,0,0],
+    "Feature.ownedRelationship": [1,0,0,0,0,0,0],
     "Feature.ownedSpecialization": [1,0,0,0,0,0,0],
     "Feature.ownedSubsetting": [0,0,0,0,1,0,0],
-    "Feature.ownedTypeFeaturing": [0,0,1,0,0,0,0],
+    "Feature.ownedTypeFeaturing": [1,0,0,0,0,0,0],
     "Feature.ownedTyping": [1,0,0,0,0,0,0],
     "Feature.ownedUnioning": [0,0,0,0,1,0,0],
     "Feature.owner": [1,0,0,0,0,0,0],
@@ -235,6 +235,27 @@
     "Package.owningNamespace": [1,0,0,0,0,0,0],
     "Package.owningRelationship": [1,0,0,0,0,0,0],
     "Package.qualifiedName": [1,0,0,0,0,0,0],
-    "Package.textualRepresentation": [0,0,0,0,1,0,0]
+    "Package.textualRepresentation": [0,0,0,0,1,0,0],
+    "TypeFeaturing.aliasIds": [0,0,0,0,2,0,0],
+    "TypeFeaturing.declaredName": [0,0,0,0,2,0,0],
+    "TypeFeaturing.declaredShortName": [0,0,0,0,2,0,0],
+    "TypeFeaturing.documentation": [0,0,0,0,2,0,0],
+    "TypeFeaturing.featureOfType": [2,0,0,0,0,0,0],
+    "TypeFeaturing.featuringType": [2,0,0,0,0,0,0],
+    "TypeFeaturing.isImplied": [2,0,0,0,0,0,0],
+    "TypeFeaturing.isImpliedIncluded": [2,0,0,0,0,0,0],
+    "TypeFeaturing.isLibraryElement": [2,0,0,0,0,0,0],
+    "TypeFeaturing.ownedAnnotation": [0,0,0,0,2,0,0],
+    "TypeFeaturing.ownedElement": [0,0,0,0,2,0,0],
+    "TypeFeaturing.ownedRelatedElement": [0,0,0,0,2,0,0],
+    "TypeFeaturing.ownedRelationship": [0,0,0,0,2,0,0],
+    "TypeFeaturing.owner": [0,0,0,2,0,0,0],
+    "TypeFeaturing.owningFeatureOfType": [2,0,0,0,0,0,0],
+    "TypeFeaturing.owningRelatedElement": [2,0,0,0,0,0,0],
+    "TypeFeaturing.owningRelationship": [0,0,0,0,2,0,0],
+    "TypeFeaturing.relatedElement": [2,0,0,0,0,0,0],
+    "TypeFeaturing.source": [2,0,0,0,0,0,0],
+    "TypeFeaturing.target": [2,0,0,0,0,0,0],
+    "TypeFeaturing.textualRepresentation": [0,0,0,0,2,0,0]
   }
 }
