@@ -9,7 +9,7 @@ output=${GITHUB_OUTPUT:-/dev/null}
 
 git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-if [ "$(git rev-parse HEAD)" != "$head_sha" ]; then
+if [[ "$(git rev-parse HEAD)" != "$head_sha" ]]; then
 	echo "the branch moved since the label was applied ($head_sha); apply the label again" >&2
 	exit 1
 fi
@@ -20,7 +20,7 @@ theirs=$(git rev-parse origin/develop)
 	echo "ours=$head_sha"
 	echo "theirs=$theirs"
 } >> "$output"
-if [ "$base" = "$theirs" ]; then
+if [[ "$base" == "$theirs" ]]; then
 	echo "develop is already merged; re-recording on the current head"
 elif ! git merge --no-ff --no-commit origin/develop; then
 	conflicts=$(git diff --name-only --diff-filter=U)
@@ -32,9 +32,9 @@ elif ! git merge --no-ff --no-commit origin/develop; then
 			case "$file" in "$path"|"$path"/*) ok=1 ;; *) ;; esac  # another generated path may still claim the file
 		done <<< "$generated"
 		case "$file" in */testdata/*.golden|*/testdata/*.golden.*|*/testdata/*.sha256) ;; */testdata/*.sysml|*/testdata/*.kerml|*/testdata/*.ttl) ok=0 ;; *) ;; esac  # any other file keeps the generated-paths verdict
-		[ "$ok" = 1 ] || other="$other$file"$'\n'
+		[[ "$ok" == 1 ]] || other="$other$file"$'\n'
 	done <<< "$conflicts"
-	if [ -n "$other" ]; then
+	if [[ -n "$other" ]]; then
 		printf 'conflicts outside the generated paths; resolve them by hand:\n%s' "$other" >&2
 		exit 1
 	fi
