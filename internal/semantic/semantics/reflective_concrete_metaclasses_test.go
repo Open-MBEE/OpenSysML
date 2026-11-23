@@ -256,6 +256,7 @@ func TestElementFilterMembershipVisibilityIsTheOneWritten(t *testing.T) {
     filter @M;
     private package Q { filter @M; }
 }`)[0]
+	const kind = "KerML::Root::VisibilityKind::"
 	visibilities := func(owner string) []string {
 		var out []string
 		for _, membership := range fixture.model.OwnedMemberships(relFixtureSymbol(t, fixture, owner)) {
@@ -267,10 +268,15 @@ func TestElementFilterMembershipVisibilityIsTheOneWritten(t *testing.T) {
 				t.Fatalf("visibility on an ElementFilterMembership of %s is unsupported", owner)
 			}
 			out = append(out, value.RefFQN)
+			// The condition's own parameter memberships are not the filter's: they keep what the package gives them.
+			for _, parameter := range fixture.model.OwnedMemberships(membership.Implicit.Member) {
+				if inner, _ := fixture.model.ReflectiveFeatureValue(parameter, "visibility"); owner == "P" && inner.RefFQN != kind+"public" {
+					t.Errorf("a parameter membership of a %s filter condition of %s reads %s", value.RefFQN, owner, inner.RefFQN)
+				}
+			}
 		}
 		return out
 	}
-	const kind = "KerML::Root::VisibilityKind::"
 	assertNames(t, "P filter visibilities", visibilities("P"), []string{kind + "private", kind + "protected", kind + "public"})
 	assertNames(t, "Q filter visibilities", visibilities("Q"), []string{kind + "public"})
 }

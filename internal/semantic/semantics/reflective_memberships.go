@@ -296,12 +296,9 @@ func (m *Model) synthesizedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	for i, filter := range symbols.NamespaceFiltersIn(sym.Scope) {
 		if filter.Expr != nil {
-			condition := synthesizedMember(sym, filter.Expr, &symbols.ExpressionElement{
+			out = append(out, synthesizedMember(sym, filter.Expr, &symbols.ExpressionElement{
 				Owner: sym, Role: symbols.ExpressionFilterCondition, Index: i,
-			})
-			// The ElementFilterMembership's visibility is the one its MemberPrefix states (KerML 8.2.3.4.1).
-			_, condition.Visibility = filterMemberStating(sym, filter.Expr)
-			out = append(out, condition)
+			}))
 		}
 	}
 	for _, result := range OwnedResultExpressions(sym) {
@@ -1093,6 +1090,11 @@ func (m *Model) membershipValue(sym *symbols.Symbol, feature string) (symbols.Fi
 		if rel.Member == nil {
 			// `entry;` owns no member: its visibility is the membership's own.
 			return m.visibilityValue(sym.Visibility), true
+		}
+		if expr := rel.Member.Expr; expr != nil && expr.Role == symbols.ExpressionFilterCondition {
+			// An ElementFilterMembership's visibility is the one its MemberPrefix states (KerML 8.2.3.4.1).
+			_, written := filterMemberStating(expr.Owner, rel.Member.Decl)
+			return m.visibilityValue(written), true
 		}
 		return m.visibilityValue(rel.Member.Visibility), true
 	case "isDefault", "isInitial":
