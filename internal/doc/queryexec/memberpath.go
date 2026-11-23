@@ -14,15 +14,12 @@ func parseMemberPath(property string) ([]string, bool) {
 }
 
 // memberPathStep resolves one inner segment on an element: the member it names, own members
-// first, else the elements of the metaclass feature it names (`type`, `owner`, …).
-func (e *executor) memberPathStep(current *symbols.Symbol, segment string) []*symbols.Symbol {
+// first, else the elements of the metaclass feature it names; known is false where it names neither.
+func (e *executor) memberPathStep(current *symbols.Symbol, segment string) (elements []*symbols.Symbol, known bool) {
 	if member, ok := e.context.Model.LookupMember(current, segment); ok && member != nil {
-		return []*symbols.Symbol{member}
+		return []*symbols.Symbol{member}, true
 	}
-	if elements, ok := e.context.Model.ReflectiveElements(current, segment); ok {
-		return elements
-	}
-	return nil
+	return e.context.Model.ReflectiveElements(current, segment)
 }
 
 // memberOverflow names a declared member a path reached holding more values than its multiplicity admits.
@@ -31,17 +28,20 @@ type memberOverflow struct {
 	count  int
 }
 
-// memberPathValues walks a member path from the row element; a segment naming neither a member nor a
-// metaclass feature makes the path absent. The first declared member read over its multiplicity is reported.
+// memberPathValues walks a member path from the row element. A segment naming neither a member nor a metaclass
+// feature makes the path absent, one holding no element an empty cell. The first overfull member is reported.
 func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]Value, bool, *memberOverflow, error) {
 	reached := []*symbols.Symbol{sym}
 	for _, segment := range segments[:len(segments)-1] {
 		var next []*symbols.Symbol
+		known := false
 		for _, current := range reached {
-			next = append(next, e.memberPathStep(current, segment)...)
+			elements, ok := e.memberPathStep(current, segment)
+			known = known || ok
+			next = append(next, elements...)
 		}
 		if len(next) == 0 {
-			return nil, false, nil, nil
+			return nil, known, nil, nil
 		}
 		reached = next
 	}
@@ -98,7 +98,7 @@ func (e *executor) metaclassSegmentValues(current *symbols.Symbol, last string) 
 func (e *executor) memberPathStop(sym *symbols.Symbol, segments []string) (*symbols.Symbol, string) {
 	current := sym
 	for _, segment := range segments {
-		next := e.memberPathStep(current, segment)
+		next, _ := e.memberPathStep(current, segment)
 		if len(next) == 0 {
 			return current, segment
 		}

@@ -1,0 +1,1 @@
+- A query member path whose inner segment names a feature the row has but that holds no element — `ownedMember.name` on a definition with no members — now yields an empty cell on that row instead of failing the whole query with "no such feature". A segment naming neither a member nor a metaclass feature is still an error.
