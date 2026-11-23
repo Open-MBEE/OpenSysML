@@ -374,8 +374,8 @@ func (r *Resolver) importedMembersAdmitting(into, scope *symbols.Scope, imp *ast
 		if members, ok := r.enumerateToFixpoint(key, admission); ok {
 			return members
 		}
-		// A namespace read both with and without its private memberships has
-		// no one answer for a cycle through it: each route is read on its own.
+		// A namespace read in two ways has no one answer for a cycle through it:
+		// each route is read on its own.
 		r.enumExact++
 		defer func() { r.enumExact-- }()
 	}

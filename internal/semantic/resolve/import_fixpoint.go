@@ -20,7 +20,7 @@ type enumFixpoint struct {
 	children map[fixedChildren]fixedEdge
 	reading  map[fixedChildren]bool
 	brought  map[fixedChildren]keptMembers
-	all      map[*symbols.Scope]bool // each namespace read, and whether with its private memberships
+	read     map[*symbols.Scope]readNamespace // each namespace read, and how
 	finals   []fixedEdge
 	// collided keeps collidedBelow's answers while collisionEpoch stays at epoch.
 	collided map[collidedName]collidedAnswer
@@ -87,15 +87,12 @@ func (r *Resolver) enumReading(scope *symbols.Scope, f func()) {
 	r.reading(scope, f)
 }
 
-// enter records that a namespace's memberships are read, all of them or the visible ones.
-func (fix *enumFixpoint) enter(scope *symbols.Scope, all bool) {
-	if scope == nil {
-		return
-	}
-	if was, entered := fix.all[scope]; entered && was != all {
+// enter records how a namespace is read; one read in two ways makes the fixpoint mixed.
+func (fix *enumFixpoint) enter(read readNamespace) {
+	if was, entered := fix.read[read.scope]; entered && was != read {
 		fix.mixed = true
 	}
-	fix.all[scope] = all
+	fix.read[read.scope] = read
 }
 
 // settle records an edge's answer for the pass, noting whether it grew.
@@ -136,7 +133,7 @@ func (r *Resolver) edgeInProgress(imp *ast.Import, includeUnnamed bool) (members
 }
 
 // enumerateToFixpoint enumerates key by passes until no edge grows. It reports false for a namespace
-// read both with and without its private memberships: a walk through it is no route of 8.3.2.4.5.
+// read in two ways (readNamespace): a walk through that one is no route of KerML 8.3.2.4.5.
 func (r *Resolver) enumerateToFixpoint(key enumResult, admission func() func(*symbols.Symbol) bool) ([]*symbols.Symbol, bool) {
 	outer := r.enumFix
 	defer func() { r.enumFix = outer }()
@@ -166,7 +163,7 @@ func (r *Resolver) enumerateToFixpoint(key enumResult, admission func() func(*sy
 		route := r.routeDepsSince(mark, key.scope)
 		// Each pass but the last grows an edge, and an edge grows by a member
 		// or a namespace: more passes than that is no monotone enumeration.
-		if fix.mixed || pass > (len(fix.approx)+len(fix.brought))*(len(fix.all)+1) {
+		if fix.mixed || pass > (len(fix.approx)+len(fix.brought))*(len(fix.read)+1) {
 			if share != nil {
 				share.last = nil
 			}
@@ -217,7 +214,7 @@ func (r *Resolver) fixpointOver(share *fixShare) *enumFixpoint {
 		approx:   map[enumEdge]keptMembers{},
 		done:     map[enumEdge]fixedEdge{},
 		active:   map[enumEdge]bool{},
-		all:      map[*symbols.Scope]bool{},
+		read:     map[*symbols.Scope]readNamespace{},
 		children: map[fixedChildren]fixedEdge{},
 		reading:  map[fixedChildren]bool{},
 		brought:  map[fixedChildren]keptMembers{},

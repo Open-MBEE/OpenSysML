@@ -14,11 +14,11 @@ type routeDeps struct {
 	entered []readNamespace
 }
 
-// readNamespace is a namespace an import read, all of its memberships or the
-// visible ones (KerML 8.3.2.4.5 visibleMemberships, includeAll).
+// readNamespace is a namespace an import read: all of its memberships or the visible
+// ones, with its owned namespaces or not (KerML 8.3.2.4.5 visibleMemberships).
 type readNamespace struct {
-	scope *symbols.Scope
-	all   bool
+	scope          *symbols.Scope
+	all, recursive bool
 }
 
 // routeMark is a point in the record of cuts and entries (see routeDepsSince).
@@ -65,10 +65,10 @@ func (r *Resolver) readsNamespace(scope *symbols.Scope, imp *ast.Import) {
 	if scope == nil {
 		return
 	}
-	read := readNamespace{scope: scope, all: importAllowsPrivate(imp)}
+	read := readNamespace{scope: scope, all: importAllowsPrivate(imp), recursive: imp.IsRecursive}
 	r.importSeen = append(r.importSeen, read)
 	if fix := r.fixpoint(); fix != nil {
-		fix.enter(read.scope, read.all)
+		fix.enter(read)
 	}
 }
 
@@ -153,7 +153,7 @@ func (r *Resolver) replayRoute(deps routeDeps) {
 	r.importSeen = append(r.importSeen, deps.entered...)
 	if fix := r.fixpoint(); fix != nil {
 		for _, read := range deps.entered {
-			fix.enter(read.scope, read.all)
+			fix.enter(read)
 		}
 	}
 	r.forgetRoute()
