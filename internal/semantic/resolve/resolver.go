@@ -161,13 +161,15 @@ type Resolver struct {
 	// progress (issue #633), each with its cuts; importDepth is the nesting.
 	importVisits map[importVisit][][]*symbols.Scope
 	importDepth  int
+	// probe is the walk in progress for whether the imports hold a name at all.
+	holdProbe *importProbe
 	// importPath is the excluded set of KerML 8.3.2.4.5, the namespaces being
 	// read; importHits and importSeen record cuts and entries (routeDepsSince).
 	importPath []*symbols.Scope
 	// importNames names the leading scopes of importPath as the index does.
 	importNames []string
 	importHits  []*symbols.Scope
-	importSeen  []*symbols.Scope
+	importSeen  []readNamespace
 	importMarks int
 	// enumMembers memoizes each import edge's members within one enumeration (issue
 	// #633), per route; enumKept/enumResults keep uncut ones across enumerations, journaled.
@@ -176,6 +178,17 @@ type Resolver struct {
 	enumKept    map[enumEdge]keptMembers
 	enumResults map[enumResult]keptMembers
 	enumCut     int
+	// enumFix is the enumeration fixpoint in progress, enumShare the one a namespace's imports
+	// share; enumApprox counts unsettled answers, enumExact is set while each route is read instead.
+	enumFix    *enumFixpoint
+	enumShare  *fixShare
+	enumApprox int
+	enumExact  int
+	// collisionEpoch counts the changes to the collisions computed or in progress.
+	collisionEpoch int
+	// routeGen names the route in progress; routeSeq numbers the routes begun.
+	routeGen, routeSeq int
+
 	Diagnostics []Diagnostic
 	// quiet is nonzero while a lookup is made on behalf of a semantic query
 	// rather than a reference in the document being resolved.
@@ -836,20 +849,23 @@ func (r *Resolver) aside(f func()) {
 // freshImportVisits runs f as a lookup of its own: neither the searches the
 // enclosing imported-member lookup made nor the namespaces it excludes bear on it.
 func (r *Resolver) freshImportVisits(f func()) {
-	if r.importDepth == 0 && len(r.importPath) == 0 && r.importMarks == 0 {
+	if r.importDepth == 0 && len(r.importPath) == 0 && r.importMarks == 0 && r.holdProbe == nil {
 		f()
 		return
 	}
-	visits, depth := r.importVisits, r.importDepth
+	visits, depth, probe := r.importVisits, r.importDepth, r.holdProbe
+	r.holdProbe = nil
 	path, hits, seen, marks := r.importPath, r.importHits, r.importSeen, r.importMarks
-	names := r.importNames
-	r.importNames = nil
+	names, gen, exact := r.importNames, r.routeGen, r.enumExact
+	r.importNames, r.enumExact = nil, 0
+	r.routeSeq++
+	r.routeGen = r.routeSeq
 	r.importVisits, r.importDepth = map[importVisit][][]*symbols.Scope{}, 0
 	r.importPath, r.importHits, r.importSeen, r.importMarks = nil, nil, nil, 0
 	defer func() {
-		r.importVisits, r.importDepth = visits, depth
+		r.importVisits, r.importDepth, r.holdProbe = visits, depth, probe
 		r.importPath, r.importHits, r.importSeen, r.importMarks = path, hits, seen, marks
-		r.importNames = names
+		r.importNames, r.routeGen, r.enumExact = names, gen, exact
 	}()
 	f()
 }

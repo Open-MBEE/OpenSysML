@@ -10,7 +10,15 @@ import (
 // routeDeps is what an import read depended on of its route (KerML 8.3.2.4.5,
 // 8.3.2.4.6): the excluded namespaces it was cut at, and the ones it entered.
 type routeDeps struct {
-	cut, entered []*symbols.Scope
+	cut     []*symbols.Scope
+	entered []readNamespace
+}
+
+// readNamespace is a namespace an import read, all of its memberships or the
+// visible ones (KerML 8.3.2.4.5 visibleMemberships, includeAll).
+type readNamespace struct {
+	scope *symbols.Scope
+	all   bool
 }
 
 // routeMark is a point in the record of cuts and entries (see routeDepsSince).
@@ -26,7 +34,11 @@ func (r *Resolver) reading(scope *symbols.Scope, f func()) {
 		return
 	}
 	r.importPath = append(r.importPath, scope)
+	gen := r.routeGen
+	r.routeSeq++
+	r.routeGen = r.routeSeq
 	defer func() {
+		r.routeGen = gen
 		r.importPath = r.importPath[:len(r.importPath)-1]
 		r.importNames = r.importNames[:min(len(r.importNames), len(r.importPath))]
 		r.forgetRoute()
@@ -34,9 +46,9 @@ func (r *Resolver) reading(scope *symbols.Scope, f func()) {
 	f()
 }
 
-// entersNamespace reports whether a namespace import may read the namespace
-// owning scope, which it may not while that namespace is excluded.
-func (r *Resolver) entersNamespace(scope *symbols.Scope) bool {
+// entersNamespace reports whether imp may read the namespace owning scope,
+// which it may not while that namespace is excluded.
+func (r *Resolver) entersNamespace(scope *symbols.Scope, imp *ast.Import) bool {
 	if scope == nil {
 		return true
 	}
@@ -44,8 +56,20 @@ func (r *Resolver) entersNamespace(scope *symbols.Scope) bool {
 		r.importHits = append(r.importHits, scope)
 		return false
 	}
-	r.importSeen = append(r.importSeen, scope)
+	r.readsNamespace(scope, imp)
 	return true
+}
+
+// readsNamespace records that imp reads the namespace owning scope.
+func (r *Resolver) readsNamespace(scope *symbols.Scope, imp *ast.Import) {
+	if scope == nil {
+		return
+	}
+	read := readNamespace{scope: scope, all: importAllowsPrivate(imp)}
+	r.importSeen = append(r.importSeen, read)
+	if fix := r.fixpoint(); fix != nil {
+		fix.enter(read.scope, read.all)
+	}
 }
 
 // freshImportRoute runs f as the read of a namespace in its own right: no
@@ -90,7 +114,9 @@ func (r *Resolver) routeDepsSince(mark routeMark, self *symbols.Scope) routeDeps
 			deps.cut = append(deps.cut, scope)
 		}
 	}
-	deps.entered = distinctScopes(r.importSeen[mark.seen:])
+	deps.entered = distinct(r.importSeen[mark.seen:])
+	// The enclosing reads depend on the same namespaces, each recorded once.
+	r.importSeen = append(r.importSeen[:mark.seen], deps.entered...)
 	r.importMarks--
 	r.forgetRoute()
 	return deps
@@ -112,8 +138,8 @@ func (r *Resolver) routeHolds(deps routeDeps, members bool) bool {
 		}
 	}
 	if members {
-		for _, scope := range r.importPath {
-			if slices.Contains(deps.entered, scope) {
+		for _, read := range deps.entered {
+			if slices.Contains(r.importPath, read.scope) {
 				return false
 			}
 		}
@@ -125,14 +151,19 @@ func (r *Resolver) routeHolds(deps routeDeps, members bool) bool {
 func (r *Resolver) replayRoute(deps routeDeps) {
 	r.importHits = append(r.importHits, deps.cut...)
 	r.importSeen = append(r.importSeen, deps.entered...)
+	if fix := r.fixpoint(); fix != nil {
+		for _, read := range deps.entered {
+			fix.enter(read.scope, read.all)
+		}
+	}
 	r.forgetRoute()
 }
 
-func distinctScopes(scopes []*symbols.Scope) []*symbols.Scope {
+func distinct[T comparable](scopes []T) []T {
 	if len(scopes) == 0 {
 		return nil
 	}
-	out := make([]*symbols.Scope, 0, len(scopes))
+	out := make([]T, 0, len(scopes))
 	if len(scopes) <= 8 {
 		for _, scope := range scopes {
 			if !slices.Contains(out, scope) {
@@ -141,7 +172,7 @@ func distinctScopes(scopes []*symbols.Scope) []*symbols.Scope {
 		}
 		return out
 	}
-	seen := make(map[*symbols.Scope]struct{}, len(scopes))
+	seen := make(map[T]struct{}, len(scopes))
 	for _, scope := range scopes {
 		if _, dup := seen[scope]; !dup {
 			seen[scope] = struct{}{}

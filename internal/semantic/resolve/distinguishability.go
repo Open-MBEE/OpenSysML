@@ -102,6 +102,9 @@ func (r *Resolver) importedCollisions(scope *symbols.Scope) *importCollisions {
 		return c
 	}
 	if r.collisionsSettled() {
+		if r.provisional != nil {
+			r.collisionEpoch++
+		}
 		r.provisional = nil
 	} else if c, ok := r.provisional[scope]; ok {
 		r.collisionCut = true
@@ -116,10 +119,13 @@ func (r *Resolver) importedCollisions(scope *symbols.Scope) *importCollisions {
 			e.reads.replay(r)
 			journalNew(r, r.collisions, scope, imports[0])
 			r.collisions[scope] = e.c
+			r.collisionEpoch++
 			return e.c
 		}
 	}
 	r.colliding[scope] = true
+	r.collisionEpoch++
+	defer func() { r.collisionEpoch++ }()
 	cut := r.collisionCut
 	r.collisionCut = false
 	var c *importCollisions
@@ -196,21 +202,23 @@ func (r *Resolver) collectImported(scope *symbols.Scope, imports []*ast.Import) 
 		hidden:   map[boundName]bool{},
 		collided: map[string][]importedMember{},
 	}
-	for _, imp := range imports {
-		if r.resolvingImports[imp] {
-			complete = false
-			continue
+	r.sharingFixpoints(func() {
+		for _, imp := range imports {
+			if r.resolvingImports[imp] {
+				complete = false
+				continue
+			}
+			target, ok := r.importTargetOf(scope, imp)
+			if !ok {
+				complete = complete && len(r.resolvingImports) == 0
+				continue
+			}
+			if target == nil || r.idx.Library(target) {
+				continue
+			}
+			r.gatherImported(scope, imp, g, c)
 		}
-		target, ok := r.importTargetOf(scope, imp)
-		if !ok {
-			complete = complete && len(r.resolvingImports) == 0
-			continue
-		}
-		if target == nil || r.idx.Library(target) {
-			continue
-		}
-		r.gatherImported(scope, imp, g, c)
-	}
+	})
 	r.hideImportCollisions(c)
 	return c, complete
 }
@@ -321,7 +329,7 @@ func (r *Resolver) withoutHiddenImports(scope *symbols.Scope, name string, syms 
 	if !r.hidesBelow(scope) {
 		return syms
 	}
-	through := r.collidedThrough(scope, name, map[*symbols.Scope]bool{})
+	through := r.collidedBelow(scope, name)
 	if len(through) == 0 && len(r.importedCollisions(scope).hidden) == 0 {
 		return syms
 	}
@@ -506,6 +514,34 @@ func (r *Resolver) hidesBelowSeen(scope *symbols.Scope, seen map[*symbols.Scope]
 		}
 	}
 	return false
+}
+
+// collidedBelow is collidedThrough from scope, kept by an enumeration in progress, which asks it per
+// member re-exported, while no namespace's collisions are computed or dropped (collisionEpoch).
+func (r *Resolver) collidedBelow(scope *symbols.Scope, name string) []importedMember {
+	fix := r.enumFix
+	if fix == nil || r.inCondition != 0 || len(r.resolvingImports) != 0 {
+		return r.collidedThrough(scope, name, map[*symbols.Scope]bool{})
+	}
+	if fix.epoch != r.collisionEpoch {
+		clear(fix.collided)
+		fix.epoch = r.collisionEpoch
+	}
+	key := collidedName{scope: scope, name: name}
+	if kept, done := fix.collided[key]; done {
+		kept.reads.replay(r)
+		r.collisionCut = r.collisionCut || kept.cut
+		return kept.hidden
+	}
+	cut := r.collisionCut
+	r.collisionCut = false
+	var hidden []importedMember
+	reads := r.capturing(func() { hidden = r.collidedThrough(scope, name, map[*symbols.Scope]bool{}) })
+	if fix.epoch == r.collisionEpoch {
+		fix.collided[key] = collidedAnswer{hidden: hidden, reads: reads, cut: r.collisionCut}
+	}
+	r.collisionCut = cut || r.collisionCut
+	return hidden
 }
 
 // collidedThrough is what hides name in scope, or in a namespace an import of

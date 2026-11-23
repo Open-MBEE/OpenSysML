@@ -177,11 +177,11 @@ func (g cycleGraph) check(t *testing.T) {
 }
 
 // TestImportCycleFollowsTheOperations checks every cyclic import graph of three
-// namespaces, and random ones of four, against KerML 8.3.2.4.5 computed directly.
+// namespaces, and random ones of four to six, against KerML 8.3.2.4.5 computed directly.
 func TestImportCycleFollowsTheOperations(t *testing.T) {
 	kinds := []cycleImport{{}, {all: true}, {public: true}, {public: true, all: true}}
 	rng := rand.New(rand.NewSource(1))
-	for size, count := range map[int]int{2: 60, 3: 250, 4: 250} {
+	for size, count := range map[int]int{2: 60, 3: 250, 4: 250, 5: 40, 6: 12} {
 		for n := 0; n < count; n++ {
 			g := make(cycleGraph, size)
 			for from := range g {

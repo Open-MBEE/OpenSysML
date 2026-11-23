@@ -10,44 +10,59 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
-// Resolving a name visible through a cycle of packages that publicly import
-// one another searched every simple path through the cycle, so six mutually
-// importing packages did not finish validating (issue #633). Each import edge
-// must be searched once per lookup, as the spec's visible-membership rule
-// intends (KerML 8.2.3.5).
-func TestPackagesImportingEachOtherInACycleAnalysePromptly(t *testing.T) {
-	for _, n := range []int{6, 8} {
-		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
-			var src strings.Builder
-			for i := 1; i <= n; i++ {
-				fmt.Fprintf(&src, "package P%d {\n", i)
-				for k := 1; k <= n; k++ {
-					if k != i {
-						fmt.Fprintf(&src, "\tpublic import P%d::*;\n", k)
-					}
-				}
-				fmt.Fprintf(&src, "\tpart def D%d;\n}\n", i)
-			}
-			fmt.Fprintf(&src, "package Use {\n\tpublic import P1::*;\n\tpart x : D%d;\n\tpart y : Missing;\n}\n", n)
+// importCycleLimit bounds each analysis: thirty packages take seconds, tens of them under
+// the race detector, and do not finish at all when every route through them is searched.
+const importCycleLimit = 3 * time.Minute
 
-			done := make(chan []diag.Diagnostic, 1)
-			go func() {
-				ws := model.NewWorkspace()
-				ws.Open("cycle.sysml", []byte(src.String()), 1)
-				done <- ws.Diagnostics("cycle.sysml")
-			}()
-			select {
-			case diags := <-done:
-				if len(diags) != 1 {
-					t.Fatalf("only `Missing` is unresolved; got %d diagnostics: %v", len(diags), diags)
+// Packages that publicly import one another in a cycle have to analyse in time polynomial in them
+// (issue #633): a search per route doubles with each package, which 15 and 30 show where 6 and 8 do not.
+func TestPackagesImportingEachOtherInACycleAnalysePromptly(t *testing.T) {
+	for _, n := range []int{6, 8, 15, 30} {
+		// Packages that declare something are enumerated as well as searched;
+		// ones holding only their imports are searched, for the import targets.
+		for _, declaring := range []bool{true, false} {
+			t.Run(fmt.Sprintf("n=%d/declaring=%v", n, declaring), func(t *testing.T) {
+				var src strings.Builder
+				for i := 1; i <= n; i++ {
+					fmt.Fprintf(&src, "package P%d {\n", i)
+					for k := 1; k <= n; k++ {
+						if k != i {
+							fmt.Fprintf(&src, "\tpublic import P%d::*;\n", k)
+						}
+					}
+					if declaring {
+						fmt.Fprintf(&src, "\tpart def D%d;\n", i)
+					}
+					src.WriteString("}\n")
 				}
-				if !strings.Contains(diags[0].Message, "Missing") {
-					t.Fatalf("the one diagnostic should name `Missing`; got %q", diags[0].Message)
+				want := 1
+				if declaring {
+					fmt.Fprintf(&src, "package Use {\n\tpublic import P1::*;\n\tpart x : D%d;\n\tpart y : Missing;\n}\n", n)
+				} else {
+					// Nothing declares D, so both names are unresolved.
+					src.WriteString("package Use {\n\tpublic import P1::*;\n\tpart x : D;\n\tpart y : Missing;\n}\n")
+					want = 2
 				}
-			case <-time.After(5 * time.Second):
-				t.Fatalf("analysing %d packages importing each other in a cycle did not finish in 5s", n)
-			}
-		})
+
+				done := make(chan []diag.Diagnostic, 1)
+				go func() {
+					ws := model.NewWorkspace()
+					ws.Open("cycle.sysml", []byte(src.String()), 1)
+					done <- ws.Diagnostics("cycle.sysml")
+				}()
+				select {
+				case diags := <-done:
+					if len(diags) != want {
+						t.Fatalf("want %d unresolved names; got %d diagnostics: %v", want, len(diags), diags)
+					}
+					if last := diags[len(diags)-1].Message; !strings.Contains(last, "Missing") {
+						t.Fatalf("the last diagnostic should name `Missing`; got %q", last)
+					}
+				case <-time.After(importCycleLimit):
+					t.Fatalf("analysing %d packages importing each other in a cycle did not finish in %v", n, importCycleLimit)
+				}
+			})
+		}
 	}
 }
 
