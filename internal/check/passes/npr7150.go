@@ -72,8 +72,10 @@ type npr7150Requirement struct {
 
 // npr7150Mapping is one @RequirementMapping entry of the document.
 type npr7150Mapping struct {
-	usage     *symbols.Symbol
-	comply    string
+	usage  *symbols.Symbol
+	comply string
+	// disposed is set when the annotation binds comply at all, literal or not.
+	disposed  bool
 	justified bool
 }
 
@@ -210,6 +212,7 @@ func (a *npr7150Audit) mappingEntries(sym *symbols.Symbol) []npr7150Mapping {
 		for _, v := range facts.Values {
 			switch v.Feature {
 			case "comply":
+				entry.disposed = true
 				entry.comply = npr7123Literal(v.Value, npr7150MappingKind)
 			case "justification":
 				entry.justified = v.Value.Kind == symbols.FilterValueString && v.Value.Str != ""
@@ -304,7 +307,7 @@ func (a *npr7150Audit) checkMatrix(matrix *symbols.Symbol, mappings []npr7150Map
 		covered := false
 		for _, m := range mappings {
 			// An entry that states no disposition leaves the row's Comply? cell empty.
-			if m.comply != "" && a.covers(m, req.def) {
+			if m.disposed && a.covers(m, req.def) {
 				covered = true
 				break
 			}

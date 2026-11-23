@@ -70,6 +70,15 @@ func TestNPR7150MatrixBlankDisposition(t *testing.T) {
 	}
 }
 
+// A disposition bound through an attribute still addresses its requirement in the matrix.
+func TestNPR7150MatrixBoundDisposition(t *testing.T) {
+	matrix := "\n\t\tpart def Matrix :> RequirementsMappingMatrix { :>> softwareClass = SoftwareClass::E; }\n\t\tpart matrix : Matrix;"
+	src := npr7150Model(matrix + npr7150Entries(npr7150ClassE[1:]...) +
+		"\n\t\tattribute projectDefault : MappingKind = MappingKind::fullyCompliant;" +
+		"\n\t\trequirement swe033 : SWE033 { @RequirementMapping { comply = projectDefault; } }")
+	w8dWantLines(t, src, CodeNPR7150MatrixMissingRequirement)
+}
+
 // npr7150Entries states a fully compliant mapping entry for each SWE number.
 func npr7150Entries(numbers ...string) string {
 	var b strings.Builder
