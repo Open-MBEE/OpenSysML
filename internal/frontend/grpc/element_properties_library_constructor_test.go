@@ -52,3 +52,19 @@ func TestGetElementPropertiesRefusesUnbindableConstructorArguments(t *testing.T)
 		t.Fatalf("argument = %v, want it refused as unbindable", resp.Properties)
 	}
 }
+
+// A named argument names its feature by the whole name, a `::` inside an unrestricted name included.
+func TestGetElementPropertiesBindsAConstructorArgumentNamedWithASeparator(t *testing.T) {
+	r := parseForElementProperties(t, `package R {
+		attribute def Box { attribute 'left::width'; attribute width; }
+		attribute c = new Box('left::width' = 1);
+	}`)
+	resp := r.read("R__c_pvalue_pin0_rd0", "redefinedFeature")
+	if resp.Error != "" || len(resp.Properties) != 1 || len(resp.Properties[0].Values) != 1 {
+		t.Fatalf("redefinedFeature = %v (%s), want one feature", resp.Properties, resp.Error)
+	}
+	// The identifier, not the qualified name, tells the two features apart.
+	if got, want := resp.Properties[0].Values[0].GetElement().GetId(), "R__Box___27left__width_27"; got != want {
+		t.Errorf("redefinedFeature = %s, want %s", got, want)
+	}
+}

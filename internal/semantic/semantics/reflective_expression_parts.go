@@ -309,10 +309,11 @@ func (m *Model) ExpressionResult(expr *symbols.Symbol) *symbols.Symbol {
 // ConstructorNamedFeature is the feature of the instantiated type typ a constructor's
 // named argument names, which the argument's result feature redefines (KerML 8.3.4.8.3); nil when none.
 func (m *Model) ConstructorNamedFeature(typ *symbols.Symbol, name *ast.QualifiedName) *symbols.Symbol {
-	if m == nil || typ == nil || name == nil {
+	if m == nil || typ == nil || name == nil || len(name.Parts) == 0 {
 		return nil
 	}
-	formal, _ := m.LookupMember(typ, symbols.LastSegment(name.Text()))
+	// The last part, not the text's last segment: an unrestricted name may hold `::`.
+	formal, _ := m.LookupMember(typ, name.Parts[len(name.Parts)-1].Text)
 	return formal
 }
 
